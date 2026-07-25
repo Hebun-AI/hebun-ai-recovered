@@ -28,3 +28,19 @@ export function actorInput(overrides: Record<string, unknown> = {}) {
     capabilityReferences: ["cap.review"], lifecycle: lifecycle(), provenance: provenance(), metadata: {}, ...inert, ...overrides,
   } as Omit<Actor, "architectureVersion" | "identity"> & { identity: ReturnType<typeof identityInput> };
 }
+export function partyInput(overrides: Record<string, unknown> = {}) {
+  return {
+    workspaceId: "ws-1",
+    identity: identityInput({ canonicalId: "party-1", displayName: "Globex Ltd", normalizedName: "globex ltd" }),
+    partyType: "company", website: "https://globex.example", country: "TR", industry: "manufacturing",
+    taxIdentifierReference: "tax-ref-1", registrationIdentifiers: ["reg-1"],
+    lifecycle: lifecycle(), provenance: provenance(), metadata: {}, ...inert, ...overrides,
+  };
+}
+export function partyRoleInput(overrides: Record<string, unknown> = {}) {
+  return {
+    partyRoleId: "prole-1", roleType: "CUSTOMER" as const, customRoleLabel: null,
+    workspaceId: "ws-1", organizationId: "org-1", partyId: "party-1",
+    effectivePeriod: period(), lifecycle: lifecycle(), provenance: provenance(), metadata: {}, ...inert, ...overrides,
+  };
+}

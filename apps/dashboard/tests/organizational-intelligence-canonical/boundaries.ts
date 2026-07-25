@@ -15,6 +15,7 @@ function importsAreLocalOnly(): void {
     "./validation", "./organizational-identity", "./workspace-scope", "./organization",
     "./legal-entity", "./organizational-unit", "./actor", "./person", "./ai-agent",
     "./responsibility", "./capability", "./role", "./organizational-relationship",
+    "./party", "./party-role",
   ]);
   for (const { name, text } of sources) {
     for (const match of text.matchAll(/from "([^"]+)"/g)) {
