@@ -70,6 +70,7 @@ function exposesNoExecution(): void {
     "RUNTIME_EXECUTION_RESULT_VERSION", "RUNTIME_EXECUTION_STATUSES", "RUNTIME_EXECUTION_OUTPUT_TYPES", "RUNTIME_EXECUTION_RESULT_ERROR_CODES",
     "RUNTIME_RETRY_COMPENSATION_VERSION", "RUNTIME_RETRY_ELIGIBILITY_REASONS", "RUNTIME_RETRY_BACKOFF_STRATEGIES", "RUNTIME_COMPENSATION_STEP_KINDS", "RUNTIME_COMPENSATION_STATUSES", "RUNTIME_RECOVERY_CLASSES", "RUNTIME_RETRY_COMPENSATION_ERROR_CODES",
     "RUNTIME_ERROR_VERSION", "RUNTIME_ERROR_CODES", "RUNTIME_ERROR_CATEGORIES", "RUNTIME_ERROR_SEVERITIES", "RUNTIME_ERROR_ORIGIN_LAYERS", "RUNTIME_ERROR_ERROR_CODES",
+    "RUNTIME_OBSERVATION_VERSION", "RUNTIME_OBSERVATION_TYPES", "RUNTIME_OBSERVATION_ORIGIN_LAYERS", "RUNTIME_METRIC_AGGREGATIONS", "RUNTIME_LOG_LEVELS", "RUNTIME_OBSERVATION_ERROR_CODES",
   ]);
   // No other exported symbol suggests or performs execution.
   for (const exported of Object.keys(directorCommand)) {
@@ -441,6 +442,36 @@ function runtimeErrorIsExecutionFree(): void {
   }
 }
 
+/** Phase 4E.9 is a foundational observability leaf: it imports only validation, emits nothing, and nothing depends back on it. */
+function runtimeObservationIsExecutionFree(): void {
+  const observation = sources.find(({ name }) => name === "runtime-observation.ts");
+  assert.notEqual(observation, undefined);
+  const imports = [...observation!.text.matchAll(/from "([^"]+)"/g)].map((match) => match[1]).sort();
+  assert.deepEqual(imports, ["./validation"]);
+  for (const forbidden of [
+    "runtime-engine", "runtime-execution-session", "runtime-execution-permit",
+    "runtime-execution-result", "runtime-retry-compensation", "runtime-error",
+    "runtime-adapter-invocation-contract", "runtime-command-dispatcher",
+    "runtime-execution-pipeline", "runtime-adapter-framework",
+    "runtime-execution-integration", "provider-invocation",
+    "opentelemetry", "@opentelemetry", "telemetry", "winston", "pino", "bunyan",
+    "jaeger", "zipkin", "prom-client", "statsd", "datadog",
+    "throw new error", "try {", "catch (", "catch {", "console.", "process.env",
+    "fetch(", "xmlhttprequest", "websocket", "node:fs", "node:child_process",
+    "drizzle", "postgres", "redis", "settimeout", "setinterval", "setimmediate",
+    "queuemicrotask", "queue", "scheduler", " timer", "react", "dashboard",
+    "new promise", "await ",
+  ]) {
+    assert.equal(observation!.text.toLowerCase().includes(forbidden), false, `Runtime Observation must not depend on ${forbidden}`);
+  }
+  // Terminal leaf: no other Runtime layer may depend on the observation model.
+  for (const { name, text } of sources) {
+    if (name !== "runtime-observation.ts" && name.startsWith("runtime-")) {
+      assert.equal(text.includes('from "./runtime-observation"'), false, `${name} must not depend on Phase 4E.9`);
+    }
+  }
+}
+
 function grep(root: string, needle: string): string[] {
   const found: string[] = [];
   const walk = (dir: string) => {
@@ -479,6 +510,7 @@ function main(): void {
   runtimeExecutionResultIsExecutionFree();
   runtimeRetryCompensationIsExecutionFree();
   runtimeErrorIsExecutionFree();
+  runtimeObservationIsExecutionFree();
   console.log("director command boundary checks passed");
 }
 
