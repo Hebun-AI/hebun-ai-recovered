@@ -95,3 +95,50 @@ export {
   type AIAgentErrorCode,
   type AIAgentValidation,
 } from "./ai-agent";
+export {
+  RESPONSIBILITY_CATEGORIES,
+  RESPONSIBILITY_CRITICALITIES,
+  RESPONSIBILITY_ERROR_CODES,
+  RESPONSIBILITY_VERSION,
+  createResponsibility,
+  validateResponsibility,
+  type Responsibility,
+  type ResponsibilityCategory,
+  type ResponsibilityCriticality,
+  type ResponsibilityErrorCode,
+  type ResponsibilityValidation,
+} from "./responsibility";
+export {
+  CAPABILITY_CATEGORIES,
+  CAPABILITY_ERROR_CODES,
+  CAPABILITY_VERSION,
+  createCapability,
+  validateCapability,
+  type Capability,
+  type CapabilityCategory,
+  type CapabilityErrorCode,
+  type CapabilityValidation,
+} from "./capability";
+export {
+  ROLE_ERROR_CODES,
+  ROLE_VERSION,
+  createRole,
+  validateRole,
+  type Role,
+  type RoleErrorCode,
+  type RoleValidation,
+} from "./role";
+export {
+  ORGANIZATIONAL_REFERENCE_TYPES,
+  ORGANIZATIONAL_RELATIONSHIP_ERROR_CODES,
+  ORGANIZATIONAL_RELATIONSHIP_TYPES,
+  ORGANIZATIONAL_RELATIONSHIP_VERSION,
+  createOrganizationalRelationship,
+  validateOrganizationalRelationship,
+  type OrganizationalReference,
+  type OrganizationalReferenceType,
+  type OrganizationalRelationship,
+  type OrganizationalRelationshipErrorCode,
+  type OrganizationalRelationshipType,
+  type OrganizationalRelationshipValidation,
+} from "./organizational-relationship";
