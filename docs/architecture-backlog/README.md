@@ -48,6 +48,7 @@ User-facing surfaces and authoring tools. Presentation depends on the layers bel
 - [07 Voice Layer](07-voice-layer.md)
 - [15 Workflow Designer](15-workflow-designer.md)
 - [20 Marketplace](20-marketplace.md)
+- [21 Enterprise System Map (Digital Twin)](21-enterprise-system-map.md)
 
 ## What this is
 
@@ -107,3 +108,4 @@ Past approvals do not carry forward. Each promotion is its own gate.
 | 06 | [Hebun Guide](06-hebun-guide.md) | Medium | Planned |
 | 07 | [Voice Layer](07-voice-layer.md) | Medium | Planned |
 | 08 | [AI Transformation Playbook Engine](08-ai-transformation-playbook-engine.md) | Medium | Planned |
+| 21 | [Enterprise System Map (Digital Twin)](21-enterprise-system-map.md) | Future | Planned |
