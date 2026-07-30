@@ -8,9 +8,11 @@
 
 **PHASE 30 STATUS: COMPLETE / PUBLISHED**
 
-**PHASE 31 STATUS: OPEN**
+**PHASE 31 STATUS: COMPLETE / PUBLISHED**
 
-**PHASES 32–36 STATUS: CLOSED**
+**PHASE 32 STATUS: OPEN**
+
+**PHASES 33–36 STATUS: CLOSED**
 
 This document is the canonical governing authority for Program V — Enterprise Security, subordinate only to the [Enterprise Constitution](../../00-enterprise-constitution.md), Director authority, the [Enterprise Architecture Roadmap](../../architecture-intelligence/50-enterprise-architecture-roadmap.md), and applicable published canonical architecture.
 
@@ -18,8 +20,9 @@ Program V is established and opened through an explicit Director Decision. Estab
 
 - registers the exact seven-phase roadmap membership;
 - records Phase 30 as complete and canonically published;
-- opens Phase 31 only;
-- keeps Phase 32–36 closed;
+- records Phase 31 as complete and canonically published;
+- opens Phase 32 only;
+- keeps Phase 33–36 closed;
 - does not define Security implementation, Runtime behavior, infrastructure, operations, deployment, or technology;
 - does not authorize code, execution, automation, or product delivery.
 
@@ -40,7 +43,7 @@ Program V is the Director-governed constitutional Program named **Enterprise Sec
 | Governing authority | Hebun AI Enterprise Constitution |
 | Roadmap position | After completed Program IV — Enterprise Orchestration |
 | Assigned phases | Phase 30–36 |
-| Current status | Constitution Established; Program Open; Phase 30 Complete / Published; Phase 31 Open; Phase 32–36 Closed |
+| Current status | Constitution Established; Program Open; Phase 30–31 Complete / Published; Phase 32 Open; Phase 33–36 Closed |
 | Implementation authority | None |
 
 Program V is not a Security product, operating team, Runtime service, policy engine, identity provider, access-control system, monitoring platform, deployment platform, disaster-recovery system, or authorization to implement Security.
@@ -284,8 +287,8 @@ Program V contains exactly the seven roadmap identities below:
 | Phase | Canonical title | Lifecycle status |
 |---:|---|---|
 | 30 | Enterprise Identity, Trust & Permissions | COMPLETE / PUBLISHED |
-| 31 | Runtime & Execution Security | OPEN |
-| 32 | AI Security | CLOSED — NOT OPEN |
+| 31 | Runtime & Execution Security | COMPLETE / PUBLISHED |
+| 32 | AI Security | OPEN |
 | 33 | Enterprise Security Operations | CLOSED — NOT OPEN |
 | 34 | Policy & Continuous Security Governance | CLOSED — NOT OPEN |
 | 35 | Secure Deployment & Scalability | CLOSED — NOT OPEN |
@@ -297,7 +300,7 @@ Phase rules:
 2. No unlisted phase belongs to Program V.
 3. Phase numbers, titles, order, and responsibilities must match the Enterprise Architecture Roadmap.
 4. Phase 30 is complete and canonically published.
-5. Phase 31 is open through an explicit Director gate; Phase 32–36 remain closed until separately opened by the Director.
+5. Phase 31 is complete and canonically published; Phase 32 is open through an explicit Director gate; Phase 33–36 remain closed until separately opened by the Director.
 6. Completion of one phase does not open another.
 7. A phase may define only its roadmap-assigned constitutional responsibility.
 8. Phase output must preserve this Constitution and all upstream invariants.
@@ -331,7 +334,7 @@ Architectural work within a phase requires:
 - preserved Human Architecture, authority, Governance, Runtime, evidence, and Program boundaries;
 - no unresolved Architecture Gate.
 
-Only Phase 31 currently passes its Director opening gate. This does not authorize implementation.
+Only Phase 32 currently passes its Director opening gate. This does not authorize implementation.
 
 ## Publication Gate
 
@@ -431,7 +434,7 @@ This document establishes Program V governance only.
 
 It does not create Security phase architecture, Identity definitions, Trust definitions, Permission models, Runtime Security mechanisms, AI Security mechanisms, Security Operations, policies, deployment architecture, scalability architecture, resilience mechanisms, disaster-recovery design, Agents, APIs, databases, workflows, interfaces, infrastructure, code, or implementation.
 
-Program V remains open. Phase 30 is complete and canonically published. Phase 31 is open. Phase 32–36 remain closed.
+Program V remains open. Phase 30 and Phase 31 are complete and canonically published. Phase 32 is open. Phase 33–36 remain closed.
 
 **STATUS: CONSTITUTION ESTABLISHED**
 
@@ -439,9 +442,9 @@ Program V remains open. Phase 30 is complete and canonically published. Phase 31
 
 **PHASE 30: COMPLETE / PUBLISHED**
 
-**PHASE 31: OPEN**
+**PHASE 31: COMPLETE / PUBLISHED**
 
-**PHASE 32: CLOSED**
+**PHASE 32: OPEN**
 
 **PHASE 33: CLOSED**
 
