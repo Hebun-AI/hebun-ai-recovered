@@ -217,7 +217,7 @@ The unpublished roadmap is Program-first. Each future phase belongs to exactly o
 
 ### Program V — Enterprise Security
 
-**Status: PLANNED — NOT OPEN**
+**Status: OPEN**
 
 **Purpose:** Define Identity, Trust, Permissions, Runtime Security, AI Security, Security Operations, and security-governed platform continuity.
 
@@ -230,6 +230,12 @@ The unpublished roadmap is Program-first. Each future phase belongs to exactly o
 | 34 | Policy & Continuous Security Governance | Establishes enforceable security-policy alignment and continuous security governance. |
 | 35 | Secure Deployment & Scalability | Preserves security boundaries across future governed deployment and scale evolution. |
 | 36 | Security Resilience & Disaster Recovery | Establishes security continuity, recovery, and disaster-resilience responsibilities. |
+
+**Phase 30 Status: COMPLETE / PUBLISHED**
+
+**Phase 31 Status: OPEN**
+
+**Phase 32–36 Status: CLOSED**
 
 #### Enterprise Autonomous Security Organization
 
