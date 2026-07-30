@@ -15,7 +15,7 @@ Program IV is constitutionally established. Establishment of this Constitution b
 - does not alter published Phase 1–24 architecture;
 - does not advance roadmap status automatically.
 
-Phase 25 was subsequently opened through a separate explicit Director Decision, completed through constitutional review, and canonically published. Phase 26 was then opened through its own explicit Director Decision, completed through constitutional review, and canonically published. Phase 27 was subsequently opened through its own explicit Director Decision, completed through constitutional review, and canonically published. Phase 28–29 remain closed.
+Phase 25 was subsequently opened through a separate explicit Director Decision, completed through constitutional review, and canonically published. Phase 26 was then opened through its own explicit Director Decision, completed through constitutional review, and canonically published. Phase 27 was subsequently opened through its own explicit Director Decision, completed through constitutional review, and canonically published. Phase 28 was subsequently opened through its own explicit Director Decision, completed through constitutional review, and canonically published. Phase 29 remains closed.
 
 **PROGRAM IV STATUS: OPEN**
 
@@ -37,7 +37,7 @@ Program IV is the Director-governed constitutional Program named **Enterprise Or
 | Governing Constitution | Hebun AI Enterprise Constitution |
 | Roadmap position | First future Program after published Program III Runtime |
 | Assigned phases | Phase 25–29 |
-| Current status | Constitution Established; Program Open; Phase 25–27 Complete and Published |
+| Current status | Constitution Established; Program Open; Phase 25–28 Complete and Published |
 | Implementation authority | None |
 
 Program IV is an architectural governance body. It is not an implementation project, operating department, Runtime service, Agent, workflow, execution engine, delivery schedule, or authorization to begin a constituent phase.
@@ -269,7 +269,7 @@ Program IV contains exactly the roadmap identities below:
 | 25 | Enterprise Work Architecture | COMPLETE / PUBLISHED |
 | 26 | Enterprise Task & Activity Architecture | COMPLETE / PUBLISHED |
 | 27 | Enterprise Planning & Prioritization | COMPLETE / PUBLISHED |
-| 28 | Delegation & Coordination Architecture | CLOSED — NOT OPEN |
+| 28 | Delegation & Coordination Architecture | COMPLETE / PUBLISHED |
 | 29 | Capability & Resource Management | CLOSED — NOT OPEN |
 
 Phase rules:
@@ -424,7 +424,7 @@ This document defines Program governance only.
 
 It does not design Enterprise Work, Tasks, Activities, Planning, Prioritization, Scheduling, Delegation, Coordination mechanisms, Capabilities, resource-allocation mechanisms, APIs, data models, Runtime behavior, Agents, user interfaces, workflows, or implementations.
 
-Program IV remains constitutionally established and open. Completion of Phase 27 does not open Phase 28–29.
+Program IV remains constitutionally established and open. Phase 28 is complete and published; Phase 29 remains closed.
 
 **STATUS: CONSTITUTION ESTABLISHED**
 
@@ -436,4 +436,6 @@ Program IV remains constitutionally established and open. Completion of Phase 27
 
 **PHASE 27: COMPLETE / PUBLISHED**
 
-**PHASES 28–29: CLOSED**
+**PHASE 28: COMPLETE / PUBLISHED**
+
+**PHASE 29: CLOSED**
