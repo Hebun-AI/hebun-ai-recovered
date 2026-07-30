@@ -210,7 +210,7 @@ The unpublished roadmap is Program-first. Each future phase belongs to exactly o
 | Phase | Canonical direction | Status | Problem solved |
 |---:|---|---|---|
 | 25 | Enterprise Work Architecture | **COMPLETE / PUBLISHED** | Establishes the canonical meaning, identity, lifecycle, ownership, composition, evidence, and governance of Enterprise Work. |
-| 26 | Enterprise Task & Activity Architecture | **CLOSED** | Establishes bounded Task and Activity identities beneath Enterprise Work. |
+| 26 | Enterprise Task & Activity Architecture | **COMPLETE / PUBLISHED** | Establishes bounded Task and Activity identities beneath Enterprise Work. |
 | 27 | Enterprise Planning & Prioritization | **CLOSED** | Establishes governed planning, prioritization, and objective alignment without execution authority. |
 | 28 | Delegation & Coordination Architecture | **CLOSED** | Establishes responsibility transfer, coordination, handoff, and escalation boundaries. |
 | 29 | Capability & Resource Management | **CLOSED** | Establishes governed capability demand, resource eligibility, allocation boundaries, and accountability. |
