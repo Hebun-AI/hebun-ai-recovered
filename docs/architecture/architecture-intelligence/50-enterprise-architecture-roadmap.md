@@ -213,7 +213,7 @@ The unpublished roadmap is Program-first. Each future phase belongs to exactly o
 | 26 | Enterprise Task & Activity Architecture | **COMPLETE / PUBLISHED** | Establishes bounded Task and Activity identities beneath Enterprise Work. |
 | 27 | Enterprise Planning & Prioritization | **COMPLETE / PUBLISHED** | Establishes governed planning, prioritization, and objective alignment without execution authority. |
 | 28 | Delegation & Coordination Architecture | **COMPLETE / PUBLISHED** | Establishes responsibility transfer, coordination, handoff, and escalation boundaries. |
-| 29 | Capability & Resource Management | **CLOSED** | Establishes governed capability demand, resource eligibility, allocation boundaries, and accountability. |
+| 29 | Capability & Resource Management | **COMPLETE / PUBLISHED** | Establishes governed capability demand, resource eligibility, allocation boundaries, and accountability. |
 
 ### Program V — Enterprise Security
 
