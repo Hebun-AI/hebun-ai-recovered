@@ -5,7 +5,7 @@
 The Enterprise Master Roadmap is Hebun AI's long-term canonical architecture direction map. It gives the Director one governed view of:
 
 - the complete enterprise architecture evolution;
-- the canonical Phase 1–30 program;
+- the immutable published Phase 1–24 history and Director-governed future Programs;
 - the problem and objective assigned to each phase;
 - dependencies between architecture layers;
 - current completion status;
@@ -197,20 +197,151 @@ These phases define an ecosystem, not unbounded autonomous actors. Concrete agen
 
 Runtime realizes approved architecture; it does not become canonical architecture or Director authority.
 
-### Phase 25–30 — Enterprise AI Operating System
+## Future Constitutional Programs
 
-**Status: PLANNED**
+The unpublished roadmap is Program-first. Each future phase belongs to exactly one Program, and no Program or phase is open merely because it appears here. Every Program and phase requires its own Director gate.
 
-**Objective:** Complete Hebun AI as a secure, scalable, reliable, integrated, continuously governed Enterprise AI Operating System.
+### Program IV — Enterprise Orchestration
+
+**Status: OPEN**
+
+**Purpose:** Define Enterprise Work, Tasks, Planning, Delegation, Coordination, and Resource Management as bounded constitutional responsibilities.
+
+| Phase | Canonical direction | Status | Problem solved |
+|---:|---|---|---|
+| 25 | Enterprise Work Architecture | **OPEN — CLOSURE REVIEW** | Establishes the canonical meaning, identity, lifecycle, ownership, composition, evidence, and governance of Enterprise Work. |
+| 26 | Enterprise Task & Activity Architecture | **CLOSED** | Establishes bounded Task and Activity identities beneath Enterprise Work. |
+| 27 | Enterprise Planning & Prioritization | **CLOSED** | Establishes governed planning, prioritization, and objective alignment without execution authority. |
+| 28 | Delegation & Coordination Architecture | **CLOSED** | Establishes responsibility transfer, coordination, handoff, and escalation boundaries. |
+| 29 | Capability & Resource Management | **CLOSED** | Establishes governed capability demand, resource eligibility, allocation boundaries, and accountability. |
+
+### Program V — Enterprise Security
+
+**Status: PLANNED — NOT OPEN**
+
+**Purpose:** Define Identity, Trust, Permissions, Runtime Security, AI Security, Security Operations, and security-governed platform continuity.
 
 | Phase | Canonical direction | Problem solved |
 |---:|---|---|
-| 25 | Security, Identity & Permissions | Establishes enterprise security boundaries, identity, access, and permission governance. |
-| 26 | Policy & Continuous Governance | Establishes enforceable policy alignment and continuous governance across the platform. |
-| 27 | Deployment & Scalability | Establishes governed deployment architecture and scalable platform operation. |
-| 28 | Reliability & Disaster Recovery | Establishes reliability, continuity, recovery, and disaster-resilience architecture. |
-| 29 | Enterprise Integration | Establishes bounded integration with enterprise systems and external platforms. |
-| 30 | Platform Evolution & Enterprise AI OS Closure | Establishes continuous platform evolution and closes the canonical Phase 1–30 program. |
+| 30 | Enterprise Identity, Trust & Permissions | Establishes enterprise security identity, trust, access, and permission governance. |
+| 31 | Runtime & Execution Security | Establishes security boundaries for Runtime admission, execution, tools, and operational actions. |
+| 32 | AI Security | Establishes security principles for models, intelligence components, inputs, outputs, and AI-specific threats. |
+| 33 | Enterprise Security Operations | Establishes governed security observation, response participation, evidence, and operational accountability. |
+| 34 | Policy & Continuous Security Governance | Establishes enforceable security-policy alignment and continuous security governance. |
+| 35 | Secure Deployment & Scalability | Preserves security boundaries across future governed deployment and scale evolution. |
+| 36 | Security Resilience & Disaster Recovery | Establishes security continuity, recovery, and disaster-resilience responsibilities. |
+
+#### Enterprise Autonomous Security Organization
+
+**Status: FUTURE ROADMAP PLACEHOLDER**
+
+**Purpose:** Reserve architectural planning space for a future program concern that defines AI-native enterprise security organizations, including autonomous adversarial evaluation, defensive validation, continuous attack simulation, threat intelligence, and coordinated security teams.
+
+**Planned capabilities (placeholder only):**
+
+- Red Team AI
+- Blue Team AI
+- Purple Team AI
+- White Hat Intelligence
+- Black Hat Simulation
+- Sentinel Team
+- Chaos Security
+- Continuous Attack Simulation
+- Autonomous Penetration Testing
+- Threat Intelligence
+- Security Knowledge Graph
+
+This placeholder does not design architecture, create an additional Program, define phases, select implementation, or authorize commencement. It remains reserved within Program V.
+
+### Program VI — Enterprise Reasoning
+
+**Status: PLANNED — NOT OPEN**
+
+**Purpose:** Define future Enterprise Reasoning, Evidence, and Decision Intelligence while preserving existing Reasoning, Governance, Decision Support, and Director authority boundaries.
+
+| Phase | Canonical direction | Problem solved |
+|---:|---|---|
+| 37 | Enterprise Reasoning Architecture | Establishes enterprise-wide reasoning responsibilities beyond architecture-specific reasoning without creating decision authority. |
+| 38 | Enterprise Evidence Architecture | Establishes governed enterprise evidence identity, evaluation, traceability, and cross-domain use. |
+| 39 | Decision Intelligence | Establishes bounded decision intelligence that prepares decision material without replacing Director authority. |
+
+### Program VII — Computer Use
+
+**Status: PLANNED — NOT OPEN**
+
+**Purpose:** Define governed computer interaction, execution, and automation under constitutional authority.
+
+| Phase | Canonical direction | Problem solved |
+|---:|---|---|
+| 40 | Computer Interaction Architecture | Establishes bounded interaction with computer environments and their observable surfaces. |
+| 41 | Governed Computer Execution | Establishes authority, approval, traceability, and safety boundaries for computer-mediated execution. |
+| 42 | Enterprise Automation Architecture | Establishes the constitutional limits and accountability of automation. |
+| 43 | Enterprise Integration for Computer Use | Establishes bounded interaction with enterprise systems and external platforms without transferring authority. |
+
+### Program VIII — Organizational Intelligence
+
+**Status: PLANNED — NOT OPEN**
+
+**Purpose:** Define organizational learning, optimization, strategic awareness, and governed enterprise evolution.
+
+| Phase | Canonical direction | Problem solved |
+|---:|---|---|
+| 44 | Organizational Learning Architecture | Establishes how organizations identify and preserve attributable learning without redefining Enterprise Memory. |
+| 45 | Organizational Optimization Intelligence | Establishes bounded analysis of organizational effectiveness without execution authority. |
+| 46 | Strategic Awareness Architecture | Establishes governed awareness of enterprise position, change, risk, and opportunity. |
+| 47 | Strategic Enterprise Evolution | Establishes constitutional guidance for continuous platform and organizational evolution without automatic roadmap authority. |
+
+### Program IX — Enterprise Intellectual Evolution
+
+**Status: FUTURE ROADMAP PLACEHOLDER — NOT OPEN**
+
+**Purpose:** Define continuous enterprise learning, knowledge synthesis, principle extraction, wisdom development, and long-term intellectual growth.
+
+This Program does not define memory, retrieval, or AI model training. It reserves future consideration of how Heby may transform information into long-term enterprise wisdom.
+
+| Phase | Canonical direction | Problem solved |
+|---:|---|---|
+| 48 | Knowledge Assimilation & Multi-Source Synthesis | Establishes future constitutional treatment of learning from attributable documents, books, research, videos, and conversations. |
+| 49 | Principle, Pattern & Comparative Intelligence | Establishes bounded extraction and comparison of principles and patterns across domains. |
+| 50 | Enterprise Wisdom Architecture | Establishes future identity, validation, and evolution boundaries for enterprise wisdom. |
+| 51 | Intellectual Evolution & Director Learning Continuity | Establishes long-term intellectual growth, contextual reflection, strategic insight, and Director learning continuity. |
+
+**Reserved capability placeholders:**
+
+- Knowledge Assimilation
+- Principle Extraction
+- Pattern Recognition
+- Comparative Knowledge Analysis
+- Cross-Domain Reasoning
+- Multi-Source Synthesis
+- Intellectual Growth
+- Enterprise Wisdom Graph
+- Learning from Documents
+- Learning from Books
+- Learning from Research Papers
+- Learning from Videos
+- Learning from Conversations
+- Contextual Reflection
+- Organizational Learning
+- Strategic Insight Generation
+- Knowledge Evolution
+- Wisdom Validation
+- Director Learning Continuity
+
+Program IX remains planning space only. It defines no implementation, AI model training, vector database, memory implementation, or authorization to begin.
+
+### Prior Unpublished Planning Transition
+
+The former unpublished Phase 25–30 plan is reorganized without changing any published phase:
+
+| Prior unpublished direction | Constitutional Program placement |
+|---|---|
+| Security, Identity & Permissions | Program V, principally Phase 30 |
+| Policy & Continuous Governance | Program V, Phase 34, limited to continuous security governance |
+| Deployment & Scalability | Program V, Phase 35, limited to secure deployment and scalability |
+| Reliability & Disaster Recovery | Program V, Phase 36, limited to security resilience and disaster recovery |
+| Enterprise Integration | Program VII, Phase 43, bounded to governed Computer Use |
+| Platform Evolution & Enterprise AI OS Closure | Program VIII, Phase 47, reframed as governed strategic enterprise evolution; no historical phase is closed or reopened |
 
 ## Phase Dependencies
 
@@ -223,7 +354,17 @@ Phase 17–20: Multi-Agent
         ↓ required coordinated participants
 Phase 21–24: Runtime
         ↓ required operational realization
-Phase 25–30: Enterprise Operating System
+Program IV: Enterprise Orchestration
+        ↓ governed Work and responsibility
+Program V: Enterprise Security
+        ↓ protected enterprise operation
+Program VI: Enterprise Reasoning
+        ↓ governed enterprise reasoning and evidence
+Program VII: Computer Use
+        ↓ bounded computer interaction and automation
+Program VIII: Organizational Intelligence
+        ↓ governed organizational learning and awareness
+Program IX: Enterprise Intellectual Evolution
 ```
 
 Dependency rules:
@@ -231,9 +372,17 @@ Dependency rules:
 1. Intelligence must not precede a trustworthy canonical Foundation.
 2. Multi-Agent architecture must not precede governed Intelligence and existing authority models.
 3. Runtime must not precede bounded participants, execution contracts, and governance.
-4. Enterprise Operating System architecture must not precede a governed Runtime foundation.
-5. A later phase may begin only through an explicit Director gate.
-6. Progress in a later group must not rewrite the completion record of an earlier group.
+4. Program IV must inherit the Enterprise Constitution and published Program III Runtime boundaries.
+5. Program V must inherit Program IV accountability and all published authority, Governance, Runtime, and evidence boundaries.
+6. Program VI must preserve existing Reasoning, Governance, Decision Support, and Director authority separation.
+7. Program VII must depend on approved Work, Security, Runtime, and authority architecture before computer-mediated action is eligible.
+8. Program VIII must consume governed organizational evidence without becoming execution or Director authority.
+9. Program IX must inherit Enterprise Memory, Evidence, Reasoning, Governance, privacy, Human Architecture, and Director authority boundaries.
+10. Cross-Program dependencies do not transfer ownership or authority.
+11. A future phase belongs to exactly one Program.
+12. A later phase may begin only through an explicit Director gate.
+13. Program listing, phase allocation, and placeholder status do not open a Program or phase.
+14. Progress in a later Program must not rewrite the completion record of an earlier Program or phase.
 
 ## Completion Model
 
@@ -247,36 +396,36 @@ Dependency rules:
 
 Status applies to roadmap governance. It is not Runtime state, implementation progress telemetry, or implicit approval.
 
-## Future Phases
+## Future Extension Governance
 
-### Phase 31+ — Future Extension Phases
+Programs IV–IX are the governed unpublished roadmap. Any extension beyond their currently allocated phases:
 
-Phase 31 and later may extend Hebun into new enterprise domains, capabilities, integration models, or platform evolution areas.
-
-The Phase 1–30 program is the **Canonical Foundation Roadmap**. Future phases:
-
-- may extend the roadmap;
-- must preserve Phase 1–30 identity, ordering, history, and dependencies;
-- must not reuse existing phase numbers;
+- must preserve Phase 1–24 identity, ordering, history, and dependencies;
+- must belong to exactly one Director-approved Program;
+- must not reuse an existing phase number;
 - must not retroactively change completion evidence;
-- require explicit Scope, dependency analysis, backward-compatibility review, and Director approval.
+- requires explicit Scope, dependency analysis, backward-compatibility review, constitutional validation, and Director approval;
+- must not be inferred from a placeholder, capability list, implementation activity, or calendar time.
 
-Phase 31+ does not imply pre-approval of any particular extension.
+No unallocated future phase is pre-approved.
 
 ## Roadmap Design Rules
 
-1. **ROADMAP-001 — Roadmap Stability:** Phase 1–30 identity, ordering, grouping, and historical status must remain stable.
+1. **ROADMAP-001 — Published Roadmap Stability:** Phase 1–24 identity, ordering, Program membership, content, and historical status are immutable except through an explicitly authorized constitutional amendment.
 2. **ROADMAP-002 — Phase Dependency:** Every phase must preserve and satisfy applicable dependencies on prior phases.
-3. **ROADMAP-003 — Layer Order:** Foundation, Intelligence, Multi-Agent, Runtime, and Enterprise Operating System layers must not be reordered or skipped.
+3. **ROADMAP-003 — Program Order:** Published Programs and future Programs IV–IX must preserve declared dependency order.
 4. **ROADMAP-004 — Architecture Evolution:** Later phases may extend earlier architecture but must not silently replace canonical meaning or authority.
 5. **ROADMAP-005 — Backward Compatibility:** Every future phase must assess compatibility with applicable completed architecture and invariants.
-6. **ROADMAP-006 — Director Governance:** Phase start, status transition, Scope change, completion, archival, and extension require Director governance.
-7. **ROADMAP-007 — Canonical Roadmap Protection:** Phase 1–30 is the protected Canonical Foundation Roadmap and must not be altered by an unapproved downstream phase.
-8. **ROADMAP-008 — Extension Policy:** Phase 31+ may add new governed phases only after dependency, identity, numbering, and compatibility validation.
+6. **ROADMAP-006 — Director Governance:** Program or phase start, status transition, Scope change, completion, archival, and extension require Director governance.
+7. **ROADMAP-007 — Canonical Roadmap Protection:** Published Phase 1–24 history must not be altered by future planning or downstream architecture.
+8. **ROADMAP-008 — Extension Policy:** Future phases may be added only to one Director-approved Program after dependency, identity, numbering, constitutional, and compatibility validation.
 9. **ROADMAP-009 — Unique Phase Number:** A phase number must identify exactly one canonical roadmap phase.
 10. **ROADMAP-010 — Duplicate Prevention:** Existing phase numbers must not be reused, aliased, or silently renumbered.
 11. **ROADMAP-011 — Status Integrity:** Roadmap status must be evidence-based and must not be inferred from implementation activity or calendar time.
 12. **ROADMAP-012 — Non-implementation Boundary:** This roadmap must not be interpreted as a technology selection, implementation authorization, delivery commitment, or execution plan.
+13. **ROADMAP-013 — Unique Program Membership:** Every future phase must belong to exactly one Program.
+14. **ROADMAP-014 — Program-First Planning:** Future architectural planning begins with constitutional Program identity and Scope before phase activation.
+15. **ROADMAP-015 — Placeholder Boundary:** A placeholder reserves planning space only and creates no architecture, phase gate, implementation permission, or authority.
 
 ## Director View
 
@@ -293,6 +442,7 @@ The roadmap informs Director judgment. It does not automate phase transitions or
 
 ## Related Architecture
 
+- [Hebun AI Enterprise Constitution](../00-enterprise-constitution.md) — governing constitutional authority for this implementation roadmap
 - [Phase 12A README](README.md)
 - [Phase 12A Foundations](44-why-architecture-intelligence.md)
 - [Phase 11 Closure](../architecture-ingestion/43-phase-11-closure.md)
