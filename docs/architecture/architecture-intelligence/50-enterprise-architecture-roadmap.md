@@ -217,7 +217,7 @@ The unpublished roadmap is Program-first. Each future phase belongs to exactly o
 
 ### Program V — Enterprise Security
 
-**Status: OPEN**
+**Status: COMPLETE / PUBLISHED**
 
 **Purpose:** Define Identity, Trust, Permissions, Runtime Security, AI Security, Security Operations, and security-governed platform continuity.
 
@@ -243,7 +243,7 @@ The unpublished roadmap is Program-first. Each future phase belongs to exactly o
 
 **Phase 35 Status: COMPLETE / PUBLISHED**
 
-**Phase 36 Status: OPEN**
+**Phase 36 Status: COMPLETE / PUBLISHED**
 
 #### Enterprise Autonomous Security Organization
 
@@ -269,7 +269,7 @@ This placeholder does not design architecture, create an additional Program, def
 
 ### Program VI — Enterprise Reasoning
 
-**Status: PLANNED — NOT OPEN**
+**Status: OPEN**
 
 **Purpose:** Define future Enterprise Reasoning, Evidence, and Decision Intelligence while preserving existing Reasoning, Governance, Decision Support, and Director authority boundaries.
 

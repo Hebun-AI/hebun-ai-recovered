@@ -52,7 +52,7 @@ Program V is the Director-governed constitutional Program named **Enterprise Sec
 | Governing authority | Hebun AI Enterprise Constitution |
 | Roadmap position | After completed Program IV — Enterprise Orchestration |
 | Assigned phases | Phase 30–36 |
-| Current status | Constitution Established; Program Open; Phase 30–35 Complete / Published; Phase 36 Open |
+| Current status | Constitution Established; Program Complete / Published; Phase 30–36 Complete / Published |
 | Implementation authority | None |
 
 Program V is not a Security product, operating team, Runtime service, policy engine, identity provider, access-control system, monitoring platform, deployment platform, disaster-recovery system, or authorization to implement Security.
@@ -301,7 +301,7 @@ Program V contains exactly the seven roadmap identities below:
 | 33 | Enterprise Security Operations | COMPLETE / PUBLISHED |
 | 34 | Policy & Continuous Security Governance | COMPLETE / PUBLISHED |
 | 35 | Secure Deployment & Scalability | COMPLETE / PUBLISHED |
-| 36 | Security Resilience & Disaster Recovery | OPEN |
+| 36 | Security Resilience & Disaster Recovery | COMPLETE / PUBLISHED |
 
 Phase rules:
 
@@ -309,7 +309,7 @@ Phase rules:
 2. No unlisted phase belongs to Program V.
 3. Phase numbers, titles, order, and responsibilities must match the Enterprise Architecture Roadmap.
 4. Phase 30 is complete and canonically published.
-5. Phase 30–35 are complete and canonically published; Phase 36 is open through an explicit Director gate.
+5. Phase 30–36 are complete and canonically published.
 6. Completion of one phase does not open another.
 7. A phase may define only its roadmap-assigned constitutional responsibility.
 8. Phase output must preserve this Constitution and all upstream invariants.
@@ -331,7 +331,7 @@ Program V entry requires:
 - validated Program identity, Scope, phase membership, ordering, dependencies, and exclusions;
 - explicit Director authorization.
 
-These conditions are satisfied. Program V is `OPEN`.
+These conditions are satisfied. Program V is `COMPLETE / PUBLISHED`.
 
 ## Phase Execution Gate
 
@@ -343,7 +343,7 @@ Architectural work within a phase requires:
 - preserved Human Architecture, authority, Governance, Runtime, evidence, and Program boundaries;
 - no unresolved Architecture Gate.
 
-Only Phase 36 currently passes its Director opening gate. This does not authorize implementation.
+All Phase 30–36 architectural execution gates have completed. No Program V phase remains open, and this does not authorize implementation.
 
 ## Publication Gate
 
@@ -443,11 +443,11 @@ This document establishes Program V governance only.
 
 It does not create Security phase architecture, Identity definitions, Trust definitions, Permission models, Runtime Security mechanisms, AI Security mechanisms, Security Operations, policies, deployment architecture, scalability architecture, resilience mechanisms, disaster-recovery design, Agents, APIs, databases, workflows, interfaces, infrastructure, code, or implementation.
 
-Program V remains open. Phase 30, Phase 31, Phase 32, Phase 33, Phase 34, and Phase 35 are complete and canonically published. Phase 36 is open.
+Program V and Phase 30–36 are complete and canonically published.
 
 **STATUS: CONSTITUTION ESTABLISHED**
 
-**PROGRAM V: OPEN**
+**PROGRAM V: COMPLETE / PUBLISHED**
 
 **PHASE 30: COMPLETE / PUBLISHED**
 
@@ -461,4 +461,4 @@ Program V remains open. Phase 30, Phase 31, Phase 32, Phase 33, Phase 34, and Ph
 
 **PHASE 35: COMPLETE / PUBLISHED**
 
-**PHASE 36: OPEN**
+**PHASE 36: COMPLETE / PUBLISHED**
