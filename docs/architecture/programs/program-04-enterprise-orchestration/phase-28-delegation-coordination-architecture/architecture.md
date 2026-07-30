@@ -2,7 +2,7 @@
 
 ## Canonical Status
 
-**STATUS: OPEN**
+**STATUS: COMPLETE / PUBLISHED**
 
 This document defines the canonical architectural identities of Enterprise Delegation and Enterprise Coordination within Program IV — Enterprise Orchestration.
 
@@ -66,13 +66,17 @@ Enterprise Coordination exists to make organizational interdependence:
 - traceable without requiring messaging or workflow;
 - compatible with human, AI, and hybrid participation.
 
-Together they solve a constitutional problem: an enterprise must distribute participation and preserve coherence without silently transferring authority, erasing accountability, or turning architecture into operational orchestration.
+Enterprise Responsibility Handoff exists to preserve governed continuity when an already-authorized delegated organizational responsibility moves from one responsible context to another.
 
-Delegation and Coordination remain distinct:
+Together Delegation, Responsibility Handoff, and Coordination solve a constitutional problem: an enterprise must distribute participation, preserve responsibility continuity, and maintain coherence without silently transferring authority, erasing accountability, or turning architecture into operational orchestration.
+
+Delegation, Responsibility Handoff, and Coordination remain distinct:
 
 - Delegation establishes a bounded responsibility relationship.
+- Responsibility Handoff preserves continuity between responsible contexts within an authorized Delegation.
 - Coordination establishes coherence among multiple responsibilities, contributions, dependencies, or participants.
 - Delegation provides the required canonical context for Coordination.
+- Responsibility Handoff supports Coordination but does not replace Delegation or Coordination.
 - Coordination may contextualize a Delegation but does not create it.
 - Coordination does not redefine Delegation.
 
@@ -94,7 +98,13 @@ Delegation and Coordination remain distinct:
 
 > **Enterprise Coordination is the governed, attributable, actor-neutral, and implementation-independent organizational architectural function that consumes an authorized Enterprise Delegation context to establish coherence across delegated responsibility relationships and their interdependent Enterprise Work, Enterprise Tasks, Enterprise Activities, planning contexts, precedence findings, constraints, and participants while preserving their independent identities and authority boundaries without defining messaging, scheduling, workflow, Runtime orchestration, control, or execution.**
 
-These are the authoritative definitions of Enterprise Delegation and Enterprise Coordination for Hebun AI.
+## Enterprise Responsibility Handoff
+
+> **Enterprise Responsibility Handoff is a governed and traceable continuity relationship through which an already-authorized delegated organizational responsibility is transferred from one responsible context to another while preserving authority boundaries, accountability continuity, and constitutional traceability.**
+
+Responsibility Handoff consumes an authorized Enterprise Delegation context and supports Enterprise Coordination. It is not a new enterprise primitive, Program phase, independent architectural layer, authority source, approval, assignment, Runtime dispatch, execution invocation, workflow initiation, messaging mechanism, or Resource allocation.
+
+The Enterprise Delegation and Enterprise Coordination definitions are authoritative architectural-function definitions for Hebun AI. Enterprise Responsibility Handoff is the canonical internal relationship that preserves responsibility continuity between them without changing either identity.
 
 They are immutable except through the amendment rules of the Enterprise Constitution and Program IV Constitution. No later phase, downstream Program, Runtime, implementation, participant model, or operating convention may silently replace or reinterpret them.
 
@@ -293,15 +303,21 @@ Neither function may:
 
 # 11. Delegation–Coordination Relationship
 
-Delegation and Coordination have one canonical dependency direction:
+Delegation and Coordination retain one canonical dependency direction. Responsibility Handoff expresses continuity within that direction:
 
 Enterprise Delegation
 
 ↓
 
+Enterprise Responsibility Handoff
+
+↓
+
 Enterprise Coordination
 
-Delegation remains independently valid. Coordination requires an authorized Delegation context containing:
+This representation does not introduce an additional dependency layer. Delegation remains the canonical upstream architectural concept, Coordination remains the canonical downstream architectural concept, and Responsibility Handoff remains an internal architectural relationship.
+
+Delegation remains independently valid. Responsibility Handoff consumes an authorized Delegation context. Coordination requires an authorized Delegation context and may consume Responsibility Handoff continuity context containing:
 
 - bounded responsibility relationships;
 - retained accountability;
@@ -319,17 +335,18 @@ Coordination may return informational coherence findings to Delegation, includin
 - escalation eligibility;
 - coherence findings.
 
-This feedback:
+This relationship, including its informational feedback:
 
 - does not reverse the canonical dependency;
 - does not redefine Delegation;
+- does not replace Delegation or Coordination;
 - does not make Coordination an approval mechanism;
 - does not make Delegation a messaging or control mechanism;
 - does not create authority;
 - does not transfer accountability;
 - does not authorize execution or change execution eligibility.
 
-Delegation may exist without Coordination when no cross-responsibility coherence is required. Coordination cannot exist as an independent canonical context without an authorized Delegation context.
+Delegation may exist without Responsibility Handoff or Coordination when no responsibility transition or cross-responsibility coherence is required. Responsibility Handoff cannot exist without an authorized Delegation context. Coordination cannot exist as an independent canonical context without an authorized Delegation context.
 
 - **P28-DC-031 — Directional Dependency:** Delegation remains independently valid; Coordination requires an authorized Delegation context.
 - **P28-DC-032 — Non-Reversing Informational Feedback:** Coordination may provide informational coherence findings to Delegation, but this feedback must not reverse the canonical dependency or alter responsibility, authority, accountability, or execution eligibility.
@@ -429,6 +446,20 @@ Human, AI, hybrid, and organizational participants may appear in responsibility 
 - an approval;
 - an API, database, UI, or dashboard.
 
+## Enterprise Responsibility Handoff Is Not
+
+- a new enterprise primitive;
+- a new Program phase;
+- an independent architectural layer;
+- Delegation or Coordination;
+- authority creation or transfer;
+- accountability transfer;
+- approval or assignment;
+- Runtime dispatch or execution invocation;
+- workflow initiation;
+- messaging;
+- Resource allocation.
+
 ## Mandatory Separations
 
 - Delegation ≠ Assignment Mechanism
@@ -451,6 +482,16 @@ Human, AI, hybrid, and organizational participants may appear in responsibility 
 - Coordination ≠ Queue
 - Coordination ≠ Event
 - Coordination ≠ Organization Structure
+- Responsibility Handoff ≠ Delegation
+- Responsibility Handoff ≠ Coordination
+- Responsibility Handoff ≠ Authority
+- Responsibility Handoff ≠ Approval
+- Responsibility Handoff ≠ Assignment
+- Responsibility Handoff ≠ Runtime Dispatch
+- Responsibility Handoff ≠ Execution
+- Responsibility Handoff ≠ Workflow
+- Responsibility Handoff ≠ Messaging
+- Responsibility Handoff ≠ Resource Allocation
 
 ---
 
@@ -477,6 +518,11 @@ Future architecture must preserve these binding rules:
 17. **P28-DC-054 — Evidence and Traceability:** Material relationships, changes, conflicts, findings, and dispositions must remain attributable.
 18. **P28-DC-055 — Constitutional Evolution:** Change to canonical meaning requires governed amendment.
 19. **P28-DC-056 — Fail Closed:** Ambiguous responsibility, accountability, authority, context, eligibility, participant, or dependency blocks canonical adoption.
+20. **P28-DC-057 — Authorized Handoff Context:** Responsibility Handoff must consume an authorized Enterprise Delegation context.
+21. **P28-DC-058 — Continuity Preservation:** Responsibility Handoff must preserve accountability continuity, authority boundaries, and constitutional traceability across responsible contexts.
+22. **P28-DC-059 — Identity Preservation:** Responsibility Handoff must support Coordination without replacing or redefining Delegation or Coordination.
+23. **P28-DC-060 — Non-Operational Handoff:** Responsibility Handoff must not create authority, approve or assign Work, dispatch Runtime, invoke execution, initiate workflow, perform messaging, or allocate Resources.
+24. **P28-DC-061 — Handoff Traceability:** The originating context, receiving context, delegated responsibility, authority boundary, accountability continuity, evidence, and disposition of every Responsibility Handoff must remain attributable.
 
 These constraints govern future architecture without defining its implementation.
 
@@ -492,7 +538,7 @@ The following later Program IV phase depends on Phase 28:
 
 Dependency means constitutional inheritance. It does not open or define Phase 29.
 
-**Phase 29 remains CLOSED.**
+**Phase 29 is COMPLETE / PUBLISHED.**
 
 ---
 
@@ -514,6 +560,7 @@ Phase 28 is architecturally complete only when:
 12. rules, terminology, definitions, links, and boundaries validate.
 13. no implementation or future-phase architecture leakage exists.
 14. Director review approves Phase 28 closure and publication.
+15. Enterprise Responsibility Handoff is explicitly defined as an internal continuity relationship with preserved authority, accountability, traceability, and non-operational boundaries.
 
 Creation of this document does not itself close or publish Phase 28.
 
@@ -539,12 +586,12 @@ Creation of this document does not itself close or publish Phase 28.
 
 # Phase Boundary Declaration
 
-Phase 28 defines Enterprise Delegation and Enterprise Coordination only.
+Phase 28 defines Enterprise Delegation, Enterprise Coordination, and Enterprise Responsibility Handoff as an internal constitutional relationship between them.
 
 It does not define Workflow, workflow engines, Runtime, Scheduling, approvals, Identity and Access Management, Resource allocation, organization charts, Human Resource Management, AI Agent orchestration Runtime, messaging, queues, Events, APIs, databases, user interfaces, dashboards, Security, or implementation.
 
 No Phase beyond Phase 28 is opened by this document.
 
-**PHASE 28 STATUS: OPEN**
+**PHASE 28 STATUS: COMPLETE / PUBLISHED**
 
-**PHASE 29: CLOSED**
+**PHASE 29: COMPLETE / PUBLISHED**

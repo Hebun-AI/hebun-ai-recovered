@@ -203,7 +203,7 @@ The unpublished roadmap is Program-first. Each future phase belongs to exactly o
 
 ### Program IV — Enterprise Orchestration
 
-**Status: OPEN**
+**Status: COMPLETE / PUBLISHED**
 
 **Purpose:** Define Enterprise Work, Tasks, Planning, Delegation, Coordination, and Resource Management as bounded constitutional responsibilities.
 

@@ -17,7 +17,7 @@ Program IV is constitutionally established. Establishment of this Constitution b
 
 Phase 25 was subsequently opened through a separate explicit Director Decision, completed through constitutional review, and canonically published. Phase 26 was then opened through its own explicit Director Decision, completed through constitutional review, and canonically published. Phase 27 was subsequently opened through its own explicit Director Decision, completed through constitutional review, and canonically published. Phase 28 was subsequently opened through its own explicit Director Decision, completed through constitutional review, and canonically published. Phase 29 was subsequently opened through its own explicit Director Decision, completed through constitutional review, and canonically published.
 
-**PROGRAM IV STATUS: OPEN**
+**PROGRAM IV STATUS: COMPLETE / PUBLISHED**
 
 **PHASE 25 STATUS: COMPLETE / PUBLISHED**
 
@@ -37,7 +37,7 @@ Program IV is the Director-governed constitutional Program named **Enterprise Or
 | Governing Constitution | Hebun AI Enterprise Constitution |
 | Roadmap position | First future Program after published Program III Runtime |
 | Assigned phases | Phase 25–29 |
-| Current status | Constitution Established; Program Open; Phase 25–29 Complete and Published |
+| Current status | Constitution Established; Program Complete and Published; Phase 25–29 Complete and Published |
 | Implementation authority | None |
 
 Program IV is an architectural governance body. It is not an implementation project, operating department, Runtime service, Agent, workflow, execution engine, delivery schedule, or authorization to begin a constituent phase.
@@ -424,11 +424,11 @@ This document defines Program governance only.
 
 It does not design Enterprise Work, Tasks, Activities, Planning, Prioritization, Scheduling, Delegation, Coordination mechanisms, Capabilities, resource-allocation mechanisms, APIs, data models, Runtime behavior, Agents, user interfaces, workflows, or implementations.
 
-Program IV remains constitutionally established and open. Phase 28 and Phase 29 are complete and published.
+Program IV is constitutionally established, complete, and published. Phase 25–29 are complete and published.
 
 **STATUS: CONSTITUTION ESTABLISHED**
 
-**PROGRAM IV: OPEN**
+**PROGRAM IV: COMPLETE / PUBLISHED**
 
 **PHASE 25: COMPLETE / PUBLISHED**
 
