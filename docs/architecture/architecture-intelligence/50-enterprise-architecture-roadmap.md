@@ -237,9 +237,11 @@ The unpublished roadmap is Program-first. Each future phase belongs to exactly o
 
 **Phase 32 Status: COMPLETE / PUBLISHED**
 
-**Phase 33 Status: OPEN**
+**Phase 33 Status: COMPLETE / PUBLISHED**
 
-**Phase 34–36 Status: CLOSED**
+**Phase 34 Status: OPEN**
+
+**Phase 35–36 Status: CLOSED**
 
 #### Enterprise Autonomous Security Organization
 
