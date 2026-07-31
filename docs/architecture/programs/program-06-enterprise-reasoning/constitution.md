@@ -10,7 +10,7 @@
 
 **PHASE 38 STATUS: COMPLETE / PUBLISHED**
 
-**PHASE 39 STATUS: CLOSED**
+**PHASE 39 STATUS: COMPLETE / PUBLISHED**
 
 This document is the canonical constitutional foundation proposed for Program VI — Enterprise Reasoning. It remains subordinate to the [Enterprise Constitution](../../00-enterprise-constitution.md), Director authority, the [Enterprise Architecture Roadmap](../../architecture-intelligence/50-enterprise-architecture-roadmap.md), and applicable published canonical architecture.
 
@@ -18,7 +18,7 @@ Program VI is open through explicit Director authorization. Generation of this C
 
 - preserves the exact three-phase roadmap membership;
 - establishes Program-level mission, Scope, ownership boundaries, principles, dependencies, lifecycle, gates, and amendment discipline;
-- records Phase 37 and Phase 38 as complete and canonically published while keeping Phase 39 closed pending separate Director authorization;
+- records Phases 37–39 as complete and canonically published;
 - creates no phase architecture;
 - creates no reasoning method, evidence implementation, decision mechanism, Runtime behavior, model behavior, product behavior, or implementation;
 - does not authorize code, execution, automation, integration, or product delivery.
@@ -40,7 +40,7 @@ Program VI is the Director-governed constitutional Program named **Enterprise Re
 | Governing authority | Hebun AI Enterprise Constitution |
 | Roadmap position | After completed Program V — Enterprise Security |
 | Assigned phases | Phase 37–39 |
-| Current status | Constitution Complete / Published; Program Open; Phases 37–38 Complete / Published; Phase 39 Closed |
+| Current status | Constitution Complete / Published; Program Open; Phases 37–39 Complete / Published |
 | Implementation authority | None |
 
 Program VI is not an AI model, reasoning algorithm, inference service, prompt system, retrieval system, evidence database, decision maker, Runtime component, Agent system, workflow, product, or implementation authorization.
@@ -390,7 +390,7 @@ Program VI contains exactly the three roadmap identities below:
 |---:|---|---|
 | 37 | Enterprise Reasoning Architecture | COMPLETE / PUBLISHED |
 | 38 | Enterprise Evidence Architecture | COMPLETE / PUBLISHED |
-| 39 | Decision Intelligence | CLOSED |
+| 39 | Decision Intelligence | COMPLETE / PUBLISHED |
 
 Phase governance:
 
@@ -450,7 +450,7 @@ The Program is `OPEN`. Its Constitution and Phase 37 are complete and canonicall
 
 ## Phase Lifecycle
 
-Phase 37 and Phase 38 are complete and canonically published. Phase 39 remains `CLOSED` until an explicit Director Decision opens the exact phase. An opened phase may then progress through architecture generation, constitutional review, required correction, publication authorization, canonical publication, and closure.
+Phases 37–39 are complete and canonically published. Program VI remains `OPEN` until a separate Director Decision authorizes Program completion. No phase transition authorizes implementation or opens Program VII.
 
 No phase transition authorizes implementation or opens the next phase.
 
@@ -657,6 +657,6 @@ Generation of this document does not canonically publish the Program VI Constitu
 
 **PHASE 38 STATUS: COMPLETE / PUBLISHED**
 
-**PHASE 39 STATUS: CLOSED**
+**PHASE 39 STATUS: COMPLETE / PUBLISHED**
 
 **PROGRAM VII STATUS: PLANNED — NOT OPEN**

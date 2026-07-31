@@ -2,7 +2,7 @@
 
 ## Canonical Status
 
-**ARCHITECTURE STATUS: GENERATED — READY FOR CONSTITUTIONAL REVIEW**
+**ARCHITECTURE STATUS: COMPLETE / PUBLISHED**
 
 **PROGRAM VI STATUS: OPEN**
 
@@ -10,9 +10,9 @@
 
 **PHASE 38 LIFECYCLE: COMPLETE / PUBLISHED**
 
-**PHASE 39 LIFECYCLE: CLOSED**
+**PHASE 39 LIFECYCLE: COMPLETE / PUBLISHED**
 
-This document defines the proposed canonical Enterprise architecture for Decision Intelligence within Program VI. Generation does not publish this architecture, change a phase lifecycle, define implementation, or authorize Runtime behavior.
+This document defines the canonical Enterprise architecture for Decision Intelligence within Program VI. Canonical publication records Phase 39 as complete and published without defining implementation or authorizing Runtime behavior.
 
 ---
 
@@ -94,7 +94,7 @@ Published Decision Support architecture retains ownership of the Decision Suppor
 
 ## Lifecycle Position
 
-Generation records no lifecycle transition. Program VI remains open; Phases 37–38 remain complete and published; Phase 39 remains closed until separate Director authorization changes its lifecycle.
+Canonical publication records Phase 39 as complete and published. Program VI remains open, Phases 37–38 remain complete and published, and Program VII remains unopened until separate Director authorization changes its lifecycle.
 
 ## Constitutional Position Rules
 
@@ -623,7 +623,7 @@ Every constitutional review must verify rule identity, uniqueness, sequence, con
 
 ## Phase Lifecycle
 
-Generation establishes the proposed architecture only.
+Canonical publication establishes this architecture as complete and published.
 
 ```text
 GENERATED — READY FOR CONSTITUTIONAL REVIEW
@@ -647,7 +647,7 @@ No transition is automatic. Only an explicit Director Decision may authorize rev
 | Program VI Constitution | COMPLETE / PUBLISHED |
 | Phase 37 — Enterprise Reasoning Architecture | COMPLETE / PUBLISHED |
 | Phase 38 — Enterprise Evidence Architecture | COMPLETE / PUBLISHED |
-| Phase 39 — Decision Intelligence | CLOSED; architecture generated for constitutional review |
+| Phase 39 — Decision Intelligence | COMPLETE / PUBLISHED |
 | Program VII — Computer Use | PLANNED — NOT OPEN |
 
 ## Boundary Declaration
@@ -686,15 +686,15 @@ Phase 39 is ready for constitutional review when validation confirms:
 9. Decision Intelligence remains distinct from Decision, Authority, Judgment, Governance, Workflow, Runtime, Execution, and Automation;
 10. Runtime, implementation, technology, vendor, model, infrastructure, and product independence remain intact;
 11. relative links resolve;
-12. no embedded Director instructions, implementation behavior, or publication claim exists.
+12. no embedded Director instructions, implementation behavior, or unsupported publication claim exists.
 
 ---
 
 **PROGRAM VI STATUS: OPEN**
 
-**PHASE 39 ARCHITECTURE STATUS: GENERATED — READY FOR CONSTITUTIONAL REVIEW**
+**PHASE 39 ARCHITECTURE STATUS: COMPLETE / PUBLISHED**
 
-**PHASE 39 LIFECYCLE: CLOSED**
+**PHASE 39 LIFECYCLE: COMPLETE / PUBLISHED**
 
 **PROGRAM VII STATUS: PLANNED — NOT OPEN**
 
