@@ -6,7 +6,7 @@
 
 **PROGRAM VI STATUS: OPEN**
 
-**PHASE 37 STATUS: CLOSED**
+**PHASE 37 STATUS: COMPLETE / PUBLISHED**
 
 **PHASE 38 STATUS: CLOSED**
 
@@ -18,7 +18,7 @@ Program VI is open through explicit Director authorization. Generation of this C
 
 - preserves the exact three-phase roadmap membership;
 - establishes Program-level mission, Scope, ownership boundaries, principles, dependencies, lifecycle, gates, and amendment discipline;
-- keeps Phase 37, Phase 38, and Phase 39 closed pending separate Director authorization;
+- records Phase 37 as complete and canonically published while keeping Phase 38 and Phase 39 closed pending separate Director authorization;
 - creates no phase architecture;
 - creates no reasoning method, evidence implementation, decision mechanism, Runtime behavior, model behavior, product behavior, or implementation;
 - does not authorize code, execution, automation, integration, or product delivery.
@@ -40,7 +40,7 @@ Program VI is the Director-governed constitutional Program named **Enterprise Re
 | Governing authority | Hebun AI Enterprise Constitution |
 | Roadmap position | After completed Program V — Enterprise Security |
 | Assigned phases | Phase 37–39 |
-| Current status | Constitution Generated; Program Open; Phases 37–39 Closed |
+| Current status | Constitution Complete / Published; Program Open; Phase 37 Complete / Published; Phases 38–39 Closed |
 | Implementation authority | None |
 
 Program VI is not an AI model, reasoning algorithm, inference service, prompt system, retrieval system, evidence database, decision maker, Runtime component, Agent system, workflow, product, or implementation authorization.
@@ -388,7 +388,7 @@ Program VI contains exactly the three roadmap identities below:
 
 | Phase | Canonical title | Lifecycle status |
 |---:|---|---|
-| 37 | Enterprise Reasoning Architecture | CLOSED |
+| 37 | Enterprise Reasoning Architecture | COMPLETE / PUBLISHED |
 | 38 | Enterprise Evidence Architecture | CLOSED |
 | 39 | Decision Intelligence | CLOSED |
 
@@ -446,11 +446,11 @@ Program Closure Review
 Complete / Published
 ```
 
-The Program is `OPEN`. Its Constitution is generated and ready for constitutional review. No phase is open.
+The Program is `OPEN`. Its Constitution and Phase 37 are complete and canonically published. No phase is open.
 
 ## Phase Lifecycle
 
-Each Phase 37–39 remains `CLOSED` until an explicit Director Decision opens that exact phase. A phase may then progress through architecture generation, constitutional review, required correction, publication authorization, canonical publication, and closure.
+Phase 37 is complete and canonically published. Phase 38 and Phase 39 remain `CLOSED` until an explicit Director Decision opens the exact phase. An opened phase may then progress through architecture generation, constitutional review, required correction, publication authorization, canonical publication, and closure.
 
 No phase transition authorizes implementation or opens the next phase.
 
@@ -653,7 +653,7 @@ Generation of this document does not canonically publish the Program VI Constitu
 
 **PROGRAM VI CONSTITUTION STATUS: COMPLETE / PUBLISHED**
 
-**PHASE 37 STATUS: CLOSED**
+**PHASE 37 STATUS: COMPLETE / PUBLISHED**
 
 **PHASE 38 STATUS: CLOSED**
 
