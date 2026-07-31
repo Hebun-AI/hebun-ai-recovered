@@ -281,7 +281,7 @@ This placeholder does not design architecture, create an additional Program, def
 
 ### Program VII — Computer Use
 
-**Status: PLANNED — NOT OPEN**
+**Status: COMPLETE / PUBLISHED**
 
 **Purpose:** Define governed computer interaction, execution, and automation under constitutional authority.
 
@@ -291,6 +291,16 @@ This placeholder does not design architecture, create an additional Program, def
 | 41 | Governed Computer Execution | Establishes authority, approval, traceability, and safety boundaries for computer-mediated execution. |
 | 42 | Enterprise Automation Architecture | Establishes the constitutional limits and accountability of automation. |
 | 43 | Enterprise Integration for Computer Use | Establishes bounded interaction with enterprise systems and external platforms without transferring authority. |
+
+**Program VII Constitution Status: COMPLETE / PUBLISHED**
+
+**Phase 40 Status: COMPLETE / PUBLISHED**
+
+**Phase 41 Status: COMPLETE / PUBLISHED**
+
+**Phase 42 Status: COMPLETE / PUBLISHED**
+
+**Phase 43 Status: COMPLETE / PUBLISHED**
 
 ### Program VIII — Organizational Intelligence
 
