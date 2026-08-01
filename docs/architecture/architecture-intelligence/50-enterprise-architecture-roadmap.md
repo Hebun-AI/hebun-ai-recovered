@@ -387,6 +387,47 @@ The former unpublished Phase 25–30 plan is reorganized without changing any pu
 | Enterprise Integration | Program VII, Phase 43, bounded to governed Computer Use |
 | Platform Evolution & Enterprise AI OS Closure | Program VIII, Phase 47, reframed as governed strategic enterprise evolution; no historical phase is closed or reopened |
 
+## Future Product Architecture
+
+The Future Product Architecture section records product-layer capabilities that the Director may later choose to realize. A product-layer capability is not a constitutional Program, a constitutional Phase, Runtime architecture, Organizational Intelligence, Enterprise Intellectual Evolution, or implementation. It carries no Program number and no Phase number, opens nothing, and grants no authority. It is recorded here only to reserve product intent within Director governance.
+
+### Enterprise Knowledge Graph & Decision Timeline
+
+**Status: FUTURE PRODUCT ARCHITECTURE CAPABILITY — NOT OPEN**
+
+**Layer: Product Architecture (non-constitutional, non-Runtime)**
+
+**Program/Phase assignment: none**
+
+**Purpose:** Record a future capability that presents the complete intellectual history of the Enterprise as a navigable graph, enabling the Director to inspect why a decision was made, what architectural documents it affected, which constitutional rules influenced it, which later decisions depended upon it, and how enterprise knowledge evolved over time. The capability represents the Enterprise's intellectual history; it is not merely document navigation.
+
+**Recorded navigable relationships (product intent only):**
+
+- architectural evolution;
+- Director Decisions;
+- reviews;
+- publications;
+- commits;
+- tags;
+- roadmap evolution;
+- enterprise knowledge relationships;
+- organizational learning history;
+- intellectual evolution history;
+- cross-document traceability.
+
+**Required constraints (constitutional separations):**
+
+- Timeline ≠ Enterprise Memory
+- Knowledge Graph ≠ Runtime
+- Visualization ≠ Knowledge
+- Relationship ≠ Authority
+- Navigation ≠ Decision
+- Graph ≠ Governance
+- Timeline ≠ Audit Authority
+- Product Capability ≠ Constitutional Program
+
+This capability defines no architecture, selects no technology, names no vendor, assigns no Program or Phase, modifies no published constitutional document, Program, Phase, ownership, Runtime, or roadmap ordering, and authorizes no implementation. It reserves product intent only and requires an explicit separate Director gate before any product realization begins.
+
 ## Phase Dependencies
 
 ```text
