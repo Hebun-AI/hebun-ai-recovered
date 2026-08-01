@@ -304,7 +304,7 @@ This placeholder does not design architecture, create an additional Program, def
 
 ### Program VIII — Organizational Intelligence
 
-**Status: OPEN**
+**Status: COMPLETE / PUBLISHED**
 
 **Purpose:** Define organizational learning, optimization, strategic awareness, and governed enterprise evolution.
 
@@ -315,13 +315,15 @@ This placeholder does not design architecture, create an additional Program, def
 | 46 | Strategic Awareness Architecture | Establishes governed awareness of enterprise position, change, risk, and opportunity. |
 | 47 | Strategic Enterprise Evolution | Establishes constitutional guidance for continuous platform and organizational evolution without automatic roadmap authority. |
 
-**Phase 44 Status: PLANNED — NOT OPEN**
+**Program VIII Constitution Status: COMPLETE / PUBLISHED**
 
-**Phase 45 Status: PLANNED — NOT OPEN**
+**Phase 44 Status: COMPLETE / PUBLISHED**
 
-**Phase 46 Status: PLANNED — NOT OPEN**
+**Phase 45 Status: COMPLETE / PUBLISHED**
 
-**Phase 47 Status: PLANNED — NOT OPEN**
+**Phase 46 Status: COMPLETE / PUBLISHED**
+
+**Phase 47 Status: COMPLETE / PUBLISHED**
 
 ### Program IX — Enterprise Intellectual Evolution
 
