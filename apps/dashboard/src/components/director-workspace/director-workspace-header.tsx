@@ -21,8 +21,8 @@ export function DirectorWorkspaceHeader({ updatedAtIso }: { updatedAtIso: string
   return (
     <header className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
       <div className="max-w-2xl">
-        <p className="text-sm font-semibold text-primary">Director Workspace</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-fg sm:text-4xl">Good morning, Şenol.</h1>
+        <p className="text-sm font-semibold text-primary">Director briefing</p>
+        <h2 className="mt-2 text-2xl font-semibold tracking-tight text-fg sm:text-3xl">Good morning, Şenol.</h2>
         <p className="mt-3 text-base leading-7 text-fg-secondary">
           The enterprise is stable. Two decisions and one compliance risk need your attention today.
         </p>

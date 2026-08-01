@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, CircleDashed, Sparkles } from "lucide-react";
+import { ArrowRight, CircleDashed, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Decision, Priority, Recommendation } from "@/features/director-workspace/mock";
@@ -47,16 +47,14 @@ export function PendingDecisionsPanel({ items }: { items: Decision[] }) {
 
 export function HebyRecommendationsPanel({ items }: { items: Recommendation[] }) {
   return (
-    <WorkspaceCard title="Heby recommendations" description="Advisory only — no action is taken without your approval." action={<Badge variant="info">Advisory</Badge>}>
-      <div className="divide-y divide-border">
+    <WorkspaceCard title="Executive recommendations" description="Prioritized advisory intelligence for Director review. No action is taken automatically." action={<Badge variant="info">Advisory only</Badge>}>
+      <div className="grid gap-3 xl:grid-cols-3">
         {items.map((item) => (
-          <article key={item.recommendation} className="py-4 first:pt-0 last:pb-0">
-            <div className="flex gap-3"><Sparkles className="mt-0.5 size-4 shrink-0 text-primary" /><p className="text-sm font-medium leading-6 text-fg">{item.recommendation}</p></div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 pl-7 text-xs text-fg-secondary">
-              <Badge variant={item.impact === "High" ? "warning" : "neutral"}>{item.impact} impact</Badge>
-              <span className="flex items-center gap-1"><CheckCircle2 className="size-3.5" />{item.evidence}</span>
-              <button type="button" disabled className="ml-auto font-medium text-primary disabled:cursor-not-allowed disabled:opacity-60">Review later</button>
-            </div>
+          <article key={item.recommendation} className="flex flex-col rounded-xl border border-border bg-surface-sunken/35 p-4">
+            <div className="flex items-center justify-between gap-3"><Badge variant={item.priority === "Critical" ? "error" : item.priority === "High" ? "warning" : "neutral"}>{item.priority}</Badge><span className="text-xs font-semibold text-fg-secondary">{item.confidence}% confidence</span></div>
+            <div className="mt-3 flex gap-2"><Sparkles className="mt-1 size-4 shrink-0 text-primary" /><p className="text-sm font-semibold leading-6 text-fg">{item.recommendation}</p></div>
+            <dl className="mt-4 space-y-3 text-xs"><div><dt className="font-semibold uppercase tracking-wider text-fg-muted">Reason</dt><dd className="mt-1 leading-5 text-fg-secondary">{item.reason}</dd></div><div><dt className="font-semibold uppercase tracking-wider text-fg-muted">Business impact</dt><dd className="mt-1 leading-5 text-fg-secondary">{item.businessImpact}</dd></div><div><dt className="font-semibold uppercase tracking-wider text-fg-muted">Affected domains</dt><dd className="mt-1 font-medium text-fg">{item.affectedDomains.join(" · ")}</dd></div></dl>
+            <button type="button" disabled className="mt-auto pt-4 text-left text-xs font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-70">{item.directorAction} <ArrowRight className="ml-1 inline size-3.5" /></button>
           </article>
         ))}
       </div>

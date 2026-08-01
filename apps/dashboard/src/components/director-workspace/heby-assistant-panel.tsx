@@ -1,43 +1,84 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Bot, Send, Sparkles } from "lucide-react";
+import { Bot, CheckCircle2, Clock3, FileText, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { AdvisorAwareness } from "@/features/director-workspace/mock";
 
-interface Message { id: number; role: "user" | "assistant"; content: string }
+interface UserMessage { id: number; role: "user"; content: string }
+interface AdvisorMessage {
+  id: number;
+  role: "assistant";
+  recommendation: string;
+  evidence: string[];
+  confidence: number;
+  affectedDomains: string[];
+  relatedDecision: string;
+  timelineReference: string;
+}
+type Message = UserMessage | AdvisorMessage;
 
-const prompts = ["What should I focus on today?", "Show me critical risks", "Summarize yesterday", "Any new insights?"];
-const mockReply = "Based on this simulated workspace, focus first on the SOC 2 evidence gap, then review the enterprise launch dependency. I can prepare a draft for your review, but no action will be taken automatically.";
+const prompts = ["Review today’s critical issues", "Summarize enterprise changes", "What requires my decision?"];
+const advisorReply = {
+  recommendation: "Resolve the SOC 2 evidence gap before reviewing the retention opportunity.",
+  evidence: ["Readiness review identified one blocking control", "Enterprise launch depends on verified evidence"],
+  confidence: 94,
+  affectedDomains: ["Risk", "Operations", "Sales"],
+  relatedDecision: "D-204 · Evidence remediation plan",
+  timelineReference: "Today · 09:30 readiness review",
+};
 
-export function HebyAssistantPanel() {
+export function HebyAssistantPanel({ awareness }: { awareness: AdvisorAwareness[] }) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([{ id: 1, role: "assistant", content: "Good morning, Şenol. I’m ready to help you review today’s enterprise signals." }]);
+  const [messages, setMessages] = useState<Message[]>([{ id: 1, role: "assistant", ...advisorReply }]);
 
   function submitMessage(value: string) {
     const content = value.trim();
     if (!content) return;
-    setMessages((current) => [...current, { id: Date.now(), role: "user", content }, { id: Date.now() + 1, role: "assistant", content: mockReply }]);
+    setMessages((current) => [...current, { id: Date.now(), role: "user", content }, { id: Date.now() + 1, role: "assistant", ...advisorReply }]);
     setInput("");
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); submitMessage(input); }
 
   return (
-    <aside id="heby-assistant" aria-label="Heby assistant" className="flex min-h-[36rem] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-sm xl:sticky xl:top-[calc(var(--topbar-h)+1.5rem)] xl:h-[calc(100dvh-var(--topbar-h)-3rem)]">
-      <header className="border-b border-border p-5">
-        <div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-primary text-on-primary"><Bot className="size-5" /></span><div><h2 className="font-semibold text-fg">Heby</h2><p className="flex items-center gap-1.5 text-xs text-fg-secondary"><span className="size-2 rounded-full bg-success" />Online · simulation</p></div></div>
-        <p className="mt-4 rounded-lg bg-info-subtle px-3 py-2 text-xs leading-5 text-info">Responses are simulated in Phase 1 and may not reflect live enterprise data.</p>
+    <aside id="heby-assistant" aria-label="Heby enterprise advisor" className="flex min-h-[44rem] flex-col overflow-hidden rounded-xl border border-primary/20 bg-surface shadow-sm xl:sticky xl:top-[calc(var(--topbar-h)+1.5rem)] xl:h-[calc(100dvh-var(--topbar-h)-3rem)] xl:self-start">
+      <header className="border-b border-border p-3">
+        <div className="flex items-center gap-3"><span className="relative flex size-10 items-center justify-center rounded-xl bg-primary text-on-primary"><Bot className="size-5" /><span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-surface bg-success" /></span><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><h2 className="font-semibold text-fg">Heby</h2><span className="text-[0.6rem] font-semibold uppercase tracking-wider text-success">Ready</span></div><p className="text-xs font-medium text-fg-secondary">Executive Copilot · Enterprise Advisor</p></div></div>
+        <div className="mt-2.5 flex items-center justify-between gap-3"><p className="flex items-center gap-2 text-xs font-semibold text-success"><span className="size-2 rounded-full bg-success" />Watching enterprise</p><span className="text-[0.62rem] font-semibold uppercase tracking-wider text-fg-muted">Director authority</span></div>
+        <p className="mt-2 text-[0.65rem] text-fg-muted">Simulated intelligence · no execution or approval authority.</p>
       </header>
-      <div className="border-b border-border p-4">
-        <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-fg-muted"><Sparkles className="size-3.5" />Suggested prompts</p>
-        <div className="flex flex-wrap gap-2">{prompts.map((prompt) => <button key={prompt} type="button" onClick={() => submitMessage(prompt)} className="rounded-full border border-border px-3 py-1.5 text-left text-xs text-fg-secondary transition-colors hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring">{prompt}</button>)}</div>
-      </div>
-      <div aria-live="polite" className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
-        {messages.map((message) => <div key={message.id} className={message.role === "user" ? "ml-8 rounded-xl rounded-br-sm bg-primary px-3 py-2.5 text-sm leading-6 text-on-primary" : "mr-6 rounded-xl rounded-bl-sm bg-surface-sunken px-3 py-2.5 text-sm leading-6 text-fg"}>{message.content}</div>)}
-      </div>
-      <form onSubmit={onSubmit} className="border-t border-border p-4">
+      <section aria-labelledby="heby-greeting-title" className="px-3 pb-2 pt-3">
+        <h3 id="heby-greeting-title" className="text-base font-semibold text-fg">Good evening, Şenol.</h3>
+        <p className="mt-1 text-xs leading-5 text-fg-secondary">I’ve reviewed today’s enterprise activity. Three items deserve your attention.</p>
+      </section>
+      <section aria-labelledby="executive-suggestions-title" className="border-b border-border px-3 pb-3">
+        <h3 id="executive-suggestions-title" className="sr-only">Executive suggestions</h3>
+        <div className="grid gap-1.5">{prompts.map((prompt) => <button key={prompt} type="button" onClick={() => submitMessage(prompt)} className="flex min-h-10 items-center justify-between rounded-xl border border-primary/15 bg-primary-subtle/60 px-3 py-2 text-left text-xs font-semibold text-fg transition-colors hover:border-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"><span>{prompt}</span><Sparkles className="size-3.5 shrink-0 text-primary" /></button>)}</div>
+      </section>
+      <section aria-labelledby="advisor-awareness-title" className="border-b border-border px-3 py-2">
+        <h3 id="advisor-awareness-title" className="sr-only">Enterprise awareness</h3>
+        <div className="grid grid-cols-4 gap-2">
+          {awareness.map((item) => <article key={item.label} className="min-w-0 text-center"><p className="truncate text-[0.56rem] font-semibold uppercase tracking-wider text-fg-muted">{item.label}</p><p className="mt-0.5 text-xs font-semibold text-fg tabular-nums">{item.value}</p></article>)}
+        </div>
+      </section>
+      <section aria-labelledby="executive-conversation-title" className="flex min-h-0 flex-1 flex-col">
+        <div className="flex items-center justify-between border-b border-border px-3 py-2"><h3 id="executive-conversation-title" className="text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">Executive conversation</h3><span className="text-[0.65rem] text-fg-muted">{messages.length} {messages.length === 1 ? "insight" : "messages"}</span></div>
+        <div aria-live="polite" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+        {messages.map((message) => message.role === "user" ? <div key={message.id} className="ml-8 rounded-xl rounded-br-sm bg-primary px-3 py-2 text-sm leading-6 text-on-primary">{message.content}</div> : <article key={message.id} className="rounded-xl border border-primary/20 bg-surface-sunken/40 p-3">
+          <p className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-wider text-primary"><Sparkles className="size-3.5" />Recommendation</p>
+          <p className="mt-1.5 text-sm font-semibold leading-5 text-fg">{message.recommendation}</p>
+          <details className="group mt-2 border-t border-border pt-2">
+            <summary className="flex cursor-pointer list-none items-center justify-between rounded-md text-[0.7rem] font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"><span className="flex items-center gap-1.5"><FileText className="size-3" />Evidence and references</span><span aria-hidden="true" className="transition-transform group-open:rotate-90">›</span></summary>
+            <div className="pt-2"><ul className="space-y-0.5">{message.evidence.map((item) => <li key={item} className="flex gap-1.5 text-[0.7rem] leading-4 text-fg-secondary"><CheckCircle2 className="mt-0.5 size-3 shrink-0 text-success" />{item}</li>)}</ul><dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border pt-2 text-[0.7rem]"><div><dt className="text-fg-muted">Confidence</dt><dd className="font-semibold text-fg">{message.confidence}%</dd></div><div><dt className="text-fg-muted">Affected domains</dt><dd className="font-semibold text-fg">{message.affectedDomains.join(" · ")}</dd></div><div className="col-span-2"><dt className="text-fg-muted">Related decision</dt><dd className="font-medium text-fg">{message.relatedDecision}</dd></div><div className="col-span-2"><dt className="flex items-center gap-1 text-fg-muted"><Clock3 className="size-3" />Timeline reference</dt><dd className="font-medium text-fg">{message.timelineReference}</dd></div></dl></div>
+          </details>
+          <p className="mt-2 text-[0.65rem] font-medium text-fg-muted">Ready for Director review · No execution</p>
+        </article>)}
+        </div>
+      </section>
+      <form onSubmit={onSubmit} className="border-t border-border p-3">
         <label htmlFor="heby-message" className="sr-only">Message Heby</label>
-        <div className="flex items-end gap-2"><textarea id="heby-message" rows={2} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitMessage(input); } }} placeholder="Ask Heby…" className="min-h-11 flex-1 resize-none rounded-lg border border-border bg-surface-sunken px-3 py-2.5 text-sm text-fg outline-none placeholder:text-fg-muted focus:border-primary focus:ring-2 focus:ring-primary-ring" /><Button type="submit" aria-label="Send message" className="size-11 px-0" disabled={!input.trim()}><Send className="size-4" /></Button></div>
+        <div className="flex items-end gap-2"><textarea id="heby-message" rows={1} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitMessage(input); } }} placeholder="Ask Heby…" className="min-h-11 flex-1 resize-none rounded-lg border border-border bg-surface-sunken px-3 py-2.5 text-sm text-fg outline-none placeholder:text-fg-muted focus:border-primary focus:ring-2 focus:ring-primary-ring" /><Button type="submit" aria-label="Send message" className="size-11 px-0" disabled={!input.trim()}><Send className="size-4" /></Button></div>
         <p className="mt-2 text-[0.7rem] text-fg-muted">Enter to send · Shift + Enter for a new line</p>
       </form>
     </aside>
