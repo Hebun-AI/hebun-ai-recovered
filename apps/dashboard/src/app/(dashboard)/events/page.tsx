@@ -3,9 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { TimelineOverview } from "@/components/timeline-domain/timeline-overview";
 import { TimelineWorkspace } from "@/components/timeline-domain/timeline-workspace";
 import { RecentTimelineContext, TimelineIntegrityPanel } from "@/components/timeline-domain/timeline-context";
-import { hebyTimelineSuggestions, recentTimelineDecisions, recentTimelineKnowledge, timelineEvents, timelineIntegrity, timelineOverview } from "@/features/timeline-domain/mock";
+import { getTimelineContextProjection, getTimelineProjection } from "@/features/enterprise-projection-providers";
 
 export default function EventsPage() {
+  const timeline = getTimelineProjection();
+  const timelineContext = getTimelineContextProjection();
+
   return (
     <>
       <PageHeader
@@ -14,10 +17,10 @@ export default function EventsPage() {
         action={<><Badge variant="primary">Timeline foundation</Badge><Badge variant="success">Mock projection</Badge></>}
       />
       <div className="space-y-6">
-        <TimelineOverview items={timelineOverview} />
-        <TimelineWorkspace events={timelineEvents} />
-        <TimelineIntegrityPanel items={timelineIntegrity} />
-        <RecentTimelineContext decisions={recentTimelineDecisions} knowledge={recentTimelineKnowledge} prompts={hebyTimelineSuggestions} />
+        <TimelineOverview items={timeline.overview} />
+        <TimelineWorkspace events={timeline.events} />
+        <TimelineIntegrityPanel items={timeline.integrity} />
+        <RecentTimelineContext decisions={timelineContext.recentDecisions} knowledge={timelineContext.recentKnowledge} prompts={timelineContext.hebySuggestions} />
         <p className="text-xs leading-5 text-fg-muted">Enterprise Timeline presents local conceptual events only. It is not Enterprise Memory and does not provide persistence, event sourcing, audit infrastructure, or memory admission.</p>
       </div>
     </>

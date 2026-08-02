@@ -3,9 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { KnowledgeOverview } from "@/components/knowledge-domain/knowledge-overview";
 import { KnowledgeSources } from "@/components/knowledge-domain/knowledge-sources";
 import { KnowledgeHealthAndCategories, KnowledgeRelationships, RecentlyAddedKnowledge } from "@/components/knowledge-domain/knowledge-intelligence";
-import { knowledgeCategories, knowledgeMetrics, knowledgeRelationships, knowledgeSources, recentlyAddedKnowledge } from "@/features/knowledge-domain/mock";
+import { getKnowledgeProjection } from "@/features/enterprise-projection-providers";
 
 export default function KnowledgePage() {
+  const knowledge = getKnowledgeProjection();
+
   return (
     <>
       <PageHeader
@@ -16,11 +18,11 @@ export default function KnowledgePage() {
         }
       />
       <div className="space-y-6">
-        <KnowledgeOverview items={knowledgeMetrics} />
-        <KnowledgeSources items={knowledgeSources} />
-        <KnowledgeHealthAndCategories items={knowledgeCategories} />
-        <RecentlyAddedKnowledge items={recentlyAddedKnowledge} />
-        <KnowledgeRelationships items={knowledgeRelationships} />
+        <KnowledgeOverview items={knowledge.health} />
+        <KnowledgeSources items={knowledge.sources} />
+        <KnowledgeHealthAndCategories items={knowledge.categories} />
+        <RecentlyAddedKnowledge items={knowledge.recentChanges} />
+        <KnowledgeRelationships items={knowledge.relationships} />
       </div>
     </>
   );

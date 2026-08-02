@@ -3,9 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { OrganizationOverview } from "@/components/organization-domain/organization-overview";
 import { DepartmentsPanel, ReportingAndBusinessUnits } from "@/components/organization-domain/organization-structure";
 import { EnterpriseRelationshipsPanel, RolesAndResponsibilities } from "@/components/organization-domain/organization-ownership";
-import { businessUnits, enterpriseRelationships, organizationDepartments, organizationMetrics, organizationRoles, reportingStructure, responsibilityOverlaps } from "@/features/organization-domain/mock";
+import { getOrganizationProjection } from "@/features/enterprise-projection-providers";
 
 export default function OrganizationDomainPage() {
+  const organization = getOrganizationProjection();
+
   return (
     <>
       <PageHeader
@@ -16,11 +18,11 @@ export default function OrganizationDomainPage() {
         }
       />
       <div className="space-y-6">
-        <OrganizationOverview items={organizationMetrics} />
-        <DepartmentsPanel items={organizationDepartments} />
-        <ReportingAndBusinessUnits reporting={reportingStructure} units={businessUnits} />
-        <RolesAndResponsibilities roles={organizationRoles} overlaps={responsibilityOverlaps} />
-        <EnterpriseRelationshipsPanel items={enterpriseRelationships} />
+        <OrganizationOverview items={organization.readiness} />
+        <DepartmentsPanel items={organization.departments} />
+        <ReportingAndBusinessUnits reporting={organization.reportingRelationships} units={organization.businessUnits} />
+        <RolesAndResponsibilities roles={organization.roles} overlaps={organization.responsibilities} />
+        <EnterpriseRelationshipsPanel items={organization.relationships} />
       </div>
     </>
   );
