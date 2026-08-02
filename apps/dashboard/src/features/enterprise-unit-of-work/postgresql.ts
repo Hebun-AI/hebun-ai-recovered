@@ -1,8 +1,9 @@
 import { Pool } from "pg";
+import { createDomainEventCollection } from "@/features/enterprise-domain-events";
 import { createPostgresEnterpriseRepositoryRegistry } from "@/features/enterprise-persistence/postgresql";
 import type { PostgresQueryExecutor } from "@/features/enterprise-persistence/postgresql";
 import type { EnterpriseRepositoryRegistry } from "@/features/enterprise-persistence/ports";
-import type { EnterpriseUnitOfWork, UnitOfWork } from "@/features/enterprise-unit-of-work/contracts";
+import type { EnterpriseUnitOfWork, UnitOfWork, UnitOfWorkContext, UnitOfWorkResult } from "@/features/enterprise-unit-of-work/contracts";
 
 export interface PostgresUnitOfWorkOptions {
   connectionString: string;
@@ -31,15 +32,16 @@ export function createPostgresUnitOfWork<Context>(
   createContext: (client: PostgresTransactionClient) => Context,
 ): UnitOfWork<Context> {
   return Object.freeze({
-    async execute<Result>(work: (context: Context) => Promise<Result>): Promise<Result> {
+    async execute<Result>(work: (context: UnitOfWorkContext<Context>) => Promise<Result>): Promise<UnitOfWorkResult<Result>> {
       const client = await pool.connect();
+      const events = createDomainEventCollection();
       let outcome: ExecutionOutcome<Result> | undefined;
       let transactionStarted = false;
       try {
         await client.query("begin");
         transactionStarted = true;
         try {
-          const value = await work(createContext(client));
+          const value = await work({ resources: createContext(client), events });
           await client.query("commit");
           transactionStarted = false;
           outcome = { succeeded: true, value };
@@ -64,8 +66,11 @@ export function createPostgresUnitOfWork<Context>(
       }
 
       if (!outcome) throw new Error("UnitOfWork completed without an outcome.");
-      if (!outcome.succeeded) throw outcome.error;
-      return outcome.value;
+      if (!outcome.succeeded) {
+        events.clear();
+        throw outcome.error;
+      }
+      return Object.freeze({ value: outcome.value, committedEvents: events.drain() });
     },
   });
 }

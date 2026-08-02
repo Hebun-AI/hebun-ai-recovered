@@ -1,12 +1,14 @@
 import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
 import type { EnterpriseUnitOfWork } from "@/features/enterprise-unit-of-work";
 
-export function loadTimelineProjection(unitOfWork: EnterpriseUnitOfWork) {
-  return unitOfWork.execute(async ({ timeline }) =>
+export async function loadTimelineProjection(unitOfWork: EnterpriseUnitOfWork) {
+  const execution = await unitOfWork.execute(async ({ resources: { timeline } }) =>
     requirePersistenceSuccess(await timeline.loadTimeline(), "Timeline projection"));
+  return execution.value;
 }
 
-export function loadTimelineContextProjection(unitOfWork: EnterpriseUnitOfWork) {
-  return unitOfWork.execute(async ({ timeline }) =>
+export async function loadTimelineContextProjection(unitOfWork: EnterpriseUnitOfWork) {
+  const execution = await unitOfWork.execute(async ({ resources: { timeline } }) =>
     requirePersistenceSuccess(await timeline.loadRecentContext(), "Timeline context projection"));
+  return execution.value;
 }
