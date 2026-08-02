@@ -1,6 +1,6 @@
-import { hebyEnterpriseContext } from "@/features/enterprise-intelligence/mock";
-import type { HebyEnterpriseContextProjection } from "@/features/enterprise-projections";
+import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
+import type { HebyContextRepository } from "@/features/enterprise-persistence/ports";
 
-export function loadHebyContextProjection(): HebyEnterpriseContextProjection {
-  return hebyEnterpriseContext;
+export function loadHebyContextProjection(repository: HebyContextRepository) {
+  return requirePersistenceSuccess(repository.loadHebyContext(), "Heby context projection");
 }

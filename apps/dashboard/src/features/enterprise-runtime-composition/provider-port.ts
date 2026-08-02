@@ -1,5 +1,4 @@
-import type { EnterpriseIntelligenceApplicationProjection } from "@/features/enterprise-application-services/enterprise-intelligence-service";
-import type { TimelineContextProjection } from "@/features/enterprise-application-services/timeline-service";
+import type { EnterpriseIntelligenceApplicationProjection } from "@/features/enterprise-intelligence/view-model";
 import type {
   DecisionOverviewProjection,
   DirectorWorkspaceProjection,
@@ -8,6 +7,7 @@ import type {
   OrganizationOverviewProjection,
   TimelineOverviewProjection,
 } from "@/features/enterprise-projections";
+import type { TimelineContextProjection } from "@/features/timeline-domain/view-model";
 
 export interface EnterpriseProjectionProvider {
   getDirectorWorkspaceProjection(): DirectorWorkspaceProjection;

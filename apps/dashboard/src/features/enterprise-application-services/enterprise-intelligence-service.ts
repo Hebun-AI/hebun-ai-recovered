@@ -1,26 +1,6 @@
-import { enterpriseIntelligenceOverview, enterpriseIntelligenceProjection, unifiedEnterpriseHealth } from "@/features/enterprise-intelligence/mock";
-import type { EnterpriseHealthProjection, EnterpriseIntelligenceOverviewProjection } from "@/features/enterprise-projections";
+import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
+import type { EnterpriseIntelligenceRepository } from "@/features/enterprise-persistence/ports";
 
-type EnterpriseIntelligenceMetric = EnterpriseHealthProjection & {
-  domain: "Organization" | "Knowledge" | "Timeline" | "Decision";
-  label: string;
-  detail: string;
-  href: string;
-};
-
-type UnifiedHealthItem = EnterpriseHealthProjection & {
-  contribution: string;
-};
-
-export interface EnterpriseIntelligenceApplicationProjection extends EnterpriseIntelligenceOverviewProjection {
-  domainHealth: EnterpriseIntelligenceMetric[];
-  unifiedHealth: UnifiedHealthItem[];
-}
-
-export function loadEnterpriseIntelligenceProjection(): EnterpriseIntelligenceApplicationProjection {
-  return {
-    ...enterpriseIntelligenceProjection,
-    domainHealth: enterpriseIntelligenceOverview,
-    unifiedHealth: unifiedEnterpriseHealth,
-  };
+export function loadEnterpriseIntelligenceProjection(repository: EnterpriseIntelligenceRepository) {
+  return requirePersistenceSuccess(repository.loadEnterpriseIntelligence(), "Enterprise Intelligence projection");
 }

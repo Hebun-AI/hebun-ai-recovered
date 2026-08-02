@@ -13,6 +13,7 @@ function sourceFiles(directory: string): string[] {
 const compositionFiles = sourceFiles("src/features/enterprise-runtime-composition");
 const providerFiles = sourceFiles("src/features/enterprise-projection-providers");
 const serviceFiles = sourceFiles("src/features/enterprise-application-services");
+const persistenceFiles = sourceFiles("src/features/enterprise-persistence");
 const presentationFiles = [
   "src/app/(dashboard)/director/page.tsx",
   "src/app/(dashboard)/director/organization/page.tsx",
@@ -37,6 +38,11 @@ for (const file of providerFiles) {
 }
 
 for (const file of serviceFiles) {
+  const source = readFileSync(file, "utf8");
+  assert.equal(source.includes("enterprise-runtime-composition"), false, `${file} must not import the composition root`);
+}
+
+for (const file of persistenceFiles) {
   const source = readFileSync(file, "utf8");
   assert.equal(source.includes("enterprise-runtime-composition"), false, `${file} must not import the composition root`);
 }

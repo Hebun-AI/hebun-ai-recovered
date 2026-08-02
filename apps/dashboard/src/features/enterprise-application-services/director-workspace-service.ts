@@ -1,6 +1,6 @@
-import { directorWorkspaceProjection } from "@/features/director-workspace/mock";
-import type { DirectorWorkspaceProjection } from "@/features/enterprise-projections";
+import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
+import type { EnterpriseIntelligenceRepository } from "@/features/enterprise-persistence/ports";
 
-export function loadDirectorWorkspaceProjection(): DirectorWorkspaceProjection {
-  return directorWorkspaceProjection;
+export function loadDirectorWorkspaceProjection(repository: EnterpriseIntelligenceRepository) {
+  return requirePersistenceSuccess(repository.loadDirectorWorkspace(), "Director Workspace projection");
 }

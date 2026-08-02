@@ -1,4 +1,5 @@
-export { composeEnterpriseProjectionProvider, getActiveEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/composition-root";
+export { composeEnterpriseProjectionProvider, composeEnterpriseRuntime, getActiveEnterpriseProjectionProvider, getActiveEnterpriseRepositories } from "@/features/enterprise-runtime-composition/composition-root";
+export type { EnterpriseRuntimeComposition } from "@/features/enterprise-runtime-composition/composition-root";
 export { resolveEnterpriseProjectionProviderMode } from "@/features/enterprise-runtime-composition/configuration";
 export type { EnterpriseProjectionProviderMode } from "@/features/enterprise-runtime-composition/configuration";
 export type { EnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/provider-port";

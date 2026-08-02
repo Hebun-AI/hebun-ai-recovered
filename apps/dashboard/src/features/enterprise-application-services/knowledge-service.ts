@@ -1,6 +1,6 @@
-import type { KnowledgeOverviewProjection } from "@/features/enterprise-projections";
-import { knowledgeProjection } from "@/features/knowledge-domain/mock";
+import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
+import type { KnowledgeRepository } from "@/features/enterprise-persistence/ports";
 
-export function loadKnowledgeProjection(): KnowledgeOverviewProjection {
-  return knowledgeProjection;
+export function loadKnowledgeProjection(repository: KnowledgeRepository) {
+  return requirePersistenceSuccess(repository.loadKnowledge(), "Knowledge projection");
 }

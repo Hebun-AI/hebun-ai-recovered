@@ -1,29 +1,10 @@
-import type { TimelineOverviewProjection } from "@/features/enterprise-projections";
-import { hebyTimelineSuggestions, recentTimelineDecisions, recentTimelineKnowledge, timelineProjection } from "@/features/timeline-domain/mock";
+import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
+import type { TimelineRepository } from "@/features/enterprise-persistence/ports";
 
-export interface TimelineContextProjection {
-  recentDecisions: readonly {
-    id: string;
-    title: string;
-    state: string;
-    relationship: string;
-  }[];
-  recentKnowledge: readonly {
-    title: string;
-    source: string;
-    change: string;
-  }[];
-  hebySuggestions: readonly string[];
+export function loadTimelineProjection(repository: TimelineRepository) {
+  return requirePersistenceSuccess(repository.loadTimeline(), "Timeline projection");
 }
 
-export function loadTimelineProjection(): TimelineOverviewProjection {
-  return timelineProjection;
-}
-
-export function loadTimelineContextProjection(): TimelineContextProjection {
-  return {
-    recentDecisions: recentTimelineDecisions,
-    recentKnowledge: recentTimelineKnowledge,
-    hebySuggestions: hebyTimelineSuggestions,
-  };
+export function loadTimelineContextProjection(repository: TimelineRepository) {
+  return requirePersistenceSuccess(repository.loadRecentContext(), "Timeline context projection");
 }

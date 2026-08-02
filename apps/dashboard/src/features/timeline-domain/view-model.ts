@@ -11,3 +11,18 @@ export interface TimelineFilterState {
   source: string;
   attention: "Any attention" | "Director attention" | "No attention required";
 }
+
+export interface TimelineContextProjection {
+  recentDecisions: readonly {
+    id: string;
+    title: string;
+    state: string;
+    relationship: string;
+  }[];
+  recentKnowledge: readonly {
+    title: string;
+    source: string;
+    change: string;
+  }[];
+  hebySuggestions: readonly string[];
+}
