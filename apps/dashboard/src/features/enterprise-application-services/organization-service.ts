@@ -1,6 +1,7 @@
 import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
-import type { OrganizationRepository } from "@/features/enterprise-persistence/ports";
+import type { EnterpriseUnitOfWork } from "@/features/enterprise-unit-of-work";
 
-export async function loadOrganizationProjection(repository: OrganizationRepository) {
-  return requirePersistenceSuccess(await repository.loadOrganization(), "Organization projection");
+export function loadOrganizationProjection(unitOfWork: EnterpriseUnitOfWork) {
+  return unitOfWork.execute(async ({ organization }) =>
+    requirePersistenceSuccess(await organization.loadOrganization(), "Organization projection"));
 }

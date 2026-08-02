@@ -1,4 +1,4 @@
-export { composeEnterpriseProjectionProvider, composeEnterpriseRuntime, getActiveEnterpriseProjectionProvider, getActiveEnterpriseRepositories } from "@/features/enterprise-runtime-composition/composition-root";
+export { composeEnterpriseProjectionProvider, composeEnterpriseRuntime, getActiveEnterpriseProjectionProvider, getActiveEnterpriseRepositories, getActiveEnterpriseUnitOfWork } from "@/features/enterprise-runtime-composition/composition-root";
 export type { EnterpriseRuntimeComposition, EnterpriseRuntimeCompositionOptions } from "@/features/enterprise-runtime-composition/composition-root";
 export { resolveEnterpriseRepositoryMode } from "@/features/enterprise-runtime-composition/configuration";
 export type { EnterpriseRepositoryMode } from "@/features/enterprise-runtime-composition/configuration";

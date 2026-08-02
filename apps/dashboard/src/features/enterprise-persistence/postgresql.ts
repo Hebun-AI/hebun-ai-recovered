@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { Pool, type QueryResult } from "pg";
 import type { PersistenceResult } from "@/features/enterprise-persistence/contracts";
 import { persistenceSuccess } from "@/features/enterprise-persistence/contracts";
 import type { EnterpriseIntelligenceApplicationProjection } from "@/features/enterprise-intelligence/view-model";
@@ -26,6 +26,10 @@ interface ProjectionRow<T> {
   payload: T;
 }
 
+export interface PostgresQueryExecutor {
+  query<Row = Record<string, unknown>>(sql: string, params?: readonly unknown[]): Promise<QueryResult<Row>>;
+}
+
 function classifyPostgresFailure(error: unknown): PersistenceResult<never> {
   if (!(error instanceof Error)) {
     return { status: "PermanentFailure", message: "Unknown PostgreSQL repository failure." };
@@ -49,13 +53,32 @@ export function createPostgresEnterpriseRepositories(
     idleTimeoutMillis: 1000,
   });
 
+  const repositories = createPostgresEnterpriseRepositoryRegistry({
+    async query<Row>(sql: string, params?: readonly unknown[]) {
+      const client = await pool.connect();
+      try {
+        return await client.query<Row>(sql, params);
+      } finally {
+        client.release();
+      }
+    },
+  });
+
+  return Object.freeze({
+    repositories,
+    close: () => pool.end(),
+  });
+}
+
+export function createPostgresEnterpriseRepositoryRegistry(
+  executor: PostgresQueryExecutor,
+): EnterpriseRepositoryRegistry {
   async function loadProjection<T>(key: string): Promise<PersistenceResult<T>> {
     try {
-      const client = await pool.connect();
-      const result = await client.query<ProjectionRow<T>>(
+      const result = await executor.query<ProjectionRow<T>>(
         `select payload from enterprise_projection_snapshots where projection_key = $1`,
         [key],
-      ).finally(() => client.release());
+      );
       const row = result.rows[0];
       return row
         ? persistenceSuccess(row.payload)
@@ -65,7 +88,7 @@ export function createPostgresEnterpriseRepositories(
     }
   }
 
-  const repositories: EnterpriseRepositoryRegistry = Object.freeze({
+  return Object.freeze({
     organization: Object.freeze({
       loadOrganization: () => loadProjection<OrganizationOverviewProjection>("organization"),
     }),
@@ -88,8 +111,4 @@ export function createPostgresEnterpriseRepositories(
     }),
   });
 
-  return Object.freeze({
-    repositories,
-    close: () => pool.end(),
-  });
 }

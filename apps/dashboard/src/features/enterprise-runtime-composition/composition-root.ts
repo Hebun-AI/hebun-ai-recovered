@@ -1,8 +1,10 @@
-import { createInMemoryEnterpriseRepositories, createPostgresEnterpriseRepositories } from "@/features/enterprise-persistence";
+import { createInMemoryEnterpriseRepositories } from "@/features/enterprise-persistence";
 import type { EnterpriseRepositoryRegistry } from "@/features/enterprise-persistence";
 import { resolveEnterpriseRepositoryMode } from "@/features/enterprise-runtime-composition/configuration";
 import { createEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/projection-provider";
 import type { EnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/provider-port";
+import { createInMemoryUnitOfWork, createPostgresEnterpriseUnitOfWork } from "@/features/enterprise-unit-of-work";
+import type { EnterpriseUnitOfWork } from "@/features/enterprise-unit-of-work";
 
 export interface EnterpriseRuntimeCompositionOptions {
   repositoryMode?: unknown;
@@ -12,14 +14,17 @@ export interface EnterpriseRuntimeCompositionOptions {
 export interface EnterpriseRuntimeComposition {
   projectionProvider: EnterpriseProjectionProvider;
   repositories: EnterpriseRepositoryRegistry;
+  unitOfWork: EnterpriseUnitOfWork;
   close(): Promise<void>;
 }
 
 const repositories = createInMemoryEnterpriseRepositories();
-const projectionProvider = createEnterpriseProjectionProvider(repositories);
+const unitOfWork = createInMemoryUnitOfWork(repositories);
+const projectionProvider = createEnterpriseProjectionProvider(unitOfWork);
 const activeEnterpriseRuntimeComposition: EnterpriseRuntimeComposition = Object.freeze({
   projectionProvider,
   repositories,
+  unitOfWork,
   close: async () => undefined,
 });
 
@@ -33,10 +38,11 @@ export function composeEnterpriseRuntime(options: EnterpriseRuntimeCompositionOp
       if (!options.postgresConnectionString) {
         throw new Error("PostgreSQL enterprise repositories require a connection string.");
       }
-      const postgres = createPostgresEnterpriseRepositories({ connectionString: options.postgresConnectionString });
+      const postgres = createPostgresEnterpriseUnitOfWork({ connectionString: options.postgresConnectionString });
       return Object.freeze({
-        projectionProvider: createEnterpriseProjectionProvider(postgres.repositories),
+        projectionProvider: createEnterpriseProjectionProvider(postgres.unitOfWork),
         repositories: postgres.repositories,
+        unitOfWork: postgres.unitOfWork,
         close: postgres.close,
       });
     }
@@ -53,4 +59,8 @@ export function getActiveEnterpriseProjectionProvider(): EnterpriseProjectionPro
 
 export function getActiveEnterpriseRepositories(): EnterpriseRepositoryRegistry {
   return activeEnterpriseRuntimeComposition.repositories;
+}
+
+export function getActiveEnterpriseUnitOfWork(): EnterpriseUnitOfWork {
+  return activeEnterpriseRuntimeComposition.unitOfWork;
 }

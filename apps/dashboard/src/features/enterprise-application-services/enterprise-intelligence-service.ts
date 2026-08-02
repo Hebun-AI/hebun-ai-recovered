@@ -1,6 +1,7 @@
 import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
-import type { EnterpriseIntelligenceRepository } from "@/features/enterprise-persistence/ports";
+import type { EnterpriseUnitOfWork } from "@/features/enterprise-unit-of-work";
 
-export async function loadEnterpriseIntelligenceProjection(repository: EnterpriseIntelligenceRepository) {
-  return requirePersistenceSuccess(await repository.loadEnterpriseIntelligence(), "Enterprise Intelligence projection");
+export function loadEnterpriseIntelligenceProjection(unitOfWork: EnterpriseUnitOfWork) {
+  return unitOfWork.execute(async ({ enterpriseIntelligence }) =>
+    requirePersistenceSuccess(await enterpriseIntelligence.loadEnterpriseIntelligence(), "Enterprise Intelligence projection"));
 }

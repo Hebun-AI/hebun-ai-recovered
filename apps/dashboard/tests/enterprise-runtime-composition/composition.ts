@@ -4,6 +4,7 @@ import {
   composeEnterpriseRuntime,
   getActiveEnterpriseProjectionProvider,
   getActiveEnterpriseRepositories,
+  getActiveEnterpriseUnitOfWork,
   resolveEnterpriseRepositoryMode,
 } from "../../src/features/enterprise-runtime-composition";
 import { ENTERPRISE_PROJECTION_VERSION } from "../../src/features/enterprise-projections";
@@ -19,6 +20,7 @@ assert.equal(defaultProvider, explicitInMemoryProvider);
 assert.equal(getActiveEnterpriseProjectionProvider(), defaultProvider);
 assert.equal(activeRuntime.projectionProvider, defaultProvider);
 assert.equal(activeRuntime.repositories, getActiveEnterpriseRepositories());
+assert.equal(activeRuntime.unitOfWork, getActiveEnterpriseUnitOfWork());
 assert.equal(Object.isFrozen(activeRuntime), true);
 assert.equal(Object.isFrozen(activeRuntime.repositories), true);
 assert.throws(

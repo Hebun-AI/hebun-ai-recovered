@@ -1,6 +1,7 @@
 import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
-import type { KnowledgeRepository } from "@/features/enterprise-persistence/ports";
+import type { EnterpriseUnitOfWork } from "@/features/enterprise-unit-of-work";
 
-export async function loadKnowledgeProjection(repository: KnowledgeRepository) {
-  return requirePersistenceSuccess(await repository.loadKnowledge(), "Knowledge projection");
+export function loadKnowledgeProjection(unitOfWork: EnterpriseUnitOfWork) {
+  return unitOfWork.execute(async ({ knowledge }) =>
+    requirePersistenceSuccess(await knowledge.loadKnowledge(), "Knowledge projection"));
 }

@@ -1,6 +1,7 @@
 import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
-import type { DecisionRepository } from "@/features/enterprise-persistence/ports";
+import type { EnterpriseUnitOfWork } from "@/features/enterprise-unit-of-work";
 
-export async function loadDecisionProjection(repository: DecisionRepository) {
-  return requirePersistenceSuccess(await repository.loadDecisions(), "Decision projection");
+export function loadDecisionProjection(unitOfWork: EnterpriseUnitOfWork) {
+  return unitOfWork.execute(async ({ decision }) =>
+    requirePersistenceSuccess(await decision.loadDecisions(), "Decision projection"));
 }

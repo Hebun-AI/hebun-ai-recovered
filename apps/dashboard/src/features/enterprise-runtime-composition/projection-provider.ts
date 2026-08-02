@@ -8,18 +8,18 @@ import {
   loadTimelineContextProjection,
   loadTimelineProjection,
 } from "@/features/enterprise-application-services";
-import type { EnterpriseRepositoryRegistry } from "@/features/enterprise-persistence";
 import type { EnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/provider-port";
+import type { EnterpriseUnitOfWork } from "@/features/enterprise-unit-of-work";
 
-export function createEnterpriseProjectionProvider(repositories: EnterpriseRepositoryRegistry): EnterpriseProjectionProvider {
+export function createEnterpriseProjectionProvider(unitOfWork: EnterpriseUnitOfWork): EnterpriseProjectionProvider {
   return Object.freeze({
-    getDirectorWorkspaceProjection: () => loadDirectorWorkspaceProjection(repositories.enterpriseIntelligence),
-    getOrganizationProjection: () => loadOrganizationProjection(repositories.organization),
-    getKnowledgeProjection: () => loadKnowledgeProjection(repositories.knowledge),
-    getTimelineProjection: () => loadTimelineProjection(repositories.timeline),
-    getTimelineContextProjection: () => loadTimelineContextProjection(repositories.timeline),
-    getDecisionProjection: () => loadDecisionProjection(repositories.decision),
-    getEnterpriseIntelligenceProjection: () => loadEnterpriseIntelligenceProjection(repositories.enterpriseIntelligence),
-    getHebyContextProjection: () => loadHebyContextProjection(repositories.hebyContext),
+    getDirectorWorkspaceProjection: () => loadDirectorWorkspaceProjection(unitOfWork),
+    getOrganizationProjection: () => loadOrganizationProjection(unitOfWork),
+    getKnowledgeProjection: () => loadKnowledgeProjection(unitOfWork),
+    getTimelineProjection: () => loadTimelineProjection(unitOfWork),
+    getTimelineContextProjection: () => loadTimelineContextProjection(unitOfWork),
+    getDecisionProjection: () => loadDecisionProjection(unitOfWork),
+    getEnterpriseIntelligenceProjection: () => loadEnterpriseIntelligenceProjection(unitOfWork),
+    getHebyContextProjection: () => loadHebyContextProjection(unitOfWork),
   });
 }
