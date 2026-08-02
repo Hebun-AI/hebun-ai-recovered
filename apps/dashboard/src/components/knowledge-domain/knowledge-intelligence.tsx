@@ -1,7 +1,7 @@
 import { ArrowRight, Network, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { WorkspaceCard } from "@/components/director-workspace/workspace-card";
-import type { KnowledgeCategory, KnowledgeRelationship, RecentKnowledge } from "@/features/knowledge-domain/mock";
+import type { KnowledgeCategoryProjection as KnowledgeCategory, KnowledgeChangeProjection as RecentKnowledge, KnowledgeRelationshipProjection as KnowledgeRelationship } from "@/features/enterprise-projections";
 
 const trustVariant = { Verified: "success", Reviewed: "primary", Unverified: "warning" } as const;
 const relationshipVariant = { Strong: "success", Developing: "warning", Gap: "error" } as const;

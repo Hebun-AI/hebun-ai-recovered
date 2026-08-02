@@ -1,80 +1,14 @@
-export type DecisionStatus = "Waiting Review" | "Evidence Required" | "Deferred" | "Approved" | "Rejected";
-export type DecisionPriority = "Critical" | "High" | "Medium" | "Low";
-export type DecisionRisk = "Critical" | "High" | "Medium" | "Low";
-export type DecisionImpact = "Transformational" | "High" | "Medium" | "Low";
-export type DecisionDateRange = "All dates" | "Due today" | "Due this week" | "No deadline";
+import { ENTERPRISE_PROJECTION_VERSION } from "@/features/enterprise-projections";
+import type { DecisionAttentionSignal, DecisionEvidenceProjection, DecisionImpact, DecisionOverviewMetricProjection, DecisionOverviewProjection, DecisionOwnerProjection, DecisionPriority, DecisionProjection, DecisionRelationshipProjection, DecisionRisk, DecisionStatus } from "@/features/enterprise-projections";
+import type { DecisionDateRange, DecisionFilterState } from "@/features/decision-domain/view-model";
 
-export interface DecisionOwner {
-  name: string;
-  role: string;
-  domain: string;
-}
-
-export interface DecisionEvidence {
-  title: string;
-  source: string;
-  trust: "Verified" | "Reviewed" | "Incomplete";
-  summary: string;
-}
-
-export interface DecisionRelationship {
-  kind: "Organization" | "Knowledge" | "Timeline" | "Policy" | "Project" | "Agent" | "System";
-  label: string;
-  relationship: string;
-}
-
-export interface Decision {
-  id: string;
-  title: string;
-  summary: string;
-  explanation: string;
-  category: string;
-  priority: DecisionPriority;
-  impact: DecisionImpact;
-  confidence: number;
-  status: DecisionStatus;
-  owner: DecisionOwner;
-  requestedBy: string;
-  decisionDate: string;
-  dueDate: string;
-  dateRange: Exclude<DecisionDateRange, "All dates">;
-  domains: string[];
-  directorAttention: boolean;
-  risk: DecisionRisk;
-  expectedImpact: string;
-  risks: string[];
-  alternatives: string[];
-  evidence: DecisionEvidence[];
-  relatedOrganization: string[];
-  relatedKnowledge: string[];
-  relatedTimeline: string[];
-  relatedPolicies: string[];
-  followUp: string[];
-  relationships: DecisionRelationship[];
-}
-
-export interface DecisionFilterState {
-  status: DecisionStatus | "All statuses";
-  priority: DecisionPriority | "All priorities";
-  impact: DecisionImpact | "All impacts";
-  risk: DecisionRisk | "All risks";
-  domain: string;
-  owner: string;
-  requestedBy: string;
-  attention: "Any attention" | "Director attention" | "No attention required";
-  date: DecisionDateRange;
-}
-
-export interface DecisionIndicator {
-  label: string;
-  value: string;
-  detail: string;
-  state: "Healthy" | "Watch" | "Attention";
-}
-
-export interface DecisionIntelligenceSignal extends DecisionIndicator {
-  type: "Missing evidence" | "Review age" | "High risk" | "Conflict" | "Duplicate" | "Ownership" | "Knowledge gap";
-}
+export type DecisionOwner = DecisionOwnerProjection;
+export type DecisionEvidence = DecisionEvidenceProjection;
+export type DecisionRelationship = DecisionRelationshipProjection;
+export type Decision = DecisionProjection;
+export type DecisionIndicator = DecisionOverviewMetricProjection;
+export type DecisionIntelligenceSignal = DecisionAttentionSignal;
+export type { DecisionDateRange, DecisionFilterState, DecisionImpact, DecisionPriority, DecisionRisk, DecisionStatus };
 
 export const decisionOverview: DecisionIndicator[] = [
   { label: "Decisions Waiting", value: "3", detail: "Two require review today", state: "Watch" },
@@ -117,3 +51,19 @@ export const decisionDomainConnections: DecisionRelationship[] = [
 ];
 
 export const hebyDecisionSuggestions = ["Summarize pending decisions", "Explain this recommendation", "Show missing evidence", "Compare alternatives"] as const;
+
+export const decisionProjection: DecisionOverviewProjection = {
+  projectionId: "decision-overview",
+  version: ENTERPRISE_PROJECTION_VERSION,
+  generatedAt: "2026-08-02T09:30:00+03:00",
+  source: { kind: "Mock Adapter", name: "Decision Center" },
+  freshness: "Current",
+  status: "Ready",
+  overview: decisionOverview,
+  decisions,
+  attentionSignals: decisionIntelligence,
+  relationships: decisionDomainConnections,
+  suggestions: hebyDecisionSuggestions,
+  authority: "Director",
+  executionAllowed: false,
+};

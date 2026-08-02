@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, ChevronDown, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Decision, DecisionDateRange, DecisionFilterState, DecisionImpact, DecisionPriority, DecisionRisk, DecisionStatus } from "@/features/decision-domain/mock";
+import type { DecisionImpact, DecisionPriority, DecisionProjection as Decision, DecisionRisk, DecisionStatus } from "@/features/enterprise-projections";
+import type { DecisionDateRange, DecisionFilterState } from "@/features/decision-domain/view-model";
 
 const statusOptions: Array<DecisionStatus | "All statuses"> = ["All statuses", "Waiting Review", "Evidence Required", "Deferred", "Approved", "Rejected"];
 const priorityOptions: Array<DecisionPriority | "All priorities"> = ["All priorities", "Critical", "High", "Medium", "Low"];

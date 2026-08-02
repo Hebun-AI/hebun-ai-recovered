@@ -1,80 +1,17 @@
-export type HealthStatus = "Healthy" | "Watch" | "Stable";
+import { ENTERPRISE_PROJECTION_VERSION } from "@/features/enterprise-projections";
+import type { DirectorAdvisorAwarenessProjection, DirectorDailyBriefProjection, DirectorDecisionSummaryProjection, DirectorExecutiveIntelligenceProjection, DirectorHealthProjection, DirectorHealthStatus, DirectorKnowledgeEntityProjection, DirectorPriorityProjection, DirectorRecommendationProjection, DirectorStatusMetricProjection, DirectorTimelineEventProjection, DirectorWorkspaceProjection } from "@/features/enterprise-projections";
 
-export interface HealthSummary {
-  label: string;
-  status: HealthStatus;
-  value: string;
-  supportingText: string;
-  progress: number;
-  trend: string;
-}
-
-export interface Priority {
-  rank: number;
-  title: string;
-  domain: string;
-  dueState: string;
-  severity: "Critical" | "High" | "Medium";
-}
-
-export interface Decision {
-  title: string;
-  impact: string;
-  deadline: string;
-  status: "Review today" | "Due soon" | "Draft";
-}
-
-export interface Recommendation {
-  priority: "Critical" | "High" | "Medium";
-  recommendation: string;
-  reason: string;
-  businessImpact: string;
-  affectedDomains: string[];
-  confidence: number;
-  directorAction: string;
-}
-
-export interface TimelineEvent {
-  type: "Meeting" | "Decision" | "Architecture" | "Review" | "Publication";
-  title: string;
-  time: string;
-  impact: string;
-  status: "Complete" | "Review" | "Published";
-  source: string;
-}
-
-export interface ExecutiveIntelligenceItem {
-  label: "Critical Today" | "Enterprise Risks" | "Top Opportunity" | "Pending Approvals" | "Knowledge Changes" | "Recent Decisions" | "Strategic Recommendation";
-  value: string;
-  insight: string;
-  tone: "critical" | "attention" | "positive" | "neutral";
-}
-
-export interface ExecutiveStatusMetric {
-  label: string;
-  value: string;
-  context: string;
-  state: "Healthy" | "Attention" | "Ready" | "Pending";
-}
-
-export interface DailyBriefItem {
-  label: string;
-  value: string;
-  detail: string;
-  direction: "positive" | "neutral" | "attention";
-}
-
-export interface AdvisorAwareness {
-  label: string;
-  value: string;
-  detail: string;
-}
-
-export interface KnowledgeEntity {
-  label: "Decision" | "Policy" | "Department" | "Document" | "Workflow" | "Agent" | "Knowledge";
-  value: string;
-  relationship: string;
-}
+export type HealthStatus = DirectorHealthStatus;
+export type HealthSummary = DirectorHealthProjection;
+export type Priority = DirectorPriorityProjection;
+export type Decision = DirectorDecisionSummaryProjection;
+export type Recommendation = DirectorRecommendationProjection;
+export type TimelineEvent = DirectorTimelineEventProjection;
+export type ExecutiveIntelligenceItem = DirectorExecutiveIntelligenceProjection;
+export type ExecutiveStatusMetric = DirectorStatusMetricProjection;
+export type DailyBriefItem = DirectorDailyBriefProjection;
+export type AdvisorAwareness = DirectorAdvisorAwarenessProjection;
+export type KnowledgeEntity = DirectorKnowledgeEntityProjection;
 
 export const lastUpdatedAtIso = "2026-08-01T13:45:00.000Z";
 
@@ -164,3 +101,23 @@ export const quickActions = [
   { label: "Review Approvals", href: "/approvals" },
   { label: "Manage Agents", href: "/agents" },
 ] as const;
+
+export const directorWorkspaceProjection: DirectorWorkspaceProjection = {
+  projectionId: "director-workspace",
+  version: ENTERPRISE_PROJECTION_VERSION,
+  generatedAt: lastUpdatedAtIso,
+  source: { kind: "Mock Adapter", name: "Director Workspace" },
+  freshness: "Current",
+  status: "Ready",
+  statusMetrics: executiveStatus,
+  dailyBrief,
+  advisorAwareness,
+  intelligence: executiveIntelligence,
+  health: healthSummaries,
+  priorities,
+  decisions,
+  recommendations,
+  timeline: timelineEvents,
+  knowledge: knowledgeEntities,
+  quickActions,
+};

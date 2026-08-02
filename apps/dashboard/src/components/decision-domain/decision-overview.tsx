@@ -1,5 +1,5 @@
 import { AlertTriangle, Ban, CheckCircle2, CircleGauge, Clock3, FileCheck2, PauseCircle, Scale } from "lucide-react";
-import type { DecisionIndicator } from "@/features/decision-domain/mock";
+import type { DecisionOverviewMetricProjection as DecisionIndicator } from "@/features/enterprise-projections";
 import { cn } from "@/lib/utils";
 
 const icons = [FileCheck2, AlertTriangle, Scale, PauseCircle, CheckCircle2, Ban, Clock3, CircleGauge];

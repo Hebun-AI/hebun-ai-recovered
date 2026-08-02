@@ -1,5 +1,5 @@
 import { AlertTriangle, BookOpenCheck, Building2, CalendarDays, CircleGauge, FileCheck2, Link2, ListChecks } from "lucide-react";
-import type { TimelineOverviewMetric } from "@/features/timeline-domain/mock";
+import type { TimelineOverviewMetricProjection as TimelineOverviewMetric } from "@/features/enterprise-projections";
 import { cn } from "@/lib/utils";
 
 const icons = [CalendarDays, FileCheck2, BookOpenCheck, Building2, ListChecks, AlertTriangle, CircleGauge, Link2];

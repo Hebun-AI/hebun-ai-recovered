@@ -1,45 +1,13 @@
-export type KnowledgeHealth = "Healthy" | "Watch" | "Attention";
-export type TrustLevel = "Verified" | "Reviewed" | "Unverified";
+import { ENTERPRISE_PROJECTION_VERSION } from "@/features/enterprise-projections";
+import type { KnowledgeCategoryProjection, KnowledgeChangeProjection, KnowledgeHealth, KnowledgeHealthProjection, KnowledgeOverviewProjection, KnowledgeRelationshipProjection, KnowledgeSourceProjection, KnowledgeTrustProjection } from "@/features/enterprise-projections";
 
-export interface KnowledgeMetric {
-  label: string;
-  value: string;
-  detail: string;
-  state: KnowledgeHealth;
-}
-
-export interface KnowledgeSource {
-  type: "Books" | "PDFs" | "YouTube" | "Internal Documents" | "Policies" | "SOPs" | "Enterprise Wiki";
-  assets: number;
-  trustedPercent: number;
-  freshness: string;
-  state: KnowledgeHealth;
-  purpose: string;
-}
-
-export interface KnowledgeCategory {
-  name: string;
-  assets: number;
-  coverage: number;
-  gap: string;
-}
-
-export interface RecentKnowledge {
-  title: string;
-  source: KnowledgeSource["type"];
-  category: string;
-  added: string;
-  owner: string;
-  trust: TrustLevel;
-}
-
-export interface KnowledgeRelationship {
-  source: string;
-  relationship: string;
-  target: string;
-  context: string;
-  strength: "Strong" | "Developing" | "Gap";
-}
+export type KnowledgeMetric = KnowledgeHealthProjection;
+export type KnowledgeSource = KnowledgeSourceProjection;
+export type KnowledgeCategory = KnowledgeCategoryProjection;
+export type RecentKnowledge = KnowledgeChangeProjection;
+export type KnowledgeRelationship = KnowledgeRelationshipProjection;
+export type TrustLevel = KnowledgeTrustProjection;
+export type { KnowledgeHealth };
 
 export const knowledgeMetrics: KnowledgeMetric[] = [
   { label: "Knowledge Assets", value: "1,248", detail: "Across seven governed source types", state: "Healthy" },
@@ -83,3 +51,17 @@ export const knowledgeRelationships: KnowledgeRelationship[] = [
   { source: "Research", relationship: "updates", target: "Enterprise Wiki", context: "Validated external learning strengthens shared context", strength: "Developing" },
   { source: "Security Knowledge", relationship: "supports", target: "Risk Readiness", context: "Missing control evidence limits confidence", strength: "Gap" },
 ];
+
+export const knowledgeProjection: KnowledgeOverviewProjection = {
+  projectionId: "knowledge-overview",
+  version: ENTERPRISE_PROJECTION_VERSION,
+  generatedAt: "2026-08-02T09:30:00+03:00",
+  source: { kind: "Mock Adapter", name: "Knowledge Domain" },
+  freshness: "Current",
+  status: "Ready",
+  health: knowledgeMetrics,
+  sources: knowledgeSources,
+  categories: knowledgeCategories,
+  recentChanges: recentlyAddedKnowledge,
+  relationships: knowledgeRelationships,
+};

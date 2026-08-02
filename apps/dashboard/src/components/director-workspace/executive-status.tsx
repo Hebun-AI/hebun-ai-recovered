@@ -1,5 +1,5 @@
 import { AlertTriangle, Building2, CheckCircle2, CircleGauge, ClipboardCheck } from "lucide-react";
-import type { ExecutiveStatusMetric } from "@/features/director-workspace/mock";
+import type { DirectorStatusMetricProjection as ExecutiveStatusMetric } from "@/features/enterprise-projections";
 import { cn } from "@/lib/utils";
 
 const icons = [Building2, AlertTriangle, ClipboardCheck, CheckCircle2, CircleGauge];

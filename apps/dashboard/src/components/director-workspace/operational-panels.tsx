@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CircleDashed, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Decision, Priority, Recommendation } from "@/features/director-workspace/mock";
+import type { DirectorDecisionSummaryProjection as Decision, DirectorPriorityProjection as Priority, DirectorRecommendationProjection as Recommendation } from "@/features/enterprise-projections";
 import { WorkspaceCard } from "./workspace-card";
 
 export function PrioritiesPanel({ items }: { items: Priority[] }) {

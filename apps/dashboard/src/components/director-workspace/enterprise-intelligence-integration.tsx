@@ -2,7 +2,8 @@ import { ArrowRight, BrainCircuit, CircleAlert, Link2, Network } from "lucide-re
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { WorkspaceCard } from "@/components/director-workspace/workspace-card";
-import type { CrossDomainContext, EnterpriseIntelligenceMetric, EnterpriseIntelligenceSignal, IntelligenceState, UnifiedHealthItem } from "@/features/enterprise-intelligence/mock";
+import type { CrossDomainContextProjection, EnterpriseIntelligenceSignal, IntelligenceState } from "@/features/enterprise-projections";
+import type { EnterpriseIntelligenceMetric, UnifiedHealthItem } from "@/features/enterprise-intelligence/view-model";
 
 const stateVariant = { Healthy: "success", Watch: "warning", Attention: "error" } as const;
 
@@ -18,7 +19,7 @@ export function ExecutiveIntelligenceSignals({ items }: { items: EnterpriseIntel
   return <WorkspaceCard title="Executive intelligence signals" description="Explanatory cross-domain indicators. No AI reasoning, prediction, or execution." action={<CircleAlert className="size-5 text-primary" aria-hidden="true" />}><ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{items.map((item) => <li key={item.label} className="rounded-lg border border-border p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-fg">{item.label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-fg">{item.value}</p></div><StateBadge state={item.state} /></div><p className="mt-2 text-xs leading-5 text-fg-secondary">{item.explanation}</p><p className="mt-2 text-[0.65rem] font-medium text-primary">{item.domains.join(" · ")}</p></li>)}</ul></WorkspaceCard>;
 }
 
-export function CrossDomainContextPanel({ items }: { items: CrossDomainContext[] }) {
+export function CrossDomainContextPanel({ items }: { items: CrossDomainContextProjection[] }) {
   const stages = ["Organization", "Knowledge", "Timeline", "Decision"] as const;
   return <WorkspaceCard title="Cross-domain executive context" description="Connected explanations, not graph navigation. Each Domain retains its own ownership." action={<Network className="size-5 text-primary" aria-hidden="true" />}><div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-primary/15 bg-primary-subtle/40 px-3 py-2 text-xs font-semibold text-fg">{[...stages, "Heby"].map((stage, index) => <span key={stage} className="flex items-center gap-2"><span>{stage}</span>{index < stages.length ? <ArrowRight className="size-3.5 text-primary" aria-hidden="true" /> : null}</span>)}</div><ul className="grid gap-4 xl:grid-cols-3">{items.map((item) => { const contextRows = [["Organization", item.organization], ["Knowledge", item.knowledge], ["Timeline", item.timeline], ["Decision", item.decision]]; return <li key={item.title} className="rounded-lg border border-border p-4"><h3 className="text-sm font-semibold text-fg">{item.title}</h3><dl className="mt-3 space-y-2">{contextRows.map(([stage, value]) => <div key={stage} className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2 text-xs"><dt className="font-semibold text-primary">{stage}</dt><dd className="leading-5 text-fg-secondary">{value}</dd></div>)}</dl><p className="mt-3 border-t border-border pt-3 text-xs font-medium leading-5 text-fg">{item.outcome}</p></li>; })}</ul><p className="mt-4 text-[0.7rem] text-fg-muted">Conceptual projection only · no graph engine, retrieval, reasoning, or shared Domain ownership</p></WorkspaceCard>;
 }

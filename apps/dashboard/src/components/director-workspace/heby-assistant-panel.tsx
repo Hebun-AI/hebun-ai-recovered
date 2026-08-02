@@ -3,8 +3,7 @@
 import { FormEvent, useState } from "react";
 import { Bot, CheckCircle2, Clock3, FileText, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { AdvisorAwareness } from "@/features/director-workspace/mock";
-import type { HebyEnterpriseContext } from "@/features/enterprise-intelligence/mock";
+import type { DirectorAdvisorAwarenessProjection, HebyEnterpriseContextProjection } from "@/features/enterprise-projections";
 
 interface UserMessage { id: number; role: "user"; content: string }
 interface AdvisorMessage {
@@ -19,7 +18,7 @@ interface AdvisorMessage {
 }
 type Message = UserMessage | AdvisorMessage;
 
-export function HebyAssistantPanel({ awareness, context }: { awareness: AdvisorAwareness[]; context: HebyEnterpriseContext }) {
+export function HebyAssistantPanel({ awareness, context }: { awareness: DirectorAdvisorAwarenessProjection[]; context: HebyEnterpriseContextProjection }) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([{ id: 1, role: "assistant", ...context }]);
 

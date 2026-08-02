@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
-import type { DailyBriefItem } from "@/features/director-workspace/mock";
+import type { DirectorDailyBriefProjection as DailyBriefItem } from "@/features/enterprise-projections";
 import { cn } from "@/lib/utils";
 import { WorkspaceCard } from "./workspace-card";
 

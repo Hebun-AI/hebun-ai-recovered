@@ -2,53 +2,13 @@ import { decisionIntelligence, decisionOverview, decisions } from "@/features/de
 import { knowledgeCategories, knowledgeMetrics } from "@/features/knowledge-domain/mock";
 import { organizationDepartments, organizationMetrics, organizationRoles, responsibilityOverlaps } from "@/features/organization-domain/mock";
 import { timelineEvents, timelineIntegrity, timelineOverview } from "@/features/timeline-domain/mock";
+import { ENTERPRISE_PROJECTION_VERSION } from "@/features/enterprise-projections";
+import type { CrossDomainContextProjection, EnterpriseIntelligenceOverviewProjection, EnterpriseIntelligenceSignal, ExecutiveAttentionProjection, HebyEnterpriseContextProjection, IntelligenceState } from "@/features/enterprise-projections";
+import type { EnterpriseIntelligenceMetric, UnifiedHealthItem } from "@/features/enterprise-intelligence/view-model";
 
-export type IntelligenceState = "Healthy" | "Watch" | "Attention";
-
-export interface EnterpriseIntelligenceMetric {
-  domain: "Organization" | "Knowledge" | "Timeline" | "Decision";
-  label: string;
-  value: string;
-  detail: string;
-  relationship: string;
-  state: IntelligenceState;
-  href: string;
-}
-
-export interface CrossDomainContext {
-  title: string;
-  organization: string;
-  knowledge: string;
-  timeline: string;
-  decision: string;
-  outcome: string;
-}
-
-export interface EnterpriseIntelligenceSignal {
-  label: string;
-  value: string;
-  explanation: string;
-  domains: string[];
-  state: IntelligenceState;
-}
-
-export interface UnifiedHealthItem {
-  domain: string;
-  value: string;
-  contribution: string;
-  relationship: string;
-  state: IntelligenceState;
-}
-
-export interface HebyEnterpriseContext {
-  prompts: readonly string[];
-  recommendation: string;
-  evidence: string[];
-  confidence: number;
-  affectedDomains: string[];
-  relatedDecision: string;
-  timelineReference: string;
-}
+export type CrossDomainContext = CrossDomainContextProjection;
+export type HebyEnterpriseContext = HebyEnterpriseContextProjection;
+export type { EnterpriseIntelligenceMetric, EnterpriseIntelligenceSignal, IntelligenceState, UnifiedHealthItem };
 
 function metricValue(items: Array<{ label: string; value: string }>, label: string) {
   return items.find((item) => item.label === label)?.value ?? "Unavailable";
@@ -67,7 +27,7 @@ export const enterpriseIntelligenceOverview: EnterpriseIntelligenceMetric[] = [
   { domain: "Decision", label: "Decision Health", value: metricValue(decisionOverview, "Decision Health"), detail: `${pendingDecisions} decisions await evidence or review`, relationship: "Decisions consume organization, knowledge, and timeline context.", state: "Attention", href: "/approvals" },
 ];
 
-export const overallEnterpriseIntelligence: { label: string; value: string; detail: string; state: IntelligenceState } = {
+export const overallEnterpriseIntelligence: ExecutiveAttentionProjection = {
   label: "Overall Enterprise Intelligence Status",
   value: "Attention required",
   detail: "The enterprise is coherent, but evidence ownership and two review bottlenecks reduce readiness.",
@@ -99,6 +59,12 @@ export const unifiedEnterpriseHealth: UnifiedHealthItem[] = [
 ];
 
 export const hebyEnterpriseContext: HebyEnterpriseContext = {
+  projectionId: "heby-enterprise-context",
+  version: ENTERPRISE_PROJECTION_VERSION,
+  generatedAt: "2026-08-02T09:30:00+03:00",
+  source: { kind: "Mock Adapter", name: "Heby Enterprise Context" },
+  freshness: "Current",
+  status: "Ready",
   prompts: ["Summarize today’s enterprise situation", "Which departments require attention?", "Which decisions lack evidence?"],
   recommendation: "Resolve compliance evidence ownership before reviewing the retention opportunity.",
   evidence: ["Organization shows interim Risk & Legal ownership", "Knowledge identifies an incomplete SOC 2 evidence pack", "Timeline records the escalation at 08:45", "Decision Center marks the evidence plan as required"],
@@ -106,4 +72,19 @@ export const hebyEnterpriseContext: HebyEnterpriseContext = {
   affectedDomains: ["Organization", "Knowledge", "Timeline", "Decision"],
   relatedDecision: "D-310 · Enterprise compliance evidence plan",
   timelineReference: "Today · 08:45 evidence gap escalation",
+  disclosure: { simulated: true, authoritative: false, executionAllowed: false, authority: "Director" },
+};
+
+export const enterpriseIntelligenceProjection: EnterpriseIntelligenceOverviewProjection = {
+  projectionId: "enterprise-intelligence-overview",
+  version: ENTERPRISE_PROJECTION_VERSION,
+  generatedAt: "2026-08-02T09:30:00+03:00",
+  source: { kind: "Mock Adapter", name: "Enterprise Intelligence Integration" },
+  freshness: "Current",
+  status: "Ready",
+  overall: overallEnterpriseIntelligence,
+  domainHealth: enterpriseIntelligenceOverview,
+  signals: enterpriseIntelligenceSignals,
+  contexts: crossDomainContexts,
+  unifiedHealth: unifiedEnterpriseHealth,
 };

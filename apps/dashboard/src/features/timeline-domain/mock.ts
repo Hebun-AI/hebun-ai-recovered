@@ -1,66 +1,14 @@
-export type TimelineEventType = "Decision" | "Knowledge" | "Organization" | "Review" | "Publication" | "Approval" | "Meeting" | "Risk" | "Agent" | "System" | "Work" | "Policy";
-export type TimelineImpact = "Low" | "Medium" | "High" | "Critical";
-export type TimelineStatus = "Recorded" | "Needs Review" | "Pending" | "Resolved" | "Published";
-export type TimelineProvenance = "Verified" | "Attributed" | "Incomplete";
-export type TimelineArea = "Enterprise" | "Finance" | "Knowledge" | "Operations" | "Organization" | "Risk" | "Sales";
-export type TimelineDateRange = "All time" | "Today" | "Last 7 days" | "Last 30 days";
+import { ENTERPRISE_PROJECTION_VERSION } from "@/features/enterprise-projections";
+import type { TimelineActorProjection, TimelineArea, TimelineEventProjection, TimelineEventType, TimelineImpact, TimelineIntegrityProjection, TimelineOverviewMetricProjection, TimelineOverviewProjection, TimelineProvenance, TimelineRelationshipProjection, TimelineSourceProjection, TimelineStatus } from "@/features/enterprise-projections";
+import type { TimelineDateRange, TimelineFilterState } from "@/features/timeline-domain/view-model";
 
-export interface TimelineSource {
-  name: string;
-  kind: "Director" | "Department" | "System" | "Agent";
-}
-
-export interface TimelineActor {
-  name: string;
-  role: string;
-}
-
-export interface TimelineRelationship {
-  kind: "Organization" | "Knowledge" | "Decision" | "Policy" | "Work" | "Agent" | "System";
-  label: string;
-  relationship: string;
-}
-
-export interface TimelineEvent {
-  id: string;
-  occurredAt: string;
-  displayTime: string;
-  dateWindow: Exclude<TimelineDateRange, "All time">;
-  title: string;
-  type: TimelineEventType;
-  summary: string;
-  source: TimelineSource;
-  actor: TimelineActor;
-  areas: TimelineArea[];
-  impact: TimelineImpact;
-  status: TimelineStatus;
-  provenance: TimelineProvenance;
-  directorAttention: boolean;
-  relationships: TimelineRelationship[];
-  relatedDecisions: string[];
-  relatedKnowledge: string[];
-  relatedOrganization: string[];
-  followUp: string;
-}
-
-export interface TimelineFilterState {
-  dateRange: TimelineDateRange;
-  eventType: TimelineEventType | "All types";
-  impact: TimelineImpact | "All impacts";
-  status: TimelineStatus | "All statuses";
-  area: TimelineArea | "All areas";
-  source: string;
-  attention: "Any attention" | "Director attention" | "No attention required";
-}
-
-export interface TimelineIntegrityMetric {
-  label: string;
-  value: string;
-  detail: string;
-  state: "Healthy" | "Watch" | "Attention";
-}
-
-export type TimelineOverviewMetric = TimelineIntegrityMetric;
+export type TimelineSource = TimelineSourceProjection;
+export type TimelineActor = TimelineActorProjection;
+export type TimelineRelationship = TimelineRelationshipProjection;
+export type TimelineEvent = TimelineEventProjection;
+export type TimelineIntegrityMetric = TimelineIntegrityProjection;
+export type TimelineOverviewMetric = TimelineOverviewMetricProjection;
+export type { TimelineArea, TimelineDateRange, TimelineEventType, TimelineFilterState, TimelineImpact, TimelineProvenance, TimelineStatus };
 
 export const timelineOverview: TimelineOverviewMetric[] = [
   { label: "Events Today", value: "4", detail: "Across six enterprise areas", state: "Healthy" },
@@ -110,3 +58,15 @@ export const hebyTimelineSuggestions = [
   "Show unresolved critical events",
   "Explain what changed after decision D-204",
 ] as const;
+
+export const timelineProjection: TimelineOverviewProjection = {
+  projectionId: "timeline-overview",
+  version: ENTERPRISE_PROJECTION_VERSION,
+  generatedAt: "2026-08-02T09:30:00+03:00",
+  source: { kind: "Mock Adapter", name: "Enterprise Timeline" },
+  freshness: "Current",
+  status: "Ready",
+  overview: timelineOverview,
+  events: timelineEvents,
+  integrity: timelineIntegrity,
+};

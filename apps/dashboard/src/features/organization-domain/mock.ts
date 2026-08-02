@@ -1,64 +1,15 @@
-export type OrganizationHealth = "Healthy" | "Watch" | "Attention";
+import { ENTERPRISE_PROJECTION_VERSION } from "@/features/enterprise-projections";
+import type { BusinessUnitProjection, DepartmentProjection, OrganizationHealth, OrganizationOverviewProjection, OrganizationReadinessProjection, OrganizationRelationshipProjection, ReportingRelationshipProjection, ResponsibilityProjection, RoleProjection, TeamProjection } from "@/features/enterprise-projections";
 
-export interface OrganizationMetric {
-  label: string;
-  value: string;
-  detail: string;
-  state: OrganizationHealth;
-}
-
-export interface OrganizationTeam {
-  name: string;
-  lead: string;
-  responsibility: string;
-}
-
-export interface OrganizationDepartment {
-  name: string;
-  executive: string;
-  purpose: string;
-  headcount: number;
-  health: OrganizationHealth;
-  attention: string;
-  teams: OrganizationTeam[];
-}
-
-export interface OrganizationRole {
-  title: string;
-  owner: string;
-  scope: string;
-  accountabilities: string[];
-  coverage: "Clear" | "Shared" | "Gap";
-}
-
-export interface BusinessUnit {
-  name: string;
-  leader: string;
-  mandate: string;
-  departments: string[];
-  readiness: number;
-}
-
-export interface ReportingLevel {
-  level: string;
-  members: string[];
-  purpose: string;
-}
-
-export interface ResponsibilityOverlap {
-  responsibility: string;
-  owners: string[];
-  impact: string;
-  status: "Clarify" | "Coordinated";
-}
-
-export interface EnterpriseRelationship {
-  source: string;
-  relationship: string;
-  target: string;
-  context: string;
-  strength: "Strong" | "Developing" | "At Risk";
-}
+export type OrganizationMetric = OrganizationReadinessProjection;
+export type OrganizationTeam = TeamProjection;
+export type OrganizationDepartment = DepartmentProjection;
+export type OrganizationRole = RoleProjection;
+export type BusinessUnit = BusinessUnitProjection;
+export type ReportingLevel = ReportingRelationshipProjection;
+export type ResponsibilityOverlap = ResponsibilityProjection;
+export type EnterpriseRelationship = OrganizationRelationshipProjection;
+export type { OrganizationHealth };
 
 export const organizationMetrics: OrganizationMetric[] = [
   { label: "Enterprise Structure", value: "Established", detail: "Three business units · six departments", state: "Healthy" },
@@ -111,3 +62,19 @@ export const enterpriseRelationships: EnterpriseRelationship[] = [
   { source: "People", relationship: "develops leadership capacity for", target: "All Departments", context: "Succession and organizational readiness", strength: "Developing" },
   { source: "Director Office", relationship: "aligns priorities across", target: "Business Units", context: "Enterprise direction and accountable review", strength: "Strong" },
 ];
+
+export const organizationProjection: OrganizationOverviewProjection = {
+  projectionId: "organization-overview",
+  version: ENTERPRISE_PROJECTION_VERSION,
+  generatedAt: "2026-08-02T09:30:00+03:00",
+  source: { kind: "Mock Adapter", name: "Organization Domain" },
+  freshness: "Current",
+  status: "Ready",
+  readiness: organizationMetrics,
+  departments: organizationDepartments,
+  roles: organizationRoles,
+  responsibilities: responsibilityOverlaps,
+  reportingRelationships: reportingStructure,
+  businessUnits,
+  relationships: enterpriseRelationships,
+};

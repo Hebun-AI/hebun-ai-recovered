@@ -1,7 +1,7 @@
 import { ArrowRight, CircleAlert, Network } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { WorkspaceCard } from "@/components/director-workspace/workspace-card";
-import type { EnterpriseRelationship, OrganizationRole, ResponsibilityOverlap } from "@/features/organization-domain/mock";
+import type { OrganizationRelationshipProjection as EnterpriseRelationship, ResponsibilityProjection as ResponsibilityOverlap, RoleProjection as OrganizationRole } from "@/features/enterprise-projections";
 
 const coverageVariant = { Clear: "success", Shared: "warning", Gap: "error" } as const;
 const relationshipVariant = { Strong: "success", Developing: "warning", "At Risk": "error" } as const;

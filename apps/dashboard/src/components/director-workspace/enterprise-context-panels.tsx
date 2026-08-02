@@ -1,5 +1,5 @@
 import { ArrowRight, Bot, Brain, Building2, FileText, GitBranch, ScrollText, Waypoints } from "lucide-react";
-import type { KnowledgeEntity, TimelineEvent } from "@/features/director-workspace/mock";
+import type { DirectorKnowledgeEntityProjection as KnowledgeEntity, DirectorTimelineEventProjection as TimelineEvent } from "@/features/enterprise-projections";
 import { cn } from "@/lib/utils";
 import { WorkspaceCard } from "./workspace-card";
 

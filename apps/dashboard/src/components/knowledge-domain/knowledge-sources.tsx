@@ -1,7 +1,7 @@
 import { BookOpen, FileText, Files, LibraryBig, ScrollText, Tv, Workflow } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { WorkspaceCard } from "@/components/director-workspace/workspace-card";
-import type { KnowledgeSource } from "@/features/knowledge-domain/mock";
+import type { KnowledgeSourceProjection as KnowledgeSource } from "@/features/enterprise-projections";
 
 const icons = { Books: BookOpen, PDFs: FileText, YouTube: Tv, "Internal Documents": Files, Policies: ScrollText, SOPs: Workflow, "Enterprise Wiki": LibraryBig };
 const healthVariant = { Healthy: "success", Watch: "warning", Attention: "error" } as const;

@@ -1,7 +1,7 @@
 import { Building2, GitBranch, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { WorkspaceCard } from "@/components/director-workspace/workspace-card";
-import type { BusinessUnit, OrganizationDepartment, ReportingLevel } from "@/features/organization-domain/mock";
+import type { BusinessUnitProjection as BusinessUnit, DepartmentProjection as OrganizationDepartment, ReportingRelationshipProjection as ReportingLevel } from "@/features/enterprise-projections";
 
 const healthVariant = { Healthy: "success", Watch: "warning", Attention: "error" } as const;
 

@@ -1,5 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
-import type { HealthSummary } from "@/features/director-workspace/mock";
+import type { DirectorHealthProjection as HealthSummary } from "@/features/enterprise-projections";
 import { cn } from "@/lib/utils";
 
 const statusStyle: Record<HealthSummary["status"], string> = {

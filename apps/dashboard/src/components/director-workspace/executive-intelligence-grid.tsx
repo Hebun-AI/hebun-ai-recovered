@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, CircleGauge, FileCheck2, Lightbulb, ShieldAlert, Sparkles } from "lucide-react";
-import type { ExecutiveIntelligenceItem } from "@/features/director-workspace/mock";
+import type { DirectorExecutiveIntelligenceProjection as ExecutiveIntelligenceItem } from "@/features/enterprise-projections";
 import { cn } from "@/lib/utils";
 
 const icons = [AlertTriangle, ShieldAlert, Lightbulb, FileCheck2, Sparkles, CheckCircle2, CircleGauge];

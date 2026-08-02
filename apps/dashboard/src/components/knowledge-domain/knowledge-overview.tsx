@@ -1,5 +1,5 @@
 import { BookOpenCheck, CircleGauge, Library, RefreshCcw, ShieldCheck } from "lucide-react";
-import type { KnowledgeMetric } from "@/features/knowledge-domain/mock";
+import type { KnowledgeHealthProjection as KnowledgeMetric } from "@/features/enterprise-projections";
 import { cn } from "@/lib/utils";
 
 const icons = [Library, ShieldCheck, BookOpenCheck, CircleGauge, RefreshCcw];

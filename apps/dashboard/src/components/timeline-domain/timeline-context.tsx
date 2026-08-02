@@ -1,7 +1,7 @@
 import { BookOpenCheck, Brain, CircleAlert, FileCheck2, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { WorkspaceCard } from "@/components/director-workspace/workspace-card";
-import type { TimelineIntegrityMetric } from "@/features/timeline-domain/mock";
+import type { TimelineIntegrityProjection as TimelineIntegrityMetric } from "@/features/enterprise-projections";
 
 const stateVariant = { Healthy: "success", Watch: "warning", Attention: "error" } as const;
 

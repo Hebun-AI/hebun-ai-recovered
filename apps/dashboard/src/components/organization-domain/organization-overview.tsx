@@ -1,5 +1,5 @@
 import { AlertTriangle, Building2, CircleGauge, Network, ShieldCheck } from "lucide-react";
-import type { OrganizationMetric } from "@/features/organization-domain/mock";
+import type { OrganizationReadinessProjection as OrganizationMetric } from "@/features/enterprise-projections";
 import { cn } from "@/lib/utils";
 
 const icons = [Building2, ShieldCheck, Network, CircleGauge, AlertTriangle];

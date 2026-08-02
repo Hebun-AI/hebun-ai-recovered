@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, ChevronDown, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { TimelineArea, TimelineDateRange, TimelineEvent, TimelineEventType, TimelineFilterState, TimelineImpact, TimelineStatus } from "@/features/timeline-domain/mock";
+import type { TimelineArea, TimelineEventProjection as TimelineEvent, TimelineEventType, TimelineImpact, TimelineStatus } from "@/features/enterprise-projections";
+import type { TimelineDateRange, TimelineFilterState } from "@/features/timeline-domain/view-model";
 
 const dateOptions: TimelineDateRange[] = ["All time", "Today", "Last 7 days", "Last 30 days"];
 const typeOptions: Array<TimelineEventType | "All types"> = ["All types", "Decision", "Knowledge", "Organization", "Review", "Publication", "Approval", "Meeting", "Risk", "Agent", "System", "Work", "Policy"];

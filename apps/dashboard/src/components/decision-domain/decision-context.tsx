@@ -1,7 +1,7 @@
 import { Brain, CircleAlert, Network } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { WorkspaceCard } from "@/components/director-workspace/workspace-card";
-import type { DecisionIntelligenceSignal, DecisionRelationship } from "@/features/decision-domain/mock";
+import type { DecisionAttentionSignal as DecisionIntelligenceSignal, DecisionRelationshipProjection as DecisionRelationship } from "@/features/enterprise-projections";
 
 const stateVariant = { Healthy: "success", Watch: "warning", Attention: "error" } as const;
 
