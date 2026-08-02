@@ -10,30 +10,32 @@ import type {
 import type { PersistenceResult } from "@/features/enterprise-persistence/contracts";
 import type { TimelineContextProjection } from "@/features/timeline-domain/view-model";
 
+export type RepositoryResult<T> = PersistenceResult<T> | Promise<PersistenceResult<T>>;
+
 export interface OrganizationRepository {
-  loadOrganization(): PersistenceResult<OrganizationOverviewProjection>;
+  loadOrganization(): RepositoryResult<OrganizationOverviewProjection>;
 }
 
 export interface KnowledgeRepository {
-  loadKnowledge(): PersistenceResult<KnowledgeOverviewProjection>;
+  loadKnowledge(): RepositoryResult<KnowledgeOverviewProjection>;
 }
 
 export interface TimelineRepository {
-  loadTimeline(): PersistenceResult<TimelineOverviewProjection>;
-  loadRecentContext(): PersistenceResult<TimelineContextProjection>;
+  loadTimeline(): RepositoryResult<TimelineOverviewProjection>;
+  loadRecentContext(): RepositoryResult<TimelineContextProjection>;
 }
 
 export interface DecisionRepository {
-  loadDecisions(): PersistenceResult<DecisionOverviewProjection>;
+  loadDecisions(): RepositoryResult<DecisionOverviewProjection>;
 }
 
 export interface EnterpriseIntelligenceRepository {
-  loadEnterpriseIntelligence(): PersistenceResult<EnterpriseIntelligenceApplicationProjection>;
-  loadDirectorWorkspace(): PersistenceResult<DirectorWorkspaceProjection>;
+  loadEnterpriseIntelligence(): RepositoryResult<EnterpriseIntelligenceApplicationProjection>;
+  loadDirectorWorkspace(): RepositoryResult<DirectorWorkspaceProjection>;
 }
 
 export interface HebyContextRepository {
-  loadHebyContext(): PersistenceResult<HebyEnterpriseContextProjection>;
+  loadHebyContext(): RepositoryResult<HebyEnterpriseContextProjection>;
 }
 
 export interface EnterpriseRepositoryRegistry {

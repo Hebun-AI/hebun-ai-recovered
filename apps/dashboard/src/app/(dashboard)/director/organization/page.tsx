@@ -5,8 +5,8 @@ import { DepartmentsPanel, ReportingAndBusinessUnits } from "@/components/organi
 import { EnterpriseRelationshipsPanel, RolesAndResponsibilities } from "@/components/organization-domain/organization-ownership";
 import { getOrganizationProjection } from "@/features/enterprise-projection-providers";
 
-export default function OrganizationDomainPage() {
-  const organization = getOrganizationProjection();
+export default async function OrganizationDomainPage() {
+  const organization = await getOrganizationProjection();
 
   return (
     <>

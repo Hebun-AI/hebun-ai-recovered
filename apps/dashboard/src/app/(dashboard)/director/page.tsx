@@ -7,10 +7,12 @@ import { HebyAssistantPanel } from "@/components/director-workspace/heby-assista
 import { HebyRecommendationsPanel, PendingDecisionsPanel, PrioritiesPanel, QuickActionsPanel } from "@/components/director-workspace/operational-panels";
 import { getDirectorWorkspaceProjection, getEnterpriseIntelligenceProjection, getHebyContextProjection } from "@/features/enterprise-projection-providers";
 
-export default function DirectorWorkspacePage() {
-  const workspace = getDirectorWorkspaceProjection();
-  const intelligence = getEnterpriseIntelligenceProjection();
-  const hebyContext = getHebyContextProjection();
+export default async function DirectorWorkspacePage() {
+  const [workspace, intelligence, hebyContext] = await Promise.all([
+    getDirectorWorkspaceProjection(),
+    getEnterpriseIntelligenceProjection(),
+    getHebyContextProjection(),
+  ]);
 
   return (
     <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">

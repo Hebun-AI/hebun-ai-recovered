@@ -10,12 +10,12 @@ import type {
 import type { TimelineContextProjection } from "@/features/timeline-domain/view-model";
 
 export interface EnterpriseProjectionProvider {
-  getDirectorWorkspaceProjection(): DirectorWorkspaceProjection;
-  getOrganizationProjection(): OrganizationOverviewProjection;
-  getKnowledgeProjection(): KnowledgeOverviewProjection;
-  getTimelineProjection(): TimelineOverviewProjection;
-  getTimelineContextProjection(): TimelineContextProjection;
-  getDecisionProjection(): DecisionOverviewProjection;
-  getEnterpriseIntelligenceProjection(): EnterpriseIntelligenceApplicationProjection;
-  getHebyContextProjection(): HebyEnterpriseContextProjection;
+  getDirectorWorkspaceProjection(): Promise<DirectorWorkspaceProjection>;
+  getOrganizationProjection(): Promise<OrganizationOverviewProjection>;
+  getKnowledgeProjection(): Promise<KnowledgeOverviewProjection>;
+  getTimelineProjection(): Promise<TimelineOverviewProjection>;
+  getTimelineContextProjection(): Promise<TimelineContextProjection>;
+  getDecisionProjection(): Promise<DecisionOverviewProjection>;
+  getEnterpriseIntelligenceProjection(): Promise<EnterpriseIntelligenceApplicationProjection>;
+  getHebyContextProjection(): Promise<HebyEnterpriseContextProjection>;
 }

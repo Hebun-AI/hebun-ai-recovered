@@ -5,9 +5,11 @@ import { TimelineWorkspace } from "@/components/timeline-domain/timeline-workspa
 import { RecentTimelineContext, TimelineIntegrityPanel } from "@/components/timeline-domain/timeline-context";
 import { getTimelineContextProjection, getTimelineProjection } from "@/features/enterprise-projection-providers";
 
-export default function EventsPage() {
-  const timeline = getTimelineProjection();
-  const timelineContext = getTimelineContextProjection();
+export default async function EventsPage() {
+  const [timeline, timelineContext] = await Promise.all([
+    getTimelineProjection(),
+    getTimelineContextProjection(),
+  ]);
 
   return (
     <>

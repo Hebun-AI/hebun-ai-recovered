@@ -5,8 +5,8 @@ import { KnowledgeSources } from "@/components/knowledge-domain/knowledge-source
 import { KnowledgeHealthAndCategories, KnowledgeRelationships, RecentlyAddedKnowledge } from "@/components/knowledge-domain/knowledge-intelligence";
 import { getKnowledgeProjection } from "@/features/enterprise-projection-providers";
 
-export default function KnowledgePage() {
-  const knowledge = getKnowledgeProjection();
+export default async function KnowledgePage() {
+  const knowledge = await getKnowledgeProjection();
 
   return (
     <>

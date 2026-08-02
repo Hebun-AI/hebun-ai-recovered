@@ -5,8 +5,8 @@ import { DecisionWorkspace } from "@/components/decision-domain/decision-workspa
 import { DecisionIntelligence, DecisionRelationships, HebyDecisionContext } from "@/components/decision-domain/decision-context";
 import { getDecisionProjection } from "@/features/enterprise-projection-providers";
 
-export default function ApprovalsPage() {
-  const decision = getDecisionProjection();
+export default async function ApprovalsPage() {
+  const decision = await getDecisionProjection();
 
   return (
     <>

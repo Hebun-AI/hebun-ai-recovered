@@ -1,6 +1,6 @@
 import { requirePersistenceSuccess } from "@/features/enterprise-application-services/load-result";
 import type { HebyContextRepository } from "@/features/enterprise-persistence/ports";
 
-export function loadHebyContextProjection(repository: HebyContextRepository) {
-  return requirePersistenceSuccess(repository.loadHebyContext(), "Heby context projection");
+export async function loadHebyContextProjection(repository: HebyContextRepository) {
+  return requirePersistenceSuccess(await repository.loadHebyContext(), "Heby context projection");
 }

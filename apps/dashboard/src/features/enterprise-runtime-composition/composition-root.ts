@@ -1,29 +1,50 @@
-import { createInMemoryEnterpriseRepositories } from "@/features/enterprise-persistence";
+import { createInMemoryEnterpriseRepositories, createPostgresEnterpriseRepositories } from "@/features/enterprise-persistence";
 import type { EnterpriseRepositoryRegistry } from "@/features/enterprise-persistence";
-import { resolveEnterpriseProjectionProviderMode } from "@/features/enterprise-runtime-composition/configuration";
-import { createMockEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/mock-provider";
+import { resolveEnterpriseRepositoryMode } from "@/features/enterprise-runtime-composition/configuration";
+import { createEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/projection-provider";
 import type { EnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/provider-port";
+
+export interface EnterpriseRuntimeCompositionOptions {
+  repositoryMode?: unknown;
+  postgresConnectionString?: string;
+}
 
 export interface EnterpriseRuntimeComposition {
   projectionProvider: EnterpriseProjectionProvider;
   repositories: EnterpriseRepositoryRegistry;
+  close(): Promise<void>;
 }
 
 const repositories = createInMemoryEnterpriseRepositories();
-const projectionProvider = createMockEnterpriseProjectionProvider(repositories);
-const activeEnterpriseRuntimeComposition: EnterpriseRuntimeComposition = Object.freeze({ projectionProvider, repositories });
+const projectionProvider = createEnterpriseProjectionProvider(repositories);
+const activeEnterpriseRuntimeComposition: EnterpriseRuntimeComposition = Object.freeze({
+  projectionProvider,
+  repositories,
+  close: async () => undefined,
+});
 
-export function composeEnterpriseRuntime(mode?: unknown): EnterpriseRuntimeComposition {
-  const resolvedMode = resolveEnterpriseProjectionProviderMode(mode);
+export function composeEnterpriseRuntime(options: EnterpriseRuntimeCompositionOptions = {}): EnterpriseRuntimeComposition {
+  const resolvedMode = resolveEnterpriseRepositoryMode(options.repositoryMode);
 
   switch (resolvedMode) {
-    case "mock":
+    case "in-memory":
       return activeEnterpriseRuntimeComposition;
+    case "postgresql": {
+      if (!options.postgresConnectionString) {
+        throw new Error("PostgreSQL enterprise repositories require a connection string.");
+      }
+      const postgres = createPostgresEnterpriseRepositories({ connectionString: options.postgresConnectionString });
+      return Object.freeze({
+        projectionProvider: createEnterpriseProjectionProvider(postgres.repositories),
+        repositories: postgres.repositories,
+        close: postgres.close,
+      });
+    }
   }
 }
 
-export function composeEnterpriseProjectionProvider(mode?: unknown): EnterpriseProjectionProvider {
-  return composeEnterpriseRuntime(mode).projectionProvider;
+export function composeEnterpriseProjectionProvider(options?: EnterpriseRuntimeCompositionOptions): EnterpriseProjectionProvider {
+  return composeEnterpriseRuntime(options).projectionProvider;
 }
 
 export function getActiveEnterpriseProjectionProvider(): EnterpriseProjectionProvider {

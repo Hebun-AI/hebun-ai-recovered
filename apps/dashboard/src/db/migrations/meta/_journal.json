@@ -92,6 +92,13 @@
       "when": 1784619772611,
       "tag": "20260721074252_auth_session_digest_version",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785672000000,
+      "tag": "20260802120000_enterprise_projection_repository",
+      "breakpoints": true
     }
   ]
 }

@@ -11,7 +11,7 @@ import {
 import type { EnterpriseRepositoryRegistry } from "@/features/enterprise-persistence";
 import type { EnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/provider-port";
 
-export function createMockEnterpriseProjectionProvider(repositories: EnterpriseRepositoryRegistry): EnterpriseProjectionProvider {
+export function createEnterpriseProjectionProvider(repositories: EnterpriseRepositoryRegistry): EnterpriseProjectionProvider {
   return Object.freeze({
     getDirectorWorkspaceProjection: () => loadDirectorWorkspaceProjection(repositories.enterpriseIntelligence),
     getOrganizationProjection: () => loadOrganizationProjection(repositories.organization),

@@ -10,7 +10,8 @@ import {
 } from "../../src/features/enterprise-projection-providers";
 import { ENTERPRISE_PROJECTION_VERSION } from "../../src/features/enterprise-projections";
 
-const projections = [
+async function main(): Promise<void> {
+const projections = await Promise.all([
   getDirectorWorkspaceProjection(),
   getOrganizationProjection(),
   getKnowledgeProjection(),
@@ -18,7 +19,7 @@ const projections = [
   getDecisionProjection(),
   getEnterpriseIntelligenceProjection(),
   getHebyContextProjection(),
-];
+]);
 
 for (const projection of projections) {
   assert.equal(projection.version, ENTERPRISE_PROJECTION_VERSION);
@@ -26,8 +27,13 @@ for (const projection of projections) {
   assert.equal(projection.projectionId.length > 0, true);
 }
 
-assert.equal(getDecisionProjection().authority, "Director");
-assert.equal(getDecisionProjection().executionAllowed, false);
-assert.equal(getHebyContextProjection().disclosure.executionAllowed, false);
+const decision = await getDecisionProjection();
+const heby = await getHebyContextProjection();
+assert.equal(decision.authority, "Director");
+assert.equal(decision.executionAllowed, false);
+assert.equal(heby.disclosure.executionAllowed, false);
 
 console.log("enterprise projection provider checks passed");
+}
+
+void main();
