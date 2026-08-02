@@ -1,5 +1,5 @@
-import { loadEnterpriseIntelligenceProjection } from "@/features/enterprise-application-services/enterprise-intelligence-service";
+import { getActiveEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition";
 
 export function getEnterpriseIntelligenceProjection() {
-  return loadEnterpriseIntelligenceProjection();
+  return getActiveEnterpriseProjectionProvider().getEnterpriseIntelligenceProjection();
 }

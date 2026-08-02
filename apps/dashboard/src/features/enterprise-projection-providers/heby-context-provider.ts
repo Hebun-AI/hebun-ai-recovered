@@ -1,5 +1,5 @@
-import { loadHebyContextProjection } from "@/features/enterprise-application-services/heby-context-service";
+import { getActiveEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition";
 
 export function getHebyContextProjection() {
-  return loadHebyContextProjection();
+  return getActiveEnterpriseProjectionProvider().getHebyContextProjection();
 }

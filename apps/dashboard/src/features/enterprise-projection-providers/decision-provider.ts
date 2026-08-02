@@ -1,5 +1,5 @@
-import { loadDecisionProjection } from "@/features/enterprise-application-services/decision-service";
+import { getActiveEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition";
 
 export function getDecisionProjection() {
-  return loadDecisionProjection();
+  return getActiveEnterpriseProjectionProvider().getDecisionProjection();
 }

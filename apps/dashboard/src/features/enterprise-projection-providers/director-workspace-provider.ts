@@ -1,5 +1,5 @@
-import { loadDirectorWorkspaceProjection } from "@/features/enterprise-application-services/director-workspace-service";
+import { getActiveEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition";
 
 export function getDirectorWorkspaceProjection() {
-  return loadDirectorWorkspaceProjection();
+  return getActiveEnterpriseProjectionProvider().getDirectorWorkspaceProjection();
 }

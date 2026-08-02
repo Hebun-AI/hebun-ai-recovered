@@ -15,6 +15,7 @@ for (const file of providerFiles) {
   const source = readFileSync(file, "utf8");
   assert.equal(source.includes("/mock"), false, `${file} must not import mock adapters`);
   assert.equal(source.includes("enterprise-projections"), false, `${file} must consume contracts through application services`);
+  assert.equal(source.includes("enterprise-application-services"), false, `${file} must resolve services through the composition root`);
   assert.equal(source.includes("react"), false, `${file} must not depend on React`);
   assert.equal(source.includes("next/"), false, `${file} must not depend on Next.js`);
 }

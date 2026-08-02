@@ -1,5 +1,5 @@
-import { loadOrganizationProjection } from "@/features/enterprise-application-services/organization-service";
+import { getActiveEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition";
 
 export function getOrganizationProjection() {
-  return loadOrganizationProjection();
+  return getActiveEnterpriseProjectionProvider().getOrganizationProjection();
 }

@@ -1,9 +1,9 @@
-import { loadTimelineContextProjection, loadTimelineProjection } from "@/features/enterprise-application-services/timeline-service";
+import { getActiveEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition";
 
 export function getTimelineProjection() {
-  return loadTimelineProjection();
+  return getActiveEnterpriseProjectionProvider().getTimelineProjection();
 }
 
 export function getTimelineContextProjection() {
-  return loadTimelineContextProjection();
+  return getActiveEnterpriseProjectionProvider().getTimelineContextProjection();
 }

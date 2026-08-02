@@ -2,9 +2,18 @@ import type { TimelineOverviewProjection } from "@/features/enterprise-projectio
 import { hebyTimelineSuggestions, recentTimelineDecisions, recentTimelineKnowledge, timelineProjection } from "@/features/timeline-domain/mock";
 
 export interface TimelineContextProjection {
-  recentDecisions: typeof recentTimelineDecisions;
-  recentKnowledge: typeof recentTimelineKnowledge;
-  hebySuggestions: typeof hebyTimelineSuggestions;
+  recentDecisions: readonly {
+    id: string;
+    title: string;
+    state: string;
+    relationship: string;
+  }[];
+  recentKnowledge: readonly {
+    title: string;
+    source: string;
+    change: string;
+  }[];
+  hebySuggestions: readonly string[];
 }
 
 export function loadTimelineProjection(): TimelineOverviewProjection {
