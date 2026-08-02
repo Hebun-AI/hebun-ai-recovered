@@ -16,7 +16,7 @@ export function ExecutiveStatus({ items }: { items: ExecutiveStatusMetric[] }) {
       <div className="flex flex-col gap-2 border-b border-border bg-surface-sunken/40 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Executive operating posture</p>
-          <h1 id="executive-status-title" className="mt-1 text-lg font-semibold text-fg sm:text-xl">Enterprise is stable with one issue requiring attention.</h1>
+          <h2 id="executive-status-title" className="mt-1 text-lg font-semibold text-fg sm:text-xl">Enterprise is stable with one issue requiring attention.</h2>
         </div>
         <span className="inline-flex w-fit items-center gap-2 rounded-full bg-success-subtle px-3 py-1.5 text-xs font-semibold text-success"><span className="size-2 rounded-full bg-success" />Operating normally</span>
       </div>

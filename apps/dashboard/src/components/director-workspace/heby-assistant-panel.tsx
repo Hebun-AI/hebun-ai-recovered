@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { Bot, CheckCircle2, Clock3, FileText, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AdvisorAwareness } from "@/features/director-workspace/mock";
+import type { HebyEnterpriseContext } from "@/features/enterprise-intelligence/mock";
 
 interface UserMessage { id: number; role: "user"; content: string }
 interface AdvisorMessage {
@@ -18,24 +19,14 @@ interface AdvisorMessage {
 }
 type Message = UserMessage | AdvisorMessage;
 
-const prompts = ["Review today’s critical issues", "Summarize enterprise changes", "What requires my decision?"];
-const advisorReply = {
-  recommendation: "Resolve the SOC 2 evidence gap before reviewing the retention opportunity.",
-  evidence: ["Readiness review identified one blocking control", "Enterprise launch depends on verified evidence"],
-  confidence: 94,
-  affectedDomains: ["Risk", "Operations", "Sales"],
-  relatedDecision: "D-204 · Evidence remediation plan",
-  timelineReference: "Today · 09:30 readiness review",
-};
-
-export function HebyAssistantPanel({ awareness }: { awareness: AdvisorAwareness[] }) {
+export function HebyAssistantPanel({ awareness, context }: { awareness: AdvisorAwareness[]; context: HebyEnterpriseContext }) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([{ id: 1, role: "assistant", ...advisorReply }]);
+  const [messages, setMessages] = useState<Message[]>([{ id: 1, role: "assistant", ...context }]);
 
   function submitMessage(value: string) {
     const content = value.trim();
     if (!content) return;
-    setMessages((current) => [...current, { id: Date.now(), role: "user", content }, { id: Date.now() + 1, role: "assistant", ...advisorReply }]);
+    setMessages((current) => [...current, { id: Date.now(), role: "user", content }, { id: Date.now() + 1, role: "assistant", ...context }]);
     setInput("");
   }
 
@@ -50,11 +41,11 @@ export function HebyAssistantPanel({ awareness }: { awareness: AdvisorAwareness[
       </header>
       <section aria-labelledby="heby-greeting-title" className="px-3 pb-2 pt-3">
         <h3 id="heby-greeting-title" className="text-base font-semibold text-fg">Good evening, Şenol.</h3>
-        <p className="mt-1 text-xs leading-5 text-fg-secondary">I’ve reviewed today’s enterprise activity. Three items deserve your attention.</p>
+        <p className="mt-1 text-xs leading-5 text-fg-secondary">Organization, Knowledge, Timeline, and Decisions are connected for your review.</p>
       </section>
       <section aria-labelledby="executive-suggestions-title" className="border-b border-border px-3 pb-3">
         <h3 id="executive-suggestions-title" className="sr-only">Executive suggestions</h3>
-        <div className="grid gap-1.5">{prompts.map((prompt) => <button key={prompt} type="button" onClick={() => submitMessage(prompt)} className="flex min-h-10 items-center justify-between rounded-xl border border-primary/15 bg-primary-subtle/60 px-3 py-2 text-left text-xs font-semibold text-fg transition-colors hover:border-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"><span>{prompt}</span><Sparkles className="size-3.5 shrink-0 text-primary" /></button>)}</div>
+        <div className="grid gap-1.5">{context.prompts.map((prompt) => <button key={prompt} type="button" onClick={() => submitMessage(prompt)} className="flex min-h-10 items-center justify-between rounded-xl border border-primary/15 bg-primary-subtle/60 px-3 py-2 text-left text-xs font-semibold text-fg transition-colors hover:border-primary hover:bg-primary-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"><span>{prompt}</span><Sparkles className="size-3.5 shrink-0 text-primary" /></button>)}</div>
       </section>
       <section aria-labelledby="advisor-awareness-title" className="border-b border-border px-3 py-2">
         <h3 id="advisor-awareness-title" className="sr-only">Enterprise awareness</h3>
