@@ -38,3 +38,30 @@ export type {
 } from "@/features/enterprise-memory-reasoning/boundary";
 export { validateUnderstanding } from "@/features/enterprise-memory-reasoning/validation";
 export type { ReasoningValidation } from "@/features/enterprise-memory-reasoning/validation";
+export { RELATION_TYPE_DESCRIPTORS } from "@/features/enterprise-memory-reasoning/relation-types";
+export type {
+  RelationCardinality,
+  RelationDirection,
+  RelationTypeDescriptor,
+} from "@/features/enterprise-memory-reasoning/relation-types";
+export {
+  cardinalityOf,
+  descriptorOf,
+  directionOf,
+  isOneToOne,
+  isSymmetric,
+} from "@/features/enterprise-memory-reasoning/relation-rules";
+export {
+  canonicalRelationKey,
+  evidenceKey,
+  normalizeRelation,
+  normalizeRelations,
+} from "@/features/enterprise-memory-reasoning/relation-normalization";
+export { validateRelationSet } from "@/features/enterprise-memory-reasoning/relation-validation";
+export type { RelationValidation } from "@/features/enterprise-memory-reasoning/relation-validation";
+export { normalizeRelationSet } from "@/features/enterprise-memory-reasoning/relation-boundary";
+export type {
+  NormalizedRelationSet,
+  RelationSet,
+  RelationSetResult,
+} from "@/features/enterprise-memory-reasoning/relation-boundary";
