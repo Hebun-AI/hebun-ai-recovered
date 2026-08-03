@@ -219,6 +219,48 @@ export function createPostgresMemoryRepository(executor: PostgresQueryExecutor):
         return classifyFailure(error);
       }
     },
+
+    async loadMemoryHistory(memoryId, namespace): Promise<PersistenceResult<readonly PersistedMemoryRecord[]>> {
+      try {
+        const result = await executor.query<MemoryRow>(
+          `select ${SELECT_COLUMNS} from enterprise_memory_records
+             where memory_id = $1 and namespace = $2
+             order by version asc`,
+          [memoryId, namespace],
+        );
+        return { status: "Success", value: Object.freeze(result.rows.map(mapRow)) };
+      } catch (error) {
+        return classifyFailure(error);
+      }
+    },
+
+    async loadByClassification(namespace, sensitivity, category): Promise<PersistenceResult<readonly PersistedMemoryRecord[]>> {
+      try {
+        const base =
+          `select ${SELECT_COLUMNS} from enterprise_memory_records ` +
+          `where namespace = $1 and is_current = true and classification->>'sensitivity' = $2`;
+        const result = category !== undefined
+          ? await executor.query<MemoryRow>(`${base} and classification->>'category' = $3 order by memory_id asc`, [namespace, sensitivity, category])
+          : await executor.query<MemoryRow>(`${base} order by memory_id asc`, [namespace, sensitivity]);
+        return { status: "Success", value: Object.freeze(result.rows.map(mapRow)) };
+      } catch (error) {
+        return classifyFailure(error);
+      }
+    },
+
+    async loadByLifecycle(namespace, lifecycleState): Promise<PersistenceResult<readonly PersistedMemoryRecord[]>> {
+      try {
+        const result = await executor.query<MemoryRow>(
+          `select ${SELECT_COLUMNS} from enterprise_memory_records
+             where namespace = $1 and lifecycle_state = $2
+             order by memory_id asc, version asc`,
+          [namespace, lifecycleState],
+        );
+        return { status: "Success", value: Object.freeze(result.rows.map(mapRow)) };
+      } catch (error) {
+        return classifyFailure(error);
+      }
+    },
   };
 
   return Object.freeze(repository);

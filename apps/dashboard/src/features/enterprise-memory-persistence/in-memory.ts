@@ -41,6 +41,13 @@ function keyOf(memoryId: MemoryId, namespace: MemoryNamespace): string {
   return `${namespace}\u0000${memoryId}`;
 }
 
+/** Deterministic, locale-independent string ordering. */
+function compareStrings(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
 function view(entry: StoredEntry): PersistedMemoryRecord {
   return buildPersistedRecord({
     request: entry.request,
@@ -120,6 +127,42 @@ export function createInMemoryMemoryRepository(): MemoryRepository {
       current.lifecycleState = "archived";
       current.archivedAt = archivedAt;
       return { status: "Success", value: view(current) };
+    },
+
+    loadMemoryHistory(memoryId, namespace): PersistenceResult<readonly PersistedMemoryRecord[]> {
+      const list = entries.get(keyOf(memoryId, namespace)) ?? [];
+      const ordered = [...list].sort((a, b) => a.version - b.version).map(view);
+      return { status: "Success", value: Object.freeze(ordered) };
+    },
+
+    loadByClassification(namespace, sensitivity, category): PersistenceResult<readonly PersistedMemoryRecord[]> {
+      const matches: PersistedMemoryRecord[] = [];
+      for (const list of entries.values()) {
+        const current = currentOf(list);
+        if (current === undefined) continue;
+        if (current.request.namespace !== namespace) continue;
+        if (current.request.classification.sensitivity !== sensitivity) continue;
+        if (category !== undefined && current.request.classification.category !== category) continue;
+        matches.push(view(current));
+      }
+      matches.sort((a, b) => compareStrings(a.writeIdentity.memoryId, b.writeIdentity.memoryId));
+      return { status: "Success", value: Object.freeze(matches) };
+    },
+
+    loadByLifecycle(namespace, lifecycleState): PersistenceResult<readonly PersistedMemoryRecord[]> {
+      const matches: PersistedMemoryRecord[] = [];
+      for (const list of entries.values()) {
+        for (const entry of list) {
+          if (entry.request.namespace !== namespace) continue;
+          if (entry.lifecycleState !== lifecycleState) continue;
+          matches.push(view(entry));
+        }
+      }
+      matches.sort((a, b) => {
+        const byId = compareStrings(a.writeIdentity.memoryId, b.writeIdentity.memoryId);
+        return byId !== 0 ? byId : a.writeIdentity.version - b.writeIdentity.version;
+      });
+      return { status: "Success", value: Object.freeze(matches) };
     },
   };
 
