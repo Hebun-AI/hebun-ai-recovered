@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import type { QueryResult } from "pg";
 import type { DomainEventCollection } from "../../src/features/enterprise-domain-events";
+import { createInProcessEventBus } from "../../src/features/enterprise-event-bus";
 import { createPostgresUnitOfWork } from "../../src/features/enterprise-unit-of-work";
 import type { PostgresTransactionClient, PostgresTransactionPool } from "../../src/features/enterprise-unit-of-work";
 
@@ -39,8 +40,13 @@ const recordedEvent = Object.freeze({
 });
 
 async function main(): Promise<void> {
+const eventBus = createInProcessEventBus();
+const delivered: string[] = [];
+eventBus.subscribe("decision.reviewed", (event) => {
+  delivered.push(event.eventId);
+});
 const success = createHarness();
-const successUnitOfWork = createPostgresUnitOfWork(success.pool, () => ({ value: 42 }));
+const successUnitOfWork = createPostgresUnitOfWork(success.pool, () => ({ value: 42 }), eventBus);
 const successResult = await successUnitOfWork.execute(async ({ resources: { value }, events }) => {
   events.record(recordedEvent);
   return value;
@@ -49,9 +55,10 @@ assert.equal(successResult.value, 42);
 assert.deepEqual(successResult.committedEvents, [recordedEvent]);
 assert.deepEqual(success.commands, ["begin", "commit"]);
 assert.equal(success.releases, 1);
+assert.deepEqual(delivered, ["event-transaction-1"]);
 
 const failure = createHarness();
-const failureUnitOfWork = createPostgresUnitOfWork(failure.pool, () => ({}));
+const failureUnitOfWork = createPostgresUnitOfWork(failure.pool, () => ({}), eventBus);
 let failedEvents: DomainEventCollection | undefined;
 await assert.rejects(
   failureUnitOfWork.execute(async ({ events }) => {
@@ -64,9 +71,10 @@ await assert.rejects(
 assert.deepEqual(failure.commands, ["begin", "rollback"]);
 assert.equal(failure.releases, 1);
 assert.deepEqual(failedEvents?.events(), []);
+assert.deepEqual(delivered, ["event-transaction-1"]);
 
 const rollbackAndCleanupFailure = createHarness(["rollback", "release"]);
-const rollbackAndCleanupUnitOfWork = createPostgresUnitOfWork(rollbackAndCleanupFailure.pool, () => ({}));
+const rollbackAndCleanupUnitOfWork = createPostgresUnitOfWork(rollbackAndCleanupFailure.pool, () => ({}), eventBus);
 await assert.rejects(
   rollbackAndCleanupUnitOfWork.execute(async () => {
     throw new Error("original repository failure");
@@ -77,7 +85,7 @@ assert.deepEqual(rollbackAndCleanupFailure.commands, ["begin", "rollback"]);
 assert.equal(rollbackAndCleanupFailure.releases, 1);
 
 const commitAndRollbackFailure = createHarness(["commit", "rollback"]);
-const commitAndRollbackUnitOfWork = createPostgresUnitOfWork(commitAndRollbackFailure.pool, () => ({}));
+const commitAndRollbackUnitOfWork = createPostgresUnitOfWork(commitAndRollbackFailure.pool, () => ({}), eventBus);
 let commitFailedEvents: DomainEventCollection | undefined;
 await assert.rejects(
   commitAndRollbackUnitOfWork.execute(async ({ events }) => {
@@ -90,9 +98,10 @@ await assert.rejects(
 assert.deepEqual(commitAndRollbackFailure.commands, ["begin", "commit", "rollback"]);
 assert.equal(commitAndRollbackFailure.releases, 1);
 assert.deepEqual(commitFailedEvents?.events(), []);
+assert.deepEqual(delivered, ["event-transaction-1"]);
 
 const cleanupFailure = createHarness(["release"]);
-const cleanupFailureUnitOfWork = createPostgresUnitOfWork(cleanupFailure.pool, () => ({}));
+const cleanupFailureUnitOfWork = createPostgresUnitOfWork(cleanupFailure.pool, () => ({}), eventBus);
 let cleanupFailedEvents: DomainEventCollection | undefined;
 await assert.rejects(cleanupFailureUnitOfWork.execute(async ({ events }) => {
   cleanupFailedEvents = events;
@@ -102,6 +111,7 @@ await assert.rejects(cleanupFailureUnitOfWork.execute(async ({ events }) => {
 assert.deepEqual(cleanupFailure.commands, ["begin", "commit"]);
 assert.equal(cleanupFailure.releases, 1);
 assert.deepEqual(cleanupFailedEvents?.events(), []);
+assert.deepEqual(delivered, ["event-transaction-1"]);
 
 console.log("PostgreSQL UnitOfWork lifecycle checks passed");
 }

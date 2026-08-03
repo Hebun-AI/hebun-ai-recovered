@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import { createDomainEventCollection } from "@/features/enterprise-domain-events";
+import type { EventPublisher } from "@/features/enterprise-event-bus";
 import { createPostgresEnterpriseRepositoryRegistry } from "@/features/enterprise-persistence/postgresql";
 import type { PostgresQueryExecutor } from "@/features/enterprise-persistence/postgresql";
 import type { EnterpriseRepositoryRegistry } from "@/features/enterprise-persistence/ports";
@@ -30,6 +31,7 @@ type ExecutionOutcome<Result> =
 export function createPostgresUnitOfWork<Context>(
   pool: PostgresTransactionPool,
   createContext: (client: PostgresTransactionClient) => Context,
+  eventPublisher: EventPublisher,
 ): UnitOfWork<Context> {
   return Object.freeze({
     async execute<Result>(work: (context: UnitOfWorkContext<Context>) => Promise<Result>): Promise<UnitOfWorkResult<Result>> {
@@ -70,12 +72,17 @@ export function createPostgresUnitOfWork<Context>(
         events.clear();
         throw outcome.error;
       }
-      return Object.freeze({ value: outcome.value, committedEvents: events.drain() });
+      const committedEvents = events.drain();
+      await eventPublisher.publish(committedEvents);
+      return Object.freeze({ value: outcome.value, committedEvents });
     },
   });
 }
 
-export function createPostgresEnterpriseUnitOfWork(options: PostgresUnitOfWorkOptions): PostgresUnitOfWorkSet {
+export function createPostgresEnterpriseUnitOfWork(
+  options: PostgresUnitOfWorkOptions,
+  eventPublisher: EventPublisher,
+): PostgresUnitOfWorkSet {
   const pool = new Pool({
     connectionString: options.connectionString,
     application_name: "hebun-enterprise-unit-of-work",
@@ -95,7 +102,7 @@ export function createPostgresEnterpriseUnitOfWork(options: PostgresUnitOfWorkOp
 
   return Object.freeze({
     repositories,
-    unitOfWork: createPostgresUnitOfWork(pool, createPostgresEnterpriseRepositoryRegistry),
+    unitOfWork: createPostgresUnitOfWork(pool, createPostgresEnterpriseRepositoryRegistry, eventPublisher),
     close: () => pool.end(),
   });
 }

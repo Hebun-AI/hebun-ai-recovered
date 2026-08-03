@@ -1,5 +1,7 @@
 import { createInMemoryEnterpriseRepositories } from "@/features/enterprise-persistence";
 import type { EnterpriseRepositoryRegistry } from "@/features/enterprise-persistence";
+import { createInProcessEventBus } from "@/features/enterprise-event-bus";
+import type { EventBus } from "@/features/enterprise-event-bus";
 import { resolveEnterpriseRepositoryMode } from "@/features/enterprise-runtime-composition/configuration";
 import { createEnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/projection-provider";
 import type { EnterpriseProjectionProvider } from "@/features/enterprise-runtime-composition/provider-port";
@@ -15,16 +17,19 @@ export interface EnterpriseRuntimeComposition {
   projectionProvider: EnterpriseProjectionProvider;
   repositories: EnterpriseRepositoryRegistry;
   unitOfWork: EnterpriseUnitOfWork;
+  eventBus: EventBus;
   close(): Promise<void>;
 }
 
 const repositories = createInMemoryEnterpriseRepositories();
-const unitOfWork = createInMemoryUnitOfWork(repositories);
+const eventBus = createInProcessEventBus();
+const unitOfWork = createInMemoryUnitOfWork(repositories, eventBus);
 const projectionProvider = createEnterpriseProjectionProvider(unitOfWork);
 const activeEnterpriseRuntimeComposition: EnterpriseRuntimeComposition = Object.freeze({
   projectionProvider,
   repositories,
   unitOfWork,
+  eventBus,
   close: async () => undefined,
 });
 
@@ -38,11 +43,16 @@ export function composeEnterpriseRuntime(options: EnterpriseRuntimeCompositionOp
       if (!options.postgresConnectionString) {
         throw new Error("PostgreSQL enterprise repositories require a connection string.");
       }
-      const postgres = createPostgresEnterpriseUnitOfWork({ connectionString: options.postgresConnectionString });
+      const eventBus = createInProcessEventBus();
+      const postgres = createPostgresEnterpriseUnitOfWork(
+        { connectionString: options.postgresConnectionString },
+        eventBus,
+      );
       return Object.freeze({
         projectionProvider: createEnterpriseProjectionProvider(postgres.unitOfWork),
         repositories: postgres.repositories,
         unitOfWork: postgres.unitOfWork,
+        eventBus,
         close: postgres.close,
       });
     }
@@ -63,4 +73,8 @@ export function getActiveEnterpriseRepositories(): EnterpriseRepositoryRegistry 
 
 export function getActiveEnterpriseUnitOfWork(): EnterpriseUnitOfWork {
   return activeEnterpriseRuntimeComposition.unitOfWork;
+}
+
+export function getActiveEnterpriseEventBus(): EventBus {
+  return activeEnterpriseRuntimeComposition.eventBus;
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { Client, Pool } from "pg";
 import { createPostgresUnitOfWork } from "../../src/features/enterprise-unit-of-work";
 import type { PostgresTransactionClient } from "../../src/features/enterprise-unit-of-work";
+import { createInProcessEventBus } from "../../src/features/enterprise-event-bus";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 
 interface CounterContext {
@@ -31,7 +32,7 @@ async function main(): Promise<void> {
     await observer.connect();
     await observer.query("create table unit_of_work_counter (id text primary key, value integer not null)");
     await observer.query("insert into unit_of_work_counter (id, value) values ($1, $2)", ["counter", 0]);
-    const unitOfWork = createPostgresUnitOfWork(pool, createCounterContext);
+    const unitOfWork = createPostgresUnitOfWork(pool, createCounterContext, createInProcessEventBus());
 
     await unitOfWork.execute(async ({ resources: counter }) => {
       await counter.add(3);

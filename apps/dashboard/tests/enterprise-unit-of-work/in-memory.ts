@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import type { DomainEventCollection } from "../../src/features/enterprise-domain-events";
+import { createInProcessEventBus } from "../../src/features/enterprise-event-bus";
 import { createInMemoryEnterpriseRepositories } from "../../src/features/enterprise-persistence";
 import { createInMemoryUnitOfWork } from "../../src/features/enterprise-unit-of-work";
 
 async function main(): Promise<void> {
 const repositories = createInMemoryEnterpriseRepositories();
-const unitOfWork = createInMemoryUnitOfWork(repositories);
+const eventBus = createInProcessEventBus();
+const delivered: string[] = [];
+eventBus.subscribe("organization.reviewed", (event) => {
+  delivered.push(event.eventId);
+});
+const unitOfWork = createInMemoryUnitOfWork(repositories, eventBus);
 
 assert.equal(Object.isFrozen(unitOfWork), true);
 const compatibility = await unitOfWork.execute(async ({ resources }) => resources);
@@ -31,6 +37,7 @@ const successful = await unitOfWork.execute(async ({ events }) => {
 });
 assert.equal(successful.value, "complete");
 assert.equal(successful.committedEvents.length, 1);
+assert.deepEqual(delivered, ["event-1"]);
 let failedEvents: DomainEventCollection | undefined;
 await assert.rejects(
   unitOfWork.execute(async ({ events }) => {
@@ -41,6 +48,7 @@ await assert.rejects(
   /business failure/,
 );
 assert.deepEqual(failedEvents?.events(), []);
+assert.deepEqual(delivered, ["event-1"]);
 
 console.log("in-memory UnitOfWork compatibility checks passed");
 }

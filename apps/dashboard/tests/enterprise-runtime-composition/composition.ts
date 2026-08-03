@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   composeEnterpriseProjectionProvider,
   composeEnterpriseRuntime,
+  getActiveEnterpriseEventBus,
   getActiveEnterpriseProjectionProvider,
   getActiveEnterpriseRepositories,
   getActiveEnterpriseUnitOfWork,
@@ -21,6 +22,8 @@ assert.equal(getActiveEnterpriseProjectionProvider(), defaultProvider);
 assert.equal(activeRuntime.projectionProvider, defaultProvider);
 assert.equal(activeRuntime.repositories, getActiveEnterpriseRepositories());
 assert.equal(activeRuntime.unitOfWork, getActiveEnterpriseUnitOfWork());
+assert.equal(activeRuntime.eventBus, getActiveEnterpriseEventBus());
+assert.equal(Object.isFrozen(activeRuntime.eventBus), true);
 assert.equal(Object.isFrozen(activeRuntime), true);
 assert.equal(Object.isFrozen(activeRuntime.repositories), true);
 assert.throws(
