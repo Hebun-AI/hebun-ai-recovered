@@ -65,3 +65,30 @@ export type {
   RelationSet,
   RelationSetResult,
 } from "@/features/enterprise-memory-reasoning/relation-boundary";
+export { IMPLICATION_TYPE_DESCRIPTORS } from "@/features/enterprise-memory-reasoning/implication-types";
+export type {
+  ClassifiedImplication,
+  ImplicationDirection,
+  ImplicationType,
+  ImplicationTypeDescriptor,
+} from "@/features/enterprise-memory-reasoning/implication-types";
+export {
+  implicationDescriptorOf,
+  implicationDirectionOf,
+  implicationIsBidirectional,
+  implicationMinimumBasis,
+  implicationRequiresRelation,
+} from "@/features/enterprise-memory-reasoning/implication-rules";
+export {
+  canonicalImplicationKey,
+  normalizeImplication,
+  normalizeImplications,
+} from "@/features/enterprise-memory-reasoning/implication-normalization";
+export { validateImplicationSet } from "@/features/enterprise-memory-reasoning/implication-validation";
+export type { ImplicationValidation } from "@/features/enterprise-memory-reasoning/implication-validation";
+export { normalizeImplicationSet } from "@/features/enterprise-memory-reasoning/implication-boundary";
+export type {
+  ImplicationSet,
+  ImplicationSetResult,
+  NormalizedImplicationSet,
+} from "@/features/enterprise-memory-reasoning/implication-boundary";
