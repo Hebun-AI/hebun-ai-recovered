@@ -194,3 +194,48 @@ export type {
   ProvenanceSet,
   ProvenanceSetResult,
 } from "@/features/enterprise-memory-reasoning/provenance-boundary";
+export { EXPLANATION_KIND_DESCRIPTORS } from "@/features/enterprise-memory-reasoning/explainability-types";
+export type {
+  CanonicalExplanation,
+  ContradictionExplanation,
+  EvidenceExplanation,
+  Explanation,
+  ExplanationChain,
+  ExplanationKind,
+  ExplanationKindDescriptor,
+  ExplanationLineage,
+  ExplanationReference,
+  ExplanationReferenceKind,
+  ExplanationStep,
+  ExplanationSubject,
+  GapExplanation,
+  ImplicationExplanation,
+  ProvenanceExplanation,
+  RelationExplanation,
+} from "@/features/enterprise-memory-reasoning/explainability-types";
+export {
+  explanationIsGrounded,
+  explanationKindDescriptorOf,
+  explanationPermitsReference,
+  explanationRequiresEvidenceRoot,
+  lineageOf as explanationLineageOf,
+  reachesEvidenceRoot,
+  referencesOf,
+} from "@/features/enterprise-memory-reasoning/explainability-rules";
+export {
+  canonicalExplanationKey,
+  explanationReferenceKey,
+  explanationStepKey,
+  normalizeChain as normalizeExplanationChain,
+  normalizeExplanation,
+  normalizeExplanations,
+  normalizeStep as normalizeExplanationStep,
+} from "@/features/enterprise-memory-reasoning/explainability-normalization";
+export { validateExplanationSet } from "@/features/enterprise-memory-reasoning/explainability-validation";
+export type { ExplainabilityValidation } from "@/features/enterprise-memory-reasoning/explainability-validation";
+export { normalizeExplanationSet } from "@/features/enterprise-memory-reasoning/explainability-boundary";
+export type {
+  ExplanationSet,
+  ExplanationSetResult,
+  NormalizedExplanationSet,
+} from "@/features/enterprise-memory-reasoning/explainability-boundary";
