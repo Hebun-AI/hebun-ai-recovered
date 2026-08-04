@@ -239,3 +239,75 @@ export type {
   ExplanationSetResult,
   NormalizedExplanationSet,
 } from "@/features/enterprise-memory-reasoning/explainability-boundary";
+export {
+  CONFIDENCE_FACTOR_DESCRIPTORS,
+  CONFIDENCE_LEVEL_DESCRIPTORS,
+  CONFIDENCE_SOURCE_DESCRIPTORS,
+  CONFIDENCE_SUBJECT_DESCRIPTORS,
+  UNCERTAINTY_CATEGORY_DESCRIPTORS,
+} from "@/features/enterprise-memory-reasoning/confidence-types";
+export type {
+  CanonicalConfidence,
+  Confidence,
+  ConfidenceAssumption,
+  ConfidenceChain,
+  ConfidenceClassification,
+  ConfidenceEvidence,
+  ConfidenceFactorDescriptor,
+  ConfidenceFactorKind,
+  ConfidenceFactorPolarity,
+  ConfidenceLevelDescriptor,
+  ConfidenceLimitation,
+  ConfidenceLineage,
+  ConfidenceReference,
+  ConfidenceSourceDescriptor,
+  ConfidenceSourceKind,
+  ConfidenceSubject,
+  ConfidenceSubjectDescriptor,
+  ConfidenceSubjectKind,
+  Uncertainty,
+  UncertaintyCategory,
+  UncertaintyCategoryDescriptor,
+  UncertaintyReason,
+  UncertaintySource,
+} from "@/features/enterprise-memory-reasoning/confidence-types";
+export {
+  compareConfidenceLevel,
+  confidenceClassificationOf,
+  confidenceFactorDescriptorOf,
+  confidenceFactorPolarityOf,
+  confidenceLevelDescriptorOf,
+  confidenceRank,
+  confidenceRequiresEvidenceRoot,
+  confidenceRequiresUncertainty,
+  confidenceSourceDescriptorOf,
+  confidenceSourceIsGrounding,
+  confidenceSubjectDescriptorOf,
+  confidenceSubjectPermits,
+  evidenceOf as confidenceEvidenceOf,
+  lineageOf as confidenceLineageOf,
+  reachesEvidenceRoot as confidenceReachesEvidenceRoot,
+  uncertaintyCategoryDescriptorOf,
+  uncertaintyIsResolvable,
+} from "@/features/enterprise-memory-reasoning/confidence-rules";
+export {
+  canonicalConfidenceKey,
+  confidenceReferenceKey,
+  normalizeAssumptions as normalizeConfidenceAssumptions,
+  normalizeChain as normalizeConfidenceChain,
+  normalizeConfidence,
+  normalizeConfidences,
+  normalizeFactors as normalizeConfidenceFactors,
+  normalizeLimitations as normalizeConfidenceLimitations,
+  normalizeUncertainties,
+  uncertaintyKey,
+  uncertaintySourceKey,
+} from "@/features/enterprise-memory-reasoning/confidence-normalization";
+export { validateConfidenceSet } from "@/features/enterprise-memory-reasoning/confidence-validation";
+export type { ConfidenceValidation } from "@/features/enterprise-memory-reasoning/confidence-validation";
+export { normalizeConfidenceSet } from "@/features/enterprise-memory-reasoning/confidence-boundary";
+export type {
+  ConfidenceSet,
+  ConfidenceSetResult,
+  NormalizedConfidenceSet,
+} from "@/features/enterprise-memory-reasoning/confidence-boundary";
