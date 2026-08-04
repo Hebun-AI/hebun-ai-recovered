@@ -311,3 +311,49 @@ export type {
   ConfidenceSetResult,
   NormalizedConfidenceSet,
 } from "@/features/enterprise-memory-reasoning/confidence-boundary";
+export { UNDERSTANDING_ARTIFACT_DESCRIPTORS } from "@/features/enterprise-memory-reasoning/understanding-types";
+export type {
+  CanonicalUnderstanding,
+  Understanding,
+  UnderstandingArtifact,
+  UnderstandingArtifactDescriptor,
+  UnderstandingArtifactKind,
+  UnderstandingBasis,
+  UnderstandingBundle,
+  UnderstandingChain,
+  UnderstandingContext,
+  UnderstandingReference,
+  UnderstandingScope,
+  UnderstandingSubject,
+  UnderstandingSummary,
+} from "@/features/enterprise-memory-reasoning/understanding-types";
+export {
+  artifactsOf as understandingArtifactsOf,
+  basisOf as understandingBasisOf,
+  confidenceMemberId,
+  evidenceMemberId,
+  explanationMemberId,
+  provenanceMemberId,
+  reachesEvidenceRoot as understandingReachesEvidenceRoot,
+  referencesOf as understandingReferencesOf,
+  summaryOf as understandingSummaryOf,
+  understandingArtifactDescriptorOf,
+  understandingArtifactIsGrounding,
+  understandingLayerOf,
+} from "@/features/enterprise-memory-reasoning/understanding-rules";
+export {
+  assembleUnderstanding,
+  canonicalUnderstandingKey,
+  normalizeChain as normalizeUnderstandingChain,
+  normalizeContext as normalizeUnderstandingContext,
+  normalizeEvidenceItems,
+  normalizeUnderstandingBundle,
+  understandingReferenceKey,
+} from "@/features/enterprise-memory-reasoning/understanding-normalization";
+export { validateUnderstanding as validateUnderstandingAssembly } from "@/features/enterprise-memory-reasoning/understanding-validation";
+export type { UnderstandingValidation } from "@/features/enterprise-memory-reasoning/understanding-validation";
+export { assembleUnderstandingBundle } from "@/features/enterprise-memory-reasoning/understanding-boundary";
+export type {
+  UnderstandingInput,
+  UnderstandingResult,
+} from "@/features/enterprise-memory-reasoning/understanding-boundary";
