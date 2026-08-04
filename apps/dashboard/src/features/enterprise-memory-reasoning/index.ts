@@ -92,3 +92,66 @@ export type {
   ImplicationSetResult,
   NormalizedImplicationSet,
 } from "@/features/enterprise-memory-reasoning/implication-boundary";
+export { CONTRADICTION_TYPE_DESCRIPTORS } from "@/features/enterprise-memory-reasoning/contradiction-types";
+export type {
+  ClassifiedContradiction,
+  ContradictionDependencies,
+  ContradictionScope,
+  ContradictionSeverity,
+  ContradictionType,
+  ContradictionTypeDescriptor,
+} from "@/features/enterprise-memory-reasoning/contradiction-types";
+export {
+  contradictionDescriptorOf,
+  contradictionIsCollective,
+  contradictionMinimumBetween,
+  contradictionRequiresImplication,
+  contradictionRequiresRelation,
+  contradictionScopeOf,
+  contradictionSeverityOf,
+} from "@/features/enterprise-memory-reasoning/contradiction-rules";
+export {
+  canonicalContradictionKey,
+  normalizeContradiction,
+  normalizeContradictions,
+} from "@/features/enterprise-memory-reasoning/contradiction-normalization";
+export { validateContradictionSet } from "@/features/enterprise-memory-reasoning/contradiction-validation";
+export type { ContradictionValidation } from "@/features/enterprise-memory-reasoning/contradiction-validation";
+export { normalizeContradictionSet } from "@/features/enterprise-memory-reasoning/contradiction-boundary";
+export type {
+  ContradictionSet,
+  ContradictionSetResult,
+  NormalizedContradictionSet,
+} from "@/features/enterprise-memory-reasoning/contradiction-boundary";
+export { GAP_TYPE_DESCRIPTORS } from "@/features/enterprise-memory-reasoning/gap-types";
+export type {
+  ClassifiedGap,
+  GapCategory,
+  GapDependencies,
+  GapScope,
+  GapSeverity,
+  GapType,
+  GapTypeDescriptor,
+} from "@/features/enterprise-memory-reasoning/gap-types";
+export {
+  gapCategoryOf,
+  gapDescriptorOf,
+  gapIsContextual,
+  gapMinimumRelated,
+  gapRequiresReference,
+  gapScopeOf,
+  gapSeverityOf,
+} from "@/features/enterprise-memory-reasoning/gap-rules";
+export {
+  canonicalGapKey,
+  normalizeGap,
+  normalizeGaps,
+} from "@/features/enterprise-memory-reasoning/gap-normalization";
+export { validateGapSet } from "@/features/enterprise-memory-reasoning/gap-validation";
+export type { GapValidation } from "@/features/enterprise-memory-reasoning/gap-validation";
+export { normalizeGapSet } from "@/features/enterprise-memory-reasoning/gap-boundary";
+export type {
+  GapSet,
+  GapSetResult,
+  NormalizedGapSet,
+} from "@/features/enterprise-memory-reasoning/gap-boundary";
