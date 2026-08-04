@@ -155,3 +155,42 @@ export type {
   GapSetResult,
   NormalizedGapSet,
 } from "@/features/enterprise-memory-reasoning/gap-boundary";
+export {
+  PROVENANCE_ARTIFACT_DESCRIPTORS,
+  PROVENANCE_SOURCE_DESCRIPTORS,
+} from "@/features/enterprise-memory-reasoning/provenance-types";
+export type {
+  Provenance,
+  ProvenanceArtifactDescriptor,
+  ProvenanceArtifactId,
+  ProvenanceArtifactKind,
+  ProvenanceChain,
+  ProvenanceLineage,
+  ProvenanceReference,
+  ProvenanceSourceDescriptor,
+  ProvenanceSourceKind,
+} from "@/features/enterprise-memory-reasoning/provenance-types";
+export {
+  dependencyLineageOf,
+  lineageOf,
+  provenanceArtifactDescriptorOf,
+  provenanceArtifactPermits,
+  provenanceRequiresEvidenceRoot,
+  provenanceSourceDescriptorOf,
+  provenanceSourceIsRoot,
+} from "@/features/enterprise-memory-reasoning/provenance-rules";
+export {
+  canonicalProvenanceKey,
+  normalizeChain,
+  normalizeProvenance,
+  normalizeProvenances,
+  provenanceReferenceKey,
+} from "@/features/enterprise-memory-reasoning/provenance-normalization";
+export { validateProvenanceSet } from "@/features/enterprise-memory-reasoning/provenance-validation";
+export type { ProvenanceValidation } from "@/features/enterprise-memory-reasoning/provenance-validation";
+export { normalizeProvenanceSet } from "@/features/enterprise-memory-reasoning/provenance-boundary";
+export type {
+  NormalizedProvenanceSet,
+  ProvenanceSet,
+  ProvenanceSetResult,
+} from "@/features/enterprise-memory-reasoning/provenance-boundary";
