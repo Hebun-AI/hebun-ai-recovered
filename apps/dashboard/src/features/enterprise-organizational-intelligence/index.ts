@@ -54,3 +54,42 @@ export type {
 } from "@/features/enterprise-organizational-intelligence/organization-boundary";
 export { validateOrganizationUnderstanding } from "@/features/enterprise-organizational-intelligence/validation";
 export type { OrganizationValidation } from "@/features/enterprise-organizational-intelligence/validation";
+export { ORGANIZATION_ASSEMBLY_ARTIFACT_DESCRIPTORS } from "@/features/enterprise-organizational-intelligence/organization-assembly-types";
+export type {
+  CanonicalOrganizationAssembly,
+  OrganizationAssembly,
+  OrganizationAssemblyArtifact,
+  OrganizationAssemblyArtifactDescriptor,
+  OrganizationAssemblyArtifactKind,
+  OrganizationAssemblyBasis,
+  OrganizationAssemblyBundle,
+  OrganizationAssemblyChain,
+  OrganizationAssemblyContext,
+  OrganizationAssemblyReference,
+  OrganizationAssemblySummary,
+} from "@/features/enterprise-organizational-intelligence/organization-assembly-types";
+export {
+  artifactsOf as organizationAssemblyArtifactsOf,
+  basisOf as organizationAssemblyBasisOf,
+  organizationAssemblyArtifactDescriptorOf,
+  organizationAssemblyArtifactIsGrounded,
+  organizationAssemblyLayerOf,
+  reachesEvidenceRoot as organizationAssemblyReachesEvidenceRoot,
+  referencesOf as organizationAssemblyReferencesOf,
+  summaryOf as organizationAssemblySummaryOf,
+} from "@/features/enterprise-organizational-intelligence/organization-assembly-rules";
+export {
+  assembleOrganization,
+  canonicalOrganizationAssemblyKey,
+  normalizeChain as normalizeOrganizationAssemblyChain,
+  normalizeContext as normalizeOrganizationAssemblyContext,
+  normalizeOrganizationAssemblyBundle,
+  organizationAssemblyReferenceKey,
+} from "@/features/enterprise-organizational-intelligence/organization-assembly-normalization";
+export { validateOrganizationAssembly } from "@/features/enterprise-organizational-intelligence/organization-assembly-validation";
+export type { OrganizationAssemblyValidation } from "@/features/enterprise-organizational-intelligence/organization-assembly-validation";
+export { assembleOrganizationBundle } from "@/features/enterprise-organizational-intelligence/organization-assembly-boundary";
+export type {
+  OrganizationAssemblyInput,
+  OrganizationAssemblyResult,
+} from "@/features/enterprise-organizational-intelligence/organization-assembly-boundary";
