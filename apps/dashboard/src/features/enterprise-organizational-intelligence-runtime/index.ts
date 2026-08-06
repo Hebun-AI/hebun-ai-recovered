@@ -243,3 +243,47 @@ export type {
   OptimizationCandidateNonResponsibility,
   OptimizationCandidateResult,
 } from "@/features/enterprise-organizational-intelligence-runtime/optimization-candidate-boundary";
+
+// --- Awareness Candidate Runtime (Phase 5) -----------------------------------
+
+export type {
+  AwarenessCandidate,
+  AwarenessCandidateKind,
+  AwarenessCandidateRequest,
+  AwarenessCandidateSeed,
+  AwarenessCandidateSet,
+  CanonicalAwarenessCandidateSet,
+} from "@/features/enterprise-organizational-intelligence-runtime/awareness-candidate-types";
+export {
+  awarenessCandidateSupersedes,
+  awarenessRequiresBasis,
+  formAwarenessCandidate,
+  groundsInDeclaredOptimization,
+  identifyAwarenessCandidates,
+  optimizationSupportIndex,
+  resolveSupportingOptimization,
+} from "@/features/enterprise-organizational-intelligence-runtime/awareness-candidate-rules";
+export {
+  awarenessCandidateKey,
+  canonicalAwarenessCandidateSetKey,
+  normalizeAwarenessCandidate,
+  normalizeAwarenessCandidates,
+  normalizeAwarenessCandidateSet,
+  normalizeReferenceIds as normalizeAwarenessReferenceIds,
+} from "@/features/enterprise-organizational-intelligence-runtime/awareness-candidate-normalization";
+export {
+  validateAwarenessCandidateRequest,
+  validateAwarenessCandidateSet,
+} from "@/features/enterprise-organizational-intelligence-runtime/awareness-candidate-validation";
+export type { AwarenessCandidateValidation } from "@/features/enterprise-organizational-intelligence-runtime/awareness-candidate-validation";
+export {
+  AWARENESS_CANDIDATE_CAPABILITIES,
+  AWARENESS_CANDIDATE_NON_RESPONSIBILITIES,
+  prepareAwarenessCandidates,
+} from "@/features/enterprise-organizational-intelligence-runtime/awareness-candidate-boundary";
+export type {
+  AwarenessCandidateCapability,
+  AwarenessCandidateInput,
+  AwarenessCandidateNonResponsibility,
+  AwarenessCandidateResult,
+} from "@/features/enterprise-organizational-intelligence-runtime/awareness-candidate-boundary";
