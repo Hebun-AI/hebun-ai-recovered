@@ -287,3 +287,49 @@ export type {
   AwarenessCandidateNonResponsibility,
   AwarenessCandidateResult,
 } from "@/features/enterprise-organizational-intelligence-runtime/awareness-candidate-boundary";
+
+// --- Evolution Candidate Runtime (Phase 6) -----------------------------------
+
+export type {
+  CanonicalEvolutionCandidateSet,
+  EvolutionCandidate,
+  EvolutionCandidateKind,
+  EvolutionCandidateRequest,
+  EvolutionCandidateSeed,
+  EvolutionCandidateSet,
+} from "@/features/enterprise-organizational-intelligence-runtime/evolution-candidate-types";
+export {
+  EVOLUTION_CANDIDATE_KINDS,
+  awarenessSupportIndex,
+  evolutionCandidateSupersedes,
+  evolutionRequiresBasis,
+  formEvolutionCandidate,
+  groundsInDeclaredAwareness,
+  identifyEvolutionCandidates,
+  isEvolutionCandidateKind,
+  resolveSupportingAwareness,
+} from "@/features/enterprise-organizational-intelligence-runtime/evolution-candidate-rules";
+export {
+  canonicalEvolutionCandidateSetKey,
+  evolutionCandidateKey,
+  normalizeEvolutionCandidate,
+  normalizeEvolutionCandidates,
+  normalizeEvolutionCandidateSet,
+  normalizeReferenceIds as normalizeEvolutionReferenceIds,
+} from "@/features/enterprise-organizational-intelligence-runtime/evolution-candidate-normalization";
+export {
+  validateEvolutionCandidateRequest,
+  validateEvolutionCandidateSet,
+} from "@/features/enterprise-organizational-intelligence-runtime/evolution-candidate-validation";
+export type { EvolutionCandidateValidation } from "@/features/enterprise-organizational-intelligence-runtime/evolution-candidate-validation";
+export {
+  EVOLUTION_CANDIDATE_CAPABILITIES,
+  EVOLUTION_CANDIDATE_NON_RESPONSIBILITIES,
+  prepareEvolutionCandidates,
+} from "@/features/enterprise-organizational-intelligence-runtime/evolution-candidate-boundary";
+export type {
+  EvolutionCandidateCapability,
+  EvolutionCandidateInput,
+  EvolutionCandidateNonResponsibility,
+  EvolutionCandidateResult,
+} from "@/features/enterprise-organizational-intelligence-runtime/evolution-candidate-boundary";
