@@ -93,3 +93,52 @@ export type {
   OrganizationAssemblyInput,
   OrganizationAssemblyResult,
 } from "@/features/enterprise-organizational-intelligence/organization-assembly-boundary";
+export {
+  LEARNING_LIFECYCLE_STATE_DESCRIPTORS,
+  LEARNING_RELATIONSHIP_KIND_DESCRIPTORS,
+} from "@/features/enterprise-organizational-intelligence/organization-learning-types";
+export type {
+  CanonicalOrganizationLearningContext,
+  LearningLifecycleState,
+  LearningLifecycleStateDescriptor,
+  LearningRelationshipKind,
+  LearningRelationshipKindDescriptor,
+  OrganizationLearning,
+  OrganizationLearningBasis,
+  OrganizationLearningContext,
+  OrganizationLearningId,
+  OrganizationLearningProvenance,
+  OrganizationLearningRelationship,
+  OrganizationLearningStatement,
+  OrganizationLearningSubject,
+  OrganizationLearningUncertainty,
+} from "@/features/enterprise-organizational-intelligence/organization-learning-types";
+export {
+  compareLearningLifecycle,
+  learningBasisEvidenceOf,
+  learningLifecycleIsTerminal,
+  learningLifecycleOrderOf,
+  learningLifecycleStateDescriptorOf,
+  learningReachesEvidenceRoot,
+  learningRelationshipIsSymmetric,
+  learningRelationshipKindDescriptorOf,
+} from "@/features/enterprise-organizational-intelligence/organization-learning-rules";
+export {
+  canonicalLearningContextKey,
+  learningRelationshipKey,
+  normalizeLearning,
+  normalizeLearningBasis,
+  normalizeLearningContext,
+  normalizeLearningRelationships,
+  normalizeLearnings,
+  normalizeLearningUncertainties,
+  normalizeOrganizationLearningContext,
+} from "@/features/enterprise-organizational-intelligence/organization-learning-normalization";
+export { validateOrganizationLearningContext } from "@/features/enterprise-organizational-intelligence/organization-learning-validation";
+export type { OrganizationLearningValidation } from "@/features/enterprise-organizational-intelligence/organization-learning-validation";
+export { ORGANIZATION_LEARNING_NON_RESPONSIBILITIES, prepareOrganizationLearningContext } from "@/features/enterprise-organizational-intelligence/organization-learning-boundary";
+export type {
+  OrganizationLearningInput,
+  OrganizationLearningNonResponsibility,
+  OrganizationLearningResult,
+} from "@/features/enterprise-organizational-intelligence/organization-learning-boundary";
