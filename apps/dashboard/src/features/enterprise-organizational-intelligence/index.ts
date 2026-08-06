@@ -190,3 +190,57 @@ export type {
   OrganizationOptimizationNonResponsibility,
   OrganizationOptimizationResult,
 } from "@/features/enterprise-organizational-intelligence/organization-optimization-boundary";
+export {
+  AWARENESS_LIFECYCLE_STATE_DESCRIPTORS,
+  STRATEGIC_DIMENSION_DESCRIPTORS,
+} from "@/features/enterprise-organizational-intelligence/organization-awareness-types";
+export type {
+  AwarenessBasis,
+  AwarenessContext,
+  AwarenessLifecycleState,
+  AwarenessLifecycleStateDescriptor,
+  AwarenessProvenance,
+  AwarenessUncertainty,
+  CanonicalAwarenessContext,
+  StrategicAssessment,
+  StrategicAssessmentId,
+  StrategicDimension,
+  StrategicDimensionDescriptor,
+  StrategicSignal,
+  StrategicSignalId,
+} from "@/features/enterprise-organizational-intelligence/organization-awareness-types";
+export {
+  awarenessBasisEvidenceOf,
+  awarenessBasisLearningsOf,
+  awarenessBasisOpportunitiesOf,
+  awarenessBasisReachesSource,
+  awarenessLifecycleIsTerminal,
+  awarenessLifecycleOrderOf,
+  awarenessLifecycleStateDescriptorOf,
+  compareAwarenessLifecycle,
+  strategicDimensionDescriptorOf,
+  strategicDimensionOrderOf,
+} from "@/features/enterprise-organizational-intelligence/organization-awareness-rules";
+export {
+  canonicalAwarenessContextKey,
+  normalizeAwarenessBasis,
+  normalizeAwarenessContext,
+  normalizeAwarenessDerivedFrom,
+  normalizeAwarenessUncertainties,
+  normalizeOrganizationAwarenessContext,
+  normalizeStrategicAssessment,
+  normalizeStrategicAssessments,
+  normalizeStrategicSignal,
+  normalizeStrategicSignals,
+} from "@/features/enterprise-organizational-intelligence/organization-awareness-normalization";
+export { validateOrganizationAwarenessContext } from "@/features/enterprise-organizational-intelligence/organization-awareness-validation";
+export type { OrganizationAwarenessValidation } from "@/features/enterprise-organizational-intelligence/organization-awareness-validation";
+export {
+  ORGANIZATION_AWARENESS_NON_RESPONSIBILITIES,
+  prepareOrganizationAwarenessContext,
+} from "@/features/enterprise-organizational-intelligence/organization-awareness-boundary";
+export type {
+  OrganizationAwarenessInput,
+  OrganizationAwarenessNonResponsibility,
+  OrganizationAwarenessResult,
+} from "@/features/enterprise-organizational-intelligence/organization-awareness-boundary";
