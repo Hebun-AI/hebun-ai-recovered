@@ -199,3 +199,47 @@ export type {
   LearningCandidateNonResponsibility,
   LearningCandidateResult,
 } from "@/features/enterprise-organizational-intelligence-runtime/learning-candidate-boundary";
+
+// --- Optimization Candidate Runtime (Phase 4) --------------------------------
+
+export type {
+  CanonicalOptimizationCandidateSet,
+  OptimizationCandidate,
+  OptimizationCandidateKind,
+  OptimizationCandidateRequest,
+  OptimizationCandidateSeed,
+  OptimizationCandidateSet,
+} from "@/features/enterprise-organizational-intelligence-runtime/optimization-candidate-types";
+export {
+  formOptimizationCandidate,
+  groundsInDeclaredLearning,
+  identifyOptimizationCandidates,
+  learningSupportIndex,
+  optimizationCandidateSupersedes,
+  optimizationRequiresBasis,
+  resolveSupportingLearning,
+} from "@/features/enterprise-organizational-intelligence-runtime/optimization-candidate-rules";
+export {
+  canonicalOptimizationCandidateSetKey,
+  normalizeOptimizationCandidate,
+  normalizeOptimizationCandidates,
+  normalizeOptimizationCandidateSet,
+  normalizeReferenceIds as normalizeOptimizationReferenceIds,
+  optimizationCandidateKey,
+} from "@/features/enterprise-organizational-intelligence-runtime/optimization-candidate-normalization";
+export {
+  validateOptimizationCandidateRequest,
+  validateOptimizationCandidateSet,
+} from "@/features/enterprise-organizational-intelligence-runtime/optimization-candidate-validation";
+export type { OptimizationCandidateValidation } from "@/features/enterprise-organizational-intelligence-runtime/optimization-candidate-validation";
+export {
+  OPTIMIZATION_CANDIDATE_CAPABILITIES,
+  OPTIMIZATION_CANDIDATE_NON_RESPONSIBILITIES,
+  prepareOptimizationCandidates,
+} from "@/features/enterprise-organizational-intelligence-runtime/optimization-candidate-boundary";
+export type {
+  OptimizationCandidateCapability,
+  OptimizationCandidateInput,
+  OptimizationCandidateNonResponsibility,
+  OptimizationCandidateResult,
+} from "@/features/enterprise-organizational-intelligence-runtime/optimization-candidate-boundary";
