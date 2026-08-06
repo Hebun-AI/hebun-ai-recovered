@@ -153,3 +153,49 @@ export type {
   RuntimeAssemblyNonResponsibility,
   RuntimeAssemblyResult,
 } from "@/features/enterprise-organizational-intelligence-runtime/runtime-assembly-boundary";
+
+// --- Learning Candidate Runtime (Phase 3) ------------------------------------
+
+export type {
+  CanonicalLearningCandidateSet,
+  LearningCandidate,
+  LearningCandidateKind,
+  LearningCandidateRequest,
+  LearningCandidateSeed,
+  LearningCandidateSet,
+  LearningEvidence,
+} from "@/features/enterprise-organizational-intelligence-runtime/learning-candidate-types";
+export {
+  formLearningCandidate,
+  groundsInEligibleEvidence,
+  identifyLearningCandidates,
+  isLearningEvidenceEligible,
+  learningCandidateSupersedes,
+  learningEvidenceIndex,
+  learningRequiresBasis,
+  resolveCandidateEvidence,
+} from "@/features/enterprise-organizational-intelligence-runtime/learning-candidate-rules";
+export {
+  canonicalLearningCandidateSetKey,
+  learningCandidateKey,
+  normalizeEvidenceRefs as normalizeLearningEvidenceRefs,
+  normalizeLearningCandidate,
+  normalizeLearningCandidateSet,
+  normalizeLearningCandidates,
+} from "@/features/enterprise-organizational-intelligence-runtime/learning-candidate-normalization";
+export {
+  validateLearningCandidateRequest,
+  validateLearningCandidateSet,
+} from "@/features/enterprise-organizational-intelligence-runtime/learning-candidate-validation";
+export type { LearningCandidateValidation } from "@/features/enterprise-organizational-intelligence-runtime/learning-candidate-validation";
+export {
+  LEARNING_CANDIDATE_CAPABILITIES,
+  LEARNING_CANDIDATE_NON_RESPONSIBILITIES,
+  prepareLearningCandidates,
+} from "@/features/enterprise-organizational-intelligence-runtime/learning-candidate-boundary";
+export type {
+  LearningCandidateCapability,
+  LearningCandidateInput,
+  LearningCandidateNonResponsibility,
+  LearningCandidateResult,
+} from "@/features/enterprise-organizational-intelligence-runtime/learning-candidate-boundary";
