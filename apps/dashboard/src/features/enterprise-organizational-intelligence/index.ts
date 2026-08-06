@@ -244,3 +244,64 @@ export type {
   OrganizationAwarenessNonResponsibility,
   OrganizationAwarenessResult,
 } from "@/features/enterprise-organizational-intelligence/organization-awareness-boundary";
+export {
+  EVOLUTION_CONSTRAINT_KIND_DESCRIPTORS,
+  EVOLUTION_LIFECYCLE_STATE_DESCRIPTORS,
+} from "@/features/enterprise-organizational-intelligence/organization-evolution-types";
+export type {
+  CanonicalEvolutionContext,
+  EvolutionBasis,
+  EvolutionConstraint,
+  EvolutionConstraintId,
+  EvolutionConstraintKind,
+  EvolutionConstraintKindDescriptor,
+  EvolutionContext,
+  EvolutionContinuity,
+  EvolutionLifecycleState,
+  EvolutionLifecycleStateDescriptor,
+  EvolutionPathway,
+  EvolutionPathwayId,
+  EvolutionProvenance,
+  EvolutionReadiness,
+  EvolutionReadinessId,
+  EvolutionSustainability,
+  EvolutionUncertainty,
+} from "@/features/enterprise-organizational-intelligence/organization-evolution-types";
+export {
+  compareEvolutionLifecycle,
+  evolutionBasisAssessmentsOf,
+  evolutionBasisEvidenceOf,
+  evolutionBasisLearningsOf,
+  evolutionBasisOpportunitiesOf,
+  evolutionBasisReachesSource,
+  evolutionConstraintKindDescriptorOf,
+  evolutionConstraintKindOrderOf,
+  evolutionLifecycleIsTerminal,
+  evolutionLifecycleOrderOf,
+  evolutionLifecycleStateDescriptorOf,
+  evolutionPathwayPreservesContinuity,
+} from "@/features/enterprise-organizational-intelligence/organization-evolution-rules";
+export {
+  canonicalEvolutionContextKey,
+  normalizeEvolutionBasis,
+  normalizeEvolutionConstraints,
+  normalizeEvolutionContext,
+  normalizeEvolutionPathway,
+  normalizeEvolutionPathways,
+  normalizeEvolutionReadiness,
+  normalizeEvolutionReadinessSet,
+  normalizeEvolutionRespects,
+  normalizeEvolutionUncertainties,
+  normalizeOrganizationEvolutionContext,
+} from "@/features/enterprise-organizational-intelligence/organization-evolution-normalization";
+export { validateOrganizationEvolutionContext } from "@/features/enterprise-organizational-intelligence/organization-evolution-validation";
+export type { OrganizationEvolutionValidation } from "@/features/enterprise-organizational-intelligence/organization-evolution-validation";
+export {
+  ORGANIZATION_EVOLUTION_NON_RESPONSIBILITIES,
+  prepareOrganizationEvolutionContext,
+} from "@/features/enterprise-organizational-intelligence/organization-evolution-boundary";
+export type {
+  OrganizationEvolutionInput,
+  OrganizationEvolutionNonResponsibility,
+  OrganizationEvolutionResult,
+} from "@/features/enterprise-organizational-intelligence/organization-evolution-boundary";
