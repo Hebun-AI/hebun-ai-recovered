@@ -142,3 +142,51 @@ export type {
   OrganizationLearningNonResponsibility,
   OrganizationLearningResult,
 } from "@/features/enterprise-organizational-intelligence/organization-learning-boundary";
+export { OPTIMIZATION_LIFECYCLE_STATE_DESCRIPTORS } from "@/features/enterprise-organizational-intelligence/organization-optimization-types";
+export type {
+  CanonicalOptimizationContext,
+  OptimizationAnalysisId,
+  OptimizationBasis,
+  OptimizationContext,
+  OptimizationEffectivenessAnalysis,
+  OptimizationLifecycleState,
+  OptimizationLifecycleStateDescriptor,
+  OptimizationOpportunity,
+  OptimizationOpportunityId,
+  OptimizationPriority,
+  OptimizationPriorityId,
+  OptimizationProvenance,
+  OptimizationUncertainty,
+} from "@/features/enterprise-organizational-intelligence/organization-optimization-types";
+export {
+  compareOptimizationLifecycle,
+  optimizationBasisEvidenceOf,
+  optimizationBasisLearningsOf,
+  optimizationBasisReachesSource,
+  optimizationLifecycleIsTerminal,
+  optimizationLifecycleOrderOf,
+  optimizationLifecycleStateDescriptorOf,
+} from "@/features/enterprise-organizational-intelligence/organization-optimization-rules";
+export {
+  canonicalOptimizationContextKey,
+  normalizeOptimizationAnalyses,
+  normalizeOptimizationAnalysis,
+  normalizeOptimizationBasis,
+  normalizeOptimizationContext,
+  normalizeOptimizationOpportunities,
+  normalizeOptimizationOpportunity,
+  normalizeOptimizationPriorities,
+  normalizeOptimizationUncertainties,
+  normalizeOrganizationOptimizationContext,
+} from "@/features/enterprise-organizational-intelligence/organization-optimization-normalization";
+export { validateOrganizationOptimizationContext } from "@/features/enterprise-organizational-intelligence/organization-optimization-validation";
+export type { OrganizationOptimizationValidation } from "@/features/enterprise-organizational-intelligence/organization-optimization-validation";
+export {
+  ORGANIZATION_OPTIMIZATION_NON_RESPONSIBILITIES,
+  prepareOrganizationOptimizationContext,
+} from "@/features/enterprise-organizational-intelligence/organization-optimization-boundary";
+export type {
+  OrganizationOptimizationInput,
+  OrganizationOptimizationNonResponsibility,
+  OrganizationOptimizationResult,
+} from "@/features/enterprise-organizational-intelligence/organization-optimization-boundary";
