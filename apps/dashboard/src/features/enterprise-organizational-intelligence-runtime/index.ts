@@ -105,3 +105,51 @@ export type {
   RuntimeRequestInput,
   RuntimeRequestResult,
 } from "@/features/enterprise-organizational-intelligence-runtime/runtime-boundary";
+
+// --- Runtime Context & Assembly (Phase 2) ------------------------------------
+
+export { RUNTIME_FOUNDATION_KIND_DESCRIPTORS } from "@/features/enterprise-organizational-intelligence-runtime/runtime-assembly-types";
+export type {
+  CanonicalRuntimeBundle,
+  RuntimeAssembly,
+  RuntimeAssemblyRequest,
+  RuntimeAssemblySession,
+  RuntimeBundle,
+  RuntimeFoundationKind,
+  RuntimeFoundationKindDescriptor,
+  RuntimeFoundationSource,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-assembly-types";
+export {
+  assemblyOf as runtimeAssemblyOf,
+  foundationSourcesOf as runtimeFoundationSourcesOf,
+  reachesAllFoundations as runtimeReachesAllFoundations,
+  resolveRuntimeFoundationSources,
+  runtimeFoundationDependencyKindOf,
+  runtimeFoundationKindDescriptorOf,
+  runtimeFoundationKindOrderOf,
+  runtimeRequiredFoundationKinds,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-assembly-rules";
+export {
+  canonicalRuntimeBundleKey,
+  normalizeAssembly as normalizeRuntimeAssembly,
+  normalizeFoundationSources as normalizeRuntimeFoundationSources,
+  normalizeRuntimeBundle,
+  runtimeFoundationSourceKey,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-assembly-normalization";
+export {
+  validateRuntimeAssemblyRequest,
+  validateRuntimeBundle,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-assembly-validation";
+export type { RuntimeAssemblyValidation } from "@/features/enterprise-organizational-intelligence-runtime/runtime-assembly-validation";
+export {
+  RUNTIME_ASSEMBLY_CAPABILITIES,
+  RUNTIME_ASSEMBLY_NON_RESPONSIBILITIES,
+  assembleRuntimeBundle,
+  openRuntimeAssemblySession,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-assembly-boundary";
+export type {
+  RuntimeAssemblyCapability,
+  RuntimeAssemblyInput,
+  RuntimeAssemblyNonResponsibility,
+  RuntimeAssemblyResult,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-assembly-boundary";
