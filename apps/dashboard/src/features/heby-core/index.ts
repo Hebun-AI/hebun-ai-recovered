@@ -18,9 +18,14 @@
  * and Security Constraint Enforcement) — the deterministic gate that holds the applicable
  * constraints immutable and blocks presentation crossing a tenant or organization boundary,
  * resting on ineligible or unresolved evidence, or exposing a protected element, recording
- * every block, while never approving, waiving, authoring, or reinterpreting a constraint.
- * There is no reasoning, no answer generation, no invention, no independent AI call, and no
- * execution here. Later Heby phases consume these; none may redefine them.
+ * every block, while never approving, waiving, authoring, or reinterpreting a constraint —
+ * and Phase 8 (Director Briefing and Interaction Surface) — the deterministic assembly that
+ * presents the gated surface to the accountable human as advisory findings (never an
+ * approval), carries prior history as immutable evidence, carries human questions and recorded
+ * decisions across the human boundary without resolving them, builds the full audit trail, and
+ * terminates at the Director Approval boundary. There is no reasoning, no answer generation, no
+ * invention, no independent AI call, and no execution here. Later Heby phases consume these;
+ * none may redefine them.
  */
 
 export {
@@ -458,3 +463,62 @@ export type {
   HebyGovernanceNonResponsibility,
   HebyGovernanceResult,
 } from "@/features/heby-core/heby-governance-boundary";
+
+// --- Phase 8 — Director Briefing and Interaction Surface ---------------------
+
+export {
+  HEBY_AUDIT_SUBJECT_KIND_DESCRIPTORS,
+  HEBY_BRIEFING_SECTION_DESCRIPTORS,
+} from "@/features/heby-core/heby-briefing-types";
+export type {
+  CanonicalHebyDirectorBriefing,
+  HebyAuditEntry,
+  HebyAuditSubjectKind,
+  HebyAuditSubjectKindDescriptor,
+  HebyBriefingFinding,
+  HebyBriefingHistory,
+  HebyBriefingRequest,
+  HebyBriefingSection,
+  HebyBriefingSectionDescriptor,
+  HebyCarriedQuestion,
+  HebyDirectorBriefing,
+  HebyRecordedDecision,
+} from "@/features/heby-core/heby-briefing-types";
+
+export {
+  allHebyAuditSubjectKinds,
+  allHebyBriefingSections,
+  hebyAdmittedElementIdSet,
+  hebyAssembleAudit,
+  hebyAuditSubjectKindDescriptorOf,
+  hebyAuditSubjectKindOrder,
+  hebyBriefingSectionDescriptorOf,
+  hebyBriefingSectionOrder,
+  hebyRefsWithinAdmitted,
+  isHebyAuditSubjectKind,
+  isHebyBriefingSection,
+} from "@/features/heby-core/heby-briefing-rules";
+
+export {
+  canonicalHebyDirectorBriefingKey,
+  normalizeHebyDirectorBriefing,
+} from "@/features/heby-core/heby-briefing-normalization";
+
+export {
+  validateHebyBriefingRequest,
+  validateHebyDirectorBriefing,
+  verifyHebyDirectorBriefingFrozen,
+} from "@/features/heby-core/heby-briefing-validation";
+export type { HebyBriefingValidation } from "@/features/heby-core/heby-briefing-validation";
+
+export {
+  HEBY_BRIEFING_CAPABILITIES,
+  HEBY_BRIEFING_NON_RESPONSIBILITIES,
+  assembleHebyBriefing,
+} from "@/features/heby-core/heby-briefing-boundary";
+export type {
+  HebyBriefingCapability,
+  HebyBriefingInput,
+  HebyBriefingNonResponsibility,
+  HebyBriefingResult,
+} from "@/features/heby-core/heby-briefing-boundary";
