@@ -417,3 +417,39 @@ export type {
   DirectorBriefingNonResponsibility,
   DirectorBriefingResult,
 } from "@/features/enterprise-organizational-intelligence-runtime/director-briefing-boundary";
+
+// --- Runtime Integration & Composition Closure (Phase 9) ---------------------
+
+export type {
+  CanonicalRuntimeComposition,
+  RuntimeComposition,
+  RuntimeCompositionIntegrity,
+  RuntimeCompositionRequest,
+  RuntimeCompositionSummary,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-composition-types";
+export {
+  PENDING_DIRECTOR_APPROVAL as RUNTIME_COMPOSITION_PENDING_DIRECTOR_APPROVAL,
+  candidateBindingIds,
+  compositionIdentity,
+  summarize as summarizeRuntimeComposition,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-composition-rules";
+export {
+  normalizeRuntimeComposition,
+  runtimeCompositionKey,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-composition-normalization";
+export {
+  validateRuntimeComposition,
+  validateRuntimeCompositionRequest,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-composition-validation";
+export type { RuntimeCompositionValidation } from "@/features/enterprise-organizational-intelligence-runtime/runtime-composition-validation";
+export {
+  RUNTIME_COMPOSITION_CAPABILITIES,
+  RUNTIME_COMPOSITION_NON_RESPONSIBILITIES,
+  composeRuntime,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-composition-boundary";
+export type {
+  RuntimeCompositionCapability,
+  RuntimeCompositionInput,
+  RuntimeCompositionNonResponsibility,
+  RuntimeCompositionResult,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-composition-boundary";
