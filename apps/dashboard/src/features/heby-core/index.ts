@@ -4,10 +4,12 @@
  * The single public surface of Heby Core. It re-exports Phase 1 (Identity Foundation) —
  * Heby's immutable identity — Phase 2 (Input and Context Consumption) — the read-only
  * admission of settled Runtime, Reasoning, and Memory artifacts bound to a declared
- * context — and Phase 3 (Presentation and Explanation) — the honest rendering of admitted
- * material into attributable, non-authoritative presentations and explanations. There is
- * no reasoning, no answer generation, no invention, no AI, and no execution here. Later
- * Heby phases consume these; none may redefine them.
+ * context — Phase 3 (Presentation and Explanation) — the honest rendering of admitted
+ * material into attributable, non-authoritative presentations — and Phase 4 (Grounding and
+ * Anti-Hallucination) — the cross-cutting verification that every presented element traces
+ * to a settled source, withholding and clearly marking anything unsupported. There is no
+ * reasoning, no answer generation, no invention, no AI, and no execution here. Later Heby
+ * phases consume these; none may redefine them.
  */
 
 export {
@@ -216,3 +218,64 @@ export type {
   HebyPresentationNonResponsibility,
   HebyPresentationResult,
 } from "@/features/heby-core/heby-presentation-boundary";
+
+// --- Phase 4 — Grounding and Anti-Hallucination ------------------------------
+
+export {
+  HEBY_GROUNDING_STATUS_DESCRIPTORS,
+  HEBY_WITHHOLD_REASON_DESCRIPTORS,
+} from "@/features/heby-core/heby-grounding-types";
+export type {
+  CanonicalHebyGroundedPresentation,
+  HebyGroundedPresentation,
+  HebyGroundingRequest,
+  HebyGroundingStatus,
+  HebyGroundingStatusDescriptor,
+  HebyGroundingTrace,
+  HebyWithheldElement,
+  HebyWithholdReason,
+  HebyWithholdReasonDescriptor,
+} from "@/features/heby-core/heby-grounding-types";
+
+export {
+  allHebyGroundingStatuses,
+  allHebyWithholdReasons,
+  classifyHebyElementGrounding,
+  hebyAdmittedInputIndex,
+  hebyGroundingStatusDescriptorOf,
+  hebyWithholdReasonDescriptorOf,
+  hebyWithholdReasonOrder,
+  isHebyElementGrounded,
+  isHebyGroundingStatus,
+  isHebySettledSource,
+  isHebyWithholdReason,
+} from "@/features/heby-core/heby-grounding-rules";
+export type { HebyElementGrounding } from "@/features/heby-core/heby-grounding-rules";
+
+export {
+  canonicalHebyGroundedPresentationKey,
+  hebyGroundingTraceKey,
+  hebyWithheldElementKey,
+  normalizeHebyGroundedPresentation,
+  normalizeHebyTraces,
+  normalizeHebyWithheld,
+} from "@/features/heby-core/heby-grounding-normalization";
+
+export {
+  validateHebyGroundedPresentation,
+  validateHebyGroundingRequest,
+  verifyHebyGroundedPresentationFrozen,
+} from "@/features/heby-core/heby-grounding-validation";
+export type { HebyGroundingValidation } from "@/features/heby-core/heby-grounding-validation";
+
+export {
+  HEBY_GROUNDING_CAPABILITIES,
+  HEBY_GROUNDING_NON_RESPONSIBILITIES,
+  groundHebyPresentation,
+} from "@/features/heby-core/heby-grounding-boundary";
+export type {
+  HebyGroundingCapability,
+  HebyGroundingInput,
+  HebyGroundingNonResponsibility,
+  HebyGroundingResult,
+} from "@/features/heby-core/heby-grounding-boundary";
