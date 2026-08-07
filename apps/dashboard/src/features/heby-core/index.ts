@@ -23,9 +23,13 @@
  * presents the gated surface to the accountable human as advisory findings (never an
  * approval), carries prior history as immutable evidence, carries human questions and recorded
  * decisions across the human boundary without resolving them, builds the full audit trail, and
- * terminates at the Director Approval boundary. There is no reasoning, no answer generation, no
- * invention, no independent AI call, and no execution here. Later Heby phases consume these;
- * none may redefine them.
+ * terminates at the Director Approval boundary — and Phase 9 (Integration and Composition
+ * Closure) — the deterministic composition that threads the published Phase 1–8 boundaries end
+ * to end, verifies every cross-phase seam, records the stage ledger as replay proof, and closes
+ * Heby Core as one idempotent, replayable, auditable pass that introduces no execution path, no
+ * hidden state, and no authority beyond the earlier phases. There is no reasoning, no answer
+ * generation, no invention, no independent AI call, and no execution here. This barrel is the
+ * single public surface of Heby Core; nothing outside it may redefine these phases.
  */
 
 export {
@@ -522,3 +526,47 @@ export type {
   HebyBriefingNonResponsibility,
   HebyBriefingResult,
 } from "@/features/heby-core/heby-briefing-boundary";
+
+// --- Phase 9 — Integration and Composition Closure ---------------------------
+
+export { HEBY_COMPOSITION_PHASE_DESCRIPTORS } from "@/features/heby-core/heby-composition-types";
+export type {
+  CanonicalHebyComposition,
+  HebyComposition,
+  HebyCompositionPhase,
+  HebyCompositionPhaseDescriptor,
+  HebyCompositionRequest,
+  HebyCompositionStage,
+} from "@/features/heby-core/heby-composition-types";
+
+export {
+  allHebyCompositionPhases,
+  hebyBuildStageLedger,
+  hebyCompositionPhaseDescriptorOf,
+  hebyCompositionPhaseOrder,
+  isHebyCompositionPhase,
+} from "@/features/heby-core/heby-composition-rules";
+
+export {
+  canonicalHebyCompositionKey,
+  normalizeHebyComposition,
+} from "@/features/heby-core/heby-composition-normalization";
+
+export {
+  validateHebyComposition,
+  validateHebyCompositionSeams,
+  verifyHebyCompositionFrozen,
+} from "@/features/heby-core/heby-composition-validation";
+export type { HebyCompositionValidation } from "@/features/heby-core/heby-composition-validation";
+
+export {
+  HEBY_COMPOSITION_CAPABILITIES,
+  HEBY_COMPOSITION_NON_RESPONSIBILITIES,
+  composeHebyInterface,
+} from "@/features/heby-core/heby-composition-boundary";
+export type {
+  HebyCompositionCapability,
+  HebyCompositionInput,
+  HebyCompositionNonResponsibility,
+  HebyCompositionResult,
+} from "@/features/heby-core/heby-composition-boundary";
