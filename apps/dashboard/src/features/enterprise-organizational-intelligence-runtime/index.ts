@@ -375,3 +375,45 @@ export type {
   RuntimeBindingNonResponsibility,
   RuntimeBindingResult,
 } from "@/features/enterprise-organizational-intelligence-runtime/runtime-binding-boundary";
+
+// --- Governance & Director Briefing (Phase 8) --------------------------------
+
+export type {
+  CanonicalDirectorBriefing,
+  DirectorBriefing,
+  DirectorBriefingGovernance,
+  DirectorBriefingGovernanceInput,
+  DirectorBriefingItem,
+  DirectorBriefingRequest,
+} from "@/features/enterprise-organizational-intelligence-runtime/director-briefing-types";
+export {
+  briefingItemSource,
+  describeGovernance,
+  projectBriefingItem,
+  projectBriefingItems,
+} from "@/features/enterprise-organizational-intelligence-runtime/director-briefing-rules";
+export {
+  briefingItemKey,
+  canonicalDirectorBriefingKey,
+  normalizeBriefingItem,
+  normalizeBriefingItems,
+  normalizeDirectorBriefing,
+  normalizeGovernance as normalizeDirectorBriefingGovernance,
+  normalizeReferenceIds as normalizeDirectorBriefingReferenceIds,
+} from "@/features/enterprise-organizational-intelligence-runtime/director-briefing-normalization";
+export {
+  validateDirectorBriefing,
+  validateDirectorBriefingRequest,
+} from "@/features/enterprise-organizational-intelligence-runtime/director-briefing-validation";
+export type { DirectorBriefingValidation } from "@/features/enterprise-organizational-intelligence-runtime/director-briefing-validation";
+export {
+  DIRECTOR_BRIEFING_CAPABILITIES,
+  DIRECTOR_BRIEFING_NON_RESPONSIBILITIES,
+  prepareDirectorBriefing,
+} from "@/features/enterprise-organizational-intelligence-runtime/director-briefing-boundary";
+export type {
+  DirectorBriefingCapability,
+  DirectorBriefingInput,
+  DirectorBriefingNonResponsibility,
+  DirectorBriefingResult,
+} from "@/features/enterprise-organizational-intelligence-runtime/director-briefing-boundary";
