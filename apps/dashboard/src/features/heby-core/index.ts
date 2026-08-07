@@ -5,10 +5,13 @@
  * Heby's immutable identity — Phase 2 (Input and Context Consumption) — the read-only
  * admission of settled Runtime, Reasoning, and Memory artifacts bound to a declared
  * context — Phase 3 (Presentation and Explanation) — the honest rendering of admitted
- * material into attributable, non-authoritative presentations — and Phase 4 (Grounding and
+ * material into attributable, non-authoritative presentations — Phase 4 (Grounding and
  * Anti-Hallucination) — the cross-cutting verification that every presented element traces
- * to a settled source, withholding and clearly marking anything unsupported. There is no
- * reasoning, no answer generation, no invention, no AI, and no execution here. Later Heby
+ * to a settled source, withholding and clearly marking anything unsupported — and Phase 5
+ * (Intent and Natural-Language Interaction) — the deterministic boundary that validates an
+ * untrusted, model-shaped interpretation and routes it only to grounded, bounded
+ * presentation, clarifying ambiguity rather than assuming it. There is no reasoning, no
+ * answer generation, no invention, no independent AI call, and no execution here. Later Heby
  * phases consume these; none may redefine them.
  */
 
@@ -279,3 +282,52 @@ export type {
   HebyGroundingNonResponsibility,
   HebyGroundingResult,
 } from "@/features/heby-core/heby-grounding-boundary";
+
+// --- Phase 5 — Intent and Natural-Language Interaction -----------------------
+
+export { HEBY_INTERPRETATION_DISPOSITION_DESCRIPTORS } from "@/features/heby-core/heby-intent-types";
+export type {
+  CanonicalHebyRoutedIntent,
+  HebyClarification,
+  HebyIntentRequest,
+  HebyInterpretationDisposition,
+  HebyInterpretationDispositionDescriptor,
+  HebyProposedIntent,
+  HebyRoutedIntent,
+  HebyUtterance,
+} from "@/features/heby-core/heby-intent-types";
+
+export {
+  allHebyInterpretationDispositions,
+  hebyGroundedElementIdSet,
+  hebyInterpretationDispositionDescriptorOf,
+  hebyInterpretationDispositionOrder,
+  hebyRoutesToGrounded,
+  isHebyCapabilityWithinIdentity,
+  isHebyInterpretationDisposition,
+} from "@/features/heby-core/heby-intent-rules";
+
+export {
+  canonicalHebyRoutedIntentKey,
+  normalizeHebyRoutedIntent,
+  normalizeHebyRoutedRefs,
+} from "@/features/heby-core/heby-intent-normalization";
+
+export {
+  validateHebyIntentRequest,
+  validateHebyRoutedIntent,
+  verifyHebyRoutedIntentFrozen,
+} from "@/features/heby-core/heby-intent-validation";
+export type { HebyIntentValidation } from "@/features/heby-core/heby-intent-validation";
+
+export {
+  HEBY_INTENT_CAPABILITIES,
+  HEBY_INTENT_NON_RESPONSIBILITIES,
+  interpretHebyIntent,
+} from "@/features/heby-core/heby-intent-boundary";
+export type {
+  HebyIntentCapability,
+  HebyIntentInput,
+  HebyIntentNonResponsibility,
+  HebyIntentResult,
+} from "@/features/heby-core/heby-intent-boundary";
