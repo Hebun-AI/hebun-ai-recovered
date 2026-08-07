@@ -2,11 +2,12 @@
  * Heby Core — public barrel.
  *
  * The single public surface of Heby Core. It re-exports Phase 1 (Identity Foundation) —
- * Heby's immutable identity — and Phase 2 (Input and Context Consumption) — the read-only
+ * Heby's immutable identity — Phase 2 (Input and Context Consumption) — the read-only
  * admission of settled Runtime, Reasoning, and Memory artifacts bound to a declared
- * context. There is no interface behaviour, no presentation, no reasoning, no answer
- * generation, no AI, and no execution here. Later Heby phases consume these; none may
- * redefine them.
+ * context — and Phase 3 (Presentation and Explanation) — the honest rendering of admitted
+ * material into attributable, non-authoritative presentations and explanations. There is
+ * no reasoning, no answer generation, no invention, no AI, and no execution here. Later
+ * Heby phases consume these; none may redefine them.
  */
 
 export {
@@ -142,3 +143,76 @@ export type {
   HebyInputContextInput,
   HebyInputContextNonResponsibility,
 } from "@/features/heby-core/heby-input-context-boundary";
+
+// --- Phase 3 — Presentation and Explanation ----------------------------------
+
+export {
+  HEBY_CONFIDENCE_LEVEL_DESCRIPTORS,
+  HEBY_ELEMENT_CLASSIFICATION_DESCRIPTORS,
+  HEBY_EXPLANATION_FACET_DESCRIPTORS,
+  HEBY_PRESENTATION_KIND_DESCRIPTORS,
+} from "@/features/heby-core/heby-presentation-types";
+export type {
+  CanonicalHebyPresentation,
+  HebyConfidenceLevel,
+  HebyConfidenceLevelDescriptor,
+  HebyElementClassification,
+  HebyElementClassificationDescriptor,
+  HebyExplanationEntry,
+  HebyExplanationFacet,
+  HebyExplanationFacetDescriptor,
+  HebyPresentation,
+  HebyPresentationElement,
+  HebyPresentationKind,
+  HebyPresentationKindDescriptor,
+  HebyPresentationRequest,
+} from "@/features/heby-core/heby-presentation-types";
+
+export {
+  allHebyExplanationFacets,
+  allHebyPresentationKinds,
+  hebyAdmittedIdSet,
+  hebyConfidenceLevelDescriptorOf,
+  hebyConfidenceRequiresUncertainty,
+  hebyElementClassificationDescriptorOf,
+  hebyElementsOfKind,
+  hebyExplanationFacetDescriptorOf,
+  hebyExplanationFacetOrder,
+  hebyPresentationKindDescriptorOf,
+  hebyPresentationKindOrder,
+  hebyRefsAttributable,
+  isHebyConfidenceLevel,
+  isHebyElementClassification,
+  isHebyElementHonestlyMarked,
+  isHebyElementPresentable,
+  isHebyExplanationFacet,
+  isHebyPresentationKind,
+} from "@/features/heby-core/heby-presentation-rules";
+
+export {
+  canonicalHebyPresentationKey,
+  hebyExplanationEntryKey,
+  hebyPresentationElementKey,
+  normalizeHebyElements,
+  normalizeHebyExplanation,
+  normalizeHebyPresentation,
+} from "@/features/heby-core/heby-presentation-normalization";
+
+export {
+  validateHebyPresentation,
+  validateHebyPresentationRequest,
+  verifyHebyPresentationFrozen,
+} from "@/features/heby-core/heby-presentation-validation";
+export type { HebyPresentationValidation } from "@/features/heby-core/heby-presentation-validation";
+
+export {
+  HEBY_PRESENTATION_CAPABILITIES,
+  HEBY_PRESENTATION_NON_RESPONSIBILITIES,
+  presentHebyMaterial,
+} from "@/features/heby-core/heby-presentation-boundary";
+export type {
+  HebyPresentationCapability,
+  HebyPresentationInput,
+  HebyPresentationNonResponsibility,
+  HebyPresentationResult,
+} from "@/features/heby-core/heby-presentation-boundary";
