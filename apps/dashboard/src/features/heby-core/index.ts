@@ -10,7 +10,11 @@
  * to a settled source, withholding and clearly marking anything unsupported — and Phase 5
  * (Intent and Natural-Language Interaction) — the deterministic boundary that validates an
  * untrusted, model-shaped interpretation and routes it only to grounded, bounded
- * presentation, clarifying ambiguity rather than assuming it. There is no reasoning, no
+ * presentation, clarifying ambiguity rather than assuming it — and Phase 6 (Approval
+ * Preparation and Director Boundary) — the deterministic boundary that prepares items for a
+ * human review or approval process, keeps approval visibly distinct from advice, states
+ * consequences before confirmation, holds every item pending, and terminates every path at
+ * the Director without deciding, approving, or implying authority. There is no reasoning, no
  * answer generation, no invention, no independent AI call, and no execution here. Later Heby
  * phases consume these; none may redefine them.
  */
@@ -331,3 +335,63 @@ export type {
   HebyIntentNonResponsibility,
   HebyIntentResult,
 } from "@/features/heby-core/heby-intent-boundary";
+
+// --- Phase 6 — Approval Preparation and Director Boundary --------------------
+
+export {
+  HEBY_DECISION_STATE_DESCRIPTORS,
+  HEBY_PREPARATION_KIND_DESCRIPTORS,
+} from "@/features/heby-core/heby-approval-types";
+export type {
+  CanonicalHebyPreparedApproval,
+  HebyApprovalRequest,
+  HebyDecisionState,
+  HebyDecisionStateDescriptor,
+  HebyDirectorTermination,
+  HebyPreparationKind,
+  HebyPreparationKindDescriptor,
+  HebyPreparedApproval,
+  HebyPreparedItem,
+} from "@/features/heby-core/heby-approval-types";
+
+export {
+  allHebyDecisionStates,
+  allHebyPreparationKinds,
+  hebyDecisionStateDescriptorOf,
+  hebyDecisionStateOrder,
+  hebyKindDistinctFromAdvice,
+  hebyKindRequiresConsequences,
+  hebyPreparationKindDescriptorOf,
+  hebyPreparationKindOrder,
+  hebySubjectsWithinRouting,
+  isHebyDecisionState,
+  isHebyDecisionStateAdmissible,
+  isHebyPreparationKind,
+} from "@/features/heby-core/heby-approval-rules";
+
+export {
+  canonicalHebyPreparedApprovalKey,
+  hebyPreparedItemKey,
+  normalizeHebyPreparedApproval,
+  normalizeHebyPreparedItem,
+  normalizeHebyPreparedItems,
+} from "@/features/heby-core/heby-approval-normalization";
+
+export {
+  validateHebyApprovalRequest,
+  validateHebyPreparedApproval,
+  verifyHebyPreparedApprovalFrozen,
+} from "@/features/heby-core/heby-approval-validation";
+export type { HebyApprovalValidation } from "@/features/heby-core/heby-approval-validation";
+
+export {
+  HEBY_APPROVAL_CAPABILITIES,
+  HEBY_APPROVAL_NON_RESPONSIBILITIES,
+  prepareHebyApproval,
+} from "@/features/heby-core/heby-approval-boundary";
+export type {
+  HebyApprovalCapability,
+  HebyApprovalInput,
+  HebyApprovalNonResponsibility,
+  HebyApprovalResult,
+} from "@/features/heby-core/heby-approval-boundary";
