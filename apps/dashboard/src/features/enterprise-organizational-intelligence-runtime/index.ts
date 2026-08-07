@@ -333,3 +333,45 @@ export type {
   EvolutionCandidateNonResponsibility,
   EvolutionCandidateResult,
 } from "@/features/enterprise-organizational-intelligence-runtime/evolution-candidate-boundary";
+
+// --- Provenance / Explainability / Confidence Binding (Phase 7) --------------
+
+export type {
+  BoundRuntimeArtifact,
+  CanonicalRuntimeBindingBundle,
+  RuntimeBindingBundle,
+  RuntimeBindingRequest,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-binding-types";
+export {
+  bindAwarenessCandidate,
+  bindCandidateSets,
+  bindEvolutionCandidate,
+  bindLearningCandidate,
+  bindOptimizationCandidate,
+  bindingIdentity,
+  boundArtifactSource,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-binding-rules";
+export {
+  boundArtifactKey,
+  canonicalRuntimeBindingBundleKey,
+  normalizeBoundArtifact,
+  normalizeBoundArtifacts,
+  normalizeReferenceIds as normalizeBindingReferenceIds,
+  normalizeRuntimeBindingBundle,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-binding-normalization";
+export {
+  validateRuntimeBindingBundle,
+  validateRuntimeBindingRequest,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-binding-validation";
+export type { RuntimeBindingValidation } from "@/features/enterprise-organizational-intelligence-runtime/runtime-binding-validation";
+export {
+  RUNTIME_BINDING_CAPABILITIES,
+  RUNTIME_BINDING_NON_RESPONSIBILITIES,
+  prepareRuntimeBinding,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-binding-boundary";
+export type {
+  RuntimeBindingCapability,
+  RuntimeBindingInput,
+  RuntimeBindingNonResponsibility,
+  RuntimeBindingResult,
+} from "@/features/enterprise-organizational-intelligence-runtime/runtime-binding-boundary";
