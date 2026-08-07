@@ -14,9 +14,13 @@
  * Preparation and Director Boundary) — the deterministic boundary that prepares items for a
  * human review or approval process, keeps approval visibly distinct from advice, states
  * consequences before confirmation, holds every item pending, and terminates every path at
- * the Director without deciding, approving, or implying authority. There is no reasoning, no
- * answer generation, no invention, no independent AI call, and no execution here. Later Heby
- * phases consume these; none may redefine them.
+ * the Director without deciding, approving, or implying authority — and Phase 7 (Governance
+ * and Security Constraint Enforcement) — the deterministic gate that holds the applicable
+ * constraints immutable and blocks presentation crossing a tenant or organization boundary,
+ * resting on ineligible or unresolved evidence, or exposing a protected element, recording
+ * every block, while never approving, waiving, authoring, or reinterpreting a constraint.
+ * There is no reasoning, no answer generation, no invention, no independent AI call, and no
+ * execution here. Later Heby phases consume these; none may redefine them.
  */
 
 export {
@@ -395,3 +399,62 @@ export type {
   HebyApprovalNonResponsibility,
   HebyApprovalResult,
 } from "@/features/heby-core/heby-approval-boundary";
+
+// --- Phase 7 — Governance and Security Constraint Enforcement ----------------
+
+export {
+  HEBY_GOVERNANCE_BLOCK_REASON_DESCRIPTORS,
+  HEBY_GOVERNANCE_SUBJECT_KIND_DESCRIPTORS,
+} from "@/features/heby-core/heby-governance-types";
+export type {
+  CanonicalHebyGatedPresentation,
+  HebyGatedPresentation,
+  HebyGovernanceBlock,
+  HebyGovernanceBlockReason,
+  HebyGovernanceBlockReasonDescriptor,
+  HebyGovernanceGateRequest,
+  HebyGovernanceScope,
+  HebyGovernanceSubjectKind,
+  HebyGovernanceSubjectKindDescriptor,
+} from "@/features/heby-core/heby-governance-types";
+
+export {
+  allHebyGovernanceBlockReasons,
+  allHebyGovernanceSubjectKinds,
+  hebyClassifyElementGovernance,
+  hebyGovernanceBlockReasonConstraintKind,
+  hebyGovernanceBlockReasonDescriptorOf,
+  hebyGovernanceBlockReasonOrder,
+  hebyGovernanceScopeOf,
+  hebyGovernanceSubjectKindDescriptorOf,
+  hebyGovernanceSubjectKindOrder,
+  hebyScopeMismatchReason,
+  hebyScopesMatch,
+  isHebyGovernanceBlockReason,
+  isHebyGovernanceSubjectKind,
+} from "@/features/heby-core/heby-governance-rules";
+
+export {
+  canonicalHebyGatedPresentationKey,
+  hebyGovernanceBlockKey,
+  normalizeHebyGatedPresentation,
+} from "@/features/heby-core/heby-governance-normalization";
+
+export {
+  validateHebyGatedPresentation,
+  validateHebyGovernanceGateRequest,
+  verifyHebyGatedPresentationFrozen,
+} from "@/features/heby-core/heby-governance-validation";
+export type { HebyGovernanceValidation } from "@/features/heby-core/heby-governance-validation";
+
+export {
+  HEBY_GOVERNANCE_CAPABILITIES,
+  HEBY_GOVERNANCE_NON_RESPONSIBILITIES,
+  gateHebyPresentation,
+} from "@/features/heby-core/heby-governance-boundary";
+export type {
+  HebyGovernanceCapability,
+  HebyGovernanceInput,
+  HebyGovernanceNonResponsibility,
+  HebyGovernanceResult,
+} from "@/features/heby-core/heby-governance-boundary";
