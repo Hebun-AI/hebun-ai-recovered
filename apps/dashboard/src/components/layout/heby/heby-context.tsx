@@ -6,6 +6,7 @@ import type {
   HebySelectedEntity,
   HebySurfaceRegion,
 } from "@/features/heby-integration";
+import type { ExecutiveOverviewLike } from "@/features/heby-runtime";
 
 /*
  * Heby is an AMBIENT interaction layer, not the eighth workspace. This context lets the
@@ -30,6 +31,11 @@ interface HebyState {
   readonly open: boolean;
   /** The typed context carried by the trigger that opened the panel, if any. */
   readonly trigger: HebyTrigger | null;
+  /**
+   * The real, non-authoritative Executive Overview supplied by the server shell, for the
+   * Heby runtime to inspect system state. Undefined when unavailable. Never a secret.
+   */
+  readonly overview: ExecutiveOverviewLike | null;
   openHeby: (trigger?: HebyTrigger) => void;
   closeHeby: () => void;
   toggleHeby: () => void;
@@ -37,7 +43,13 @@ interface HebyState {
 
 const HebyContext = createContext<HebyState | null>(null);
 
-export function HebyProvider({ children }: { children: React.ReactNode }) {
+export function HebyProvider({
+  children,
+  overview = null,
+}: {
+  children: React.ReactNode;
+  overview?: ExecutiveOverviewLike | null;
+}) {
   const [open, setOpen] = useState(false);
   const [trigger, setTrigger] = useState<HebyTrigger | null>(null);
 
@@ -52,8 +64,8 @@ export function HebyProvider({ children }: { children: React.ReactNode }) {
   const toggleHeby = useCallback(() => setOpen((v) => !v), []);
 
   const value = useMemo(
-    () => ({ open, trigger, openHeby, closeHeby, toggleHeby }),
-    [open, trigger, openHeby, closeHeby, toggleHeby],
+    () => ({ open, trigger, overview, openHeby, closeHeby, toggleHeby }),
+    [open, trigger, overview, openHeby, closeHeby, toggleHeby],
   );
 
   return <HebyContext.Provider value={value}>{children}</HebyContext.Provider>;

@@ -4,6 +4,8 @@ import { WorkspaceRail } from "./workspace-rail";
 import { SecondaryNav } from "./secondary-nav";
 import { TopBar } from "./topbar";
 import { HebyPanel } from "./heby/heby-panel";
+import { getDirectorDashboardUiModel } from "@/features/director-dashboard-ui/adapter.server";
+import type { ExecutiveOverviewLike } from "@/features/heby-runtime";
 
 /*
  * The Hebun App Shell (UI Phase 5).
@@ -22,10 +24,39 @@ import { HebyPanel } from "./heby/heby-panel";
  * Navigation visibility is convenience only — the server enforces authority.
  */
 
+/*
+ * Read the REAL, non-authoritative Executive Overview once, server-side, and hand a minimal
+ * serializable projection to the ambient Heby runtime (UI Phase 16). Only derived health,
+ * counts, freshness, and section state are passed — no secret, no credential, no
+ * authoritative record. When the overview cannot be built, Heby simply has no system state
+ * to inspect and says so honestly.
+ */
+function readHebyOverview(): ExecutiveOverviewLike | undefined {
+  const { overview } = getDirectorDashboardUiModel();
+  if (!overview) return undefined;
+  return {
+    organizationHealth: overview.organizationHealth,
+    criticalAlertCount: overview.criticalAlertCount,
+    warningCount: overview.warningCount,
+    unavailableCount: overview.unavailableCount,
+    freshness: { state: overview.freshness.state, ageSeconds: overview.freshness.ageSeconds },
+    sections: overview.sections.map((section) => ({
+      sectionId: section.sectionId,
+      label: section.label,
+      health: section.health,
+      sourceState: section.sourceState,
+      recordCount: section.recordCount,
+      reasonCode: section.reasonCode,
+    })),
+    authoritative: false,
+  };
+}
+
 export function HebunShell({ children }: { children: React.ReactNode }) {
+  const hebyOverview = readHebyOverview();
   return (
     <RoleProvider role="director">
-      <HebyProvider>
+      <HebyProvider overview={hebyOverview}>
         <div className="min-h-dvh bg-background text-fg">
           <WorkspaceRail />
           <SecondaryNav />
