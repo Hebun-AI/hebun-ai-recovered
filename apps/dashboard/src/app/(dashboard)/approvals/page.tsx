@@ -1,28 +1,23 @@
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { DecisionOverview } from "@/components/decision-domain/decision-overview";
-import { DecisionWorkspace } from "@/components/decision-domain/decision-workspace";
-import { DecisionIntelligence, DecisionRelationships, HebyDecisionContext } from "@/components/decision-domain/decision-context";
-import { getDecisionProjection } from "@/features/enterprise-projection-providers";
+import { DecisionWorkspace } from "@/components/decision-workspace/decision-workspace";
+import { getDecisionWorkspaceModel } from "@/features/decisions/workspace-model";
 
-export default async function ApprovalsPage() {
-  const decision = await getDecisionProjection();
+export const metadata = { title: "Decisions — Hebun AI" };
 
-  return (
-    <>
-      <PageHeader
-        title="Enterprise Decision Center"
-        context="The Director’s primary decision surface — evidence, impact, risk, alternatives, relationships, and follow-up understood before intent is recorded."
-        action={<><Badge variant="primary">Decision foundation</Badge><Badge variant="success">Mock projection</Badge></>}
-      />
-      <div className="space-y-6">
-        <DecisionOverview items={decision.overview} />
-        <DecisionWorkspace items={decision.decisions} />
-        <DecisionIntelligence items={decision.attentionSignals} />
-        <DecisionRelationships items={decision.relationships} />
-        <HebyDecisionContext prompts={decision.suggestions} />
-        <p className="text-xs leading-5 text-fg-muted">The Decision Center prepares and records local simulated Director intent only. It does not make decisions, persist approvals, start workflows, or execute enterprise actions.</p>
-      </div>
-    </>
-  );
+/*
+ * Decision & Approval Experience (Phase 14) — the human authority surface, reachable at
+ * the established `/approvals` route (labelled "Decisions" in navigation).
+ *
+ * Builds the model from the only real, Director-safe material available: the immutable
+ * Heby Core Phase 6 approval CONTRACT VOCABULARY (preparation kinds, admissible decision
+ * states, the human-authority chain, consequence rule). No real persisted approval
+ * queue, decision record, briefing, evidence, recommendation, consequence, or history is
+ * connected, so those regions render honest empty states. No mock projection, no seeded
+ * approvals, no fabricated decision, no model call, no mutation, and no approve / reject /
+ * authorize action — no real server-authorized decision-mutation path exists (Phase 14
+ * spec §21).
+ */
+
+export default function ApprovalsPage() {
+  const model = getDecisionWorkspaceModel();
+  return <DecisionWorkspace model={model} />;
 }
