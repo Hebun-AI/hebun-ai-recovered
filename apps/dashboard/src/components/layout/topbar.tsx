@@ -1,27 +1,90 @@
 "use client";
 
-import { Bell, CircleHelp, Search } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Bell, Building2, ClipboardCheck, Search } from "lucide-react";
+import { getWorkspace, resolveActiveWorkspace } from "@/config/workspace-nav";
 import { MobileNav } from "./mobile-nav";
+import { TabletSections } from "./tablet-sections";
+import { HebyLauncher } from "./heby/heby-launcher";
+
+/*
+ * Global chrome (Level-1). Kept deliberately lean:
+ *   left    — mobile menu / tablet sections trigger / active workspace title
+ *   centre  — global search (stubbed, disabled — becomes a real index later)
+ *   right   — approvals attention · notifications · org selector · Heby · account
+ * Internal architecture concepts never appear here.
+ */
 
 export function TopBar() {
+  const pathname = usePathname();
+  const workspace = getWorkspace(resolveActiveWorkspace(pathname));
+
   return (
-    <header className="sticky top-0 z-(--z-sticky) flex h-(--topbar-h) min-w-0 items-center gap-3 border-b border-border bg-surface/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-(--z-sticky) flex h-(--topbar-h) min-w-0 items-center gap-3 border-b border-border bg-surface px-4 sm:px-6">
       <MobileNav />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-fg">Director Workspace</p>
-        <p className="hidden truncate text-xs text-fg-muted sm:block">Enterprise overview</p>
+      <TabletSections />
+
+      <div className="min-w-0 flex-1 lg:flex-none lg:w-52">
+        <p className="truncate text-sm font-semibold text-fg">{workspace.label}</p>
+        <p className="hidden truncate text-xs text-fg-muted sm:block">{workspace.tagline}</p>
       </div>
-      <div className="hidden min-w-[15rem] max-w-sm flex-1 items-center gap-2 rounded-lg border border-border bg-surface-sunken px-3 md:flex">
+
+      <div className="ml-auto hidden min-w-0 max-w-sm flex-1 items-center gap-2 rounded-lg border border-border bg-surface-sunken px-3 lg:flex">
         <Search className="size-4 text-fg-muted" />
         <label htmlFor="global-search" className="sr-only">Global search</label>
-        <input id="global-search" type="search" disabled placeholder="Search enterprise…" className="h-9 w-full bg-transparent text-sm text-fg outline-none placeholder:text-fg-muted disabled:cursor-not-allowed" />
+        <input
+          id="global-search"
+          type="search"
+          disabled
+          placeholder="Search…"
+          className="h-9 w-full bg-transparent text-sm text-fg outline-none placeholder:text-fg-muted disabled:cursor-not-allowed"
+        />
       </div>
-      <button type="button" disabled aria-label="Notifications — coming soon" className="relative flex size-10 items-center justify-center rounded-lg text-fg-secondary transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring disabled:cursor-not-allowed"><Bell className="size-4" /><span className="absolute right-2 top-2 size-2 rounded-full bg-error"><span className="sr-only">New notifications</span></span></button>
-      <button type="button" disabled aria-label="Help — coming soon" className="hidden size-10 items-center justify-center rounded-lg text-fg-secondary transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring disabled:cursor-not-allowed sm:flex"><CircleHelp className="size-4" /></button>
-      <button type="button" disabled aria-label="Director profile — Şenol Sevim" className="flex items-center gap-2 rounded-lg p-1.5 text-left disabled:cursor-not-allowed">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-on-primary">ŞS</span>
-        <span className="hidden lg:block"><span className="block text-xs font-semibold text-fg">Şenol Sevim</span><span className="block text-[0.68rem] text-fg-muted">Director</span></span>
-      </button>
+
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:ml-0">
+        <Link
+          href="/approvals"
+          aria-label="Approvals — pending attention"
+          className="relative flex size-10 items-center justify-center rounded-lg text-fg-secondary transition-colors duration-(--dur-fast) hover:bg-surface-sunken hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
+        >
+          <ClipboardCheck className="size-4" />
+        </Link>
+
+        <button
+          type="button"
+          disabled
+          aria-label="Notifications — coming soon"
+          className="relative flex size-10 items-center justify-center rounded-lg text-fg-secondary transition-colors hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring disabled:cursor-not-allowed"
+        >
+          <Bell className="size-4" />
+        </button>
+
+        <button
+          type="button"
+          disabled
+          aria-label="Organization — single tenant"
+          className="hidden shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-border bg-surface px-2.5 py-2 text-xs font-medium text-fg-secondary disabled:cursor-not-allowed xl:flex"
+        >
+          <Building2 className="size-4" />
+          <span>Hebun</span>
+        </button>
+
+        <HebyLauncher variant="topbar" />
+
+        <button
+          type="button"
+          disabled
+          aria-label="Şenol Sevim — Director"
+          className="flex shrink-0 items-center gap-2 rounded-lg p-1.5 text-left disabled:cursor-not-allowed"
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-on-primary">ŞS</span>
+          <span className="hidden whitespace-nowrap xl:block">
+            <span className="block text-xs font-semibold text-fg">Şenol Sevim</span>
+            <span className="block text-[0.68rem] text-fg-muted">Director</span>
+          </span>
+        </button>
+      </div>
     </header>
   );
 }
