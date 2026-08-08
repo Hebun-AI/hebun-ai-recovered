@@ -1,20 +1,36 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import type {
+  HebyProductIntent,
+  HebySelectedEntity,
+  HebySurfaceRegion,
+} from "@/features/heby-integration";
 
 /*
- * Heby is an AMBIENT interaction layer, not the eighth workspace. This context
- * lets the launcher (present in the rail and the topbar) open the same
- * contextual panel from anywhere in the shell.
+ * Heby is an AMBIENT interaction layer, not the eighth workspace. This context lets the
+ * launcher (rail + topbar) and every in-surface "Why?" trigger open the SAME contextual
+ * panel from anywhere in the shell.
  *
- * PHASE 5 SCOPE: shell entry point only. No model is called, Heby Core is not
- * connected, no conversation is faked. The panel renders an explicit
- * "not yet implemented" surface.
+ * PHASE 15: the launcher opens Heby at workspace level; an in-surface trigger may carry a
+ * TYPED context payload (region, selected entity, intent) so the panel knows what "this"
+ * means — deterministic, explicit, never DOM-scraped. No model is called, no answer is
+ * generated, no conversation is faked. The panel resolves typed context and reports an
+ * explicit "not connected" response.
  */
+
+/** The typed context an in-surface trigger hands to Heby. All fields optional. */
+export interface HebyTrigger {
+  readonly region?: HebySurfaceRegion;
+  readonly selectedEntity?: HebySelectedEntity;
+  readonly intent?: HebyProductIntent;
+}
 
 interface HebyState {
   readonly open: boolean;
-  openHeby: () => void;
+  /** The typed context carried by the trigger that opened the panel, if any. */
+  readonly trigger: HebyTrigger | null;
+  openHeby: (trigger?: HebyTrigger) => void;
   closeHeby: () => void;
   toggleHeby: () => void;
 }
@@ -23,13 +39,21 @@ const HebyContext = createContext<HebyState | null>(null);
 
 export function HebyProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const openHeby = useCallback(() => setOpen(true), []);
-  const closeHeby = useCallback(() => setOpen(false), []);
+  const [trigger, setTrigger] = useState<HebyTrigger | null>(null);
+
+  const openHeby = useCallback((next?: HebyTrigger) => {
+    setTrigger(next ?? null);
+    setOpen(true);
+  }, []);
+  const closeHeby = useCallback(() => {
+    setOpen(false);
+    setTrigger(null);
+  }, []);
   const toggleHeby = useCallback(() => setOpen((v) => !v), []);
 
   const value = useMemo(
-    () => ({ open, openHeby, closeHeby, toggleHeby }),
-    [open, openHeby, closeHeby, toggleHeby],
+    () => ({ open, trigger, openHeby, closeHeby, toggleHeby }),
+    [open, trigger, openHeby, closeHeby, toggleHeby],
   );
 
   return <HebyContext.Provider value={value}>{children}</HebyContext.Provider>;

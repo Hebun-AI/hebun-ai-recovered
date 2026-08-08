@@ -37,7 +37,12 @@ export function OperationsStateStrip({ overview }: { overview: ExecutiveOverview
       <span className="ml-auto flex items-center gap-2">
         <span className="text-[0.7rem] text-fg-muted">{freshnessLabel(overview)}</span>
         <SystemViewMarker label="System view" />
-        <HebyWhy label="Why?" variant="icon" />
+        <HebyWhy
+          label="Why?"
+          variant="icon"
+          region={{ key: "operations-state-strip", label: "Operational state" }}
+          intent="EXPLAIN"
+        />
       </span>
     </div>
   );

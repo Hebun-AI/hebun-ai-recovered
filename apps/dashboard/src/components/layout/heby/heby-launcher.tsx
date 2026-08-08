@@ -18,7 +18,7 @@ export function HebyLauncher({ variant }: { variant: "rail" | "topbar" }) {
     return (
       <button
         type="button"
-        onClick={openHeby}
+        onClick={() => openHeby()}
         aria-label="Open Heby"
         aria-haspopup="dialog"
         className="group flex w-full flex-col items-center gap-1 rounded-xl border border-highlight/30 bg-highlight/10 px-1 py-2 text-highlight transition-colors duration-(--dur-fast) hover:bg-highlight/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight"
@@ -32,7 +32,7 @@ export function HebyLauncher({ variant }: { variant: "rail" | "topbar" }) {
   return (
     <button
       type="button"
-      onClick={openHeby}
+      onClick={() => openHeby()}
       aria-label="Open Heby"
       aria-haspopup="dialog"
       className={cn(

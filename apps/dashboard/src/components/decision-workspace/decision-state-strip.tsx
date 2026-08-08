@@ -35,7 +35,12 @@ export function DecisionStateStrip() {
 
       <span className="ml-auto flex items-center gap-2">
         <StructuralMarker label="Structural view" />
-        <HebyWhy label="Why is nothing pending?" variant="icon" />
+        <HebyWhy
+          label="Why is nothing pending?"
+          variant="icon"
+          region={{ key: "decision-state-strip", label: "Decision state" }}
+          intent="ASSESS_UNCERTAINTY"
+        />
       </span>
     </div>
   );
