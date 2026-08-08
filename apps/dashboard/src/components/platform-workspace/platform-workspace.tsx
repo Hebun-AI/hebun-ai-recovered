@@ -7,6 +7,7 @@ import { PlatformInspector } from "./platform-inspector";
 import { ProvidersModels } from "./providers-models";
 import { PlatformDependencies } from "./platform-dependencies";
 import { PlatformAccess } from "./platform-access";
+import { PlatformDeviceRuntime } from "./platform-device-runtime";
 import { PlatformBoundary } from "./platform-boundary";
 
 /*
@@ -64,6 +65,8 @@ export function PlatformWorkspace({
           <PlatformAccess />
         </div>
       </div>
+
+      <PlatformDeviceRuntime />
 
       <PlatformBoundary />
     </div>
