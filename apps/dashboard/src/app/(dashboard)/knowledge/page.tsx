@@ -1,29 +1,19 @@
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { KnowledgeOverview } from "@/components/knowledge-domain/knowledge-overview";
-import { KnowledgeSources } from "@/components/knowledge-domain/knowledge-sources";
-import { KnowledgeHealthAndCategories, KnowledgeRelationships, RecentlyAddedKnowledge } from "@/components/knowledge-domain/knowledge-intelligence";
-import { getKnowledgeProjection } from "@/features/enterprise-projection-providers";
+import { KnowledgeWorkspace } from "@/components/knowledge-workspace/knowledge-workspace";
+import { getKnowledgeWorkspaceModel } from "@/features/knowledge/workspace-model";
 
-export default async function KnowledgePage() {
-  const knowledge = await getKnowledgeProjection();
+export const metadata = { title: "Knowledge — Hebun AI" };
 
-  return (
-    <>
-      <PageHeader
-        title="Knowledge Domain"
-        context="The canonical enterprise knowledge foundation — provenance, trust, coverage, and relationships understood as one asset."
-        action={
-          <><Badge variant="primary">Domain foundation</Badge><Badge variant="success">Mock projection</Badge></>
-        }
-      />
-      <div className="space-y-6">
-        <KnowledgeOverview items={knowledge.health} />
-        <KnowledgeSources items={knowledge.sources} />
-        <KnowledgeHealthAndCategories items={knowledge.categories} />
-        <RecentlyAddedKnowledge items={knowledge.recentChanges} />
-        <KnowledgeRelationships items={knowledge.relationships} />
-      </div>
-    </>
-  );
+/*
+ * Knowledge & Memory Workspace (Phase 9) — the primary Knowledge landing.
+ *
+ * Loads ONLY the real, canonical Enterprise Memory vocabulary (source kinds, the
+ * five separated metadata dimensions, lifecycle, confidence, sensitivity,
+ * relationship and authority types). No populated memory record, source, graph, or
+ * history exists, so every place populated knowledge would appear renders an honest
+ * empty state. No mock projection, no model call, no authority act (Phase 9 spec).
+ */
+
+export default function KnowledgePage() {
+  const model = getKnowledgeWorkspaceModel();
+  return <KnowledgeWorkspace model={model} />;
 }
