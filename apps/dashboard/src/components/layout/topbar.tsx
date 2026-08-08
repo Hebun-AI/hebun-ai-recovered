@@ -6,6 +6,7 @@ import { Bell, Building2, ClipboardCheck, Search } from "lucide-react";
 import { getWorkspace, resolveActiveWorkspace } from "@/config/workspace-nav";
 import { MobileNav } from "./mobile-nav";
 import { TabletSections } from "./tablet-sections";
+import { SecondaryToggle } from "./secondary-toggle";
 import { HebyLauncher } from "./heby/heby-launcher";
 
 /*
@@ -24,6 +25,7 @@ export function TopBar() {
     <header className="sticky top-0 z-(--z-sticky) flex h-(--topbar-h) min-w-0 items-center gap-3 border-b border-border bg-surface px-4 sm:px-6">
       <MobileNav />
       <TabletSections />
+      <SecondaryToggle />
 
       <div className="min-w-0 flex-1 lg:flex-none lg:w-52">
         <p className="truncate text-sm font-semibold text-fg">{workspace.label}</p>

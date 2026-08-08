@@ -264,3 +264,20 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * App shell — user-collapsible Level-2 navigation (desktop only, ≥1024px).
+ * Collapsing sets the secondary column width to 0, so the calc()-based content
+ * padding (--shell-nav-w = --rail-w + --secondary-w) reclaims the canvas
+ * automatically, and the column itself is hidden. Tablet/mobile are unaffected
+ * (they use the drawer/sheet, not this fixed column). The toggle control lives
+ * in the topbar so it is always reachable to restore the navigation.
+ */
+@media (min-width: 1024px) {
+  :root[data-secondary="collapsed"] {
+    --secondary-w: 0px;
+  }
+  :root[data-secondary="collapsed"] [data-shell="secondary"] {
+    display: none;
+  }
+}

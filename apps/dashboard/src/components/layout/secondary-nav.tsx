@@ -91,6 +91,7 @@ export function SecondaryNav() {
 
   return (
     <aside
+      data-shell="secondary"
       aria-label="Workspace navigation"
       className="fixed inset-y-0 left-(--rail-w) z-(--z-sticky) hidden w-(--secondary-w) flex-col border-r border-border/70 bg-surface lg:flex"
     >
