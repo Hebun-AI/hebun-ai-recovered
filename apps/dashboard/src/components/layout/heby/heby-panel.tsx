@@ -4,14 +4,45 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sparkles, X, ArrowUpRight } from "lucide-react";
-import { buildHebyPanelModel, resolveHebyWorkspace } from "@/features/heby-integration";
+import {
+  buildHebyPanelModel,
+  resolveHebyWorkspace,
+  HEBY_AUTHORITY_DESCRIPTORS,
+} from "@/features/heby-integration";
 import {
   runHebyIntent,
   runNavigation,
   type HebyRuntimeContext,
   type HebyRuntimeOutcome,
 } from "@/features/heby-runtime";
+import {
+  describeActionBoundary,
+  type HebyActionBoundaryRow,
+  type ToolSideEffectClass,
+} from "@/features/heby-actions";
 import { useHeby } from "./heby-context";
+
+/** A short, honest badge label for a side-effect class. */
+const SIDE_EFFECT_LABEL: Record<ToolSideEffectClass, string> = {
+  READ_ONLY: "Read-only",
+  PREPARATION_ONLY: "Prepare-only",
+  REVERSIBLE_MUTATION: "Reversible",
+  CONSEQUENTIAL_MUTATION: "Consequential",
+  DEVICE_ACTION: "Device",
+};
+
+/** Subtle, theme-aware tint per class — signal without alarm. Never implies an execution state. */
+function sideEffectBadgeClass(sideEffect: ToolSideEffectClass): string {
+  switch (sideEffect) {
+    case "CONSEQUENTIAL_MUTATION":
+      return "border-danger/40 text-danger";
+    case "REVERSIBLE_MUTATION":
+    case "DEVICE_ACTION":
+      return "border-warning/40 text-warning";
+    default:
+      return "border-border text-fg-muted";
+  }
+}
 
 /*
  * Heby contextual panel — the ambient shared intelligence surface, now connected to the
@@ -75,6 +106,13 @@ export function HebyPanel() {
       overview: overview ?? undefined,
     }),
     [pathname, trigger, overview],
+  );
+
+  // The declared actions Heby OWNS in this workspace — an honest, arg-free boundary view. It
+  // shows what each action would do and why it can/cannot run; it never runs or approves anything.
+  const actionBoundary: readonly HebyActionBoundaryRow[] = useMemo(
+    () => describeActionBoundary(resolveHebyWorkspace(pathname)),
+    [pathname],
   );
 
   useEffect(() => {
@@ -248,6 +286,39 @@ export function HebyPanel() {
               where nothing is connected.
             </section>
           )}
+
+          {/* Action boundary — honest, arg-free: what Heby may prepare here and why it can't run */}
+          <section aria-label="Heby action boundary" className="flex flex-col gap-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-fg-muted">Action boundary</p>
+            {actionBoundary.length === 0 ? (
+              <p className="text-[0.7rem] leading-5 text-fg-muted">
+                Heby owns no declared actions in this workspace. Here it advises and prepares only.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {actionBoundary.map((row) => (
+                  <li key={row.actionKind} className="rounded-lg border border-border bg-surface-sunken p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-fg">{row.label}</span>
+                      <span
+                        className={`shrink-0 rounded-full border px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider ${sideEffectBadgeClass(row.sideEffect)}`}
+                      >
+                        {SIDE_EFFECT_LABEL[row.sideEffect]}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[0.7rem] leading-5 text-fg-secondary">{row.verdict}</p>
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[0.65rem] text-fg-muted">
+                      <span>Reversibility: <span className="text-fg-secondary">{row.reversibility}</span></span>
+                      <span>Authority: <span className="text-fg-secondary">{HEBY_AUTHORITY_DESCRIPTORS[row.authorityRequirement].label}</span></span>
+                      <span className={row.invokable ? "text-primary" : "text-fg-muted"}>
+                        {row.invokable ? "Invokable (read-only)" : "Not executable"}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
           <p className="text-xs leading-5 text-fg-muted">
             Heby advises and prepares. It never approves, rejects, authorizes, executes, or edits policy — the
