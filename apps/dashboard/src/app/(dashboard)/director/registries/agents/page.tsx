@@ -13,7 +13,7 @@ export default function AgentRegistryPage() {
         context="First-class agent definitions managed through the Command Bus and the in-memory persistence adapter."
         action={<Badge variant="success">{active} active</Badge>}
       />
-      <AgentRegistryWorkspace showCards={false} />
+      <AgentRegistryWorkspace />
     </>
   );
 }

@@ -753,11 +753,13 @@ export const staticRoutes = new Set([
   "/finance/payments",
   "/finance/budgets",
   "/finance/expenses",
-  "/finance/cash-flow",
+  // "/finance/cash-flow" removed (UI Phase 25D): no real page exists — it was a stale static-route
+  // claim. It now falls to the catch-all placeholder honestly ("not populated yet").
   "/finance/analytics",
   "/finance/tax-compliance",
   "/hr",
-  "/hr/recruiting",
+  // "/hr/recruiting" removed (UI Phase 25D): no real page exists — stale static-route claim.
+  // It now falls to the catch-all placeholder honestly ("not populated yet").
   "/hr/candidate-screening",
   "/hr/interviews",
   "/hr/onboarding",

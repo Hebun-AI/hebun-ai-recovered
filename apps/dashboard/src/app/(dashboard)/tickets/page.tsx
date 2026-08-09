@@ -1,9 +1,17 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { cn } from "@/lib/utils";
 import { tickets, ticketStatuses, ticketCount } from "@/features/tickets/mock";
 import type { SlaState, TicketStatus } from "@/types";
+
+/*
+ * Customer Ops / Tickets — legacy domain surface (UI Phase 25C). Customer support is business-
+ * domain work; it is NOT Hebun Operations (runtime/execution observation). This page is not moved
+ * into Operations and claims no Operations authority — it is a legacy domain / future Enterprise
+ * Domain candidate, made honest with a mock ticket table. Disposition: 25D.
+ */
 
 const statusMeta: Record<TicketStatus, { label: string; variant: BadgeVariant }> = {
   open: { label: "Open", variant: "info" },
@@ -24,8 +32,12 @@ export default function TicketsPage() {
     <>
       <PageHeader
         title="Ticket Center"
-        context="Support queue owned by the Operations Department."
+        context="Legacy Customer Ops domain surface — illustrative mock tickets, not authoritative Workforce truth."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="Customer Ops" backing="mock" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         {/* Status summary */}

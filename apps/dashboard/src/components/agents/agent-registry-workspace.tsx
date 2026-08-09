@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Plus } from "lucide-react";
-import { AgentCard } from "@/features/agents/agent-card";
 import { Drawer } from "@/components/organization/drawer";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
@@ -166,7 +165,7 @@ function FormField({
   );
 }
 
-export function AgentRegistryWorkspace({ showCards = true }: { showCards?: boolean }) {
+export function AgentRegistryWorkspace() {
   const records = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const report = buildReport();
   const telemetry = report.telemetry;
@@ -237,18 +236,6 @@ export function AgentRegistryWorkspace({ showCards = true }: { showCards?: boole
 
   return (
     <div className="flex flex-col gap-6">
-      {showCards && (
-        <div className="grid grid-cols-12 gap-6">
-          {records
-            .filter((record) => record.lifecycleStatus !== "deleted")
-            .map((record) => (
-              <div key={record.id} className="col-span-12 sm:col-span-6 xl:col-span-4">
-                <AgentCard agent={record} />
-              </div>
-            ))}
-        </div>
-      )}
-
       <Card>
         <CardHeader>
           <div className="min-w-0">
@@ -550,22 +537,12 @@ export function AgentRegistryWorkspace({ showCards = true }: { showCards?: boole
                 placeholder="Working memory"
               />
             </FormField>
-            <FormField label="Tasks Today">
-              <input
-                className={inputClass}
-                value={form.tasksToday}
-                onChange={(event) => setForm({ ...form, tasksToday: event.target.value })}
-                placeholder="0"
-              />
-            </FormField>
-            <FormField label="Cost Today">
-              <input
-                className={inputClass}
-                value={form.costToday}
-                onChange={(event) => setForm({ ...form, costToday: event.target.value })}
-                placeholder="0"
-              />
-            </FormField>
+            {/*
+             * UI Phase 25B — Tasks Today / Cost Today / Last Active inputs removed from the
+             * definition form. They are seeded ACTIVITY, not definition attributes, and must not
+             * be presented (even as editable fields) as organizational truth. New definitions keep
+             * the record defaults (0 / 0 / "just now"); edits preserve existing values untouched.
+             */}
           </div>
 
           <FormField label="Description">
@@ -608,15 +585,6 @@ export function AgentRegistryWorkspace({ showCards = true }: { showCards?: boole
               placeholder="Knowledge scope"
             />
           </FormField>
-          <FormField label="Last Active">
-            <input
-              className={inputClass}
-              value={form.lastActive}
-              onChange={(event) => setForm({ ...form, lastActive: event.target.value })}
-              placeholder="just now"
-            />
-          </FormField>
-
           {errors.length > 0 && (
             <div className="flex flex-col gap-1 rounded-md border border-error/30 bg-error-subtle p-3">
               {errors.map((error, index) => (

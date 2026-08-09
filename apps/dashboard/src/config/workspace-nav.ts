@@ -176,16 +176,24 @@ export const WORKSPACES: readonly Workspace[] = [
     label: "Workforce",
     icon: UsersRound,
     href: "/workforce",
-    tagline: "The AI workforce and the departments that do the work.",
+    tagline: "The AI workforce — who can perform work.",
     roles: ["director", "operator", "specialist", "admin"],
+    // Departments stay in `match` so their legacy routes still resolve to Workforce and remain
+    // reachable until Phase 25D disposition — they are NOT authoritative L2 destinations.
     match: ["/agents", "/finance", "/hr", "/legal", "/tickets"],
     destinations: [
-      { label: "Overview", href: "/workforce", icon: UsersRound, purpose: "Workforce roster." },
-      { label: "Agents", href: "/agents", icon: UsersRound, purpose: "The AI agents." },
-      { label: "Finance", href: "/finance", icon: Layers, purpose: "Finance department." },
-      { label: "HR", href: "/hr", icon: UsersRound, purpose: "People operations." },
-      { label: "Legal", href: "/legal", icon: ShieldCheck, purpose: "Legal department." },
-      { label: "Customer Ops", href: "/tickets", icon: Activity, purpose: "Customer operations." },
+      // UI Phase 25C — final authoritative Workforce L2 IA (Director-locked): exactly four surfaces,
+      // all answering "who can perform work". Overview (information model) and Agents (seeded,
+      // in-memory DEFINITIONS) were made honest in 25B; Teams & Roles and Capabilities are added
+      // here, read only from the seeded agent-definition seam (no second source of truth, no
+      // fabricated org chart, no live staffing, declaration never presented as execution). Finance /
+      // HR / Legal / Customer Ops are REMOVED from the authoritative IA — they are legacy domain
+      // applications / future Enterprise Domain candidates, kept reachable via `match` and made
+      // honest in 25C, with route disposition (redirect / relocation / retirement) owned by 25D.
+      { label: "Overview", href: "/workforce", icon: UsersRound, purpose: "Who can perform work — the workforce information model. Read-only, honest empty state." },
+      { label: "Agents", href: "/agents", icon: UsersRound, purpose: "AI agent definitions — seeded, in-memory registry; runtime simulation, not a live workforce." },
+      { label: "Teams & Roles", href: "/workforce/teams", icon: UsersRound, purpose: "How the workforce is organized — seeded groupings and declared roles; no live staffing." },
+      { label: "Capabilities", href: "/workforce/capabilities", icon: Sparkles, purpose: "What the workforce is declared capable of — declaration is not execution." },
     ],
   },
   {

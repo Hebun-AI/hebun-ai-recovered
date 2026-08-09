@@ -3,16 +3,21 @@ import { ArrowUpRight } from "lucide-react";
 import { WorkforceRegion, CapabilityMarker } from "./workforce-region";
 
 /*
- * Boundaries (Phase 11 §19–24) — Workforce describes capability and ownership; it
- * holds no authority and duplicates no neighbour.
+ * Boundaries (Phase 11 §19–24; extended UI Phase 25B) — Workforce answers WHO can perform
+ * work: identities, roles, capabilities, and composition. Every other concern is deferred to
+ * the workspace that owns it. Workforce holds no authority and duplicates no neighbour.
  *
- *   Operations — what is running during execution
+ *   Operations — how work executes (execution, runtime activity, receipts, failures)
  *   Governance — policy, permissions, and authority constraints
- *   Agents     — the existing agent surface (runtime activity, not organizational identity)
+ *   Platform   — providers, models, and technical capabilities
+ *   Knowledge  — organizational memory and knowledge
+ *   Decisions  — human decision authority (approve / reject / authorize)
+ *   Command    — organizational objectives and direction
+ *   Agents     — the AI agent definitions surface (seeded, in-memory; not a live workforce)
  *
- * Workforce may describe authority; it never grants it. There is no approve,
- * assign, grant-permission, or change-role control here — role is not authority,
- * capability is not authority, tool access is not authority.
+ * Workforce may describe authority; it never grants it. There is no approve, assign,
+ * grant-permission, or change-role control here — role is not authority, capability is not
+ * authority, tool access is not authority.
  */
 
 interface BoundaryLink {
@@ -25,7 +30,7 @@ interface BoundaryLink {
 const LINKS: readonly BoundaryLink[] = [
   {
     label: "Operations",
-    reason: "What a worker is currently doing during execution lives in Operations. Workforce references active work; it is not an execution timeline.",
+    reason: "How work executes — execution, runtime activity, receipts, and failures — lives in Operations. Workforce references active work; it is not an execution timeline.",
     href: "/operations",
     hrefLabel: "Open Operations",
   },
@@ -36,8 +41,26 @@ const LINKS: readonly BoundaryLink[] = [
     hrefLabel: "Open Governance",
   },
   {
+    label: "Platform",
+    reason: "Providers, models, and technical capabilities are owned by Platform. A definition references a provider/model; it does not own or connect one.",
+    href: "/platform",
+    hrefLabel: "Open Platform",
+  },
+  {
+    label: "Knowledge",
+    reason: "Organizational memory and knowledge are owned by Knowledge. Workforce reads memory context; it never keeps a second memory store.",
+    href: "/knowledge",
+    hrefLabel: "Open Knowledge",
+  },
+  {
+    label: "Decisions",
+    reason: "Human decision authority — approve, reject, authorize — is owned by Decisions. Workforce prepares nothing here and grants no authority.",
+    href: "/approvals",
+    hrefLabel: "Open Decisions",
+  },
+  {
     label: "Agents",
-    reason: "The existing Agents surface shows agent runtime activity. Those runtime records are not yet an organizational workforce identity model.",
+    reason: "The Agents surface shows seeded, in-memory agent definitions over a simulation runtime. Those definitions are not a live organizational workforce.",
     href: "/agents",
     hrefLabel: "Open Agents",
   },
@@ -51,6 +74,11 @@ export function WorkforceBoundary() {
       title="Workforce Describes, It Does Not Grant"
       action={<CapabilityMarker label="No authority act here" />}
     >
+      <p className="mb-3 text-xs leading-5 text-fg-muted">
+        Workforce answers <span className="font-medium text-fg-secondary">who</span> can perform
+        work — identities, roles, and capabilities. Every other concern is deferred to the
+        workspace that owns it.
+      </p>
       <ul className="flex flex-col divide-y divide-border/60 rounded-lg border border-border bg-surface">
         {LINKS.map((link) => (
           <li key={link.label} className="flex flex-col gap-1 p-3 sm:flex-row sm:items-center sm:gap-4">

@@ -3,15 +3,19 @@ import { ArrowLeft, Construction } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { AgentCard } from "@/features/agents/agent-card";
-import { agents } from "@/features/agents/mock";
 import type { ResolvedModule } from "@/config/sidebar.config";
+
+/*
+ * Catch-all module placeholder. Renders for any sidebar.config route without a real page.
+ *
+ * UI Phase 25D: the seeded-AgentCard side panel was removed. It only ever rendered for the legacy
+ * `/workforce/{dept}/{agent}` shadow tree (the sole source of `agentId`), which Phase 25D retired
+ * to a redirect to `/agents` — so this placeholder no longer surfaces any fabricated live agent
+ * activity. The AgentCard component itself is deleted (zero live reach).
+ */
 
 export function ModulePlaceholder({ module }: { module: ResolvedModule }) {
   const { section, group, item } = module;
-  const agent = item.agentId
-    ? agents.find((a) => a.id === item.agentId)
-    : undefined;
 
   return (
     <>
@@ -49,12 +53,6 @@ export function ModulePlaceholder({ module }: { module: ResolvedModule }) {
             />
           </div>
         </div>
-
-        {agent && (
-          <div className="col-span-12 xl:col-span-4">
-            <AgentCard agent={agent} />
-          </div>
-        )}
       </div>
     </>
   );
