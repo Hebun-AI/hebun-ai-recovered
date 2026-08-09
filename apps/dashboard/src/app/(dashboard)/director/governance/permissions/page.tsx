@@ -1,61 +1,18 @@
-import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/layout/page-header";
-import { StatCard } from "@/components/dashboard/stat-card";
-import { PermissionMatrix } from "@/components/governance/permission-matrix";
-import {
-  permissionRoles,
-  permissionChanges,
-  permissionConflicts,
-  highPrivilegeAccounts,
-} from "@/features/governance/permissions";
-import { EventTimeline } from "@/components/dashboard/event-timeline";
+import { permanentRedirect } from "next/navigation";
 
-export default function GovernancePermissionsPage() {
-  return (
-    <>
-      <PageHeader
-        title="Permission Center"
-        context="Roles, access rights, recent changes, conflicts and high privilege accounts."
-        action={<Badge variant="warning">{permissionConflicts.length} conflicts</Badge>}
-      />
+export const metadata = { title: "Policies & Rules — Hebun AI" };
 
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-6 sm:col-span-3"><StatCard label="Roles" value={`${permissionRoles.length}`} /></div>
-        <div className="col-span-6 sm:col-span-3"><StatCard label="High Privilege" value={`${highPrivilegeAccounts.length}`} /></div>
-        <div className="col-span-6 sm:col-span-3"><StatCard label="Changes" value={`${permissionChanges.length}`} /></div>
-        <div className="col-span-6 sm:col-span-3"><StatCard label="Conflicts" value={`${permissionConflicts.length}`} /></div>
+/*
+ * Legacy Permission Center — retired in Hebun UI Phase 23D.
+ *
+ * This page presented a fabricated capability/role matrix, permission changes, and conflicts. That is
+ * policy/rule applicability and restriction — which role may perform which governed capability — not an
+ * identity/IAM system Governance owns, and not human authority (human decisions live in Decisions).
+ * The honest owner of rule applicability is Policies & Rules at /director/governance/policies (Phase 23B),
+ * where the real engine's permission checks are part of the policy pipeline. This route permanently
+ * redirects there. Single hop, no loop, no chain. No new Permissions surface is invented.
+ */
 
-        <div className="col-span-12">
-          <PermissionMatrix />
-        </div>
-
-        <div className="col-span-12 xl:col-span-6">
-          <EventTimeline
-            events={permissionChanges.map((change) => ({
-              id: change.id,
-              type: "permission.change",
-              source: change.actor,
-              message: change.change,
-              severity: "info",
-              timestamp: change.when,
-            }))}
-            title="Recent Permission Changes"
-          />
-        </div>
-        <div className="col-span-12 xl:col-span-6">
-          <EventTimeline
-            events={permissionConflicts.map((conflict) => ({
-              id: conflict.id,
-              type: "permission.conflict",
-              source: "Permission Control",
-              message: conflict.detail,
-              severity: conflict.severity,
-              timestamp: conflict.title,
-            }))}
-            title="Permission Conflicts"
-          />
-        </div>
-      </div>
-    </>
-  );
+export default function GovernancePermissionsLegacyPage(): never {
+  permanentRedirect("/director/governance/policies");
 }

@@ -195,15 +195,19 @@ export const WORKSPACES: readonly Workspace[] = [
     href: "/governance",
     tagline: "Guardrails, permissions, and the record.",
     roles: ["director", "operator", "admin"],
-    match: ["/director/governance"],
+    match: ["/director/governance", "/director/policy"],
     destinations: [
-      { label: "Overview", href: "/governance", icon: ShieldCheck, purpose: "Governance at a glance." },
-      { label: "Policies", href: "/director/governance/policies", icon: ShieldCheck, purpose: "Policy set." },
-      { label: "Compliance", href: "/director/governance/compliance", icon: ShieldCheck, purpose: "Compliance posture." },
-      { label: "Risk", href: "/director/governance/risk", icon: Activity, purpose: "Risk register." },
-      { label: "Permissions", href: "/director/governance/permissions", icon: ShieldCheck, purpose: "Access and roles.", roles: ["admin", "director"] },
-      { label: "Audit", href: "/director/governance/audit", icon: BookOpen, purpose: "The immutable record." },
-      { label: "Explainability", href: "/director/governance/explainability", icon: Brain, purpose: "Why the system acted." },
+      // UI Phase 23C — the final authoritative Governance L2 IA (Phase 23A target): five surfaces.
+      // Overview + Policies & Rules (23B); Compliance & Risk (folds Risk) + Audit & Explainability
+      // (folds Explainability) (23C); Security Center (Phase 19, protected). Phase 23D retired the
+      // legacy routes: the /director/governance hub → Overview, /director/policy → Policies & Rules,
+      // /director/governance/{risk → compliance, explainability → audit, permissions → policies,
+      // approvals → /approvals} now permanently redirect (single hop) to their canonical surface.
+      // `match` keeps those prefixes resolving to Governance for the redirect hop.
+      { label: "Overview", href: "/governance", icon: ShieldCheck, purpose: "Governance capabilities and boundaries — honest availability." },
+      { label: "Policies & Rules", href: "/director/governance/policies", icon: ShieldCheck, purpose: "The policy/rule engine — read-only, derived from seeded input." },
+      { label: "Compliance & Risk", href: "/director/governance/compliance", icon: Activity, purpose: "Compliance and risk evaluation — derived from seeded input." },
+      { label: "Audit & Explainability", href: "/director/governance/audit", icon: BookOpen, purpose: "Audit trace and explanation provenance — read-only." },
       { label: "Security Center", href: "/director/governance/security", icon: ShieldCheck, purpose: "Security intelligence, evidence, and the response boundary." },
     ],
   },

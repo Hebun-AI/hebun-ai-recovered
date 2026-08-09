@@ -1,45 +1,17 @@
-import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/layout/page-header";
-import { StatCard } from "@/components/dashboard/stat-card";
-import { RiskHeatmap } from "@/components/governance/risk-heatmap";
-import { EventTimeline } from "@/components/dashboard/event-timeline";
-import { governanceRisks } from "@/features/governance/risk";
+import { permanentRedirect } from "next/navigation";
 
-export default function GovernanceRiskPage() {
-  const critical = governanceRisks.filter((risk) => risk.severity === "critical").length;
+export const metadata = { title: "Compliance & Risk — Hebun AI" };
 
-  return (
-    <>
-      <PageHeader
-        title="Risk Center"
-        context="Business, operational, AI, security and compliance risks with mitigation ownership."
-        action={<Badge variant="error">{critical} critical</Badge>}
-      />
+/*
+ * Legacy Risk Center — retired in Hebun UI Phase 23D; the Risk concept is folded into Compliance & Risk.
+ *
+ * This page presented a fabricated risk register (critical counts, mitigation ownership, trends) as
+ * organizational truth. Risk is not an independent authoritative surface: the engine evaluates risk in
+ * the same pipeline as compliance. The authoritative surface is Compliance & Risk at
+ * /director/governance/compliance (Phase 23C). This route permanently redirects there. Single hop, no
+ * loop (the target is a distinct real page that does not redirect), no chain.
+ */
 
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-6 sm:col-span-3"><StatCard label="Risks" value={`${governanceRisks.length}`} /></div>
-        <div className="col-span-6 sm:col-span-3"><StatCard label="Critical" value={`${critical}`} /></div>
-        <div className="col-span-6 sm:col-span-3"><StatCard label="Mitigating" value={`${governanceRisks.filter((risk) => risk.status === "mitigating").length}`} /></div>
-        <div className="col-span-6 sm:col-span-3"><StatCard label="Owners" value={`${new Set(governanceRisks.map((risk) => risk.owner)).size}`} /></div>
-
-        <div className="col-span-12">
-          <RiskHeatmap />
-        </div>
-
-        <div className="col-span-12">
-          <EventTimeline
-            events={governanceRisks.map((risk) => ({
-              id: risk.id,
-              type: `${risk.category}.risk`,
-              source: risk.owner,
-              message: `${risk.title} — ${risk.mitigation}`,
-              severity: risk.severity === "critical" ? "error" : risk.severity === "high" ? "warning" : "info",
-              timestamp: `${risk.status} · ${risk.trend}`,
-            }))}
-            title="Risk Register"
-          />
-        </div>
-      </div>
-    </>
-  );
+export default function GovernanceRiskLegacyPage(): never {
+  permanentRedirect("/director/governance/compliance");
 }

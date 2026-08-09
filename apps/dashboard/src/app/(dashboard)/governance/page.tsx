@@ -1,20 +1,25 @@
-import { GovernanceWorkspace } from "@/components/governance-workspace/governance-workspace";
-import { getGovernanceWorkspaceModel } from "@/features/governance/workspace-model";
+import { PageHeader } from "@/components/layout/page-header";
+import { GovernanceOverview } from "@/components/governance-overview/governance-overview";
 
 export const metadata = { title: "Governance — Hebun AI" };
 
 /*
- * Governance Workspace (Phase 12) — the organizational control surface.
+ * Governance Overview (Hebun UI Phase 23B rebuild).
  *
- * Loads only the real, canonical governance vocabulary (decision statuses, approval
- * modes, policy categories, check statuses, risk classes, approval statuses, and
- * pipeline stages). No populated policy, risk, approval, evidence, or audit record
- * is surfaced, so every place populated governance data would appear renders an
- * honest empty state. No seeded governance data, no mock projection, no model call,
- * no authority act (Phase 12 spec).
+ * The governance truth surface: what governance capabilities and boundaries actually exist —
+ * an honest availability map with authority owner and mutation boundary per area. It no longer
+ * imports the governance mock and presents no fabricated compliance %, governance/audit health,
+ * risk %, explainability score, or policy/violation/approval count. Read-only.
  */
 
 export default function GovernancePage() {
-  const model = getGovernanceWorkspaceModel();
-  return <GovernanceWorkspace model={model} />;
+  return (
+    <>
+      <PageHeader
+        title="Governance"
+        context="What governance capabilities and boundaries actually exist right now — honest availability, not fabricated scores."
+      />
+      <GovernanceOverview />
+    </>
+  );
 }
