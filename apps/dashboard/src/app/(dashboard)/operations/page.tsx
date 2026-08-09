@@ -1,20 +1,27 @@
-import { OperationsWorkspace } from "@/components/operations-workspace/operations-workspace";
-import { getDirectorDashboardUiModel } from "@/features/director-dashboard-ui/adapter.server";
+import { PageHeader } from "@/components/layout/page-header";
+import { OperationsOverview } from "@/components/operations-overview/operations-overview";
 
 export const metadata = { title: "Operations — Hebun AI" };
 
 /*
- * Operations Workspace (Phase 10) — the execution-observation surface.
+ * Operations Overview (Hebun UI Phase 22B rebuild).
  *
- * Loads the REAL, non-authoritative Executive Overview (the same widget-runtime
- * derived model the Command Center reads) and presents its operational sections as
- * live operational detail: per-section health, record count, and source state. No
- * individual execution/workflow/task/event/failure/gate record is surfaced, so
- * those regions render honest empty states and drill through to the existing detail
- * routes. No mock data, no model call, no authority act (Phase 10 spec).
+ * The operational truth surface: what operational state Hebun can actually observe today,
+ * and where the execution boundary sits. It states honest availability per subsystem and
+ * the real prepared→executed boundary (counts from the Phase 17 action registry). It no
+ * longer presents the seeded/derived Executive Overview record counts as live operational
+ * detail. No aggregate Operations Health %, no fabricated run/queue/incident/agent counts,
+ * no execution controls. Read-only.
  */
 
 export default function OperationsPage() {
-  const { overview } = getDirectorDashboardUiModel();
-  return <OperationsWorkspace overview={overview} />;
+  return (
+    <>
+      <PageHeader
+        title="Operations"
+        context="What operational state Hebun can observe today — and where the execution boundary sits."
+      />
+      <OperationsOverview />
+    </>
+  );
 }

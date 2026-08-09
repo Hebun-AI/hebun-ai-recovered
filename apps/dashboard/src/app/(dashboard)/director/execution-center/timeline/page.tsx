@@ -1,21 +1,15 @@
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { ExecutionTimeline } from "@/components/execution/execution-timeline";
-import { timelineEvents } from "@/features/execution/mock";
+import { permanentRedirect } from "next/navigation";
 
-export default function ExecutionTimelinePage() {
-  return (
-    <>
-      <PageHeader
-        title="Execution Timeline"
-        context="Every step across executions — grouped by execution, department, status or severity."
-        action={<Badge variant="primary">{timelineEvents.length} events</Badge>}
-      />
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12">
-          <ExecutionTimeline />
-        </div>
-      </div>
-    </>
-  );
+export const metadata = { title: "Execution — Hebun AI" };
+
+/*
+ * Legacy Execution Timeline — retired in Hebun UI Phase 22D.
+ *
+ * An execution timeline has no independent real authority; the authoritative execution
+ * surface is Execution. This route permanently redirects there. No loop (the target is a
+ * distinct real page), no chain.
+ */
+
+export default function ExecutionTimelinePage(): never {
+  permanentRedirect("/director/execution-center");
 }

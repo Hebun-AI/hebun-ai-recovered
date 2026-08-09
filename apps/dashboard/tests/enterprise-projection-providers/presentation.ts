@@ -10,7 +10,6 @@ import { readFileSync } from "node:fs";
 const presentationEntries = [
   "src/app/(dashboard)/director/page.tsx",
   "src/app/(dashboard)/director/organization/page.tsx",
-  "src/app/(dashboard)/events/page.tsx",
 ];
 
 // Workspace-vocabulary landings must consume no mock adapter, even though they no
@@ -20,6 +19,10 @@ const presentationEntries = [
 const noMockEntries = [
   "src/app/(dashboard)/knowledge/page.tsx",
   "src/app/(dashboard)/approvals/page.tsx",
+  // UI Phase 22C: /events is honesty-fixed. It no longer surfaces the derived timeline
+  // projection as live event truth; it renders an honest derived/empty state and consumes
+  // no projection provider and no mock.
+  "src/app/(dashboard)/events/page.tsx",
 ];
 
 for (const file of noMockEntries) {

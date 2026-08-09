@@ -1,47 +1,14 @@
-import { PageHeader } from "@/components/layout/page-header";
-import { StatCard } from "@/components/dashboard/stat-card";
-import { Badge } from "@/components/ui/badge";
-import { FailureCard } from "@/components/execution/failure-card";
-import { RecoveryStatusCards } from "@/components/execution/recovery-status-card";
-import { failures, type FailureClass } from "@/features/execution/mock";
-import { failureClassLabel } from "@/components/execution/execution-tokens";
+import { permanentRedirect } from "next/navigation";
 
-export default function FailuresPage() {
-  const classes: FailureClass[] = ["infrastructure", "application", "business", "reasoning", "human"];
-  const countByClass = (c: FailureClass) => failures.filter((f) => f.classification === c).length;
+export const metadata = { title: "Execution — Hebun AI" };
 
-  return (
-    <>
-      <PageHeader
-        title="Failures"
-        context="Failed executions, classification, root cause and recovery strategy."
-        action={<Badge variant="error">{failures.length} failures</Badge>}
-      />
+/*
+ * Legacy Failures — retired in Hebun UI Phase 22D.
+ *
+ * Execution failures have no independent real authority; the authoritative execution surface
+ * is Execution. This route permanently redirects there. No loop, no chain.
+ */
 
-      <div className="grid grid-cols-12 gap-6">
-        {classes.map((c) => (
-          <div key={c} className="col-span-6 sm:col-span-4 xl:col-span-2">
-            <StatCard label={failureClassLabel[c]} value={`${countByClass(c)}`} />
-          </div>
-        ))}
-        <div className="col-span-6 sm:col-span-4 xl:col-span-2">
-          <StatCard label="Total" value={`${failures.length}`} />
-        </div>
-
-        <div className="col-span-12">
-          <h3 className="mb-1 text-sm font-semibold text-fg">Failure Records</h3>
-        </div>
-        {failures.map((f) => (
-          <div key={f.id} className="col-span-12 sm:col-span-6 xl:col-span-4">
-            <FailureCard failure={f} />
-          </div>
-        ))}
-
-        <div className="col-span-12">
-          <h3 className="mb-1 text-sm font-semibold text-fg">Recovery Status</h3>
-        </div>
-        <RecoveryStatusCards />
-      </div>
-    </>
-  );
+export default function FailuresPage(): never {
+  permanentRedirect("/director/execution-center");
 }

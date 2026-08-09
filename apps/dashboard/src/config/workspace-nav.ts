@@ -160,13 +160,15 @@ export const WORKSPACES: readonly Workspace[] = [
       "/director/task-planning",
     ],
     destinations: [
-      { label: "Executions", href: "/director/execution-center", icon: Activity, purpose: "Live execution monitor." },
-      { label: "Timeline", href: "/director/execution-center/timeline", icon: Activity, purpose: "Execution timeline." },
-      { label: "Failures", href: "/director/execution-center/failures", icon: Activity, purpose: "Failed runs." },
-      { label: "Workflows", href: "/workflows", icon: Layers, purpose: "Workflow definitions and runs." },
-      { label: "Orchestration", href: "/director/orchestration", icon: Layers, purpose: "Orchestration surface." },
-      { label: "Task Planning", href: "/director/task-planning", icon: Activity, purpose: "Planned work." },
-      { label: "Events", href: "/events", icon: Activity, purpose: "Event stream." },
+      // UI Phase 22B/22C — authoritative Operations L2 (Phase 22A IA): four honest surfaces.
+      // Overview + Execution (22B); Runtime & Signals + Execution Substrate (22C). The legacy
+      // detail routes (Timeline, Failures, Workflows, Orchestration, Task Planning, Events)
+      // are honesty-fixed and remain reachable via `match`, but are no longer authoritative L2;
+      // their redirect/retirement is Phase 22D.
+      { label: "Overview", href: "/operations", icon: Activity, purpose: "What operational state Hebun can observe today." },
+      { label: "Execution", href: "/director/execution-center", icon: Activity, purpose: "What has run, and what capability is available — read-only." },
+      { label: "Runtime & Signals", href: "/director/runtime-signals", icon: Activity, purpose: "What the runtime observes about itself." },
+      { label: "Execution Substrate", href: "/director/execution-substrate", icon: Layers, purpose: "The execution stack and what is missing — read-only." },
     ],
   },
   {

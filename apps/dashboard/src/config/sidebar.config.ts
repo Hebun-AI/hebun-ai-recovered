@@ -694,6 +694,8 @@ export const staticRoutes = new Set([
   "/director/execution-center/graphs",
   "/director/execution-center/failures",
   "/director/execution-center/timeline",
+  "/director/runtime-signals",
+  "/director/execution-substrate",
   "/director/intelligence",
   "/director/intelligence/patterns",
   "/director/intelligence/recommendations",

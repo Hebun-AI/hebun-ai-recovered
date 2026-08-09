@@ -1,54 +1,15 @@
-import { ClipboardList, Rocket, ListVideo } from "lucide-react";
-import { PlanningOverview } from "@/components/task-planning/planning-overview";
-import { DispatchMonitor } from "@/components/live-dispatch/dispatch-monitor";
-import { QueueMonitor } from "@/components/execution-queue/queue-monitor";
-import { PageHeader } from "@/components/layout/page-header";
+import { permanentRedirect } from "next/navigation";
 
-export default function TaskPlanningPage() {
-  return (
-    <>
-      <PageHeader
-        title="Task Planning Engine"
-        context="The deterministic layer that turns every Decision Package into an Execution Plan — goals, tasks, dependencies, resources, approval gates, and timeline. It prepares execution; it never runs anything."
-      />
+export const metadata = { title: "Operations — Hebun AI" };
 
-      <div className="mb-6 flex items-center gap-2 text-sm text-fg-secondary">
-        <ClipboardList className="size-4 text-primary" />
-        Deterministic and traceable. No LLM calls, no execution, no orchestration, no command dispatch.
-      </div>
+/*
+ * Legacy Task Planning — retired in Hebun UI Phase 22D.
+ *
+ * The task queue/dispatch here is seeded, in-memory, and not a live dispatcher, with no
+ * authoritative surface of its own; Operations Overview honestly reports its state. A neutral
+ * redirect to Overview is preferred over a false equivalence. No loop, no chain.
+ */
 
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-fg">Executive Planning Overview</h2>
-        <p className="text-sm text-fg-secondary">
-          Cross-agent read-only plan summary for the Director surface.
-        </p>
-      </div>
-
-      <PlanningOverview />
-
-      <div className="mb-4 mt-10 flex items-center gap-2">
-        <Rocket className="size-4 text-primary" />
-        <div>
-          <h2 className="text-lg font-semibold text-fg">Executive Dispatch Monitor</h2>
-          <p className="text-sm text-fg-secondary">
-            Live internal command queue across agents — real Command Bus dispatch, fully offline.
-          </p>
-        </div>
-      </div>
-
-      <DispatchMonitor />
-
-      <div className="mb-4 mt-10 flex items-center gap-2">
-        <ListVideo className="size-4 text-primary" />
-        <div>
-          <h2 className="text-lg font-semibold text-fg">Executive Queue Monitor</h2>
-          <p className="text-sm text-fg-secondary">
-            Stateful execution queues across agents — validated lifecycle transitions, fully offline.
-          </p>
-        </div>
-      </div>
-
-      <QueueMonitor />
-    </>
-  );
+export default function TaskPlanningPage(): never {
+  permanentRedirect("/operations");
 }

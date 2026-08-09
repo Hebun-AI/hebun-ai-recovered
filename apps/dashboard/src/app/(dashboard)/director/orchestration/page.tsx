@@ -1,24 +1,15 @@
-import { Network } from "lucide-react";
-import { OrchestrationPanel } from "@/components/orchestration/orchestration-panel";
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { orchestrationMetrics } from "@/features/orchestration";
+import { permanentRedirect } from "next/navigation";
 
-export default function OrchestrationPage() {
-  return (
-    <>
-      <PageHeader
-        title="Orchestration Engine"
-        context="The deterministic coordination layer that converts execution-ready plans into explainable owner assignments, handoffs, approval gates, fallback paths, and orchestration blueprints before any future execution engine acts."
-        action={<Badge variant={orchestrationMetrics.healthBadge}>Health {orchestrationMetrics.orchestrationHealth}</Badge>}
-      />
+export const metadata = { title: "Operations — Hebun AI" };
 
-      <div className="mb-6 flex items-center gap-2 text-sm text-fg-secondary">
-        <Network className="size-4 text-primary" />
-        Deterministic, traceable, and auditable. No execution, no external calls, no LLMs.
-      </div>
+/*
+ * Legacy Orchestration — retired in Hebun UI Phase 22D.
+ *
+ * Orchestration here is simulated (agents/mock) with no authoritative surface of its own;
+ * Operations Overview honestly reports its state. A neutral redirect to Overview is preferred
+ * over a false equivalence. No loop, no chain.
+ */
 
-      <OrchestrationPanel />
-    </>
-  );
+export default function OrchestrationPage(): never {
+  permanentRedirect("/operations");
 }

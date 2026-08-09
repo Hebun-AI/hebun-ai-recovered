@@ -1,54 +1,29 @@
 import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { ExecutionSummary } from "@/components/execution/execution-summary";
-import { ExecutionStatusCard } from "@/components/execution/execution-status-card";
-import { ExecutionTable } from "@/components/execution/execution-table";
-import { BottleneckPanel } from "@/components/execution/bottleneck-panel";
-import { HumanInterventionQueue } from "@/components/execution/human-intervention-queue";
-import { FailureCard } from "@/components/execution/failure-card";
-import { executions, failures, executionMetrics } from "@/features/execution/mock";
+import { ExecutionSurface } from "@/components/operations-execution/execution-surface";
+
+export const metadata = { title: "Execution — Hebun AI" };
+
+/*
+ * Execution (Operations L2 · Hebun UI Phase 22B rebuild).
+ *
+ * Distinguishes execution ACTIVITY (nothing has run — no dispatcher is connected) from
+ * execution CAPABILITY (only READ_ONLY is invokable; every mutation and device action is
+ * non-executable). Capability facts come from the REAL Phase 17 action registry and Phase 18
+ * device runtime, read-only. It no longer imports execution/mock, and shows no fabricated
+ * Execution Health %, run, receipt, timestamp, or status. Prepared ≠ authorized ≠ executed.
+ *
+ * Timeline and Failures remain separate legacy routes (still mock-backed) and are scheduled
+ * for Phase 22C honesty cleanup — Phase 22 is not closed.
+ */
 
 export default function ExecutionCenterPage() {
-  const active = executions.filter((e) => e.status !== "completed");
-  const recentFailures = failures.slice(0, 2);
-
   return (
     <>
       <PageHeader
-        title="Execution Center"
-        context="Operational control for running work — what's live, stuck, failing or recovering."
-        action={<Badge variant="success">Execution Health {executionMetrics.executionHealth}%</Badge>}
+        title="Execution"
+        context="What execution has actually occurred, and what execution capability is currently available."
       />
-
-      <div className="grid grid-cols-12 gap-6">
-        <ExecutionSummary />
-
-        {/* Active executions + status */}
-        <div className="col-span-12 xl:col-span-8">
-          <ExecutionTable rows={active} />
-        </div>
-        <div className="col-span-12 xl:col-span-4">
-          <ExecutionStatusCard />
-        </div>
-
-        {/* Bottlenecks + human queue */}
-        <div className="col-span-12 xl:col-span-6">
-          <BottleneckPanel />
-        </div>
-        <div className="col-span-12 xl:col-span-6">
-          <HumanInterventionQueue />
-        </div>
-
-        {/* Recent failures */}
-        <div className="col-span-12">
-          <h3 className="mb-1 text-sm font-semibold text-fg">Recent Failures</h3>
-        </div>
-        {recentFailures.map((f) => (
-          <div key={f.id} className="col-span-12 xl:col-span-6">
-            <FailureCard failure={f} />
-          </div>
-        ))}
-      </div>
+      <ExecutionSurface />
     </>
   );
 }

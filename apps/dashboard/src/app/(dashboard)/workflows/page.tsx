@@ -1,25 +1,15 @@
-import { PageHeader } from "@/components/layout/page-header";
-import { CommandAction } from "@/components/command/command-action";
-import { WorkflowRegistryWorkspace } from "@/components/workflows/workflow-registry-workspace";
-import { WorkflowRegistry } from "@/features/workflow-runtime";
+import { permanentRedirect } from "next/navigation";
 
-export default function WorkflowsPage() {
-  const workflows = WorkflowRegistry.listWorkflows();
+export const metadata = { title: "Operations — Hebun AI" };
 
-  return (
-    <>
-      <PageHeader
-        title="Workflows"
-        context={`${workflows.length} workflows defined`}
-        action={
-          <CommandAction
-            label="New Workflow"
-            commandType="workflow.create"
-            summary="Compose a new workflow — steps, dependencies, and execution triggers."
-          />
-        }
-      />
-      <WorkflowRegistryWorkspace />
-    </>
-  );
+/*
+ * Legacy Workflows — retired in Hebun UI Phase 22D.
+ *
+ * Workflow state is a seeded, non-authoritative projection with no authoritative surface of its
+ * own; Operations Overview honestly reports its availability. A neutral redirect to Overview is
+ * preferred over a false equivalence. No loop, no chain.
+ */
+
+export default function WorkflowsPage(): never {
+  permanentRedirect("/operations");
 }
