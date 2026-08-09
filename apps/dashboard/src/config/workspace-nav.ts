@@ -190,6 +190,7 @@ export const WORKSPACES: readonly Workspace[] = [
       { label: "Permissions", href: "/director/governance/permissions", icon: ShieldCheck, purpose: "Access and roles.", roles: ["admin", "director"] },
       { label: "Audit", href: "/director/governance/audit", icon: BookOpen, purpose: "The immutable record." },
       { label: "Explainability", href: "/director/governance/explainability", icon: Brain, purpose: "Why the system acted." },
+      { label: "Security Center", href: "/director/governance/security", icon: ShieldCheck, purpose: "Security intelligence, evidence, and the response boundary." },
     ],
   },
   {
