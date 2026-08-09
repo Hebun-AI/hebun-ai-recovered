@@ -1,24 +1,16 @@
-import { Boxes } from "lucide-react";
-import { AdapterPanel } from "@/components/adapters/adapter-panel";
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { adapterMetrics } from "@/features/adapters";
+import { permanentRedirect } from "next/navigation";
 
-export default function AdaptersPage() {
-  return (
-    <>
-      <PageHeader
-        title="Execution Adapter SDK"
-        context="The provider-independent adapter architecture that future execution providers will implement. Registration, discovery, capability matching, lifecycle, validation, health, telemetry, an event bridge, and a deterministic simulation mode — with no external services, no LLMs, and no provider-specific logic."
-        action={<Badge variant={adapterMetrics.healthBadge}>{adapterMetrics.registered} registered</Badge>}
-      />
+export const metadata = { title: "Infrastructure & Settings — Hebun AI" };
 
-      <div className="mb-6 flex items-center gap-2 text-sm text-fg-secondary">
-        <Boxes className="size-4 text-primary" />
-        Deterministic and provider-independent. Only the built-in Simulation Adapter exists — no Claude, Codex, GitHub, Browser, Slack, Gmail or Computer Use adapters.
-      </div>
+/*
+ * Legacy Execution Adapter SDK console — retired in Hebun UI Phase 24D.
+ *
+ * This page presented the adapter registry with a fabricated health/registered badge. The adapter
+ * registry is real offline infrastructure; its honest state (a structural count, no authentication)
+ * belongs to Infrastructure & Settings at /settings (Phase 24C). This route permanently redirects
+ * there. Single hop, no loop, no chain.
+ */
 
-      <AdapterPanel />
-    </>
-  );
+export default function AdaptersLegacyPage(): never {
+  permanentRedirect("/settings");
 }

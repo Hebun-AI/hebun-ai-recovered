@@ -1,25 +1,17 @@
-import { ShieldAlert } from "lucide-react";
-import { RuntimePanel } from "@/components/runtime-boundary/runtime-panel";
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { runtimeMetrics } from "@/features/runtime-boundary";
+import { permanentRedirect } from "next/navigation";
 
-export default function RuntimeBoundaryPage() {
-  return (
-    <>
-      <PageHeader
-        title="Live Provider Runtime Boundary"
-        context="The final safety boundary before real provider execution. It does not execute providers — it decides whether an invocation may cross from the deterministic offline world into a future live runtime. In this phase live runtime is disabled and every invocation is held on the offline side. Deterministic, explainable, auditable and offline."
-        action={<Badge variant={runtimeMetrics.badge}>Runtime {runtimeMetrics.runtimeHealth}%</Badge>}
-      />
+export const metadata = { title: "Provider Runtime — Hebun AI" };
 
-      <div className="mb-6 flex items-center gap-2 text-sm text-fg-secondary">
-        <ShieldAlert className="size-4 text-primary" />
-        No real execution, no API calls, no credentials, no env access, no secret managers, no
-        network. Live crossing is blocked by design; simulation fallback always available.
-      </div>
+/*
+ * Legacy Provider Runtime Boundary console — retired in Hebun UI Phase 24D.
+ *
+ * This page presented a fabricated "Runtime X%" health badge. The runtime boundary is part of the
+ * offline provider runtime machinery (it gates a future live crossing that never occurs). Its truth
+ * belongs to Provider Runtime at /director/provider-invocation (Phase 24C). This route permanently
+ * redirects there. Single hop, no loop, no chain. Execution/runtime observation remains Operations'
+ * authority, not Platform's.
+ */
 
-      <RuntimePanel />
-    </>
-  );
+export default function RuntimeBoundaryLegacyPage(): never {
+  permanentRedirect("/director/provider-invocation");
 }

@@ -228,17 +228,24 @@ export const WORKSPACES: readonly Workspace[] = [
       "/director/provider-invocation",
       "/director/providers",
       "/director/runtime",
+      "/director/runtime-activation",
       "/director/adapters",
     ],
     destinations: [
-      { label: "Overview", href: "/platform", icon: Layers, purpose: "Platform at a glance." },
-      { label: "Providers & Runtime", href: "/director/provider-matrix", icon: Layers, purpose: "Model/tool providers and runtime." },
-      { label: "Integrations", href: "/integrations", icon: Layers, purpose: "External integrations." },
-      { label: "Infrastructure", icon: Layers, purpose: "Infrastructure surface.", unavailable: true },
-      { label: "Models & Tools", icon: Layers, purpose: "Model and tool catalogue.", unavailable: true },
-      { label: "Authentication", icon: ShieldCheck, purpose: "Auth administration.", roles: ["admin", "director"], unavailable: true },
-      { label: "Architecture Map", href: "/architecture", icon: Layers, purpose: "Advanced architecture map." },
-      { label: "Settings", href: "/settings", icon: Layers, purpose: "Platform settings." },
+      // UI Phase 24C/24D — the final authoritative Platform L2 IA (Phase 24A target): five surfaces.
+      // Overview + Providers & Models (24B); Provider Runtime + Integrations + Infrastructure & Settings
+      // (24C). Every surface tells the truth over the real offline provider substrate: contract-only,
+      // not-connected, in-memory, or empty — never fabricated health. Phase 24D retired the legacy
+      // provider routes to single-hop redirects: /director/provider-framework → provider-matrix;
+      // /director/{provider-routing, runtime, runtime-activation} → provider-invocation; /director/adapters
+      // → /settings. Models & Tools / Infrastructure / Authentication are folded (auth stays external).
+      // The Architecture Map route (/architecture) is retained as a reachable reference (load-bearing for
+      // a dashboard widget), removed from the authoritative L2 — it is not redirected (no false equivalence).
+      { label: "Overview", href: "/platform", icon: Layers, purpose: "Platform capability and what is actually connected — contract-only, offline." },
+      { label: "Providers & Models", href: "/director/provider-matrix", icon: Layers, purpose: "Registered providers and models — offline descriptors, read-only, not connected." },
+      { label: "Provider Runtime", href: "/director/provider-invocation", icon: Activity, purpose: "How far an invocation can progress — routing, invocation contract, live eligibility. Offline." },
+      { label: "Integrations", href: "/integrations", icon: Layers, purpose: "External integrations — none connected; offline descriptors only." },
+      { label: "Infrastructure & Settings", href: "/settings", icon: Layers, purpose: "Real platform configuration and runtime state — in-memory, secrets boundary." },
     ],
   },
 ];

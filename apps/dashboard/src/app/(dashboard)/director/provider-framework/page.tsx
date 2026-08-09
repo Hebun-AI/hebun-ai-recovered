@@ -1,24 +1,16 @@
-import { Layers } from "lucide-react";
-import { ProviderFrameworkPanel } from "@/components/provider-framework/provider-framework-panel";
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { frameworkMetrics } from "@/features/provider-framework";
+import { permanentRedirect } from "next/navigation";
 
-export default function ProviderFrameworkPage() {
-  return (
-    <>
-      <PageHeader
-        title="Provider Adapter Framework"
-        context="The reusable framework every future provider adapter implements — provider contracts, capability mapping, configuration schema, request/response/error normalization, simulation and conformance testing. Deterministic and provider-independent."
-        action={<Badge variant={frameworkMetrics.healthBadge}>Conformance {frameworkMetrics.conformanceScore}</Badge>}
-      />
+export const metadata = { title: "Providers & Models — Hebun AI" };
 
-      <div className="mb-6 flex items-center gap-2 text-sm text-fg-secondary">
-        <Layers className="size-4 text-primary" />
-        No real providers, no credentials, no network, no LLMs. Only the deterministic reference provider exists.
-      </div>
+/*
+ * Legacy Provider Adapter Framework console — retired in Hebun UI Phase 24D.
+ *
+ * This page presented a fabricated conformance/health badge over the provider framework. The provider
+ * framework is a real deterministic offline substrate consumed read-only by the authoritative surfaces;
+ * its capability truth belongs to Providers & Models at /director/provider-matrix (Phase 24B). This
+ * route permanently redirects there. Single hop, no loop (the target is a distinct real page), no chain.
+ */
 
-      <ProviderFrameworkPanel />
-    </>
-  );
+export default function ProviderFrameworkLegacyPage(): never {
+  permanentRedirect("/director/provider-matrix");
 }

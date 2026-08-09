@@ -1,25 +1,16 @@
-import { Route } from "lucide-react";
-import { RoutingPanel } from "@/components/provider-routing/routing-panel";
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { routingMetrics } from "@/features/provider-routing";
+import { permanentRedirect } from "next/navigation";
 
-export default function ProviderRoutingPage() {
-  return (
-    <>
-      <PageHeader
-        title="Provider Routing Engine"
-        context="Selects the most appropriate provider(s) for every execution request and explains why. Sits between the Planning / Execution Engine and the Provider Framework, deriving all provider data from the Provider Capability Matrix. Deterministic, explainable and offline."
-        action={<Badge variant={routingMetrics.badge}>Routing {routingMetrics.routingHealth}%</Badge>}
-      />
+export const metadata = { title: "Provider Runtime — Hebun AI" };
 
-      <div className="mb-6 flex items-center gap-2 text-sm text-fg-secondary">
-        <Route className="size-4 text-primary" />
-        No real execution, no API calls, no runtime provider invocation. Deterministic selection over
-        the six registered providers.
-      </div>
+/*
+ * Legacy Provider Routing Engine console — retired in Hebun UI Phase 24D.
+ *
+ * This page presented a fabricated "Routing X%" health badge. Routing is part of the provider runtime
+ * machinery — a routing decision is not a dispatch. Its truth belongs to Provider Runtime at
+ * /director/provider-invocation (Phase 24C). This route permanently redirects there. Single hop, no
+ * loop, no chain.
+ */
 
-      <RoutingPanel />
-    </>
-  );
+export default function ProviderRoutingLegacyPage(): never {
+  permanentRedirect("/director/provider-invocation");
 }
