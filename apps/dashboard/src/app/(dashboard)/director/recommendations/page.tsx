@@ -1,41 +1,13 @@
-import { PageHeader } from "@/components/layout/page-header";
-import { StatCard } from "@/components/dashboard/stat-card";
-import { Badge } from "@/components/ui/badge";
-import { RecommendationCard } from "@/components/director/recommendation-card";
-import { recommendations } from "@/features/director/mock";
+import { redirect } from "next/navigation";
 
-export default function AiRecommendationsPage() {
-  const pending = recommendations.filter((r) => r.approvalStatus === "pending").length;
-  const approved = recommendations.filter((r) => r.approvalStatus === "approved").length;
-  const avgConfidence = Math.round(
-    recommendations.reduce((a, r) => a + r.confidence, 0) / recommendations.length
-  );
+/*
+ * Legacy /director/recommendations ("AI Recommendations") — RETIRED (Hebun UI Phase 20D).
+ *
+ * Superseded by the authoritative Intelligence Recommendations surface (advisory, distinct from a
+ * decision, Phase 20C). This mock-backed page is retired; the deep link redirects to the canonical
+ * Recommendations route. No mock is rendered.
+ */
 
-  return (
-    <>
-      <PageHeader
-        title="AI Recommendations"
-        context="Recommendation Engine output — scored, prioritized, awaiting decision."
-        action={<Badge variant="warning">{pending} pending</Badge>}
-      />
-
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 sm:col-span-4">
-          <StatCard label="Pending" value={`${pending}`} caption="need Director decision" />
-        </div>
-        <div className="col-span-12 sm:col-span-4">
-          <StatCard label="Approved" value={`${approved}`} caption="in rollout" />
-        </div>
-        <div className="col-span-12 sm:col-span-4">
-          <StatCard label="Avg Confidence" value={`${avgConfidence}%`} caption="across recommendations" />
-        </div>
-
-        {recommendations.map((r) => (
-          <div key={r.id} className="col-span-12 sm:col-span-6 xl:col-span-4">
-            <RecommendationCard rec={r} />
-          </div>
-        ))}
-      </div>
-    </>
-  );
+export default function RecommendationsRedirect() {
+  redirect("/director/intelligence/recommendations");
 }

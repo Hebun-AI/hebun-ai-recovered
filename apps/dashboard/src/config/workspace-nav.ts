@@ -24,6 +24,9 @@ import {
   ShieldCheck,
   Layers,
   Sparkles,
+  Inbox,
+  Target,
+  Compass,
   type LucideIcon,
 } from "lucide-react";
 
@@ -86,15 +89,17 @@ export const WORKSPACES: readonly Workspace[] = [
     roles: ["director", "operator", "specialist", "admin"],
     match: ["/dashboard", "/director", "/approvals"],
     destinations: [
+      // Phase 20B — final Command L2 IA (Phase 20A locked): eight surfaces.
+      // Alerts merged into Inbox (D2); Command Console → Director Intent (D1);
+      // Approvals & Decisions → Decisions, navigation-only into the authoritative /approvals.
       { label: "Overview", href: "/command", icon: Gauge, purpose: "Executive cockpit and landing." },
-      { label: "Briefings", icon: Sparkles, purpose: "Heby-assembled advisory synthesis.", unavailable: true },
-      { label: "Approvals & Decisions", href: "/approvals", icon: ShieldCheck, purpose: "The human authority act.", roles: ["director"], elevated: true },
-      { label: "Strategic Goals", href: "/director/goals", icon: Gauge, purpose: "Goals and objectives." },
-      { label: "Organization Health", href: "/director/organization-health", icon: Activity, purpose: "Health signals." },
-      { label: "Alerts", href: "/director/alerts", icon: Activity, purpose: "Critical attention." },
-      { label: "Reports", href: "/director/reports", icon: BookOpen, purpose: "Executive reports." },
-      { label: "Command Console", icon: Gauge, purpose: "Issue governed action.", roles: ["director"], elevated: true, unavailable: true },
-      { label: "Inbox", icon: BookOpen, purpose: "What needs the Director.", unavailable: true },
+      { label: "Inbox", href: "/command/inbox", icon: Inbox, purpose: "Unified Director attention queue." },
+      { label: "Briefings", href: "/command/briefings", icon: Sparkles, purpose: "Executive briefing synthesis — advisory." },
+      { label: "Decisions", href: "/approvals", icon: ShieldCheck, purpose: "Pending human authority — navigates to the Decisions surface.", roles: ["director"], elevated: true },
+      { label: "Strategic Goals", href: "/director/goals", icon: Target, purpose: "Where the organization is going." },
+      { label: "Organization Health", href: "/director/organization-health", icon: Activity, purpose: "Organizational operating state." },
+      { label: "Reports", href: "/director/reports", icon: BookOpen, purpose: "Formal views of organizational state." },
+      { label: "Director Intent", href: "/command/intent", icon: Compass, purpose: "Express intent — Heby prepares under authority.", roles: ["director"], elevated: true },
     ],
   },
   {
@@ -106,13 +111,15 @@ export const WORKSPACES: readonly Workspace[] = [
     roles: ["director", "operator", "specialist", "admin"],
     match: ["/director/intelligence", "/director/insights", "/director/recommendations"],
     destinations: [
-      { label: "Overview", href: "/intelligence", icon: Brain, purpose: "Intelligence at a glance." },
-      { label: "Insights", href: "/director/intelligence/insights", icon: Sparkles, purpose: "Derived insight." },
-      { label: "Signals & Assessments", icon: Activity, purpose: "Signals and assessments.", unavailable: true },
-      { label: "Candidates", icon: Sparkles, purpose: "Candidate hypotheses.", unavailable: true },
-      { label: "Readiness & Pathways", icon: Activity, purpose: "Readiness and pathways.", unavailable: true },
-      { label: "Patterns", href: "/director/intelligence/patterns", icon: Brain, purpose: "Recurring patterns." },
-      { label: "Recommendations", href: "/director/intelligence/recommendations", icon: Sparkles, purpose: "Advisory recommendations." },
+      // Phase 20C — final Intelligence L2 IA (Phase 20A locked): six surfaces, in lifecycle order.
+      // Standalone Patterns removed (D3 — no runtime candidate kind maps to `pattern`); the
+      // duplicate Organization Health and Learning pages are not part of the authoritative L2.
+      { label: "Overview", href: "/intelligence", icon: Brain, purpose: "Intelligence lifecycle at a glance." },
+      { label: "Signals & Assessments", href: "/intelligence/signals", icon: Activity, purpose: "What was observed, and how it is read." },
+      { label: "Candidates", href: "/intelligence/candidates", icon: Sparkles, purpose: "Emerging intelligence under validation." },
+      { label: "Insights", href: "/director/intelligence/insights", icon: Sparkles, purpose: "Validated intelligence." },
+      { label: "Readiness & Pathways", href: "/intelligence/evolution", icon: Activity, purpose: "Readiness to change and transition paths." },
+      { label: "Recommendations", href: "/director/intelligence/recommendations", icon: Sparkles, purpose: "Advisory — distinct from a decision." },
     ],
   },
   {

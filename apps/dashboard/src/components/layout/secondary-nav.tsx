@@ -14,9 +14,22 @@ import {
 import { useRole } from "./role-context";
 import type { UiRole } from "@/config/workspace-nav";
 
-function isDestinationActive(destination: NavDestination, pathname: string): boolean {
-  if (!destination.href) return false;
-  return pathname === destination.href || pathname.startsWith(`${destination.href}/`);
+/*
+ * The active destination is the one whose href most specifically matches the pathname —
+ * longest matching prefix wins. This prevents a workspace-landing destination (e.g. Overview,
+ * href "/command") from co-highlighting on every sub-route ("/command/inbox"), where a more
+ * specific destination ("/command/inbox") is the real active one.
+ */
+function activeDestinationHref(destinations: readonly NavDestination[], pathname: string): string | undefined {
+  let best: string | undefined;
+  for (const destination of destinations) {
+    const href = destination.href;
+    if (!href) continue;
+    if (pathname === href || pathname.startsWith(`${href}/`)) {
+      if (best === undefined || href.length > best.length) best = href;
+    }
+  }
+  return best;
 }
 
 /** The inner Level-2 list — reused by the desktop column, tablet drawer, and mobile sheet. */
@@ -32,6 +45,7 @@ export function SecondaryNavContent({
   onNavigate?: () => void;
 }) {
   const destinations = destinationsForRole(workspace, role);
+  const activeHref = activeDestinationHref(destinations, pathname);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -56,7 +70,7 @@ export function SecondaryNavContent({
               </span>
             );
           }
-          const active = isDestinationActive(destination, pathname);
+          const active = destination.href !== undefined && destination.href === activeHref;
           return (
             <Link
               key={destination.label}
