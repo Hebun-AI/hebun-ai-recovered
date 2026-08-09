@@ -1,6 +1,7 @@
 import type { KnowledgeWorkspaceModel } from "@/features/knowledge/workspace-model";
 import { KnowledgeHeader } from "./knowledge-header";
 import { KnowledgeStateStrip } from "./knowledge-state-strip";
+import { KnowledgeAvailability } from "./knowledge-availability";
 import { KnowledgeSources } from "./knowledge-sources";
 import { ProvenanceInspector } from "./provenance-inspector";
 import { CompanyMemory } from "./company-memory";
@@ -36,6 +37,7 @@ export function KnowledgeWorkspace({ model }: { model: KnowledgeWorkspaceModel }
     <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
       <KnowledgeHeader />
       <KnowledgeStateStrip model={model} />
+      <KnowledgeAvailability model={model} />
 
       {/* Sources + provenance inspector */}
       <div className="grid min-w-0 gap-4 lg:grid-cols-3">

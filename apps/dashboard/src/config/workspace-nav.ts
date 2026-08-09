@@ -131,9 +131,14 @@ export const WORKSPACES: readonly Workspace[] = [
     roles: ["director", "operator", "specialist", "admin"],
     match: ["/memory", "/director/memory", "/director/knowledge-graph", "/director/registries"],
     destinations: [
-      { label: "Company Memory", href: "/director/memory", icon: Brain, purpose: "Institutional memory." },
+      // UI Phase 21B — the honesty-compliant Overview is the Knowledge landing; the old
+      // "Knowledge Base" label is retired (Phase 21A found no document/ingestion corpus
+      // behind it). Company Memory now reads the REAL Enterprise Memory authority,
+      // read-only. Knowledge Graph and Registries are rebuilt in Phase 21C; their routes
+      // stay in place during 21B/21C (Director decision D1).
+      { label: "Overview", href: "/knowledge", icon: BookOpen, purpose: "Organizational knowledge state — availability, sources, and provenance." },
+      { label: "Company Memory", href: "/director/memory", icon: Brain, purpose: "Governed durable memory — read-only inspection." },
       { label: "Knowledge Graph", href: "/director/knowledge-graph", icon: Layers, purpose: "Relationships between things." },
-      { label: "Knowledge Base", href: "/knowledge", icon: BookOpen, purpose: "The canonical knowledge foundation." },
       { label: "Registries", href: "/director/registries", icon: Layers, purpose: "Registry hub — 15 registries as Level-3." },
     ],
   },

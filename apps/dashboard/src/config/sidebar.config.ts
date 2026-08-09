@@ -681,6 +681,8 @@ export const staticRoutes = new Set([
   "/dashboard",
   "/director",
   "/director/goals",
+  "/director/memory",
+  "/director/knowledge-graph",
   "/director/organization-health",
   "/director/executions",
   "/director/insights",

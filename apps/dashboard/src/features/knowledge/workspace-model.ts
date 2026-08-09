@@ -34,6 +34,7 @@ import type {
   MemorySensitivity,
   MemorySourceKind,
 } from "@/features/enterprise-memory";
+import { getHebyWorkspaceProfile } from "@/features/heby-integration";
 
 /** One origin kind Enterprise Memory recognizes, joined to explanatory copy. */
 export interface SourceKindView {
@@ -142,6 +143,45 @@ const AUTHORITY_TYPES = [
   { authority: "delegated", label: "Delegated" },
 ] as const satisfies readonly { authority: MemoryAuthorityType; label: string }[];
 
+/*
+ * Availability map — the Overview's honest answer to "what organizational
+ * knowledge is available, where does it come from, and how trustworthy/available
+ * is it?" Every value is a structural fact or an explicit unavailable/derived
+ * state. No count, freshness, connected source, or aggregate Knowledge score is
+ * fabricated.
+ */
+export type KnowledgeAvailabilityState =
+  /** A real governed authority exists and is connected. */
+  | "authority-connected"
+  /** A real authority exists, but reading it requires an authorized org context. */
+  | "requires-authorized-context"
+  /** Defined in the architecture, but no data path is connected. */
+  | "not-connected"
+  /** Real, but a derived, non-authoritative projection — not settled truth. */
+  | "derived-nonauthoritative"
+  /** Reference/master data whose authority lives in the owning system. */
+  | "reference-data"
+  /** A structural contract exists, but no runtime is connected. */
+  | "contract-only";
+
+export interface KnowledgeAvailabilityView {
+  readonly area: string;
+  readonly question: string;
+  readonly state: KnowledgeAvailabilityState;
+  readonly detail: string;
+  /** A drill-through to the surface that owns this area, when one exists. */
+  readonly href?: string;
+}
+
+/** Derive the honest Heby-retrieval availability from the REAL Heby Knowledge profile. */
+function hebyRetrievalAvailability(): KnowledgeAvailabilityState {
+  const profile = getHebyWorkspaceProfile("knowledge");
+  const everyContractOnly = profile.capabilities.every(
+    (capability) => capability.state === "contract-only",
+  );
+  return everyContractOnly ? "contract-only" : "not-connected";
+}
+
 export interface KnowledgeWorkspaceModel {
   /** Real origin taxonomy — zero sources connected. */
   readonly sourceKinds: readonly SourceKindView[];
@@ -157,6 +197,8 @@ export interface KnowledgeWorkspaceModel {
   readonly relationshipTypes: readonly RelationshipTypeView[];
   /** Real authority types under which knowledge is admitted. */
   readonly authorityTypes: readonly AuthorityTypeView[];
+  /** Honest availability of each Knowledge area — the Overview's orientation map. */
+  readonly availability: readonly KnowledgeAvailabilityView[];
   /**
    * Populated admitted memories. Always empty: no MemoryRecord is surfaced, and
    * none is fabricated.
@@ -177,6 +219,53 @@ export function getKnowledgeWorkspaceModel(): KnowledgeWorkspaceModel {
     sensitivityLevels: SENSITIVITY_LEVELS.map((entry) => ({ ...entry })),
     relationshipTypes: RELATIONSHIP_TYPES.map((entry) => ({ ...entry })),
     authorityTypes: AUTHORITY_TYPES.map((entry) => ({ ...entry })),
+    availability: [
+      {
+        area: "Company Memory",
+        question: "What durable memory has been admitted?",
+        state: "requires-authorized-context",
+        detail:
+          "The Enterprise Memory authority is connected. Reading admitted memory requires an authorized organization context.",
+        href: "/director/memory",
+      },
+      {
+        area: "Sources",
+        question: "Where does knowledge come from?",
+        state: "not-connected",
+        detail:
+          "The origin taxonomy is defined, but no knowledge source is connected. Zero sources are connected.",
+      },
+      {
+        area: "Provenance & evidence",
+        question: "How is it evidenced?",
+        state: "not-connected",
+        detail:
+          "Evidence is minted only at retrieval. No retrieval path is connected, so no evidence reference is available.",
+      },
+      {
+        area: "Knowledge Graph",
+        question: "How is knowledge related?",
+        state: "not-connected",
+        detail:
+          "Reads the canonical knowledge layer, which is not connected here. The legacy derived graph is no longer presented as truth.",
+        href: "/director/knowledge-graph",
+      },
+      {
+        area: "Registries",
+        question: "What reference data exists?",
+        state: "reference-data",
+        detail:
+          "Master-data registries are reference views. Their authority lives in the systems that own them.",
+        href: "/director/registries",
+      },
+      {
+        area: "Heby retrieval",
+        question: "Can Heby retrieve knowledge?",
+        state: hebyRetrievalAvailability(),
+        detail:
+          "Heby knowledge retrieval and evidence tracing are contract-only; no retrieval path is connected. Heby is advisory — it never admits or mutates memory.",
+      },
+    ],
     memories: [],
   };
 }
