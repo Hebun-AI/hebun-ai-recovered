@@ -3,6 +3,7 @@ export {
   resolveAuthenticationEnvironment,
   type AuthenticationDigestKey,
   type AuthenticationEnvironmentResolution,
+  type AuthenticationProviderMode,
   type ConfiguredAuthenticationEnvironment,
 } from "./environment/auth-environment.server";
 export type {

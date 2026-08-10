@@ -1,5 +1,6 @@
 export const AUTHENTICATION_ENV_KEYS = {
   enabled: "HEBUN_AUTH_ENABLED",
+  provider: "HEBUN_AUTH_PROVIDER",
   controlPlaneDatabaseUrl: "DATABASE_URL",
   supabaseUrl: "SUPABASE_URL",
   supabasePublishableKey: "SUPABASE_ANON_KEY",
@@ -9,6 +10,17 @@ export const AUTHENTICATION_ENV_KEYS = {
   sessionDigestPreviousSecret: "HEBUN_AUTH_SESSION_DIGEST_PREVIOUS_SECRET",
 } as const;
 
+/**
+ * Identity provider mode.
+ * - `supabase` (default): Supabase Auth is the sign-in provider; SUPABASE_URL +
+ *   SUPABASE_ANON_KEY are required in addition to the control plane + digest.
+ * - `local`: sign-in resolves against a seeded local identity in the control
+ *   plane. No Supabase project is required. Session verification is identical in
+ *   both modes (server-side digest lookup), so this is a real, enforced auth
+ *   boundary — not a bypass.
+ */
+export type AuthenticationProviderMode = "supabase" | "local";
+
 export interface AuthenticationDigestKey {
   readonly version: number;
   readonly secret: string;
@@ -17,9 +29,12 @@ export interface AuthenticationDigestKey {
 export interface ConfiguredAuthenticationEnvironment {
   readonly status: "configured";
   readonly enabled: true;
+  readonly provider: AuthenticationProviderMode;
   readonly controlPlaneDatabaseUrl: string;
-  readonly supabaseUrl: string;
-  readonly supabasePublishableKey: string;
+  /** Present only in `supabase` provider mode. */
+  readonly supabaseUrl?: string;
+  /** Present only in `supabase` provider mode. */
+  readonly supabasePublishableKey?: string;
   readonly sessionDigestCurrentKey: AuthenticationDigestKey;
   readonly sessionDigestPreviousKey?: AuthenticationDigestKey;
 }
@@ -46,6 +61,15 @@ function assertServerRuntime(): void {
   }
 }
 
+function resolveProviderMode(
+  value: string | undefined,
+): AuthenticationProviderMode | undefined {
+  const normalized = value?.trim();
+  if (!normalized || normalized === "supabase") return "supabase";
+  if (normalized === "local") return "local";
+  return undefined;
+}
+
 export function resolveAuthenticationEnvironment(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): AuthenticationEnvironmentResolution {
@@ -55,21 +79,39 @@ export function resolveAuthenticationEnvironment(
     return Object.freeze({ status: "disabled", enabled: false });
   }
 
-  const required = [
-    AUTHENTICATION_ENV_KEYS.controlPlaneDatabaseUrl,
-    AUTHENTICATION_ENV_KEYS.supabaseUrl,
-    AUTHENTICATION_ENV_KEYS.supabasePublishableKey,
-    AUTHENTICATION_ENV_KEYS.sessionDigestCurrentVersion,
-    AUTHENTICATION_ENV_KEYS.sessionDigestCurrentSecret,
-  ] as const;
+  const provider = resolveProviderMode(env[AUTHENTICATION_ENV_KEYS.provider]);
+  const invalidKeys: string[] = [];
+  if (provider === undefined) {
+    // An explicit but unrecognized provider is a configuration error.
+    invalidKeys.push(AUTHENTICATION_ENV_KEYS.provider);
+  }
+
+  // Required key order is preserved for `supabase` to keep the historical
+  // missing-key contract intact; `local` drops the Supabase project keys.
+  const required =
+    provider === "local"
+      ? ([
+          AUTHENTICATION_ENV_KEYS.controlPlaneDatabaseUrl,
+          AUTHENTICATION_ENV_KEYS.sessionDigestCurrentVersion,
+          AUTHENTICATION_ENV_KEYS.sessionDigestCurrentSecret,
+        ] as const)
+      : ([
+          AUTHENTICATION_ENV_KEYS.controlPlaneDatabaseUrl,
+          AUTHENTICATION_ENV_KEYS.supabaseUrl,
+          AUTHENTICATION_ENV_KEYS.supabasePublishableKey,
+          AUTHENTICATION_ENV_KEYS.sessionDigestCurrentVersion,
+          AUTHENTICATION_ENV_KEYS.sessionDigestCurrentSecret,
+        ] as const);
+
   const missingKeys = required.filter((key) => !env[key]?.trim());
-  const previousVersionValue = env[AUTHENTICATION_ENV_KEYS.sessionDigestPreviousVersion]?.trim();
-  const previousSecret = env[AUTHENTICATION_ENV_KEYS.sessionDigestPreviousSecret]?.trim();
+  const previousVersionValue =
+    env[AUTHENTICATION_ENV_KEYS.sessionDigestPreviousVersion]?.trim();
+  const previousSecret =
+    env[AUTHENTICATION_ENV_KEYS.sessionDigestPreviousSecret]?.trim();
   const currentVersion = parseKeyVersion(
     env[AUTHENTICATION_ENV_KEYS.sessionDigestCurrentVersion],
   );
   const previousVersion = parseKeyVersion(previousVersionValue);
-  const invalidKeys: string[] = [];
 
   if (
     env[AUTHENTICATION_ENV_KEYS.sessionDigestCurrentVersion]?.trim() &&
@@ -98,12 +140,13 @@ export function resolveAuthenticationEnvironment(
     });
   }
 
-  return Object.freeze({
-    status: "configured",
-    enabled: true,
-    controlPlaneDatabaseUrl: env[required[0]]!.trim(),
-    supabaseUrl: env[required[1]]!.trim(),
-    supabasePublishableKey: env[required[2]]!.trim(),
+  const resolvedProvider = provider ?? "supabase";
+  const base = {
+    status: "configured" as const,
+    enabled: true as const,
+    provider: resolvedProvider,
+    controlPlaneDatabaseUrl:
+      env[AUTHENTICATION_ENV_KEYS.controlPlaneDatabaseUrl]!.trim(),
     sessionDigestCurrentKey: Object.freeze({
       version: currentVersion!,
       secret: env[AUTHENTICATION_ENV_KEYS.sessionDigestCurrentSecret]!.trim(),
@@ -112,5 +155,16 @@ export function resolveAuthenticationEnvironment(
       previousVersion !== undefined && previousSecret
         ? Object.freeze({ version: previousVersion, secret: previousSecret })
         : undefined,
-  });
+  };
+
+  if (resolvedProvider === "supabase") {
+    return Object.freeze({
+      ...base,
+      supabaseUrl: env[AUTHENTICATION_ENV_KEYS.supabaseUrl]!.trim(),
+      supabasePublishableKey:
+        env[AUTHENTICATION_ENV_KEYS.supabasePublishableKey]!.trim(),
+    });
+  }
+
+  return Object.freeze(base);
 }
