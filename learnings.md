@@ -391,3 +391,80 @@
 1. **What did we learn?** Unblocking one layer can reveal that the layer beneath was never settled either. Ask "who is entitled?" before "what does the code do?" — entitlement is not derivable from an empty table.
 2. **How does this improve Turkish Rug House?** The first person who can ratify company knowledge will be named deliberately, not inherited from whoever happened to hold an owner seat.
 3. **How does this become part of Hebun AI?** Authority is established by an explicit human decision, never inferred from a role, a flag, or an empty table. A phase that would have to guess who is entitled stops and asks.
+
+## D1 — Authentication answers "who", never "what may they do" (2026-08-11)
+
+- **The order IS the security property.** No session material is generated until scrypt has verified the password. Resolving membership *after* verification is deliberate: an unknown email, a missing credential and a wrong password all spend the same work and return the same marker, so the login page cannot be used to discover who exists.
+- **A credential grants no authorization.** `auth_credentials` carries no tenant, no membership, no role, and never will. Identity = who this human is; credential = what they proved; session = the proof's receipt. Three tables because they are three different facts.
+- **Durable lockout, because Postgres is the only shared state.** A process-local counter would claim a protection a second server process would not honour.
+- **aal1 is the truth, so aal1 is what is written.** `mfaVerified: false` everywhere, the login page says single-factor out loud, and no code path can inflate it. The honest label is what makes a later step-up phase possible.
+
+### Haftalık 3 soru
+1. **What did we learn?** Authentication and authorization are different questions, and keeping them in different tables is what stops one from silently answering the other.
+2. **How does this improve Turkish Rug House?** Nobody signs in by typing an email any more — the shop's data sits behind a password that is actually checked.
+3. **How does this become part of Hebun AI?** Prove first, issue second. Anything that mints authority before verification is the bug, however convenient.
+
+## D1.1 — Destroy only what you can prove you created (2026-08-11)
+
+- **A prefix is not proof. A naming convention is not proof. "Looks disposable" is not proof.** A real database was destroyed by `list databases → match prefix → drop each match`. The fix was not a better pattern; it was removing the ability to express one.
+- **The API is the guard.** `dropDatabase()` takes no arguments — no name, no pattern, no list — and refuses unless *this handle* ran `create database` successfully. A "clean up stale test databases" helper is the same mistake wearing a different hat.
+- **Reading the catalogue is fine; pattern-matching it is not.** `where datname = $1` answers "is the one I made gone?". `LIKE 'hebun%'` answers a question nobody should ask.
+- **A dev tool must not become a bypass.** Credential provisioning lives outside `src/`, refuses non-local databases and production, takes the password only from a hidden TTY prompt, and reuses the production hasher — so it creates a real credential and never a way around one.
+
+### Haftalık 3 soru
+1. **What did we learn?** Make the dangerous operation unrepresentable rather than well-documented.
+2. **How does this improve Turkish Rug House?** Test infrastructure can no longer reach the shop's real database, whatever it is told to do.
+3. **How does this become part of Hebun AI?** Destructive capability is scoped by ownership proof, never by naming discipline.
+
+## G2.1 — Being who you say you are is not permission to govern (2026-08-11)
+
+- **D1 solved a different problem than the one that was blocking us.** "I proved this is Human A" and "Human A may establish this tenant's first Governance authority" are separate facts, and no amount of authentication produces the second.
+- **Every candidate root failed for a different reason, and cataloguing that was the phase.** `permissions`/`role_permissions`: schema-only, zero rows, zero readers. `organizations.owner_actor_*`, `invitations`: never written. `companies.created_by`: NULL everywhere, and provenance is not entitlement. `roles.type`: seeded by a script, never established by any ceremony.
+- **The circularity test terminated in exactly one place: possession of the deployment.** Every in-app authority class roots there too, one hop later — so the honest design put the root where it actually is.
+- **Two keys, because one is a lie either way.** A CLI alone cannot say which human; a signed-in human alone would be self-nomination. Operator writes `pending`, the named human accepts under a verified session, and no product surface can create a nomination at all.
+- **An audit row that cannot name its actor truthfully is worse than no audit row.** The operator ceremony is not written to `audit_log` — `actor_id` is NOT NULL and deployment possession names nobody. The nomination row is that act's record instead.
+
+### Haftalık 3 soru
+1. **What did we learn?** When a phase needs a fact the repository does not contain, catalogue every candidate and show why each fails — then the Director decides once, with evidence.
+2. **How does this improve Turkish Rug House?** The first human who can govern the shop is named deliberately and accepts it knowingly.
+3. **How does this become part of Hebun AI?** Entitlement is granted by an explicit act, never inherited from a seat, a seed, or a login.
+
+## G2 — The constitution moved from a comment into Postgres (2026-08-11)
+
+- **`governance.ts` had documented both invariants since the foundation migration, with the note "enforced at the write layer later".** G2 was that layer. An invariant only the application enforces is not an invariant: two concurrent requests both read "no bootstrap yet" and both insert.
+- **A partial unique index and a CHECK are the whole constitutional guarantee.** One genesis per tenant; a genesis actor is always human. Everything else in the phase depends on those two lines holding under concurrency.
+- **Consumption is recorded, never inferred.** "A bootstrap decision exists, therefore the entitlement was spent" correlates two facts that could drift apart later. `consumed_at` + `consumed_by_decision_id` say it outright.
+- **The role band was refused again, and the schema argued the case.** If `roles.type = owner` conferred Governance authority, the bootstrap decision — described as "the first authority in a tenant" — would be redundant.
+- **Post-bootstrap authority was derivable, so no gate was raised.** The bootstrap decision's own actor holds it, because Governance is documented as the only authority that may ratify/certify/delegate, and authority moves only by a decision.
+
+### Haftalık 3 soru
+1. **What did we learn?** When a header says "enforced later", the phase that arrives is obliged to actually enforce it — in the database, not in a function.
+2. **How does this improve Turkish Rug House?** The shop's governance can begin exactly once, by a named human, with a written reason.
+3. **How does this become part of Hebun AI?** Constitutional rules live in constraints; application code may add refusals but never be the only defence.
+
+## K4 — Ratification belongs to a version, not to a name (2026-08-11)
+
+- **G2's subject vocabulary was wrong, and K4 is what exposed it.** A `knowledge_fact` is a timeless identity whose active version moves, so a decision bound to it silently means "whatever is current when you read this". The fix was to bind to `knowledge_node` and to REMOVE the fact-level subject rather than keep both — a leftover fact-level ratify decision would later be mistaken for version ratification.
+- **RATIFIED ≠ TRUE.** It means the organization's Governance authority approved that exact version. A test bans confidence, certainty, "guaranteed" and "factually correct" from every K4 surface, because an organizational status quietly becoming an epistemic claim is the failure mode.
+- **The old read was a shortcut that became a lie.** `ratificationDecisionId ?? ratifiedAt` was harmless while both columns were always NULL and false the moment a runtime existed: a timestamp with no decision behind it would claim approval nobody gave.
+- **Rejection writes nothing.** There is no "rejected" column, and manufacturing one from `knowledge_lifecycle_status` would have invented semantics the repository never defined.
+- **Zero migrations, because the schema had been waiting.** Five columns and two foreign keys already pointed at Governance.
+
+### Haftalık 3 soru
+1. **What did we learn?** Check what a subject identifier actually identifies before binding authority to it — "the record" and "this version of the record" are different things.
+2. **How does this improve Turkish Rug House?** A ratified price policy means someone approved *that wording*; changing it starts again from unratified.
+3. **How does this become part of Hebun AI?** A phase may correct an earlier phase's vocabulary when it is wrong, and must say so plainly rather than working around it.
+
+## G3 — Authority is a provenance graph, not a boolean (2026-08-11)
+
+- **Three constitutional questions were not derivable, and guessing any of them would have been permanent.** Who may revoke a peer's delegation; whether genesis can be revoked; whether a tenant may reach zero authorities. Each was put to the Director with options and consequences, not a shrug.
+- **The mutex was a row that already existed.** Authority is a query over decisions, so there is nothing to lock — except the tenant's bootstrap decision, unique and always present. Locking it serialized every authority mutation without inventing an active-authority table to keep in sync.
+- **Revocation never touches the delegation.** A `revoke` decision names the delegation, and authority resolution is a `NOT EXISTS`. History reads "delegated at T1, revoked at T2" forever, and revocation is not retroactive: decisions made while authorized still stand.
+- **Extending one resolver beat adding one.** K4 already called `resolveGovernanceAuthority`, so delegates gained ratification with no K4 change at all — and lost it on revocation the same way.
+- **A constant that describes the system must be updated when the system changes.** `POST_BOOTSTRAP_AUTHORITY_MODEL.transferable` flipped to `true`; leaving it `false` would have been the model lying about itself.
+- **Delegation prevents stranding; it cannot cure it.** A bootstrap human who disappears before delegating leaves nobody able to delegate. That is A2-a's accepted cost, documented rather than half-solved.
+
+### Haftalık 3 soru
+1. **What did we learn?** Model authority as "which decision granted this, and which one ended it" — a boolean role cannot answer who, when, or by whose authority.
+2. **How does this improve Turkish Rug House?** Governance no longer depends on one person being available, and every grant and withdrawal stays on the record.
+3. **How does this become part of Hebun AI?** Authority changes are decisions with reasons and provenance, and their history is immutable.
