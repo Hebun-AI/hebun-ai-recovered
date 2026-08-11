@@ -1,0 +1,248 @@
+/*
+ * HW1 — navigation, single-Heby guarantee, execution firewall, credential boundary.
+ *
+ * Structural proofs over the shipped source: the /heby route exists and is the primary surface, the
+ * retired drawer is genuinely gone (not merely hidden behind a flag), every Heby entry point
+ * navigates rather than opening an overlay, and the workspace reuses the EXISTING H1 conversation
+ * authority instead of introducing a second one.
+ */
+import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+
+const read = (path: string) => readFileSync(path, "utf8");
+
+const PAGE = "src/app/(dashboard)/heby/page.tsx";
+/** THE shared conversation seam. HW3 moved the behaviour here so BOTH surfaces are covered. */
+const HOOK = "src/components/layout/heby/use-heby-conversation.ts";
+const CONTAINER = "src/components/layout/heby/heby-workspace-client.tsx";
+const SURFACE = "src/components/layout/heby/heby-workspace.tsx";
+const PANEL = "src/components/layout/heby/heby-quick-panel.tsx";
+const PANEL_CONTAINER = "src/components/layout/heby/heby-quick-panel-client.tsx";
+const COMPOSER = "src/components/layout/heby/heby-composer.tsx";
+const TURNS = "src/components/layout/heby/heby-turns.tsx";
+const VISUALIZER = "src/components/layout/heby/heby-visualizer.tsx";
+const LAUNCHER = "src/components/layout/heby/heby-launcher.tsx";
+const WHY = "src/components/command-center/heby-why.tsx";
+const SHELL = "src/components/layout/hebun-shell.tsx";
+
+const CLIENT_FILES = [HOOK, CONTAINER, SURFACE, PANEL, PANEL_CONTAINER, COMPOSER, TURNS, VISUALIZER, LAUNCHER, WHY];
+
+function importsOf(src: string): string[] {
+  return [...src.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
+}
+
+function main(): void {
+  // 1. The /heby route exists and renders the workspace — it is no longer the inert placeholder.
+  {
+    assert.ok(existsSync(PAGE), "/heby route exists");
+    const page = read(PAGE);
+    assert.ok(page.includes("HebyWorkspaceClient"), "the route renders the Heby workspace");
+    assert.ok(!page.includes("Not yet implemented") && !page.includes("Heby is not available yet"), "the placeholder is gone");
+    // Context is resolved SERVER-SIDE, from an allowlist, before anything renders.
+    assert.ok(page.includes("resolveHebyWorkspaceEntry"), "context resolved through the allowlist");
+    assert.ok(page.includes("await searchParams"), "the hint is read server-side");
+  }
+
+  // 2. No duplicate Heby route was created.
+  {
+    for (const duplicate of ["assistant", "ai", "chat", "copilot"]) {
+      assert.ok(!existsSync(`src/app/(dashboard)/${duplicate}/page.tsx`), `no /${duplicate} duplicate route`);
+    }
+  }
+
+  // 3. The PRE-H1 side drawer is RETIRED, not hidden: its files are gone and nothing resurrects its
+  //    architecture. HW3's Quick Panel is a different thing entirely — it is a presentation surface
+  //    over the H1 conversation authority, not the old `useHeby`/`runHebyIntent` drawer.
+  {
+    for (const retired of [
+      "src/components/layout/heby/heby-panel.tsx",
+      "src/components/layout/heby/heby-conversation.tsx",
+      "src/components/layout/heby/heby-context.tsx",
+    ]) {
+      assert.ok(!existsSync(retired), `${retired} is retired`);
+    }
+    const shell = read(SHELL);
+    assert.ok(!shell.includes("HebyPanel") && !shell.includes("HebyProvider"), "the retired drawer is not remounted");
+    assert.ok(shell.includes("WorkspaceRail") && shell.includes("SecondaryNav"), "Hebun navigation is intact");
+    for (const file of [PANEL, PANEL_CONTAINER]) {
+      const src = read(file);
+      assert.ok(!src.includes("runHebyIntent") && !src.includes("runNavigation"), `${file} does not revive the pre-H1 runtime`);
+      assert.ok(!src.includes("useHeby("), `${file} does not revive the retired drawer context`);
+    }
+  }
+
+  // 4. Every Heby entry point reaches the SAME Heby. The rail/topbar controls hand their identity to
+  //    the one surface planner; the in-surface "Why?" affordance links into the Full Workspace.
+  {
+    const launcher = read(LAUNCHER);
+    assert.ok(launcher.includes("useHebySurface"), "the launcher defers to the surface controller");
+    assert.ok(launcher.includes('operate("rail")') && launcher.includes('operate("topbar")'), "both controls are planned, not ad-hoc");
+    assert.ok(!launcher.includes("openHeby") && !launcher.includes("useHeby("), "no retired drawer context");
+
+    const why = read(WHY);
+    assert.ok(why.includes("hebyWorkspaceHref"), "the Why? affordance builds a Heby workspace link");
+    assert.ok(why.includes('from "next/link"'), "the Why? affordance navigates");
+    assert.ok(!why.includes("openHeby") && !why.includes("useHeby("), "the Why? affordance no longer opens a drawer");
+
+    // The rail, the topbar and the mobile navigation all use the same launcher — one behaviour.
+    for (const nav of [
+      "src/components/layout/workspace-rail.tsx",
+      "src/components/layout/topbar.tsx",
+      "src/components/layout/mobile-nav.tsx",
+    ]) {
+      assert.ok(read(nav).includes("HebyLauncher"), `${nav} uses the shared launcher`);
+    }
+  }
+
+  // 5. ONE conversation authority: the shared seam talks to the EXISTING H1 server actions and to
+  //    nothing else. No second backend, no second transcript, no new persistence.
+  {
+    const hook = read(HOOK);
+    assert.ok(hook.includes('from "@/app/(dashboard)/heby/actions"'), "uses the existing server actions");
+    assert.ok(hook.includes("askHebyAction") && hook.includes("loadHebyConversationAction"), "both existing actions");
+    assert.ok(hook.includes("buildTurns("), "thread is composed from the durable messages");
+    // The durable server conversation is the only transcript authority.
+    assert.ok(!/messages\.push\(|\[\.\.\.session\.messages,/.test(hook), "no client-side transcript accumulation");
+    // No new action module was invented for either surface.
+    // S1 added exactly ONE more: the READ-command boundary. It is deliberately separate from the
+    // answer action and cannot become a model request — it imports no model client at all.
+    const actions = read("src/app/(dashboard)/heby/actions.ts");
+    assert.equal((actions.match(/export async function/g) ?? []).length, 3, "exactly three Heby server actions");
+    for (const name of ["askHebyAction", "loadHebyConversationAction", "runHebyReadCommandAction"]) {
+      assert.ok(actions.includes(`export async function ${name}`), `${name} is one of them`);
+    }
+  }
+
+  // 6. THE SUBMISSION GATE: `askHebyAction` is reachable only after every slash-command branch has
+  //    already returned, so no command from EITHER surface can fall through into a provider request.
+  {
+    const hook = read(HOOK);
+    assert.ok(hook.includes("parseHebyInput("), "every submission is parsed first");
+    assert.equal((hook.match(/askHebyAction\(/g) ?? []).length, 1, "exactly one dispatch site");
+    const parseAt = hook.indexOf("parseHebyInput(");
+    const dispatchAt = hook.indexOf("askHebyAction({");
+    assert.ok(parseAt > -1 && parseAt < dispatchAt, "parsing precedes dispatch");
+    for (const branch of ['parsed.kind === "empty"', 'parsed.kind === "command"', 'parsed.kind === "unknown-command"']) {
+      const at = hook.indexOf(branch);
+      assert.ok(at > -1 && at < dispatchAt, `"${branch}" returns before dispatch`);
+    }
+    // No component string-matches a command itself — the parser is the single place that decides.
+    for (const file of [SURFACE, PANEL, COMPOSER, TURNS, VISUALIZER]) {
+      assert.ok(!/startsWith\("\/"\)|=== "\/(?:new|clear|help|context|sources)"/.test(read(file)), `${file} does not parse commands`);
+    }
+  }
+
+  // 7. `/new` and `/clear` share ONE primitive with the New Conversation control, and it detaches
+  //    rather than deletes. No delete/archive call exists anywhere on either surface.
+  {
+    const hook = read(HOOK);
+    assert.ok(hook.includes("const detachConversation"), "one detach primitive");
+    // S1 made this stronger: `/new` and `/clear` are now ONE `detach` plan branch, so there is a
+    // single call site rather than two parallel ones, and the button still shares the primitive.
+    assert.equal((hook.match(/detachConversation\(\)/g) ?? []).length, 1, "one detach call site serves both commands");
+    assert.ok(hook.includes('case "detach":'), "detaching is a planned outcome, not an ad-hoc branch");
+    assert.ok(hook.includes("onNewConversation: detachConversation"), "the button calls the same primitive");
+    assert.ok(hook.includes("removeItem(conversationKey(contextRoute))"), "it drops only the local pointer");
+    for (const file of [HOOK, CONTAINER, PANEL_CONTAINER, SURFACE, PANEL]) {
+      const src = read(file).toLowerCase();
+      for (const destructive of ["deleteconversation", "deletemessage", "archiveconversation", "delete from", "truncate table"]) {
+        assert.ok(!src.includes(destructive), `no "${destructive}" on ${file}`);
+      }
+    }
+  }
+
+  // 8. `/sources` reports SERVER-returned evidence only; it never recomputes or invents citations.
+  {
+    const hook = read(HOOK);
+    const planner = read("src/features/heby-commands/dispatch.ts");
+    assert.ok(hook.includes("session.latest?.response.evidence"), "evidence comes from the server response");
+    // S1 moved the empty-case copy into the one planner; the DATA still comes from the hook.
+    assert.ok(planner.includes("No evidence is available for the latest response."), "honest empty case");
+    assert.ok(!/resolveSources|assembleEvidence|groundingLines/.test(hook), "no client-side evidence computation");
+    assert.ok(!/resolveSources|assembleEvidence|groundingLines/.test(planner), "the planner computes no evidence either");
+  }
+
+  // 9. EXECUTION FIREWALL: no client file on this surface imports an execution, provider, device,
+  //    persistence, or server-only module. Text interaction only.
+  {
+    const forbidden = [
+      "provider-framework", "provider-invocation", "runtime-activation", "device-runtime",
+      "computer-use", "features/execution", "features/integration", "heby-actions",
+      "heby-model", "heby-answer", "heby-provider-ops", "heby-model-live", "@/db",
+    ];
+    for (const file of CLIENT_FILES) {
+      const src = read(file);
+      for (const marker of forbidden) {
+        assert.ok(!importsOf(src).some((i) => i.includes(marker)), `${file} must not import "${marker}"`);
+      }
+      assert.ok(!importsOf(src).some((i) => i.endsWith(".server")), `${file} imports no server-only module`);
+    }
+  }
+
+  // 10. CREDENTIAL BOUNDARY: no key, tenant, or model configuration can reach the client surface.
+  {
+    for (const file of [...CLIENT_FILES, PAGE]) {
+      const src = read(file);
+      for (const leak of [
+        "ANTHROPIC_API_KEY", "HEBUN_MODEL_CREDENTIAL", "HEBUN_MODEL_PROVIDER", "HEBUN_MODEL_ID",
+        "HEBUN_MODEL_TRANSPORT", "apiKey", "tenantId", "roleId", "process.env",
+      ]) {
+        assert.ok(!src.includes(leak), `${file} must not reference "${leak}"`);
+      }
+      assert.ok(!/sk-[a-z0-9-]{6,}/i.test(src), `${file} contains no key-shaped literal`);
+    }
+  }
+
+  // 11. Command palette keyboard behaviour, in the ONE shared composer: ArrowUp/ArrowDown move,
+  //     Enter selects, Escape closes — and while the palette is open Enter must NOT fall through to
+  //     the send path.
+  {
+    const composer = read(COMPOSER);
+    for (const key of ['event.key === "ArrowDown"', 'event.key === "ArrowUp"', 'event.key === "Escape"']) {
+      assert.ok(composer.includes(key), `palette handles ${key}`);
+    }
+    const paletteBranch = composer.indexOf("if (paletteOpen)");
+    const sendBranch = composer.lastIndexOf('event.key === "Enter" && !event.shiftKey');
+    const paletteEnter = composer.indexOf('event.key === "Enter" && !event.shiftKey');
+    assert.ok(paletteBranch > -1 && paletteBranch < paletteEnter, "the palette branch is evaluated first");
+    assert.ok(paletteEnter < sendBranch, "an open palette consumes Enter before the send path");
+    assert.ok(composer.includes("props.onPaletteSelect(selected.id)"), "Enter selects the highlighted command");
+    // Escape must not destroy what the operator typed.
+    const hook = read(HOOK);
+    assert.ok(hook.includes("onPaletteClose: () => setPaletteDismissed(true)"), "Escape only closes the palette");
+    // Shift+Enter is still a newline, never a send and never a selection.
+    assert.ok(!/event\.key === "Enter"(?!.*!event\.shiftKey)/.test(composer), "Enter is always guarded by !shiftKey");
+  }
+
+  /*
+   * 12. NO AUDIO RUNTIME IN ANY OF THESE FILES.
+   *
+   * Voice V1 narrowed this proof. It used to assert that no audio runtime existed anywhere; a real
+   * one now exists, in exactly one file (heby-voice-runtime.tsx), which is deliberately NOT in this
+   * list. What is asserted here is the surviving invariant: no conversation, presentation or route
+   * file owns audio machinery, so there is exactly one microphone owner in the product. The comment
+   * stripper is needed because several of these files legitimately DENY audio machinery in prose,
+   * and a proof that fails on its own explanation is a bad proof.
+   */
+  {
+    const visualizer = read(VISUALIZER);
+    assert.ok(visualizer.includes("audioLevel?: number"), "the audio hook is declared");
+    // It is now READ — but in exactly one state, which is the honesty rule that replaced "unread".
+    assert.ok(
+      /state === "listening" \? clampAudioLevel\(props\.audioLevel\) : 0/.test(visualizer),
+      "audioLevel is read only while genuinely listening",
+    );
+    const stripComments = (src: string) =>
+      src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+    for (const file of [...CLIENT_FILES, PAGE]) {
+      const code = stripComments(read(file));
+      for (const api of ["getUserMedia", "AudioContext", "MediaRecorder", "SpeechRecognition", "speechSynthesis", "webkitSpeech"]) {
+        assert.ok(!code.includes(api), `${file} must not touch "${api}"`);
+      }
+    }
+  }
+
+  console.log("hw1 navigation + firewall + credential boundary passed");
+}
+
+main();

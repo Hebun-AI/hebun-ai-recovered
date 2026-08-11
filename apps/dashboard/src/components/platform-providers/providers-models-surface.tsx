@@ -26,7 +26,9 @@ export function ProvidersModelsSurface() {
     <div className="flex min-w-0 flex-col gap-5">
       <div className="flex items-center gap-2 text-sm text-fg-secondary">
         <Boxes className="size-4 text-primary" aria-hidden="true" />
-        Every provider is a registered offline descriptor — none is configured, connected, or invokable.
+        Every provider in this catalog is a registered offline descriptor — not a connected or
+        invokable execution provider. Model-generation connectivity (Claude) is a separate,
+        Director-controlled concern — see the control below.
       </div>
 
       <section className="flex min-w-0 flex-col gap-2 rounded-xl border border-warning/40 bg-warning/5 p-4">
@@ -84,7 +86,7 @@ export function ProvidersModelsSurface() {
             </tbody>
           </table>
         </div>
-        <p className="text-[0.7rem] text-fg-muted">Live support is false across the catalog — no provider is connected and no live model is loaded.</p>
+        <p className="text-[0.7rem] text-fg-muted">Live support is false across these catalog descriptors — none is connected or invokable as an execution provider. Claude&apos;s model-generation connectivity is a separate, Director-controlled path (below); it is not agent execution.</p>
       </section>
 
       <section className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-surface p-4">

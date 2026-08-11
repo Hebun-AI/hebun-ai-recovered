@@ -32,6 +32,11 @@ import { resolveHebyWorkspaceContext } from "./workspace-registry";
  */
 export function resolveHebyWorkspace(pathname: string): HebyWorkspaceId {
   if (pathname === "/approvals" || pathname.startsWith("/approvals/")) return "decisions";
+  // HW1: the Heby Workspace's own route carries no workspace of its own. It resolves EXPLICITLY to
+  // the organization-wide Command read models — the general Hebun context — rather than falling
+  // through to the default. The surface labels this "General Hebun workspace"; it never claims
+  // visibility into systems Command does not already read.
+  if (pathname === "/heby" || pathname.startsWith("/heby/")) return "command";
   return resolveActiveWorkspace(pathname);
 }
 

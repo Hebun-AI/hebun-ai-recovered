@@ -1,0 +1,391 @@
+/*
+ * G1 — the boundaries around the mutation ledger: one authority, append-only, server-owned.
+ *
+ * The database will happily let a superuser edit any row. G1 does not pretend otherwise. What it
+ * claims — and what this file proves over the shipped source — is that NO PRODUCT CODE PATH can
+ * rewrite an actor, a timestamp, an outcome, or an identity, because no such path is written, and
+ * that the ledger's authority (`audit_log`) has exactly one writer.
+ *
+ * It also pins the recording BOUNDARY as a value: unauthenticated and forbidden attempts are
+ * deliberately not Knowledge governance history, and that decision must stay visible rather than
+ * becoming a silent gap someone rediscovers later.
+ *
+ * Structural + injected. No database, no network, no model.
+ */
+import assert from "node:assert/strict";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import {
+  KNOWLEDGE_AUDIT_BOUNDARY,
+  KNOWLEDGE_ENTITY_TYPE,
+  KNOWLEDGE_MUTATION_ACTIONS,
+  type KnowledgeMutationEvent,
+  type KnowledgeMutationMetadata,
+} from "../../src/features/governance-audit/contracts";
+import {
+  auditActorFrom,
+  recordKnowledgeMutationWithin,
+} from "../../src/features/governance-audit/knowledge-mutation-audit.server";
+import { createKnowledgeFact } from "../../src/features/knowledge/knowledge-create.server";
+import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
+
+const read = (path: string) => readFileSync(path, "utf8");
+
+const AUDIT = "src/features/governance-audit/knowledge-mutation-audit.server.ts";
+const AUDIT_CONTRACTS = "src/features/governance-audit/contracts.ts";
+const CREATE = "src/features/knowledge/knowledge-create.server.ts";
+const WRITER = "src/features/knowledge/durable-knowledge-writer.server.ts";
+const ACTION = "src/app/(dashboard)/knowledge/actions.ts";
+const G1_MODULES = [AUDIT, AUDIT_CONTRACTS];
+
+function codeOf(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+}
+
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const path = join(dir, entry);
+    if (statSync(path).isDirectory()) return walk(path);
+    return /\.tsx?$/.test(path) ? [path] : [];
+  });
+}
+
+function tenant(): TenantContext {
+  return {
+    tenantId: "11111111-1111-4111-8111-111111111111",
+    userId: "22222222-2222-4222-8222-222222222222",
+    authIdentityId: "identity",
+    membershipId: "membership",
+    membershipVersion: 1,
+    roleId: "role",
+    sessionContextId: "33333333-3333-4333-8333-333333333333",
+    provider: "local",
+    assuranceLevel: "aal1",
+    mfaVerified: false,
+    requestId: "req-1",
+    authenticatedAt: "2026-08-11T00:00:00.000Z",
+  };
+}
+
+async function main(): Promise<void> {
+  /* ── 9. ONE AUDIT AUTHORITY — NO SECOND SINK WAS CREATED ────────────────── */
+  {
+    // G1 defines no table of its own.
+    for (const file of walk("src/features/governance-audit")) {
+      const code = codeOf(read(file));
+      assert.ok(!code.includes("pgTable("), `${file} must not define a table`);
+      assert.ok(!code.includes("pgEnum("), `${file} must not define an enum`);
+    }
+    // …and no migration was added.
+    assert.equal(
+      readdirSync("src/db/migrations").filter((n) => n.endsWith(".sql")).length,
+      17,
+      "G1 adds no migration — audit_log already existed",
+    );
+    // It writes the PRE-EXISTING shared sink, and is the only module that does.
+    assert.ok(read(AUDIT).includes('from "@/db/schema/audit-log"'), "G1 binds to the existing sink");
+    const writers = walk("src")
+      .filter((f) => !f.replace(/\\/g, "/").startsWith("src/db/schema/"))
+      .filter((f) => read(f).includes('from "@/db/schema/audit-log"'))
+      .map((f) => f.replace(/\\/g, "/"));
+    assert.deepEqual(writers, [AUDIT], "exactly one module owns the audit sink");
+  }
+
+  /* ── 10. THE PRODUCT SURFACE IS APPEND-ONLY ─────────────────────────────
+   * No update, no delete, no upsert — over the audit module's whole source, and no exported
+   * function whose name even offers one.
+   */
+  {
+    const code = codeOf(read(AUDIT));
+    for (const banned of [
+      ".update(", ".delete(", "onConflictDoUpdate", "onConflictDoNothing", "upsert",
+      "truncate", "drop ",
+    ]) {
+      assert.ok(!code.toLowerCase().includes(banned), `${AUDIT} must not contain "${banned}"`);
+    }
+    const exported = [...read(AUDIT).matchAll(/export\s+(?:async\s+)?function\s+(\w+)/g)].map((m) => m[1]!);
+    for (const name of exported) {
+      assert.ok(
+        !/update|delete|remove|rewrite|replace|amend|purge/i.test(name),
+        `the audit surface must not export "${name}"`,
+      );
+    }
+    assert.deepEqual(
+      exported.sort(),
+      ["auditActorFrom", "readKnowledgeMutationHistory", "recordKnowledgeMutation", "recordKnowledgeMutationWithin", "resolveAuditDbOrNull"],
+      "the audit surface is exactly: project an actor, append, read, resolve the db",
+    );
+  }
+
+  /* ── 11. THE RECORDING BOUNDARY IS A DECLARED VALUE ─────────────────────── */
+  {
+    assert.equal(KNOWLEDGE_AUDIT_BOUNDARY.recordsAuthorizedAttempts, true);
+    assert.equal(
+      KNOWLEDGE_AUDIT_BOUNDARY.recordsUnauthenticatedAttempts,
+      false,
+      "an unauthenticated caller must never append to a tenant's governance ledger",
+    );
+    assert.equal(
+      KNOWLEDGE_AUDIT_BOUNDARY.recordsForbiddenAttempts,
+      false,
+      "an authorization failure is an event about a principal, not a change to Knowledge",
+    );
+    assert.equal(KNOWLEDGE_AUDIT_BOUNDARY.recordsMalformedInput, false);
+    assert.match(KNOWLEDGE_AUDIT_BOUNDARY.rationale, /security telemetry/i);
+  }
+
+  /* ── 12. THE BOUNDARY IS ENFORCED, NOT JUST DECLARED ───────────────────── */
+  {
+    let appends = 0;
+    const recordMutation = async () => {
+      appends += 1;
+      return { recorded: true };
+    };
+    const valid = { factKey: "k", domainKey: "d", scope: "domain", title: "T", statement: "S" };
+
+    // Unauthenticated → refused before anything is recorded.
+    await createKnowledgeFact(null, valid, { recordMutation });
+    assert.equal(appends, 0, "no ledger entry for an unauthenticated attempt");
+
+    // Forbidden → refused before anything is recorded.
+    await createKnowledgeFact(tenant(), valid, {
+      resolveAuthority: async () => ({ authorized: false, roleType: "member" }),
+      recordMutation,
+    });
+    assert.equal(appends, 0, "no ledger entry for a forbidden attempt");
+
+    // Malformed → authorized, but no governed identity is named.
+    await createKnowledgeFact(tenant(), { factKey: "", domainKey: "", scope: "nope", title: "", statement: "" }, {
+      resolveAuthority: async () => ({ authorized: true, roleType: "owner" }),
+      getWriter: () => ({
+        async createFact() { throw new Error("must not be reached"); },
+        async supersedeFact() { throw new Error("must not be reached"); },
+      }),
+      recordMutation,
+    });
+    assert.equal(appends, 0, "no ledger entry for malformed input");
+
+    // Authorized + refused by a governed rule → recorded.
+    const duplicate = await createKnowledgeFact(tenant(), valid, {
+      resolveAuthority: async () => ({ authorized: true, roleType: "owner" }),
+      getWriter: () => ({
+        async createFact(_actor, input) {
+          return {
+            status: "duplicate" as const,
+            identity: { factId: "44444444-4444-4444-8444-444444444444", factKey: input.factKey, domainKey: input.domainKey, scope: input.scope },
+          };
+        },
+        async supersedeFact() { throw new Error("not exercised"); },
+      }),
+      recordMutation,
+    });
+    assert.equal(duplicate.status, "duplicate");
+    assert.equal(appends, 1, "an authorized governed refusal IS history");
+  }
+
+  /* ── 13. A COMMITTED MUTATION IS AUDITED ONCE, INSIDE THE TRANSACTION ──── */
+  {
+    let outsideAppends = 0;
+    const created = await createKnowledgeFact(tenant(), { factKey: "k", domainKey: "d", scope: "domain", title: "T", statement: "S" }, {
+      resolveAuthority: async () => ({ authorized: true, roleType: "owner" }),
+      getWriter: () => ({
+        async createFact(_actor, input) {
+          return {
+            status: "created" as const,
+            identity: { factId: "55555555-5555-4555-8555-555555555555", factKey: input.factKey, domainKey: input.domainKey, scope: input.scope },
+          };
+        },
+        async supersedeFact() { throw new Error("not exercised"); },
+      }),
+      recordMutation: async () => {
+        outsideAppends += 1;
+        return { recorded: true };
+      },
+    });
+    assert.equal(created.status, "created");
+    assert.equal(
+      outsideAppends,
+      0,
+      "a committed mutation is not double-recorded outside its transaction",
+    );
+    // …and the writer really does append inside the transaction.
+    const writer = read(WRITER);
+    const txStart = writer.indexOf("db.transaction");
+    assert.ok(txStart > 0, "the writer opens a transaction");
+    // The append must occur AFTER the transaction opens (the import at the top does not count),
+    // and must be handed the transaction handle rather than the database.
+    const callSite = writer.indexOf("recordKnowledgeMutationWithin(", txStart);
+    assert.ok(callSite > txStart, "the audit append happens inside the transaction");
+    assert.match(
+      writer.slice(callSite, callSite + 120),
+      /recordKnowledgeMutationWithin\(\s*tx,/,
+      "and is given the transaction handle, not the database",
+    );
+  }
+
+  /* ── 14. AN AUDIT GAP IS REPORTED, NEVER SWALLOWED ─────────────────────── */
+  {
+    const result = await createKnowledgeFact(tenant(), { factKey: "k", domainKey: "d", scope: "domain", title: "T", statement: "S" }, {
+      resolveAuthority: async () => ({ authorized: true, roleType: "owner" }),
+      getWriter: () => ({
+        async createFact(_actor, input) {
+          return {
+            status: "duplicate" as const,
+            identity: { factId: "66666666-6666-4666-8666-666666666666", factKey: input.factKey, domainKey: input.domainKey, scope: input.scope },
+          };
+        },
+        async supersedeFact() { throw new Error("not exercised"); },
+      }),
+      recordMutation: async () => ({ recorded: false, detail: "sink unavailable" }),
+    });
+    assert.equal(result.status, "duplicate");
+    if (result.status !== "duplicate") throw new Error("unreachable");
+    assert.equal(result.audited, false, "a failed append is reported as a gap, not hidden");
+  }
+
+  /* ── 15. THE CLIENT CANNOT FORGE ANY AUDIT FIELD ────────────────────────
+   * Structural: the append takes its actor from `AuditActor` (server-projected from TenantContext),
+   * fixes actorType/entityType/simulation/authoritySource, and takes the clock as a parameter — none
+   * of which the product input can reach. The server action's input carries no audit field at all.
+   */
+  {
+    const audit = read(AUDIT);
+    assert.match(audit, /actorType:\s*"human"/, "actor type is fixed, not supplied");
+    assert.match(audit, /actorId:\s*actor\.userId/, "actor id comes from the resolved session");
+    assert.match(audit, /tenantId:\s*actor\.tenantId/, "tenant comes from the resolved session");
+    assert.match(audit, /entityType:\s*KNOWLEDGE_ENTITY_TYPE/, "entity type is fixed");
+    assert.match(audit, /simulation:\s*false/, "simulation flag is fixed");
+    assert.match(audit, /authoritySource:\s*"membership"/, "authority source is fixed");
+
+    // `auditActorFrom` is the ONLY supported construction, and it reads only server-owned fields.
+    const actor = auditActorFrom(tenant());
+    assert.deepEqual(Object.keys(actor).sort(), ["requestId", "sessionContextId", "tenantId", "userId"]);
+    assert.equal(actor.tenantId, tenant().tenantId);
+    assert.equal(actor.userId, tenant().userId);
+
+    // The client-facing action still accepts content only.
+    const actionCode = codeOf(read(ACTION));
+    for (const banned of ["outcome", "occurredAt", "auditId", "actorId", "actorType", "result:", "tenantId:"]) {
+      assert.ok(!actionCode.includes(banned), `the server action must not accept "${banned}"`);
+    }
+  }
+
+  /* ── 16. THE APPEND CANNOT EXECUTE ANYTHING ─────────────────────────────── */
+  {
+    for (const file of [...G1_MODULES, CREATE, WRITER]) {
+      const code = codeOf(read(file)).toLowerCase();
+      for (const banned of [
+        "eval(", "new function(", "child_process", "execsync", "spawnsync", "spawn(",
+        "/bin/sh", "fetch(", "readfilesync", "writefilesync", "node:fs", "puppeteer",
+        "playwright", "computeruse", "computer_use",
+      ]) {
+        assert.ok(!code.includes(banned), `${file} must not contain "${banned}"`);
+      }
+    }
+  }
+
+  /* ── 17. AUDIT IS INDEPENDENT OF THE PROVIDER, AND HEBY CANNOT WRITE IT ── */
+  {
+    for (const file of G1_MODULES) {
+      const src = read(file);
+      for (const banned of [
+        "@/features/heby-model", "@/features/heby-answer", "@/features/heby-commands",
+        "@/features/heby-provider-ops", "resolveClaudeDirectorEnabled", "anthropic",
+      ]) {
+        assert.ok(!src.includes(banned), `${file} must not reach "${banned}"`);
+      }
+    }
+    // Nothing Heby can reach imports the audit writer.
+    for (const file of [
+      "src/app/(dashboard)/heby/actions.ts",
+      "src/features/heby-answer/model-answer.server.ts",
+      "src/features/heby-commands/read-commands.server.ts",
+      "src/features/heby-answer/knowledge-evidence.server.ts",
+    ]) {
+      const src = read(file);
+      for (const banned of ["governance-audit", "recordKnowledgeMutation", "auditActorFrom"]) {
+        assert.ok(!src.includes(banned), `${file} must not write governance history via "${banned}"`);
+      }
+    }
+  }
+
+  /* ── 18. THE EVENT MODEL IS K3-READY WITHOUT CLAIMING K3 ────────────────
+   * Only the mutation class that exists today is declared. The metadata already carries the fields a
+   * supersession would populate, so K3 becomes an added action — not a new audit authority.
+   */
+  {
+    /*
+     * K3 added `knowledge.supersede` — and this is the assertion G1 wrote to be updated exactly once,
+     * by exactly that kind of change: an added ACTION, with no new authority, no migration, and no
+     * change to the metadata shape. The list stays closed to capabilities that do not exist.
+     */
+    assert.deepEqual(
+      [...KNOWLEDGE_MUTATION_ACTIONS],
+      ["knowledge.create", "knowledge.supersede"],
+      "only what exists today",
+    );
+    const contracts = codeOf(read(AUDIT_CONTRACTS));
+    for (const notYet of ["knowledge.update", "knowledge.delete", "knowledge.ratify", "knowledge.rollback"]) {
+      assert.ok(!contracts.includes(notYet), `"${notYet}" must not be declared before it exists`);
+    }
+
+    // A future supersession event is representable with today's types — no shape change needed.
+    const futureMetadata: KnowledgeMutationMetadata = {
+      factKey: "runbook",
+      domainKey: "platform",
+      scope: "company-wide",
+      priorKnowledgeNodeId: "77777777-7777-4777-8777-777777777777",
+      newKnowledgeNodeId: "88888888-8888-4888-8888-888888888888",
+      factVersion: 2,
+      knowledgeVersion: 2,
+    };
+    const futureEvent: Omit<KnowledgeMutationEvent, "action"> = {
+      identity: { factId: "99999999-9999-4999-8999-999999999999", factKey: "runbook", domainKey: "platform", scope: "company-wide" },
+      outcome: "committed",
+      metadata: futureMetadata,
+    };
+    assert.equal(futureEvent.metadata.priorKnowledgeNodeId, "77777777-7777-4777-8777-777777777777");
+    assert.equal(futureEvent.metadata.factVersion, 2);
+    assert.equal(KNOWLEDGE_ENTITY_TYPE, "knowledge_fact", "the entity type does not change for K3");
+  }
+
+  /* ── 19. THE APPEND WRITES CONTENT NOWHERE ──────────────────────────────── */
+  {
+    const captured: Record<string, unknown>[] = [];
+    const fakeWriter = {
+      insert() {
+        return {
+          values(row: Record<string, unknown>) {
+            captured.push(row);
+            return Promise.resolve();
+          },
+        };
+      },
+    };
+    await recordKnowledgeMutationWithin(
+      fakeWriter as never,
+      auditActorFrom(tenant()),
+      {
+        action: "knowledge.create",
+        identity: { factId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", factKey: "k", domainKey: "d", scope: "domain" },
+        outcome: "committed",
+        metadata: { factKey: "k", domainKey: "d", scope: "domain", newKnowledgeNodeId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" },
+      },
+      new Date("2026-08-11T15:00:00.000Z"),
+    );
+    assert.equal(captured.length, 1);
+    const row = captured[0]!;
+    assert.equal(row.previousState, undefined, "no previous content");
+    assert.equal(row.nextState, undefined, "no next content");
+    assert.equal(row.result, "committed");
+    assert.equal(row.actorType, "human");
+    assert.equal(row.simulation, false);
+    const serialized = JSON.stringify(row);
+    assert.ok(!serialized.includes("statement"), "no statement field reaches the ledger");
+    assert.ok(!serialized.includes("title"), "no title reaches the ledger");
+  }
+
+  console.log("g1 audit-authority-boundaries checks passed");
+}
+
+void main();

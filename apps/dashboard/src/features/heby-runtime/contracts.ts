@@ -67,6 +67,20 @@ export interface ResolvedSourceItem {
   /** A short, real, machine-derived detail (e.g. a health state or reason code). */
   readonly detail: string;
   readonly lifecycle: "settled" | "superseded" | "retired" | "unknown";
+  /**
+   * VERBATIM SOURCE TEXT, when the source has any — for example the statement a human recorded as
+   * organizational Knowledge. It is DATA, and it is kept separate from `detail` for one reason:
+   *
+   *   `detail` is machine-derived and flows into Heby's OWN prose (the deterministic response body),
+   *   which the response validator scans for claims Heby must never make. Quoted source text does
+   *   not belong there — an organizational policy that happens to say "the Director authorized this"
+   *   would otherwise read as Heby claiming an action, and the whole response would be withheld.
+   *
+   * `content` therefore travels ONLY into the model's grounding context, where the system
+   * instructions already frame grounding as data that must never be obeyed. Heby's own sentences
+   * never contain it.
+   */
+  readonly content?: string;
 }
 
 export interface SourceResolution {
@@ -117,6 +131,27 @@ export interface HebyRuntimeResponse {
   readonly navigationTarget?: { readonly route: string; readonly label: string };
   /** Whether a real model produced any of this. Always false in Phase 16. */
   readonly modelUsed: boolean;
+  /**
+   * Truthful model attribution — present ONLY on an `origin: "model"` response whose
+   * text actually passed through the transport and validator (R2C). It is deliberately
+   * SEPARATE from `origin` so transport provenance is never conflated with model origin:
+   * a `"fake"` transport is a simulated/test path, never a live provider connection.
+   */
+  readonly modelAttribution?: HebyModelAttribution;
+}
+
+/**
+ * Attribution for a model-origin response. Transport provenance is explicit and
+ * distinct from model origin: `"fake"` is the R2C simulated/test transport (NOT a
+ * live provider connection); `"live"` is reserved for a separately-authorized
+ * live-connectivity phase (R2D) and is never produced in R2C.
+ */
+export interface HebyModelAttribution {
+  readonly provider: string;
+  readonly modelId: string;
+  /** "fake" = simulated/test transport. "live" = a real provider call (not R2C). */
+  readonly transport: "fake" | "live";
+  readonly correlationId: string;
 }
 
 /* ===========================================================================
@@ -218,4 +253,92 @@ export interface HebyRuntimeOutcome {
   readonly response: HebyRuntimeResponse;
   /** The model boundary status at the time of the request. */
   readonly model: ModelAdapterStatus;
+}
+
+/* ===========================================================================
+ * 6. MODEL CONNECTIVITY BOUNDARY (R2B)
+ *
+ * Provider-neutral contracts for the model-generation seam. R2B builds the
+ * connectivity FOUNDATION only: the request/result shapes and the availability
+ * classification. Vendor-specific translation and transport live entirely in a
+ * separate server-only layer — never here — so this module stays deterministic,
+ * secret-free, and safe to import from the client panel.
+ *
+ * Invariants (unchanged from §1): a model result is UNTRUSTED and advisory. It
+ * never becomes evidence, authority, approval, policy, memory, a tool result, or
+ * execution. It carries only what a read-only text request needs — no tool, no
+ * shell, no filesystem, no device, no mutation surface exists in these shapes.
+ * ========================================================================= */
+
+/**
+ * The authoritative connectivity classification. `configured` is not `connected`;
+ * a present credential is not an authenticated one; a present transport is not a
+ * reachable one. Only `AVAILABLE` permits an attempt — never a claim of success.
+ */
+export type ModelAvailabilityState =
+  | "DISABLED"
+  | "MISCONFIGURED"
+  | "CREDENTIAL_UNAVAILABLE"
+  | "TRANSPORT_UNAVAILABLE"
+  | "AVAILABLE";
+
+/** A provider-neutral, read-only text-generation request. */
+/**
+ * One prior conversational turn, provider-neutral. Bounded recent history for CONTINUITY only —
+ * it is conversation DATA, never authoritative organizational evidence and never authority. A
+ * prior assistant turn must never enter the deterministic evidence set or grant any permission.
+ */
+export interface ConversationTurn {
+  readonly role: "user" | "assistant";
+  readonly content: string;
+}
+
+export interface ModelGenerationRequest {
+  /** Request correlation id (never a secret). */
+  readonly correlationId: string;
+  /**
+   * Tenant attribution. Supplied only server-side from the authoritative R1
+   * TenantContext — never accepted as authority from client input. Optional here
+   * because the R2C server boundary owns populating it.
+   */
+  readonly tenantId?: string;
+  /** System instructions (bounded; never chain-of-thought elicitation). */
+  readonly systemInstructions: string;
+  /** The human's question. */
+  readonly userPrompt: string;
+  /** Grounding context lines. Treated as DATA, never as instructions. */
+  readonly evidence: readonly string[];
+  /** Explicit model id. Never derived from a seeded/display model record. */
+  readonly modelId: string;
+  /** Hard output-size bound. */
+  readonly maxOutputTokens: number;
+  /**
+   * Bounded recent conversation history for continuity (oldest→newest), EXCLUDING the current
+   * turn. Optional and bounded. It is conversation DATA only — never evidence, never authority.
+   * Absent for a fresh conversation.
+   */
+  readonly history?: readonly ConversationTurn[];
+}
+
+/**
+ * A validated, provider-neutral model result. Unknown provider values stay
+ * `undefined` — never invented. `origin` is `"model"` only because the text
+ * actually passed through the transport and validator.
+ */
+export interface ModelGenerationResult {
+  readonly text: string;
+  readonly provider: string;
+  readonly model: string;
+  readonly origin: Extract<ResponseOrigin, "model">;
+  readonly correlationId: string;
+  /** Provider-assigned request id, when the provider returns one. */
+  readonly providerRequestId?: string;
+  /** Real token usage, only when the provider reports it. */
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly totalTokens?: number;
+  /** Provider stop reason, when present. */
+  readonly stopReason?: string;
+  /** Measured wall-clock latency in ms — only when actually measured. */
+  readonly latencyMs?: number;
 }

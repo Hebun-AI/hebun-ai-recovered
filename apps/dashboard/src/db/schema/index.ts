@@ -41,5 +41,6 @@ export * from "./knowledge-fact";
 export * from "./reasoning";
 export * from "./learning";
 export * from "./conversation";
+export * from "./provider-connectivity-control";
 export * from "./document";
 export * from "./notification";

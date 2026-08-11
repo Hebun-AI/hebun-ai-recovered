@@ -266,6 +266,183 @@
 }
 
 /*
+ * ── Heby surfaces (HW1 origin, HW3 dual surface) ──────────────────────────────
+ * Heby is the one deliberately DARK region in an otherwise light product. It has
+ * TWO presentation surfaces — the Full Workspace at /heby and the Quick Panel
+ * overlay — and they must read as the same product, so BOTH carry `.heby-surface`
+ * and inherit this single token scope. It re-points the existing surface/text
+ * tokens inside its own subtree, so every component keeps using the same utilities
+ * (bg-surface, text-fg, …) and no component hardcodes a colour. Nothing outside a
+ * `.heby-surface` subtree is affected.
+ *
+ * The green presence tokens belong to Heby's identity only. They express UI state
+ * (idle / composing / responding / unavailable) — never connectivity or health.
+ */
+.heby-surface {
+  --color-bg:             #040708;
+  --color-surface:        #0a1013;
+  --color-surface-raised: #101a1d;
+  --color-surface-sunken: #0c1417;
+  /* Borders are deliberately near-invisible: structure comes from light and space, not from lines. */
+  --color-border:         #172227;
+  --color-border-strong:  #24343a;
+
+  --color-text-primary:   #f2f7f4;
+  --color-text-secondary: #aebfba;
+  --color-text-muted:     #7d918c;
+
+  --color-highlight:      #34d399;
+  --color-primary:        #10b981;
+  --color-primary-hover:  #059669;
+  --color-primary-press:  #047857;
+  --color-primary-subtle: rgba(52, 211, 153, 0.12);
+  --color-primary-ring:   rgba(52, 211, 153, 0.45);
+  --color-on-primary:     #04150f;
+
+  --color-success:        #34d399;
+  --color-warning:        #fbbf24;
+  --color-error:          #f87171;
+  --color-info:           #5eead4;
+
+  /*
+   * Heby presence (the centre visualizer). Purely decorative: these carry NO claim about
+   * connectivity, health, or activity. State meaning lives in text, never in colour.
+   */
+  --heby-presence:        #34d399;
+  --heby-presence-dim:    rgba(52, 211, 153, 0.16);
+  /* Layered atmospheric light behind the presence field — depth, not a glow ring. */
+  --heby-aura: radial-gradient(
+      circle at 50% 44%,
+      rgba(52, 211, 153, 0.22) 0%,
+      rgba(52, 211, 153, 0.09) 34%,
+      rgba(16, 185, 129, 0.04) 56%,
+      transparent 72%
+    );
+  /* The workspace canvas: a single, very restrained wash so the screen reads as depth, not neon. */
+  --heby-canvas: radial-gradient(120% 78% at 50% 6%, rgba(52, 211, 153, 0.075), transparent 62%),
+    radial-gradient(90% 60% at 50% 108%, rgba(16, 185, 129, 0.05), transparent 68%);
+}
+
+/*
+ * HW3 — the decorative atmosphere RECEDES as a conversation grows. The empty state may be a
+ * composition; a twenty-turn thread is a working surface, and reading must own it. This is driven
+ * by the real conversation state the surface already computes (`data-heby-mode`), never by a timer.
+ */
+.heby-surface[data-heby-mode="emerging"] {
+  --heby-canvas: radial-gradient(120% 70% at 50% 4%, rgba(52, 211, 153, 0.05), transparent 58%);
+}
+.heby-surface[data-heby-mode="conversation"] {
+  --heby-canvas: radial-gradient(140% 55% at 50% 0%, rgba(52, 211, 153, 0.028), transparent 52%);
+}
+
+/* Core light pulse. Scale only — the field never changes brightness enough to read as a signal. */
+@keyframes heby-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.045);
+    opacity: 1;
+  }
+}
+
+/* Orbital traces. A slow, single-axis rotation; nothing here is data-driven. */
+@keyframes heby-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/*
+ * The counter-rotating interior trace. Together with `heby-orbit` it gives the presence field a
+ * quiet sense of depth. Decorative only — the direction means nothing, exactly like the speed.
+ */
+@keyframes heby-orbit-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+/* Expanding trace — rendered ONLY while a real request is in flight. */
+@keyframes heby-ripple {
+  0% {
+    transform: scale(0.86);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.42);
+    opacity: 0;
+  }
+}
+
+/*
+ * ── VOICE V1: the audio-reactive presence ───────────────────────────────────
+ * These three rules are the ONLY way microphone amplitude reaches the screen, and they are all
+ * functions of one variable: `--heby-audio`, a normalized 0–1 level MEASURED from a real microphone
+ * stream. There are no keyframes here on purpose — nothing animates on a clock. When the operator
+ * stops speaking the measured level decays to 0 and these rules resolve to their resting values, so
+ * a silent room produces a still orb rather than a flattering shimmer.
+ *
+ * The variable defaults to 0 in every rule, so any element that renders without a live measurement
+ * is unaffected. The visualizer only ever sets a non-zero value while it is genuinely `listening`.
+ *
+ * The transition is a short linear smoothing so consecutive measurements read as one continuous
+ * movement instead of a step per animation frame. It is smoothing of real data, not invention.
+ */
+.heby-audio-scale {
+  transform-origin: center;
+  transform: scale(calc(1 + var(--heby-audio, 0) * 0.17));
+  transition: transform 90ms linear;
+}
+
+.heby-audio-scale-soft {
+  transform-origin: center;
+  transform: scale(calc(1 + var(--heby-audio, 0) * 0.045));
+  transition: transform 140ms linear;
+}
+
+.heby-audio-aura {
+  opacity: calc(0.5 + var(--heby-audio, 0) * 0.5);
+  transition: opacity 120ms linear;
+}
+
+/*
+ * Reduced motion removes the MOVEMENT, not the capability. Voice keeps working; the orb simply
+ * holds a steady form and the operator relies on the written state instead. The global reduced-
+ * motion rule above only flattens durations, so the transforms have to be cancelled explicitly.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .heby-audio-scale,
+  .heby-audio-scale-soft {
+    transform: none;
+  }
+
+  .heby-audio-aura {
+    opacity: 0.8;
+  }
+}
+
+/* A turn entering the thread. Presentation only; it says nothing about the turn's content. */
+@keyframes heby-turn-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
  * App shell — user-collapsible Level-2 navigation (desktop only, ≥1024px).
  * Collapsing sets the secondary column width to 0, so the calc()-based content
  * padding (--shell-nav-w = --rail-w + --secondary-w) reclaims the canvas

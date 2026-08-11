@@ -1,0 +1,141 @@
+/*
+ * heby-commands/contracts.ts — the type vocabulary of Heby's slash-command layer (S1).
+ *
+ * A slash command is an INTERACTION affordance. It is not an authority.
+ *
+ * A command may REQUEST a capability; it can never grant itself permission to use one. That rule is
+ * expressed structurally here rather than left to discipline:
+ *
+ *   - `kind` fixes what a command is allowed to touch. Only `advisory` may reach the model at all,
+ *     and the dispatch planner can only ever emit a model prompt for that kind.
+ *   - `availability` states the truth about whether the command can run TODAY, and why not.
+ *   - `requiresExecution` / `requiresCapability` / `requiresModel` describe what the command would
+ *     need. Declaring a requirement never satisfies it.
+ *
+ * Pure types. No React, no I/O, no server, no authority.
+ */
+
+/**
+ * What a command is permitted to do. These classes do not mix: a command has exactly one, and the
+ * planner branches on it, so "a local command accidentally called the provider" is not a bug that
+ * has to be caught — it is unrepresentable.
+ *
+ *   local       UI/conversation behaviour only.        ZERO provider dispatch.
+ *   read        reads an existing authoritative or derived Hebun source, server-side.
+ *                                                      ZERO provider dispatch, ZERO execution.
+ *   advisory    may reach the model through the EXISTING Heby answer path, with the existing
+ *               tenant, evidence, validator, kill-switch and persistence rules. Text only.
+ *   navigation  moves within Hebun via the closed workspace registry. ZERO provider dispatch.
+ *   reserved    a known future capability. Inert: it neither executes nor dispatches anything.
+ */
+export type HebyCommandKind = "local" | "read" | "advisory" | "navigation" | "reserved";
+
+/** Palette grouping. Presentation only — it grants nothing. */
+export type HebyCommandCategory =
+  | "conversation"
+  | "context"
+  | "analyze"
+  | "navigate"
+  | "security"
+  | "knowledge"
+  | "platform"
+  | "agents"
+  | "future";
+
+/**
+ * Whether the command can run today, and — when it cannot — WHY. The distinction matters: a command
+ * blocked for want of a data source is a different promise from one blocked for want of an
+ * execution runtime, and the operator is told which.
+ *
+ *   available            it runs now.
+ *   requires-source      no authoritative/derived Hebun source exists for it yet.
+ *   requires-capability  it needs a capability no installed integration provides.
+ *   requires-execution   it needs Hebun's execution/approval runtime, which does not exist.
+ */
+export type HebyCommandAvailability =
+  | "available"
+  | "requires-source"
+  | "requires-capability"
+  | "requires-execution";
+
+/** One positional argument. Deliberately minimal: this is not a shell. */
+export interface HebyCommandArgument {
+  readonly name: string;
+  readonly required: boolean;
+  readonly description: string;
+}
+
+export interface HebyCommandDescriptor {
+  /** Stable identity. Handlers switch on this, never on the typed text. */
+  readonly id: string;
+  /** What the operator types, including the leading slash. */
+  readonly slash: string;
+  readonly label: string;
+  /** One honest line. It must not imply a capability the command does not have. */
+  readonly description: string;
+  readonly category: HebyCommandCategory;
+  readonly kind: HebyCommandKind;
+  readonly availability: HebyCommandAvailability;
+  /** Positional arguments, in order. Empty for most commands. */
+  readonly args: readonly HebyCommandArgument[];
+  /**
+   * The handler identity. Aliases share a handler with their canonical command, so an alias can
+   * never drift into a second implementation of the same behaviour.
+   */
+  readonly handler: string;
+  /** True only for `advisory`. Enforced by a registry invariant. */
+  readonly requiresModel: boolean;
+  /** True only for `reserved`. Enforced by a registry invariant. */
+  readonly requiresExecution: boolean;
+  /** A capability id this command would need from a future capability provider, if any. */
+  readonly requiresCapability?: string;
+  /**
+   * Whether the command still behaves correctly while the Director has provider connectivity OFF.
+   * Every non-advisory command is; advisory commands are too, because they degrade to the existing
+   * deterministic answer rather than failing.
+   */
+  readonly safeWhenProviderOff: boolean;
+  /** The canonical command this one is an alias of. Aliases stay out of the palette. */
+  readonly aliasOf?: string;
+  /**
+   * Why this command is unavailable, in the operator's words. Required whenever availability is not
+   * "available" — an unavailable command must always be able to say why.
+   */
+  readonly unavailableReason?: string;
+}
+
+/**
+ * The result of a command that did NOT come from the model. It is rendered as a command result, not
+ * as a Heby turn, and it carries its own provenance line — so a deterministic local read is never
+ * presented as something Heby generated.
+ */
+export interface HebyCommandResult {
+  /** The command that produced this, e.g. "/context". */
+  readonly command: string;
+  readonly title: string;
+  readonly lines: readonly string[];
+  /** `unavailable` renders in a restrained warning tone; it never looks runnable. */
+  readonly tone: "info" | "unavailable";
+  /** Where this came from. Never "generated" and never a claim of authority. */
+  readonly provenance: string;
+}
+
+/**
+ * A capability provider's contribution seam (S1 designs it; nothing loads through it yet).
+ *
+ * A future Integration, agent, or Marketplace item declares commands as DESCRIPTORS — the same
+ * shape the built-in registry uses — so the parser, the palette, and the dispatch planner never
+ * need to change to accept them. What a provider can NEVER do is grant itself authority: a
+ * contributed descriptor still has to declare a `kind`, and a contributed `reserved`/execution
+ * command stays inert until a real execution runtime and authority check exist to back it.
+ *
+ * Deliberately not implemented: there is no loader, no dynamic import, no registration call. This
+ * is the shape a later phase fills, not a mechanism S1 ships.
+ */
+export interface HebyCommandProvider {
+  /** Stable provider identity, e.g. an integration or marketplace item id. */
+  readonly providerId: string;
+  readonly label: string;
+  /** The commands this provider would contribute. */
+  readonly commands: readonly HebyCommandDescriptor[];
+}

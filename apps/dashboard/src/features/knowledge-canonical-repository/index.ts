@@ -1,3 +1,28 @@
+/*
+ * knowledge-canonical-repository — the DUAL-READ MIGRATION pair for Knowledge.
+ *
+ * READ THIS BEFORE READING THE `authoritative` FLAGS BELOW.
+ *
+ * This module is migration/diagnostics scaffolding. It pairs the legacy in-memory Knowledge store
+ * (seeded from the mock registry in `knowledge-crud/node-adapter`) with the canonical Postgres read,
+ * so the two can be compared while the migration is in flight. Its only consumer is
+ * `canonical-read/diagnostics.ts`, surfaced on `/_internal/canonical-read` — a page gated behind
+ * BOTH `NODE_ENV !== "production"` AND `HEBUN_ENABLE_CANONICAL_READ_DIAGNOSTICS=true`. It is not
+ * reachable from any product surface, and it is NOT in Heby's answer path.
+ *
+ * `authoritative: true` on the memory repository is the READ ROUTER'S ROLE — the participant whose
+ * result `routeKnowledgeRead` returns (it hardcodes `authoritativeProvider: "memory"` to match).
+ * `authoritative: false` on the Postgres repository marks it the SHADOW participant, compared and
+ * discarded. See the field's own documentation in `canonical-repository/types.ts`.
+ *
+ * NEITHER FLAG SAYS ANYTHING ABOUT ORGANIZATIONAL TRUTH. The seeded memory store owns no
+ * organizational Knowledge whatsoever: it is derived from a mock registry and even synthesizes a
+ * `confidence` figure from mock health. The authoritative Knowledge in Hebun is the canonical
+ * persisted model — `public.knowledge_facts` → `public.knowledge_nodes` — read tenant-scoped by
+ * `features/knowledge` (K1), which imports nothing from this module or from the seeded store.
+ * `tests/k1-flow/authority-reconciliation.ts` pins that separation.
+ */
+
 import type { CanonicalReadServices } from "@/features/canonical-read";
 import {
   createReadRepository,
@@ -199,6 +224,8 @@ function createMemoryKnowledgeRepository(
         write: false,
         shadow: false,
       },
+      // Read-router role only: the participant whose result is returned during the dual read.
+      // This store is SEEDED from a mock registry and owns no organizational Knowledge.
       authoritative: true,
     },
     findOne: async (request) => {
@@ -290,6 +317,8 @@ function createPostgresKnowledgeShadowRepository(
         write: false,
         shadow: true,
       },
+      // Read-router role only: the SHADOW participant, compared and discarded. Postgres remains
+      // the persistent system of record for Knowledge regardless of this flag.
       authoritative: false,
     },
     isAvailable: async () => {

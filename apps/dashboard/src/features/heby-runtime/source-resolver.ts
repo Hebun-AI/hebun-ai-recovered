@@ -99,8 +99,17 @@ export function resolveSource(
     }
     // These source classes have no connected Heby retrieval path. Honest unavailable —
     // seeded memory/intelligence/governance data is never presented as organizational truth.
+    //
+    // K1: Knowledge DOES have a real read path, but it is tenant-scoped and database-backed, and
+    // this resolver is pure — it holds no tenant and can open no connection. So it reports the
+    // honest default, and the server answer flow substitutes the real tenant-scoped resolution
+    // (heby-answer/knowledge-evidence.server.ts). A caller with no server seam gets no knowledge,
+    // which is the truthful outcome rather than a seeded one.
     case "knowledge":
-      return unavailable("knowledge", "No connected Knowledge retrieval path.");
+      return unavailable(
+        "knowledge",
+        "Knowledge is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
     case "memory":
       return unavailable("memory", "No connected Memory retrieval path.");
     case "intelligence":

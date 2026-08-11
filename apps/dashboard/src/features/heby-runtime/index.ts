@@ -19,4 +19,5 @@ export * from "./tool-registry";
 export * from "./tool-gate";
 export * from "./response-builder";
 export * from "./response-validator";
+export * from "./prompt-validation";
 export * from "./runtime";

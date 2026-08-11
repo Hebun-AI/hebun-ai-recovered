@@ -1,0 +1,230 @@
+/*
+ * K2.1 — governance hardening: the authority is coarse, and it says so everywhere.
+ *
+ * K2 shipped with a real limitation: Knowledge authoring is gated on a role BAND, because the
+ * fine-grained `permissions` / `role_permissions` model has no runtime. That limitation is fine.
+ * What is not fine is a stray UI sentence, report, or later phase quietly presenting it as a
+ * per-capability grant. So K2.1 made the authority KIND a declared value, and this file pins it —
+ * including the structural fact that no permission runtime exists to justify a finer claim.
+ *
+ * It also pins the auditability distinction: durable per-record attribution is not an append-only
+ * audit log, and K2.1 invented neither.
+ *
+ * Pure/structural. No database, no network, no model.
+ */
+import assert from "node:assert/strict";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { KNOWLEDGE_WRITE_AUTHORITY_MODEL } from "../../src/features/knowledge/create-contracts";
+import { KNOWLEDGE_AUTHOR_ROLE_TYPES } from "../../src/features/knowledge/knowledge-write-authority.server";
+
+const read = (path: string) => readFileSync(path, "utf8");
+
+const CARD = "src/components/knowledge-workspace/knowledge-authoring-card.tsx";
+const RECORDS = "src/components/knowledge-workspace/knowledge-records.tsx";
+const PAGE = "src/app/(dashboard)/knowledge/page.tsx";
+const AUTHORITY = "src/features/knowledge/knowledge-write-authority.server.ts";
+const CONTRACTS = "src/features/knowledge/create-contracts.ts";
+const WRITER = "src/features/knowledge/durable-knowledge-writer.server.ts";
+
+function codeOf(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+}
+
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const path = join(dir, entry);
+    if (statSync(path).isDirectory()) return walk(path);
+    return /\.tsx?$/.test(path) ? [path] : [];
+  });
+}
+
+function main(): void {
+  /* ── 30. THE AUTHORITY KIND IS DECLARED, NOT DESCRIBED IN PROSE ─────────── */
+  {
+    assert.equal(KNOWLEDGE_WRITE_AUTHORITY_MODEL.kind, "role-band");
+    assert.equal(
+      KNOWLEDGE_WRITE_AUTHORITY_MODEL.fineGrainedPermissionRuntimeConnected,
+      false,
+      "Hebun must not claim a per-capability Knowledge permission it does not have",
+    );
+    assert.deepEqual([...KNOWLEDGE_WRITE_AUTHORITY_MODEL.bands], ["owner", "director"]);
+    // The resolver's set is DERIVED from the declaration, so the two cannot drift apart.
+    assert.deepEqual(
+      [...KNOWLEDGE_AUTHOR_ROLE_TYPES].sort(),
+      [...KNOWLEDGE_WRITE_AUTHORITY_MODEL.bands].sort(),
+      "the enforced bands are the declared bands",
+    );
+    assert.match(
+      KNOWLEDGE_WRITE_AUTHORITY_MODEL.operatorSummary,
+      /coarse authority check, not a fine-grained grant/,
+      "and the operator sentence says so plainly",
+    );
+  }
+
+  /* ── 31. THE CLAIM MATCHES REPOSITORY REALITY ───────────────────────────
+   * `fineGrainedPermissionRuntimeConnected: false` is only honest while no code reads the
+   * permission tables. If a real runtime lands, this test fails and the declaration must change
+   * with it — which is the point.
+   */
+  {
+    const consumers: string[] = [];
+    for (const file of walk("src")) {
+      if (file.replace(/\\/g, "/").startsWith("src/db/schema/")) continue;
+      const src = read(file);
+      if (
+        src.includes("rolePermissions") ||
+        src.includes('from "@/db/schema/role-permission"') ||
+        src.includes('from "@/db/schema/permission"')
+      ) {
+        consumers.push(file);
+      }
+    }
+    assert.deepEqual(
+      consumers,
+      [],
+      "no permission-resolution runtime exists, so the coarse-authority declaration is accurate",
+    );
+  }
+
+  /* ── 32. THE UI READS THE DECLARATION RATHER THAN RESTATING IT ──────────── */
+  {
+    const card = read(CARD);
+    assert.ok(
+      card.includes("KNOWLEDGE_WRITE_AUTHORITY_MODEL.operatorSummary"),
+      "the refusal copy comes from the declaration, not a hand-written duplicate",
+    );
+    // A hard-coded band list in the component would be exactly that duplicate.
+    const code = codeOf(card);
+    assert.ok(
+      !/owner and director authority bands/.test(code),
+      "the component does not carry its own copy of the band sentence",
+    );
+  }
+
+  /* ── 33. K2.1 INVENTED NO PERMISSION MODEL, ROLE, OR AUTH STORE ──────────
+   * NOTE for future readers: `"knowledge.create"` is NOT banned here. G1 introduced it as an AUDIT
+   * ACTION name on `audit_log`, which is a different concept from a permission key — recording that
+   * a create happened does not grant anyone the right to perform one. What stays banned is the
+   * permission-catalogue machinery itself.
+   */
+  {
+    for (const file of [AUTHORITY, CONTRACTS, WRITER, PAGE, CARD]) {
+      const code = codeOf(read(file));
+      for (const banned of [
+        "createPermission",
+        "grantPermission",
+        "hasPermission",
+        "permissionKey",
+        "insert(permissions",
+        "insert(rolePermissions",
+        "roleTypeEnum",
+      ]) {
+        assert.ok(!code.includes(banned), `${file} must not introduce "${banned}"`);
+      }
+    }
+  }
+
+  /* ── 34. CREATION COPY CLAIMS NOTHING THE RECORD DOES NOT OWN ───────────
+   * The record is written draft/provisional/unratified, so the UI may not call it approved,
+   * verified, trusted, certified, or authoritative.
+   */
+  {
+    const card = read(CARD);
+    // The consequence block must state each of these, so the operator is not guessing.
+    for (const required of [
+      "This will create organizational Knowledge",
+      "draft",
+      "provisional",
+      "no ratification",
+      "evidence",
+      "grants no execution authority",
+      "cannot be edited or deleted",
+    ]) {
+      assert.ok(card.includes(required), `the consequence step must state "${required}"`);
+    }
+    // The final action is unambiguous.
+    assert.ok(card.includes(">Create Knowledge<") || card.includes("Create Knowledge"), "final action reads Create Knowledge");
+    for (const vague of [">Save<", ">OK<", ">Done<", ">Submit<"]) {
+      assert.ok(!card.includes(vague), `the final action must not be "${vague}"`);
+    }
+    // No fabricated quality signal anywhere on the Knowledge surfaces.
+    for (const file of [CARD, RECORDS]) {
+      const code = codeOf(read(file)).toLowerCase();
+      for (const banned of ["confidence", "trust score", "quality score", "certified", "verified badge", "relevance"]) {
+        assert.ok(!code.includes(banned), `${file} must not display "${banned}"`);
+      }
+    }
+  }
+
+  /* ── 35. ATTRIBUTION IS NOT AN AUDIT LOG, AND KNOWLEDGE OWNS NEITHER ────
+   * Per-record attribution answers "who established the CURRENT record"; mutation history answers
+   * "what was attempted and how did it end". They stayed distinct through K2.1, and G1 connected the
+   * second one — over the pre-existing shared `audit_log` sink, owned by `features/governance-audit`.
+   * What must remain true either way: Knowledge does not define, and does not directly write, an
+   * audit table of its own.
+   */
+  {
+    // No Knowledge module defines a table or reaches an audit/event sink directly. The ONLY
+    // permitted route is the governance-audit module's own API.
+    for (const file of walk("src/features/knowledge")) {
+      const code = codeOf(read(file));
+      for (const banned of [
+        '@/db/schema/audit-log',
+        '@/db/schema/event-log',
+        "eventLogs",
+        "commandAudit",
+        "telemetryEvents",
+      ]) {
+        assert.ok(!code.includes(banned), `${file} must not reach "${banned}" directly`);
+      }
+      assert.ok(!code.includes("pgTable("), `${file} must not define a table`);
+    }
+
+    // Exactly one module writes the shared audit sink.
+    const sinkWriters: string[] = [];
+    for (const file of walk("src")) {
+      if (file.replace(/\\/g, "/").startsWith("src/db/schema/")) continue;
+      if (read(file).includes('from "@/db/schema/audit-log"')) sinkWriters.push(file.replace(/\\/g, "/"));
+    }
+    assert.deepEqual(
+      sinkWriters,
+      ["src/features/governance-audit/knowledge-mutation-audit.server.ts"],
+      "one module owns the audit sink; Knowledge goes through it",
+    );
+
+    // The writer records attribution on the canonical rows themselves.
+    const writer = codeOf(read(WRITER));
+    assert.match(writer, /createdBy:\s*actor\.userId/, "the node records the authenticated actor");
+    assert.match(writer, /createdByType:\s*"human"/);
+    assert.match(writer, /selectedByActorId:\s*actor\.userId/, "and so does the fact's selection");
+    assert.match(writer, /selectedByActorType:\s*"human"/);
+  }
+
+  /* ── 36. K2.1 ADDED NO EDIT, DELETE, OR RATIFY PATH ─────────────────────── */
+  {
+    const surfaces = [CARD, RECORDS, PAGE, "src/app/(dashboard)/knowledge/actions.ts"];
+    for (const file of surfaces) {
+      const code = codeOf(read(file)).toLowerCase();
+      /*
+       * K3 added correction-by-supersession, so "supersede" is now legitimate. Editing, deleting,
+       * ratifying and approving remain absent — those capabilities still do not exist.
+       */
+      for (const banned of ["deleteknowledge", "updateknowledge", "editknowledge", "ratifyknowledge", "approveknowledge", "rollbackknowledge"]) {
+        assert.ok(!code.includes(banned), `${file} must not expose "${banned}"`);
+      }
+    }
+    // The action module still exports exactly one mutation.
+    const actions = read("src/app/(dashboard)/knowledge/actions.ts");
+    const exported = [...actions.matchAll(/export\s+async\s+function\s+(\w+)/g)].map((m) => m[1]);
+    assert.deepEqual(
+      exported.sort(),
+      ["createKnowledgeAction", "readKnowledgeVersionsAction", "supersedeKnowledgeAction"],
+      "two Knowledge mutations — create and supersede — plus one read. No delete, no edit.",
+    );
+  }
+
+  console.log("k2.1 governance-hardening checks passed");
+}
+
+main();

@@ -81,9 +81,23 @@ export function validateResponse(
     }
   }
 
-  // A model-origin response must carry the modelUsed flag; in Phase 16 nothing is model-origin.
+  // A model-origin response must carry the modelUsed flag.
   if (response.origin === "model" && !response.modelUsed) {
     issues.push("Model-origin response must set modelUsed.");
+  }
+
+  // Model attribution is only valid on a model-origin, model-used response, and its
+  // transport provenance must be an explicit, known value — never conflated with origin.
+  if (response.modelAttribution) {
+    if (response.origin !== "model" || !response.modelUsed) {
+      issues.push("Model attribution present on a non-model response.");
+    }
+    if (
+      response.modelAttribution.transport !== "fake" &&
+      response.modelAttribution.transport !== "live"
+    ) {
+      issues.push("Model attribution has an unknown transport provenance.");
+    }
   }
 
   if (issues.length > 0) {
