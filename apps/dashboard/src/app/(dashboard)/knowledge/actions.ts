@@ -12,6 +12,14 @@ import {
 } from "@/features/knowledge/knowledge-supersede.server";
 import { readKnowledgeVersionHistory } from "@/features/knowledge/knowledge-version-history.server";
 import type { KnowledgeVersionHistory } from "@/features/knowledge/supersede-contracts";
+import {
+  ratifyKnowledgeVersion,
+  rejectKnowledgeVersion,
+} from "@/features/knowledge-ratification/ratify-version.server";
+import type {
+  RatificationResult,
+  RejectionResult,
+} from "@/features/knowledge-ratification/contracts";
 
 /**
  * The K2 boundary for establishing organizational Knowledge. It is the ONLY client-crossable way
@@ -69,4 +77,49 @@ export async function readKnowledgeVersionsAction(input: {
 }): Promise<KnowledgeVersionHistory> {
   const tenant = await resolveTenantContext();
   return readKnowledgeVersionHistory(tenant, input.factId);
+}
+
+/*
+ * ── K4: Governance review of one exact Knowledge version ────────────────────────────────────────
+ *
+ * These are the ONLY client-crossable ways to bind a Governance decision to Knowledge, and they
+ * are deliberately thin:
+ *
+ *  - the tenant, the actor, the Governance authority, the decision, the session, the ratifying
+ *    actor and the ratification timestamp are all resolved SERVER-SIDE. A forged `tenantId`,
+ *    `actorId`, `decisionId`, `sessionId`, `ratifiedAt` or `ratifiedBy` has no parameter to
+ *    arrive in;
+ *  - the client names only the record and the exact VERSION it was shown. That version is a
+ *    precondition, never authority: it can only cause a refusal;
+ *  - authority is the G2 bootstrap-established human, NOT the owner/director band that permits
+ *    authoring. A Knowledge author with no Governance authority is refused.
+ *
+ * They live in the Knowledge workspace because Knowledge owns the version and its ratification
+ * linkage; the DECISION they create belongs to Governance, which owns it. Neither authority was
+ * duplicated.
+ */
+export async function ratifyKnowledgeVersionAction(input: {
+  factId: string;
+  knowledgeNodeId: string;
+  /** The version the operator was shown. A precondition that can only cause a refusal. */
+  observedKnowledgeVersion: number;
+  justification: string;
+}): Promise<RatificationResult> {
+  const tenant = await resolveTenantContext();
+  const result = await ratifyKnowledgeVersion(tenant, input);
+  if (result.status === "ratified") revalidatePath("/knowledge");
+  return result;
+}
+
+/** Record that Governance did not approve this version. Changes NOTHING in Knowledge. */
+export async function rejectKnowledgeVersionAction(input: {
+  factId: string;
+  knowledgeNodeId: string;
+  observedKnowledgeVersion: number;
+  justification: string;
+}): Promise<RejectionResult> {
+  const tenant = await resolveTenantContext();
+  const result = await rejectKnowledgeVersion(tenant, input);
+  if (result.status === "rejected") revalidatePath("/knowledge");
+  return result;
 }

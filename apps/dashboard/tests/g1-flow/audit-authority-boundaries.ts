@@ -76,19 +76,56 @@ async function main(): Promise<void> {
       assert.ok(!code.includes("pgTable("), `${file} must not define a table`);
       assert.ok(!code.includes("pgEnum("), `${file} must not define an enum`);
     }
-    // …and no migration was added.
-    assert.equal(
-      readdirSync("src/db/migrations").filter((n) => n.endsWith(".sql")).length,
-      17,
-      "G1 adds no migration — audit_log already existed",
+    // …and no migration was added FOR G1. Stated as a phase-scoped fact rather
+    // than a global migration count: a later, unrelated phase adding its own
+    // migration must not make this read as "G1 added one".
+    const migrationNames = readdirSync("src/db/migrations").filter((n) => n.endsWith(".sql"));
+    assert.ok(
+      migrationNames.includes("20260711174439_audit_event_backbone.sql"),
+      "audit_log came from the pre-existing audit backbone migration",
     );
-    // It writes the PRE-EXISTING shared sink, and is the only module that does.
+    for (const name of migrationNames) {
+      assert.ok(
+        !/g1|governance[-_]?audit|knowledge[-_]?mutation/i.test(name),
+        `G1 adds no migration — audit_log already existed (found ${name})`,
+      );
+    }
+    /*
+     * It writes the PRE-EXISTING shared sink, and every module that does is a DECLARED OWNER
+     * living in `governance-audit/`.
+     *
+     * G1 originally asserted exactly ONE writer, because at the time there was exactly one audit
+     * domain. G2.1 added a second — pre-Governance genesis entitlement — as an explicit SIBLING:
+     * its own boundary constant, its own entity type, its own action vocabulary, and no reference
+     * to `KNOWLEDGE_AUDIT_BOUNDARY` in either direction. That is what "do not widen G1's boundary"
+     * required, and a sibling contract necessarily means a sibling module.
+     *
+     * The protection this test actually exists to give is UNCHANGED and still asserted: an ordinary
+     * feature module may never reach the sink directly. Only the declared owners may, and adding a
+     * third is a deliberate edit here, not an accident somewhere in `src/features`.
+     */
     assert.ok(read(AUDIT).includes('from "@/db/schema/audit-log"'), "G1 binds to the existing sink");
+    const AUDIT_SINK_OWNERS = [
+      "src/features/governance-audit/genesis-nomination-audit.server.ts",
+      "src/features/governance-audit/governance-decision-audit.server.ts",
+      "src/features/governance-audit/knowledge-mutation-audit.server.ts",
+    ];
     const writers = walk("src")
       .filter((f) => !f.replace(/\\/g, "/").startsWith("src/db/schema/"))
       .filter((f) => read(f).includes('from "@/db/schema/audit-log"'))
-      .map((f) => f.replace(/\\/g, "/"));
-    assert.deepEqual(writers, [AUDIT], "exactly one module owns the audit sink");
+      .map((f) => f.replace(/\\/g, "/"))
+      .sort();
+    assert.deepEqual(
+      writers,
+      AUDIT_SINK_OWNERS,
+      "only the declared governance-audit owners may write the shared sink",
+    );
+    for (const owner of writers) {
+      assert.ok(
+        owner.startsWith("src/features/governance-audit/"),
+        `${owner} must live in governance-audit/ — the sink has no owner outside it`,
+      );
+    }
   }
 
   /* ── 10. THE PRODUCT SURFACE IS APPEND-ONLY ─────────────────────────────
@@ -315,17 +352,31 @@ async function main(): Promise<void> {
    */
   {
     /*
-     * K3 added `knowledge.supersede` — and this is the assertion G1 wrote to be updated exactly once,
-     * by exactly that kind of change: an added ACTION, with no new authority, no migration, and no
-     * change to the metadata shape. The list stays closed to capabilities that do not exist.
+     * K3 added `knowledge.supersede`, and K4 added `knowledge.ratify` — and this is the assertion
+     * G1 wrote to be updated by exactly that kind of change: an added ACTION, with no new
+     * authority, no migration, and no change to the metadata shape. Both times the vocabulary grew
+     * by one verb that a real capability now performs, and the list stays closed to capabilities
+     * that do not exist — `knowledge.delete`, `knowledge.rollback` and `knowledge.reject` are still
+     * absent, the last one because a rejection changes nothing in Knowledge at all.
      */
     assert.deepEqual(
       [...KNOWLEDGE_MUTATION_ACTIONS],
-      ["knowledge.create", "knowledge.supersede"],
+      ["knowledge.create", "knowledge.supersede", "knowledge.ratify"],
       "only what exists today",
     );
+    /*
+     * `knowledge.ratify` left this list when K4 built the capability it names. The list's job is
+     * unchanged: a verb may not be declared before something performs it. `knowledge.reject` is
+     * here now for the same reason — a rejection records a Governance decision and changes nothing
+     * in Knowledge, so there is no Knowledge mutation for it to describe.
+     */
     const contracts = codeOf(read(AUDIT_CONTRACTS));
-    for (const notYet of ["knowledge.update", "knowledge.delete", "knowledge.ratify", "knowledge.rollback"]) {
+    for (const notYet of [
+      "knowledge.update",
+      "knowledge.delete",
+      "knowledge.reject",
+      "knowledge.rollback",
+    ]) {
       assert.ok(!contracts.includes(notYet), `"${notYet}" must not be declared before it exists`);
     }
 

@@ -26,6 +26,8 @@ import {
 const TENANT_A = "10000000-0000-4000-8000-0000000000a1";
 const TENANT_B = "10000000-0000-4000-8000-0000000000b1";
 const NODE_A = "90000000-0000-4000-8000-0000000000a1";
+/** The human a seeded Governance decision attributes the ratification to. */
+const RATIFIER = "20000000-0000-4000-8000-0000000000a9";
 const NODE_B = "90000000-0000-4000-8000-0000000000b1";
 const FACT_A = "80000000-0000-4000-8000-0000000000a1";
 const FACT_B = "80000000-0000-4000-8000-0000000000b1";
@@ -40,22 +42,54 @@ async function seed(client: Client): Promise<void> {
     [TENANT_A, TENANT_B],
   );
 
+  /*
+   * Tenant A's node is RATIFIED, and after K4 that means something specific: a real Governance
+   * decision is bound to it. A bare `ratified_at` with no decision behind it is no longer read as
+   * ratification — see `durable-knowledge-repository.server.ts` — so this fixture now seeds the
+   * decision too, and the extra assertion below proves the timestamp alone is not enough.
+   */
+  const session = await client.query<{ id: string }>(
+    `insert into governance_sessions
+       (tenant_id, governance_domain, decision_type, subject_type, proposer_actor_type, proposer_actor_id)
+     values ($1, 'knowledge-ratification', 'ratify', 'knowledge_node', 'human', $2)
+     returning id`,
+    [TENANT_A, RATIFIER],
+  );
+  const decision = await client.query<{ id: string }>(
+    `insert into decision_records
+       (tenant_id, session_id, decision_type, subject_type, subject_id, actor_type, actor_id,
+        bootstrap, outcome, justification)
+     values ($1, $2, 'ratify', 'knowledge_node', $3, 'human', $4, false, 'ratified',
+             'Seeded: Governance approved this exact version.')
+     returning id`,
+    [TENANT_A, session.rows[0]!.id, NODE_A, RATIFIER],
+  );
+
   // Two knowledge nodes: one per tenant, with real governance metadata.
   await client.query(
     `insert into knowledge_nodes
        (id, tenant_id, type, label, statement, knowledge_lifecycle_status, knowledge_health,
         knowledge_scope, knowledge_authority, domain_key, ratified_at, next_review_at,
-        knowledge_version)
+        knowledge_version, ratification_decision_id, governance_session_id,
+        ratified_by_actor_type, ratified_by_actor_id)
      values
        ($1, $2, 'policy', 'Tenant A security policy',
         'Provider execution authority belongs to the Director.',
         'ratified', 'current', 'company-wide', 'authoritative', 'security',
-        '2026-01-01T00:00:00Z', '2026-12-01T00:00:00Z', 3),
+        '2026-01-01T00:00:00Z', '2026-12-01T00:00:00Z', 3, $5, $6, 'human', $7),
        ($3, $4, 'policy', 'Tenant B security policy',
         'TENANT B PRIVATE — this string must never reach tenant A.',
         'draft', 'unknown', 'company-wide', 'provisional', 'security',
-        null, null, 1)`,
-    [NODE_A, TENANT_A, NODE_B, TENANT_B],
+        null, null, 1, null, null, null, null)`,
+    [
+      NODE_A,
+      TENANT_A,
+      NODE_B,
+      TENANT_B,
+      decision.rows[0]!.id,
+      session.rows[0]!.id,
+      RATIFIER,
+    ],
   );
 
   // Both tenants use the SAME fact key, which is exactly the collision isolation must survive.
@@ -87,11 +121,7 @@ async function main(): Promise<void> {
 
     const client = new Client({ connectionString: harness.dbUrl });
     await client.connect();
-    try {
-      await seed(client);
-    } finally {
-      await client.end();
-    }
+    await seed(client);
 
     const handle = createControlPlaneDb(harness.dbUrl);
     try {
@@ -110,6 +140,34 @@ async function main(): Promise<void> {
       assert.equal(a.authorityClass, "authoritative");
       assert.equal(a.lifecycleStatus, "ratified");
       assert.equal(a.ratified, true, "ratification is read from the record, not inferred");
+
+      /*
+       * K4: a bare `ratified_at` with no bound Governance decision is NOT ratification. Clearing
+       * the decision linkage while leaving the timestamp must flip the read to false — otherwise a
+       * row could claim the organization approved something with no decision behind it.
+       */
+      await client.query(
+        `update knowledge_nodes set ratification_decision_id = null where id = $1`,
+        [NODE_A],
+      );
+      const withoutDecision = await listKnowledgeSources({ tenantId: TENANT_A }, deps);
+      assert.equal(withoutDecision.status, "read");
+      if (withoutDecision.status !== "read") throw new Error("unreachable");
+      assert.equal(
+        withoutDecision.records[0]!.ratified,
+        false,
+        "a ratified_at with no Governance decision behind it is not a ratification",
+      );
+      assert.ok(
+        withoutDecision.records[0]!.ratifiedAt,
+        "the timestamp is still reported honestly; only the CLAIM of ratification is withdrawn",
+      );
+      await client.query(
+        `update knowledge_nodes set ratification_decision_id = (
+           select id from decision_records where subject_id = $1 limit 1
+         ) where id = $1`,
+        [NODE_A],
+      );
       assert.equal(a.knowledgeVersion, 3, "the record's own version is preserved");
       assert.equal(a.freshness, "within-cadence", "freshness is derived from the real review date");
       assert.ok(
@@ -187,6 +245,7 @@ async function main(): Promise<void> {
       }
     } finally {
       await handle.dispose();
+      await client.end().catch(() => {});
     }
 
     console.log("k1 tenant-isolation-postgres checks passed");

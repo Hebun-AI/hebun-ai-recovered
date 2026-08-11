@@ -62,6 +62,10 @@ interface KnowledgeRow {
   readonly health: string | null;
   readonly ratificationDecisionId: string | null;
   readonly ratifiedAt: Date | null;
+  /** K4 provenance, read from the ACTIVE NODE — the only home of version ratification. */
+  readonly governanceSessionId: string | null;
+  readonly ratifiedByActorId: string | null;
+  readonly activeKnowledgeNodeId: string | null;
   readonly effectiveFrom: Date | null;
   readonly effectiveUntil: Date | null;
   readonly nextReviewAt: Date | null;
@@ -137,9 +141,23 @@ function toRecordOrStub(
       lifecycleStatus: asMember(row.lifecycleStatus, LIFECYCLE_STATUSES),
       authorityClass: asMember(row.authorityClass, AUTHORITY_CLASSES),
       health: asMember(row.health, HEALTHS),
-      // Ratification is a RECORDED fact, never inferred from lifecycle status.
-      ratified: Boolean(row.ratificationDecisionId ?? row.ratifiedAt),
+      /*
+       * Ratification is a RECORDED fact, never inferred from lifecycle status — and after K4 it
+       * requires the GOVERNANCE LINKAGE, not merely a timestamp.
+       *
+       * This read used to be `ratificationDecisionId ?? ratifiedAt`. That was a reasonable
+       * shortcut while no ratification runtime existed and both columns were always NULL; it is
+       * false now. A `ratified_at` with no `ratification_decision_id` would be a row claiming the
+       * organization approved something with no decision behind it, which is exactly the state K4
+       * exists to make impossible. Requiring the decision id means "ratified" can only be true
+       * downstream of a real Governance decision.
+       */
+      ratified: Boolean(row.ratificationDecisionId),
       ratifiedAt: iso(row.ratifiedAt),
+      ratificationDecisionId: row.ratificationDecisionId,
+      governanceSessionId: row.governanceSessionId,
+      ratifiedByActorId: row.ratifiedByActorId,
+      activeKnowledgeNodeId: row.activeKnowledgeNodeId,
       effectiveFrom,
       effectiveUntil,
       nextReviewAt,
@@ -190,6 +208,9 @@ const SELECTION = {
   health: knowledgeNodes.knowledgeHealth,
   ratificationDecisionId: knowledgeNodes.ratificationDecisionId,
   ratifiedAt: knowledgeNodes.ratifiedAt,
+  governanceSessionId: knowledgeNodes.governanceSessionId,
+  ratifiedByActorId: knowledgeNodes.ratifiedByActorId,
+  activeKnowledgeNodeId: knowledgeNodes.id,
   effectiveFrom: knowledgeNodes.effectiveFrom,
   effectiveUntil: knowledgeNodes.effectiveUntil,
   nextReviewAt: knowledgeNodes.nextReviewAt,

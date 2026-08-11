@@ -6,6 +6,11 @@ import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server
 import { resolveKnowledgeWriteAuthority } from "@/features/knowledge/knowledge-write-authority.server";
 import { isDurableKnowledgeConfigured } from "@/features/knowledge/durable-knowledge-repository.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/decision-authority.server";
+import {
+  KnowledgeReviewCard,
+  type ReviewBlock,
+} from "@/components/knowledge-workspace/knowledge-review-card";
 
 export const metadata = { title: "Knowledge Overview — Hebun AI" };
 
@@ -27,10 +32,27 @@ export const metadata = { title: "Knowledge Overview — Hebun AI" };
 export default async function KnowledgePage() {
   const tenant = await resolveTenantContext();
 
-  const [listing, authority] = await Promise.all([
+  const [listing, authority, governance] = await Promise.all([
     listKnowledgeSources(tenant),
     tenant ? resolveKnowledgeWriteAuthority(tenant) : Promise.resolve(null),
+    // K4: Governance authority is a DIFFERENT authority from Knowledge authoring. Resolved
+    // separately, and never inferred from the role band above.
+    tenant ? resolveGovernanceAuthority(tenant) : Promise.resolve(null),
   ]);
+
+  /*
+   * The review block states the REAL reason, in resolution order. A Knowledge author who is not
+   * the Governance authority sees a truthful refusal rather than a control that will fail.
+   */
+  const reviewBlock: ReviewBlock | undefined = !tenant
+    ? { kind: "unauthenticated" }
+    : !governance?.bootstrapDecisionId
+      ? { kind: "no-governance-authority" }
+      : !governance.authorized
+        ? { kind: "not-the-governance-authority" }
+        : undefined;
+
+  const reviewable = listing.status === "read" ? listing.records : [];
 
   // The authoring block states the REAL reason the form is unusable, in resolution order.
   const block: KnowledgeAuthoringBlock | undefined = !tenant
@@ -51,6 +73,13 @@ export default async function KnowledgePage() {
           <KnowledgeAuthoringCard block={block} />
         </div>
       </div>
+      {reviewable.length > 0 ? (
+        <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+          {reviewable.map((record) => (
+            <KnowledgeReviewCard key={record.factId} record={record} block={reviewBlock} />
+          ))}
+        </div>
+      ) : null}
       <KnowledgeWorkspace model={getKnowledgeWorkspaceModel()} />
     </div>
   );

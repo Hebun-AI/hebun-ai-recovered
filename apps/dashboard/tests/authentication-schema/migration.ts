@@ -43,14 +43,15 @@ try {
     const migrationCount = await client.query<{ count: string }>(
       "select count(*)::text as count from drizzle.__drizzle_migrations",
     );
-    // 15 baseline + R2D message-provenance + R2E provider-connectivity-control = 17.
-    assert.equal(migrationCount.rows[0]?.count, "17");
+    // 15 baseline + R2D message-provenance + R2E provider-connectivity-control
+    // + D1 auth-credentials + G2.1 genesis-nomination + G2 bootstrap-authority = 20.
+    assert.equal(migrationCount.rows[0]?.count, "20");
 
     harness.migrateDatabase();
     const rerunCount = await client.query<{ count: string }>(
       "select count(*)::text as count from drizzle.__drizzle_migrations",
     );
-    assert.equal(rerunCount.rows[0]?.count, "17");
+    assert.equal(rerunCount.rows[0]?.count, "20");
 
     const enumRows = await client.query<{ typname: string; labels: string[] }>(`
       select t.typname, json_agg(e.enumlabel order by e.enumsortorder) as labels

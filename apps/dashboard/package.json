@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run test:run",
     "test:run": "node scripts/run-tests.mjs",
+    "auth:dev-credential": "node --import tsx scripts/auth-dev-credential.ts",
+    "governance:nominate-genesis": "node --import tsx scripts/genesis-nominate.ts",
     "verify": "npm run lint && npm run typecheck && npm run test:run && npm run build"
   },
   "dependencies": {

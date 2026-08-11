@@ -1,0 +1,8 @@
+ALTER TABLE "genesis_nominations" ADD COLUMN "consumed_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "genesis_nominations" ADD COLUMN "consumed_by_decision_id" uuid;--> statement-breakpoint
+ALTER TABLE "genesis_nominations" ADD CONSTRAINT "genesis_nominations_consumed_by_decision_id_decision_records_id_fk" FOREIGN KEY ("consumed_by_decision_id") REFERENCES "public"."decision_records"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "decision_records_one_bootstrap_per_tenant_uq" ON "decision_records" USING btree ("tenant_id") WHERE "decision_records"."bootstrap";--> statement-breakpoint
+CREATE UNIQUE INDEX "genesis_nominations_consumed_by_decision_uq" ON "genesis_nominations" USING btree ("consumed_by_decision_id") WHERE "genesis_nominations"."consumed_by_decision_id" is not null;--> statement-breakpoint
+ALTER TABLE "decision_records" ADD CONSTRAINT "decision_records_bootstrap_human_chk" CHECK ("decision_records"."bootstrap" = false or "decision_records"."actor_type" = 'human');--> statement-breakpoint
+ALTER TABLE "genesis_nominations" ADD CONSTRAINT "genesis_nominations_consumed_chk" CHECK (("genesis_nominations"."consumed_at" is null) = ("genesis_nominations"."consumed_by_decision_id" is null));--> statement-breakpoint
+ALTER TABLE "genesis_nominations" ADD CONSTRAINT "genesis_nominations_consumed_requires_accepted_chk" CHECK ("genesis_nominations"."consumed_at" is null or "genesis_nominations"."status" = 'accepted');

@@ -271,10 +271,14 @@ function main(): void {
 
   /* ── 29 (audit). NO new persistence, migration, or DB authority ──────────── */
   {
-    // HW3 introduced no migration. The newest migrations are the pre-existing R2D/R2E ones.
+    // HW3 introduced no migration. Asserted by NAME rather than by "the newest
+    // migration is R2E": a later unrelated phase may legitimately add one, and
+    // that must not read as HW3 having added it.
     const migrations = readdirSync("src/db/migrations").filter((f) => f.endsWith(".sql")).sort();
-    const newest = migrations[migrations.length - 1]!;
-    assert.ok(newest.includes("r2e_provider_connectivity_control"), `HW3 added no migration (newest is ${newest})`);
+    assert.ok(
+      migrations.some((f) => f.includes("r2e_provider_connectivity_control")),
+      "the pre-existing R2E migration is still present",
+    );
     for (const file of migrations) {
       assert.ok(!/hw3|quick_panel|surface/i.test(file), `no HW3/surface migration exists (${file})`);
     }

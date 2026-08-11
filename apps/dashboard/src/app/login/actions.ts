@@ -16,11 +16,21 @@ import {
 import { cookies } from "next/headers";
 
 /**
- * Local-identity sign-in (R1 pilot). Only functions when the auth environment is
- * configured for the `local` provider; in any other mode it fails closed. This
- * is identity selection for a seeded pilot identity — there is no credential
- * verification yet (a documented R1 limitation), so it must never run in a
- * Supabase/production configuration.
+ * Local sign-in with a VERIFIED credential (D1).
+ *
+ * Email + password. The password is verified with scrypt against the durable
+ * credential authority before any session material exists — an email alone can
+ * no longer mint a session, which is what this action did before D1.
+ *
+ * Only functions when the auth environment is configured for the `local`
+ * provider; in any other mode it fails closed.
+ *
+ * The password is read from the form, handed to the session service, and never
+ * touched again: it is not logged, not stored, not placed in the session, and
+ * never included in a redirect. `issued.diagnostic` distinguishes the failure
+ * causes server-side and is deliberately NOT surfaced — every sign-in failure
+ * redirects with the same generic marker so the page cannot be used to discover
+ * which email addresses exist.
  */
 export async function loginAction(formData: FormData): Promise<void> {
   const env = getAuthEnvironment();
@@ -29,14 +39,18 @@ export async function loginAction(formData: FormData): Promise<void> {
   }
 
   const email = String(formData.get("email") ?? "").trim();
-  if (!email) redirect("/login?error=invalid");
+  const password = String(formData.get("password") ?? "");
+  if (!email || !password) redirect("/login?error=invalid");
 
   const issued = await issueLocalSession(getControlPlaneDb(), env, {
     email,
+    password,
     requestId: randomUUID(),
   });
   if (issued.result.status !== "authorized") {
-    redirect(`/login?error=${issued.result.status}`);
+    // One marker for every cause: unknown email, wrong password, locked
+    // credential, and no membership are indistinguishable to the client.
+    redirect("/login?error=invalid");
   }
 
   await setSessionCookie(issued.reference, issued.maxAgeSeconds);

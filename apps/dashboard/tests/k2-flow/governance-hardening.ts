@@ -181,16 +181,35 @@ function main(): void {
       assert.ok(!code.includes("pgTable("), `${file} must not define a table`);
     }
 
-    // Exactly one module writes the shared audit sink.
+    /*
+     * Only declared `governance-audit` owners write the shared sink.
+     *
+     * This was "exactly one module" until G2.1 added pre-Governance genesis entitlement as a
+     * SIBLING audit domain — its own boundary constant and entity type, with neither side
+     * referencing the other's. The claim that matters for K2 is unchanged and still asserted just
+     * above: no Knowledge module reaches the sink directly. Knowledge's route remains
+     * `knowledge-mutation-audit.server.ts`, and nothing else writes Knowledge history.
+     */
     const sinkWriters: string[] = [];
     for (const file of walk("src")) {
       if (file.replace(/\\/g, "/").startsWith("src/db/schema/")) continue;
       if (read(file).includes('from "@/db/schema/audit-log"')) sinkWriters.push(file.replace(/\\/g, "/"));
     }
     assert.deepEqual(
-      sinkWriters,
-      ["src/features/governance-audit/knowledge-mutation-audit.server.ts"],
-      "one module owns the audit sink; Knowledge goes through it",
+      sinkWriters.sort(),
+      [
+        "src/features/governance-audit/genesis-nomination-audit.server.ts",
+        "src/features/governance-audit/governance-decision-audit.server.ts",
+        "src/features/governance-audit/knowledge-mutation-audit.server.ts",
+      ],
+      "only declared governance-audit owners write the sink; Knowledge goes through its own",
+    );
+    // The genesis sibling must not have quietly taken over Knowledge's entity type.
+    assert.ok(
+      !read("src/features/governance-audit/genesis-nomination-audit.server.ts").includes(
+        "KNOWLEDGE_ENTITY_TYPE",
+      ),
+      "the genesis writer must never file events under Knowledge's entity type",
     );
 
     // The writer records attribution on the canonical rows themselves.
@@ -207,20 +226,36 @@ function main(): void {
     for (const file of surfaces) {
       const code = codeOf(read(file)).toLowerCase();
       /*
-       * K3 added correction-by-supersession, so "supersede" is now legitimate. Editing, deleting,
-       * ratifying and approving remain absent — those capabilities still do not exist.
+       * K3 added correction-by-supersession, so "supersede" is legitimate. K4 added
+       * Governance-backed ratification of one exact version, so "ratify" and "reject" are now
+       * legitimate too — and they are NOT Knowledge editing themselves: a ratification adds
+       * Governance linkage and a rejection writes nothing at all.
+       *
+       * Editing, deleting, rolling back and blanket "approve" remain absent, because those
+       * capabilities still do not exist. That is what this assertion has always been for.
        */
-      for (const banned of ["deleteknowledge", "updateknowledge", "editknowledge", "ratifyknowledge", "approveknowledge", "rollbackknowledge"]) {
+      for (const banned of ["deleteknowledge", "updateknowledge", "editknowledge", "approveknowledge", "rollbackknowledge"]) {
         assert.ok(!code.includes(banned), `${file} must not expose "${banned}"`);
       }
     }
-    // The action module still exports exactly one mutation.
+    /*
+     * The action module's surface is a closed list, and it grows only when a real capability does.
+     * K4 added Governance review of one exact version: `ratify` binds a decision to that version,
+     * `reject` records a decision and writes nothing to Knowledge at all. Still absent, because
+     * they still do not exist: delete, edit, rollback, un-ratify.
+     */
     const actions = read("src/app/(dashboard)/knowledge/actions.ts");
     const exported = [...actions.matchAll(/export\s+async\s+function\s+(\w+)/g)].map((m) => m[1]);
     assert.deepEqual(
       exported.sort(),
-      ["createKnowledgeAction", "readKnowledgeVersionsAction", "supersedeKnowledgeAction"],
-      "two Knowledge mutations — create and supersede — plus one read. No delete, no edit.",
+      [
+        "createKnowledgeAction",
+        "ratifyKnowledgeVersionAction",
+        "readKnowledgeVersionsAction",
+        "rejectKnowledgeVersionAction",
+        "supersedeKnowledgeAction",
+      ],
+      "create, supersede, ratify, reject, plus one read. No delete, no edit, no rollback.",
     );
   }
 

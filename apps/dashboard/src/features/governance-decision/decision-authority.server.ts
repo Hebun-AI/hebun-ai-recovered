@@ -1,0 +1,533 @@
+/*
+ * governance-decision/decision-authority.server.ts — who may decide after genesis, and the
+ * narrowest reusable decision writer (G2).
+ *
+ * THE AUTHORIZATION RULE, AND WHERE IT COMES FROM. A tenant's Governance authority is the human
+ * named as `actor_id` on that tenant's `bootstrap = true` decision. That is derived from the
+ * repository, not invented — see `POST_BOOTSTRAP_AUTHORITY_MODEL` in contracts.ts for the three
+ * facts it rests on. It is resolved SERVER-SIDE from the durable session and the durable decision;
+ * a role band, a permission row, and a membership scope are all deliberately not consulted, because
+ * none of them was ever established by a Governance decision.
+ *
+ * RECORDING A DECISION CHANGES ONLY THE LEDGER. A `ratify` decision does NOT write
+ * `knowledge_nodes.ratified_at`, `ratification_decision_id`, or `governance_session_id`. This module
+ * does not import the Knowledge schema at all, so that binding is unavailable rather than merely
+ * unwritten — it is the whole content of a later phase.
+ *
+ * NO REVERSAL. There is no update, no delete, and no "change the justification" here. Superseding a
+ * decision is itself a Governance decision, and that runtime does not exist yet.
+ *
+ * Server-only.
+ */
+import { and, eq, sql } from "drizzle-orm";
+import { type ControlPlaneDatabase } from "@/db/client.server";
+import { decisionRecords, governanceSessions } from "@/db/schema/governance";
+import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { recordGovernanceEventWithin } from "@/features/governance-audit/governance-decision-audit.server";
+import {
+  GOVERNANCE_DECISION_TYPES,
+  GOVERNANCE_SUBJECT_TYPES,
+  SUBJECT_GOVERNANCE_DOMAIN,
+  type DecisionRefusal,
+  type DecisionResult,
+  type GovernanceDecisionType,
+  type GovernanceSubjectType,
+} from "./contracts";
+import {
+  DELEGATION_OUTCOME,
+  REVOCATION_OUTCOME,
+  type AuthorityDecisionType,
+  type AuthorityProvenance,
+  type AuthorityRosterLookup,
+  type AuthoritySubjectType,
+} from "./delegation-contracts";
+import {
+  resolveGovernanceDbOrNull,
+  validateJustification,
+  type GovernanceDeps,
+} from "./bootstrap-authority.server";
+
+export interface GovernanceAuthorityResolution {
+  readonly authorized: boolean;
+  /** The bootstrap decision id the authority flows from, or null when none exists. */
+  readonly bootstrapDecisionId: string | null;
+  /** The human the bootstrap established, or null. Never surfaced to another tenant. */
+  readonly authorityActorId: string | null;
+  /* ── G3 provenance ── */
+  /** How the CALLER holds authority. `none` when they do not. */
+  readonly via: "none" | "bootstrap" | "delegated";
+  /** The delegation decision the caller's authority came from. Null for the genesis human. */
+  readonly delegationDecisionId: string | null;
+  /** Who granted the caller's authority. Null for the genesis human — nobody granted the first. */
+  readonly grantedByActorId: string | null;
+}
+
+const NO_AUTHORITY: GovernanceAuthorityResolution = {
+  authorized: false,
+  bootstrapDecisionId: null,
+  authorityActorId: null,
+  via: "none",
+  delegationDecisionId: null,
+  grantedByActorId: null,
+};
+
+/**
+ * SQL for "the active delegations of a tenant", as one expression used by every reader.
+ *
+ * A delegation is ACTIVE when a committed `delegate-authority` decision exists and no committed
+ * `revoke` decision names it. That `not exists` is the entire revocation mechanism: revoking never
+ * touches the delegation row, so history stays exactly as written and "authority ended" is itself a
+ * durable decision rather than a deletion.
+ */
+function activeDelegationsSql(tenantId: string) {
+  return sql`
+    select d.id            as delegation_id,
+           d.subject_id    as grantee_user_id,
+           d.actor_id      as grantor_user_id,
+           d.decided_at    as since,
+           d.justification as justification,
+           d.authority_source_actor_id as grantor_authority_actor_id
+      from public.decision_records d
+     where d.tenant_id = ${tenantId}::uuid
+       and d.decision_type = 'delegate-authority'
+       and d.subject_type = 'user'
+       and d.actor_type = 'human'
+       and not exists (
+             select 1 from public.decision_records r
+              where r.tenant_id = d.tenant_id
+                and r.decision_type = 'revoke'
+                and r.subject_type = 'governance_decision'
+                and r.subject_id = d.id
+           )
+  `;
+}
+
+interface ActiveDelegationRow {
+  delegation_id: string;
+  grantee_user_id: string;
+  grantor_user_id: string;
+  since: Date;
+  justification: string;
+  grantor_authority_actor_id: string | null;
+}
+
+/**
+ * Resolve whether the authenticated human holds this tenant's Governance authority.
+ *
+ * TWO WAYS IN, AND ONLY TWO (G3). The caller is authorized when they are the actor on the tenant's
+ * bootstrap decision, or when an ACTIVE delegation names them. A revoked delegation resolves as not
+ * authorized — the `not exists` above is what makes that true, and it cannot be raced past because
+ * every authority mutation serializes on the bootstrap row (see `authority-delegation.server.ts`).
+ *
+ * Read-only, tenant-scoped, and fail-closed. What is deliberately NOT consulted: `roles.type`,
+ * `roles.authority_rank`, `memberships.authority_scope`, `permissions`, `role_permissions`, provider
+ * state, and anything the client supplied. None of them was ever established by a Governance
+ * decision, so none of them can grant Governance authority.
+ */
+export async function resolveGovernanceAuthority(
+  tenant: TenantContext | null,
+  deps: GovernanceDeps = {},
+): Promise<GovernanceAuthorityResolution> {
+  if (!tenant?.tenantId || !tenant.userId) return NO_AUTHORITY;
+  const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
+  if (!db) return NO_AUTHORITY;
+
+  try {
+    const rows = await db
+      .select({
+        id: decisionRecords.id,
+        actorType: decisionRecords.actorType,
+        actorId: decisionRecords.actorId,
+      })
+      .from(decisionRecords)
+      .where(
+        and(eq(decisionRecords.tenantId, tenant.tenantId), eq(decisionRecords.bootstrap, true)),
+      )
+      .limit(1);
+    const bootstrap = rows[0];
+    // No genesis means no Governance in this tenant at all — a delegation could not exist either,
+    // because only an authority can grant one.
+    if (!bootstrap) return NO_AUTHORITY;
+
+    const base = {
+      bootstrapDecisionId: bootstrap.id,
+      authorityActorId: bootstrap.actorId,
+    };
+
+    if (bootstrap.actorType === "human" && bootstrap.actorId === tenant.userId) {
+      return {
+        ...base,
+        authorized: true,
+        via: "bootstrap",
+        delegationDecisionId: null,
+        grantedByActorId: null,
+      };
+    }
+
+    const delegations = await db.execute(activeDelegationsSql(tenant.tenantId));
+    const mine = (delegations.rows as unknown as ActiveDelegationRow[]).find(
+      (row) => row.grantee_user_id === tenant.userId,
+    );
+    if (!mine) {
+      return { ...base, authorized: false, via: "none", delegationDecisionId: null, grantedByActorId: null };
+    }
+    return {
+      ...base,
+      authorized: true,
+      via: "delegated",
+      delegationDecisionId: mine.delegation_id,
+      grantedByActorId: mine.grantor_user_id,
+    };
+  } catch {
+    return NO_AUTHORITY;
+  }
+}
+
+/**
+ * The tenant's full authority roster, with provenance, for reads and for the surface.
+ *
+ * Tenant-scoped by predicate. Under A3-a the active list always contains at least the genesis
+ * human, because bootstrap authority is not revocable — a test asserts that.
+ */
+export async function readAuthorityRoster(
+  tenant: TenantContext | null,
+  deps: GovernanceDeps = {},
+): Promise<AuthorityRosterLookup> {
+  if (typeof window !== "undefined") {
+    throw new Error("Governance authority reads are server-only.");
+  }
+  if (!tenant?.tenantId || !tenant.userId) {
+    return { status: "unavailable", reason: "no-authorized-tenant-context" };
+  }
+  const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
+  if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
+
+  try {
+    const bootstrapRows = await db
+      .select()
+      .from(decisionRecords)
+      .where(
+        and(eq(decisionRecords.tenantId, tenant.tenantId), eq(decisionRecords.bootstrap, true)),
+      )
+      .limit(1);
+    const bootstrap = bootstrapRows[0];
+    if (!bootstrap) {
+      return {
+        status: "read",
+        roster: { active: [], revoked: [], viewerIsAuthority: false, viewerIsBootstrapAuthority: false },
+      };
+    }
+
+    const active: AuthorityProvenance[] = [
+      {
+        kind: "bootstrap",
+        actorId: bootstrap.actorId,
+        decisionId: bootstrap.id,
+        grantedByActorId: null,
+        grantorAuthorityDecisionId: null,
+        since: bootstrap.decidedAt.toISOString(),
+        justification: bootstrap.justification,
+      },
+    ];
+
+    const delegations = await db.execute(activeDelegationsSql(tenant.tenantId));
+    for (const row of delegations.rows as unknown as ActiveDelegationRow[]) {
+      active.push({
+        kind: "delegated",
+        actorId: row.grantee_user_id,
+        decisionId: row.delegation_id,
+        grantedByActorId: row.grantor_user_id,
+        grantorAuthorityDecisionId: row.grantor_authority_actor_id,
+        since: new Date(row.since).toISOString(),
+        justification: row.justification,
+      });
+    }
+
+    /* Revoked delegations. History is never deleted, so this is a join, not a tombstone table. */
+    const revokedRows = await db.execute(sql`
+      select d.id            as delegation_id,
+             d.subject_id    as grantee_user_id,
+             d.actor_id      as grantor_user_id,
+             d.decided_at    as since,
+             d.justification as justification,
+             d.authority_source_actor_id as grantor_authority_actor_id,
+             r.id            as revocation_id,
+             r.actor_id      as revoked_by,
+             r.decided_at    as revoked_at,
+             r.justification as revocation_justification
+        from public.decision_records d
+        join public.decision_records r
+          on r.tenant_id = d.tenant_id
+         and r.decision_type = 'revoke'
+         and r.subject_type = 'governance_decision'
+         and r.subject_id = d.id
+       where d.tenant_id = ${tenant.tenantId}::uuid
+         and d.decision_type = 'delegate-authority'
+         and d.subject_type = 'user'
+       order by r.decided_at desc
+    `);
+
+    const revoked = (revokedRows.rows as unknown as Array<
+      ActiveDelegationRow & {
+        revocation_id: string;
+        revoked_by: string;
+        revoked_at: Date;
+        revocation_justification: string;
+      }
+    >).map((row) => ({
+      kind: "delegated" as const,
+      actorId: row.grantee_user_id,
+      decisionId: row.delegation_id,
+      grantedByActorId: row.grantor_user_id,
+      grantorAuthorityDecisionId: row.grantor_authority_actor_id,
+      since: new Date(row.since).toISOString(),
+      justification: row.justification,
+      revokedAt: new Date(row.revoked_at).toISOString(),
+      revocationDecisionId: row.revocation_id,
+      revokedByActorId: row.revoked_by,
+      revocationJustification: row.revocation_justification,
+    }));
+
+    return {
+      status: "read",
+      roster: {
+        active,
+        revoked,
+        viewerIsAuthority: active.some((entry) => entry.actorId === tenant.userId),
+        viewerIsBootstrapAuthority: bootstrap.actorId === tenant.userId,
+      },
+    };
+  } catch {
+    return { status: "unavailable", reason: "persistence-unavailable" };
+  }
+}
+
+function refused(reason: DecisionRefusal): DecisionResult {
+  return { status: "refused", reason };
+}
+
+/**
+ * Confirm the subject exists AND belongs to the caller's tenant.
+ *
+ * The subject vocabulary is closed to one entry, so this is a real existence check against a real
+ * table rather than a shape test on a client string. A subject id belonging to another tenant
+ * resolves to nothing — indistinguishable from one that never existed.
+ *
+ * The table name is NOT interpolated from input: it is chosen by a `switch` over a union type, so
+ * there is no path by which a caller's value becomes part of a query.
+ */
+async function subjectExistsInTenant(
+  db: SubjectReader,
+  tenantId: string,
+  subjectType: GovernanceSubjectType,
+  subjectId: string,
+): Promise<boolean> {
+  switch (subjectType) {
+    case "knowledge_node": {
+      const rows = await db.execute(
+        sql`select 1 from public.knowledge_nodes where id = ${subjectId}::uuid and tenant_id = ${tenantId}::uuid limit 1`,
+      );
+      return rows.rows.length > 0;
+    }
+    default:
+      return false;
+  }
+}
+
+/** Anything that can run the subject existence check — the database, or an open transaction. */
+type SubjectReader = Pick<ControlPlaneDatabase, "execute">;
+
+/** A drizzle handle that can write a decision: the database, or an open transaction on it. */
+export type DecisionWriter = Pick<ControlPlaneDatabase, "insert" | "execute">;
+
+/**
+ * Write one Governance decision INSIDE a caller's transaction.
+ *
+ * This exists so a phase that must change something else atomically with the decision — K4 binding
+ * a ratification to an exact Knowledge version — can join this transaction rather than opening a
+ * second one. "Decision committed but the Knowledge binding failed" is not a state a second
+ * transaction could have prevented.
+ *
+ * The caller supplies the transaction and the already-resolved authority; it cannot supply the
+ * tenant, the actor, the bootstrap flag, or the timestamp.
+ */
+export async function writeGovernanceDecisionWithin(
+  tx: DecisionWriter,
+  tenant: TenantContext,
+  authority: GovernanceAuthorityResolution,
+  input: {
+    readonly decisionType: GovernanceDecisionType | AuthorityDecisionType;
+    readonly subjectType: GovernanceSubjectType | AuthoritySubjectType;
+    readonly subjectId: string;
+    readonly justification: string;
+    readonly evidence?: Record<string, unknown>;
+  },
+  now: Date,
+): Promise<{ readonly decisionId: string; readonly sessionId: string }> {
+  /*
+   * G3: an authority decision belongs to the `authority-delegation` domain — the domain the schema
+   * declares owns who holds authority, and the same one the genesis session already uses. Ordinary
+   * subjects keep their own mapping.
+   */
+  const domain =
+    input.subjectType === "user" || input.subjectType === "governance_decision"
+      ? ("authority-delegation" as const)
+      : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
+
+  const outcome =
+    input.decisionType === "delegate-authority"
+      ? DELEGATION_OUTCOME
+      : input.decisionType === "revoke"
+        ? REVOCATION_OUTCOME
+        : input.decisionType === "ratify"
+          ? "ratified"
+          : "rejected";
+
+  const sessionRows = await tx
+    .insert(governanceSessions)
+    .values({
+      tenantId: tenant.tenantId,
+      governanceDomain: domain,
+      decisionType: input.decisionType,
+      subjectType: input.subjectType,
+      subjectId: input.subjectId,
+      proposerActorType: "human",
+      proposerActorId: tenant.userId,
+      riskClass: "medium",
+      /* Unlike the genesis, an ordinary decision HAS a prior authority, and names it. */
+      authoritySourceActorType: "human",
+      authoritySourceActorId: authority.authorityActorId,
+      governanceLifecycleStatus: "recorded",
+      createdBy: tenant.userId,
+      createdByType: "human",
+    })
+    .returning({ id: governanceSessions.id });
+  const sessionId = sessionRows[0]!.id;
+
+  const decisionRows = await tx
+    .insert(decisionRecords)
+    .values({
+      tenantId: tenant.tenantId,
+      sessionId,
+      decisionType: input.decisionType,
+      subjectType: input.subjectType,
+      subjectId: input.subjectId,
+      actorType: "human",
+      actorId: tenant.userId,
+      authoritySourceActorType: "human",
+      authoritySourceActorId: authority.authorityActorId,
+      // Never a genesis. The database CHECK and unique index guard this independently.
+      bootstrap: false,
+      outcome,
+      justification: input.justification,
+      evidence: {
+        authorityFromBootstrapDecisionId: authority.bootstrapDecisionId,
+        ...(input.evidence ?? {}),
+      },
+      decidedAt: now,
+      createdBy: tenant.userId,
+      createdByType: "human",
+    })
+    .returning({ id: decisionRecords.id });
+
+  return { decisionId: decisionRows[0]!.id, sessionId };
+}
+
+/**
+ * Record one ordinary Governance decision under an established authority.
+ *
+ * The client supplies exactly three things: the decision type (a closed union), the subject (a
+ * closed type plus an id that must resolve inside its own tenant), and the human-authored
+ * justification. It cannot supply the tenant, the actor, the authority source, the bootstrap flag,
+ * the session, the timestamp, or the outcome.
+ *
+ * The decision, its session and its audit row commit together.
+ */
+export async function recordGovernanceDecision(
+  tenant: TenantContext | null,
+  input: {
+    readonly decisionType: string;
+    readonly subjectType: string;
+    readonly subjectId: string;
+    readonly justification: string;
+  },
+  deps: GovernanceDeps = {},
+): Promise<DecisionResult> {
+  if (typeof window !== "undefined") {
+    throw new Error("Governance decisions are server-only.");
+  }
+  if (!tenant?.tenantId || !tenant.userId) return refused("unauthenticated");
+  const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
+  if (!db) return refused("persistence-unavailable");
+  const now = (deps.now ?? (() => new Date()))();
+
+  if (!GOVERNANCE_DECISION_TYPES.includes(input?.decisionType as GovernanceDecisionType)) {
+    return refused("invalid-decision-type");
+  }
+  if (!GOVERNANCE_SUBJECT_TYPES.includes(input?.subjectType as GovernanceSubjectType)) {
+    return refused("subject-unresolvable");
+  }
+  const decisionType = input.decisionType as GovernanceDecisionType;
+  const subjectType = input.subjectType as GovernanceSubjectType;
+
+  const justification = validateJustification(input?.justification);
+  if (!justification) return refused("justification-required");
+
+  const authority = await resolveGovernanceAuthority(tenant, deps);
+  if (!authority.bootstrapDecisionId) return refused("no-governance-authority");
+  if (!authority.authorized) return refused("not-the-governance-authority");
+
+  try {
+    if (!(await subjectExistsInTenant(db, tenant.tenantId, subjectType, input.subjectId))) {
+      return refused("subject-unresolvable");
+    }
+
+    let recorded: { decisionId: string; sessionId: string } | null = null;
+
+    await db.transaction(async (tx) => {
+      const { decisionId, sessionId } = await writeGovernanceDecisionWithin(
+        tx,
+        tenant,
+        authority,
+        { decisionType, subjectType, subjectId: input.subjectId, justification },
+        now,
+      );
+
+      await recordGovernanceEventWithin(
+        tx,
+        {
+          tenantId: tenant.tenantId,
+          userId: tenant.userId,
+          requestId: tenant.requestId,
+          sessionContextId: tenant.sessionContextId,
+        },
+        {
+          action: "governance.decision.recorded",
+          outcome: "committed",
+          entityId: decisionId,
+          metadata: {
+            governanceSessionId: sessionId,
+            decisionType,
+            subjectType,
+            subjectId: input.subjectId,
+            bootstrap: false,
+          },
+        },
+        now,
+      );
+
+      recorded = { decisionId, sessionId };
+    });
+
+    if (!recorded) return refused("persistence-unavailable");
+    const outcome = recorded as { decisionId: string; sessionId: string };
+    return {
+      status: "recorded",
+      decisionId: outcome.decisionId,
+      sessionId: outcome.sessionId,
+      decidedAt: now.toISOString(),
+    };
+  } catch {
+    return refused("persistence-unavailable");
+  }
+}

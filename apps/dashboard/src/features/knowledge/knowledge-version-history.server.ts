@@ -149,7 +149,9 @@ export async function readKnowledgeVersionHistory(
         active: node.id === activeNodeId,
         lifecycleStatus: node.lifecycleStatus,
         authorityClass: node.authorityClass,
-        ratified: Boolean(node.ratificationDecisionId ?? node.ratifiedAt),
+        // K4: ratified means a Governance decision is bound to THIS version. A bare timestamp
+        // with no decision behind it is not a ratification — see the repository read.
+        ratified: Boolean(node.ratificationDecisionId),
         createdAt: iso(node.createdAt),
         createdBy: node.createdBy,
         supersedesEarlier: node.supersedes !== null,

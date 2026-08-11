@@ -12,12 +12,23 @@ export const AUTHENTICATION_ENV_KEYS = {
 
 /**
  * Identity provider mode.
- * - `supabase` (default): Supabase Auth is the sign-in provider; SUPABASE_URL +
- *   SUPABASE_ANON_KEY are required in addition to the control plane + digest.
- * - `local`: sign-in resolves against a seeded local identity in the control
- *   plane. No Supabase project is required. Session verification is identical in
- *   both modes (server-side digest lookup), so this is a real, enforced auth
- *   boundary — not a bypass.
+ * - `supabase` (default): Supabase Auth would be the sign-in provider; SUPABASE_URL
+ *   + SUPABASE_ANON_KEY are required in addition to the control plane + digest.
+ *   NOTE: no Supabase sign-in flow is implemented — the adapter is a marker
+ *   interface with no SDK. Configuring this mode does not produce a working login.
+ * - `local`: sign-in verifies a real password credential (D1) against
+ *   `auth_credentials` with scrypt, then resolves the canonical local identity in
+ *   the control plane. No Supabase project is required.
+ *
+ * D1 CORRECTION. Before D1 this comment claimed local mode was "a real, enforced
+ * auth boundary — not a bypass". That was true of SESSION VERIFICATION and
+ * misleading about SIGN-IN: an email alone minted a session, with no credential
+ * checked. Both halves are now real — a password is verified before any session
+ * exists — but the two claims are distinct and are stated separately on purpose.
+ *
+ * What `local` mode does NOT provide: MFA (every session is aal1,
+ * mfaVerified=false), password recovery, single sign-on, and any protection
+ * against distributed brute force beyond per-credential durable lockout.
  */
 export type AuthenticationProviderMode = "supabase" | "local";
 

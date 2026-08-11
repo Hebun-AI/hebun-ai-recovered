@@ -97,17 +97,55 @@ async function main(): Promise<void> {
      * This is recorded as a hazard in the K3 closure doc, not as a passing grade.
      */
     const LEGACY_ADAPTER = "src/features/persistence/supabase-postgres-adapter.ts";
+    /*
+     * ONE DELIBERATE EXCEPTION, ADDED BY K4 AND CONSTRAINED BY THE ASSERTION BELOW.
+     *
+     * `knowledge-ratification/ratify-version.server.ts` updates a node exactly once, to write the
+     * Governance ratification linkage — decision id, session id, ratifying actor, ratified-at —
+     * onto the exact version a Governance decision named. That is NOT an in-place content edit and
+     * it does not weaken K3's invariant: the statement, the label, the version counter, the
+     * supersession link and the authorship are all untouched, which the column-level assertion
+     * below pins. A correction is still a NEW version, always.
+     */
+    const RATIFICATION_WRITER = "src/features/knowledge-ratification/ratify-version.server.ts";
     const offenders: string[] = [];
     for (const file of walk("src")) {
       const normalized = file.replace(/\\/g, "/");
-      if (normalized === LEGACY_ADAPTER) continue;
+      if (normalized === LEGACY_ADAPTER || normalized === RATIFICATION_WRITER) continue;
       const code = codeOf(read(file));
       // Any drizzle update whose target is the nodes table.
       if (/\.update\(\s*knowledgeNodes\s*\)/.test(code)) offenders.push(normalized);
       // …or raw SQL doing the same.
       if (/update\s+knowledge_nodes/i.test(code)) offenders.push(normalized);
     }
-    assert.deepEqual(offenders, [], "no module updates a knowledge node — corrections insert a new one");
+    assert.deepEqual(
+      offenders,
+      [],
+      "only the ratification writer updates a knowledge node — corrections insert a new one",
+    );
+
+    /*
+     * And the exception is bounded by WHICH COLUMNS it may write. If a content column ever appears
+     * in that `.set({ ... })`, K3's invariant has been broken through K4's door.
+     */
+    const ratifyCode = codeOf(read(RATIFICATION_WRITER));
+    const setBlock = /\.update\(knowledgeNodes\)\s*\.set\(\{([\s\S]*?)\}\)/.exec(ratifyCode);
+    assert.ok(setBlock, "the ratification update sets its columns in one literal");
+    const written = [...setBlock![1]!.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]).sort();
+    assert.deepEqual(
+      written,
+      [
+        "governanceSessionId",
+        "ratificationDecisionId",
+        "ratifiedAt",
+        "ratifiedByActorId",
+        "ratifiedByActorType",
+        "updatedAt",
+        "updatedBy",
+        "updatedByType",
+      ],
+      "ratification writes Governance linkage and update attribution — never content, version, or lineage",
+    );
 
     // GUARD 1 — the legacy adapter is not routed to any collection.
     const storage = codeOf(read("src/features/persistence/storage-manager.ts"));
@@ -316,9 +354,18 @@ async function main(): Promise<void> {
     assert.deepEqual(committedAppends, [], "a committed correction is not double-recorded");
   }
 
-  /* ── 15. NO DELETE, NO ROLLBACK, NO RATIFICATION ────────────────────────── */
+  /* ── 15. NO DELETE, NO ROLLBACK ──────────────────────────────────────────
+   *
+   * `ratifyknowledge` left this list when K4 landed: ratification is now a real capability, and it
+   * is the opposite of the ones here. Deleting, purging, rolling back, restoring and reactivating
+   * all try to make a version other than what it was; a ratification adds a Governance decision's
+   * linkage to a version and changes nothing about its content — enforced column-by-column above.
+   *
+   * The K3 MODULES themselves still must not ratify: correction and ratification stay separate
+   * capabilities in separate modules, which is why the loop below still covers them.
+   */
   {
-    for (const file of [...K3_MODULES, WRITER, ACTION, CONTROL]) {
+    for (const file of [...K3_MODULES, WRITER, CONTROL]) {
       const code = codeOf(read(file)).toLowerCase();
       for (const banned of [
         "deleteknowledge", "purge", "softdelete", "rollbackknowledge", "restoreversion",
@@ -327,21 +374,41 @@ async function main(): Promise<void> {
         assert.ok(!code.includes(banned), `${file} must not expose "${banned}"`);
       }
     }
+    // The shared action module may ratify (K4) but still must never delete or roll back.
+    {
+      const code = codeOf(read(ACTION)).toLowerCase();
+      for (const banned of [
+        "deleteknowledge", "purge", "softdelete", "rollbackknowledge", "restoreversion",
+        "reactivate", "approveknowledge", "archiveversion",
+      ]) {
+        assert.ok(!code.includes(banned), `${ACTION} must not expose "${banned}"`);
+      }
+    }
     // Nothing deletes a node or a fact.
     for (const file of walk("src")) {
       const code = codeOf(read(file));
       assert.ok(!/\.delete\(\s*knowledgeNodes\s*\)/.test(code), `${file} must not delete a node`);
       assert.ok(!/\.delete\(\s*knowledgeFacts\s*\)/.test(code), `${file} must not delete a fact`);
     }
-    // The audit vocabulary gained supersede and nothing else.
-    assert.deepEqual([...KNOWLEDGE_MUTATION_ACTIONS], ["knowledge.create", "knowledge.supersede"]);
+    // The audit vocabulary gained supersede (K3), then ratify (K4). Delete and rollback remain absent.
+    assert.deepEqual([...KNOWLEDGE_MUTATION_ACTIONS], [
+      "knowledge.create",
+      "knowledge.supersede",
+      "knowledge.ratify",
+    ]);
 
     // The action module exposes exactly one new mutation, plus a read.
     const exported = [...read(ACTION).matchAll(/export\s+async\s+function\s+(\w+)/g)].map((m) => m[1]!);
     assert.deepEqual(
       exported.sort(),
-      ["createKnowledgeAction", "readKnowledgeVersionsAction", "supersedeKnowledgeAction"],
-      "create, correct, and read history — nothing else",
+      [
+        "createKnowledgeAction",
+        "ratifyKnowledgeVersionAction",
+        "readKnowledgeVersionsAction",
+        "rejectKnowledgeVersionAction",
+        "supersedeKnowledgeAction",
+      ],
+      "create, correct, review, and read history — nothing else",
     );
   }
 
@@ -438,11 +505,19 @@ async function main(): Promise<void> {
 
   /* ── 19. NO MIGRATION, NO DEPENDENCY ────────────────────────────────────── */
   {
-    assert.equal(
-      readdirSync("src/db/migrations").filter((n) => n.endsWith(".sql")).length,
-      17,
-      "K3 adds no migration — the supersession columns already existed",
+    // Phase-scoped rather than a global count, so an unrelated later migration
+    // cannot make this assertion claim K3 introduced one.
+    const k3Migrations = readdirSync("src/db/migrations").filter((n) => n.endsWith(".sql"));
+    assert.ok(
+      k3Migrations.includes("20260711203301_knowledge_reconciliation_foundation.sql"),
+      "the supersession columns came from the pre-existing reconciliation migration",
     );
+    for (const name of k3Migrations) {
+      assert.ok(
+        !/k3|supersede|supersession|version[-_]?history/i.test(name),
+        `K3 adds no migration — the supersession columns already existed (found ${name})`,
+      );
+    }
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
     assert.equal(Object.keys(pkg.dependencies).length, 8, "K3 adds no dependency");
   }

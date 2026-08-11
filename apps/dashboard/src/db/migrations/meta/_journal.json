@@ -120,6 +120,27 @@
       "when": 1786362357309,
       "tag": "20260810114557_r2e_provider_connectivity_control",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786454013371,
+      "tag": "20260811131333_d1_auth_credentials",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786459709412,
+      "tag": "20260811144829_g2_1_genesis_nomination",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786463911071,
+      "tag": "20260811155831_g2_governance_bootstrap_authority",
+      "breakpoints": true
     }
   ]
 }

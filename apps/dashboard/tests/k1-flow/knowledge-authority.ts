@@ -51,6 +51,10 @@ function record(overrides: Partial<KnowledgeSourceRecord> = {}): KnowledgeSource
     health: "current",
     ratified: true,
     ratifiedAt: "2026-01-01T00:00:00.000Z",
+    ratificationDecisionId: null,
+    governanceSessionId: null,
+    ratifiedByActorId: null,
+    activeKnowledgeNodeId: null,
     effectiveFrom: null,
     effectiveUntil: null,
     nextReviewAt: null,
@@ -110,11 +114,22 @@ function main(): void {
   /* ── 3. NO NEW MIGRATION, NO NEW DEPENDENCY ──────────────────────────────── */
   {
     const migrations = readdirSync("src/db/migrations").filter((name) => name.endsWith(".sql"));
-    assert.equal(
-      migrations.length,
-      17,
-      "K1 adds no migration — the canonical Knowledge tables already exist",
+    // Phase-scoped, not a global count: K1 must add no migration of its OWN, and
+    // the tables it reads must come from the pre-existing foundation migrations.
+    assert.ok(
+      migrations.includes("20260711203301_knowledge_reconciliation_foundation.sql"),
+      "knowledge_facts came from the pre-existing reconciliation migration",
     );
+    assert.ok(
+      migrations.includes("20260711173046_foundation_baseline.sql"),
+      "knowledge_nodes came from the pre-existing baseline migration",
+    );
+    for (const name of migrations) {
+      assert.ok(
+        !/k1|knowledge[-_]?read|knowledge[-_]?source/i.test(name),
+        `K1 adds no migration — the canonical Knowledge tables already exist (found ${name})`,
+      );
+    }
     const pkg = JSON.parse(read("package.json")) as {
       dependencies: Record<string, string>;
       devDependencies: Record<string, string>;

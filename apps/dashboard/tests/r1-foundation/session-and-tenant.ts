@@ -20,10 +20,15 @@ async function main(): Promise<void> {
     harness.migrateDatabase();
     await setup.connect();
 
+    // D1: an identity with no credential can no longer sign in, so the R1 session
+    // fixture now carries a real scrypt password. The session assertions below are
+    // unchanged — only the precondition for reaching them is stronger.
+    const ALICE_PASSWORD = "r1-fixture-password-9f2c";
     const alice = await seedLocalIdentity(setup, {
       companyName: "Acme",
       companySlug: "acme",
       email: "alice@acme.test",
+      password: ALICE_PASSWORD,
     });
 
     const env = resolveAuthenticationEnvironment({
@@ -38,6 +43,7 @@ async function main(): Promise<void> {
     // --- Issue a durable session and check the resolved tenant context ---
     const issued = await issueLocalSession(controlPlane.db, env, {
       email: "alice@acme.test",
+      password: ALICE_PASSWORD,
       requestId: "req-issue",
     });
     if (issued.result.status !== "authorized") {
@@ -81,7 +87,7 @@ async function main(): Promise<void> {
     const expiredIssue = await issueLocalSession(
       controlPlane.db,
       env,
-      { email: "alice@acme.test", requestId: "req-expired" },
+      { email: "alice@acme.test", password: ALICE_PASSWORD, requestId: "req-expired" },
       past,
     );
     assert.equal(expiredIssue.result.status, "authorized");
@@ -96,6 +102,7 @@ async function main(): Promise<void> {
     // --- Fail closed: revoked session ---
     const revokable = await issueLocalSession(controlPlane.db, env, {
       email: "alice@acme.test",
+      password: ALICE_PASSWORD,
       requestId: "req-revoke",
     });
     assert.equal(await revokeSessionByReference(controlPlane.db, env, revokable.reference), true);
@@ -109,6 +116,7 @@ async function main(): Promise<void> {
     // --- Fail closed: membership revoked AFTER issue (live re-validation) ---
     const liveCheck = await issueLocalSession(controlPlane.db, env, {
       email: "alice@acme.test",
+      password: ALICE_PASSWORD,
       requestId: "req-live",
     });
     await setup.query(

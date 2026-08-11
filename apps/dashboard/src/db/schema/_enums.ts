@@ -170,6 +170,37 @@ export const authIdentityStatusEnum = pgEnum("auth_identity_status", [
   "revoked",
 ]);
 
+/* D1 credential authority. A credential is the thing a human PROVES; it is not
+ * an identity and it grants no authorization by itself. `type` is a closed set
+ * so a new credential class is a deliberate schema decision, never an implicit
+ * one. The hashing ALGORITHM deliberately is NOT an enum — see auth-credential.ts. */
+export const authCredentialTypeEnum = pgEnum("auth_credential_type", [
+  "password",
+]);
+
+export const authCredentialStatusEnum = pgEnum("auth_credential_status", [
+  "active",
+  "revoked",
+]);
+
+/* G2.1 pre-Governance genesis nomination lifecycle.
+ *
+ *   pending   an operator ceremony nominated a human; nothing is entitled yet.
+ *   accepted  that human accepted it under a verified D1 session. This is the
+ *             entitlement a later G2 phase consumes; it is NOT authority itself.
+ *   revoked   the nomination no longer stands and can never be accepted.
+ *
+ * `revoked` is DECLARED BUT UNWRITTEN in G2.1: no code path produces it, because
+ * replacement/recovery semantics are not owned by this phase. It exists so that
+ * (a) the acceptance path is written against a closed set rather than a boolean,
+ * and (b) freeing a tenant's genesis slot later is a write, not a migration. A
+ * test asserts no G2.1 code path can produce it. */
+export const genesisNominationStatusEnum = pgEnum("genesis_nomination_status", [
+  "pending",
+  "accepted",
+  "revoked",
+]);
+
 export const membershipStatusEnum = pgEnum("membership_status", [
   "pending",
   "active",

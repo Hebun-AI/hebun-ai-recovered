@@ -23,14 +23,17 @@
  * correlationId/causationId (Spec 48 §7.3/§10.1) — writers are deferred.
  */
 
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   boolean,
+  check,
   index,
   integer,
   jsonb,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -142,5 +145,26 @@ export const decisionRecords = pgTable(
     index("decision_records_session_idx").on(t.sessionId),
     index("decision_records_subject_idx").on(t.subjectType, t.subjectId),
     index("decision_records_correlation_idx").on(t.correlationId),
+
+    /* ── G2: THE BOOTSTRAP INVARIANTS, NOW ENFORCED BY POSTGRES ──────────────
+     *
+     * The header above has documented both of these since the governance foundation
+     * migration, with the honest note that they were "enforced at the write layer
+     * later". G2 is that write layer, and a constitutional invariant that only the
+     * application enforces is not an invariant: two concurrent requests both read
+     * "no bootstrap yet" and both insert. These two constraints are what make the
+     * genesis of authority unrepeatable and non-delegable to a machine.
+     */
+
+    /** A tenant has exactly ONE genesis. Partial, so ordinary decisions are unconstrained. */
+    uniqueIndex("decision_records_one_bootstrap_per_tenant_uq")
+      .on(t.tenantId)
+      .where(sql`${t.bootstrap}`),
+
+    /** Spec 49 §4 human supremacy: an agent may never self-elevate into the genesis. */
+    check(
+      "decision_records_bootstrap_human_chk",
+      sql`${t.bootstrap} = false or ${t.actorType} = 'human'`,
+    ),
   ],
 );

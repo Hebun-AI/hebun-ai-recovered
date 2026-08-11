@@ -3,9 +3,17 @@
  * into an already-migrated control plane:
  *   company (tenant) -> user -> auth_identity(provider='local') -> role -> membership
  * Returns the ids so tests can assert the resolved tenant context.
+ *
+ * D1: an identity with no credential can no longer sign in, so this helper also
+ * provisions a REAL scrypt password credential when `password` is supplied. It
+ * hashes through the same production module the login path verifies with — the
+ * fixture is a real credential, not a shortcut around one. This provisioning
+ * exists ONLY here, in test/disposable infrastructure; no product surface
+ * creates credentials.
  */
 
 import type { Client } from "pg";
+import { hashPassword } from "../../src/features/auth-runtime/password-hash.server";
 
 export interface SeededLocalIdentity {
   readonly tenantId: string;
@@ -14,6 +22,8 @@ export interface SeededLocalIdentity {
   readonly roleId: string;
   readonly membershipId: string;
   readonly email: string;
+  /** Present only when a password was seeded. */
+  readonly credentialId?: string;
 }
 
 export interface SeedLocalIdentityInput {
@@ -23,6 +33,11 @@ export interface SeedLocalIdentityInput {
   readonly userName?: string;
   readonly roleName?: string;
   readonly roleType?: "owner" | "director" | "operator" | "auditor" | "member";
+  /**
+   * Development/test credential. When omitted the identity exists but CANNOT
+   * sign in — which is itself a case worth seeding deliberately.
+   */
+  readonly password?: string;
 }
 
 export async function seedLocalIdentity(
@@ -68,5 +83,34 @@ export async function seedLocalIdentity(
   );
   const membershipId = membership.rows[0]!.id;
 
-  return { tenantId, userId, authIdentityId, roleId, membershipId, email: input.email };
+  let credentialId: string | undefined;
+  if (input.password !== undefined) {
+    // Hashed by the production module, so the fixture is a real credential the
+    // real login path must verify — never a bypass.
+    const hashed = await hashPassword(input.password);
+    const credential = await client.query<{ id: string }>(
+      `insert into auth_credentials
+         (auth_identity_id, credential_type, algorithm, params, salt, secret_hash, status)
+       values ($1, 'password', $2, $3::jsonb, $4, $5, 'active')
+       returning id`,
+      [
+        authIdentityId,
+        hashed.algorithm,
+        JSON.stringify(hashed.params),
+        hashed.salt,
+        hashed.secretHash,
+      ],
+    );
+    credentialId = credential.rows[0]!.id;
+  }
+
+  return {
+    tenantId,
+    userId,
+    authIdentityId,
+    roleId,
+    membershipId,
+    email: input.email,
+    credentialId,
+  };
 }

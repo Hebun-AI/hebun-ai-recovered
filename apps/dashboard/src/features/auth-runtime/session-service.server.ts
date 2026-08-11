@@ -29,6 +29,12 @@ import {
   generateSessionReference,
 } from "./session-digest.server";
 import {
+  recordFailedAttempt,
+  recordSuccessfulVerification,
+  spendEquivalentCredentialWork,
+  verifyPasswordCredential,
+} from "./credential-repository.server";
+import {
   findActiveLocalIdentityByEmail,
   findPrimaryActiveMembership,
   findSessionByDigest,
@@ -44,10 +50,39 @@ export const SESSION_ASSURANCE_LEVEL = "aal1";
 
 const ACTIVE_TENANT_STATUSES = new Set(["active"]);
 
+/**
+ * Server-side-only classification of why a sign-in failed.
+ *
+ * The CLIENT never sees this. `no-identity`, `no-credential`, `bad-password` and
+ * `locked` all return the same `unauthenticated / invalid` result, because any
+ * externally visible difference between them is an account-enumeration oracle.
+ * This field exists so the server can still tell them apart in diagnostics.
+ */
+export type SignInDiagnostic =
+  | "ok"
+  | "no-identity"
+  | "no-credential"
+  | "bad-password"
+  | "locked"
+  | "no-membership"
+  | "tenant-inactive";
+
 export interface IssuedLocalSession {
   readonly reference: string;
   readonly maxAgeSeconds: number;
   readonly result: AuthenticationResult;
+  /** Server-only. Never returned to a client — see SignInDiagnostic. */
+  readonly diagnostic: SignInDiagnostic;
+}
+
+/** The single user-facing sign-in refusal. One shape for every failure cause. */
+function signInRefused(diagnostic: SignInDiagnostic): IssuedLocalSession {
+  return {
+    reference: "",
+    maxAgeSeconds: 0,
+    result: { status: "unauthenticated", reason: "invalid" },
+    diagnostic,
+  };
 }
 
 function unauthenticated(
@@ -63,28 +98,82 @@ function forbidden(
 }
 
 /**
- * Issue a durable local session for a seeded local identity. Returns the opaque
- * reference (for the cookie) plus the authorization result. Does NOT touch
- * cookies — the caller (a server action) sets it.
+ * Sign in a human with email + password, and on success issue a durable session.
+ *
+ * THE ORDER IS THE SECURITY PROPERTY. No session material is generated until a
+ * credential has actually been verified:
+ *
+ *   1. resolve the local identity for the email
+ *   2. load its ACTIVE password credential
+ *   3. refuse if that credential is temporarily locked
+ *   4. verify the password with scrypt, in constant time
+ *   5. resolve membership / tenant (authorization, deliberately AFTER step 4)
+ *   6. mint a fresh opaque session reference
+ *
+ * Steps 1-3 all spend the same scrypt work as step 4 before returning, so a
+ * missing identity, a missing credential and a wrong password are
+ * indistinguishable from outside in both body and timing.
+ *
+ * Membership and tenant are resolved but NOT granted here: this function never
+ * creates a membership, never chooses a role, and never upgrades one. It only
+ * refuses to issue a session for a human who has no usable place to be.
+ *
+ * Does NOT touch cookies — the caller (a server action) sets it.
  */
 export async function issueLocalSession(
   db: ControlPlaneDatabase,
   env: ConfiguredAuthenticationEnvironment,
-  input: { readonly email: string; readonly requestId: string },
+  input: {
+    readonly email: string;
+    readonly password: string;
+    readonly requestId: string;
+  },
   now: Date = new Date(),
 ): Promise<IssuedLocalSession> {
+  const password = typeof input.password === "string" ? input.password : "";
+
   const identity = await findActiveLocalIdentityByEmail(db, input.email.trim());
   if (!identity) {
-    return {
-      reference: "",
-      maxAgeSeconds: 0,
-      result: { status: "unauthenticated", reason: "invalid" },
-    };
+    // Spend the same work a real check costs, so an unknown email is not
+    // detectable by how quickly it is refused.
+    await spendEquivalentCredentialWork(password);
+    return signInRefused("no-identity");
   }
+
+  // The credential authority checks the password and returns only a verdict.
+  // No salt or hash crosses this boundary, so nothing here can leak one.
+  const verification = await verifyPasswordCredential(
+    db,
+    identity.authIdentityId,
+    password,
+    now,
+  );
+
+  if (verification.outcome === "no-credential") {
+    // No credential, or the only one is revoked. Externally identical to a wrong
+    // password: an identity without a usable credential must not be discoverable.
+    return signInRefused("no-credential");
+  }
+  if (verification.outcome === "locked") {
+    return signInRefused("locked");
+  }
+  if (verification.outcome === "rejected") {
+    await recordFailedAttempt(db, verification.credentialId, now);
+    return signInRefused("bad-password");
+  }
+
+  // Verified. Clear the failure state before anything else can fail — a human who
+  // proved their password must not keep a penalty because their tenant is inactive.
+  await recordSuccessfulVerification(db, verification.credentialId, now);
 
   const membership = await findPrimaryActiveMembership(db, identity.userId);
   if (!membership) {
-    return { reference: "", maxAgeSeconds: 0, result: forbidden("membership") };
+    return {
+      reference: "",
+      maxAgeSeconds: 0,
+      result: forbidden("membership"),
+      diagnostic: "no-membership",
+    };
   }
   if (
     membership.companyLifecycleStatus !== "active" ||
@@ -92,10 +181,20 @@ export async function issueLocalSession(
       !ACTIVE_TENANT_STATUSES.has(membership.companyTenantStatus)) ||
     membership.companyAuthenticationDisabled
   ) {
-    return { reference: "", maxAgeSeconds: 0, result: forbidden("tenant") };
+    return {
+      reference: "",
+      maxAgeSeconds: 0,
+      result: forbidden("tenant"),
+      diagnostic: "tenant-inactive",
+    };
   }
   if (!membership.roleId) {
-    return { reference: "", maxAgeSeconds: 0, result: forbidden("membership") };
+    return {
+      reference: "",
+      maxAgeSeconds: 0,
+      result: forbidden("membership"),
+      diagnostic: "no-membership",
+    };
   }
 
   const reference = generateSessionReference();
@@ -162,7 +261,12 @@ export async function issueLocalSession(
     now,
   });
 
-  return { reference, maxAgeSeconds: SESSION_ABSOLUTE_TTL_SECONDS, result };
+  return {
+    reference,
+    maxAgeSeconds: SESSION_ABSOLUTE_TTL_SECONDS,
+    result,
+    diagnostic: "ok",
+  };
 }
 
 /**

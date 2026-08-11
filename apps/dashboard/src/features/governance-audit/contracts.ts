@@ -36,11 +36,25 @@ export const KNOWLEDGE_ENTITY_TYPE = "knowledge_fact";
  * absent BY DESIGN, not by omission: restoring an older statement must produce a NEW version whose
  * content intentionally restores it, never a silent reactivation of a historical node.
  */
-export type KnowledgeMutationAction = "knowledge.create" | "knowledge.supersede";
+export type KnowledgeMutationAction =
+  | "knowledge.create"
+  | "knowledge.supersede"
+  /**
+   * K4 — a Governance ratify decision was BOUND to one exact version, writing that version's
+   * ratification linkage. It belongs in this vocabulary because it is a change to Knowledge: the
+   * decision itself is separately recorded under the `governance_decision` entity type, by a
+   * different sibling writer. Two truthful events about two different authorities, in one
+   * transaction — not one event duplicated.
+   *
+   * `knowledge.reject` is deliberately ABSENT: a rejection records a Governance decision and
+   * changes NOTHING in Knowledge, so there is no Knowledge mutation to file.
+   */
+  | "knowledge.ratify";
 
 export const KNOWLEDGE_MUTATION_ACTIONS: readonly KnowledgeMutationAction[] = [
   "knowledge.create",
   "knowledge.supersede",
+  "knowledge.ratify",
 ];
 
 /**
@@ -140,6 +154,15 @@ export interface KnowledgeMutationMetadata {
   readonly priorFactVersion?: number;
   /** The active node's version this mutation replaced. Set by a supersession. */
   readonly priorKnowledgeVersion?: number;
+
+  /* ── K4: the Governance linkage a ratification bound, by reference only ── */
+  /** The `decision_records` row that authorized this ratification. */
+  readonly ratificationDecisionId?: string;
+  /** The `governance_sessions` row that decision was made inside. */
+  readonly governanceSessionId?: string;
+  /** The ratification state BEFORE this mutation. Always false today: re-ratification is refused. */
+  readonly previouslyRatified?: boolean;
+
   readonly reason?: KnowledgeMutationReason;
 }
 

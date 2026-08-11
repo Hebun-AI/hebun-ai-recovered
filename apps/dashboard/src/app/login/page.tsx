@@ -5,11 +5,18 @@ import {
 } from "@/features/auth-runtime/request-session.server";
 import { loginAction } from "./actions";
 
+/*
+ * One message for every sign-in failure.
+ *
+ * Unknown email, wrong password, temporarily locked credential and missing
+ * membership all produce `invalid`. Distinguishing them here would turn this
+ * page into an account-enumeration oracle, so the wording deliberately says
+ * neither "no such user" nor "wrong password". The server keeps the real class
+ * in its own diagnostic, which never reaches the browser.
+ */
 const ERROR_MESSAGES: Record<string, string> = {
   unavailable: "Sign-in is not available in this configuration.",
-  invalid: "That identity was not recognized.",
-  forbidden: "That identity is not permitted to enter a workspace.",
-  unauthenticated: "That identity was not recognized.",
+  invalid: "Those sign-in details were not accepted.",
 };
 
 export default async function LoginPage(props: {
@@ -63,27 +70,42 @@ export default async function LoginPage(props: {
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Sign in to Hebun</h1>
         <p className="text-sm text-neutral-500">
-          Local pilot identity. Enter a seeded identity email to establish a
-          durable, server-side session.
+          Enter your email and password. Your password is verified on the server
+          before any session is created.
         </p>
       </div>
       {errorMessage ? (
         <p
           role="alert"
+          aria-live="assertive"
           className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
         >
+          {/* Prefixed so the failure is not signalled by colour alone. */}
+          <span className="font-medium">Sign-in failed. </span>
           {errorMessage}
         </p>
       ) : null}
       <form action={loginAction} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Identity email</span>
+        <label className="flex flex-col gap-1 text-sm" htmlFor="email">
+          <span className="font-medium">Email</span>
           <input
+            id="email"
             type="email"
             name="email"
             required
-            autoComplete="email"
+            autoComplete="username"
             placeholder="you@tenant.test"
+            className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm" htmlFor="password">
+          <span className="font-medium">Password</span>
+          <input
+            id="password"
+            type="password"
+            name="password"
+            required
+            autoComplete="current-password"
             className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
           />
         </label>
@@ -94,6 +116,11 @@ export default async function LoginPage(props: {
           Sign in
         </button>
       </form>
+      <p className="text-xs text-neutral-500">
+        Password recovery is not available yet — there is no reset flow in this
+        build. Single-factor sign-in only; MFA and single sign-on are not
+        implemented.
+      </p>
     </main>
   );
 }

@@ -90,6 +90,20 @@ export interface KnowledgeSourceRecord {
   /** Whether a ratification is actually recorded — not inferred from lifecycle. */
   readonly ratified: boolean;
   readonly ratifiedAt: string | null;
+  /*
+   * K4 ratification provenance. Present only when this exact version carries a bound Governance
+   * decision, so a reader can follow "ratified" back to the decision and the session that made it.
+   *
+   * RATIFIED IS NOT TRUE. It means the organization's Governance authority approved this version.
+   * There is deliberately no confidence, truth score, certainty, or quality figure here, because
+   * Hebun computes none and inventing one would turn an organizational status into a claim about
+   * reality.
+   */
+  readonly ratificationDecisionId: string | null;
+  readonly governanceSessionId: string | null;
+  readonly ratifiedByActorId: string | null;
+  /** The active version's own row id — what a Governance ratify decision binds to. */
+  readonly activeKnowledgeNodeId: string | null;
   readonly effectiveFrom: string | null;
   readonly effectiveUntil: string | null;
   readonly nextReviewAt: string | null;
