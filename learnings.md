@@ -391,3 +391,18 @@
 1. **What did we learn?** Unblocking one layer can reveal that the layer beneath was never settled either. Ask "who is entitled?" before "what does the code do?" — entitlement is not derivable from an empty table.
 2. **How does this improve Turkish Rug House?** The first person who can ratify company knowledge will be named deliberately, not inherited from whoever happened to hold an owner seat.
 3. **How does this become part of Hebun AI?** Authority is established by an explicit human decision, never inferred from a role, a flag, or an empty table. A phase that would have to guess who is entitled stops and asks.
+
+## Antika Store — Sıfırdan e-ticaret örneği (2026-08-11)
+
+- **Kurulum sürtünmesi tasarım kararıdır.** Örnek mağaza, hiçbir dış servis kurulmadan çalışsın diye dosya tabanlı depo (`data/db.json`) ve Stripe anahtarı yokken devreye giren "demo ödeme" moduyla yazıldı. `npm install && npm run dev` sonrası akışın sonu — sipariş fişi dâhil — görülebiliyor. Değerlendirilecek şey akışın kendisi, kurulum talimatı değil.
+- **Depo arayüzünü dar tut, sonra değiştirilebilsin.** `src/lib/db.ts` yalnız `getProducts / createOrder / markOrderPaid` gibi işlem adları sunuyor; Postgres/Drizzle'a geçişte çağıran taraf değişmeyecek. Dosya deposunun tek sunucu sınırı README'de açıkça yazılı — sessiz varsayım bırakılmadı.
+- **Fiyat asla istemciden alınmaz.** `/api/checkout` sepetten yalnız `productId` + adet kabul ediyor; tutar, stok ve kargo eşiği sunucudaki kayıttan yeniden hesaplanıyor. Ödemenin doğruluk kaynağı başarı sayfası değil, Stripe webhook'u; kullanıcı siteye hiç dönmese de sipariş "ödendi" oluyor.
+- **Tanıdık yerleşim, yabancı marka.** Panelin WordPress'e benzemesi istendi; benzerlik *yerleşimde* kuruldu (üst çubuk, koyu sol menü, satır işlemleri, sağda Yayınla/Kategori/Ürün verisi kutuları), görünüşte değil. Aynı kas hafızası, kendi tipografimiz.
+- **Görsel yokluğu boşluk olarak görünmemeli.** Fotoğrafsız ürünlerde gri kutu yerine slug'dan türetilen deterministik gravür plakası çiziliyor (beş bezeme ailesi × beş ton). İlk denemede tek motif vardı ve katalog tekrar ediyordu; motif ailesi eklemek, sayfayı "eksik" olmaktan çıkarıp "tasarlanmış" yaptı.
+- **Simetrik olmayan motife rastgele dönüş uygulama.** Rozet için hoş duran `rotate(0–45°)`, kilim göbeği ve kafeste her şeyi eğri gösterdi. Dönüş yalnız radyal simetrik motife bırakıldı — üretken görselde rastgeleliğin nerede biteceğine karar vermek, rastgeleliği eklemekten önemli.
+- **Middleware Node API'si kullanamaz.** Oturum imzası önce `node:crypto` ile yazıldı; middleware edge'de çalıştığı için `session.ts` Web Crypto'ya (`crypto.subtle`) taşındı ve `auth.ts` (çerez) ile ayrıldı. Aynı doğrulama iki çalışma ortamında da geçerli.
+
+### Haftalık 3 soru
+1. **What did we learn?** Bir örneğin ikna gücü, kurulum adımlarının sayısıyla ters orantılı. Anahtar yoksa akış durmamalı — düşürülmüş bir mod (demo ödeme, üretilen görsel) çalışan hikâyeyi ayakta tutar; eksik olanı da panelde açıkça söyler.
+2. **How does this improve Turkish Rug House?** Halı satışı için gereken vitrin–künye–sepet–ödeme–panel zinciri artık çalışır hâlde duruyor. Künye alanları (Dönem, Menşe, Malzeme, Ölçü, Durum) halı için doğrudan kullanılabilir; ürün kartındaki tekillik vurgusu TRH'nin gerçek stok yapısıyla örtüşüyor.
+3. **How does this become part of Hebun AI?** Hebun Commerce'in vitrin katmanı bu iskeletten çıkabilir: dar depo arayüzü, sunucuda doğrulanan fiyat, webhook'u doğruluk kaynağı sayan ödeme ve tanıdık yerleşimli yönetim paneli. Değiştirilecek olan veri katmanı; ürün, sipariş ve panel akışları olduğu gibi taşınır.

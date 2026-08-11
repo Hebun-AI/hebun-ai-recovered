@@ -1,0 +1,390 @@
+{
+  "categories": [
+    {
+      "id": "cat_mobilya",
+      "slug": "mobilya-ahsap",
+      "name": "Mobilya & Ahşap",
+      "era": "1860 — 1940",
+      "description": "Osmanlı sedef kakmasından Art Deco konsollara; ustasının elinden çıktığı gibi korunmuş ahşap parçalar. Her biri restorasyon raporuyla birlikte teslim edilir."
+    },
+    {
+      "id": "cat_hali",
+      "slug": "hali-kilim",
+      "name": "Halı & Kilim",
+      "era": "1780 — 1930",
+      "description": "Anadolu'nun dokuma hafızası: Uşak, Bergama, Kula ve Kafkas düğümleri. Doğal kök boya, elde eğrilmiş yün, okunabilir desen dili."
+    },
+    {
+      "id": "cat_gumus",
+      "slug": "gumus-tombak",
+      "name": "Gümüş & Tombak",
+      "era": "1800 — 1925",
+      "description": "Damgası okunan gümüş takımlar, tombak buhurdanlar, telkâri işçilikli kutular. Ayar damgaları fotoğraflanarak belgelenir."
+    },
+    {
+      "id": "cat_seramik",
+      "slug": "seramik-cini",
+      "name": "Seramik & Çini",
+      "era": "1750 — 1935",
+      "description": "İznik'in sır altı kırmızısı, Kütahya'nın ince firuzesi, Avrupa porselenlerinin Osmanlı siparişleri. Çatlak ve tamir izleri künyede açıkça belirtilir."
+    },
+    {
+      "id": "cat_obje",
+      "slug": "saat-obje",
+      "name": "Saat & Objet d'Art",
+      "era": "1820 — 1950",
+      "description": "Çalışır durumda masa saatleri, pirinç dürbünler, yazı takımları ve vitrin objeleri. Mekanik parçalar sevk öncesi bakımdan geçirilir."
+    }
+  ],
+  "products": [
+    {
+      "id": "prd_001",
+      "slug": "sedef-kakma-osmanli-konsol",
+      "title": "Sedef Kakma Osmanlı Konsol",
+      "reference": "TRH-014",
+      "categorySlug": "mobilya-ahsap",
+      "priceKurus": 18500000,
+      "stock": 1,
+      "status": "yayinda",
+      "featured": true,
+      "excerpt": "Ceviz gövde üzerine el işçiliği sedef ve bağa kakma; Şam işi geometrik göbek deseni.",
+      "description": "19. yüzyılın son çeyreğinde İstanbul'da üretilmiş, Şam işi geleneğini sürdüren bir konsol.\nCeviz gövdenin tüm görünen yüzeyleri sedef, bağa ve abanoz ile kakılmış; göbekteki on iki köşeli yıldız deseni tek parça halinde işlenmiş.\nÜst tabla orijinal, iki çekmece orijinal kilit mekanizmasıyla çalışır durumda. 2019'da yüzey temizliği ve gomalak cila yenilemesi yapıldı; ahşapta yapısal müdahale yoktur.",
+      "attributes": [
+        { "label": "Dönem", "value": "y. 1885" },
+        { "label": "Menşe", "value": "İstanbul" },
+        { "label": "Malzeme", "value": "Ceviz, sedef, bağa" },
+        { "label": "Ölçü", "value": "112 × 46 × 84 cm" },
+        { "label": "Durum", "value": "Çok iyi — restore" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-01-14T09:20:00.000Z",
+      "updatedAt": "2026-01-14T09:20:00.000Z"
+    },
+    {
+      "id": "prd_002",
+      "slug": "usak-madalyonlu-hali",
+      "title": "Uşak Madalyonlu Halı",
+      "reference": "TRH-021",
+      "categorySlug": "hali-kilim",
+      "priceKurus": 24750000,
+      "stock": 1,
+      "status": "yayinda",
+      "featured": true,
+      "excerpt": "Kök boya yün üzerine büyük madalyon kompozisyon; havı dengeli, kenar suyu tam.",
+      "description": "Batı Anadolu, Uşak yöresi. 19. yüzyıl ortası. Kırmızı zemin üzerine lacivert madalyon ve dört köşe çeyrek madalyon kompozisyonu.\nAtkı ve çözgü yün, düğüm Türk (Gördes). Renkler tamamen kök boya; kırmızıda kökboya, lacivertte çivit kullanılmış.\nHav yüksekliği dengeli, aşınma yok denecek kadar az. Kenar suları dört tarafta tam, saçaklar dönemsel onarımlı.",
+      "attributes": [
+        { "label": "Dönem", "value": "y. 1850" },
+        { "label": "Menşe", "value": "Uşak, Anadolu" },
+        { "label": "Malzeme", "value": "Yün üzerine yün, kök boya" },
+        { "label": "Ölçü", "value": "310 × 208 cm" },
+        { "label": "Durum", "value": "İyi — orijinal" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-01-16T11:05:00.000Z",
+      "updatedAt": "2026-01-16T11:05:00.000Z"
+    },
+    {
+      "id": "prd_003",
+      "slug": "tombak-buhurdan",
+      "title": "Tombak Buhurdan",
+      "reference": "TRH-032",
+      "categorySlug": "gumus-tombak",
+      "priceKurus": 4850000,
+      "stock": 2,
+      "status": "yayinda",
+      "featured": true,
+      "excerpt": "Bakır üzerine altın amalgam tombak; kapak deliklerinde rumi motif dizisi.",
+      "description": "Osmanlı, 19. yüzyıl başı. Bakır gövde üzerine cıva altın yaldız (tombak) tekniğiyle üretilmiş buhurdan.\nKapak, delik işi rumi motiflerle bezenmiş; menteşe orijinal ve sorunsuz çalışıyor. Ayak kısmında dönem onarımı görülür.\nYaldız yüzeyin yaklaşık %85'i korunmuş; kullanımdan kaynaklı doğal aşınma tabanda yoğunlaşıyor.",
+      "attributes": [
+        { "label": "Dönem", "value": "y. 1810" },
+        { "label": "Menşe", "value": "Osmanlı" },
+        { "label": "Malzeme", "value": "Bakır üzerine altın yaldız" },
+        { "label": "Ölçü", "value": "Y 24 cm, Ø 13 cm" },
+        { "label": "Durum", "value": "İyi — dönem onarımlı" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-01-19T14:40:00.000Z",
+      "updatedAt": "2026-01-19T14:40:00.000Z"
+    },
+    {
+      "id": "prd_004",
+      "slug": "kutahya-cini-surahi",
+      "title": "Kütahya Çini Sürahi",
+      "reference": "TRH-040",
+      "categorySlug": "seramik-cini",
+      "priceKurus": 2950000,
+      "stock": 3,
+      "status": "yayinda",
+      "featured": true,
+      "excerpt": "Beyaz hamur üzerine firuze ve mangan; boyun kısmında ince rumi bordür.",
+      "description": "Kütahya, 18. yüzyıl sonu. Beyaz hamur üzerine sır altı firuze, mangan moru ve kobalt ile bezenmiş sürahi.\nGövdede serbest fırça çalışması yaprak ve rozet dizileri, boyunda ince rumi bordür.\nSırda dönemsel kılcal çatlaklar (craquelure) mevcut; kırık, tamir veya eksik parça yoktur. Dip kısmında atölye işareti okunmuyor.",
+      "attributes": [
+        { "label": "Dönem", "value": "y. 1790" },
+        { "label": "Menşe", "value": "Kütahya" },
+        { "label": "Malzeme", "value": "Sır altı boyalı çini" },
+        { "label": "Ölçü", "value": "Y 28 cm" },
+        { "label": "Durum", "value": "Çok iyi — kılcal çatlak" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-01-21T08:15:00.000Z",
+      "updatedAt": "2026-01-21T08:15:00.000Z"
+    },
+    {
+      "id": "prd_005",
+      "slug": "fransiz-bronz-masa-saati",
+      "title": "Fransız Bronz Masa Saati",
+      "reference": "TRH-047",
+      "categorySlug": "saat-obje",
+      "priceKurus": 13200000,
+      "stock": 1,
+      "status": "yayinda",
+      "featured": true,
+      "excerpt": "Paris mekaniği, yaldızlı bronz kasa; yarım saat başı çan vuruşlu, çalışır durumda.",
+      "description": "Paris, y. 1870. Yaldızlı ve patinalı bronz kasa içinde sekiz gün kurmalı Paris mekaniği.\nEmaye kadran çatlaksız, orijinal akrep-yelkovan takımı yerinde. Saat başı ve yarım saat başı çan vuruşu çalışıyor.\nMekanik 2025 yazında temizlenip yağlandı; anahtarı ve orijinal sarkacı ile birlikte teslim edilir.",
+      "attributes": [
+        { "label": "Dönem", "value": "y. 1870" },
+        { "label": "Menşe", "value": "Paris" },
+        { "label": "Malzeme", "value": "Yaldızlı bronz, emaye" },
+        { "label": "Ölçü", "value": "42 × 18 × 47 cm" },
+        { "label": "Durum", "value": "Çalışır — bakımlı" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-01-24T16:00:00.000Z",
+      "updatedAt": "2026-01-24T16:00:00.000Z"
+    },
+    {
+      "id": "prd_006",
+      "slug": "gumus-telkari-kutu",
+      "title": "Gümüş Telkâri Kutu",
+      "reference": "TRH-053",
+      "categorySlug": "gumus-tombak",
+      "priceKurus": 3450000,
+      "stock": 2,
+      "status": "yayinda",
+      "featured": false,
+      "excerpt": "Midyat işi telkâri; 900 ayar damgalı, iç kısmı orijinal kadife kaplama.",
+      "description": "Midyat, 20. yüzyıl başı. Elde çekilmiş gümüş tellerin lehimlenmesiyle üretilmiş telkâri kutu.\nKapakta yıldız göbek, yanlarda sarmal dal deseni. 900 ayar damgası ve ustanın harf damgası kapak içinde okunur durumda.\nİç astar orijinal bordo kadife; menteşe ve kilit dili sağlam.",
+      "attributes": [
+        { "label": "Dönem", "value": "y. 1915" },
+        { "label": "Menşe", "value": "Midyat" },
+        { "label": "Malzeme", "value": "900 ayar gümüş" },
+        { "label": "Ölçü", "value": "16 × 11 × 7 cm" },
+        { "label": "Durum", "value": "Çok iyi — orijinal" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-01-27T10:30:00.000Z",
+      "updatedAt": "2026-01-27T10:30:00.000Z"
+    },
+    {
+      "id": "prd_007",
+      "slug": "art-deco-ceviz-konsol",
+      "title": "Art Deco Ceviz Konsol",
+      "reference": "TRH-058",
+      "categorySlug": "mobilya-ahsap",
+      "priceKurus": 9750000,
+      "stock": 1,
+      "status": "yayinda",
+      "featured": false,
+      "excerpt": "1930'lar İstanbul üretimi; damarlı ceviz kaplama, pirinç detaylı ayak bileziği.",
+      "description": "İstanbul, 1930'lar. Art Deco çizgisini takip eden, damarlı ceviz kaplamalı konsol.\nÖn yüzde simetrik kitap açımı kaplama, alt kısımda pirinç bilezikli konik ayaklar.\nCila 2023'te elden geçirildi; kaplamada kabarma veya eksik bulunmuyor. İki çekmece orijinal kulplarıyla.",
+      "attributes": [
+        { "label": "Dönem", "value": "y. 1935" },
+        { "label": "Menşe", "value": "İstanbul" },
+        { "label": "Malzeme", "value": "Ceviz kaplama, pirinç" },
+        { "label": "Ölçü", "value": "126 × 42 × 78 cm" },
+        { "label": "Durum", "value": "Çok iyi — restore" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-02-02T09:00:00.000Z",
+      "updatedAt": "2026-02-02T09:00:00.000Z"
+    },
+    {
+      "id": "prd_008",
+      "slug": "kafkas-sirvan-kilim",
+      "title": "Kafkas Şirvan Kilim",
+      "reference": "TRH-061",
+      "categorySlug": "hali-kilim",
+      "priceKurus": 6900000,
+      "stock": 1,
+      "status": "yayinda",
+      "featured": false,
+      "excerpt": "Basamaklı madalyon dizisi; ince dokuma, canlı fakat doğal kök boya renkler.",
+      "description": "Kafkasya, Şirvan bölgesi, 19. yüzyıl sonu. Zemin boyunca üç basamaklı madalyon, aralarda küçük yıldız dolgular.\nDokuma ince ve düzgün; arka yüzde desen net okunuyor. Renk paleti canlı, tamamı doğal boya.\nBir kısa kenarda 4 cm'lik dönem onarımı var, göze çarpmıyor.",
+      "attributes": [
+        { "label": "Dönem", "value": "y. 1890" },
+        { "label": "Menşe", "value": "Şirvan, Kafkasya" },
+        { "label": "Malzeme", "value": "Yün, kök boya" },
+        { "label": "Ölçü", "value": "268 × 152 cm" },
+        { "label": "Durum", "value": "İyi — küçük onarım" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-02-05T13:10:00.000Z",
+      "updatedAt": "2026-02-05T13:10:00.000Z"
+    },
+    {
+      "id": "prd_009",
+      "slug": "pirinc-denizci-durbunu",
+      "title": "Pirinç Denizci Dürbünü",
+      "reference": "TRH-066",
+      "categorySlug": "saat-obje",
+      "priceKurus": 2250000,
+      "stock": 4,
+      "status": "yayinda",
+      "featured": false,
+      "excerpt": "Üç kademeli sürgülü gövde, deri kaplama; optikler temiz, orijinal kutusunda.",
+      "description": "İngiltere, y. 1900. Üç kademeli sürgülü pirinç gövde, gövde üzerinde orijinal deri kaplama.\nObjektif ve oküler camlar çizik ve mantarsız; net görüntü veriyor. Sürgüler sıkı ve düzgün çalışıyor.\nDönemsel ahşap kutusuyla birlikte teslim edilir.",
+      "attributes": [
+        { "label": "Dönem", "value": "y. 1900" },
+        { "label": "Menşe", "value": "İngiltere" },
+        { "label": "Malzeme", "value": "Pirinç, deri" },
+        { "label": "Ölçü", "value": "Kapalı 28 cm / açık 76 cm" },
+        { "label": "Durum", "value": "Çalışır — çok iyi" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-02-09T15:25:00.000Z",
+      "updatedAt": "2026-02-09T15:25:00.000Z"
+    },
+    {
+      "id": "prd_010",
+      "slug": "iznik-sir-alti-tabak",
+      "title": "İznik Sır Altı Tabak",
+      "reference": "TRH-072",
+      "categorySlug": "seramik-cini",
+      "priceKurus": 41500000,
+      "stock": 1,
+      "status": "yayinda",
+      "featured": false,
+      "excerpt": "Kabartma mercan kırmızısı ile lale ve karanfil kompozisyonu; koleksiyonluk parça.",
+      "description": "İznik, 17. yüzyıl. Beyaz hamur üzerine kobalt, firuze ve kabartma mercan kırmızısı ile lale, karanfil ve hatayi kompozisyonu.\nKenar bordüründe klasik bulut-kaya (çintemani türevi) dizisi. Sır parlak ve büyük ölçüde sağlam.\nArka yüzde iki adet dönem çapağı; ekspertiz raporu parçayla birlikte verilir. Yurt dışı satışı, kültür varlığı mevzuatı gereği yapılmaz.",
+      "attributes": [
+        { "label": "Dönem", "value": "17. yy" },
+        { "label": "Menşe", "value": "İznik" },
+        { "label": "Malzeme", "value": "Sır altı boyalı çini" },
+        { "label": "Ölçü", "value": "Ø 31 cm" },
+        { "label": "Durum", "value": "Çok iyi — raporlu" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-02-12T11:45:00.000Z",
+      "updatedAt": "2026-02-12T11:45:00.000Z"
+    },
+    {
+      "id": "prd_011",
+      "slug": "osmanli-gumus-cay-takimi",
+      "title": "Osmanlı Gümüş Çay Takımı",
+      "reference": "TRH-078",
+      "categorySlug": "gumus-tombak",
+      "priceKurus": 7850000,
+      "stock": 1,
+      "status": "yayinda",
+      "featured": false,
+      "excerpt": "Tuğralı, altı parça; kabartma badem deseni ve abanoz saplı demlik.",
+      "description": "Osmanlı, II. Abdülhamid dönemi tuğrası taşıyan altı parçalık gümüş çay takımı.\nDemlik, şekerlik, sütlük, tepsi ve iki adet zarf. Gövdelerde kabartma bademli lobe deseni.\nDemliğin sapı abanoz, orijinal ve sağlam. Tuğra ve sah damgası tepsinin arka yüzünde net okunuyor.",
+      "attributes": [
+        { "label": "Dönem", "value": "y. 1895" },
+        { "label": "Menşe", "value": "İstanbul" },
+        { "label": "Malzeme", "value": "Gümüş, abanoz" },
+        { "label": "Ölçü", "value": "Tepsi 46 × 32 cm" },
+        { "label": "Durum", "value": "Çok iyi — tuğralı" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-02-16T09:35:00.000Z",
+      "updatedAt": "2026-02-16T09:35:00.000Z"
+    },
+    {
+      "id": "prd_012",
+      "slug": "abanoz-yazi-takimi",
+      "title": "Abanoz Yazı Takımı",
+      "reference": "TRH-084",
+      "categorySlug": "mobilya-ahsap",
+      "priceKurus": 1950000,
+      "stock": 0,
+      "status": "taslak",
+      "featured": false,
+      "excerpt": "Fildişi kakmalı abanoz kutu, orijinal hokka ve kalemlikleriyle. (Ekspertiz sürüyor)",
+      "description": "Abanoz gövde üzerine ince fildişi kakma çerçeve. İçinde iki cam hokka yuvası, kalemlik ve kurutma kumu bölmesi.\nEkspertiz süreci devam ettiği için taslak olarak bekletiliyor; tarihlendirme netleştiğinde yayına alınacak.",
+      "attributes": [
+        { "label": "Dönem", "value": "İnceleniyor" },
+        { "label": "Menşe", "value": "Osmanlı (?)" },
+        { "label": "Malzeme", "value": "Abanoz, fildişi" },
+        { "label": "Ölçü", "value": "34 × 22 × 9 cm" },
+        { "label": "Durum", "value": "Ekspertizde" }
+      ],
+      "imageUrl": "",
+      "createdAt": "2026-02-20T12:00:00.000Z",
+      "updatedAt": "2026-02-20T12:00:00.000Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "ord_001",
+      "number": "TRH-2026-0001",
+      "status": "odendi",
+      "items": [
+        {
+          "productId": "prd_004",
+          "title": "Kütahya Çini Sürahi",
+          "reference": "TRH-040",
+          "slug": "kutahya-cini-surahi",
+          "unitPriceKurus": 2950000,
+          "quantity": 1
+        }
+      ],
+      "totalKurus": 2950000,
+      "customerName": "Elif Karaca",
+      "customerEmail": "elif@example.com",
+      "stripeSessionId": "cs_test_ornek_0001",
+      "createdAt": "2026-02-18T07:41:00.000Z"
+    },
+    {
+      "id": "ord_002",
+      "number": "TRH-2026-0002",
+      "status": "beklemede",
+      "items": [
+        {
+          "productId": "prd_009",
+          "title": "Pirinç Denizci Dürbünü",
+          "reference": "TRH-066",
+          "slug": "pirinc-denizci-durbunu",
+          "unitPriceKurus": 2250000,
+          "quantity": 2
+        }
+      ],
+      "totalKurus": 4500000,
+      "customerName": "Mert Doğan",
+      "customerEmail": "mert@example.com",
+      "stripeSessionId": "cs_test_ornek_0002",
+      "createdAt": "2026-02-21T15:12:00.000Z"
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg_001",
+      "name": "Ayşe Yıldırım",
+      "email": "ayse@example.com",
+      "subject": "Uşak halısı için ekspertiz raporu",
+      "body": "Merhaba, TRH-021 numaralı Uşak halısının ekspertiz raporunu satın almadan önce görebilir miyim? Ayrıca İzmir'e kargo süresi ne kadar olur?",
+      "read": false,
+      "createdAt": "2026-02-22T09:05:00.000Z"
+    },
+    {
+      "id": "msg_002",
+      "name": "Kaan Ersoy",
+      "email": "kaan@example.com",
+      "subject": "Koleksiyon değerlendirmesi",
+      "body": "Dedemden kalan 40 parçalık gümüş koleksiyonu için değerlendirme randevusu almak istiyorum. Hafta içi öğleden sonra müsaitim.",
+      "read": true,
+      "createdAt": "2026-02-20T16:30:00.000Z"
+    }
+  ],
+  "settings": {
+    "siteTitle": "MİRÂS",
+    "tagline": "Antika & Koleksiyon Evi — 1974'ten beri",
+    "email": "merhaba@miras-antika.com",
+    "phone": "+90 212 000 00 00",
+    "address": "Çukurcuma Cad. No 14, Beyoğlu / İstanbul",
+    "workingHours": "Salı — Cumartesi, 11:00 — 19:00",
+    "instagram": "@miras.antika",
+    "freeShippingLimitKurus": 5000000,
+    "shippingFeeKurus": 45000
+  }
+}
