@@ -75,10 +75,21 @@ async function addMember(client: Client, tenantId: string, email: string): Promi
      values ($1, 'local', 'hebun-local', $2, 'active', true, now()) returning id`,
     [userId, `local:${email}`],
   );
-  const role = await client.query<{ id: string }>(
-    `insert into roles (tenant_id, name, type) values ($1, $2, 'member') returning id`,
-    [tenantId, `Role ${email}`],
+  /*
+   * I1.1 made "at most one ordinary member role per tenant" constitutional
+   * (`roles_one_member_per_tenant_uq`), so this fixture reuses the tenant's member role instead of
+   * minting one per human — which is also what the product actually does.
+   */
+  const existing = await client.query<{ id: string }>(
+    `select id from roles where tenant_id = $1 and type = 'member' limit 1`,
+    [tenantId],
   );
+  const role = existing.rows[0]
+    ? existing
+    : await client.query<{ id: string }>(
+        `insert into roles (tenant_id, name, type) values ($1, 'Member', 'member') returning id`,
+        [tenantId],
+      );
   const membership = await client.query<{ id: string }>(
     `insert into memberships (tenant_id, user_id, role_id, status)
      values ($1, $2, $3, 'active') returning id`,

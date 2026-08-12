@@ -36,17 +36,29 @@ import {
 } from "./credential-repository.server";
 import {
   findActiveLocalIdentityByEmail,
+  findActiveMemberships,
+  findMembershipForUser,
   findPrimaryActiveMembership,
   findSessionByDigest,
+  findTenantCandidates,
   insertSessionContext,
   revokeSession,
   touchSessionActivity,
+  type MembershipResolution,
   type SessionResolutionRow,
+  type TenantCandidate,
 } from "./identity-repository.server";
 
 export const SESSION_INACTIVITY_TTL_SECONDS = 30 * 60; // 30 minutes
 export const SESSION_ABSOLUTE_TTL_SECONDS = 8 * 60 * 60; // 8 hours
 export const SESSION_ASSURANCE_LEVEL = "aal1";
+
+/**
+ * How long a PRE-TENANT receipt lives. Deliberately short: it is a half-finished sign-in, not a
+ * working session. An abandoned workspace picker should stop being a cookie worth stealing quickly,
+ * and ten minutes is long enough to read a list and click.
+ */
+export const PRE_TENANT_SESSION_TTL_SECONDS = 10 * 60; // 10 minutes
 
 const ACTIVE_TENANT_STATUSES = new Set(["active"]);
 
@@ -65,7 +77,13 @@ export type SignInDiagnostic =
   | "bad-password"
   | "locked"
   | "no-membership"
-  | "tenant-inactive";
+  | "tenant-inactive"
+  /**
+   * The credential was proven and the human holds MORE THAN ONE active membership, so no tenant can
+   * be resolved without asking. Unlike the four authentication failures above, this one IS visible
+   * to the client — it is not a failure and it reveals nothing about anybody else's account.
+   */
+  | "tenant-selection-required";
 
 export interface IssuedLocalSession {
   readonly reference: string;
@@ -165,6 +183,25 @@ export async function issueLocalSession(
   // Verified. Clear the failure state before anything else can fail — a human who
   // proved their password must not keep a penalty because their tenant is inactive.
   await recordSuccessfulVerification(db, verification.credentialId, now);
+
+  /*
+   * ── ZERO / ONE / MANY ──────────────────────────────────────────────────────
+   *
+   * Credential verification answered WHO. How many places they may work is a separate question, and
+   * `findPrimaryActiveMembership` could only ever answer it for one. The list is read here, and the
+   * three outcomes the `AuthenticationResult` contract has always declared become reachable:
+   *
+   *   0  → `onboarding-required`        a verified human who belongs nowhere yet
+   *   1  → `authorized`                 UNCHANGED — the same row, the same session, no regression
+   *   2+ → `tenant-selection-required`  the human chooses; the server never guesses
+   *
+   * The 1-membership path deliberately still calls `findPrimaryActiveMembership`, so the behaviour
+   * every existing test asserts is produced by the same function it always was.
+   */
+  const memberships = await findActiveMemberships(db, identity.userId);
+  if (memberships.length !== 1) {
+    return issuePreTenantSession(db, env, identity, memberships, now);
+  }
 
   const membership = await findPrimaryActiveMembership(db, identity.userId);
   if (!membership) {
@@ -270,6 +307,94 @@ export async function issueLocalSession(
 }
 
 /**
+ * Issue a PRE-TENANT receipt: the credential is proven, the active tenant is not yet decided.
+ *
+ * WHAT THIS ROW IS NOT. It carries no tenant and no membership, so `assembleAuthorized` is never
+ * called for it, no `TenantContext` can be built from it, `resolveTenantContext()` returns null, the
+ * dashboard gate refuses it (`status !== "authorized"`), and every governed server action refuses a
+ * null tenant. It authorizes nothing. Its only power is to let the workspace picker know who is
+ * choosing, without asking for the password a second time.
+ *
+ * The row shape has always been legal — `user_session_contexts_tenant_membership_chk` permits both
+ * columns NULL and the composite foreign key is MATCH SIMPLE. Nothing had ever written one.
+ */
+async function issuePreTenantSession(
+  db: ControlPlaneDatabase,
+  env: ConfiguredAuthenticationEnvironment,
+  identity: {
+    readonly userId: string;
+    readonly authIdentityId: string;
+    readonly provider: string;
+    readonly issuer: string;
+    readonly subject: string;
+  },
+  memberships: readonly MembershipResolution[],
+  now: Date,
+): Promise<IssuedLocalSession> {
+  const reference = generateSessionReference();
+  const key = env.sessionDigestCurrentKey;
+  const hash = digestSessionReference(reference, key);
+  const expiresAt = new Date(now.getTime() + PRE_TENANT_SESSION_TTL_SECONDS * 1000);
+
+  await insertSessionContext(db, {
+    authIdentityId: identity.authIdentityId,
+    providerSessionReferenceHash: hash,
+    providerSessionReferenceDigestVersion: key.version,
+    userId: identity.userId,
+    activeTenantId: null,
+    activeMembershipId: null,
+    membershipVersion: null,
+    assuranceLevel: SESSION_ASSURANCE_LEVEL,
+    mfaVerified: false,
+    authenticatedAt: now,
+    issuedAt: now,
+    lastActivityAt: now,
+    absoluteExpiresAt: expiresAt,
+    inactivityExpiresAt: expiresAt,
+  });
+
+  const providerAuthentication: ProviderAuthentication = {
+    provider: identity.provider,
+    issuer: identity.issuer,
+    subject: identity.subject,
+    authenticatedAt: now.toISOString(),
+    assuranceLevel: "aal1",
+    mfaVerified: false,
+    providerSessionReferenceHash: hash,
+    providerSessionReferenceDigestVersion: key.version,
+  };
+
+  if (memberships.length === 0) {
+    return {
+      reference,
+      maxAgeSeconds: PRE_TENANT_SESSION_TTL_SECONDS,
+      result: { status: "onboarding-required", providerAuthentication },
+      diagnostic: "no-membership",
+    };
+  }
+
+  return {
+    reference,
+    maxAgeSeconds: PRE_TENANT_SESSION_TTL_SECONDS,
+    result: {
+      status: "tenant-selection-required",
+      canonicalIdentity: {
+        authIdentityId: identity.authIdentityId,
+        userId: identity.userId,
+        provider: identity.provider,
+        issuer: identity.issuer,
+        subject: identity.subject,
+        identityStatus: "active",
+        userLifecycleStatus: "active",
+      },
+      /* Derived here, from live rows. A client can neither supply nor extend this list. */
+      eligibleTenantIds: memberships.map((entry) => entry.tenantId),
+    },
+    diagnostic: "tenant-selection-required",
+  };
+}
+
+/**
  * Resolve an opaque session reference to an AuthenticationResult. Tries the
  * current digest key, then the previous (rotation), then re-validates the live
  * identity / membership / tenant. Fails closed on every anomaly.
@@ -305,9 +430,37 @@ export async function resolveSessionFromReference(
   ) {
     return unauthenticated("expired");
   }
-  if (!row.activeTenantId || !row.activeMembershipId) return forbidden("tenant");
   if (row.identityStatus !== "active") return forbidden("identity");
   if (row.userLifecycleStatus !== "active") return forbidden("user");
+
+  /*
+   * A PRE-TENANT receipt. It is not `forbidden` — the human proved their credential and simply has
+   * not chosen yet — but it is emphatically not `authorized` either, so the dashboard gate still
+   * refuses it and no `TenantContext` exists. The candidates are re-derived from LIVE rows on every
+   * resolve, so a membership revoked while the picker was open disappears from it immediately.
+   */
+  if (!row.activeTenantId || !row.activeMembershipId) {
+    const candidates = await findActiveMemberships(db, row.userId);
+    if (candidates.length === 0) {
+      return {
+        status: "onboarding-required",
+        providerAuthentication: preTenantProviderAuthentication(row, match.version, match.hash),
+      };
+    }
+    return {
+      status: "tenant-selection-required",
+      canonicalIdentity: {
+        authIdentityId: row.authIdentityId,
+        userId: row.userId,
+        provider: row.identityProvider!,
+        issuer: row.identityIssuer!,
+        subject: row.identitySubject!,
+        identityStatus: "active",
+        userLifecycleStatus: "active",
+      },
+      eligibleTenantIds: candidates.map((entry) => entry.tenantId),
+    };
+  }
   if (
     row.membershipStatus !== "active" ||
     row.membershipRevokedAt !== null ||
@@ -362,6 +515,227 @@ export async function resolveSessionFromReference(
   }
 
   return result;
+}
+
+/** Provider evidence for a pre-tenant receipt, built from the row that already exists. */
+function preTenantProviderAuthentication(
+  row: SessionResolutionRow,
+  digestVersion: number,
+  digestHash: string,
+): ProviderAuthentication {
+  return {
+    provider: row.identityProvider!,
+    issuer: row.identityIssuer!,
+    subject: row.identitySubject!,
+    authenticatedAt: row.authenticatedAt.toISOString(),
+    assuranceLevel: "aal1",
+    mfaVerified: row.mfaVerified,
+    providerSessionReferenceHash: digestHash,
+    providerSessionReferenceDigestVersion: digestVersion,
+  };
+}
+
+/** Why a tenant selection was refused. The client never learns which membership exists. */
+export type TenantSelectionRefusal =
+  /** No usable pre-tenant receipt: missing, expired, revoked, or already tenant-bound. */
+  | "no-selection-context"
+  /**
+   * The named membership is not a live entitlement of THIS human. Deliberately one reason for
+   * "never existed", "belongs to somebody else", "revoked", "no role" and "tenant disabled" — any
+   * difference between them would let a guessed uuid probe the membership table.
+   */
+  | "membership-unavailable";
+
+export type TenantSelectionOutcome =
+  | {
+      readonly status: "selected";
+      /** A FRESH reference. The pre-tenant one is revoked and can never be used again. */
+      readonly reference: string;
+      readonly maxAgeSeconds: number;
+      readonly result: AuthenticationResult;
+    }
+  | { readonly status: "refused"; readonly reason: TenantSelectionRefusal };
+
+/**
+ * Turn a pre-tenant receipt into a tenant-bound session for ONE chosen membership.
+ *
+ * ── SELECTION IS NOT AUTHORIZATION. REVALIDATION IS. ─────────────────────────
+ *
+ * The membership id arrives from a client that was shown a list some moments ago. Everything in
+ * that list may since have changed, so NOTHING from it is trusted:
+ *
+ *   1. the human is re-resolved from the durable pre-tenant row, never from input;
+ *   2. the membership is re-read BY ID **AND** by that human's `user_id`, so another human's
+ *      entitlement resolves to nothing;
+ *   3. status, lifecycle, revocation and role are re-checked from the row just read;
+ *   4. the tenant's own lifecycle and authentication posture are re-checked;
+ *   5. `membership_version` is taken from the row read NOW, so the session can never carry a stale
+ *      version — the resolver would reject it on the very next request anyway.
+ *
+ * ── A FRESH SESSION, NOT A MUTATED ONE ───────────────────────────────────────
+ *
+ * Nothing in this repository has ever changed a session's tenant after issuance: the only writers
+ * are an activity touch and a revocation. A session is an authentication receipt, and rewriting
+ * which tenant a receipt was for would destroy its provenance and invite confused-deputy behaviour.
+ * So a NEW reference is minted, a NEW row is written, and the pre-tenant row is revoked — the old
+ * cookie is dead the instant the new one exists.
+ */
+export async function selectTenantForSession(
+  db: ControlPlaneDatabase,
+  env: ConfiguredAuthenticationEnvironment,
+  reference: string,
+  input: { readonly membershipId: string; readonly requestId: string },
+  now: Date = new Date(),
+): Promise<TenantSelectionOutcome> {
+  const trimmed = reference?.trim();
+  if (!trimmed) return { status: "refused", reason: "no-selection-context" };
+
+  const keys = [env.sessionDigestCurrentKey];
+  if (env.sessionDigestPreviousKey) keys.push(env.sessionDigestPreviousKey);
+
+  let current: SessionResolutionRow | undefined;
+  for (const key of keys) {
+    const row = await findSessionByDigest(db, key.version, digestSessionReference(trimmed, key));
+    if (row) {
+      current = row;
+      break;
+    }
+  }
+  if (!current) return { status: "refused", reason: "no-selection-context" };
+
+  /* Expired, or already tenant-bound: neither is a selection context. */
+  if (
+    now.getTime() >= current.inactivityExpiresAt.getTime() ||
+    now.getTime() >= current.absoluteExpiresAt.getTime() ||
+    current.activeTenantId !== null ||
+    current.activeMembershipId !== null ||
+    current.identityStatus !== "active" ||
+    current.userLifecycleStatus !== "active"
+  ) {
+    return { status: "refused", reason: "no-selection-context" };
+  }
+
+  /* THE REVALIDATION. By id AND by the authenticated human, together. */
+  const membershipId = typeof input?.membershipId === "string" ? input.membershipId.trim() : "";
+  if (!membershipId) return { status: "refused", reason: "membership-unavailable" };
+  const membership = await findMembershipForUser(db, current.userId, membershipId);
+  if (!membership || !membership.roleId) {
+    return { status: "refused", reason: "membership-unavailable" };
+  }
+  if (
+    membership.companyLifecycleStatus !== "active" ||
+    (membership.companyTenantStatus !== null &&
+      !ACTIVE_TENANT_STATUSES.has(membership.companyTenantStatus)) ||
+    membership.companyAuthenticationDisabled
+  ) {
+    return { status: "refused", reason: "membership-unavailable" };
+  }
+
+  /* A fresh receipt, bound to exactly what was just revalidated. */
+  const nextReference = generateSessionReference();
+  const key = env.sessionDigestCurrentKey;
+  const hash = digestSessionReference(nextReference, key);
+  const inactivityExpiresAt = new Date(now.getTime() + SESSION_INACTIVITY_TTL_SECONDS * 1000);
+  const absoluteExpiresAt = new Date(now.getTime() + SESSION_ABSOLUTE_TTL_SECONDS * 1000);
+
+  const sessionContextId = await insertSessionContext(db, {
+    authIdentityId: current.authIdentityId,
+    providerSessionReferenceHash: hash,
+    providerSessionReferenceDigestVersion: key.version,
+    userId: current.userId,
+    activeTenantId: membership.tenantId,
+    activeMembershipId: membership.membershipId,
+    membershipVersion: membership.membershipVersion,
+    assuranceLevel: SESSION_ASSURANCE_LEVEL,
+    mfaVerified: false,
+    authenticatedAt: current.authenticatedAt,
+    issuedAt: now,
+    lastActivityAt: now,
+    absoluteExpiresAt,
+    inactivityExpiresAt,
+  });
+
+  /*
+   * The pre-tenant receipt dies here. Revoked AFTER the new row exists, so a failure at insert time
+   * leaves the human holding a still-usable picker rather than nothing at all.
+   */
+  await revokeSession(db, current.sessionContextId, now, "tenant-selected");
+
+  const result = assembleAuthorized({
+    row: {
+      sessionContextId,
+      sessionVersion: 1,
+      authIdentityId: current.authIdentityId,
+      userId: current.userId,
+      activeTenantId: membership.tenantId,
+      activeMembershipId: membership.membershipId,
+      sessionMembershipVersion: membership.membershipVersion,
+      assuranceLevel: SESSION_ASSURANCE_LEVEL,
+      mfaVerified: false,
+      authenticatedAt: current.authenticatedAt,
+      issuedAt: now,
+      lastActivityAt: now,
+      absoluteExpiresAt,
+      inactivityExpiresAt,
+      revokedAt: null,
+      identityStatus: "active",
+      identityProvider: current.identityProvider,
+      identityIssuer: current.identityIssuer,
+      identitySubject: current.identitySubject,
+      userLifecycleStatus: "active",
+      membershipStatus: "active",
+      membershipCurrentVersion: membership.membershipVersion,
+      membershipRevokedAt: null,
+      membershipRoleId: membership.roleId,
+      companyLifecycleStatus: membership.companyLifecycleStatus,
+      companyTenantStatus: membership.companyTenantStatus,
+      companyAuthenticationDisabledAt: null,
+    },
+    digestVersion: key.version,
+    digestHash: hash,
+    requestId: input.requestId,
+    now,
+  });
+
+  return {
+    status: "selected",
+    reference: nextReference,
+    maxAgeSeconds: SESSION_ABSOLUTE_TTL_SECONDS,
+    result,
+  };
+}
+
+/**
+ * The workspaces this pre-tenant receipt may choose between.
+ *
+ * Read-only, and derived entirely from the durable row: the caller supplies a cookie reference and
+ * nothing else, so it cannot widen its own list. Returns an empty list rather than an error when the
+ * receipt is unusable, because a picker that cannot say who it belongs to has nothing to show.
+ */
+export async function readSelectableWorkspaces(
+  db: ControlPlaneDatabase,
+  env: ConfiguredAuthenticationEnvironment,
+  reference: string,
+  now: Date = new Date(),
+): Promise<readonly TenantCandidate[]> {
+  const trimmed = reference?.trim();
+  if (!trimmed) return [];
+  const keys = [env.sessionDigestCurrentKey];
+  if (env.sessionDigestPreviousKey) keys.push(env.sessionDigestPreviousKey);
+  for (const key of keys) {
+    const row = await findSessionByDigest(db, key.version, digestSessionReference(trimmed, key));
+    if (!row) continue;
+    if (
+      now.getTime() >= row.absoluteExpiresAt.getTime() ||
+      row.activeTenantId !== null ||
+      row.identityStatus !== "active" ||
+      row.userLifecycleStatus !== "active"
+    ) {
+      return [];
+    }
+    return findTenantCandidates(db, row.userId);
+  }
+  return [];
 }
 
 /**

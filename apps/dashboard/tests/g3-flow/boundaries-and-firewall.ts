@@ -78,11 +78,25 @@ function main(): void {
      * `..._g2_governance_bootstrap_authority.sql` legitimately contains the word "authority", so a
      * name filter would either miss a G3 migration or flag G2's. If this number changes, a phase
      * added schema and must have gone through Gate B first.
+     *
+     * I1 and I1.1 are those cases: each went through Gate B and added exactly one migration, for a
+     * different subsystem. The assertion keeps its meaning by naming every migration that may exist
+     * beyond G2's, so a future phase still cannot add schema silently.
      */
     const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((n) =>
       n.endsWith(".sql"),
     );
-    assert.equal(migrations.length, 20, "G3 adds no migration — authority is derived from decisions");
+    const G2_MIGRATION = "20260811155831_g2_governance_bootstrap_authority.sql";
+    const beyondG2 = migrations.filter((n) => n > G2_MIGRATION).sort();
+    assert.deepEqual(
+      beyondG2,
+      [
+        "20260812090301_i1_membership_authorization.sql",
+        "20260812105312_i1_1_tenant_role_baseline.sql",
+        "20260812130555_i1_2_identity_enrollment.sql",
+      ],
+      "G3 adds no migration — authority is derived from decisions; only the I1/I1.1/I1.2 Gate-B migrations follow G2",
+    );
     assert.deepEqual(
       migrations.filter((n) => /_g3_|deleg/i.test(n)),
       [],
@@ -326,11 +340,17 @@ function main(): void {
 
   /* ── T11: AUDIT USES THE GOVERNANCE SIBLING, NOT KNOWLEDGE'S ─────────────── */
   {
+    /* I1, I1.1 and I1.2 added their own actions — different subsystems using the same sibling sink,
+     * which is exactly what this assertion is meant to allow and to keep visible. */
     assert.deepEqual([...GOVERNANCE_AUDIT_ACTIONS], [
       "governance.bootstrap.established",
       "governance.decision.recorded",
       "governance.authority.delegated",
       "governance.authority.revoked",
+      "governance.membership.authorized",
+      "governance.role.provisioned",
+      "governance.identity.enrollment.approved",
+      "governance.identity.enrollment.rejected",
     ]);
     const delegation = codeOf(read(DELEGATION));
     assert.match(delegation, /action: "governance\.authority\.delegated"/);

@@ -1,0 +1,2 @@
+ALTER TYPE "public"."governance_domain" ADD VALUE 'organizational-role';--> statement-breakpoint
+CREATE UNIQUE INDEX "roles_one_member_per_tenant_uq" ON "roles" USING btree ("tenant_id") WHERE "roles"."type" = 'member';

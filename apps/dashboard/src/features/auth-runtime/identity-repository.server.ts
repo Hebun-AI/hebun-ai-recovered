@@ -7,7 +7,7 @@
  * closed with a precise reason (identity / membership / tenant / session).
  */
 
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import {
   authIdentities,
@@ -17,6 +17,15 @@ import {
   users,
   userSessionContexts,
 } from "@/db/schema";
+
+/**
+ * Anything that can read: the database, or an open transaction on it. Needed because Identity
+ * establishment must commit atomically with the credential and the ceremony completion that
+ * accompany it, and a transaction is not assignable to the full database type.
+ */
+export type IdentityReader = Pick<ControlPlaneDatabase, "execute">;
+/** Anything that can write one row: the database, or an open transaction on it. */
+export type IdentityWriter = Pick<ControlPlaneDatabase, "insert">;
 
 export interface LocalIdentityRow {
   readonly userId: string;
@@ -37,14 +46,36 @@ export interface MembershipResolution {
   readonly companyAuthenticationDisabled: boolean;
 }
 
+/**
+ * ONE selectable entitlement, as a human choosing a workspace may see it.
+ *
+ * Deliberately thin: the membership id (the thing being selected), the tenant it belongs to, and
+ * display names. NO role id, NO membership version, NO authority scope, NO governance provenance —
+ * a picker needs to tell workspaces apart, not to carry authority. Everything authoritative is
+ * re-resolved server-side at selection time, so nothing here is trusted on the way back.
+ */
+export interface TenantCandidate {
+  readonly membershipId: string;
+  readonly tenantId: string;
+  readonly tenantName: string;
+  readonly roleName: string | null;
+}
+
 export interface SessionContextInsert {
   readonly authIdentityId: string;
   readonly providerSessionReferenceHash: string;
   readonly providerSessionReferenceDigestVersion: number;
   readonly userId: string;
-  readonly activeTenantId: string;
-  readonly activeMembershipId: string;
-  readonly membershipVersion: number;
+  /**
+   * NULL together when the session is a PRE-TENANT receipt — a human whose credential is verified
+   * and whose active tenant is not yet decided. `user_session_contexts_tenant_membership_chk` is
+   * `(active_tenant_id IS NULL) = (active_membership_id IS NULL)`, so both-NULL has always been a
+   * legal row; nothing had ever written one. A pre-tenant row carries NO tenant authority: the
+   * resolver refuses to build a `TenantContext` from it, so it authorizes nothing.
+   */
+  readonly activeTenantId: string | null;
+  readonly activeMembershipId: string | null;
+  readonly membershipVersion: number | null;
   readonly assuranceLevel: string;
   readonly mfaVerified: boolean;
   readonly authenticatedAt: Date;
@@ -117,6 +148,90 @@ export async function findActiveLocalIdentityByEmail(
 }
 
 /**
+ * Is a human already known to Hebun at this address?
+ *
+ * Case-insensitive by design: `users_email_uq` is on the exact string, but a seeded row may carry
+ * mixed case, and "the same human" must not depend on capitalisation. The same comparison the
+ * operator-only credential tooling already performs when it looks a human up by address.
+ *
+ * Read-only. Returns a boolean, never a row: a caller asking "is this address taken" must not
+ * receive an account directory as a side effect.
+ */
+export async function isEmailClaimed(
+  db: IdentityReader,
+  normalizedEmail: string,
+): Promise<boolean> {
+  const rows = await db.execute(
+    sql`select 1 from public.users where lower(email) = ${normalizedEmail} limit 1`,
+  );
+  return rows.rows.length > 0;
+}
+
+/** The coordinates of the local identity to establish. Every value is server-resolved. */
+export interface LocalIdentityInsert {
+  /** Already normalized (lower + trimmed) by the caller against the invitation's own column. */
+  readonly normalizedEmail: string;
+  readonly provider: string;
+  readonly issuer: string;
+  readonly subject: string;
+  /** The moment verification is considered to have occurred. Never client-supplied. */
+  readonly verifiedAt: Date;
+  /** Attribution for the created rows. The enrolled human is their own creator. */
+  readonly createdByType?: "human";
+}
+
+/**
+ * ESTABLISH ONE NEW HUMAN — the first product writer Identity authority has ever had.
+ *
+ * Everything Hebun knows about `users` and `auth_identities` lives in this module, so this is where
+ * creating them belongs. No other module may insert into either table; a structural test enforces
+ * that, exactly as one enforces that only the credential repository names the stored secret.
+ *
+ * WHAT IT REFUSES TO DECIDE. It does not decide whether the human MAY be created — that is the
+ * caller's authority to have established, and I1.2 establishes it with a Governance second key. It
+ * takes a writer rather than a database so it can be part of the caller's transaction: "identity
+ * created but the credential failed" must be unrepresentable, not merely unlikely.
+ *
+ * `is_primary` is true because this is the human's first and only identity. `status` is `active`
+ * with `verified_at` set together, because `auth_identities_active_chk` requires exactly that pair —
+ * an identity may not claim to be active without a verification timestamp.
+ *
+ * Uniqueness is left to the database: `users_email_uq` and
+ * `auth_identities_provider_issuer_subject_uq` are the real defense against a duplicate human, and
+ * a losing race surfaces as a unique violation the caller maps to an honest refusal.
+ */
+export async function insertLocalIdentity(
+  writer: IdentityWriter,
+  input: LocalIdentityInsert,
+): Promise<{ readonly userId: string; readonly authIdentityId: string }> {
+  const userRows = await writer
+    .insert(users)
+    .values({
+      email: input.normalizedEmail,
+      createdByType: input.createdByType,
+    })
+    .returning({ id: users.id });
+  const userId = userRows[0]!.id;
+
+  const identityRows = await writer
+    .insert(authIdentities)
+    .values({
+      userId,
+      provider: input.provider,
+      issuer: input.issuer,
+      subject: input.subject,
+      status: "active",
+      isPrimary: true,
+      verifiedAt: input.verifiedAt,
+      createdBy: userId,
+      createdByType: input.createdByType,
+    })
+    .returning({ id: authIdentities.id });
+
+  return { userId, authIdentityId: identityRows[0]!.id };
+}
+
+/**
  * Resolve the single active membership (and its tenant) for a user. R1 pilot:
  * exactly one active membership is expected; the first deterministic active row
  * is chosen. Tenant-selection across multiple memberships is out of R1 scope.
@@ -149,6 +264,164 @@ export async function findPrimaryActiveMembership(
     .limit(1);
   const row = rows[0];
   if (!row) return undefined;
+  return {
+    membershipId: row.membershipId,
+    tenantId: row.tenantId,
+    membershipVersion: row.membershipVersion,
+    roleId: row.roleId,
+    companyLifecycleStatus: row.companyLifecycleStatus,
+    companyTenantStatus: row.companyTenantStatus,
+    companyAuthenticationDisabled: row.companyAuthenticationDisabledAt !== null,
+  };
+}
+
+/**
+ * Every active membership this human holds, in a deterministic order.
+ *
+ * The SIBLING of `findPrimaryActiveMembership`, not a replacement: that function answers "which one
+ * does an unqualified sign-in resolve?" and keeps its `LIMIT 1`; this one answers "which ones exist
+ * at all?". They share the exact same predicate and the exact same ordering, so the first row of
+ * this list IS what the other returns — a property a test asserts rather than a coincidence.
+ *
+ * This does NOT make anything a new Membership authority. It is a read, it writes nothing, and it
+ * returns no field a caller could act on: authority comes from re-resolving the chosen membership at
+ * issuance time, never from this list.
+ */
+export async function findActiveMemberships(
+  db: ControlPlaneDatabase,
+  userId: string,
+): Promise<readonly MembershipResolution[]> {
+  const rows = await db
+    .select({
+      membershipId: memberships.id,
+      tenantId: memberships.tenantId,
+      membershipVersion: memberships.version,
+      roleId: memberships.roleId,
+      companyLifecycleStatus: companies.lifecycleStatus,
+      companyTenantStatus: companies.tenantStatus,
+      companyAuthenticationDisabledAt: companies.authenticationDisabledAt,
+    })
+    .from(memberships)
+    .innerJoin(companies, eq(companies.id, memberships.tenantId))
+    .where(
+      and(
+        eq(memberships.userId, userId),
+        eq(memberships.status, "active"),
+        eq(memberships.lifecycleStatus, "active"),
+        isNull(memberships.revokedAt),
+      ),
+    )
+    .orderBy(asc(memberships.createdAt), asc(memberships.id));
+
+  return rows.map((row) => ({
+    membershipId: row.membershipId,
+    tenantId: row.tenantId,
+    membershipVersion: row.membershipVersion,
+    roleId: row.roleId,
+    companyLifecycleStatus: row.companyLifecycleStatus,
+    companyTenantStatus: row.companyTenantStatus,
+    companyAuthenticationDisabled: row.companyAuthenticationDisabledAt !== null,
+  }));
+}
+
+/**
+ * The selectable workspaces for one human, as a picker may render them.
+ *
+ * SERVER-DERIVED, ALWAYS. A caller passes a user id resolved from a durable session; it can never
+ * pass a tenant id or a membership id in, so it cannot manufacture a candidate. Only tenants whose
+ * authentication is enabled appear — offering a workspace that would refuse the session at issuance
+ * would be a picker that lies.
+ */
+export async function findTenantCandidates(
+  db: ControlPlaneDatabase,
+  userId: string,
+): Promise<readonly TenantCandidate[]> {
+  const rows = await db
+    .select({
+      membershipId: memberships.id,
+      tenantId: memberships.tenantId,
+      tenantName: companies.name,
+      roleName: roles.name,
+      companyLifecycleStatus: companies.lifecycleStatus,
+      companyTenantStatus: companies.tenantStatus,
+      companyAuthenticationDisabledAt: companies.authenticationDisabledAt,
+      roleId: memberships.roleId,
+    })
+    .from(memberships)
+    .innerJoin(companies, eq(companies.id, memberships.tenantId))
+    .leftJoin(roles, eq(roles.id, memberships.roleId))
+    .where(
+      and(
+        eq(memberships.userId, userId),
+        eq(memberships.status, "active"),
+        eq(memberships.lifecycleStatus, "active"),
+        isNull(memberships.revokedAt),
+      ),
+    )
+    .orderBy(asc(memberships.createdAt), asc(memberships.id));
+
+  return rows
+    .filter(
+      (row) =>
+        row.roleId !== null &&
+        row.companyLifecycleStatus === "active" &&
+        (row.companyTenantStatus === null || row.companyTenantStatus === "active") &&
+        row.companyAuthenticationDisabledAt === null,
+    )
+    .map((row) => ({
+      membershipId: row.membershipId,
+      tenantId: row.tenantId,
+      tenantName: row.tenantName,
+      roleName: row.roleName,
+    }));
+}
+
+/**
+ * Re-resolve ONE membership by id, for exactly one human.
+ *
+ * THE REVALIDATION SEAM. Selection is not authorization — this is. The membership id arrives from a
+ * client that was shown a candidate list some moments ago, and everything may have changed since:
+ * the membership may be revoked, its version may have moved, its tenant may have been disabled. So
+ * the id is matched together with the authenticated `user_id`, and the caller re-checks lifecycle
+ * from the returned row rather than from anything it remembered.
+ *
+ * A membership belonging to another human resolves to nothing — indistinguishable from one that
+ * never existed, so a guessed uuid learns nothing.
+ */
+export async function findMembershipForUser(
+  db: ControlPlaneDatabase,
+  userId: string,
+  membershipId: string,
+): Promise<MembershipResolution | undefined> {
+  const rows = await db
+    .select({
+      membershipId: memberships.id,
+      tenantId: memberships.tenantId,
+      membershipVersion: memberships.version,
+      roleId: memberships.roleId,
+      membershipStatus: memberships.status,
+      membershipLifecycleStatus: memberships.lifecycleStatus,
+      membershipRevokedAt: memberships.revokedAt,
+      companyLifecycleStatus: companies.lifecycleStatus,
+      companyTenantStatus: companies.tenantStatus,
+      companyAuthenticationDisabledAt: companies.authenticationDisabledAt,
+    })
+    .from(memberships)
+    .innerJoin(companies, eq(companies.id, memberships.tenantId))
+    .where(and(eq(memberships.id, membershipId), eq(memberships.userId, userId)))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return undefined;
+  /* Lifecycle is checked HERE, from the row just read — never from the candidate list. */
+  if (
+    row.membershipStatus !== "active" ||
+    row.membershipLifecycleStatus !== "active" ||
+    row.membershipRevokedAt !== null ||
+    row.roleId === null
+  ) {
+    return undefined;
+  }
   return {
     membershipId: row.membershipId,
     tenantId: row.tenantId,

@@ -260,8 +260,14 @@ function main(): void {
     assert.deepEqual(naming, [], "no Heby command may name a Governance mutation");
   }
 
-  /* ── T7: THE AUDIT SINK HAS THREE DECLARED OWNERS, NO MORE ──────────────── */
+  /* ── T7: THE AUDIT SINK HAS FIVE DECLARED OWNERS, NO MORE ───────────────── */
   {
+    /*
+     * I1.2 added the fourth and I2 the fifth, on the same terms as every earlier sibling: its own
+     * boundary constant, its own entity type, its own actions, and no reference to another domain's
+     * boundary. Adding a sixth is a deliberate edit here, never an accident somewhere in
+     * `src/features`.
+     */
     const owners = srcFiles
       .filter((f) => !f.replace(/\\/g, "/").startsWith("src/db/schema/"))
       .filter((f) => read(f).includes('from "@/db/schema/audit-log"'))
@@ -272,9 +278,11 @@ function main(): void {
       [
         "src/features/governance-audit/genesis-nomination-audit.server.ts",
         "src/features/governance-audit/governance-decision-audit.server.ts",
+        "src/features/governance-audit/human-onboarding-audit.server.ts",
+        "src/features/governance-audit/identity-enrollment-audit.server.ts",
         "src/features/governance-audit/knowledge-mutation-audit.server.ts",
       ],
-      "three declared sibling owners write the sink — and nothing else does",
+      "five declared sibling owners write the sink — and nothing else does",
     );
     // Each domain owns a DISTINCT entity type, so no domain can file under another's history.
     assert.equal(GOVERNANCE_DECISION_ENTITY_TYPE, "governance_decision");
@@ -299,15 +307,21 @@ function main(): void {
       "the audit writer must not carry the justification — decision_records owns it",
     );
     /*
-     * G3 added the two authority-movement actions. The list's job is unchanged and still asserted:
-     * it stays closed to actions a real capability performs. `governance.authority.escalated`,
-     * `.suspended` and `.appealed` are still absent because those runtimes do not exist.
+     * G3 added the two authority-movement actions; I1 added membership authorization; I1.1 added
+     * role provisioning; I1.2 added the identity-enrollment second key, approved and refused as two
+     * separate actions. The list's job is unchanged and still asserted: it stays closed to actions a
+     * real capability performs. `governance.authority.escalated`, `.suspended` and `.appealed` are
+     * still absent because those runtimes do not exist.
      */
     assert.deepEqual(GOVERNANCE_AUDIT_ACTIONS, [
       "governance.bootstrap.established",
       "governance.decision.recorded",
       "governance.authority.delegated",
       "governance.authority.revoked",
+      "governance.membership.authorized",
+      "governance.role.provisioned",
+      "governance.identity.enrollment.approved",
+      "governance.identity.enrollment.rejected",
     ]);
     for (const notYet of [
       "governance.authority.escalated",

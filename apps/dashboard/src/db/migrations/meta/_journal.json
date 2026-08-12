@@ -141,6 +141,27 @@
       "when": 1786463911071,
       "tag": "20260811155831_g2_governance_bootstrap_authority",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786525381595,
+      "tag": "20260812090301_i1_membership_authorization",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786531992393,
+      "tag": "20260812105312_i1_1_tenant_role_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1786539955781,
+      "tag": "20260812130555_i1_2_identity_enrollment",
+      "breakpoints": true
     }
   ]
 }

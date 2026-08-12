@@ -105,9 +105,18 @@ async function main(): Promise<void> {
      * third is a deliberate edit here, not an accident somewhere in `src/features`.
      */
     assert.ok(read(AUDIT).includes('from "@/db/schema/audit-log"'), "G1 binds to the existing sink");
+    /*
+     * I1.2 adds a FOURTH declared owner, on the same terms G2.1's second one was added: its own
+     * boundary constant (`IDENTITY_ENROLLMENT_AUDIT_BOUNDARY`), its own entity type, its own action,
+     * and no reference to any other domain's boundary in either direction. It is separate from the
+     * decision writer because a completed enrollment is not a Governance decision — nobody decided
+     * anything at that moment; Identity and Credential authority finished a ceremony.
+     */
     const AUDIT_SINK_OWNERS = [
       "src/features/governance-audit/genesis-nomination-audit.server.ts",
       "src/features/governance-audit/governance-decision-audit.server.ts",
+      "src/features/governance-audit/human-onboarding-audit.server.ts",
+      "src/features/governance-audit/identity-enrollment-audit.server.ts",
       "src/features/governance-audit/knowledge-mutation-audit.server.ts",
     ];
     const writers = walk("src")

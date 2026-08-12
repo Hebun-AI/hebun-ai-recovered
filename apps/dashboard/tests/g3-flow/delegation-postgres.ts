@@ -79,10 +79,26 @@ async function addMember(
      values ($1, 'local', 'hebun-local', $2, 'active', true, now()) returning id`,
     [userId, `local:${email}`],
   );
-  const role = await client.query<{ id: string }>(
-    `insert into roles (tenant_id, name, type) values ($1, $2, $3) returning id`,
-    [tenantId, `Role ${email}`, roleType],
-  );
+  /*
+   * I1.1 made "at most one ordinary member role per tenant" a constitutional invariant
+   * (`roles_one_member_per_tenant_uq`). This fixture used to mint a fresh role per human, which is
+   * now unrepresentable for the `member` band — and was never what the product does anyway: many
+   * humans share the tenant's one member role. Privileged bands are unconstrained and still get
+   * their own row, which is what the owner-band cases below depend on.
+   */
+  const existing =
+    roleType === "member"
+      ? await client.query<{ id: string }>(
+          `select id from roles where tenant_id = $1 and type = 'member' limit 1`,
+          [tenantId],
+        )
+      : { rows: [] as { id: string }[] };
+  const role = existing.rows[0]
+    ? existing
+    : await client.query<{ id: string }>(
+        `insert into roles (tenant_id, name, type) values ($1, $2, $3) returning id`,
+        [tenantId, roleType === "member" ? "Member" : `Role ${email}`, roleType],
+      );
   const roleId = role.rows[0]!.id;
   const membership = await client.query<{ id: string }>(
     `insert into memberships (tenant_id, user_id, role_id, status)

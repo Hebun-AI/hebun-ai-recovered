@@ -6,7 +6,8 @@
  * resolver — NOT here). `systemRole` marks immutable built-in roles. `policyRefs`
  * links roles to policies (Spec 50) as data, not enforcement. Lifecycle/version
  * come from tenantColumns. */
-import { pgTable, boolean, integer, jsonb, text, unique } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, boolean, integer, jsonb, text, unique, uniqueIndex } from "drizzle-orm/pg-core";
 import { tenantColumns } from "./_base";
 import { roleTypeEnum } from "./_enums";
 
@@ -25,5 +26,28 @@ export const roles = pgTable(
   /** Policy references bound to this role (Spec 50) — data, not enforcement. */
     policyRefs: jsonb("policy_refs"),
   },
-  (t) => [unique("roles_tenant_id_id_uq").on(t.tenantId, t.id)],
+  (t) => [
+    unique("roles_tenant_id_id_uq").on(t.tenantId, t.id),
+
+    /*
+     * I1.1 — THE ORDINARY-MEMBER-ROLE INVARIANT.
+     *
+     * A tenant has AT MOST ONE ordinary `member` role. Partial, so the privileged bands
+     * (`owner`, `director`, `operator`, `auditor`) stay entirely unconstrained — a tenant may hold
+     * as many of those as its history produced, and no seeded role is disturbed.
+     *
+     * WHY THE DATABASE AND NOT THE SERVER. Provisioning reads "does a member role exist?" and then
+     * writes one. Two concurrent ceremonies both read "no" and both write, so the read is a
+     * courtesy and this index is the actual invariant. It is also what makes I1's role choice
+     * unambiguous: "the tenant's member role" names exactly one row or none.
+     *
+     * NO LIFECYCLE PREDICATE, DELIBERATELY. `where type = 'member'` alone, because I1.1 implements
+     * no role deletion, suspension or revocation — nothing can move a role out of `active`. Adding
+     * `and lifecycle_status = 'active'` would describe a state no runtime can reach and would
+     * quietly weaken the invariant to "one ACTIVE member role", which is not what was authorized.
+     */
+    uniqueIndex("roles_one_member_per_tenant_uq")
+      .on(t.tenantId)
+      .where(sql`${t.type} = 'member'`),
+  ],
 );

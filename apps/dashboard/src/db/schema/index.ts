@@ -36,6 +36,8 @@ export * from "./approval";
 export * from "./policy";
 export * from "./governance";
 export * from "./genesis-nomination";
+export * from "./membership-authorization";
+export * from "./identity-enrollment";
 export * from "./memory";
 export * from "./working_memory";
 export * from "./knowledge";

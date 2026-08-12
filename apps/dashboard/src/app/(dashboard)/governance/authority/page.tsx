@@ -13,6 +13,10 @@ import { DECISION_NON_EFFECT } from "@/features/governance-decision/contracts";
 import { readAuthorityRoster } from "@/features/governance-decision/decision-authority.server";
 import { readDelegationCandidates } from "@/features/governance-decision/authority-delegation.server";
 import { AuthorityRosterCard } from "@/components/governance-authority/authority-roster-card";
+import { MembershipAuthorizationCard } from "@/components/governance-authority/membership-authorization-card";
+import { readMembershipAuthority } from "@/features/membership-authority/read-membership-authorizations.server";
+import { MemberRoleProvisioningCard } from "@/components/governance-authority/member-role-provisioning-card";
+import { readRoleBaselineState } from "@/features/tenant-role-baseline/provision-member-role.server";
 
 export const metadata = { title: "Governance Authority — Hebun AI" };
 
@@ -30,13 +34,19 @@ export const metadata = { title: "Governance Authority — Hebun AI" };
  */
 export default async function GovernanceAuthorityPage() {
   const tenant = await resolveTenantContext();
-  const [authorityLookup, entitlement, roster, candidates] = await Promise.all([
+  const [authorityLookup, entitlement, roster, candidates, membership, roleBaseline] =
+    await Promise.all([
     readGovernanceAuthority(tenant),
     readGenesisNomination(tenant),
     // G3: the tenant's full authority roster with provenance, and who could receive a delegation.
     // Both are read server-side and both return empty for a caller with no Governance authority.
     readAuthorityRoster(tenant),
     readDelegationCandidates(tenant),
+    // I1: which future humans Governance has authorized, and which roles they may be authorized
+    // into. Authority-only, like the candidate list — a non-authority receives an empty view.
+    readMembershipAuthority(tenant),
+    // I1.1: whether the tenant has its ordinary member role. Authority-gated like the rest.
+    readRoleBaselineState(tenant),
   ]);
 
   const authority = authorityLookup.status === "read" ? authorityLookup.authority : null;
@@ -72,6 +82,20 @@ export default async function GovernanceAuthorityPage() {
             roster={roster.roster}
             candidates={candidates}
             viewerUserId={tenant?.userId ?? null}
+          />
+        </div>
+      ) : null}
+      {roleBaseline.status === "read" && roleBaseline.viewerIsGovernanceAuthority ? (
+        <div className="min-w-0 max-w-2xl">
+          <MemberRoleProvisioningCard memberRoleId={roleBaseline.memberRoleId} />
+        </div>
+      ) : null}
+      {membership.status === "read" && membership.view.viewerIsGovernanceAuthority ? (
+        <div className="min-w-0 max-w-2xl">
+          <MembershipAuthorizationCard
+            eligibleRoles={membership.view.eligibleRoles}
+            authorizations={membership.view.authorizations}
+            roleBaselineMissing={membership.view.roleBaselineMissing}
           />
         </div>
       ) : null}

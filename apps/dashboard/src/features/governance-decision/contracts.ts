@@ -33,9 +33,11 @@ export const GOVERNANCE_DECISION_ENTITY_TYPE = "governance_decision";
  * `governance.bootstrap.established` — the genesis. Happens at most once per tenant, ever.
  * `governance.decision.recorded`     — an ordinary ratify/reject decision under that authority.
  *
- * ABSENT, and each absence is a capability that does not exist: no delegate, no escalate, no
- * revoke, no suspend, no appeal, no promote, no approve. Those are `governance_decision_type`
- * enum values with no runtime, and naming them here would claim otherwise.
+ * STILL ABSENT, and each absence is a capability that does not exist: no escalate, no suspend, no
+ * appeal, no promote. Those are `governance_decision_type` enum values with no runtime, and naming
+ * them here would claim otherwise. (`delegate-authority` and `revoke` gained runtimes in G3;
+ * `approve` gained one in I1 for membership authorization, and in I1.1 for organizational-role
+ * provisioning — two domains, one decision type, and the domain is what distinguishes them.)
  */
 export type GovernanceAuditAction =
   | "governance.bootstrap.established"
@@ -46,13 +48,38 @@ export type GovernanceAuditAction =
    * filing them under the generic action would make the authority history unqueryable.
    */
   | "governance.authority.delegated"
-  | "governance.authority.revoked";
+  | "governance.authority.revoked"
+  /**
+   * I1 — Governance permitted a future human to be admitted. Separate for the same reason: this is
+   * the only decision that changes WHO MAY EXIST in the tenant, and it grants no authority at all.
+   */
+  | "governance.membership.authorized"
+  /**
+   * I1.1 — Governance changed the tenant's organizational role structure. Separate again: this is
+   * the only decision that changes WHAT KINDS of member can exist, and it grants nothing.
+   */
+  | "governance.role.provisioned"
+  /**
+   * I1.2 — the second key. Governance approved, or refused, that a prospective human may become an
+   * authenticable Hebun identity. Separate actions again, and separate from each other: an approval
+   * and a refusal are different constitutional acts, and a ledger that filed both under one action
+   * could not answer "which enrollments were turned away".
+   *
+   * These are the only Governance actions whose effect is GLOBAL rather than tenant-scoped — an
+   * identity belongs to Hebun, not to the tenant whose authority approved it.
+   */
+  | "governance.identity.enrollment.approved"
+  | "governance.identity.enrollment.rejected";
 
 export const GOVERNANCE_AUDIT_ACTIONS: readonly GovernanceAuditAction[] = [
   "governance.bootstrap.established",
   "governance.decision.recorded",
   "governance.authority.delegated",
   "governance.authority.revoked",
+  "governance.membership.authorized",
+  "governance.role.provisioned",
+  "governance.identity.enrollment.approved",
+  "governance.identity.enrollment.rejected",
 ];
 
 /**

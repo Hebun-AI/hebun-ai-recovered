@@ -21,6 +21,7 @@ import { authCredentials } from "@/db/schema";
 import {
   CURRENT_SCRYPT_PARAMS,
   PASSWORD_ALGORITHM_SCRYPT,
+  hashPassword,
   verifyPassword,
   type PasswordHashRecord,
   type ScryptParams,
@@ -238,14 +239,32 @@ export async function recordSuccessfulVerification(
 }
 
 /**
+ * Anything that can write one row: the database, or an open transaction on it.
+ *
+ * Widened from `ControlPlaneDatabase` in I1.2 so first-credential establishment can JOIN the
+ * caller's transaction alongside the identity it belongs to. A drizzle transaction is not assignable
+ * to the full database type, and "the identity committed but its credential did not" must be
+ * unrepresentable rather than merely unlikely. Behaviour is unchanged — the same statement, the same
+ * defaults, the same index. Same narrowing `writeGovernanceDecisionWithin` already uses.
+ */
+export type CredentialWriter = Pick<ControlPlaneDatabase, "insert">;
+
+/**
  * Create an active password credential for an identity.
  *
- * Provisioning only — there is no product surface that calls this in D1. The
- * partial unique index guarantees a second ACTIVE password credential for the
- * same identity fails at the database rather than racing.
+ * D1 had no product surface calling this. I1.2 is the first: after a Governance second key approves
+ * an enrollment, Credential authority establishes the human's first credential — hashing and
+ * persistence stay here, and Governance never touches either.
+ *
+ * NO POLICY IS ENFORCED HERE, DELIBERATELY. This is a persistence primitive; how long a password
+ * must be, and what act is being performed, are the caller's to know. I1.2 enforces
+ * `MIN_ENROLLMENT_PASSWORD_LENGTH` at its own boundary.
+ *
+ * The partial unique index guarantees a second ACTIVE password credential for the same identity
+ * fails at the database rather than racing.
  */
 export async function insertPasswordCredential(
-  db: ControlPlaneDatabase,
+  db: CredentialWriter,
   input: CredentialInsert,
   now: Date = new Date(),
 ): Promise<string> {
@@ -264,6 +283,43 @@ export async function insertPasswordCredential(
     })
     .returning({ id: authCredentials.id });
   return rows[0]!.id;
+}
+
+/**
+ * Establish a human's FIRST password credential from a plaintext password.
+ *
+ * WHY THIS COMPOSITION LIVES HERE. The caller has a password and needs a credential; it must never
+ * hold the derived material in between. Hashing in a feature module and passing `salt` /
+ * `secretHash` across a boundary would put credential material in a fourth file, which the
+ * confinement test forbids and which is the exact leak that rule exists to prevent. So the
+ * composition is the authority's, and the caller passes a plaintext string in and gets an id out.
+ *
+ * The plaintext is used once, for the derivation, and is never stored, logged or returned.
+ *
+ * NO POLICY IS ENFORCED HERE, DELIBERATELY — see `insertPasswordCredential`. Minimum length and
+ * "which act is this" belong to the caller that knows the answer.
+ *
+ * Takes a writer so it can join the caller's transaction: the credential and the identity it
+ * belongs to must commit together or not at all.
+ */
+export async function establishFirstPasswordCredential(
+  writer: CredentialWriter,
+  authIdentityId: string,
+  password: string,
+  now: Date = new Date(),
+): Promise<string> {
+  const hashed = await hashPassword(password);
+  return insertPasswordCredential(
+    writer,
+    {
+      authIdentityId,
+      algorithm: hashed.algorithm,
+      params: hashed.params,
+      salt: hashed.salt,
+      secretHash: hashed.secretHash,
+    },
+    now,
+  );
 }
 
 /**

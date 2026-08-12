@@ -16,6 +16,13 @@ import type {
   DelegationResult,
   RevocationResult,
 } from "@/features/governance-decision/delegation-contracts";
+import { authorizeMembership } from "@/features/membership-authority/authorize-membership.server";
+import type { MembershipAuthorizationResult } from "@/features/membership-authority/contracts";
+import { provisionMemberRole } from "@/features/tenant-role-baseline/provision-member-role.server";
+import type { RoleBaselineResult } from "@/features/tenant-role-baseline/contracts";
+import { getAuthEnvironment } from "@/features/auth-runtime/request-session.server";
+import { issueInvitation } from "@/features/human-onboarding/issue-invitation.server";
+import type { InvitationIssuanceResult } from "@/features/human-onboarding/contracts";
 
 /*
  * The G2 Governance boundary — the only client-crossable way to write a Governance decision.
@@ -27,9 +34,10 @@ import type {
  * `authIdentityId`, `roleId`, `authorityRank`, `bootstrap`, `sessionId` or `decisionId` is
  * unrepresentable here rather than filtered somewhere downstream.
  *
- * There is deliberately NO update, delete, supersede, delegate, revoke, escalate, approve or appeal
- * action in this file or anywhere else the client can reach. Reversing a decision is itself a
- * Governance decision, and that runtime does not exist.
+ * There is deliberately NO update, delete, supersede, escalate or appeal action in this file or
+ * anywhere else the client can reach. Reversing a decision is itself a Governance decision, and
+ * that runtime does not exist. `delegate` and `revoke` gained one in G3; `approve` gained one in
+ * I1, for membership authorization ONLY — and an authorized membership is not authority.
  *
  * Heby's server actions do not import this module, so no message, model answer, slash command or
  * voice transcript has a representation in which it could reach Governance.
@@ -104,5 +112,85 @@ export async function recordGovernanceDecisionAction(input: {
     justification: input?.justification ?? "",
   });
   if (result.status === "recorded") revalidatePath("/governance/authority");
+  return result;
+}
+
+/*
+ * ── I1: authorizing ONE future human ────────────────────────────────────────────────────────────
+ *
+ * The client names the intended human's email, chooses an EXISTING role in its own tenant, and
+ * writes a justification. Everything authoritative — the tenant, the caller's identity, whether
+ * they hold Governance authority and how, the decision type, the domain, the outcome, the session,
+ * the authorization id, its status and every timestamp — is resolved server-side.
+ *
+ * This action creates NO invitation, NO token, NO user, NO identity, NO credential, NO membership
+ * and NO role. It records that Governance permitted one onboarding to happen later.
+ */
+export async function authorizeMembershipAction(input: {
+  targetEmail: string;
+  intendedRoleId: string;
+  justification: string;
+}): Promise<MembershipAuthorizationResult> {
+  const tenant = await resolveTenantContext();
+  const result = await authorizeMembership(tenant, {
+    targetEmail: input?.targetEmail ?? "",
+    intendedRoleId: input?.intendedRoleId ?? "",
+    justification: input?.justification ?? "",
+  });
+  if (result.status === "authorized") revalidatePath("/governance/authority");
+  return result;
+}
+
+/*
+ * ── I1.1: establishing the tenant's ordinary member role ────────────────────────────────────────
+ *
+ * The client supplies ONE thing: a justification. The role's type, name and id, the tenant, the
+ * actor, the authority source, the decision, the session and every timestamp are resolved
+ * server-side — so "provision an owner role" has no parameter to arrive in.
+ *
+ * This action creates NO human, membership, invitation, credential or identity, and modifies NO
+ * existing role. It establishes the least-authority role a new person can hold.
+ */
+export async function provisionMemberRoleAction(input: {
+  justification: string;
+}): Promise<RoleBaselineResult> {
+  const tenant = await resolveTenantContext();
+  const result = await provisionMemberRole(tenant, {
+    justification: input?.justification ?? "",
+  });
+  if (result.status === "provisioned") revalidatePath("/governance/authority");
+  return result;
+}
+
+/*
+ * ── I2: issuing the bearer capability against an existing authorization ─────────────────────────
+ *
+ * The client supplies ONE thing: which authorization to spend. The tenant, the invited address, the
+ * intended role, the expiry, the capability and every timestamp are read from that authorization row
+ * or generated server-side — so "invite this other person into that other role" has no parameter to
+ * arrive in.
+ *
+ * THE CAPABILITY IS RETURNED ONCE, TO THE AUTHORITY WHO ASKED. Hebun has no mail runtime and sends
+ * nothing; the returned string is handed over out of band by the human who issued it. Issuing is not
+ * delivering, and no wording on this surface may suggest otherwise.
+ *
+ * The digest key is resolved from the server environment here rather than inside the feature,
+ * because reading configuration is a request concern. A misconfigured environment refuses instead of
+ * minting a capability nobody could later verify.
+ */
+export async function issueInvitationAction(input: {
+  membershipAuthorizationId: string;
+}): Promise<InvitationIssuanceResult> {
+  const tenant = await resolveTenantContext();
+  const env = getAuthEnvironment();
+  if (env.status !== "configured") {
+    return { status: "refused", reason: "persistence-unavailable" };
+  }
+  const result = await issueInvitation(
+    tenant,
+    { membershipAuthorizationId: input?.membershipAuthorizationId ?? "" },
+    { digestKey: env.sessionDigestCurrentKey },
+  );
+  if (result.status === "issued") revalidatePath("/governance/authority");
   return result;
 }

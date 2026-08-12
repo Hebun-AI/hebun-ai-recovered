@@ -42,6 +42,24 @@ import {
   type AuthoritySubjectType,
 } from "./delegation-contracts";
 import {
+  MEMBERSHIP_AUTHORIZATION_DECISION_TYPE,
+  MEMBERSHIP_AUTHORIZATION_DOMAIN,
+  MEMBERSHIP_AUTHORIZATION_OUTCOME,
+  MEMBERSHIP_AUTHORIZATION_SUBJECT_TYPE,
+} from "@/features/membership-authority/contracts";
+import {
+  ORGANIZATIONAL_ROLE_DOMAIN,
+  ORGANIZATIONAL_ROLE_OUTCOME,
+  ORGANIZATIONAL_ROLE_SUBJECT_TYPE,
+} from "@/features/tenant-role-baseline/contracts";
+import {
+  IDENTITY_ENROLLMENT_APPROVED_OUTCOME,
+  IDENTITY_ENROLLMENT_DOMAIN,
+  IDENTITY_ENROLLMENT_REJECTED_OUTCOME,
+  IDENTITY_ENROLLMENT_REJECT_TYPE,
+  IDENTITY_ENROLLMENT_SUBJECT_TYPE,
+} from "@/features/identity-enrollment/contracts";
+import {
   resolveGovernanceDbOrNull,
   validateJustification,
   type GovernanceDeps,
@@ -356,8 +374,16 @@ export async function writeGovernanceDecisionWithin(
   tenant: TenantContext,
   authority: GovernanceAuthorityResolution,
   input: {
-    readonly decisionType: GovernanceDecisionType | AuthorityDecisionType;
-    readonly subjectType: GovernanceSubjectType | AuthoritySubjectType;
+    readonly decisionType:
+      | GovernanceDecisionType
+      | AuthorityDecisionType
+      | typeof MEMBERSHIP_AUTHORIZATION_DECISION_TYPE;
+    readonly subjectType:
+      | GovernanceSubjectType
+      | AuthoritySubjectType
+      | typeof MEMBERSHIP_AUTHORIZATION_SUBJECT_TYPE
+      | typeof ORGANIZATIONAL_ROLE_SUBJECT_TYPE
+      | typeof IDENTITY_ENROLLMENT_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -366,22 +392,48 @@ export async function writeGovernanceDecisionWithin(
 ): Promise<{ readonly decisionId: string; readonly sessionId: string }> {
   /*
    * G3: an authority decision belongs to the `authority-delegation` domain — the domain the schema
-   * declares owns who holds authority, and the same one the genesis session already uses. Ordinary
-   * subjects keep their own mapping.
+   * declares owns who holds authority, and the same one the genesis session already uses.
+   *
+   * I1: admitting a human is NOT moving authority, so it gets its own domain rather than borrowing
+   * that one. Ordinary subjects keep their own mapping.
    */
   const domain =
-    input.subjectType === "user" || input.subjectType === "governance_decision"
-      ? ("authority-delegation" as const)
-      : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
+    input.subjectType === MEMBERSHIP_AUTHORIZATION_SUBJECT_TYPE
+      ? MEMBERSHIP_AUTHORIZATION_DOMAIN
+      : input.subjectType === ORGANIZATIONAL_ROLE_SUBJECT_TYPE
+        ? ORGANIZATIONAL_ROLE_DOMAIN
+        : /*
+           * I1.2 — approving or refusing that a prospective human may become an authenticable Hebun
+           * identity. Its own domain, because it is the only decision whose effect is global rather
+           * than tenant-scoped: after it the human exists everywhere and belongs nowhere.
+           */
+          input.subjectType === IDENTITY_ENROLLMENT_SUBJECT_TYPE
+          ? IDENTITY_ENROLLMENT_DOMAIN
+          : input.subjectType === "user" || input.subjectType === "governance_decision"
+            ? ("authority-delegation" as const)
+            : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
 
   const outcome =
     input.decisionType === "delegate-authority"
       ? DELEGATION_OUTCOME
       : input.decisionType === "revoke"
         ? REVOCATION_OUTCOME
-        : input.decisionType === "ratify"
-          ? "ratified"
-          : "rejected";
+        : /*
+           * I1.2's subject is checked BEFORE the shared `approve` branch, because both I1 and I1.2
+           * use `approve` and only the subject distinguishes what was approved. A refusal keeps the
+           * same subject and flips to the reject outcome.
+           */
+          input.subjectType === IDENTITY_ENROLLMENT_SUBJECT_TYPE
+          ? input.decisionType === IDENTITY_ENROLLMENT_REJECT_TYPE
+            ? IDENTITY_ENROLLMENT_REJECTED_OUTCOME
+            : IDENTITY_ENROLLMENT_APPROVED_OUTCOME
+          : input.decisionType === MEMBERSHIP_AUTHORIZATION_DECISION_TYPE
+            ? input.subjectType === ORGANIZATIONAL_ROLE_SUBJECT_TYPE
+              ? ORGANIZATIONAL_ROLE_OUTCOME
+              : MEMBERSHIP_AUTHORIZATION_OUTCOME
+            : input.decisionType === "ratify"
+              ? "ratified"
+              : "rejected";
 
   const sessionRows = await tx
     .insert(governanceSessions)

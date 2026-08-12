@@ -6,8 +6,10 @@ import { getControlPlaneDb } from "@/db/client.server";
 import {
   clearSessionCookie,
   getAuthEnvironment,
+  selectWorkspaceForRequest,
   setSessionCookie,
 } from "@/features/auth-runtime/request-session.server";
+import type { WorkspaceSelectionResult } from "@/features/tenant-selection/contracts";
 import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
 import {
   issueLocalSession,
@@ -47,14 +49,50 @@ export async function loginAction(formData: FormData): Promise<void> {
     password,
     requestId: randomUUID(),
   });
+
+  /*
+   * ── THREE OUTCOMES AFTER A PROVEN CREDENTIAL ──────────────────────────────
+   *
+   * `authorized`                 exactly one active membership — unchanged behaviour.
+   * `tenant-selection-required`  several memberships; the human chooses. A PRE-TENANT cookie is
+   *                              set so the picker knows who is choosing without asking for the
+   *                              password again. That cookie authorizes nothing.
+   * `onboarding-required`        a verified human who belongs nowhere yet. The same page tells them
+   *                              so honestly rather than pretending the password was wrong.
+   *
+   * Every AUTHENTICATION failure still collapses to one marker: unknown email, wrong password and a
+   * locked credential remain indistinguishable, because any difference between them is an
+   * account-enumeration oracle. The two states above are not failures and reveal nothing about
+   * anyone else's account.
+   */
+  if (
+    issued.result.status === "tenant-selection-required" ||
+    issued.result.status === "onboarding-required"
+  ) {
+    await setSessionCookie(issued.reference, issued.maxAgeSeconds);
+    redirect("/login/select-workspace");
+  }
+
   if (issued.result.status !== "authorized") {
-    // One marker for every cause: unknown email, wrong password, locked
-    // credential, and no membership are indistinguishable to the client.
     redirect("/login?error=invalid");
   }
 
   await setSessionCookie(issued.reference, issued.maxAgeSeconds);
   redirect("/foundation");
+}
+
+/**
+ * Choose ONE workspace, after a sign-in that found several memberships.
+ *
+ * The client supplies a membership id and nothing else — no tenant, no user, no role, no version.
+ * The server re-resolves the human from the durable pre-tenant receipt, re-reads that membership by
+ * id AND by that human's id, re-checks its lifecycle and its tenant, and only then issues a FRESH
+ * tenant-bound session. Selection is not authorization; revalidation is.
+ */
+export async function selectWorkspaceAction(input: {
+  membershipId: string;
+}): Promise<WorkspaceSelectionResult> {
+  return selectWorkspaceForRequest(input?.membershipId ?? "");
 }
 
 /** Sign out: revoke the durable session row and clear the cookie. */

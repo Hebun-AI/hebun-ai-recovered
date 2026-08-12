@@ -224,6 +224,48 @@ export const invitationStatusEnum = pgEnum("invitation_status", [
   "revoked",
 ]);
 
+/**
+ * I1 — the lifecycle of ONE Governance-authorized future onboarding.
+ *
+ * Three states and no more. `authorized` is the only state I1 writes; `consumed` is written by I2
+ * when it spends the authorization to create an invitation; `revoked` is DECLARED AND DELIBERATELY
+ * UNWRITTEN — I1 implements no revocation runtime, exactly as G2.1 declared genesis revocation
+ * without building it. There is no `expired`: expiry belongs to the invitation I2 issues, not to
+ * the authority that permitted it.
+ */
+export const membershipAuthorizationStatusEnum = pgEnum("membership_authorization_status", [
+  "authorized",
+  "consumed",
+  "revoked",
+]);
+
+/**
+ * I1.2 — the lifecycle of ONE two-key identity enrollment ceremony.
+ *
+ * Four states, each reachable and each meaning something different:
+ *
+ *   pending    a bearer presented an onboarding capability. NOTHING global exists yet — no user,
+ *              no identity, no credential. This state deliberately occupies no identity slot, so
+ *              a rejection can never burn `users.email` or `auth_identities(provider,issuer,subject)`.
+ *   approved   a Governance authority (KEY 2) approved the submission. Still no identity.
+ *   rejected   TERMINAL. The ceremony is over and nothing global was ever created.
+ *   completed  TERMINAL. The identity and its first credential exist, and this row names the
+ *              identity it produced.
+ *
+ * `approved` and `completed` are separate for the same reason `membership_authorization_status`
+ * separates `authorized` from `consumed`: "approved but not yet enrolled" and "approved and
+ * enrolled" are different facts, and collapsing them would make retry unsafe.
+ *
+ * There is deliberately NO `expired`. Expiry belongs to the invitation (`invitations.expires_at`),
+ * and a status value nothing writes is the trap `invitation_status.expired` already is.
+ */
+export const identityEnrollmentStatusEnum = pgEnum("identity_enrollment_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "completed",
+]);
+
 /* ══════════════════════════════════════════════════════════════════════════
  * TIER 2 — CANONICAL GOVERNED ENUMS (Specs 35–50) — INERT in this phase.
  * Defined here so the catalog is complete and typecheck-stable; NOT wired into
@@ -680,6 +722,34 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
   "provider-tool",
   "emergency",
   "authority-delegation",
+  /**
+   * I1 — Governance authorizing the organization-changing act of admitting a human into a tenant.
+   *
+   * Its OWN concern, deliberately not folded into `authority-delegation`. Admitting a human is not
+   * moving Governance authority: an authorized membership grants no Governance authority, no
+   * provider access, no ratification right and no execution right. Reusing the delegation domain
+   * would have asserted the opposite in the one place the ledger is queried by domain.
+   */
+  "membership-authorization",
+  /**
+   * I1.1 — Governance authorizing a change to the tenant's organizational role structure.
+   *
+   * Its OWN concern again. Provisioning the ordinary `member` role is not admitting a human
+   * (`membership-authorization`), not moving authority (`authority-delegation`), and not about an
+   * agent (`agent-registration`). Reusing any of those would make the ledger unable to say what
+   * kind of change a decision actually was.
+   */
+  "organizational-role",
+  /**
+   * I1.2 — Governance approving (or refusing) that a prospective human may become a Hebun identity.
+   *
+   * Its OWN concern, and the narrowest one yet. It is not admitting a human into a tenant
+   * (`membership-authorization` — after this decision the human still has no membership), not
+   * moving authority (`authority-delegation` — it grants none), and not about an agent
+   * (`agent-registration`). This is the only domain whose decisions change WHO MAY EXIST as an
+   * authenticable human, which is a global effect no tenant-scoped domain could honestly carry.
+   */
+  "identity-enrollment",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",

@@ -9,6 +9,7 @@ import {
   integer,
   pgTable,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
   varchar,
@@ -49,6 +50,18 @@ export const invitations = pgTable(
     sendCount: integer("send_count").notNull().default(0),
   },
   (t) => [
+    /*
+     * I1.2 (B-5) — THE COMPANION UNIQUENESS. Carries no new product truth: `id` is already the
+     * primary key, so this pair is unique by construction. It exists because Postgres requires an
+     * explicit unique constraint on the exact referenced column list before another table may
+     * declare a composite foreign key `(tenant_id, invitation_id) → invitations(tenant_id, id)`.
+     *
+     * That composite FK is what makes "a Tenant A enrollment citing a Tenant B invitation" a
+     * database error rather than a server-side check somebody can forget. `memberships`, `roles`
+     * and `organizations` already carry the identical companion for the identical reason.
+     */
+    unique("invitations_tenant_id_id_uq").on(t.tenantId, t.id),
+
     uniqueIndex("invitations_token_hash_uq").on(t.tokenHash),
     uniqueIndex("invitations_pending_email_uq")
       .on(t.tenantId, t.normalizedEmail)

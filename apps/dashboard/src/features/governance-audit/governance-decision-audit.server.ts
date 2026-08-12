@@ -54,6 +54,26 @@ export interface GovernanceAuditMetadata {
   readonly bootstrap: boolean;
   /** Present only for a genesis: the entitlement that was spent. */
   readonly genesisNominationId?: string;
+  /**
+   * Present only for a membership authorization (I1): the artifact the decision produced, and the
+   * role band it named. Identity and band only — the intended human's address is deliberately NOT
+   * duplicated here. `membership_authorizations.normalized_email` owns it, and one address with one
+   * owner cannot drift.
+   */
+  readonly membershipAuthorizationId?: string;
+  readonly intendedRoleId?: string;
+  readonly intendedRoleType?: string;
+  /** Present only for a role provisioning (I1.1): the exact role artifact and its band. */
+  readonly provisionedRoleId?: string;
+  readonly provisionedRoleType?: string;
+  /**
+   * Present only for an identity enrollment decision (I1.2): the ceremony artifact and the
+   * invitation that started it. Identity and shape only — the prospective human's ADDRESS is
+   * deliberately absent, because `invitations.normalized_email` owns it and one address with one
+   * owner cannot drift. No continuation reference, no digest, no credential material, ever.
+   */
+  readonly identityEnrollmentRequestId?: string;
+  readonly enrollmentInvitationId?: string;
   /** Why an authorized attempt was refused. Absent on a committed event. */
   readonly refusalReason?: string;
 }
