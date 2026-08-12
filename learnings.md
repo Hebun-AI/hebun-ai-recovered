@@ -468,3 +468,137 @@
 1. **What did we learn?** Model authority as "which decision granted this, and which one ended it" — a boolean role cannot answer who, when, or by whose authority.
 2. **How does this improve Turkish Rug House?** Governance no longer depends on one person being available, and every grant and withdrawal stays on the record.
 3. **How does this become part of Hebun AI?** Authority changes are decisions with reasons and provenance, and their history is immutable.
+
+## I2 Gate A — Onboarding is blocked by session authority, not by schema (2026-08-12)
+
+- **The artifact chain needs zero migrations.** `invitations` is schema-only but complete: `token_hash char(64)` + `token_version` match `session-digest.server.ts` exactly, `expires_at` is NOT NULL and CHECK'd, revocation columns are all present. Issuance, consumption, expiry, revocation, acceptance and membership creation are all representable today.
+- **The blocker is `issueLocalSession` requiring an active membership.** A brand-new human cannot hold a Hebun session before a membership exists, and `user_session_contexts_tenant_membership_chk` makes the membership-less shape unrepresentable at rest. So either the token creates the human (invitation becomes Identity authority — forbidden) or Session authority changes (not I2's to change). No third option exists in the repository.
+- **No product code has ever created a `users` row.** Zero writers in `src/`, zero in `scripts/lib/`. Both durable humans came from `scripts/r1-seed.mjs`. `insertPasswordCredential` exists and has no caller. "The function exists" is not "the capability exists".
+- **There is no mail runtime, so token possession proves nothing about the address.** Zero dependencies, zero code, zero env keys. `invitations.last_sent_at` and `send_count` describe an act Hebun cannot perform, and writing them would be a claim of delivery.
+- **Double-accept is prevented by the wrong table, and that is fine.** Nothing on `invitations` stops two accepts; `memberships_accepted_invitation_uq` does. Read the invariant where it actually lives, not where the name suggests.
+- **`memberships` lacks the composite `(tenant_id, role_id)` FK that both `invitations` and `membership_authorizations` have.** Copying the pair from one invitation row is a database-proven pair, not an application check — meaningfully stronger, still not an invariant on the table.
+
+### Haftalık 3 soru
+1. **What did we learn?** Before designing a lifecycle, check what the *session* authority can represent — a phase can be schema-complete and still impossible.
+2. **How does this improve Turkish Rug House?** Nobody gets invited into a system that cannot let them in; the gap is named before a half-working onboarding is shipped.
+3. **How does this become part of Hebun AI?** When ownership of an artifact is undecided, the phase stops and names the decision instead of picking one quietly.
+
+## I2 Blocker Resolution — The deadlock was in the resolver, not the schema (2026-08-12)
+
+- **The previous audit was wrong about Postgres, and re-reading the live constraint is what caught it.** `user_session_contexts_tenant_membership_chk` is `(active_tenant_id IS NULL) = (active_membership_id IS NULL)` — both-NULL passes. The table has always been able to hold a membership-less session. What refuses one is `resolveSessionFromReference:308` and the `TenantContext` type. Read the constraint from `pg_constraint`, not from the schema file's prose.
+- **Authentication was never coupled to membership.** In `issueLocalSession`, identity lookup and credential verification touch no membership table; `findPrimaryActiveMembership` is the *fourth* step. "Session requires membership" is true only of normal tenant session issuance. The deadlock was three steps narrower than described.
+- **The contract already described a bigger system than the runtime.** `onboarding-required` and `tenant-selection-required` sit in the `AuthenticationResult` union with zero producers and zero consumers, asserted only by a union-membership test. Check the type union before designing a new state — it may already be named.
+- **An allow-list route gate makes new auth states safe by construction.** `if (result.status !== "authorized") redirect("/login")` means any status added later reaches nothing. A deny-list would have made the same change dangerous.
+- **"Verified" meant nothing.** Both live `auth_identities` rows carry `verified_at` = the seed's `now()`. No verification event ever happened and no code path could perform one. Before trusting a lifecycle column, find the code that writes it.
+- **The dev-tool quarantine protects a tool, not a capability.** `provision-dev-credential.ts` never called `insertPasswordCredential` — it duplicates the insert in raw SQL. So the production primitive can be wired up without touching, importing, or weakening the quarantined path.
+- **The unanswerable question is the one with no precedent, not the one with no code.** Identity creation had no writer but a fully designed authority, so it was answerable. First-credential proof had no precedent anywhere in the repository, so it was not — that is what a Director decision actually looks like.
+
+### Haftalık 3 soru
+1. **What did we learn?** When a blocker is reported, re-derive it from the live constraint and the call order — the layer that actually refuses is often not the layer that was blamed.
+2. **How does this improve Turkish Rug House?** Nobody builds a whole authentication phase to solve a coupling that was never there.
+3. **How does this become part of Hebun AI?** A phase may overturn the previous phase's finding when the evidence says so, and must say plainly which claim was wrong.
+
+## I1.2 Gate B — A global unique index with no delete is a permanent slot (2026-08-12)
+
+- **The obvious "no new table" answer was the dangerous one.** Using `auth_identities` in its designed `pending` state needed zero schema — and would have let a rejected enrollment permanently burn `users_email_uq` and `auth_identities_provider_issuer_subject_uq`. Both are non-partial, both tables are soft-delete only, and `revoked` keeps the row. A stolen invitation would have harmed the human the second key exists to protect.
+- **Read index definitions from `pg_indexes`, not from the schema file.** The absence of a `WHERE` clause is the whole finding, and prose comments do not carry it.
+- **A confinement test can eliminate an entire design family.** `tests/d1-flow/boundaries-and-firewall.ts` allows only three files in `src/` to name `secret_hash`. That single rule killed every "hold the hashed credential somewhere until approval" model without further argument.
+- **Ordering fell out of the invariants, not from taste.** Once no identity row may exist before approval, the credential cannot exist either (`auth_credentials.auth_identity_id` is NOT NULL), so the secret must arrive after approval. Model C was forced, not chosen.
+- **Self-approval needed no new constraint.** A brand-new human has no identity, so no session, so no `TenantContext`, so no `resolveGovernanceAuthority`. The invariant that blocked onboarding is the same one that makes the two keys unforgeable by one person.
+- **Provenance belongs where every case can answer it.** A Governance decision, an enrollment row and an audit entry each answer only for identities that came through this phase. The seeded rows and future OIDC rows have none — so `verification_source` on `auth_identities` is the only universal owner. Do not add `verified_by_*` beside it: `decision_records.actor_id` already owns the actor.
+- **A composite tenant FK needs its companion unique index.** `invitations` has no `(tenant_id, id)` unique, so structural tenant binding to an invitation is impossible until one exists — `memberships_tenant_id_id_uq` and `roles_tenant_id_id_uq` are the pattern.
+
+### Haftalık 3 soru
+1. **What did we learn?** Before reusing an existing table for a rejectable state, ask what a rejection leaves behind — a global unique index with no hard delete makes rejection permanent.
+2. **How does this improve Turkish Rug House?** A refused invitation cannot lock the intended person out of ever joining.
+3. **How does this become part of Hebun AI?** The narrowest change is the one measured against the live constraints, not the one with the fewest files.
+
+## B-4 necessity proof — absence of a row is an answer, not a gap (2026-08-12)
+
+- **The universality argument that justified `auth_identities.verification_source` refuted itself.** It disqualified the alternatives for not covering the two seeded identities — and then conceded the column would be NULL for exactly those rows. A justification that does not survive its own caveat is not a justification.
+- **A missing join row is information.** "No `identity_enrollment_requests` row references this identity" *is* the statement "no Governance ceremony vouched for it". Treating a zero-row result as an unanswered question is how derived columns get invented.
+- **`provider` + `issuer` already is the verification method.** That is what a provider-neutral tuple is for. `verification_source='oidc'` beside `provider='oidc'` is a verbatim copy; `verification_source='governance-two-key'` beside `provider='oidc'` collapses five distinct facts into one varchar, and an OIDC identity that also passed the second key is born with two true values.
+- **Check who actually reads the column you are extending.** `auth_identities.verified_at` is read by exactly one thing in the whole repository — the CHECK constraint `auth_identities_active_chk`. No TypeScript selects it. A *reason* column would be read even less.
+- **I cited a precedent without checking where it lives.** `genesis_nominations.nomination_source` sits on the **ceremony** table and points at `auth_identities`; G2.1 had the same need and added nothing to the identity table. The faithful analogue was the enrollment artifact all along.
+- **"Which record wins in a disagreement?" settles duplication fast.** If a foreign-key chain must win over a varchar, the varchar was never the authority — it was a copy with a synchronisation rule attached.
+
+### Haftalık 3 soru
+1. **What did we learn?** Before adding a provenance column, write the query that answers the question without it — if it returns strictly more, the column is a read model, not a fact.
+2. **How does this improve Turkish Rug House?** One less field that can quietly disagree with the record it summarises.
+3. **How does this become part of Hebun AI?** A phase may overturn its own proposal when the necessity proof fails, and must name the flawed step rather than quietly dropping the item.
+
+## I1.2 — The firewalls caught three real violations, and each fix was better than the code it replaced (2026-08-12)
+
+- **Hashing in the feature module leaked credential material into a fourth file.** `tests/d1-flow/boundaries-and-firewall.ts` allows only three files in `src/` to name the stored secret, and it fired the moment the enrollment module held `salt`/`secretHash`. The fix was not a wider allowlist — it was `establishFirstPasswordCredential`: plaintext in, id out, composition owned by Credential authority. The rule forced a better boundary than the one first written.
+- **Writing `audit_log` directly tripped three separate tests at once** (g1, g2, k2). The house pattern is a declared sibling writer under `governance-audit/` with its own boundary constant and entity type. Adding a fourth owner is a deliberate three-line edit in three lists; reaching the sink from a feature module is not possible by accident.
+- **Firewalls that forbid a literal string forbid it in comments too.** `provision-dev-credential` in a prose sentence and `secret_hash` in a schema header both failed the scan. Reword the prose — the strictness is the point, and narrowing the regex to "code only" would hand the next author a loophole.
+- **drizzle-kit emits `ADD CONSTRAINT ... UNIQUE` after the FK that references it.** `ERROR: there is no unique constraint matching given keys` — the generated file was unappliable. Reorder the statements (the set is identical), and add a test asserting the ordering so a regenerated migration cannot silently lose it.
+- **`invitations_expiry_chk` means an "expired" fixture must move BOTH timestamps into the past.** Inverting them is a constraint violation, not a shortcut. Anchor test timestamps to the test's own clock, never to `now()`, when the runtime under test has an injected clock.
+- **Count deltas, not totals.** Absolute row-count assertions broke the moment a fixture was added three cases earlier. Snapshot immediately before the act under test and assert what THAT act changed.
+- **A capability scan must exempt the honest-denial list.** `NON_EFFECTS` names Computer Use and terminal in order to say they do not happen; scanning it as if it were runtime turns a truthful note into a violation and quietly rewards hiding limits.
+
+### Haftalık 3 soru
+1. **What did we learn?** When an existing firewall fires, assume it is right — the fix it forces is usually the boundary the design should have had.
+2. **How does this improve Turkish Rug House?** A refused enrollment cannot lock the intended person out, and a password never exists anywhere but the authority that owns it.
+3. **How does this become part of Hebun AI?** New capability arrives as a declared sibling with its own boundary constant, never as a direct reach into a shared sink.
+
+## I2 — Membership existence is not tenant access, and the difference had to be proven (2026-08-12)
+
+- **The brand-new human's acceptance could not use a session, so it used the credential.** A human who has just enrolled has an identity, a credential and zero memberships, and `issueLocalSession` refuses exactly that shape. Verifying the credential answers "which human?" without minting anything — which is what identity binding actually needs. Requiring a session would have forced a Session-authority change for no gain.
+- **The binding must be checked AFTER the password, never before.** Comparing the authenticated email to the invitation's target first would leak which address a stolen capability was issued for. Checked after, a wrong human costs exactly what a wrong password costs, and unknown-email / no-credential / wrong-password / wrong-human all return one sentence.
+- **The column name settled a design argument.** `membership_authorizations.consumed_by_invitation_id` is a foreign key to the *invitation*, so consumption happens at issuance — not at acceptance. Read the FK target before deciding what a lifecycle word means.
+- **Do the conditional update on the row two callers actually contend for, and do it first.** Acceptance flips the invitation before inserting the membership, so the row lock lands on the invitation. That single ordering is what makes "two humans race one invitation" resolve cleanly.
+- **Snapshot counts immediately before the act under test.** Absolute totals drift every time a fixture is added earlier in the file; deltas measure what the act did.
+- **A firewall I wrote myself was too strict and had to be corrected, not deleted.** Banning any client component from naming `human-onboarding` would have banned importing pure types — the rule that protects the bundle is "no `.server` module", plus a separate assertion that `contracts.ts` has no I/O.
+- **State the limitation as a frozen value, not as prose.** `TENANT_ACCESS_REALITY` and the non-effects list are asserted by test, so "the second membership is unreachable" cannot quietly disappear from the surface when someone edits the copy.
+
+### Haftalık 3 soru
+1. **What did we learn?** Finish the transition you own and prove where it stops — a correct membership that nobody can use is a limitation to name, not a success to claim.
+2. **How does this improve Turkish Rug House?** Someone can actually be brought into the organization end to end, and nobody is told an email was sent when nothing was.
+3. **How does this become part of Hebun AI?** A phase composes existing authorities and adds one canonical truth; when the next step needs a different authority's decision, it stops at the boundary and says so.
+
+## Tenant Selection — the schema had already permitted the state nobody had written (2026-08-12)
+
+- **The pre-tenant session needed no migration.** `user_session_contexts_tenant_membership_chk` is `(tenant IS NULL) = (membership IS NULL)`, so both-NULL was always legal and the composite FK is MATCH SIMPLE. The I1.2 blocker audit proved this months of work earlier; this phase spent it. Findings from an audit are assets — go back and read them before designing.
+- **Put the new page under an already-public prefix instead of widening the rule.** `PUBLIC_PREFIXES = ["/login"]` matches `startsWith("/login/")`, so `/login/select-workspace` needed zero middleware change and the dashboard stayed exactly as protected. Choosing the route was cheaper than changing the gate.
+- **`membershipId` beats `tenantId` as the selection input.** It names the entitlement itself, so revalidation is one lookup keyed by the thing that must be true. A tenant id would have needed an inference step between the human's intent and the check.
+- **Check the binding AFTER the expensive check, and give every failure one sentence.** Guessed uuid, another human's real membership, revoked, stale tenant — all `membership-unavailable`. Any difference turns a picker into a membership-table probe.
+- **Issue a fresh receipt; never re-point an old one.** The only session writers were an activity touch and a revocation, and that was the answer: a session is an authentication receipt, so selection writes a new row and revokes the old one. A test extracts every `.update(...).set({…})` and asserts the set of writers, which is a stronger guard than any comment.
+- **Take the version from the row you just read, never from the list you showed.** The candidate list is stale by definition; a session carrying a remembered version would be rejected by the resolver on the very next request.
+- **When a phase resolves an earlier phase's documented limitation, invert the fixture and say so.** I2's contracts and tests asserted "NOT reachable". Updating them to the new truth — with the reason in the comment — is the honest move; relaxing an invariant to keep an old assertion green is not.
+
+### Haftalık 3 soru
+1. **What did we learn?** Before designing new state, re-read what the schema already allows — the cheapest feature is the one the constraints were written for.
+2. **How does this improve Turkish Rug House?** Someone who works with two organizations picks which one they are opening, instead of silently landing in the older one.
+3. **How does this become part of Hebun AI?** A phase may close an earlier phase's stated limitation, and must rewrite that phase's claims to match rather than leaving two truths on disk.
+
+## I1 — The refusal that exposed a gap instead of hiding it (2026-08-12, recorded late at the P3 commit gate)
+
+- **The right move was to refuse and name it.** I1 permits onboarding into `member` alone, and no tenant had a `member` role, so I1 refused every real tenant. Creating one inside I1 would have closed the gap and hidden it — and every fixture that silently added a role would have hidden it again in the tests. `insert(roles)` appears nowhere in I1's runtime and a test asserts it never will.
+- **A product absence gets its own refusal reason.** `no-eligible-role-in-tenant` is separate from `role-unresolvable` on purpose. Reporting "this tenant has no role you could ever name" as a bad input turns a real limitation into a user error, and nobody ever finds it again.
+- **Read the role band for the TARGET, never for the CALLER.** I1 reads `roles.type` — but only to decide which band may be onboarded into. Letting the same read answer "may this caller authorize?" is exactly how a role-based authority model gets re-invented by accident. Two questions, two reads, one test keeping them apart.
+- **The circular NOT NULL pair needs an id, not a second table.** Decision names authorization, authorization names decision, both columns NOT NULL. Generating the UUID in the application was the authorized answer; minting an `invitations` row to borrow an id would have created token material inside an authority phase and falsified I1's own non-effects list.
+- **Refuse a foreign tenant's role as `unresolvable`, never as `forbidden`.** A distinguishable "forbidden" turns the role field into a cross-tenant existence probe. Unresolvable and never-existed must be the same sentence.
+- **The pre-flight read is a courtesy; the partial unique index is the invariant.** Two concurrent authorizations both pass the read. Match the unique violation on the Postgres code AND the constraint name, so an unrelated conflict cannot borrow the friendly refusal.
+- **Writing the closure record is part of the phase, not paperwork after it.** I1 was built, proven and closed with no closure document, and the omission was invisible until a commit gate audited the record against the implementation. An undocumented phase is also an unsupervised one — see the next entry.
+
+### Haftalık 3 soru
+1. **What did we learn?** When a correct authority cannot be used yet, refuse and name the absence — a convenience that makes the refusal disappear also makes the absence disappear.
+2. **How does this improve Turkish Rug House?** Nobody is admitted into a role the organization never decided to have, and the reason onboarding is not yet possible is stated instead of guessed.
+3. **How does this become part of Hebun AI?** A phase ships its own record; authority that nobody wrote down is authority nobody can audit.
+
+## I1.1 — Closing an earlier phase's limitation is only half the work (2026-08-12, recorded late at the P3 commit gate)
+
+- **The narrowest closing move was two SQL statements.** One `governance_domain` value and one partial unique index. No table, no enum, no column, no new decision type, and no change to I1 — I1 discovers the provisioned role through its ordinary eligible-role read. The test drives I1 across the boundary: `no-eligible-role-in-tenant` before, `authorized` after.
+- **Constants instead of parameters is what makes "not role administration" true.** No name parameter, no type parameter, no scope, no update, no delete. "Provision an owner role" is not filtered out — it has no representation to arrive in. A validated parameter would have been a role-creation API wearing a smaller name.
+- **Make the uniqueness index partial, and leave the lifecycle predicate off.** `WHERE type = 'member'` alone: privileged bands stay unconstrained, and adding `AND lifecycle_status = 'active'` would have described a state no runtime can reach while quietly weakening the invariant to "one *active* member role".
+- **Do not borrow another phase's mutex.** G3 locks the bootstrap decision row because authority has no row of its own. Here the unique thing IS a row, so the index locks it. Reusing G3's lock would have coupled two unrelated invariants and still left the index doing the real work.
+- **"Already provisioned" must be true for roles this phase did not create.** The existence read matches on type with no lifecycle predicate, so it asks exactly what the index answers. A seeded role is still the tenant's member role, and claiming otherwise to make the ceremony look load-bearing would be a lie about history.
+- **THE REAL DEFECT: I1.1 closed I1's limitation and left I1 still declaring it.** `TENANT_ROLE_BASELINE_GAP` kept saying the gap had no owner and that onboarding was not reachable end to end — on a live Governance page, in the card directly below the control that closes it. The whole suite stayed green *because* a test froze the stale strings. Understating capability is as false a record as inflating it, and a green build is not evidence that a claim is still true.
+- **Separate the capability from the deployment.** "No runtime can do this" and "the durable tenant has not run the ceremony" are different facts. Collapsing them into one field is what let the stale claim look plausible for as long as it did; the repair splits them into `capabilityPresent` and `provisionedInDurableTenants`.
+- **A firewall banning a symbol bans it in code, comments excepted — reword, never widen.** Naming I1.1's runtime inside I1's contracts tripped the rule that keeps I1 unable to reach the provisioning path. The fix was to name an authority and a surface instead of an importable identifier. The rule was right; the prose was wrong.
+
+### Haftalık 3 soru
+1. **What did we learn?** Resolving an earlier phase's limitation is not finished until that phase's own claims, surfaces and tests say so — otherwise the system keeps advertising a gap it already closed.
+2. **How does this improve Turkish Rug House?** The person setting up an organization is told which control creates the missing role, instead of being told the capability does not exist.
+3. **How does this become part of Hebun AI?** Every honesty constant carries an owner and a supersession, and a test that freezes yesterday's truth is treated as a defect rather than as coverage.
