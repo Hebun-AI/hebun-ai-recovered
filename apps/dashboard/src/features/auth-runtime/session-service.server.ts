@@ -43,6 +43,7 @@ import {
   findTenantCandidates,
   insertSessionContext,
   revokeSession,
+  revokeSessionIfActive,
   touchSessionActivity,
   type MembershipResolution,
   type SessionResolutionRow,
@@ -736,6 +737,257 @@ export async function readSelectableWorkspaces(
     return findTenantCandidates(db, row.userId);
   }
   return [];
+}
+
+/* ── POST-LOGIN TENANT SWITCHING ─────────────────────────────────────────────────────────────────
+ *
+ * The MIRROR IMAGE of tenant selection, and deliberately a separate entry point.
+ *
+ * `selectTenantForSession` refuses a tenant-bound receipt, and keeps refusing it: it is reachable
+ * from `/login/select-workspace`, which lives beneath the one public route prefix, so widening it
+ * would make an already-authorized session re-pointable through a public surface. The precondition
+ * here is the exact opposite — a session that is authorized RIGHT NOW — so it gets its own function
+ * and its own refusals, while sharing the one revalidation reader and the one assembly path.
+ *
+ * WHAT A SWITCH IS NOT. It grants nothing: no membership, no role, no authority, no new identity,
+ * no invitation. It changes which of a human's EXISTING entitlements this browser is currently
+ * acting under, and nothing else.
+ */
+
+/** Why a workspace switch was refused. The client never learns which membership exists. */
+export type TenantSwitchRefusal =
+  /** No session that may switch: missing, expired, revoked, forbidden, or still pre-tenant. */
+  | "no-active-session"
+  /** Deliberately one reason for every way the target is not a live entitlement of this human. */
+  | "membership-unavailable"
+  /** The target IS the workspace this session is already in. */
+  | "already-active"
+  /** A concurrent switch or sign-out spent this session first. Nothing was changed. */
+  | "switch-superseded";
+
+export type TenantSwitchOutcome =
+  | {
+      readonly status: "switched";
+      /** A FRESH reference. The session that authorized the switch is revoked and is already dead. */
+      readonly reference: string;
+      readonly maxAgeSeconds: number;
+      readonly result: AuthenticationResult;
+    }
+  | { readonly status: "refused"; readonly reason: TenantSwitchRefusal };
+
+/** Raised inside the transaction when another switch (or a sign-out) spent this session first. */
+class SwitchSuperseded extends Error {}
+
+/**
+ * The workspaces an ALREADY-AUTHORIZED session may move to, including the one it is in.
+ *
+ * The current workspace is included on purpose: a switcher that hid it could not say where the human
+ * is, and "which one am I in" is the first thing such a control has to answer. Selecting it is
+ * refused as `already-active`, so including it grants nothing.
+ *
+ * Derived entirely from the durable session: the caller supplies a cookie reference and nothing
+ * else, so it cannot widen its own list. Returns an empty list rather than an error when the session
+ * is not authorized — a control that cannot say who it belongs to has nothing to show.
+ */
+export async function readSwitchableWorkspaces(
+  db: ControlPlaneDatabase,
+  env: ConfiguredAuthenticationEnvironment,
+  reference: string,
+  input: { readonly requestId: string },
+  now: Date = new Date(),
+): Promise<readonly TenantCandidate[]> {
+  const trimmed = reference?.trim();
+  if (!trimmed) return [];
+  const current = await resolveSessionFromReference(db, env, trimmed, input, now);
+  if (current.status !== "authorized") return [];
+  return findTenantCandidates(db, current.applicationSession.userId);
+}
+
+/**
+ * Move an AUTHORIZED session from the tenant it is in to ONE other membership the human holds.
+ *
+ * ── THE CALLER'S AUTHORITY IS THE SESSION, AND IT IS CHECKED BY THE RESOLVER ──
+ *
+ * The current session is validated by `resolveSessionFromReference` — the exact function every
+ * request uses — rather than by a second set of predicates written here. So "authorized enough to
+ * switch" cannot drift from "authorized enough to act": a session whose membership was revoked, whose
+ * version moved, or whose tenant was disabled is `forbidden` to the rest of the product and is
+ * refused here too. A pre-tenant receipt is not authorized either, so it cannot reach this path.
+ *
+ * ── SWITCHING IS NOT AUTHORIZATION. REVALIDATION IS. ─────────────────────────
+ *
+ * The membership id arrives from a client that was shown a list some moments ago, and NOTHING in it
+ * is trusted. The human is taken from the resolved session, never from input; the membership is
+ * re-read BY ID **AND** by that human's `user_id`; status, lifecycle, revocation and role are
+ * re-checked from the row just read; the target tenant's own lifecycle and authentication posture
+ * are re-checked; and `membership_version` is taken from the row read NOW.
+ *
+ * ── ONE TRANSACTION, AND THE OLD SESSION IS SPENT INSIDE IT ──────────────────
+ *
+ * Authority is never mutated in place — the same rule initial selection follows. But unlike initial
+ * selection, the revoke here is CONDITIONAL and comes FIRST, inside the transaction that mints the
+ * replacement:
+ *
+ *   - conditional, so two concurrent switches produce exactly ONE new session. The loser's update
+ *     matches zero rows, it raises, and its insert unwinds — no orphan session, no second cookie.
+ *   - first, so the row lock is taken on the session two switches contend for.
+ *   - in one transaction, so a failure at insert time cannot leave a human signed out for pressing
+ *     a button. Either the switch happened or nothing did.
+ *
+ * ── THE CLOCK IS CARRIED OVER, NOT RESTARTED ─────────────────────────────────
+ *
+ * `authenticated_at` and `absolute_expires_at` come from the session being replaced. A switch proves
+ * no credential, so it must not extend how long one authentication is good for; restarting the
+ * absolute window on every switch would turn it into an inactivity window with extra steps. Only the
+ * inactivity window slides, and it is bounded by the absolute expiry it may never pass.
+ */
+export async function switchTenantForSession(
+  db: ControlPlaneDatabase,
+  env: ConfiguredAuthenticationEnvironment,
+  reference: string,
+  input: { readonly membershipId: string; readonly requestId: string },
+  now: Date = new Date(),
+): Promise<TenantSwitchOutcome> {
+  const trimmed = reference?.trim();
+  if (!trimmed) return { status: "refused", reason: "no-active-session" };
+
+  /* THE CALLER'S AUTHORITY, judged by the one function that judges it everywhere else. */
+  const current = await resolveSessionFromReference(
+    db,
+    env,
+    trimmed,
+    { requestId: input.requestId },
+    now,
+  );
+  if (current.status !== "authorized") {
+    return { status: "refused", reason: "no-active-session" };
+  }
+  const session = current.applicationSession;
+
+  const membershipId = typeof input?.membershipId === "string" ? input.membershipId.trim() : "";
+  if (!membershipId) return { status: "refused", reason: "membership-unavailable" };
+
+  /*
+   * ALREADY THERE. Checked before anything is read, and answered plainly: this client was told which
+   * workspace it is in, so naming it back reveals nothing. Minting a second session for the same
+   * tenant would rotate the reference and slide the clock for no reason at all.
+   */
+  if (membershipId === session.activeMembershipId) {
+    return { status: "refused", reason: "already-active" };
+  }
+
+  /* THE REVALIDATION. By id AND by the authenticated human, together. */
+  const membership = await findMembershipForUser(db, session.userId, membershipId);
+  if (!membership || !membership.roleId) {
+    return { status: "refused", reason: "membership-unavailable" };
+  }
+  if (
+    membership.companyLifecycleStatus !== "active" ||
+    (membership.companyTenantStatus !== null &&
+      !ACTIVE_TENANT_STATUSES.has(membership.companyTenantStatus)) ||
+    membership.companyAuthenticationDisabled
+  ) {
+    return { status: "refused", reason: "membership-unavailable" };
+  }
+
+  /* The clock the replacement inherits. Never a fresh eight hours. */
+  const authenticatedAt = new Date(session.authenticatedAt);
+  const absoluteExpiresAt = new Date(session.absoluteExpiresAt);
+  const slidInactivity = new Date(now.getTime() + SESSION_INACTIVITY_TTL_SECONDS * 1000);
+  const inactivityExpiresAt =
+    slidInactivity.getTime() > absoluteExpiresAt.getTime() ? absoluteExpiresAt : slidInactivity;
+
+  const nextReference = generateSessionReference();
+  const key = env.sessionDigestCurrentKey;
+  const hash = digestSessionReference(nextReference, key);
+
+  let sessionContextId: string;
+  try {
+    sessionContextId = await db.transaction(async (tx) => {
+      /*
+       * SPEND THE CURRENT SESSION, CONDITIONALLY AND FIRST. Zero rows means a concurrent switch or a
+       * sign-out got here first, and the abort unwinds the insert below with it.
+       */
+      const spent = await revokeSessionIfActive(
+        tx,
+        session.sessionContextId,
+        now,
+        "tenant-switched",
+      );
+      if (!spent) throw new SwitchSuperseded();
+
+      return insertSessionContext(tx, {
+        authIdentityId: session.authIdentityId,
+        providerSessionReferenceHash: hash,
+        providerSessionReferenceDigestVersion: key.version,
+        userId: session.userId,
+        activeTenantId: membership.tenantId,
+        activeMembershipId: membership.membershipId,
+        membershipVersion: membership.membershipVersion,
+        assuranceLevel: SESSION_ASSURANCE_LEVEL,
+        mfaVerified: session.mfaVerified,
+        authenticatedAt,
+        issuedAt: now,
+        lastActivityAt: now,
+        absoluteExpiresAt,
+        inactivityExpiresAt,
+      });
+    });
+  } catch (error) {
+    if (error instanceof SwitchSuperseded) {
+      return { status: "refused", reason: "switch-superseded" };
+    }
+    throw error;
+  }
+
+  const result = assembleAuthorized({
+    row: {
+      sessionContextId,
+      sessionVersion: 1,
+      authIdentityId: session.authIdentityId,
+      userId: session.userId,
+      activeTenantId: membership.tenantId,
+      activeMembershipId: membership.membershipId,
+      sessionMembershipVersion: membership.membershipVersion,
+      assuranceLevel: SESSION_ASSURANCE_LEVEL,
+      mfaVerified: session.mfaVerified,
+      authenticatedAt,
+      issuedAt: now,
+      lastActivityAt: now,
+      absoluteExpiresAt,
+      inactivityExpiresAt,
+      revokedAt: null,
+      identityStatus: "active",
+      identityProvider: current.canonicalIdentity.provider,
+      identityIssuer: current.canonicalIdentity.issuer,
+      identitySubject: current.canonicalIdentity.subject,
+      userLifecycleStatus: "active",
+      membershipStatus: "active",
+      membershipCurrentVersion: membership.membershipVersion,
+      membershipRevokedAt: null,
+      membershipRoleId: membership.roleId,
+      companyLifecycleStatus: membership.companyLifecycleStatus,
+      companyTenantStatus: membership.companyTenantStatus,
+      companyAuthenticationDisabledAt: null,
+    },
+    digestVersion: key.version,
+    digestHash: hash,
+    requestId: input.requestId,
+    now,
+  });
+
+  /* The cookie must not outlive the receipt it carries. */
+  const remainingSeconds = Math.max(
+    1,
+    Math.floor((absoluteExpiresAt.getTime() - now.getTime()) / 1000),
+  );
+
+  return {
+    status: "switched",
+    reference: nextReference,
+    maxAgeSeconds: remainingSeconds,
+    result,
+  };
 }
 
 /**

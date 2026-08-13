@@ -26,6 +26,14 @@ import {
 export type IdentityReader = Pick<ControlPlaneDatabase, "execute">;
 /** Anything that can write one row: the database, or an open transaction on it. */
 export type IdentityWriter = Pick<ControlPlaneDatabase, "insert">;
+/**
+ * Anything that can both mint and spend a session row: the database, or an open transaction on it.
+ *
+ * Needed because moving a session from one tenant to another must be atomic — "the old session was
+ * revoked but the new one was never written" would sign a human out for pressing a switch button,
+ * and "two sessions exist because two switches raced" would leave a live receipt nobody holds.
+ */
+export type SessionWriter = Pick<ControlPlaneDatabase, "insert" | "update">;
 
 export interface LocalIdentityRow {
   readonly userId: string;
@@ -433,9 +441,14 @@ export async function findMembershipForUser(
   };
 }
 
-/** Insert a durable session context row; returns its generated id. */
+/**
+ * Insert a durable session context row; returns its generated id.
+ *
+ * Takes a writer rather than the database so it can be part of the caller's transaction: a switch
+ * that mints a session and spends the previous one must do both or neither.
+ */
 export async function insertSessionContext(
-  db: ControlPlaneDatabase,
+  db: IdentityWriter,
   input: SessionContextInsert,
 ): Promise<string> {
   const inserted = await db
@@ -550,6 +563,38 @@ export async function revokeSession(
     .update(userSessionContexts)
     .set({ revokedAt, revocationReason })
     .where(eq(userSessionContexts.id, sessionContextId));
+}
+
+/**
+ * SPEND a session exactly once: revoke it only if it is still live, and report whether this call is
+ * the one that did it.
+ *
+ * THE SIBLING OF `revokeSession`, NOT ITS REPLACEMENT. Sign-out is unconditional and idempotent —
+ * revoking an already-revoked session is still the right outcome. A switch is not: it is a
+ * transition, and two concurrent transitions from one session must produce ONE new session, not two.
+ * Predicating the write on `revoked_at is null` takes the row lock on the session being spent, which
+ * is the thing two switches actually contend for, and makes the loser's update affect zero rows.
+ *
+ * The same shape the invitation authority already uses to make acceptance single-use. Returns false
+ * rather than throwing so the caller decides what a lost race means.
+ */
+export async function revokeSessionIfActive(
+  writer: Pick<ControlPlaneDatabase, "update">,
+  sessionContextId: string,
+  revokedAt: Date,
+  revocationReason: string,
+): Promise<boolean> {
+  const spent = await writer
+    .update(userSessionContexts)
+    .set({ revokedAt, revocationReason })
+    .where(
+      and(
+        eq(userSessionContexts.id, sessionContextId),
+        isNull(userSessionContexts.revokedAt),
+      ),
+    )
+    .returning({ id: userSessionContexts.id });
+  return spent.length > 0;
 }
 
 /** Resolve a role's tenant-scoped id (guards role belongs to the tenant). */

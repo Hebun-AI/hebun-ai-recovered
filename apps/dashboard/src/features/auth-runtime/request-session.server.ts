@@ -21,8 +21,10 @@ import type { AuthenticationResult } from "@/features/auth/types";
 import {
   SESSION_ABSOLUTE_TTL_SECONDS,
   readSelectableWorkspaces,
+  readSwitchableWorkspaces,
   resolveSessionFromReference,
   selectTenantForSession,
+  switchTenantForSession,
 } from "./session-service.server";
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from "./session-cookie";
 import type { TenantCandidate } from "./identity-repository.server";
@@ -30,6 +32,10 @@ import type {
   WorkspaceSelectionRefusal,
   WorkspaceSelectionResult,
 } from "@/features/tenant-selection/contracts";
+import type {
+  WorkspaceSwitchRefusal,
+  WorkspaceSwitchResult,
+} from "@/features/tenant-switching/contracts";
 
 /** The authentication environment gate for this process. */
 export function getAuthEnvironment(): AuthenticationEnvironmentResolution {
@@ -148,5 +154,69 @@ export async function selectWorkspaceForRequest(
 }
 
 function refusedSelection(reason: WorkspaceSelectionRefusal): WorkspaceSelectionResult {
+  return { status: "refused", reason };
+}
+
+/*
+ * ── POST-LOGIN TENANT SWITCHING: the cookie half ────────────────────────────────────────────────
+ *
+ * The mirror of the two functions above, for a session that is already authorized. Neither accepts a
+ * user, a tenant or a session identifier from a caller: the human is whoever the durable session row
+ * says they are, and the session service refuses anything that does not resolve to `authorized`.
+ */
+
+/**
+ * The workspaces the current AUTHORIZED session may move to, including the one it is in.
+ *
+ * Returns an empty list — never an error — when there is no authorized session, for the same reason
+ * the selection reader does: a control that cannot say who it belongs to has nothing to show.
+ */
+export async function readSwitchableWorkspacesForRequest(): Promise<readonly TenantCandidate[]> {
+  const env = getAuthEnvironment();
+  if (env.status !== "configured") return [];
+  const reference = await readSessionReference();
+  if (!reference) return [];
+  try {
+    return await readSwitchableWorkspaces(getControlPlaneDb(), env, reference, {
+      requestId: randomUUID(),
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Move this session to ONE other workspace the human already belongs to.
+ *
+ * The client supplies a membership id and nothing else. On success a FRESH session cookie replaces
+ * the previous one — the old reference was revoked in the same transaction that minted the new one,
+ * so a copy of it is already dead.
+ */
+export async function switchWorkspaceForRequest(
+  membershipId: string,
+): Promise<WorkspaceSwitchResult> {
+  const env = getAuthEnvironment();
+  if (env.status !== "configured") return refusedSwitch("unavailable");
+  const reference = await readSessionReference();
+  if (!reference) return refusedSwitch("no-active-session");
+
+  let outcome;
+  try {
+    outcome = await switchTenantForSession(getControlPlaneDb(), env, reference, {
+      membershipId: typeof membershipId === "string" ? membershipId : "",
+      requestId: randomUUID(),
+    });
+  } catch {
+    return refusedSwitch("unavailable");
+  }
+
+  if (outcome.status !== "switched") return refusedSwitch(outcome.reason);
+  if (outcome.result.status !== "authorized") return refusedSwitch("membership-unavailable");
+
+  await setSessionCookie(outcome.reference, outcome.maxAgeSeconds);
+  return { status: "switched", tenantId: outcome.result.tenantContext.tenantId };
+}
+
+function refusedSwitch(reason: WorkspaceSwitchRefusal): WorkspaceSwitchResult {
   return { status: "refused", reason };
 }

@@ -91,18 +91,24 @@ export const TENANT_SELECTION_NON_EFFECTS: readonly string[] = Object.freeze([
 ]);
 
 /**
- * WHAT REMAINS UNBUILT, stated rather than implied.
+ * SWITCHING NOW EXISTS, AND IT IS NOT THIS.
  *
- * Choosing at sign-in is implemented. Switching workspace from inside an already-authorized session
- * is a different entry point: the human is already authorized somewhere, so the act starts from a
- * tenant-bound receipt rather than a pre-tenant one. The same revalidation and the same fresh
- * issuance would serve it, but exposing it is a product decision this phase did not take.
+ * When this phase closed, choosing at sign-in was implemented and switching from inside an
+ * already-authorized session was not. It is now — as a SEPARATE entry point, `switchTenantForSession`
+ * in the same Session authority, with `@/features/tenant-switching/contracts` as its vocabulary.
+ *
+ * WHAT DID NOT CHANGE HERE, and must not. `selectTenantForSession` still refuses a tenant-bound
+ * receipt. It is reachable from `/login/select-workspace`, beneath the one public route prefix, so
+ * letting an authorized session through it would make that session re-pointable from a public
+ * surface. The two entry points have opposite preconditions and each refuses the other's input; they
+ * share the one revalidation reader and the one assembly path, so no authority is duplicated.
  */
 export const POST_LOGIN_SWITCHING = Object.freeze({
-  implemented: false as const,
-  reachableToday:
-    "sign out and sign in again — a human with several memberships is asked to choose every time",
-  wouldReuse:
-    "the same server-side membership revalidation and the same fresh-session issuance; no new " +
-    "authority decision is required for it",
+  implemented: true as const,
+  implementedBy: "switchTenantForSession — a sibling entry point, not a widening of this one" as const,
+  thisEntryPointStillRefuses:
+    "a tenant-bound receipt; an already-authorized session cannot be re-pointed through the sign-in picker" as const,
+  reuses:
+    "the same server-side membership revalidation (findMembershipForUser) and the same fresh-session " +
+    "issuance; no new authority decision was required for it",
 });

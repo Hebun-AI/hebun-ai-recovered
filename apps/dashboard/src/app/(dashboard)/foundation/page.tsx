@@ -1,7 +1,9 @@
 import {
   getAuthEnvironment,
+  readSwitchableWorkspacesForRequest,
   resolveRequestAuthentication,
 } from "@/features/auth-runtime/request-session.server";
+import { WorkspaceSwitchCard } from "@/components/auth/workspace-switch-card";
 import {
   isDurableRegistryConfigured,
   type DurableRegistryRecord,
@@ -50,6 +52,12 @@ export default async function FoundationPage() {
   }
 
   const ctx = result.tenantContext;
+  /*
+   * The workspaces this session may move to. Read here rather than in the shell because this is the
+   * surface that already renders the session's own identity — tenant, membership, role — and the
+   * only one that carries Sign out. A switcher belongs beside the thing it changes.
+   */
+  const switchable = await readSwitchableWorkspacesForRequest();
   const durable = isDurableRegistryConfigured();
   let registries: DurableRegistryRecord[] = [];
   let durableError: string | undefined;
@@ -91,6 +99,15 @@ export default async function FoundationPage() {
         <Field label="Session context id" value={ctx.sessionContextId} />
         <Field label="Authenticated at" value={ctx.authenticatedAt} />
       </div>
+
+      <WorkspaceSwitchCard
+        currentMembershipId={ctx.membershipId}
+        workspaces={switchable.map((workspace) => ({
+          membershipId: workspace.membershipId,
+          tenantName: workspace.tenantName,
+          roleName: workspace.roleName,
+        }))}
+      />
 
       <div className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">

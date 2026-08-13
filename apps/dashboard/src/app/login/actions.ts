@@ -8,8 +8,10 @@ import {
   getAuthEnvironment,
   selectWorkspaceForRequest,
   setSessionCookie,
+  switchWorkspaceForRequest,
 } from "@/features/auth-runtime/request-session.server";
 import type { WorkspaceSelectionResult } from "@/features/tenant-selection/contracts";
+import type { WorkspaceSwitchResult } from "@/features/tenant-switching/contracts";
 import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
 import {
   issueLocalSession,
@@ -93,6 +95,24 @@ export async function selectWorkspaceAction(input: {
   membershipId: string;
 }): Promise<WorkspaceSelectionResult> {
   return selectWorkspaceForRequest(input?.membershipId ?? "");
+}
+
+/**
+ * Change workspace from inside an ALREADY-AUTHORIZED session.
+ *
+ * It lives beside the other Session-authority actions because that is what it is — the same module
+ * that signs a human in, asks them to choose, and signs them out. It is not a login step: the caller
+ * must already hold a session that resolves to `authorized`, and a pre-tenant receipt is refused.
+ *
+ * The client supplies a membership id and nothing else — no tenant, no user, no role, no version.
+ * The server re-resolves the human from the durable session, re-reads that membership by id AND by
+ * that human's id, re-checks its lifecycle and its tenant, then revokes the current session and
+ * mints the replacement in one transaction. Switching is not authorization; revalidation is.
+ */
+export async function switchWorkspaceAction(input: {
+  membershipId: string;
+}): Promise<WorkspaceSwitchResult> {
+  return switchWorkspaceForRequest(input?.membershipId ?? "");
 }
 
 /** Sign out: revoke the durable session row and clear the cookie. */

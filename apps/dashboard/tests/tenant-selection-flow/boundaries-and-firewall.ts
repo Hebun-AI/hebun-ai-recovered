@@ -157,12 +157,19 @@ function main(): void {
 
   /* ── 5. A FRESH SESSION, NEVER A MUTATED ONE ─────────────────────────────── */
   {
-    /* The only session writers remain: insert, activity touch, revoke. */
+    /*
+     * The only session writers remain: insert, activity touch, revoke.
+     *
+     * Compared as a SET of shapes rather than a list, because post-login switching added a second
+     * revoke writer (`revokeSessionIfActive`, conditional on the row still being live). The invariant
+     * being protected is what a writer may SET, not how many writers exist — a third distinct shape
+     * would still fail here, which is the thing that matters.
+     */
     const updates = [...repoCode.matchAll(/\.update\(userSessionContexts\)\s*\.set\(\{([^}]*)\}/g)].map(
       (m) => m[1]!.replace(/\s+/g, " ").trim(),
     );
     assert.deepEqual(
-      updates.sort(),
+      [...new Set(updates)].sort(),
       ["lastActivityAt, inactivityExpiresAt", "revokedAt, revocationReason"].sort(),
       "no writer may change a session's tenant or membership after issuance",
     );
@@ -281,21 +288,44 @@ function main(): void {
     );
   }
 
-  /* ── 10. NO TENANT SWITCHER WAS SMUGGLED IN ──────────────────────────────── */
+  /* ── 10. THE SIGN-IN PICKER IS STILL NOT A SWITCHER ──────────────────────── */
   {
-    assert.equal(POST_LOGIN_SWITCHING.implemented, false);
-    assert.match(POST_LOGIN_SWITCHING.reachableToday, /sign out and sign in again/);
-    /* An already-authorized session is explicitly not a selection context. */
+    /*
+     * Post-login switching now exists. It is a SEPARATE entry point, and this test asserts the thing
+     * that had to stay true when it arrived: THIS one still refuses an already-authorized session.
+     * `/login/select-workspace` lives beneath the one public route prefix, so a widened
+     * `selectTenantForSession` would make a live session re-pointable from a public surface.
+     */
+    assert.equal(POST_LOGIN_SWITCHING.implemented, true);
+    assert.match(POST_LOGIN_SWITCHING.implementedBy, /sibling entry point, not a widening/);
+    assert.match(POST_LOGIN_SWITCHING.thisEntryPointStillRefuses, /tenant-bound receipt/);
+    /* An already-authorized session is explicitly not a SELECTION context — unchanged. */
     assert.match(
       sessionCode,
       /current\.activeTenantId !== null \|\|\s*\n?\s*current\.activeMembershipId !== null/,
       "a tenant-bound receipt must be refused as a selection context",
     );
+    /* And no surface reaches the SELECTION path except the picker page itself. */
     const surfaces = collect("src/app").filter((f) => /page\.tsx$/.test(f));
-    const switchers = surfaces.filter(
+    const selectors = surfaces.filter(
       (f) => f !== PAGE && /selectWorkspaceAction|selectTenantForSession/.test(read(f)),
     );
-    assert.deepEqual(switchers, [], "no other surface offers workspace switching");
+    assert.deepEqual(selectors, [], "no other surface reaches the sign-in selection path");
+    /* The picker's own surfaces must never CALL the switching path. */
+    for (const file of [CARD, PAGE]) {
+      assert.ok(
+        !/switchTenantForSession|switchWorkspaceAction|tenant-switching/.test(codeOf(read(file))),
+        `${file}: the sign-in picker must not reach the post-login switching path`,
+      );
+    }
+    /*
+     * `contracts.ts` NAMES the sibling — that is the record being kept honest, not a call. What it
+     * must not do is depend on it, so the ban here is on the import, not on the word.
+     */
+    assert.ok(
+      !/from "@\/features\/tenant-switching/.test(read(CONTRACTS)),
+      "the selection contract may name the switching entry point, but must not import it",
+    );
   }
 
   /* ── 11. THE PICKER PROMISES NOTHING IT CANNOT DO ────────────────────────── */
