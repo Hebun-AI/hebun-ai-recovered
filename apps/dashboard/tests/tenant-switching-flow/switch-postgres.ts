@@ -598,26 +598,38 @@ async function main(): Promise<void> {
     }
 
     /*
-     * ══ ROLE / TENANT MISMATCH ═══════════════════════════════════════════════
+     * ══ ROLE / TENANT MISMATCH — NO LONGER REPRESENTABLE ═════════════════════
      *
-     * `memberships.role_id` references `roles.id` alone — no constraint ties the role's tenant to
-     * the membership's. So a membership in tenant C carrying tenant B's role is REPRESENTABLE, and
-     * every session path reads the role straight off the membership row.
+     * THIS BLOCK USED TO SET UP THE MISMATCH AND ASSERT PARITY WITH SIGN-IN.
      *
-     * This phase does not silently change that: it belongs to Membership authority (who WRITES such
-     * a row), and tightening the shared reader would retroactively change I1/I1.1 and the sign-in
-     * picker. What is asserted here is the property this phase owns — switching is EXACTLY as strict
-     * as an ordinary sign-in, never weaker. The mismatch is reported as a limitation.
+     * When switching closed, `memberships.role_id` referenced `roles.id` alone, so a membership in
+     * tenant C carrying tenant B's role was representable and every session path read the role
+     * straight off the membership row. This phase deliberately did not repair that — the gap belonged
+     * to Membership authority — and asserted only that switching was EXACTLY as strict as an ordinary
+     * sign-in, never weaker.
+     *
+     * Membership–Role Tenant Integrity closed it. `memberships_tenant_role_fk` pairs the tenant with
+     * the role in one relational fact, so PostgreSQL now refuses the row the old fixture created. The
+     * assertion is inverted rather than deleted: what this file proves about switching is now that the
+     * mismatch cannot be constructed at all, which is strictly stronger than the parity it used to
+     * settle for. `back.result.tenantContext.roleId` can no longer differ from the tenant's own role
+     * because no such membership can exist.
      */
     {
-      await setup.query(`update memberships set role_id=$1 where id=$2`, [inB.roleId, inC.membershipId]);
+      await assert.rejects(
+        setup.query(`update memberships set role_id=$1 where id=$2`, [inB.roleId, inC.membershipId]),
+        /memberships_tenant_role_fk/,
+        "a membership may no longer carry another tenant's role — Postgres refuses it",
+      );
 
+      /* And the membership is untouched, so the ordinary paths behave exactly as before. */
       const viaSignIn = await signInAndSelect(handle.db, env, "multi@acme.test", inC.membershipId, "sw-13");
       const signInContext = await resolveSessionFromReference(
         handle.db, env, viaSignIn, { requestId: "sw-13r" }, NOW,
       );
       assert.equal(signInContext.status, "authorized");
       if (signInContext.status !== "authorized") throw new Error("unreachable");
+      assert.equal(signInContext.tenantContext.roleId, inC.roleId, "still tenant C's own role");
 
       const viaSwitch = await switchTenantForSession(
         handle.db, env, viaSignIn, { membershipId: inA.membershipId, requestId: "sw-13a" }, NOW,
@@ -636,8 +648,6 @@ async function main(): Promise<void> {
         "switching reads the role exactly as an ordinary sign-in does — no weaker, no different",
       );
       assert.equal(back.result.tenantContext.tenantId, C.tenantId);
-
-      await setup.query(`update memberships set role_id=$1 where id=$2`, [inC.roleId, inC.membershipId]);
     }
 
     /* ══ ABSOLUTE NON-EFFECTS: switching created and changed NOTHING ═════════ */

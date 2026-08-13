@@ -1,0 +1,1 @@
+ALTER TABLE "memberships" ADD CONSTRAINT "memberships_tenant_role_fk" FOREIGN KEY ("tenant_id","role_id") REFERENCES "public"."roles"("tenant_id","id") ON DELETE restrict ON UPDATE no action;

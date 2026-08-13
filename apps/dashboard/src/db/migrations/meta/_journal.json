@@ -162,6 +162,13 @@
       "when": 1786539955781,
       "tag": "20260812130555_i1_2_identity_enrollment",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786612002232,
+      "tag": "20260813090642_membership_role_tenant_integrity",
+      "breakpoints": true
     }
   ]
 }

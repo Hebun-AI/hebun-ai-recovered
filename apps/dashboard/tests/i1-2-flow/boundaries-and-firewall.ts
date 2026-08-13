@@ -406,10 +406,18 @@ function main(): void {
     const addedEnumValues = [...migration.matchAll(/ADD VALUE '([a-z-]+)'/g)].map((m) => m[1]!);
     assert.deepEqual(addedEnumValues, ["identity-enrollment"]);
 
-    /* Exactly one migration file was added by this phase. */
+    /*
+     * Exactly one migration file was added by this phase.
+     *
+     * Stated against THIS phase's boundary rather than against a global count. Filenames are
+     * timestamp-prefixed, so a lexical comparison is chronological: everything at or before I1.2's
+     * own migration is the world as it stood when I1.2 closed. A later authorized phase adding its
+     * own migration must not falsify a claim that was never about it.
+     */
     const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
     assert.equal(files.filter((f) => f.includes("i1_2")).length, 1);
-    assert.equal(files.length, 23, "22 existing migrations plus exactly one new one");
+    const throughI12 = files.filter((f) => f <= "20260812130555_i1_2_identity_enrollment.sql");
+    assert.equal(throughI12.length, 23, "22 existing migrations plus exactly this phase's one");
   }
 
   /* ── 14. The stated non-effects are the real ones ────────────────────────── */

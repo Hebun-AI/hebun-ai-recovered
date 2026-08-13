@@ -94,8 +94,15 @@ function main(): void {
         "20260812090301_i1_membership_authorization.sql",
         "20260812105312_i1_1_tenant_role_baseline.sql",
         "20260812130555_i1_2_identity_enrollment.sql",
+        /*
+         * Membership–Role Tenant Integrity. Added by Gate B, for a different subsystem: one composite
+         * foreign key binding a membership's tenant to its role's, on `memberships`. It touches no
+         * Governance table and grants no authority — this allowlist is exactly the mechanism that
+         * required it to be declared here rather than appear silently.
+         */
+        "20260813090642_membership_role_tenant_integrity.sql",
       ],
-      "G3 adds no migration — authority is derived from decisions; only the I1/I1.1/I1.2 Gate-B migrations follow G2",
+      "G3 adds no migration — authority is derived from decisions; only Gate-B migrations for other subsystems follow G2",
     );
     assert.deepEqual(
       migrations.filter((n) => /_g3_|deleg/i.test(n)),

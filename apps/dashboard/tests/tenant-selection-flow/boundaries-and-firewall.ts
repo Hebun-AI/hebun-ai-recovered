@@ -51,13 +51,25 @@ function main(): void {
 
   /* ── 1. NO SCHEMA CHANGE ─────────────────────────────────────────────────── */
   {
+    /*
+     * Stated against this phase's own boundary, not a global count. Filenames are timestamp-prefixed,
+     * so a lexical comparison is chronological: the 23 migrations that existed when tenant selection
+     * closed must all still be there, and none of them may be this phase's. A later authorized phase
+     * adding its own migration must not falsify a claim that was never about it.
+     */
     const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) =>
       f.endsWith(".sql"),
     );
-    assert.equal(migrations.length, 23, "tenant selection adds no migration — 23 is I1.2's count");
+    const throughSelection = migrations.filter(
+      (f) => f <= "20260812130555_i1_2_identity_enrollment.sql",
+    );
+    assert.equal(
+      throughSelection.length, 23,
+      "the 23 migrations that existed when tenant selection closed are intact",
+    );
     assert.equal(
       migrations.filter((f) => /tenant.?select|workspace/i.test(f)).length, 0,
-      "no selection-named migration exists",
+      "tenant selection adds no migration — no selection-named migration exists, then or since",
     );
     for (const file of [CONTRACTS, CARD, PAGE]) {
       assert.ok(!codeOf(read(file)).includes("pgTable("), `${file} must not define a table`);

@@ -53,13 +53,25 @@ function main(): void {
 
   /* ── 1. NO SCHEMA CHANGE ─────────────────────────────────────────────────── */
   {
+    /*
+     * Stated against this phase's own boundary, not a global count. Filenames are timestamp-prefixed,
+     * so a lexical comparison is chronological: the 23 migrations that existed when switching closed
+     * must all still be there, and none of them may be this phase's. A later authorized phase adding
+     * its own migration must not falsify a claim that was never about it.
+     */
     const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) =>
       f.endsWith(".sql"),
     );
-    assert.equal(migrations.length, 23, "switching adds no migration — 23 is I1.2's count");
+    const throughSwitching = migrations.filter(
+      (f) => f <= "20260812130555_i1_2_identity_enrollment.sql",
+    );
+    assert.equal(
+      throughSwitching.length, 23,
+      "the 23 migrations that existed when switching closed are intact",
+    );
     assert.equal(
       migrations.filter((f) => /switch|workspace/i.test(f)).length, 0,
-      "no switching-named migration exists",
+      "switching adds no migration — no switching-named migration exists, then or since",
     );
     for (const file of [CONTRACTS, CARD]) {
       assert.ok(!codeOf(read(file)).includes("pgTable("), `${file} must not define a table`);

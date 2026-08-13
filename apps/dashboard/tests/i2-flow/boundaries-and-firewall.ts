@@ -325,11 +325,18 @@ function main(): void {
 
   /* ── 13. NO SCHEMA CHANGE. I2's migration delta is zero. ─────────────────── */
   {
+    /*
+     * Stated against I2's own boundary, not a global count. Filenames are timestamp-prefixed, so a
+     * lexical comparison is chronological: the 23 migrations that existed when I2 closed must all
+     * still be there, and none of them may be I2's. A later authorized phase adding its own
+     * migration must not falsify a claim that was never about it.
+     */
     const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-    assert.equal(files.length, 23, "I2 adds no migration — 23 is the I1.2 count, unchanged");
+    const throughI2 = files.filter((f) => f <= "20260812130555_i1_2_identity_enrollment.sql");
+    assert.equal(throughI2.length, 23, "the 23 migrations that existed when I2 closed are intact");
     assert.equal(
       files.filter((f) => /_i2_|onboard/i.test(f)).length, 0,
-      "no I2-named migration exists",
+      "I2 adds no migration — no I2-named migration exists, then or since",
     );
     /* And no I2 file defines a table. */
     for (const file of [...RUNTIME_FILES, CONTRACTS]) {
