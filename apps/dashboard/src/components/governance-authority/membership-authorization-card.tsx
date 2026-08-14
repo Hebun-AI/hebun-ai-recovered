@@ -285,12 +285,22 @@ export function MembershipAuthorizationCard({
                     {entry.status}
                   </p>
                   {/*
-                    I2 — the ONLY new control on this card. It appears solely for an authorization
-                    that is still live, because a spent one has nothing left to spend.
+                    I2 — ALWAYS MOUNTED, and that is the fix for a real incident.
+
+                    This used to be `{!entry.consumed && entry.status === "authorized" ? <…/> : null}`,
+                    so a successful issuance destroyed its own output: issuing marks the authorization
+                    `consumed` in the same transaction, the refreshed server tree flipped this
+                    condition to false, React unmounted the component, and the one-time capability
+                    held in its state died with it — twice, in production.
+
+                    The component now decides for itself what to render, so no server-side status
+                    change can unmount it while it is holding a plaintext secret. `issuable` is the
+                    same predicate as before; it now controls the BUTTON, not the mount.
                   */}
-                  {!entry.consumed && entry.status === "authorized" ? (
-                    <InvitationIssuance authorizationId={entry.authorizationId} />
-                  ) : null}
+                  <InvitationIssuance
+                    authorizationId={entry.authorizationId}
+                    issuable={!entry.consumed && entry.status === "authorized"}
+                  />
                   {/*
                     The mirror control. It appears only where an outstanding capability actually
                     exists — an invitation this authorization produced that is still `pending`.
@@ -330,29 +340,72 @@ export function MembershipAuthorizationCard({
  * it is reachable and copyable by keyboard; refusals are role="alert"; the success announcement is
  * role="status"; state is carried by words, never by colour alone.
  */
-function InvitationIssuance({ authorizationId }: { readonly authorizationId: string }) {
+function InvitationIssuance({
+  authorizationId,
+  issuable,
+}: {
+  readonly authorizationId: string;
+  /** Whether this authorization can still produce a capability. Gates the BUTTON, never the mount. */
+  readonly issuable: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [capability, setCapability] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [refusal, setRefusal] = useState<InvitationIssuanceRefusal | null>(null);
+  /**
+   * A thrown action, not a refused one. Kept separate from `refusal` because the runtime's refusal
+   * vocabulary describes outcomes the server DECIDED; a transport failure means the outcome is
+   * unknown, and claiming "nothing was changed" could be false.
+   */
+  const [unknownOutcome, setUnknownOutcome] = useState(false);
   const capabilityId = useId();
   const noticeId = useId();
 
   function issue() {
     setRefusal(null);
+    setUnknownOutcome(false);
     startTransition(async () => {
-      const result = await issueInvitationAction({ membershipAuthorizationId: authorizationId });
+      let result;
+      try {
+        result = await issueInvitationAction({ membershipAuthorizationId: authorizationId });
+      } catch {
+        /*
+         * The request did not come back. It may still have committed, so this must NOT say nothing
+         * happened and must NOT offer a retry that could spend a second authorization.
+         */
+        setUnknownOutcome(true);
+        return;
+      }
       if (result.status === "issued") {
+        /*
+         * THE SECRET LANDS IN STATE AND NOTHING ELSE HAPPENS. `router.refresh()` used to be called
+         * right here, which re-rendered the server tree, flipped this component's mount condition
+         * and destroyed the capability before the human could read it. The refresh now belongs to
+         * `acknowledge()`, behind an explicit human action.
+         */
         setCapability(result.capability);
         setExpiresAt(result.expiresAt);
-        router.refresh();
         return;
       }
       setRefusal(result.reason);
     });
   }
 
+  /**
+   * The human says they have saved it. ONLY then is the local copy dropped and the server tree
+   * refreshed. This issues nothing: it calls no action and touches no durable state.
+   */
+  function acknowledge() {
+    setCapability(null);
+    setExpiresAt(null);
+    router.refresh();
+  }
+
+  /*
+   * CHECKED FIRST, ALWAYS. While a plaintext capability is held, this component renders the panel
+   * regardless of what the server now says about the authorization — that is the whole point.
+   */
   if (capability) {
     return (
       <div className="mt-3 space-y-2 rounded-md border border-border bg-surface-2 p-3">
@@ -370,12 +423,30 @@ function InvitationIssuance({ authorizationId }: { readonly authorizationId: str
           className="w-full rounded border border-border bg-surface px-2 py-1 font-mono text-xs"
         />
         <p className="text-xs text-fg-muted" id={noticeId}>
+          Copy or save it now, before you continue. Hebun cannot show it again and cannot recover
+          it. Do not close or reload this page until you have saved it.{" "}
           {DELIVERY_REALITY.operatorObligation} Not delivered by Hebun —{" "}
           {DELIVERY_REALITY.deliveryOwner}. Usable until {expiresAt}.
         </p>
+        <Button onClick={acknowledge} size="sm" type="button" variant="outline">
+          I have saved this capability
+        </Button>
       </div>
     );
   }
+
+  if (unknownOutcome) {
+    return (
+      <p className="mt-3 text-sm text-fg-danger" role="alert">
+        The request did not complete, and Hebun cannot tell whether the capability was created.
+        Reload this page before trying anything else — if one was issued, it is shown as an
+        outstanding capability and no second one may be issued against this authorization.
+      </p>
+    );
+  }
+
+  /* A spent authorization has nothing left to spend, and this component has no secret to guard. */
+  if (!issuable) return null;
 
   return (
     <div className="mt-3">
