@@ -4380,3 +4380,120 @@ C2 → second C3 → **second capability lost to this UI defect**, not to human 
 
 **No revocation, no new C2, no new C3, no Act 1, no capability, no durable mutation, no commit, tag
 or push.**
+
+---
+
+# PART SEVENTEEN — THIRD CEREMONY STRANDED AFTER APPROVAL, AND THE RECOVERY SEAM THAT CLOSES IT
+
+Date: 2026-08-14. Two passes: the read-only incident audit, and the fix. **`hebun_r1` was read and
+never written in either.**
+
+Full record: `docs/product-vision/runtime/hebun-stranded-approved-enrollment-recovery-closure.md`.
+
+---
+
+## 122. What happened, in order
+
+The third capability was issued and — thanks to the custody fix released hours earlier — was visibly
+preserved and saved. **The custody fix worked.** Everything after it did not:
+
+```
+authorization 1ff15ab9-c23f-4aa9-8e1f-4626e765568d  authorized 16:39:48 → consumed 16:41:40
+invitation    f754d23b-41ae-45a6-b55b-23afb9e3cf43  pending · expires 2026-08-17 16:41:40 +03
+enrollment    d0fbdd47-aa92-4e5e-8974-0a05dbf93c30  submitted 16:44:19 → approved 16:47:39
+                                                    completed_at NULL · decision 526e4306…
+```
+
+The bearer submitted, Governance approved, and the browser continuation binding was then lost. The
+completion attempt refused `continuation-unrecognized` and wrote nothing — the enrollment's
+`updated_at` still equals its `approved_at`. A retry then refused `enrollment-already-started`.
+
+Zero account artifacts: no user, identity, credential or membership for `senoltr@gmail.com`.
+
+---
+
+## 123. Why it could not be recovered
+
+Approval is only PERMISSION for Act 3. With the binding gone it could never be spent, and three
+things held the ceremony shut:
+
+- `readPendingEnrollments` listed only `status = 'pending'` — **invisible**
+- `decideIdentityEnrollment` refused anything not `pending` — **unrejectable**
+- `identity_enrollment_requests_one_live_per_invitation_uq`, partial on `status <> 'rejected'` —
+  **blocking every fresh submission**
+
+And the released product had already promised the bearer that a Governance authority could reject a
+stranded ceremony to free the invitation. **That sentence was not executable.** Same trap class as
+§108's `invitations_pending_email_uq`: a partial unique index whose escape hatch is unreachable from
+a state the system actually reaches.
+
+Classified **G — multiple defects**, not human error. The Director followed the documented flow.
+
+---
+
+## 124. The fix
+
+One new transition: **`approved` + `completed_at IS NULL` → `rejected`**, reachable only by
+rejection, under the existing Governance authority, through the existing decision writer and audit
+sink. Approval remains once-only out of `pending`; a **completed** ceremony is still never
+rejectable.
+
+The read seam now returns both actionable states and flags the stranded one, with its approval
+timestamp; terminal states still leave. The surface renders it as *"Approved, but the account was
+never created"*, withholds the Approve control, and offers *"Reject so they can try again"* beside
+four frozen facts — nothing is undone, the invitation is not revoked, no new capability is issued,
+and the same capability can be reused.
+
+The approval columns are cleared because `identity_enrollment_requests_approved_chk` requires it; the
+approval itself survives in `decision_records`, which the flow test asserts.
+
+The public refusal copy was corrected and made state-neutral: an enrollment ceremony "already exists",
+without revealing whether Governance approved it, because that boundary is unauthenticated.
+
+**Zero schema, migration and dependency delta.** No new authority, resolver or operator shortcut.
+
+---
+
+## 125. Verification, and the limitation that remains
+
+`tsc` clean · eslint 0 errors · **354 passed, 0 failed** (was 352) · build clean ·
+`git diff --check` clean.
+
+The flow test proves the whole recovery against real PostgreSQL with **one C2 and one C3 for the
+entire story**: stranded → visible → rejected → **same capability** resubmitted → approved →
+completed → membership created, plus every authority refusal and a concurrency race with exactly one
+winner.
+
+Two sibling tests were corrected rather than loosened: one asserted that rejecting an approved
+ceremony refuses (that was the bug), the other that an approved ceremony leaves the list (wrong for
+exactly one state). Both now assert the invariant they were really protecting.
+
+**Browser validation was not performed.** The repository has no browser or e2e harness and adding a
+dependency was out of scope; standing up a fixture-backed server on port 4000 was rejected because
+that is the ceremony URL and a Governance action against the wrong database is a worse risk than the
+gap. Third consecutive phase to name this — it is now the largest verification risk in the ceremony.
+
+---
+
+## 126. Ceremony state and the recovery point
+
+Unchanged by both passes. Enrollment `d0fbdd47…` is still `approved` with `completed_at` NULL and its
+approval decision intact; invitation `f754d23b…` is still `pending`, unrevoked, unaccepted; audit 13,
+decisions 6, migrations 24.
+
+After release, the Director rejects the stranded submission with a reason. The bearer **already holds
+the capability** — nothing is handed over again — and resubmits at `/login/join`. **No new C2, no new
+C3, no new capability.** The invitation is live until 2026-08-17 16:41:40 +03.
+
+Historical truth, unrewritten: first capability lost after being shown → revoked → second C2/C3 →
+second capability lost to a UI custody defect → revoked → third C2/C3 → **custody fix worked, and the
+ceremony stranded after approval instead**.
+
+---
+
+## VERDICT OF THE SEVENTEENTH PASS
+
+# STRANDED APPROVED ENROLLMENT RECOVERY CLOSED WITH DOCUMENTED BROWSER LIMITATION
+
+**No rejection, no revocation, no new C2, no new C3, no resubmission, no account, no durable
+mutation, no commit, tag or push.**
