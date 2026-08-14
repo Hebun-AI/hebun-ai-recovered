@@ -88,13 +88,26 @@ function main(): void {
     );
   }
 
-  /* ── 2. THE PAGE DOES NOT REACH THE ONBOARDING FEATURE DIRECTLY ─────────── */
+  /* ── 2. NO PAGE REACHES THE ONBOARDING MUTATION PATH ────────────────────── */
   {
-    /* The same rule I2 already enforces for issuance: pages compose, components and actions call. */
+    /*
+     * The same rule I2 enforces, and narrowed with it. Banning the string `human-onboarding` from
+     * every page was a proxy: a server page legitimately imports READ seams, and the revocation
+     * phase added one there. What must stay true is that no page reaches an act — pages compose,
+     * components and actions call.
+     */
     const surfaces = collect("src/app")
       .filter((f) => /page\.tsx$/.test(f))
-      .filter((f) => read(f).includes("human-onboarding"));
-    assert.deepEqual(surfaces, [], "no page imports the onboarding feature directly");
+      .filter((f) => {
+        const src = read(f);
+        return (
+          src.includes("human-onboarding/issue-invitation.server") ||
+          src.includes("human-onboarding/accept-invitation.server") ||
+          src.includes("human-onboarding/revoke-invitation.server") ||
+          /issueInvitationAction|revokeInvitationAction/.test(src)
+        );
+      });
+    assert.deepEqual(surfaces, [], "no page reaches the onboarding mutation path");
   }
 
   /* ── 3. THE CONTINUATION REFERENCE NEVER REACHES THE BROWSER ────────────── */

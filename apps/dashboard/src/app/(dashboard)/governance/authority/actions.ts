@@ -22,7 +22,11 @@ import { provisionMemberRole } from "@/features/tenant-role-baseline/provision-m
 import type { RoleBaselineResult } from "@/features/tenant-role-baseline/contracts";
 import { getAuthEnvironment } from "@/features/auth-runtime/request-session.server";
 import { issueInvitation } from "@/features/human-onboarding/issue-invitation.server";
-import type { InvitationIssuanceResult } from "@/features/human-onboarding/contracts";
+import { revokeInvitation } from "@/features/human-onboarding/revoke-invitation.server";
+import type {
+  InvitationIssuanceResult,
+  InvitationRevocationResult,
+} from "@/features/human-onboarding/contracts";
 import { decideIdentityEnrollment } from "@/features/identity-enrollment/decide-enrollment.server";
 import type {
   EnrollmentDecision,
@@ -197,6 +201,35 @@ export async function issueInvitationAction(input: {
     { digestKey: env.sessionDigestCurrentKey },
   );
   if (result.status === "issued") revalidatePath("/governance/authority");
+  return result;
+}
+
+/*
+ * ── ENDING an outstanding capability ────────────────────────────────────────────────────────────
+ *
+ * The client supplies two things: which invitation, and why. The tenant, the caller's identity,
+ * whether they hold Governance authority, the resulting status, the actor recorded on the row and
+ * every timestamp are resolved server-side — so "revoke that other tenant's invitation" has no
+ * parameter to arrive in.
+ *
+ * WHY IT SITS BESIDE ISSUANCE. Whoever may mint an outstanding bearer secret is exactly who may
+ * destroy one, so it takes the same authority through the same resolver. Like issuance, it is an act
+ * performed UNDER Governance authority and NOT a Governance decision: `decision_records` is not
+ * written.
+ *
+ * This action issues no replacement and un-consumes nothing. Re-inviting is a new Governance
+ * decision, and the existing `authorizeMembershipAction` is where that already lives.
+ */
+export async function revokeInvitationAction(input: {
+  invitationId: string;
+  reason: string;
+}): Promise<InvitationRevocationResult> {
+  const tenant = await resolveTenantContext();
+  const result = await revokeInvitation(tenant, {
+    invitationId: input?.invitationId ?? "",
+    reason: input?.reason ?? "",
+  });
+  if (result.status === "revoked") revalidatePath("/governance/authority");
   return result;
 }
 

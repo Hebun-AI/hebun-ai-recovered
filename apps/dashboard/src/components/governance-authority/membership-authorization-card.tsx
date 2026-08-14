@@ -37,12 +37,16 @@ import { Button } from "@/components/ui/button";
 import {
   authorizeMembershipAction,
   issueInvitationAction,
+  revokeInvitationAction,
 } from "@/app/(dashboard)/governance/authority/actions";
 import { JUSTIFICATION_LIMITS } from "@/features/governance-decision/contracts";
 import {
   DELIVERY_REALITY,
+  REVOCATION_SEMANTICS,
   type InvitationIssuanceRefusal,
+  type InvitationRevocationRefusal,
 } from "@/features/human-onboarding/contracts";
+import type { RevocableInvitationView } from "@/features/human-onboarding/read-revocable-invitations.server";
 import {
   MEMBERSHIP_AUTHORIZATION_EFFECT,
   MEMBERSHIP_AUTHORIZATION_NON_EFFECTS,
@@ -85,16 +89,36 @@ const ISSUANCE_REFUSAL_TEXT: Record<InvitationIssuanceRefusal, string> = {
   "persistence-unavailable": "The durable store is unavailable. Nothing was changed.",
 };
 
+/** Revocation refusals, in the operator's words. Every member of the union has an entry. */
+const REVOCATION_REFUSAL_TEXT: Record<InvitationRevocationRefusal, string> = {
+  unauthenticated: "Your session ended. Sign in again.",
+  "no-governance-authority": "This tenant has no Governance authority yet.",
+  "not-the-governance-authority":
+    "Only a current Governance authority may end an onboarding capability. An organizational role does not grant it.",
+  "invitation-unresolvable": "That capability does not exist in this organization.",
+  "invitation-not-revocable":
+    "That capability can no longer be ended. It was already used to join, or already revoked.",
+  "reason-required": `A reason of at least ${JUSTIFICATION_LIMITS.minimumLength} characters is required.`,
+  "already-revoked": "Somebody ended this capability first. Reload to see the current state.",
+  "persistence-unavailable": "The durable store is unavailable. Nothing was changed.",
+};
+
 export interface MembershipAuthorizationCardProps {
   readonly eligibleRoles: readonly EligibleRole[];
   readonly authorizations: readonly MembershipAuthorizationView[];
   readonly roleBaselineMissing: boolean;
+  /**
+   * Invitations still `pending` in this tenant, keyed to the authorization that produced them.
+   * Empty for a viewer without Governance authority, and empty when nothing is outstanding.
+   */
+  readonly revocable: readonly RevocableInvitationView[];
 }
 
 export function MembershipAuthorizationCard({
   eligibleRoles,
   authorizations,
   roleBaselineMissing,
+  revocable,
 }: MembershipAuthorizationCardProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -267,6 +291,20 @@ export function MembershipAuthorizationCard({
                   {!entry.consumed && entry.status === "authorized" ? (
                     <InvitationIssuance authorizationId={entry.authorizationId} />
                   ) : null}
+                  {/*
+                    The mirror control. It appears only where an outstanding capability actually
+                    exists — an invitation this authorization produced that is still `pending`.
+                  */}
+                  {revocable
+                    .filter((row) => row.membershipAuthorizationId === entry.authorizationId)
+                    .map((row) => (
+                      <InvitationRevocation
+                        expiredByClock={row.expiredByClock}
+                        expiresAt={row.expiresAt}
+                        invitationId={row.invitationId}
+                        key={row.invitationId}
+                      />
+                    ))}
                 </li>
               ))}
             </ul>
@@ -350,6 +388,135 @@ function InvitationIssuance({ authorizationId }: { readonly authorizationId: str
       {refusal ? (
         <p className="mt-1 text-sm text-fg-danger" role="alert">
           {ISSUANCE_REFUSAL_TEXT[refusal]}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/*
+ * ── ENDING an outstanding capability ────────────────────────────────────────────────────────────
+ *
+ * THE WORDING IS THE POINT, exactly as it is for issuance. "Revoke onboarding capability" — never
+ * "Delete", "Reset", "Recover token" or "Resend", because none of those is true. Nothing is deleted,
+ * nothing is recovered, nothing is sent, and no replacement is created.
+ *
+ * WHAT THE OPERATOR MUST UNDERSTAND BEFORE CLICKING, rendered from frozen values so the wording
+ * cannot drift from the code:
+ *
+ *   - the existing capability stops working immediately, wherever it is
+ *   - the invitation is not deleted; its history remains
+ *   - the Governance authorization that produced it stays CONSUMED
+ *   - a new Governance authorization is required before another capability can be issued
+ *
+ * A reason is mandatory and is written into the durable row, so a tenant can always ask later why a
+ * capability stopped working.
+ *
+ * ACCESSIBILITY: a labelled textarea, refusals in role="alert", the outcome in role="status", and
+ * state carried by words rather than colour.
+ */
+function InvitationRevocation({
+  invitationId,
+  expiresAt,
+  expiredByClock,
+}: {
+  readonly invitationId: string;
+  readonly expiresAt: string;
+  readonly expiredByClock: boolean;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [refusal, setRefusal] = useState<InvitationRevocationRefusal | null>(null);
+  const reasonFieldId = useId();
+
+  function revoke() {
+    setRefusal(null);
+    startTransition(async () => {
+      const result = await revokeInvitationAction({ invitationId, reason });
+      if (result.status === "revoked") {
+        setOpen(false);
+        setReason("");
+        router.refresh();
+        return;
+      }
+      setRefusal(result.reason);
+    });
+  }
+
+  const reasonTooShort = reason.trim().length < JUSTIFICATION_LIMITS.minimumLength;
+
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      <p className="text-xs text-fg-muted" role="status">
+        {expiredByClock
+          ? `An outstanding capability exists and passed its window on ${expiresAt}. It still holds this person's onboarding slot until it is revoked.`
+          : `An outstanding capability exists and is usable until ${expiresAt}.`}
+      </p>
+
+      {open ? (
+        <div className="mt-2 flex flex-col gap-2">
+          <label className="text-sm font-medium" htmlFor={reasonFieldId}>
+            Reason
+          </label>
+          <textarea
+            className="rounded-md border border-border bg-surface px-3 py-2 text-sm"
+            disabled={pending}
+            id={reasonFieldId}
+            onChange={(event) => setReason(event.target.value)}
+            rows={3}
+            value={reason}
+          />
+          <p className="text-xs text-fg-muted">
+            At least {JUSTIFICATION_LIMITS.minimumLength} characters. It is written into the
+            invitation record and cannot be edited afterwards.
+          </p>
+          <ul className="list-disc pl-4 text-xs text-fg-muted">
+            <li>The existing capability stops working immediately, wherever it is.</li>
+            <li>{REVOCATION_SEMANTICS.revokedIsNotDeleted}.</li>
+            <li>This authorization remains {REVOCATION_SEMANTICS.authorizationRemains}.</li>
+            <li>This issues no replacement — {REVOCATION_SEMANTICS.replacementRequires}.</li>
+          </ul>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={pending || reasonTooShort}
+              onClick={revoke}
+              size="sm"
+              variant="danger"
+              type="button"
+            >
+              {pending ? "Revoking…" : "Revoke onboarding capability"}
+            </Button>
+            <Button
+              disabled={pending}
+              onClick={() => {
+                setOpen(false);
+                setRefusal(null);
+              }}
+              size="sm"
+              variant="ghost"
+              type="button"
+            >
+              Keep it
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button
+          className="mt-2"
+          onClick={() => setOpen(true)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          Revoke onboarding capability
+        </Button>
+      )}
+
+      {refusal ? (
+        <p className="mt-1 text-sm text-fg-danger" role="alert">
+          {REVOCATION_REFUSAL_TEXT[refusal]}
         </p>
       ) : null}
     </div>

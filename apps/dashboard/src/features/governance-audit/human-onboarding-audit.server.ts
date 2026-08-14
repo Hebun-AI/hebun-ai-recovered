@@ -39,6 +39,12 @@ export const ONBOARDING_AUDIT_BOUNDARY = Object.freeze({
   /** A human proved they were the invited human and joined the tenant. */
   recordsMembershipCreation: true as const,
   /**
+   * A Governance authority ended an outstanding capability. Recorded for the same reason issuance
+   * is: it is a consequential act with a real accountable actor, and the tenant needs to be able to
+   * ask later why a capability stopped working.
+   */
+  recordsInvitationRevocation: true as const,
+  /**
    * A failed acceptance attempt is NOT recorded. The caller is unauthenticated by construction, and
    * `audit_log.actor_type` / `actor_id` are both NOT NULL — there is no honest actor to name. Worse,
    * recording attempts would turn the ledger into a probe log for anyone holding a guessed token.
@@ -74,6 +80,20 @@ export interface MembershipCreatedAuditEvent {
   readonly membershipAuthorizationId: string;
 }
 
+export interface InvitationRevokedAuditEvent {
+  readonly action: string;
+  readonly tenantId: string;
+  readonly invitationId: string;
+  /** `users.id` of the Governance authority who revoked it. Resolved from the session, never input. */
+  readonly revokedByUserId: string;
+  /** The authorization this invitation spent. It is NOT un-consumed; this is provenance only. */
+  readonly membershipAuthorizationId: string | null;
+  /** Whether the capability had already lapsed by the clock. Shape, not content. */
+  readonly wasAlreadyExpiredByClock: boolean;
+  readonly requestId?: string;
+  readonly sessionContextId?: string;
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -102,6 +122,46 @@ export async function recordInvitationIssuedWithin(
       intendedRoleId: event.intendedRoleId,
       /* Stated so history cannot later be read as "we emailed them". */
       delivered: false,
+    },
+    result: "committed",
+    simulation: false,
+    source: "human-onboarding",
+    requestId: event.requestId,
+    sessionContextId:
+      event.sessionContextId && UUID_RE.test(event.sessionContextId)
+        ? event.sessionContextId
+        : undefined,
+    authoritySource: "membership",
+  });
+}
+
+/**
+ * Append the revocation event, inside the revoking transaction.
+ *
+ * THE REASON IS NOT DUPLICATED HERE. `invitations.revocation_reason` owns it, exactly as
+ * `invitations.normalized_email` owns the address; copying it would put the same human-authored
+ * sentence in two places that can drift. History records THAT a revocation happened, who did it, and
+ * which invitation it ended.
+ */
+export async function recordInvitationRevokedWithin(
+  writer: OnboardingAuditWriter,
+  event: InvitationRevokedAuditEvent,
+  now: Date = new Date(),
+): Promise<void> {
+  await writer.insert(auditLog).values({
+    tenantId: event.tenantId,
+    actorType: "human",
+    actorId: event.revokedByUserId,
+    action: event.action,
+    entityType: ONBOARDING_AUDIT_BOUNDARY.entityType,
+    entityId: event.invitationId,
+    occurredAt: now,
+    metadata: {
+      invitationId: event.invitationId,
+      membershipAuthorizationId: event.membershipAuthorizationId,
+      /* Stated so history cannot later be read as "the authorization was returned". */
+      authorizationRemainsConsumed: true,
+      wasAlreadyExpiredByClock: event.wasAlreadyExpiredByClock,
     },
     result: "committed",
     simulation: false,

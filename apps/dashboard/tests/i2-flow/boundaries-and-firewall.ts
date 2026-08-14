@@ -478,11 +478,31 @@ function main(): void {
     const CARD = "src/components/governance-authority/membership-authorization-card.tsx";
     const card = read(CARD);
 
-    /* It extends the Governance workspace rather than inventing a second onboarding surface. */
+    /*
+     * It extends the Governance workspace rather than inventing a second onboarding surface.
+     *
+     * NARROWED, DELIBERATELY. This originally banned the string `human-onboarding` from every
+     * `page.tsx`, which was a PROXY for the real invariant rather than the invariant itself. A
+     * server page legitimately imports read seams — this very page already imports them from
+     * `membership-authority`, `identity-enrollment`, `tenant-role-baseline`, `governance-decision`
+     * and `governance-genesis` — and the revocation phase added one under `human-onboarding` too.
+     * The proxy would have failed that legitimate read while still permitting anything named
+     * differently, so it is replaced by the claim it was always standing in for: no page reaches the
+     * onboarding MUTATION path. Acting is the card's job, through an action.
+     */
+    const MUTATION_MODULES = [
+      "human-onboarding/issue-invitation.server",
+      "human-onboarding/accept-invitation.server",
+      "human-onboarding/revoke-invitation.server",
+    ];
+    const ONBOARDING_ACTIONS = /issueInvitationAction|revokeInvitationAction/;
     const surfaces = collect("src/app")
       .filter((f) => /page\.tsx$/.test(f))
-      .filter((f) => read(f).includes("human-onboarding") || /issueInvitationAction/.test(read(f)));
-    assert.deepEqual(surfaces, [], "no page imports onboarding directly; the card does, via the action");
+      .filter((f) => {
+        const src = read(f);
+        return MUTATION_MODULES.some((m) => src.includes(m)) || ONBOARDING_ACTIONS.test(src);
+      });
+    assert.deepEqual(surfaces, [], "no page reaches the onboarding mutation path; the card does, via the action");
     assert.match(card, /issueInvitationAction/, "issuance is offered on the existing authority card");
 
     /* NEVER a delivery claim. */

@@ -20,6 +20,7 @@ import { readRoleBaselineState } from "@/features/tenant-role-baseline/provision
 import { PendingEnrollmentCard } from "@/components/governance-authority/pending-enrollment-card";
 import { PENDING_ENROLLMENT_WORDING } from "@/components/governance-authority/pending-enrollment-wording";
 import { readPendingEnrollments } from "@/features/identity-enrollment/read-pending-enrollments.server";
+import { readRevocableInvitations } from "@/features/human-onboarding/read-revocable-invitations.server";
 
 export const metadata = { title: "Governance Authority — Hebun AI" };
 
@@ -37,8 +38,16 @@ export const metadata = { title: "Governance Authority — Hebun AI" };
  */
 export default async function GovernanceAuthorityPage() {
   const tenant = await resolveTenantContext();
-  const [authorityLookup, entitlement, roster, candidates, membership, roleBaseline, enrollments] =
-    await Promise.all([
+  const [
+    authorityLookup,
+    entitlement,
+    roster,
+    candidates,
+    membership,
+    roleBaseline,
+    enrollments,
+    revocableInvitations,
+  ] = await Promise.all([
     readGovernanceAuthority(tenant),
     readGenesisNomination(tenant),
     // G3: the tenant's full authority roster with provenance, and who could receive a delegation.
@@ -53,6 +62,9 @@ export default async function GovernanceAuthorityPage() {
     // I1.2: which enrollment submissions are waiting for this tenant's SECOND key. Authority-gated,
     // and deliberately address-free — the approver correlates timing with their own handover.
     readPendingEnrollments(tenant),
+    // Invitations still outstanding in this tenant, so an unusable capability can be ended and the
+    // onboarding slot it holds released. Authority-gated like the rest.
+    readRevocableInvitations(tenant),
   ]);
 
   const authority = authorityLookup.status === "read" ? authorityLookup.authority : null;
@@ -102,6 +114,9 @@ export default async function GovernanceAuthorityPage() {
             eligibleRoles={membership.view.eligibleRoles}
             authorizations={membership.view.authorizations}
             roleBaselineMissing={membership.view.roleBaselineMissing}
+            revocable={
+              revocableInvitations.status === "read" ? revocableInvitations.view.revocable : []
+            }
           />
         </div>
       ) : null}

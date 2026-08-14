@@ -116,6 +116,104 @@ export type InvitationAcceptanceResult =
     }
   | { readonly status: "refused"; readonly reason: InvitationAcceptanceRefusal };
 
+/* ── INVITATION REVOCATION — closing a capability that must not be spent ───── */
+
+/**
+ * WHY THIS EXISTS, IN THE WORDS OF THE INCIDENT THAT FOUND IT.
+ *
+ * A one-time capability was lost before it was used. It is cryptographically unrecoverable — that is
+ * the design working — but the invitation it belongs to stayed `pending`, and
+ * `invitations_pending_email_uq` is keyed on exactly that status. Nothing in the runtime ever wrote
+ * `expired` or `revoked`, so the tenant/address slot was occupied permanently and no replacement
+ * could ever be issued. Waiting for expiry did not help: expiry is a PREDICATE the runtime evaluates,
+ * not a state it records.
+ *
+ * Revocation is the missing writer. It ends one invitation so the slot is free and the outstanding
+ * capability — wherever it is — stops working.
+ */
+export const INVITATION_REVOKED_ACTION = "onboarding.invitation.revoked" as const;
+
+/**
+ * The stored reason is `varchar(128)`, while a governed human action is validated at 24–2000
+ * characters. Both are true at once, exactly as I1.2's rejection already resolves it: the full text
+ * is validated, and the column keeps the leading 128. Stated here so the truncation is a documented
+ * decision rather than a surprise.
+ */
+export const REVOCATION_REASON_COLUMN_LENGTH = 128;
+
+export type InvitationRevocationRefusal =
+  /** No authenticated session, so there is no tenant and no actor. */
+  | "unauthenticated"
+  /** The tenant has no bootstrap decision: Governance does not exist here yet. */
+  | "no-governance-authority"
+  /** Authenticated, but holds neither bootstrap nor an unrevoked delegation. */
+  | "not-the-governance-authority"
+  /** No invitation with that id inside the caller's tenant. Cross-tenant looks identical. */
+  | "invitation-unresolvable"
+  /** The invitation is not `pending`: already accepted, or already revoked. */
+  | "invitation-not-revocable"
+  /** Missing, too short, or too long reason. */
+  | "reason-required"
+  /** Somebody else revoked it inside the window. */
+  | "already-revoked"
+  | "persistence-unavailable";
+
+export type InvitationRevocationResult =
+  | {
+      readonly status: "revoked";
+      readonly invitationId: string;
+      readonly tenantId: string;
+      readonly revokedAt: string;
+      /**
+       * True when the capability had already lapsed by the clock but the row still said `pending`.
+       * The recovery is identical either way; this only lets a surface tell the truth about which
+       * case it was.
+       */
+      readonly wasAlreadyExpiredByClock: boolean;
+    }
+  | { readonly status: "refused"; readonly reason: InvitationRevocationRefusal };
+
+export const INVITATION_REVOCATION_EFFECT =
+  "ends ONE pending invitation, so the capability issued against it can never be spent and the " +
+  "tenant/address slot it occupied is released";
+
+export const INVITATION_REVOCATION_NON_EFFECTS: readonly string[] = Object.freeze([
+  "does not delete the invitation — the row and its history remain",
+  "does not change or rotate the stored digest",
+  "does not reveal the capability, which was never stored",
+  "does not un-consume the membership authorization that produced it",
+  "does not create a replacement authorization",
+  "does not issue a replacement capability",
+  "does not create a Governance decision",
+  "does not create a user, identity, credential, role or membership",
+  "does not touch any enrollment ceremony",
+  "does not send anything to anyone",
+]);
+
+/**
+ * WHAT A REVOKED INVITATION IS, AND IS NOT — as a value, so a surface renders what a test asserts.
+ *
+ * The distinction the incident turned on: a revoked invitation is not a deleted one. The row stays,
+ * the digest stays, the audit trail stays, and the act that created it is still true history.
+ */
+export const REVOCATION_SEMANTICS = Object.freeze({
+  revokedIsNotDeleted: "the invitation row, its digest and its issuance history all remain" as const,
+  capabilityBecomes: "permanently unusable — every validation path requires status = 'pending'" as const,
+  authorizationRemains: "consumed, because it really did produce an invitation" as const,
+  replacementRequires:
+    "a NEW Governance membership authorization, and then a new capability issued against it" as const,
+  /**
+   * The honest scope limit. Revocation frees the slot for a lapsed invitation too, but nothing in
+   * this runtime ever writes the lapsed status value, so a lapsed invitation still reads `pending`
+   * until a human revokes it. Materializing expiry is a separate concern and is NOT solved here.
+   *
+   * The literal status value is deliberately not written out here: I2's firewall asserts that no
+   * feature code names it, precisely so nothing can start branching on a value nothing sets.
+   */
+  expiryStillNotMaterialized:
+    "nothing writes the lapsed invitation status; a lapsed invitation reads pending until revoked" as const,
+});
+
 /* ── WHAT THIS PHASE DOES AND DOES NOT DO ──────────────────────────────────── */
 
 export const ONBOARDING_EFFECT =
