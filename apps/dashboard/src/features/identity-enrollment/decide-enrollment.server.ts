@@ -28,7 +28,7 @@
  *
  * Server-only.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { identityEnrollmentRequests } from "@/db/schema/identity-enrollment";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordGovernanceEventWithin } from "@/features/governance-audit/governance-decision-audit.server";
@@ -112,6 +112,7 @@ export async function decideIdentityEnrollment(
         id: identityEnrollmentRequests.id,
         invitationId: identityEnrollmentRequests.invitationId,
         status: identityEnrollmentRequests.status,
+        completedAt: identityEnrollmentRequests.completedAt,
       })
       .from(identityEnrollmentRequests)
       .where(
@@ -124,7 +125,27 @@ export async function decideIdentityEnrollment(
 
     const enrollment = rows[0];
     if (!enrollment) return refused("enrollment-unresolvable");
-    if (enrollment.status !== "pending") return refused("already-decided");
+
+    /*
+     * ── WHAT MAY STILL BE DECIDED ─────────────────────────────────────────────
+     *
+     * APPROVAL is unchanged: only a `pending` ceremony may be approved, so an approved row can never
+     * be approved twice.
+     *
+     * REJECTION now also reaches an APPROVED ceremony that never completed — the STRANDED case, and
+     * the reason this seam exists. Approval is only permission for Act 3; if the bearer loses the
+     * browser binding that permission is unusable, and before this the row could not be seen by the
+     * read seam, could not be decided by this runtime, and permanently held
+     * `identity_enrollment_requests_one_live_per_invitation_uq` against a fresh submission. The
+     * product told the bearer a Governance authority could reject a stranded ceremony; this is what
+     * makes that sentence true.
+     *
+     * A COMPLETED ceremony is never rejectable. It created a real human with a real credential, and
+     * rejecting it would claim to undo that.
+     */
+    const strandedApproved = enrollment.status === "approved" && enrollment.completedAt === null;
+    const decidable = enrollment.status === "pending" || (!approving && strandedApproved);
+    if (!decidable) return refused("already-decided");
 
     let recorded: { decisionId: string; sessionId: string } | null = null;
 
@@ -150,6 +171,8 @@ export async function decideIdentityEnrollment(
             authorityDelegationDecisionId: authority.delegationDecisionId,
             identityEnrollmentRequestId: enrollment.id,
             enrollmentInvitationId: enrollment.invitationId,
+            /* Which case this was: an initial decision, or a stranded approved ceremony released. */
+            recoveredFromStrandedApproval: !approving && strandedApproved,
           },
         },
         now,
@@ -179,6 +202,21 @@ export async function decideIdentityEnrollment(
                 status: "rejected",
                 rejectedAt: now,
                 rejectionReason: justification.slice(0, 128),
+                /*
+                 * THE APPROVAL COLUMNS ARE CLEARED, AND THE SCHEMA REQUIRES IT.
+                 * `identity_enrollment_requests_approved_chk` welds those four columns to the
+                 * approved/completed statuses in BOTH directions, so a `rejected` row that still
+                 * carried them would violate the constraint. They are NULL on a pending rejection
+                 * already; this makes the stranded-approved rejection legal too.
+                 *
+                 * NO HISTORY IS LOST. The approval is a Governance decision and lives where every
+                 * Governance decision lives — `decision_records`, findable by `subject_type` +
+                 * `subject_id` — plus its own audit row. The enrollment row was never the ledger.
+                 */
+                approvedAt: null,
+                approvalDecisionId: null,
+                approvedByActorType: null,
+                approvedByActorId: null,
                 updatedAt: now,
                 updatedBy: tenant.userId,
                 updatedByType: "human",
@@ -188,7 +226,20 @@ export async function decideIdentityEnrollment(
           and(
             eq(identityEnrollmentRequests.id, enrollment.id),
             eq(identityEnrollmentRequests.tenantId, tenant.tenantId),
-            eq(identityEnrollmentRequests.status, "pending"),
+            /*
+             * The conditional predicate mirrors the eligibility decided above, so the race window is
+             * exactly as narrow as before: an approval still requires `pending`, and a rejection
+             * matches `pending` or the stranded approved row it was resolved from. A concurrent
+             * decision that got here first makes this update zero rows and aborts everything.
+             */
+            approving
+              ? eq(identityEnrollmentRequests.status, "pending")
+              : strandedApproved
+                ? and(
+                    eq(identityEnrollmentRequests.status, "approved"),
+                    isNull(identityEnrollmentRequests.completedAt),
+                  )
+                : eq(identityEnrollmentRequests.status, "pending"),
           ),
         )
         .returning({ id: identityEnrollmentRequests.id });

@@ -46,8 +46,17 @@ const START_REFUSALS: Record<EnrollmentStartRefusal, string> = {
     "That capability is no longer usable. It may have passed its 72-hour window, been withdrawn, or already been used.",
   "already-enrolled":
     "There is already a Hebun account for the address this capability names.",
+  /*
+   * NEUTRAL, AND DELIBERATELY SO. The runtime refuses here whenever a non-rejected ceremony exists —
+   * which is `pending` OR `approved`. The old wording said "waiting for approval", which was simply
+   * false once a ceremony had been approved, and it is what a real stranded bearer was told.
+   *
+   * It does not say WHICH state either, because this is the unauthenticated boundary: a thief holding
+   * a stolen capability must not learn whether a Governance authority has already approved it. The
+   * remedy is the same in both cases, so one sentence serves the honest bearer without serving them.
+   */
   "enrollment-already-started":
-    "A submission for this capability is already waiting for approval. If it was not you, tell the person who gave you the capability.",
+    "An enrollment ceremony already exists for this capability. If you did not start it, or you cannot finish the one you started, tell the person who gave you the capability — they can end it so you can begin again with this same capability.",
   "persistence-unavailable": "Hebun is unavailable right now. Nothing was changed.",
 };
 

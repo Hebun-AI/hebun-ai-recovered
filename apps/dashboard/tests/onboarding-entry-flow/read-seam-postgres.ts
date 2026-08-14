@@ -261,16 +261,33 @@ async function main(): Promise<void> {
       }
       assert.equal(text.includes("continuation"), false, "the bearer's half is never returned");
       for (const row of view.view.pending) {
+        /*
+         * WIDENED WITH THE SEAM, NOT LOOSENED. The stranded-enrollment recovery phase added two
+         * fields so the surface can tell a `pending` ceremony from an APPROVED one that never
+         * completed — the state that used to be invisible and unrejectable. The invariant this
+         * assertion protects is unchanged: an exact, closed field list, all of it real columns or
+         * derived from them, and none of it identifying the prospective human.
+         */
         assert.deepEqual(
           Object.keys(row).sort(),
-          ["enrollmentId", "invitationId", "submittedAt"],
-          "exactly three fields, all of them real columns",
+          ["approvedAt", "enrollmentId", "invitationId", "strandedAfterApproval", "submittedAt"],
+          "exactly these fields, all of them real columns or derived from one",
         );
       }
     }
 
-    /* ══ 6. A DECIDED CEREMONY LEAVES THE LIST ════════════════════════════ */
+    /* ══ 6. AN APPROVED CEREMONY STAYS LISTED — AS STRANDED ══════════════ */
     {
+      /*
+       * CORRECTED BY THE STRANDED-ENROLLMENT RECOVERY PHASE. This used to assert that approving a
+       * ceremony removed it from the list, on the reasoning that a decided ceremony is history. That
+       * reasoning was wrong for one state and it cost a real ceremony: an APPROVED row is not
+       * finished, it is permission the bearer may still fail to spend, and while it sits there it
+       * blocks every fresh submission for that invitation. Hiding it made it unrecoverable.
+       *
+       * It is still listed, and now says which state it is in. Terminal states — `rejected` and
+       * `completed` — do leave, and §7 proves that for a rejection.
+       */
       const decided = await decideIdentityEnrollment(
         ctxA,
         { enrollmentId: acmeFirst, decision: "approve", justification: REASON },
@@ -281,10 +298,16 @@ async function main(): Promise<void> {
       const view = await readPendingEnrollments(ctxA, deps);
       if (view.status !== "read") throw new Error("unreachable");
       assert.deepEqual(
-        view.view.pending.map((row) => row.enrollmentId),
-        [acmeSecond],
-        "an approved ceremony is history, and history lives in decision_records",
+        view.view.pending.map((row) => row.enrollmentId).sort(),
+        [acmeFirst, acmeSecond].sort(),
+        "the approved ceremony remains visible so it can still be acted on",
       );
+      const approvedRow = view.view.pending.find((row) => row.enrollmentId === acmeFirst)!;
+      assert.equal(approvedRow.strandedAfterApproval, true, "and is labelled approved, not waiting");
+      assert.ok(approvedRow.approvedAt, "with the approval timestamp");
+      const pendingRow = view.view.pending.find((row) => row.enrollmentId === acmeSecond)!;
+      assert.equal(pendingRow.strandedAfterApproval, false, "while a pending one is not");
+      assert.equal(pendingRow.approvedAt, null);
     }
 
     /* ══ 7. A REJECTION ALSO LEAVES, AND FREES THE INVITATION ═════════════ */
@@ -298,7 +321,15 @@ async function main(): Promise<void> {
 
       const view = await readPendingEnrollments(ctxA, deps);
       if (view.status !== "read") throw new Error("unreachable");
-      assert.deepEqual(view.view.pending, [], "nothing is waiting");
+      /*
+       * `rejected` IS terminal, so this one leaves. The approved ceremony from §6 stays, because it
+       * is still actionable — that is the difference the recovery phase drew.
+       */
+      assert.deepEqual(
+        view.view.pending.map((row) => row.enrollmentId),
+        [acmeFirst],
+        "the rejected ceremony leaves; the approved one is still actionable",
+      );
 
       /*
        * THE RECOVERY PATH THE CONTINUATION RECEIPT'S TTL DEPENDS ON.

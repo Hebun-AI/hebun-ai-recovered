@@ -510,10 +510,25 @@ async function main(): Promise<void> {
       );
     }
 
-    /* ── ATTACK 23 (part): approval racing rejection — already decided ──────── */
+    /* ── ATTACK 23 (part): a decided ceremony cannot be decided again ───────── */
     {
+      /*
+       * NARROWED, DELIBERATELY, AND THE REASON MATTERS.
+       *
+       * This used to assert that REJECTING an approved ceremony returns `already-decided`. That is
+       * no longer true, and it was not a safety property — it was the bug. Approval is only
+       * PERMISSION for Act 3, and a bearer who loses the browser binding can never spend it; the row
+       * was then invisible to the read seam, unrejectable, and permanently held
+       * `identity_enrollment_requests_one_live_per_invitation_uq` against a fresh submission. A real
+       * ceremony stranded that way in production. Rejecting an approved-but-uncompleted ceremony is
+       * now the documented recovery, proved end to end in `tests/stranded-enrollment-flow/`.
+       *
+       * What this block was really protecting — approval is a once-only transition out of `pending`
+       * — is unchanged and is what it now asserts. The rejection is not performed here because the
+       * rest of this file completes this same ceremony.
+       */
       const second = await decideIdentityEnrollment(
-        rootCtx, { enrollmentId, decision: "reject", justification: REFUSAL }, govDeps,
+        rootCtx, { enrollmentId, decision: "approve", justification: REFUSAL }, govDeps,
       );
       assert.equal(second.status === "refused" && second.reason, "already-decided");
     }

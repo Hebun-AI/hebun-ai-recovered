@@ -48,6 +48,13 @@ export interface PendingEnrollmentOption {
   readonly enrollmentId: string;
   readonly invitationId: string;
   readonly submittedAt: string;
+  /**
+   * Already approved, and never completed. Approval was only permission for the bearer's final act;
+   * if they lost the browser that started the ceremony, that permission can never be spent and this
+   * row blocks every fresh submission until it is rejected.
+   */
+  readonly strandedAfterApproval: boolean;
+  readonly approvedAt: string | null;
 }
 
 export interface PendingEnrollmentWording {
@@ -58,6 +65,17 @@ export interface PendingEnrollmentWording {
 }
 
 const FALLBACK_REFUSAL = "That could not be completed. Nothing was changed.";
+
+/**
+ * What rejecting a stranded ceremony does and does not do, rendered as a list so the approver is not
+ * guessing. Every line is a fact the runtime enforces.
+ */
+const STRANDED_RECOVERY_FACTS: readonly string[] = Object.freeze([
+  "No account, credential or membership exists — nothing is undone.",
+  "The invitation is NOT revoked and stays valid until it expires.",
+  "No new capability is issued, and the old one is not changed.",
+  "The person can submit the SAME capability they already hold and start again.",
+]);
 
 export function PendingEnrollmentCard({
   pending: submissions,
@@ -155,21 +173,51 @@ export function PendingEnrollmentCard({
                   <p className="font-mono text-xs text-fg-muted">
                     capability {submission.invitationId}
                   </p>
+                  {/*
+                    A STRANDED CEREMONY IS SHOWN AS ITSELF. Calling an approved row "awaiting your
+                    decision" would describe a state the tenant cannot act on, and offering Approve
+                    again would be a control that does nothing.
+                  */}
+                  {submission.strandedAfterApproval ? (
+                    <div className="flex flex-col gap-1 rounded-md border border-border bg-surface-2 p-2">
+                      <p className="text-sm font-medium" role="status">
+                        Approved, but the account was never created
+                      </p>
+                      <p className="text-xs text-fg-muted">
+                        You approved this on{" "}
+                        <time dateTime={submission.approvedAt ?? undefined}>
+                          {submission.approvedAt}
+                        </time>
+                        . The person never finished — usually because they lost the browser they
+                        started in. It cannot be finished now, and it blocks any new attempt with
+                        that capability until you reject it.
+                      </p>
+                      <ul className="list-disc pl-4 text-xs text-fg-muted">
+                        {STRANDED_RECOVERY_FACTS.map((fact) => (
+                          <li key={fact}>{fact}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      disabled={busy || justificationTooShort}
-                      onClick={() => decide(submission.enrollmentId, "approve")}
-                    >
-                      {busy && active === submission.enrollmentId
-                        ? "Deciding…"
-                        : "Approve identity enrollment"}
-                    </Button>
+                    {submission.strandedAfterApproval ? null : (
+                      <Button
+                        disabled={busy || justificationTooShort}
+                        onClick={() => decide(submission.enrollmentId, "approve")}
+                      >
+                        {busy && active === submission.enrollmentId
+                          ? "Deciding…"
+                          : "Approve identity enrollment"}
+                      </Button>
+                    )}
                     <Button
                       disabled={busy || justificationTooShort}
                       onClick={() => decide(submission.enrollmentId, "reject")}
                       variant="outline"
                     >
-                      Reject
+                      {submission.strandedAfterApproval
+                        ? "Reject so they can try again"
+                        : "Reject"}
                     </Button>
                   </div>
                 </li>

@@ -23,7 +23,7 @@
  *
  * Server-only.
  */
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { identityEnrollmentRequests } from "@/db/schema/identity-enrollment";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
@@ -44,6 +44,18 @@ export interface PendingEnrollmentView {
   readonly invitationId: string;
   /** When the bearer submitted. The approver's correlation handle. */
   readonly submittedAt: string;
+  /**
+   * TRUE when this ceremony was already APPROVED and never completed — the stranded case.
+   *
+   * It is listed, and listed as itself. Approval is only permission for Act 3; if the bearer loses
+   * the browser binding, that permission can never be spent, the row is uncompletable, and it holds
+   * `identity_enrollment_requests_one_live_per_invitation_uq` against every fresh submission. A
+   * surface that hid it, or called it "awaiting your decision", would be describing a state the
+   * tenant cannot act on. Rejecting it is the documented recovery.
+   */
+  readonly strandedAfterApproval: boolean;
+  /** When Governance approved it. Present only for a stranded row. */
+  readonly approvedAt: string | null;
 }
 
 export interface PendingEnrollmentsView {
@@ -66,8 +78,10 @@ const EMPTY_VIEW: PendingEnrollmentsView = {
 /**
  * Every ceremony in this tenant still awaiting a Governance decision.
  *
- * Tenant-scoped by predicate AND status-scoped to `pending`: a decided ceremony is history, and its
- * decision is already in `decision_records` where every other Governance act is found.
+ * Tenant-scoped by predicate, and scoped to the two states a Governance authority can still act on:
+ * `pending` (awaiting a first decision) and `approved` with no completion (stranded, and blocking a
+ * fresh submission until it is rejected). `rejected` and `completed` are terminal and are history —
+ * their decisions are already in `decision_records` where every other Governance act is found.
  */
 export async function readPendingEnrollments(
   tenant: TenantContext | null,
@@ -86,17 +100,34 @@ export async function readPendingEnrollments(
     const authority = await resolveGovernanceAuthority(tenant, deps);
     if (!authority.authorized) return { status: "read", view: EMPTY_VIEW };
 
+    /*
+     * TWO ACTIONABLE STATES, NOT ONE.
+     *
+     *   pending                     awaiting the tenant's first decision
+     *   approved + completed_at NULL  stranded — approved, never completed, and blocking
+     *
+     * `rejected` and `completed` are terminal and are deliberately absent: neither can be decided,
+     * and listing them would be a control that does nothing.
+     */
     const rows = await db
       .select({
         enrollmentId: identityEnrollmentRequests.id,
         invitationId: identityEnrollmentRequests.invitationId,
         submittedAt: identityEnrollmentRequests.submittedAt,
+        status: identityEnrollmentRequests.status,
+        approvedAt: identityEnrollmentRequests.approvedAt,
       })
       .from(identityEnrollmentRequests)
       .where(
         and(
           eq(identityEnrollmentRequests.tenantId, tenant.tenantId),
-          eq(identityEnrollmentRequests.status, "pending"),
+          or(
+            eq(identityEnrollmentRequests.status, "pending"),
+            and(
+              eq(identityEnrollmentRequests.status, "approved"),
+              isNull(identityEnrollmentRequests.completedAt),
+            ),
+          ),
         ),
       )
       /* Oldest first: the one that has been waiting longest is the one to look at. */
@@ -110,6 +141,8 @@ export async function readPendingEnrollments(
           enrollmentId: row.enrollmentId,
           invitationId: row.invitationId,
           submittedAt: row.submittedAt.toISOString(),
+          strandedAfterApproval: row.status === "approved",
+          approvedAt: row.approvedAt ? row.approvedAt.toISOString() : null,
         })),
       },
     };
