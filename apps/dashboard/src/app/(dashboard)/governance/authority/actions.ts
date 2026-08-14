@@ -23,6 +23,11 @@ import type { RoleBaselineResult } from "@/features/tenant-role-baseline/contrac
 import { getAuthEnvironment } from "@/features/auth-runtime/request-session.server";
 import { issueInvitation } from "@/features/human-onboarding/issue-invitation.server";
 import type { InvitationIssuanceResult } from "@/features/human-onboarding/contracts";
+import { decideIdentityEnrollment } from "@/features/identity-enrollment/decide-enrollment.server";
+import type {
+  EnrollmentDecision,
+  EnrollmentDecisionResult,
+} from "@/features/identity-enrollment/contracts";
 
 /*
  * The G2 Governance boundary — the only client-crossable way to write a Governance decision.
@@ -192,5 +197,38 @@ export async function issueInvitationAction(input: {
     { digestKey: env.sessionDigestCurrentKey },
   );
   if (result.status === "issued") revalidatePath("/governance/authority");
+  return result;
+}
+
+/*
+ * ── I1.2: turning the SECOND key on one enrollment submission ───────────────────────────────────
+ *
+ * The client supplies three things: which submission, which way, and a human-authored justification.
+ * The tenant, the caller's identity, whether they hold Governance authority and how, the decision
+ * type, the domain, the outcome, the session, the resulting status and every timestamp are resolved
+ * server-side — so "approve somebody else's tenant's submission" has no parameter to arrive in.
+ *
+ * APPROVAL IS PERMISSION, NEVER THE ACT. This creates no user, identity, credential, session,
+ * membership or role. It records that a Governance authority reviewed one submission and said yes or
+ * no; the bearer still has to come back and complete the ceremony themselves.
+ *
+ * WHY IT BELONGS ON THIS SURFACE. The second key is a Governance act by the same authority that made
+ * the membership decision and issued the capability. Putting it anywhere else would create a second
+ * place where authority is exercised, which is the thing this whole file exists to prevent.
+ */
+export async function decideIdentityEnrollmentAction(input: {
+  enrollmentId: string;
+  decision: EnrollmentDecision;
+  justification: string;
+}): Promise<EnrollmentDecisionResult> {
+  const tenant = await resolveTenantContext();
+  const result = await decideIdentityEnrollment(tenant, {
+    enrollmentId: input?.enrollmentId ?? "",
+    decision: input?.decision ?? "approve",
+    justification: input?.justification ?? "",
+  });
+  if (result.status === "approved" || result.status === "rejected") {
+    revalidatePath("/governance/authority");
+  }
   return result;
 }

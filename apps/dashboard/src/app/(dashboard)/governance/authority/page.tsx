@@ -17,6 +17,9 @@ import { MembershipAuthorizationCard } from "@/components/governance-authority/m
 import { readMembershipAuthority } from "@/features/membership-authority/read-membership-authorizations.server";
 import { MemberRoleProvisioningCard } from "@/components/governance-authority/member-role-provisioning-card";
 import { readRoleBaselineState } from "@/features/tenant-role-baseline/provision-member-role.server";
+import { PendingEnrollmentCard } from "@/components/governance-authority/pending-enrollment-card";
+import { PENDING_ENROLLMENT_WORDING } from "@/components/governance-authority/pending-enrollment-wording";
+import { readPendingEnrollments } from "@/features/identity-enrollment/read-pending-enrollments.server";
 
 export const metadata = { title: "Governance Authority — Hebun AI" };
 
@@ -34,7 +37,7 @@ export const metadata = { title: "Governance Authority — Hebun AI" };
  */
 export default async function GovernanceAuthorityPage() {
   const tenant = await resolveTenantContext();
-  const [authorityLookup, entitlement, roster, candidates, membership, roleBaseline] =
+  const [authorityLookup, entitlement, roster, candidates, membership, roleBaseline, enrollments] =
     await Promise.all([
     readGovernanceAuthority(tenant),
     readGenesisNomination(tenant),
@@ -47,6 +50,9 @@ export default async function GovernanceAuthorityPage() {
     readMembershipAuthority(tenant),
     // I1.1: whether the tenant has its ordinary member role. Authority-gated like the rest.
     readRoleBaselineState(tenant),
+    // I1.2: which enrollment submissions are waiting for this tenant's SECOND key. Authority-gated,
+    // and deliberately address-free — the approver correlates timing with their own handover.
+    readPendingEnrollments(tenant),
   ]);
 
   const authority = authorityLookup.status === "read" ? authorityLookup.authority : null;
@@ -96,6 +102,14 @@ export default async function GovernanceAuthorityPage() {
             eligibleRoles={membership.view.eligibleRoles}
             authorizations={membership.view.authorizations}
             roleBaselineMissing={membership.view.roleBaselineMissing}
+          />
+        </div>
+      ) : null}
+      {enrollments.status === "read" && enrollments.view.viewerIsGovernanceAuthority ? (
+        <div className="min-w-0 max-w-2xl">
+          <PendingEnrollmentCard
+            pending={enrollments.view.pending}
+            wording={PENDING_ENROLLMENT_WORDING}
           />
         </div>
       ) : null}
