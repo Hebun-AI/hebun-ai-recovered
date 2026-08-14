@@ -4259,3 +4259,124 @@ C3 remains historically completed. Act 1 remains not started.
 
 **Nothing durable changed.** No revocation, no invitation, no authorization, no enrollment. No
 schema, migration or dependency change. No commit, tag or push.
+
+---
+
+# PART SIXTEEN — SECOND CAPABILITY LOST: UI CUSTODY DEFECT FOUND AND FIXED
+
+Date: 2026-08-14. Two passes recorded together: the read-only incident audit that found the defect,
+and the frontend fix that closes it. **`hebun_r1` was read and never written in either.**
+
+---
+
+## 117. What happened
+
+After the first capability was revoked (§105–112), the Director performed a second C2 and a second
+C3. Both landed durably:
+
+```
+authorization bbcf87fa-43b7-4235-90ec-25c4c920c4e2   authorized 15:32:26.445 → consumed 15:33:25.111
+invitation    16eaa349-cbd5-4025-a5c9-2520992ea098   pending · issued 15:33:25.111 · expires 2026-08-17 15:33:25.111
+audit         onboarding.invitation.issued            exactly one row, no capability, no digest, no email
+```
+
+Counts after: sessions 4 · decisions 4 · authorizations 2 · invitations 2 (1 pending, 1 revoked) ·
+enrollments 0 · users 2 · memberships 2 · audit 9. Every cross-link correct, 72-hour window exact.
+
+**And the Director never saw the plaintext.** One click, the screen "went and came back", nothing
+displayed.
+
+---
+
+## 118. Root cause — the product destroyed its own output
+
+Issuance marks its authorization `consumed` in the same transaction that creates the invitation. The
+card mounted the issuance component behind exactly that status, and the success branch stored the
+secret and refreshed the server tree in the same transition:
+
+```tsx
+{!entry.consumed && entry.status === "authorized" ? <InvitationIssuance …/> : null}
+```
+```ts
+setCapability(result.capability); setExpiresAt(result.expiresAt); router.refresh();
+```
+
+Refresh → server reports `consumed` → branch false → React unmounts the component → the only copy of
+the plaintext dies with its state. Whether a human saw anything was a race between a local commit and
+a server round-trip. The first issuance won it; the second lost it.
+
+Classified **B — UI bug, runtime correct**. `issueInvitation` returns the capability and always did
+(`tests/i2-flow/onboarding-postgres.ts:254`). No backend, schema or authority defect. The component
+was introduced with this shape in `9c9155f`; it is byte-identical across `35ae657`, so the revocation
+phase did not cause it.
+
+**Doctrine, stated precisely: C3 durable execution was successful. The human handoff failed.** Those
+are different facts and this ceremony now has a case where they diverged.
+
+---
+
+## 119. The fix
+
+One file, two changes.
+
+The component is **no longer mount-gated on server status** — the parent renders it unconditionally
+and the old predicate arrives as an `issuable` prop that gates the button instead of the mount. No
+server-side status change can unmount a component holding a plaintext secret.
+
+The refresh moved **behind an explicit acknowledgement**. `issue()` stores the capability and does
+nothing else; `acknowledge()` — wired to *"I have saved this capability"* — clears the local copy
+first, then refreshes, and calls no server action. The capability branch is checked before every
+other render path.
+
+**Nothing was traded for visibility.** No persistence, no audit or log, no storage, cookie, URL or
+clipboard, no read seam. The capability remains unrecoverable; it is now merely *visible* until the
+human says they have it.
+
+Failure states: a refusal never shows a capability; a thrown action is reported as an **unknown
+outcome** that deliberately does not claim nothing changed and offers no retry that could spend a
+second authorization; the button is disabled in flight; acknowledgement issues nothing.
+
+---
+
+## 120. Verification and the limitation that remains
+
+`tsc` clean · eslint 0 errors · **352 passed, 0 failed** (was 351) · build clean ·
+`git diff --check` clean · schema/migration/dependency delta **0/0/0**.
+
+`tests/capability-handoff-flow/custody-lifecycle.ts` locks seven source invariants, and was run as a
+**negative control** against the released `940e4e3` card: invariants 1 and 3 both fail there and
+`acknowledge()` is absent. The guard catches the bug it was written for.
+
+It is a **source-invariant test, not a browser test**, and it says so in its own header. Rendering no
+React and clicking nothing, it cannot prove what a human sees.
+
+**Browser-level human-handoff proof remains unproven until the next real C3.** Not for want of
+effort: both authorizations are `consumed`, so zero issuable authorizations exist and the button
+would not render; producing one needs a new C2, which this phase was forbidden to perform. That is
+the same missing validation layer both earlier closure records already flagged, and this incident is
+what it costs.
+
+---
+
+## 121. Ceremony state
+
+Unchanged by both passes. Invitation `16eaa349…` is still `pending`, `revoked_at` NULL,
+`accepted_at` NULL; authorization `bbcf87fa…` still `consumed`; enrollments 0; nothing exists for
+`senoltr@gmail.com`; audit still 9.
+
+**An outstanding capability that no human possesses is still live until 2026-08-17 15:33:25 +03.**
+
+After release the Director's sequence is: revoke `16eaa349…` with a reason → third C2 → third C3,
+which will now hold the panel until acknowledged.
+
+Historical truth, unrewritten: first capability lost after being shown → invitation revoked → second
+C2 → second C3 → **second capability lost to this UI defect**, not to human error.
+
+---
+
+## VERDICT OF THE SIXTEENTH PASS
+
+# CAPABILITY HUMAN-HANDOFF CUSTODY FIX CLOSED WITH DOCUMENTED BROWSER LIMITATION
+
+**No revocation, no new C2, no new C3, no Act 1, no capability, no durable mutation, no commit, tag
+or push.**
