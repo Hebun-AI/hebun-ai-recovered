@@ -3513,3 +3513,749 @@ product surface, and one can be added beneath the existing `/login` public prefi
 
 **No C3. No invitation. No capability. No enrollment. No user, identity, credential or membership.
 No migration. No commit, tag or push.** `hebun_r1` was read and never written.
+
+---
+
+# PART TWELVE — C3 RESUME READINESS (READ-ONLY VERIFICATION, NOTHING ISSUED)
+
+Date: 2026-08-14. Scope: **verification only.** No invitation, no capability, no authorization
+consumed, no enrollment. The ceremony is still paused before C3 at the end of this pass; the pass
+exists to prove the blocker recorded in PART TEN is gone and that C3 may now be executed by the
+Director.
+
+---
+
+## 89. Release proof (STEP 0)
+
+The Public Onboarding Entry Surface is **published**, which is the condition PART TEN required
+before C3 could have a destination.
+
+| Fact | Value |
+|---|---|
+| Local HEAD | `ec7f8e3bd116e48b0957bd853555089de784acf4` |
+| Real remote main (`git ls-remote`) | `ec7f8e3bd116e48b0957bd853555089de784acf4` |
+| Ahead / behind | `0 / 0` |
+| Release tag object (local = remote) | `39ef263bb1508571efc38a448bb80179475fc82a` |
+| Tag peeled (`refs/tags/…^{}`) | `ec7f8e3` — the released commit |
+| Working tree | three `hebun-p3-*.md` historical docs, untracked, unchanged |
+
+Tag name `hebun-public-onboarding-entry-surface-complete`, annotated, matching the published
+convention for bounded capability releases (`hebun-post-login-tenant-switching-complete`,
+`hebun-membership-role-tenant-integrity-complete`).
+
+From the **released tree**, not the working tree:
+
+- `apps/dashboard/src/app/login/join/page.tsx` — present
+- `apps/dashboard/src/features/identity-enrollment/continuation-cookie.ts` — present
+- `middleware.ts` line 15 — `const PUBLIC_PREFIXES = ["/login"];`, and the release diff for that file
+  is **empty**
+- schema, migration and dependency delta across `9cc0c4d..ec7f8e3` — **empty**
+- migrations: 24 files, 24 journal entries
+
+No second onboarding authority was introduced. In the released tree each table still has exactly one
+writer: `memberships` → `accept-invitation.server.ts`; `users` and `auth_identities` →
+`identity-repository.server.ts`; `auth_credentials` → `credential-repository.server.ts`;
+`invitations` → `issue-invitation.server.ts`; `identity_enrollment_requests` →
+`start-enrollment.server.ts`.
+
+---
+
+## 90. Durable PRE-C3 state (STEP 0)
+
+Read-only against `hebun_r1` (`current_database()` = `hebun_r1`, `127.0.0.1:55432`), 24 applied
+migrations.
+
+```
+membership_authorizations.id  97d165f3-9962-4473-95b0-00132b1ebfbe
+tenant                        Acme
+normalized_email              senoltr@gmail.com
+intended role                 Member / member  (a1288fe9-0739-4217-a36e-ac9744778237)
+status                        authorized
+consumed_at                   NULL
+consumed_by_invitation_id     NULL
+revoked_at                    NULL
+lifecycle_status              active
+governance_decision_id        257be29e-5b58-4022-ae9c-db12129966e5
+```
+
+Governance bootstrap `ea49e5b8-3df7-4712-b6bb-104a1f1ccc08` (`certify`, `bootstrap = true`,
+`authority-established`) still exists for Acme. It is the **only** membership authorization in the
+database.
+
+Counters: `invitations` **0** · `identity_enrollment_requests` **0** · invitations for
+`senoltr@gmail.com` **0** · `users` with that email **0** · users 2 · memberships 2 · credentials 2 ·
+audit_log 5 · decision_records 3 · governance_sessions 3.
+
+No enrollment has started for this authorization, and there is no duplicate or live invitation for
+the address.
+
+---
+
+## 91. PRE-C3 backup integrity (STEP 0)
+
+```
+/Users/senolsevim/Developer/hebun-backups/hebun_r1_pre_c3_onboarding_capability_20260814_004124.dump
+282,396 bytes · readable
+SHA-256 63e29bb24829db45efb9f5e0d46316fed2bc7f81d3464a0fcfd1bed8e669ca85
+```
+
+Matches the value recorded in PART TEN exactly. **Not restored.**
+
+It remains a valid rollback point because the durable state it captured has not moved: the same
+authorization in the same status, the same zero invitations and zero enrollments, the same 24 applied
+migrations, and the same row counts. Nothing has been written to `hebun_r1` since it was taken, so
+no new backup was created and none was needed.
+
+---
+
+## 92. C3 runtime contract, re-audited from the RELEASED source (STEP 1)
+
+`git diff 9cc0c4d..ec7f8e3 -- issue-invitation.server.ts` is **empty** — the release did not touch
+the C3 runtime. Its caller gained 38 lines with **zero deletions**, and the only added function is
+`decideIdentityEnrollmentAction`; `issueInvitationAction` is unchanged.
+
+Proven from the released blob:
+
+| Claim | Evidence |
+|---|---|
+| Creates no Governance decision or session | no `writeGovernanceDecisionWithin`, no `decision_records`, no `governanceSessions` in the file; the only match is the comment at line 14 saying so |
+| Creates no user / identity / credential / membership | no `insert(users)`, `insert(authIdentities)`, `insert(authCredentials)`, `insert(memberships)` |
+| Does not start identity enrollment | no reference to `identityEnrollmentRequests` or `startIdentityEnrollment` |
+| Grants no authority | writes only `invitations` and `membership_authorizations`; no permission, role, provider or execution table |
+| Email / role / tenant come from the authorization | `.values({ tenantId: authorization.tenantId, normalizedEmail: authorization.normalizedEmail, intendedRoleId: authorization.intendedRoleId, … })` |
+| Client supplies one thing | `input: { readonly membershipAuthorizationId: string }`, UUID-checked; inviter is `tenant.userId` from the session |
+| Capability is cryptographically random | `randomBytes(32).toString("base64url")` — 256 bits |
+| Plaintext never persisted | the insert writes `tokenHash` and `tokenVersion`; `capability` appears in no `.values()` |
+| Only the keyed digest is stored | `digestInvitationToken(capability, deps.digestKey)` — HMAC-SHA256 under label `hebun.invitation-token.v1` |
+| Expiry is 72 hours | `INVITATION_LIFETIME_HOURS = 72`; `expiresAt = now + 72 * 3600_000` |
+| Consumption and creation are atomic | both inside one `db.transaction`, with the audit row |
+| Failure rolls back | the consumption `UPDATE` is predicated on `status = 'authorized'`; zero rows throws `AuthorizationRaceLost`, which unwinds the invitation and the audit row |
+| Shown once | returned in the result, held in React `useState` only — no storage, no re-fetch; a reload loses it |
+| Never in history | the audit writer's own header: "NOTHING SECRET, EVER. No bearer capability, no digest, no password, no salt, no credential hash." |
+
+Authority is resolved by `resolveGovernanceAuthority` — the same G2/G3 resolver, no second one.
+
+---
+
+## 93. The destination is real, and reachable (STEP 1)
+
+Verified against the running application, read-only:
+
+```
+GET /login/join            → HTTP 200, renders "Join with an onboarding capability"
+GET /governance/authority  → HTTP 307 → /login
+```
+
+The public entry surface serves without a session; the dashboard is still gated. The
+continuation-cookie architecture the later acts depend on is present in the released tree. **This is
+what PART TEN said did not exist.**
+
+---
+
+## 94. Exact expected C3 delta
+
+One transaction, three row effects, nothing else:
+
+| Table | Change |
+|---|---|
+| `invitations` | 0 → 1. `tenant_id` Acme, `normalized_email` `senoltr@gmail.com`, `intended_role_id` `a1288fe9…`, `inviter_type` `human`, `inviter_id` the issuing authority, `token_hash` 64 hex, `token_version` 1, `status` `pending`, `expires_at` = issue + 72h |
+| `membership_authorizations` (`97d165f3…`) | `status` `authorized` → `consumed`; `consumed_at` NULL → timestamp; `consumed_by_invitation_id` NULL → the new invitation id |
+| `audit_log` | 5 → 6. Action `onboarding.invitation.issued`, entity `invitation`, actor the issuing human. No capability, no digest |
+
+Unchanged: `users` 2 · `auth_identities` 2 · `auth_credentials` 2 · `memberships` 2 ·
+`identity_enrollment_requests` 0 · `decision_records` 3 · `governance_sessions` 3 · `roles` 3 ·
+applied migrations 24.
+
+**Consumption means issuance, not acceptance.** `consumed_by_invitation_id` is a foreign key to the
+invitation, so the authorization is spent the moment it produces one. A lapsed invitation does not
+un-spend it; re-inviting requires a new Governance decision. There is no revocation runtime for
+either.
+
+---
+
+## 95. Non-effects of C3
+
+C3 creates no user, no auth identity, no credential, no membership, no session, no role, no
+Governance decision and no Governance session. It starts no identity enrollment. It grants no
+Governance, Knowledge, provider, execution, Computer Use or terminal authority. It sends nothing —
+Hebun has no mail runtime, and the capability is handed over out of band by the human who issued it.
+
+---
+
+## 96. The human gate
+
+C3 is performed by the Director in the product UI, at `/governance/authority`, on the authorization
+for `senoltr@gmail.com`, using **Issue onboarding capability**. It was not performed in this pass and
+must not be performed by an agent: the capability is a bearer secret shown exactly once, and the
+accountable actor recorded in `invitations.inviter_id` and in the audit row must be the human who
+decided to issue it.
+
+---
+
+## VERDICT OF THE TWELFTH PASS
+
+# C3 READY — HUMAN CAPABILITY ISSUANCE REQUIRED
+
+Every precondition holds. The blocker recorded in PART TEN — a capability with no legitimate
+destination — is resolved and released. **Nothing was issued in this pass:** no invitation, no
+capability, no authorization consumed, no enrollment, no user, identity, credential or membership. No
+migration, no schema change, no commit, no tag, no push. `hebun_r1` was read and never written.
+
+---
+
+# PART THIRTEEN — C3 VERIFIED, ACT 1 READINESS (READ-ONLY, NOTHING SUBMITTED)
+
+Date: 2026-08-14. **C3 was executed by the Director in the product UI** at 11:22:19 +03. This pass
+verifies it landed correctly and audits the next transition. Nothing was submitted, approved,
+rejected or created here.
+
+The plaintext capability was shown once to the Director and was not provided to this pass. It was not
+requested, recovered, read from browser state, fabricated or replaced.
+
+---
+
+## 97. C3 landed — the durable rows
+
+`current_database()` = `hebun_r1` @ `127.0.0.1:55432`, 24 applied migrations.
+
+```
+membership_authorizations  97d165f3-9962-4473-95b0-00132b1ebfbe
+  tenant Acme · senoltr@gmail.com · Member/member (a1288fe9…)
+  status                    authorized → consumed
+  consumed_at               2026-08-14 11:22:19.146+03
+  consumed_by_invitation_id 9e3af81e-dfa4-4475-b3b4-bea118cb1559
+  revoked_at                NULL
+  updated_by                d3535a0d… (human)
+
+invitations                9e3af81e-dfa4-4475-b3b4-bea118cb1559   ← the only one
+  tenant Acme · senoltr@gmail.com · intended_role a1288fe9… (Member/member)
+  inviter_type human · inviter_id d3535a0d…
+  status                    pending
+  issued_at                 2026-08-14 11:22:19.146+03
+  expires_at                2026-08-17 11:22:19.146+03   (exactly 72h)
+  token_hash                64 hex chars · token_version 1
+  accepted_at / accepted_by NULL
+  last_sent_at NULL · send_count 0        ← no delivery claimed, as the runtime intends
+
+audit_log                  d27df802-4380-4edb-9cdd-dc4f998488af
+  action onboarding.invitation.issued · entity invitation / 9e3af81e…
+  actor human d3535a0d… · result committed · source human-onboarding · simulation false
+  metadata {delivered:false, invitationId, intendedRoleId, membershipAuthorizationId}
+```
+
+Counts moved exactly as PART TWELVE §94 predicted: `invitations` 0 → **1**, `audit_log` 5 → **6**, the
+single authorization changed state to `consumed`. Everything else is untouched — users 2,
+auth_identities 2, auth_credentials 2, memberships 2, roles 3, decision_records 3,
+governance_sessions 3, identity_enrollment_requests 0.
+
+---
+
+## 98. Atomicity and cross-links
+
+Fifteen reconciliation predicates, all true: the authorization points at the invitation; tenant,
+email and intended role agree across both rows; the role belongs to that tenant and is still `member`
+band; states are `consumed` / `pending`; consumption is clean (`consumed_at` set, `revoked_at` NULL);
+lifetime is exactly `interval '72 hours'`; the digest matches `^[0-9a-f]{64}$`; the invitation is
+unaccepted; no delivery is claimed; the audit row names the invitation, links the authorization, and
+its actor is the inviter.
+
+No partial state exists: **0** orphan invitations, **0** authorizations consumed without an
+invitation, **0** still `authorized`, exactly **1** live invitation for the address.
+
+**Timestamps, characterised by their actual clock sources rather than assumed identical.**
+`invitations.issued_at`, `membership_authorizations.consumed_at` and `audit_log.occurred_at` are all
+`2026-08-14 11:22:19.146+03` — byte-identical because one application `now` is threaded through the
+whole transaction. `audit_log.recorded_at` is `11:22:19.151484+03`, **5.484 ms later**, because that
+column takes the database clock via its own default. The difference is correct and expected; equality
+there would have been the anomaly.
+
+---
+
+## 99. C3 non-effects — verified, not assumed
+
+Nothing was created or mutated in: `identity_enrollment_requests`, `users`, `auth_identities`,
+`auth_credentials`, `memberships`, `roles`, `decision_records`, `governance_sessions`, `permissions`
+(0), `role_permissions` (0), `provider_connectivity_controls` (unchanged).
+
+The Governance ledger is unchanged: three decisions, the newest still
+`membership-authorized` at `2026-08-14 00:28:49` — **before** C3 at `11:22:19`. C3 wrote no decision
+and opened no session, exactly as its source states.
+
+For `senoltr@gmail.com` specifically: **0** users, **0** auth identities, **0** credentials, **0**
+memberships, **0** enrollment requests. The intended human still does not exist in Hebun.
+
+Conceptual state: authorization **consumed** · invitation **pending** · capability **held externally
+by the Director** · enrollment **not started** · identity, credential, membership **absent**.
+
+---
+
+## 100. Backups
+
+`hebun_r1_pre_c3_onboarding_capability_20260814_004124.dump` — 282,396 bytes, readable, SHA-256
+`63e29bb24829db45efb9f5e0d46316fed2bc7f81d3464a0fcfd1bed8e669ca85`, unchanged. **Not restored.**
+
+Its meaning has now inverted in a way worth stating plainly: it is a genuine PRE-C3 snapshot, so
+restoring it today would **discard the issued invitation and return the authorization to
+`authorized`**. That is a legitimate rollback, not a corruption — but it is no longer a "safe
+no-op" restore.
+
+**PRE-ACT-1 backup — recommendation: OPTIONAL, and the usual reason does not apply.**
+
+Act 1 is the first ceremony step with an in-product undo. It writes exactly one row
+(`identity_enrollment_requests`, `pending`), creates nothing global, and does not consume the
+invitation. `identity_enrollment_requests_one_live_per_invitation_uq` is partial on
+`status <> 'rejected'`, so a Governance rejection frees the invitation and the same capability may be
+presented again. Every earlier step was irreversible — no revocation runtime — which is why each got a
+backup. Act 1 is not.
+
+The honest argument **for** one is different and stronger: **no backup currently contains C3.** The
+authorization is spent and cannot be un-spent, so the invitation is irreproducible; the nearest
+snapshot destroys it. A PRE-ACT-1 dump would be the first restore point that preserves C3.
+
+Not created. Director's call.
+
+---
+
+## 101. Act 1 runtime contract, from the released source
+
+Chain: `/login/join/page.tsx` (server, reads only whether a receipt cookie exists) →
+`OnboardingEntryCard` (client) → `startEnrollmentAction` (`"use server"`) → `startIdentityEnrollment`
+(the I1.2 authority). Client input at this act: **the capability string, and nothing else.**
+
+| # | Question | Answer, from source |
+|---|---|---|
+| 1 | Consumes the invitation? | **No.** The file contains no `update(invitations)`; the row stays `pending`. |
+| 2 | Creates a user? | No. |
+| 3 | Creates an identity? | No. |
+| 4 | Creates a credential/password? | No — no password is even accepted at this act. |
+| 5 | Creates a membership? | No. |
+| 6 | Grants a role or authority? | No. |
+| 7 | Governance decision/session? | No. |
+| 8 | Enrollment status created | `status: "pending"` |
+| 9 | Durable continuation value | `identity_enrollment_requests.continuation_hash` (+ `continuation_version`) |
+| 10 | Capability plaintext persisted? | No — used to compute a digest for lookup, never written |
+| 11 | Continuation plaintext persisted? | No — returned once, only its digest stored |
+| 12 | Digest mechanism | HMAC-SHA256 over `hebun.i1-2.enrollment-continuation.v1:<reference>`, from `randomBytes(32)`; 64 hex, CHECK-enforced |
+| 13 | Invalid capability | `capability-unrecognized` — lookup is by digest, so ids cannot be enumerated |
+| 14 | Expired capability | `capability-not-usable` — a predicate against the clock, because nothing writes `invitation_status = 'expired'` |
+| 15 | Replay / duplicate | `enrollment-already-started`, from the partial unique index — not an application read |
+| 16 | Race | Same index; both concurrent submissions pass the reads, the database stops the second |
+| 17 | Usable after a rejection? | **Yes** — the index is partial on `status <> 'rejected'`, so a rejected ceremony frees the invitation |
+| 18 | What Governance sees | An `identity_enrollment_requests` row with `status = 'pending'` in that tenant |
+
+**Act 1 writes no audit row.** Its imports contain no `governance-audit` module at all — the
+submitter is unauthenticated and `audit_log.actor_type` / `actor_id` are both NOT NULL, so there is no
+honest actor to name. The enrollment row with its `submitted_at` is the durable evidence.
+
+The only write in the file is a single `insert(identityEnrollmentRequests)`. There is no transaction
+block because there is nothing to make atomic with it.
+
+---
+
+## 102. Continuation custody, re-proved
+
+`hebun_enrollment_continuation` — distinct from `hebun_session_ref`; `httpOnly: true`;
+`sameSite: "lax"`; `secure: isProduction`; `path: "/login/join"`; `12 * 60 * 60` seconds;
+`maxAge` floored at 0.
+
+Comment-stripped scan of the whole Act 1 chain (page, action boundary, card, cookie contract) finds
+**no executable** `localStorage`, `sessionStorage`, `document.cookie`, `searchParams` or
+`location.href/hash/search`. The single textual match is the `CONTINUATION_CUSTODY.neverIn` array —
+the declaration of where the secret must never live. `startEnrollmentAction` returns
+`{ status: "started" }` only; the reference goes straight from the authority into the cookie and is
+never in the return value.
+
+**Known limitation, stated rather than hidden:** the ceremony becomes browser-bound for the
+continuation window. A bearer who starts on one device and returns on another must have the stranded
+ceremony rejected and start again.
+
+**Possession of the continuation alone creates nothing.** It names one ceremony that is still
+`pending`; Act 3 additionally requires the invitation capability, an approved status, an unexpired
+invitation and a password, and re-checks all of them server-side.
+
+---
+
+## 103. Governance-side readiness
+
+The card currently shows "Nothing is waiting" because `identity_enrollment_requests` is empty. That
+is correct.
+
+- **What makes a submission appear:** a row with `tenant_id` = the viewer's tenant **and**
+  `status = 'pending'`. Nothing else qualifies; a decided ceremony leaves the list.
+- **Read seam:** `readPendingEnrollments` — gated on `resolveGovernanceAuthority`, returning
+  `EMPTY_VIEW` to a non-authority, ordered oldest-first.
+- **Identifier exposed:** `enrollmentId`, `invitationId`, `submittedAt`. **No email address**, no
+  continuation digest. The approver correlates timing with a handover they performed themselves.
+- **Who owns the decision:** `decideIdentityEnrollmentAction` → `decideIdentityEnrollment`, which
+  resolves Governance authority, writes a governance session and decision, transitions the row and
+  audits — all in one transaction.
+- **Listing grants nothing.** The read seam performs no write and no decision.
+- **Act 1 does not auto-approve.** It writes `status: "pending"` and never touches `approved_at`,
+  `approval_decision_id`, `approved_by_actor_type` or `approved_by_actor_id`; the schema's
+  `identity_enrollment_requests_approved_chk` welds those four columns to the approved/completed
+  statuses in both directions.
+
+---
+
+## 104. Exact expected Act 1 delta
+
+| | Before Act 1 | Expected after Act 1 |
+|---|---|---|
+| `invitations` | 1, `pending` | **1, still `pending`** — unchanged in every column |
+| `identity_enrollment_requests` | 0 | **1** — tenant Acme, `invitation_id` `9e3af81e…`, `continuation_hash` 64 hex, `continuation_version` 1, `status` `pending`, `submitted_at` set |
+| `users` | 2 | 2 |
+| `auth_identities` | 2 | 2 |
+| `auth_credentials` | 2 | 2 |
+| `memberships` | 2 | 2 |
+| `roles` | 3 | 3 |
+| `decision_records` | 3 | **3** — no Governance decision |
+| `governance_sessions` | 3 | **3** — no session |
+| `audit_log` | 6 | **6 — Act 1 writes NO audit row** |
+| `membership_authorizations` | 1, `consumed` | 1, `consumed` — untouched |
+
+Easy to overlook:
+
+- The **cookie** is the other half of the effect. `startEnrollmentAction` sets
+  `hebun_enrollment_continuation` on the submitting browser. It is not a database row, and it is the
+  only copy of the continuation reference that exists.
+- `identity_enrollment_requests` rows carry the standard lifecycle columns; `created_by` /
+  `created_by_type` stay NULL because the submitter is unauthenticated.
+- The partial index means that from this moment the invitation has a live ceremony attached, and a
+  second submission with the same capability will refuse with `enrollment-already-started` until a
+  Governance rejection clears it.
+
+---
+
+## VERDICT OF THE THIRTEENTH PASS
+
+# ACT 1 READY — HUMAN CAPABILITY SUBMISSION REQUIRED
+
+C3 is durably correct, atomic, fully cross-linked, and free of side effects. The next act is the
+Director's, in the browser, at `/login/join`.
+
+**Nothing was submitted, approved, rejected, enrolled, created or accepted in this pass.** No
+capability was read, recovered or fabricated. No commit, tag, push, migration or schema change.
+`hebun_r1` was read and never written.
+
+---
+
+# PART FOURTEEN — LOST C3 CAPABILITY: INCIDENT AUDIT (READ-ONLY GATE A)
+
+Date: 2026-08-14. **Incident:** the Director closed the one-time capability display before preserving
+the plaintext. The bearer secret for invitation `9e3af81e-dfa4-4475-b3b4-bea118cb1559` is gone.
+
+Read-only. Nothing was issued, revoked, expired, rotated, submitted, restored or repaired. The
+plaintext was not requested, recovered, derived, brute-forced, or searched for in logs, shell history,
+browser state or the clipboard.
+
+---
+
+## 105. Incident state
+
+`hebun_r1` @ `127.0.0.1:55432`, 24/24 migrations. HEAD `ec7f8e3` = remote main, release tag published.
+
+```
+authorization 97d165f3…   consumed · consumed_at 11:22:19.146 · consumed_by 9e3af81e… · revoked_at NULL
+invitation    9e3af81e…   pending  · issued 11:22:19.146 · expires 2026-08-17 11:22:19.146
+                          still live · ~2d23h remaining · accepted_at NULL · revoked_at NULL
+                          send_count 0 · token_version 1 · token_hash 64 hex
+```
+
+Act 1 has **not** happened: enrollments 0 (0 for this invitation), and for `senoltr@gmail.com` there
+are 0 users, 0 auth identities, 0 credentials, 0 memberships. Audit is 6 rows, the newest being
+`onboarding.invitation.issued`. Invitations 1, authorizations 1.
+
+**Four distinctions this incident depends on:**
+
+- **lost capability ≠ expired invitation.** The invitation is live and valid until 2026-08-17. Only
+  the secret needed to present it is gone.
+- **lost capability ≠ revoked invitation.** Nothing revoked it. `revoked_at` is NULL and no runtime
+  could have set it.
+- **pending invitation ≠ enrollment.** No ceremony has started; the row is untouched by Act 1.
+- **consumed authorization ≠ consumed invitation.** The authorization was spent at *issuance*; the
+  invitation is consumed only at *acceptance*, which has not occurred.
+
+---
+
+## 106. The capability is unrecoverable — proved, not assumed
+
+`randomBytes(32).toString("base64url")` — 256 bits from the CSPRNG, assigned to a local `const` and
+returned once. The insert writes `tokenHash` and `tokenVersion`; the plaintext appears in no
+`.values()`, no column, and no other table.
+
+`token_hash` is read in exactly four production places —
+`issue-invitation.server.ts:132`, `accept-invitation.server.ts:119/133/143`,
+`start-enrollment.server.ts:83/93`, `complete-enrollment.server.ts:110` — and every one of them
+**computes** a digest from a presented capability and compares. **No read seam returns a capability.**
+
+The digest is `HMAC-SHA256(secret, "hebun.invitation-token.v1:" + token)`. One-way; reversing it means
+finding a 256-bit preimage. The stored value cannot become the secret again even with the server key.
+
+Browser custody is gone too: the capability lived in `useState` inside `InvitationIssuance`, and the
+issuance path calls `router.refresh()`. Nothing persists it — no storage, no URL, no re-fetch.
+
+Audit is clean by design: the C3 metadata carries `{delivered:false, invitationId, intendedRoleId,
+membershipAuthorizationId}` and no secret; the audit writer's header states "NOTHING SECRET, EVER."
+
+**Conclusion: the plaintext no longer exists anywhere in the system. This is the design working, not
+a failure of it.**
+
+---
+
+## 107. Existing lifecycle runtime — the complete inventory
+
+Every production write to either table, across the whole released tree:
+
+| # | Write | File | Ceremony step |
+|---|---|---|---|
+| 1 | `insert(membershipAuthorizations)` | `authorize-membership.server.ts:210` | C2 |
+| 2 | `insert(invitations)` | `issue-invitation.server.ts:139` | C3 |
+| 3 | `update(membershipAuthorizations)` → `consumed` | `issue-invitation.server.ts:169` | C3 |
+| 4 | `update(invitations)` → `accepted` | `accept-invitation.server.ts:242` | Act B |
+
+**That is the entire lifecycle.** There is no fifth writer.
+
+Against the eleven candidate recovery mechanisms:
+
+| Mechanism | Schema | Runtime | Product |
+|---|---|---|---|
+| 1. Re-show the capability | impossible — never stored | none | none |
+| 2. Reissue for the SAME invitation | no column to rotate into | none | none |
+| 3. Rotate the digest | `token_hash` / `token_version` exist | **none** | none |
+| 4. Revoke the pending invitation | **yes** — `revoked_at`, `revoked_by_type`, `revoked_by_id`, `revocation_reason`, enum `revoked`, CHECK `invitations_revoked_chk` | **none** | none |
+| 5. Cancel it | same columns as 4 | none | none |
+| 6. Mark it `expired` | enum value exists | **nothing writes it** | none |
+| 7. Close it without enrollment | — | none | none |
+| 8. Revoke the consumed authorization | `revoked_at`, `revocation_reason`, enum `revoked` | **none** | none |
+| 9. New authorization for the same email | **yes, and unblocked today** | **`authorizeMembership` exists** | **`/governance/authority` — executable** |
+| 10. Replacement invitation | blocked, see §108 | `issueInvitation` exists | executable but **would refuse** |
+| 11. Governance lost-capability recovery | — | none | none |
+
+No cron, sweeper or operator script touches invitations. `scripts/` holds only
+`auth-dev-credential.ts`, `genesis-nominate.ts`, `r1-seed.mjs` and the test runner.
+
+---
+
+## 108. The constraint that makes this permanent
+
+```sql
+CREATE UNIQUE INDEX invitations_pending_email_uq
+  ON public.invitations (tenant_id, normalized_email)
+  WHERE (status = 'pending'::invitation_status);
+```
+
+Production writes exactly two values to `invitations.status`: `pending` (issuance, line 149) and
+`accepted` (acceptance, line 244). **`expired` and `revoked` are enum members that nothing ever
+writes.**
+
+Expiry is a *runtime predicate* — `expires_at <= now` — evaluated on every path. It correctly refuses
+a lapsed capability. **It does not change the row.**
+
+Therefore, after 2026-08-17 the invitation becomes unusable while remaining `status = 'pending'`, and
+the partial unique index keeps holding the `(Acme, senoltr@gmail.com)` slot **permanently**.
+`issueInvitation` will refuse `invitation-already-pending` forever.
+
+**"Wait for expiry and retry" does not work.** That is the trap in this incident, and it is not
+specific to it: in the current build **any lapsed invitation permanently blocks re-invitation of that
+address in that tenant.** This is a latent defect affecting every tenant, surfaced by this incident
+rather than caused by it.
+
+The other relevant predicates:
+
+```sql
+membership_authorizations_one_active_per_email_uq  (tenant_id, normalized_email) WHERE status = 'authorized'
+membership_authorizations_consumed_invitation_uq   (consumed_by_invitation_id)   WHERE consumed_by_invitation_id IS NOT NULL
+identity_enrollment_requests_one_live_per_invitation_uq (invitation_id) WHERE status <> 'rejected'
+invitations_token_hash_uq                          (token_hash)  — global
+```
+
+The authorization index keys on `authorized`; the current row is `consumed`, so **0 rows block a new
+authorization**. C2 is repeatable today. But the invitation it would authorize could never be issued,
+so repeating C2 alone would strand a second authorization — the exact failure PART TEN warned about.
+
+---
+
+## 109. Authority ownership
+
+The invitation is Human Onboarding's canonical truth (I2), so **invitation revocation belongs to
+Human Onboarding**, not to Governance and not to a new subsystem.
+
+Governance's involvement is bounded by existing doctrine. `CONSUMPTION_SEMANTICS` already states that
+"re-inviting requires a new Governance decision, because the authorization is already spent" — so the
+*replacement* is constitutionally a new C2, and that machinery already exists. Issuance itself is
+explicitly **not** a Governance decision (`decision_records` is not written); it is an audited act
+performed *under* Governance authority. Revocation is its inverse and should mirror it exactly: gated
+by `resolveGovernanceAuthority`, audited, and writing no decision record.
+
+Silently rotating `token_hash` on the existing invitation would be the wrong shape. It would create a
+second, undocumented way for a capability to come into existence, leave the audit ledger claiming one
+issuance where two occurred, and quietly detach the invitation from the C3 event that created it.
+
+---
+
+## 110. PRE-C3 backup semantics
+
+`hebun_r1_pre_c3_onboarding_capability_20260814_004124.dump` — 282,396 bytes, SHA-256
+`63e29bb2…e669ca85` (matches), a valid archive created `2026-08-14 00:41:24`, dbname `hebun_r1`, 505
+TOC entries, 50 table-data entries. **Not restored.**
+
+Created at 00:41:24 — after C2 (00:28:49) and before C3 (11:22:19). Restoring it would:
+
+- **remove** invitation `9e3af81e…`
+- **return** authorization `97d165f3…` to `authorized`, `consumed_at` NULL, `consumed_by_invitation_id` NULL
+- **remove** the `onboarding.invitation.issued` audit row (back to 5)
+- **preserve** C0.1, C0.2, C0.3, C1 and C2
+
+It would therefore genuinely undo the incident. It is nonetheless **destructive operational
+recovery, not product recovery**: it discards a durable, correctly-recorded Governance-authorized act
+and its audit entry, rewriting the tenant's history to say C3 never happened. It is also
+all-or-nothing across the whole database. Recommended only if no narrower path is authorized.
+
+---
+
+## 111. Options compared
+
+| # | Option | Schema | Runtime | Verdict |
+|---|---|---|---|---|
+| 1 | Re-show plaintext | — | — | **Impossible.** Would require storing bearer secrets — the thing the design exists to prevent |
+| 2 | Rotate token on the existing invitation | partial | none | **Reject.** Second undocumented issuance path; audit would under-count; detaches the invitation from its C3 event |
+| 3 | **Revoke the invitation, then new C2 + C3** | **yes** | revocation missing; C2/C3 exist | **RECOMMENDED.** One new runtime; old capability dies; fully auditable; C2/C3 semantics preserved |
+| 4 | Revoke/reset the authorization, repeat C2/C3 | revocation columns exist | none | Reject as primary — does not free the invitation slot, so C3 still refuses. Solves the wrong half |
+| 5 | New authorization while the old invitation stands | yes, unblocked | C2 exists | **Reject.** Creates a second authorization that can never be spent — a stranded live grant |
+| 6 | Wait for expiry, then retry | — | — | **Reject — it does not work.** §108: the row stays `pending`, the slot is never released |
+| 7 | Restore PRE-C3 | n/a | n/a | Last resort. Destroys a valid Governance act and its audit row |
+
+---
+
+## 112. Verdict and the narrowest legitimate recovery
+
+Classification **C — schema support exists, no authoritative runtime.** The `invitations` table
+already carries `revoked_at`, `revoked_by_type`, `revoked_by_id`, `revocation_reason`, the enum member
+`revoked`, and `invitations_revoked_chk` welding them together. The semantics were designed. Only the
+writer was never built.
+
+Minimal recovery, in order:
+
+1. **Revoke invitation `9e3af81e…`** — the one missing capability. Human Onboarding owns it, gated by
+   `resolveGovernanceAuthority` exactly as issuance is, audited as `onboarding.invitation.revoked`,
+   writing no `decision_records` row. This frees `invitations_pending_email_uq` and makes the lost
+   capability permanently unusable even if it later resurfaced.
+2. **New C2** — `authorizeMembership` for `senoltr@gmail.com`. Already exists, already product-
+   executable, already unblocked. This is the constitutionally required new Governance decision.
+3. **New C3** — `issueInvitation` against the new authorization. Already exists. Succeeds once the
+   pending slot is free.
+
+Exactly **one** new runtime capability, under the existing owner, using columns that already exist.
+No schema change, no migration, no new authority, no second source of truth.
+
+The same fix closes the latent defect in §108 for every tenant.
+
+Authorization `97d165f3…` stays `consumed` forever. That is correct and should not be undone: it
+records that Governance authorized one onboarding and that a capability was minted for it. The
+replacement is a new decision, not a rewrite of the old one.
+
+---
+
+## VERDICT OF THE FOURTEENTH PASS
+
+# LOST CAPABILITY RECOVERY PRODUCT GAP CONFIRMED — IMPLEMENTATION GATE REQUIRED
+
+No product path exists today to recover from a lost onboarding capability, and waiting for the
+invitation to lapse makes the address permanently un-invitable rather than resolving it. The recovery
+is small and well-shaped, but it is new runtime and needs its own gate.
+
+**Nothing was mutated in this pass.** No capability, invitation, authorization, enrollment, revocation
+or expiry. No restore, no schema change, no migration, no commit, tag or push. `hebun_r1` was read and
+never written.
+
+---
+
+# PART FIFTEEN — INVITATION REVOCATION BUILT (READ-ONLY AGAINST `hebun_r1`)
+
+Date: 2026-08-14. The product gap PART FOURTEEN confirmed is now closed in code. **The real incident
+is not fixed:** nothing was revoked, and the ceremony is unchanged.
+
+Full record: `docs/product-vision/runtime/hebun-invitation-revocation-closure.md`.
+
+---
+
+## 113. What was built, and what it cost
+
+Classification **C** from §112 held exactly. Two new files — `revoke-invitation.server.ts` and
+`read-revocable-invitations.server.ts` — plus the revocation vocabulary in I2's contracts, a writer on
+the **existing** audit sink, one action, one read on the Governance page, and one control on the card
+beside issuance.
+
+**Schema delta 0. Migration delta 0 (24 files, 24 journal entries). Dependency delta 0.** The
+columns were already designed: `revoked_at`, `revoked_by_type`, `revoked_by_id`, `revocation_reason`,
+the enum member, and the CHECK welding them together. Only the writer was missing, which is what §112
+predicted.
+
+Authority is the same resolver issuance uses, and revocation writes **no** `decision_records` row —
+the same shape, for the same reason.
+
+The invariant with its own test: **the consumed authorization stays consumed.** Revocation reads it
+for provenance and never writes it. Un-consuming it would erase the fact that a capability really was
+issued and let one Governance decision produce two.
+
+Eligibility is `status = 'pending'` and deliberately **not** `expires_at`, because a lapsed invitation
+is exactly the case that stranded the slot in §108.
+
+---
+
+## 114. Verification
+
+`tsc` clean · eslint 0 errors · **351 passed, 0 failed** (was 349) · build clean · `git diff --check`
+clean.
+
+Proven on disposable PostgreSQL: the lost capability is refused by both Act 1 and acceptance after
+revocation; the slot is freed and a full C2 → C3 flow works again; the old capability stays dead even
+once a replacement exists; a lapsed-by-clock invitation is revocable and frees its slot; an accepted
+invitation refuses with its membership untouched; concurrent revocation yields exactly one winner and
+exactly one audit row; and a revoked delegate is refused exactly like a stranger.
+
+Two sibling firewall tests were **narrowed** rather than weakened: they banned the string
+`human-onboarding` from every `page.tsx`, which was a proxy. Both now assert the real invariant — no
+page reaches the onboarding **mutation** path — which is stricter about acts and honest about the read
+seams a server page legitimately imports.
+
+---
+
+## 115. `hebun_r1` firewall
+
+Read-only throughout; every flow test used a disposable database through its own ownership handle.
+Confirmed after the build:
+
+```
+invitation    9e3af81e…  pending · revoked_at NULL · revocation_reason NULL
+authorization 97d165f3…  consumed
+identity_enrollment_requests 0 · users/identities/credentials/memberships for the target 0
+invitations 1 · audit_log 6 · applied migrations 24
+```
+
+**The real invitation was not revoked and was never used as a fixture.**
+
+---
+
+## 116. Remaining limitation, and the recovery point
+
+Nothing writes the lapsed invitation status yet, so a lapsed invitation still reads `pending` until a
+human revokes it. Automatic expiry materialization is **deferred by decision**, recorded in
+`REVOCATION_SEMANTICS.expiryStillNotMaterialized` — an authorized revocation demonstrably frees the
+slot, so a background sweeper was scope this phase did not need.
+
+After release, the Director's own three steps resolve the incident: revoke `9e3af81e…` with a reason;
+authorize `senoltr@gmail.com` again (a new Governance decision, which `CONSUMPTION_SEMANTICS` already
+required); issue a fresh capability and preserve it before closing the display. Authorization
+`97d165f3…` stays `consumed` throughout.
+
+C3 remains historically completed. Act 1 remains not started.
+
+---
+
+## VERDICT OF THE FIFTEENTH PASS
+
+# INVITATION REVOCATION CLOSED WITH DOCUMENTED LIMITATION — RECOVERY READY AFTER RELEASE
+
+**Nothing durable changed.** No revocation, no invitation, no authorization, no enrollment. No
+schema, migration or dependency change. No commit, tag or push.
