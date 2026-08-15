@@ -1009,3 +1009,60 @@ geçici olarak canlı bir bileşeni listeye ekleyip **fail ettirilerek** kanıtl
 3. **How does this become part of Hebun AI?** `/director` turunda konan invariant guard'a bağlandı:
    arkasında authority olmayan bir doğrulama rozeti hiçbir route'tan erişilebilir olamaz. KR5'in
    önündeki legacy truth-surface engeli kapandı.
+
+## KR5 Tarihsel Cevap Kanıtı — bir anı ile bir gerçek aynı şey değildir (2026-08-15)
+
+368/368 (365→368), lint 0 error, build clean. Şema deltası: **2 tablo + 1 index**, migration: **1**,
+dependency: **0**. Canonical `hebun_r1` bit birebir aynı: 34/124/1/1/8/8/17, 24 applied, sadece
+`plpgsql`, KR5 tabloları yok, sızan disposable DB yok.
+
+**Ders 1 — Referans tek başına yetmez, çünkü `recordRef` versiyona bağlı DEĞİL.**
+`domainKey/factKey` supersession'dan sonra BAŞKA bir metne çözülüyor. Node id'ye referans vermek de
+yetmiyor: `provenance`/`sourceAttribution` mutable jsonb, `ratifiedAt` sonradan K4 ile değişebiliyor,
+`freshness` ise saatten türetiliyor — yani yeniden hesaplandığında yapısal olarak farklı çıkıyor.
+**Kimlik referanslanır, duruş anlık kopyalanır.** İçerikten sadece okuyucunun gördüğü 240 karakterlik
+sınırlı excerpt saklanır; `statement` saklansaydı bu tablolar ikinci bir Knowledge deposu olurdu.
+
+**Ders 2 — Sıfır öğeli set BİR İFADEDİR, yokluk değil.**
+"Retrieval hiç çalışmadı" ile "çalıştı ve kurumunuzda bu konuda bir şey yok" tamamen farklı iki
+cümle. Tek düz tablo bunları ayıramaz — bu yüzden set/item ayrımı var. KR4'ün "dört boş durum dört
+farklı şey söyler" disiplini tam da reload anında kaybolacaktı.
+
+**Ders 3 — Bileşik FK, kontrol edilen değil KURULAMAZ bir izolasyon üretir.**
+`(message_id, tenant_id) → messages(id, tenant_id)`. Düz bir `message_id` FK'sı, A tenant'ının
+kanıtını B'nin mesajına bağlamayı sadece uygulama koduna bıraktı. Ham SQL ile denendi, veritabanı
+reddetti. Bunun için `messages(id, tenant_id)` unique gerekti — **ve drizzle-kit ifadeleri YANLIŞ
+SIRADA üretti**: FK'yı bağımlı olduğu index'ten önce koydu, migration
+`there is no unique constraint matching given keys` ile patladı. İki sıralama da disposable DB'de
+denendi; sıra düzeltildi ve teste bağlandı. **Üretilen migration'ı okumadan kabul etme.**
+
+**Ders 4 — Dördüncü bağımsız yazıcı, kapatmaya çalıştığın yalanı üretirdi.**
+`persistExchange` üç ayrı await'ti; user ile assistant arasında hata olunca cevapsız soru commit
+oluyor ve `durable: false` deniyordu — dürüst bildirimle kalıcı durum çelişiyordu. Kanıtı dördüncü
+bağımsız yazım yapsaydık: kalıcı bir assistant + kanıtsız = reload'da "retrieval hiç çalışmadı"dan
+AYIRT EDİLEMEZ. Tek transaction; conversation oluşturma da içeride, aksi halde geri alınan tur boş
+bir thread bırakırdı. **Hatalar gerçek PostgreSQL hataları ile kanıtlandı (FK, unique, trigger) —
+stub sadece kodun atomik olmayı NİYET ettiğini gösterir.** En keskin vaka: hata EN SON ifadede,
+her şey eklendikten sonra — hepsi kayboluyor.
+
+**Ders 5 — Modelin bir kaydı "kullandığı" kanıtlanamaz, o yüzden iddia edilmez.**
+Kayıt "bu kanıt modele verildi ve okuyucuya gösterildi" der. Ölçülemeyen bir nedenselliği iddia eden
+kayıt, uydurulmuş kanıttır. Model çıktısı hiçbir yerde citation için parse EDİLMİYOR — unutulabilir
+bir kontrol değil, mekanizmanın tümden yokluğu.
+
+**Ders 6 — Geçmiş faz testleri GELECEK hakkında iddia kurmuştu; onarıldı, zayıflatılmadı.**
+İlk çalıştırmada 9 test kırıldı. Yedisi ya global migration sayısı ya da "benim sınırımdan sonra
+hiçbir şey yok" diyordu — ikisi de gelecek hakkında iddia, ve Gate B'den geçen meşru bir faz onları
+yanlışlıyor. Her biri kendi faz penceresine daraltıldı, sonrası **isimlendirilerek**. İkisi KR4'ün
+kendi iddialarıydı ve Director kararıyla geçersiz kaldı; yeni doğruyu söyleyecek şekilde
+güncellendi. Bir R2D testi ise **güçlendirildi**: artık sıfır orphan satır assert ediyor.
+
+### Haftalık 3 soru
+1. **What did we learn?** Bir anı ile bir gerçek aynı şey değildir, ve arayüz bunu söylemek
+   zorundadır. Saklanmış bir snapshot çerçevesiz gösterilirse güncel-durum iddiasına dönüşür.
+2. **How does this improve Turkish Rug House?** Altı ay sonra bir karara bakıldığında, o kararın
+   hangi kurumsal bilgiye dayandığı — o günkü haliyle — görülebiliyor; bugünkü bilgi değişmiş olsa
+   bile geçmiş yeniden yazılmıyor.
+3. **How does this become part of Hebun AI?** Heby'nin cevabı artık kendi kanıtını taşıyor ve
+   kanıt cevapla aynı transaction'da kalıcı. Retention politikası bilinçli olarak ertelendi; silme
+   ebeveyn mesajın cascade'ini izliyor.
