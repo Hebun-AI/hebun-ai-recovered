@@ -819,3 +819,49 @@ dönüyor ve `no-match` olarak raporlanıyordu — yani kullanıcının sormadı
    artık doğru kaydı ilk sırada getiriyor; büyük harfli "İZİN" sorgusu sessizce boş dönmüyor.
 3. **How does this become part of Hebun AI?** Heby ilk kez sorduğu soruya göre kanıt seçiyor.
    Sıradaki karar tek başlık: `pg_trgm` migration'ı Director onayına sunuldu.
+
+## Deferred Strategic Capabilities — Guided Learning & Director Digital Twin (2026-08-15)
+
+Yalnızca dokümantasyon. Commit `33911fe`: 4 dosya, 293 ekleme, **sıfır silme** — mevcut hiçbir satır
+değişmedi. Runtime/test/şema/migration/dependency/DB delta: **sıfır**.
+
+**Ders 1 — Guided Learning sıfırdan başlamıyordu; sunum mimarisi zaten yazılıydı.**
+`hebun-information-architecture.md` §5.1 semantic anchor'ları, overlay tiplerini
+(HIGHLIGHT/SPOTLIGHT/CIRCLE/UNDERLINE/ARROW/PULSE), navigation target'ı, workspace sahipliğini,
+accessibility'yi ve Computer Use sınırını 14 invariant ile **zaten sahipleniyor**. Yeni kayıt buna
+referans veriyor — tekrar etmiyor, çatallamıyor. İki yere yazılmış bir ilke, gelecekteki bir çelişkidir.
+
+**Ders 2 — Yeni backlog maddesi yalnızca eksik boyutu ekler.**
+Ders modeli, ilerleme durumu, sıralama, müfredat eşlemesi, öğrenen tamamlama semantiği ve
+kişiselleştirme uygunluğu. Guided Explanation "baktığım şeyi göster" sorusunu yanıtlar; Guided
+Learning "bu konuyu, birkaç yüzeye yayılan, başı ve sonu olan bir ders olarak öğret" sorusunu.
+
+**Ders 3 — Tanımsız bir faz numarasına dayanan gate, gate değildir.**
+Kayıt keşfi "KP5 complete"e bağlıyordu. `KP<n>` **repo genelinde hiçbir yerde yok** — yalnızca o
+cümlenin içinde. Yeni bir faz numarası uydurulmadı; gate üç mimari önkoşula çevrildi
+(Knowledge/Knowledge Retrieval temeli olgun · **stabil** semantic anchor isimlendirme kontratı ·
+olgun çekirdek Heby etkileşim mimarisi = Heby Roadmap Faz 3/4/5). Gerekçeyi yazmaya da gerek yoktu:
+Product IA bunu tam bu yetenek için zaten karara bağlamış — *"the architectural dependency governs;
+speculative phase numbers do not."* **Yeni kural yazmadan önce mevcut otoriteyi ara.** Faz numaraları
+değişir, yeniden numaralanır, emekliye ayrılır; mimari önkoşul bunlara rağmen anlamlı kalır.
+
+**Ders 4 — Director Digital Twin türetilmiş bir değerlendiricidir, ikinci bir otorite değil.**
+Kanıta dayalı ve türetilmiş; Organization Digital Twin'den (21 — şirketi modeller), Director
+Memory'den (09 — saklar, akıl yürütmez), Heby'den (konuşma ve açıklama yüzeyi) ve Governance'tan
+(gerçek yetki) ayrı tutulur. Erken kurulan bir Twin, Director'ün adını taşıyan bir persona olurdu;
+kayıt tam olarak bunu engellemek için var.
+
+**Ders 5 — Kilit: ACTUAL DIRECTOR DECISION != DIRECTOR TWIN PREDICTION.**
+İkisi ayrı kaydedilir ve ayrı okunur. Doğru çıkan bir tahmin karara dönüşmez — **isabet, yetkiye
+giden bir yol değildir.**
+
+### Haftalık 3 soru
+1. **What did we learn?** Bir yeteneği kaydetmeden önce hangi dokümanın onu zaten sahiplendiğini
+   denetle; ve bir deferral gate'ini faz numarasına değil mimariye bağla. Bu turda aranan doktrin
+   repoda zaten yazılıydı — yazmak değil, bulmak gerekiyordu.
+2. **How does this improve Turkish Rug House?** Bugün doğrudan hiçbir şey değişmiyor; bu bir kayıt
+   turu. Dolaylı kazanç: TRH operatörünün Hebun'u gerçek arayüz üzerinde öğrenmesi artık tanımlı bir
+   yetenek ve önkoşulu (retrieval temelinin olgunlaşması) yazılı — tek bir kaydı olan korpustan ders
+   anlatılamayacağı dahil.
+3. **How does this become part of Hebun AI?** İki madde backlog'da, `Status: Planned`, önkoşula
+   bağlı. Kayıt yetki vermez; promosyon ayrı bir Director gate'idir.
