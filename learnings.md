@@ -965,3 +965,47 @@ karşılığı, uydurulmuş bir sayı değil — **hiçbir sayı**.
 3. **How does this become part of Hebun AI?** Kural teste bağlandı: mock veri, açık etiket olmadan
    ölçüm gibi render edilemez. `/approvals` üzerindeki `trust: "Verified"` rozeti aynı sınıftan ama
    ayrı bir yüzey — kapsam genişletilmedi, ayrı Director kararı olarak kaydedildi.
+
+## /approvals Trust Denetimi — bir rozet, monte edilmemişse yüzey değildir (2026-08-15)
+
+Denetim yapıldı, **onarım gerekmedi**. Tek bir guard testi eklendi. 365/365, lint 0 error,
+build clean. Şema/migration/dependency/DB delta: **sıfır**. Canonical `hebun_r1` bit birebir aynı.
+
+**Ders 1 — Önceki turun bulgusu YANLIŞTI, ve sebebi basename çakışmasıydı.**
+`trust: "Verified"` rozetinin "/approvals'ta render edildiği" bildirilmişti. Gerçekte iki ayrı
+bileşen var: `components/decision-domain/decision-workspace.tsx` (rozetli, **hiçbir yerden import
+edilmiyor**) ve `components/decision-workspace/decision-workspace.tsx` (asıl `/approvals`).
+`grep -rl "decision-workspace"` ikisini de yakaladı ve rapor yanlış olanı işaretledi.
+**Bir defect'i bildirmeden önce ERİŞİLEBİLİRLİĞİ kanıtla; dosya adı değil, import yolu.**
+
+**Ders 2 — 1028 modüllük erişilebilirlik analizi, üç sahte rozetin de ÖLÜ KOD olduğunu gösterdi.**
+`decision-domain/decision-workspace`, `knowledge-domain/knowledge-intelligence` ve
+`director-dashboard/item-list` — üçü de `src/app` ağacından ulaşılamıyor. Render edilmeyen bir
+rozet kimseyi yanıltmaz. **Ölü kod bir truth-surface defect'i değildir; gizli bir tuzaktır.**
+Onarım değil, guard gerekiyordu.
+
+**Ders 3 — `/approvals` reponun en dürüst yüzeyi çıktı, ve bunu kendi kodunda yazıyor.**
+`features/decisions/workspace-model.ts` legacy mock projeksiyonu **açıkça reddediyor** ("the legacy
+`/approvals` projection (getDecisionProjection) is a mock"), her instance bölgesi için dürüst boş
+durum render ediyor ("None connected", "No evidence is attached to a decision"), ve
+Approve/Reject affordance'ı YOK çünkü sunucu yetkili bir mutation yolu yok. Denetim, bir defect
+aramaya gidip **doğru yapılmış işi** buldu — ve bunu bildirmek de denetimin işi.
+
+**Ders 4 — Kanıt yokluğunda doğru cevap "hayır" değil, "hiçbir şey".**
+Hebun'da "bu kanıt Verified" diyebilecek **hiçbir authoritative kayıt yok**. `/approvals` bunu
+sahte bir rozetle değil, hiçbir rozet göstermeyerek çözmüş. `Verified` kelimesi bir authority
+iddiasıdır: arkasında bir Governance olayı yoksa sunum onu üretemez.
+
+**Ders 5 — Guard'ı stringe değil ERİŞİLEBİLİRLİĞE yaz, ve negatif kontrolle ısır.**
+Yeni test `"Verified"` literalini yasaklamıyor (meşru olduğu yerler var); route'tan erişilebilir
+bir sahte rozet olmamasını assert ediyor. Silinen dosya testi geçiyor. Testin boş geçmediği,
+geçici olarak canlı bir bileşeni listeye ekleyip **fail ettirilerek** kanıtlandı.
+
+### Haftalık 3 soru
+1. **What did we learn?** Bir defect raporu, erişilebilirlik kanıtı içermiyorsa yarım rapordur.
+   Ve bir denetim "temiz" sonucuyla bitebilmeli — bulgu üretmek için onarım icat edilmez.
+2. **How does this improve Turkish Rug House?** Direktör onay ekranında sahte bir "Verified" rozeti
+   görmüyor ve hiç görmemişti; artık biri o bileşeni monte etse test durduruyor.
+3. **How does this become part of Hebun AI?** `/director` turunda konan invariant guard'a bağlandı:
+   arkasında authority olmayan bir doğrulama rozeti hiçbir route'tan erişilebilir olamaz. KR5'in
+   önündeki legacy truth-surface engeli kapandı.
