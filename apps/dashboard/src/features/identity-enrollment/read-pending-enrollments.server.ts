@@ -26,6 +26,8 @@
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { identityEnrollmentRequests } from "@/db/schema/identity-enrollment";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+/* The receipt's lifetime has exactly one owner; this seam reads it, never restates it. */
+import { ENROLLMENT_CONTINUATION_TTL_SECONDS } from "@/features/identity-enrollment/continuation-cookie";
 import {
   resolveGovernanceDbOrNull,
   type GovernanceDeps,
@@ -45,18 +47,31 @@ export interface PendingEnrollmentView {
   /** When the bearer submitted. The approver's correlation handle. */
   readonly submittedAt: string;
   /**
-   * TRUE when this ceremony was already APPROVED and never completed — the stranded case.
+   * WHICH OF THE THREE ACTIONABLE STATES THIS IS.
    *
-   * It is listed, and listed as itself. Approval is only permission for Act 3; if the bearer loses
-   * the browser binding, that permission can never be spent, the row is uncompletable, and it holds
-   * `identity_enrollment_requests_one_live_per_invitation_uq` against every fresh submission. A
-   * surface that hid it, or called it "awaiting your decision", would be describing a state the
-   * tenant cannot act on. Rejecting it is the documented recovery.
+   *   pending             awaiting the tenant's first decision
+   *   approved-in-flight  approved, uncompleted, and the bearer can still finish
+   *   approved-stranded   approved, uncompleted, and the continuation receipt has expired
+   *
+   * The last two are the SAME durable row shape — `approved` with `completed_at IS NULL` — and the
+   * schema cannot tell them apart, because "the bearer is about to finish" and "the bearer can never
+   * finish" differ only in elapsed time. Calling both of them stranded described a healthy ceremony
+   * as a broken one within seconds of its approval, and invited an approver to reject work that was
+   * still in progress. The boundary below is what makes the distinction honest.
    */
-  readonly strandedAfterApproval: boolean;
-  /** When Governance approved it. Present only for a stranded row. */
+  readonly lifecycle: PendingEnrollmentLifecycle;
+  /** When Governance approved it. Present for both approved states, null while pending. */
   readonly approvedAt: string | null;
+  /**
+   * When the bearer's continuation receipt lapses — `submittedAt` plus the receipt's own TTL.
+   *
+   * Derived here rather than in the component so `ENROLLMENT_CONTINUATION_TTL_SECONDS` keeps exactly
+   * one owner. Present for both approved states; null while pending, where it would only distract.
+   */
+  readonly receiptExpiresAt: string | null;
 }
+
+export type PendingEnrollmentLifecycle = "pending" | "approved-in-flight" | "approved-stranded";
 
 export interface PendingEnrollmentsView {
   readonly viewerIsGovernanceAuthority: boolean;
@@ -101,10 +116,11 @@ export async function readPendingEnrollments(
     if (!authority.authorized) return { status: "read", view: EMPTY_VIEW };
 
     /*
-     * TWO ACTIONABLE STATES, NOT ONE.
+     * TWO ACTIONABLE ROW SHAPES, THREE ACTIONABLE STATES.
      *
-     *   pending                     awaiting the tenant's first decision
-     *   approved + completed_at NULL  stranded — approved, never completed, and blocking
+     *   pending                       awaiting the tenant's first decision
+     *   approved + completed_at NULL  approved and unfinished — either in flight or stranded,
+     *                                 separated below by the continuation receipt's lifetime
      *
      * `rejected` and `completed` are terminal and are deliberately absent: neither can be decided,
      * and listing them would be a control that does nothing.
@@ -133,17 +149,41 @@ export async function readPendingEnrollments(
       /* Oldest first: the one that has been waiting longest is the one to look at. */
       .orderBy(asc(identityEnrollmentRequests.submittedAt), asc(identityEnrollmentRequests.id));
 
+    /*
+     * THE BOUNDARY, AND WHY IT IS THIS ONE.
+     *
+     * The server cannot see whether the browser still holds its httpOnly continuation cookie, so it
+     * must never claim the continuation is "lost". What it CAN know is when that receipt lapses:
+     * Act 1 sets it for `ENROLLMENT_CONTINUATION_TTL_SECONDS` from `submitted_at`, and after that
+     * instant the ceremony the bearer started can no longer be completed by anyone. Before it, the
+     * bearer may simply not have finished yet.
+     *
+     * Inclusive at the boundary — at exactly `submittedAt + TTL` the cookie's max-age has elapsed,
+     * so that instant already belongs to the stranded side.
+     */
+    const now = (deps.now ?? (() => new Date()))();
+    const receiptLifetimeMs = ENROLLMENT_CONTINUATION_TTL_SECONDS * 1000;
+
     return {
       status: "read",
       view: {
         viewerIsGovernanceAuthority: true,
-        pending: rows.map((row) => ({
-          enrollmentId: row.enrollmentId,
-          invitationId: row.invitationId,
-          submittedAt: row.submittedAt.toISOString(),
-          strandedAfterApproval: row.status === "approved",
-          approvedAt: row.approvedAt ? row.approvedAt.toISOString() : null,
-        })),
+        pending: rows.map((row) => {
+          const receiptExpiresAt = new Date(row.submittedAt.getTime() + receiptLifetimeMs);
+          const approved = row.status === "approved";
+          return {
+            enrollmentId: row.enrollmentId,
+            invitationId: row.invitationId,
+            submittedAt: row.submittedAt.toISOString(),
+            lifecycle: !approved
+              ? ("pending" as const)
+              : now.getTime() >= receiptExpiresAt.getTime()
+                ? ("approved-stranded" as const)
+                : ("approved-in-flight" as const),
+            approvedAt: row.approvedAt ? row.approvedAt.toISOString() : null,
+            receiptExpiresAt: approved ? receiptExpiresAt.toISOString() : null,
+          };
+        }),
       },
     };
   } catch {

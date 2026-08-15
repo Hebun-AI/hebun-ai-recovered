@@ -37,6 +37,7 @@ import { decideIdentityEnrollment } from "../../src/features/identity-enrollment
 import { completeIdentityEnrollment } from "../../src/features/identity-enrollment/complete-enrollment.server";
 import { readPendingEnrollments } from "../../src/features/identity-enrollment/read-pending-enrollments.server";
 import { generateContinuationReference } from "../../src/features/identity-enrollment/enrollment-digest.server";
+import { ENROLLMENT_CONTINUATION_TTL_SECONDS } from "../../src/features/identity-enrollment/continuation-cookie";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
 const NOW = new Date("2026-08-14T18:00:00.000Z");
@@ -278,8 +279,65 @@ async function main(): Promise<void> {
       if (view.status !== "read") throw new Error("unreachable");
       const row = view.view.pending.find((entry) => entry.enrollmentId === first.enrollmentId);
       assert.ok(row, "the stranded ceremony is listed — before this phase it was invisible");
-      assert.equal(row!.strandedAfterApproval, true, "and labelled as approved, not as waiting");
+      /*
+       * AT THIS INSTANT IT IS NOT YET STRANDED, AND SAYING OTHERWISE WAS THE DEFECT.
+       *
+       * The approval is seconds old and the bearer's receipt is still live, so the honest reading is
+       * IN FLIGHT. Only once that receipt lapses can the server say the ceremony is unfinishable.
+       */
+      assert.equal(
+        row!.lifecycle,
+        "approved-in-flight",
+        "a freshly approved ceremony is waiting on the bearer",
+      );
       assert.ok(row!.approvedAt, "with the approval timestamp the approver can recognise");
+      assert.ok(row!.receiptExpiresAt, "and the receipt deadline that decides the next state");
+
+      /* Past the receipt's lifetime the SAME row is genuinely stranded, and says so. */
+      const afterTtl = new Date(NOW.getTime() + ENROLLMENT_CONTINUATION_TTL_SECONDS * 1000);
+      const at = (when: Date) =>
+        readPendingEnrollments(ctxA, { getDb: () => handle.db, now: () => when } as never);
+      const lifecycleAt = async (when: Date) => {
+        const v = await at(when);
+        if (v.status !== "read") throw new Error("unreachable");
+        return v.view.pending.find((entry) => entry.enrollmentId === first.enrollmentId)?.lifecycle;
+      };
+
+      /* One millisecond before the boundary the receipt is still alive. */
+      assert.equal(
+        await lifecycleAt(new Date(afterTtl.getTime() - 1)),
+        "approved-in-flight",
+        "the bearer keeps the ceremony until the very last instant of the receipt",
+      );
+      /* Inclusive AT the boundary: max-age has elapsed, so that instant is already stranded. */
+      assert.equal(
+        await lifecycleAt(afterTtl),
+        "approved-stranded",
+        "at exactly submittedAt + TTL the receipt has lapsed and recovery is the honest reading",
+      );
+      assert.equal(
+        await lifecycleAt(new Date(afterTtl.getTime() + 60_000)),
+        "approved-stranded",
+        "and it stays stranded afterwards",
+      );
+
+      /*
+       * A PENDING CEREMONY IS NEVER STRANDED, however long it waits. The receipt only matters once
+       * Governance has approved; before that the row is waiting on the tenant, not on the bearer.
+       */
+      const pendingLater = await at(new Date(afterTtl.getTime() + 60_000));
+      if (pendingLater.status !== "read") throw new Error("unreachable");
+      const otherPending = pendingLater.view.pending.filter(
+        (entry) => entry.enrollmentId !== first.enrollmentId,
+      );
+      for (const entry of otherPending) {
+        assert.equal(entry.lifecycle, "pending", "an undecided ceremony never becomes stranded");
+      }
+
+      /* READING THE SURFACE MUTATES NOTHING, at any clock. */
+      const before = await counts();
+      for (const when of [NOW, new Date(afterTtl.getTime() - 1), afterTtl]) await at(when);
+      assert.deepEqual(await counts(), before, "rendering the Governance surface writes nothing");
       /* Still no address, still no secret. */
       const text = JSON.stringify(view.view);
       assert.equal(text.includes(NEWCOMER), false, "no address is duplicated");
@@ -466,6 +524,29 @@ async function main(): Promise<void> {
     );
     assert.equal(completed.status, "completed", "the recovered ceremony completes normally");
     if (completed.status !== "completed") throw new Error("unreachable");
+
+    /*
+     * COMPLETED IS TERMINAL AND LEAVES THE ACTIONABLE SEAM — asserted here rather than assumed.
+     *
+     * The seam's `completed_at IS NULL` predicate is what removes it, so a completed ceremony can
+     * never be labelled in-flight or stranded no matter how long ago it was approved. Proved at a
+     * clock well past the receipt's lifetime, which is exactly where a regression would show.
+     */
+    {
+      const wellPastTtl = new Date(
+        NOW.getTime() + ENROLLMENT_CONTINUATION_TTL_SECONDS * 1000 + 3_600_000,
+      );
+      const view = await readPendingEnrollments(ctxA, {
+        getDb: () => handle.db,
+        now: () => wellPastTtl,
+      } as never);
+      if (view.status !== "read") throw new Error("unreachable");
+      assert.deepEqual(
+        view.view.pending.map((row) => row.enrollmentId),
+        [],
+        "a completed ceremony is history: neither in-flight nor stranded, and not decidable",
+      );
+    }
 
     /* ══ THE HUMAN NOW EXISTS, AND CAN JOIN ═════════════════════════════════ */
     {

@@ -160,7 +160,28 @@ function main(): void {
       /eq\(identityEnrollmentRequests\.status, "approved"\)[\s\S]{0,120}isNull\(identityEnrollmentRequests\.completedAt\)/,
       "stranded approved ceremonies are listed too",
     );
-    assert.match(seamCode, /strandedAfterApproval: row\.status === "approved"/);
+    /*
+     * NARROWED FROM `strandedAfterApproval: row.status === "approved"`, AND THAT WAS THE BUG.
+     *
+     * Labelling every approved-and-uncompleted row stranded described a healthy ceremony as a broken
+     * one seconds after its approval, and invited an approver to reject work still in progress. The
+     * state now turns on the continuation receipt's own lifetime, which is the only part of "can the
+     * bearer still finish?" the server can honestly know.
+     */
+    assert.match(
+      seamCode,
+      /now\.getTime\(\) >= receiptExpiresAt\.getTime\(\)[\s\S]{0,90}approved-stranded/,
+      "stranded is decided by the receipt lifetime, not by approval alone",
+    );
+    assert.match(
+      seamCode,
+      /ENROLLMENT_CONTINUATION_TTL_SECONDS/,
+      "and it reads the one TTL authority rather than restating twelve hours",
+    );
+    assert.ok(
+      !/\b12\s*\*\s*60\s*\*\s*60\b/.test(seamCode),
+      "the TTL is never duplicated in the seam",
+    );
     assert.ok(
       !/\.insert\(|\.update\(|\.delete\(/.test(seamCode),
       "a read seam reads",
@@ -191,17 +212,34 @@ function main(): void {
       !/approved/i.test(alreadyStarted),
       "and it does not leak whether Governance already approved, at an unauthenticated boundary",
     );
-    /* The approver's card names the stranded state plainly. */
+    /* The approver's card names each approved state plainly, and differently. */
     const prose = card.replace(/\s+/g, " ");
     assert.match(prose, /Approved, but the account was never created/);
     assert.match(prose, /Reject so they can try again/);
     assert.match(prose, /blocks any new attempt/i);
     assert.match(card, /STRANDED_RECOVERY_FACTS/, "and lists what rejecting does, from frozen values");
-    /* Approve is not offered on a row that cannot be approved. */
+    /*
+     * AND AN IN-FLIGHT CEREMONY IS NOT DEFAMED. This is the copy that was wrong: an approved row
+     * whose bearer can still finish must read as waiting, never as failed.
+     */
+    assert.match(prose, /Approved — waiting for them to finish/);
+    assert.match(prose, /Nothing is wrong/);
+    assert.match(
+      prose,
+      /Leave this alone unless they tell you they cannot finish/,
+      "the in-flight state tells the approver not to act",
+    );
+    /* Approve is offered on a pending row only. */
     assert.match(
       codeOf(card),
-      /submission\.strandedAfterApproval \? null : \(/,
-      "the Approve control is withheld from a stranded row",
+      /submission\.lifecycle === "pending" \? \(/,
+      "the Approve control belongs to a pending row alone",
+    );
+    /* Recovery stays reachable from both approved states, quietly while in flight. */
+    assert.match(
+      codeOf(card),
+      /variant=\{submission\.lifecycle === "approved-in-flight" \? "ghost" : "outline"\}/,
+      "rejection is de-emphasised while the bearer can still finish",
     );
   }
 

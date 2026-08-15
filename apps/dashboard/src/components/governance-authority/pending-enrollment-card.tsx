@@ -49,12 +49,14 @@ export interface PendingEnrollmentOption {
   readonly invitationId: string;
   readonly submittedAt: string;
   /**
-   * Already approved, and never completed. Approval was only permission for the bearer's final act;
-   * if they lost the browser that started the ceremony, that permission can never be spent and this
-   * row blocks every fresh submission until it is rejected.
+   * Which actionable state this is. `approved-in-flight` and `approved-stranded` are the same durable
+   * row; the seam separates them by whether the bearer's continuation receipt has lapsed, because
+   * only that is knowable server-side.
    */
-  readonly strandedAfterApproval: boolean;
+  readonly lifecycle: "pending" | "approved-in-flight" | "approved-stranded";
   readonly approvedAt: string | null;
+  /** When the bearer's receipt lapses. Computed by the seam from the one TTL constant. */
+  readonly receiptExpiresAt: string | null;
 }
 
 export interface PendingEnrollmentWording {
@@ -174,11 +176,31 @@ export function PendingEnrollmentCard({
                     capability {submission.invitationId}
                   </p>
                   {/*
-                    A STRANDED CEREMONY IS SHOWN AS ITSELF. Calling an approved row "awaiting your
-                    decision" would describe a state the tenant cannot act on, and offering Approve
-                    again would be a control that does nothing.
+                    AN APPROVED CEREMONY IS SHOWN AS WHAT IT ACTUALLY IS. Approval alone means
+                    nothing about whether the bearer can still finish; only the receipt's lifetime
+                    does. Describing an in-flight ceremony as stranded invited an approver to reject
+                    work that was still in progress, so the two now read differently.
                   */}
-                  {submission.strandedAfterApproval ? (
+                  {submission.lifecycle === "approved-in-flight" ? (
+                    <div className="flex flex-col gap-1 rounded-md border border-border bg-surface-2 p-2">
+                      <p className="text-sm font-medium" role="status">
+                        Approved — waiting for them to finish
+                      </p>
+                      <p className="text-xs text-fg-muted">
+                        You approved this on{" "}
+                        <time dateTime={submission.approvedAt ?? undefined}>
+                          {submission.approvedAt}
+                        </time>
+                        . Nothing is wrong: the person still has to set their password in the browser
+                        they started in, and they have until{" "}
+                        <time dateTime={submission.receiptExpiresAt ?? undefined}>
+                          {submission.receiptExpiresAt}
+                        </time>{" "}
+                        to do it. Leave this alone unless they tell you they cannot finish.
+                      </p>
+                    </div>
+                  ) : null}
+                  {submission.lifecycle === "approved-stranded" ? (
                     <div className="flex flex-col gap-1 rounded-md border border-border bg-surface-2 p-2">
                       <p className="text-sm font-medium" role="status">
                         Approved, but the account was never created
@@ -188,9 +210,12 @@ export function PendingEnrollmentCard({
                         <time dateTime={submission.approvedAt ?? undefined}>
                           {submission.approvedAt}
                         </time>
-                        . The person never finished — usually because they lost the browser they
-                        started in. It cannot be finished now, and it blocks any new attempt with
-                        that capability until you reject it.
+                        , and their window to finish closed on{" "}
+                        <time dateTime={submission.receiptExpiresAt ?? undefined}>
+                          {submission.receiptExpiresAt}
+                        </time>
+                        . It cannot be finished now, and it blocks any new attempt with that
+                        capability until you reject it.
                       </p>
                       <ul className="list-disc pl-4 text-xs text-fg-muted">
                         {STRANDED_RECOVERY_FACTS.map((fact) => (
@@ -200,7 +225,7 @@ export function PendingEnrollmentCard({
                     </div>
                   ) : null}
                   <div className="flex flex-wrap gap-2">
-                    {submission.strandedAfterApproval ? null : (
+                    {submission.lifecycle === "pending" ? (
                       <Button
                         disabled={busy || justificationTooShort}
                         onClick={() => decide(submission.enrollmentId, "approve")}
@@ -209,15 +234,22 @@ export function PendingEnrollmentCard({
                           ? "Deciding…"
                           : "Approve identity enrollment"}
                       </Button>
-                    )}
+                    ) : null}
+                    {/*
+                      Recovery stays reachable from BOTH approved states — a bearer may know within a
+                      minute that they lost the browser — but in flight it is the quiet option, not
+                      the obvious one.
+                    */}
                     <Button
                       disabled={busy || justificationTooShort}
                       onClick={() => decide(submission.enrollmentId, "reject")}
-                      variant="outline"
+                      variant={submission.lifecycle === "approved-in-flight" ? "ghost" : "outline"}
                     >
-                      {submission.strandedAfterApproval
+                      {submission.lifecycle === "approved-stranded"
                         ? "Reject so they can try again"
-                        : "Reject"}
+                        : submission.lifecycle === "approved-in-flight"
+                          ? "They cannot finish — reject and let them retry"
+                          : "Reject"}
                     </Button>
                   </div>
                 </li>

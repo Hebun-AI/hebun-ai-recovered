@@ -270,7 +270,14 @@ async function main(): Promise<void> {
          */
         assert.deepEqual(
           Object.keys(row).sort(),
-          ["approvedAt", "enrollmentId", "invitationId", "strandedAfterApproval", "submittedAt"],
+          [
+            "approvedAt",
+            "enrollmentId",
+            "invitationId",
+            "lifecycle",
+            "receiptExpiresAt",
+            "submittedAt",
+          ],
           "exactly these fields, all of them real columns or derived from one",
         );
       }
@@ -286,7 +293,8 @@ async function main(): Promise<void> {
        * blocks every fresh submission for that invitation. Hiding it made it unrecoverable.
        *
        * It is still listed, and now says which state it is in. Terminal states — `rejected` and
-       * `completed` — do leave, and §7 proves that for a rejection.
+       * `completed` — do leave: §7 proves it for a rejection, and the recovery suite proves it for a
+       * completion at a clock past the receipt's lifetime.
        */
       const decided = await decideIdentityEnrollment(
         ctxA,
@@ -303,11 +311,23 @@ async function main(): Promise<void> {
         "the approved ceremony remains visible so it can still be acted on",
       );
       const approvedRow = view.view.pending.find((row) => row.enrollmentId === acmeFirst)!;
-      assert.equal(approvedRow.strandedAfterApproval, true, "and is labelled approved, not waiting");
+      /*
+       * CORRECTED AGAIN, BY THE CLASSIFICATION FIX. This previously asserted the row was STRANDED
+       * the instant it was approved, which is what the defect looked like from inside the tests: an
+       * approval seconds old was indistinguishable from an abandonment a day old. A freshly approved
+       * ceremony is IN FLIGHT — the bearer still holds a live continuation receipt.
+       */
+      assert.equal(
+        approvedRow.lifecycle,
+        "approved-in-flight",
+        "a just-approved ceremony is waiting on the bearer, not stranded",
+      );
       assert.ok(approvedRow.approvedAt, "with the approval timestamp");
+      assert.ok(approvedRow.receiptExpiresAt, "and the deadline the bearer is working against");
       const pendingRow = view.view.pending.find((row) => row.enrollmentId === acmeSecond)!;
-      assert.equal(pendingRow.strandedAfterApproval, false, "while a pending one is not");
+      assert.equal(pendingRow.lifecycle, "pending", "while an undecided one is pending");
       assert.equal(pendingRow.approvedAt, null);
+      assert.equal(pendingRow.receiptExpiresAt, null);
     }
 
     /* ══ 7. A REJECTION ALSO LEAVES, AND FREES THE INVITATION ═════════════ */
