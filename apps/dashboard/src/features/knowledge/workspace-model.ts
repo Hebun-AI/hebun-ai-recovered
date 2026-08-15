@@ -24,6 +24,21 @@
  *   The synthetic sources (features/knowledge-domain/mock.ts, the seeded
  *   knowledge-graph builder, and the memory-runtime projection registry) are
  *   deliberately NOT imported here.
+ *
+ * SCOPE NOTE — the vocabulary is Enterprise Memory's; the availability map is not.
+ *
+ *   Everything above describes the VOCABULARY this model surfaces, which remains
+ *   Enterprise Memory's and remains types-only: `memories` is still empty and every
+ *   origin kind still reports 0 connected, because no Enterprise Memory ORIGIN
+ *   CONNECTOR exists.
+ *
+ *   The `availability` map is a different question — it reports what the Knowledge
+ *   areas of this workspace can actually do — and since K1/K2 it must answer for the
+ *   CANONICAL Knowledge authority (knowledge_facts / knowledge_nodes), which is
+ *   connected, written by governed authoring and plain-text ingestion, and read into
+ *   Heby's evidence. Three of its entries went on describing the pre-K1 world; they
+ *   are corrected below. Conflating the two is exactly the mistake that let this
+ *   page tell an operator nothing could get in, beside the control that puts things in.
  */
 
 import type {
@@ -34,7 +49,6 @@ import type {
   MemorySensitivity,
   MemorySourceKind,
 } from "@/features/enterprise-memory";
-import { getHebyWorkspaceProfile } from "@/features/heby-integration";
 
 /** One origin kind Enterprise Memory recognizes, joined to explanatory copy. */
 export interface SourceKindView {
@@ -173,14 +187,15 @@ export interface KnowledgeAvailabilityView {
   readonly href?: string;
 }
 
-/** Derive the honest Heby-retrieval availability from the REAL Heby Knowledge profile. */
-function hebyRetrievalAvailability(): KnowledgeAvailabilityState {
-  const profile = getHebyWorkspaceProfile("knowledge");
-  const everyContractOnly = profile.capabilities.every(
-    (capability) => capability.state === "contract-only",
-  );
-  return everyContractOnly ? "contract-only" : "not-connected";
-}
+/**
+ * The listing bound Heby's Knowledge evidence path is subject to, stated in the copy below.
+ *
+ * Deliberately a LITERAL rather than an import: the constant lives in
+ * `durable-knowledge-repository.server.ts`, and pulling a `.server` module into this pure model
+ * would drag the database client toward the client bundle. `tests/knowledge-overview/overview.ts`
+ * asserts this number still equals `KNOWLEDGE_LISTING_LIMIT`, so it cannot drift silently.
+ */
+const HEBY_EVIDENCE_LISTING_CAP = 50;
 
 export interface KnowledgeWorkspaceModel {
   /** Real origin taxonomy — zero sources connected. */
@@ -228,19 +243,30 @@ export function getKnowledgeWorkspaceModel(): KnowledgeWorkspaceModel {
           "The Enterprise Memory authority is connected. Reading admitted memory requires an authorized organization context.",
         href: "/director/memory",
       },
+      /*
+       * TWO DIFFERENT THINGS SHARE THE WORD "SOURCE", and this entry must not blur them.
+       *
+       * Knowledge INTAKE — how a statement enters the canonical Knowledge authority — is
+       * connected: a permitted human authors one fact, or pastes plain text that becomes many.
+       * Enterprise Memory's ORIGIN KINDS (document, system-observation, external-source, derived)
+       * are the connector taxonomy, and none of those is connected — which is why the Sources
+       * region below still reports 0 for every kind. Both statements are true; naming only the
+       * second is what made this entry read as "nothing can get in", on the same page as the
+       * control that puts things in.
+       */
       {
         area: "Sources",
         question: "Where does knowledge come from?",
-        state: "not-connected",
+        state: "requires-authorized-context",
         detail:
-          "The origin taxonomy is defined, but no knowledge source is connected. Zero sources are connected.",
+          "Knowledge enters through the governed intake on this page: a permitted human authors one fact, or ingests plain text that becomes many. Both write the canonical Knowledge authority and require an authorized organization context. No file upload, URL, connector or stored-document source exists — the origin taxonomy below stays at zero connected.",
       },
       {
         area: "Provenance & evidence",
         question: "How is it evidenced?",
-        state: "not-connected",
+        state: "requires-authorized-context",
         detail:
-          "Evidence is minted only at retrieval. No retrieval path is connected, so no evidence reference is available.",
+          "Every record carries its own provenance and source attribution, and that standing — authority class, lifecycle, whether a ratification is recorded, freshness — travels with it into Heby's evidence. Reading it requires an authorized organization context. It is not rendered as a citation surface here, and no relevance or scoring engine mints it.",
       },
       {
         area: "Knowledge Graph",
@@ -258,12 +284,21 @@ export function getKnowledgeWorkspaceModel(): KnowledgeWorkspaceModel {
           "Master-data registries are reference views. Their authority lives in the systems that own them.",
         href: "/director/registries",
       },
+      /*
+       * RENAMED FROM "Heby retrieval", because what is connected is not retrieval.
+       *
+       * The old entry derived its state from the Heby workspace CAPABILITY profile — a different
+       * authority — and so kept reporting contract-only after K1 wired the real evidence path.
+       * The honest statement has two halves and needs both: the path is connected AND what it
+       * does is listing, not relevance. Calling it "retrieval" would overstate it; calling it
+       * contract-only understated it, which is what it did.
+       */
       {
-        area: "Heby retrieval",
-        question: "Can Heby retrieve knowledge?",
-        state: hebyRetrievalAvailability(),
+        area: "Heby Knowledge evidence",
+        question: "How does Heby use organizational knowledge?",
+        state: "requires-authorized-context",
         detail:
-          "Heby knowledge retrieval and evidence tracing are contract-only; no retrieval path is connected. Heby is advisory — it never admits or mutates memory.",
+          `Connected. Heby reads the tenant's canonical Knowledge through the same seam this page uses, and each record reaches the model as data carrying its own standing. Selection is a listing, not a search: records are ordered by domain and key and capped at ${HEBY_EVIDENCE_LISTING_CAP}, so beyond that cap a record is simply not seen. Nothing ranks by relevance — no index, no scoring, no semantic or vector retrieval exists. Heby is advisory: it never admits, ratifies or mutates knowledge.`,
       },
     ],
     memories: [],
