@@ -38,6 +38,14 @@ export function buildTurns(
       content: message.content,
       provenance: isHeby ? describeMessageProvenance(message.origin, message.transport) : null,
       durable: true,
+      /*
+       * KR4. Every restored Heby turn starts HISTORICAL, and only the one that is this session's
+       * latest answer is cleared below. No evidence snapshot is stored, so a reloaded answer has
+       * none — and re-running retrieval now would return today's records, not the ones that
+       * produced this text. The flag lets the UI say "not retained" instead of quietly showing a
+       * different result set as if it were the original.
+       */
+      historical: isHeby ? true : undefined,
     };
   });
 
@@ -49,6 +57,8 @@ export function buildTurns(
           ...turns[i]!,
           provenance: deriveLatestProvenance(latest.response),
           evidence: latest.response.evidence.map((e) => ({ sourceClass: e.sourceClass, recordRef: e.recordRef })),
+          knowledgeEvidence: latest.response.knowledgeEvidence,
+          historical: false,
           limitations: latest.response.limitations,
         };
         break;
@@ -66,6 +76,8 @@ export function buildTurns(
       provenance: deriveLatestProvenance(latest.response),
       durable: false,
       evidence: latest.response.evidence.map((e) => ({ sourceClass: e.sourceClass, recordRef: e.recordRef })),
+      knowledgeEvidence: latest.response.knowledgeEvidence,
+      historical: false,
       limitations: latest.response.limitations,
     });
   }

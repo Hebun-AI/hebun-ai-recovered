@@ -55,3 +55,19 @@ export {
   type DiversityOutcome,
   type ScoredRow,
 } from "./ranking";
+
+/*
+ * KR4 — the derived evidence explanation. A projection of a result that already happened: it reads
+ * nothing, writes nothing, and adds no score, no confidence and no contradiction verdict.
+ */
+export {
+  EVIDENCE_EXCERPT_LIMIT,
+  EVIDENCE_MAX_MATCHED_TERMS,
+  EVIDENCE_MULTIPLE_SOURCE_THRESHOLD,
+  buildRetrievalEvidence,
+  distinctSourceCount,
+  matchedTermsFor,
+  type RetrievalEvidenceItem,
+  type RetrievalEvidenceSet,
+  type RetrievalExplanation,
+} from "./evidence";

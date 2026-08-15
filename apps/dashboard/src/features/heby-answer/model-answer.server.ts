@@ -61,8 +61,9 @@ import {
 } from "@/features/heby-conversation/durable-conversation-repository.server";
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import type { KnowledgeReadDeps, KnowledgeTenant } from "@/features/knowledge/knowledge-read.server";
+import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
 import { buildBoundedHistory } from "./bounded-history";
-import { resolveKnowledgeEvidence } from "./knowledge-evidence.server";
+import { resolveKnowledgeEvidenceDetailed } from "./knowledge-evidence.server";
 
 /** Honest note when the Director has disabled Claude connectivity — no provider request is made. */
 const DIRECTOR_DISABLED_NOTE =
@@ -221,17 +222,40 @@ async function withKnowledge(
   tenant: KnowledgeTenant,
   query: string,
   deps: HebyModelAnswerDeps,
-): Promise<readonly SourceResolution[]> {
-  if (!resolutions.some((resolution) => resolution.sourceClass === "knowledge")) return resolutions;
-  let knowledge: SourceResolution;
-  try {
-    knowledge = await (deps.resolveKnowledge ?? resolveKnowledgeEvidence)(tenant, query, deps.knowledge);
-  } catch {
-    return resolutions;
+): Promise<{
+  readonly resolutions: readonly SourceResolution[];
+  readonly knowledgeEvidence?: RetrievalEvidenceSet;
+}> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "knowledge")) {
+    return { resolutions };
   }
-  return resolutions.map((resolution) =>
-    resolution.sourceClass === "knowledge" ? knowledge : resolution,
-  );
+
+  let knowledge: SourceResolution;
+  let knowledgeEvidence: RetrievalEvidenceSet | undefined;
+  try {
+    /*
+     * KR4. An INJECTED resolver returns a SourceResolution and nothing else, so there is no
+     * retrieval behind it to explain — the evidence set stays undefined rather than being
+     * manufactured. A fabricated empty set would tell the reader "we searched and explained
+     * nothing", when the truth is that this path never searched at all.
+     */
+    if (deps.resolveKnowledge) {
+      knowledge = await deps.resolveKnowledge(tenant, query, deps.knowledge);
+    } else {
+      const detailed = await resolveKnowledgeEvidenceDetailed(tenant, query, deps.knowledge);
+      knowledge = detailed.resolution;
+      knowledgeEvidence = detailed.evidence;
+    }
+  } catch {
+    return { resolutions };
+  }
+
+  return {
+    resolutions: resolutions.map((resolution) =>
+      resolution.sourceClass === "knowledge" ? knowledge : resolution,
+    ),
+    knowledgeEvidence,
+  };
 }
 
 /**
@@ -363,7 +387,7 @@ export async function answerHebyModelRequest(
   // KR3 — and now the validated prompt decides WHICH knowledge, which it never did before. The
   // question travels only as a search term: it selects rows and cannot grant, widen, or authorize
   // anything, and the tenant it is searched within remains the server-resolved one.
-  const resolutions = await withKnowledge(
+  const { resolutions, knowledgeEvidence } = await withKnowledge(
     resolveSources(workspaceSourceClasses(context), overview),
     tenant,
     validation.prompt,
@@ -442,11 +466,28 @@ export async function answerHebyModelRequest(
     modelResult: answer.modelResult,
   });
 
+  /*
+   * 8. KR4 — attach the derived evidence explanation, DELIBERATELY AFTER PERSISTENCE.
+   *
+   * The order is the guarantee. `persistExchange` above has already run against a response that
+   * does not carry this field, so the explanation cannot reach a durable row even by accident: a
+   * future writer would have to be given it on purpose. A derived presentation of a derivation has
+   * no business becoming a stored record, and "we simply never pass it to the writer" is a weaker
+   * promise than "the writer had already returned".
+   *
+   * Absent stays absent. When no retrieval ran there is no field, and the UI says so honestly
+   * rather than showing an empty evidence set that would read as "searched, found nothing".
+   */
+  const response =
+    knowledgeEvidence === undefined
+      ? answer.response
+      : { ...answer.response, knowledgeEvidence };
+
   return {
     status: "answered",
     outcome: {
       intent: "INVESTIGATE",
-      response: answer.response,
+      response,
       model: getModelAdapterStatus(),
     },
     transportProvenance: answer.transportProvenance,

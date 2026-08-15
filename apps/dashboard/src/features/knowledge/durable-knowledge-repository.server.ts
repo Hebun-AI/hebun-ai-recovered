@@ -36,7 +36,9 @@ import {
   type KnowledgeAuthorityClass,
   type KnowledgeHealth,
   type KnowledgeLifecycleStatus,
+  type KnowledgeRecordProvenance,
   type KnowledgeScope,
+  type KnowledgeSourceAttribution,
   type KnowledgeSourceRecord,
   type KnowledgeSourceStub,
 } from "./contracts";
@@ -76,6 +78,12 @@ interface KnowledgeRow {
   readonly effectiveUntil: Date | string | null;
   readonly nextReviewAt: Date | string | null;
   readonly knowledgeVersion: number | null;
+  /*
+   * KR4. `jsonb`, so the row type is honestly `unknown` — whatever was written is what comes back.
+   * Every field is type-checked on the way out rather than trusted on the way in.
+   */
+  readonly provenance: unknown;
+  readonly sourceAttribution: unknown;
 }
 
 /**
@@ -92,6 +100,60 @@ function iso(value: Date | string | null): string | null {
   if (value instanceof Date) return value.toISOString();
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? null : new Date(parsed).toISOString();
+}
+
+/* ── KR4: jsonb → typed, defensively ───────────────────────────────────────
+ *
+ * These columns are `jsonb` and therefore hold whatever was written. Every field is read through a
+ * type check and falls to `null` when it is absent or the wrong shape. NOTHING IS DEFAULTED: a
+ * record with no recorded source title gets `null`, never a placeholder, because a synthesized
+ * attribution would claim an origin the organization never recorded.
+ */
+
+function jsonObject(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function jsonText(bag: Record<string, unknown>, key: string): string | null {
+  const value = bag[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function jsonCount(bag: Record<string, unknown>, key: string): number | null {
+  const value = bag[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function toProvenance(value: unknown): KnowledgeRecordProvenance | null {
+  const bag = jsonObject(value);
+  if (!bag) return null;
+  return {
+    origin: jsonText(bag, "origin"),
+    authoredThrough: jsonText(bag, "authoredThrough"),
+    submittedAt: iso(jsonText(bag, "submittedAt")),
+    /*
+     * Absent means UNVERIFIED, not verified. The flag exists to stop Hebun implying it checked who
+     * wrote the text, so a missing value must fail toward the honest side.
+     */
+    textOriginUnverified: bag.textOriginUnverified !== false,
+    sourceType: jsonText(bag, "sourceType"),
+    chunkIndex: jsonCount(bag, "chunkIndex"),
+    chunkCount: jsonCount(bag, "chunkCount"),
+  };
+}
+
+function toSourceAttribution(value: unknown): KnowledgeSourceAttribution | null {
+  const bag = jsonObject(value);
+  if (!bag) return null;
+  return {
+    sourceTitle: jsonText(bag, "sourceTitle"),
+    sourceType: jsonText(bag, "sourceType"),
+    ingestedByActorType: jsonText(bag, "ingestedByActorType"),
+    ingestedByActorId: jsonText(bag, "ingestedByActorId"),
+    ingestedAt: iso(jsonText(bag, "ingestedAt")),
+  };
 }
 
 /**
@@ -184,6 +246,8 @@ function toRecordOrStub(
         { effectiveFrom, effectiveUntil, nextReviewAt },
         now,
       ),
+      provenance: toProvenance(row.provenance),
+      sourceAttribution: toSourceAttribution(row.sourceAttribution),
     },
   };
 }
@@ -293,6 +357,12 @@ const SELECTION = {
   effectiveUntil: knowledgeNodes.effectiveUntil,
   nextReviewAt: knowledgeNodes.nextReviewAt,
   knowledgeVersion: knowledgeNodes.knowledgeVersion,
+  /*
+   * KR4. Two columns that have been written since K2 and read by nobody on this path. No new
+   * column, no migration, no writer change — the same row, projected further.
+   */
+  provenance: knowledgeNodes.provenance,
+  sourceAttribution: knowledgeNodes.sourceAttribution,
 };
 
 export function createDurableKnowledgeRepository(
@@ -411,6 +481,16 @@ export function createDurableKnowledgeRepository(
       const vector = sql.raw(SEARCH_VECTOR);
       const tsquery = sql`websearch_to_tsquery('turkish', ${query})`;
 
+      /*
+       * KR4 note, kept OUTSIDE the template on purpose — a backtick inside a sql`` literal closes
+       * it, which is a syntax error rather than a query bug and costs a debugging cycle to find.
+       *
+       * This statement carries its OWN column list rather than the shared SELECTION constant, so
+       * widening the listing projection did NOT widen this one — and this is the path that feeds
+       * Heby's answers. The two provenance columns below are existing columns written since K2:
+       * no new column, no migration, no writer change.
+       */
+
       const statement = sql`
         select
           "knowledge_facts"."id"                            as "factId",
@@ -432,6 +512,8 @@ export function createDurableKnowledgeRepository(
           "knowledge_nodes"."effective_until"               as "effectiveUntil",
           "knowledge_nodes"."next_review_at"                as "nextReviewAt",
           "knowledge_nodes"."knowledge_version"             as "knowledgeVersion",
+          "knowledge_nodes"."provenance"                    as "provenance",
+          "knowledge_nodes"."source_attribution"            as "sourceAttribution",
           ts_rank_cd(${vector}, ${tsquery})                 as "lexicalRank",
           ${trigramExpr}                                    as "trigram"
         from "knowledge_facts"

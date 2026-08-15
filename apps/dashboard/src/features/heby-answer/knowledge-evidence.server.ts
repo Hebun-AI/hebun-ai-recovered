@@ -40,6 +40,8 @@ import {
 } from "@/features/knowledge/contracts";
 import {
   RETRIEVAL_PROVENANCE,
+  buildRetrievalEvidence,
+  type RetrievalEvidenceSet,
   type RetrievalResult,
 } from "@/features/knowledge-retrieval";
 
@@ -255,6 +257,41 @@ export async function resolveKnowledgeEvidence(
   deps: KnowledgeReadDeps = {},
 ): Promise<SourceResolution> {
   return toRetrievalResolution(await searchKnowledge(tenant, { queryText: query }, deps));
+}
+
+/* ── KR4: the retrieval's own knowledge stops dying at this boundary ────────
+ *
+ * `toRetrievalResolution` above is unchanged and stays unchanged: it produces the SourceResolution
+ * the grounding context, the validator, the kill switch and persistence all consume, and widening
+ * it would change what the model is told. The evidence set travels BESIDE it instead — same
+ * retrieval, projected a second way, for the human rather than the model.
+ *
+ * Until now the model was told the title, the standing and the statement of every record while the
+ * reader got `knowledge · domain/fact-key`. That asymmetry is the defect this seam closes.
+ */
+
+/** One retrieval, projected for the model (resolution) and for the reader (evidence). */
+export interface KnowledgeEvidenceOutcome {
+  readonly resolution: SourceResolution;
+  readonly evidence: RetrievalEvidenceSet;
+}
+
+/**
+ * Retrieve Knowledge bearing on the question and return BOTH projections of the one result.
+ *
+ * One search, two views. Running retrieval twice to build them separately would risk the card and
+ * the prose describing different result sets — and the reader would have no way to tell.
+ */
+export async function resolveKnowledgeEvidenceDetailed(
+  tenant: KnowledgeTenant | null,
+  query: string,
+  deps: KnowledgeReadDeps = {},
+): Promise<KnowledgeEvidenceOutcome> {
+  const result = await searchKnowledge(tenant, { queryText: query }, deps);
+  return {
+    resolution: toRetrievalResolution(result),
+    evidence: buildRetrievalEvidence(result, query),
+  };
 }
 
 /**

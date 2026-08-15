@@ -17,6 +17,8 @@
  */
 
 import { Sparkles, ChevronRight } from "lucide-react";
+import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
+import { HebyEvidenceNotRetained, HebyEvidencePanel } from "./heby-evidence";
 import type { ProvenanceBadge, ProvenanceTone } from "./heby-provenance";
 
 export interface HebyEvidenceRef {
@@ -35,6 +37,21 @@ export interface HebyTurnView {
   readonly durable: boolean;
   /** Newest Heby turn only — the server-returned evidence for THAT response. */
   readonly evidence?: readonly HebyEvidenceRef[];
+  /**
+   * KR4 — the derived evidence explanation for THIS response, when a Knowledge retrieval ran.
+   *
+   * Undefined when no retrieval happened at all (a non-Knowledge workspace, or a reloaded turn).
+   * That is a different fact from an empty evidence set, and the two render differently.
+   */
+  readonly knowledgeEvidence?: RetrievalEvidenceSet;
+  /**
+   * True for a durable Heby turn that is NOT this session's latest answer.
+   *
+   * No evidence snapshot is stored, so a reloaded answer has none to show. The flag exists so the
+   * UI can say that plainly instead of rendering an empty panel that would read as "we looked and
+   * there was nothing".
+   */
+  readonly historical?: boolean;
   /** Newest Heby turn only — the response's honest limitations. */
   readonly limitations?: readonly string[];
 }
@@ -110,7 +127,23 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
             {!turn.durable ? (
               <span className="text-[0.68rem] text-fg-muted">Not saved — shown for this session only.</span>
             ) : null}
-            {turn.evidence && turn.evidence.length > 0 ? (
+            {/*
+              KR4. The evidence explanation replaces the bare `sourceClass · recordRef` list when a
+              Knowledge retrieval actually ran. The reference list is kept as the fallback for
+              sources that have no retrieval behind them (Operations, Platform), because a record
+              reference is still more honest than showing nothing.
+            */}
+            {turn.knowledgeEvidence ? (
+              <Disclosure
+                summary={
+                  turn.knowledgeEvidence.status === "matched"
+                    ? `Evidence (${turn.knowledgeEvidence.items.length})`
+                    : "Evidence"
+                }
+              >
+                <HebyEvidencePanel set={turn.knowledgeEvidence} />
+              </Disclosure>
+            ) : turn.evidence && turn.evidence.length > 0 ? (
               <Disclosure summary={`Evidence (${turn.evidence.length})`}>
                 <ul className="mt-1.5 flex flex-col gap-0.5 pl-4 text-fg-secondary">
                   {turn.evidence.map((item) => (
@@ -120,6 +153,8 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
                   ))}
                 </ul>
               </Disclosure>
+            ) : turn.historical ? (
+              <HebyEvidenceNotRetained />
             ) : null}
             {turn.limitations && turn.limitations.length > 0 ? (
               <Disclosure summary="What this answer is (and isn’t)">

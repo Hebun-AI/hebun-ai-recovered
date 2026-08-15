@@ -67,6 +67,48 @@ export type KnowledgeFreshness =
  * governance session or decision id, no raw provenance blob. Heby receives the product
  * information it needs to answer and cite, and nothing that only the database needs.
  */
+/**
+ * How Hebun came to hold this version — projected from `knowledge_nodes.provenance` (KR4).
+ *
+ * NOTHING HERE IS NEW INFORMATION. The ingestion and authoring writers have written this object
+ * since K2; the retrieval read simply never projected it, so a column that already knew whether a
+ * record was pasted by a human or ingested from a source could not reach the person reading the
+ * answer. Widening the read is not widening the truth.
+ *
+ * `sourceDigest` is deliberately NOT projected: it identifies a source for grouping, and a content
+ * hash printed beside a policy is noise to a reader and a fingerprint to everyone else.
+ *
+ * Every field is nullable because an older row may legitimately carry less. An absent field is
+ * omitted, never defaulted — a synthesized provenance is a lie about where knowledge came from.
+ */
+export interface KnowledgeRecordProvenance {
+  /** `human-authored` (typed into the workspace) or `human-ingested` (pasted as a source). */
+  readonly origin: string | null;
+  /** The surface the text arrived through. */
+  readonly authoredThrough: string | null;
+  readonly submittedAt: string | null;
+  /**
+   * Hebun records that an authenticated human submitted this text. It genuinely does not know
+   * whether they wrote it or pasted something a model produced, and this flag says so rather than
+   * asserting a human origin nobody verified. Keep it visible.
+   */
+  readonly textOriginUnverified: boolean;
+  readonly sourceType: string | null;
+  /** 1-based position within the ingested source, when this version is one chunk of many. */
+  readonly chunkIndex: number | null;
+  readonly chunkCount: number | null;
+}
+
+/** The SOURCE's own attribution — projected from `knowledge_nodes.source_attribution` (KR4). */
+export interface KnowledgeSourceAttribution {
+  /** The human's own name for the source they ingested. */
+  readonly sourceTitle: string | null;
+  readonly sourceType: string | null;
+  readonly ingestedByActorType: string | null;
+  readonly ingestedByActorId: string | null;
+  readonly ingestedAt: string | null;
+}
+
 export interface KnowledgeSourceRecord {
   /**
    * The `knowledge_facts` row id. Exposed because K3's correction must target a specific row and a
@@ -113,6 +155,14 @@ export interface KnowledgeSourceRecord {
   readonly factVersion: number;
   /** Derived only from the timestamps above. `unknown` when they are absent. */
   readonly freshness: KnowledgeFreshness;
+  /*
+   * KR4 — OPTIONAL on purpose. Several readers construct this shape (workspace components, command
+   * seams, test fakes) and none of them can invent provenance. Optional means "this reader did not
+   * project it"; `null` means "the row genuinely carries none". Collapsing the two would let a fake
+   * with no provenance look identical to a real record that was authored without any.
+   */
+  readonly provenance?: KnowledgeRecordProvenance | null;
+  readonly sourceAttribution?: KnowledgeSourceAttribution | null;
 }
 
 /**

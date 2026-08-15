@@ -28,6 +28,12 @@ import type {
   HebyUncertaintyState,
   HebyWorkspaceId,
 } from "@/features/heby-integration";
+/*
+ * A TYPE-ONLY dependency on the retrieval layer. It carries no runtime import, no database and no
+ * authority — retrieval already sits below this module (heby-integration names it), and nothing in
+ * knowledge-retrieval imports heby-runtime, so the direction stays one-way.
+ */
+import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
 
 /* ===========================================================================
  * 1. MODEL / REASONING BOUNDARY
@@ -122,6 +128,20 @@ export interface HebyRuntimeResponse {
   /** Concise, bounded body lines. Rationale/summary only — never chain-of-thought. */
   readonly body: readonly string[];
   readonly evidence: readonly HebyEvidenceReference[];
+  /**
+   * KR4 — the DERIVED evidence explanation for the reader. Optional and additive.
+   *
+   * `evidence` above stays the authority on identity: it is what the response validator checks, and
+   * a model still cannot introduce a reference that is not in it. This field adds nothing to that
+   * set — it explains the SAME retrieval to a human (standing, provenance, matched terms, and the
+   * set-level truncation / diversity / exclusion facts KR3 discarded before the UI).
+   *
+   * ABSENT IS MEANINGFUL AND MUST STAY MEANINGFUL. It is undefined when no retrieval ran, when the
+   * source is not Knowledge, or when an injected resolver supplied a resolution with no retrieval
+   * behind it. In every one of those cases there is genuinely nothing to explain, and synthesizing
+   * an empty set would present "not retrieved" as "retrieved and found nothing".
+   */
+  readonly knowledgeEvidence?: RetrievalEvidenceSet;
   readonly provenance: readonly string[];
   readonly provenanceCovered: readonly HebyProvenanceFacet[];
   readonly uncertainty: HebyUncertaintyState;
