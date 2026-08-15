@@ -722,3 +722,100 @@
 1. **What did we learn?** When every consumer, authority and audit path already exists, the honest next phase is the missing producer — and it should reuse all of them rather than becoming a second one.
 2. **How does this improve Turkish Rug House?** Someone can paste the actual expense policy into Hebun and have Heby answer from it, with the record showing where it came from and that nobody has ratified it.
 3. **How does this become part of Hebun AI?** Ingested knowledge is canonical, provisional, attributed to its source and its ingester, written all-or-none, and never mistaken for ratified organizational truth.
+
+---
+
+## KR2 — Knowledge Retrieval Representation & Quality Benchmark (2026-08-15)
+
+Read/benchmark/architecture gate. No commit, no migration, no production extension. Baseline
+re-proven by `git ls-remote`: origin/main = HEAD = `915b543`, 0/0, both knowledge tags on remote.
+
+**Ders 1 — Bir temsili kötü ilan etmeden önce sorgu üreticisini doğrula.** İlk ölçüm dört
+PostgreSQL FTS varyantını da ~%4 Recall@1 / ~%96 zero-result gösterdi. Sebep Türkçe değildi:
+`plainto_tsquery` bütün terimleri AND'liyor, dolayısıyla "yıllık izin talebi *kime* gönderilir"
+sorusu, beş kelimenin dördünü içeren kaydı ıskalıyor. `websearch_to_tsquery` + OR ile aynı korpus
+%67 Recall@1 verdi. Yanlış verdict bir satırlık sorgu üretiminden çıkacaktı.
+
+**Ders 2 — `unaccent` Türkçede kozmetik değil, doğruluk meselesi.**
+`to_tsvector('turkish','İZİN')` → `'İzİn'`: noktalı büyük İ ne küçültülüyor ne köke iniyor.
+Büyük harfle yazılmış Türkçe sorgu sessizce hiçbir şeyle eşleşmiyor. `unaccent` önce uygulanınca
+`'iz'` oluyor ve noktasız `ızın` ile de birleşiyor. Sıra da önemli: `lower(unaccent(x))` doğru,
+`unaccent(lower(x))` değil.
+
+**Ders 3 — Migration sorusunun tamamı IMMUTABLE'da düğümleniyor.**
+`to_tsvector('turkish', label||' '||statement)` üzerinde GIN index KURULDU. Aynı ifade
+`unaccent()` ile sarılınca REDDEDİLDİ: "functions in index expression must be marked IMMUTABLE".
+En iyi ölçülen temsil, IMMUTABLE bir sarmalayıcı ya da generated column olmadan indekslenemez.
+
+**Ders 4 — Skor, standing'e kördür.** Superseded "Yıllık izin hakkı (eski sürüm)" kaydı, güncel
+sürümle sıralamada yan yana (1.00 vs 1.20). KR1'in active-node join'i bunu zaten eliyor; ama
+expired / future-effective / archived kayıtlar için hiçbir kapı yok — 46 sorunun 6'sı top-5'inde
+yürürlükte olmayan bir kayıt sundu. Eligibility ayrı bir kapıdır, ranking sinyali değil.
+
+**Verdict: B — FTS(turkish+unaccent) + pg_trgm yeterli. Vektör hak edilmedi.** Hibrit %78.3 R@1 /
+%89.1 R@3 / MRR 0.827, sıfır zero-result. Leksikal yalnızca eşanlamlıda düşüyor (6/46 soru) ve
+pgvector bu makinede zaten yok.
+
+### Haftalık 3 soru
+1. **What did we learn?** Ölçüm aracının kendisi bulgu üretebilir: konjonktif sorgu üretimi,
+   Türkçe hakkında sahte bir sonuç doğuruyordu. Ayrıca PG14 `turkish` stemmer'ı kendi
+   morfolojisinde tutarsız (`izin`→`iz`, `izne`→`izne`, `iznin`→`izn`).
+2. **How does this improve Turkish Rug House?** Kargo/iade/fiyat/yetki gibi gerçek Türkçe
+   operasyon sorularının hangi temsille bulunabildiği artık ölçülü. İade ve kargo alanlarının
+   kelime dağarcığı çakışıyor; retrieval bunu ayırt edebiliyor (cross-domain %100 R@3).
+3. **How does this become part of Hebun AI?** Bir sonraki gate, mevcut K1 read seam'ine tek bir
+   `query` parametresi ve saf bir ranking modülü ekliyor. Heby tarafında değişecek tek çağrı
+   `withKnowledge(...)` — `validation.prompt` zaten kapsamda.
+
+Benchmark artefaktları COMMIT EDİLMEDİ: `apps/dashboard/scripts/kr2-benchmark/`.
+
+---
+
+## KR3 — Knowledge Retrieval Runtime (2026-08-15)
+
+Implemented, verified, UNCOMMITTED. 360/360 test, lint 0 error, build clean.
+Şema/migration/extension/dependency delta: **sıfır** (24/24/24, `hebun_r1` extensions=plpgsql).
+
+**Ders 1 — "Kullanılabilir extension" ile "kurulu extension" aynı şey değil, ve bu bir gate'tir.**
+KR2'nin ölçtüğü kazanan temsil `unaccent` + `pg_trgm` istiyordu. Canonical DB'de ikisi de yok:
+`ERROR: function unaccent(unknown) does not exist`. Bir mimari kapısını sessizce bir extension
+migration'ına çevirmek yerine önkoşul yeniden ölçüldü.
+
+**Ders 2 — `translate()` bir built-in ve IMMUTABLE; `unaccent` ile Türkçede AYNI sonucu veriyor.**
+Aynı korpus, aynı 46 gold sorgu: R@1/R@3/R@5/MRR/zero-result/distractor — hepsi birebir aynı.
+Üstelik `to_tsvector('turkish', translate(...))` üzerinde GIN index KURULUYOR; `unaccent` ile
+REDDEDİLİYORDU. Migration gerektirir sanılan önkoşul, aslında bir migration'ı ortadan kaldırdı.
+Geriye sadece `pg_trgm` (typo toleransı, +10.9pp R@1) kalıyor — o da ayrı bir Director kararı.
+
+**Ders 3 — Sahte bir bileşen değil, hesaplanmamış bir bileşen: `null`, `0` değil.**
+`pg_trgm` yokken trigram skoru `null` dönüyor. `0` dönseydi "hesaplandı, eşleşme yok" ile
+"hiç hesaplanmadı" ayırt edilemezdi. Uygulama katmanında sahte benzerlik yazmak yasak.
+
+**Ders 4 — Bir proxy guard korumaya çalıştığı şeyi yakalamaya başlayınca silinir.**
+`k1-flow` testi "read-only" kanıtı olarak `execute(` substring'ini banlıyordu; KR3'ün raw SELECT'i
+buna takıldı. Aynı şekilde `vector` yasağı `to_tsvector`'ı yakaladı. İkisi de niyeti test edecek
+şekilde onarıldı (mutating fiiller + `\bvector\s*\(`), gevşetilmedi.
+
+**Ders 5 — Yeşil bir test, sorunun sorulmadığı için yeşil olabilir.**
+K2 testi "İngilizce soru Türkçe kaydı Heby evidence'ına soktu" diye geçiyordu. Geçme sebebi
+evidence'ın soru-kör olmasıydı. Artık soru gerekiyor; test Türkçe soruya çevrildi VE
+"İngilizce soru Türkçe kaydı bulmaz" ayrıca assert edildi.
+
+**Ders 6 — Chunk-title kirliliği hipotezi ÖLÇÜLDÜ ve çürütüldü.** Sadece statement üzerinden
+sıralama R@1 %67.4 → %43.5'e düşüyor; title'ı D ağırlığına indirmek %52.2. Üstelik tek kaynağın
+top-k'yı domine etmesi ARTIYOR. `ts_rank_cd` corpus-wide IDF kullanmıyor. En dar düzeltme:
+düzeltme yok.
+
+**Ders 7 — `no-match` ile `empty-corpus` ayrı cümlelerdir.** Normalizasyon sırasında yakalanan
+gerçek defect: salt noktalama (`???`) token olarak hayatta kalıyor, boş tsquery üretiyor, sıfır satır
+dönüyor ve `no-match` olarak raporlanıyordu — yani kullanıcının sormadığı bir soru için
+"organizasyonunuz bunu bilmiyor" denecekti. Boşluk artık normalizer'da karara bağlanıyor.
+
+### Haftalık 3 soru
+1. **What did we learn?** Ölçüm, mimari kararı tersine çevirebilir: `translate()` hem extension
+   ihtiyacını hem index engelini aynı anda kaldırdı. Ve widening yapan her faz, kırdığı guard'ları
+   kökünden onarmak zorunda — gevşetmek değil.
+2. **How does this improve Turkish Rug House?** Kargo/iade/izin/harcama gibi gerçek Türkçe sorular
+   artık doğru kaydı ilk sırada getiriyor; büyük harfli "İZİN" sorgusu sessizce boş dönmüyor.
+3. **How does this become part of Hebun AI?** Heby ilk kez sorduğu soruya göre kanıt seçiyor.
+   Sıradaki karar tek başlık: `pg_trgm` migration'ı Director onayına sunuldu.
