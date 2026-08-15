@@ -17,8 +17,9 @@
  *                             (K1) the canonical Knowledge authority — knowledge_facts joined to
  *                             its active knowledge_nodes row, read tenant-scoped — backs
  *                             Knowledge listing and named-source read.
- *   NOT CONNECTED, so these   Knowledge SEARCH (no index, no ranking, no relevance authority),
- *   are unavailable:          Memory retrieval, live policy evaluation, persisted audit history,
+ *   NOT CONNECTED, so these   Knowledge SEARCH (no search surface, no result presentation, no
+ *   are unavailable:          citation experience — ranking itself now exists, see below),
+ *                             Memory retrieval, live policy evaluation, persisted audit history,
  *                             incident feed, network telemetry, per-tenant permission analysis,
  *                             usage/spend aggregation, task and activity streams. Each says
  *                             exactly which source it is missing.
@@ -70,16 +71,28 @@ export const HEBY_CATEGORY_LABELS: Readonly<Record<HebyCommandCategory, string>>
 const NO_EXECUTION_RUNTIME =
   "This command needs Hebun's execution/approval runtime, which does not exist yet. Nothing was run.";
 /*
- * K1 audited the Knowledge subsystem capability by capability, and they are NOT in the same
- * state. Listing and reading a named fact are backed by the canonical authority, so /knowledge
- * and /source read. Search is not: there is no index, no ranking model, and no relevance
- * authority anywhere in this repository. Marking /search available because the family now has
- * two working members would be exactly the collapse ("Knowledge connected") that K1 forbids.
+ * K1 audited the Knowledge subsystem capability by capability, and they are NOT in the same state.
+ * Listing and reading a named fact are backed by the canonical authority, so /knowledge and /source
+ * read. /search stays unavailable — but KR3 changed WHY, and the reason had to be repaired rather
+ * than left standing.
+ *
+ * THE OLD REASON IS NOW FALSE. It said there was "no ranking model, and no relevance authority
+ * anywhere in this repository". KR3 built exactly that: a relevance ranking over the canonical
+ * Knowledge authority, question-aware, tenant-scoped. Leaving the old sentence in place would have
+ * been a true conclusion resting on a dead premise — the same record-integrity defect this codebase
+ * has had to repair before, where a green suite stays green BECAUSE a stale claim survives.
+ *
+ * THE CONCLUSION IS UNCHANGED, and for a reason that has nothing to do with ranking: selecting
+ * evidence for a question Heby is already answering is not an enterprise search PRODUCT. There is no
+ * search surface, no result presentation, no citation UX, and no browse scope. Marking /search
+ * available because retrieval now exists would be exactly the collapse ("Knowledge connected") that
+ * K1 forbids — one capability standing in for a different one.
  */
 const NO_SEARCH_AUTHORITY =
-  "Hebun has no search authority: no index, no ranking model, and no relevance authority exists. " +
-  "A substring scan is not search, and Hebun will not run one and call it that. /knowledge lists " +
-  "what your organization actually holds, and /source reads one of them by name.";
+  "Hebun has no search product: there is no search surface, no result presentation, and no citation " +
+  "experience — enabling one is a separate product phase. Knowledge retrieval does exist, but it " +
+  "selects evidence for a question Heby is already answering; it is not a place to go searching. " +
+  "/knowledge lists what your organization actually holds, and /source reads one of them by name.";
 
 /** Local defaults for a plain, argument-free command. */
 function base(

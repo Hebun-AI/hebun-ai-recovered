@@ -237,9 +237,9 @@ async function main(): Promise<void> {
       permissions: /authorization analysis/i,
       usage: /usage-aggregation/i,
       // K1: /knowledge and /source gained a real read authority and moved to the available set
-      // below. /search did NOT — search has no index, no ranking model, and no relevance
+      // below. /search did NOT — after KR3 Hebun can rank, but there is still no search
       // authority, so it stays blocked and now names that gap precisely.
-      search: /no index, no ranking model, and no relevance authority/i,
+      search: /no search product|no search surface/i,
       tasks: /task read model/i,
       activity: /activity stream/i,
     };

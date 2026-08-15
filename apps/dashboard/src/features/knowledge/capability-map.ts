@@ -36,6 +36,10 @@ export type KnowledgeCapabilityId =
   | "source-read"
   /** Lexical/keyword search across knowledge. */
   | "search"
+  /** Question-driven selection of knowledge as evidence for Heby (KR3). */
+  | "retrieval"
+  /** Typo and near-miss tolerance in that retrieval. */
+  | "fuzzy-matching"
   /** Semantic / embedding-based retrieval. */
   | "semantic-retrieval"
   /** Getting knowledge INTO Hebun in the first place. */
@@ -96,11 +100,50 @@ const CAPABILITIES: readonly KnowledgeCapabilityStatus[] = Object.freeze([
     capability: "search" as const,
     label: "Knowledge search",
     state: "not-connected" as const,
+    /*
+     * KR3 falsified the previous wording, which claimed no ranking model or relevance authority
+     * existed anywhere. One does now. What is still absent is the SEARCH PRODUCT, and that is what
+     * this entry must say — a capability that reports a reason which has stopped being true is worse
+     * than one that reports nothing, because the reason is what a reader trusts.
+     */
     authority:
-      "None. No search authority exists: there is no index, no ranking model, and no relevance authority anywhere in the repository.",
-    canProve: "Nothing — no search runtime exists.",
+      "None. Knowledge retrieval exists (see `retrieval`), but no search PRODUCT does: there is no search surface, no result presentation, and no citation experience. Enabling one is a separate, explicitly authorized product phase.",
+    canProve: "Nothing — no search runtime exists for a person to search with.",
     cannotProve:
-      "Relevance, ranking, or a best match. A substring scan over an empty table is not search, and Hebun will not present one as if it were.",
+      "That Hebun offers a place to go searching. Retrieval selects evidence for a question Heby is already answering; it is not a browse or discovery surface, and it returns no user-facing result list, ranking explanation, or citation.",
+  }),
+  /*
+   * KR3. Distinct from `search`, and the distinction is the product boundary, not a hedge: this
+   * selects evidence for a question Heby is already answering. It is not an enterprise search
+   * capability, it has no user-facing search surface, and `/search` stays unavailable.
+   */
+  Object.freeze({
+    capability: "retrieval" as const,
+    label: "Question-driven Knowledge retrieval",
+    state: "connected" as const,
+    authority:
+      "Derived computation over the canonical Knowledge authority — the same tenant-scoped knowledge_facts → active knowledge_nodes join, ranked by a PostgreSQL full-text match against the question. It owns no table, writes nothing, and persists nothing.",
+    canProve:
+      "Which of your organization's knowledge records bear on a specific question, ordered by how well their text matches it, with records that are archived, retired, expired or not yet effective excluded and reported rather than silently served.",
+    cannotProve:
+      "That a highly ranked record is true, approved, or current — ordering is a TEXT-MATCH score and nothing else, and each record still states its own authority, lifecycle, ratification and freshness. That a record exists for every question: retrieval finding nothing means nothing matched, never that your organization holds no knowledge.",
+  }),
+  /*
+   * MEASURED, AND HONESTLY ABSENT. The benchmark's best representation used pg_trgm for typo
+   * tolerance and measured it worth +10.9pp Recall@1, concentrated almost entirely in misspelled
+   * queries. The extension is not installed in this database, so no trigram similarity is computed
+   * at all — the runtime does not simulate it, and this entry is why the difference is visible
+   * rather than hidden behind a score that looks the same either way.
+   */
+  Object.freeze({
+    capability: "fuzzy-matching" as const,
+    label: "Typo and near-miss tolerance",
+    state: "not-connected" as const,
+    authority:
+      "None. The `pg_trgm` extension is not installed in the control-plane database, so no trigram similarity is available to compute.",
+    canProve: "Nothing — no fuzzy matching runtime exists.",
+    cannotProve:
+      "That a misspelled or partially remembered word will find its record. Matching is lexical: a typo that changes a word's stem finds nothing, and the result says so rather than implying the knowledge is absent.",
   }),
   Object.freeze({
     capability: "semantic-retrieval" as const,

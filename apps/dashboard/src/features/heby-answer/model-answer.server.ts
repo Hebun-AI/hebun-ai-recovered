@@ -154,9 +154,16 @@ export interface HebyModelAnswerDeps {
    * class, and it can only ever contribute EVIDENCE — never authority, never a tool, never an act.
    */
   readonly knowledge?: KnowledgeReadDeps;
-  /** Explicit Knowledge evidence resolution. Defaults to the real tenant-scoped read. */
+  /**
+   * Explicit Knowledge evidence resolution. Defaults to the real tenant-scoped retrieval.
+   *
+   * KR3 added the `query` argument. A fake that ignores it is still valid for tests that care about
+   * something else, but a test asserting that the QUESTION changed the evidence must use it — that
+   * is the behaviour this phase exists to create.
+   */
   readonly resolveKnowledge?: (
     tenant: KnowledgeTenant,
+    query: string,
     deps?: KnowledgeReadDeps,
   ) => Promise<SourceResolution>;
 }
@@ -212,12 +219,13 @@ function workspaceSourceClasses(context: HebyRuntimeContext): readonly HebySourc
 async function withKnowledge(
   resolutions: readonly SourceResolution[],
   tenant: KnowledgeTenant,
+  query: string,
   deps: HebyModelAnswerDeps,
 ): Promise<readonly SourceResolution[]> {
   if (!resolutions.some((resolution) => resolution.sourceClass === "knowledge")) return resolutions;
   let knowledge: SourceResolution;
   try {
-    knowledge = await (deps.resolveKnowledge ?? resolveKnowledgeEvidence)(tenant, deps.knowledge);
+    knowledge = await (deps.resolveKnowledge ?? resolveKnowledgeEvidence)(tenant, query, deps.knowledge);
   } catch {
     return resolutions;
   }
@@ -348,12 +356,17 @@ export async function answerHebyModelRequest(
   };
   const authority = expectedAuthority(context);
   // K1 — Knowledge enters through the SAME deterministic retrieval layer as every other source.
-  // The query intent is the existing workspace→source-class mapping: Knowledge is read only for a
-  // workspace that already declares it, so an Operations question still reads the live Operations
-  // model and is never answered from settled knowledge.
+  // The workspace→source-class mapping still decides WHETHER Knowledge is read at all, so an
+  // Operations question keeps reading the live Operations model and is never answered from settled
+  // knowledge.
+  //
+  // KR3 — and now the validated prompt decides WHICH knowledge, which it never did before. The
+  // question travels only as a search term: it selects rows and cannot grant, widen, or authorize
+  // anything, and the tenant it is searched within remains the server-resolved one.
   const resolutions = await withKnowledge(
     resolveSources(workspaceSourceClasses(context), overview),
     tenant,
+    validation.prompt,
     deps,
   );
   const assembled = assembleEvidence(resolutions);

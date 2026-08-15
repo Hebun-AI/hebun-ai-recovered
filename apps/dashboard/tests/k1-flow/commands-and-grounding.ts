@@ -30,6 +30,7 @@ import type { KnowledgeSourceRecord } from "../../src/features/knowledge/contrac
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import type { ExecutiveOverviewLike, ModelGenerationRequest } from "../../src/features/heby-runtime";
 import type { HebyModelOutcome } from "../../src/features/heby-model";
+import { noRetrieval, retrievalOver } from "../helpers/knowledge-repo-fake";
 
 const CONTEXT: HebyCommandContext = {
   surface: "full-workspace",
@@ -91,6 +92,12 @@ function repoWith(records: readonly KnowledgeSourceRecord[]): DurableKnowledgeRe
     async findFactsByKey(_scope, factKey) {
       return { records: records.filter((entry) => entry.factKey === factKey), incomplete: [] };
     },
+    /*
+     * These records ARE the subject of the grounding assertions below, so retrieval has to return
+     * them. A substring stand-in is deliberate — see the helper's own note on why it must not look
+     * like the real scorer.
+     */
+    ...retrievalOver(records),
   };
 }
 
@@ -136,10 +143,21 @@ async function main(): Promise<void> {
     assert.equal(knowledge.availability, "available", "/knowledge has a proven read authority");
     assert.equal(source.availability, "available", "/source has a proven read authority");
     assert.equal(search.availability, "requires-source", "/search has none, and stays unavailable");
+    /*
+     * KR3 FALSIFIED THE OLD PREMISE, so this assertion had to move with it. The reason used to be
+     * "no index, no ranking model, and no relevance authority" — a ranking model and a relevance
+     * computation now exist. The VERDICT is unchanged and still pinned above: /search stays
+     * unavailable. What changed is why, and a test that kept pinning a dead premise would have been
+     * green precisely because a stale claim survived.
+     */
     assert.match(
       search.unavailableReason!,
-      /no index, no ranking model, and no relevance authority/,
-      "/search names exactly what it is missing",
+      /no search product|no search surface/i,
+      "/search names what is actually missing — the product, not the ranking",
+    );
+    assert.ok(
+      !/no ranking model|no relevance authority/i.test(search.unavailableReason!),
+      "and no longer claims Hebun cannot rank, because after KR3 it can",
     );
 
     // Both activated commands are READS: they cannot reach the model, and cannot execute.
@@ -170,7 +188,7 @@ async function main(): Promise<void> {
     const searchPlan = planHebyCommand(findHebyCommandById("search")!, ["anything"], CONTEXT);
     assert.equal(searchPlan.kind, "unavailable");
     assert.equal(searchPlan.result.tone, "unavailable");
-    assert.match(searchPlan.result.lines[0]!, /no index, no ranking model/);
+    assert.match(searchPlan.result.lines[0]!, /no search product|no search surface/i);
   }
 
   /* ── 22. THE SERVER READ: UNAUTHORIZED FAILS CLOSED ──────────────────────── */
@@ -197,14 +215,30 @@ async function main(): Promise<void> {
     assert.match(body, /authoritative/, "with its authority class intact");
     assert.match(body, /freshness: within-cadence/, "and its derived freshness");
     /*
-     * THREE, NOT FOUR — and only because ingestion moved. Search, semantic retrieval and
-     * embeddings are still absent and still named; the count changed for exactly one reason, and
-     * the assertions below pin that reason rather than accepting any smaller number.
+     * FOUR, NOT THREE — and the count moved for exactly one reason, pinned below. Ingestion left
+     * this list in the ingestion phase; KR3 added `fuzzy-matching`, which is genuinely absent
+     * because `pg_trgm` is not installed. Search, semantic retrieval and embeddings are unchanged
+     * and still named. The assertions pin the reason rather than accepting any number.
      */
-    assert.match(body, /Not connected \(3\)/, "the three unconnected capabilities are named");
-    for (const stillAbsent of [/Knowledge search/, /Semantic retrieval/, /Embeddings/]) {
+    assert.match(body, /Not connected \(4\)/, "the four unconnected capabilities are named");
+    for (const stillAbsent of [
+      /Knowledge search/,
+      /Semantic retrieval/,
+      /Embeddings/,
+      /Typo and near-miss tolerance/,
+    ]) {
       assert.match(body, stillAbsent, `${stillAbsent} is still reported as not connected`);
     }
+    /*
+     * And retrieval IS connected — the one capability KR3 added. It is reported separately from
+     * `search`, because selecting evidence for a question Heby is already answering is not an
+     * enterprise search product, and collapsing the two is the exact overstatement K1 forbids.
+     */
+    assert.match(
+      body,
+      /Question-driven Knowledge retrieval — can show:/,
+      "question-driven retrieval is reported as CONNECTED",
+    );
     assert.match(
       body,
       /Knowledge ingestion — can show:/,
@@ -389,6 +423,7 @@ async function main(): Promise<void> {
         knowledgeReads += 1;
         return { records: [], incomplete: [] };
       },
+      ...noRetrieval(),
     };
     const captured = captureRequest();
     await answerHebyModelRequest(

@@ -27,6 +27,7 @@ import type {
 } from "../../src/features/knowledge/durable-knowledge-repository.server";
 import type { KnowledgeSourceRecord } from "../../src/features/knowledge/contracts";
 import { toKnowledgeResolution } from "../../src/features/heby-answer/knowledge-evidence.server";
+import { noRetrieval } from "../helpers/knowledge-repo-fake";
 
 const read = (path: string) => readFileSync(path, "utf8");
 
@@ -89,6 +90,7 @@ function fakeRepo(rows: Record<string, readonly KnowledgeSourceRecord[]>): {
       const owned = rows[scope.tenantId] ?? [];
       return { records: owned.filter((entry) => entry.factKey === factKey), incomplete: [] };
     },
+    ...noRetrieval(),
   };
   return { repo, seenTenants };
 }
@@ -106,6 +108,7 @@ async function main(): Promise<void> {
         touched = true;
         return { records: [], incomplete: [] };
       },
+      ...noRetrieval(),
     };
 
     const listing = await listKnowledgeSources(null, { getRepo: () => repo });
@@ -298,13 +301,17 @@ async function main(): Promise<void> {
     const report = await readKnowledgeAvailability(TENANT_A, { getRepo: () => repo });
     assert.equal(report.listing.status, "read");
     assert.equal(report.listing.records.length, 0, "an empty organization reads as empty");
-    assert.equal(report.capabilities.length, 6, "and every capability is still reported");
+    assert.equal(
+      report.capabilities.length, 8,
+      "and every capability is still reported — 6 before KR3, plus `retrieval` (connected) and " +
+        "`fuzzy-matching` (not connected, because pg_trgm is absent)",
+    );
 
     const unauthorized = await readKnowledgeAvailability(null, { getRepo: () => repo });
     assert.equal(unauthorized.listing.status, "unavailable");
     assert.equal(
       unauthorized.capabilities.length,
-      6,
+      8,
       "capabilities are structural and remain reportable without a tenant",
     );
   }

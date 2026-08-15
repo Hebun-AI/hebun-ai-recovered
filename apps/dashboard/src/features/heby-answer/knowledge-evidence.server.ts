@@ -29,6 +29,7 @@
 import type { SourceResolution } from "@/features/heby-runtime";
 import {
   listKnowledgeSources,
+  searchKnowledge,
   type KnowledgeReadDeps,
   type KnowledgeTenant,
 } from "@/features/knowledge/knowledge-read.server";
@@ -37,6 +38,10 @@ import {
   type KnowledgeListing,
   type KnowledgeSourceRecord,
 } from "@/features/knowledge/contracts";
+import {
+  RETRIEVAL_PROVENANCE,
+  type RetrievalResult,
+} from "@/features/knowledge-retrieval";
 
 /** Map the canonical knowledge lifecycle onto the evidence lifecycle vocabulary. */
 function toEvidenceLifecycle(
@@ -131,12 +136,133 @@ export function toKnowledgeResolution(listing: KnowledgeListing): SourceResoluti
   };
 }
 
+/* ── KR3: the question finally reaches the evidence ─────────────────────────
+ *
+ * Until now `resolveKnowledgeEvidence` took no query and every Knowledge answer carried the same
+ * alphabetical first 50 records regardless of what was asked. It now takes the validated prompt and
+ * returns the records that bear on it.
+ *
+ * WHAT DID NOT CHANGE, deliberately: the SourceResolution shape, the per-item authority/lifecycle/
+ * ratification/freshness detail, the verbatim statement riding on `content` rather than `detail`,
+ * the provenance line, and everything downstream — evidence assembly, grounding context, the model
+ * call, the validator, persistence and the kill switch. Retrieval changes WHICH records are in the
+ * resolution, not what a resolution is.
+ */
+
 /**
- * Read Knowledge for the authorized tenant and return it as an evidence resolution. Fails closed
- * through the shared Knowledge read seam: no tenant, or no durable persistence, yields an honest
- * unavailable resolution — never a seeded substitute.
+ * Turn a retrieval result into one source resolution.
+ *
+ * THE FOUR EMPTY STATES SAY FOUR DIFFERENT THINGS. An organization that holds nothing, an
+ * organization whose knowledge does not cover this question, a question with no searchable words,
+ * and a read that failed are not interchangeable, and the sentence each produces must not imply
+ * another. Telling someone "your organization holds no knowledge records" because one question
+ * missed would be false about their organization — the exact class of claim this codebase has had to
+ * repair three times.
+ */
+export function toRetrievalResolution(result: RetrievalResult): SourceResolution {
+  const unavailable = (reason: string): SourceResolution => ({
+    sourceClass: "knowledge",
+    state: "unavailable",
+    provenance: RETRIEVAL_PROVENANCE,
+    authoritative: false,
+    items: [],
+    unavailableReason: reason,
+  });
+
+  switch (result.status) {
+    case "unavailable":
+      return unavailable(
+        `Knowledge could not be read — ${result.reason}.${result.detail ? ` ${result.detail}` : ""}`,
+      );
+
+    case "empty-query":
+      return unavailable(
+        "Your question carried no searchable term, so no knowledge was retrieved. This says nothing " +
+          "about what your organization knows.",
+      );
+
+    case "empty-corpus":
+      return unavailable(
+        "Your organization holds no knowledge records. The canonical Knowledge authority was read " +
+          "and is genuinely empty — that is your organization's real state, not a read failure. " +
+          "Knowledge is put there through the Knowledge workspace, and none has been yet.",
+      );
+
+    case "no-match": {
+      /*
+       * The organization HOLDS knowledge. The honest statement is about the question, never about
+       * the corpus. Where records matched but were withdrawn, say so — a silently missing answer is
+       * worse than a missing one, because the reader cannot tell that a policy they remember exists.
+       */
+      const withdrawn = result.excluded.length;
+      const degraded = result.capability.degradedReason;
+      return unavailable(
+        "Your organization holds knowledge records, but none of them match this question. " +
+          (withdrawn > 0
+            ? `${withdrawn} record(s) did match and were not served because they are no longer in force. `
+            : "") +
+          (degraded ? degraded : ""),
+      );
+    }
+
+    case "matched": {
+      const items = result.candidates.map(({ record }) => ({
+        recordRef: `${record.domainKey}/${record.factKey}`,
+        label: record.title,
+        /*
+         * MACHINE-DERIVED STANDING ONLY, exactly as before. The match score is deliberately NOT here:
+         * `detail` becomes Heby's own prose, and a number beside a policy reads as a claim about how
+         * true it is. Ordering already carries the match; a printed score would carry a meaning the
+         * repository does not compute.
+         */
+        detail: [
+          `authority: ${record.authorityClass ?? "not stated"}`,
+          `lifecycle: ${record.lifecycleStatus ?? "not stated"}`,
+          `ratified: ${record.ratified ? "yes" : "no"}`,
+          `freshness: ${record.freshness}`,
+          `scope: ${record.scope}`,
+        ].join(" · "),
+        lifecycle: toEvidenceLifecycle(record),
+        content: record.statement ?? undefined,
+      }));
+
+      const allAuthoritative = result.candidates.every(
+        ({ record }) => record.authorityClass === "authoritative",
+      );
+
+      return {
+        sourceClass: "knowledge",
+        state: "resolved",
+        provenance: RETRIEVAL_PROVENANCE,
+        authoritative: allAuthoritative,
+        items,
+        unavailableReason: undefined,
+      };
+    }
+  }
+}
+
+/**
+ * Retrieve Knowledge bearing on the authorized tenant's question and return it as evidence.
+ *
+ * Fails closed through the shared Knowledge read seam: no tenant, or no durable persistence, yields
+ * an honest unavailable resolution — never a seeded substitute, and never a listing standing in for
+ * a search.
  */
 export async function resolveKnowledgeEvidence(
+  tenant: KnowledgeTenant | null,
+  query: string,
+  deps: KnowledgeReadDeps = {},
+): Promise<SourceResolution> {
+  return toRetrievalResolution(await searchKnowledge(tenant, { queryText: query }, deps));
+}
+
+/**
+ * The pre-KR3 listing path, kept because `/knowledge` and `/source` still need "what do we hold".
+ * It is NOT the evidence path any more — a question-independent listing is not evidence for a
+ * question, and calling it that is how "Knowledge connected" became a claim nobody could defend.
+ */
+export async function resolveKnowledgeListingEvidence(
   tenant: KnowledgeTenant | null,
   deps: KnowledgeReadDeps = {},
 ): Promise<SourceResolution> {

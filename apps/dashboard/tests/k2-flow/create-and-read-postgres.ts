@@ -340,8 +340,20 @@ async function main(): Promise<void> {
       {
         const captured = captureRequest();
         let dispatched = 0;
+        /*
+         * THE PROMPT IS TURKISH NOW, AND THAT IS THE PHASE CHANGE, NOT A WORKAROUND.
+         *
+         * This read "What does our security policy say?" and passed — because before KR3 the
+         * Knowledge evidence path took NO query and every record the tenant held was in every
+         * answer. The record here is titled "Güvenlik politikası", so the English question never
+         * actually matched it; it arrived because everything did.
+         *
+         * With retrieval, evidence has to be earned by the question. The cross-language miss is
+         * asserted deliberately below rather than papered over: lexical retrieval does not
+         * translate, and KR2 measured that as a limitation of this representation.
+         */
         const answered = await answerHebyModelRequest(
-          { prompt: "What does our security policy say?", route: "/knowledge" },
+          { prompt: "Güvenlik politikası ne diyor?", route: "/knowledge" },
           {
             resolveTenant: async () => tenantContext(TENANT_A, USER_A),
             readOverview: () => overview(),
@@ -366,6 +378,40 @@ async function main(): Promise<void> {
           evidence.some((reference) => reference.sourceClass === "knowledge" && reference.recordRef === "security/security-policy"),
           "the human-authored fact became Heby evidence through the existing K1 seam",
         );
+
+        /*
+         * AND THE CROSS-LANGUAGE MISS, ASSERTED RATHER THAN LEFT AS A COMMENT.
+         *
+         * The same record, the same tenant, the same seam — an ENGLISH question about a
+         * Turkish-titled record retrieves nothing. Lexical retrieval does not translate, and this
+         * is the honest boundary of the representation KR2 measured. Recording it here means the
+         * limitation lives in the suite instead of surprising an operator, and means anyone who
+         * later adds translation or embeddings will see this assertion fail and have to decide
+         * deliberately rather than by accident.
+         */
+        const inEnglish = await answerHebyModelRequest(
+          { prompt: "What does our security policy say?", route: "/knowledge" },
+          {
+            resolveTenant: async () => tenantContext(TENANT_A, USER_A),
+            readOverview: () => overview(),
+            getConversationRepo: () => null,
+            resolveDirectorEnabled: async () => false,
+            env: {},
+            generate: async () => {
+              throw new Error("no dispatch expected");
+            },
+            knowledge: readDeps,
+          },
+        );
+        assert.equal(inEnglish.status, "answered");
+        if (inEnglish.status === "answered") {
+          assert.ok(
+            !inEnglish.outcome.response.evidence.some(
+              (reference) => reference.sourceClass === "knowledge",
+            ),
+            "an English question does not reach a Turkish record — retrieval matches words, not meaning",
+          );
+        }
         // Provisional knowledge is never promoted to settled evidence.
         assert.ok(
           evidence.every((reference) => reference.sourceClass !== "knowledge" || reference.lifecycle === "unknown"),
@@ -380,8 +426,20 @@ async function main(): Promise<void> {
       /* ── 27. WITH R2E ON, KNOWLEDGE CONTENT STILL GRANTS NOTHING ─────────── */
       {
         const captured = captureRequest();
+        /*
+         * THE PROMPT IS TURKISH NOW, AND THAT IS THE PHASE CHANGE, NOT A WORKAROUND.
+         *
+         * This read "What does our security policy say?" and passed — because before KR3 the
+         * Knowledge evidence path took NO query and every record the tenant held was in every
+         * answer. The record here is titled "Güvenlik politikası", so the English question never
+         * actually matched it; it arrived because everything did.
+         *
+         * With retrieval, evidence has to be earned by the question. The cross-language miss is
+         * asserted deliberately below rather than papered over: lexical retrieval does not
+         * translate, and KR2 measured that as a limitation of this representation.
+         */
         const answered = await answerHebyModelRequest(
-          { prompt: "What does our security policy say?", route: "/knowledge" },
+          { prompt: "Güvenlik politikası ne diyor?", route: "/knowledge" },
           {
             resolveTenant: async () => tenantContext(TENANT_A, USER_A),
             readOverview: () => overview(),

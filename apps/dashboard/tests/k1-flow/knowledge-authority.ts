@@ -80,11 +80,30 @@ function main(): void {
     );
 
     const code = codeOf(repository);
-    // A read repository that can write is not a read repository.
-    for (const banned of ["insert(", "update(", "delete(", "execute(", "drop ", "create table"]) {
+    /*
+     * A read repository that can write is not a read repository.
+     *
+     * `execute(` USED TO BE ON THIS LIST and no longer is, and the reason matters. It was standing
+     * in for "no writes" back when every statement here went through the Drizzle query builder, so
+     * any raw execution at all was suspicious. KR3's retrieval statement is raw SQL — ts_rank_cd and
+     * websearch_to_tsquery have no builder equivalent — and it is a SELECT. Banning the word would
+     * ban a read, which is the opposite of this check's intent.
+     *
+     * So the guard now tests the intent directly: no mutating verb, in the builder OR in raw SQL.
+     * A proxy that has started catching the wrong thing is worse than no proxy, because it gets
+     * deleted wholesale by whoever it blocks.
+     */
+    for (const banned of ["insert(", "update(", "delete(", "drop ", "create table", "transaction("]) {
       assert.ok(
         !code.toLowerCase().includes(banned),
         `${REPOSITORY} must not contain "${banned}" — K1 is read-only`,
+      );
+    }
+    /* And no raw statement may mutate, however it is executed. */
+    for (const mutating of [/\binsert\s+into\b/i, /\bupdate\s+\w+\s+set\b/i, /\bdelete\s+from\b/i, /\bcreate\s+/i, /\balter\s+/i]) {
+      assert.ok(
+        !mutating.test(code),
+        `${REPOSITORY} must not contain raw SQL matching ${mutating} — K1 is read-only`,
       );
     }
   }
@@ -105,8 +124,17 @@ function main(): void {
         assert.ok(!code.includes(banned), `${file} must not introduce "${banned}"`);
       }
       if (file === CAPABILITY_MAP) continue;
-      for (const banned of ["embedding", "vector", "chunk("]) {
+      for (const banned of ["embedding", "chunk("]) {
         assert.ok(!code.includes(banned), `${file} must not introduce "${banned}"`);
+      }
+      /*
+       * `vector` needs a word boundary. As a bare substring it fires on `to_tsvector(` — the
+       * PostgreSQL built-in that IS the shipped lexical representation — so the plain ban would
+       * forbid the very thing it exists to protect. What must stay out is pgvector: its column
+       * type and its distance operators.
+       */
+      for (const banned of [/\bvector\s*\(/, /::\s*vector\b/, /pgvector/, /<->/, /<=>/]) {
+        assert.ok(!banned.test(code), `${file} must not introduce ${banned} (pgvector)`);
       }
     }
   }
@@ -222,10 +250,27 @@ function main(): void {
   /* ── 7. CAPABILITIES ARE REPORTED SEPARATELY, NEVER COLLAPSED ────────────── */
   {
     const capabilities = listKnowledgeCapabilities();
-    assert.equal(capabilities.length, 6, "six Knowledge capabilities are reported separately");
+    assert.equal(capabilities.length, 8, "eight Knowledge capabilities are reported separately");
 
     assert.equal(findKnowledgeCapability("source-listing").state, "connected");
     assert.equal(findKnowledgeCapability("source-read").state, "connected");
+    /*
+     * KR3 added TWO, and it added them as a pair on purpose. `retrieval` is connected because the
+     * question now selects the evidence. `fuzzy-matching` is NOT, because `pg_trgm` is absent from
+     * the database and no trigram similarity is computed at all. Reporting only the first would be
+     * the collapse this file exists to prevent — a capability that works for correctly spelled
+     * questions is not "matching works".
+     */
+    assert.equal(findKnowledgeCapability("retrieval").state, "connected");
+    assert.equal(findKnowledgeCapability("fuzzy-matching").state, "not-connected");
+    /* And retrieval must not quietly become a search claim. */
+    const retrieval = findKnowledgeCapability("retrieval");
+    assert.match(retrieval.cannotProve, /TEXT-MATCH|text-match/i, "rank is a match, never truth");
+    assert.match(
+      retrieval.cannotProve,
+      /never that your organization holds no knowledge/i,
+      "and a miss is about the question, never about the corpus",
+    );
     /*
      * Ingestion is connected because a governed plain-text path now writes canonical Knowledge
      * through the K2 writer. It is the ONLY capability that has moved, and the block below holds

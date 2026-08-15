@@ -21,10 +21,16 @@
  * Server-only. Not re-exported from any client-importable index.
  */
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { knowledgeFacts } from "@/db/schema/knowledge-fact";
 import { knowledgeNodes } from "@/db/schema/knowledge";
+import {
+  RETRIEVAL_CANDIDATE_POOL,
+  TURKISH_FOLD_FROM,
+  TURKISH_FOLD_TO,
+  foldSql,
+} from "@/features/knowledge-retrieval";
 import {
   deriveKnowledgeFreshness,
   type KnowledgeAuthorityClass,
@@ -61,19 +67,31 @@ interface KnowledgeRow {
   readonly authorityClass: string | null;
   readonly health: string | null;
   readonly ratificationDecisionId: string | null;
-  readonly ratifiedAt: Date | null;
+  readonly ratifiedAt: Date | string | null;
   /** K4 provenance, read from the ACTIVE NODE — the only home of version ratification. */
   readonly governanceSessionId: string | null;
   readonly ratifiedByActorId: string | null;
   readonly activeKnowledgeNodeId: string | null;
-  readonly effectiveFrom: Date | null;
-  readonly effectiveUntil: Date | null;
-  readonly nextReviewAt: Date | null;
+  readonly effectiveFrom: Date | string | null;
+  readonly effectiveUntil: Date | string | null;
+  readonly nextReviewAt: Date | string | null;
   readonly knowledgeVersion: number | null;
 }
 
-function iso(value: Date | null): string | null {
-  return value ? value.toISOString() : null;
+/**
+ * Normalize a timestamp column to ISO text.
+ *
+ * TWO ROW SOURCES REACH THIS, AND THEY DISAGREE. The Drizzle query builder hands back `Date`
+ * objects; `db.execute()` of raw SQL hands back the driver's strings, because Drizzle installs its
+ * own timestamp parsers and only converts inside the builder. The retrieval statement is raw SQL, so
+ * assuming `Date` here threw `value.toISOString is not a function` and surfaced as a `read-failed`
+ * retrieval — a shared projector has to accept both shapes rather than trust the caller's.
+ */
+function iso(value: Date | string | null): string | null {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return value.toISOString();
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : new Date(parsed).toISOString();
 }
 
 /**
@@ -170,6 +188,44 @@ function toRecordOrStub(
   };
 }
 
+/* ── KR3 retrieval ──────────────────────────────────────────────────────────
+ *
+ * ONE new statement, over the SAME tenant-scoped active-node join the listing already uses. There is
+ * no retrieval table, no search table, no cache table, no embedding table, and no second repository —
+ * retrieval is a different WHERE clause and an ORDER BY, not a different system.
+ *
+ * THE TENANT PREDICATE IS APPLIED IN SQL, BEFORE ANY RANKING. A cross-tenant row is never a
+ * candidate, never scored, and never reaches the ranking layer where a cap or a filter might be the
+ * only thing standing between it and an answer.
+ */
+
+/** The searchable text. Title AND statement — KR2 measured statement-only at 43.5% R@1 vs 69.6%. */
+const SEARCH_TEXT = `(coalesce("knowledge_nodes"."label", '') || ' ' || coalesce("knowledge_nodes"."statement", ''))`;
+
+/**
+ * The lexical representation, folded with a BUILT-IN.
+ *
+ * `translate()` — not `unaccent` — because the canonical database has no extensions installed and
+ * this is measurably identical on Turkish (KR2/KR3: same Recall@1/3/5, MRR, zero-result and
+ * distractor rate on the same corpus). It is also IMMUTABLE, so this exact expression can back a GIN
+ * index later without the wrapper `unaccent` would have required.
+ */
+const SEARCH_VECTOR = `to_tsvector('turkish', ${foldSql(SEARCH_TEXT)})`;
+
+/** One scored candidate row, before eligibility and ranking run over it. */
+export interface KnowledgeSearchRow {
+  readonly record: KnowledgeSourceRecord;
+  /** Raw `ts_rank_cd`. Unbounded — the pure ranking layer squashes it. */
+  readonly lexicalRank: number;
+  /** `word_similarity` when `pg_trgm` is installed, else `null`. Never a substituted zero. */
+  readonly trigram: number | null;
+}
+
+export interface KnowledgeSearchNarrowing {
+  readonly domainKey?: string;
+  readonly scope?: KnowledgeScope;
+}
+
 export interface DurableKnowledgeRepository {
   /** Every knowledge fact the tenant owns, bounded. Never another tenant's. */
   listFacts(
@@ -193,6 +249,28 @@ export interface DurableKnowledgeRepository {
     readonly records: readonly KnowledgeSourceRecord[];
     readonly incomplete: readonly KnowledgeSourceStub[];
   }>;
+  /**
+   * Candidate facts whose text matches `orQuery`, scored, tenant-scoped, bounded.
+   *
+   * `orQuery` is an already-normalized OR form (see `knowledge-retrieval/query-normalization`); this
+   * method does not parse or rewrite a human's question. Eligibility is NOT applied here — the caller
+   * partitions the rows so a matched-but-withdrawn record can be reported rather than vanish.
+   */
+  searchFacts(
+    scope: KnowledgeScopeContext,
+    orQuery: string,
+    rawQuery: string,
+    now?: Date,
+    narrowing?: KnowledgeSearchNarrowing,
+  ): Promise<{
+    readonly rows: readonly KnowledgeSearchRow[];
+    readonly incomplete: readonly KnowledgeSourceStub[];
+    readonly truncated: boolean;
+    /** Whether the trigram component could be computed at all in this database. */
+    readonly trigramAvailable: boolean;
+  }>;
+  /** True when `pg_trgm` is installed in the CONNECTED database. Cached per repository instance. */
+  hasTrigram(): Promise<boolean>;
 }
 
 const SELECTION = {
@@ -220,6 +298,13 @@ const SELECTION = {
 export function createDurableKnowledgeRepository(
   db: ControlPlaneDatabase,
 ): DurableKnowledgeRepository {
+  /*
+   * Whether `pg_trgm` exists in THIS database, probed once and remembered. An extension cannot be
+   * installed or removed under a running request, so re-asking on every retrieval would be a query
+   * per search to learn something that does not change. `undefined` means "not yet asked".
+   */
+  let trigramCache: boolean | undefined;
+
   /**
    * The join is tenant-scoped on BOTH sides. Scoping only the fact would let a fact resolve
    * its content through another tenant's node row; scoping both makes that unrepresentable.
@@ -277,6 +362,117 @@ export function createDurableKnowledgeRepository(
         .limit(KNOWLEDGE_LISTING_LIMIT)) as readonly KnowledgeRow[];
 
       return partition(rows, now);
+    },
+
+    async hasTrigram() {
+      if (trigramCache === undefined) {
+        try {
+          const probe = await db.execute<{ present: boolean }>(
+            sql`select exists (select 1 from pg_extension where extname = 'pg_trgm') as present`,
+          );
+          trigramCache = Boolean(probe.rows[0]?.present);
+        } catch {
+          // A probe that cannot run is not evidence the extension is present.
+          trigramCache = false;
+        }
+      }
+      return trigramCache;
+    },
+
+    async searchFacts(scope, orQuery, rawQuery, now = new Date(), narrowing = {}) {
+      const empty = { rows: [], incomplete: [], truncated: false, trigramAvailable: false } as const;
+      if (!UUID_RE.test(scope.tenantId)) return empty;
+      const query = orQuery.trim();
+      if (!query) return empty;
+
+      const trigram = await this.hasTrigram();
+
+      /*
+       * `word_similarity(query, document)` — NOT `similarity()`. Plain similarity divides by the
+       * union of both trigram sets, so a short question against a long policy scores near zero
+       * however well it matches. When the extension is absent the column is a literal NULL: the
+       * component was NOT COMPUTED, and a substituted 0 would be indistinguishable from a real
+       * "no similarity", which is exactly the kind of quiet fabrication this codebase forbids.
+       */
+      const trigramExpr = trigram
+        ? sql`word_similarity(
+             lower(translate(${rawQuery}, ${TURKISH_FOLD_FROM}, ${TURKISH_FOLD_TO})),
+             lower(${sql.raw(foldSql(SEARCH_TEXT))}))`
+        : sql`null::real`;
+
+      /* Narrowing hints can only SHRINK the candidate set; there is no branch that widens it. */
+      const domainFilter = narrowing.domainKey?.trim()
+        ? sql`and "knowledge_facts"."domain_key" = ${narrowing.domainKey.trim()}`
+        : sql``;
+      const scopeFilter = narrowing.scope
+        ? sql`and "knowledge_facts"."knowledge_scope" = ${narrowing.scope}::knowledge_scope`
+        : sql``;
+
+      const vector = sql.raw(SEARCH_VECTOR);
+      const tsquery = sql`websearch_to_tsquery('turkish', ${query})`;
+
+      const statement = sql`
+        select
+          "knowledge_facts"."id"                            as "factId",
+          "knowledge_facts"."fact_version"                  as "factVersion",
+          "knowledge_facts"."fact_key"                      as "factKey",
+          "knowledge_facts"."domain_key"                    as "domainKey",
+          "knowledge_facts"."knowledge_scope"::text         as "scope",
+          "knowledge_nodes"."label"                         as "nodeLabel",
+          "knowledge_nodes"."statement"                     as "statement",
+          "knowledge_nodes"."knowledge_lifecycle_status"::text as "lifecycleStatus",
+          "knowledge_nodes"."knowledge_authority"::text     as "authorityClass",
+          "knowledge_nodes"."knowledge_health"::text        as "health",
+          "knowledge_nodes"."ratification_decision_id"      as "ratificationDecisionId",
+          "knowledge_nodes"."ratified_at"                   as "ratifiedAt",
+          "knowledge_nodes"."governance_session_id"         as "governanceSessionId",
+          "knowledge_nodes"."ratified_by_actor_id"          as "ratifiedByActorId",
+          "knowledge_nodes"."id"                            as "activeKnowledgeNodeId",
+          "knowledge_nodes"."effective_from"                as "effectiveFrom",
+          "knowledge_nodes"."effective_until"               as "effectiveUntil",
+          "knowledge_nodes"."next_review_at"                as "nextReviewAt",
+          "knowledge_nodes"."knowledge_version"             as "knowledgeVersion",
+          ts_rank_cd(${vector}, ${tsquery})                 as "lexicalRank",
+          ${trigramExpr}                                    as "trigram"
+        from "knowledge_facts"
+        join "knowledge_nodes"
+          on "knowledge_nodes"."id" = "knowledge_facts"."active_knowledge_node_id"
+         and "knowledge_nodes"."tenant_id" = "knowledge_facts"."tenant_id"
+         and "knowledge_nodes"."tenant_id" = ${scope.tenantId}
+        where "knowledge_facts"."tenant_id" = ${scope.tenantId}
+          and "knowledge_facts"."deleted_at" is null
+          and "knowledge_nodes"."deleted_at" is null
+          ${domainFilter}
+          ${scopeFilter}
+          and ${vector} @@ ${tsquery}
+        order by "lexicalRank" desc,
+                 "knowledge_facts"."domain_key" asc,
+                 "knowledge_facts"."fact_key" asc
+        limit ${RETRIEVAL_CANDIDATE_POOL + 1}`;
+
+      const executed = await db.execute(statement);
+      const all = executed.rows as unknown as ReadonlyArray<
+        KnowledgeRow & { readonly lexicalRank: unknown; readonly trigram: unknown }
+      >;
+      const truncated = all.length > RETRIEVAL_CANDIDATE_POOL;
+      const page = truncated ? all.slice(0, RETRIEVAL_CANDIDATE_POOL) : all;
+
+      const rows: KnowledgeSearchRow[] = [];
+      const incomplete: KnowledgeSourceStub[] = [];
+      for (const row of page) {
+        const projected = toRecordOrStub(row, now);
+        if ("record" in projected) {
+          rows.push({
+            record: projected.record,
+            lexicalRank: Number(row.lexicalRank) || 0,
+            trigram: row.trigram === null ? null : Number(row.trigram),
+          });
+        } else {
+          incomplete.push(projected.stub);
+        }
+      }
+
+      return { rows, incomplete, truncated, trigramAvailable: trigram };
     },
   };
 }

@@ -28,6 +28,18 @@ import {
   listKnowledgeCapabilities,
   type KnowledgeCapabilityStatus,
 } from "./capability-map";
+import {
+  RETRIEVAL_TRIGRAM_MISSING,
+  applySourceDiversity,
+  normalizeQuery,
+  partitionByEligibility,
+  rankCandidates,
+  resolveRetrievalLimit,
+  toCandidate,
+  type RetrievalCapability,
+  type RetrievalRequest,
+  type RetrievalResult,
+} from "@/features/knowledge-retrieval";
 import type {
   KnowledgeListing,
   KnowledgeSourceRead,
@@ -152,6 +164,113 @@ export async function readKnowledgeSourceByName(
       status: "unavailable",
       reason: "read-failed",
       detail: error instanceof Error ? error.message : "Knowledge read failed.",
+    };
+  }
+}
+
+/**
+ * KR3 — the FIRST read in this repository where the user's question decides which rows come back.
+ *
+ * It sits BESIDE `listKnowledgeSources`, which is unchanged and still backs `/knowledge` and the
+ * `/source` command. Listing answers "what does my organization hold"; retrieval answers "what in it
+ * bears on this question". Those are different questions and both remain answerable.
+ *
+ * The same fail-closed order applies: authorized tenant, then persistence, then read. Nothing here
+ * writes, and nothing it returns is persisted — a match score does not outlive the request.
+ *
+ * FOUR OUTCOMES, KEPT APART ON PURPOSE:
+ *   empty-query   the question carried no searchable token.
+ *   empty-corpus  the organization holds NO knowledge at all.
+ *   no-match      the organization HOLDS knowledge; none of it matched this question.
+ *   matched       candidates, plus what was excluded and why.
+ * Collapsing `no-match` into `empty-corpus` would tell an operator their organization knows nothing
+ * on the evidence that one question missed. That claim is false and this seam must never make it.
+ */
+export async function searchKnowledge(
+  tenant: KnowledgeTenant | null,
+  request: RetrievalRequest,
+  deps: KnowledgeReadDeps = {},
+): Promise<RetrievalResult> {
+  assertServerRuntime();
+  const opened = openScope(tenant, deps);
+  if (!opened.ok) {
+    return {
+      status: "unavailable",
+      reason: opened.reason,
+      detail:
+        opened.reason === "no-authorized-tenant-context"
+          ? "No authorized organization context, so nothing was read."
+          : "Durable persistence is not configured, so the canonical Knowledge tables cannot be read.",
+    };
+  }
+
+  const now = (deps.now ?? (() => new Date()))();
+
+  try {
+    const trigramAvailable = await opened.repo.hasTrigram();
+    const capability: RetrievalCapability = {
+      lexical: true,
+      trigram: trigramAvailable,
+      degradedReason: trigramAvailable ? null : RETRIEVAL_TRIGRAM_MISSING,
+    };
+
+    const normalized = normalizeQuery(request.queryText);
+    if (normalized.isEmpty) return { status: "empty-query", capability };
+
+    const found = await opened.repo.searchFacts(
+      opened.scope,
+      normalized.orForm,
+      normalized.raw,
+      now,
+      { domainKey: request.domainKey, scope: request.scope },
+    );
+
+    if (found.rows.length === 0) {
+      /*
+       * Nothing matched. Before saying so, establish WHICH truth this is — an organization with an
+       * empty corpus and an organization whose corpus does not cover this question need different
+       * sentences. One extra bounded read is the honest price of not guessing.
+       */
+      const listing = await opened.repo.listFacts(opened.scope, now);
+      const holdsNothing = listing.records.length === 0 && listing.incomplete.length === 0;
+      return holdsNothing
+        ? { status: "empty-corpus", capability }
+        : { status: "no-match", excluded: [], capability };
+    }
+
+    const { eligible, excluded } = partitionByEligibility(
+      found.rows.map((row) => row.record),
+      now,
+    );
+    const eligibleKeys = new Set(eligible.map((record) => record.factKey));
+    const ranked = rankCandidates(
+      found.rows
+        .filter((row) => eligibleKeys.has(row.record.factKey))
+        .map((row) => toCandidate(row)),
+    );
+    const diversity = applySourceDiversity(ranked);
+    const limit = resolveRetrievalLimit(request.limit);
+    const candidates = diversity.kept.slice(0, limit);
+
+    /*
+     * Every candidate was disqualified. That is still not an empty corpus, and it is not the same as
+     * "nothing matched" either — records DID match, and the caller is told exactly why none survived.
+     */
+    if (candidates.length === 0) return { status: "no-match", excluded, capability };
+
+    return {
+      status: "matched",
+      candidates,
+      excluded,
+      diversityPruned: diversity.pruned,
+      truncated: found.truncated,
+      capability,
+    };
+  } catch (error) {
+    return {
+      status: "unavailable",
+      reason: "read-failed",
+      detail: error instanceof Error ? error.message : "Knowledge retrieval failed.",
     };
   }
 }
