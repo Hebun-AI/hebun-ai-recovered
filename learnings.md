@@ -865,3 +865,57 @@ giden bir yol değildir.**
    anlatılamayacağı dahil.
 3. **How does this become part of Hebun AI?** İki madde backlog'da, `Status: Planned`, önkoşula
    bağlı. Kayıt yetki vermez; promosyon ayrı bir Director gate'idir.
+
+## KR4 — Knowledge Retrieval Explanation & Evidence UX (2026-08-15)
+
+Uygulandı ve doğrulandı, COMMIT EDİLMEDİ. 363/363 test (+3 yeni dosya), lint 0 error, build clean.
+Şema/migration/extension/dependency/DB delta: **sıfır**. Canonical `hebun_r1` bit birebir aynı.
+
+**Ders 1 — Model'e kullanıcıdan DAHA ÇOK şey anlatıyorduk.**
+KR3'ün grounding satırı modele başlık + authority/lifecycle/ratified/freshness/scope + verbatim
+statement + provenance veriyordu; kullanıcı `knowledge · izin/izin-hakki` görüyordu. Asimetri
+`toRetrievalResolution`'da doğuyordu: beş alan tek bir gösterim string'ine düzleştiriliyor,
+`diversityPruned`/`truncated`/`excluded`/`degradedReason`/`sourceDigest` tamamen düşüyordu. Bir
+sınırın iki tarafını da okumadan "bu bilgi zaten akıyor" denemez.
+
+**Ders 2 — Yazılan ama hiç okunmayan sütun, olmayan sütun gibi davranır.**
+`knowledge_nodes.provenance` ve `.source_attribution` K2'den beri YAZILIYORDU; retrieval yolu
+ikisini de select etmiyordu. Migration değil, projeksiyon eksikti. **Ve iki ayrı yerde:** paylaşılan
+`SELECTION` sabitini genişletmek yetmedi — `searchFacts` kendi açık kolon listesini taşıyor, yani
+Heby'yi besleyen yol hâlâ boş dönüyordu. Postgres testi yakaladı. **Bir tabloyu iki farklı
+projeksiyon okuyorsa, birini genişletmek diğerini genişletmez.**
+
+**Ders 3 — Katlanmış token'ı kullanıcıya göstermek, doğrulanamaz bir iddiadır.**
+`normalizeQuery` katlanmış token döndürüyor; ilk sürüm "Yıllık" yazan kaydın altına `Yillik`
+basıyordu — okuyucunun ekranda bulamayacağı bir kelime, üstelik tek işi doğrulanabilir olmak olan
+bir panelde. Düzeltme yaklaşık değil kesin: `foldTurkish` = `translate()`, 13 harflik karakter
+karşılığı, **uzunluğu değiştirmiyor**, dolayısıyla katlanmış metindeki offset orijinaldeki offset.
+Terim artık **kaydın kendi yazımıyla** gösteriliyor.
+
+**Ders 4 — Sıra, kalıcılaştırmadan sonra gelirse garanti olur.**
+Evidence açıklaması `persistExchange` DÖNDÜKTEN SONRA response'a ekleniyor. "Writer'a hiç
+vermiyoruz" bir söz; "writer çoktan dönmüştü" bir yapı. Türetilmiş bir sunumun kalıcı kayda
+sızması artık kaza ile mümkün değil.
+
+**Ders 5 — Yeniden çözümlemek, geçmişi uydurmaktır.**
+Mesajlarda evidence snapshot'ı yok. Reload'da retrieval'i tekrar çalıştırmak BUGÜNÜN kayıtlarını
+getirirdi — o cevabın hiç görmediği supersession/ratification/expiry sonrası. "O cevabın kanıtı"
+diye sunmak uydurma tarih olurdu. Panel bunun yerine düz söylüyor: kanıt saklanmadı.
+
+**Ders 6 — Birden çok kaynak ≠ çelişki, ve sinyali dar tutmak onu doğru yapıyor.**
+`conflict` alanı YOK; hiçbir şey iki cümlenin çeliştiğini hesaplamıyor. Yapısal olgu raporlanıyor:
+tek domain'de, **farklı kaynaklardan** birden çok uygun kayıt. Tek belgenin iki chunk'ı tek
+kaynaktır (yoksa 40 parçalı politika kendini 40 çelişen kaynak sanırdı) ve farklı domain'ler
+tetiklemiyor (izin politikası ile seyahat politikası aynı anda doğru olabilir).
+
+### Haftalık 3 soru
+1. **What did we learn?** Bir sınırın iki tarafını da okumadan "bilgi akıyor" varsayma; ve aynı
+   tabloyu okuyan ikinci bir projeksiyon varsa onu da genişlet. Postgres testi olmasaydı KR4 boş
+   kartlarla "tamam" derdi.
+2. **How does this improve Turkish Rug House?** Operatör artık Heby'nin hangi kaydı kullandığını,
+   hangi kaynaktan geldiğini (İK El Kitabı mı, 2026 İzin Yönergesi mi), ratified olup olmadığını ve
+   iki kaynağın aynı soruya birden cevap verdiğini görüyor — 20 gün mü 14 gün mü çelişkisini insan
+   fark ediyor, sistem sessizce birini seçmiyor.
+3. **How does this become part of Hebun AI?** Kanıt açıklaması türetilmiş bir sunum katmanı olarak
+   yerleşti: skor yok, güven yüzdesi yok, cümle bazlı atıf yok, kalıcılık yok. Sıradaki karar
+   Director'da — bu fazın commit'i ve ayrıca `/director` üzerindeki sahte confidence yüzeyi.
