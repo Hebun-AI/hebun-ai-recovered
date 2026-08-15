@@ -224,6 +224,15 @@ decision authority remains explicit. (14) No private chain-of-thought is exposed
 The learner-facing and organizational-learning consequences of this principle are recorded in
 the [Heby Interaction Model](../heby-interaction-model.md#guided-organizational-intelligence-and-learning).
 
+**Deferral status (added later; nothing above is changed).** The Guided Explanation Layer
+described in this section remains **not implemented**, exactly as stated above. Its
+learning-oriented extension — teaching a *subject* as an ordered lesson across several
+surfaces, rather than explaining one region on request — is recorded as a separate deferred
+capability: [Architecture Backlog 22 — Heby Guided Learning Mode](../../architecture-backlog/22-heby-guided-learning-mode.md).
+That item adds the lesson dimension and its deferral gate; it does **not** redefine the
+architecture, the anchors, the invariants, or the boundaries fixed here, which continue to
+govern. Recording it authorizes nothing.
+
 ---
 
 ## 6. Heby Placement Model

@@ -38,6 +38,7 @@ Reasoning, analysis, and learning over organizational data.
 - [16 Organizational Simulation](16-organizational-simulation.md)
 - [17 Cost Intelligence](17-cost-intelligence.md)
 - [19 Learning Engine](19-learning-engine.md)
+- [23 Director Digital Twin](23-director-digital-twin.md)
 
 ### Experience
 
@@ -49,6 +50,9 @@ User-facing surfaces and authoring tools. Presentation depends on the layers bel
 - [15 Workflow Designer](15-workflow-designer.md)
 - [20 Marketplace](20-marketplace.md)
 - [21 Enterprise System Map (Digital Twin)](21-enterprise-system-map.md)
+- [22 Heby Guided Learning Mode](22-heby-guided-learning-mode.md)
+
+Two items carry the phrase "digital twin" and model different subjects: **21** is a twin of the *organization*; **23** is a twin of the *Director*. They are not variants of one capability — see [23](23-director-digital-twin.md) for why the separation is load-bearing.
 
 ## What this is
 
@@ -109,3 +113,5 @@ Past approvals do not carry forward. Each promotion is its own gate.
 | 07 | [Voice Layer](07-voice-layer.md) | Medium | Planned |
 | 08 | [AI Transformation Playbook Engine](08-ai-transformation-playbook-engine.md) | Medium | Planned |
 | 21 | [Enterprise System Map (Digital Twin)](21-enterprise-system-map.md) | Future | Planned |
+| 22 | [Heby Guided Learning Mode](22-heby-guided-learning-mode.md) | Future | Planned — architecture-prerequisite-gated |
+| 23 | [Director Digital Twin](23-director-digital-twin.md) | Future | Planned — prerequisite-gated |
