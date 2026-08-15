@@ -39,6 +39,7 @@ Reasoning, analysis, and learning over organizational data.
 - [17 Cost Intelligence](17-cost-intelligence.md)
 - [19 Learning Engine](19-learning-engine.md)
 - [23 Director Digital Twin](23-director-digital-twin.md)
+- [24 Hebun Self-Evolution System](24-hebun-self-evolution-system.md)
 
 ### Experience
 
@@ -53,6 +54,8 @@ User-facing surfaces and authoring tools. Presentation depends on the layers bel
 - [22 Heby Guided Learning Mode](22-heby-guided-learning-mode.md)
 
 Two items carry the phrase "digital twin" and model different subjects: **21** is a twin of the *organization*; **23** is a twin of the *Director*. They are not variants of one capability — see [23](23-director-digital-twin.md) for why the separation is load-bearing.
+
+**24 is the only item whose subject is Hebun itself.** Every other capability here improves the customer's organization; [24](24-hebun-self-evolution-system.md) improves the product. It is a participant in the [Capability Lifecycle](00-capability-lifecycle.md), never a replacement for it — see that record for why the distinction is load-bearing.
 
 ## What this is
 
@@ -115,3 +118,4 @@ Past approvals do not carry forward. Each promotion is its own gate.
 | 21 | [Enterprise System Map (Digital Twin)](21-enterprise-system-map.md) | Future | Planned |
 | 22 | [Heby Guided Learning Mode](22-heby-guided-learning-mode.md) | Future | Planned — architecture-prerequisite-gated |
 | 23 | [Director Digital Twin](23-director-digital-twin.md) | Future | Planned — prerequisite-gated |
+| 24 | [Hebun Self-Evolution System](24-hebun-self-evolution-system.md) | Future | Planned — prerequisite-gated |

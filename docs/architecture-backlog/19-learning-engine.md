@@ -21,6 +21,8 @@ The Learning Engine reads history and produces improved patterns; it does not st
 
 Its output is declarative: captured patterns, weighted by outcome, consumable by the Consultant and Recommendation Engine. It improves reasoning by supplying better inputs, never by acting directly on the organization.
 
+**Its subject is the customer's organization, not Hebun.** Improving the Hebun product from its own usage and failure signals belongs to [24 — Hebun Self-Evolution System](24-hebun-self-evolution-system.md). The two learn from different records, answer to different authorities, and must not be merged.
+
 ## Dependencies
 
 - [09 — Director Memory](09-director-memory.md) — the historical record it learns from
