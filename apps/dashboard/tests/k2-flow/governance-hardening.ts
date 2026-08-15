@@ -252,12 +252,14 @@ function main(): void {
       exported.sort(),
       [
         "createKnowledgeAction",
+        "ingestKnowledgeAction",
         "ratifyKnowledgeVersionAction",
         "readKnowledgeVersionsAction",
         "rejectKnowledgeVersionAction",
         "supersedeKnowledgeAction",
       ],
-      "create, supersede, ratify, reject, plus one read. No delete, no edit, no rollback.",
+      "create, ingest, supersede, ratify, reject, plus one read. Ingest is create-class: many\n"
+      + "facts through the same writer, never an edit. No delete, no edit, no rollback.",
     );
   }
 

@@ -114,12 +114,31 @@ export function normalizeStatement(value: string): string {
 }
 
 /** The normalized input a validated request carries forward. */
+/**
+ * How one chunk relates to the source a human ingested.
+ *
+ * Present ONLY on facts created by ingestion. A hand-authored fact omits it, and the writer then
+ * records exactly the provenance it always did — so this cannot make an authored fact look ingested,
+ * or the reverse.
+ */
+export interface IngestionProvenance {
+  readonly sourceTitle: string;
+  /** The only value this slice can produce. A wider union waits for a surface that earns it. */
+  readonly sourceType: "plain-text";
+  /** SHA-256 of the normalized source. Identity of the CONTENT, not of the file or the title. */
+  readonly sourceDigest: string;
+  readonly chunkIndex: number;
+  readonly chunkCount: number;
+}
+
 export interface NormalizedKnowledgeInput {
   readonly factKey: string;
   readonly domainKey: string;
   readonly scope: KnowledgeScope;
   readonly title: string;
   readonly statement: string;
+  /** Set by ingestion only. Absent for a hand-authored fact. */
+  readonly ingestion?: IngestionProvenance;
 }
 
 export type KnowledgeValidation =

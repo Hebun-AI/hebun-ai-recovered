@@ -249,10 +249,10 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
   /* ── Knowledge (K1) ───────────────────────────────────────────────────────
    * `/knowledge` and `/source` READ the canonical Knowledge authority — knowledge_facts joined
    * to its active knowledge_nodes row, tenant-scoped over the durable control-plane database.
-   * That path is real, so these commands run; what they report is the tenant's REAL state,
-   * which today is empty because no ingestion path exists to put knowledge there. Reporting an
-   * empty organization honestly is the point. `/search` stays unavailable because search has no
-   * authority at all — see NO_SEARCH_AUTHORITY.
+   * That path is real, so these commands run; what they report is the tenant's REAL state, which
+   * is empty until somebody ingests plain text through the Knowledge workspace. Reporting an empty
+   * organization honestly is the point. `/search` stays unavailable because search has no
+   * authority at all — being readable is not being findable — see NO_SEARCH_AUTHORITY.
    */
   {
     id: "knowledge", slash: "/knowledge", label: "Knowledge", category: "knowledge", kind: "read",

@@ -10,6 +10,11 @@ import {
   supersedeKnowledgeFact,
   type SupersedeKnowledgeResult,
 } from "@/features/knowledge/knowledge-supersede.server";
+import {
+  ingestKnowledgeSource,
+  type IngestKnowledgeResult,
+} from "@/features/knowledge/knowledge-ingest.server";
+import type { IngestKnowledgeInput } from "@/features/knowledge/ingestion-contracts";
 import { readKnowledgeVersionHistory } from "@/features/knowledge/knowledge-version-history.server";
 import type { KnowledgeVersionHistory } from "@/features/knowledge/supersede-contracts";
 import {
@@ -45,6 +50,35 @@ export async function createKnowledgeAction(input: {
   const tenant = await resolveTenantContext();
   const result = await createKnowledgeFact(tenant, input);
   if (result.status === "created") revalidatePath("/knowledge");
+  return result;
+}
+
+/**
+ * The INGESTION boundary: one plain-text source becomes N provisional Knowledge facts.
+ *
+ * It is the same authority as `createKnowledgeAction` and deliberately not a new one — the tenant,
+ * actor and role band are resolved server-side from the R1 session, and the client input carries
+ * content only. What it adds is quantity and atomicity: a source becomes many facts, and they commit
+ * together or not at all.
+ *
+ * INGESTED IS NOT RATIFIED. Every row lands `draft`/`provisional`, exactly as an authored fact does,
+ * and nothing here can reach K4. Nothing here reads a file, fetches a URL, calls a model, or embeds
+ * anything — the source text arrives as text the human pasted.
+ */
+export async function ingestKnowledgeAction(input: {
+  sourceTitle: string;
+  sourceText: string;
+  domainKey: string;
+  scope: string;
+}): Promise<IngestKnowledgeResult> {
+  const tenant = await resolveTenantContext();
+  const result = await ingestKnowledgeSource(tenant, {
+    sourceTitle: input?.sourceTitle ?? "",
+    sourceText: input?.sourceText ?? "",
+    domainKey: input?.domainKey ?? "",
+    scope: input?.scope as IngestKnowledgeInput["scope"],
+  });
+  if (result.status === "ingested") revalidatePath("/knowledge");
   return result;
 }
 

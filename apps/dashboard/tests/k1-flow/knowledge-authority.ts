@@ -226,11 +226,34 @@ function main(): void {
 
     assert.equal(findKnowledgeCapability("source-listing").state, "connected");
     assert.equal(findKnowledgeCapability("source-read").state, "connected");
-    // These are the claims K1 must NOT make.
+    /*
+     * Ingestion is connected because a governed plain-text path now writes canonical Knowledge
+     * through the K2 writer. It is the ONLY capability that has moved, and the block below holds
+     * its copy to the slice that actually exists — a connected state must not become a licence to
+     * imply upload, connectors or retrieval.
+     */
+    assert.equal(findKnowledgeCapability("ingestion").state, "connected");
+    // These are the claims K1 must STILL NOT make.
     assert.equal(findKnowledgeCapability("search").state, "not-connected");
     assert.equal(findKnowledgeCapability("semantic-retrieval").state, "not-connected");
-    assert.equal(findKnowledgeCapability("ingestion").state, "not-connected");
     assert.equal(findKnowledgeCapability("embeddings").state, "not-connected");
+
+    /* Connected does not mean wide: what ingestion claims stays inside the implemented slice. */
+    const ingestion = findKnowledgeCapability("ingestion");
+    for (const overclaim of [/upload/i, /\bfile\b/i, /\burl\b/i, /connector/i, /embedding/i, /semantic/i, /search/i]) {
+      assert.ok(
+        !overclaim.test(ingestion.canProve),
+        `ingestion must not claim ${overclaim} in what it CAN prove — none of it exists`,
+      );
+    }
+    assert.match(ingestion.canProve, /provisional/i, "and it states the standing it writes");
+    for (const denial of [/ratif/i, /upload/i, /url/i, /connector/i, /documents/i, /embedding/i, /semantic/i]) {
+      assert.match(
+        ingestion.cannotProve,
+        denial,
+        `ingestion must state ${denial} among the things it cannot prove`,
+      );
+    }
 
     assert.ok(hasConnectedKnowledgeCapability(), "at least one capability is genuinely connected");
     // Every capability must be able to state what it cannot prove.
@@ -322,7 +345,19 @@ function main(): void {
     assert.equal(empty.state, "unavailable", "an empty organization yields no evidence");
     assert.equal(empty.items.length, 0);
     assert.match(empty.unavailableReason!, /no knowledge records/i);
-    assert.match(empty.unavailableReason!, /no ingestion path/i, "and says why it is empty");
+    assert.match(
+      empty.unavailableReason!,
+      /read and is genuinely empty/i,
+      "and says the authority was READ, so an empty corpus is not a read failure",
+    );
+    /*
+     * AN EMPTY CORPUS IS NOT A MISSING CAPABILITY. This sentence used to claim no ingestion path
+     * existed; one does, and the negative lock is what stops that claim coming back.
+     */
+    assert.ok(
+      !/no ingestion path|nothing can add knowledge|nothing to ingest/i.test(empty.unavailableReason!),
+      "and never says ingestion is absent — it exists, and this is the person who could use it",
+    );
 
     const failed = toKnowledgeResolution({
       status: "unavailable",

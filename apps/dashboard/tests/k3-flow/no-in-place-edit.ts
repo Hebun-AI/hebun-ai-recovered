@@ -403,12 +403,14 @@ async function main(): Promise<void> {
       exported.sort(),
       [
         "createKnowledgeAction",
+        "ingestKnowledgeAction",
         "ratifyKnowledgeVersionAction",
         "readKnowledgeVersionsAction",
         "rejectKnowledgeVersionAction",
         "supersedeKnowledgeAction",
       ],
-      "create, correct, review, and read history — nothing else",
+      "create, ingest, correct, review, and read history — nothing else. Ingest writes many facts\n"
+      + "through the same create path; it cannot edit or roll anything back.",
     );
   }
 

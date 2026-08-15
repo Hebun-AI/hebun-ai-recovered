@@ -84,8 +84,13 @@ export function toKnowledgeResolution(listing: KnowledgeListing): SourceResoluti
       provenance: KNOWLEDGE_PROVENANCE,
       authoritative: false,
       items: [],
+      /*
+       * AN EMPTY CORPUS IS NOT A MISSING CAPABILITY, and this sentence must not confuse the two.
+       * It once said no ingestion path existed; one does now, so saying that would be false and
+       * would also hide the remedy from the person who could apply it.
+       */
       unavailableReason:
-        "Your organization holds no knowledge records. The canonical Knowledge authority was read and is empty — no ingestion path exists to put knowledge there yet.",
+        "Your organization holds no knowledge records. The canonical Knowledge authority was read and is genuinely empty — that is your organization's real state, not a read failure. Knowledge is put there through the Knowledge workspace, and none has been yet.",
     };
   }
 

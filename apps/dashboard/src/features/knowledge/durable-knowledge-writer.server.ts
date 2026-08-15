@@ -123,11 +123,30 @@ class SupersedeAbort extends Error {
   }
 }
 
+/**
+ * A transaction the writer may JOIN instead of opening its own.
+ *
+ * WHY THIS EXISTS. Ingestion turns one human source into N facts, and "6 of 12 chunks committed" is
+ * not a state the organization should ever hold. The caller therefore opens one transaction and
+ * hands it here, so every chunk and every audit row commits together or not at all.
+ *
+ * Typed as the database's own narrow surface — the same shape `AuditWriter` uses — so this module
+ * still does not know, and cannot care, how the transaction was opened.
+ */
+export type KnowledgeWriteTransaction = Pick<ControlPlaneDatabase, "select" | "insert">;
+
 export interface DurableKnowledgeWriter {
+  /**
+   * `tx` is optional and changes nothing for existing callers: omit it and this opens its own
+   * transaction exactly as before. Supply it and the write joins the caller's transaction — in which
+   * case a failure THROWS rather than returning a status, because a Postgres transaction is already
+   * aborted by then and the caller must roll the whole parent back rather than continue.
+   */
   createFact(
     actor: KnowledgeWriteActor,
     input: NormalizedKnowledgeInput,
     now?: Date,
+    tx?: KnowledgeWriteTransaction,
   ): Promise<DurableKnowledgeWriteResult>;
   /**
    * Correct an existing fact by creating a NEW version that supersedes the active one. There is no
@@ -148,7 +167,7 @@ export interface DurableKnowledgeWriter {
 
 export function createDurableKnowledgeWriter(db: ControlPlaneDatabase): DurableKnowledgeWriter {
   return {
-    async createFact(actor, input, now = new Date()) {
+    async createFact(actor, input, now = new Date(), tx) {
       // Minted up front so the governed identity is stable across ALL outcomes — see the field doc.
       const factId = randomUUID();
       let identity: CreatedKnowledgeIdentity = {
@@ -157,11 +176,17 @@ export function createDurableKnowledgeWriter(db: ControlPlaneDatabase): DurableK
         domainKey: input.domainKey,
         scope: input.scope,
       };
+      /*
+       * Reads go through the caller's transaction when there is one, so a chunk sees the siblings
+       * its own ingestion has already written. Against `db` it would not, and an ingestion whose
+       * chunks collide with each other would commit anyway.
+       */
+      const reader = tx ?? db;
 
       // A pre-check gives the operator a clean refusal instead of a database error. It is NOT the
       // safety mechanism — the unique index is, and the catch below handles a lost race.
       try {
-        const existing = await db
+        const existing = await reader
           .select({ id: knowledgeFacts.id })
           .from(knowledgeFacts)
           .where(
@@ -183,8 +208,14 @@ export function createDurableKnowledgeWriter(db: ControlPlaneDatabase): DurableK
         };
       }
 
-      try {
-        await db.transaction(async (tx) => {
+      /*
+       * The canonical write, expressed once. It runs against whichever handle it is given — the
+       * caller's transaction, or the one opened just below — so there is exactly one copy of the
+       * insert logic and no second writer.
+       */
+      const writeWithin = async (handle: KnowledgeWriteTransaction) => {
+        {
+          const tx = handle;
           const inserted = await tx
             .insert(knowledgeNodes)
             .values({
@@ -205,12 +236,42 @@ export function createDurableKnowledgeWriter(db: ControlPlaneDatabase): DurableK
                * themselves or pasted something a model produced. `textOriginUnverified` says so
                * rather than asserting a purely human origin Hebun cannot verify.
                */
-              provenance: {
-                origin: "human-authored",
-                authoredThrough: "hebun-knowledge-workspace",
-                submittedAt: now.toISOString(),
-                textOriginUnverified: true,
-              },
+              /*
+               * An INGESTED chunk says so, and says which source it came from. What it still does
+               * not claim is any stronger than before: `textOriginUnverified` stays true, because a
+               * paste is a paste whether it arrived one fact or forty at a time.
+               */
+              provenance: input.ingestion
+                ? {
+                    origin: "human-ingested",
+                    authoredThrough: "hebun-knowledge-workspace",
+                    submittedAt: now.toISOString(),
+                    textOriginUnverified: true,
+                    sourceType: input.ingestion.sourceType,
+                    sourceDigest: input.ingestion.sourceDigest,
+                    chunkIndex: input.ingestion.chunkIndex,
+                    chunkCount: input.ingestion.chunkCount,
+                  }
+                : {
+                    origin: "human-authored",
+                    authoredThrough: "hebun-knowledge-workspace",
+                    submittedAt: now.toISOString(),
+                    textOriginUnverified: true,
+                  },
+              /*
+               * The human's own name for what they ingested, kept apart from `provenance` because it
+               * is the SOURCE's attribution rather than a statement about how Hebun received it.
+               * Null for an authored fact, which has no source beyond the author.
+               */
+              sourceAttribution: input.ingestion
+                ? {
+                    sourceTitle: input.ingestion.sourceTitle,
+                    sourceType: input.ingestion.sourceType,
+                    ingestedByActorType: "human",
+                    ingestedByActorId: actor.userId,
+                    ingestedAt: now.toISOString(),
+                  }
+                : null,
               createdBy: actor.userId,
               createdByType: "human",
               updatedBy: actor.userId,
@@ -264,10 +325,27 @@ export function createDurableKnowledgeWriter(db: ControlPlaneDatabase): DurableK
             },
             now,
           );
-        });
+        }
+      };
+
+      try {
+        if (tx) {
+          // Joining the caller's transaction: no nested transaction, and no catch of our own —
+          // see below.
+          await writeWithin(tx);
+        } else {
+          await db.transaction(writeWithin);
+        }
       } catch (error) {
-        // A duplicate that slipped past the pre-check surfaces here. The transaction has already
-        // rolled back, so no orphaned node and no audit row exist.
+        /*
+         * INSIDE A CALLER'S TRANSACTION, A FAILURE MUST NOT BECOME A RETURN VALUE. Postgres has
+         * already aborted that transaction, so every later statement on it would fail too; handing
+         * back `duplicate`/`failed` would invite the caller to carry on inside a dead transaction
+         * and commit a partial ingestion. The caller gets the throw and rolls its own parent back.
+         */
+        if (tx) throw error;
+        // Standalone: the transaction has already rolled back, so no orphaned node and no audit row
+        // exist. A duplicate that slipped past the pre-check surfaces here.
         if (isUniqueViolation(error)) return { status: "duplicate", identity };
         return {
           status: "failed",

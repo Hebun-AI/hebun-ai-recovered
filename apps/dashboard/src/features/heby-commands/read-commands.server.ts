@@ -21,10 +21,10 @@
  *   /knowledge /source                     (K1) the canonical Knowledge authority — knowledge_facts
  *                                         joined to its active knowledge_nodes row, read
  *                                         tenant-scoped over the durable control-plane database. It
- *                                         reports the tenant's REAL knowledge, which stays empty
- *                                         until an ingestion path exists, and it states each
- *                                         Knowledge capability SEPARATELY rather than collapsing
- *                                         them into "Knowledge connected".
+ *                                         reports the tenant's REAL knowledge — empty until somebody
+ *                                         ingests some — and it states each Knowledge capability
+ *                                         SEPARATELY rather than collapsing them into
+ *                                         "Knowledge connected".
  *
  * Commands with no source never reach this module: the registry marks them unavailable and the
  * pure planner refuses them before any server call is made.
@@ -99,12 +99,24 @@ const OVERVIEW_PROVENANCE =
   "Executive Overview read model — derived and non-authoritative. It is not a live execution feed.";
 
 /**
- * K1 — the honest closing note for every Knowledge read. It states the two things an operator
- * would otherwise have to infer: nothing can ADD knowledge to Hebun today, and settled
- * knowledge never speaks for the current runtime.
+ * K1 — the honest closing note for every Knowledge read. It states the three things an operator
+ * would otherwise have to infer: how knowledge gets in and what standing it arrives with, that
+ * being readable is not being findable, and that settled knowledge never speaks for the current
+ * runtime.
+ *
+ * It once opened by saying no ingestion path existed. One does, so that line was a lie appended to
+ * every Knowledge read — including reads of records somebody had just ingested.
+ *
+ * DELIBERATELY WORDED WITHOUT THE R-WORD — and this comment observes the same rule, because the
+ * rule is about the FILE. The g2 and k4 firewalls forbid any `heby-commands` file from naming a
+ * Governance approval mutation, so that Heby can never look like it offers one, and they scan the
+ * raw file: a denial reads the same as an offer to a regular expression. The standing is stated
+ * here as "provisional draft, stored but not reviewed"; the formal version lives where it belongs,
+ * in the Knowledge capability map's `cannotProve`, which this command already renders.
  */
 const KNOWLEDGE_CLOSING = [
-  "No ingestion path exists, so nothing can add knowledge to Hebun yet — an empty result means your organization has none stored, not that a read failed.",
+  "Plain text is ingested through the Knowledge workspace and lands as a provisional draft — stored is not reviewed, and nobody has endorsed it by putting it there. An empty result means your organization has none stored, not that a read failed.",
+  "There is no search, embedding or semantic retrieval over it: knowledge here is readable, not findable by meaning.",
   "Knowledge describes its own subject. It never states what the system is doing now; for that, the live read models remain the source.",
 ] as const;
 
@@ -309,9 +321,9 @@ export async function runHebyReadCommand(
 
     /* ── Knowledge (K1) ───────────────────────────────────────────────────
      * A truthful view of the Knowledge the tenant actually holds, plus each Knowledge
-     * capability stated SEPARATELY. It never says "Knowledge connected": listing and named-source
-     * read are connected, search, semantic retrieval, ingestion and embeddings are not, and
-     * collapsing those into one word would be the lie this command exists to avoid.
+     * capability stated SEPARATELY. It never says "Knowledge connected": listing, named-source
+     * read and plain-text ingestion are connected, search, semantic retrieval and embeddings are
+     * not, and collapsing those into one word would be the lie this command exists to avoid.
      */
     case "knowledge": {
       const report = await readKnowledgeAvailability(tenant, deps.knowledge);

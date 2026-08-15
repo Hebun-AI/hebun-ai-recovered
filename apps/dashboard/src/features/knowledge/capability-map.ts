@@ -46,8 +46,14 @@ export type KnowledgeCapabilityId =
 /**
  * The honest state of one capability.
  *
- *   connected      a real read path exists over the canonical Knowledge authority.
+ *   connected      a real runtime path exists over the canonical Knowledge authority. Originally
+ *                  that meant a READ path, because reads were all K1 had; a governed WRITE path
+ *                  counts for the same reason, and Knowledge ingestion is the first one to.
  *   not-connected  the concept is defined, but no runtime path exists for it.
+ *
+ * `connected` says a path EXISTS. It says nothing about how wide, how mature, or how much the
+ * capability covers — that is what `canProve` and `cannotProve` are for, and why a capability may
+ * be connected through a deliberately narrow slice without the map overstating it.
  */
 export type KnowledgeCapabilityState = "connected" | "not-connected";
 
@@ -73,7 +79,7 @@ const CAPABILITIES: readonly KnowledgeCapabilityStatus[] = Object.freeze([
     canProve:
       "Which knowledge facts exist FOR YOUR ORGANIZATION, with their domain, scope, lifecycle, authority class and declared review dates.",
     cannotProve:
-      "That any knowledge exists at all — the read reports the tenant's real state, and today that state is empty because nothing writes knowledge.",
+      "That any knowledge exists at all — the read reports the tenant's real state, and an empty listing means the organization holds nothing, never that the read failed.",
   }),
   Object.freeze({
     capability: "source-read" as const,
@@ -105,15 +111,23 @@ const CAPABILITIES: readonly KnowledgeCapabilityStatus[] = Object.freeze([
     canProve: "Nothing — no semantic retrieval runtime exists.",
     cannotProve: "Similarity, nearest-neighbour matches, or semantic recall of any kind.",
   }),
+  /*
+   * CONNECTED THROUGH ONE DELIBERATELY NARROW SLICE. A human with the Knowledge write band pastes
+   * plain text in the Knowledge workspace, and it becomes canonical facts through the SAME writer
+   * that authors a single fact. That is a real runtime path, so `not-connected` would now be false.
+   * Everything the slice does NOT do is named in `cannotProve` rather than left to be assumed —
+   * the `documents` table is still unused, and no file, URL or connector can be ingested at all.
+   */
   Object.freeze({
     capability: "ingestion" as const,
     label: "Knowledge ingestion",
-    state: "not-connected" as const,
+    state: "connected" as const,
     authority:
-      "None. The `documents` table exists but has no consumer anywhere: no upload, no parser, no normalizer, no chunker, no storage binding, and no writer to knowledge_facts or knowledge_nodes.",
-    canProve: "Nothing — no knowledge can enter Hebun through any path today.",
+      "The canonical Knowledge writer, reached through the governed ingestion path in the Knowledge workspace — the same durable write authority band that authors a single fact, writing the same knowledge_facts and knowledge_nodes rows inside one transaction with its audit history.",
+    canProve:
+      "That plain text a permitted human pasted is now held as canonical knowledge records, split deterministically, attributed to its source title and to the person who ingested it, and standing as PROVISIONAL drafts.",
     cannotProve:
-      "That the organization's documents, policies, or procedures are known to Hebun. None of them has been ingested, because there is nothing to ingest them with.",
+      "That anything ingested was reviewed, approved or ratified — ingesting is not ratifying. That any file was uploaded, or any URL, connector or stored document ingested: there is no upload path at all, only pasted plain text, and the `documents` table still has no consumer. That ingested knowledge is findable by meaning, which needs the search, semantic-retrieval and embedding capabilities this map still reports as not connected.",
   }),
   Object.freeze({
     capability: "embeddings" as const,

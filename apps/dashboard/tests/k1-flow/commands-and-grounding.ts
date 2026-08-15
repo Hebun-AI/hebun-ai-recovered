@@ -196,8 +196,45 @@ async function main(): Promise<void> {
     assert.match(body, /security-policy/, "the tenant's real record is listed");
     assert.match(body, /authoritative/, "with its authority class intact");
     assert.match(body, /freshness: within-cadence/, "and its derived freshness");
-    assert.match(body, /Not connected \(4\)/, "the four unconnected capabilities are named");
-    assert.match(body, /No ingestion path exists/, "and ingestion is stated as absent");
+    /*
+     * THREE, NOT FOUR — and only because ingestion moved. Search, semantic retrieval and
+     * embeddings are still absent and still named; the count changed for exactly one reason, and
+     * the assertions below pin that reason rather than accepting any smaller number.
+     */
+    assert.match(body, /Not connected \(3\)/, "the three unconnected capabilities are named");
+    for (const stillAbsent of [/Knowledge search/, /Semantic retrieval/, /Embeddings/]) {
+      assert.match(body, stillAbsent, `${stillAbsent} is still reported as not connected`);
+    }
+    assert.match(
+      body,
+      /Knowledge ingestion — can show:/,
+      "and ingestion is reported as CONNECTED, because a governed ingestion path now exists",
+    );
+    assert.ok(
+      !/no ingestion path exists|nothing can add knowledge/i.test(body),
+      "the obsolete claim that nothing can add knowledge is gone — it would contradict the card " +
+        "that adds it",
+    );
+    /*
+     * The standing reaches the operator through the capability map's `cannotProve`, NOT through
+     * the command file: g2/k4 forbid any `heby-commands` file from naming a ratification mutation
+     * at all, denial included. The closing carries the plain-language half instead.
+     */
+    assert.match(
+      body,
+      /ingesting is not ratifying/i,
+      "the capability map states that ingested is not ratified",
+    );
+    assert.match(
+      body,
+      /provisional draft — stored is not reviewed/i,
+      "and the closing states the standing in words the Heby firewall permits",
+    );
+    assert.match(
+      body,
+      /no search, embedding or semantic retrieval/i,
+      "and still states that readable is not findable",
+    );
     assert.ok(
       !body.toLowerCase().includes("knowledge connected."),
       "it never collapses into 'Knowledge connected'",

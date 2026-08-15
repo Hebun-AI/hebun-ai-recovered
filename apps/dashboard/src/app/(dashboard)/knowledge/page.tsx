@@ -1,5 +1,6 @@
 import { KnowledgeWorkspace } from "@/components/knowledge-workspace/knowledge-workspace";
 import { KnowledgeAuthoringCard, type KnowledgeAuthoringBlock } from "@/components/knowledge-workspace/knowledge-authoring-card";
+import { KnowledgeIngestionCard } from "@/components/knowledge-workspace/knowledge-ingestion-card";
 import { KnowledgeRecords } from "@/components/knowledge-workspace/knowledge-records";
 import { getKnowledgeWorkspaceModel } from "@/features/knowledge/workspace-model";
 import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server";
@@ -69,8 +70,14 @@ export default async function KnowledgePage() {
         <div className="min-w-0">
           <KnowledgeRecords listing={listing} canAuthor={block === undefined} />
         </div>
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-col gap-4">
           <KnowledgeAuthoringCard block={block} />
+          {/*
+            Ingestion sits beside authoring because it is the SAME authority doing the same kind of
+            act at a different scale — one paste instead of one sentence. The block is shared for
+            exactly that reason: whatever stops you authoring stops you ingesting.
+          */}
+          <KnowledgeIngestionCard block={block} />
         </div>
       </div>
       {reviewable.length > 0 ? (
