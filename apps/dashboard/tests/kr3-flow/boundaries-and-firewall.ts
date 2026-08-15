@@ -67,11 +67,27 @@ function main(): void {
 
   /* ── 2. NO TABLE, NO INDEX, NO MIGRATION, NO EXTENSION ─────────────────── */
   {
+    /*
+     * KR3 ADDED NO MIGRATION — a claim about KR3, not about the repository forever.
+     *
+     * This asserted a global count of 24 and that nothing sorted after KR3's boundary. Both were
+     * true when written and both are statements about the FUTURE, so the first later phase to pass
+     * Gate B legitimately broke them — which is a false failure, not a caught defect. The claim is
+     * now scoped to KR3's own window: the boundary it inherited is intact, and KR3 contributed
+     * nothing between that boundary and its own end. Later migrations are named, so a phase still
+     * cannot add schema silently.
+     */
     const migrations = readdirSync("src/db/migrations").filter((name) => name.endsWith(".sql"));
-    assert.equal(migrations.length, 24, "KR3 added no migration");
     const PHASE_BOUNDARY = "20260813090642_membership_role_tenant_integrity.sql";
-    assert.ok(migrations.includes(PHASE_BOUNDARY), "the last migration is intact");
-    assert.ok(migrations.every((name) => name <= PHASE_BOUNDARY), "and nothing was added after it");
+    assert.ok(migrations.includes(PHASE_BOUNDARY), "the migration KR3 inherited is intact");
+    assert.deepEqual(
+      migrations.filter((name) => name > PHASE_BOUNDARY).sort(),
+      [
+        /* KR5 historical answer evidence — a later Gate-B phase, declared rather than silent. */
+        "20260815202736_heby_answer_evidence.sql",
+      ],
+      "KR3 added no migration; everything after its boundary belongs to a declared later phase",
+    );
 
     /*
      * THE PRODUCTION RUNTIME MAY NOT CREATE ANYTHING. `create extension` and `create index` in

@@ -54,6 +54,7 @@ import {
   type PromptRejectionReason,
 } from "@/features/heby-runtime";
 import { readServerHebyOverview } from "@/features/heby-runtime/overview-source.server";
+import { toStoredEvidence } from "@/features/heby-conversation/answer-evidence";
 import {
   resolveConversationRepoOrNull,
   type ConversationScope,
@@ -464,19 +465,23 @@ export async function answerHebyModelRequest(
     response: answer.response,
     transportProvenance: answer.transportProvenance,
     modelResult: answer.modelResult,
+    knowledgeEvidence,
   });
 
   /*
-   * 8. KR4 — attach the derived evidence explanation, DELIBERATELY AFTER PERSISTENCE.
+   * 8. Attach the evidence explanation to the LIVE response.
    *
-   * The order is the guarantee. `persistExchange` above has already run against a response that
-   * does not carry this field, so the explanation cannot reach a durable row even by accident: a
-   * future writer would have to be given it on purpose. A derived presentation of a derivation has
-   * no business becoming a stored record, and "we simply never pass it to the writer" is a weaker
-   * promise than "the writer had already returned".
+   * KR4 attached this after persistence so it could not reach a durable row by accident, because
+   * nothing was allowed to store it. KR5 stores it ON PURPOSE — `persistExchange` above is given
+   * `knowledgeEvidence` explicitly, writes it inside the same transaction as the assistant message,
+   * and a reload replays those recorded rows instead of re-running retrieval.
    *
-   * Absent stays absent. When no retrieval ran there is no field, and the UI says so honestly
-   * rather than showing an empty evidence set that would read as "searched, found nothing".
+   * The response field itself is still assembled here rather than upstream: it is a presentation
+   * of a derivation, and the durable record is the storage-shaped projection, not this object.
+   *
+   * Absent stays absent. When no retrieval ran there is no field and no evidence set row, and the
+   * UI says so honestly rather than showing an empty set that would read as "searched, found
+   * nothing" — a distinction the persisted set now preserves across a reload.
    */
   const response =
     knowledgeEvidence === undefined
@@ -576,11 +581,34 @@ async function loadBoundedHistory(
 }
 
 /**
- * Persist the user + assistant exchange durably. Records ONLY what actually happened: the
- * assistant message carries provider/model/transport/usage provenance ONLY for a real model
- * answer, and never for a deterministic fallback — so no persisted row can imply provider
- * success that did not occur. A missing repository (not configured) or any thrown error yields
- * an honest non-durable disposition; it never silently degrades to memory or fakes durability.
+ * Persist the user + assistant exchange durably, IN ONE TRANSACTION with the historical evidence.
+ *
+ * Records ONLY what actually happened: the assistant message carries provider/model/transport/usage
+ * provenance ONLY for a real model answer, and never for a deterministic fallback — so no persisted
+ * row can imply provider success that did not occur. A missing repository (not configured) or any
+ * thrown error yields an honest non-durable disposition; it never silently degrades to memory or
+ * fakes durability.
+ *
+ * KR5 — ALL COMMIT OR NONE COMMIT.
+ *
+ * This used to be three independent awaits: create-or-resolve the conversation, append the user
+ * message, append the assistant message. A failure between the last two committed a question with
+ * no answer and then reported `durable: false`, so the honest disposition and the durable state
+ * disagreed. Adding evidence as a FOURTH independent write would have been worse: an assistant
+ * message that persisted while its evidence did not is indistinguishable, on reload, from an answer
+ * where retrieval never ran — which is precisely the false statement KR5 exists to prevent.
+ *
+ * The transaction is owned by the repository, which owns the database handle. There is one writer.
+ *
+ * EVIDENCE ADMISSION. The set persisted here is the server-produced `RetrievalEvidenceSet` for THIS
+ * answer, handed over as a runtime object. Model output never reaches it: nothing parses the
+ * response text for citations, so an invented reference has no path to a row. A client-supplied
+ * recordRef has none either — the client's only input to this call is an opaque conversation id
+ * that must already belong to the tenant.
+ *
+ * What the record claims is that this evidence was admitted to the model's grounding context and
+ * shown to the reader. It does NOT claim the model causally used any particular item; that is
+ * unobservable, and a record asserting it would be inventing proof.
  */
 async function persistExchange(
   repo: DurableConversationRepository | null,
@@ -591,41 +619,38 @@ async function persistExchange(
     readonly response: HebyRuntimeResponse;
     readonly transportProvenance?: "fake" | "live";
     readonly modelResult?: ModelGenerationResult;
+    readonly knowledgeEvidence?: RetrievalEvidenceSet;
   },
 ): Promise<DurableDisposition> {
   if (!repo) return { durable: false, reason: "not-configured" };
   try {
-    // A client-carried reference is honoured ONLY if the tenant owns it; otherwise a fresh
-    // server-owned conversation is created (the foreign reference grants no access).
-    const owned = args.providedConversationId
-      ? await repo.getConversation(args.scope, args.providedConversationId)
-      : undefined;
-    const conversationId = owned
-      ? owned.id
-      : (await repo.createConversation(args.scope, { subject: subjectFrom(args.userPrompt) })).id;
-
-    await repo.appendMessage(args.scope, {
-      conversationId,
-      role: "user",
-      content: args.userPrompt,
-      origin: "user",
-    });
-
     const isModel = args.response.origin === "model";
     const result = args.modelResult;
-    await repo.appendMessage(args.scope, {
-      conversationId,
-      role: "assistant",
-      content: args.response.body.join("\n"),
-      origin: isModel ? "model" : "deterministic",
-      provider: isModel ? result?.provider : undefined,
-      model: isModel ? result?.model : undefined,
-      transport: isModel ? args.transportProvenance : undefined,
-      correlationId: isModel ? result?.correlationId : undefined,
-      providerRequestId: isModel ? result?.providerRequestId : undefined,
-      inputTokens: isModel ? result?.inputTokens : undefined,
-      outputTokens: isModel ? result?.outputTokens : undefined,
-      tokenCount: isModel ? result?.totalTokens : undefined,
+
+    const { conversationId } = await repo.persistExchange(args.scope, {
+      // A client-carried reference is honoured ONLY if the tenant owns it; otherwise a fresh
+      // server-owned conversation is created (the foreign reference grants no access).
+      providedConversationId: args.providedConversationId,
+      subject: subjectFrom(args.userPrompt),
+      userContent: args.userPrompt,
+      assistant: {
+        role: "assistant",
+        content: args.response.body.join("\n"),
+        origin: isModel ? "model" : "deterministic",
+        provider: isModel ? result?.provider : undefined,
+        model: isModel ? result?.model : undefined,
+        transport: isModel ? args.transportProvenance : undefined,
+        correlationId: isModel ? result?.correlationId : undefined,
+        providerRequestId: isModel ? result?.providerRequestId : undefined,
+        inputTokens: isModel ? result?.inputTokens : undefined,
+        outputTokens: isModel ? result?.outputTokens : undefined,
+        tokenCount: isModel ? result?.totalTokens : undefined,
+      },
+      /*
+       * Absent when no retrieval ran. A set with zero items is NOT absent — it records that
+       * retrieval ran and matched nothing, which reload must be able to say out loud.
+       */
+      evidence: args.knowledgeEvidence ? toStoredEvidence(args.knowledgeEvidence) : undefined,
     });
 
     return { durable: true, conversationId };

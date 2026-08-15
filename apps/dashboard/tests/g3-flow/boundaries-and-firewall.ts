@@ -101,6 +101,14 @@ function main(): void {
          * required it to be declared here rather than appear silently.
          */
         "20260813090642_membership_role_tenant_integrity.sql",
+        /*
+         * KR5 historical answer evidence. Added by Gate B, for a different subsystem: two tables
+         * recording which Knowledge evidence was shown with one Heby answer, plus the composite
+         * unique on `messages` their tenant-safe foreign key requires. It writes no Governance
+         * table, creates no authority and grants none — declaring it here is exactly the review
+         * this allowlist exists to force.
+         */
+        "20260815202736_heby_answer_evidence.sql",
       ],
       "G3 adds no migration — authority is derived from decisions; only Gate-B migrations for other subsystems follow G2",
     );

@@ -280,29 +280,57 @@ export function run(): void {
     );
   }
 
-  /* ── 8. THE EVIDENCE EXPLANATION IS NEVER PERSISTED ────────────────────── */
+  /* ── 8. THE MESSAGE ROW ITSELF STILL STORES NO EVIDENCE ────────────────── */
   {
-    const answer = read(join(ROOT, "features", "heby-answer", "model-answer.server.ts"));
-    const persistAt = answer.indexOf("const persistence = await persistExchange");
-    const attachAt = answer.indexOf("knowledgeEvidence === undefined");
-    assert.ok(persistAt > 0 && attachAt > 0);
-    assert.ok(
-      attachAt > persistAt,
-      "the explanation is attached AFTER persistence — the writer had already returned, so it cannot be stored",
-    );
-
-    const schema = read(join(ROOT, "db", "schema", "conversation.ts"));
-    for (const banned of ["evidence", "knowledgeEvidence", "retrieval"]) {
-      assert.ok(!schema.includes(banned), `the message schema must not gain "${banned}" — KR4 stores nothing`);
+    /*
+     * KR5 SUPERSEDED HALF OF THIS ASSERTION, BY DIRECTOR DECISION.
+     *
+     * KR4 stored nothing, and proved it structurally: the explanation was attached to the response
+     * only AFTER `persistExchange` had returned, so no writer could reach it even by accident. KR5
+     * stores it on purpose — historical evidence is now written inside the same transaction as the
+     * assistant message, because a reloaded answer that cannot say what it was given is a worse
+     * failure than one that can.
+     *
+     * WHAT SURVIVES UNCHANGED is the part that was never about storage: the `messages` row gains no
+     * evidence column. Evidence lives in its own tables, keyed by message id, so the transcript
+     * table stays a transcript and does not become a place to put things.
+     */
+    const columns = read(join(ROOT, "db", "schema", "conversation.ts"))
+      .slice(read(join(ROOT, "db", "schema", "conversation.ts")).indexOf("export const messages"));
+    for (const banned of ["jsonb(", "evidence:", "knowledgeEvidence", "retrieval:"]) {
+      assert.ok(
+        !columns.includes(banned),
+        `the messages table must not gain "${banned}" — evidence has its own tables`,
+      );
     }
+
+    /* And the evidence that IS written comes from the runtime, never from the model's text. */
+    const answer = read(join(ROOT, "features", "heby-answer", "model-answer.server.ts"));
+    assert.ok(
+      answer.includes("evidence: args.knowledgeEvidence ? toStoredEvidence(args.knowledgeEvidence)"),
+      "the persisted set is the server-produced retrieval evidence for this answer",
+    );
+    assert.ok(
+      !/persistExchange[\s\S]{0,2000}response\.body[\s\S]{0,200}(citation|parse|match\()/i.test(answer),
+      "nothing parses the response text to decide what evidence was used",
+    );
   }
 
-  /* ── 9. NO SCHEMA, NO MIGRATION, NO WRITER ─────────────────────────────── */
+  /* ── 9. KR4 ADDED NO MIGRATION, AND THE EVIDENCE LAYER STILL WRITES NOTHING ─ */
   {
+    /*
+     * Phase-scoped, not a global count. KR4 genuinely added no migration; KR5 later added one
+     * through Gate B, which cannot be allowed to falsify a claim that was never about it.
+     */
     const files = readdirSync(MIGRATIONS).filter((name) => name.endsWith(".sql"));
-    assert.equal(files.length, 24, "KR4 adds no migration");
+    const PHASE_BOUNDARY = "20260813090642_membership_role_tenant_integrity.sql";
+    assert.ok(files.includes(PHASE_BOUNDARY), "the migration KR4 inherited is intact");
+    assert.deepEqual(
+      files.filter((name) => name > PHASE_BOUNDARY).sort(),
+      ["20260815202736_heby_answer_evidence.sql"],
+      "KR4 adds no migration; what follows is a declared later phase",
+    );
     const journal = JSON.parse(read(join(MIGRATIONS, "meta", "_journal.json"))) as { entries: unknown[] };
-    assert.equal(journal.entries.length, 24, "and no journal entry");
     assert.equal(
       journal.entries.length,
       files.length,

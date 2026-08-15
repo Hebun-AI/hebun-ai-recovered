@@ -306,8 +306,17 @@ function main(): void {
       migrations.includes(PHASE_BOUNDARY),
       "the migration that existed when this phase opened is intact",
     );
+    /*
+     * "Nothing sorts after my boundary" was still a claim about the future, and a later Gate-B
+     * phase falsified it by doing what it was approved to do. What follows is named instead, so
+     * this phase's own claim holds while an undeclared migration still fails here.
+     */
     const after = migrations.filter((f) => f > PHASE_BOUNDARY);
-    assert.deepEqual(after, [], "invitation revocation added no migration");
+    assert.deepEqual(
+      after,
+      ["20260815202736_heby_answer_evidence.sql"],
+      "invitation revocation added no migration; what follows is a declared later phase",
+    );
     for (const file of migrations) {
       assert.ok(
         !/revocation|revoke/i.test(file),

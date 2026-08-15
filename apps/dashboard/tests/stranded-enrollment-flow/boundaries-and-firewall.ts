@@ -250,10 +250,15 @@ function main(): void {
       .filter((f) => f.endsWith(".sql"))
       .sort();
     assert.ok(migrations.includes(PHASE_BOUNDARY), "the last migration is intact");
+    /*
+     * Phase-scoped was the right instinct, but an empty list beyond the boundary still asserted
+     * something about every phase that would ever follow. Naming the later Gate-B migration keeps
+     * this phase's claim exact and still fails on an undeclared one.
+     */
     assert.deepEqual(
       migrations.filter((f) => f > PHASE_BOUNDARY),
-      [],
-      "stranded-enrollment recovery added no migration",
+      ["20260815202736_heby_answer_evidence.sql"],
+      "stranded-enrollment recovery added no migration; what follows is a declared later phase",
     );
     for (const file of migrations) {
       assert.ok(

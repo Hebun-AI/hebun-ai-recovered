@@ -99,6 +99,20 @@ export interface RetrievalEvidenceItem {
   readonly domainKey: string;
   readonly scope: KnowledgeSourceRecord["scope"];
 
+  /*
+   * KR5 — DURABLE IDENTITY, carried for history rather than for display.
+   *
+   * `recordRef` (domainKey/factKey) is the reference the validator matches on, and it is NOT
+   * version-pinned: after a supersession the same recordRef resolves to different text. These two
+   * uuids are, which is what lets a historical evidence row say WHICH version an answer used
+   * instead of merely which fact. `knowledgeNodeId` is nullable because the canonical fact registry
+   * allows a fact with no active node.
+   *
+   * Nothing renders them. They exist so the historical record can be exact.
+   */
+  readonly factId: string;
+  readonly knowledgeNodeId: string | null;
+
   /* CONTENT */
   readonly title: string;
   /** A bounded excerpt of the statement. `null` when the record carries none. */
@@ -224,6 +238,9 @@ function itemOf(
     factKey: record.factKey,
     domainKey: record.domainKey,
     scope: record.scope,
+
+    factId: record.factId,
+    knowledgeNodeId: record.activeKnowledgeNodeId,
 
     title: record.title,
     excerpt,

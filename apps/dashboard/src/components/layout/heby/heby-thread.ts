@@ -2,12 +2,17 @@
  * heby-thread.ts — pure thread composition (H1C). No React, no actions, no authority.
  *
  * Composes the rendered `turns` from the DURABLE messages (the sole transcript authority) plus,
- * only when the latest answer was not durably saved, a single ephemeral session-only turn.
- * Evidence + a richer provider-state provenance are attached to the newest Heby turn; restored
- * history shows provenance from its own durable origin/transport (evidence is not persisted). No
- * database id is ever placed into rendered content — ids are React keys only.
+ * only when the latest answer was not durably saved, a single ephemeral session-only turn. A
+ * richer provider-state provenance is attached to the newest Heby turn; restored history shows
+ * provenance from its own durable origin/transport. No database id is ever placed into rendered
+ * content — ids are React keys only.
+ *
+ * KR5 — a restored Heby turn now carries the evidence RECORDED WITH IT. Which set is shown is
+ * decided here and nowhere else: a historical turn shows its own stored rows, and only the turn
+ * that is this session's latest answer shows the live set.
  */
 import type { HebyRuntimeResponse } from "@/features/heby-runtime";
+import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
 import type { HebyTurnView } from "./heby-turns";
 import { describeMessageProvenance, deriveLatestProvenance } from "./heby-provenance";
 
@@ -18,6 +23,8 @@ export interface ThreadMessage {
   readonly content: string;
   readonly origin?: string | null;
   readonly transport?: string | null;
+  /** KR5 — the historical evidence stored with this message, when retrieval ran for it. */
+  readonly knowledgeEvidence?: RetrievalEvidenceSet;
 }
 
 export interface LatestTurn {
@@ -39,13 +46,20 @@ export function buildTurns(
       provenance: isHeby ? describeMessageProvenance(message.origin, message.transport) : null,
       durable: true,
       /*
-       * KR4. Every restored Heby turn starts HISTORICAL, and only the one that is this session's
-       * latest answer is cleared below. No evidence snapshot is stored, so a reloaded answer has
-       * none — and re-running retrieval now would return today's records, not the ones that
-       * produced this text. The flag lets the UI say "not retained" instead of quietly showing a
-       * different result set as if it were the original.
+       * Every restored Heby turn starts HISTORICAL, and only the one that is this session's latest
+       * answer is cleared below.
+       *
+       * KR4 used this to say "not retained", because nothing was stored and re-running retrieval
+       * would have returned today's records rather than the ones that produced this text. KR5
+       * stores them, so the flag now means something stronger: the evidence below is what was
+       * recorded WITH this answer, not what Knowledge holds today. The turn stays historical
+       * precisely BECAUSE it carries evidence — the framing is what stops a preserved snapshot
+       * from being read as a current-state claim.
        */
       historical: isHeby ? true : undefined,
+      ...(isHeby && message.knowledgeEvidence
+        ? { knowledgeEvidence: message.knowledgeEvidence }
+        : {}),
     };
   });
 

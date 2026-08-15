@@ -19,6 +19,7 @@ import type {
   DurableConversationRecord,
   DurableConversationRepository,
   DurableMessageRecord,
+  StoredEvidenceSet,
 } from "../../src/features/heby-conversation/durable-conversation-repository.server";
 import type { ExecutiveOverviewLike } from "../../src/features/heby-runtime";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
@@ -55,12 +56,14 @@ interface RecordingRepo {
   readonly repo: DurableConversationRepository;
   readonly conversations: DurableConversationRecord[];
   readonly messages: DurableMessageRecord[];
+  readonly evidenceSets: StoredEvidenceSet[];
 }
 
 /** An in-memory recording repository. `failOn` forces a throw to prove failure semantics. */
 function recordingRepo(failOn?: "create" | "append"): RecordingRepo {
   const conversations: DurableConversationRecord[] = [];
   const messages: DurableMessageRecord[] = [];
+  const evidenceSets: StoredEvidenceSet[] = [];
   let seq = 0;
   const now = () => new Date("2026-08-10T00:00:00.000Z").toISOString();
   const repo: DurableConversationRepository = {
@@ -93,8 +96,57 @@ function recordingRepo(failOn?: "create" | "append"): RecordingRepo {
     async listConversationMessages(scope, conversationId) {
       return messages.filter((m) => m.conversationId === conversationId && m.tenantId === scope.tenantId);
     },
+    /*
+     * KR5. Models the atomic contract: the whole turn is staged locally and published only on
+     * success, so a simulated failure at ANY point leaves no conversation, no message and no
+     * evidence. `failOn: "append"` used to leave a user message behind — the orphan this phase
+     * closes — and the assertions below now prove it does not.
+     */
+    async persistExchange(scope: ConversationScope, input) {
+      if (failOn === "create") throw new Error("simulated create failure");
+      const existing = input.providedConversationId
+        ? conversations.find((c) => c.id === input.providedConversationId && c.tenantId === scope.tenantId)
+        : undefined;
+      const stagedConversation: DurableConversationRecord | undefined = existing
+        ? undefined
+        : { id: `conv-${++seq}`, tenantId: scope.tenantId, subject: input.subject, createdAt: now() };
+      const conversationId = existing?.id ?? stagedConversation!.id;
+
+      const build = (role: string, content: string, extra: Partial<DurableMessageRecord>): DurableMessageRecord => ({
+        id: `msg-${++seq}`, conversationId, tenantId: scope.tenantId, role, content,
+        origin: null, provider: null, model: null, transport: null, correlationId: null,
+        providerRequestId: null, inputTokens: null, outputTokens: null, tokenCount: null,
+        createdAt: now(), ...extra,
+      });
+      const staged = [
+        build("user", input.userContent, { origin: "user" }),
+        build("assistant", input.assistant.content, {
+          origin: input.assistant.origin ?? null,
+          provider: input.assistant.provider ?? null,
+          model: input.assistant.model ?? null,
+          transport: input.assistant.transport ?? null,
+          correlationId: input.assistant.correlationId ?? null,
+          providerRequestId: input.assistant.providerRequestId ?? null,
+          inputTokens: input.assistant.inputTokens ?? null,
+          outputTokens: input.assistant.outputTokens ?? null,
+          tokenCount: input.assistant.tokenCount ?? null,
+        }),
+      ];
+
+      // The failure lands AFTER both rows are built and BEFORE anything is published.
+      if (failOn === "append") throw new Error("simulated append failure");
+
+      if (stagedConversation) conversations.push(stagedConversation);
+      messages.push(...staged);
+      if (input.evidence) evidenceSets.push({ messageId: staged[1]!.id, ...input.evidence });
+      return { conversationId, assistantMessageId: staged[1]!.id };
+    },
+    async listAnswerEvidence(scope: ConversationScope, messageIds) {
+      const visible = new Set(messages.filter((m) => m.tenantId === scope.tenantId).map((m) => m.id));
+      return evidenceSets.filter((set) => messageIds.includes(set.messageId) && visible.has(set.messageId));
+    },
   };
-  return { repo, conversations, messages };
+  return { repo, conversations, messages, evidenceSets };
 }
 
 function baseDeps(rec: RecordingRepo, scenario: FakeClaudeScenario, overrides: Partial<HebyModelAnswerDeps> = {}): HebyModelAnswerDeps {
@@ -203,13 +255,22 @@ async function main(): Promise<void> {
     assert.equal(rec.messages.length, 0);
   }
 
-  // 8. Append failure → non-durable (persistence-failed).
+  // 8. Append failure → non-durable (persistence-failed), AND NOTHING PARTIAL SURVIVES.
   {
     const rec = recordingRepo("append");
     const result = await answerHebyModelRequest(input, baseDeps(rec, "success"));
     if (result.status !== "answered") throw new Error("expected answered");
     assert.equal(result.persistence.durable, false);
     if (!result.persistence.durable) assert.equal(result.persistence.reason, "persistence-failed");
+    /*
+     * KR5 closed a real orphan. Before the exchange became one transaction, a failure here left
+     * the user message committed and then reported `durable: false` — the honest disposition and
+     * the durable state disagreed, and the reader saw a question with no answer. Asserting zero
+     * rows is what keeps that from coming back.
+     */
+    assert.equal(rec.messages.length, 0, "a failed turn leaves no orphan user message");
+    assert.equal(rec.conversations.length, 0, "a failed turn leaves no empty conversation");
+    assert.equal(rec.evidenceSets.length, 0, "a failed turn leaves no evidence");
   }
 
   // 9. Unauthenticated → unauthorized, NO persistence attempted.

@@ -302,13 +302,24 @@ function main(): void {
 
   /* ── 10. NO SCHEMA, NO MIGRATION ───────────────────────────────────────── */
   {
+    /*
+     * INGESTION ADDED NO MIGRATION — scoped to this phase, not to the repository forever.
+     *
+     * The global count and the "nothing sorts after my boundary" check were both claims about the
+     * future, and a later Gate-B phase broke them by doing exactly what it was approved to do.
+     * Scoping to this phase's own window keeps the real guarantee while naming what legitimately
+     * followed, so silent schema still cannot slip past.
+     */
     const migrations = readdirSync("src/db/migrations").filter((name) => name.endsWith(".sql"));
-    assert.equal(migrations.length, 24, "ingestion added no migration");
     const PHASE_BOUNDARY = "20260813090642_membership_role_tenant_integrity.sql";
-    assert.ok(migrations.includes(PHASE_BOUNDARY), "the last migration is intact");
-    assert.ok(
-      migrations.every((name) => name <= PHASE_BOUNDARY),
-      "and nothing was added after it",
+    assert.ok(migrations.includes(PHASE_BOUNDARY), "the migration ingestion inherited is intact");
+    assert.deepEqual(
+      migrations.filter((name) => name > PHASE_BOUNDARY).sort(),
+      [
+        /* KR5 historical answer evidence — a later Gate-B phase, declared rather than silent. */
+        "20260815202736_heby_answer_evidence.sql",
+      ],
+      "ingestion added no migration; everything after its boundary belongs to a declared later phase",
     );
     /* The columns ingestion uses all pre-date this phase. */
     const schema = read("src/db/schema/knowledge.ts");

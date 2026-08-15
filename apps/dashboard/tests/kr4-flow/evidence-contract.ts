@@ -12,6 +12,8 @@
  * No database, no network, no model, no clock of its own.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   EVIDENCE_EXCERPT_LIMIT,
   EVIDENCE_MAX_MATCHED_TERMS,
@@ -348,16 +350,57 @@ export function run(): void {
     assert.equal(item.domainKey, "izin");
   }
 
-  /* ── 16. NO DATABASE ID IS EXPOSED AS EVIDENCE ─────────────────────────── */
+  /* ── 16. NO GOVERNANCE ID IS EXPOSED, AND IDENTITY IS CARRIED BUT NOT SHOWN ─ */
   {
-    const serialized = JSON.stringify(buildRetrievalEvidence(matched([candidate()]), "izin"));
-    for (const internal of [
-      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", // factId
-      "nnnnnnnn-nnnn-4nnn-8nnn-nnnnnnnnnnnn", // activeKnowledgeNodeId
+    const set = buildRetrievalEvidence(matched([candidate()]), "izin");
+    const serialized = JSON.stringify(set);
+
+    /*
+     * These two never travel. A decision id or a session id in an evidence card would invite a
+     * reader to treat the card as a Governance record, which it is not and must never become.
+     */
+    for (const governance of [
       "dddddddd-dddd-4ddd-8ddd-dddddddddddd", // ratificationDecisionId
       "ssssssss-ssss-4sss-8sss-ssssssssssss", // governanceSessionId
     ]) {
-      assert.ok(!serialized.includes(internal), "internal row ids are not evidence a reader needs");
+      assert.ok(!serialized.includes(governance), "no Governance row id is evidence a reader needs");
+    }
+
+    /*
+     * KR5 CHANGED THIS, and the change is the point.
+     *
+     * KR4 banned `factId` and `activeKnowledgeNodeId` from the set on the grounds that a reader
+     * does not need internal ids. True — but the historical record does: `recordRef` is
+     * `domainKey/factKey` and is NOT version-pinned, so after a supersession it resolves to
+     * different text. Without these two, an answer's stored evidence could only say WHICH FACT it
+     * used, never which version, and a reload would have no way to prove it was not quietly
+     * showing today's reading.
+     *
+     * So they are carried — and the original concern still holds, unchanged: they are for history,
+     * not for display. Test 17 below pins that they never reach the screen.
+     */
+    const item = set.items[0]!;
+    assert.equal(item.factId, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "the fact's durable identity");
+    assert.equal(
+      item.knowledgeNodeId,
+      "nnnnnnnn-nnnn-4nnn-8nnn-nnnnnnnnnnnn",
+      "and the exact version that answered",
+    );
+  }
+
+  /* ── 17. THE DURABLE IDENTITY IS NEVER RENDERED ────────────────────────── */
+  {
+    /*
+     * The ids exist to make a historical row exact, and for nothing else. If the evidence panel
+     * ever printed one, KR4's original objection would be live again: a reader would be shown an
+     * internal row id they cannot verify, act on, or meaningfully read.
+     */
+    const panel = readFileSync(
+      join(process.cwd(), "src", "components", "layout", "heby", "heby-evidence.tsx"),
+      "utf8",
+    );
+    for (const identity of ["factId", "knowledgeNodeId"]) {
+      assert.ok(!panel.includes(identity), `the evidence panel must never render ${identity}`);
     }
   }
 }

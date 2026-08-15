@@ -81,10 +81,23 @@ function main(): void {
       entries: { tag: string }[];
     };
     assert.equal(journal.entries.length, files.length, "journal and SQL count agree");
+    /*
+     * This asserted the migration was the NEWEST journal entry, which stopped being this phase's
+     * business the moment a later Gate-B phase added one. What matters here is that the entry
+     * exists, is registered exactly once, and still sits where the directory listing puts it —
+     * a half-added migration fails all three, while a legitimate successor fails none.
+     */
+    const tag = MIGRATION.replace(/\.sql$/, "");
+    const tags = journal.entries.map((entry) => entry.tag);
     assert.equal(
-      journal.entries[journal.entries.length - 1]!.tag,
-      MIGRATION.replace(/\.sql$/, ""),
-      "and this migration is the newest entry",
+      tags.filter((entry) => entry === tag).length,
+      1,
+      "this migration is registered exactly once",
+    );
+    assert.equal(
+      tags.indexOf(tag),
+      files.indexOf(MIGRATION),
+      "and the journal orders it where the directory does",
     );
   }
 

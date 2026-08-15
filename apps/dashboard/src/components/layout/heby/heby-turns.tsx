@@ -136,12 +136,23 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
             {turn.knowledgeEvidence ? (
               <Disclosure
                 summary={
-                  turn.knowledgeEvidence.status === "matched"
-                    ? `Evidence (${turn.knowledgeEvidence.items.length})`
-                    : "Evidence"
+                  /*
+                   * KR5. A historical turn says so in the summary, before the panel is ever
+                   * opened — a reader scanning a restored thread should not have to expand a
+                   * disclosure to learn that what is inside is a record rather than a reading of
+                   * today's Knowledge.
+                   */
+                  `${turn.historical ? "Recorded evidence" : "Evidence"}${
+                    turn.knowledgeEvidence.status === "matched"
+                      ? ` (${turn.knowledgeEvidence.items.length})`
+                      : ""
+                  }`
                 }
               >
-                <HebyEvidencePanel set={turn.knowledgeEvidence} />
+                <HebyEvidencePanel
+                  set={turn.knowledgeEvidence}
+                  historical={turn.historical === true}
+                />
               </Disclosure>
             ) : turn.evidence && turn.evidence.length > 0 ? (
               <Disclosure summary={`Evidence (${turn.evidence.length})`}>

@@ -12,9 +12,13 @@
  * Server-only. Not re-exported from any client-importable index.
  */
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { conversations, messages } from "@/db/schema/conversation";
+import {
+  hebyAnswerEvidenceItems,
+  hebyAnswerEvidenceSets,
+} from "@/db/schema/heby-answer-evidence";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -70,6 +74,86 @@ export interface DurableMessageRecord {
   readonly createdAt: string;
 }
 
+/* ── KR5: historical answer evidence ────────────────────────────────────────
+ *
+ * Storage-shaped input, deliberately NOT the runtime's `RetrievalEvidenceSet`. The repository owns
+ * rows; the answer layer owns projections. Keeping the retrieval contract out of this file is what
+ * stops the storage schema from quietly becoming the retrieval contract's second definition.
+ */
+
+/** One historical evidence row: identity referenced, standing snapshot. */
+export interface AppendEvidenceItemInput {
+  readonly factId: string;
+  readonly knowledgeNodeId: string | null;
+  readonly domainKey: string;
+  readonly factKey: string;
+  readonly scope: string;
+
+  readonly title: string;
+  readonly excerpt: string | null;
+  readonly excerptTruncated: boolean;
+  readonly authorityClass: string | null;
+  readonly lifecycleStatus: string | null;
+  readonly ratified: boolean;
+  readonly ratifiedAt: Date | null;
+  readonly freshness: string;
+  readonly knowledgeVersion: number;
+  readonly factVersion: number;
+  readonly effectiveFrom: Date | null;
+  readonly effectiveUntil: Date | null;
+  readonly nextReviewAt: Date | null;
+  readonly origin: string | null;
+  readonly authoredThrough: string | null;
+  readonly textOriginUnverified: boolean | null;
+  readonly sourceTitle: string | null;
+  readonly sourceType: string | null;
+  readonly ingestedByActorType: string | null;
+  readonly ingestedAt: Date | null;
+  readonly chunkIndex: number | null;
+  readonly chunkCount: number | null;
+  readonly matchedTerms: readonly string[];
+
+  readonly ordinal: number;
+}
+
+/**
+ * The retrieval that produced one answer. Written whenever retrieval RAN — a zero-item set is a
+ * real statement ("ran, matched nothing"), not an absence.
+ */
+export interface AppendEvidenceSetInput {
+  readonly status: string;
+  readonly truncated: boolean;
+  readonly diversityPruned: number;
+  readonly excludedCount: number;
+  readonly degradedReason: string | null;
+  readonly multipleRelevantSources: boolean;
+  readonly unavailableReason: string | null;
+  readonly items: readonly AppendEvidenceItemInput[];
+}
+
+/** One complete Heby turn, persisted atomically. */
+export interface PersistExchangeInput {
+  /** Honoured only if the tenant owns it; otherwise a fresh conversation is created. */
+  readonly providedConversationId?: string;
+  /** Used only when a conversation is actually created. */
+  readonly subject: string;
+  readonly userContent: string;
+  readonly assistant: Omit<AppendMessageInput, "conversationId">;
+  /** Present only when a Knowledge retrieval actually ran for this turn. */
+  readonly evidence?: AppendEvidenceSetInput;
+}
+
+export interface PersistedExchange {
+  readonly conversationId: string;
+  readonly assistantMessageId: string;
+}
+
+/** The stored form of one historical evidence set, as read back for a reload. */
+export interface StoredEvidenceSet extends Omit<AppendEvidenceSetInput, "items"> {
+  readonly messageId: string;
+  readonly items: readonly AppendEvidenceItemInput[];
+}
+
 export class ConversationNotFoundError extends Error {
   readonly code = "CONVERSATION_NOT_FOUND";
   constructor() {
@@ -100,6 +184,23 @@ export interface DurableConversationRepository {
     scope: ConversationScope,
     conversationId: string,
   ): Promise<readonly DurableMessageRecord[]>;
+  /**
+   * KR5 — persist one whole Heby turn in ONE transaction: conversation (resolved or created),
+   * user message, assistant message, and the historical evidence set with its items.
+   *
+   * ALL COMMIT OR NONE COMMIT. This replaces a sequence of independent awaits that could leave a
+   * user message with no answer, and it is the reason evidence cannot exist without its assistant
+   * message or an assistant message silently lose its evidence.
+   */
+  persistExchange(
+    scope: ConversationScope,
+    input: PersistExchangeInput,
+  ): Promise<PersistedExchange>;
+  /** The historical evidence recorded with the given messages, keyed by assistant message id. */
+  listAnswerEvidence(
+    scope: ConversationScope,
+    messageIds: readonly string[],
+  ): Promise<readonly StoredEvidenceSet[]>;
 }
 
 function requireTenant(scope: ConversationScope): string {
@@ -144,18 +245,33 @@ function toMessage(row: typeof messages.$inferSelect): DurableMessageRecord {
 export function createDurableConversationRepository(
   db: ControlPlaneDatabase,
 ): DurableConversationRepository {
-  async function ownedConversation(
+  /**
+   * Ownership lookup against a given executor — the pooled handle, or a transaction.
+   *
+   * Parameterized rather than duplicated so the in-transaction check is provably the SAME check
+   * the non-transactional callers make. Two copies of a tenant predicate is how one of them
+   * eventually stops matching the other.
+   */
+  async function ownedConversationWith(
+    executor: Pick<ControlPlaneDatabase, "select">,
     tenantId: string,
     conversationId: string,
   ): Promise<DurableConversationRecord | undefined> {
     // A malformed id can never belong to the tenant — fail safe, do not query.
     if (!UUID_RE.test(conversationId)) return undefined;
-    const rows = await db
+    const rows = await executor
       .select()
       .from(conversations)
       .where(and(eq(conversations.id, conversationId), eq(conversations.tenantId, tenantId)))
       .limit(1);
     return rows[0] ? toConversation(rows[0]) : undefined;
+  }
+
+  async function ownedConversation(
+    tenantId: string,
+    conversationId: string,
+  ): Promise<DurableConversationRecord | undefined> {
+    return ownedConversationWith(db, tenantId, conversationId);
   }
 
   return {
@@ -193,6 +309,208 @@ export function createDurableConversationRepository(
         })
         .returning();
       return toMessage(rows[0]!);
+    },
+
+    async persistExchange(scope, input) {
+      const tenantId = requireTenant(scope);
+      /*
+       * ONE transaction, and conversation creation is INSIDE it on purpose.
+       *
+       * Leaving the create outside would trade one partial state for another: a rolled-back turn
+       * would strand an empty conversation row that the reader would see as a thread that never
+       * said anything. A conversation exists because a turn was recorded in it.
+       *
+       * The ownership check for a client-carried id is a read and rides along, so the id cannot be
+       * revalidated against a different snapshot than the one the insert lands in.
+       */
+      return db.transaction(async (tx) => {
+        const owned = input.providedConversationId
+          ? await ownedConversationWith(tx, tenantId, input.providedConversationId)
+          : undefined;
+
+        const conversationId =
+          owned?.id ??
+          (
+            await tx
+              .insert(conversations)
+              .values({ tenantId, subject: input.subject, createdBy: scope.actorId ?? null })
+              .returning()
+          )[0]!.id;
+
+        await tx.insert(messages).values({
+          tenantId,
+          conversationId,
+          role: "user",
+          content: input.userContent,
+          origin: "user",
+          createdBy: scope.actorId ?? null,
+        });
+
+        const assistant = input.assistant;
+        const assistantRows = await tx
+          .insert(messages)
+          .values({
+            tenantId,
+            conversationId,
+            role: assistant.role,
+            content: assistant.content,
+            origin: assistant.origin,
+            provider: assistant.provider ?? null,
+            model: assistant.model ?? null,
+            transport: assistant.transport ?? null,
+            correlationId: assistant.correlationId ?? null,
+            providerRequestId: assistant.providerRequestId ?? null,
+            inputTokens: assistant.inputTokens ?? null,
+            outputTokens: assistant.outputTokens ?? null,
+            tokenCount: assistant.tokenCount ?? null,
+            createdBy: scope.actorId ?? null,
+          })
+          .returning();
+        const assistantMessageId = assistantRows[0]!.id;
+
+        if (input.evidence) {
+          const set = input.evidence;
+          const setRows = await tx
+            .insert(hebyAnswerEvidenceSets)
+            .values({
+              tenantId,
+              messageId: assistantMessageId,
+              status: set.status,
+              truncated: set.truncated,
+              diversityPruned: set.diversityPruned,
+              excludedCount: set.excludedCount,
+              degradedReason: set.degradedReason,
+              multipleRelevantSources: set.multipleRelevantSources,
+              unavailableReason: set.unavailableReason,
+            })
+            .returning();
+          const evidenceSetId = setRows[0]!.id;
+
+          /*
+           * A zero-item set is written and left empty — that is the "retrieval ran and matched
+           * nothing" state, which must stay distinguishable from "no retrieval ran" after reload.
+           */
+          if (set.items.length > 0) {
+            await tx.insert(hebyAnswerEvidenceItems).values(
+              set.items.map((item) => ({
+                tenantId,
+                evidenceSetId,
+                factId: item.factId,
+                knowledgeNodeId: item.knowledgeNodeId,
+                domainKey: item.domainKey,
+                factKey: item.factKey,
+                scope: item.scope,
+                title: item.title,
+                excerpt: item.excerpt,
+                excerptTruncated: item.excerptTruncated,
+                authorityClass: item.authorityClass,
+                lifecycleStatus: item.lifecycleStatus,
+                ratified: item.ratified,
+                ratifiedAt: item.ratifiedAt,
+                freshness: item.freshness,
+                knowledgeVersion: item.knowledgeVersion,
+                factVersion: item.factVersion,
+                effectiveFrom: item.effectiveFrom,
+                effectiveUntil: item.effectiveUntil,
+                nextReviewAt: item.nextReviewAt,
+                origin: item.origin,
+                authoredThrough: item.authoredThrough,
+                textOriginUnverified: item.textOriginUnverified,
+                sourceTitle: item.sourceTitle,
+                sourceType: item.sourceType,
+                ingestedByActorType: item.ingestedByActorType,
+                ingestedAt: item.ingestedAt,
+                chunkIndex: item.chunkIndex,
+                chunkCount: item.chunkCount,
+                matchedTerms: [...item.matchedTerms],
+                ordinal: item.ordinal,
+              })),
+            );
+          }
+        }
+
+        return { conversationId, assistantMessageId };
+      });
+    },
+
+    async listAnswerEvidence(scope, messageIds) {
+      const tenantId = requireTenant(scope);
+      const ids = messageIds.filter((id) => UUID_RE.test(id));
+      if (ids.length === 0) return [];
+
+      /*
+       * Tenant-scoped on BOTH tables, not just the set. The composite FK already makes a
+       * cross-tenant row unconstructible, but a read that relied on that alone would be one schema
+       * change away from leaking; the predicate costs nothing and states the requirement locally.
+       */
+      const setRows = await db
+        .select()
+        .from(hebyAnswerEvidenceSets)
+        .where(
+          and(
+            eq(hebyAnswerEvidenceSets.tenantId, tenantId),
+            inArray(hebyAnswerEvidenceSets.messageId, ids),
+          ),
+        );
+      if (setRows.length === 0) return [];
+
+      const itemRows = await db
+        .select()
+        .from(hebyAnswerEvidenceItems)
+        .where(
+          and(
+            eq(hebyAnswerEvidenceItems.tenantId, tenantId),
+            inArray(
+              hebyAnswerEvidenceItems.evidenceSetId,
+              setRows.map((row) => row.id),
+            ),
+          ),
+        )
+        .orderBy(asc(hebyAnswerEvidenceItems.ordinal));
+
+      return setRows.map((set) => ({
+        messageId: set.messageId,
+        status: set.status,
+        truncated: set.truncated,
+        diversityPruned: set.diversityPruned,
+        excludedCount: set.excludedCount,
+        degradedReason: set.degradedReason,
+        multipleRelevantSources: set.multipleRelevantSources,
+        unavailableReason: set.unavailableReason,
+        items: itemRows
+          .filter((item) => item.evidenceSetId === set.id)
+          .map((item) => ({
+            factId: item.factId,
+            knowledgeNodeId: item.knowledgeNodeId,
+            domainKey: item.domainKey,
+            factKey: item.factKey,
+            scope: item.scope,
+            title: item.title,
+            excerpt: item.excerpt,
+            excerptTruncated: item.excerptTruncated,
+            authorityClass: item.authorityClass,
+            lifecycleStatus: item.lifecycleStatus,
+            ratified: item.ratified,
+            ratifiedAt: item.ratifiedAt,
+            freshness: item.freshness,
+            knowledgeVersion: item.knowledgeVersion,
+            factVersion: item.factVersion,
+            effectiveFrom: item.effectiveFrom,
+            effectiveUntil: item.effectiveUntil,
+            nextReviewAt: item.nextReviewAt,
+            origin: item.origin,
+            authoredThrough: item.authoredThrough,
+            textOriginUnverified: item.textOriginUnverified,
+            sourceTitle: item.sourceTitle,
+            sourceType: item.sourceType,
+            ingestedByActorType: item.ingestedByActorType,
+            ingestedAt: item.ingestedAt,
+            chunkIndex: item.chunkIndex,
+            chunkCount: item.chunkCount,
+            matchedTerms: item.matchedTerms,
+            ordinal: item.ordinal,
+          })),
+      }));
     },
 
     async getConversation(scope, conversationId) {

@@ -254,9 +254,21 @@ function EmptyState({ set }: { set: RetrievalEvidenceSet }) {
 
 /* ── entry point ──────────────────────────────────────────────────────────── */
 
-export function HebyEvidencePanel({ set }: { set: RetrievalEvidenceSet }) {
+export function HebyEvidencePanel({
+  set,
+  historical = false,
+}: {
+  readonly set: RetrievalEvidenceSet;
+  /** KR5 — this set was RECORDED WITH an earlier answer, rather than produced for the live one. */
+  readonly historical?: boolean;
+}) {
   return (
-    <div className="mt-1.5" data-heby-evidence={set.status}>
+    <div
+      className="mt-1.5"
+      data-heby-evidence={set.status}
+      {...(historical ? { "data-heby-evidence-historical": "" } : {})}
+    >
+      {historical ? <HistoricalNotice /> : null}
       {set.status === "matched" ? (
         <>
           <ul className="flex flex-col gap-1.5">
@@ -278,12 +290,38 @@ export function HebyEvidencePanel({ set }: { set: RetrievalEvidenceSet }) {
 }
 
 /**
- * What a reloaded answer can honestly say about its evidence.
+ * The frame that keeps a preserved snapshot from being read as a current-state claim.
  *
- * Evidence is derived per request and no snapshot is stored, so a past answer's evidence is simply
- * gone. Re-running retrieval now would produce today's records — after supersessions, ratifications
- * and expiries the original answer never saw — and presenting those as "the evidence behind this
- * answer" would be a fabricated history. Saying so plainly is the only truthful option available.
+ * Everything below this notice is what one earlier answer was given and shown — the title, the
+ * excerpt, the version, the standing, all as they were AT THAT TIME. Knowledge may have moved on:
+ * a record here may since have been superseded, ratified, retired or expired, and this panel will
+ * keep showing the older reading because that is what the answer used.
+ *
+ * It deliberately does NOT compare against current Knowledge or link to it. A comparison would need
+ * a live re-read this panel must not perform, and a link would quietly turn a historical reference
+ * back into a current-state one — the exact substitution the stored snapshot exists to prevent.
+ */
+function HistoricalNotice() {
+  return (
+    <p
+      className="mb-1.5 text-[0.64rem] leading-4 text-fg-muted"
+      data-heby-evidence-historical-notice=""
+    >
+      Evidence recorded with this answer, as it stood at the time. Your organization&rsquo;s current
+      knowledge may have changed since.
+    </p>
+  );
+}
+
+/**
+ * What a reloaded answer can honestly say when it has NO recorded evidence.
+ *
+ * Since KR5 an answer that ran a retrieval stores what it was given, so this is no longer the
+ * normal reloaded case — it is what remains true for answers produced BEFORE that record existed,
+ * and for any turn whose retrieval never ran. Re-running retrieval now would produce today's
+ * records, after supersessions, ratifications and expiries the original answer never saw, and
+ * presenting those as "the evidence behind this answer" would be a fabricated history. For those
+ * turns, saying so plainly is still the only truthful option available.
  */
 export function HebyEvidenceNotRetained() {
   return (

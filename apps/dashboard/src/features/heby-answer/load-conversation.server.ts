@@ -9,10 +9,12 @@
  */
 
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { fromStoredEvidence } from "@/features/heby-conversation/answer-evidence";
 import {
   resolveConversationRepoOrNull,
   type DurableConversationRepository,
 } from "@/features/heby-conversation/durable-conversation-repository.server";
+import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
 
 export interface HebyConversationMessageView {
   readonly id: string;
@@ -25,6 +27,15 @@ export interface HebyConversationMessageView {
   readonly provider: string | null;
   readonly model: string | null;
   readonly createdAt: string;
+  /**
+   * KR5 — the evidence RECORDED WITH this answer, replayed from its historical rows.
+   *
+   * Not a re-read of current Knowledge and not a fresh retrieval: every value is the one stored at
+   * answer time, so a fact that has since been superseded still shows the version this answer
+   * actually used. Absent when no retrieval ran for this message — which a set with zero items
+   * does NOT mean, and the two must stay distinguishable.
+   */
+  readonly knowledgeEvidence?: RetrievalEvidenceSet;
 }
 
 export interface HebyConversationView {
@@ -72,21 +83,40 @@ export async function loadHebyConversation(
     const conversation = await repo.getConversation(scope, input.conversationId);
     if (!conversation) return { status: "not-found" };
     const messages = await repo.listConversationMessages(scope, input.conversationId);
+
+    /*
+     * KR5 — historical evidence rides the EXISTING authorization, on purpose.
+     *
+     * Conversation ownership has already been proven above, and the ids handed to the evidence read
+     * are the ones that read returned. There is deliberately no standalone evidence endpoint: a
+     * caller holding a raw evidence set id has no surface to spend it on, so the conversation
+     * boundary stays the only gate. The repository re-scopes by tenant regardless.
+     */
+    const evidence = await repo.listAnswerEvidence(
+      scope,
+      messages.map((message) => message.id),
+    );
+    const evidenceByMessage = new Map(evidence.map((set) => [set.messageId, set]));
+
     return {
       status: "loaded",
       view: {
         conversationId: conversation.id,
         subject: conversation.subject,
-        messages: messages.map((message) => ({
-          id: message.id,
-          role: message.role,
-          content: message.content,
-          origin: message.origin,
-          transport: message.transport,
-          provider: message.provider,
-          model: message.model,
-          createdAt: message.createdAt,
-        })),
+        messages: messages.map((message) => {
+          const stored = evidenceByMessage.get(message.id);
+          return {
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            origin: message.origin,
+            transport: message.transport,
+            provider: message.provider,
+            model: message.model,
+            createdAt: message.createdAt,
+            ...(stored ? { knowledgeEvidence: fromStoredEvidence(stored) } : {}),
+          };
+        }),
       },
     };
   } catch {
