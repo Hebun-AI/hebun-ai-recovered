@@ -6,12 +6,16 @@ import { Button } from "@/components/ui/button";
 import type { DirectorAdvisorAwarenessProjection, HebyEnterpriseContextProjection } from "@/features/enterprise-projections";
 
 interface UserMessage { id: number; role: "user"; content: string }
+/*
+ * `confidence` is deliberately ABSENT from this shape. The projection still carries the field, but
+ * this component no longer knows it exists, so it cannot render it back by accident. Removing a
+ * value from the view's own vocabulary is a stronger guarantee than remembering not to print it.
+ */
 interface AdvisorMessage {
   id: number;
   role: "assistant";
   recommendation: string;
   evidence: string[];
-  confidence: number;
   affectedDomains: string[];
   relatedDecision: string;
   timelineReference: string;
@@ -60,7 +64,16 @@ export function HebyAssistantPanel({ awareness, context }: { awareness: Director
           <p className="mt-1.5 text-sm font-semibold leading-5 text-fg">{message.recommendation}</p>
           <details className="group mt-2 border-t border-border pt-2">
             <summary className="flex cursor-pointer list-none items-center justify-between rounded-md text-[0.7rem] font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"><span className="flex items-center gap-1.5"><FileText className="size-3" />Evidence and references</span><span aria-hidden="true" className="transition-transform group-open:rotate-90">›</span></summary>
-            <div className="pt-2"><ul className="space-y-0.5">{message.evidence.map((item) => <li key={item} className="flex gap-1.5 text-[0.7rem] leading-4 text-fg-secondary"><CheckCircle2 className="mt-0.5 size-3 shrink-0 text-success" />{item}</li>)}</ul><dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border pt-2 text-[0.7rem]"><div><dt className="text-fg-muted">Confidence</dt><dd className="font-semibold text-fg">{message.confidence}%</dd></div><div><dt className="text-fg-muted">Affected domains</dt><dd className="font-semibold text-fg">{message.affectedDomains.join(" · ")}</dd></div><div className="col-span-2"><dt className="text-fg-muted">Related decision</dt><dd className="font-medium text-fg">{message.relatedDecision}</dd></div><div className="col-span-2"><dt className="flex items-center gap-1 text-fg-muted"><Clock3 className="size-3" />Timeline reference</dt><dd className="font-medium text-fg">{message.timelineReference}</dd></div></dl></div>
+            {/*
+              The "Confidence NN%" pair that used to sit at the head of this list is GONE.
+              Hebun computes no confidence anywhere — the number was a fixed literal in a mock
+              adapter, and a percentage printed beside a recommendation is read as a measurement.
+              "Simulated intelligence" in the header disclaims AUTHORITY; it does not disclaim
+              PRECISION, and false precision is the more convincing lie of the two. Removing it is
+              the whole repair: nothing was replaced, because there is nothing truthful to put
+              there. The rest of the material is fixed example content and stays.
+            */}
+            <div className="pt-2"><ul className="space-y-0.5">{message.evidence.map((item) => <li key={item} className="flex gap-1.5 text-[0.7rem] leading-4 text-fg-secondary"><CheckCircle2 className="mt-0.5 size-3 shrink-0 text-fg-muted" />{item}</li>)}</ul><dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border pt-2 text-[0.7rem]"><div><dt className="text-fg-muted">Affected domains</dt><dd className="font-semibold text-fg">{message.affectedDomains.join(" · ")}</dd></div><div><dt className="text-fg-muted">Related decision</dt><dd className="font-medium text-fg">{message.relatedDecision}</dd></div><div className="col-span-2"><dt className="flex items-center gap-1 text-fg-muted"><Clock3 className="size-3" />Timeline reference</dt><dd className="font-medium text-fg">{message.timelineReference}</dd></div></dl></div>
           </details>
           <p className="mt-2 text-[0.65rem] font-medium text-fg-muted">Ready for Director review · No execution</p>
         </article>)}

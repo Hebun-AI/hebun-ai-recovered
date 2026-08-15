@@ -919,3 +919,49 @@ tetiklemiyor (izin politikası ile seyahat politikası aynı anda doğru olabili
 3. **How does this become part of Hebun AI?** Kanıt açıklaması türetilmiş bir sunum katmanı olarak
    yerleşti: skor yok, güven yüzdesi yok, cümle bazlı atıf yok, kalıcılık yok. Sıradaki karar
    Director'da — bu fazın commit'i ve ayrıca `/director` üzerindeki sahte confidence yüzeyi.
+
+## Director Truth Surface — sunum katmanı girdisinin yetkisini yükseltemez (2026-08-15)
+
+KR4'ün ertelenmiş bulgusu denetlendi ve onarıldı. Uygulandı, COMMIT EDİLMEDİ. 364/364 test
+(+1 yeni dosya), lint 0 error, build clean. Şema/migration/dependency/DB delta: **sıfır**.
+Canonical `hebun_r1` bit birebir aynı.
+
+**Ders 1 — Veri katmanı doğruyu söylüyordu; sunum katmanı onu çöpe atıyordu.**
+`/director`'ın TÜM projeksiyonları `*/mock.ts`'ten geliyor ve her biri tip sözleşmesinde
+`source.kind: "Mock Adapter"` **beyan ediyor**. `hebyEnterpriseContext` daha da ileri gidip
+`disclosure: { simulated: true, authoritative: false, executionAllowed: false }` taşıyor.
+**Hiçbir bileşen bunların hiçbirini okumuyordu.** Genel kural: **bir sunum katmanı, girdisinin
+yetkisini asla yükseltemez.** Güzel render edilmiş bir mock hâlâ mock'tur.
+
+**Ders 2 — "Simulated" yetkiyi reddeder, KESİNLİĞİ reddetmez.**
+Panel başlığında zaten "Simulated intelligence · no execution or approval authority." yazıyordu — ve
+hemen altında `Confidence 94%` gösteriliyordu. İki ayrı iddia: biri "bu karar veremez", diğeri "bunu
+biri ölçtü". İkincisi yanlıştı; Hebun hiçbir yerde confidence hesaplamıyor. **Sahte kesinlik, sahte
+yetkiden daha inandırıcı bir yalandır** — çünkü sayı, ölçüm ima eder.
+
+**Ders 3 — Demo işareti TÜRETİLMELİ, sabit yazılmamalı.**
+Yeni `ProjectionSourceNotice` uyarıyı `source.kind === "Mock Adapter"` alanından türetiyor. Bu
+projeksiyonlar gerçek runtime'a bağlandığı gün uyarı **kendiliğinden kayboluyor**. Elle silinmesi
+gereken bir demo etiketi, canlı verinin üstünde unutulan bir demo etiketidir.
+
+**Ders 4 — Sayıyı sil, prozayı bırakma refleksine kapılma; testi kelimeye değil İDDİAYA yaz.**
+İlk test `confidence` kelimesini yasakladı ve mock metnindeki dürüst İngilizceye takıldı
+("Restores launch confidence"). Yasaklanması gereken kelime değil, **ölçüm**: yüzde işareti ve
+sayıya bitişik "confidence". Bu repo daha önce de korumaya çalıştığı şeyi yakalayan guard'lardan
+zarar gördü (KR3, `execute(` / `vector`).
+
+**Ders 5 — Boşluğu doldurmak için başka bir katmandan skor ödünç alma.**
+Retrieval'in relevance skoru oradaydı ve "confidence" yerine konabilirdi. Konmadı, ve test bunu
+kilitliyor: `relevance ≠ confidence`, `ratified ≠ true`, `authoritative ≠ certain`,
+`current ≠ correct`, `evidence-backed ≠ Hebun tarafından doğrulanmış`. Eksik bir sayının doğru
+karşılığı, uydurulmuş bir sayı değil — **hiçbir sayı**.
+
+### Haftalık 3 soru
+1. **What did we learn?** Bir yüzeyin dürüstlüğü, en alttaki veriyle değil, en üstteki render ile
+   ölçülür. Sözleşmede duran ama hiç okunmayan bir `disclosure` alanı, olmayan alanla aynıdır.
+2. **How does this improve Turkish Rug House?** Direktör `/director`'ı açtığında artık ilk gördüğü
+   şey, ekrandaki hiçbir rakamın kendi şirketini tanımlamadığı. Önceden bugünün gerçek tarihi,
+   "Updated 09:30" ve "%94 confidence" yan yanaydı.
+3. **How does this become part of Hebun AI?** Kural teste bağlandı: mock veri, açık etiket olmadan
+   ölçüm gibi render edilemez. `/approvals` üzerindeki `trust: "Verified"` rozeti aynı sınıftan ama
+   ayrı bir yüzey — kapsam genişletilmedi, ayrı Director kararı olarak kaydedildi.

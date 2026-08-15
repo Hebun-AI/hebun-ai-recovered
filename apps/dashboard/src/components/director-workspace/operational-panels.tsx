@@ -51,7 +51,14 @@ export function HebyRecommendationsPanel({ items }: { items: Recommendation[] })
       <div className="grid gap-3 xl:grid-cols-3">
         {items.map((item) => (
           <article key={item.recommendation} className="flex flex-col rounded-xl border border-border bg-surface-sunken/35 p-4">
-            <div className="flex items-center justify-between gap-3"><Badge variant={item.priority === "Critical" ? "error" : item.priority === "High" ? "warning" : "neutral"}>{item.priority}</Badge><span className="text-xs font-semibold text-fg-secondary">{item.confidence}% confidence</span></div>
+            {/*
+              The "{confidence}% confidence" figure that sat opposite the priority badge is GONE.
+              It was a fixed literal in a mock adapter (94 / 87 / 82) and Hebun computes no
+              confidence for anything. "Advisory only" disclaims authority, not precision — a
+              reader seeing a percentage concludes something measured it. Priority is a real,
+              declared ordering and stays; the fabricated number does not come back.
+            */}
+            <div className="flex items-center justify-between gap-3"><Badge variant={item.priority === "Critical" ? "error" : item.priority === "High" ? "warning" : "neutral"}>{item.priority}</Badge></div>
             <div className="mt-3 flex gap-2"><Sparkles className="mt-1 size-4 shrink-0 text-primary" /><p className="text-sm font-semibold leading-6 text-fg">{item.recommendation}</p></div>
             <dl className="mt-4 space-y-3 text-xs"><div><dt className="font-semibold uppercase tracking-wider text-fg-muted">Reason</dt><dd className="mt-1 leading-5 text-fg-secondary">{item.reason}</dd></div><div><dt className="font-semibold uppercase tracking-wider text-fg-muted">Business impact</dt><dd className="mt-1 leading-5 text-fg-secondary">{item.businessImpact}</dd></div><div><dt className="font-semibold uppercase tracking-wider text-fg-muted">Affected domains</dt><dd className="mt-1 font-medium text-fg">{item.affectedDomains.join(" · ")}</dd></div></dl>
             <button type="button" disabled className="mt-auto pt-4 text-left text-xs font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-70">{item.directorAction} <ArrowRight className="ml-1 inline size-3.5" /></button>

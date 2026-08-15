@@ -5,6 +5,7 @@ import { ExecutiveDailyBrief } from "@/components/director-workspace/executive-d
 import { ExecutiveStatus } from "@/components/director-workspace/executive-status";
 import { HebyAssistantPanel } from "@/components/director-workspace/heby-assistant-panel";
 import { HebyRecommendationsPanel, PendingDecisionsPanel, PrioritiesPanel, QuickActionsPanel } from "@/components/director-workspace/operational-panels";
+import { ProjectionSourceNotice } from "@/components/director-workspace/projection-source-notice";
 import { getDirectorWorkspaceProjection, getEnterpriseIntelligenceProjection, getHebyContextProjection } from "@/features/enterprise-projection-providers";
 
 export default async function DirectorWorkspacePage() {
@@ -17,6 +18,12 @@ export default async function DirectorWorkspacePage() {
   return (
     <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="min-w-0 space-y-6">
+        {/*
+          First on the page, above every figure it qualifies. The sources are read from the
+          projections themselves, so this disappears by itself once they are backed by a real
+          runtime rather than a mock adapter.
+        */}
+        <ProjectionSourceNotice sources={[workspace.source, intelligence.source, hebyContext.source]} />
         <EnterpriseIntelligenceOverview items={intelligence.domainHealth} overall={intelligence.overall} />
         <ExecutiveStatus items={workspace.statusMetrics} />
         <ExecutiveIntelligenceSignals items={intelligence.signals} />
