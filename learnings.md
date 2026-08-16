@@ -1270,3 +1270,32 @@ R3W `RECIPIENT_SUBSTRATE_GAP.statement` içinde "no recipient authority exists i
 bir test bu cümleyi pinliyordu. R3R onu yanlışladı. Sildim değil, ONARDIM: sabit artık gerçekten
 açık olanı söylüyor (action schema'da digest argümanları yok, sahibi R3A.1), test ise eski cümlenin
 GİTTİĞİNİ assert ediyor. Aksi halde suite yeşil kalırdı — bayat bir iddia hayatta kaldığı İÇİN.
+
+**Ders 20 — Aynı hatayı üçüncü kez yaptım: guard KELİMEYİ yasakladı, İDDİAYI değil.**
+R3A.1 firewall testinde üç kez üst üste kendi meşru kodum patladı: `receipt` yasağı kendi
+`SendProposalReceipt` tipimi vurdu; `authorized` yasağı "nothing is authorized" cümlesini vurdu;
+`verified` yasağı (R3R'de) "never verified" provenance satırını vurdu. Ders 17'yi yazdım ve yine
+düştüm. Kural artık şu: bir firewall testi yazarken önce sor — "bu yasak, korumak istediğim dürüst
+İNKÂRIN üzerine basar mı?" Doğru form: string literalleri çıkar, sadece identifier ara; olumlu
+iddiaları regex ile yasakla; inkârın VARLIĞINI zorunlu kıl.
+
+Bonus: testin kendisi gerçek bir tutarsızlık yakaladı. `SEND_PROPOSAL_NON_EFFECTS` içinde
+"draft ve adres digest ile donduruluyor" cümlesi vardı — bu bir İNKÂR değil, olumlu bir olgu.
+Adı NON_EFFECTS olan listede duracak şey değildi; `SEND_PROPOSAL_EFFECTS` diye ayırdım.
+
+**Ders 21 — Argüman SAYMAK yeterli değil; ŞEKLİNİ de doğrula.**
+`/send` planner'ı önce sadece "yeterli argüman var mı" diye baktı. Voice testi bunu yakaladı:
+dikte "/send the invoice" üretiyor — iki argüman, hiçbiri bir referans. Sayım kontrolü bunu sunucuya
+geçirir ve DB bağlantısı açılırdı. Çözüm: `HebyCommandArgument.pattern` — planner saf, yerel,
+sunucusuz reddediyor. Yazılan/söylenen çöp artık yazma seam'ine hiç ulaşmıyor.
+
+Ayrıca: bu testi "gevşetmek" yanlış olurdu. `/send the invoice` eskiden "no execution runtime"
+diye reddediliyordu; artık o cümle bu komut için YANLIŞ. Testi silmedim, kendi assertion'ına
+taşıdım — korunan özellik (dikte edilmiş nesir proposal dosyalayamaz) aynı kaldı, gerekçe düzeldi.
+
+**Ders 22 — Firewall bazen senin tasarımına haklı olarak itiraz eder.**
+`heby/actions.ts`'e `revalidatePath("/approvals")` koydum; r2c/r2d testleri "bu modül next/cache
+import edemez" diye düştü. Bu bir count-pin değildi, gerçek bir sınırdı: o modül provider, db,
+drizzle, execution ve cache yetkilerinin hiçbirini almıyor. Doğru hamle firewall'u genişletmek
+değil, `revalidatePath`'i atmaktı — `/approvals` zaten ayrı gezilen, sunucuda render edilen bir
+sayfa. Bir kolaylık için güvenlik sınırı genişletilmez.
