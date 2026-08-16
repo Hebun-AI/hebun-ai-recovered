@@ -1237,3 +1237,36 @@ koşulmuştu.
 `now()` predicate'ine dokunulmadı, hiçbir assertion değişmedi, silinen satırlar tam olarak iki adet
 `const NOW = new Date(...)`. Yanlış çözüm — `deps.now`u expiry predicate'ine bağlamak — çağırana
 kendi süresi dolmuş permit'ini yetkilendirme gücü verirdi.
+
+**Ders 16 — İki tabloyu kopyala-yapıştır etme; DEĞİŞİM BİÇİMİNİ sor.**
+R3R'ye `work_artifacts` + `work_artifact_revisions` desenini aynen taşıyacaktım. Yanlış olurdu.
+Revision tablosu var çünkü artifact İÇERİĞİ tekrar tekrar DÜZENLENİYOR ve geçmişi anlamlı. Bir adres
+hiç düzenlenmez — DEĞİŞTİRİLİR. Satırı immutable yapınca aynı "onaylanan baytlar kayamaz" garantisi
+bir tablo eksiğiyle geliyor, ve `@<n>` revizyon eki de gereksizleşiyor: id zaten tam baytları
+adlandırıyor. "Jane'in maili değişti" = retire E1 + create E2.
+
+Sonuç: `external-recipient/<uuid>`, `work-artifact/<uuid>@<n>` değil. Kanıt: hiçbir dosyada
+`endpointValue`/`endpointDigest`/`endpointKind` bir `.set({...})` içinde geçmiyor — testi `src/`
+altındaki her dosyayı tarayıp bunu yapısal olarak doğruluyor.
+
+**Ders 17 — Guard KELİMEYİ değil İDDİAYI yasaklamalı.**
+"verified" kelimesini R3R kodunda yasaklayan firewall testim, tam da korumak istediğim cümlede
+patladı: provenance satırı "never verified" diyor. Bu bir inkâr, iddia değil. 3e654f5 bu dersi zaten
+yazmıştı ("banning the literal is the brittle kind of guard this repository has already been bitten
+by twice") ve ben yine düştüm. Doğru form: string literalleri çıkarıp IDENTIFIER'larda ara, olumlu
+iddiaları (`is verified`, `verified recipient`) ayrıca yasakla, dürüst inkârın VARLIĞINI ise zorunlu
+kıl.
+
+**Ders 18 — Yeni migration + yeni source class = 9 testi kırar, ve bu doğru davranış.**
+R3R tek migration ve tek source class ekledi; `npm run verify` 9 testle düştü. Hiçbiri bug değildi:
+7 tanesi faz-sınırı listesi ("benim fazımdan sonra şu migration'lar geldi"), 1 tanesi global sayaç
+(27→28, aynı dosyada İKİ yerde), 1 tanesi source-class vokabüleri. Bunlar kasıtlı review kapıları —
+yeni bir source class biri onu oraya yazmadan ortaya çıkamıyor. R3W de aynı 7 dosyaya dokunmuştu.
+Ders: sayaç kıran test aramayı değil, sayaç kıran testi BEKLEMEyi öğren; ilk `verify` kırmızısını
+"bir şey bozdum" diye okuma.
+
+**Ders 19 — Kapattığın limitation'ı kendi sabitinde de kapat.**
+R3W `RECIPIENT_SUBSTRATE_GAP.statement` içinde "no recipient authority exists in Hebun" diyordu ve
+bir test bu cümleyi pinliyordu. R3R onu yanlışladı. Sildim değil, ONARDIM: sabit artık gerçekten
+açık olanı söylüyor (action schema'da digest argümanları yok, sahibi R3A.1), test ise eski cümlenin
+GİTTİĞİNİ assert ediyor. Aksi halde suite yeşil kalırdı — bayat bir iddia hayatta kaldığı İÇİN.
