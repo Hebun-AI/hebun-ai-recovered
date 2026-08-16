@@ -1299,3 +1299,47 @@ import edemez" diye düştü. Bu bir count-pin değildi, gerçek bir sınırdı:
 drizzle, execution ve cache yetkilerinin hiçbirini almıyor. Doğru hamle firewall'u genişletmek
 değil, `revalidatePath`'i atmaktı — `/approvals` zaten ayrı gezilen, sunucuda render edilen bir
 sayfa. Bir kolaylık için güvenlik sınırı genişletilmez.
+
+---
+
+## R3B — First Executed Action (implementation, uncommitted)
+
+**Ders 23 — Şemadaki en önemli parça zaten oradaydı; üretmeye kalkışmak hataydı.**
+Idempotency key için yeni bir token üretecektim. `action_permits.handoff_id` zaten var: spend
+statement'ının içinde bir kez mint ediliyor, `action_permits_handoff_uq` ile unique, ve
+`consumed_chk` sayesinde harcanmamış bir permit'te var olamıyor. Yeni token üretmek "bu hangi
+eylem" sorusuna ikinci bir cevap yaratırdı — ve iki cevap er geç çelişir. Yeni bir alan
+eklemeden önce mevcut şemanın o soruyu zaten cevaplayıp cevaplamadığına bak.
+
+**Ders 24 — CHECK constraint yazarken satırın DOĞDUĞU durumu test et.**
+`(status='refused') = (provider_response_class is null)` yazdım. Mantıklı görünüyordu ve her
+`pending` satırını yasaklıyordu — yani her attempt'i, çünkü hepsi pending doğuyor. Doğrusu
+"adapter çağrıldı mı" invariant'ıydı: `(prc is not null) = (status in ('accepted','failed',
+'unknown'))`. Bir constraint'i sadece terminal durumlarla değil, ilk INSERT'le de sına.
+
+**Ders 25 — drizzle-kit composite FK'yı, ihtiyaç duyduğu unique index'ten ÖNCE yazar.**
+`action_permits(tenant_id, id)` unique'ini dosyanın sonuna, ona REFERENCES eden FK'yı ortasına
+koydu. Tüm migration tek transaction olduğu için hepsi sessizce rollback oldu — drizzle-kit
+`migrate` exit 0 döndürdü, spinner hatayı yuttu. Migration'ı elle yeniden sıraladım. Kural:
+generate'den sonra migration'ı tek başına disposable bir DB'ye `psql -v ON_ERROR_STOP=1` ile
+uygula; "applied=0" sessiz başarısızlığın imzasıdır.
+
+**Ders 26 — Bir kararı kanıtlayan test, kararı ismiyle daraltılır; silinmez.**
+20 test düştü, üçü de beklenen sınıftı: substrate-connected iddiaları, migration count pin'leri,
+audit-sink owner allowlist'i. Hiçbirini silmedim. `substrateConnected === false` süpürmelerine
+`if (kind !== "send-external-communication") continue` ekledim — koruma diğer üç mutation ve
+device tool için aynen duruyor, üstüne "en fazla bir tane bağlı olabilir" cardinality guard'ı
+ekledim. Guard'ı silmek yerine güçlendir.
+
+**Ders 27 — Kendi firewall'um, benim atladığım bayat iddiayı yakaladı.**
+`staleClaimsRepaired()` testini yazarken `approvals/page.tsx`'in hâlâ "execution substrate is not
+connected" dediğini bilmiyordum; test düştü ve buldu. Record-integrity kontrolünü kod yazarken
+değil, teste yazarak uygula — insan hafızası dosya taramaz.
+
+**Ders 28 — Timeout'u "failed" saymak, çift gönderim davetidir.**
+Claude transport'u her abort'u `timeout`, her throw'u `provider-unavailable` yapıyor. Bir okuma
+için doğru, bir SEND için tehlikeli: request yazıldıktan sonraki timeout, sağlayıcının kabul etmiş
+olabileceği durumdur. `unreachable` sadece bağlantının hiç kurulmadığını KANITLAYAN kodlarda
+(ENOTFOUND, ECONNREFUSED, TLS) verilir; ECONNRESET/EPIPE/ETIMEDOUT dahil kalan her şey
+`ambiguous` → UNKNOWN. Yanlış "unreachable" pahalı ve geri dönüşsüz; yanlış "unknown" sadece
+insana baktırır.
