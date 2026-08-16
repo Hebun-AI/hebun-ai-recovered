@@ -21,6 +21,7 @@ import { DecisionHandoffAndBoundary } from "./decision-handoff-boundary";
  * Composition:
  *   Header (slim)
  *   State strip                          — honest: no queue connected; real admissible state
+ *   Actions Awaiting Authorization       — R3A: REAL, approvable, refusable, revocable
  *   Pending Human Decisions (primary)    | Decision Inspector
  *   The Human Authority Chain            — structural, from the real Heby Phase 6 contract
  *   Evidence & Provenance | Recommendation & Advisory
@@ -28,18 +29,30 @@ import { DecisionHandoffAndBoundary } from "./decision-handoff-boundary";
  *   Decision Act | Decision History
  *   Execution Handoff + Boundary & Ownership
  *
- * Every instance region is an honest, explained empty state — no persisted approval
- * queue, decision record, briefing, evidence, recommendation, consequence, or history is
- * connected, and none is fabricated. No Approve / Reject / Authorize affordance exists,
- * because no real, server-authorized decision-mutation path is connected. No model call,
- * no mutation, no execution behaviour. Ambient Heby is provided by the shell.
+ * WHAT CHANGED IN R3A, AND WHAT DID NOT. The `actionAuthorizations` slot carries the first REAL
+ * decision act on this surface: consequential action requests read from the durable store, with
+ * genuine Approve / Refuse / Revoke affordances behind a server-resolved Governance authority.
+ * Every OTHER region is unchanged and still an honest, explained empty state — no persisted
+ * briefing, evidence, recommendation, consequence or history source became connected, and a real
+ * queue for one class of decision does not license presenting the others as though it had. No
+ * model call and NO EXECUTION BEHAVIOUR: authorizing issues a permit, it does not act.
+ * Ambient Heby is provided by the shell.
  */
 
-export function DecisionWorkspace({ model }: { model: DecisionWorkspaceModel }) {
+export function DecisionWorkspace({
+  model,
+  actionAuthorizations,
+}: {
+  model: DecisionWorkspaceModel;
+  /** The R3A region. Rendered by the route, which owns the durable read. */
+  actionAuthorizations?: React.ReactNode;
+}) {
   return (
     <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
       <DecisionHeader />
       <DecisionStateStrip />
+
+      {actionAuthorizations}
 
       {/* Pending decisions + contextual inspector */}
       <div className="grid min-w-0 gap-4 lg:grid-cols-3">

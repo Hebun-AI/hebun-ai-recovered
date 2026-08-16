@@ -60,6 +60,15 @@ import {
   IDENTITY_ENROLLMENT_SUBJECT_TYPE,
 } from "@/features/identity-enrollment/contracts";
 import {
+  ACTION_APPROVED_OUTCOME,
+  ACTION_AUTHORIZATION_DOMAIN,
+  ACTION_PERMIT_REVOKED_OUTCOME,
+  ACTION_PERMIT_SUBJECT_TYPE,
+  ACTION_REJECTED_OUTCOME,
+  ACTION_REJECTION_DECISION_TYPE,
+  ACTION_REQUEST_SUBJECT_TYPE,
+} from "@/features/action-authorization/contracts";
+import {
   resolveGovernanceDbOrNull,
   validateJustification,
   type GovernanceDeps,
@@ -383,7 +392,9 @@ export async function writeGovernanceDecisionWithin(
       | AuthoritySubjectType
       | typeof MEMBERSHIP_AUTHORIZATION_SUBJECT_TYPE
       | typeof ORGANIZATIONAL_ROLE_SUBJECT_TYPE
-      | typeof IDENTITY_ENROLLMENT_SUBJECT_TYPE;
+      | typeof IDENTITY_ENROLLMENT_SUBJECT_TYPE
+      | typeof ACTION_REQUEST_SUBJECT_TYPE
+      | typeof ACTION_PERMIT_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -409,16 +420,39 @@ export async function writeGovernanceDecisionWithin(
            */
           input.subjectType === IDENTITY_ENROLLMENT_SUBJECT_TYPE
           ? IDENTITY_ENROLLMENT_DOMAIN
-          : input.subjectType === "user" || input.subjectType === "governance_decision"
-            ? ("authority-delegation" as const)
-            : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
+          : /*
+             * R3A — authorizing, refusing, or revoking ONE consequential act. Its own domain, and
+             * the first about DOING rather than about who may do. `provider-tool` says a
+             * capability exists rather than that one use of it is permitted; `authority-delegation`
+             * would assert that authorizing an act moves Governance authority, which a permit
+             * never does. Both the request and the permit subject map here, because approving an
+             * action and revoking that approval belong to one ledger question.
+             */
+            input.subjectType === ACTION_REQUEST_SUBJECT_TYPE ||
+              input.subjectType === ACTION_PERMIT_SUBJECT_TYPE
+            ? ACTION_AUTHORIZATION_DOMAIN
+            : input.subjectType === "user" || input.subjectType === "governance_decision"
+              ? ("authority-delegation" as const)
+              : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
 
   const outcome =
-    input.decisionType === "delegate-authority"
-      ? DELEGATION_OUTCOME
-      : input.decisionType === "revoke"
-        ? REVOCATION_OUTCOME
-        : /*
+    /*
+     * R3A IS CHECKED FIRST, AND THAT ORDER IS LOAD-BEARING. A permit revocation uses the same
+     * `revoke` decision type G3 uses to end a delegation, so the generic `revoke` branch below
+     * would label it `REVOCATION_OUTCOME` — "Governance authority was revoked". Ending one
+     * action's authorization is not ending anyone's authority, and the ledger must not say it was.
+     */
+    input.subjectType === ACTION_REQUEST_SUBJECT_TYPE
+      ? input.decisionType === ACTION_REJECTION_DECISION_TYPE
+        ? ACTION_REJECTED_OUTCOME
+        : ACTION_APPROVED_OUTCOME
+      : input.subjectType === ACTION_PERMIT_SUBJECT_TYPE
+        ? ACTION_PERMIT_REVOKED_OUTCOME
+        : input.decisionType === "delegate-authority"
+          ? DELEGATION_OUTCOME
+          : input.decisionType === "revoke"
+            ? REVOCATION_OUTCOME
+            : /*
            * I1.2's subject is checked BEFORE the shared `approve` branch, because both I1 and I1.2
            * use `approve` and only the subject distinguishes what was approved. A refusal keeps the
            * same subject and flips to the reject outcome.

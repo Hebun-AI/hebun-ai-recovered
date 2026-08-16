@@ -66,6 +66,37 @@ export const approvalStateEnum = pgEnum("approval_state", [
   "rejected",
 ]);
 
+/**
+ * R3A — the state of a proposed consequential action awaiting human authority.
+ *
+ * Deliberately NOT `approval_state` above. That enum carries `not-required`, which is a
+ * meaningful answer for a Tier-2 approval primitive and a meaningless one here: a request only
+ * exists because human review IS required. Reusing it would make "no approval needed" a
+ * representable state for an act whose entire reason for being persisted is that it needs one.
+ */
+export const hebyActionRequestStatusEnum = pgEnum("heby_action_request_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "withdrawn",
+]);
+
+/**
+ * R3A — the state of a durable authorization to act.
+ *
+ * There is deliberately NO `expired` value. Expiry is derived from `expires_at <= now()`, because
+ * Hebun has no scheduler: a stored `expired` status would be a state with no writer, and this
+ * repository has already paid twice for declaring a state nothing transitions rows into.
+ *
+ * There is also no `pending`. A permit exists only once a Governance decision approved it; a
+ * pending permit would collapse APPROVAL and PERMIT into one row.
+ */
+export const actionPermitStatusEnum = pgEnum("action_permit_status", [
+  "active",
+  "consumed",
+  "revoked",
+]);
+
 /** Runtime projection of a command's coarse run state. Governed superset:
  *  commandLifecycleStatusEnum (Tier 2). Kept — Command Bus depends on it. */
 export const commandStatusEnum = pgEnum("command_status", [
@@ -750,6 +781,19 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * authenticable human, which is a global effect no tenant-scoped domain could honestly carry.
    */
   "identity-enrollment",
+  /**
+   * R3A — Governance authorizing ONE specific consequential action to become executable later.
+   *
+   * Its OWN concern, and the first domain whose decisions are about DOING rather than about who
+   * may do. It is not registering a tool or provider (`provider-tool` — that says a capability
+   * exists, not that one use of it is permitted), not the command bus (`command` — a Tier-2
+   * canonical domain with no writer, describing dispatch rather than legitimacy), not moving
+   * authority (`authority-delegation` — a permit grants none and expires), and not admitting a
+   * human (`membership-authorization`). Folding it into any of those would make the ledger unable
+   * to answer "what consequential acts has this tenant authorized?" — the one question an
+   * execution runtime must be able to ask before it runs anything.
+   */
+  "action-authorization",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",

@@ -109,6 +109,7 @@ function main(): void {
          * this allowlist exists to force.
          */
         "20260815202736_heby_answer_evidence.sql",
+        "20260816063156_r3a_action_authorization.sql",
       ],
       "G3 adds no migration — authority is derived from decisions; only Gate-B migrations for other subsystems follow G2",
     );

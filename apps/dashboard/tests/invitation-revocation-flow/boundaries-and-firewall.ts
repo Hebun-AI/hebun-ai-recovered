@@ -314,7 +314,7 @@ function main(): void {
     const after = migrations.filter((f) => f > PHASE_BOUNDARY);
     assert.deepEqual(
       after,
-      ["20260815202736_heby_answer_evidence.sql"],
+      ["20260815202736_heby_answer_evidence.sql", "20260816063156_r3a_action_authorization.sql"],
       "invitation revocation added no migration; what follows is a declared later phase",
     );
     for (const file of migrations) {

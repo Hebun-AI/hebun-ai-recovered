@@ -198,7 +198,8 @@ function main(): void {
     assert.deepEqual(
       sinkWriters.sort(),
       [
-        "src/features/governance-audit/genesis-nomination-audit.server.ts",
+        "src/features/governance-audit/action-authorization-audit.server.ts",
+      "src/features/governance-audit/genesis-nomination-audit.server.ts",
         "src/features/governance-audit/governance-decision-audit.server.ts",
         "src/features/governance-audit/human-onboarding-audit.server.ts",
         "src/features/governance-audit/identity-enrollment-audit.server.ts",

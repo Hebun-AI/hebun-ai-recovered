@@ -276,13 +276,14 @@ function main(): void {
     assert.deepEqual(
       owners,
       [
-        "src/features/governance-audit/genesis-nomination-audit.server.ts",
+        "src/features/governance-audit/action-authorization-audit.server.ts",
+      "src/features/governance-audit/genesis-nomination-audit.server.ts",
         "src/features/governance-audit/governance-decision-audit.server.ts",
         "src/features/governance-audit/human-onboarding-audit.server.ts",
         "src/features/governance-audit/identity-enrollment-audit.server.ts",
         "src/features/governance-audit/knowledge-mutation-audit.server.ts",
       ],
-      "five declared sibling owners write the sink — and nothing else does",
+      "six declared sibling owners write the sink — and nothing else does",
     );
     // Each domain owns a DISTINCT entity type, so no domain can file under another's history.
     assert.equal(GOVERNANCE_DECISION_ENTITY_TYPE, "governance_decision");
