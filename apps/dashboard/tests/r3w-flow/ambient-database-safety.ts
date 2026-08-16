@@ -48,6 +48,72 @@ function databaseNameOf(url: string | undefined): string | undefined {
   }
 }
 
+/*
+ * ── WHY THIS IS RELATIVE AND NOT ABSOLUTE ────────────────────────────────────
+ *
+ * This file originally asserted that canonical had ZERO `work_artifact%` tables and was at
+ * EXACTLY 26 applied migrations. Both were true the day it was written, and both were wrong to
+ * write down: they are a snapshot of the developer's environment, not a property of the code.
+ *
+ * The R3W release proved it. Applying the released R3W migration to canonical — the authorized,
+ * intended destination of that very release — turned this regression red, because the release had
+ * pinned canonical to the state that existed only while the migration was UNAPPLIED. The suite was
+ * green *because* the thing it shipped had not been used yet.
+ *
+ * The invariant that actually matters is narrower and permanent:
+ *
+ *   THIS TEST MUST NOT CHANGE CANONICAL.
+ *
+ * So capture whatever legitimate state canonical holds when the test starts, and demand exactly
+ * that state back at the end. Canonical's schema advances by authorized ceremony; this file has no
+ * standing to freeze it at the version it was authored against.
+ */
+interface CanonicalState {
+  /**
+   * Ordered migration IDENTITY, not a count. A count of 27 is satisfied by 27 of the wrong
+   * migrations; the concatenated hash sequence is not.
+   */
+  readonly migrations: string;
+  readonly workArtifactTables: readonly string[];
+  /** `null` when the table does not exist — a legitimate state on EITHER side of the R3W migration. */
+  readonly artifactRows: number | null;
+  readonly revisionRows: number | null;
+}
+
+/**
+ * Row count for a table that may or may not exist, because both are legitimate here: canonical is
+ * allowed to be pre-R3W (no such table) or post-R3W (the table, empty). Asking unconditionally
+ * would make this file fail on the pre-migration state it is also supposed to protect.
+ */
+async function countIfPresent(client: Client, table: string): Promise<number | null> {
+  const present = await client.query<{ ok: boolean }>(
+    `select to_regclass($1::text) is not null as ok`,
+    [`public.${table}`],
+  );
+  if (!present.rows[0]!.ok) return null;
+  const counted = await client.query<{ n: number }>(`select count(*)::int as n from "${table}"`);
+  return counted.rows[0]!.n;
+}
+
+/** Everything about canonical this regression is entitled to have an opinion on. */
+async function captureCanonicalState(client: Client): Promise<CanonicalState> {
+  const migrations = await client.query<{ digest: string }>(
+    `select coalesce(string_agg(hash, ',' order by id), '') as digest
+       from drizzle.__drizzle_migrations`,
+  );
+  const tables = await client.query<{ table_name: string }>(
+    `select table_name from information_schema.tables
+      where table_schema = 'public' and table_name like 'work_artifact%'
+      order by table_name`,
+  );
+  return {
+    migrations: migrations.rows[0]!.digest,
+    workArtifactTables: tables.rows.map((row) => row.table_name),
+    artifactRows: await countIfPresent(client, "work_artifacts"),
+    revisionRows: await countIfPresent(client, "work_artifact_revisions"),
+  };
+}
+
 async function main(): Promise<void> {
   /*
    * THE HOSTILE PRECONDITION. This is what a developer's shell looks like after sourcing
@@ -100,12 +166,19 @@ async function main(): Promise<void> {
     await setup.connect();
     const handle = createControlPlaneDb(harness.dbUrl);
 
-    /* Canonical row counts BEFORE the deliberately un-injected write. */
+    /* Canonical state BEFORE the deliberately un-injected write. */
     const canonical = new Client({ connectionString: CANONICAL_URL });
     await canonical.connect();
-    const canonicalWorkArtifactTables = await canonical.query<{ n: number }>(
-      `select count(*)::int as n from information_schema.tables
-        where table_schema = 'public' and table_name like 'work_artifact%'`,
+    const canonicalBefore = await captureCanonicalState(canonical);
+
+    /*
+     * NON-VACUITY. A relative comparison passes trivially if both sides are empty, so prove the
+     * baseline actually observed a real database first. Without this, an unreachable or blank
+     * canonical would let the comparison below "succeed" while proving nothing at all.
+     */
+    assert.ok(
+      canonicalBefore.migrations.length > 0,
+      "precondition: canonical is reachable and has a real migration history to compare against",
     );
 
     try {
@@ -158,25 +231,22 @@ async function main(): Promise<void> {
       assert.equal(revision.rows[0]!.n, 1, "with its revision, in the same place");
 
       /* ── 5. CANONICAL IS UNTOUCHED, AND WAS NEVER EVEN A CANDIDATE ────────── */
-      const canonicalAfter = await canonical.query<{ n: number }>(
-        `select count(*)::int as n from information_schema.tables
-          where table_schema = 'public' and table_name like 'work_artifact%'`,
-      );
-      assert.equal(
-        canonicalAfter.rows[0]!.n,
-        canonicalWorkArtifactTables.rows[0]!.n,
-        "canonical schema is unchanged",
-      );
-      assert.equal(
-        canonicalAfter.rows[0]!.n,
-        0,
-        "and it still has no work-artifact table at all — the migration is unapplied there",
-      );
+      const canonicalAfter = await captureCanonicalState(canonical);
 
-      const canonicalMigrations = await canonical.query<{ n: number }>(
-        `select count(*)::int as n from drizzle.__drizzle_migrations`,
+      /*
+       * The whole assertion, and deliberately the only one: migration identity, work-artifact table
+       * existence, and artifact/revision row counts all come back exactly as they were found.
+       *
+       * Note what this catches that the old absolute form did not. If the un-injected write had
+       * reached canonical, `artifactRows` would have gone 0 → 1 and this fails — including in the
+       * post-migration world, where canonical HAS the tables and the old `== 0` table-count check
+       * would have been satisfied by a canonical database that had just been written to.
+       */
+      assert.deepEqual(
+        canonicalAfter,
+        canonicalBefore,
+        "canonical is exactly as this test found it — no row, no table, no migration moved",
       );
-      assert.equal(canonicalMigrations.rows[0]!.n, 26, "canonical is still at 26 applied");
     } finally {
       await canonical.end().catch(() => {});
       await setup.end().catch(() => {});

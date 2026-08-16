@@ -29,7 +29,26 @@ import { revokeActionPermit } from "../../src/features/action-authorization/revo
 import type { HebyPreparedAction } from "../../src/features/heby-actions/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
-const NOW = new Date("2026-08-16T09:00:00.000Z");
+/*
+ * ── THE ISSUANCE CLOCK IS READ FROM THE DATABASE, NEVER FROM THE CALENDAR ────
+ *
+ * A fixed literal here made this file a time bomb: approval derives
+ * `expires_at = injectedNow + 3600s`, while the single-spend `UPDATE … WHERE expires_at > now()`
+ * is adjudicated by the DATABASE clock — deliberately, because a caller that could pass its own
+ * `now` could also pass a convenient one. A permit issued at a hard-coded 09:00Z became unspendable
+ * at 10:00Z real time, and "exactly one caller may spend a permit" then measured zero winners
+ * forever: the race was still correct, there was simply nothing left to win.
+ *
+ * Reading the adjudicating clock is the safe fix. The predicate is NOT relaxed.
+ */
+let NOW: Date;
+
+/** The adjudicating clock itself, so issuance and consumption cannot drift apart. */
+async function readDatabaseNow(client: Client): Promise<Date> {
+  const row = await client.query<{ now: Date }>("select now() as now");
+  return row.rows[0]!.now;
+}
+
 const JUSTIFICATION =
   "This action is a deliberate organizational act and I accept responsibility for the outcome.";
 
@@ -90,6 +109,8 @@ async function main(): Promise<void> {
   harness.migrateDatabase();
   const setup = new Client({ connectionString: harness.dbUrl });
   await setup.connect();
+  /* Before anything is issued: adopt the clock that will adjudicate the race below. */
+  NOW = await readDatabaseNow(setup);
   const handle = createControlPlaneDb(harness.dbUrl);
   const deps = { getDb: () => handle.db, now: () => NOW } as never;
 

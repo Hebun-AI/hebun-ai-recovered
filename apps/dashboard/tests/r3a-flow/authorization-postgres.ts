@@ -44,7 +44,31 @@ import { digestCanonicalAction } from "../../src/features/action-authorization/c
 import type { HebyPreparedAction } from "../../src/features/heby-actions/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
-const NOW = new Date("2026-08-16T09:00:00.000Z");
+/*
+ * ── THE ISSUANCE CLOCK IS READ FROM THE DATABASE, NEVER FROM THE CALENDAR ────
+ *
+ * This was a fixed literal — `2026-08-16T09:00:00.000Z` — and that made the file a time bomb.
+ * Approval derives `expires_at = injectedNow + ttlSeconds` (default 3600s), while consumption
+ * checks `expires_at > now()` against the DATABASE clock, deliberately: a caller that could pass
+ * its own `now` could also pass a convenient one. Two clock domains, and a literal in one of them.
+ * The permit issued at 09:00Z therefore stopped being spendable at 10:00Z real time, and every
+ * "live permit" assertion in this file failed permanently from that instant on.
+ *
+ * The fix is to make the fixture agree with the clock that actually adjudicates it, NOT to let the
+ * caller's clock reach the expiry predicate. Production semantics are untouched: `consumeActionPermit`
+ * still asks PostgreSQL what time it is.
+ *
+ * Assigned once in `main`, before anything is issued. Section 13 already ages permits with
+ * `now() - interval` in SQL, so deterministic expiry keeps working exactly as written.
+ */
+let NOW: Date;
+
+/** The adjudicating clock itself, so issuance and consumption cannot drift apart. */
+async function readDatabaseNow(client: Client): Promise<Date> {
+  const row = await client.query<{ now: Date }>("select now() as now");
+  return row.rows[0]!.now;
+}
+
 const JUSTIFICATION =
   "This external message is a deliberate organizational act and I accept responsibility for it.";
 
@@ -146,6 +170,8 @@ async function main(): Promise<void> {
   harness.migrateDatabase();
   const setup = new Client({ connectionString: harness.dbUrl });
   await setup.connect();
+  /* Before anything is issued: adopt the clock that will adjudicate every expiry below. */
+  NOW = await readDatabaseNow(setup);
   const handle = createControlPlaneDb(harness.dbUrl);
   const deps = { getDb: () => handle.db, now: () => NOW } as never;
 
