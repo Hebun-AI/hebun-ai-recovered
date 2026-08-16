@@ -346,8 +346,9 @@ ERROR:  there is no unique constraint matching given keys for referenced table "
 index was hoisted above the constraint; nothing else changed. All 27 then applied clean, and the
 probe database was dropped.
 
-**NOT applied to canonical.** `hebun_r1` remains at 26 applied migrations with no `work_artifact*`
-table. That is a separate Director-gated ceremony.
+**NOT applied to canonical at release.** `hebun_r1` stood at 26 applied migrations with no
+`work_artifact*` table when this phase closed. That was a separate Director-gated ceremony —
+since performed. See §23.
 
 ---
 
@@ -376,8 +377,10 @@ counting them), and `heby-actions/actions.ts` fixtures as described in §12.
 
 ## 18. Canonical firewall
 
-Read before and after. `hebun_r1`: **26 applied migrations, zero `work_artifact*` tables**,
-conversations 34 / messages 124, `heby_action_requests` 0, `action_permits` 0, `plpgsql` only.
+Read before and after **this phase's work**. `hebun_r1` at that time: **26 applied migrations, zero
+`work_artifact*` tables**, conversations 34 / messages 124, `heby_action_requests` 0,
+`action_permits` 0, `plpgsql` only. The migration ceremony that later advanced this to 27 is §23;
+the business counts above were unchanged by it.
 
 No synthetic artifact exists in canonical. No disposable database was leaked.
 
@@ -426,9 +429,11 @@ Two second-order defects were found and fixed while doing it:
 **Regression test:** `tests/r3w-flow/ambient-database-safety.ts` runs with a **hostile ambient
 value** — it points `DATABASE_URL` at canonical *before* creating the harness, because proving the
 guard against an unset variable would prove nothing. It then calls `createWorkArtifact` with **no
-deps argument at all** and proves the row landed in the disposable database, that canonical still has
-zero `work_artifact*` tables and 26 applied migrations, and that the prior ambient value is restored
-exactly on drop.
+deps argument at all** and proves the row landed in the disposable database, that canonical is
+exactly as the test found it, and that the prior ambient value is restored exactly on drop.
+
+The canonical half of that proof was originally written as absolutes — *zero `work_artifact*` tables
+and 26 applied migrations* — and §23 explains why that was wrong and how it now reads.
 
 **Invariant now structural, not disciplinary:** a mutating test cannot fall back to canonical when
 its test-database dependency is omitted.
@@ -465,7 +470,8 @@ storage works · R3A.1 is complete · R3B is unblocked.
    not by a live permit.
 5. **Two artifact types only.** A third arrives with the consumer that needs it, through its own
    migration.
-6. **Canonical migration unapplied.** Separate Director-gated ceremony.
+6. ~~**Canonical migration unapplied.** Separate Director-gated ceremony.~~ **Closed by §23** —
+   applied to `hebun_r1` on 2026-08-16, 26 → 27. Schema only; both tables remain at 0 rows.
 
 ---
 
@@ -474,7 +480,7 @@ storage works · R3A.1 is complete · R3B is unblocked.
 ```
 R3A   Durable Action Authorization      ✅ released, applied to canonical
   ↓
-R3W   Durable Work Artifacts            ✅ implemented (this phase) — NOT committed, NOT applied
+R3W   Durable Work Artifacts            ✅ released + applied to canonical (see §23)
   ↓   draftRef now has a real, versioned, digest-bound referent
   ↓   record-ref arguments now resolve or fail
   ↓
@@ -487,5 +493,60 @@ R3B   First Executed Action             ❌ + secret store + adapter + receipt F
 
 ## 22. Next gate
 
-**Commit gate.** No commit, tag or push was made in this phase, and the migration was not applied to
-canonical.
+**Commit gate.** No commit, tag or push had been made when this section was written, and the
+migration had not been applied to canonical. Both gates have since been passed — see §23.
+
+---
+
+## 23. Post-release addendum — canonical migration and regression repair
+
+Written after the fact. Nothing above is rewritten; this section records what changed and why two
+statements above had to be corrected rather than merely restated.
+
+### 23.1 What happened, in order
+
+1. **R3W software released.** `2259316` (runtime) and `ee338a9` (record), tagged
+   `hebun-durable-work-artifacts-complete`. That tag still peels to `ee338a9` and has not moved.
+2. **Canonical migration ceremony, 2026-08-16.** `20260816085245_r3w_durable_work_artifacts.sql`
+   applied byte-exact from the release tag to `hebun_r1`: **26 → 27**. Non-R3W schema proven
+   byte-identical before and after; every business row count unchanged; both R3W tables at **0 rows**.
+3. **The release's own regression turned red.** `tests/r3w-flow/ambient-database-safety.ts` asserted
+   that canonical had *zero* `work_artifact*` tables and was *still at 26 applied*. Applying the
+   migration — the authorized, intended destination of that very release — made both false.
+
+### 23.2 The doctrine this established
+
+> A canonical-safety regression proves that **the test did not mutate canonical**. It does not
+> freeze canonical forever at the state that existed when the test was authored.
+
+The R3W release was green *because* the schema it shipped had not been used yet. That is an
+environment snapshot masquerading as a safety property, and the invariant it was guarding —
+*a mutating test cannot fall back to canonical when its test-database dependency is omitted* — never
+needed the snapshot. When the regression failed, that invariant had in fact **passed**: the
+un-injected write landed in the disposable database and canonical was untouched.
+
+### 23.3 The repair
+
+`captureCanonicalState()` now records migration **identity** (the ordered hash sequence — a count of
+27 is satisfied by 27 of the *wrong* migrations), the `work_artifact%` table names, and artifact and
+revision row counts as `number | null`, where `null` means the table is absent — a legitimate state
+on **either** side of the migration. One `assert.deepEqual(after, before)` replaces both absolutes,
+guarded by a non-vacuity check so an unreachable canonical cannot pass trivially.
+
+Proven against both legitimate states on a disposable clone: **pre-R3W** (26 entries, no tables,
+`null` counts) and **post-R3W** (27 entries, both tables, 0 rows). The file contains no migration
+version in any assertion.
+
+### 23.4 A second, unrelated defect surfaced by the same run
+
+`tests/r3a-flow/authorization-postgres.ts` and `tests/r3a-flow/single-spend-concurrency.ts` pinned
+`NOW` to a calendar literal and injected it as the issuance clock, while `consumeActionPermit`
+adjudicates `expires_at > now()` against the **database** clock — deliberately, because a caller
+that could pass its own `now` could also pass a convenient one. Two clock domains, and a literal in
+one of them: a permit issued at a hard-coded 09:00Z with the default 3600s TTL stopped being
+spendable at 10:00Z real time, permanently.
+
+Repaired in the fixtures only, by reading the adjudicating clock (`select now()`) and injecting
+**that**. The database-clock predicate was not relaxed, no assertion was changed, and production
+source was not touched. The removed lines are exactly the two `const NOW = new Date(...)`
+declarations.

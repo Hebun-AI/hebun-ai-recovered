@@ -1209,3 +1209,31 @@ harness yapıyor.
 **Ders 13 — Regresyon testi DÜŞMANCA ön koşulla koşmalı.**
 `ambient-database-safety.ts` harness'ı kurmadan ÖNCE `DATABASE_URL`i bilerek canonical'a çeviriyor.
 Set edilmemiş bir değişkene karşı guard kanıtlamak hiçbir şey kanıtlamaz.
+
+**Ders 14 — Bir release, gideceği veritabanı hakkında MUTLAK iddia yazamaz.**
+`ambient-database-safety.ts` "canonical'da 0 `work_artifact` tablosu var, 26 migration uygulanmış"
+diye yazmıştı. R3W migration'ı canonical'a uygulanınca — yani release tam da varlık sebebini yerine
+getirince — kendi regresyonu kırmızıya döndü. Suite yeşildi ÇÜNKÜ shipped ettiği şey henüz
+kullanılmamıştı. Ölçtüm: test düştüğünde korumak istediği invariant aslında GEÇMİŞTİ; enjekte
+edilmemiş yazma disposable DB'ye düşmüş, canonical'a dokunulmamıştı. Düşen şey güvenlik özelliği
+değil, ortam fotoğrafıydı.
+
+Doğru form: canonical-güvenlik regresyonu "bu test canonical'ı değiştirmedi" der; "canonical sonsuza
+kadar testin yazıldığı gün neyse o kalmalı" demez. `captureCanonicalState()` artık migration
+KİMLİĞİNİ (sıralı hash dizisi — 27 sayısı 27 yanlış migration ile de sağlanır), tablo adlarını ve
+satır sayılarını `number | null` olarak alıyor; `null` = tablo yok, ki bu migration'ın HER İKİ
+yakasında da meşru. Tek bir `deepEqual(after, before)` iki mutlak iddianın yerine geçti. Boş-geçmeyi
+önlemek için ayrıca non-vacuity guard var: canonical erişilemezse karşılaştırma sessizce "geçemez".
+
+**Ders 15 — İki saat alanı varsa, fixture hangisinin hüküm verdiğini kullanmalı.**
+R3A testleri `NOW`u takvim sabitine (`2026-08-16T09:00:00.000Z`) pinlemiş ve bunu ihraç saati olarak
+enjekte etmişti. Ama `consumeActionPermit` `expires_at > now()`u VERİTABANI saatine soruyor — bilerek:
+kendi `now`unu geçirebilen çağıran, işine gelen bir `now` da geçirebilir. 3600s TTL ile 09:00Z'de
+verilen permit, gerçek saat 10:00Z'yi geçince kalıcı olarak harcanamaz oldu. Test suite kendi kendini
+imha eden bir zaman bombasıydı; R3A kapanışındaki 218/218 doğruydu, sadece o saat dilimi içinde
+koşulmuştu.
+
+Çözüm production'da DEĞİL fixture'da: `select now()` ile hüküm veren saati oku, onu enjekte et.
+`now()` predicate'ine dokunulmadı, hiçbir assertion değişmedi, silinen satırlar tam olarak iki adet
+`const NOW = new Date(...)`. Yanlış çözüm — `deps.now`u expiry predicate'ine bağlamak — çağırana
+kendi süresi dolmuş permit'ini yetkilendirme gücü verirdi.
