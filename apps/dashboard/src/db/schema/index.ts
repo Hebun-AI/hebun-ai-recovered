@@ -51,3 +51,4 @@ export * from "./provider-connectivity-control";
 export * from "./document";
 export * from "./notification";
 export * from "./work-artifact";
+export * from "./external-recipient";

@@ -71,10 +71,13 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Nine since R3W added `work-artifacts`. The count is pinned rather than pattern-matched so a
-   * new source class cannot appear without somebody stating it here — which is exactly the review
-   * this assertion exists to force. The classes themselves are named so the diff says WHICH one
-   * arrived, not merely that the number moved.
+   * Ten since R3R added `external-recipients` (nine after R3W's `work-artifacts`). The list is
+   * pinned rather than pattern-matched so a new source class cannot appear without somebody
+   * stating it here — which is exactly the review this assertion exists to force. The classes
+   * themselves are named so the diff says WHICH one arrived, not merely that the number moved.
+   *
+   * `external-recipients` is the one class where a fabricated item would be a real person's
+   * address, so it earns the review more than most.
    */
   assert.deepEqual(
     [...HEBY_SOURCE_CLASSES],
@@ -88,6 +91,7 @@ function sourceStatusNotCollapsed(): void {
       "platform",
       "decision-records",
       "work-artifacts",
+      "external-recipients",
     ],
   );
   const context = resolveHebyWorkspaceContext({ workspace: "knowledge" });

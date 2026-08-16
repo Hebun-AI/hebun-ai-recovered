@@ -229,7 +229,16 @@ export type HebySourceClass =
    * (`work-artifact/<uuid>@<n>`); folding it into an existing class would make an artifact
    * indistinguishable from a derived read-model section in the evidence set.
    */
-  | "work-artifacts";
+  | "work-artifacts"
+  /*
+   * R3R. Addressable parties outside the organization that the tenant durably recorded — never a
+   * user, never a member, and never organizational truth. It is its own class rather than a
+   * flavour of `operations` for the same reason `work-artifacts` is: its records have their own
+   * authority owner, their own immutable address bytes and their own reference syntax
+   * (`external-recipient/<uuid>`). Folding it into `operations` would make a real person's address
+   * indistinguishable from a derived read-model section in the evidence set.
+   */
+  | "external-recipients";
 
 export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "knowledge",
@@ -241,6 +250,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "platform",
   "decision-records",
   "work-artifacts",
+  "external-recipients",
 ] as const;
 
 export interface HebySourceStatus {

@@ -202,9 +202,22 @@ export const WORK_ARTIFACT_NON_EFFECTS: readonly string[] = [
   "No permit is created or consumed, and nothing is executed.",
 ] as const;
 
-/** The dependency R3W does NOT close, stated where a surface can read it. */
+/**
+ * The dependency R3W did not close, stated where a surface can read it.
+ *
+ * CLOSED BY R3R. `external_recipients` is now a real tenant-scoped authority with an immutable
+ * address and its own `external-recipient/<uuid>` reference, so `recipientRef` has a referent for
+ * the first time. This constant is kept rather than deleted because surfaces quote it and because
+ * a phase that closes an earlier limitation has to repair the earlier phase's own words — a stale
+ * "no recipient authority exists" would be a false claim shipped in code.
+ *
+ * What is still open is smaller and precise: `send-external-communication` declares only
+ * `recipientRef` and `draftRef`, so neither digest is a declared argument yet. Until the registry
+ * carries `draftRevisionDigest` and `recipientEndpointDigest`, an approval binds two moving
+ * targets. That is R3A.1's to close, and R3A itself needs no change — both are ordinary scalars.
+ */
 export const RECIPIENT_SUBSTRATE_GAP = Object.freeze({
   statement:
-    "Sending an external communication also needs a durable recipient, and no recipient authority exists in Hebun.",
-  owner: "a later program",
+    "Recipient authority exists (R3R): a send can name a durable recipient and an exact address. The action schema still declares no digest arguments, so an approval does not yet bind the exact draft revision or the exact address.",
+  owner: "R3A.1",
 });

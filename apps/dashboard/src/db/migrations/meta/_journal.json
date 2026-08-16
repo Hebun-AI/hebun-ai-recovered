@@ -190,6 +190,13 @@
       "when": 1786870365091,
       "tag": "20260816085245_r3w_durable_work_artifacts",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1786877698951,
+      "tag": "20260816105458_r3r_durable_recipient_authority",
+      "breakpoints": true
     }
   ]
 }

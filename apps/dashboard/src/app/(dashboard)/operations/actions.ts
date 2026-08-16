@@ -26,6 +26,22 @@ import {
   WORK_ARTIFACT_OWNER_WORKSPACE,
   type PrepareWorkArtifactResult,
 } from "@/features/work-artifacts/prepare-work-artifact.server";
+import type {
+  CreateRecipientResult,
+  RecipientEndpointKind,
+  RecipientListing,
+  ResolveRecipientResult,
+  RetireRecipientResult,
+} from "@/features/external-recipients/contracts";
+import {
+  listActiveRecipients,
+  listRetiredRecipients,
+  resolveRecipientReference,
+} from "@/features/external-recipients/read-external-recipients.server";
+import {
+  createExternalRecipient,
+  retireExternalRecipient,
+} from "@/features/external-recipients/write-external-recipients.server";
 
 /**
  * The R3W boundary for durable prepared work. It lives in the Operations workspace because both
@@ -132,4 +148,74 @@ export async function prepareWorkArtifactAction(input: {
   const result = await prepareWorkArtifact(input, { resolveTenant: resolveTenantContext });
   if (result.status === "prepared") revalidatePath("/operations");
   return result;
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * R3R — RECORDED RECIPIENTS
+ *
+ * Same workspace, same reason. `heby.operations.send-communication` declares
+ * `ownerWorkspace: "operations"` and names both `draftRef` and `recipientRef`, so the two
+ * referents that action needs live under one owner. No new workspace, no new navigation, and
+ * emphatically no CRM surface: list, add, retire, and nothing else.
+ *
+ * CREATION IS HUMAN ONLY. There is no Heby entry point below and none anywhere else — the writer
+ * hard-codes `createdByType: "human"`. A model that infers "Jane at jane@example.com" from prose
+ * cannot record her; the action that names an unrecorded recipient fails instead, which is the
+ * behaviour R3W's record-ref repair already established for referents that do not exist.
+ *
+ * RECORDING AN ADDRESS IS NOT APPROVING A SEND. Nothing here consults Governance, issues a permit,
+ * or causes an effect.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+/** Record one addressable recipient. Human-authored, always. */
+export async function createExternalRecipientAction(input: {
+  displayName: string;
+  endpointKind: RecipientEndpointKind;
+  endpointValue: string;
+}): Promise<CreateRecipientResult> {
+  const tenant = await resolveTenantContext();
+  const result = await createExternalRecipient(tenant, input);
+  if (result.status === "created") revalidatePath("/operations");
+  return result;
+}
+
+/**
+ * Retire one recipient. The stored address is left exactly as it was — this is not a delete and
+ * not an erasure, so a permit or audit entry naming it still resolves to the same bytes.
+ */
+export async function retireExternalRecipientAction(input: {
+  recipientRef: string;
+}): Promise<RetireRecipientResult> {
+  const tenant = await resolveTenantContext();
+  const result = await retireExternalRecipient(tenant, input);
+  if (result.status === "retired") revalidatePath("/operations");
+  return result;
+}
+
+/** This tenant's live recipients — the only set an action may name. */
+export async function listActiveRecipientsAction(): Promise<RecipientListing> {
+  const tenant = await resolveTenantContext();
+  return listActiveRecipients(tenant);
+}
+
+/** What this tenant used to hold. Readable, and deliberately not proposable. */
+export async function listRetiredRecipientsAction(): Promise<RecipientListing> {
+  const tenant = await resolveTenantContext();
+  return listRetiredRecipients(tenant);
+}
+
+/**
+ * Resolve one exact reference, whatever its status.
+ *
+ * This is where the human approving a send gets the address from — a server-side read at the
+ * approval surface, rather than the model's context window. Never substitutes: an unresolvable
+ * reference is refused, not repaired to a similar one.
+ */
+export async function resolveRecipientReferenceAction(input: {
+  recordRef: string;
+}): Promise<ResolveRecipientResult> {
+  const tenant = await resolveTenantContext();
+  return resolveRecipientReference(tenant, input.recordRef);
 }

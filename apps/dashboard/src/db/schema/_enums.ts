@@ -905,3 +905,37 @@ export const workArtifactLifecycleStatusEnum = pgEnum("work_artifact_lifecycle_s
   "draft",
   "retired",
 ]);
+
+/*
+ * R3R — how an external recipient can be reached.
+ *
+ * EXACTLY ONE VALUE, and that is the finding rather than a placeholder. The whole canonical
+ * schema carries three address columns and all three are email (`users.email`,
+ * `invitations.normalized_email`, `membership_authorizations.normalized_email`); there is not one
+ * phone or social-handle column anywhere. `heby.operations.send-communication` is the only
+ * consumer, and the communication provider surface is an explicit simulation with "no directory
+ * access". So email is the only channel with any evidence behind it.
+ *
+ * The enum exists rather than the column being implied because a second channel must arrive as an
+ * ALTER TYPE with its own migration and its own validator — not as a silent reinterpretation of a
+ * `text` column everything already assumed was an address. Same discipline as
+ * `work_artifact_type`: the vocabulary is closed, and a new value arrives with the consumer that
+ * needs it.
+ */
+export const externalRecipientEndpointKindEnum = pgEnum("external_recipient_endpoint_kind", [
+  "email",
+]);
+
+/*
+ * Two states. `invalid` was proposed at Gate A and dropped under stress-test: NO WRITER COULD
+ * ESTABLISH IT. There is no bounce handling, no delivery receipt and no verification system
+ * anywhere in the repository, so an `invalid` column could only ever be set by a guess.
+ *
+ * NO `verified`, `qualified`, `customer`, `lead`, `converted` or `engaged`. Storing an address is
+ * not proof that it works, that anyone owns it, or that a relationship exists. Retirement is the
+ * only transition, it is human-initiated, and it never rewrites the address.
+ */
+export const externalRecipientStatusEnum = pgEnum("external_recipient_status", [
+  "active",
+  "retired",
+]);

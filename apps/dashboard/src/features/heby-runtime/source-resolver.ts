@@ -133,6 +133,21 @@ export function resolveSource(
         "work-artifacts",
         "Prepared work is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
       );
+    /*
+     * R3R: recorded recipients are durable and tenant-scoped, and they are read exactly the way K1
+     * reads Knowledge and R3W reads artifacts — on the server, inside an already-resolved tenant.
+     * This resolver is pure: it holds no tenant and can open no connection, so it reports the
+     * honest default and the server answer flow substitutes the real tenant-scoped resolution
+     * (external-recipients/recipient-evidence.server.ts). A caller with no server seam gets no
+     * recipients, which is the truthful outcome rather than a seeded one — and it matters more
+     * here than anywhere else, because a fabricated item in this class would be a real person's
+     * address that nobody recorded.
+     */
+    case "external-recipients":
+      return unavailable(
+        "external-recipients",
+        "Recorded recipients are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
     default: {
       // Exhaustiveness guard — a new source class must be handled explicitly.
       const never: never = sourceClass;

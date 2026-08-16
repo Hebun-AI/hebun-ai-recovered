@@ -360,10 +360,21 @@ function vocabularyIsMinimal(): void {
       `no artifact lifecycle may imply "${forbidden}"`,
     );
   }
+  /*
+   * R3R CLOSED THE RECIPIENT HALF, so this assertion moved with it rather than being deleted. The
+   * old form pinned "no recipient authority exists"; that sentence is now false, and a green test
+   * asserting it would be green BECAUSE a stale claim survived — the exact failure the R3W
+   * canonical migration already taught this repository once.
+   */
   assert.ok(
-    RECIPIENT_SUBSTRATE_GAP.statement.includes("no recipient authority exists"),
-    "the dependency R3W does not close is stated in code",
+    !/no recipient authority exists/i.test(RECIPIENT_SUBSTRATE_GAP.statement),
+    "R3R built the recipient authority, so R3W must stop claiming there is none",
   );
+  assert.ok(
+    RECIPIENT_SUBSTRATE_GAP.statement.includes("no digest arguments"),
+    "what remains open is the action schema's missing digest arguments, and it is stated in code",
+  );
+  assert.equal(RECIPIENT_SUBSTRATE_GAP.owner, "R3A.1", "and it is owned by a named phase");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

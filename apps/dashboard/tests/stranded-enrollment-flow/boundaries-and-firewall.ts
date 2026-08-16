@@ -257,7 +257,7 @@ function main(): void {
      */
     assert.deepEqual(
       migrations.filter((f) => f > PHASE_BOUNDARY),
-      ["20260815202736_heby_answer_evidence.sql", "20260816063156_r3a_action_authorization.sql", "20260816085245_r3w_durable_work_artifacts.sql"],
+      ["20260815202736_heby_answer_evidence.sql", "20260816063156_r3a_action_authorization.sql", "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql"],
       "stranded-enrollment recovery added no migration; what follows is a declared later phase",
     );
     for (const file of migrations) {
