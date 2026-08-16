@@ -317,7 +317,7 @@ function main(): void {
       [
         "20260815202736_heby_answer_evidence.sql",
         "20260816063156_r3a_action_authorization.sql",
-        "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql",
+        "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql", "20260816194116_r3b_action_execution_attempts.sql",
       ],
       "invitation revocation added no migration; what follows is a declared later phase",
     );

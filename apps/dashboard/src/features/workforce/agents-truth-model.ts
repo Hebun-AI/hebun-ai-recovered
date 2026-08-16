@@ -186,7 +186,9 @@ function buildLadder(
       label: "Executed",
       state: "not-reached",
       provenance: "unavailable",
-      detail: "No execution substrate is connected; execution is owned by Operations.",
+      detail:
+        "No agent reaches execution. One execution runtime exists (Operations, one action kind), " +
+        "and its only trigger is an explicit human act on Decisions.",
     },
     {
       key: "successful",

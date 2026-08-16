@@ -302,6 +302,20 @@ export const actionPermits = pgTable(
     uniqueIndex("action_permits_request_uq").on(t.actionRequestId),
 
     /**
+     * THE COMPOSITE-FK ANCHOR (added at R3B).
+     *
+     * Every sibling in this chain already carried one — `heby_action_requests_tenant_id_uq`,
+     * `work_artifacts_tenant_id_uq`, `external_recipients_tenant_id_uq`. `action_permits` did not,
+     * because until R3B nothing pointed AT a permit. `action_execution_attempts` does, and it must
+     * bind by `(tenant_id, permit_id)` rather than by `permit_id` alone: an attempt that could name
+     * another tenant's permit would make tenant safety an application `where` clause somebody can
+     * forget, instead of a fact the database refuses to violate.
+     *
+     * Additive and non-breaking: `id` is already the primary key, so no existing row can conflict.
+     */
+    uniqueIndex("action_permits_tenant_id_uq").on(t.tenantId, t.id),
+
+    /**
      * THE SINGLE-SPEND INVARIANT. One handoff may spend at most one permit. Partial because the
      * column is null until the permit is consumed — the same shape as
      * `membership_authorizations_consumed_invitation_uq`.

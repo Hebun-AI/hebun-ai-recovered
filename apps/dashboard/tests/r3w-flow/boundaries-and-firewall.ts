@@ -554,7 +554,10 @@ function registryNotLoosened(): void {
   ] as const) {
     const tool = getActionToolByKind(kind);
     assert.ok(tool);
-    assert.equal(tool.substrateConnected, false, `${kind} still declares no substrate`);
+    /* R3B connected exactly one of these four; the other three must still declare none. */
+    if (kind !== "send-external-communication") {
+      assert.equal(tool.substrateConnected, false, `${kind} still declares no substrate`);
+    }
     assert.equal(tool.governanceGated, true);
     assert.equal(tool.authorityRequirement, "human-review-required");
   }

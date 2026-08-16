@@ -12,6 +12,8 @@
  * Uses a disposable local database, dropped on exit. The canonical database is never opened.
  */
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
+import path from "node:path";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 // Loaded FIRST: the schema barrel is the only safe entry point for src/db/schema/*.
@@ -67,11 +69,19 @@ async function main(): Promise<void> {
   const deps = { getDb: () => handle.db };
 
   try {
-    /* The whole chain applied, R3R included. */
+    /*
+     * The whole chain applied, R3R included — stated RELATIVE to what the repository ships rather
+     * than as the literal 28 this originally pinned. A global count in a phase test is a claim
+     * about every future phase, and R3B falsified it the moment it added a migration of its own.
+     */
     const applied = await setup.query<{ n: number }>(
       "select count(*)::int as n from drizzle.__drizzle_migrations",
     );
-    assert.equal(applied.rows[0]!.n, 28, "the R3R migration is the 28th");
+    const onDisk = readdirSync(path.join(process.cwd(), "src/db/migrations")).filter((f) =>
+      f.endsWith(".sql"),
+    ).length;
+    assert.equal(applied.rows[0]!.n, onDisk, "every migration on disk is applied, R3R included");
+    assert.ok(applied.rows[0]!.n >= 28, "R3R is at least the 28th migration");
 
     const acme = (await seedLocalIdentity(setup, {
       companyName: "Acme",

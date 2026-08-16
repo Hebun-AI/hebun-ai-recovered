@@ -28,16 +28,22 @@ const LAYERS: readonly ExecutionLayerView[] = [
   { layer: "Governance gate", owner: "Governance", state: "not-connected", implemented: false, detail: "No live policy evaluator is connected — governance is not-connected, never silently passed." },
   { layer: "Human authority", owner: "Decisions / Director", state: "human-gated", implemented: true, detail: "Mutations require a human authority. There is no runtime 'authorized' state; authorization is a human act." },
   { layer: "Execution eligibility", owner: "Phase 17", state: "connected", implemented: true, detail: "Derived only for READ_ONLY when every gate is satisfied. Eligible ≠ executed." },
-  { layer: "Execution dispatcher / runtime", owner: "Operations", state: "not-connected", implemented: false, detail: "No execution dispatcher is connected. This layer is missing — nothing can be invoked beyond READ_ONLY." },
+  /*
+   * R3B REPAIR. These two layers said "not connected" and that stopped being true: a narrow
+   * execution runtime exists for exactly one action kind. It is deliberately NOT a dispatcher —
+   * there is no queue, no worker and no scheduler — and it is not armed, so the honest state is
+   * "connected for one action, disabled" rather than either "missing" or "running".
+   */
+  { layer: "Execution dispatcher / runtime", owner: "Operations · R3B", state: "human-gated", implemented: true, detail: "A narrow execution runtime exists for exactly one action kind (send-external-communication), reached only by an explicit human Execute. There is no dispatcher, worker or scheduler, and the durable external-send switch is disabled." },
   { layer: "Device / provider runtime", owner: "Phase 18 · providers", state: "simulation-only", implemented: false, detail: "Device Runtime is contract-only (empty registry, no session); Computer Use is simulation-only. No real device or provider executes." },
-  { layer: "Receipt / result", owner: "Phase 17", state: "not-connected", implemented: false, detail: "Produced only after a READ_ONLY invocation actually runs. None has run, so none exists." },
+  { layer: "Receipt / result", owner: "Phase 17 · R3B", state: "human-gated", implemented: true, detail: "A durable execution attempt records what the provider said, including an explicit UNKNOWN outcome. No attempt has ever reached a live provider, so no receipt exists." },
 ];
 
 const GATES: readonly ExecutionGateView[] = [
-  { gate: "Capability", status: "satisfied", detail: "Satisfied for READ_ONLY (a connected substrate exists); unmet for every mutation — no substrate is connected." },
+  { gate: "Capability", status: "satisfied", detail: "Satisfied for READ_ONLY, and for the one mutation R3B connected (send-external-communication). Unmet for every other mutation and for every device action — no substrate is connected." },
   { gate: "Governance", status: "not-connected", detail: "A governance check is required for consequential classes, but no live policy evaluator is connected. Not-connected is not a pass." },
   { gate: "Authority", status: "requires-human-review", detail: "Mutations require a human authority; Heby may never act (hebyMayAct = false). READ_ONLY is advisory-only." },
-  { gate: "Execution substrate", status: "not-connected", detail: "No execution dispatcher is connected, so nothing beyond READ_ONLY could be invoked even if gated." },
+  { gate: "Execution substrate", status: "requires-human-review", detail: "One narrow execution runtime is connected, for one action kind, spendable only by an explicit human Execute against an approved single-spend permit — and disabled at the durable switch. Nothing else beyond READ_ONLY could be invoked even if gated." },
   { gate: "Device runtime", status: "not-connected", detail: "No device is registered and no session runs; device actions are restricted." },
 ];
 
@@ -53,18 +59,23 @@ function terminalCapability() {
 
 /** Build the Execution Substrate model. Pure, synchronous, read-only. */
 export function getSubstrateModel(): SubstrateModel {
-  // Real invariant: only READ_ONLY actions are invokable; every mutation/device tool declares
-  // no connected substrate, so no mutation or device action can run and nothing has executed.
+  /*
+   * R3B REPAIR. This used to assert that NO mutation had a substrate, which is how the surface
+   * justified saying nothing could execute. Exactly one now does, so the derived fact is a COUNT
+   * rather than a boolean — and every other mutation and device tool must still be disconnected
+   * for the rest of this model's claims to hold.
+   */
   const mutationTools = listActionTools().filter(
     (tool) => !INVOKABLE_SIDE_EFFECTS.includes(tool.sideEffect) && tool.sideEffect !== "PREPARATION_ONLY",
   );
-  const noMutationInvokable = mutationTools.every((tool) => tool.substrateConnected === false);
+  const connectedMutations = mutationTools.filter((tool) => tool.substrateConnected);
+  const onlyOneMutationConnected = connectedMutations.length === 1;
 
   return {
     state: {
-      headline: "No execution runtime is connected",
+      headline: "One execution runtime is connected, and it is disabled",
       detail:
-        "The execution stack exists as contracts and gates, but the dispatcher, device/provider runtime, and receipt layers are not connected. Only READ_ONLY actions can be invoked; every mutation and device action is non-executable. This surface exposes the execution architecture — it does not activate it.",
+        "Exactly one action kind (send-external-communication) has a durable execution runtime: an approved single-spend permit, an explicit human Execute, one bounded adapter, and a recorded attempt. It is NOT armed — the durable external-send switch is disabled, no provider credential is configured, no vendor has been selected, and no real send has ever occurred. Every other mutation and every device action remains non-executable, and there is no dispatcher, worker or scheduler anywhere. This surface exposes the execution architecture — it does not activate it.",
     },
     layers: LAYERS,
     gates: GATES,
@@ -74,16 +85,20 @@ export function getSubstrateModel(): SubstrateModel {
         "The only Computer Use surface is an offline, simulation-only planning provider. Simulation is not execution: no real browser, device, or desktop is controlled.",
     },
     terminal: terminalCapability(),
+    /*
+     * What is still missing — for the one connected action, and for everything else. The first
+     * three entries were satisfied by R3A and R3B and have been replaced by what actually remains.
+     */
     requiredToExecute: [
-      "A connected execution dispatcher / runtime that could invoke a mutation.",
-      "A live governance / policy evaluator (governance is currently not-connected).",
-      "A persisted authorization substrate plus an explicit human authority act.",
+      "A selected external provider — no vendor has been chosen, and choosing one is a separate Director decision.",
+      "A configured provider credential and HTTPS endpoint; without both, the adapter does not exist.",
+      "The durable external-send switch enabled by the Director; it ships disabled and is read twice per execution.",
+      "For any OTHER mutation: its own execution runtime — none of the remaining three has one.",
       "A connected device / session runtime for any device action (Phase 18 is contract-only).",
       "A real, non-simulation Computer Use / provider execution channel.",
-      "Explicit Director architecture authorization before any real-world execution is connected.",
     ],
-    receiptBoundary: noMutationInvokable
-      ? "Execution receipts exist only after an action actually runs. No live execution has occurred, so no receipt is surfaced — and none is fabricated."
+    receiptBoundary: onlyOneMutationConnected
+      ? "Execution receipts exist only after an action actually runs. A durable attempt record exists for the one connected action, but no live execution has occurred, so no receipt is surfaced — and none is fabricated."
       : "Execution receipts exist only after an action actually runs.",
   };
 }

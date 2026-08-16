@@ -7,11 +7,13 @@ import {
   rejectActionRequest,
 } from "@/features/action-authorization/decide-action-request.server";
 import { revokeActionPermit } from "@/features/action-authorization/revoke-action-permit.server";
+import { executeAuthorizedAction } from "@/features/action-execution/execute-authorized-action.server";
 import type {
   ActionApprovalResult,
   ActionRejectionResult,
   ActionRevocationResult,
 } from "@/features/action-authorization/contracts";
+import type { ExecutionResult } from "@/features/action-execution/contracts";
 
 /*
  * The R3A authorization boundary — the only client-crossable way to authorize a consequential act.
@@ -23,10 +25,19 @@ import type {
  * the durable R1 session — so a forged `tenantId`, `actorId`, `digest`, `expiresAt`, `permitId`
  * owner or `approvedBy` is unrepresentable here rather than filtered somewhere downstream.
  *
- * THERE IS NO EXECUTE ACTION IN THIS FILE, and none anywhere else the client can reach. Approving
- * mints a permit; spending it produces an authorization handoff; performing the act belongs to R3B,
- * which does not exist. A client cannot cause an effect through this boundary because there is no
- * representation in which it could ask for one.
+ * THERE IS NOW EXACTLY ONE EXECUTE ACTION (R3B), and it takes ONE parameter: which permit. It
+ * cannot be told the tenant, the recipient, the content, the adapter, the digests or the handoff —
+ * every one of those is resolved server-side from the durable session and the approved request, so
+ * a client that wanted to send something else has no representation in which to ask.
+ *
+ * APPROVING STILL DOES NOT EXECUTE. Approval mints a permit and stops; a SEPARATE, deliberate
+ * human click spends it. Collapsing the two would erase the distinction R3A spent an entire phase
+ * establishing, in the first line of the phase that depends on it.
+ *
+ * HEBY CANNOT REACH THIS FILE. Heby's server actions do not import this module, so no message,
+ * model answer, slash command or voice transcript has a representation in which it could approve
+ * OR execute anything. There is no worker, no scheduler and no queue that could call it either:
+ * the only caller is a browser event from an authenticated human.
  *
  * THERE IS ALSO NO PROPOSE ACTION. A request is written by the Heby lifecycle server-side; letting
  * a browser post an arbitrary action request would make the proposal channel the weakest link in a
@@ -73,5 +84,26 @@ export async function revokeActionPermitAction(
     revocationReason: String(input?.revocationReason ?? ""),
   });
   if (result.status === "revoked") revalidatePath("/approvals");
+  return result;
+}
+
+/**
+ * Spend one authorization on one external act (R3B).
+ *
+ * The Director clicks Execute. That click is the whole trigger — there is no automatic execution
+ * on approval, no worker draining approved permits, and no scheduled sweep. An authorization that
+ * is never clicked simply expires, which is the correct default for an irreversible act.
+ *
+ * The path revalidates on every terminal outcome, refusals included: a refused attempt changes
+ * what the surface must show (the permit is spent) just as much as an accepted one does.
+ */
+export async function executeAuthorizedActionAction(
+  input: { readonly permitId: string },
+): Promise<ExecutionResult> {
+  const tenant = await resolveTenantContext();
+  const result = await executeAuthorizedAction(tenant, {
+    permitId: String(input?.permitId ?? ""),
+  });
+  if (result.status !== "refused") revalidatePath("/approvals");
   return result;
 }

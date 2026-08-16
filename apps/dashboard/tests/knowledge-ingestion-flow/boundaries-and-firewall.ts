@@ -319,7 +319,7 @@ function main(): void {
         /* KR5 historical answer evidence — a later Gate-B phase, declared rather than silent. */
         "20260815202736_heby_answer_evidence.sql",
         "20260816063156_r3a_action_authorization.sql",
-        "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql",
+        "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql", "20260816194116_r3b_action_execution_attempts.sql",
       ],
       "ingestion added no migration; everything after its boundary belongs to a declared later phase",
     );

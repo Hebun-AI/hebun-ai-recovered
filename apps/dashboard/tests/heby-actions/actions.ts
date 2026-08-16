@@ -425,12 +425,21 @@ function phase16Preserved(): void {
 /* --- Registry honesty invariants ---------------------------------------------------- */
 function registryIsHonest(): void {
   assert.deepEqual(validateActionRegistry(), [], "registry declarations are internally honest");
-  // Every mutation/device tool declares no connected substrate.
+  // Every mutation/device tool declares no connected substrate — EXCEPT the one R3B built.
   for (const tool of listActionTools()) {
+    if (tool.actionKind === "send-external-communication") continue;
     if (tool.sideEffect === "REVERSIBLE_MUTATION" || tool.sideEffect === "CONSEQUENTIAL_MUTATION" || tool.sideEffect === "DEVICE_ACTION") {
       assert.equal(tool.substrateConnected, false, `${tool.toolId} must not claim a substrate`);
     }
   }
+  // And that exception is exactly one tool wide.
+  assert.equal(
+    listActionTools().filter(
+      (t) => t.sideEffect !== "READ_ONLY" && t.sideEffect !== "PREPARATION_ONLY" && t.substrateConnected,
+    ).length,
+    1,
+    "exactly one mutation tool may claim a substrate",
+  );
   // No READ_ONLY tool is reversible-classified.
   const inspectTool = getActionToolByKind("inspect-system-state");
   assert.equal(inspectTool?.reversibility, "none");

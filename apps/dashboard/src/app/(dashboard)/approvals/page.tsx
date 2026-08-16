@@ -23,8 +23,13 @@ export const metadata = { title: "Decisions — Hebun AI" };
  * own data sources justify — a real approval queue for actions does not make the briefing,
  * recommendation or history sources connected, and none of them is presented as though it were.
  *
- * NOTHING ON THIS PAGE EXECUTES ANYTHING. Authorizing issues a bounded, revocable, single-spend
- * permit. The execution substrate is not connected, and every permit row says so.
+ * R3B MADE THIS THE ONE PAGE THAT CAN EXECUTE — with a SECOND, separate click. Authorizing still
+ * only issues a bounded, revocable, single-spend permit; a Director then chooses to spend it, and
+ * an authorization nobody clicks simply expires. There is no auto-execution and no worker.
+ *
+ * Every execution outcome shown here is derived from a durable attempt row. The page never says
+ * "sent" or "delivered": the strongest available claim is that a provider accepted the operation,
+ * and it appears only next to that provider's own message id.
  */
 
 export default async function ApprovalsPage() {

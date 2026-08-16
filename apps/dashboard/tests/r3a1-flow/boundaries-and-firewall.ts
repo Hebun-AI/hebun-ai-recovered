@@ -204,7 +204,12 @@ function executionFirewall(): void {
   /* The tool itself still declares no substrate: approval mints a permit nothing can spend. */
   const tool = getActionToolByKind("send-external-communication");
   assert.ok(tool);
-  assert.equal(tool!.substrateConnected, false, "R3A.1 connects NO execution substrate");
+  /*
+   * R3B connected the substrate; R3A.1 still did not. What this phase must never gain is the
+   * ability to REACH it, which the import firewall below proves — a flag it does not control is
+   * not evidence about what this phase does.
+   */
+  assert.equal(tool!.actionKind, "send-external-communication");
   assert.equal(tool!.authorityRequirement, "human-review-required");
   assert.equal(tool!.governanceGated, true);
   assert.equal(tool!.sideEffect, "CONSEQUENTIAL_MUTATION");

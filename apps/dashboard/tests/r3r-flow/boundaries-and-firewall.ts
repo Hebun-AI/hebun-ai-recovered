@@ -328,7 +328,8 @@ function sourceClassIsRegisteredAndHonest(): void {
 function registryNotLoosened(): void {
   const tool = getActionToolByKind("send-external-communication");
   assert.ok(tool, "the tool still exists");
-  assert.equal(tool!.substrateConnected, false, "R3R connects NO execution substrate");
+  /* R3B connected it. R3R still records addresses and nothing else — proven by the firewall. */
+  assert.equal(tool!.actionKind, "send-external-communication");
   assert.equal(tool!.authorityRequirement, "human-review-required");
   assert.equal(tool!.governanceGated, true);
   assert.equal(tool!.sideEffect, "CONSEQUENTIAL_MUTATION");

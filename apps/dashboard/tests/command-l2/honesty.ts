@@ -120,7 +120,14 @@ function goalsHonest(): void {
 function directorIntentHonest(): void {
   const m = getDirectorIntentModel();
   assert.equal(m.liveModelConnected, false, "no language model connected");
-  assert.equal(m.executionConnected, false, "no execution substrate connected");
+  /*
+   * R3B REPAIR. This asserted `executionConnected === false`, which was true until an execution
+   * runtime shipped. The value is now DERIVED from the registry, and what still protects the
+   * reader is the NARROWER pair of claims: a substrate exists for exactly ONE action kind, and
+   * free text still cannot reach it.
+   */
+  assert.equal(m.executionConnected, true, "one execution substrate is connected");
+  assert.equal(m.connectedMutationCount, 1, "and exactly one — never a second");
   assert.equal(m.freeTextToExecution, false, "free text is never routed to raw execution");
 
   // No mutation/device tool is invokable; the invokable set is read-only only.
@@ -129,7 +136,14 @@ function directorIntentHonest(): void {
       a.sideEffect === "REVERSIBLE_MUTATION" ||
       a.sideEffect === "CONSEQUENTIAL_MUTATION" ||
       a.sideEffect === "DEVICE_ACTION";
-    if (isMutationOrDevice) assert.equal(a.substrateConnected, false, `${a.actionKind} mutation must not be connected`);
+    /*
+     * R3B connected exactly ONE mutation substrate. The assertion is narrowed to that one action
+     * kind rather than dropped: every other mutation and device tool must still declare `false`,
+     * which is the protection this loop was written for.
+     */
+    if (isMutationOrDevice && a.actionKind !== "send-external-communication") {
+      assert.equal(a.substrateConnected, false, `${a.actionKind} mutation must not be connected`);
+    }
   }
   const invokable = m.actions.filter((a) => a.sideEffect === "READ_ONLY" && a.substrateConnected);
   assert.equal(m.invokableCount, invokable.length, "invokable count matches read-only connected tools");

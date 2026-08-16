@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { DecisionRegion, DecisionEmptyState, StructuralMarker } from "./decision-region";
 import {
   approveActionRequestAction,
+  executeAuthorizedActionAction,
   rejectActionRequestAction,
   revokeActionPermitAction,
 } from "@/app/(dashboard)/approvals/actions";
@@ -11,6 +12,10 @@ import type {
   ActionPermitView,
   PendingActionRequestView,
 } from "@/features/action-authorization/read-action-authorizations.server";
+import {
+  EXECUTION_OUTCOME_WORDING,
+  type ExecutionAttemptStatus,
+} from "@/features/action-execution/contracts";
 
 /*
  * Consequential Action Authorization (R3A) — the first REAL decision act on this surface.
@@ -24,9 +29,15 @@ import type {
  * consequences, and whether the act is reversible. Consequences before confirmation is the Heby
  * Core Phase 6 rule, and an approval control that appears before them would break it.
  *
- * WHAT THIS COMPONENT CANNOT DO. There is no execute control, because no execute action exists to
- * call. Approving produces an authorization; it does not perform anything, and the permit column
- * says so on every row.
+ * R3B ADDED ONE CONTROL: Execute, on an active permit, and nowhere else. It is a SECOND deliberate
+ * click by the same human — approving still authorizes and stops. There is no auto-execute, no
+ * queue and no worker, so an authorization nobody clicks simply expires.
+ *
+ * WHAT THIS COMPONENT STILL REFUSES TO SAY. It never renders "sent" or "delivered". The strongest
+ * claim available is "accepted by the provider", and it appears only alongside the provider's own
+ * message id. An `unknown` outcome is rendered as prominently as an accepted one, with an explicit
+ * instruction not to retry — because the one thing a human must not do with an ambiguous send is
+ * assume it failed.
  */
 
 const MIN_JUSTIFICATION = 12;
@@ -170,6 +181,40 @@ function RequestCard({ item }: { item: PendingActionRequestView }) {
   );
 }
 
+/**
+ * The outcome line. `unknown` is styled like a warning rather than a failure, because it is the
+ * one state a human can make worse by acting on the obvious reading.
+ */
+function OutcomeLine({
+  status,
+  providerMessageId,
+}: {
+  readonly status: ExecutionAttemptStatus;
+  readonly providerMessageId: string | null;
+}) {
+  const tone =
+    status === "accepted"
+      ? "border-border bg-surface text-fg-secondary"
+      : status === "unknown"
+        ? "border-danger/40 bg-danger/10 text-danger"
+        : "border-border bg-surface text-fg-muted";
+  return (
+    <div className={`rounded-md border p-2 ${tone}`}>
+      <p className="text-xs leading-5">{EXECUTION_OUTCOME_WORDING[status]}</p>
+      {providerMessageId ? (
+        <p className="mt-0.5 break-all text-[0.65rem] text-fg-muted">
+          Provider message id: {providerMessageId}
+        </p>
+      ) : null}
+      {status === "accepted" ? (
+        <p className="mt-0.5 text-[0.65rem] text-fg-muted">
+          Accepted is not delivered. Hebun has no delivery confirmation.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function PermitRow({ item }: { item: ActionPermitView }) {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -187,6 +232,22 @@ function PermitRow({ item }: { item: ActionPermitView }) {
       );
     });
 
+  const execute = () =>
+    startTransition(async () => {
+      setMessage(null);
+      const result = await executeAuthorizedActionAction({ permitId: item.permitId });
+      if (result.status === "refused") {
+        /* Nothing was spent — the same permit can be executed once the cause is fixed. */
+        setMessage(`Not executed (${result.reason}). The authorization is untouched.`);
+        return;
+      }
+      setMessage(
+        result.status === "refused-after-spend"
+          ? `Refused after the authorization was spent (${result.attempt.failureClass}). Nothing was sent, and this permit cannot be reused.`
+          : EXECUTION_OUTCOME_WORDING[result.attempt.status],
+      );
+    });
+
   return (
     <li className="flex flex-col gap-2 rounded-lg border border-border bg-surface-sunken p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -196,28 +257,53 @@ function PermitRow({ item }: { item: ActionPermitView }) {
           expires {new Date(item.expiresAt).toLocaleString()}
         </span>
       </div>
-      <p className="text-[0.65rem] text-fg-muted">
-        Authorized, not executed. Execution substrate is not connected.
-      </p>
+
+      {item.executionStatus === null ? (
+        <p className="text-[0.65rem] text-fg-muted">
+          {item.state === "active"
+            ? "Authorized — not executed. Executing spends this authorization permanently."
+            : "Authorized, and never executed."}
+        </p>
+      ) : (
+        <OutcomeLine status={item.executionStatus} providerMessageId={item.providerMessageId} />
+      )}
+
       {item.revocationReason ? (
         <p className="text-[0.65rem] text-fg-muted">Revoked: {item.revocationReason}</p>
       ) : null}
+
+      {/* Execute and Revoke exist only while the permit is live and unspent. */}
       {item.state === "active" ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Reason for revoking"
-            className="rounded-md border border-border bg-surface p-1.5 text-xs text-fg-primary"
-          />
-          <button
-            type="button"
-            disabled={pending || reason.trim().length === 0}
-            onClick={revoke}
-            className="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-fg-secondary disabled:opacity-40"
-          >
-            Revoke
-          </button>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={execute}
+              className="rounded-md border border-primary bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary disabled:opacity-40"
+            >
+              Execute now
+            </button>
+            <span className="text-[0.65rem] text-fg-muted">
+              Irreversible, and spends this authorization whether or not it succeeds.
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Reason for revoking"
+              className="rounded-md border border-border bg-surface p-1.5 text-xs text-fg-primary"
+            />
+            <button
+              type="button"
+              disabled={pending || reason.trim().length === 0}
+              onClick={revoke}
+              className="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-fg-secondary disabled:opacity-40"
+            >
+              Revoke
+            </button>
+          </div>
         </div>
       ) : null}
       {message ? <p className="text-xs text-fg-secondary">{message}</p> : null}

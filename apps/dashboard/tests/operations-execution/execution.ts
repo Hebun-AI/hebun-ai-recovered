@@ -30,8 +30,16 @@ function capabilitiesFromRealContracts(): void {
   for (const cls of ["REVERSIBLE_MUTATION", "CONSEQUENTIAL_MUTATION", "DEVICE_ACTION"]) {
     const row = byClass(cls);
     assert.ok(row, `${cls} row present`);
+    /*
+     * THE CLAIM THAT MATTERS IS UNCHANGED: no mutation or device class is ever `available`, i.e.
+     * freely invokable. R3B connected a substrate for one CONSEQUENTIAL_MUTATION tool, and that
+     * tool is still reachable only through an approved permit and an explicit human Execute —
+     * which is exactly why `available` stays false for the class.
+     */
     assert.notEqual(row!.status, "available", `${cls} is never available`);
-    assert.equal(row!.substrateConnected, false, `${cls} has no connected substrate`);
+    if (cls !== "CONSEQUENTIAL_MUTATION") {
+      assert.equal(row!.substrateConnected, false, `${cls} has no connected substrate`);
+    }
   }
 
   // Only READ_ONLY is in the real invokable set.

@@ -51,7 +51,12 @@ export interface CapabilitiesModel {
   readonly capabilityLadder: readonly CapabilityLadderStage[];
   readonly authorityOwnership: readonly AuthorityOwnershipRow[];
   readonly runtimeMode: string;
-  /** Always false — no execution substrate is connected. */
+  /**
+   * Whether the WORKFORCE may execute. Always false, and the reason was restated at R3B: it is no
+   * longer "no execution substrate exists anywhere" — one does — but that no agent can reach it.
+   * The single execute boundary is a human click on Decisions, and a firewall test proves no Heby
+   * or agent surface imports it.
+   */
   readonly executionAvailable: boolean;
   readonly definitionCount: number;
   readonly provenanceNote: string;

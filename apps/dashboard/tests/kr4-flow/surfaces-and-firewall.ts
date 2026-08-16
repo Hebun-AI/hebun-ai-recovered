@@ -327,7 +327,7 @@ export function run(): void {
     assert.ok(files.includes(PHASE_BOUNDARY), "the migration KR4 inherited is intact");
     assert.deepEqual(
       files.filter((name) => name > PHASE_BOUNDARY).sort(),
-      ["20260815202736_heby_answer_evidence.sql", "20260816063156_r3a_action_authorization.sql", "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql"],
+      ["20260815202736_heby_answer_evidence.sql", "20260816063156_r3a_action_authorization.sql", "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql", "20260816194116_r3b_action_execution_attempts.sql"],
       "KR4 adds no migration; what follows is a declared later phase",
     );
     const journal = JSON.parse(read(join(MIGRATIONS, "meta", "_journal.json"))) as { entries: unknown[] };

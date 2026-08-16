@@ -69,8 +69,18 @@ export interface DirectorIntentModel {
   readonly invokableCount: number;
   /** No language model is connected to intent understanding. Always false in this phase. */
   readonly liveModelConnected: false;
-  /** No execution substrate is connected for consequential actions. Always false. */
-  readonly executionConnected: false;
+  /**
+   * Whether ANY consequential action has a connected execution substrate.
+   *
+   * REPAIRED AT R3B. This was the literal `false`, captioned "always false", and that stopped
+   * being true when one execution runtime shipped. It is now DERIVED from the registry, so it
+   * cannot drift again. `true` here means a substrate EXISTS — not that anything is armed (the
+   * durable external-send switch is disabled) and not that Heby may reach it (it cannot; the
+   * execute boundary is a human click on `/approvals`).
+   */
+  readonly executionConnected: boolean;
+  /** How many mutation tools declare a connected substrate. Exactly one since R3B. */
+  readonly connectedMutationCount: number;
   /** Free text is never routed to raw execution. Always false — arguments are typed and gated. */
   readonly freeTextToExecution: false;
 }
@@ -91,13 +101,22 @@ export function getDirectorIntentModel(): DirectorIntentModel {
     .slice()
     .sort((a, b) => a.order - b.order);
 
+  /* Derived, never asserted: a stale literal is exactly what R3B had to repair here. */
+  const connectedMutations = listActionTools().filter(
+    (tool) =>
+      tool.sideEffect !== "READ_ONLY" &&
+      tool.sideEffect !== "PREPARATION_ONLY" &&
+      tool.substrateConnected,
+  );
+
   return {
     categories: INTENT_CATEGORIES,
     actions,
     lifecycle,
     invokableCount: invokableActionTools().length,
     liveModelConnected: false,
-    executionConnected: false,
+    executionConnected: connectedMutations.length > 0,
+    connectedMutationCount: connectedMutations.length,
     freeTextToExecution: false,
   };
 }

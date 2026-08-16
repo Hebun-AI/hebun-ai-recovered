@@ -114,7 +114,19 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
     ownerWorkspace: "operations",
     authorityRequirement: "human-review-required",
     governanceGated: true,
-    substrateConnected: false,
+    /*
+     * R3B — THE ONE CONNECTED MUTATION SUBSTRATE, and the only one the validator permits.
+     *
+     * True since `action-execution` exists: a durable execution-attempt authority, one bounded
+     * HTTPS adapter, an idempotency key derived from the permit, and a receipt. Every other
+     * mutation and device tool still declares `false`, and {@link validateActionRegistry} now
+     * refuses any second one by name rather than by count.
+     *
+     * CONNECTED IS NOT ARMED. The durable `external-send` kill switch ships disabled and no
+     * provider credential is configured, so execution refuses at the switch. This flag says a
+     * substrate EXISTS — not that a send can happen today, and not that one ever has.
+     */
+    substrateConnected: true,
     /*
      * R3A.1 — FOUR ARGUMENTS, NOT TWO.
      *
@@ -240,11 +252,28 @@ export interface RegistryConsistencyIssue {
 }
 
 /**
+ * THE ONE ACTION KIND ALLOWED TO DECLARE A CONNECTED MUTATION SUBSTRATE (R3B).
+ *
+ * Before R3B this list was empty and the invariant read "no mutation or device tool may declare a
+ * connected substrate". That was true then and it is false now, so the guard was NARROWED rather
+ * than removed: the exception is one named action kind, and it carries four extra obligations
+ * (below) that the old blanket rule never had to state. Deleting the guard would have left nothing
+ * standing between "we built one executor" and "any tool may claim it can run".
+ */
+const SUBSTRATE_CONNECTED_ACTION_KINDS: readonly HebyActionKind[] = Object.freeze([
+  "send-external-communication",
+]);
+
+/**
  * Validate the registry's OWN honesty invariants — a structural guard against a dishonest
  * declaration. Enforced:
  *  - reversibility matches the side-effect class (no "reversible" consequential mutation, and no
  *    mutation dressed as READ_ONLY);
- *  - no mutation or device tool declares its substrate connected (there is none);
+ *  - a mutation tool declares a connected substrate ONLY if it is the one action kind that has
+ *    one, and only while it stays consequential, irreversible, human-reviewed and governance-gated
+ *    — so the exception cannot be borrowed by relaxing the tool it was granted to;
+ *  - a DEVICE_ACTION may never declare one, under any circumstances;
+ *  - at most ONE tool in the whole registry declares a connected mutation substrate;
  *  - the authority requirement matches the class (mutations/devices are never advisory-only).
  * Returns the list of violations — empty when the registry is internally honest.
  */
@@ -261,13 +290,30 @@ export function validateActionRegistry(): readonly RegistryConsistencyIssue[] {
     if ((tool.sideEffect === "CONSEQUENTIAL_MUTATION" || tool.sideEffect === "DEVICE_ACTION") && tool.reversibility !== "irreversible") {
       issues.push({ toolId: tool.toolId, issue: "consequential/device must be classified irreversible" });
     }
-    // No mutation/device substrate is connected — honesty over fake capability.
+    // Substrate honesty — narrowed at R3B, never widened. See SUBSTRATE_CONNECTED_ACTION_KINDS.
     const isMutationOrDevice =
       tool.sideEffect === "REVERSIBLE_MUTATION" ||
       tool.sideEffect === "CONSEQUENTIAL_MUTATION" ||
       tool.sideEffect === "DEVICE_ACTION";
     if (isMutationOrDevice && tool.substrateConnected) {
-      issues.push({ toolId: tool.toolId, issue: "mutation/device tool must not declare a connected substrate" });
+      // A device action is never exempt, whatever any allowlist says. Computer Use stays absent.
+      if (tool.sideEffect === "DEVICE_ACTION") {
+        issues.push({ toolId: tool.toolId, issue: "device tool must not declare a connected substrate" });
+      } else if (!SUBSTRATE_CONNECTED_ACTION_KINDS.includes(tool.actionKind)) {
+        issues.push({ toolId: tool.toolId, issue: "mutation tool must not declare a connected substrate" });
+      } else {
+        /*
+         * The exception is granted to a tool in a specific posture, not to a name. Loosening any
+         * of these four would let the executor be reached with less friction than the human who
+         * authorized building it agreed to.
+         */
+        if (tool.sideEffect !== "CONSEQUENTIAL_MUTATION" || tool.reversibility !== "irreversible") {
+          issues.push({ toolId: tool.toolId, issue: "connected mutation substrate requires a consequential, irreversible tool" });
+        }
+        if (tool.authorityRequirement !== "human-review-required" || !tool.governanceGated) {
+          issues.push({ toolId: tool.toolId, issue: "connected mutation substrate requires human review and a governance gate" });
+        }
+      }
     }
     // Authority requirement ↔ class.
     if (isMutationOrDevice && tool.authorityRequirement === "advisory-only") {
@@ -275,6 +321,20 @@ export function validateActionRegistry(): readonly RegistryConsistencyIssue[] {
     }
     if (tool.sideEffect === "READ_ONLY" && tool.authorityRequirement !== "advisory-only") {
       issues.push({ toolId: tool.toolId, issue: "read-only must be advisory-only" });
+    }
+  }
+
+  /*
+   * THE CARDINALITY GUARD. Even a correctly-postured second entry in the allowlist is a violation:
+   * "one executed action" is the whole scope of this generation, and a registry that could hold
+   * two executors has already stopped being that.
+   */
+  const connectedMutations = ACTION_TOOLS.filter(
+    (tool) => tool.sideEffect !== "READ_ONLY" && tool.sideEffect !== "PREPARATION_ONLY" && tool.substrateConnected,
+  );
+  if (connectedMutations.length > 1) {
+    for (const tool of connectedMutations) {
+      issues.push({ toolId: tool.toolId, issue: "at most one tool may declare a connected mutation substrate" });
     }
   }
   return issues;

@@ -15,9 +15,20 @@ function stackMarksMissingLayers(): void {
   const model = getSubstrateModel();
   const byLayer = (l: string) => model.layers.find((x) => x.layer.toLowerCase().includes(l));
   const dispatcher = byLayer("dispatcher");
-  assert.ok(dispatcher, "the execution dispatcher layer is shown");
-  assert.equal(dispatcher!.implemented, false, "the dispatcher layer is honestly missing");
-  assert.equal(dispatcher!.state, "not-connected", "the dispatcher is not connected");
+  assert.ok(dispatcher, "the execution dispatcher / runtime layer is shown");
+  /*
+   * R3B REPAIR. This layer is a compound — "dispatcher / runtime" — and R3B built the RUNTIME half
+   * for exactly one action kind. It built no dispatcher: there is no queue, worker or scheduler,
+   * and nothing runs without an explicit human click. So the layer is implemented and HUMAN-GATED,
+   * which is a weaker claim than "connected" and a truer one than "missing".
+   */
+  assert.equal(dispatcher!.implemented, true, "a narrow execution runtime exists");
+  assert.equal(dispatcher!.state, "human-gated", "it runs only on an explicit human act");
+  assert.ok(
+    /no dispatcher, worker or scheduler/i.test(dispatcher!.detail),
+    "the surface must still say no dispatcher, worker or scheduler exists",
+  );
+  assert.ok(/disabled/i.test(dispatcher!.detail), "and that the runtime is not armed");
   assert.ok(model.layers.some((l) => l.implemented === false), "missing layers are marked, not faked as connected");
 }
 

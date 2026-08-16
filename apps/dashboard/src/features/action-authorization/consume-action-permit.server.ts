@@ -1,11 +1,18 @@
 /*
  * action-authorization/consume-action-permit.server.ts — spending an authorization, exactly once,
- * without performing anything (R3A).
+ * and recording what it was spent on in the SAME transaction (R3A, extended at R3B).
  *
- * THIS IS THE FURTHEST R3A GOES. It turns a live permit into an `ExecutionAuthorization` and stops.
- * No adapter, no provider, no browser, no shell, no device, no network call, no agent dispatch —
- * none of those modules is imported, and a firewall test asserts none ever is. The successful end
- * state of this function is AUTHORIZED BUT NOT EXECUTED.
+ * THIS MODULE STILL PERFORMS NOTHING. No adapter, no provider, no browser, no shell, no device, no
+ * network call, no agent dispatch — none of those modules is imported, and a firewall test asserts
+ * none ever is. Its successful end state is AUTHORIZED, and whether anything then happens is
+ * decided entirely by its caller.
+ *
+ * R3B ADDED ONE SEAM: `onAuthorizedWithin`, a callback invoked INSIDE the spend transaction with
+ * the transaction handle and the authorization. It exists because "consume the permit, then insert
+ * the execution attempt" is two transactions, and a crash between them leaves a spent
+ * authorization nothing can account for. One transaction makes the pair atomic: either the permit
+ * is spent AND the attempt exists, or neither does. The callback may only write; it cannot widen
+ * what was authorized, and it receives the authorization rather than producing one.
  *
  * THE SINGLE-SPEND INVARIANT IS ONE STATEMENT, NOT A SEQUENCE. Validation IS the spend:
  *
@@ -22,8 +29,12 @@
  *
  * WHAT WAS APPROVED == WHAT MAY BE EXECUTED. After winning the spend, the request's payload is
  * re-hashed and compared against BOTH the request's frozen digest and the permit's bound copy. Any
- * disagreement refuses and returns no authorization — the permit is already consumed at that point,
- * which is the safe direction: a suspicious permit is burned rather than re-offered.
+ * disagreement throws, which ROLLS THE SPEND BACK WITH IT: the permit stays `active` and nothing
+ * is authorized. That is the correct direction for a CONTENT disagreement — nothing was authorized
+ * and nothing was burned, so a Governance authority can revoke the permit deliberately once they
+ * know why the payload drifted. (An earlier revision of this header claimed the opposite, that a
+ * mismatched permit is burned. The code has always rolled back; the prose was wrong, and R3B
+ * repaired it rather than changing correct transaction semantics to match stale prose.)
  *
  * CONSUMED ≠ SUCCEEDED. Spending records that authorization was used. Whether the act then works
  * is R3B's fact to record, and a failed execution does NOT return the permit — a retry needs a new
@@ -46,9 +57,33 @@ import {
   type PermitConsumptionRefusal,
 } from "./contracts";
 
+/**
+ * The transaction handle handed to {@link PermitConsumptionDeps.onAuthorizedWithin}.
+ *
+ * Narrowed to `insert` and `select` on purpose. The callback records what the authorization is
+ * being spent on and re-reads the rows it depends on; it has no business updating or deleting
+ * anything, and least of all the permit it is running inside the spend of.
+ */
+export type PermitConsumptionTx = Pick<ControlPlaneDatabase, "insert" | "select">;
+
 export interface PermitConsumptionDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly now?: () => Date;
+  /**
+   * Invoked INSIDE the spend transaction, after the digest checks pass and before commit (R3B).
+   *
+   * ATOMICITY IS THE ENTIRE PURPOSE. A caller that spent the permit and then separately recorded
+   * what it was spent on would, on a crash between the two, hold an authorization that was
+   * consumed for no recorded reason — unspendable, unaccountable, and impossible to reconcile.
+   *
+   * Throwing aborts the whole transaction: the permit reverts to `active` and nothing was
+   * recorded. That is the safe direction — if Hebun cannot write down what it is about to do, it
+   * must not become entitled to do it.
+   */
+  readonly onAuthorizedWithin?: (
+    tx: PermitConsumptionTx,
+    authorization: ExecutionAuthorization,
+  ) => Promise<void>;
 }
 
 export type PermitConsumptionResult =
@@ -193,35 +228,52 @@ export async function consumeActionPermit(
         now,
       );
 
-      outcome = {
-        status: "authorized",
-        authorization: {
-          handoffId,
-          permitId: permit.id,
-          tenantId: tenant.tenantId,
-          actionRequestId: request.id,
-          actionKind: request.actionKind,
-          toolId: request.toolId,
-          targetKind: request.targetKind,
-          targetRef: request.targetRef,
-          canonicalPayload: payload,
-          boundPayloadDigest: permit.boundPayloadDigest,
-          authorizationDecisionId: permit.governanceDecisionId,
-          authorizedByActorId: permit.authorizedByActorId,
-          issuedAt: permit.issuedAt.toISOString(),
-          expiresAt: permit.expiresAt.toISOString(),
-          consumedAt: now.toISOString(),
-        },
+      const authorization: ExecutionAuthorization = {
+        handoffId,
+        permitId: permit.id,
+        tenantId: tenant.tenantId,
+        actionRequestId: request.id,
+        actionKind: request.actionKind,
+        toolId: request.toolId,
+        targetKind: request.targetKind,
+        targetRef: request.targetRef,
+        canonicalPayload: payload,
+        boundPayloadDigest: permit.boundPayloadDigest,
+        authorizationDecisionId: permit.governanceDecisionId,
+        authorizedByActorId: permit.authorizedByActorId,
+        issuedAt: permit.issuedAt.toISOString(),
+        expiresAt: permit.expiresAt.toISOString(),
+        consumedAt: now.toISOString(),
       };
+
+      /*
+       * THE ATOMIC HALF (R3B). Still inside the transaction that spent the permit. A throw here
+       * takes the spend with it, which is the whole reason the seam exists rather than the caller
+       * doing this immediately afterwards.
+       */
+      if (deps.onAuthorizedWithin) {
+        try {
+          await deps.onAuthorizedWithin(tx, authorization);
+        } catch (error) {
+          outcome = refused("handoff-record-failed");
+          throw new Error(
+            `handoff-record-failed:${error instanceof Error ? error.name : "unknown"}`,
+          );
+        }
+      }
+
+      outcome = { status: "authorized", authorization };
     });
 
     return outcome ?? refused("persistence-unavailable");
   } catch (error) {
     /*
-     * A digest failure rolls the spend back with it, so the permit stays `active`. That is the
-     * correct direction for a CONTENT disagreement: nothing was authorized, nothing was burned,
-     * and a Governance authority can revoke the permit deliberately once they know why.
+     * Every throw above rolls the spend back with it, so the permit stays `active` in all of these
+     * cases. Nothing was authorized and nothing was burned.
      */
+    if (error instanceof Error && error.message.startsWith("handoff-record-failed")) {
+      return refused("handoff-record-failed");
+    }
     if (error instanceof Error && error.message.startsWith("permit-")) {
       return refused("digest-mismatch");
     }

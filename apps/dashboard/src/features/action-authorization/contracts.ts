@@ -157,6 +157,12 @@ export type PermitConsumptionRefusal =
    * does not match. WHAT WAS APPROVED is no longer WHAT WOULD RUN, so nothing is authorized.
    */
   | "digest-mismatch"
+  /**
+   * The caller's in-transaction record of what this authorization is being spent on could not be
+   * written (R3B). The spend rolled back with it, so the permit is still `active`: Hebun does not
+   * become entitled to act when it cannot write down what it is about to do.
+   */
+  | "handoff-record-failed"
   | "persistence-unavailable";
 
 export type ActionRequestResult =
@@ -232,48 +238,64 @@ export const ACTION_PERMIT_EFFECT =
   "records that Governance has authorized ONE execution of this exact action, with these exact " +
   "parameters, before this expiry, unless revoked first";
 
+/*
+ * REPAIRED AT R3B. Two entries were true when written and became false when an execution runtime
+ * shipped: issuing a permit still does not execute anything, but "does not connect an execution
+ * substrate" and "does not send any communication" described the REPOSITORY rather than the act,
+ * and the repository changed. Leaving them would have let a green test suite stay green because a
+ * stale claim survived.
+ *
+ * What replaced them says the same protective thing about the ACT, which is what this constant is
+ * about: issuing a permit does not itself perform, dispatch or schedule anything. A separate,
+ * explicit human step spends it, and even that refuses while the durable kill switch is off.
+ */
 export const ACTION_PERMIT_NON_EFFECTS: readonly string[] = Object.freeze([
   "does not execute the action",
-  "does not connect an execution substrate",
+  "does not send any communication by itself",
+  "does not dispatch, queue or schedule an execution",
   "does not call any external provider, browser, shell, or device",
-  "does not send any communication",
   "does not dispatch an agent",
   "does not enable Computer Use",
   "does not grant Governance authority",
   "does not grant a standing privilege or role",
   "does not authorize any second action",
+  "does not authorize a retry of a failed or unknown attempt",
   "does not survive its expiry",
   "does not authorize a changed parameter",
 ]);
 
 /**
- * THE EXECUTION SUBSTRATE GAP — recorded at R3A, to be closed by R3B.
+ * THE EXECUTION SUBSTRATE GAP — recorded at R3A, CLOSED at R3B, and replaced by a narrower one.
  *
- * WHAT IS TRUE AT R3A CLOSURE. A permit can be issued, revoked, expired and spent, and spending it
- * yields an `ExecutionAuthorization`. Nothing consumes that handoff, because no execution runtime
- * exists: `substrateConnected` is `false` for every mutation tool in the Heby action registry, and
- * a structural test forbids R3A from changing it.
+ * WHAT R3A RECORDED. `substrateConnected` was `false` for every mutation tool, no attempt table,
+ * dispatcher or adapter existed, and an issued permit was authorization nothing could spend into
+ * an effect. All four statements were true then and none is true now.
  *
- * WHY THAT IS NOT A DEFECT. A permit whose executor does not exist is exactly as safe as a permit
- * whose executor is broken, and considerably more honest than an executor with no permit. The
- * authorization chain is the half that must be correct BEFORE anything can run, which is why it
- * was built first.
+ * WHAT R3B BUILT. `action_execution_attempts` (a durable attempt keyed by the permit's own
+ * `handoff_id`), one bounded HTTPS adapter behind a four-scalar contract, an explicit
+ * Director-triggered Execute, and a receipt with a first-class UNKNOWN outcome.
  *
- * WHAT WOULD CLOSE IT. R3B — First Executed Action: one sandboxed adapter, a durable execution
- * attempt keyed by `handoff_id`, a receipt, and enforced revocation at the execution moment.
+ * WHAT REPLACED THE GAP, AND WHY IT IS SMALLER. The substrate exists and is NOT ARMED: the
+ * durable `external-send` control ships disabled and no provider credential is configured, so
+ * every execution refuses at the switch. Building the runtime and arming it are deliberately two
+ * decisions, and only the first has been made.
  */
 export const EXECUTION_SUBSTRATE_GAP = Object.freeze({
   /** Can Hebun authorize a consequential action? Since R3A: yes. */
   authorizationPresent: true as const,
-  /** Can Hebun execute one? No, and no code here moves toward yes. */
-  executionPresent: false as const,
+  /** Does an execution runtime exist? Since R3B: yes, for exactly one action kind. */
+  executionPresent: true as const,
+  /** Can a real external effect happen today? No — the switch is off and no credential exists. */
+  executionArmed: false as const,
   owner: "R3B — First Executed Action",
   observedRealityAt: "2026-08-16",
   observation:
-    "Every mutation tool in the Heby action registry declares `substrateConnected: false`, and " +
-    "no execution attempt table, dispatcher, or adapter exists. An issued permit is therefore " +
-    "authorization that nothing can currently spend into an effect.",
+    "Exactly one tool — `heby.operations.send-communication` — declares a connected substrate, " +
+    "and the registry validator refuses a second. The durable `external-send` connectivity " +
+    "control is disabled, no provider is armed in deployment configuration, and no vendor has "
+    + "been selected.",
   consequence:
-    "Hebun may truthfully say a consequential action has been AUTHORIZED. It may never say the " +
-    "action was executed, attempted, delivered, or succeeded.",
+    "Hebun may truthfully say a consequential action has been AUTHORIZED, and that an execution " +
+    "runtime exists but is disabled. It may not say any action has been executed, sent, " +
+    "delivered or succeeded, because no real send has ever occurred.",
 });

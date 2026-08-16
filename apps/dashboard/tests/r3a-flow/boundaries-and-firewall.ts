@@ -102,6 +102,12 @@ for (const file of R3A_FILES) {
 
 for (const tool of listActionTools()) {
   if (tool.sideEffect === "READ_ONLY" || tool.sideEffect === "PREPARATION_ONLY") continue;
+  /*
+   * R3B connected exactly one: `send-external-communication`. R3A still authorizes and does not
+   * execute, and this loop still proves the OTHER three mutations and the device tool were not
+   * quietly connected alongside it.
+   */
+  if (tool.actionKind === "send-external-communication") continue;
   assert.equal(
     tool.substrateConnected,
     false,
@@ -361,7 +367,13 @@ assert.ok(PERMIT_MIN_TTL_SECONDS > 0 && PERMIT_MIN_TTL_SECONDS < PERMIT_DEFAULT_
  * ═════════════════════════════════════════════════════════════════════════ */
 
 assert.equal(EXECUTION_SUBSTRATE_GAP.authorizationPresent, true);
-assert.equal(EXECUTION_SUBSTRATE_GAP.executionPresent, false);
+/*
+ * R3B REPAIR. This asserted `executionPresent: false`, which was R3A's honest statement of what
+ * was missing and stopped being true when R3B built it. The claim that still protects the reader
+ * is the NARROWER one R3B left behind: a runtime exists, and it is not armed.
+ */
+assert.equal(EXECUTION_SUBSTRATE_GAP.executionPresent, true);
+assert.equal(EXECUTION_SUBSTRATE_GAP.executionArmed, false);
 assert.match(EXECUTION_SUBSTRATE_GAP.owner, /R3B/);
 for (const claim of ["does not execute the action", "does not enable Computer Use"]) {
   assert.ok(

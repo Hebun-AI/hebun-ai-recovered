@@ -479,7 +479,14 @@ async function main(): Promise<void> {
       if (view.status === "read") {
         const row = view.items.find((i) => i.permitId === thirdPermitId);
         assert.equal(row?.state, "expired", "expiry must be derived at read time");
-        assert.equal(row?.executed, false, "the surface must state nothing was executed");
+        /*
+         * R3B replaced the hard-coded `executed: false` with a value DERIVED from the execution
+         * attempt. This permit expired unspent, so no attempt exists and the surface says so by
+         * carrying null rather than by asserting a constant it could not know.
+         */
+        assert.equal(row?.executionStatus, null, "an unspent permit has no execution attempt");
+        assert.equal(row?.providerAccepted, false, "nothing was accepted by any provider");
+        assert.equal(row?.providerMessageId, null, "no provider receipt exists");
       }
     }
 

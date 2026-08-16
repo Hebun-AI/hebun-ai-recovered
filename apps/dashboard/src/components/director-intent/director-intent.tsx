@@ -93,7 +93,9 @@ export function DirectorIntent({ model }: { model: DirectorIntentModel }) {
           </ol>
           <p className="mt-3 text-xs leading-5 text-fg-muted">
             There is no &ldquo;authorized&rdquo; state the system produces — authorization is a human act.
-            Consequential work halts at human review; no execution substrate is connected.
+            Consequential work halts at human review. One action kind has a connected execution
+            runtime, spendable only by an explicit human act on Decisions and disabled at the
+            durable switch; every other consequential action has no substrate at all.
           </p>
         </CardContent>
       </Card>

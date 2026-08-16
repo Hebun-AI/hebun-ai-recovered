@@ -116,7 +116,7 @@ function main(): void {
          * no authority, grants none, and carries no approval column at all — declaring it here is
          * exactly the review this allowlist exists to force.
          */
-        "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql",
+        "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql", "20260816194116_r3b_action_execution_attempts.sql",
       ],
       "G3 adds no migration — authority is derived from decisions; only Gate-B migrations for other subsystems follow G2",
     );

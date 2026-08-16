@@ -939,3 +939,81 @@ export const externalRecipientStatusEnum = pgEnum("external_recipient_status", [
   "active",
   "retired",
 ]);
+
+/*
+ * ── R3B — FIRST EXECUTED ACTION ──────────────────────────────────────────────
+ *
+ * THE STATUS OF ONE EXECUTION ATTEMPT. Five values, and the vocabulary is closed on purpose.
+ *
+ *   pending   the attempt row exists and the authorization is already spent; the outcome is not
+ *             yet known. A row left here after a crash is not a failure — it is an UNKNOWN that
+ *             has not been classified yet.
+ *   accepted  the provider returned success AND a message id. A CHECK enforces the second half,
+ *             because "it returned 200" is not evidence that anything was queued.
+ *   refused   Hebun declined before any external call. No bytes left the process.
+ *   failed    the act was attempted and provably did not take effect.
+ *   unknown   the request left the process and the answer was lost. The external world MAY have
+ *             changed. This is the state that must exist for the ledger to stay honest.
+ *
+ * ABSENT, DELIBERATELY: `delivered`, `successful`, `completed`, `verified`, `read`, `bounced`.
+ * Every one of them asserts something no provider response in this generation can prove. There is
+ * no webhook, no delivery receipt and no reconciliation feed anywhere in this repository, so a
+ * `delivered` value could only ever be set by a guess — the same test that removed `invalid` from
+ * `external_recipient_status`.
+ */
+export const actionExecutionAttemptStatusEnum = pgEnum("action_execution_attempt_status", [
+  "pending",
+  "accepted",
+  "refused",
+  "failed",
+  "unknown",
+]);
+
+/*
+ * WHAT THE TRANSPORT OBSERVED — and the whole reason this is separate from `status`.
+ *
+ * The distinction that matters is not "did it work" but "COULD IT HAVE WORKED": whether the
+ * request bytes reached the provider before the answer was lost.
+ *
+ *   accepted     a success response carrying a provider message id.
+ *   rejected     the provider answered and declined. Reached it; it said no; nothing was sent.
+ *   unreachable  PROVABLY pre-write — DNS failure, connection refused, TLS failure. The request
+ *                body was never transmitted, so no external effect is possible.
+ *   ambiguous    post-write and unresolved — a timeout after dispatch, a reset mid-flight, a 5xx,
+ *                or a success with no message id. The provider MAY have accepted it.
+ *
+ * NULL means the adapter was never invoked at all, which a CHECK ties to `refused`.
+ *
+ * The existing live Claude transport collapses every non-abort throw into `provider-unavailable`.
+ * That is safe for a model read and WRONG for a send: it would report a possible external effect
+ * as a clean failure and invite a retry that double-sends.
+ */
+export const actionExecutionProviderResponseClassEnum = pgEnum(
+  "action_execution_provider_response_class",
+  ["accepted", "rejected", "unreachable", "ambiguous"],
+);
+
+/*
+ * WHY A NON-ACCEPTED ATTEMPT ENDED. One column instead of fifteen statuses.
+ *
+ * Every value has a consumer: a surface that renders it and a test that asserts it. There is no
+ * `other`, no `unclassified` and no free text, because a class nobody can act on is decoration.
+ *
+ * `unknown-outcome` is NOT here. Ambiguity is a STATUS, not a failure — calling it a failure is
+ * exactly the claim R3B exists to refuse to make.
+ */
+export const actionExecutionFailureClassEnum = pgEnum("action_execution_failure_class", [
+  /* Refusals — Hebun declined; no bytes left the process. */
+  "authorization-invalid",
+  "recipient-retired",
+  "artifact-retired",
+  "artifact-unresolvable",
+  "digest-mismatch",
+  "execution-disabled",
+  "credential-unavailable",
+  "adapter-unavailable",
+  /* Failures — the act was attempted and provably did not take effect. */
+  "provider-rejected",
+  "provider-unreachable",
+  "internal-persistence-failure",
+]);

@@ -17,7 +17,9 @@
 import { and, desc, eq } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
+import { actionExecutionAttempts } from "@/db/schema/action-execution";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import type { ExecutionAttemptStatus } from "@/features/action-execution/contracts";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
 import { asCanonicalPayload } from "./canonical-payload";
 
@@ -53,8 +55,23 @@ export interface ActionPermitView {
   readonly revokedAt: string | null;
   readonly revocationReason: string | null;
   readonly boundPayloadDigest: string;
-  /** Always false in R3A. Carried so the surface can state it rather than imply it. */
-  readonly executed: false;
+  /**
+   * REPAIRED AT R3B. This was hard-coded `false` and captioned "always false in R3A", which became
+   * a lie the moment an execution runtime shipped: a consumed permit may now have an attempt
+   * behind it. It is DERIVED from that attempt.
+   *
+   * `null` means no attempt exists — the permit was never spent, or was spent and the attempt row
+   * is the thing that failed to write (in which case the spend rolled back with it, so there is no
+   * permit state left claiming otherwise).
+   */
+  readonly executionStatus: ExecutionAttemptStatus | null;
+  /**
+   * True ONLY when a provider accepted the operation and returned an id. Never true for `unknown`:
+   * the whole point of that state is that Hebun cannot claim an effect it cannot prove.
+   */
+  readonly providerAccepted: boolean;
+  /** Present only on acceptance. The provider's own id, the only receipt metadata carried. */
+  readonly providerMessageId: string | null;
 }
 
 export type ActionAuthorizationRead<T> =
@@ -146,6 +163,9 @@ export async function readActionPermits(
         actionKind: hebyActionRequests.actionKind,
         toolId: hebyActionRequests.toolId,
         targetLabel: hebyActionRequests.targetLabel,
+        /* LEFT joined: a permit that was never spent has no attempt, and that is not an error. */
+        attemptStatus: actionExecutionAttempts.status,
+        providerMessageId: actionExecutionAttempts.providerMessageId,
       })
       .from(actionPermits)
       .innerJoin(
@@ -155,27 +175,39 @@ export async function readActionPermits(
           eq(actionPermits.tenantId, hebyActionRequests.tenantId),
         ),
       )
+      .leftJoin(
+        actionExecutionAttempts,
+        and(
+          eq(actionExecutionAttempts.permitId, actionPermits.id),
+          eq(actionExecutionAttempts.tenantId, actionPermits.tenantId),
+        ),
+      )
       .where(eq(actionPermits.tenantId, tenant.tenantId))
       .orderBy(desc(actionPermits.issuedAt))
       .limit(deps.limit ?? 50);
 
     return {
       status: "read",
-      items: rows.map(({ permit, actionKind, toolId, targetLabel }) => ({
-        permitId: permit.id,
-        requestId: permit.actionRequestId,
-        actionKind,
-        toolId,
-        targetLabel,
-        state: derivePermitState(permit.status, permit.expiresAt, now),
-        issuedAt: iso(permit.issuedAt) ?? "",
-        expiresAt: iso(permit.expiresAt) ?? "",
-        consumedAt: iso(permit.consumedAt),
-        revokedAt: iso(permit.revokedAt),
-        revocationReason: permit.revocationReason,
-        boundPayloadDigest: permit.boundPayloadDigest,
-        executed: false as const,
-      })),
+      items: rows.map(
+        ({ permit, actionKind, toolId, targetLabel, attemptStatus, providerMessageId }) => ({
+          permitId: permit.id,
+          requestId: permit.actionRequestId,
+          actionKind,
+          toolId,
+          targetLabel,
+          state: derivePermitState(permit.status, permit.expiresAt, now),
+          issuedAt: iso(permit.issuedAt) ?? "",
+          expiresAt: iso(permit.expiresAt) ?? "",
+          consumedAt: iso(permit.consumedAt),
+          revokedAt: iso(permit.revokedAt),
+          revocationReason: permit.revocationReason,
+          boundPayloadDigest: permit.boundPayloadDigest,
+          executionStatus: (attemptStatus as ExecutionAttemptStatus | null) ?? null,
+          /* Acceptance requires BOTH, exactly as the database CHECK requires both. */
+          providerAccepted: attemptStatus === "accepted" && providerMessageId !== null,
+          providerMessageId: providerMessageId ?? null,
+        }),
+      ),
     };
   } catch {
     return { status: "unavailable", reason: "read-failed" };
