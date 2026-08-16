@@ -1066,3 +1066,54 @@ güncellendi. Bir R2D testi ise **güçlendirildi**: artık sıfır orphan satı
 3. **How does this become part of Hebun AI?** Heby'nin cevabı artık kendi kanıtını taşıyor ve
    kanıt cevapla aynı transaction'da kalıcı. Retention politikası bilinçli olarak ertelendi; silme
    ebeveyn mesajın cascade'ini izliyor.
+
+## R3A — Durable Authorization to Act (2026-08-16)
+
+**Ders 1 — Hazırlanmış bir eylem bir DEĞERDİ, bir SATIR değil.**
+Phase 17 zaten `REQUIRES_HUMAN_REVIEW` üretiyordu ve bu verdict `substrateConnected` kontrolünden
+ÖNCE geliyordu — yani mimari "bu imkânsız" değil, "bir insan karar vermeli" diyordu. Karar verecek
+yer yoktu: `approvals` tablosu 0 satır / 0 writer, `features/approvals/` sadece `mock.ts`. Uçurum
+bir eksik özellik değil, bir kalıcılık boşluğuydu.
+
+**Ders 2 — 32-bit hash bir onayı bağlayamaz.**
+`actionId` FNV-1a idi ve kendi kaynağı bunu söylüyordu. Dedupe için doğru, güvenlik bağı için
+yanlış: 32 bit saniyeler içinde aranabilir. Onayı bağlayan ayrı bir SHA-256 digest eklendi; tüketimde
+üç yönlü doğrulanıyor (yeniden hesaplanan / saklanan / permit'e kopyalanan).
+
+**Ders 3 — Doğrulama TEK bir statement olmalı, sıra değil.**
+`check → sonra update` şekli iki çağıranın da `active` okuduğu bir pencere bırakır — bir onayın iki
+gönderiye dönüşmesinin tam mekanizması. Tek `UPDATE ... WHERE status='active' AND expires_at > now()`
+ve satır sayısı verdict. Sekiz paralel çağıranla kanıtlandı: tam bir kazanan, yedi dürüst ret, tek
+audit kaydı. Sıralı bir test bunu ASLA kanıtlayamazdı.
+
+**Ders 4 — Writer'ı olmayan bir state, bir güvenlik özelliği değil bir iddiadır.**
+`expired` state'i kasıtlı olarak YOK: Hebun'da scheduler yok, dolayısıyla saklanan bir `expired`
+hiçbir şeyin geçiş yaptırmadığı bir state olurdu. Bu repo bunu iki kez ödedi (I1 revocation, invitation
+revocation). Aynı sebeple revocation ihraçla AYNI fazda yazıldı — geri alamayacağı bir yetki vermeyi
+reddetti.
+
+**Ders 5 — Aynı decision type'ı paylaşan iki faz, outcome sırasına dikkat etmeli.**
+Permit revocation, G3'ün delegation'ı sonlandırmak için kullandığı `revoke` type'ını kullanıyor.
+Generic `revoke` dalı önce çalışsaydı ledger "Governance yetkisi geri alındı" derdi — oysa sadece bir
+eylemin izni bitti. R3A dalı jenerik daldan ÖNCE değerlendiriliyor; bu sıra taşıyıcı.
+
+**Ders 6 — drizzle-kit aynı hatayı yine yaptı, ve gate önce kanıtladı.**
+Composite FK, ihtiyaç duyduğu unique index'ten ÖNCE emit edildi — KR5'in birebir aynısı. Önce tek
+kullanımlık DB'de hata kanıtlandı (`there is no unique constraint matching given keys`), sonra index
+yukarı taşındı. Bir test artık sıralamayı assert ediyor.
+
+**Ders 7 — 11 miras test onarıldı, zayıflatılmadı.**
+Yedisi "benim sınırımdan sonrası" listesiydi (gelecek hakkında iddia), üçü audit sink sahip listesi
+(beş → altı), biri de kendi yorumunun "running total'ın ait olduğu TEK yer" dediği migration sayısı
+(25 → 26). Hiçbiri gevşetilmedi; her biri kendi konusunu doğru söyleyecek şekilde güncellendi.
+
+### Haftalık 3 soru
+1. **What did we learn?** Yetkilendirme ile icra arasındaki sınır, kodda değil ŞEMADA durmalı.
+   Permit'i decision'sız yazamamak bir NOT NULL FK; ajanın onaylayamaması bir CHECK; çift harcama bir
+   partial unique index. Uygulamanın hatırlaması gereken hiçbir kural güvenlik kuralı değildir.
+2. **How does this improve Turkish Rug House?** Bir müşteriye e-posta gitmeden önce, kimin neyi tam
+   olarak hangi parametrelerle onayladığı — ve o onayın hâlâ geçerli olup olmadığı — yeniden başlatma
+   sonrası bile kanıtlanabilir. Onay ile gönderim artık aynı an değil.
+3. **How does this become part of Hebun AI?** Hebun artık bir sonuçsal eylemi yetkilendirebiliyor ve
+   bunu icra ettiğini ASLA söylemiyor. R3B tek bir sandboxed adapter ile bu izni harcayacak; o gelene
+   kadar izin verilmiş ama yapılmamış hâli dürüst son durumdur.
