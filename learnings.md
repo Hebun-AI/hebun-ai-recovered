@@ -1117,3 +1117,95 @@ Yedisi "benim sınırımdan sonrası" listesiydi (gelecek hakkında iddia), üç
 3. **How does this become part of Hebun AI?** Hebun artık bir sonuçsal eylemi yetkilendirebiliyor ve
    bunu icra ettiğini ASLA söylemiyor. R3B tek bir sandboxed adapter ile bu izni harcayacak; o gelene
    kadar izin verilmiş ama yapılmamış hâli dürüst son durumdur.
+
+## R3W — Durable Work Artifacts (2026-08-16, implementation, NOT committed / NOT applied to canonical)
+
+**Ders 1 — Gate A'nın bulduğu asıl kusur "eksik tablo" değil, "yalan söyleyen bir yetenek"ti.**
+Registry `prepare-operational-plan` için `substrateConnected: true` diyor ve kendi yorumu teslimatın
+hazırlanmış paket olduğunu söylüyor — ama o paket bellekte bir değerdi ve buharlaşıyordu. R3A bir kat
+yukarıda aynı kusuru kapatmıştı ("prepared action bir değerdi, satır değil"). Teslimat hâlâ değerdi.
+Yeni tablo icat etmedik; zaten ilan edilmiş bir yeteneğin dayanağını yazdık.
+
+**Ders 2 — İçerik değişmezliği bir disiplin değil, ŞEMA + FIREWALL meselesi.**
+`work_artifact_revisions` bilerek `tenantColumns` KULLANMIYOR: version sayacı, updatedAt, soft delete
+mutable satır modelidir. Precedent `audit_log`. Üstüne bir test "hiçbir writer `.update(
+workArtifactRevisions)` içermez" diye assert ediyor. Onayın byte'lara bağlanabilmesi tam olarak bunun
+üzerinde duruyor.
+
+**Ders 3 — Ref'in İÇİNDE revizyon numarası olmalı; sadece artifact id yetmez.**
+R3A'nın canonical payload'ı ref STRING'ini hash'liyor. Çıplak bir ref hareketli hedeftir: "draft X"i
+onayla, X'i revize et, aynı string artık başka byte'ları gösterir. `work-artifact/<uuid>@<n>` +
+`content_digest` ikilisi ORDINARY SCALAR olduğu için R3A hiç değişmeden bağlamayı kapatıyor. Tek
+yazım kuralı şart: `@01`, `@+1`, `@1 `, büyük harfli uuid parse EDİLMEMELİ — dört yazım, dört farklı
+hash, dört farklı onay demektir.
+
+**Ders 4 — "Readable" ile "proposable" ayrılmazsa bayat onay canlı onaya dönüşür.**
+Superseded revizyon sonsuza dek okunabilir kalır ama YENİ öneriye zemin olamaz. Bir stale ref'i
+sessizce current'a yükseltmek, tam olarak bir taslak için verilen onayın başka bir taslağı
+yetkilendirmesidir. Foreign tenant ref'i "yok" döner, "senin değil" değil.
+
+**Ders 5 — record-ref argümanı deliği: modül kendi başlığında doğru yeri yazmıştı, orası boştu.**
+`arguments.ts` "record-ref'in kanıta çözülüp çözülmediği capability-gate'in işi" diyordu;
+capability-gate sadece TARGET'ı kontrol ediyordu. Onarım argüman KIND'ına göre generic yapıldı (alan
+adına göre değil) ve `evidenceSufficient` kontrolü human-review dalının ÜSTÜNE taşındı: neye
+dokunacağını söyleyemeyen eylem FAILED olur, insana gitmez. `recordActionRequest` yalnız
+REQUIRES_HUMAN_REVIEW kabul ettiği için onarım R3A'ya hiç dokunmadan zincire ulaştı.
+
+**Ders 6 — drizzle-kit aynı sıralama hatasını ÜÇÜNCÜ kez yaptı (KR5, R3A, R3W).**
+Composite FK, hedefi olan unique index'ten önce emit edildi. Önce 26 önceki migration üstüne tek
+kullanımlık DB'de hata kanıtlandı, sonra index yukarı taşındı. Artık bunun tesadüf olmadığı kabul
+edilmeli: bu şekle sahip her migration üretimden sonra elle denetlenmeli.
+
+**Ders 7 — "Tablo henüz yok" bir koruma değil, şanstır.**
+Testlerden biri write-deps enjekte etmeyi unuttu ve writer ambient `DATABASE_URL`e (yani canonical'a)
+çözdü. Yazma başarısız oldu — çünkü tablo orada yok. Canonical hemen doğrulandı, test düzeltildi.
+Fail-closed davranış doğruydu ama guard değildi; her entegrasyon testi DB'sini açıkça enjekte etmeli.
+
+**Ders 8 — 9 miras test onarıldı, hiçbiri zayıflatılmadı.**
+Yedisi migration allowlist/sayaç (mekanizma tam da tasarlandığı gibi çalıştı), biri source-class
+sayısı (artık dokuz sınıfı ADIYLA sayıyor), biri de `heby-actions` fixture'ları: dört vaka
+governance/authority/staleness'i test ederken hiçbir şeyi göstermeyen ref'ler (`r-1`, `d-1`, `s-1`)
+kullanıyordu. Fixture'lar gerçekten destekli hâle getirildi; assertion'lar aynı kaldı. Deliğe
+yaslanıyorlardı, artık yaslanmıyorlar.
+
+### Haftalık 3 soru
+1. **What did we learn?** Hazırlanmış iş, organizasyonel gerçek DEĞİLDİR ve onay DEĞİLDİR — ama
+   dayanağı olmadan hiçbir sonuçsal eylem dürüstçe önerilemez. Değişmez revizyon + içerik digest'i,
+   "incelenen şey ile icra edilecek şey aynıdır"ı bir vaat olmaktan çıkarıp bir yapı hâline getirir.
+2. **How does this improve Turkish Rug House?** TRH için yazılan bir e-posta taslağı artık kalıcı,
+   tenant'a kapalı, sürümlü ve tam olarak hangi mesajdan doğduğu belli bir kayıt. Direktör 1.
+   revizyonu onaylarsa, 2. revizyon o onayı miras alamaz — metin sessizce değişip gönderilemez.
+3. **How does this become part of Hebun AI?** R3W, `prepare-information` yeteneğinin gerçek dayanağı.
+   `draftRef` artık bir kurgu değil. Kalan tek /send ön koşulu alıcı otoritesi; R3A.1 ve R3B hâlâ
+   bloklu ve bu dürüst son durum.
+
+## R3W — Release gate: ambient veritabanı olayı (2026-08-16)
+
+**Ders 9 — "Değişken zaten set değildi" bir güvenlik özelliği DEĞİL, şanstır.**
+Enjeksiyonu unutulan bir mutating test, `resolveGovernanceDbOrNull()` üzerinden ambient
+`DATABASE_URL`e düşüyordu. Çıplak test sürecinde o değişken set olmadığı için yazma reddedildi —
+ilk açıklamam "tablo yoktu" demişti, YANLIŞ; ölçtüm: `DATABASE_URL` set edilirse aynı ihmal
+CANONICAL'a yazıyor. `.env.local` source eden her shell bu durumda.
+
+**Ders 10 — Onarım ikinci bir sahiplik sistemi kurmadan, MEVCUT harness'a yapıldı.**
+`createDatabase()` başarılı olduktan sonra harness `process.env.DATABASE_URL`i kendi disposable
+DB'sine el koyuyor, `dropDatabase()`te aynen geri veriyor. Enjeksiyonu unutulan yazma artık
+disposable DB'ye düşer ve onunla birlikte silinir. Aynı ownership kanıtı (`created === true`),
+yeni bir mekanizma yok.
+
+**Ders 11 — Bir guard'ı kurarken kendi kendini vurabilir.**
+`isProtectedDatabaseName` canlı `DATABASE_URL`i okuyordu; harness el koyunca kendi disposable
+DB'sini "korumalı" sayıp drop'u reddedecekti. Çözüm: harness'ın o an sahip olduğu adı hariç tut,
+korumayı ise HEM sürecin başlangıç değeri HEM canlı değer üzerinden yap. D1.1'in "DATABASE_URL ne
+gösteriyorsa korumalıdır" iddiası bozulmadan korundu.
+
+**Ders 12 — Ambient URL'e el koymak process singleton havuzunu doğurur.**
+Enjeksiyonsuz çağrı `getControlPlaneDb()` singleton'ını disposable DB'ye açıyor; `dropDatabase()`
+backend'leri öldürünce `terminating connection due to administrator command` unhandled error olarak
+patlıyor. Bunu varsaymadım: fix sonrası ilk tam koşuda `k2-flow/create-and-read-postgres.ts` kendi
+assertion'larını GEÇTİKTEN sonra teardown'da düştü. Koşulu yaratan harness olduğu için temizliği de
+harness yapıyor.
+
+**Ders 13 — Regresyon testi DÜŞMANCA ön koşulla koşmalı.**
+`ambient-database-safety.ts` harness'ı kurmadan ÖNCE `DATABASE_URL`i bilerek canonical'a çeviriyor.
+Set edilmemiş bir değişkene karşı guard kanıtlamak hiçbir şey kanıtlamaz.
