@@ -120,6 +120,19 @@ export function resolveSource(
       return unavailable("governance", "Governance structural vocabulary only; no live policy instances connected.");
     case "decision-records":
       return unavailable("decision-records", "No persisted decision records are connected.");
+    /*
+     * R3W: prepared work IS durable and tenant-scoped, and it is read exactly the way K1 reads
+     * Knowledge — on the server, inside an already-resolved tenant. This resolver is pure: it
+     * holds no tenant and can open no connection, so it reports the honest default and the server
+     * answer flow substitutes the real tenant-scoped resolution
+     * (work-artifacts/work-artifact-evidence.server.ts). A caller with no server seam gets no
+     * artifacts, which is the truthful outcome rather than a seeded one.
+     */
+    case "work-artifacts":
+      return unavailable(
+        "work-artifacts",
+        "Prepared work is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
     default: {
       // Exhaustiveness guard — a new source class must be handled explicitly.
       const never: never = sourceClass;

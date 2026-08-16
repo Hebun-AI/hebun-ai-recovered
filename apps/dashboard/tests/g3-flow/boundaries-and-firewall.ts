@@ -110,6 +110,13 @@ function main(): void {
          */
         "20260815202736_heby_answer_evidence.sql",
         "20260816063156_r3a_action_authorization.sql",
+        /*
+         * R3W durable work artifacts. Added by Gate B, for a different subsystem: two tables
+         * holding prepared work and its immutable revisions. It writes no Governance table, creates
+         * no authority, grants none, and carries no approval column at all — declaring it here is
+         * exactly the review this allowlist exists to force.
+         */
+        "20260816085245_r3w_durable_work_artifacts.sql",
       ],
       "G3 adds no migration — authority is derived from decisions; only Gate-B migrations for other subsystems follow G2",
     );

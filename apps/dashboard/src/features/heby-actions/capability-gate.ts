@@ -21,6 +21,7 @@ import type { HebyEvidenceReference } from "@/features/heby-integration";
 import type {
   HebyActionTarget,
   HebyActionTool,
+  HebyArguments,
   HebyCapabilityGateResult,
   HebyRequirementStatus,
   ToolSideEffectClass,
@@ -74,13 +75,52 @@ function isTargetValid(
   }
 }
 
+/**
+ * R3W — EVERY `record-ref` ARGUMENT MUST NAME SOMETHING THAT WAS ACTUALLY RETRIEVED.
+ *
+ * The target check above has always demanded that a `record` target be backed by evidence. The
+ * ARGUMENTS did not: `arguments.ts` validates a `record-ref` as a non-empty string and says so in
+ * its own header ("whether a `record-ref` resolves to retrieved evidence is a capability/target
+ * concern checked in capability-gate") — but capability-gate never checked it. So
+ * `{ recipientRef: "r-1", draftRef: "d-1" }` sailed through with neither value naming anything
+ * that exists, and a human could be asked to approve an action about a fiction.
+ *
+ * The rule is GENERIC, keyed off the declared argument KIND rather than off any field name, so it
+ * covers `draftRef`, `recipientRef`, `workflowRef`, `subjectRef`, `policyRef` and every record-ref
+ * a future tool declares, with no per-tool special case and no allow-list to forget to update.
+ *
+ * It applies to every side-effect class, exactly as the target rule does. An optional record-ref
+ * that is simply absent is fine; one that is SUPPLIED must resolve.
+ */
+function unbackedRecordRefArguments(
+  tool: HebyActionTool,
+  args: HebyArguments,
+  evidence: readonly HebyEvidenceReference[],
+): readonly string[] {
+  const unbacked: string[] = [];
+  for (const field of tool.argumentSchema.fields) {
+    if (field.kind !== "record-ref") continue;
+    const value = args[field.name];
+    if (value === undefined) continue; // absent optional argument — nothing to resolve
+    const backed = typeof value === "string" && evidence.some((e) => e.recordRef === value);
+    if (!backed) unbacked.push(field.name);
+  }
+  return unbacked;
+}
+
 export function evaluateCapability(input: {
   tool: HebyActionTool | undefined;
   requestingWorkspace: HebyWorkspaceId;
   target?: HebyActionTarget;
   evidence: readonly HebyEvidenceReference[];
+  /**
+   * The already schema-validated arguments. Empty when validation failed, which is safe: a failed
+   * validation already fails the action, and an empty set has no record-ref to leave unchecked.
+   */
+  arguments?: HebyArguments;
 }): HebyCapabilityGateResult {
   const { tool, requestingWorkspace, target, evidence } = input;
+  const args = input.arguments ?? {};
   const reasons: string[] = [];
 
   if (!tool) {
@@ -115,10 +155,22 @@ export function evaluateCapability(input: {
   if (!targetCheck.valid && targetCheck.reason) reasons.push(targetCheck.reason);
 
   const need = requiredEvidenceCount(tool.sideEffect);
-  const evidenceSufficient = evidence.length >= need;
-  if (!evidenceSufficient) {
+  const countSufficient = evidence.length >= need;
+  if (!countSufficient) {
     reasons.push(`This action requires at least ${need} evidence reference(s); ${evidence.length} supplied.`);
   }
+
+  const unbacked = unbackedRecordRefArguments(tool, args, evidence);
+  for (const name of unbacked) {
+    reasons.push(`Argument "${name}" does not name a record that was retrieved as evidence.`);
+  }
+
+  /*
+   * Both halves, and both are about the same question: does this action refer to anything real?
+   * A count of one unrelated reference is not grounding for an argument that names a record
+   * nobody read.
+   */
+  const evidenceSufficient = countSufficient && unbacked.length === 0;
 
   let status: HebyRequirementStatus;
   if (!workspacePermitted || !targetCheck.valid || !evidenceSufficient) {

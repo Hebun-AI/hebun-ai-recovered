@@ -123,12 +123,23 @@ function deriveLifecycle(
   if (!argumentsValid) return "FAILED";
   if (!cap.workspacePermitted) return "RESTRICTED"; // confused-deputy: not owned in this context
   if (!cap.targetValid) return "FAILED";
+  /*
+   * R3W MOVED THIS ABOVE THE HUMAN-REVIEW BRANCH, and the move is the point.
+   *
+   * It used to sit below, so a consequential mutation whose record-refs named nothing still
+   * reached REQUIRES_HUMAN_REVIEW — and `recordActionRequest` accepts exactly that state, so a
+   * proposal about a fiction could be persisted and put in front of the Director. Asking a human
+   * to decide about records that do not exist is worse than refusing outright: the decision is
+   * real, durable, and about nothing.
+   *
+   * An action that cannot say what it would act upon FAILS. It does not get a human's attention.
+   */
+  if (!cap.evidenceSufficient) return "FAILED";
   if (tool.sideEffect === "DEVICE_ACTION") return "RESTRICTED";
   if (staleness.expired || staleness.freshness === "stale") return "EXPIRED";
   if (humanReviewRequired) return "REQUIRES_HUMAN_REVIEW";
   if (govRequired && !govSatisfied) return "REQUIRES_GOVERNANCE";
   if (!cap.available) return "UNAVAILABLE";
-  if (!cap.evidenceSufficient) return "FAILED";
   if (tool.sideEffect === "READ_ONLY") return "EXECUTION_ELIGIBLE";
   if (tool.sideEffect === "PREPARATION_ONLY") return "PREPARED"; // prepared; nothing to execute
   return "REQUIRES_HUMAN_REVIEW"; // any residual mutation
@@ -202,6 +213,12 @@ export function prepareAction(
     requestingWorkspace: request.requestingWorkspace,
     target: request.target,
     evidence,
+    /*
+     * R3W: the gate now also checks that every supplied `record-ref` ARGUMENT names something the
+     * retrieval layer actually returned. The validated set is passed rather than the raw proposal,
+     * so an unvalidated or coerced value can never be the thing that gets resolved.
+     */
+    arguments: args,
   });
   const governance = evaluateGovernance(tool);
   const authority = evaluateAuthority(tool);

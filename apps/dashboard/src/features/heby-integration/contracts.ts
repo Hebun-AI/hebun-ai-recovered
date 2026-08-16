@@ -221,7 +221,15 @@ export type HebySourceClass =
   | "workforce"
   | "governance"
   | "platform"
-  | "decision-records";
+  | "decision-records"
+  /*
+   * R3W. Prepared work the tenant durably holds — never organizational truth, never a decision.
+   * It is a source class rather than a flavour of `operations` because its records have their own
+   * authority owner, their own immutable revisions, and their own reference syntax
+   * (`work-artifact/<uuid>@<n>`); folding it into an existing class would make an artifact
+   * indistinguishable from a derived read-model section in the evidence set.
+   */
+  | "work-artifacts";
 
 export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "knowledge",
@@ -232,6 +240,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "governance",
   "platform",
   "decision-records",
+  "work-artifacts",
 ] as const;
 
 export interface HebySourceStatus {

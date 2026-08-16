@@ -25,6 +25,7 @@ import {
   resolveHebyWorkspace,
   resolveHebyWorkspaceContext,
   type HebyAuthorityMode,
+  type HebyProductIntent,
   type HebyProvenanceFacet,
   type HebySourceClass,
 } from "@/features/heby-integration";
@@ -63,6 +64,13 @@ import {
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import type { KnowledgeReadDeps, KnowledgeTenant } from "@/features/knowledge/knowledge-read.server";
 import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
+/*
+ * R3W. The READ seam only. This module deliberately does NOT import
+ * `work-artifacts/write-work-artifacts.server`, and a firewall test asserts the absence: that is
+ * what makes "an ordinary Heby answer can never become a work artifact" structural rather than a
+ * matter of discipline.
+ */
+import { resolveWorkArtifactSource } from "@/features/work-artifacts/work-artifact-evidence.server";
 import { buildBoundedHistory } from "./bounded-history";
 import { resolveKnowledgeEvidenceDetailed } from "./knowledge-evidence.server";
 
@@ -118,6 +126,20 @@ export interface HebyModelAnswerInput {
   readonly conversationId?: string;
 }
 
+/**
+ * SERVER-ONLY options. Deliberately a THIRD parameter and not a field on `HebyModelAnswerInput`,
+ * because that input is the one shape a client can supply and this must never be one.
+ *
+ * `intent` is DECLARED BY THE CALLER, not inferred from the prompt. There is still no classifier
+ * anywhere in Hebun and R3W does not add one — that is R3A.1's work. The one caller that passes
+ * anything is the R3W preparation seam, which knows it is preparing because a human explicitly
+ * asked it to. `askHebyAction` passes nothing and stays `INVESTIGATE`, which is why a normal Heby
+ * answer can never present itself as prepared work.
+ */
+export interface HebyModelAnswerOptions {
+  readonly intent?: HebyProductIntent;
+}
+
 /** The injectable seams — real in production, faked in tests. */
 export interface HebyModelAnswerDeps {
   /** Server-authoritative auth resolution → TenantContext, or null when not authorized. */
@@ -168,11 +190,27 @@ export interface HebyModelAnswerDeps {
     query: string,
     deps?: KnowledgeReadDeps,
   ) => Promise<SourceResolution>;
+  /**
+   * R3W — the prepared-work read seam. Injectable for the same reason Knowledge is, and consulted
+   * ONLY for workspaces that declare the `work-artifacts` source class. It is a READ: it can
+   * contribute evidence and nothing else, and it cannot create, revise or retire anything.
+   */
+  readonly resolveWorkArtifacts?: (tenant: TenantContext) => Promise<SourceResolution>;
 }
 
 /** What actually happened to durable persistence for this request. Never fabricated. */
 export type DurableDisposition =
-  | { readonly durable: true; readonly conversationId: string }
+  | {
+      readonly durable: true;
+      readonly conversationId: string;
+      /**
+       * R3W — the assistant message that was actually written. The repository has always returned
+       * it (`PersistedExchange.assistantMessageId`) and this layer used to discard it. The R3W
+       * preparation seam needs it to record which message's text became a revision, and a
+       * provenance link that can only be built from a real insert is a link that cannot be faked.
+       */
+      readonly assistantMessageId: string;
+    }
   | { readonly durable: false; readonly reason: DurableUnavailableReason };
 
 export type DurableUnavailableReason =
@@ -257,6 +295,39 @@ async function withKnowledge(
     ),
     knowledgeEvidence,
   };
+}
+
+/**
+ * R3W — the same seam, for prepared work.
+ *
+ * Deliberately the K1 arrangement rather than a new one: the pure resolver reports
+ * `work-artifacts` unavailable because it holds no tenant, and this substitutes the real
+ * tenant-scoped read for the workspaces that declare the class (today: Operations only).
+ *
+ * THIS IS A READ. `resolveWorkArtifactSource` performs no INSERT, UPDATE or DELETE, and this
+ * module imports NO artifact writer — a firewall test asserts that absence, which is what makes
+ * "a normal Heby answer never becomes an artifact" a structural fact rather than a promise.
+ *
+ * A read failure degrades to the pure resolution: it never fabricates an artifact, and it never
+ * removes another source's evidence.
+ */
+async function withWorkArtifacts(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "work-artifacts")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveWorkArtifacts ?? resolveWorkArtifactSource;
+    const artifacts = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "work-artifacts" ? artifacts : resolution,
+    );
+  } catch {
+    return resolutions;
+  }
 }
 
 /**
@@ -361,8 +432,10 @@ function withNote(response: HebyRuntimeResponse, note: string): HebyRuntimeRespo
 export async function answerHebyModelRequest(
   input: HebyModelAnswerInput,
   deps: HebyModelAnswerDeps,
+  options: HebyModelAnswerOptions = {},
 ): Promise<HebyModelAnswerResult> {
   assertServerRuntime();
+  const intent = options.intent ?? "INVESTIGATE";
 
   // 1. Authentication + tenant are resolved SERVER-SIDE. The client never supplies them.
   const tenant = await deps.resolveTenant();
@@ -388,17 +461,19 @@ export async function answerHebyModelRequest(
   // KR3 — and now the validated prompt decides WHICH knowledge, which it never did before. The
   // question travels only as a search term: it selects rows and cannot grant, widen, or authorize
   // anything, and the tenant it is searched within remains the server-resolved one.
-  const { resolutions, knowledgeEvidence } = await withKnowledge(
+  const { resolutions: knowledgeResolutions, knowledgeEvidence } = await withKnowledge(
     resolveSources(workspaceSourceClasses(context), overview),
     tenant,
     validation.prompt,
     deps,
   );
+  // R3W — prepared work joins the SAME deterministic evidence set, through the same server seam.
+  const resolutions = await withWorkArtifacts(knowledgeResolutions, tenant, deps);
   const assembled = assembleEvidence(resolutions);
 
   // The honest deterministic fallback (an answer where possible, an honest unavailable else).
   const deterministic = validateResponse(
-    buildResponse("INVESTIGATE", context, resolutions),
+    buildResponse(intent, context, resolutions),
     assembled,
     authority,
   ).response;
@@ -491,7 +566,7 @@ export async function answerHebyModelRequest(
   return {
     status: "answered",
     outcome: {
-      intent: "INVESTIGATE",
+      intent,
       response,
       model: getModelAdapterStatus(),
     },
@@ -627,7 +702,7 @@ async function persistExchange(
     const isModel = args.response.origin === "model";
     const result = args.modelResult;
 
-    const { conversationId } = await repo.persistExchange(args.scope, {
+    const { conversationId, assistantMessageId } = await repo.persistExchange(args.scope, {
       // A client-carried reference is honoured ONLY if the tenant owns it; otherwise a fresh
       // server-owned conversation is created (the foreign reference grants no access).
       providedConversationId: args.providedConversationId,
@@ -653,7 +728,7 @@ async function persistExchange(
       evidence: args.knowledgeEvidence ? toStoredEvidence(args.knowledgeEvidence) : undefined,
     });
 
-    return { durable: true, conversationId };
+    return { durable: true, conversationId, assistantMessageId };
   } catch {
     return { durable: false, reason: "persistence-failed" };
   }

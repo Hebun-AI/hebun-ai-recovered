@@ -34,6 +34,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { Client } from "pg";
+import { disposeControlPlaneDb } from "../../src/db/client.server";
 
 /**
  * The Hebun-dedicated local Postgres. Deliberately NOT :5432 — see the header.
@@ -61,14 +62,41 @@ const PROTECTED_DATABASE_NAMES: ReadonlySet<string> = new Set([
   "hebun_ai", // destroyed once by an unsafe sweep; never again through this module
 ]);
 
+/*
+ * The developer's app config as it stood when this process STARTED — captured before any harness
+ * could claim `process.env.DATABASE_URL` for its own disposable database (see `createDatabase`).
+ * Without it, an in-flight claim would silently un-protect whatever the environment really pointed
+ * at, which is the opposite of what that clause is for.
+ */
+const INITIAL_DATABASE_URL = process.env.DATABASE_URL;
+
+/**
+ * The disposable database a live harness currently owns, if any.
+ *
+ * It exists so a harness cannot protect its OWN throwaway database from itself. Once
+ * `createDatabase` claims the ambient URL, the live `process.env.DATABASE_URL` names that database
+ * — and without this exclusion the predicate below would call it protected and the drop backstop
+ * would refuse to clean it up. The exclusion is safe because the only way a name gets here is a
+ * successful `create database` by this process: it is the same ownership proof the drop gate uses.
+ */
+let claimedDisposableDatabaseName: string | undefined;
+
 /** True when a name must never be dropped by test infrastructure. */
 export function isProtectedDatabaseName(name: string): boolean {
   const normalized = name.trim().toLowerCase();
+  // A disposable database this process created and currently owns is never protected from it.
+  if (claimedDisposableDatabaseName?.toLowerCase() === normalized) return false;
   if (PROTECTED_DATABASE_NAMES.has(normalized)) return true;
-  // Whatever the developer's own app config currently points at is protected too,
-  // so a mis-set environment can never aim the harness at a live database.
-  const configured = databaseNameFromUrl(process.env.DATABASE_URL);
-  return configured !== undefined && configured.toLowerCase() === normalized;
+  /*
+   * Whatever the developer's own app config points at is protected too — checked against BOTH the
+   * value this process started with and the value live right now, so neither a mis-set environment
+   * nor an in-flight harness claim can aim the harness at something live.
+   */
+  for (const url of [INITIAL_DATABASE_URL, process.env.DATABASE_URL]) {
+    const configured = databaseNameFromUrl(url);
+    if (configured !== undefined && configured.toLowerCase() === normalized) return true;
+  }
+  return false;
 }
 
 function databaseNameFromUrl(url: string | undefined): string | undefined {
@@ -128,6 +156,10 @@ export function createDisposablePostgresHarness(
   let created = false;
   /** Prevents a second drop from issuing another destructive statement. */
   let dropped = false;
+  /** Whether this handle currently owns `process.env.DATABASE_URL` (see createDatabase). */
+  let databaseUrlClaimed = false;
+  /** The ambient value to put back on drop. `undefined` means "there was none". */
+  let previousDatabaseUrl: string | undefined;
 
   assert.ok(
     !isProtectedDatabaseName(dbName),
@@ -148,9 +180,59 @@ export function createDisposablePostgresHarness(
       } finally {
         await admin.end();
       }
+
+      /*
+       * ── THE AMBIENT-FALLBACK GATE (R3W) ────────────────────────────────────
+       *
+       * Every server writer in this repository resolves its database the same way:
+       * `deps.getDb ?? resolveGovernanceDbOrNull()`, and that fallback reads
+       * `process.env.DATABASE_URL`. A test that forgets to inject its handle therefore does not
+       * fail — it writes SOMEWHERE ELSE. In a bare `npm test` that variable happens to be unset,
+       * so the write refuses; but in any shell where a developer has exported it, the fallback is
+       * the CANONICAL database and the omission is silent and destructive.
+       *
+       * R3W hit exactly this: a preparation-seam test omitted its write deps, the writer resolved
+       * the ambient URL, and the only reason canonical survived was that the variable was unset.
+       * "It happened to be unset" is luck, not a guard.
+       *
+       * So the harness now OWNS the ambient control-plane URL for the lifetime of the handle: an
+       * omitted injection lands in THIS disposable database and is dropped with it. This is not a
+       * second ownership system — it is the same ownership proof (`created === true`) extended to
+       * the one variable that decides where an un-injected write goes. It is installed only after
+       * `create database` succeeded, and restored exactly in `dropDatabase()`.
+       */
+      previousDatabaseUrl = process.env.DATABASE_URL;
+      databaseUrlClaimed = true;
+      claimedDisposableDatabaseName = dbName;
+      process.env.DATABASE_URL = dbUrl;
     },
 
     async dropDatabase(): Promise<void> {
+      /*
+       * Release the ambient URL FIRST, and unconditionally. It must be restored even when the
+       * ownership gate below refuses the drop, or a failed teardown would leave every later write
+       * in this process pointed at a database that is about to be gone — or, worse, leave a stale
+       * disposable URL installed while the test moves on.
+       */
+      if (databaseUrlClaimed) {
+        if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+        else process.env.DATABASE_URL = previousDatabaseUrl;
+        databaseUrlClaimed = false;
+        if (claimedDisposableDatabaseName === dbName) claimedDisposableDatabaseName = undefined;
+
+        /*
+         * Dispose the PROCESS SINGLETON pool as well, because this handle is what made it
+         * possible: while the claim was installed, any un-injected call to `getControlPlaneDb()`
+         * opened a lazily-created pool against THIS database. The drop below terminates backends,
+         * and a surviving pool surfaces that as an unhandled `terminating connection due to
+         * administrator command` — a teardown crash that has nothing to do with the test.
+         *
+         * Scoped to a handle that actually claimed the URL, so a harness never disposes a
+         * singleton it did not cause. Idempotent when no singleton exists.
+         */
+        await disposeControlPlaneDb().catch(() => {});
+      }
+
       // Already dropped by this handle: nothing to do, and nothing destructive is
       // issued. Tests call this from `finally`, so it must be safe to repeat.
       if (dropped) return;

@@ -93,7 +93,7 @@ function main(): void {
     const PHASE_BOUNDARY = "20260813090642_membership_role_tenant_integrity.sql";
     assert.deepEqual(
       files.filter((name) => name > PHASE_BOUNDARY).sort(),
-      ["20260815202736_heby_answer_evidence.sql", "20260816063156_r3a_action_authorization.sql"],
+      ["20260815202736_heby_answer_evidence.sql", "20260816063156_r3a_action_authorization.sql", "20260816085245_r3w_durable_work_artifacts.sql"],
       "KR5 adds exactly one migration",
     );
     const journal = JSON.parse(read(MIGRATIONS, "meta", "_journal.json")) as {

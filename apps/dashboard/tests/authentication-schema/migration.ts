@@ -47,18 +47,19 @@ try {
     // + D1 auth-credentials + G2.1 genesis-nomination + G2 bootstrap-authority
     // + I1 membership-authorization + I1.1 tenant-role-baseline
     // + I1.2 identity-enrollment + Membership-Role tenant integrity
-    // + KR5 heby-answer-evidence + R3A action-authorization = 26.
+    // + KR5 heby-answer-evidence + R3A action-authorization
+    // + R3W durable-work-artifacts = 27.
     //
     // This tally is the ONE place a running total belongs: it is this file's actual subject. Other
     // phases must state "I added none of my own" without pinning a global count, or every later
     // authorized migration falsifies a claim that was never about it.
-    assert.equal(migrationCount.rows[0]?.count, "26");
+    assert.equal(migrationCount.rows[0]?.count, "27");
 
     harness.migrateDatabase();
     const rerunCount = await client.query<{ count: string }>(
       "select count(*)::text as count from drizzle.__drizzle_migrations",
     );
-    assert.equal(rerunCount.rows[0]?.count, "26");
+    assert.equal(rerunCount.rows[0]?.count, "27");
 
     const enumRows = await client.query<{ typname: string; labels: string[] }>(`
       select t.typname, json_agg(e.enumlabel order by e.enumsortorder) as labels

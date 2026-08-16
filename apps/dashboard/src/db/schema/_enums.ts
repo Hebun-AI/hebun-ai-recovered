@@ -876,3 +876,32 @@ export const policyAuthorityEnum = pgEnum("policy_authority", [
   "authoritative",
   "provisional",
 ]);
+
+/*
+ * R3W — durable work artifacts.
+ *
+ * The type vocabulary is CLOSED and deliberately tiny: one value per action tool that already
+ * declares a `record-ref` argument for it today. `operational-plan` is what
+ * `heby.operations.prepare-plan` prepares; `message-draft` is what
+ * `heby.operations.send-communication` names as `draftRef`. Nothing speculative is registered —
+ * a new type arrives with the consumer that needs it, through its own migration.
+ */
+export const workArtifactTypeEnum = pgEnum("work_artifact_type", [
+  "operational-plan",
+  "message-draft",
+]);
+
+/*
+ * Two states, not three. Gate A proposed draft/superseded/retired; `superseded` was dropped
+ * under stress-test because supersession is a REVISION relationship, not an artifact one:
+ * revision N is superseded by N+1 under ONE stable artifact identity, which is derivable from
+ * `current_revision` and needs no stored state. An artifact-level `superseded` would require a
+ * forked identity and a `supersedes_artifact_id` pointer, and no consumer needs either today.
+ *
+ * NO `approved`, `published`, `executed`, `verified` or `authoritative`. Approval is a Governance
+ * decision about an ACTION that references a revision — never a column on the work itself.
+ */
+export const workArtifactLifecycleStatusEnum = pgEnum("work_artifact_lifecycle_status", [
+  "draft",
+  "retired",
+]);

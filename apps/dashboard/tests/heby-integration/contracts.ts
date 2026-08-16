@@ -70,7 +70,26 @@ function capabilityStatesAreHonest(): void {
 
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
-  assert.equal(HEBY_SOURCE_CLASSES.length, 8);
+  /*
+   * Nine since R3W added `work-artifacts`. The count is pinned rather than pattern-matched so a
+   * new source class cannot appear without somebody stating it here — which is exactly the review
+   * this assertion exists to force. The classes themselves are named so the diff says WHICH one
+   * arrived, not merely that the number moved.
+   */
+  assert.deepEqual(
+    [...HEBY_SOURCE_CLASSES],
+    [
+      "knowledge",
+      "memory",
+      "intelligence",
+      "operations",
+      "workforce",
+      "governance",
+      "platform",
+      "decision-records",
+      "work-artifacts",
+    ],
+  );
   const context = resolveHebyWorkspaceContext({ workspace: "knowledge" });
   for (const source of context.sources) {
     assert.equal(source.unavailable, true, "no source is connected to Heby in Phase 15");

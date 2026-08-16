@@ -183,6 +183,13 @@
       "when": 1786861916842,
       "tag": "20260816063156_r3a_action_authorization",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1786870365091,
+      "tag": "20260816085245_r3w_durable_work_artifacts",
+      "breakpoints": true
     }
   ]
 }

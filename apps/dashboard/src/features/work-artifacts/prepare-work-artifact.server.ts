@@ -1,0 +1,193 @@
+/*
+ * work-artifacts/prepare-work-artifact.server.ts — the ONE Heby seam that produces a durable
+ * artifact (R3W).
+ *
+ * ── WHY THIS EXISTS AS A SEPARATE ENTRY POINT ────────────────────────────────
+ *
+ * `answerHebyModelRequest` answers questions. It records messages, and R3W does not change that:
+ * a normal Heby answer stays a message and never becomes prepared work. The separation is
+ * STRUCTURAL, not a convention — `model-answer.server.ts` imports the artifact READER and no
+ * artifact writer at all, so there is no representation in which an ordinary answer could create
+ * one. This module is the only thing that imports both, and it is reached only when a human
+ * explicitly asked for prepared work.
+ *
+ * That is the same shape K2 uses to keep Heby out of Knowledge: `createKnowledgeAction` is a
+ * separate action that Heby's own actions do not import.
+ *
+ * ── THE RUNTIME KNOWS IT IS PREPARING ────────────────────────────────────────
+ *
+ * The intent is DECLARED (`PREPARE_RECOMMENDATION` — one of the two `prepares: true` intents in
+ * `HEBY_INTENT_DESCRIPTORS`), not inferred from the prompt. R3W adds NO classifier anywhere; that
+ * remains R3A.1's work. The caller states what it is doing and the flow records exactly that.
+ *
+ * ── NO PARSER, DELIBERATELY ──────────────────────────────────────────────────
+ *
+ * The assistant's whole reply becomes the revision content, verbatim. There is no extraction of
+ * "the draft part", no heuristic to find a fenced block, no reformatting. A parser would be a
+ * second, silent author: it would decide what the model meant, and the bytes a human later
+ * approved would be bytes nobody wrote.
+ *
+ * ── WHAT A PREPARED ARTIFACT IS NOT ──────────────────────────────────────────
+ *
+ * Not Knowledge, not approved, not authoritative, not executed. It is text somebody may now read,
+ * revise, and — later, through R3A and a Governance decision — authorize an action against.
+ *
+ * Server-only.
+ */
+import {
+  answerHebyModelRequest,
+  type HebyModelAnswerDeps,
+  type HebyModelAnswerResult,
+} from "@/features/heby-answer/model-answer.server";
+import type { WorkArtifactType } from "./contracts";
+import {
+  createWorkArtifactFromHebyPreparation,
+  reviseWorkArtifactFromHebyPreparation,
+  type WorkArtifactWriteDeps,
+} from "./write-work-artifacts.server";
+
+/**
+ * The workspace that owns prepared work today.
+ *
+ * Both action tools that name a `record-ref` an artifact could satisfy —
+ * `heby.operations.prepare-plan` and `heby.operations.send-communication` — declare
+ * `ownerWorkspace: "operations"`, and Operations is the only workspace profile carrying the
+ * `work-artifacts` source class. It is a constant rather than a parameter so a caller cannot
+ * attribute prepared work to a workspace that does not own the capability.
+ */
+export const WORK_ARTIFACT_OWNER_WORKSPACE = "operations";
+
+/** The declared intent. One of exactly two with `prepares: true`; never inferred from text. */
+export const WORK_ARTIFACT_PREPARATION_INTENT = "PREPARE_RECOMMENDATION" as const;
+
+/** The client-supplied part. Carries no tenant, no actor, no authority, no lifecycle. */
+export interface PrepareWorkArtifactInput {
+  /** What the human asked to have prepared. Validated by the existing prompt validator. */
+  readonly prompt: unknown;
+  readonly route: string;
+  readonly artifactType: WorkArtifactType;
+  /** The human's title for the work. Never derived from model output. */
+  readonly title: string;
+  readonly conversationId?: string;
+  /**
+   * When present, the reply is appended as a NEW REVISION of this artifact instead of creating
+   * one. Re-checked against the tenant server-side; a foreign or unknown id is refused.
+   */
+  readonly artifactId?: string;
+}
+
+export interface PrepareWorkArtifactDeps {
+  readonly answer?: typeof answerHebyModelRequest;
+  readonly write?: WorkArtifactWriteDeps;
+}
+
+/**
+ * Why preparation produced no artifact. Each value is a fact about what happened; none of them is
+ * a judgement about the content.
+ */
+export type PreparationRefusal =
+  | "unauthenticated"
+  | "prompt-rejected"
+  /** The model path degraded to a deterministic answer, so there is no prepared text to store. */
+  | "no-model-answer"
+  /** The exchange was not durably persisted, so there is no message to attribute a revision to. */
+  | "not-durable"
+  | "write-refused";
+
+export type PrepareWorkArtifactResult =
+  | {
+      readonly status: "prepared";
+      readonly artifactId: string;
+      readonly revisionNo: number;
+      readonly contentDigest: string;
+      readonly ref: string;
+      readonly conversationId: string;
+      readonly sourceMessageId: string;
+      /** The full answer, so the surface can show what was said as well as what was stored. */
+      readonly answer: HebyModelAnswerResult;
+    }
+  | {
+      readonly status: "refused";
+      readonly reason: PreparationRefusal;
+      /** Present when an answer was produced but not stored — the human still sees it. */
+      readonly answer?: HebyModelAnswerResult;
+    };
+
+/**
+ * Ask Heby to prepare work, and durably keep what it produced.
+ *
+ * WHY A DETERMINISTIC FALLBACK IS NOT STORED. When the Director's kill-switch is off, or the
+ * transport fails, or validation withholds the answer, `answerHebyModelRequest` returns an honest
+ * deterministic response — for `PREPARE_RECOMMENDATION` that is an explicit UNAVAILABLE, because
+ * preparation genuinely needs generative reasoning. Storing that as a revision would file
+ * "no model runtime is connected" as though it were prepared work. Refused instead, and the
+ * answer is handed back so the human sees exactly what happened.
+ */
+export async function prepareWorkArtifact(
+  input: PrepareWorkArtifactInput,
+  deps: HebyModelAnswerDeps & PrepareWorkArtifactDeps,
+): Promise<PrepareWorkArtifactResult> {
+  if (typeof window !== "undefined") {
+    throw new Error("Work artifact preparation is server-only.");
+  }
+
+  const answerFn = deps.answer ?? answerHebyModelRequest;
+  const answer = await answerFn(
+    { prompt: input.prompt, route: input.route, conversationId: input.conversationId },
+    deps,
+    { intent: WORK_ARTIFACT_PREPARATION_INTENT },
+  );
+
+  if (answer.status === "unauthorized") return { status: "refused", reason: "unauthenticated" };
+  if (answer.status === "rejected") return { status: "refused", reason: "prompt-rejected" };
+
+  /*
+   * ONLY MODEL-ORIGIN TEXT BECOMES PREPARED WORK. `origin` is set by the answer flow from what
+   * actually happened, never by this module, so this cannot be talked into storing a fallback.
+   */
+  if (answer.outcome.response.origin !== "model") {
+    return { status: "refused", reason: "no-model-answer", answer };
+  }
+  if (!answer.persistence.durable) {
+    return { status: "refused", reason: "not-durable", answer };
+  }
+
+  const tenant = await deps.resolveTenant();
+  if (!tenant) return { status: "refused", reason: "unauthenticated", answer };
+
+  const content = answer.outcome.response.body.join("\n");
+  const sourceMessageId = answer.persistence.assistantMessageId;
+
+  const written = input.artifactId
+    ? await reviseWorkArtifactFromHebyPreparation(
+        tenant,
+        { artifactId: input.artifactId, content, sourceMessageId },
+        deps.write,
+      )
+    : await createWorkArtifactFromHebyPreparation(
+        tenant,
+        {
+          artifactType: input.artifactType,
+          title: input.title,
+          content,
+          sourceMessageId,
+        },
+        WORK_ARTIFACT_OWNER_WORKSPACE,
+        deps.write,
+      );
+
+  if (written.status !== "created" && written.status !== "revised") {
+    return { status: "refused", reason: "write-refused", answer };
+  }
+
+  return {
+    status: "prepared",
+    artifactId: written.artifactId,
+    revisionNo: written.revisionNo,
+    contentDigest: written.contentDigest,
+    ref: written.ref,
+    conversationId: answer.persistence.conversationId,
+    sourceMessageId,
+    answer,
+  };
+}

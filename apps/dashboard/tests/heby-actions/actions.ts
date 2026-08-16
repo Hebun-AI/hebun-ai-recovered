@@ -46,9 +46,27 @@ const OVERVIEW: ExecutiveOverviewLike = {
 const FRESH_EV: readonly HebyEvidenceReference[] = [
   { sourceClass: "operations", recordRef: "wf-1", lifecycle: "settled" },
 ];
-const STALE_EV: readonly HebyEvidenceReference[] = [
-  { sourceClass: "operations", recordRef: "wf-1", lifecycle: "superseded" },
-];
+/*
+ * R3W. A `record-ref` ARGUMENT must now name something the retrieval layer actually returned, not
+ * merely be a non-empty string — `arguments.ts` always said that check belonged in capability-gate,
+ * and capability-gate never did it.
+ *
+ * These fixtures exist because several cases below are about GOVERNANCE, AUTHORITY and STALENESS,
+ * and each was passing arguments (`r-1`, `d-1`, `s-1`) that named nothing at all. Under the repair
+ * those actions fail on grounding before they ever reach the behaviour under test, so the evidence
+ * is widened to actually back them. The assertions are unchanged: each test still proves exactly
+ * what it always claimed to prove, now without leaning on the hole. The unbacked case is proved
+ * deliberately in `tests/r3w-flow/record-ref-and-binding.ts`.
+ */
+const ev = (
+  lifecycle: "settled" | "superseded",
+  ...refs: string[]
+): readonly HebyEvidenceReference[] =>
+  refs.map((recordRef) => ({ sourceClass: "operations" as const, recordRef, lifecycle }));
+
+const FRESH_SEND_EV = ev("settled", "r-1", "d-1");
+const STALE_SEND_EV = ev("superseded", "r-1", "d-1");
+const FRESH_GRANT_EV = ev("settled", "s-1");
 
 /* --- 1. READ_ONLY remains executable (inspect + navigate) --------------------------- */
 function readOnlyExecutable(): void {
@@ -103,7 +121,7 @@ function consequentialRequiresHumanReview(): void {
     actionKind: "send-external-communication",
     requestingWorkspace: "operations",
     proposedArguments: { recipientRef: "r-1", draftRef: "d-1" },
-    evidence: FRESH_EV,
+    evidence: FRESH_SEND_EV,
   });
   assert.equal(outcome.lifecycleState, "REQUIRES_HUMAN_REVIEW");
   assert.equal(outcome.prepared.authorityGate.humanReviewRequired, true);
@@ -198,7 +216,7 @@ function governanceCannotBeFaked(): void {
     actionKind: "send-external-communication",
     requestingWorkspace: "operations",
     proposedArguments: { recipientRef: "r-1", draftRef: "d-1" },
-    evidence: FRESH_EV,
+    evidence: FRESH_SEND_EV,
   });
   assert.equal(outcome.governanceGate.required, true);
   assert.equal(outcome.governanceGate.evaluatorConnected, false);
@@ -227,7 +245,7 @@ function humanReviewDoesNotExecute(): void {
     actionKind: "grant-permission",
     requestingWorkspace: "decisions",
     proposedArguments: { subjectRef: "s-1", permission: "admin" },
-    evidence: FRESH_EV,
+    evidence: FRESH_GRANT_EV,
   });
   assert.equal(outcome.lifecycleState, "REQUIRES_HUMAN_REVIEW");
   assert.equal(outcome.receipt, undefined);
@@ -283,7 +301,7 @@ function staleOrExpiredBlocks(): void {
     actionKind: "send-external-communication",
     requestingWorkspace: "operations",
     proposedArguments: { recipientRef: "r-1", draftRef: "d-1" },
-    evidence: STALE_EV,
+    evidence: STALE_SEND_EV,
   });
   assert.equal(stale.staleness.freshness, "stale");
   assert.equal(stale.lifecycleState, "EXPIRED");

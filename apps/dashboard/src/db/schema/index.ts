@@ -50,3 +50,4 @@ export * from "./heby-answer-evidence";
 export * from "./provider-connectivity-control";
 export * from "./document";
 export * from "./notification";
+export * from "./work-artifact";

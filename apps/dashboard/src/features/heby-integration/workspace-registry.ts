@@ -106,7 +106,14 @@ const WORKSPACE_PROFILES = {
       { family: "operational-inspection", state: "contract-only" },
       { family: "evidence-tracing", state: "contract-only" },
     ],
-    sourceClasses: ["operations", "governance"],
+    /*
+     * R3W adds `work-artifacts` here and only here. Both action tools that name a `record-ref`
+     * an artifact could satisfy — `heby.operations.prepare-plan` and
+     * `heby.operations.send-communication` — declare `ownerWorkspace: "operations"`, so this is
+     * the one workspace where an artifact is a legitimate referent. No other profile gains it,
+     * and no eighth workspace is created.
+     */
+    sourceClasses: ["operations", "governance", "work-artifacts"],
     authority: "advisory-only",
     mayExplain: [
       "Explain this operational state.",
