@@ -115,14 +115,44 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
     authorityRequirement: "human-review-required",
     governanceGated: true,
     substrateConnected: false,
+    /*
+     * R3A.1 — FOUR ARGUMENTS, NOT TWO.
+     *
+     * The two references alone are not a binding. R3W proved why for the draft half: a bare
+     * reference is a moving target unless the exact bytes travel with it, and R3R made the same
+     * true of the address. The digests are what make "what was approved == what may be executed"
+     * mean anything for a send.
+     *
+     * THE DIGESTS ARE NOT USER INPUT. A caller supplies the two REFERENCES; the inlet resolves
+     * each one against its owning authority and derives the digest from what it actually read. A
+     * supplied digest would let a caller approve one thing while naming another, which is exactly
+     * the drift this exists to stop — so `heby-action-inlet` computes both and a test pins that a
+     * client-supplied value cannot reach them.
+     *
+     * `kind: "string"` rather than a new digest kind: `record-ref` carries an evidence-backing
+     * obligation that a digest cannot satisfy (it names no record), and inventing a kind would
+     * make every other tool's validator learn a concept only this tool uses.
+     */
     argumentSchema: {
       fields: [
         { name: "recipientRef", kind: "record-ref", required: true, describes: "The recipient record." },
+        {
+          name: "recipientEndpointDigest",
+          kind: "string",
+          required: true,
+          describes: "SHA-256 of the recipient's exact recorded address, derived server-side.",
+        },
         // The body is a REFERENCED, prepared draft — never raw free-form text from a model.
         { name: "draftRef", kind: "record-ref", required: true, describes: "A prepared draft record (not raw text)." },
+        {
+          name: "draftRevisionDigest",
+          kind: "string",
+          required: true,
+          describes: "SHA-256 of the exact draft revision's bytes, derived server-side.",
+        },
       ],
     },
-    inputSummary: "A recipient record and a prepared draft record.",
+    inputSummary: "A recipient record and a prepared draft record, each bound to its exact bytes.",
     outputSummary: "Would send an external communication — irreversible; always requires human review.",
     describes: "Sends an external communication. Consequential and irreversible; never auto-executed.",
   },

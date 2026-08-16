@@ -64,8 +64,18 @@ function main(): void {
 
   /* ── 16. RESERVED COMMANDS STAY RESERVED WHEN SPOKEN ─────────────────────── */
   {
+    /*
+     * Ten since R3A.1, not eleven: `/send` left the reserved set to become a `propose` command.
+     * The number is the weak half of this check — what matters is the invariant below, that
+     * speaking a reserved command still dispatches nothing. `/send` is covered by its own suite,
+     * where being spoken still cannot make it approve, authorize or execute anything.
+     */
     const reserved = HEBY_COMMANDS.filter((command) => command.kind === "reserved");
-    assert.ok(reserved.length >= 11, `expected the reserved future set, found ${reserved.length}`);
+    assert.ok(reserved.length >= 10, `expected the reserved future set, found ${reserved.length}`);
+    assert.ok(
+      !reserved.some((command) => command.id === "send"),
+      "/send is no longer reserved — it proposes, and its own firewall suite proves it executes nothing",
+    );
 
     for (const command of reserved) {
       // Say it out loud, exactly as the recognizer would deliver it.
@@ -93,7 +103,7 @@ function main(): void {
     const dangerous = [
       "/terminal", "/terminal rm -rf /", "/computer-use", "/browser", "/execute",
       "/run deploy", "/deploy production", "/rollback", "/delete customer records",
-      "/approve the pending decision", "/send the invoice",
+      "/approve the pending decision",
     ];
     for (const sentence of dangerous) {
       const parsed = parseHebyInput(spoken(sentence));
@@ -107,6 +117,29 @@ function main(): void {
         /execution|approval|runtime/i,
         `"${sentence}" did not explain that no execution runtime exists`,
       );
+    }
+
+    /*
+     * `/send` MOVED OUT OF THAT LIST, and it needed its own assertion rather than a looser one.
+     *
+     * R3A.1 made it a real `propose` command, so its refusal reason is no longer "no execution
+     * runtime exists" — that sentence is now false for this command, and asserting it would pin a
+     * lie. What must stay true is the property the list was protecting: DICTATED PROSE MUST NEVER
+     * FILE A PROPOSAL. "/send the invoice" carries the right NUMBER of arguments and names nothing,
+     * which is exactly the case a count-only check would have waved through to a write seam.
+     */
+    for (const spokenSend of ["/send the invoice", "/send jane the report", "/send it"]) {
+      const parsed = parseHebyInput(spoken(spokenSend));
+      assert.notEqual(parsed.kind, "prompt", `"${spokenSend}" reached prompt status`);
+      if (parsed.kind !== "command") continue;
+      const plan = planHebyCommand(parsed.command, parsed.args, PLAN_CONTEXT);
+      assert.equal(plan.kind, "unavailable", `"${spokenSend}" must not become a proposal`);
+      assert.match(
+        plan.result.lines.join(" "),
+        /reference|records that already exist/i,
+        `"${spokenSend}" must explain that it named no record`,
+      );
+      assert.match(plan.result.lines.join(" "), /nothing/i, "and that nothing happened");
     }
 
     // Case and spacing from a recognizer change nothing: `/TERMINAL` is the same refusal.

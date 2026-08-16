@@ -28,7 +28,14 @@
  *   navigation  moves within Hebun via the closed workspace registry. ZERO provider dispatch.
  *   reserved    a known future capability. Inert: it neither executes nor dispatches anything.
  */
-export type HebyCommandKind = "local" | "read" | "advisory" | "navigation" | "reserved";
+/**
+ * `propose` (R3A.1) files a durable action request for a human to decide on. It is NOT execution
+ * and it is deliberately not `reserved`: a reserved command dispatches nothing, while a proposal
+ * really does write a row — it just writes it into the pending-review queue rather than into the
+ * world. The separate kind exists so a `read` can never become a write by changing one field, and
+ * so the planner can refuse to give a proposal a model prompt.
+ */
+export type HebyCommandKind = "local" | "read" | "advisory" | "navigation" | "propose" | "reserved";
 
 /** Palette grouping. Presentation only — it grants nothing. */
 export type HebyCommandCategory =
@@ -40,6 +47,8 @@ export type HebyCommandCategory =
   | "knowledge"
   | "platform"
   | "agents"
+  /* R3A.1 — commands that FILE a proposal for a human to decide on. Never execution. */
+  | "actions"
   | "future";
 
 /**
@@ -63,6 +72,19 @@ export interface HebyCommandArgument {
   readonly name: string;
   readonly required: boolean;
   readonly description: string;
+  /**
+   * The exact shape this argument must have, checked by the PLANNER before any server call.
+   *
+   * Added by R3A.1 for a specific reason. A `propose` command writes a durable row, and counting
+   * arguments is not enough to decide whether to ask the server for one: "/send the invoice" —
+   * which is what dictation produces from an ordinary sentence — supplies two arguments and neither
+   * one names anything. Without a shape check the planner would happily open a database connection
+   * to discover that.
+   *
+   * Local, pure, and total: a pattern that does not match refuses in the browser, so a spoken or
+   * mistyped command never reaches a write seam at all.
+   */
+  readonly pattern?: RegExp;
 }
 
 export interface HebyCommandDescriptor {

@@ -49,6 +49,7 @@ export const HEBY_COMMAND_CATEGORIES: readonly HebyCommandCategory[] = [
   "knowledge",
   "platform",
   "agents",
+  "actions",
   "future",
 ] as const;
 
@@ -61,6 +62,7 @@ export const HEBY_CATEGORY_LABELS: Readonly<Record<HebyCommandCategory, string>>
   knowledge: "Knowledge",
   platform: "Platform",
   agents: "Agents",
+  actions: "Actions",
   future: "Future capabilities",
 });
 
@@ -339,6 +341,50 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
       "No activity stream is connected. The event projection has no connected source, so there is no chronology to read.",
   },
 
+  /* ── Action proposal (R3A.1) ──────────────────────────────────────────────
+   *
+   * `/send` LEFT THE RESERVED BLOCK, and the description changed with it. It used to read "Send a
+   * message on your behalf", which was honest only while the command did nothing at all — the
+   * moment it does something, that sentence would be a lie, because this command still sends
+   * exactly nothing. It PREPARES a proposal and a human decides in /approvals.
+   *
+   * It is `available` rather than `requires-execution` because filing a proposal genuinely does not
+   * need an execution runtime. `send-external-communication` still declares
+   * `substrateConnected: false`, so approval mints a permit that no consumer can spend — which is
+   * the honest state of the system and not something this command papers over.
+   *
+   * BOTH ARGUMENTS ARE REFERENCES. Not an address, not a body. A raw address would make the model
+   * or the operator the recipient authority instead of R3R; raw text would do the same to R3W.
+   */
+  {
+    id: "send", slash: "/send", label: "Prepare a send", category: "actions", kind: "propose",
+    description: "Prepare an external message for Director approval. Sends nothing.",
+    availability: "available", handler: "send",
+    /*
+     * The patterns mirror `recipient-ref.ts` and `artifact-ref.ts` — lowercase, anchored, exactly
+     * one spelling each. They are duplicated rather than imported because this module is the pure
+     * registry and must not depend on the R3R/R3W feature graphs; a test asserts the two agree, so
+     * the duplication cannot drift.
+     */
+    args: [
+      {
+        name: "recipient",
+        required: true,
+        description: "A recorded recipient reference: external-recipient/<uuid>",
+        pattern: /^external-recipient\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      },
+      {
+        name: "draft",
+        required: true,
+        description: "An exact draft revision reference: work-artifact/<uuid>@<n>",
+        pattern: /^work-artifact\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@[1-9][0-9]{0,8}$/,
+      },
+    ],
+    requiresModel: false,
+    requiresExecution: false,
+    safeWhenProviderOff: true,
+  },
+
   /* ── Future capabilities (RESERVED — registered, inert) ───────────────────
    * These exist so the shape of Hebun's future is visible and honest, and so a later phase adds a
    * runtime rather than a vocabulary. In S1 they dispatch nothing: no model call, no execution, and
@@ -353,7 +399,6 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
       ["browser", "Browser", "Control a browser."],
       ["computer-use", "Computer Use", "Control a computer."],
       ["terminal", "Terminal", "Run a terminal command."],
-      ["send", "Send", "Send a message on your behalf."],
       ["approve", "Approve", "Approve a pending decision."],
       ["reject", "Reject", "Reject a pending decision."],
       ["delete", "Delete", "Delete a record."],

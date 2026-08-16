@@ -64,6 +64,14 @@ const ev = (
 ): readonly HebyEvidenceReference[] =>
   refs.map((recordRef) => ({ sourceClass: "operations" as const, recordRef, lifecycle }));
 
+/*
+ * R3A.1 added `recipientEndpointDigest` and `draftRevisionDigest` as REQUIRED arguments, so a
+ * two-argument send no longer validates. These fixtures are about the lifecycle gates rather than
+ * about digests, so they carry a syntactically valid placeholder; the real values are derived
+ * server-side by the inlet and are proved in tests/r3a1-flow.
+ */
+const DIGEST = "a".repeat(64);
+
 const FRESH_SEND_EV = ev("settled", "r-1", "d-1");
 const STALE_SEND_EV = ev("superseded", "r-1", "d-1");
 const FRESH_GRANT_EV = ev("settled", "s-1");
@@ -120,7 +128,12 @@ function consequentialRequiresHumanReview(): void {
   const outcome = runAction({
     actionKind: "send-external-communication",
     requestingWorkspace: "operations",
-    proposedArguments: { recipientRef: "r-1", draftRef: "d-1" },
+    proposedArguments: {
+      recipientRef: "r-1",
+      recipientEndpointDigest: DIGEST,
+      draftRef: "d-1",
+      draftRevisionDigest: DIGEST,
+    },
     evidence: FRESH_SEND_EV,
   });
   assert.equal(outcome.lifecycleState, "REQUIRES_HUMAN_REVIEW");
@@ -215,7 +228,12 @@ function governanceCannotBeFaked(): void {
   const outcome = prepareAction({
     actionKind: "send-external-communication",
     requestingWorkspace: "operations",
-    proposedArguments: { recipientRef: "r-1", draftRef: "d-1" },
+    proposedArguments: {
+      recipientRef: "r-1",
+      recipientEndpointDigest: DIGEST,
+      draftRef: "d-1",
+      draftRevisionDigest: DIGEST,
+    },
     evidence: FRESH_SEND_EV,
   });
   assert.equal(outcome.governanceGate.required, true);
@@ -300,7 +318,12 @@ function staleOrExpiredBlocks(): void {
   const stale = prepareAction({
     actionKind: "send-external-communication",
     requestingWorkspace: "operations",
-    proposedArguments: { recipientRef: "r-1", draftRef: "d-1" },
+    proposedArguments: {
+      recipientRef: "r-1",
+      recipientEndpointDigest: DIGEST,
+      draftRef: "d-1",
+      draftRevisionDigest: DIGEST,
+    },
     evidence: STALE_SEND_EV,
   });
   assert.equal(stale.staleness.freshness, "stale");

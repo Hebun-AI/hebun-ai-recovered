@@ -61,6 +61,21 @@ export type HebyCommandPlan =
       readonly handler: string;
       readonly args: readonly string[];
     }
+  /**
+   * Ask the server to file a durable action proposal for a human to decide on (R3A.1).
+   *
+   * It carries the two references the operator typed and NOTHING else — no tenant, no actor, no
+   * digest, no action kind. The action kind is fixed by the handler on the server side, so a client
+   * cannot select what it is proposing, and the digests are derived from what the server reads.
+   * Like `read`, it carries no prompt, so this plan has no representation in which it could reach a
+   * model.
+   */
+  | {
+      readonly kind: "propose";
+      readonly commandId: string;
+      readonly handler: string;
+      readonly args: readonly string[];
+    }
   /** The ONLY plan that can reach the model, and only through the existing answer path. */
   | { readonly kind: "advisory"; readonly prompt: string }
   /** Truthfully refused. No dispatch, no execution, no fabricated preview. */
@@ -149,6 +164,54 @@ export function planHebyCommand(
   // 2. Availability. No source, no capability — no run, and the operator is told which is missing.
   if (command.availability !== "available") {
     return { kind: "unavailable", result: refuse(command) };
+  }
+
+  /*
+   * 3. PROPOSE, before the handler switch (R3A.1). Branching on the declared KIND rather than on
+   *    the handler name is what keeps this closed: a command becomes a write by declaring
+   *    `kind: "propose"` in the registry and in no other way, so no handler string and no later
+   *    `case` can quietly acquire the ability to persist a proposal.
+   *
+   *    Every required argument must be present before the server is asked to do anything. A
+   *    `/send` with a missing half is a usage error, and answering it locally means the server
+   *    never opens a connection to discover that.
+   */
+  if (command.kind === "propose") {
+    const refuseLocally = (lines: readonly string[]): HebyCommandPlan => ({
+      kind: "unavailable",
+      result: {
+        command: command.slash,
+        title: "Nothing was prepared",
+        lines: [...lines, `Usage: ${commandUsage(command)}`],
+        tone: "unavailable",
+        provenance: LOCAL_PROVENANCE,
+      },
+    });
+
+    const required = command.args.filter((argument) => argument.required);
+    if (args.length < required.length) {
+      return refuseLocally([
+        "This command needs an exact reference for each argument. Nothing was prepared, and nothing was sent.",
+      ]);
+    }
+
+    /*
+     * SHAPE, NOT JUST COUNT. Dictation turns an ordinary sentence into "/send the invoice", which
+     * has the right number of arguments and names nothing at all. Refusing that here means a spoken
+     * or mistyped command never reaches a seam that could write a row — the check is local, pure,
+     * and happens before any server call exists.
+     */
+    for (const [index, argument] of required.entries()) {
+      const value = args[index] ?? "";
+      if (argument.pattern && !argument.pattern.test(value)) {
+        return refuseLocally([
+          `"${value}" is not a ${argument.name} reference, so there is nothing to prepare.`,
+          "An action must name records that already exist; approval happens in /approvals.",
+        ]);
+      }
+    }
+
+    return { kind: "propose", commandId: command.id, handler: command.handler, args };
   }
 
   switch (command.handler) {

@@ -35,6 +35,14 @@ const ARTIFACT_ID = "0f2b7d1a-3c4e-4a5b-8c9d-0e1f2a3b4c5d";
 const REV1 = formatWorkArtifactRef(ARTIFACT_ID, 1);
 const REV2 = formatWorkArtifactRef(ARTIFACT_ID, 2);
 const CONTACT = "contact-7781";
+/*
+ * R3A.1 made both digests REQUIRED arguments of the send action, so a two-argument proposal now
+ * fails ARGUMENT VALIDATION before the record-ref gate is ever consulted — which would have made
+ * these assertions pass for the wrong reason, or fail for one. The fixtures therefore supply all
+ * four, so what is being tested is still exactly what it says: whether a REFERENCE names
+ * something that was retrieved.
+ */
+const DIGEST = "a".repeat(64);
 
 /** Evidence that names the artifact revision AND the recipient. Both really retrieved. */
 const BACKED: readonly HebyEvidenceReference[] = [
@@ -51,7 +59,12 @@ function unbackedArgumentsFail(): void {
     actionKind: "send-external-communication",
     requestingWorkspace: "operations",
     /* The exact shape that used to sail through: two references naming nothing at all. */
-    proposedArguments: { recipientRef: "r-1", draftRef: "d-1" },
+    proposedArguments: {
+      recipientRef: "r-1",
+      recipientEndpointDigest: DIGEST,
+      draftRef: "d-1",
+      draftRevisionDigest: DIGEST,
+    },
     evidence: [{ sourceClass: "operations", recordRef: "wf-1", lifecycle: "settled" }],
   });
 
@@ -92,7 +105,12 @@ function backedArgumentsStillReachAHuman(): void {
   const outcome = prepareAction({
     actionKind: "send-external-communication",
     requestingWorkspace: "operations",
-    proposedArguments: { recipientRef: CONTACT, draftRef: REV1 },
+    proposedArguments: {
+      recipientRef: CONTACT,
+      recipientEndpointDigest: DIGEST,
+      draftRef: REV1,
+      draftRevisionDigest: DIGEST,
+    },
     evidence: BACKED,
   });
   assert.equal(outcome.capabilityGate.evidenceSufficient, true);
@@ -184,7 +202,12 @@ function injectionShapedRefsGrantNothing(): void {
     const outcome = prepareAction({
       actionKind: "send-external-communication",
       requestingWorkspace: "operations",
-      proposedArguments: { recipientRef: CONTACT, draftRef: hostile },
+      proposedArguments: {
+        recipientRef: CONTACT,
+        recipientEndpointDigest: DIGEST,
+        draftRef: hostile,
+        draftRevisionDigest: DIGEST,
+      },
       evidence: BACKED,
     });
     assert.equal(outcome.capabilityGate.evidenceSufficient, false, `"${hostile}" grants nothing`);

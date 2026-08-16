@@ -103,11 +103,19 @@ function main(): void {
     assert.ok(hook.includes("buildTurns("), "thread is composed from the durable messages");
     // The durable server conversation is the only transcript authority.
     assert.ok(!/messages\.push\(|\[\.\.\.session\.messages,/.test(hook), "no client-side transcript accumulation");
-    // No new action module was invented for either surface.
-    // S1 added exactly ONE more: the READ-command boundary. It is deliberately separate from the
-    // answer action and cannot become a model request — it imports no model client at all.
+    // No new action MODULE was invented for either surface — every crossing still goes through the
+    // one Heby actions file. S1 added the READ-command boundary; R3A.1 added the PROPOSE boundary.
+    // Both are deliberately separate from the answer action: a read cannot become a model request
+    // (it imports no model client) and a proposal cannot become a read (it imports no read model).
+    // The count is pinned so a fourth crossing cannot appear without somebody stating it here.
     const actions = read("src/app/(dashboard)/heby/actions.ts");
-    assert.equal((actions.match(/export async function/g) ?? []).length, 3, "exactly three Heby server actions");
+    assert.equal((actions.match(/export async function/g) ?? []).length, 4, "exactly four Heby server actions");
+    assert.ok(
+      actions.includes("proposeHebyActionCommandAction"),
+      "the R3A.1 propose boundary is one of them",
+    );
+    // And the proposal boundary still cannot invalidate arbitrary routes.
+    assert.ok(!actions.includes('from "next/cache"'), "the Heby action module takes no cache authority");
     for (const name of ["askHebyAction", "loadHebyConversationAction", "runHebyReadCommandAction"]) {
       assert.ok(actions.includes(`export async function ${name}`), `${name} is one of them`);
     }

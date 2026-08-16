@@ -27,14 +27,21 @@
  * server action is reached, so `/help`, `/new`, `/clear`, `/context`, `/sources` and any unknown
  * command make ZERO model requests.
  *
- * TEXT INTERACTION ONLY. This seam executes nothing: no tool, no approval, no mutation, no device,
- * no browser, no shell. Its ONLY crossing is the existing Heby server action module.
+ * THIS SEAM EXECUTES NOTHING: no tool, no approval, no device, no browser, no shell. Its ONLY
+ * crossings are the Heby server action modules.
+ *
+ * R3A.1 REPAIRED THE WORD "MUTATION" IN THIS SENTENCE, which used to be in that list. A `/send`
+ * proposal really does write one row — a pending action request — so claiming "no mutation" became
+ * false the moment it shipped. What stays true, and is the distinction that matters, is that the
+ * write goes into the PENDING-REVIEW QUEUE and never into the world: no approval, no permit, no
+ * execution, and no external effect. A human decides in /approvals.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   askHebyAction,
   loadHebyConversationAction,
+  proposeHebyActionCommandAction,
   runHebyReadCommandAction,
 } from "@/app/(dashboard)/heby/actions";
 import {
@@ -341,6 +348,75 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
               patch({
                 commandOutput: refusal(parsed.command.slash, "Not available", [
                   `That command could not be run (${read.reason}). Nothing was read.`,
+                ]),
+              });
+            }
+          } finally {
+            setReading(false);
+          }
+          return;
+        }
+        case "propose": {
+          /*
+           * R3A.1. A durable action proposal. Like `read`, it reaches no provider — the propose
+           * action imports no model client. Unlike `read`, it writes: one pending request that a
+           * human decides on in /approvals.
+           *
+           * Every line below is runtime data or a fixed sentence. Heby never says approved,
+           * authorized, sent, scheduled or successful about a proposal, because filing one moves no
+           * authority whatsoever.
+           */
+          patch({
+            composer: "",
+            commandOutput: {
+              command: parsed.command.slash,
+              title: "Preparing…",
+              lines: ["Resolving the recipient and the draft. Nothing is sent."],
+              tone: "info",
+              provenance: "Preparation in progress.",
+            },
+          });
+          setReading(true);
+          try {
+            const outcome = await proposeHebyActionCommandAction({
+              commandId: plan.commandId,
+              args: plan.args,
+            });
+            if (outcome.status === "unauthorized") {
+              patch({
+                commandOutput: refusal(parsed.command.slash, "Sign in required", [
+                  "Sign in to prepare an action.",
+                ]),
+                available: false,
+              });
+            } else if (outcome.status === "refused") {
+              patch({
+                commandOutput: refusal(parsed.command.slash, "Not available", [
+                  `That command could not be prepared (${outcome.reason}). Nothing was filed.`,
+                ]),
+              });
+            } else if (outcome.result.status === "proposed") {
+              const { receipt } = outcome.result;
+              patch({
+                commandOutput: {
+                  command: parsed.command.slash,
+                  title: "Prepared for Director approval",
+                  lines: [
+                    `Request ${receipt.requestId}`,
+                    `Action: ${receipt.actionKind}`,
+                    `Recipient: ${receipt.recipientLabel} (${receipt.recipientRef})`,
+                    `Draft: ${receipt.draftTitle} (${receipt.draftRef})`,
+                    "Status: pending review",
+                    "Nothing was sent. A human decides in /approvals.",
+                  ],
+                  tone: "info",
+                  provenance: "Durable action request — pending Director review.",
+                },
+              });
+            } else {
+              patch({
+                commandOutput: refusal(parsed.command.slash, "Not prepared", [
+                  outcome.result.detail,
                 ]),
               });
             }
