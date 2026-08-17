@@ -1408,3 +1408,40 @@ söylenmeli. "Sebebi buldum" demek için sembolü değil arızayı üretmen gere
 kayda geçti: stdout en kötü 3.069 B/1 MB, `drizzle-kit migrate` 337 B, terminate→drop **90 denemede 0**
 başarısızlık, ambient DB **boş** döndü. Ve kendi araçlarım iki kez yanılttı — regex `.dispose?.()`'ı
 kaçırdı, `pgrep -f` kendi wrapper shell'ini yakalayıp döngüyü hiç bitirmedi.
+
+**Ders 39 — Bir döngü foreign key ile kapalıysa, "mevcut authority'ye devret" bir çözüm değildir.**
+Gate A "ilk root'u governance-genesis'e, rolleri tenant-role-baseline'a devret" demişti. İkisi de
+boş bir tenant'tan erişilemez: `provision-member-role` bootstrap decision ister,
+`resolveNominationTarget` henüz var olmayan dört tabloyu join eder, `membership_authorizations`
+iki NOT NULL FK ile Governance'a bağlıdır ve `genesis_nominations` composite FK ile membership'e.
+Kesme noktası `memberships`'ten sonraya taşınamaz — bu yüzden istisna tam olarak üç tablo. Devir
+zincirini iddia etmeden önce her halkanın ŞEMASINI oku; yorum satırı değil, FK'ler karar verir.
+
+**Ders 40 — Aktörü olmayan bir tören audit yazamaz; o zaman satırın kendisi kanıt olmalıdır.**
+`audit_log.actor_type`/`actor_id` ikisi de NOT NULL. Terminaldeki insanın kimliği yok. G2.1 aynı
+sorunu audit yazmayarak ve `nomination_source` kolonunu satıra koyarak çözmüştü. Ben de öyle yaptım.
+Kritik nokta: hiçbir şey taşımayan satır kanıt değildir — `created_by` NULL zaten fixture satırlarında
+da NULL, yani kolon olmadan tören ile seed ayırt edilemezdi. Audit'i atlıyorsan, satıra "hangi kök"
+yazmak zorundasın; "kim" yazmak ise yalan olur.
+
+**Ders 41 — drizzle-kit'in ürettiği migration'ı okumadan kabul etme; snapshot bayatlayabilir.**
+`generate` R4A ile ilgisiz dört statement üretti: R3B'nin iki CHECK'ini DROP edip birini geri ADD
+ediyordu. Sebep: R3B migration SQL'ini ve şemasını elle düzeltmiş ama snapshot'ı yeniden
+üretmemişti. Canonical'ı doğrudan sorguladım — canonical şema ile uyumlu, snapshot ile değil.
+O statement'lar canonical'da PATLAYACAKTI (`DROP CONSTRAINT` olmayan bir kısıt üzerinde), ve drizzle
+tüm bekleyen migration'ları tek transaction'da uyguladığı için her şey geri alınırdı. SQL'i kendi iki
+statement'ıma indirdim, üretilen snapshot'ı ise tuttum: o şemadan hesaplanır, yani gerçeği yazar ve
+drift'i iyileştirir. Kural: `generate` çıktısını diff gibi oku, çıktı gibi değil.
+
+**Ders 42 — Bir yasağı ihlal edilebileceği granülarite'de sor.**
+"Kimlik bilgisi sızmasın" testini `/credential/i` ile yazdım; CLI reddedilen operatöre
+`npm run auth:dev-credential` çalıştırmasını söylediği için düştü — yani kimlik üretmeyi REDDEDİP
+sahibini gösteren cümleyi ihlal sandı. Ders 31'in üçüncü tekrarı. Doğrusu mekanizma: credential
+taşıyan kolon, hasher import'u, ve secret taşıyabilecek dördüncü argüman. Guard gevşemedi, güçlendi.
+
+**Ders 43 — "Her sonraki migration'ı beyan et" guard'ı tam olarak işini yaptı.**
+Yedi faz testi R4A'nın migration'ı yüzünden düştü. Bu bir kırılma değil, tasarım: hiçbir migration
+sessizce belirememeli. Onarım sayıyı büyütmek değil, beyanı eklemekti. Buna karşılık
+`r3b-flow/execution-postgres.ts` global `29` sabitini pinlemişti — R3R'yi onarmaya zorlayan desenin
+aynısı, bu kez R3B'nin kendisinde. Global sayım faz testinde bir iddia değil, gelecekteki her faz
+hakkında bir kehanettir; state-relative yapıldı.
