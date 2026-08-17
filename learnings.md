@@ -1390,3 +1390,21 @@ etmez.
 "Control tablosu `from` taşımamalı" testi ES `import … from` satırına takıldı. Ders 31'in aynısı
 başka kılıkta: yasağı doğru granülariteye sor. Dosyada kelime aramak yerine bildirilen kolon
 listesini çıkar ve onu iddia et.
+
+**Ders 37 — Sayaç ile kimlik ayrı stream'e yazılırsa kimlik kaybolur, sayaç doğru kalır.**
+`384 passed, 1 failed` çıktısı doğruydu; hangi testin düştüğü hiçbir yerde yoktu. Sebep suite değil
+runner'dı: `FAIL <label>` stderr'e, güven veren `PASS` satırları ve asıl sayı stdout'a gidiyordu ve
+sonda kimse ismi tekrar yazmıyordu. En tehlikeli hata biçimi bu — sayı sana güven veriyor, araştırmak
+için gereken tek şey ise zaten silinmiş. Kural: kimliği özetin yanında, aynı stream'de yeniden yaz;
+böylece sondan kırpma sayıyı da götürür, sayıyı bırakıp ismi almaz. Ayrıca `result.error` okunmadığı
+için ENOBUFS/ENOENT çıplak bir FAIL olarak görünüyordu ve 1MB'lık varsayılan `maxBuffer` hiçbir şey
+iddia etmeyen, 0 ile çıkan bir testi **uydurma başarısızlığa** çeviriyordu — runner'ın kendi
+raporlaması ürünün doğruluğu kadar denetim ister.
+
+**Ders 38 — Raporlama onarımı, sembolü açıklar; arızanın gerçek olmadığını kanıtlamaz.**
+Kimlik kaybını deterministik olarak yeniden üretip düzelttim, ama asıl `1 failed` hiçbir zaman tekrar
+etmedi: normal, ters ve iki ayrı ortam dalında 2709 test yürütümü tamamen yeşil. İkisi ayrı ayrı
+söylenmeli. "Sebebi buldum" demek için sembolü değil arızayı üretmen gerekir. Elenenler sayıyla
+kayda geçti: stdout en kötü 3.069 B/1 MB, `drizzle-kit migrate` 337 B, terminate→drop **90 denemede 0**
+başarısızlık, ambient DB **boş** döndü. Ve kendi araçlarım iki kez yanılttı — regex `.dispose?.()`'ı
+kaçırdı, `pgrep -f` kendi wrapper shell'ini yakalayıp döngüyü hiç bitirmedi.
