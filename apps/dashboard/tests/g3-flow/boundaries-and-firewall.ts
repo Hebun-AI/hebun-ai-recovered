@@ -117,6 +117,8 @@ function main(): void {
          * exactly the review this allowlist exists to force.
          */
         "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql", "20260816194116_r3b_action_execution_attempts.sql",
+        /* R4A tenant bootstrap ceremony — a later Gate-B phase, declared rather than silent. */
+        "20260817195446_r4a_tenant_provisioning_source.sql",
       ],
       "G3 adds no migration — authority is derived from decisions; only Gate-B migrations for other subsystems follow G2",
     );

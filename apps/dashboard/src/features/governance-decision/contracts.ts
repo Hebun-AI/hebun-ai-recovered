@@ -19,7 +19,9 @@
  *
  * G2.1 is NOT Governance: it is entitlement, and entitlement is not authority.
  * Authentication is NOT Governance: proving who you are grants nothing.
- * A role band is NOT Governance: `roles.type` was seeded and governs product features.
+ * A role band is NOT Governance: `roles.type` governs product features, and no ceremony that
+ * writes one confers Governance authority — not I1.1's member baseline, and not R4A's bootstrap
+ * owner, which exists before any Governance decision does.
  *
  * Pure types and frozen values. No React, no I/O, no database, no authority.
  */
@@ -186,8 +188,13 @@ export type BootstrapResult =
  *      moves ONLY by a Governance decision — and that runtime is deliberately not built. Until it
  *      is, the set of Governance authorities in a tenant is exactly `{ bootstrap actor }`.
  *
- * What was NOT used, and why: `roles.type` (seeded, never established by any ceremony, and if it
- * conferred Governance authority the bootstrap decision would be redundant); `permissions` /
+ * What was NOT used, and why: `roles.type` (if it conferred Governance authority the bootstrap
+ * decision would be redundant — and R4A makes that concrete rather than theoretical: the bootstrap
+ * OWNER role is written before any Governance decision exists, so a model that read the band would
+ * hand a tenant its first authority without a ceremony ever running. The original wording here said
+ * role bands were "seeded, never established by any ceremony"; I1.1's member baseline and R4A's
+ * bootstrap owner have both made that origin claim false, while leaving the conclusion untouched);
+ * `permissions` /
  * `role_permissions` (schema-only, zero rows, zero readers); `memberships.authority_scope`
  * (unwritten). Borrowing any of them would invent an authority model.
  */

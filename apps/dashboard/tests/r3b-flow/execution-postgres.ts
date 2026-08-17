@@ -15,6 +15,8 @@
  * local database, dropped on exit. The canonical database is never opened.
  */
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
+import path from "node:path";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 // Loaded FIRST: the schema barrel is the only safe entry point for src/db/schema/*.
@@ -138,10 +140,25 @@ async function main(): Promise<void> {
   const execDeps = { ...baseDeps, repo: control, env: ARMED_ENV };
 
   try {
+    /*
+     * STATE-RELATIVE, NOT A GLOBAL COUNT. This originally pinned the literal 29, which is a claim
+     * about every future phase rather than about R3B — and R4A falsified it the moment it added a
+     * migration of its own. What R3B actually needs is that every migration on disk is applied and
+     * that its own is among them. Same repair R3R already made after R3B did this to it.
+     */
     const applied = await setup.query<{ n: number }>(
       "select count(*)::int as n from drizzle.__drizzle_migrations",
     );
-    assert.equal(applied.rows[0]!.n, 29, "the R3B migration is the 29th");
+    const onDisk = readdirSync(path.join(process.cwd(), "src/db/migrations")).filter((f) =>
+      f.endsWith(".sql"),
+    );
+    assert.equal(applied.rows[0]!.n, onDisk.length, "every migration on disk is applied");
+    assert.equal(
+      onDisk.filter((f) => f.includes("r3b_action_execution_attempts")).length,
+      1,
+      "R3B's own migration is present exactly once",
+    );
+    assert.ok(applied.rows[0]!.n >= 29, "R3B is at least the 29th migration");
 
     const acme = (await seedLocalIdentity(setup, {
       companyName: "Acme",

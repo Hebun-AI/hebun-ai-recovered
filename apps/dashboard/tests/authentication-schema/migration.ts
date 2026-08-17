@@ -49,18 +49,23 @@ try {
     // + I1.2 identity-enrollment + Membership-Role tenant integrity
     // + KR5 heby-answer-evidence + R3A action-authorization
     // + R3W durable-work-artifacts + R3R durable-recipient-authority
-    // + R3B action-execution-attempts = 29.
+    // + R3B action-execution-attempts + R4A tenant-provisioning-source = 30.
     //
     // This tally is the ONE place a running total belongs: it is this file's actual subject. Other
     // phases must state "I added none of my own" without pinning a global count, or every later
     // authorized migration falsifies a claim that was never about it.
-    assert.equal(migrationCount.rows[0]?.count, "29");
+    assert.equal(migrationCount.rows[0]?.count, "30");
 
+    /*
+     * The rerun is about IDEMPOTENCE, not about the total, so it is compared to what the first run
+     * produced rather than to a second copy of the literal. Two pins of the same number look like
+     * two facts and are really one; only this form keeps failing for the right reason.
+     */
     harness.migrateDatabase();
     const rerunCount = await client.query<{ count: string }>(
       "select count(*)::text as count from drizzle.__drizzle_migrations",
     );
-    assert.equal(rerunCount.rows[0]?.count, "29");
+    assert.equal(rerunCount.rows[0]?.count, migrationCount.rows[0]?.count);
 
     const enumRows = await client.query<{ typname: string; labels: string[] }>(`
       select t.typname, json_agg(e.enumlabel order by e.enumsortorder) as labels
