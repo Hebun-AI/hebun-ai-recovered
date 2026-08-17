@@ -35,6 +35,7 @@ import {
   verifyPasswordCredential,
 } from "./credential-repository.server";
 import {
+  ACTIVE_TENANT_STATUSES,
   findActiveLocalIdentityByEmail,
   findActiveMemberships,
   findMembershipForUser,
@@ -61,7 +62,13 @@ export const SESSION_ASSURANCE_LEVEL = "aal1";
  */
 export const PRE_TENANT_SESSION_TTL_SECONDS = 10 * 60; // 10 minutes
 
-const ACTIVE_TENANT_STATUSES = new Set(["active"]);
+/*
+ * `ACTIVE_TENANT_STATUSES` now comes from the identity repository, which owns every read of
+ * `companies` lifecycle state. It was a private constant here while this file was the only asker;
+ * R4B gave the pre-tenant onboarding flows the same question, and one definition is what keeps the
+ * two enforcement points from drifting apart. The set is unchanged — `{"active"}` — and so are all
+ * four gates below.
+ */
 
 /**
  * Server-side-only classification of why a sign-in failed.

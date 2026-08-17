@@ -36,7 +36,10 @@ import { identityEnrollmentRequests } from "@/db/schema/identity-enrollment";
 import { invitations } from "@/db/schema/invitation";
 import type { AuthenticationDigestKey } from "@/features/auth/environment/auth-environment.server";
 import { establishFirstPasswordCredential } from "@/features/auth-runtime/credential-repository.server";
-import { insertLocalIdentity } from "@/features/auth-runtime/identity-repository.server";
+import {
+  insertLocalIdentity,
+  isTenantOnboardingEligible,
+} from "@/features/auth-runtime/identity-repository.server";
 import { recordEnrollmentCompletionWithin } from "@/features/governance-audit/identity-enrollment-audit.server";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
 import {
@@ -137,6 +140,24 @@ export async function completeIdentityEnrollment(
       enrollment.invitationStatus !== "pending" ||
       enrollment.invitationExpiresAt.getTime() <= now.getTime()
     ) {
+      return refused("capability-not-usable");
+    }
+
+    /*
+     * R4B — THE TENANT MUST BE ACCEPTING ACTIVITY. Checked BEFORE the transaction opens, so a refusal
+     * creates no user, no identity and no credential.
+     *
+     * This is the act R4B most needed to close. A tenant can be suspended in the window between an
+     * approved ceremony and its completion, and until now nothing looked: the ceremony row carries
+     * the tenant, but no gate ever read that tenant's state. The enrollment row itself is left exactly
+     * as it is — it stays `approved` and remains completable once the tenant is active again, because
+     * a suspension is a pause, not a rejection of the human.
+     *
+     * `capability-not-usable` is reused for the same reason `start-enrollment` reuses it: this act is
+     * unauthenticated, and the module already collapses lapsed/revoked into one reason so a bearer
+     * learns nothing about an organization from a refusal.
+     */
+    if (!(await isTenantOnboardingEligible(db, enrollment.tenantId))) {
       return refused("capability-not-usable");
     }
 

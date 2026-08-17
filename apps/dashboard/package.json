@@ -13,6 +13,7 @@
     "auth:dev-credential": "node --import tsx scripts/auth-dev-credential.ts",
     "governance:nominate-genesis": "node --import tsx scripts/genesis-nominate.ts",
     "tenant:provision": "node --import tsx scripts/tenant-provision.ts",
+    "tenant:lifecycle": "node --import tsx scripts/tenant-lifecycle.ts",
     "verify": "npm run lint && npm run typecheck && npm run test:run && npm run build"
   },
   "dependencies": {

@@ -597,6 +597,75 @@ export async function revokeSessionIfActive(
   return spent.length > 0;
 }
 
+/**
+ * The tenant statuses under which Hebun admits activity. ONE definition, deliberately.
+ *
+ * This was previously a private constant inside `session-service.server.ts`, which was correct while
+ * the session service was the only thing that asked the question. R4B gives the same question a
+ * second asker — the pre-tenant onboarding and enrollment flows — and two copies of "which statuses
+ * count as usable" is exactly the drift that lets one enforcement point quietly disagree with the
+ * other. The vocabulary therefore lives here, in the module that already owns every read of
+ * `companies` lifecycle state, and the session service imports it.
+ *
+ * A NULL `tenant_status` is treated as active by every caller: the column is nullable and the two
+ * fixture-seeded tenants predate it. That check belongs to the caller, not to this set, because the
+ * set answers "is this status usable", not "is this row usable".
+ */
+export const ACTIVE_TENANT_STATUSES: ReadonlySet<string> = new Set(["active"]);
+
+/**
+ * Whether a tenant may currently accept onboarding and enrollment activity (R4B).
+ *
+ * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ *
+ * The authenticated paths re-derive tenant state on every request, so a suspended tenant loses all
+ * governed access on its next request. The three PRE-TENANT flows — invitation acceptance,
+ * enrollment start, enrollment completion — never had that check, because they resolve their tenant
+ * from an invitation row rather than from a session, so no session gate ever ran for them. A bearer
+ * holding a live invitation into a suspended tenant could therefore still create a user, an
+ * identity, a credential and a membership. This is the read that closes that.
+ *
+ * ── WHAT IT IS NOT ──────────────────────────────────────────────────────────
+ *
+ * It is NOT a second tenant authority. It owns no state, performs no write, decides no transition,
+ * and accepts nothing from a client but a tenant id that its caller already read from a durable row.
+ * It is one more read in the module that already performs every other `companies` read, and it
+ * answers exactly one question.
+ *
+ * ── ONLY `active` IS ELIGIBLE, AND THAT IS INHERITED, NOT INVENTED ──────────
+ *
+ * `suspended`, `provisioning`, `deleting` and `deleted` all refuse, because the session gate already
+ * admits only `active` and this preserves that rule rather than writing a new one. Refusing
+ * `deleting`/`deleted` here assigns them no product meaning — R5 still owns deletion entirely.
+ *
+ * ── WHAT IS DELIBERATELY NOT CONSULTED ──────────────────────────────────────
+ *
+ * `authentication_disabled_at` is authentication POLICY, not tenant lifecycle, and collapsing the
+ * two would make "suspended" and "authentication disabled" indistinguishable forever. Membership
+ * status is a different subject entirely and each caller already checks its own. `lifecycle_status`
+ * IS consulted, because it is the generic soft-delete flag every governed read in this repository
+ * already respects and the session gate checks it in the same breath.
+ */
+export async function isTenantOnboardingEligible(
+  db: ControlPlaneDatabase,
+  tenantId: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({
+      lifecycleStatus: companies.lifecycleStatus,
+      tenantStatus: companies.tenantStatus,
+    })
+    .from(companies)
+    .where(eq(companies.id, tenantId))
+    .limit(1);
+
+  const row = rows[0];
+  /* No such tenant is not eligible. Fail closed, exactly as a missing row does everywhere else. */
+  if (!row) return false;
+  if (row.lifecycleStatus !== "active") return false;
+  return row.tenantStatus === null || ACTIVE_TENANT_STATUSES.has(row.tenantStatus);
+}
+
 /** Resolve a role's tenant-scoped id (guards role belongs to the tenant). */
 export async function findRoleForTenant(
   db: ControlPlaneDatabase,

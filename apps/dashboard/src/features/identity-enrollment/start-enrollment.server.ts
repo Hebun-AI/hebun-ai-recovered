@@ -27,7 +27,10 @@ import type { ControlPlaneDatabase } from "@/db/client.server";
 import { identityEnrollmentRequests } from "@/db/schema/identity-enrollment";
 import { invitations } from "@/db/schema/invitation";
 import type { AuthenticationDigestKey } from "@/features/auth/environment/auth-environment.server";
-import { isEmailClaimed } from "@/features/auth-runtime/identity-repository.server";
+import {
+  isEmailClaimed,
+  isTenantOnboardingEligible,
+} from "@/features/auth-runtime/identity-repository.server";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
 import {
   digestContinuationReference,
@@ -102,6 +105,24 @@ export async function startIdentityEnrollment(
      * Expiry is compared against the clock, every time.
      */
     if (invitation.status !== "pending" || invitation.expiresAt.getTime() <= now.getTime()) {
+      return refused("capability-not-usable");
+    }
+
+    /*
+     * R4B — THE TENANT MUST BE ACCEPTING ACTIVITY. Checked BEFORE the enrollment row is written, so a
+     * refusal costs no durable state at all.
+     *
+     * This flow resolves its tenant from the invitation, never from a session, so none of the four
+     * session gates ever ran for it. Until R4B a bearer holding a live invitation into a suspended
+     * tenant could start a ceremony there, and later finish it into a real identity and membership.
+     *
+     * `capability-not-usable` is REUSED rather than joined by a new reason, and that is a security
+     * choice as much as a contract one: this act is unauthenticated, and a distinguishable
+     * "the tenant is suspended" would tell an unknown bearer something true about an organization
+     * they have not yet proved any relationship to. The module's own doctrine already collapses
+     * expired, revoked and already-accepted for the same reason.
+     */
+    if (!(await isTenantOnboardingEligible(db, invitation.tenantId))) {
       return refused("capability-not-usable");
     }
 

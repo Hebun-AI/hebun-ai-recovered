@@ -55,7 +55,10 @@ import {
   spendEquivalentCredentialWork,
   verifyPasswordCredential,
 } from "@/features/auth-runtime/credential-repository.server";
-import { findActiveLocalIdentityByEmail } from "@/features/auth-runtime/identity-repository.server";
+import {
+  findActiveLocalIdentityByEmail,
+  isTenantOnboardingEligible,
+} from "@/features/auth-runtime/identity-repository.server";
 import { recordMembershipCreatedWithin } from "@/features/governance-audit/human-onboarding-audit.server";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
 import {
@@ -150,6 +153,26 @@ export async function acceptInvitation(
      * nothing writes, so trusting `status = 'pending'` alone would accept a lapsed capability.
      */
     if (invitation.status !== "pending" || invitation.expiresAt.getTime() <= now.getTime()) {
+      await spendEquivalentCredentialWork(password);
+      return refused("capability-not-usable");
+    }
+
+    /*
+     * R4B — THE TENANT MUST BE ACCEPTING ACTIVITY. Checked BEFORE authentication and long before the
+     * transaction, so a refusal creates no membership and spends no invitation.
+     *
+     * Acceptance resolves its tenant from the invitation, never from a session, so none of the four
+     * session gates ever ran for it. Until R4B a bearer holding a live invitation into a suspended
+     * tenant could still become a member of it.
+     *
+     * IT SPENDS THE EQUIVALENT WORK, like every other refusal above it. Skipping that would make a
+     * suspended tenant measurably faster to refuse than a wrong password, which is precisely the
+     * oracle this module spends real work to deny — and it would hand an unauthenticated bearer a
+     * true fact about an organization. `capability-not-usable` is reused for the same reason: the
+     * module already collapses expired, revoked and already-accepted into one indistinguishable
+     * answer.
+     */
+    if (!(await isTenantOnboardingEligible(db, invitation.tenantId))) {
       await spendEquivalentCredentialWork(password);
       return refused("capability-not-usable");
     }
