@@ -1480,3 +1480,35 @@ eklemek, ilişkisini kanıtlamamış bir bearer'a organizasyon hakkında doğru 
 `accept-invitation` her ret'te `spendEquivalentCredentialWork` harcıyor — benim kontrolüm de harcamak
 zorundaydı, yoksa askıya alınmış tenant yanlış paroladan **ölçülebilir biçimde daha hızlı** reddedilir
 ve modülün gerçek iş harcayarak kapattığı zamanlama oracle'ı geri açılırdı.
+
+**Ders 49 — Bir byte sınırı seçilmez, türetilir.**
+`MAX_FILE_BYTES = MAX_SOURCE_CHARACTERS * 4`. UTF-8 bir code point'e en fazla 4 byte harcar, yani
+bu sınırın üstündeki bir dosya zaten mevcut 60 000 karakter sınırını geçemez — reddedilecekti.
+Türetilmiş sayı savunma gerektirmez ve koruduğu sınırdan ayrı düşemez. Yuvarlak bir sayı seçmek
+(512 KB gibi) iki yıl sonra kimsenin gerekçesini bilmediği bir sabit bırakırdı.
+
+**Ders 50 — Request stream'de uygulanan framework limiti bir ret değildir.**
+Next 16 server action gövdesini 1 MB'da keser (`action-handler.js`), ama bunu stream üzerinde yapar:
+HTTP 413 action fonksiyonu hiç çalışmadan atılır. Ürün sebebi söyleyemez, sınırı adlandıramaz.
+Kural: framework sınırının ALTINDA kendi sınırını koy, ret mesajı senin olsun.
+
+**Ders 51 — `indexOf` tüm modülde ararsa tip tanımını bulur, çağrı yerini değil.**
+"Yetki dosyadan önce çözülüyor" assertion'ım `indexOf("resolveAuthority")` ile yazılmıştı; bu,
+fonksiyonun üstündeki deps interface'ini buluyordu. Sıra her zaman doğru çıkıyordu — **hiç
+başarısız olamayacak bir assertion**. Sırayı bozup test ettiğimde geçti; ancak o zaman gördüm.
+Anchor'ı fonksiyon gövdesinin içine taşı. Ve bunu yalnızca "ısırıyor mu" kanıtı ortaya çıkarır.
+
+**Ders 52 — Ret'in SEBEBİNİ assert et, sadece sonucun olmadığını değil.**
+`status !== "ratified"` bir crash'te, kayıt yokluğunda, validation kaymasında da geçer — hiçbiri
+yetki hakkında bir şey kanıtlamaz. `refused / no-governance-authority` ise Knowledge yazma bandı
+ile G2 ratification yetkisinin gerçekten ayrı iki güç olduğunu kanıtlar.
+
+**Ders 53 — Decoder'ı preview ile paylaşmak, chunker'ı paylaşmakla aynı ilkedir.**
+Tarayıcının `File.text()`'i varsayılan olarak hoşgörülüdür (bozuk byte'ı U+FFFD yapar); sunucu
+`fatal: true` ile katıysa, bir dosya temiz önizlenip sonra reddedilir. Tek decoder, iki runtime.
+
+**Ders 54 — Bir capability haritası, fazla iddia ettiği kadar az iddia ederek de yalan söyler.**
+R4C.1 "hiç upload yolu yok" iddiasını yanlışladı. `k1-flow` bu inkârı `canProve` içinde `/file/i`
+yasaklayarak koruyordu — onarılmasaydı harita gerçek bir yeteneği **eksik** raporlamaya zorlanacaktı.
+Bir faz bir inkârı yanlışlıyorsa, o inkârı bekçilik eden guard AYNI commit'te onarılmalı; yoksa suite
+yeşil kalır — çünkü bayat iddia hayatta kalmıştır.
