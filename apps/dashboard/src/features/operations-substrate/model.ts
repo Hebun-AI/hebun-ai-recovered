@@ -91,7 +91,7 @@ export function getSubstrateModel(): SubstrateModel {
      */
     requiredToExecute: [
       "A configured Resend credential, a system-owned sender, and the fixed subject; without all three, the adapter does not exist. The vendor itself is settled and its host is fixed in code.",
-      "The durable external-send switch enabled by the Director; it ships disabled and is read twice per execution.",
+      "The durable external-send switch armed by the Director in Providers & Models; it ships disabled, refuses to arm until configuration is complete, and is read twice per execution.",
       "For any OTHER mutation: its own execution runtime — none of the remaining three has one.",
       "A connected device / session runtime for any device action (Phase 18 is contract-only).",
       "A real, non-simulation Computer Use / provider execution channel.",

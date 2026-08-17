@@ -26,8 +26,11 @@
  * Server-only.
  */
 import {
+  getProviderConnectivityControlRepository,
   resolveDirectorEnabled,
+  type ProviderConnectivityControl,
   type ProviderConnectivityControlRepository,
+  type ProviderControlActor,
 } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import { EXTERNAL_SEND_PROVIDER_KEY } from "./contracts";
 
@@ -49,4 +52,37 @@ export interface ExecutionControlDeps {
  */
 export function resolveExternalSendEnabled(deps: ExecutionControlDeps = {}): Promise<boolean> {
   return resolveDirectorEnabled(EXTERNAL_SEND_PROVIDER_KEY, deps);
+}
+
+/**
+ * THE ARMING WRITER — the only way an `external-send` control row can come into existence.
+ *
+ * ── WHY THIS EXISTS, AND WHY IT IS NOT A GENERALIZATION ──────────────────────
+ *
+ * R3B shipped the external-send kill-switch READ (`resolveExternalSendEnabled`) without a writer,
+ * so the switch could only ever be flipped by hand-written SQL — which carries no authority check,
+ * no actor attribution, and no server-side refusal. That is the gap this closes.
+ *
+ * The underlying repository operation has always been generic: `setDirectorEnabled(providerKey, …)`
+ * takes any key. What was missing was a SECOND TYPED WRAPPER beside `setClaudeDirectorEnabled`,
+ * and that is deliberately what this is. The provider key is a frozen module constant, so no
+ * caller — and no client — can mint a control row for an arbitrary provider string. Two named
+ * wrappers over one generic repository is the same shape R2E established; widening the seam to
+ * accept a caller-supplied key would turn a closed vocabulary into an open one for no benefit.
+ *
+ * It does NOT decide whether arming is ALLOWED. Configuration completeness and actor authority are
+ * the caller's gates (see the platform server action): this function is the durable write, and a
+ * write that also adjudicated policy would be two authorities in one place.
+ *
+ * Server-only.
+ */
+export function setExternalSendDirectorEnabled(
+  enabled: boolean,
+  actor?: ProviderControlActor,
+): Promise<ProviderConnectivityControl> {
+  return getProviderConnectivityControlRepository().setDirectorEnabled(
+    EXTERNAL_SEND_PROVIDER_KEY,
+    enabled,
+    actor,
+  );
 }

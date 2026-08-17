@@ -1,8 +1,10 @@
-import { PlugZap } from "lucide-react";
+import { Mail, PlugZap } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProvidersModelsSurface } from "@/components/platform-providers/providers-models-surface";
 import { ProviderConnectivityControlCard } from "@/components/platform-providers/provider-connectivity-control-card";
+import { ExternalSendArmingCard } from "@/components/platform-providers/external-send-arming-card";
 import { readProviderOpsView } from "@/features/heby-provider-ops/provider-connectivity-projection.server";
+import { readExternalSendOpsView } from "@/features/action-execution/execution-arming-projection.server";
 
 export const metadata = { title: "Providers & Models — Hebun AI" };
 
@@ -20,6 +22,8 @@ export const metadata = { title: "Providers & Models — Hebun AI" };
 export default async function ProviderMatrixPage() {
   // Truthful, secret-free provider-ops view (durable Director control + server config). Fail-closed.
   const providerOps = await readProviderOpsView();
+  // The external-send arming boundary (R3B). A DIFFERENT provider key, a different blast radius.
+  const externalSendOps = await readExternalSendOpsView();
 
   return (
     <>
@@ -46,6 +50,26 @@ export default async function ProviderMatrixPage() {
           consequential mutation.
         </p>
         <ProviderConnectivityControlCard view={providerOps} />
+      </section>
+
+      {/*
+        The external-send arming boundary (R3B). A SEPARATE control row under the same authority
+        and the same surface — never a second kill-switch table and never a second admin page.
+        Model connectivity and outbound sending are different permissions with different blast
+        radii: enabling Hebun to think must not thereby have enabled it to act.
+      */}
+      <section className="mt-6 flex min-w-0 flex-col gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-fg">
+          <Mail className="size-4 text-primary" aria-hidden="true" />
+          Resend — external send arming
+        </div>
+        <p className="max-w-3xl text-xs leading-5 text-fg-muted">
+          Director-controlled outbound external sending. Disarmed, the runtime refuses before the
+          permit is even spent. Armed, it still sends nothing on its own: every message needs an
+          approved single-spend permit and an explicit human Execute. Arming is refused entirely
+          until the credential, sender and subject are configured.
+        </p>
+        <ExternalSendArmingCard view={externalSendOps} />
       </section>
     </>
   );
