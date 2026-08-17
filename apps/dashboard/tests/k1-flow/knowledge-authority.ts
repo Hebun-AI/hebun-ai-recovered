@@ -285,13 +285,42 @@ function main(): void {
 
     /* Connected does not mean wide: what ingestion claims stays inside the implemented slice. */
     const ingestion = findKnowledgeCapability("ingestion");
-    for (const overclaim of [/upload/i, /\bfile\b/i, /\burl\b/i, /connector/i, /embedding/i, /semantic/i, /search/i]) {
+    /*
+     * ── REPAIRED BY R4C.1 ────────────────────────────────────────────────────
+     *
+     * `upload` and `file` were on this list because neither existed, and that was true when it was
+     * written. R4C.1 built one — a manual, bounded, strictly-decoded UTF-8 `.txt`/`.md` upload — so
+     * continuing to forbid those words in `canProve` would force the capability map to UNDER-report
+     * a real capability. That is the same failure as overclaiming, pointed the other way, and this
+     * check exists to catch either.
+     *
+     * The list keeps every term that is still a fiction and gains the formats and behaviours R4C.1
+     * deliberately did NOT build — which is exactly where the next overclaim would come from.
+     */
+    for (const overclaim of [
+      /\burl\b/i,
+      /connector/i,
+      /embedding/i,
+      /semantic/i,
+      /search/i,
+      /\bpdf\b/i,
+      /docx/i,
+      /\bocr\b/i,
+      /storage|stored/i,
+      /scanned/i,
+      /automatic|scheduled|sync\b/i,
+    ]) {
       assert.ok(
         !overclaim.test(ingestion.canProve),
         `ingestion must not claim ${overclaim} in what it CAN prove — none of it exists`,
       );
     }
     assert.match(ingestion.canProve, /provisional/i, "and it states the standing it writes");
+    assert.match(
+      ingestion.canProve,
+      /\.txt|\.md/,
+      "and where it does claim a file, it names the only formats that can actually be read",
+    );
     for (const denial of [/ratif/i, /upload/i, /url/i, /connector/i, /documents/i, /embedding/i, /semantic/i]) {
       assert.match(
         ingestion.cannotProve,

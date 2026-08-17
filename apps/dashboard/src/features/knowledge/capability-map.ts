@@ -155,22 +155,31 @@ const CAPABILITIES: readonly KnowledgeCapabilityStatus[] = Object.freeze([
     cannotProve: "Similarity, nearest-neighbour matches, or semantic recall of any kind.",
   }),
   /*
-   * CONNECTED THROUGH ONE DELIBERATELY NARROW SLICE. A human with the Knowledge write band pastes
-   * plain text in the Knowledge workspace, and it becomes canonical facts through the SAME writer
-   * that authors a single fact. That is a real runtime path, so `not-connected` would now be false.
-   * Everything the slice does NOT do is named in `cannotProve` rather than left to be assumed —
-   * the `documents` table is still unused, and no file, URL or connector can be ingested at all.
+   * CONNECTED THROUGH ONE DELIBERATELY NARROW SLICE, WIDENED ONCE.
+   *
+   * K2's ingestion connected this: a human with the Knowledge write band pastes plain text and it
+   * becomes canonical facts through the SAME writer that authors a single fact.
+   *
+   * R4C.1 added ONE way for that text to arrive — a manually selected `.txt` or `.md` file, bounded
+   * and decoded server-side. That falsified this entry's previous `cannotProve`, which said "there
+   * is no upload path at all, only pasted plain text". The sentence was repaired rather than
+   * softened: a capability map whose stated reason has quietly stopped being true is worse than one
+   * that reports nothing, because the reason is what a reader trusts.
+   *
+   * Everything the slice still does NOT do is named below rather than left to be assumed. The
+   * `documents` table remains unused, no byte of any file is retained, and no format that needs a
+   * parser can be read at all.
    */
   Object.freeze({
     capability: "ingestion" as const,
     label: "Knowledge ingestion",
     state: "connected" as const,
     authority:
-      "The canonical Knowledge writer, reached through the governed ingestion path in the Knowledge workspace — the same durable write authority band that authors a single fact, writing the same knowledge_facts and knowledge_nodes rows inside one transaction with its audit history.",
+      "The canonical Knowledge writer, reached through the governed ingestion path in the Knowledge workspace — the same durable write authority band that authors a single fact, writing the same knowledge_facts and knowledge_nodes rows inside one transaction with its audit history. A selected file reaches that same path through one upload boundary that decodes it and writes nothing itself.",
     canProve:
-      "That plain text a permitted human pasted is now held as canonical knowledge records, split deterministically, attributed to its source title and to the person who ingested it, and standing as PROVISIONAL drafts.",
+      "That text a permitted human supplied — pasted, or read from a UTF-8 .txt or .md file they selected — is now held as canonical knowledge records, split deterministically, attributed to its source title, its source type and the person who ingested it, and standing as PROVISIONAL drafts.",
     cannotProve:
-      "That anything ingested was reviewed, approved or ratified — ingesting is not ratifying. That any file was uploaded, or any URL, connector or stored document ingested: there is no upload path at all, only pasted plain text, and the `documents` table still has no consumer. That ingested knowledge is findable by meaning, which needs the search, semantic-retrieval and embedding capabilities this map still reports as not connected.",
+      "That anything ingested was reviewed, approved or ratified — ingesting is not ratifying. That any PDF, DOCX, HTML, CSV, spreadsheet, image or archive can be read: only UTF-8 .txt and .md files are accepted, there is no parser and no OCR of any kind, and a file in another encoding is refused rather than converted. That any uploaded file was KEPT: the bytes end with the request, nothing is written to storage or to a filesystem, no object store exists, and the `documents` table still has no consumer. That any URL, connector, scheduled import or automated sync exists — every ingestion is one deliberate human act. That ingested knowledge is findable by meaning, which needs the search, semantic-retrieval and embedding capabilities this map still reports as not connected.",
   }),
   Object.freeze({
     capability: "embeddings" as const,

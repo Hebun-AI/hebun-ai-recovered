@@ -255,12 +255,14 @@ function main(): void {
       [
         "createKnowledgeAction",
         "ingestKnowledgeAction",
+        /* R4C.1 — the file boundary. Create-class like the paste beside it, and no wider. */
+        "ingestKnowledgeFileAction",
         "ratifyKnowledgeVersionAction",
         "readKnowledgeVersionsAction",
         "rejectKnowledgeVersionAction",
         "supersedeKnowledgeAction",
       ],
-      "create, ingest, supersede, ratify, reject, plus one read. Ingest is create-class: many\n"
+      "create, ingest, ingest-a-file, supersede, ratify, reject, plus one read. Ingest is create-class: many\n"
       + "facts through the same writer, never an edit. No delete, no edit, no rollback.",
     );
   }

@@ -404,12 +404,18 @@ async function main(): Promise<void> {
       [
         "createKnowledgeAction",
         "ingestKnowledgeAction",
+        /*
+         * R4C.1 — the file boundary. It reaches the SAME producer as the paste above it, so it adds
+         * no correction, no deletion and no in-place edit; this list growing by one is the whole of
+         * its surface.
+         */
+        "ingestKnowledgeFileAction",
         "ratifyKnowledgeVersionAction",
         "readKnowledgeVersionsAction",
         "rejectKnowledgeVersionAction",
         "supersedeKnowledgeAction",
       ],
-      "create, ingest, correct, review, and read history — nothing else. Ingest writes many facts\n"
+      "create, ingest, ingest-a-file, correct, review, and read history — nothing else. Ingest writes many facts\n"
       + "through the same create path; it cannot edit or roll anything back.",
     );
   }

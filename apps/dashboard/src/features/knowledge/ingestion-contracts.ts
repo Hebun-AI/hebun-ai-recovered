@@ -23,7 +23,7 @@
 
 import { createHash } from "node:crypto";
 import type { KnowledgeScope } from "./contracts";
-import { KNOWLEDGE_SCOPES } from "./create-contracts";
+import { KNOWLEDGE_SCOPES, type KnowledgeSourceType } from "./create-contracts";
 
 /**
  * The largest source one ingestion may carry, in Unicode code points.
@@ -62,6 +62,15 @@ export interface IngestKnowledgeInput {
   readonly sourceText: string;
   readonly domainKey: string;
   readonly scope: KnowledgeScope;
+  /**
+   * What the source WAS, from the closed vocabulary its owner declares.
+   *
+   * OPTIONAL, AND THAT IS DELIBERATE. Omitting it means `plain-text`, which is what text a human
+   * pasted has always been — so the paste path is unchanged and cannot be made to claim otherwise.
+   * The only caller that sets it is the file boundary, which derives it from the extension it
+   * validated. There is no client-facing input type in which this field appears.
+   */
+  readonly sourceType?: KnowledgeSourceType;
 }
 
 export type IngestionField = "sourceTitle" | "sourceText" | "domainKey" | "scope";
@@ -259,6 +268,18 @@ const VALID_SCOPES: ReadonlySet<string> = new Set<string>(KNOWLEDGE_SCOPES);
 const CONTROL_CHARACTERS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
 /** All C0 controls and DEL — a title is one line and has no legitimate newline or tab. */
 const CONTROL_CHARACTERS_SINGLE_LINE = /[\u0000-\u001F\u007F]/;
+
+/**
+ * Whether a value that must occupy ONE line carries a control character.
+ *
+ * Exported because the file boundary judges a file NAME by the same rule — the name becomes the
+ * default source title, so a second regular expression there would be a second definition of "a
+ * title is one line", and the two would eventually disagree. One owner, as with the scope
+ * vocabulary above.
+ */
+export function hasSingleLineControlCharacters(value: string): boolean {
+  return CONTROL_CHARACTERS_SINGLE_LINE.test(value);
+}
 
 /**
  * Validate ingestion input against the normalized text.

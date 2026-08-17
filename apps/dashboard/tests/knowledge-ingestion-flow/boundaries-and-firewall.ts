@@ -102,10 +102,35 @@ function main(): void {
         `ingestion must not call ${forbidden} — ingested is not ratified`,
       );
     }
-    /* The source text arrives as text. There is no parser and no file. */
+    /*
+     * ── REPAIRED BY R4C.1 ─────────────────────────────────────────────────
+     *
+     * This assertion used to read "no upload path exists", and that was true when it was written.
+     * It is not true any more: `knowledge-file-ingest.server.ts` bounds a selected `.txt`/`.md`
+     * file, decodes it strictly, and calls this orchestrator with the resulting TEXT.
+     *
+     * So the claim is narrowed to the part that is still true and still worth locking — the
+     * producer for canonical Knowledge takes text and nothing else, whatever the operator chose.
+     * A file is decoded BEFORE it, never inside it, which is what keeps every gate below this line
+     * indifferent to how the text arrived. Deleting the assertion because a phase outgrew its
+     * wording would have removed the property along with the sentence.
+     */
     assert.ok(
-      !/multipart|formData|File\b|Blob\b/.test(orchestratorCode),
-      "this slice ingests pasted text only — no upload path exists",
+      !/multipart|formData|File\b|Blob\b|arrayBuffer|TextDecoder/.test(orchestratorCode),
+      "the producer still takes text only — bytes are decoded upstream of it, never within it",
+    );
+    /*
+     * And the boundary that DOES read a file is exactly one module, named here so this file cannot
+     * be read as a denial that any upload exists. What it is allowed to be is proven in
+     * `tests/r4c-flow/file-boundary-and-firewall.ts`.
+     */
+    const fileReaders = collect("src/features")
+      .concat(collect("src/app"))
+      .filter((file) => /\.arrayBuffer\(\)/.test(codeOf(read(file))));
+    assert.deepEqual(
+      fileReaders.sort(),
+      ["src/features/knowledge/knowledge-file-ingest.server.ts"],
+      "exactly one module reads a selected file's bytes, and it writes nothing itself",
     );
   }
 

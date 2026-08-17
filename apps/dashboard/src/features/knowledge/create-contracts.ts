@@ -121,10 +121,27 @@ export function normalizeStatement(value: string): string {
  * records exactly the provenance it always did — so this cannot make an authored fact look ingested,
  * or the reverse.
  */
+/**
+ * The CLOSED vocabulary of what an ingested source WAS.
+ *
+ * It stays closed on purpose. `sourceType` is provenance shown to the person reading an answer
+ * ("Source type: markdown"), so an open string would let a caller write anything into the sentence
+ * Hebun tells a human about where its knowledge came from. Every member here is a format Hebun can
+ * actually read end to end — adding one means a surface that produces it exists, not that a label
+ * would be convenient.
+ *
+ * `plain-text` covers text a human pasted AND a `.txt` file, because they are the same thing by the
+ * time they reach the writer. `markdown` records that a file WAS Markdown; nothing parses it, and it
+ * is stored as the Markdown the author wrote, exactly as pasted Markdown already is.
+ */
+export const KNOWLEDGE_SOURCE_TYPES = ["plain-text", "markdown"] as const;
+
+export type KnowledgeSourceType = (typeof KNOWLEDGE_SOURCE_TYPES)[number];
+
 export interface IngestionProvenance {
   readonly sourceTitle: string;
-  /** The only value this slice can produce. A wider union waits for a surface that earns it. */
-  readonly sourceType: "plain-text";
+  /** Derived server-side from what was validated. Never accepted from client input. */
+  readonly sourceType: KnowledgeSourceType;
   /** SHA-256 of the normalized source. Identity of the CONTENT, not of the file or the title. */
   readonly sourceDigest: string;
   readonly chunkIndex: number;

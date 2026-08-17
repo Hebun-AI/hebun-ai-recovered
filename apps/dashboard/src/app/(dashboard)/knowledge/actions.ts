@@ -14,6 +14,10 @@ import {
   ingestKnowledgeSource,
   type IngestKnowledgeResult,
 } from "@/features/knowledge/knowledge-ingest.server";
+import {
+  ingestKnowledgeFile,
+  type IngestKnowledgeFileResult,
+} from "@/features/knowledge/knowledge-file-ingest.server";
 import type { IngestKnowledgeInput } from "@/features/knowledge/ingestion-contracts";
 import { readKnowledgeVersionHistory } from "@/features/knowledge/knowledge-version-history.server";
 import type { KnowledgeVersionHistory } from "@/features/knowledge/supersede-contracts";
@@ -102,6 +106,45 @@ export async function supersedeKnowledgeAction(input: {
   const tenant = await resolveTenantContext();
   const result = await supersedeKnowledgeFact(tenant, input);
   if (result.status === "superseded") revalidatePath("/knowledge");
+  return result;
+}
+
+/**
+ * The FILE boundary: one selected text file becomes the same provisional Knowledge facts a paste
+ * would (R4C.1).
+ *
+ * It is the SAME authority as the two actions above and deliberately not a new one. What it adds is
+ * a door: a `.txt` or `.md` file crosses as bytes, is bounded and decoded server-side, and the text
+ * it becomes enters the ingestion path unchanged. There is no second Knowledge writer behind it.
+ *
+ * WHY IT TAKES `FormData`. A file cannot cross a server-action boundary any other way, and Hebun
+ * already resolves two other forms exactly like this. It is NOT an HTTP endpoint: the repository has
+ * no route handler, this adds none, and the tenant is resolved from the R1 session here — never read
+ * from a header, a body field, or anything the browser chose.
+ *
+ * WHAT THE CLIENT CANNOT SEND. There is no tenant, actor, role, standing, digest or source-type
+ * field in this payload, and the decoded text is not a field either. The browser may decode a copy
+ * to show a record count before the human confirms; the text that becomes Knowledge is decoded from
+ * the bytes this action received.
+ *
+ * THE RAW FILE IS NOT KEPT. Nothing here writes a filesystem path, an object store, or a `documents`
+ * row. The bytes end with the request.
+ */
+export async function ingestKnowledgeFileAction(
+  formData: FormData,
+): Promise<IngestKnowledgeFileResult> {
+  const tenant = await resolveTenantContext();
+  const text = (key: string) => {
+    const value = formData.get(key);
+    return typeof value === "string" ? value : "";
+  };
+  const result = await ingestKnowledgeFile(tenant, {
+    file: formData.get("file"),
+    sourceTitle: text("sourceTitle"),
+    domainKey: text("domainKey"),
+    scope: text("scope") as IngestKnowledgeInput["scope"],
+  });
+  if (result.status === "ingested") revalidatePath("/knowledge");
   return result;
 }
 

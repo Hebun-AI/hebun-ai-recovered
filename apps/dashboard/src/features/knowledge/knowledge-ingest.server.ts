@@ -208,7 +208,13 @@ export async function ingestKnowledgeSource(
              */
             ingestion: {
               sourceTitle,
-              sourceType: "plain-text",
+              /*
+               * What the source WAS, from the closed vocabulary. It arrives already derived — the
+               * caller that sets it derived it from an extension IT validated — and defaults to
+               * `plain-text`, which is what pasted text has always been. Nothing here infers a type
+               * from the text itself, and no client input reaches this field.
+               */
+              sourceType: input.sourceType ?? "plain-text",
               sourceDigest,
               chunkIndex: chunk.index,
               chunkCount: chunks.length,
