@@ -82,10 +82,20 @@ export interface ExternalSendAdapter {
 export interface ExternalSendAdapterDescriptor {
   readonly adapterId: string;
   readonly endpointKind: ExternalEndpointKind;
-  /** The env var whose PRESENCE (never value) decides whether this adapter can be constructed. */
+  /**
+   * The provider host, as a FROZEN CONSTANT rather than an env key.
+   *
+   * It was configuration while no vendor was selected. Now that one is, a settable URL would be an
+   * arbitrary-URL capability the sandbox boundary says does not exist, so the descriptor states
+   * the host instead of naming a variable that could redirect it.
+   */
+  readonly providerEndpoint: string;
+  /** Env vars whose PRESENCE (never value) decides whether this adapter can be constructed. */
   readonly credentialEnvKey: string;
-  /** The env var carrying the provider endpoint. Deployment configuration, never user input. */
-  readonly endpointEnvKey: string;
+  /** The system-owned sender. Generation one has one, for every tenant — see the R5 debt note. */
+  readonly senderEnvKey: string;
+  /** The fixed subject. Deployment configuration is the ONLY thing allowed to choose it. */
+  readonly subjectEnvKey: string;
   /** Human-readable, rendered on the Director surface. States what it does and does not prove. */
   readonly describes: string;
 }
@@ -102,7 +112,8 @@ export const ADAPTER_SANDBOX_BOUNDARY: readonly string[] = Object.freeze([
   "exactly one endpoint kind exists",
   "exactly one adapter is registered",
   "exactly one outbound operation is expressible",
-  "the provider host comes from deployment configuration, never from a record or a model",
+  "the provider host is a frozen constant, not configuration, not a record, not a model",
+  "the sender and the subject come from deployment configuration, never from a record or a model",
   "no arbitrary URL, no arbitrary code, no dynamic adapter loading",
   "no shell, no filesystem, no browser, no device, no agent",
   "the adapter receives no tenant, no session, no authority and no database handle",

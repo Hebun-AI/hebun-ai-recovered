@@ -540,8 +540,14 @@ export async function executeAuthorizedAction(
   };
 }
 
-/** Pinned here so the runtime never imports the live transport module. */
-const ADAPTER_ID_FOR_EMAIL = "email-https-v1";
+/**
+ * Pinned here so the runtime never imports the live transport module.
+ *
+ * It NAMES THE VENDOR because `adapter_id` is the only durable record of who produced a given
+ * `provider_message_id`, and a provider id is meaningless without knowing whose it is. Renaming it
+ * from the pre-selection `email-https-v1` cost nothing: zero attempt rows exist.
+ */
+const ADAPTER_ID_FOR_EMAIL = "resend-email-v1";
 
 /** The recipient id from the frozen reference, when the row itself could not be read. */
 function inTxRecipientIdOrNull(payload: SendPayload): string | null {

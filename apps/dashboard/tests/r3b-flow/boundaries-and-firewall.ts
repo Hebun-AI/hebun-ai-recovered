@@ -83,12 +83,30 @@ function runtimeIsNetworkFree(): void {
     assert.ok(!RUNTIME_CODE.includes(forbidden), `the runtime must not reach ${forbidden}`);
   }
 
-  /* The live transport reaches exactly one host, and it comes from deployment config. */
+  /*
+   * The live transport reaches exactly one host, and since the vendor selection gate that host is
+   * a FROZEN LITERAL rather than deployment configuration.
+   *
+   * REPAIRED: this assertion used to demand the opposite — "never a literal in the transport" —
+   * because no vendor had been chosen and a literal would have been an invented one. Now that
+   * Resend is selected, a settable URL is the weaker arrangement: it is an arbitrary-URL
+   * capability, and `ADAPTER_SANDBOX_BOUNDARY` says none exists. So the guard is inverted rather
+   * than dropped, and it is strictly tighter: exactly one https literal may appear in the live
+   * feature, it must be Resend's send endpoint, and no endpoint env var may come back.
+   */
+  const hosts = [...LIVE_CODE.matchAll(/https:\/\/[a-z0-9.-]+\/[a-z0-9/._-]*/gi)].map((m) => m[0]);
+  assert.deepEqual(
+    [...new Set(hosts)],
+    ["https://api.resend.com/emails"],
+    "the live transport may reach exactly one host, and it is Resend's send endpoint",
+  );
   assert.ok(
-    !/https:\/\/(?!.*\bEXTERNAL_SEND_ENDPOINT\b)[a-z0-9.-]+\/[a-z]/i.test(
-      LIVE_CODE.replace(/EXTERNAL_SEND_ENDPOINT/g, "EXTERNAL_SEND_ENDPOINT"),
-    ) || LIVE_CODE.includes("EXTERNAL_SEND_ENDPOINT"),
-    "the provider host is deployment configuration, never a literal in the transport",
+    !LIVE_CODE.includes("EXTERNAL_SEND_ENDPOINT"),
+    "the provider host must not be reintroduced as configuration",
+  );
+  assert.ok(
+    !RUNTIME_CODE.includes("https://"),
+    "the orchestration layer names no host at all",
   );
 }
 

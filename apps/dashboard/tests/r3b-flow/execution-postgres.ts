@@ -48,7 +48,7 @@ function fakeAdapter(outcome: ProviderOutcome | (() => Promise<never>)): Externa
 } {
   const calls: SendExternalMessageInput[] = [];
   return {
-    adapterId: "email-https-v1",
+    adapterId: "resend-email-v1",
     endpointKind: "email",
     calls,
     async send(input) {
@@ -59,10 +59,16 @@ function fakeAdapter(outcome: ProviderOutcome | (() => Promise<never>)): Externa
   };
 }
 
-/** The environment an ARMED deployment would have. No real key, no real host, no real vendor. */
+/**
+ * The environment an ARMED deployment would have. No real key, no real sender, no real subject.
+ *
+ * The host is no longer here: since the Resend mapping it is a frozen constant in the transport,
+ * so an armed environment is the three values deployment still has to supply.
+ */
 const ARMED_ENV = Object.freeze({
   HEBUN_EXTERNAL_SEND_API_KEY: "test-key-never-real",
-  HEBUN_EXTERNAL_SEND_ENDPOINT: "https://provider.invalid/send",
+  HEBUN_EXTERNAL_SEND_FROM: "nobody@example.invalid",
+  HEBUN_EXTERNAL_SEND_SUBJECT: "Test subject, never configured for real",
 });
 
 async function sessionRowFor(client: Client, seeded: Seeded, tag: string): Promise<string> {
@@ -530,33 +536,50 @@ async function main(): Promise<void> {
     }
 
     /* ══════════════════════════════════════════════════════════════════════
-     * 12. NO CREDENTIAL and 13. NO ENDPOINT. Refuse before the spend.
+     * 12/13. INCOMPLETE DEPLOYMENT CONFIGURATION. Refuse BEFORE the spend.
+     *
+     * REPAIRED FOR RESEND. This used to be "no credential" and "no endpoint", plus a case proving a
+     * plaintext endpoint was treated as absent. There is no endpoint to configure any more, so the
+     * plaintext case cannot exist — the host is a constant and cannot be downgraded at all.
+     *
+     * What replaces it is stricter rather than weaker: EACH of the three values deployment must
+     * supply is removed on its own, and each alone must refuse before the permit is spent. The old
+     * shape only ever proved that about the credential.
      * ════════════════════════════════════════════════════════════════════ */
     {
       const target = await armPermit(acmeCtx);
-      const noCred = await executeAuthorizedAction(
-        acmeCtx,
-        { permitId: target.permitId },
-        { ...baseDeps, repo: control, env: { HEBUN_EXTERNAL_SEND_ENDPOINT: ARMED_ENV.HEBUN_EXTERNAL_SEND_ENDPOINT } },
-      );
-      assert.equal(noCred.status === "refused" ? noCred.reason : "", "credential-unavailable");
-      assert.equal(await permitStatus(target.permitId), "active");
+      for (const missing of [
+        "HEBUN_EXTERNAL_SEND_API_KEY",
+        "HEBUN_EXTERNAL_SEND_FROM",
+        "HEBUN_EXTERNAL_SEND_SUBJECT",
+      ] as const) {
+        const partial: Record<string, string> = { ...ARMED_ENV };
+        delete partial[missing];
+        const refused = await executeAuthorizedAction(
+          acmeCtx,
+          { permitId: target.permitId },
+          { ...baseDeps, repo: control, env: partial },
+        );
+        assert.equal(
+          refused.status === "refused" ? refused.reason : "",
+          "credential-unavailable",
+          `a missing ${missing} must refuse before the spend`,
+        );
+        assert.equal(
+          await permitStatus(target.permitId),
+          "active",
+          `a missing ${missing} must leave the permit spendable`,
+        );
+      }
 
-      const noAdapter = await executeAuthorizedAction(
+      /* An entirely unconfigured deployment — the repository's own posture — refuses too. */
+      const bare = await executeAuthorizedAction(
         acmeCtx,
         { permitId: target.permitId },
         { ...baseDeps, repo: control, env: {} },
       );
-      assert.equal(noAdapter.status === "refused" ? noAdapter.reason : "", "adapter-unavailable");
+      assert.equal(bare.status === "refused" ? bare.reason : "", "credential-unavailable");
       assert.equal(await permitStatus(target.permitId), "active");
-
-      /* A non-HTTPS endpoint is treated as absent, never downgraded to plaintext. */
-      const insecure = await executeAuthorizedAction(
-        acmeCtx,
-        { permitId: target.permitId },
-        { ...baseDeps, repo: control, env: { ...ARMED_ENV, HEBUN_EXTERNAL_SEND_ENDPOINT: "http://provider.invalid/send" } },
-      );
-      assert.equal(insecure.status === "refused" ? insecure.reason : "", "adapter-unavailable");
     }
 
     /* ══════════════════════════════════════════════════════════════════════
@@ -682,7 +705,8 @@ async function main(): Promise<void> {
         "Body of message",
         "Original approved body",
         ARMED_ENV.HEBUN_EXTERNAL_SEND_API_KEY,
-        ARMED_ENV.HEBUN_EXTERNAL_SEND_ENDPOINT,
+        ARMED_ENV.HEBUN_EXTERNAL_SEND_FROM,
+        ARMED_ENV.HEBUN_EXTERNAL_SEND_SUBJECT,
       ]) {
         assert.ok(
           !serialized.includes(secret),
@@ -699,7 +723,8 @@ async function main(): Promise<void> {
         "example.com",
         "Body of message",
         ARMED_ENV.HEBUN_EXTERNAL_SEND_API_KEY,
-        ARMED_ENV.HEBUN_EXTERNAL_SEND_ENDPOINT,
+        ARMED_ENV.HEBUN_EXTERNAL_SEND_FROM,
+        ARMED_ENV.HEBUN_EXTERNAL_SEND_SUBJECT,
       ]) {
         assert.ok(!auditText.includes(secret), `the audit ledger must never carry ${secret}`);
       }

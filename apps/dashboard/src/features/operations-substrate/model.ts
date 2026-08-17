@@ -75,7 +75,7 @@ export function getSubstrateModel(): SubstrateModel {
     state: {
       headline: "One execution runtime is connected, and it is disabled",
       detail:
-        "Exactly one action kind (send-external-communication) has a durable execution runtime: an approved single-spend permit, an explicit human Execute, one bounded adapter, and a recorded attempt. It is NOT armed — the durable external-send switch is disabled, no provider credential is configured, no vendor has been selected, and no real send has ever occurred. Every other mutation and every device action remains non-executable, and there is no dispatcher, worker or scheduler anywhere. This surface exposes the execution architecture — it does not activate it.",
+        "Exactly one action kind (send-external-communication) has a durable execution runtime: an approved single-spend permit, an explicit human Execute, one bounded adapter, and a recorded attempt. Resend is the selected vendor and its request mapping is implemented. It is still NOT armed — the durable external-send switch is disabled, and no credential, sender or subject is configured, so the adapter does not exist at runtime and no real send has ever occurred. Every other mutation and every device action remains non-executable, and there is no dispatcher, worker or scheduler anywhere. This surface exposes the execution architecture — it does not activate it.",
     },
     layers: LAYERS,
     gates: GATES,
@@ -90,8 +90,7 @@ export function getSubstrateModel(): SubstrateModel {
      * three entries were satisfied by R3A and R3B and have been replaced by what actually remains.
      */
     requiredToExecute: [
-      "A selected external provider — no vendor has been chosen, and choosing one is a separate Director decision.",
-      "A configured provider credential and HTTPS endpoint; without both, the adapter does not exist.",
+      "A configured Resend credential, a system-owned sender, and the fixed subject; without all three, the adapter does not exist. The vendor itself is settled and its host is fixed in code.",
       "The durable external-send switch enabled by the Director; it ships disabled and is read twice per execution.",
       "For any OTHER mutation: its own execution runtime — none of the remaining three has one.",
       "A connected device / session runtime for any device action (Phase 18 is contract-only).",

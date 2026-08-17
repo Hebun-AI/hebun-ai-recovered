@@ -288,12 +288,12 @@ export const EXECUTION_SUBSTRATE_GAP = Object.freeze({
   /** Can a real external effect happen today? No — the switch is off and no credential exists. */
   executionArmed: false as const,
   owner: "R3B — First Executed Action",
-  observedRealityAt: "2026-08-16",
+  observedRealityAt: "2026-08-17",
   observation:
     "Exactly one tool — `heby.operations.send-communication` — declares a connected substrate, " +
-    "and the registry validator refuses a second. The durable `external-send` connectivity " +
-    "control is disabled, no provider is armed in deployment configuration, and no vendor has "
-    + "been selected.",
+    "and the registry validator refuses a second. Resend is the selected vendor and its request " +
+    "mapping is implemented, but the durable `external-send` connectivity control is disabled and " +
+    "deployment has supplied none of the three values the adapter requires before it exists.",
   consequence:
     "Hebun may truthfully say a consequential action has been AUTHORIZED, and that an execution " +
     "runtime exists but is disabled. It may not say any action has been executed, sent, " +

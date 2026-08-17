@@ -4,23 +4,28 @@
  * THE SUCCESS CONDITION THIS FILE PROVES:
  *
  *   "The transport can tell a request that never left from one that may already have arrived, it
- *    never calls a provider without a credential and an HTTPS endpoint, it never retries, it never
- *    leaks the credential into an error — and exactly one adapter exists."
+ *    never calls a provider without a credential, a sender and a subject, it never retries, it
+ *    never leaks the credential into an error — and exactly one adapter exists."
  *
- * EVERY FETCH IS INJECTED. `globalThis.fetch` is never reached: each case supplies its own
- * `fetchImpl`, and the registry cases run with an environment that names a `.invalid` host which
- * could not resolve even if something tried. No socket is opened by this file.
+ * EVERY FETCH IS INJECTED. `globalThis.fetch` is never reached: every case supplies its own
+ * `fetchImpl`, including the registry cases, so no socket is opened by this file even though the
+ * host is now the real Resend constant rather than a `.invalid` name from a test environment.
+ *
+ * The Resend WIRE MAPPING is proved next door in `resend-mapping.ts`; this file stays about the
+ * seam, the phases and the registry.
  */
 import assert from "node:assert/strict";
 import {
   classifyResponse,
   classifyTransportError,
-  createEmailHttpsTransport,
+  createResendEmailTransport,
   extractErrorCode,
   isExternalSendCredentialPresent,
-  resolveExternalSendEndpoint,
-  EMAIL_HTTPS_ADAPTER_ID,
-} from "../../src/features/action-execution-live/email-https-transport.server";
+  resolveExternalSendSender,
+  resolveExternalSendSubject,
+  RESEND_ADAPTER_ID,
+  RESEND_SEND_ENDPOINT,
+} from "../../src/features/action-execution-live/resend-email-transport.server";
 import {
   checkAdapterAvailability,
   listExternalSendAdapters,
@@ -29,9 +34,15 @@ import {
 import { ADAPTER_SANDBOX_BOUNDARY } from "../../src/features/action-execution/adapter-contract";
 import { EXECUTION_RETRY_POLICY } from "../../src/features/action-execution/contracts";
 
+/*
+ * A fully-armed environment, for the availability cases only. No value here is real, and no case
+ * in this file dials the host: `RESEND_SEND_ENDPOINT` is now a frozen constant rather than
+ * something a test env could point at a `.invalid` name, so every case injects `fetchImpl`.
+ */
 const ARMED = Object.freeze({
   HEBUN_EXTERNAL_SEND_API_KEY: "test-key-never-real",
-  HEBUN_EXTERNAL_SEND_ENDPOINT: "https://provider.invalid/send",
+  HEBUN_EXTERNAL_SEND_FROM: "nobody@example.invalid",
+  HEBUN_EXTERNAL_SEND_SUBJECT: "Test subject, never configured for real",
 });
 
 /** A fetch that must never be called. Reaching it is the failure. */
@@ -106,10 +117,21 @@ function responseClassification(): void {
     class: "accepted",
     providerMessageId: "abc",
   });
-  assert.deepEqual(classifyResponse(202, { messageId: "  xyz  " }), {
+  assert.deepEqual(classifyResponse(200, { id: "  xyz  " }), {
     class: "accepted",
     providerMessageId: "xyz",
   });
+
+  /*
+   * ONLY `id`. Resend documents `{"id": "…"}` and sends nothing else; before a vendor was chosen
+   * the classifier also honoured `messageId`, and keeping that would mean claiming ACCEPTED on a
+   * shape the selected provider never returns.
+   */
+  assert.deepEqual(
+    classifyResponse(200, { messageId: "xyz" }),
+    { class: "ambiguous" },
+    "a key Resend never sends must not be read as acceptance",
+  );
 
   /* 2xx WITHOUT an id is NOT acceptance: nothing could reconcile it later. */
   for (const body of [{}, null, { id: "" }, { id: "   " }, { id: 42 }]) {
@@ -124,6 +146,16 @@ function responseClassification(): void {
   for (const status of [400, 401, 403, 404, 422, 429]) {
     assert.deepEqual(classifyResponse(status, { error: "no" }), { class: "rejected" });
   }
+
+  /*
+   * 409 is Resend's answer to BOTH "same key, different payload" and "same key already in flight".
+   * As a 4xx it reads as `rejected` — nothing was sent — which is true for the first and would be
+   * a lie for the second. Hebun is safe structurally, not by luck: one handoff is minted per spend
+   * and two unique indexes forbid a second attempt on it, so it can never race itself.
+   */
+  assert.deepEqual(classifyResponse(409, { message: "duplicate idempotency key" }), {
+    class: "rejected",
+  });
 
   /* 5xx — a server error may follow an accept. */
   for (const status of [500, 502, 503, 504]) {
@@ -142,35 +174,45 @@ function responseClassification(): void {
  * 3. THE TRANSPORT ITSELF — construction gates, one call, redacted errors.
  * ═════════════════════════════════════════════════════════════════════════ */
 async function transportBehaviour(): Promise<void> {
-  /* Construction refuses before any I/O. */
+  /*
+   * Construction refuses before any I/O, and it now takes THREE deployment values. The old
+   * https/plaintext gates are gone because the URL is gone: there is no `endpointUrl` argument to
+   * downgrade any more, which is a stronger guarantee than validating one.
+   */
+  assert.equal(RESEND_SEND_ENDPOINT, "https://api.resend.com/emails");
   assert.throws(
-    () => createEmailHttpsTransport({ apiKey: "", endpointUrl: ARMED.HEBUN_EXTERNAL_SEND_ENDPOINT, fetchImpl: forbiddenFetch }),
+    () => createResendEmailTransport({ apiKey: "", sender: "a@b.co", subject: "s", fetchImpl: forbiddenFetch }),
     /credential/i,
     "no credential, no transport",
   );
   assert.throws(
-    () => createEmailHttpsTransport({ apiKey: "k", endpointUrl: "http://provider.invalid/send", fetchImpl: forbiddenFetch }),
-    /https/i,
-    "plaintext HTTP is refused outright, never downgraded to",
+    () => createResendEmailTransport({ apiKey: "k", sender: "   ", subject: "s", fetchImpl: forbiddenFetch }),
+    /sender/i,
+    "no sender, no transport",
   );
   assert.throws(
-    () => createEmailHttpsTransport({ apiKey: "k", endpointUrl: "", fetchImpl: forbiddenFetch }),
-    /https/i,
+    () => createResendEmailTransport({ apiKey: "k", sender: "a@b.co", subject: "", fetchImpl: forbiddenFetch }),
+    /subject/i,
+    "no subject, no transport — and it is never defaulted to something friendly",
   );
 
   /* One send → exactly one fetch. No retry, no backoff, no second attempt. */
   {
     let calls = 0;
-    const transport = createEmailHttpsTransport({
+    const transport = createResendEmailTransport({
       apiKey: "secret-key-value",
-      endpointUrl: ARMED.HEBUN_EXTERNAL_SEND_ENDPOINT,
+      sender: "sender@example.invalid",
+      subject: "Fixed deployment subject",
       fetchImpl: async (url, init) => {
         calls += 1;
-        assert.equal(url, ARMED.HEBUN_EXTERNAL_SEND_ENDPOINT);
+        assert.equal(url, RESEND_SEND_ENDPOINT, "the host is the frozen Resend constant");
         assert.equal(init.method, "POST");
-        /* THE PROVIDER-VISIBLE IDEMPOTENCY KEY travels as a header AND in the body. */
-        assert.equal(init.headers["idempotency-key"], "handoff-123");
-        assert.ok(init.body.includes("handoff-123"));
+        /* THE PROVIDER-VISIBLE IDEMPOTENCY KEY is a HEADER for Resend, and only a header. */
+        assert.equal(init.headers["Idempotency-Key"], "handoff-123");
+        assert.ok(
+          !init.body.includes("handoff-123"),
+          "the wire body carries no second copy of the idempotency key",
+        );
         assert.ok(init.signal, "a hard timeout is always armed");
         return { ok: true, status: 200, json: async () => ({ id: "prov-1" }) };
       },
@@ -183,14 +225,15 @@ async function transportBehaviour(): Promise<void> {
     });
     assert.deepEqual(outcome, { class: "accepted", providerMessageId: "prov-1" });
     assert.equal(calls, 1, "exactly one network call per send — no automatic retry");
-    assert.equal(transport.adapterId, EMAIL_HTTPS_ADAPTER_ID);
+    assert.equal(transport.adapterId, RESEND_ADAPTER_ID);
   }
 
   /* A thrown transport error becomes a phase, and the raw error never escapes. */
   {
-    const transport = createEmailHttpsTransport({
+    const transport = createResendEmailTransport({
       apiKey: "secret-key-value",
-      endpointUrl: ARMED.HEBUN_EXTERNAL_SEND_ENDPOINT,
+      sender: "sender@example.invalid",
+      subject: "Fixed deployment subject",
       fetchImpl: async () => {
         throw nodeError("ECONNREFUSED");
       },
@@ -206,9 +249,10 @@ async function transportBehaviour(): Promise<void> {
   {
     const abort = new Error("aborted");
     abort.name = "AbortError";
-    const transport = createEmailHttpsTransport({
+    const transport = createResendEmailTransport({
       apiKey: "secret-key-value",
-      endpointUrl: ARMED.HEBUN_EXTERNAL_SEND_ENDPOINT,
+      sender: "sender@example.invalid",
+      subject: "Fixed deployment subject",
       fetchImpl: async () => {
         throw abort;
       },
@@ -223,9 +267,10 @@ async function transportBehaviour(): Promise<void> {
   /* An unreadable body: a 2xx stays ambiguous, a 4xx is still a rejection. */
   {
     const make = (status: number) =>
-      createEmailHttpsTransport({
+      createResendEmailTransport({
         apiKey: "k",
-        endpointUrl: ARMED.HEBUN_EXTERNAL_SEND_ENDPOINT,
+        sender: "sender@example.invalid",
+        subject: "Fixed deployment subject",
         fetchImpl: async () => ({
           ok: status < 400,
           status,
@@ -246,9 +291,10 @@ async function transportBehaviour(): Promise<void> {
 
   /* THE CREDENTIAL NEVER APPEARS IN A RETURNED VALUE. */
   {
-    const transport = createEmailHttpsTransport({
+    const transport = createResendEmailTransport({
       apiKey: "super-secret-do-not-leak",
-      endpointUrl: ARMED.HEBUN_EXTERNAL_SEND_ENDPOINT,
+      sender: "sender@example.invalid",
+      subject: "Fixed deployment subject",
       fetchImpl: async () => {
         throw nodeError("ECONNRESET");
       },
@@ -275,22 +321,49 @@ function registryAndPresence(): void {
   assert.equal(isExternalSendCredentialPresent({ HEBUN_EXTERNAL_SEND_API_KEY: "   " }), false);
   assert.equal(isExternalSendCredentialPresent(ARMED), true);
 
-  assert.equal(resolveExternalSendEndpoint({}), null);
-  assert.equal(resolveExternalSendEndpoint({ HEBUN_EXTERNAL_SEND_ENDPOINT: "http://x.invalid" }), null);
-  assert.equal(resolveExternalSendEndpoint(ARMED), ARMED.HEBUN_EXTERNAL_SEND_ENDPOINT);
+  /* The sender and the subject resolve the same way, and neither is ever defaulted. */
+  assert.equal(resolveExternalSendSender({}), null);
+  assert.equal(resolveExternalSendSender({ HEBUN_EXTERNAL_SEND_FROM: "   " }), null);
+  assert.equal(resolveExternalSendSender(ARMED), ARMED.HEBUN_EXTERNAL_SEND_FROM);
+  assert.equal(resolveExternalSendSubject({}), null);
+  assert.equal(resolveExternalSendSubject({ HEBUN_EXTERNAL_SEND_SUBJECT: "  " }), null);
+  assert.equal(resolveExternalSendSubject(ARMED), ARMED.HEBUN_EXTERNAL_SEND_SUBJECT);
 
   /* EXACTLY ONE ADAPTER. The scope of this generation, asserted rather than assumed. */
   const adapters = listExternalSendAdapters();
   assert.equal(adapters.length, 1, "exactly one execution adapter exists");
   assert.equal(adapters[0]!.endpointKind, "email");
-  assert.equal(adapters[0]!.adapterId, EMAIL_HTTPS_ADAPTER_ID);
+  assert.equal(adapters[0]!.adapterId, RESEND_ADAPTER_ID);
+  /* The descriptor states the host instead of naming a variable that could redirect it. */
+  assert.equal(adapters[0]!.providerEndpoint, RESEND_SEND_ENDPOINT);
 
-  /* Availability distinguishes "no channel" from "not armed" — different fixes. */
-  assert.equal(checkAdapterAvailability("email", { env: {} }), "adapter-unavailable");
-  assert.equal(
-    checkAdapterAvailability("email", { env: { HEBUN_EXTERNAL_SEND_ENDPOINT: ARMED.HEBUN_EXTERNAL_SEND_ENDPOINT } }),
-    "credential-unavailable",
-  );
+  /*
+   * Availability distinguishes "no channel" from "not armed" — different fixes.
+   *
+   * REPAIRED FOR RESEND: an empty environment used to answer `adapter-unavailable`, because the
+   * unset endpoint variable meant Hebun could not reach the channel at all. With the host frozen
+   * in code the channel IS reachable and only arming is missing, so the honest answer is now
+   * `credential-unavailable` — and each of the three required values must produce it alone.
+   */
+  assert.equal(checkAdapterAvailability("email", { env: {} }), "credential-unavailable");
+  for (const missing of [
+    "HEBUN_EXTERNAL_SEND_API_KEY",
+    "HEBUN_EXTERNAL_SEND_FROM",
+    "HEBUN_EXTERNAL_SEND_SUBJECT",
+  ] as const) {
+    const partial: Record<string, string> = { ...ARMED };
+    delete partial[missing];
+    assert.equal(
+      checkAdapterAvailability("email", { env: partial }),
+      "credential-unavailable",
+      `${missing} alone must be enough to keep the adapter unavailable`,
+    );
+    assert.equal(
+      resolveExternalSendAdapter("email", { env: partial, fetchImpl: forbiddenFetch }),
+      null,
+      `${missing} alone must be enough to produce no adapter`,
+    );
+  }
   assert.equal(checkAdapterAvailability("email", { env: ARMED }), null);
 
   /* THE DEFAULT POSTURE IS DISARMED: this repository's own environment produces no adapter. */
@@ -301,14 +374,19 @@ function registryAndPresence(): void {
   );
   assert.equal(
     checkAdapterAvailability("email", { env: process.env }),
-    "adapter-unavailable",
-    "the ambient environment must not be armed — no vendor has been selected",
+    "credential-unavailable",
+    "the ambient environment must not be armed — the vendor is chosen, nothing is configured",
+  );
+  assert.equal(
+    resolveExternalSendAdapter("email", { env: process.env, fetchImpl: forbiddenFetch }),
+    null,
+    "the real environment must not yield an adapter",
   );
 
   /* An armed environment produces a constructed adapter, with an injected fetch. */
   const armed = resolveExternalSendAdapter("email", { env: ARMED, fetchImpl: forbiddenFetch });
   assert.ok(armed, "an armed environment yields exactly one adapter");
-  assert.equal(armed!.adapterId, EMAIL_HTTPS_ADAPTER_ID);
+  assert.equal(armed!.adapterId, RESEND_ADAPTER_ID);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -322,6 +400,8 @@ function declaredBoundaries(): void {
   for (const phrase of [
     "exactly one action kind may execute",
     "exactly one adapter is registered",
+    "the provider host is a frozen constant, not configuration, not a record, not a model",
+    "the sender and the subject come from deployment configuration, never from a record or a model",
     "no arbitrary URL, no arbitrary code, no dynamic adapter loading",
     "no shell, no filesystem, no browser, no device, no agent",
     "one hard timeout, and zero automatic retries",

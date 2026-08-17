@@ -21,14 +21,17 @@
  * Server-only.
  */
 import {
-  createEmailHttpsTransport,
-  EMAIL_HTTPS_ADAPTER_ID,
+  createResendEmailTransport,
   EXTERNAL_SEND_API_KEY_ENV,
-  EXTERNAL_SEND_ENDPOINT_ENV,
+  EXTERNAL_SEND_FROM_ENV,
+  EXTERNAL_SEND_SUBJECT_ENV,
   isExternalSendCredentialPresent,
-  resolveExternalSendEndpoint,
+  RESEND_ADAPTER_ID,
+  RESEND_SEND_ENDPOINT,
+  resolveExternalSendSender,
+  resolveExternalSendSubject,
   type FetchLike,
-} from "@/features/action-execution-live/email-https-transport.server";
+} from "@/features/action-execution-live/resend-email-transport.server";
 import type {
   ExternalEndpointKind,
   ExternalSendAdapter,
@@ -38,14 +41,17 @@ import type {
 /** EXACTLY ONE ENTRY. A second one arrives with the action that needs it, never speculatively. */
 const ADAPTERS: readonly ExternalSendAdapterDescriptor[] = Object.freeze([
   Object.freeze({
-    adapterId: EMAIL_HTTPS_ADAPTER_ID,
+    adapterId: RESEND_ADAPTER_ID,
     endpointKind: "email" as const,
+    providerEndpoint: RESEND_SEND_ENDPOINT,
     credentialEnvKey: EXTERNAL_SEND_API_KEY_ENV,
-    endpointEnvKey: EXTERNAL_SEND_ENDPOINT_ENV,
+    senderEnvKey: EXTERNAL_SEND_FROM_ENV,
+    subjectEnvKey: EXTERNAL_SEND_SUBJECT_ENV,
     describes:
-      "Posts one prepared message to a configured HTTPS provider endpoint and reports what the " +
-      "provider said. Acceptance is not delivery. No vendor is selected until deployment " +
-      "configuration names one.",
+      "Posts one prepared message to Resend and reports what Resend said. Acceptance is not " +
+      "delivery. The vendor is selected and the host is fixed in code; deployment still has to " +
+      "supply the credential, the sender and the subject, and the Director still has to enable " +
+      "the durable external-send switch, before anything can be sent.",
   }),
 ]);
 
@@ -64,8 +70,14 @@ export function findAdapterDescriptor(
  *
  * Two distinct reasons, because they need different fixes: `adapter-unavailable` means no
  * implementation exists for the channel, and `credential-unavailable` means one exists but
- * deployment has not armed it. Collapsing them would tell a Director to configure a secret for a
+ * DEPLOYMENT HAS NOT ARMED IT. Collapsing them would tell a Director to configure a secret for a
  * channel Hebun cannot reach at all.
+ *
+ * Since the Resend mapping, "not armed" covers three values — credential, sender, subject — and
+ * all three report as `credential-unavailable`. That reads slightly wide, and it is deliberate:
+ * these are the only two values `action_execution_failure_class` has, a third would be a
+ * migration, and of the two this is the one whose documented meaning is exactly "one exists but
+ * deployment has not armed it". A missing sender is an un-armed deployment, not a missing channel.
  */
 export type AdapterAvailability = "adapter-unavailable" | "credential-unavailable" | null;
 
@@ -82,10 +94,12 @@ export function checkAdapterAvailability(
 ): AdapterAvailability {
   const env = deps.env ?? process.env;
   const descriptor = findAdapterDescriptor(endpointKind);
+  /* The only way the channel itself is unreachable now: no adapter is registered for it. */
   if (!descriptor) return "adapter-unavailable";
-  /* An endpoint that is unset — or not HTTPS — means the channel is not reachable at all. */
-  if (!resolveExternalSendEndpoint(env)) return "adapter-unavailable";
+  /* ALL THREE are required. Any one missing must fail here, before any network primitive exists. */
   if (!isExternalSendCredentialPresent(env)) return "credential-unavailable";
+  if (!resolveExternalSendSender(env)) return "credential-unavailable";
+  if (!resolveExternalSendSubject(env)) return "credential-unavailable";
   return null;
 }
 
@@ -102,16 +116,15 @@ export function resolveExternalSendAdapter(
   }
   const env = deps.env ?? process.env;
   if (checkAdapterAvailability(endpointKind, deps) !== null) return null;
-  const endpointUrl = resolveExternalSendEndpoint(env);
-  if (!endpointUrl) return null;
   try {
-    return createEmailHttpsTransport({
+    return createResendEmailTransport({
       apiKey: env[EXTERNAL_SEND_API_KEY_ENV]!.trim(),
-      endpointUrl,
+      sender: resolveExternalSendSender(env)!,
+      subject: resolveExternalSendSubject(env)!,
       fetchImpl: deps.fetchImpl,
     });
   } catch {
-    /* Construction validates HTTPS and credential presence. A throw means unavailable, not armed. */
+    /* Construction re-validates all three. A throw means unavailable, not armed. */
     return null;
   }
 }
