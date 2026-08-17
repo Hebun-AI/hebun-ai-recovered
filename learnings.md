@@ -1445,3 +1445,38 @@ sessizce belirememeli. Onarım sayıyı büyütmek değil, beyanı eklemekti. Bu
 `r3b-flow/execution-postgres.ts` global `29` sabitini pinlemişti — R3R'yi onarmaya zorlayan desenin
 aynısı, bu kez R3B'nin kendisinde. Global sayım faz testinde bir iddia değil, gelecekteki her faz
 hakkında bir kehanettir; state-relative yapıldı.
+
+**Ders 44 — Enforcement'ın var olması, her yolda çalıştığı anlamına gelmez.**
+`tenant_status` dört ayrı session kapısında kontrol ediliyordu ve bu doğru çalışıyordu — ama üç
+pre-tenant akış (davet kabulü, enrollment başlangıcı/tamamlanması) tenant'ı **session'dan değil davet
+satırından** çözdüğü için o kapıların hiçbiri onlar için hiç çalışmamıştı. Kanıt dosyaydı, tartışma
+değil: üçü de `@/db/schema/company`'yi import bile etmiyordu. Bir kuralın uygulandığını "kod var" ile
+değil, **o kurala ulaşan her giriş yolunu sayarak** doğrula.
+
+**Ders 45 — Askıya alma yetkisi, askıya almadan sonra da erişilebilir olmalı.**
+Tenant içindeki hiçbir authority suspend edemez: `resolveSessionFromReference` her istekte şirket
+durumunu yeniden okur, yani suspend eden owner bir sonraki istekte kendi tenant'ına giremez,
+Governance çalışamaz ve geri alma yolu kalmaz. Deployment possession tenant'ın aktif olmasına hiç
+bağlı olmadığı için **iki yönde de** çalışır. Kural: bir state geçişi, o state'ten çıkarabilecek
+yetki hâlâ ulaşılabilirse güvenlidir.
+
+**Ders 46 — Bir yasağı kelimeyle test etme; ama "sıfır" da bir kelime kadar kaba olabilir.**
+"R4B audit yazmaz" testini `audit_log = 0` diye yazdım; 10'da düştü — çünkü *fixture zinciri* (genesis,
+G2, rol, yetkilendirme, davet, enrollment kararı) meşru olarak audit yazıyor. Global sıfır yalnızca
+"hiç fixture çalışmadı"yı kanıtlar. Doğru iddia daha dar ve daha güçlü: bir suspend+reactivate çifti
+boyunca sayı **değişmiyor**, hiçbir audit action lifecycle adı taşımıyor, ve var olan her satır gerçek
+bir aktör adlandırıyor.
+
+**Ders 47 — Uydurulamayan fixture, dürüst fixture'a zorlar.**
+Approved bir enrollment `approval_decision_id` ile `decision_records`'a FK'li. Elle satır yazmak
+mümkün değil — bu yüzden test gerçek zinciri çalıştırmak zorunda kaldı: Genesis → kabul → G2 → member
+baseline → yetkilendirme → davet → enrollment → onay. Sonuç daha iyi bir test: her ret **tenant**
+yüzünden olduğunu kanıtlıyor, eksik seremoni durumu yüzünden değil. Ve en keskin kanıt şu oldu:
+suspend'liyken reddedilen **birebir aynı çağrı**, reactivate sonrası başarılı oluyor.
+
+**Ders 48 — Kimlik doğrulanmamış bir akışta ret sebebi seçmek bir güvenlik kararıdır.**
+Üç akış da mevcut `capability-not-usable`'ı yeniden kullanıyor; yeni bir "tenant-suspended" sebebi
+eklemek, ilişkisini kanıtlamamış bir bearer'a organizasyon hakkında doğru bir bilgi verirdi. Dahası
+`accept-invitation` her ret'te `spendEquivalentCredentialWork` harcıyor — benim kontrolüm de harcamak
+zorundaydı, yoksa askıya alınmış tenant yanlış paroladan **ölçülebilir biçimde daha hızlı** reddedilir
+ve modülün gerçek iş harcayarak kapattığı zamanlama oracle'ı geri açılırdı.
