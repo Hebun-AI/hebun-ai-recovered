@@ -1343,3 +1343,26 @@ olabileceği durumdur. `unreachable` sadece bağlantının hiç kurulmadığın�
 (ENOTFOUND, ECONNREFUSED, TLS) verilir; ECONNRESET/EPIPE/ETIMEDOUT dahil kalan her şey
 `ambiguous` → UNKNOWN. Yanlış "unreachable" pahalı ve geri dönüşsüz; yanlış "unknown" sadece
 insana baktırır.
+
+**Ders 29 — Sağlayıcı seçilince, yapılandırılabilir endpoint bir güvenlik gevşemesidir.**
+`HEBUN_EXTERNAL_SEND_ENDPOINT` hiçbir vendor seçilmemişken doğru tasarımdı: kod içine uydurma bir
+host yazmamak için. Resend seçildikten sonra aynı değişken *arbitrary-URL yeteneği* haline geldi —
+`ADAPTER_SANDBOX_BOUNDARY` "no arbitrary URL" diyor. Sabite çevirdim. Buradaki test de tersine
+çevrildi, silinmedi: eskiden "transport'ta https literal olmasın" diyordu, şimdi "tam olarak bir
+tane olsun ve Resend'inki olsun" diyor. Bir guard'ın yönü değişebilir; kendisi durur.
+
+**Ders 30 — İç sözleşme, wire sözleşmesi değildir.**
+`idempotencyKey` adapter input'unda kalır; Resend onu header olarak aldığı için body'den çıkarıldı.
+Body'de bırakmak, okunmayan ikinci bir yetki-taşıyan kopya demekti. Aynı ayrım `endpointKind` için
+de geçerli. Adapter'ın ne aldığı ile sağlayıcının ne gördüğü ayrı iki karardır.
+
+**Ders 31 — Bir yasağı kelimeyle değil, mekanizmayla test et.**
+"replay yok" testini `LIVE_CODE.includes("replay")` ile yazdım; doktrin değerinin kendisi
+`automaticReplay: false` dediği için test düştü — yani *inkârı* ihlal sandı. Doğrusu mekanizmayı
+aramak: saat yok (`Date.now`), zamanlayıcı yok, döngü yok, ve tam olarak bir dispatch noktası var.
+Kelime taraması, yasağı ilan eden kodu yasağın ihlali olarak okur.
+
+**Ders 32 — Prose bir string literal'e yazılırsa, comment-stripping guard'ı onu yakalar.**
+R3A firewall'u `action-authorization/contracts.ts` içinde "credential" kelimesini yasaklıyor
+(permit kimlik bilgisi taşımaz). Açıklama metnimi yorum değil string olarak yazdığım için guard
+tetiklendi. Guard haklıydı; metni yeniden yazdım. Yasağı gevşetmek yerine cümleyi değiştir.
