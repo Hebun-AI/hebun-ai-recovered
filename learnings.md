@@ -1366,3 +1366,27 @@ Kelime taraması, yasağı ilan eden kodu yasağın ihlali olarak okur.
 R3A firewall'u `action-authorization/contracts.ts` içinde "credential" kelimesini yasaklıyor
 (permit kimlik bilgisi taşımaz). Açıklama metnimi yorum değil string olarak yazdığım için guard
 tetiklendi. Guard haklıydı; metni yeniden yazdım. Yasağı gevşetmek yerine cümleyi değiştir.
+
+**Ders 33 — "Caller yok" demeden önce grep desenini doğrula.**
+Önceki gate'te "external-send control'ü yazabilecek hiçbir production caller yok" dedim. Yanlıştı:
+`platform/actions.ts` Claude control'ünü zaten yazıyordu ve Providers & Models altında tam
+çalışan bir R2E yüzeyi vardı — kart, projection, authority resolver. Benim grep'im bozuktu.
+Sonuç kötü olmadı ama sebebi şans: doğru bulgu "authority yetim" değil, "authority'nin sadece
+external-send yarısı eksik"ti. Bir şeyin YOK olduğunu iddia etmek, VAR olduğunu iddia etmekten
+daha dikkatli arama ister.
+
+**Ders 34 — İkinci sağlayıcı, ikinci tablo değil ikinci typed wrapper demektir.**
+`setDirectorEnabled(providerKey, …)` zaten generic'ti; Claude'a özel olan sadece wrapper'dı ve bu
+kasıtlıydı — client'ın rastgele provider string'i ile satır üretememesi için. Doğru genişletme
+wrapper'ı generic yapmak değil, yanına ikinci typed wrapper koymak. Kapalı sözlük kapalı kalır.
+
+**Ders 35 — Türetilmiş durumu persist etme; kompozit durum ham izni gizlemesin.**
+Configuration env'den türetilir, DB'ye kopyalanmaz: kopya deployment değişince bayatlar ve yüzeyin
+gösterdiği tam da bayat olandır. Ama kompozit `armingState` ham `directorEnabled`'ı yutmamalı —
+"izin açık ama config yok" durumu operatöre görünür kalmalı, yoksa açık bir switch'i kimse fark
+etmez.
+
+**Ders 36 — Kolon iddiasını dosya metninde değil, kolon bildiriminde ara.**
+"Control tablosu `from` taşımamalı" testi ES `import … from` satırına takıldı. Ders 31'in aynısı
+başka kılıkta: yasağı doğru granülariteye sor. Dosyada kelime aramak yerine bildirilen kolon
+listesini çıkar ve onu iddia et.
