@@ -16,7 +16,7 @@
  * No database, no network, no model.
  */
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { createKnowledgeFact } from "../../src/features/knowledge/knowledge-create.server";
 import {
@@ -439,11 +439,26 @@ async function main(): Promise<void> {
         `${file} must not consult the R2E control`,
       );
     }
-    const providerAuthority = read("src/features/heby-provider-ops/provider-authority.server.ts");
+    /*
+     * R5.1 removed `provider-authority.server.ts` entirely — provider connectivity is no longer
+     * gated by a role band, so there is no provider authority module left to isolate from. The
+     * isolation therefore got STRONGER, and the assertion follows it rather than pointing at a
+     * file that no longer exists: the surviving provider modules, and the ceremony that now owns
+     * the write, must still know nothing about Knowledge.
+     */
     assert.ok(
-      !providerAuthority.includes("knowledge"),
-      "and provider authority knows nothing about Knowledge",
+      !existsSync("src/features/heby-provider-ops/provider-authority.server.ts"),
+      "the tenant-role provider authority is gone, not merely uncalled",
     );
+    for (const providerFile of [
+      "src/features/heby-provider-ops/provider-connectivity-control.server.ts",
+      "scripts/lib/provider-connectivity.ts",
+    ]) {
+      assert.ok(
+        !codeOf(read(providerFile)).toLowerCase().includes("knowledge"),
+        `${providerFile} knows nothing about Knowledge`,
+      );
+    }
   }
 
   /* ── 17. A POLICY'S WORDING NEVER MAKES HEBY LOOK LIKE IT ACTED ──────────

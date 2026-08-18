@@ -13,9 +13,29 @@
  * operational PERMISSION, not a connectivity guarantee. Global (one row per provider), because
  * the credential and model config are server-global for this slice.
  *
+ * ── READ-ONLY SINCE R5.1 ─────────────────────────────────────────────────────
+ *
+ * This module can no longer WRITE the control, and neither can anything else under `src/`.
+ *
+ * The table is root-scoped — no `tenant_id`, one row per provider key for the whole deployment —
+ * while every authority Hebun can resolve in-app is tenant-scoped: `roles.tenant_id` is NOT NULL and
+ * the former provider authority resolver joined the role to the session's tenant. So a
+ * tenant-confined authority gated a write that applied to every tenant at once. Canonical carried
+ * the proof rather than the hypothesis: the live row had been moved 29 times by a human whose only
+ * membership was in one tenant, and the row governed the other tenant too.
+ *
+ * Removing the caller would have left the seam for the next caller to find. The write CAPABILITY was
+ * removed instead, so "the application cannot mutate global provider connectivity" is a property of
+ * the code rather than a property of who currently calls it. The mutation now lives in
+ * `scripts/lib/provider-connectivity.ts` under deployment possession, which `src/` cannot reach.
+ *
+ * This creates no platform operator and no platform-admin. Production consequently has NO write path
+ * at all — the fail-closed direction, because `directorEnabled` defaults to false and every reader
+ * below treats an absent row, an unconfigured database and a read error as disabled.
+ *
  * Server-only. Not re-exported from any client-importable index.
  */
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   getControlPlaneDb,
   isControlPlaneConfigured,
@@ -36,20 +56,15 @@ export interface ProviderConnectivityControl {
   readonly updatedBy: string | null;
 }
 
-/** The minimal server-resolved actor the mutation records. Never client-supplied. */
-export interface ProviderControlActor {
-  readonly actorId?: string;
-}
-
+/**
+ * The read-only durable control repository.
+ *
+ * There is deliberately no `setDirectorEnabled` here, and no other write method. The global control
+ * is mutated exclusively by the deployment-possession ceremony in `scripts/`; see the header.
+ */
 export interface ProviderConnectivityControlRepository {
   /** The durable control for a provider, or null when no row exists (→ caller fails closed). */
   getControl(providerKey: string): Promise<ProviderConnectivityControl | null>;
-  /** Upsert the Director permission; bumps version and records actor attribution. */
-  setDirectorEnabled(
-    providerKey: string,
-    enabled: boolean,
-    actor?: ProviderControlActor,
-  ): Promise<ProviderConnectivityControl>;
 }
 
 function assertServerRuntime(): void {
@@ -87,30 +102,6 @@ export function createProviderConnectivityControlRepository(
         .where(eq(providerConnectivityControls.providerKey, providerKey))
         .limit(1);
       return rows[0] ? toControl(rows[0]) : null;
-    },
-
-    async setDirectorEnabled(providerKey, enabled, actor) {
-      const actorId = actor?.actorId ?? null;
-      const rows = await db
-        .insert(providerConnectivityControls)
-        .values({
-          providerKey,
-          directorEnabled: enabled,
-          createdBy: actorId,
-          updatedBy: actorId,
-        })
-        .onConflictDoUpdate({
-          target: providerConnectivityControls.providerKey,
-          set: {
-            directorEnabled: enabled,
-            updatedAt: new Date(),
-            updatedBy: actorId,
-            // Optimistic-concurrency counter advances on every change.
-            version: sql`${providerConnectivityControls.version} + 1`,
-          },
-        })
-        .returning();
-      return toControl(rows[0]!);
     },
   };
 }
@@ -163,14 +154,8 @@ export function resolveClaudeDirectorEnabled(): Promise<boolean> {
   return resolveDirectorEnabled(CLAUDE_PROVIDER_KEY);
 }
 
-/** Convenience: set the durable Claude Director permission. */
-export function setClaudeDirectorEnabled(
-  enabled: boolean,
-  actor?: ProviderControlActor,
-): Promise<ProviderConnectivityControl> {
-  return getProviderConnectivityControlRepository().setDirectorEnabled(
-    CLAUDE_PROVIDER_KEY,
-    enabled,
-    actor,
-  );
-}
+/*
+ * There is no `setClaudeDirectorEnabled` and no sibling writer for any other provider key.
+ * The global permission is changed only by `npm run provider:connectivity`, under deployment
+ * possession — see the header for why the capability was removed rather than merely uncalled.
+ */

@@ -17,11 +17,17 @@
  * an explicit human Execute on Approvals — arming authorizes nothing by itself.
  *
  * No credential, sender address or subject value is rendered. The card shows PRESENCE only.
+ *
+ * ── READ-ONLY SINCE R5.1 ─────────────────────────────────────────────────────
+ *
+ * The Arm/Disarm control is gone, for the same reason the Claude card's toggle is: the control row
+ * is root-scoped and the authority that gated the button was tenant-scoped, so one tenant's owner
+ * could arm outbound sending for every tenant on the deployment. Arming moved to the
+ * deployment-possession ceremony, which keeps R3B's configuration refusal — enabling is impossible
+ * while credential, sender or subject is missing, and disarming is never refused.
  */
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { KeyRound, Mail, ShieldCheck } from "lucide-react";
+import { KeyRound, Mail, ShieldCheck, Terminal } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -30,8 +36,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { setExternalSendConnectivityAction } from "@/app/(dashboard)/platform/actions";
 import type { ExternalSendOpsView } from "@/features/action-execution/execution-arming-projection.server";
 
 type Tone = "good" | "warn" | "muted" | "info";
@@ -93,31 +97,8 @@ const ARMING_META: Record<
 };
 
 export function ExternalSendArmingCard({ view }: { view: ExternalSendOpsView }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
   const enabled = view.directorEnabled;
   const arming = ARMING_META[view.armingState];
-  /* Enabling is impossible without configuration, so the control says so instead of failing late. */
-  const canEnable = view.configuration === "configured";
-
-  function toggle() {
-    setError(null);
-    startTransition(async () => {
-      const result = await setExternalSendConnectivityAction({ enabled: !enabled });
-      if (result.status === "ok") {
-        router.refresh();
-        return;
-      }
-      setError(
-        result.status === "unauthorized"
-          ? "Sign in to change external-send connectivity."
-          : result.status === "configuration-incomplete"
-            ? "External send cannot be armed until the credential, sender and subject are all configured."
-            : "You do not have permission to change external-send connectivity (owner/director only).",
-      );
-    });
-  }
 
   return (
     <Card>
@@ -138,8 +119,8 @@ export function ExternalSendArmingCard({ view }: { view: ExternalSendOpsView }) 
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        {/* The control itself */}
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-raised/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* The permission, stated — and where it is changed. No control renders here. */}
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-raised/50 p-4">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
             <div className="min-w-0">
@@ -147,17 +128,20 @@ export function ExternalSendArmingCard({ view }: { view: ExternalSendOpsView }) 
               <p className="text-xs leading-5 text-fg-muted">{arming.detail}</p>
             </div>
           </div>
-          <Button
-            variant={enabled ? "danger" : "success"}
-            onClick={toggle}
-            disabled={pending || (!enabled && !canEnable)}
-            aria-pressed={enabled}
-          >
-            {pending ? "Saving…" : enabled ? "Disarm" : "Arm"}
-          </Button>
+          <div className="flex items-start gap-3 border-t border-border pt-3">
+            <Terminal className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+            <p className="min-w-0 text-xs leading-5 text-fg-muted">
+              <strong className="text-fg-secondary">Arming is global and is not changed from Hebun.</strong>{" "}
+              One row governs every tenant, so no tenant role — owner and director included — may arm
+              or disarm sending. In generation one it is changed only through the local
+              deployment-operator ceremony{" "}
+              <code className="rounded bg-surface px-1 py-0.5 font-mono text-[0.7rem] text-fg-secondary">
+                npm run provider:connectivity
+              </code>
+              , which still refuses to arm while credential, sender or subject is missing.
+            </p>
+          </div>
         </div>
-
-        {error ? <p className="text-xs font-medium text-error">{error}</p> : null}
 
         {/* Truthful, distinct facts — never collapsed into the arming pill. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -34,9 +34,12 @@ export default async function PlatformPage() {
       <PlatformOverview dependencies={dependencies} />
 
       {/*
-        Overview is status-only. The full Director connectivity control lives in
-        Providers & Models (its authoritative surface). This is a READ-ONLY summary over the SAME
-        R2E projection — no second state, no second toggle, no duplicate authority.
+        Overview is status-only. The full connectivity DETAIL lives in Providers & Models (its
+        authoritative surface). This is a READ-ONLY summary over the SAME R2E projection — no second
+        state, no duplicate authority.
+
+        Since R5.1 neither surface offers a control: the global permission is changed only by the
+        deployment-possession ceremony, so this link goes to the detail, not to a toggle.
       */}
       <Link
         href="/director/provider-matrix"
@@ -47,7 +50,7 @@ export default async function PlatformPage() {
         <span className={providerOps.directorEnabled ? "font-semibold text-success" : "font-semibold text-fg-muted"}>
           Director {providerOps.directorEnabled ? "Enabled" : "Disabled"}
         </span>
-        <span className="text-fg-muted">— manage in Providers &amp; Models</span>
+        <span className="text-fg-muted">— details in Providers &amp; Models</span>
         <ArrowUpRight className="size-3.5 text-fg-muted" aria-hidden="true" />
       </Link>
     </>

@@ -1,10 +1,16 @@
 /*
  * R2E.1 — provider control surface placement (structural, no DB, no network).
  *
- * Proves the connectivity control was MOVED to Providers & Models (its authoritative surface) and
- * that Platform Overview no longer hosts the full control — WITHOUT creating a second control,
- * a second authority, a second mutation, or a second projection. Placement changed; authority
- * did not.
+ * Proves the connectivity card lives on Providers & Models (its authoritative surface) and that
+ * Platform Overview does not host a second one — WITHOUT creating a second control, a second
+ * authority, or a second projection.
+ *
+ * ── WHAT R5.1 CHANGED ────────────────────────────────────────────────────────
+ *
+ * The card is now READ-ONLY, and the claim it anchors got stronger. R2E.1 asserted "exactly one
+ * mutation action exists"; the count is now ZERO, and asserted as zero over the whole of `src`. The
+ * global control row is root-scoped while every in-app authority is tenant-scoped, so the write
+ * moved to the deployment-possession ceremony rather than being re-gated. Placement is unchanged.
  */
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -45,12 +51,21 @@ function main(): void {
   // If Overview keeps a summary, it must read the SAME projection (no second state source).
   // (Not required to keep one — but if present it may only be readProviderOpsView.)
 
-  // 3. The card still uses the EXISTING single R2E mutation action (no re-implementation).
-  assert.ok(card.includes("setClaudeConnectivityAction"), "card uses the existing R2E action");
+  // 3. The card is READ-ONLY: it names no mutation and imports no server action.
+  assert.ok(!card.includes("setClaudeConnectivityAction"), "the card invokes no mutation");
+  assert.ok(
+    !/from\s+"@\/app\/\(dashboard\)\/platform\/actions"/.test(card),
+    "the card imports no platform server action",
+  );
+  // It must EXPLAIN the absence rather than silently hiding a control the viewer cannot use.
+  assert.ok(
+    card.includes("provider:connectivity"),
+    "the card names the ceremony that does own the change, instead of hiding the control",
+  );
 
-  // 4. No duplicate authority: exactly one action, one card component, one durable control table.
+  // 4. No mutation action exists anywhere in src — the count is zero, not one.
   const actionDefs = filesContaining(/export\s+async\s+function\s+setClaudeConnectivityAction/);
-  assert.equal(actionDefs.length, 1, `exactly one connectivity mutation action (found ${actionDefs.length})`);
+  assert.equal(actionDefs.length, 0, `no connectivity mutation action may exist (found ${actionDefs.length})`);
 
   const cardDefs = filesContaining(/export\s+function\s+ProviderConnectivityControlCard/);
   assert.equal(cardDefs.length, 1, `exactly one control card component (found ${cardDefs.length})`);

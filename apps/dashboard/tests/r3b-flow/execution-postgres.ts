@@ -133,9 +133,6 @@ async function main(): Promise<void> {
         updatedBy: null,
       };
     },
-    async setDirectorEnabled() {
-      throw new Error("not used");
-    },
   };
   const execDeps = { ...baseDeps, repo: control, env: ARMED_ENV };
 
@@ -413,9 +410,6 @@ async function main(): Promise<void> {
             updatedAt: new Date().toISOString(),
             updatedBy: null,
           };
-        },
-        async setDirectorEnabled() {
-          throw new Error("not used");
         },
       };
       const adapter = fakeAdapter({ class: "accepted", providerMessageId: "nope" });

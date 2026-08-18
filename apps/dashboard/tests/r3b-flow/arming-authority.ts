@@ -7,6 +7,15 @@
  *    configuration nor reachable by an agent, by Governance, or by the execution runtime itself —
  *    and no combination of arming and configuration short of BOTH can reach the network."
  *
+ * ── WHAT R5.1 CHANGED ────────────────────────────────────────────────────────
+ *
+ * The AUTHORITY moved; every other property here is unchanged. Arming used to be gated by
+ * `resolveProviderControlAuthority`, which resolves a role through `roles.tenant_id` (NOT NULL)
+ * against the session's tenant — a tenant-confined authority over a root-scoped row, so one
+ * tenant's owner could arm sending for every tenant. The write now lives in the
+ * deployment-possession ceremony, `src/` holds no writer at all, and the configuration refusal moved
+ * with the write rather than being dropped. The assertions below follow it.
+ *
  * It also proves the states stay apart:
  *
  *   MAPPED ≠ CONFIGURED ≠ ARMED ≠ AUTHORIZED ≠ EXECUTED ≠ ACCEPTED ≠ DELIVERED
@@ -41,9 +50,13 @@ const collect = (dir: string): string[] =>
   });
 
 const RUNTIME_CODE = collect("src/features/action-execution").map((f) => codeOf(read(f))).join("\n");
-const ACTIONS_CODE = codeOf(read("src/app/(dashboard)/platform/actions.ts"));
 const CARD_CODE = codeOf(read("src/components/platform-providers/external-send-arming-card.tsx"));
 const CONTROL_CODE = codeOf(read("src/features/action-execution/execution-control.server.ts"));
+/* The ceremony is the whole write surface now — a script, unreachable from any server action. */
+const CEREMONY_CODE = codeOf(read("scripts/lib/provider-connectivity.ts"));
+const CEREMONY_CLI_CODE = codeOf(read("scripts/provider-connectivity.ts"));
+/* Every source file under src, for the "no writer exists in the application" assertions. */
+const SRC_FILES = collect("src");
 
 const FULL = Object.freeze({
   HEBUN_EXTERNAL_SEND_API_KEY: "test-key-never-real",
@@ -141,66 +154,96 @@ async function configurationIsNotArming(): Promise<void> {
  * ═════════════════════════════════════════════════════════════════════════ */
 function armingAuthority(): void {
   /*
-   * 6/7/8 — the ONLY writer reachable from outside the control module is the platform server
-   * action. Nothing in `action-execution` (the execution runtime), and nothing an agent or
-   * Governance can reach, calls it.
+   * 6/7/8 — THE APPLICATION HOLDS NO WRITER AT ALL.
+   *
+   * R3B asserted "the platform server action is the one caller". R5.1 makes the stronger and
+   * non-rotting claim: no file under `src` writes the control table, so there is no caller to
+   * enumerate. A caller census has to be re-checked every time somebody adds a file; this does not.
    */
-  const writer = "setExternalSendDirectorEnabled";
-  const runtimeCallSites = RUNTIME_CODE.split("\n").filter(
-    (l) => l.includes(writer) && !l.includes("export function"),
+  for (const forbidden of ["setExternalSendDirectorEnabled", "setClaudeDirectorEnabled"]) {
+    const defs = SRC_FILES.filter((f) => codeOf(read(f)).includes(`export function ${forbidden}`));
+    assert.deepEqual(defs, [], `${forbidden} must not exist under src — the write moved out`);
+  }
+  const writersInSrc = SRC_FILES.filter((f) => {
+    const code = codeOf(read(f));
+    return (
+      /\.insert\(\s*providerConnectivityControls/.test(code) ||
+      /\.update\(\s*providerConnectivityControls/.test(code) ||
+      /\.delete\(\s*providerConnectivityControls/.test(code) ||
+      /insert\s+into\s+provider_connectivity_controls/i.test(code) ||
+      /update\s+provider_connectivity_controls/i.test(code)
+    );
+  });
+  assert.deepEqual(
+    writersInSrc,
+    [],
+    "no module under src may INSERT, UPDATE or DELETE provider_connectivity_controls",
+  );
+  /* The read-only repository must not carry a write method for a future caller to find. */
+  assert.ok(
+    !CONTROL_CODE.includes("setDirectorEnabled"),
+    "the execution control module holds no write seam",
+  );
+
+  /* The execution runtime still only READS the switch — unchanged from R3B. */
+  const runtimeCallSites = RUNTIME_CODE.split("\n").filter((l) =>
+    /setDirectorEnabled|setProviderConnectivity/.test(l),
   );
   assert.deepEqual(
     runtimeCallSites,
     [],
     "the execution runtime must never be able to arm itself — it only READS the switch",
   );
-  assert.ok(
-    CONTROL_CODE.includes(`export function ${writer}`),
-    "the writer lives in the control module, beside the read it guards",
-  );
-  assert.ok(ACTIONS_CODE.includes(writer), "the platform server action is the one caller");
 
-  /* No agent / Heby / Governance seam may reach the writer. */
+  /* No agent / Heby / Governance seam may reach any writer, old name or new. */
   for (const dir of ["src/features/heby-actions", "src/features/heby-answer", "src/features/governance-decision"]) {
     const code = collect(dir).map((f) => codeOf(read(f))).join("\n");
-    assert.ok(!code.includes(writer), `${dir} must not be able to arm external send`);
-    assert.ok(
-      !code.includes("setDirectorEnabled"),
-      `${dir} must not reach the generic connectivity writer either`,
-    );
+    for (const writer of ["setExternalSendDirectorEnabled", "setDirectorEnabled", "setProviderConnectivity"]) {
+      assert.ok(!code.includes(writer), `${dir} must not reach ${writer}`);
+    }
   }
 
   /*
-   * 9 — arbitrary provider identifiers cannot be written. The action takes ONE boolean; the key is
-   * a frozen constant inside the writer, so nothing client-supplied can steer it.
+   * 9 — arbitrary provider identifiers still cannot be written. The ceremony's vocabulary is the two
+   * constants the repository already defines, IMPORTED rather than re-declared, so a third key has
+   * no constant to come from.
    */
   assert.ok(
-    /setExternalSendConnectivityAction\(input: \{\s*enabled: boolean;\s*\}\)/.test(ACTIONS_CODE),
-    "the arming action accepts a boolean and nothing else — no provider key crosses the boundary",
+    CEREMONY_CODE.includes("CLAUDE_PROVIDER_KEY") && CEREMONY_CODE.includes("EXTERNAL_SEND_PROVIDER_KEY"),
+    "the ceremony imports both provider keys instead of re-declaring them",
   );
   assert.ok(
-    CONTROL_CODE.includes("EXTERNAL_SEND_PROVIDER_KEY"),
-    "the writer pins the provider key itself",
-  );
-  assert.ok(
-    !/setExternalSendDirectorEnabled\([^)]*providerKey/.test(CONTROL_CODE),
-    "the writer takes no provider key parameter",
+    !/PROVIDER_KEYS[^=]*=\s*Object\.freeze\(\[\s*"/.test(CEREMONY_CODE),
+    "the vocabulary must be built from the imported constants, never from string literals",
   );
   assert.notEqual(EXTERNAL_SEND_PROVIDER_KEY, CLAUDE_PROVIDER_KEY, "two keys, two blast radii");
 
-  /* The action is authority-gated by the SAME resolver R2E established, and fails closed first. */
-  const order = ["resolveTenantContext", "unauthorized", "resolveProviderControlAuthority", "forbidden"];
-  let cursor = ACTIONS_CODE.indexOf("setExternalSendConnectivityAction");
-  assert.ok(cursor > -1);
-  for (const token of order) {
-    const at = ACTIONS_CODE.indexOf(token, cursor);
-    assert.ok(at > -1, `the arming action must reach ${token}`);
-    cursor = at;
-  }
-  /* And configuration is checked BEFORE the durable write, not after. */
-  const gate = ACTIONS_CODE.indexOf("configuration-incomplete", ACTIONS_CODE.indexOf("setExternalSendConnectivityAction"));
-  const write = ACTIONS_CODE.indexOf("await setExternalSendDirectorEnabled");
+  /*
+   * THE CONFIGURATION GATE MOVED WITH THE WRITE, and is still checked BEFORE anything is written.
+   * Asserted by ORDER within the ceremony, the same shape the server-action assertion used.
+   */
+  assert.ok(
+    CEREMONY_CODE.includes("isExternalSendConfigured"),
+    "the ceremony reuses this feature's own predicate — not a second copy that could disagree",
+  );
+  const gate = CEREMONY_CODE.indexOf("configuration-incomplete");
+  const write = CEREMONY_CODE.indexOf("insert into provider_connectivity_controls");
   assert.ok(gate > -1 && write > -1 && gate < write, "enabling is refused before anything is written");
+  /* Only ENABLING is gated: a kill switch that could not be turned off is the wrong direction. */
+  assert.ok(
+    /if\s*\(\s*enabled\s*&&\s*providerKey === EXTERNAL_SEND_PROVIDER_KEY/.test(CEREMONY_CODE),
+    "disarming is never refused for configuration",
+  );
+
+  /* THE CEREMONY IS DEPLOYMENT-POSSESSION, and says so with all four guards. */
+  for (const guard of ["NODE_ENV", "assertLocalDatabaseUrl", "isTTY", "Retype the provider key"]) {
+    assert.ok(CEREMONY_CLI_CODE.includes(guard), `the ceremony must enforce ${guard}`);
+  }
+  /* It must not claim an authority Hebun does not have. */
+  assert.ok(
+    !/authority_source|platform-admin|platformAdmin/.test(CEREMONY_CODE + CEREMONY_CLI_CODE),
+    "the ceremony fabricates no platform authority",
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -209,13 +252,16 @@ function armingAuthority(): void {
 function claudeUnchanged(): void {
   const claudeCode = codeOf(read("src/features/heby-provider-ops/provider-connectivity-control.server.ts"));
   assert.ok(claudeCode.includes('export const CLAUDE_PROVIDER_KEY = "claude"'));
-  assert.ok(claudeCode.includes("export function setClaudeDirectorEnabled"));
   assert.ok(claudeCode.includes("export function resolveClaudeDirectorEnabled"));
-  /* The generic repository still takes a key — this phase reused it rather than forking it. */
+  /* R5.1: the READ stayed exactly where it was; the write left `src` entirely. */
   assert.ok(
-    /setDirectorEnabled\(\s*providerKey/.test(claudeCode) ||
-      claudeCode.includes("setDirectorEnabled(providerKey"),
-    "the generic writer still accepts a provider key — one table, one authority",
+    !claudeCode.includes("setClaudeDirectorEnabled") && !claudeCode.includes("setDirectorEnabled"),
+    "the Claude module is read-only — no typed wrapper, no generic writer",
+  );
+  /* One table, one authority: the ceremony still writes ONE table under a closed key set. */
+  assert.ok(
+    CEREMONY_CODE.includes("provider_connectivity_controls"),
+    "the ceremony writes the same single control table — no second kill-switch authority",
   );
   /* Exactly ONE schema owns connectivity control. No second table was created. */
   const schemas = collect("src/db/schema").filter((f) => /connectivity|kill.?switch|arming/i.test(f));
@@ -224,7 +270,18 @@ function claudeUnchanged(): void {
     ["src/db/schema/provider-connectivity-control.ts"],
     "there must be exactly one connectivity-control table",
   );
-  assert.ok(ACTIONS_CODE.includes("setClaudeConnectivityAction"), "the Claude action still exists");
+  /* Both cards are read-only, and neither imports a platform server action (there is none). */
+  for (const card of [
+    "src/components/platform-providers/provider-connectivity-control-card.tsx",
+    "src/components/platform-providers/external-send-arming-card.tsx",
+  ]) {
+    const code = codeOf(read(card));
+    assert.ok(!/platform\/actions"/.test(code), `${card} imports no platform server action`);
+    assert.ok(
+      code.includes("provider:connectivity"),
+      `${card} must name the ceremony rather than hide an unusable control`,
+    );
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -306,7 +363,7 @@ function armingCreatesNothing(): void {
    * The arming path is: server action → writer → repository upsert on ONE table. Proved by what
    * the two modules can even reach: no permit, no attempt, no recipient, no request, no send.
    */
-  const armingPath = CONTROL_CODE + "\n" + ACTIONS_CODE;
+  const armingPath = CONTROL_CODE + "\n" + CEREMONY_CODE + "\n" + CEREMONY_CLI_CODE;
   for (const forbidden of [
     "consumeActionPermit",
     "executeAuthorizedAction",

@@ -10,7 +10,7 @@
  * the shape that keeps that behaviour the ONLY behaviour.
  */
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
@@ -215,8 +215,16 @@ function main(): void {
 
   /* ── W: high-authority flows still resolve their actor server-side ────────── */
   {
+    /*
+     * R5.1 removed `platform/actions.ts`: the R2E kill-switch is no longer an in-app flow at all,
+     * so it has no session actor to resolve. That is asserted below as an absence rather than
+     * dropped silently — a shrinking list should say why it shrank.
+     */
+    assert.ok(
+      !existsSync("src/app/(dashboard)/platform/actions.ts"),
+      "the provider kill-switch action is gone — the write moved to deployment possession",
+    );
     for (const file of [
-      "src/app/(dashboard)/platform/actions.ts", // R2E kill-switch
       "src/app/(dashboard)/knowledge/actions.ts", // K2 create / K3 supersede
     ]) {
       const src = read(file);

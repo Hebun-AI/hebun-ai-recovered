@@ -25,7 +25,6 @@ import {
 } from "../../src/features/membership-authority/contracts";
 import { GOVERNANCE_AUDIT_ACTIONS } from "../../src/features/governance-decision/contracts";
 import { KNOWLEDGE_AUTHOR_ROLE_TYPES } from "../../src/features/knowledge/knowledge-write-authority.server";
-import { PROVIDER_CONTROL_ROLE_TYPES } from "../../src/features/heby-provider-ops/provider-authority.server";
 import { normalizeTargetEmail } from "../../src/features/membership-authority/authorize-membership.server";
 
 const ROOT = process.cwd();
@@ -214,14 +213,13 @@ function main(): void {
      */
     for (const band of ["owner", "director"]) {
       assert.ok(
-        KNOWLEDGE_AUTHOR_ROLE_TYPES.has(band) || PROVIDER_CONTROL_ROLE_TYPES.has(band),
+        KNOWLEDGE_AUTHOR_ROLE_TYPES.has(band),
         `${band} is excluded from onboarding because a connected authority privileges it`,
       );
       assert.ok(!ONBOARDING_ELIGIBLE_ROLE_TYPES.has(band));
     }
     /* `member` carries no connected privilege anywhere — that is why it is the safe band. */
     assert.ok(!KNOWLEDGE_AUTHOR_ROLE_TYPES.has("member"));
-    assert.ok(!PROVIDER_CONTROL_ROLE_TYPES.has("member"));
   }
 
   /* ── 8. The surface may not claim what I1 does not do ────────────────────── */

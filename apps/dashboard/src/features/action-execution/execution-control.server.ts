@@ -23,14 +23,26 @@
  * tenant pauses everyone. It is recorded as a limitation rather than hidden behind a per-tenant
  * shape the credential model cannot honour.
  *
+ * ── READ-ONLY SINCE R5.1 ─────────────────────────────────────────────────────
+ *
+ * `setExternalSendDirectorEnabled` is gone. R3B added it because the switch could otherwise only be
+ * flipped by hand-written SQL, and that reasoning still holds — but the authority it was given was
+ * wrong. It shared R2E's `resolveProviderControlAuthority`, which resolves a role through
+ * `roles.tenant_id` (NOT NULL) against the session's tenant, so one tenant's owner could arm or
+ * disarm outbound sending for every tenant. R5.1 moved the write to the deployment-possession
+ * ceremony (`npm run provider:connectivity`) rather than widening the authority to match the row.
+ *
+ * ARMING'S CONFIGURATION GATE MOVED WITH THE WRITE, and did not weaken. The ceremony refuses to
+ * enable `external-send` unless credential, sender and subject are all present, using this feature's
+ * own `isExternalSendConfigured` — not a second copy of it. Disarming stays unconditional, for the
+ * same reason it always was: a kill switch that could not be turned off under a degraded
+ * configuration would be the wrong failure direction.
+ *
  * Server-only.
  */
 import {
-  getProviderConnectivityControlRepository,
   resolveDirectorEnabled,
-  type ProviderConnectivityControl,
   type ProviderConnectivityControlRepository,
-  type ProviderControlActor,
 } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import { EXTERNAL_SEND_PROVIDER_KEY } from "./contracts";
 
@@ -54,35 +66,17 @@ export function resolveExternalSendEnabled(deps: ExecutionControlDeps = {}): Pro
   return resolveDirectorEnabled(EXTERNAL_SEND_PROVIDER_KEY, deps);
 }
 
-/**
- * THE ARMING WRITER — the only way an `external-send` control row can come into existence.
+/*
+ * THE ARMING WRITER IS GONE (R5.1) — and so is the generic repository write it stood on.
  *
- * ── WHY THIS EXISTS, AND WHY IT IS NOT A GENERALIZATION ──────────────────────
+ * R3B's reason for having a writer was sound: the switch could otherwise only be flipped by
+ * hand-written SQL, with no refusal and no confirmation. What was wrong was WHERE it lived. It was
+ * reachable from a server action gated by a tenant-scoped role, so one tenant's owner could arm
+ * outbound sending for every tenant on the deployment.
  *
- * R3B shipped the external-send kill-switch READ (`resolveExternalSendEnabled`) without a writer,
- * so the switch could only ever be flipped by hand-written SQL — which carries no authority check,
- * no actor attribution, and no server-side refusal. That is the gap this closes.
- *
- * The underlying repository operation has always been generic: `setDirectorEnabled(providerKey, …)`
- * takes any key. What was missing was a SECOND TYPED WRAPPER beside `setClaudeDirectorEnabled`,
- * and that is deliberately what this is. The provider key is a frozen module constant, so no
- * caller — and no client — can mint a control row for an arbitrary provider string. Two named
- * wrappers over one generic repository is the same shape R2E established; widening the seam to
- * accept a caller-supplied key would turn a closed vocabulary into an open one for no benefit.
- *
- * It does NOT decide whether arming is ALLOWED. Configuration completeness and actor authority are
- * the caller's gates (see the platform server action): this function is the durable write, and a
- * write that also adjudicated policy would be two authorities in one place.
- *
- * Server-only.
+ * The write now lives in `scripts/lib/provider-connectivity.ts` under deployment possession, which
+ * keeps every property R3B wanted — a refusal, an explicit confirmation, a closed provider
+ * vocabulary, and the configuration gate — while removing the one it should never have had.
+ * Nothing under `src/` can write the row at all, so this module is a pure READ of the switch,
+ * exactly as the execution runtime always treated it.
  */
-export function setExternalSendDirectorEnabled(
-  enabled: boolean,
-  actor?: ProviderControlActor,
-): Promise<ProviderConnectivityControl> {
-  return getProviderConnectivityControlRepository().setDirectorEnabled(
-    EXTERNAL_SEND_PROVIDER_KEY,
-    enabled,
-    actor,
-  );
-}

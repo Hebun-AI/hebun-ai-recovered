@@ -3,16 +3,25 @@
 /*
  * Provider connectivity control card (R2E) — Platform → Providers → Anthropic / Claude.
  *
- * Shows the truthful, secret-free provider-ops view and the Director ON/OFF control. It keeps
- * the operational states DISTINCT: "Director enabled" is a permission, not a health or
- * reachability claim. The API key is never shown here and is never changed by this control.
+ * Shows the truthful, secret-free provider-ops view. It keeps the operational states DISTINCT:
+ * "Director enabled" is a permission, not a health or reachability claim. The API key is never
+ * shown here and is never changed.
  *
- * The toggle calls a server action; the tenant, role, and authority are resolved server-side.
+ * ── READ-ONLY SINCE R5.1 ─────────────────────────────────────────────────────
+ *
+ * The toggle is gone, and no session of any role can change this permission from the product.
+ *
+ * The control row is root-scoped — no `tenant_id`, one row per provider key for the whole
+ * deployment — while the authority that used to gate the toggle was resolved through
+ * `roles.tenant_id` (NOT NULL) against the signed-in tenant. A tenant-scoped role was therefore
+ * deciding what every other tenant depends on.
+ *
+ * WHY THIS SAYS SO INSTEAD OF HIDING THE BUTTON. Hiding a control implies the viewer merely lacks a
+ * permission somebody else holds. Nobody holds this one in-product: the write moved out of the
+ * application entirely. A disabled button would be the lie; the sentence below is the truth.
  */
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { KeyRound, PlugZap, ShieldCheck } from "lucide-react";
+import { KeyRound, PlugZap, ShieldCheck, Terminal } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,8 +30,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { setClaudeConnectivityAction } from "@/app/(dashboard)/platform/actions";
 import type { ProviderOpsView } from "@/features/heby-provider-ops/provider-connectivity-projection.server";
 
 type Tone = "good" | "warn" | "muted" | "info";
@@ -59,26 +66,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsView }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
   const enabled = view.directorEnabled;
-
-  function toggle() {
-    setError(null);
-    startTransition(async () => {
-      const result = await setClaudeConnectivityAction({ enabled: !enabled });
-      if (result.status === "ok") {
-        router.refresh();
-        return;
-      }
-      setError(
-        result.status === "unauthorized"
-          ? "Sign in to change provider connectivity."
-          : "You do not have permission to change provider connectivity (owner/director only).",
-      );
-    });
-  }
 
   const transportTone: Tone =
     view.transport === "live" ? "info" : view.transport === "fake" ? "warn" : "muted";
@@ -107,8 +95,8 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
-        {/* The control itself */}
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-raised/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* The permission, stated — and where it is changed. No control renders here. */}
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-raised/50 p-4">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
             <div className="min-w-0">
@@ -120,17 +108,19 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
               </p>
             </div>
           </div>
-          <Button
-            variant={enabled ? "danger" : "success"}
-            onClick={toggle}
-            disabled={pending}
-            aria-pressed={enabled}
-          >
-            {pending ? "Saving…" : enabled ? "Turn OFF" : "Turn ON"}
-          </Button>
+          <div className="flex items-start gap-3 border-t border-border pt-3">
+            <Terminal className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+            <p className="min-w-0 text-xs leading-5 text-fg-muted">
+              <strong className="text-fg-secondary">This permission is global and is not changed from Hebun.</strong>{" "}
+              One row governs every tenant, so no tenant role — owner and director included — may set
+              it. In generation one it is changed only through the local deployment-operator ceremony{" "}
+              <code className="rounded bg-surface px-1 py-0.5 font-mono text-[0.7rem] text-fg-secondary">
+                npm run provider:connectivity
+              </code>
+              , which runs on the deployment itself and never in production.
+            </p>
+          </div>
         </div>
-
-        {error ? <p className="text-xs font-medium text-error">{error}</p> : null}
 
         {/* Truthful, distinct states — never collapsed into one boolean. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

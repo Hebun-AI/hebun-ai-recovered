@@ -26,7 +26,6 @@ import {
 } from "../../src/features/identity-enrollment/contracts";
 import { GOVERNANCE_AUDIT_ACTIONS } from "../../src/features/governance-decision/contracts";
 import { KNOWLEDGE_AUTHOR_ROLE_TYPES } from "../../src/features/knowledge/knowledge-write-authority.server";
-import { PROVIDER_CONTROL_ROLE_TYPES } from "../../src/features/heby-provider-ops/provider-authority.server";
 
 const ROOT = process.cwd();
 const read = (p: string) => readFileSync(path.join(ROOT, p), "utf8");
@@ -105,7 +104,7 @@ function main(): void {
       "I1.2 must not borrow another domain's role band as authority",
     );
     /* Those bands exist and are real; I1.2 simply never reads them. */
-    assert.ok(KNOWLEDGE_AUTHOR_ROLE_TYPES.size > 0 && PROVIDER_CONTROL_ROLE_TYPES.size > 0);
+    assert.ok(KNOWLEDGE_AUTHOR_ROLE_TYPES.size > 0);
     for (const band of ["owner", "director", "operator", "auditor"]) {
       assert.ok(
         !new RegExp(`["']${band}["']`).test(codeOf(decide)),

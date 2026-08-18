@@ -44,9 +44,13 @@ export default async function ProviderMatrixPage() {
       <ProvidersModelsSurface />
 
       {/*
-        The authoritative surface for provider connectivity control (R2E, moved here in R2E.1).
-        Reuses the existing R2E component + projection + server action — no second implementation,
-        no duplicate authority. Governs model-generation connectivity only.
+        The authoritative surface for provider connectivity STATE (R2E, moved here in R2E.1).
+        Reuses the existing R2E component + projection — no second implementation, no duplicate
+        authority. Governs model-generation connectivity only.
+
+        READ-ONLY SINCE R5.1. The row is root-scoped and every in-app authority is tenant-scoped, so
+        the write moved to the deployment-possession ceremony. This surface reports the permission
+        and names where it is changed; it no longer offers a control.
       */}
       <section className="mt-6 flex min-w-0 flex-col gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-fg">

@@ -24,7 +24,6 @@ import {
 import { ONBOARDING_AUDIT_BOUNDARY } from "../../src/features/governance-audit/human-onboarding-audit.server";
 import { ELIGIBLE_ROLE_TYPE_LIST } from "../../src/features/membership-authority/contracts";
 import { KNOWLEDGE_AUTHOR_ROLE_TYPES } from "../../src/features/knowledge/knowledge-write-authority.server";
-import { PROVIDER_CONTROL_ROLE_TYPES } from "../../src/features/heby-provider-ops/provider-authority.server";
 
 const ROOT = process.cwd();
 const read = (p: string) => readFileSync(path.join(ROOT, p), "utf8");
@@ -87,7 +86,7 @@ function main(): void {
       !/KNOWLEDGE_AUTHOR_ROLE_TYPES|PROVIDER_CONTROL_ROLE_TYPES/.test(featureCode),
       "I2 must not borrow another domain's role band as authority",
     );
-    assert.ok(KNOWLEDGE_AUTHOR_ROLE_TYPES.size > 0 && PROVIDER_CONTROL_ROLE_TYPES.size > 0);
+    assert.ok(KNOWLEDGE_AUTHOR_ROLE_TYPES.size > 0);
     for (const band of ["owner", "director", "operator", "auditor"]) {
       assert.ok(
         !new RegExp(`["']${band}["']`).test(runtimeCode),

@@ -23,7 +23,6 @@ import {
 } from "../../src/features/tenant-role-baseline/contracts";
 import { GOVERNANCE_AUDIT_ACTIONS } from "../../src/features/governance-decision/contracts";
 import { KNOWLEDGE_AUTHOR_ROLE_TYPES } from "../../src/features/knowledge/knowledge-write-authority.server";
-import { PROVIDER_CONTROL_ROLE_TYPES } from "../../src/features/heby-provider-ops/provider-authority.server";
 import { ONBOARDING_ELIGIBLE_ROLE_TYPES } from "../../src/features/membership-authority/contracts";
 
 const ROOT = process.cwd();
@@ -186,11 +185,10 @@ function main(): void {
   /* ── 7. The provisioned band grants nothing, and that is audited ─────────── */
   {
     assert.ok(!KNOWLEDGE_AUTHOR_ROLE_TYPES.has(BASELINE_ROLE_TYPE));
-    assert.ok(!PROVIDER_CONTROL_ROLE_TYPES.has(BASELINE_ROLE_TYPE));
-    /* Those two sets are the ONLY role-band grants in the repository. If a later phase grants
-     * something to `member`, one of these assertions fails instead of the claim silently rotting. */
+    /* Since R5.1 this is the ONLY role-band grant in the repository: provider connectivity stopped
+     * being gated by a role band at all when the global control moved to deployment possession. If a
+     * later phase grants something to `member`, this assertion fails instead of rotting silently. */
     assert.deepEqual([...KNOWLEDGE_AUTHOR_ROLE_TYPES].sort(), ["director", "owner"]);
-    assert.deepEqual([...PROVIDER_CONTROL_ROLE_TYPES].sort(), ["director", "owner"]);
     for (const [key, value] of Object.entries(BASELINE_ROLE_SEMANTICS)) {
       if (typeof value === "boolean") assert.equal(value, false, `${key} must remain false`);
     }
