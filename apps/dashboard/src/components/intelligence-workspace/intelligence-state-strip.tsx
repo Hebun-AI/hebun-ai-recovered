@@ -9,6 +9,12 @@ import { HebyWhy } from "@/components/command-center/heby-why";
  * count over the real dependency set — currently zero), whether any candidate or
  * evidence is surfaced (none), and that freshness is unknown because nothing is
  * wired. NO invented aggregate score, confidence average, or pattern count.
+ *
+ * SCOPE OF THE "not connected" CLAIM (R7.1). It is about the ORGANIZATIONAL INTELLIGENCE RUNTIME's
+ * declared inputs — Memory context, Reasoning understanding, Organization assembly — which R7.1 did
+ * not connect and which remain at zero. It is NOT a claim about the whole page: the Governance
+ * Activity region below reads real durable records. The label names the Runtime explicitly so a
+ * reader cannot take it for a page-wide "nothing here is real".
  */
 
 function Cell({ label, value }: { label: string; value: string }) {
@@ -30,7 +36,7 @@ export function IntelligenceStateStrip({ model }: { model: IntelligenceWorkspace
         <span className="text-[0.7rem] uppercase tracking-wide text-fg-muted">Scope</span>
         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-fg-muted">
           <span className="size-2 rounded-full bg-fg-muted" aria-hidden="true" />
-          Not connected
+          Runtime inputs not connected
         </span>
       </span>
 

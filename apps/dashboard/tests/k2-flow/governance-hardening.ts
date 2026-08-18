@@ -190,23 +190,41 @@ function main(): void {
      * above: no Knowledge module reaches the sink directly. Knowledge's route remains
      * `knowledge-mutation-audit.server.ts`, and nothing else writes Knowledge history.
      */
+    /*
+     * R7.1 repair: writing is detected by the write verbs, not by importing the schema.
+     *
+     * The list was built from `from "@/db/schema/audit-log"` and named `sinkWriters`. Every importer
+     * was a writer until R7.1 added the sink's first reader, which counts rows and writes nothing —
+     * and a write assertion flagged it. K2's own claim is unchanged and is the one proved first
+     * below; the reachability census follows, so nothing slips into the sink unnoticed either.
+     */
+    const sinkOwners = [
+      "src/features/governance-audit/action-authorization-audit.server.ts",
+      "src/features/governance-audit/action-execution-audit.server.ts",
+      "src/features/governance-audit/genesis-nomination-audit.server.ts",
+      "src/features/governance-audit/governance-decision-audit.server.ts",
+      "src/features/governance-audit/human-onboarding-audit.server.ts",
+      "src/features/governance-audit/identity-enrollment-audit.server.ts",
+      "src/features/governance-audit/knowledge-mutation-audit.server.ts",
+    ];
     const sinkWriters: string[] = [];
+    const sinkImporters: string[] = [];
     for (const file of walk("src")) {
-      if (file.replace(/\\/g, "/").startsWith("src/db/schema/")) continue;
-      if (read(file).includes('from "@/db/schema/audit-log"')) sinkWriters.push(file.replace(/\\/g, "/"));
+      const normalized = file.replace(/\\/g, "/");
+      if (normalized.startsWith("src/db/schema/")) continue;
+      const source = read(file);
+      if (/\.(insert|update|delete)\(\s*auditLog\s*\)/.test(codeOf(source))) sinkWriters.push(normalized);
+      if (source.includes('from "@/db/schema/audit-log"')) sinkImporters.push(normalized);
     }
     assert.deepEqual(
       sinkWriters.sort(),
-      [
-        "src/features/governance-audit/action-authorization-audit.server.ts",
-      "src/features/governance-audit/action-execution-audit.server.ts",
-      "src/features/governance-audit/genesis-nomination-audit.server.ts",
-        "src/features/governance-audit/governance-decision-audit.server.ts",
-        "src/features/governance-audit/human-onboarding-audit.server.ts",
-        "src/features/governance-audit/identity-enrollment-audit.server.ts",
-        "src/features/governance-audit/knowledge-mutation-audit.server.ts",
-      ],
+      sinkOwners,
       "only declared governance-audit owners write the sink; Knowledge goes through its own",
+    );
+    assert.deepEqual(
+      sinkImporters.sort(),
+      [...sinkOwners, "src/features/governance-activity/read.server.ts"].sort(),
+      "and no Knowledge module reaches the sink — the only non-writer that imports it is R7.1's reader",
     );
     // The genesis sibling must not have quietly taken over Knowledge's entity type.
     assert.ok(

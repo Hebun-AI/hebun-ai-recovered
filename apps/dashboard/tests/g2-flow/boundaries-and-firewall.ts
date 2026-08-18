@@ -268,23 +268,40 @@ function main(): void {
      * boundary. Adding a sixth is a deliberate edit here, never an accident somewhere in
      * `src/features`.
      */
-    const owners = srcFiles
-      .filter((f) => !f.replace(/\\/g, "/").startsWith("src/db/schema/"))
-      .filter((f) => read(f).includes('from "@/db/schema/audit-log"'))
-      .map((f) => f.replace(/\\/g, "/"))
-      .sort();
-    assert.deepEqual(
-      owners,
-      [
-        "src/features/governance-audit/action-authorization-audit.server.ts",
+    /*
+     * R7.1 repair: WRITING is asked by the write verbs, not by importing the schema.
+     *
+     * This census matched `from "@/db/schema/audit-log"` and called the result `owners` that
+     * "write the sink". That held only while every importer happened to be a writer. R7.1 added the
+     * sink's first READER — it counts rows and writes none — and a write firewall flagged it. The
+     * claim in the message is the one now proved; the import census follows it, because "nothing
+     * else reaches the sink" is a real guarantee and is simply a different one.
+     */
+    const AUDIT_SINK_WRITERS = [
+      "src/features/governance-audit/action-authorization-audit.server.ts",
       "src/features/governance-audit/action-execution-audit.server.ts",
       "src/features/governance-audit/genesis-nomination-audit.server.ts",
-        "src/features/governance-audit/governance-decision-audit.server.ts",
-        "src/features/governance-audit/human-onboarding-audit.server.ts",
-        "src/features/governance-audit/identity-enrollment-audit.server.ts",
-        "src/features/governance-audit/knowledge-mutation-audit.server.ts",
-      ],
+      "src/features/governance-audit/governance-decision-audit.server.ts",
+      "src/features/governance-audit/human-onboarding-audit.server.ts",
+      "src/features/governance-audit/identity-enrollment-audit.server.ts",
+      "src/features/governance-audit/knowledge-mutation-audit.server.ts",
+    ];
+    const candidates = srcFiles
+      .filter((f) => !f.replace(/\\/g, "/").startsWith("src/db/schema/"))
+      .map((f) => f.replace(/\\/g, "/"));
+
+    assert.deepEqual(
+      candidates
+        .filter((f) => /\.(insert|update|delete)\(\s*auditLog\s*\)/.test(codeOf(read(f))))
+        .sort(),
+      AUDIT_SINK_WRITERS,
       "six declared sibling owners write the sink — and nothing else does",
+    );
+
+    assert.deepEqual(
+      candidates.filter((f) => read(f).includes('from "@/db/schema/audit-log"')).sort(),
+      [...AUDIT_SINK_WRITERS, "src/features/governance-activity/read.server.ts"].sort(),
+      "and the sink is reached only by those writers plus R7.1's declared read seam",
     );
     // Each domain owns a DISTINCT entity type, so no domain can file under another's history.
     assert.equal(GOVERNANCE_DECISION_ENTITY_TYPE, "governance_decision");

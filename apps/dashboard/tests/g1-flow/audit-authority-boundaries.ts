@@ -121,17 +121,41 @@ async function main(): Promise<void> {
       "src/features/governance-audit/identity-enrollment-audit.server.ts",
       "src/features/governance-audit/knowledge-mutation-audit.server.ts",
     ];
-    const writers = walk("src")
+    /*
+     * WRITING is asked by MECHANISM (R7.1 repair).
+     *
+     * This census used to be "which files import the audit-log schema", named `writers`, and
+     * asserted as "may write". Until R7.1 every importer was a writer, so the imprecision was
+     * invisible — and then the first READER of the sink appeared and tripped a WRITE firewall.
+     * A proxy that only works while no counter-example exists is not a proof of the claim above it.
+     *
+     * So the write claim is now proved by the write verbs themselves. The import census is kept
+     * directly below, because "nothing else touches the sink" is a separate and still-valuable
+     * guarantee — it just is not the same guarantee.
+     */
+    const writesTheSink = (file: string) =>
+      /\.(insert|update|delete)\(\s*auditLog\s*\)/.test(codeOf(read(file)));
+
+    const sourceFiles = walk("src")
       .filter((f) => !f.replace(/\\/g, "/").startsWith("src/db/schema/"))
-      .filter((f) => read(f).includes('from "@/db/schema/audit-log"'))
-      .map((f) => f.replace(/\\/g, "/"))
-      .sort();
+      .map((f) => f.replace(/\\/g, "/"));
+
     assert.deepEqual(
-      writers,
+      sourceFiles.filter(writesTheSink).sort(),
       AUDIT_SINK_OWNERS,
       "only the declared governance-audit owners may write the shared sink",
     );
-    for (const owner of writers) {
+
+    /*
+     * And the sink is REACHABLE from nothing but those owners plus R7.1's read seam, which counts
+     * rows and writes none — proved by its absence from the write census above.
+     */
+    assert.deepEqual(
+      sourceFiles.filter((f) => read(f).includes('from "@/db/schema/audit-log"')).sort(),
+      [...AUDIT_SINK_OWNERS, "src/features/governance-activity/read.server.ts"].sort(),
+      "the sink is imported by its writers and by the one declared reader — nothing else",
+    );
+    for (const owner of sourceFiles.filter(writesTheSink)) {
       assert.ok(
         owner.startsWith("src/features/governance-audit/"),
         `${owner} must live in governance-audit/ — the sink has no owner outside it`,

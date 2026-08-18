@@ -62,7 +62,7 @@ export function getGovernanceOverviewModel(): GovernanceOverviewModel {
       authorityOwner: "Governance",
       backing: "policy audit / explanation",
       canMutate: false,
-      detail: "The engine builds a deterministic audit trace and explanation over seeded input. There is no durable audit persistence; no audit health is fabricated.",
+      detail: "The engine builds a deterministic audit trace and explanation over seeded input. This surface reads no durable audit persistence; no audit health is fabricated.",
     },
     {
       area: "Security Center",

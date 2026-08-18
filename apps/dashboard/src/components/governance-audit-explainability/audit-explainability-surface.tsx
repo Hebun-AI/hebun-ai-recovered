@@ -3,7 +3,7 @@
  *
  * Surfaces the structure of the real engine's audit trace and governance explanation with an
  * honest state. Renders NO synthetic audit event, NO fabricated timestamp, and NO model
- * chain-of-thought; durable audit records are honestly empty. Explainability is inspectable
+ * chain-of-thought; this surface reads no durable audit record. Explainability is inspectable
  * provenance, not hidden reasoning. It does not duplicate Security Center.
  *
  * Server component — no client state, no mutation affordance.

@@ -24,7 +24,7 @@ export function getAuditExplainabilityModel(): AuditExplainabilityModel {
       provenance: "derived-seeded",
       headline: "Audit & explainability — derived, not a durable record",
       detail:
-        "The engine builds a deterministic audit trace and a governance explanation for each evaluation, over seeded input. There is no durable, authoritative audit persistence connected, so no durable audit record is surfaced — and none is fabricated.",
+        "The engine builds a deterministic audit trace and a governance explanation for each evaluation, over seeded input. That trace is not the durable record: durable governance audit records are written separately by the governed writers, and this surface does not read them — so no durable audit record is surfaced here, and none is fabricated.",
     },
     auditStages: stages(["audit", "explanation"]),
     auditModel: {

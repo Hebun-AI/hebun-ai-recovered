@@ -17,7 +17,7 @@ export default function GovernanceAuditPage() {
     <>
       <PageHeader
         title="Audit & Explainability"
-        context="What audit trace and explanation the engine produces, and why it is not a durable authoritative record — derived from seeded input."
+        context="What audit trace and explanation the engine produces, and why that trace is not the durable authoritative record — derived from seeded input."
       />
       <AuditExplainabilitySurface />
     </>
