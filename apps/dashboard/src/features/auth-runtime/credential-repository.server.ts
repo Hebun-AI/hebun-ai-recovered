@@ -323,6 +323,99 @@ export async function establishFirstPasswordCredential(
 }
 
 /**
+ * Anything that can write one row AND amend one: the database, or an open transaction on it.
+ *
+ * Widened from `CredentialWriter` in G5A.1 for the same reason I1.2 widened that one — replacing a
+ * credential is two statements that must commit together. "The old credential was revoked but the
+ * replacement was never written" would leave a human who cannot sign in and cannot be recovered,
+ * which is the exact failure the recovery ceremony exists to prevent.
+ */
+export type CredentialReplacer = Pick<ControlPlaneDatabase, "insert" | "update">;
+
+/**
+ * REPLACE an identity's active password credential with a new one, in the caller's transaction.
+ *
+ * ── WHY THIS SHAPE, AND NOT AN UPDATE IN PLACE ───────────────────────────────
+ *
+ * Derived from the credential model rather than chosen. `auth_credentials_active_identity_type_uq`
+ * is a PARTIAL unique index on `(auth_identity_id, credential_type) WHERE status = 'active'`, so an
+ * identity may hold exactly one active password credential — which forbids inserting the
+ * replacement beside the old one and forces the revoke to happen FIRST.
+ *
+ * Overwriting `salt` and `secret_hash` in place would satisfy the index, and is rejected for the
+ * reason `revokeCredential` already states: the record that a credential existed must survive. A
+ * revoked row keeps its `password_changed_at`, its failure history and its revocation reason, so a
+ * later reader can see that a credential was replaced rather than finding a row that silently
+ * changed identity. `status = 'revoked'` is terminal, and `auth_credentials_revoked_chk` requires
+ * the reason to be present and non-blank — the schema will not let this be done quietly.
+ *
+ * Deleting the old row is rejected for the same reason, and would additionally break the FK
+ * discipline the table was built with.
+ *
+ * ── WHAT IT REFUSES TO DECIDE ────────────────────────────────────────────────
+ *
+ * Whether this replacement MAY happen. No policy, no window, no authority check — the caller
+ * establishes those, exactly as `insertPasswordCredential` and `insertLocalIdentity` refuse to
+ * decide the same question. This is a persistence primitive.
+ *
+ * ── ACTOR ────────────────────────────────────────────────────────────────────
+ *
+ * `revoked_by_id` and `revoked_by_type` are left NULL TOGETHER, which
+ * `auth_credentials_revocation_actor_chk` permits and which is the only truthful pair when the act
+ * has no verified human behind it. An actor type without an actor id would be a half-claim.
+ *
+ * The plaintext is used once, for the derivation, and is never stored, logged or returned.
+ */
+export async function replacePasswordCredential(
+  db: CredentialReplacer,
+  authIdentityId: string,
+  password: string,
+  revocationReason: string,
+  now: Date = new Date(),
+): Promise<{ readonly revokedCount: number; readonly credentialId: string }> {
+  /*
+   * Derive BEFORE the revoke. A scrypt failure must not leave the human without a credential, and
+   * the derivation is the only step here that can fail for a reason the database does not own.
+   */
+  const hashed = await hashPassword(password);
+
+  /*
+   * REVOKE FIRST — the partial unique index leaves no other order available. Scoped by identity,
+   * type and status, so it can only ever touch the one row the index permits to be active.
+   */
+  const revoked = await db
+    .update(authCredentials)
+    .set({
+      status: "revoked",
+      revokedAt: now,
+      revocationReason,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(authCredentials.authIdentityId, authIdentityId),
+        eq(authCredentials.credentialType, "password"),
+        eq(authCredentials.status, "active"),
+      ),
+    )
+    .returning({ id: authCredentials.id });
+
+  const credentialId = await insertPasswordCredential(
+    db,
+    {
+      authIdentityId,
+      algorithm: hashed.algorithm,
+      params: hashed.params,
+      salt: hashed.salt,
+      secretHash: hashed.secretHash,
+    },
+    now,
+  );
+
+  return { revokedCount: revoked.length, credentialId };
+}
+
+/**
  * Revoke a credential. Durable and terminal for that row: a revoked credential
  * can never authenticate again, and the schema requires it to say why.
  * Deliberately not a delete — the record that a credential existed survives.
