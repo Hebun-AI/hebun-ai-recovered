@@ -1,17 +1,22 @@
 /*
  * The retrieval half of a fake DurableKnowledgeRepository.
  *
- * KR3 widened the repository interface with `searchFacts` and `hasTrigram`. The K1 fakes exist to
- * prove things about LISTING — tenant scoping, ambiguity, injection inertness — and none of them has
- * an opinion about retrieval. Spreading this into those fakes says so explicitly: retrieval is not
- * exercised here, and it returns nothing rather than a convenient stand-in that a later assertion
- * might mistake for a real result.
+ * KR3 widened the repository interface with `searchFacts` and `hasTrigram`; R6B widened it again
+ * with `countFactsByDomain`. The K1 fakes exist to prove things about LISTING — tenant scoping,
+ * ambiguity, injection inertness — and none of them has an opinion about retrieval or coverage.
+ * Spreading this into those fakes says so explicitly: neither is exercised here, and both return
+ * nothing rather than a convenient stand-in that a later assertion might mistake for a real result.
  *
  * A test that actually cares about retrieval must not use this. `tests/kr3-flow/` runs against a
  * real PostgreSQL database, because ranking, the Turkish configuration and `ts_rank_cd` are
- * PostgreSQL behaviours and a hand-written fake of them would only prove the fake.
+ * PostgreSQL behaviours and a hand-written fake of them would only prove the fake. The same holds
+ * for coverage: `tests/r6b-flow/` counts against a real database, because `count(*) filter` and the
+ * effective-window comparisons are PostgreSQL behaviours.
  */
-import type { KnowledgeSearchRow } from "../../src/features/knowledge/durable-knowledge-repository.server";
+import type {
+  KnowledgeDomainCounts,
+  KnowledgeSearchRow,
+} from "../../src/features/knowledge/durable-knowledge-repository.server";
 import type { KnowledgeSourceRecord, KnowledgeSourceStub } from "../../src/features/knowledge/contracts";
 
 export interface FakeRetrievalHalf {
@@ -22,6 +27,7 @@ export interface FakeRetrievalHalf {
     readonly trigramAvailable: boolean;
   }>;
   hasTrigram(): Promise<boolean>;
+  countFactsByDomain(): Promise<readonly KnowledgeDomainCounts[]>;
 }
 
 export function noRetrieval(): FakeRetrievalHalf {
@@ -31,6 +37,13 @@ export function noRetrieval(): FakeRetrievalHalf {
     },
     async hasTrigram() {
       return false;
+    },
+    /*
+     * Empty, never a stand-in. A fake that invented domain counts would let a coverage assertion
+     * pass against numbers no database produced — and coverage is the one thing R6B claims.
+     */
+    async countFactsByDomain() {
+      return [];
     },
   };
 }
@@ -66,6 +79,10 @@ export function retrievalOver(records: readonly KnowledgeSourceRecord[]): FakeRe
     },
     async hasTrigram() {
       return false;
+    },
+    /* Retrieval is the subject here; coverage is not. See `noRetrieval`. */
+    async countFactsByDomain() {
+      return [];
     },
   };
 }

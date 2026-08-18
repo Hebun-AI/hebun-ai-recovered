@@ -2,8 +2,10 @@ import { KnowledgeWorkspace } from "@/components/knowledge-workspace/knowledge-w
 import { KnowledgeAuthoringCard, type KnowledgeAuthoringBlock } from "@/components/knowledge-workspace/knowledge-authoring-card";
 import { KnowledgeIngestionCard } from "@/components/knowledge-workspace/knowledge-ingestion-card";
 import { KnowledgeRecords } from "@/components/knowledge-workspace/knowledge-records";
+import { CompanyUnderstandingCard } from "@/components/knowledge-workspace/company-understanding-card";
 import { getKnowledgeWorkspaceModel } from "@/features/knowledge/workspace-model";
 import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server";
+import { readCompanyUnderstanding } from "@/features/knowledge/company-understanding-read.server";
 import { resolveKnowledgeWriteAuthority } from "@/features/knowledge/knowledge-write-authority.server";
 import { isDurableKnowledgeConfigured } from "@/features/knowledge/durable-knowledge-repository.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -33,8 +35,16 @@ export const metadata = { title: "Knowledge Overview — Hebun AI" };
 export default async function KnowledgePage() {
   const tenant = await resolveTenantContext();
 
-  const [listing, authority, governance] = await Promise.all([
+  const [listing, understanding, authority, governance] = await Promise.all([
     listKnowledgeSources(tenant),
+    /*
+     * R6B. A SECOND read of the same authority, not a second authority: the listing is bounded at
+     * 50 and ordered by domain, so counting over it would lose the alphabetically last domains
+     * first and report a covered area as missing. Coverage therefore comes from its own uncapped
+     * per-domain aggregate. Read-only, and it resolves no authority of its own — showing counts of
+     * records this viewer can already see needs no gate the listing does not have.
+     */
+    readCompanyUnderstanding(tenant),
     tenant ? resolveKnowledgeWriteAuthority(tenant) : Promise.resolve(null),
     // K4: Governance authority is a DIFFERENT authority from Knowledge authoring. Resolved
     // separately, and never inferred from the role band above.
@@ -66,6 +76,13 @@ export default async function KnowledgePage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
+      {/*
+        R6B sits ABOVE the records: "which areas do we have, and which are missing" is the
+        orienting question, and the records are the detail beneath it. It is a section of this
+        workspace rather than a route of its own because authority ownership decides UI
+        ownership — this page already GOVERNS Knowledge, and coverage is a view of the same rows.
+      */}
+      <CompanyUnderstandingCard result={understanding} />
       <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <div className="min-w-0">
           <KnowledgeRecords listing={listing} canAuthor={block === undefined} />

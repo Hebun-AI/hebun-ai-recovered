@@ -335,6 +335,62 @@ export interface DurableKnowledgeRepository {
   }>;
   /** True when `pg_trgm` is installed in the CONNECTED database. Cached per repository instance. */
   hasTrigram(): Promise<boolean>;
+  /**
+   * One row per `domain_key` this tenant holds, with the facts in it bucketed by standing (R6B).
+   *
+   * ── WHY THIS EXISTS RATHER THAN COUNTING `listFacts` ─────────────────────────
+   *
+   * `listFacts` is BOUNDED at {@link KNOWLEDGE_LISTING_LIMIT} and ordered by `(domain_key,
+   * fact_key)`. Counting over it would silently lose the alphabetically LAST domains first, so a
+   * tenant past the bound would be told an area it has covered is missing — a false negative in
+   * the one claim a coverage view makes. Two ingested sources reach the bound
+   * (`MAX_CHUNKS_PER_SOURCE` is 40).
+   *
+   * Raising the listing bound was the other option and is wrong: `MAX_CHUNKS_PER_SOURCE` was
+   * chosen against it and Heby's evidence cap mirrors it, so widening it here would silently widen
+   * the model's context. This returns one row PER DOMAIN instead of per fact, so it needs no bound
+   * at all.
+   *
+   * It is a second STATEMENT over the same join, never a second authority: no table, no cache, no
+   * rollup, no write, no transaction.
+   */
+  countFactsByDomain(
+    scope: KnowledgeScopeContext,
+    now?: Date,
+  ): Promise<readonly KnowledgeDomainCounts[]>;
+}
+
+/**
+ * The facts in ONE `domain_key`, bucketed by standing.
+ *
+ * ── THE BUCKETS, AND WHICH OVERLAP ───────────────────────────────────────────
+ *
+ * `inForce`, `notYetEffective`, `expired`, `withdrawn` and `unreadable` are MUTUALLY EXCLUSIVE and
+ * together account for every fact in the domain. Nothing is dropped: a fact Hebun cannot serve is
+ * still a fact the organization supplied, and a count that quietly omitted it would understate
+ * what Hebun holds.
+ *
+ * `ratified`, `provisional` and `reviewOverdue` are SUBSETS of `inForce`, not additional buckets.
+ * They describe the standing of servable facts and must never be added to a total.
+ */
+export interface KnowledgeDomainCounts {
+  readonly domainKey: string;
+  /** Eligible AND readable — the only bucket that establishes coverage. */
+  readonly inForce: number;
+  /** Subset of `inForce`: carries a bound Governance decision (K4). */
+  readonly ratified: number;
+  /** Subset of `inForce`: `knowledge_authority` is not `authoritative`. */
+  readonly provisional: number;
+  /** Subset of `inForce`: `next_review_at` has passed — the freshness `review-overdue`. */
+  readonly reviewOverdue: number;
+  /** Excluded: `effective_from` is in the future. */
+  readonly notYetEffective: number;
+  /** Excluded: `effective_until` has passed. */
+  readonly expired: number;
+  /** Excluded: lifecycle is `archived` or `retired`. */
+  readonly withdrawn: number;
+  /** Excluded: the fact's active node did not resolve, so it carries no readable statement. */
+  readonly unreadable: number;
 }
 
 const SELECTION = {
@@ -376,21 +432,23 @@ export function createDurableKnowledgeRepository(
   let trigramCache: boolean | undefined;
 
   /**
-   * The join is tenant-scoped on BOTH sides. Scoping only the fact would let a fact resolve
-   * its content through another tenant's node row; scoping both makes that unrepresentable.
+   * The active-node join condition, tenant-scoped on BOTH sides.
+   *
+   * Scoping only the fact would let a fact resolve its content through another tenant's node row;
+   * scoping both makes that unrepresentable. Extracted so every statement in this repository shares
+   * ONE expression — a second query that restated the predicate could drift from this one by a
+   * single clause and leak, which is exactly the failure a copy invites.
    */
+  function activeNodeJoin(tenantId: string) {
+    return and(
+      eq(knowledgeNodes.id, knowledgeFacts.activeKnowledgeNodeId),
+      eq(knowledgeNodes.tenantId, knowledgeFacts.tenantId),
+      eq(knowledgeNodes.tenantId, tenantId),
+    );
+  }
+
   function baseQuery(tenantId: string) {
-    return db
-      .select(SELECTION)
-      .from(knowledgeFacts)
-      .leftJoin(
-        knowledgeNodes,
-        and(
-          eq(knowledgeNodes.id, knowledgeFacts.activeKnowledgeNodeId),
-          eq(knowledgeNodes.tenantId, knowledgeFacts.tenantId),
-          eq(knowledgeNodes.tenantId, tenantId),
-        ),
-      );
+    return db.select(SELECTION).from(knowledgeFacts).leftJoin(knowledgeNodes, activeNodeJoin(tenantId));
   }
 
   function partition(rows: readonly KnowledgeRow[], now: Date) {
@@ -555,6 +613,85 @@ export function createDurableKnowledgeRepository(
       }
 
       return { rows, incomplete, truncated, trigramAvailable: trigram };
+    },
+
+    /*
+     * ── ONE ROW PER DOMAIN, UNBOUNDED (R6B) ──────────────────────────────────
+     *
+     * The join is `activeNodeJoin` — the SAME expression `baseQuery` uses, not a copy of it — so
+     * this statement inherits the tenant boundary rather than restating it.
+     *
+     * The buckets below reproduce `exclusionReasonFor` and `deriveKnowledgeFreshness` IN THE SAME
+     * ORDER: unreadable, then withdrawn lifecycle, then the effective window (from before until,
+     * exactly as the pure functions check them), then review cadence within what is in force. That
+     * duplication is the cost of counting in the database instead of fetching every row, and it is
+     * held honest by a test that runs both against the same seeded matrix and asserts they agree —
+     * a comment promising they match would rot, an equivalence test cannot.
+     */
+    async countFactsByDomain(scope, now = new Date()) {
+      // An id that is not a uuid can never match a tenant column; refuse before querying.
+      if (!UUID_RE.test(scope.tenantId)) return [];
+
+      const at = sql`${now.toISOString()}::timestamptz`;
+
+      /* Readable at all: a fact whose active node did not resolve carries no statement. */
+      const readable = sql`${knowledgeNodes.label} is not null`;
+      /*
+       * `is distinct from` rather than `<>` on purpose: `knowledge_lifecycle_status` is nullable,
+       * and a NULL lifecycle is NOT terminal — the same reading `exclusionReasonFor` gives it.
+       */
+      const live = sql`${readable}
+        and ${knowledgeNodes.knowledgeLifecycleStatus} is distinct from 'archived'
+        and ${knowledgeNodes.knowledgeLifecycleStatus} is distinct from 'retired'`;
+      /* A record with no window makes no claim about one; absent dates never exclude. */
+      const started = sql`(${knowledgeNodes.effectiveFrom} is null or ${knowledgeNodes.effectiveFrom} <= ${at})`;
+      const unexpired = sql`(${knowledgeNodes.effectiveUntil} is null or ${knowledgeNodes.effectiveUntil} >= ${at})`;
+      const inForce = sql`${live} and ${started} and ${unexpired}`;
+
+      const tally = (predicate: ReturnType<typeof sql>) =>
+        sql<number>`count(*) filter (where ${predicate})::int`;
+
+      const rows = await db
+        .select({
+          domainKey: knowledgeFacts.domainKey,
+          inForce: tally(inForce),
+          ratified: tally(sql`${inForce} and ${knowledgeNodes.ratificationDecisionId} is not null`),
+          provisional: tally(
+            sql`${inForce} and ${knowledgeNodes.knowledgeAuthority} is distinct from 'authoritative'`,
+          ),
+          reviewOverdue: tally(
+            sql`${inForce} and ${knowledgeNodes.nextReviewAt} is not null and ${knowledgeNodes.nextReviewAt} < ${at}`,
+          ),
+          notYetEffective: tally(
+            sql`${live} and ${knowledgeNodes.effectiveFrom} is not null and ${knowledgeNodes.effectiveFrom} > ${at}`,
+          ),
+          expired: tally(
+            sql`${live} and ${started} and ${knowledgeNodes.effectiveUntil} is not null and ${knowledgeNodes.effectiveUntil} < ${at}`,
+          ),
+          withdrawn: tally(
+            sql`${readable} and (${knowledgeNodes.knowledgeLifecycleStatus} is not distinct from 'archived'
+                 or ${knowledgeNodes.knowledgeLifecycleStatus} is not distinct from 'retired')`,
+          ),
+          unreadable: tally(sql`${knowledgeNodes.label} is null`),
+        })
+        .from(knowledgeFacts)
+        .leftJoin(knowledgeNodes, activeNodeJoin(scope.tenantId))
+        .where(eq(knowledgeFacts.tenantId, scope.tenantId))
+        .groupBy(knowledgeFacts.domainKey)
+        .orderBy(asc(knowledgeFacts.domainKey));
+
+      /* `::int` already narrowed each count; Number() guards a driver that returns text anyway. */
+      return rows.map((row) => ({
+        domainKey: row.domainKey,
+        inForce: Number(row.inForce),
+        ratified: Number(row.ratified),
+        provisional: Number(row.provisional),
+        reviewOverdue: Number(row.reviewOverdue),
+        notYetEffective: Number(row.notYetEffective),
+        expired: Number(row.expired),
+        withdrawn: Number(row.withdrawn),
+        unreadable: Number(row.unreadable),
+      }));
     },
   };
 }

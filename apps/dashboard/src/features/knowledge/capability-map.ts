@@ -12,11 +12,21 @@
  *
  * WHAT WAS AUDITED (K1 discovery, against the shipped code — not inferred from filenames):
  *
- *   knowledge_facts / knowledge_nodes / knowledge_edges  exist as canonical tables in the
- *     control-plane database and are migrated. K1 adds the FIRST application read path over
- *     them. They hold no rows, because nothing writes to them.
+ *   knowledge_facts / knowledge_nodes  exist as canonical tables in the control-plane database
+ *     and are migrated. K1 added the FIRST application read path over them. K2 and Knowledge
+ *     ingestion then added the governed WRITE path, so — unlike at K1 discovery, when this
+ *     paragraph said nothing wrote to them and no row existed — they now hold whatever the
+ *     organization has authored or ingested.
+ *   knowledge_edges  is migrated and still has ZERO writers and ZERO readers. It was grouped with
+ *     the two tables above while all three were empty; they diverged, and it is stated separately
+ *     rather than left inside a sentence that stopped being true of its neighbours.
  *   documents  exists as a table with ZERO consumers anywhere in the repository: no upload,
  *     no parser, no storage binding, no reader. It is a schema, not a corpus.
+ *   organizations / departments / missions / goals / plans / policies / workflows / memories
+ *     are migrated and have ZERO writers and ZERO readers. Stated here because R6B's Company
+ *     Understanding projection reports declared areas NAMED "organization", "goals", "policies"
+ *     and "operations", and a reader could otherwise conclude those tables had been connected.
+ *     They have not: every one of those areas is counted over knowledge_facts alone.
  *   canonical-read (features/canonical-read)  is a real Postgres query layer, but it is an
  *     OPTIONAL diagnostics/shadow layer on its own isolated connection string, it reads only
  *     BY EXPLICIT IDENTITY (tenant + factKey + domainKey + scope), and it cannot enumerate.
