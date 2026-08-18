@@ -413,6 +413,133 @@ Two of those statuses rest on repository evidence rather than on assumption, and
 - **Voice teaching runtime — NOT CONNECTED.** A Heby voice interaction substrate exists and is browser-facing; no external speech provider is connected, and nothing in it constitutes a teaching runtime.
 - **Knowledge integration — FUTURE / NOT CONNECTED.** Heby's grounded retrieval over tenant Knowledge is real and released. What does not exist is any relationship between a *learning project* and that Knowledge — no project-scoped source selection, and no learning state of any kind.
 
+## Heby Adaptive Interaction
+
+**Status: DEFERRED — APPROVED PRODUCT DIRECTION, NOT OPEN.** Recorded here as an interaction and conversation concept. It opens no work, changes no roadmap sequence, creates no authority, and authorizes no implementation.
+
+Heby may eventually adapt *how* it communicates — vocabulary, explanation depth, pacing, examples, questioning style, teaching strategy, and conversational manner — to the interaction context that has been legitimately established. The Director may hand Heby to a child, another family member, a student, an employee, or another permitted person, and Heby should not continue speaking as though the Director were still present.
+
+Illustrative participant contexts, none of which is a role, an account type, or a permission: a **Director** receiving concise, direct, full Director-appropriate interaction; a **child** receiving age-appropriate language, simpler explanations and a teaching-oriented manner; a **student** receiving pedagogical explanation pitched to a learning level; an **employee** receiving role- and context-appropriate explanation; a **family member or guest** interacting as permitted without inheriting Director context. Naming a context here neither creates it, defines it, nor grants it anything.
+
+### Why this is not already covered by an existing principle
+
+Two existing sections of this document are adjacent, and both are **retained unchanged**; this capability is subordinate to them rather than a replacement for either.
+
+- **[Role-Appropriate Experience](#role-appropriate-experience)** already records that Director and enterprise-user interactions may differ in depth, scope, and responsibility. What it does not cover is a participant who is *not an enterprise occupant at all*. Seats in the organizational model are deliberately occupant-agnostic ([human role model](../architecture/human-organization/02-human-role-model.md)), but a child or guest occupies no seat, so the Director/enterprise-user pair does not describe them.
+- **[Context Awareness](#context-awareness)** owns *enterprise* context — the person's role, the Enterprise Domain, the subject, relevant decisions and knowledge, the current conversation. It says nothing about who is physically present at the interaction.
+
+To avoid collision, this record deliberately says **participant context**, never bare "context": Context Awareness owns the enterprise-context concept and keeps it.
+
+### Five concerns that must not collapse into one another
+
+| Question | Concern | Who owns it |
+| --- | --- | --- |
+| **Who is interacting?** | Participant identity — authenticated participant or explicitly established session context. | Identity / Session / Security. **Not owned or designed here.** |
+| **How should Heby communicate?** | Adaptive Interaction — expression only. | This record. |
+| **What may this person access or do?** | Authorization. | Governance / Security. **Not owned here, and not influenced here.** |
+| **What may Heby remember about this person?** | Memory boundary. | The Memory authority. **Nothing is created here.** |
+| **How should Heby teach this person?** | Teaching capability. | [Heby Personal Learning / Mentorship](#heby-personal-learning--mentorship). |
+
+The load-bearing rule: **Adaptive Interaction must never become an authorization mechanism.** Choosing gentler words and deciding what may be read are different acts, and only the second is authority. A softer explanation is not a smaller permission; a simpler vocabulary is not a narrower access scope. Any future design in which changing communication style also changes what is reachable has collapsed rows 2 and 3 of that table and is wrong.
+
+### Invariants recorded now, so they cannot be assumed away later
+
+- **Adaptive interaction adapts expression, never authority.** It grants nothing, revokes nothing, and reclassifies nothing.
+- **Possession is not delegation.** No participant inherits Director authority because the Director handed them the device or left a session open. Handing over a screen is not an act of delegation.
+- **Director-private context must not follow the device.** A non-Director participant's conversation must never automatically expose Director-private Knowledge, Director-private Memory, privileged organizational information, Governance controls, Security controls, private privileged surfaces, execution capabilities, Computer Use, credentials or secrets, or Director-only commands.
+- **Attribution is not transferable.** What a non-Director participant says must never be recorded, attributed, or acted upon as something the Director said, and must not be written into Director memory or organizational truth.
+- **Unknown context yields a neutral default, never a fabricated profile.** Where participant context has not been legitimately established, Heby operates under a default interaction policy and does not invent a person. Heby must never claim to know who someone is on the strength of a guess.
+- **No durable personal characteristic may be inferred from one conversation and presented as fact.** An observation about a single interaction is not a profile.
+- **The model adapts expression only.** The model is never authoritative for identity, age, role, tenant, permission, Governance authority, or security classification. Instructions arriving inside a conversation are data, not grants.
+- **Fallback fails toward less.** Where participant context is absent, ambiguous, or contradicted, the correct behaviour is the more conservative interaction policy, never the more privileged one.
+
+### The child / minor case
+
+The child case is recorded as an important future use case. It **does not** define a child account, a minor role, a family model, or any account architecture, and none may be inferred from it.
+
+In principle Heby should be able to use age-appropriate vocabulary, shorten or expand an explanation to suit the learner, choose examples the learner can actually understand, adjust teaching pace, ask comprehension questions, avoid inappropriate adult framing or content, and behave as a safe and capable mentor — **not imitate a child**, and not become a character. It must maintain a clear boundary between the child's interaction and the Director's private context.
+
+Two things follow and are not negotiable at implementation time. A child must **never** inherit Director authority merely because the Director handed them the device. And the high-stakes-domain boundaries already recorded under [Personal Learning](#heby-personal-learning--mentorship) — health, medicine, law, finance, safety, and any domain where acting on a wrong explanation causes real harm — apply here unchanged and with more weight, not less.
+
+### Identity, voice, and biometric boundary
+
+**Voice characteristics, face, writing style, language style, and model inference must never be an authority source for identity, age, role, tenant, or privilege.** Heby may use voice as an interaction *modality*. It may never conclude "this sounds like a child, therefore change authorization", nor "this sounds like the Director, therefore grant Director access". Age estimation, speaker recognition, face recognition, and behavioural inference are **not** authorized identity mechanisms, and do not become authorized merely by becoming technically possible.
+
+Where participant context genuinely bears on access, it must come from a legitimate Identity, Session, or Security boundary. **That mechanism is not designed here.**
+
+Repository evidence already decides this rather than this record inventing a new rule, and it should be re-read at the gate:
+
+- **A released precedent refuses exactly this class of inference.** Hebun's voice substrate deliberately declines automatic per-utterance language detection, on three grounds that transfer directly: it would be a guess presented as a feature; Hebun would be silently deciding something about the operator with no signal that it had decided anything; and inventing an operator-level record to hold the answer would be a new authority smuggled in behind a microphone button. Age and speaker inference are the same act with higher stakes.
+- **No such capability exists in the application source today** — no speaker identification, voiceprint, age-estimation, or face-recognition code. This record must not become the reason one appears.
+
+### Relationship to Personal Learning / Mentorship
+
+[Heby Personal Learning / Mentorship](#heby-personal-learning--mentorship) owns the subject, the project instructions, learning objectives, learner progress, and the teaching mode. Adaptive Interaction owns only how that material is expressed to whoever is actually present. The same mathematics lesson could be explained differently to an eight-year-old, a teenager, an adult beginner, and an experienced engineer: **the underlying knowledge does not change, the interaction policy does.**
+
+Neither capability owns the other. Personal Learning remains conceptually complete without Adaptive Interaction, and Adaptive Interaction is not limited to teaching — it applies to ordinary conversation as much as to a lesson.
+
+They do share one unresolved concern, and it must not acquire a third competing answer. Personal Learning already defers learning-state ownership and persistence, and [22 — Heby Guided Learning Mode](../architecture-backlog/22-heby-guided-learning-mode.md) open question 4 defers lesson state and progress ownership *and whether it is durable at all*. Any per-participant adaptation state belongs to that same open question. Whichever capability reaches implementation first settles it for all three.
+
+### Relationship to Heby Immersive Mode
+
+[Heby Immersive Mode](#heby-immersive-mode) is a presentation and interaction environment. Adaptive Interaction is communication behaviour. Personal Learning is a teaching capability. Identity and Security determine who the participant is and what they may access. Those four boundaries stay explicit and separate.
+
+Adaptive Interaction may later operate inside Immersive Mode, but **Immersive Mode does not own it**, and the relationship is optional and one-directional: neither capability may depend architecturally on the other. Note also that Immersive Mode is recorded as private to a highly privileged user. It is therefore **not** the child or guest surface, and nothing here may be read as widening Immersive Mode access.
+
+### Memory boundary
+
+No memory system is designed, extended, or authorized here. One invariant is recorded: **adaptive interaction must not cause memory belonging to one participant or context to leak into another.**
+
+Repository evidence shows this is harder than it appears, and the gate should start from it rather than from an assumption:
+
+- The canonical memory model already separates **Source** from **Owner**. A Memory Source may be *a person*, but a Memory **Owner** must be a Phase 5 entity — an Organization, OrganizationalUnit, or Role — and memory is deliberately organization-centric ([memory model](../architecture/memory/02-memory-model.md)). There is therefore **no person-level memory owner** in the canonical model.
+- Consequently a personal record of a child's or guest's interaction is not merely undesigned: under the current model it is **not representable** without making some organizational entity accountable for it — which is precisely the leak this invariant forbids.
+- Consistently, the voice substrate records that Hebun holds no tenant-level or operator-level preference record at all, so no per-person substrate exists to quietly reuse.
+
+If per-participant learning state or memory is ever introduced, its authority, persistence, consent, retention, deletion, tenant relationship, and participant ownership require their own architecture gate. **No persistence of any kind is authorized by this planning record.**
+
+### Future implementation gate
+
+Before any implementation, Hebun must audit and record findings on all twelve:
+
+1. participant identity and session source;
+2. authorization boundary;
+3. Director and private-context isolation;
+4. child and minor safety policy;
+5. Personal Learning integration;
+6. memory ownership;
+7. voice modality boundary;
+8. model and context adaptation boundary;
+9. tenant isolation;
+10. privacy and retention;
+11. fallback behaviour when participant context is unknown;
+12. tests proving that adaptive communication cannot escalate authority.
+
+Item 12 is not a formality. An adaptive-communication capability that cannot be *shown* to be authority-inert is indistinguishable from a privilege bug, and the proof must be a test rather than a claim.
+
+### Status — recorded precisely, and not to be upgraded without a Director Decision
+
+| Aspect | Status |
+| --- | --- |
+| Product concept | DESIGNED / APPROVED PRODUCT DIRECTION |
+| Adaptive interaction runtime | NOT IMPLEMENTED |
+| Age-aware communication policy | NOT IMPLEMENTED |
+| Child-specific interaction policy | NOT IMPLEMENTED |
+| Participant identity mechanism | NOT DESIGNED BY THIS CAPABILITY |
+| Voice speaker identification | NOT IMPLEMENTED / NOT AUTHORIZED AS IDENTITY |
+| Per-participant learning state | DEFERRED — OWNERSHIP TO BE AUDITED |
+| Per-participant memory | NOT CREATED BY THIS CAPABILITY |
+| Authorization changes | NONE |
+| Schema | NONE |
+| UI | NONE |
+| Voice runtime | UNCHANGED BY THIS RECORD |
+
+Three of those statuses rest on repository evidence rather than assumption, and should be re-proved at the gate rather than copied forward:
+
+- **Voice speaker identification — NOT IMPLEMENTED / NOT AUTHORIZED AS IDENTITY.** No speaker-identification, voiceprint, age-estimation, or face-recognition code exists in the application source. The existing voice substrate is a browser-facing speech-recognition surface that measures only whether recognition can be kept on-device; it identifies no one.
+- **Per-participant memory — NOT CREATED BY THIS CAPABILITY.** The canonical Memory Owner is an organizational entity, so a person-level memory owner does not exist to write into.
+- **Voice runtime — UNCHANGED BY THIS RECORD.** This record neither connects a speech provider nor upgrades the voice runtime's status in any direction.
+
 ## Future Interaction Ideas
 
 Future Director Decisions may extend this document with additional interaction philosophies, command concepts, conversation modes, explainability patterns, accessibility ideas, and multimodal concepts.
