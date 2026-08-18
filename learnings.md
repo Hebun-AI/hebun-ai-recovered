@@ -1815,3 +1815,31 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
   be passing because the two operations happened to serialize.
 - An optional field can already encode a distinction the code ignores. The self-attribution fix
   needed no new parameter: `createdByType` existed, and `createdBy` simply wasn't following it.
+
+## G5A.1 — Bootstrap Credential Recovery (2026-08-19)
+
+- A window can be ONE predicate when foreign keys do the rest. `companies = 0` implies zero
+  organizational state because 44 tables carry a NOT NULL FK to companies — roles, memberships,
+  invitations, membership_authorizations, genesis_nominations, governance_sessions,
+  decision_records, identity_enrollment_requests. Derive the implication from pg_constraint in a
+  test so a future table that escapes it fails the build instead of widening the window silently.
+- Derive a state transition from the schema, never choose it. A PARTIAL unique index on
+  (auth_identity_id, credential_type) WHERE status='active' forbids inserting a replacement beside
+  the old row and FORCES revoke-then-insert. Update-in-place would satisfy the index and destroy
+  the record that a credential existed.
+- Hash BEFORE you revoke. The derivation is the only step that can fail for a reason the database
+  does not own, and a failure after the revoke would strand the human.
+- A bite-proof that HANGS is not a verdict. Pointing the writer at `db` instead of `tx` while the
+  outer transaction held SHARE ROW EXCLUSIVE made a second connection block on a lock held by a
+  transaction waiting for it — a deadlock, not a failure. Bound every bite-proof with `timeout`
+  and report a timeout as VOID, not as pass.
+- A bite-proof that fails to APPLY looks exactly like one that failed to bite. Inline python -c
+  quoting mangled a mutation and the suite passed for the ordinary reason. Write mutations as
+  standalone files and verify each one applied before trusting its verdict.
+- Make a safety check impossible to become a selector. `confirmEmail` is COMPARED against the
+  human the database already resolved and never reaches a predicate; the resolution query carries
+  no bind placeholder at all, so arbitrary targeting is unrepresentable rather than forbidden.
+- More assertion-scoping traps, same family as G5A: a regex spanning a whole function matched a
+  field in a DIFFERENT statement; a key-list regex missed a SHORTHAND property (no colon); "id ="
+  flagged a JOIN condition; and a module-wide indexOf hit the import block for the third time.
+  Scope to the statement, the block, or the function body — never the module.
