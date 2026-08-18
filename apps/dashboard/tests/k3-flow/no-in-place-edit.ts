@@ -108,10 +108,26 @@ async function main(): Promise<void> {
      * below pins. A correction is still a NEW version, always.
      */
     const RATIFICATION_WRITER = "src/features/knowledge-ratification/ratify-version.server.ts";
+    /*
+     * R6D — the SECOND bounded exception, and bounded the same way.
+     *
+     * `retract-source.server.ts` updates a node to withdraw it from service: the lifecycle moves to
+     * `retired` and `retired_at` is stamped. That is not an in-place content edit either, and the
+     * column-level assertion below pins it exactly as K4's is pinned — the statement, the label, the
+     * version counter, the supersession link, the provenance and the ratification linkage are all
+     * untouched. A correction is still a NEW version; a withdrawal changes standing, not content.
+     */
+    const RETRACTION_WRITER = "src/features/knowledge/retract-source.server.ts";
     const offenders: string[] = [];
     for (const file of walk("src")) {
       const normalized = file.replace(/\\/g, "/");
-      if (normalized === LEGACY_ADAPTER || normalized === RATIFICATION_WRITER) continue;
+      if (
+        normalized === LEGACY_ADAPTER ||
+        normalized === RATIFICATION_WRITER ||
+        normalized === RETRACTION_WRITER
+      ) {
+        continue;
+      }
       const code = codeOf(read(file));
       // Any drizzle update whose target is the nodes table.
       if (/\.update\(\s*knowledgeNodes\s*\)/.test(code)) offenders.push(normalized);
@@ -121,7 +137,20 @@ async function main(): Promise<void> {
     assert.deepEqual(
       offenders,
       [],
-      "only the ratification writer updates a knowledge node — corrections insert a new one",
+      "only the ratification and retraction writers update a knowledge node — corrections insert a new one",
+    );
+
+    /*
+     * THE RETRACTION EXCEPTION IS BOUNDED BY ITS COLUMNS TOO. If a content column ever appears in
+     * that `.set({ ... })`, K3's invariant has been broken through R6D's door.
+     */
+    const retractCode = codeOf(read(RETRACTION_WRITER));
+    const retractSet = /\.update\(knowledgeNodes\)\s*\.set\(\{([\s\S]*?)\}\)/.exec(retractCode);
+    assert.ok(retractSet, "the retraction update sets its columns in one literal");
+    assert.deepEqual(
+      [...retractSet![1]!.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]).sort(),
+      ["knowledgeLifecycleStatus", "retiredAt", "updatedAt", "updatedBy", "updatedByType"],
+      "retraction writes standing and update attribution — never content, version, or lineage",
     );
 
     /*
@@ -390,11 +419,16 @@ async function main(): Promise<void> {
       assert.ok(!/\.delete\(\s*knowledgeNodes\s*\)/.test(code), `${file} must not delete a node`);
       assert.ok(!/\.delete\(\s*knowledgeFacts\s*\)/.test(code), `${file} must not delete a fact`);
     }
-    // The audit vocabulary gained supersede (K3), then ratify (K4). Delete and rollback remain absent.
+    /*
+     * The audit vocabulary gained supersede (K3), ratify (K4), then retract (R6D). Delete and
+     * rollback remain absent — retraction withdraws a version from service and deletes nothing, so
+     * it is not the verb this list still refuses to declare.
+     */
     assert.deepEqual([...KNOWLEDGE_MUTATION_ACTIONS], [
       "knowledge.create",
       "knowledge.supersede",
       "knowledge.ratify",
+      "knowledge.retract",
     ]);
 
     // The action module exposes exactly one new mutation, plus a read.
@@ -413,10 +447,16 @@ async function main(): Promise<void> {
         "ratifyKnowledgeVersionAction",
         "readKnowledgeVersionsAction",
         "rejectKnowledgeVersionAction",
+        /*
+         * R6D — source-level withdrawal. It reaches the SAME K2 authority the acts above it reach,
+         * and it still adds no deletion and no in-place content edit: it moves a lifecycle, which
+         * the column-level assertion earlier in this file pins.
+         */
+        "retractKnowledgeSourceAction",
         "supersedeKnowledgeAction",
       ],
-      "create, ingest, ingest-a-file, correct, review, and read history — nothing else. Ingest writes many facts\n"
-      + "through the same create path; it cannot edit or roll anything back.",
+      "create, ingest, ingest-a-file, correct, review, retract a source, and read history — nothing else.\n"
+      + "Ingest writes many facts through the same create path; nothing here edits or rolls anything back.",
     );
   }
 

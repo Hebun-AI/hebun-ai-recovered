@@ -260,10 +260,15 @@ function main(): void {
         "ratifyKnowledgeVersionAction",
         "readKnowledgeVersionsAction",
         "rejectKnowledgeVersionAction",
+        /*
+         * R6D — retracting one ingestion source. Create-class authority, withdrawal-class effect:
+         * it resolves the SAME write band and deletes nothing.
+         */
+        "retractKnowledgeSourceAction",
         "supersedeKnowledgeAction",
       ],
-      "create, ingest, ingest-a-file, supersede, ratify, reject, plus one read. Ingest is create-class: many\n"
-      + "facts through the same writer, never an edit. No delete, no edit, no rollback.",
+      "create, ingest, ingest-a-file, supersede, ratify, reject, retract a source, plus one read. Ingest is\n"
+      + "create-class: many facts through the same writer, never an edit. No delete, no edit, no rollback.",
     );
   }
 

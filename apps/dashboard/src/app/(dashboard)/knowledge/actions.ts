@@ -29,6 +29,8 @@ import type {
   RatificationResult,
   RejectionResult,
 } from "@/features/knowledge-ratification/contracts";
+import { retractKnowledgeSource } from "@/features/knowledge/retract-source.server";
+import type { RetractionResult } from "@/features/knowledge/retraction-contracts";
 
 /**
  * The K2 boundary for establishing organizational Knowledge. It is the ONLY client-crossable way
@@ -198,5 +200,26 @@ export async function rejectKnowledgeVersionAction(input: {
   const tenant = await resolveTenantContext();
   const result = await rejectKnowledgeVersion(tenant, input);
   if (result.status === "rejected") revalidatePath("/knowledge");
+  return result;
+}
+
+/**
+ * Withdraw every fact one ingestion source produced (R6D).
+ *
+ * The SAME authority that adds a source withdraws one — `retractKnowledgeSource` resolves the K2
+ * write band server-side, so this action holds no gate of its own and cannot drift from the one
+ * authoring and ingestion already use. The only client-shaped value is a content digest; the tenant,
+ * actor and band are all resolved from the R1 session.
+ *
+ * Like every action in this file, it is unreachable from Heby: `askHebyAction` and
+ * `runHebyReadCommandAction` do not import this module, so no message, model answer, slash command
+ * or transcript has a representation in which it could arrive here.
+ */
+export async function retractKnowledgeSourceAction(input: {
+  sourceDigest: string;
+}): Promise<RetractionResult> {
+  const tenant = await resolveTenantContext();
+  const result = await retractKnowledgeSource(tenant, input);
+  if (result.status === "retracted") revalidatePath("/knowledge");
   return result;
 }

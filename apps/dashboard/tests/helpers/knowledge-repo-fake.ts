@@ -14,6 +14,7 @@
  * effective-window comparisons are PostgreSQL behaviours.
  */
 import type {
+  IngestedSourceSummary,
   KnowledgeDomainCounts,
   KnowledgeSearchRow,
 } from "../../src/features/knowledge/durable-knowledge-repository.server";
@@ -28,6 +29,7 @@ export interface FakeRetrievalHalf {
   }>;
   hasTrigram(): Promise<boolean>;
   countFactsByDomain(): Promise<readonly KnowledgeDomainCounts[]>;
+  listIngestedSources(): Promise<readonly IngestedSourceSummary[]>;
 }
 
 export function noRetrieval(): FakeRetrievalHalf {
@@ -43,6 +45,10 @@ export function noRetrieval(): FakeRetrievalHalf {
      * pass against numbers no database produced — and coverage is the one thing R6B claims.
      */
     async countFactsByDomain() {
+      return [];
+    },
+    /* Same reason: a fabricated source list would let a retraction surface look populated. */
+    async listIngestedSources() {
       return [];
     },
   };
@@ -80,8 +86,11 @@ export function retrievalOver(records: readonly KnowledgeSourceRecord[]): FakeRe
     async hasTrigram() {
       return false;
     },
-    /* Retrieval is the subject here; coverage is not. See `noRetrieval`. */
+    /* Retrieval is the subject here; coverage and sources are not. See `noRetrieval`. */
     async countFactsByDomain() {
+      return [];
+    },
+    async listIngestedSources() {
       return [];
     },
   };

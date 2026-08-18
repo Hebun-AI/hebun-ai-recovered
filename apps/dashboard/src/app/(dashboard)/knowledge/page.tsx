@@ -3,9 +3,11 @@ import { KnowledgeAuthoringCard, type KnowledgeAuthoringBlock } from "@/componen
 import { KnowledgeIngestionCard } from "@/components/knowledge-workspace/knowledge-ingestion-card";
 import { KnowledgeRecords } from "@/components/knowledge-workspace/knowledge-records";
 import { CompanyUnderstandingCard } from "@/components/knowledge-workspace/company-understanding-card";
+import { KnowledgeSourcesCard } from "@/components/knowledge-workspace/knowledge-sources-card";
 import { getKnowledgeWorkspaceModel } from "@/features/knowledge/workspace-model";
 import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server";
 import { readCompanyUnderstanding } from "@/features/knowledge/company-understanding-read.server";
+import { listIngestedSources } from "@/features/knowledge/ingested-sources-read.server";
 import { resolveKnowledgeWriteAuthority } from "@/features/knowledge/knowledge-write-authority.server";
 import { isDurableKnowledgeConfigured } from "@/features/knowledge/durable-knowledge-repository.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -35,7 +37,7 @@ export const metadata = { title: "Knowledge Overview — Hebun AI" };
 export default async function KnowledgePage() {
   const tenant = await resolveTenantContext();
 
-  const [listing, understanding, authority, governance] = await Promise.all([
+  const [listing, understanding, sources, authority, governance] = await Promise.all([
     listKnowledgeSources(tenant),
     /*
      * R6B. A SECOND read of the same authority, not a second authority: the listing is bounded at
@@ -45,6 +47,12 @@ export default async function KnowledgePage() {
      * records this viewer can already see needs no gate the listing does not have.
      */
     readCompanyUnderstanding(tenant),
+    /*
+     * R6D. Which ingestion sources the tenant still holds live Knowledge from — a read, gated only
+     * on the tenant. The AUTHORITY to withdraw one is the authoring band resolved just below and
+     * shared with this card: whatever stops you adding a source stops you withdrawing one.
+     */
+    listIngestedSources(tenant),
     tenant ? resolveKnowledgeWriteAuthority(tenant) : Promise.resolve(null),
     // K4: Governance authority is a DIFFERENT authority from Knowledge authoring. Resolved
     // separately, and never inferred from the role band above.
@@ -104,6 +112,12 @@ export default async function KnowledgePage() {
           ))}
         </div>
       ) : null}
+      {/*
+        R6D sits BELOW the review cards and above the vocabulary model: retracting a source is a
+        correction, not the first thing a reader should meet. It shares `block` with authoring and
+        ingestion because it is the same authority acting on the same records.
+      */}
+      <KnowledgeSourcesCard listing={sources} block={block} />
       <KnowledgeWorkspace model={getKnowledgeWorkspaceModel()} />
     </div>
   );

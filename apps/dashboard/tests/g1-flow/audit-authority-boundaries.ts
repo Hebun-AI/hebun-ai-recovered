@@ -363,16 +363,21 @@ async function main(): Promise<void> {
    */
   {
     /*
-     * K3 added `knowledge.supersede`, and K4 added `knowledge.ratify` — and this is the assertion
-     * G1 wrote to be updated by exactly that kind of change: an added ACTION, with no new
-     * authority, no migration, and no change to the metadata shape. Both times the vocabulary grew
-     * by one verb that a real capability now performs, and the list stays closed to capabilities
-     * that do not exist — `knowledge.delete`, `knowledge.rollback` and `knowledge.reject` are still
-     * absent, the last one because a rejection changes nothing in Knowledge at all.
+     * K3 added `knowledge.supersede`, K4 added `knowledge.ratify`, and R6D added
+     * `knowledge.retract` — and this is the assertion G1 wrote to be updated by exactly that kind
+     * of change: an added ACTION, with no new authority, no migration, and no change to the
+     * metadata shape beyond the fields the new verb needs. Each time the vocabulary grew by one
+     * verb that a real capability now performs, and the list stays closed to capabilities that do
+     * not exist — `knowledge.delete`, `knowledge.rollback` and `knowledge.reject` are still absent,
+     * the last one because a rejection changes nothing in Knowledge at all.
+     *
+     * `knowledge.retract` is emphatically NOT `knowledge.delete`. It names a withdrawal from
+     * service: the node keeps its statement, its version and its history, and only its lifecycle
+     * moves to the terminal value every reader already honours.
      */
     assert.deepEqual(
       [...KNOWLEDGE_MUTATION_ACTIONS],
-      ["knowledge.create", "knowledge.supersede", "knowledge.ratify"],
+      ["knowledge.create", "knowledge.supersede", "knowledge.ratify", "knowledge.retract"],
       "only what exists today",
     );
     /*

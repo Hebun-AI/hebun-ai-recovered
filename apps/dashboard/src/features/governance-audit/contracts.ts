@@ -49,12 +49,28 @@ export type KnowledgeMutationAction =
    * `knowledge.reject` is deliberately ABSENT: a rejection records a Governance decision and
    * changes NOTHING in Knowledge, so there is no Knowledge mutation to file.
    */
-  | "knowledge.ratify";
+  | "knowledge.ratify"
+  /**
+   * R6D — one fact was WITHDRAWN FROM SERVICE as part of retracting the ingestion source that
+   * produced it. Its active version's lifecycle moved to `retired`, which every reader already
+   * treats as terminal.
+   *
+   * IT IS NOT `knowledge.delete`, and that absence above still holds: nothing is removed. The node
+   * keeps its statement, its version, its provenance and its ratification linkage, and history stays
+   * readable. What changes is that the organization no longer stands behind it.
+   *
+   * ONE EVENT PER FACT, not one per source. A source-level retraction is N Knowledge mutations that
+   * commit together — filing a single event for N facts would need an identity this vocabulary does
+   * not have and would make the history unqueryable by fact key. `retractedSourceDigest` is what
+   * ties the N rows back into one act.
+   */
+  | "knowledge.retract";
 
 export const KNOWLEDGE_MUTATION_ACTIONS: readonly KnowledgeMutationAction[] = [
   "knowledge.create",
   "knowledge.supersede",
   "knowledge.ratify",
+  "knowledge.retract",
 ];
 
 /**
@@ -162,6 +178,16 @@ export interface KnowledgeMutationMetadata {
   readonly governanceSessionId?: string;
   /** The ratification state BEFORE this mutation. Always false today: re-ratification is refused. */
   readonly previouslyRatified?: boolean;
+
+  /* ── R6D: which ingestion source this withdrawal belonged to ────────────── */
+  /**
+   * The `sha256` of the normalized source text, exactly as ingestion recorded it in the node's
+   * provenance. It is what makes N per-fact retraction events one readable act, and it is a content
+   * identity rather than an upload identity — Hebun keeps no record that a file was received.
+   */
+  readonly retractedSourceDigest?: string;
+  /** How many facts the same retraction withdrew, so one row states the size of the act. */
+  readonly retractedFactCount?: number;
 
   readonly reason?: KnowledgeMutationReason;
 }

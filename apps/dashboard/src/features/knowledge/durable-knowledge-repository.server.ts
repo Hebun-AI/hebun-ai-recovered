@@ -358,6 +358,37 @@ export interface DurableKnowledgeRepository {
     scope: KnowledgeScopeContext,
     now?: Date,
   ): Promise<readonly KnowledgeDomainCounts[]>;
+  /**
+   * One row per INGESTION SOURCE this tenant still holds live Knowledge from (R6D).
+   *
+   * Grouped by `provenance->>'sourceDigest'`, which ingestion writes identically onto every chunk of
+   * one source and hand-authored Knowledge never writes at all — so a single fact authored by hand
+   * cannot appear here, and cannot be retracted by a source-level act.
+   *
+   * A CONTENT identity, not an upload identity. Hebun retains no record that a file was received,
+   * so the same bytes ingested twice under two titles share one digest and appear as ONE source
+   * carrying both titles. That is the honest reading of what is stored, and it is also the more
+   * useful one: retracting the content withdraws both copies.
+   *
+   * Read-only, tenant-scoped, and uncapped for the same reason the domain counts are.
+   */
+  listIngestedSources(scope: KnowledgeScopeContext): Promise<readonly IngestedSourceSummary[]>;
+}
+
+/** One ingestion source, as the retraction surface sees it. */
+export interface IngestedSourceSummary {
+  /** The full sha256 of the normalized source text, as ingestion recorded it. */
+  readonly sourceDigest: string;
+  /** Every title this content was ingested under, ascending. Usually one. */
+  readonly sourceTitles: readonly string[];
+  /** Facts whose active node still carries this digest and is NOT yet retired. */
+  readonly liveFactCount: number;
+  /** Of those, how many carry a bound Governance ratification. */
+  readonly ratifiedFactCount: number;
+  /** Facts from this source already withdrawn — reported so a partial state is visible. */
+  readonly retiredFactCount: number;
+  /** The most recent `updated_at` across the source's active nodes. */
+  readonly lastUpdatedAt: string | null;
 }
 
 /**
@@ -691,6 +722,50 @@ export function createDurableKnowledgeRepository(
         expired: Number(row.expired),
         withdrawn: Number(row.withdrawn),
         unreadable: Number(row.unreadable),
+      }));
+    },
+
+    /*
+     * ── THE SOURCES A RETRACTION COULD TARGET (R6D) ──────────────────────────
+     *
+     * Same `activeNodeJoin`, so the tenant boundary is inherited rather than restated. The digest is
+     * read out of `provenance` jsonb; `is not null` is what excludes hand-authored Knowledge, whose
+     * provenance carries no `sourceDigest` key at all.
+     *
+     * Already-retired facts are COUNTED, not filtered. A source that is half withdrawn is a state an
+     * operator needs to see, and hiding it would make a partially applied retraction look like it
+     * never happened.
+     */
+    async listIngestedSources(scope) {
+      if (!UUID_RE.test(scope.tenantId)) return [];
+
+      const digest = sql<string>`${knowledgeNodes.provenance}->>'sourceDigest'`;
+      const live = sql`${knowledgeNodes.knowledgeLifecycleStatus} is distinct from 'retired'
+                       and ${knowledgeNodes.knowledgeLifecycleStatus} is distinct from 'archived'`;
+
+      const rows = await db
+        .select({
+          sourceDigest: digest,
+          sourceTitles: sql<string[]>`array_agg(distinct ${knowledgeNodes.provenance}->>'sourceTitle')`,
+          liveFactCount: sql<number>`count(*) filter (where ${live})::int`,
+          ratifiedFactCount: sql<number>`count(*) filter (where ${live} and ${knowledgeNodes.ratificationDecisionId} is not null)::int`,
+          retiredFactCount: sql<number>`count(*) filter (where not (${live}))::int`,
+          lastUpdatedAt: sql<string | null>`max(${knowledgeNodes.updatedAt})`,
+        })
+        .from(knowledgeFacts)
+        .leftJoin(knowledgeNodes, activeNodeJoin(scope.tenantId))
+        .where(and(eq(knowledgeFacts.tenantId, scope.tenantId), sql`${digest} is not null`))
+        .groupBy(digest)
+        .orderBy(asc(digest));
+
+      return rows.map((row) => ({
+        sourceDigest: row.sourceDigest,
+        /* `array_agg(distinct …)` can carry a NULL when a chunk recorded no title. Drop it here. */
+        sourceTitles: (row.sourceTitles ?? []).filter((title): title is string => Boolean(title)).sort(),
+        liveFactCount: Number(row.liveFactCount),
+        ratifiedFactCount: Number(row.ratifiedFactCount),
+        retiredFactCount: Number(row.retiredFactCount),
+        lastUpdatedAt: iso(row.lastUpdatedAt),
       }));
     },
   };
