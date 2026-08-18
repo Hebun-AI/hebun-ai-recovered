@@ -1702,3 +1702,36 @@ yaşar; incelenmemiş allow-list'i olan çürür.
 byte'lar request ile bitiyor), yani "bu yükleme" diye bir kimlik YOK. Aynı byte'lar iki başlıkla
 girilirse tek kaynak sayılır — bu dürüst okuma ve daha faydalısı. Kolaylık olsun diye ingestion
 tablosu uydurma; var olan en dar kalıcı kimliği kullan ve ne olduğunu söyle.
+
+**Ders 87 — Vekil ölçüm, karşı-örnek çıkana kadar çalışır; kanıt değildir.**
+G1/G2/K2 "sink'e kim YAZIYOR" iddiasını `from "@/db/schema/audit-log"` importuyla ölçüyordu. R7.1'e
+kadar her importer aynı zamanda writer'dı, yani belirsizlik görünmezdi. Sink'in ilk SALT-OKUR modülü
+gelince üç YAZMA firewall'ı birden onu writer sandı. Doğru onarım gevşetmek değil **sıkılaştırmak**:
+yazmayı mekanizmayla ölç (`.insert|update|delete(auditLog)`), erişilebilirlik census'unu ise **ayrı**
+bir iddia olarak koru. İki ayrı garanti; biri diğerinin yerine geçmez.
+
+**Ders 88 — `LIMIT` nerede ısırır: satırda mı, grupta mı? Fixture'ı doğru olana göre boyutlandır.**
+Aggregate'te `LIMIT` **grup** sayısında ısırır, listede **satır** sayısında. 125 satır ama yalnızca 5
+farklı `action` içeren fixture'da `.limit(100)` hiçbir şeyi kesmez ve bütün sayım assertion'ları geçer.
+Onu reddeden structural `.limit(` yasağıydı, sayım testi değil. **Isırmayan bite en öğreticisidir** —
+hangi testin işi yaptığını açıkça yaz; "fixture her ikisini de kapsıyor" demek tam da bu repoda
+onarılan aşırı-iddia türüdür.
+
+**Ders 89 — Tamlığın tek sinyali BAĞIMSIZ sayımdır.**
+`totalRecordedActs`'i grouped satırlardan toplarsan ikisi inşaat gereği uyuşur ve kesilmeyi gösterecek
+tek işaret silinir. Ayrı bir `count(*)` tut, grouped toplamla karşılaştır. R6B'nin kesik-liste kusuru
+tam olarak böyle yakalanır (bounded listing'e çevirdiğimde 100'e karşı beklenen 125 verdi).
+
+**Ders 90 — Firewall deseni yanlış pozitif veriyorsa, deseni değil KAPSAMI daralt.**
+`/truncate/i` Tailwind'in `truncate` sınıfına çarpıyor. Deseni gevşetmek bir sonraki yazara "bu
+kontrolü esnet" dersini verir; gerçek kontrol böyle çürür. Ham-SQL kontrollerini veritabanına
+ulaşabilen server modülleriyle sınırla, `.tsx`'i ORM-fiili ve salt-okunur yüzey kontrollerine bırak —
+ve bu kapsamı yorumda gerekçesiyle yaz.
+
+**Ders 91 — Kaynak dosyada NUL byte: typecheck, lint, 406 test ve production build'in HEPSİNİ geçer.**
+Bir React `key`'inin içine kaçan tek `\x00`, geçerli UTF-8 olduğu ve o key'e hiçbir assertion bakmadığı
+için bütün kapılardan geçti. Yakalayan tek şey `git add`'in dosyayı **binary** olarak sınıflaması oldu
+(`Bin 0 -> 9021 bytes`). Git'in diff'leyemediği bir kaynak dosya sonsuza dek gözden geçirilemez.
+Ders: `git diff --cached --stat` çıktısında **`Bin`** görürsen dur — ve kontrolü teste bağla
+(`bytes.indexOf(0) === -1` + UTF-8 round-trip). Ayrıca "sona sıralansın" diye U+FFFF gibi yüksek kod
+noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sınıf hatayı davet etmez.
