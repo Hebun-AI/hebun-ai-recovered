@@ -1632,3 +1632,43 @@ Eski R2E writer'ın `onConflictDoUpdate`'inde `where` yoktu, yani her ÇAĞRIDA 
 R5.1 seremonisi `where director_enabled is distinct from $2` taşıyor, yani artık yalnızca gerçek
 geçişlerde artıyor. `version = 30`, "29 geçiş" değil "29 yazma" demek ve kolon iki rejimi ayırt
 edilemez şekilde taşıyor. Sayaçtan tarih üretmeden önce writer'ın predicate'ine bak.
+
+**Ders 76 — Bir read seam'in LİMİTİ onun anlamının parçasıdır; soruyu değiştirince limit de bozulur.**
+`listFacts` 50'de kesiyor ve `(domain_key, fact_key)`'e göre sıralı. LİSTE için doğru — çağırana
+"kesildi" deniyor. SAYIM için sessizce yanlış: sıralama domain'e göre olduğu için tek tek kayıt
+kırpmıyor, alfabetik olarak sondaki KATEGORİLERİN TAMAMINI siliyor. Aynı satırlar, aynı predicate,
+aynı tenant — değişen tek şey sorulan soru. Bir seam'i yeniden kullanmadan önce "doğru shape'i mi
+dönüyor" değil, "limiti YENİ soru için ne demek" diye sor. `MAX_CHUNKS_PER_SOURCE=40` yüzünden iki
+upload bu sınıra yetiyor.
+
+**Ders 77 — Limiti yükseltmek değil, sınırsız ikinci bir STATEMENT yaz.**
+`KNOWLEDGE_LISTING_LIMIT` başka davranışlara bağlı (chunker ona göre seçilmiş, Heby evidence cap'i
+onu aynalıyor). Yükseltmek modelin context'ini sessizce genişletirdi. Doğru çözüm: kayıt başına değil
+DOMAIN başına satır dönen `GROUP BY` — o zaman sınıra ihtiyaç kalmıyor. İkinci statement ikinci
+otorite değildir; join'i (`activeNodeJoin`) paylaş ki tenant predicate'i tek ifade kalsın ve bir
+clause farkıyla kayamasın.
+
+**Ders 78 — Yanlış bir firewall, firewall'suzluktan kötüdür; kapsamı daralt ve NEDENİNİ yaz.**
+R5.1 kalıbı "src/ altında hiçbir dosya bu tabloya yazmaz" burada YANLIŞ olurdu: ölü ama var olan
+`supabase-postgres-adapter.ts` raw SQL ile `knowledge_nodes`'a yazıyor. Doğru olan dar iddiayı kur
+(R6B modülleri yazmıyor) ve ölü yazıcının varlığını da TESTLE sabitle — böylece daraltma unutulmuş
+bir kaza değil, kayıtlı bir karar olur; yazıcı silinirse test kırılır ve firewall meşru şekilde
+genişleyebilir.
+
+**Ders 79 — Bite-proof'un başarısız olmaması da bir sonuçtur; nedenini bul, testi zorlama.**
+Join'deki node↔fact tenant clause'unu tek başına kaldırdım, test GEÇTİ. Sebep: iki tenant clause'undan
+her biri tek başına o senaryoyu engelliyor — savunma derinliği tam olarak budur. Testi "yakalasın diye"
+değiştirmek yerine, anlamlı bite'ın ikisini birden kaldırmak olduğunu kaydet. Redundant olan clause
+zayıflık değil, tasarım.
+
+**Ders 80 — SQL'e taşınan saf mantık YORUMLA değil, EŞDEĞERLİK TESTİYLE dürüst tutulur.**
+`exclusionReasonFor` ve `deriveKnowledgeFreshness` mantığını `count(*) filter` içine kopyalamak
+zorundaydım (her satırı çekmemek için). "Aynı sırayı takip ediyor" diyen bir yorum çürür. Bunun
+yerine aynı seed'lenmiş satırlar üzerinde ikisini de çalıştırıp uyuştuklarını iddia eden bir test
+yaz — iki taraftan biri değişince orada kırılır.
+
+**Ders 81 — Taxonomy SINIFLANDIRIR, asla SİLMEZ.**
+Serbest metin `domain_key` üzerinde kapalı bir kategori sözlüğü kurarken, eşleşmeyen her key
+`uncategorized` altında görünmek zorunda. Aksi halde projection, veritabanında duran kayıtlar için
+"eksik" der — kullanıcının yaptığı işi yok sayar. Ayrıca fold önce, lowercase sonra: `"İ".toLowerCase()`
+JS'te `i`+combining dot üretir ve düz `i`'ye asla eşit olmaz.
