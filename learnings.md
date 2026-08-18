@@ -1790,3 +1790,28 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
   call-site regex is satisfied by an unused import: the grep passes while the property rots.
 - Don't commit production fingerprints to a public repo even when they are not credentials —
   they grant nothing, and publishing them gains nothing either.
+
+## G5A — First Human Bootstrap Ceremony (2026-08-18)
+
+- "Bootstrap cycle" was the wrong frame. `users` has ZERO outbound FKs, so identity is a ROOT of
+  the dependency graph. The tenant-side cycle was already broken by R4A at the nullable
+  `memberships.accepted_invitation_id`. The gap was a missing production SEAM, not a cycle.
+- A writer whose header says "I do not decide whether this MAY happen — that is the caller's
+  authority" is reusable by a new caller without moving ownership. Orchestrate it; never
+  reimplement it. Assert "not a writer" by forbidding insert/values/on-conflict in the new files.
+- Prose, refusal reasons and denials are made of the same words as the things they forbid. Four
+  assertions in this phase failed on the ceremony's own honest text: the banner saying created_by
+  stays NULL, the message saying it will not "reset a password", the phrase "ONE password
+  credential", and the refusal reason "password-too-short". Strip string literals before checking
+  that a VARIABLE reaches a sink; scope name-bans to the file that must not use the column.
+- Scope ordering assertions to the FUNCTION BODY. A module-wide indexOf hits the import block —
+  which made this one impossible to pass, the mirror of R4C.1 where it made one impossible to fail.
+- Choose a lock level by conflict analysis, not caution. SHARE ROW EXCLUSIVE self-conflicts (two
+  ceremonies serialize) and conflicts with ROW EXCLUSIVE (what INSERT takes), while leaving
+  ACCESS SHARE readers unblocked. EXCLUSIVE also works and blocks SELECT FOR UPDATE for no gain.
+- A unique index is not a one-shot guard. users_email_uq stops the same address twice and would
+  admit a second, DIFFERENT first human. Count inside the transaction, after the lock.
+- Prove a concurrency test is real by weakening the lock and watching it go red. Otherwise it may
+  be passing because the two operations happened to serialize.
+- An optional field can already encode a distinction the code ignores. The self-attribution fix
+  needed no new parameter: `createdByType` existed, and `createdBy` simply wasn't following it.
