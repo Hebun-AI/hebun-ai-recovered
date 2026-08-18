@@ -219,7 +219,33 @@ function main(): void {
   /* ── Guards, reused rather than re-implemented ───────────────────────────── */
   {
     assert.match(cliCode, /process\.env\.NODE_ENV === "production"/, "production refused");
-    assert.match(cliCode, /assertLocalDatabaseUrl\(databaseUrl\)/, "the local guard is REUSED");
+    /*
+     * ── REPAIRED BY G4 ───────────────────────────────────────────────────────
+     *
+     * The property this pinned — "the local-database guard is REUSED, not re-implemented" — is
+     * unchanged and is asserted below. What changed is WHERE the reuse happens: G4 routes this
+     * ceremony's locality decision through the shared posture path, which applies this exact guard
+     * in local posture and its exact complement in production posture. Keeping the old call-site
+     * regex would now be satisfied by an unused import — a grep passing while the property rotted.
+     */
+    assert.match(
+      cliCode,
+      /preflightEnvironment\(posture, databaseUrl\)/,
+      "the locality decision is made by the shared posture path",
+    );
+    {
+      const sharedPath = codeOf(read("scripts/lib/ceremony-preflight.ts"));
+      assert.match(
+        sharedPath,
+        /assertLocalDatabaseUrl\(trimmed\)/,
+        "the local guard is REUSED",
+      );
+      assert.match(
+        sharedPath,
+        /assertNonLocalDatabaseUrl\(trimmed\)/,
+        "…and production posture refuses a local database",
+      );
+    }
     assert.doesNotMatch(cliCode, /127\.0\.0\.1|localhost|::1/, "no second copy of the host list");
     assert.match(cliCode, /input\.isTTY/, "non-interactive stdin refused");
     assert.match(cliCode, /confirmation !== tenant\.slug/, "the slug must be retyped");

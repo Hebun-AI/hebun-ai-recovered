@@ -60,9 +60,23 @@
  *   - run against a non-local database (the CLI refuses; see scripts/tenant-provision.ts)
  */
 import type { Client } from "pg";
+import type { CeremonySource } from "./production-possession";
 
 /** Mirrors the value the schema's CHECK constraint permits. */
 export const TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR = "local-operator-ceremony";
+
+/**
+ * G4. The root is now a PARAMETER, and deliberately not an argument, a flag or a default.
+ *
+ * It is derived by `resolveCeremonyPosture()` from the deployment possession signal and cannot be
+ * chosen at the command line: a ceremony that could be told to claim it was a production ceremony
+ * would make `provisioning_source` — the ONLY evidence tenant birth leaves — a value the caller
+ * picks rather than a fact about which deployment was possessed.
+ *
+ * Note what did NOT change. The row still records a SOURCE and never an ACTOR, `created_by` still
+ * stays NULL, and no `audit_log` row is written in either posture, for the same reason as before:
+ * a terminal has no honest actor to name.
+ */
 
 /**
  * The band the bootstrap role carries.
@@ -86,6 +100,11 @@ export interface ProvisionTenantInput {
   readonly slug: string;
   readonly displayName: string;
   readonly identityEmail: string;
+  /**
+   * Which deployment root produced this tenant. Supplied by the CLI from the resolved posture.
+   * Defaults to the local root so every released caller and test keeps its exact prior behaviour.
+   */
+  readonly provisioningSource?: CeremonySource;
 }
 
 /** An existing human, resolved before anything is written. */
@@ -270,7 +289,7 @@ export async function provisionTenant(
       `insert into companies (name, slug, tenant_status, provisioning_source)
        values ($1, $2, 'provisioning', $3)
        returning id`,
-      [displayName, slug, TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR],
+      [displayName, slug, input.provisioningSource ?? TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR],
     );
     const tenantId = company.rows[0]!.id;
 

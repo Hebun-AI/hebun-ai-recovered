@@ -166,7 +166,25 @@ async function main(): Promise<void> {
     );
     assert.deepEqual(namers, [], "only the schema vocabulary owner may name the production root");
 
-    /* And no ceremony writes it: the two ceremonies still name the LOCAL root, unchanged. */
+    /*
+     * ── REPAIRED BY G4, WHICH IS THE CEREMONY G1 SAID A LATER GATE WOULD BUILD ──
+     *
+     * G1's claim was "vocabulary only — no writer exists", and it pinned that by asserting the two
+     * ceremonies never NAME the production root and that all five CLIs call the local guard
+     * directly. Both assertions were true of G1 and are false of G4, which is the gate G1's own
+     * schema header anticipated in as many words.
+     *
+     * The repair keeps everything G1 actually owned and re-expresses only what G4 legitimately
+     * changed. What G1 owned — the vocabulary, the CHECK constraints, `src/` naming and writing
+     * nothing — is asserted above and below, unweakened.
+     */
+
+    /*
+     * The two writers still do not CONTAIN the production literal: it arrives as a parameter
+     * derived from deployment posture, so there is still no string in either module that could
+     * make a production claim on its own. This is a stronger property than G1 pinned, not a weaker
+     * one — G1 forbade the literal, and it is still absent.
+     */
     const provisionCeremony = codeOf(read("scripts/lib/provision-tenant.ts"));
     const genesisCeremony = codeOf(read("scripts/lib/nominate-genesis-human.ts"));
     for (const [label, source] of [
@@ -174,13 +192,13 @@ async function main(): Promise<void> {
       ["nominate-genesis-human", genesisCeremony],
     ] as const) {
       assert.ok(
-        !source.includes("production-operator-ceremony"),
-        `${label} must not name the production root — G1 adds no ceremony`,
+        !source.includes('"production-operator-ceremony"'),
+        `${label} must not hard-code the production root — G4 derives it from posture`,
       );
       assert.ok(source.includes("local-operator-ceremony"), `${label} still names the local root`);
     }
 
-    /* The production and locality fences are untouched, in every ceremony that has them. */
+    /* NODE_ENV=production is refused by all five, unchanged. G4 relaxed nothing here. */
     for (const cli of [
       "scripts/tenant-provision.ts",
       "scripts/genesis-nominate.ts",
@@ -188,10 +206,51 @@ async function main(): Promise<void> {
       "scripts/tenant-lifecycle.ts",
       "scripts/auth-dev-credential.ts",
     ]) {
-      const source = codeOf(read(cli));
-      assert.match(source, /NODE_ENV === "production"/, `${cli} must still refuse production`);
-      assert.match(source, /assertLocalDatabaseUrl/, `${cli} must still refuse a remote database`);
+      assert.match(
+        codeOf(read(cli)),
+        /NODE_ENV === "production"/,
+        `${cli} must still refuse NODE_ENV=production`,
+      );
     }
+
+    /*
+     * The LOCALITY fence: still present in all five, but reached two different ways after G4.
+     *
+     * The two ceremonies G4 deliberately did NOT make production-capable still call the released
+     * guard directly. The three it did call it through the shared posture path, which applies the
+     * SAME guard in local posture and its exact complement in production posture. Asserting the old
+     * call site on all five would now be satisfied by an unused import — a grep passing while the
+     * property rotted — so each is asserted where its guard actually lives.
+     */
+    for (const cli of ["scripts/provider-connectivity.ts", "scripts/auth-dev-credential.ts"]) {
+      assert.match(
+        codeOf(read(cli)),
+        /assertLocalDatabaseUrl/,
+        `${cli} is local-only and must still call the local guard directly`,
+      );
+    }
+    for (const cli of [
+      "scripts/tenant-provision.ts",
+      "scripts/genesis-nominate.ts",
+      "scripts/tenant-lifecycle.ts",
+    ]) {
+      assert.match(
+        codeOf(read(cli)),
+        /preflightEnvironment\(posture, databaseUrl\)/,
+        `${cli} must resolve locality through the shared posture path`,
+      );
+    }
+    const sharedPath = codeOf(read("scripts/lib/ceremony-preflight.ts"));
+    assert.match(
+      sharedPath,
+      /assertLocalDatabaseUrl\(trimmed\)/,
+      "local posture still refuses a remote database",
+    );
+    assert.match(
+      sharedPath,
+      /assertNonLocalDatabaseUrl\(trimmed\)/,
+      "production posture refuses a local one",
+    );
   }
 
   /* ── Database-proved behaviour ───────────────────────────────────────────── */

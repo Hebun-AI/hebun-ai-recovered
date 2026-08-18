@@ -24,6 +24,7 @@
  * operated it. This is not a platform-admin authority and not a Governance authority.
  */
 import type { Client } from "pg";
+import type { CeremonySource } from "./production-possession";
 
 /** Mirrors the value the schema's CHECK constraint permits. */
 export const NOMINATION_SOURCE_LOCAL_OPERATOR = "local-operator-ceremony";
@@ -154,6 +155,12 @@ export type NominationOutcome =
 export async function nominateGenesisHuman(
   client: Client,
   target: NominationTarget,
+  /*
+   * G4. The root, derived from deployment possession by `resolveCeremonyPosture()` and never
+   * expressible as a command-line argument. Defaults to the local root, so every released caller
+   * and test keeps its exact prior behaviour. `status` is still not a parameter.
+   */
+  nominationSource: CeremonySource = NOMINATION_SOURCE_LOCAL_OPERATOR,
 ): Promise<NominationOutcome> {
   const existing = await findExistingNomination(client, target.tenantId);
   if (existing) return { status: "already-nominated", existing };
@@ -168,7 +175,7 @@ export async function nominateGenesisHuman(
         target.tenantId,
         target.authIdentityId,
         target.userId,
-        NOMINATION_SOURCE_LOCAL_OPERATOR,
+        nominationSource,
       ],
     );
     return { status: "nominated", nominationId: inserted.rows[0]!.id };

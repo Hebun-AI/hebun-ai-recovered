@@ -33,7 +33,8 @@
  */
 import { createInterface } from "node:readline";
 import { Client } from "pg";
-import { assertLocalDatabaseUrl } from "./lib/provision-dev-credential";
+import { preflight, preflightEnvironment } from "./lib/ceremony-preflight";
+import { resolveCeremonyPosture } from "./lib/production-possession";
 import {
   LIFECYCLE_TRANSITIONS,
   MAX_SUSPENSION_REASON_CHARACTERS,
@@ -101,18 +102,31 @@ async function main(): Promise<void> {
     );
   }
 
+  /*
+   * G4. POSTURE FIRST, before a connection is spent.
+   *
+   * Absent `HEBUN_PRODUCTION_CEREMONY` is the released behaviour verbatim — local posture, local
+   * database, local root. The exact production signal opens the production posture, which requires
+   * a pinned target and refuses a loopback URL. Anything else refuses outright and is never
+   * downgraded to local.
+   */
+  const posture = resolveCeremonyPosture(process.env);
   const databaseUrl = process.env.DATABASE_URL?.trim();
-  if (!databaseUrl) {
-    fail("DATABASE_URL is not set. Point it at your local Hebun development database.");
-  }
-  try {
-    assertLocalDatabaseUrl(databaseUrl);
-  } catch (error) {
-    fail(error instanceof Error ? error.message : String(error));
-  }
+  const environment = preflightEnvironment(posture, databaseUrl);
+  if (environment.status === "refused") fail(environment.detail);
 
-  const client = new Client({ connectionString: databaseUrl });
+  const client = new Client({ connectionString: databaseUrl! });
   await client.connect();
+
+  /*
+   * TARGET BINDING. In local posture this is a banner and nothing else. In production posture it
+   * proves the live cluster is the pinned one before a single application row is read.
+   */
+  const ready = await preflight(client, environment.posture, { provenance: "none" });
+  if (ready.status === "refused") {
+    await client.end();
+    fail(ready.detail);
+  }
 
   try {
     const tenant = await findTenantBySlug(client, slug);

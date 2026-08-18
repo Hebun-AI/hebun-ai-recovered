@@ -202,11 +202,33 @@ function main(): void {
       /process\.env\.NODE_ENV === "production"/,
       "the ceremony must refuse to run in production",
     );
+    /*
+     * ── REPAIRED BY G4 ───────────────────────────────────────────────────────
+     *
+     * The property this pinned — "the local-database guard is REUSED, not re-implemented" — is
+     * unchanged and is asserted below. What changed is WHERE the reuse happens: G4 routes this
+     * ceremony's locality decision through the shared posture path, which applies this exact guard
+     * in local posture and its exact complement in production posture. Keeping the old call-site
+     * regex would now be satisfied by an unused import — a grep passing while the property rotted.
+     */
     assert.match(
       cliCode,
-      /assertLocalDatabaseUrl\(databaseUrl\)/,
-      "the local-database guard must be REUSED, not re-implemented",
+      /preflightEnvironment\(posture, databaseUrl\)/,
+      "the locality decision is made by the shared posture path",
     );
+    {
+      const sharedPath = codeOf(read("scripts/lib/ceremony-preflight.ts"));
+      assert.match(
+        sharedPath,
+        /assertLocalDatabaseUrl\(trimmed\)/,
+        "the local-database guard must be REUSED, not re-implemented",
+      );
+      assert.match(
+        sharedPath,
+        /assertNonLocalDatabaseUrl\(trimmed\)/,
+        "…and production posture refuses a local database",
+      );
+    }
     assert.doesNotMatch(
       cliCode,
       /127\.0\.0\.1|localhost|::1/,
@@ -236,7 +258,7 @@ function main(): void {
     assert.doesNotMatch(coreCode, /process\.env/, "the ceremony core reads no environment at all");
   }
 
-  /* ── The input cannot express identity, lifecycle, plan or provenance ────── */
+  /* ── The input cannot express identity, lifecycle or plan ───────────────── */
   {
     const input = coreSrc.match(/export interface ProvisionTenantInput \{[\s\S]*?\}/)?.[0] ?? "";
     assert.ok(input.length > 0, "ProvisionTenantInput must exist");
@@ -248,7 +270,6 @@ function main(): void {
       "status",
       "actor",
       "createdBy",
-      "provisioningSource",
       "roleId",
       "userId",
       "lifecycleStatus",
@@ -260,10 +281,57 @@ function main(): void {
         `the client-facing input must not be able to supply ${forbidden}`,
       );
     }
+
+    /*
+     * ── REPAIRED BY G4: `provisioningSource` LEFT THIS LIST ON PURPOSE ───────
+     *
+     * R4A forbade the field because the root was a hard-coded literal and no caller had any
+     * business overriding it. G4 is the gate G1's schema header said would build the production
+     * ceremony, and a ceremony that may run against either deployment must be able to record WHICH
+     * one — so the root became a parameter.
+     *
+     * The property R4A was protecting is UNCHANGED: no caller may fabricate a root. It is now
+     * enforced by four things instead of by the field's absence, and each is asserted rather than
+     * asserted-about:
+     *
+     *   1. the type is the two-member released union, so no third value is expressible;
+     *   2. omitting it yields the LOCAL root (proved against a real database in g4-flow);
+     *   3. the only production caller binds it to the resolved posture and to nothing else
+     *      (pinned exactly in g4-flow — a bite-proof that spliced `process.argv` in front of it
+     *      survived the first, weaker version of that assertion);
+     *   4. nothing under `src/` can import this module at all.
+     *
+     * Everything else on the list above is still forbidden, including `createdBy` — possession is
+     * still a SOURCE and never an ACTOR.
+     */
+    assert.match(
+      input,
+      /readonly provisioningSource\?: CeremonySource;/,
+      "the root is optional and typed to the closed released union",
+    );
+    const union = codeOf(read("scripts/lib/production-possession.ts")).match(
+      /export type CeremonySource =[^;]*;/,
+    )?.[0];
+    assert.equal(
+      union,
+      "export type CeremonySource = typeof CEREMONY_SOURCE_LOCAL | typeof CEREMONY_SOURCE_PRODUCTION;",
+      "…and that union admits exactly the two released roots",
+    );
+    assert.match(
+      coreCode,
+      /input\.provisioningSource \?\? TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR/,
+      "omitting the root must yield the LOCAL one, never the production one",
+    );
+
     assert.deepEqual(
       [...input.matchAll(/readonly (\w+):/g)].map((m) => m[1]!).sort(),
       ["displayName", "identityEmail", "slug"],
-      "three fields, and no fourth",
+      "three required fields, and no fourth",
+    );
+    assert.deepEqual(
+      [...input.matchAll(/readonly (\w+)\?:/g)].map((m) => m[1]!).sort(),
+      ["provisioningSource"],
+      "exactly one optional field, and it is the root",
     );
   }
 
