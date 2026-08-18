@@ -270,6 +270,68 @@ temporary non-destructive visual emphasis, and their accessibility, security, to
 and Computer-Use boundaries — is recorded (as a future, unimplemented capability) in the
 [Product Information Architecture](ui/hebun-information-architecture.md#51-guided-explanation-layer--a-cross-cutting-presentation-capability-future). Nothing here is implemented, and nothing here authorizes implementation.
 
+## Heby Immersive Mode
+
+**Status: DEFERRED — APPROVED DIRECTION, NOT OPEN.** Recorded here as an interaction and command concept. It opens no work, changes no roadmap sequence, and authorizes no implementation.
+
+*Heby Immersive Mode* is provisional product vocabulary for a private, full-screen interaction environment for Heby, intended for a highly privileged Hebun user such as the Director. The name denotes a presentation and interaction layer only — **it is not a runtime, not an authority, and not a second Heby.**
+
+### What it is, and what it is not
+
+It is a different *presentation and interaction layer* over the existing Heby runtime, inside that runtime's existing authority boundaries. It is **not** a second Heby, a second Heby runtime, a new model authority, or a privileged AI. Heby's identity, capability boundary, read-only relationship to Memory, Reasoning, Organization and Runtime, and the Director Approval boundary all apply unchanged, exactly as recorded in [Heby — Roadmap §5](heby-roadmap.md).
+
+### Experience direction
+
+- **Entry.** An explicit privileged entry mechanism may open the environment from the standard dashboard. **The entry mechanism is NOT designed.** A hidden or special command may be considered as UX, but **a special command is not security**: a secret command, hidden URL, cursor gesture, or any obscurity mechanism must never be treated as authentication or authorization. Real authorization stays server-side.
+- **Environment.** Visually separated from the standard dashboard: no standard sidebar, no standard header, dark full-screen field, restrained gold/amber Hebun visual language, ambient particle or wave visualization. **No human face. No religious text, and no representation of Allah, Muhammad, Qur'anic text, sacred calligraphy, or religious iconography.** The intended feeling — calm, geometric, contemplative — is achieved without religious symbols. Any visual reference produced during exploration is conceptual only and is **not an implementation contract**.
+- **Custom cursor.** A small luminous gold centre, a thin orbital ring, subtle response to movement, and an extremely short-lived trail — restrained rather than game-like.
+- **Contextual composer.** The composer need not remain permanently visible. Ambient while the pointer is idle; pointer movement toward a defined lower interaction zone may reveal it; moving away may let it fade. Timing and interaction rules are a future UX decision. This is **presentation behaviour only** and must not change Heby's conversation or runtime semantics.
+- **Hebun Flow.** A narrow contextual panel may show a small number of recent, relevant Hebun events — roughly the first three clearly visible, the fourth beginning to fade, older ones fading out rather than accumulating into a conventional sidebar. The flow should read as *temporal*, not as application navigation.
+
+### Two rules that constrain what may be shown
+
+**Animation must never fabricate runtime state.** If the environment indicates that Heby is processing, executing, waiting, or completing, that state must originate from a real connected runtime state. Fictional "AI thinking" or fabricated execution animation is prohibited.
+
+**Hebun Flow must never display mock or invented activity as organizational truth.** Every displayed event must come from a real authoritative or connected Hebun source, carrying explicit provenance. **The data source is NOT DECIDED and is deliberately not chosen here.** A future R7 stage may or may not provide a suitable observation seam; no dependency on R7 is created by this record, and the correct seam must be proved from repository evidence at the implementation gate.
+
+### `/exit` — reserved command concept
+
+The concept `/exit` is reserved for leaving Immersive Mode and returning to the standard dashboard. It must eventually be handled as an **application-level UI command**: it must never be sent to the model as a user prompt, must never grant or revoke authority, and must never perform a consequential mutation. Navigation and state-preservation behaviour remain deferred.
+
+Two facts from repository reality bear on this and should be re-checked at the gate rather than assumed now:
+
+- The Heby command registry already distinguishes a `local` command kind whose descriptors carry `requiresModel: false` as a registry invariant. A model-free application command therefore needs **no new mechanism**.
+- **`/close` already exists** and is described as "Close the Heby panel, or leave the Heby workspace and return." Its meaning overlaps `/exit` substantially. Whether Immersive Mode introduces `/exit` at all, or simply reuses `/close`, is an open question for the implementation gate — adding a second command for one behaviour would create exactly the drift the single registry exists to prevent.
+
+### Access boundary
+
+The intended experience is private to a highly privileged user. **This product intention must not be converted into a new authorization system.** No admin role and no access authority may be invented to support this concept. At implementation time, repository reality determines the legitimate authority owner; a `director` role type already exists in the role vocabulary, which is a candidate to audit, not a decision made here.
+
+### Architectural invariants
+
+Heby Immersive Mode must not: create a second Heby; create a second Heby runtime; create a new model authority; bypass Heby runtime contracts, Governance, Security, tenant isolation, or action authorization; directly execute Computer Use, shell, browser, or device actions; create a new organizational source of truth; fabricate runtime activity; fabricate Hebun Flow events; or reinterpret derived data as authoritative data.
+
+It is primarily a presentation and interaction capability.
+
+### Relationship to current work
+
+**Deferred. It is not an R7 stage, it is not R7.1, and it does not change the approved R7 sequence,** which continues under its existing Director gate. The concept stays dormant until a future implementation gate explicitly authorizes it.
+
+That gate must begin with a repository audit of: the current Heby UI, the Heby runtime, conversation ownership, session state, routing, Director/Admin authority, event and observation sources, whichever R7 outputs exist at that time, navigation and state preservation, and the client/server security boundary. Only then may an implementation plan be approved.
+
+### Status — recorded precisely, and not to be upgraded without a Director Decision
+
+| Aspect | Status |
+| --- | --- |
+| Product concept | DESIGNED / APPROVED DIRECTION |
+| UI implementation | NOT IMPLEMENTED |
+| Runtime integration | NOT CONNECTED |
+| Access mechanism | NOT DESIGNED |
+| Hebun Flow data source | NOT DECIDED |
+| Custom cursor | NOT IMPLEMENTED |
+| Contextual composer | NOT IMPLEMENTED |
+| `/exit` application command | NOT IMPLEMENTED |
+
 ## Future Interaction Ideas
 
 Future Director Decisions may extend this document with additional interaction philosophies, command concepts, conversation modes, explainability patterns, accessibility ideas, and multimodal concepts.
