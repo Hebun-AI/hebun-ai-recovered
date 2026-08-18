@@ -14,6 +14,11 @@
  *                                         and which transport the config would select. It never
  *                                         carries a key, a health figure, a cost, or a latency,
  *                                         and it never collapses those states into one boolean.
+ *   /usage                                 (R2F.1) recorded provider usage — the tenant's own
+ *                                         durable message rows, totalled. Provider-REPORTED token
+ *                                         counts only: no price, no currency, no budget, and the
+ *                                         totals are stated as lower bounds because a call whose
+ *                                         local record never persisted leaves no row to count.
  *   /security                              the Security Center source map — a truthful statement of
  *                                         what each security source can and cannot prove. It
  *                                         reports the ABSENCE of a live feed as the finding it is.
@@ -57,6 +62,11 @@ import {
   readProviderOpsView,
   type ProviderOpsView,
 } from "@/features/heby-provider-ops/provider-connectivity-projection.server";
+import { readRecordedProviderUsage } from "@/features/heby-provider-ops/provider-usage-aggregation.server";
+import {
+  hasNoRecordedUsage,
+  type RecordedProviderUsageRead,
+} from "@/features/heby-provider-ops/usage-contracts";
 import { listSecuritySources, hasConnectedSecurityFeed } from "@/features/security-center/source-map";
 import { listSecurityFindings } from "@/features/security-center/findings";
 import {
@@ -84,6 +94,12 @@ export interface HebyReadCommandDeps {
   readonly resolveTenant: () => Promise<TenantContext | null>;
   readonly readOverview?: () => ExecutiveOverviewLike | undefined;
   readonly readProviderOps?: () => Promise<ProviderOpsView>;
+  /**
+   * R2F.1 — the recorded-usage aggregation seam. THE SAME function the provider matrix calls;
+   * there is deliberately no second computation of a total inside command dispatch, because two
+   * implementations of one number is how two surfaces come to disagree about it.
+   */
+  readonly readUsage?: (tenant: TenantContext) => Promise<RecordedProviderUsageRead>;
   readonly getConversationRepo?: () => DurableConversationRepository | null;
   /** K1 — the canonical Knowledge read seam. Injectable so the flow is provable with no database. */
   readonly knowledge?: KnowledgeReadDeps;
@@ -119,6 +135,23 @@ const KNOWLEDGE_CLOSING = [
   "There is no search, embedding or semantic retrieval over it: knowledge here is readable, not findable by meaning.",
   "Knowledge describes its own subject. It never states what the system is doing now; for that, the live read models remain the source.",
 ] as const;
+
+/**
+ * R2F.1 — the honest closing note for a recorded-usage read.
+ *
+ * It states the three things an operator would otherwise have to infer: that these are counts
+ * the provider reported and Hebun stored rather than an account balance, that a call whose
+ * record never landed is invisible here, and that no money figure exists anywhere to convert
+ * them into. Written as a floor, on purpose — see the aggregation module's header.
+ */
+const USAGE_CLOSING = [
+  "These are RECORDED totals: token counts the provider reported and Hebun durably stored. They are not a bill, not a charge, and not an account balance.",
+  "They are a lower bound. A provider request that succeeded while its local record failed to persist spent real resources and left no row, and nothing here can recover it.",
+  "Hebun holds no pricing for any model, so no monetary cost is shown or derivable from this. There is no budget and no limit attached to these numbers.",
+] as const;
+
+const USAGE_PROVENANCE =
+  "Durable conversation records, scoped to your tenant. Provider-reported token counts only — no price, no currency, no budget.";
 
 /** Render one Knowledge record with its own provenance and standing intact. */
 function knowledgeRecordLines(record: KnowledgeSourceRecord): readonly string[] {
@@ -290,6 +323,68 @@ export async function runHebyReadCommand(
         command.handler === "model" ? "Configured model" : command.label,
         [...shared, "", closing],
         "Durable Director control + server configuration. No secret, no health figure, no cost, no latency.",
+      );
+    }
+
+    /* ── Recorded provider usage (R2F.1) ──────────────────────────────────
+     * Reads durable rows and nothing else: no transport is constructed, no provider is
+     * contacted, and the Director's connectivity permission is not consulted at all. The kill
+     * switch governs FUTURE dispatch; it does not retract usage that already happened, so this
+     * command keeps working while Claude is off — which is exactly when somebody is most likely
+     * to ask what was used.
+     *
+     * Every number is labelled RECORDED. Hebun cannot observe what the provider actually
+     * charged, and it cannot even observe every call it made: a provider request that succeeded
+     * while local persistence failed left no row anywhere. The totals are therefore a floor, and
+     * the closing lines say so rather than letting a floor be read as a fact.
+     */
+    case "usage": {
+      const read = await (deps.readUsage ?? ((t: TenantContext) => readRecordedProviderUsage(t)))(
+        tenant,
+      );
+      if (read.status === "unavailable") {
+        return unavailable(slash, "Recorded provider usage", [
+          read.reason === "persistence-not-configured"
+            ? "Durable storage is not configured, so no provider usage has ever been recorded to read."
+            : "Recorded provider usage could not be read, and nothing was substituted for it.",
+          `Reason: ${read.reason}.`,
+        ], USAGE_PROVENANCE);
+      }
+
+      const { totals, byModel, byDay } = read.usage;
+      if (hasNoRecordedUsage(read.usage)) {
+        return ok(slash, "Recorded provider usage", [
+          "Your organization has no recorded provider usage.",
+          "That is the real state, not a read failure — no model request from this organization has been durably recorded, so there is nothing to total.",
+          "",
+          ...USAGE_CLOSING,
+        ], USAGE_PROVENANCE);
+      }
+
+      const n = (value: number) => value.toLocaleString("en-US");
+      return ok(
+        slash,
+        "Recorded provider usage",
+        [
+          `Recorded provider calls: ${n(totals.recordedCalls)}.`,
+          `Recorded input tokens: ${n(totals.inputTokens)}.`,
+          `Recorded output tokens: ${n(totals.outputTokens)}.`,
+          `Recorded tokens in total: ${n(totals.totalTokens)}.`,
+          totals.unknownTokenRows === 0
+            ? `Calls whose token counts the provider did not fully report: 0. Every recorded call carries both counts.`
+            : `Calls whose token counts the provider did not fully report: ${n(totals.unknownTokenRows)}. They are counted here and deliberately left out of the token sums — an unreported count is not a zero.`,
+          "",
+          `By model (${byModel.length}):`,
+          ...byModel.map(
+            (group) =>
+              `  ${group.key} — ${n(group.recordedCalls)} call${group.recordedCalls === 1 ? "" : "s"}, ${n(group.totalTokens)} recorded token${group.totalTokens === 1 ? "" : "s"}`,
+          ),
+          "",
+          `Days with recorded usage: ${n(byDay.length)} (most recent: ${byDay[0]?.key ?? "none"}, UTC).`,
+          "",
+          ...USAGE_CLOSING,
+        ],
+        USAGE_PROVENANCE,
       );
     }
 

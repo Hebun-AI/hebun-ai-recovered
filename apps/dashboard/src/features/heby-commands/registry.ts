@@ -306,10 +306,17 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
   },
   {
     id: "usage", slash: "/usage", label: "Usage", category: "platform", kind: "read",
-    description: "Show token or spend totals.",
-    availability: "requires-source", handler: "usage", ...base("read"),
-    unavailableReason:
-      "No usage-aggregation authority exists. Individual exchanges record their own token counts, but Hebun has no seam that totals them, and an invented total would be worse than none.",
+    /*
+     * R2F.1 made this real. It was `requires-source` because individual exchanges recorded
+     * their own token counts and nothing totalled them; the aggregation seam now exists, so
+     * the old reason would be a false statement about a capability that shipped.
+     *
+     * The description says RECORDED, and says tokens rather than spend, because that is the
+     * whole of what this reads: durably persisted provider-REPORTED counts. No price, no
+     * currency and no budget exists anywhere in Hebun, so none is offered here.
+     */
+    description: "Show recorded provider token totals for your organization.",
+    availability: "available", handler: "usage", ...base("read"),
   },
 
   /* ── Agents / workforce ───────────────────────────────────────────────────

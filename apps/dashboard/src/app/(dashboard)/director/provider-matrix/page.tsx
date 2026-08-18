@@ -1,10 +1,13 @@
-import { Mail, PlugZap } from "lucide-react";
+import { Gauge, Mail, PlugZap } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ProvidersModelsSurface } from "@/components/platform-providers/providers-models-surface";
 import { ProviderConnectivityControlCard } from "@/components/platform-providers/provider-connectivity-control-card";
 import { ExternalSendArmingCard } from "@/components/platform-providers/external-send-arming-card";
+import { RecordedUsageCard } from "@/components/platform-providers/recorded-usage-card";
 import { readProviderOpsView } from "@/features/heby-provider-ops/provider-connectivity-projection.server";
+import { readRecordedProviderUsage } from "@/features/heby-provider-ops/provider-usage-aggregation.server";
 import { readExternalSendOpsView } from "@/features/action-execution/execution-arming-projection.server";
+import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 
 export const metadata = { title: "Providers & Models — Hebun AI" };
 
@@ -24,6 +27,13 @@ export default async function ProviderMatrixPage() {
   const providerOps = await readProviderOpsView();
   // The external-send arming boundary (R3B). A DIFFERENT provider key, a different blast radius.
   const externalSendOps = await readExternalSendOpsView();
+  /*
+   * R2F.1 — recorded provider usage, scoped to the tenant this session is authorized in. The
+   * tenant is resolved SERVER-SIDE here exactly as every other authorized read resolves it; an
+   * unauthenticated or suspended session yields no context and the card says so rather than
+   * showing another tenant's numbers or a fabricated zero.
+   */
+  const recordedUsage = await readRecordedProviderUsage(await resolveTenantContext());
 
   return (
     <>
@@ -70,6 +80,26 @@ export default async function ProviderMatrixPage() {
           until the credential, sender and subject are configured.
         </p>
         <ExternalSendArmingCard view={externalSendOps} />
+      </section>
+
+      {/*
+        RECORDED PROVIDER USAGE (R2F.1). Reporting, not governing: this section shows what was
+        already measured and stored, and controls nothing. It reads durable rows only — no
+        transport is constructed and the Director permission is not consulted, so the totals stay
+        readable while connectivity is off. The kill switch above governs the NEXT request; it
+        does not retract usage that already happened.
+      */}
+      <section className="mt-6 flex min-w-0 flex-col gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-fg">
+          <Gauge className="size-4 text-primary" aria-hidden="true" />
+          Recorded provider usage
+        </div>
+        <p className="max-w-3xl text-xs leading-5 text-fg-muted">
+          Provider-reported token counts Hebun has durably recorded for this organization, totalled
+          from the conversation records themselves. These are recorded measurements, not a bill:
+          Hebun holds no pricing, applies no budget, and refuses no request on the basis of them.
+        </p>
+        <RecordedUsageCard read={recordedUsage} />
       </section>
     </>
   );

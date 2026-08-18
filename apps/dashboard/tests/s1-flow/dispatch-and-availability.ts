@@ -235,7 +235,7 @@ async function main(): Promise<void> {
       incidents: /incident feed/i,
       threats: /telemetry|threat feed/i,
       permissions: /authorization analysis/i,
-      usage: /usage-aggregation/i,
+      // R2F.1: /usage gained a real aggregation authority and moved to the available set below.
       // K1: /knowledge and /source gained a real read authority and moved to the available set
       // below. /search did NOT — after KR3 Hebun can rank, but there is still no search
       // authority, so it stays blocked and now names that gap precisely.
@@ -256,6 +256,21 @@ async function main(): Promise<void> {
     for (const id of ["providers", "model", "connectivity"]) {
       assert.equal(findHebyCommandById(id)!.availability, "available", `/${id} is backed by a real view`);
       assert.equal(plan(id).kind, "read");
+    }
+
+    // R2F.1: /usage IS available — the recorded-usage aggregation seam totals the tenant's own
+    // durable message rows. It stayed a READ, stayed safe with the provider off (it reads stored
+    // rows and constructs no transport), and it promises TOKENS rather than spend, because Hebun
+    // still holds no pricing for any model.
+    {
+      const usage = findHebyCommandById("usage")!;
+      assert.equal(usage.availability, "available", "/usage is backed by a real aggregation seam");
+      assert.equal(usage.unavailableReason, undefined, "and carries no leftover gap statement");
+      assert.equal(usage.kind, "read");
+      assert.equal(usage.requiresModel, false);
+      assert.equal(usage.safeWhenProviderOff, true);
+      assert.ok(!/spend/i.test(usage.description), "/usage promises tokens, not spend");
+      assert.equal(plan("usage").kind, "read");
     }
 
     // K1: Knowledge listing and named-source read ARE available — the canonical Knowledge
