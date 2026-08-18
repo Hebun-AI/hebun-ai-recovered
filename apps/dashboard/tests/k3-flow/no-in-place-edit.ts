@@ -526,8 +526,37 @@ async function main(): Promise<void> {
         `K3 adds no migration — the supersession columns already existed (found ${name})`,
       );
     }
+    /*
+     * ── REPAIRED BY R4C.2 ────────────────────────────────────────────────
+     *
+     * This asserted `Object.keys(dependencies).length === 8`, which is a REPOSITORY-WIDE count
+     * dressed up as a phase claim. K3's claim is that K3 needed no library; a global count says
+     * something much stronger — that no phase ever will — and it failed the moment R4C.2 added a
+     * reviewed PDF parser, for a reason that has nothing to do with supersession.
+     *
+     * Scoped to what K3 actually asserts: the dependencies K3 shipped against are all still here,
+     * and no diffing or versioning library was ever introduced to do K3's job for it.
+     */
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
-    assert.equal(Object.keys(pkg.dependencies).length, 8, "K3 adds no dependency");
+    for (const baseline of [
+      "clsx",
+      "drizzle-orm",
+      "lucide-react",
+      "next",
+      "pg",
+      "react",
+      "react-dom",
+      "tailwind-merge",
+    ]) {
+      assert.ok(pkg.dependencies[baseline], `${baseline} is still a dependency`);
+    }
+    for (const wouldHaveDoneK3sJob of ["deep-diff", "jsondiffpatch", "immer", "diff", "fast-json-patch"]) {
+      assert.equal(
+        pkg.dependencies[wouldHaveDoneK3sJob],
+        undefined,
+        `K3 adds no dependency — supersession is written here, not delegated to ${wouldHaveDoneK3sJob}`,
+      );
+    }
   }
 
   /* ── 20. THE HISTORY WALK IS BOUNDED AND CYCLE-SAFE BY CONSTRUCTION ─────── */

@@ -10,6 +10,13 @@
  * The decoder and bounds are exercised as FUNCTIONS, not described. Where the claim is about what
  * the code may not become, the released source is read.
  *
+ * ── WIDENED BY R4C.2 ─────────────────────────────────────────────────────────
+ *
+ * R4C.2 made `.pdf` readable. The claims that were about "text-native formats only" are narrowed to
+ * the ones still true — the boundary itself still handles no bytes-to-characters work of its own,
+ * and DOCX, OCR, archives, storage, automation and an HTTP endpoint all remain absent. The parser's
+ * own firewall lives in `tests/r4c2-flow/pdf-extraction.ts`.
+ *
  * Pure — no database, no clock, no network.
  */
 import assert from "node:assert/strict";
@@ -19,7 +26,7 @@ import {
   MAX_FILE_BYTES,
   NEXT_SERVER_ACTION_BODY_LIMIT_BYTES,
   SUPPORTED_FILE_EXTENSIONS,
-  contradictsTextMediaType,
+  contradictsDeclaredType,
   decodeUtf8Strictly,
   extensionOf,
   sourceTitleFromFileName,
@@ -65,22 +72,26 @@ function main(): void {
   const boundaryCode = codeOf(read(BOUNDARY));
   const contractsCode = codeOf(read(CONTRACTS));
 
-  /* ── 1. THE ACCEPTED SET IS EXACTLY TWO TEXT-NATIVE FORMATS ────────────── */
+  /* ── 1. THE ACCEPTED SET IS SMALL, CLOSED, AND STILL EXCLUDES THE REST ─── */
   {
+    /*
+     * `.pdf` joined the set in R4C.2 under its own security gate. What this still locks is that the
+     * set is SMALL and CLOSED — a format arrives by a phase, never by a convenience.
+     */
     assert.deepEqual(
       Object.keys(SUPPORTED_FILE_EXTENSIONS).sort(),
-      [".markdown", ".md", ".txt"],
-      "generation one reads .txt and .md and nothing else",
+      [".markdown", ".md", ".pdf", ".txt"],
+      "the readable set is exactly these four",
     );
     assert.deepEqual(
       [...new Set(Object.values(SUPPORTED_FILE_EXTENSIONS))].sort(),
-      ["markdown", "plain-text"],
+      ["markdown", "pdf", "plain-text"],
       "and each maps into the CLOSED source-type vocabulary",
     );
     /* The vocabulary is closed at its owner, so a caller cannot invent a provenance label. */
-    assert.deepEqual([...KNOWLEDGE_SOURCE_TYPES].sort(), ["markdown", "plain-text"]);
+    assert.deepEqual([...KNOWLEDGE_SOURCE_TYPES].sort(), ["markdown", "pdf", "plain-text"]);
 
-    for (const rejected of [".pdf", ".docx", ".doc", ".html", ".htm", ".csv", ".xlsx", ".zip", ".png", ".jpg", ".rtf", ".odt", ""]) {
+    for (const rejected of [".docx", ".doc", ".html", ".htm", ".csv", ".xlsx", ".zip", ".png", ".jpg", ".rtf", ".odt", ""]) {
       assert.equal(
         SUPPORTED_FILE_EXTENSIONS[rejected],
         undefined,
@@ -101,16 +112,21 @@ function main(): void {
     assert.equal(extensionOf("plain"), "");
   }
 
-  /* ── 2. NO PARSER, NO OCR, NO ARCHIVE — BY ABSENCE ─────────────────────── */
+  /* ── 2. THE BOUNDARY ITSELF STILL PARSES NOTHING ───────────────────────── */
   {
+    /*
+     * `pdf` left this list in R4C.2: the boundary now names the parser it delegates to. Everything
+     * else stays, and the shape of the claim is unchanged — the boundary routes, it does not read.
+     * That the PARSER reaches none of these is asserted in `tests/r4c2-flow/pdf-extraction.ts`.
+     */
     for (const forbidden of [
-      "pdf",
       "docx",
       "mammoth",
       "pdfjs",
       "unpdf",
       "ocr",
       "tesseract",
+      "mammoth",
       "jszip",
       "yauzl",
       "unzip",
@@ -151,7 +167,7 @@ function main(): void {
       for (const specifier of imports) {
         assert.ok(
           specifier.startsWith(".") || specifier.startsWith("@/"),
-          `${label} imports ${specifier} — R4C.1 adds no dependency`,
+          `${label} imports ${specifier} — neither module imports a package directly`,
         );
       }
     }
@@ -225,24 +241,43 @@ function main(): void {
 
   /* ── 5. A DECLARED MEDIA TYPE MAY REFUSE, NEVER ACCEPT ─────────────────── */
   {
-    /* Empty and generic are accepted: the OS registry, not the user, decides what is present. */
-    for (const tolerated of ["", "   ", "text/plain", "text/markdown", "text/x-markdown", "TEXT/PLAIN", "application/octet-stream"]) {
-      assert.equal(contradictsTextMediaType(tolerated), false, `${tolerated || "(empty)"} is tolerated`);
+    /*
+     * ── WIDENED BY R4C.2 ──────────────────────────────────────────────────
+     *
+     * This block used to test one rule that tolerated `text/*` and refused everything else, which
+     * was right while every readable format was text. It is judged against the SOURCE TYPE now:
+     * the old rule would have refused `application/pdf` on a `.pdf` — the correct and most common
+     * declaration there is — and tolerated `text/plain` on one. Both directions are asserted below.
+     */
+    /* Empty and generic are tolerated for every type: the OS registry, not the user, decides. */
+    for (const tolerated of ["", "   ", "application/octet-stream"]) {
+      for (const type of ["plain-text", "markdown", "pdf"] as const) {
+        assert.equal(contradictsDeclaredType(type, tolerated), false, `${type}: ${tolerated || "(empty)"}`);
+      }
+    }
+    /* Text types tolerate any text/*, and refuse a document type. */
+    for (const tolerated of ["text/plain", "text/markdown", "text/x-markdown", "TEXT/PLAIN"]) {
+      assert.equal(contradictsDeclaredType("markdown", tolerated), false);
       assert.equal(validateSelectedFile(facts("a.md", 10, tolerated)).ok, true);
     }
-    /* A positive contradiction refuses. */
     for (const contradiction of ["application/pdf", "image/png", "application/zip", "video/mp4"]) {
-      assert.equal(contradictsTextMediaType(contradiction), true);
+      assert.equal(contradictsDeclaredType("plain-text", contradiction), true);
       const verdict = validateSelectedFile(facts("a.txt", 10, contradiction));
       assert.equal(verdict.ok, false);
       if (verdict.ok) throw new Error("unreachable");
       assert.ok(verdict.problems.some((problem) => problem.code === "media-type-mismatch"));
     }
+    /* And a PDF tolerates its own type while refusing a text one. */
+    assert.equal(contradictsDeclaredType("pdf", "application/pdf"), false);
+    assert.equal(validateSelectedFile(facts("a.pdf", 10, "application/pdf")).ok, true);
+    assert.equal(contradictsDeclaredType("pdf", "text/plain"), true);
+    assert.equal(validateSelectedFile(facts("a.pdf", 10, "text/plain")).ok, false);
+
     /*
-     * AND IT CAN NEVER RESCUE AN UNREADABLE FILE. A perfect `text/plain` header on a `.pdf` is
-     * still refused — the extension allowlist and the decoder are the gates, not the header.
+     * AND IT CAN NEVER RESCUE AN UNREADABLE FILE. A perfect header on a format Hebun does not read
+     * is still refused — the extension allowlist is the gate, not the header.
      */
-    const spoofed = validateSelectedFile(facts("invoice.pdf", 10, "text/plain"));
+    const spoofed = validateSelectedFile(facts("contract.docx", 10, "application/pdf"));
     assert.equal(spoofed.ok, false);
     if (spoofed.ok) throw new Error("unreachable");
     assert.ok(spoofed.problems.some((problem) => problem.code === "unsupported-extension"));
@@ -327,10 +362,20 @@ function main(): void {
       1,
       "the file is read exactly once",
     );
+    /*
+     * WIDENED BY R4C.2: the buffer now reaches a second consumer, the PDF signature check, and the
+     * parser via the delegate. The claim worth keeping is that the set is CLOSED and every member
+     * is a reader — nothing that could store, forward or transmit the bytes appears here.
+     */
     assert.deepEqual(
-      [...new Set([...boundaryCode.matchAll(/(\w+)\(bytes\)/g)].map((match) => match[1]!))],
-      ["decodeUtf8Strictly"],
-      "and the buffer is passed to the decoder and to nothing else",
+      [...new Set([...boundaryCode.matchAll(/(\w+)\(bytes\)/g)].map((match) => match[1]!))].sort(),
+      ["decodeUtf8Strictly", "hasPdfSignature"],
+      "the buffer is passed only to the decoder and the signature check",
+    );
+    assert.match(
+      boundaryCode,
+      /extractPdf \?\? extractPdfText\)\(bytes, deps\.pdf \?\? \{\}\)/,
+      "and to the parser, which is the one delegate allowed to read it",
     );
   }
 
@@ -433,9 +478,15 @@ function main(): void {
       !map.includes("there is no upload path at all"),
       "the claim R4C.1 falsified has been repaired, not left standing",
     );
-    /* And the claims that ARE still true are stated, so the repair did not overshoot. */
+    /*
+     * And the claims that ARE still true are stated, so the repair did not overshoot.
+     *
+     * "no parser and no OCR" left this list in R4C.2: there IS a parser now. "there is no OCR"
+     * stayed, because that half never stopped being true — the repair had to split a sentence that
+     * had bundled two claims together, which is exactly how a stale claim survives a phase.
+     */
     for (const stillTrue of [
-      "no parser and no OCR",
+      "there is no OCR",
       "the `documents` table still has no consumer",
       "ingesting is not ratifying",
     ]) {

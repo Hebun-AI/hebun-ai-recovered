@@ -210,7 +210,12 @@ async function main(): Promise<void> {
       const rejections: readonly [string, unknown, string][] = [
         ["no file at all", undefined, "no-file"],
         ["a string pretending to be a file", "policy.md", "no-file"],
-        ["an unreadable format", fileOf("invoice.pdf", "%PDF-1.7 not really"), "unsupported-extension"],
+        /*
+         * REPAIRED BY R4C.2: `.pdf` used to be the obvious example of a format Hebun could not
+         * read, and it is readable now. `.docx` carries the claim instead — still refused by
+         * extension, still without anything being attempted on its bytes.
+         */
+        ["an unreadable format", fileOf("contract.docx", "PK not really a document"), "unsupported-extension"],
         ["a spoofed media type", fileOf("policy.txt", "hello", "application/pdf"), "media-type-mismatch"],
         ["an empty file", fileOf("policy.txt", ""), "empty-file"],
       ];

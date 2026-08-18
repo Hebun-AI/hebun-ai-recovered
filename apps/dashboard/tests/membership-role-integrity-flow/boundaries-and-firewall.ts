@@ -262,11 +262,36 @@ function main(): void {
       dependencies: Record<string, string>;
       devDependencies: Record<string, string>;
     };
-    /* The exact published set. A new entry here would fail before anything installs it. */
+    /*
+     * ── REPAIRED BY R4C.2 ────────────────────────────────────────────────
+     *
+     * This pinned the EXACT global dependency set, which reads as "this phase added nothing" but
+     * actually asserts "nothing is ever added anywhere". R4C.2 added one reviewed, exactly-pinned
+     * parser after its own security gate, and this failed for a reason unrelated to membership
+     * integrity — a phase-scoped claim expressed as a repository-wide one.
+     *
+     * Scoped to the real claim: every dependency this phase shipped against is still present, and
+     * this phase introduced none of its own.
+     */
+    const BASELINE = [
+      "clsx",
+      "drizzle-orm",
+      "lucide-react",
+      "next",
+      "pg",
+      "react",
+      "react-dom",
+      "tailwind-merge",
+    ];
+    for (const baseline of BASELINE) {
+      assert.ok(pkg.dependencies[baseline], `${baseline} is still a dependency`);
+    }
     assert.deepEqual(
-      Object.keys(pkg.dependencies).sort(),
-      ["clsx", "drizzle-orm", "lucide-react", "next", "pg", "react", "react-dom", "tailwind-merge"],
-      "no runtime dependency was added",
+      Object.keys(pkg.dependencies)
+        .filter((name) => !BASELINE.includes(name))
+        .sort(),
+      ["pdfjs-dist"],
+      "the only dependency added since this phase is the reviewed PDF parser (R4C.2)",
     );
     assert.deepEqual(
       Object.keys(pkg.devDependencies).sort(),

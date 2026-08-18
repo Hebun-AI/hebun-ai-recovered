@@ -55,6 +55,11 @@ export const SUPPORTED_FILE_EXTENSIONS: Readonly<Record<string, KnowledgeSourceT
     ".txt": "plain-text",
     ".md": "markdown",
     ".markdown": "markdown",
+    /*
+     * R4C.2. The first entry whose bytes are not text: a parser stands between the file and the
+     * characters. Everything after that parser is the path the other two already take.
+     */
+    ".pdf": "pdf",
   });
 
 /**
@@ -88,6 +93,55 @@ export const MAX_FILE_BYTES = MAX_SOURCE_CHARACTERS * 4;
 /** The framework body cap this bound deliberately stays under. Recorded so the gap is legible. */
 export const NEXT_SERVER_ACTION_BODY_LIMIT_BYTES = 1024 * 1024;
 
+/**
+ * The largest PDF one ingestion may carry, in BYTES (R4C.2).
+ *
+ * ── WHY IT IS NOT `MAX_FILE_BYTES` ──────────────────────────────────────────
+ *
+ * `MAX_FILE_BYTES` is derived from `MAX_SOURCE_CHARACTERS * 4` because a text file's bytes and its
+ * characters are the same thing wearing different units. A PDF's are not related at all: embedded
+ * fonts, subset glyphs and a logo routinely make a twelve-page document 900 KB while it yields
+ * 25 000 characters. Reusing 240 000 here would refuse most legitimate PDFs for a reason that has
+ * nothing to do with how much they say.
+ *
+ * ── WHY EXACTLY 1 000 000, AND HOW THAT WAS ESTABLISHED ─────────────────────
+ *
+ * The binding constraint is the transport, not the parser. Next caps a server action's request body
+ * at `NEXT_SERVER_ACTION_BODY_LIMIT_BYTES` on the STREAM, raising a 413 before the action runs, so
+ * Hebun must refuse below that line to own the message at all.
+ *
+ * The gap was MEASURED rather than guessed. Serializing a real `FormData` carrying a file of this
+ * size plus the action's other fields at their own maximum lengths produced 902 bytes of multipart
+ * envelope — total 1 000 902 bytes, leaving 47 674 bytes of headroom under the cap. The bound is
+ * therefore known to fit the real request, not assumed to.
+ *
+ * The 60 000-character ceiling still applies AFTER extraction and is unchanged. A PDF may be
+ * accepted here and still be refused for saying too much.
+ */
+export const MAX_PDF_BYTES = 1_000_000;
+
+/**
+ * The most pages one PDF may carry (R4C.2).
+ *
+ * Tied to the character ceiling rather than invented: 60 000 characters is roughly 25 pages of
+ * prose, so a document beyond 30 pages was overwhelmingly going to be refused by
+ * `MAX_SOURCE_CHARACTERS` anyway. Checking it against the page count FIRST means that refusal costs
+ * one structural parse instead of thirty page extractions — it is the cheapest bound available
+ * against a document that is expensive on purpose.
+ */
+export const MAX_PDF_PAGES = 30;
+
+/**
+ * The byte bound that applies to one source type.
+ *
+ * A single constant cannot serve both, for the reason given on `MAX_PDF_BYTES`. Keeping the choice
+ * here — beside both numbers — means the boundary asks one question instead of carrying its own
+ * table that could drift away from this one.
+ */
+export function maxBytesFor(sourceType: KnowledgeSourceType): number {
+  return sourceType === "pdf" ? MAX_PDF_BYTES : MAX_FILE_BYTES;
+}
+
 export type FileIngestionProblemCode =
   | "no-file"
   | "empty-file"
@@ -97,7 +151,19 @@ export type FileIngestionProblemCode =
   | "file-name-required"
   | "file-name-too-long"
   | "file-name-control-characters"
-  | "undecodable";
+  | "undecodable"
+  /* ── R4C.2: refusals only a parsed format can produce ────────────────────── */
+  /** The bytes do not begin with the PDF signature, whatever the name says. */
+  | "not-a-pdf"
+  /** The document is encrypted or password-protected. Hebun accepts no password. */
+  | "pdf-encrypted"
+  /** The structure could not be parsed: malformed, truncated, or not a document. */
+  | "pdf-unreadable"
+  | "pdf-too-many-pages"
+  /** Parsed successfully and carries no extractable text — an image-only scan. */
+  | "pdf-no-text"
+  /** Extraction passed the source-character ceiling. Refused whole, never truncated. */
+  | "pdf-text-too-long";
 
 export interface FileIngestionProblem {
   readonly code: FileIngestionProblemCode;
@@ -109,7 +175,7 @@ export interface FileIngestionProblem {
 export interface SelectedFileFacts {
   readonly fileName: string;
   readonly byteLength: number;
-  /** The media type the CLIENT declared. Attacker-controlled — see `contradictsTextMediaType`. */
+  /** The media type the CLIENT declared. Attacker-controlled — see `contradictsDeclaredType`. */
   readonly declaredMediaType: string;
 }
 
@@ -158,40 +224,53 @@ export function sourceTitleFromFileName(fileName: string): string {
 }
 
 /**
- * Whether a client-declared media type positively contradicts "this is a text file".
+ * Whether a client-declared media type positively contradicts what the extension says this is.
  *
  * ── A DECLARED MEDIA TYPE MAY REFUSE. IT MAY NEVER ACCEPT ────────────────────
  *
  * `File.type` in a browser is filled in from the operating system's own media-type registry and is
  * trivially controllable by anything that constructs the request. Treating it as evidence that a
- * file IS text would be worthless. What it can still do is catch an obvious mismatch — a `.txt`
- * carrying `application/pdf` — for free, before anything else runs.
+ * file IS what it claims would be worthless. What it can still do is catch an obvious mismatch —
+ * a `.txt` carrying `application/pdf`, or a `.pdf` carrying `text/plain` — for free.
  *
- * ── WHY EMPTY AND GENERIC TYPES ARE ACCEPTED ─────────────────────────────────
+ * ── IT IS JUDGED AGAINST THE SOURCE TYPE, NOT AGAINST "TEXT" ─────────────────
  *
- * The registry that fills this in is the operator's machine, not ours. `.md` in particular resolves
- * to `text/markdown` on some systems, `text/plain` on others, and to nothing at all on a machine
- * with no entry for it; `application/octet-stream` is the standard "unknown". Refusing those would
+ * This started as a single rule that tolerated `text/*` and refused everything else, because every
+ * format Hebun read was text. R4C.2 made that rule wrong in both directions at once: it refused
+ * `application/pdf` on a `.pdf` — the correct and most common declaration — and it would have
+ * tolerated `text/plain` on one. The tolerated set belongs to the type, so it lives with the type.
+ *
+ * ── WHY EMPTY AND GENERIC TYPES ARE ALWAYS TOLERATED ────────────────────────
+ *
+ * The registry that fills this in is the operator's machine, not ours. `.md` resolves to
+ * `text/markdown` on some systems, `text/plain` on others, and to nothing at all on a machine with
+ * no entry for it; `application/octet-stream` is the standard "unknown". Refusing those would
  * reject legitimate files for a reason the operator cannot see or fix, in exchange for no security
- * at all — the extension allowlist and the strict decode below are the actual gates, and neither
- * can be talked out of its verdict by a header.
- *
- * This asymmetry is the whole rule. There is no media-type framework here and none is wanted.
+ * — the extension allowlist, the signature check and the parser are the actual gates, and none of
+ * them can be talked out of a verdict by a header.
  */
-export function contradictsTextMediaType(declaredMediaType: string): boolean {
+const TOLERATED_MEDIA_TYPES: Readonly<Record<KnowledgeSourceType, readonly string[]>> = Object.freeze(
+  {
+    "plain-text": ["text/"],
+    markdown: ["text/"],
+    pdf: ["application/pdf", "application/x-pdf"],
+  },
+);
+
+/** Always tolerated, for any type: the machine simply did not know. */
+const UNKNOWN_MEDIA_TYPES: readonly string[] = ["", "application/octet-stream"];
+
+export function contradictsDeclaredType(
+  sourceType: KnowledgeSourceType,
+  declaredMediaType: string,
+): boolean {
   const declared = declaredMediaType.trim().toLowerCase();
-  if (declared.length === 0) return false;
-  if (declared.startsWith("text/")) return false;
-  if (declared === "application/octet-stream") return false;
-  return true;
+  if (UNKNOWN_MEDIA_TYPES.includes(declared)) return false;
+  return !TOLERATED_MEDIA_TYPES[sourceType].some((allowed) =>
+    allowed.endsWith("/") ? declared.startsWith(allowed) : declared === allowed,
+  );
 }
 
-/**
- * Judge a selected file on its name, size and declared type — before a single byte is read.
- *
- * Total: it returns either the derived source type or every problem found, so an operator sees all
- * of them at once rather than one per attempt.
- */
 export function validateSelectedFile(facts: SelectedFileFacts): SelectedFileValidation {
   const problems: FileIngestionProblem[] = [];
   const fileName = facts.fileName?.trim() ?? "";
@@ -225,7 +304,7 @@ export function validateSelectedFile(facts: SelectedFileFacts): SelectedFileVali
           `Other formats are not read at all — nothing was extracted or guessed from this one.`,
       ),
     );
-  } else if (contradictsTextMediaType(facts.declaredMediaType ?? "")) {
+  } else if (contradictsDeclaredType(sourceType, facts.declaredMediaType ?? "")) {
     problems.push(
       problem(
         "media-type-mismatch",
@@ -235,15 +314,25 @@ export function validateSelectedFile(facts: SelectedFileFacts): SelectedFileVali
     );
   }
 
+  /*
+   * The byte bound is per TYPE, because bytes mean different things per type — see `maxBytesFor`.
+   * When the extension was not recognised there is no bound to apply and no point inventing one;
+   * the unsupported-extension refusal above is the whole answer.
+   */
+  const byteBound = sourceType === undefined ? undefined : maxBytesFor(sourceType);
   if (facts.byteLength <= 0) {
     problems.push(problem("empty-file", "That file is empty. Nothing was ingested."));
-  } else if (facts.byteLength > MAX_FILE_BYTES) {
+  } else if (byteBound !== undefined && facts.byteLength > byteBound) {
     problems.push(
       problem(
         "too-large",
-        `A file may be at most ${MAX_FILE_BYTES.toLocaleString("en-US")} bytes. ` +
-          `Above that it cannot fit inside the ${MAX_SOURCE_CHARACTERS.toLocaleString("en-US")}-character ` +
-          `source bound, so it is refused before it is read rather than after.`,
+        sourceType === "pdf"
+          ? `A PDF may be at most ${byteBound.toLocaleString("en-US")} bytes. Larger files cannot be ` +
+            `sent to Hebun in one request, so this one is refused before it is read rather than ` +
+            `failing part-way through.`
+          : `A file may be at most ${byteBound.toLocaleString("en-US")} bytes. ` +
+            `Above that it cannot fit inside the ${MAX_SOURCE_CHARACTERS.toLocaleString("en-US")}-character ` +
+            `source bound, so it is refused before it is read rather than after.`,
       ),
     );
   }
@@ -295,6 +384,28 @@ export function decodeUtf8Strictly(bytes: ArrayBuffer): Utf8Decoding {
       ),
     };
   }
+}
+
+/** The five bytes every PDF begins with. */
+const PDF_SIGNATURE = [0x25, 0x50, 0x44, 0x46, 0x2d] as const; // %PDF-
+
+/**
+ * Whether these bytes actually begin with the PDF signature (R4C.2).
+ *
+ * ── WHY A NAME AND A MEDIA TYPE ARE NOT ENOUGH ──────────────────────────────
+ *
+ * The extension is chosen by whoever uploads, and `File.type` comes from their machine. Neither is
+ * evidence about CONTENT. This reads the only thing that is: the first five bytes of the document
+ * itself. It is five bytes of comparison, not a file-sniffing framework, and it exists so a `.txt`
+ * renamed `.pdf` is refused by what it IS rather than being handed to a parser to find out.
+ *
+ * It can only ever REFUSE. A file that passes still has to survive the parser, which is the real
+ * structural gate — a valid signature in front of rubbish is still rubbish.
+ */
+export function hasPdfSignature(bytes: ArrayBuffer): boolean {
+  if (bytes.byteLength < PDF_SIGNATURE.length) return false;
+  const head = new Uint8Array(bytes, 0, PDF_SIGNATURE.length);
+  return PDF_SIGNATURE.every((byte, index) => head[index] === byte);
 }
 
 /* Re-exported so a caller has one import for the file boundary's vocabulary. */

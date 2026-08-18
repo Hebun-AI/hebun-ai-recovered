@@ -1,5 +1,5 @@
 /*
- * knowledge/knowledge-file-ingest.server.ts — the file boundary (R4C.1).
+ * knowledge/knowledge-file-ingest.server.ts — the file boundary (R4C.1, extended by R4C.2).
  *
  * ── IT IS A DOOR, NOT AN AUTHORITY ───────────────────────────────────────────
  *
@@ -9,7 +9,11 @@
  * Knowledge — the authority band, the validation, the chunker, the duplicate rule, the transaction,
  * the audit row, the provisional standing — is upstream code this module calls and does not repeat.
  *
- *   selected file → bounds → strict UTF-8 → text → ingestKnowledgeSource → the ONE writer
+ *   selected file → bounds → decode or parse → text → ingestKnowledgeSource → the ONE writer
+ *
+ * R4C.2 added a second way for bytes to become characters — a bounded PDF parser — and deliberately
+ * nothing else. The formats diverge at exactly one branch (step 6) and converge again immediately;
+ * every gate before and after it is shared. Adding a format is adding a branch, never an authority.
  *
  * ── THE GATE ORDER IS THE INGESTION PATH'S, FOR THE INGESTION PATH'S REASON ──
  *
@@ -26,8 +30,10 @@
  *
  * `sourceType` is DERIVED here, from the extension this module validated. The input type has no
  * field for it, so "this .txt is really a PDF, label it accordingly" has nowhere to arrive. The
- * decoded text is likewise never accepted from the caller: the browser may decode a copy to preview
- * a character count, but the text that becomes Knowledge is decoded HERE, from the bytes received.
+ * extracted text is likewise never accepted from the caller: for a text file the browser may decode
+ * a copy to preview a character count, but the text that becomes Knowledge is produced HERE, from
+ * the bytes received. A PDF is never parsed in the browser at all — the parser is server-only, so
+ * the client cannot preview its record count and the workspace says so rather than inventing one.
  *
  * ── WHAT IT DOES NOT DO ──────────────────────────────────────────────────────
  *
@@ -51,11 +57,13 @@ import {
 } from "./knowledge-ingest.server";
 import type { IngestKnowledgeInput } from "./ingestion-contracts";
 import {
-  MAX_FILE_BYTES,
   decodeUtf8Strictly,
+  hasPdfSignature,
+  maxBytesFor,
   validateSelectedFile,
   type FileIngestionProblem,
 } from "./file-ingestion-contracts";
+import { extractPdfText, type PdfExtractionDeps } from "./pdf-extract.server";
 
 /**
  * What a caller supplies. Note what is absent BY TYPE: no tenant, no actor, no role, no source type,
@@ -83,6 +91,16 @@ export interface KnowledgeFileIngestDeps extends KnowledgeIngestDeps {
   readonly resolveAuthority?: (tenant: TenantContext) => Promise<KnowledgeWriteAuthority>;
   /** Test seam for the delegate, so the boundary can be exercised without a database. */
   readonly ingest?: typeof ingestKnowledgeSource;
+  /** Test seam for the parser, so boundary refusals can be exercised without a real document. */
+  readonly extractPdf?: typeof extractPdfText;
+  /**
+   * Parser seams, kept in their own object rather than merged.
+   *
+   * Both layers happen to want a clock and they mean different things by it — the ingestion path
+   * stamps provenance with a `Date`, the parser measures elapsed milliseconds as a `number`.
+   * Flattening them would have forced one of the two to change its meaning to fit the other.
+   */
+  readonly pdf?: PdfExtractionDeps;
 }
 
 /** Narrow an unknown to the file-like surface this module actually uses. */
@@ -166,18 +184,51 @@ export async function ingestKnowledgeFile(
   if (bytes.byteLength <= 0) {
     return rejected([{ code: "empty-file", message: "That file is empty. Nothing was ingested." }]);
   }
-  if (bytes.byteLength > MAX_FILE_BYTES) {
+  const byteBound = maxBytesFor(bounds.sourceType);
+  if (bytes.byteLength > byteBound) {
     return rejected([
       {
         code: "too-large",
-        message: `A file may be at most ${MAX_FILE_BYTES.toLocaleString("en-US")} bytes.`,
+        message: `A file may be at most ${byteBound.toLocaleString("en-US")} bytes.`,
       },
     ]);
   }
 
-  /* 6. BYTES BECOME TEXT, STRICTLY — or they do not become anything. */
-  const decoded = decodeUtf8Strictly(bytes);
-  if (!decoded.ok) return rejected([decoded.problem]);
+  /*
+   * 6. BYTES BECOME TEXT — or they do not become anything.
+   *
+   * ── THIS IS THE ONLY PLACE THE FORMATS DIFFER ────────────────────────────
+   *
+   * A text file is decoded; a PDF is parsed. Both produce a string and a refusal type, and both
+   * hand that string to the same delegate below. Adding a format is adding a branch here — it is
+   * not adding an authority, a writer, a table, or a second ingestion path, and this shape is what
+   * keeps that true.
+   */
+  let sourceText: string;
+  if (bounds.sourceType === "pdf") {
+    /*
+     * The signature is checked BEFORE the parser sees anything. The extension was chosen by the
+     * person uploading and the media type by their machine; these five bytes are the first evidence
+     * about the content itself, and they cost nothing.
+     */
+    if (!hasPdfSignature(bytes)) {
+      return rejected([
+        {
+          code: "not-a-pdf",
+          message:
+            "That file is named .pdf but does not begin like a PDF, so it was not opened. Nothing " +
+            "was guessed about its real format.",
+        },
+      ]);
+    }
+    const extracted = await (deps.extractPdf ?? extractPdfText)(bytes, deps.pdf ?? {});
+    if (!extracted.ok) return rejected([extracted.problem]);
+    sourceText = extracted.text;
+  } else {
+    const decoded = decodeUtf8Strictly(bytes);
+    if (!decoded.ok) return rejected([decoded.problem]);
+    sourceText = decoded.text;
+  }
 
   /*
    * 7. DELEGATE. From here the file has stopped existing as far as Hebun is concerned: what travels
@@ -193,7 +244,7 @@ export async function ingestKnowledgeFile(
     tenant,
     {
       sourceTitle: chosenTitle.length > 0 ? chosenTitle : bounds.defaultSourceTitle,
-      sourceText: decoded.text,
+      sourceText,
       domainKey: input.domainKey,
       scope: input.scope,
       sourceType: bounds.sourceType,

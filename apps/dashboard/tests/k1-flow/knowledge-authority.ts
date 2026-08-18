@@ -294,8 +294,13 @@ function main(): void {
      * a real capability. That is the same failure as overclaiming, pointed the other way, and this
      * check exists to catch either.
      *
-     * The list keeps every term that is still a fiction and gains the formats and behaviours R4C.1
-     * deliberately did NOT build — which is exactly where the next overclaim would come from.
+     * The list keeps every term that is still a fiction and gains the formats and behaviours the
+     * phase deliberately did NOT build — which is exactly where the next overclaim would come from.
+     *
+     * R4C.2 removed `/pdf/i` for the same reason `/file/i` went before it: a text-bearing PDF is
+     * genuinely readable now, so forbidding the word would force the map to UNDER-report. `ocr`,
+     * `scanned`, `docx` and the storage and automation terms all stay, because all of them are
+     * still fiction.
      */
     for (const overclaim of [
       /\burl\b/i,
@@ -303,7 +308,6 @@ function main(): void {
       /embedding/i,
       /semantic/i,
       /search/i,
-      /\bpdf\b/i,
       /docx/i,
       /\bocr\b/i,
       /storage|stored/i,

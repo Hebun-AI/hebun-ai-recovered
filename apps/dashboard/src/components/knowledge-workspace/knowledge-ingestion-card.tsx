@@ -55,9 +55,10 @@ import {
   type IngestionProblem,
 } from "@/features/knowledge/ingestion-contracts";
 import {
-  MAX_FILE_BYTES,
+  MAX_PDF_PAGES,
   SUPPORTED_FILE_EXTENSIONS,
   decodeUtf8Strictly,
+  maxBytesFor,
   validateSelectedFile,
   type FileIngestionProblem,
 } from "@/features/knowledge/file-ingestion-contracts";
@@ -78,6 +79,7 @@ const ACCEPTED_EXTENSIONS = Object.keys(SUPPORTED_FILE_EXTENSIONS);
 const SOURCE_TYPE_LABEL: Readonly<Record<KnowledgeSourceType, string>> = {
   "plain-text": "plain text",
   markdown: "Markdown",
+  pdf: "PDF",
 };
 
 /** A file the operator chose, already bounded and decoded — held so it can be SUBMITTED as bytes. */
@@ -86,8 +88,12 @@ interface ChosenFile {
   readonly fileName: string;
   readonly byteLength: number;
   readonly sourceType: KnowledgeSourceType;
-  /** A display copy. The server decodes the bytes again and does not receive this. */
-  readonly previewText: string;
+  /**
+   * A display copy, for text formats only. The server decodes the bytes again and never receives
+   * this. A PDF has none: its parser is server-only, so this is `null` and the card says the record
+   * count is determined when the file is read rather than showing a number it cannot know.
+   */
+  readonly previewText: string | null;
 }
 
 type Mode = "paste" | "file";
@@ -111,8 +117,13 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
   const domainId = useId();
   const scopeId = useId();
 
-  /* Whichever way the source arrived, one string feeds the preview and one path feeds the bounds. */
+  /*
+   * Whichever way the source arrived, one string feeds the preview. A PDF contributes none — the
+   * parser does not run in the browser — so `previewText` is null and the counts below are simply
+   * not claimed for it.
+   */
   const sourceText = mode === "file" ? (chosen?.previewText ?? "") : form.sourceText;
+  const previewAvailable = mode === "paste" || (chosen !== null && chosen.previewText !== null);
 
   /*
    * The SAME functions the server runs, so this count is the count that will be written. Recomputed
@@ -127,11 +138,14 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
   const overChunks = preview.chunks > MAX_CHUNKS_PER_SOURCE;
   const ready =
     form.sourceTitle.trim().length > 0 &&
-    preview.normalized.length > 0 &&
     form.domainKey.trim().length > 0 &&
-    !overSize &&
-    !overChunks &&
-    (mode === "paste" || chosen !== null);
+    (mode === "paste" || chosen !== null) &&
+    /*
+     * A source with no client-side preview cannot be gated on a character count nobody has. The
+     * server applies the identical bounds either way; what changes is only whether this screen can
+     * show them in advance.
+     */
+    (previewAvailable ? preview.normalized.length > 0 && !overSize && !overChunks : true);
 
   function clearOutcome() {
     setProblems([]);
@@ -174,18 +188,28 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
 
     setReading(true);
     try {
-      const decoded = decodeUtf8Strictly(await file.arrayBuffer());
-      if (!decoded.ok) {
-        setFileProblems([decoded.problem]);
-        forget();
-        return;
+      /*
+       * A PDF is NOT parsed here. The parser is server-only by design — shipping it to the browser
+       * would put an untrusted-input parser inside the client and cost tens of megabytes for a
+       * preview. So a PDF is held as bytes and its record count is reported after the server reads
+       * it, rather than being estimated on this screen.
+       */
+      let previewText: string | null = null;
+      if (bounds.sourceType !== "pdf") {
+        const decoded = decodeUtf8Strictly(await file.arrayBuffer());
+        if (!decoded.ok) {
+          setFileProblems([decoded.problem]);
+          forget();
+          return;
+        }
+        previewText = decoded.text;
       }
       setChosen({
         file,
         fileName: file.name,
         byteLength: file.size,
         sourceType: bounds.sourceType,
-        previewText: decoded.text,
+        previewText,
       });
       /* The file name is offered as a title only when the operator has not written one. */
       setForm((current) =>
@@ -362,9 +386,20 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
               type="file"
             />
             <span className="text-xs text-fg-muted">
-              {ACCEPTED_EXTENSIONS.join(", ")} · UTF-8 · at most{" "}
-              {MAX_FILE_BYTES.toLocaleString("en-US")} bytes. The file itself is not stored — only the
-              records it becomes.
+              {ACCEPTED_EXTENSIONS.join(", ")} · text files must be UTF-8 · at most{" "}
+              {maxBytesFor("plain-text").toLocaleString("en-US")} bytes, or{" "}
+              {maxBytesFor("pdf").toLocaleString("en-US")} bytes for a PDF. The file itself is not
+              stored — only the records it becomes.
+            </span>
+            {/*
+              WHAT A PDF IS AND IS NOT, BEFORE ANYONE PICKS ONE. Every limit here is real and
+              enforced server-side; stating them after a refusal would be too late to be useful.
+            */}
+            <span className="text-xs text-fg-muted">
+              PDFs: text-bearing documents up to {MAX_PDF_PAGES} pages. Scans and image-only PDFs are
+              not read — Hebun does not perform OCR. Password-protected PDFs are not opened. Text is
+              extracted as prose: tables and multi-column layouts are flattened, and answers cite the
+              record, not a page number.
             </span>
             {reading ? (
               <span className="text-xs text-fg-muted" role="status">
@@ -375,6 +410,9 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
               <span className="text-xs text-fg-muted" role="status">
                 <strong>{chosen.fileName}</strong> · read as {SOURCE_TYPE_LABEL[chosen.sourceType]} ·{" "}
                 {chosen.byteLength.toLocaleString("en-US")} bytes
+                {chosen.previewText === null
+                  ? " · Hebun reads this file on the server, so the record count is reported once it has."
+                  : null}
               </span>
             ) : null}
           </label>
@@ -392,11 +430,21 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
         )}
 
         <span className="text-xs text-fg-muted">
-          {preview.normalized.length.toLocaleString()} of{" "}
-          {MAX_SOURCE_CHARACTERS.toLocaleString()} characters ·{" "}
-          {preview.chunks === 0
-            ? "no records yet"
-            : `${preview.chunks} ${preview.chunks === 1 ? "record" : "records"} will be created`}
+          {previewAvailable ? (
+            <>
+              {preview.normalized.length.toLocaleString()} of{" "}
+              {MAX_SOURCE_CHARACTERS.toLocaleString()} characters ·{" "}
+              {preview.chunks === 0
+                ? "no records yet"
+                : `${preview.chunks} ${preview.chunks === 1 ? "record" : "records"} will be created`}
+            </>
+          ) : (
+            <>
+              At most {MAX_SOURCE_CHARACTERS.toLocaleString()} characters and{" "}
+              {MAX_CHUNKS_PER_SOURCE} records. The exact counts are known once Hebun reads the file;
+              if it holds more than that, nothing is ingested rather than part of it.
+            </>
+          )}
         </span>
         {overSize ? (
           <span className="text-xs text-red-700">
@@ -452,8 +500,14 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
         {confirming ? (
           <div className="flex flex-col gap-2 rounded-md border border-border bg-surface-2 p-3">
             <p className="text-sm">
-              Create <strong>{preview.chunks}</strong>{" "}
-              {preview.chunks === 1 ? "record" : "records"} from{" "}
+              {previewAvailable ? (
+                <>
+                  Create <strong>{preview.chunks}</strong>{" "}
+                  {preview.chunks === 1 ? "record" : "records"} from{" "}
+                </>
+              ) : (
+                <>Read and ingest </>
+              )}
               <strong>{form.sourceTitle.trim()}</strong> in{" "}
               <strong>{form.domainKey.trim()}</strong> · {form.scope}?
             </p>

@@ -133,8 +133,12 @@ export function normalizeStatement(value: string): string {
  * `plain-text` covers text a human pasted AND a `.txt` file, because they are the same thing by the
  * time they reach the writer. `markdown` records that a file WAS Markdown; nothing parses it, and it
  * is stored as the Markdown the author wrote, exactly as pasted Markdown already is.
+ *
+ * `pdf` (R4C.2) records that the text was EXTRACTED from a text-bearing PDF. It is the first member
+ * whose text Hebun did not receive directly — a parser produced it — and the label exists precisely
+ * so a reader of an answer can see that. It claims extraction, never layout, tables, or OCR.
  */
-export const KNOWLEDGE_SOURCE_TYPES = ["plain-text", "markdown"] as const;
+export const KNOWLEDGE_SOURCE_TYPES = ["plain-text", "markdown", "pdf"] as const;
 
 export type KnowledgeSourceType = (typeof KNOWLEDGE_SOURCE_TYPES)[number];
 
