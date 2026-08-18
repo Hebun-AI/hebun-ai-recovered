@@ -1762,3 +1762,31 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
   prose anyway.
 - `vercel link` may write a REPO-level link (`.vercel/repo.json` at repo root), not a
   project link in the app directory. Audit where it landed before assuming.
+
+## G4 — Platform Operator Production Ceremony (2026-08-18)
+
+- Reachability is not authorization. `HEBUN_CONTROL_PLANE_ALLOW_REMOTE=true` lives forever on the
+  web runtime and answers "may this process reach a remote DB" — reusing it as the mutation
+  signal would make any environment that can READ production able to PROVISION in it.
+- A schema fingerprint cannot identify a deployment. Local canonical and hosted production carry
+  the byte-identical 31-migration ledger (digest 212559d1…) because they are the same release.
+  The binding is `pg_control_system().system_identifier` — cluster-scoped, not settable from a
+  connection string. Proved stable across a real Neon compute restart.
+- A refusal must never silently downgrade. A production signal that is set but malformed refuses;
+  it does not fall back to local. An operator who mistyped must not get a different ceremony.
+- `new URL()` reports bracketed IPv6 as `[::1]`, not `::1`. A membership test against
+  ["127.0.0.1","localhost","::1"] therefore misses it — safe in the local-guard direction, a hole
+  in the non-local direction.
+- `COMMIT` on an aborted PostgreSQL transaction performs an implicit ROLLBACK. So replacing a
+  catch's rollback with commit changes nothing: `begin` is the atomicity guarantee, the explicit
+  rollback is connection hygiene. A bite-proof that survives can be a true result about the
+  system rather than a weak test — check which before "fixing" the test.
+- A firewall that forbids a table NAME can forbid the evidence. The preflight report legitimately
+  counts audit_log rows to prove they stayed zero. Forbid the write VERBS everywhere; confine
+  reads to a closed literal list and assert the list is the only mention.
+- Assert a binding whole, not by mention. `includes("posture.source")` survived a mutation that
+  prefixed `process.argv[5] ?? ` — the posture was still mentioned, and argv won.
+- When a later gate moves a released guard, assert it where it now LIVES. Keeping the old
+  call-site regex is satisfied by an unused import: the grep passes while the property rots.
+- Don't commit production fingerprints to a public repo even when they are not credentials —
+  they grant nothing, and publishing them gains nothing either.
