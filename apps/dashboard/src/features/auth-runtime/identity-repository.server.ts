@@ -184,7 +184,24 @@ export interface LocalIdentityInsert {
   readonly subject: string;
   /** The moment verification is considered to have occurred. Never client-supplied. */
   readonly verifiedAt: Date;
-  /** Attribution for the created rows. The enrolled human is their own creator. */
+  /**
+   * Attribution for the created rows.
+   *
+   * `"human"` — the human performed the act that created them and is their own creator. This is
+   * enrollment: a person followed an invitation, chose a password, and brought themselves into
+   * existence. `created_by` on the identity names that human.
+   *
+   * OMITTED — **no actor may be named.** The rows are created, but nobody is recorded as having
+   * created them. This is the deployment-possession case: a terminal caused the act, and Hebun
+   * cannot cryptographically identify the human operating it. `created_by` and `created_by_type`
+   * are then left NULL **together**, which is the only truthful pair — the same reason
+   * `companies.created_by` stays NULL when a possession ceremony provisions a tenant.
+   *
+   * G5A CORRECTION. `created_by` on the identity used to be set to the new user's own id
+   * unconditionally, whatever this field said. For enrollment that is true and stays true. For a
+   * possession-bootstrapped human it was FALSE: they did not perform the act, and the row claimed
+   * they did. Attribution now follows this field in both columns.
+   */
   readonly createdByType?: "human";
 }
 
@@ -221,6 +238,11 @@ export async function insertLocalIdentity(
     .returning({ id: users.id });
   const userId = userRows[0]!.id;
 
+  /*
+   * BOTH-OR-NEITHER. An actor id without an actor type, or a type without an id, is a half-claim
+   * about who acted. `createdBy` is therefore derived from the same field that carries the type:
+   * self-attribution when a human acted, and NULL when no actor may be named.
+   */
   const identityRows = await writer
     .insert(authIdentities)
     .values({
@@ -231,7 +253,7 @@ export async function insertLocalIdentity(
       status: "active",
       isPrimary: true,
       verifiedAt: input.verifiedAt,
-      createdBy: userId,
+      createdBy: input.createdByType === "human" ? userId : undefined,
       createdByType: input.createdByType,
     })
     .returning({ id: authIdentities.id });

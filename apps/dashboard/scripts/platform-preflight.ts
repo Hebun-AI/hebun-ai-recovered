@@ -36,6 +36,7 @@ const SURFACES = [
   "companies",
   "users",
   "auth_identities",
+  "auth_credentials",
   "memberships",
   "roles",
   "genesis_nominations",
