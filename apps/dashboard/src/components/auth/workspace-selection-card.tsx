@@ -86,7 +86,7 @@ export function WorkspaceSelectionCard({
           Governance authority in the organization has to admit you before you can enter one.
         </p>
         <p className="text-xs text-fg-muted">
-          This sign-in step {PRE_TENANT_RECEIPT.grants}. It {PRE_TENANT_RECEIPT.diesWhen}.
+          This sign-in step grants {PRE_TENANT_RECEIPT.grants}. It ends when {PRE_TENANT_RECEIPT.diesWhen}.
         </p>
       </div>
     );

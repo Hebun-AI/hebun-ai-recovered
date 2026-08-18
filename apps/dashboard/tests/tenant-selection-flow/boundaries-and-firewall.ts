@@ -131,6 +131,27 @@ function main(): void {
     assert.ok(PRE_TENANT_SESSION_TTL_SECONDS <= 15 * 60, "and should be minutes, not hours");
     assert.match(PRE_TENANT_RECEIPT.grants, /nothing/);
     assert.match(PRE_TENANT_RECEIPT.reaches, /only the workspace picker/);
+    /*
+     * AND THE CARD COMPOSES THAT VOCABULARY — it does not print it bare.
+     *
+     * `grants` is the noun phrase "nothing — no tenant, no membership, …" and `diesWhen` is the
+     * clause "a workspace is chosen, or it expires". Both are correct values, so the two assertions
+     * directly above passed while the only call site rendered "This sign-in step nothing" and "It a
+     * workspace is chosen, or it expires" to the first human ever to sign in to production. A
+     * vocabulary test cannot catch a sentence defect; this pins the verbs at the seam where the
+     * fragments become prose.
+     */
+    const receiptSentence = codeOf(read(CARD));
+    assert.match(
+      receiptSentence,
+      /step grants \{PRE_TENANT_RECEIPT\.grants\}/,
+      "the `grants` phrase must be introduced by its verb at the call site",
+    );
+    assert.match(
+      receiptSentence,
+      /It ends when \{PRE_TENANT_RECEIPT\.diesWhen\}/,
+      "the `diesWhen` clause must be introduced by its verb at the call site",
+    );
     /* `resolveTenantContext` still returns non-null only for `authorized`. */
     assert.match(
       codeOf(read(REQUEST)),
