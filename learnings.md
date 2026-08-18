@@ -1735,3 +1735,30 @@ için bütün kapılardan geçti. Yakalayan tek şey `git add`'in dosyayı **bin
 Ders: `git diff --cached --stat` çıktısında **`Bin`** görürsen dur — ve kontrolü teste bağla
 (`bytes.indexOf(0) === -1` + UTF-8 round-trip). Ayrıca "sona sıralansın" diye U+FFFF gibi yüksek kod
 noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sınıf hatayı davet etmez.
+
+## G3 — Hosted Infrastructure (2026-08-18)
+
+- An unconfigured production is not a broken production — it is a truthfully-configured
+  demo that nobody labelled. G2's mock gate permits fiction when auth resolves `disabled`,
+  and a deployment with ZERO env vars resolves exactly that. The gate was correct; the
+  deployment was the hazard. A gate keyed to configuration cannot protect an unconfigured
+  deployment.
+- Prove `HEBUN_AUTH_ENABLED=true` from runtime behaviour, never from a config readback:
+  the redirect INVERTS (`/login -> /command` becomes `/command -> /login`).
+- Own runtime region at the narrowest seam that already exists. `serverlessFunctionRegion`
+  is a Vercel project setting; adding a `vercel.json` would have invented a second
+  deployment-authority surface for something the project already owned.
+- `sslmode=require` in pg 8.22.0 IS `verify-full` (the branch overrides no ssl option),
+  and pg v9 will weaken it to `rejectUnauthorized=false`. Normalizing to `verify-full`
+  is a no-op today and a pin against a scheduled library default change. Verify against
+  the INSTALLED artifact, not the docs.
+- A redirect alone cannot prove the database was reached — a refusal looks identical
+  whether the DB answered or the code never asked. Measure it on the DB side:
+  `pg_stat_database.xact_commit` delta (control 15s = 1 txn; 25 requests = 28 txns).
+  A pooled endpoint hides `application_name` behind `pgbouncer`, so the counter works
+  where `pg_stat_activity` cannot.
+- A secret scan will trip on a closure document that NAMES the patterns it scanned for.
+  The scan is doing its job; the verdict is manual — but strip real host fragments from
+  prose anyway.
+- `vercel link` may write a REPO-level link (`.vercel/repo.json` at repo root), not a
+  project link in the app directory. Audit where it landed before assuming.
