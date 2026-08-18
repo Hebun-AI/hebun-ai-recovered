@@ -1672,3 +1672,33 @@ Serbest metin `domain_key` üzerinde kapalı bir kategori sözlüğü kurarken, 
 `uncategorized` altında görünmek zorunda. Aksi halde projection, veritabanında duran kayıtlar için
 "eksik" der — kullanıcının yaptığı işi yok sayar. Ayrıca fold önce, lowercase sonra: `"İ".toLowerCase()`
 JS'te `i`+combining dot üretir ve düz `i`'ye asla eşit olmaz.
+
+**Ders 82 — En ucuz yeni yetenek: okuyucuların ZATEN saydığı bir state'in İLK YAZICISI olmak.**
+`retired` KR3 eligibility'de terminal, R6B'de `withdrawn` — tanımlı, okunan, ama hiç yazılmayan bir
+enum değeriydi. R6D sadece yazıcısını ekledi; Heby ve coverage tek satır değişmeden doğru tepki
+verdi. Tasarımı kanıtlayan test, okuyucuların "retract" kelimesini içermesini YASAKLAYAN test.
+Okuyucuya yeni state'i öğretmen gerekiyorsa, yanlış state'i seçmişsindir.
+
+**Ders 83 — Zayıf otorite, güçlü otoritenin kararını yan kapıdan geri alamaz.**
+Ratification Governance otoritesinin kararı; retraction ise K2 authoring band'ine bağlı. Ratified bir
+kaydı authoring band'iyle servisten çekmek, kılık değiştirmiş bir Governance reversal olur — ve K4'ün
+reversal runtime'ı yok, kasten. Doğru cevap: **tümünü reddet**, ratified olmayan kardeşleri de.
+Kısmi retraction daha kötü: operatör "kaynak gitti" sanır, bir kısmı serviste kalır.
+
+**Ders 84 — `includes()` import satırını yakalar; iddiayı FONKSİYON GÖVDESİNE daralt.**
+Aynı dosyada iki yönde de ısırdı: `indexOf(transaction) < indexOf(audit)` import yüzünden hep false
+(geçmesi imkânsız), `includes("resolveKnowledgeWriteAuthority")` import yüzünden hep true (kalması
+imkânsız). İkincisini sadece **bite-proof** ortaya çıkardı — çağrıyı sildim, test yine geçti. Modül
+geneli substring yerine `slice(indexOf("export async function ..."))` ile gövdeye in.
+
+**Ders 85 — Yayınlanmış pin kırıldığında önce SORU'yu sor: iddia mı yanlış, ürün gerçeği mi değişti?**
+K3'ün "sadece ratification writer bir node'u update eder" kuralı R6D ile kırıldı. Kuralı gevşetmek
+yanlış olurdu; K3'ün gerçekten koruduğu şey **in-place İÇERİK düzenlemesi yok**. Çözüm: yeni yazıcıyı
+allow-list'e ekle **ve** `.set({...})` kolonlarını K4'ünki gibi pinle. Sınırı test edilen invariant
+yaşar; incelenmemiş allow-list'i olan çürür.
+
+**Ders 86 — İçerik kimliği ≠ yükleme kimliği; hangisini sakladığını bil.**
+`provenance.sourceDigest` normalize metnin sha256'sı. Hebun dosyayı saklamıyor (`documents` tüketicisiz,
+byte'lar request ile bitiyor), yani "bu yükleme" diye bir kimlik YOK. Aynı byte'lar iki başlıkla
+girilirse tek kaynak sayılır — bu dürüst okuma ve daha faydalısı. Kolaylık olsun diye ingestion
+tablosu uydurma; var olan en dar kalıcı kimliği kullan ve ne olduğunu söyle.
