@@ -1543,3 +1543,32 @@ yorum-temizleme bunu yakalamaz, çünkü string literal koddur. Tabloyu ara, İn
 `Object.keys(dependencies).length === 8` "bu faz bir şey eklemedi" gibi okunur ama "hiçbir faz asla
 bir şey eklemez" iddia eder. Tek bir incelenmiş bağımlılık, supersession ve membership integrity ile
 hiç ilgisi olmayan iki suite'i birden kırdı. Faz iddiasını faz kapsamında yaz.
+
+**Ders 61 — Guard'ın yorumları temizleyip temizlemediğini bil; aynı kuralın iki bekçisi çelişebilir.**
+G2 firewall'u kaynağı HAM okur. Yasak modül yolunu *açıklayan* bir yorum, onu *import eden* bir satır
+kadar tetikler. Kendi testim `codeOf()` ile yorumları temizlediği için geçti, G2 kaldı. Ders 59'un
+tersi: orada string literal kod sayılmıştı, burada yorum kod sayıldı. Yasak bir tokenı yorumda
+anlatacaksan, o kuralın bekçisinin ne okuduğunu önce ölç.
+
+**Ders 62 — "Sadece DB handle'ı lazımdı" yine de bir import kenarıdır.**
+Aggregation modülü null-safe DB resolver'ı Governance feature'ından aldı, çünkü orada hazırdı.
+`heby-*` yüzeylerinin Governance'a uzanması yasak; firewall tam da bu tesadüfi kenar için var.
+Kolaylık bir gerekçe değil — kardeş modülün (`provider-authority.server.ts`) zaten yaptığı gibi
+handle'ı doğrudan db client'tan al.
+
+**Ders 63 — Bayat iddia başka bir fazın testinde yaşayabilir.**
+`/usage`'ı `requires-source` diye sabitleyen pin S1 suite'indeydi, kendi fazımda değil. Yazıldığında
+doğruydu, seam ship olduğu anda yanlış oldu. Bir sınırı kapatan faz, o sınırın *her fazdaki* kaydını
+onarmak zorunda; sadece kendi dosyalarını taramak yetmez.
+
+**Ders 64 — Ölçülmüş ≠ okunabilir. Write-only kolon, var olmayan yetenektir.**
+Token sayıları R2D'den beri doğru yazılıyordu ve üretimde hiçbir yer okumuyordu: sıfır `sum()`,
+sıfır `GROUP BY`. Ürün "ne kadar kullandım"a cevap veremiyordu, çünkü eksik olan ölçüm değil
+toplama yetkisiydi. Bir kolonun dolu olması, o bilginin sistemde bulunduğu anlamına gelmez —
+tüketicisini ara.
+
+**Ders 65 — Disk dolarsa Postgres durur; PGDATA'yı tahmin etme, `postmaster.opts`'a sor.**
+Bu makinede benzer isimli üç data dizini var ve Homebrew'unkilerde `hebun_r1` yok. Yanlış olanı
+başlatmak sessizce boş bir instance verir. Doğru dizin, o instance'ın kendi `postmaster.opts` ve
+`postgresql.conf`'undaki porttur. macOS'ta ayrıca `LC_ALL` gerekir, yoksa
+"postmaster became multithreaded during startup" ile düşer.
