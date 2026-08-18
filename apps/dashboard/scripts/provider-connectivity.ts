@@ -26,7 +26,8 @@
  *   - read, print, accept, write or rotate a credential — connectivity is a boolean
  *   - create a control row for a `disable` (an absent row already reads as disabled)
  *   - arm external send while the deployment is unconfigured
- *   - write an audit row — a terminal has no actor to name; R5.2 owns that repair
+ *   - write an audit row — `audit_log.actor_id`/`actor_type` are NOT NULL and a terminal has no
+ *     actor to name; blocked on a real platform principal, not on a later hardening phase
  *   - touch tenants, users, memberships, roles, sessions, permits, attempts or requests
  *   - run in production, or against a non-local database (both refused)
  *   - be driven by an environment variable that silently names the provider or the direction

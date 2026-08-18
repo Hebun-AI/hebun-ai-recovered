@@ -15,7 +15,12 @@
  * The actor assertion changed MEANING, not merely shape. It used to assert `updatedBy === ACTOR`
  * because a session user was the (wrong) authority. The ceremony has no verified actor, so it writes
  * NULL rather than naming a human who did not act; that is asserted below as a positive property.
- * Actor-type provenance and a human-only constraint belong to R5.2 and are deliberately absent.
+ *
+ * Actor-type provenance and a human-only constraint are absent PERMANENTLY, not pending a later
+ * phase. Deployment possession is a SOURCE, not an ACTOR: writing `updated_by_type` without an
+ * `updated_by` is false provenance under Hebun's both-or-neither invariant, and a
+ * `CHECK(updated_by_type = 'human')` would reject every ceremony write. See the R5.1 closure's
+ * R5.2 Gate A correction.
  */
 import assert from "node:assert/strict";
 import { Client } from "pg";

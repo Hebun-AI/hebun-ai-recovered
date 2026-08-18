@@ -152,9 +152,14 @@ async function enableAndDisable(client: Client): Promise<void> {
     [CLAUDE_PROVIDER_KEY],
   );
   const row = raw.rows[0]!;
+  /*
+   * Actor TYPE stays NULL because the actor ID does. A SOURCE is not an ACTOR, and a type without
+   * an id is false attribution under Hebun's both-or-neither invariant — not a gap awaiting a
+   * later phase. See the R5.1 closure's R5.2 Gate A correction.
+   */
   assert.equal(row.created_by, null, "created_by is never invented");
-  assert.equal(row.created_by_type, null, "actor TYPE provenance belongs to R5.2, not here");
-  assert.equal(row.updated_by_type, null, "actor TYPE provenance belongs to R5.2, not here");
+  assert.equal(row.created_by_type, null, "actor TYPE without an actor ID is false provenance");
+  assert.equal(row.updated_by_type, null, "actor TYPE without an actor ID is false provenance");
   assert.equal(row.lifecycle_status, "active");
   assert.equal(row.deleted_at, null);
 }

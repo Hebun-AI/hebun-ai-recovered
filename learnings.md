@@ -1596,3 +1596,39 @@ yok — yazma tamamen uygulamadan çıktı. Doğru olan, değişikliğin nerede 
 eşleyip uzak tırnaklar arasını yuttu; ve "platform-admin yaratmaz" diyen kendi başlığım
 platform-admin taramasına takıldı. Soru "hangi KOD yazabiliyor" ise `codeOf()` uygula, ve mekanizmayı
 ara (import ifadesi, fs çağrısı), alt dizeyi değil.
+
+**Ders 70 — ACTOR ≠ SOURCE. Bir güven kökü, işlemi yapan insanı tanımlamadan o işlemin sebebi olabilir.**
+ACTOR: kimliği doğrulanmış Hebun principal'i — `actor_type = human` + gerçek `users.id`.
+SOURCE: mutasyona sebep olan güven kökü / seremoni — `local-operator-ceremony`.
+Deployment possession'ın SOURCE'u vardır, ACTOR'ı yoktur. Bu yüzden `updated_by` ve
+`updated_by_type` birlikte NULL kalır. Bir audit şemasını işlemi kabul etsin diye aktör uydurma.
+
+**Ders 71 — Aktör ID'si olmayan aktör tipi kısmi atıf değil, YANLIŞ atıftır.**
+Hebun'un gerçek invariant'ı `(x_by_type IS NULL) = (x_by_id IS NULL)` — ikisi de dolu ya da ikisi de
+boş. `auth_credentials`, `auth_identities`, `invitations`, `memberships`, `role_permissions` bunu
+zaten CHECK ile zorluyor. `updated_by_type = 'human'` yazıp `updated_by = NULL` bırakmak bu kuralı
+çiğner. "Eksik ama kabul edilebilir" diye okuma; şema kendi kuralını çoktan yazmış.
+
+**Ders 72 — CHECK, veritabanının gerçekten gözlemleyebildiği bir doğruyu kodlamalı.**
+"Yazma bir CLI'dan geldi" bir CHECK ile kanıtlanamaz — DB kimin bağlandığını görmez. CHECK yalnızca
+satırdaki DEĞERLERİ kısıtlar. Bu yüzden `CHECK(updated_by_type='human')` yanlış araçtı: izin verdiği
+taraf hakkında doğru olmayan bir şey iddia ediyor, üstelik tek yazma yolunu da reddederdi. Yetkiyi
+yapısal olarak zorla (yazıcı `src/` altında yok), satır değeriyle değil.
+
+**Ders 73 — Bir sonraki fazın talimatı da bir kayıttır; yanlışsa kod kadar zarar verir.**
+R5.1 kapanışı "önce `updated_by_type` doldur, sonra kısıtla" diyordu. Doğrulanmamış bir plan,
+dokümana yazıldığı anda doktrin gibi okunuyor. Gate A bunu çürüttü ve düzeltme yalnızca dokümanda
+değil, aynı iddiayı tekrarlayan 5 dosyada yapıldı — bunlardan biri (`tests/r2e-flow/...`) beklenen
+listede yoktu. Successor talimatını da record-integrity taramasına dahil et.
+
+**Ders 74 — Kolon "hiçbir şey tarafından okunmuyorsa" yanlış iddia da üretmiyordur.**
+`provider_connectivity_controls.updated_by` canonical'da bayat bir Globex owner'ı gösteriyor, ama
+`getControl`'ün tek çağıranı sadece `directorEnabled` okuyor ve hiçbir UI onu render etmiyor. Yani
+düzeltme aciliyeti yok. R2F.1'in tersi: yazılıp okunmayan kolon yetenek değildi; okunmayan kolon da
+kimseye yalan söylemiyor. Aciliyeti tüketiciye bak diye ölç.
+
+**Ders 75 — `version` bir geçiş sayacı değildir; predicate'i olmayan writer no-op'ları da sayar.**
+Eski R2E writer'ın `onConflictDoUpdate`'inde `where` yoktu, yani her ÇAĞRIDA `version`'ı artırıyordu.
+R5.1 seremonisi `where director_enabled is distinct from $2` taşıyor, yani artık yalnızca gerçek
+geçişlerde artıyor. `version = 30`, "29 geçiş" değil "29 yazma" demek ve kolon iki rejimi ayırt
+edilemez şekilde taşıyor. Sayaçtan tarih üretmeden önce writer'ın predicate'ine bak.

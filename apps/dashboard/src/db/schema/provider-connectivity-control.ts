@@ -26,10 +26,30 @@
  * other tenant depends on.
  *
  * `version` (rootColumns) carries optimistic-concurrency and advances on every change.
- * `updatedBy` is written as NULL: deployment possession has no verified actor, and
- * naming one would be a claim no human made. `updatedByType` is likewise untouched —
- * actor-type provenance and the human-only constraint that would rest on it belong to a
- * later phase, and a type without an actor would be the fabrication it exists to prevent.
+ * It is NOT a transition count: the pre-R5.1 writer had no `where` predicate, so it also
+ * advanced on writes that changed nothing. The ceremony's `is distinct from` predicate
+ * makes it track real transitions only from R5.1 onward, and nothing records where the
+ * two regimes meet.
+ *
+ * `updatedBy` is written as NULL: deployment possession has no verified actor, and naming
+ * one would be a claim no human made. `updatedByType` is left NULL for the same reason —
+ * TOGETHER with `updatedBy`, never alone.
+ *
+ * ── NO HUMAN-ONLY CONSTRAINT WILL BE ADDED (R5.2 Gate A) ─────────────────────
+ *
+ * Deployment possession is a SOURCE, not an ACTOR: it is authoritative for causing the
+ * mutation without identifying the human who caused it. Hebun's actor invariant is
+ * BOTH-OR-NEITHER — `(x_by_type IS NULL) = (x_by_id IS NULL)`, already enforced on
+ * `auth_credentials`, `auth_identities`, `invitations`, `memberships` and
+ * `role_permissions`. So `updated_by_type = 'human'` with `updated_by = NULL` is false
+ * provenance, not partial attribution, and a `CHECK(updated_by_type = 'human')` would
+ * additionally reject every ceremony write. Both are cancelled, not deferred.
+ *
+ * An `audit_log` row is blocked on the same fact: `actor_id` and `actor_type` are NOT NULL
+ * and no enum value means "no verified actor". That waits on a real platform principal.
+ *
+ * A truthful alternative exists and is deliberately NOT built: a nullable `control_source`
+ * naming the ceremony, as `companies.provisioning_source` does. Nothing reads it today.
  */
 import { pgTable, boolean, text, uniqueIndex } from "drizzle-orm/pg-core";
 import { rootColumns } from "./_base";

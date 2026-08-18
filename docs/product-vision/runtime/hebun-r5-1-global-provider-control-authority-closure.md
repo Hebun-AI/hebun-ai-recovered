@@ -158,23 +158,84 @@ tenants remain, and then flips the global control in both directions. The ceremo
 - **No audit row** for the transition. A terminal has no actor to attribute, and inventing one would
   put a claim in the ledger that no human made. Asserted as *no delta across one transition*, not as
   `= 0`.
-- **No actor-type provenance.** `updated_by_type` is still never written, so a human-only CHECK on
-  this table remains impossible today.
+- **No actor-type provenance.** `updated_by_type` is never written, so a human-only CHECK on this
+  table cannot be added.
 - **No platform operator, no `platform-admin`.** That value stays exactly what it was: a CHECK
   allowance and a TypeScript union with zero writers. All 17 canonical audit rows remain
   `authority_source = membership`.
 
-Both of the first two belong to **R5.2 — Global Provider Control Audit Hardening**, in that order:
-populate `updated_by_type` first, then constrain it, because the constraint would otherwise reject
-every write.
+---
+
+## CORRECTION (R5.2 Gate A, 2026-08-18) — the successor plan recorded here was wrong
+
+This section originally instructed the successor phase to *"populate `updated_by_type` first, then
+constrain it."* **That instruction was architecturally false and has been withdrawn.** R5.1 itself
+remains correct and is unchanged; only the plan for what came next was wrong.
+
+**Deployment possession is a SOURCE without an ACTOR.** A trust root can be authoritative for
+*causing* an operation without identifying the human who operated it. An ACTOR is an authenticated
+Hebun principal (`actor_type = human` + a real `users.id`); a SOURCE is the ceremony that caused the
+mutation (`local-operator-ceremony`). Deployment possession has the second and not the first.
+
+**No human actor may be fabricated.** The truthful ceremony state is `updated_by = NULL` **and**
+`updated_by_type = NULL`, together.
+
+**The human-only CHECK is cancelled.** `CHECK(updated_by_type = 'human')` must not be built. Hebun's
+actual actor invariant is **both-or-neither** — `(x_by_type IS NULL) = (x_by_id IS NULL)`, already
+enforced on `auth_credentials`, `auth_identities`, `invitations`, `memberships` and
+`role_permissions`. Writing `updated_by_type = 'human'` while `updated_by IS NULL` would violate that
+invariant, so it is false provenance rather than partial attribution. It would also reject every
+ceremony write, breaking the only write path this table has.
+
+**`audit_log` recording of provider transitions is blocked on a real actor.** `audit_log.actor_id`
+and `actor_type` are both NOT NULL, and no enum value means "no verified actor". This is the same
+wall R4A hit and recorded for tenant birth. `tenant_id` being nullable means the global *scope* is
+not the obstacle — only the actor is. The unblocking dependency is **Platform Operator Foundation**,
+not this phase.
+
+**Source-level provenance is designed and deferred.** A nullable
+`provider_connectivity_controls.control_source varchar(64)` constrained to `NULL` or
+`'local-operator-ceremony'`, with no backfill, would be truthful and follows
+`companies.provisioning_source` and `genesis_nominations.nomination_source` exactly. It was **not**
+built, because nothing reads it: `getControl` has one caller, `resolveDirectorEnabled`, which uses
+only `directorEnabled`, and no surface renders `updatedBy`. It earns implementation when any one of
+these becomes real — a second writer can reach the table, a reader needs to know which trust root
+changed it, or production gains a provider-control write path.
+
+**Production still has no provider-control write path.** Unchanged, intentional, fail-closed.
+
+### Deferred finding — candidate future gate: HEBUN — ACTOR PROVENANCE INTEGRITY
+
+Observed while re-proving the above, **recorded and deliberately NOT fixed.** Canonical violates
+`(x_by_type IS NULL) = (x_by_id IS NULL)` on four tables:
+
+| Table | Violating rows | Direction |
+|---|---|---|
+| `provider_connectivity_controls` | 1 / 1 | id set, type NULL |
+| `conversations` | 35 / 35 | id set, type NULL |
+| `messages` | 126 / 126 | id set, type NULL |
+| `users` | 1 / 3 | type set, id NULL |
+
+Every governance-written table (`companies`, `memberships`, `roles`, `invitations`,
+`knowledge_nodes`, `genesis_nominations`, `user_session_contexts`, and 8 more) is clean at 0.
+
+**This is not R5.2.** No migration, no canonical mutation, no backfill, no constraint was applied,
+and repairing only the provider row would be arbitrary. A future authorized gate must first answer:
+why each table has the mismatch; whether the fields carry the same semantics across domains; which
+writers are still active; which rows are legacy; whether historical provenance can be repaired
+truthfully at all; whether constraints belong on all, some or none of the affected tables; and
+whether any migration requires truthful backfill or the preservation of unknown provenance.
+
+Not scheduled.
 
 ---
 
 ## Remaining limitations
 
 1. Production cannot change provider connectivity (above — intentional, fail-closed).
-2. The global control still produces no audit trail (R5.2).
-3. A human-only DB constraint on this table is still impossible (R5.2).
+2. The global control produces no audit trail. Blocked on a real actor — see the correction above;
+   the dependency is Platform Operator Foundation, not an audit-hardening phase.
+3. A human-only DB constraint on this table is cancelled, not pending — see the correction above.
 4. Per-tenant provider entitlement does not exist and was not built — there is no per-tenant
    credential underneath it, and no consumer for it (both tenants are `plan=free`, no billing).
 5. Platform-imposed resource ceilings remain blocked on an authority that does not exist.

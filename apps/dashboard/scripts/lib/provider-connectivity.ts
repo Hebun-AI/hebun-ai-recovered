@@ -33,6 +33,11 @@
  * actor to name — so it says so. The previous writer recorded a session user id because a session
  * user was the (wrong) authority; recording one here would be a claim no human made.
  *
+ * Stated as doctrine (R5.2 Gate A): this root is a SOURCE, not an ACTOR. A trust root can be
+ * authoritative for CAUSING an operation without identifying the human who operated it. `updated_by`
+ * and `updated_by_type` are therefore left NULL TOGETHER — an actor type without an actor id is
+ * false attribution under Hebun's both-or-neither invariant, not partial attribution.
+ *
  * ── WHAT IT DELIBERATELY CANNOT DO ───────────────────────────────────────────
  *
  *   - reach any provider key outside the closed vocabulary below
@@ -40,7 +45,8 @@
  *   - CREATE a control row for a `disable` — an absent row already reads as disabled everywhere, so
  *     writing one would add a row and change nothing (see `setProviderConnectivity`)
  *   - arm external send without deployment configuration — R3B's refusal moves with the write
- *   - write `audit_log` — a terminal has no actor to attribute, and R5.2 owns that repair
+ *   - write `audit_log` — `actor_id` and `actor_type` are NOT NULL and a terminal has no actor to
+ *     attribute. Blocked on a real platform principal, not on an audit-hardening phase
  *   - write any column but `director_enabled`, `updated_at`, `updated_by` and `version`
  *   - touch tenants, users, memberships, roles, sessions, permits, attempts or requests
  *   - run in production, or against a non-local database (the CLI refuses; see the sibling file)
@@ -174,9 +180,9 @@ export async function readProviderControl(
  * Exactly four columns move, and the set is the whole contract: the permission, when it changed,
  * who changed it (NULL — see the header), and the optimistic version. `created_by`,
  * `created_by_type`, `updated_by_type`, `lifecycle_status` and every deletion column stay as they
- * were. `updated_by_type` in particular is left alone deliberately: R5.2 owns actor-type provenance
- * and the human-only constraint that would rest on it, and writing a type here without an actor
- * would be the fabrication that gate exists to prevent.
+ * were. `updated_by_type` in particular is left alone permanently, not pending a later phase:
+ * writing a type without an actor is false provenance, and the human-only constraint that would
+ * have rested on it is cancelled. See the header, and the schema file.
  */
 export async function setProviderConnectivity(
   client: Client,
