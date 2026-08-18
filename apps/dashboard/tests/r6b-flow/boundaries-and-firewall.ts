@@ -291,16 +291,21 @@ function phaseBoundaries(): void {
   );
   assert.deepEqual(children, [], "the projection is a section of /knowledge, not a route beneath it");
 
-  /* No new migration: R6B is a read, and a read needs no schema. */
-  const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((file) =>
-    file.endsWith(".sql"),
-  );
-  assert.equal(migrations.length, 30, "R6B adds no migration");
-  assert.equal(
-    migrations.sort().at(-1),
-    "20260817195446_r4a_tenant_provisioning_source.sql",
-    "the newest migration is still R4A's",
-  );
+  /* No new migration: R6B is a read, and a read needs no schema. Phase-scoped rather than a
+   * repo-wide total — a later phase's migration cannot falsify a claim that was never about it. */
+  const migrations = readdirSync(path.join(ROOT, "src/db/migrations"))
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
+  const PHASE_BOUNDARY = "20260817195446_r4a_tenant_provisioning_source.sql";
+  const upToBoundary = migrations.filter((file) => file <= PHASE_BOUNDARY);
+  assert.equal(upToBoundary.at(-1), PHASE_BOUNDARY, "the migration R6B inherited is intact");
+  assert.equal(upToBoundary.length, 30, "no migration was inserted at or before R6B's boundary");
+  for (const file of migrations.filter((file) => file > PHASE_BOUNDARY)) {
+    assert.ok(
+      !/r6[-_.]?b|company[-_]?understanding|coverage/i.test(file),
+      `no migration bears this phase's name — found ${file}`,
+    );
+  }
 
   /* No new table, and specifically not the one R6A rejected. */
   const schemaFiles = readdirSync(path.join(ROOT, "src/db/schema"));

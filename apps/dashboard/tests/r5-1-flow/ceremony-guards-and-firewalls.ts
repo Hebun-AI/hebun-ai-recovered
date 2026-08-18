@@ -252,17 +252,26 @@ function agentFirewall(): void {
  * 6. PHASE FIREWALLS — what R5.1 was NOT authorized to change.
  * ═════════════════════════════════════════════════════════════════════════ */
 function phaseFirewalls(): void {
-  /* NO SCHEMA CHANGE. The migration count is pinned by the timestamp-prefix boundary, so a later
-   * phase adding a migration does not fail this assertion — only one added at or before R5.1 does. */
+  /*
+   * NO SCHEMA CHANGE — pinned by the timestamp-prefix boundary, which is what the previous version
+   * of this comment CLAIMED while the assertions underneath it were a repo-wide total and a
+   * "newest migration" identity. Both were falsified the moment a later phase added one, so the
+   * claim is now actually phase-scoped: nothing changed at or before R5.1's boundary, and no
+   * migration after it bears this phase's name.
+   */
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations"))
     .filter((f) => f.endsWith(".sql"))
     .sort();
-  assert.equal(migrations.length, 30, "R5.1 adds no migration — the control table is unchanged");
-  assert.equal(
-    migrations.at(-1),
-    "20260817195446_r4a_tenant_provisioning_source.sql",
-    "the newest migration is still R4A's",
-  );
+  const PHASE_BOUNDARY = "20260817195446_r4a_tenant_provisioning_source.sql";
+  const upToBoundary = migrations.filter((f) => f <= PHASE_BOUNDARY);
+  assert.equal(upToBoundary.at(-1), PHASE_BOUNDARY, "the migration R5.1 inherited is intact");
+  assert.equal(upToBoundary.length, 30, "no migration was inserted at or before R5.1's boundary");
+  for (const file of migrations.filter((f) => f > PHASE_BOUNDARY)) {
+    assert.ok(
+      !/r5[-_.]?1|provider[-_]?(connectivity|control)/i.test(file),
+      `no migration bears this phase's name — found ${file}`,
+    );
+  }
 
   /* The control schema itself is byte-for-byte the same shape: a key and a boolean. */
   const schema = codeOf(read("src/db/schema/provider-connectivity-control.ts"));

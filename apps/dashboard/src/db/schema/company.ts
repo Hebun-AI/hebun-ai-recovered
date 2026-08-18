@@ -62,20 +62,41 @@ export const companies = pgTable(
      */
     check(
       "companies_provisioning_source_chk",
-      sql`${t.provisioningSource} is null or ${t.provisioningSource} = 'local-operator-ceremony'`,
+      sql`${t.provisioningSource} is null or ${t.provisioningSource} = 'local-operator-ceremony' or ${t.provisioningSource} = 'production-operator-ceremony'`,
     ),
   ]
 );
 
 /**
- * The only value `provisioning_source` may hold today.
- *
- * A local operator ceremony — possession of the local deployment. NOT a verified platform admin,
+ * A local operator ceremony — possession of the LOCAL deployment. NOT a verified platform admin,
  * NOT a certified operator, NOT a Governance authority. It shares its wording with
  * `GENESIS_NOMINATION_SOURCE_LOCAL_OPERATOR` because it names the same root and carries the same
- * limitation; introducing a real operator identity later means adding a value here.
+ * limitation.
  */
 export const COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR = "local-operator-ceremony";
+
+/**
+ * A production operator ceremony — possession of the PRODUCTION deployment.
+ *
+ * G1 widened the vocabulary because the CHECK above admitted only the local root, so a
+ * production-born tenant could not be recorded truthfully: it would have had to claim it was
+ * produced by a local ceremony, or violate the constraint. `provisioning_source` is the ONLY
+ * evidence a ceremony leaves — tenant birth writes no `audit_log` row and cannot, because
+ * `actor_id` and `actor_type` are both NOT NULL there — so a wrong value is a permanent lie in the
+ * one place the truth is kept.
+ *
+ * It carries EXACTLY the limitation its local sibling carries, and changes one morpheme for one
+ * reason: it names a different deployment, never a different KIND of authority. Still possession,
+ * still a SOURCE and not an ACTOR, still no verified human. NOT a platform admin, NOT a platform
+ * operator, NOT an operator identity, NOT a Governance authority. No such principal exists.
+ *
+ * **VOCABULARY ONLY — NO WRITER EXISTS.** G1 adds no ceremony, relaxes no guard, and creates no
+ * application writer. Every ceremony that could name a root still refuses `NODE_ENV=production`
+ * and still refuses a non-local database, and nothing under `src/` writes `companies` at all. The
+ * database accepting this value does not make it reachable; a later gate must build the ceremony
+ * that may legitimately use it.
+ */
+export const COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR = "production-operator-ceremony";
 
 /* Ownership relations that are already certain. */
 export const companiesRelations = relations(companies, ({ many }) => ({

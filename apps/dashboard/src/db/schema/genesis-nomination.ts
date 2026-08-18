@@ -76,17 +76,33 @@ import { memberships } from "./membership";
 import { users } from "./user";
 
 /**
- * The only value `nomination_source` may hold today.
- *
  * READ THIS AS A LIMITATION, NOT A CREDENTIAL. It records WHICH ROOT produced the
  * nomination — a local operator ceremony — and deliberately does NOT claim WHO
  * operated it. Hebun cannot cryptographically identify the human at the terminal;
  * possession of the deployment is the bootstrap trust assumption of this stage.
  * The value is therefore not "verified platform admin", not "certified operator"
- * and not any Governance authority. Introducing a real operator identity later
- * means adding a value here, which is a deliberate schema decision.
+ * and not any Governance authority.
  */
 export const GENESIS_NOMINATION_SOURCE_LOCAL_OPERATOR = "local-operator-ceremony";
+
+/**
+ * The same root, on the PRODUCTION deployment. Added by G1.
+ *
+ * The CHECK below admitted one literal and — unlike `companies.provisioning_source` — allows no
+ * NULL, so `nomination_source` was mandatorily "local". A production Genesis nomination was
+ * therefore not merely undesigned but SCHEMA-IMPOSSIBLE: it had to claim a local root or be
+ * rejected outright. Widening the vocabulary is what makes the truthful value expressible.
+ *
+ * It carries the identical limitation. Possession of a deployment is a SOURCE, never an ACTOR: a
+ * trust root can be authoritative for CAUSING an act without identifying the human who performed
+ * it. NOT a platform admin, NOT an operator identity, NOT a Governance authority.
+ *
+ * **VOCABULARY ONLY — NO WRITER EXISTS.** `scripts/lib/nominate-genesis-human.ts` remains the sole
+ * writer, still names the LOCAL root, and still refuses `NODE_ENV=production` and a non-local
+ * database. Nothing under `src/` can reach it. Nomination acceptance, Governance decision
+ * semantics, the accepted/consumed/revoked constraints and NOT NULL are all untouched.
+ */
+export const GENESIS_NOMINATION_SOURCE_PRODUCTION_OPERATOR = "production-operator-ceremony";
 
 export const genesisNominations = pgTable(
   "genesis_nominations",
@@ -218,7 +234,7 @@ export const genesisNominations = pgTable(
      * stay in agreement. */
     check(
       "genesis_nominations_source_chk",
-      sql`${t.nominationSource} = 'local-operator-ceremony'`,
+      sql`${t.nominationSource} = 'local-operator-ceremony' or ${t.nominationSource} = 'production-operator-ceremony'`,
     ),
   ],
 );

@@ -1,0 +1,396 @@
+/*
+ * G1 — production provenance vocabulary, proved against a real PostgreSQL.
+ *
+ * ── WHAT THIS PHASE ACTUALLY CHANGED ─────────────────────────────────────────
+ *
+ * Two CHECK constraints, and nothing else. Before G1:
+ *
+ *   companies_provisioning_source_chk    provisioning_source IS NULL
+ *                                        OR provisioning_source = 'local-operator-ceremony'
+ *   genesis_nominations_source_chk       nomination_source = 'local-operator-ceremony'
+ *
+ * The second admits no NULL, so `nomination_source` was mandatorily "local". A production-born
+ * tenant and a production Genesis nomination were therefore not merely undesigned — they were
+ * SCHEMA-IMPOSSIBLE to record truthfully. Either the row claimed a local root it did not have, or
+ * PostgreSQL rejected it. `provisioning_source` is the only evidence a ceremony leaves (tenant
+ * birth writes no `audit_log` row and cannot: `actor_id` and `actor_type` are both NOT NULL), so a
+ * wrong value would be a permanent lie in the one place the truth is kept.
+ *
+ * ── WHAT THIS TEST MUST NOT LET DRIFT ────────────────────────────────────────
+ *
+ * The vocabulary is a CLOSED set, and it stays closed. Widening it by two values must not turn the
+ * column into free text — so the rejection of an unknown value is asserted against the DATABASE,
+ * and the assertion is bite-proofed by dropping the CHECK and watching the proof die.
+ *
+ * The widening is also VOCABULARY ONLY. No ceremony writes the new value, no guard was relaxed, no
+ * writer was added. Those are asserted here as source-level facts because a database that accepts a
+ * value says nothing about whether anything can reach it.
+ *
+ * Uses a disposable local database, dropped on exit.
+ */
+import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import { Client } from "pg";
+import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
+import {
+  COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR,
+  COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR,
+} from "../../src/db/schema/company";
+import {
+  GENESIS_NOMINATION_SOURCE_LOCAL_OPERATOR,
+  GENESIS_NOMINATION_SOURCE_PRODUCTION_OPERATOR,
+} from "../../src/db/schema/genesis-nomination";
+
+const MIGRATIONS_DIR = "src/db/migrations";
+const MIGRATION = `${MIGRATIONS_DIR}/20260818172455_production_provenance_vocabulary.sql`;
+
+function read(path: string): string {
+  return readFileSync(path, "utf8");
+}
+
+/* Comment-stripped source. A prohibition proved by `includes()` over raw text is trivially tripped
+ * by prose that merely NAMES the thing it forbids — R2F.1's guard learned that the hard way. */
+function codeOf(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+}
+
+/** Insert a company with an explicit provisioning_source, returning the PostgreSQL error or null. */
+async function tryCompanySource(db: Client, source: string | null): Promise<string | null> {
+  try {
+    await db.query(
+      `insert into companies (id, name, slug, plan, provisioning_source)
+       values (gen_random_uuid(), 'probe', 'probe-' || gen_random_uuid()::text, 'free', $1)`,
+      [source],
+    );
+    return null;
+  } catch (error) {
+    return (error as { message?: string }).message ?? "unknown";
+  }
+}
+
+async function main(): Promise<void> {
+  /* ── The vocabulary constants ────────────────────────────────────────────── */
+  assert.equal(COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR, "local-operator-ceremony");
+  assert.equal(COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR, "production-operator-ceremony");
+  assert.equal(GENESIS_NOMINATION_SOURCE_LOCAL_OPERATOR, "local-operator-ceremony");
+  assert.equal(GENESIS_NOMINATION_SOURCE_PRODUCTION_OPERATOR, "production-operator-ceremony");
+  /* The two columns name the SAME roots — one root vocabulary, two places it is recorded. */
+  assert.equal(
+    COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR,
+    GENESIS_NOMINATION_SOURCE_PRODUCTION_OPERATOR,
+    "a production tenant and its Genesis nomination must name the same root",
+  );
+
+  /* ── Test 8: inline CHECK literals agree with the TypeScript constants ───── */
+  {
+    const migration = read(MIGRATION);
+    for (const value of [
+      COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR,
+      COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR,
+    ]) {
+      assert.ok(
+        migration.includes(`"companies"."provisioning_source" = '${value}'`),
+        `the companies CHECK must name ${value} inline`,
+      );
+      assert.ok(
+        migration.includes(`"genesis_nominations"."nomination_source" = '${value}'`),
+        `the genesis CHECK must name ${value} inline`,
+      );
+    }
+    /* A bind parameter inside a CHECK is not valid SQL — R4A's reason for the inline literal. */
+    assert.doesNotMatch(migration, /\$\d/, "no bind parameter may appear inside a CHECK");
+    assert.match(read("src/db/schema/company.ts"), /= "production-operator-ceremony"/);
+    assert.match(read("src/db/schema/genesis-nomination.ts"), /= "production-operator-ceremony"/);
+  }
+
+  /* ── Test 7: the migration performs no backfill and adds no structure ───── */
+  {
+    const migration = read(MIGRATION);
+    const statements = migration
+      .split("--> statement-breakpoint")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    assert.equal(statements.length, 4, "exactly two DROP CONSTRAINT and two ADD CONSTRAINT");
+    for (const forbidden of [
+      /UPDATE\s/i,
+      /INSERT\s+INTO/i,
+      /DELETE\s+FROM/i,
+      /CREATE\s+TABLE/i,
+      /ADD\s+COLUMN/i,
+      /DROP\s+COLUMN/i,
+      /DROP\s+TABLE/i,
+      /CREATE\s+TYPE/i,
+      /CREATE\s+(UNIQUE\s+)?INDEX/i,
+      /REFERENCES/i,
+    ]) {
+      assert.doesNotMatch(migration, forbidden, `G1 must not emit ${forbidden}`);
+    }
+    /* Every statement touches only the two named constraints. */
+    for (const statement of statements) {
+      assert.match(
+        statement,
+        /CONSTRAINT "(companies_provisioning_source_chk|genesis_nominations_source_chk)"/,
+        `unrelated statement in the G1 migration: ${statement.slice(0, 80)}`,
+      );
+    }
+  }
+
+  /* ── Test 9 + 10: vocabulary only — no writer, no relaxed guard ──────────── */
+  {
+    /* `src/` writes no company row at all, so the new value cannot be reached from the app. */
+    const srcFiles: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          if (entry.name !== "migrations") walk(full);
+        } else if (/\.tsx?$/.test(entry.name)) srcFiles.push(full);
+      }
+    };
+    walk("src");
+
+    const writers = srcFiles.filter((f) =>
+      /\.(insert|update)\(\s*companies\s*\)|insert\s+into\s+companies|update\s+companies\s+set/i.test(
+        codeOf(read(f)),
+      ),
+    );
+    assert.deepEqual(writers, [], "no file under src may write companies");
+
+    /* Nothing under src/ names the production root either — it is schema vocabulary, not a value
+     * any application code may supply. The schema module that DEFINES it is the sole exception. */
+    const namers = srcFiles.filter(
+      (f) =>
+        f !== "src/db/schema/company.ts" &&
+        f !== "src/db/schema/genesis-nomination.ts" &&
+        codeOf(read(f)).includes("production-operator-ceremony"),
+    );
+    assert.deepEqual(namers, [], "only the schema vocabulary owner may name the production root");
+
+    /* And no ceremony writes it: the two ceremonies still name the LOCAL root, unchanged. */
+    const provisionCeremony = codeOf(read("scripts/lib/provision-tenant.ts"));
+    const genesisCeremony = codeOf(read("scripts/lib/nominate-genesis-human.ts"));
+    for (const [label, source] of [
+      ["provision-tenant", provisionCeremony],
+      ["nominate-genesis-human", genesisCeremony],
+    ] as const) {
+      assert.ok(
+        !source.includes("production-operator-ceremony"),
+        `${label} must not name the production root — G1 adds no ceremony`,
+      );
+      assert.ok(source.includes("local-operator-ceremony"), `${label} still names the local root`);
+    }
+
+    /* The production and locality fences are untouched, in every ceremony that has them. */
+    for (const cli of [
+      "scripts/tenant-provision.ts",
+      "scripts/genesis-nominate.ts",
+      "scripts/provider-connectivity.ts",
+      "scripts/tenant-lifecycle.ts",
+      "scripts/auth-dev-credential.ts",
+    ]) {
+      const source = codeOf(read(cli));
+      assert.match(source, /NODE_ENV === "production"/, `${cli} must still refuse production`);
+      assert.match(source, /assertLocalDatabaseUrl/, `${cli} must still refuse a remote database`);
+    }
+  }
+
+  /* ── Database-proved behaviour ───────────────────────────────────────────── */
+  const harness = createDisposablePostgresHarness("hebun_g1_provenance");
+  await harness.createDatabase();
+  const db = new Client({ connectionString: harness.dbUrl });
+
+  try {
+    harness.migrateDatabase();
+    await db.connect();
+
+    /* The migration ledger is state-relative: the files, the journal and the applied rows agree,
+     * and G1 is the latest entry. Never a hard-coded total. */
+    {
+      const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql"));
+      const journal = JSON.parse(read(`${MIGRATIONS_DIR}/meta/_journal.json`)) as {
+        entries: { tag: string }[];
+      };
+      const applied = await db.query<{ count: string }>(
+        "select count(*)::text as count from drizzle.__drizzle_migrations",
+      );
+      assert.equal(files.length, journal.entries.length, "every migration file is journalled");
+      assert.equal(
+        Number(applied.rows[0]!.count),
+        journal.entries.length,
+        "every journalled migration applied",
+      );
+      assert.equal(
+        journal.entries.at(-1)!.tag,
+        "20260818172455_production_provenance_vocabulary",
+        "G1 is the latest journal entry",
+      );
+    }
+
+    /* Both CHECKs exist and name both roots, read from the catalog rather than the file. */
+    {
+      const { rows } = await db.query<{ conname: string; def: string }>(
+        `select conname, pg_get_constraintdef(oid) as def from pg_constraint
+          where conname in ('companies_provisioning_source_chk','genesis_nominations_source_chk')`,
+      );
+      assert.equal(rows.length, 2, "both provenance CHECKs survive the migration");
+      for (const row of rows) {
+        assert.ok(row.def.includes("local-operator-ceremony"), `${row.conname} keeps the local root`);
+        assert.ok(
+          row.def.includes("production-operator-ceremony"),
+          `${row.conname} admits the production root`,
+        );
+      }
+    }
+
+    /* ── Test 1 + 2: both roots accepted on companies ─────────────────────── */
+    assert.equal(
+      await tryCompanySource(db, COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR),
+      null,
+      "the local root must still be accepted",
+    );
+    assert.equal(
+      await tryCompanySource(db, COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR),
+      null,
+      "the production root must be accepted",
+    );
+    /* NULL still means "no ceremony provenance exists". */
+    assert.equal(await tryCompanySource(db, null), null, "NULL remains legal and meaningful");
+
+    /* ── Test 4: an unknown root is refused by PostgreSQL, not by TypeScript ─ */
+    for (const rogue of [
+      "platform-admin",
+      "production-operator",
+      "PRODUCTION-OPERATOR-CEREMONY",
+      "staging-operator-ceremony",
+      "",
+    ]) {
+      const error = await tryCompanySource(db, rogue);
+      assert.ok(error, `an unknown root (${JSON.stringify(rogue)}) must be refused`);
+      assert.match(
+        error,
+        /companies_provisioning_source_chk/,
+        "the refusal must come from the CHECK, not from something incidental",
+      );
+    }
+
+    /* ── Test 3 + 5: genesis_nominations vocabulary and NOT NULL ──────────── */
+    {
+      /* Asserted against the column and its CHECK directly: a full nomination row needs a
+       * membership, which needs Governance, which needs a nomination — the R4A bootstrap cycle. The
+       * constraint is what G1 changed, so the constraint is what is proved. */
+      const nullable = await db.query<{ is_nullable: string }>(
+        `select is_nullable from information_schema.columns
+          where table_name='genesis_nominations' and column_name='nomination_source'`,
+      );
+      assert.equal(nullable.rows[0]!.is_nullable, "NO", "nomination_source stays NOT NULL");
+
+      const def = (
+        await db.query<{ def: string }>(
+          `select pg_get_constraintdef(oid) as def from pg_constraint
+            where conname='genesis_nominations_source_chk'`,
+        )
+      ).rows[0]!.def;
+      /* No NULL escape was introduced while widening — the CHECK still tests equality only. */
+      assert.ok(!/IS NULL/i.test(def), "the genesis CHECK must not gain a NULL allowance");
+
+      /* And the CHECK itself accepts exactly the two roots and nothing else. */
+      const probe = async (value: string | null): Promise<boolean> => {
+        const { rows } = await db.query<{ ok: boolean | null }>(
+          `select (${def.replace(/^CHECK\s*/i, "")}) as ok
+             from (select $1::varchar as nomination_source) as genesis_nominations`,
+          [value],
+        );
+        return rows[0]!.ok === true;
+      };
+      assert.equal(await probe(GENESIS_NOMINATION_SOURCE_LOCAL_OPERATOR), true);
+      assert.equal(await probe(GENESIS_NOMINATION_SOURCE_PRODUCTION_OPERATOR), true);
+      assert.equal(await probe("platform-admin"), false);
+      assert.equal(await probe(null), false, "NULL does not satisfy the CHECK either");
+
+      /* ── BITE-PROOF B: the probe's `false` means the CHECK refused, not that the harness
+       * always refuses. Evaluated against a deliberately permissive predicate it must return
+       * true for the very values it just rejected — otherwise the four assertions above prove
+       * nothing about the constraint. */
+      const permissive = async (value: string | null): Promise<boolean> => {
+        const { rows } = await db.query<{ ok: boolean | null }>(
+          "select (nomination_source is not null or nomination_source is null) as ok" +
+            " from (select $1::varchar as nomination_source) as genesis_nominations",
+          [value],
+        );
+        return rows[0]!.ok === true;
+      };
+      assert.equal(
+        await permissive("platform-admin"),
+        true,
+        "BITE-PROOF FAILED: the probe cannot return true, so its false results were vacuous",
+      );
+      assert.equal(await permissive(null), true, "and NULL too, under a predicate that allows it");
+    }
+
+    /* ── Test 6: pre-existing NULL rows are preserved, never backfilled ────── */
+    {
+      await db.query(
+        `insert into companies (id, name, slug, plan)
+         values (gen_random_uuid(), 'pre-existing', 'pre-existing-row', 'free')`,
+      );
+      const { rows } = await db.query<{ count: string }>(
+        "select count(*)::text as count from companies where provisioning_source is null",
+      );
+      assert.ok(Number(rows[0]!.count) >= 1, "a company may still carry no provenance at all");
+    }
+
+    /* ── Test 11 + 12: no audit row, no provider state change ─────────────── */
+    {
+      const audit = await db.query<{ count: string }>(
+        "select count(*)::text as count from audit_log",
+      );
+      assert.equal(Number(audit.rows[0]!.count), 0, "G1 writes no audit_log row");
+      const provider = await db.query<{ count: string }>(
+        "select count(*)::text as count from provider_connectivity_controls",
+      );
+      assert.equal(Number(provider.rows[0]!.count), 0, "G1 creates no provider control row");
+    }
+
+    /* ── BITE-PROOF A: the rejection test depends on the CHECK ─────────────── */
+    {
+      await db.query(
+        'alter table companies drop constraint "companies_provisioning_source_chk"',
+      );
+      const error = await tryCompanySource(db, "platform-admin");
+      assert.equal(
+        error,
+        null,
+        "BITE-PROOF FAILED: an unknown root was still refused with the CHECK dropped, so the " +
+          "rejection above was proving something other than the constraint",
+      );
+      /* The row that just got in is itself proof the constraint was gone: re-adding the CHECK
+       * fails while it exists ("is violated by some row"). Remove it, then restore. */
+      const removed = await db.query(
+        "delete from companies where provisioning_source = 'platform-admin'",
+      );
+      assert.equal(removed.rowCount, 1, "exactly the rogue row entered while the CHECK was absent");
+      /* Restore it exactly as the migration writes it, and confirm the bite returns. */
+      await db.query(
+        `alter table companies add constraint "companies_provisioning_source_chk"
+           check ("companies"."provisioning_source" is null
+                  or "companies"."provisioning_source" = 'local-operator-ceremony'
+                  or "companies"."provisioning_source" = 'production-operator-ceremony')`,
+      );
+      assert.match(
+        (await tryCompanySource(db, "platform-admin")) ?? "",
+        /companies_provisioning_source_chk/,
+        "the CHECK must bite again once restored",
+      );
+    }
+
+    console.log("G1 provenance vocabulary: all assertions passed.");
+  } finally {
+    await db.end().catch(() => undefined);
+    await harness.dropDatabase();
+  }
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

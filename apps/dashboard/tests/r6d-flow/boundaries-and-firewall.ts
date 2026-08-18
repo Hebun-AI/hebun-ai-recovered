@@ -284,15 +284,21 @@ function r6bInheritsRatherThanKnows(): void {
  * 7. PHASE BOUNDARIES — no schema, no route, no dead-adapter revival.
  * ═════════════════════════════════════════════════════════════════════════ */
 function phaseBoundaries(): void {
-  const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((file) =>
-    file.endsWith(".sql"),
-  );
-  assert.equal(migrations.length, 30, "R6D adds no migration");
-  assert.equal(
-    migrations.sort().at(-1),
-    "20260817195446_r4a_tenant_provisioning_source.sql",
-    "the newest migration is still R4A's",
-  );
+  /* Phase-scoped rather than a repo-wide total: a later phase's migration cannot falsify a claim
+   * that was never about it. R6D claims only that IT added none. */
+  const migrations = readdirSync(path.join(ROOT, "src/db/migrations"))
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
+  const PHASE_BOUNDARY = "20260817195446_r4a_tenant_provisioning_source.sql";
+  const upToBoundary = migrations.filter((file) => file <= PHASE_BOUNDARY);
+  assert.equal(upToBoundary.at(-1), PHASE_BOUNDARY, "the migration R6D inherited is intact");
+  assert.equal(upToBoundary.length, 30, "no migration was inserted at or before R6D's boundary");
+  for (const file of migrations.filter((file) => file > PHASE_BOUNDARY)) {
+    assert.ok(
+      !/r6[-_.]?d|retract|withdraw/i.test(file),
+      `no migration bears this phase's name — found ${file}`,
+    );
+  }
 
   /* No new table, and specifically nothing shaped like an ingestion ledger. */
   const schemaFiles = readdirSync(path.join(ROOT, "src/db/schema"));

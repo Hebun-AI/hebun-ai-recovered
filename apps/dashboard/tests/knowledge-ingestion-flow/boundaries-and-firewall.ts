@@ -347,6 +347,7 @@ function main(): void {
         "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql", "20260816194116_r3b_action_execution_attempts.sql",
         /* R4A tenant bootstrap ceremony — a later Gate-B phase, declared rather than silent. */
         "20260817195446_r4a_tenant_provisioning_source.sql",
+        "20260818172455_production_provenance_vocabulary.sql",
       ],
       "ingestion added no migration; everything after its boundary belongs to a declared later phase",
     );

@@ -1,0 +1,4 @@
+ALTER TABLE "companies" DROP CONSTRAINT "companies_provisioning_source_chk";--> statement-breakpoint
+ALTER TABLE "genesis_nominations" DROP CONSTRAINT "genesis_nominations_source_chk";--> statement-breakpoint
+ALTER TABLE "companies" ADD CONSTRAINT "companies_provisioning_source_chk" CHECK ("companies"."provisioning_source" is null or "companies"."provisioning_source" = 'local-operator-ceremony' or "companies"."provisioning_source" = 'production-operator-ceremony');--> statement-breakpoint
+ALTER TABLE "genesis_nominations" ADD CONSTRAINT "genesis_nominations_source_chk" CHECK ("genesis_nominations"."nomination_source" = 'local-operator-ceremony' or "genesis_nominations"."nomination_source" = 'production-operator-ceremony');

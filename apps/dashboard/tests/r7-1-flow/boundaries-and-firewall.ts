@@ -261,8 +261,28 @@ function noPersistence(): void {
     .filter((name) => name.endsWith(".sql"))
     .map((name) => name.replace(/\.sql$/, ""))
     .sort();
+  /*
+   * "Nothing newer exists" was only ever true until the next phase shipped one, which conflates
+   * R7.1's authorship with everyone else's. The claim is now what it always meant: nothing was
+   * inserted at or before R7.1's boundary, and no later migration is R7.1's.
+   */
+  assert.equal(
+    migrations.filter((name) => name <= LATEST_PRE_R71_MIGRATION).at(-1),
+    LATEST_PRE_R71_MIGRATION,
+    "the migration R7.1 inherited is intact",
+  );
   const newer = migrations.filter((name) => name > LATEST_PRE_R71_MIGRATION);
-  assert.deepEqual(newer, [], "R7.1 authored no migration");
+  assert.deepEqual(
+    newer,
+    ["20260818172455_production_provenance_vocabulary"],
+    "R7.1 authored no migration; what follows is a declared later phase",
+  );
+  for (const name of newer) {
+    assert.ok(
+      !/r7[-_.]?1|governance[-_]?activity|activity[-_]?observation/i.test(name),
+      `no migration bears this phase's name — found ${name}`,
+    );
+  }
 
   /* And no schema file was added for it. */
   assert.ok(
