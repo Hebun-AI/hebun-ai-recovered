@@ -29,6 +29,7 @@ import {
   runtimeProjectionRegistry,
 } from "../runtime-projection";
 import type { WorkflowRuntimeModel } from "../workflow-runtime";
+import { organizationalDemoDataPermitted } from "../mock-surface-gating/gate.server";
 import { DASHBOARD_SCOPE as dashboardScope } from "./scope";
 
 function dashboardRegistry(): DashboardRegistry {
@@ -79,6 +80,24 @@ function runtimeEvidence(generatedAt: Date): MaterializedEvidence | undefined {
 
 export function getDirectorDashboardUiModel(): DirectorDashboardUiModel {
   try {
+    /*
+     * G2 — MOCK SURFACE GATING. Every organizational input below is compiled-in fiction: the
+     * organization projection imports `hr/mock`, `agents/mock` and `approvals/mock`, and the agent
+     * and workflow CRUD adapters seed themselves from `agents/mock` and `workflows/mock`. Built
+     * unguarded this projection reports `active-agents: ready, 36` under the label "Available".
+     *
+     * Where a real tenant can be authenticated, that is a false claim about THEIR organization —
+     * and because `heby-runtime/overview-source.server.ts` reads this same function, it would also
+     * become Heby's grounding and be spoken as organizational fact. So the whole snapshot is
+     * withheld rather than partially trusted.
+     *
+     * WITHHELD, NOT ZEROED. `unavailableDashboard()` yields sections whose `sourceState` is
+     * `unavailable` ("Unavailable"), which is a different claim from `empty` ("No records"). A
+     * fabricated zero would be its own lie: Hebun does not know that this tenant has no agents.
+     *
+     * No replacement data is invented, and the pre-auth demo shell is unaffected.
+     */
+    if (!organizationalDemoDataPermitted()) return unavailableDashboard();
     ensureRuntimeProjectionRegistry();
     const organization = runtimeProjectionRegistry.ensure<OrganizationRuntimeSnapshot>("organization-runtime");
     const agents = runtimeProjectionRegistry.ensure<AgentEmployeeRuntimeModel[]>("agent-runtime");
