@@ -1572,3 +1572,27 @@ Bu makinede benzer isimli üç data dizini var ve Homebrew'unkilerde `hebun_r1` 
 başlatmak sessizce boş bir instance verir. Doğru dizin, o instance'ın kendi `postmaster.opts` ve
 `postgresql.conf`'undaki porttur. macOS'ta ayrıca `LC_ALL` gerekir, yoksa
 "postmaster became multithreaded during startup" ile düşer.
+
+**Ders 66 — Yetki ile yetkilendirdiği şeyin kapsamı aynı olmalı; JOIN predicate'i bunu ele verir.**
+`resolveProviderControlAuthority` rolü `and(eq(roles.id, roleId), eq(roles.tenantId, tenantId))`
+ile çözüyordu — bu doğru davranıştı, istemcinin başka tenant'ın rolünü iddia etmesini engelliyor.
+Ama koruduğu satırın `tenant_id`'si yoktu ve `provider_key` globalde unique. Yani tenant'a
+hapsedilmiş bir yetki, hiç hapsedilmemiş bir yazmayı kapılıyordu. Kanıt canonical'daydı: satırı 29
+kez değiştiren kullanıcının tek üyeliği Globex'te, satır Acme'yi de yönetiyordu. Çözüm yetkiyi
+genişletmek değil, yazmayı üründen çıkarmaktı.
+
+**Ders 67 — Çağıranı silmek yetmez; yeteneği sil. Aksi halde firewall bir "çağıran sayımı"na döner.**
+Server action'ı silip `setDirectorEnabled`'ı repository'de bırakmak, bir sonraki çağıranın bulacağı
+bir dikiş bırakırdı. Yetenek kaldırılınca iddia mekanik oluyor: "`src/` altında hiçbir dosya bu
+tabloya INSERT/UPDATE/DELETE yapmıyor." Çağıran sayımı yalnızca bir sonraki dosya eklenene kadar
+doğrudur; bu, kod tabanının kendisi hakkında doğrudur.
+
+**Ders 68 — Kontrolü gizleme, yokluğunu söyle. Disabled buton yalan söyler.**
+Gizlenmiş ya da pasif bir buton, "başkasında olan bir izin sende yok" der. Burada o izin kimsede
+yok — yazma tamamen uygulamadan çıktı. Doğru olan, değişikliğin nerede yapıldığını yazan bir cümle.
+
+**Ders 69 — Kaynak taraması yaparken yorumları ayıkla; kendi dokümantasyonun testini düşürür.**
+Üç kez aynı sınıf hata: `.env` alt dizesi `process.env`'i yakaladı; `[^"']*` satır sonlarını da
+eşleyip uzak tırnaklar arasını yuttu; ve "platform-admin yaratmaz" diyen kendi başlığım
+platform-admin taramasına takıldı. Soru "hangi KOD yazabiliyor" ise `codeOf()` uygula, ve mekanizmayı
+ara (import ifadesi, fs çağrısı), alt dizeyi değil.
