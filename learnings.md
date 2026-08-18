@@ -1512,3 +1512,34 @@ R4C.1 "hiç upload yolu yok" iddiasını yanlışladı. `k1-flow` bu inkârı `c
 yasaklayarak koruyordu — onarılmasaydı harita gerçek bir yeteneği **eksik** raporlamaya zorlanacaktı.
 Bir faz bir inkârı yanlışlıyorsa, o inkârı bekçilik eden guard AYNI commit'te onarılmalı; yoksa suite
 yeşil kalır — çünkü bayat iddia hayatta kalmıştır.
+
+**Ders 55 — Yamalayamadığın bir parser, yamalayabildiğin büyük olandan kötüdür.**
+`unpdf` pdf.js'i kendi `dist`'ine gömüyor; `overrides`/`resolutions` başka bir paketin build
+çıktısının içine ulaşamaz. Yani 2.1 MB'lik temiz paket, CVE-2026-16633 aralığındaki pdf.js'i
+taşıyordu ve tüketici düzeltemezdi. 34.5 MB'lik `pdfjs-dist` upstream'in kendisi ve sürümü bizim
+pinimiz. Önce "bunu kendim yamalayabilir miyim?" diye sor, sonra "kaç MB?" diye.
+
+**Ders 56 — Bir bağımlılığın sertleştirme seçeneklerini advisory'den değil, KURULU artefakttan doğrula.**
+Gate A `isEvalSupported: false` bekliyordu. 6.2.108'de bu seçenek paketin hiçbir dosyasında yok —
+koruduğu eval yolu upstream'den kaldırılmış. Set etmek, hiçbir şeyin uygulamadığı bir korumayı iddia
+eden bir yorum bırakırdı. İki tarafı birden assert et: seçenek upstream'de yok VE kod onu set
+ediyormuş gibi yapmıyor. Geri gelirse test kontrolü zorunlu kılar.
+
+**Ders 57 — Tek format için yazılmış bir kural, ikinci format gelince iki yönde birden bozulur.**
+MIME kuralı `text/*` tolere edip gerisini reddediyordu. `.pdf` gelince hem `application/pdf`'i
+(doğru ve en yaygın beyan) reddetti hem de `.pdf` üzerindeki `text/plain`'i tolere edecekti.
+Tipe özgü kural tiple birlikte yaşamalı.
+
+**Ders 58 — Fixture'lar üretim kodu kadar denetim ister; sessizce hiçbir şey kanıtlamazlar.**
+İkisi de "geçti" ama boştu: xref dışına konan `/Encrypt` sözlüğü sarkan referans oldu, belge normal
+açıldı; bütün bir sayfayı tek `Tj`'ye koyunca 111 000 karakterin 2 698'i çıktı, karakter tavanını
+aşmayı amaçlayan test tavanın altında kaldı. Bir fixture'ın doğru davrandığını ölç, varsayma.
+
+**Ders 59 — Kaba token taraması string literal'i kod olarak okur.**
+"Longer documents exceed what one ingestion can hold" cümlesi `documents` guard'ını tetikledi —
+yorum-temizleme bunu yakalamaz, çünkü string literal koddur. Tabloyu ara, İngilizce kelimeyi değil.
+
+**Ders 60 — Global sayım bir faz iddiası değildir (ikinci kez).**
+`Object.keys(dependencies).length === 8` "bu faz bir şey eklemedi" gibi okunur ama "hiçbir faz asla
+bir şey eklemez" iddia eder. Tek bir incelenmiş bağımlılık, supersession ve membership integrity ile
+hiç ilgisi olmayan iki suite'i birden kırdı. Faz iddiasını faz kapsamında yaz.
