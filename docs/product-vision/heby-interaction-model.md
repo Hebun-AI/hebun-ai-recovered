@@ -332,6 +332,87 @@ That gate must begin with a repository audit of: the current Heby UI, the Heby r
 | Contextual composer | NOT IMPLEMENTED |
 | `/exit` application command | NOT IMPLEMENTED |
 
+## Heby Personal Learning / Mentorship
+
+**Status: DEFERRED — PRODUCT DIRECTION, NOT OPEN.** Recorded here as an interaction and conversation concept. It opens no work, changes no roadmap sequence, creates no authority, and authorizes no implementation.
+
+Heby may eventually support **persistent, topic-specific learning projects** in which a person is taught systematically over time. A user defines a project — for example *Exercise Science* — states how they wish to be taught, and returns to it. Heby teaches through text and/or voice, tracks what has actually been taught, identifies what needs review, and resumes from durable learning state rather than from an empty conversation.
+
+Possible future domains include exercise science, languages, mathematics, history, software engineering, AI systems architecture, and business. **These are examples of user-defined subjects, not built-in capabilities**, and naming one here neither builds nor promises it.
+
+### The distinction that must survive implementation
+
+Four things are routinely collapsed into one another, and this capability is only coherent if they stay separate:
+
+| Concern | What it is | What it is not |
+| --- | --- | --- |
+| **Project Instructions** | How Heby should teach, and the objectives and constraints of this learning project. | Not evidence. Not authority. Not a system prompt that may widen what Heby is permitted to do. |
+| **Knowledge** | The evidence and source material Heby may teach from, with its provenance. | Not the record of what was taught. |
+| **Learning State** | Structured evidence of what was taught, attempted, understood, needs review, and what should come next. | Not conversation history. Not organizational Knowledge. |
+| **Conversation** | The individual teaching interaction. | **Not the authoritative learning state.** A transcript is what was said, never a claim about what was learned. |
+
+Collapsing any pair produces a specific failure: instructions-as-evidence lets a persona assert facts; conversation-as-learning-state makes progress a function of chat length; learning-state-as-Knowledge turns one person's practice record into an organizational claim.
+
+### Constraints recorded now, so they cannot be assumed away later
+
+- **Persona is not expertise.** An instruction such as *"act like a forty-year expert"* is presentation and tone direction. It is **not evidence of expertise**, and it never raises the authority, confidence, or provenance of anything Heby says. Grounding discipline applies to a teaching answer exactly as it applies to any other.
+- **No fabricated credentials, mastery, progress, or learning history.** Heby must not claim a qualification it does not have, nor report that something was taught, understood, or mastered unless real learning state says so.
+- **No mastery percentages without an evidence model.** A number implies a measurement. Until it is decided *what is measured, from what evidence, and with what uncertainty*, no percentage, score, grade, level, or streak may be shown. An honest "not measured" is correct; an invented 72% is not.
+- **Voice is a modality, not an authority.** Speaking a lesson does not make it more authoritative than reading it, and a voice channel is never a second teaching authority with different rules.
+- **High-stakes domains keep their safety boundaries.** Where a subject touches health, medicine, law, finance, safety, or any domain where acting on a wrong explanation causes real harm, the applicable boundaries and referral to qualified human professionals apply unchanged. A learning project is not a licence to advise.
+- **Learning state must not silently become organizational Knowledge.** Movement from a personal learning record into the tenant's Knowledge authority, if ever permitted, is a separate governed act with its own gate — never an implicit consequence of studying.
+- **Personal learning data must not silently become enterprise organizational truth.** What a person is studying, struggling with, or has not yet covered is personal. It does not become an organizational signal, a performance measure, or an input to any organizational intelligence view by default.
+- **No model self-authorization.** Nothing in a learning project — no project instruction, no lesson, no learner request — may grant Heby permission it did not already hold. Instructions are data.
+- **No new authority.** This concept creates no role, no permission, no authorization system, and no new owner of anything.
+- **No persistence or schema is designed here.** Whether learning state is durable at all, and what would own it, is an open question for the gate below.
+
+### Relationship to capabilities already recorded
+
+This is a **distinct** capability, and each neighbour below already owns something adjacent. None of them is superseded, extended, or renamed by this record.
+
+- **[Guided Organizational Intelligence and Learning](#guided-organizational-intelligence-and-learning)** (this document) teaches a person **about Hebun and their own organization**, through the interface, from that organization's real data. Personal Learning teaches a **user-defined subject** that may have no Hebun surface and no organizational data at all.
+- **[Conversation Modes](#conversation-modes)** (this document) lists a *Learning* mode — a conversational intention within one interaction. Personal Learning is a **project that outlives any single conversation**. A mode is not a project.
+- **[22 — Heby Guided Learning Mode](../architecture-backlog/22-heby-guided-learning-mode.md)** delivers ordered lessons **about Hebun, on Hebun's own interface**, via the Guided Explanation Layer and semantic UI anchors. Personal Learning needs no UI anchor because its subject is not a Hebun surface. **The two genuinely share one unresolved concern** — that backlog item's open question 4, *lesson state and progress ownership, and whether it is durable at all*. Whichever capability reaches implementation first should settle that question for both rather than each inventing its own answer.
+- **[Hebun Academy](hebun-academy.md)** is the education *platform*, with curricula and certifications, and it already names Heby as the Academy's personal AI Mentor. Personal Learning is **Heby-native and user-defined**: no curriculum, no certification, no catalogue, and no dependency on the Academy existing. If the Academy is ever built, it may become one source of project material; it is not a prerequisite.
+- **[Personal Enterprise Mode — Learning Loop](../architecture/capabilities/personal-enterprise-mode/05-learning-loop.md)** points the other way: there, *Hebun learns the Director* in order to propose better. Here, *Heby teaches the person*. Shared vocabulary, opposite direction — and its invariant holds in both, because learning of either kind never becomes authority.
+- **[Heby Immersive Mode](#heby-immersive-mode)** (this document) may become **one** presentation surface for a learning project. This is an **optional relationship in one direction only**: neither capability may depend architecturally on the other, and Personal Learning must remain conceptually complete and usable without Immersive Mode.
+
+### Future implementation gate
+
+Before any implementation, Hebun must audit and record findings on all ten:
+
+1. existing Heby conversation authority;
+2. Knowledge ownership;
+3. Memory ownership;
+4. user and project isolation;
+5. learning-state authority;
+6. voice runtime;
+7. provenance;
+8. high-stakes safety boundaries;
+9. whether a new persistence model is actually necessary;
+10. whether an existing subsystem already owns any of these concepts.
+
+Question 10 is not a formality. Adjacent concerns are already owned in five places, listed above, and the correct outcome of that audit may be that this capability needs far less new substrate than it appears to — or none.
+
+### Status — recorded precisely, and not to be upgraded without a Director Decision
+
+| Aspect | Status |
+| --- | --- |
+| Product concept | DESIGNED / PRODUCT DIRECTION |
+| Implementation | NOT IMPLEMENTED |
+| Learning State | NOT DESIGNED |
+| Persistence | NOT DECIDED |
+| Voice teaching runtime | NOT CONNECTED |
+| Knowledge integration | FUTURE / NOT CONNECTED |
+| Immersive Mode integration | OPTIONAL FUTURE RELATIONSHIP |
+| Project Instructions | NOT DESIGNED |
+| Mastery / progress measurement | NO EVIDENCE MODEL — NOT DESIGNED |
+
+Two of those statuses rest on repository evidence rather than on assumption, and should be re-proved at the gate rather than copied forward:
+
+- **Voice teaching runtime — NOT CONNECTED.** A Heby voice interaction substrate exists and is browser-facing; no external speech provider is connected, and nothing in it constitutes a teaching runtime.
+- **Knowledge integration — FUTURE / NOT CONNECTED.** Heby's grounded retrieval over tenant Knowledge is real and released. What does not exist is any relationship between a *learning project* and that Knowledge — no project-scoped source selection, and no learning state of any kind.
+
 ## Future Interaction Ideas
 
 Future Director Decisions may extend this document with additional interaction philosophies, command concepts, conversation modes, explainability patterns, accessibility ideas, and multimodal concepts.
