@@ -297,6 +297,22 @@ async function main(): Promise<void> {
     let bootstrapDecisionId = "";
     let bootstrapSessionId = "";
     {
+      /*
+       * SCOPE, MEASURED ACROSS THE ACT ITSELF.
+       *
+       * The surface promises the genesis "does not change your application role", "does not create
+       * permissions" and "does not grant administrative rights". Those were stated and enforced only
+       * by the absence of an import — a bite-proof that inserted a real `roles` row inside the
+       * establishment transaction passed every assertion in this file. Counting the authority tables
+       * on both sides of the act tests the promise by mechanism instead of by inspection.
+       */
+      const scopeBefore = await setup.query<{ roles: number; perms: number; grants: number }>(
+        `select (select count(*)::int from roles where tenant_id=$1) roles,
+                (select count(*)::int from permissions) perms,
+                (select count(*)::int from role_permissions) grants`,
+        [alice.tenantId],
+      );
+
       const result = await establishGovernanceAuthority(aliceCtx, { justification: REASON }, deps);
       assert.equal(result.status, "established");
       if (result.status !== "established") throw new Error("unreachable");
@@ -396,6 +412,19 @@ async function main(): Promise<void> {
       assert.ok(
         !JSON.stringify(audit.rows[0]!.metadata).includes("Establishing the first"),
         "audit metadata must not carry the justification — decision_records owns it",
+      );
+
+      // 20. And the act granted no application authority of any kind.
+      const scopeAfter = await setup.query<{ roles: number; perms: number; grants: number }>(
+        `select (select count(*)::int from roles where tenant_id=$1) roles,
+                (select count(*)::int from permissions) perms,
+                (select count(*)::int from role_permissions) grants`,
+        [alice.tenantId],
+      );
+      assert.deepEqual(
+        scopeAfter.rows[0],
+        scopeBefore.rows[0],
+        "establishing Governance must create no role, permission or grant — the surface promises this",
       );
     }
 
