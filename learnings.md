@@ -1996,3 +1996,17 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
   deadlock/serialization loser to `unavailable` instead of `duplicate`. Reproducing it at the
   pre-phase commit (7/12) versus on the new tree (4/12) is what turns "my change broke it" into a
   separately owned limitation — and reporting the suite as green would have hidden both.
+
+## G7 — Heby spatial canvas + Evidence Surface (pre-release, 420/420)
+- Released firewall tests that pin a file BY PATH are an asset: replacing a component in place keeps them guarding the new code. Renaming the file would have meant editing 9 released proofs — the moment a proof stops proving anything.
+- A component that spends every colour through CSS variables can be fully re-skinned with zero source change. The Heby presence field changed emerald→amber without touching its file, so its geometry/determinism/truthfulness proofs still guard the new look.
+- Check WHERE a token is actually declared before "scoping" it. Heby's emerald was already inside `.heby-surface`; the product palette is blue in `src/styles/tokens.css`. The scoping work was already done.
+- Live/stored parity is best made structural, not tested-for: `toResponseSourceEvidence = fromStoredSourceEvidence(toStoredSourceEvidence(x))`. Two views cannot drift when they are one composition.
+- A durable field can be dropped by a TYPE DECLARATION, not by missing data. G6D's rows reached the browser and died at `ThreadMessage` — three declarations, no server change, no schema.
+- "Reveal on hover" must never be a mounting condition. Keep the control mounted and tabbable; make hover a presentation state, and force it forward on draft/busy/voice/unavailable.
+- A rail that renders activity needs a projection with NO branch that can emit an item without a row. Bite-proof it by inserting the mock row from the design reference.
+- Bound a flake claim with numbers on BOTH sides: 7/12 fail at baseline vs 4/12 with the change proved K2 pre-existing, even though K2 imports files I changed.
+- Verify UI on the REAL authenticated route, not an isolated component render. Three sizing bugs (chips scrolled out, framing line cropped, presence overflowing) were invisible in a harness because the shell bar + canvas header + composer dock take ~270px the harness never sees.
+- Size a hero element as a fraction of the height that EXISTS (`min(30rem,32dvh)`), not off a width breakpoint. A breakpoint is a guess about a budget that varies with surrounding chrome; two width-based attempts both cropped the surface.
+- When a released test pins COPY rather than an invariant, changing the copy is legitimate — but restate the invariant in the assertion and comment why. Three suites pinned "How can I help?"; the real invariant was "hero carries an invitation, absent once a conversation exists, never in the panel".
+- Claude browser pane can die with `Render frame was disposed` and no recovery; chrome-devtools MCP drives a real Chrome and screenshots correctly. Never enter a password — have the Director sign in, then take over the session.
