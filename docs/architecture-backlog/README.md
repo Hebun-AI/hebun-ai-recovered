@@ -26,6 +26,7 @@ Platform plumbing, governance, and systems-of-record. Everything else builds on 
 - [13 Policy Engine](13-policy-engine.md)
 - [14 Permission Engine](14-permission-engine.md)
 - [18 Observability Center](18-observability-center.md)
+- [25 Private Digital Twin](25-private-digital-twin.md)
 
 ### Intelligence
 
@@ -53,7 +54,7 @@ User-facing surfaces and authoring tools. Presentation depends on the layers bel
 - [21 Enterprise System Map (Digital Twin)](21-enterprise-system-map.md)
 - [22 Heby Guided Learning Mode](22-heby-guided-learning-mode.md)
 
-Two items carry the phrase "digital twin" and model different subjects: **21** is a twin of the *organization*; **23** is a twin of the *Director*. They are not variants of one capability — see [23](23-director-digital-twin.md) for why the separation is load-bearing.
+Three items carry the phrase "digital twin" and model different subjects: **21** is a twin of the *organization*; **23** is a twin of the *Director's decision model*; **25** is a twin of one human's *personal context*. They are not variants of one capability — see [23](23-director-digital-twin.md) and [25](25-private-digital-twin.md) for why the separations are load-bearing. **23 and 25 are the pair most easily confused:** 23 is organization-derived and about decisions, 25 is person-supplied and about context.
 
 **24 is the only item whose subject is Hebun itself.** Every other capability here improves the customer's organization; [24](24-hebun-self-evolution-system.md) improves the product. It is a participant in the [Capability Lifecycle](00-capability-lifecycle.md), never a replacement for it — see that record for why the distinction is load-bearing.
 
