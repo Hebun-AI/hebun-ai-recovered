@@ -1843,3 +1843,61 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
   field in a DIFFERENT statement; a key-list regex missed a SHORTHAND property (no colon); "id ="
   flagged a JOIN condition; and a module-wide indexOf hit the import block for the third time.
   Scope to the statement, the block, or the function body — never the module.
+
+## G5B — Tenant Zero production bootstrap (2026-08-19, tag `hebun-tenant-zero-production-bootstrap-complete`)
+
+- **A one-way door decides the order of the whole phase.** Tenant Zero permanently closes G5A.1
+  (`users=1 AND companies=0`), so the bootstrap credential had to be proved good BEFORE the tenant,
+  not after. Find the irreversible step first and sequence everything else around it.
+- **The cheapest proof of a credential is the real login, run at the moment its failure is still
+  recoverable.** Signing in before the tenant existed reached `onboarding-required` — a page only
+  reachable after scrypt verification — so one act proved the password AND the honest tenant-less
+  state, and cost one TTL-bounded session row.
+- **Derive a guard's verdict by calling the guard, never by re-implementing its predicate.**
+  `resolveRecoveryEligibility` is read-only, so both sides of the window were measured with the
+  released code and zero rotation.
+- **ACCEPTED IS NOT AUTHORITY.** Accepted genesis is an unspent entitlement: `consumed_at` NULL,
+  `decision_records` 0. Governance needs a separate act that SPENDS it. Read the consuming module
+  before naming what a status grants.
+- **One row can record two different roots.** `genesis_nominations` carries `created_by` NULL
+  (a terminal nominated) and `updated_by = human` (a person accepted). Possession is a SOURCE,
+  the human is an ACTOR, and the columns say so without a new field.
+- **A vocabulary test cannot catch a sentence defect.** `PRE_TENANT_RECEIPT.grants` and `.diesWhen`
+  were both correct and both asserted; the only call site interpolated them without their verbs and
+  served "This sign-in step nothing" to the first human in production. Assert the COMPOSITION at the
+  seam where fragments become prose, not just the fragments.
+- **Report the boundary a proof actually makes.** Tenant provisioning refuses a duplicate slug —
+  that is slug uniqueness, NOT one-shot. A different slug would create a second tenant. Say so
+  rather than let the refusal imply a guarantee it does not give.
+- **Interactive TTY guards are not an obstacle to route around.** Three ceremonies refuse non-TTY
+  and one takes a hidden password; the agent orchestrates and verifies, the Director types. Every
+  irreversible production write stayed in a human's hands.
+
+## G6A — Governance authority established (2026-08-19, tag `hebun-governance-authority-established-complete`)
+
+- **A claim enforced only by a missing import is enforced by inspection, not by mechanism.** A real
+  `roles` insert inside the genesis transaction passed EVERY released assertion, while the surface
+  promised "does not change your application role". Count the thing the promise is about, on both
+  sides of the act.
+- **A bite-proof that does not bite is a result — but first check it is not your own mutation that
+  is wrong.** Two non-bites here were my design: the Heby firewall asserts Heby→Governance and I
+  mutated Governance→Heby; and an inert import proves nothing about a write. Corrected, both bit.
+- **Defence in depth makes single-guard removal a non-verdict.** Dropping `isNull(consumedAt)` left
+  the earlier application refusal; dropping the already-bootstrapped read left the unique index,
+  which maps to the SAME refusal. Report which layer caught it instead of calling the proof failed.
+- **A probe that fails identically on both sides tests nothing.** Moving the audit write from `tx`
+  to `db` did not bite because the test induces the failure with a CHECK that rejects either
+  connection. Thin coverage on a correct implementation — do not "fix" the code to make a test bite.
+- **AUTHORITY MUST COME FROM THE AUTHORITY MODEL, provably.** `resolveGovernanceAuthority` reads
+  `decision_records.bootstrap` and consults neither `roles.type`, `authority_rank`,
+  `memberships.authority_scope`, `permissions` nor `role_permissions`. Owner is not Governance
+  before or after — proved by running the released resolver against production, not by reading it.
+- **The genesis names no authority source, and that is the point.** `authority_source_actor_*` NULL
+  is the constitution stating there was no prior authority to decide under. Every later decision
+  names one.
+- **A permanent record cannot be tidied.** A dropped letter in the constitutional justification is
+  unrepairable — no update/delete/supersede writer exists and the bootstrap decision is
+  non-revocable. Record the fact; raw SQL would be manufacturing history, which is worse.
+- **A transient `useState` claim is not a stale live claim.** "No Governance decision exists yet."
+  renders only in the post-acceptance transition, where it is true. Check the render condition
+  before repairing prose.
