@@ -1959,3 +1959,40 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
   `resolveGovernanceAuthority`; the roster and genesis reads are scoped to the tenant but visible to
   any member. That is the released G2/G3 read contract — record it as inherited and leave it to its
   own gate rather than tightening it inside a grounding phase.
+
+## G6D — Heby durable grounding (2026-08-19, tag `hebun-heby-durable-grounding-complete`)
+
+- **Authoritative grounding is not finished until its structured provenance survives a reload.**
+  G6C's answer prose was durable, but the record identities and the authoritative standing were not.
+  An authoritative claim the reader cannot re-examine later is weaker than a derived one they can.
+- **Evidence is not a second source of organizational truth.** Governance keeps `decision_records`;
+  the Heby row says only "answer X cited record Y, and Y was authoritative when it did". Identity is
+  REFERENCED — no foreign key, so answer history survives whatever the authority does next — and
+  only what the reader actually saw is snapshotted.
+- **Replay must never substitute today's state for the answer's.** Proved by mechanism rather than
+  asserted: read Governance at one authority holder, persist, delegate a second, confirm the live
+  read now says two, then assert the reload still says one.
+- **A new generic path must not absorb an existing owner.** Knowledge evidence stays KR5's, enforced
+  twice — the write projection skips it, and a CHECK constraint refuses it in the table. Two records
+  of one citation would eventually disagree, and then neither could be trusted.
+- **Tenant isolation belongs in the schema, not only in the query.** The composite
+  `(message_id, tenant_id)` foreign key makes a cross-tenant citation unconstructible even by hand;
+  the application predicate stays anyway, because a read relying on the constraint alone is one
+  schema change away from leaking.
+- **AUTHORITATIVE and DERIVED must survive persistence AND replay.** The standing is stored per row
+  and replayed per source class, so a mixed answer replays as the mixture it was rather than rounded
+  to whichever half is more flattering.
+- **A source-class description is runtime truth, not copy.** Once a source is connected, a stale
+  "not connected" sentence is an architectural correctness defect: it reaches the answer body, and
+  the answer body is what gets stored. Repair it the way K1 already did when Knowledge gained a
+  server seam — describe the seam, do not deny the connection.
+- **Making grounding durable authorizes nothing else.** No provider, credential, model
+  configuration, execution or Computer Use came with it, and the arming writer still refuses
+  production by construction.
+- **A migration ledger identifies a RELEASE, never a deployment.** Canonical and production moved
+  31 → 32 with the same migration sha256 and finished with identical schema signatures — which is
+  exactly why the ledger cannot be used to tell two deployments apart.
+- **Do not absorb someone else's flaky test into your phase.** K2's concurrency classifier maps a
+  deadlock/serialization loser to `unavailable` instead of `duplicate`. Reproducing it at the
+  pre-phase commit (7/12) versus on the new tree (4/12) is what turns "my change broke it" into a
+  separately owned limitation — and reporting the suite as green would have hidden both.
