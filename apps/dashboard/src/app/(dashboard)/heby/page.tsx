@@ -5,6 +5,9 @@ import {
 } from "@/features/heby-integration";
 import { resolveHebyWorkspaceEntry } from "@/features/heby-workspace/context";
 import { resolveHebyReturnLabel, resolveHebyReturnRoute } from "@/features/heby-surface";
+import { toStreamItems, type HebyStreamState } from "@/features/heby-stream";
+import { readPendingActionRequests } from "@/features/action-authorization/read-action-authorizations.server";
+import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { HebyWorkspaceClient } from "@/components/layout/heby/heby-workspace-client";
 
 export const metadata = { title: "Heby — Hebun AI" };
@@ -33,6 +36,30 @@ export const metadata = { title: "Heby — Hebun AI" };
  * the canonical `/command` fallback, so no caller-supplied string can ever become a redirect target.
  */
 
+/**
+ * G7 — the contextual rail's content, read SERVER-SIDE.
+ *
+ * ONE READ, AND IT IS SOMEBODY ELSE'S. `readPendingActionRequests` is R3A's own tenant-scoped
+ * reader, taken unchanged: the tenant comes from the R1 session, the predicate is `tenant_id = <that
+ * tenant> AND status = 'pending'`, and there is no parameter through which this page could ask
+ * about another tenant or widen the query. This page adds no read of its own and no authority.
+ *
+ * IT IS ALLOWED TO FAIL, AND IT SAYS SO. An unavailable read becomes an `unavailable` state that
+ * the rail renders as a sentence, never an empty list. "You have nothing to decide" and "Hebun
+ * could not read your queue" are different facts and must never share a rendering.
+ *
+ * NOTHING ELSE FEEDS THE RAIL. The reference design shows uploads, approvals, completed analyses,
+ * finished tasks and detected signals; four of those have no read seam in this repository, and the
+ * fifth exists only as a tally, which is not an event. They are absent rather than approximated.
+ */
+async function readStream(): Promise<HebyStreamState> {
+  const tenant = await resolveTenantContext();
+  const pending = await readPendingActionRequests(tenant);
+  if (pending.status !== "read") return { status: "unavailable", reason: pending.reason };
+  const items = toStreamItems(pending.items);
+  return items.length === 0 ? { status: "empty" } : { status: "items", items };
+}
+
 export default async function HebyPage({
   searchParams,
 }: {
@@ -57,6 +84,7 @@ export default async function HebyPage({
       authorityLabel={authorityLabel}
       returnRoute={resolveHebyReturnRoute(rawFrom)}
       returnLabel={resolveHebyReturnLabel(rawFrom)}
+      stream={await readStream()}
     />
   );
 }

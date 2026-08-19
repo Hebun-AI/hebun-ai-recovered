@@ -11,7 +11,7 @@
  * decided here and nowhere else: a historical turn shows its own stored rows, and only the turn
  * that is this session's latest answer shows the live set.
  */
-import type { HebyRuntimeResponse } from "@/features/heby-runtime";
+import type { HebyRuntimeResponse, HebySourceEvidenceGroup } from "@/features/heby-runtime";
 import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
 import type { HebyTurnView } from "./heby-turns";
 import { describeMessageProvenance, deriveLatestProvenance } from "./heby-provenance";
@@ -25,6 +25,15 @@ export interface ThreadMessage {
   readonly transport?: string | null;
   /** KR5 — the historical evidence stored with this message, when retrieval ran for it. */
   readonly knowledgeEvidence?: RetrievalEvidenceSet;
+  /**
+   * G6D/G7 — the NON-KNOWLEDGE citations recorded with this message.
+   *
+   * G6D made these durable and the conversation loader has returned them since; they were dropped
+   * here, and only here, because this shape did not declare them. The consequence was visible and
+   * wrong: a reloaded answer that cited its tenant's own Governance record displayed "evidence
+   * details were not retained", while the rows sat unread in `heby_answer_source_evidence`.
+   */
+  readonly sourceEvidence?: readonly HebySourceEvidenceGroup[];
 }
 
 export interface LatestTurn {
@@ -60,6 +69,14 @@ export function buildTurns(
       ...(isHeby && message.knowledgeEvidence
         ? { knowledgeEvidence: message.knowledgeEvidence }
         : {}),
+      /*
+       * The recorded citations travel with the turn they belong to. They stay HISTORICAL for the
+       * same reason the Knowledge set does: these are the label, detail and standing as they stood
+       * when this answer was given, and the record they point at may since have changed or gone.
+       */
+      ...(isHeby && message.sourceEvidence && message.sourceEvidence.length > 0
+        ? { sourceEvidence: message.sourceEvidence }
+        : {}),
     };
   });
 
@@ -72,6 +89,13 @@ export function buildTurns(
           provenance: deriveLatestProvenance(latest.response),
           evidence: latest.response.evidence.map((e) => ({ sourceClass: e.sourceClass, recordRef: e.recordRef })),
           knowledgeEvidence: latest.response.knowledgeEvidence,
+          /*
+           * G7. Assigned from the RESPONSE, not left as whatever the reload replayed, so the live
+           * turn and the reloaded turn are demonstrably the same value rather than two values that
+           * happen to match. They cannot differ: the response field and the stored rows are the
+           * same projection over the same resolutions (see `toResponseSourceEvidence`).
+           */
+          sourceEvidence: latest.response.sourceEvidence,
           historical: false,
           limitations: latest.response.limitations,
         };
@@ -91,6 +115,12 @@ export function buildTurns(
       durable: false,
       evidence: latest.response.evidence.map((e) => ({ sourceClass: e.sourceClass, recordRef: e.recordRef })),
       knowledgeEvidence: latest.response.knowledgeEvidence,
+      /*
+       * A non-durable turn shows the same citations a durable one would — the answer really did
+       * cite them. What it must NOT claim is that they were recorded, and it does not: `durable:
+       * false` above already prints "not saved — shown for this session only".
+       */
+      sourceEvidence: latest.response.sourceEvidence,
       historical: false,
       limitations: latest.response.limitations,
     });

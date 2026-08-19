@@ -291,14 +291,38 @@
   --color-text-secondary: #aebfba;
   --color-text-muted:     #7d918c;
 
-  --color-highlight:      #34d399;
-  --color-primary:        #10b981;
-  --color-primary-hover:  #059669;
-  --color-primary-press:  #047857;
-  --color-primary-subtle: rgba(52, 211, 153, 0.12);
-  --color-primary-ring:   rgba(52, 211, 153, 0.45);
-  --color-on-primary:     #04150f;
+  /*
+   * ── G7: HEBY'S ACCENT IS AMBER ────────────────────────────────────────────
+   *
+   * The approved reference gives Heby an amber/gold presence on a dark spatial canvas.
+   *
+   * IT CHANGES NOTHING OUTSIDE HEBY, AND THAT IS STRUCTURAL RATHER THAN CAREFUL. These
+   * declarations were ALREADY inside `.heby-surface` — the emerald they replace was Heby's own
+   * identity, not the product's. The Hebun shell's tokens live in `src/styles/tokens.css` under
+   * `:root` and are a different colour entirely; nothing here can reach them.
+   *
+   * IT ALSO CHANGES NO COMPONENT. Every Heby component spends colour through these variables and
+   * hardcodes none, so retargeting them re-skins the whole surface without a single source edit.
+   * The presence field in particular changes colour with ZERO change to its file, which is why its
+   * released geometry, determinism and six-state truthfulness proofs still guard the new look
+   * instead of having been rewritten for it.
+   *
+   * COLOUR STILL MEANS NOTHING. As before: no token here carries a claim about connectivity,
+   * health, activity or authority. Every state a reader must understand is stated in text.
+   */
+  --color-highlight:      #f0b445;
+  --color-primary:        #e0a137;
+  --color-primary-hover:  #c98a29;
+  --color-primary-press:  #a97120;
+  --color-primary-subtle: rgba(240, 180, 69, 0.12);
+  --color-primary-ring:   rgba(240, 180, 69, 0.45);
+  --color-on-primary:     #1a1103;
 
+  /*
+   * Status colours are NOT re-tinted. Success, warning and error mean what they mean everywhere
+   * else in the product; pulling them toward the accent would make an accent and a warning
+   * neighbouring shades of one hue, which is the point at which colour stops carrying meaning.
+   */
   --color-success:        #34d399;
   --color-warning:        #fbbf24;
   --color-error:          #f87171;
@@ -308,19 +332,32 @@
    * Heby presence (the centre visualizer). Purely decorative: these carry NO claim about
    * connectivity, health, or activity. State meaning lives in text, never in colour.
    */
-  --heby-presence:        #34d399;
-  --heby-presence-dim:    rgba(52, 211, 153, 0.16);
+  --heby-presence:        #f0b445;
+  --heby-presence-dim:    rgba(240, 180, 69, 0.16);
   /* Layered atmospheric light behind the presence field — depth, not a glow ring. */
   --heby-aura: radial-gradient(
       circle at 50% 44%,
-      rgba(52, 211, 153, 0.22) 0%,
-      rgba(52, 211, 153, 0.09) 34%,
-      rgba(16, 185, 129, 0.04) 56%,
+      rgba(240, 180, 69, 0.24) 0%,
+      rgba(240, 180, 69, 0.1) 34%,
+      rgba(200, 138, 41, 0.045) 56%,
       transparent 72%
     );
   /* The workspace canvas: a single, very restrained wash so the screen reads as depth, not neon. */
-  --heby-canvas: radial-gradient(120% 78% at 50% 6%, rgba(52, 211, 153, 0.075), transparent 62%),
-    radial-gradient(90% 60% at 50% 108%, rgba(16, 185, 129, 0.05), transparent 68%);
+  --heby-canvas: radial-gradient(120% 82% at 50% 8%, rgba(240, 180, 69, 0.08), transparent 62%),
+    radial-gradient(90% 62% at 50% 110%, rgba(200, 138, 41, 0.055), transparent 68%);
+
+  /*
+   * G7 — the depth floor. PURELY DECORATIVE, and static on purpose: a moving field beneath Heby
+   * would be read as activity, and Heby has no activity to report. Two fixed gradient washes plus a
+   * fixed dot lattice, masked so it fades out before it reaches the reading area. No animation, no
+   * timer, no data binding — there is no value it could be a function of.
+   */
+  --heby-floor: radial-gradient(60% 42% at 50% 100%, rgba(240, 180, 69, 0.12), transparent 70%),
+    radial-gradient(120% 34% at 50% 104%, rgba(200, 138, 41, 0.07), transparent 72%);
+  --heby-floor-lattice: radial-gradient(circle at center, rgba(240, 180, 69, 0.5) 0.6px, transparent 0.7px);
+  /* The horizon grid's line colour, and the amber energy paths behind the presence. */
+  --heby-grid: rgba(240, 180, 69, 0.16);
+  --heby-ray: rgba(240, 180, 69, 0.07);
 }
 
 /*
@@ -329,10 +366,93 @@
  * by the real conversation state the surface already computes (`data-heby-mode`), never by a timer.
  */
 .heby-surface[data-heby-mode="emerging"] {
-  --heby-canvas: radial-gradient(120% 70% at 50% 4%, rgba(52, 211, 153, 0.05), transparent 58%);
+  --heby-canvas: radial-gradient(120% 70% at 50% 4%, rgba(240, 180, 69, 0.052), transparent 58%);
 }
 .heby-surface[data-heby-mode="conversation"] {
-  --heby-canvas: radial-gradient(140% 55% at 50% 0%, rgba(52, 211, 153, 0.028), transparent 52%);
+  --heby-canvas: radial-gradient(140% 55% at 50% 0%, rgba(240, 180, 69, 0.03), transparent 52%);
+}
+
+/*
+ * The floor element itself. It is `aria-hidden` in the markup and unreachable by the keyboard; this
+ * rule only paints it. It recedes as the conversation grows, for the same reason the canvas does:
+ * a twenty-turn thread is a working surface and reading must own it.
+ */
+.heby-floor {
+  background-image: var(--heby-floor-lattice), var(--heby-floor);
+  background-size:
+    22px 22px,
+    100% 100%,
+    100% 100%;
+  -webkit-mask-image: linear-gradient(to top, black 0%, rgba(0, 0, 0, 0.55) 34%, transparent 78%);
+  mask-image: linear-gradient(to top, black 0%, rgba(0, 0, 0, 0.55) 34%, transparent 78%);
+}
+/*
+ * The horizon. A real perspective grid laid flat and receding to a vanishing line, which is what
+ * gives the canvas a floor to stand on rather than a gradient at the bottom of a page. Masked so it
+ * dissolves well before the reading area.
+ *
+ * STILL, like everything else in this layer. It is a function of no value: the grid spacing, the
+ * angle and the fade are constants, so there is nothing it could be reporting. A drifting or
+ * pulsing floor is exactly how a decorative surface starts implying that something is happening.
+ */
+.heby-horizon {
+  background-image:
+    repeating-linear-gradient(to right, var(--heby-grid) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(to top, var(--heby-grid) 0 1px, transparent 1px 44px);
+  transform: perspective(340px) rotateX(74deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.35) 38%, transparent 72%);
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.35) 38%, transparent 72%);
+}
+
+/*
+ * The atmosphere behind the presence: a wide soft light plus a few restrained amber energy paths
+ * radiating from the centre. Layered depth, not a glow ring, and — again — static and data-free.
+ * The paths are fixed angles in a conic gradient; nothing selects, orders or weights them.
+ */
+.heby-aurora {
+  background-image:
+    /*
+     * Five fixed rays. The angles deliberately avoid straight up and straight down: a ray on the
+     * vertical axis reads as a beam pointing AT something, and the caption sits directly below the
+     * presence. Off-axis, they read as depth.
+     */
+    conic-gradient(
+      from 22deg at 50% 50%,
+      transparent 0deg,
+      var(--heby-ray) 8deg,
+      transparent 17deg,
+      transparent 60deg,
+      var(--heby-ray) 70deg,
+      transparent 79deg,
+      transparent 148deg,
+      var(--heby-ray) 158deg,
+      transparent 167deg,
+      transparent 218deg,
+      var(--heby-ray) 227deg,
+      transparent 236deg,
+      transparent 282deg,
+      var(--heby-ray) 292deg,
+      transparent 301deg
+    ),
+    radial-gradient(closest-side at 50% 48%, rgba(240, 180, 69, 0.14), rgba(200, 138, 41, 0.05) 52%, transparent 100%);
+  -webkit-mask-image: radial-gradient(closest-side at 50% 50%, black 6%, rgba(0, 0, 0, 0.45) 46%, transparent 82%);
+  mask-image: radial-gradient(closest-side at 50% 50%, black 6%, rgba(0, 0, 0, 0.45) 46%, transparent 82%);
+}
+
+/*
+ * All three ambient layers recede together as the conversation grows — the same rule the canvas
+ * wash already follows, for the same reason: a twenty-turn thread is a working surface.
+ */
+.heby-surface[data-heby-mode="emerging"] .heby-floor,
+.heby-surface[data-heby-mode="emerging"] .heby-horizon,
+.heby-surface[data-heby-mode="emerging"] .heby-aurora {
+  opacity: 0.4;
+}
+.heby-surface[data-heby-mode="conversation"] .heby-floor,
+.heby-surface[data-heby-mode="conversation"] .heby-horizon,
+.heby-surface[data-heby-mode="conversation"] .heby-aurora {
+  opacity: 0.14;
 }
 
 /* Core light pulse. Scale only — the field never changes brightness enough to read as a signal. */

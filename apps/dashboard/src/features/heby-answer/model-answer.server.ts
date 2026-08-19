@@ -77,7 +77,10 @@ import { resolveWorkArtifactSource } from "@/features/work-artifacts/work-artifa
  * firewall test asserts.
  */
 import { readGovernanceGroundingSource } from "@/features/governance-grounding/heby-governance-source.server";
-import { toStoredSourceEvidence } from "@/features/heby-conversation/answer-evidence";
+import {
+  toResponseSourceEvidence,
+  toStoredSourceEvidence,
+} from "@/features/heby-conversation/answer-evidence";
 import { buildBoundedHistory } from "./bounded-history";
 import { resolveKnowledgeEvidenceDetailed } from "./knowledge-evidence.server";
 
@@ -607,10 +610,27 @@ export async function answerHebyModelRequest(
    * UI says so honestly rather than showing an empty set that would read as "searched, found
    * nothing" — a distinction the persisted set now preserves across a reload.
    */
-  const response =
-    knowledgeEvidence === undefined
-      ? answer.response
-      : { ...answer.response, knowledgeEvidence };
+  /*
+   * 8b. G7 — attach the NON-KNOWLEDGE citations to the LIVE response.
+   *
+   * Built from the SAME `resolutions` array that was just handed to `persistExchange`, through the
+   * SAME projection pair that produced the rows it stored. That is deliberate and it is the whole
+   * parity mechanism: the live reader and the reloaded reader are not two views kept in step by
+   * discipline, they are two calls to one composition over one input.
+   *
+   * Not a re-read. A second read of Governance here could return a delegation granted between the
+   * answer and this line, and the reader would see an answer citing something it never saw.
+   *
+   * Absent stays absent: an answer that cited no such record gets no field, and the surface says
+   * nothing rather than rendering an empty group that would read as "we looked and found none".
+   */
+  const sourceEvidence = toResponseSourceEvidence(resolutions);
+
+  const response = {
+    ...answer.response,
+    ...(knowledgeEvidence === undefined ? {} : { knowledgeEvidence }),
+    ...(sourceEvidence.length > 0 ? { sourceEvidence } : {}),
+  };
 
   return {
     status: "answered",

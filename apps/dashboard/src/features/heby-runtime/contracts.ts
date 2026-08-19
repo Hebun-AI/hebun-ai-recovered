@@ -120,6 +120,40 @@ export type HebyResponseKind =
 /** How the response body was produced — so the UI never styles model prose as truth. */
 export type ResponseOrigin = "deterministic" | "model";
 
+/* ---------------------------------------------------------------------------
+ * G7 — THE READER'S SHAPE OF A NON-KNOWLEDGE CITATION.
+ *
+ * This is `ReplayedSourceEvidence` from `heby-conversation/answer-evidence.ts`, declared here so
+ * the runtime contract does not have to reach into the conversation-persistence module for a type.
+ * Both shapes are asserted mutually assignable by the G7 suite, so the duplication cannot become a
+ * divergence: if one gains a field and the other does not, the assertion stops compiling.
+ *
+ * It exists because `HebyEvidenceReference` deliberately does not carry any of this. That type is
+ * the IDENTITY of a citation and is what the response validator checks; a model may not introduce
+ * one. This type is the READING of the same citations — what the record was called, what its one
+ * derived detail said, and whether the class that resolved it was speaking as an authority. Keeping
+ * them separate is why enriching the reader's view cannot enlarge what a model may cite.
+ * ------------------------------------------------------------------------- */
+
+export interface HebySourceEvidenceItem {
+  /** The owning authority's own stable reference. Never a database id rendered as a link. */
+  readonly recordRef: string;
+  readonly label: string;
+  /** One short, real, machine-derived detail. Never a generated sentence. */
+  readonly detail: string;
+}
+
+export interface HebySourceEvidenceGroup {
+  readonly sourceClass: string;
+  /**
+   * Whether the class that resolved these records was speaking as an AUTHORITY on them, or handing
+   * over a derived read model. Read off the owning resolution — a class cannot assert one standing
+   * and cite under another.
+   */
+  readonly authoritative: boolean;
+  readonly items: readonly HebySourceEvidenceItem[];
+}
+
 export interface HebyRuntimeResponse {
   readonly kind: HebyResponseKind;
   /** Deterministic = assembled from real retrieval; model = validated model output. */
@@ -142,6 +176,24 @@ export interface HebyRuntimeResponse {
    * an empty set would present "not retrieved" as "retrieved and found nothing".
    */
   readonly knowledgeEvidence?: RetrievalEvidenceSet;
+  /**
+   * G7 — the NON-KNOWLEDGE sources this answer cited, in the shape a reload replays. Optional and
+   * additive, exactly like `knowledgeEvidence` above, and for the same reasons.
+   *
+   * `evidence` remains the identity authority: this field introduces no reference, is not consulted
+   * by the response validator, and cannot widen what a model may claim. It carries only the label,
+   * the one derived detail and the standing that the resolutions ALREADY produced server-side and
+   * that the durable record already stores.
+   *
+   * IT SITS BESIDE `knowledgeEvidence`, NEVER ABSORBING IT. Knowledge has its own evidence
+   * authority (KR5) and its own panel; an answer that cited an authoritative Governance record
+   * beside derived Knowledge must present as the mixture it was.
+   *
+   * ABSENT IS MEANINGFUL. Undefined when the answer cited no such record — which is a different
+   * fact from "cited nothing", because an unresolved source has already printed its own reason
+   * into the body.
+   */
+  readonly sourceEvidence?: readonly HebySourceEvidenceGroup[];
   readonly provenance: readonly string[];
   readonly provenanceCovered: readonly HebyProvenanceFacet[];
   readonly uncertainty: HebyUncertaintyState;

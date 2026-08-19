@@ -255,7 +255,19 @@ export function HebyComposer(props: HebyComposerProps) {
          * presence during a long conversation — that matters more than any decorative styling.
          */}
         <form
-          className={`flex items-end gap-2 border border-border bg-surface/80 transition-colors duration-(--dur-fast) focus-within:border-highlight/45 ${
+          /*
+           * G7 — `flex-wrap` + a real basis on the field.
+           *
+           * Found on the authenticated mobile pass: at 390px the language selector, the two voice
+           * controls and Send left the field about 150px, so the placeholder wrapped inside a
+           * one-row textarea and was clipped mid-word. `min-w-0 flex-1` let it shrink to
+           * unusable rather than push anything.
+           *
+           * Now the field declares the width it needs and the controls move to a second row when
+           * they no longer fit beside it. Nothing is hidden and nothing is removed — on a wide
+           * viewport the row is unchanged.
+           */
+          className={`flex flex-wrap items-end justify-end gap-2 border border-border bg-surface/80 transition-colors duration-(--dur-fast) focus-within:border-highlight/45 ${
             panel ? "rounded-[1.4rem] p-1.5" : "rounded-[1.75rem] p-2"
           }`}
           onSubmit={(event) => {
@@ -273,7 +285,7 @@ export function HebyComposer(props: HebyComposerProps) {
             aria-describedby={hintId}
             rows={1}
             disabled={props.asking}
-            className={`min-w-0 flex-1 resize-none bg-transparent text-fg outline-none placeholder:text-fg-muted disabled:opacity-60 ${
+            className={`min-w-0 grow basis-52 resize-none bg-transparent text-fg outline-none placeholder:text-fg-muted disabled:opacity-60 ${
               panel
                 ? "max-h-32 min-h-9 px-3 py-2 text-[0.875rem] leading-6"
                 : "max-h-44 min-h-11 px-4 py-2.5 text-[0.95rem] leading-6"

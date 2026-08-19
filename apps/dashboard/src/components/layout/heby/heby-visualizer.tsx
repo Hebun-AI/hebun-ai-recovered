@@ -174,8 +174,42 @@ const MOTION: Record<HebyPresenceState, { orbit: string; pulse: string } | null>
   unavailable: null,
 };
 
+/*
+ * G7 RAISED THE HERO CEILING, and only the ceiling.
+ *
+ * The approved reference gives Heby the room to read as a presence occupying a space rather than a
+ * mark above a prompt, and at `lg` it was still sized like the latter. The existing steps are
+ * unchanged — `size-72` remains what a 1024–1279px viewport gets — and a genuinely wide desktop,
+ * which is what the reference depicts, now gets substantially more.
+ *
+ * This is a SIZE, and it changes nothing else. The six states, their captions, their accessible
+ * names, the deterministic point field and the motion contract are all untouched: a larger Heby
+ * makes no additional claim, because the claim was never in the geometry.
+ */
 const SIZE_CLASS: Record<HebyPresenceSize, string> = {
-  hero: "size-44 sm:size-60 lg:size-72",
+  /*
+   * THE CEILING IS A FRACTION OF THE VIEWPORT'S HEIGHT, NOT A BREAKPOINT.
+   *
+   * Two width-only attempts were measured against the real product and both cropped it. Inside the
+   * Hebun shell the presence does not get the viewport — it gets what the shell bar, the canvas
+   * header and the composer dock leave, which on a 714px window is about 315px. A 26rem presence
+   * chosen because the screen was 1512px WIDE pushed the peripheral labels and the framing line
+   * off the canvas. Height breakpoints then failed the same way one step later, because a
+   * threshold is a guess about a budget that varies with the chrome around it.
+   *
+   * `min(30rem, 32dvh)` is not a guess. The presence takes a fixed share of the height that
+   * actually exists, so it is as large as the room allows on every display and can never be larger
+   * than the room — and it grows continuously with a taller window instead of jumping at a
+   * breakpoint someone has to maintain. The lower steps are unchanged; `size-72` is still exactly
+   * what a 1024–1279px viewport gets.
+   *
+   * THE SHARE IS 32dvh RATHER THAN MORE, AND THAT IS A MEASURED CEILING, NOT TIMIDITY. The hero
+   * also has to hold the state caption, and the region it lives in is what the shell leaves. A
+   * larger share overflows on a windowed browser. The presence reads larger than 34dvh anyway
+   * because most of its size is the atmospheric field around it, which is a sibling layer with no
+   * such budget — the same way the approved reference gets its scale.
+   */
+  hero: "size-44 sm:size-60 lg:size-72 xl:size-[min(30rem,32dvh)]",
   compact: "size-24 sm:size-28",
   inline: "size-8",
 };

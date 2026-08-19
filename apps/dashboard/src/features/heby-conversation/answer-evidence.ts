@@ -29,7 +29,6 @@ import type {
   AppendEvidenceSetInput,
   StoredEvidenceSet,
   AppendSourceEvidenceInput,
-  StoredSourceEvidence,
 } from "./durable-conversation-repository.server";
 
 /** ISO string → Date for a timestamptz column; absent stays absent. */
@@ -250,7 +249,19 @@ export function toStoredSourceEvidence(
  * different things — never one rounded to whichever is more flattering.
  */
 export function fromStoredSourceEvidence(
-  rows: readonly StoredSourceEvidence[],
+  /*
+   * G7 WIDENED THIS PARAMETER, AND THE WIDENING IS THE POINT.
+   *
+   * The projection reads `sourceClass`, `ordinal`, `authoritative`, `recordRef`, `label` and
+   * `detail` — every one of which `AppendSourceEvidenceInput` already carries. It never read
+   * `messageId`. Accepting the narrower row shape lets the LIVE answer replay its own citations
+   * through THIS function, before a row has an id, so the live view is produced by the same code
+   * that produces the reloaded one rather than by a parallel implementation that could drift.
+   *
+   * `StoredSourceEvidence` extends `AppendSourceEvidenceInput`, so every existing caller is
+   * unaffected and the reload path is unchanged.
+   */
+  rows: readonly AppendSourceEvidenceInput[],
 ): readonly ReplayedSourceEvidence[] {
   const groups = new Map<string, { authoritative: boolean; items: ReplayedSourceEvidenceItem[] }>();
   for (const row of [...rows].sort((a, b) => a.ordinal - b.ordinal)) {
@@ -263,4 +274,41 @@ export function fromStoredSourceEvidence(
     authoritative: group.authoritative,
     items: group.items,
   }));
+}
+
+/**
+ * G7 — the citations of the answer being produced RIGHT NOW, in the shape a reload will replay.
+ *
+ * ── WHY THIS IS A COMPOSITION AND NOT A THIRD PROJECTION ────────────────────
+ *
+ * Before G7 the live answer could not show a citation's label, detail or standing: the response
+ * carried only `{ sourceClass, recordRef, lifecycle }`, while the reloaded answer carried all three.
+ * The same answer therefore described itself differently before and after a refresh, and the
+ * reader had no way to know which reading was the fuller one.
+ *
+ * The fix could have been a new function that walks the resolutions and builds the reader's shape
+ * directly. It deliberately is NOT, because that function would be a SECOND definition of "what
+ * this answer cited" sitting beside `toStoredSourceEvidence`, and two definitions of one sentence
+ * drift. This is literally the write projection followed by the read projection:
+ *
+ *     resolutions → toStoredSourceEvidence → fromStoredSourceEvidence
+ *
+ * The rows in the middle are the very rows `persistExchange` is given for this same answer, from
+ * this same `resolutions` array. So live and reloaded agreement is not a property a test has to
+ * check for regressions — it is the only thing this code can express. A divergence would require
+ * changing one of the two projections, which changes BOTH views at once.
+ *
+ * It inherits every exclusion of the pair unchanged: unresolved sources contribute nothing,
+ * Knowledge is excluded (it has its own evidence authority), the standing is read off the owning
+ * resolution, and no content, score, confidence or lifecycle travels.
+ */
+export function toResponseSourceEvidence(
+  resolutions: readonly {
+    readonly sourceClass: string;
+    readonly state: string;
+    readonly authoritative: boolean;
+    readonly items: readonly { readonly recordRef: string; readonly label: string; readonly detail: string }[];
+  }[],
+): readonly ReplayedSourceEvidence[] {
+  return fromStoredSourceEvidence(toStoredSourceEvidence(resolutions));
 }

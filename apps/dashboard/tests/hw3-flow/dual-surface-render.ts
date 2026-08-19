@@ -242,13 +242,14 @@ function main(): void {
     // Then the rendered consequence: presence-first → conversation-first.
     const hero = workspace({});
     assert.ok(hero.includes('data-heby-mode="hero"') && hero.includes('data-heby-size="hero"'));
-    assert.ok(hero.includes("How can I help?"), "the hero states the invitation");
+    /* G7 — the hero invitation, restated at G7. The invariant these assertions protect is unchanged — the hero carries an invitation, it is GONE once a conversation exists, and it never appears in the Quick Panel. Only the sentence moved: the Director replaced the "How can I help?" heading, which read as an assistant landing page, with a quieter line on the composer dock where the thing being invited actually is. */
+    assert.ok(hero.includes("The field below is ready when you are."), "the hero states the invitation");
 
     const emerging = workspace({ turns: [USER_TURN, RICH_TURN] });
     assert.ok(emerging.includes('data-heby-mode="emerging"'), "one exchange leaves hero mode");
     assert.ok(emerging.includes('data-heby-size="compact"'), "the presence shrinks rather than disappearing");
     assert.ok(!emerging.includes('data-heby-size="hero"'), "the hero presence is gone");
-    assert.ok(!emerging.includes("How can I help?"), "and so is the hero invitation");
+    assert.ok(!emerging.includes("The field below is ready when you are."), "and so is the hero invitation");
 
     const conversation = workspace({ turns: longThread() });
     assert.ok(conversation.includes('data-heby-mode="conversation"'), "a grown thread is conversation-first");
@@ -309,7 +310,7 @@ function main(): void {
     // DIFFERENT job: it does NOT squeeze the immersive hero composition into a panel.
     assert.ok(!empty.includes("heby-workspace"), "it is not the Full Workspace");
     assert.ok(!empty.includes('data-heby-size="hero"'), "no immersive orb in the panel");
-    assert.ok(!empty.includes("How can I help?"), "no hero invitation");
+    assert.ok(!empty.includes("The field below is ready when you are."), "no hero invitation");
     assert.ok(!empty.includes("Context</span>") && !empty.includes("Authority</span>"), "no hero peripheral rail");
     // It keeps the current workspace visible: it is a side overlay, not a full takeover.
     assert.ok(empty.includes("sm:w-[27rem]"), "a right-hand overlay on desktop");

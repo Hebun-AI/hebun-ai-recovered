@@ -8,3 +8,4 @@
 
 export * from "./surface-state";
 export * from "./composition";
+export * from "./canvas-mode";

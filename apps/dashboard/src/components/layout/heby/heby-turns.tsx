@@ -17,8 +17,10 @@
  */
 
 import { Sparkles, ChevronRight } from "lucide-react";
+import type { HebySourceEvidenceGroup } from "@/features/heby-runtime";
 import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
 import { HebyEvidenceNotRetained, HebyEvidencePanel } from "./heby-evidence";
+import { HebySourceEvidencePanel } from "./heby-source-evidence";
 import type { ProvenanceBadge, ProvenanceTone } from "./heby-provenance";
 
 export interface HebyEvidenceRef {
@@ -45,11 +47,21 @@ export interface HebyTurnView {
    */
   readonly knowledgeEvidence?: RetrievalEvidenceSet;
   /**
+   * G7 — the NON-KNOWLEDGE records this answer cited, with the standing each asserting class held
+   * at answer time. Present on the live answer and on a reloaded one, and equal on both: the live
+   * value and the stored rows are one projection over one set of resolutions.
+   *
+   * Undefined when the answer cited no such record. That is a different fact from an empty list,
+   * so the panel is ABSENT rather than empty.
+   */
+  readonly sourceEvidence?: readonly HebySourceEvidenceGroup[];
+  /**
    * True for a durable Heby turn that is NOT this session's latest answer.
    *
-   * No evidence snapshot is stored, so a reloaded answer has none to show. The flag exists so the
-   * UI can say that plainly instead of rendering an empty panel that would read as "we looked and
-   * there was nothing".
+   * It means "what follows is a record of what this answer was shown, not a reading of today" —
+   * NOT "there is nothing to show". KR5 made the Knowledge set durable and G6D made the source
+   * citations durable, so a historical turn usually HAS evidence; the flag is the frame that stops
+   * a preserved snapshot being read as a current-state claim.
    */
   readonly historical?: boolean;
   /** Newest Heby turn only — the response's honest limitations. */
@@ -133,6 +145,20 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
               sources that have no retrieval behind them (Operations, Platform), because a record
               reference is still more honest than showing nothing.
             */}
+            {/*
+              G7 RESTRUCTURED THIS FROM A CHAIN INTO THREE INDEPENDENT DECISIONS, and the change is
+              not cosmetic.
+
+              KR4 wrote it as an if/else-if because only one of the branches could ever have
+              content. That stopped being true at G6D: an answer can cite Knowledge AND its
+              tenant's own Governance record in the same breath, and a chain would have shown the
+              first and silently dropped the second. Each evidence authority now renders on its
+              own terms, so a mixed answer presents as the mixture it was.
+
+              The bare reference list stays as the LAST fallback — for classes with neither a
+              Knowledge retrieval nor a source resolution behind them, where a record reference is
+              still more honest than showing nothing.
+            */}
             {turn.knowledgeEvidence ? (
               <Disclosure
                 summary={
@@ -154,7 +180,26 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
                   historical={turn.historical === true}
                 />
               </Disclosure>
-            ) : turn.evidence && turn.evidence.length > 0 ? (
+            ) : null}
+
+            {turn.sourceEvidence && turn.sourceEvidence.length > 0 ? (
+              <Disclosure
+                summary={`${turn.historical ? "Recorded sources" : "Sources"} (${turn.sourceEvidence.reduce(
+                  (total, group) => total + group.items.length,
+                  0,
+                )})`}
+              >
+                <HebySourceEvidencePanel
+                  groups={turn.sourceEvidence}
+                  historical={turn.historical === true}
+                />
+              </Disclosure>
+            ) : null}
+
+            {!turn.knowledgeEvidence &&
+            !(turn.sourceEvidence && turn.sourceEvidence.length > 0) &&
+            turn.evidence &&
+            turn.evidence.length > 0 ? (
               <Disclosure summary={`Evidence (${turn.evidence.length})`}>
                 <ul className="mt-1.5 flex flex-col gap-0.5 pl-4 text-fg-secondary">
                   {turn.evidence.map((item) => (
@@ -164,7 +209,22 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
                   ))}
                 </ul>
               </Disclosure>
-            ) : turn.historical ? (
+            ) : null}
+
+            {/*
+              THE STALE STATE, FIXED.
+
+              This notice used to render for ANY historical turn that had no Knowledge set, which
+              since G6D has included every reloaded answer that cited a Governance record. It said
+              evidence was not retained while the retained evidence sat one field away. It is now
+              what it was always meant to be: what remains true when a turn genuinely stored
+              nothing — an answer produced before these records existed, or one where no retrieval
+              and no source resolution ran at all.
+            */}
+            {turn.historical &&
+            !turn.knowledgeEvidence &&
+            !(turn.sourceEvidence && turn.sourceEvidence.length > 0) &&
+            !(turn.evidence && turn.evidence.length > 0) ? (
               <HebyEvidenceNotRetained />
             ) : null}
             {turn.limitations && turn.limitations.length > 0 ? (

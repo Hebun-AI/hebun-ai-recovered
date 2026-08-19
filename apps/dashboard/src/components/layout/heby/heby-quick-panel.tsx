@@ -23,8 +23,8 @@
  * parses no slash command, holds no conversation authority, and executes nothing.
  */
 
-import { useEffect, useRef } from "react";
-import { Plus, X, CornerDownLeft } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, X, CornerDownLeft, ChevronsRight, ChevronsLeft } from "lucide-react";
 import type { HebyCommandDescriptor } from "@/features/heby-commands";
 import { HebyTurnList, type HebyTurnView } from "./heby-turns";
 import { HebyVisualizer, type HebyPresenceState } from "./heby-visualizer";
@@ -77,6 +77,23 @@ export function HebyQuickPanel(props: HebyQuickPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { onClose } = props;
   const empty = props.turns.length === 0 && props.pending === null && !props.asking;
+  /*
+   * G7 — THE PANEL IS SECONDARY TO THE CANVAS, AND CAN SAY SO WITHOUT LEAVING.
+   *
+   * The Full Workspace is now Heby's primary presentation, and a 27rem column permanently parked
+   * over the operator's work competes with it. Collapsing narrows the panel to its presence mark
+   * and its controls.
+   *
+   * COLLAPSING IS NOT CLOSING, and the difference is structural rather than a matter of wording:
+   * the component stays MOUNTED, so the shared conversation hook keeps its session, the voice
+   * binding keeps its claim on the transcript sink, and nothing is reloaded when it expands again.
+   * Closing unmounts the surface; this does not. It is presentation state and it is local to this
+   * component on purpose — the surface controller owns which surface is active, and "how wide is
+   * it" is not that question.
+   *
+   * It starts EXPANDED. A panel the operator deliberately opened must show them what they opened.
+   */
+  const [collapsed, setCollapsed] = useState(false);
 
   // Follow the newest turn. The Quick Panel is conversation-first at every size, so there is no
   // hero exception here.
@@ -110,20 +127,42 @@ export function HebyQuickPanel(props: HebyQuickPanelProps) {
        * Mobile widens it to a full sheet; that is still the QUICK_PANEL state, not a third
        * architecture.
        */
-      className="heby-surface fixed bottom-0 left-0 right-0 top-(--topbar-h) z-(--z-overlay) flex flex-col border-l border-border bg-background bg-(image:--heby-canvas) text-fg shadow-2xl sm:left-auto sm:w-[27rem] md:w-[29rem] lg:w-[27rem]"
+      data-heby-panel-width={collapsed ? "collapsed" : "expanded"}
+      className={`heby-surface fixed bottom-0 top-(--topbar-h) z-(--z-overlay) flex flex-col border-l border-border bg-background bg-(image:--heby-canvas) text-fg shadow-2xl ${
+        collapsed
+          ? "left-auto right-0 w-[4.25rem]"
+          : "left-0 right-0 sm:left-auto sm:w-[27rem] md:w-[29rem] lg:w-[27rem]"
+      }`}
     >
       <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className={`flex min-w-0 items-center gap-2.5 ${collapsed ? "justify-center" : ""}`}>
           {/* Compact presence identity — the same truthful states, without the immersive field. */}
           <HebyVisualizer state={props.presence} audioLevel={props.audioLevel} size="inline" captionHidden />
-          <div className="flex min-w-0 flex-col">
-            <p className="text-[0.85rem] font-semibold tracking-tight text-fg">Heby</p>
-            <p className="truncate text-[0.7rem] text-fg-muted">
-              {props.contextLabel} · {props.authorityLabel}
-            </p>
-          </div>
+          {collapsed ? null : (
+            <div className="flex min-w-0 flex-col">
+              <p className="text-[0.85rem] font-semibold tracking-tight text-fg">Heby</p>
+              <p className="truncate text-[0.7rem] text-fg-muted">
+                {props.contextLabel} · {props.authorityLabel}
+              </p>
+            </div>
+          )}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className={`flex shrink-0 items-center gap-1 ${collapsed ? "hidden" : ""}`}>
+          {/*
+            Narrow the panel without leaving it. The label says COLLAPSE rather than close or hide,
+            because the conversation is still here and still live — only its width changes.
+          */}
+          <button
+            type="button"
+            aria-label="Collapse Heby panel"
+            title="Collapse Heby panel"
+            aria-expanded={!collapsed}
+            data-heby-panel-collapse=""
+            onClick={() => setCollapsed(true)}
+            className="flex size-8 items-center justify-center rounded-lg text-fg-muted transition-colors duration-(--dur-fast) hover:bg-surface-raised hover:text-highlight focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight"
+          >
+            <ChevronsRight className="size-4" aria-hidden="true" />
+          </button>
           <button
             type="button"
             aria-label="New conversation"
@@ -144,6 +183,36 @@ export function HebyQuickPanel(props: HebyQuickPanelProps) {
         </div>
       </header>
 
+      {collapsed ? (
+        /*
+         * The collapsed strip. The conversation is NOT gone — this component is still mounted and
+         * still holds it — so the strip says nothing about the thread and claims nothing about
+         * Heby's state beyond the presence mark above, which is as truthful here as anywhere.
+         */
+        <div className="flex min-h-0 flex-1 flex-col items-center gap-2 px-2 py-3">
+          <button
+            type="button"
+            aria-label="Expand Heby panel"
+            title="Expand Heby panel"
+            aria-expanded={!collapsed}
+            data-heby-panel-expand=""
+            onClick={() => setCollapsed(false)}
+            className="flex size-9 items-center justify-center rounded-lg border border-border text-fg-muted transition-colors duration-(--dur-fast) hover:border-highlight/40 hover:text-highlight focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight"
+          >
+            <ChevronsLeft className="size-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="Close Heby panel"
+            title="Close Heby panel"
+            onClick={props.onClose}
+            className="flex size-9 items-center justify-center rounded-lg border border-border text-fg-muted transition-colors duration-(--dur-fast) hover:border-border-strong hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : (
+        <>
       <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4">
         {empty ? (
           <div className="flex flex-col gap-4">
@@ -194,6 +263,8 @@ export function HebyQuickPanel(props: HebyQuickPanelProps) {
           onDismissCommandOutput={props.onDismissCommandOutput}
         />
       </div>
+        </>
+      )}
     </aside>
   );
 }

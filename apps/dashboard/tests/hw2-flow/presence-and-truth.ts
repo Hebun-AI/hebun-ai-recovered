@@ -253,14 +253,15 @@ function main(): void {
     const hero = render({});
     assert.ok(hero.includes('data-heby-mode="hero"'), "empty surface is hero mode");
     assert.ok(hero.includes('data-heby-size="hero"'), "hero mode shows the large presence");
-    assert.ok(hero.includes("How can I help?"), "hero states the invitation");
+    /* G7 — the hero invitation, restated at G7. The invariant these assertions protect is unchanged — the hero carries an invitation, it is GONE once a conversation exists, and it never appears in the Quick Panel. Only the sentence moved: the Director replaced the "How can I help?" heading, which read as an assistant landing page, with a quieter line on the composer dock where the thing being invited actually is. */
+    assert.ok(hero.includes("The field below is ready when you are."), "hero states the invitation");
     assert.ok(hero.includes("Context") && hero.includes("Authority"), "hero shows the two REAL peripheral labels");
 
     const emerging = render({ turns: [TURN] });
     assert.ok(emerging.includes('data-heby-mode="emerging"'), "a starting conversation leaves hero mode");
     assert.ok(emerging.includes('data-heby-size="compact"'), "the presence shrinks rather than vanishing");
     assert.ok(!emerging.includes('data-heby-size="hero"'), "the hero presence no longer competes with reading");
-    assert.ok(!emerging.includes("How can I help?"), "the hero invitation is gone once a conversation exists");
+    assert.ok(!emerging.includes("The field below is ready when you are."), "the hero invitation is gone once a conversation exists");
     assert.ok(emerging.includes('aria-label="Conversation"'), "the conversation owns the space");
 
     const conversation = render({ turns: [TURN, TURN, TURN, TURN] });

@@ -16,6 +16,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import type { HebyStreamState } from "@/features/heby-stream";
 import { useHebySurface } from "./heby-surface-context";
 import { useHebyConversation } from "./use-heby-conversation";
 import { useHebyVoiceSurface } from "./use-heby-voice-surface";
@@ -31,10 +32,20 @@ export interface HebyWorkspaceClientProps {
   /** Server-validated return route (allow-list or the canonical fallback). Never a client URL. */
   readonly returnRoute: string;
   readonly returnLabel: string;
+  /**
+   * G7 — the contextual rail's content, already read and projected SERVER-SIDE.
+   *
+   * It arrives as a finished value for the same reason the context and the return target do: this
+   * container performs no read, and giving it one would hand a presentation surface a second way
+   * into the database beside the one conversation seam. It carries no id, no payload and no
+   * authority — only what a reader may see, plus a route the projection fixed.
+   */
+  readonly stream: HebyStreamState;
 }
 
 export function HebyWorkspaceClient(props: HebyWorkspaceClientProps) {
-  const { contextRoute, contextLabel, contextDetail, authorityLabel, returnRoute, returnLabel } = props;
+  const { contextRoute, contextLabel, contextDetail, authorityLabel, returnRoute, returnLabel, stream } =
+    props;
   const { operate, registerWorkspaceReturn } = useHebySurface();
   const router = useRouter();
 
@@ -70,6 +81,7 @@ export function HebyWorkspaceClient(props: HebyWorkspaceClientProps) {
       contextLabel={contextLabel}
       authorityLabel={authorityLabel}
       returnLabel={returnLabel}
+      stream={stream}
       /*
        * Leaving is a PRESENTATION transition, routed through the same planner the rail control
        * uses, so both exits behave identically. It ends no conversation, deletes nothing, and

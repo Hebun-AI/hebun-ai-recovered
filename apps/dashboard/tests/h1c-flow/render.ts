@@ -78,7 +78,8 @@ function main(): void {
   // 2. Empty/welcome state with honest suggestions; no fabricated activity.
   {
     const html = render({ turns: [], suggestions: ["What should I pay attention to here?", "Summarize the current picture."] });
-    assert.ok(html.includes("How can I help?"), "welcome state");
+    /* G7 — the hero invitation, restated at G7. The invariant these assertions protect is unchanged — the hero carries an invitation, it is GONE once a conversation exists, and it never appears in the Quick Panel. Only the sentence moved: the Director replaced the "How can I help?" heading, which read as an assistant landing page, with a quieter line on the composer dock where the thing being invited actually is. */
+    assert.ok(html.includes("The field below is ready when you are."), "welcome state carries an invitation");
     assert.ok(html.includes("What should I pay attention to here?"), "suggestion rendered");
     assert.ok(!html.includes("Heby is responding"), "no fabricated activity in empty state");
     assert.ok(!/Analyzing|Checking \d+ systems|agents? working/i.test(html), "no fake reasoning/agent activity");
