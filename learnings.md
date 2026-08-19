@@ -1901,3 +1901,29 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
 - **A transient `useState` claim is not a stale live claim.** "No Governance decision exists yet."
   renders only in the post-acceptance transition, where it is true. Check the render condition
   before repairing prose.
+
+## G6B — Governance runtime re-proof (2026-08-19, tag `hebun-governance-runtime-reproof-complete`)
+
+- **Audit the capability against production BEFORE designing the proof.** Three of five Governance
+  capabilities were unexercisable: the ordinary-decision subject vocabulary is closed at exactly one
+  type (`knowledge_node`) with zero rows, and membership authorization needs a real second human.
+  Reporting them unavailable is the result — seeding a subject would have manufactured the truth the
+  act was meant to test.
+- **A refusal chain can be the architecture working, not a gap.** I1 refused every real tenant
+  because only `member` may be onboarded into and no tenant had one; I1.1 exists precisely to close
+  that. Read the phase that follows before calling a refusal a defect.
+- **Two rows can prove what prose only asserts.** Genesis carries `authority_source_actor_*` NULL
+  (no prior authority existed); the next decision names the human. The constitutional chain is
+  visible in production columns, not just in a doc.
+- **A mutation that changes no behaviour is not a passing test — it is no test.** `eq(...) || true`
+  evaluates to the same truthy SQL object; widening a TypeScript type is a no-op at runtime. Six
+  attempts produced no verdict; correct them instead of reporting them.
+- **Some attacks are UNREPRESENTABLE and cannot be bite-proved.** `writeGovernanceDecisionWithin`
+  has no actor parameter, so "client supplies the actor" would require inventing one — which IS the
+  security property. Report it as unrepresentable, never as an untested boundary.
+- **Prove a one-shot by reading the invariant, not by attempting it.** `roles_one_member_per_tenant_uq`
+  and `decision_records_one_bootstrap_per_tenant_uq` were read out of the production database —
+  stronger than a replay, and it writes nothing.
+- **A closure record's counts are true at commit time, not forever.** Check whether a "stale" claim
+  was false when written before rewriting history; and check a render condition before repairing
+  prose (a transient `useState` claim is not a live one).
