@@ -1927,3 +1927,35 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
 - **A closure record's counts are true at commit time, not forever.** Check whether a "stale" claim
   was false when written before rewriting history; and check a render condition before repairing
   prose (a transient `useState` claim is not a live one).
+
+## G6C — Heby Governance grounding (2026-08-19, tag `hebun-heby-governance-grounding-complete`)
+
+- **A module that mixes reads and writes is not a read boundary.** `bootstrap-authority.server.ts`
+  exported `readGovernanceAuthority` beside `establishGovernanceAuthority`, so importing it "for the
+  read" handed out a reference into the act that creates a government. Split the reads out; do not
+  ask a reviewer to check which symbol was taken.
+- **Heby grounds on owner-controlled read-only projections, never on writer-bearing authority
+  modules.** The projection lives on Governance's side of the boundary and Heby consumes it. Putting
+  it under `heby-governance/` was the first draft and five released firewalls rejected it, correctly.
+- **Path and module-name firewalls are too weak to be the primary mechanism, and too strong to be
+  harmless.** Ban the writer SYMBOLS against comment-stripped code, and prove the real property by
+  walking the import graph from the entry points. Keep the path heuristic as an additive second
+  layer, never the only one.
+- **The path heuristic had been failing since R3W, in production, undetected.**
+  `work-artifact-evidence.server.ts` imported `bootstrap-authority.server.ts` for a database handle,
+  so Heby's answer graph contained a Governance writer while every firewall passed — the offending
+  file's path says `work-artifacts`. Measured: writer-bearing modules on the answer graph **1 → 0**.
+- **Governance remains the authority owner; Heby is an evidence-grounded consumer and nothing more.**
+  The projection owns no fact, holds no table, defines no authority, and reinterprets none of the
+  three owners it reads.
+- **AUTHORITATIVE provenance must survive source → evidence → response without being flattened.**
+  The response builder stated "derived and non-authoritative" unconditionally, which was true of every
+  source connected before this one and would have silently downgraded `decision_records`. Report the
+  mix per answer instead of rounding to one class.
+- **A grounding connection is not model synthesis.** Production carries no `HEBUN_MODEL_*` variable
+  and the provider stays disarmed, so the honest classification is
+  **B — GROUNDING CONNECTED / MODEL SYNTHESIS UNAVAILABLE**, not "Heby answers from Governance".
+- **Tenant-scoped is not authority-gated.** Only `readRoleBaselineState` gates on
+  `resolveGovernanceAuthority`; the roster and genesis reads are scoped to the tenant but visible to
+  any member. That is the released G2/G3 read contract — record it as inherited and leave it to its
+  own gate rather than tightening it inside a grounding phase.
