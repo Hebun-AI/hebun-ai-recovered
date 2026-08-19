@@ -50,12 +50,12 @@ try {
     // + KR5 heby-answer-evidence + R3A action-authorization
     // + R3W durable-work-artifacts + R3R durable-recipient-authority
     // + R3B action-execution-attempts + R4A tenant-provisioning-source
-    // + production-provenance-vocabulary = 31.
+    // + production-provenance-vocabulary + G6D answer-source-evidence = 32.
     //
     // This tally is the ONE place a running total belongs: it is this file's actual subject. Other
     // phases must state "I added none of my own" without pinning a global count, or every later
     // authorized migration falsifies a claim that was never about it.
-    assert.equal(migrationCount.rows[0]?.count, "31");
+    assert.equal(migrationCount.rows[0]?.count, "32");
 
     /*
      * The rerun is about IDEMPOTENCE, not about the total, so it is compared to what the first run

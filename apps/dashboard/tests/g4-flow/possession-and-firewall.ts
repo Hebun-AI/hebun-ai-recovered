@@ -559,12 +559,27 @@ function noSchema(): void {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) =>
     f.endsWith(".sql"),
   );
-  assert.equal(migrations.length, 31, "G4 authors no migration — the ledger stays at 31");
+  /*
+   * PHASE-RELATIVE, not a global total. `tests/authentication-schema/migration.ts` is the one place
+   * a running count belongs — it is that file's subject. A global pin here failed the moment a later
+   * authorized phase added schema, which conflates G4's authorship with everyone else's. The claim
+   * G4 actually makes is that it authored nothing of its own.
+   */
+  const G4_BOUNDARY = "20260817195446_r4a_tenant_provisioning_source.sql";
+  assert.ok(migrations.includes(G4_BOUNDARY), "the migration G4 inherited is intact");
+  assert.deepEqual(
+    migrations.filter((f) => f > G4_BOUNDARY).sort(),
+    [
+      "20260818172455_production_provenance_vocabulary.sql",
+      "20260819133901_g6d_answer_source_evidence.sql",
+    ],
+    "G4 authored no migration; what follows is a declared later phase",
+  );
 
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: unknown[];
   };
-  assert.equal(journal.entries.length, 31, "the journal stays at 31");
+  assert.equal(journal.entries.length, migrations.length, "journal and directory agree");
 
   /*
    * And the possession module reads only environment values and facts PostgreSQL reports about

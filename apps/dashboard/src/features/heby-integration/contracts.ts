@@ -221,6 +221,18 @@ export type HebySourceClass =
   | "workforce"
   | "governance"
   | "platform"
+  /*
+   * G6D. NOT the Governance decision record, despite sharing the words.
+   *
+   * `decision_records` is Governance's own table and the `governance` class above is its connected
+   * reader (G6C). This class is decision PREPARATION material — both workspaces that declare it,
+   * `command` and `decisions`, also declare the `decision-preparation` capability — and it has no
+   * connected reader of its own. It is kept as a distinct class rather than folded into
+   * `governance` for the reason `work-artifacts` and `external-recipients` are distinct: a
+   * different authority owner, not a flavour of an existing one. Consolidating them would make
+   * material prepared for a human decision indistinguishable from the constitutional record that
+   * decision is taken under.
+   */
   | "decision-records"
   /*
    * R3W. Prepared work the tenant durably holds — never organizational truth, never a decision.

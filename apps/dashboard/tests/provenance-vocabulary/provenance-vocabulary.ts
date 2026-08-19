@@ -278,10 +278,16 @@ async function main(): Promise<void> {
         journal.entries.length,
         "every journalled migration applied",
       );
-      assert.equal(
-        journal.entries.at(-1)!.tag,
-        "20260818172455_production_provenance_vocabulary",
-        "G1 is the latest journal entry",
+      /*
+       * G1 IS JOURNALLED — not "is last". Last was only ever true until the next phase shipped, and
+       * a later authorized migration is not a G1 regression.
+       */
+      const tags = journal.entries.map((e) => e.tag);
+      assert.ok(tags.includes("20260818172455_production_provenance_vocabulary"), "G1 is journalled");
+      assert.deepEqual(
+        tags.filter((t) => t > "20260818172455_production_provenance_vocabulary"),
+        ["20260819133901_g6d_answer_source_evidence"],
+        "and what follows it is a declared later phase",
       );
     }
 

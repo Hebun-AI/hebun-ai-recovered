@@ -459,15 +459,20 @@ function containment(): void {
  * 10. NO SCHEMA, AND NOTHING RELEASED WAS CHANGED.
  * ═════════════════════════════════════════════════════════════════════════ */
 function noSchema(): void {
-  assert.equal(
-    readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length,
-    31,
-    "G5A.1 authors no migration",
+  /* Phase-relative: G5A.1's claim is about G5A.1. See tests/authentication-schema/migration.ts. */
+  const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
+  const G5A1_BOUNDARY = "20260818172455_production_provenance_vocabulary.sql";
+  assert.ok(files.includes(G5A1_BOUNDARY), "the migration G5A.1 inherited is intact");
+  assert.deepEqual(
+    files.filter((f) => f > G5A1_BOUNDARY).sort(),
+    ["20260819133901_g6d_answer_source_evidence.sql"],
+    "G5A.1 authored no migration; what follows is a declared later phase",
   );
+  /* Journal and directory agree — a relative claim, not another copy of a global total. */
   assert.equal(
     (JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: unknown[] }).entries
       .length,
-    31,
+    files.length,
   );
 
   /* The released primitives are untouched. */

@@ -19,6 +19,7 @@ import {
   hebyAnswerEvidenceItems,
   hebyAnswerEvidenceSets,
 } from "@/db/schema/heby-answer-evidence";
+import { hebyAnswerSourceEvidence } from "@/db/schema/heby-answer-source-evidence";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -132,6 +133,30 @@ export interface AppendEvidenceSetInput {
 }
 
 /** One complete Heby turn, persisted atomically. */
+/*
+ * G6D — one citation an answer made, in storage shape.
+ *
+ * IDENTITY REFERENCED, STANDING SNAPSHOT, the same rule KR5 states for Knowledge. `recordRef` names
+ * the owning authority's record; `label`, `detail` and `authoritative` are copied because the record
+ * they describe is mutable and re-reading it later would substitute today's state for the answer's.
+ *
+ * `authoritative` is derived from the owning RESOLUTION, never from a request: no client-reachable
+ * input shape carries it, which is the property the G6D firewall test asserts by mechanism.
+ */
+export interface AppendSourceEvidenceInput {
+  readonly sourceClass: string;
+  readonly recordRef: string;
+  readonly label: string;
+  readonly detail: string;
+  readonly authoritative: boolean;
+  readonly ordinal: number;
+}
+
+/** One stored citation, read back for a reload. Identical shape — this record is never reshaped. */
+export interface StoredSourceEvidence extends AppendSourceEvidenceInput {
+  readonly messageId: string;
+}
+
 export interface PersistExchangeInput {
   /** Honoured only if the tenant owns it; otherwise a fresh conversation is created. */
   readonly providedConversationId?: string;
@@ -141,6 +166,12 @@ export interface PersistExchangeInput {
   readonly assistant: Omit<AppendMessageInput, "conversationId">;
   /** Present only when a Knowledge retrieval actually ran for this turn. */
   readonly evidence?: AppendEvidenceSetInput;
+  /**
+   * G6D — the non-Knowledge sources this answer cited. Knowledge is deliberately absent: it has its
+   * own evidence authority above, and a CHECK constraint refuses it here so the two can never
+   * become two records of one citation.
+   */
+  readonly sourceEvidence?: readonly AppendSourceEvidenceInput[];
 }
 
 export interface PersistedExchange {
@@ -201,6 +232,15 @@ export interface DurableConversationRepository {
     scope: ConversationScope,
     messageIds: readonly string[],
   ): Promise<readonly StoredEvidenceSet[]>;
+  /**
+   * G6D — the non-Knowledge citations recorded with the given messages. A SIBLING read on the SAME
+   * authority, not a second one: it shares this repository, its tenant requirement and its
+   * conversation-ownership gate, and there is deliberately no standalone evidence endpoint.
+   */
+  listAnswerSourceEvidence(
+    scope: ConversationScope,
+    messageIds: readonly string[],
+  ): Promise<readonly StoredSourceEvidence[]>;
 }
 
 function requireTenant(scope: ConversationScope): string {
@@ -429,8 +469,65 @@ export function createDurableConversationRepository(
           }
         }
 
+        /*
+         * G6D — the answer's non-Knowledge citations, in the SAME transaction as the assistant
+         * message they belong to. All commit or none commit: a citation cannot exist without its
+         * answer, and an answer cannot silently lose the record it was grounded on.
+         *
+         * `tenantId` is the server-resolved scope tenant, never a caller-supplied value, and
+         * `messageId` is the id this transaction just generated — so a row here can only ever
+         * belong to the message this turn produced, for the tenant that produced it.
+         */
+        if (input.sourceEvidence && input.sourceEvidence.length > 0) {
+          await tx.insert(hebyAnswerSourceEvidence).values(
+            input.sourceEvidence.map((item) => ({
+              tenantId,
+              messageId: assistantMessageId,
+              sourceClass: item.sourceClass,
+              recordRef: item.recordRef,
+              label: item.label,
+              detail: item.detail,
+              authoritative: item.authoritative,
+              ordinal: item.ordinal,
+            })),
+          );
+        }
+
         return { conversationId, assistantMessageId };
       });
+    },
+
+    async listAnswerSourceEvidence(scope, messageIds) {
+      const tenantId = requireTenant(scope);
+      const ids = messageIds.filter((id) => UUID_RE.test(id));
+      if (ids.length === 0) return [];
+
+      /*
+       * Tenant-scoped explicitly, exactly as `listAnswerEvidence` is and for the same reason: the
+       * composite FK already makes a cross-tenant row unconstructible, but a read relying on that
+       * alone would be one schema change away from leaking. The predicate costs nothing and states
+       * the requirement where the query lives.
+       */
+      const rows = await db
+        .select()
+        .from(hebyAnswerSourceEvidence)
+        .where(
+          and(
+            eq(hebyAnswerSourceEvidence.tenantId, tenantId),
+            inArray(hebyAnswerSourceEvidence.messageId, ids),
+          ),
+        )
+        .orderBy(asc(hebyAnswerSourceEvidence.ordinal));
+
+      return rows.map((row) => ({
+        messageId: row.messageId,
+        sourceClass: row.sourceClass,
+        recordRef: row.recordRef,
+        label: row.label,
+        detail: row.detail,
+        authoritative: row.authoritative,
+        ordinal: row.ordinal,
+      }));
     },
 
     async listAnswerEvidence(scope, messageIds) {

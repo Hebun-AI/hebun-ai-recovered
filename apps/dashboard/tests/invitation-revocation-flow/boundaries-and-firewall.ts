@@ -321,6 +321,8 @@ function main(): void {
         /* R4A tenant bootstrap ceremony — a later Gate-B phase, declared rather than silent. */
         "20260817195446_r4a_tenant_provisioning_source.sql",
         "20260818172455_production_provenance_vocabulary.sql",
+        /* G6D generic answer-source evidence — a declared later phase, not this one's. */
+        "20260819133901_g6d_answer_source_evidence.sql",
       ],
       "invitation revocation added no migration; what follows is a declared later phase",
     );

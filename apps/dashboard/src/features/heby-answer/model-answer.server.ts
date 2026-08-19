@@ -77,6 +77,7 @@ import { resolveWorkArtifactSource } from "@/features/work-artifacts/work-artifa
  * firewall test asserts.
  */
 import { readGovernanceGroundingSource } from "@/features/governance-grounding/heby-governance-source.server";
+import { toStoredSourceEvidence } from "@/features/heby-conversation/answer-evidence";
 import { buildBoundedHistory } from "./bounded-history";
 import { resolveKnowledgeEvidenceDetailed } from "./knowledge-evidence.server";
 
@@ -584,6 +585,11 @@ export async function answerHebyModelRequest(
     transportProvenance: answer.transportProvenance,
     modelResult: answer.modelResult,
     knowledgeEvidence,
+    /*
+     * G6D — the non-Knowledge sources this answer cited, taken from the SAME resolutions the answer
+     * was built from. Not a re-read: a second read could return something the answer never saw.
+     */
+    resolutions,
   });
 
   /*
@@ -738,6 +744,8 @@ async function persistExchange(
     readonly transportProvenance?: "fake" | "live";
     readonly modelResult?: ModelGenerationResult;
     readonly knowledgeEvidence?: RetrievalEvidenceSet;
+    /** G6D — the resolutions the answer was assembled from, projected to citations below. */
+    readonly resolutions?: readonly SourceResolution[];
   },
 ): Promise<DurableDisposition> {
   if (!repo) return { durable: false, reason: "not-configured" };
@@ -769,6 +777,11 @@ async function persistExchange(
        * retrieval ran and matched nothing, which reload must be able to say out loud.
        */
       evidence: args.knowledgeEvidence ? toStoredEvidence(args.knowledgeEvidence) : undefined,
+      /*
+       * Absent when the answer cited no non-Knowledge record — which is the same statement the
+       * message body already makes by printing each unavailable source's own reason.
+       */
+      sourceEvidence: args.resolutions ? toStoredSourceEvidence(args.resolutions) : undefined,
     });
 
     return { durable: true, conversationId, assistantMessageId };

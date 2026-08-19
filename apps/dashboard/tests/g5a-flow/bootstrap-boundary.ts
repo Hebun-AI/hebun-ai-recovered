@@ -489,15 +489,23 @@ function containment(): void {
  * 9. G5A ADDED NO SCHEMA, AND ENROLLMENT IS UNCHANGED.
  * ═════════════════════════════════════════════════════════════════════════ */
 function noSchemaNoRegression(): void {
-  assert.equal(
-    readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length,
-    31,
-    "G5A authors no migration — the ledger stays at 31",
+  /* Phase-relative: G5A's claim is about G5A, not about every phase that ships after it. */
+  const g5aMigrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
+  const G5A_BOUNDARY = "20260817195446_r4a_tenant_provisioning_source.sql";
+  assert.ok(g5aMigrations.includes(G5A_BOUNDARY), "the migration G5A inherited is intact");
+  assert.deepEqual(
+    g5aMigrations.filter((f) => f > G5A_BOUNDARY).sort(),
+    [
+      "20260818172455_production_provenance_vocabulary.sql",
+      "20260819133901_g6d_answer_source_evidence.sql",
+    ],
+    "G5A authored no migration; what follows is a declared later phase",
   );
+  /* Journal and directory agree — a relative claim, not another copy of a global total. */
   assert.equal(
     (JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: unknown[] }).entries
       .length,
-    31,
+    g5aMigrations.length,
   );
 
   /* Enrollment still self-attributes, by passing the same field it always passed. */

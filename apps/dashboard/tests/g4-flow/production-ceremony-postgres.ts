@@ -176,7 +176,9 @@ async function main(): Promise<void> {
       assert.equal(Number(digest.rows[0]!.n), authored, "the disposable carries the full ledger");
       assert.equal(
         digest.rows[0]!.d,
-        "212559d177d44b3f15aeaa0df78e6799",
+        /* G6D: the ledger grew to 32, so the shared digest moved with the release — which is the
+         * point being made. It identifies a RELEASE, never a deployment. */
+        "ca91a1fbc555e92c94e38e105b34a2a8",
         "…and its digest equals the canonical and production one — the ledger is not an identity",
       );
     }

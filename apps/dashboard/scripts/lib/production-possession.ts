@@ -39,9 +39,10 @@
  *
  * A valid credential pointed at the wrong PostgreSQL database is the failure this module exists to
  * prevent, and it is not hypothetical: the local canonical database and the hosted production
- * database carry the BYTE-IDENTICAL migration ledger — 31 rows, digest
- * `212559d177d44b3f15aeaa0df78e6799` on both — because they are the same released schema. Measured,
- * not assumed. So the ledger proves "this is a Hebun control plane at the released schema" and
+ * database carry the BYTE-IDENTICAL migration ledger — 32 rows, digest
+ * `ca91a1fbc555e92c94e38e105b34a2a8` on both — because they are the same released schema. Measured,
+ * not assumed. (It was 31 rows and `212559d1…` at G4; the digest tracks the RELEASE, which is the
+ * whole point — it moved when G6D added a migration, and it moved on BOTH deployments.) So the ledger proves "this is a Hebun control plane at the released schema" and
  * proves NOTHING about which deployment it is. It is necessary and insufficient, and is checked as
  * a co-factor rather than as the binding.
  *

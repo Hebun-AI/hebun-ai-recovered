@@ -116,10 +116,39 @@ export function resolveSource(
       return unavailable("intelligence", "No validated Intelligence candidates are connected.");
     case "workforce":
       return unavailable("workforce", "No connected Workforce retrieval path.");
+    /*
+     * G6D. G6C connected Governance on the server seam exactly as K1 connected Knowledge, and the
+     * sentence above is the precedent for what that obliges: state that the read is tenant-scoped
+     * and server-side, not that nothing is connected.
+     *
+     * The old sentence — "Governance structural vocabulary only; no live policy instances
+     * connected" — described the world before G6C and is now false in two ways. Governance IS
+     * connected (`governance-grounding/heby-governance-source.server.ts`), and this resolution is
+     * also what `withGovernance` falls back to when that read THROWS, so a real read failure was
+     * being reported as a permanent absence of connection.
+     */
     case "governance":
-      return unavailable("governance", "Governance structural vocabulary only; no live policy instances connected.");
+      return unavailable(
+        "governance",
+        "Governance is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
+    /*
+     * G6D. THE VOCABULARY COLLISION, stated rather than left for the reader to trip over.
+     *
+     * This class is NOT the Governance decision record. `decision_records` is the table Governance
+     * owns and the `governance` class above now reads; this class is decision PREPARATION material
+     * — the only two workspaces that declare it, `command` and `decisions`, both also declare the
+     * `decision-preparation` capability, and neither owns a connected reader for it.
+     *
+     * The old sentence said "No persisted decision records are connected." On `/approvals` that
+     * printed beside an authoritative item this organization's `decision_records` had just
+     * supplied, so the one word both meanings share made a true statement read as a false one.
+     */
     case "decision-records":
-      return unavailable("decision-records", "No persisted decision records are connected.");
+      return unavailable(
+        "decision-records",
+        "No connected decision-preparation retrieval path. This is not the Governance decision record, which the governance source class reads.",
+      );
     /*
      * R3W: prepared work IS durable and tenant-scoped, and it is read exactly the way K1 reads
      * Knowledge — on the server, inside an already-resolved tenant. This resolver is pure: it

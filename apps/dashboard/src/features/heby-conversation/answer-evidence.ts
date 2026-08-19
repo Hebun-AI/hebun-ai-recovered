@@ -28,6 +28,8 @@ import type {
   AppendEvidenceItemInput,
   AppendEvidenceSetInput,
   StoredEvidenceSet,
+  AppendSourceEvidenceInput,
+  StoredSourceEvidence,
 } from "./durable-conversation-repository.server";
 
 /** ISO string → Date for a timestamptz column; absent stays absent. */
@@ -173,4 +175,92 @@ export function fromStoredEvidence(stored: StoredEvidenceSet): RetrievalEvidence
         },
       })),
   };
+}
+
+/* ===========================================================================
+ * G6D — THE SAME TWO PROJECTIONS, FOR NON-KNOWLEDGE SOURCES.
+ *
+ * They live beside the KR5 pair above for that section's own reason: a write projection and a read
+ * projection that drift apart is how a reloaded answer starts describing something the live one
+ * never showed. Keeping all four in one file makes both round trips reviewable together.
+ *
+ * KNOWLEDGE IS EXCLUDED HERE, not forgotten. It already has the authority above, and a CHECK
+ * constraint refuses it in the table, so the exclusion is enforced twice — once where the rows are
+ * built and once where they land.
+ * ========================================================================= */
+
+/** One replayed citation. Exactly what was stored; this record is never reshaped on the way out. */
+export interface ReplayedSourceEvidenceItem {
+  readonly recordRef: string;
+  readonly label: string;
+  readonly detail: string;
+}
+
+/** One source class's citations from one historical answer, with the standing it asserted then. */
+export interface ReplayedSourceEvidence {
+  readonly sourceClass: string;
+  /** The standing recorded AT ANSWER TIME — never re-derived from the source's state today. */
+  readonly authoritative: boolean;
+  readonly items: readonly ReplayedSourceEvidenceItem[];
+}
+
+/**
+ * Resolutions → storage rows.
+ *
+ * Only RESOLVED sources contribute: an unavailable source cited nothing, and its own reason is
+ * already printed into the answer body, so a zero-row marker would record a second time what the
+ * message already says.
+ *
+ * `authoritative` is read off the owning RESOLUTION, so a class cannot declare one standing and
+ * store another. `ordinal` runs across the whole answer, preserving the order the reader met the
+ * items in rather than an order per class.
+ */
+export function toStoredSourceEvidence(
+  resolutions: readonly {
+    readonly sourceClass: string;
+    readonly state: string;
+    readonly authoritative: boolean;
+    readonly items: readonly { readonly recordRef: string; readonly label: string; readonly detail: string }[];
+  }[],
+): AppendSourceEvidenceInput[] {
+  const rows: AppendSourceEvidenceInput[] = [];
+  let ordinal = 0;
+  for (const resolution of resolutions) {
+    if (resolution.state !== "resolved") continue;
+    if (resolution.sourceClass === "knowledge") continue;
+    for (const item of resolution.items) {
+      rows.push({
+        sourceClass: resolution.sourceClass,
+        recordRef: item.recordRef,
+        label: item.label,
+        detail: item.detail,
+        authoritative: resolution.authoritative,
+        ordinal: ordinal++,
+      });
+    }
+  }
+  return rows;
+}
+
+/**
+ * Storage rows → replay, grouped by the class that cited them.
+ *
+ * A MIXED ANSWER STAYS MIXED. Each group carries its OWN recorded standing, so an answer that cited
+ * an authoritative Governance record beside a derived read model replays as two groups saying two
+ * different things — never one rounded to whichever is more flattering.
+ */
+export function fromStoredSourceEvidence(
+  rows: readonly StoredSourceEvidence[],
+): readonly ReplayedSourceEvidence[] {
+  const groups = new Map<string, { authoritative: boolean; items: ReplayedSourceEvidenceItem[] }>();
+  for (const row of [...rows].sort((a, b) => a.ordinal - b.ordinal)) {
+    const group = groups.get(row.sourceClass) ?? { authoritative: row.authoritative, items: [] };
+    group.items.push({ recordRef: row.recordRef, label: row.label, detail: row.detail });
+    groups.set(row.sourceClass, group);
+  }
+  return [...groups].map(([sourceClass, group]) => ({
+    sourceClass,
+    authoritative: group.authoritative,
+    items: group.items,
+  }));
 }

@@ -141,6 +141,10 @@ function recordingRepo(failOn?: "create" | "append"): RecordingRepo {
       if (input.evidence) evidenceSets.push({ messageId: staged[1]!.id, ...input.evidence });
       return { conversationId, assistantMessageId: staged[1]!.id };
     },
+    /* G6D — this double records no source evidence; these tests assert message/exchange semantics. */
+    async listAnswerSourceEvidence() {
+      return [];
+    },
     async listAnswerEvidence(scope: ConversationScope, messageIds) {
       const visible = new Set(messages.filter((m) => m.tenantId === scope.tenantId).map((m) => m.id));
       return evidenceSets.filter((set) => messageIds.includes(set.messageId) && visible.has(set.messageId));

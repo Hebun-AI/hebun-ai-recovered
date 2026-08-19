@@ -11,12 +11,15 @@ import type {
   DurableMessageRecord,
   PersistExchangeInput,
   StoredEvidenceSet,
+  StoredSourceEvidence,
 } from "../../src/features/heby-conversation/durable-conversation-repository.server";
 
 export function createInMemoryConversationRepo(): DurableConversationRepository {
   const conversations = new Map<string, DurableConversationRecord>();
   const messages: DurableMessageRecord[] = [];
   const evidence = new Map<string, StoredEvidenceSet>();
+  /* G6D — the non-Knowledge citations, kept per assistant message exactly as the real repo does. */
+  const sourceEvidence = new Map<string, readonly StoredSourceEvidence[]>();
   let seq = 0;
 
   const owned = (tenantId: string, id: string): DurableConversationRecord | undefined => {
@@ -139,6 +142,12 @@ export function createInMemoryConversationRepo(): DurableConversationRepository 
       if (input.evidence) {
         evidence.set(assistant.id, { messageId: assistant.id, ...input.evidence });
       }
+      if (input.sourceEvidence && input.sourceEvidence.length > 0) {
+        sourceEvidence.set(
+          assistant.id,
+          input.sourceEvidence.map((item) => ({ messageId: assistant.id, ...item })),
+        );
+      }
       return { conversationId, assistantMessageId: assistant.id };
     },
 
@@ -150,6 +159,14 @@ export function createInMemoryConversationRepo(): DurableConversationRepository 
         .filter((id) => visible.has(id))
         .map((id) => evidence.get(id))
         .filter((set): set is StoredEvidenceSet => set !== undefined);
+    },
+
+    /* Tenant-visibility is enforced here too — a fake that leaks proves nothing about one that does not. */
+    async listAnswerSourceEvidence(scope: ConversationScope, messageIds: readonly string[]) {
+      const visible = new Set(
+        messages.filter((m) => m.tenantId === scope.tenantId).map((m) => m.id),
+      );
+      return messageIds.filter((id) => visible.has(id)).flatMap((id) => sourceEvidence.get(id) ?? []);
     },
   };
 }

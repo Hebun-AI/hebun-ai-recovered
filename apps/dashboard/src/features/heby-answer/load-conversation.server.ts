@@ -9,7 +9,11 @@
  */
 
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { fromStoredEvidence } from "@/features/heby-conversation/answer-evidence";
+import {
+  fromStoredEvidence,
+  fromStoredSourceEvidence,
+  type ReplayedSourceEvidence,
+} from "@/features/heby-conversation/answer-evidence";
 import {
   resolveConversationRepoOrNull,
   type DurableConversationRepository,
@@ -36,6 +40,17 @@ export interface HebyConversationMessageView {
    * does NOT mean, and the two must stay distinguishable.
    */
   readonly knowledgeEvidence?: RetrievalEvidenceSet;
+  /**
+   * G6D — the non-Knowledge sources this answer CITED, replayed from the rows recorded with it.
+   *
+   * Every value is the one stored at answer time, including the `authoritative` standing each class
+   * asserted. Current Governance is never consulted: a delegation granted since would otherwise
+   * appear inside an answer that never saw it. Absent when the answer cited no such record.
+   *
+   * It sits BESIDE `knowledgeEvidence` rather than absorbing it, so an answer that mixed an
+   * authoritative record with a derived one still replays as the mixture it was.
+   */
+  readonly sourceEvidence?: readonly ReplayedSourceEvidence[];
 }
 
 export interface HebyConversationView {
@@ -92,11 +107,20 @@ export async function loadHebyConversation(
      * caller holding a raw evidence set id has no surface to spend it on, so the conversation
      * boundary stays the only gate. The repository re-scopes by tenant regardless.
      */
-    const evidence = await repo.listAnswerEvidence(
-      scope,
-      messages.map((message) => message.id),
-    );
+    const messageIds = messages.map((message) => message.id);
+    const evidence = await repo.listAnswerEvidence(scope, messageIds);
     const evidenceByMessage = new Map(evidence.map((set) => [set.messageId, set]));
+
+    /*
+     * G6D — the citations ride the SAME proven ownership, through the same repository and the same
+     * tenant scope. The ids handed to it are the ones the owned-conversation read returned, so a
+     * caller can reach a citation only by reaching the conversation that made it.
+     */
+    const sourceRows = await repo.listAnswerSourceEvidence(scope, messageIds);
+    const sourceByMessage = new Map<string, typeof sourceRows>();
+    for (const row of sourceRows) {
+      sourceByMessage.set(row.messageId, [...(sourceByMessage.get(row.messageId) ?? []), row]);
+    }
 
     return {
       status: "loaded",
@@ -105,6 +129,7 @@ export async function loadHebyConversation(
         subject: conversation.subject,
         messages: messages.map((message) => {
           const stored = evidenceByMessage.get(message.id);
+          const storedSources = sourceByMessage.get(message.id);
           return {
             id: message.id,
             role: message.role,
@@ -115,6 +140,9 @@ export async function loadHebyConversation(
             model: message.model,
             createdAt: message.createdAt,
             ...(stored ? { knowledgeEvidence: fromStoredEvidence(stored) } : {}),
+            ...(storedSources && storedSources.length > 0
+              ? { sourceEvidence: fromStoredSourceEvidence(storedSources) }
+              : {}),
           };
         }),
       },
