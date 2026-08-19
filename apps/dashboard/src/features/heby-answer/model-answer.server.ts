@@ -71,6 +71,12 @@ import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
  * matter of discipline.
  */
 import { resolveWorkArtifactSource } from "@/features/work-artifacts/work-artifact-evidence.server";
+/*
+ * G6C — the SAME seam again, for Governance. `readGovernanceGroundingSource` is a read-only
+ * adapter over the Governance read owners; this module imports no Governance writer, which a
+ * firewall test asserts.
+ */
+import { readGovernanceGroundingSource } from "@/features/governance-grounding/heby-governance-source.server";
 import { buildBoundedHistory } from "./bounded-history";
 import { resolveKnowledgeEvidenceDetailed } from "./knowledge-evidence.server";
 
@@ -196,6 +202,8 @@ export interface HebyModelAnswerDeps {
    * contribute evidence and nothing else, and it cannot create, revise or retire anything.
    */
   readonly resolveWorkArtifacts?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /** Explicit Governance resolution (G6C). Defaults to the real tenant-scoped read adapter. */
+  readonly resolveGovernance?: (tenant: TenantContext) => Promise<SourceResolution>;
 }
 
 /** What actually happened to durable persistence for this request. Never fabricated. */
@@ -324,6 +332,39 @@ async function withWorkArtifacts(
     const artifacts = await resolver(tenant);
     return resolutions.map((resolution) =>
       resolution.sourceClass === "work-artifacts" ? artifacts : resolution,
+    );
+  } catch {
+    return resolutions;
+  }
+}
+
+/**
+ * G6C — the same seam once more, for this tenant's Governance state.
+ *
+ * The pure resolver reports `governance` unavailable because it holds no tenant; this substitutes
+ * the real tenant-scoped read for the workspaces that declare the class (Governance, Operations and
+ * Decisions).
+ *
+ * THIS IS A READ. The adapter behind it performs no INSERT, UPDATE or DELETE and imports no
+ * Governance writer, so an ordinary Heby answer can never establish authority, record a decision,
+ * delegate, provision a role or ratify anything.
+ *
+ * A read failure degrades to the pure resolution — it never fabricates an authority, and it never
+ * removes another source's evidence.
+ */
+async function withGovernance(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "governance")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveGovernance ?? readGovernanceGroundingSource;
+    const governance = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "governance" ? governance : resolution,
     );
   } catch {
     return resolutions;
@@ -468,7 +509,9 @@ export async function answerHebyModelRequest(
     deps,
   );
   // R3W — prepared work joins the SAME deterministic evidence set, through the same server seam.
-  const resolutions = await withWorkArtifacts(knowledgeResolutions, tenant, deps);
+  const artifactResolutions = await withWorkArtifacts(knowledgeResolutions, tenant, deps);
+  // G6C — this tenant's own Governance record joins the SAME deterministic evidence set.
+  const resolutions = await withGovernance(artifactResolutions, tenant, deps);
   const assembled = assembleEvidence(resolutions);
 
   // The honest deterministic fallback (an answer where possible, an honest unavailable else).

@@ -32,7 +32,7 @@ import {
 } from "../helpers/disposable-postgres";
 import { createControlPlaneDb, disposeControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import { resolveGovernanceDbOrNull } from "../../src/features/governance-decision/bootstrap-authority.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 

@@ -36,11 +36,8 @@ import { roles } from "@/db/schema/role";
 import type { AuthenticationDigestKey } from "@/features/auth/environment/auth-environment.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordInvitationIssuedWithin } from "@/features/governance-audit/human-onboarding-audit.server";
-import {
-  resolveGovernanceDbOrNull,
-  type GovernanceDeps,
-} from "@/features/governance-decision/bootstrap-authority.server";
-import { resolveGovernanceAuthority } from "@/features/governance-decision/decision-authority.server";
+import { resolveGovernanceDbOrNull, type GovernanceDeps } from "@/features/governance-decision/persistence.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { digestInvitationToken } from "@/features/identity-enrollment/enrollment-digest.server";
 import {
   INVITATION_ISSUED_ACTION,

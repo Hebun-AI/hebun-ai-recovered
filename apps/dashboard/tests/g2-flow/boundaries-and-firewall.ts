@@ -44,6 +44,9 @@ function collect(dir: string, ext = /\.tsx?$/): string[] {
 const CONTRACTS = "src/features/governance-decision/contracts.ts";
 const BOOTSTRAP = "src/features/governance-decision/bootstrap-authority.server.ts";
 const DECISION = "src/features/governance-decision/decision-authority.server.ts";
+/* G6C: authority RESOLUTION moved to a module that cannot mutate anything. Same property,
+ * canonical location. */
+const AUTHORITY_READ = "src/features/governance-decision/authority-read.server.ts";
 const AUDIT = "src/features/governance-audit/governance-decision-audit.server.ts";
 const ACTION = "src/app/(dashboard)/governance/authority/actions.ts";
 const PAGE = "src/app/(dashboard)/governance/authority/page.tsx";
@@ -246,12 +249,20 @@ function main(): void {
       (file) => file.includes("heby-") || file.includes("heby/") || file.includes("/heby"),
     );
     assert.ok(hebyFiles.length > 0, "the Heby surface must exist for this test to mean anything");
+    /*
+     * G6C. MECHANISM, NOT PROSE — matched against `codeOf`, so a comment that NAMES a writer in
+     * order to promise it is not imported can no longer trip a firewall. What is banned is the
+     * WRITER SYMBOLS, not module names: reading Governance through `authority-read.server` is
+     * legitimate and must stay legitimate, while every act that mutates Governance stays
+     * unreachable. The import-graph reachability proof in tests/g6c-flow is the primary defence;
+     * this path heuristic is kept as an additive second one.
+     */
     const offenders = hebyFiles.filter((file) =>
-      /governance-decision|governance-decision-audit|bootstrap-authority|decision-authority/.test(
-        read(file),
+      /establishGovernanceAuthority|recordGovernanceDecision|writeGovernanceDecisionWithin/.test(
+        codeOf(read(file)),
       ),
     );
-    assert.deepEqual(offenders, [], "no Heby surface may reach Governance decision authority");
+    assert.deepEqual(offenders, [], "no Heby surface may reach a Governance decision WRITER");
 
     const commandFiles = srcFiles.filter((file) => file.includes("heby-commands"));
     const naming = commandFiles.filter((file) =>
@@ -385,7 +396,7 @@ function main(): void {
     assert.equal(POST_BOOTSTRAP_AUTHORITY_MODEL.permissionRuntimeConnected, false);
 
     // The resolver reads decision_records and NOTHING that grants authority elsewhere.
-    const decision = codeOf(read(DECISION));
+    const decision = codeOf(read(AUTHORITY_READ));
     for (const borrowed of [
       "roles",
       "rolePermissions",

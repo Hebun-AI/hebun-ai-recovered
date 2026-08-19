@@ -91,9 +91,18 @@ function main(): void {
         `I1.2 must not re-derive authority itself — found ${forbidden}`,
       );
     }
-    /* Authority must be resolved BEFORE any success path. */
-    const authorityAt = decideCode.indexOf("resolveGovernanceAuthority");
-    const writeAt = decideCode.indexOf("writeGovernanceDecisionWithin");
+    /*
+     * Authority must be resolved BEFORE any success path.
+     *
+     * Scoped to the FUNCTION BODY, not the module. A module-wide indexOf measures whichever import
+     * line happens to come first, so it reported the order of the import block rather than the order
+     * of execution — and it flipped the moment an import statement was split in two. The body is
+     * what the claim is about.
+     */
+    const decideBody = decideCode.slice(decideCode.indexOf("export async function decideIdentityEnrollment"));
+    assert.ok(decideBody.length > 0, "the enrollment decision function exists");
+    const authorityAt = decideBody.indexOf("resolveGovernanceAuthority");
+    const writeAt = decideBody.indexOf("writeGovernanceDecisionWithin");
     assert.ok(authorityAt > 0 && writeAt > authorityAt, "authority is resolved before writing");
   }
 

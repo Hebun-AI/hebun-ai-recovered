@@ -31,7 +31,7 @@ import {
   isEmailClaimed,
   isTenantOnboardingEligible,
 } from "@/features/auth-runtime/identity-repository.server";
-import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import {
   digestContinuationReference,
   digestInvitationToken,

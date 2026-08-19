@@ -19,10 +19,7 @@ import { createDisposablePostgresHarness } from "../helpers/disposable-postgres"
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { establishGovernanceAuthority } from "../../src/features/governance-decision/bootstrap-authority.server";
-import {
-  readAuthorityRoster,
-  resolveGovernanceAuthority,
-} from "../../src/features/governance-decision/decision-authority.server";
+import { readAuthorityRoster, resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import {
   delegateGovernanceAuthority,
   readDelegationCandidates,

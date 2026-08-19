@@ -49,7 +49,7 @@ import { type ControlPlaneDatabase } from "@/db/client.server";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordActionAuthorizationEventWithin } from "@/features/governance-audit/action-authorization-audit.server";
-import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { asCanonicalPayload, digestCanonicalAction, digestsMatch } from "./canonical-payload";
 import {
   ACTION_AUDIT_PERMIT_CONSUMED,

@@ -50,7 +50,7 @@ import { and, eq } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import { externalRecipients } from "@/db/schema/external-recipient";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import {
   type CreateRecipientInput,
   type CreateRecipientResult,

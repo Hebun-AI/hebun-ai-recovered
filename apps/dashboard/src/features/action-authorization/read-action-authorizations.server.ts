@@ -20,7 +20,7 @@ import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorizat
 import { actionExecutionAttempts } from "@/db/schema/action-execution";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import type { ExecutionAttemptStatus } from "@/features/action-execution/contracts";
-import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { asCanonicalPayload } from "./canonical-payload";
 
 /** The derived state a human is shown. `expired` exists here and nowhere in the database. */

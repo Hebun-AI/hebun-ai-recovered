@@ -28,11 +28,8 @@ import { identityEnrollmentRequests } from "@/db/schema/identity-enrollment";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 /* The receipt's lifetime has exactly one owner; this seam reads it, never restates it. */
 import { ENROLLMENT_CONTINUATION_TTL_SECONDS } from "@/features/identity-enrollment/continuation-cookie";
-import {
-  resolveGovernanceDbOrNull,
-  type GovernanceDeps,
-} from "@/features/governance-decision/bootstrap-authority.server";
-import { resolveGovernanceAuthority } from "@/features/governance-decision/decision-authority.server";
+import { resolveGovernanceDbOrNull, type GovernanceDeps } from "@/features/governance-decision/persistence.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 
 /**
  * One pending ceremony, as the Governance surface may show it.

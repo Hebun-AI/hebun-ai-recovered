@@ -43,7 +43,7 @@ import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { asCanonicalPayload } from "@/features/action-authorization/canonical-payload";
 import { consumeActionPermit } from "@/features/action-authorization/consume-action-permit.server";
 import type { ExecutionAuthorization } from "@/features/action-authorization/contracts";
-import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { recordActionExecutionEventWithin } from "@/features/governance-audit/action-execution-audit.server";
 import { parseWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
 import { parseRecipientRef } from "@/features/external-recipients/recipient-ref";

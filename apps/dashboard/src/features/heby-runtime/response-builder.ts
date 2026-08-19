@@ -61,6 +61,43 @@ function resolvedItemLines(resolutions: readonly SourceResolution[]): string[] {
   return lines;
 }
 
+/*
+ * G6C. WHAT THE RESOLVED SOURCES ACTUALLY ARE.
+ *
+ * Every source connected before G6C was derived and non-authoritative, so this builder stated that
+ * unconditionally. Governance is not: `decision_records` IS the organization's constitutional
+ * record. Saying "derived and non-authoritative" over it would flatten AUTHORITATIVE into DERIVED,
+ * which is exactly the distinction Heby must never collapse.
+ *
+ * Reported per answer from the resolutions in hand, so a mixed answer says so rather than rounding
+ * to whichever class is more flattering.
+ */
+function authoritativeMix(resolutions: readonly SourceResolution[]): {
+  readonly preamble: string;
+  readonly limitation: string;
+} {
+  const resolved = resolutions.filter((r) => r.state === "resolved");
+  const authoritative = resolved.filter((r) => r.authoritative).length;
+  if (authoritative === 0) {
+    return {
+      preamble: "Derived from real, non-authoritative system read models:",
+      limitation: "System state is derived and non-authoritative.",
+    };
+  }
+  if (authoritative === resolved.length) {
+    return {
+      preamble: "Read from authoritative organizational records:",
+      limitation: "Every source shown here is an authoritative organizational record.",
+    };
+  }
+  return {
+    preamble: "Read from authoritative organizational records and derived read models:",
+    limitation:
+      "Sources shown here are mixed: some are authoritative organizational records, others are " +
+      "derived and non-authoritative. Provenance is stated per source.",
+  };
+}
+
 function anyResolved(resolutions: readonly SourceResolution[]): boolean {
   return resolutions.some((r) => r.state === "resolved");
 }
@@ -114,19 +151,17 @@ export function buildResponse(
           modelUsed: false,
         };
       }
+      const mix = authoritativeMix(resolutions);
       return {
         kind: "EXPLANATION",
         origin: "deterministic",
         title: `${context.workspace} — system state`,
-        body: [
-          "Derived from real, non-authoritative system read models:",
-          ...resolvedItemLines(resolutions),
-        ],
+        body: [mix.preamble, ...resolvedItemLines(resolutions)],
         evidence,
         provenance,
         provenanceCovered: COVERED_FACETS,
         uncertainty: uncertaintyFrom(resolutions),
-        limitations: [MODEL_LIMITATION, "System state is derived and non-authoritative."],
+        limitations: [MODEL_LIMITATION, mix.limitation],
         authority,
         modelUsed: false,
       };

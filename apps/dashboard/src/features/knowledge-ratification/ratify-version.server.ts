@@ -39,12 +39,9 @@ import { knowledgeNodes } from "@/db/schema/knowledge";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordGovernanceEventWithin } from "@/features/governance-audit/governance-decision-audit.server";
 import { recordKnowledgeMutationWithin } from "@/features/governance-audit/knowledge-mutation-audit.server";
-import {
-  resolveGovernanceAuthority,
-  writeGovernanceDecisionWithin,
-  type GovernanceAuthorityResolution,
-} from "@/features/governance-decision/decision-authority.server";
-import { validateJustification } from "@/features/governance-decision/bootstrap-authority.server";
+import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
+import { resolveGovernanceAuthority, type GovernanceAuthorityResolution } from "@/features/governance-decision/authority-read.server";
+import { validateJustification } from "@/features/governance-decision/persistence.server";
 import {
   RATIFICATION_SUBJECT_TYPE,
   type RatificationRefusal,

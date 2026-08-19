@@ -24,7 +24,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import { workArtifactRevisions, workArtifacts } from "@/db/schema/work-artifact";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { formatWorkArtifactRef, parseWorkArtifactRef } from "./artifact-ref";
 import type {
   WorkArtifactLifecycleStatus,

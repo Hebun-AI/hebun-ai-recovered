@@ -33,16 +33,9 @@ import { sql } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordGovernanceEventWithin } from "@/features/governance-audit/governance-decision-audit.server";
-import {
-  resolveGovernanceAuthority,
-  writeGovernanceDecisionWithin,
-  type GovernanceAuthorityResolution,
-} from "./decision-authority.server";
-import {
-  resolveGovernanceDbOrNull,
-  validateJustification,
-  type GovernanceDeps,
-} from "./bootstrap-authority.server";
+import { writeGovernanceDecisionWithin } from "./decision-authority.server";
+import { resolveGovernanceAuthority, type GovernanceAuthorityResolution } from "./authority-read.server";
+import { resolveGovernanceDbOrNull, validateJustification, type GovernanceDeps } from "./persistence.server";
 import {
   type DelegationRefusal,
   type DelegationResult,

@@ -26,11 +26,8 @@ import { and, eq } from "drizzle-orm";
 import { invitations } from "@/db/schema/invitation";
 import { membershipAuthorizations } from "@/db/schema/membership-authorization";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import {
-  resolveGovernanceDbOrNull,
-  type GovernanceDeps,
-} from "@/features/governance-decision/bootstrap-authority.server";
-import { resolveGovernanceAuthority } from "@/features/governance-decision/decision-authority.server";
+import { resolveGovernanceDbOrNull, type GovernanceDeps } from "@/features/governance-decision/persistence.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 
 /**
  * One invitation that could still be ended, as the Governance surface may show it.

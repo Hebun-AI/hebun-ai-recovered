@@ -18,11 +18,8 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { membershipAuthorizations } from "@/db/schema/membership-authorization";
 import { roles } from "@/db/schema/role";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import {
-  resolveGovernanceDbOrNull,
-  type GovernanceDeps,
-} from "@/features/governance-decision/bootstrap-authority.server";
-import { resolveGovernanceAuthority } from "@/features/governance-decision/decision-authority.server";
+import { resolveGovernanceDbOrNull, type GovernanceDeps } from "@/features/governance-decision/persistence.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { ELIGIBLE_ROLE_TYPE_LIST } from "./contracts";
 
 /** A role a new human may legitimately be authorized into. Resolved server-side, never guessed. */

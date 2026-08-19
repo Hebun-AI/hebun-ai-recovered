@@ -60,7 +60,7 @@ function main(): void {
     );
     assert.match(decide, /resolveGovernanceAuthority/, "authority comes from the one resolver");
     const resolvers = collect("src/features").filter((f) =>
-      /export async function resolveGovernanceAuthority/.test(read(f)),
+      /export async function resolveGovernanceAuthority\b/.test(read(f)),
     );
     assert.equal(resolvers.length, 1, "there is exactly one Governance resolver");
     /* No recovery-only side door. */

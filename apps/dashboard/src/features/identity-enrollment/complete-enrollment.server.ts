@@ -41,7 +41,7 @@ import {
   isTenantOnboardingEligible,
 } from "@/features/auth-runtime/identity-repository.server";
 import { recordEnrollmentCompletionWithin } from "@/features/governance-audit/identity-enrollment-audit.server";
-import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import {
   IDENTITY_ENROLLMENT_COMPLETED_ACTION,
   LOCAL_IDENTITY_ISSUER,

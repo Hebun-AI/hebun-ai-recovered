@@ -45,7 +45,8 @@ function collect(dir: string, ext = /\.tsx?$/): string[] {
 
 const CONTRACTS = "src/features/governance-decision/delegation-contracts.ts";
 const DELEGATION = "src/features/governance-decision/authority-delegation.server.ts";
-const RESOLVER = "src/features/governance-decision/decision-authority.server.ts";
+/* G6C: authority resolution moved out of the writer-bearing module into a read-only one. */
+const RESOLVER = "src/features/governance-decision/authority-read.server.ts";
 const ACTION = "src/app/(dashboard)/governance/authority/actions.ts";
 const PAGE = "src/app/(dashboard)/governance/authority/page.tsx";
 const CARD = "src/components/governance-authority/authority-roster-card.tsx";
@@ -281,10 +282,9 @@ function main(): void {
       (file) => file.includes("heby-") || file.includes("heby/") || file.includes("/heby"),
     );
     assert.ok(hebyFiles.length > 0, "the Heby surface must exist for this test to mean anything");
+    /* G6C: writer symbols, matched against code rather than comments. */
     const offenders = hebyFiles.filter((file) =>
-      /authority-delegation|delegateGovernanceAuthority|revokeGovernanceAuthority|delegation-contracts/.test(
-        read(file),
-      ),
+      /delegateGovernanceAuthority|revokeGovernanceAuthority/.test(codeOf(read(file))),
     );
     assert.deepEqual(offenders, [], "no Heby surface may reach authority delegation");
 
@@ -452,11 +452,11 @@ function main(): void {
     assert.match(read(PAGE), /AuthorityRosterCard/);
     // Exactly one function resolves Governance authority, and everything else calls it.
     const definitions = srcFiles.filter((f) =>
-      /export async function resolveGovernanceAuthority/.test(read(f)),
+      /export async function resolveGovernanceAuthority\b/.test(read(f)),
     );
     assert.deepEqual(
       definitions,
-      ["src/features/governance-decision/decision-authority.server.ts"],
+      ["src/features/governance-decision/authority-read.server.ts"],
       "one resolver, extended in place — never a parallel one",
     );
     // K4 still consumes it rather than owning authority.

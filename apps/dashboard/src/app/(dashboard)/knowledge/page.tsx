@@ -11,7 +11,7 @@ import { listIngestedSources } from "@/features/knowledge/ingested-sources-read.
 import { resolveKnowledgeWriteAuthority } from "@/features/knowledge/knowledge-write-authority.server";
 import { isDurableKnowledgeConfigured } from "@/features/knowledge/durable-knowledge-repository.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
-import { resolveGovernanceAuthority } from "@/features/governance-decision/decision-authority.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import {
   KnowledgeReviewCard,
   type ReviewBlock,

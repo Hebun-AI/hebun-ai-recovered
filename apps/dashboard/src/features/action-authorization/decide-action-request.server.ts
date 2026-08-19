@@ -36,14 +36,9 @@ import { type ControlPlaneDatabase } from "@/db/client.server";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordActionAuthorizationEventWithin } from "@/features/governance-audit/action-authorization-audit.server";
-import {
-  resolveGovernanceDbOrNull,
-  validateJustification,
-} from "@/features/governance-decision/bootstrap-authority.server";
-import {
-  resolveGovernanceAuthority,
-  writeGovernanceDecisionWithin,
-} from "@/features/governance-decision/decision-authority.server";
+import { resolveGovernanceDbOrNull, validateJustification } from "@/features/governance-decision/persistence.server";
+import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { asCanonicalPayload, digestCanonicalAction, digestsMatch } from "./canonical-payload";
 import {
   ACTION_APPROVAL_DECISION_TYPE,

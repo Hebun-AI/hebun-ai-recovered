@@ -22,15 +22,11 @@ import { createDisposablePostgresHarness } from "../helpers/disposable-postgres"
 // Loaded FIRST: the schema barrel is the only safe entry point for src/db/schema/*.
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import {
-  establishGovernanceAuthority,
-  readGovernanceAuthority,
-  validateJustification,
-} from "../../src/features/governance-decision/bootstrap-authority.server";
-import {
-  recordGovernanceDecision,
-  resolveGovernanceAuthority,
-} from "../../src/features/governance-decision/decision-authority.server";
+import { establishGovernanceAuthority } from "../../src/features/governance-decision/bootstrap-authority.server";
+import { validateJustification } from "@/features/governance-decision/persistence.server";
+import { readGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
+import { recordGovernanceDecision } from "../../src/features/governance-decision/decision-authority.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { readGovernanceHistory } from "../../src/features/governance-audit/governance-decision-audit.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 

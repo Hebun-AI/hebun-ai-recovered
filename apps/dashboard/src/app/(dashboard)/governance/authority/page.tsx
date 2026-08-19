@@ -4,19 +4,17 @@ import {
 } from "@/components/governance-authority/governance-authority-card";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { readGenesisNomination } from "@/features/governance-genesis/genesis-acceptance.server";
-import {
-  isGovernancePersistenceConfigured,
-  readGovernanceAuthority,
-} from "@/features/governance-decision/bootstrap-authority.server";
+import { isGovernancePersistenceConfigured } from "@/features/governance-decision/persistence.server";
+import { readGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import { GENESIS_ACCEPTANCE_ASSURANCE } from "@/features/governance-genesis/contracts";
 import { DECISION_NON_EFFECT } from "@/features/governance-decision/contracts";
-import { readAuthorityRoster } from "@/features/governance-decision/decision-authority.server";
+import { readAuthorityRoster } from "@/features/governance-decision/authority-read.server";
 import { readDelegationCandidates } from "@/features/governance-decision/authority-delegation.server";
 import { AuthorityRosterCard } from "@/components/governance-authority/authority-roster-card";
 import { MembershipAuthorizationCard } from "@/components/governance-authority/membership-authorization-card";
 import { readMembershipAuthority } from "@/features/membership-authority/read-membership-authorizations.server";
 import { MemberRoleProvisioningCard } from "@/components/governance-authority/member-role-provisioning-card";
-import { readRoleBaselineState } from "@/features/tenant-role-baseline/provision-member-role.server";
+import { readRoleBaselineState } from "@/features/tenant-role-baseline/role-baseline-read.server";
 import { PendingEnrollmentCard } from "@/components/governance-authority/pending-enrollment-card";
 import { PENDING_ENROLLMENT_WORDING } from "@/components/governance-authority/pending-enrollment-wording";
 import { readPendingEnrollments } from "@/features/identity-enrollment/read-pending-enrollments.server";

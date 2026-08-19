@@ -14,7 +14,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import { actionExecutionAttempts } from "@/db/schema/action-execution";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { toExecutionAttemptView, type ExecutionAttemptRow } from "./attempt-view";
 import type { ExecutionAttemptView } from "./contracts";
 

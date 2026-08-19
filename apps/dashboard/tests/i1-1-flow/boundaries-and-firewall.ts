@@ -63,11 +63,10 @@ function main(): void {
     }
     /* Exactly one resolver definition exists in the whole repository. */
     const definitions = collect("src/features").filter((file) =>
-      /export async function resolveGovernanceAuthority/.test(read(file)),
+      /export async function resolveGovernanceAuthority\b/.test(read(file)),
     );
-    assert.deepEqual(definitions, [
-      "src/features/governance-decision/decision-authority.server.ts",
-    ]);
+    /* G6C: still exactly ONE definition — it moved to the read-only module, never copied. */
+    assert.deepEqual(definitions, ["src/features/governance-decision/authority-read.server.ts"]);
   }
 
   /* ── 2. The caller's authority never comes from a role band ─────────────── */

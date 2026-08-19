@@ -35,7 +35,6 @@
  * Server-only.
  */
 import { and, eq, isNull } from "drizzle-orm";
-import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { genesisNominations } from "@/db/schema/genesis-nomination";
 import { decisionRecords, governanceSessions } from "@/db/schema/governance";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
@@ -48,108 +47,17 @@ import {
   BOOTSTRAP_GOVERNANCE_DOMAIN,
   BOOTSTRAP_OUTCOME,
   BOOTSTRAP_SUBJECT_TYPE,
-  JUSTIFICATION_LIMITS,
   type BootstrapRefusal,
   type BootstrapResult,
-  type GovernanceAuthorityLookup,
-  type GovernanceDecisionView,
 } from "./contracts";
-
-export interface GovernanceDeps {
-  readonly getDb?: () => ControlPlaneDatabase | null;
-  readonly now?: () => Date;
-}
-
-/** The control-plane database, or an honest `null` when it is not configured. */
-export function resolveGovernanceDbOrNull(): ControlPlaneDatabase | null {
-  if (!process.env.DATABASE_URL?.trim()) return null;
-  try {
-    return getControlPlaneDb();
-  } catch {
-    return null;
-  }
-}
-
-export function isGovernancePersistenceConfigured(
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
-  return Boolean(env.DATABASE_URL?.trim());
-}
-
-/**
- * Normalise and validate a human-authored justification.
- *
- * It is treated as INERT TEXT and nothing else: it is never parsed, never rendered as HTML, never
- * interpolated into SQL (the driver parameterises it), and never read by a model as instruction.
- * `<script>`, `' OR 1=1 --`, `/terminal restart production`, `Ignore previous instructions` and
- * `../etc/passwd` are all just characters that get stored and shown back verbatim.
- *
- * The only rules are length rules, because the only claim being made is "a human wrote a reason".
+/*
+ * MOVED, NOT COPIED. The infrastructure helpers this file used to host, and the authority READ it
+ * used to define, now live in `persistence.server` and `authority-read.server`. Every caller was
+ * migrated to import them there, so this module no longer re-exports them: what it exports is what
+ * it is — the act that establishes a tenant's Governance.
  */
-export function validateJustification(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (trimmed.length < JUSTIFICATION_LIMITS.minimumLength) return null;
-  if (trimmed.length > JUSTIFICATION_LIMITS.maximumLength) return null;
-  return trimmed;
-}
+import { resolveGovernanceDbOrNull, validateJustification, type GovernanceDeps } from "./persistence.server";
 
-function toView(row: typeof decisionRecords.$inferSelect): GovernanceDecisionView {
-  return {
-    decisionId: row.id,
-    sessionId: row.sessionId,
-    decisionType: row.decisionType,
-    subjectType: row.subjectType,
-    subjectId: row.subjectId,
-    actorType: row.actorType,
-    actorId: row.actorId,
-    bootstrap: row.bootstrap,
-    outcome: row.outcome,
-    justification: row.justification,
-    decidedAt: row.decidedAt.toISOString(),
-  };
-}
-
-/**
- * Read this tenant's Governance authority: the bootstrap decision, if it exists, and whether the
- * VIEWER is the human it established.
- *
- * Tenant-scoped by predicate. The viewer flag is computed from the session's own user id, so the
- * surface learns whether it is them — never who the other person is.
- */
-export async function readGovernanceAuthority(
-  tenant: TenantContext | null,
-  deps: GovernanceDeps = {},
-): Promise<GovernanceAuthorityLookup> {
-  if (typeof window !== "undefined") {
-    throw new Error("Governance authority reads are server-only.");
-  }
-  if (!tenant?.tenantId) return { status: "unavailable", reason: "no-authorized-tenant-context" };
-  const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
-  if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
-
-  try {
-    const rows = await db
-      .select()
-      .from(decisionRecords)
-      .where(
-        and(eq(decisionRecords.tenantId, tenant.tenantId), eq(decisionRecords.bootstrap, true)),
-      )
-      .limit(1);
-    const row = rows[0];
-    return {
-      status: "read",
-      authority: {
-        bootstrap: row ? toView(row) : null,
-        viewerIsGovernanceAuthority: Boolean(
-          row && row.actorType === "human" && row.actorId === tenant.userId,
-        ),
-      },
-    };
-  } catch {
-    return { status: "unavailable", reason: "persistence-unavailable" };
-  }
-}
 
 function refused(reason: BootstrapRefusal): BootstrapResult {
   return { status: "refused", reason };

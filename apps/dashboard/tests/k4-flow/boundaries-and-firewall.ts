@@ -271,8 +271,9 @@ function main(): void {
       (file) => file.includes("heby-") || file.includes("heby/") || file.includes("/heby"),
     );
     assert.ok(hebyFiles.length > 0, "the Heby surface must exist for this test to mean anything");
+    /* G6C: writer symbols, matched against code rather than comments. */
     const offenders = hebyFiles.filter((file) =>
-      /knowledge-ratification|ratifyKnowledgeVersion|rejectKnowledgeVersion/.test(read(file)),
+      /ratifyKnowledgeVersion|rejectKnowledgeVersion/.test(codeOf(read(file))),
     );
     assert.deepEqual(offenders, [], "no Heby surface may reach ratification");
 

@@ -44,11 +44,9 @@ import {
   resolveGovernanceDbOrNull,
   validateJustification,
   type GovernanceDeps,
-} from "@/features/governance-decision/bootstrap-authority.server";
-import {
-  resolveGovernanceAuthority,
-  writeGovernanceDecisionWithin,
-} from "@/features/governance-decision/decision-authority.server";
+} from "@/features/governance-decision/persistence.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
+import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
 import {
   BASELINE_ROLE_NAME,
   BASELINE_ROLE_TYPE,
@@ -59,6 +57,8 @@ import {
   type RoleBaselineRefusal,
   type RoleBaselineResult,
 } from "./contracts";
+/* MOVED, NOT COPIED — the read lives in `role-baseline-read.server`, a module that cannot
+ * provision anything. Callers import it there; this file exports only the act. */
 
 function refused(reason: RoleBaselineRefusal): RoleBaselineResult {
   return { status: "refused", reason };
@@ -204,42 +204,4 @@ function isUniqueViolation(error: unknown, constraint: string): boolean {
   if (candidate.code === "23505" && candidate.constraint === constraint) return true;
   // drizzle wraps the driver error; the original is reachable through `cause`.
   return candidate.cause ? isUniqueViolation(candidate.cause, constraint) : false;
-}
-
-/**
- * Does this tenant already hold its ordinary member role? Authority-gated, like every other read on
- * this surface — a non-authority learns nothing about the tenant's role structure here.
- */
-export async function readRoleBaselineState(
-  tenant: TenantContext | null,
-  deps: GovernanceDeps = {},
-): Promise<
-  | { readonly status: "read"; readonly viewerIsGovernanceAuthority: boolean; readonly memberRoleId: string | null }
-  | { readonly status: "unavailable" }
-> {
-  if (typeof window !== "undefined") {
-    throw new Error("Role baseline reads are server-only.");
-  }
-  if (!tenant?.tenantId || !tenant.userId) return { status: "unavailable" };
-  const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
-  if (!db) return { status: "unavailable" };
-
-  try {
-    const authority = await resolveGovernanceAuthority(tenant, deps);
-    if (!authority.authorized) {
-      return { status: "read", viewerIsGovernanceAuthority: false, memberRoleId: null };
-    }
-    const rows = await db
-      .select({ id: roles.id })
-      .from(roles)
-      .where(and(eq(roles.tenantId, tenant.tenantId), eq(roles.type, BASELINE_ROLE_TYPE)))
-      .limit(1);
-    return {
-      status: "read",
-      viewerIsGovernanceAuthority: true,
-      memberRoleId: rows[0]?.id ?? null,
-    };
-  } catch {
-    return { status: "unavailable" };
-  }
 }

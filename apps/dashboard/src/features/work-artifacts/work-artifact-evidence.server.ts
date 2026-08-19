@@ -29,7 +29,7 @@ import { type ControlPlaneDatabase } from "@/db/client.server";
 import { workArtifactRevisions, workArtifacts } from "@/db/schema/work-artifact";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import type { SourceResolution } from "@/features/heby-runtime";
-import { resolveGovernanceDbOrNull } from "@/features/governance-decision/bootstrap-authority.server";
+import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { formatWorkArtifactRef } from "./artifact-ref";
 
 const WORK_ARTIFACT_PROVENANCE =

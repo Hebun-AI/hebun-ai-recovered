@@ -38,15 +38,9 @@ import { membershipAuthorizations } from "@/db/schema/membership-authorization";
 import { roles } from "@/db/schema/role";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordGovernanceEventWithin } from "@/features/governance-audit/governance-decision-audit.server";
-import {
-  resolveGovernanceDbOrNull,
-  validateJustification,
-  type GovernanceDeps,
-} from "@/features/governance-decision/bootstrap-authority.server";
-import {
-  resolveGovernanceAuthority,
-  writeGovernanceDecisionWithin,
-} from "@/features/governance-decision/decision-authority.server";
+import { resolveGovernanceDbOrNull, validateJustification, type GovernanceDeps } from "@/features/governance-decision/persistence.server";
+import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import {
   ELIGIBLE_ROLE_TYPE_LIST,
   MEMBERSHIP_AUTHORIZATION_AUDIT_ACTION,
