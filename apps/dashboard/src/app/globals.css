@@ -352,12 +352,39 @@
    * fixed dot lattice, masked so it fades out before it reaches the reading area. No animation, no
    * timer, no data binding — there is no value it could be a function of.
    */
-  --heby-floor: radial-gradient(60% 42% at 50% 100%, rgba(240, 180, 69, 0.12), transparent 70%),
-    radial-gradient(120% 34% at 50% 104%, rgba(200, 138, 41, 0.07), transparent 72%);
-  --heby-floor-lattice: radial-gradient(circle at center, rgba(240, 180, 69, 0.5) 0.6px, transparent 0.7px);
+  --heby-floor: radial-gradient(60% 42% at 50% 100%, rgba(240, 180, 69, 0.07), transparent 70%),
+    radial-gradient(120% 34% at 50% 104%, rgba(200, 138, 41, 0.04), transparent 72%);
+  --heby-floor-lattice: radial-gradient(circle at center, rgba(240, 180, 69, 0.75) 0.7px, transparent 0.8px);
   /* The horizon grid's line colour, and the amber energy paths behind the presence. */
-  --heby-grid: rgba(240, 180, 69, 0.16);
+  --heby-grid: rgba(240, 180, 69, 0.19);
   --heby-ray: rgba(240, 180, 69, 0.07);
+
+  /*
+   * ── THE REFERENCE COMPOSITION'S OWN VOCABULARY ────────────────────────────
+   *
+   * Three more decorative values, and every one of them is a CONSTANT. They exist so the canvas can
+   * read as one spatial field — an origin low in the frame, a sequence of points ascending, a
+   * particle landscape receding toward it — instead of a sphere floating on a dark rectangle.
+   *
+   * A fourth, large concentric arcs rising out of the origin, was built and then removed: behind
+   * the presence they read as a radar sweep, and Heby has nothing to sweep.
+   *
+   * THEY ARE A FUNCTION OF NOTHING. No prop, no state, no clock, no read. That is the line this
+   * layer may never cross: a ridge that moved or a point that lit up would each be understood as
+   * something happening in the organization, and nothing here would be reporting
+   * anything. The only surface in Heby that changes with real state is the presence field, and
+   * every one of its states is also stated in words.
+   */
+  --heby-ascent: rgba(240, 180, 69, 0.85);
+  --heby-ridge: rgba(240, 180, 69, 0.16);
+  --heby-origin: radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 231, 179, 0.5) 0%,
+      rgba(245, 190, 92, 0.24) 7%,
+      rgba(224, 161, 55, 0.1) 20%,
+      rgba(200, 138, 41, 0.04) 40%,
+      transparent 66%
+    );
 }
 
 /*
@@ -378,13 +405,60 @@
  * a twenty-turn thread is a working surface and reading must own it.
  */
 .heby-floor {
-  background-image: var(--heby-floor-lattice), var(--heby-floor);
+  /*
+   * The particle landscape. Three fixed elliptical ridges give the lattice the sense of a surface
+   * with relief rather than a flat screen of dots — the reference's dunes, expressed as constants.
+   * Nothing here is sampled, ordered or weighted, and nothing moves.
+   */
+  background-image:
+    radial-gradient(90% 26% at 22% 78%, var(--heby-ridge) 0%, transparent 60%),
+    radial-gradient(85% 22% at 78% 86%, var(--heby-ridge) 0%, transparent 58%),
+    var(--heby-floor-lattice), var(--heby-floor);
   background-size:
-    22px 22px,
+    100% 100%,
+    100% 100%,
+    17px 17px,
     100% 100%,
     100% 100%;
-  -webkit-mask-image: linear-gradient(to top, black 0%, rgba(0, 0, 0, 0.55) 34%, transparent 78%);
-  mask-image: linear-gradient(to top, black 0%, rgba(0, 0, 0, 0.55) 34%, transparent 78%);
+  /*
+   * ONE radial mask, anchored at the bottom centre. A two-layer intersected mask was tried first
+   * and produced a hard-edged bright rectangle in the authenticated product — the composite is not
+   * reliable here — while a purely vertical fade left the band stopping dead at the column's own
+   * edges, which reads as a panel drawn on the canvas instead of a surface receding into it. A
+   * single ellipse fades on every side at once and cannot come apart.
+   */
+  -webkit-mask-image: radial-gradient(125% 135% at 50% 86%, black 0%, rgba(0, 0, 0, 0.5) 40%, transparent 78%);
+  mask-image: radial-gradient(125% 135% at 50% 86%, black 0%, rgba(0, 0, 0, 0.5) 40%, transparent 78%);
+}
+
+/*
+ * ── THE ORIGIN ──────────────────────────────────────────────────────────────
+ * The luminous point the whole field radiates from, sitting low in the frame where the reference
+ * puts it. Decorative and static: it is light, not a reading.
+ */
+.heby-origin {
+  background-image: var(--heby-origin);
+}
+
+/*
+ * ── THE ASCENT ──────────────────────────────────────────────────────────────
+ * The vertical sequence of illuminated points above the origin. Fixed spacing, fixed size, fading
+ * upward by a mask — not a progress indicator, not a count, and not a sequence of anything that
+ * happened.
+ */
+/*
+ * The interaction node beside the presence. A soft static halo — no keyframes, no transition, and
+ * no value behind it. See heby-workspace.tsx for why it makes no claim.
+ */
+.heby-node {
+  box-shadow: 0 0 0 5px rgba(240, 180, 69, 0.08), 0 0 18px 4px rgba(240, 180, 69, 0.18);
+}
+
+.heby-ascent {
+  background-image: radial-gradient(circle at 50% 50%, var(--heby-ascent) 1.5px, transparent 2.2px);
+  background-size: 100% 34px;
+  -webkit-mask-image: linear-gradient(to top, black 0%, rgba(0, 0, 0, 0.35) 55%, transparent 92%);
+  mask-image: linear-gradient(to top, black 0%, rgba(0, 0, 0, 0.35) 55%, transparent 92%);
 }
 /*
  * The horizon. A real perspective grid laid flat and receding to a vanishing line, which is what
@@ -397,12 +471,13 @@
  */
 .heby-horizon {
   background-image:
-    repeating-linear-gradient(to right, var(--heby-grid) 0 1px, transparent 1px 72px),
-    repeating-linear-gradient(to top, var(--heby-grid) 0 1px, transparent 1px 44px);
+    repeating-linear-gradient(to right, var(--heby-grid) 0 1px, transparent 1px 56px),
+    repeating-linear-gradient(to top, var(--heby-grid) 0 1px, transparent 1px 36px);
   transform: perspective(340px) rotateX(74deg);
   transform-origin: 50% 100%;
-  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.35) 38%, transparent 72%);
-  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.35) 38%, transparent 72%);
+  /* One ellipse, for the same reason the floor uses one. */
+  -webkit-mask-image: radial-gradient(115% 125% at 50% 92%, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.28) 38%, transparent 74%);
+  mask-image: radial-gradient(115% 125% at 50% 92%, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.28) 38%, transparent 74%);
 }
 
 /*
@@ -446,12 +521,16 @@
  */
 .heby-surface[data-heby-mode="emerging"] .heby-floor,
 .heby-surface[data-heby-mode="emerging"] .heby-horizon,
-.heby-surface[data-heby-mode="emerging"] .heby-aurora {
+.heby-surface[data-heby-mode="emerging"] .heby-aurora,
+.heby-surface[data-heby-mode="emerging"] .heby-origin,
+.heby-surface[data-heby-mode="emerging"] .heby-ascent {
   opacity: 0.4;
 }
 .heby-surface[data-heby-mode="conversation"] .heby-floor,
 .heby-surface[data-heby-mode="conversation"] .heby-horizon,
-.heby-surface[data-heby-mode="conversation"] .heby-aurora {
+.heby-surface[data-heby-mode="conversation"] .heby-aurora,
+.heby-surface[data-heby-mode="conversation"] .heby-origin,
+.heby-surface[data-heby-mode="conversation"] .heby-ascent {
   opacity: 0.14;
 }
 
@@ -577,4 +656,116 @@
   :root[data-secondary="collapsed"] [data-shell="secondary"] {
     display: none;
   }
+}
+
+/*
+ * ── The hero's REAL ROOM ──────────────────────────────────────────────────────
+ *
+ * The presence field is bounded by BOTH axes of the space it actually occupies, and this rule is
+ * what makes "the space it actually occupies" a measurable thing rather than a guess.
+ *
+ * Viewport units cannot express it. Inside the Hebun shell the hero does not get the viewport — it
+ * gets what the shell bar, the canvas header, the composer dock and (when it is showing) the
+ * contextual rail leave behind, and that budget changes with the mode the operator is in. A `dvh`
+ * ceiling is therefore a bound on the WINDOW, not on the room: correct until any chrome around it
+ * moves, which is exactly what focused mode does.
+ *
+ * `container-type: size` makes this scroll region a query container on both axes, so `cqh`/`cqw`
+ * resolve against the region itself. Size containment is safe here precisely because this element's
+ * height already comes from the flex parent and never from its content — it is a scroll viewport.
+ */
+.heby-hero-room {
+  container-type: size;
+}
+
+/*
+ * ── FOCUSED HEBY MODE ─────────────────────────────────────────────────────────
+ *
+ * Route-derived (see heby-focus-mode.tsx), never persisted, and DESKTOP ONLY. Every declaration
+ * below lives inside this one media block: below 1024px the shell uses the drawer and sheet
+ * navigation, which focused mode has no business touching, so at those widths this mode does not
+ * exist at all rather than existing quietly.
+ *
+ * It mounts and unmounts nothing. The secondary column collapses to zero width the same way the
+ * operator's own collapse control does — which is why the calc()-based content padding reclaims the
+ * canvas with no further rule — and the Level-1 rail narrows to a minimal identity and navigation
+ * strip. Every workspace is still one click away, and the top bar stays exactly where it was,
+ * carrying the control that brings the navigation back.
+ *
+ * IT DOES NOT TOUCH `data-secondary`. That attribute is the operator's persisted preference; this
+ * mode reads it, overrides the width while Heby is on screen, and leaves the stored value alone, so
+ * leaving Heby restores whatever they had.
+ */
+@media (min-width: 1024px) {
+  :root[data-heby-focus="on"] {
+    --secondary-w: 0px;
+    /* A minimal strip: the identity mark, the workspace icons, the Heby control. */
+    --rail-w: 56px;
+  }
+
+  /* Present in the document, and out of the layout — identical to the released collapse. */
+  :root[data-heby-focus="on"] [data-shell="secondary"] {
+    display: none;
+  }
+
+  /* The rail keeps its icons and loses only its labels; each item keeps its title and aria-current. */
+  :root[data-heby-focus="on"] [data-shell="rail"] [data-rail-label] {
+    display: none;
+  }
+
+  /*
+   * ── THE CHROME RECEDES; IT DOES NOT LEAVE ─────────────────────────────────
+   *
+   * The reference is one continuous dark field with no application furniture in it, and a light
+   * rail plus a white top bar around a black canvas reads as "a dark widget inside an app" no
+   * matter how good the canvas is. So while Heby is on screen the shell's own surfaces go dark and
+   * its text goes quiet.
+   *
+   * WHAT THIS IS NOT:
+   *  - It is not a second shell. These are the same two elements, in the same DOM position, with
+   *    the same links, the same accessible names and the same aria-current.
+   *  - It is not a removal. Nothing is `display: none` here; the top bar keeps its height and every
+   *    control in it stays clickable, tabbable and named.
+   *  - It is not a recolour of the product. These values are NEUTRAL DARK — the same greys the Heby
+   *    surface already uses for structure. No accent is redefined, so the amber stays inside
+   *    `.heby-surface` where it belongs and the product's own blue is untouched everywhere else.
+   *  - It is not persistent. It is bound to the same route-derived attribute as the rest of focused
+   *    mode, so leaving Heby restores the product's chrome exactly.
+   */
+  :root[data-heby-focus="on"] [data-shell="rail"],
+  :root[data-heby-focus="on"] [data-shell="topbar"] {
+    background: #05090a;
+    border-color: #131c20;
+    color: #7d918c;
+  }
+
+  /* Divider lines inside the receded chrome, so nothing keeps a light hairline on a black field. */
+  :root[data-heby-focus="on"] [data-shell="rail"] *,
+  :root[data-heby-focus="on"] [data-shell="topbar"] * {
+    border-color: #131c20;
+  }
+
+  /*
+   * The receded chrome's own text. Scoped to the two shell elements and expressed as a token
+   * re-point, exactly like the Heby surface does it, so no component here hardcodes a colour.
+   */
+  :root[data-heby-focus="on"] [data-shell="rail"],
+  :root[data-heby-focus="on"] [data-shell="topbar"] {
+    --color-text-primary: #aebfba;
+    --color-text-secondary: #7d918c;
+    --color-text-muted: #5d6f6b;
+    --color-surface: #05090a;
+    --color-surface-raised: #0c1417;
+    --color-surface-sunken: #080e10;
+  }
+}
+
+/*
+ * The contextual rail's collapsed strip, when the read behind it FAILED. Vertical text so a
+ * 40px-wide strip can carry a sentence instead of a colour, because "could not be read" is a fact a
+ * reader has to be able to see, not merely infer from an icon.
+ */
+.heby-rail-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }

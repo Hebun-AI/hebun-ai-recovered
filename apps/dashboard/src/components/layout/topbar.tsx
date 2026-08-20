@@ -8,6 +8,7 @@ import { MobileNav } from "./mobile-nav";
 import { TabletSections } from "./tablet-sections";
 import { SecondaryToggle } from "./secondary-toggle";
 import { HebyLauncher } from "./heby/heby-launcher";
+import { HebyFocusControl, useHebyFocus } from "./heby/heby-focus-mode";
 
 /*
  * Global chrome (Level-1). Kept deliberately lean:
@@ -20,12 +21,36 @@ import { HebyLauncher } from "./heby/heby-launcher";
 export function TopBar() {
   const pathname = usePathname();
   const workspace = getWorkspace(resolveActiveWorkspace(pathname));
+  /*
+   * On Heby's own surface the focus control governs the shell's navigation, so the generic
+   * secondary toggle stands aside: exactly ONE control is presented at a time, and the operator's
+   * persisted preference is left untouched for as long as they are here.
+   *
+   * STANDS ASIDE, NOT UNMOUNTED — and that distinction was found in the real product, not reasoned
+   * about. The generic toggle is what APPLIES the stored preference to the document on mount, so
+   * unmounting it on Heby meant that restoring the navigation there showed an expanded column to an
+   * operator whose saved preference was collapsed. The stored value was never touched; it simply
+   * was not being applied. It stays mounted on every route and is hidden while Heby owns the
+   * decision.
+   */
+  const { eligible: hebyFocusEligible } = useHebyFocus();
 
   return (
-    <header className="sticky top-0 z-(--z-sticky) flex h-(--topbar-h) min-w-0 items-center gap-3 border-b border-border bg-surface px-4 sm:px-6">
+    <header
+      /*
+       * The stylesheet's handle on the global chrome. Focused mode uses it to let the top bar
+       * RECEDE into Heby's field — it never removes it, never changes its height, and never takes
+       * a control out of it.
+       */
+      data-shell="topbar"
+      className="sticky top-0 z-(--z-sticky) flex h-(--topbar-h) min-w-0 items-center gap-3 border-b border-border bg-surface px-4 sm:px-6"
+    >
       <MobileNav />
       <TabletSections />
-      <SecondaryToggle />
+      <span className={hebyFocusEligible ? "hidden" : "contents"}>
+        <SecondaryToggle />
+      </span>
+      <HebyFocusControl />
 
       <div className="min-w-0 flex-1 lg:flex-none lg:w-52">
         <p className="truncate text-sm font-semibold text-fg">{workspace.label}</p>

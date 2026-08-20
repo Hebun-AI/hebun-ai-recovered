@@ -234,34 +234,51 @@ function main(): void {
     assert.ok(hero.includes('data-heby-size="hero"'), "and it is the hero presence that gets it");
 
     /*
-     * THE CEILING IS RAISED, AND IT IS BOUNDED BY THE HEIGHT THAT ACTUALLY EXISTS.
+     * THE CEILING IS RAISED, AND IT IS BOUNDED BY BOTH AXES OF THE ROOM THAT ACTUALLY EXISTS.
      *
-     * This is the correction the authenticated pass forced, twice. Sized off viewport WIDTH alone
-     * the presence cropped the surface it was meant to occupy — inside the Hebun shell, the shell
-     * bar, the canvas header and the composer dock take room an isolated component render never
-     * sees, and on a 714px window the hero gets about 315px of it. Height breakpoints failed the
-     * same way one step later, because a threshold is a guess about a budget that varies with the
-     * chrome around it.
+     * This is the correction the authenticated pass forced, three times. Sized off viewport WIDTH
+     * alone the presence cropped the surface it was meant to occupy — inside the Hebun shell, the
+     * shell bar, the canvas header and the composer dock take room an isolated component render
+     * never sees. Height breakpoints failed the same way one step later, because a threshold is a
+     * guess about a budget that varies with the chrome around it. G7's `dvh` share fixed the
+     * vertical crop and left the horizontal one, because a viewport unit cannot see the rail, the
+     * secondary column or the contextual rail — and focused mode MOVES all three.
      *
-     * So the assertion is on the PROPERTY, not on a number: the largest hero step must be a
-     * function of the viewport's height. That is what makes "as large as the room allows" and
-     * "never larger than the room" the same statement.
+     * So the assertion is on the PROPERTY, not on a number, and now on both axes: the largest hero
+     * step must be a function of its own container's height AND width. That is what makes "as large
+     * as the room allows" and "never larger than the room" the same statement.
+     *
+     * The container has to exist for that to be true at all — without a size query container the
+     * `cq` units silently fall back to the viewport, which is the very bound this replaced.
      */
     const heroSizes = visualizer.slice(visualizer.indexOf("  hero:"), visualizer.indexOf("compact:"));
-    assert.ok(/xl:size-\[min\(\d+rem,\s*\d+dvh\)\]/.test(heroSizes),
-      `the widescreen presence is bounded by viewport height (got: ${heroSizes.trim()})`);
-    const [, cap, share] = /min\((\d+)rem,\s*(\d+)dvh\)/.exec(heroSizes) ?? [];
+    const bound = /xl:size-\[min\((\d+)rem,(\d+)cqh,(\d+)cqw\)\]/.exec(heroSizes);
+    assert.ok(bound, `the widescreen presence is bounded by BOTH axes of its room (got: ${heroSizes.trim()})`);
+    const [, cap, tall, wide] = bound!;
     assert.ok(Number(cap) >= 26, `the cap is substantial (got ${cap}rem)`);
-    assert.ok(Number(share) >= 30 && Number(share) <= 45,
-      `the height share leaves room for the caption and the dock (got ${share}dvh)`);
+    assert.ok(Number(tall) >= 45 && Number(tall) <= 70,
+      `the height share leaves room for the caption and the dock (got ${tall}cqh)`);
+    assert.ok(Number(wide) >= 24 && Number(wide) <= 40,
+      `the width share leaves the peripheral labels their columns (got ${wide}cqw)`);
+    const css = read(CSS);
+    assert.ok(css.includes(".heby-hero-room {"), "the hero's room is a declared query container");
+    assert.ok(/\.heby-hero-room \{[^}]*container-type:\s*size/.test(css),
+      "and it is a container on BOTH axes — an inline-size container makes cqh a viewport fallback");
+    assert.ok(read(CANVAS).includes("heby-hero-room"), "and the canvas actually establishes it");
 
     /*
-     * Suggestions survive as real, usable controls — demoted, not deleted. Removing them would
-     * have been the easy way to stop them competing, at the cost of a genuine affordance.
+     * SUGGESTIONS WERE FIRST DEMOTED, AND THEN REMOVED FROM THIS SURFACE BY DIRECTION.
+     *
+     * G7 moved them from full-width cards under the orb to chips on the dock, and this assertion
+     * proved they survived as real controls. The Director has since removed them from the Full
+     * Workspace outright. That is a deliberate loss of an affordance, not an accident, so the
+     * assertion is inverted rather than deleted: nothing on this surface may quietly put example
+     * prompts back, and nothing may replace them with a substitute control or a line of helper
+     * text — the subtraction has to stay a subtraction.
      */
-    assert.ok(hero.includes("Summarize the current picture."), "the suggestions the caller passed are rendered");
-    assert.ok(!/rounded-2xl border border-border\/70 bg-surface\/60 px-5 py-3/.test(hero),
-      "they are no longer full-width cards");
+    assert.ok(!hero.includes("Summarize the current picture."), "the workspace renders no example prompt");
+    assert.ok(!hero.includes("What changed?"), "not one of them, whatever the caller supplies");
+    assert.ok(hero.includes('aria-label="Message Heby"'), "and the composer they would have filled is untouched");
 
     /* The honest framing line stayed. It says what Heby answers from — it is not a greeting. */
     const heroText = textOf(hero);
@@ -392,7 +409,18 @@ function main(): void {
     for (const act of ["onClose", "acknowledge", "dismissRecord", "markSeen", "resolve"]) {
       assert.ok(!railBlock.includes(act), `hiding the rail must not "${act}"`);
     }
-    assert.ok(canvasCode.includes("useState(true)"), "the rail starts open when a read fed it");
+    /*
+     * THE RAIL OPENS BY DEFAULT, AND WHAT DIFFERS BETWEEN READS IS WHAT IT SAYS.
+     *
+     * An earlier pass made the default itself adaptive — collapsed on an empty or failed read. The
+     * reference-locked composition needs the column present for the canvas to read as one space, so
+     * the default is a constant again and the read's truth is carried entirely by the rail's
+     * CONTENT: records, the empty sentence, or the failure and its reason, each distinct. That is
+     * not a weaker claim, but it is a different one, so it is stated here plainly rather than left
+     * to be inferred. The distinction survives collapsing too — see the focused-mode suite, where
+     * the collapsed strip still refuses to present a failed read as an empty one.
+     */
+    assert.ok(canvasCode.includes("useState(true)"), "the rail is present by default");
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════

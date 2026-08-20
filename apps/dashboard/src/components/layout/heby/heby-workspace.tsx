@@ -57,14 +57,14 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, CornerDownLeft, ArrowLeft, ChevronsRight, ChevronsLeft } from "lucide-react";
+import { Plus, ArrowLeft, ChevronsRight } from "lucide-react";
 import type { HebyCommandDescriptor } from "@/features/heby-commands";
 import { resolveHebyComposition, resolveHebyDock, shouldFollowLatest } from "@/features/heby-surface";
 import type { HebyStreamState } from "@/features/heby-stream";
 import { HebyTurnList, type HebyTurnView } from "./heby-turns";
 import { HebyVisualizer, type HebyPresenceState } from "./heby-visualizer";
 import { HebyComposer } from "./heby-composer";
-import { HebyStreamRail } from "./heby-stream-rail";
+import { HebyStreamRail, HebyStreamRailStrip } from "./heby-stream-rail";
 import type { HebyVoiceView } from "./heby-voice-control";
 import type { HebyCommandOutput, HebyConversationFacts } from "./use-heby-conversation";
 
@@ -168,9 +168,24 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
   const [pointerInDock, setPointerInDock] = useState(false);
   const [focusInDock, setFocusInDock] = useState(false);
   /*
-   * Whether the contextual rail is showing. Presentation state, local, and starting OPEN: a rail
-   * fed by a real read should be visible by default, and putting it away is the operator's choice
-   * rather than a state they have to discover. It marks nothing and reads nothing.
+   * Whether the contextual rail is showing. Presentation state, local, and ADAPTIVE — its initial
+   * value is the truth of the read that fed it rather than a constant:
+   *
+   *   items        OPEN, with the records.
+   *   empty        OPEN, with the sentence that says the queue is clear. The rail keeps its shape
+   *                so the canvas keeps its composition — but the CONTENT is the read's own answer,
+   *                never a placeholder row and never a filled-in example.
+   *   unavailable  OPEN, with the sentence that says the read failed and why. Deliberately not the
+   *                empty sentence: a failure may never be presented as an empty queue.
+   *   absent       no rail at all (below) — the surface was never given a stream to show.
+   *
+   * Every state is OPEN because the reference composition depends on the rail being there; what
+   * differs between them is what the rail SAYS. Collapsing stays the operator's own choice, and the
+   * collapsed strip still distinguishes a failed read from an empty one (see below), so putting the
+   * column away can never turn a failure into silence.
+   *
+   * It manufactures no row and hides none. It marks nothing, reads nothing, and asserts nothing
+   * about the records.
    */
   const [railOpen, setRailOpen] = useState(true);
 
@@ -287,10 +302,10 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
            */}
           <div
             aria-hidden="true"
-            className="heby-aurora pointer-events-none absolute left-1/2 top-[40%] h-[min(64rem,150dvh)] w-[min(64rem,150dvh)] -translate-x-1/2 -translate-y-1/2"
+            className="heby-aurora pointer-events-none absolute left-1/2 top-[46%] h-[min(64rem,150dvh)] w-[min(64rem,150dvh)] -translate-x-1/2 -translate-y-1/2"
           />
-          <div aria-hidden="true" className="heby-horizon pointer-events-none absolute inset-x-0 bottom-0 h-[38%]" />
-          <div aria-hidden="true" className="heby-floor pointer-events-none absolute inset-x-0 bottom-0 h-2/5" />
+          <div aria-hidden="true" className="heby-horizon pointer-events-none absolute inset-x-0 bottom-[16%] h-[44%]" />
+          <div aria-hidden="true" className="heby-floor pointer-events-none absolute inset-x-0 bottom-[14%] h-[54%]" />
 
           {/*
            * EMERGING — the conversation has started but has not yet earned the whole screen. The
@@ -304,16 +319,75 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
           ) : null}
 
           {/* ── CONVERSATION / PRESENCE ─────────────────────────────────────── */}
-          <div ref={scrollRef} className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
+          {/*
+            `heby-hero-room` makes this scroll region a SIZE query container, so the presence field
+            can be bounded by the room it actually has on both axes rather than by the window (see
+            globals.css and heby-visualizer.tsx). It is a measurement seam and nothing else: it
+            carries no value, no state and no claim.
+          */}
+          <div ref={scrollRef} className="heby-hero-room relative flex min-h-0 flex-1 flex-col overflow-y-auto">
+            {/*
+              ── THE SPATIAL FIELD ────────────────────────────────────────────
+              Two more ambient layers, anchored to the ORIGIN LINE — the height the presence settles
+              at — rather than to the frame, so the burst and the ascending points stay attached to
+              Heby instead of to the window.
+
+              The reference's large concentric arcs were built here and then REMOVED at the
+              Director's direction: behind the presence they read as a radar sweep, and Heby has
+              nothing to sweep. The presence's own orbital traces are a different thing and are
+              untouched — they belong to the released presence field, not to this layer. Same contract as the three above:
+              aria-hidden, pointer-transparent, behind everything, and STATIC.
+
+              NEITHER IS A FUNCTION OF ANY VALUE. No prop, no state, no clock. A ridge that moved or
+              a point that lit up would each be read as something happening in the organization, and
+              nothing here would be reporting anything.
+            */}
+            {/*
+              The clip. The origin is deliberately larger than the region it lights, so without this
+              its own box would extend past the bottom of a SCROLL container and add 115 measured
+              pixels of scrollable height to a hero that must never scroll. Clipping here keeps the
+              field's geometry free and the reading area's geometry honest.
+
+              The PRESENCE's own bleed is handled differently, and deliberately so: clipping it drew
+              a visible soft-edged rectangle around the orb in the authenticated product, because a
+              clip box on a glow is a box. The hero block reserves real space for it instead (the
+              bottom padding below), which costs a few percent of how low the presence can sit and
+              buys a field with no edges in it.
+
+              The reserve is a FRACTION of the presence's own bound rather than a fixed length,
+              because the bleed scales with the presence: 63px on a 355px presence, 84px on a 474px
+              one — 0.177 both times. A fixed reserve was measured to work at 1512x900 and to leave
+              30px of phantom scroll at 1920x1080. The bound is repeated here from
+              heby-visualizer.tsx under protest; a shared custom property is the right shape and the
+              build pipeline drops it (see that file). A test pins the two copies to each other.
+            */}
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div
+                aria-hidden="true"
+                className="heby-ascent pointer-events-none absolute bottom-[70%] left-1/2 h-[20%] w-1 -translate-x-1/2"
+              />
+              <div
+                aria-hidden="true"
+                className="heby-origin pointer-events-none absolute bottom-[47%] left-1/2 size-[min(40rem,120%)] -translate-x-1/2 translate-y-1/2"
+              />
+            </div>
             {hero ? (
               /*
                 `min-h-full`, NOT `flex-1`. A `flex-1` child is exactly the scroll container's
                 height, so once its content is taller than that, `justify-center` centres the
-                overflow and crops BOTH ends — the framing line and the suggestions disappear off
-                a short desktop with no scrollbar to reveal them. With `min-h-full` the block
+                overflow and crops BOTH ends — the framing line disappears off a short desktop with
+                no scrollbar to reveal it. With `min-h-full` the block
                 centres while it fits and grows (and scrolls) when it does not.
               */
-              <div className="flex min-h-full w-full flex-col items-center justify-center gap-3 px-5 py-3 sm:px-8 sm:py-4">
+              /*
+                `justify-end`, NOT `justify-center`, and that is the composition's centre of gravity.
+                The reference puts its luminous origin low in the frame with the field rising out of
+                it; a vertically centred presence reads as a logo on a page instead. The presence now
+                settles just above the dock, which is exactly where the origin line, the arcs and the
+                ascent are anchored, so the whole field is one object rather than a sphere with
+                decoration behind it.
+              */
+              <div className="flex min-h-full w-full flex-col items-center justify-end gap-3 px-5 pb-[max(2rem,calc(0.2*min(36rem,66cqh,34cqw)))] pt-3 sm:px-8 sm:pt-4">
                 {/*
                  * The peripheral facts belong to the presence, not to the screen edges. They sit
                  * inside the orb's own visual field on a deliberate diagonal — Context above-left,
@@ -332,6 +406,43 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
                   <div className="absolute bottom-[14%] right-0 hidden w-40 lg:block">
                     <Fact label="Authority" value={props.authorityLabel} side="right" />
                   </div>
+
+                  {/*
+                    ── THE INTERACTION NODE ──────────────────────────────────────
+                    The reference puts a small luminous node to the left of the field, labelled as
+                    Heby sensing the operator and revealing the conversation when it is needed.
+
+                    THE PICTURE'S CLAIM IS NOT AVAILABLE HERE AND IS NOT MADE. Nothing in this
+                    product knows that the operator needs something; there is no read seam for
+                    attention, intent or need, and a node that implied one would be fabricated
+                    telemetry with a friendly face.
+
+                    What IS true is the mechanism the reference is pointing at, and it is a released
+                    rule: the composer comes forward when the pointer or the keyboard reaches the
+                    dock. So the node is rendered in exactly the state that rule describes — the
+                    resting hero — and its label states the mechanism in the second person rather
+                    than describing Heby as noticing anything. The dot itself is decorative and
+                    static: it reports nothing, because it is not connected to anything that could
+                    be reported.
+                  */}
+                  {!inviting ? (
+                    <div
+                      data-heby-interaction-node=""
+                      className="absolute left-0 top-[62%] hidden w-40 xl:block"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="heby-node mb-2 block size-2.5 rounded-full bg-highlight/70"
+                      />
+                      <p className="text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-fg-muted">
+                        Composer
+                      </p>
+                      <p className="mt-1 text-[0.72rem] leading-5 text-fg-secondary">
+                        Reach the field below with your pointer or your keyboard and it comes
+                        forward.
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
 
               </div>
@@ -354,12 +465,22 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
             onPointerLeave={() => setPointerInDock(false)}
             onFocus={() => setFocusInDock(true)}
             onBlur={() => setFocusInDock(false)}
-            className="relative shrink-0 px-5 pb-5 pt-2 sm:px-8 sm:pb-6 lg:px-0"
+            className="relative shrink-0 px-5 pb-4 pt-1 sm:px-8 sm:pb-4 lg:px-0"
           >
+            {/*
+              THE DOCK IS WIDER ON THE EMPTY CANVAS, AND THAT IS A MEASUREMENT, NOT A PREFERENCE.
+
+              The two framing lines get the wider measure; the COMPOSER keeps the reading one below,
+              because the field is read and typed into and a 1000px-wide input is not an
+              improvement. (The wider measure was introduced for the suggestion chips, which wrapped
+              onto a second row at the reading width and cost the hero ~40px of the height the
+              presence is bounded by. The chips have since been removed by direction; the measure is
+              kept for the framing lines, which still read better at it.)
+            */}
             <div
-              className={`mx-auto flex w-full max-w-[52rem] flex-col transition-[opacity,transform] duration-(--dur-base) ${
-                inviting ? "opacity-100" : "opacity-55 motion-safe:translate-y-1"
-              }`}
+              className={`mx-auto flex w-full flex-col transition-[opacity,transform] duration-(--dur-base) ${
+                hero ? "max-w-[68rem]" : "max-w-[52rem]"
+              } ${inviting ? "opacity-100" : "opacity-40 motion-safe:translate-y-1"}`}
             >
               {/*
                 THE FRAMING LINE LIVES ON THE DOCK TOO, AND FOR A BETTER REASON THAN SPACE.
@@ -371,39 +492,26 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
                 and its two real labels, and nothing else.
               */}
               {hero ? (
-                <p className="mb-2 text-center text-[0.78rem] leading-5 text-fg-muted">
+                <p className="mb-1.5 text-center text-[0.78rem] leading-5 text-fg-muted">
                   Answers about {props.contextLabel} come from the current read models, with their
                   evidence — or a plain statement that there is none.
                 </p>
               ) : null}
 
               {/*
-                SUGGESTIONS LIVE ON THE DOCK, NOT IN THE PRESENCE FIELD.
+                THE EXAMPLE PROMPT CHIPS ARE GONE, BY DIRECTION, AND NOTHING TOOK THEIR PLACE.
 
-                They were under the orb, which put them inside a scroll region sized by whatever
-                the presence left over — so on a real 900px desktop, inside the Hebun shell, they
-                scrolled out of sight. They are prompts for the composer, so they belong with the
-                composer: always visible, always the same distance from the field they fill, and no
-                longer competing with Heby for the centre of the canvas.
+                They were three real, working buttons that filled the composer with an example
+                question. Removing them is a subtraction and only a subtraction: no replacement
+                text, no replacement control, and no change to what Heby can be asked or how. The
+                composer below is untouched — same field, same keyboard semantics, same voice
+                runtime, same notice line, same submit.
+
+                The `suggestions` prop stays in this surface's interface. It is still supplied by
+                the conversation hook and still rendered by the Quick Panel, which is a different
+                surface with a different job; dropping it from the contract would have been a change
+                to the shared model rather than to this composition.
               */}
-              {hero && props.suggestions.length > 0 ? (
-                <div className="mb-2.5 flex flex-wrap items-center justify-center gap-2">
-                  {props.suggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => props.onSuggestion(suggestion)}
-                      className="group inline-flex items-center gap-1.5 rounded-full border border-border/60 px-3.5 py-1.5 text-[0.75rem] leading-5 text-fg-muted transition-colors duration-(--dur-fast) hover:border-highlight/40 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight"
-                    >
-                      <span className="min-w-0">{suggestion}</span>
-                      <CornerDownLeft
-                        className="size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                        aria-hidden="true"
-                      />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
 
               {/*
                 The invitation, in hero mode only, and only while the dock is resting. It describes
@@ -413,11 +521,12 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
               {hero && !inviting ? (
                 <p
                   data-heby-dock-hint=""
-                  className="mb-2 text-center text-[0.68rem] leading-5 text-fg-muted"
+                  className="mb-1.5 text-center text-[0.68rem] leading-5 text-fg-muted"
                 >
                   The field below is ready when you are.
                 </p>
               ) : null}
+              <div className="mx-auto w-full max-w-[52rem]">
               <HebyComposer
                 density="workspace"
                 /*
@@ -442,6 +551,7 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
                 onPaletteClose={props.onPaletteClose}
                 onDismissCommandOutput={props.onDismissCommandOutput}
               />
+              </div>
             </div>
           </div>
         </div>
@@ -477,18 +587,7 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
                 </div>
               </div>
             ) : (
-              <div className="flex h-full w-10 justify-center pt-1">
-                <button
-                  type="button"
-                  aria-label="Show Hebun Akışı"
-                  aria-expanded={railOpen}
-                  data-heby-rail-show=""
-                  onClick={() => setRailOpen(true)}
-                  className="flex size-9 items-center justify-center rounded-full border border-border/60 text-fg-muted transition-colors duration-(--dur-fast) hover:border-highlight/40 hover:text-highlight focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight"
-                >
-                  <ChevronsLeft className="size-4" aria-hidden="true" />
-                </button>
-              </div>
+              <HebyStreamRailStrip stream={props.stream} onShow={() => setRailOpen(true)} />
             )}
           </div>
         ) : null}

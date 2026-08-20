@@ -22,6 +22,12 @@ export function WorkspaceRail() {
   return (
     <aside
       aria-label="Workspaces"
+      /*
+       * The stylesheet's handle on the rail. Focused mode narrows it to a minimal identity and
+       * navigation strip (see globals.css) — it never unmounts it, and every workspace stays one
+       * click away.
+       */
+      data-shell="rail"
       className="fixed inset-y-0 left-0 z-(--z-sticky) hidden w-(--rail-w) flex-col items-center border-r border-border/70 bg-surface-sunken md:flex"
     >
       <Link
@@ -59,7 +65,7 @@ export function WorkspaceRail() {
                 )}
               />
               <Icon className="size-5 shrink-0" />
-              <span className="max-w-full truncate leading-tight">{workspace.label}</span>
+              <span data-rail-label="" className="max-w-full truncate leading-tight">{workspace.label}</span>
             </Link>
           );
         })}

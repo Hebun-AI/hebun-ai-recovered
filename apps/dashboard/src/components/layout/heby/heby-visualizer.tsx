@@ -188,28 +188,37 @@ const MOTION: Record<HebyPresenceState, { orbit: string; pulse: string } | null>
  */
 const SIZE_CLASS: Record<HebyPresenceSize, string> = {
   /*
-   * THE CEILING IS A FRACTION OF THE VIEWPORT'S HEIGHT, NOT A BREAKPOINT.
+   * THE CEILING IS BOUNDED BY BOTH AXES OF THE ROOM THE HERO ACTUALLY HAS.
    *
-   * Two width-only attempts were measured against the real product and both cropped it. Inside the
-   * Hebun shell the presence does not get the viewport — it gets what the shell bar, the canvas
-   * header and the composer dock leave, which on a 714px window is about 315px. A 26rem presence
-   * chosen because the screen was 1512px WIDE pushed the peripheral labels and the framing line
-   * off the canvas. Height breakpoints then failed the same way one step later, because a
-   * threshold is a guess about a budget that varies with the chrome around it.
+   * Three attempts were measured against the real product. Sized off viewport WIDTH alone the
+   * presence cropped the surface it was meant to occupy. Height breakpoints failed one step later,
+   * because a threshold is a guess about a budget that varies with the chrome around it. A `dvh`
+   * share fixed the vertical crop and left the horizontal one: inside the Hebun shell the hero's
+   * width is the window minus the rail, minus the secondary column, minus the contextual rail —
+   * none of which a viewport unit can see, and all of which move when the operator enters or leaves
+   * focused mode.
    *
-   * `min(30rem, 32dvh)` is not a guess. The presence takes a fixed share of the height that
-   * actually exists, so it is as large as the room allows on every display and can never be larger
-   * than the room — and it grows continuously with a taller window instead of jumping at a
-   * breakpoint someone has to maintain. The lower steps are unchanged; `size-72` is still exactly
-   * what a 1024–1279px viewport gets.
+   * `min(36rem, 66cqh, 34cqw)` is a bound on the ROOM. The container is the hero's own scroll
+   * region (`.heby-hero-room`, `container-type: size` — see globals.css), so both terms measure the
+   * space that actually exists after every piece of chrome has taken its share, and they re-measure
+   * themselves when that chrome changes. The presence is therefore as large as the room allows and
+   * can never be larger than the room, on both axes, without a single breakpoint to maintain.
    *
-   * THE SHARE IS 32dvh RATHER THAN MORE, AND THAT IS A MEASURED CEILING, NOT TIMIDITY. The hero
-   * also has to hold the state caption, and the region it lives in is what the shell leaves. A
-   * larger share overflows on a windowed browser. The presence reads larger than 34dvh anyway
-   * because most of its size is the atmospheric field around it, which is a sibling layer with no
-   * such budget — the same way the approved reference gets its scale.
+   * THE SAME EXPRESSION APPEARS IN heby-workspace.tsx, and that is a duplication under protest. It
+   * belongs in one custom property that both consume, and it WAS one — but the build pipeline drops
+   * a custom property whose value is a `min()` of mixed absolute and container units, silently, so
+   * the presence fell back to its `lg` step in the real product while every test still passed. Two
+   * literals that a test pins to each other is the honest version of that trade.
+   *
+   * THE SHARES ARE 66cqh AND 34cqw, AND BOTH ARE MEASURED CEILINGS RATHER THAN TIMIDITY. The hero
+   * region also holds the state caption; the width share leaves the two peripheral labels their
+   * columns. The presence reads larger than either share anyway, because most of its size is the
+   * atmospheric field around it — a sibling layer with no such budget, which is how the approved
+   * reference gets its scale.
+   *
+   * The lower steps are unchanged: `size-72` is still exactly what a 1024–1279px viewport gets.
    */
-  hero: "size-44 sm:size-60 lg:size-72 xl:size-[min(30rem,32dvh)]",
+  hero: "size-44 sm:size-60 lg:size-72 xl:size-[min(36rem,66cqh,34cqw)]",
   compact: "size-24 sm:size-28",
   inline: "size-8",
 };

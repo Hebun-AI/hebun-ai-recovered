@@ -5,6 +5,7 @@ import { TopBar } from "./topbar";
 import { HebySurfaceProvider } from "./heby/heby-surface-context";
 import { HebyVoiceProvider } from "./heby/heby-voice-runtime";
 import { HebyQuickPanelClient } from "./heby/heby-quick-panel-client";
+import { HebyFocusProvider } from "./heby/heby-focus-mode";
 
 /*
  * The Hebun App Shell (UI Phase 5).
@@ -45,6 +46,14 @@ import { HebyQuickPanelClient } from "./heby/heby-quick-panel-client";
  * microphone, builds no AudioContext, and starts no recognizer until the operator presses the
  * microphone control and clears the disclosure. There is no wake word and no background listening.
  *
+ * FOCUSED HEBY MODE — PRESENTATION ONLY, AND STILL EXACTLY ONE SHELL. `HebyFocusProvider` sits
+ * inside the surface provider because the mode it derives is a function of the surface, which is a
+ * function of the route. It mounts no navigation of its own and takes none away: `WorkspaceRail`
+ * and `SecondaryNav` are rendered UNCONDITIONALLY below, in every mode, on every route. The mode is
+ * one root data attribute and one stylesheet block (see globals.css), so there is no second shell
+ * to keep in agreement with this one, and nothing here is persisted into a preference that could
+ * outlive the route it came from.
+ *
  * Role is currently fixed to Director (the shipped single-user surface).
  * Navigation visibility is convenience only — the server enforces authority.
  */
@@ -53,17 +62,23 @@ export function HebunShell({ children }: { children: React.ReactNode }) {
     <RoleProvider role="director">
       <HebySurfaceProvider>
         <HebyVoiceProvider>
-          <div className="min-h-dvh bg-background text-fg">
-            <WorkspaceRail />
-            <SecondaryNav />
-            <div className="min-w-0 md:pl-(--rail-w) lg:pl-(--shell-nav-w)">
-              <TopBar />
-              <main className="mx-auto flex w-full min-w-0 max-w-[1800px] flex-col px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
-                {children}
-              </main>
+          <HebyFocusProvider>
+            <div className="min-h-dvh bg-background text-fg">
+              {/*
+                Both navigation components, always. Focused mode is a width and a set of styles; it
+                is never a mounting condition, so neither line below is behind a mode test.
+              */}
+              <WorkspaceRail />
+              <SecondaryNav />
+              <div className="min-w-0 md:pl-(--rail-w) lg:pl-(--shell-nav-w)">
+                <TopBar />
+                <main className="mx-auto flex w-full min-w-0 max-w-[1800px] flex-col px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
+                  {children}
+                </main>
+              </div>
+              <HebyQuickPanelClient />
             </div>
-            <HebyQuickPanelClient />
-          </div>
+          </HebyFocusProvider>
         </HebyVoiceProvider>
       </HebySurfaceProvider>
     </RoleProvider>

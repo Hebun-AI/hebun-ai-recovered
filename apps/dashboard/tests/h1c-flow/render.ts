@@ -80,7 +80,16 @@ function main(): void {
     const html = render({ turns: [], suggestions: ["What should I pay attention to here?", "Summarize the current picture."] });
     /* G7 — the hero invitation, restated at G7. The invariant these assertions protect is unchanged — the hero carries an invitation, it is GONE once a conversation exists, and it never appears in the Quick Panel. Only the sentence moved: the Director replaced the "How can I help?" heading, which read as an assistant landing page, with a quieter line on the composer dock where the thing being invited actually is. */
     assert.ok(html.includes("The field below is ready when you are."), "welcome state carries an invitation");
-    assert.ok(html.includes("What should I pay attention to here?"), "suggestion rendered");
+    /*
+     * THE EXAMPLE PROMPT CHIPS WERE REMOVED FROM THE FULL WORKSPACE BY DIRECTION, and nothing
+     * replaced them. This assertion used to prove the chip rendered; it now proves the subtraction
+     * was a subtraction — the caller's suggestions do not appear on this surface, and the composer
+     * it used to fill is still here, unchanged. The Quick Panel still renders them; that surface is
+     * unaffected and has its own proofs.
+     */
+    assert.ok(!html.includes("What should I pay attention to here?"), "the workspace shows no example prompt");
+    assert.ok(html.includes('aria-label="Message Heby"'), "and the composer it would have filled is untouched");
+    assert.ok(html.includes("Enter to send, Shift+Enter for a new line"), "with its keyboard semantics");
     assert.ok(!html.includes("Heby is responding"), "no fabricated activity in empty state");
     assert.ok(!/Analyzing|Checking \d+ systems|agents? working/i.test(html), "no fake reasoning/agent activity");
   }
