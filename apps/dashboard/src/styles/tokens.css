@@ -46,6 +46,30 @@
   --color-on-warning: #1a1102;
   --color-on-error:   #ffffff;
 
+  /* ── Type scale ───────────────────────────────
+   * Stage 0. The FIRST type scale this repository has had: `07 - Design System` names one
+   * typeface and one rejection rule ("text below 16px for body"), and the token files it points
+   * at (06 Color · 07 Typography · 08 Design Tokens) were never written, so nothing here is being
+   * replaced — five steps are being added where there were none.
+   *
+   * IT CHANGES NO EXISTING SCREEN. These are new tokens surfaced as new utilities; `text-xs`,
+   * `text-sm` and every arbitrary size in the product keep resolving exactly as before. Adoption
+   * is per-surface and starts with Knowledge, so nothing is normalized by sweep.
+   *
+   * `--fs-label` is the FLOOR. Nothing in a canonical surface may be smaller, which is the rule
+   * the ~525 arbitrary sub-`text-xs` sizes across the product currently break.
+   */
+  --fs-display: 1.75rem;    /* 28px — workspace identity */
+  --lh-display: 1.15;
+  --fs-title:   1.125rem;   /* 18px — section / card title */
+  --lh-title:   1.35;
+  --fs-body:    1rem;       /* 16px — reading size, per the North Star rejection rule */
+  --lh-body:    1.6;
+  --fs-meta:    0.8125rem;  /* 13px — provenance, standing, counts */
+  --lh-meta:    1.5;
+  --fs-label:   0.75rem;    /* 12px — the floor; uppercase eyebrows only */
+  --lh-label:   1.35;
+
   /* ── Radius ───────────────────────────────── */
   --radius-sm: 6px;
   --radius-md: 10px;

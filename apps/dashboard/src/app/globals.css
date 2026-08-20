@@ -43,6 +43,21 @@
   --color-info: var(--color-info);
   --color-info-subtle: var(--color-info-subtle);
 
+  /*
+   * Type scale (Stage 0). ADDITIVE: these create `text-display|title|body|meta|label` alongside
+   * Tailwind's own `text-xs`/`text-sm`/…, which are untouched. No existing utility changes size.
+   */
+  --text-display: var(--fs-display);
+  --text-display--line-height: var(--lh-display);
+  --text-title: var(--fs-title);
+  --text-title--line-height: var(--lh-title);
+  --text-body: var(--fs-body);
+  --text-body--line-height: var(--lh-body);
+  --text-meta: var(--fs-meta);
+  --text-meta--line-height: var(--lh-meta);
+  --text-label: var(--fs-label);
+  --text-label--line-height: var(--lh-label);
+
   /* Radius */
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
