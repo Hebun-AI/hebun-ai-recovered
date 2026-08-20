@@ -107,13 +107,37 @@ function reportsHonest(): void {
   assert.equal(hasDigit(m), false, "no fabricated period/timestamp in the reports model");
 }
 
-/* ── Strategic Goals: reads the real goal authority, not director/mock ── */
+/* ── Strategic Goals: a compiled-in seed, contained ──
+ *
+ * CMD-0 REPAIR. This asserted `connected === goals.length > 0`, which was satisfied by the four
+ * seeded registry rows and therefore protected nothing: the surface reported `connected: true` to
+ * a real authenticated tenant over data that never left a compiled-in literal. `connected` no
+ * longer exists, and what replaces it is strictly stronger — the projection is WITHHELD wherever a
+ * real tenant is reachable, and what the demo shell shows is labelled seeded, never derived.
+ */
 function goalsHonest(): void {
   const m = getStrategicGoalsModel();
-  assert.ok(m.source.includes("goal-runtime"), "goals are sourced from the real goal authority");
-  assert.equal(m.connected, m.goals.length > 0, "connected state derives from the real projection, not faked");
-  // Goals shown (if any) are exactly what the authority returned — never invented here.
-  assert.ok(Array.isArray(m.goals), "goals is a real list from the authority");
+  assert.ok(Array.isArray(m.goals), "goals is a real list");
+  assert.equal(m.provenance, "seeded", "the in-memory store can only return the compiled-in seed");
+  assert.ok(m.source.includes("seed"), "the source names the seed");
+  for (const word of ["knowledge graph", "derived", "authoritative", "authority for"]) {
+    assert.ok(
+      !m.source.toLowerCase().includes(word),
+      `the goal source must not claim "${word}" — it is a compiled-in registry seed`,
+    );
+  }
+
+  /* A real tenant is reachable -> nothing is presented at all. */
+  const previous = process.env.HEBUN_AUTH_ENABLED;
+  process.env.HEBUN_AUTH_ENABLED = "true";
+  try {
+    const guarded = getStrategicGoalsModel();
+    assert.equal(guarded.withheld, true, "the projection is withheld when a real tenant is reachable");
+    assert.deepEqual(guarded.goals, [], "and not one seeded goal reaches a real tenant");
+  } finally {
+    if (previous === undefined) delete process.env.HEBUN_AUTH_ENABLED;
+    else process.env.HEBUN_AUTH_ENABLED = previous;
+  }
 }
 
 /* ── Director Intent: preparation only, no execution, no live model, no "authorized" state ── */
