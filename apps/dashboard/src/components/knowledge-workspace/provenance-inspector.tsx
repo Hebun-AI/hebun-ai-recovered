@@ -48,14 +48,14 @@ export function ProvenanceInspector({ model }: { model: KnowledgeWorkspaceModel 
                 </span>
                 <div className="min-w-0 pb-1">
                   <p className="text-sm font-medium text-fg">{dimension.label}</p>
-                  <p className="text-[0.7rem] leading-5 text-fg-muted">{dimension.describes}</p>
+                  <p className="text-meta leading-5 text-fg-muted">{dimension.describes}</p>
                 </div>
               </li>
             );
           })}
         </ol>
         <div className="flex items-center gap-2">
-          <span className="text-[0.7rem] uppercase tracking-wide text-fg-muted">How does provenance work?</span>
+          <span className="text-meta uppercase tracking-wide text-fg-muted">How does provenance work?</span>
           <HebyWhy label="Ask Heby" variant="text" />
         </div>
       </div>

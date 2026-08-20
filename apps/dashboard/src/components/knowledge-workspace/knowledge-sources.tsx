@@ -30,19 +30,19 @@ export function KnowledgeSources({ model }: { model: KnowledgeWorkspaceModel }) 
             <li key={source.kind} className="flex flex-col gap-1 p-3 sm:flex-row sm:items-center sm:gap-3">
               <div className="flex items-center justify-between gap-2 sm:w-44 sm:shrink-0">
                 <span className="truncate text-sm font-medium text-fg">{source.label}</span>
-                <span className="shrink-0 rounded-full border border-border bg-surface-sunken px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-fg-muted sm:hidden">
+                <span className="shrink-0 rounded-full border border-border bg-surface-sunken px-1.5 py-0.5 text-label font-semibold uppercase tracking-wider text-fg-muted sm:hidden">
                   0 connected
                 </span>
               </div>
-              <p className="min-w-0 flex-1 text-[0.7rem] leading-5 text-fg-muted">{source.describes}</p>
-              <span className="hidden shrink-0 rounded-full border border-border bg-surface-sunken px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-fg-muted sm:inline-flex">
+              <p className="min-w-0 flex-1 text-meta leading-5 text-fg-muted">{source.describes}</p>
+              <span className="hidden shrink-0 rounded-full border border-border bg-surface-sunken px-1.5 py-0.5 text-label font-semibold uppercase tracking-wider text-fg-muted sm:inline-flex">
                 0 connected
               </span>
             </li>
           ))}
         </ul>
         <div className="flex items-center gap-2">
-          <span className="text-[0.7rem] uppercase tracking-wide text-fg-muted">Where would a source come from?</span>
+          <span className="text-meta uppercase tracking-wide text-fg-muted">Where would a source come from?</span>
           <HebyWhy label="Ask Heby" variant="text" />
         </div>
       </div>

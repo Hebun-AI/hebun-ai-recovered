@@ -314,12 +314,60 @@ function phaseBoundaries(): void {
     "Company Understanding owns no table — Knowledge remains the sole authority",
   );
 
-  /* The page renders the section ABOVE the records, and adds no control. */
+  /*
+   * ── AMENDED IN STAGE 1, WITH DIRECTOR APPROVAL ────────────────────────────
+   *
+   * WHAT WAS HERE: `indexOf("<CompanyUnderstandingCard") < indexOf("<KnowledgeRecords")`, with the
+   * message "coverage orients the reader before the records detail it".
+   *
+   * WHY IT CHANGED: that assertion pinned a POSITION, and the position was R6B's expression of an
+   * invariant rather than the invariant itself. Stage 1 deliberately reverses it. With coverage
+   * first, an organization holding nothing — which is every organization on its first day — met ten
+   * "no Knowledge yet" rows filling the viewport, with the controls that would fix that below the
+   * fold. The records now open the workspace and their empty state carries the way in; coverage
+   * follows it. Leaving the old assertion in place would have made the honest ordering a failure.
+   *
+   * WHY THE INVARIANT IS PRESERVED AND STRENGTHENED: R6B's real claim was that coverage is a
+   * PRESENT, CONTROL-FREE VIEW over the same records, orienting the reader before they are asked to
+   * govern anything — not that it occupies the first pixel. All of that is still asserted below,
+   * and two things R6B could not assert are added: that coverage is declared DERIVED while the
+   * records are declared AUTHORITATIVE (so a recomputed view can never carry a record's weight),
+   * and that coverage still precedes both governed acts — ratification and source withdrawal.
+   */
   const page = read("src/app/(dashboard)/knowledge/page.tsx");
   assert.ok(page.includes("<CompanyUnderstandingCard"), "the section is mounted");
+
+  const coverageAt = page.indexOf("<CompanyUnderstandingCard");
   assert.ok(
-    page.indexOf("<CompanyUnderstandingCard") < page.indexOf("<KnowledgeRecords"),
-    "coverage orients the reader before the records detail it",
+    coverageAt < page.indexOf("<KnowledgeReviewCard"),
+    "coverage still orients the reader before ratification is offered",
+  );
+  assert.ok(
+    coverageAt < page.indexOf("<KnowledgeSourcesCard"),
+    "coverage still orients the reader before source withdrawal is offered",
+  );
+
+  /*
+   * The provenance guarantee. The section that WRAPS the coverage card declares `derived`; the one
+   * wrapping the records declares `authoritative`. Matched by taking each section's opening tag up
+   * to the component it mounts, so a future reordering cannot make this pass by accident.
+   */
+  const sectionOf = (component: string): string => {
+    const at = page.indexOf(component);
+    assert.ok(at > 0, `${component} is mounted`);
+    const openedAt = page.lastIndexOf("<WorkspaceSection", at);
+    assert.ok(openedAt > 0, `${component} sits inside a WorkspaceSection that states its provenance`);
+    return page.slice(openedAt, at);
+  };
+  assert.match(
+    sectionOf("<CompanyUnderstandingCard"),
+    /provenance="derived"/,
+    "coverage is declared derived — it is recomputed on read and stored nowhere",
+  );
+  assert.match(
+    sectionOf("<KnowledgeRecords"),
+    /provenance="authoritative"/,
+    "the records are declared authoritative — they are the organization's own record",
   );
 
   /* Ratification stays where it already is — one act, one call site. */

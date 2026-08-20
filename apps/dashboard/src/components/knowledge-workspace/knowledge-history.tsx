@@ -19,7 +19,7 @@ export function KnowledgeHistory() {
           detail="Change history appears once memory supersessions are retained. No history is retained, so none is shown — the workspace does not invent changes from current state."
           compact
         />
-        <p className="text-[0.7rem] leading-5 text-fg-muted">
+        <p className="text-meta leading-5 text-fg-muted">
           Memory is immutable: a record is never edited in place. A correction is a new record that supersedes
           the prior one, and history is the chain of those supersessions.
         </p>

@@ -33,7 +33,7 @@
 
 import { useId, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FileInput, ShieldAlert } from "lucide-react";
+import { FileInput } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -42,6 +42,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StateBlock } from "@/components/ui/state-block";
 import {
   ingestKnowledgeAction,
   ingestKnowledgeFileAction,
@@ -275,30 +276,25 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
   }
 
   if (block) {
+    /* Same two kinds, same distinction, same released wording — see the authoring card. */
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShieldAlert aria-hidden className="size-4" />
-            Ingest a source
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-fg-muted" role="status">
-            {block.kind === "unauthenticated"
-              ? "Sign in to ingest organizational knowledge."
-              : block.kind === "forbidden"
-                ? "Your role may not establish organizational Knowledge. Ingestion is limited to the same authority band that authors it."
-                : "Durable persistence is not configured, so nothing can be ingested."}
-          </p>
-        </CardContent>
-      </Card>
+      <StateBlock
+        tone={block.kind === "persistence-unavailable" ? "unavailable" : "restricted"}
+        title="Ingest a source"
+        description={
+          block.kind === "unauthenticated"
+            ? "Sign in to ingest organizational knowledge."
+            : block.kind === "forbidden"
+              ? "Your role may not establish organizational Knowledge. Ingestion is limited to the same authority band that authors it."
+              : "Durable persistence is not configured, so nothing can be ingested."
+        }
+      />
     );
   }
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader stacked>
         <CardTitle className="flex items-center gap-2">
           <FileInput aria-hidden className="size-4" />
           Ingest a source
@@ -342,7 +338,7 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
         {fileProblems.length > 0 ? (
           <ul
             aria-live="assertive"
-            className="flex flex-col gap-1 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+            className="flex flex-col gap-1 rounded-md border border-error/30 bg-error-subtle px-3 py-2 text-body text-error"
             role="alert"
           >
             {fileProblems.map((problem) => (
@@ -354,7 +350,7 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
         {problems.length > 0 ? (
           <ul
             aria-live="assertive"
-            className="flex flex-col gap-1 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+            className="flex flex-col gap-1 rounded-md border border-error/30 bg-error-subtle px-3 py-2 text-body text-error"
             role="alert"
           >
             {problems.map((problem) => (
@@ -447,12 +443,12 @@ export function KnowledgeIngestionCard({ block }: { readonly block?: KnowledgeIn
           )}
         </span>
         {overSize ? (
-          <span className="text-xs text-red-700">
+          <span className="text-meta text-error">
             This source is too long. Ingest it in parts rather than losing the remainder.
           </span>
         ) : null}
         {overChunks ? (
-          <span className="text-xs text-red-700">
+          <span className="text-meta text-error">
             This would create {preview.chunks} records, and one ingestion may create at most{" "}
             {MAX_CHUNKS_PER_SOURCE}. Heby&apos;s evidence view lists a bounded number of records, so a
             larger ingestion would be partly invisible. Ingest it in parts.

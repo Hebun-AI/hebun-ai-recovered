@@ -30,6 +30,7 @@ import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StateBlock } from "@/components/ui/state-block";
 import { Button } from "@/components/ui/button";
 import { retractKnowledgeSourceAction } from "@/app/(dashboard)/knowledge/actions";
 import {
@@ -104,17 +105,17 @@ function SourceRow({ source, disabled }: { source: IngestedSourceSummary; disabl
     <li className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-surface-raised/40 p-3">
       <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-medium text-fg">
         {name}
-        <span className="font-mono text-[0.7rem] font-normal text-fg-muted">
+        <span className="font-mono text-meta font-normal text-fg-muted">
           {source.sourceDigest.slice(0, 12)}
         </span>
       </p>
       {source.sourceTitles.length > 1 ? (
-        <p className="text-[0.7rem] text-fg-muted">
+        <p className="text-meta text-fg-muted">
           {/* One digest, several titles: the same content was ingested more than once. */}
           Also ingested as: {source.sourceTitles.slice(1).join(", ")}
         </p>
       ) : null}
-      <p className="text-[0.7rem] text-fg-muted">
+      <p className="text-meta text-fg-muted">
         {source.liveFactCount} record{source.liveFactCount === 1 ? "" : "s"} in active Knowledge
         {source.retiredFactCount > 0 ? ` · ${source.retiredFactCount} already retracted` : ""}
         {source.ratifiedFactCount > 0 ? ` · ${source.ratifiedFactCount} ratified` : ""}
@@ -131,7 +132,7 @@ function SourceRow({ source, disabled }: { source: IngestedSourceSummary; disabl
         </p>
       ) : (
         <div className="flex flex-col gap-2">
-          <label htmlFor={confirmId} className="text-[0.7rem] text-fg-muted">
+          <label htmlFor={confirmId} className="text-meta text-fg-muted">
             Retype the source name to retract it
           </label>
           <input
@@ -167,31 +168,43 @@ export function KnowledgeSourcesCard({
   /** Whatever stops you adding a source stops you withdrawing one. Resolved once, by the page. */
   block?: RetractionBlock;
 }) {
+  /*
+   * Stage 1. A read that did not answer, and an organization that has ingested nothing, stopped
+   * sharing a rendering. They are different facts: one is about Hebun, the other about the
+   * organization, and only the second is a count.
+   */
   if (listing.status === "unavailable") {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Ingested sources</CardTitle>
-          <CardDescription>
-            {listing.reason === "no-authorized-tenant-context"
-              ? "Sign in to see which sources your organization's Knowledge came from."
-              : listing.detail}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <StateBlock
+        tone={listing.reason === "no-authorized-tenant-context" ? "restricted" : "unavailable"}
+        title="Ingested sources could not be read"
+        description={
+          listing.reason === "no-authorized-tenant-context"
+            ? "Sign in to see which sources your organization's Knowledge came from. This is not a statement that there are none."
+            : listing.detail
+        }
+      />
     );
   }
 
   const { sources } = listing;
 
+  if (sources.length === 0) {
+    return (
+      <StateBlock
+        tone="empty"
+        title="No Knowledge in your organization came from an ingested source yet"
+        description="The read succeeded and found no source. Records authored one sentence at a time do not appear here — only whole documents Hebun ingested, which is what a withdrawal acts on."
+      />
+    );
+  }
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader stacked>
         <CardTitle>Ingested sources</CardTitle>
         <CardDescription>
-          {sources.length === 0
-            ? "No Knowledge in your organization came from an ingested source yet."
-            : `${sources.length} source${sources.length === 1 ? "" : "s"}. ${RETRACTION_SUMMARY}`}
+          {`${sources.length} source${sources.length === 1 ? "" : "s"}. ${RETRACTION_SUMMARY}`}
         </CardDescription>
       </CardHeader>
 

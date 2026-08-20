@@ -58,7 +58,7 @@ export function KnowledgeBoundary() {
               <span className="size-1.5 shrink-0 rounded-full bg-fg-muted" aria-hidden="true" />
               <span className="truncate text-sm font-medium text-fg">{link.label}</span>
             </div>
-            <p className="min-w-0 flex-1 text-[0.7rem] leading-5 text-fg-muted">{link.reason}</p>
+            <p className="min-w-0 flex-1 text-meta leading-5 text-fg-muted">{link.reason}</p>
             <Link
               href={link.href}
               className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-primary hover:text-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"

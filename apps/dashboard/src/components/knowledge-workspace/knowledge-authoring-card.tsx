@@ -28,6 +28,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StateBlock } from "@/components/ui/state-block";
 import { createKnowledgeAction } from "@/app/(dashboard)/knowledge/actions";
 import {
   KNOWLEDGE_LIMITS,
@@ -66,22 +67,30 @@ export function KnowledgeAuthoringCard({ block }: { block?: KnowledgeAuthoringBl
   const [created, setCreated] = useState<string | null>(null);
 
   if (block) {
+    /*
+     * Stage 1 — THE REFUSAL NAMES ITS OWN KIND, and the two kinds are not the same kind.
+     *
+     * An authority refusal and an unconfigured store used to render identically: one card, one grey
+     * sentence. They are different facts and lead to different actions — one is answered by asking
+     * for a role, the other by configuring persistence — so they now carry different tones, marks
+     * and words. Neither implies that Knowledge is absent: a reader who lacks the band is told
+     * nothing whatever about what this organization holds.
+     *
+     * The REASON is unchanged. It is still the real one, still resolved server-side, still in the
+     * same resolution order, and its wording is still the released wording.
+     */
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookPlus className="size-4" aria-hidden="true" />
-            Create organizational Knowledge
-          </CardTitle>
-          <CardDescription>
-            {block.kind === "unauthenticated"
-              ? "Sign in to author organizational Knowledge."
-              : block.kind === "forbidden"
-                ? `Your role${block.roleType ? ` (${block.roleType})` : ""} cannot establish organizational Knowledge. ${KNOWLEDGE_WRITE_AUTHORITY_MODEL.operatorSummary}`
-                : "Durable persistence is not configured, so canonical Knowledge cannot be written here."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <StateBlock
+        tone={block.kind === "persistence-unavailable" ? "unavailable" : "restricted"}
+        title="Create organizational Knowledge"
+        description={
+          block.kind === "unauthenticated"
+            ? "Sign in to author organizational Knowledge."
+            : block.kind === "forbidden"
+              ? `Your role${block.roleType ? ` (${block.roleType})` : ""} cannot establish organizational Knowledge. ${KNOWLEDGE_WRITE_AUTHORITY_MODEL.operatorSummary}`
+              : "Durable persistence is not configured, so canonical Knowledge cannot be written here."
+        }
+      />
     );
   }
 
@@ -174,7 +183,7 @@ export function KnowledgeAuthoringCard({ block }: { block?: KnowledgeAuthoringBl
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader stacked>
         <CardTitle className="flex items-center gap-2">
           <BookPlus className="size-4" aria-hidden="true" />
           Create organizational Knowledge

@@ -16,7 +16,7 @@ export function ClassificationAccess({ model }: { model: KnowledgeWorkspaceModel
     <KnowledgeRegion variant="plain" eyebrow="Governance" title="Classification & Access">
       <div className="flex min-w-0 flex-col gap-4">
         <div>
-          <p className="mb-2 text-[0.7rem] uppercase tracking-wide text-fg-muted">Sensitivity — withheld where required</p>
+          <p className="mb-2 text-meta uppercase tracking-wide text-fg-muted">Sensitivity — withheld where required</p>
           <ul className="flex flex-col divide-y divide-border/60 rounded-lg border border-border bg-surface">
             {model.sensitivityLevels.map((level) => (
               <li key={level.sensitivity} className="flex items-center gap-2.5 p-3">
@@ -26,18 +26,18 @@ export function ClassificationAccess({ model }: { model: KnowledgeWorkspaceModel
                   <span className="size-3.5 shrink-0" aria-hidden="true" />
                 )}
                 <span className="w-24 shrink-0 text-sm font-medium text-fg">{level.label}</span>
-                <span className="min-w-0 flex-1 text-[0.7rem] leading-5 text-fg-muted">{level.describes}</span>
+                <span className="min-w-0 flex-1 text-meta leading-5 text-fg-muted">{level.describes}</span>
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-[0.7rem] leading-5 text-fg-muted">
+          <p className="mt-2 text-meta leading-5 text-fg-muted">
             Restricted means withheld — the workspace does not show restricted content and label it. Access is
             enforced server-side by tenant, organization, and authority.
           </p>
         </div>
 
         <div>
-          <p className="mb-2 text-[0.7rem] uppercase tracking-wide text-fg-muted">Confidence — declared, not authority</p>
+          <p className="mb-2 text-meta uppercase tracking-wide text-fg-muted">Confidence — declared, not authority</p>
           <ol className="flex flex-wrap items-center gap-1.5">
             {model.confidenceLevels.map((level) => (
               <li
@@ -48,7 +48,7 @@ export function ClassificationAccess({ model }: { model: KnowledgeWorkspaceModel
               </li>
             ))}
           </ol>
-          <p className="mt-2 text-[0.7rem] uppercase tracking-wide text-fg-muted">Admitted under authority</p>
+          <p className="mt-2 text-meta uppercase tracking-wide text-fg-muted">Admitted under authority</p>
           <ol className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {model.authorityTypes.map((authority) => (
               <li
@@ -59,7 +59,7 @@ export function ClassificationAccess({ model }: { model: KnowledgeWorkspaceModel
               </li>
             ))}
           </ol>
-          <p className="mt-2 text-[0.7rem] leading-5 text-fg-muted">
+          <p className="mt-2 text-meta leading-5 text-fg-muted">
             Confidence is how strongly knowledge is trusted; authority is who admitted it. One never implies the
             other.
           </p>

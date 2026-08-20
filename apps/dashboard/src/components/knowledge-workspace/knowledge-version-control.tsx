@@ -57,22 +57,22 @@ function VersionRow({ version }: { version: KnowledgeVersionView }) {
       <p className="flex flex-wrap items-baseline gap-x-2 text-xs">
         <span className="font-semibold text-fg">Version {version.knowledgeVersion}</span>
         {/* Distinguished by WORD, not colour. */}
-        <span className="text-[0.7rem] font-medium text-fg-secondary">
+        <span className="text-meta font-medium text-fg-secondary">
           {version.active ? "· active" : "· historical"}
         </span>
         {version.supersedesEarlier ? (
-          <span className="text-[0.7rem] text-fg-muted">· supersedes an earlier version</span>
+          <span className="text-meta text-fg-muted">· supersedes an earlier version</span>
         ) : (
-          <span className="text-[0.7rem] text-fg-muted">· original</span>
+          <span className="text-meta text-fg-muted">· original</span>
         )}
       </p>
       <p className="text-xs font-medium text-fg">{version.title}</p>
       {version.statement ? (
-        <p className="whitespace-pre-wrap break-words text-[0.7rem] leading-5 text-fg-secondary">
+        <p className="whitespace-pre-wrap break-words text-meta leading-5 text-fg-secondary">
           {version.statement}
         </p>
       ) : null}
-      <p className="text-[0.68rem] text-fg-muted">
+      <p className="text-label text-fg-muted">
         {version.authorityClass ?? "authority not stated"} ·{" "}
         {version.lifecycleStatus ?? "lifecycle not stated"} ·{" "}
         {version.ratified ? "ratified" : "no ratification recorded"}
@@ -271,20 +271,20 @@ export function KnowledgeVersionControl(props: KnowledgeVersionControlProps) {
               </p>
               <div className="grid min-w-0 gap-2 sm:grid-cols-2">
                 <div className="min-w-0 rounded-lg border border-border bg-surface p-2">
-                  <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-fg-muted">
+                  <p className="text-meta font-semibold uppercase tracking-wide text-fg-muted">
                     Current — version {props.knowledgeVersion}
                   </p>
                   <p className="mt-1 text-xs font-medium text-fg">{props.currentTitle}</p>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-[0.7rem] leading-5 text-fg-secondary">
+                  <p className="mt-1 whitespace-pre-wrap break-words text-meta leading-5 text-fg-secondary">
                     {props.currentStatement ?? "No statement recorded."}
                   </p>
                 </div>
                 <div className="min-w-0 rounded-lg border border-border bg-surface p-2">
-                  <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-fg-muted">
+                  <p className="text-meta font-semibold uppercase tracking-wide text-fg-muted">
                     New — version {props.knowledgeVersion + 1}
                   </p>
                   <p className="mt-1 text-xs font-medium text-fg">{title || "—"}</p>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-[0.7rem] leading-5 text-fg-secondary">
+                  <p className="mt-1 whitespace-pre-wrap break-words text-meta leading-5 text-fg-secondary">
                     {statement || "—"}
                   </p>
                 </div>
@@ -349,7 +349,7 @@ export function KnowledgeVersionControl(props: KnowledgeVersionControlProps) {
                 ))}
               </ul>
               {history.integrity !== "complete" ? (
-                <p role="alert" className="rounded-lg border border-warning/40 bg-warning-subtle/30 px-3 py-2 text-[0.7rem] text-fg-secondary">
+                <p role="alert" className="rounded-lg border border-warning/40 bg-warning-subtle/30 px-3 py-2 text-meta text-fg-secondary">
                   This history is incomplete — {history.integrity}. Hebun stopped walking the chain
                   and did not repair or invent the missing versions.
                 </p>

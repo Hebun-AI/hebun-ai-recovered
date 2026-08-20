@@ -28,7 +28,7 @@ export function CompanyMemory({ model }: { model: KnowledgeWorkspaceModel }) {
         />
 
         <div>
-          <p className="mb-2 text-[0.7rem] uppercase tracking-wide text-fg-muted">
+          <p className="mb-2 text-meta uppercase tracking-wide text-fg-muted">
             What every admitted memory separates — none implies another
           </p>
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -36,16 +36,16 @@ export function CompanyMemory({ model }: { model: KnowledgeWorkspaceModel }) {
               <li key={dimension.dimension} className="rounded-lg border border-border bg-surface p-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-sm font-semibold text-fg">{dimension.label}</span>
-                  <span className="text-[0.65rem] text-fg-muted">{dimension.question}</span>
+                  <span className="text-label text-fg-muted">{dimension.question}</span>
                 </div>
-                <p className="mt-1 text-[0.7rem] leading-5 text-fg-secondary">{dimension.describes}</p>
+                <p className="mt-1 text-meta leading-5 text-fg-secondary">{dimension.describes}</p>
               </li>
             ))}
           </ul>
         </div>
 
         <div>
-          <p className="mb-2 text-[0.7rem] uppercase tracking-wide text-fg-muted">Admission lifecycle</p>
+          <p className="mb-2 text-meta uppercase tracking-wide text-fg-muted">Admission lifecycle</p>
           <ol className="flex flex-wrap items-center gap-1.5">
             {model.lifecycleStates.map((state) => (
               <li

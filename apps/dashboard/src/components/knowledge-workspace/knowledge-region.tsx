@@ -47,12 +47,12 @@ export function KnowledgeRegion({
       >
         <div className="min-w-0">
           {eyebrow && (
-            <p className="text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-fg-muted">{eyebrow}</p>
+            <p className="text-label font-semibold uppercase tracking-[0.14em] text-fg-muted">{eyebrow}</p>
           )}
           <h2
             className={cn(
               "truncate font-semibold text-fg",
-              isCard ? "text-sm" : "text-[0.8rem] uppercase tracking-wide text-fg-secondary",
+              isCard ? "text-sm" : "text-meta uppercase tracking-wide text-fg-secondary",
             )}
           >
             {title}
@@ -90,7 +90,7 @@ export function KnowledgeEmptyState({
         {title}
       </p>
       {detail && (
-        <p className={cn("leading-5 text-fg-secondary", compact ? "text-[0.7rem]" : "text-xs")}>{detail}</p>
+        <p className={cn("leading-5 text-fg-secondary", compact ? "text-meta" : "text-xs")}>{detail}</p>
       )}
     </div>
   );
@@ -99,7 +99,7 @@ export function KnowledgeEmptyState({
 /** Calm marker that a surface is settled reference, non-authoritative. */
 export function ReferenceMarker({ label = "Reference" }: { label?: string }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-border bg-surface-sunken px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-fg-muted">
+    <span className="inline-flex items-center rounded-full border border-border bg-surface-sunken px-2 py-0.5 text-label font-semibold uppercase tracking-wider text-fg-muted">
       {label}
     </span>
   );

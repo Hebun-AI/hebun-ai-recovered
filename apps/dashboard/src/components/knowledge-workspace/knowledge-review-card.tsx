@@ -116,7 +116,7 @@ export function KnowledgeReviewCard({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader stacked>
         <CardTitle className="flex items-center gap-2">
           <ScrollText className="size-4" aria-hidden />
           Governance review — v{record.knowledgeVersion}

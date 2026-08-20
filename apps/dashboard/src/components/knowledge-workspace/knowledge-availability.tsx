@@ -43,10 +43,10 @@ function AvailabilityRow({ item }: { item: KnowledgeAvailabilityView }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium text-fg-secondary">{item.question}</p>
-        <p className="mt-0.5 text-[0.7rem] leading-5 text-fg-muted">{item.detail}</p>
+        <p className="mt-0.5 text-meta leading-5 text-fg-muted">{item.detail}</p>
       </div>
       <div className="flex shrink-0 items-center gap-3">
-        <span className={`text-[0.7rem] font-medium uppercase tracking-wide ${meta.text}`}>
+        <span className={`text-meta font-medium uppercase tracking-wide ${meta.text}`}>
           {meta.label}
         </span>
         {item.href && (
@@ -68,7 +68,7 @@ export function KnowledgeAvailability({ model }: { model: KnowledgeWorkspaceMode
     <section className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 className="text-sm font-semibold text-fg">Knowledge availability</h2>
-        <p className="text-[0.7rem] text-fg-muted">
+        <p className="text-meta text-fg-muted">
           What is available, where it comes from, and how trustworthy it is — honest state only.
         </p>
       </div>
