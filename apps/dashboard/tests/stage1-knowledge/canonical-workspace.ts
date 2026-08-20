@@ -452,7 +452,26 @@ function badgeLabelsStayReadable(): void {
   /* Comment-stripped: this file's own prose, and the chip's, both NAME the thing being forbidden. */
   const chip = codeOf(read(PRIMITIVES[1]!));
   assert.match(chip, /max-w-full/, "a chip is bounded by its container");
-  assert.match(chip, /truncate/, "a chip truncates itself before it starves a sibling");
+  /*
+   * ── VI-1 AMENDMENT ─────────────────────────────────────────────────────────
+   *
+   * The invariant here is that a chip YIELDS to its container rather than starving a sibling.
+   * `truncate` was one EXPRESSION of yielding, and this assertion pinned the expression. It was
+   * the wrong one: a chip yielded by deleting the single thing it exists to carry.
+   *
+   * Measured on `/knowledge` at 390×844 before the amendment — five of six chips needed 331–447px,
+   * were given 320px, and silently dropped the name of the authority that answered. `title` carries
+   * the KIND's meaning and so does the screen-reader sentence; neither carries the detail. So it was
+   * recoverable by hover and by nothing else, which on a touch device is not recoverable at all.
+   *
+   * Wrapping yields without deleting. The sibling this chip must not starve is protected by the row
+   * it sits on — asserted directly above, and unchanged.
+   */
+  assert.ok(
+    !/truncate/.test(chip),
+    "a chip yields by wrapping, never by discarding the authority it names",
+  );
+  assert.match(chip, /min-w-0/, "and it still yields — it may be compressed below its content width");
   assert.ok(!/uppercase/.test(chip), "a chip is not uppercase — that is what inflates a badge by a third");
 
   /*

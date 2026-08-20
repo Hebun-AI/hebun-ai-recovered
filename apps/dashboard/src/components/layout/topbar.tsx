@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Building2, ClipboardCheck, Search } from "lucide-react";
-import { getWorkspace, resolveActiveWorkspace } from "@/config/workspace-nav";
+import { resolveShellSurface } from "@/config/workspace-nav";
 import { MobileNav } from "./mobile-nav";
 import { TabletSections } from "./tablet-sections";
 import { SecondaryToggle } from "./secondary-toggle";
@@ -20,7 +20,14 @@ import { HebyFocusControl, useHebyFocus } from "./heby/heby-focus-mode";
 
 export function TopBar() {
   const pathname = usePathname();
-  const workspace = getWorkspace(resolveActiveWorkspace(pathname));
+  /*
+   * The identity chrome names the surface the operator is ON, so it asks the question that can be
+   * answered `null`. It used to ask `resolveActiveWorkspace`, whose type cannot say "none of the
+   * seven" and therefore answered "Command" — on `/heby`, a released and deliberately protected
+   * surface, under Command's own tagline. Heby is still not a workspace and gains none here; the
+   * shell simply stops claiming it is one.
+   */
+  const surface = resolveShellSurface(pathname);
   /*
    * On Heby's own surface the focus control governs the shell's navigation, so the generic
    * secondary toggle stands aside: exactly ONE control is presented at a time, and the operator's
@@ -53,8 +60,11 @@ export function TopBar() {
       <HebyFocusControl />
 
       <div className="min-w-0 flex-1 lg:flex-none lg:w-52">
-        <p className="truncate text-sm font-semibold text-fg">{workspace.label}</p>
-        <p className="hidden truncate text-xs text-fg-muted sm:block">{workspace.tagline}</p>
+        <p className="truncate text-sm font-semibold text-fg">{surface.label}</p>
+        {/* No tagline is rendered where none is true. A surface with no identity yet gets silence. */}
+        {surface.tagline ? (
+          <p className="hidden truncate text-xs text-fg-muted sm:block">{surface.tagline}</p>
+        ) : null}
       </div>
 
       <div className="ml-auto hidden min-w-0 max-w-sm flex-1 items-center gap-2 rounded-lg border border-border bg-surface-sunken px-3 lg:flex">

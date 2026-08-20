@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   getWorkspace,
   resolveActiveWorkspace,
+  resolveShellSurface,
   workspacesForRole,
   type WorkspaceId,
 } from "@/config/workspace-nav";
@@ -74,8 +75,19 @@ export function MobileNav() {
     };
   }, [open]);
 
-  const activeWorkspace = resolveActiveWorkspace(pathname);
-  const shownWorkspace = getWorkspace(selected ?? activeWorkspace);
+  /*
+   * TWO DIFFERENT QUESTIONS, ON PURPOSE.
+   *
+   * `activeWorkspace` marks a row as the one the operator is currently on, so it must be allowed to
+   * be `null` — on `/heby` it used to mark Command with `aria-current`, which was false.
+   *
+   * `shownWorkspace` picks which Level-2 list this drawer opens on, which is a navigation DEFAULT
+   * and not a claim. It keeps the historical `"command"` fallback deliberately: on an ambient or
+   * unassigned surface the drawer must still offer a way out, and an empty drawer would take the
+   * way out away — the same mistake as unmounting navigation on a focused surface.
+   */
+  const activeWorkspace = resolveShellSurface(pathname).workspace;
+  const shownWorkspace = getWorkspace(selected ?? resolveActiveWorkspace(pathname));
 
   return (
     <div className="md:hidden">

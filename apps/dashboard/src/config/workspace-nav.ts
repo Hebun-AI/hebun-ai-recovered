@@ -263,7 +263,99 @@ export const HEBY = {
   label: "Heby",
   href: "/heby",
   icon: Sparkles,
+  /*
+   * Heby's own one-line identity, in the shape the seven workspaces use, so the shell has something
+   * TRUE to say on `/heby` instead of borrowing Command's sentence. Both halves come from published
+   * documents: "Executive Intelligence Interface" is `docs/product-vision/heby-vision.md`, and
+   * "never an eighth sidebar item" is the Navigation Architecture. It names an identity; it creates
+   * no workspace, and nothing below ever puts it in `WORKSPACES`.
+   */
+  tagline: "Executive intelligence interface — ambient, and never one of the seven workspaces.",
 } as const;
+
+/**
+ * What the shell may say about the surface a pathname names.
+ *
+ * `workspace` is `null` for everything that is NOT one of the seven — which is the whole point.
+ * `resolveActiveWorkspace` below cannot express that: its return type is `WorkspaceId`, so its
+ * only possible answer for a non-workspace surface is a workspace, and the answer it gave was
+ * `"command"`. Measured in the authenticated product before this existed, on `/heby`:
+ *
+ *     topbar title    "Command"
+ *     topbar tagline  "Executive operating surface — situational overview and the human decision."
+ *     rail            Command carried `aria-current="page"`
+ *
+ * That is the shell asserting, in the product's own chrome and in the accessibility tree, that the
+ * operator is somewhere they are not. It is a truth defect, not a cosmetic one.
+ */
+export type ShellSurfaceKind = "workspace" | "ambient" | "unassigned";
+
+export interface ShellSurface {
+  readonly kind: ShellSurfaceKind;
+  readonly label: string;
+  /** Absent when nothing true can be said in one line. Never a stand-in borrowed from elsewhere. */
+  readonly tagline?: string;
+  /** The workspace this surface IS — never the one it merely resembles. */
+  readonly workspace: WorkspaceId | null;
+}
+
+/**
+ * The label the shell shows for a surface that belongs to no workspace and has not been given an
+ * identity yet. It names the product and claims nothing further, which is the honest answer while
+ * the information-architecture decision is still open. `/foundation` is the only such route today.
+ */
+export const UNASSIGNED_SURFACE_LABEL = "Hebun";
+
+/**
+ * Longest-prefix workspace match, or `null` when the pathname belongs to none of the seven.
+ *
+ * This is the whole of the matching logic. `resolveActiveWorkspace` is this plus the historical
+ * `"command"` default, so the two can never disagree about what matches.
+ */
+function matchWorkspace(pathname: string): WorkspaceId | null {
+  let best: { id: WorkspaceId; length: number } | null = null;
+
+  for (const workspace of WORKSPACES) {
+    const prefixes = [
+      workspace.href,
+      ...workspace.destinations.map((d) => d.href).filter((h): h is string => Boolean(h)),
+      ...(workspace.match ?? []),
+    ];
+    for (const prefix of prefixes) {
+      const matches = pathname === prefix || pathname.startsWith(`${prefix}/`);
+      if (matches && (!best || prefix.length > best.length)) {
+        best = { id: workspace.id, length: prefix.length };
+      }
+    }
+  }
+
+  return best?.id ?? null;
+}
+
+/**
+ * Name the surface a pathname is, for the shell's identity chrome.
+ *
+ * Heby is tested FIRST and by its own constant, so its ambient standing is structural rather than
+ * a consequence of it happening to match no workspace prefix. Adding a `/heby` prefix to some
+ * workspace's `match` list later cannot silently reclassify it.
+ *
+ * An unmatched surface resolves to `unassigned` and is left there. It is NOT quietly mapped to a
+ * workspace: the information-architecture decision for `/foundation` is deferred, and a shell that
+ * guessed would make that deferral invisible.
+ */
+export function resolveShellSurface(pathname: string): ShellSurface {
+  if (pathname === HEBY.href || pathname.startsWith(`${HEBY.href}/`)) {
+    return { kind: "ambient", label: HEBY.label, tagline: HEBY.tagline, workspace: null };
+  }
+
+  const id = matchWorkspace(pathname);
+  if (id) {
+    const workspace = getWorkspace(id);
+    return { kind: "workspace", label: workspace.label, tagline: workspace.tagline, workspace: id };
+  }
+
+  return { kind: "unassigned", label: UNASSIGNED_SURFACE_LABEL, workspace: null };
+}
 
 export function getWorkspace(id: WorkspaceId): Workspace {
   const workspace = WORKSPACES.find((w) => w.id === id);
@@ -291,23 +383,14 @@ export function destinationsForRole(
  * across every workspace's landing, Level-2 hrefs, and legacy `match` prefixes.
  * Legacy deep links (e.g. /director/goals, /finance) resolve to the right
  * workspace without any route migration.
+ *
+ * THE `"command"` DEFAULT IS A NAVIGATION DEFAULT, NOT AN IDENTITY. It answers "which Level-2 list
+ * should I offer a way out through", and for a surface that belongs to no workspace, Command's list
+ * is a defensible way out — Command is the landing. It is NOT an answer to "where am I", and it was
+ * being used as one. Anything that names the current surface must call `resolveShellSurface`, which
+ * can say `null`; this function is kept, unchanged in behaviour, for the callers that genuinely
+ * want a fallback destination.
  */
 export function resolveActiveWorkspace(pathname: string): WorkspaceId {
-  let best: { id: WorkspaceId; length: number } | null = null;
-
-  for (const workspace of WORKSPACES) {
-    const prefixes = [
-      workspace.href,
-      ...workspace.destinations.map((d) => d.href).filter((h): h is string => Boolean(h)),
-      ...(workspace.match ?? []),
-    ];
-    for (const prefix of prefixes) {
-      const matches = pathname === prefix || pathname.startsWith(`${prefix}/`);
-      if (matches && (!best || prefix.length > best.length)) {
-        best = { id: workspace.id, length: prefix.length };
-      }
-    }
-  }
-
-  return best?.id ?? "command";
+  return matchWorkspace(pathname) ?? "command";
 }

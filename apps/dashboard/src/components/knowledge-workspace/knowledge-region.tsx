@@ -1,5 +1,6 @@
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RegionHeader } from "@/components/ui/region-header";
 
 /*
  * Shared chrome + honesty primitives for the Knowledge & Memory Workspace
@@ -39,27 +40,13 @@ export function KnowledgeRegion({
         className,
       )}
     >
-      <header
-        className={cn(
-          "flex items-center justify-between gap-3",
-          isCard ? "border-b border-border px-4 py-3" : "pb-2",
-        )}
-      >
-        <div className="min-w-0">
-          {eyebrow && (
-            <p className="text-label font-semibold uppercase tracking-[0.14em] text-fg-muted">{eyebrow}</p>
-          )}
-          <h2
-            className={cn(
-              "truncate font-semibold text-fg",
-              isCard ? "text-sm" : "text-meta uppercase tracking-wide text-fg-secondary",
-            )}
-          >
-            {title}
-          </h2>
-        </div>
-        {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
-      </header>
+      <RegionHeader
+        title={title}
+        eyebrow={eyebrow}
+        action={action}
+        variant={variant}
+        typeScale="stage0"
+      />
       <div className={cn("min-w-0 flex-1", isCard && "p-4")}>{children}</div>
     </section>
   );

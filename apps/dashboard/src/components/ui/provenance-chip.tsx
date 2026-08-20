@@ -101,7 +101,15 @@ export function ProvenanceChip({
       )}
     >
       <Mark className="size-3.5 shrink-0" aria-hidden="true" />
-      <span className="min-w-0 truncate">
+      {/*
+        No `truncate`. VI-1: the detail names WHICH authority answered, and it was the one thing
+        here that nothing else carried — `title` holds the KIND's meaning, and so does the
+        screen-reader sentence below. Truncated, it was recoverable by hover and by nothing else,
+        which on a touch device is not recoverable at all. Measured on /knowledge at 390px: five of
+        six chips needed 331–447px and were given 320px. It wraps instead; the row it sits on is
+        the chip's own row (see workspace-section.tsx), where height is the only thing it can cost.
+      */}
+      <span className="min-w-0">
         {spec.label}
         {detail ? <span className="font-normal"> · {detail}</span> : null}
       </span>

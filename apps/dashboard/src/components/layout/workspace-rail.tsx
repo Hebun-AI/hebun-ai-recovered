@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { resolveActiveWorkspace, workspacesForRole } from "@/config/workspace-nav";
+import { resolveShellSurface, workspacesForRole } from "@/config/workspace-nav";
 import { useRole } from "./role-context";
 import { HebyLauncher } from "./heby/heby-launcher";
 
@@ -16,7 +16,13 @@ import { HebyLauncher } from "./heby/heby-launcher";
 export function WorkspaceRail() {
   const pathname = usePathname();
   const role = useRole();
-  const active = resolveActiveWorkspace(pathname);
+  /*
+   * `aria-current="page"` is a statement of fact about where the operator is, so it is driven by
+   * the resolver that may answer "none of the seven". On `/heby` it used to mark Command — a claim
+   * the rail made both visually and in the accessibility tree. `null` marks nothing, which is what
+   * an ambient surface deserves: every workspace stays one click away, none pretends to be current.
+   */
+  const active = resolveShellSurface(pathname).workspace;
   const workspaces = workspacesForRole(role);
 
   return (
