@@ -57,7 +57,32 @@ export function WorkspaceRail() {
               aria-current={isActive ? "page" : undefined}
               title={workspace.label}
               className={cn(
-                "group relative flex w-[calc(var(--rail-w)-16px)] flex-col items-center gap-1 rounded-xl px-1 py-2 text-[0.62rem] font-semibold tracking-tight transition-colors duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring",
+                /*
+                 * VI-2 — the seven workspace names rendered at 9.92px, which is the primary
+                 * navigation of the product below the Stage 0 reading floor. They are now at the
+                 * floor, and the two extra pixels the longest of them needs come from this item's
+                 * own padding (`px-1` → `px-0.5`), never from `--rail-w` and never from the icon.
+                 *
+                 * Measured: available label width was 92 − 16 (this item's calc) − 8 (px-1) = 68px,
+                 * and "Governance" needs 68.3px at 12px with this tracking. `px-0.5` gives 72px,
+                 * clearing the widest name by 3.7px; the next widest, "Intelligence", needs 64.5px.
+                 */
+                /*
+                 * `text-xs` — 0.75rem — is EXACTLY the Stage 0 floor `--fs-label`, and it is what
+                 * this must be written as today. `text-label` was the first attempt and it is a
+                 * no-op: `@theme inline` cannot resolve `--text-label: var(--fs-label)` because
+                 * `--fs-label` lives in an imported plain stylesheet, so Tailwind emits NO rule for
+                 * `.text-label` and the element falls back to the inherited 16px. Measured in the
+                 * running product: `.text-display`, `.text-title`, `.text-body`, `.text-meta` and
+                 * `.text-label` all have no rule and all render at 16px. Worse for a shell class —
+                 * `cn()` runs tailwind-merge, which does not know `text-label` is a font size and
+                 * drops it as a colour when a `text-*` colour follows.
+                 *
+                 * Repairing the theme block would resize 165 elements across the canonical
+                 * Knowledge workspace, which is a typography change with its own geometry proof and
+                 * its own gate. VI-2 states the floor in a utility that exists.
+                 */
+                "group relative flex w-[calc(var(--rail-w)-16px)] flex-col items-center gap-1 rounded-xl px-0.5 py-2 text-xs font-semibold tracking-tight transition-colors duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring",
                 isActive
                   ? "bg-primary-subtle text-primary"
                   : "text-fg-secondary hover:bg-surface-raised hover:text-fg",
@@ -71,7 +96,13 @@ export function WorkspaceRail() {
                 )}
               />
               <Icon className="size-5 shrink-0" />
-              <span data-rail-label="" className="max-w-full truncate leading-tight">{workspace.label}</span>
+              {/*
+                No `truncate`. A workspace name is the product's top-level navigation; shortening it
+                silently is the one thing this rail may not do. All seven fit the 72px the item now
+                gives them, and the set is closed by the seven-workspace invariant — so nothing here
+                relies on a shortening rule, and the proof suite fails if a name stops fitting.
+              */}
+              <span data-rail-label="" className="max-w-full text-center">{workspace.label}</span>
             </Link>
           );
         })}

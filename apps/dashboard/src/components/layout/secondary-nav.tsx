@@ -8,6 +8,7 @@ import {
   destinationsForRole,
   getWorkspace,
   resolveActiveWorkspace,
+  resolveShellSurface,
   type NavDestination,
   type Workspace,
 } from "@/config/workspace-nav";
@@ -47,11 +48,35 @@ export function SecondaryNavContent({
   const destinations = destinationsForRole(workspace, role);
   const activeHref = activeDestinationHref(destinations, pathname);
 
+  /*
+   * ── THIS COLUMN NAMES THE SURFACE, AND SEPARATELY NAMES WHOSE SECTIONS IT LISTS ────────────
+   *
+   * VI-1 stopped the top bar, the rail and the mobile mark from calling `/heby` "Command". It did
+   * not reach here, and this header is an identity block: it renders a name and a description at
+   * the top of the column, which reads as "where you are". On `/heby` it read "Command / Executive
+   * operating surface — situational overview and the human decision.", and the tablet trigger read
+   * "Command" — measured in the product at 768px, where focused mode does not exist and the trigger
+   * is therefore unconditionally visible.
+   *
+   * The list below is NOT wrong: an ambient surface still needs a way out, and Command's sections
+   * are that way out. So the two facts are stated as two facts. `workspace` stays the navigation
+   * fallback it always was; the heading comes from the resolver that may answer "none of the seven".
+   *
+   * Derived here rather than in each of the three consumers — this component is the one owner of
+   * the Level-2 list, and the desktop column, the tablet drawer and the mobile sheet all render it.
+   */
+  const surface = resolveShellSurface(pathname);
+  const heading =
+    surface.workspace === null
+      ? { label: surface.label, detail: `Sections of ${workspace.label}` }
+      : { label: workspace.label, detail: workspace.tagline };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-4 pb-2 pt-4">
-        <p className="text-sm font-semibold text-fg">{workspace.label}</p>
-        <p className="mt-0.5 text-xs leading-5 text-fg-muted">{workspace.tagline}</p>
+        <p className="text-sm font-semibold text-fg">{heading.label}</p>
+        {/* Never truncated, and never has been: at 224px this is where the full sentence lives. */}
+        <p className="mt-0.5 text-xs leading-5 text-fg-muted">{heading.detail}</p>
       </div>
       <nav aria-label={`${workspace.label} sections`} className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-4">
         {destinations.map((destination) => {
@@ -65,8 +90,8 @@ export function SecondaryNavContent({
                 className="flex min-h-10 cursor-not-allowed items-center gap-2.5 rounded-lg px-3 text-sm font-medium text-fg-muted"
               >
                 <Icon className="size-4 shrink-0" />
-                <span className="truncate">{destination.label}</span>
-                <span className="ml-auto text-[0.6rem] font-semibold uppercase tracking-wider">Soon</span>
+                <span className="min-w-0">{destination.label}</span>
+                <span className="ml-auto text-xs font-semibold uppercase tracking-wider">Soon</span>
               </span>
             );
           }
@@ -85,7 +110,15 @@ export function SecondaryNavContent({
               )}
             >
               <Icon className="size-4 shrink-0" />
-              <span className="truncate">{destination.label}</span>
+              {/*
+                VI-2 — a canonical navigation name may wrap; it may not be shortened. Two of the
+                thirty Level-2 labels exceed the 150px this item gives them ("Infrastructure &
+                Settings" 163.4px, "Signals & Assessments" 152.4px) and both were `truncate`d in
+                the released shell. Wrapping costs NOTHING here: `text-sm` at `leading-5` is 20px a
+                line, so two lines are exactly the 40px `min-h-10` this row already reserves, and
+                the item height does not change. The remaining twenty-eight are unaffected.
+              */}
+              <span className="min-w-0">{destination.label}</span>
               {destination.elevated && (
                 <Lock className="ml-auto size-3.5 shrink-0 text-fg-muted" aria-label="Requires elevated authority" />
               )}

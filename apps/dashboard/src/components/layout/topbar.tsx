@@ -59,12 +59,29 @@ export function TopBar() {
       </span>
       <HebyFocusControl />
 
+      {/*
+        ── THE TOP BAR NAMES THE SURFACE; IT DOES NOT DESCRIBE IT ─────────────
+        VI-2. This slot used to carry the surface tagline too, in a 208px column, `truncate`d.
+        Measured in the authenticated product: it was cut on FIVE of seven surfaces at ≥1024px
+        (Command 425px of 208, Heby 470, Intelligence 266, Platform 242, Governance 224) and on
+        three of seven at 768px. A description severed mid-clause is not a shorter description.
+
+        Widening it is not available: at 1440px there are 23px between this slot and the search
+        field, and 12px at 1024px. Only 1920px has slack, so growing the column would fix the one
+        width that was least broken. Wrapping is not available either — Command's sentence needs
+        three lines at 208px, which is 83px inside a 64px bar.
+
+        So the duplicate goes, and the ONE OWNER KEEPS IT. `SecondaryNavContent` already renders
+        the same sentence in full, wrapped, never truncated: permanently in the Level-2 column at
+        ≥1024px, and on demand from the tablet drawer and the mobile sheet below that. The full
+        text was already on screen beside this truncated copy at every desktop width.
+
+        The title stays, at every width, and is never truncated: the widest of the eight surface
+        names is "Governance" at 83.1px in a slot that is 208px at ≥1024, 245–269px at 768, and
+        110px at 390.
+      */}
       <div className="min-w-0 flex-1 lg:flex-none lg:w-52">
         <p className="truncate text-sm font-semibold text-fg">{surface.label}</p>
-        {/* No tagline is rendered where none is true. A surface with no identity yet gets silence. */}
-        {surface.tagline ? (
-          <p className="hidden truncate text-xs text-fg-muted sm:block">{surface.tagline}</p>
-        ) : null}
       </div>
 
       <div className="ml-auto hidden min-w-0 max-w-sm flex-1 items-center gap-2 rounded-lg border border-border bg-surface-sunken px-3 lg:flex">
@@ -118,7 +135,8 @@ export function TopBar() {
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-on-primary">ŞS</span>
           <span className="hidden whitespace-nowrap xl:block">
             <span className="block text-xs font-semibold text-fg">Şenol Sevim</span>
-            <span className="block text-[0.68rem] text-fg-muted">Director</span>
+            {/* VI-2: 10.88px → the 12px floor. It names the operator's role; it is not decoration. */}
+            <span className="block text-xs text-fg-muted">Director</span>
           </span>
         </button>
       </div>

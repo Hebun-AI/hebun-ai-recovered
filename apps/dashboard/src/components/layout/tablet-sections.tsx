@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ChevronDown, X } from "lucide-react";
-import { getWorkspace, resolveActiveWorkspace } from "@/config/workspace-nav";
+import { getWorkspace, resolveActiveWorkspace, resolveShellSurface } from "@/config/workspace-nav";
 import { useRole } from "./role-context";
 import { SecondaryNavContent } from "./secondary-nav";
 
@@ -19,7 +19,14 @@ export function TabletSections() {
   const pathname = usePathname();
   const role = useRole();
   const drawerRef = useRef<HTMLDivElement>(null);
+  /*
+   * `workspace` is the navigation FALLBACK — whose Level-2 list this drawer opens. `surface` is
+   * where the operator actually is, and it is what the trigger says. On `/heby` at 768px the
+   * trigger read "Command", unconditionally: focused mode is desktop-only, so nothing hid it. The
+   * drawer's own header names the workspace whose sections are listed, so both facts are stated.
+   */
   const workspace = getWorkspace(resolveActiveWorkspace(pathname));
+  const surface = resolveShellSurface(pathname);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setOpen(false), 0);
@@ -48,7 +55,7 @@ export function TabletSections() {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-fg transition-colors duration-(--dur-fast) hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
       >
-        {workspace.label}
+        {surface.label}
         <ChevronDown className="size-4 text-fg-muted" />
       </button>
 
