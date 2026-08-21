@@ -190,10 +190,20 @@ function permitIsNotExecution(overrides: Readonly<Record<string, string>> = {}):
  * ────────────────────────────────────────────────────────────────────────── */
 const SEAM_READERS = ["readPendingActionRequests", "readActionPermits"] as const;
 
-/** Exactly the two routes that own a read, plus the module that defines them. */
+/**
+ * Exactly the routes that own a read, plus the module that defines them.
+ *
+ * CMD-B1 ADDED THE THIRD ROUTE, AND THE PROPERTY IS UNCHANGED. This pin has never meant "only two
+ * surfaces may read"; it means ONE READER PER SURFACE and no second copy of the queue. `/command`
+ * now consumes the same seam the same way `/heby` does — tenant resolved once at its own route
+ * boundary, seam taken unchanged, nothing persisted — which is the architecture CMD-A chose over
+ * building a Command-side summary projection. What the pin still forbids is what it always forbade:
+ * a component, model or feature module acquiring its own reader.
+ */
 const PERMITTED_SEAM_IMPORTERS = [
   "src/app/(dashboard)/approvals/page.tsx",
   "src/app/(dashboard)/heby/page.tsx",
+  "src/app/(dashboard)/command/page.tsx",
   "src/features/action-authorization/read-action-authorizations.server.ts",
 ] as const;
 
