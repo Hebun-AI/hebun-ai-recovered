@@ -6,7 +6,7 @@ import { DecisionInspector } from "./decision-inspector";
 import { AuthorityChain } from "./authority-chain";
 import { DecisionEvidenceAndAdvisory } from "./decision-evidence-advisory";
 import { DecisionConsequencesAndGovernance } from "./decision-consequences-governance";
-import { DecisionActAndHistory } from "./decision-act-history";
+import { DecisionHistory } from "./decision-history";
 import { DecisionHandoffAndBoundary } from "./decision-handoff-boundary";
 
 /*
@@ -26,7 +26,7 @@ import { DecisionHandoffAndBoundary } from "./decision-handoff-boundary";
  *   The Human Authority Chain            — structural, from the real Heby Phase 6 contract
  *   Evidence & Provenance | Recommendation & Advisory
  *   Consequences | Governance & Authority Requirement
- *   Decision Act | Decision History
+ *   Decision History
  *   Execution Handoff + Boundary & Ownership
  *
  * WHAT CHANGED IN R3A, AND WHAT DID NOT. The `actionAuthorizations` slot carries the first REAL
@@ -37,6 +37,14 @@ import { DecisionHandoffAndBoundary } from "./decision-handoff-boundary";
  * queue for one class of decision does not license presenting the others as though it had. No
  * model call and NO EXECUTION BEHAVIOUR: authorizing issues a permit, it does not act.
  * Ambient Heby is provided by the shell.
+ *
+ * APP-0 — ONE REGION DID NOT SURVIVE THAT SENTENCE. "Every OTHER region is unchanged" was written
+ * about SOURCES, and it held for briefing, evidence, recommendation, consequence and history. It
+ * did not hold for the DECISION ACT: R3A is the act, so a region below still saying "Decision
+ * recording is not connected yet. No approve, reject, or authorize action is offered here" was
+ * denying the affordances rendered above it on the same page. The region is deleted, not reworded —
+ * it owned nothing `ActionAuthorizations` does not state better and with real data. History stays,
+ * because the absence of a chronological READ over decided records is still true.
  */
 
 export function DecisionWorkspace({
@@ -68,7 +76,7 @@ export function DecisionWorkspace({
 
       <DecisionEvidenceAndAdvisory />
       <DecisionConsequencesAndGovernance />
-      <DecisionActAndHistory />
+      <DecisionHistory />
 
       <DecisionHandoffAndBoundary />
     </div>
