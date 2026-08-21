@@ -54,10 +54,16 @@ function noRedirectLoops(): void {
 /* ── Authoritative IA intact (Phase 20B + 20C preserved) ── */
 function authoritativeIaIntact(): void {
   assert.equal(WORKSPACES.length, 7, "still exactly seven workspaces");
+  /*
+   * CMD-B2 amended this from the Phase 20B eight to the canonical three. The property Phase 20D
+   * cares about is that its redirect closure did not disturb the authoritative IA — it is the IA
+   * this file must match, not a particular count. The five removed labels keep their routes, and
+   * `retiredRoutesStillResolveToWorkspace` below still proves the redirect targets stay reachable.
+   */
   assert.deepEqual(
     getWorkspace("command").destinations.map((d) => d.label),
-    ["Overview", "Inbox", "Briefings", "Decisions", "Strategic Goals", "Organization Health", "Reports", "Director Intent"],
-    "Command 8-surface IA intact",
+    ["Overview", "Decisions", "Director Intent"],
+    "Command canonical three intact (CMD-B2)",
   );
   assert.deepEqual(
     getWorkspace("intelligence").destinations.map((d) => d.label),

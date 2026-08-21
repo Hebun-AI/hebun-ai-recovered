@@ -37,7 +37,7 @@ import {
   resetNodeStore,
 } from "../../src/features/knowledge-crud/node-adapter";
 import { runtimeProjectionRegistry } from "../../src/features/runtime-projection";
-import { WORKSPACES, getWorkspace } from "../../src/config/workspace-nav";
+import { WORKSPACES, getWorkspace, resolveActiveWorkspace } from "../../src/config/workspace-nav";
 
 const ROOT = process.cwd();
 const MODEL = "src/features/command-goals/workspace-model.ts";
@@ -261,18 +261,29 @@ function nothingElseMoved(): void {
   const writers = walk("src").filter((f) => read(f).includes('"use server"'));
   assert.equal(writers.length, USE_SERVER_MODULES, `no server-action module was added; found ${writers.join(", ")}`);
 
-  /* Command's information architecture is CMD-A's subject, not this gate's. */
+  /* Command's information architecture was CMD-A's subject, not this gate's — and CMD-B2's since.
+   *
+   * CMD-B2 removed Strategic Goals from the canonical menu while keeping `/director/goals` alive,
+   * so the nav-membership form of this check had to go. It was always a PROXY for the property
+   * CMD-0 actually owns: the goals surface still exists, still belongs to Command, and is still the
+   * place the containment applies. That is now asserted directly, which is both truer and immune to
+   * the next navigation phase.
+   */
   assert.equal(WORKSPACES.length, 7, "still seven workspaces");
   const command = getWorkspace("command");
   assert.deepEqual(
     command.destinations.map((d) => d.label),
-    ["Overview", "Inbox", "Briefings", "Decisions", "Strategic Goals", "Organization Health", "Reports", "Director Intent"],
-    "Command L2 is untouched",
+    ["Overview", "Decisions", "Director Intent"],
+    "Command L2 is the CMD-B2 canonical three",
+  );
+  assert.ok(
+    existsSync(path.join(ROOT, "src/app/(dashboard)/director/goals/page.tsx")),
+    "the goals surface this gate contains still exists",
   );
   assert.equal(
-    command.destinations.find((d) => d.label === "Strategic Goals")?.href,
-    "/director/goals",
-    "and Strategic Goals still lives where it lived",
+    resolveActiveWorkspace("/director/goals"),
+    "command",
+    "and it still lives under Command, menu entry or not",
   );
 
   /* Canonical Knowledge owns its own surface and this gate did not go near it. */

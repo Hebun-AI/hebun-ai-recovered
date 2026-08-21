@@ -24,8 +24,6 @@ import {
   ShieldCheck,
   Layers,
   Sparkles,
-  Inbox,
-  Target,
   Compass,
   type LucideIcon,
 } from "lucide-react";
@@ -88,17 +86,33 @@ export const WORKSPACES: readonly Workspace[] = [
     tagline: "Executive operating surface — situational overview and the human decision.",
     roles: ["director", "operator", "specialist", "admin"],
     match: ["/dashboard", "/director", "/approvals"],
+    /*
+     * CMD-B2 — the canonical Command L2: three destinations, and no empty promises.
+     *
+     * Phase 20B locked eight surfaces here. CMD-A then measured what those eight could actually
+     * answer for a real tenant, and CMD-B1 rebuilt the Overview on the one connected read that
+     * exists. What was left was a menu of five entries the product cannot answer: Inbox has no
+     * unified attention source, Briefings has a contract and no runtime, Strategic Goals has only a
+     * compiled-in seed (withheld from a real tenant by CMD-0), Organization Health has no domain
+     * reporting an operating state, and Reports has no engine, store or export path.
+     *
+     * A navigation menu is a statement about what matters NOW. Five rows that lead to nothing are
+     * five promises the product does not keep, made in the one place a Director looks first.
+     *
+     * SO THE FIVE LEAVE THE MENU AND KEEP THEIR ROUTES. Nothing is deleted, nothing is redirected,
+     * nothing is retired: `/command/inbox`, `/command/briefings`, `/director/goals`,
+     * `/director/organization-health` and `/director/reports` all still resolve, still render, and
+     * still belong to Command — `match` below is unchanged, so a direct link lands under Command
+     * shell identity exactly as before. They are legacy, direct-access surfaces.
+     *
+     *     A ROUTE EXISTING IS NOT THE SAME CLAIM AS A ROUTE BEING CANONICAL.
+     *
+     * The three that remain are the three Hebun can stand behind: the Overview CMD-B1 connected,
+     * the Decisions surface that holds the authority, and the intent inlet that reaches Heby.
+     */
     destinations: [
-      // Phase 20B — final Command L2 IA (Phase 20A locked): eight surfaces.
-      // Alerts merged into Inbox (D2); Command Console → Director Intent (D1);
-      // Approvals & Decisions → Decisions, navigation-only into the authoritative /approvals.
       { label: "Overview", href: "/command", icon: Gauge, purpose: "Executive cockpit and landing." },
-      { label: "Inbox", href: "/command/inbox", icon: Inbox, purpose: "Unified Director attention queue." },
-      { label: "Briefings", href: "/command/briefings", icon: Sparkles, purpose: "Executive briefing synthesis — advisory." },
       { label: "Decisions", href: "/approvals", icon: ShieldCheck, purpose: "Pending human authority — navigates to the Decisions surface.", roles: ["director"], elevated: true },
-      { label: "Strategic Goals", href: "/director/goals", icon: Target, purpose: "Where the organization is going." },
-      { label: "Organization Health", href: "/director/organization-health", icon: Activity, purpose: "Organizational operating state." },
-      { label: "Reports", href: "/director/reports", icon: BookOpen, purpose: "Formal views of organizational state." },
       { label: "Director Intent", href: "/command/intent", icon: Compass, purpose: "Express intent — Heby prepares under authority.", roles: ["director"], elevated: true },
     ],
   },

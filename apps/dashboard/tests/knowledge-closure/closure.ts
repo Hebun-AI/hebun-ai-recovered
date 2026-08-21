@@ -103,8 +103,13 @@ function ownershipClosure(): void {
   assert.equal(policies?.authoritativeOwner, "Governance", "Policy authority remains Governance");
 
   // Command Strategic Goals is the authoritative goal product; Security Center stays in Governance.
-  const command = getWorkspace("command");
-  assert.ok(command.destinations.some((d) => d.label === "Strategic Goals" && d.href === "/director/goals"), "Command owns Strategic Goals");
+  /*
+   * Ownership, asserted of the ROUTE rather than of a menu entry. CMD-B2 took Strategic Goals out of
+   * Command's canonical navigation without moving it anywhere: `/director/goals` still resolves
+   * under Command, and the registry above still names Command its authoritative owner. Menu
+   * membership was only ever a proxy for that, and it is the proxy that changed.
+   */
+  assert.equal(resolveActiveWorkspace("/director/goals"), "command", "Command owns the goals route");
   const gov = getWorkspace("governance");
   assert.ok(gov.destinations.some((d) => d.href === "/director/governance/security"), "Security Center preserved in Governance");
 }

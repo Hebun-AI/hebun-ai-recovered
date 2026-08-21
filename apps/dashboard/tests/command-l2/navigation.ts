@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import {
   WORKSPACES,
   getWorkspace,
@@ -6,11 +8,18 @@ import {
 } from "../../src/config/workspace-nav";
 
 /*
- * Hebun UI Phase 20B — Command L2 navigation contract.
+ * Hebun UI Phase 20B — Command L2 navigation contract, AMENDED BY CMD-B2.
  *
- * Verifies the locked eight-surface Command IA (Phase 20A): Alerts merged into Inbox (D2),
- * Command Console → Director Intent (D1), Approvals & Decisions → Decisions (navigation-only),
- * seven workspaces preserved, and Security Center untouched.
+ * Phase 20B locked eight surfaces here and this file was their pin. CMD-B2 reduced the canonical
+ * menu to three — Overview, Decisions, Director Intent — and kept all five removed routes alive.
+ * The Phase 20B properties that were never about the COUNT are unchanged and still asserted:
+ * Alerts stays merged (no standalone "Alerts"), Command Console stays renamed, Decisions is
+ * navigation-only into `/approvals` and is never duplicated, seven workspaces, Security Center in
+ * Governance.
+ *
+ * What this file no longer says is "eight". It says three, and it says the other five still resolve
+ * under Command — because a route existing and a route being canonical are different claims, and
+ * this file is the pin for the second one.
  */
 
 function sevenWorkspacesPreserved(): void {
@@ -22,19 +31,10 @@ function commandFinalNav(): void {
   const labels = command.destinations.map((d) => d.label);
   assert.deepEqual(
     labels,
-    [
-      "Overview",
-      "Inbox",
-      "Briefings",
-      "Decisions",
-      "Strategic Goals",
-      "Organization Health",
-      "Reports",
-      "Director Intent",
-    ],
-    "Command L2 is the locked eight-surface IA, in order",
+    ["Overview", "Decisions", "Director Intent"],
+    "Command L2 is the canonical three, in order (CMD-B2)",
   );
-  assert.equal(command.destinations.length, 8, "exactly eight Command surfaces");
+  assert.equal(command.destinations.length, 3, "exactly three canonical Command destinations");
 }
 
 function removedSurfaces(): void {
@@ -49,8 +49,7 @@ function keySurfacesPresent(): void {
   const command = getWorkspace("command");
   const byLabel = (l: string) => command.destinations.find((d) => d.label === l);
 
-  assert.equal(byLabel("Inbox")?.href, "/command/inbox", "Inbox present at /command/inbox");
-  assert.equal(byLabel("Briefings")?.href, "/command/briefings", "Briefings present");
+  assert.equal(byLabel("Overview")?.href, "/command", "Overview is the Command landing");
   assert.equal(byLabel("Director Intent")?.href, "/command/intent", "Director Intent present");
   assert.equal(
     byLabel("Decisions")?.href,
@@ -74,6 +73,29 @@ function decisionsNotDuplicated(): void {
     !command.destinations.some((d) => d.href && /decision/i.test(d.href)),
     "Command declares no second decision route",
   );
+}
+
+/*
+ * CMD-B2 — the five left the MENU, not the product. Asserted here as well as in the CMD-B2 suite,
+ * because this file is where a future phase will look for "what is Command's L2", and it must find
+ * the removal and the survival in the same place.
+ */
+function removedFromMenuButNotFromTheProduct(): void {
+  const labels = getWorkspace("command").destinations.map((d) => d.label);
+  for (const gone of ["Inbox", "Briefings", "Strategic Goals", "Organization Health", "Reports"]) {
+    assert.ok(!labels.includes(gone), `${gone} is not a canonical Command destination`);
+  }
+  for (const route of [
+    "/command/inbox",
+    "/command/briefings",
+    "/director/goals",
+    "/director/organization-health",
+    "/director/reports",
+  ]) {
+    const page = `src/app/(dashboard)${route}/page.tsx`;
+    assert.ok(existsSync(path.join(process.cwd(), page)), `${route} still exists on disk (${page})`);
+    assert.equal(resolveActiveWorkspace(route), "command", `${route} still belongs to Command`);
+  }
 }
 
 function routesResolveToCommand(): void {
@@ -108,10 +130,11 @@ function main(): void {
   commandFinalNav();
   removedSurfaces();
   keySurfacesPresent();
+  removedFromMenuButNotFromTheProduct();
   decisionsNotDuplicated();
   routesResolveToCommand();
   securityCenterPreserved();
-  console.log("command L2 navigation contract checks passed");
+  console.log("command L2 navigation contract checks passed (CMD-B2 canonical three)");
 }
 
 main();

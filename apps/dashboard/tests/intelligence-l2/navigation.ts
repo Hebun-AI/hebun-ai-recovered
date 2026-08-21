@@ -71,13 +71,18 @@ function routesResolveToIntelligence(): void {
   }
 }
 
-function commandPhase20bPreserved(): void {
+/*
+ * The point of this check is that the Intelligence phase did not reach into Command's menu. CMD-B2
+ * did — deliberately, and it is the only phase authorized to — so the expected value moved from the
+ * Phase 20B eight to the canonical three. The Alerts property is Phase 20B's and is untouched.
+ */
+function commandNavUndisturbedByIntelligence(): void {
   const command = getWorkspace("command");
   const labels = command.destinations.map((d) => d.label);
   assert.deepEqual(
     labels,
-    ["Overview", "Inbox", "Briefings", "Decisions", "Strategic Goals", "Organization Health", "Reports", "Director Intent"],
-    "Phase 20B Command IA is untouched",
+    ["Overview", "Decisions", "Director Intent"],
+    "Command canonical three is untouched by Intelligence",
   );
   assert.ok(!labels.includes("Alerts"), "Command Alerts still merged into Inbox");
 }
@@ -95,7 +100,7 @@ function main(): void {
   patternsRemoved();
   retainedSurfacesPresent();
   routesResolveToIntelligence();
-  commandPhase20bPreserved();
+  commandNavUndisturbedByIntelligence();
   securityCenterPreserved();
   console.log("intelligence L2 navigation contract checks passed");
 }

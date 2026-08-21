@@ -20,13 +20,34 @@ import type { UiRole } from "@/config/workspace-nav";
  * longest matching prefix wins. This prevents a workspace-landing destination (e.g. Overview,
  * href "/command") from co-highlighting on every sub-route ("/command/inbox"), where a more
  * specific destination ("/command/inbox") is the real active one.
+ *
+ * ── THE LANDING MATCHES EXACTLY, AND ONLY EXACTLY (CMD-B2) ───────────────────────────────────
+ *
+ * The rule above worked while every sub-route was ALSO a destination: something more specific
+ * always outranked the landing. CMD-B2 removed five Command destinations while keeping their
+ * routes, and the guard's premise went with them — measured on the real component, `/command/inbox`
+ * and `/command/briefings` both lit up **Overview**, because a legacy route is still a sub-path of
+ * `/command`. That is a false statement about where the operator is: they are not on the Overview.
+ *
+ * So the landing is matched by EQUALITY. A workspace landing is one page, not a namespace, and it
+ * is the only destination whose href is a prefix of unrelated routes. Every other destination keeps
+ * prefix matching, which is what makes `/approvals/<id>` still highlight Decisions.
+ *
+ * The honest outcome on a route that is no longer canonical is NO highlight at all — the workspace
+ * still owns it (the rail and the header say Command), and none of the three canonical destinations
+ * pretends to be the page you are on.
  */
-function activeDestinationHref(destinations: readonly NavDestination[], pathname: string): string | undefined {
+function activeDestinationHref(
+  destinations: readonly NavDestination[],
+  pathname: string,
+  landingHref: string,
+): string | undefined {
   let best: string | undefined;
   for (const destination of destinations) {
     const href = destination.href;
     if (!href) continue;
-    if (pathname === href || pathname.startsWith(`${href}/`)) {
+    const matches = href === landingHref ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+    if (matches) {
       if (best === undefined || href.length > best.length) best = href;
     }
   }
@@ -46,7 +67,7 @@ export function SecondaryNavContent({
   onNavigate?: () => void;
 }) {
   const destinations = destinationsForRole(workspace, role);
-  const activeHref = activeDestinationHref(destinations, pathname);
+  const activeHref = activeDestinationHref(destinations, pathname, workspace.href);
 
   /*
    * ── THIS COLUMN NAMES THE SURFACE, AND SEPARATELY NAMES WHOSE SECTIONS IT LISTS ────────────

@@ -85,7 +85,12 @@ function newRoutesResolveAndAreNotShadowed(): void {
 function phase20And21Preserved(): void {
   assert.equal(WORKSPACES.length, 7, "seven workspaces preserved");
   const command = getWorkspace("command");
-  assert.ok(command.destinations.some((d) => d.label === "Strategic Goals" && d.href === "/director/goals"), "Phase 20 Command intact");
+  /*
+   * CMD-B2 removed Strategic Goals from Command's canonical menu and kept its route. This check was
+   * never about the menu — it asks whether the Operations phase disturbed Command's ownership — so
+   * it now asks that directly, of the route.
+   */
+  assert.equal(resolveActiveWorkspace("/director/goals"), "command", "Command still owns /director/goals");
   assert.ok(command.destinations.some((d) => d.label === "Decisions" && d.href === "/approvals"), "Decisions → /approvals intact");
   const knowledge = getWorkspace("knowledge");
   assert.deepEqual(knowledge.destinations.map((d) => d.label), ["Overview", "Company Memory", "Knowledge Graph", "Registries"], "Phase 21 Knowledge intact");

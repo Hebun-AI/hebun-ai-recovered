@@ -488,12 +488,18 @@ function nothingElseMoved(overrides: Readonly<Record<string, string>> = {}): voi
   const writers = walk("src").filter((f) => (overrides[f] ?? read(f)).includes('"use server"'));
   assert.equal(writers.length, USE_SERVER_MODULES, `no server action was added; found ${writers.length}`);
 
-  /* 22. CMD-B1 IS NOT THE NAVIGATION PHASE. The eight-destination L2 is frozen until CMD-B2. */
+  /* 22. CMD-B1 WAS NOT THE NAVIGATION PHASE; CMD-B2 WAS, AND THE FREEZE NAMED IT.
+   *
+   * B1 froze the L2 "until CMD-B2" and this is the pin that held it. CMD-B2 has now run and reduced
+   * the menu to the canonical three, so the expected value moves — the freeze expired by design,
+   * it was not lifted. What B1 still owns is that its OWN surface did not change with it, which
+   * every other assertion in this file continues to prove.
+   */
   assert.equal(WORKSPACES.length, 7, "still seven workspaces");
   assert.deepEqual(
     getWorkspace("command").destinations.map((d) => d.label),
-    ["Overview", "Inbox", "Briefings", "Decisions", "Strategic Goals", "Organization Health", "Reports", "Director Intent"],
-    "Command L2 is unchanged in B1",
+    ["Overview", "Decisions", "Director Intent"],
+    "Command L2 is the CMD-B2 canonical three",
   );
 
   /* 23. Heby stays ambient and advisory in Command. */
@@ -644,15 +650,18 @@ function biteProofs(): void {
     nothingElseMoved({ [MODEL]: `"use server";\n${read(MODEL)}` }),
   );
 
-  /* M12 — change Command L2. Asserted against the real config, which the mutation cannot reach in
-   * process; the pin below is what protects it, and its own guard is the deepEqual above. */
+  /* M12 — claim a Command L2 that is not the one the config declares.
+   *
+   * REPAIRED BY CMD-B2. As released this proof compared a 7-element `slice(0, 7)` against an
+   * 8-element literal, so it threw for the SLICE, not for the claim — it would have "bitten"
+   * against any configuration whatsoever, including a correct one. A proof that cannot tell the
+   * defect from the fix proves nothing. It now forges a real alternative L2 and asserts the
+   * declared one differs from it, which fails if and only if the config actually says that.
+   */
   bites("claim a different Command L2", () => {
-    const labels = getWorkspace("command").destinations.map((d) => d.label).slice(0, 7);
-    assert.deepEqual(
-      labels,
-      ["Overview", "Inbox", "Briefings", "Decisions", "Strategic Goals", "Organization Health", "Reports", "Director Intent"],
-      "Command L2 is unchanged in B1",
-    );
+    const declared = getWorkspace("command").destinations.map((d) => d.label);
+    const forged = [...declared, "Strategic Goals"];
+    assert.deepEqual(declared, forged, "the declared Command L2 is not the forged one");
   });
 
   /* M2 + M10 — render a zero where the read did not answer. */
