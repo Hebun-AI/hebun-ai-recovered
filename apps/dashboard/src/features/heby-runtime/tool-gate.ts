@@ -90,7 +90,17 @@ export function invokeTool(input: ToolInvocationInput): HebyToolResult {
           { provenance: ["Navigation model (config/workspace-nav) — real product routes only."] },
         );
       }
-      return result(tool.toolId, "FAILED", "No real route matches that. Nothing was navigated.");
+      /*
+       * HEBY-NAV-0 — this sentence used to read "No real route matches that", which is a claim
+       * about the PRODUCT. Heby resolves against the canonical navigation model and knows nothing
+       * about which routes exist, so for a real-but-non-canonical path that sentence was false.
+       * What it may honestly report is its own failure to resolve, and that it substituted nothing.
+       */
+      return result(
+        tool.toolId,
+        "FAILED",
+        "Heby could not resolve that to a canonical destination, and did not substitute a different one. Nothing was navigated.",
+      );
     }
     case INSPECT_SYSTEM_STATE_TOOL_ID: {
       if (!input.overview) {
