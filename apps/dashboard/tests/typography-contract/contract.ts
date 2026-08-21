@@ -271,6 +271,104 @@ function theShellIsUnchanged(overrides: Readonly<Record<string, string>> = {}): 
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+ * 11. PERSISTENT CHROME MAY NOT WRITE ITSELF BELOW THE FLOOR (CMD-V2)
+ *
+ * ── THE CLASS THIS CLOSES ────────────────────────────────────────────────────
+ *
+ * Everything above governs the NAMED scale. An arbitrary value is invisible to it — `text-[0.6rem]`
+ * declares no step, aliases no token and compiles to a rule of its own — which is exactly how the
+ * Heby rail label shipped at 9.6px and survived every assertion in this file. It was found by
+ * measuring the authenticated product, not by reading source, and one measurement is not a guard.
+ *
+ * ── WHY THE SCOPE IS NINE FILES AND NOT `src/components/layout/**` ───────────
+ *
+ * Censused before it was written. `src/components/layout/**` holds 78 arbitrary font sizes and
+ * `src/` holds roughly 470, the great majority of them below 12px — 273 at `0.7rem` alone. A
+ * repo-wide or directory-wide ban would fail on hundreds of lines this gate is not authorized to
+ * touch, and a test that must be suppressed to pass is not a contract.
+ *
+ * So the scope is the PERSISTENT CHROME: the components `HebunShell` mounts on every route, plus
+ * the ones those mount. They are on screen for every surface in the product, which is what makes a
+ * sub-floor label there a different defect from a sub-floor label inside a panel you open. Measured
+ * across those nine files there are exactly TWO arbitrary sizes: `text-[2rem]` in the page header,
+ * which is above the floor and legitimate, and the one this gate repaired.
+ *
+ * The Heby workspace, quick panel, composer, evidence and voice families are deliberately OUT of
+ * scope. They carry ~70 sub-floor values, they are opened rather than persistent, and bringing them
+ * to the floor is a design decision with its own gate.
+ *
+ * ── WHAT IT ASSERTS ──────────────────────────────────────────────────────────
+ *
+ * The floor is READ FROM `tokens.css`, never restated here: if `--fs-label` moves, this moves with
+ * it. Only numeric `rem`/`px` arbitrary values are considered — an arbitrary colour or a
+ * `text-[color:…]` is not a font size and is not this rule's business. `text-xs` and every other
+ * Tailwind step stay legal; nothing here redefines Tailwind's typography policy.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** The components `HebunShell` mounts on every route, plus the components those mount. */
+const PERSISTENT_CHROME = [
+  "src/components/layout/workspace-rail.tsx",
+  "src/components/layout/secondary-nav.tsx",
+  "src/components/layout/topbar.tsx",
+  "src/components/layout/mobile-nav.tsx",
+  "src/components/layout/tablet-sections.tsx",
+  "src/components/layout/secondary-toggle.tsx",
+  "src/components/layout/page-header.tsx",
+  "src/components/layout/heby/heby-launcher.tsx",
+  "src/components/layout/heby/heby-focus-mode.tsx",
+] as const;
+
+/** The floor, in px, taken from the token that defines it. */
+function readingFloorPx(tokens: string): number {
+  const match = /--fs-label:\s*([\d.]+)rem/.exec(tokens);
+  assert.ok(match, "tokens.css must declare --fs-label in rem — it is the floor");
+  return Number(match![1]) * 16;
+}
+
+/** Arbitrary Tailwind font sizes in one file, as px. Non-numeric arbitrary values are not sizes. */
+function arbitrarySizesPx(source: string): { readonly raw: string; readonly px: number }[] {
+  const out: { raw: string; px: number }[] = [];
+  for (const [, value] of source.matchAll(/text-\[([^\]]+)\]/g)) {
+    const rem = /^([\d.]+)rem$/.exec(value);
+    const px = /^([\d.]+)px$/.exec(value);
+    if (rem) out.push({ raw: value, px: Number(rem[1]) * 16 });
+    else if (px) out.push({ raw: value, px: Number(px[1]) });
+  }
+  return out;
+}
+
+function theChromeHoldsTheFloor(
+  tokens: string,
+  overrides: Readonly<Record<string, string>> = {},
+): void {
+  const floor = readingFloorPx(tokens);
+  assert.equal(floor, READING_FLOOR_PX, "the token floor and the declared floor are one number");
+
+  for (const file of PERSISTENT_CHROME) {
+    /* `overrides` first, always: a check that re-reads disk inside an overridable function can
+     * never fail, which is a lesson this repository has already paid for once. */
+    const source = codeOf(overrides[file] ?? read(file));
+    for (const size of arbitrarySizesPx(source)) {
+      assert.ok(
+        size.px >= floor,
+        `${file} writes text-[${size.raw}] = ${size.px}px, below the ${floor}px reading floor`,
+      );
+    }
+  }
+
+  /* And the repaired element is at the floor by NAME, not by accident of arithmetic. */
+  const launcher = codeOf(
+    overrides["src/components/layout/heby/heby-launcher.tsx"] ??
+      read("src/components/layout/heby/heby-launcher.tsx"),
+  );
+  assert.match(
+    launcher,
+    /text-xs font-semibold uppercase tracking-wider">Heby</,
+    "the Heby rail label is written at the shell floor, with its treatment unchanged",
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
  * THE MERGE CONFIGURATION IS THE ONE OWNER
  * ────────────────────────────────────────────────────────────────────────── */
 function theMergeConfigurationIsSingular(): void {
@@ -314,6 +412,52 @@ const bites = async (label: string, run: () => Promise<void> | void): Promise<vo
 };
 
 async function biteProofs(globals: string, tokens: string): Promise<void> {
+  /* CMD-V2 · A — the released defect itself, restored. Not an imitation of it: this is the exact
+   * string that shipped, and the guard must fail on it. */
+  await bites("restore the Heby rail label to text-[0.6rem]", () => {
+    const launcher = mutate(
+      read("src/components/layout/heby/heby-launcher.tsx"),
+      'className="text-xs font-semibold uppercase tracking-wider">Heby<',
+      'className="text-[0.6rem] font-semibold uppercase tracking-wider">Heby<',
+    );
+    theChromeHoldsTheFloor(tokens, { "src/components/layout/heby/heby-launcher.tsx": launcher });
+  });
+
+  /* CMD-V2 · B — any other sub-floor arbitrary value in persistent chrome, in a different file and
+   * a different unit, so the guard is proved to be about the PROPERTY and not about one string. */
+  await bites("write a sub-floor px size into the top bar", () => {
+    const topbar = mutate(
+      read("src/components/layout/topbar.tsx"),
+      'className="',
+      'className="text-[11px] ',
+    );
+    theChromeHoldsTheFloor(tokens, { "src/components/layout/topbar.tsx": topbar });
+  });
+
+  /* CMD-V2 · C — lower the token and the floor follows it down, because the floor is READ. */
+  await bites("declare a sub-floor arbitrary size that the current token still forbids", () => {
+    const launcher = mutate(
+      read("src/components/layout/heby/heby-launcher.tsx"),
+      'className="text-xs',
+      'className="text-[0.7rem]',
+    );
+    theChromeHoldsTheFloor(tokens, { "src/components/layout/heby/heby-launcher.tsx": launcher });
+  });
+
+  /* CMD-V2 · D — THE HARNESS ITSELF. A harmless mutation must leave the guard GREEN; if this ever
+   * throws, the three proofs above prove nothing. Asserted directly, not through `bites`. */
+  {
+    const launcher = mutate(
+      read("src/components/layout/heby/heby-launcher.tsx"),
+      "export function HebyLauncher",
+      "/* harmless */\nexport function HebyLauncher",
+    );
+    theChromeHoldsTheFloor(tokens, { "src/components/layout/heby/heby-launcher.tsx": launcher });
+    /* An above-floor arbitrary size is legal and must stay legal — text-[2rem] already ships. */
+    const header = mutate(read("src/components/layout/page-header.tsx"), "text-[2rem]", "text-[2.5rem]");
+    theChromeHoldsTheFloor(tokens, { "src/components/layout/page-header.tsx": header });
+  }
+
   /* 1. Remove the compiled rule for one step. */
   await bites("remove the --text-label alias, so .text-label emits no rule", async () => {
     const broken = mutate(globals, "  --text-label: var(--fs-label);\n", "");
@@ -454,6 +598,7 @@ async function main(): Promise<void> {
   knowledgeUsesNoFallbackSize();
   thereIsExactlyOneScale(globals, tokens);
   theShellIsUnchanged();
+  theChromeHoldsTheFloor(tokens);
   theMergeConfigurationIsSingular();
   theMergeConfigurationIsSingularOn(read(UTILS));
 

@@ -280,6 +280,10 @@ left open rather than papered over.
 
 ## 16. Sub-floor leaves: 49 → 0
 
+> *This section's figure was recorded before the authenticated acceptance gate ran. It is
+> corrected by Addendum A at the end of this document: the measured result is 49 → 1. The
+> sentence below is retained as written.*
+
 Measured authenticated during the CMD-B1 review pass (see §15 for provenance and for what was not
 re-obtained).
 
@@ -401,3 +405,35 @@ cannot answer with the actual reason. The L2 audit can proceed against a surface
 | `git diff --check` | clean |
 | secret scan | 0 hits across the five touched files |
 | authenticated visual re-proof | **TOOLING-BLOCKED — see §15** |
+
+---
+
+## Addendum A — 2026-08-21 · §16 corrected by authenticated measurement
+
+**Recorded rather than glossed, and the original is retained.**
+
+§16 reports **49 → 0** sub-floor text leaves on authenticated `/command`. That figure was written
+while the authenticated re-proof was TOOLING-BLOCKED (§15), from the CMD-B1 review pass.
+
+The Command authenticated visual acceptance gate later measured the released product in the
+Director's own signed-in browser, at 1440×900, 1024×768, 768×1024 and 390×844. The measured result
+is:
+
+**49 → 1.**
+
+The surviving leaf is the **rail Heby launcher label at 9.6px** — `text-[0.6rem]` in
+`src/components/layout/heby/heby-launcher.tsx:53`. It is **shell-owned, not Command content**: it
+renders on every route in the product, and it is absent at 390×844 where the rail is not rendered
+at all, which is how it was identified.
+
+Why nothing caught it: the typography contract governs the **named** scale — `--fs-label` is the
+12px floor and every semantic step is asserted against it — and an arbitrary Tailwind value declares
+no step. `text-[0.6rem]` was invisible to every assertion in that suite.
+
+**CMD-V2 repairs it** and closes the class: the label is written at the shell floor, and the
+typography contract gains a guard over the persistent chrome — the nine components `HebunShell`
+mounts on every route — asserting that no arbitrary font size there falls below `--fs-label`, with
+the floor read from the token rather than restated.
+
+§16's own sentence stands as written. Command's content was, and remains, free of sub-floor text;
+what the "0" missed was the shell it renders inside.

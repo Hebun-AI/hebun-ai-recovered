@@ -50,7 +50,18 @@ export function HebyLauncher({ variant }: { variant: "rail" | "topbar" }) {
         )}
       >
         <Sparkles className="size-5" aria-hidden="true" />
-        <span className="text-[0.6rem] font-semibold uppercase tracking-wider">Heby</span>
+        {/*
+          CMD-V2 — `text-xs`, which is 0.75rem, which is EXACTLY `--fs-label`, the reading floor.
+          This read `text-[0.6rem]` — 9.6px — and was the one element left below the floor on the
+          authenticated product after CMD-B1 (see that closure's Addendum A). It sits forty pixels
+          under the workspace items in the same 92px column, and those are already written as
+          `text-xs` for this exact reason, so the rail was carrying two floors at once.
+
+          `text-xs` rather than `text-label`: it is what the rail's own labels use, it is Tailwind's
+          own step so `cn()`'s merge cannot mistake it for a colour, and the typography contract
+          already pins it as the rail's explicit floor.
+        */}
+        <span className="text-xs font-semibold uppercase tracking-wider">Heby</span>
       </button>
     );
   }
