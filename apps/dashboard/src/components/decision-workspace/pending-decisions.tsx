@@ -10,11 +10,17 @@ import type { PreparationKindView } from "@/features/decisions/workspace-model";
  * If a real persisted pending-decision queue existed, each item would carry only its
  * real supported fields (identity, subject, kind, authority required, status,
  * origin, consequence summary, evidence state, recommendation state, created, deadline,
- * governance requirement). NONE is fabricated here: there is no persisted approval
- * queue on this surface — the legacy projection is a mock, human-approval results are
- * simulation-derived, and the `approvals` table has no live read path here. So this
- * renders a strong, honest empty state and shows the real preparation-kind vocabulary
- * that a future connected item would be classified by (advice is never an approval).
+ * governance requirement). NONE is fabricated here: the legacy projection is a mock,
+ * human-approval results are simulation-derived, and the `approvals` table has no live
+ * read path here. So this renders a strong, honest empty state and shows the real
+ * preparation-kind vocabulary that a future connected item would be classified by
+ * (advice is never an approval).
+ *
+ * APP-1 NARROWED THE CLAIM. This said "No decision-request source is connected to this
+ * surface", which stopped being true at R3A: consequential action requests are read from
+ * the durable store and render above. THAT class is connected; the class THIS region is
+ * about — material prepared for a human review or approval process — still has no source.
+ * The sentence now says which is which instead of denying both.
  */
 
 export function PendingDecisions({ kinds }: { kinds: readonly PreparationKindView[] }) {
@@ -29,7 +35,7 @@ export function PendingDecisions({ kinds }: { kinds: readonly PreparationKindVie
       <div className="flex flex-col gap-4">
         <DecisionEmptyState
           title="No decisions are waiting for human authority"
-          detail="A pending decision is grounded material prepared for a human process — it states its consequences and always awaits the Director. No decision-request source is connected to this surface, and none is fabricated. When one is connected, each item appears here with its subject, kind, authority requirement, consequences, and evidence — reviewed before any action."
+          detail="A pending decision is grounded material prepared for a human process — it states its consequences and always awaits the Director. Consequential action requests ARE connected and appear above, under Actions Awaiting Authorization; what has no source here is prepared review and approval material, and none is fabricated. When one is connected, each item appears here with its subject, kind, authority requirement, consequences, and evidence — reviewed before any action."
         />
 
         <div>

@@ -19,9 +19,15 @@
  *     - requires consequences to be stated before any human confirmation,
  *     - and terminates every path at the Director, implying no authority of its own.
  *
- *   NO real persisted approval REQUEST, decision RECORD, briefing INSTANCE, evidence
- *   INSTANCE, recommendation INSTANCE, consequence INSTANCE, decision HISTORY, or
- *   execution HANDOFF is available to this surface:
+ *   APP-1 CORRECTION. What follows was written in Phase 14 and was true then. R3A/R3B changed
+ *   one line of it: consequential action REQUESTS are now read from the durable store by
+ *   `action-authorization`, approved and refused under a server-resolved Governance authority,
+ *   and rendered by the route — NOT by this model, which still owns none of it. Everything else
+ *   in this paragraph still holds.
+ *
+ *   No briefing INSTANCE, evidence INSTANCE, recommendation INSTANCE, consequence INSTANCE,
+ *   decision HISTORY read, or execution HANDOFF is available to this surface, and neither is a
+ *   queue of material prepared for a human review or approval process:
  *     - the legacy `/approvals` projection (getDecisionProjection) is a mock,
  *     - features/approvals/mock.ts and features/governance/approvals.ts are seeded,
  *     - human-approval results are derived from EXECUTION SIMULATION, not a persisted
@@ -32,11 +38,13 @@
  *   None of it is surfaced. Every instance region renders an honest, explained empty
  *   state, and the authority chain is presented as STRUCTURAL contract truth only.
  *
- *   No Approve / Reject / Authorize affordance exists: there is no real, safe,
- *   server-authorized decision-mutation path that persists a decision record, so the
- *   act is honestly reported as not connected. This model fabricates no decision,
- *   approval, recommendation, briefing, evidence, consequence, timestamp, deadline,
- *   approver, count, urgency, or history value, and calls no model.
+ *   THE ACT IS NO LONGER THIS MODEL'S TO DENY. Phase 14 recorded that no Approve / Reject /
+ *   Authorize affordance existed. R3A/R3B built one, on the route, over its own durable seam;
+ *   APP-0 removed the region that still denied it. This model neither offers that affordance nor
+ *   describes it — it fabricates no decision, approval, recommendation, briefing, evidence,
+ *   consequence, timestamp, deadline, approver, count, urgency, or history value, and calls no
+ *   model. It carries no connection flag: a boolean here could only ever be a second opinion
+ *   about a seam it does not read, which is exactly how the last one went stale.
  *
  * Authority: docs/product-vision/heby-vision.md, heby-architecture.md,
  * src/features/heby-core/heby-approval-types.ts (Phase 6 contracts).
@@ -179,9 +187,17 @@ export function getInspectorLenses(): readonly DecisionLensView[] {
 }
 
 /* ---------------------------------------------------------------------------
- * The assembled workspace model. Instance collections are always empty: no real
- * persisted queue, record, briefing, evidence, recommendation, consequence, or
- * history is connected, and none is fabricated.
+ * The assembled workspace model — CONTRACT VOCABULARY ONLY.
+ *
+ * APP-1 retired two fields that had no consumer and made a claim this model cannot
+ * support. `pendingDecisions: readonly never[]` was a permanently empty queue that no
+ * component ever read, standing beside a real one the route reads from the durable store.
+ * `decisionRecordingConnected: false` was a hard-coded denial of the decision act, also
+ * never read, and the exact stale-literal shape R3B has already had to repair twice.
+ *
+ * Neither was replaced by a reader. The action-authorization seam is read once, by the
+ * route, and a second reader here would be a second source of truth about the same rows.
+ * A model that owns vocabulary should state vocabulary and nothing else.
  * ------------------------------------------------------------------------- */
 
 export interface DecisionWorkspaceModel {
@@ -189,16 +205,8 @@ export interface DecisionWorkspaceModel {
   readonly decisionStates: readonly DecisionStateView[];
   readonly authorityChain: readonly AuthorityChainStep[];
   readonly inspectorLenses: readonly DecisionLensView[];
-  /** Live pending human decisions. Always empty: no persisted queue is connected. */
-  readonly pendingDecisions: readonly never[];
-  /** Recorded decision history. Always empty: no immutable decision record is connected. */
+  /** Recorded decision history. Always empty: no chronological history READ is connected. */
   readonly history: readonly never[];
-  /**
-   * Whether a real, server-authorized decision-mutation path (persisting a decision
-   * record with verified Director identity and enforced governance) is connected.
-   * Always false in this phase — the decision act is honestly not connected.
-   */
-  readonly decisionRecordingConnected: false;
 }
 
 /** Build the Decision & Approval Experience model. Pure; fabricates nothing. */
@@ -208,8 +216,6 @@ export function getDecisionWorkspaceModel(): DecisionWorkspaceModel {
     decisionStates: getDecisionStates(),
     authorityChain: getAuthorityChain(),
     inspectorLenses: getInspectorLenses(),
-    pendingDecisions: [],
     history: [],
-    decisionRecordingConnected: false,
   };
 }
