@@ -38,6 +38,20 @@ import { cn } from "@/lib/utils";
  * whole reason it may exist at all. `comfortable` is the default and is byte-identical to the
  * released rendering, so the six consumers this phase does not touch cannot move.
  *
+ * ── LAYOUT IS THE SAME BARGAIN, ONE STEP FURTHER ─────────────────────────────
+ *
+ * `layout` changes the ARRANGEMENT — whether the eyebrow sits under the mark or beside the title,
+ * and whether the description reads at body or metadata size. It changes no tone, no wording, no
+ * icon, no border treatment, no role and no aria-live either. `stack` is the default and is the
+ * released rendering byte for byte.
+ *
+ * `row` exists for the case CMD-V4 found: a section whose ordinary answer is a SUCCESSFUL EMPTY,
+ * where the block is the headline rather than a placeholder for missing content. Stacked, that
+ * answer costs a mark row, a wrapped title and six lines of body copy before a Director learns the
+ * one thing they came for. As a row it is the same five signals — mark, word, border, title,
+ * sentence — arranged so the answer arrives first. It is not a smaller truth; it is the same truth
+ * in the shape of a status line.
+ *
  * It exists because absence is not always the main event on a surface. Where a block IS the answer
  * (`/knowledge` holds no records yet) it should occupy the room the answer would have. Where it is
  * a caption over a list that carries the actual content, the same block spends a fifth of a column
@@ -147,6 +161,45 @@ const DENSITIES: Readonly<Record<StateDensity, DensitySpec>> = Object.freeze({
   },
 });
 
+/**
+ * How the block is ARRANGED. Presentation only — see the header.
+ *
+ * `stack` restates the released arrangement exactly. `row` is the executive status line: mark and
+ * eyebrow flank the title on one line, and the sentence reads beneath at metadata size.
+ *
+ * THE ONE THING THIS TABLE MAY CARRY THAT `DENSITIES` MAY NOT is a step of the Hebun type scale for
+ * the DESCRIPTION — `text-body` stacked, `text-meta` in a row — because arrangement is exactly what
+ * decides whether a sentence is the content or the caption under it. It is a step of the released
+ * scale, never a raw size, and `--fs-meta` is 13px, a pixel above CMD-V2's floor. Everything that
+ * carries MEANING — tone, word, mark, border, role, live region — stays out of here, and the suite
+ * asserts it.
+ */
+export type StateLayout = "stack" | "row";
+
+interface LayoutSpec {
+  /** Wraps mark + eyebrow + title. */
+  readonly head: string;
+  readonly title: string;
+  readonly description: string;
+  /** Whether the eyebrow renders beside the title rather than beside the mark. */
+  readonly eyebrowBesideTitle: boolean;
+}
+
+const LAYOUTS: Readonly<Record<StateLayout, LayoutSpec>> = Object.freeze({
+  stack: {
+    head: "flex items-center gap-2.5",
+    title: "text-title font-semibold text-fg text-balance",
+    description: "max-w-2xl text-body text-fg-secondary text-pretty",
+    eyebrowBesideTitle: false,
+  },
+  row: {
+    head: "flex min-w-0 w-full items-center gap-2.5",
+    title: "min-w-0 flex-1 text-title font-semibold text-fg text-balance",
+    description: "max-w-2xl text-meta leading-5 text-fg-secondary text-pretty",
+    eyebrowBesideTitle: true,
+  },
+});
+
 export interface StateBlockProps extends Omit<React.ComponentProps<"div">, "title"> {
   readonly tone?: StateTone;
   readonly title: string;
@@ -163,6 +216,11 @@ export interface StateBlockProps extends Omit<React.ComponentProps<"div">, "titl
    * `compact` is for a block that captions content rather than standing in for it.
    */
   readonly density?: StateDensity;
+  /**
+   * Arrangement, not meaning. Defaults to `stack`, which is the released rendering unchanged.
+   * `row` is the executive status line — the answer on one line, the sentence beneath it.
+   */
+  readonly layout?: StateLayout;
 }
 
 function StateBlock({
@@ -173,12 +231,14 @@ function StateBlock({
   eyebrow,
   hideEyebrow = false,
   icon,
+  layout = "stack",
   title,
   tone = "empty",
   ...props
 }: StateBlockProps) {
   const spec = TONES[tone];
   const room = DENSITIES[density];
+  const shape = LAYOUTS[layout];
   const Mark = spec.icon;
 
   return (
@@ -204,7 +264,7 @@ function StateBlock({
         whose ordinary state is absence that stacking is what pushes the actual capability off the
         screen. The mark is the tone's, and the word is the tone's; either alone identifies it.
       */}
-      <div className="flex items-center gap-2.5">
+      <div className={shape.head}>
         <span
           className={cn(
             room.mark,
@@ -215,16 +275,36 @@ function StateBlock({
         >
           {icon ?? <Mark className={room.icon} />}
         </span>
-        {hideEyebrow ? null : (
+        {/*
+          THE EYEBROW MOVES; IT NEVER LEAVES. In a row it sits at the far end of the same line, so
+          the reason-word is still on screen, still a word, still not a colour — the three things
+          CMD-B1 relies on to keep "empty" and "unavailable" from ever looking alike. `hideEyebrow`
+          remains the caller's decision in both arrangements, and Command spends it on neither of
+          the two states where the distinction lives.
+        */}
+        {shape.eyebrowBesideTitle ? (
+          <>
+            <h3 className={shape.title}>{title}</h3>
+            {hideEyebrow ? null : (
+              <p className="shrink-0 text-label font-semibold uppercase tracking-[0.14em] text-fg-muted">
+                {eyebrow ?? spec.eyebrow}
+              </p>
+            )}
+          </>
+        ) : hideEyebrow ? null : (
           <p className="text-label font-semibold uppercase tracking-[0.14em] text-fg-muted">
             {eyebrow ?? spec.eyebrow}
           </p>
         )}
       </div>
-      <div className={room.copy}>
-        <h3 className="text-title font-semibold text-fg text-balance">{title}</h3>
-        <p className="max-w-2xl text-body text-fg-secondary text-pretty">{description}</p>
-      </div>
+      {shape.eyebrowBesideTitle ? (
+        <p className={shape.description}>{description}</p>
+      ) : (
+        <div className={room.copy}>
+          <h3 className={shape.title}>{title}</h3>
+          <p className={shape.description}>{description}</p>
+        </div>
+      )}
       {action ? <div className="pt-1">{action}</div> : null}
     </div>
   );

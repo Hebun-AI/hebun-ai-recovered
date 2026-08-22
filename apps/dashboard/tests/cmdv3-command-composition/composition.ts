@@ -678,7 +678,7 @@ function biteProofs(): void {
   /* M6 — visual order overrides DOM order. */
   bites("reorder the columns visually", () =>
     readingOrderCannotVaryByWidth({
-      [OVERVIEW]: mutate(read(OVERVIEW), "xl:w-[360px] xl:shrink-0", "xl:w-[360px] xl:shrink-0 xl:order-first"),
+      [OVERVIEW]: mutate(read(OVERVIEW), "xl:w-[320px] xl:shrink-0", "xl:w-[320px] xl:shrink-0 xl:order-first"),
     }),
   );
 
@@ -692,7 +692,7 @@ function biteProofs(): void {
   /* M7 — the aside grows until it is no longer the subordinate column. */
   bites("widen the aside past the primary column", () =>
     theSplitIsJustifiedByArithmetic({
-      [OVERVIEW]: mutate(read(OVERVIEW), "xl:w-[360px]", "xl:w-[520px]"),
+      [OVERVIEW]: mutate(read(OVERVIEW), "xl:w-[320px]", "xl:w-[520px]"),
     }),
   );
 
@@ -713,7 +713,7 @@ function biteProofs(): void {
   /* M8 — a column loses the ability to shrink. */
   bites("remove min-w-0 from the aside", () =>
     everyColumnCanShrink({
-      [OVERVIEW]: mutate(read(OVERVIEW), 'className="flex min-w-0 flex-col xl:w-[360px]', 'className="flex flex-col xl:w-[360px]'),
+      [OVERVIEW]: mutate(read(OVERVIEW), 'className="flex min-w-0 flex-col xl:w-[320px]', 'className="flex flex-col xl:w-[320px]'),
     }),
   );
 
@@ -739,7 +739,7 @@ function biteProofs(): void {
 
   /* M10 — a fabricated zero enters the disclosure. */
   bites("print a zero for a capability with no source", () =>
-    noReasonSilentlyDisappears(mutate(render(EMPTY), "Six executive capabilities", "0 of 6 executive capabilities")),
+    noReasonSilentlyDisappears(mutate(render(EMPTY), "Not connected", "0 sources connected")),
   );
 
   /* M11 — the counts are promoted back to the reading-size lead. */
@@ -790,7 +790,7 @@ function biteProofs(): void {
    */
   doesNotBite("narrow the aside to another width inside the approved band", () =>
     theSplitIsJustifiedByArithmetic({
-      [OVERVIEW]: mutate(read(OVERVIEW), "xl:w-[360px]", "xl:w-[336px]"),
+      [OVERVIEW]: mutate(read(OVERVIEW), "xl:w-[320px]", "xl:w-[336px]"),
     }),
   );
 }

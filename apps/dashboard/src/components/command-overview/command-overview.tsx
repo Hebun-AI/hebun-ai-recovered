@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
 
 import { StateBlock } from "@/components/ui/state-block";
 import { WorkspaceSection } from "@/components/ui/workspace-section";
@@ -85,12 +85,19 @@ function WaitingOnYou({ state }: { state: WaitingOnYouState }) {
       {state.status === "unavailable" ? (
         /*
           THE EYEBROW STAYS ON BOTH STATES. CMD-B1 carries the empty/unavailable distinction on three
-          signals — icon, eyebrow word, border treatment — and `density` was added precisely so this
-          section could be made shorter without spending one of them. `hideEyebrow` here would buy
-          about twenty pixels with the word that tells a screen-reader user which of the two this is.
+          signals — icon, eyebrow word, border treatment — and `density` and `layout` were both added
+          precisely so this section could be made shorter without spending one of them. `hideEyebrow`
+          here would buy a few pixels with the word that tells a screen-reader user which of the two
+          this is. In `row` the word moves to the end of the title line; it does not leave.
+
+          BOTH STATES GET THE SAME ARRANGEMENT, ON PURPOSE. A reader compares them by remembering
+          what the other one looked like, so giving the successful answer a status line and the
+          unanswered read a panel would make the two differ in a way that has nothing to do with
+          which is which.
         */
         <StateBlock
           density="compact"
+          layout="row"
           tone="unavailable"
           title="Hebun could not read your authorization queue"
           description={`The durable read did not answer (${state.reason}). This is not an empty queue — Hebun does not currently know whether anything is waiting.`}
@@ -98,6 +105,7 @@ function WaitingOnYou({ state }: { state: WaitingOnYouState }) {
       ) : state.status === "none-waiting" ? (
         <StateBlock
           density="compact"
+          layout="row"
           tone="empty"
           title="Nothing is waiting for a human decision"
           description="The authorization store answered, and it holds no pending consequential action for this organization. When Heby prepares one, it appears here and is decided on Decisions."
@@ -200,30 +208,68 @@ function NotYetConnected() {
       provenanceDetail="no source is connected for any capability listed here"
     >
       <div className="flex min-w-0 flex-col gap-3">
-        <StateBlock
-          density="compact"
-          tone="unavailable"
-          hideEyebrow
-          title="Six executive capabilities have no connected source"
-          description="Each is listed with the reason it cannot be answered. None is shown as an empty result, a zero, or a placeholder figure, because Hebun does not know these facts — it is not that they are none."
-        />
         {/*
-          ONE PIXEL OF GAP OVER THE BORDER COLOUR DRAWS EVERY DIVIDER, IN BOTH AXES. `divide-y` can
-          only rule between rows, so it cannot survive becoming two columns at `md`; a per-item
-          border needs first/last and row/column special cases that go wrong the moment the count
-          changes. This is one grid whose column count is the only thing that varies.
+          THE SENTENCE SURVIVED; THE PANEL DID NOT. This was a `StateBlock` whose tone said
+          "unavailable" beside a provenance chip that already says `not-connected` and six rows that
+          now each say "Not connected" in their own summary — three statements of one fact, the
+          largest of them a box. What the block uniquely carried was this sentence, so this sentence
+          is what stayed, verbatim. Nothing here was shortened, softened, or turned into marketing.
+        */}
+        <p className="text-meta leading-5 text-fg-secondary">
+          Each is listed with the reason it cannot be answered. None is shown as an empty result, a
+          zero, or a placeholder figure, because Hebun does not know these facts — it is not that
+          they are none.
+        </p>
+        {/*
+          ── WHY `<details>`, AND WHY IT IS LAYERING RATHER THAN HIDING ───────────────────────────
 
-          TWO COLUMNS ONLY WHERE THE COLUMN IS THE FULL CANVAS. At `md` and `lg` this section spans
-          the content width, and pairing the disclosures there removes roughly a fifth of the page.
-          At `xl` it is the narrow parallel column, where a second column would leave each reason
-          about twenty characters wide — so it goes back to one. The grid is not a card deck: no
-          shadow, no radius per item, no per-item action. Six rows that happen to wrap.
+          Measured, not assumed: at 390px these six reasons were 1,180px of a 2,416px page — a
+          Director read half a screen of prose about what Hebun CANNOT do before reaching what it
+          can. CMD-V3 reported that and refused to fix it by deleting a reason, which was right; the
+          reason is the whole value of the disclosure, because "no source exists", "a contract
+          exists but no runtime does" and "the only source is a seed, so it is withheld" are three
+          different situations.
+
+          So nothing is removed. Every capability NAME and every "Not connected" marker is on screen
+          at all times, in the summary, at every width. Every reason is one keystroke away, in the
+          same document, needing no navigation and no network. That is the difference between
+          layering truth and hiding it.
+
+          NATIVE, NOT REBUILT. `<details>`/`<summary>` is a disclosure widget the browser already
+          gives keyboard operation, focus, and the expanded/collapsed state announcement. A div with
+          `onClick` would need `aria-expanded`, `aria-controls`, a tabindex, key handlers, and would
+          make this server component a client one. The native element costs none of that and this
+          surface stays server-safe.
+
+          IT IS ONLY EVER THE TERTIARY SECTION. Authoritative and derived content is never collapsed
+          — a Director may not have to click to find out whether something is waiting on them.
         */}
         <ul className="grid min-w-0 grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-2 xl:grid-cols-1">
           {UNCONNECTED_CAPABILITIES.map((row) => (
-            <li key={row.capability} className="flex min-w-0 flex-col gap-1 bg-surface p-3">
-              <span className="text-body font-medium text-fg">{row.capability}</span>
-              <p className="text-meta leading-5 text-fg-secondary">{row.reason}</p>
+            <li key={row.capability} className="min-w-0 bg-surface">
+              <details className="group min-w-0">
+                <summary className="flex min-w-0 cursor-pointer list-none items-center gap-2 p-3 transition-colors duration-(--dur-fast) hover:bg-surface-sunken focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-ring [&::-webkit-details-marker]:hidden">
+                  <ChevronRight
+                    className="size-3.5 shrink-0 text-fg-muted transition-transform duration-(--dur-fast) group-open:rotate-90"
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0 flex-1 text-body font-medium text-fg">{row.capability}</span>
+                  {/*
+                    The state marker, on the closed row, as a WORD. Not a dot, not a colour, not a
+                    tooltip — the same rule the shared state primitive follows one level up.
+                  */}
+                  <span className="shrink-0 text-meta text-fg-muted">Not connected</span>
+                </summary>
+                {/*
+                  `pl-[34px]` is arithmetic, not a guess: the summary's own left padding (`p-3`, 12px)
+                  plus the chevron (`size-3.5`, 14px) plus the gap (`gap-2`, 8px). The reason starts
+                  exactly under the capability name it belongs to, so an opened row reads as one
+                  block rather than two.
+                */}
+                <p className="px-3 pb-3 pl-[34px] text-meta leading-5 text-fg-secondary">
+                  {row.reason}
+                </p>
+              </details>
             </li>
           ))}
         </ul>
@@ -246,16 +292,22 @@ export function CommandOverview({
 
       THE SPLIT IS AT `xl`, AND THAT WAS MEASURED, NOT PREFERRED. Inside this shell the canvas is the
       viewport less `--shell-nav-w` (316px) and the `lg` gutters (64px). At 1024 that leaves 644px,
-      so a 360px aside would leave the PRIMARY column 252px — narrower than the thing it is meant to
-      dominate. At 1280 it leaves 900px and the primary column keeps 508px; at 1440, 668px. So 1024
+      so a 320px aside would leave the PRIMARY column 292px — narrower than the thing it is meant to
+      dominate. At 1280 it leaves 900px and the primary column keeps 548px; at 1440, 708px. So 1024
       stays one column because the arithmetic says so.
+
+      THE ASIDE NARROWED FROM 360px TO 320px BECAUSE ITS CONTENT DID. CMD-V3 sized this column for
+      six wrapped paragraphs; it now holds six one-line summaries, so the width that keeps them
+      readable is smaller, and every pixel it gives back goes to the primary column. 320px is the
+      floor of the approved band, not below it: a reason opened at this width still wraps at roughly
+      forty characters, which is a column, not a sliver.
     */
     <div className="flex min-w-0 flex-col gap-6 lg:gap-8 xl:flex-row xl:items-start">
       <div className="flex min-w-0 flex-1 flex-col gap-6 lg:gap-8">
         <WaitingOnYou state={waiting} />
         <ExpressIntent summary={intent} />
       </div>
-      <div className="flex min-w-0 flex-col xl:w-[360px] xl:shrink-0">
+      <div className="flex min-w-0 flex-col xl:w-[320px] xl:shrink-0">
         <NotYetConnected />
       </div>
     </div>
