@@ -135,17 +135,25 @@ export function isTerminalConnectionState(state: ConnectionState): boolean {
 }
 
 /**
- * THE STATES I1 IS CAPABLE OF PRODUCING AT RUNTIME.
+ * THE STATES THE INTEGRATION RUNTIME IS CAPABLE OF PRODUCING.
  *
- * Exactly one. `unverified` needs a stored credential, and `connected` / `expired` / `revoked` all
- * need a provider response — none of which exists in this phase. A repository that could reach
- * `connected` would be manufacturing the truth this whole subsystem exists to record.
+ * INT-1 SHIPPED WITH TWO — `draft` and `disconnected` — because `unverified` needs a stored
+ * credential and nothing could store one. INT-2 BUILT THE CREDENTIAL AUTHORITY, so `unverified` is
+ * added here DELIBERATELY, as a released-pin change rather than a drift: storing or replacing a
+ * secret moves a non-terminal connection to `unverified`, which is the honest statement that
+ * something was supplied and nothing has confirmed it.
+ *
+ * `connected`, `expired` and `revoked` REMAIN UNREACHABLE. Each needs a provider to answer, no
+ * provider verifier exists, and `verifyConnection` refuses with `no-provider-verifier` rather than
+ * inventing one. A runtime able to write `connected` would be manufacturing the exact truth this
+ * subsystem exists to record.
  *
  * `disconnected` is reachable because ending a connection needs nothing external: it is the one
  * transition a tenant can always perform, even against a provider that is down.
  */
 export const I1_PRODUCIBLE_STATES: readonly ConnectionState[] = Object.freeze([
   "draft",
+  "unverified",
   "disconnected",
 ]);
 
@@ -268,8 +276,24 @@ export type ConnectionListing =
  */
 export const NO_CREDENTIAL_AUTHORITY = "no-credential-authority" as const;
 
+/**
+ * THE SECOND TRUTHFUL REFUSAL, ADDED BY INT-2.
+ *
+ * Before INT-2, `no-credential-authority` was the whole story: there was no credential store, so
+ * nothing could be verified and that one sentence covered it.
+ *
+ * INT-2 BUILT THE STORE, WHICH MADE THAT SENTENCE FALSE for a connection that now has a secret.
+ * A credential can exist, be readable and be perfectly valid, and verification must STILL refuse —
+ * because nothing in this deployment knows how to ask this provider anything.
+ *
+ * Two different facts, two different refusals. Reusing the old one would have told a tenant their
+ * credential was missing while it sat encrypted in a row three feet away.
+ */
+export const NO_PROVIDER_VERIFIER = "no-provider-verifier" as const;
+
 export type VerificationRefusalReason =
   | typeof NO_CREDENTIAL_AUTHORITY
+  | typeof NO_PROVIDER_VERIFIER
   | "not-found"
   | "no-authorized-tenant-context"
   | "persistence-not-configured";
@@ -277,10 +301,10 @@ export type VerificationRefusalReason =
 /**
  * The verification result shape.
  *
- * The `ok: true` arm is DECLARED and UNREACHABLE in I1 — no code path constructs it, and a test
- * asserts that. Declaring it now means I2 adds a producer rather than widening a type, and it
- * means the consumer's exhaustive handling is written and reviewed before a real provider response
- * can ever arrive.
+ * The `ok: true` arm is DECLARED and STILL UNREACHABLE after INT-2 — no code path constructs it,
+ * and a test asserts that. Declaring it early means the provider phase adds a producer rather than
+ * widening a type, and that the consumer's exhaustive handling is written and reviewed before a
+ * real provider response can ever arrive.
  */
 export type VerificationOutcome =
   | {

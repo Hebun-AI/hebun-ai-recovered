@@ -430,10 +430,23 @@ function main(): void {
 
   /* ── 9. THE REPOSITORY CANNOT PRODUCE A VERIFIED STATE ───────────────────── */
   {
+    /*
+     * AMENDED BY INT-2, deliberately. INT-1 shipped with two producible states because nothing
+     * could store a credential; INT-2 built the credential authority, so `unverified` joins them.
+     *
+     * The half that has NOT moved is the half this section is about: `connected` remains
+     * unreachable, and the two INT-1 writers below still cannot write any of the four states they
+     * never could. Widening the set without re-proving that would have been the drift this pin
+     * exists to catch.
+     */
     assert.deepEqual(
       [...I1_PRODUCIBLE_STATES].sort(),
-      ["disconnected", "draft"],
-      "I1 produces exactly two states",
+      ["disconnected", "draft", "unverified"],
+      "the runtime produces exactly three states after INT-2",
+    );
+    assert.ok(
+      !I1_PRODUCIBLE_STATES.includes("connected"),
+      "and `connected` is NOT among them — a provider would have to answer for that",
     );
 
     const repository = codeOf(read("src/features/integration-authority/integration-repository.server.ts"));
@@ -567,27 +580,53 @@ function main(): void {
     }
   }
 
-  /* ── 13. NO CREDENTIAL SCHEMA EXISTS IN I1 ───────────────────────────────── */
+  /* ── 13. THE CONNECTION AUTHORITY HOLDS NO CREDENTIAL, EVEN NOW ──────────── */
   {
-    const schemaFiles = collect("src/db/schema");
-    for (const file of schemaFiles) {
-      const code = codeOf(read(file));
+    /*
+     * AMENDED BY INT-2. This section used to assert that the credential schema, the encryption
+     * boundary and the credential repository DID NOT EXIST. INT-2 built all three, so those three
+     * assertions had to be replaced rather than deleted — and what replaces them is the half that
+     * was actually load-bearing: the CONNECTION authority still holds no secret of any kind.
+     *
+     * A credential now exists in Hebun. It exists SOMEWHERE ELSE, and this proves it.
+     */
+    for (const owner of ["src/db/schema/integration-credential.ts", "src/features/secret-encryption", "src/features/integration-credentials"]) {
+      assert.ok(existsSync(path.join(ROOT, owner)), `INT-2's ${owner} must exist to be separate from`);
+    }
+
+    /* The `integrations` table itself still has no column that could hold secret material. */
+    const connectionSchema = codeOf(read("src/db/schema/integration.ts"));
+    for (const forbidden of ["ciphertext", "auth_tag", "authTag", "iv:", "key_id", "keyId", "secret", "token"]) {
       assert.ok(
-        !/integration_credential/.test(code),
-        `${file} must not define a credential table — that is I2`,
+        !connectionSchema.includes(forbidden),
+        `the integrations table must not carry "${forbidden}" — the credential table owns that`,
       );
     }
+
+    /* And no module of the connection authority reads the credential COLUMNS. */
+    for (const file of collect("src/features/integration-authority")) {
+      const code = codeOf(read(file));
+      for (const forbidden of ["integrationCredentials", "ciphertext", "authTag", "sealSecret", "openSecret"]) {
+        assert.ok(
+          !code.includes(forbidden),
+          `${file} must not touch credential material — found "${forbidden}"`,
+        );
+      }
+    }
+
+    /*
+     * ONE narrow seam is allowed in the other direction: the credential authority asks THIS module
+     * whether a live credential exists, and gets a BOOLEAN. Pinned so a later phase cannot widen
+     * it into a credential read without deleting this assertion.
+     */
+    const verify = codeOf(read("src/features/integration-authority/verify-connection.server.ts"));
     assert.ok(
-      !existsSync(path.join(ROOT, "src/db/schema/integration-credential.ts")),
-      "the credential schema belongs to I2",
+      /hasLiveCredential/.test(verify),
+      "verification distinguishes its two refusals by asking whether a credential exists",
     );
     assert.ok(
-      !existsSync(path.join(ROOT, "src/features/secret-encryption")),
-      "the encryption boundary belongs to I2",
-    );
-    assert.ok(
-      !existsSync(path.join(ROOT, "src/features/integration-credentials")),
-      "the credential repository belongs to I2",
+      !/withDecryptedSecret|listCredentialMetadata|storeCredential/.test(verify),
+      "and it may ask nothing else of the credential authority",
     );
   }
 

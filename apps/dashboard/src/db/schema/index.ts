@@ -27,6 +27,7 @@ export * from "./task";
 export * from "./execution";
 export * from "./registry";
 export * from "./integration";
+export * from "./integration-credential";
 export * from "./command";
 export * from "./command-audit";
 export * from "./audit-log";

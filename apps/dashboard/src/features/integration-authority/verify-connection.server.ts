@@ -50,9 +50,11 @@
  */
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { hasLiveCredential } from "@/features/integration-credentials/credential-repository.server";
 import { readConnection } from "./integration-repository.server";
 import {
   NO_CREDENTIAL_AUTHORITY,
+  NO_PROVIDER_VERIFIER,
   type ProviderCatalog,
   type VerificationOutcome,
 } from "./contracts";
@@ -71,8 +73,25 @@ function assertServerOnly(): void {
 /**
  * Verify a connection.
  *
- * ALWAYS REFUSES in I1. The `ok: true` arm of `VerificationOutcome` is declared and is not
- * constructed anywhere in this phase — a test asserts that no source file outside I2 produces it.
+ * STILL ALWAYS REFUSES — but INT-2 made it refuse for TWO different reasons, because two different
+ * facts became possible.
+ *
+ *   no-credential-authority   this connection holds no live credential. Nothing was supplied, so
+ *                             there is nothing to verify with.
+ *   no-provider-verifier      a credential IS held and could be opened, and verification still
+ *                             cannot happen: nothing in this deployment knows how to ask this
+ *                             provider anything.
+ *
+ * Before INT-2 the first reason covered everything, because no credential store existed. Keeping
+ * it for both cases afterwards would tell a tenant their credential was missing while it sat
+ * encrypted in a row three feet away.
+ *
+ * NEITHER PRODUCES `connected`. A credential existing is not verification; a credential decrypting
+ * is not verification. The `ok: true` arm of `VerificationOutcome` is declared and is constructed
+ * NOWHERE in this repository — a test walks every source file to prove it.
+ *
+ * Nothing here contacts a provider, and nothing here writes. A refusal to attempt is not a failed
+ * attempt: no state, no health and no error is recorded.
  */
 export async function verifyConnection(
   tenant: TenantContext | null,
@@ -90,8 +109,19 @@ export async function verifyConnection(
   if (!connection) return { ok: false, reason: "not-found" };
 
   /*
-   * The connection is this tenant's and it exists. There is still no credential authority in this
-   * deployment, so nothing can be verified and nothing is written.
+   * The connection is this tenant's and it exists. Which refusal is truthful now depends on
+   * whether a secret was ever supplied — a BOOLEAN is all that crosses this boundary, so asking
+   * the question cannot leak a credential, its metadata or its material into this module.
    */
-  return { ok: false, reason: NO_CREDENTIAL_AUTHORITY };
+  const credentialHeld = await hasLiveCredential(tenant, integrationId, {
+    getDb: deps.getDb,
+  });
+  if (!credentialHeld) return { ok: false, reason: NO_CREDENTIAL_AUTHORITY };
+
+  /*
+   * A credential is held. It is sealed, it is this tenant's, and it may well be perfectly valid —
+   * and verification is STILL impossible, because no provider verifier exists in this deployment.
+   * Returning `ok: true` here would be the exact false claim the whole subsystem exists to prevent.
+   */
+  return { ok: false, reason: NO_PROVIDER_VERIFIER };
 }

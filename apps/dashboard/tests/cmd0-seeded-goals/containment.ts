@@ -45,8 +45,8 @@ const COMPONENT = "src/components/command-goals/strategic-goals.tsx";
 const OWNED = [MODEL, COMPONENT] as const;
 
 /** The released migration ledger, pinned so "no schema change" is a measurement. */
-const LEDGER_COUNT = 33;
-const LEDGER_DIGEST = "5228e5430744c972";
+const LEDGER_COUNT = 34;
+const LEDGER_DIGEST = "3a6e41c7438eb88c";
 /** Every server-action module in the repository today. A new writer anywhere moves this. */
 const USE_SERVER_MODULES = 9;
 

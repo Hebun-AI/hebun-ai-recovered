@@ -534,7 +534,7 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
 /* ─────────────────────────────────────────────────────────────────────────────
  * 7 + 8 + 10 + 11 + 19. NOTHING ARCHITECTURAL MOVED
  * ────────────────────────────────────────────────────────────────────────── */
-const LEDGER_COUNT = 33;
+const LEDGER_COUNT = 34;
 const USE_SERVER_MODULES = 9;
 
 function nothingArchitecturalMoved(overrides: Readonly<Record<string, string>> = {}): void {

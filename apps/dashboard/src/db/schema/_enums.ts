@@ -245,6 +245,31 @@ export const integrationHealthEnum = pgEnum("integration_health", [
   "unreachable",
 ]);
 
+/*
+ * INT-2 — WHAT KIND OF SECRET A CREDENTIAL ROW HOLDS.
+ *
+ * Three, because three are all a first credential authority can honestly name:
+ *
+ *   oauth_access    a short-lived token obtained from an authorization grant.
+ *   oauth_refresh   the long-lived token that mints access tokens. A DIFFERENT secret with a
+ *                   DIFFERENT lifetime, which is why it is a separate row and not a field beside
+ *                   the access token — one expiring must never take the other with it.
+ *   api_key         a secret the tenant pasted in. No grant, no refresh, no expiry of its own.
+ *
+ * DELIBERATELY ABSENT: `client_secret` (that is Hebun's own application secret, deployment
+ * configuration and not a tenant's), `webhook_signing_secret` (no webhook runtime exists) and
+ * `service_account_key` (no provider requires one yet). Each would be a row nothing could write.
+ *
+ * The kind is part of the credential's IDENTITY: the partial unique index is scoped by it, so one
+ * connection may legitimately hold an access token and a refresh token at once and never two of
+ * either.
+ */
+export const integrationCredentialKindEnum = pgEnum("integration_credential_kind", [
+  "oauth_access",
+  "oauth_refresh",
+  "api_key",
+]);
+
 /** Runtime projection of a task's coarse state. Governed superset:
  *  taskLifecycleStatusEnum (Tier 2). Kept — tasks table + UI depend on it. */
 export const taskStatusEnum = pgEnum("task_status", [

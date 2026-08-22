@@ -183,7 +183,7 @@ async function main(): Promise<void> {
          * measured on the DISPOSABLE database, which carries the ledger this working tree
          * authors. Canonical and production match it only once migration 33 is applied to them,
          * which is a separate, gated act. */
-        "996c8d1846422dcce314232ee261fbbb",
+        "8b5f0d71de642f2dc27794dffca542ba",
         "…and its digest equals the canonical and production one — the ledger is not an identity",
       );
     }

@@ -253,12 +253,19 @@ async function main(): Promise<void> {
       );
     }
 
-    /* ── 6. THE STATE MACHINE: I1 CAN ONLY PRODUCE draft AND disconnected ────── */
+    /* ── 6. THE STATE MACHINE: draft, unverified AND disconnected — NEVER connected ── */
+    /*
+     * AMENDED BY INT-2: `unverified` became producible when the credential authority was built,
+     * because storing a secret is exactly the act that makes a connection unverified rather than
+     * draft. Nothing in THIS suite can reach it — the credential authority is a different module
+     * with its own tests — which is why section 6's second half still finds only `draft`.
+     */
     assert.deepEqual(
       [...I1_PRODUCIBLE_STATES].sort(),
-      ["disconnected", "draft"],
-      "the phase boundary is exactly two states",
+      ["disconnected", "draft", "unverified"],
+      "the phase boundary is exactly three states",
     );
+    assert.ok(!I1_PRODUCIBLE_STATES.includes("connected"), "`connected` still requires a provider");
 
     {
       /* NO ROW ANYWHERE reached a state I1 cannot produce. */

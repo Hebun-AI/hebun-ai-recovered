@@ -93,7 +93,7 @@ function main(): void {
     const PHASE_BOUNDARY = "20260813090642_membership_role_tenant_integrity.sql";
     assert.deepEqual(
       files.filter((name) => name > PHASE_BOUNDARY).sort(),
-      ["20260815202736_heby_answer_evidence.sql", "20260816063156_r3a_action_authorization.sql", "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql", "20260816194116_r3b_action_execution_attempts.sql", "20260817195446_r4a_tenant_provisioning_source.sql", "20260818172455_production_provenance_vocabulary.sql", "20260819133901_g6d_answer_source_evidence.sql", "20260822140116_i1_integration_connection_authority.sql"],
+      ["20260815202736_heby_answer_evidence.sql", "20260816063156_r3a_action_authorization.sql", "20260816085245_r3w_durable_work_artifacts.sql", "20260816105458_r3r_durable_recipient_authority.sql", "20260816194116_r3b_action_execution_attempts.sql", "20260817195446_r4a_tenant_provisioning_source.sql", "20260818172455_production_provenance_vocabulary.sql", "20260819133901_g6d_answer_source_evidence.sql", "20260822140116_i1_integration_connection_authority.sql", "20260822195716_int2_integration_credential_authority.sql"],
       "KR5 adds exactly one migration",
     );
     const journal = JSON.parse(read(MIGRATIONS, "meta", "_journal.json")) as {

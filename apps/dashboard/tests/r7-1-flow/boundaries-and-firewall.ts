@@ -274,7 +274,7 @@ function noPersistence(): void {
   const newer = migrations.filter((name) => name > LATEST_PRE_R71_MIGRATION);
   assert.deepEqual(
     newer,
-    ["20260818172455_production_provenance_vocabulary", "20260819133901_g6d_answer_source_evidence", "20260822140116_i1_integration_connection_authority"],
+    ["20260818172455_production_provenance_vocabulary", "20260819133901_g6d_answer_source_evidence", "20260822140116_i1_integration_connection_authority", "20260822195716_int2_integration_credential_authority"],
     "R7.1 authored no migration; what follows is a declared later phase",
   );
   for (const name of newer) {

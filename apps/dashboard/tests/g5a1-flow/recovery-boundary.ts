@@ -465,7 +465,7 @@ function noSchema(): void {
   assert.ok(files.includes(G5A1_BOUNDARY), "the migration G5A.1 inherited is intact");
   assert.deepEqual(
     files.filter((f) => f > G5A1_BOUNDARY).sort(),
-    ["20260819133901_g6d_answer_source_evidence.sql", "20260822140116_i1_integration_connection_authority.sql"],
+    ["20260819133901_g6d_answer_source_evidence.sql", "20260822140116_i1_integration_connection_authority.sql", "20260822195716_int2_integration_credential_authority.sql"],
     "G5A.1 authored no migration; what follows is a declared later phase",
   );
   /* Journal and directory agree — a relative claim, not another copy of a global total. */

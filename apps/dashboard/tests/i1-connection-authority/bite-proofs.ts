@@ -117,9 +117,16 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M5 verification claims success without a credential authority",
     file: VERIFY,
     suite: TENANT_SUITE,
-    find: "  return { ok: false, reason: NO_CREDENTIAL_AUTHORITY };",
+    /*
+     * AMENDED BY INT-2. The target is the FIRST refusal, not the last: this suite's connections
+     * hold no credential, so execution returns here and never reaches the `no-provider-verifier`
+     * branch. Mutating the unreachable one produced a mutation that applied, changed real source,
+     * and bit nothing — a false pass in the making. INT-2's own bite-proofs cover the second
+     * branch, in a suite that actually reaches it.
+     */
+    find: "  if (!credentialHeld) return { ok: false, reason: NO_CREDENTIAL_AUTHORITY };",
     replace:
-      '  return { ok: true, externalAccountId: "mutated", externalAccountLabel: "mutated", grantedScopes: [] };',
+      '  if (!credentialHeld) return { ok: true, externalAccountId: "mutated", externalAccountLabel: "mutated", grantedScopes: [] };',
     expect: "verification of one's OWN connection refuses with the missing authority",
   },
   {

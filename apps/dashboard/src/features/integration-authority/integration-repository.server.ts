@@ -474,3 +474,107 @@ export async function disconnectConnection(
     } as const;
   });
 }
+
+/* ── The credential seam (INT-2) ─────────────────────────────────────────────── */
+
+/**
+ * A transaction handle this module can compose its own predicate onto — the same technique the
+ * audit writer uses to join a caller's transaction.
+ */
+type IntegrationTransaction = Parameters<Parameters<ControlPlaneDatabase["transaction"]>[0]>[0];
+
+export type AttachCredentialResult =
+  | {
+      readonly status: "attached";
+      readonly connection: IntegrationView;
+      /** `true` when this call moved the lifecycle, `false` when it was already `unverified`. */
+      readonly transitioned: boolean;
+    }
+  | { readonly status: "refused"; readonly reason: ConnectionRefusal };
+
+/**
+ * WHAT A CREDENTIAL WRITE DOES TO A CONNECTION — and the reason it lives HERE.
+ *
+ * `integration-credentials` must never import the `integrations` table. A released firewall test
+ * asserts that exactly ONE module in this repository names it, and that single-writer property is
+ * worth more than the convenience of a second writer: two modules updating one lifecycle is how a
+ * state machine stops being one.
+ *
+ * So the credential authority calls this, inside its own transaction, and the lifecycle stays the
+ * property of the module that owns it.
+ *
+ * ── WHY IT LOCKS ─────────────────────────────────────────────────────────────
+ *
+ * `FOR UPDATE` under the tenant predicate. Two concurrent credential writes against one connection
+ * would otherwise read the same state, both decide to transition, and both write — harmless today
+ * and exactly the shape that stops being harmless when a state machine grows a third writer.
+ *
+ * ── WHY `unverified` AND NEVER `connected` ───────────────────────────────────
+ *
+ * A supplied secret is an UNPROVEN secret. Reaching `connected` requires a provider to answer, and
+ * this function neither makes nor imports a network call. `assertI1Producible` refuses anything
+ * outside the producible set, so the claim is mechanical rather than editorial.
+ */
+export async function attachCredentialToConnectionWithin(
+  tx: IntegrationTransaction,
+  tenant: TenantContext,
+  integrationId: string,
+  now: Date,
+): Promise<AttachCredentialResult> {
+  assertServerOnly();
+  if (!tenant?.tenantId) return refused("no-authorized-tenant-context");
+  if (!UUID_RE.test(integrationId)) return refused("not-found");
+
+  const [current] = await tx
+    .select(COLUMNS)
+    .from(integrations)
+    .where(ownedRow(tenant, integrationId))
+    .limit(1)
+    .for("update");
+
+  /* A foreign id and an absent id are one branch, exactly as everywhere else in this module. */
+  if (!current) return refused("not-found");
+
+  const from = current.connectionState as ConnectionState;
+  /* A terminal record takes no new secrets. Reconnecting creates a NEW connection row. */
+  if (isTerminalConnectionState(from)) return refused("illegal-transition");
+
+  const nextState: ConnectionState = "unverified";
+  if (from === nextState) {
+    return {
+      status: "attached",
+      connection: toIntegrationView(current as IntegrationRow),
+      transitioned: false,
+    } as const;
+  }
+  if (!canTransition(from, nextState) || !isI1Producible(nextState)) {
+    return refused("illegal-transition");
+  }
+
+  const [row] = await tx
+    .update(integrations)
+    .set({
+      connectionState: nextState,
+      /*
+       * Health is RESET, never asserted. A new secret says nothing about whether the provider is
+       * answering, and carrying the old observation forward would attach a stale `healthy` to a
+       * connection nobody has tried since.
+       */
+      health: "unknown",
+      /* Verification is undone by definition: the thing that was verified has been replaced. */
+      lastVerifiedAt: null,
+      updatedAt: now,
+      updatedBy: tenant.userId,
+      updatedByType: "human",
+      version: sql`${integrations.version} + 1`,
+    })
+    .where(ownedRow(tenant, integrationId))
+    .returning(COLUMNS);
+
+  if (!row) return refused("not-found");
+  return {
+    status: "attached",
+    connection: toIntegrationView(row as IntegrationRow),
+    transitioned: true,
+  } as const;
+}

@@ -205,6 +205,7 @@ function main(): void {
       "src/features/governance-audit/governance-decision-audit.server.ts",
       "src/features/governance-audit/human-onboarding-audit.server.ts",
       "src/features/governance-audit/identity-enrollment-audit.server.ts",
+      "src/features/governance-audit/integration-credential-audit.server.ts",
       "src/features/governance-audit/integration-lifecycle-audit.server.ts",
       "src/features/governance-audit/knowledge-mutation-audit.server.ts",
     ];

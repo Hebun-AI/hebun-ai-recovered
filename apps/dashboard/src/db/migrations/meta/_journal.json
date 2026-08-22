@@ -232,6 +232,13 @@
       "when": 1787407276146,
       "tag": "20260822140116_i1_integration_connection_authority",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1787428636603,
+      "tag": "20260822195716_int2_integration_credential_authority",
+      "breakpoints": true
     }
   ]
 }

@@ -56,7 +56,7 @@ try {
     // This tally is the ONE place a running total belongs: it is this file's actual subject. Other
     // phases must state "I added none of my own" without pinning a global count, or every later
     // authorized migration falsifies a claim that was never about it.
-    assert.equal(migrationCount.rows[0]?.count, "33");
+    assert.equal(migrationCount.rows[0]?.count, "34");
 
     /*
      * The rerun is about IDEMPOTENCE, not about the total, so it is compared to what the first run
