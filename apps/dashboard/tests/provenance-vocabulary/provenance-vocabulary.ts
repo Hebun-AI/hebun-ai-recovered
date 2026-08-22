@@ -286,7 +286,7 @@ async function main(): Promise<void> {
       assert.ok(tags.includes("20260818172455_production_provenance_vocabulary"), "G1 is journalled");
       assert.deepEqual(
         tags.filter((t) => t > "20260818172455_production_provenance_vocabulary"),
-        ["20260819133901_g6d_answer_source_evidence"],
+        ["20260819133901_g6d_answer_source_evidence", "20260822140116_i1_integration_connection_authority"],
         "and what follows it is a declared later phase",
       );
     }

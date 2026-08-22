@@ -571,7 +571,7 @@ function noSchema(): void {
     migrations.filter((f) => f > G4_BOUNDARY).sort(),
     [
       "20260818172455_production_provenance_vocabulary.sql",
-      "20260819133901_g6d_answer_source_evidence.sql",
+      "20260819133901_g6d_answer_source_evidence.sql", "20260822140116_i1_integration_connection_authority.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );

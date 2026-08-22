@@ -71,8 +71,8 @@ const LEGACY = [
 const DASHBOARD_ROUTE_COUNT = 127;
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
 const USE_SERVER_MODULES = 9;
-const LEDGER_COUNT = 32;
-const LEDGER_DIGEST = "a54ab468e15c816f";
+const LEDGER_COUNT = 33;
+const LEDGER_DIGEST = "5228e5430744c972";
 
 const read = (file: string): string => readFileSync(path.join(ROOT, file), "utf8");
 const codeOf = (s: string): string =>

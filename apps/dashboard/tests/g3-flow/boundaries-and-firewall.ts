@@ -122,7 +122,7 @@ function main(): void {
         "20260817195446_r4a_tenant_provisioning_source.sql",
         "20260818172455_production_provenance_vocabulary.sql",
         /* G6D generic answer-source evidence — a declared later phase, not this one's. */
-        "20260819133901_g6d_answer_source_evidence.sql",
+        "20260819133901_g6d_answer_source_evidence.sql", "20260822140116_i1_integration_connection_authority.sql",
       ],
       "G3 adds no migration — authority is derived from decisions; only Gate-B migrations for other subsystems follow G2",
     );

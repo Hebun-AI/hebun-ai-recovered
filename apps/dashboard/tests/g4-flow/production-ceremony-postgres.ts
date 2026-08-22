@@ -177,8 +177,13 @@ async function main(): Promise<void> {
       assert.equal(
         digest.rows[0]!.d,
         /* G6D: the ledger grew to 32, so the shared digest moved with the release — which is the
-         * point being made. It identifies a RELEASE, never a deployment. */
-        "ca91a1fbc555e92c94e38e105b34a2a8",
+         * point being made. It identifies a RELEASE, never a deployment.
+         *
+         * I1: it grew to 33 and the digest moved again, for the same reason. NOTE that this is
+         * measured on the DISPOSABLE database, which carries the ledger this working tree
+         * authors. Canonical and production match it only once migration 33 is applied to them,
+         * which is a separate, gated act. */
+        "996c8d1846422dcce314232ee261fbbb",
         "…and its digest equals the canonical and production one — the ledger is not an identity",
       );
     }

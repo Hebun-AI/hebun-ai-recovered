@@ -176,6 +176,75 @@ export const integrationStatusEnum = pgEnum("integration_status", [
   "error",
 ]);
 
+/*
+ * I1 — THE TENANT CONNECTION LIFECYCLE.
+ *
+ * `integration_status` above is KEPT and is deliberately not extended, corrected or dropped. It
+ * predates any connection runtime, it conflates lifecycle with health (`syncing`, `error`), and
+ * manually-created rows may already carry one of its values. Widening it would have made the
+ * conflation permanent; dropping values is not something PostgreSQL can do at all.
+ *
+ * So this is a SECOND, NARROWER vocabulary on its own column, and the old one is left inert.
+ *
+ * Each value exists to make one specific false claim unrepresentable:
+ *
+ *   draft          a connection record exists. Nothing has been supplied for it.
+ *   unverified     a credential has been supplied and has NEVER been verified.
+ *                  => "credential exists" can never be read as "connected".
+ *   connected      a full verification succeeded: the provider was reached, an external account
+ *                  resolved, and the granted scopes covered the definition's minimum.
+ *                  => "configured" can never be read as "verified".
+ *   expired        the credential's validity ended and no refresh could restore it.
+ *   revoked        the grant ended AT THE PROVIDER. Hebun did not end it.
+ *   disconnected   the tenant ended it IN HEBUN. Terminal.
+ *
+ * `revoked` and `disconnected` are two facts, not one: a surface that cannot tell them apart tells
+ * a tenant they disconnected something a provider took away, or the reverse.
+ *
+ * DELIBERATELY ABSENT: `connecting`, `reauthorizing`, `pending_authorization` (transient
+ * in-request conditions - no row should exist mid-handshake) and `scope_reduced` (derivable from
+ * the granted scope set, and reported by the availability seam as `degraded` with a reason).
+ *
+ * WHAT THIS ENUM IS NOT. It is not health (see `integration_health` below - a provider outage must
+ * never overwrite the fact that a grant exists). It is not read/write capability (derived from
+ * granted scopes, never stored). It is not authorization: Governance owns that, and no value here
+ * permits anything.
+ */
+export const integrationConnectionStateEnum = pgEnum("integration_connection_state", [
+  "draft",
+  "unverified",
+  "connected",
+  "expired",
+  "revoked",
+  "disconnected",
+]);
+
+/*
+ * I1 — CONNECTION HEALTH. The SECOND dimension, and the reason there are two.
+ *
+ * Lifecycle answers "does Hebun hold a live grant?" and changes only on grant events. Health
+ * answers "did the last attempt work?" and changes on every attempt.
+ *
+ * With a single dimension, a provider 503 has nowhere to be written except the lifecycle column,
+ * which would overwrite the fact that a valid grant exists - the exact `provider outage is not a
+ * user disconnect` conflation. Two dimensions make that unrepresentable rather than discouraged.
+ *
+ *   unknown      never attempted, or the last attempt predates the current credential.
+ *   healthy      the last attempt succeeded.
+ *   degraded     succeeded partially, was rate-limited, or the grant covers the minimum but not
+ *                every capability the definition maps.
+ *   unreachable  transport failure, timeout, or a provider 5xx.
+ *
+ * NO VALUE HERE MOVES THE LIFECYCLE, and no writer in I1 can set anything but `unknown`: nothing
+ * in this phase makes a provider call.
+ */
+export const integrationHealthEnum = pgEnum("integration_health", [
+  "unknown",
+  "healthy",
+  "degraded",
+  "unreachable",
+]);
+
 /** Runtime projection of a task's coarse state. Governed superset:
  *  taskLifecycleStatusEnum (Tier 2). Kept — tasks table + UI depend on it. */
 export const taskStatusEnum = pgEnum("task_status", [

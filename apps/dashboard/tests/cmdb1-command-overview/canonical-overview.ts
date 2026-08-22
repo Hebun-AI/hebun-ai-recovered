@@ -61,8 +61,8 @@ const RETIRED = [
   "src/components/command-center/context-strip.tsx",
 ] as const;
 
-const LEDGER_COUNT = 32;
-const LEDGER_DIGEST = "a54ab468e15c816f";
+const LEDGER_COUNT = 33;
+const LEDGER_DIGEST = "5228e5430744c972";
 const USE_SERVER_MODULES = 9;
 
 const read = (file: string): string => readFileSync(path.join(ROOT, file), "utf8");

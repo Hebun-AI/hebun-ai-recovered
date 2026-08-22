@@ -225,6 +225,13 @@
       "when": 1787146741536,
       "tag": "20260819133901_g6d_answer_source_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1787407276146,
+      "tag": "20260822140116_i1_integration_connection_authority",
+      "breakpoints": true
     }
   ]
 }
