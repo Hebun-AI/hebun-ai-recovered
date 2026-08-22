@@ -31,6 +31,19 @@ import { cn } from "@/lib/utils";
  * The distinction is carried by ICON + EYEBROW WORD + BORDER TREATMENT, never by colour alone, so
  * it survives greyscale, colour-blindness and a screen reader.
  *
+ * ── DENSITY IS PRESENTATION, AND ONLY PRESENTATION ───────────────────────────
+ *
+ * `density` changes padding, gap and mark size. It changes NO tone, NO wording, NO icon, NO border
+ * treatment, NO role and NO aria-live — every signal above survives it untouched, which is the
+ * whole reason it may exist at all. `comfortable` is the default and is byte-identical to the
+ * released rendering, so the six consumers this phase does not touch cannot move.
+ *
+ * It exists because absence is not always the main event on a surface. Where a block IS the answer
+ * (`/knowledge` holds no records yet) it should occupy the room the answer would have. Where it is
+ * a caption over a list that carries the actual content, the same block spends a fifth of a column
+ * saying something the list is about to say six more times. `compact` is for the second case, and
+ * it is a size, not a lesser truth: the same tone, the same words, the same mark.
+ *
  * ── ITS RELATIONSHIP TO `EmptyState` ─────────────────────────────────────────
  *
  * `ui/empty-state.tsx` is the released predecessor and is left EXACTLY as it is. It has six
@@ -96,6 +109,44 @@ const TONES: Readonly<Record<StateTone, ToneSpec>> = Object.freeze({
   },
 });
 
+/**
+ * How much room the block takes. Presentation only — see the header.
+ *
+ * `comfortable` restates the released classes EXACTLY, so the default path renders what it always
+ * rendered rather than something that merely looks similar.
+ */
+export type StateDensity = "comfortable" | "compact";
+
+interface DensitySpec {
+  readonly container: string;
+  readonly mark: string;
+  readonly icon: string;
+  readonly copy: string;
+}
+
+const DENSITIES: Readonly<Record<StateDensity, DensitySpec>> = Object.freeze({
+  /*
+   * THESE ARE THE RELEASED LITERALS, IN THE RELEASED ORDER, ON PURPOSE. Composing them out of a
+   * shared base plus a density fragment produced the same class SET in a different ORDER — which
+   * renders identically, and is still a worse guarantee than the one available for free. Written
+   * out whole, the default path emits the released markup byte for byte, and the test that proves
+   * it compares strings rather than reasoning about the cascade.
+   */
+  comfortable: {
+    container: "flex flex-col items-start gap-2.5 rounded-xl border p-5 text-left sm:p-6",
+    mark: "flex size-8 items-center justify-center rounded-lg",
+    icon: "size-4",
+    copy: "flex flex-col gap-1.5",
+  },
+  /* One step down on every axis of ROOM, and no step down on any axis of MEANING. */
+  compact: {
+    container: "flex flex-col items-start gap-2 rounded-xl border p-4 text-left",
+    mark: "flex size-7 items-center justify-center rounded-md",
+    icon: "size-3.5",
+    copy: "flex flex-col gap-1",
+  },
+});
+
 export interface StateBlockProps extends Omit<React.ComponentProps<"div">, "title"> {
   readonly tone?: StateTone;
   readonly title: string;
@@ -107,11 +158,17 @@ export interface StateBlockProps extends Omit<React.ComponentProps<"div">, "titl
   readonly icon?: React.ReactNode;
   /** Renders without the eyebrow row. Used where the surrounding card already names the reason. */
   readonly hideEyebrow?: boolean;
+  /**
+   * Room, not meaning. Defaults to `comfortable`, which is the released rendering unchanged.
+   * `compact` is for a block that captions content rather than standing in for it.
+   */
+  readonly density?: StateDensity;
 }
 
 function StateBlock({
   action,
   className,
+  density = "comfortable",
   description,
   eyebrow,
   hideEyebrow = false,
@@ -121,6 +178,7 @@ function StateBlock({
   ...props
 }: StateBlockProps) {
   const spec = TONES[tone];
+  const room = DENSITIES[density];
   const Mark = spec.icon;
 
   return (
@@ -135,7 +193,7 @@ function StateBlock({
          * on a workspace where absence is the normal state that is how the way in ends up below the
          * fold. It is as tall as its own words.
          */
-        "flex flex-col items-start gap-2.5 rounded-xl border p-5 text-left sm:p-6",
+        room.container,
         spec.container,
         className,
       )}
@@ -149,13 +207,13 @@ function StateBlock({
       <div className="flex items-center gap-2.5">
         <span
           className={cn(
-            "flex size-8 items-center justify-center rounded-lg",
+            room.mark,
             spec.badge,
             tone === "loading" && "motion-safe:animate-pulse",
           )}
           aria-hidden="true"
         >
-          {icon ?? <Mark className="size-4" />}
+          {icon ?? <Mark className={room.icon} />}
         </span>
         {hideEyebrow ? null : (
           <p className="text-label font-semibold uppercase tracking-[0.14em] text-fg-muted">
@@ -163,7 +221,7 @@ function StateBlock({
           </p>
         )}
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className={room.copy}>
         <h3 className="text-title font-semibold text-fg text-balance">{title}</h3>
         <p className="max-w-2xl text-body text-fg-secondary text-pretty">{description}</p>
       </div>

@@ -11,7 +11,8 @@ import {
 } from "@/features/command-overview/workspace-model";
 
 /*
- * The canonical Command Overview (CMD-B1) — three sections, and nothing else.
+ * The canonical Command Overview (CMD-B1), composed for a Director (CMD-V3) — three sections, and
+ * nothing else.
  *
  * ── WHY THIS IS THIN ─────────────────────────────────────────────────────────
  *
@@ -35,8 +36,30 @@ import {
  * Provenance is not decoration here: `WorkspaceSection` makes it a required field, so a section
  * cannot be added to this page without answering where its content came from.
  *
+ * ── THE COMPOSITION, AND WHY IT IS NOT A RANKING OF IMPORTANCE ───────────────
+ *
+ * CMD-V3 gives the three sections three different visual weights, and the ordering is the AUTHORITY
+ * ordering, not an editorial one. "Waiting on you" is the only tenant-scoped authoritative state on
+ * the page, so it leads. "Express intent" is derived from a registry — a doorway, not organizational
+ * state — so it follows in the same column. "Not yet connected" is a disclosure of what Hebun cannot
+ * answer: it must stay visible and complete, and it must not be the first thing a Director's eye
+ * lands on. At `xl` it moves into a narrower parallel column; below `xl` it simply follows.
+ *
+ * DOM ORDER NEVER CHANGES. Waiting, then intent, then disclosure — in the markup, at every width. The
+ * columns are a flex direction, not a reordering, so a screen reader and a keyboard walk the page in
+ * the order the authority model puts it in.
+ *
+ * NOTHING WAS DROPPED TO GAIN THE HEIGHT. All six capabilities keep their own reason; the empty
+ * state keeps its words; the counts keep their derivation. What changed is room — `density`,
+ * a column, and a grid — never content. Where compactness and truth were actually in tension, at
+ * 390px, the measured height was reported rather than bought by hiding a reason.
+ *
  * Presentational and server-safe. It reads nothing, resolves nothing, and grants nothing.
  */
+
+/** The one link grammar this surface uses. A destination, never an act. */
+const OUTBOUND =
+  "inline-flex w-fit items-center gap-1 text-meta font-medium text-primary transition-colors duration-(--dur-fast) hover:text-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring";
 
 function ordinaryDate(iso: string): string {
   /* Deterministic and locale-free: a timestamp is evidence, not a greeting. */
@@ -60,13 +83,21 @@ function WaitingOnYou({ state }: { state: WaitingOnYouState }) {
       }
     >
       {state.status === "unavailable" ? (
+        /*
+          THE EYEBROW STAYS ON BOTH STATES. CMD-B1 carries the empty/unavailable distinction on three
+          signals — icon, eyebrow word, border treatment — and `density` was added precisely so this
+          section could be made shorter without spending one of them. `hideEyebrow` here would buy
+          about twenty pixels with the word that tells a screen-reader user which of the two this is.
+        */
         <StateBlock
+          density="compact"
           tone="unavailable"
           title="Hebun could not read your authorization queue"
           description={`The durable read did not answer (${state.reason}). This is not an empty queue — Hebun does not currently know whether anything is waiting.`}
         />
       ) : state.status === "none-waiting" ? (
         <StateBlock
+          density="compact"
           tone="empty"
           title="Nothing is waiting for a human decision"
           description="The authorization store answered, and it holds no pending consequential action for this organization. When Heby prepares one, it appears here and is decided on Decisions."
@@ -106,10 +137,7 @@ function WaitingOnYou({ state }: { state: WaitingOnYouState }) {
         Authorizing, refusing or revoking happens on Decisions, under Governance authority. Command
         neither holds that authority nor checks it.
       </p>
-      <Link
-        href="/approvals"
-        className="inline-flex w-fit items-center gap-1 text-meta font-medium text-primary transition-colors duration-(--dur-fast) hover:text-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
-      >
+      <Link href="/approvals" className={OUTBOUND}>
         Open Decisions
         <ArrowUpRight className="size-3.5" aria-hidden="true" />
       </Link>
@@ -127,7 +155,19 @@ function ExpressIntent({ summary }: { summary: ExpressIntentSummary }) {
       provenanceDetail="counted from the declared action registry"
     >
       <div className="flex min-w-0 flex-col gap-3">
+        {/*
+          A DOORWAY LEADS WITH THE DOOR, NOT WITH THE INVENTORY. As released, the first thing this
+          section said at reading size was a count of registry entries — organizational-looking
+          weight on a number that describes a source file. The registry sentence is unchanged and
+          still here; it now reads at metadata size, below the sentence that says what the section
+          is actually for. No number was removed, rounded, or re-derived.
+        */}
         <p className="text-body leading-6 text-fg-secondary">
+          Director Intent is where you ask Hebun to investigate or prepare something. Free text never
+          reaches execution: every argument is typed, and every consequential act is gated to a human
+          on Decisions.
+        </p>
+        <p className="text-meta leading-5 text-fg-secondary">
           {summary.declared} actions are declared. {summary.invokableNow} can run now — read-only
           ones with a connected substrate. {summary.connectedMutations} consequential action has a
           substrate at all, and having one is not being armed, authorized, or executed.
@@ -139,13 +179,9 @@ function ExpressIntent({ summary }: { summary: ExpressIntentSummary }) {
         */}
         <p className="text-meta leading-5 text-fg-muted">
           Declared is not invokable. Invokable is not authorized. Authorized is not executed.
-          Executed is not successful. Free text never reaches execution: every argument is typed and
-          every consequential act is gated to a human on Decisions.
+          Executed is not successful.
         </p>
-        <Link
-          href="/command/intent"
-          className="inline-flex w-fit items-center gap-1 text-meta font-medium text-primary transition-colors duration-(--dur-fast) hover:text-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
-        >
+        <Link href="/command/intent" className={OUTBOUND}>
           Open Director Intent
           <ArrowUpRight className="size-3.5" aria-hidden="true" />
         </Link>
@@ -165,14 +201,27 @@ function NotYetConnected() {
     >
       <div className="flex min-w-0 flex-col gap-3">
         <StateBlock
+          density="compact"
           tone="unavailable"
           hideEyebrow
           title="Six executive capabilities have no connected source"
           description="Each is listed with the reason it cannot be answered. None is shown as an empty result, a zero, or a placeholder figure, because Hebun does not know these facts — it is not that they are none."
         />
-        <ul className="flex min-w-0 flex-col divide-y divide-border rounded-lg border border-border bg-surface">
+        {/*
+          ONE PIXEL OF GAP OVER THE BORDER COLOUR DRAWS EVERY DIVIDER, IN BOTH AXES. `divide-y` can
+          only rule between rows, so it cannot survive becoming two columns at `md`; a per-item
+          border needs first/last and row/column special cases that go wrong the moment the count
+          changes. This is one grid whose column count is the only thing that varies.
+
+          TWO COLUMNS ONLY WHERE THE COLUMN IS THE FULL CANVAS. At `md` and `lg` this section spans
+          the content width, and pairing the disclosures there removes roughly a fifth of the page.
+          At `xl` it is the narrow parallel column, where a second column would leave each reason
+          about twenty characters wide — so it goes back to one. The grid is not a card deck: no
+          shadow, no radius per item, no per-item action. Six rows that happen to wrap.
+        */}
+        <ul className="grid min-w-0 grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-2 xl:grid-cols-1">
           {UNCONNECTED_CAPABILITIES.map((row) => (
-            <li key={row.capability} className="flex min-w-0 flex-col gap-1 p-3">
+            <li key={row.capability} className="flex min-w-0 flex-col gap-1 bg-surface p-3">
               <span className="text-body font-medium text-fg">{row.capability}</span>
               <p className="text-meta leading-5 text-fg-secondary">{row.reason}</p>
             </li>
@@ -191,10 +240,24 @@ export function CommandOverview({
   intent: ExpressIntentSummary;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-6 lg:gap-8">
-      <WaitingOnYou state={waiting} />
-      <ExpressIntent summary={intent} />
-      <NotYetConnected />
+    /*
+      `items-start` is what makes the narrow column a column rather than a stretched panel: without
+      it the flex row equalizes heights and the shorter side grows an empty tail.
+
+      THE SPLIT IS AT `xl`, AND THAT WAS MEASURED, NOT PREFERRED. Inside this shell the canvas is the
+      viewport less `--shell-nav-w` (316px) and the `lg` gutters (64px). At 1024 that leaves 644px,
+      so a 360px aside would leave the PRIMARY column 252px — narrower than the thing it is meant to
+      dominate. At 1280 it leaves 900px and the primary column keeps 508px; at 1440, 668px. So 1024
+      stays one column because the arithmetic says so.
+    */
+    <div className="flex min-w-0 flex-col gap-6 lg:gap-8 xl:flex-row xl:items-start">
+      <div className="flex min-w-0 flex-1 flex-col gap-6 lg:gap-8">
+        <WaitingOnYou state={waiting} />
+        <ExpressIntent summary={intent} />
+      </div>
+      <div className="flex min-w-0 flex-col xl:w-[360px] xl:shrink-0">
+        <NotYetConnected />
+      </div>
     </div>
   );
 }
