@@ -4,7 +4,7 @@
  * The runtime this surface calls was already proved by I1.2 and I2. These assertions are about the
  * surface itself, and every one of them is a claim about what does NOT exist:
  *
- *   - the dashboard did not become public, and `PUBLIC_PREFIXES` was not widened for one page
+ *   - the dashboard did not become public: no `PUBLIC_PREFIXES` entry is a dashboard route
  *   - no bearer secret can arrive in, or leave through, a URL
  *   - the continuation reference never reaches the browser's JavaScript
  *   - the surface owns no authority: no schema import, no write, no second validator
@@ -15,7 +15,7 @@
  * authorities are proved by `tests/i2-flow/onboarding-postgres.ts`.
  */
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import {
   CONTINUATION_CUSTODY,
@@ -65,11 +65,26 @@ function main(): void {
   /* ── 1. ROUTE BOUNDARY: the dashboard did not become public ─────────────── */
   {
     const middleware = read("src/middleware.ts");
-    assert.match(
-      middleware,
-      /const PUBLIC_PREFIXES = \["\/login"\];/,
-      "the public prefix list must be UNCHANGED — the entry surface lives under /login on purpose",
+    /*
+     * The pin is on the CONTENT of the list. `/privacy` and `/terms` were added for the public legal notices —
+     * documents, not product surfaces. The assertion names the exact permitted set and then
+     * the property that actually matters: not one entry is a dashboard route.
+     */
+    const prefixes = middleware.match(/const PUBLIC_PREFIXES = \[([^\]]*)\];/)![1]!
+      .split(",")
+      .map((entry) => entry.trim().replace(/^"|"$/g, ""))
+      .filter((entry) => entry.length > 0);
+    assert.deepEqual(
+      prefixes,
+      ["/login", "/privacy", "/terms"],
+      "the public prefix list is closed at the sign-in flow and the public legal notices",
     );
+    for (const prefix of prefixes) {
+      assert.ok(
+        !existsSync(path.join(ROOT, `src/app/(dashboard)${prefix}`)),
+        `${prefix} must not be a dashboard route — the dashboard did not become public`,
+      );
+    }
     assert.ok(
       PAGE.startsWith("src/app/login/"),
       "the entry surface must live beneath the existing public prefix",

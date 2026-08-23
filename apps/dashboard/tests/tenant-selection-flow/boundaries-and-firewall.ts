@@ -8,7 +8,7 @@
  * Runtime behaviour lives in `selection-postgres.ts`.
  */
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import {
   PRE_TENANT_RECEIPT,
@@ -302,11 +302,27 @@ function main(): void {
   /* ── 9. ROUTE BOUNDARY: the dashboard did not become public ──────────────── */
   {
     const middleware = read("src/middleware.ts");
-    assert.match(
-      middleware,
-      /const PUBLIC_PREFIXES = \["\/login"\];/,
-      "the public prefix list must be UNCHANGED — the picker lives under /login on purpose",
+    /*
+     * The pin is on the CONTENT of the list, not on its length. `/privacy` and `/terms` were
+     * added for the public legal notices — documents, not product surfaces — so the assertion
+     * names the exact permitted set and, separately, the property that actually matters here: not
+     * one entry is a dashboard route. Widening it to any surface under `(dashboard)` still fails.
+     */
+    const prefixes = middleware.match(/const PUBLIC_PREFIXES = \[([^\]]*)\];/)![1]!
+      .split(",")
+      .map((entry) => entry.trim().replace(/^"|"$/g, ""))
+      .filter((entry) => entry.length > 0);
+    assert.deepEqual(
+      prefixes,
+      ["/login", "/privacy", "/terms"],
+      "the public prefix list is closed at the sign-in flow and the public legal notices",
     );
+    for (const prefix of prefixes) {
+      assert.ok(
+        !existsSync(path.join(ROOT, `src/app/(dashboard)${prefix}`)),
+        `${prefix} must not be a dashboard route — the dashboard did not become public`,
+      );
+    }
     assert.ok(
       PAGE.startsWith("src/app/login/"),
       "the picker must live beneath the existing public prefix",

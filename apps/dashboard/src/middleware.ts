@@ -12,7 +12,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
 
-const PUBLIC_PREFIXES = ["/login"];
+/*
+ * The paths the edge gate lets through unauthenticated.
+ *
+ * `/login` is the sign-in flow. `/privacy` and `/terms` are the public legal notices — documents
+ * a signed-out reader, and Google's OAuth review, must be able to open. None of them is a
+ * dashboard route: no surface under `(dashboard)` appears here, so no product data is reachable
+ * through this list.
+ */
+const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms"];
 
 export function middleware(request: NextRequest): NextResponse {
   if (process.env.HEBUN_AUTH_ENABLED !== "true") {

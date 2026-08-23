@@ -9,7 +9,7 @@
  * Runtime behaviour lives in `switch-postgres.ts`.
  */
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import {
   CONCURRENT_WORKSPACES,
@@ -309,11 +309,26 @@ function main(): void {
   /* ── 10. ROUTE BOUNDARY: the switcher lives INSIDE the protected dashboard ─ */
   {
     const middleware = read("src/middleware.ts");
-    assert.match(
-      middleware,
-      /const PUBLIC_PREFIXES = \["\/login"\];/,
-      "the public prefix list must be UNCHANGED",
+    /*
+     * The pin is on the CONTENT of the list. `/privacy` and `/terms` were added for the public legal notices —
+     * documents, not product surfaces. The assertion names the exact permitted set and then
+     * the property that actually matters: not one entry is a dashboard route.
+     */
+    const prefixes = middleware.match(/const PUBLIC_PREFIXES = \[([^\]]*)\];/)![1]!
+      .split(",")
+      .map((entry) => entry.trim().replace(/^"|"$/g, ""))
+      .filter((entry) => entry.length > 0);
+    assert.deepEqual(
+      prefixes,
+      ["/login", "/privacy", "/terms"],
+      "the public prefix list is closed at the sign-in flow and the public legal notices",
     );
+    for (const prefix of prefixes) {
+      assert.ok(
+        !existsSync(path.join(ROOT, `src/app/(dashboard)${prefix}`)),
+        `${prefix} must not be a dashboard route — the dashboard did not become public`,
+      );
+    }
     assert.ok(
       SURFACE.startsWith("src/app/(dashboard)/"),
       "the switcher must live beneath the authoritative dashboard gate, not beneath /login",
