@@ -163,24 +163,33 @@ async function main(): Promise<void> {
 
     /* ── 1. THE RELEASED CATALOG: NOTHING IS CONNECTABLE, AND IT SAYS SO ─────── */
     {
+      /*
+       * AMENDED BY INT-3. Through INT-1 and INT-2 the released catalog was EMPTY and this asserted
+       * `no-connectable-provider` — the honest state of a deployment with no credential store and
+       * no verifier. INT-3 built both and added `google-workspace`, so the deployment IS now
+       * catalog-ready.
+       *
+       * The half that did NOT change is the one worth keeping: Google grants identity only, maps
+       * no capability, and therefore still offers NOTHING to read. An empty capability list under
+       * `catalog-ready` is the truthful shape, and it is asserted rather than assumed.
+       */
       const view = await getCapabilityAvailability(tenant, { getDb });
       assert.equal(
         view.readiness,
-        "no-connectable-provider",
-        "against the RELEASED catalog this deployment has nothing connectable",
+        "catalog-ready",
+        "a real connectable provider exists after INT-3",
       );
-      assert.deepEqual(view.capabilities, [], "and therefore no capability to report");
-      /*
-       * The emptiness alone would read as "fine". `readiness` is what makes that impossible, so a
-       * consumer cannot treat an empty list as success.
-       */
-      assert.notEqual(view.readiness, "catalog-ready");
-      /* And the reason it is empty: the RELEASED catalog holds no definition of any kind. */
+      assert.deepEqual(
+        view.capabilities,
+        [],
+        "and it maps no capability — INT-3 requested no scope that reads anything",
+      );
       assert.equal(
         PROVIDER_CATALOG.length,
-        0,
-        "the released catalog must be EMPTY — no connectable provider and no fixture either",
+        1,
+        "exactly one released provider: the one with a real implementation behind it",
       );
+      assert.equal(PROVIDER_CATALOG[0]!.providerKey, "google-workspace");
     }
 
     /* ── 2. A FIXTURE CATALOG ENTRY REACHES NO SURFACE ───────────────────────── */

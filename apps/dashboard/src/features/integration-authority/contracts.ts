@@ -143,10 +143,17 @@ export function isTerminalConnectionState(state: ConnectionState): boolean {
  * secret moves a non-terminal connection to `unverified`, which is the honest statement that
  * something was supplied and nothing has confirmed it.
  *
- * `connected`, `expired` and `revoked` REMAIN UNREACHABLE. Each needs a provider to answer, no
- * provider verifier exists, and `verifyConnection` refuses with `no-provider-verifier` rather than
- * inventing one. A runtime able to write `connected` would be manufacturing the exact truth this
- * subsystem exists to record.
+ * INT-3 BUILT THE FIRST REAL VERIFIER, so `connected` and `expired` join them — but ONLY through
+ * `recordVerifiedConnectionWithin` / `recordVerificationFailureWithin`, and only from a real
+ * provider response. `createConnection` and `disconnectConnection` still cannot reach them, and a
+ * test proves it by reading their bodies.
+ *
+ * `revoked` REMAINS UNREACHABLE, deliberately. It means the provider explicitly ended the grant,
+ * and Google's `invalid_grant` cannot establish that: the same response covers a user revocation,
+ * a refresh token that lapsed through disuse, and a testing-mode grant that aged out. So an
+ * ambiguous refusal becomes `expired` — "the credential Hebun holds can no longer be used or
+ * restored, and re-consent is required" — which is the strongest claim the evidence supports.
+ * Writing `revoked` would put a fact in a permanent record that no provider ever stated.
  *
  * `disconnected` is reachable because ending a connection needs nothing external: it is the one
  * transition a tenant can always perform, even against a provider that is down.
@@ -154,6 +161,8 @@ export function isTerminalConnectionState(state: ConnectionState): boolean {
 export const I1_PRODUCIBLE_STATES: readonly ConnectionState[] = Object.freeze([
   "draft",
   "unverified",
+  "connected",
+  "expired",
   "disconnected",
 ]);
 

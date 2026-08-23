@@ -6,6 +6,7 @@ import { getIntegrationsModel } from "../../src/features/platform-integrations";
 import { getInfrastructureModel } from "../../src/features/platform-infrastructure";
 import { WORKSPACES, getWorkspace, resolveActiveWorkspace } from "../../src/config/workspace-nav";
 import { staticRoutes, placeholderPaths } from "../../src/config/sidebar.config";
+import { connectedFixture } from "../helpers/integration-connection-fixtures";
 
 /*
  * Provider Runtime + Integrations + Infrastructure & Settings honesty (Hebun UI Phase 24C).
@@ -45,18 +46,48 @@ function providerRuntimeIsHonest(): void {
   }
 }
 
+/*
+ * ── PIN AMENDED IN INT-3.1, AND WHY IT IS NOT A WEAKENING ───────────────────
+ *
+ * This pin used to read `provenance === "not-connected"` and `connected.length === 0`. Both were
+ * true when written — no connection authority existed — and both became FALSE CLAIMS the moment a
+ * tenant completed a real Google authorization. A pin that asserts a false product statement does
+ * not protect anything; it defends the defect.
+ *
+ * What the pin was FOR was "this surface never fabricates a connection". That property is kept and
+ * made stronger: the model is now driven by an injected authority listing, so the test can prove
+ * the surface tracks the authority IN BOTH DIRECTIONS — nothing connected renders nothing, and a
+ * connected row renders exactly that row. The old assertion could only ever prove one direction,
+ * and only while the answer was hard-coded.
+ */
 function integrationsAreHonest(): void {
-  const model = getIntegrationsModel();
-  assert.equal(model.state.provenance, "not-connected", "integrations labelled not-connected");
-  assert.equal(model.connected.length, 0, "no integration is fabricated as connected");
-  assert.ok(model.candidates.length >= 1, "integration-capable descriptors are shown");
-  for (const c of model.candidates) {
-    assert.ok(/not connected/i.test(c.connectionState), `${c.name} is not shown as connected`);
+  const EMPTY = { status: "read", connections: [] } as const;
+
+  const empty = getIntegrationsModel(EMPTY);
+  assert.equal(empty.state.provenance, "integration-authority", "connection truth names its source");
+  assert.equal(empty.state.connectedCount, 0, "nothing is fabricated as connected");
+  assert.equal(empty.connected.length, 0, "empty authority listing renders no connection");
+  assert.ok(/no integration connected/i.test(empty.state.headline), "empty listing says so plainly");
+  assert.ok(empty.candidates.length >= 1, "integration-capable descriptors are shown");
+  for (const c of empty.candidates) {
+    assert.ok(!/^connected$/i.test(c.connectionState), `${c.name} is not shown as connected`);
   }
-  const json = JSON.stringify(model);
-  assert.ok(!/\d+\s*%/.test(json), "no fabricated percentage");
-  for (const banned of ["lastSync", "eventsToday", "3m ago", "just now"]) {
-    assert.ok(!json.includes(banned), `no fabricated integration activity (${banned})`);
+
+  // The headline is DERIVED from the count, so it cannot disagree with the list beside it.
+  const one = getIntegrationsModel({
+    status: "read",
+    connections: [connectedFixture()],
+  });
+  assert.equal(one.state.connectedCount, 1, "a connected authority row is counted");
+  assert.equal(one.connected.length, 1, "a connected authority row is rendered");
+  assert.ok(!/no integration connected/i.test(one.state.headline), "the false claim cannot survive a connection");
+
+  for (const model of [empty, one]) {
+    const json = JSON.stringify(model);
+    assert.ok(!/\d+\s*%/.test(json), "no fabricated percentage");
+    for (const banned of ["lastSync", "eventsToday", "3m ago", "just now"]) {
+      assert.ok(!json.includes(banned), `no fabricated integration activity (${banned})`);
+    }
   }
 }
 
@@ -116,7 +147,18 @@ function componentsAreReadOnly(): void {
 function featuresReadRealSeamsOnly(): void {
   const allowed: Record<string, readonly string[]> = {
     "platform-runtime": ["@/features/provider-invocation", "@/features/providers/claude-live", "@/features/platform-runtime"],
-    "platform-integrations": ["@/features/provider-matrix", "@/features/platform-integrations"],
+    /*
+     * INT-3.1 adds the two seams a truthful connection surface must read: the connection
+     * authority (what is connected) and the provider-catalog definition authority (its label and
+     * its capabilities). `@/features/integration-credentials` is NOT here and must never be — a
+     * dedicated INT-3.1 test asserts its absence rather than relying on this list staying short.
+     */
+    "platform-integrations": [
+      "@/features/provider-matrix",
+      "@/features/platform-integrations",
+      "@/features/integration-authority",
+      "@/features/provider-catalog",
+    ],
     "platform-infrastructure": ["@/features/adapters", "@/features/platform-infrastructure"],
   };
   for (const [dir, prefixes] of Object.entries(allowed)) {

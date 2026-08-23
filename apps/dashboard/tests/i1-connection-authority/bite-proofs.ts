@@ -130,23 +130,28 @@ const MUTATIONS: readonly Mutation[] = [
     expect: "verification of one's OWN connection refuses with the missing authority",
   },
   {
-    label: "M6 a real vendor is listed as connectable in the RELEASED catalog",
+    /*
+     * AMENDED BY INT-3. This used to add `google-workspace` to an EMPTY catalog — impossible now
+     * that Google is legitimately there. The rule it defends is unchanged and was never "no
+     * vendor": a catalog entry must have an implementation behind it. So the mutation adds a
+     * vendor that has none.
+     */
+    label: "M6 an UNIMPLEMENTED vendor is listed as connectable in the RELEASED catalog",
     file: CATALOG,
     suite: FIREWALL_SUITE,
-    find: "export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([]);",
+    find: "export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([",
     replace:
       "export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([\n" +
       "  Object.freeze({\n" +
-      '    providerKey: "google-workspace",\n' +
-      '    label: "Google Workspace",\n' +
+      '    providerKey: "slack",\n' +
+      '    label: "Slack",\n' +
       '    authMethod: "oauth2",\n' +
-      '    accountIdentity: "workspace",\n' +
+      '    accountIdentity: "team",\n' +
       '    connectivity: "connectable",\n' +
-      '    minimumScopes: Object.freeze(["mutated.read"]),\n' +
+      "    minimumScopes: Object.freeze([]),\n" +
       "    capabilityScopes: Object.freeze({}),\n" +
-      "  }) satisfies ConnectionDefinition,\n" +
-      "]);",
-    expect: "must contain ZERO connectable providers",
+      "  }) satisfies ConnectionDefinition,",
+    expect: "exactly one connectable provider, and only because it is genuinely implemented",
   },
   {
     label: "M7 the availability seam stops requiring `connected`",

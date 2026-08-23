@@ -280,8 +280,19 @@ function main(): void {
       assert.doesNotMatch(code, /"use server"/, `${label}: is not a server action`);
       assert.doesNotMatch(code, /next\/(cache|navigation|headers)/, `${label}: is not a route`);
     }
-    const routes = collect("src/app").filter((f) => /\/route\.tsx?$/.test(f));
-    assert.deepEqual(routes, [], "R4B introduces no HTTP route handler");
+    /*
+     * AMENDED BY INT-3 — see `r4a-flow/provisioning-boundary.ts` for the reasoning. The repository
+     * now has route handlers because OAuth needs one; the claim narrows to "not this phase's".
+     */
+    const INT3_ROUTES = [
+      "src/app/api/integrations/google/callback/route.ts",
+      "src/app/api/integrations/google/start/route.ts",
+    ];
+    const routes = collect("src/app")
+      .filter((f) => /\/route\.tsx?$/.test(f))
+      .map((f) => f.replace(/\\/g, "/"))
+      .sort();
+    assert.deepEqual(routes, INT3_ROUTES, "R4B introduces no HTTP route handler of its own");
   }
 
   /* ── Heby / agent / execution firewall ───────────────────────────────────── */

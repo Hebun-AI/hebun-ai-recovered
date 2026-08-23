@@ -435,12 +435,31 @@ function main(): void {
      * boundary suites assert; it is restated here because THIS is the phase that would have been
      * tempted to break it.
      */
+    /*
+     * AMENDED BY INT-3. This asserted the repository had no route handler and no `src/app/api` at
+     * all — true when written, and false the moment a real OAuth provider arrived, because a
+     * consent redirect comes back as a plain GET no server action can receive. The claim narrows
+     * to what this phase can actually own: the ONLY handlers are INT-3's Google OAuth pair, and
+     * neither belongs to file ingestion.
+     */
+    const INT3_ROUTES = [
+      "src/app/api/integrations/google/callback/route.ts",
+      "src/app/api/integrations/google/start/route.ts",
+    ];
     assert.deepEqual(
-      collect("src/app").filter((file) => /\/route\.tsx?$/.test(file)),
-      [],
-      "no route handler exists",
+      collect("src/app")
+        .filter((file) => /\/route\.tsx?$/.test(file))
+        .map((file) => file.replace(/\\/g, "/"))
+        .sort(),
+      INT3_ROUTES,
+      "the only route handlers are INT-3's OAuth pair",
     );
-    assert.equal(existsSync("src/app/api"), false, "and there is no API directory");
+    for (const route of INT3_ROUTES) {
+      assert.ok(
+        !read(route).includes("knowledge-file-ingest"),
+        `${route} must not reach the file boundary`,
+      );
+    }
 
     /* Heby cannot reach the file boundary: no Heby module imports it. */
     const hebyImporters = collect("src/features")

@@ -578,3 +578,181 @@ export async function attachCredentialToConnectionWithin(
     transitioned: true,
   } as const;
 }
+
+/* ── The verification writer (INT-3) ────────────────────────────────────────── */
+
+/**
+ * WHAT A REAL PROVIDER RESPONSE IS ALLOWED TO WRITE.
+ *
+ * `scopes`, `external_account_id`, `external_account_label` and `last_verified_at` had NO WRITER
+ * through INT-1 and INT-2 — they were readable columns waiting for the phase that could fill them
+ * honestly. This is that writer, and it is the only one.
+ *
+ * It lives here because this module is the single owner of the `integrations` table, and a released
+ * firewall test asserts exactly one module imports it. The Google verifier therefore calls this
+ * rather than reaching the table itself.
+ */
+export interface VerifiedConnectionFacts {
+  /** The provider's immutable account identifier. NEVER an email — those get reassigned. */
+  readonly externalAccountId: string;
+  /** Human-readable. A label, never an identity. */
+  readonly externalAccountLabel: string;
+  /** What the PROVIDER said it granted. Never what Hebun requested. */
+  readonly grantedScopes: readonly string[];
+}
+
+export type RecordVerifiedResult =
+  | { readonly status: "verified"; readonly connection: IntegrationView }
+  | { readonly status: "refused"; readonly reason: ConnectionRefusal | "account-changed" };
+
+/**
+ * Record that a provider accepted this tenant's credential.
+ *
+ * THE ONLY PATH TO `connected` IN HEBUN. Every precondition is checked here rather than trusted
+ * from the caller: the row is this tenant's, it is not terminal, and the transition is legal.
+ *
+ * ── THE ACCOUNT MAY NOT CHANGE UNDERNEATH A CONNECTION ───────────────────────
+ *
+ * If the row already names an external account and the provider now reports a DIFFERENT one, this
+ * refuses with `account-changed`. Silently rebinding would mean a tenant who authorized account A
+ * ends up with a connection to account B — the exact substitution an OAuth flow must never allow
+ * to pass unnoticed. Connecting a different account is a NEW connection, not an update.
+ *
+ * ── HEALTH MOVES WITH IT, BECAUSE THIS IS THE ONE MOMENT BOTH ARE KNOWN ──────
+ *
+ * A successful verification is the only event that establishes lifecycle AND health together:
+ * Hebun holds a grant, and the provider just answered. `healthy` is written here and nowhere else
+ * in this module.
+ */
+export async function recordVerifiedConnectionWithin(
+  tx: IntegrationTransaction,
+  tenant: TenantContext,
+  integrationId: string,
+  facts: VerifiedConnectionFacts,
+  now: Date,
+): Promise<RecordVerifiedResult> {
+  assertServerOnly();
+  if (!tenant?.tenantId) return refused("no-authorized-tenant-context");
+  if (!UUID_RE.test(integrationId)) return refused("not-found");
+
+  const [current] = await tx
+    .select(COLUMNS)
+    .from(integrations)
+    .where(ownedRow(tenant, integrationId))
+    .limit(1)
+    .for("update");
+
+  if (!current) return refused("not-found");
+
+  const from = current.connectionState as ConnectionState;
+  if (isTerminalConnectionState(from)) return refused("illegal-transition");
+
+  /* The account this connection was verified against before, if any. */
+  if (
+    current.externalAccountId !== null &&
+    current.externalAccountId !== facts.externalAccountId
+  ) {
+    return { status: "refused", reason: "account-changed" } as const;
+  }
+
+  const nextState: ConnectionState = "connected";
+  if (!isI1Producible(nextState)) return refused("illegal-transition");
+  /* `connected → connected` is a re-verification, not a transition, and the table has no such arc. */
+  if (from !== nextState && !canTransition(from, nextState)) return refused("illegal-transition");
+
+  const [row] = await tx
+    .update(integrations)
+    .set({
+      connectionState: nextState,
+      health: "healthy",
+      scopes: [...facts.grantedScopes],
+      externalAccountId: facts.externalAccountId,
+      externalAccountLabel: facts.externalAccountLabel,
+      /* Set ONLY here. A successful data read must never write it, or "verified" degrades into
+       * "we talked to them recently". */
+      lastVerifiedAt: now,
+      lastSuccessAt: now,
+      lastErrorAt: null,
+      failureReason: null,
+      updatedAt: now,
+      updatedBy: tenant.userId,
+      updatedByType: "human",
+      version: sql`${integrations.version} + 1`,
+    })
+    .where(ownedRow(tenant, integrationId))
+    .returning(COLUMNS);
+
+  if (!row) return refused("not-found");
+  return { status: "verified", connection: toIntegrationView(row as IntegrationRow) } as const;
+}
+
+/**
+ * WHAT A FAILED VERIFICATION IS ALLOWED TO WRITE — and the two classes are not interchangeable.
+ *
+ *   `auth`       the provider definitively refused the credential Hebun holds. The GRANT is the
+ *                thing that failed, so the lifecycle moves to `expired`: unusable, unrestorable
+ *                from what Hebun has, and needing re-consent. NOT `revoked` — see `contracts.ts`.
+ *   everything   a 429, a 5xx, a timeout, a DNS or TLS failure, an unparseable body. NOTHING is
+ *   else        known about the grant, so ONLY health moves and the lifecycle is untouched.
+ *
+ * That second line is the whole reason health exists as a separate dimension. A provider having a
+ * bad minute must never end a tenant's connection.
+ */
+export type VerificationFailureClass = "auth" | "degraded" | "unreachable";
+
+export async function recordVerificationFailureWithin(
+  tx: IntegrationTransaction,
+  tenant: TenantContext,
+  integrationId: string,
+  failure: { readonly kind: VerificationFailureClass; readonly reason: string },
+  now: Date,
+): Promise<TransitionConnectionResult> {
+  assertServerOnly();
+  if (!tenant?.tenantId) return refused("no-authorized-tenant-context");
+  if (!UUID_RE.test(integrationId)) return refused("not-found");
+
+  const [current] = await tx
+    .select(COLUMNS)
+    .from(integrations)
+    .where(ownedRow(tenant, integrationId))
+    .limit(1)
+    .for("update");
+
+  if (!current) return refused("not-found");
+  const from = current.connectionState as ConnectionState;
+  if (isTerminalConnectionState(from)) return refused("illegal-transition");
+
+  const authClass = failure.kind === "auth";
+  const nextState: ConnectionState = authClass ? "expired" : from;
+  if (authClass && from !== nextState && !canTransition(from, nextState)) {
+    return refused("illegal-transition");
+  }
+  if (authClass && !isI1Producible(nextState)) return refused("illegal-transition");
+
+  const [row] = await tx
+    .update(integrations)
+    .set({
+      connectionState: nextState,
+      /*
+       * `unreachable` and `degraded` are OBSERVATIONS about the provider. On an auth failure the
+       * provider answered perfectly well — what failed was the credential — so health becomes
+       * `unknown` rather than claiming an outage that did not happen.
+       */
+      health: authClass ? "unknown" : failure.kind === "unreachable" ? "unreachable" : "degraded",
+      lastErrorAt: now,
+      /* A CLASSIFIED reason from the transport. Never a provider body, never a token. */
+      failureReason: failure.reason,
+      updatedAt: now,
+      updatedBy: tenant.userId,
+      updatedByType: "human",
+      version: sql`${integrations.version} + 1`,
+    })
+    .where(ownedRow(tenant, integrationId))
+    .returning(COLUMNS);
+
+  if (!row) return refused("not-found");
+  return {
+    status: "transitioned",
+    connection: toIntegrationView(row as IntegrationRow),
+  } as const;
+}

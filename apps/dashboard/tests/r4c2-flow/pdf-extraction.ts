@@ -436,12 +436,18 @@ async function main(): Promise<void> {
 
   /* ── 9. NO HTTP SURFACE, AND NO CONFIG WAS NEEDED ──────────────────────── */
   {
+    /* AMENDED BY INT-3 — see `r4c-flow/file-boundary-and-firewall.ts` for the reasoning. */
     assert.deepEqual(
-      collect("src/app").filter((file) => /\/route\.tsx?$/.test(file)),
-      [],
-      "R4C.2 introduces no route handler",
+      collect("src/app")
+        .filter((file) => /\/route\.tsx?$/.test(file))
+        .map((file) => file.replace(/\\/g, "/"))
+        .sort(),
+      [
+        "src/app/api/integrations/google/callback/route.ts",
+        "src/app/api/integrations/google/start/route.ts",
+      ],
+      "R4C.2 introduces no route handler; the only ones are INT-3's OAuth pair",
     );
-    assert.equal(existsSync("src/app/api"), false);
 
     /*
      * The Next build compiles the dynamic parser import with no bundling opt-out, so none was added.

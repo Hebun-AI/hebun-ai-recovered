@@ -35,32 +35,61 @@
  * Listing `google-workspace` or `slack` here today would be the exact false claim this phase
  * exists to make impossible: a surface would offer a connection that no code can complete.
  *
- * ── THE RELEASED CATALOG IS EMPTY, AND THAT IS THE TRUTH BEING SHIPPED ───────
+ * ── ONE ENTRY, AND IT IS REAL ────────────────────────────────────────────────
  *
- * NO ENTRIES AT ALL. Not one connectable provider, and not one fixture either.
+ * Through INT-1 and INT-2 this file was EMPTY, and that emptiness was the honest statement: no
+ * credential store existed, no verifier existed, and listing a vendor would have offered a
+ * connection no code could complete.
  *
- * An `architecture-fixture` entry lived here through implementation, so the repository, the schema
- * and the state machine could be exercised against a real catalog value. It was removed before
- * release because it was never NEEDED here: every test that touches a definition already injects
- * its own catalog through the `catalog` dependency — `tenant-isolation-postgres` declares both a
- * `connectable` and a `fixture` entry, and `availability-seam` declares its own — and not one test
- * required this file to be non-empty. A production value retained only to support tests that do
- * not use it is a fake fact about the deployment, however well it is labelled.
+ * INT-3 BUILT BOTH. `google-workspace` is added here because — and only because — a real OAuth
+ * flow, a real credential store and a real verifier that contacts Google now exist. The rule has
+ * not changed; the implementation caught up with it.
  *
- * So the released count is the honest one: ZERO connectable providers, ZERO definitions, and a
- * `createConnection` call in production that can only ever refuse `unknown-provider`.
+ * The `architecture-fixture` entry that lived here during INT-1 implementation is still gone, for
+ * the reason it was removed: every test injects its own catalog, so a production value retained
+ * only to support tests is a fake fact about the deployment however well it is labelled.
  */
 import type { ConnectionDefinition, ProviderCatalog } from "@/features/integration-authority/contracts";
 
 /**
- * THE CATALOG. EMPTY, and frozen — a caller cannot push a definition into it at runtime any more
- * than a database row can add one.
+ * THE CATALOG. Frozen at every level — a caller cannot push a definition into it at runtime any
+ * more than a database row can add one.
  *
- * When the first real provider arrives it is added HERE, in code, with a migration-free but
- * reviewable one-entry diff, and `catalog-honesty` in `boundaries-and-firewall` fails on that same
- * commit until the phase that adds it deliberately updates the count it asserts.
+ * ── WHY `capabilityScopes` IS EMPTY, AND WHY THAT IS NOT AN OVERSIGHT ────────
+ *
+ * INT-3 connects and verifies. It reads no Drive file, no Calendar event and no directory entry,
+ * because it requests no scope that would permit any of them. A capability listed here would make
+ * the availability seam offer something Hebun cannot deliver — the exact false claim the seam
+ * exists to prevent. Capabilities arrive in the phase that builds the reads they name.
+ *
+ * ── `minimumScopes` IS WRITTEN IN GOOGLE'S SPELLING ─────────────────────────
+ *
+ * A request for `email` comes back from the token endpoint as the full
+ * `https://www.googleapis.com/auth/userinfo.email`. These are the values Google GRANTS, so a
+ * comparison against a stored grant is comparing like with like rather than against what Hebun
+ * happened to ask for.
  */
-export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([]);
+export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
+  Object.freeze({
+    providerKey: "google-workspace",
+    label: "Google Workspace",
+    authMethod: "oauth2",
+    /*
+     * A connection is bound to a Google ACCOUNT (`sub`), and `hd` is observed as a domain when the
+     * account has one. Workspace CUSTOMER identity needs an Admin SDK scope this phase does not
+     * request, so it is not claimed anywhere.
+     */
+    accountIdentity: "account",
+    connectivity: "connectable",
+    minimumScopes: Object.freeze([
+      "openid",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile",
+    ]),
+    /* Nothing is readable yet. See the header above. */
+    capabilityScopes: Object.freeze({}),
+  }) satisfies ConnectionDefinition,
+]);
 
 /** The definition for a key, or `undefined`. A key with no entry is not a provider. */
 export function findProviderDefinition(

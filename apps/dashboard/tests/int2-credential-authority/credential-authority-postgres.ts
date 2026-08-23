@@ -152,12 +152,15 @@ async function main(): Promise<void> {
       assert.ok(!Buffer.from(row.rows[0]!.ciphertext, "base64").toString("utf8").includes(SECRET_A));
 
       /* THE STATE MACHINE. `unverified` is producible by design; `connected` is not. */
+      /* AMENDED BY INT-3, which added `connected` and `expired`. What INT-2 defends here is that
+       * storing a credential does not REACH them — proved by the assertions above and below, not
+       * by the set being short. */
       assert.deepEqual(
         [...I1_PRODUCIBLE_STATES].sort(),
-        ["disconnected", "draft", "unverified"],
-        "INT-2 extends the producible set to exactly three states",
+        ["connected", "disconnected", "draft", "expired", "unverified"],
+        "the producible set after INT-3",
       );
-      assert.ok(!I1_PRODUCIBLE_STATES.includes("connected"));
+      assert.ok(!I1_PRODUCIBLE_STATES.includes("revoked"));
 
       const states = await client.query<{ connection_state: string }>(`select distinct connection_state from integrations`);
       assert.ok(

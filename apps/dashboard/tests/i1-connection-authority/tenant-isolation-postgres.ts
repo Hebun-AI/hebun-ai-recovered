@@ -260,12 +260,22 @@ async function main(): Promise<void> {
      * draft. Nothing in THIS suite can reach it — the credential authority is a different module
      * with its own tests — which is why section 6's second half still finds only `draft`.
      */
+    /*
+     * AMENDED BY INT-3, the third deliberate widening of this pin and the last one this program
+     * expects. INT-1 shipped two states, INT-2 added `unverified` when a credential could be
+     * stored, and INT-3 adds `connected` and `expired` because a real verifier now exists.
+     *
+     * `revoked` is STILL absent, and that absence is the point: it means the provider explicitly
+     * ended the grant, and Google's `invalid_grant` cannot establish that — the same response
+     * covers a user revocation, a refresh token that lapsed through disuse, and a testing-mode
+     * grant that aged out. The weaker, defensible claim is `expired`.
+     */
     assert.deepEqual(
       [...I1_PRODUCIBLE_STATES].sort(),
-      ["disconnected", "draft", "unverified"],
-      "the phase boundary is exactly three states",
+      ["connected", "disconnected", "draft", "expired", "unverified"],
+      "the phase boundary is exactly five states",
     );
-    assert.ok(!I1_PRODUCIBLE_STATES.includes("connected"), "`connected` still requires a provider");
+    assert.ok(!I1_PRODUCIBLE_STATES.includes("revoked"), "`revoked` still has no producer");
 
     {
       /* NO ROW ANYWHERE reached a state I1 cannot produce. */

@@ -208,14 +208,37 @@ function main(): void {
       );
     }
 
-    /* And no component, page or client module imports either feature. */
+    /*
+     * And no component or page imports either feature.
+     *
+     * AMENDED BY INT-3, narrowly. The OAuth CALLBACK is a server-only route handler that must store
+     * the tokens Google just issued, so it legitimately reaches the credential authority — and it
+     * is the ONLY file under `src/app` allowed to. Everything else, including every component and
+     * every page, still cannot: a surface that could reach the vault would eventually render it.
+     *
+     * `secret-encryption` remains completely unreachable from `src/app`. The callback stores
+     * through the credential authority and never touches the cipher.
+     */
+    const CALLBACK_ROUTE = "src/app/api/integrations/google/callback/route.ts";
     const clientish = collect("src/components").concat(collect("src/app"));
     for (const file of clientish) {
+      const normalized = file.replace(/\\/g, "/");
       const code = codeOf(read(file));
-      for (const forbidden of ["integration-credentials", "secret-encryption"]) {
-        assert.ok(!code.includes(forbidden), `${file} must not import ${forbidden}`);
-      }
+      assert.ok(
+        !code.includes("secret-encryption"),
+        `${file} must not import secret-encryption — the cipher is never a surface's business`,
+      );
+      if (normalized === CALLBACK_ROUTE) continue;
+      assert.ok(
+        !code.includes("integration-credentials"),
+        `${file} must not import integration-credentials`,
+      );
     }
+    /* The exemption is real, not decorative: the callback does store credentials. */
+    assert.ok(
+      codeOf(read(CALLBACK_ROUTE)).includes("integration-credentials"),
+      "the exemption above must name a file that actually uses it",
+    );
   }
 
   /* ── 8. THE TEST-ONLY FAILURE SEAMS HAVE NO PRODUCTION CALLER ────────────── */
@@ -328,21 +351,35 @@ function main(): void {
 
   /* ── 10. NO PROVIDER BECAME CONNECTABLE, AND NO REAL VENDOR APPEARED ─────── */
   {
+    /*
+     * AMENDED BY INT-3, which built the connector INT-2 deliberately did not.
+     *
+     * INT-2's claim was "the vault exists and nothing is connected", proved by an empty catalog and
+     * an absent OAuth surface. Both are now false BY DESIGN. What INT-2 is still entitled to assert
+     * — and what this section now checks — is that its own boundaries held: the vault gained no
+     * vendor knowledge, and the credential authority never learned to talk to anyone.
+     */
     const catalog = codeOf(read("src/features/provider-catalog/catalog.ts"));
-    assert.ok(
-      /PROVIDER_CATALOG: ProviderCatalog = Object\.freeze\(\[\]\)/.test(catalog),
-      "the released catalog is STILL empty — INT-2 built the vault, not a connector",
-    );
-    for (const vendor of ["google", "slack", "github", "microsoft", "notion", "oauth2Client", "openid"]) {
+    for (const vendor of ["slack", "github", "microsoft", "notion"]) {
       assert.ok(
         !catalog.toLowerCase().includes(vendor.toLowerCase()),
-        `no vendor may appear in the catalog — found "${vendor}"`,
+        `only an implemented vendor may appear in the catalog — found "${vendor}"`,
       );
     }
+    /* THE VAULT ITSELF KNOWS NO VENDOR. That is INT-2's boundary, and INT-3 did not move it. */
+    for (const file of collect(CREDENTIALS).concat(collect(ENCRYPTION))) {
+      const code = codeOf(read(file));
+      for (const vendor of ["google", "slack", "github", "microsoft", "oauth2Client"]) {
+        assert.ok(
+          !code.toLowerCase().includes(vendor.toLowerCase()),
+          `${file} must know nothing about any vendor — found "${vendor}"`,
+        );
+      }
+    }
 
-    /* No OAuth route, callback, webhook or scheduler was added anywhere. */
-    for (const forbidden of ["src/app/api/oauth", "src/app/api/integrations", "src/app/api/webhooks", "src/features/integration-sync"]) {
-      assert.ok(!existsSync(path.join(ROOT, forbidden)), `${forbidden} is not part of INT-2`);
+    /* No webhook, no scheduler, no sync engine — INT-3 added an OAuth pair and nothing else. */
+    for (const forbidden of ["src/app/api/webhooks", "src/features/integration-sync"]) {
+      assert.ok(!existsSync(path.join(ROOT, forbidden)), `${forbidden} is not part of INT-2 or INT-3`);
     }
   }
 

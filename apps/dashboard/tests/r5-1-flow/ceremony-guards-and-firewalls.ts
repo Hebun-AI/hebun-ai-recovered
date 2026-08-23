@@ -300,8 +300,23 @@ function phaseFirewalls(): void {
   assert.deepEqual(securityActions, [], "no server action was added to the Security workspace");
 
   /* NO ROUTE HANDLER was added anywhere — a global control must not gain an HTTP surface. */
-  const routes = collect("src/app").filter((f) => /(^|\/)route\.tsx?$/.test(f));
-  assert.deepEqual(routes, [], "R5.1 adds no route handler");
+  /*
+   * AMENDED BY INT-3. The claim was "this phase introduces no route handler", and it was proved
+   * by the repository having NONE — which stayed true for eleven phases and stopped being true
+   * when OAuth arrived: a provider redirects the browser back on a plain GET, which a server
+   * action cannot receive. The claim this phase is entitled to make is the narrower one that was
+   * always the point: THIS phase added none, and the only handlers that exist are INT-3's
+   * Google OAuth pair.
+   */
+  const INT3_ROUTES = [
+    "src/app/api/integrations/google/callback/route.ts",
+    "src/app/api/integrations/google/start/route.ts",
+  ];
+  const routes = collect("src/app")
+    .filter((f) => /(^|\/)route\.tsx?$/.test(f))
+    .map((f) => f.replace(/\\/g, "/"))
+    .sort();
+  assert.deepEqual(routes, INT3_ROUTES, "R5.1 adds no route handler of its own");
 
   /* NO IMPERSONATION was introduced. */
   for (const forbidden of ["impersonat", "assumeIdentity", "onBehalfOf", "switchUser"]) {

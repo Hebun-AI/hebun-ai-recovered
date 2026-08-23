@@ -186,8 +186,23 @@ function main(): void {
 
   /* ── The ceremony has no route, no action and no API surface ─────────────── */
   {
-    const routes = collect("src/app").filter((f) => /\/route\.tsx?$/.test(f));
-    assert.deepEqual(routes, [], "R4A introduces no HTTP route handler");
+    /*
+     * AMENDED BY INT-3. The claim was "this phase introduces no route handler", and it was proved
+     * by the repository having NONE — which stayed true for eleven phases and stopped being true
+     * when OAuth arrived: a provider redirects the browser back on a plain GET, which a server
+     * action cannot receive. The claim this phase is entitled to make is the narrower one that was
+     * always the point: THIS phase added none, and the only handlers that exist are INT-3's
+     * Google OAuth pair.
+     */
+    const INT3_ROUTES = [
+      "src/app/api/integrations/google/callback/route.ts",
+      "src/app/api/integrations/google/start/route.ts",
+    ];
+    const routes = collect("src/app")
+      .filter((f) => /\/route\.tsx?$/.test(f))
+      .map((f) => f.replace(/\\/g, "/"))
+      .sort();
+    assert.deepEqual(routes, INT3_ROUTES, "R4A introduces no HTTP route handler of its own");
 
     const actions = collect("src/app").filter((f) =>
       /tenant[-_]?provision|provisionTenant/i.test(readFileSync(path.join(ROOT, f), "utf8")),

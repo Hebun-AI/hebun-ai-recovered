@@ -322,13 +322,25 @@ function main(): void {
 
   /* ── 6. THE RELEASED CATALOG CLAIMS NO LIVE CONNECTIVITY ─────────────────── */
   {
+    /*
+     * AMENDED BY INT-3. The rule was never "no provider may be listed" — it was "a provider may be
+     * listed only when the code to connect it exists". INT-1 and INT-2 had no verifier, so ZERO was
+     * the honest count; INT-3 built the OAuth flow, the credential storage and the verifier, so
+     * `google-workspace` earns its entry.
+     *
+     * The capability list is STILL empty, and that is the half this section now defends: Google
+     * grants identity only, so the catalog may not advertise a single readable capability.
+     */
     assert.deepEqual(
-      listConnectableProviders(),
-      [],
-      "the RELEASED catalog must contain ZERO connectable providers — nothing can be connected " +
-        "until a credential store and a verifier exist, which is I2",
+      listConnectableProviders().map((d) => d.providerKey),
+      ["google-workspace"],
+      "exactly one connectable provider, and only because it is genuinely implemented",
     );
-    assert.deepEqual(listConnectableCapabilities(), []);
+    assert.deepEqual(
+      listConnectableCapabilities(),
+      [],
+      "and it maps NO capability — nothing can be read through it yet",
+    );
 
     /*
      * AND ZERO ENTRIES OF ANY KIND. The `architecture-fixture` definition that existed during
@@ -341,30 +353,32 @@ function main(): void {
      * make every assertion below it vacuous at the TYPE level. */
     assert.equal(
       PROVIDER_CATALOG.length,
-      0,
-      "the RELEASED catalog must be EMPTY — a fixture retained for tests that inject their own " +
-        "is a false entry in a production authority",
+      1,
+      "one entry, and no fixture — a fixture retained for tests that inject their own would still " +
+        "be a false entry in a production authority",
     );
 
-    /* Vacuous today by construction; it is the guard that survives the first real entry. */
+    /*
+     * AMENDED BY INT-3. Every entry had to be a `fixture` while nothing could connect. Now an entry
+     * must be `connectable` AND have a real implementation behind it — which is a stricter test,
+     * not a weaker one, because it names the file that must exist.
+     */
     for (const definition of PROVIDER_CATALOG) {
       assert.equal(
         definition.connectivity,
-        "fixture",
-        `catalog entry "${definition.providerKey}" must be a fixture in I1`,
+        "connectable",
+        `catalog entry "${definition.providerKey}" must be genuinely connectable`,
       );
-      /* A fixture that reads like a product eventually ships as one. */
-      assert.match(
-        definition.label,
-        /not a real provider|not connectable|fixture/i,
-        `catalog entry "${definition.providerKey}" must say what it is in its label`,
+      assert.ok(
+        existsSync(path.join(ROOT, "src/features/provider-google/verify-google-connection.server.ts")),
+        `catalog entry "${definition.providerKey}" must have a real verifier behind it`,
       );
     }
 
-    /* NO REAL VENDOR IS LISTED. A key here would offer a connection no code can complete. */
+    /* NO VENDOR WITHOUT AN IMPLEMENTATION. A key here offers a connection code must complete. */
     const keys = PROVIDER_CATALOG.map((d) => d.providerKey.toLowerCase()).join(" ");
-    for (const vendor of ["google", "slack", "github", "microsoft", "notion", "resend", "anthropic"]) {
-      assert.ok(!keys.includes(vendor), `the catalog must not offer "${vendor}" before I2`);
+    for (const vendor of ["slack", "github", "microsoft", "notion", "resend", "anthropic"]) {
+      assert.ok(!keys.includes(vendor), `the catalog must not offer "${vendor}" — nothing implements it`);
     }
 
     /* Frozen at every level — a shallow freeze leaves the entries mutable. */
@@ -375,12 +389,23 @@ function main(): void {
       assert.ok(Object.isFrozen(definition.capabilityScopes), "the capability map must be frozen");
     }
 
-    /* A definition is DATA. It holds nothing that could reach a provider. */
+    /*
+     * A definition is DATA. It holds nothing that could reach a provider.
+     *
+     * AMENDED BY INT-3: the blanket ban on the substring "http" now flags a SCOPE STRING —
+     * `https://www.googleapis.com/auth/userinfo.email` is a permission name, not somewhere to send
+     * a request, and Google is the party that chose its spelling. So scope URLs under
+     * `/auth/` are permitted and every OTHER url is still forbidden, which is a more precise
+     * statement of the same rule rather than a relaxation of it.
+     */
     const catalogCode = codeOf(read("src/features/provider-catalog/catalog.ts"));
-    for (const forbidden of ["http", "fetch", "=>", "endpoint", "baseUrl"]) {
+    const nonScopeUrls = [...catalogCode.matchAll(/https?:\/\/[^"'\s]+/g)]
+      .map((m) => m[0])
+      .filter((url) => !/^https:\/\/www\.googleapis\.com\/auth\//.test(url));
+    assert.deepEqual(nonScopeUrls, [], "the catalog may name scopes, never endpoints");
+    for (const forbidden of ["fetch", "endpoint", "baseUrl", "createClient", "Authorization"]) {
       assert.ok(
-        !catalogCode.toLowerCase().includes(forbidden.toLowerCase()) ||
-          forbidden === "=>" /* the two helper predicates below the literal */,
+        !catalogCode.toLowerCase().includes(forbidden.toLowerCase()),
         `the catalog must be pure data — found "${forbidden}"`,
       );
     }
@@ -439,14 +464,24 @@ function main(): void {
      * never could. Widening the set without re-proving that would have been the drift this pin
      * exists to catch.
      */
+    /*
+     * AMENDED BY INT-3, the third deliberate widening of this pin and the last one this program
+     * expects. INT-1 shipped two states, INT-2 added `unverified` when a credential could be
+     * stored, and INT-3 adds `connected` and `expired` because a real verifier now exists.
+     *
+     * `revoked` is STILL absent, and that absence is the point: it means the provider explicitly
+     * ended the grant, and Google's `invalid_grant` cannot establish that — the same response
+     * covers a user revocation, a refresh token that lapsed through disuse, and a testing-mode
+     * grant that aged out. The weaker, defensible claim is `expired`.
+     */
     assert.deepEqual(
       [...I1_PRODUCIBLE_STATES].sort(),
-      ["disconnected", "draft", "unverified"],
-      "the runtime produces exactly three states after INT-2",
+      ["connected", "disconnected", "draft", "expired", "unverified"],
+      "the runtime produces exactly five states after INT-3",
     );
     assert.ok(
-      !I1_PRODUCIBLE_STATES.includes("connected"),
-      "and `connected` is NOT among them — a provider would have to answer for that",
+      !I1_PRODUCIBLE_STATES.includes("revoked"),
+      "and `revoked` is NOT among them — no provider response in this repository establishes it",
     );
 
     const repository = codeOf(read("src/features/integration-authority/integration-repository.server.ts"));
