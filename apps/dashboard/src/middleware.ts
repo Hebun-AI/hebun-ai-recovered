@@ -15,12 +15,30 @@ import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
 /*
  * The paths the edge gate lets through unauthenticated.
  *
- * `/login` is the sign-in flow. `/privacy` and `/terms` are the public legal notices — documents
- * a signed-out reader, and Google's OAuth review, must be able to open. None of them is a
- * dashboard route: no surface under `(dashboard)` appears here, so no product data is reachable
- * through this list.
+ * `/login` is the sign-in flow. `/privacy` and `/terms` are the public legal notices — documents a
+ * signed-out reader, and Google's OAuth review, must be able to open. `/contact` (PUB-1) is where
+ * the public site's one call to action leads; it holds an address and no form, so nothing can be
+ * submitted through it. None of them is a dashboard route: no surface under `(dashboard)` appears
+ * here, so no product data is reachable through this list.
  */
-const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms"];
+const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms", "/contact"];
+
+/*
+ * The public paths matched EXACTLY, never as a prefix.
+ *
+ * ── WHY `/` CANNOT GO IN THE LIST ABOVE ──────────────────────────────────────
+ *
+ * `PUBLIC_PREFIXES` is consumed as `pathname === prefix || pathname.startsWith(`${prefix}/`)`. For
+ * `"/"` that second test is `startsWith("//")`, which is false for every ordinary path — so today
+ * adding `"/"` there would happen to work. It would work by ACCIDENT. Any future rewrite of that
+ * predicate to the obvious `pathname.startsWith(prefix)` would turn one list entry into a
+ * blanket exemption for the entire application, and the diff that did it would look like a
+ * simplification.
+ *
+ * So the public homepage is matched by equality, in its own list, where no prefix semantics exist
+ * to be reinterpreted. This list is for paths with no children.
+ */
+const PUBLIC_EXACT_PATHS = ["/"];
 
 export function middleware(request: NextRequest): NextResponse {
   if (process.env.HEBUN_AUTH_ENABLED !== "true") {
@@ -28,6 +46,9 @@ export function middleware(request: NextRequest): NextResponse {
   }
 
   const { pathname } = request.nextUrl;
+  if (PUBLIC_EXACT_PATHS.includes(pathname)) {
+    return NextResponse.next();
+  }
   if (
     PUBLIC_PREFIXES.some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),

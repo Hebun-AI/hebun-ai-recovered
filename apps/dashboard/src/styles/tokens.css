@@ -70,6 +70,103 @@
   --fs-label:   0.75rem;    /* 12px — the floor; uppercase eyebrows only */
   --lh-label:   1.35;
 
+  /* ── Public type scale (PUB-1) ────────────────
+   * ADDITIVE, and used by the PUBLIC site only. Nothing above is renamed, no shell-navigation
+   * geometry token is touched, and no authenticated surface resolves through these.
+   *
+   * The five steps above top out at 28px, which is a workspace-identity size. A public page has a
+   * hero line and section openers, and there was no token for either — so two steps are added
+   * ABOVE the existing scale rather than any existing step being stretched.
+   *
+   * Both are fluid via clamp(), so neither needs a breakpoint rule:
+   *   --fs-hero        36px → 56px. The floor sits ABOVE --fs-display (28px) on purpose, so the
+   *                    public hero never collapses into the dashboard's identity size on a phone.
+   *   --fs-display-lg  28px → 40px. Its floor IS --fs-display, so at the narrowest viewport the
+   *                    public scale meets the product scale instead of inventing a sixth size.
+   *
+   * --measure-prose is a CHARACTER measure, not a pixel width: it must track the font size, and a
+   * px max-width would not. 68ch at 16px/1.6 holds lines inside the 55–75 character band.
+   */
+  --fs-hero:       clamp(2.75rem, 1.42rem + 4.25vw, 5rem);
+  --lh-hero:       1.02;
+  --tracking-hero: -0.035em;
+  --fs-display-lg: clamp(1.75rem, 1.36rem + 1.25vw, 2.5rem);
+  --lh-display-lg: 1.15;
+  --measure-prose: 68ch;
+
+  /*
+   * ── THE SECTION STATEMENT (PUB-2A rework) ─────────────────────────────────
+   *
+   * The single largest reason the public page read as a formatted document: a section's `<h2>` was
+   * `--fs-title`, 18px — the size of a card label inside the dashboard. The sentence a reader
+   * actually saw as the heading was a paragraph rendered at `--fs-display-lg`, while the real
+   * heading sat in the gutter at UI size. A page whose section headings are 18px cannot carry a
+   * section-level composition no matter what is drawn around it.
+   *
+   * So the statement becomes the heading, and it is sized like one: 32px on a phone, 52px on a
+   * desktop. `--measure-statement` is a CHARACTER measure, because a display line breaks on
+   * character count, not on pixels.
+   */
+  --fs-statement:       clamp(2rem, 1.32rem + 2.2vw, 3.25rem);
+  --lh-statement:       1.07;
+  --tracking-statement: -0.03em;
+  --measure-statement:  17ch;
+
+  /* ── Public visual system (PUB-2A) ────────────
+   * ADDITIVE, and spent by the PUBLIC surface only. Nothing above is renamed and no authenticated
+   * surface resolves through these.
+   *
+   * NO NEW COLOUR IS INTRODUCED. The trace rests in `--color-border-strong` and advances in
+   * `--color-primary` — the two values the site already had. The blueprint line is DERIVED from
+   * the ink (`--color-text-primary`) with color-mix rather than being a chosen grey, so it can
+   * never drift away from the palette it belongs to.
+   *
+   * `--dur-reveal` is the ONE new timing value. It is a duration, not a second motion system: the
+   * easing is `--ease-out`, every stagger delay is an existing duration token, and every public
+   * animation in `globals.css` reads from this block.
+   */
+  /*
+   * The ink, published as its own name so the dark public scope can DERIVE from it. `.public-ink`
+   * redefines `--color-text-primary`, and a custom property may not be both redefined and read for
+   * its own derivation in one rule — that is a cycle, and every colour in the scope would fall back
+   * to nothing. This alias is read from `:root`, where it is never redefined.
+   */
+  --public-ink:       var(--color-text-primary);
+
+  /*
+   * ── THE TRACE MUST SURVIVE BOTH GROUNDS ───────────────────────────────────
+   *
+   * The trace is ONE overlay running the height of the page, and the page now alternates between an
+   * ink ground and a near-white one. A hairline picked for either ground disappears on the other,
+   * and a per-section rail would not be one continuous path any more — which is the whole device.
+   *
+   * So the resting colour is a MID tone derived from the ink: light enough to read on ink, dark
+   * enough to read on paper. `--color-primary` is already mid-lightness, so the advanced line needs
+   * no second value at all.
+   *
+   * The advanced line is 2px, not 1. At a hairline it read as a rule someone forgot to delete; at
+   * 2px it reads as a path that was drawn on purpose.
+   */
+  --trace-hairline:   color-mix(in srgb, var(--color-text-primary) 42%, white);
+  --trace-live:       var(--color-primary);
+  --trace-width:      1px;
+  --trace-live-width: 2px;
+  --trace-node:       11px;
+  /* Where the trace sits, measured from the public container's left edge. */
+  --trace-inset:      0.75rem;
+  /* Where public text starts. Header, footer, hero and every section share it, so the trace never
+   * lands at a different distance from the words on one surface than on another. */
+  --public-inset:     1.75rem;
+
+  --blueprint-line:   color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  --blueprint-cell:   48px;
+
+  --dur-reveal:       560ms;
+
+  /* Plate geometry — one object, one radius, one corner-tick length. Not a card system. */
+  --plate-radius:     var(--radius-lg);
+  --plate-tick:       10px;
+
   /* ── Radius ───────────────────────────────── */
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -123,4 +220,23 @@
   --z-modal: 310;
   --z-toast: 400;
   --z-tooltip: 500;
+}
+
+/*
+ * PUB-2A — the public surface's own scale-up. Two values only, and both are GEOMETRY: from `sm`
+ * upward the public composition gets a wider left margin and a larger blueprint cell. Nothing here
+ * is a colour, a font or a claim, and no authenticated surface reads either variable.
+ */
+@media (min-width: 640px) {
+  :root {
+    --trace-inset:  1.75rem;
+    --public-inset: 3.5rem;
+    --gate-size:    22px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --blueprint-cell: 64px;
+  }
 }

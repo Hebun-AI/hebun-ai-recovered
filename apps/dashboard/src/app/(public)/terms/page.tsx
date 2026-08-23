@@ -24,7 +24,7 @@ import Link from "next/link";
  */
 
 export const metadata: Metadata = {
-  title: "Terms of Service — Hebun AI",
+  title: "Terms of Service",
   description: "The terms that apply to use of Hebun AI.",
 };
 
@@ -40,25 +40,41 @@ function Section({
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-base font-semibold text-neutral-900">{heading}</h2>
+      <h2 className="text-title font-bold text-fg">{heading}</h2>
       {children}
     </section>
   );
 }
 
+/*
+ * PUB-1 — THIS DOCUMENT ADOPTED THE PUBLIC SHELL. ITS LEGAL MEANING DID NOT CHANGE.
+ *
+ * The file moved into the `(public)` route group, so the public header and footer now surround it
+ * and the URL is unchanged. Three structural things changed and nothing else:
+ *
+ *   1. The page no longer renders its own <main>. `(public)/layout.tsx` owns that landmark, and two
+ *      <main> elements in one document is an accessibility defect, not a duplication.
+ *   2. The in-page <header> became a plain heading group, so it can never be announced as a second
+ *      banner alongside the site header.
+ *   3. Colours moved from raw greyscale utilities to the product's own text tokens, so the legal
+ *      pages read in the same ink as the rest of the public site.
+ *
+ * NOT ONE SENTENCE OF THE LEGAL TEXT WAS EDITED — no clause added, removed, softened or reordered,
+ * and the last-updated date is untouched because nothing was updated.
+ */
 export default function TermsOfServicePage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-6 py-16 text-sm leading-relaxed text-neutral-700">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-neutral-900">
+    <div className="mx-auto flex w-full max-w-[68ch] flex-col gap-8 px-6 py-16 text-body leading-relaxed text-fg-secondary sm:px-10">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-display-lg font-extrabold tracking-[-0.02em] text-fg">
           Hebun AI — Terms of Service
         </h1>
-        <p className="text-xs text-neutral-500">Last updated: {LAST_UPDATED}</p>
+        <p className="text-label font-bold tracking-[0.12em] uppercase text-fg-muted">Last updated: {LAST_UPDATED}</p>
         <p>
           These terms apply to your use of Hebun AI (&ldquo;Hebun&rdquo;). By using Hebun you agree
           to them. If you do not agree, do not use the service.
         </p>
-      </header>
+      </div>
 
       <Section heading="The service">
         <p>
@@ -177,6 +193,6 @@ export default function TermsOfServicePage() {
           .
         </p>
       </Section>
-    </main>
+    </div>
   );
 }

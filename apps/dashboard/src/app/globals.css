@@ -58,6 +58,17 @@
   --text-label: var(--fs-label);
   --text-label--line-height: var(--lh-label);
 
+  /*
+   * PUB-1 — the two PUBLIC steps, aliased the same additive way. They create `text-hero` and
+   * `text-display-lg`; no existing utility changes size, and no authenticated surface uses them.
+   */
+  --text-hero: var(--fs-hero);
+  --text-hero--line-height: var(--lh-hero);
+  --text-display-lg: var(--fs-display-lg);
+  --text-display-lg--line-height: var(--lh-display-lg);
+  --text-statement: var(--fs-statement);
+  --text-statement--line-height: var(--lh-statement);
+
   /* Radius */
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
@@ -783,4 +794,687 @@
 .heby-rail-vertical {
   writing-mode: vertical-rl;
   text-orientation: mixed;
+}
+
+/*
+ * ══ PUB-2A — THE PUBLIC VISUAL SYSTEM ════════════════════════════════════════
+ *
+ * Everything below is scoped to the `.public-*` namespace and is reachable only from the public
+ * route group. No authenticated surface carries one of these classes, and none of the rules here
+ * targets an element type, so nothing in the product can be repainted by this block.
+ *
+ * ── PROGRESSIVE ENHANCEMENT IS THE DEFAULT, NOT THE FALLBACK ─────────────────
+ *
+ * Every scroll-driven rule sits inside `@supports (animation-timeline: …)` AND inside
+ * `prefers-reduced-motion: no-preference`. The declarations OUTSIDE those gates are the FINISHED
+ * state — a full trace, a marked node, visible prose — so a browser without scroll-driven
+ * animation, and a reader who asked for less motion, both receive the completed composition rather
+ * than a half-drawn one. The enhancement subtracts (starts the trace at zero and lets scroll draw
+ * it); it never adds the only copy of anything.
+ *
+ * ── THE TRACE CARRIES NO CLAIM ───────────────────────────────────────────────
+ *
+ * It is a drawn line whose length follows how far down this document the viewport has moved. It
+ * observes nothing, stores nothing and reports nothing. It is not related to Hebun's audit records,
+ * and the site never describes it as though it were.
+ */
+
+/* ── The public container. One inset, shared by header, footer, hero and sections ─────────── */
+.public-inset {
+  padding-inline: var(--public-inset);
+}
+
+/* ── The blueprint plane ──────────────────────────────────────────────────────
+ * A technical-drawing lattice, masked so it is gone well before it reaches an edge. It is never a
+ * full-bleed texture: the mask is the reason it reads as a drawing rather than as wallpaper.
+ */
+.public-blueprint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--blueprint-line) var(--trace-width), transparent var(--trace-width)),
+    linear-gradient(to bottom, var(--blueprint-line) var(--trace-width), transparent var(--trace-width));
+  background-size: var(--blueprint-cell) var(--blueprint-cell);
+  background-position: calc(var(--trace-inset) + var(--trace-width) / 2) 0;
+  -webkit-mask-image: radial-gradient(58% 62% at 22% 26%, black 0%, transparent 74%);
+  mask-image: radial-gradient(58% 62% at 22% 26%, black 0%, transparent 74%);
+}
+
+/* ── The trace ────────────────────────────────────────────────────────────────
+ * `.public-trace` wraps the homepage narrative and is the positioning context. `.public-trace-frame`
+ * repeats the public container's own centring so the rail lands at exactly `--trace-inset` from the
+ * same edge the words are measured from, at every viewport, without reading a viewport unit.
+ */
+.public-trace {
+  position: relative;
+}
+
+.public-trace-frame {
+  /*
+   * The frame also PUBLISHES the trace's own view timeline. The progress line is a descendant, so
+   * it reads the timeline from here rather than declaring one on itself — its own box is scaled to
+   * zero height while it is being drawn, and a timeline measured from a collapsed box would be
+   * measuring the drawing instead of the path.
+   */
+  view-timeline: --public-trace block;
+  position: absolute;
+  /*
+   * The frame is one overlay drawn BEFORE every section in the document, and the ink sections paint
+   * a background. Without a stacking order the trace is simply covered by the first opaque section
+   * it passes behind — the device disappears for exactly the sections it matters most in. `1` lifts
+   * it above the section grounds and stays far below the header's `10`.
+   */
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  max-width: var(--container-max);
+  pointer-events: none;
+}
+
+.public-trace-line,
+.public-trace-progress {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--trace-inset);
+}
+
+.public-trace-line {
+  width: var(--trace-width);
+}
+
+.public-trace-progress {
+  width: var(--trace-live-width);
+  translate: calc((var(--trace-width) - var(--trace-live-width)) / 2) 0;
+}
+
+/* The resting path: a hairline, always present at full length. */
+.public-trace-line {
+  background: var(--trace-hairline);
+}
+
+/* The advanced path. Its DEFAULT is complete — see the header. */
+.public-trace-progress {
+  background: var(--trace-live);
+  transform-origin: top center;
+}
+
+/* The origin mark, drawn once at the head of the trace inside the hero. */
+.public-trace-origin {
+  position: absolute;
+  /* The origin is drawn inside the hero's INNER grid, whose left edge already carries
+   * `--public-inset`. Pulling back by that inset lands it on the rail without the hero having to
+   * know the rail's coordinate. */
+  left: calc(var(--trace-inset) - var(--public-inset));
+  width: calc(var(--trace-node) + 5px);
+  height: calc(var(--trace-node) + 5px);
+  translate: calc(-50% + var(--trace-width) / 2) 0;
+  border: var(--trace-width) solid var(--trace-live);
+  border-radius: var(--radius-full);
+  background: var(--color-bg);
+}
+
+/* A junction on the path: one per major section, aligned with that section's number. */
+.public-trace-node {
+  position: absolute;
+  left: var(--trace-inset);
+  width: var(--trace-node);
+  height: var(--trace-node);
+  translate: calc(-50% + var(--trace-width) / 2) 0;
+  rotate: 45deg;
+  border: var(--trace-width) solid var(--trace-live);
+  background: var(--trace-live);
+}
+
+@keyframes public-trace-draw {
+  to {
+    scale: 1 1;
+  }
+}
+
+@keyframes public-trace-mark {
+  to {
+    border-color: var(--trace-live);
+    background: var(--trace-live);
+  }
+}
+
+@keyframes public-reveal {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 -0.18em 0);
+  }
+}
+
+@keyframes public-rise {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* ── The hero reveal ──────────────────────────────────────────────────────────
+ * The headline is in the DOM and in the layout before anything animates; the reveal uncovers text
+ * that already occupies its final box, so nothing reflows and nothing shifts.
+ */
+.public-reveal,
+.public-rise-in {
+  /* Default: finished. */
+  clip-path: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .public-reveal {
+    animation: public-reveal var(--dur-reveal) var(--ease-out) both;
+  }
+
+  .public-rise-in {
+    animation: public-rise var(--dur-base) var(--ease-out) both;
+    animation-delay: var(--public-stagger, 0ms);
+  }
+}
+
+/* ── Scroll-driven behaviour, gated twice ─────────────────────────────────── */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /*
+     * The trace is drawn against ITS OWN extent, not the document's. `entry 100%` is the moment the
+     * head of the path reaches the top of the viewport; `exit 0%` is the moment its tail reaches the
+     * bottom. Between them the reader is traversing exactly the region the trace covers, so the line
+     * is empty when the path begins and complete when it ends — and it stays correct if the trace is
+     * later made to span more or fewer sections, because no fixed document percentage is written
+     * down anywhere.
+     */
+    .public-trace-progress {
+      scale: 1 0;
+      animation: public-trace-draw linear forwards;
+      animation-timeline: --public-trace;
+      animation-range: entry 100% exit 0%;
+    }
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .public-trace-node {
+      border-color: var(--trace-hairline);
+      background: var(--trace-node-bg, var(--color-bg));
+      animation: public-trace-mark linear forwards;
+      animation-timeline: view(block);
+      /*
+       * Tuned so a junction is marked as the drawn head of the trace arrives at it, rather than
+       * the moment it appears at the bottom of the screen — a mark that lights well ahead of the
+       * line reads as two unrelated effects instead of one path being drawn.
+       */
+      animation-range: cover 50% cover 70%;
+    }
+
+    .public-rise {
+      opacity: 0;
+      animation: public-rise linear forwards;
+      animation-timeline: view(block);
+      animation-range: entry 10% entry 85%;
+    }
+  }
+}
+
+/*
+ * ── REDUCED MOTION: EXPLICIT, NOT INHERITED ──────────────────────────────────
+ *
+ * The platform-wide rule earlier in this file collapses every DURATION to 0.01ms. It does NOT
+ * collapse a DELAY, so a staggered element with `both` fill would sit on its opening frame — that
+ * is, invisible — for the whole delay. This block removes the animations outright instead, so the
+ * public hero and every trace mark are simply present at load. Nothing here is the only copy of
+ * anything: each declaration restores the same finished state the ungated rules above already
+ * describe.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .public-reveal,
+  .public-rise-in,
+  .public-rise {
+    animation: none !important;
+    animation-delay: 0ms !important;
+    clip-path: none !important;
+    opacity: 1 !important;
+    translate: none !important;
+  }
+
+  /*
+   * The trace keeps its GEOMETRY and loses only its drawing. `translate` and `rotate` are how the
+   * node is centred on the rail and how it is a survey mark rather than a square — resetting them
+   * here would move the mark off the line it belongs to, which is a layout defect dressed as an
+   * accessibility fix. Only the animation and the drawn-from-zero scale are removed.
+   */
+  .public-trace-progress,
+  .public-trace-node {
+    animation: none !important;
+    animation-delay: 0ms !important;
+  }
+
+  .public-trace-progress {
+    scale: 1 1 !important;
+  }
+
+  .public-trace-node {
+    border-color: var(--trace-live) !important;
+    background: var(--trace-live) !important;
+  }
+}
+
+/* ── The sticky section marker ────────────────────────────────────────────────
+ * The section number and its real `<h2>` stay anchored under the public header while their own
+ * section is being read, then leave with it. It is CSS `position: sticky` in its own grid column,
+ * so it can never cover the prose beside it, there is no second copy of the heading anywhere in the
+ * document, and no tab semantics are asserted for something that is not a tab set.
+ *
+ * `z-index: 0` keeps it behind the header, which carries `z-10`.
+ */
+@media (min-width: 1024px) {
+  .public-section-marker {
+    position: sticky;
+    top: calc(var(--topbar-h) + 1.25rem);
+    z-index: 0;
+  }
+}
+
+/* ── Public section rhythm ────────────────────────────────────────────────────
+ * PUB-1 gave every section the same vertical padding, so five different arguments occupied five
+ * identical boxes. The height of a section is now a decision: an evidence table is dense, an
+ * explanatory passage is tall, a closing mechanism is compact. One variable carries it, and the
+ * trace node reads the same variable so a junction always lands on its section's number rather
+ * than at a distance that has to be re-guessed per size.
+ */
+.public-section-compact { --section-pad-y: 3.5rem; }
+.public-section-default { --section-pad-y: 4rem; }
+.public-section-dense   { --section-pad-y: 3.5rem; }
+.public-section-tall    { --section-pad-y: 5rem; }
+
+@media (min-width: 1024px) {
+  .public-section-compact { --section-pad-y: 5rem; }
+  .public-section-default { --section-pad-y: 6rem; }
+  .public-section-dense   { --section-pad-y: 5.5rem; }
+  .public-section-tall    { --section-pad-y: 7rem; }
+}
+
+.public-section-body {
+  padding-block: var(--section-pad-y);
+}
+
+.public-trace-node-section {
+  top: calc(var(--section-pad-y) + 0.25rem);
+}
+
+/*
+ * ══ PUB-2A REWORK — THE INK SCOPE, THE PLATE, AND THE HERO FIELD ═════════════
+ *
+ * ── WHY THE PUBLIC SITE IS NOW PART DARK ─────────────────────────────────────
+ *
+ * The first attempt kept every section on the same near-white ground, and a hairline trace and a
+ * masked lattice are almost invisible on it — so the signature device could only ever be a faint
+ * line beside a column of text. On ink the same geometry becomes the loudest thing on the screen
+ * without gaining a single new colour.
+ *
+ * IT IS A RULE, NOT AN ALTERNATION. Ink is the MECHANISM register: the hero, the governed path and
+ * the Google scope boundary — the places where the page draws how the system works. Light is the
+ * EVIDENCE register: what it is, what works today, what protects it — the places where the page
+ * asks to be read. A reader always knows which of the two they are looking at.
+ *
+ * ── IT INTRODUCES NO COLOUR ──────────────────────────────────────────────────
+ *
+ * Every value below is DERIVED with color-mix from `--public-ink` (the product's own
+ * `--color-text-primary`), from white, or from `--color-primary`. There is no new hex anywhere in
+ * this file, and the scope works by re-pointing the SAME tokens every public component already
+ * spends — so not one component hardcodes a dark value or knows the scope exists.
+ */
+.public-ink {
+  --color-bg:             color-mix(in srgb, var(--public-ink) 88%, black);
+  --color-surface:        var(--public-ink);
+  --color-surface-raised: color-mix(in srgb, var(--public-ink) 88%, white);
+  --color-surface-sunken: color-mix(in srgb, var(--public-ink) 80%, black);
+  --color-border:         color-mix(in srgb, white 13%, transparent);
+  --color-border-strong:  color-mix(in srgb, white 26%, transparent);
+
+  --color-text-primary:   white;
+  --color-text-secondary: color-mix(in srgb, white 74%, transparent);
+  --color-text-muted:     color-mix(in srgb, white 62%, transparent);
+  --color-text-inverse:   var(--public-ink);
+
+  /*
+   * Hebun blue at 4.6:1 on white is 3.0:1 on ink — legible as a LINE, not as TEXT. So the scope
+   * keeps `--color-primary` for fills a white label sits on, and lightens a separate reading blue
+   * for anything that is itself text. Same hue, same token, two jobs stated apart.
+   */
+  --color-primary-read:   color-mix(in srgb, var(--color-primary) 46%, white);
+
+  /*
+   * Marks drawn INSIDE an ink section — stage junctions, plate stations, corner ticks. The page's
+   * one trace overlay is outside every scope and keeps the mid tone that survives both grounds.
+   */
+  --trace-live:           color-mix(in srgb, var(--color-primary) 52%, white);
+  --blueprint-line:       color-mix(in srgb, white 6%, transparent);
+
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+/* The reading blue, wherever a scope has one. On light ground it is the ordinary primary. */
+.text-primary-read {
+  color: var(--color-primary-read, var(--color-primary));
+}
+
+/*
+ * ── THE HERO FIELD ───────────────────────────────────────────────────────────
+ *
+ * Three flat layers and nothing else: one ambient wash low in the frame, the blueprint lattice, and
+ * a single horizon rule. No mesh, no orb, no particles, no shader — a technical drawing has a
+ * ground, a grid and a horizon, and that is the whole vocabulary.
+ */
+.public-field {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.public-field-wash {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(70% 52% at 12% 108%, color-mix(in srgb, var(--color-primary) 30%, transparent), transparent 66%),
+    radial-gradient(64% 58% at 84% 22%, color-mix(in srgb, var(--color-primary) 15%, transparent), transparent 70%);
+}
+
+/*
+ * ── THE BOUNDARY ─────────────────────────────────────────────────────────────
+ *
+ * A drawn rule across the hero with a gate in it, and it is the page's argument in one mark: the
+ * trace descends, reaches the boundary, and only continues past it as a permitted line. It is
+ * geometry, not an assertion about anything that happened — nothing here reports a state.
+ */
+.public-boundary {
+  position: absolute;
+  /* Drawn inside the padded container, so it is pulled back out to the container's own edges. */
+  left: calc(-1 * var(--public-inset));
+  right: calc(-1 * var(--public-inset));
+  height: var(--trace-width);
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--color-border-strong) 12%,
+    var(--color-border-strong) 88%,
+    transparent 100%
+  );
+}
+
+.public-boundary-gate {
+  position: absolute;
+  /* Same pull-back, so the gate lands on the rail rather than on the text edge. */
+  left: calc(var(--trace-inset) - var(--public-inset));
+  /* Sized so its rotated corner stays inside the frame at the phone's narrower rail inset. */
+  width: var(--gate-size, 16px);
+  height: var(--gate-size, 16px);
+  translate: calc(-50% + var(--trace-width) / 2) -50%;
+  rotate: 45deg;
+  border: var(--trace-width) solid var(--trace-live);
+  background: var(--color-bg);
+}
+
+/*
+ * ── THE PLATE ────────────────────────────────────────────────────────────────
+ *
+ * ONE object, and the page's only one. It breaks the fold, so the first screen ends mid-object and
+ * scrolling is the way to finish reading it — the oldest honest reason to scroll there is.
+ *
+ * It is a technical plate, not a card and not a screenshot: hairline border, corner ticks, a spine
+ * the trace runs along, and numbered stations. Everything inside it is a sentence the site already
+ * published. There is no invented interface, no fabricated value and no chrome pretending to be an
+ * application window.
+ */
+.public-plate {
+  /*
+   * The plate PUBLISHES the timeline its own marks are drawn on. A 1px spine and an 11px station
+   * each have a view range only a few pixels long, and an animation whose range is a few pixels of
+   * travel never reliably reaches its end before the subject leaves — both marks were observed
+   * frozen part-drawn for the rest of the page. Driven from the plate's extent instead, they finish
+   * while the plate is still fully in view and hold the finished state afterwards.
+   */
+  view-timeline: --public-plate block;
+  position: relative;
+  border: var(--trace-width) solid var(--color-border-strong);
+  border-radius: var(--plate-radius);
+  /*
+   * One fill expression, two grounds. On ink `--color-surface` IS the ink, so 86% lets the field
+   * behind it read through and the plate sits ON the atmosphere rather than punching a hole in it.
+   * On paper `--color-surface` is white against a page of `--color-bg`, so the same expression
+   * gives the plate the small lift it needs to be an object instead of a bordered paragraph.
+   */
+  background: color-mix(in srgb, var(--color-surface) 86%, transparent);
+}
+
+/* Corner ticks — a drawing's registration marks. Four spans, no pseudo-element juggling. */
+.public-tick {
+  position: absolute;
+  width: var(--plate-tick);
+  height: var(--plate-tick);
+  border: 0 solid var(--trace-live);
+}
+
+.public-tick-tl { top: -1px; left: -1px; border-top-width: var(--trace-width); border-left-width: var(--trace-width); }
+.public-tick-tr { top: -1px; right: -1px; border-top-width: var(--trace-width); border-right-width: var(--trace-width); }
+.public-tick-bl { bottom: -1px; left: -1px; border-bottom-width: var(--trace-width); border-left-width: var(--trace-width); }
+.public-tick-br { bottom: -1px; right: -1px; border-bottom-width: var(--trace-width); border-right-width: var(--trace-width); }
+
+/*
+ * The spine: the horizontal run of the trace across the plate on desktop, vertical on a phone. The
+ * stations sit on it, so the plate is visibly part of the same path as the rail — the trace leaves
+ * the margin, crosses the object, and returns.
+ */
+.public-spine {
+  position: absolute;
+  background: var(--trace-hairline);
+}
+
+.public-spine-live {
+  position: absolute;
+  background: var(--trace-live);
+  transform-origin: left center;
+}
+
+.public-station {
+  position: relative;
+  width: var(--trace-node);
+  height: var(--trace-node);
+  rotate: 45deg;
+  border: var(--trace-width) solid var(--trace-live);
+  background: var(--trace-live);
+}
+
+
+/* The plate's horizontal spine, aligned to the station marks' own centre line. */
+.public-spine-h {
+  top: calc(var(--trace-node) / 2);
+  left: calc(var(--trace-node) / 2);
+  right: calc(var(--trace-node) / 2);
+  height: var(--trace-width);
+  translate: 0 -50%;
+}
+
+/* ── The governed path's drawn chain ──────────────────────────────────────────
+ * A rule segment per stage with this stage's junction on it, so six stages read as one path rather
+ * than as six list items. The rail sits on the number column's own centre line.
+ */
+/*
+ * The chain runs down the LEFT EDGE of each stage, not through the middle of its number column —
+ * a rule drawn through "01" is a strike-through, which is the one thing a stage marker must not
+ * look like. The number sits clear of the rail, in its own column beside it.
+ */
+.public-stage {
+  --stage-x: 0.4375rem;
+}
+
+@media (min-width: 640px) {
+  .public-stage {
+    --stage-x: 0.625rem;
+  }
+}
+
+.public-stage-rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--stage-x);
+  width: var(--trace-width);
+  background: var(--trace-hairline);
+}
+
+/* Closes the seam where one stage's rail meets the previous one's. */
+.public-stage-cap {
+  position: absolute;
+  top: 0;
+  left: var(--stage-x);
+  width: 0.75rem;
+  height: var(--trace-width);
+  background: var(--trace-hairline);
+}
+
+.public-stage-node {
+  position: absolute;
+  top: 2.6rem;
+  left: var(--stage-x);
+  width: var(--trace-node);
+  height: var(--trace-node);
+  translate: calc(-50% + var(--trace-width) / 2) -50%;
+  rotate: 45deg;
+  border: var(--trace-width) solid var(--trace-live);
+  background: var(--trace-live);
+}
+
+/* ── The scope boundary ─────────────────────────────────────────────────────── */
+.public-boundary-dash {
+  background-image: linear-gradient(
+    to right,
+    var(--color-border-strong) 0 6px,
+    transparent 6px 12px
+  );
+  background-size: 12px var(--trace-width);
+  background-repeat: repeat-x;
+}
+
+/*
+ * Outside the boundary: a dashed, unclosed edge. It is deliberately NOT a card — a solid box would
+ * give a refusal the same standing as the grant, which is the exact equivalence this drawing exists
+ * to deny. One drawn edge on the left, nothing enclosing it.
+ */
+.public-outside {
+  border-left: var(--trace-width) dashed var(--color-border-strong);
+}
+
+/*
+ * ══ PUB-2A REWORK — MOTION THAT EXPLAINS CAUSALITY ═══════════════════════════
+ *
+ * Every rule below is gated TWICE, exactly as the rest of the public system is: on
+ * `@supports (animation-timeline: …)` and on `prefers-reduced-motion: no-preference`. The ungated
+ * declarations earlier in this file are the FINISHED state — a full spine, marked stations, marked
+ * stage junctions — so a browser without scroll-driven animation, and a reader who asked for less
+ * motion, both receive the completed drawing rather than a half-built one.
+ *
+ * The motion is not ornament. The plate's spine is DRAWN left to right, so the three statements
+ * are marked in the order they actually occur; the governed path's junctions are marked as the
+ * reader descends, so the six stages are visibly one sequence rather than six blocks. In both
+ * cases the thing being animated is the ORDER, which is the claim.
+ */
+@keyframes public-spine-draw {
+  to {
+    scale: 1 1;
+  }
+}
+
+@keyframes public-mark-in {
+  from {
+    scale: 0.2;
+    opacity: 0;
+  }
+  to {
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .public-spine-live {
+      scale: 0 1;
+      animation: public-spine-draw linear forwards;
+      animation-timeline: --public-plate;
+      animation-range: cover 10% cover 52%;
+    }
+
+    /*
+     * A station is marked as the spine reaches it. The three offsets are FRACTIONS OF THE SAME
+     * SCROLL RANGE rather than clock delays — on a scroll timeline a station cannot appear before
+     * the line that arrives at it, however fast or slowly the reader moves. Both ranges close
+     * inside `entry`, so both are finished by the time the plate is fully on screen.
+     */
+    .public-station {
+      scale: 0.2;
+      opacity: 0;
+      animation: public-mark-in linear forwards;
+      animation-timeline: --public-plate;
+      animation-range: cover var(--station-start, 16%) cover var(--station-end, 34%);
+    }
+
+    .public-stage-node {
+      scale: 0.2;
+      opacity: 0;
+      animation: public-mark-in linear forwards;
+      animation-timeline: view(block);
+      animation-range: cover 34% cover 46%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+   * Geometry survives, drawing does not. `rotate` and `translate` are how these marks are centred
+   * on their rail and drawn as survey marks; only the animation and the drawn-from-zero scale are
+   * removed, and each mark is left in the state the ungated rules already describe.
+   */
+  .public-spine-live,
+  .public-station,
+  .public-stage-node {
+    animation: none !important;
+    animation-delay: 0ms !important;
+    opacity: 1 !important;
+  }
+
+  .public-spine-live {
+    scale: 1 1 !important;
+  }
+
+  .public-station,
+  .public-stage-node {
+    scale: 1 !important;
+  }
+}
+
+/*
+ * From `sm` upward the ink lattice can take a little more presence: there is more frame for it to
+ * fade across, and the mask has room to finish before an edge. On a phone it stays at the quieter
+ * value above, where the rail and the plate carry the drawing instead.
+ */
+@media (min-width: 640px) {
+  .public-ink {
+    --blueprint-line: color-mix(in srgb, white 9%, transparent);
+  }
 }

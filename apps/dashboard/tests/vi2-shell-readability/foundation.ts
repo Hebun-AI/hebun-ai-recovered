@@ -365,9 +365,25 @@ function shellContractsAreUnchanged(sources: Sources): void {
    * BOTH desktop blocks — the operator's own collapse and focused mode — sit at the same breakpoint,
    * so the count is the invariant, not the presence. An assertion that merely found one of them
    * could not see the other move, which is exactly what its bite-proof demonstrated.
+   *
+   * ── WHY THE COUNT IS SCOPED TO SHELL BLOCKS ──────────────────────────────────
+   *
+   * It used to count EVERY `@media (min-width: 1024px)` in the stylesheet and require exactly two.
+   * That reads as "the two shell blocks are at 1024px" and means "this file contains no other
+   * desktop breakpoint anywhere" — a claim about the whole stylesheet that VI-2 never intended to
+   * make and has no authority over. The public site's sticky section marker is a desktop
+   * composition and legitimately opens at the same width, and it tripped this assertion while
+   * moving no shell rule at all.
+   *
+   * So the count now asks the question the message states: how many desktop blocks carry a SHELL
+   * declaration. Its bite-proof moves the first one to 1280px, which still takes the count from two
+   * to one, so the guard is scoped without being weakened.
    */
+  const desktopShellBlocks = [...globals.matchAll(/@media \(min-width: 1024px\)/g)].filter((match) =>
+    /data-secondary|data-heby-focus/.test(globals.slice(match.index!, match.index! + 400)),
+  );
   assert.equal(
-    (globals.match(/@media \(min-width: 1024px\)/g) ?? []).length,
+    desktopShellBlocks.length,
     2,
     "both desktop shell blocks are still bound to the 1024px collapse point",
   );

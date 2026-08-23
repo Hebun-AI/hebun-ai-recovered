@@ -76,9 +76,24 @@ function main(): void {
       .filter((entry) => entry.length > 0);
     assert.deepEqual(
       prefixes,
-      ["/login", "/privacy", "/terms"],
-      "the public prefix list is closed at the sign-in flow and the public legal notices",
+      ["/login", "/privacy", "/terms", "/contact"],
+      "the public prefix list is closed at the sign-in flow, the legal notices and the public contact page",
     );
+    /*
+     * PUB-1 widened the list by one entry and added a SECOND, separate list for the public
+     * homepage. `/` is matched by EQUALITY in `PUBLIC_EXACT_PATHS`, never as a prefix — a prefix
+     * entry of "/" would become a blanket exemption the moment the predicate is rewritten to the
+     * obvious `startsWith(prefix)`. So the assertion here is not only "what is in the list" but
+     * "the list contains nothing that could match everything".
+     */
+    for (const prefix of prefixes) {
+      assert.ok(prefix.length > 1, `"${prefix}" is too short to be a safe prefix`);
+    }
+    const exact = middleware.match(/const PUBLIC_EXACT_PATHS = \[([^\]]*)\];/)![1]!
+      .split(",")
+      .map((entry) => entry.trim().replace(/^"|"$/g, ""))
+      .filter((entry) => entry.length > 0);
+    assert.deepEqual(exact, ["/"], "the exact-match public list is closed at the public homepage");
     for (const prefix of prefixes) {
       assert.ok(
         !existsSync(path.join(ROOT, `src/app/(dashboard)${prefix}`)),
