@@ -49,6 +49,11 @@ export const GOOGLE_AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oaut
 export const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 export const GOOGLE_USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo";
 export const GOOGLE_REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke";
+/*
+ * Drive metadata listing. `files.list` ONLY — there is deliberately no `alt=media` download
+ * endpoint constant in this file, so a content read has no address to be written against.
+ */
+export const GOOGLE_DRIVE_FILES_ENDPOINT = "https://www.googleapis.com/drive/v3/files";
 
 /**
  * What a successful token exchange yields.
@@ -95,8 +100,27 @@ export interface GoogleAccountIdentity {
  *   identity    Google answered without a usable `sub`. Nothing can be bound to that.
  *   transport   5xx, 429, timeout, DNS, TLS. NOTHING IS KNOWN about the grant — it may be perfect.
  *   malformed   Google's response could not be parsed as the documented shape.
+ *   disabled    The API itself is switched off in the Google Cloud project. NOTHING is wrong with
+ *               the tenant's grant, the credential, or the scopes — a human must enable the API.
+ *
+ * ── WHY `disabled` IS ITS OWN CLASS (INT-4, FOUND DURING REAL ACCEPTANCE) ────
+ *
+ * Google answers `accessNotConfigured` as a 403 whose reason is neither `insufficientPermissions`
+ * nor `insufficient_scope`, so it used to fall through to `auth` — "Google refused this
+ * credential". That statement is FALSE twice over: the credential is perfect, and the tenant's
+ * grant covers the call. Worse, `auth` is the one class a refresh is attempted for, so Hebun would
+ * have spent a refresh token on a problem no token can fix, on every single call.
+ *
+ * It was found by pointing the released seam at real Google, not by review — the scope was granted
+ * correctly and the Drive API was simply not enabled in the Cloud project.
  */
-export type GoogleFailureClass = "auth" | "scope" | "identity" | "transport" | "malformed";
+export type GoogleFailureClass =
+  | "auth"
+  | "scope"
+  | "identity"
+  | "transport"
+  | "malformed"
+  | "disabled";
 
 export interface GoogleFailure {
   readonly ok: false;
@@ -137,3 +161,117 @@ export function parseScopes(raw: string | null | undefined): readonly string[] {
 export function coversRequiredScopes(granted: readonly string[]): boolean {
   return GOOGLE_REQUIRED_GRANTED_SCOPES.every((required) => granted.includes(required));
 }
+
+/* ── Drive metadata capability (INT-4) ──────────────────────────────────────── */
+
+/**
+ * THE CAPABILITY KEY. One string, and the availability seam's whole vocabulary for Drive.
+ *
+ * It names METADATA READ and nothing else, because that is what the scope below permits and what
+ * the seam below implements. A key like `google.drive.read` would be a promise the phase does not
+ * keep the first time somebody asked it for a file's contents.
+ */
+export const GOOGLE_DRIVE_METADATA_CAPABILITY = "google.drive.metadata.read" as const;
+
+/**
+ * THE NARROWEST GOOGLE SCOPE THAT CAN DISCOVER FILES.
+ *
+ * `drive.metadata.readonly` accepts `files.list` and `files.get` — verified against Google's method
+ * references, not assumed — and it CANNOT download content: `alt=media` requires `drive.readonly`
+ * or wider. That asymmetry is the reason it was chosen over `drive.readonly`, which permits "view
+ * and download all your Drive files".
+ *
+ * So "INT-4 reads no file content" is enforced by GOOGLE, not only by this repository. A mistake
+ * in Hebun's own code cannot turn this grant into a content read.
+ *
+ * It is a RESTRICTED scope. A test user may grant it while the OAuth app is in Testing status; a
+ * production deployment requires Google verification and a CASA security assessment. That is
+ * recorded as release debt, not worked around.
+ */
+export const GOOGLE_DRIVE_METADATA_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
+
+/**
+ * WHICH EXTRA SCOPES A CAPABILITY UPGRADE MAY REQUEST — a closed map, keyed by capability.
+ *
+ * The authorization route accepts a CAPABILITY, never a scope. A handler that took scopes would
+ * take whatever an attacker put in the query string, and the consent screen would ask for it in
+ * Hebun's name. Here the only reachable values are the ones written on this line.
+ *
+ * `include_granted_scopes=false` is unchanged, so an upgrade must ask for the identity scopes TOO
+ * or Google would return a grant without them and the connection would fail its own required-scope
+ * check. The caller composes base + extra for exactly that reason.
+ */
+export const GOOGLE_CAPABILITY_SCOPE_REQUESTS: Readonly<Record<string, readonly string[]>> =
+  Object.freeze({
+    [GOOGLE_DRIVE_METADATA_CAPABILITY]: Object.freeze([GOOGLE_DRIVE_METADATA_SCOPE]),
+  });
+
+/** The capability names an authorization request may legitimately carry. */
+export const GOOGLE_UPGRADEABLE_CAPABILITIES: readonly string[] = Object.freeze(
+  Object.keys(GOOGLE_CAPABILITY_SCOPE_REQUESTS),
+);
+
+/**
+ * Resolve a caller-supplied capability to the extra scopes it needs, or `null`.
+ *
+ * `null` for anything unrecognized — an unknown capability is not an error to report back with the
+ * offending value, it is simply not a capability.
+ */
+export function extraScopesForCapability(capability: string | null): readonly string[] | null {
+  if (!capability) return null;
+  /*
+   * ── `Object.hasOwn`, NOT A BARE LOOKUP ────────────────────────────────────
+   *
+   * A plain `map[capability]` reaches the PROTOTYPE CHAIN. `"__proto__"` returns an object,
+   * `"constructor"` returns a function, and `"toString"` returns a method — none of them `undefined`,
+   * so the `?? null` fallback never fires. This function's whole job is to make a caller-supplied
+   * string resolve only to scopes written in this file, and a bare lookup quietly fails at exactly
+   * that. Found by INT-4's own hostile-input assertion, not by review.
+   *
+   * `Array.isArray` is the second gate: even an own property must be a scope list to be returned.
+   */
+  if (!Object.hasOwn(GOOGLE_CAPABILITY_SCOPE_REQUESTS, capability)) return null;
+  const scopes = GOOGLE_CAPABILITY_SCOPE_REQUESTS[capability];
+  return Array.isArray(scopes) ? scopes : null;
+}
+
+/**
+ * ONE DRIVE FILE, AS HEBUN SEES IT.
+ *
+ * A NORMALIZED, PROVIDER-OWNED shape — never Google's response object. Returning the raw payload
+ * would put every field Google adds in future on Hebun's surfaces without anybody deciding, and
+ * Drive's `File` resource carries permissions, owners, sharing links and thumbnails that this
+ * capability has no business holding.
+ *
+ * `sizeBytes` is null for Google-native files (Docs, Sheets), which genuinely have no byte size.
+ * That is a fact about Drive, not a missing value.
+ */
+export interface GoogleDriveFileView {
+  readonly fileId: string;
+  readonly name: string;
+  readonly mimeType: string;
+  readonly modifiedAt: string | null;
+  readonly sizeBytes: number | null;
+  /** Drive's own flag. Reported so a surface never presents a trashed file as live. */
+  readonly trashed: boolean;
+}
+
+/** A bounded page of Drive metadata. */
+export interface GoogleDriveListing {
+  readonly files: readonly GoogleDriveFileView[];
+  /** Google's opaque continuation token, or null. Never a cursor Hebun invents. */
+  readonly nextPageToken: string | null;
+}
+
+export type GoogleDriveListResult =
+  | { readonly ok: true; readonly listing: GoogleDriveListing }
+  | GoogleFailure;
+
+/**
+ * The most files one Drive read may return.
+ *
+ * Google's own `files.list` maximum is 1000; this is far below it on purpose. A read seam whose
+ * bound is the provider's maximum is a data export waiting for a caller, and every released Hebun
+ * listing is bounded well under what the store could serve.
+ */
+export const MAX_DRIVE_FILES_PER_PAGE = 50;

@@ -37,11 +37,13 @@ import { providerCatalog } from "@/features/provider-matrix/provider-catalog";
 import { findProviderDefinition } from "@/features/provider-catalog/catalog";
 import {
   isHealthUsable,
+  type CapabilityAvailabilityView,
   type ConnectionHealth,
   type ConnectionListing,
   type IntegrationView as AuthorityConnection,
 } from "@/features/integration-authority/contracts";
 import type {
+  ConnectedCapabilityView,
   ConnectedIntegrationView,
   IntegrationsModel,
   IntegrationsReadiness,
@@ -78,21 +80,65 @@ function providerLabelFor(connection: AuthorityConnection): string {
   return definition?.label ?? connection.name;
 }
 
+/** Human-facing capability names. From this repository — a provider never names its own feature here. */
+const CAPABILITY_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  "google.drive.metadata.read": "Drive metadata access",
+});
+
 /**
- * WHAT THIS CONNECTION CAN ACTUALLY BE USED FOR — derived from the catalog definition, never typed
- * out per provider.
+ * WHAT THIS TENANT CAN ACTUALLY DO RIGHT NOW — read from the availability seam, never the catalog.
  *
- * `capabilityScopes` is empty for `google-workspace` because INT-3 requested no scope that permits
- * reading anything. Deriving the sentence means the day a capability is added, this line changes by
- * itself rather than staying a stale reassurance somebody has to remember to edit.
+ * ── THE DISTINCTION THIS FUNCTION EXISTS TO HOLD ────────────────────────────
+ *
+ * Before INT-4 this sentence was derived from the provider definition's `capabilityScopes`, which
+ * was empty, so "identity verification only" was true for everyone. The moment Drive was added to
+ * the catalog that derivation became a LIE: it would have told a tenant holding identity-only
+ * scopes that Drive metadata access is what this provider does — which reads as having it.
+ *
+ * The catalog says what a capability WOULD need. Only the availability seam knows whether THIS
+ * tenant's grant covers it, and only it consults health and lifecycle too.
  */
-function capabilityStatementFor(connection: AuthorityConnection): string {
-  const definition = connection.providerKey ? findProviderDefinition(connection.providerKey) : undefined;
-  const capabilities = definition ? Object.keys(definition.capabilityScopes).sort() : [];
+function capabilitiesFor(
+  connection: AuthorityConnection,
+  availability: CapabilityAvailabilityView | null,
+): readonly ConnectedCapabilityView[] {
+  if (!availability) return Object.freeze([]);
+
+  const views: ConnectedCapabilityView[] = [];
+  for (const entry of availability.capabilities) {
+    /* Only capabilities THIS connection is a source for. Another connection's grant is not this one's. */
+    const source = entry.sources.find((s) => s.integrationId === connection.integrationId);
+    if (!source) continue;
+
+    const available = entry.state === "available" && source.readAvailable;
+    const label = CAPABILITY_LABELS[entry.capability] ?? entry.capability;
+    views.push({
+      capability: entry.capability,
+      label,
+      state: entry.state,
+      available,
+      statement: available
+        ? "Available. Read-only file discovery and metadata. Hebun reads no file content, and holds no permission to change anything in Drive."
+        : `Not available. ${entry.reason ?? "The provider has not granted what this capability needs."}`,
+    });
+  }
+  return Object.freeze(views);
+}
+
+/**
+ * One sentence for the whole set, written from what the list ACTUALLY carries.
+ *
+ * It can never imply a capability the rows below do not show, because it is computed from them.
+ */
+function capabilityStatementFor(capabilities: readonly ConnectedCapabilityView[]): string {
+  const granted = capabilities.filter((c) => c.available);
   if (capabilities.length === 0) {
     return "Identity verification only. This connection grants Hebun no data capability — no file, calendar, message or directory read, because no scope permitting one was requested.";
   }
-  return `Capabilities this provider defines: ${capabilities.join(", ")}. Whether each can be answered right now is the availability seam's answer, not this page's.`;
+  if (granted.length === 0) {
+    return "Identity verification only. The capabilities this provider defines are listed below and none is granted to this organization yet.";
+  }
+  return `Granted: ${granted.map((c) => c.label).join(", ")}. Read-only — no write capability exists for this provider in this release.`;
 }
 
 /**
@@ -124,13 +170,17 @@ function stateStatementFor(health: ConnectionHealth): string {
   return "Connected. The provider is not answering right now — the authorization is unaffected and no reconnection is needed.";
 }
 
-function toConnectedView(connection: AuthorityConnection): ConnectedIntegrationView {
+function toConnectedView(
+  connection: AuthorityConnection,
+  availability: CapabilityAvailabilityView | null,
+): ConnectedIntegrationView {
   /*
    * NOT PERSISTED ANYWHERE — see `accountKindStatementFor`. Written as a named constant rather than
    * an inline `null` so that the phase which adds an `hd` column has one obvious place to change,
    * and so a reader can see that the absence is a decision.
    */
   const verifiedDomain: string | null = null;
+  const capabilities = capabilitiesFor(connection, availability);
 
   return {
     integrationId: connection.integrationId,
@@ -146,7 +196,8 @@ function toConnectedView(connection: AuthorityConnection): ConnectedIntegrationV
     lastVerifiedAt: connection.lastVerifiedAt,
     scopes: connection.scopes,
     scopeCount: connection.scopes.length,
-    capabilityStatement: capabilityStatementFor(connection),
+    capabilities,
+    capabilityStatement: capabilityStatementFor(capabilities),
   };
 }
 
@@ -195,7 +246,10 @@ function headlineFor(readiness: IntegrationsReadiness, connectedCount: number): 
  *
  * The listing is REQUIRED. See the header.
  */
-export function getIntegrationsModel(listing: ConnectionListing): IntegrationsModel {
+export function getIntegrationsModel(
+  listing: ConnectionListing,
+  availability: CapabilityAvailabilityView | null = null,
+): IntegrationsModel {
   const readiness: IntegrationsReadiness =
     listing.status === "read"
       ? "authority-read"
@@ -207,7 +261,7 @@ export function getIntegrationsModel(listing: ConnectionListing): IntegrationsMo
 
   const connected = connections
     .filter((c) => c.connectionState === "connected")
-    .map(toConnectedView);
+    .map((c) => toConnectedView(c, availability));
 
   const recordedNotConnected = connections
     .filter((c) => c.connectionState !== "connected")

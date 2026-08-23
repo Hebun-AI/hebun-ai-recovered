@@ -123,17 +123,68 @@ function main(): void {
         `${exported} must not accept an endpoint — the constants are the only targets`,
       );
     }
-    /* Every network call site targets one of the frozen constants. */
-    const targets = [...codeOnly(transportSource).matchAll(/(?:postForm|doFetch)\(\s*([A-Za-z_][A-Za-z0-9_]*)/g)]
+    /*
+     * ── AMENDED BY INT-4: THE PROPERTY, NOT THE SPELLING ────────────────────
+     *
+     * This asserted that every `doFetch(X)` names a `GOOGLE_*` constant directly. That was exact
+     * while every call was a bare endpoint. INT-4's Drive listing needs QUERY PARAMETERS —
+     * `pageSize`, the `fields` projection, `pageToken` — so its target is a `URL` built FROM the
+     * constant, and the old shape check would have refused a call that satisfies the rule it
+     * exists to enforce.
+     *
+     * The rule was never "the argument is spelled like a constant". It is "no host in this file
+     * comes from anywhere but the frozen constants". So that is now what is checked, three ways:
+     * no URL literal exists here at all, every `new URL(...)` is constructed from a `GOOGLE_*`
+     * constant, and every call target is either a constant or one of those URLs.
+     */
+    const transportCode = codeOnly(transportSource);
+
+    /* 2a. No URL may be written in this file. The endpoints live in `contracts.ts`. */
+    assert.ok(
+      !/["'`]https?:\/\//.test(transportCode),
+      "the transport contains no URL literal — every endpoint is a frozen constant",
+    );
+
+    /* 2b. Every URL object is built from a frozen constant. */
+    const urlBuilds = [...transportCode.matchAll(/new URL\(\s*([A-Za-z_][A-Za-z0-9_]*)/g)].map(
+      (m) => m[1]!,
+    );
+    for (const built of urlBuilds) {
+      assert.ok(
+        built.startsWith("GOOGLE_"),
+        `every URL must be built from a frozen endpoint constant — found "${built}"`,
+      );
+    }
+
+    /* 2c. Every call target is a frozen constant, or a URL proved above to be built from one. */
+    const urlLocals = new Set(
+      [...transportCode.matchAll(/const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*new URL\(/g)].map(
+        (m) => m[1]!,
+      ),
+    );
+    const targets = [
+      ...transportCode.matchAll(/(?:postForm|doFetch)\(\s*([A-Za-z_][A-Za-z0-9_]*)/g),
+    ]
       .map((m) => m[1]!)
       .filter((name) => name !== "endpoint");
     assert.ok(targets.length > 0, "there is at least one network call to check");
     for (const target of targets) {
       assert.ok(
-        target.startsWith("GOOGLE_"),
+        target.startsWith("GOOGLE_") || urlLocals.has(target),
         `every call must target a frozen endpoint constant — found "${target}"`,
       );
     }
+
+    /*
+     * 2d. INT-4 IS METADATA-ONLY, AND THE TRANSPORT CANNOT REACH CONTENT.
+     *
+     * `alt=media` is Drive's content-download switch. Its absence here, together with the absence
+     * of any download endpoint constant, is what makes "no file content is read" a property of
+     * the code rather than a promise in a comment. Google enforces it too — the granted scope
+     * cannot download — but two independent reasons are the point.
+     */
+    assert.ok(!/alt["'`\s]*[:=,]?\s*["'`]?media/.test(transportCode), "no content download is requested");
+    assert.ok(!/webContentLink|exportLinks|downloadUrl/.test(transportCode), "no content link is read");
   }
 
   /* ── 2. NOTHING ON THE TOKEN PATH LOGS ───────────────────────────────────── */
@@ -226,11 +277,31 @@ function main(): void {
 
   /* ── 5. LEAST PRIVILEGE — NO DRIVE, NO CALENDAR, NO ADMIN ────────────────── */
   {
-    assert.deepEqual([...GOOGLE_REQUESTED_SCOPES], ["openid", "email", "profile"]);
+    /*
+     * ── AMENDED BY INT-4 ────────────────────────────────────────────────────
+     *
+     * INT-3 banned every Drive string because INT-3 read no Drive. INT-4 reads Drive METADATA, so
+     * a blanket ban would now forbid the released capability. What survives — and is what the pin
+     * was always for — is LEAST PRIVILEGE: the base request is still identity-only, the ONLY
+     * Drive scope anywhere is the metadata-readonly one, and Calendar, Gmail, Admin SDK and
+     * Sheets remain banned outright.
+     */
+    assert.deepEqual([...GOOGLE_REQUESTED_SCOPES], ["openid", "email", "profile"], "the BASE request is still identity-only");
+
+    /* The only Drive scope permitted to exist, anywhere in these directories. */
+    const ALLOWED_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
     for (const file of collect(GOOGLE).concat(collect("src/features/provider-catalog"))) {
       const code = read(file);
-      for (const forbidden of ["auth/drive", "auth/calendar", "admin.directory", "auth/gmail", "auth/spreadsheets"]) {
-        assert.ok(!code.includes(forbidden), `${file} must not request "${forbidden}" in INT-3`);
+      for (const forbidden of ["auth/calendar", "admin.directory", "auth/gmail", "auth/spreadsheets", "auth/contacts", "auth/documents"]) {
+        assert.ok(!code.includes(forbidden), `${file} must not request "${forbidden}"`);
+      }
+      /* Every Drive scope occurrence must be the metadata-readonly one — never a wider sibling. */
+      for (const found of code.match(/https:\/\/www\.googleapis\.com\/auth\/drive[A-Za-z.]*/g) ?? []) {
+        assert.equal(found, ALLOWED_DRIVE_SCOPE, `${file} may name only the metadata-readonly Drive scope`);
+      }
+      /* No write-bearing Drive scope may appear even in a comment that a later edit could copy. */
+      for (const forbidden of ["auth/drive.file", "auth/drive.appdata", "auth/drive.scripts"]) {
+        assert.ok(!code.includes(forbidden), `${file} must not name the write-capable "${forbidden}"`);
       }
     }
     /* Required scopes are compared in GOOGLE'S spelling, not in the short form Hebun requests. */
@@ -248,11 +319,27 @@ function main(): void {
     );
     const google = PROVIDER_CATALOG[0]!;
     assert.equal(google.authMethod, "oauth2");
+    /*
+     * ── AMENDED BY INT-4 ────────────────────────────────────────────────────
+     *
+     * INT-3 pinned `capabilityScopes` EMPTY, because a listed capability would have offered a read
+     * that phase could not perform. INT-4 performs one, so exactly one appears — and the pin
+     * becomes the stronger statement: EXACTLY ONE capability, it is the metadata read, and its
+     * WRITE SET IS EMPTY. An empty write set is now load-bearing: the availability seam reports
+     * `writeCapable: false` for it, so no surface can claim Hebun may modify Drive.
+     */
     assert.deepEqual(
-      google.capabilityScopes,
-      {},
-      "INT-3 delivers NO capability — a listed one would offer a read this phase cannot perform",
+      Object.keys(google.capabilityScopes),
+      ["google.drive.metadata.read"],
+      "INT-4 delivers exactly one capability, and it is the Drive metadata read",
     );
+    const drive = google.capabilityScopes["google.drive.metadata.read"]!;
+    assert.deepEqual(
+      [...drive.read],
+      ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+      "it needs exactly the metadata-readonly scope",
+    );
+    assert.deepEqual([...drive.write], [], "and declares NO write scope — Drive write is a phase away, not a scope away");
     for (const vendor of ["slack", "github", "microsoft", "notion"]) {
       assert.ok(
         !PROVIDER_CATALOG.some((d) => d.providerKey.includes(vendor)),

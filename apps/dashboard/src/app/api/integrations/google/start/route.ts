@@ -9,10 +9,24 @@
  *
  * ── WHAT THIS HANDLER REFUSES TO TAKE FROM THE REQUEST ───────────────────────
  *
- * Everything except the fact that it was called. NO tenant id, NO integration id, NO redirect
- * target, NO scopes. The tenant comes from the session; the redirect URI comes from configuration;
- * the scopes are constants. A parameter this handler honoured would be a parameter an attacker
- * could set.
+ * Everything except the fact that it was called, and — since INT-4 — one CAPABILITY NAME. NO
+ * tenant id, NO integration id, NO redirect target, NO scopes. The tenant comes from the session;
+ * the redirect URI comes from configuration; the scopes are constants. A parameter this handler
+ * honoured would be a parameter an attacker could set.
+ *
+ * ── WHY A CAPABILITY IS SAFE TO ACCEPT WHERE A SCOPE WOULD NOT BE ────────────
+ *
+ * `?capability=` is matched against a frozen map in `provider-google/contracts.ts` and resolves to
+ * scopes written in this repository. An unrecognized value resolves to NOTHING and the request
+ * proceeds as an ordinary identity authorization — it is not an error to echo back, it is simply
+ * not a capability. So the set of scopes this handler can ever ask Google for, in Hebun's name, is
+ * the set spelled out in that file, whatever arrives in the query string.
+ *
+ * ── WHY UPGRADING IS OPT-IN RATHER THAN THE DEFAULT SCOPE SET ────────────────
+ *
+ * Widening `GOOGLE_REQUESTED_SCOPES` would make every tenant grant Drive access to sign in, and
+ * would delete identity-only as a truthful resting state — the exact claim INT-3 earned. A tenant
+ * who wants Drive asks for Drive.
  *
  * ── IT IS AUTHENTICATED TWICE ────────────────────────────────────────────────
  *
@@ -21,7 +35,7 @@
  * database, so a present-but-invalid cookie reaches this code. `resolveTenantContext()` is the
  * authoritative check, and it is what produces the tenant this flow is bound to.
  */
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getControlPlaneDb } from "@/db/client.server";
 import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
@@ -34,6 +48,7 @@ import {
   GOOGLE_AUTHORIZATION_ENDPOINT,
   GOOGLE_PROVIDER_KEY,
   GOOGLE_REQUESTED_SCOPES,
+  extraScopesForCapability,
 } from "@/features/provider-google/contracts";
 import { resolveGoogleOAuthEnvironment } from "@/features/provider-google/google-environment.server";
 import {
@@ -56,7 +71,13 @@ function back(reason: string): NextResponse {
   );
 }
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  /*
+   * THE ONLY THING READ FROM THE REQUEST. Resolved against a frozen map below; an unknown value
+   * becomes no extra scopes rather than an error carrying the attacker's string back to a screen.
+   */
+  const requestedCapability = request.nextUrl.searchParams.get("capability");
+
   const config = resolveGoogleOAuthEnvironment();
   /* FAIL CLOSED. An unconfigured deployment offers nothing rather than a broken consent screen. */
   if (config.status !== "configured") return back("not-configured");
@@ -106,12 +127,23 @@ export async function GET(): Promise<NextResponse> {
     config.stateSecret,
   );
 
+  /*
+   * ── THE CAPABILITY UPGRADE, RESOLVED THROUGH A FROZEN MAP ─────────────────
+   *
+   * `include_granted_scopes` stays `false`, so this request must name EVERYTHING the connection
+   * needs — identity scopes included. Asking for Drive alone would return a grant without the
+   * identity scopes, and the callback's required-scope check would then correctly refuse the
+   * connection Hebun had just upgraded.
+   */
+  const extraScopes = extraScopesForCapability(requestedCapability) ?? [];
+  const scopes = [...GOOGLE_REQUESTED_SCOPES, ...extraScopes];
+
   const authorize = new URL(GOOGLE_AUTHORIZATION_ENDPOINT);
   authorize.searchParams.set("client_id", config.clientId);
   /* THE CONFIGURED VALUE, VERBATIM. Never built from a Host header — see the environment module. */
   authorize.searchParams.set("redirect_uri", config.redirectUri);
   authorize.searchParams.set("response_type", "code");
-  authorize.searchParams.set("scope", GOOGLE_REQUESTED_SCOPES.join(" "));
+  authorize.searchParams.set("scope", scopes.join(" "));
   authorize.searchParams.set("state", minted.stateParameter);
   /* PKCE, in addition to the client secret. Defence in depth against code interception. */
   authorize.searchParams.set("code_challenge", minted.codeChallenge);

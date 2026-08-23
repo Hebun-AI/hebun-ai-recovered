@@ -87,6 +87,19 @@ export interface CredentialAuditMetadata {
   /** The row a replacement superseded, so the chain is walkable. `null` otherwise. */
   readonly previousCredentialId: string | null;
   readonly connectionState: ConnectionState | null;
+  /**
+   * WHAT CAUSED A REPLACEMENT (INT-4). Absent for every other action.
+   *
+   * A human re-consent and a provider token refresh both produce
+   * `integration.credential.replaced`, and they mean different things: the first supplied a new
+   * secret that nothing has proved, the second rotated one the provider derived from a grant it
+   * had just honoured. Only the second preserves the connection's lifecycle.
+   *
+   * It is recorded HERE rather than as a fifth audit action because the four-action vocabulary is
+   * closed and pinned, and because "replaced" is genuinely what happened in both cases. A closed
+   * union, so a caller cannot write prose into the permanent record.
+   */
+  readonly origin?: "provider-refresh";
 }
 
 export type CredentialAuditOutcome = "committed" | "rejected";

@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { IntegrationsSurface } from "@/components/platform-integrations/integrations-surface";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { listConnections } from "@/features/integration-authority/integration-repository.server";
+import { getCapabilityAvailability } from "@/features/integration-authority/capability-availability.server";
 import { getIntegrationsModel } from "@/features/platform-integrations";
 
 export const metadata = { title: "Integrations — Hebun AI" };
@@ -41,7 +42,17 @@ export default async function IntegrationsPage() {
   const listing = tenant
     ? await listConnections(tenant)
     : ({ status: "unavailable", reason: "no-authorized-tenant-context" } as const);
-  const model = getIntegrationsModel(listing);
+  /*
+   * ── WHY THE CAPABILITY VIEW IS READ SEPARATELY (INT-4) ────────────────────
+   *
+   * A connection is not a data capability. `listConnections` says what this tenant is connected
+   * to; `getCapabilityAvailability` says what that connection can presently ANSWER, having
+   * consulted lifecycle, health and the scopes Google actually granted. Deriving the second from
+   * the first — or from the provider catalog — is precisely the false claim INT-4 exists to
+   * prevent, because the catalog defines Drive for every Google connection ever made.
+   */
+  const availability = tenant ? await getCapabilityAvailability(tenant) : null;
+  const model = getIntegrationsModel(listing, availability);
 
   return (
     <>

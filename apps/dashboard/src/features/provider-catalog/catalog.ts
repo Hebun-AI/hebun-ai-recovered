@@ -50,6 +50,14 @@
  * only to support tests is a fake fact about the deployment however well it is labelled.
  */
 import type { ConnectionDefinition, ProviderCatalog } from "@/features/integration-authority/contracts";
+/*
+ * The capability key and its scope live with the provider that defines them, not here. This file
+ * says WHICH capabilities a provider offers; `provider-google` says what they mean to Google.
+ */
+import {
+  GOOGLE_DRIVE_METADATA_CAPABILITY,
+  GOOGLE_DRIVE_METADATA_SCOPE,
+} from "@/features/provider-google/contracts";
 
 /**
  * THE CATALOG. Frozen at every level — a caller cannot push a definition into it at runtime any
@@ -86,8 +94,26 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile",
     ]),
-    /* Nothing is readable yet. See the header above. */
-    capabilityScopes: Object.freeze({}),
+    /*
+     * ── ONE CAPABILITY, ADDED BY INT-4 ──────────────────────────────────────
+     *
+     * Through INT-3 this was empty, and the header above said why: a capability listed here makes
+     * the availability seam offer something Hebun cannot deliver. INT-4 built the Drive metadata
+     * read, so the entry appears — the rule did not change, the implementation caught up with it.
+     *
+     * `write` IS DELIBERATELY EMPTY, and that now MEANS something. The availability seam treats an
+     * empty write set as "no write capability exists" rather than "vacuously satisfied", so this
+     * connection reports `writeCapable: false` however generous the tenant's grant becomes. Drive
+     * write is not a scope away; it is a phase away.
+     *
+     * No content capability is listed, because `drive.metadata.readonly` cannot download a file.
+     */
+    capabilityScopes: Object.freeze({
+      [GOOGLE_DRIVE_METADATA_CAPABILITY]: Object.freeze({
+        read: Object.freeze([GOOGLE_DRIVE_METADATA_SCOPE]),
+        write: Object.freeze([]),
+      }),
+    }),
   }) satisfies ConnectionDefinition,
 ]);
 

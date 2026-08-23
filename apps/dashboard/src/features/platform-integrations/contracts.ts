@@ -36,7 +36,29 @@
  * Pure types. No React, no I/O, no database, no clock.
  */
 
-import type { ConnectionHealth, ConnectionState } from "@/features/integration-authority/contracts";
+import type {
+  CapabilityState,
+  ConnectionHealth,
+  ConnectionState,
+} from "@/features/integration-authority/contracts";
+
+/**
+ * ONE CAPABILITY, AS THIS TENANT ACTUALLY HOLDS IT (INT-4).
+ *
+ * The `state` comes from the availability seam, which consults lifecycle, health AND the scopes
+ * Google actually granted. It is NEVER derived from the provider catalog: the catalog says what a
+ * capability WOULD need, and a surface that read it would tell every connected tenant they have
+ * Drive access because the provider defines Drive access.
+ */
+export interface ConnectedCapabilityView {
+  readonly capability: string;
+  /** Human-facing name. From this repository, never from a provider response. */
+  readonly label: string;
+  readonly state: CapabilityState;
+  readonly available: boolean;
+  /** What this means, and — when it is not available — what would change it. */
+  readonly statement: string;
+}
 
 /* ── Offline descriptors (unchanged in meaning) ─────────────────────────────── */
 
@@ -93,7 +115,12 @@ export interface ConnectedIntegrationView {
   /** Exactly what the provider said it granted. Never what Hebun requested. */
   readonly scopes: readonly string[];
   readonly scopeCount: number;
-  /** What this connection can actually be used for, derived from the catalog definition. */
+  /**
+   * What this connection can actually be used for RIGHT NOW, per capability, from the availability
+   * seam. Empty means the provider defines no capability at all — not that none is granted.
+   */
+  readonly capabilities: readonly ConnectedCapabilityView[];
+  /** One sentence covering the whole set. Never implies a capability the list does not carry. */
   readonly capabilityStatement: string;
 }
 

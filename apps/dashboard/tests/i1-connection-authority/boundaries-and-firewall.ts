@@ -336,10 +336,17 @@ function main(): void {
       ["google-workspace"],
       "exactly one connectable provider, and only because it is genuinely implemented",
     );
+    /*
+     * ── AMENDED BY INT-4 ──────────────────────────────────────────────────
+     *
+     * The catalog mapped no capability because nothing could be read. INT-4 reads Drive metadata,
+     * so exactly one is mapped. The pin keeps its purpose — no capability may appear that the
+     * repository cannot perform — by naming the one that can.
+     */
     assert.deepEqual(
-      listConnectableCapabilities(),
-      [],
-      "and it maps NO capability — nothing can be read through it yet",
+      [...listConnectableCapabilities()],
+      ["google.drive.metadata.read"],
+      "exactly one capability, and only because it is genuinely implemented",
     );
 
     /*

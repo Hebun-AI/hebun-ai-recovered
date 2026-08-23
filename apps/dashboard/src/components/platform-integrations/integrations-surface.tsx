@@ -119,6 +119,28 @@ export function IntegrationsSurface({ model }: { model: IntegrationsModel }) {
               </div>
 
               <p className="text-xs leading-5 text-fg-muted">{c.capabilityStatement}</p>
+
+              {c.capabilities.length > 0 ? (
+                <ul className="flex flex-col gap-1">
+                  {c.capabilities.map((cap) => (
+                    <li key={cap.capability} className="flex flex-col gap-0.5">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium text-fg">{cap.label}</span>
+                        <span
+                          className={
+                            cap.available
+                              ? "inline-flex items-center rounded-md bg-success/15 px-2 py-0.5 text-[0.7rem] font-medium uppercase tracking-wide text-success"
+                              : "inline-flex items-center rounded-md bg-warning/15 px-2 py-0.5 text-[0.7rem] font-medium uppercase tracking-wide text-warning"
+                          }
+                        >
+                          {cap.available ? "available" : "not granted"}
+                        </span>
+                      </span>
+                      <span className="text-[0.7rem] leading-5 text-fg-muted">{cap.statement}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </li>
           ))}
         </ul>

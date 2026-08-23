@@ -579,6 +579,82 @@ export async function attachCredentialToConnectionWithin(
   } as const;
 }
 
+/**
+ * THE PROVIDER-REFRESH HOLD (INT-4). IT VALIDATES AND LOCKS; IT WRITES NOTHING.
+ *
+ * ── THE DEFECT THIS EXISTS TO CORRECT ───────────────────────────────────────
+ *
+ * `attachCredentialToConnectionWithin` demotes a non-terminal connection to `unverified` on every
+ * credential write, resets health and clears `last_verified_at`. That is exactly right for a
+ * SUPPLIED secret: a human or a re-consent handed Hebun something new, and nothing has proved it.
+ *
+ * It is WRONG for a refresh-derived token. The provider has just answered — honouring the refresh
+ * IS the provider saying the grant is intact — and the new access token is derived from a grant
+ * that was already verified. Demoting there made the first token expiry silently disable every
+ * capability the connection carried, until a human re-consented. A capability that works for an
+ * hour and then stops without saying why.
+ *
+ * ── WHY IT IS A SEPARATE FUNCTION AND NOT A FLAG ────────────────────────────
+ *
+ * A `preserveConnectionState` boolean would be reachable from every existing caller, and the rule
+ * it suspends is the one that stops an unproven secret looking proven. A distinct function is a
+ * distinct INTENT: a firewall test can enumerate who may call it, which is impossible for an
+ * argument.
+ *
+ * ── WHAT IT CANNOT DO, MECHANICALLY ─────────────────────────────────────────
+ *
+ * It contains NO `update`. Not "it updates carefully" — there is no write statement in its body, so
+ * it cannot move a lifecycle, cannot mint `connected`, cannot alter health and cannot invent
+ * verification evidence. The strongest version of "preserves the connection state" is a function
+ * with no way to change it.
+ *
+ * It still LOCKS, under the tenant predicate, so the concurrency guarantee that made the demoting
+ * path safe is unchanged: a refresh and a re-consent cannot interleave and disagree.
+ *
+ * ── WHY `draft` IS REFUSED ──────────────────────────────────────────────────
+ *
+ * A refresh is derived from an existing grant. A `draft` connection has never held a credential —
+ * storing one is what moves it to `unverified` — so a refresh against a draft row describes a
+ * sequence that cannot have happened. Refusing it costs nothing and closes the only shape in which
+ * this function could be used to carry a connection forward from nothing.
+ */
+export async function holdConnectionForProviderRefreshWithin(
+  tx: IntegrationTransaction,
+  tenant: TenantContext,
+  integrationId: string,
+): Promise<AttachCredentialResult> {
+  assertServerOnly();
+  if (!tenant?.tenantId) return refused("no-authorized-tenant-context");
+  if (!UUID_RE.test(integrationId)) return refused("not-found");
+
+  const [current] = await tx
+    .select(COLUMNS)
+    .from(integrations)
+    .where(ownedRow(tenant, integrationId))
+    .limit(1)
+    .for("update");
+
+  /* A foreign id and an absent id are one branch, exactly as everywhere else in this module. */
+  if (!current) return refused("not-found");
+
+  const from = current.connectionState as ConnectionState;
+  /* A terminal record takes no new secrets, refreshed or otherwise. Terminal stays terminal. */
+  if (isTerminalConnectionState(from)) return refused("illegal-transition");
+  /* See the header: a refresh cannot precede the credential it is derived from. */
+  if (from === "draft") return refused("illegal-transition");
+
+  /*
+   * NO UPDATE. The row is returned exactly as it was read — same state, same health, same
+   * `last_verified_at`, same version. `transitioned: false` is therefore not a decision this
+   * function made; it is the only answer it is capable of giving.
+   */
+  return {
+    status: "attached",
+    connection: toIntegrationView(current as IntegrationRow),
+    transitioned: false,
+  } as const;
+}
+
 /* ── The verification writer (INT-3) ────────────────────────────────────────── */
 
 /**

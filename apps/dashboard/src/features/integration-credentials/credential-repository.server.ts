@@ -53,7 +53,7 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { integrationCredentials } from "@/db/schema/integration-credential";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { attachCredentialToConnectionWithin } from "@/features/integration-authority/integration-repository.server";
+import { attachCredentialToConnectionWithin, holdConnectionForProviderRefreshWithin } from "@/features/integration-authority/integration-repository.server";
 import {
   openSecret,
   sealSecret,
@@ -490,6 +490,174 @@ export async function replaceCredential(
       credential: toMetadata(row as MetadataRow),
       revokedCredentialId: current.id,
       connectionState: attached.connection.connectionState,
+    } as const;
+  });
+}
+
+/**
+ * REPLACE A CREDENTIAL THE PROVIDER ITSELF DERIVED (INT-4). LIFECYCLE PRESERVED.
+ *
+ * ── THE ONE DIFFERENCE FROM `replaceCredential`, AND WHY IT IS A DIFFERENT FUNCTION ──
+ *
+ * `replaceCredential` calls `attachCredentialToConnectionWithin`, which demotes the connection to
+ * `unverified`, resets health and clears `last_verified_at`. That is correct for a SUPPLIED secret:
+ * a human or a re-consent handed Hebun something new and nothing has proved it.
+ *
+ * This function calls `holdConnectionForProviderRefreshWithin` instead, which contains no update
+ * statement at all. Everything else — the encryption, the lock, the revoke-then-insert ordering,
+ * the in-transaction audit record — is IDENTICAL, because none of it was wrong.
+ *
+ * A `preserveConnectionState` boolean was rejected deliberately. It would be reachable from every
+ * existing caller, and the rule it suspends is the one that stops an unproven secret looking
+ * proven. A distinct function is a distinct INTENT, and a firewall test can enumerate who may hold
+ * it — which is impossible for an argument.
+ *
+ * ── WHY BOTH TOKEN KINDS ARE ACCEPTED, AND NOTHING ELSE ─────────────────────
+ *
+ * One Google token-endpoint response can carry a new access token AND a rotated refresh token.
+ * Both are provider-derived from the same already-verified grant, so demoting on either would be
+ * the same defect. `KIND` is checked against a closed pair here rather than the full credential
+ * vocabulary: a kind that is not an OAuth token cannot have come from a token refresh, so it has
+ * no business in this path.
+ *
+ * ── WHAT IT STILL CANNOT DO ─────────────────────────────────────────────────
+ *
+ * It cannot create `connected` — it writes no lifecycle at all. It cannot resurrect a terminal
+ * connection, and it cannot act on a `draft` one, because the hold refuses both. It touches no
+ * Governance and no execution authority: this module imports neither, and a released firewall test
+ * walks the real import graph to prove it.
+ */
+const PROVIDER_REFRESH_KINDS: readonly IntegrationCredentialKind[] = Object.freeze([
+  "oauth_access",
+  "oauth_refresh",
+]);
+
+export async function replaceCredentialFromProviderRefresh(
+  tenant: TenantContext | null,
+  input: StoreCredentialInput,
+  deps: CredentialRepositoryDeps = {},
+): Promise<ReplaceCredentialResult> {
+  assertServerOnly();
+  if (!tenant?.tenantId) return refused("no-authorized-tenant-context");
+
+  const db = (deps.getDb ?? resolveCredentialDbOrNull)();
+  if (!db) return refused("persistence-not-configured");
+
+  if (!UUID_RE.test(input.integrationId ?? "")) return refused("invalid-input");
+  if (!isCredentialKind(input.kind ?? "")) return refused("invalid-input");
+  /* Narrower than `replaceCredential` on purpose — see the header. */
+  if (!PROVIDER_REFRESH_KINDS.includes(input.kind)) return refused("invalid-input");
+  if (!isUsablePlaintext(input.plaintext)) return refused("invalid-input");
+
+  const keys = resolveKeysOrNull(deps);
+  if (!keys) return refused("encryption-not-configured");
+
+  const now = (deps.now ?? (() => new Date()))();
+  /* A. Encrypt before any database state changes. */
+  const sealed = sealSecret(
+    input.plaintext,
+    activeKeyOf(keys),
+    credentialAad(tenant.tenantId, input.integrationId, input.kind),
+  );
+  const record = deps.recordEventForTest ?? recordCredentialEventWithin;
+
+  return db.transaction(async (tx) => {
+    /* B/C. The live row, locked under the tenant predicate. */
+    const [current] = await tx
+      .select(METADATA_COLUMNS)
+      .from(integrationCredentials)
+      .where(
+        and(
+          ownedBy(tenant),
+          eq(integrationCredentials.integrationId, input.integrationId),
+          eq(integrationCredentials.kind, input.kind),
+          liveOnly(),
+        ),
+      )
+      .limit(1)
+      .for("update");
+
+    if (!current) return refused("no-live-credential");
+
+    /* THE ONE DIFFERENCE. It locks and validates; it writes no lifecycle. */
+    const held = await holdConnectionForProviderRefreshWithin(tx, tenant, input.integrationId);
+    if (held.status === "refused") {
+      return refused(held.reason === "illegal-transition" ? "connection-terminal" : "not-found");
+    }
+
+    /* D. The old credential stops being live. */
+    await tx
+      .update(integrationCredentials)
+      .set({
+        revokedAt: now,
+        revokedBy: tenant.userId,
+        revokedByType: "human",
+        updatedAt: now,
+        updatedBy: tenant.userId,
+        updatedByType: "human",
+        version: sql`${integrationCredentials.version} + 1`,
+      })
+      .where(ownedRow(tenant, current.id));
+
+    /* TEST-ONLY: the window this ordering is accused of opening, forced open on demand. */
+    if (deps.failAfterRevokeForTest) await deps.failAfterRevokeForTest();
+
+    /* E. The new credential becomes the live one. */
+    const [row] = await tx
+      .insert(integrationCredentials)
+      .values({
+        tenantId: tenant.tenantId,
+        integrationId: input.integrationId,
+        kind: input.kind,
+        algorithm: sealed.algorithm,
+        keyId: sealed.keyId,
+        ciphertext: sealed.ciphertext,
+        iv: sealed.iv,
+        authTag: sealed.authTag,
+        expiresAt: input.expiresAt ?? null,
+        createdAt: now,
+        createdBy: tenant.userId,
+        createdByType: "human",
+        updatedAt: now,
+        updatedBy: tenant.userId,
+        updatedByType: "human",
+      })
+      .returning(METADATA_COLUMNS);
+
+    /*
+     * F. The record, inside the same transaction.
+     *
+     * The ACTION stays `integration.credential.replaced` — a replacement is exactly what happened,
+     * and the four-action vocabulary is closed and pinned. `origin` is what separates a
+     * provider-derived rotation from a human re-consent in the permanent record, without widening
+     * a vocabulary to say something the metadata can already say precisely.
+     */
+    await record(
+      tx,
+      auditActor(tenant),
+      {
+        action: CREDENTIAL_AUDIT_REPLACED,
+        outcome: "committed",
+        entityId: row!.id,
+        metadata: {
+          integrationId: input.integrationId,
+          kind: input.kind,
+          algorithm: sealed.algorithm,
+          keyId: sealed.keyId,
+          previousCredentialId: current.id,
+          connectionState: held.connection.connectionState,
+          origin: "provider-refresh",
+        },
+      },
+      now,
+    );
+
+    /* G. Commit. The connection state reported back is the one that was already there. */
+    return {
+      status: "replaced",
+      credential: toMetadata(row as MetadataRow),
+      revokedCredentialId: current.id,
+      connectionState: held.connection.connectionState,
     } as const;
   });
 }

@@ -28,6 +28,8 @@
  * Server-only. Returns data; never touches a database, a credential store or a lifecycle.
  */
 import {
+  GOOGLE_DRIVE_FILES_ENDPOINT,
+  MAX_DRIVE_FILES_PER_PAGE,
   GOOGLE_REVOKE_ENDPOINT,
   GOOGLE_TOKEN_ENDPOINT,
   GOOGLE_USERINFO_ENDPOINT,
@@ -36,6 +38,8 @@ import {
   type GoogleFailure,
   type GoogleIdentityResult,
   type GoogleTokenResult,
+  type GoogleDriveFileView,
+  type GoogleDriveListResult,
 } from "./contracts";
 import type { ConfiguredGoogleOAuth } from "./google-environment.server";
 
@@ -73,10 +77,20 @@ function classifyStatus(status: number, errorCode: string | null): GoogleFailure
   if (status >= 500) return fail("transport", "google-unavailable");
   if (status === 401) return fail("auth", "google-rejected-credential");
   if (status === 403) {
-    /* 403 is ambiguous at Google: insufficient scope AND some quota errors share it. */
-    return errorCode === "insufficientPermissions" || errorCode === "insufficient_scope"
-      ? fail("scope", "google-insufficient-scope")
-      : fail("auth", "google-forbidden");
+    /* 403 is ambiguous at Google: insufficient scope, a disabled API, AND some quota errors share it. */
+    if (errorCode === "insufficientPermissions" || errorCode === "insufficient_scope") {
+      return fail("scope", "google-insufficient-scope");
+    }
+    /*
+     * THE API IS SWITCHED OFF IN THE CLOUD PROJECT — not a credential problem and not a grant
+     * problem. Falling through to `auth` here would tell a tenant their Google account was
+     * refused, and would make Hebun spend a refresh token on every call to fix something no token
+     * can fix. Found by running the released seam against real Google.
+     */
+    if (errorCode === "accessNotConfigured" || errorCode === "SERVICE_DISABLED") {
+      return fail("disabled", "google-api-not-enabled");
+    }
+    return fail("auth", "google-forbidden");
   }
   if (status === 400 && errorCode === "invalid_grant") {
     /*
@@ -266,4 +280,142 @@ export async function revokeGoogleToken(
   const body = new URLSearchParams({ token });
   const result = await postForm(GOOGLE_REVOKE_ENDPOINT, body, deps);
   return { revoked: "ok" in result && result.ok === true };
+}
+
+/* ── Drive metadata (INT-4) ─────────────────────────────────────────────────── */
+
+/**
+ * READ GOOGLE'S ERROR CODE OUT OF EITHER SHAPE IT USES.
+ *
+ * The OAuth endpoints answer `{"error": "invalid_grant"}` — a STRING. The Drive API answers
+ * `{"error": {"code": 403, "errors": [{"reason": "insufficientPermissions"}]}}` — an OBJECT.
+ *
+ * `classifyStatus` reads a string, so a Drive 403 would arrive with `null` and be classified
+ * `auth` — "Google refused this credential" — when the truth is a SCOPE GAP that the tenant can
+ * fix by granting more. Getting that backwards would tell somebody to reconnect an account that
+ * was never disconnected.
+ */
+function googleErrorCode(json: Record<string, unknown>): string | null {
+  if (typeof json.error === "string") return json.error;
+  const error = json.error;
+  if (!error || typeof error !== "object") return null;
+  const nested = error as { status?: unknown; errors?: unknown };
+  if (Array.isArray(nested.errors)) {
+    const first = nested.errors[0] as { reason?: unknown } | undefined;
+    if (first && typeof first.reason === "string") return first.reason;
+  }
+  return typeof nested.status === "string" ? nested.status : null;
+}
+
+/** One Drive file, taken field by field. Anything Google also sent is left behind. */
+function driveFileFrom(raw: unknown): GoogleDriveFileView | null {
+  if (!raw || typeof raw !== "object") return null;
+  const file = raw as Record<string, unknown>;
+  const fileId = typeof file.id === "string" ? file.id : null;
+  const mimeType = typeof file.mimeType === "string" ? file.mimeType : null;
+  if (!fileId || !mimeType) return null;
+
+  /*
+   * `size` arrives as a STRING and is absent for Google-native files, which have no byte size.
+   * A missing size is a fact about Drive, so it becomes `null` rather than `0` — a zero would be
+   * a measurement nobody took.
+   */
+  const rawSize = typeof file.size === "string" ? Number(file.size) : null;
+  const sizeBytes = rawSize !== null && Number.isFinite(rawSize) ? rawSize : null;
+
+  return {
+    fileId,
+    /* A file with no name is possible; an empty string is what Drive shows, so it is what Hebun shows. */
+    name: typeof file.name === "string" ? file.name : "",
+    mimeType,
+    modifiedAt: typeof file.modifiedTime === "string" ? file.modifiedTime : null,
+    sizeBytes,
+    trashed: file.trashed === true,
+  };
+}
+
+/**
+ * LIST DRIVE FILE METADATA. The only Drive call in Hebun.
+ *
+ * ── `fields` IS A SECURITY CONTROL, NOT AN OPTIMIZATION ──────────────────────
+ *
+ * Drive's `File` resource carries owners, permissions, sharing links, thumbnails and export URLs.
+ * Requesting `*` would pull all of it across the seam, where the next surface could render it.
+ * The projection below asks for the six fields `GoogleDriveFileView` declares and no others, so
+ * the data Hebun cannot leak is data Hebun never received.
+ *
+ * ── THERE IS NO CONTENT READ HERE, AND NO WAY TO ADD ONE BY ACCIDENT ────────
+ *
+ * `alt=media` is never set, no download endpoint constant exists, and the granted scope
+ * (`drive.metadata.readonly`) could not perform one if it were. Three independent reasons.
+ *
+ * ── NO CALLER-SUPPLIED QUERY ────────────────────────────────────────────────
+ *
+ * `pageToken` is Google's own opaque continuation value and is the ONLY thing a caller may pass.
+ * A `q` parameter taken from a caller would let one build a Drive search Hebun then executes with
+ * the tenant's credential.
+ */
+export async function listDriveFiles(
+  accessToken: string,
+  options: { readonly pageToken?: string | null } = {},
+  deps: GoogleTransportDeps = {},
+): Promise<GoogleDriveListResult> {
+  assertServerOnly();
+
+  const url = new URL(GOOGLE_DRIVE_FILES_ENDPOINT);
+  url.searchParams.set("pageSize", String(MAX_DRIVE_FILES_PER_PAGE));
+  url.searchParams.set(
+    "fields",
+    "nextPageToken,files(id,name,mimeType,modifiedTime,size,trashed)",
+  );
+  /* Shared drives are not claimed by this capability, so the default corpus is what is read. */
+  url.searchParams.set("supportsAllDrives", "false");
+  if (options.pageToken) url.searchParams.set("pageToken", options.pageToken);
+
+  const doFetch = deps.fetchImpl ?? fetch;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), deps.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await doFetch(url.toString(), {
+      method: "GET",
+      headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" },
+      signal: controller.signal,
+    });
+  } catch {
+    return fail("transport", "google-unreachable");
+  } finally {
+    clearTimeout(timer);
+  }
+
+  let json: Record<string, unknown>;
+  try {
+    json = (await response.json()) as Record<string, unknown>;
+  } catch {
+    if (!response.ok) return classifyStatus(response.status, null);
+    return fail("malformed", "google-unparseable-response");
+  }
+  if (!response.ok) return classifyStatus(response.status, googleErrorCode(json));
+
+  const rawFiles = json.files;
+  if (!Array.isArray(rawFiles)) return fail("malformed", "google-response-missing-files");
+
+  /*
+   * A single unparseable entry is DROPPED, not fatal. Refusing the whole page because Drive added
+   * one odd row would turn a provider change into an outage; the count difference is visible to
+   * the caller because the page is bounded and known.
+   */
+  const files = rawFiles
+    .map(driveFileFrom)
+    .filter((f): f is GoogleDriveFileView => f !== null)
+    .slice(0, MAX_DRIVE_FILES_PER_PAGE);
+
+  return {
+    ok: true,
+    listing: {
+      files: Object.freeze(files),
+      nextPageToken: typeof json.nextPageToken === "string" ? json.nextPageToken : null,
+    },
+  };
 }

@@ -309,10 +309,23 @@ async function main(): Promise<void> {
         "catalog-ready",
         "a connectable provider exists now, so the deployment is no longer `no-connectable-provider`",
       );
+/*
+       * ── AMENDED BY INT-4 ────────────────────────────────────────────────
+       *
+       * This pinned the capability list EMPTY because INT-3 requested no scope that reads
+       * anything. INT-4 adds the Drive metadata read, so exactly one capability is mapped — and
+       * the assertion becomes the stronger one: it is that capability, and for a connection with
+       * identity-only scopes it is NOT available. A connection is not a data capability.
+       */
       assert.deepEqual(
-        view.capabilities,
-        [],
-        "and it offers NO capability — INT-3 requested no scope that reads anything",
+        view.capabilities.map((c) => c.capability),
+        ["google.drive.metadata.read"],
+        "INT-4 offers exactly one capability",
+      );
+      assert.notEqual(
+        view.capabilities[0]!.state,
+        "available",
+        "and this connection's identity-only grant does not make it available",
       );
     }
 

@@ -158,7 +158,22 @@ function evaluate(
     /* A stored credential is not a connection, a grant is not a connection, and a provider that is
      * not answering — or has not been asked — is not a source, however intact the grant remains. */
     readAvailable: isUsable && coversRead,
-    writeCapable: isUsable && covers(granted, scopes.write),
+    /*
+     * ── AMENDED BY INT-4: VACUOUSLY COVERED IS NOT CAPABLE ──────────────────
+     *
+     * `covers(granted, [])` is `true` — `[].every(...)` is vacuous truth. So a capability that
+     * declares NO write scopes used to report `writeCapable: true` for any connected, healthy
+     * connection, which is the sentence "a write to this provider is presently possible" said
+     * about a provider Hebun cannot write to at all.
+     *
+     * It was unreachable until now only because every catalog entry had `capabilityScopes: {}`,
+     * so `evaluate` never ran. INT-4 adds the first real capability and therefore owns the fix.
+     *
+     * A capability that names no write scope is not a write Hebun could perform if only the
+     * tenant granted more — it is a write this phase never built. `false` is the truthful answer,
+     * and the length check is what separates "no write exists" from "the grant is short".
+     */
+    writeCapable: isUsable && scopes.write.length > 0 && covers(granted, scopes.write),
   };
 
   return { connection, source, coversRead };
