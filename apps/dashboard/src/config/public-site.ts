@@ -9,13 +9,18 @@
  * another. Nothing here needs to vary per deployment today: there is exactly one public origin,
  * and moving it is a deliberate act with its own gate, not a configuration change.
  *
- * `hebuntech.com` is deliberately NOT this value. That domain currently serves a different
- * application, and naming it here would publish a canonical URL and a sitemap pointing at a site
- * this repository does not control.
+ * ── WHY THIS HOST ────────────────────────────────────────────────────────────
+ *
+ * `www.hebuntech.com` now resolves to this application. The apex `hebuntech.com` answers 308 to
+ * the `www` host, so the `www` form is the one canonical origin and the apex is a redirect, never
+ * a second identity. The deployment host `hebun-ai-recovered.vercel.app` remains attached and
+ * continues to serve the same build, but it is a deployment address and not organizational
+ * identity: naming it here would publish a canonical URL and a sitemap advertising an address
+ * that survives only as long as the Vercel project keeps its name.
  *
  * Pure. No React, no I/O, no server.
  */
-export const PUBLIC_SITE_ORIGIN = "https://hebun-ai-recovered.vercel.app";
+export const PUBLIC_SITE_ORIGIN = "https://www.hebuntech.com";
 
 /**
  * The complete set of paths the public site publishes.

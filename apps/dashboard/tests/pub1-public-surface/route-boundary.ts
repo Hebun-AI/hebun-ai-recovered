@@ -246,9 +246,21 @@ function main(): void {
       );
     }
 
+    /*
+     * The origin names the organization, not the deployment. `hebun-ai-recovered.vercel.app` still
+     * serves this same build, so it is reachable — but it is a Vercel project address that would
+     * outlive its own truth the moment the project is renamed, and a canonical URL is an identity
+     * claim, not a routing hint. The apex is excluded for the opposite reason: it answers 308 to
+     * the `www` host, so naming it here would advertise a URL that is never the final one.
+     */
+    assert.equal(
+      PUBLIC_SITE_ORIGIN,
+      "https://www.hebuntech.com",
+      "the public origin is the canonical organizational host",
+    );
     assert.ok(
-      !PUBLIC_SITE_ORIGIN.includes("hebuntech.com"),
-      "the public origin must not name a domain this repository does not serve",
+      !PUBLIC_SITE_ORIGIN.includes("vercel.app"),
+      "a deployment address may not be published as organizational identity",
     );
     assert.match(PUBLIC_SITE_ORIGIN, /^https:\/\//, "the public origin must be absolute and https");
 
