@@ -219,10 +219,19 @@ function derivedIsNotAuthoritative(): void {
     "provenance must not become optional",
   );
 
-  /* Every section on the canonical page states one. */
+  /*
+   * Every section on the canonical page states one.
+   *
+   * A LITERAL OR AN EXPRESSION — both DECLARE. The counter originally matched `provenance="` only,
+   * which was every section at the time. A section whose provenance genuinely depends on what was
+   * read states it as `provenance={...}`, and that is not a weaker declaration: the provider
+   * discovery section is `derived` when a provider answered and `not-connected` when none did, and
+   * a fixed literal there could only be one of those and false the rest of the time. The invariant
+   * defended is unchanged — every section declares — so the matcher, not the rule, is generalized.
+   */
   const page = read(PAGE);
   const opens = (page.match(/<WorkspaceSection/g) ?? []).length;
-  const declared = (page.match(/provenance="/g) ?? []).length;
+  const declared = (page.match(/provenance=["{]/g) ?? []).length;
   assert.ok(opens > 0, "the canonical page is built from sections");
   assert.equal(declared, opens, "every section on the page declares its provenance");
 }

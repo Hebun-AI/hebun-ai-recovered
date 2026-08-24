@@ -8,10 +8,12 @@ import { KnowledgeRecords } from "@/components/knowledge-workspace/knowledge-rec
 import { KnowledgeStanding } from "@/components/knowledge-workspace/knowledge-standing";
 import { CompanyUnderstandingCard } from "@/components/knowledge-workspace/company-understanding-card";
 import { KnowledgeSourcesCard } from "@/components/knowledge-workspace/knowledge-sources-card";
+import { DiscoveredSourcesCard } from "@/components/knowledge-workspace/discovered-sources-card";
 import { getKnowledgeWorkspaceModel } from "@/features/knowledge/workspace-model";
 import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server";
 import { readCompanyUnderstanding } from "@/features/knowledge/company-understanding-read.server";
 import { listIngestedSources } from "@/features/knowledge/ingested-sources-read.server";
+import { discoverDriveSources } from "@/features/provider-google/discover-drive-sources.server";
 import { resolveKnowledgeWriteAuthority } from "@/features/knowledge/knowledge-write-authority.server";
 import { isDurableKnowledgeConfigured } from "@/features/knowledge/durable-knowledge-repository.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -66,7 +68,7 @@ export const metadata = { title: "Knowledge — Hebun AI" };
 export default async function KnowledgePage() {
   const tenant = await resolveTenantContext();
 
-  const [listing, understanding, sources, authority, governance] = await Promise.all([
+  const [listing, understanding, sources, discovery, authority, governance] = await Promise.all([
     listKnowledgeSources(tenant),
     /*
      * R6B. A SECOND read of the same authority, not a second authority: the listing is bounded at
@@ -82,6 +84,13 @@ export default async function KnowledgePage() {
      * shared with this card: whatever stops you adding a source stops you withdrawing one.
      */
     listIngestedSources(tenant),
+    /*
+     * INT-4's Drive metadata capability, consumed for the first time by a real product surface.
+     * PROVIDER-OWNED: the seam lives in `provider-google` because I1 forbids any Knowledge module
+     * from reading connection or capability state. This page is a composition point — it renders
+     * the provider's answer and derives no connection truth of its own.
+     */
+    discoverDriveSources(tenant),
     tenant ? resolveKnowledgeWriteAuthority(tenant) : Promise.resolve(null),
     // K4: Governance authority is a DIFFERENT authority from Knowledge authoring. Resolved
     // separately, and never inferred from the role band above.
@@ -212,6 +221,24 @@ export default async function KnowledgePage() {
           authority={authoringBand}
         >
           <KnowledgeSourcesCard listing={sources} block={block} />
+        </WorkspaceSection>
+
+        {/*
+          DISCOVERED, NOT ADMITTED. The section above lists sources this organization's Knowledge
+          already stands on. This one lists documents that merely EXIST somewhere it has connected.
+          Separate sections because they are separate facts, and the provenance says so: the records
+          above are `authoritative`, these are read live from a provider and are not Knowledge at
+          all. When no usable connection exists the section reads `not-connected` rather than
+          showing an empty list, because "nothing granted" and "nothing there" are different answers.
+        */}
+        <WorkspaceSection
+          id="external-sources"
+          title="Discovered in connected providers"
+          question="What documents exist in a connected provider that could one day become Knowledge?"
+          provenance={discovery.status === "discovered" || discovery.status === "empty" ? "derived" : "not-connected"}
+          provenanceDetail="read live from the provider — provider-derived, never stored, not Knowledge"
+        >
+          <DiscoveredSourcesCard discovery={discovery} />
         </WorkspaceSection>
 
         {/*
