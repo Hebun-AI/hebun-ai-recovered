@@ -16,7 +16,11 @@
  * Pure data. No React, no I/O of its own, no secrets.
  */
 import type { IntegrationView } from "@/features/integration-authority/contracts";
-import { GOOGLE_PROVIDER_KEY } from "@/features/provider-google/contracts";
+import {
+  GOOGLE_DRIVE_METADATA_SCOPE,
+  GOOGLE_PROVIDER_KEY,
+  GOOGLE_REQUIRED_GRANTED_SCOPES,
+} from "@/features/provider-google/contracts";
 
 export type GoogleSurfaceState =
   | "not-configured"
@@ -108,10 +112,64 @@ export const GOOGLE_STATE_SENTENCES: Readonly<Record<GoogleSurfaceState, string>
   "not-connected": "No Google account is connected for this organization.",
   unverified:
     "An authorization was recorded but Google has not confirmed it, so nothing is connected yet.",
-  connected: "Google confirmed this account. Identity only — no Drive, Calendar or directory access.",
+  connected: "Google confirmed this account.",
   degraded:
     "Google is not answering right now. The authorization is unaffected and no reconnection is needed.",
   expired:
     "The authorization Hebun holds can no longer be used and cannot be renewed. Reconnecting requires consent again.",
   ended: "This connection was ended. Connecting again creates a new one.",
 });
+
+/*
+ * ── WHAT THE GRANT ACTUALLY PERMITS, DERIVED FROM THE GRANT ──────────────────
+ *
+ * `GOOGLE_STATE_SENTENCES` is keyed by LIFECYCLE state, and lifecycle knows nothing about scopes.
+ * Its `connected` entry therefore used to carry "Identity only — no Drive, Calendar or directory
+ * access", which was true while identity was the only grant Hebun could obtain and became false
+ * the moment a tenant upgraded to Drive metadata. A sentence that cannot see the grant must not
+ * describe the grant, so the access description lives here and reads `grantedScopes` — Google's own
+ * statement, persisted by the callback — and nothing else.
+ *
+ * NOT the provider catalog, NOT the requested scopes, NOT the OAuth configuration, NOT whether a
+ * credential exists. Each of those is something Hebun wanted or holds; only this list is something
+ * Google agreed to.
+ *
+ * ── AND IT NEVER OVERSTATES ──────────────────────────────────────────────────
+ *
+ * `drive.metadata.readonly` cannot download a file — `alt=media` requires a wider scope — and it
+ * grants no write of any kind. Both denials are stated because a tenant reading "Drive access"
+ * would otherwise reasonably assume the larger thing.
+ *
+ * A scope this function does not recognize is reported as exactly that. Claiming "identity only"
+ * beside a grant carrying something unrecognized is the same class of untruth this function exists
+ * to remove, and the raw scope list is rendered alongside so nothing is hidden.
+ */
+export function describeGoogleGrantedAccess(
+  grantedScopes: readonly string[],
+): readonly string[] {
+  const identity = new Set<string>(GOOGLE_REQUIRED_GRANTED_SCOPES);
+  const beyondIdentity = grantedScopes.filter((scope) => !identity.has(scope));
+
+  if (beyondIdentity.length === 0) {
+    return Object.freeze([
+      "Identity only. Google granted no Drive, Calendar or directory access.",
+    ]);
+  }
+
+  const lines: string[] = [];
+  if (beyondIdentity.includes(GOOGLE_DRIVE_METADATA_SCOPE)) {
+    lines.push(
+      "Google Drive: file names, types and timestamps only. No file contents can be read, " +
+        "and nothing in Drive can be created, changed or deleted.",
+    );
+  }
+
+  const undescribed = beyondIdentity.filter((scope) => scope !== GOOGLE_DRIVE_METADATA_SCOPE);
+  if (undescribed.length > 0) {
+    lines.push(
+      "Google granted further access this page cannot describe. The complete list is below.",
+    );
+  }
+
+  return Object.freeze(lines);
+}

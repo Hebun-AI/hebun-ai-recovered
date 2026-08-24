@@ -18,6 +18,7 @@ import { isGoogleOAuthConfigured } from "@/features/provider-google/google-envir
 import {
   buildGoogleConnectionModel,
   GOOGLE_STATE_SENTENCES,
+  describeGoogleGrantedAccess,
 } from "@/features/google-connection-surface/model";
 
 export const metadata = { title: "Google — Integrations — Hebun AI" };
@@ -52,7 +53,7 @@ export default async function GoogleIntegrationPage({
     <>
       <PageHeader
         title="Google"
-        context="Identity verification only. This connection reads no Drive file, no Calendar event and no directory entry, because no such access was requested."
+        context="The Google account this organization connected, and exactly what Google granted."
       />
 
       <section className="space-y-4 text-sm">
@@ -66,6 +67,17 @@ export default async function GoogleIntegrationPage({
         <div className="rounded-md border border-[var(--line)] px-4 py-4 space-y-3">
           <p className="font-semibold">Google Workspace</p>
           <p>{GOOGLE_STATE_SENTENCES[model.state]}</p>
+
+          {/*
+            * The lifecycle sentence above says whether Google confirmed the account. What that
+            * account may be used for is a different fact with a different source, so it is derived
+            * from `grantedScopes` rather than from the state the sentence is keyed by.
+            */}
+          {model.grantedScopes.length > 0
+            ? describeGoogleGrantedAccess(model.grantedScopes).map((line) => (
+                <p key={line}>{line}</p>
+              ))
+            : null}
 
           {model.accountLabel ? (
             <p>
