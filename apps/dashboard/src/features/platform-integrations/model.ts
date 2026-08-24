@@ -83,6 +83,43 @@ function providerLabelFor(connection: AuthorityConnection): string {
 /** Human-facing capability names. From this repository — a provider never names its own feature here. */
 const CAPABILITY_LABELS: Readonly<Record<string, string>> = Object.freeze({
   "google.drive.metadata.read": "Drive metadata access",
+  "github.repository.activity.read": "Repository activity",
+});
+
+/**
+ * WHAT AN AVAILABLE CAPABILITY ACTUALLY MEANS — one sentence per capability, keyed by capability.
+ *
+ * ── THE DEFECT THIS MAP EXISTS TO MAKE UNREPEATABLE ─────────────────────────
+ *
+ * This sentence used to be a single hard-coded string describing Google Drive, emitted for EVERY
+ * available capability of EVERY provider. It was written when one capability existed, and it read
+ * as true because the only provider was Google. The moment a second provider connected, the GitHub
+ * card told a tenant that Hebun "reads no file content, and holds no permission to change anything
+ * in Drive" — a sentence about a product GitHub does not have, printed as a fact about their
+ * GitHub organization.
+ *
+ * A provider-blind sentence is not a copy problem. It is a claim about access, and it was wrong.
+ *
+ * ── THE FALLBACK SAYS LESS, NOT SOMETHING ELSE ──────────────────────────────
+ *
+ * An unmapped capability gets a sentence that names no product, no scope and no endpoint. A
+ * capability nobody has written a sentence for must under-describe itself; it may never borrow the
+ * previous provider's.
+ */
+const CAPABILITY_AVAILABLE_STATEMENTS: Readonly<Record<string, string>> = Object.freeze({
+  "google.drive.metadata.read":
+    "Available. Read-only file discovery and metadata. Hebun reads no file content, and holds no permission to change anything in Drive.",
+  /*
+   * AVAILABLE IS NOT EXECUTABLE, AND THIS SENTENCE REFUSES TO COLLAPSE THEM.
+   *
+   * The grant covers this capability — GitHub's own granted permission list says so. No released
+   * seam reads a repository or a pull request: the GitHub transport knows exactly one address,
+   * `GET /app/installations/{id}`, and the acceptance reachability gate reports this capability
+   * `NOT-IMPLEMENTED (0 seam)`. Saying only "Available" here would let a tenant read execution
+   * into a permission.
+   */
+  "github.repository.activity.read":
+    "Available. GitHub granted the read permissions this capability declares. Read-only — this release reads no repository and no pull request, and holds no permission to change anything at GitHub.",
 });
 
 /**
@@ -118,7 +155,8 @@ function capabilitiesFor(
       state: entry.state,
       available,
       statement: available
-        ? "Available. Read-only file discovery and metadata. Hebun reads no file content, and holds no permission to change anything in Drive."
+        ? (CAPABILITY_AVAILABLE_STATEMENTS[entry.capability] ??
+          "Available. The provider granted what this capability declares.")
         : `Not available. ${entry.reason ?? "The provider has not granted what this capability needs."}`,
     });
   }
@@ -151,12 +189,45 @@ function capabilityStatementFor(capabilities: readonly ConnectedCapabilityView[]
  * The email domain is deliberately NOT consulted. `someone@acme.com` may be a Workspace account or
  * a consumer account using a custom address, and Hebun cannot tell them apart from the label. A
  * surface that split on the address would print "verified Workspace domain" on a guess.
+ *
+ * ── WHY IT NOW ASKS THE CATALOG WHICH KIND OF ACCOUNT THIS PROVIDER BINDS ───
+ *
+ * This function used to open with the words "Google Account" for every connection of every
+ * provider, because when it was written every connection was Google's. A verified GitHub
+ * ORGANIZATION therefore read as a Google Account with no Workspace domain — two false claims in
+ * one sentence, on a page whose whole purpose is that a connection claim is never a guess.
+ *
+ * The discriminator is `accountIdentity` on the released catalog entry: `account` for Google,
+ * `organization` for GitHub. It is not inferred from the label, the scopes or the provider key's
+ * spelling — a connection reaches `connected` only through a verifier that already enforced the
+ * catalog's account identity, so the entry is a record of what was verified rather than a guess.
+ *
+ * A provider with no catalog entry gets the sentence that claims the least: the account was
+ * verified, and nothing further is asserted about what kind it is.
  */
-function accountKindStatementFor(verifiedDomain: string | null): string {
-  if (verifiedDomain) {
-    return `Google Account in the verified Workspace domain ${verifiedDomain}.`;
+function accountKindStatementFor(
+  connection: AuthorityConnection,
+  verifiedDomain: string | null,
+): string {
+  const definition = connection.providerKey ? findProviderDefinition(connection.providerKey) : undefined;
+
+  if (definition?.accountIdentity === "organization") {
+    return `${providerLabelFor(connection)} organization. This connection is bound to an organization the provider verified, never to an individual account, and no claim is made about its members.`;
   }
-  return "Google Account. No verified Google Workspace domain was recorded for this connection, so none is claimed.";
+
+  /*
+   * The Workspace-domain sentences are GOOGLE'S, and they are keyed by Google's provider key rather
+   * than by `accountIdentity`, so a future second account-identity provider cannot inherit them the
+   * way GitHub inherited them. `hd` is a Google concept; nothing else can have one.
+   */
+  if (connection.providerKey === "google-workspace") {
+    if (verifiedDomain) {
+      return `Google Account in the verified Workspace domain ${verifiedDomain}.`;
+    }
+    return "Google Account. No verified Google Workspace domain was recorded for this connection, so none is claimed.";
+  }
+
+  return `${providerLabelFor(connection)} account, as the provider verified it. Hebun records no further account classification for this provider.`;
 }
 
 /** One sentence covering lifecycle AND health, which are separate facts and stay separate here. */
@@ -192,7 +263,7 @@ function toConnectedView(
     stateStatement: stateStatementFor(connection.health),
     accountLabel: connection.externalAccountLabel,
     verifiedDomain,
-    accountKindStatement: accountKindStatementFor(verifiedDomain),
+    accountKindStatement: accountKindStatementFor(connection, verifiedDomain),
     lastVerifiedAt: connection.lastVerifiedAt,
     scopes: connection.scopes,
     scopeCount: connection.scopes.length,

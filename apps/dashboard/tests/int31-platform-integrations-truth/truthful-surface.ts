@@ -44,6 +44,58 @@ const CONNECTED = getIntegrationsModel({ status: "read", connections: [connected
 const EMPTY = getIntegrationsModel({ status: "read", connections: [] });
 const NO_TENANT = getIntegrationsModel({ status: "unavailable", reason: "no-authorized-tenant-context" });
 
+/*
+ * ── A SECOND PROVIDER, SHAPED LIKE THE ROW THAT ACTUALLY EXISTS ─────────────
+ *
+ * Field for field, this is the GitHub connection in the production deployment: the verified
+ * `Hebun-AI` organization, installation `156248772`, and the two permissions GitHub itself
+ * reported. It exists here because every sentence on this page was written when Google was the
+ * only provider, and a second one is the only thing that can prove they were written about a
+ * PROVIDER rather than about connections in general.
+ */
+const GITHUB_CONNECTION = {
+  integrationId: "829fe3d5-4a99-40bf-a50c-ebc00eb88cfb",
+  name: "GitHub",
+  providerKey: "github-organization",
+  connectionState: "connected",
+  health: "healthy",
+  scopes: Object.freeze(["metadata:read", "pull_requests:read"]),
+  externalAccountId: "156248772",
+  externalAccountLabel: "Hebun-AI",
+  lastVerifiedAt: "2026-08-24T16:47:15.300Z",
+  lastSuccessAt: "2026-08-24T16:47:15.300Z",
+  lastErrorAt: null,
+  failureReason: null,
+  revokedAt: null,
+  createdAt: "2026-08-24T13:55:06.850Z",
+} as const;
+
+const GITHUB_AVAILABILITY = {
+  readiness: "catalog-ready",
+  capabilities: [
+    {
+      capability: "github.repository.activity.read",
+      state: "available",
+      reason: null,
+      sources: [
+        {
+          integrationId: GITHUB_CONNECTION.integrationId,
+          providerKey: GITHUB_CONNECTION.providerKey,
+          accountLabel: GITHUB_CONNECTION.externalAccountLabel,
+          lastVerifiedAt: GITHUB_CONNECTION.lastVerifiedAt,
+          readAvailable: true,
+          writeCapable: false,
+        },
+      ],
+    },
+  ],
+} as const;
+
+const GITHUB_CONNECTED = getIntegrationsModel(
+  { status: "read", connections: [GITHUB_CONNECTION] } as Parameters<typeof getIntegrationsModel>[0],
+  GITHUB_AVAILABILITY as unknown as Parameters<typeof getIntegrationsModel>[1],
+);
+
 /* ── 1 · A real connected integration may never be hidden ───────────────────── */
 
 function connectedIntegrationIsVisible(model: IntegrationsModel): void {
@@ -417,6 +469,72 @@ function capabilityStatementIsTruthful(model: IntegrationsModel): void {
   );
 }
 
+/**
+ * ── 6 · A SECOND PROVIDER IS DESCRIBED AS ITSELF, NEVER AS THE FIRST ────────
+ *
+ * The defect this exists to make unrepeatable was live in production: a verified GitHub
+ * organization rendered as "Google Account. No verified Google Workspace domain was recorded for
+ * this connection", and its granted capability rendered as "Read-only file discovery and metadata.
+ * Hebun reads no file content, and holds no permission to change anything in Drive."
+ *
+ * Neither sentence was a typo. Both were provider-blind claims about ACCESS, printed as facts about
+ * an organization on a page whose entire purpose is that a connection claim is never a guess.
+ *
+ * The guard is written as "no other provider's vocabulary may appear", not as "this exact string
+ * must appear", so rewording the GitHub sentences keeps it passing while borrowing Google's again
+ * fails it.
+ */
+function aSecondProviderIsNotDescribedAsTheFirst(model: IntegrationsModel): void {
+  assert.equal(model.connected.length, 1, "the GitHub authority row reaches the model");
+  const [row] = model.connected;
+
+  assert.equal(row.providerLabel, "GitHub", "the provider label comes from the definition authority");
+  assert.equal(row.accountLabel, "Hebun-AI", "the verified organization label is carried");
+
+  /* Google's vocabulary, on a GitHub row. Every one of these was rendered before the fix. */
+  const GOOGLE_WORDS = [/google/i, /workspace/i, /\bdrive\b/i, /gmail/i, /\bfile content\b/i];
+  for (const word of GOOGLE_WORDS) {
+    assert.ok(
+      !word.test(row.accountKindStatement),
+      `the account-kind sentence borrows no Google vocabulary (${word})`,
+    );
+    for (const capability of row.capabilities) {
+      assert.ok(
+        !word.test(capability.statement),
+        `the capability sentence borrows no Google vocabulary (${word})`,
+      );
+    }
+  }
+
+  assert.ok(
+    /organization/i.test(row.accountKindStatement),
+    "the account kind states what GitHub actually verified — an organization",
+  );
+
+  for (const capability of row.capabilities) {
+    assert.ok(
+      capability.label !== capability.capability,
+      "an available capability is named for a human, not printed as its raw identifier",
+    );
+    /*
+     * AVAILABLE MAY NOT READ AS EXECUTED. The transport knows one address and the acceptance
+     * reachability gate reports this capability NOT-IMPLEMENTED, so the sentence must say that no
+     * repository and no pull request is read.
+     */
+    if (capability.available) {
+      assert.ok(
+        /reads no repository/i.test(capability.statement),
+        "an available-but-unimplemented capability says what it does not do",
+      );
+    }
+  }
+
+  const html = render(model);
+  for (const word of [/google/i, /workspace domain/i, /\bDrive\b/]) {
+    assert.ok(!word.test(html), `the rendered GitHub page contains no Google vocabulary (${word})`);
+  }
+}
+
 /* ── The bite harness ───────────────────────────────────────────────────────── */
 
 /**
@@ -510,6 +628,44 @@ function biteProofs(): void {
         capabilityStatementIsTruthful(broken);
       },
     },
+    {
+      /* The exact sentence production rendered on the GitHub card before the fix. */
+      label: "M11 a GitHub organization is called a Google Account",
+      run: () => {
+        const broken = clone(GITHUB_CONNECTED);
+        (broken.connected[0] as { accountKindStatement: string }).accountKindStatement =
+          "Google Account. No verified Google Workspace domain was recorded for this connection, so none is claimed.";
+        aSecondProviderIsNotDescribedAsTheFirst(broken);
+      },
+    },
+    {
+      /* Likewise: Google's capability sentence, printed for a GitHub permission. */
+      label: "M12 a GitHub capability borrows Drive's sentence",
+      run: () => {
+        const broken = clone(GITHUB_CONNECTED);
+        (broken.connected[0].capabilities[0] as { statement: string }).statement =
+          "Available. Read-only file discovery and metadata. Hebun reads no file content, and holds no permission to change anything in Drive.";
+        aSecondProviderIsNotDescribedAsTheFirst(broken);
+      },
+    },
+    {
+      label: "M13 an available capability is printed as its raw identifier",
+      run: () => {
+        const broken = clone(GITHUB_CONNECTED);
+        (broken.connected[0].capabilities[0] as { label: string }).label =
+          broken.connected[0].capabilities[0].capability;
+        aSecondProviderIsNotDescribedAsTheFirst(broken);
+      },
+    },
+    {
+      label: "M14 an unimplemented capability stops saying it reads nothing",
+      run: () => {
+        const broken = clone(GITHUB_CONNECTED);
+        (broken.connected[0].capabilities[0] as { statement: string }).statement =
+          "Available. Repository activity, read-only.";
+        aSecondProviderIsNotDescribedAsTheFirst(broken);
+      },
+    },
   ];
 
   const bitten: string[] = [];
@@ -535,6 +691,7 @@ function biteProofs(): void {
     modelCarriesNoSecret(clone(CONNECTED));
     consumerAccountIsNotLabelledWorkspace(clone(CONNECTED));
     capabilityStatementIsTruthful(clone(CONNECTED));
+    aSecondProviderIsNotDescribedAsTheFirst(clone(GITHUB_CONNECTED));
   } catch {
     accepted = false;
   }
@@ -564,6 +721,8 @@ function main(): void {
   theHostedDomainIsNotPersisted();
 
   capabilityStatementIsTruthful(CONNECTED);
+
+  aSecondProviderIsNotDescribedAsTheFirst(GITHUB_CONNECTED);
 
   biteProofs();
 
