@@ -50,15 +50,24 @@ export interface Approval {
 
 export type IntegrationStatus = "connected" | "pending" | "syncing" | "error";
 
-export interface Integration {
-  id: string;
-  name: string;
-  description: string;
-  status: IntegrationStatus;
-  lastSync: string;
-  scopes: string[];
-  eventsToday: number;
-}
+/*
+ * ── THERE IS NO `Integration` SHAPE HERE ─────────────────────────────────────
+ *
+ * One used to exist — id, name, description, status, lastSync, scopes, eventsToday — and it had
+ * exactly one implementation anywhere in the repository: the four-element fixture in
+ * `features/integrations/mock.ts` that painted the sidebar's connection dots. Deleting the fixture
+ * left the shape with no producer and no consumer.
+ *
+ * It is not kept "for later". A connection already has a real, released shape — `IntegrationView`
+ * in `features/integration-authority/contracts.ts` — which carries connection state, health,
+ * granted scopes as last OBSERVED, and the verification timestamps this one invented. Leaving a
+ * second, simpler shape in the shared type barrel is how a surface ends up modelling a connection
+ * without ever touching the authority that owns one.
+ *
+ * `IntegrationStatus` above survives because `status-badge.tsx` still needs `connected`,
+ * `pending` and `syncing` as display vocabulary for other domains. It is presentation vocabulary,
+ * not a claim: nothing derives a connection from it.
+ */
 
 export interface Department {
   id: string;

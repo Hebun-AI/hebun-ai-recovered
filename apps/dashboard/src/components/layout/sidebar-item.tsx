@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { SidebarItem as SidebarItemConfig } from "@/config/sidebar.config";
-import type { IntegrationStatus } from "@/types";
 
-const statusDot: Record<IntegrationStatus, string> = {
-  connected: "bg-success",
-  pending: "bg-warning",
-  syncing: "bg-info",
-  error: "bg-error",
-};
-
+/*
+ * ── THE CONNECTION-STATUS DOT IS GONE ────────────────────────────────────────
+ *
+ * This file used to hold a `statusDot` map — green for `connected`, amber for `pending`, blue for
+ * `syncing`, red for `error` — and render it for any item carrying a `status` badge. The only
+ * items that ever carried one were the four Integrations entries, and every value they passed came
+ * from a fixture rather than from a connection.
+ *
+ * The renderer is removed along with the badge variant it drew. A dot in persistent chrome is read
+ * as a fact about the organization; this component is a client-rendered navigation item and has no
+ * tenant, no request and no authority with which to establish one.
+ */
 interface SidebarItemProps {
   item: SidebarItemConfig;
   active: boolean;
@@ -44,15 +48,6 @@ export function SidebarItem({ item, active, muted }: SidebarItemProps) {
         <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-error-subtle px-1.5 text-xs font-semibold tabular-nums text-error">
           {item.badge.value}
         </span>
-      )}
-      {item.badge?.type === "status" && (
-        <span
-          title={item.badge.value}
-          className={cn(
-            "size-2 shrink-0 rounded-full",
-            statusDot[item.badge.value]
-          )}
-        />
       )}
       {item.badge?.type === "tag" && (
         <span className="rounded-sm bg-surface-raised px-1.5 py-0.5 text-xs text-fg-muted">

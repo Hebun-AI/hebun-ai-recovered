@@ -70,8 +70,28 @@ function redirectsAreSingleHopLoopFree(): void {
 }
 
 function loadBearingSubstrateRetained(): void {
-  // Mocks are load-bearing (sidebar status resolver / dashboard widget) — retained, not deleted.
-  assert.ok(existsSync(SRC("features", "integrations", "mock.ts")), "integrations mock retained (sidebar-consumed)");
+  /*
+   * ── AMENDED: THE INTEGRATIONS MOCK IS NOW ASSERTED ABSENT ──────────────────
+   *
+   * This pin used to read `integrations mock retained (sidebar-consumed)`, and at the time it was
+   * exactly right: the fixture WAS load-bearing, because `sidebar.config.ts` resolved every
+   * Integrations status dot from it. The pin protected it from being deleted out from under a
+   * live consumer.
+   *
+   * The nav-truth phase removed the consumer instead. The dots were seeded state — Gmail
+   * `connected`, GitHub `pending` — presented in persistent chrome as organizational truth, and
+   * they had never consulted a connection. With the four entries and the `status` badge variant
+   * gone, the fixture had no consumer left, so it was deleted rather than left as a loaded gun in
+   * `src/`.
+   *
+   * The assertion is INVERTED, not relaxed: "retained" became "absent", which is the stronger of
+   * the two facts. `features/architecture/mock.ts` is untouched — it is still dashboard-consumed,
+   * and this pin still protects it.
+   */
+  assert.ok(
+    !existsSync(SRC("features", "integrations")),
+    "integrations mock deleted — its only consumer was the sidebar's seeded status dots",
+  );
   assert.ok(existsSync(SRC("features", "architecture", "mock.ts")), "architecture mock retained (dashboard-consumed)");
   // The real provider substrate is untouched and present.
   for (const dir of ["provider-framework", "provider-routing", "provider-invocation", "provider-matrix", "adapters", "runtime-boundary", "runtime-activation", "platform-core"]) {

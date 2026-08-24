@@ -39,7 +39,6 @@ import {
   Fingerprint,
   Store,
   Plug,
-  Mail,
   GitBranch,
   Database,
   Share2,
@@ -82,12 +81,32 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { approvals } from "@/features/approvals/mock";
-import { integrations } from "@/features/integrations/mock";
-import type { IntegrationStatus } from "@/types";
 
+/*
+ * ── THERE IS NO `status` BADGE, AND ITS ABSENCE IS THE POINT ─────────────────
+ *
+ * This union used to carry `{ type: "status"; value: IntegrationStatus }`, and four Integrations
+ * entries used it to paint a coloured dot — Gmail `connected`, GitHub `pending`, Supabase
+ * `connected`, Vercel `error`. Every one of those values came from a hard-coded array in
+ * `features/integrations/mock.ts`. None of them had ever consulted a connection.
+ *
+ * The dots were the most authoritative-looking thing in the navigation: persistent chrome, present
+ * on every page, stating a fact about the organization. A tenant reading "Gmail ● connected" was
+ * reading a fixture written before any connection authority existed.
+ *
+ * The variant is REMOVED rather than repointed at the real authority, because this file cannot
+ * hold that answer. It is a static module literal, evaluated once at build time and shared by
+ * every request. Connection truth is per-tenant and per-request — `/integrations` resolves the
+ * tenant, reads `listConnections`, and re-reads it on every request under `force-dynamic` for
+ * exactly that reason. A build-time badge could only ever be one organization's state shown to
+ * all of them, or a cached copy of a state that has since changed.
+ *
+ * So the navigation now has NO WAY to express a connection status. That is a mechanism, not a
+ * convention: re-introducing a false badge requires re-adding this union member and the renderer
+ * in `sidebar-item.tsx`, and a test asserts both are gone.
+ */
 export type SidebarBadge =
   | { type: "count"; value: number }
-  | { type: "status"; value: IntegrationStatus }
   | { type: "tag"; value: string };
 
 export interface SidebarItem {
@@ -114,10 +133,6 @@ export interface SidebarSection {
   placeholder?: boolean;
   description?: string;
   groups: SidebarGroup[];
-}
-
-function integrationStatus(id: string): IntegrationStatus {
-  return integrations.find((i) => i.id === id)?.status ?? "pending";
 }
 
 export const sidebarConfig: SidebarSection[] = [
@@ -618,36 +633,39 @@ export const sidebarConfig: SidebarSection[] = [
     id: "integrations",
     label: "Integrations",
     icon: Plug,
-    description: "External services wired into the event bus.",
+    description: "External services this organization has connected.",
+    /*
+     * ── FOUR ENTRIES WERE REMOVED, AND NOTHING REPLACED THEM ──────────────────
+     *
+     * Gmail, GitHub, Supabase and Vercel each had a nav entry, a coloured status dot, and a
+     * destination. All three parts were untrue together:
+     *
+     *   THE BADGE      came from `features/integrations/mock.ts` — a fixture, never a connection.
+     *   THE DESTINATION resolved to the catch-all `ModulePlaceholder`, which says the module is not
+     *                  populated yet. So the navigation claimed "Gmail ● connected" and the page it
+     *                  led to said nothing was built. The pairing is worse than either half.
+     *   THE ENTRY      implied Hebun can connect these four. It cannot connect any of them: the
+     *                  frozen provider catalog names exactly one connectable provider, and it is
+     *                  not on this list. GitHub's own contract exists but is deliberately NOT in
+     *                  the catalog until a verifier does.
+     *
+     * They are DELETED, not repaired. Repointing them at real state was impossible here (this file
+     * is build-time and shared across tenants — see `SidebarBadge`), and re-labelling them
+     * "not connected" would still assert that connecting them is a thing Hebun offers. Removing a
+     * false claim is cheaper and truer than inventing a replacement for it.
+     *
+     * `Overview` stays, and it is the honest one: `/integrations` resolves the tenant, reads the
+     * connection authority per request, and reports what this organization is genuinely connected
+     * to — including nothing, when that is the answer.
+     *
+     * `/integrations/google` is a real page and is deliberately NOT listed. It is the surface that
+     * STARTS an authorization, not a statement that one exists, and putting an act in the
+     * navigation next to a read is how the two get confused. It stays reachable from the surface
+     * that owns the act.
+     */
     groups: [
       {
-        items: [
-          { label: "Overview", href: "/integrations", icon: Plug },
-          {
-            label: "Gmail",
-            href: "/integrations/gmail",
-            icon: Mail,
-            badge: { type: "status", value: integrationStatus("gmail") },
-          },
-          {
-            label: "GitHub",
-            href: "/integrations/github",
-            icon: GitBranch,
-            badge: { type: "status", value: integrationStatus("github") },
-          },
-          {
-            label: "Supabase",
-            href: "/integrations/supabase",
-            icon: Database,
-            badge: { type: "status", value: integrationStatus("supabase") },
-          },
-          {
-            label: "Vercel",
-            href: "/integrations/vercel",
-            icon: Triangle,
-            badge: { type: "status", value: integrationStatus("vercel") },
-          },
-        ],
+        items: [{ label: "Overview", href: "/integrations", icon: Plug }],
       },
     ],
   },

@@ -123,7 +123,19 @@ async function main(): Promise<void> {
 
   /* ── The census this phase acted on, pinned so it cannot silently grow ───── */
   {
-    assert.ok(mocks.size >= 19, `expected the known mock modules, found ${mocks.size}`);
+    /*
+     * ── FLOOR LOWERED 19 -> 18, WITH THE REASON ─────────────────────────────
+     *
+     * This is an ANTI-SHRINK floor, not a count: it proves the walker genuinely found the census
+     * this phase reasoned about, so nobody can satisfy the firewall below by quietly emptying the
+     * mock tree. A legitimate deletion must therefore lower it explicitly rather than silently.
+     *
+     * `features/integrations/mock.ts` was deleted by the nav-truth phase. It seeded the sidebar's
+     * Integrations status dots — Gmail `connected`, GitHub `pending` — from a four-element fixture
+     * that had never consulted a connection. Its only consumer, the `status` badge in
+     * `sidebar.config.ts`, was removed with it, so the module had nothing left to serve.
+     */
+    assert.ok(mocks.size >= 18, `expected the known mock modules, found ${mocks.size}`);
     const organizationBuilder = codeOf(read("src/features/runtime-projection/builders/organization-projection-builder.ts"));
     for (const source of ["@/features/hr/mock", "@/features/agents/mock", "@/features/approvals/mock"]) {
       assert.ok(
