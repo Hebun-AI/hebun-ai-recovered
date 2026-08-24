@@ -201,6 +201,13 @@ is **not** runtime provenance and this record does not promote it to one. It is 
 not a fact Hebun can re-derive, and writing it into a closure document as though the runtime knew it
 is exactly the collapse this document exists to prevent.
 
+> **AT GITHUB-2 CLOSURE:** selected-repository identity was unavailable through the released seam —
+> the statement above, unchanged, and the truth of the runtime as it then stood.
+>
+> **AFTER GITHUB-4:** that limitation is resolved. The released live repository-discovery seam asks
+> GitHub and is answered, and the identity is now derived rather than remembered. See
+> `hebun-github-4-repository-activity-closure.md` §7.
+
 ---
 
 ## 8. Security and governance invariants
@@ -379,7 +386,7 @@ record should be read as having designed it. That phase must first decide:
 | CAPABILITY RUNTIME-REACHABLE | **NO** | `NOT-IMPLEMENTED (0 seam)`, measured |
 | CAPABILITY EXECUTABLE | **NO** | no repository or pull-request address exists |
 | CAPABILITY REAL-PROVIDER ACCEPTED | **NO** | §6 condition 5 unreachable |
-| SELECTED REPOSITORY IDENTITY VERIFIED | **UNAVAILABLE** | released runtime cannot enumerate them |
+| SELECTED REPOSITORY IDENTITY VERIFIED | **UNAVAILABLE** *(at this phase — resolved by GITHUB-4, §7)* | released runtime cannot enumerate them |
 | PRODUCTION DEPLOYED | **YES** | `dpl_PgwZUbjbsvLEPWctixnCdnbcWYeg`, READY, sha `95edd48` |
 | PRODUCTION SERVING | **YES** | `www.hebuntech.com` resolves to that deployment |
 | AUTHENTICATED UI VISUALLY VERIFIED | **NO** | never inspected behind login |
