@@ -27,8 +27,21 @@
 /**
  * How a provider expects to be authenticated. It describes a definition, never a stored secret —
  * I1 stores none of either kind.
+ *
+ * ── `github_app` IS ADDED BY GITHUB-1, AND IT COSTS NOTHING TO ADD ───────────
+ *
+ * This union is TYPE-ONLY VOCABULARY. `authMethod` is a field on a frozen code literal; it is not
+ * a column, it is never persisted, it is read by no runtime branch and no `switch` in `src/`, and
+ * a test pins that. So widening it changes no stored value and no behaviour — it lets the catalog
+ * say what is true instead of picking whichever released word was least wrong.
+ *
+ * And "least wrong" would have been genuinely wrong. A GitHub App installation is NOT `oauth2`:
+ * there is no authorization-code exchange for the connection, no refresh token, no tenant-held
+ * secret, and the grant is made by an ORGANIZATION to an APP rather than by a user to a client.
+ * Labelling it `oauth2` would have told every future reader that `integration_credentials` holds a
+ * refresh token for it. Nothing does, and nothing should.
  */
-export type ProviderAuthMethod = "oauth2" | "api_key";
+export type ProviderAuthMethod = "oauth2" | "api_key" | "github_app";
 
 /** What the provider calls the thing a connection is bound to. Google says workspace, Slack team. */
 export type ProviderAccountIdentity = "workspace" | "organization" | "account" | "team";

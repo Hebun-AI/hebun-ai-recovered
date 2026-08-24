@@ -1,0 +1,474 @@
+/*
+ * GITHUB-1 — THE REAL GITHUB PROVIDER CONTRACT.
+ *
+ * ── WHAT THIS SUITE DEFENDS ─────────────────────────────────────────────────
+ *
+ *   1. The real GitHub provider is NOT the simulation GitHub provider, and no literal is shared.
+ *   2. The catalog is the only place a real GitHub provider is defined.
+ *   3. It is an ORGANIZATION provider, and a personal installation is nameable and refused.
+ *   4. NO write permission is requested, declared, or reachable.
+ *   5. A granted permission map normalizes into the released `integrations.scopes` shape, with
+ *      requested and granted kept apart.
+ *   6. The first capability cannot reach source-file content — the allow list contains no address
+ *      for one, and the pinned media type is not a diff.
+ *   7. Nothing under `provider-github` performs I/O, imports a writer, or touches Knowledge.
+ *
+ * It calls no provider, starts no installation, reads no credential and touches no database. It is
+ * a statement about this repository, made entirely from this repository.
+ */
+import assert from "node:assert/strict";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
+
+import { PROVIDER_CATALOG, findProviderDefinition } from "../../src/features/provider-catalog/catalog";
+import {
+  GITHUB_ACCEPTED_REPOSITORY_SELECTION,
+  GITHUB_ACCEPT_MEDIA_TYPE,
+  GITHUB_ALLOWED_REQUEST_PATHS,
+  GITHUB_API_ORIGIN,
+  GITHUB_FORBIDDEN_ACCEPT_MEDIA_TYPES,
+  GITHUB_FORBIDDEN_PATH_FRAGMENTS,
+  GITHUB_FORBIDDEN_PERMISSION_NAMES,
+  GITHUB_ORGANIZATION_ACCOUNT_TYPE,
+  GITHUB_PROVIDER_KEY,
+  GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
+  GITHUB_REPOSITORY_ACTIVITY_READ_PERMISSIONS,
+  GITHUB_REPOSITORY_ACTIVITY_WRITE_PERMISSIONS,
+  GITHUB_REQUESTED_PERMISSIONS,
+  GITHUB_REQUIRED_GRANTED_PERMISSIONS,
+  MAX_PULL_REQUESTS_PER_PAGE,
+  MAX_REPOSITORIES_PER_PAGE,
+  coversRequiredPermissions,
+  isAllowedRequestPath,
+  isWritePermission,
+  normalizeGrantedPermissions,
+  parseGitHubPermission,
+} from "../../src/features/provider-github/contracts";
+import { GITHUB_PROVIDER_ID } from "../../src/features/providers/github/types";
+
+const ROOT = process.cwd();
+const read = (p: string) => readFileSync(path.join(ROOT, p), "utf8");
+/** Comments are stripped before a source assertion, so honest prose can never satisfy a ban. */
+const codeOf = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+const GITHUB_DIR = "src/features/provider-github";
+
+function collect(dir: string): string[] {
+  if (!existsSync(path.join(ROOT, dir))) return [];
+  return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((e) => {
+    const rel = path.join(dir, e.name);
+    return e.isDirectory() ? collect(rel) : /\.tsx?$/.test(e.name) ? [rel] : [];
+  });
+}
+
+const GITHUB_MODULES = collect(GITHUB_DIR);
+
+/* ── 1. THE REAL PROVIDER IS NOT THE SIMULATION PROVIDER ────────────────────── */
+function theRealProviderIsNotTheSimulationProvider(): void {
+  /*
+   * `features/providers/github` is World B: `simulation: true`, execution mode `simulation`, and
+   * deterministic fixtures for issues, workflows and releases. It must never be able to satisfy a
+   * real connection, and the cheapest structural way to guarantee that is for the two worlds to
+   * share NO identifier at all.
+   */
+  assert.notEqual(
+    GITHUB_PROVIDER_KEY,
+    GITHUB_PROVIDER_ID,
+    "the real catalog key and the simulation provider id must not be the same string",
+  );
+  assert.equal(GITHUB_PROVIDER_ID, "github", "the simulation provider id is still the bare key");
+  assert.equal(GITHUB_PROVIDER_KEY, "github-organization");
+
+  /* The simulation provider is NOT in the catalog, by key or by any alias of it. */
+  assert.equal(
+    findProviderDefinition(GITHUB_PROVIDER_ID),
+    undefined,
+    "the simulation provider id must name no connectable catalog entry",
+  );
+
+  /*
+   * ── THE FIREWALL: NEITHER WORLD MAY IMPORT THE OTHER ───────────────────────
+   *
+   * Asserted on IMPORT SPECIFIERS, not on raw text and not on stripped code. The ban is about
+   * REACHABILITY, and only a module specifier creates reachability: a comment that NAMES the other
+   * world is discussion, and this file's own module explains at length why the two worlds are
+   * separate. A raw-text ban was written first and failed on exactly that prose — the same defect
+   * G5A and R6D both hit, where a guard was satisfied or broken by honest sentences rather than by
+   * mechanism. Comments are stripped so a commented-out import cannot hide, and only the
+   * surviving specifiers are judged.
+   */
+  const specifiersOf = (file: string): string[] =>
+    [...codeOf(read(file)).matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
+
+  for (const file of GITHUB_MODULES) {
+    for (const specifier of specifiersOf(file)) {
+      assert.ok(
+        !specifier.includes("features/providers/"),
+        `${file} imports ${specifier} — the real provider may never reach the simulation tree`,
+      );
+    }
+  }
+
+  /* And the reverse: the simulation must not learn about the real provider either. */
+  for (const file of collect("src/features/providers/github")) {
+    for (const specifier of specifiersOf(file)) {
+      for (const forbidden of ["provider-github", "provider-catalog", "integration-authority"]) {
+        assert.ok(
+          !specifier.includes(forbidden),
+          `${file} imports ${specifier} — the simulation may never reach real connection truth`,
+        );
+      }
+    }
+  }
+}
+
+/* ── 2. GITHUB IS DELIBERATELY NOT IN THE CATALOG YET ───────────────────────── */
+function theCatalogDoesNotYetOfferAConnectionNoCodeCanComplete(): void {
+  /*
+   * ── THE RULE THIS PHASE OBEYED RATHER THAN AMENDED ────────────────────────
+   *
+   * `provider-catalog/catalog.ts` states it in its own header: through INT-1 and INT-2 the catalog
+   * was EMPTY, and "that emptiness was the honest statement: no credential store existed, no
+   * verifier existed, and listing a vendor would have offered a connection no code could complete."
+   *
+   * GitHub is in exactly that state. It needs no credential store — nothing tenant-side is
+   * persisted, which `provider-github/contracts.ts` explains in full — but it DOES need a verifier:
+   * the JWT-authenticated `GET /app/installations/{id}` read that turns a spoofable
+   * `installation_id` into a fact. That read does not exist.
+   *
+   * A `connectable` entry would therefore make `/integrations` offer a GitHub connection, and let a
+   * tenant create a `draft` row that could never progress. `connectivity: "fixture"` would behave
+   * correctly and lie about why. So the entry is DEFERRED to the phase that builds the verifier,
+   * and this assertion is what keeps it deferred — a later author who adds the definition without
+   * the seam has to delete a test that says why.
+   */
+  assert.equal(
+    findProviderDefinition(GITHUB_PROVIDER_KEY),
+    undefined,
+    "GitHub is not connectable until a verifier exists — the catalog may not offer it yet",
+  );
+  assert.ok(
+    !PROVIDER_CATALOG.some((p) => p.providerKey.includes("github")),
+    "no catalog entry may name GitHub while nothing can confirm an installation",
+  );
+  /*
+   * AND THE CONSTANTS EXIST ANYWAY. The contract is complete and reviewable a phase before it is
+   * offered, which is the same discipline that declared `VerificationOutcome`'s `ok: true` arm one
+   * phase before any code could construct it.
+   */
+  assert.equal(GITHUB_PROVIDER_KEY, "github-organization");
+  assert.ok(GITHUB_REQUESTED_PERMISSIONS.length > 0, "the permission contract is written");
+
+  /*
+   * `authMethod` IS VOCABULARY, NOT A RUNTIME BRANCH. It is widened by this phase, and that is
+   * only safe while nothing switches on it and nothing stores it. Asserted rather than promised.
+   */
+  const authMethodFiles = collect("src/features")
+    .concat(collect("src/app"), collect("src/components"))
+    .filter((f) => /\bauthMethod\b/.test(codeOf(read(f))));
+  assert.deepEqual(
+    authMethodFiles,
+    [
+      /* DECLARES the field and the union. */
+      "src/features/integration-authority/contracts.ts",
+      /* WRITES a value. */
+      "src/features/provider-catalog/catalog.ts",
+    ],
+    "authMethod is declared in one place and written in one place — nothing else may touch it",
+  );
+  for (const file of authMethodFiles) {
+    const code = codeOf(read(file));
+    assert.ok(
+      !/switch\s*\([^)]*authMethod/.test(code),
+      `${file} branches on authMethod — widening the union would then change behaviour`,
+    );
+    assert.ok(
+      !/authMethod\s*===|===\s*"(oauth2|api_key|github_app)"/.test(code),
+      `${file} compares authMethod — it is vocabulary, not a runtime decision`,
+    );
+  }
+  /*
+   * AND IT IS NEVER PERSISTED. No column carries it, so no stored row can disagree with the frozen
+   * catalog about how a provider authenticates.
+   */
+  for (const file of collect("src/db")) {
+    assert.ok(
+      !/auth_method|authMethod/.test(read(file)),
+      `${file}: authMethod must never become a column`,
+    );
+  }
+}
+
+/* ── 3. AN ORGANIZATION PROVIDER, WITH THE REFUSAL EXPRESSIBLE ──────────────── */
+function itIsAnOrganizationProviderAndCanSayNoToAnythingElse(): void {
+  /*
+   * The catalog entry that will carry `accountIdentity: "organization"` is deferred with the rest
+   * of the definition, so the ORGANIZATION decision is pinned where it actually lives in this
+   * phase: in the provider's own vocabulary. `GITHUB_ORGANIZATION_ACCOUNT_TYPE` is GitHub's own
+   * spelling of `installation.account.type`, and it is the value a personal installation will be
+   * refused against.
+   */
+  assert.equal(GITHUB_ORGANIZATION_ACCOUNT_TYPE, "Organization", "GitHub's own spelling");
+  assert.equal(
+    GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
+    "github.repository.activity.read",
+    "the capability names repository activity — never repositories, never GitHub at large",
+  );
+  assert.deepEqual(
+    [...GITHUB_REPOSITORY_ACTIVITY_READ_PERMISSIONS],
+    ["metadata:read", "pull_requests:read"],
+    "repository identity AND pull-request activity — both, and nothing else",
+  );
+
+  /*
+   * A union of one could not express a refusal. `all` must be NAMEABLE so an installation that
+   * widened to every repository looks different from a compliant one rather than identical to it.
+   */
+  assert.deepEqual(
+    [...GITHUB_ACCEPTED_REPOSITORY_SELECTION],
+    ["selected"],
+    "selected repositories only — an all-repository installation is refused",
+  );
+  const contracts = read(`${GITHUB_DIR}/contracts.ts`);
+  assert.ok(
+    /GitHubRepositorySelection\s*=\s*"selected"\s*\|\s*"all"/.test(codeOf(contracts)),
+    "the selection type must be able to name `all` in order to refuse it",
+  );
+}
+
+/* ── 4. NO WRITE, ANYWHERE ──────────────────────────────────────────────────── */
+function noWritePermissionIsRequestedDeclaredOrReachable(): void {
+  for (const permission of GITHUB_REQUESTED_PERMISSIONS) {
+    assert.ok(!isWritePermission(permission), `${permission} is a write — none may be requested`);
+  }
+  for (const permission of GITHUB_REQUIRED_GRANTED_PERMISSIONS) {
+    assert.ok(!isWritePermission(permission), `${permission} is a write`);
+  }
+  for (const permission of GITHUB_REPOSITORY_ACTIVITY_READ_PERMISSIONS) {
+    assert.ok(!isWritePermission(permission), `${permission} is a write`);
+  }
+
+  /*
+   * AN EMPTY WRITE LIST IS NOT A VACUOUS TRUTH. The availability seam computes
+   * `writeCapable = isUsable && scopes.write.length > 0 && covers(...)`, so an empty list makes
+   * write STRUCTURALLY unreachable rather than merely unused.
+   */
+  assert.equal(
+    GITHUB_REPOSITORY_ACTIVITY_WRITE_PERMISSIONS.length,
+    0,
+    "the capability declares no write permission — write is structurally unreachable",
+  );
+  /*
+   * AND NO CATALOG ENTRY CARRIES A GITHUB WRITE EITHER — asserted over the whole catalog rather
+   * than over one entry, so it stays true both now, while GitHub is absent, and after GITHUB-2
+   * adds it. A pin scoped to an entry that does not exist would be vacuous.
+   */
+  for (const provider of PROVIDER_CATALOG) {
+    for (const [capability, scopes] of Object.entries(provider.capabilityScopes)) {
+      if (!capability.startsWith("github.")) continue;
+      assert.equal(scopes.write.length, 0, `${capability} may declare no write scope`);
+    }
+  }
+
+  /* And no forbidden permission name may appear in the requested set. */
+  for (const permission of GITHUB_REQUESTED_PERMISSIONS) {
+    const parsed = parseGitHubPermission(permission);
+    assert.ok(parsed, `${permission} must parse as name:level`);
+    assert.ok(
+      !GITHUB_FORBIDDEN_PERMISSION_NAMES.includes(parsed.name),
+      `${parsed.name} is on the deny list and may never be requested`,
+    );
+  }
+  /* `contents` is the permission that would buy source files. Named, so its absence is asserted. */
+  assert.ok(GITHUB_FORBIDDEN_PERMISSION_NAMES.includes("contents"));
+  assert.ok(GITHUB_FORBIDDEN_PERMISSION_NAMES.includes("administration"));
+  assert.ok(GITHUB_FORBIDDEN_PERMISSION_NAMES.includes("workflows"));
+}
+
+/* ── 5. REQUESTED ≠ GRANTED, AND THE NORMALIZATION IS HONEST ────────────────── */
+function requestedAndGrantedStayTwoDifferentSets(): void {
+  /*
+   * The whole lesson of INT-3 lesson 11: truth is the provider's returned permissions. If these
+   * two constants were the same value, "covered" would be measuring what Hebun hoped for.
+   */
+  assert.notDeepEqual(
+    [...GITHUB_REQUESTED_PERMISSIONS],
+    [...GITHUB_REQUIRED_GRANTED_PERMISSIONS],
+    "requested and required-granted must be distinguishable sets",
+  );
+  assert.ok(
+    GITHUB_REQUIRED_GRANTED_PERMISSIONS.every((p) => GITHUB_REQUESTED_PERMISSIONS.includes(p)),
+    "Hebun may never require a permission it never asks for",
+  );
+
+  /* GitHub's map, in GitHub's spelling, flattened into the released `string[]` column shape. */
+  assert.deepEqual(
+    [...normalizeGrantedPermissions({ metadata: "read", pull_requests: "read" })],
+    ["metadata:read", "pull_requests:read"],
+  );
+  /* Sorted, so two identical grants compare equal whatever order GitHub serialized them in. */
+  assert.deepEqual(
+    [...normalizeGrantedPermissions({ pull_requests: "read", metadata: "read" })],
+    ["metadata:read", "pull_requests:read"],
+  );
+  /* A write GitHub granted is REPORTED, never dropped — the tenant must be able to see it. */
+  assert.deepEqual([...normalizeGrantedPermissions({ contents: "write" })], ["contents:write"]);
+
+  /* Hostile input yields no permission rather than a permission Hebun never received. */
+  assert.deepEqual([...normalizeGrantedPermissions(null)], []);
+  assert.deepEqual([...normalizeGrantedPermissions(undefined)], []);
+  assert.deepEqual([...normalizeGrantedPermissions({})], []);
+  assert.deepEqual(
+    [...normalizeGrantedPermissions({ metadata: "sudo" })],
+    [],
+    "an unrecognized level is not a level",
+  );
+  assert.deepEqual([...normalizeGrantedPermissions({ metadata: 1 as unknown as string })], []);
+  assert.deepEqual([...normalizeGrantedPermissions({ "": "read" })], []);
+  /*
+   * `Object.keys` cannot see an inherited property, so a prototype-borne permission is invisible
+   * rather than accepted. Pinned because INT-4 found the equivalent bug in a bare map lookup.
+   */
+  const inherited = Object.create({ contents: "write" }) as Record<string, unknown>;
+  assert.deepEqual(
+    [...normalizeGrantedPermissions(inherited)],
+    [],
+    "an inherited permission is invisible, never accepted",
+  );
+
+  /* Parsing is strict: an unrecognized level is not a level. */
+  assert.equal(parseGitHubPermission("metadata"), null);
+  assert.equal(parseGitHubPermission(":read"), null);
+  assert.equal(parseGitHubPermission("metadata:sudo"), null);
+  assert.deepEqual(parseGitHubPermission("metadata:read"), { name: "metadata", level: "read" });
+
+  /*
+   * EXACT MATCH, NOT LEVEL SUBSUMPTION. GitHub would let `metadata:write` perform the read, but
+   * this provider never requests a write, so a grant carrying one must not launder into coverage.
+   */
+  assert.equal(coversRequiredPermissions(["metadata:read"]), true, "the exact grant covers");
+  assert.equal(
+    coversRequiredPermissions(["metadata:write"]),
+    false,
+    "a write must never launder into satisfying a read requirement",
+  );
+  assert.equal(coversRequiredPermissions([]), false, "an empty grant covers nothing");
+  assert.equal(
+    coversRequiredPermissions(["pull_requests:read"]),
+    false,
+    "a different permission does not satisfy the required one",
+  );
+}
+
+/* ── 6. THE SOURCE-CONTENT FIREWALL ─────────────────────────────────────────── */
+function theFirstCapabilityHasNoAddressForSourceContent(): void {
+  /*
+   * ── THE FACT THIS SECTION EXISTS FOR ──────────────────────────────────────
+   *
+   * GitHub's `pull_requests:read` ALSO grants `/pulls/{pull_number}/files`, whose response carries
+   * a `patch`, and a `diff` media type on `/pulls/{pull_number}`. Unlike Google's
+   * `drive.metadata.readonly`, the provider does not hold this boundary for us. These constants do.
+   */
+  assert.ok(GITHUB_ALLOWED_REQUEST_PATHS.length > 0, "the allow list is not empty");
+  for (const allowed of GITHUB_ALLOWED_REQUEST_PATHS) {
+    assert.ok(allowed.startsWith("/"), `${allowed} must be a path, never an origin`);
+    for (const forbidden of GITHUB_FORBIDDEN_PATH_FRAGMENTS) {
+      assert.ok(
+        !allowed.includes(forbidden),
+        `the allow list member ${allowed} reaches ${forbidden} — that is source content or a ` +
+          `deferred surface`,
+      );
+    }
+  }
+  /* Deny by default: a path that is not written down is not allowed. */
+  assert.equal(isAllowedRequestPath("/repos/{owner}/{repo}/pulls"), true);
+  assert.equal(isAllowedRequestPath("/repos/{owner}/{repo}/pulls/1/files"), false);
+  assert.equal(isAllowedRequestPath("/repos/{owner}/{repo}/contents/README.md"), false);
+  assert.equal(isAllowedRequestPath("/repos/{owner}/{repo}/commits"), false);
+  assert.equal(isAllowedRequestPath(""), false);
+
+  /* The pinned media type must not be one of the ones that returns a diff. */
+  assert.ok(
+    !GITHUB_FORBIDDEN_ACCEPT_MEDIA_TYPES.includes(GITHUB_ACCEPT_MEDIA_TYPE),
+    "the pinned Accept header must not be a diff, patch or raw media type",
+  );
+  assert.equal(
+    GITHUB_ACCEPT_MEDIA_TYPE,
+    "application/vnd.github+json",
+    "the pinned media type is JSON metadata",
+  );
+  assert.ok(GITHUB_FORBIDDEN_ACCEPT_MEDIA_TYPES.includes("application/vnd.github.diff"));
+  assert.ok(GITHUB_FORBIDDEN_ACCEPT_MEDIA_TYPES.includes("application/vnd.github.patch"));
+
+  /*
+   * ── THE SHAPE HAS NO HOLE FOR CONTENT ─────────────────────────────────────
+   *
+   * A field named `patch` or `diff` on the pull-request view would be filled by somebody, and the
+   * granted permission would let them. Asserted on the stripped source of the interface, so the
+   * words may still be DISCUSSED in this file's own prose and in the module's.
+   */
+  const contracts = codeOf(read(`${GITHUB_DIR}/contracts.ts`));
+  const prView = contracts.slice(
+    contracts.indexOf("interface GitHubPullRequestView"),
+    contracts.indexOf("}", contracts.indexOf("interface GitHubPullRequestView")),
+  );
+  assert.ok(prView.length > 0, "the pull-request view exists");
+  for (const banned of ["patch", "diff", "body", "files", "sha", "content"]) {
+    assert.ok(
+      !new RegExp(`\\b${banned}\\b`, "i").test(prView),
+      `GitHubPullRequestView declares a \`${banned}\` field — that is a hole for source content`,
+    );
+  }
+
+  /* Bounded well under GitHub's own per-page maximum of 100 — a listing is not an export. */
+  assert.ok(MAX_REPOSITORIES_PER_PAGE > 0 && MAX_REPOSITORIES_PER_PAGE <= 50);
+  assert.ok(MAX_PULL_REQUESTS_PER_PAGE > 0 && MAX_PULL_REQUESTS_PER_PAGE <= 50);
+}
+
+/* ── 7. NO I/O, NO PERSISTENCE, NO KNOWLEDGE ────────────────────────────────── */
+function nothingUnderProviderGithubCanCallOrPersistAnything(): void {
+  assert.ok(GITHUB_MODULES.length > 0, "the provider module tree exists");
+  for (const file of GITHUB_MODULES) {
+    const code = codeOf(read(file));
+    assert.ok(!/\bfetch\s*\(/.test(code), `${file} performs outbound HTTP — GITHUB-1 builds none`);
+    assert.ok(!/\bXMLHttpRequest\b|\brequire\s*\(\s*["']https?["']/.test(code), `${file} does I/O`);
+    for (const forbidden of [
+      "@/db",
+      "drizzle-orm",
+      "features/knowledge",
+      "features/governance",
+      "integration-credentials",
+      "node:crypto",
+      "node:fs",
+    ]) {
+      assert.ok(
+        !code.includes(forbidden),
+        `${file} imports ${forbidden} — a contract module holds no store, no key and no writer`,
+      );
+    }
+  }
+
+  /*
+   * PROVIDER DATA IS NOT KNOWLEDGE. There is no admission authority in this phase and no writer is
+   * importable, so a GitHub read cannot become organizational truth by accident. Structural, not
+   * a policy: `GITHUB_MODULES` above proves the imports are absent.
+   */
+  assert.equal(GITHUB_API_ORIGIN, "https://api.github.com");
+  assert.ok(
+    GITHUB_API_ORIGIN.startsWith("https://"),
+    "the provider origin is TLS-only and is a constant, not configuration",
+  );
+}
+
+function main(): void {
+  theRealProviderIsNotTheSimulationProvider();
+  theCatalogDoesNotYetOfferAConnectionNoCodeCanComplete();
+  itIsAnOrganizationProviderAndCanSayNoToAnythingElse();
+  noWritePermissionIsRequestedDeclaredOrReachable();
+  requestedAndGrantedStayTwoDifferentSets();
+  theFirstCapabilityHasNoAddressForSourceContent();
+  nothingUnderProviderGithubCanCallOrPersistAnything();
+  console.log("github1-provider-contract/contract: all assertions passed");
+}
+
+main();
