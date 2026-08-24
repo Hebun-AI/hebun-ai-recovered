@@ -11,6 +11,7 @@ Every capability in this backlog is governed by the [Capability Lifecycle](00-ca
 Process document, read first:
 
 - [00 Capability Lifecycle](00-capability-lifecycle.md)
+- [Future Architecture Backlog](future-architecture-backlog.md) — a separate, Director-managed register of initiatives approved for *investigation only*. Not roadmap, not numbered, and not promoted by being listed.
 
 Capabilities are grouped by architectural layer. A capability may depend on items in the same or a lower layer; it must never be depended upon in reverse by the Director core.
 
