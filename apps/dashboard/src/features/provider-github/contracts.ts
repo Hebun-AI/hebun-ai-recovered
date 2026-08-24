@@ -316,7 +316,20 @@ export const GITHUB_REPOSITORY_ACTIVITY_WRITE_PERMISSIONS: readonly string[] = O
  */
 
 /**
- * THE COMPLETE SET OF REQUEST PATHS THIS PROVIDER MAY EVER ISSUE. Deny by default.
+ * THE INSTALLATION-AUTHENTICATED REQUEST PATHS THIS PROVIDER MAY ISSUE. Deny by default.
+ *
+ * ── WHAT THIS LIST IS, AND WHAT ENFORCES IT ─────────────────────────────────
+ *
+ * GITHUB-1 wrote this as "the complete set of paths this provider may ever issue", which was true
+ * of a provider that issued none and stopped being true the moment App-authenticated addresses
+ * existed: `/app/installations/{id}` was never on it. The runtime boundary is
+ * `GITHUB_TRANSPORT_OPERATIONS` in `github-transport.server.ts`, which keys on method, path,
+ * AUTHENTICATION CLASS and Accept together and is consulted before every request.
+ *
+ * This list is now exactly the INSTALLATION-authenticated half of that table, and a test asserts
+ * the two agree. Keeping it is the two-readings discipline: the transport consults its table, and
+ * a test consults this list plus the forbidden fragments below to prove the table did not quietly
+ * grow a member that reaches a file.
  *
  * `{owner}` and `{repo}` are the only placeholders. There is deliberately no
  * `/pulls/{number}/files`, no `/contents/{path}`, no `/git/blobs`, no `/commits`, no `/compare`,

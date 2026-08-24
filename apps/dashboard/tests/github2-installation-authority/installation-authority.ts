@@ -160,8 +160,23 @@ async function theTransportCanOnlyReachTheInstallationRecord(): Promise<void> {
    * `/pulls/{n}/files` and a `diff` media type; neither appears here, so neither can be sent.
    */
   const transport = codeOf(read(TRANSPORT));
+
+  /*
+   * ── REPAIRED BY GITHUB-4 ──────────────────────────────────────────────────
+   *
+   * This list used to include `/pulls` and `access_tokens`, and that was the truth of GITHUB-2:
+   * the transport had one address, so it could not read data even by mistake. GITHUB-4 gives the
+   * capability a runtime, so both now appear — deliberately, behind a firewall keyed on method,
+   * path, authentication class and Accept.
+   *
+   * The two are removed from this list rather than the list being deleted, because everything
+   * ELSE on it is still forbidden and is the part that matters: `pull_requests:read` permits
+   * `/pulls/{n}/files` and a `diff` media type, and neither has an address or a header here.
+   * GITHUB-4's own suite proves the firewall refuses them at runtime; this proves the transport
+   * cannot even spell them.
+   */
   for (const forbidden of [
-    "/pulls",
+    "/pulls/{pull_number}",
     "/contents",
     "/commits",
     "/compare",
@@ -170,18 +185,31 @@ async function theTransportCanOnlyReachTheInstallationRecord(): Promise<void> {
     "/actions",
     "tarball",
     "zipball",
-    "access_tokens",
     "vnd.github.diff",
     "vnd.github.patch",
     "vnd.github.raw",
   ]) {
     assert.ok(
       !transport.includes(forbidden),
-      `${TRANSPORT} names ${forbidden} — the installation transport has no data address`,
+      `${TRANSPORT} names ${forbidden} — no source-content address may exist in the transport`,
     );
   }
-  /* And no verb other than GET is reachable from it. */
-  assert.ok(!/method:\s*"(POST|PUT|PATCH|DELETE)"/.test(transport), "the transport only reads");
+  /*
+   * And no verb that could CHANGE anything at GitHub is reachable from it.
+   *
+   * Repaired by GITHUB-4 for the same reason as the list above: minting an installation token is a
+   * `POST`, and it is the one write-shaped request this provider makes — it creates a credential
+   * on GitHub's side and changes nothing an organization owns. `PUT`, `PATCH` and `DELETE` remain
+   * absent, and a POST to anything other than the token endpoint would be refused by the firewall
+   * before it was issued.
+   */
+  assert.ok(!/method:\s*"(PUT|PATCH|DELETE)"/.test(transport), "the transport mutates nothing");
+  const posts = [...transport.matchAll(/method:\s*"POST"/g)];
+  assert.ok(posts.length <= 1, "at most one POST exists in the transport");
+  assert.ok(
+    posts.length === 0 || transport.includes("access_tokens"),
+    "the only POST is the installation-token mint",
+  );
 }
 
 /* ── 3. FAILURE CLASSES DO NOT COLLAPSE ─────────────────────────────────────── */
@@ -499,6 +527,16 @@ function grantedPermissionsComeFromGithubAndNothingIsStored(): void {
    * no GitHub credential row can be written by accident rather than by policy. And no module mints
    * an installation ACCESS TOKEN, which is the only GitHub value that would ever be worth storing.
    */
+  /*
+   * ── REPAIRED BY GITHUB-4, AND THE PART THAT MATTERS IS UNCHANGED ──────────
+   *
+   * `access_tokens` leaves this list because GITHUB-4 mints one. The claim it was standing for —
+   * THIS PROVIDER STORES NO TENANT SECRET — is untouched and is what the remaining four names
+   * enforce: no module may reach the credential vault, the encryption registry, or a credential
+   * kind. A minted token is spent inside a callback and discarded; storing one would require a
+   * migration for an enum value that does not exist, and GITHUB-4's own suite proves the token is
+   * never returned, logged, or written.
+   */
   for (const file of collect(GITHUB_DIR)) {
     const code = codeOf(read(file));
     for (const forbidden of [
@@ -506,11 +544,10 @@ function grantedPermissionsComeFromGithubAndNothingIsStored(): void {
       "secret-encryption",
       "oauth_access",
       "oauth_refresh",
-      "access_tokens",
     ]) {
       assert.ok(
         !code.includes(forbidden),
-        `${file} names ${forbidden} — this provider stores no tenant secret and mints no token`,
+        `${file} names ${forbidden} — this provider stores no tenant secret`,
       );
     }
   }

@@ -501,10 +501,39 @@ function eachProviderModuleTouchesOnlyWhatItsRoleAllows(): void {
      * writers. Everything else is forbidden the handle entirely.
      */
     if (file !== ORCHESTRATOR) {
-      for (const forbidden of ["@/db", "drizzle-orm", "integration-authority"]) {
+      for (const forbidden of ["@/db", "drizzle-orm"]) {
         assert.ok(
           !code.includes(forbidden),
           `${file} imports ${forbidden} — only ${ORCHESTRATOR} composes the connection lifecycle`,
+        );
+      }
+    }
+
+    /*
+     * ── REPAIRED BY GITHUB-4, AND MADE STRICTER RATHER THAN WEAKER ────────
+     *
+     * This assertion used to forbid `integration-authority` outright, which was correct while the
+     * orchestrator was the only module with any reason to reach it. GITHUB-4 adds an executable
+     * read capability, and its modules must ASK that authority whether a tenant may spend the
+     * capability — refusing them the import would not have kept them from deciding, it would have
+     * forced them to decide for themselves, which is the two-interpreters bug the authority exists
+     * to prevent.
+     *
+     * So the rule is no longer "who may import the authority" but "who may WRITE through it".
+     * Every module still fails on a writer symbol; only the orchestrator composes a lifecycle. The
+     * database handle itself remains forbidden above, so a reader cannot reach past the seam.
+     */
+    if (file !== ORCHESTRATOR) {
+      for (const writer of [
+        "createConnection",
+        "recordVerifiedInstallation",
+        "recordVerificationFailure",
+        "disconnectConnection",
+        "markConnection",
+      ]) {
+        assert.ok(
+          !code.includes(writer),
+          `${file} calls ${writer} — only ${ORCHESTRATOR} composes the connection lifecycle`,
         );
       }
     }

@@ -143,8 +143,8 @@ const MUTATIONS: readonly Mutation[] = [
   {
     label: "M11 the transport grows an address for pull-request files",
     file: TRANSPORT,
-    find: "doFetch(`${GITHUB_API_ORIGIN}/app/installations/${installationId}`",
-    replace: "doFetch(`${GITHUB_API_ORIGIN}/repos/o/r/pulls/1/files`",
+    find: "    path: `/app/installations/${segment}`,",
+    replace: "    path: `/repos/o/r/pulls/1/files`,",
     /*
      * Keyed on the OBSERVED request URL rather than on the source scan, because the behavioural
      * assertion fires first and is the stronger of the two: it proves what was actually sent.

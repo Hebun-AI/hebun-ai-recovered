@@ -30,6 +30,7 @@ import {
   describeGitHubGrantedAccess,
   GITHUB_STATE_SENTENCES,
 } from "@/features/github-connection-surface/model";
+import { discoverInstallationRepositories } from "@/features/provider-github/discover-installation-repositories.server";
 
 export const metadata = { title: "GitHub — Integrations — Hebun AI" };
 export const dynamic = "force-dynamic";
@@ -75,6 +76,19 @@ export default async function GitHubIntegrationPage({
   const listing = tenant ? await listConnections(tenant) : null;
   const connections = listing?.status === "read" ? listing.connections : [];
   const model = buildGitHubConnectionModel(connections, configured);
+
+  /*
+   * ── THE FIRST REAL GITHUB DATA READ ON A HEBUN SCREEN ──────────────────────
+   *
+   * Attempted only when the connection is live, because asking otherwise would mint a token for a
+   * question the authority has already answered. The seam refuses on its own terms as well — this
+   * check saves a round trip, it is not the gate.
+   *
+   * Whatever comes back is LIVE. Nothing is stored, so nothing here can be stale, and there is no
+   * count to show before a successful read: a failure renders the refusal, never a zero.
+   */
+  const discovery =
+    model.state === "connected" ? await discoverInstallationRepositories(tenant) : null;
 
   return (
     <>
@@ -150,6 +164,59 @@ export default async function GitHubIntegrationPage({
             </p>
           ) : null}
         </div>
+
+        {discovery ? (
+          <div className="rounded-md border border-[var(--line)] px-4 py-4 space-y-3">
+            <p className="font-semibold">Repositories this installation covers</p>
+
+            {discovery.ok ? (
+              <>
+                <p>
+                  Read from GitHub just now. Hebun stores no repository list, so this is what the
+                  installation covers at this moment rather than what it covered when it was
+                  installed.
+                </p>
+
+                {discovery.value.repositories.length === 0 ? (
+                  <p>
+                    GitHub returned no repositories for this installation. The organization scoped
+                    the grant to selected repositories and has selected none that Hebun can see.
+                  </p>
+                ) : (
+                  <ul className="space-y-1">
+                    {discovery.value.repositories.map((repository) => (
+                      <li key={repository.repositoryId} className="font-mono text-xs">
+                        {/* Provider text, rendered as data. The id is the identity; the name is the label. */}
+                        {repository.fullName}
+                        {repository.isPrivate ? " · private" : " · public"}
+                        {repository.isArchived ? " · archived" : ""}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {discovery.value.truncated ? (
+                  <p>
+                    GitHub reports {discovery.value.totalReportedByProvider} repositories for this
+                    installation. This read is bounded, so the list above is not all of them.
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <p>
+                {/*
+                  * An honest refusal, never an empty list. "Nothing was read" and "there is
+                  * nothing" are different facts and a zero would collapse them.
+                  */}
+                Hebun could not read this installation&apos;s repositories:{" "}
+                <span className="font-mono text-xs">
+                  {"refusal" in discovery ? discovery.refusal : discovery.reason}
+                </span>
+                . Nothing about the repositories is claimed.
+              </p>
+            )}
+          </div>
+        ) : null}
       </section>
     </>
   );
