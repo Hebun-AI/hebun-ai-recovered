@@ -207,7 +207,7 @@ export default function PublicHomePage() {
           id="integrations"
           index="04"
           title="Integrations"
-          statement="One integration exists. It is Google."
+          statement="An organization can connect a real Google account."
           tone="ink"
           layout="split"
           trace
@@ -220,7 +220,8 @@ export default function PublicHomePage() {
               error.
             </PublicLede>
             <PublicProse>
-              There are no other integrations. When there are, they will be listed here the same way.
+              Any other integration is listed here the same way, with the access it needs written
+              next to it.
             </PublicProse>
           </div>
           <ScopeBoundary />

@@ -42,7 +42,6 @@ import {
   GitBranch,
   Database,
   Share2,
-  Triangle,
   Power,
   LifeBuoy,
   Ticket,

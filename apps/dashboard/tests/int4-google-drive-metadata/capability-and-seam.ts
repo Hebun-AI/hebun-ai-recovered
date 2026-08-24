@@ -76,7 +76,28 @@ async function availabilityFor(connections: readonly IntegrationView[]) {
 /* ── The capability is defined, narrowly ────────────────────────────────────── */
 
 function theCapabilityIsNarrow(): void {
-  assert.deepEqual([...listConnectableCapabilities()], [GOOGLE_DRIVE_METADATA_CAPABILITY]);
+  /*
+   * ── AMENDED BY GITHUB-2 ────────────────────────────────────────────────────
+   *
+   * This suite is INT-4's and its subject is Drive. The catalog now also maps GitHub's repository
+   * activity capability, so the assertion states what INT-4 actually cares about — Drive is mapped,
+   * exactly once — instead of asserting that Drive is the only capability in the product, which was
+   * never the rule it meant to defend.
+   */
+  const capabilities = [...listConnectableCapabilities()];
+  assert.ok(
+    capabilities.includes(GOOGLE_DRIVE_METADATA_CAPABILITY),
+    "the Drive metadata capability is mapped",
+  );
+  assert.equal(
+    capabilities.filter((c) => c === GOOGLE_DRIVE_METADATA_CAPABILITY).length,
+    1,
+    "and exactly once",
+  );
+  assert.ok(
+    capabilities.every((c) => c.startsWith("google.") || c.startsWith("github.")),
+    "every mapped capability is named by a provider that exists",
+  );
 
   const google = findProviderDefinition("google-workspace")!;
   const scopes = google.capabilityScopes[GOOGLE_DRIVE_METADATA_CAPABILITY]!;

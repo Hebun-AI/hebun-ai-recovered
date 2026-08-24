@@ -151,7 +151,15 @@ const MUTATIONS: readonly Mutation[] = [
       "    minimumScopes: Object.freeze([]),\n" +
       "    capabilityScopes: Object.freeze({}),\n" +
       "  }) satisfies ConnectionDefinition,",
-    expect: "exactly one connectable provider, and only because it is genuinely implemented",
+    /*
+     * ── AMENDED BY GITHUB-2 ────────────────────────────────────────────────
+     *
+     * The assertion this proof keys on used to read "exactly one connectable provider"; a second
+     * provider became genuinely implemented, so it now reads "every connectable provider, and each
+     * only because it is genuinely implemented". The rule and this mutation are unchanged — an
+     * unimplemented vendor injected into the released catalog must still fail.
+     */
+    expect: "every connectable provider, and each only because it is genuinely implemented",
   },
   {
     label: "M7 the availability seam stops requiring `connected`",

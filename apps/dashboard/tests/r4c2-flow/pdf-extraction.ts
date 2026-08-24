@@ -442,10 +442,13 @@ async function main(): Promise<void> {
         .filter((file) => /\/route\.tsx?$/.test(file))
         .map((file) => file.replace(/\\/g, "/"))
         .sort(),
+      /* AMENDED BY GITHUB-2 — the installation pair joins INT-3's OAuth pair; see r4a-flow. */
       [
+        "src/app/api/integrations/github/setup/route.ts",
+        "src/app/api/integrations/github/start/route.ts",
         "src/app/api/integrations/google/callback/route.ts",
         "src/app/api/integrations/google/start/route.ts",
-      ],
+      ].sort(),
       "R4C.2 introduces no route handler; the only ones are INT-3's OAuth pair",
     );
 

@@ -312,10 +312,22 @@ function main(): void {
 
   /* ── 6. THE CATALOG OFFERS ONE PROVIDER, AND NO CAPABILITY ───────────────── */
   {
+    /*
+     * ── AMENDED BY GITHUB-2 ────────────────────────────────────────────────
+     *
+     * The rule this pin defends is unchanged and is not a count: a provider may be listed only
+     * when the code to connect it genuinely exists. INT-3 earned Google's entry by building an
+     * OAuth flow, a credential store and a verifier; GITHUB-2 earned GitHub's by building an
+     * installation verifier that asks GitHub, authenticated as the App, what an installation id
+     * names. GITHUB-1 deliberately shipped WITHOUT the entry for exactly this reason.
+     *
+     * So the list grows by one, named explicitly, and a third entry still has to justify itself
+     * here.
+     */
     assert.deepEqual(
       listConnectableProviders().map((d) => d.providerKey),
-      ["google-workspace"],
-      "exactly one real provider exists",
+      ["google-workspace", "github-organization"],
+      "the real providers, and each only because it is genuinely implemented",
     );
     const google = PROVIDER_CATALOG[0]!;
     assert.equal(google.authMethod, "oauth2");
@@ -340,10 +352,21 @@ function main(): void {
       "it needs exactly the metadata-readonly scope",
     );
     assert.deepEqual([...drive.write], [], "and declares NO write scope — Drive write is a phase away, not a scope away");
-    for (const vendor of ["slack", "github", "microsoft", "notion"]) {
+    /*
+     * ── AMENDED BY GITHUB-2 ────────────────────────────────────────────────
+     *
+     * `github` leaves this list. The premise it encoded — "only Google was implemented" — was true
+     * when INT-3 wrote it and stopped being true when GITHUB-2 built an installation verifier.
+     * The rule itself is unchanged and is enforced where it belongs, in the I1 catalog firewall,
+     * which now requires every catalog key to name an existing verifier file.
+     *
+     * This suite is INT-3's, so what it keeps asserting is the Google-shaped half: no OTHER vendor
+     * has crept in beside the one this phase delivered.
+     */
+    for (const vendor of ["slack", "microsoft", "notion"]) {
       assert.ok(
         !PROVIDER_CATALOG.some((d) => d.providerKey.includes(vendor)),
-        `only Google was implemented, so only Google may be listed — found "${vendor}"`,
+        `nothing implements "${vendor}", so it may not be listed`,
       );
     }
     /* Still a frozen code authority: no database row can add one. */
@@ -367,15 +390,29 @@ function main(): void {
       "no writer hard-codes connected outside the guarded path",
     );
 
-    /* Only ONE module in src/ may call the verified writer. */
+    /*
+     * ── ONE VERIFIED-WRITE CALLER PER PROVIDER, NAMED ──────────────────────
+     *
+     * The rule is not "one caller in the repository" — it is that every caller is a KNOWN
+     * provider-acceptance seam, so a module that could mint `connected` cannot appear without a
+     * reviewer seeing it here. INT-3 had one provider and the list had one entry; GITHUB-2 adds
+     * its own acceptance seam, which is the second and is named.
+     *
+     * The list is exhaustive and compared with `deepEqual` on purpose: a new caller fails this
+     * assertion rather than slipping in under a pattern.
+     */
     const writers = collect("src")
       .filter((f) => codeOnly(read(f)).includes("recordVerifiedConnectionWithin("))
       .map((f) => f.replace(/\\/g, "/"))
       .sort();
     assert.deepEqual(
       writers,
-      ["src/features/integration-authority/integration-repository.server.ts", CALLBACK].sort(),
-      "only the callback may record a verified connection",
+      [
+        "src/features/integration-authority/integration-repository.server.ts",
+        "src/features/provider-github/connect-installation.server.ts",
+        CALLBACK,
+      ].sort(),
+      "every module that can record a verified connection is a named provider-acceptance seam",
     );
   }
 
@@ -460,12 +497,26 @@ function main(): void {
     ]) {
       assert.ok(!existsSync(path.join(ROOT, forbidden)), `${forbidden} is not part of INT-3`);
     }
-    /* The api tree holds exactly the two handlers this phase introduced. */
+    /*
+     * ── THE API TREE IS EXHAUSTIVE, AND GITHUB-2 ADDS ITS PAIR ─────────────
+     *
+     * The property worth keeping is that EVERY route handler in the repository is accounted for
+     * here, so a webhook, a sync endpoint or a data-fetch route cannot appear without failing this
+     * assertion. INT-3 had two; GITHUB-2 adds two more, and they are its installation pair.
+     *
+     * Still `deepEqual` against an exhaustive list — never a filter, never a prefix match — so the
+     * next route to appear is a decision somebody has to record here.
+     */
     const routes = collect("src/app/api").filter((f) => /route\.tsx?$/.test(f)).sort();
     assert.deepEqual(
       routes.map((f) => f.replace(/\\/g, "/")),
-      [CALLBACK, START].sort(),
-      "INT-3 adds exactly two route handlers, and they are the OAuth pair",
+      [
+        CALLBACK,
+        START,
+        "src/app/api/integrations/github/setup/route.ts",
+        "src/app/api/integrations/github/start/route.ts",
+      ].sort(),
+      "every route handler is accounted for: the Google OAuth pair and the GitHub installation pair",
     );
     for (const route of routes) {
       const code = codeOnly(read(route));

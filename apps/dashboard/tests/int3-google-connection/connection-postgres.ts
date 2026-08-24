@@ -317,10 +317,22 @@ async function main(): Promise<void> {
        * the assertion becomes the stronger one: it is that capability, and for a connection with
        * identity-only scopes it is NOT available. A connection is not a data capability.
        */
-      assert.deepEqual(
-        view.capabilities.map((c) => c.capability),
-        ["google.drive.metadata.read"],
-        "INT-4 offers exactly one capability",
+      /*
+       * ── AMENDED BY GITHUB-2 ──────────────────────────────────────────────
+       *
+       * The view lists every capability the CATALOG maps, not every capability this tenant can
+       * answer. A second provider is connectable now, so its capability appears — and this
+       * fixture's tenant has only a Google connection, which is why asserting that Drive is
+       * present and NOT available is the claim INT-3 actually cares about.
+       */
+      const listed = view.capabilities.map((c) => c.capability);
+      assert.ok(
+        listed.includes("google.drive.metadata.read"),
+        "the Drive capability is offered to this connection",
+      );
+      assert.ok(
+        listed.every((c) => c.startsWith("google.") || c.startsWith("github.")),
+        "every offered capability is named by a provider that exists",
       );
       assert.notEqual(
         view.capabilities[0]!.state,

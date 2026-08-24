@@ -763,6 +763,106 @@ export async function recordVerifiedConnectionWithin(
 }
 
 /**
+ * A CONNECTION NOW HAS A PROVIDER-SIDE GRANT THAT NOTHING HAS CONFIRMED — and no secret was
+ * supplied to say so.
+ *
+ * ── WHY THIS EXISTS ALONGSIDE `attachCredentialToConnectionWithin` ───────────
+ *
+ * Both land on `unverified`, and that is the whole point: `unverified` already means "something
+ * was supplied and nothing has confirmed it". What differs is WHAT was supplied.
+ *
+ * Google supplies a SECRET, and its transition is written by the credential authority — which is
+ * why that function's every line is about a secret: health reset because "a new secret says
+ * nothing about whether the provider is answering", verification undone because "the thing that
+ * was verified has been replaced".
+ *
+ * GitHub supplies NO SECRET AT ALL. An App installation is a fact held on GitHub's side; the
+ * tenant hands Hebun an installation id, which is an identifier and not a credential. Calling
+ * `attachCredentialToConnectionWithin` from that flow would be a false statement at the call site
+ * — a credential write with no credential — and `draft → connected` is not an arc in
+ * `CONNECTION_TRANSITIONS`, so the hop cannot simply be skipped either.
+ *
+ * So: a sibling, in THIS module, so the lifecycle keeps exactly one owner. The released
+ * single-writer property is the thing worth protecting, not the number of functions.
+ *
+ * ── IT WRITES NO IDENTITY, DELIBERATELY ──────────────────────────────────────
+ *
+ * `external_account_id` stays untouched. The installation id that arrived in the callback is
+ * UNTRUSTED at this point, and writing it here would put an attacker-supplied value in the column
+ * that identifies the connection — and would then make `recordVerifiedConnectionWithin`'s
+ * account-change refusal compare the provider's answer against the attacker's claim instead of
+ * against nothing. Identity is written once, by verification, from the provider's own response.
+ *
+ * ── WHY IT LOCKS ─────────────────────────────────────────────────────────────
+ *
+ * `FOR UPDATE` under the tenant predicate, exactly as its sibling does. Two concurrent setup
+ * callbacks against one connection would otherwise both read `draft` and both write.
+ */
+export async function recordUnverifiedProviderGrantWithin(
+  tx: IntegrationTransaction,
+  tenant: TenantContext,
+  integrationId: string,
+  now: Date,
+): Promise<AttachCredentialResult> {
+  assertServerOnly();
+  if (!tenant?.tenantId) return refused("no-authorized-tenant-context");
+  if (!UUID_RE.test(integrationId)) return refused("not-found");
+
+  const [current] = await tx
+    .select(COLUMNS)
+    .from(integrations)
+    .where(ownedRow(tenant, integrationId))
+    .limit(1)
+    .for("update");
+
+  /* A foreign id and an absent id are one branch, exactly as everywhere else in this module. */
+  if (!current) return refused("not-found");
+
+  const from = current.connectionState as ConnectionState;
+  /* A terminal record takes no new grants. Reconnecting creates a NEW connection row. */
+  if (isTerminalConnectionState(from)) return refused("illegal-transition");
+
+  const nextState: ConnectionState = "unverified";
+  if (from === nextState) {
+    return {
+      status: "attached",
+      connection: toIntegrationView(current as IntegrationRow),
+      transitioned: false,
+    } as const;
+  }
+  if (!canTransition(from, nextState) || !isI1Producible(nextState)) {
+    return refused("illegal-transition");
+  }
+
+  const [row] = await tx
+    .update(integrations)
+    .set({
+      connectionState: nextState,
+      /*
+       * Health is RESET, never asserted. A new grant says nothing about whether the provider is
+       * answering, and carrying an old observation forward would attach a stale `healthy` to a
+       * connection nobody has confirmed since.
+       */
+      health: "unknown",
+      /* Verification is undone by definition: the thing that was verified has been replaced. */
+      lastVerifiedAt: null,
+      updatedAt: now,
+      updatedBy: tenant.userId,
+      updatedByType: "human",
+      version: sql`${integrations.version} + 1`,
+    })
+    .where(ownedRow(tenant, integrationId))
+    .returning(COLUMNS);
+
+  if (!row) return refused("not-found");
+  return {
+    status: "attached",
+    connection: toIntegrationView(row as IntegrationRow),
+    transitioned: true,
+  } as const;
+}
+
+/**
  * WHAT A FAILED VERIFICATION IS ALLOWED TO WRITE — and the two classes are not interchangeable.
  *
  *   `auth`       the provider definitively refused the credential Hebun holds. The GRANT is the

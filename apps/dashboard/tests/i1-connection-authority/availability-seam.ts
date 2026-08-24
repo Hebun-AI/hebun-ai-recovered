@@ -187,11 +187,29 @@ async function main(): Promise<void> {
        * the assertion becomes the stronger one: it is that capability, and for a connection with
        * identity-only scopes it is NOT available. A connection is not a data capability.
        */
+      /*
+       * ── AMENDED BY GITHUB-2 ──────────────────────────────────────────────
+       *
+       * The view lists every capability the CATALOG maps, not every capability this tenant can
+       * answer — that is the seam's whole job. GitHub is connectable now, so its capability
+       * appears; this fixture's tenant has only a Google connection, so GitHub's must report
+       * `not-connected`, and asserting that is stronger than asserting a length.
+       */
+      const listed = view.capabilities.map((c) => c.capability).sort();
       assert.deepEqual(
-        view.capabilities.map((c) => c.capability),
-        ["google.drive.metadata.read"],
-        "INT-4 maps exactly one capability",
+        listed,
+        ["github.repository.activity.read", "google.drive.metadata.read"],
+        "the view lists every mapped capability",
       );
+      const github = view.capabilities.find(
+        (c) => c.capability === "github.repository.activity.read",
+      )!;
+      assert.equal(
+        github.state,
+        "not-connected",
+        "a tenant with no GitHub connection is told exactly that, never something softer",
+      );
+      assert.equal(github.sources.length, 0, "and no connection is offered as a source for it");
       assert.notEqual(
         view.capabilities[0]!.state,
         "available",
@@ -199,10 +217,13 @@ async function main(): Promise<void> {
       );
       assert.equal(
         PROVIDER_CATALOG.length,
-        1,
-        "exactly one released provider: the one with a real implementation behind it",
+        2,
+        "two released providers, each with a real implementation behind it",
       );
-      assert.equal(PROVIDER_CATALOG[0]!.providerKey, "google-workspace");
+      assert.deepEqual(
+        PROVIDER_CATALOG.map((p) => p.providerKey),
+        ["google-workspace", "github-organization"],
+      );
     }
 
     /* ── 2. A FIXTURE CATALOG ENTRY REACHES NO SURFACE ───────────────────────── */

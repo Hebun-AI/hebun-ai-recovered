@@ -189,15 +189,30 @@ function withMutation(
 
 function main(): void {
   /*
-   * THE CATALOG NAMES NO GITHUB PROVIDER YET, and that is a precondition of these proofs rather
-   * than an accident. GITHUB-1 deferred the definition to the phase that builds the verifier, so
-   * every guard below is defended by `contracts.ts` alone — there is no second place a literal
-   * could be restated and quietly escape every mutation here.
+   * ── AMENDED BY GITHUB-2 ───────────────────────────────────────────────────
+   *
+   * This precondition used to assert the catalog named NO GitHub provider, which was true while
+   * GITHUB-1 deferred the entry to the phase that would build the verifier. GITHUB-2 built it, so
+   * the entry exists and the precondition is inverted.
+   *
+   * What it defends is unchanged and is the reason it was written: the catalog must COMPOSE the
+   * constants below rather than restate them as literals. If it inlined `"metadata:read"` instead
+   * of importing it, every mutation in this file would leave the catalog untouched and each proof
+   * would quietly test half the repository.
    */
-  assert.ok(
-    !readFile(CATALOG).includes("github"),
-    "the catalog must not name GitHub while no code can confirm an installation",
-  );
+  const catalog = readFile(CATALOG);
+  assert.ok(catalog.includes("github"), "the catalog names the real GitHub provider");
+  for (const composed of [
+    "GITHUB_PROVIDER_KEY",
+    "GITHUB_REQUIRED_GRANTED_PERMISSIONS",
+    "GITHUB_REPOSITORY_ACTIVITY_READ_PERMISSIONS",
+    "GITHUB_REPOSITORY_ACTIVITY_WRITE_PERMISSIONS",
+  ]) {
+    assert.ok(
+      catalog.includes(composed),
+      `the catalog must compose ${composed}, never restate it as a literal`,
+    );
+  }
 
   for (const mutation of MUTATIONS) {
     withMutation(mutation.file, [mutation], () => {

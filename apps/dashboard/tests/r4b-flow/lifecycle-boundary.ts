@@ -284,10 +284,23 @@ function main(): void {
      * AMENDED BY INT-3 — see `r4a-flow/provisioning-boundary.ts` for the reasoning. The repository
      * now has route handlers because OAuth needs one; the claim narrows to "not this phase's".
      */
+    /*
+     * ── AMENDED BY GITHUB-2 ────────────────────────────────────────────────
+     *
+     * The claim this pin makes is about THIS PHASE — it introduced no route handler of its own —
+     * and that claim is unchanged and still true. What it uses to say so is a census of every
+     * route handler in the repository, and GITHUB-2 legitimately added the GitHub installation
+     * pair, so the census names four.
+     *
+     * Still an exhaustive `deepEqual` on purpose: a fifth route appearing is a decision somebody
+     * has to record here, which is the property that made this pin worth having.
+     */
     const INT3_ROUTES = [
+      "src/app/api/integrations/github/setup/route.ts",
+      "src/app/api/integrations/github/start/route.ts",
       "src/app/api/integrations/google/callback/route.ts",
       "src/app/api/integrations/google/start/route.ts",
-    ];
+    ].sort();
     const routes = collect("src/app")
       .filter((f) => /\/route\.tsx?$/.test(f))
       .map((f) => f.replace(/\\/g, "/"))

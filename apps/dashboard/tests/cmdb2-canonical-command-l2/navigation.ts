@@ -67,8 +67,25 @@ const LEGACY = [
   { label: "Reports", route: "/director/reports" },
 ] as const;
 
-/** Pinned so a deletion anywhere in the dashboard is a failure, not a silent shrink. */
-const DASHBOARD_ROUTE_COUNT = 127;
+/**
+ * Pinned so a deletion anywhere in the dashboard is a failure, not a silent shrink.
+ *
+ * ── 129 SINCE GITHUB-2, AND THE PREVIOUS VALUE WAS ALREADY STALE ─────────────
+ *
+ * Two routes are accounted for here, and only one of them is new.
+ *
+ * `/integrations/google` was added by INT-3 and this pin was never updated for it, so 127 had been
+ * one short of reality for several phases — a census that is wrong in the SHRINKING direction
+ * still fails loudly, which is why nobody noticed and why nothing was harmed.
+ *
+ * `/integrations/github` is GITHUB-2's, and is the same shape: the one surface from which a human
+ * starts a GitHub App installation.
+ *
+ * CMD-B2's claim is about NAVIGATION, and that is untouched by either. Both pages are children of
+ * an existing Level-2 destination, both appear in no navigation list, and neither changes the
+ * canonical three or the seven workspaces — all of which are asserted below.
+ */
+const DASHBOARD_ROUTE_COUNT = 129;
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
 const USE_SERVER_MODULES = 9;
 const LEDGER_COUNT = 34;

@@ -58,6 +58,13 @@ import {
   GOOGLE_DRIVE_METADATA_CAPABILITY,
   GOOGLE_DRIVE_METADATA_SCOPE,
 } from "@/features/provider-google/contracts";
+import {
+  GITHUB_PROVIDER_KEY,
+  GITHUB_REQUIRED_GRANTED_PERMISSIONS,
+  GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
+  GITHUB_REPOSITORY_ACTIVITY_READ_PERMISSIONS,
+  GITHUB_REPOSITORY_ACTIVITY_WRITE_PERMISSIONS,
+} from "@/features/provider-github/contracts";
 
 /**
  * THE CATALOG. Frozen at every level — a caller cannot push a definition into it at runtime any
@@ -112,6 +119,84 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
       [GOOGLE_DRIVE_METADATA_CAPABILITY]: Object.freeze({
         read: Object.freeze([GOOGLE_DRIVE_METADATA_SCOPE]),
         write: Object.freeze([]),
+      }),
+    }),
+  }) satisfies ConnectionDefinition,
+  /*
+   * ── GITHUB, AND `connectable` IS NOW TRUE ─────────────────────────────────
+   *
+   * GITHUB-1 wrote this entry and then DELETED it before release, for the reason this file's own
+   * header states: "listing a vendor would have offered a connection no code could complete."
+   * GitHub needed no credential store — nothing tenant-side is persisted — but it needed a
+   * VERIFIER, and there was none. A `connectable` entry would have made `/integrations` offer a
+   * connection and let a tenant create a `draft` row that could never progress.
+   *
+   * GITHUB-2 BUILT THE VERIFIER. `verify-installation.server.ts` asks GitHub, authenticated as the
+   * App, what an installation id actually names; `connect-installation.server.ts` composes that
+   * answer with the released lifecycle authority. The rule has not changed — the implementation
+   * caught up with it, which is exactly what INT-3 recorded when `google-workspace` first appeared
+   * here.
+   *
+   * ── WHAT IS STILL NOT CLAIMED ─────────────────────────────────────────────
+   *
+   * No GitHub App is registered in any deployment yet, so every tenant reads `not-connected` and
+   * the start route fails closed on missing configuration. That is the connection lifecycle saying
+   * so, not this comment: an entry here makes a provider CONNECTABLE, never CONNECTED.
+   *
+   * ── `github-organization`, NOT `github` ───────────────────────────────────
+   *
+   * `features/providers/github` is the SIMULATION provider and its id is the bare string `github`.
+   * Sharing that literal would make a log line ambiguous and a firewall unwritable. The key also
+   * records the Director decision it implements: this is an ORGANIZATIONAL provider.
+   *
+   * ── `minimumScopes` IS WRITTEN IN GITHUB'S SPELLING ───────────────────────
+   *
+   * GitHub grants a MAP, `{"metadata": "read"}`, where Google grants a list. Each entry is
+   * flattened to `name:level` using GitHub's own property spelling — `pull_requests`, not
+   * `pullRequests`. The column is an existing `jsonb` `string[]` and the availability seam compares
+   * by exact membership, so this needs NO migration and NO new column.
+   */
+  Object.freeze({
+    providerKey: GITHUB_PROVIDER_KEY,
+    label: "GitHub",
+    /*
+     * NOT `oauth2`. There is no authorization-code exchange for the connection and no tenant-held
+     * refresh token; see the vocabulary note on `ProviderAuthMethod`.
+     */
+    authMethod: "github_app",
+    /*
+     * A connection is bound to a GitHub ORGANIZATION account. A personal (`User`) installation is
+     * refused by the verifier rather than tolerated.
+     */
+    accountIdentity: "organization",
+    connectivity: "connectable",
+    /*
+     * ONE PERMISSION TO BE CONNECTED. An installation granting metadata and nothing else is a real
+     * connection to a real organization; it simply cannot answer the capability below, and the
+     * availability seam reports that as a scope gap rather than as "not connected".
+     */
+    minimumScopes: GITHUB_REQUIRED_GRANTED_PERMISSIONS,
+    /*
+     * ── ONE CAPABILITY, AND `write` IS EMPTY ON PURPOSE ─────────────────────
+     *
+     * The availability seam treats an empty write list as "no write capability exists" rather than
+     * as vacuously satisfied, so this connection reports `writeCapable: false` however generous an
+     * organization's installation becomes. No write permission is requested anywhere in this
+     * repository.
+     *
+     * THE CAPABILITY IS DECLARED AND NOT YET EXECUTABLE. GITHUB-2 connects; it reads no repository
+     * and no pull request, and the transport knows only the installation endpoint. The reachability
+     * gate will therefore report this capability `NOT-IMPLEMENTED`, which is the truth.
+     *
+     * NO CONTENT CAPABILITY IS LISTED, and no permission requested here can list commits: GitHub
+     * places `GET /repos/{owner}/{repo}/commits` under the SAME `contents` permission as
+     * `GET /repos/{owner}/{repo}/contents/{path}`, so commit metadata is deferred rather than
+     * bought together with source-file access.
+     */
+    capabilityScopes: Object.freeze({
+      [GITHUB_REPOSITORY_ACTIVITY_CAPABILITY]: Object.freeze({
+        read: GITHUB_REPOSITORY_ACTIVITY_READ_PERMISSIONS,
+        write: GITHUB_REPOSITORY_ACTIVITY_WRITE_PERMISSIONS,
       }),
     }),
   }) satisfies ConnectionDefinition,

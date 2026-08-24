@@ -331,10 +331,22 @@ function main(): void {
      * The capability list is STILL empty, and that is the half this section now defends: Google
      * grants identity only, so the catalog may not advertise a single readable capability.
      */
+    /*
+     * ── AMENDED BY GITHUB-2 ────────────────────────────────────────────────
+     *
+     * The rule this pin defends is unchanged and is not a count: a provider may be listed only
+     * when the code to connect it genuinely exists. INT-3 earned Google's entry by building an
+     * OAuth flow, a credential store and a verifier; GITHUB-2 earned GitHub's by building an
+     * installation verifier that asks GitHub, authenticated as the App, what an installation id
+     * names. GITHUB-1 deliberately shipped WITHOUT the entry for exactly this reason.
+     *
+     * So the list grows by one, named explicitly, and a third entry still has to justify itself
+     * here.
+     */
     assert.deepEqual(
       listConnectableProviders().map((d) => d.providerKey),
-      ["google-workspace"],
-      "exactly one connectable provider, and only because it is genuinely implemented",
+      ["google-workspace", "github-organization"],
+      "every connectable provider, and each only because it is genuinely implemented",
     );
     /*
      * ── AMENDED BY INT-4 ──────────────────────────────────────────────────
@@ -343,10 +355,19 @@ function main(): void {
      * so exactly one is mapped. The pin keeps its purpose — no capability may appear that the
      * repository cannot perform — by naming the one that can.
      */
+    /*
+     * ── AMENDED BY GITHUB-2 ────────────────────────────────────────────────
+     *
+     * `github.repository.activity.read` joins the list because its provider is now connectable.
+     * It is DECLARED and NOT YET EXECUTABLE — GITHUB-2 connects and reads no repository — and the
+     * acceptance-reachability gate reports it `NOT-IMPLEMENTED`, which is the truth. A declared
+     * capability makes the availability seam able to say "connected but cannot answer this yet";
+     * omitting it would make the seam silent about a capability the catalog's provider offers.
+     */
     assert.deepEqual(
-      [...listConnectableCapabilities()],
-      ["google.drive.metadata.read"],
-      "exactly one capability, and only because it is genuinely implemented",
+      [...listConnectableCapabilities()].sort(),
+      ["github.repository.activity.read", "google.drive.metadata.read"],
+      "every mapped capability, and each named by a provider that is genuinely connectable",
     );
 
     /*
@@ -360,9 +381,9 @@ function main(): void {
      * make every assertion below it vacuous at the TYPE level. */
     assert.equal(
       PROVIDER_CATALOG.length,
-      1,
-      "one entry, and no fixture — a fixture retained for tests that inject their own would still " +
-        "be a false entry in a production authority",
+      2,
+      "two entries, and no fixture — a fixture retained for tests that inject their own would " +
+        "still be a false entry in a production authority",
     );
 
     /*
@@ -370,21 +391,49 @@ function main(): void {
      * must be `connectable` AND have a real implementation behind it — which is a stricter test,
      * not a weaker one, because it names the file that must exist.
      */
+    /*
+     * ── AMENDED BY GITHUB-2: THE VERIFIER IS NOW PER PROVIDER ──────────────
+     *
+     * This loop asserted that EVERY entry has Google's verifier behind it, which was exact while
+     * Google was the only entry and becomes nonsense the moment a second one exists — GitHub would
+     * have "passed" on the strength of a Google file.
+     *
+     * The map below is the same rule stated properly: each key names the seam that justifies its
+     * own `connectable` claim, and an entry whose key is not in the map fails outright. Adding a
+     * provider therefore requires naming its verifier here, which is stricter than the old loop
+     * rather than looser.
+     */
+    const VERIFIER_FOR: Readonly<Record<string, string>> = {
+      "google-workspace": "src/features/provider-google/verify-google-connection.server.ts",
+      "github-organization": "src/features/provider-github/verify-installation.server.ts",
+    };
     for (const definition of PROVIDER_CATALOG) {
       assert.equal(
         definition.connectivity,
         "connectable",
         `catalog entry "${definition.providerKey}" must be genuinely connectable`,
       );
+      const verifier = VERIFIER_FOR[definition.providerKey];
       assert.ok(
-        existsSync(path.join(ROOT, "src/features/provider-google/verify-google-connection.server.ts")),
-        `catalog entry "${definition.providerKey}" must have a real verifier behind it`,
+        verifier,
+        `catalog entry "${definition.providerKey}" names no verifier — a connectable claim needs one`,
+      );
+      assert.ok(
+        existsSync(path.join(ROOT, verifier)),
+        `catalog entry "${definition.providerKey}" must have a real verifier behind it: ${verifier}`,
       );
     }
 
-    /* NO VENDOR WITHOUT AN IMPLEMENTATION. A key here offers a connection code must complete. */
+    /*
+     * NO VENDOR WITHOUT AN IMPLEMENTATION. A key here offers a connection code must complete.
+     *
+     * `github` LEAVES THIS LIST, because the premise it encoded — nothing implements it — stopped
+     * being true when the verifier above was built. It is not left unguarded: the map above now
+     * demands a named, existing verifier for every key in the catalog, which is what the vendor
+     * ban was approximating.
+     */
     const keys = PROVIDER_CATALOG.map((d) => d.providerKey.toLowerCase()).join(" ");
-    for (const vendor of ["slack", "github", "microsoft", "notion", "resend", "anthropic"]) {
+    for (const vendor of ["slack", "microsoft", "notion", "resend", "anthropic"]) {
       assert.ok(!keys.includes(vendor), `the catalog must not offer "${vendor}" — nothing implements it`);
     }
 

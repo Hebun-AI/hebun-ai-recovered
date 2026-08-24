@@ -123,13 +123,30 @@ function main(): void {
       "the published scope name and the requested scope are one string",
     );
 
+    /*
+     * ── AMENDED BY GITHUB-2: THE PUBLIC CLAIM NO LONGER COUNTS ─────────────
+     *
+     * The site used to publish "One integration exists. It is Google.", and this pin held that
+     * sentence against the catalog — correctly. GITHUB-2 made a second provider connectable and
+     * the sentence became FALSE, which is exactly what this guard is for: it caught a public
+     * untruth introduced by a runtime change, before release.
+     *
+     * The remedy was to stop publishing a COUNT rather than to keep restating it. A number on a
+     * marketing page is a claim that rots on every future provider, and the thing a reader
+     * actually needs is what they can connect today. The site now says an organization can connect
+     * a real Google account — which is true, and stays true as the catalog grows.
+     *
+     * So the assertion follows the claim: Google must be present and connectable, because the
+     * sentence promises it. The catalog's SIZE is deliberately no longer asserted here, because
+     * the site no longer asserts it either.
+     */
+    const google = PROVIDER_CATALOG.find((p) => p.providerKey === "google-workspace");
+    assert.ok(google, "the site promises a Google connection — the catalog must offer one");
     assert.equal(
-      PROVIDER_CATALOG.length,
-      1,
-      'the site says "One integration exists" — the catalog must hold exactly one provider',
+      google.connectivity,
+      "connectable",
+      "the published promise is that it can be connected, not merely listed",
     );
-    const google = PROVIDER_CATALOG[0]!;
-    assert.equal(google.providerKey, "google-workspace", "the one integration is Google");
 
     const scopes = google.capabilityScopes?.[GOOGLE_DRIVE_METADATA_CAPABILITY];
     assert.ok(scopes, "the Drive metadata capability must be in the catalog for the claim to stand");

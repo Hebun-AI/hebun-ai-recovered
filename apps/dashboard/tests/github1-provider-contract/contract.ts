@@ -122,40 +122,67 @@ function theRealProviderIsNotTheSimulationProvider(): void {
   }
 }
 
-/* ── 2. GITHUB IS DELIBERATELY NOT IN THE CATALOG YET ───────────────────────── */
-function theCatalogDoesNotYetOfferAConnectionNoCodeCanComplete(): void {
+/* ── 2. GITHUB IS CONNECTABLE, AND ONLY BECAUSE THE VERIFIER EXISTS ────────── */
+function theCatalogOffersGithubOnlyBecauseAVerifierExists(): void {
   /*
-   * ── THE RULE THIS PHASE OBEYED RATHER THAN AMENDED ────────────────────────
+   * ── AMENDED BY GITHUB-2, AND THE RULE DID NOT CHANGE ──────────────────────
    *
-   * `provider-catalog/catalog.ts` states it in its own header: through INT-1 and INT-2 the catalog
-   * was EMPTY, and "that emptiness was the honest statement: no credential store existed, no
-   * verifier existed, and listing a vendor would have offered a connection no code could complete."
+   * This assertion used to read `findProviderDefinition(GITHUB_PROVIDER_KEY) === undefined`, with
+   * the reason: "GitHub is not connectable until a verifier exists". That was correct. GITHUB-1
+   * had written the catalog entry and deleted it before release, because a `connectable` entry
+   * would have offered a connection no code could complete.
    *
-   * GitHub is in exactly that state. It needs no credential store — nothing tenant-side is
-   * persisted, which `provider-github/contracts.ts` explains in full — but it DOES need a verifier:
-   * the JWT-authenticated `GET /app/installations/{id}` read that turns a spoofable
-   * `installation_id` into a fact. That read does not exist.
-   *
-   * A `connectable` entry would therefore make `/integrations` offer a GitHub connection, and let a
-   * tenant create a `draft` row that could never progress. `connectivity: "fixture"` would behave
-   * correctly and lie about why. So the entry is DEFERRED to the phase that builds the verifier,
-   * and this assertion is what keeps it deferred — a later author who adds the definition without
-   * the seam has to delete a test that says why.
+   * GITHUB-2 BUILT THE VERIFIER, so the condition the old assertion named is now satisfied and the
+   * pin is INVERTED rather than deleted: the entry may exist, and it may exist ONLY while the seam
+   * that justifies it does. The second half is the part that keeps this a guard — removing
+   * `verify-installation.server.ts` while leaving the catalog entry fails here.
    */
+  const github = findProviderDefinition(GITHUB_PROVIDER_KEY);
+  assert.ok(github, "GitHub is in the frozen catalog now that an installation verifier exists");
+  assert.equal(github.connectivity, "connectable");
+  assert.equal(github.authMethod, "github_app", "a GitHub App installation is not OAuth2");
+  assert.equal(github.accountIdentity, "organization");
+  assert.equal(github.label, "GitHub");
+
+  /* Exactly one entry claims this key — a second definition anywhere would be a second authority. */
   assert.equal(
-    findProviderDefinition(GITHUB_PROVIDER_KEY),
-    undefined,
-    "GitHub is not connectable until a verifier exists — the catalog may not offer it yet",
+    PROVIDER_CATALOG.filter((p) => p.providerKey === GITHUB_PROVIDER_KEY).length,
+    1,
+    "exactly one catalog entry defines the real GitHub provider",
+  );
+
+  /*
+   * ── THE ENTRY MAY NOT OUTLIVE ITS JUSTIFICATION ───────────────────────────
+   *
+   * A `connectable` claim rests on a real verifier: something that asks GitHub what an
+   * installation id names, over the network, authenticated as the App. Asserted by MECHANISM —
+   * the module must exist, must reach the transport, and the transport must perform outbound HTTP
+   * — rather than by a file name a future refactor could keep while gutting the contents.
+   */
+  const verifier = `${GITHUB_DIR}/verify-installation.server.ts`;
+  const transport = `${GITHUB_DIR}/github-transport.server.ts`;
+  assert.ok(existsSync(path.join(ROOT, verifier)), "the installation verifier exists");
+  assert.ok(existsSync(path.join(ROOT, transport)), "the GitHub transport exists");
+  assert.ok(
+    codeOf(read(verifier)).includes("github-transport.server"),
+    "the verifier reaches the transport — a verifier that asks nobody verifies nothing",
+  );
+  /*
+   * The SAME pattern the released acceptance-reachability gate uses to identify a provider
+   * transport. A first version matched a literal `fetch(` and failed here, because the transport
+   * calls `doFetch(...)` through an injectable — which is exactly the shape that gate already
+   * learned to recognise. Restating it in different words would have been a second, weaker
+   * definition of "performs outbound HTTP".
+   */
+  assert.ok(
+    /\bfetch\s*\(|fetchImpl\s*\?\?\s*fetch/.test(codeOf(read(transport))),
+    "the transport performs a real outbound request",
   );
   assert.ok(
-    !PROVIDER_CATALOG.some((p) => p.providerKey.includes("github")),
-    "no catalog entry may name GitHub while nothing can confirm an installation",
+    codeOf(read(transport)).includes("/app/installations/"),
+    "the transport reads the installation record, which is what makes the claim checkable",
   );
-  /*
-   * AND THE CONSTANTS EXIST ANYWAY. The contract is complete and reviewable a phase before it is
-   * offered, which is the same discipline that declared `VerificationOutcome`'s `ok: true` arm one
-   * phase before any code could construct it.
-   */
+
   assert.equal(GITHUB_PROVIDER_KEY, "github-organization");
   assert.ok(GITHUB_REQUESTED_PERMISSIONS.length > 0, "the permission contract is written");
 
@@ -425,34 +452,101 @@ function theFirstCapabilityHasNoAddressForSourceContent(): void {
   assert.ok(MAX_PULL_REQUESTS_PER_PAGE > 0 && MAX_PULL_REQUESTS_PER_PAGE <= 50);
 }
 
-/* ── 7. NO I/O, NO PERSISTENCE, NO KNOWLEDGE ────────────────────────────────── */
-function nothingUnderProviderGithubCanCallOrPersistAnything(): void {
+/* ── 7. WHO MAY TOUCH WHAT, INSIDE THE PROVIDER ─────────────────────────────── */
+function eachProviderModuleTouchesOnlyWhatItsRoleAllows(): void {
+  /*
+   * ── AMENDED BY GITHUB-2, AND MADE STRICTER RATHER THAN LOOSER ─────────────
+   *
+   * GITHUB-1 banned `fetch`, `@/db`, `drizzle-orm` and `node:crypto` from EVERY file under
+   * `provider-github`, because that phase was pure contract and the blanket ban was exactly true.
+   *
+   * GITHUB-2 legitimately needs all four — a transport that calls GitHub, an orchestrator that
+   * writes through the lifecycle authority, and a JWT signer. Relaxing the ban to "these are fine
+   * now" would trade a real guard for nothing, so it is replaced by a PER-ROLE rule: each
+   * capability is permitted in exactly one file, and forbidden in the others.
+   *
+   * That is a stronger statement than the original. The old rule said the provider does no I/O;
+   * this one says there is exactly ONE place it can, exactly one place it can write, and no place
+   * at all that it can reach Knowledge or a credential vault.
+   */
   assert.ok(GITHUB_MODULES.length > 0, "the provider module tree exists");
+
+  const OUTBOUND = /\bfetch\s*\(|fetchImpl\s*\?\?\s*fetch|\bXMLHttpRequest\b/;
+  const TRANSPORT = `${GITHUB_DIR}/github-transport.server.ts`;
+  const ORCHESTRATOR = `${GITHUB_DIR}/connect-installation.server.ts`;
+  const JWT = `${GITHUB_DIR}/github-app-jwt.server.ts`;
+  const STATE = `${GITHUB_DIR}/install-state.server.ts`;
+  const ENVIRONMENT = `${GITHUB_DIR}/github-environment.server.ts`;
+
   for (const file of GITHUB_MODULES) {
     const code = codeOf(read(file));
-    assert.ok(!/\bfetch\s*\(/.test(code), `${file} performs outbound HTTP — GITHUB-1 builds none`);
-    assert.ok(!/\bXMLHttpRequest\b|\brequire\s*\(\s*["']https?["']/.test(code), `${file} does I/O`);
+
+    /*
+     * ── ONE TRANSPORT, AND ONLY ONE ───────────────────────────────────────
+     *
+     * A second module that could reach GitHub is a second place the source-content allow list has
+     * to be enforced, and the one nobody remembers to check.
+     */
+    if (file !== TRANSPORT) {
+      assert.ok(
+        !OUTBOUND.test(code),
+        `${file} performs outbound HTTP — only ${TRANSPORT} may talk to GitHub`,
+      );
+    }
+
+    /*
+     * ── ONE WRITER, AND IT WRITES THROUGH THE AUTHORITY ───────────────────
+     *
+     * Only the orchestrator may reach a database, and even it holds no SQL: it composes released
+     * writers. Everything else is forbidden the handle entirely.
+     */
+    if (file !== ORCHESTRATOR) {
+      for (const forbidden of ["@/db", "drizzle-orm", "integration-authority"]) {
+        assert.ok(
+          !code.includes(forbidden),
+          `${file} imports ${forbidden} — only ${ORCHESTRATOR} composes the connection lifecycle`,
+        );
+      }
+    }
+
+    /* Key material and signing live in two named files. Nowhere else may hold either. */
+    if (file !== JWT && file !== STATE && file !== ENVIRONMENT) {
+      assert.ok(
+        !code.includes("node:crypto"),
+        `${file} imports node:crypto — signing and state sealing have named homes`,
+      );
+    }
+
+    /*
+     * ── THESE STAY BANNED EVERYWHERE, IN EVERY PHASE ──────────────────────
+     *
+     * PROVIDER DATA IS NOT KNOWLEDGE, and this provider holds no tenant secret. Neither is a
+     * policy here: no module can import a Knowledge writer, a Governance authority, or the
+     * credential vault, so neither can happen by accident.
+     */
     for (const forbidden of [
-      "@/db",
-      "drizzle-orm",
       "features/knowledge",
       "features/governance",
       "integration-credentials",
-      "node:crypto",
+      "secret-encryption",
       "node:fs",
     ]) {
       assert.ok(
         !code.includes(forbidden),
-        `${file} imports ${forbidden} — a contract module holds no store, no key and no writer`,
+        `${file} imports ${forbidden} — the GitHub provider stores no secret and admits no Knowledge`,
       );
     }
   }
 
-  /*
-   * PROVIDER DATA IS NOT KNOWLEDGE. There is no admission authority in this phase and no writer is
-   * importable, so a GitHub read cannot become organizational truth by accident. Structural, not
-   * a policy: `GITHUB_MODULES` above proves the imports are absent.
-   */
+  /* The orchestrator composes; it does not query. No SQL builder may appear in it. */
+  const orchestrator = codeOf(read(ORCHESTRATOR));
+  for (const sqlish of ["drizzle-orm", ".select(", ".update(", ".insert(", "sql`"]) {
+    assert.ok(
+      !orchestrator.includes(sqlish),
+      `${ORCHESTRATOR} contains ${sqlish} — it composes released writers and owns no SQL`,
+    );
+  }
+
   assert.equal(GITHUB_API_ORIGIN, "https://api.github.com");
   assert.ok(
     GITHUB_API_ORIGIN.startsWith("https://"),
@@ -462,12 +556,12 @@ function nothingUnderProviderGithubCanCallOrPersistAnything(): void {
 
 function main(): void {
   theRealProviderIsNotTheSimulationProvider();
-  theCatalogDoesNotYetOfferAConnectionNoCodeCanComplete();
+  theCatalogOffersGithubOnlyBecauseAVerifierExists();
   itIsAnOrganizationProviderAndCanSayNoToAnythingElse();
   noWritePermissionIsRequestedDeclaredOrReachable();
   requestedAndGrantedStayTwoDifferentSets();
   theFirstCapabilityHasNoAddressForSourceContent();
-  nothingUnderProviderGithubCanCallOrPersistAnything();
+  eachProviderModuleTouchesOnlyWhatItsRoleAllows();
   console.log("github1-provider-contract/contract: all assertions passed");
 }
 

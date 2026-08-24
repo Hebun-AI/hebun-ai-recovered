@@ -131,13 +131,25 @@ function main(): void {
       "Where an organization keeps what it knows, and who may decide with it.",
       "A chatbot answers. Hebun records.",
       "Every capability is published with the limit that goes with it.",
-      "One integration exists. It is Google.",
+      /*
+       * ── AMENDED BY GITHUB-2 ────────────────────────────────────────────
+       *
+       * Two sentences in this list asserted a COUNT — "One integration exists. It is Google." and
+       * "There are no other integrations." — and GITHUB-2 made a second provider connectable,
+       * which made both false. Two guards caught them, which is the system working.
+       *
+       * The remedy was to stop publishing a count rather than to keep restating one: a number on a
+       * marketing page rots on every future provider. What replaces them says what a reader
+       * actually needs — that a real Google account can be connected, and that anything else will
+       * appear here on the same terms.
+       */
+      "An organization can connect a real Google account.",
       "Named mechanisms, not adjectives.",
       "Hebun is not open for self-serve sign-up.",
       "Anything absent from this table is absent from the product.",
       "Hebun holds no compliance certification and claims none.",
       "Field names, not sample data. Hebun shows no record it does not hold.",
-      "There are no other integrations. When there are, they will be listed here the same way.",
+      "Any other integration is listed here the same way, with the access it needs written",
     ]) {
       /*
        * Asserted over the whole PUBLIC SURFACE, not over `page.tsx`. The rework moved three of

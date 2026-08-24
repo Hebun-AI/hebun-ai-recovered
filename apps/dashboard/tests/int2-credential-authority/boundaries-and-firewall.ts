@@ -360,7 +360,16 @@ function main(): void {
      * vendor knowledge, and the credential authority never learned to talk to anyone.
      */
     const catalog = codeOf(read("src/features/provider-catalog/catalog.ts"));
-    for (const vendor of ["slack", "github", "microsoft", "notion"]) {
+    /*
+     * ── AMENDED BY GITHUB-2 ────────────────────────────────────────────────
+     *
+     * `github` leaves this list because the premise it encoded — that no code implements it —
+     * stopped being true when GITHUB-2 built the installation verifier. INT-2's own claim is
+     * unchanged and is what the rest of this section checks: the vault gained no vendor knowledge,
+     * and the credential authority never learned to talk to anyone. Neither is affected by a
+     * provider that stores no credential at all.
+     */
+    for (const vendor of ["slack", "microsoft", "notion"]) {
       assert.ok(
         !catalog.toLowerCase().includes(vendor.toLowerCase()),
         `only an implemented vendor may appear in the catalog — found "${vendor}"`,

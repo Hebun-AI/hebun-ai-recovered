@@ -42,10 +42,30 @@ function main(): void {
      * found NOTHING while looking like a passing firewall. A guard that cannot fail is not a guard.
      */
     const withFetch = collect("src").filter((f) => /(?<![\w.])fetch\b/.test(codeOnly(read(f))));
+
+    /*
+     * ── AMENDED BY GITHUB-2: THE CLAIM IS PER PROVIDER ─────────────────────
+     *
+     * This asserted that exactly ONE module in the whole of `src` performs outbound HTTP, which
+     * was exact while Google was the only provider and says the wrong thing once a second exists.
+     * A GitHub transport is not "a second place Hebun talks to Google" — it is a first place Hebun
+     * talks to GitHub, and conflating the two would either forbid every future provider or, if
+     * relaxed to a filter, stop noticing a genuine second Google caller.
+     *
+     * So it is split. INT-3/INT-4's real claim is the first assertion: within the GOOGLE provider
+     * there is exactly one place that talks to Google. The second keeps the global property that
+     * made this pin valuable — every outbound-HTTP module in the repository is a NAMED provider
+     * transport, so a fetch appearing anywhere else still fails here.
+     */
+    assert.deepEqual(
+      withFetch.filter((f) => f.startsWith(GOOGLE)),
+      [TRANSPORT],
+      "exactly one module inside the Google provider talks to Google",
+    );
     assert.deepEqual(
       withFetch,
-      [TRANSPORT],
-      "INT-4 adds a Drive call and must NOT add a second place Hebun talks to Google",
+      [TRANSPORT, "src/features/provider-github/github-transport.server.ts"].sort(),
+      "every outbound-HTTP module in src is a named provider transport",
     );
   }
 
