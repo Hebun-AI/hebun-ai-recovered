@@ -63,7 +63,23 @@ function collect(dir: string): string[] {
   });
 }
 
-/** Every module reachable from `entries`, following real import statements in stripped code. */
+/**
+ * ── TYPE-ONLY EDGES ARE NOT EXECUTION EDGES ─────────────────────────────────
+ *
+ * `import type { X } from "./seam"` disappears at compile time. It cannot call anything, so it
+ * cannot make a capability executable — yet a naive `from "..."` match counts it, and that is not
+ * hypothetical: this gate reported Drive REACHABLE with its real caller REMOVED, because the
+ * discovery CARD still imported the result TYPE from the seam. A card rendering a shape is not a
+ * surface spending a credential. Type-only statements are stripped before the graph is walked.
+ */
+function executableImportsOf(file: string): string[] {
+  const code = codeOf(read(file))
+    .replace(/import\s+type\s+[^;]*?;/g, "")
+    .replace(/export\s+type\s+[^;]*?from\s+"[^"]+"\s*;/g, "");
+  return [...code.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
+}
+
+/** Every module reachable from `entries` through imports that survive compilation. */
 function reachableFrom(entries: readonly string[]): Set<string> {
   const seen = new Set<string>();
   const stack = [...entries];
@@ -71,8 +87,8 @@ function reachableFrom(entries: readonly string[]): Set<string> {
     const file = stack.pop()!;
     if (seen.has(file)) continue;
     seen.add(file);
-    for (const match of codeOf(read(file)).matchAll(/from\s+"([^"]+)"/g)) {
-      const target = resolveImport(match[1]!, file);
+    for (const spec of executableImportsOf(file)) {
+      const target = resolveImport(spec, file);
       if (target) stack.push(target);
     }
   }
@@ -201,6 +217,17 @@ function theGraphIsRealAndNotEmpty(): void {
   assert.ok(
     appReachable.has("src/features/integration-authority/capability-availability.server.ts"),
     "the availability seam is reachable — /integrations imports it",
+  );
+
+  /*
+   * A TYPE-ONLY IMPORT MAKES NOTHING EXECUTABLE. Pinned because this gate once said REACHABLE with
+   * the real caller removed, on the strength of a card importing a result type.
+   */
+  const typeOnly = 'import type { Foo } from "@/features/x";';
+  assert.equal(
+    codeOf(typeOnly).replace(/import\s+type\s+[^;]*?;/g, "").trim(),
+    "",
+    "a type-only import statement contributes no edge",
   );
 }
 
