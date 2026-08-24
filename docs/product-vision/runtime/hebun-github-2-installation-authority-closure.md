@@ -91,6 +91,11 @@ The transport issues **exactly one** address: `GET https://api.github.com/app/in
 > not a record of implemented calls. Neither path is issued anywhere in this repository, and the one
 > address the transport does issue is not on that list — it is the App-level verification call. A
 > reader must not treat the allow list as evidence that a call exists.
+>
+> Nor as evidence that anything is enforced: `isAllowedRequestPath` has **zero runtime callers**. The
+> list is declared vocabulary asserted by tests, and today's real enforcement is structural — the
+> transport hard-codes one URL template. See
+> `hebun-github-4-repository-activity-architecture.md` §7.
 
 ### 3.2 Vocabulary this record refuses to blur
 
