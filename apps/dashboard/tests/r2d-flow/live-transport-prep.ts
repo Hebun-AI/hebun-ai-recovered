@@ -3,7 +3,7 @@
  *
  * Proves the prepared live transport is correct and safe WITHOUT ever calling Anthropic: an
  * injected fake fetch stands in for the network, so request construction, usage/id extraction,
- * error mapping, the hard budget, and the double-gated selector are all provable with no real
+ * error mapping, the hard budget, and the fail-closed selector are all provable with no real
  * request, no key, and no spend. No ordinary test here touches the real network.
  */
 
@@ -15,10 +15,19 @@ import {
   ANTHROPIC_MESSAGES_URL,
   type FetchLike,
 } from "../../src/features/heby-model-live/claude-http-transport.server";
+import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import { selectModelTransport } from "../../src/features/heby-model";
 import { ModelConnectivityError, generateHebyModelAnswer } from "../../src/features/heby-model";
 import type { ClaudeTransportRequest } from "../../src/features/heby-model";
 import type { ModelGenerationRequest } from "../../src/features/heby-runtime";
+
+/*
+ * R2G — these proofs are about the TRANSPORT, so each construction is given its OWN isolated
+ * spend budget. Without one they would silently draw on the shared per-process budget, and this
+ * suite would start passing or failing for a reason that has nothing to do with what it tests.
+ * The shared budget has its own suite.
+ */
+const isolatedBudget = () => createLiveSpendBudget(99);
 
 const REQUEST: ClaudeTransportRequest = {
   model: "claude-real-model",
@@ -56,7 +65,7 @@ async function main(): Promise<void> {
   // 2. Over-budget output bound is rejected BEFORE any fetch.
   {
     const s = scriptedFetch(200, ANTHROPIC_OK);
-    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", fetchImpl: s.fetchImpl });
+    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl: s.fetchImpl });
     await rejectsCode(() => transport.send({ ...REQUEST, maxTokens: MAX_LIVE_OUTPUT_TOKENS + 1 }), "invalid-configuration");
     assert.equal(s.last(), undefined, "no request was dispatched over budget");
   }
@@ -64,7 +73,7 @@ async function main(): Promise<void> {
   // 3. Success: request is built correctly and usage/id are extracted (no real network).
   {
     const s = scriptedFetch(200, ANTHROPIC_OK);
-    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", fetchImpl: s.fetchImpl });
+    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl: s.fetchImpl });
     const response = await transport.send(REQUEST);
     const call = s.last()!;
     assert.equal(call.url, ANTHROPIC_MESSAGES_URL);
@@ -85,7 +94,7 @@ async function main(): Promise<void> {
   // 4. Hard budget: the default is one call; a second send is refused.
   {
     const s = scriptedFetch(200, ANTHROPIC_OK);
-    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", fetchImpl: s.fetchImpl });
+    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl: s.fetchImpl });
     await transport.send(REQUEST);
     await rejectsCode(() => transport.send(REQUEST), "rate-limited");
   }
@@ -93,7 +102,7 @@ async function main(): Promise<void> {
   // 5. Error mapping — statuses map to typed, redacted errors.
   for (const [status, code] of [[401, "authentication-failed"], [429, "rate-limited"], [400, "invalid-configuration"], [500, "provider-unavailable"]] as const) {
     const s = scriptedFetch(status, { error: "should never surface" });
-    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", fetchImpl: s.fetchImpl, maxLiveCalls: 5 });
+    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl: s.fetchImpl, maxLiveCalls: 5 });
     await rejectsCode(() => transport.send(REQUEST), code);
   }
 
@@ -104,7 +113,7 @@ async function main(): Promise<void> {
       err.name = "AbortError";
       throw err;
     };
-    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", fetchImpl });
+    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl });
     await rejectsCode(() => transport.send(REQUEST), "timeout");
   }
 
@@ -112,7 +121,7 @@ async function main(): Promise<void> {
   //    validated model result — origin "model", provider from config, real usage — no network.
   {
     const s = scriptedFetch(200, ANTHROPIC_OK);
-    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", fetchImpl: s.fetchImpl });
+    const transport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl: s.fetchImpl });
     const request: ModelGenerationRequest = {
       correlationId: "corr-live", tenantId: "t", systemInstructions: "sys", userPrompt: "Ping", evidence: [],
       modelId: "ignored", maxOutputTokens: 100,

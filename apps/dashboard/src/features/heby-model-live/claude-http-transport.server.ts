@@ -15,8 +15,12 @@
  * - A per-INSTANCE live-call ceiling and a hard output-token ceiling (see MAX_LIVE_CALLS).
  * - Typed, redacted error mapping; the raw provider response never leaves this module.
  *
- * It is NOT wired to run until the Director authorizes the live-call gate (a double env gate
- * in the transport selector). Constructing it performs no I/O; only `send()` would call out.
+ * AUTHORITY, AS IT ACTUALLY STANDS. Deployment configuration SELECTS and constructs this
+ * transport (`HEBUN_MODEL_TRANSPORT=live` plus a credential to build it); the durable R2E
+ * Director connectivity control AUTHORIZES whether a request may be dispatched at all, and is
+ * read before any transport is selected. The former `HEBUN_MODEL_LIVE_CALL_AUTHORIZED` env gate
+ * is RETIRED and inert — selection no longer reads it. Constructing this performs no I/O; only
+ * `send()` would call out.
  */
 
 import {
@@ -26,6 +30,17 @@ import {
   type ClaudeTransportRequest,
   type ClaudeTransportResponse,
 } from "@/features/heby-model";
+/*
+ * Direct file import, not the package index: `heby-model`'s index re-exports the transport
+ * selector, which imports THIS module, so reaching the ceiling through the index would deepen an
+ * existing cycle for no reason.
+ */
+import { MODEL_OUTPUT_TOKEN_CEILING } from "@/features/heby-model/model-connectivity-environment.server";
+import {
+  getProcessLiveSpendBudget,
+  liveBudgetExhaustedError,
+  type LiveSpendBudget,
+} from "./live-spend-budget.server";
 
 export const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 export const ANTHROPIC_VERSION = "2023-06-01";
@@ -42,14 +57,30 @@ export const ANTHROPIC_API_KEY_ENV = "ANTHROPIC_API_KEY";
  * count resets each time, and the true guarantee is the narrow one stated above: within a single
  * transport instance, and therefore within a single answered request, at most one call goes out.
  *
- * Hebun consequently has NO cross-request or per-process bound on live calls. The controls that
- * do exist are the durable Director connectivity switch (all-or-nothing, read before dispatch)
- * and MAX_LIVE_OUTPUT_TOKENS below (per request, refused before any network I/O). Closing that
- * gap means deciding who may own a durable spend bound, which is unresolved — R2F.1 measures and
- * reports usage; it deliberately governs none of it.
+ * ── AND WHAT NOW STANDS BESIDE IT (R2G) ─────────────────────────────────────
+ *
+ * That left Hebun with nothing between "Director off" and "unbounded". A shared per-PROCESS
+ * budget now fills it — see `live-spend-budget.server.ts` — and this per-instance cap is kept
+ * beside it as the narrow guarantee it always was, not as the spend bound it was mistaken for.
+ *
+ * The per-process budget is honestly per-process: it bounds a BURST inside one instance. It is
+ * NOT a durable deployment-wide quota, not tenant billing, not tenant authorization, not
+ * Governance, and not a guarantee about total spend across a serverless deployment, where many
+ * instances exist and recycle. Who may own a DURABLE spend bound is still unresolved; R2F.1
+ * measures usage and deliberately governs none of it.
  */
 export const MAX_LIVE_CALLS = 1;
-export const MAX_LIVE_OUTPUT_TOKENS = 300;
+
+/**
+ * The per-request output ceiling — DERIVED, not declared (R2G — K-1).
+ *
+ * This used to be an independent `300` while the configuration authority defaulted to `1024`,
+ * so the released default guaranteed a refusal here before any network I/O. The number is now
+ * owned by the configuration module and imported, which is why the two can no longer disagree.
+ * The check below stays: it is the last thing before the wire, and defence in depth at a spend
+ * boundary is worth one comparison.
+ */
+export const MAX_LIVE_OUTPUT_TOKENS = MODEL_OUTPUT_TOKEN_CEILING;
 export const LIVE_REQUEST_TIMEOUT_MS = 30_000;
 
 /** Minimal fetch shape — injectable so request/error handling is provable with NO real call. */
@@ -71,6 +102,11 @@ export interface LiveClaudeTransportConfig {
   readonly timeoutMs?: number;
   /** Injectable transport for tests. Production uses the global fetch. */
   readonly fetchImpl?: FetchLike;
+  /**
+   * The shared per-process live-call budget. Defaults to the process singleton, which is what
+   * makes the bound survive a new transport instance — see `live-spend-budget.server.ts`.
+   */
+  readonly spendBudget?: LiveSpendBudget;
 }
 
 function assertServerRuntime(): void {
@@ -140,12 +176,26 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
   const maxCalls = config.maxLiveCalls ?? MAX_LIVE_CALLS;
   const timeoutMs = config.timeoutMs ?? LIVE_REQUEST_TIMEOUT_MS;
   const doFetch: FetchLike = config.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
+  const budget = config.spendBudget ?? getProcessLiveSpendBudget();
   let calls = 0;
 
   return {
     async send(request: ClaudeTransportRequest): Promise<ClaudeTransportResponse> {
-      // Both ceilings are checked BEFORE any network I/O. Neither spans requests — see
-      // MAX_LIVE_CALLS: a fresh transport, and therefore a fresh counter, is built per request.
+      /*
+       * EVERY GATE IS CHECKED BEFORE ANY NETWORK I/O, IN THIS ORDER, AND THE ORDER MATTERS.
+       *
+       *   1. the output bound      — a configuration error, and it costs nothing to detect
+       *   2. this instance's cap   — pure, no shared state consumed
+       *   3. the PROCESS budget    — the only one that MUTATES, so it is consumed last
+       *
+       * A refusal from (1) or (2) must not spend a unit of (3): a request that never reached
+       * the wire did not cost anything, and a limiter that charged for it would drain the
+       * deployment's allowance on misconfiguration alone.
+       *
+       * Conversely (3) is consumed BEFORE the fetch, not after. A dispatched request may have
+       * cost money even if it then times out or errors, so the conservative direction is to
+       * count it the moment it is allowed to go out.
+       */
       if (request.maxTokens > MAX_LIVE_OUTPUT_TOKENS) {
         throw new ModelConnectivityError(
           "invalid-configuration",
@@ -154,6 +204,9 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
       }
       if (calls >= maxCalls) {
         throw new ModelConnectivityError("rate-limited", "This transport instance has already made its live call.");
+      }
+      if (!budget.attempt()) {
+        throw liveBudgetExhaustedError();
       }
       calls += 1;
 

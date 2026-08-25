@@ -10,7 +10,16 @@ const BASE = {
   HEBUN_MODEL_PROVIDER: "claude",
   HEBUN_MODEL_ID: "claude-test-model",
   HEBUN_MODEL_CREDENTIAL: "synthetic-not-a-real-key",
-  HEBUN_MODEL_MAX_OUTPUT_TOKENS: "512",
+  /*
+   * R2G — bounded by the one ceiling. This fixture read `512`, an arbitrary number chosen when
+   * the configured default was 1024 and nothing connected it to what the live transport would
+   * accept. It is now above `MODEL_OUTPUT_TOKEN_CEILING`, so it resolves to MISCONFIGURED and
+   * every state below it would report a bound problem instead of the thing it is testing.
+   *
+   * The assertions are unchanged; only the fixture moved inside the range the product actually
+   * permits. The refusal of an out-of-range value is proved directly in `tests/r2g-flow`.
+   */
+  HEBUN_MODEL_MAX_OUTPUT_TOKENS: "256",
 };
 
 function state(env: Record<string, string | undefined>, transportPresent: boolean) {

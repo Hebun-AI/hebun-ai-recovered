@@ -9,7 +9,16 @@ import assert from "node:assert/strict";
 import { answerHebyModelRequest, type HebyModelAnswerDeps } from "../../src/features/heby-answer/model-answer.server";
 import { generateHebyModelAnswer } from "../../src/features/heby-model";
 import { createLiveClaudeTransport, type FetchLike } from "../../src/features/heby-model-live/claude-http-transport.server";
+import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
+
+/*
+ * R2G — these proofs are about the TRANSPORT, so each construction is given its OWN isolated
+ * spend budget. Without one they would silently draw on the shared per-process budget, and this
+ * suite would start passing or failing for a reason that has nothing to do with what it tests.
+ * The shared budget has its own suite.
+ */
+const isolatedBudget = () => createLiveSpendBudget(99);
 
 function tenant(): TenantContext {
   return { tenantId: "acme", userId: "acme-user" } as unknown as TenantContext;
@@ -39,7 +48,7 @@ function countingFetch(): { fetchImpl: FetchLike; calls: () => number } {
 }
 
 function deps(directorEnabled: boolean, fetchImpl: FetchLike, env: Record<string, string> = LIVE_ENV): HebyModelAnswerDeps {
-  const liveTransport = createLiveClaudeTransport({ apiKey: "sk-fake", fetchImpl });
+  const liveTransport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl });
   return {
     resolveTenant: async () => tenant(),
     readOverview: () => undefined,

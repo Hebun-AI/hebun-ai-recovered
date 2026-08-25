@@ -100,7 +100,22 @@ export async function generateHebyModelAnswer(
     ...request,
     // The model id is authoritative from server config, not from the request.
     modelId: config.modelId!,
-    maxOutputTokens: request.maxOutputTokens || config.maxOutputTokens,
+    /*
+     * R2G — THE BOUND IS A CEILING, NOT A SUGGESTION.
+     *
+     * A caller may ask for LESS than the deployment allows; it may never ask for more. Without
+     * the `Math.min` a caller could pass a large `maxOutputTokens` and bypass the configured
+     * bound entirely, leaving the live transport's own check as the only thing between a
+     * request and real external spend. Two guards are correct here; one of them being the
+     * last one before the wire is not.
+     *
+     * `|| config.maxOutputTokens` keeps the released meaning of 0/absent: "use the deployment's
+     * bound". `answerHebyModelRequest` sends exactly that.
+     */
+    maxOutputTokens: Math.min(
+      request.maxOutputTokens || config.maxOutputTokens,
+      config.maxOutputTokens,
+    ),
   });
   return { status: "generated", result };
 }
