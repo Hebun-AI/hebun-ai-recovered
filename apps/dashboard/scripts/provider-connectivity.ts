@@ -1,5 +1,5 @@
 /*
- * Global provider connectivity ceremony (R5.1) — LOCAL OPERATOR CLI.
+ * Global provider connectivity ceremony (R5.1, production-capable since R2H) — OPERATOR CLI.
  *
  *   npm run provider:connectivity -- <provider-key> enable
  *   npm run provider:connectivity -- <provider-key> disable
@@ -9,7 +9,20 @@
  * repository defines — so an unknown provider has no argument that could express it.
  *
  * THE ROOT OF TRUST — READ THIS BEFORE USING IT.
- * Authority is POSSESSION OF THE LOCAL DEPLOYMENT, exactly as for R4A, R4B, G2.1 and D1.1. Hebun
+ *
+ * Authority is POSSESSION OF THE DEPLOYMENT — the LOCAL one by default, and the PRODUCTION one only
+ * when the operator supplies G4's released possession signal and pins the target cluster. That is
+ * the same root R4A, R4B, G2.1, D1.1 and R5.1 already rest on; `production-possession.ts` says so
+ * itself. NO SECOND AUTHORITY IS CREATED HERE, and no new token, flag, prompt or allowlist exists:
+ * this ceremony calls the same three functions `tenant-lifecycle` calls, in the same order.
+ *
+ * WHY PRODUCTION IS NOW REACHABLE AT ALL. R5.1 did not prohibit production writes; it removed a
+ * TENANT-SCOPED ROLE from a GLOBAL switch and recorded the deferral in its own words: "a deliberate
+ * forcing function. When production arrives, the platform-operator decision has to be made
+ * explicitly." G4 then built the mechanism for exactly that decision. This is that decision being
+ * made explicitly, through that mechanism — not a reversal of R5.1.
+ *
+ * Hebun
  * cannot cryptographically identify the human at this terminal and does not pretend to. It is NOT a
  * platform admin, NOT a platform operator, NOT a Governance authority, NOT a tenant owner or
  * director. No authenticated platform principal exists in Hebun yet.
@@ -29,12 +42,18 @@
  *   - write an audit row — `audit_log.actor_id`/`actor_type` are NOT NULL and a terminal has no
  *     actor to name; blocked on a real platform principal, not on a later hardening phase
  *   - touch tenants, users, memberships, roles, sessions, permits, attempts or requests
- *   - run in production, or against a non-local database (both refused)
+ *   - target production IMPLICITLY: production requires the released possession signal AND a
+ *     pinned cluster, and a normal invocation still refuses a non-local database
  *   - be driven by an environment variable that silently names the provider or the direction
  */
 import { createInterface } from "node:readline";
 import { Client } from "pg";
-import { assertLocalDatabaseUrl } from "./lib/provision-dev-credential";
+import {
+  preflight,
+  preflightEnvironment,
+} from "./lib/ceremony-preflight";
+import { resolveCeremonyPosture } from "./lib/production-possession";
+import { EXTERNAL_SEND_PROVIDER_KEY } from "../src/features/action-execution/contracts";
 import {
   PROVIDER_KEYS,
   isProviderKey,
@@ -70,8 +89,17 @@ function promptVisible(question: string): Promise<string> {
 }
 
 async function main(): Promise<void> {
+  /*
+   * THIS GUARD IS ABOUT WHERE THE CEREMONY RUNS, NOT WHICH DATABASE IT TARGETS.
+   *
+   * It refuses to execute INSIDE the production web runtime, where `NODE_ENV=production` and no
+   * operator is present. It does not refuse to target the production DATABASE — that is the
+   * posture's job, and the posture requires possession. The wording is `platform-preflight`'s
+   * rather than `tenant-lifecycle`'s "development-only", which has been inaccurate since G4 made
+   * that ceremony production-capable too.
+   */
   if (process.env.NODE_ENV === "production") {
-    fail("this ceremony is development-only and refuses to run with NODE_ENV=production.");
+    fail("this ceremony runs from an operator terminal and refuses NODE_ENV=production.");
   }
 
   const providerKey = process.argv[2]?.trim();
@@ -90,18 +118,65 @@ async function main(): Promise<void> {
   const transition = verb as ConnectivityTransition;
   const enabled = transition === "enable";
 
+  /*
+   * G4 POSTURE, RESOLVED BEFORE A CONNECTION IS SPENT — the `tenant-lifecycle` shape verbatim.
+   *
+   * Absent `HEBUN_PRODUCTION_CEREMONY` is the released local behaviour, unchanged: local posture,
+   * and `preflightEnvironment` applies the SAME `assertLocalDatabaseUrl` guard this ceremony always
+   * applied. The exact production signal opens the production posture, which requires a pinned
+   * cluster and refuses a loopback URL. Anything else refuses outright and is NEVER downgraded to
+   * local — an operator who meant production and mistyped must not quietly get something else.
+   *
+   * `assertLocalDatabaseUrl` is not weakened, here or globally: it still runs, on the local branch,
+   * from inside the shared preflight that chooses which guard the posture requires.
+   */
+  const posture = resolveCeremonyPosture(process.env);
   const databaseUrl = process.env.DATABASE_URL?.trim();
-  if (!databaseUrl) {
-    fail("DATABASE_URL is not set. Point it at your local Hebun development database.");
-  }
-  try {
-    assertLocalDatabaseUrl(databaseUrl);
-  } catch (error) {
-    fail(error instanceof Error ? error.message : String(error));
+  const environment = preflightEnvironment(posture, databaseUrl);
+  if (environment.status === "refused") fail(environment.detail);
+
+  const client = new Client({ connectionString: databaseUrl! });
+  await client.connect();
+
+  /*
+   * TARGET BINDING. A banner and nothing more in local posture. In production it proves the live
+   * cluster is the pinned one — by `system_identifier`, which a connection string cannot set —
+   * before a single application row is read. `provenance: "none"` because this table carries no
+   * CHECK the preflight could probe for a ceremony root; `control_source`'s own CHECK is enforced
+   * by the database on the write itself.
+   */
+  const ready = await preflight(client, environment.posture, { provenance: "none" });
+  if (ready.status === "refused") {
+    await client.end();
+    fail(ready.detail);
   }
 
-  const client = new Client({ connectionString: databaseUrl });
-  await client.connect();
+  /*
+   * ── EXTERNAL SEND STAYS OUT OF PRODUCTION, AND THAT IS G4'S REASON, NOT A NEW ONE ────────
+   *
+   * G4 recorded exactly why it left this whole CLI local-only: "a production-reachable arming
+   * switch is one command away from armed." R2H makes the ceremony production-capable because
+   * MODEL CONNECTIVITY needs it — enabling `claude` permits an inference and spends money. Arming
+   * `external-send` sends real email to real people, which is a different order of consequence,
+   * and nothing in this phase was authorized to make that reachable in production.
+   *
+   * So the posture is narrowed for that key alone, HERE, in the CLI. The writer stays completely
+   * provider-agnostic: it never asks which key it is writing when deciding a root, and both keys
+   * record their source identically. This is a reachability decision, not a source-semantics one.
+   *
+   * It is a DEFERRAL with a named owner, not a prohibition: production arming earns its own gate,
+   * where the send configuration, the recipient authority and the blast radius are the subject
+   * rather than a side effect of a connectivity change.
+   */
+  if (environment.posture.mode === "production" && providerKey === EXTERNAL_SEND_PROVIDER_KEY) {
+    await client.end();
+    fail(
+      `"${providerKey}" cannot be armed through a PRODUCTION ceremony. Model connectivity became ` +
+        "production-capable at R2H; external send did not, because arming it sends real messages " +
+        "to real recipients and that reachability belongs to its own gate. The LOCAL ceremony is " +
+        "unchanged and still arms it. Nothing was read from the control table and nothing was written.",
+    );
+  }
 
   try {
     const before = await readProviderControl(client, providerKey);
@@ -122,6 +197,8 @@ async function main(): Promise<void> {
     console.log("");
     console.log(`  GLOBAL PROVIDER CONNECTIVITY CEREMONY — ${transition.toUpperCase()}`);
     console.log("");
+    console.log(`  posture    : ${ready.banner}`);
+    console.log(`  recorded as: ${environment.posture.source}`);
     console.log(`  provider   : ${providerKey}`);
     console.log(`  current    : ${currentState}`);
     console.log(`  requested  : ${enabled ? "enabled" : "disabled"}`);
@@ -149,7 +226,19 @@ async function main(): Promise<void> {
       fail("the provider key did not match. Nothing was changed.");
     }
 
-    const outcome = await setProviderConnectivity(client, { providerKey, enabled });
+    /*
+     * THE ROOT IS THE POSTURE'S, NEVER A LITERAL AT THIS CALL SITE AND NEVER INFERRED.
+     *
+     * It is not derived from DATABASE_URL, not from NODE_ENV, and not from the hostname: it is the
+     * value `resolveCeremonyPosture` returned after the operator proved which deployment they
+     * possess and the live cluster matched the pin. A local run cannot emit the production root,
+     * because no code path gives local posture that value.
+     */
+    const outcome = await setProviderConnectivity(client, {
+      providerKey,
+      enabled,
+      controlSource: environment.posture.source,
+    });
 
     if (outcome.status === "refused") {
       fail(
@@ -169,6 +258,7 @@ async function main(): Promise<void> {
     console.log(`  ✔ provider "${control.providerKey}" is now ${control.directorEnabled ? "ENABLED" : "DISABLED"}`);
     console.log(`    version    : ${control.version}`);
     console.log(`    updated_by : ${control.updatedBy ?? "NULL (no verified actor — deployment possession)"}`);
+    console.log(`    source     : ${control.controlSource ?? "NULL"}`);
     console.log("");
     if (control.directorEnabled) {
       console.log("    Enabled means the Director PERMITS connectivity. It does not mean the");

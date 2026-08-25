@@ -592,7 +592,12 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
 /* ─────────────────────────────────────────────────────────────────────────────
  * 7 + 8 + 10 + 11 + 19. NOTHING ARCHITECTURAL MOVED
  * ────────────────────────────────────────────────────────────────────────── */
-const LEDGER_COUNT = 34;
+/*
+ * R2H — the ledger grew to 35 when `control_source` landed, so BOTH values move with it. The
+ * invariant is unchanged and is what the digest still proves: this UI phase authored no migration,
+ * and no RELEASED migration was edited — editing one would move the digest without moving the count.
+ */
+const LEDGER_COUNT = 35;
 const USE_SERVER_MODULES = 9;
 
 function nothingArchitecturalMoved(overrides: Readonly<Record<string, string>> = {}): void {

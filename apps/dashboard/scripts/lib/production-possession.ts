@@ -39,12 +39,39 @@
  *
  * A valid credential pointed at the wrong PostgreSQL database is the failure this module exists to
  * prevent, and it is not hypothetical: the local canonical database and the hosted production
- * database carry the BYTE-IDENTICAL migration ledger — 32 rows, digest
- * `ca91a1fbc555e92c94e38e105b34a2a8` on both — because they are the same released schema. Measured,
- * not assumed. (It was 31 rows and `212559d1…` at G4; the digest tracks the RELEASE, which is the
- * whole point — it moved when G6D added a migration, and it moved on BOTH deployments.) So the ledger proves "this is a Hebun control plane at the released schema" and
- * proves NOTHING about which deployment it is. It is necessary and insufficient, and is checked as
- * a co-factor rather than as the binding.
+ * database carry the SAME released migration ledger, because they are the same released schema. So
+ * the ledger proves "this is a Hebun control plane at the released schema" and proves NOTHING about
+ * which deployment it is. It is necessary and insufficient, and is checked as a co-factor rather
+ * than as the binding.
+ *
+ * ── THE COUNT IS STATE, NOT A CONSTANT (corrected at R2H) ────────────────────
+ *
+ * This paragraph used to say "32 rows, digest `ca91a1fb…` on both", and the COUNT had gone stale:
+ * two further migrations shipped after it was written and nobody updated it. A comment that names a
+ * moving number will eventually lie, so the number now comes with the date it was measured.
+ *
+ * Measured at R2H, read-only, against production `neondb`: **34 applied**, byte-verified — every
+ * authored file's sha256 present in `drizzle.__drizzle_migrations`, in order, zero missing and zero
+ * extra. This checkout then authored migration 35 (`control_source`), so until the next production
+ * migration ceremony the expected state is **repository 35, production 34**. That gap is a PENDING
+ * ROLLOUT, not drift, and `verifyProductionTarget` will correctly refuse every production ceremony
+ * until it closes — which is the intended forcing function, not a fault.
+ *
+ * THE DIGEST IS REPRODUCIBLE, and here is the method, because a digest nobody can recompute is
+ * documentation dressed as evidence:
+ *
+ *     md5(string_agg(hash, ',' order by created_at, id))   -- from drizzle.__drizzle_migrations
+ *
+ * equivalently, md5 of the comma-joined per-file sha256 in ledger order. It reproduces both
+ * recorded values exactly — `212559d1…` at 31 and `ca91a1fb…` at 32 — and continues:
+ * `8b5f0d71de642f2dc27794dffca542ba` at 34 (production today) and
+ * `97f1151fd57bec5142621f00c1913708` at 35 (this checkout). The digest tracks the RELEASE, which is
+ * the whole point: it moves on every migration, on every deployment carrying it, and so it can
+ * never distinguish two deployments at the same release.
+ *
+ * The MECHANISM below does not read the digest at all: `verifyProductionTarget` compares the
+ * applied COUNT against the authored count. The digest is a co-factor an operator can check by
+ * hand; the binding is the cluster identifier.
  *
  * A hostname substring check is rejected for the same reason it is always rejected: it is a guess
  * about a string the operator already controls, and it would accept any database reachable at a
@@ -55,6 +82,19 @@
  * credential. It was measured on both targets and they differ. Because a cluster may hold several
  * databases, `current_database()` is pinned beside it; the pair names the database, not the host
  * that happens to serve it.
+ *
+ * ── IS THE CLUSTER IDENTIFIER COMMITTED? (G4 said no; G6C made it yes) ───────
+ *
+ * AT G4 it was not committed, and G4's closure says so: "the cluster identifier is not committed and
+ * lives with the operator beside the connection string." G6C later RECORDED it in a closure record
+ * while documenting a read-only production verification, so that statement is no longer true of the
+ * repository. Both are left standing as history; this is the current fact.
+ *
+ * That is not a leak. A cluster identifier is not a credential: it cannot be set from a connection
+ * string, grants nothing on its own, and is useless without the connection string it sits beside.
+ * It is a NAME for a target, and a target you can name is a target you can refuse to write to by
+ * mistake. Publishing it costs nothing and losing it costs a refusal — which is the direction this
+ * module wants.
  *
  * Both expected values are supplied OUT OF BAND by the operator and compared against what the live
  * server reports. That is a binding, not a heuristic: the ceremony cannot infer what the operator

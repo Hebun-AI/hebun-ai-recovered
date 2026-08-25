@@ -47,7 +47,26 @@ function possessionGuards(): void {
   assert.ok(prodAt > -1 && connectAt > -1 && prodAt < connectAt, "production is refused before connecting");
 
   /* A non-local database is refused by the shared assertion — proved by running it. */
-  assert.ok(CLI.includes("assertLocalDatabaseUrl"), "the CLI uses the shared local-database gate");
+  /*
+   * ── REPAIRED AT R2H, USING G4'S OWN PRECEDENT ────────────────────────────────────────────
+   *
+   * R5.1 pinned that the CLI calls the shared local-database gate DIRECTLY, which was true while the
+   * ceremony was local-only. It is production-capable from R2H, so the gate is reached through the
+   * same shared posture path `tenant-lifecycle` uses, which applies `assertLocalDatabaseUrl` in
+   * local posture and its exact complement in production posture.
+   *
+   * Asserting the old call site would now be satisfied by an unused import — a grep passing while
+   * the property rotted — which is the failure mode G4 named when it moved the other ceremonies.
+   * So the guard is asserted where it actually lives, and the CLI is asserted to route to it.
+   */
+  assert.ok(
+    CLI.includes("preflightEnvironment(posture, databaseUrl)"),
+    "the CLI resolves locality through the shared posture path",
+  );
+  assert.ok(
+    codeOf(read("scripts/lib/ceremony-preflight.ts")).includes("assertLocalDatabaseUrl(trimmed)"),
+    "and local posture still refuses a remote database, in the shared gate",
+  );
   for (const remote of [
     "postgresql://user@db.example.com:5432/hebun",
     "postgresql://user@10.0.0.5:5432/hebun",
@@ -266,17 +285,42 @@ function phaseFirewalls(): void {
   const upToBoundary = migrations.filter((f) => f <= PHASE_BOUNDARY);
   assert.equal(upToBoundary.at(-1), PHASE_BOUNDARY, "the migration R5.1 inherited is intact");
   assert.equal(upToBoundary.length, 30, "no migration was inserted at or before R5.1's boundary");
+  /*
+   * ── REPAIRED AT R2H: THE BOUNDARY IS THE INVARIANT, THE NAME WAS A PROXY ─────────────────
+   *
+   * This banned any later migration whose NAME looked like this phase's subject. That was a proxy
+   * for "R5.1 added no schema", and it cannot tell the two cases apart: R5.1 smuggling in a
+   * migration, versus a later authorized phase legitimately touching the same table. R2H is the
+   * second — R5.1 itself DESIGNED this column and deferred it in as many words, naming "production
+   * gains a provider-control write path" as the trigger that would earn it.
+   *
+   * So the invariant is asserted where it actually lives: nothing at or before R5.1's boundary
+   * moved (the count above), and every later migration touching this table is a DECLARED phase.
+   * That is stronger than a name ban — an undeclared migration is now caught however it is named.
+   */
+  const LATER_DECLARED = ["20260825080110_provider_control_source.sql"];
   for (const file of migrations.filter((f) => f > PHASE_BOUNDARY)) {
+    if (!/r5[-_.]?1|provider[-_]?(connectivity|control)/i.test(file)) continue;
     assert.ok(
-      !/r5[-_.]?1|provider[-_]?(connectivity|control)/i.test(file),
-      `no migration bears this phase's name — found ${file}`,
+      LATER_DECLARED.includes(file),
+      `a migration touches the provider control table without being declared here — ${file}`,
     );
   }
 
-  /* The control schema itself is byte-for-byte the same shape: a key and a boolean. */
+  /*
+   * The control schema still holds a key and a boolean, and now the ceremony root that produced the
+   * state — R5.1's own designed-and-deferred `control_source`, built at R2H. What R5.1 owned is
+   * unchanged: no tenant column, still root-scoped, and no actor column gained a writer.
+   */
   const schema = codeOf(read("src/db/schema/provider-connectivity-control.ts"));
-  const declared = [...schema.matchAll(/(\w+):\s*(?:text|boolean|uuid|timestamp|integer)\(/g)].map((m) => m[1]!);
-  assert.deepEqual(declared.sort(), ["directorEnabled", "providerKey"], "the table is unchanged");
+  const declared = [...schema.matchAll(/(\w+):\s*(?:text|boolean|uuid|timestamp|integer|varchar)\(/g)].map((m) => m[1]!);
+  assert.deepEqual(
+    declared.sort(),
+    ["controlSource", "directorEnabled", "providerKey"],
+    "the table gained exactly one column, and it is the one R5.1 designed",
+  );
+  assert.ok(!/controlSource[^)]*notNull\(\)/.test(schema), "control_source is nullable — no backfill");
+  assert.ok(!/controlSource[^)]*\.default\(/.test(schema), "and has no default — a default would fabricate a root");
   assert.ok(!schema.includes("tenantId"), "the control did NOT become tenant-scoped");
   assert.ok(schema.includes("...rootColumns"), "it is still root-scoped");
 

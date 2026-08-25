@@ -32,11 +32,11 @@ import {
 } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 import { setProviderConnectivity } from "../../scripts/lib/provider-connectivity";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
+import { CEREMONY_SOURCE_LOCAL } from "../../scripts/lib/production-possession";
 
 /** The ceremony's write, unwrapped — a refusal here is a test bug, not an expected branch. */
 async function ceremonySet(client: Client, enabled: boolean) {
-  const outcome = await setProviderConnectivity(client, {
-    providerKey: CLAUDE_PROVIDER_KEY,
+  const outcome = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: CLAUDE_PROVIDER_KEY,
     enabled,
   });
   assert.equal(outcome.status, "changed", `ceremony must change the control to ${enabled}`);

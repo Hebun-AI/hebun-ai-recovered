@@ -55,6 +55,17 @@ import type { Client } from "pg";
 import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
 import { isExternalSendConfigured } from "../../src/features/action-execution/execution-arming-projection.server";
+/*
+ * The ceremony-source vocabulary, imported rather than restated. `CeremonySource` is the released
+ * closed union G4 already defines for postures, and its two values are byte-identical to the
+ * schema's `PROVIDER_CONTROL_SOURCE_*` constants and to `companies.provisioning_source`. There is
+ * exactly one spelling of these roots in the repository and this file adds none.
+ */
+import {
+  CEREMONY_SOURCE_LOCAL,
+  CEREMONY_SOURCE_PRODUCTION,
+  type CeremonySource,
+} from "./production-possession";
 
 /**
  * The closed provider vocabulary.
@@ -85,6 +96,11 @@ export interface ProviderControlSummary {
   readonly updatedAt: string;
   /** Null whenever this ceremony wrote the row: deployment possession has no verified actor. */
   readonly updatedBy: string | null;
+  /**
+   * Which ceremony root produced the state this row now holds. NULL only for rows written before
+   * the column existed — never a synonym for "local".
+   */
+  readonly controlSource: string | null;
 }
 
 export type ConnectivityRefusal =
@@ -102,7 +118,12 @@ export type ConnectivityRefusal =
    * deployment that cannot send produces a switch reading "on" whose only function is to mislead
    * the next reader. Disabling is never refused for this reason.
    */
-  | "configuration-incomplete";
+  | "configuration-incomplete"
+  /**
+   * The caller did not name a root from the released ceremony vocabulary. Unreachable from
+   * TypeScript; the runtime guard exists so an untyped caller is refused rather than defaulted.
+   */
+  | "unknown-control-source";
 
 export type ConnectivityOutcome =
   | { readonly status: "changed"; readonly control: ProviderControlSummary }
@@ -122,6 +143,7 @@ type ControlRow = {
   version: number;
   updated_at: Date | string;
   updated_by: string | null;
+  control_source: string | null;
 };
 
 function summarize(row: ControlRow): ProviderControlSummary {
@@ -132,6 +154,7 @@ function summarize(row: ControlRow): ProviderControlSummary {
     updatedAt:
       row.updated_at instanceof Date ? row.updated_at.toISOString() : new Date(row.updated_at).toISOString(),
     updatedBy: row.updated_by,
+    controlSource: row.control_source,
   };
 }
 
@@ -147,7 +170,7 @@ export async function readProviderControl(
   providerKey: string,
 ): Promise<ProviderControlSummary | undefined> {
   const result = await client.query<ControlRow>(
-    `select provider_key, director_enabled, version, updated_at, updated_by
+    `select provider_key, director_enabled, version, updated_at, updated_by, control_source
        from provider_connectivity_controls
       where provider_key = $1
       limit 1`,
@@ -189,12 +212,30 @@ export async function setProviderConnectivity(
   input: {
     readonly providerKey: string;
     readonly enabled: boolean;
+    /**
+     * WHICH ROOT IS CAUSING THIS TRANSITION. Required, and typed to the released closed
+     * vocabulary — there is no string a caller could invent, and no default. A default would be
+     * the dangerous shape here: whichever root it named would be silently attributed to ceremonies
+     * that never ran under it.
+     */
+    readonly controlSource: CeremonySource;
     readonly env?: Readonly<Record<string, string | undefined>>;
   },
 ): Promise<ConnectivityOutcome> {
   const providerKey = (input?.providerKey ?? "").trim();
   const enabled = input?.enabled === true;
   const env = input?.env ?? process.env;
+  const controlSource = input?.controlSource;
+
+  /*
+   * Belt and braces over the type. `CeremonySource` is compile-time; this is the runtime refusal
+   * for a caller that reached here from untyped JavaScript. It is a REFUSAL, never a substitution:
+   * writing a root nobody proved would be exactly the false provenance this column exists to
+   * prevent.
+   */
+  if (controlSource !== CEREMONY_SOURCE_LOCAL && controlSource !== CEREMONY_SOURCE_PRODUCTION) {
+    return { status: "refused", reason: "unknown-control-source" };
+  }
 
   if (!isProviderKey(providerKey)) return { status: "refused", reason: "unknown-provider-key" };
 
@@ -215,16 +256,17 @@ export async function setProviderConnectivity(
   }
 
   const updated = await client.query<ControlRow>(
-    `insert into provider_connectivity_controls (provider_key, director_enabled)
-          values ($1, $2)
+    `insert into provider_connectivity_controls (provider_key, director_enabled, control_source)
+          values ($1, $2, $3)
      on conflict (provider_key) do update
             set director_enabled = $2,
                 updated_at = now(),
                 updated_by = null,
+                control_source = $3,
                 version = provider_connectivity_controls.version + 1
           where provider_connectivity_controls.director_enabled is distinct from $2
-      returning provider_key, director_enabled, version, updated_at, updated_by`,
-    [providerKey, enabled],
+      returning provider_key, director_enabled, version, updated_at, updated_by, control_source`,
+    [providerKey, enabled, controlSource],
   );
 
   const row = updated.rows[0];

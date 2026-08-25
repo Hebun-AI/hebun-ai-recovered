@@ -27,6 +27,7 @@ import {
 import { suspendTenant } from "../../scripts/lib/tenant-lifecycle";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { CEREMONY_SOURCE_LOCAL } from "../../scripts/lib/production-possession";
 
 /** Complete external-send configuration. Never a real credential. */
 const FULL = Object.freeze({
@@ -51,7 +52,7 @@ async function closedVocabulary(client: Client): Promise<void> {
   );
 
   for (const bogus of ["", "  ", "openai", "resend", "CLAUDE", "Claude", "*", "external_send", "claude;"]) {
-    const outcome = await setProviderConnectivity(client, { providerKey: bogus, enabled: true, env: FULL });
+    const outcome = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: bogus, enabled: true, env: FULL });
     assert.equal(outcome.status, "refused", `"${bogus}" must be refused`);
     assert.equal(
       outcome.status === "refused" ? outcome.reason : null,
@@ -80,8 +81,7 @@ async function closedVocabulary(client: Client): Promise<void> {
  * ═════════════════════════════════════════════════════════════════════════ */
 async function enableAndDisable(client: Client): Promise<void> {
   /* An absent row is already disabled — refuse rather than mint a row that changes nothing. */
-  const absentDisable = await setProviderConnectivity(client, {
-    providerKey: CLAUDE_PROVIDER_KEY,
+  const absentDisable = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: CLAUDE_PROVIDER_KEY,
     enabled: false,
     env: FULL,
   });
@@ -97,8 +97,7 @@ async function enableAndDisable(client: Client): Promise<void> {
   );
 
   /* Enable creates the row. */
-  const on = await setProviderConnectivity(client, {
-    providerKey: CLAUDE_PROVIDER_KEY,
+  const on = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: CLAUDE_PROVIDER_KEY,
     enabled: true,
     env: FULL,
   });
@@ -114,8 +113,7 @@ async function enableAndDisable(client: Client): Promise<void> {
   );
 
   /* Asking for the state it already holds is refused, and advances nothing. */
-  const again = await setProviderConnectivity(client, {
-    providerKey: CLAUDE_PROVIDER_KEY,
+  const again = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: CLAUDE_PROVIDER_KEY,
     enabled: true,
     env: FULL,
   });
@@ -128,8 +126,7 @@ async function enableAndDisable(client: Client): Promise<void> {
   );
 
   /* Disable moves it back and advances the version. */
-  const off = await setProviderConnectivity(client, {
-    providerKey: CLAUDE_PROVIDER_KEY,
+  const off = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: CLAUDE_PROVIDER_KEY,
     enabled: false,
     env: FULL,
   });
@@ -172,8 +169,7 @@ async function externalSendConfigurationGate(client: Client): Promise<void> {
   for (const missing of Object.keys(FULL) as (keyof typeof FULL)[]) {
     const partial: Record<string, string> = { ...FULL };
     delete partial[missing];
-    const outcome = await setProviderConnectivity(client, {
-      providerKey: EXTERNAL_SEND_PROVIDER_KEY,
+    const outcome = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: EXTERNAL_SEND_PROVIDER_KEY,
       enabled: true,
       env: partial,
     });
@@ -192,8 +188,7 @@ async function externalSendConfigurationGate(client: Client): Promise<void> {
   );
 
   /* With everything configured, arming succeeds. */
-  const armed = await setProviderConnectivity(client, {
-    providerKey: EXTERNAL_SEND_PROVIDER_KEY,
+  const armed = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: EXTERNAL_SEND_PROVIDER_KEY,
     enabled: true,
     env: FULL,
   });
@@ -201,8 +196,7 @@ async function externalSendConfigurationGate(client: Client): Promise<void> {
   assert.equal(armed.status === "changed" ? armed.control.version : null, 1);
 
   /* DISARMING IS NEVER REFUSED FOR CONFIGURATION — even when it has since disappeared. */
-  const disarmed = await setProviderConnectivity(client, {
-    providerKey: EXTERNAL_SEND_PROVIDER_KEY,
+  const disarmed = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: EXTERNAL_SEND_PROVIDER_KEY,
     enabled: false,
     env: {},
   });
@@ -217,19 +211,18 @@ async function externalSendConfigurationGate(client: Client): Promise<void> {
  * 4. THE TWO KEYS STAY INDEPENDENT, AND NOTHING ELSE IS TOUCHED.
  * ═════════════════════════════════════════════════════════════════════════ */
 async function independenceAndContainment(client: Client): Promise<void> {
-  await setProviderConnectivity(client, { providerKey: CLAUDE_PROVIDER_KEY, enabled: true, env: FULL });
+  await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: CLAUDE_PROVIDER_KEY, enabled: true, env: FULL });
   assert.equal(
     (await readProviderControl(client, EXTERNAL_SEND_PROVIDER_KEY))?.directorEnabled,
     false,
     "enabling Claude must not arm external send — permitting Hebun to think is not permitting it to act",
   );
 
-  await setProviderConnectivity(client, {
-    providerKey: EXTERNAL_SEND_PROVIDER_KEY,
+  await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: EXTERNAL_SEND_PROVIDER_KEY,
     enabled: true,
     env: FULL,
   });
-  await setProviderConnectivity(client, { providerKey: CLAUDE_PROVIDER_KEY, enabled: false, env: FULL });
+  await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: CLAUDE_PROVIDER_KEY, enabled: false, env: FULL });
   assert.equal(
     (await readProviderControl(client, EXTERNAL_SEND_PROVIDER_KEY))?.directorEnabled,
     true,
@@ -293,15 +286,13 @@ async function recoveryUnderTotalSuspension(client: Client): Promise<void> {
 
   /* The global kill switch is still operable in BOTH directions. */
   const before = await readProviderControl(client, CLAUDE_PROVIDER_KEY);
-  const flipped = await setProviderConnectivity(client, {
-    providerKey: CLAUDE_PROVIDER_KEY,
+  const flipped = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: CLAUDE_PROVIDER_KEY,
     enabled: !before!.directorEnabled,
     env: FULL,
   });
   assert.equal(flipped.status, "changed", "the ceremony works with every tenant suspended");
 
-  const back = await setProviderConnectivity(client, {
-    providerKey: CLAUDE_PROVIDER_KEY,
+  const back = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: CLAUDE_PROVIDER_KEY,
     enabled: before!.directorEnabled,
     env: FULL,
   });
@@ -317,8 +308,7 @@ async function recoveryUnderTotalSuspension(client: Client): Promise<void> {
  * ═════════════════════════════════════════════════════════════════════════ */
 async function noAuditDelta(client: Client): Promise<void> {
   const before = await countRows(client, "audit_log");
-  const outcome = await setProviderConnectivity(client, {
-    providerKey: EXTERNAL_SEND_PROVIDER_KEY,
+  const outcome = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey: EXTERNAL_SEND_PROVIDER_KEY,
     enabled: false,
     env: FULL,
   });

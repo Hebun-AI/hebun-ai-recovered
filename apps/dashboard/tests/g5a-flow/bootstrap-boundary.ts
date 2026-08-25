@@ -498,6 +498,9 @@ function noSchemaNoRegression(): void {
     [
       "20260818172455_production_provenance_vocabulary.sql",
       "20260819133901_g6d_answer_source_evidence.sql", "20260822140116_i1_integration_connection_authority.sql", "20260822195716_int2_integration_credential_authority.sql",
+      /* R2H — control_source, the column R5.1 designed and deferred until production gained a
+       * provider-control write path. */
+      "20260825080110_provider_control_source.sql",
     ],
     "G5A authored no migration; what follows is a declared later phase",
   );

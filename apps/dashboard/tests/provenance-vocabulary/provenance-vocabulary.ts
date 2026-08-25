@@ -40,6 +40,10 @@ import {
   GENESIS_NOMINATION_SOURCE_LOCAL_OPERATOR,
   GENESIS_NOMINATION_SOURCE_PRODUCTION_OPERATOR,
 } from "../../src/db/schema/genesis-nomination";
+import {
+  PROVIDER_CONTROL_SOURCE_LOCAL_OPERATOR,
+  PROVIDER_CONTROL_SOURCE_PRODUCTION_OPERATOR,
+} from "../../src/db/schema/provider-connectivity-control";
 
 const MIGRATIONS_DIR = "src/db/migrations";
 const MIGRATION = `${MIGRATIONS_DIR}/20260818172455_production_provenance_vocabulary.sql`;
@@ -74,12 +78,54 @@ async function main(): Promise<void> {
   assert.equal(COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR, "production-operator-ceremony");
   assert.equal(GENESIS_NOMINATION_SOURCE_LOCAL_OPERATOR, "local-operator-ceremony");
   assert.equal(GENESIS_NOMINATION_SOURCE_PRODUCTION_OPERATOR, "production-operator-ceremony");
-  /* The two columns name the SAME roots — one root vocabulary, two places it is recorded. */
+  /*
+   * R2H — a THIRD column records these roots, and it must not spell them differently.
+   *
+   * `provider_connectivity_controls.control_source` differs from its two siblings in WHEN it is
+   * written — per transition rather than at creation, because the row is a switch — but the
+   * vocabulary is identical. A second spelling of a root is a second root.
+   */
+  assert.equal(PROVIDER_CONTROL_SOURCE_LOCAL_OPERATOR, "local-operator-ceremony");
+  assert.equal(PROVIDER_CONTROL_SOURCE_PRODUCTION_OPERATOR, "production-operator-ceremony");
+
+  /* The columns name the SAME roots — one root vocabulary, three places it is recorded. */
   assert.equal(
     COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR,
     GENESIS_NOMINATION_SOURCE_PRODUCTION_OPERATOR,
     "a production tenant and its Genesis nomination must name the same root",
   );
+  for (const [label, local, production] of [
+    ["provider control", PROVIDER_CONTROL_SOURCE_LOCAL_OPERATOR, PROVIDER_CONTROL_SOURCE_PRODUCTION_OPERATOR],
+  ] as const) {
+    assert.equal(local, COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR, `${label} shares the local root`);
+    assert.equal(production, COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR, `${label} shares the production root`);
+  }
+
+  /* ── R2H: the third column's own migration obeys the same inline-literal rule ───── */
+  {
+    const dir = "src/db/migrations";
+    const { readdirSync } = await import("node:fs");
+    const files = readdirSync(dir).filter((f) => /control_source/.test(f));
+    assert.equal(files.length, 1, "exactly one migration introduces control_source");
+    const sql = read(`${dir}/${files[0]!}`);
+    for (const value of [
+      PROVIDER_CONTROL_SOURCE_LOCAL_OPERATOR,
+      PROVIDER_CONTROL_SOURCE_PRODUCTION_OPERATOR,
+    ]) {
+      assert.ok(
+        sql.includes(`"provider_connectivity_controls"."control_source" = '${value}'`),
+        `the provider-control CHECK must name ${value} inline`,
+      );
+    }
+    assert.doesNotMatch(sql, /\$\d/, "no bind parameter may appear inside the provider-control CHECK");
+    /* NULL is admitted here and NOT on genesis — the two forms are deliberate, not accidental. */
+    assert.match(sql, /"control_source" is null or/, "control_source admits NULL (the companies form)");
+    assert.match(
+      read("src/db/schema/provider-connectivity-control.ts"),
+      /= "production-operator-ceremony"/,
+      "the constant is declared beside the table that uses it",
+    );
+  }
 
   /* ── Test 8: inline CHECK literals agree with the TypeScript constants ───── */
   {
@@ -156,15 +202,41 @@ async function main(): Promise<void> {
     );
     assert.deepEqual(writers, [], "no file under src may write companies");
 
-    /* Nothing under src/ names the production root either — it is schema vocabulary, not a value
-     * any application code may supply. The schema module that DEFINES it is the sole exception. */
+    /*
+     * Nothing under src/ names the production root either — it is schema vocabulary, not a value
+     * any application code may supply. A schema module that DEFINES it is the only exception.
+     *
+     * ── REPAIRED AT R2H, AND DELIBERATELY NOT BY EXTENDING A LIST ─────────────────────────
+     *
+     * This exempted two hard-coded paths, which was an enumeration of the vocabulary owners as they
+     * stood at G1. `provider_connectivity_controls.control_source` is a third owner, so the list was
+     * stale — but a list is the wrong shape: it rots on every new owner, and it exempts a path
+     * because of its NAME rather than because of what it does.
+     *
+     * The exemption is now STRUCTURAL: a file may name the production root only if it is a schema
+     * module that EXPORTS it as a constant. That is strictly stronger than the list it replaces —
+     * adding a non-declaring file to `src/db/schema/` would no longer be silently exempt, and a
+     * declaring module cannot be forgotten.
+     */
+    const declaresVocabulary = (file: string): boolean =>
+      file.startsWith("src/db/schema/") &&
+      /export const [A-Z_]+ = "production-operator-ceremony";/.test(read(file));
+
     const namers = srcFiles.filter(
-      (f) =>
-        f !== "src/db/schema/company.ts" &&
-        f !== "src/db/schema/genesis-nomination.ts" &&
-        codeOf(read(f)).includes("production-operator-ceremony"),
+      (f) => !declaresVocabulary(f) && codeOf(read(f)).includes("production-operator-ceremony"),
     );
-    assert.deepEqual(namers, [], "only the schema vocabulary owner may name the production root");
+    assert.deepEqual(namers, [], "only a declaring schema module may name the production root");
+
+    /* And the declaring set is exactly the three columns that record a ceremony root. */
+    assert.deepEqual(
+      srcFiles.filter(declaresVocabulary).sort(),
+      [
+        "src/db/schema/company.ts",
+        "src/db/schema/genesis-nomination.ts",
+        "src/db/schema/provider-connectivity-control.ts",
+      ],
+      "three columns record a ceremony root, and each declares the vocabulary it uses",
+    );
 
     /*
      * ── REPAIRED BY G4, WHICH IS THE CEREMONY G1 SAID A LATER GATE WOULD BUILD ──
@@ -222,7 +294,19 @@ async function main(): Promise<void> {
      * call site on all five would now be satisfied by an unused import — a grep passing while the
      * property rotted — so each is asserted where its guard actually lives.
      */
-    for (const cli of ["scripts/provider-connectivity.ts", "scripts/auth-dev-credential.ts"]) {
+    /*
+     * ── MOVED AT R2H, BY THE RULE THIS BLOCK ALREADY STATES ────────────────────────────────
+     *
+     * `provider-connectivity.ts` was in the local-only group because it was local-only. R2H makes
+     * it production-capable through the same shared posture path, so its locality fence now lives
+     * where the other production-capable ceremonies keep theirs. Asserting the direct call site on
+     * it would from here on be satisfied by an unused import — the exact failure mode the comment
+     * above warns about — so it moves groups rather than keeping a guard that no longer guards.
+     *
+     * Nothing is relaxed: the local branch still runs `assertLocalDatabaseUrl`, and the shared path
+     * is asserted to contain it (and its production complement) below.
+     */
+    for (const cli of ["scripts/auth-dev-credential.ts"]) {
       assert.match(
         codeOf(read(cli)),
         /assertLocalDatabaseUrl/,
@@ -233,6 +317,7 @@ async function main(): Promise<void> {
       "scripts/tenant-provision.ts",
       "scripts/genesis-nominate.ts",
       "scripts/tenant-lifecycle.ts",
+      "scripts/provider-connectivity.ts",
     ]) {
       assert.match(
         codeOf(read(cli)),
@@ -286,7 +371,13 @@ async function main(): Promise<void> {
       assert.ok(tags.includes("20260818172455_production_provenance_vocabulary"), "G1 is journalled");
       assert.deepEqual(
         tags.filter((t) => t > "20260818172455_production_provenance_vocabulary"),
-        ["20260819133901_g6d_answer_source_evidence", "20260822140116_i1_integration_connection_authority", "20260822195716_int2_integration_credential_authority"],
+        [
+          "20260819133901_g6d_answer_source_evidence",
+          "20260822140116_i1_integration_connection_authority",
+          "20260822195716_int2_integration_credential_authority",
+          /* R2H — control_source, the column G1's sibling R5.1 designed and deferred. */
+          "20260825080110_provider_control_source",
+        ],
         "and what follows it is a declared later phase",
       );
     }

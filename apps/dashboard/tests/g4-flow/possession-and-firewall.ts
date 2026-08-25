@@ -49,7 +49,20 @@ const PRODUCTION_CAPABLE = [
 ] as const;
 
 /** The two that deliberately did NOT gain production reach. */
-const LOCAL_ONLY = ["scripts/provider-connectivity.ts", "scripts/auth-dev-credential.ts"] as const;
+/*
+ * ── MOVED AT R2H ─────────────────────────────────────────────────────────────
+ *
+ * `provider-connectivity.ts` was local-only through G4 and is production-capable from R2H, under
+ * an explicit Director decision and R5.1's own recorded forcing function ("when production arrives,
+ * the platform-operator decision has to be made explicitly").
+ *
+ * G4's REASON for excluding it is preserved rather than overridden. G4 wrote: "a production-
+ * reachable arming switch is one command away from armed." That worry is about EXTERNAL SEND, which
+ * puts real messages in front of real people — not about model connectivity, which permits an
+ * inference. So the ceremony reaches production, and the arming key does not: asserted below, and
+ * strictly narrower than "this CLI cannot reach production at all".
+ */
+const LOCAL_ONLY = ["scripts/auth-dev-credential.ts"] as const;
 
 const POSSESSION = codeOf(read("scripts/lib/production-possession.ts"));
 const PREFLIGHT = codeOf(read("scripts/lib/ceremony-preflight.ts"));
@@ -321,6 +334,33 @@ function fencesThatHeld(): void {
    * particular must not become production-capable — G4 leaves the provider disarmed, and a
    * production-reachable arming switch is one command away from armed.
    */
+  /*
+   * THE ARMING SWITCH IS STILL UNREACHABLE IN PRODUCTION — G4's actual safety property, asserted
+   * on the key rather than on the file. A production posture holding the external-send key must
+   * refuse before it reads or writes anything.
+   */
+  {
+    const connectivity = codeOf(read("scripts/provider-connectivity.ts"));
+    /*
+     * ANCHORED TO THE `if (`, NOT TO THE CONDITION TEXT. A substring match on the condition
+     * survives `if (false && <condition>)` — the guard reads as present while being permanently
+     * dead. Found by a bite-proof that failed to bite, not by reading.
+     */
+    assert.match(
+      connectivity,
+      /if \(environment\.posture\.mode === "production" && providerKey === EXTERNAL_SEND_PROVIDER_KEY\) \{/,
+      "external send may not be armed through a production ceremony",
+    );
+    assert.match(
+      connectivity.slice(connectivity.indexOf('if (environment.posture.mode === "production" && providerKey')).slice(0, 400),
+      /fail\(/,
+      "and the guarded branch refuses rather than falling through",
+    );
+    const guard = connectivity.indexOf('environment.posture.mode === "production" && providerKey');
+    const write = connectivity.indexOf("setProviderConnectivity(client");
+    assert.ok(guard > -1 && write > -1 && guard < write, "and it refuses BEFORE the write");
+  }
+
   for (const cli of LOCAL_ONLY) {
     const source = codeOf(read(cli));
     assert.match(source, /assertLocalDatabaseUrl/, `${cli} still calls the local guard directly`);
@@ -572,6 +612,9 @@ function noSchema(): void {
     [
       "20260818172455_production_provenance_vocabulary.sql",
       "20260819133901_g6d_answer_source_evidence.sql", "20260822140116_i1_integration_connection_authority.sql", "20260822195716_int2_integration_credential_authority.sql",
+      /* R2H — control_source, the column R5.1 designed and deferred until production gained a
+       * provider-control write path. */
+      "20260825080110_provider_control_source.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );

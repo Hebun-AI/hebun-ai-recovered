@@ -1,0 +1,2 @@
+ALTER TABLE "provider_connectivity_controls" ADD COLUMN "control_source" varchar(64);--> statement-breakpoint
+ALTER TABLE "provider_connectivity_controls" ADD CONSTRAINT "provider_connectivity_controls_control_source_chk" CHECK ("provider_connectivity_controls"."control_source" is null or "provider_connectivity_controls"."control_source" = 'local-operator-ceremony' or "provider_connectivity_controls"."control_source" = 'production-operator-ceremony');

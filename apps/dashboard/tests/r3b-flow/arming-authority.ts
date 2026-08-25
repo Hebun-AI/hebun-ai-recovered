@@ -235,10 +235,53 @@ function armingAuthority(): void {
     "disarming is never refused for configuration",
   );
 
-  /* THE CEREMONY IS DEPLOYMENT-POSSESSION, and says so with all four guards. */
-  for (const guard of ["NODE_ENV", "assertLocalDatabaseUrl", "isTTY", "Retype the provider key"]) {
+  /*
+   * THE CEREMONY IS DEPLOYMENT-POSSESSION, and says so with all four guards.
+   *
+   * ── REPAIRED AT R2H ──────────────────────────────────────────────────────────────────────
+   *
+   * `assertLocalDatabaseUrl` moved behind the shared posture path when this ceremony became
+   * production-capable, so a literal substring check on the CLI would from here on be satisfied by
+   * an unused import while the property rotted — G4's stated failure mode. The guard is asserted
+   * where it now lives, and the CLI is asserted to route to it.
+   *
+   * For R3B specifically the stronger fact is the one below: the ARMING key cannot reach production
+   * at all, so external send keeps exactly the deployment-possession story R3B released.
+   */
+  for (const guard of ["NODE_ENV", "isTTY", "Retype the provider key"]) {
     assert.ok(CEREMONY_CLI_CODE.includes(guard), `the ceremony must enforce ${guard}`);
   }
+  assert.ok(
+    CEREMONY_CLI_CODE.includes("preflightEnvironment(posture, databaseUrl)"),
+    "the ceremony resolves locality through the shared posture path",
+  );
+  assert.ok(
+    codeOf(read("scripts/lib/ceremony-preflight.ts")).includes("assertLocalDatabaseUrl(trimmed)"),
+    "and the local guard still runs, in the shared gate",
+  );
+
+  /* EXTERNAL SEND IS NOT PRODUCTION-REACHABLE. R2H narrowed the posture for this key alone. */
+  /*
+   * ANCHORED TO THE `if (`, NOT TO THE CONDITION TEXT — a substring match survives
+   * `if (false && <condition>)`, which reads as present while being permanently dead.
+   */
+  assert.ok(
+    /if \(environment\.posture\.mode === "production" && providerKey === EXTERNAL_SEND_PROVIDER_KEY\) \{/.test(
+      CEREMONY_CLI_CODE,
+    ),
+    "arming external send through a production ceremony is refused",
+  );
+  assert.ok(
+    /fail\(/.test(
+      CEREMONY_CLI_CODE.slice(
+        CEREMONY_CLI_CODE.indexOf('if (environment.posture.mode === "production" && providerKey'),
+      ).slice(0, 400),
+    ),
+    "and the guarded branch refuses rather than falling through",
+  );
+  const prodGuard = CEREMONY_CLI_CODE.indexOf('environment.posture.mode === "production" && providerKey');
+  const setCall = CEREMONY_CLI_CODE.indexOf("setProviderConnectivity(client");
+  assert.ok(prodGuard > -1 && setCall > -1 && prodGuard < setCall, "and refused before the write");
   /* It must not claim an authority Hebun does not have. */
   assert.ok(
     !/authority_source|platform-admin|platformAdmin/.test(CEREMONY_CODE + CEREMONY_CLI_CODE),

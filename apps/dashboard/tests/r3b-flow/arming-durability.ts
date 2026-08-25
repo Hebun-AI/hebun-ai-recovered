@@ -29,6 +29,7 @@ import { readExternalSendOpsView } from "../../src/features/action-execution/exe
 import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
 import { setProviderConnectivity } from "../../scripts/lib/provider-connectivity";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
+import { CEREMONY_SOURCE_LOCAL } from "../../scripts/lib/production-possession";
 
 const FULL = Object.freeze({
   HEBUN_EXTERNAL_SEND_API_KEY: "test-key-never-real",
@@ -41,7 +42,7 @@ const FULL = Object.freeze({
  * carries R3B's configuration refusal, which moved with the write.
  */
 async function ceremonySet(client: Client, providerKey: string, enabled: boolean) {
-  const outcome = await setProviderConnectivity(client, { providerKey, enabled, env: FULL });
+  const outcome = await setProviderConnectivity(client, { controlSource: CEREMONY_SOURCE_LOCAL, providerKey, enabled, env: FULL });
   assert.equal(outcome.status, "changed", `ceremony must set ${providerKey} to ${enabled}`);
   return outcome.status === "changed" ? outcome.control : undefined!;
 }

@@ -48,10 +48,38 @@
  * An `audit_log` row is blocked on the same fact: `actor_id` and `actor_type` are NOT NULL
  * and no enum value means "no verified actor". That waits on a real platform principal.
  *
- * A truthful alternative exists and is deliberately NOT built: a nullable `control_source`
- * naming the ceremony, as `companies.provisioning_source` does. Nothing reads it today.
+ * ── `control_source` — BUILT, BECAUSE R5.1'S OWN TRIGGER FIRED ───────────────
+ *
+ * R5.1 designed this column and deliberately did not build it: "a nullable `control_source`
+ * naming the ceremony, as `companies.provisioning_source` does. Nothing reads it today." It named
+ * three conditions that would earn its implementation, one of which was *"production gains a
+ * provider-control write path"*. That is exactly what the production ceremony does, so the column
+ * is built here rather than deferred again.
+ *
+ * WHY IT IS PER-TRANSITION AND NOT CREATION-ONLY. `provisioning_source` records a CREATION fact —
+ * a tenant is born once. This row is a SWITCH: the writer is an upsert that both creates and
+ * transitions, and `updated_at`, `updated_by` and `version` are all per-transition. A
+ * creation-only `control_source` would go stale the first time a different root flipped the
+ * switch — a row created locally and then disabled from production would still name the local
+ * root while production caused the state now in the row. That is false provenance, which is the
+ * precise thing R5.2's correction cancelled `updated_by_type` to avoid. So this column answers
+ * "WHICH ROOT PRODUCED THE STATE THIS ROW NOW HOLDS", and it is rewritten on every transition.
+ *
+ * WHY NULLABLE, AND WHY NO BACKFILL. Rows written before this column existed keep `NULL`, and
+ * NULL means exactly one thing: *written before the column existed*. It does NOT mean "unknown
+ * root" and must never be read as "local". Back-filling `'local-operator-ceremony'` would be true
+ * in fact — local was the only writer that had ever run — and still fabricated, because it would
+ * record an observation nobody made. Because every ceremony write from here on records its own
+ * root, NULL stays unambiguous.
+ *
+ * THE VOCABULARY IS NOT THIS TABLE'S. It is the released ceremony vocabulary, shared verbatim with
+ * `companies.provisioning_source` and `genesis_nominations.nomination_source`. No third spelling
+ * of these roots exists, and the CHECK below names the literals INLINE for the same reason R4A
+ * did: drizzle-kit renders an interpolated constant as a bind parameter, which is not valid inside
+ * a CHECK in a migration file. A test asserts the literals and the constants stay in agreement.
  */
-import { pgTable, boolean, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, boolean, check, text, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { rootColumns } from "./_base";
 
 export const providerConnectivityControls = pgTable(
@@ -60,8 +88,43 @@ export const providerConnectivityControls = pgTable(
     ...rootColumns,
     providerKey: text("provider_key").notNull(),
     directorEnabled: boolean("director_enabled").notNull().default(false),
+
+    /**
+     * Which ceremony root produced the state this row NOW holds. NULL only for rows written
+     * before the column existed — never a synonym for "local". See the header.
+     */
+    controlSource: varchar("control_source", { length: 64 }),
   },
   (t) => [
     uniqueIndex("provider_connectivity_controls_provider_key_uq").on(t.providerKey),
+
+    /*
+     * Only roots that exist may be named, exactly as `companies_provisioning_source_chk` and
+     * `genesis_nominations_source_chk` record for their own vocabularies. `is null or` is the
+     * `companies` form, not the `genesis_nominations` form, because this table has rows that
+     * predate the column and they are not being rewritten.
+     */
+    check(
+      "provider_connectivity_controls_control_source_chk",
+      sql`${t.controlSource} is null or ${t.controlSource} = 'local-operator-ceremony' or ${t.controlSource} = 'production-operator-ceremony'`,
+    ),
   ],
 );
+
+/**
+ * A local operator ceremony — possession of the LOCAL deployment. Shares its wording with
+ * `COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR` and `GENESIS_NOMINATION_SOURCE_LOCAL_OPERATOR`
+ * because it names the same root and carries the same limitation: a SOURCE, never an ACTOR, and
+ * no verified human.
+ */
+export const PROVIDER_CONTROL_SOURCE_LOCAL_OPERATOR = "local-operator-ceremony";
+
+/**
+ * A production operator ceremony — possession of the PRODUCTION deployment.
+ *
+ * It carries EXACTLY the limitation its local sibling carries and changes one morpheme for one
+ * reason: it names a different deployment, never a different KIND of authority. Still possession,
+ * still a SOURCE and not an ACTOR. NOT a platform admin, NOT a platform operator, NOT a Governance
+ * authority, NOT a tenant role. No such principal exists in Hebun.
+ */
+export const PROVIDER_CONTROL_SOURCE_PRODUCTION_OPERATOR = "production-operator-ceremony";

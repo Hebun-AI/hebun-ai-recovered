@@ -45,8 +45,13 @@ const COMPONENT = "src/components/command-goals/strategic-goals.tsx";
 const OWNED = [MODEL, COMPONENT] as const;
 
 /** The released migration ledger, pinned so "no schema change" is a measurement. */
-const LEDGER_COUNT = 34;
-const LEDGER_DIGEST = "3a6e41c7438eb88c";
+/*
+ * R2H — the ledger grew to 35 when `control_source` landed, so BOTH values move with it. The
+ * invariant is unchanged and is what the digest still proves: this UI phase authored no migration,
+ * and no RELEASED migration was edited — editing one would move the digest without moving the count.
+ */
+const LEDGER_COUNT = 35;
+const LEDGER_DIGEST = "b71a79b3bc28b4b5";
 /** Every server-action module in the repository today. A new writer anywhere moves this. */
 const USE_SERVER_MODULES = 9;
 

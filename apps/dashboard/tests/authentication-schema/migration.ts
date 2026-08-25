@@ -51,12 +51,18 @@ try {
     // + R3W durable-work-artifacts + R3R durable-recipient-authority
     // + R3B action-execution-attempts + R4A tenant-provisioning-source
     // + production-provenance-vocabulary + G6D answer-source-evidence
-    // + I1 integration-connection-authority = 33.
+    // + I1 integration-connection-authority = 33
+    // + INT-2 integration-credential-authority = 34
+    // + R2H provider control_source = 35.
+    //
+    // (The tally had stopped at 33 while the assertion below read 34: INT-2 moved the number and
+    // not the prose. Both move together from here.)
     //
     // This tally is the ONE place a running total belongs: it is this file's actual subject. Other
     // phases must state "I added none of my own" without pinning a global count, or every later
     // authorized migration falsifies a claim that was never about it.
-    assert.equal(migrationCount.rows[0]?.count, "34");
+    /* Re-pinned by R2H, which added migration 35 (`control_source`). */
+    assert.equal(migrationCount.rows[0]?.count, "35");
 
     /*
      * The rerun is about IDEMPOTENCE, not about the total, so it is compared to what the first run
