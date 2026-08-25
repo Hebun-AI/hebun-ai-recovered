@@ -143,6 +143,7 @@ function collect(dir: string): string[] {
 /** The connection subsystem's entry points — everything a caller can reach. */
 const INTEGRATION_ROOTS = [
   "src/features/integration-authority/integration-repository.server.ts",
+  "src/features/integration-authority/integration-read.server.ts",
   "src/features/integration-authority/capability-availability.server.ts",
   "src/features/integration-authority/verify-connection.server.ts",
 ];
@@ -289,15 +290,36 @@ function main(): void {
       .map((f) => f.replace(/\\/g, "/"));
 
     /*
-     * EXACTLY ONE. The schema barrel does not appear because it re-exports RELATIVELY
-     * (`export * from "./integration"`), so the only module in the whole repository that names the
-     * integrations table by path is its single repository.
+     * EXACTLY TWO, AND BOTH INSIDE THE AUTHORITY. The schema barrel does not appear because it
+     * re-exports RELATIVELY (`export * from "./integration"`).
+     *
+     * ── WHY THIS WENT FROM ONE TO TWO AT INT-5A ─────────────────────────────
+     *
+     * It was one module because reads and writes lived together. That co-location became the
+     * defect the moment a READ-ONLY consumer needed the listing: importing it would have put seven
+     * lifecycle writers — including the one that attaches a credential — into Heby's import graph.
+     * G6C settled the remedy for exactly this shape, and INT-5A applied it: the reads moved to
+     * `integration-read.server.ts`, the writers stayed, and the repository re-exports the reads so
+     * no existing caller changed.
+     *
+     * The PROPERTY this assertion protects is unchanged and is still exact: the integrations table
+     * is nameable only from inside `integration-authority`, and the list is pinned so a third
+     * importer cannot appear without somebody stating it here.
      */
     assert.deepEqual(
       importers.sort(),
-      ["src/features/integration-authority/integration-repository.server.ts"],
-      "exactly ONE module may import the integrations table",
+      [
+        "src/features/integration-authority/integration-read.server.ts",
+        "src/features/integration-authority/integration-repository.server.ts",
+      ],
+      "only the integration authority's own read and write modules may import the integrations table",
     );
+    for (const importer of importers) {
+      assert.ok(
+        importer.startsWith("src/features/integration-authority/"),
+        `${importer} must live inside the integration authority to name the integrations table`,
+      );
+    }
   }
 
   /* ── 5. NEITHER GOVERNANCE NOR KNOWLEDGE BECOMES A CONNECTION OWNER ───────── */

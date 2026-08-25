@@ -41,8 +41,8 @@
  *
  * Server-only.
  */
-import { and, asc, eq, sql } from "drizzle-orm";
-import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
+import { sql } from "drizzle-orm";
+import { type ControlPlaneDatabase } from "@/db/client.server";
 import { integrations } from "@/db/schema/integration";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { findProviderDefinition, PROVIDER_CATALOG } from "@/features/provider-catalog/catalog";
@@ -57,47 +57,39 @@ import {
   INTEGRATION_AUDIT_CONNECTION_DISCONNECTED,
   I1_PRODUCIBLE_STATES,
   isTerminalConnectionState,
-  type ConnectionHealth,
-  type ConnectionListing,
   type ConnectionRefusal,
   type ConnectionState,
   type CreateConnectionInput,
   type CreateConnectionResult,
   type IntegrationView,
-  type ProviderCatalog,
   type TransitionConnectionResult,
 } from "./contracts";
+/*
+ * INT-5A — the reads now live in a writer-free module so a read-only consumer (Heby, via the
+ * capability-availability seam) never holds a reference into this one. They are RE-EXPORTED below
+ * so every existing caller imports exactly what it imported before.
+ */
+import {
+  assertServerOnly,
+  COLUMNS,
+  ownedRow,
+  resolveIntegrationDbOrNull,
+  toIntegrationView,
+  UUID_RE,
+  type IntegrationRepositoryDeps,
+  type IntegrationRow,
+} from "./integration-read.server";
 
-export interface IntegrationRepositoryDeps {
-  readonly getDb?: () => ControlPlaneDatabase | null;
-  readonly now?: () => Date;
-  /**
-   * Injected so a test can exercise this module against a catalog containing a `connectable`
-   * entry, which the RELEASED catalog deliberately does not have. Production leaves it unset.
-   */
-  readonly catalog?: ProviderCatalog;
-}
+export {
+  listConnections,
+  readConnection,
+  toIntegrationView,
+} from "./integration-read.server";
+export type { IntegrationRepositoryDeps } from "./integration-read.server";
+
 
 /** PostgreSQL's unique_violation. Named because a magic string in a catch block ages badly. */
 const UNIQUE_VIOLATION = "23505";
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function assertServerOnly(): void {
-  if (typeof window !== "undefined") {
-    throw new Error("Integration authority is server-only.");
-  }
-}
-
-/** The control-plane database, or an honest `null` when it is not configured. */
-function resolveIntegrationDbOrNull(): ControlPlaneDatabase | null {
-  if (!process.env.DATABASE_URL?.trim()) return null;
-  try {
-    return getControlPlaneDb();
-  } catch {
-    return null;
-  }
-}
 
 /**
  * PostgreSQL `unique_violation`, read from the driver's CODE and never from the message text.
@@ -110,88 +102,6 @@ function isUniqueViolation(error: unknown): boolean {
   if (code === UNIQUE_VIOLATION) return true;
   const cause = (error as { cause?: { code?: unknown } })?.cause;
   return cause?.code === UNIQUE_VIOLATION;
-}
-
-/* ── THE ONE TENANT PREDICATE ───────────────────────────────────────────────── */
-
-/**
- * Every row this tenant owns. The single expression every read and write in this module composes
- * with — copying the clause into each call site is how one of them eventually loses it.
- */
-function ownedBy(tenant: TenantContext) {
-  return eq(integrations.tenantId, tenant.tenantId);
-}
-
-/**
- * ONE row this tenant owns. The id and the tenant are in the SAME `and(...)`, so a foreign id
- * matches nothing at all rather than matching a row this module then has to decide about.
- */
-function ownedRow(tenant: TenantContext, integrationId: string) {
-  return and(eq(integrations.id, integrationId), ownedBy(tenant));
-}
-
-/* ── Row → view ─────────────────────────────────────────────────────────────── */
-
-const COLUMNS = {
-  id: integrations.id,
-  name: integrations.name,
-  providerKey: integrations.providerKey,
-  connectionState: integrations.connectionState,
-  health: integrations.health,
-  scopes: integrations.scopes,
-  externalAccountId: integrations.externalAccountId,
-  externalAccountLabel: integrations.externalAccountLabel,
-  lastVerifiedAt: integrations.lastVerifiedAt,
-  lastSuccessAt: integrations.lastSuccessAt,
-  lastErrorAt: integrations.lastErrorAt,
-  failureReason: integrations.failureReason,
-  revokedAt: integrations.revokedAt,
-  createdAt: integrations.createdAt,
-} as const;
-
-type IntegrationRow = {
-  readonly id: string;
-  readonly name: string;
-  readonly providerKey: string | null;
-  readonly connectionState: ConnectionState;
-  readonly health: ConnectionHealth;
-  readonly scopes: string[] | null;
-  readonly externalAccountId: string | null;
-  readonly externalAccountLabel: string | null;
-  readonly lastVerifiedAt: Date | null;
-  readonly lastSuccessAt: Date | null;
-  readonly lastErrorAt: Date | null;
-  readonly failureReason: string | null;
-  readonly revokedAt: Date | null;
-  readonly createdAt: Date;
-};
-
-const iso = (value: Date | null): string | null => (value === null ? null : value.toISOString());
-
-/**
- * The projection every caller receives.
- *
- * It is built from a NAMED COLUMN LIST, never from `select()` — a `SELECT *` would put whatever
- * columns the table grows next into a caller's hands automatically, which is precisely how a
- * credential column would leak the day I2 adds one to a joined table.
- */
-export function toIntegrationView(row: IntegrationRow): IntegrationView {
-  return {
-    integrationId: row.id,
-    name: row.name,
-    providerKey: row.providerKey,
-    connectionState: row.connectionState,
-    health: row.health,
-    scopes: Object.freeze([...(row.scopes ?? [])]),
-    externalAccountId: row.externalAccountId,
-    externalAccountLabel: row.externalAccountLabel,
-    lastVerifiedAt: iso(row.lastVerifiedAt),
-    lastSuccessAt: iso(row.lastSuccessAt),
-    lastErrorAt: iso(row.lastErrorAt),
-    failureReason: row.failureReason,
-    revokedAt: iso(row.revokedAt),
-    createdAt: row.createdAt.toISOString(),
-  };
 }
 
 /**
@@ -331,57 +241,6 @@ function auditActor(tenant: TenantContext) {
 }
 
 /* ── Read ───────────────────────────────────────────────────────────────────── */
-
-/**
- * One connection this tenant owns, or `null`.
- *
- * A foreign id and a nonexistent id both return `null`, from the same branch. There is no code
- * path that could tell them apart, so there is none that could disclose the difference.
- */
-export async function readConnection(
-  tenant: TenantContext | null,
-  integrationId: string,
-  deps: IntegrationRepositoryDeps = {},
-): Promise<IntegrationView | null> {
-  assertServerOnly();
-  if (!tenant?.tenantId) return null;
-  if (!UUID_RE.test(integrationId)) return null;
-
-  const db = (deps.getDb ?? resolveIntegrationDbOrNull)();
-  if (!db) return null;
-
-  const [row] = await db
-    .select(COLUMNS)
-    .from(integrations)
-    .where(ownedRow(tenant, integrationId))
-    .limit(1);
-
-  return row ? toIntegrationView(row as IntegrationRow) : null;
-}
-
-/** Every connection this tenant owns, oldest first. Bounded so a listing is never a data export. */
-export async function listConnections(
-  tenant: TenantContext | null,
-  deps: IntegrationRepositoryDeps = {},
-): Promise<ConnectionListing> {
-  assertServerOnly();
-  if (!tenant?.tenantId) return { status: "unavailable", reason: "no-authorized-tenant-context" };
-
-  const db = (deps.getDb ?? resolveIntegrationDbOrNull)();
-  if (!db) return { status: "unavailable", reason: "persistence-not-configured" };
-
-  const rows = await db
-    .select(COLUMNS)
-    .from(integrations)
-    .where(ownedBy(tenant))
-    .orderBy(asc(integrations.createdAt), asc(integrations.id))
-    .limit(CONNECTION_LIMITS.listLimit);
-
-  return {
-    status: "read",
-    connections: rows.map((row) => toIntegrationView(row as IntegrationRow)),
-  };
-}
 
 /* ── Disconnect ─────────────────────────────────────────────────────────────── */
 

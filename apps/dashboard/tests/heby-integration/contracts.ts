@@ -71,7 +71,8 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Ten since R3R added `external-recipients` (nine after R3W's `work-artifacts`). The list is
+   * Eleven since INT-5A added `integrations` (ten after R3R's `external-recipients`, nine after
+   * R3W's `work-artifacts`). The list is
    * pinned rather than pattern-matched so a new source class cannot appear without somebody
    * stating it here — which is exactly the review this assertion exists to force. The classes
    * themselves are named so the diff says WHICH one arrived, not merely that the number moved.
@@ -92,6 +93,12 @@ function sourceStatusNotCollapsed(): void {
       "decision-records",
       "work-artifacts",
       "external-recipients",
+      /*
+       * INT-5A. It reports what CAN BE READ from a connected system, never what is inside one — a
+       * capability state, never a provider record. A fabricated item here would tell a Director a
+       * system is usable when it is not, which is why the class earns this review.
+       */
+      "integrations",
     ],
   );
   const context = resolveHebyWorkspaceContext({ workspace: "knowledge" });

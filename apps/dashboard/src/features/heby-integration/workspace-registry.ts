@@ -152,7 +152,14 @@ const WORKSPACE_PROFILES = {
     label: "Platform",
     defaultRoute: "/platform",
     capabilities: [{ family: "platform-inspection", state: "contract-only" }],
-    sourceClasses: ["platform"],
+    /*
+     * INT-5A adds `integrations` here and ONLY here. This profile's own `mayExplain` has asked
+     * "Is this integration or dependency available? What capability does this provider offer?"
+     * since Phase 15, and until now nothing could answer it — `platform` reads Executive Overview
+     * sections, which carry no connection lifecycle and no capability state. This is the workspace
+     * where a connection is a legitimate referent; no other profile gains the class.
+     */
+    sourceClasses: ["platform", "integrations"],
     authority: "restricted",
     mayExplain: [
       "Is this integration or dependency available?",

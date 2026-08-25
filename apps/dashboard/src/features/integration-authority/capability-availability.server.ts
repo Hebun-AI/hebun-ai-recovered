@@ -42,12 +42,22 @@
  *
  * ── WHY `available` IS UNREACHABLE IN I1, AND HOW THAT IS ENFORCED ───────────
  *
- * `available` requires `connection_state = 'connected'` with `health = 'healthy'` and covering scopes,
- * and `connected` requires a verification
- * that requires a credential that requires an encryption boundary — none of which exists. The
- * repository cannot produce `connected`; a test proves it; and the RELEASED catalog contains zero
- * `connectable` providers, so `listConnectableProviders()` is empty and this seam reports
- * `readiness: "no-connectable-provider"` with an empty capability list.
+ * `available` requires `connection_state = 'connected'` with `health = 'healthy'` and covering scopes.
+ * The repository cannot produce `connected` — a test proves it — so only a VERIFIER may, and in I1
+ * none existed. The RELEASED catalog therefore held zero `connectable` providers and this seam
+ * reported `readiness: "no-connectable-provider"` with an empty capability list.
+ *
+ * ── CORRECTED AT INT-5A: THAT IS NO LONGER THE DEPLOYMENT ───────────────────
+ *
+ * INT-3 built the Google verifier and INT-4 its Drive-metadata capability; GITHUB-2 built the
+ * GitHub verifier and GITHUB-4 its repository-activity capability. The RELEASED catalog now holds
+ * TWO `connectable` definitions, so `listConnectableProviders()` is non-empty and this seam reaches
+ * `readiness: "catalog-ready"` and can reach `available` for a real tenant.
+ *
+ * The paragraph above described the world at I1 and was left behind by two phases. The MECHANISM
+ * did not change and is not weakened here: `available` still has exactly one spelling, and the
+ * repository still cannot manufacture `connected`. Only the count of connectable definitions moved,
+ * and `catalog-honesty.ts` asserts the count rather than this comment.
  *
  * An empty list alone would read as "everything is fine". `readiness` is what makes that
  * impossible: a consumer must handle the value that says nothing is connectable at all.
@@ -75,7 +85,12 @@ import {
   listConnectableProviders,
   PROVIDER_CATALOG,
 } from "@/features/provider-catalog/catalog";
-import { listConnections } from "./integration-repository.server";
+/*
+ * INT-5A — the WRITER-FREE read module, not the repository. Identical function, relocated: a Heby
+ * module consuming this seam must not hold a reference into a module that can create a connection,
+ * attach a credential to one, or end one.
+ */
+import { listConnections } from "./integration-read.server";
 import {
   isHealthUsable,
   isImpairedHealth,
@@ -265,8 +280,10 @@ export async function getCapabilityAvailability(
   const catalog = deps.catalog ?? PROVIDER_CATALOG;
   const connectable = listConnectableProviders(catalog);
   /*
-   * NOTHING IS CONNECTABLE — the truthful state of this deployment for the whole of I1. Reported
-   * before the tenant is even considered, because it is a fact about the build and not about them.
+   * NOTHING IS CONNECTABLE — reported before the tenant is even considered, because it is a fact
+   * about the build and not about them. It was this deployment's truthful state for the whole of
+   * I1; since INT-3/GITHUB-2 the catalog carries connectable definitions and this branch is the
+   * fail-closed path for a build that ships none.
    */
   if (connectable.length === 0) return NOTHING_CONNECTABLE;
 

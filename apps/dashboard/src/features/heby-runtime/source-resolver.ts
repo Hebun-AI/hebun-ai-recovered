@@ -112,6 +112,17 @@ export function resolveSource(
       );
     case "memory":
       return unavailable("memory", "No connected Memory retrieval path.");
+    /*
+     * INT-5A. The same arrangement K1, R3W, R3R and G6C use: this resolver is PURE — it holds no
+     * tenant and can open no connection — so it reports the honest default, and the server answer
+     * flow substitutes the real tenant-scoped read. A caller with no server seam gets no
+     * integration state, which is the truthful outcome rather than a seeded one.
+     */
+    case "integrations":
+      return unavailable(
+        "integrations",
+        "Integration capability state is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
     case "intelligence":
       return unavailable("intelligence", "No validated Intelligence candidates are connected.");
     case "workforce":

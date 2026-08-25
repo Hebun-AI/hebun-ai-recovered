@@ -42,6 +42,13 @@ const SEAM_SUITE = "tests/i1-connection-authority/availability-seam.ts";
 const FIREWALL_SUITE = "tests/i1-connection-authority/boundaries-and-firewall.ts";
 
 const REPO = "src/features/integration-authority/integration-repository.server.ts";
+/*
+ * INT-5A split the reads out of REPO into a writer-free module so a read-only consumer never holds
+ * a reference into the writers. The tenant predicate moved with them, so M1 must target where it
+ * now lives — and that is a STRICTLY BETTER target: the predicate is now the one expression both
+ * the reads and the writers compose with, and deleting it there is a wider mutation than before.
+ */
+const READ = "src/features/integration-authority/integration-read.server.ts";
 const VERIFY = "src/features/integration-authority/verify-connection.server.ts";
 const SEAM = "src/features/integration-authority/capability-availability.server.ts";
 const CATALOG = "src/features/provider-catalog/catalog.ts";
@@ -77,10 +84,19 @@ interface Mutation {
 const MUTATIONS: readonly Mutation[] = [
   {
     label: "M1 the tenant predicate is deleted",
-    file: REPO,
+    file: READ,
     suite: TENANT_SUITE,
     find: "  return eq(integrations.tenantId, tenant.tenantId);",
-    replace: "  return sql`true`;",
+    /*
+     * INT-5A: the replacement is now a self-contained always-true comparison rather than
+     * ``sql`true` ``. The read module imports no `sql` helper — it has no raw SQL to write — so the
+     * old replacement made the mutated file throw a ReferenceError, which failed the suite for the
+     * wrong reason and would have passed a weaker assertion than CONDITION 3.
+     *
+     * This models the defect more exactly in any case: the predicate is still a predicate on the
+     * tenant column, it has simply stopped constraining it to THIS tenant.
+     */
+    replace: "  return eq(integrations.tenantId, integrations.tenantId);",
     expect: "A cannot READ B's connection",
   },
   {

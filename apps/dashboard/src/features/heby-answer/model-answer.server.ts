@@ -77,6 +77,13 @@ import { resolveWorkArtifactSource } from "@/features/work-artifacts/work-artifa
  * firewall test asserts.
  */
 import { readGovernanceGroundingSource } from "@/features/governance-grounding/heby-governance-source.server";
+/*
+ * INT-5A — the SAME seam once more, for this tenant's integration capability state. It is the
+ * integration authority's own read projection, and its whole import graph is writer-free and
+ * network-free: consulting it can never contact Google or GitHub, never verify a connection, and
+ * never read a provider record.
+ */
+import { readIntegrationGroundingSource } from "@/features/integration-authority/heby-integration-source.server";
 import {
   toResponseSourceEvidence,
   toStoredSourceEvidence,
@@ -208,6 +215,12 @@ export interface HebyModelAnswerDeps {
   readonly resolveWorkArtifacts?: (tenant: TenantContext) => Promise<SourceResolution>;
   /** Explicit Governance resolution (G6C). Defaults to the real tenant-scoped read adapter. */
   readonly resolveGovernance?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /**
+   * INT-5A — explicit integration capability-state resolution. Defaults to the real tenant-scoped
+   * read. Consulted ONLY for workspaces that declare the `integrations` source class, and it can
+   * only ever contribute EVIDENCE — never a provider read, never authority, never an act.
+   */
+  readonly resolveIntegrations?: (tenant: TenantContext) => Promise<SourceResolution>;
 }
 
 /** What actually happened to durable persistence for this request. Never fabricated. */
@@ -376,6 +389,40 @@ async function withGovernance(
 }
 
 /**
+ * INT-5A — the same seam once more, for this tenant's integration capability state.
+ *
+ * The pure resolver reports `integrations` unavailable because it holds no tenant; this substitutes
+ * the real tenant-scoped read for the workspaces that declare the class (today: Platform only).
+ *
+ * THIS IS A CONTROL-PLANE READ. The projection behind it performs no INSERT, UPDATE or DELETE,
+ * imports no integration lifecycle writer, and — the property this phase turns on — imports no
+ * provider transport and no `fetch`. An ordinary Heby answer therefore cannot contact Google or
+ * GitHub, cannot re-verify a connection, cannot spend a provider rate limit, and cannot read a
+ * provider record. A firewall walks the real import graph and proves all of it.
+ *
+ * A read failure degrades to the pure resolution — it never fabricates a connection, never claims
+ * a capability, and never removes another source's evidence.
+ */
+async function withIntegrations(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "integrations")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveIntegrations ?? readIntegrationGroundingSource;
+    const integrations = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "integrations" ? integrations : resolution,
+    );
+  } catch {
+    return resolutions;
+  }
+}
+
+/**
  * Build the grounding context lines the model receives as DATA. Provenance and availability
  * are PRESERVED (not flattened): a resolved item carries its provenance statement; an
  * unavailable source states its honest reason. Record identifiers come only from retrieval.
@@ -515,7 +562,9 @@ export async function answerHebyModelRequest(
   // R3W — prepared work joins the SAME deterministic evidence set, through the same server seam.
   const artifactResolutions = await withWorkArtifacts(knowledgeResolutions, tenant, deps);
   // G6C — this tenant's own Governance record joins the SAME deterministic evidence set.
-  const resolutions = await withGovernance(artifactResolutions, tenant, deps);
+  const governanceResolutions = await withGovernance(artifactResolutions, tenant, deps);
+  // INT-5A — this tenant's integration capability state joins it too. Control-plane read only.
+  const resolutions = await withIntegrations(governanceResolutions, tenant, deps);
   const assembled = assembleEvidence(resolutions);
 
   // The honest deterministic fallback (an answer where possible, an honest unavailable else).

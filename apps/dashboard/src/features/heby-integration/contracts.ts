@@ -250,7 +250,21 @@ export type HebySourceClass =
    * (`external-recipient/<uuid>`). Folding it into `operations` would make a real person's address
    * indistinguishable from a derived read-model section in the evidence set.
    */
-  | "external-recipients";
+  | "external-recipients"
+  /*
+   * INT-5A. The tenant's INTEGRATION CAPABILITY STATE — which organizational systems are connected
+   * and what may currently be READ from them. It is its own class rather than a flavour of
+   * `platform` for the reason `work-artifacts` and `external-recipients` are: a different authority
+   * owner. `platform` reads the Executive Overview's derived platform sections; this reads the
+   * integration authority's normalized capability seam, which is tenant-scoped and owns the
+   * connected/degraded/revoked distinction that no overview section carries.
+   *
+   * IT IS A CAPABILITY STATE, NEVER A PROVIDER RECORD. No Drive file, no repository, no pull
+   * request, no provider payload — those live behind a live provider read this class does not
+   * perform and cannot reach. "Drive metadata can be read" is what this source says; "here is a
+   * Drive file" is INT-5B and does not exist.
+   */
+  | "integrations";
 
 export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "knowledge",
@@ -263,6 +277,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "decision-records",
   "work-artifacts",
   "external-recipients",
+  "integrations",
 ] as const;
 
 export interface HebySourceStatus {
