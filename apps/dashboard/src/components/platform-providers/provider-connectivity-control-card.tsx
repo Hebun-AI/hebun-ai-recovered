@@ -70,6 +70,22 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
 
   const transportTone: Tone =
     view.transport === "live" ? "info" : view.transport === "fake" ? "warn" : "muted";
+  /*
+   * AVAILABILITY IS THE ONLY FIELD THAT DECIDES DISPATCH.
+   *
+   * The gates beside it can all read healthy while a request is still blocked: two of the five
+   * inputs `evaluateModelAvailability` consults were never rendered here, and the field labelled
+   * "Credential" reports a different variable than the credential GATE. So the card is no longer
+   * allowed to imply readiness from the gates alone — it states the evaluator's own verdict.
+   */
+  const availabilityTone: Tone = view.availability === "AVAILABLE" ? "good" : "warn";
+  const AVAILABILITY_LABEL: Record<typeof view.availability, string> = {
+    AVAILABLE: "Available — an attempt is permitted",
+    DISABLED: "Disabled — connectivity flag is not enabled",
+    MISCONFIGURED: "Misconfigured — provider, model or output bound",
+    CREDENTIAL_UNAVAILABLE: "Blocked — no server-side model credential",
+    TRANSPORT_UNAVAILABLE: "Blocked — no live transport selected",
+  };
   const transportLabel =
     view.transport === "live" ? "Live" : view.transport === "fake" ? "Test (fake)" : "Unavailable";
 
@@ -147,6 +163,9 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
           <Field label="Transport">
             <Pill tone={transportTone} label={transportLabel} />
           </Field>
+          <Field label="Availability">
+            <Pill tone={availabilityTone} label={AVAILABILITY_LABEL[view.availability]} />
+          </Field>
           <Field label="Connectivity">
             <Pill tone="muted" label="Not recorded" />
           </Field>
@@ -160,7 +179,10 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
         <p className="text-xs leading-5 text-fg-muted">
           <strong className="text-fg-secondary">Enabled</strong> means the Director permits
           connectivity — not that Claude is configured, healthy, reachable, or that the last request
-          succeeded. Those are separate facts shown above.
+          succeeded. Those are separate facts shown above.{" "}
+          <strong className="text-fg-secondary">Availability</strong> is the only one that decides
+          whether a request may be attempted at all; the other gates can read healthy while it does
+          not. It still never means a provider was reached or that a call succeeded.
         </p>
         <p className="text-xs leading-5 text-fg-muted">
           The API key is never shown or changed here; it stays in server configuration. This control

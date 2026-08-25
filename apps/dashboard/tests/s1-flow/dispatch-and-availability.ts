@@ -64,6 +64,8 @@ const PROVIDER_OFF = {
   transport: "fake" as const,
   connectivity: "not-recorded" as const,
   lastValidation: null,
+  /* Director OFF, so no request may be attempted regardless of the gates above. */
+  availability: "DISABLED" as const,
 };
 
 function plan(slash: string, args: readonly string[] = []): HebyCommandPlan {

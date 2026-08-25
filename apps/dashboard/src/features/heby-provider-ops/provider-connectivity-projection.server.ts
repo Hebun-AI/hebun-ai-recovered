@@ -9,16 +9,44 @@
  *   transport        — which transport the current config would select (live/fake/unavailable)
  *   connectivity     — "not-recorded": R2E performs NO live check, so it invents no health
  *   lastValidation   — null: no authoritative last-validation record exists yet
+ *   availability     — the AUTHORITATIVE dispatch classification, from `evaluateModelAvailability`
+ *
+ * ── WHY `availability` HAD TO BE ADDED ───────────────────────────────────────
+ *
+ * The five fields above report gates, and a reader naturally concludes that healthy gates mean a
+ * request may proceed. They do not. `evaluateModelAvailability` consults FIVE inputs, and this view
+ * surfaced three of them:
+ *
+ *   enabled           ← HEBUN_MODEL_CONNECTIVITY_ENABLED   — was not surfaced at all
+ *   provider/model/max← shown as `configuration`
+ *   credentialPresent ← HEBUN_MODEL_CREDENTIAL             — was not surfaced at all
+ *   transportPresent  ← shown as `transport`
+ *
+ * Worse, the field named `credential` reports ANTHROPIC_API_KEY presence, while the gate named
+ * `credentialPresent` reads a DIFFERENT variable. So `configured + present + live` was compatible
+ * with BOTH `AVAILABLE` and a blocked state, and the two rendered identically. A real production
+ * ceremony read this card, concluded a request had been dispatched, and was wrong — the request
+ * never left the deployment.
+ *
+ * `availability` is not a sixth opinion. It is the SAME released evaluator this module already
+ * feeds, called with the SAME config and transport presence, so the card can no longer disagree
+ * with the runtime that actually decides. It names the blocking gate directly: DISABLED,
+ * MISCONFIGURED, CREDENTIAL_UNAVAILABLE, TRANSPORT_UNAVAILABLE, or AVAILABLE.
+ *
+ * AVAILABLE still means only "an attempt is permitted" — never that a provider was reached, and
+ * never that a call succeeded.
  *
  * "Director enabled" ≠ "configured" ≠ "credential present" ≠ "connected" ≠ "last request ok".
  * The view carries no API key, no partial key, no health %, no cost, and no latency.
  *
  * Server-only. Reads are pure/inert (constructing a transport performs no I/O).
  */
+import type { ModelAvailabilityState } from "@/features/heby-runtime";
 import {
   resolveModelConnectivityConfig,
   type ModelConnectivityConfig,
 } from "@/features/heby-model/model-connectivity-environment.server";
+import { evaluateModelAvailability } from "@/features/heby-model/model-availability";
 import {
   selectModelTransport,
   type ModelTransportSelection,
@@ -47,6 +75,11 @@ export interface ProviderOpsView {
   readonly connectivity: "not-recorded";
   /** No authoritative last-validation record exists yet. */
   readonly lastValidation: null;
+  /**
+   * The AUTHORITATIVE dispatch classification — the only field that answers "may a request be
+   * attempted right now". Derived from the released `evaluateModelAvailability`, never restated.
+   */
+  readonly availability: ModelAvailabilityState;
 }
 
 export interface ProviderOpsViewDeps {
@@ -72,6 +105,14 @@ export async function readProviderOpsView(
   const credentialPresent = (deps.isCredentialPresent ?? isLiveCredentialPresent)(env);
   const configured = Boolean(config.provider && config.modelId && config.maxOutputTokens > 0);
 
+  /*
+   * The SAME evaluator the request path uses, with the SAME inputs. Pure — it performs no I/O,
+   * reaches no provider, and reads no secret value.
+   */
+  const availability = evaluateModelAvailability(config, {
+    transportPresent: Boolean(selection.transport),
+  });
+
   return {
     providerLabel: "Anthropic / Claude",
     providerKey: CLAUDE_PROVIDER_KEY,
@@ -83,5 +124,6 @@ export async function readProviderOpsView(
     transport: selection.transportProvenance ?? "unavailable",
     connectivity: "not-recorded",
     lastValidation: null,
+    availability,
   };
 }
