@@ -10,6 +10,11 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 
 const read = (path: string) => readFileSync(path, "utf8");
+/*
+ * Executable source only. A structural proof over RAW text can be satisfied by the file's own
+ * prose — which is exactly how this suite's navigation clause went vacuous (see section 3).
+ */
+const codeOf = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
 
 const PAGE = "src/app/(dashboard)/heby/page.tsx";
 /** THE shared conversation seam. HW3 moved the behaviour here so BOTH surfaces are covered. */
@@ -24,6 +29,9 @@ const VISUALIZER = "src/components/layout/heby/heby-visualizer.tsx";
 const LAUNCHER = "src/components/layout/heby/heby-launcher.tsx";
 const WHY = "src/components/command-center/heby-why.tsx";
 const SHELL = "src/components/layout/hebun-shell.tsx";
+const RAIL = "src/components/layout/workspace-rail.tsx";
+const MOBILE_NAV = "src/components/layout/mobile-nav.tsx";
+const SECONDARY_NAV = "src/components/layout/secondary-nav.tsx";
 
 const CLIENT_FILES = [HOOK, CONTAINER, SURFACE, PANEL, PANEL_CONTAINER, COMPOSER, TURNS, VISUALIZER, LAUNCHER, WHY];
 
@@ -63,7 +71,38 @@ function main(): void {
     }
     const shell = read(SHELL);
     assert.ok(!shell.includes("HebyPanel") && !shell.includes("HebyProvider"), "the retired drawer is not remounted");
-    assert.ok(shell.includes("WorkspaceRail") && shell.includes("SecondaryNav"), "Hebun navigation is intact");
+    /*
+     * ── HW1'S NAVIGATION INVARIANT, RE-EXPRESSED FOR THE INTEGRATED RAIL ─────────────────────
+     *
+     * As released this read `shell.includes("WorkspaceRail") && shell.includes("SecondaryNav")`
+     * over the RAW file, and it guarded ONE thing: retiring the pre-H1 drawer must not have cost
+     * Hebun its own two navigation levels.
+     *
+     * CMD-FINAL/RESPONSIVE-L2 falsified the REPRESENTATION, never the invariant. The detached
+     * Level-2 column is gone; Level-2 is now `SecondaryNavContent`, rendered inline by the rail
+     * from tablet upward and by the mobile sheet below it. Both levels are still mounted on every
+     * route — but the old clause could no longer tell. It kept passing on the word
+     * `SecondaryNavContent` inside this shell's own PROSE, with no import and no mount anywhere in
+     * the file. A substring guard a comment can satisfy is not a guard.
+     *
+     * So the invariant is asserted against CODE rather than text, against the MOUNT rather than
+     * the name, and across BOTH responsive paths rather than one file.
+     */
+    const shellCode = codeOf(shell);
+    assert.match(shellCode, /<WorkspaceRail\s*\/>/, "the shell still mounts Level-1 navigation");
+    for (const [surface, path] of [
+      ["the rail", RAIL],
+      ["the mobile sheet", MOBILE_NAV],
+    ] as const) {
+      const src = codeOf(read(path));
+      assert.match(src, /from "\.\/secondary-nav"/, `${surface} imports the canonical Level-2 list`);
+      assert.match(src, /<SecondaryNavContent\b/, `${surface} mounts Level-2 navigation`);
+    }
+    /* Retired, not merely unmounted: the detached column no longer exists to be re-adopted. */
+    assert.ok(
+      !/export\s+function\s+SecondaryNav\s*\(/.test(read(SECONDARY_NAV)),
+      "the detached Level-2 column is retired",
+    );
     for (const file of [PANEL, PANEL_CONTAINER]) {
       const src = read(file);
       assert.ok(!src.includes("runHebyIntent") && !src.includes("runNavigation"), `${file} does not revive the pre-H1 runtime`);
