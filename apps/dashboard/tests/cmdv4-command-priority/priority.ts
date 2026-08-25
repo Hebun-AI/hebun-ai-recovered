@@ -229,10 +229,16 @@ function layoutIsArrangementOnly(overrides: Readonly<Record<string, string>> = {
     }
     return out;
   };
+  /*
+   * AMENDED BY CMD-FINAL, for the same reason and on the same terms as CMD-V3's `density` pin.
+   * Command's operating statement is no longer a StateBlock, so no surface asks for `row`. The
+   * empty set fails the moment any surface opts in; the byte-identity of the `stack` default —
+   * the property that protects the six untouched consumers — is asserted above and is unchanged.
+   */
   assert.deepEqual(
     walk("src").filter((f) => /layout="row"/.test(overrides[f] ?? read(f))),
-    [OVERVIEW],
-    "only Command asks for the row arrangement",
+    [],
+    "no surface opts into the row arrangement — CMD-FINAL retired the boxed status",
   );
 }
 

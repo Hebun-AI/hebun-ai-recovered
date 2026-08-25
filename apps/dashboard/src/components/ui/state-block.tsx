@@ -74,7 +74,7 @@ import { cn } from "@/lib/utils";
 
 export type StateTone = "empty" | "unavailable" | "restricted" | "error" | "loading";
 
-interface ToneSpec {
+export interface ToneSpec {
   /** The single word that names the reason. Never a synonym of another tone's word. */
   readonly eyebrow: string;
   readonly container: string;
@@ -84,7 +84,24 @@ interface ToneSpec {
   readonly ariaLive?: "polite";
 }
 
-const TONES: Readonly<Record<StateTone, ToneSpec>> = Object.freeze({
+/**
+ * The tone table, EXPORTED so a surface can arrange these five signals differently without
+ * inventing a sixth set of them.
+ *
+ * ── WHY THIS IS AN EXPORT AND NOT A SIXTH PROP ───────────────────────────────
+ *
+ * CMD-FINAL needed the primary operating answer NOT to be a bordered card — a card is the right
+ * shape for "there is nothing in this region", and the wrong shape for "here is the state of your
+ * organization". Expressing that through StateBlock would have meant a third presentation axis on
+ * top of `density` and `layout`, and a `frame: "bare"` that removes the border is a StateBlock that
+ * has stopped being a block.
+ *
+ * So Command composes its own status line — and takes the WORD, the MARK and the BADGE from here,
+ * unchanged. This is the distinction that matters: the AUTHORITY over what `empty` and
+ * `unavailable` look like stays in this file, in one table, for every surface. Only the
+ * ARRANGEMENT is Command's. A second table would be a second authority; a second layout is not.
+ */
+export const TONES: Readonly<Record<StateTone, ToneSpec>> = Object.freeze({
   /* Dashed + neutral: the released EmptyState treatment, unchanged. */
   empty: {
     eyebrow: "Empty",

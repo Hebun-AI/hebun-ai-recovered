@@ -50,7 +50,15 @@ export default async function CommandPage() {
     <>
       <PageHeader
         title="Command"
-        context="What is waiting on a human, and what you can ask Hebun to prepare. Command summarizes and routes; every act belongs to the workspace that owns it."
+        /*
+         * CMD-V5 dropped the first sentence, which read "What is waiting on a human, and what you
+         * can ask Hebun to prepare." It was a table of contents for this page's own two primary
+         * sections, and those sections now name themselves and state their own questions — so it
+         * spent a reading-size line of the page's tallest block restating what was about to be said
+         * twice below it. The authority claim is the sentence that carries truth here, and it is
+         * kept VERBATIM: Command summarizes and routes, and owns no act.
+         */
+        context="Command summarizes and routes; every act belongs to the workspace that owns it."
       />
       <CommandOverview waiting={toWaitingOnYou(pending)} intent={getExpressIntentSummary()} />
     </>

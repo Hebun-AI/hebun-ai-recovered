@@ -667,20 +667,10 @@
   }
 }
 
-/*
- * App shell — user-collapsible Level-2 navigation (desktop only, ≥1024px).
- * Collapsing sets the secondary column width to 0, so the calc()-based content
- * padding (--shell-nav-w = --rail-w + --secondary-w) reclaims the canvas
- * automatically, and the column itself is hidden. Tablet/mobile are unaffected
- * (they use the drawer/sheet, not this fixed column). The toggle control lives
- * in the topbar so it is always reachable to restore the navigation.
- */
-@media (min-width: 1024px) {
-  :root[data-secondary="collapsed"] {
-    --secondary-w: 0px;
-  }
-  :root[data-secondary="collapsed"] [data-shell="secondary"] {
-    display: none;
+/* One integrated navigation column from tablet upward; mobile keeps its existing sheet. */
+@media (min-width: 768px) {
+  :root {
+    --rail-w: var(--rail-inline-w);
   }
 }
 
@@ -712,26 +702,20 @@
  * navigation, which focused mode has no business touching, so at those widths this mode does not
  * exist at all rather than existing quietly.
  *
- * It mounts and unmounts nothing. The secondary column collapses to zero width the same way the
- * operator's own collapse control does — which is why the calc()-based content padding reclaims the
- * canvas with no further rule — and the Level-1 rail narrows to a minimal identity and navigation
+ * It mounts and unmounts nothing. The inline navigation rail narrows while Heby is
+ * focused, so the calc()-based content padding reclaims the canvas, and the Level-1 rail narrows
+ * to a minimal identity and navigation
  * strip. Every workspace is still one click away, and the top bar stays exactly where it was,
  * carrying the control that brings the navigation back.
  *
- * IT DOES NOT TOUCH `data-secondary`. That attribute is the operator's persisted preference; this
- * mode reads it, overrides the width while Heby is on screen, and leaves the stored value alone, so
- * leaving Heby restores whatever they had.
+ * It does not own navigation persistence. It only overrides the route-scoped rail width while Heby
+ * is on screen; leaving Heby restores the ordinary integrated rail.
  */
 @media (min-width: 1024px) {
   :root[data-heby-focus="on"] {
-    --secondary-w: 0px;
+    --secondary-offset: 0px;
     /* A minimal strip: the identity mark, the workspace icons, the Heby control. */
     --rail-w: 56px;
-  }
-
-  /* Present in the document, and out of the layout — identical to the released collapse. */
-  :root[data-heby-focus="on"] [data-shell="secondary"] {
-    display: none;
   }
 
   /* The rail keeps its icons and loses only its labels; each item keeps its title and aria-current. */

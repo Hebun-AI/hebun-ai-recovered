@@ -1,6 +1,5 @@
 import { RoleProvider } from "./role-context";
 import { WorkspaceRail } from "./workspace-rail";
-import { SecondaryNav } from "./secondary-nav";
 import { TopBar } from "./topbar";
 import { HebySurfaceProvider } from "./heby/heby-surface-context";
 import { HebyVoiceProvider } from "./heby/heby-voice-runtime";
@@ -11,12 +10,11 @@ import { HebyFocusProvider } from "./heby/heby-focus-mode";
  * The Hebun App Shell (UI Phase 5).
  *
  *   Level 1  — WorkspaceRail: the seven product workspaces + Heby launcher.
- *   Level 2  — SecondaryNav: the active workspace's destinations.
+ *   Level 2  — the active workspace's destinations, inline beneath its Level-1 row.
  *   Content  — the routed product page.
  *
  * Responsive:
- *   desktop (lg+)   rail + persistent Level-2 column + content
- *   tablet  (md–lg) rail + Level-2 as a drawer (topbar trigger) + content
+ *   tablet/desktop  one integrated rail with inline Level-2 presentation + content
  *   mobile  (<md)   workspace/section sheet + content
  *
  * HW3 — HEBY HAS TWO PRESENTATION SURFACES, AND ONLY ONE CAN BE ACTIVE.
@@ -49,7 +47,7 @@ import { HebyFocusProvider } from "./heby/heby-focus-mode";
  * FOCUSED HEBY MODE — PRESENTATION ONLY, AND STILL EXACTLY ONE SHELL. `HebyFocusProvider` sits
  * inside the surface provider because the mode it derives is a function of the surface, which is a
  * function of the route. It mounts no navigation of its own and takes none away: `WorkspaceRail`
- * and `SecondaryNav` are rendered UNCONDITIONALLY below, in every mode, on every route. The mode is
+ * and its canonical `SecondaryNavContent` are rendered unconditionally below, on every route. The mode is
  * one root data attribute and one stylesheet block (see globals.css), so there is no second shell
  * to keep in agreement with this one, and nothing here is persisted into a preference that could
  * outlive the route it came from.
@@ -64,12 +62,8 @@ export function HebunShell({ children }: { children: React.ReactNode }) {
         <HebyVoiceProvider>
           <HebyFocusProvider>
             <div className="min-h-dvh bg-background text-fg">
-              {/*
-                Both navigation components, always. Focused mode is a width and a set of styles; it
-                is never a mounting condition, so neither line below is behind a mode test.
-              */}
+              {/* One route-derived navigation rail; focused mode only changes its presentation. */}
               <WorkspaceRail />
-              <SecondaryNav />
               <div className="min-w-0 md:pl-(--rail-w) lg:pl-(--shell-nav-w)">
                 <TopBar />
                 <main className="mx-auto flex w-full min-w-0 max-w-[1800px] flex-col px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">

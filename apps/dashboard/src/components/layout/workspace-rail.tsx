@@ -6,11 +6,12 @@ import { cn } from "@/lib/utils";
 import { resolveShellSurface, workspacesForRole } from "@/config/workspace-nav";
 import { useRole } from "./role-context";
 import { HebyLauncher } from "./heby/heby-launcher";
+import { SecondaryNavContent } from "./secondary-nav";
 
 /*
- * Level-1 primary rail: the seven product workspaces + the ambient Heby
- * launcher. Icon rail with labels, active = accent + left-rule + aria-current.
- * Fixed on tablet and desktop; replaced by the mobile sheet below md.
+ * Level-1 primary rail: the seven product workspaces + the ambient Heby launcher. At tablet and
+ * desktop widths the active workspace exposes its Level-2 destinations directly beneath its
+ * Level-1 row. The URL remains the one expansion authority.
  */
 
 export function WorkspaceRail() {
@@ -34,7 +35,7 @@ export function WorkspaceRail() {
        * click away.
        */
       data-shell="rail"
-      className="fixed inset-y-0 left-0 z-(--z-sticky) hidden w-(--rail-w) flex-col items-center border-r border-border/70 bg-surface-sunken md:flex"
+      className="fixed inset-y-0 left-0 z-(--z-sticky) hidden w-(--rail-w) flex-col border-r border-border/70 bg-surface-sunken md:flex"
     >
       <Link
         href="/command"
@@ -46,66 +47,80 @@ export function WorkspaceRail() {
         </span>
       </Link>
 
-      <nav aria-label="Primary" className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-3">
-        {workspaces.map((workspace) => {
-          const Icon = workspace.icon;
-          const isActive = workspace.id === active;
-          return (
-            <Link
-              key={workspace.id}
-              href={workspace.href}
-              aria-current={isActive ? "page" : undefined}
-              title={workspace.label}
-              className={cn(
-                /*
-                 * VI-2 — the seven workspace names rendered at 9.92px, which is the primary
-                 * navigation of the product below the Stage 0 reading floor. They are now at the
-                 * floor, and the two extra pixels the longest of them needs come from this item's
-                 * own padding (`px-1` → `px-0.5`), never from `--rail-w` and never from the icon.
-                 *
-                 * Measured: available label width was 92 − 16 (this item's calc) − 8 (px-1) = 68px,
-                 * and "Governance" needs 68.3px at 12px with this tracking. `px-0.5` gives 72px,
-                 * clearing the widest name by 3.7px; the next widest, "Intelligence", needs 64.5px.
-                 */
-                /*
-                 * `text-xs` — 0.75rem — is EXACTLY the Stage 0 floor `--fs-label`, and it is what
-                 * this must be written as today. `text-label` was the first attempt and it is a
-                 * no-op: `@theme inline` cannot resolve `--text-label: var(--fs-label)` because
-                 * `--fs-label` lives in an imported plain stylesheet, so Tailwind emits NO rule for
-                 * `.text-label` and the element falls back to the inherited 16px. Measured in the
-                 * running product: `.text-display`, `.text-title`, `.text-body`, `.text-meta` and
-                 * `.text-label` all have no rule and all render at 16px. Worse for a shell class —
-                 * `cn()` runs tailwind-merge, which does not know `text-label` is a font size and
-                 * drops it as a colour when a `text-*` colour follows.
-                 *
-                 * Repairing the theme block would resize 165 elements across the canonical
-                 * Knowledge workspace, which is a typography change with its own geometry proof and
-                 * its own gate. VI-2 states the floor in a utility that exists.
-                 */
-                "group relative flex w-[calc(var(--rail-w)-16px)] flex-col items-center gap-1 rounded-xl px-0.5 py-2 text-xs font-semibold tracking-tight transition-colors duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring",
-                isActive
-                  ? "bg-primary-subtle text-primary"
-                  : "text-fg-secondary hover:bg-surface-raised hover:text-fg",
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full",
-                  isActive ? "bg-primary" : "bg-transparent",
-                )}
-              />
-              <Icon className="size-5 shrink-0" />
-              {/*
-                No `truncate`. A workspace name is the product's top-level navigation; shortening it
-                silently is the one thing this rail may not do. All seven fit the 72px the item now
-                gives them, and the set is closed by the seven-workspace invariant — so nothing here
-                relies on a shortening rule, and the proof suite fails if a name stops fitting.
-              */}
-              <span data-rail-label="" className="max-w-full text-center">{workspace.label}</span>
-            </Link>
-          );
-        })}
+      {/*
+        THE NAVIGATION IS EXACTLY AS WIDE AS THE RAIL. It was `w-[min(20rem,100vw)]` — 320px of
+        navigation inside a 156px rail — with `pointer-events-none` here and `pointer-events-auto`
+        on the list, so the 164px of overhang would not swallow clicks. That is the defect: the
+        overhang still PAINTED, and an active Level-2 row rendered a solid surface across the
+        workspace canvas. Nothing inside a navigation column may be wider than the column; the
+        width now comes from the rail token, and `overflow-x-hidden` is a backstop rather than the
+        mechanism.
+      */}
+      <nav
+        aria-label="Primary"
+        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden px-2 py-3"
+      >
+        <ul className="flex w-full min-w-0 flex-col gap-0.5">
+          {workspaces.map((workspace) => {
+            const Icon = workspace.icon;
+            const isActive = workspace.id === active;
+            const sectionsId = `workspace-${workspace.id}-sections`;
+            return (
+              <li key={workspace.id} className="min-w-0">
+                <Link
+                  href={workspace.href}
+                  aria-current={isActive ? "page" : undefined}
+                  aria-expanded={isActive}
+                  aria-controls={isActive ? sectionsId : undefined}
+                  title={workspace.label}
+                  className={cn(
+                    "group relative flex min-h-9 w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring",
+                    isActive
+                      ? "bg-primary-subtle text-primary"
+                      : "text-fg-secondary hover:bg-surface-raised hover:text-fg",
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full",
+                      isActive ? "bg-primary" : "bg-transparent",
+                    )}
+                  />
+                  <Icon className="size-4 shrink-0" />
+                  <span data-rail-label="" className="min-w-0 text-left leading-snug">
+                    {workspace.label}
+                  </span>
+                </Link>
+                                  {/*
+                    IN FLOW, AT THE RAIL'S WIDTH, ON THE RAIL'S LAYER. This carried `w-max` — an
+                    intrinsic width with no ceiling — plus `min-w-[calc(100%-1rem)]` and
+                    `z-(--z-dropdown)`, so the longest destination decided how far the block
+                    reached and the z-index put it above the canvas it reached into. All three are
+                    gone: the block is an ordinary indented child, it fills the width it is given
+                    and never asks for more, and it stacks with the rail rather than above the page.
+
+                    `ml-3` rather than `ml-4`: the indent still reads, and the 4px it returns is
+                    part of the 71px chrome budget the rail width is derived from.
+                  */}
+                {isActive ? (
+                  <div
+                    id={sectionsId}
+                    data-l2-presentation="inline"
+                    className="ml-3 mt-1 min-w-0 border-l border-border/70 pl-1"
+                  >
+                    <SecondaryNavContent
+                      workspace={workspace}
+                      role={role}
+                      pathname={pathname}
+                      density="inline"
+                    />
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       </nav>
 
       <div className="w-full shrink-0 border-t border-border/70 p-2">

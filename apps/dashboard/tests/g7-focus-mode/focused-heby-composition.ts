@@ -38,7 +38,6 @@ const SHELL = "src/components/layout/hebun-shell.tsx";
 const TOPBAR = "src/components/layout/topbar.tsx";
 const RAIL_NAV = "src/components/layout/workspace-rail.tsx";
 const SECONDARY = "src/components/layout/secondary-nav.tsx";
-const TOGGLE = "src/components/layout/secondary-toggle.tsx";
 const CANVAS = "src/components/layout/heby/heby-workspace.tsx";
 const VISUALIZER = "src/components/layout/heby/heby-visualizer.tsx";
 const CSS = "src/app/globals.css";
@@ -177,10 +176,10 @@ function main(): void {
       assert.ok(!focus.includes(store), `focused mode must have no representation for "${store}"`);
     }
 
-    /* The operator's preference and its storage key are exactly where they were. */
-    const toggle = read(TOGGLE);
-    assert.ok(toggle.includes('const STORAGE_KEY = "hebun.secondary.collapsed"'), "the preference key is unchanged");
-    assert.ok(toggle.includes("window.localStorage.setItem(STORAGE_KEY"), "and it is still the only writer of it");
+    /* The inline rail is route-derived and has no independent persisted expansion state. */
+    const rail = read(RAIL_NAV);
+    assert.ok(!rail.includes("localStorage"), "the inline navigation does not persist expansion state");
+    assert.ok(rail.includes("resolveShellSurface(pathname).workspace"), "the URL remains its one expansion authority");
     assert.ok(
       (read(FOCUS) + read(SHELL) + read(TOPBAR) + read(CSS)).split("hebun.secondary.collapsed").length - 1 === 0,
       "nothing this change touched writes or reads that key",
@@ -213,14 +212,14 @@ function main(): void {
   /* ═══════════════════════════════════════════════════════════════════════════
    * 4. THE TOP BAR REMAINS, AND SO DOES EVERY NAVIGATION COMPONENT.
    *
-   * There is no second shell. The shell renders the rail, the secondary column and the top bar
-   * UNCONDITIONALLY — none of the three is behind a mode test — and focused mode is expressed only
+   * There is no second shell. The shell renders the integrated rail and the top bar
+   * UNCONDITIONALLY — neither is behind a mode test — and focused mode is expressed only
    * as width and visibility. A mode that unmounted navigation would make the shell's structure a
    * function of the route, and would take the way back with it.
    * ═════════════════════════════════════════════════════════════════════════ */
   {
     const shell = codeOf(read(SHELL));
-    for (const component of ["<WorkspaceRail />", "<SecondaryNav />", "<TopBar />"]) {
+    for (const component of ["<WorkspaceRail />", "<TopBar />"]) {
       assert.ok(shell.includes(component), `${component} is rendered`);
       /* Unconditionally: no ternary, no `&&`, no mode test on the line that renders it. */
       const line = shell.split("\n").find((candidate) => candidate.includes(component)) ?? "";
@@ -291,10 +290,10 @@ function main(): void {
       assert.ok(!focusBlock.includes(amber), `${amber} must not reach the shell's chrome`);
     }
     assert.ok(focusBlock.includes("--rail-w: 56px"), "the rail becomes a minimal strip");
-    assert.ok(focusBlock.includes("--secondary-w: 0px"), "and the secondary column collapses to zero width");
+    assert.ok(focusBlock.includes("--secondary-offset: 0px"), "and no detached navigation width is introduced");
     assert.ok(
-      /\[data-shell="secondary"\]\s*\{\s*display:\s*none/.test(focusBlock),
-      "the collapsed column leaves the layout exactly as the released collapse does",
+      !/\[data-shell="secondary"\]/.test(focusBlock),
+      "focused mode carries no dead detached-column selector",
     );
 
     /*
@@ -309,9 +308,7 @@ function main(): void {
     for (const navigation of [
       RAIL_NAV,
       SECONDARY,
-      TOGGLE,
       "src/components/layout/mobile-nav.tsx",
-      "src/components/layout/tablet-sections.tsx",
       "src/components/layout/sidebar-nav.tsx",
     ]) {
       const code = codeOf(read(navigation));
@@ -326,7 +323,7 @@ function main(): void {
     /* The handles the stylesheet needs are on the components, and the labels are what is dropped. */
     assert.ok(read(RAIL_NAV).includes('data-shell="rail"'), "the rail carries the stylesheet's handle");
     assert.ok(read(RAIL_NAV).includes("data-rail-label"), "and its labels are addressable");
-    assert.ok(read(SECONDARY).includes('data-shell="secondary"'), "the secondary column keeps its released handle");
+    assert.ok(!read(SECONDARY).includes('data-shell="secondary"'), "the rejected detached secondary column is absent");
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
@@ -352,25 +349,13 @@ function main(): void {
     /* It is rendered whenever the mode is available — including after the navigation is restored. */
     assert.ok(control.includes("if (!eligible) return null"), "absent only where the mode itself is unavailable");
 
-    /*
-     * EXACTLY ONE CONTROL IS PRESENTED, AND THE OTHER IS HIDDEN RATHER THAN UNMOUNTED.
-     *
-     * This is a correction the authenticated pass forced. The generic secondary toggle is what
-     * APPLIES the operator's stored preference to the document on mount; unmounting it on Heby
-     * meant that restoring the navigation there showed an expanded column to an operator whose
-     * saved preference was collapsed. The stored value was never written — it simply stopped being
-     * applied, which is a different way to lose a preference and just as real.
-     */
+    /* The inline destination list belongs only to an active workspace item. Heby is ambient, so no
+     * workspace is active there and its focus control has no competing generic top-bar action. */
     const topbar = codeOf(read(TOPBAR));
-    assert.ok(
-      /className=\{hebyFocusEligible \? "hidden" : "contents"\}>\s*<SecondaryToggle \/>/.test(topbar),
-      "the generic toggle stays mounted on every route and is hidden while Heby owns the decision",
-    );
-    assert.ok(topbar.includes("<HebyFocusControl />"), "and the focus control is the one presented there");
-    assert.ok(
-      !/\{hebyFocusEligible \? <HebyFocusControl \/> : <SecondaryToggle \/>\}/.test(topbar),
-      "the toggle is never swapped out — unmounting it stops the stored preference being applied",
-    );
+    const rail = codeOf(read(RAIL_NAV));
+    assert.ok(!topbar.includes("SecondaryToggle"), "no generic Level-2 action remains in the top bar");
+    assert.ok(topbar.includes("<HebyFocusControl />"), "the focus control remains presented there");
+    assert.ok(/\{isActive \? \([\s\S]*<SecondaryNavContent/.test(rail), "only the active workspace owns the inline destination list");
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════

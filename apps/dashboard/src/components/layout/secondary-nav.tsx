@@ -1,18 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   destinationsForRole,
-  getWorkspace,
-  resolveActiveWorkspace,
   resolveShellSurface,
   type NavDestination,
   type Workspace,
 } from "@/config/workspace-nav";
-import { useRole } from "./role-context";
 import type { UiRole } from "@/config/workspace-nav";
 
 /*
@@ -54,20 +50,35 @@ function activeDestinationHref(
   return best;
 }
 
-/** The inner Level-2 list — reused by the desktop column, tablet drawer, and mobile sheet. */
+/** The canonical Level-2 list, reused by inline, historical column, and mobile surfaces. */
 export function SecondaryNavContent({
   workspace,
   role,
   pathname,
   onNavigate,
+  density = "default",
 }: {
   workspace: Workspace;
   role: UiRole;
   pathname: string;
   onNavigate?: () => void;
+  density?: "default" | "inline";
 }) {
   const destinations = destinationsForRole(workspace, role);
   const activeHref = activeDestinationHref(destinations, pathname, workspace.href);
+  /*
+   * `inline` is the integrated-rail density: the same destinations, rendered underneath their
+   * Level-1 workspace inside the rail's own width.
+   *
+   * IT MAY NOT USE AN INTRINSIC WIDTH. Both row variants carried `w-max min-w-full
+   * whitespace-nowrap`, which asks for the width of the longest label and refuses to wrap — so on
+   * a 156px rail the rows simply extended past it and painted over the workspace. The rail is now
+   * sized from the measured longest canonical label instead ("Infrastructure & Settings", 141px at
+   * this row's 12px/500), and the rows take the width they are given. `whitespace-nowrap` is gone
+   * as well: every canonical label fits on one line at that width, and a longer one added later
+   * WRAPS rather than clipping, truncating, or escaping the column.
+   */
+  const inline = density === "inline";
 
   /*
    * ── THIS COLUMN NAMES THE SURFACE, AND SEPARATELY NAMES WHOSE SECTIONS IT LISTS ────────────
@@ -94,12 +105,18 @@ export function SecondaryNavContent({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 px-4 pb-2 pt-4">
+      <div className={cn("shrink-0 px-4 pb-2 pt-4", inline && "hidden")}>
         <p className="text-sm font-semibold text-fg">{heading.label}</p>
         {/* Never truncated, and never has been: at 224px this is where the full sentence lives. */}
         <p className="mt-0.5 text-xs leading-5 text-fg-muted">{heading.detail}</p>
       </div>
-      <nav aria-label={`${workspace.label} sections`} className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-4">
+      <nav
+        aria-label={`${workspace.label} sections`}
+        className={cn(
+          "flex flex-1 flex-col gap-0.5 overflow-y-auto",
+          inline ? "px-1 pb-1" : "px-3 pb-4",
+        )}
+      >
         {destinations.map((destination) => {
           const Icon = destination.icon;
           if (destination.unavailable || !destination.href) {
@@ -108,9 +125,14 @@ export function SecondaryNavContent({
                 key={destination.label}
                 role="link"
                 aria-disabled="true"
-                className="flex min-h-10 cursor-not-allowed items-center gap-2.5 rounded-lg px-3 text-sm font-medium text-fg-muted"
+                className={cn(
+                  "flex cursor-not-allowed items-center font-medium text-fg-muted",
+                  inline
+                    ? "min-h-8 w-full min-w-0 gap-1.5 rounded-md px-1.5 py-1 text-xs leading-4"
+                    : "min-h-10 gap-2.5 rounded-lg px-3 text-sm",
+                )}
               >
-                <Icon className="size-4 shrink-0" />
+                <Icon className={cn("shrink-0", inline ? "mt-0.5 size-3" : "size-4")} />
                 <span className="min-w-0">{destination.label}</span>
                 <span className="ml-auto text-xs font-semibold uppercase tracking-wider">Soon</span>
               </span>
@@ -124,13 +146,16 @@ export function SecondaryNavContent({
               aria-current={active ? "page" : undefined}
               onClick={onNavigate}
               className={cn(
-                "flex min-h-10 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring",
+                "flex font-medium transition-colors duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring",
+                inline
+                  ? "min-h-8 w-full min-w-0 items-start gap-1.5 rounded-md px-1.5 py-1 text-xs leading-4"
+                  : "min-h-10 items-center gap-2.5 rounded-lg px-3 text-sm",
                 active
                   ? "bg-primary-subtle text-primary"
                   : "text-fg-secondary hover:bg-surface-raised hover:text-fg",
               )}
             >
-              <Icon className="size-4 shrink-0" />
+              <Icon className={cn("shrink-0", inline ? "mt-0.5 size-3" : "size-4")} />
               {/*
                 VI-2 — a canonical navigation name may wrap; it may not be shortened. Two of the
                 thirty Level-2 labels exceed the 150px this item gives them ("Infrastructure &
@@ -141,29 +166,15 @@ export function SecondaryNavContent({
               */}
               <span className="min-w-0">{destination.label}</span>
               {destination.elevated && (
-                <Lock className="ml-auto size-3.5 shrink-0 text-fg-muted" aria-label="Requires elevated authority" />
+                <Lock
+                  className="ml-auto size-3.5 shrink-0 text-fg-muted"
+                  aria-label="Requires elevated authority"
+                />
               )}
             </Link>
           );
         })}
       </nav>
     </div>
-  );
-}
-
-/** Fixed Level-2 column, persistent on desktop (lg+). */
-export function SecondaryNav() {
-  const pathname = usePathname();
-  const role = useRole();
-  const workspace = getWorkspace(resolveActiveWorkspace(pathname));
-
-  return (
-    <aside
-      data-shell="secondary"
-      aria-label="Workspace navigation"
-      className="fixed inset-y-0 left-(--rail-w) z-(--z-sticky) hidden w-(--secondary-w) flex-col border-r border-border/70 bg-surface lg:flex"
-    >
-      <SecondaryNavContent workspace={workspace} role={role} pathname={pathname} />
-    </aside>
   );
 }

@@ -5,10 +5,8 @@ import { usePathname } from "next/navigation";
 import { Bell, Building2, ClipboardCheck, Search } from "lucide-react";
 import { resolveShellSurface } from "@/config/workspace-nav";
 import { MobileNav } from "./mobile-nav";
-import { TabletSections } from "./tablet-sections";
-import { SecondaryToggle } from "./secondary-toggle";
 import { HebyLauncher } from "./heby/heby-launcher";
-import { HebyFocusControl, useHebyFocus } from "./heby/heby-focus-mode";
+import { HebyFocusControl } from "./heby/heby-focus-mode";
 
 /*
  * Global chrome (Level-1). Kept deliberately lean:
@@ -28,20 +26,6 @@ export function TopBar() {
    * shell simply stops claiming it is one.
    */
   const surface = resolveShellSurface(pathname);
-  /*
-   * On Heby's own surface the focus control governs the shell's navigation, so the generic
-   * secondary toggle stands aside: exactly ONE control is presented at a time, and the operator's
-   * persisted preference is left untouched for as long as they are here.
-   *
-   * STANDS ASIDE, NOT UNMOUNTED — and that distinction was found in the real product, not reasoned
-   * about. The generic toggle is what APPLIES the stored preference to the document on mount, so
-   * unmounting it on Heby meant that restoring the navigation there showed an expanded column to an
-   * operator whose saved preference was collapsed. The stored value was never touched; it simply
-   * was not being applied. It stays mounted on every route and is hidden while Heby owns the
-   * decision.
-   */
-  const { eligible: hebyFocusEligible } = useHebyFocus();
-
   return (
     <header
       /*
@@ -53,10 +37,6 @@ export function TopBar() {
       className="sticky top-0 z-(--z-sticky) flex h-(--topbar-h) min-w-0 items-center gap-3 border-b border-border bg-surface px-4 sm:px-6"
     >
       <MobileNav />
-      <TabletSections />
-      <span className={hebyFocusEligible ? "hidden" : "contents"}>
-        <SecondaryToggle />
-      </span>
       <HebyFocusControl />
 
       {/*
@@ -71,10 +51,8 @@ export function TopBar() {
         width that was least broken. Wrapping is not available either — Command's sentence needs
         three lines at 208px, which is 83px inside a 64px bar.
 
-        So the duplicate goes, and the ONE OWNER KEEPS IT. `SecondaryNavContent` already renders
-        the same sentence in full, wrapped, never truncated: permanently in the Level-2 column at
-        ≥1024px, and on demand from the tablet drawer and the mobile sheet below that. The full
-        text was already on screen beside this truncated copy at every desktop width.
+        So the duplicate goes. `SecondaryNavContent` retains the complete sentence where the mobile
+        sheet has room for workspace context; the compact inline desktop list needs only destinations.
 
         The title stays, at every width, and is never truncated: the widest of the eight surface
         names is "Governance" at 83.1px in a slot that is 208px at ≥1024, 245–269px at 768, and

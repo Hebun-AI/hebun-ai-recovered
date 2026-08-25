@@ -52,7 +52,7 @@ const APP = "src/app/(dashboard)";
 const NAV = "src/config/workspace-nav.ts";
 const SECONDARY = "src/components/layout/secondary-nav.tsx";
 const MOBILE = "src/components/layout/mobile-nav.tsx";
-const TABLET = "src/components/layout/tablet-sections.tsx";
+const TABLET = "src/components/layout/workspace-rail.tsx";
 
 /** The canonical three, in order. */
 const CANONICAL_LABELS = ["Overview", "Decisions", "Director Intent"] as const;
@@ -84,6 +84,12 @@ const LEGACY = [
  * CMD-B2's claim is about NAVIGATION, and that is untouched by either. Both pages are children of
  * an existing Level-2 destination, both appear in no navigation list, and neither changes the
  * canonical three or the seven workspaces — all of which are asserted below.
+ *
+ * ── CMD-FINAL ADDS NO ROUTE, AND RESTORED THIS NUMBER ─────────────────────────
+ *
+ * The cockpit work was written before GITHUB-2 landed and carried 128 forward, which read as a
+ * deletion the moment both were in the same tree. CMD-FINAL changes how Command RENDERS and how
+ * the shell NAVIGATES; it adds and removes no page, so the released census stands unchanged.
  */
 const DASHBOARD_ROUTE_COUNT = 129;
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
@@ -222,13 +228,13 @@ function oneNavigationAuthority(): void {
   );
   assert.equal(WORKSPACES.length, 7, "still exactly seven workspaces");
 
-  /* 8 · the desktop column renders the shared content component over the shared filter. */
+  /* 8 · the shared content component renders over the shared filter. */
   const secondary = codeOf(read(SECONDARY));
   assert.ok(/destinationsForRole\(workspace, role\)/.test(secondary), "the L2 list comes from destinationsForRole");
   assert.ok(/export function SecondaryNavContent/.test(secondary), "SecondaryNavContent is the one renderer");
-  assert.ok(/<SecondaryNavContent/.test(secondary), "and the desktop column uses it");
+  assert.ok(/<SecondaryNavContent/.test(codeOf(read(TABLET))), "and the integrated desktop rail uses it");
 
-  /* 9 · tablet and mobile use the same renderer, and declare no list of their own. */
+  /* 9 · the responsive overlay and mobile sheet use the same renderer, and declare no list. */
   for (const file of [MOBILE, TABLET]) {
     const src = codeOf(read(file));
     assert.ok(/SecondaryNavContent/.test(src), `${file} renders the shared Level-2 content`);
@@ -366,7 +372,7 @@ function cmdb1AndHebyUntouched(): void {
     assert.ok(shown.includes(title), `CMD-B1 section "${title}" is unchanged`);
   }
   assert.ok(
-    shown.includes("Nothing is waiting for a human decision"),
+    shown.includes("Nothing currently requires your decision"),
     "successful-empty still reads as answered, not unavailable",
   );
   const commandPage = codeOf(read(`${APP}/command/page.tsx`));

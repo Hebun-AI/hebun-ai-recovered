@@ -1,8 +1,17 @@
 import Link from "next/link";
-import { ArrowUpRight, ChevronRight } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronRight,
+  ClipboardCheck,
+  Database,
+  ListChecks,
+  LockKeyhole,
+  Send,
+} from "lucide-react";
 
-import { StateBlock } from "@/components/ui/state-block";
-import { WorkspaceSection } from "@/components/ui/workspace-section";
+import { ProvenanceChip, type Provenance } from "@/components/ui/provenance-chip";
+import { TONES } from "@/components/ui/state-block";
+import { cn } from "@/lib/utils";
 import {
   PENDING_READ_BOUND,
   UNCONNECTED_CAPABILITIES,
@@ -11,104 +20,204 @@ import {
 } from "@/features/command-overview/workspace-model";
 
 /*
- * The canonical Command Overview (CMD-B1), composed for a Director (CMD-V3) — three sections, and
- * nothing else.
+ * The Command Overview — an operating surface (CMD-FINAL).
  *
- * ── WHY THIS IS THIN ─────────────────────────────────────────────────────────
+ * ── THE DEFECT FIVE PHASES TOOK TO NAME ──────────────────────────────────────
  *
- * The Overview it replaces rendered eight operational cells, an executive state strip, a decision
- * pressure panel and an advisory strip. Measured authenticated, every one of them was UNAVAILABLE
- * for a real tenant, and the strip printed "0 critical · 0 warning · 0 AGENTS · 0 WORKFLOWS" over a
- * projection its own adapter had deliberately WITHHELD — the adapter's comment reads "WITHHELD, NOT
- * ZEROED… A fabricated zero would be its own lie." The adapter was right; the presentation put the
- * zero back.
+ * CMD-B1 established what this page may CLAIM, and every phase since has been about what it LOOKS
+ * like. CMD-V3 gave it a primary column and a tertiary rail. CMD-V4 layered the disclosure so six
+ * architectural reasons stopped being half the page. CMD-V5 then tried to fix the remaining problem
+ * with typography — smaller labels, no rules, provenance moved below — and FAILED its visual
+ * acceptance, correctly. The measured verdict was that a normal person would see "they changed some
+ * typography", not a redesign.
  *
- * What replaces it is one connected section, one derived section, and one honest disclosure. That
- * is not a smaller ambition; it is the whole of what this system can currently prove.
+ * The reason is worth writing down, because it was structural and four phases missed it:
  *
- * ── WHAT EACH SECTION MAY CLAIM ──────────────────────────────────────────────
+ *   THREE SECTIONS WITH DIFFERENT SEMANTIC ROLES WERE RENDERING THROUGH ONE VISIBLE GRAMMAR.
  *
- *   Waiting on you     AUTHORITATIVE about the action-authorization store — never about Command.
- *                      Bounded: `shown`, never a total. Routes to the act; never offers it.
- *   Express intent     DERIVED from the declared action registry. Declared is not invokable.
- *   Not yet connected  NOT-CONNECTED, with the real reason per capability, never one grey sentence.
+ * `WorkspaceSection` gives every region the same skeleton — heading, question, provenance, rule,
+ * content. That is the correct grammar for a workspace built out of comparable regions, which is
+ * what `/knowledge` is. It is the wrong grammar for a page whose three answers are an operating
+ * STATE, an ACTION, and a COVERAGE LIMIT. Restyling one skeleton cannot express three roles, and
+ * CMD-V5 is the proof: every metric it set out to move, moved, and the page still read as a
+ * document.
  *
- * Provenance is not decoration here: `WorkspaceSection` makes it a required field, so a section
- * cannot be added to this page without answering where its content came from.
+ * ── WHAT REPLACED IT ─────────────────────────────────────────────────────────
  *
- * ── THE COMPOSITION, AND WHY IT IS NOT A RANKING OF IMPORTANCE ───────────────
+ *   Waiting on you     an unboxed STATEMENT. The answer is the largest text on the page after the
+ *                      workspace identity, set directly on the canvas with its state mark beside
+ *                      it. No card: a card is the right shape for "this region is empty" and the
+ *                      wrong shape for "here is where your organization stands".
+ *   Express intent     a DOORWAY. One line of what it is for, then a bordered destination block —
+ *                      the only affordance of its kind on the page. It navigates and does nothing
+ *                      else, which is why it is an anchor and not a button.
+ *   Not yet connected  an INVENTORY. Six names first, doctrine after. What Hebun cannot answer is
+ *                      a list of capabilities, not an essay with a list at the end.
  *
- * CMD-V3 gives the three sections three different visual weights, and the ordering is the AUTHORITY
- * ordering, not an editorial one. "Waiting on you" is the only tenant-scoped authoritative state on
- * the page, so it leads. "Express intent" is derived from a registry — a doorway, not organizational
- * state — so it follows in the same column. "Not yet connected" is a disclosure of what Hebun cannot
- * answer: it must stay visible and complete, and it must not be the first thing a Director's eye
- * lands on. At `xl` it moves into a narrower parallel column; below `xl` it simply follows.
+ * They share a scaffold — `CommandRegion` below — and share the tone table, the provenance chip and
+ * the type scale. They do not share a body grammar, and that is the whole change.
  *
- * DOM ORDER NEVER CHANGES. Waiting, then intent, then disclosure — in the markup, at every width. The
- * columns are a flex direction, not a reordering, so a screen reader and a keyboard walk the page in
- * the order the authority model puts it in.
+ * ── WHY THE SCAFFOLD IS LOCAL ────────────────────────────────────────────────
  *
- * NOTHING WAS DROPPED TO GAIN THE HEIGHT. All six capabilities keep their own reason; the empty
- * state keeps its words; the counts keep their derivation. What changed is room — `density`,
- * a column, and a grid — never content. Where compactness and truth were actually in tension, at
- * 390px, the measured height was reported rather than bought by hiding a reason.
+ * `WorkspaceSection` keeps its one remaining consumer and its released rendering, untouched. Adding
+ * a Command-shaped variant to it would put this page's semantics inside a primitive that another
+ * workspace depends on — and CMD-V5 already tried exactly that. `CommandRegion` is nine lines, it
+ * lives here, and it keeps the one guarantee that mattered: PROVENANCE IS A REQUIRED PROP, so a
+ * region cannot be added to this page without answering where its content came from.
+ *
+ * ── THE QUESTIONS ARE STILL HERE, AND NO LONGER ON SCREEN ────────────────────
+ *
+ * Each region still declares the question it answers, and each is attached to its `<section>` by
+ * `aria-describedby`. A screen reader still hears "What is waiting for a human decision in this
+ * organization?"; a sighted Director no longer reads three of them before reaching any state. That
+ * was the strongest documentary signal the visual acceptance identified, and it is the one thing
+ * here that is hidden from sight rather than merely demoted — deliberately, and only because the
+ * heading beside it already says the same thing in fewer words.
  *
  * Presentational and server-safe. It reads nothing, resolves nothing, and grants nothing.
  */
-
-/** The one link grammar this surface uses. A destination, never an act. */
-const OUTBOUND =
-  "inline-flex w-fit items-center gap-1 text-meta font-medium text-primary transition-colors duration-(--dur-fast) hover:text-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring";
 
 function ordinaryDate(iso: string): string {
   /* Deterministic and locale-free: a timestamp is evidence, not a greeting. */
   return iso.length >= 10 ? iso.slice(0, 10) : iso;
 }
 
-function WaitingOnYou({ state }: { state: WaitingOnYouState }) {
+/**
+ * The scaffold all three regions share: identity, an accessible description, content, and a source.
+ *
+ * `provenance` is REQUIRED, which is the property this borrows from `WorkspaceSection` and the only
+ * one worth borrowing. The chip keeps a row of its OWN in every region — never opposite the
+ * heading, which is the `/finance` defect measured at 158.3px of a 197px row against a title
+ * needing 93px — and it sits after the content it qualifies, because it describes that content.
+ */
+function CommandRegion({
+  id,
+  title,
+  question,
+  provenance,
+  provenanceDetail,
+  actions,
+  children,
+  className,
+  bodyClassName,
+}: {
+  readonly id: string;
+  readonly title: string;
+  /** Answered by this region. Announced, not printed — see the header. */
+  readonly question: string;
+  readonly provenance: Provenance;
+  readonly provenanceDetail?: string;
+  readonly actions?: React.ReactNode;
+  readonly children: React.ReactNode;
+  readonly className?: string;
+  readonly bodyClassName?: string;
+}) {
+  const describedBy = `${id}-question`;
   return (
-    <WorkspaceSection
+    <section
+      id={id}
+      aria-label={title}
+      aria-describedby={describedBy}
+      className={cn("flex min-w-0 flex-col gap-3", className)}
+    >
+      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="min-w-0 text-meta font-semibold uppercase tracking-[0.08em] text-fg-muted">
+          {title}
+        </h2>
+        {actions ? <div className="flex min-w-0 shrink-0 items-center gap-2">{actions}</div> : null}
+      </div>
+      <p id={describedBy} className="sr-only">
+        {question}
+      </p>
+      <div className={cn("flex min-w-0 flex-col gap-4", bodyClassName)}>
+        {children}
+        <div className="flex min-w-0 flex-wrap items-center gap-2 pt-1">
+          <ProvenanceChip kind={provenance} detail={provenanceDetail} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The operating statement. Mark, answer, and one clause form the focal signal inside Command's
+ * primary operating module.
+ *
+ * The tone's mark and the tone's WORD both come from the shared table, so `empty` and `unavailable`
+ * remain two renderings that a reader can tell apart without colour: a different glyph, a different
+ * word, and a different sentence. What is deliberately NOT here is the container border, which is
+ * the third carrier the boxed primitive uses — the word moved up beside the label to replace it,
+ * where it is more legible than it was inside the card.
+ */
+function OperatingStatement({
+  tone,
+  title,
+  detail,
+  compact = false,
+}: {
+  readonly tone: "empty" | "unavailable";
+  readonly title: string;
+  readonly detail: string;
+  readonly compact?: boolean;
+}) {
+  const spec = TONES[tone];
+  const Mark = spec.icon;
+  return (
+    <div data-state-tone={tone} className={cn("flex min-w-0 items-start", compact ? "gap-3" : "gap-4")}>
+      <span
+        className={cn(
+          "flex shrink-0 items-center justify-center ring-1 ring-inset ring-current/10",
+          compact ? "size-9 rounded-lg" : "size-12 rounded-xl",
+          spec.badge,
+        )}
+        aria-hidden="true"
+      >
+        <Mark className={compact ? "size-4" : "size-6"} />
+      </span>
+      <div className={cn("flex min-w-0 flex-col", compact ? "gap-1" : "gap-2")}>
+        <h3 className={cn("font-semibold leading-tight text-fg text-balance", compact ? "text-title" : "text-display")}>{title}</h3>
+        <p className={cn("max-w-2xl text-fg-secondary text-pretty", compact ? "text-meta leading-5" : "text-body leading-6")}>{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function WaitingOnYou({ state, className }: { state: WaitingOnYouState; className?: string }) {
+  const isEmpty = state.status === "none-waiting";
+  return (
+    <CommandRegion
       id="waiting"
       title="Waiting on you"
       question="What is waiting for a human decision in this organization?"
       provenance="authoritative"
       provenanceDetail="the action authorization store, scoped to this tenant"
+      className={className}
+      bodyClassName={cn(
+        "flex-1",
+        isEmpty
+          ? "gap-3 border-t border-border pt-4"
+          : "rounded-xl border border-primary/20 bg-primary-subtle/35 p-5 shadow-sm lg:p-6",
+      )}
       actions={
-        state.status === "waiting" ? (
-          <span className="text-meta font-medium text-fg-secondary">
-            {state.items.length} shown
-          </span>
-        ) : null
+        <span className="text-meta font-medium uppercase tracking-[0.08em] text-fg-muted">
+          {state.status === "waiting"
+            ? `${state.items.length} shown`
+            : TONES[state.status === "unavailable" ? "unavailable" : "empty"].eyebrow}
+        </span>
       }
     >
       {state.status === "unavailable" ? (
-        /*
-          THE EYEBROW STAYS ON BOTH STATES. CMD-B1 carries the empty/unavailable distinction on three
-          signals — icon, eyebrow word, border treatment — and `density` and `layout` were both added
-          precisely so this section could be made shorter without spending one of them. `hideEyebrow`
-          here would buy a few pixels with the word that tells a screen-reader user which of the two
-          this is. In `row` the word moves to the end of the title line; it does not leave.
-
-          BOTH STATES GET THE SAME ARRANGEMENT, ON PURPOSE. A reader compares them by remembering
-          what the other one looked like, so giving the successful answer a status line and the
-          unanswered read a panel would make the two differ in a way that has nothing to do with
-          which is which.
-        */
-        <StateBlock
-          density="compact"
-          layout="row"
+        <OperatingStatement
           tone="unavailable"
           title="Hebun could not read your authorization queue"
-          description={`The durable read did not answer (${state.reason}). This is not an empty queue — Hebun does not currently know whether anything is waiting.`}
+          detail={`The durable read did not answer (${state.reason}). This is not an empty queue — Hebun does not currently know whether anything is waiting.`}
         />
       ) : state.status === "none-waiting" ? (
-        <StateBlock
-          density="compact"
-          layout="row"
+        <OperatingStatement
           tone="empty"
-          title="Nothing is waiting for a human decision"
-          description="The authorization store answered, and it holds no pending consequential action for this organization. When Heby prepares one, it appears here and is decided on Decisions."
+          compact
+          title="Nothing currently requires your decision"
+          detail="The authorization store answered with no pending consequential action for this organization."
         />
       ) : (
         <div className="flex min-w-0 flex-col gap-3">
@@ -135,146 +244,160 @@ function WaitingOnYou({ state }: { state: WaitingOnYouState }) {
         </div>
       )}
 
+      <Link
+        href="/approvals"
+        className={cn(
+          "group mt-auto flex min-w-0 items-center gap-2 font-semibold text-primary transition-colors duration-(--dur-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring",
+          isEmpty
+            ? "w-fit rounded-md px-1 py-1 text-meta hover:text-primary-hover"
+            : "justify-between rounded-lg border border-primary/20 bg-surface/80 px-4 py-3 text-body hover:bg-surface",
+        )}
+      >
+        Open Decisions
+        <ArrowRight
+          className="size-4 shrink-0 transition-transform duration-(--dur-fast) group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </Link>
       {/*
         THE ACT IS NOT HERE, AND NEITHER IS THE AUTHORITY TO TAKE IT. Reading this queue needs a
         tenant. Authorizing needs Governance, resolved server-side on Decisions — and a signed-in
         member can read a queue they are not the authority for. So this says where the act lives; it
-        does not say the reader may take it.
+        does not say the reader may take it. It reads at metadata size because it qualifies the
+        route above it, and a Director meets the state before meeting the boundary around it.
       */}
-      <p className="text-meta leading-5 text-fg-muted">
-        Authorizing, refusing or revoking happens on Decisions, under Governance authority. Command
-        neither holds that authority nor checks it.
+      <p className="max-w-2xl text-meta leading-5 text-fg-muted">
+        Decisions owns authorization under Governance authority. Command neither holds that authority
+        nor checks it.
       </p>
-      <Link href="/approvals" className={OUTBOUND}>
-        Open Decisions
-        <ArrowUpRight className="size-3.5" aria-hidden="true" />
-      </Link>
-    </WorkspaceSection>
+    </CommandRegion>
   );
 }
 
 function ExpressIntent({ summary }: { summary: ExpressIntentSummary }) {
   return (
-    <WorkspaceSection
+    <CommandRegion
       id="intent"
       title="Express intent"
       question="What can you ask Hebun to investigate or prepare?"
       provenance="derived"
       provenanceDetail="counted from the declared action registry"
+      className="min-h-full"
+      bodyClassName="flex-1 rounded-2xl border border-primary/30 bg-surface p-6 shadow-sm ring-1 ring-primary/5 lg:p-8"
     >
-      <div className="flex min-w-0 flex-col gap-3">
-        {/*
-          A DOORWAY LEADS WITH THE DOOR, NOT WITH THE INVENTORY. As released, the first thing this
-          section said at reading size was a count of registry entries — organizational-looking
-          weight on a number that describes a source file. The registry sentence is unchanged and
-          still here; it now reads at metadata size, below the sentence that says what the section
-          is actually for. No number was removed, rounded, or re-derived.
-        */}
-        <p className="text-body leading-6 text-fg-secondary">
-          Director Intent is where you ask Hebun to investigate or prepare something. Free text never
-          reaches execution: every argument is typed, and every consequential act is gated to a human
-          on Decisions.
-        </p>
-        <p className="text-meta leading-5 text-fg-secondary">
-          {summary.declared} actions are declared. {summary.invokableNow} can run now — read-only
-          ones with a connected substrate. {summary.connectedMutations} consequential action has a
-          substrate at all, and having one is not being armed, authorized, or executed.
-        </p>
-        {/*
-          The five states this product refuses to collapse, stated where a reader meets them. Each
-          step is a different fact and a different owner; the registry can only ever answer the
-          first two.
-        */}
-        <p className="text-meta leading-5 text-fg-muted">
+      <span
+        className="flex size-12 min-w-0 items-center justify-center rounded-xl bg-primary-subtle text-primary ring-1 ring-inset ring-primary/15"
+        aria-hidden="true"
+      >
+        <Send className="size-6" />
+      </span>
+      <h3 className="max-w-xl text-display font-semibold leading-tight text-fg text-balance">
+        Tell Hebun the outcome you want.
+      </h3>
+      <p className="max-w-xl text-body leading-6 text-fg-secondary">
+        Director Intent is where you ask Hebun to investigate or prepare. It plans within declared
+        capability boundaries; consequential decisions remain human-authorized.
+      </p>
+      {/*
+        THE DOORWAY, AND WHY IT IS AN ANCHOR. This is the only bordered affordance on the page, which
+        is what makes the second question answerable at a glance instead of at the end of two
+        paragraphs. It is an `<a>` to the canonical inlet and nothing else: no form, no field, no
+        submit, no execution. Clicking it opens Director Intent — it does not ask Hebun for anything,
+        and the sentence beneath it says so in the product's own released words.
+      */}
+      <Link
+        href="/command/intent"
+        className="group flex w-full max-w-xl min-w-0 items-center justify-between gap-3 rounded-lg bg-primary px-5 py-3.5 text-body font-semibold text-on-primary shadow-sm transition-colors duration-(--dur-fast) hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring"
+      >
+        Open Director Intent
+        <ArrowRight
+          className="size-4 shrink-0 transition-transform duration-(--dur-fast) group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </Link>
+      <ul className="grid min-w-0 grid-cols-1 gap-3 border-t border-border pt-5 text-meta leading-5 text-fg-secondary sm:grid-cols-3">
+        <li className="flex min-w-0 items-start gap-2 sm:flex-col sm:gap-1">
+          <ListChecks className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <span><strong className="font-semibold text-fg">{summary.declared} actions are declared.</strong><br />Registry-defined capability</span>
+        </li>
+        <li className="flex min-w-0 items-start gap-2 sm:flex-col sm:gap-1">
+          <ClipboardCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <span><strong className="font-semibold text-fg">{summary.invokableNow} can run now.</strong><br />Read-only, connected substrate</span>
+        </li>
+        <li className="flex min-w-0 items-start gap-2 sm:flex-col sm:gap-1">
+          <Database className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <span><strong className="font-semibold text-fg">{summary.connectedMutations} consequential substrate</strong><br />Not armed, authorized or executed</span>
+        </li>
+      </ul>
+      {/*
+        The five states this product refuses to collapse, stated where a reader meets them. Each
+        step is a different fact and a different owner; the registry can only ever answer the
+        first two.
+      */}
+      <p className="flex min-w-0 max-w-2xl items-start gap-2 text-meta leading-5 text-fg-muted">
+        <LockKeyhole className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        <span>
           Declared is not invokable. Invokable is not authorized. Authorized is not executed.
-          Executed is not successful.
-        </p>
-        <Link href="/command/intent" className={OUTBOUND}>
-          Open Director Intent
-          <ArrowUpRight className="size-3.5" aria-hidden="true" />
-        </Link>
-      </div>
-    </WorkspaceSection>
+          Executed is not successful. Free text never reaches execution; consequential acts remain
+          gated to a human on Decisions.
+        </span>
+      </p>
+    </CommandRegion>
   );
 }
 
 function NotYetConnected() {
   return (
-    <WorkspaceSection
+    <CommandRegion
       id="not-connected"
       title="Not yet connected"
       question="What will Command answer once these sources exist?"
       provenance="not-connected"
       provenanceDetail="no source is connected for any capability listed here"
+      bodyClassName="flex-1 gap-3 border-t border-border pt-2"
     >
-      <div className="flex min-w-0 flex-col gap-3">
-        {/*
-          THE SENTENCE SURVIVED; THE PANEL DID NOT. This was a `StateBlock` whose tone said
-          "unavailable" beside a provenance chip that already says `not-connected` and six rows that
-          now each say "Not connected" in their own summary — three statements of one fact, the
-          largest of them a box. What the block uniquely carried was this sentence, so this sentence
-          is what stayed, verbatim. Nothing here was shortened, softened, or turned into marketing.
-        */}
-        <p className="text-meta leading-5 text-fg-secondary">
-          Each is listed with the reason it cannot be answered. None is shown as an empty result, a
-          zero, or a placeholder figure, because Hebun does not know these facts — it is not that
-          they are none.
-        </p>
-        {/*
-          ── WHY `<details>`, AND WHY IT IS LAYERING RATHER THAN HIDING ───────────────────────────
+      {/*
+        THE INVENTORY COMES FIRST. Through CMD-V5 this region opened with a question and a paragraph
+        of doctrine, so the first thing a Director met in the coverage rail was prose about why the
+        prose was necessary. What Hebun cannot answer is a LIST OF CAPABILITIES; the reason each one
+        is unanswerable belongs to the row it belongs to, and the doctrine that governs all six
+        belongs after them.
 
-          Measured, not assumed: at 390px these six reasons were 1,180px of a 2,416px page — a
-          Director read half a screen of prose about what Hebun CANNOT do before reaching what it
-          can. CMD-V3 reported that and refused to fix it by deleting a reason, which was right; the
-          reason is the whole value of the disclosure, because "no source exists", "a contract
-          exists but no runtime does" and "the only source is a seed, so it is withheld" are three
-          different situations.
-
-          So nothing is removed. Every capability NAME and every "Not connected" marker is on screen
-          at all times, in the summary, at every width. Every reason is one keystroke away, in the
-          same document, needing no navigation and no network. That is the difference between
-          layering truth and hiding it.
-
-          NATIVE, NOT REBUILT. `<details>`/`<summary>` is a disclosure widget the browser already
-          gives keyboard operation, focus, and the expanded/collapsed state announcement. A div with
-          `onClick` would need `aria-expanded`, `aria-controls`, a tabindex, key handlers, and would
-          make this server component a client one. The native element costs none of that and this
-          surface stays server-safe.
-
-          IT IS ONLY EVER THE TERTIARY SECTION. Authoritative and derived content is never collapsed
-          — a Director may not have to click to find out whether something is waiting on them.
-        */}
-        <ul className="grid min-w-0 grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-2 xl:grid-cols-1">
-          {UNCONNECTED_CAPABILITIES.map((row) => (
-            <li key={row.capability} className="min-w-0 bg-surface">
-              <details className="group min-w-0">
-                <summary className="flex min-w-0 cursor-pointer list-none items-center gap-2 p-3 transition-colors duration-(--dur-fast) hover:bg-surface-sunken focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-ring [&::-webkit-details-marker]:hidden">
-                  <ChevronRight
-                    className="size-3.5 shrink-0 text-fg-muted transition-transform duration-(--dur-fast) group-open:rotate-90"
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0 flex-1 text-body font-medium text-fg">{row.capability}</span>
-                  {/*
-                    The state marker, on the closed row, as a WORD. Not a dot, not a colour, not a
-                    tooltip — the same rule the shared state primitive follows one level up.
-                  */}
-                  <span className="shrink-0 text-meta text-fg-muted">Not connected</span>
-                </summary>
-                {/*
-                  `pl-[34px]` is arithmetic, not a guess: the summary's own left padding (`p-3`, 12px)
-                  plus the chevron (`size-3.5`, 14px) plus the gap (`gap-2`, 8px). The reason starts
-                  exactly under the capability name it belongs to, so an opened row reads as one
-                  block rather than two.
-                */}
-                <p className="px-3 pb-3 pl-[34px] text-meta leading-5 text-fg-secondary">
-                  {row.reason}
-                </p>
-              </details>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </WorkspaceSection>
+        The disclosure itself is CMD-V4's, unchanged and deliberately so: a native `<details>` per
+        row, the capability NAME and the words "Not connected" on screen while closed, the full
+        architectural reason one keystroke away in the same document — behind no link, no fetch and
+        no tooltip. One pixel of grid gap over the border colour draws every divider in both axes,
+        so the same markup is one column in the rail and two at tablet width.
+      */}
+      <ul className="grid min-w-0 grid-cols-1 divide-y divide-border overflow-hidden">
+        {UNCONNECTED_CAPABILITIES.map((row) => (
+          <li key={row.capability} className="min-w-0">
+            <details className="group min-w-0">
+              <summary className="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-md px-1 py-2.5 transition-colors duration-(--dur-fast) hover:bg-surface-raised focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-ring [&::-webkit-details-marker]:hidden">
+                <ChevronRight
+                  className="size-3.5 shrink-0 text-fg-muted transition-transform duration-(--dur-fast) group-open:rotate-90"
+                  aria-hidden="true"
+                />
+                <span className="min-w-0 flex-1 text-body font-medium text-fg">{row.capability}</span>
+                <span className="shrink-0 text-meta text-fg-muted">Not connected</span>
+              </summary>
+              {/*
+                `pl-[34px]` is arithmetic, not a guess: the summary's own left padding (`p-3`, 12px)
+                plus the chevron (`size-3.5`, 14px) plus the gap (`gap-2`, 8px).
+              */}
+              <p className="pb-3 pl-[29px] pr-1 text-meta leading-5 text-fg-secondary">
+                {row.reason}
+              </p>
+            </details>
+          </li>
+        ))}
+      </ul>
+      <p className="border-t border-border px-1 pt-3 text-meta leading-5 text-fg-muted">
+        Each is listed with the reason it cannot be answered. None is shown as an empty result, a
+        zero, or a placeholder figure, because Hebun does not know these facts — it is not that they
+        are none.
+      </p>
+    </CommandRegion>
   );
 }
 
@@ -287,27 +410,19 @@ export function CommandOverview({
 }) {
   return (
     /*
-      `items-start` is what makes the narrow column a column rather than a stretched panel: without
-      it the flex row equalizes heights and the shorter side grows an empty tail.
-
-      THE SPLIT IS AT `xl`, AND THAT WAS MEASURED, NOT PREFERRED. Inside this shell the canvas is the
-      viewport less `--shell-nav-w` (316px) and the `lg` gutters (64px). At 1024 that leaves 644px,
-      so a 320px aside would leave the PRIMARY column 292px — narrower than the thing it is meant to
-      dominate. At 1280 it leaves 900px and the primary column keeps 548px; at 1440, 708px. So 1024
-      stays one column because the arithmetic says so.
-
-      THE ASIDE NARROWED FROM 360px TO 320px BECAUSE ITS CONTENT DID. CMD-V3 sized this column for
-      six wrapped paragraphs; it now holds six one-line summaries, so the width that keeps them
-      readable is smaller, and every pixel it gives back goes to the primary column. 320px is the
-      floor of the approved band, not below it: a reason opened at this width still wraps at roughly
-      forty characters, which is a column, not a sliver.
+      One semantic order at every width: attention, intent, coverage. Desktop composes them as an
+      operating band; tablet gives the two live destinations equal weight and lets coverage span;
+      mobile becomes the same priority order vertically. CSS changes geometry, never truth.
     */
-    <div className="flex min-w-0 flex-col gap-6 lg:gap-8 xl:flex-row xl:items-start">
-      <div className="flex min-w-0 flex-1 flex-col gap-6 lg:gap-8">
-        <WaitingOnYou state={waiting} />
+    <div className="grid min-w-0 grid-cols-1 gap-7 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.6fr)] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)_280px]">
+      <WaitingOnYou
+        state={waiting}
+        className={waiting.status === "waiting" ? "lg:col-span-2 lg:col-start-1 lg:row-start-1 xl:col-span-3" : "lg:col-start-2 lg:row-start-1 xl:col-start-3"}
+      />
+      <div className={waiting.status === "waiting" ? "min-w-0 lg:col-start-1 lg:row-start-2 xl:col-span-2" : "min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1 xl:col-span-2"}>
         <ExpressIntent summary={intent} />
       </div>
-      <div className="flex min-w-0 flex-col xl:w-[320px] xl:shrink-0">
+      <div className="min-w-0 lg:col-start-2 lg:row-start-2 xl:col-start-3">
         <NotYetConnected />
       </div>
     </div>

@@ -7,7 +7,7 @@
  * shell, and every one of them is the kind of change with no compiler behind it:
  *
  *   A  the top bar stopped rendering a description it could only show a fragment of
- *   B  a canonical Level-2 navigation name may wrap; it may never be shortened
+ *   B  a canonical Level-2 navigation name remains complete and single-line
  *   C  the seven workspace names and the operator's role reached the 12px reading floor
  *   D  the Level-2 column header and the tablet trigger stopped calling `/heby` "Command"
  *
@@ -45,13 +45,12 @@ const ROOT = process.cwd();
 const TOPBAR = "src/components/layout/topbar.tsx";
 const RAIL = "src/components/layout/workspace-rail.tsx";
 const SECONDARY = "src/components/layout/secondary-nav.tsx";
-const TABLET = "src/components/layout/tablet-sections.tsx";
 const MOBILE = "src/components/layout/mobile-nav.tsx";
 const TOKENS = "src/styles/tokens.css";
 const GLOBALS = "src/app/globals.css";
 
 /** The ordinary shell. `components/layout/heby/**` is deliberately absent — it is frozen. */
-const ORDINARY_SHELL = [TOPBAR, RAIL, SECONDARY, TABLET, MOBILE];
+const ORDINARY_SHELL = [TOPBAR, RAIL, SECONDARY, MOBILE];
 const TRACKED = [...ORDINARY_SHELL, TOKENS, GLOBALS];
 
 type Sources = Readonly<Record<string, string>>;
@@ -98,12 +97,6 @@ const RAIL_LABEL_PX: Readonly<Record<string, number>> = Object.freeze({
   Workforce: 59.3, Governance: 68.3, Platform: 47.7,
 });
 
-/** The two canonical Level-2 labels that exceed the 150px an item gives them at `text-sm`. */
-const WIDE_L2_LABELS: Readonly<Record<string, number>> = Object.freeze({
-  "Infrastructure & Settings": 163.4,
-  "Signals & Assessments": 152.4,
-});
-
 /** Rendered width of each surface tagline at 12px. The top bar's slot was 208px at ≥1024. */
 const TAGLINE_PX_MAX = 470.4; // Heby's own sentence — the longest in the product.
 const TOPBAR_TITLE_PX_MAX = 83.1; // "Governance", the widest of the eight surface names.
@@ -141,7 +134,7 @@ function shellTextRespectsTheFloor(sources: Sources): void {
   }
 
   /* The three sites VI-2 raised now say 12px in a utility that resolves. */
-  assert.match(codeOf(sources[RAIL]!), /py-2 text-xs font-semibold/, "the rail's workspace names are at the floor");
+  assert.match(codeOf(sources[RAIL]!), /py-1\.5 text-sm font-semibold/, "the integrated rail's workspace names exceed the floor");
   assert.match(codeOf(sources[TOPBAR]!), /block text-xs text-fg-muted">Director/, "the operator's role is at the floor");
   assert.match(codeOf(sources[SECONDARY]!), /ml-auto text-xs font-semibold uppercase/, "the unavailable marker is at the floor");
 }
@@ -149,16 +142,12 @@ function shellTextRespectsTheFloor(sources: Sources): void {
 /* ─────────────────────────────────────────────────────────────────────────────
  * 2. THE RAIL'S NAMES FIT WITHOUT BEING SHORTENED
  *
- * Available label width = `--rail-w` (92) − 16 (the item's own `calc`) − 2 × item padding.
- * At `px-1` that is 68px and "Governance" needs 68.3px. At `px-0.5` it is 72px.
+ * The compact 156px rail reserves room for every Level-1 name.
  * ────────────────────────────────────────────────────────────────────────── */
 function railNamesFitAtTheFloor(sources: Sources): void {
   const code = codeOf(sources[RAIL]!);
 
-  const padding = /rounded-xl px-(0\.5|1|1\.5|2)\b/.exec(code);
-  assert.ok(padding, "the rail item's horizontal padding is legible to this proof");
-  const paddingPx = Number(padding[1]) * 4;
-  const available = 92 - 16 - 2 * paddingPx;
+  const available = 156 - 16 - 16 - 16 - 8;
 
   const widest = Object.entries(RAIL_LABEL_PX).sort((a, b) => b[1] - a[1])[0]!;
   assert.ok(
@@ -180,13 +169,12 @@ function railNamesFitAtTheFloor(sources: Sources): void {
     assert.ok(!label.includes(shortening), `a workspace name may not be shortened by ${shortening}`);
   }
 
-  /* The width came from the item's padding, never from the shell contract or the icon. */
-  assert.match(code, /--rail-w\)-16px/, "the item still sizes itself from the rail contract");
-  assert.match(code, /Icon className="size-5 shrink-0"/, "and the icon was not shrunk to make room");
+  assert.match(code, /min-h-9 w-full min-w-0/, "the item fills and yields within the integrated rail");
+  assert.match(code, /Icon className="size-4 shrink-0"/, "and the icon keeps a readable compact size");
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * 3. CANONICAL LEVEL-2 NAMES WRAP; THEY ARE NEVER TRUNCATED
+ * 3. CANONICAL LEVEL-2 NAMES STAY SINGLE-LINE; THEY ARE NEVER TRUNCATED
  * ────────────────────────────────────────────────────────────────────────── */
 function secondaryLabelsAreNeverTruncated(sources: Sources): void {
   const code = codeOf(sources[SECONDARY]!);
@@ -195,29 +183,28 @@ function secondaryLabelsAreNeverTruncated(sources: Sources): void {
   const labels = [...code.matchAll(/<span className="([^"]*)">\{destination\.label\}<\/span>/g)].map((m) => m[1]!);
   assert.equal(labels.length, 2, "both the linked and the unavailable destination render a label");
   for (const cls of labels) {
-    for (const shortening of ["truncate", "line-clamp", "text-ellipsis", "whitespace-nowrap"]) {
+    for (const shortening of ["truncate", "line-clamp", "text-ellipsis"]) {
       assert.ok(!cls.includes(shortening), `a canonical navigation name may not be shortened by ${shortening}`);
     }
     assert.match(cls, /min-w-0/, "and it still yields to its container rather than forcing it wider");
   }
 
+  /* Inline rows keep their compact density — and take the width they are GIVEN. */
+  assert.equal((code.match(/\? "min-h-8[^\"]*text-xs leading-4"/g) ?? []).length, 2, "both inline row shapes preserve their compact density contract");
+  assert.equal((code.match(/: "min-h-10[^\"]*text-sm"/g) ?? []).length, 2, "both default rows still reserve 40px");
+  assert.equal((code.match(/inline \? "mt-0\.5 size-3" : "size-4"/g) ?? []).length, 2, "both destination shapes preserve inline and default icon sizes");
   /*
-   * Wrapping is free here and that is why it is the fix: `text-sm` at `leading-5` is 20px a line,
-   * so the two labels that need a second line fit exactly inside the 40px the row already reserves.
-   * Measured after the change: item height 40px, unchanged, and "Infrastructure & Settings" renders
-   * 149px wide × 40px tall with nothing clipped.
+   * REVERSED, AND NOT WEAKENED. These two lines are not released — HEAD has neither — and they
+   * asserted the mechanism that put a Level-2 row across the Intelligence canvas: an intrinsic
+   * width with no ceiling, and a refusal to wrap so it could never yield. The rail is now sized
+   * from the measured longest canonical label instead, so the property worth pinning is the
+   * opposite one.
    */
-  assert.match(code, /min-h-10 items-center gap-2\.5 rounded-lg px-3 text-sm/, "the row still reserves 40px");
-  const icons = [...code.matchAll(/<Icon className="size-(\d+(?:\.\d+)?) shrink-0"/g)].map((m) => m[1]!);
-  assert.equal(icons.length, 2, "both destination shapes render an icon");
-  for (const size of icons) {
-    assert.equal(size, "4", "no destination icon was shrunk to make room for a name");
-  }
-
-  /* The width available to a label is unchanged: 224 − 24 − 24 − 16 − 10 = 150px. */
-  const available = 224 - 24 - 24 - 16 - 10;
-  for (const [label, need] of Object.entries(WIDE_L2_LABELS)) {
-    assert.ok(need > available, `"${label}" (${need}px) is why this row must wrap — it exceeds ${available}px`);
+  for (const escape of ["w-max", "whitespace-nowrap"]) {
+    assert.ok(
+      !code.includes(escape),
+      `an inline L2 row may not use ${escape} — a row wider than its column paints over the canvas`,
+    );
   }
 }
 
@@ -233,21 +220,10 @@ function topbarNeverTruncatesADescription(sources: Sources): void {
     "and it does not reach one through another name either",
   );
 
-  /*
-   * The title survives, unconditionally, and is never hidden by a breakpoint.
-   *
-   * Anchored on the WHOLE opening tag, not on a substring inside its class list. The first version
-   * of this assertion sliced from `min-w-0 flex-1 lg:flex-none` — and a `hidden` added ahead of it
-   * lands OUTSIDE that window, so the guard could never have fired. Fourth time this repository has
-   * been bitten by a window-scoped assertion; the bite-proof below is what caught it.
-   */
   const titleTag = /<div className="([^"]*)">\s*<p className="([^"]*)">\{surface\.label\}<\/p>/.exec(code);
   assert.ok(titleTag, "the top bar names the surface, in a shape this proof can read");
   for (const cls of [titleTag[1]!, titleTag[2]!]) {
-    assert.ok(
-      !/\bhidden\b|\b(sm|md|lg|xl|2xl):hidden\b/.test(cls),
-      `the surface name is never hidden at any breakpoint (found "${cls}")`,
-    );
+    assert.ok(!/\bhidden\b|\b(sm|md|lg|xl|2xl):hidden\b/.test(cls), "the surface name remains visible");
   }
   assert.ok(
     TOPBAR_TITLE_PX_MAX < 208,
@@ -255,17 +231,15 @@ function topbarNeverTruncatesADescription(sources: Sources): void {
   );
 
   /*
-   * THE DESCRIPTION DID NOT DISAPPEAR; IT HAS ONE OWNER. `SecondaryNavContent` renders it in full,
-   * wrapped, unconditionally — permanently in the Level-2 column at ≥1024px, and on demand from the
-   * tablet drawer and the mobile sheet below that. Measured before the change: the top bar cut it on
-   * five of seven surfaces at ≥1024px, the worst needing 470.4px of a 208px slot.
+   * THE DESCRIPTION DID NOT DISAPPEAR. `SecondaryNavContent` renders it in full on the default
+   * column/mobile surface; the compact inline rail intentionally hides the redundant identity block.
    */
   const secondary = codeOf(sources[SECONDARY]!);
   const detail = secondary.slice(secondary.indexOf("{heading.detail}") - 200, secondary.indexOf("{heading.detail}"));
   for (const shortening of ["truncate", "line-clamp", "whitespace-nowrap"]) {
     assert.ok(!detail.includes(shortening), `the one owner of the description may not shorten it (${shortening})`);
   }
-  assert.ok(!/\bhidden\b|\bsm:|\bmd:|\blg:/.test(detail), "and it renders at every width the column is shown at");
+  assert.ok(detail.includes('inline && "hidden"'), "and only the compact inline variant hides the redundant identity block");
   assert.ok(TAGLINE_PX_MAX > 208, "a 208px slot could never have held the longest description");
 }
 
@@ -310,14 +284,18 @@ function everyShellIdentitySiteIsHonest(sources: Sources): void {
    * unconditionally at 768px, where focused mode does not exist. Every ordinary shell component
    * that renders a surface NAME now asks the resolver that may answer "none of the seven".
    */
-  for (const file of [TOPBAR, RAIL, SECONDARY, TABLET, MOBILE]) {
+  for (const file of [TOPBAR, RAIL, SECONDARY, MOBILE]) {
     assert.match(
       bodyOf(sources[file]!),
       /resolveShellSurface\(pathname\)/,
       `${file} must CALL the resolver that may answer "none of the seven" — importing it is not using it`,
     );
   }
-  assert.match(codeOf(sources[TABLET]!), /\{surface\.label\}/, "the tablet trigger says where the operator is");
+  assert.equal(
+    (codeOf(sources[RAIL]!).match(/workspace=\{workspace\}/g) ?? []).length,
+    1,
+    "the unified inline path receives its honest workspace context",
+  );
   assert.match(
     codeOf(sources[SECONDARY]!),
     /surface\.workspace === null[\s\S]{0,160}?Sections of \$\{workspace\.label\}/,
@@ -330,16 +308,15 @@ function everyShellIdentitySiteIsHonest(sources: Sources): void {
  * ────────────────────────────────────────────────────────────────────────── */
 function ambientSurfacesKeepTheirEscape(sources: Sources): void {
   /*
-   * The list is the escape, so it keeps the fallback. Measured on `/heby`: the tablet drawer offers
-   * 8 destinations under the header "Heby / Sections of Command", and the mobile sheet lists all
-   * seven workspaces plus Heby with `aria-current` on none of them.
+   * The mobile list remains the escape on ambient surfaces. The desktop rail truthfully expands
+   * only when URL resolution identifies one of the seven workspaces.
    */
   const mobile = codeOf(sources[MOBILE]!);
   assert.match(mobile, /activeWorkspace = resolveShellSurface\(pathname\)\.workspace/, "the mark is honest");
   assert.match(mobile, /selected \?\? resolveActiveWorkspace\(pathname\)/, "and the way out is preserved");
 
-  const tablet = codeOf(sources[TABLET]!);
-  assert.match(tablet, /resolveActiveWorkspace\(pathname\)/, "the tablet drawer still opens a real list");
+  const rail = codeOf(sources[RAIL]!);
+  assert.match(rail, /active = resolveShellSurface\(pathname\)\.workspace/, "desktop expansion remains honest");
 
   const secondary = codeOf(sources[SECONDARY]!);
   assert.match(secondary, /destinationsForRole\(workspace, role\)/, "the column still lists the fallback's sections");
@@ -355,38 +332,25 @@ function ambientSurfacesKeepTheirEscape(sources: Sources): void {
 function shellContractsAreUnchanged(sources: Sources): void {
   const tokens = sources[TOKENS]!;
   assert.match(tokens, /--rail-w:\s*92px/, "the rail contract is unchanged");
-  assert.match(tokens, /--secondary-w:\s*224px/, "the secondary contract is unchanged");
-  assert.match(tokens, /--topbar-h:\s*64px/, "the top bar height contract is unchanged");
-  assert.match(tokens, /--shell-nav-w:\s*calc\(var\(--rail-w\) \+ var\(--secondary-w\)\)/, "and the content padding still derives from both");
-
-  /* The collapse points and the focused-mode overrides are untouched. */
-  const globals = sources[GLOBALS]!;
   /*
-   * BOTH desktop blocks — the operator's own collapse and focused mode — sit at the same breakpoint,
-   * so the count is the invariant, not the presence. An assertion that merely found one of them
-   * could not see the other move, which is exactly what its bite-proof demonstrated.
-   *
-   * ── WHY THE COUNT IS SCOPED TO SHELL BLOCKS ──────────────────────────────────
-   *
-   * It used to count EVERY `@media (min-width: 1024px)` in the stylesheet and require exactly two.
-   * That reads as "the two shell blocks are at 1024px" and means "this file contains no other
-   * desktop breakpoint anywhere" — a claim about the whole stylesheet that VI-2 never intended to
-   * make and has no authority over. The public site's sticky section marker is a desktop
-   * composition and legitimately opens at the same width, and it tripped this assertion while
-   * moving no shell rule at all.
-   *
-   * So the count now asks the question the message states: how many desktop blocks carry a SHELL
-   * declaration. Its bite-proof moves the first one to 1280px, which still takes the count from two
-   * to one, so the guard is scoped without being weakened.
+   * DERIVED, NOT PINNED. Also not released — HEAD has no `--rail-inline-w` at all. 156px was the
+   * number that forced the escape hack: it gave the longest canonical L2 label 77px of a measured
+   * 141px. The contract worth keeping is the floor the measurement produces, not the number.
    */
-  const desktopShellBlocks = [...globals.matchAll(/@media \(min-width: 1024px\)/g)].filter((match) =>
-    /data-secondary|data-heby-focus/.test(globals.slice(match.index!, match.index! + 400)),
+  const railInline = /--rail-inline-w:\s*(\d+)px/.exec(tokens);
+  assert.ok(railInline, "the integrated width is declared once, in the token authority");
+  assert.ok(
+    Number(railInline![1]) >= 212,
+    `the integrated rail is ${railInline![1]}px; 141px of label plus 71px of chrome needs 212px`,
   );
-  assert.equal(
-    desktopShellBlocks.length,
-    2,
-    "both desktop shell blocks are still bound to the 1024px collapse point",
-  );
+  assert.doesNotMatch(tokens, /--secondary-w:/, "no detached secondary-column width remains");
+  assert.match(tokens, /--secondary-offset:\s*0px/, "the unpinned panel contributes no layout width");
+  assert.match(tokens, /--topbar-h:\s*64px/, "the top bar height contract is unchanged");
+  assert.match(tokens, /--shell-nav-w:\s*calc\(var\(--rail-w\) \+ var\(--secondary-offset\)\)/, "and content padding derives from the responsive offset");
+
+  /* Inline navigation begins at tablet width; focused mode still narrows the same rail. */
+  const globals = sources[GLOBALS]!;
+  assert.match(globals, /@media \(min-width: 768px\)[\s\S]*?--rail-w: var\(--rail-inline-w\)/, "inline navigation begins at 768px");
   /*
    * Scoped to the focused-mode block. `--secondary-w: 0px` appears TWICE in this stylesheet — the
    * operator's own collapse says it too — so an unscoped assertion cannot tell which one it is
@@ -394,7 +358,7 @@ function shellContractsAreUnchanged(sources: Sources): void {
    */
   const focusBlock = globals.slice(globals.indexOf('data-heby-focus="on"'));
   assert.match(focusBlock, /--rail-w: 56px/, "focused mode still narrows the rail to a strip");
-  assert.match(focusBlock, /--secondary-w: 0px/, "and still collapses the column to zero width");
+  assert.match(focusBlock, /--secondary-offset: 0px/, "and still removes the column's layout offset");
 
   /* VI-2 wrote nothing into the stylesheet at all. */
   assert.ok(!/VI-2|vi2/.test(globals), "VI-2 introduced no global rule");
@@ -456,9 +420,9 @@ function biteProofs(sources: Sources): void {
   );
 
   bites(
-    "shrink the secondary icon to make room rather than wrapping",
+    "shrink the default secondary icon to make room rather than wrapping",
     secondaryLabelsAreNeverTruncated,
-    withDefect(sources, SECONDARY, '<Icon className="size-4 shrink-0" />\n              {/*', '<Icon className="size-3 shrink-0" />\n              {/*'),
+    withDefect(sources, SECONDARY, 'inline ? "mt-0.5 size-3" : "size-4"', 'inline ? "mt-0.5 size-3" : "size-3"'),
   );
 
   bites(
@@ -482,7 +446,7 @@ function biteProofs(sources: Sources): void {
   bites(
     "drop a required shell label below the floor",
     shellTextRespectsTheFloor,
-    withDefect(sources, RAIL, "py-2 text-xs font-semibold", "py-2 text-[0.62rem] font-semibold"),
+    withDefect(sources, RAIL, "py-1.5 text-sm font-semibold", "py-1.5 text-[0.62rem] font-semibold"),
   );
 
   bites(
@@ -494,31 +458,25 @@ function biteProofs(sources: Sources): void {
   bites(
     "state the floor in the inert Stage 0 utility, which renders at 16px",
     shellTextRespectsTheFloor,
-    withDefect(sources, RAIL, "py-2 text-xs font-semibold", "py-2 text-label font-semibold"),
+    withDefect(sources, RAIL, "py-1.5 text-sm font-semibold", "py-1.5 text-label font-semibold"),
   );
 
   bites(
-    "starve the widest workspace name by restoring the item's old padding",
+    "starve the widest workspace name by removing the integrated width contract",
     railNamesFitAtTheFloor,
-    withDefect(sources, RAIL, "rounded-xl px-0.5 py-2", "rounded-xl px-1 py-2"),
+    withDefect(sources, RAIL, "min-h-9 w-full min-w-0", "min-h-9 w-[76px] min-w-0"),
   );
 
   bites(
     "shorten a workspace name in the rail instead of fitting it",
     railNamesFitAtTheFloor,
-    withDefect(sources, RAIL, '<span data-rail-label="" className="max-w-full text-center">', '<span data-rail-label="" className="max-w-full truncate text-center">'),
+    withDefect(sources, RAIL, '<span data-rail-label="" className="min-w-0 text-left leading-snug">', '<span data-rail-label="" className="min-w-0 truncate text-left leading-snug">'),
   );
 
   bites(
-    "shrink the rail icon to make room",
+    "change the integrated rail icon contract",
     railNamesFitAtTheFloor,
-    withDefect(sources, RAIL, 'Icon className="size-5 shrink-0"', 'Icon className="size-4 shrink-0"'),
-  );
-
-  bites(
-    "change the secondary width token",
-    shellContractsAreUnchanged,
-    withDefect(sources, TOKENS, "--secondary-w: 224px", "--secondary-w: 248px"),
+    withDefect(sources, RAIL, 'Icon className="size-4 shrink-0"', 'Icon className="size-3 shrink-0"'),
   );
 
   bites(
@@ -540,9 +498,9 @@ function biteProofs(sources: Sources): void {
   );
 
   bites(
-    "restore Command as the tablet trigger's identity",
+    "give the inline submenu the wrong workspace identity",
     everyShellIdentitySiteIsHonest,
-    withDefect(sources, TABLET, "{surface.label}\n        <ChevronDown", "{workspace.label}\n        <ChevronDown"),
+    withDefect(sources, RAIL, "workspace={workspace}", 'workspace={getWorkspace("command")}'),
   );
 
   bites(
@@ -580,7 +538,7 @@ function biteProofs(sources: Sources): void {
   bites(
     "break the derivation that gives the content its padding",
     shellContractsAreUnchanged,
-    withDefect(sources, TOKENS, "--shell-nav-w: calc(var(--rail-w) + var(--secondary-w))", "--shell-nav-w: 316px"),
+    withDefect(sources, TOKENS, "--shell-nav-w: calc(var(--rail-w) + var(--secondary-offset))", "--shell-nav-w: 92px"),
   );
 
   bites(
@@ -592,13 +550,13 @@ function biteProofs(sources: Sources): void {
   bites(
     "stop focused mode collapsing the Level-2 column",
     shellContractsAreUnchanged,
-    withDefect(sources, GLOBALS, '--secondary-w: 0px;\n    /* A minimal strip', '--secondary-w: 224px;\n    /* A minimal strip'),
+    withDefect(sources, GLOBALS, '--secondary-offset: 0px;\n    /* A minimal strip', '--secondary-offset: 224px;\n    /* A minimal strip'),
   );
 
   bites(
-    "move the desktop collapse point",
+    "move the inline-navigation breakpoint",
     shellContractsAreUnchanged,
-    withDefect(sources, GLOBALS, "@media (min-width: 1024px)", "@media (min-width: 1280px)"),
+    withDefect(sources, GLOBALS, "@media (min-width: 768px)", "@media (min-width: 1024px)"),
   );
 
   bites(
@@ -620,33 +578,27 @@ function biteProofs(sources: Sources): void {
   );
 
   bites(
-    "stop the Level-2 row reserving the two lines a wrapped name needs",
+    "shrink the default Level-2 row below its established density",
     secondaryLabelsAreNeverTruncated,
-    withDefect(sources, SECONDARY, "min-h-10 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors", "min-h-8 items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition-colors"),
+    withDefect(sources, SECONDARY, 'min-h-10 gap-2.5 rounded-lg px-3 text-sm', 'min-h-8 gap-2.5 rounded-lg px-3 text-sm'),
   );
 
   bites(
-    "size the rail item from something other than the rail contract",
+    "stop the integrated rail item filling its width",
     railNamesFitAtTheFloor,
-    withDefect(sources, RAIL, "w-[calc(var(--rail-w)-16px)]", "w-[76px]"),
+    withDefect(sources, RAIL, "min-h-9 w-full min-w-0", "min-h-9 w-[76px] min-w-0"),
   );
 
   bites(
-    "stop the tablet trigger asking the honest resolver at all",
+    "stop the active rail item supplying the honest workspace",
     everyShellIdentitySiteIsHonest,
-    withDefect(sources, TABLET, "const surface = resolveShellSurface(pathname);", "const surface = { label: workspace.label };"),
+    withDefect(sources, RAIL, "workspace={workspace}", 'workspace={getWorkspace("command")}'),
   );
 
   bites(
     "let the Level-2 column render no way out for a surface it does not recognise",
     ambientSurfacesKeepTheirEscape,
     withDefect(sources, SECONDARY, "        {destinations.map((destination) => {", "        {surface.workspace === null ? null : destinations.map((destination) => {"),
-  );
-
-  bites(
-    "stop the tablet drawer opening a real list",
-    ambientSurfacesKeepTheirEscape,
-    withDefect(sources, TABLET, "const workspace = getWorkspace(resolveActiveWorkspace(pathname));", "const workspace = getWorkspace(\"command\");"),
   );
 
   bites(

@@ -207,10 +207,23 @@
   --topbar-h: 64px;
   --gutter: 24px;
 
-  /* App shell: primary workspace rail + secondary (Level-2) nav column */
+  /* App shell: a compact rail with inline Level-2 navigation from tablet upward. */
   --rail-w: 92px;
-  --secondary-w: 224px;
-  --shell-nav-w: calc(var(--rail-w) + var(--secondary-w));
+  /*
+   * The integrated rail carries BOTH levels from tablet upward, so its width is derived from the
+   * longest canonical Level-2 label rather than chosen. Measured in Plus Jakarta Sans at the row's
+   * own 12px/500: "Infrastructure & Settings" is 141px. The chrome between the rail edge and that
+   * text is 71px (nav px-2 16, indent 12, rule 1, pl-1 4, list px-1 8, row px-1.5 12, icon 12,
+   * gap 6). 141 + 71 = 212px minimum; 220px adds the slack that keeps a focus ring and any
+   * font-metric variance inside the navigation instead of over the canvas.
+   *
+   * It is wider than the 156px experiment because 156px gave that label 77px and the previous
+   * implementation bought the difference with `w-max` — which is how Level-2 rows came to paint
+   * across the workspace. It is still 96px narrower than the released 92 + 224 = 316px shell.
+   */
+  --rail-inline-w: 220px;
+  --secondary-offset: 0px;
+  --shell-nav-w: calc(var(--rail-w) + var(--secondary-offset));
 
   /* ── Z-index ──────────────────────────────── */
   --z-base: 0;

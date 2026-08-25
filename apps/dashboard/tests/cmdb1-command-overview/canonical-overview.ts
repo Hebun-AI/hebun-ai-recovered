@@ -134,7 +134,7 @@ function theThreeStatesAreDistinct(): void {
   assert.notEqual(empty, waiting, "an empty queue is not the same rendering as a populated one");
 
   const emptyText = sectionText(empty, WAITING);
-  assert.ok(emptyText.includes("Nothing is waiting"), "the empty state says nothing is waiting");
+  assert.ok(emptyText.includes("Nothing currently requires your decision"), "the empty state says nothing requires a decision");
   assert.ok(!/Unavailable/i.test(emptyText), "and is never labelled unavailable");
 
   const unavailableText = sectionText(unavailable, WAITING);

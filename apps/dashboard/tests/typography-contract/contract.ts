@@ -261,7 +261,7 @@ function theShellIsUnchanged(overrides: Readonly<Record<string, string>> = {}): 
   const TOPBAR_F = "src/components/layout/topbar.tsx";
   const rail = codeOf(overrides[RAIL_F] ?? read(RAIL_F));
   const topbar = codeOf(overrides[TOPBAR_F] ?? read(TOPBAR_F));
-  assert.match(rail, /py-2 text-xs font-semibold/, "the rail keeps VI-2's explicit text-xs floor");
+  assert.match(rail, /py-1\.5 text-sm font-semibold/, "the integrated rail keeps an explicit readable text size");
   assert.match(topbar, /block text-xs text-fg-muted">Director/, "and so does the operator's role");
   /* This gate does not migrate the shell onto the semantic scale — that is not its scope. */
   for (const step of STEPS) {
@@ -311,8 +311,6 @@ const PERSISTENT_CHROME = [
   "src/components/layout/secondary-nav.tsx",
   "src/components/layout/topbar.tsx",
   "src/components/layout/mobile-nav.tsx",
-  "src/components/layout/tablet-sections.tsx",
-  "src/components/layout/secondary-toggle.tsx",
   "src/components/layout/page-header.tsx",
   "src/components/layout/heby/heby-launcher.tsx",
   "src/components/layout/heby/heby-focus-mode.tsx",
@@ -533,7 +531,7 @@ async function biteProofs(globals: string, tokens: string): Promise<void> {
 
   /* 9e. Take VI-2's explicit floor away from the shell. */
   await bites("drop the rail's text-xs floor", () =>
-    theShellIsUnchanged({ "src/components/layout/workspace-rail.tsx": mutate(read("src/components/layout/workspace-rail.tsx"), "py-2 text-xs font-semibold", "py-2 font-semibold") }),
+    theShellIsUnchanged({ "src/components/layout/workspace-rail.tsx": mutate(read("src/components/layout/workspace-rail.tsx"), "py-1.5 text-sm font-semibold", "py-1.5 font-semibold") }),
   );
 
   /* 9f. Quietly migrate the shell onto the semantic scale inside this gate. */

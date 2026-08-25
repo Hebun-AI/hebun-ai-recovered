@@ -215,9 +215,27 @@ function pxOf(css: string, token: string): number {
 
 function theSplitIsJustifiedByArithmetic(overrides: Readonly<Record<string, string>> = {}): void {
   const tokens = overrides[TOKENS] ?? read(TOKENS);
-  const railW = pxOf(tokens, "--rail-w");
-  const secondaryW = pxOf(tokens, "--secondary-w");
-  const shellNav = railW + secondaryW;
+  /*
+   * AMENDED BY CMD-FINAL, AND IT STILL READS THE SHELL RATHER THAN A NUMBER.
+   *
+   * CMD-V3 derived the space available to the split from `--rail-w + --secondary-w`, because the
+   * shell was a narrow rail beside a detached Level-2 column. CMD-FINAL merged those into ONE
+   * integrated rail, so `--secondary-w` no longer exists and reading it would be this proof
+   * describing a shell that is gone.
+   *
+   * The replacement is the shell's own composition of the same quantity: from tablet upward
+   * `--rail-w` resolves to `--rail-inline-w`, and `--shell-nav-w` is `--rail-w + --secondary-offset`
+   * — which is exactly what the content padding uses. The intent is untouched: the space the split
+   * may spend is whatever the navigation does not, taken from the tokens rather than restated here.
+   */
+  const railW = pxOf(tokens, "--rail-inline-w");
+  const secondaryOffset = pxOf(tokens, "--secondary-offset");
+  assert.match(
+    tokens,
+    /--shell-nav-w:\s*calc\(var\(--rail-w\)\s*\+\s*var\(--secondary-offset\)\)/,
+    "the shell's navigation width is still the sum this arithmetic assumes",
+  );
+  const shellNav = railW + secondaryOffset;
 
   /* No custom breakpoint, and no re-based rem, may move the split out from under this arithmetic. */
   for (const file of [GLOBALS, TOKENS]) {
@@ -241,11 +259,16 @@ function theSplitIsJustifiedByArithmetic(overrides: Readonly<Record<string, stri
   const gutter = 32 * 2;
 
   const overview = overrides[OVERVIEW] ?? read(OVERVIEW);
-  const aside = /xl:w-\[(\d+)px\]/.exec(overview);
-  assert.ok(aside, "the tertiary column declares one explicit width, in px, at xl");
+  /*
+   * AMENDED BY CMD-FINAL. The operating band is now a three-track grid rather than CMD-V3's
+   * primary stack plus aside. The tertiary track remains explicit; the two live tracks share the
+   * rest at 1.08fr / 1fr so Waiting keeps a measurable edge without starving Director Intent.
+   */
+  const aside = /xl:grid-cols-\[minmax\(0,1\.08fr\)_minmax\(0,1fr\)_(\d+)px\]/.exec(overview);
+  assert.ok(aside, "the operating grid declares one explicit tertiary width, in px, at xl");
   const asideW = Number(aside![1]);
 
-  const gap = 32; /* lg:gap-8, the row gap in force wherever the row is on */
+  const gap = 32; /* lg:gap-8, twice in the three-track operating band */
 
   /*
    * THE BREAKPOINT IS DERIVED, NOT NAMED. The primary column must stay wider than the aside, so the
@@ -253,30 +276,34 @@ function theSplitIsJustifiedByArithmetic(overrides: Readonly<Record<string, stri
    * asserting the source arms exactly that step means a mutation to a different step fails on the
    * measurement, not on a string ban that merely happens to agree with it.
    */
-  const primaryAt = (viewport: number): number => viewport - shellNav - gutter - asideW - gap;
-  const legal = (Object.keys(BREAKPOINTS) as Step[]).filter((s) => primaryAt(BREAKPOINTS[s]) > asideW);
-  assert.ok(legal.length > 0, `no breakpoint can carry a ${asideW}px aside beside a wider primary column`);
+  const liveSpaceAt = (viewport: number): number => viewport - shellNav - gutter - asideW - gap * 2;
+  const waitingAt = (viewport: number): number => liveSpaceAt(viewport) * 1.08 / 2.08;
+  const intentAt = (viewport: number): number => liveSpaceAt(viewport) / 2.08;
+  const liveFloor = 240;
+  const legal = (Object.keys(BREAKPOINTS) as Step[]).filter(
+    (s) => waitingAt(BREAKPOINTS[s]) >= liveFloor && intentAt(BREAKPOINTS[s]) >= liveFloor,
+  );
+  assert.ok(legal.length > 0, `no breakpoint can carry two usable live tracks beside a ${asideW}px rail`);
   const smallest = legal[0];
 
-  const armed = [...overview.matchAll(/\b([a-z0-9]+):flex-row\b/g)].map((m) => m[1]);
+  const armed = [...overview.matchAll(/\b([a-z0-9]+):grid-cols-\[minmax\(0,1\.08fr\)/g)].map((m) => m[1]);
   assert.deepEqual(
     armed,
     [smallest],
-    `the row is armed at [${armed}]; the arithmetic says the smallest step where the primary column ` +
-      `(${primaryAt(BREAKPOINTS[smallest])}px) stays wider than the ${asideW}px aside is "${smallest}" ` +
-      `— at "lg" the primary would be ${primaryAt(BREAKPOINTS.lg)}px`,
+    `the operating grid is armed at [${armed}]; the arithmetic says the smallest step where Waiting ` +
+      `(${waitingAt(BREAKPOINTS[smallest]).toFixed(1)}px) and Intent ` +
+      `(${intentAt(BREAKPOINTS[smallest]).toFixed(1)}px) clear ${liveFloor}px is "${smallest}"`,
   );
-  assert.ok(!/\bflex-row\b(?<!:flex-row)/.test(overview.replace(/[a-z0-9]+:flex-row/g, "")), "and never unconditionally");
 
   assert.ok(
-    asideW >= 320 && asideW <= 360,
-    `the aside is ${asideW}px — outside the 320–360px band the composition was approved against`,
+    asideW >= 260 && asideW <= 320,
+    `the coverage rail is ${asideW}px — outside the 260–320px cockpit band`,
   );
-  /* 1024 stays one column, and this is the number that makes that a fact rather than a preference. */
+  /* 1024 stays a two-track composition, and this proves a three-track cockpit would starve it. */
   assert.ok(
-    primaryAt(BREAKPOINTS.lg) < asideW,
-    `at 1024 the primary column would be ${primaryAt(BREAKPOINTS.lg)}px against a ${asideW}px aside — ` +
-      "which is why the split is not armed there",
+    waitingAt(BREAKPOINTS.lg) < liveFloor && intentAt(BREAKPOINTS.lg) < liveFloor,
+    `at 1024 the live tracks would be ${waitingAt(BREAKPOINTS.lg).toFixed(1)}px and ` +
+      `${intentAt(BREAKPOINTS.lg).toFixed(1)}px — which is why the three-track grid is not armed there`,
   );
 }
 
@@ -298,9 +325,9 @@ function everyColumnCanShrink(overrides: Readonly<Record<string, string>> = {}):
       `a flex/grid container without min-w-0 cannot shrink below its content: "${cls}"`,
     );
   }
-  /* The one fixed width in the file is the aside's, and it is confined to xl. */
+  /* CMD-FINAL moved the tertiary width into the grid template; no child carries a fixed width. */
   const fixed = [...overview.matchAll(/(^|\s|")((?:[a-z]+:)?)w-\[[^\]]+\]/g)].map((m) => m[2]);
-  assert.deepEqual(fixed, ["xl:"], "only the aside carries a fixed width, and only from xl up");
+  assert.deepEqual(fixed, [], "no child carries a fixed width; the grid owns track geometry");
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -344,7 +371,7 @@ function theReadStatesAreStillThree(overrides: Readonly<Record<string, string>> 
   assert.notEqual(empty, populated, "an empty queue is not the same rendering as a populated one");
 
   const emptyText = sectionText(empty, "Waiting on you");
-  assert.ok(emptyText.includes("Nothing is waiting for a human decision"), "empty says it was answered");
+  assert.ok(emptyText.includes("Nothing currently requires your decision"), "empty says it was answered");
   assert.ok(!/Unavailable/i.test(emptyText), "and is never labelled unavailable");
   assert.ok(/Empty/i.test(emptyText), "the eyebrow that carries the distinction survived the density change");
   assert.ok(!/\b0\b/.test(emptyText), "and no zero was fabricated for it");
@@ -399,11 +426,12 @@ function intentReadsAsADoorway(overrides: Readonly<Record<string, string>> = {})
   const paragraphs = [...body.matchAll(/<p class="([^"]*)"[^>]*>([\s\S]*?)<\/p>/g)]
     .map((m) => ({ cls: m[1], text: visible(m[2]) }))
     .filter((p) => !/text-fg-secondary text-pretty/.test(p.cls) || !p.text.startsWith("What can you"));
-  const counts = paragraphs.find((p) => p.text.includes("actions are declared"));
-  assert.ok(counts, "the counts are rendered");
+  /* CMD-FINAL turns the derived facts into a scan list; their container still owns metadata size. */
+  const counts = /<ul class="([^"]*\btext-meta\b[^"]*)"[^>]*>([\s\S]*?actions are declared[\s\S]*?)<\/ul>/.exec(body);
+  assert.ok(counts, "the counts are rendered as a metadata fact list");
   assert.ok(
-    /\btext-meta\b/.test(counts!.cls) && !/\btext-body\b/.test(counts!.cls),
-    `the registry counts read as metadata, not as a headline: "${counts!.cls}"`,
+    /\btext-meta\b/.test(counts![1]) && !/\btext-body\b/.test(counts![1]),
+    `the registry counts read as metadata, not as a headline: "${counts![1]}"`,
   );
   const lead = paragraphs.filter((p) => /\btext-body\b/.test(p.cls));
   assert.equal(lead.length, 1, "the section has exactly one reading-size lead");
@@ -525,10 +553,40 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
     }
     return out;
   };
+  /*
+   * AMENDED BY CMD-FINAL, AND STRICTER FOR IT. CMD-V3 asserted that exactly one surface asked for
+   * `compact`, and that surface was Command. CMD-FINAL unboxed the Command operating statement —
+   * a card is the wrong shape for "here is where your organization stands" — so Command no longer
+   * renders a StateBlock at all and NOTHING opts in.
+   *
+   * The empty set is the truthful pin and it admits less than the old one did: it fails the moment
+   * ANY surface opts in, where the old form tolerated one. What CMD-V3 actually defended — that the
+   * released default cannot move under the six untouched consumers — is asserted above, unchanged.
+   *
+   * That `compact` now has no product consumer is recorded as debt in CMD-FINAL's closure, not
+   * hidden here.
+   */
   const optedIn = walk("src").filter((f) => /density="compact"/.test(overrides[f] ?? read(f)));
-  assert.deepEqual(optedIn, [OVERVIEW], "exactly one surface asks for compact, and it is this phase's");
+  assert.deepEqual(optedIn, [], "no surface opts into compact — CMD-FINAL retired the boxed status");
+  /*
+   * SIX, NOT SEVEN — AND THE SIX ARE THE POINT. CMD-V3 counted seven consumers: the six Knowledge
+   * surfaces it must not disturb, plus Command. CMD-FINAL removed Command's, so six remain, and
+   * they are exactly the six this axis was built to leave alone. Naming them beats counting them:
+   * the count tolerated any swap that kept the total, and this does not.
+   */
   const consumers = walk("src").filter((f) => f !== STATE_BLOCK && /<StateBlock/.test(overrides[f] ?? read(f)));
-  assert.equal(consumers.length, 7, `still seven StateBlock consumers; found ${consumers.length}`);
+  assert.deepEqual(
+    consumers.sort(),
+    [
+      "src/app/(dashboard)/knowledge/page.tsx",
+      "src/components/knowledge-workspace/company-understanding-card.tsx",
+      "src/components/knowledge-workspace/knowledge-authoring-card.tsx",
+      "src/components/knowledge-workspace/knowledge-ingestion-card.tsx",
+      "src/components/knowledge-workspace/knowledge-records.tsx",
+      "src/components/knowledge-workspace/knowledge-sources-card.tsx",
+    ],
+    "the six untouched Knowledge consumers remain, and Command is no longer among them",
+  );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -678,7 +736,7 @@ function biteProofs(): void {
   /* M6 — visual order overrides DOM order. */
   bites("reorder the columns visually", () =>
     readingOrderCannotVaryByWidth({
-      [OVERVIEW]: mutate(read(OVERVIEW), "xl:w-[320px] xl:shrink-0", "xl:w-[320px] xl:shrink-0 xl:order-first"),
+      [OVERVIEW]: mutate(read(OVERVIEW), "md:col-span-2 xl:col-span-1", "md:col-span-2 xl:col-span-1 xl:order-first"),
     }),
   );
 
@@ -692,14 +750,14 @@ function biteProofs(): void {
   /* M7 — the aside grows until it is no longer the subordinate column. */
   bites("widen the aside past the primary column", () =>
     theSplitIsJustifiedByArithmetic({
-      [OVERVIEW]: mutate(read(OVERVIEW), "xl:w-[320px]", "xl:w-[520px]"),
+      [OVERVIEW]: mutate(read(OVERVIEW), "_280px]", "_520px]"),
     }),
   );
 
   /* M7b — the split is armed at lg, where the arithmetic says the primary starves. */
   bites("arm the split at lg", () =>
     theSplitIsJustifiedByArithmetic({
-      [OVERVIEW]: mutate(read(OVERVIEW), "xl:flex-row", "lg:flex-row"),
+      [OVERVIEW]: mutate(read(OVERVIEW), "xl:grid-cols-[minmax(0,1.08fr)", "lg:grid-cols-[minmax(0,1.08fr)"),
     }),
   );
 
@@ -785,12 +843,12 @@ function biteProofs(): void {
 
   /*
    * THE HARNESS ITSELF. A change that is CORRECT must be accepted, or "every mutation bit" means
-   * only that the assertions are brittle. Moving the aside from 360px to 336px is a different
-   * legitimate answer inside the approved band; it must pass.
+   * only that the assertions are brittle. Moving the coverage rail from 280px to 272px is a
+   * different legitimate answer inside the approved band; it must pass.
    */
   doesNotBite("narrow the aside to another width inside the approved band", () =>
     theSplitIsJustifiedByArithmetic({
-      [OVERVIEW]: mutate(read(OVERVIEW), "xl:w-[320px]", "xl:w-[336px]"),
+      [OVERVIEW]: mutate(read(OVERVIEW), "_280px]", "_272px]"),
     }),
   );
 }

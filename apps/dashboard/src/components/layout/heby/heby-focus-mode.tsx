@@ -14,7 +14,7 @@
  *               back  AND  the viewport is at least `lg` (that last clause is CSS, see globals.css).
  *
  * THERE IS NO SECOND SHELL. Nothing here mounts, unmounts or replaces a navigation component. Both
- * `WorkspaceRail` and `SecondaryNav` stay in the tree in every mode; this file sets ONE root data
+ * `WorkspaceRail` stays in the tree in every mode; this file sets ONE root data
  * attribute and a single stylesheet block reacts to it — exactly the mechanism the released
  * secondary-navigation collapse already uses. A second shell would make "which one is authoritative"
  * a question, and it is not a question worth creating for a visual state.
