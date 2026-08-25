@@ -16,6 +16,9 @@ import {
   resolveCeremonyPosture,
 } from "../../scripts/lib/production-possession";
 import { preflightEnvironment } from "../../scripts/lib/ceremony-preflight";
+import { PROVIDER_KEYS } from "../../scripts/lib/provider-connectivity";
+import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
+import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 
 const read = (p: string) => readFileSync(p, "utf8");
 const codeOf = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
@@ -222,11 +225,107 @@ function schemaContractIsIntact(): void {
   }
 }
 
+/*
+ * ── EXTERNAL SEND IS PRODUCTION-UNREACHABLE, AND CLAUDE IS NOT ───────────────
+ *
+ * R2H made this ceremony production-capable for MODEL connectivity and narrowed the posture for
+ * `external-send` alone. That is TWO facts, and they rot separately:
+ *
+ *   external-send  must refuse in production BEFORE it reads or writes the control table
+ *   claude         must still REACH the write in production
+ *
+ * The released r3b and g4 firewalls already pin the first fact against deletion, `false &&`,
+ * a key swap, a fall-through, and a refusal placed after the write. Two mutations survived all of
+ * them, and both are asserted here:
+ *
+ *   - MOVING THE REFUSAL AFTER `readProviderControl`. The ceremony then reads the very table its
+ *     own refusal promises it did not touch — "Nothing was read from the control table and nothing
+ *     was written." The refusal stays before the write, so every ordering assertion that exists
+ *     today still passes while the sentence the operator is shown has become false.
+ *
+ *   - ADDING A SECOND PRODUCTION REFUSAL FOR `claude`, leaving the external-send guard untouched.
+ *     Every existing assertion is about the presence and position of the external-send guard, so
+ *     all of them keep passing while model connectivity silently stops being production-reachable.
+ *
+ * So the property asserted is the SET of production narrowings — exactly one, keyed to the arming
+ * key — rather than the presence of one. A future phase that legitimately narrows production for a
+ * second key will fail this assertion, which is the intended forcing function: reachability is a
+ * decision to be taken deliberately, never inherited.
+ */
+function externalSendIsProductionUnreachableAndClaudeIsNot(): void {
+  /* Comment-stripped AND whitespace-normalised: the property belongs to the CODE, not the layout. */
+  const cli = codeOf(read(CLI)).replace(/\s+/g, " ");
+
+  /* THE SET, NOT THE PRESENCE. A second production branch — for any key — fails here. */
+  const postureTests = [...cli.matchAll(/environment\.posture\.mode\s*===\s*"production"/g)];
+  assert.equal(
+    postureTests.length,
+    1,
+    "the ceremony narrows the PRODUCTION posture for exactly ONE provider key",
+  );
+
+  /*
+   * ANCHORED TO `if (` IMMEDIATELY FOLLOWED BY THE POSTURE TEST, and the guarded key is CAPTURED
+   * rather than matched as a substring. A substring check survives `if (false && <condition>)`,
+   * which reads as present while being permanently dead.
+   */
+  const guard = cli.match(
+    /if\s*\(\s*environment\.posture\.mode\s*===\s*"production"\s*&&\s*providerKey\s*===\s*([A-Za-z_$][\w$]*)\s*\)\s*\{/,
+  );
+  assert.ok(guard, "the narrowing is a LIVE `if`, not a dead, reshaped or commented condition");
+  assert.equal(
+    guard[1],
+    "EXTERNAL_SEND_PROVIDER_KEY",
+    "and the key it refuses is the ARMING key, named by its released constant",
+  );
+
+  const guardAt = guard.index!;
+  const reads = [...cli.matchAll(/readProviderControl\s*\(/g)].map((m) => m.index!);
+  const writes = [...cli.matchAll(/setProviderConnectivity\s*\(/g)].map((m) => m.index!);
+  assert.ok(reads.length > 0, "the ceremony does read the control table somewhere");
+  assert.ok(writes.length > 0, "and does write it somewhere");
+
+  /*
+   * THE REFUSAL'S OWN SENTENCE, MADE TRUE. "Nothing was read from the control table and nothing
+   * was written" is only honest if the refusal precedes the FIRST read and EVERY write.
+   */
+  assert.ok(
+    reads.every((at) => guardAt < at),
+    "external send refuses BEFORE the control table is read",
+  );
+  assert.ok(
+    writes.every((at) => guardAt < at),
+    "external send refuses BEFORE every control table write",
+  );
+
+  /* The branch releases the connection and HALTS — it neither falls through nor leaks a client. */
+  const branch = cli.slice(guardAt, reads[0]);
+  assert.match(
+    branch,
+    /await client\.end\(\)\s*;\s*fail\(/,
+    "the guarded branch closes the client and then refuses fatally",
+  );
+
+  /* CLAUDE IS NOT WHAT IS BEING REFUSED — not by constant, and not by literal. */
+  assert.doesNotMatch(
+    branch,
+    /CLAUDE_PROVIDER_KEY|"claude"/,
+    "the production refusal does not reach the model key",
+  );
+
+  /* And both keys remain in the closed vocabulary: claude is reachable, external-send is not. */
+  assert.notEqual(CLAUDE_PROVIDER_KEY, EXTERNAL_SEND_PROVIDER_KEY, "two keys, two blast radii");
+  for (const key of [CLAUDE_PROVIDER_KEY, EXTERNAL_SEND_PROVIDER_KEY]) {
+    assert.ok(PROVIDER_KEYS.includes(key), `${key} is still an expressible provider key`);
+  }
+}
+
 function main(): void {
   productionIsNeverImplicit();
   possessionIsRequiredAndExact();
   ceremonyUsesTheReleasedPattern();
   noSecondAuthorityAndNoNewWriter();
+  externalSendIsProductionUnreachableAndClaudeIsNot();
   schemaContractIsIntact();
   console.log("r2h ceremony and firewall checks passed");
 }
