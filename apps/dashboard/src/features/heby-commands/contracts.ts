@@ -20,13 +20,39 @@
  * planner branches on it, so "a local command accidentally called the provider" is not a bug that
  * has to be caught — it is unrepresentable.
  *
- *   local       UI/conversation behaviour only.        ZERO provider dispatch.
- *   read        reads an existing authoritative or derived Hebun source, server-side.
+ *   local         UI/conversation behaviour only.      ZERO provider dispatch.
+ *   read          reads an existing authoritative or derived Hebun source, server-side.
  *                                                      ZERO provider dispatch, ZERO execution.
- *   advisory    may reach the model through the EXISTING Heby answer path, with the existing
- *               tenant, evidence, validator, kill-switch and persistence rules. Text only.
- *   navigation  moves within Hebun via the closed workspace registry. ZERO provider dispatch.
- *   reserved    a known future capability. Inert: it neither executes nor dispatches anything.
+ *   provider-read reads a bounded page of records from ONE connected external provider, server-side
+ *                 and tenant-scoped, after the integration capability authority has allowed it.
+ *                 READ-ONLY external I/O, and nothing else — see below.
+ *   advisory      may reach the model through the EXISTING Heby answer path, with the existing
+ *                 tenant, evidence, validator, kill-switch and persistence rules. Text only.
+ *   navigation    moves within Hebun via the closed workspace registry. ZERO provider dispatch.
+ *   reserved      a known future capability. Inert: it neither executes nor dispatches anything.
+ */
+/**
+ * `provider-read` (INT-5B1) is the ONE class permitted to perform external provider I/O.
+ *
+ * IT IS A SIBLING OF `read`, NOT A WIDENING OF IT. `read` is permanently ZERO provider dispatch and
+ * every existing read command keeps that guarantee; widening it would have removed the property
+ * from ten commands that never needed it. This is the R3A.1 arrangement exactly — `propose` became
+ * its own kind, with its own server module, so that "a read can never become a write by changing
+ * one field". Here: a read can never become a provider call by changing one field.
+ *
+ * WHAT THE NAME MEANS, EXACTLY:
+ *
+ *   IT DOES mean   bounded, tenant-scoped, READ-ONLY external provider access, executed by the
+ *                  server inside one explicit command contract with a declared record and call
+ *                  budget, gated by the integration capability authority.
+ *
+ *   IT DOES NOT    a provider write · tool execution · agent execution · Governance authorization ·
+ *      mean        Knowledge admission · general network access · a model request. None of those is
+ *                  reachable from the provider-read server module, and a firewall walks the real
+ *                  import graph to prove it rather than trusting this paragraph.
+ *
+ * A provider-read result is a PROVIDER-DERIVED OBSERVATION: non-authoritative, ephemeral, never
+ * persisted, and never promotable into organizational Knowledge.
  */
 /**
  * `propose` (R3A.1) files a durable action request for a human to decide on. It is NOT execution
@@ -35,7 +61,14 @@
  * world. The separate kind exists so a `read` can never become a write by changing one field, and
  * so the planner can refuse to give a proposal a model prompt.
  */
-export type HebyCommandKind = "local" | "read" | "advisory" | "navigation" | "propose" | "reserved";
+export type HebyCommandKind =
+  | "local"
+  | "read"
+  | "provider-read"
+  | "advisory"
+  | "navigation"
+  | "propose"
+  | "reserved";
 
 /** Palette grouping. Presentation only — it grants nothing. */
 export type HebyCommandCategory =
@@ -107,6 +140,14 @@ export interface HebyCommandDescriptor {
   readonly handler: string;
   /** True only for `advisory`. Enforced by a registry invariant. */
   readonly requiresModel: boolean;
+  /**
+   * True exactly for `provider-read`. Enforced by a registry invariant (INT-5B1).
+   *
+   * Declaring it never grants it: the capability authority still decides, per tenant, on every
+   * call. This field exists so that "which commands can reach outside Hebun at all" is a question
+   * answerable from the registry alone, without walking an import graph.
+   */
+  readonly reachesProvider?: boolean;
   /** True only for `reserved`. Enforced by a registry invariant. */
   readonly requiresExecution: boolean;
   /** A capability id this command would need from a future capability provider, if any. */

@@ -43,6 +43,7 @@ import {
   loadHebyConversationAction,
   proposeHebyActionCommandAction,
   runHebyReadCommandAction,
+  runHebyProviderReadCommandAction,
 } from "@/app/(dashboard)/heby/actions";
 import {
   findHebyCommandById,
@@ -348,6 +349,57 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
               patch({
                 commandOutput: refusal(parsed.command.slash, "Not available", [
                   `That command could not be run (${read.reason}). Nothing was read.`,
+                ]),
+              });
+            }
+          } finally {
+            setReading(false);
+          }
+          return;
+        }
+        case "provider-read": {
+          /*
+           * INT-5B1. The ONE branch in this hook that can result in Hebun contacting a third party.
+           *
+           * It is a SEPARATE action from the read one, so a read has no way to acquire external
+           * reach by an edit here, and the placeholder says plainly what is about to happen —
+           * a reader must never discover after the fact that a command left the building.
+           *
+           * Every line rendered below is server data. The client composes no sentence about what
+           * GitHub holds, and it never turns a refusal or a fault into an empty list.
+           */
+          patch({
+            composer: "",
+            commandOutput: {
+              command: parsed.command.slash,
+              title: "Reading from GitHub…",
+              lines: [
+                "Asking GitHub for one bounded page of the repositories your installation covers.",
+                "Reads only. Nothing is changed, sent or stored.",
+              ],
+              tone: "info",
+              provenance: "Provider read in progress.",
+            },
+          });
+          setReading(true);
+          try {
+            const outcome = await runHebyProviderReadCommandAction({
+              commandId: plan.commandId,
+              args: plan.args,
+            });
+            if (outcome.status === "ok") {
+              patch({ commandOutput: outcome.result });
+            } else if (outcome.status === "unauthorized") {
+              patch({
+                commandOutput: refusal(parsed.command.slash, "Sign in required", [
+                  "Sign in to read this.",
+                ]),
+                available: false,
+              });
+            } else {
+              patch({
+                commandOutput: refusal(parsed.command.slash, "Not available", [
+                  `That command could not be run (${outcome.reason}). No provider was contacted.`,
                 ]),
               });
             }

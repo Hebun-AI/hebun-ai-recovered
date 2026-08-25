@@ -16,6 +16,11 @@ import {
   type HebyReadCommandResult,
 } from "@/features/heby-commands/read-commands.server";
 import {
+  runHebyProviderReadCommand,
+  type HebyProviderReadCommandInput,
+  type HebyProviderReadCommandResult,
+} from "@/features/heby-commands/provider-read-commands.server";
+import {
   runHebyProposeCommand,
   type HebyProposeCommandInput,
   type HebyProposeCommandOutcome,
@@ -107,6 +112,34 @@ export async function proposeHebyActionCommandAction(
   input: HebyProposeCommandInput,
 ): Promise<HebyProposeCommandOutcome> {
   return runHebyProposeCommand(
+    { commandId: input.commandId, args: input.args },
+    { resolveTenant: resolveTenantContext },
+  );
+}
+
+/**
+ * The INT-5B1 boundary for a PROVIDER-READ slash command.
+ *
+ * A FOURTH action, separate from `askHebyAction`, `runHebyReadCommandAction` and the proposal
+ * boundary, and separate for the same reason each of those is. This is the ONLY Heby path that can
+ * result in Hebun contacting an external provider, so it gets its own seam: an ordinary read cannot
+ * acquire external reach by an edit, and a provider being slow or down cannot delay or degrade a
+ * read of Hebun's own sources.
+ *
+ * The client supplies `{ commandId, args }`. The command id is a lookup key into the closed
+ * registry and is refused unless it names an available `provider-read` command; the tenant is
+ * resolved SERVER-SIDE from the R1 session. It cannot supply a tenant, an integration, an
+ * installation, a provider account, a repository address or anything spendable — no parameter for
+ * any of them exists, here or in the seam this calls.
+ *
+ * IT READS. It writes no connection lifecycle, stores no repository, admits nothing into Knowledge,
+ * mints no permit, and executes nothing. A provider failure leaves the stored connection byte for
+ * byte as it was.
+ */
+export async function runHebyProviderReadCommandAction(
+  input: HebyProviderReadCommandInput,
+): Promise<HebyProviderReadCommandResult> {
+  return runHebyProviderReadCommand(
     { commandId: input.commandId, args: input.args },
     { resolveTenant: resolveTenantContext },
   );

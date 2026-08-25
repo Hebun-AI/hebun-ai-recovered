@@ -142,22 +142,52 @@ function main(): void {
     assert.ok(hook.includes("buildTurns("), "thread is composed from the durable messages");
     // The durable server conversation is the only transcript authority.
     assert.ok(!/messages\.push\(|\[\.\.\.session\.messages,/.test(hook), "no client-side transcript accumulation");
-    // No new action MODULE was invented for either surface — every crossing still goes through the
-    // one Heby actions file. S1 added the READ-command boundary; R3A.1 added the PROPOSE boundary.
-    // Both are deliberately separate from the answer action: a read cannot become a model request
-    // (it imports no model client) and a proposal cannot become a read (it imports no read model).
-    // The count is pinned so a fourth crossing cannot appear without somebody stating it here.
+    /*
+     * No new action MODULE was invented for any surface — every crossing still goes through the one
+     * Heby actions file, and each one is deliberately separate from the others so a capability
+     * cannot be acquired by editing a line:
+     *
+     *   askHebyAction                    H1 — the model answer.
+     *   loadHebyConversationAction       H1 — reload survival.
+     *   runHebyReadCommandAction         S1 — Hebun's own sources. Imports no model client, so a
+     *                                    read cannot become a model request.
+     *   proposeHebyActionCommandAction   R3A.1 — a durable proposal. Imports no read model, so a
+     *                                    proposal cannot become a read.
+     *   runHebyProviderReadCommandAction INT-5B1 — ONE external provider, read-only and bounded.
+     *                                    The only crossing that can leave the building; it reaches
+     *                                    no model transport and no writer of any kind.
+     *
+     * ── FOUR → FIVE, STATED RATHER THAN RELAXED ─────────────────────────────
+     *
+     * The count was four and this pin is what made INT-5B1 come here and say so. The PROPERTY is
+     * unchanged and still exact: every Heby crossing is enumerated in this list, and a sixth cannot
+     * appear without somebody adding it by hand.
+     */
     const actions = read("src/app/(dashboard)/heby/actions.ts");
-    assert.equal((actions.match(/export async function/g) ?? []).length, 4, "exactly four Heby server actions");
-    assert.ok(
-      actions.includes("proposeHebyActionCommandAction"),
-      "the R3A.1 propose boundary is one of them",
+    const HEBY_SERVER_ACTIONS = [
+      "askHebyAction",
+      "loadHebyConversationAction",
+      "runHebyReadCommandAction",
+      "proposeHebyActionCommandAction",
+      "runHebyProviderReadCommandAction",
+    ] as const;
+    assert.equal(
+      (actions.match(/export async function/g) ?? []).length,
+      HEBY_SERVER_ACTIONS.length,
+      `exactly ${HEBY_SERVER_ACTIONS.length} Heby server actions`,
     );
     // And the proposal boundary still cannot invalidate arbitrary routes.
     assert.ok(!actions.includes('from "next/cache"'), "the Heby action module takes no cache authority");
-    for (const name of ["askHebyAction", "loadHebyConversationAction", "runHebyReadCommandAction"]) {
+    for (const name of HEBY_SERVER_ACTIONS) {
       assert.ok(actions.includes(`export async function ${name}`), `${name} is one of them`);
     }
+    /*
+     * EXACTLY ONE OF THEM MAY CONTACT A PROVIDER, and it is the one that declares it. Asserted here
+     * as well as in the INT-5B1 firewall, because this is the file that enumerates the crossings:
+     * a second provider-reaching action would be a widening of the Heby surface itself.
+     */
+    const providerReaching = HEBY_SERVER_ACTIONS.filter((name) => /ProviderRead/.test(name));
+    assert.deepEqual(providerReaching, ["runHebyProviderReadCommandAction"]);
   }
 
   // 6. THE SUBMISSION GATE: `askHebyAction` is reachable only after every slash-command branch has

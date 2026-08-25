@@ -99,11 +99,24 @@ const NO_SEARCH_AUTHORITY =
 /** Local defaults for a plain, argument-free command. */
 function base(
   kind: HebyCommandKind,
-): Pick<HebyCommandDescriptor, "args" | "requiresModel" | "requiresExecution" | "safeWhenProviderOff"> {
+): Pick<
+  HebyCommandDescriptor,
+  "args" | "requiresModel" | "requiresExecution" | "reachesProvider" | "safeWhenProviderOff"
+> {
   return {
     args: [],
     requiresModel: kind === "advisory",
     requiresExecution: kind === "reserved",
+    /*
+     * INT-5B1. Derived from the KIND, never hand-written per command, so a descriptor cannot claim
+     * external reach it does not have — or, worse, hide reach it does.
+     */
+    reachesProvider: kind === "provider-read",
+    /*
+     * Still true for a provider-read command. "Provider off" is the Director's connectivity control
+     * over the MODEL provider, and a provider-read command uses no model at all, so it behaves
+     * identically whether that control is on or off.
+     */
     safeWhenProviderOff: true,
   };
 }
@@ -319,6 +332,35 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     availability: "available", handler: "usage", ...base("read"),
   },
 
+  /* ── The first provider-read command (INT-5B1) ─────────────────────────────
+   *
+   * `/repositories` is the ONLY command in this registry that reaches outside Hebun. It reads one
+   * bounded page of the repositories the organization's own GitHub installation covers.
+   *
+   * WHY IT IS NOT `kind: "read"`. Every other command in the `platform` category reads a Hebun read
+   * model and contacts nobody; `read` is contractually ZERO provider dispatch and stays that way.
+   * This command genuinely leaves the building, so it declares a kind that says so — and gets its
+   * own server module, its own server action and its own firewall root as a consequence.
+   *
+   * WHY IT IS `available`. The registry's selection rule is that a command is available only when
+   * this repository already has the source behind it. It does: GITHUB-2 built the verifier and
+   * GITHUB-4 built `discoverInstallationRepositories` against the real GitHub API. Availability
+   * here is a statement about the BUILD, never about a tenant — an organization that has connected
+   * no GitHub installation gets a truthful refusal from the capability authority at run time, which
+   * is a different sentence from "Hebun cannot do this".
+   *
+   * IT TAKES NO ARGUMENTS, deliberately. A repository name or id would be a caller-supplied address,
+   * and the released seam accepts none: the installation itself decides what is visible. There is
+   * no argument here for a tenant, an installation, an account, a token, or a repository.
+   */
+  {
+    id: "repositories", slash: "/repositories", label: "Repositories", category: "platform",
+    kind: "provider-read",
+    description:
+      "Read one bounded page of the repositories your connected GitHub installation covers. Reads only.",
+    availability: "available", handler: "repositories", ...base("provider-read"),
+  },
+
   /* ── Agents / workforce ───────────────────────────────────────────────────
    * `/agents` and `/workflows` read the Executive Overview's own sections. That data is DERIVED and
    * non-authoritative, and the result says so — it is never presented as live execution.
@@ -466,6 +508,22 @@ export function validateHebyCommandRegistry(): readonly string[] {
     }
     if (command.requiresExecution !== (command.kind === "reserved")) {
       problems.push(`${command.id}: requiresExecution must be true exactly for reserved commands`);
+    }
+    /*
+     * INT-5B1 — external reach is declared by exactly one kind, in both directions.
+     *
+     * The `!== true` spelling matters: the field is optional, so `undefined` must read as "no
+     * reach". A provider-read command that omitted it would otherwise pass by accident, and a
+     * command of any other kind could not set it at all.
+     */
+    if ((command.reachesProvider === true) !== (command.kind === "provider-read")) {
+      problems.push(
+        `${command.id}: reachesProvider must be true exactly for provider-read commands`,
+      );
+    }
+    /* A provider-read command may never also claim the model or an execution runtime. */
+    if (command.kind === "provider-read" && (command.requiresModel || command.requiresExecution)) {
+      problems.push(`${command.id}: a provider-read command needs neither the model nor execution`);
     }
     // A reserved command can never be runnable, whatever else it declares.
     if (command.kind === "reserved" && command.availability !== "requires-execution") {

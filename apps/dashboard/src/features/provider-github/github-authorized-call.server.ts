@@ -50,7 +50,20 @@ import {
   getCapabilityAvailability,
   type CapabilityAvailabilityDeps,
 } from "@/features/integration-authority/capability-availability.server";
-import { listConnections } from "@/features/integration-authority/integration-repository.server";
+/*
+ * THE WRITER-FREE READ MODULE, NOT THE REPOSITORY (INT-5B1).
+ *
+ * `integration-repository.server.ts` re-exports this listing and also exports seven acts that
+ * mutate the connection lifecycle, including the one that attaches a credential. Taking the listing
+ * from there put every one of them into the import graph of a read — and INT-5B1 makes that graph
+ * reachable from an operator command, where "no lifecycle writer is reachable" becomes a property a
+ * firewall must be able to prove.
+ *
+ * INT-5A relocated the reads for exactly this purpose and left the signatures identical, so this is
+ * a narrowing and not a behaviour change: it is the SAME `listConnections`, and there is still only
+ * one of it in this repository.
+ */
+import { listConnections } from "@/features/integration-authority/integration-read.server";
 import {
   GITHUB_PROVIDER_KEY,
   GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,

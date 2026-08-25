@@ -5,7 +5,9 @@
  * THIS IS WHERE "A COMMAND CANNOT GRANT ITSELF AUTHORITY" IS ENFORCED. The planner branches on the
  * command's declared `kind`, and only the `advisory` branch can produce a `prompt`. Every other
  * branch returns a plan that carries no prompt at all — so a local, read, navigation, reserved, or
- * unavailable command has no representation in which it could reach a provider. Reserved commands
+ * unavailable command has no representation in which it could reach a MODEL, and only the one kind
+ * that declares external reach (`provider-read`, INT-5B1) has a plan in which it could reach a
+ * PROVIDER. Both facts are properties of the registry, not of this switch. Reserved commands
  * additionally return before anything else happens: no dispatch, no execution, and no fabricated
  * "plan of what would have happened", which would be a fabricated capability.
  *
@@ -57,6 +59,22 @@ export type HebyCommandPlan =
   /** Ask the server to perform a real read. Zero provider dispatch. */
   | {
       readonly kind: "read";
+      readonly commandId: string;
+      readonly handler: string;
+      readonly args: readonly string[];
+    }
+  /**
+   * Ask the server to read a bounded page of records from ONE connected external provider
+   * (INT-5B1). This is the ONLY plan that can result in Hebun contacting a third party.
+   *
+   * It carries the same three fields `read` does and NOTHING else — no provider key, no tenant, no
+   * installation, no account, no credential, no repository address. A command becomes a provider
+   * read by declaring `kind: "provider-read"` in the registry and in no other way, so no handler
+   * string and no later `case` can quietly acquire external reach. Like `read`, it carries no
+   * prompt, so this plan has no representation in which it could reach a model.
+   */
+  | {
+      readonly kind: "provider-read";
       readonly commandId: string;
       readonly handler: string;
       readonly args: readonly string[];
@@ -176,6 +194,19 @@ export function planHebyCommand(
    *    `/send` with a missing half is a usage error, and answering it locally means the server
    *    never opens a connection to discover that.
    */
+  /*
+   * 3. PROVIDER-READ, before the handler switch (INT-5B1), for the same reason `propose` is: the
+   *    branch is reached by the declared KIND, so external reach is a registry property rather
+   *    than a consequence of which `case` a handler happens to land in.
+   *
+   *    It is checked BEFORE `propose` and before the handler switch, and AFTER availability — a
+   *    command with no source never causes a provider request, and a provider-read command can
+   *    never fall through into the `read` branch at the bottom of this function.
+   */
+  if (command.kind === "provider-read") {
+    return { kind: "provider-read", commandId: command.id, handler: command.handler, args };
+  }
+
   if (command.kind === "propose") {
     const refuseLocally = (lines: readonly string[]): HebyCommandPlan => ({
       kind: "unavailable",
@@ -296,8 +327,14 @@ export function planHebyCommand(
         return { kind: "advisory", prompt };
       }
 
-      // Everything remaining is a READ: it is performed by the server against a real read model,
-      // and it makes no provider request.
+      /*
+       * Everything remaining is a READ: it is performed by the server against a real read model,
+       * and it makes no provider request.
+       *
+       * That sentence is still exactly true after INT-5B1, and it is this function's ordering that
+       * keeps it true: `provider-read` returned above, so a command that reaches outside Hebun can
+       * never arrive here and be planned as a `read`.
+       */
       return { kind: "read", commandId: command.id, handler: command.handler, args };
     }
   }

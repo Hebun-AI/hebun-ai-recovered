@@ -196,6 +196,21 @@ function everyCapabilityHasAnHonestReachabilityVerdict(): void {
           `${capability} may only report REACHABLE with a seam a production root actually imports`,
         );
       }
+      /*
+       * ── PER-SEAM, NOT PER-CAPABILITY (INT-5B1) ────────────────────────────
+       *
+       * One capability key can be spent by several seams, and a verdict on the KEY says nothing
+       * about which of them a person can actually reach. `github.repository.activity.read` is
+       * spent by BOTH the repository listing and the pull-request reader, so the single word
+       * REACHABLE above would let somebody conclude that Hebun can show them pull requests. It
+       * cannot: INT-5B1 shipped the listing only.
+       *
+       * Printing each seam's own verdict is what keeps that from being a thing a reader has to
+       * already know.
+       */
+      for (const seam of seams.slice().sort()) {
+        console.log(`        ${appReachable.has(seam) ? "reachable    " : "unreachable  "} ${seam}`);
+      }
     }
   }
 }
@@ -296,8 +311,49 @@ function theCatalogIsInternallyConsistent(): void {
   }
 }
 
+/* ── 6. EXACTLY WHICH GITHUB SEAMS A PERSON CAN REACH (INT-5B1) ─────────────── */
+function theReachableGitHubSeamsAreTheOnesThatShipped(): void {
+  /*
+   * INT-5B1 made ONE seam reachable and deliberately left the other where it was. Both spend the
+   * same capability key, so only a per-seam pin can state the difference — and stating it is the
+   * point: an unreachable seam is a true fact about this repository, and the moment somebody wires
+   * the pull-request reader to a surface they must come here and say so.
+   */
+  const LISTING = "src/features/provider-github/discover-installation-repositories.server.ts";
+  const PULL_REQUESTS = "src/features/provider-github/read-repository-pull-requests.server.ts";
+
+  assert.ok(FEATURE_MODULES.includes(LISTING), "the repository listing seam exists");
+  assert.ok(FEATURE_MODULES.includes(PULL_REQUESTS), "the pull-request seam exists");
+
+  assert.ok(
+    appReachable.has(LISTING),
+    "the repository listing must be reachable from a production root — INT-5B1 wired the " +
+      "/repositories provider-read command to it, and the /integrations/github page to it before that",
+  );
+
+  /*
+   * AND IT IS REACHED THROUGH THE PROVIDER-READ BOUNDARY, not only through a page. This is what
+   * makes the command a real production caller rather than a module that merely exists.
+   */
+  const providerReadReach = reachableFrom([
+    "src/features/heby-commands/provider-read-commands.server.ts",
+  ]);
+  assert.ok(providerReadReach.has(LISTING), "the provider-read executor reaches the listing seam");
+  assert.ok(
+    !providerReadReach.has(PULL_REQUESTS),
+    "and it does NOT reach the pull-request reader — INT-5B1 ships no pull-request fan-out",
+  );
+
+  assert.ok(
+    !appReachable.has(PULL_REQUESTS),
+    "the pull-request reader still has no production caller. That is the honest state, and this " +
+      "pin must be edited deliberately by whichever phase gives it one",
+  );
+}
+
 function main(): void {
   everyCapabilityHasAnHonestReachabilityVerdict();
+  theReachableGitHubSeamsAreTheOnesThatShipped();
   theGraphIsRealAndNotEmpty();
   namingACapabilityIsNotExecutingIt();
   readCapabilityNeverImpliesWrite();

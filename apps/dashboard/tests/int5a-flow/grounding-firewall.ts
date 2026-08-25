@@ -32,6 +32,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { performsDurableWrite } from "../helpers/durable-write-detector";
 
 const ROOT = process.cwd();
 const read = (p: string) => readFileSync(path.join(ROOT, p), "utf8");
@@ -138,9 +139,17 @@ function definesAny(file: string, names: readonly string[]): string[] {
   return names.filter((n) => new RegExp(`export\\s+(?:async\\s+)?(?:function|const)\\s+${n}\\b`).test(code));
 }
 
+/*
+ * A DURABLE WRITE, in executable code. Schema modules are table definitions and carry no behaviour.
+ *
+ * REPAIRED AT INT-5B1 and moved to ONE definition shared with the provider-read firewall — the bare
+ * `.insert(|.update(|.delete(` pattern this used to be read `createSign(...).update(x)` as a
+ * database UPDATE, and a security predicate that exists twice will eventually disagree with itself.
+ * The helper's header carries the measurements and the reasoning.
+ */
 function writesDatabase(file: string): boolean {
   if (file.startsWith("src/db/schema/")) return false;
-  return /\.insert\(|\.update\(|\.delete\(/.test(codeOf(read(file)));
+  return performsDurableWrite(read(file));
 }
 
 function main(): void {
