@@ -6,6 +6,7 @@ import {
   describeMessageProvenance,
   deriveLatestProvenance,
   buildConversationSuggestions,
+  splitModelDiagnostics,
 } from "../../src/components/layout/heby/heby-provenance";
 import { buildTurns } from "../../src/components/layout/heby/heby-thread";
 import type { HebyRuntimeResponse } from "../../src/features/heby-runtime";
@@ -85,7 +86,55 @@ function main(): void {
     assert.ok(!/^m\d+$/.test(turn.content) && !turn.content.includes("m1") && !turn.content.includes("m2"), "content carries no db id");
   }
 
+  modelDiagnosticsAreClassifiedNotInterpreted();
+
   console.log("h1c thread + provenance checks passed");
+}
+
+/*
+ * ── THE SPLIT CLASSIFIES; IT NEVER INTERPRETS ────────────────────────────────
+ *
+ * `splitModelDiagnostics` decides only WHERE a runtime limitation is shown. It must be total —
+ * every line lands in exactly one bucket, so nothing is dropped and nothing is rendered twice —
+ * and it must pass the runtime's own words through untouched.
+ *
+ * It pins no code vocabulary: a future phase may change what the runtime writes inside the
+ * parentheses, or add a state, without failing this suite.
+ */
+function modelDiagnosticsAreClassifiedNotInterpreted(): void {
+  const FAILED = "Model generation failed (provider-unavailable); this answer is deterministic.";
+  const UNAVAILABLE = "Model generation is unavailable (CREDENTIAL_UNAVAILABLE); this answer is deterministic.";
+  const WITHHELD = "A model answer was produced but failed validation and was withheld; this answer is deterministic.";
+  const ORDINARY = "Counts are derived from a non-authoritative read model.";
+  const DIRECTOR_OFF =
+    "Claude connectivity is disabled by the Director; this answer is deterministic and no provider request was made.";
+
+  for (const line of [FAILED, UNAVAILABLE, WITHHELD]) {
+    const { diagnostics, rest } = splitModelDiagnostics([line]);
+    assert.deepEqual(diagnostics, [line], "the runtime line is carried through verbatim");
+    assert.deepEqual(rest, [], "and is not also left in the ordinary list");
+  }
+
+  /*
+   * THE DIRECTOR-DISABLED NOTE STAYS ORDINARY, on purpose: `deriveLatestProvenance` already states
+   * that case in the badge, and the note carries no code the badge lacks. Separating it too would
+   * say the same thing twice.
+   */
+  assert.deepEqual(splitModelDiagnostics([DIRECTOR_OFF]).diagnostics, [], "director-disabled is not duplicated here");
+  assert.deepEqual(splitModelDiagnostics([DIRECTOR_OFF]).rest, [DIRECTOR_OFF]);
+
+  /* Ordinary limitations are untouched. */
+  assert.deepEqual(splitModelDiagnostics([ORDINARY]).diagnostics, []);
+  assert.deepEqual(splitModelDiagnostics([ORDINARY]).rest, [ORDINARY]);
+
+  /* TOTAL: mixed input loses nothing and duplicates nothing. */
+  const mixed = [ORDINARY, FAILED, DIRECTOR_OFF, WITHHELD];
+  const split = splitModelDiagnostics(mixed);
+  assert.deepEqual([...split.diagnostics, ...split.rest].sort(), [...mixed].sort(), "every line is kept exactly once");
+  assert.equal(split.diagnostics.length + split.rest.length, mixed.length);
+
+  /* Nothing is invented from nothing. */
+  assert.deepEqual(splitModelDiagnostics([]).diagnostics, []);
 }
 
 main();

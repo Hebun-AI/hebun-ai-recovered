@@ -22,6 +22,7 @@ import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
 import { HebyEvidenceNotRetained, HebyEvidencePanel } from "./heby-evidence";
 import { HebySourceEvidencePanel } from "./heby-source-evidence";
 import type { ProvenanceBadge, ProvenanceTone } from "./heby-provenance";
+import { splitModelDiagnostics } from "./heby-provenance";
 
 export interface HebyEvidenceRef {
   readonly sourceClass: string;
@@ -120,6 +121,10 @@ export function UserBubble({ content }: { content: string }) {
 }
 
 export function HebyBubble({ turn }: { turn: HebyTurnView }) {
+  /* Partitioned once, so no line is dropped and none is rendered in both places. */
+  const { diagnostics: modelDiagnostics, rest: otherLimitations } = splitModelDiagnostics(
+    turn.limitations ?? [],
+  );
   return (
     <li data-heby-role="heby" className={`flex flex-col gap-2.5 ${ENTER}`}>
       <div className="flex items-start gap-3">
@@ -227,10 +232,29 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
             !(turn.evidence && turn.evidence.length > 0) ? (
               <HebyEvidenceNotRetained />
             ) : null}
-            {turn.limitations && turn.limitations.length > 0 ? (
+            {/*
+              * THE MODEL DIAGNOSTIC IS SHOWN, NOT FILED.
+              *
+              * When the runtime blocks or fails a model attempt it writes the reason here, and
+              * that text is the only place the reason survives — nothing persists it. Behind the
+              * collapsed disclosure below it was present and unread through two controlled
+              * production attempts. It is rendered verbatim: the runtime owns the wording, and a
+              * code is never restated as a claim about a provider being reached or refused.
+              */}
+            {modelDiagnostics.length > 0 ? (
+              <ul
+                data-heby-diagnostic=""
+                className="mt-1.5 flex flex-col gap-0.5 text-[0.72rem] leading-5 text-warning"
+              >
+                {modelDiagnostics.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            ) : null}
+            {otherLimitations.length > 0 ? (
               <Disclosure summary="What this answer is (and isn’t)">
                 <ul className="mt-1.5 flex flex-col gap-0.5 pl-4 text-fg-muted">
-                  {turn.limitations.map((line) => (
+                  {otherLimitations.map((line) => (
                     <li key={line}>{line}</li>
                   ))}
                 </ul>

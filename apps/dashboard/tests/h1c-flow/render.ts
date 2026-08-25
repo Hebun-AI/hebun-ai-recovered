@@ -116,7 +116,92 @@ function main(): void {
     assert.ok(html.includes("Sign in to ask Heby a question."), "notice shown");
   }
 
+  modelDiagnosticIsVisibleWithoutExpanding();
+
   console.log("h1c render checks passed");
+}
+
+/*
+ * ── THE MODEL DIAGNOSTIC IS VISIBLE, NOT FILED BEHIND AN EXPAND ──────────────
+ *
+ * When the runtime blocks or fails a model attempt it writes the reason into
+ * `response.limitations`, and that text is the ONLY place the reason survives — nothing persists
+ * it and the model stack logs nothing by design.
+ *
+ * It used to render inside the collapsed `<details>` below. Two controlled production provider
+ * attempts were both classified from a badge reading "model not used" while the line naming the
+ * actual state or typed code sat on screen, unopened, and was lost on navigation.
+ *
+ * These assertions pin the presentation only: the runtime string appears OUTSIDE the disclosure,
+ * verbatim. They pin no runtime behaviour, no code vocabulary, and no provider claim — a future
+ * phase may change what the runtime writes without failing this suite, because nothing here
+ * asserts which codes exist.
+ */
+function modelDiagnosticIsVisibleWithoutExpanding(): void {
+  const turn = (limitations: readonly string[]): HebyTurnView => ({
+    key: "t1",
+    role: "heby",
+    content: "Derived from real read models.",
+    provenance: { label: "Deterministic — model not used", tone: "muted" },
+    durable: true,
+    limitations,
+  });
+
+  /** Everything before the disclosure — what an operator sees without clicking. */
+  const visiblePart = (html: string): string => {
+    const at = html.indexOf("<details");
+    return at === -1 ? html : html.slice(0, at);
+  };
+
+  /* The three runtime diagnostics that otherwise fall through to a generic badge. */
+  const DIAGNOSTICS = [
+    "Model generation is unavailable (CREDENTIAL_UNAVAILABLE); this answer is deterministic.",
+    "Model generation failed (provider-unavailable); this answer is deterministic.",
+    "A model answer was produced but failed validation and was withheld; this answer is deterministic.",
+  ] as const;
+
+  for (const line of DIAGNOSTICS) {
+    const html = render({ turns: [turn([line])] });
+    assert.ok(html.includes(line), `the runtime line is rendered verbatim: ${line}`);
+    assert.ok(
+      visiblePart(html).includes(line),
+      `and is readable WITHOUT expanding a disclosure: ${line}`,
+    );
+    /* Shown once. A line in both surfaces would read as two separate findings. */
+    assert.equal(
+      html.split(line).length - 1,
+      1,
+      `the diagnostic appears exactly once: ${line}`,
+    );
+  }
+
+  /*
+   * ORDINARY LIMITATIONS KEEP THEIR COLLAPSED HOME, and a diagnostic does not drag them out with
+   * it. Both kinds together: the diagnostic is visible, the ordinary line is not.
+   */
+  const ordinary = "Counts are derived from a non-authoritative read model.";
+  const mixed = render({ turns: [turn([ordinary, DIAGNOSTICS[1]])] });
+  assert.ok(mixed.includes(ordinary), "the ordinary limitation still renders");
+  assert.ok(visiblePart(mixed).includes(DIAGNOSTICS[1]), "the diagnostic is visible");
+  assert.ok(!visiblePart(mixed).includes(ordinary), "the ordinary limitation stays inside the disclosure");
+
+  /* NOTHING IS INVENTED. No diagnostic in, no diagnostic surface out. */
+  const clean = render({ turns: [turn([ordinary])] });
+  assert.ok(!clean.includes("data-heby-diagnostic"), "no diagnostic surface without a diagnostic");
+  const none = render({ turns: [turn([])] });
+  assert.ok(!none.includes("data-heby-diagnostic"), "and none for an empty limitation set");
+
+  /*
+   * THE CODE IS NEVER RESTATED AS A PROVIDER CLAIM. `provider-unavailable` is a typed local
+   * outcome; the surface must not turn it into an assertion that Anthropic was reached, refused
+   * the request, or was unreachable.
+   */
+  const failed = render({ turns: [turn([DIAGNOSTICS[1]])] });
+  for (const forbidden of ["Anthropic network", "unreachable", "rejected the request", "provider refused", "api.anthropic.com"]) {
+    assert.ok(!failed.includes(forbidden), `the surface must not claim "${forbidden}"`);
+  }
+  /* And no secret-shaped material rides along. */
+  assert.ok(!/sk-[a-z0-9-]{6,}/i.test(failed), "no key-shaped token in the rendered turn");
 }
 
 main();
