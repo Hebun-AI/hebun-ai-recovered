@@ -77,6 +77,14 @@ import {
 } from "@/features/knowledge/knowledge-read.server";
 import { KNOWLEDGE_PROVENANCE, type KnowledgeSourceRecord } from "@/features/knowledge/contracts";
 import { findHebyCommandById } from "./registry";
+import {
+  observeRecordedActHistory,
+  type ObserveGovernanceActivityDeps,
+} from "@/features/governance-activity/observe.server";
+import {
+  RECORDED_ACT_PAGE_LIMIT,
+  type RecordedActHistoryResult,
+} from "@/features/governance-activity/contracts";
 import type { HebyCommandResult } from "./contracts";
 
 /** The single client-controlled input. It carries NO authority. */
@@ -103,6 +111,17 @@ export interface HebyReadCommandDeps {
   readonly getConversationRepo?: () => DurableConversationRepository | null;
   /** K1 — the canonical Knowledge read seam. Injectable so the flow is provable with no database. */
   readonly knowledge?: KnowledgeReadDeps;
+  /**
+   * R7.1.1 — the recorded act history seam. THE SAME reader the Governance Activity observation
+   * uses, reached through the projection that owns it rather than through any audit writer: the
+   * writers mix reads and writes, and a Heby file holding a reference into one of them would be a
+   * file a reviewer must check symbol by symbol. G6C settled that shape for Governance; this
+   * follows it rather than inventing a second arrangement.
+   */
+  readonly readActHistory?: (
+    tenant: TenantContext,
+    deps?: ObserveGovernanceActivityDeps,
+  ) => Promise<RecordedActHistoryResult>;
 }
 
 export type HebyReadCommandResult =
@@ -110,6 +129,23 @@ export type HebyReadCommandResult =
   /** The command id was not a runnable READ command. Nothing was read. */
   | { readonly status: "rejected"; readonly reason: string }
   | { readonly status: "ok"; readonly result: HebyCommandResult };
+
+/**
+ * R7.1.1 — what `/audit` is reading, and the one thing it can never be.
+ *
+ * Named as a constant so the sentence lives in one place and a test can read it rather than
+ * restating it.
+ */
+const ACT_HISTORY_PROVENANCE =
+  "audit_log — Hebun's own append-only record of acts it carried out, scoped to your organization. " +
+  "It records what AUTHORIZED actors did: unauthenticated and refused attempts are never written " +
+  "to it, so it is not an intrusion log and cannot show an attack, a breach or a threat.";
+
+/** The closing note. States the bound and the limit, so neither has to be inferred. */
+const ACT_HISTORY_CLOSING: readonly string[] = Object.freeze([
+  "This is Hebun's record of its own acts — not everything your organization did, and not a provider or execution history.",
+  "A recorded act is what happened, not a judgement about it. `rejected` means a governed rule refused an act and nothing changed.",
+]);
 
 const OVERVIEW_PROVENANCE =
   "Executive Overview read model — derived and non-authoritative. It is not a live execution feed.";
@@ -389,6 +425,61 @@ export async function runHebyReadCommand(
     }
 
     /* ── Security posture ─────────────────────────────────────────────── */
+    /*
+     * ── R7.1.1 · `/audit` — THE RECORDED ACT DRILL-THROUGH ──────────────────
+     *
+     * THREE OUTCOMES, KEPT APART. `recorded` shows a bounded page; `empty` states an established
+     * fact about the organization; `unavailable` says Hebun could not look. Rendering a failed read
+     * as an empty history would be Hebun asserting an organizational fact it never established —
+     * the exact defect class HEBY-CAP1 removed one layer up.
+     *
+     * DETERMINISTIC. Every line below is composed from ledger values by this function. No model is
+     * consulted, nothing is summarized, nothing is classified, and no act is called suspicious,
+     * authorized or successful beyond the `result` the ledger itself stored.
+     */
+    case "audit": {
+      const history = await (deps.readActHistory ?? observeRecordedActHistory)(tenant);
+
+      if (history.status === "unavailable") {
+        return unavailable(slash, "Recorded act history", [
+          history.reason === "persistence-not-configured"
+            ? "Durable storage is not configured, so Hebun could not read the record of its own acts."
+            : "The recorded act history could not be read, and nothing was substituted for it.",
+          `Reason: ${history.reason}.`,
+          "",
+          "UNKNOWN, not empty. Hebun did not establish that nothing was recorded — it established that it could not look.",
+        ], ACT_HISTORY_PROVENANCE);
+      }
+
+      if (history.status === "empty") {
+        return ok(slash, "Recorded act history", [
+          "Hebun has recorded no acts for your organization.",
+          "That is the real state, not a read failure: the ledger was read and holds nothing for you.",
+          "",
+          ...ACT_HISTORY_CLOSING,
+        ], ACT_HISTORY_PROVENANCE);
+      }
+
+      const { acts, totalRecordedActs, truncated } = history.page;
+      const shown = acts.length;
+      const heading = truncated
+        ? `Showing ${shown} of ${totalRecordedActs} recorded acts — the ${RECORDED_ACT_PAGE_LIMIT} most recent first.`
+        : `${totalRecordedActs} recorded ${totalRecordedActs === 1 ? "act" : "acts"}, most recent first.`;
+
+      return ok(slash, "Recorded act history", [
+        heading,
+        "",
+        ...acts.map((act) => {
+          const authority = act.authoritySource ?? "no authority source recorded";
+          const source = act.source ?? "no source recorded";
+          const simulated = act.simulation ? "  [SIMULATED — no real effect occurred]" : "";
+          return `  ${act.occurredAt} — ${act.action} on ${act.entityType} — ${act.result} — by ${act.actorType} under ${authority} via ${source}${simulated}`;
+        }),
+        "",
+        ...ACT_HISTORY_CLOSING,
+      ], ACT_HISTORY_PROVENANCE);
+    }
+
     case "security": {
       const sources = listSecuritySources();
       const connected = hasConnectedSecurityFeed();

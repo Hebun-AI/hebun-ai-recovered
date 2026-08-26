@@ -225,7 +225,16 @@ function main(): void {
     );
     assert.deepEqual(
       sinkImporters.sort(),
-      [...sinkOwners, "src/features/governance-activity/read.server.ts"].sort(),
+      [
+        ...sinkOwners,
+        "src/features/governance-activity/read.server.ts",
+        /* R7.1.1 — the second declared reader: the bounded drill-through. It selects and writes
+         * nothing, proved by its absence from the write census directly above. Kept a separate file
+         * from R7.1's aggregate because `read.server.ts` carries a structural prohibition on
+         * `.limit(` anywhere in it, and a bounded list needs a bound. ALLOWLIST — a new name here
+         * is a deliberate act, never a directory prefix. */
+        "src/features/governance-activity/act-history-read.server.ts",
+      ].sort(),
       "and no Knowledge module reaches the sink — the only non-writer that imports it is R7.1's reader",
     );
     // The genesis sibling must not have quietly taken over Knowledge's entity type.

@@ -149,13 +149,27 @@ async function main(): Promise<void> {
     );
 
     /*
-     * And the sink is REACHABLE from nothing but those owners plus R7.1's read seam, which counts
-     * rows and writes none — proved by its absence from the write census above.
+     * And the sink is REACHABLE from nothing but those owners plus the DECLARED READERS, each of
+     * which selects rows and writes none — proved by their absence from the write census above.
+     *
+     * R7.1.1 adds the second: `act-history-read.server.ts`, the bounded drill-through. It is a
+     * separate file from R7.1's aggregate on purpose — `read.server.ts` carries a structural
+     * prohibition on `.limit(` anywhere in it, and a bounded list needs a bound, so sharing a file
+     * would have forced that guarantee to be narrowed from "no bound in this file" to "no bound in
+     * this function". Two files keep both properties absolute.
+     *
+     * This list is an ALLOWLIST and must stay one. A new name here is a deliberate, reviewable act;
+     * it is not a place to relax the pattern into a directory prefix, which would let any future
+     * file under `governance-activity/` reach the sink unnoticed.
      */
     assert.deepEqual(
       sourceFiles.filter((f) => read(f).includes('from "@/db/schema/audit-log"')).sort(),
-      [...AUDIT_SINK_OWNERS, "src/features/governance-activity/read.server.ts"].sort(),
-      "the sink is imported by its writers and by the one declared reader — nothing else",
+      [
+        ...AUDIT_SINK_OWNERS,
+        "src/features/governance-activity/read.server.ts",
+        "src/features/governance-activity/act-history-read.server.ts",
+      ].sort(),
+      "the sink is imported by its writers and by the declared readers — nothing else",
     );
     for (const owner of sourceFiles.filter(writesTheSink)) {
       assert.ok(

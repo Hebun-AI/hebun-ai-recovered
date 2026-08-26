@@ -246,11 +246,23 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     availability: "available", handler: "security", ...base("read"),
   },
   {
-    id: "audit", slash: "/audit", label: "Security audit history", category: "security", kind: "read",
-    description: "Show persisted security audit history.",
-    availability: "requires-source", handler: "audit", ...base("read"),
-    unavailableReason:
-      "No persisted security audit history exists. Runtime provenance is not a forensic trail, so there is nothing authoritative to show.",
+    id: "audit", slash: "/audit", label: "Recorded act history", category: "security", kind: "read",
+    /*
+     * R7.1.1 made this real, exactly as R2F.1 made `/usage` real. It was `requires-source` because
+     * nothing read `audit_log` as a chronology; R7.1 then made the ledger countable and named the
+     * remaining gap ("the counts do not link to the individual acts behind them"), and the bounded
+     * drill-through now closes it. The old reason would be a false statement about a capability
+     * that shipped.
+     *
+     * THE LABEL AND DESCRIPTION CHANGED, AND THAT IS THE HONEST HALF OF THE OLD REFUSAL KEPT.
+     * `audit_log` records what AUTHORIZED actors did; unauthenticated and forbidden attempts are
+     * never written to it. So this is not, and can never become, a security-audit or intrusion
+     * history, and calling it one would trade a false absence for a false presence. It says what
+     * the ledger IS — Hebun's own record of the acts it carried out — and the surface states the
+     * limit rather than leaving a reader to infer completeness.
+     */
+    description: "Show the acts Hebun has durably recorded for your organization.",
+    availability: "available", handler: "audit", ...base("read"),
   },
   {
     id: "incidents", slash: "/incidents", label: "Incidents", category: "security", kind: "read",

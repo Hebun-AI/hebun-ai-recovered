@@ -205,3 +205,166 @@ export const FORBIDDEN_OBSERVATION_VOCABULARY: readonly string[] = Object.freeze
   "anomaly",
   "severity",
 ]);
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * R7.1.1 — THE RECORDED ACT DRILL-THROUGH
+ *
+ * R7.1 answered "how many acts, of which kinds?" and named its own gap: "No drill-through. The
+ * counts do not link to the individual acts behind them." This is that drill-through, and it is
+ * deliberately the SAME claim at a finer grain — not a wider one:
+ *
+ *   "Hebun can show a tenant a bounded, ordered view of the acts Hebun has durably recorded."
+ *
+ * ── IT IS NOT AN INTRUSION LOG, AND THAT IS A PROPERTY OF THE WRITERS ────────
+ *
+ * `audit_log` records what AUTHORIZED actors did. Unauthenticated and forbidden attempts are not
+ * written to it at all — `KNOWLEDGE_AUDIT_BOUNDARY` already states that cost. So no reading of this
+ * ledger can show an attack, an intrusion, a breach, a threat or a failed break-in, because the
+ * rows that would evidence one were never recorded. That is a limit of the SOURCE, which no reader
+ * can lift, and the surface says so rather than letting a reader infer completeness.
+ *
+ * ── WHY SO FEW FIELDS ────────────────────────────────────────────────────────
+ *
+ * `audit_log` carries three `jsonb` columns — `previous_state`, `next_state` and `metadata` — whose
+ * shape differs per writer (nine writers, nine typed metadata interfaces). Serializing a union of
+ * nine shapes to a reader would be shipping arbitrary JSON whose contents no single contract
+ * governs, so NONE of the three is exposed. Omission, not heuristic sanitizing: a redactor for
+ * payloads you do not control is a guess, and a guess in this position is a leak waiting for a
+ * tenth writer.
+ *
+ * The identifiers are withheld for the same reason a narrower surface is a safer one:
+ * `entity_id`, `actor_id`, `correlation_id`, `causation_id`, `request_id`, `session_context_id`
+ * and `principal_reference_hash` answer no question a chronology asks, and each is one more handle
+ * for correlating a person across acts.
+ *
+ * What remains is either a database ENUM (`actor_type`, `result`), a CHECK-constrained value
+ * (`authority_source`), a timestamp, or a closed compile-time constant written by the audit writers
+ * (`action`, `entity_type`, `source`). No field below can carry text a user typed.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * How many acts one read may return. Default AND hard maximum — deliberately one number.
+ *
+ * A caller cannot raise it, because there is no parameter to raise: a bound the client can widen is
+ * not a bound. There is no pagination and no cursor, because no product surface asks to walk the
+ * ledger, and R6B's lesson is that a read seam's BOUND is part of its meaning — a bound invented
+ * ahead of a requirement acquires a meaning nobody chose.
+ */
+export const RECORDED_ACT_PAGE_LIMIT = 20 as const;
+
+/**
+ * One recorded act, in the only shape Hebun will show.
+ *
+ * Every field is reported VERBATIM from the ledger. Nothing here is mapped to a friendlier label,
+ * grouped into a category, or scored — the vocabulary belongs to the writers, exactly as R7.1
+ * settled for `action`.
+ */
+export interface RecordedAct {
+  /** Logical time of the act, ISO-8601. The ordering key. */
+  readonly occurredAt: string;
+  /** The writer's own verb, e.g. `knowledge.ratify`. Never reinterpreted. */
+  readonly action: string;
+  /** What kind of thing the act was about, e.g. `knowledge_fact`. Never the id of one. */
+  readonly entityType: string;
+  /** From the `actor_type` enum. A KIND of actor — never which person. */
+  readonly actorType: string;
+  /** From the `audit_result` enum. A `rejected` row is history, not a failure. */
+  readonly result: string;
+  /** Which subsystem recorded it, e.g. `governance-authority`. Null when unrecorded. */
+  readonly source: string | null;
+  /** CHECK-constrained to four values, and nullable — `null` is reported, never hidden. */
+  readonly authoritySource: string | null;
+  /** True when recorded under a non-live posture, so no real effect occurred. */
+  readonly simulation: boolean;
+}
+
+/**
+ * A bounded page of acts, and the total it was drawn from.
+ *
+ * `totalRecordedActs` is counted INDEPENDENTLY, with no bound, over the same tenant predicate —
+ * never inferred from `acts.length`. That redundancy is the whole safety property: it is what lets
+ * the surface say "showing 20 of 137" instead of showing 20 and letting a reader believe that is
+ * all that ever happened. A bounded list that cannot name its own total is a silent completeness
+ * claim, which is the defect R6B found and the one this field exists to make impossible.
+ */
+export interface RecordedActPage {
+  readonly acts: readonly RecordedAct[];
+  readonly totalRecordedActs: number;
+  /** True when the ledger holds more acts than this page shows. Derived, never guessed. */
+  readonly truncated: boolean;
+}
+
+/**
+ * The result of asking for one tenant's recorded act history.
+ *
+ * THE THREE OUTCOMES ARE KEPT APART ON PURPOSE, and collapsing any two is the failure this phase
+ * exists to prevent:
+ *
+ *   `recorded`     the ledger holds acts for this tenant, and here is a bounded, ordered page.
+ *   `empty`        the ledger was READ SUCCESSFULLY and holds nothing for this tenant. An
+ *                  established fact about the organization.
+ *   `unavailable`  the ledger could not be read. NOT the same as empty — "nothing was recorded"
+ *                  and "Hebun could not look" are different sentences, and a read failure rendered
+ *                  as an empty history would be Hebun asserting an organizational fact it never
+ *                  established. Fails closed, exactly as R7.1's observation does.
+ */
+export type RecordedActHistoryResult =
+  | {
+      readonly status: "recorded";
+      readonly tenantId: string;
+      readonly generatedAt: string;
+      readonly page: RecordedActPage;
+    }
+  | { readonly status: "empty"; readonly tenantId: string; readonly generatedAt: string }
+  | {
+      readonly status: "unavailable";
+      readonly reason: GovernanceActivityUnavailable;
+      readonly detail?: string;
+    };
+
+/**
+ * WHAT THE DRILL-THROUGH MAY AND MAY NOT SAY. A value, so the boundary is testable rather than
+ * merely written down, and so a later phase cannot widen it by editing prose.
+ */
+export const RECORDED_ACT_HISTORY_BOUNDARY = Object.freeze({
+  showsRecordedActs: true as const,
+  statesItsOwnBound: true as const,
+  /* The source cannot evidence these, so no reader of it may claim them. */
+  showsIntrusionAttempts: false as const,
+  showsSecurityIncidents: false as const,
+  showsThreats: false as const,
+  showsProviderHistory: false as const,
+  showsExecutionHistory: false as const,
+  claimsForensicCompleteness: false as const,
+  claimsAllOrganizationalActivity: false as const,
+  /* Shape and authority. */
+  exposesJsonPayloads: false as const,
+  exposesEntityIdentifiers: false as const,
+  usesModel: false as const,
+  writesAnything: false as const,
+  isPersisted: false as const,
+  isAuthoritative: false as const,
+  rationale:
+    "R7.1.1 shows a bounded, ordered page of the acts Hebun durably recorded for one tenant, and " +
+    "states the total it was drawn from. audit_log remains the sole authority and its writers " +
+    "remain its only writers. It records what authorized actors did, so it can evidence no " +
+    "intrusion, incident or threat, and this view claims none. No jsonb payload and no entity or " +
+    "actor identifier is exposed. Nothing is interpreted by a model and nothing is stored.",
+});
+
+/**
+ * Fields of `audit_log` that this seam must NEVER select. Held as a value so the firewall reads it
+ * instead of restating it, and so deleting a name from this list is a visible act.
+ */
+export const WITHHELD_AUDIT_COLUMNS: readonly string[] = Object.freeze([
+  "previousState",
+  "nextState",
+  "metadata",
+  "entityId",
+  "actorId",
+  "correlationId",
+  "causationId",
+  "requestId",
+  "sessionContextId",
+  "principalReferenceHash",
+]);

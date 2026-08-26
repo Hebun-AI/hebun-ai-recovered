@@ -233,7 +233,13 @@ async function main(): Promise<void> {
 
     // Unavailable because the corresponding feed genuinely does not exist. Each names its own gap.
     const missing: Record<string, RegExp> = {
-      audit: /audit history/i,
+      // R7.1.1: /audit gained a real read authority — the bounded drill-through over `audit_log`,
+      // whose nine writers already record every governed act — and moved to the available set
+      // below. Its old reason ("no persisted security audit history exists") would now be a false
+      // statement about a capability that shipped. What survived the move is the honest half: the
+      // ledger records what AUTHORIZED actors did, so it is still not an intrusion log, and the
+      // command was renamed from "Security audit history" to "Recorded act history" to stop
+      // promising the coverage its source cannot evidence.
       incidents: /incident feed/i,
       threats: /telemetry|threat feed/i,
       permissions: /authorization analysis/i,
@@ -252,6 +258,22 @@ async function main(): Promise<void> {
       const args = command.args.map(() => "x");
       const result = planHebyCommand(command, args, CONTEXT);
       assert.equal(result.kind, "unavailable", `/${id} does not run`);
+    }
+
+    // R7.1.1 — /audit is available and READS, backed by the ledger's declared reader.
+    {
+      const audit = findHebyCommandById("audit")!;
+      assert.equal(audit.availability, "available", "/audit is backed by a real read authority");
+      assert.equal(audit.unavailableReason, undefined, "and carries no stale refusal reason");
+      assert.equal(plan("audit").kind, "read");
+      /*
+       * The honest half of the retired refusal, kept as an assertion rather than a memory: the
+       * ledger cannot evidence an intrusion, so no label on this command may promise one.
+       */
+      assert.ok(
+        !/security audit|intrusion|incident|threat|breach/i.test(`${audit.label} ${audit.description}`),
+        "/audit must not describe itself as security, intrusion, incident or breach coverage",
+      );
     }
 
     // Provider commands ARE available — a real, secret-free view backs them.

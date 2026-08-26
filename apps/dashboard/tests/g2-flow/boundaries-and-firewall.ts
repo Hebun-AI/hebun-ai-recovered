@@ -313,7 +313,16 @@ function main(): void {
 
     assert.deepEqual(
       candidates.filter((f) => read(f).includes('from "@/db/schema/audit-log"')).sort(),
-      [...AUDIT_SINK_WRITERS, "src/features/governance-activity/read.server.ts"].sort(),
+      [
+        ...AUDIT_SINK_WRITERS,
+        "src/features/governance-activity/read.server.ts",
+        /* R7.1.1 — the second declared reader: the bounded drill-through. It selects and writes
+         * nothing, proved by its absence from the write census directly above. Kept a separate file
+         * from R7.1's aggregate because `read.server.ts` carries a structural prohibition on
+         * `.limit(` anywhere in it, and a bounded list needs a bound. ALLOWLIST — a new name here
+         * is a deliberate act, never a directory prefix. */
+        "src/features/governance-activity/act-history-read.server.ts",
+      ].sort(),
       "and the sink is reached only by those writers plus R7.1's declared read seam",
     );
     // Each domain owns a DISTINCT entity type, so no domain can file under another's history.
