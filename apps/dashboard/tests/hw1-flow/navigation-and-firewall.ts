@@ -154,14 +154,17 @@ function main(): void {
      *   proposeHebyActionCommandAction   R3A.1 — a durable proposal. Imports no read model, so a
      *                                    proposal cannot become a read.
      *   runHebyProviderReadCommandAction INT-5B1 — ONE external provider, read-only and bounded.
-     *                                    The only crossing that can leave the building; it reaches
-     *                                    no model transport and no writer of any kind.
+     *                                    It reaches no model transport and no writer of any kind.
+     *   runHebyCrossSourceCommandAction  INT-5C — the same released provider read, joined against
+     *                                    the organization's own human-declared references through a
+     *                                    WRITER-FREE Knowledge read. Reaches no model transport and
+     *                                    no writer of any kind, and imports no Knowledge writer.
      *
-     * ── FOUR → FIVE, STATED RATHER THAN RELAXED ─────────────────────────────
+     * ── FOUR → FIVE → SIX, STATED RATHER THAN RELAXED ───────────────────────
      *
-     * The count was four and this pin is what made INT-5B1 come here and say so. The PROPERTY is
-     * unchanged and still exact: every Heby crossing is enumerated in this list, and a sixth cannot
-     * appear without somebody adding it by hand.
+     * The count was four, INT-5B1 came here and said five, and INT-5C says six. The PROPERTY is
+     * unchanged and still exact: every Heby crossing is enumerated in this list, and a seventh
+     * cannot appear without somebody adding it by hand.
      */
     const actions = read("src/app/(dashboard)/heby/actions.ts");
     const HEBY_SERVER_ACTIONS = [
@@ -170,6 +173,7 @@ function main(): void {
       "runHebyReadCommandAction",
       "proposeHebyActionCommandAction",
       "runHebyProviderReadCommandAction",
+      "runHebyCrossSourceCommandAction",
     ] as const;
     assert.equal(
       (actions.match(/export async function/g) ?? []).length,
@@ -182,12 +186,25 @@ function main(): void {
       assert.ok(actions.includes(`export async function ${name}`), `${name} is one of them`);
     }
     /*
-     * EXACTLY ONE OF THEM MAY CONTACT A PROVIDER, and it is the one that declares it. Asserted here
-     * as well as in the INT-5B1 firewall, because this is the file that enumerates the crossings:
-     * a second provider-reaching action would be a widening of the Heby surface itself.
+     * EXACTLY WHICH OF THEM MAY CONTACT A PROVIDER, enumerated by name rather than counted.
+     *
+     * ── ONE → TWO, AND WHY THAT IS NOT A WIDENING OF REACH ──────────────────
+     *
+     * INT-5C's crossing reads the SAME provider, through the SAME released seam, under the SAME
+     * released budget, with the same read-only scope. What it adds is a Knowledge read, not provider
+     * reach — and it got its own action precisely so that the Knowledge half is NOT reachable from
+     * INT-5B1's root, which still proves it reaches no Knowledge module at all.
+     *
+     * The list is exact in both directions: a crossing that reaches a provider must appear here, and
+     * one that does not must not. A third would have to be added by hand.
      */
-    const providerReaching = HEBY_SERVER_ACTIONS.filter((name) => /ProviderRead/.test(name));
-    assert.deepEqual(providerReaching, ["runHebyProviderReadCommandAction"]);
+    const providerReaching = HEBY_SERVER_ACTIONS.filter((name) =>
+      /ProviderRead|CrossSource/.test(name),
+    );
+    assert.deepEqual(providerReaching, [
+      "runHebyProviderReadCommandAction",
+      "runHebyCrossSourceCommandAction",
+    ]);
   }
 
   // 6. THE SUBMISSION GATE: `askHebyAction` is reachable only after every slash-command branch has

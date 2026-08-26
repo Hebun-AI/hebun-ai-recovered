@@ -21,6 +21,11 @@ import {
   type HebyProviderReadCommandResult,
 } from "@/features/heby-commands/provider-read-commands.server";
 import {
+  runHebyCrossSourceCommand,
+  type HebyCrossSourceCommandInput,
+  type HebyCrossSourceCommandResult,
+} from "@/features/heby-commands/cross-source-commands.server";
+import {
   runHebyProposeCommand,
   type HebyProposeCommandInput,
   type HebyProposeCommandOutcome,
@@ -140,6 +145,27 @@ export async function runHebyProviderReadCommandAction(
   input: HebyProviderReadCommandInput,
 ): Promise<HebyProviderReadCommandResult> {
   return runHebyProviderReadCommand(
+    { commandId: input.commandId, args: input.args },
+    { resolveTenant: resolveTenantContext },
+  );
+}
+
+/**
+ * INT-5C. The SIXTH Heby server action, and the second that can reach a provider.
+ *
+ * IT IS SEPARATE FROM THE PROVIDER-READ ACTION ON PURPOSE. Two commands that consult different
+ * things should not share one entry point: sharing would mean `/repositories` and this command have
+ * one server module between them, and the Knowledge half would then be reachable from the root
+ * INT-5B1 proved it was not reachable from.
+ *
+ * The tenant is resolved on the server, exactly as it is for every other action here. The only
+ * client-crossing payload is a registry command id and its (empty) argument list — no tenant, no
+ * installation, no repository address, no Knowledge fact id.
+ */
+export async function runHebyCrossSourceCommandAction(
+  input: HebyCrossSourceCommandInput,
+): Promise<HebyCrossSourceCommandResult> {
+  return runHebyCrossSourceCommand(
     { commandId: input.commandId, args: input.args },
     { resolveTenant: resolveTenantContext },
   );

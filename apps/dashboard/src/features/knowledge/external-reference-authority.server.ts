@@ -48,7 +48,6 @@ import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
   validateExternalSystemReference,
   type ExternalReferenceRefusal,
-  type ExternalSystemReference,
   type RecordedExternalReference,
 } from "./external-reference-contracts";
 import { resolveKnowledgeWriteAuthority } from "./knowledge-write-authority.server";
@@ -279,45 +278,15 @@ export async function listExternalReferences(
   }
 }
 
-/**
- * THE JOIN KR-EXT1 EXISTS FOR: which Knowledge fact concerns this external record?
+/*
+ * THE REVERSE LOOKUP MOVED, AND IS RE-EXPORTED RATHER THAN REIMPLEMENTED (INT-5C).
  *
- * Exact, deterministic, and computed entirely in SQL over the provider's own immutable identifier.
- * No model is involved, no free text is compared, and no association is guessed — the answer is a
- * declaration a human recorded, or nothing at all.
+ * `findKnowledgeFactForExternalRecord` now lives in `external-reference-read.server.ts`, a module
+ * with no write authority in it, so a consumer that only wants to ASK whether a declaration exists
+ * no longer has to import the module that can also create and withdraw one.
  *
- * The tenant predicate is what makes two organizations able to reference the SAME external record
- * without either one seeing the other's declaration.
+ * It is re-exported here because this module is where KR-EXT1's callers already look, and because
+ * forking the query would leave two definitions of one security-relevant predicate. There is still
+ * exactly ONE implementation in this repository — this line names it, it does not copy it.
  */
-export async function findKnowledgeFactForExternalRecord(
-  tenant: TenantContext | null,
-  reference: ExternalSystemReference,
-  deps: ExternalReferenceDeps = {},
-): Promise<string | null> {
-  assertServerOnly();
-  if (!tenant?.tenantId) return null;
-
-  const db = resolveDbOrNull(deps);
-  if (!db) return null;
-
-  try {
-    const rows = await db
-      .select({ knowledgeFactId: knowledgeExternalReferences.knowledgeFactId })
-      .from(knowledgeExternalReferences)
-      .where(
-        and(
-          eq(knowledgeExternalReferences.tenantId, tenant.tenantId),
-          eq(knowledgeExternalReferences.providerKey, reference.providerKey),
-          eq(knowledgeExternalReferences.capability, reference.capability),
-          eq(knowledgeExternalReferences.recordType, reference.recordType),
-          eq(knowledgeExternalReferences.recordId, reference.recordId),
-          isNull(knowledgeExternalReferences.withdrawnAt),
-        ),
-      )
-      .limit(1);
-
-    return rows.length > 0 ? rows[0]!.knowledgeFactId : null;
-  } catch {
-    return null;
-  }
-}
+export { findKnowledgeFactForExternalRecord } from "./external-reference-read.server";

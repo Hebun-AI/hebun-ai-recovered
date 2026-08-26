@@ -29,6 +29,14 @@ const FIREWALL_SUITE = "tests/int5b1-flow/provider-read-firewall.ts";
 const DETECTOR_SUITE = "tests/int5b1-flow/write-detector.ts";
 
 const EXECUTOR = "src/features/heby-commands/provider-read-commands.server.ts";
+/*
+ * INT-5C moved the provider WORDING — the refusal and fault sentences and the page-bound lines —
+ * out of the executor and into its own module, so a second command reading the same provider seam
+ * could not fork them into a second interpretation. The executor's own behaviour is unchanged and
+ * its public surface is unchanged; the mutations below that aim at a SENTENCE now aim at the file
+ * that holds it.
+ */
+const VOCABULARY = "src/features/heby-commands/provider-read-vocabulary.ts";
 const DISPATCH = "src/features/heby-commands/dispatch.ts";
 const PARSER = "src/features/heby-commands/parser.ts";
 const REGISTRY = "src/features/heby-commands/registry.ts";
@@ -141,7 +149,7 @@ const MUTATIONS: readonly Mutation[] = [
   },
   {
     label: "M9 a partial page is presented as complete",
-    file: EXECUTOR,
+    file: VOCABULARY,
     suite: FAILURE_SUITE,
     find: "  if (discovery.truncated) {",
     replace: "  if (false) {",
@@ -209,9 +217,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M16 a command claims external reach it does not have",
     file: REGISTRY,
     suite: CONTRACT_SUITE,
-    find: '    reachesProvider: kind === "provider-read",',
+    find: '    reachesProvider: kind === "provider-read" || kind === "cross-source-read",',
     replace: '    reachesProvider: kind === "provider-read" || kind === "read",',
-    expect: "reachesProvider must be true exactly for provider-read commands",
+    expect: "reachesProvider must be true exactly for provider-reaching commands",
   },
   {
     label: "M17 the durable-write detector is reverted to the pattern that cried wolf",

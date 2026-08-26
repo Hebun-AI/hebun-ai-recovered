@@ -48,6 +48,16 @@ import {
   type GitHubRepositoryDiscovery,
 } from "@/features/provider-github/discover-installation-repositories.server";
 import type { GitHubAuthorizedCallDeps, GitHubAuthorizedOutcome } from "@/features/provider-github/github-authorized-call.server";
+/*
+ * THE SHARED PROVIDER VOCABULARY (INT-5C).
+ *
+ * These sentences moved to their own module when a SECOND command began reading the same provider
+ * seam. They did not change and they were not copied: one provider answer must produce one wording,
+ * or the two commands would drift the first time either was edited. This module's own public
+ * surface is unchanged by that move — the executor, the identity builder, the budget and the
+ * provenance line are still what it offers.
+ */
+import { FAILURE_LINES, REFUSAL_LINES, boundaryLines } from "./provider-read-vocabulary";
 import { findHebyCommandById } from "./registry";
 import type { HebyCommandResult } from "./contracts";
 
@@ -179,76 +189,6 @@ function unavailable(
   };
 }
 
-/**
- * Why a provider read did not happen, in the operator's words.
- *
- * The seam's own refusal is carried across rather than re-derived: the capability authority already
- * distinguishes "nothing is connected", "the connection is not usable" and "what was granted does
- * not cover this", and a second interpretation here would be the two-interpreters defect one layer
- * down. Each sentence sends a person somewhere different, which is the whole reason they are not
- * one message.
- */
-const REFUSAL_LINES: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  "no-authorized-tenant-context": [
-    "No organization is resolved for this request, so no connection could be consulted.",
-  ],
-  "connection-authority-unavailable": [
-    "Hebun could not read your organization's connections, so it did not go on to contact GitHub.",
-    "This says nothing about the state of your installation.",
-  ],
-  "capability-not-available": [
-    "Reading repository activity is not available for your organization right now.",
-    "That is one of three different situations: no GitHub installation is connected, the connection " +
-      "is not currently usable, or what GitHub granted does not cover this read.",
-    "The Integrations workspace shows which of the three applies, and offers the fix for it.",
-  ],
-  "no-github-connection": [
-    "No GitHub connection was found for your organization, so there was nothing to read from.",
-  ],
-  "installation-identity-unavailable": [
-    "The stored connection does not carry a usable GitHub installation identity, so no read was attempted.",
-  ],
-  "github-app-not-configured": [
-    "This Hebun deployment is not configured with a GitHub App, so it cannot identify itself to GitHub.",
-    "That is an operator configuration gap, not a problem with your organization's installation.",
-  ],
-});
-
-/**
- * Why GitHub itself did not answer with a page.
- *
- * The classes are kept apart because they mean different things, and collapsing them is how a
- * provider outage gets reported to a tenant as a broken connection. NONE of these paths writes
- * anything: this module holds no connection writer, so a failure here leaves the stored lifecycle
- * exactly as it was.
- */
-const FAILURE_LINES: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  auth: [
-    "GitHub refused Hebun's own application credential, so no read happened.",
-    "Nothing about your organization's installation is implicated by this.",
-  ],
-  installation: [
-    "GitHub reports that the installation Hebun holds is gone, suspended, or not the one it expected.",
-    "Only the Integrations workspace acts on that; this command changed nothing.",
-  ],
-  permission: [
-    "The installation is live, and what it granted does not cover reading repositories.",
-    "Re-consenting in the Integrations workspace is what widens it. Nothing was changed here.",
-  ],
-  identity: [
-    "GitHub answered without an account identity Hebun could use, so nothing was read.",
-  ],
-  transport: [
-    "GitHub did not answer: a rate limit, a server error, a timeout, or a network fault.",
-    "NOTHING IS KNOWN about your installation from this — it may be perfectly fine.",
-    "Nothing was retried, nothing was stored, and your connection was left untouched.",
-  ],
-  malformed: [
-    "GitHub answered in a shape Hebun does not understand, so nothing was reported from it.",
-    "Hebun would rather show you nothing than guess what a response meant.",
-  ],
-});
-
 /** One repository, as one line, carrying its own stable reference. */
 function repositoryLine(repository: GitHubRepositoryDiscovery["repositories"][number]): string {
   const flags: string[] = [repository.isPrivate ? "private" : "public"];
@@ -256,36 +196,6 @@ function repositoryLine(repository: GitHubRepositoryDiscovery["repositories"][nu
   if (repository.defaultBranch) flags.push(`default ${repository.defaultBranch}`);
   if (repository.updatedAt) flags.push(`updated ${repository.updatedAt}`);
   return `[${githubRepositoryRecordRef(repository.repositoryId)}] ${repository.fullName} — ${flags.join(" · ")}`;
-}
-
-/**
- * State the page bound truthfully, every time, in both directions.
- *
- * A BOUND IS NOT A TOTAL. When GitHub reports more than one page holds, the line says so and says
- * how many; when it does not report a count at all, the line says THAT rather than implying the
- * list is complete. Silence would read as completeness, which is the one thing a bounded read may
- * never imply.
- */
-function boundaryLines(discovery: GitHubRepositoryDiscovery, shown: number): readonly string[] {
-  const lines = [
-    `Showing ${shown} repositor${shown === 1 ? "y" : "ies"} — one page, at most ` +
-      `${GITHUB_PROVIDER_READ_BUDGET.maxRecords}. This command never asks for a second page.`,
-  ];
-  if (discovery.truncated) {
-    lines.push(
-      `PARTIAL, NOT COMPLETE: GitHub reports ${discovery.totalReportedByProvider ?? "more"} in total, ` +
-        "so this page is not all of them.",
-    );
-  } else if (discovery.totalReportedByProvider === null) {
-    lines.push(
-      "GitHub reported no total for this installation, so Hebun cannot tell you whether this page is all of them.",
-    );
-  } else {
-    lines.push(
-      `GitHub reports ${discovery.totalReportedByProvider} in total for this installation, which this page covers.`,
-    );
-  }
-  return lines;
 }
 
 /** The total-command ceiling, as an outcome rather than a thrown error. */

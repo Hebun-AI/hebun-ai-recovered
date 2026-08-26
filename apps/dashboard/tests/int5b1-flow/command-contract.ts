@@ -56,10 +56,19 @@ function main(): void {
      * of the one kind permitted to. Either half alone would let a descriptor lie.
      */
     for (const command of HEBY_COMMANDS) {
+      /*
+       * ONE REACHING KIND → TWO (INT-5C), STATED RATHER THAN RELAXED.
+       *
+       * `cross-source-read` performs this same released provider read before joining it against the
+       * organization's own records, so it reaches a provider and must declare it. The biconditional
+       * is unchanged and still exact in both directions: a command of any other kind that claims
+       * reach still fails here, and so does a reaching command that omits the claim.
+       */
+      const reaches = command.kind === "provider-read" || command.kind === "cross-source-read";
       assert.equal(
         command.reachesProvider === true,
-        command.kind === "provider-read",
-        `${command.id}: reachesProvider must be true exactly for provider-read commands`,
+        reaches,
+        `${command.id}: reachesProvider must be true exactly for provider-reaching commands`,
       );
     }
   }

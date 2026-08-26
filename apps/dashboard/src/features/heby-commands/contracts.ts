@@ -26,6 +26,10 @@
  *   provider-read reads a bounded page of records from ONE connected external provider, server-side
  *                 and tenant-scoped, after the integration capability authority has allowed it.
  *                 READ-ONLY external I/O, and nothing else — see below.
+ *   cross-source-read
+ *                 joins a bounded provider-read against the organization's own DURABLE declarations
+ *                 about those same records. Provider I/O plus one writer-free Knowledge read, and
+ *                 nothing else — see below.
  *   advisory      may reach the model through the EXISTING Heby answer path, with the existing
  *                 tenant, evidence, validator, kill-switch and persistence rules. Text only.
  *   navigation    moves within Hebun via the closed workspace registry. ZERO provider dispatch.
@@ -55,6 +59,37 @@
  * persisted, and never promotable into organizational Knowledge.
  */
 /**
+ * `cross-source-read` (INT-5C) reads a provider page and asks the organization's own records what it
+ * has DECLARED about those same provider records.
+ *
+ * IT IS A SIBLING OF `provider-read`, NOT A WIDENING OF IT — the third time this repository makes
+ * that move, after `propose` (R3A.1) and `provider-read` (INT-5B1). `provider-read` keeps its
+ * property that no Knowledge module of any kind is reachable from it, and INT-5B1's firewall over
+ * that root is untouched: widening it would have removed a guarantee from a command that never
+ * needed one. A provider read can never acquire a Knowledge read by changing one field, because the
+ * kinds do not mix and the planner branches on the kind.
+ *
+ * WHAT THE NAME MEANS, EXACTLY:
+ *
+ *   IT DOES mean   the released bounded provider read, plus ONE batched, tenant-scoped, read-only
+ *                  lookup of the organization's own human-declared external references, joined in
+ *                  memory on the provider's immutable record id.
+ *
+ *   IT DOES NOT    a Knowledge write · a Knowledge admission · Knowledge WORDING · a provider write ·
+ *      mean        a model request · an inferred relationship · persistence of anything. None is
+ *                  reachable from the cross-source server module, and a firewall walks the real
+ *                  import graph to prove it rather than trusting this paragraph.
+ *
+ * THE JOIN IS EXACT AND DETERMINISTIC. It is SQL equality on `(provider_key, capability,
+ * record_type, record_id)` — the provider's own identifier — and never a name comparison, a
+ * similarity score, or anything a model produced. The relationship it reports was authored by a
+ * human; this command only finds it.
+ *
+ * A cross-source result carries TWO standings and never merges them: the provider half stays a
+ * non-authoritative ephemeral observation, and the Knowledge half is authoritative only for the
+ * fact that the organization recorded the relationship.
+ */
+/**
  * `propose` (R3A.1) files a durable action request for a human to decide on. It is NOT execution
  * and it is deliberately not `reserved`: a reserved command dispatches nothing, while a proposal
  * really does write a row — it just writes it into the pending-review queue rather than into the
@@ -65,6 +100,7 @@ export type HebyCommandKind =
   | "local"
   | "read"
   | "provider-read"
+  | "cross-source-read"
   | "advisory"
   | "navigation"
   | "propose"

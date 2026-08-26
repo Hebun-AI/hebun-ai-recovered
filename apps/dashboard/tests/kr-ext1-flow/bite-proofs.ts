@@ -23,6 +23,14 @@ const PG_SUITE = "tests/kr-ext1-flow/external-reference-postgres.ts";
 const FIREWALL_SUITE = "tests/kr-ext1-flow/boundaries-and-firewall.ts";
 
 const AUTHORITY = "src/features/knowledge/external-reference-authority.server.ts";
+/*
+ * INT-5C moved the REVERSE LOOKUP — "which fact concerns this record?" — out of the attach/withdraw
+ * authority and into a writer-free read module, so a consumer that only asks the question no longer
+ * imports the module that can also create and withdraw a declaration. The query is unchanged and was
+ * not forked; this repository still holds exactly one of it. The mutation that aims at the query now
+ * aims at the file that holds it.
+ */
+const READ_SEAM = "src/features/knowledge/external-reference-read.server.ts";
 const CONTRACTS = "src/features/knowledge/external-reference-contracts.ts";
 const SCHEMA = "src/db/schema/knowledge-external-reference.ts";
 const GOVERNANCE = "src/features/governance-decision/contracts.ts";
@@ -164,7 +172,7 @@ const MUTATIONS: readonly Mutation[] = [
   },
   {
     label: "M13 the deterministic join degrades to a free-text match",
-    file: AUTHORITY,
+    file: READ_SEAM,
     suite: PG_SUITE,
     find: "          eq(knowledgeExternalReferences.recordId, reference.recordId),",
     replace: "          isNull(knowledgeExternalReferences.withdrawnAt),",

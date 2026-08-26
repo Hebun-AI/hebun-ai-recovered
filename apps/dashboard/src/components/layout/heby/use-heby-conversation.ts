@@ -44,6 +44,7 @@ import {
   proposeHebyActionCommandAction,
   runHebyReadCommandAction,
   runHebyProviderReadCommandAction,
+  runHebyCrossSourceCommandAction,
 } from "@/app/(dashboard)/heby/actions";
 import {
   findHebyCommandById,
@@ -400,6 +401,64 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
               patch({
                 commandOutput: refusal(parsed.command.slash, "Not available", [
                   `That command could not be run (${outcome.reason}). No provider was contacted.`,
+                ]),
+              });
+            }
+          } finally {
+            setReading(false);
+          }
+          return;
+        }
+        case "cross-source-read": {
+          /*
+           * INT-5C. The second branch that can result in Hebun contacting a third party, and the
+           * only one that also reads the organization's own declarations.
+           *
+           * It is a SEPARATE action from the provider-read one, so `/repositories` cannot acquire a
+           * Knowledge read by an edit here and this command cannot lose its Knowledge half by one
+           * either. The placeholder says BOTH halves out loud before either happens — a reader must
+           * never discover after the fact what a command consulted.
+           *
+           * Every line rendered below is server data. The client composes no sentence about what
+           * GitHub holds or about what the organization declared, it never turns a refusal or a
+           * fault into an empty list, and it never turns an unavailable Knowledge lookup into
+           * "no declaration recorded".
+           */
+          patch({
+            composer: "",
+            commandOutput: {
+              command: parsed.command.slash,
+              title: "Reading GitHub and your declarations…",
+              lines: [
+                "Asking GitHub for one bounded page of the repositories your installation covers.",
+                "Then asking your organization's own records which of those repositories it has " +
+                  "recorded a Knowledge relationship for.",
+                "Reads only. Nothing is changed, sent or stored, and no Knowledge is written.",
+              ],
+              tone: "info",
+              provenance: "Cross-source read in progress.",
+            },
+          });
+          setReading(true);
+          try {
+            const outcome = await runHebyCrossSourceCommandAction({
+              commandId: plan.commandId,
+              args: plan.args,
+            });
+            if (outcome.status === "ok") {
+              patch({ commandOutput: outcome.result });
+            } else if (outcome.status === "unauthorized") {
+              patch({
+                commandOutput: refusal(parsed.command.slash, "Sign in required", [
+                  "Sign in to read this.",
+                ]),
+                available: false,
+              });
+            } else {
+              patch({
+                commandOutput: refusal(parsed.command.slash, "Not available", [
+                  `That command could not be run (${outcome.reason}). No provider was contacted and ` +
+                    "nothing was read.",
                 ]),
               });
             }

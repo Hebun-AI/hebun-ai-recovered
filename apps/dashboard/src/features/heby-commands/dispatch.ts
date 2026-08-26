@@ -80,6 +80,21 @@ export type HebyCommandPlan =
       readonly args: readonly string[];
     }
   /**
+   * Ask the server to run a CROSS-SOURCE read (INT-5C).
+   *
+   * It carries the same three fields the provider-read plan does and NOTHING else — no provider key,
+   * no tenant, no installation, no repository address, and no Knowledge fact id. A command becomes a
+   * cross-source read by declaring `kind: "cross-source-read"` in the registry and in no other way,
+   * so no handler string and no later `case` can quietly acquire either half of its reach. Like
+   * `read`, it carries no prompt, so this plan has no representation in which it could reach a model.
+   */
+  | {
+      readonly kind: "cross-source-read";
+      readonly commandId: string;
+      readonly handler: string;
+      readonly args: readonly string[];
+    }
+  /**
    * Ask the server to file a durable action proposal for a human to decide on (R3A.1).
    *
    * It carries the two references the operator typed and NOTHING else — no tenant, no actor, no
@@ -205,6 +220,15 @@ export function planHebyCommand(
    */
   if (command.kind === "provider-read") {
     return { kind: "provider-read", commandId: command.id, handler: command.handler, args };
+  }
+
+  /*
+   * INT-5C. Checked beside the provider-read branch and for the same reason: a cross-source command
+   * can never fall through into the `read` branch at the bottom of this function, and a command with
+   * no source never causes either a provider request or a Knowledge query.
+   */
+  if (command.kind === "cross-source-read") {
+    return { kind: "cross-source-read", commandId: command.id, handler: command.handler, args };
   }
 
   if (command.kind === "propose") {

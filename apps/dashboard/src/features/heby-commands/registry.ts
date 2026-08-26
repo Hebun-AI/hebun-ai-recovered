@@ -111,7 +111,7 @@ function base(
      * INT-5B1. Derived from the KIND, never hand-written per command, so a descriptor cannot claim
      * external reach it does not have — or, worse, hide reach it does.
      */
-    reachesProvider: kind === "provider-read",
+    reachesProvider: kind === "provider-read" || kind === "cross-source-read",
     /*
      * Still true for a provider-read command. "Provider off" is the Director's connectivity control
      * over the MODEL provider, and a provider-read command uses no model at all, so it behaves
@@ -361,6 +361,42 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     availability: "available", handler: "repositories", ...base("provider-read"),
   },
 
+  /* ── The first cross-source command (INT-5C) ──────────────────────────────
+   *
+   * `/repository-knowledge` answers one narrow question: for the repositories this organization's
+   * GitHub installation covers, which ones has the organization RECORDED a Knowledge relationship
+   * for, and which ones has it not.
+   *
+   * WHY IT IS NOT `kind: "provider-read"`. That kind is contractually a provider read and NOTHING
+   * else — INT-5B1's firewall proves no Knowledge module of any kind is reachable from its root,
+   * and this command needs exactly that. Widening `provider-read` would have deleted that guarantee
+   * from `/repositories`, which never needed a Knowledge read. So this is a sibling kind with its
+   * own server module and its own firewall root, exactly as `provider-read` was a sibling of `read`
+   * and `propose` was a sibling of the write path.
+   *
+   * WHY IT IS `available`. Both halves are already released and neither is new: `/repositories`
+   * (INT-5B1) reads the provider page, and KR-EXT1 built the declaration table, its human-only
+   * CHECK constraint, and the exact index this join reads. INT-5C is the first reader of that
+   * index — it adds no schema, no migration and no provider permission.
+   *
+   * IT TAKES NO ARGUMENTS, for the same reason `/repositories` takes none. A repository id or name
+   * would be a caller-supplied address, and neither the provider seam nor the Knowledge lookup
+   * accepts one: the installation decides which records exist, and the server context decides which
+   * organization's declarations are read.
+   *
+   * IT ASKS THE MODEL NOTHING. The relationship is SQL equality on the provider's immutable record
+   * id. A model cannot select, invent, rank or explain a link here, because no model client is
+   * reachable from the module that runs it.
+   */
+  {
+    id: "repository-knowledge", slash: "/repository-knowledge", label: "Repository knowledge",
+    category: "platform", kind: "cross-source-read",
+    description:
+      "For the repositories your GitHub installation covers, show which ones your organization has " +
+      "recorded a Knowledge relationship for. Reads only.",
+    availability: "available", handler: "repository-knowledge", ...base("cross-source-read"),
+  },
+
   /* ── Agents / workforce ───────────────────────────────────────────────────
    * `/agents` and `/workflows` read the Executive Overview's own sections. That data is DERIVED and
    * non-authoritative, and the result says so — it is never presented as live execution.
@@ -510,20 +546,29 @@ export function validateHebyCommandRegistry(): readonly string[] {
       problems.push(`${command.id}: requiresExecution must be true exactly for reserved commands`);
     }
     /*
-     * INT-5B1 — external reach is declared by exactly one kind, in both directions.
+     * INT-5B1, EXTENDED BY INT-5C — external reach is declared by kind, in both directions.
+     *
+     * WHAT ARRIVED: a SECOND kind that genuinely leaves the building. `cross-source-read` performs
+     * the same released provider read and then joins it against the organization's own records, so
+     * it reaches a provider and must say so. The invariant is not loosened by naming it — it is
+     * still an exact biconditional, and it still refuses a command of any OTHER kind that claims
+     * reach, and any reaching command that omits the claim.
+     *
+     * The set is spelled out rather than replaced by a truthy check, so adding a third reaching kind
+     * has to be a deliberate edit here rather than a side effect somewhere else.
      *
      * The `!== true` spelling matters: the field is optional, so `undefined` must read as "no
-     * reach". A provider-read command that omitted it would otherwise pass by accident, and a
-     * command of any other kind could not set it at all.
+     * reach". A reaching command that omitted it would otherwise pass by accident.
      */
-    if ((command.reachesProvider === true) !== (command.kind === "provider-read")) {
+    const reachingKinds: readonly HebyCommandKind[] = ["provider-read", "cross-source-read"];
+    if ((command.reachesProvider === true) !== reachingKinds.includes(command.kind)) {
       problems.push(
-        `${command.id}: reachesProvider must be true exactly for provider-read commands`,
+        `${command.id}: reachesProvider must be true exactly for provider-reaching commands`,
       );
     }
-    /* A provider-read command may never also claim the model or an execution runtime. */
-    if (command.kind === "provider-read" && (command.requiresModel || command.requiresExecution)) {
-      problems.push(`${command.id}: a provider-read command needs neither the model nor execution`);
+    /* A command that reaches a provider may never also claim the model or an execution runtime. */
+    if (reachingKinds.includes(command.kind) && (command.requiresModel || command.requiresExecution)) {
+      problems.push(`${command.id}: a provider-reaching command needs neither the model nor execution`);
     }
     // A reserved command can never be runnable, whatever else it declares.
     if (command.kind === "reserved" && command.availability !== "requires-execution") {
