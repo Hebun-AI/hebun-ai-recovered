@@ -597,7 +597,13 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  * invariant is unchanged and is what the digest still proves: this UI phase authored no migration,
  * and no RELEASED migration was edited — editing one would move the digest without moving the count.
  */
-const LEDGER_COUNT = 35;
+/*
+ * KR-EXT1 — the ledger grew to 36 when `knowledge_external_references` landed, so BOTH values move
+ * with it. The invariant is unchanged and is exactly what the digest still proves: this phase
+ * authored no migration, and no RELEASED migration was edited — editing one would move the digest
+ * without moving the count.
+ */
+const LEDGER_COUNT = 36;
 const USE_SERVER_MODULES = 9;
 
 function nothingArchitecturalMoved(overrides: Readonly<Record<string, string>> = {}): void {

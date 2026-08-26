@@ -39,6 +39,7 @@
 import { useId, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { StateBlock } from "@/components/ui/state-block";
+import { KnowledgeExternalReferences } from "./knowledge-external-references";
 import { KnowledgeVersionControl } from "./knowledge-version-control";
 import type { KnowledgeListing, KnowledgeSourceRecord } from "@/features/knowledge/contracts";
 
@@ -215,6 +216,12 @@ export function KnowledgeRecords({
               knowledgeVersion={record.knowledgeVersion}
               canAuthor={canAuthor}
             />
+            {/*
+              KR-EXT1 — what this fact is ABOUT, outside Hebun. A sibling of version control and
+              deliberately below it: the wording of a fact is Knowledge's own, and what it concerns
+              is a separate declaration with its own authority and its own withdrawal.
+            */}
+            <KnowledgeExternalReferences factId={record.factId} canAuthor={canAuthor} />
           </li>
         ))}
       </ul>

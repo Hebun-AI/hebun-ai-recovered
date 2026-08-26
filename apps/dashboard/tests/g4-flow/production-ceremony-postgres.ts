@@ -186,8 +186,22 @@ async function main(): Promise<void> {
         /* R2H: migration 35 (`control_source`) grew the ledger again, and the digest moved with it —
          * on the DISPOSABLE database, which carries what this working tree authors. Production
          * stands at 34 (`8b5f0d71…`) until its own gated migration ceremony. */
-        "97f1151fd57bec5142621f00c1913708",
-        "…and its digest equals the canonical and production one — the ledger is not an identity",
+        /* KR-EXT1: migration 36 (`knowledge_external_references`) grew the ledger once more, and the
+         * digest moved with it — again on the DISPOSABLE database, which carries what this working
+         * tree authors. Production stands at 35 (`97f1151f…`) until its own gated ceremony. */
+        "1b67f950a863b1d86b072dee14c6edb3",
+        /*
+         * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
+         * sentence had been false since R2H — whose own comment, three lines above it, said
+         * production stood at 34. A claim its own evidence contradicts is the shape of defect this
+         * repository has had to fix before: a green suite carrying a stale sentence.
+         *
+         * What is actually being measured, and all that is: the digest of the ledger THIS WORKING
+         * TREE authors. Deployments converge on it only once each runs its own gated migration
+         * ceremony, and the point the section makes is unchanged either way — the digest identifies
+         * a RELEASE, never a deployment.
+         */
+        "…and its digest is the release's, not a deployment's — the ledger is not an identity",
       );
     }
 

@@ -50,8 +50,14 @@ const OWNED = [MODEL, COMPONENT] as const;
  * invariant is unchanged and is what the digest still proves: this UI phase authored no migration,
  * and no RELEASED migration was edited — editing one would move the digest without moving the count.
  */
-const LEDGER_COUNT = 35;
-const LEDGER_DIGEST = "b71a79b3bc28b4b5";
+/*
+ * KR-EXT1 — the ledger grew to 36 when `knowledge_external_references` landed, so BOTH values move
+ * with it. The invariant is unchanged and is exactly what the digest still proves: this phase
+ * authored no migration, and no RELEASED migration was edited — editing one would move the digest
+ * without moving the count.
+ */
+const LEDGER_COUNT = 36;
+const LEDGER_DIGEST = "3fa25de36812ab16";
 /** Every server-action module in the repository today. A new writer anywhere moves this. */
 const USE_SERVER_MODULES = 9;
 

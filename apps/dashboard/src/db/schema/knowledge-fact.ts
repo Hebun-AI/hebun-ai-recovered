@@ -60,5 +60,16 @@ export const knowledgeFacts = pgTable(
       t.domainKey,
       t.knowledgeScope,
     ),
+    /*
+     * KR-EXT1 — the composite target a tenant-safe child foreign key needs.
+     *
+     * `id` is already the primary key, so this index adds no new uniqueness and changes nothing
+     * about what a fact IS. It exists so `knowledge_external_references` can carry
+     * `(knowledge_fact_id, tenant_id) → knowledge_facts(id, tenant_id)` and make a cross-tenant
+     * reference unattachable at the database rather than in a writer somebody could edit.
+     *
+     * `messages` and `integrations` each carry the same index for the same reason.
+     */
+    uniqueIndex("knowledge_facts_id_tenant_uidx").on(t.id, t.tenantId),
   ],
 );

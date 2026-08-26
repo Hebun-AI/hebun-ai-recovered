@@ -436,6 +436,19 @@ async function main(): Promise<void> {
     assert.deepEqual(
       exported.sort(),
       [
+        /*
+         * KR-EXT1 — the external-system reference. Three entries for one capability: declaring what
+         * a fact is ABOUT outside Hebun, reading those declarations, and withdrawing one.
+         *
+         * IT IS NOT A CONTENT MUTATION, which is why it belongs beside the acts above rather than
+         * widening any of them. It writes exactly one table of its own, never `knowledge_nodes` and
+         * never `knowledge_facts` — a firewall asserts that as an exact set — so a fact's wording,
+         * version, lineage, standing and ratification are untouched by every one of the three. It
+         * reuses the SAME K2 write band, adds no authority, and contacts no provider.
+         *
+         * Still absent, because they still do not exist: delete, edit, rollback, un-ratify.
+         */
+        "attachKnowledgeExternalReferenceAction",
         "createKnowledgeAction",
         "ingestKnowledgeAction",
         /*
@@ -444,6 +457,7 @@ async function main(): Promise<void> {
          * its surface.
          */
         "ingestKnowledgeFileAction",
+        "listKnowledgeExternalReferencesAction",
         "ratifyKnowledgeVersionAction",
         "readKnowledgeVersionsAction",
         "rejectKnowledgeVersionAction",
@@ -454,6 +468,7 @@ async function main(): Promise<void> {
          */
         "retractKnowledgeSourceAction",
         "supersedeKnowledgeAction",
+        "withdrawKnowledgeExternalReferenceAction",
       ],
       "create, ingest, ingest-a-file, correct, review, retract a source, and read history — nothing else.\n"
       + "Ingest writes many facts through the same create path; nothing here edits or rolls anything back.",

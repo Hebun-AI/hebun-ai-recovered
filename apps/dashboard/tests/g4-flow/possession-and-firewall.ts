@@ -615,6 +615,9 @@ function noSchema(): void {
       /* R2H — control_source, the column R5.1 designed and deferred until production gained a
        * provider-control write path. */
       "20260825080110_provider_control_source.sql",
+      /* KR-EXT1 — the Knowledge-owned external-system reference table. Additive: one CREATE TABLE,
+       * two foreign keys and three indexes, zero DROP, `knowledge_nodes` untouched. */
+      "20260826064423_kr_ext1_knowledge_external_references.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );

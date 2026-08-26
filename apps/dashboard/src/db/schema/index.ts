@@ -44,6 +44,7 @@ export * from "./memory";
 export * from "./working_memory";
 export * from "./knowledge";
 export * from "./knowledge-fact";
+export * from "./knowledge-external-reference";
 export * from "./reasoning";
 export * from "./learning";
 export * from "./conversation";

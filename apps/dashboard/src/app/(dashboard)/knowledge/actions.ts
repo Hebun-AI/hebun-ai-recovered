@@ -3,6 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import {
+  attachExternalReference,
+  listExternalReferences,
+  withdrawExternalReference,
+  type AttachExternalReferenceResult,
+  type WithdrawExternalReferenceResult,
+} from "@/features/knowledge/external-reference-authority.server";
+import type {
+  ExternalSystemReference,
+  RecordedExternalReference,
+} from "@/features/knowledge/external-reference-contracts";
+import {
   createKnowledgeFact,
   type CreateKnowledgeResult,
 } from "@/features/knowledge/knowledge-create.server";
@@ -222,4 +233,49 @@ export async function retractKnowledgeSourceAction(input: {
   const result = await retractKnowledgeSource(tenant, input);
   if (result.status === "retracted") revalidatePath("/knowledge");
   return result;
+}
+
+/*
+ * ── KR-EXT1: THE EXTERNAL-SYSTEM REFERENCE BOUNDARY ─────────────────────────
+ *
+ * Three actions, all of them Knowledge acts. They record, read and withdraw the sentence "this
+ * Knowledge fact concerns this external-system record" and do nothing else.
+ *
+ * NO PROVIDER IS CONTACTED by any of them — not to validate, not to check health, not to refresh a
+ * credential. Recording a reference is an organizational declaration; the Director's decision on
+ * that is explicit, and a firewall proves the authority behind these actions reaches no transport.
+ *
+ * The client supplies a Knowledge fact id and a CLOSED reference shape. It cannot supply a tenant,
+ * an actor, a provider account, a credential, or a display name — no field exists for any of them,
+ * and the tenant is resolved SERVER-SIDE from the R1 session exactly as every other Knowledge action
+ * resolves it.
+ */
+
+export async function listKnowledgeExternalReferencesAction(input: {
+  knowledgeFactId: string;
+}): Promise<readonly RecordedExternalReference[]> {
+  return listExternalReferences(await resolveTenantContext(), input.knowledgeFactId);
+}
+
+export async function attachKnowledgeExternalReferenceAction(input: {
+  knowledgeFactId: string;
+  reference: ExternalSystemReference;
+}): Promise<AttachExternalReferenceResult> {
+  return attachExternalReference(await resolveTenantContext(), {
+    knowledgeFactId: input.knowledgeFactId,
+    reference: input.reference,
+  });
+}
+
+/**
+ * Withdraw a declaration.
+ *
+ * It removes the ORGANIZATION'S STATEMENT and nothing in the world: no GitHub data is deleted, no
+ * integration is disconnected, no provider lifecycle moves, no Knowledge is retracted and no
+ * Governance decision changes. The record of the declaration and of its end both survive.
+ */
+export async function withdrawKnowledgeExternalReferenceAction(input: {
+  referenceId: string;
+}): Promise<WithdrawExternalReferenceResult> {
+  return withdrawExternalReference(await resolveTenantContext(), { referenceId: input.referenceId });
 }
