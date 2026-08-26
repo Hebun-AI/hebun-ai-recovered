@@ -21,6 +21,7 @@ import { useHebySurface } from "./heby-surface-context";
 import { useHebyConversation } from "./use-heby-conversation";
 import { useHebyVoiceSurface } from "./use-heby-voice-surface";
 import { HebyWorkspace } from "./heby-workspace";
+import type { CommandCapabilityView } from "@/features/heby-commands/contracts";
 
 export interface HebyWorkspaceClientProps {
   /** Server-resolved context route. The client never invents or widens it. */
@@ -41,11 +42,21 @@ export interface HebyWorkspaceClientProps {
    * authority — only what a reader may see, plus a route the projection fixed.
    */
   readonly stream: HebyStreamState;
+  /**
+   * HEBY-CAP1 — tenant-resolved command capability, composed SERVER-SIDE.
+   *
+   * A finished value, for the same reason the context and the stream are: this container performs
+   * no read. It carries no credential, no provider payload and no capability state of its own —
+   * only each command's resolved state and the governing authority's own sentence.
+   */
+  readonly capabilityView: CommandCapabilityView;
 }
 
 export function HebyWorkspaceClient(props: HebyWorkspaceClientProps) {
-  const { contextRoute, contextLabel, contextDetail, authorityLabel, returnRoute, returnLabel, stream } =
-    props;
+  const {
+    contextRoute, contextLabel, contextDetail, authorityLabel, returnRoute, returnLabel, stream,
+    capabilityView,
+  } = props;
   const { operate, registerWorkspaceReturn } = useHebySurface();
   const router = useRouter();
 
@@ -58,6 +69,7 @@ export function HebyWorkspaceClient(props: HebyWorkspaceClientProps) {
     contextRoute,
     contextLabel,
     contextDetail,
+    capabilityView,
     surface: "full-workspace",
     returnLabel,
     /* `/close` in the workspace is the same safe return the rail control performs. */

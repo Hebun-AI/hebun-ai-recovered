@@ -23,7 +23,11 @@ import {
   getHebyWorkspaceProfile,
   isHebyWorkspaceId,
 } from "@/features/heby-integration";
-import type { HebyCommandDescriptor, HebyCommandResult } from "./contracts";
+import type {
+  CommandCapabilityView,
+  HebyCommandDescriptor,
+  HebyCommandResult,
+} from "./contracts";
 import { HEBY_CATEGORY_LABELS, HEBY_PALETTE_COMMANDS } from "./registry";
 import { buildAdvisoryPrompt } from "./advisory-prompts";
 import { commandUsage } from "./parser";
@@ -41,6 +45,14 @@ export interface HebyCommandContext {
   readonly evidenceLines: readonly string[];
   /** Where leaving the Full Workspace returns to. */
   readonly returnLabel: string;
+  /**
+   * HEBY-CAP1 — command capability, resolved SERVER-SIDE for this tenant.
+   *
+   * OPTIONAL, AND ITS ABSENCE IS MEANINGFUL. A surface that resolves no tenant server-side (the
+   * Quick Panel) supplies nothing, and `/help` then renders UNKNOWN. It never falls back to the
+   * registry's release-time field, because that fallback IS the defect this phase removed.
+   */
+  readonly capabilityView?: CommandCapabilityView;
 }
 
 /**
@@ -146,17 +158,76 @@ function refuse(command: HebyCommandDescriptor): HebyCommandResult {
 }
 
 /** The `/help` body: what runs today, grouped, with the unavailable ones honestly labelled. */
-function helpLines(): readonly string[] {
+/**
+ * HEBY-CAP1 — the suffix `/help` puts after a command, and where it comes from.
+ *
+ * BEFORE THIS PHASE this read `command.availability === "available" ? "" : " — not available yet"`,
+ * which is the registry's RELEASE-TIME field. Every tenant was therefore told the same thing, and a
+ * tenant with no usable GitHub connection was told `/repositories` was available — then refused by
+ * the seam that actually knows. That is Hebun asserting an organizational fact it never established.
+ *
+ * NOW the answer comes from the server-composed capability view, which is a projection of the
+ * released authorities. This function decides NOTHING: it renders whichever of the four states the
+ * projection resolved, and when the projection is absent it renders `unknown` rather than falling
+ * back to the static field. Falling back would reintroduce the exact defect.
+ */
+function capabilitySuffix(
+  command: HebyCommandDescriptor,
+  view: CommandCapabilityView | undefined,
+): string {
+  const entry = view?.entries.find((e) => e.commandId === command.id);
+  if (!entry) {
+    /*
+     * NO RESOLVED ANSWER — for example the Quick Panel, which resolves no tenant server-side.
+     *
+     * UNKNOWN IS NOT APPLIED INDISCRIMINATELY, BECAUSE THAT WOULD BE ITS OWN UNTRUTH. A RELEASE
+     * fact is still known here: that `/run` is reserved and that a command shipped needing a source
+     * are properties of the build, and no tenant answer could change either. Only the states a
+     * runtime authority owns become UNKNOWN, and they are exactly the commands that DECLARED they
+     * depend on one. This mirrors the projection's own ordering rather than restating its rules.
+     */
+    if (command.kind === "reserved") return "  — reserved, no execution runtime";
+    if (command.availability !== "available") return "  — not available yet";
+    if (command.reachesProvider === true || command.requiresModel === true) {
+      return "  — availability UNKNOWN for your organization right now";
+    }
+    return "";
+  }
+  switch (entry.state) {
+    case "available":
+      return "";
+    case "reserved":
+      return "  — reserved, no execution runtime";
+    case "unavailable":
+      return `  — not available now: ${entry.reason}`;
+    default:
+      return `  — UNKNOWN, not denied: ${entry.reason}`;
+  }
+}
+
+function helpLines(view: CommandCapabilityView | undefined): readonly string[] {
   const lines: string[] = [];
   for (const category of Object.keys(HEBY_CATEGORY_LABELS) as (keyof typeof HEBY_CATEGORY_LABELS)[]) {
     const commands = HEBY_PALETTE_COMMANDS.filter((command) => command.category === category);
     if (commands.length === 0) continue;
     lines.push(`${HEBY_CATEGORY_LABELS[category]}:`);
     for (const command of commands) {
-      const suffix = command.availability === "available" ? "" : "  — not available yet";
-      lines.push(`  ${commandUsage(command)} — ${command.description}${suffix}`);
+      lines.push(`  ${commandUsage(command)} — ${command.description}${capabilitySuffix(command, view)}`);
     }
   }
+  /*
+   * THE STANDING OF THIS LIST, SAID OUT LOUD. A capability that can be attempted now may refuse a
+   * second later, and a reader must not carry this away as a guarantee.
+   */
+  lines.push("");
+  lines.push(
+    view
+      ? "Availability above was read for your organization just now from Hebun's own authorities. " +
+          "It is a CURRENT READ, not a future guarantee — and being able to attempt something is " +
+          "not the same as being authorized to do it, or as it succeeding."
+      : "Availability could not be resolved for your organization here, so it is shown as UNKNOWN " +
+          "rather than guessed. UNKNOWN means Hebun did not establish the answer — it does not mean no.",
+  );
   return lines;
 }
 
@@ -287,7 +358,7 @@ export function planHebyCommand(
         ]),
       };
     case "help":
-      return { kind: "local", result: result(command, "Heby commands", helpLines()) };
+      return { kind: "local", result: result(command, "Heby commands", helpLines(context.capabilityView)) };
     case "close":
       return { kind: "close" };
 

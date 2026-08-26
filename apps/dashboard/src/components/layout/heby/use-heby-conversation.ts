@@ -52,6 +52,7 @@ import {
   parseHebyInput,
   planHebyCommand,
   unknownCommandLines,
+  type CommandCapabilityView,
   type HebyCommandDescriptor,
   type HebyCommandResult,
   type HebySurfaceKind,
@@ -125,6 +126,12 @@ export interface UseHebyConversationInput {
   readonly contextLabel: string;
   /** The honest `/context` body for this context. */
   readonly contextDetail: readonly string[];
+  /**
+   * HEBY-CAP1 — server-composed command capability for this tenant. OPTIONAL: a surface that
+   * resolves no tenant server-side supplies nothing, and `/help` then renders UNKNOWN rather than
+   * falling back to the registry's release-time claim.
+   */
+  readonly capabilityView?: CommandCapabilityView;
   /** Which surface this seam is driving. Affects command PRESENTATION only. */
   readonly surface: HebySurfaceKind;
   /** Where the Full Workspace returns to, for `/close` copy. */
@@ -169,7 +176,8 @@ export interface HebyConversationModel {
 }
 
 export function useHebyConversation(input: UseHebyConversationInput): HebyConversationModel {
-  const { contextRoute, contextLabel, contextDetail, surface, onCloseSurface, onNavigate } = input;
+  const { contextRoute, contextLabel, contextDetail, capabilityView, surface, onCloseSurface, onNavigate } =
+    input;
   const returnLabel = input.returnLabel ?? "your workspace";
 
   const [raw, setRaw] = useState<ConversationSession>(() => emptySession(contextRoute));
@@ -290,6 +298,7 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
         surface,
         contextLabel,
         contextDetail,
+        capabilityView,
         evidenceLines,
         returnLabel,
       });

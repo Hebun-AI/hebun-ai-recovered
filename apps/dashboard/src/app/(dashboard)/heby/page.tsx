@@ -8,6 +8,7 @@ import { resolveHebyReturnLabel, resolveHebyReturnRoute } from "@/features/heby-
 import { toStreamItems, type HebyStreamState } from "@/features/heby-stream";
 import { readPendingActionRequests } from "@/features/action-authorization/read-action-authorizations.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
+import { readCommandCapabilityView } from "@/features/heby-commands/command-capability-projection.server";
 import { HebyWorkspaceClient } from "@/components/layout/heby/heby-workspace-client";
 
 export const metadata = { title: "Heby — Hebun AI" };
@@ -76,8 +77,22 @@ export default async function HebyPage({
   });
   const authorityLabel = HEBY_AUTHORITY_DESCRIPTORS[workspaceContext.authority].label;
 
+  /*
+   * HEBY-CAP1 — command capability, resolved HERE, on the server, for the authenticated tenant.
+   *
+   * THE TENANT COMES FROM THE SESSION AND FROM NOWHERE ELSE. `resolveTenantContext()` takes no
+   * argument, so there is no parameter through which this page — or a caller's query string —
+   * could name a different organization. This page adds no read of its own and no authority: it
+   * calls one projection, which composes released authorities and owns no capability state.
+   *
+   * IT REACHES NO PROVIDER. The projection's authorities read the control plane and pure config,
+   * so rendering `/help` can never become a request to GitHub or Google.
+   */
+  const capabilityView = await readCommandCapabilityView(await resolveTenantContext());
+
   return (
     <HebyWorkspaceClient
+      capabilityView={capabilityView}
       contextRoute={entry.route}
       contextLabel={entry.label}
       contextDetail={entry.detail}

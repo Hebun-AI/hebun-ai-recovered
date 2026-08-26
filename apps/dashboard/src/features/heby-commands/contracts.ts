@@ -136,6 +136,58 @@ export type HebyCommandAvailability =
   | "requires-capability"
   | "requires-execution";
 
+/**
+ * HEBY-CAP1 — what a command's state is FOR THIS TENANT, RIGHT NOW.
+ *
+ * DELIBERATELY NOT `HebyCommandAvailability`. That type is release vocabulary: it says whether a
+ * command shipped runnable, and it knows nothing about who is asking. This one is a runtime answer
+ * about one organization at one moment, and the two must never be spelled the same way, because
+ * the entire defect HEBY-CAP1 removes was one being read as the other.
+ *
+ *   available    a released authority affirmatively says this can run now. Permission to attempt.
+ *                It is NOT a promise the attempt succeeds — available ≠ authorized ≠ executable ≠
+ *                executed ≠ successful.
+ *   unavailable  a released authority affirmatively says it cannot. An ESTABLISHED denial.
+ *   unknown      no authority answered. FAIL-CLOSED, and never collapsible into either neighbour:
+ *                "you cannot" and "Hebun could not find out" are different facts.
+ *   reserved     registered and inert. No execution runtime exists. Terminal — no authority
+ *                answering positively can ever move a command out of it.
+ */
+export type CommandCapabilityState = "available" | "unavailable" | "unknown" | "reserved";
+
+/** Which authority produced the answer, so a reader can tell who to believe and who to ask. */
+export type CommandCapabilityGovernor =
+  /** The registry's release-time statement. No runtime authority governs this command. */
+  | "release"
+  /** The I1 normalized integration capability seam, tenant-scoped. */
+  | "provider-capability"
+  /** The released model dispatch classification. Global, per the Director's connectivity control. */
+  | "model-availability"
+  /** No organization was resolved, so nobody could be asked. */
+  | "unresolved";
+
+export interface CommandCapabilityEntry {
+  readonly commandId: string;
+  readonly slash: string;
+  readonly state: CommandCapabilityState;
+  /** The governing authority's own sentence. Never a secret, never a provider payload. */
+  readonly reason: string;
+  readonly governedBy: CommandCapabilityGovernor;
+}
+
+/**
+ * The whole map, composed server-side for one tenant.
+ *
+ * `resolvedAt: "now"` is a literal rather than a timestamp on purpose: this view is never cached,
+ * never persisted and never replayed, so a stored time would imply a durability it does not have.
+ */
+export interface CommandCapabilityView {
+  readonly resolvedAt: "now";
+  /** False means no organization was resolved — every runtime-governed command is `unknown`. */
+  readonly tenantResolved: boolean;
+  readonly entries: readonly CommandCapabilityEntry[];
+}
+
 /** One positional argument. Deliberately minimal: this is not a shell. */
 export interface HebyCommandArgument {
   readonly name: string;
