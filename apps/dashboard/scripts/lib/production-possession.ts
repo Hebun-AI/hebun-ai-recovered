@@ -57,6 +57,23 @@
  * ROLLOUT, not drift, and `verifyProductionTarget` will correctly refuse every production ceremony
  * until it closes — which is the intended forcing function, not a fault.
  *
+ * ── THAT NUMBER IS HISTORY, AND THE FORCING FUNCTION HAD NO EXIT ─────────────
+ *
+ * Two corrections, made when the production migration authority was built.
+ *
+ * FIRST: the sentence above names a measured number, and a measured number goes stale — which is
+ * the very failure the paragraph above it was written to fix. It is left standing as the R2H
+ * measurement and must not be read as current state. Nothing in this repository may treat 34, or
+ * 35, or any literal, as production's applied count: the count is READ FROM PRODUCTION, every time,
+ * by the ceremony that is about to act on it.
+ *
+ * SECOND, and structural: "the intended forcing function" was pointed at a door that did not exist.
+ * A pending rollout disabled every production ceremony, and the repository had no production
+ * migration ceremony to close the gap with — so the forcing function forced nothing and merely
+ * deadlocked. The exit is `scripts/platform-migrate.ts`, which takes possession from
+ * `verifyProductionIdentity` and proves the schema by canonical prefix instead of by count. The
+ * forcing function survives unchanged for every ceremony that writes a row.
+ *
  * THE DIGEST IS REPRODUCIBLE, and here is the method, because a digest nobody can recompute is
  * documentation dressed as evidence:
  *
@@ -257,19 +274,57 @@ export type TargetVerdict =
       readonly detail: string;
     };
 
-/**
- * Compare the live server against what the operator pinned. READ ONLY — three selects, no
- * transaction, no write, and no dependence on any application table.
+/*
+ * ── POSSESSION IS NOT CONVERGENCE (split at the production migration authority) ──
  *
- * `expectedMigrations` is the authored ledger length, supplied by the caller so this module never
- * reads the filesystem. A target whose applied count differs is refused: a ceremony must not write
- * a row shaped by a schema the target does not have.
+ * `verifyProductionTarget` answered two different questions with one verdict:
+ *
+ *   1. IS THIS THE PINNED DEPLOYMENT?   — possession. Identity. `system_identifier` + database.
+ *   2. IS ITS SCHEMA THE ONE I AUTHORED? — convergence. The ledger count.
+ *
+ * Fusing them is correct for a ceremony that WRITES A ROW, which is every ceremony that existed
+ * when this module was written: such a ceremony must never write a row shaped by a schema the
+ * target does not have, so it needs both answers to be yes.
+ *
+ * It is exactly WRONG for the ceremony that CLOSES the gap. A production migration ceremony runs
+ * precisely when convergence is false — that is its whole purpose — so a possession check that
+ * refuses on non-convergence makes convergence unreachable. The repository had that deadlock: a
+ * pending rollout disabled every production ceremony, and no ceremony existed to end it.
+ *
+ * So the identity half is now its own function, and `verifyProductionTarget` is composed from it.
+ * ITS CONTRACT IS UNCHANGED — same signature, same refusal reasons, same order, same detail
+ * strings — so the four ceremonies that require exact convergence continue to require it. Nothing
+ * was loosened; one question was given its own name.
+ *
+ * The migration ceremony uses `verifyProductionIdentity` for possession and proves the schema
+ * separately, by CANONICAL PREFIX rather than by count — see `scripts/lib/canonical-migrations.ts`.
+ * A count is the weaker claim anyway: it cannot tell a target missing migration 12 from one missing
+ * migration 34, and it cannot see an applied migration whose file was edited afterwards.
  */
-export async function verifyProductionTarget(
+
+/** What identity verification alone can refuse. A strict subset of `TargetRefusal`. */
+export type IdentityRefusal = Exclude<TargetRefusal, "ledger-incomplete">;
+
+export type IdentityVerdict =
+  | { readonly status: "bound"; readonly observed: TargetObservation }
+  | {
+      readonly status: "refused";
+      readonly reason: IdentityRefusal;
+      readonly observed?: TargetObservation;
+      readonly detail: string;
+    };
+
+/**
+ * IS THIS THE PINNED DEPLOYMENT? READ ONLY — two selects, no transaction, no write, and no
+ * dependence on any application table.
+ *
+ * The applied-migration count is OBSERVED and REPORTED here, never judged: a caller that cares
+ * about convergence decides what the number means. This function answers identity only.
+ */
+export async function verifyProductionIdentity(
   client: Client,
   expected: ProductionPosture["expected"],
-  expectedMigrations: number,
-): Promise<TargetVerdict> {
+): Promise<IdentityVerdict> {
   let observed: TargetObservation;
   try {
     const identity = await client.query<{ sid: string; db: string }>(
@@ -319,6 +374,32 @@ export async function verifyProductionTarget(
         `${PRODUCTION_TARGET_DATABASE_ENV} pins "${expected.database}".`,
     };
   }
+
+  return { status: "bound", observed };
+}
+
+/**
+ * Compare the live server against what the operator pinned. READ ONLY — three selects, no
+ * transaction, no write, and no dependence on any application table.
+ *
+ * `expectedMigrations` is the authored ledger length, supplied by the caller so this module never
+ * reads the filesystem. A target whose applied count differs is refused: a ceremony must not write
+ * a row shaped by a schema the target does not have.
+ *
+ * IDENTITY, THEN CONVERGENCE — in that order, because a wrong-database refusal must never be
+ * reported as a stale ledger. The identity half lives in `verifyProductionIdentity`; the
+ * convergence half is the one check below, and it is the reason the migration ceremony does not
+ * use this function.
+ */
+export async function verifyProductionTarget(
+  client: Client,
+  expected: ProductionPosture["expected"],
+  expectedMigrations: number,
+): Promise<TargetVerdict> {
+  const identity = await verifyProductionIdentity(client, expected);
+  if (identity.status === "refused") return identity;
+  const { observed } = identity;
+
   if (observed.appliedMigrations !== expectedMigrations) {
     return {
       status: "refused",
