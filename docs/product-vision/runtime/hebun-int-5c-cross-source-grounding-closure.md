@@ -283,9 +283,16 @@ convention in force is untagged.
 - **One installation, one repository.** Completeness was proved for *this* observed response
   (`shown = 1`, `provider total = 1`). A bound is not a total; the `PARTIAL, NOT COMPLETE` path
   exists for when they differ and has not been exercised in production.
-- **The `github-organization` integration reads `status = pending`** while serving a successful
-  read. Pre-existing, inherited from INT-5B1's acceptance, and outside INT-5C's contract — but worth
-  a look, because a status nobody advances is a status nobody trusts.
+- ~~The `github-organization` integration reads `status = pending` while serving a successful read,
+  worth a look because a status nobody advances is a status nobody trusts.~~
+  **WITHDRAWN — this was a measurement error in the census, not a finding.** `integrations.status`
+  is declared `LEGACY, INERT. Superseded by connectionState. Never read, never written by I1.`
+  (`src/db/schema/integration.ts`), and the table header records it as *"recorded debt, not
+  design"*. The lifecycle field the capability authority actually reads is `connection_state`, with
+  `health` as a second dimension; the census selected the legacy column and the concern was drawn
+  from a value nothing consults. Re-confirmed against the schema during HEBY-CAP1: every `status`
+  occurrence in `integration-authority/` is a TypeScript result discriminant, never the column.
+  Nothing here needs fixing, and no integration lifecycle question is open.
 - **Tenant isolation is proved structurally, not empirically.** Production has one tenant, so the
   cross-tenant path cannot be exercised there; bite-proof M1 carries that claim.
 
