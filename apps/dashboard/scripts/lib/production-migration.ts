@@ -119,6 +119,7 @@ export function assertBackupPathSafe(target: string, repositoryRoot: string): vo
 
 export type BackupRefusal =
   | "pg_dump-missing"
+  | "pg_dump-unreadable-version"
   | "pg_dump-too-old"
   | "path-unsafe"
   | "path-occupied"
@@ -130,7 +131,128 @@ export type BackupResult =
   | { readonly status: "created"; readonly file: string; readonly bytes: number; readonly entries: number }
   | { readonly status: "refused"; readonly reason: BackupRefusal; readonly detail: string };
 
-const majorOf = (version: string): number => Number(/(\d+)/.exec(version)?.[1] ?? "0");
+/* ════════════════════════════════════════════════════════════════════════════
+ * POSTGRESQL VERSION — THE ONE PLACE A MAJOR VERSION IS DECIDED
+ *
+ * A production run of this ceremony printed `PostgreSQL undefined`, because the server version was
+ * read as `rows[0].v` from a query whose column is `server_version`. The TypeScript generic on
+ * `client.query<{ v: string }>` renamed nothing: it is an ASSERTION ABOUT A RUNTIME SHAPE, checked
+ * by no one, and `pg` returns whatever the server named the column. So `serverVersion` was
+ * `undefined`, and the old `majorOf` — `Number(/(\d+)/.exec(version)?.[1] ?? "0")` — coerced that
+ * to the string "undefined", found no digits, and returned 0.
+ *
+ * Zero is the worst possible answer, because the gate it feeds is `dumpMajor < serverMajor`. With a
+ * server major of 0, NO pg_dump is ever too old, and the early refusal was inert. It failed OPEN,
+ * silently, while reporting nothing wrong.
+ *
+ * The repair is not a better regular expression. It is that an unparseable version is not a version:
+ * every path that cannot produce a real major number REFUSES, and a major number can only be
+ * obtained by calling the parser below — there is no arithmetic on a raw string anywhere else.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * A PostgreSQL version that has been PROVED to carry a major number.
+ *
+ * The type is the guarantee: a value of this shape cannot be constructed from an unparseable
+ * string, because `parsePostgresVersion` is the only thing that returns one.
+ */
+export interface PostgresVersion {
+  /** Exactly what the server or the tool said, for the operator to read. Never empty. */
+  readonly raw: string;
+  /** The major version. Always an integer >= 1 — never 0, never NaN. */
+  readonly major: number;
+}
+
+export type PostgresVersionResult =
+  | { readonly status: "parsed"; readonly version: PostgresVersion }
+  | { readonly status: "refused"; readonly detail: string };
+
+/**
+ * Parse a PostgreSQL version string into a major number, or refuse.
+ *
+ * Takes `unknown` ON PURPOSE. Its callers hold values that came off a wire or out of a child
+ * process, where a compile-time type is a claim rather than a fact — which is precisely how the
+ * production defect got in. Anything that is not a string, is blank, or does not BEGIN with a
+ * plausible major number is refused rather than coerced.
+ *
+ * Anchored at the start deliberately: an unanchored digit search would happily pull `3484359` out
+ * of `18.6 (3484359)` if the leading token were ever malformed, and inventing a major version from
+ * a build identifier is the same class of failure as inventing 0.
+ */
+export function parsePostgresVersion(raw: unknown): PostgresVersionResult {
+  if (typeof raw !== "string") {
+    return {
+      status: "refused",
+      detail:
+        `a PostgreSQL version must be a string and this is ${raw === null ? "null" : typeof raw}. ` +
+        "No major version can be established, so this refuses rather than assuming one.",
+    };
+  }
+  const text = raw.trim();
+  if (text.length === 0) {
+    return {
+      status: "refused",
+      detail: "the PostgreSQL version is empty. No major version can be established.",
+    };
+  }
+  const match = /^(\d{1,3})(?:[.\s]|$)/.exec(text);
+  if (!match) {
+    return {
+      status: "refused",
+      detail:
+        `the PostgreSQL version ${JSON.stringify(text)} does not begin with a major version. ` +
+        "No major version can be established, so this refuses rather than guessing one.",
+    };
+  }
+  const major = Number(match[1]);
+  if (!Number.isInteger(major) || major < 1) {
+    return {
+      status: "refused",
+      detail: `the PostgreSQL version ${JSON.stringify(text)} yields major ${match[1]}, which is not a real major version.`,
+    };
+  }
+  return { status: "parsed", version: { raw: text, major } };
+}
+
+/**
+ * Ask the live target what version it runs, and refuse if it will not say so usably.
+ *
+ * `show server_version` returns ONE row whose column is named `server_version` — measured against
+ * the real production cluster, which answered `{ server_version: "18.6 (3484359)" }`. That name is
+ * read here literally, and the value is then validated by the parser rather than trusted because a
+ * generic said so.
+ *
+ * READ ONLY. It runs one `show`, mutates nothing, and holds nothing open.
+ */
+export async function readServerVersion(client: Client): Promise<PostgresVersionResult> {
+  let rows: readonly Record<string, unknown>[];
+  try {
+    const result = await client.query<Record<string, unknown>>("show server_version");
+    rows = result.rows;
+  } catch (error) {
+    return {
+      status: "refused",
+      detail:
+        "the target would not report its server version: " +
+        `${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  if (rows.length !== 1) {
+    return {
+      status: "refused",
+      detail: `\`show server_version\` returned ${rows.length} rows. Exactly one was expected.`,
+    };
+  }
+  const parsed = parsePostgresVersion(rows[0]?.server_version);
+  if (parsed.status === "refused") {
+    return {
+      status: "refused",
+      detail:
+        `${parsed.detail} The row carried the keys [${Object.keys(rows[0] ?? {}).join(", ")}].`,
+    };
+  }
+  return parsed;
+}
 
 /**
  * Create and validate a custom-format dump of the verified target.
@@ -138,11 +260,17 @@ const majorOf = (version: string): number => Number(/(\d+)/.exec(version)?.[1] ?
  * VERSION IS CHECKED FIRST, and refuses rather than trying. `pg_dump` will not dump a server newer
  * than itself — it aborts with "server version: X; pg_dump version: Y" — and discovering that by
  * running it is fine, but discovering it AFTER an operator has confirmed a production migration is
- * not. The server's major version is supplied by the caller, which already has a connection.
+ * not.
+ *
+ * THE SERVER VERSION ARRIVES ALREADY PARSED, as a `PostgresVersion` and not as a string. That is
+ * the repair for the production defect: this function can no longer be handed a raw value it would
+ * have to interpret, so it can no longer interpret one into major 0 and wave every pg_dump through.
+ * Establishing the version is the caller's job, and refusing when it cannot be established is the
+ * caller's refusal — before a backup is attempted and before anything is migrated.
  */
 export function createValidatedBackup(options: {
   readonly connectionString: string;
-  readonly serverVersion: string;
+  readonly serverVersion: PostgresVersion;
   readonly directory: string;
   readonly filename: string;
   readonly repositoryRoot: string;
@@ -168,17 +296,33 @@ export function createValidatedBackup(options: {
     };
   }
 
-  const dumpMajor = majorOf(dumpVersion.replace(/^pg_dump \(PostgreSQL\) /, ""));
-  const serverMajor = majorOf(options.serverVersion);
+  /*
+   * THE TOOL'S OWN VERSION IS PARSED THE SAME WAY, and an unreadable one refuses too. Under the
+   * old arithmetic an unrecognizable `pg_dump --version` also became 0 — which, on that side of the
+   * comparison, fails closed but reports "the available pg_dump is 0" to an operator. A refusal
+   * that names the real problem is worth more than a number nobody can act on.
+   */
+  const dumpParsed = parsePostgresVersion(dumpVersion.replace(/^pg_dump \(PostgreSQL\) /, ""));
+  if (dumpParsed.status === "refused") {
+    return {
+      status: "refused",
+      reason: "pg_dump-unreadable-version",
+      detail:
+        `pg_dump did not report a usable version (${JSON.stringify(dumpVersion)}): ${dumpParsed.detail} ` +
+        "Its compatibility with the target cannot be established, so no backup is attempted.",
+    };
+  }
+  const dumpMajor = dumpParsed.version.major;
+  const serverMajor = options.serverVersion.major;
   if (dumpMajor < serverMajor) {
     return {
       status: "refused",
       reason: "pg_dump-too-old",
       detail:
-        `the target runs PostgreSQL ${serverMajor} and the available pg_dump is ${dumpMajor} ` +
-        `(${dumpVersion}). pg_dump refuses to dump a server newer than itself, so no valid backup ` +
-        "can be produced here. Install a pg_dump of at least the server's major version, then " +
-        "re-run. Nothing was migrated.",
+        `the target runs PostgreSQL ${serverMajor} (${options.serverVersion.raw}) and the available ` +
+        `pg_dump is ${dumpMajor} (${dumpVersion}). pg_dump refuses to dump a server newer than ` +
+        "itself, so no valid backup can be produced here. Install a pg_dump of at least the " +
+        "server's major version, then re-run. Nothing was migrated.",
     };
   }
 

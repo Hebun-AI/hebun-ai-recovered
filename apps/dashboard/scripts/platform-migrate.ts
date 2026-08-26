@@ -53,6 +53,7 @@ import {
   createValidatedBackup,
   fingerprintDrift,
   organizationalFingerprint,
+  readServerVersion,
   releaseMigrationLock,
 } from "./lib/production-migration";
 import { preflightEnvironment } from "./lib/ceremony-preflight";
@@ -207,9 +208,25 @@ async function main(): Promise<void> {
       return;
     }
 
-    const serverVersion = (
-      await client.query<{ v: string }>("show server_version")
-    ).rows[0]!.v;
+    /*
+     * 5b · THE TARGET'S SERVER VERSION, ESTABLISHED OR REFUSED.
+     *
+     * This used to read `rows[0].v` from a query whose column is `server_version`, so the value was
+     * `undefined`, the banner printed `PostgreSQL undefined`, and the pg_dump compatibility gate it
+     * feeds was inert. A generic on `client.query` renames no column — it only asserts a shape
+     * nobody checks. Now the read and the parse live in the mechanics, and a target that will not
+     * report a usable version is TARGET_UNVERIFIED: a fact about the target could not be
+     * established, so nothing is backed up, nothing is confirmed, and nothing is applied.
+     */
+    const server = await readServerVersion(client);
+    if (server.status === "refused") {
+      fail(
+        "TARGET_UNVERIFIED",
+        `${server.detail}\n\n  pg_dump compatibility cannot be established without it, so no ` +
+          "backup was attempted and nothing was migrated.",
+      );
+    }
+    const serverVersion = server.version;
 
     /* 6 · BASELINE, before any mutation. */
     const before = await organizationalFingerprint(client);
@@ -233,7 +250,7 @@ async function main(): Promise<void> {
     console.log("");
     console.log(`  posture    : ${environment.posture.mode.toUpperCase()}`);
     console.log(`  target     : ${observedIdentity}`);
-    console.log(`  server     : PostgreSQL ${serverVersion}`);
+    console.log(`  server     : PostgreSQL ${serverVersion.raw} (major ${serverVersion.major})`);
     console.log(`  applied    : ${prefix.applied}`);
     console.log(`  canonical  : ${canonical.length}`);
     console.log(`  prefix     : verified exact by per-migration sha256`);

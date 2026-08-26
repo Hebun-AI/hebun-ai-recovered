@@ -28,6 +28,7 @@ const ROOT = process.cwd();
 
 const PG_SUITE = "tests/prodmig-flow/canonical-prefix-postgres.ts";
 const FIREWALL_SUITE = "tests/prodmig-flow/boundaries-and-firewall.ts";
+const VERSION_SUITE = "tests/prodmig-flow/server-version-gate.ts";
 
 const CLI = "scripts/platform-migrate.ts";
 const MECHANICS = "scripts/lib/production-migration.ts";
@@ -190,6 +191,40 @@ const MUTATIONS: readonly Mutation[] = [
     find: '    if (after.status !== "converged") {',
     replace: "    if (false as boolean) {",
     expect: "never a success",
+  },
+  /*
+   * M16–M18 defend the SERVER-VERSION GATE, which shipped inert.
+   *
+   * The released ceremony read `rows[0].v` from a query whose column is `server_version`, so the
+   * version was `undefined`, the major came out 0, and `dumpMajor < serverMajor` was false for
+   * every pg_dump alive. These three mutations restore each half of that failure in turn: a parser
+   * that answers 0 instead of refusing, a ceremony that reads the column that does not exist, and
+   * the comparison itself.
+   */
+  {
+    label: "M16 an unparseable version degrades to major 0 instead of refusing",
+    file: MECHANICS,
+    suite: VERSION_SUITE,
+    find: "  if (!Number.isInteger(major) || major < 1) {",
+    replace: "  if (false as boolean) {",
+    expect: "zero major must refuse, not resolve",
+  },
+  {
+    label: "M17 the ceremony goes back to reading a column named v",
+    file: CLI,
+    suite: VERSION_SUITE,
+    find: "    const server = await readServerVersion(client);",
+    replace:
+      '    const server = parsePostgresVersion((await client.query<{ v: string }>("show server_version")).rows[0]!.v);',
+    expect: "no query anywhere claims a column named v",
+  },
+  {
+    label: "M18 the pg_dump compatibility comparison is defeated — every pg_dump is old enough",
+    file: MECHANICS,
+    suite: VERSION_SUITE,
+    find: "  if (dumpMajor < serverMajor) {",
+    replace: "  if (false as boolean) {",
+    expect: "pg_dump 14 may not back up a PostgreSQL 18 server",
   },
   {
     label: "M15 another production ceremony gains the migration executor",

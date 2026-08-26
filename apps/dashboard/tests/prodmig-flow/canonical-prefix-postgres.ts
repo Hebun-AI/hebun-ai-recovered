@@ -36,6 +36,7 @@ import {
   fingerprintDrift,
   libpqEnvFor,
   organizationalFingerprint,
+  readServerVersion,
   releaseMigrationLock,
 } from "../../scripts/lib/production-migration";
 import { verifyProductionIdentity, verifyProductionTarget } from "../../scripts/lib/production-possession";
@@ -387,7 +388,17 @@ async function bothTargetPinsAreEnforced(): Promise<void> {
 async function theBackupIsRealAndValidated(): Promise<void> {
   await withDatabase("prodmig_backup", async (client, url) => {
     await applyPendingMigrations(client);
-    const serverVersion = (await client.query<{ v: string }>("show server_version")).rows[0]!.v;
+    /*
+     * READ THROUGH THE RELEASED SEAM, not through a hand-written query. This line used to carry the
+     * very defect that shipped — `rows[0].v` against a column named `server_version` — so the
+     * `pg_dump-too-old` branch below could never be reached: the version was `undefined`, the major
+     * was 0, and no pg_dump was ever older than the server. The test agreed with the bug.
+     */
+    const resolved = await readServerVersion(client);
+    assert.equal(resolved.status, "parsed", `the live server reported no usable version: ${JSON.stringify(resolved)}`);
+    if (resolved.status !== "parsed") return;
+    const serverVersion = resolved.version;
+    assert.ok(serverVersion.major >= 9, `a live PostgreSQL reports a real major version, got ${serverVersion.major}`);
 
     const dir = mkdtempSync(path.join(tmpdir(), "hebun-backup-"));
     try {
