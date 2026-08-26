@@ -139,11 +139,33 @@ export async function recordActionRequest(
         consequences: prepared.consequences,
         evidence: prepared.evidence,
         /*
-         * Heby proposed it. `agent` is the honest actor type, and it is exactly why the approver
-         * column carries a `human` CHECK: the same row records that a machine asked and a person
-         * answered.
+         * WHO ACTUALLY PROPOSED THIS, AND WHY IT IS NOT `agent`.
+         *
+         * A1a. This column previously said `agent` while `proposedByActorId` carried
+         * `tenant.userId` — a HUMAN user id. The row therefore asserted that a non-human actor
+         * acted and then named a human as that actor, and it contradicted itself two lines later,
+         * where `createdByType` says `human` about the very same id.
+         *
+         * The attribution is now what the path actually is. `proposeSendAction` reads
+         * `input.args`: the human typed `/send`, typed the recipient reference and typed the draft
+         * reference. The inlet states its own doctrine — "THE MODEL DECIDES NOTHING HERE… 'The
+         * model inferred you wanted to send' is not expressible here" — the action kind is a
+         * constant chosen because of what was typed, and nothing here originates content. A
+         * command parser that resolves two references a person supplied is not an actor; the
+         * person is.
+         *
+         * `agent` REMAINS RESERVED, and is deliberately left available by the schema: unlike the
+         * approver and the permit authorizer, `proposed_by_actor_type` carries no `human` CHECK,
+         * precisely so a real agent may propose one day. That day needs an agent that originates
+         * something a human did not dictate, and an authoritative id to name it by — neither
+         * exists. Writing `agent` before then does not prepare for that future, it spends its
+         * meaning: the first time this column truthfully reads `agent`, it should mean something.
+         *
+         * The human-supremacy CHECKS ARE UNTOUCHED by this and always were. They constrain the
+         * APPROVER and the AUTHORIZER, never the proposer, so a machine still cannot approve or
+         * authorize anything — that guarantee never depended on this field.
          */
-        proposedByActorType: "agent",
+        proposedByActorType: "human",
         proposedByActorId: tenant.userId,
         status: "pending",
         createdAt: now,
