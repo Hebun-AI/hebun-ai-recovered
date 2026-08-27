@@ -321,21 +321,40 @@ function humanOnlyChecksAreIntact(): void {
   );
 
   /*
-   * AND THE ONE COLUMN THAT WAS DELIBERATELY LEFT UNCONSTRAINED STAYS UNCONSTRAINED — without
-   * anything writing `agent` into it. `proposed_by_actor_type` may one day hold `agent`; today the
-   * only writer hard-codes `human`, so AGENT_PROPOSAL_CAPABLE is NO and this phase did not change
-   * that. Asserted so a future reader cannot mistake attribution for proposal capability.
+   * ARTIFACT AUTHORSHIP IS NOT PROPOSAL CAPABILITY.
+   *
+   * AGENT-RUNTIME-0 originally pinned this as "the proposal writer hard-codes `human`, so
+   * AGENT_PROPOSAL_CAPABLE is NO". AGENT-PROPOSAL-1 deliberately changed that fact, and a green
+   * test asserting the old sentence would be green BECAUSE a stale claim survived — the failure
+   * this repository has already been taught once by the R3W canonical migration.
+   *
+   * What AGENT-RUNTIME-0 actually guaranteed, and still guarantees, is narrower and is what is
+   * asserted now: NOTHING IN THIS PHASE'S BLAST RADIUS PROPOSES ANYTHING. An artifact-authorship
+   * token cannot become a proposer, and no work-artifact module writes a proposal column. Whether
+   * some OTHER phase may propose is that phase's claim to make, not this one's.
    */
   const requestWriter = codeOf(read("src/features/action-authorization/record-action-request.server.ts"));
-  assert.ok(
-    requestWriter.includes('proposedByActorType: "human"'),
-    "the sole proposal writer still records a human proposer",
-  );
   assert.equal(
-    /proposedByActorType:\s*"agent"/.test(requestWriter),
+    /AgentAuthorship|agent-authorship/.test(requestWriter),
     false,
-    "AGENT_PROPOSAL_CAPABLE stays NO — this phase proposes nothing",
+    "the proposal writer cannot be reached with an ARTIFACT-AUTHORSHIP token",
   );
+  for (const file of PHASE_FILES) {
+    const code = codeOf(read(file));
+    for (const banned of [
+      "proposedByActorType",
+      "proposedByActorId",
+      "recordActionRequest",
+      "recordAgentOriginatedActionRequest",
+      "hebyActionRequests",
+    ]) {
+      assert.equal(
+        code.includes(banned),
+        false,
+        `${file} must not touch the proposal authority ("${banned}") — authorship proposes nothing`,
+      );
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

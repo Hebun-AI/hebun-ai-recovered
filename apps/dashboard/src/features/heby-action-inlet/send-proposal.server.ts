@@ -39,7 +39,11 @@ import { type ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { prepareAction } from "@/features/heby-actions/action-preparer";
 import type { HebyEvidenceReference } from "@/features/heby-integration";
-import { recordActionRequest } from "@/features/action-authorization/record-action-request.server";
+import {
+  recordActionRequest,
+  recordAgentOriginatedActionRequest,
+} from "@/features/action-authorization/record-action-request.server";
+import type { AgentProposer } from "@/features/action-authorization/agent-proposer.server";
 import { resolveWorkArtifactReference } from "@/features/work-artifacts/read-work-artifacts.server";
 import { resolveRecipientReference } from "@/features/external-recipients/read-external-recipients.server";
 import { formatWorkArtifactRef, isWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
@@ -74,10 +78,11 @@ function assertServerOnly(): void {
  * ordinary operator input, not a programming error, and the surface has to be able to say exactly
  * which half was wrong.
  */
-export async function proposeSendAction(
+async function fileSendProposal(
   tenant: TenantContext | null,
   input: SendProposalInput | null,
-  deps: SendProposalDeps = {},
+  proposer: AgentProposer | null,
+  deps: SendProposalDeps,
 ): Promise<SendProposalResult> {
   assertServerOnly();
   if (!tenant?.tenantId || !tenant.userId) {
@@ -187,8 +192,17 @@ export async function proposeSendAction(
     );
   }
 
-  /* ── 5. PERSIST — R3A's writer, unchanged ──────────────────────────────── */
-  const recorded = await recordActionRequest(tenant, prepared, deps);
+  /*
+   * ── 5. PERSIST — R3A's writer, unchanged ────────────────────────────────
+   *
+   * ONE MODULE, TWO TRUTHS. Which entry point is called is decided by `proposer`, which this
+   * function receives and cannot manufacture: `AgentProposer` is branded in the authorization
+   * feature and only its resolver mints one. A null proposer therefore means "a human dictated
+   * this", and it is the only thing the released `/send` path can produce.
+   */
+  const recorded = proposer
+    ? await recordAgentOriginatedActionRequest(tenant, prepared, proposer, deps)
+    : await recordActionRequest(tenant, prepared, deps);
 
   if (recorded.status === "recorded") {
     return {
@@ -222,4 +236,47 @@ export async function proposeSendAction(
     return refused("persistence-unavailable", "Durable persistence is not connected, so nothing was prepared.");
   }
   return refused("not-authorizable", `The proposal was refused (${recorded.reason}). Nothing was filed.`);
+}
+
+/**
+ * The HUMAN `/send` command. Byte-for-byte the released semantics.
+ *
+ * A person typed the slash command, the recipient reference and the draft reference. The action
+ * kind is a constant chosen because of what they typed. Nothing here originates anything, so the
+ * proposer is the person — and AGENT-PROPOSAL-1 deliberately did not change that. Two paths, two
+ * truths; collapsing them would make the agent badge on `/approvals` meaningless.
+ */
+export function proposeSendAction(
+  tenant: TenantContext | null,
+  input: SendProposalInput | null,
+  deps: SendProposalDeps = {},
+): Promise<SendProposalResult> {
+  return fileSendProposal(tenant, input, null, deps);
+}
+
+/**
+ * The AGENT-ORIGINATED send proposal (AGENT-PROPOSAL-1).
+ *
+ * ── WHAT REACHES THIS FUNCTION, AND WHAT CANNOT ──────────────────────────────
+ *
+ * Two REFERENCES that a durable agent selected from a server-built candidate set, and a verified
+ * proposer. No model, no transport, no prompt and no generated text crosses this boundary: the
+ * selection already happened upstream, was already validated against a closed contract, and was
+ * already checked for membership in a set this tenant actually owns.
+ *
+ * That separation is why R3A.1's firewall — "THE MODEL SELECTS NOTHING" over this whole feature —
+ * remains literally true after this phase. The inlet still imports no provider and no model seam;
+ * it resolves references and freezes a proposal, exactly as it did before.
+ *
+ * The references are re-resolved here against their owning authorities regardless of where they
+ * came from. An agent that named something retired, superseded, foreign or absent is refused by
+ * the same code that refuses a human who typed it — the resolution is not relaxed for a machine.
+ */
+export function proposeAgentOriginatedSendAction(
+  tenant: TenantContext | null,
+  input: SendProposalInput | null,
+  proposer: AgentProposer,
+  deps: SendProposalDeps = {},
+): Promise<SendProposalResult> {
+  return fileSendProposal(tenant, input, proposer, deps);
 }

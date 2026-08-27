@@ -36,6 +36,7 @@ import {
   digestCanonicalAction,
   type CanonicalPayload,
 } from "./canonical-payload";
+import { isAgentProposer, type AgentProposer } from "./agent-proposer.server";
 import {
   AUTHORIZABLE_SIDE_EFFECTS,
   type ActionRequestRefusal,
@@ -52,16 +53,42 @@ function refused(reason: ActionRequestRefusal): ActionRequestResult {
 }
 
 /**
+ * WHO ORIGINATED THIS ACT — both halves of the canonical polymorphic actor pair (S2).
+ *
+ * A SERVER-SUPPLIED POSITIONAL ARGUMENT, never a field on the caller's input. The two public entry
+ * points below fix it, and each one is fixed to a different truth: a human who typed a command is
+ * the human; an agent that selected the act from a closed set is that agent. Nothing in between is
+ * representable, and neither entry point can be talked into the other's attribution.
+ */
+type ActionProposerPair =
+  | { readonly actorType: "human"; readonly actorId: string }
+  | { readonly actorType: "agent"; readonly actorId: string };
+
+/**
+ * Turn a verified proposer into the actor pair, or refuse.
+ *
+ * The RUNTIME check is the point. `AgentProposer`'s brand is a module-private symbol in its own
+ * module, so a caller that manufactured one with a type cast satisfies the compiler and fails
+ * HERE — which is what makes "no client-supplied agent id can become a proposer" a property of
+ * the code rather than a convention somebody remembers.
+ */
+function agentPairOrNull(proposer: AgentProposer): ActionProposerPair | null {
+  if (!isAgentProposer(proposer)) return null;
+  return { actorType: "agent", actorId: proposer.agentId };
+}
+
+/**
  * Persist one prepared consequential action as a pending request.
  *
  * The caller supplies the prepared action and nothing else. It cannot supply the tenant (session),
  * the proposer (session), the digest (computed here), the status (always `pending`), or any
  * approval field — those columns are unreachable from this module's insert.
  */
-export async function recordActionRequest(
+async function insertActionRequest(
   tenant: TenantContext | null,
   prepared: HebyPreparedAction | null,
-  deps: ActionRequestDeps = {},
+  proposer: ActionProposerPair,
+  deps: ActionRequestDeps,
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -139,36 +166,32 @@ export async function recordActionRequest(
         consequences: prepared.consequences,
         evidence: prepared.evidence,
         /*
-         * WHO ACTUALLY PROPOSED THIS, AND WHY IT IS NOT `agent`.
+         * WHO ACTUALLY PROPOSED THIS.
          *
-         * A1a. This column previously said `agent` while `proposedByActorId` carried
-         * `tenant.userId` — a HUMAN user id. The row therefore asserted that a non-human actor
-         * acted and then named a human as that actor, and it contradicted itself two lines later,
-         * where `createdByType` says `human` about the very same id.
-         *
-         * The attribution is now what the path actually is. `proposeSendAction` reads
-         * `input.args`: the human typed `/send`, typed the recipient reference and typed the draft
-         * reference. The inlet states its own doctrine — "THE MODEL DECIDES NOTHING HERE… 'The
-         * model inferred you wanted to send' is not expressible here" — the action kind is a
-         * constant chosen because of what was typed, and nothing here originates content. A
-         * command parser that resolves two references a person supplied is not an actor; the
-         * person is.
-         *
-         * `agent` REMAINS RESERVED, and is deliberately left available by the schema: unlike the
+         * A1a made the pair truthful for the command path, and left `agent` RESERVED: unlike the
          * approver and the permit authorizer, `proposed_by_actor_type` carries no `human` CHECK,
-         * precisely so a real agent may propose one day. That day needs an agent that originates
-         * something a human did not dictate, and an authoritative id to name it by — neither
-         * exists. Writing `agent` before then does not prepare for that future, it spends its
-         * meaning: the first time this column truthfully reads `agent`, it should mean something.
+         * precisely so a real agent could propose one day. Its condition was stated then — "that
+         * day needs an agent that originates something a human did not dictate, and an
+         * authoritative id to name it by".
          *
-         * The human-supremacy CHECKS ARE UNTOUCHED by this and always were. They constrain the
-         * APPROVER and the AUTHORIZER, never the proposer, so a machine still cannot approve or
-         * authorize anything — that guarantee never depended on this field.
+         * AGENT-RUNTIME-0 supplied the id. AGENT-PROPOSAL-1 supplies the origination. Both halves
+         * now come from the SAME resolved pair, so this row can no longer say that one kind of
+         * actor acted while naming another kind's identifier.
+         *
+         * The human-supremacy CHECKS ARE UNTOUCHED and always were. They constrain the APPROVER
+         * and the AUTHORIZER, never the proposer, so a machine still cannot approve or authorize
+         * anything — that guarantee never depended on this field, and this phase does not make it
+         * depend on it now.
          */
-        proposedByActorType: "human",
-        proposedByActorId: tenant.userId,
+        proposedByActorType: proposer.actorType,
+        proposedByActorId: proposer.actorId,
         status: "pending",
         createdAt: now,
+        /*
+         * THE ROW-CREATION ATTRIBUTION STAYS HUMAN, AND THAT IS NOT A CONTRADICTION. A person's
+         * authenticated request is what caused this row to exist; the proposer columns say who
+         * chose the act. Two different facts, both true, both recorded.
+         */
         createdBy: tenant.userId,
         createdByType: "human",
       })
@@ -186,6 +209,58 @@ export async function recordActionRequest(
     if (isUniqueViolation(error)) return refused("already-pending");
     return refused("persistence-unavailable");
   }
+}
+
+/**
+ * A HUMAN who dictated the act, filing it for their own organization to decide about.
+ *
+ * BYTE-FOR-BYTE THE RELEASED BEHAVIOUR. Same signature, same attribution, same refusals. The
+ * `/send` slash command is unchanged by AGENT-PROPOSAL-1: a person who types a command and both of
+ * its references is the proposer, and no amount of downstream machinery makes that less true.
+ */
+export function recordActionRequest(
+  tenant: TenantContext | null,
+  prepared: HebyPreparedAction | null,
+  deps: ActionRequestDeps = {},
+): Promise<ActionRequestResult> {
+  if (typeof window !== "undefined") {
+    throw new Error("Action requests are server-only.");
+  }
+  if (!tenant?.tenantId || !tenant.userId) return Promise.resolve(refused("unauthenticated"));
+  return insertActionRequest(
+    tenant,
+    prepared,
+    { actorType: "human", actorId: tenant.userId },
+    deps,
+  );
+}
+
+/**
+ * An AGENT that selected the act itself, filed under a human's authenticated request.
+ *
+ * THE SAME INSERT, THE SAME TABLE, THE SAME MODULE — deliberately. A second writer would be a
+ * second opinion about what a pending proposal is, and the whole point of this authority is that
+ * there is exactly one. What differs is one resolved pair, and the proposer is a positional
+ * argument whose only source is `resolveAgentProposer`: there is no agent-id parameter and no
+ * default, so this cannot be called at all without a verified durable identity. The refusal below
+ * exists for a FORGED value, not for an absent one.
+ *
+ * It grants nothing. `status` is still `pending`, no permit is minted, no decision is written, no
+ * provider is reached, and the human review boundary is exactly where it was.
+ */
+export function recordAgentOriginatedActionRequest(
+  tenant: TenantContext | null,
+  prepared: HebyPreparedAction | null,
+  proposer: AgentProposer,
+  deps: ActionRequestDeps = {},
+): Promise<ActionRequestResult> {
+  if (typeof window !== "undefined") {
+    throw new Error("Action requests are server-only.");
+  }
+  if (!tenant?.tenantId || !tenant.userId) return Promise.resolve(refused("unauthenticated"));
+  const pair = agentPairOrNull(proposer);
+  if (!pair) return Promise.resolve(refused("unverified-agent-proposer"));
+  return insertActionRequest(tenant, prepared, pair, deps);
 }
 
 /** PostgreSQL `unique_violation`. Read from the driver's code, never from the message text. */

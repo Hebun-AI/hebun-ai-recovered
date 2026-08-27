@@ -50,8 +50,8 @@ const MUTATIONS: readonly Mutation[] = [
     /* THE ORIGINAL DEFECT, PUT BACK. */
     label: "M1 the released `agent` attribution returns",
     file: WRITER,
-    find: `        proposedByActorType: "human",`,
-    replace: `        proposedByActorType: "agent",`,
+    find: `    { actorType: "human", actorId: tenant.userId },`,
+    replace: `    { actorType: "agent", actorId: tenant.userId },`,
     expect: "the proposer type is human",
   },
   {
@@ -89,16 +89,16 @@ const MUTATIONS: readonly Mutation[] = [
     /* An id invented to satisfy NOT NULL is exactly what A1 forbids. */
     label: "M4 an agent id is fabricated to satisfy the column",
     file: WRITER,
-    find: `        proposedByActorType: "human",\n        proposedByActorId: tenant.userId,`,
-    replace: `        proposedByActorType: "agent",\n        proposedByActorId: crypto.randomUUID(),`,
-    expect: "the proposer type is human",
+    find: `    { actorType: "human", actorId: tenant.userId },`,
+    replace: `    { actorType: "agent", actorId: crypto.randomUUID() },`,
+    expect: "no proposer identifier is fabricated to satisfy a NOT NULL column",
   },
   {
     /* The tenant is not an actor. */
     label: "M5 the tenant id masquerades as the actor id",
     file: WRITER,
-    find: `        proposedByActorId: tenant.userId,`,
-    replace: `        proposedByActorId: tenant.tenantId,`,
+    find: `    { actorType: "human", actorId: tenant.userId },`,
+    replace: `    { actorType: "human", actorId: tenant.tenantId },`,
     expect: "the proposer id is that authenticated human's user id",
   },
   {
@@ -131,8 +131,8 @@ const MUTATIONS: readonly Mutation[] = [
     /* A generic principal authority would be a second identity owner. */
     label: "M9 a generic principal authority is introduced",
     file: WRITER,
-    find: `        proposedByActorType: "human",`,
-    replace: `        principals: true,\n        proposedByActorType: "human",`,
+    find: `        proposedByActorType: proposer.actorType,`,
+    replace: `        principals: true,\n        proposedByActorType: proposer.actorType,`,
     expect: `must not reach "principals"`,
   },
   {

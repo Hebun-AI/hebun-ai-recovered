@@ -40,14 +40,40 @@ function migrationSql(): string {
 function main(): void {
   const writer = codeOf(read(WRITER));
 
-  /* ── 1 · THE PROPOSAL A HUMAN TYPED IS ATTRIBUTED TO THAT HUMAN ──────────── */
+  /* ── 1 · THE PROPOSAL A HUMAN TYPED IS ATTRIBUTED TO THAT HUMAN ────────────
+   *
+   * AGENT-PROPOSAL-1 MOVED THIS CODE; IT DID NOT CHANGE THIS CLAIM. The writer now has two entry
+   * points, and the literal pair no longer sits at the insert — it sits in the HUMAN one, which is
+   * where the claim always belonged. What A1a asserted about `/send` is asserted here about the
+   * function `/send` actually calls.
+   */
   {
+    /*
+     * NO IDENTIFIER IS EVER MINTED TO SATISFY THE COLUMN. `proposed_by_actor_id` is NOT NULL, which
+     * is exactly the pressure that produces a fabricated uuid; the absence of any generator in this
+     * module is what makes that impossible rather than merely unattempted. Asserted FIRST so a
+     * mutation that fabricates an id is reported as a fabrication rather than as a wrong literal.
+     */
+    assert.equal(
+      /randomUUID|crypto\./.test(writer),
+      false,
+      "no proposer identifier is fabricated to satisfy a NOT NULL column",
+    );
+    /*
+     * THE PAIR LITERAL AT THE CALL SITE, NOT THE TYPE THAT DESCRIBES IT.
+     *
+     * `ActionProposerPair` declares `{ readonly actorType: "human"; ... }`, so a bare
+     * /actorType:\s*"human"/ matches the TYPE DECLARATION and passes even when the human entry
+     * point has been changed to say `agent`. Measured: that spelling let a bite proof survive. The
+     * anchor is therefore the object literal — `{ actorType:` with no `readonly` — which only the
+     * call site can produce.
+     */
     assert.ok(
-      /proposedByActorType:\s*"human"/.test(writer),
+      /\{\s*actorType:\s*"human"/.test(writer),
       "the proposer type is human — a person typed the command and both references",
     );
     assert.ok(
-      /proposedByActorId:\s*tenant\.userId/.test(writer),
+      /actorId:\s*tenant\.userId/.test(writer),
       "and the proposer id is that authenticated human's user id",
     );
   }
@@ -79,12 +105,25 @@ function main(): void {
      * counts: every occurrence of the key is an occurrence of the key with the literal.
      */
     const keys = (writer.match(/proposedByActorType:/g) ?? []).length;
-    const literals = (writer.match(/proposedByActorType:\s*"human"/g) ?? []).length;
     assert.equal(keys, 1, "the proposer type is written in exactly one place");
-    assert.equal(
-      literals,
-      keys,
-      "and it is a literal there, never a variable, a ternary or a lookup",
+    /*
+     * STRICTER THAN THE LITERAL IT REPLACES. A1a asserted the value was the literal "human", which
+     * a writer could satisfy while taking the ID half from somewhere else entirely — the precise
+     * defect A1a existed to remove. AGENT-PROPOSAL-1 makes both halves come from ONE resolved pair,
+     * so this asserts that instead: the two columns cannot disagree about which actor they describe,
+     * whatever value the pair happens to hold.
+     */
+    const typeSources = [...writer.matchAll(/proposedByActorType:\s*([A-Za-z_.]+)/g)].map((m) => m[1]);
+    const idSources = [...writer.matchAll(/proposedByActorId:\s*([A-Za-z_.]+)/g)].map((m) => m[1]);
+    assert.deepEqual(
+      [...new Set(typeSources)],
+      ["proposer.actorType"],
+      "the actor type comes from the single resolved pair, never a ternary or a lookup",
+    );
+    assert.deepEqual(
+      [...new Set(idSources)],
+      ["proposer.actorId"],
+      "and the actor id comes from that SAME pair — the two halves describe one actor",
     );
     for (const banned of ["command.handler", "input.args", "surface", "route"]) {
       const near = new RegExp(`proposedByActorType[^,]{0,80}${banned}`);

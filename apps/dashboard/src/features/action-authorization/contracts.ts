@@ -116,6 +116,13 @@ export type ActionRequestRefusal =
   | "arguments-invalid"
   /** A live pending request already exists for this exact action in this tenant. */
   | "already-pending"
+  /**
+   * AGENT-PROPOSAL-1. An agent proposer was offered without proof that the authoritative
+   * durable-agent read seam produced it. Unreachable through the human entry point — it is the
+   * writer's guard against a forged `AgentProposer`, and a refusal rather than a thrown error so
+   * a caller gets an answer in the same vocabulary as every other failure here.
+   */
+  | "unverified-agent-proposer"
   | "persistence-unavailable";
 
 export type ActionDecisionRefusal =
