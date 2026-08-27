@@ -577,18 +577,34 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
    * they are exactly the six this axis was built to leave alone. Naming them beats counting them:
    * the count tolerated any swap that kept the total, and this does not.
    */
+  /*
+   * SEVEN NOW, AND THE SIX ARE STILL THE POINT. AGENT-ID-0.1 adds one consumer: the durable agent
+   * identity ceremony, which renders four of StateBlock's five tones for real product reasons — an
+   * organization with no identity yet (`empty`), an unauthenticated reader (`restricted`), an
+   * unreachable control plane (`unavailable`) and a refused ceremony (`error`). Those are exactly
+   * the distinctions this component exists to keep apart, so using it is the correct call and
+   * hand-rolling a seventh treatment would have been the regression.
+   *
+   * It opts into NO density override. CMD-FINAL retired `compact` product-wide and the assertion
+   * above still pins that set empty; this consumer takes the released default like the other six.
+   *
+   * The six Knowledge surfaces this axis was built to leave alone are untouched, which is what the
+   * named form proves and a bumped count never would.
+   */
   const consumers = walk("src").filter((f) => f !== STATE_BLOCK && /<StateBlock/.test(overrides[f] ?? read(f)));
   assert.deepEqual(
     consumers.sort(),
     [
       "src/app/(dashboard)/knowledge/page.tsx",
+      "src/components/agents/durable-agent-identity-card.tsx",
       "src/components/knowledge-workspace/company-understanding-card.tsx",
       "src/components/knowledge-workspace/knowledge-authoring-card.tsx",
       "src/components/knowledge-workspace/knowledge-ingestion-card.tsx",
       "src/components/knowledge-workspace/knowledge-records.tsx",
       "src/components/knowledge-workspace/knowledge-sources-card.tsx",
     ],
-    "the six untouched Knowledge consumers remain, and Command is no longer among them",
+    "the six untouched Knowledge consumers remain, Command is still not among them, and the only " +
+      "addition is AGENT-ID-0.1's durable identity ceremony",
   );
 }
 
@@ -607,7 +623,23 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  * without moving the count.
  */
 const LEDGER_COUNT = 36;
-const USE_SERVER_MODULES = 9;
+/*
+ * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine. AGENT-ID-0.1 adds exactly
+ * one boundary — the durable agent identity one — so nine became false. Naming the set beats bumping
+ * the number: a count tolerates any swap that keeps the total, and this does not.
+ */
+const USE_SERVER_MODULES = [
+  "src/app/(dashboard)/agents/actions.ts",
+  "src/app/(dashboard)/approvals/actions.ts",
+  "src/app/(dashboard)/foundation/actions.ts",
+  "src/app/(dashboard)/governance/authority/actions.ts",
+  "src/app/(dashboard)/governance/genesis/actions.ts",
+  "src/app/(dashboard)/heby/actions.ts",
+  "src/app/(dashboard)/knowledge/actions.ts",
+  "src/app/(dashboard)/operations/actions.ts",
+  "src/app/login/actions.ts",
+  "src/app/login/onboarding-actions.ts",
+];
 
 function nothingArchitecturalMoved(overrides: Readonly<Record<string, string>> = {}): void {
   const walk = (dir: string): string[] => {
@@ -622,7 +654,11 @@ function nothingArchitecturalMoved(overrides: Readonly<Record<string, string>> =
 
   /* 11. No new server action, anywhere. */
   const writers = walk("src").filter((f) => (overrides[f] ?? read(f)).includes('"use server"'));
-  assert.equal(writers.length, USE_SERVER_MODULES, `no server action was added; found ${writers.length}`);
+  assert.deepEqual(
+    writers.sort(),
+    USE_SERVER_MODULES,
+    "the server-action boundaries are exactly these — AGENT-ID-0.1 added the agents one and nothing else moved",
+  );
 
   /* 10. No new writer, and no persistence, in anything this phase touched. */
   for (const file of [...OWNED, STATE_BLOCK]) {

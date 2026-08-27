@@ -356,8 +356,26 @@ function theTruthContractsHold(overrides: Readonly<Record<string, string>> = {})
       assert.ok(!forbidden.test(code), `${path.basename(f)} must not contain ${forbidden}`);
     }
   }
-  assert.equal(walk("src").filter((f) => (overrides[f] ?? read(f)).includes('"use server"')).length, 9,
-    "no server action was added");
+  /*
+   * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a bare `9`. AGENT-ID-0.1 adds exactly
+   * one boundary — the durable agent identity one — so the number was false. Naming the set beats
+   * bumping the number: a count tolerates a swap that keeps the total, and this does not.
+   */
+  assert.deepEqual(
+    walk("src").filter((f) => (overrides[f] ?? read(f)).includes('"use server"')).sort(),
+    [
+      "src/app/(dashboard)/agents/actions.ts",
+      "src/app/(dashboard)/approvals/actions.ts",
+      "src/app/(dashboard)/foundation/actions.ts",
+      "src/app/(dashboard)/governance/authority/actions.ts",
+      "src/app/(dashboard)/governance/genesis/actions.ts",
+      "src/app/(dashboard)/heby/actions.ts",
+      "src/app/(dashboard)/knowledge/actions.ts",
+      "src/app/(dashboard)/operations/actions.ts",
+      "src/app/login/actions.ts",
+      "src/app/login/onboarding-actions.ts",
+    ],
+    "the server-action boundaries are exactly these — AGENT-ID-0.1 added the agents one and nothing else moved");
   /*
    * Re-pinned by INT-2 (34), by R2H (35, `control_source`) and by KR-EXT1 (36,
    * `knowledge_external_references`). CMD-FINAL still adds none — which is what this asserts.

@@ -74,7 +74,30 @@ const RETIRED = [
  */
 const LEDGER_COUNT = 36;
 const LEDGER_DIGEST = "3fa25de36812ab16";
-const USE_SERVER_MODULES = 9;
+/*
+ * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT.
+ *
+ * This pin was a COUNT of nine `"use server"` modules, defending the claim that the phase which
+ * wrote it added no writer. AGENT-ID-0.1 legitimately adds exactly one — the durable agent identity
+ * boundary — so nine became false. Bumping the number to ten would have been the weak repair: a
+ * count tolerates any swap that keeps the total, so a phase could delete a governance boundary and
+ * add its own and this would still pass.
+ *
+ * Naming them beats counting them. The set below admits strictly less than the old form did: it
+ * fails on an ADDITION, on a REMOVAL, and on a RENAME, where the count only ever noticed the first.
+ */
+const USE_SERVER_MODULES = [
+  "src/app/(dashboard)/agents/actions.ts",
+  "src/app/(dashboard)/approvals/actions.ts",
+  "src/app/(dashboard)/foundation/actions.ts",
+  "src/app/(dashboard)/governance/authority/actions.ts",
+  "src/app/(dashboard)/governance/genesis/actions.ts",
+  "src/app/(dashboard)/heby/actions.ts",
+  "src/app/(dashboard)/knowledge/actions.ts",
+  "src/app/(dashboard)/operations/actions.ts",
+  "src/app/login/actions.ts",
+  "src/app/login/onboarding-actions.ts",
+];
 
 const read = (file: string): string => readFileSync(path.join(ROOT, file), "utf8");
 const codeOf = (s: string): string =>
@@ -500,7 +523,11 @@ function nothingElseMoved(overrides: Readonly<Record<string, string>> = {}): voi
     return out;
   };
   const writers = walk("src").filter((f) => (overrides[f] ?? read(f)).includes('"use server"'));
-  assert.equal(writers.length, USE_SERVER_MODULES, `no server action was added; found ${writers.length}`);
+  assert.deepEqual(
+    writers.sort(),
+    USE_SERVER_MODULES,
+    "the server-action boundaries are exactly these — AGENT-ID-0.1 added the agents one and nothing else moved",
+  );
 
   /* 22. CMD-B1 WAS NOT THE NAVIGATION PHASE; CMD-B2 WAS, AND THE FREEZE NAMED IT.
    *

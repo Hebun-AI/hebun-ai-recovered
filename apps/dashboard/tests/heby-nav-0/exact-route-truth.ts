@@ -61,7 +61,27 @@ const LEGACY = [
   "/director/reports",
 ] as const;
 const LEGACY_LABELS = ["inbox", "briefings", "strategic goals", "organization health", "reports"] as const;
-const USE_SERVER_MODULES = 9;
+/*
+ * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine `"use server"` modules.
+ * AGENT-ID-0.1 adds exactly one — the durable agent identity boundary — so nine became false.
+ * Naming the set beats bumping the number: a count tolerates any swap that keeps the total (a
+ * governance boundary deleted and another added would still read as nine), and this does not.
+ *
+ * What this file actually defends is untouched: the per-file assertion above still proves that no
+ * Heby navigation module is itself a server action.
+ */
+const USE_SERVER_MODULES = [
+  "src/app/(dashboard)/agents/actions.ts",
+  "src/app/(dashboard)/approvals/actions.ts",
+  "src/app/(dashboard)/foundation/actions.ts",
+  "src/app/(dashboard)/governance/authority/actions.ts",
+  "src/app/(dashboard)/governance/genesis/actions.ts",
+  "src/app/(dashboard)/heby/actions.ts",
+  "src/app/(dashboard)/knowledge/actions.ts",
+  "src/app/(dashboard)/operations/actions.ts",
+  "src/app/login/actions.ts",
+  "src/app/login/onboarding-actions.ts",
+];
 
 const read = (file: string): string => readFileSync(path.join(ROOT, file), "utf8");
 const codeOf = (s: string): string =>
@@ -248,10 +268,10 @@ function resolutionGrantsNothing(): void {
     }
     assert.ok(!/"use server"/.test(src), `${file} is not a server action`);
   }
-  assert.equal(
-    walk("src").filter((f) => read(f).includes('"use server"')).length,
+  assert.deepEqual(
+    walk("src").filter((f) => read(f).includes('"use server"')).sort(),
     USE_SERVER_MODULES,
-    "no server action was added",
+    "the server-action boundaries are exactly these — AGENT-ID-0.1 added the agents one and nothing else moved",
   );
   assert.equal(getHebyWorkspaceProfile("command").authority, "advisory-only", "Heby stays advisory in Command");
 }

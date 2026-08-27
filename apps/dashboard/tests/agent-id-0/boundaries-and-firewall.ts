@@ -126,10 +126,18 @@ function main(): void {
   }
   const exported = [...codeOf(read(BARREL)).matchAll(/\b(createDurableAgentIdentity|isWellFormedAgentName)\b/g)];
   assert.ok(exported.length > 0, "the barrel exports the single creation authority");
-  assert.equal(
-    (featureCode.match(/export async function \w+/g) ?? []).length,
-    1,
-    "the feature exports exactly one async authority function",
+  /*
+   * AGENT-ID-0 asserted a COUNT of one here. AGENT-ID-0.1 gave the feature its second and last
+   * transition (retirement) plus a read, so a count of one became false. It is repaired by becoming
+   * STRICTER, not looser: the exact SET of exported async functions is pinned by name, so a fourth
+   * one — or a rename of any of these three — fails here rather than sliding under a bumped number.
+   */
+  assert.deepEqual(
+    (featureCode.match(/export async function (\w+)/g) ?? [])
+      .map((match) => match.replace("export async function ", ""))
+      .sort(),
+    ["createDurableAgentIdentity", "readDurableAgentIdentityState", "retireDurableAgentIdentity"],
+    "the feature exports exactly these three async functions: two one-way transitions and one read",
   );
 
   /* ── 2. THE AUTHORITY DOES NOT REACH THE GENERIC PERSISTENCE SUBSTRATE ────── */

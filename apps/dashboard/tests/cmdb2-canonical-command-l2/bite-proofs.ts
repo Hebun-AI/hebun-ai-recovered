@@ -176,7 +176,17 @@ function main(): void {
     'CMD-B1 section "Waiting on you" is unchanged',
     (s) => replaceOnce(s, 'title="Waiting on you"', 'title="Your queue"', "M13"),
   );
-  bites("M14 — a server action is introduced", MODEL, "no server action was added", (s) => `"use server";\n${s}`);
+  /*
+   * The expected message follows the assertion AGENT-ID-0.1 repaired: the pin stopped being a COUNT
+   * of `"use server"` modules and became the exact SET, so its failure now names the set rather than
+   * the number. The mutation and what it proves are unchanged.
+   */
+  bites(
+    "M14 — a server action is introduced",
+    MODEL,
+    "the server-action boundaries are exactly these",
+    (s) => `"use server";\n${s}`,
+  );
 
   assert.equal(bitten, 14, `every mutation must bite; ${bitten} of 14 did`);
   console.log(`CMD-B2: all ${bitten} bite-proofs bit, each for its intended reason, each restored byte-identically`);

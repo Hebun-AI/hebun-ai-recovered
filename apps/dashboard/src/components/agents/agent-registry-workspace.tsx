@@ -239,14 +239,14 @@ export function AgentRegistryWorkspace() {
       <Card>
         <CardHeader>
           <div className="min-w-0">
-            <CardTitle>Agent Registry Management</CardTitle>
+            <CardTitle>Simulated definition registry</CardTitle>
             <span className="text-xs text-fg-muted">
-              In-memory CRUD through the Command Bus · soft delete only
+              In-memory CRUD through the Command Bus · soft delete only · writes no database row
             </span>
           </div>
           <Button variant="primary" size="sm" onClick={openCreate}>
             <Plus className="size-4" />
-            Create Agent
+            Create simulated definition
           </Button>
         </CardHeader>
 
@@ -418,7 +418,7 @@ export function AgentRegistryWorkspace() {
       <Drawer
         open={drawer !== null}
         onClose={() => setDrawer(null)}
-        title={drawer?.mode === "edit" ? "Edit Agent" : "Create Agent"}
+        title={drawer?.mode === "edit" ? "Edit simulated definition" : "Create simulated definition"}
         subtitle={drawer?.mode === "edit" ? "Command · agent.update" : "Command · agent.create"}
       >
         <div className="flex flex-col gap-5">
