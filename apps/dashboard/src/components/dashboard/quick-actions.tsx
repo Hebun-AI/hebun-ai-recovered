@@ -13,10 +13,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const actions = [
   {
+    /*
+     * AGENT-ID-0.1 made this entry's old copy false.
+     *
+     * It used to read "Coming Soon — visible but intentionally disabled until live creation flows
+     * exist", and that was TRUE for as long as no writer could establish a durable agent identity.
+     * A durable, human-owned creation ceremony now exists and is deployed, so a disabled tile
+     * telling a Director that live creation does not exist is a stale claim on the surface that
+     * Director uses most.
+     *
+     * It routes, and it promises nothing beyond routing: clicking opens Agents, where the ceremony
+     * states its own consequences and is confirmed. This tile creates nothing.
+     */
     label: "Create Agent",
     icon: Bot,
-    state: "comingSoon" as ActionState,
-    description: "Visible but intentionally disabled until live creation flows exist.",
+    href: "/agents",
+    state: "opensPage" as ActionState,
+    description:
+      "Opens Agents, where a human owner can establish this organization's durable agent identity. Creation is a one-shot ceremony, confirmed there.",
   },
   {
     label: "New Workflow",
