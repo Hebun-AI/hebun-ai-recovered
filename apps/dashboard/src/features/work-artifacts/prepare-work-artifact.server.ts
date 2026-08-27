@@ -27,6 +27,18 @@
  * second, silent author: it would decide what the model meant, and the bytes a human later
  * approved would be bytes nobody wrote.
  *
+ * ── WHO THE AUTHOR IS (AGENT-RUNTIME-0) ─────────────────────────────────────
+ *
+ * The revision is authored by the tenant's DURABLE AGENT IDENTITY, resolved here through
+ * `resolveAgentAuthorship` — never named by the caller, never inferred from the prompt, and never
+ * the human's own id. A tenant with no in-service durable agent gets a typed refusal and no
+ * artifact: an organization that has not established an agent has no agent that could have written
+ * anything, and recording the requesting human as the author of model-produced bytes would be the
+ * same false record this repair removed.
+ *
+ * The human `TenantContext` remains the AUTHORIZATION context for the whole request. The agent
+ * identity supplies AUTHORSHIP only. Nothing here authenticates or authorizes the agent.
+ *
  * ── WHAT A PREPARED ARTIFACT IS NOT ──────────────────────────────────────────
  *
  * Not Knowledge, not approved, not authoritative, not executed. It is text somebody may now read,
@@ -39,6 +51,11 @@ import {
   type HebyModelAnswerDeps,
   type HebyModelAnswerResult,
 } from "@/features/heby-answer/model-answer.server";
+import type { AgentIdentityReadDeps } from "@/features/agent-identity/read-durable-agent-identity.server";
+import {
+  resolveAgentAuthorship,
+  type AgentAuthorshipRefusal,
+} from "./agent-authorship.server";
 import type { WorkArtifactType } from "./contracts";
 import {
   createWorkArtifactFromHebyPreparation,
@@ -79,6 +96,11 @@ export interface PrepareWorkArtifactInput {
 export interface PrepareWorkArtifactDeps {
   readonly answer?: typeof answerHebyModelRequest;
   readonly write?: WorkArtifactWriteDeps;
+  /**
+   * The durable-agent read seam's database handle. Injected the same way the writer's is, and for
+   * the same reason: without it the read would resolve the ambient `DATABASE_URL`.
+   */
+  readonly agentIdentity?: AgentIdentityReadDeps;
 }
 
 /**
@@ -92,6 +114,13 @@ export type PreparationRefusal =
   | "no-model-answer"
   /** The exchange was not durably persisted, so there is no message to attribute a revision to. */
   | "not-durable"
+  /**
+   * AGENT-RUNTIME-0. The organization has no durable agent that could truthfully be named as the
+   * author. Each value is passed through from `resolveAgentAuthorship` UNCHANGED rather than folded
+   * into one code: "you have never created an agent", "your agent is retired" and "the identity
+   * authority is unreachable" are three different facts and a human acts differently on each.
+   */
+  | AgentAuthorshipRefusal
   | "write-refused";
 
 export type PrepareWorkArtifactResult =
@@ -155,6 +184,19 @@ export async function prepareWorkArtifact(
   const tenant = await deps.resolveTenant();
   if (!tenant) return { status: "refused", reason: "unauthenticated", answer };
 
+  /*
+   * WHO IS ABOUT TO BE RECORDED AS THE AUTHOR. Resolved from the authoritative durable-agent read
+   * seam against THIS tenant — never from the prompt, the client, or the human's own id.
+   *
+   * A refusal here stops the write and nothing else: the human still receives the answer, because
+   * Heby genuinely produced it. What cannot happen is that the answer is FILED as work authored by
+   * an agent the organization does not have.
+   */
+  const authorship = await resolveAgentAuthorship(tenant, deps.agentIdentity ?? {});
+  if (authorship.status === "refused") {
+    return { status: "refused", reason: authorship.reason, answer };
+  }
+
   const content = answer.outcome.response.body.join("\n");
   const sourceMessageId = answer.persistence.assistantMessageId;
 
@@ -162,6 +204,7 @@ export async function prepareWorkArtifact(
     ? await reviseWorkArtifactFromHebyPreparation(
         tenant,
         { artifactId: input.artifactId, content, sourceMessageId },
+        authorship.authorship,
         deps.write,
       )
     : await createWorkArtifactFromHebyPreparation(
@@ -173,6 +216,7 @@ export async function prepareWorkArtifact(
           sourceMessageId,
         },
         WORK_ARTIFACT_OWNER_WORKSPACE,
+        authorship.authorship,
         deps.write,
       );
 

@@ -28,6 +28,8 @@ import {
   resolveWorkArtifactReference,
 } from "../../src/features/work-artifacts/read-work-artifacts.server";
 import { resolveWorkArtifactSource } from "../../src/features/work-artifacts/work-artifact-evidence.server";
+import { resolveAgentAuthorship } from "../../src/features/work-artifacts/agent-authorship.server";
+import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
 import { digestArtifactContent } from "../../src/features/work-artifacts/content-digest";
 import {
   formatWorkArtifactRef,
@@ -354,6 +356,21 @@ async function main(): Promise<void> {
       );
       const sourceMessageId = message.rows[0]!.id;
 
+      /*
+       * AGENT-RUNTIME-0. A Heby-prepared revision names the tenant's DURABLE AGENT, so this tenant
+       * must actually have one. Established through the released AGENT-ID-0 authority rather than a
+       * raw insert — a hand-written row would prove the writer works against a fixture, not against
+       * the identity the product creates.
+       */
+      const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, readDeps);
+      assert.equal(established.status, "established", "the tenant now owns a durable agent");
+      const acmeAgentId = established.status === "established" ? established.identity.agentId : "";
+
+      const resolved = await resolveAgentAuthorship(acmeCtx, readDeps);
+      assert.equal(resolved.status, "resolved", "and it resolves as the author");
+      const acmeAuthorship = resolved.status === "resolved" ? resolved.authorship : null;
+      assert.ok(acmeAuthorship);
+
       const fromHeby = await createWorkArtifactFromHebyPreparation(
         acmeCtx,
         {
@@ -363,18 +380,23 @@ async function main(): Promise<void> {
           sourceMessageId,
         },
         OWNER_WORKSPACE,
+        acmeAuthorship,
         deps,
       );
       assert.equal(fromHeby.status, "created");
       hebyArtifactId = fromHeby.status === "created" ? fromHeby.artifactId : "";
 
-      const row = await setup.query<{ src: string; actor: string }>(
-        `select source_message_id as src, authored_by_actor_type as actor
+      const row = await setup.query<{ src: string; actor: string; actorId: string }>(
+        `select source_message_id as src, authored_by_actor_type as actor,
+                authored_by_actor_id as "actorId"
            from work_artifact_revisions where artifact_id = $1`,
         [hebyArtifactId],
       );
       assert.equal(row.rows[0]!.src, sourceMessageId, "the revision names its source message");
       assert.equal(row.rows[0]!.actor, "agent", "a Heby-prepared revision records an agent author");
+      /* AGENT-RUNTIME-0: and BOTH halves of the pair describe the same actor. */
+      assert.equal(row.rows[0]!.actorId, acmeAgentId, "the author id is the durable agent's id");
+      assert.notEqual(row.rows[0]!.actorId, acme.userId, "never the human who asked");
 
       /*
        * Model attribution is NOT duplicated onto the revision — it is reachable by joining the

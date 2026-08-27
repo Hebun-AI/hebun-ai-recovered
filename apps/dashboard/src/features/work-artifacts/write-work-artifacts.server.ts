@@ -39,6 +39,7 @@ import { messages } from "@/db/schema/conversation";
 import { workArtifactRevisions, workArtifacts } from "@/db/schema/work-artifact";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
+import { isAgentAuthorship, type AgentAuthorship } from "./agent-authorship.server";
 import { formatWorkArtifactRef } from "./artifact-ref";
 import { digestArtifactContent } from "./content-digest";
 import {
@@ -57,16 +58,38 @@ export interface WorkArtifactWriteDeps {
 }
 
 /**
- * Who actually typed the bytes.
+ * Who actually typed the bytes — BOTH halves of the canonical polymorphic actor pair (S2).
  *
  * A SERVER-SUPPLIED POSITIONAL ARGUMENT, never a field on the caller's input object. A caller that
  * could name its own actor type could also claim to be a human, and the honest author is not the
- * caller's to choose. The public entry points below fix it: the direct path is always `human`, the
- * Heby preparation path is always `agent`. The row therefore always records that a machine wrote
- * the words and a person asked for them — which is exactly why `heby_action_requests` carries a
- * `human` CHECK on its approver column.
+ * caller's to choose. The public entry points below fix it: the direct path is always the acting
+ * human, the Heby preparation path is always the tenant's durable agent identity.
+ *
+ * AGENT-RUNTIME-0 MADE THE ID HALF TRUE. Until this phase the agent path recorded the type `agent`
+ * beside `tenant.userId` — a person's id — so one row asserted two contradictory things. The id now
+ * comes from `AgentAuthorship`, which only `resolveAgentAuthorship` can mint, so an agent-authored
+ * revision names the agent that authored it or the write does not happen at all.
+ *
+ * The row therefore records that a machine wrote the words and — through the artifact's own
+ * `created_by` — that a person asked for them. Which is exactly why `heby_action_requests` carries
+ * a `human` CHECK on its approver column: authorship is not authority, in either direction.
  */
-type ArtifactAuthorType = "human" | "agent";
+type ArtifactAuthor =
+  | { readonly actorType: "human"; readonly actorId: string }
+  | { readonly actorType: "agent"; readonly actorId: string };
+
+/**
+ * Turn a verified authorship into the author pair, or refuse.
+ *
+ * The runtime check is the point. `AgentAuthorship`'s brand is a module-private symbol, so a caller
+ * that manufactured one with a type cast satisfies the compiler and fails HERE — which is what
+ * makes "no client-supplied agent id can become an author" a property of the code rather than a
+ * convention somebody remembers.
+ */
+function agentAuthorOrNull(authorship: AgentAuthorship): ArtifactAuthor | null {
+  if (!isAgentAuthorship(authorship)) return null;
+  return { actorType: "agent", actorId: authorship.agentId };
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -116,7 +139,7 @@ async function insertArtifactWithFirstRevision(
   tenant: TenantContext | null,
   input: CreateWorkArtifactInput | null,
   ownerWorkspace: string,
-  authoredByActorType: ArtifactAuthorType,
+  author: ArtifactAuthor,
   deps: WorkArtifactWriteDeps,
 ): Promise<CreateWorkArtifactResult> {
   assertServerOnly();
@@ -168,9 +191,12 @@ async function insertArtifactWithFirstRevision(
         revisionNo: 1,
         content: input.content,
         contentDigest,
-        /* The canonical polymorphic actor pair (S2). Fixed by the entry point, never by input. */
-        authoredByActorType,
-        authoredByActorId: tenant.userId,
+        /*
+         * The canonical polymorphic actor pair (S2). Fixed by the entry point, never by input, and
+         * BOTH halves now describe the same actor.
+         */
+        authoredByActorType: author.actorType,
+        authoredByActorId: author.actorId,
         sourceMessageId: sourceMessageId ?? null,
         createdAt: now,
       });
@@ -197,20 +223,35 @@ export function createWorkArtifact(
   ownerWorkspace: string,
   deps: WorkArtifactWriteDeps = {},
 ): Promise<CreateWorkArtifactResult> {
-  return insertArtifactWithFirstRevision(tenant, input, ownerWorkspace, "human", deps);
+  /* Unchanged by AGENT-RUNTIME-0: the acting human authored the bytes and the row says so. */
+  if (!tenant?.userId) return Promise.resolve(refused("unauthenticated"));
+  return insertArtifactWithFirstRevision(
+    tenant,
+    input,
+    ownerWorkspace,
+    { actorType: "human", actorId: tenant.userId },
+    deps,
+  );
 }
 
 /**
  * The Heby preparation seam's writer. Identical in every respect except that the revision records
- * `agent` as the author, because a model produced the bytes.
+ * the tenant's durable AGENT identity as the author, because a model produced the bytes.
+ *
+ * The authorship is a positional argument and its only source is `resolveAgentAuthorship`. There is
+ * no agent-id parameter and no default, so this function cannot be called at all without a resolved
+ * durable identity — the refusal below exists for a forged value, not for an absent one.
  */
 export function createWorkArtifactFromHebyPreparation(
   tenant: TenantContext | null,
   input: CreateWorkArtifactInput | null,
   ownerWorkspace: string,
+  authorship: AgentAuthorship,
   deps: WorkArtifactWriteDeps = {},
 ): Promise<CreateWorkArtifactResult> {
-  return insertArtifactWithFirstRevision(tenant, input, ownerWorkspace, "agent", deps);
+  const author = agentAuthorOrNull(authorship);
+  if (!author) return Promise.resolve(refused("unverified-agent-authorship"));
+  return insertArtifactWithFirstRevision(tenant, input, ownerWorkspace, author, deps);
 }
 
 /**
@@ -229,7 +270,7 @@ export function createWorkArtifactFromHebyPreparation(
 async function appendRevision(
   tenant: TenantContext | null,
   input: ReviseWorkArtifactInput | null,
-  authoredByActorType: ArtifactAuthorType,
+  author: ArtifactAuthor,
   deps: WorkArtifactWriteDeps,
 ): Promise<ReviseWorkArtifactResult> {
   assertServerOnly();
@@ -281,8 +322,8 @@ async function appendRevision(
         revisionNo,
         content: input.content,
         contentDigest,
-        authoredByActorType,
-        authoredByActorId: tenant.userId,
+        authoredByActorType: author.actorType,
+        authoredByActorId: author.actorId,
         sourceMessageId: sourceMessageId ?? null,
         createdAt: now,
       });
@@ -320,16 +361,23 @@ export function reviseWorkArtifact(
   input: ReviseWorkArtifactInput | null,
   deps: WorkArtifactWriteDeps = {},
 ): Promise<ReviseWorkArtifactResult> {
-  return appendRevision(tenant, input, "human", deps);
+  if (!tenant?.userId) return Promise.resolve(refused("unauthenticated"));
+  return appendRevision(tenant, input, { actorType: "human", actorId: tenant.userId }, deps);
 }
 
-/** The Heby preparation seam's reviser. The bytes came from a model, so the row says `agent`. */
+/**
+ * The Heby preparation seam's reviser. The bytes came from a model, so the row names the durable
+ * agent that produced them — resolved, never supplied.
+ */
 export function reviseWorkArtifactFromHebyPreparation(
   tenant: TenantContext | null,
   input: ReviseWorkArtifactInput | null,
+  authorship: AgentAuthorship,
   deps: WorkArtifactWriteDeps = {},
 ): Promise<ReviseWorkArtifactResult> {
-  return appendRevision(tenant, input, "agent", deps);
+  const author = agentAuthorOrNull(authorship);
+  if (!author) return Promise.resolve(refused("unverified-agent-authorship"));
+  return appendRevision(tenant, input, author, deps);
 }
 
 /**

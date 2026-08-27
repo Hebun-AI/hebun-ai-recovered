@@ -105,7 +105,14 @@ export type WorkArtifactRefusal =
   | "artifact-not-found"
   | "artifact-retired"
   | "source-message-not-found"
-  | "revision-conflict";
+  | "revision-conflict"
+  /**
+   * AGENT-RUNTIME-0. An agent author was offered without proof that the authoritative durable-agent
+   * read seam produced it. Unreachable through the public entry points — it is the writer's guard
+   * against a forged `AgentAuthorship`, and a refusal rather than a thrown error so a future caller
+   * gets an answer in the same vocabulary as every other failure here.
+   */
+  | "unverified-agent-authorship";
 
 export interface WorkArtifactRevisionView {
   readonly id: string;

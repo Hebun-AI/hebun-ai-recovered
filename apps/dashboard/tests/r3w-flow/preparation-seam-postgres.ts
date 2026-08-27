@@ -32,6 +32,7 @@ import {
   WORK_ARTIFACT_PREPARATION_INTENT,
 } from "../../src/features/work-artifacts/prepare-work-artifact.server";
 import { readWorkArtifactHistory } from "../../src/features/work-artifacts/read-work-artifacts.server";
+import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
 import { resolveWorkArtifactSource } from "../../src/features/work-artifacts/work-artifact-evidence.server";
 import { digestArtifactContent } from "../../src/features/work-artifacts/content-digest";
 import { HEBY_INTENT_DESCRIPTORS } from "../../src/features/heby-integration";
@@ -117,6 +118,12 @@ async function main(): Promise<void> {
      */
     const writeDeps = { getDb: () => handle.db } as never;
 
+    /*
+     * AGENT-RUNTIME-0. The same injected handle for the durable-agent read seam. The seam resolves
+     * the author through the REAL authority; only the database is disposable.
+     */
+    const agentIdentityDeps = { getDb: () => handle.db } as never;
+
     const answerDeps = (text: string): HebyModelAnswerDeps => ({
       resolveTenant: async () => tenant,
       readOverview: () => undefined,
@@ -166,6 +173,46 @@ async function main(): Promise<void> {
       assert.equal(descriptor.capability, "prepare-information");
     }
 
+    /*
+     * ── 2b. AGENT-RUNTIME-0: THE ORGANIZATION MUST OWN AN AGENT BEFORE ONE CAN AUTHOR ──
+     *
+     * Before the identity exists, preparation REFUSES. This runs before the identity is created so
+     * the refusal is observed in the real order a tenant would meet it, not simulated afterwards.
+     */
+    {
+      const before = await setup.query<{ n: number }>(
+        `select count(*)::int as n from work_artifacts`,
+      );
+      const refused = await prepareWorkArtifact(
+        {
+          prompt: "Draft a quarterly summary email for Ayşe.",
+          route: "/operations",
+          artifactType: "message-draft",
+          title: "Cannot be authored yet",
+        },
+        { ...answerDeps(DRAFTED), write: writeDeps, agentIdentity: agentIdentityDeps },
+      );
+      assert.equal(refused.status, "refused");
+      assert.equal(
+        refused.status === "refused" ? refused.reason : "",
+        "no-durable-agent-identity",
+        "no durable agent means no agent-authored work — never a fallback to the human id",
+      );
+      assert.ok(
+        refused.status === "refused" && refused.answer,
+        "the human still receives the answer Heby genuinely produced",
+      );
+      const after = await setup.query<{ n: number }>(
+        `select count(*)::int as n from work_artifacts`,
+      );
+      assert.equal(after.rows[0]!.n, before.rows[0]!.n, "and nothing was filed");
+    }
+
+    /* The tenant establishes its durable agent identity through the released AGENT-ID-0 authority. */
+    const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, agentIdentityDeps);
+    assert.equal(established.status, "established");
+    const agentId = established.status === "established" ? established.identity.agentId : "";
+
     /* ── 3. Explicit preparation DOES create an artifact, attributed to its message ── */
     let artifactId = "";
     {
@@ -176,7 +223,7 @@ async function main(): Promise<void> {
           artifactType: "message-draft",
           title: "Quarterly summary to Ayşe",
         },
-        { ...answerDeps(DRAFTED), write: writeDeps },
+        { ...answerDeps(DRAFTED), write: writeDeps, agentIdentity: agentIdentityDeps },
       );
       assert.equal(prepared.status, "prepared", "explicit preparation must persist work");
       if (prepared.status !== "prepared") throw new Error("unreachable");
@@ -192,14 +239,23 @@ async function main(): Promise<void> {
       );
 
       /* The revision content is the model's reply VERBATIM — no parser decided what it meant. */
-      const row = await setup.query<{ content: string; src: string; actor: string }>(
-        `select content, source_message_id as src, authored_by_actor_type as actor
+      const row = await setup.query<{
+        content: string;
+        src: string;
+        actor: string;
+        actorId: string;
+      }>(
+        `select content, source_message_id as src, authored_by_actor_type as actor,
+                authored_by_actor_id as "actorId"
            from work_artifact_revisions where artifact_id = $1`,
         [artifactId],
       );
       assert.equal(row.rows[0]!.content, DRAFTED);
       assert.equal(row.rows[0]!.src, prepared.sourceMessageId);
       assert.equal(row.rows[0]!.actor, "agent", "a model wrote the bytes and the row says so");
+      /* AGENT-RUNTIME-0: and it says WHICH machine, not the person who asked. */
+      assert.equal(row.rows[0]!.actorId, agentId, "the durable agent identity is the author");
+      assert.notEqual(row.rows[0]!.actorId, acme.userId, "the human user id is never the author");
 
       /* And that message really is the assistant turn of this exchange. */
       const message = await setup.query<{ role: string; origin: string; content: string }>(
@@ -221,7 +277,7 @@ async function main(): Promise<void> {
           title: "ignored on revise",
           artifactId,
         },
-        { ...answerDeps(REVISED), write: writeDeps },
+        { ...answerDeps(REVISED), write: writeDeps, agentIdentity: agentIdentityDeps },
       );
       assert.equal(prepared.status, "prepared");
       assert.equal(prepared.status === "prepared" ? prepared.revisionNo : 0, 2);
@@ -233,6 +289,7 @@ async function main(): Promise<void> {
       assert.equal(history[0]!.content, DRAFTED, "revision 1 is untouched by a Heby revision");
       assert.equal(history[1]!.content, REVISED);
       assert.equal(history[1]!.authoredByActorType, "agent");
+      assert.equal(history[1]!.authoredByActorId, agentId, "revision 2 names the same durable agent");
     }
 
     /* ── 5. A DETERMINISTIC fallback is never filed as prepared work ────────── */
@@ -252,7 +309,12 @@ async function main(): Promise<void> {
           artifactType: "message-draft",
           title: "Should not exist",
         },
-        { ...answerDeps(DRAFTED), write: writeDeps, resolveDirectorEnabled: async () => false },
+        {
+          ...answerDeps(DRAFTED),
+          write: writeDeps,
+          agentIdentity: agentIdentityDeps,
+          resolveDirectorEnabled: async () => false,
+        },
       );
       assert.equal(refused.status, "refused");
       assert.equal(refused.status === "refused" ? refused.reason : "", "no-model-answer");
