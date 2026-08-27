@@ -75,9 +75,21 @@ const MUTATIONS: readonly Mutation[] = [
   {
     label: "M3 proposer attribution is hidden",
     file: CARD,
-    find: `          proposed by {item.proposedByActorType}`,
+    find: `          proposed by {item.proposedByAgentName ?? item.proposedByActorType}`,
     replace: `          proposed`,
     expect: "the card renders the proposer",
+  },
+  {
+    /*
+     * AGENT-PROPOSAL-2. The tempting "improvement" when a name will not resolve is to show the id
+     * instead of the class. That is a leak wearing a helpful face, and the card's fallback is the
+     * one place it would be written.
+     */
+    label: "M3b the unresolved agent name falls back to the raw actor id",
+    file: CARD,
+    find: `          proposed by {item.proposedByAgentName ?? item.proposedByActorType}`,
+    replace: `          proposed by {item.proposedByAgentName ?? item.proposedByActorId}`,
+    expect: "the card never renders a raw actor id",
   },
   {
     label: "M4 the structural region denies connected consequences",

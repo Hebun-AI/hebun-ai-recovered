@@ -1,5 +1,6 @@
 import { DecisionWorkspace } from "@/components/decision-workspace/decision-workspace";
 import { ActionAuthorizations } from "@/components/decision-workspace/action-authorizations";
+import { AgentProposalRequest } from "@/components/decision-workspace/agent-proposal-request";
 import { getDecisionWorkspaceModel } from "@/features/decisions/workspace-model";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import {
@@ -52,11 +53,19 @@ export default async function ApprovalsPage() {
     <DecisionWorkspace
       model={model}
       actionAuthorizations={
-        <ActionAuthorizations
-          requests={requests.status === "read" ? requests.items : []}
-          permits={permits.status === "read" ? permits.items : []}
-          connected={connected}
-        />
+        <>
+          {/*
+           * AGENT-PROPOSAL-2 — asking sits directly above the queue the answer lands in, inside the
+           * EXISTING slot. No eighth workspace, no new route, no navigation change: the Director
+           * asks and reviews in one place because the proposal is the same object in both.
+           */}
+          <AgentProposalRequest />
+          <ActionAuthorizations
+            requests={requests.status === "read" ? requests.items : []}
+            permits={permits.status === "read" ? permits.items : []}
+            connected={connected}
+          />
+        </>
       }
     />
   );

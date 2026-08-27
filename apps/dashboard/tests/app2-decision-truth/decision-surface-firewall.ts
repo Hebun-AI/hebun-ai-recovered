@@ -237,14 +237,47 @@ function main(): void {
    */
   {
     const card = codeOf(read(CARD));
-    assert.ok(/proposed by \{item\.proposedByActorType\}/.test(card.replace(/\s+/g, " ")), "the card renders the proposer");
+    /*
+     * AGENT-PROPOSAL-2 BUILT THE SEAM THIS PIN SAID DID NOT EXIST.
+     *
+     * APP-2 banned the string `agentName` from this card and explained why: the class was all it
+     * could honestly show, because "no identity display seam exists" to turn an actor id into a
+     * name. That sentence is now false — `resolveAgentProposerDisplays` reads the released
+     * AGENT-ID-0.1 authority server-side — and a green test asserting the old ban would be green
+     * BECAUSE a stale claim survived.
+     *
+     * What APP-2 actually guaranteed, and what is asserted now, is STRICTER than the string ban:
+     * the name may come only from the reader's projected field, the card falls back to the actor
+     * CLASS rather than to an identifier, and no agent simulation is consulted to find a name.
+     */
+    /*
+     * THE ID BAN IS ASSERTED FIRST, ON PURPOSE. A mutation that swaps the class fallback for the
+     * raw id also changes the render expression, so a shape assertion placed above this one would
+     * fire first and report a rendering defect rather than the LEAK it actually is.
+     */
+    assert.ok(
+      !/proposedByActorId/.test(card),
+      "the card never renders a raw actor id, not even as a fallback label",
+    );
+    const flat = card.replace(/\s+/g, " ");
+    assert.ok(
+      /proposed by \{item\.proposedByAgentName \?\? item\.proposedByActorType\}/.test(flat),
+      "the card renders the proposer — the resolved name, falling back to the actor class",
+    );
     assert.ok(
       /item\.proposedByActorType === "human"/.test(card),
       "and distinguishes human from every other actor class visually",
     );
     /* No name is invented for a class, and no agent subsystem is consulted to find one. */
-    for (const banned of ["agent-runtime", "agent-crud", "@/features/agents", "agents/mock", "agentName"]) {
+    for (const banned of ["agent-runtime", "agent-crud", "@/features/agents", "agents/mock"]) {
       assert.ok(!codeOf(card).includes(banned), `the card must not reach "${banned}"`);
+    }
+    /*
+     * AND IT NEVER CLAIMS THE ACT HAPPENED. A pending agent proposal sits beside an approve control;
+     * wording that said Heby "will send" or "sent" would assert an authorization nobody granted.
+     */
+    for (const forbidden of ["will send", "has sent", "Heby sent", "executed by", "performed by"]) {
+      assert.ok(!card.includes(forbidden), `the card must not say "${forbidden}"`);
     }
   }
 
@@ -461,9 +494,19 @@ function main(): void {
    */
   {
     const reader = codeOf(read(READER));
+    /*
+     * THE GUARANTEE IS THAT THE ID DOES NOT REACH THE BROWSER — not that the server never looks at
+     * it. APP-2 spelled this as a substring ban because nothing on the server had any reason to
+     * read the column; AGENT-PROPOSAL-2 gave it one, and resolves it into a NAME here. So the claim
+     * is asserted where it actually lives: not on the view, and not in the projected row.
+     */
     assert.ok(
-      !/proposedByActorId/.test(reader),
-      "the proposer's raw actor id is not projected to the client",
+      !/readonly proposedByActorId/.test(reader),
+      "the proposer's raw actor id is not a field on the view that crosses to the client",
+    );
+    assert.ok(
+      !/^\s*proposedByActorId\s*:/m.test(reader),
+      "and it is not projected into the row the client receives",
     );
     for (const file of surfaceFiles()) {
       const code = codeOf(read(file));

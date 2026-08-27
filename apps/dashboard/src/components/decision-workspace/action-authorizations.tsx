@@ -100,10 +100,19 @@ function RequestCard({ item }: { item: PendingActionRequestView }) {
           {item.reversibility}
         </span>
         {/*
-         * WHO PROPOSED THIS. A1a made the stored column truthful and nothing read it, so until now a
-         * human authorized an irreversible action without being shown who originated it. Today this
-         * always says "human"; the badge exists so that the first agent-originated proposal is
-         * VISIBLY different rather than indistinguishable from a person's.
+         * WHO PROPOSED THIS.
+         *
+         * A1a made the stored column truthful and nothing read it. APP-2 built this badge so the
+         * first agent-originated proposal would be VISIBLY different from a person's, and said the
+         * class was all it could show because "no identity display seam exists" to turn the id into
+         * a name. AGENT-PROPOSAL-2 built that seam, so the badge now says WHICH agent.
+         *
+         * It falls back to the CLASS, never to an identifier. A name the server could not resolve
+         * renders as "proposed by agent" — the same true statement APP-2 shipped — because a raw
+         * uuid on a review card is a leak, not a label.
+         *
+         * "proposes", never "will send". Nothing has been authorized or executed at this point, and
+         * this badge sits beside an approve control precisely because it has not.
          */}
         <span
           className={`rounded-full px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider ${
@@ -112,8 +121,13 @@ function RequestCard({ item }: { item: PendingActionRequestView }) {
               : "border border-warning/40 bg-warning/10 text-warning"
           }`}
         >
-          proposed by {item.proposedByActorType}
+          proposed by {item.proposedByAgentName ?? item.proposedByActorType}
         </span>
+        {item.proposedByAgentName !== null && item.proposedByAgentInService === false ? (
+          <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-fg-secondary">
+            agent retired since
+          </span>
+        ) : null}
       </div>
 
       <p className="text-sm leading-6 text-fg-primary">{item.expectedEffect}</p>

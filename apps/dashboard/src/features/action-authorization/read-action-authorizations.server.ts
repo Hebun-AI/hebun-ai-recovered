@@ -33,6 +33,10 @@ import { actionExecutionAttempts } from "@/db/schema/action-execution";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import type { ExecutionAttemptStatus } from "@/features/action-execution/contracts";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
+import {
+  resolveAgentProposerDisplays,
+  type AgentProposerDisplay,
+} from "./agent-proposer-display.server";
 import { asCanonicalPayload } from "./canonical-payload";
 import { splitPayload, toEvidence } from "./decision-projection";
 import type { EvidenceProjection, PayloadLockView } from "./decision-projection";
@@ -76,6 +80,17 @@ export interface PendingActionRequestView {
    * is what the decision turns on.
    */
   readonly proposedByActorType: string;
+  /**
+   * WHICH agent proposed it, when one did (AGENT-PROPOSAL-2).
+   *
+   * `null` for a human proposal, and `null` for an agent id this tenant does not own or that the
+   * identity authority could not answer for. NEVER the raw uuid as a fallback label: the id stays
+   * on the server, and a surface that cannot name the agent falls back to the actor CLASS it
+   * already had rather than to an internal identifier.
+   */
+  readonly proposedByAgentName: string | null;
+  /** False when that agent has since been retired. The proposal it made is unaffected. */
+  readonly proposedByAgentInService: boolean | null;
   readonly payloadDigest: string;
   readonly proposedAt: string;
 }
@@ -148,10 +163,28 @@ export async function readPendingActionRequests(
       .orderBy(desc(hebyActionRequests.createdAt))
       .limit(deps.limit ?? 50);
 
+    /*
+     * WHO PROPOSED, BY NAME (AGENT-PROPOSAL-2).
+     *
+     * ONE lookup for the whole page, not one per row: the identity seam answers with the tenant's
+     * whole identity state, so asking it per proposal would be the same read repeated. The raw ids
+     * are collected here, consulted on the SERVER, and never placed on the view — APP-2's data
+     * minimization is unchanged, and the only thing that crosses to the client is a name.
+     */
+    const agentIds = rows
+      .filter((row) => row.proposedByActorType === "agent")
+      .map((row) => row.proposedByActorId);
+    const displays: ReadonlyMap<string, AgentProposerDisplay> =
+      agentIds.length > 0
+        ? await resolveAgentProposerDisplays(tenant, agentIds, { getDb: deps.getDb })
+        : new Map();
+
     return {
       status: "read",
       items: rows.map((row) => {
         const { parameters, locks } = splitPayload(asCanonicalPayload(row.canonicalPayload));
+        const display =
+          row.proposedByActorType === "agent" ? displays.get(row.proposedByActorId) : undefined;
         return {
           requestId: row.id,
           actionKind: row.actionKind,
@@ -167,6 +200,8 @@ export async function readPendingActionRequests(
           locks,
           evidence: toEvidence(row.evidence),
           proposedByActorType: row.proposedByActorType,
+          proposedByAgentName: display?.name ?? null,
+          proposedByAgentInService: display ? display.inService : null,
           payloadDigest: row.payloadDigest,
           proposedAt: iso(row.createdAt) ?? "",
         };

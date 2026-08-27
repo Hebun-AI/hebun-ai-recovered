@@ -26,6 +26,10 @@ import {
   type HebyCrossSourceCommandResult,
 } from "@/features/heby-commands/cross-source-commands.server";
 import {
+  originateAgentAction,
+  type OriginateActionResult,
+} from "@/features/agent-origination/originate-action.server";
+import {
   runHebyProposeCommand,
   type HebyProposeCommandInput,
   type HebyProposeCommandOutcome,
@@ -118,6 +122,46 @@ export async function proposeHebyActionCommandAction(
 ): Promise<HebyProposeCommandOutcome> {
   return runHebyProposeCommand(
     { commandId: input.commandId, args: input.args },
+    { resolveTenant: resolveTenantContext },
+  );
+}
+
+/**
+ * The AGENT-PROPOSAL-2 boundary — a human asks Heby for a bounded proposal (AGENT-PROPOSAL-1).
+ *
+ * A FIFTH action, separate from every other seam in this module, and separate for the reason each
+ * of them is: filing a durable authorization artifact has its own transaction boundary and its own
+ * failure mode. Folding it into `askHebyAction` would tie a proposal a human is waiting on to the
+ * success of a conversation.
+ *
+ * ── WHAT THE CLIENT MAY SUPPLY, EXHAUSTIVELY ─────────────────────────────────
+ *
+ *   { goal: string }
+ *
+ * That is the whole contract. There is NO parameter for a tenant, an agent id, an actor type, an
+ * action kind, a recipient, a draft, a digest, a permit or an approval — not filtered downstream,
+ * UNREPRESENTABLE here. The tenant comes from the R1 session; the durable agent is resolved from
+ * the identity authority; the action and both of its arguments are chosen by Heby from a candidate
+ * set the server builds out of this tenant's own rows.
+ *
+ * THAT ASYMMETRY IS THE POINT. `proposeHebyActionCommandAction` above takes the references a person
+ * typed and records a HUMAN proposer. This takes a goal and records the AGENT that chose. If a
+ * browser field ever supplied the action or its arguments, the attribution would be a lie and this
+ * boundary would have to go back to recording a human.
+ *
+ * NOTHING IS SENT, APPROVED, AUTHORIZED OR EXECUTED. The result is a pending request for
+ * `/approvals`, or a typed refusal. This module imports no decision writer, no permit writer and no
+ * executor — `approvals/actions.ts` states the same boundary from the other side, and both remain
+ * true: Heby cannot reach that file, and that file has no propose action.
+ *
+ * NO CACHE REVALIDATION, for the reason the proposal boundary above gives. The caller refreshes the
+ * surface it is already on.
+ */
+export async function originateHebyActionProposalAction(
+  input: { readonly goal: string },
+): Promise<OriginateActionResult> {
+  return originateAgentAction(
+    { goal: input?.goal },
     { resolveTenant: resolveTenantContext },
   );
 }

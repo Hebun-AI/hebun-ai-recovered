@@ -160,11 +160,17 @@ function main(): void {
      *                                    WRITER-FREE Knowledge read. Reaches no model transport and
      *                                    no writer of any kind, and imports no Knowledge writer.
      *
-     * ── FOUR → FIVE → SIX, STATED RATHER THAN RELAXED ───────────────────────
+     *   originateHebyActionProposalAction  AGENT-PROPOSAL-2 — a human states a GOAL and Heby may
+     *                                    propose ONE bounded action for human review. Reaches the
+     *                                    MODEL transport (as `askHebyAction` does) and no
+     *                                    integration provider; files a pending request and nothing
+     *                                    else. It approves, authorizes and executes nothing.
      *
-     * The count was four, INT-5B1 came here and said five, and INT-5C says six. The PROPERTY is
-     * unchanged and still exact: every Heby crossing is enumerated in this list, and a seventh
-     * cannot appear without somebody adding it by hand.
+     * ── FOUR → FIVE → SIX → SEVEN, STATED RATHER THAN RELAXED ───────────────
+     *
+     * The count was four, INT-5B1 said five, INT-5C said six, and AGENT-PROPOSAL-2 says seven. The
+     * PROPERTY is unchanged and still exact: every Heby crossing is enumerated in this list, and an
+     * eighth cannot appear without somebody adding it by hand.
      */
     const actions = read("src/app/(dashboard)/heby/actions.ts");
     const HEBY_SERVER_ACTIONS = [
@@ -174,6 +180,7 @@ function main(): void {
       "proposeHebyActionCommandAction",
       "runHebyProviderReadCommandAction",
       "runHebyCrossSourceCommandAction",
+      "originateHebyActionProposalAction",
     ] as const;
     assert.equal(
       (actions.match(/export async function/g) ?? []).length,

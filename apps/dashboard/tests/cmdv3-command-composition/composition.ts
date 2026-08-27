@@ -95,6 +95,9 @@ const SEAM_ROW = Object.freeze({
   locks: [{ name: "draftRevisionDigest", label: "Draft revision locked", value: "d1" }],
   evidence: { status: "attached" as const, items: [{ sourceClass: "work-artifacts", recordRef: "work-artifact/a@1", lifecycle: "settled" }] },
   proposedByActorType: "human",
+  /* AGENT-PROPOSAL-2 widened the view; a human proposal names no agent. */
+  proposedByAgentName: null,
+  proposedByAgentInService: null,
   payloadDigest: "digest",
   proposedAt: "2026-08-21T09:00:00.000Z",
 });
