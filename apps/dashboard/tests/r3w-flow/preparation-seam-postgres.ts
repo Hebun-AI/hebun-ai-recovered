@@ -37,6 +37,7 @@ import { digestArtifactContent } from "../../src/features/work-artifacts/content
 import { HEBY_INTENT_DESCRIPTORS } from "../../src/features/heby-integration";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-16T09:00:00.000Z");
 const DRAFTED = "Merhaba Ayşe,\nHere is the quarterly summary you asked for.\nBest regards.";
 const REVISED = "Merhaba Ayşe,\nSecond pass, shorter.";
@@ -58,7 +59,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -71,7 +72,7 @@ function contextFor(seeded: Seeded): TenantContext {
     mfaVerified: false,
     requestId: "r3w-prepare",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function main(): Promise<void> {

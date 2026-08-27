@@ -46,6 +46,7 @@ import { authorizeMembership } from "../../src/features/membership-authority/aut
 import { issueInvitation } from "../../src/features/human-onboarding/issue-invitation.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date();
 const DIGEST_KEY = { version: 1, secret: "r4b-test-secret-value-at-least-32-chars-long" } as const;
 const ACCEPT_PASSWORD = "an-r4b-test-password-long-enough";
@@ -77,7 +78,7 @@ async function mintSession(client: Client, human: Human, born: Born, tag: string
 }
 
 function contextFor(human: Human, born: Born, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: born.tenantId,
     userId: human.userId,
     authIdentityId: human.authIdentityId,
@@ -90,7 +91,7 @@ function contextFor(human: Human, born: Born, sessionContextId: string): TenantC
     mfaVerified: false,
     requestId: "r4b-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function count(client: Client, table: string, where = "true", params: unknown[] = []) {

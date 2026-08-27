@@ -34,6 +34,7 @@ import {
 } from "../../src/features/knowledge/external-reference-read.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const TENANT_A = "10000000-0000-4000-8000-00000000ca01";
 const TENANT_B = "10000000-0000-4000-8000-00000000cb01";
 const USER_A = "20000000-0000-4000-8000-00000000ca01";
@@ -52,7 +53,7 @@ const REAL_REPOSITORY_ID = "1300480452";
 const OTHER_REPOSITORY_ID = "999000111";
 
 function tenantContext(tenantId: string, userId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId,
     authIdentityId: "identity",
@@ -65,7 +66,7 @@ function tenantContext(tenantId: string, userId: string): TenantContext {
     mfaVerified: false,
     requestId: "int-5c",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function main(): Promise<void> {

@@ -50,6 +50,7 @@ import type {
   ConfiguredAuthenticationEnvironment,
 } from "../../src/features/auth/environment/auth-environment.server";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-12T15:00:00.000Z");
 const REASON = "Admitting this person is a deliberate organizational decision with a stated reason.";
 const KEY: AuthenticationDigestKey = Object.freeze({ version: 1, secret: "i2-test-digest-secret" });
@@ -65,7 +66,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string, tag: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -78,7 +79,7 @@ function contextFor(seeded: Seeded, sessionContextId: string, tag: string): Tena
     mfaVerified: false,
     requestId: tag,
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function sessionRowFor(client: Client, seeded: Seeded, tag: string): Promise<string> {

@@ -30,6 +30,7 @@ import { createDurableKnowledgeWriter } from "../../src/features/knowledge/durab
 import { createDurableKnowledgeRepository } from "../../src/features/knowledge/durable-knowledge-repository.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-11T19:00:00.000Z");
 const REASON = "Governance has reviewed this exact version and records its decision here.";
 
@@ -86,7 +87,7 @@ async function main(): Promise<void> {
                now() + interval '1 day', now() + interval '1 hour') returning id`,
       [alice.authIdentityId, alice.userId, alice.tenantId, alice.membershipId],
     );
-    const tenant: TenantContext = {
+    const tenant: TenantContext = asHumanTenantContext({
       tenantId: alice.tenantId,
       userId: alice.userId,
       authIdentityId: alice.authIdentityId,
@@ -99,7 +100,7 @@ async function main(): Promise<void> {
       mfaVerified: false,
       requestId: "k4-race",
       authenticatedAt: NOW.toISOString(),
-    };
+    });
 
     await setup.query(
       `insert into genesis_nominations

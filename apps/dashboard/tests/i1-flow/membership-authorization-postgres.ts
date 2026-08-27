@@ -40,6 +40,7 @@ import {
 } from "../../src/features/membership-authority/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-12T09:00:00.000Z");
 const REASON = "Admitting this person is a deliberate organizational decision with a stated reason.";
 
@@ -52,7 +53,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -65,7 +66,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "i1-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function addMember(

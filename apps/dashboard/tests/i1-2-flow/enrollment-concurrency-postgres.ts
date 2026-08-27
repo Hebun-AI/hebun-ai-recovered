@@ -33,6 +33,7 @@ import { IDENTITY_ENROLLMENT_DOMAIN } from "../../src/features/identity-enrollme
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import type { AuthenticationDigestKey } from "../../src/features/auth/environment/auth-environment.server";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-12T14:00:00.000Z");
 const REASON = "Admitting this person is a deliberate organizational decision with a stated reason.";
 const REFUSAL = "This submission does not match the handover I performed, so I am refusing it.";
@@ -98,7 +99,7 @@ async function main(): Promise<void> {
       [A.authIdentityId, "a".repeat(64), A.userId, A.tenantId, A.membershipId],
     );
 
-    const ctx: TenantContext = {
+    const ctx: TenantContext = asHumanTenantContext({
       tenantId: A.tenantId,
       userId: A.userId,
       authIdentityId: A.authIdentityId,
@@ -111,7 +112,7 @@ async function main(): Promise<void> {
       mfaVerified: false,
       requestId: "i1-2-concurrency",
       authenticatedAt: NOW.toISOString(),
-    };
+    });
 
     await setup.query(
       `insert into genesis_nominations

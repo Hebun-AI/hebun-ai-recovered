@@ -41,6 +41,7 @@ import {
 import { authorizeMembership } from "../../src/features/membership-authority/authorize-membership.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-12T11:00:00.000Z");
 const REASON = "Establishing this organization's ordinary member role is a deliberate decision.";
 
@@ -53,7 +54,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -66,7 +67,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "i1-1-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 /** NOTE: `roleType` never defaults to `member` here — see the header. */
@@ -493,7 +494,7 @@ async function main(): Promise<void> {
           [xUser],
         )
       ).rows[0]!;
-      const ctxX: TenantContext = {
+      const ctxX: TenantContext = asHumanTenantContext({
         tenantId: globexTenant,
         userId: xUser,
         authIdentityId: xSession.auth_identity_id,
@@ -510,7 +511,7 @@ async function main(): Promise<void> {
         mfaVerified: false,
         requestId: "i1-1-request",
         authenticatedAt: NOW.toISOString(),
-      };
+      });
 
       /* Tenant A's authority cannot provision in Globex: the tenant comes from the session. */
       assert.equal(

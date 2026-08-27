@@ -23,6 +23,7 @@ import { establishGovernanceAuthority } from "../../src/features/governance-deci
 import { authorizeMembership } from "../../src/features/membership-authority/authorize-membership.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-12T09:30:00.000Z");
 const REASON = "Admitting this person is a deliberate organizational decision with a stated reason.";
 const TARGET = "contested@acme.test";
@@ -63,7 +64,7 @@ async function main(): Promise<void> {
       [A.authIdentityId, "a".repeat(64), A.userId, A.tenantId, A.membershipId],
     );
 
-    const ctx: TenantContext = {
+    const ctx: TenantContext = asHumanTenantContext({
       tenantId: A.tenantId,
       userId: A.userId,
       authIdentityId: A.authIdentityId,
@@ -76,7 +77,7 @@ async function main(): Promise<void> {
       mfaVerified: false,
       requestId: "i1-concurrency",
       authenticatedAt: NOW.toISOString(),
-    };
+    });
 
     await setup.query(
       `insert into genesis_nominations

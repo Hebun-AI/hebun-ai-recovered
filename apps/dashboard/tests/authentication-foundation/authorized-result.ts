@@ -9,6 +9,7 @@ import {
   AuthenticationError,
 } from "../../src/features/auth";
 import {
+  asHumanTenantContext,
   createAuthorizedAuthenticationResult,
 } from "../../src/features/auth/server";
 
@@ -45,7 +46,7 @@ const applicationSession: ApplicationSessionAuthority = {
   absoluteExpiresAt: "2026-07-20T12:00:00.000Z",
   inactivityExpiresAt: "2026-07-19T13:00:00.000Z",
 };
-const tenantContext: TenantContext = {
+const tenantContext: TenantContext = asHumanTenantContext({
   tenantId: applicationSession.activeTenantId,
   userId: canonicalIdentity.userId,
   authIdentityId: canonicalIdentity.authIdentityId,
@@ -58,7 +59,7 @@ const tenantContext: TenantContext = {
   mfaVerified: providerAuthentication.mfaVerified,
   requestId: "request-id",
   authenticatedAt: providerAuthentication.authenticatedAt,
-};
+});
 
 const now = new Date("2026-07-19T12:30:00.000Z");
 

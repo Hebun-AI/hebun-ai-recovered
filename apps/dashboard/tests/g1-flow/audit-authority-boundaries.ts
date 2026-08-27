@@ -29,6 +29,7 @@ import {
 import { createKnowledgeFact } from "../../src/features/knowledge/knowledge-create.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const read = (path: string) => readFileSync(path, "utf8");
 
 const AUDIT = "src/features/governance-audit/knowledge-mutation-audit.server.ts";
@@ -51,7 +52,7 @@ function walk(dir: string): string[] {
 }
 
 function tenant(): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: "11111111-1111-4111-8111-111111111111",
     userId: "22222222-2222-4222-8222-222222222222",
     authIdentityId: "identity",
@@ -64,7 +65,7 @@ function tenant(): TenantContext {
     mfaVerified: false,
     requestId: "req-1",
     authenticatedAt: "2026-08-11T00:00:00.000Z",
-  };
+  });
 }
 
 async function main(): Promise<void> {

@@ -29,6 +29,7 @@ import type { TenantContext } from "../../src/features/auth/tenant/tenant-contex
 import type { ExecutiveOverviewLike, ModelGenerationRequest } from "../../src/features/heby-runtime";
 import type { HebyModelOutcome } from "../../src/features/heby-model";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const TENANT_A = "10000000-0000-4000-8000-0000000000a2";
 const TENANT_B = "10000000-0000-4000-8000-0000000000b2";
 const USER_A = "20000000-0000-4000-8000-0000000000a2";
@@ -42,7 +43,7 @@ const HOSTILE_STATEMENT =
   "Legacy list: ../../etc/passwd — çğıöşü ÇĞİÖŞÜ 🔐";
 
 function tenantContext(tenantId: string, userId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId,
     authIdentityId: "identity",
@@ -55,7 +56,7 @@ function tenantContext(tenantId: string, userId: string): TenantContext {
     mfaVerified: false,
     requestId: "k2",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 function overview(): ExecutiveOverviewLike {

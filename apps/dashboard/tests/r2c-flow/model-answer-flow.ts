@@ -26,6 +26,7 @@ import type {
   ClaudeTransportResponse,
 } from "../../src/features/heby-model";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const MODEL_ENV = {
   HEBUN_MODEL_CONNECTIVITY_ENABLED: "true",
   HEBUN_MODEL_PROVIDER: "claude",
@@ -35,7 +36,7 @@ const MODEL_ENV = {
 } as const;
 
 function tenant(tenantId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId: `user-${tenantId}`,
     authIdentityId: `identity-${tenantId}`,
@@ -48,7 +49,7 @@ function tenant(tenantId: string): TenantContext {
     mfaVerified: false,
     requestId: `req-${tenantId}`,
     authenticatedAt: new Date("2026-08-10T00:00:00.000Z").toISOString(),
-  };
+  });
 }
 
 /** An overview whose Operations sections resolve, so deterministic evidence is non-empty. */

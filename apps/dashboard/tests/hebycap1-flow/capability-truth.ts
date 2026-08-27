@@ -23,16 +23,17 @@ import type { TenantContext } from "../../src/features/auth/tenant/tenant-contex
 import type { CapabilityAvailabilityView } from "../../src/features/integration-authority/contracts";
 import type { ProviderOpsView } from "../../src/features/heby-provider-ops/provider-connectivity-projection.server";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const GITHUB_CAPABILITY = "github.repository.activity.read";
 
-const TENANT_A: TenantContext = {
+const TENANT_A: TenantContext = asHumanTenantContext({
   tenantId: "10000000-0000-4000-8000-00000000ca01",
   userId: "20000000-0000-4000-8000-00000000ca01",
   authIdentityId: "identity-a", membershipId: "membership-a", membershipVersion: 1,
   roleId: "role-a", sessionContextId: "session-a", provider: "local",
   assuranceLevel: "aal1", mfaVerified: false, requestId: "cap1-a",
   authenticatedAt: "2026-08-26T09:00:00.000Z",
-};
+});
 const TENANT_B: TenantContext = {
   ...TENANT_A,
   tenantId: "10000000-0000-4000-8000-00000000ca02",

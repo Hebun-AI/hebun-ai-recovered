@@ -17,7 +17,11 @@ import type { ControlPlaneDatabase } from "@/db/client.server";
 import type { ConfiguredAuthenticationEnvironment } from "@/features/auth/environment/auth-environment.server";
 import { AuthenticationError } from "@/features/auth/errors";
 import { createAuthorizedAuthenticationResult } from "@/features/auth/services/authorized-authentication-result.server";
-import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import {
+  asHumanTenantContext,
+  type TenantContext,
+  type TenantContextFields,
+} from "@/features/auth/tenant/tenant-context";
 import type {
   ApplicationSessionAuthority,
   AuthenticationResult,
@@ -1078,7 +1082,20 @@ function assembleAuthorized(input: AssembleInput): AuthenticationResult {
     absoluteExpiresAt,
     inactivityExpiresAt,
   };
-  const tenantContext: TenantContext = {
+  /*
+   * THE ONE PLACE AN AUTHORIZED HUMAN AUTHORITY PROJECTION IS MINTED.
+   *
+   * Everything above this line is what earns it: a live `auth_identities` row, a live `users` row,
+   * a live membership for THIS human in THIS tenant, and a non-null `role_id` on that membership.
+   * A caller holding a pre-tenant receipt never reaches here — that path returns
+   * `onboarding-required` or `tenant-selection-required` and mints nothing.
+   *
+   * The fields are built as `TenantContextFields` so every one of them is still type-checked
+   * individually; `asHumanTenantContext` then applies the nominal human marker. Building the object
+   * as a `TenantContext` literal is no longer possible, and that is the point: the marker names a
+   * symbol no other module can reach, so no other module can forge this value.
+   */
+  const tenantContextFields: TenantContextFields = {
     tenantId,
     userId: row.userId,
     authIdentityId: row.authIdentityId,
@@ -1093,6 +1110,7 @@ function assembleAuthorized(input: AssembleInput): AuthenticationResult {
     correlationId: input.correlationId,
     authenticatedAt,
   };
+  const tenantContext: TenantContext = asHumanTenantContext(tenantContextFields);
 
   try {
     return createAuthorizedAuthenticationResult(

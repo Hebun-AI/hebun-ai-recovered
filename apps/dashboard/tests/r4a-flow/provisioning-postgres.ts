@@ -44,6 +44,7 @@ import { provisionMemberRole } from "../../src/features/tenant-role-baseline/pro
 import { authorizeMembership } from "../../src/features/membership-authority/authorize-membership.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 /**
  * A clock for the modules that take one. It is NOT an expiry decision anywhere in this file — the
  * ceremony reads no clock at all, and Genesis adjudicates on the database's `now()`. Pinning a
@@ -106,7 +107,7 @@ function contextFor(
   roleId: string,
   sessionContextId: string,
 ): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId: human.userId,
     authIdentityId: human.authIdentityId,
@@ -119,7 +120,7 @@ function contextFor(
     mfaVerified: false,
     requestId: "r4a-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function count(client: Client, table: string, where = "true", params: unknown[] = []) {

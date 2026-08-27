@@ -1,4 +1,7 @@
-export type { TenantContext } from "./tenant/tenant-context";
+export type {
+  TenantContext,
+  TenantContextFields,
+} from "./tenant/tenant-context";
 export * from "./types";
 export * from "./errors";
 export type {

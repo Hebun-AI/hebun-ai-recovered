@@ -27,6 +27,7 @@ import { KNOWLEDGE_AUTHOR_ROLE_TYPES } from "../../src/features/knowledge/knowle
 import type { DurableKnowledgeWriter } from "../../src/features/knowledge/durable-knowledge-writer.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const read = (path: string) => readFileSync(path, "utf8");
 
 const WRITER = "src/features/knowledge/durable-knowledge-writer.server.ts";
@@ -61,7 +62,7 @@ function walk(dir: string): string[] {
 }
 
 function tenant(overrides: Partial<TenantContext> = {}): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: "11111111-1111-4111-8111-111111111111",
     userId: "22222222-2222-4222-8222-222222222222",
     authIdentityId: "identity",
@@ -75,7 +76,7 @@ function tenant(overrides: Partial<TenantContext> = {}): TenantContext {
     requestId: "req",
     authenticatedAt: "2026-08-11T00:00:00.000Z",
     ...overrides,
-  };
+  });
 }
 
 const VALID = {

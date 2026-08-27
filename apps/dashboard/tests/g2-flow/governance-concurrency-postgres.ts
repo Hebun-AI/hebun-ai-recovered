@@ -25,6 +25,7 @@ import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { establishGovernanceAuthority } from "../../src/features/governance-decision/bootstrap-authority.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const REASON =
   "Establishing the first Governance authority for this tenant, as the accepted genesis human.";
 
@@ -194,7 +195,7 @@ async function main(): Promise<void> {
         `select id from user_session_contexts where user_id=$1 limit 1`,
         [alice.userId],
       );
-      const tenant: TenantContext = {
+      const tenant: TenantContext = asHumanTenantContext({
         tenantId: alice.tenantId,
         userId: alice.userId,
         authIdentityId: alice.authIdentityId,
@@ -207,7 +208,7 @@ async function main(): Promise<void> {
         mfaVerified: false,
         requestId: "g2-race",
         authenticatedAt: new Date().toISOString(),
-      };
+      });
 
       /*
        * On its own this is the weak test the header warns about — RACES 1 and 2 are the database

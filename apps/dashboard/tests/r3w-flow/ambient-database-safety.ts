@@ -36,6 +36,7 @@ import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persis
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 /** The name a fallback must never be able to select. Read, never connected to. */
 const CANONICAL_URL = "postgresql://postgres@127.0.0.1:55432/hebun_r1";
 
@@ -187,7 +188,7 @@ async function main(): Promise<void> {
         companySlug: "acme-r3w-ambient",
         email: "director@acme.test",
       });
-      const tenant: TenantContext = {
+      const tenant: TenantContext = asHumanTenantContext({
         tenantId: acme.tenantId,
         userId: acme.userId,
         authIdentityId: acme.authIdentityId,
@@ -200,7 +201,7 @@ async function main(): Promise<void> {
         mfaVerified: false,
         requestId: "r3w-ambient",
         authenticatedAt: new Date("2026-08-16T09:00:00.000Z").toISOString(),
-      };
+      });
 
       /* ── 3. THE OMISSION ITSELF. No `deps` argument at all. ───────────────── */
       const written = await createWorkArtifact(

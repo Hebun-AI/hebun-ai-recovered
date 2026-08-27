@@ -31,6 +31,7 @@ import {
 import type { ExternalReferenceLookup } from "../../src/features/knowledge/external-reference-read.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const ROOT = process.cwd();
 const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
 const CROSS_SOURCE_ROOT = "src/features/heby-commands/cross-source-commands.server.ts";
@@ -48,7 +49,7 @@ const SLASH = "/repository-knowledge";
 const REAL_ID = 1300480452;
 const OTHER_ID = 999000111;
 
-const TENANT: TenantContext = {
+const TENANT: TenantContext = asHumanTenantContext({
   tenantId: "10000000-0000-4000-8000-00000000ca01",
   userId: "20000000-0000-4000-8000-00000000ca01",
   authIdentityId: "identity",
@@ -61,7 +62,7 @@ const TENANT: TenantContext = {
   mfaVerified: false,
   requestId: "int-5c",
   authenticatedAt: "2026-08-26T09:00:00.000Z",
-};
+});
 
 function repository(id: number, fullName: string) {
   return {

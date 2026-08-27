@@ -33,6 +33,7 @@ import {
 } from "../../src/features/governance-decision/authority-delegation.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-11T21:00:00.000Z");
 const REASON = "Recording this Governance authority change with an explicit human reason.";
 
@@ -126,7 +127,7 @@ async function sessionRowFor(client: Client, seeded: Seeded, tag: string): Promi
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -139,7 +140,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "g3-race",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function main(): Promise<void> {

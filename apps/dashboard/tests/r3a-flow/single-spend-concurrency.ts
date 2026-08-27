@@ -29,6 +29,7 @@ import { revokeActionPermit } from "../../src/features/action-authorization/revo
 import type { HebyPreparedAction } from "../../src/features/heby-actions/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 /*
  * ── THE ISSUANCE CLOCK IS READ FROM THE DATABASE, NEVER FROM THE CALENDAR ────
  *
@@ -133,7 +134,7 @@ async function main(): Promise<void> {
       [acme.authIdentityId, "a".repeat(64), acme.userId, acme.tenantId, acme.membershipId],
     );
 
-    const ctx: TenantContext = {
+    const ctx: TenantContext = asHumanTenantContext({
       tenantId: acme.tenantId,
       userId: acme.userId,
       authIdentityId: acme.authIdentityId,
@@ -146,7 +147,7 @@ async function main(): Promise<void> {
       mfaVerified: false,
       requestId: "r3a-spend",
       authenticatedAt: NOW.toISOString(),
-    };
+    });
 
     await setup.query(
       `insert into genesis_nominations

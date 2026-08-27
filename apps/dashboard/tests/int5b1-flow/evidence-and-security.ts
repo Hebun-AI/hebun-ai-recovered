@@ -27,6 +27,7 @@ import {
   GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
 } from "../../src/features/provider-github/contracts";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const ROOT = process.cwd();
 const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
 const codeOf = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
@@ -34,7 +35,7 @@ const codeOf = (s: string): string => s.replace(/\/\*[\s\S]*?\*\//g, " ").replac
 const MODULE = "src/features/heby-commands/provider-read-commands.server.ts";
 const ACTION = "src/app/(dashboard)/heby/actions.ts";
 
-const TENANT: TenantContext = {
+const TENANT: TenantContext = asHumanTenantContext({
   tenantId: "11111111-1111-4111-8111-111111111111",
   userId: "22222222-2222-4222-8222-222222222222",
   authIdentityId: "33333333-3333-4333-8333-333333333333",
@@ -47,7 +48,7 @@ const TENANT: TenantContext = {
   mfaVerified: false,
   requestId: "req-1",
   authenticatedAt: "2026-08-25T00:00:00.000Z",
-};
+});
 
 async function renderWith(repositories: readonly unknown[]): Promise<string[]> {
   const result = await runHebyProviderReadCommand(

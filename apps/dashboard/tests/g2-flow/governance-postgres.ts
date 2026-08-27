@@ -30,6 +30,7 @@ import { resolveGovernanceAuthority } from "@/features/governance-decision/autho
 import { readGovernanceHistory } from "../../src/features/governance-audit/governance-decision-audit.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-11T17:00:00.000Z");
 const REASON = "Establishing the first Governance authority for this tenant, as the accepted genesis human.";
 
@@ -51,7 +52,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -64,7 +65,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "g2-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 /** A second ACTIVE member of an existing tenant, at a role band of our choosing. */

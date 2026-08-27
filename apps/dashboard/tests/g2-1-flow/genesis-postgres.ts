@@ -37,6 +37,7 @@ import {
 import { readGenesisNominationHistory } from "../../src/features/governance-audit/genesis-nomination-audit.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-11T16:00:00.000Z");
 
 interface Seeded {
@@ -53,7 +54,7 @@ interface Seeded {
  * production construction is `resolveTenantContext()` reading the durable session row.
  */
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -66,7 +67,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "g2-1-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 /** Add a SECOND active member to an existing tenant. The seed helper makes one tenant per person. */

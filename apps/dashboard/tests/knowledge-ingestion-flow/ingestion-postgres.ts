@@ -33,6 +33,7 @@ import {
 } from "../../src/features/knowledge/ingestion-contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-20T09:00:00.000Z");
 const DOMAIN = "finance";
 const SCOPE = "company-wide" as const;
@@ -53,7 +54,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -66,7 +67,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "knowledge-ingestion-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function addMember(

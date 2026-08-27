@@ -32,6 +32,7 @@ import { createDurableKnowledgeWriter } from "../../src/features/knowledge/durab
 import { createDurableKnowledgeRepository } from "../../src/features/knowledge/durable-knowledge-repository.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-11T20:00:00.000Z");
 const REASON = "Recording this Governance authority change with an explicit human reason.";
 
@@ -44,7 +45,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -57,7 +58,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "g3-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function addMember(

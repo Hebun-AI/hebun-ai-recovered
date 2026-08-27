@@ -38,6 +38,7 @@ import { acceptInvitation } from "../../src/features/human-onboarding/accept-inv
 import { INVITATION_REVOKED_ACTION } from "../../src/features/human-onboarding/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-14T12:00:00.000Z");
 const REASON = "The one-time capability was lost before use and must not remain spendable.";
 const DIGEST_KEY = { version: 1, secret: "invitation-revocation-test-secret-value" };
@@ -52,7 +53,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string, at: Date = NOW): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -65,7 +66,7 @@ function contextFor(seeded: Seeded, sessionContextId: string, at: Date = NOW): T
     mfaVerified: false,
     requestId: "revocation-request",
     authenticatedAt: at.toISOString(),
-  };
+  });
 }
 
 async function addMember(

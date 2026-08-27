@@ -31,6 +31,7 @@ import { digestSource, normalizeSourceText } from "../../src/features/knowledge/
 import { MAX_PDF_BYTES, MAX_PDF_PAGES } from "../../src/features/knowledge/file-ingestion-contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-21T09:00:00.000Z");
 const DOMAIN = "finance";
 const SCOPE = "company-wide" as const;
@@ -50,7 +51,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -63,7 +64,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "r4c2-pdf-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function addMember(

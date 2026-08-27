@@ -28,6 +28,7 @@ import { buildRetrievalEvidence } from "../../src/features/knowledge-retrieval";
 import { loadHebyConversation } from "../../src/features/heby-answer/load-conversation.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const TENANT_A = randomUUID();
 const TENANT_B = randomUUID();
 const NOW = new Date("2026-08-15T12:00:00.000Z");
@@ -47,7 +48,7 @@ const V4_STATEMENT = "Çalışanlar yılda 20 gün yıllık izin kullanabilir.";
  * isolation against a shape the real code never sees.
  */
 function tenantContext(tenantId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId: randomUUID(),
     authIdentityId: randomUUID(),
@@ -60,7 +61,7 @@ function tenantContext(tenantId: string): TenantContext {
     mfaVerified: false,
     requestId: `req-${tenantId}`,
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function main(): Promise<void> {

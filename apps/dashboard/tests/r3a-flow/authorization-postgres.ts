@@ -44,6 +44,7 @@ import { digestCanonicalAction } from "../../src/features/action-authorization/c
 import type { HebyPreparedAction } from "../../src/features/heby-actions/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 /*
  * ── THE ISSUANCE CLOCK IS READ FROM THE DATABASE, NEVER FROM THE CALENDAR ────
  *
@@ -103,7 +104,7 @@ async function sessionRowFor(client: Client, seeded: Seeded, tag: string): Promi
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -116,7 +117,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "r3a-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 /** A prepared CONSEQUENTIAL_MUTATION exactly as the Heby lifecycle would hand it over. */

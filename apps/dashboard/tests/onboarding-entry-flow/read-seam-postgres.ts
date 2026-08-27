@@ -30,6 +30,7 @@ import { decideIdentityEnrollment } from "../../src/features/identity-enrollment
 import { readPendingEnrollments } from "../../src/features/identity-enrollment/read-pending-enrollments.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-14T09:00:00.000Z");
 const REASON = "This organization deliberately admits one new member through onboarding.";
 const DIGEST_KEY = { version: 1, secret: "onboarding-entry-test-secret-value" };
@@ -43,7 +44,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -56,7 +57,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "onboarding-entry-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function addMember(

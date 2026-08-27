@@ -22,7 +22,10 @@ import { createControlPlaneDb } from "../../src/db/client.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
 import { MAX_AGENT_NAME_LENGTH } from "../../src/features/agent-identity/contracts";
 import { createCanonicalReadServices } from "../../src/features/canonical-read";
-import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
+import {
+  asHumanTenantContext,
+  type TenantContext,
+} from "../../src/features/auth/tenant/tenant-context";
 
 const TENANT_A = "10000000-0000-4000-8000-0000000a1d01";
 const TENANT_B = "10000000-0000-4000-8000-0000000a1d02";
@@ -32,7 +35,7 @@ const GHOST = "20000000-0000-4000-8000-00000000dead";
 const NOW = new Date("2026-08-27T09:00:00.000Z");
 
 function tenantContext(tenantId: string, userId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId,
     authIdentityId: "auth-identity",
@@ -45,7 +48,7 @@ function tenantContext(tenantId: string, userId: string): TenantContext {
     mfaVerified: false,
     requestId: "agent-id-0",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 /** Columns this authority must NEVER invent. Named individually so a regression names itself. */

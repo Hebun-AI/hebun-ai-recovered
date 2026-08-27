@@ -33,6 +33,7 @@ import { formatRecipientRef } from "../../src/features/external-recipients/recip
 import { digestRecipientEndpoint } from "../../src/features/external-recipients/endpoint-digest";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 interface Seeded {
   readonly tenantId: string;
   readonly userId: string;
@@ -42,7 +43,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -55,7 +56,7 @@ function contextFor(seeded: Seeded): TenantContext {
     mfaVerified: false,
     requestId: "r3r-test",
     authenticatedAt: new Date().toISOString(),
-  };
+  });
 }
 
 async function main(): Promise<void> {

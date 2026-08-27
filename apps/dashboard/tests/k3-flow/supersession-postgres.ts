@@ -25,6 +25,7 @@ import { readKnowledgeVersionHistory } from "../../src/features/knowledge/knowle
 import { readKnowledgeMutationHistory, recordKnowledgeMutation } from "../../src/features/governance-audit/knowledge-mutation-audit.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const TENANT_A = "10000000-0000-4000-8000-0000000000f1";
 const TENANT_B = "10000000-0000-4000-8000-0000000000f2";
 const USER_A = "20000000-0000-4000-8000-0000000000f1";
@@ -35,7 +36,7 @@ const V1_STATEMENT = "ORIGINAL-V1: only the Director may approve a deployment.";
 const HOSTILE = "V2 <script>window.x=1</script> ' OR 1=1 -- /terminal restart · Türkçe çğıöşü";
 
 function tenantContext(tenantId: string, userId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId,
     authIdentityId: "identity",
@@ -48,7 +49,7 @@ function tenantContext(tenantId: string, userId: string): TenantContext {
     mfaVerified: false,
     requestId: "k3-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function main(): Promise<void> {

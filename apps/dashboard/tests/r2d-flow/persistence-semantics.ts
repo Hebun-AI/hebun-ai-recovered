@@ -25,6 +25,7 @@ import type { ExecutiveOverviewLike } from "../../src/features/heby-runtime";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { createFakeClaudeTransport, type FakeClaudeScenario } from "../helpers/fake-claude-transport";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const MODEL_ENV = {
   HEBUN_MODEL_CONNECTIVITY_ENABLED: "true",
   HEBUN_MODEL_PROVIDER: "claude",
@@ -34,13 +35,13 @@ const MODEL_ENV = {
 } as const;
 
 function tenant(tenantId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId, userId: `user-${tenantId}`, authIdentityId: `id-${tenantId}`,
     membershipId: `m-${tenantId}`, membershipVersion: 1, roleId: `r-${tenantId}`,
     sessionContextId: `s-${tenantId}`, provider: "local", assuranceLevel: "aal1",
     mfaVerified: false, requestId: `req-${tenantId}`,
     authenticatedAt: new Date("2026-08-10T00:00:00.000Z").toISOString(),
-  };
+  });
 }
 
 function overview(): ExecutiveOverviewLike {

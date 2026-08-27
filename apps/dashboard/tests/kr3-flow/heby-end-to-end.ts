@@ -29,6 +29,7 @@ import {
 } from "../../src/features/heby-answer/knowledge-evidence.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-20T09:00:00.000Z");
 const SCOPE = "company-wide" as const;
 
@@ -85,7 +86,7 @@ async function main(): Promise<void> {
       email: "director@kr3.example",
       roleType: "director",
     });
-    const tenant: TenantContext = {
+    const tenant: TenantContext = asHumanTenantContext({
       tenantId: seeded.tenantId,
       userId: seeded.userId,
       authIdentityId: seeded.authIdentityId,
@@ -98,7 +99,7 @@ async function main(): Promise<void> {
       mfaVerified: false,
       requestId: "kr3-retrieval-request",
       authenticatedAt: NOW.toISOString(),
-    };
+    });
 
     const repo = createDurableKnowledgeRepository(handle.db);
     const deps = { getRepo: () => repo, now: () => NOW };

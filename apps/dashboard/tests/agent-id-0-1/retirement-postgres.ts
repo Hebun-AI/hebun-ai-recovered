@@ -26,7 +26,10 @@ import { createControlPlaneDb } from "../../src/db/client.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
 import { retireDurableAgentIdentity } from "../../src/features/agent-identity/retire-durable-agent-identity.server";
 import { readDurableAgentIdentityState } from "../../src/features/agent-identity/read-durable-agent-identity.server";
-import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
+import {
+  asHumanTenantContext,
+  type TenantContext,
+} from "../../src/features/auth/tenant/tenant-context";
 
 const TENANT_A = "10000000-0000-4000-8000-0000000a1d11";
 const TENANT_B = "10000000-0000-4000-8000-0000000a1d12";
@@ -38,7 +41,7 @@ const CREATED_AT = new Date("2026-08-27T09:00:00.000Z");
 const RETIRED_AT = new Date("2026-08-27T11:30:00.000Z");
 
 function tenantContext(tenantId: string, userId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId,
     authIdentityId: "auth-identity",
@@ -51,7 +54,7 @@ function tenantContext(tenantId: string, userId: string): TenantContext {
     mfaVerified: false,
     requestId: "agent-id-0-1",
     authenticatedAt: CREATED_AT.toISOString(),
-  };
+  });
 }
 
 /**

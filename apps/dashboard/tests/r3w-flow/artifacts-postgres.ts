@@ -36,6 +36,7 @@ import {
 import { digestCanonicalAction } from "../../src/features/action-authorization/canonical-payload";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-16T09:00:00.000Z");
 const OWNER_WORKSPACE = "operations";
 
@@ -48,7 +49,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -61,7 +62,7 @@ function contextFor(seeded: Seeded): TenantContext {
     mfaVerified: false,
     requestId: "r3w-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 /*

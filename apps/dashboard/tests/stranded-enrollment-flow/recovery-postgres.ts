@@ -40,6 +40,7 @@ import { generateContinuationReference } from "../../src/features/identity-enrol
 import { ENROLLMENT_CONTINUATION_TTL_SECONDS } from "../../src/features/identity-enrollment/continuation-cookie";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-14T18:00:00.000Z");
 const REASON = "The bearer lost the browser that started this ceremony and must begin again.";
 const DIGEST_KEY = { version: 1, secret: "stranded-enrollment-recovery-test-secret" };
@@ -55,7 +56,7 @@ interface Seeded {
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -68,7 +69,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "stranded-recovery-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function addMember(

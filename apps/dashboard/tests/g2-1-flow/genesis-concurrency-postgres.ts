@@ -28,6 +28,7 @@ import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { acceptGenesisNomination } from "../../src/features/governance-genesis/genesis-acceptance.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const INSERT_NOMINATION = `insert into genesis_nominations
    (tenant_id, nominated_auth_identity_id, nominated_user_id, status, nomination_source)
  values ($1, $2, $3, 'pending', 'local-operator-ceremony')`;
@@ -200,7 +201,7 @@ async function main(): Promise<void> {
         `select id from user_session_contexts where user_id = $1 limit 1`,
         [alice.userId],
       );
-      const tenant: TenantContext = {
+      const tenant: TenantContext = asHumanTenantContext({
         tenantId: alice.tenantId,
         userId: alice.userId,
         authIdentityId: alice.authIdentityId,
@@ -213,7 +214,7 @@ async function main(): Promise<void> {
         mfaVerified: false,
         requestId: "g2-1-race",
         authenticatedAt: new Date().toISOString(),
-      };
+      });
 
       /*
        * Four parallel calls. On its own this is the weak test the header warns about — the DATABASE

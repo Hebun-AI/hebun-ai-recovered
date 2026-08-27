@@ -35,6 +35,7 @@ import { hashPassword } from "../../src/features/auth-runtime/password-hash.serv
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import type { AuthenticationDigestKey } from "../../src/features/auth/environment/auth-environment.server";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const NOW = new Date("2026-08-12T16:00:00.000Z");
 const REASON = "Admitting this person is a deliberate organizational decision with a stated reason.";
 const KEY: AuthenticationDigestKey = Object.freeze({ version: 1, secret: "i2-concurrency-secret" });
@@ -85,12 +86,12 @@ async function main(): Promise<void> {
                now() + interval '1 day', now() + interval '1 hour') returning id`,
       [A.authIdentityId, "a".repeat(64), A.userId, A.tenantId, A.membershipId],
     );
-    const ctx: TenantContext = {
+    const ctx: TenantContext = asHumanTenantContext({
       tenantId: A.tenantId, userId: A.userId, authIdentityId: A.authIdentityId,
       membershipId: A.membershipId, membershipVersion: 1, roleId: A.roleId,
       sessionContextId: session.rows[0]!.id, provider: "local", assuranceLevel: "aal1",
       mfaVerified: false, requestId: "i2-concurrency", authenticatedAt: NOW.toISOString(),
-    };
+    });
 
     await setup.query(
       `insert into genesis_nominations

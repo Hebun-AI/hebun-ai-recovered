@@ -7,6 +7,7 @@ import type {
   TenantContext,
 } from "../../src/features/auth";
 import {
+  asHumanTenantContext,
   createAuthorizedAuthenticationResult,
   type SupabaseAuthenticationProvider,
 } from "../../src/features/auth/server";
@@ -48,7 +49,7 @@ const applicationSession: ApplicationSessionAuthority = Object.freeze({
   inactivityExpiresAt: "2026-07-19T13:00:00.000Z",
 });
 
-const tenantContext: TenantContext = Object.freeze({
+const tenantContext: TenantContext = Object.freeze(asHumanTenantContext({
   tenantId: applicationSession.activeTenantId,
   userId: canonicalIdentity.userId,
   authIdentityId: canonicalIdentity.authIdentityId,
@@ -62,7 +63,7 @@ const tenantContext: TenantContext = Object.freeze({
   requestId: "request-id",
   permissionSummary: Object.freeze(["dashboard.read"]),
   authenticatedAt: providerAuthentication.authenticatedAt,
-});
+}));
 
 const result: AuthenticationResult = createAuthorizedAuthenticationResult(
   {

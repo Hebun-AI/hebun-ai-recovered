@@ -33,6 +33,7 @@ import { readActionPermits } from "../../src/features/action-authorization/read-
 import type { ExternalSendAdapter, ProviderOutcome, SendExternalMessageInput } from "../../src/features/action-execution/adapter-contract";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const JUSTIFICATION =
   "This external message is a deliberate organizational act and I accept responsibility for it.";
 
@@ -95,7 +96,7 @@ async function sessionRowFor(client: Client, seeded: Seeded, tag: string): Promi
 }
 
 function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId: seeded.tenantId,
     userId: seeded.userId,
     authIdentityId: seeded.authIdentityId,
@@ -108,7 +109,7 @@ function contextFor(seeded: Seeded, sessionContextId: string): TenantContext {
     mfaVerified: false,
     requestId: "r3b-request",
     authenticatedAt: new Date().toISOString(),
-  };
+  });
 }
 
 async function main(): Promise<void> {

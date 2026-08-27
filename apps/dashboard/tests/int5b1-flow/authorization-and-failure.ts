@@ -24,7 +24,8 @@ import {
 } from "../../src/features/heby-commands/provider-read-commands.server";
 import { MAX_REPOSITORIES_PER_PAGE } from "../../src/features/provider-github/contracts";
 
-const TENANT: TenantContext = {
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
+const TENANT: TenantContext = asHumanTenantContext({
   tenantId: "11111111-1111-4111-8111-111111111111",
   userId: "22222222-2222-4222-8222-222222222222",
   authIdentityId: "33333333-3333-4333-8333-333333333333",
@@ -37,7 +38,7 @@ const TENANT: TenantContext = {
   mfaVerified: false,
   requestId: "req-1",
   authenticatedAt: "2026-08-25T00:00:00.000Z",
-};
+});
 
 function repository(id: number, fullName: string) {
   return Object.freeze({

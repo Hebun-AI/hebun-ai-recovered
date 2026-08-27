@@ -31,6 +31,7 @@ import {
 import { renderExternalReference } from "../../src/features/knowledge/external-reference-contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const TENANT_A = "10000000-0000-4000-8000-00000000ea01";
 const TENANT_B = "10000000-0000-4000-8000-00000000eb01";
 const USER_A = "20000000-0000-4000-8000-00000000ea01";
@@ -46,7 +47,7 @@ const GITHUB_REPOSITORY = Object.freeze({
 });
 
 function tenantContext(tenantId: string, userId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId,
     authIdentityId: "identity",
@@ -59,7 +60,7 @@ function tenantContext(tenantId: string, userId: string): TenantContext {
     mfaVerified: false,
     requestId: "kr-ext1",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function main(): Promise<void> {

@@ -29,6 +29,7 @@ import {
 } from "../../src/features/governance-audit/knowledge-mutation-audit.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const TENANT_A = "10000000-0000-4000-8000-0000000000e1";
 const TENANT_B = "10000000-0000-4000-8000-0000000000e2";
 const USER_A = "20000000-0000-4000-8000-0000000000e1";
@@ -40,7 +41,7 @@ const SECRET_STATEMENT =
   "CONTENT-MUST-NOT-BE-DUPLICATED-INTO-AUDIT: the provider key rotation runbook.";
 
 function tenantContext(tenantId: string, userId: string): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId,
     authIdentityId: "identity",
@@ -53,7 +54,7 @@ function tenantContext(tenantId: string, userId: string): TenantContext {
     mfaVerified: false,
     requestId: "g1-request",
     authenticatedAt: NOW.toISOString(),
-  };
+  });
 }
 
 async function main(): Promise<void> {

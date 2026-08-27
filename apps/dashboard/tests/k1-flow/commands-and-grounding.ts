@@ -32,6 +32,7 @@ import type { ExecutiveOverviewLike, ModelGenerationRequest } from "../../src/fe
 import type { HebyModelOutcome } from "../../src/features/heby-model";
 import { noRetrieval, retrievalOver } from "../helpers/knowledge-repo-fake";
 
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const CONTEXT: HebyCommandContext = {
   surface: "full-workspace",
   contextLabel: "Knowledge",
@@ -41,7 +42,7 @@ const CONTEXT: HebyCommandContext = {
 };
 
 function tenant(tenantId = "11111111-1111-4111-8111-111111111111"): TenantContext {
-  return {
+  return asHumanTenantContext({
     tenantId,
     userId: "22222222-2222-4222-8222-222222222222",
     authIdentityId: "identity",
@@ -54,7 +55,7 @@ function tenant(tenantId = "11111111-1111-4111-8111-111111111111"): TenantContex
     mfaVerified: false,
     requestId: "req",
     authenticatedAt: "2026-08-11T00:00:00.000Z",
-  };
+  });
 }
 
 function record(overrides: Partial<KnowledgeSourceRecord> = {}): KnowledgeSourceRecord {
