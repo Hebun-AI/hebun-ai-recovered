@@ -185,7 +185,17 @@ async function main(): Promise<void> {
     /* NO `sub` — there is nothing a connection could be bound to. */
     const anonymous = recorder(() => jsonResponse(200, { email: "person@example.com" }));
     const missing = await fetchGoogleIdentity("t", { fetchImpl: anonymous.fetchImpl });
-    assert.ok(!missing.ok && missing.failure === "identity");
+    /*
+     * Asserted STRUCTURALLY, against the product reason code. A bare `assert.ok` here would carry
+     * no message, and Node would then echo this very expression as the failure text — so a proof
+     * watching for the word "identity" would be reading the test back to itself rather than reading
+     * the product. The reason code is what a caller acts on, so the reason code is what is pinned.
+     */
+    assert.deepEqual(
+      missing.ok ? { ok: true } : { failure: missing.failure, reason: missing.reason },
+      { failure: "identity", reason: "google-response-missing-subject" },
+      "a response with no `sub` is refused as an identity fault naming the missing subject",
+    );
   }
 
   /* ── 6. NO SECRET APPEARS IN ANY RETURNED VALUE ──────────────────────────── */

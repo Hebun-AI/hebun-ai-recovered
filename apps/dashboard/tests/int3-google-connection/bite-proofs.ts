@@ -126,7 +126,7 @@ const MUTATIONS: readonly Mutation[] = [
     suite: TRANSPORT_SUITE,
     find: '  if (!subject) return fail("identity", "google-response-missing-subject");',
     replace: "  /* mutated: a connection may be bound to nothing */",
-    expect: "identity",
+    expect: "google-response-missing-subject",
   },
   /* ── WHAT `connected` COSTS ─────────────────────────────────────────────── */
   {
