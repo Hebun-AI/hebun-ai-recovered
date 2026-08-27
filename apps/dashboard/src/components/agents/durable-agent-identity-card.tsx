@@ -50,6 +50,7 @@ import {
 import {
   AGENT_CAPABILITY_LADDER,
   GENESIS_DISCLOSURE,
+  genesisCountDisclosure,
   PERSISTED_IDENTITY_FIELDS,
   RETIREMENT_AUTHORITY_SUMMARY,
   WITHHELD_IDENTITY_FIELDS,
@@ -377,10 +378,21 @@ export function DurableAgentIdentityCard({
                   </div>
                 </div>
 
+                {/*
+                  * THE CONSEQUENCE LIST. Eight sentences, and each one is a fact the human cannot
+                  * discover after the fact: the count it moves, what becomes readable, and the four
+                  * ways this door does not reopen. The first is MEASURED from the read seam rather
+                  * than asserted, so the surface cannot keep claiming zero once that stops being so.
+                  */}
                 <ul className="flex list-disc flex-col gap-1 pl-4 text-xs leading-5 text-fg-secondary">
+                  <li>{genesisCountDisclosure(identities.length)}</li>
                   <li>{GENESIS_DISCLOSURE.genesisIsOneShot}</li>
+                  <li>{GENESIS_DISCLOSURE.canonicalReadBack}</li>
                   <li>{GENESIS_DISCLOSURE.retirementIsNotDeletion}</li>
                   <li>{GENESIS_DISCLOSURE.retirementDoesNotReopen}</li>
+                  <li>{GENESIS_DISCLOSURE.retirementIsTerminal}</li>
+                  <li>{GENESIS_DISCLOSURE.noSuccession}</li>
+                  <li>{GENESIS_DISCLOSURE.noRenameOrReplacement}</li>
                 </ul>
 
                 <div className="flex flex-wrap gap-2">

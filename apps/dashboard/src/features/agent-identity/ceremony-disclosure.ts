@@ -97,7 +97,40 @@ export const GENESIS_DISCLOSURE = {
     "No successor is created and no replacement is recorded. Succession is a separate decision that has not been authorized.",
   retirementIsTerminal:
     "There is no reinstatement. Nothing in Hebun returns a retired identity to service.",
+  /*
+   * WHAT THE CEREMONY MAKES READABLE, AND NOTHING MORE.
+   *
+   * `canonical-read/actor-resolution.ts` selects on `id` and `tenant_id` alone — no lifecycle
+   * filter and no soft-delete filter — so a row this authority writes with a NULL
+   * `agent_lifecycle_status` resolves there immediately. That is a claim about a READ, not about a
+   * capability: resolving as an actor is not authenticating, not being authorized, and not running.
+   */
+  canonicalReadBack:
+    "The new identity will be readable through Hebun's canonical agent identity and actor read path, and will be listed on this page. Being readable is not being able to act.",
+  /*
+   * THE NAME IS PERMANENT BECAUSE NO AUTHORITY EXISTS TO CHANGE IT — not because a rule forbids it.
+   * `features/agent-identity` exports no rename, no update and no replacement, and `agents` gains
+   * no successor pointer at creation. A typo survives retirement, because retirement does not
+   * reopen the ceremony that would let it be typed again.
+   */
+  noRenameOrReplacement:
+    "No rename authority and no replacement authority exists in the released system. The name you type is the name this identity keeps, and a mistake cannot be corrected by retiring it and starting over.",
 } as const;
+
+/**
+ * THE COUNT, BEFORE AND AFTER, IN THE WORDS THE SURFACE USES.
+ *
+ * A function rather than a constant because the number is a MEASUREMENT, not a slogan: the surface
+ * passes what the read seam actually returned for this tenant. Hard-coding "0" would state a fact
+ * this module is in no position to know, and would keep on stating it if it ever stopped being true.
+ */
+export function genesisCountDisclosure(currentCount: number): string {
+  const identities = (count: number): string => (count === 1 ? "identity" : "identities");
+  return (
+    `Your organization currently holds ${currentCount} durable agent ${identities(currentCount)}. ` +
+    `After this ceremony succeeds, it will hold ${currentCount + 1}.`
+  );
+}
 
 /** Who may retire, in the words the surface uses. Ownership is the authority, not a role. */
 export const RETIREMENT_AUTHORITY_SUMMARY =
