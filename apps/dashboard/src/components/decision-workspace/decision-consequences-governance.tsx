@@ -47,9 +47,18 @@ export function DecisionConsequencesAndGovernance() {
               </li>
             ))}
           </ul>
+          {/*
+            * APP-2. This said "No decision item is connected, so no stated consequences are shown".
+            * A decision item IS connected, and its real consequences render above under Actions
+            * Awaiting Authorization — required before confirmation, and never collapsed.
+            *
+            * It DEFERS rather than duplicating. A second list here would be a second authoritative-
+            * looking source for one decision fact, and the two could drift; the consequences a human
+            * acts on must be the ones attached to the request being authorized.
+            */}
           <DecisionEmptyState
-            title="No consequences to display"
-            detail="No decision item is connected, so no stated consequences are shown, and none is manufactured. Business impact is never fabricated."
+            title="Consequences appear on the action being authorized"
+            detail="A connected request states its own consequences, and they are shown with it above, before any confirmation — not here. This region states the contract rule that consequences must be stated before a human confirms; it holds no second copy, because one decision fact must have one source. Nothing is manufactured, and business impact is never fabricated."
             tone="calm"
             compact
           />

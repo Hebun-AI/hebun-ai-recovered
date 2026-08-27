@@ -24,9 +24,20 @@ export function DecisionEvidenceAndAdvisory() {
           title="Evidence & Provenance"
           action={<StructuralMarker label="None connected" />}
         >
+          {/*
+            * APP-2. This said "No decision item is connected, so no evidence is shown" while a
+            * connected request durably stored two evidence references the whole time. The claim was
+            * false, and the fix was not to reword it: the evidence was already in the row and the
+            * read simply discarded it. It is now projected and rendered WITH the request it belongs
+            * to, so provenance sits beside the thing being authorized rather than in a panel that
+            * cannot see it.
+            *
+            * NOTHING IS MANUFACTURED HERE. This region holds no evidence store and creates none —
+            * it explains what evidence is and points at where the live entries appear.
+            */}
           <DecisionEmptyState
-            title="No evidence is attached to a decision"
-            detail="Evidence is grounded information — with its source and provenance — that supports a decision. No decision item is connected, so no evidence is shown, and none is invented. When present, each item would carry its source identity and attribution; absent evidence would remain visible, never silently filled."
+            title="Evidence appears on the action being authorized"
+            detail="Evidence is grounded information — with its source and provenance — that supports a decision. A connected request carries the evidence its proposal recorded, and it is shown with that request above, each entry keeping its source class, its reference and its lifecycle. Nothing is resolved, enriched or invented, and a request that recorded no evidence says so rather than appearing to have none read. What has no source HERE is a standalone evidence instance independent of a request."
             compact
           />
           <Link

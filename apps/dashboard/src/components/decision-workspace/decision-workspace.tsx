@@ -38,6 +38,15 @@ import { DecisionHandoffAndBoundary } from "./decision-handoff-boundary";
  * model call and NO EXECUTION BEHAVIOUR: authorizing issues a permit, it does not act.
  * Ambient Heby is provided by the shell.
  *
+ * APP-2 — THREE MORE DID NOT SURVIVE IT EITHER. "Every OTHER region is unchanged" was written about
+ * SOURCES and stayed true of them, but three regions had been making claims about the LIVE PAGE:
+ * Evidence & Provenance said no evidence was attached while the connected request durably stored
+ * two references; Consequences said no connected item stated any while real ones rendered above it;
+ * and Execution Handoff said this surface starts nothing while R3B's `Execute now` control sits on
+ * it. Each is repaired at its source — the evidence is now PROJECTED rather than reworded — and the
+ * structural regions defer to the live item instead of denying it. The order mattered: truth first,
+ * then the disclosure layering below, because reordering a false statement leaves it false.
+ *
  * APP-0 — ONE REGION DID NOT SURVIVE THAT SENTENCE. "Every OTHER region is unchanged" was written
  * about SOURCES, and it held for briefing, evidence, recommendation, consequence and history. It
  * did not hold for the DECISION ACT: R3A is the act, so a region below still saying "Decision
@@ -62,23 +71,55 @@ export function DecisionWorkspace({
 
       {actionAuthorizations}
 
-      {/* Pending decisions + contextual inspector */}
-      <div className="grid min-w-0 gap-4 lg:grid-cols-3">
-        <div className="min-w-0 lg:col-span-2">
-          <PendingDecisions kinds={model.preparationKinds} />
+      {/*
+       * ── APP-2: WHAT IS COLLAPSED, AND WHY COLLAPSING IS NOT HIDING ──────────────────────────
+       *
+       * Everything below this line is STRUCTURAL. Not one component here accepts an input through
+       * which the live request could reach it: six take no props at all and three take compile-time
+       * vocabulary. They cannot describe the item being authorized, so they cannot belong to the
+       * primary decision task — and while they sat expanded above the fold, the act competed with
+       * an explanation of the act.
+       *
+       * THE SUMMARY CARRIES THE ABSENCE. Each disclosure states, while closed, exactly which
+       * subsystems are not connected. A reader who never opens one still learns that no standalone
+       * evidence instance, no recommendation producer and no chronological history read exists.
+       * Collapsing truth is allowed here; erasing it is not, and a summary that said only
+       * "More detail" would be erasure with extra steps.
+       *
+       * `open` is deliberately absent — these start closed. The one thing that must never be behind
+       * a disclosure is the decision itself, and it is not: it renders above, in full.
+       */}
+      <details className="min-w-0 rounded-xl border border-border bg-surface">
+        <summary className="cursor-pointer px-4 py-3">
+          <span className="text-sm font-medium text-fg">How authority works, and what is not connected</span>
+          <span className="mt-1 block text-xs leading-5 text-fg-muted">
+            Structural contract vocabulary — none of it describes the request above. Not connected:
+            prepared review material, standalone evidence instances, recommendation producer,
+            chronological decision history, Operations handoff. The Decision Inspector has no
+            selectable item. Nothing here decides, executes, or carries authority.
+          </span>
+        </summary>
+
+        <div className="flex flex-col gap-4 border-t border-border p-4">
+          {/* Pending decisions + contextual inspector */}
+          <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+            <div className="min-w-0 lg:col-span-2">
+              <PendingDecisions kinds={model.preparationKinds} />
+            </div>
+            <div className="min-w-0">
+              <DecisionInspector lenses={model.inspectorLenses} />
+            </div>
+          </div>
+
+          <AuthorityChain steps={model.authorityChain} />
+
+          <DecisionEvidenceAndAdvisory />
+          <DecisionConsequencesAndGovernance />
+          <DecisionHistory />
+
+          <DecisionHandoffAndBoundary />
         </div>
-        <div className="min-w-0">
-          <DecisionInspector lenses={model.inspectorLenses} />
-        </div>
-      </div>
-
-      <AuthorityChain steps={model.authorityChain} />
-
-      <DecisionEvidenceAndAdvisory />
-      <DecisionConsequencesAndGovernance />
-      <DecisionHistory />
-
-      <DecisionHandoffAndBoundary />
+      </details>
     </div>
   );
 }

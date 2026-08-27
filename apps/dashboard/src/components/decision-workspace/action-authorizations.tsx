@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Lock } from "lucide-react";
 import { DecisionRegion, DecisionEmptyState, StructuralMarker } from "./decision-region";
 import {
   approveActionRequestAction,
@@ -98,12 +99,28 @@ function RequestCard({ item }: { item: PendingActionRequestView }) {
         >
           {item.reversibility}
         </span>
+        {/*
+         * WHO PROPOSED THIS. A1a made the stored column truthful and nothing read it, so until now a
+         * human authorized an irreversible action without being shown who originated it. Today this
+         * always says "human"; the badge exists so that the first agent-originated proposal is
+         * VISIBLY different rather than indistinguishable from a person's.
+         */}
+        <span
+          className={`rounded-full px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider ${
+            item.proposedByActorType === "human"
+              ? "border border-border bg-surface text-fg-secondary"
+              : "border border-warning/40 bg-warning/10 text-warning"
+          }`}
+        >
+          proposed by {item.proposedByActorType}
+        </span>
       </div>
 
       <p className="text-sm leading-6 text-fg-primary">{item.expectedEffect}</p>
 
       <div className="flex flex-col gap-1">
         <Field label="Tool" value={item.toolId} />
+        <Field label="Side effect" value={item.sideEffect} />
         <Field
           label="Target"
           value={
@@ -115,6 +132,73 @@ function RequestCard({ item }: { item: PendingActionRequestView }) {
         {item.parameters.map((p) => (
           <Field key={p.name} label={p.name} value={p.value} />
         ))}
+      </div>
+
+      {/*
+       * WHAT IS FROZEN, SAID AS WHAT IT MEANS.
+       *
+       * These were rendered as raw hex beside the references they bind, where a digest reads as a
+       * peer field rather than an integrity value. A human authorizes "this exact revision", not a
+       * hash. The raw values stay available one disclosure away — they are integrity evidence, not
+       * secrets, and an operator checking a binding by hand must still be able to.
+       *
+       * PRESENTATION ONLY. The permit binds `payloadDigest`, computed server-side over the whole
+       * payload; how this card renders an ingredient of that payload cannot loosen it.
+       */}
+      {item.locks.length > 0 ? (
+        <div className="flex flex-col gap-1 rounded-md border border-border bg-surface p-2">
+          {item.locks.map((lock) => (
+            <div key={lock.name} className="flex items-center gap-1.5">
+              <Lock className="size-3 shrink-0 text-fg-muted" aria-hidden />
+              <span className="text-[0.7rem] text-fg-secondary">{lock.label}</span>
+            </div>
+          ))}
+          <details className="mt-0.5">
+            <summary className="cursor-pointer text-[0.65rem] text-fg-muted">
+              Show the integrity values
+            </summary>
+            <div className="mt-1 flex flex-col gap-1">
+              {item.locks.map((lock) => (
+                <Field key={lock.name} label={lock.name} value={lock.value} />
+              ))}
+              <Field label="payloadDigest" value={item.payloadDigest} />
+              <p className="text-[0.65rem] leading-5 text-fg-muted">
+                Authorization binds <span className="font-mono">payloadDigest</span>, computed over
+                the whole proposal. The values above are what it was computed from.
+              </p>
+            </div>
+          </details>
+        </div>
+      ) : null}
+
+      {/*
+       * THE EVIDENCE THE PROPOSAL RECORDED. Projected, never resolved: each reference is carried
+       * exactly as it was stored, and this surface follows none of them. Absent evidence and
+       * unreadable evidence are said differently, because they are different facts.
+       */}
+      <div className="flex flex-col gap-1">
+        <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
+          Evidence & provenance
+        </p>
+        {item.evidence.status === "attached" ? (
+          <ul className="flex flex-col gap-0.5">
+            {item.evidence.items.map((e) => (
+              <li key={`${e.sourceClass}:${e.recordRef}`} className="text-xs text-fg-secondary">
+                <span className="text-fg-muted">{e.sourceClass}</span>{" "}
+                <span className="break-all font-mono text-[0.7rem]">{e.recordRef}</span>{" "}
+                <span className="text-fg-muted">· {e.lifecycle}</span>
+              </li>
+            ))}
+          </ul>
+        ) : item.evidence.status === "none" ? (
+          <p className="text-xs text-fg-muted">
+            This proposal recorded no evidence. That is the stored state, not a failed read.
+          </p>
+        ) : (
+          <p className="text-xs text-warning">
+            The stored evidence could not be interpreted, so it is unknown rather than absent.
+          </p>
+        )}
       </div>
 
       {/* Consequences before confirmation — never after, never collapsed. */}

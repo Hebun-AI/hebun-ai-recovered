@@ -62,14 +62,29 @@ const LINKS: readonly BoundaryLink[] = [
 export function DecisionHandoffAndBoundary() {
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      {/*
+        * The marker read "No trigger here", false in the same way the body was: a permit-bound
+        * trigger exists above. It now names what is genuinely absent — the handoff to Operations.
+        */}
       <DecisionRegion
         eyebrow="What happens after a decision"
         title="Execution Handoff"
-        action={<StructuralMarker label="No trigger here" />}
+        action={<StructuralMarker label="No Operations handoff" />}
       >
+        {/*
+          * APP-2. This said "No handoff is connected and this surface starts nothing" — while R3B
+          * put an `Execute now` control on this very page, behind an active permit. The denial was
+          * the most dangerous of the three repaired here, because it disclaimed an irreversible
+          * affordance the surface actually holds.
+          *
+          * The SEMANTICS are unchanged and are restated exactly: preparing is not proposing,
+          * authorizing is not executing, execution is a separate deliberate act, spending a permit
+          * is not success, and a provider accepting is not delivery. APP-2 corrected a sentence; it
+          * activated nothing and changed no availability.
+          */}
         <DecisionEmptyState
-          title="A decision is not execution"
-          detail="After a human decision, an authorized outcome may become eligible for Operations. No handoff is connected and this surface starts nothing — the boundary between deciding and executing is deliberate. Operations runs the authorized work; a decision only makes it eligible."
+          title="A decision is not execution — and this surface can execute, separately"
+          detail="Authorizing issues a bounded, revocable, single-spend permit. It does not execute. While such a permit is live, an explicit `Execute now` control appears with it above — a second, separate human act, never automatic and never a consequence of authorizing. Spending a permit is not success: the strongest claim available is that a provider accepted the operation, shown only beside that provider's own message id. No worker runs here, nothing is queued, and an authorization nobody spends simply expires. What is still not connected is a handoff INTO Operations: Hebun records the outcome, it does not hand the work onward."
         />
       </DecisionRegion>
 

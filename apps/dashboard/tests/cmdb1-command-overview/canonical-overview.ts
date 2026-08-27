@@ -105,6 +105,9 @@ const SEAM_ROW: PendingActionRequestView = Object.freeze({
   expectedEffect: "Send one message to one recipient.",
   consequences: ["The recipient receives a message."],
   parameters: [{ name: "subject", value: "A message from Hebun" }],
+  locks: [{ name: "draftRevisionDigest", label: "Draft revision locked", value: "d1" }],
+  evidence: { status: "attached" as const, items: [{ sourceClass: "work-artifacts", recordRef: "work-artifact/a@1", lifecycle: "settled" }] },
+  proposedByActorType: "human",
   payloadDigest: "digest",
   proposedAt: "2026-08-21T09:00:00.000Z",
 });

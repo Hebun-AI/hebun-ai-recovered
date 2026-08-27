@@ -250,16 +250,37 @@ async function main(): Promise<void> {
     assert.ok(seen, "the exact filed request appears on the review surface");
 
     /*
-     * THE DIRECTOR CAN SEE THE FROZEN PAYLOAD, digests included. `parameters` is derived from the
-     * canonical payload and sorted, so all four scalars are inspectable — a human is not asked to
-     * approve a binding they cannot read.
+     * THE DIRECTOR CAN SEE THE FROZEN PAYLOAD, digests included. All four scalars are inspectable —
+     * a human is not asked to approve a binding they cannot read.
+     *
+     * APP-2 REPAIRED THIS PIN RATHER THAN WEAKENING IT. It used to require all four to appear in
+     * `parameters`, because that is where all four were rendered. APP-2 splits the payload: the two
+     * decision facts stay parameters, and the two integrity values become `locks`, shown as what
+     * they mean with the raw value one disclosure away. The SHAPE moved; the guarantee did not, so
+     * the pin now asserts the guarantee directly — nothing from the canonical payload is dropped —
+     * and additionally pins WHICH half each key lands in. That is strictly stronger than what it
+     * replaced: the old form would have passed a build that silently discarded a lock.
      */
     const names = seen!.parameters.map((p) => p.name);
+    const lockNames = seen!.locks.map((l) => l.name);
     assert.deepEqual(
-      [...names].sort(),
+      [...names, ...lockNames].sort(),
       ["draftRef", "draftRevisionDigest", "recipientEndpointDigest", "recipientRef"],
-      "all four bound scalars are visible for review",
+      "all four bound scalars are still visible for review — none is dropped by the split",
     );
+    assert.deepEqual(
+      [...lockNames].sort(),
+      ["draftRevisionDigest", "recipientEndpointDigest"],
+      "and the integrity values are the ones presented as locks",
+    );
+    /* The raw digest survives the move — a lock is re-presented, never discarded. */
+    assert.equal(
+      seen!.locks.find((l) => l.name === "recipientEndpointDigest")!.value,
+      recipient.recipient.endpointDigest,
+      "the lock still carries the exact digest the server froze",
+    );
+    /* And the proposer is now readable, which is what A1a made truthful and nothing had read. */
+    assert.equal(seen!.proposedByActorType, "human", "the review surface shows who proposed it");
     assert.equal(seen!.parameters.find((p) => p.name === "recipientRef")!.value, recipientRef);
     assert.equal(seen!.payloadDigest, digests.rows[0]!.payload_digest);
     assert.equal(seen!.sideEffect, "CONSEQUENTIAL_MUTATION");

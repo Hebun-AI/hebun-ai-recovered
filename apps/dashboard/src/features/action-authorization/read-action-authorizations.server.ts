@@ -12,6 +12,18 @@
  *
  * READ ONLY. No insert, update, delete or transaction appears in this module.
  *
+ * ── APP-2: THREE COLUMNS THAT WERE ALREADY BEING SELECTED, AND WERE NOT PROJECTED ────────────
+ *
+ * `select()` has always returned the whole row, so `evidence`, `proposed_by_actor_type` and
+ * `side_effect` were in hand and dropped on the floor by the mapping. The surface then said, of a
+ * live request, that no evidence was attached — an absence it had never established — and showed no
+ * proposer at all. Projecting them adds no query, no seam and no authority: it stops discarding
+ * what this reader already holds.
+ *
+ * NOTHING IS RESOLVED. An evidence entry is carried exactly as the proposal recorded it. This
+ * module dereferences no reference, calls no model or provider, reads no Knowledge, and resolves no
+ * Governance authority — it did none of those before and does none of them now.
+ *
  * Server-only.
  */
 import { and, desc, eq } from "drizzle-orm";
@@ -22,6 +34,14 @@ import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import type { ExecutionAttemptStatus } from "@/features/action-execution/contracts";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { asCanonicalPayload } from "./canonical-payload";
+import { splitPayload, toEvidence } from "./decision-projection";
+import type { EvidenceProjection, PayloadLockView } from "./decision-projection";
+/* Re-exported so the surface keeps importing its view types from the one seam it already reads. */
+export type {
+  EvidenceProjection,
+  EvidenceReferenceView,
+  PayloadLockView,
+} from "./decision-projection";
 
 /** The derived state a human is shown. `expired` exists here and nowhere in the database. */
 export type PermitDisplayState = "active" | "expired" | "consumed" | "revoked" | "none";
@@ -38,6 +58,24 @@ export interface PendingActionRequestView {
   readonly expectedEffect: string;
   readonly consequences: readonly string[];
   readonly parameters: readonly { readonly name: string; readonly value: string }[];
+  /** The integrity values, split out of `parameters`. See `splitPayload`. */
+  readonly locks: readonly PayloadLockView[];
+  /** The evidence the PROPOSAL recorded, projected — never resolved, enriched or invented. */
+  readonly evidence: EvidenceProjection;
+  /*
+   * WHO PROPOSED THIS — the actor CLASS, and deliberately not the actor id.
+   *
+   * A1a made `proposed_by_actor_type` truthful in the database and nothing has ever read it, so a
+   * human authorizing an irreversible action cannot see who originated it. Today that is invisible
+   * because every proposal is human; the moment an agent may propose, it is the difference between
+   * authorizing a person's request and a machine's.
+   *
+   * The actor ID is NOT projected. This view crosses into a client component, so every field on it
+   * is serialized to the browser; a raw uuid is not a name, no identity display seam exists to turn
+   * it into one, and carrying it would ship an internal identifier that nothing renders. The class
+   * is what the decision turns on.
+   */
+  readonly proposedByActorType: string;
   readonly payloadDigest: string;
   readonly proposedAt: string;
 }
@@ -78,14 +116,6 @@ export type ActionAuthorizationRead<T> =
   | { readonly status: "read"; readonly items: readonly T[] }
   | { readonly status: "unavailable"; readonly reason: string };
 
-function toParameters(raw: unknown): readonly { name: string; value: string }[] {
-  const payload = asCanonicalPayload(raw);
-  if (!payload) return [];
-  return Object.keys(payload)
-    .sort()
-    .map((name) => ({ name, value: String(payload[name]) }));
-}
-
 function toConsequences(raw: unknown): readonly string[] {
   return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string") : [];
 }
@@ -120,21 +150,27 @@ export async function readPendingActionRequests(
 
     return {
       status: "read",
-      items: rows.map((row) => ({
-        requestId: row.id,
-        actionKind: row.actionKind,
-        toolId: row.toolId,
-        sideEffect: row.sideEffect,
-        reversibility: row.reversibility,
-        targetKind: row.targetKind,
-        targetRef: row.targetRef,
-        targetLabel: row.targetLabel,
-        expectedEffect: row.expectedEffect,
-        consequences: toConsequences(row.consequences),
-        parameters: toParameters(row.canonicalPayload),
-        payloadDigest: row.payloadDigest,
-        proposedAt: iso(row.createdAt) ?? "",
-      })),
+      items: rows.map((row) => {
+        const { parameters, locks } = splitPayload(asCanonicalPayload(row.canonicalPayload));
+        return {
+          requestId: row.id,
+          actionKind: row.actionKind,
+          toolId: row.toolId,
+          sideEffect: row.sideEffect,
+          reversibility: row.reversibility,
+          targetKind: row.targetKind,
+          targetRef: row.targetRef,
+          targetLabel: row.targetLabel,
+          expectedEffect: row.expectedEffect,
+          consequences: toConsequences(row.consequences),
+          parameters,
+          locks,
+          evidence: toEvidence(row.evidence),
+          proposedByActorType: row.proposedByActorType,
+          payloadDigest: row.payloadDigest,
+          proposedAt: iso(row.createdAt) ?? "",
+        };
+      }),
     };
   } catch {
     return { status: "unavailable", reason: "read-failed" };
