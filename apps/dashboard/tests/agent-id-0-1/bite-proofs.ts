@@ -225,24 +225,42 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M11 the simulation is presented above the durable authority",
     file: PAGE,
     suite: FW_SUITE,
-    edits: [{ find:
+    /*
+     * TWO EDITS, BECAUSE ADJACENCY IS NOT THE PROPERTY.
+     *
+     * This was ONE edit that found the identity card immediately followed by the simulation and
+     * swapped the pair. That anchor silently encoded an assumption the property never made — that
+     * nothing else is rendered between them — and SELF-IMPROVING-AGENTS-1 falsified it by adding a
+     * third surface to this page. The anchor then matched nothing, so the proof failed as
+     * UNFINDABLE rather than proving anything, which is the worst failure mode a bite-proof has: a
+     * guard reported as unproven while it is in fact intact.
+     *
+     * Lifting the card OUT and re-inserting it AFTER the simulation proves the same property — the
+     * durable authority is presented BEFORE the simulation — whatever else the page renders in
+     * between. Repaired stricter, not weakened: it now also bites on a page where the two were
+     * never adjacent to begin with.
+     */
+    edits: [
+      { find:
       "        <DurableAgentIdentityCard\n" +
       "          block={block}\n" +
       "          actingHumanId={tenant?.userId}\n" +
       "          tenantId={tenant?.tenantId}\n" +
       "          genesisSpent={identityState.status === \"known\" ? identityState.genesisSpent : false}\n" +
       "          identities={identityState.status === \"known\" ? identityState.identities : []}\n" +
-      "        />\n" +
-      "        <AgentsTruthSurface model={model} />",
-    replace:
-      "        <AgentsTruthSurface model={model} />\n" +
-      "        <DurableAgentIdentityCard\n" +
-      "          block={block}\n" +
-      "          actingHumanId={tenant?.userId}\n" +
-      "          tenantId={tenant?.tenantId}\n" +
-      "          genesisSpent={identityState.status === \"known\" ? identityState.genesisSpent : false}\n" +
-      "          identities={identityState.status === \"known\" ? identityState.identities : []}\n" +
-      "        />" }],
+      "        />\n",
+      replace: "" },
+      { find: "        <AgentsTruthSurface model={model} />",
+      replace:
+        "        <AgentsTruthSurface model={model} />\n" +
+        "        <DurableAgentIdentityCard\n" +
+        "          block={block}\n" +
+        "          actingHumanId={tenant?.userId}\n" +
+        "          tenantId={tenant?.tenantId}\n" +
+        "          genesisSpent={identityState.status === \"known\" ? identityState.genesisSpent : false}\n" +
+        "          identities={identityState.status === \"known\" ? identityState.identities : []}\n" +
+        "        />" },
+    ],
     because: "the durable authority is presented BEFORE the simulation",
   },
 

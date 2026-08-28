@@ -7,6 +7,8 @@ import {
 import { getAgentsTruthModel } from "@/features/workforce/agents-truth-model";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
+import { AgentOutcomeObservationSurface } from "@/components/agents/agent-outcome-observation";
+import { readAgentOutcomeObservation } from "@/features/agent-outcome-observation/agent-outcome-projection.server";
 
 export const metadata = { title: "Agents — Hebun AI" };
 
@@ -37,12 +39,27 @@ export const metadata = { title: "Agents — Hebun AI" };
  * The tenant and the human are resolved SERVER-SIDE and passed as identifiers only. An
  * unauthenticated visitor sees an honest sign-in state; an unreachable control plane is reported as
  * UNKNOWN rather than as "no identity exists".
+ *
+ * ── WHAT SELF-IMPROVING-AGENTS-1 ADDED, AND WHY IT SITS BELOW THE CEREMONY ───
+ *
+ * The Agent Outcome Observation surface answers, per durable agent, "what happened to what this
+ * agent proposed" — composed entirely from records released phases already wrote. It is a READ: it
+ * offers no control, and it is rendered BELOW the ceremony because the ceremony is the only thing
+ * on this page that acts. Order encodes that: act first, observe second.
+ *
+ * It observes and measures. It does not evaluate, score, learn, adapt, or change any agent's
+ * configuration, and there is no surface here through which it could.
  */
 
 export default async function AgentsPage() {
   const model = getAgentsTruthModel();
   const tenant = await resolveTenantContext();
   const identityState = await readDurableAgentIdentityState(tenant);
+  /*
+   * An unauthenticated reader is not asked about; the projection would refuse anyway, and this
+   * keeps the surface's "unavailable" state meaning what it says — a store that did not answer.
+   */
+  const outcomes = await readAgentOutcomeObservation(tenant);
 
   /*
    * The two blocked reasons are distinct facts. `unauthenticated` is about the reader;
@@ -68,6 +85,7 @@ export default async function AgentsPage() {
           genesisSpent={identityState.status === "known" ? identityState.genesisSpent : false}
           identities={identityState.status === "known" ? identityState.identities : []}
         />
+        <AgentOutcomeObservationSurface observation={outcomes} />
         <AgentsTruthSurface model={model} />
       </div>
     </>
