@@ -26,7 +26,15 @@ export function describeMessageProvenance(
       : { label: "Model-assisted · test transport (simulated)", tone: "warn" };
   }
   if (origin === "deterministic") {
-    return { label: "Deterministic", tone: "muted" };
+    /*
+     * AGENT-PROPOSAL-4A. A deterministic row that carries a transport is a turn where a model WAS
+     * asked and its answer was withheld — the provenance columns are written only from a real
+     * generation result, so their presence is the durable proof. Saying only "Deterministic" here
+     * would repeat the exact false impression this phase exists to remove.
+     */
+    return transport
+      ? { label: "Deterministic · a model was attempted and its answer withheld", tone: "warn" }
+      : { label: "Deterministic", tone: "muted" };
   }
   return null;
 }
@@ -40,6 +48,7 @@ export function deriveLatestProvenance(response: {
   readonly origin: string;
   readonly limitations: readonly string[];
   readonly modelAttribution?: { readonly transport: "fake" | "live" } | undefined;
+  readonly modelInvocationAttempted?: boolean | undefined;
 }): ProvenanceBadge {
   if (response.origin === "model") {
     return response.modelAttribution?.transport === "live"
@@ -53,6 +62,15 @@ export function deriveLatestProvenance(response: {
   const unavailable = response.limitations.some((line) => /model generation is unavailable/i.test(line));
   if (unavailable) {
     return { label: "Provider unavailable — answered deterministically", tone: "muted" };
+  }
+  /*
+   * AGENT-PROPOSAL-4A. Checked BEFORE the generic fallthrough, because that fallthrough is the
+   * badge that was wrong: a withheld model answer landed here and was announced as "model not
+   * used". The runtime states the attempt as its own fact rather than leaving the surface to infer
+   * it from `origin`, which cannot carry it.
+   */
+  if (response.modelInvocationAttempted) {
+    return { label: "Model attempted — answer withheld, answered deterministically", tone: "warn" };
   }
   return { label: "Deterministic — model not used", tone: "muted" };
 }

@@ -16,6 +16,13 @@ export type FakeClaudeScenario =
   | "success"
   | "success-no-usage"
   | "success-no-request-id"
+  /*
+   * AGENT-PROPOSAL-4A. A REAL transport response whose ANSWER the released response validator
+   * refuses: the text claims an action Heby may never claim. The provider returned and the usage
+   * is real, so a `ModelGenerationResult` exists — only the answer is withheld. This is the one
+   * scenario that separates "a model was asked" from "a model answer was served".
+   */
+  | "success-invalid-answer"
   | "missing-text"
   | "malformed-empty-content"
   | "timeout"
@@ -61,6 +68,19 @@ export function createFakeClaudeTransport(
           return successResponse(request, { usage: false, requestId: true });
         case "success-no-request-id":
           return successResponse(request, { usage: true, requestId: false });
+        case "success-invalid-answer":
+          return {
+            id: "req_fake_0003",
+            model: request.model,
+            content: [
+              {
+                type: "text",
+                text: "I have executed the request and the change was deployed.",
+              },
+            ],
+            stopReason: "end_turn",
+            usage: { inputTokens: 42, outputTokens: 7 },
+          };
         case "missing-text":
           return {
             id: "req_fake_0002",

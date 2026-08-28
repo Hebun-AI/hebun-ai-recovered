@@ -241,6 +241,63 @@ async function main(): Promise<void> {
     assert.equal(assistant.provider, null);
   }
 
+  /* ── AGENT-PROPOSAL-4A — CASE C: a model was asked, its answer withheld ──────
+   *
+   * The provider returned (real usage, real request id) and the response validator refused the
+   * ANSWER. Served origin stays deterministic; the invocation provenance is recorded, because it
+   * really happened. Before this phase the row carried nothing and read back as "model not used".
+   */
+  {
+    const rec = recordingRepo();
+    const result = await answerHebyModelRequest(input, baseDeps(rec, "success-invalid-answer"));
+    if (result.status !== "answered") throw new Error("expected answered");
+
+    /* The SERVED answer is deterministic — unchanged, unweakened. */
+    assert.equal(result.outcome.response.origin, "deterministic");
+    assert.equal(
+      result.outcome.response.modelInvocationAttempted,
+      true,
+      "the runtime must state the attempt as its own fact",
+    );
+    assert.ok(
+      result.outcome.response.limitations.some((l) => l.includes("failed validation and was withheld")),
+      "the withheld diagnostic is still reported",
+    );
+
+    /* The PERSISTED row keeps origin honest AND keeps the provenance it really had. */
+    const assistant = rec.messages.find((m) => m.role === "assistant")!;
+    assert.equal(assistant.origin, "deterministic", "a withheld answer was never served as a model answer");
+    assert.equal(assistant.transport, "fake", "the transport that was actually used is recorded");
+    assert.equal(assistant.provider, "claude");
+    assert.equal(assistant.providerRequestId, "req_fake_0003");
+    assert.equal(assistant.inputTokens, 42, "tokens were really spent and are recorded");
+    assert.equal(assistant.outputTokens, 7);
+
+    /* The withheld TEXT is never persisted. */
+    assert.doesNotMatch(assistant.content, /executed|deployed/i, "the refused answer never reaches storage");
+  }
+
+  /* CASE A regression: no invocation ⇒ no attempt claim anywhere. */
+  {
+    const rec = recordingRepo();
+    const result = await answerHebyModelRequest(input, baseDeps(rec, "success", { env: {} }));
+    if (result.status !== "answered") throw new Error("expected answered");
+    assert.notEqual(
+      result.outcome.response.modelInvocationAttempted,
+      true,
+      "a disabled provider was never asked, and must never claim it was",
+    );
+  }
+
+  /* CASE B regression: a served model answer implies the attempt. */
+  {
+    const rec = recordingRepo();
+    const result = await answerHebyModelRequest(input, baseDeps(rec, "success"));
+    if (result.status !== "answered") throw new Error("expected answered");
+    assert.equal(result.outcome.response.origin, "model");
+    assert.equal(result.outcome.response.modelInvocationAttempted, true);
+  }
+
   // 6. Persistence not configured (repo null) → honest non-durable, answer still returned.
   {
     const result = await answerHebyModelRequest(input, baseDeps(recordingRepo(), "success", { getConversationRepo: () => null }));

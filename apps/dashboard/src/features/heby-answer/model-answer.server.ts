@@ -741,12 +741,33 @@ async function produceAnswer(args: {
   });
   const validation = validateResponse(candidate, assembled, authority);
   if (!validation.valid) {
+    /*
+     * AGENT-PROPOSAL-4A — THE ATTEMPT SURVIVES THE WITHHOLDING.
+     *
+     * Reaching this line proves a model invocation happened: `outcome.result` exists, so the
+     * transport returned and the tokens were spent. Only the ANSWER is withheld. This branch used
+     * to return the deterministic response alone, discarding `outcome.result` and
+     * `selection.transportProvenance` one line after they were in hand — so the turn persisted
+     * with no provider, no model and no transport, and the surface truthfully read the row back as
+     * "Deterministic — model not used", which was false about the provider.
+     *
+     * The served answer stays deterministic, unchanged and unweakened. What is added is the second,
+     * orthogonal fact: a model was asked. The withheld TEXT is still never persisted or shown.
+     */
     return {
-      response: withNote(deterministic, "A model answer was produced but failed validation and was withheld; this answer is deterministic."),
+      response: {
+        ...withNote(
+          deterministic,
+          "A model answer was produced but failed validation and was withheld; this answer is deterministic.",
+        ),
+        modelInvocationAttempted: true,
+      },
+      transportProvenance: selection.transportProvenance,
+      modelResult: outcome.result,
     };
   }
   return {
-    response: validation.response,
+    response: { ...validation.response, modelInvocationAttempted: true },
     transportProvenance: selection.transportProvenance,
     modelResult: outcome.result,
   };
@@ -821,6 +842,15 @@ async function persistExchange(
   try {
     const isModel = args.response.origin === "model";
     const result = args.modelResult;
+    /*
+     * AGENT-PROPOSAL-4A. `origin` records what was SERVED; the provenance columns record the
+     * INVOCATION. A withheld model answer produces a deterministic row that still carries the
+     * provider, model, transport and token counts the call really had — the R2D invariant ("a
+     * value present here means the transport actually returned it") is preserved exactly, because
+     * a `ModelGenerationResult` only exists when it did. Gating these on `isModel` is what threw
+     * the facts away.
+     */
+    const invocationOccurred = Boolean(result);
 
     const { conversationId, assistantMessageId } = await repo.persistExchange(args.scope, {
       // A client-carried reference is honoured ONLY if the tenant owns it; otherwise a fresh
@@ -832,14 +862,14 @@ async function persistExchange(
         role: "assistant",
         content: args.response.body.join("\n"),
         origin: isModel ? "model" : "deterministic",
-        provider: isModel ? result?.provider : undefined,
-        model: isModel ? result?.model : undefined,
-        transport: isModel ? args.transportProvenance : undefined,
-        correlationId: isModel ? result?.correlationId : undefined,
-        providerRequestId: isModel ? result?.providerRequestId : undefined,
-        inputTokens: isModel ? result?.inputTokens : undefined,
-        outputTokens: isModel ? result?.outputTokens : undefined,
-        tokenCount: isModel ? result?.totalTokens : undefined,
+        provider: invocationOccurred ? result?.provider : undefined,
+        model: invocationOccurred ? result?.model : undefined,
+        transport: invocationOccurred ? args.transportProvenance : undefined,
+        correlationId: invocationOccurred ? result?.correlationId : undefined,
+        providerRequestId: invocationOccurred ? result?.providerRequestId : undefined,
+        inputTokens: invocationOccurred ? result?.inputTokens : undefined,
+        outputTokens: invocationOccurred ? result?.outputTokens : undefined,
+        tokenCount: invocationOccurred ? result?.totalTokens : undefined,
       },
       /*
        * Absent when no retrieval ran. A set with zero items is NOT absent — it records that

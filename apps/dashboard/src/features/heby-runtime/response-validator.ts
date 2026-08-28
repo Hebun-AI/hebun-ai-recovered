@@ -100,6 +100,22 @@ export function validateResponse(
     }
   }
 
+  /*
+   * AGENT-PROPOSAL-4A. The attempt flag is orthogonal to origin, so it is NOT constrained by it:
+   * a deterministic answer may follow an attempt (withheld), and a model answer always follows
+   * one. What IS constrained is the reverse direction — a served model answer that denied having
+   * attempted a model would be self-contradictory.
+   */
+  if (
+    response.modelInvocationAttempted !== undefined &&
+    typeof response.modelInvocationAttempted !== "boolean"
+  ) {
+    issues.push("Model invocation attempted must be a boolean when present.");
+  }
+  if (response.origin === "model" && response.modelInvocationAttempted === false) {
+    issues.push("A model-origin response cannot deny that a model invocation was attempted.");
+  }
+
   if (issues.length > 0) {
     return { valid: false, issues, response: safeFallback(response, issues) };
   }

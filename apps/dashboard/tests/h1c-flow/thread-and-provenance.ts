@@ -29,6 +29,46 @@ function main(): void {
   assert.deepEqual(describeMessageProvenance("deterministic", null), { label: "Deterministic", tone: "muted" });
   assert.equal(describeMessageProvenance("user", null), null);
 
+  /* ── AGENT-PROPOSAL-4A — served origin vs model invocation attempted ─────────
+   * These are orthogonal facts. A deterministic row that carries a transport is a turn whose
+   * model answer was WITHHELD: the call happened, only the answer was refused. */
+  assert.deepEqual(
+    describeMessageProvenance("deterministic", "live"),
+    { label: "Deterministic · a model was attempted and its answer withheld", tone: "warn" },
+    "a withheld live attempt must not read as a plain deterministic turn",
+  );
+  assert.deepEqual(
+    describeMessageProvenance("deterministic", "fake"),
+    { label: "Deterministic · a model was attempted and its answer withheld", tone: "warn" },
+    "the fake transport is still an attempt; it is simply not a live provider",
+  );
+  /* CASE A is unchanged: no transport means no invocation is proven, and the badge stays plain. */
+  assert.deepEqual(describeMessageProvenance("deterministic", null), { label: "Deterministic", tone: "muted" });
+
+  /* The live-turn projection: the withheld case must NOT claim the model went unused. */
+  const withheldTurn = deriveLatestProvenance(
+    response({ origin: "deterministic", modelAttribution: undefined, limitations: [], modelInvocationAttempted: true }),
+  );
+  assert.doesNotMatch(withheldTurn.label, /model not used/i, "a spent provider call may never read as 'model not used'");
+  assert.match(withheldTurn.label, /attempted/i);
+  assert.equal(withheldTurn.tone, "warn");
+
+  /* CASE A live turn keeps the old, correct badge. */
+  const noModelTurn = deriveLatestProvenance(
+    response({ origin: "deterministic", modelAttribution: undefined, limitations: [] }),
+  );
+  assert.equal(noModelTurn.label, "Deterministic — model not used");
+
+  /* Director-disabled outranks the attempt flag and never claims an attempt. */
+  const disabled = deriveLatestProvenance(
+    response({
+      origin: "deterministic",
+      modelAttribution: undefined,
+      limitations: ["Claude connectivity is disabled by the Director; this answer is deterministic."],
+    }),
+  );
+  assert.doesNotMatch(disabled.label, /attempted/i, "a disabled provider was never asked");
+
   // --- deriveLatestProvenance (current turn) ---
   assert.equal(deriveLatestProvenance(response({ origin: "model", modelAttribution: { transport: "fake" } })).tone, "warn");
   assert.match(deriveLatestProvenance(response({ origin: "model", modelAttribution: { transport: "live" } })).label, /live provider/);

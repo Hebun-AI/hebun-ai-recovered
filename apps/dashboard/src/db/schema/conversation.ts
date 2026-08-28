@@ -24,6 +24,20 @@ export const messages = pgTable("messages", {
    * ("user" | "deterministic" | "model"); `transport` = "fake" | "live". A model-origin
    * assistant message may carry provider/model/transport/correlationId, and provider request
    * id + token counts ONLY when the transport actually supplied them.
+   *
+   * AGENT-PROPOSAL-4A widened WHICH rows may carry them, and weakened nothing. `origin` records
+   * what was SERVED; these columns record the INVOCATION, and the two are orthogonal. A
+   * `deterministic` row carrying a transport is a turn where a model was asked and its answer was
+   * WITHHELD by the response validator — the call happened and the tokens were spent, so recording
+   * it is the truthful act and omitting it was the false one. The R2D invariant is unchanged and
+   * still exact: a value present here means the transport actually returned it, because these are
+   * written only from a real `ModelGenerationResult`.
+   *
+   * READ THE PAIR, NOT ONE COLUMN. `origin='model'` = a model answer was served.
+   * `origin='deterministic' AND transport IS NOT NULL` = a model was asked, its answer withheld.
+   * `origin='deterministic' AND transport IS NULL` = no model invocation is proven for this turn.
+   * The last case is not proof that none occurred: a call that fails before returning leaves no
+   * result, so nothing is recorded.
    */
   origin: text("origin"),
   provider: text("provider"),

@@ -210,6 +210,27 @@ export interface HebyRuntimeResponse {
    * a `"fake"` transport is a simulated/test path, never a live provider connection.
    */
   readonly modelAttribution?: HebyModelAttribution;
+  /**
+   * AGENT-PROPOSAL-4A — whether a model invocation was ATTEMPTED for this turn, which is
+   * orthogonal to which answer was SERVED.
+   *
+   * `origin` answers "what produced the text you are reading". This answers "was a model asked
+   * first". They were conflated because, until now, the only way a model could be asked was for
+   * its answer to be served — so a deterministic answer implied no model. That stopped being true
+   * the moment a model answer could be produced and then WITHHELD by the response validator: the
+   * provider had returned, the tokens were spent, and the served answer was still deterministic.
+   *
+   * WHY NOT `modelAttribution`. It is reserved, by a released validator rule, to a model-origin
+   * response ("Model attribution present on a non-model response" is an error). Reusing it here
+   * would either break that rule or force `origin` to lie. The two facts are kept apart instead.
+   *
+   * CLAIMS ONLY WHAT IS PROVEN. It is true only where the runtime holds a `ModelGenerationResult`
+   * — i.e. the transport returned a response. A connectivity failure before or during dispatch is
+   * NOT reported as an attempt, because the released adapter cannot distinguish "never left the
+   * process" from "left and failed". Absent/false therefore means "not proven to have been
+   * attempted", never "proven not to have happened".
+   */
+  readonly modelInvocationAttempted?: boolean;
 }
 
 /**
