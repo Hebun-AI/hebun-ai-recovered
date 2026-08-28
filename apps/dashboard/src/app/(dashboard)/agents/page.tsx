@@ -9,6 +9,8 @@ import { resolveTenantContext } from "@/features/auth-runtime/request-session.se
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { AgentOutcomeObservationSurface } from "@/components/agents/agent-outcome-observation";
 import { readAgentOutcomeObservation } from "@/features/agent-outcome-observation/agent-outcome-projection.server";
+import { AgentEvaluationSurface } from "@/components/agents/agent-evaluation";
+import { deriveAgentEvaluationRead } from "@/features/agent-evaluation/agent-evaluation-projection.server";
 
 export const metadata = { title: "Agents — Hebun AI" };
 
@@ -49,6 +51,14 @@ export const metadata = { title: "Agents — Hebun AI" };
  *
  * It observes and measures. It does not evaluate, score, learn, adapt, or change any agent's
  * configuration, and there is no surface here through which it could.
+ *
+ * ── AND WHAT SELF-IMPROVING-AGENTS-2 ADDED BELOW IT ──────────────────────────
+ *
+ * The Agent Evaluation surface interprets that same observation — derived from it PURELY, with no
+ * second read, so the two cards cannot disagree. Its derived figures are COVERAGE measures about
+ * Hebun's own records, never grades: there is no score, no percentage, and no representation in
+ * which either could be expressed. It names the dimensions it cannot answer rather than omitting
+ * them, and it offers no control.
  */
 
 export default async function AgentsPage() {
@@ -60,6 +70,11 @@ export default async function AgentsPage() {
    * keeps the surface's "unavailable" state meaning what it says — a store that did not answer.
    */
   const outcomes = await readAgentOutcomeObservation(tenant);
+  /*
+   * SIA-2 derives from the SAME observation, purely. Reading twice would double SIA-1's six
+   * statements and let the two cards disagree on one page, because each read is its own instant.
+   */
+  const evaluation = deriveAgentEvaluationRead(outcomes);
 
   /*
    * The two blocked reasons are distinct facts. `unauthenticated` is about the reader;
@@ -86,6 +101,7 @@ export default async function AgentsPage() {
           identities={identityState.status === "known" ? identityState.identities : []}
         />
         <AgentOutcomeObservationSurface observation={outcomes} />
+        <AgentEvaluationSurface evaluation={evaluation} />
         <AgentsTruthSurface model={model} />
       </div>
     </>
