@@ -380,6 +380,10 @@ async function main(): Promise<void> {
           /* KR-EXT1 — the Knowledge-owned external-system reference table. Additive: one
            * CREATE TABLE, two foreign keys, three indexes, zero DROP. */
           "20260826064423_kr_ext1_knowledge_external_references",
+          /* AGENT-PROPOSAL-4B — agent-origination invocation provenance. Additive: one CREATE
+           * TABLE, one nullable column on `heby_action_requests`, zero DROP, and deliberately no
+           * foreign key on the causal link. */
+          "20260828071500_ap4b_origination_invocation_provenance",
         ],
         "and what follows it is a declared later phase",
       );

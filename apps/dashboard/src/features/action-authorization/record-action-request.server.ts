@@ -89,6 +89,15 @@ async function insertActionRequest(
   prepared: HebyPreparedAction | null,
   proposer: ActionProposerPair,
   deps: ActionRequestDeps,
+  /*
+   * AGENT-PROPOSAL-4B — the model invocation that caused this proposal, when one did.
+   *
+   * A VALUE, and nothing else. This module does not read the provenance table, does not check that
+   * the row exists, and does not import its authority — an existence check here would recreate, in
+   * code, exactly the veto that omitting the foreign key was meant to prevent. Undefined for every
+   * human-typed proposal, which is the honest reading: a human dictated the act.
+   */
+  originationInvocationId?: string,
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -183,6 +192,7 @@ async function insertActionRequest(
          * anything — that guarantee never depended on this field, and this phase does not make it
          * depend on it now.
          */
+        originationInvocationId: originationInvocationId ?? null,
         proposedByActorType: proposer.actorType,
         proposedByActorId: proposer.actorId,
         status: "pending",
@@ -253,6 +263,8 @@ export function recordAgentOriginatedActionRequest(
   prepared: HebyPreparedAction | null,
   proposer: AgentProposer,
   deps: ActionRequestDeps = {},
+  /** AGENT-PROPOSAL-4B. The causing invocation, as a value. Never looked up here. */
+  originationInvocationId?: string,
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -260,7 +272,7 @@ export function recordAgentOriginatedActionRequest(
   if (!tenant?.tenantId || !tenant.userId) return Promise.resolve(refused("unauthenticated"));
   const pair = agentPairOrNull(proposer);
   if (!pair) return Promise.resolve(refused("unverified-agent-proposer"));
-  return insertActionRequest(tenant, prepared, pair, deps);
+  return insertActionRequest(tenant, prepared, pair, deps, originationInvocationId);
 }
 
 /** PostgreSQL `unique_violation`. Read from the driver's code, never from the message text. */

@@ -279,7 +279,8 @@ function noPersistence(): void {
       "20260825080110_provider_control_source",
           /* KR-EXT1 — the Knowledge-owned external-system reference table. Additive: one
            * CREATE TABLE, two foreign keys, three indexes, zero DROP. */
-          "20260826064423_kr_ext1_knowledge_external_references"],
+          "20260826064423_kr_ext1_knowledge_external_references",
+          "20260828071500_ap4b_origination_invocation_provenance"],
     "R7.1 authored no migration; what follows is a declared later phase",
   );
   for (const name of newer) {

@@ -55,6 +55,7 @@ try {
     // + INT-2 integration-credential-authority = 34
     // + R2H provider control_source = 35
     // + KR-EXT1 knowledge-external-references = 36.
+    // + AGENT-PROPOSAL-4B agent-origination invocation provenance = 37.
     //
     // (The tally had stopped at 33 while the assertion below read 34: INT-2 moved the number and
     // not the prose. Both move together from here.)
@@ -66,7 +67,7 @@ try {
      * Re-pinned by KR-EXT1, which added migration 36 (`knowledge_external_references`) — one
      * additive table owned by Knowledge, zero DROP, `knowledge_nodes` untouched.
      */
-    assert.equal(migrationCount.rows[0]?.count, "36");
+    assert.equal(migrationCount.rows[0]?.count, "37");
 
     /*
      * The rerun is about IDEMPOTENCE, not about the total, so it is compared to what the first run

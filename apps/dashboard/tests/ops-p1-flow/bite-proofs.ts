@@ -146,9 +146,9 @@ const MUTATIONS: readonly Mutation[] = [
   {
     label: "M12 a migration is added",
     file: JOURNAL,
-    find: `      "tag": "20260826064423_kr_ext1_knowledge_external_references",\n      "breakpoints": true\n    }\n  ]`,
+    find: `      "tag": "20260828071500_ap4b_origination_invocation_provenance",\n      "breakpoints": true\n    }\n  ]`,
     replace:
-      `      "tag": "20260826064423_kr_ext1_knowledge_external_references",\n      "breakpoints": true\n    },\n` +
+      `      "tag": "20260828071500_ap4b_origination_invocation_provenance",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 36,\n      "version": "7",\n      "when": 1787726663801,\n` +
       `      "tag": "20260827000000_ops_p1_should_not_exist",\n      "breakpoints": true\n    }\n  ]`,
     expect: "OPS-P1 adds no migration",

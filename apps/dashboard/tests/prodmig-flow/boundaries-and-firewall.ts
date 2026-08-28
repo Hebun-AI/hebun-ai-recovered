@@ -382,9 +382,9 @@ function theProductIsWalledOff(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function itIsInfrastructureNotSchema(): void {
   const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(files.length, 36, "the production migration AUTHORITY authors no migration of its own");
+  assert.equal(files.length, 37, "the production migration AUTHORITY authors no migration of its own");
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: unknown[] };
-  assert.equal(journal.entries.length, 36, "and the journal agrees");
+  assert.equal(journal.entries.length, 37, "and the journal agrees");
 }
 
 function main(): void {

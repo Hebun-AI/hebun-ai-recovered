@@ -128,6 +128,7 @@ function main(): void {
       /* KR-EXT1 — the Knowledge-owned external-system reference table. Additive: one CREATE TABLE,
        * two foreign keys and three indexes, zero DROP, and `knowledge_nodes` untouched. */
       "20260826064423_kr_ext1_knowledge_external_references.sql",
+      "20260828071500_ap4b_origination_invocation_provenance.sql",
       ],
       "G3 adds no migration — authority is derived from decisions; only Gate-B migrations for other subsystems follow G2",
     );

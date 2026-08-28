@@ -604,9 +604,9 @@ function main(): void {
 
   /* ── 9. NO SCHEMA CHANGE, NO MIGRATION ────────────────────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 36, "the ledger is unchanged at 36 — retirement needed no migration");
+  assert.equal(sqlCount, 37, "AGENT-ID-0.1 authored no migration — retirement needed none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
-  assert.equal(journal.entries.length, 36, "the journal is unchanged at 36 entries");
+  assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   assert.ok(
     !featureCode.includes("pgEnum") && !featureCode.includes("alter table"),
     "the feature declares no enum and alters no table — `retired` already existed and gains its first writer",

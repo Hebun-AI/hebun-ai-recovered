@@ -56,8 +56,16 @@ const OWNED = [MODEL, COMPONENT] as const;
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-const LEDGER_COUNT = 36;
-const LEDGER_DIGEST = "3fa25de36812ab16";
+const LEDGER_COUNT = 37;
+const LEDGER_DIGEST = "c3af5b7aaf798790";
+/*
+ * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
+ *
+ * 4B appends migration 37, so the digest legitimately moves. The digest is therefore re-pinned to
+ * the new value rather than narrowed to a prefix: narrowing it to the first 36 files would leave
+ * the newest migration covered by nothing, so it could be edited afterwards without any test
+ * failing. Every migration in the folder stays byte-pinned, exactly as before.
+ */
 /** Every server-action module in the repository today. A new writer anywhere moves this. */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT.

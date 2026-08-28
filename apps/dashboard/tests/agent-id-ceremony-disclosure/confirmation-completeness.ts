@@ -237,9 +237,9 @@ function main(): void {
 
   /* ── 7. NO SCHEMA, NO MIGRATION, NO WIDENED GOVERNANCE ────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 36, "the ledger is unchanged at 36 — a sentence needs no migration");
+  assert.equal(sqlCount, 37, "this phase authored no migration — a sentence needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
-  assert.equal(journal.entries.length, 36, "the journal is unchanged at 36 entries");
+  assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const touched = `${codeOf(read(DISCLOSURE))}\n${codeOf(read(DURABLE_CARD))}`;
   for (const forbidden of ["pgTable", "pgEnum", "alter table", "drizzle-orm", "getControlPlaneDb"]) {
     assert.ok(

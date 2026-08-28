@@ -332,7 +332,8 @@ export function run(): void {
       "20260825080110_provider_control_source.sql",
       /* KR-EXT1 — the Knowledge-owned external-system reference table. Additive: one CREATE TABLE,
        * two foreign keys and three indexes, zero DROP, `knowledge_nodes` untouched. */
-      "20260826064423_kr_ext1_knowledge_external_references.sql"],
+      "20260826064423_kr_ext1_knowledge_external_references.sql",
+      "20260828071500_ap4b_origination_invocation_provenance.sql"],
       "KR4 adds no migration; what follows is a declared later phase",
     );
     const journal = JSON.parse(read(join(MIGRATIONS, "meta", "_journal.json"))) as { entries: unknown[] };

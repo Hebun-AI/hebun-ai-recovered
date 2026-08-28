@@ -50,6 +50,7 @@ export * from "./learning";
 export * from "./conversation";
 export * from "./heby-answer-evidence";
 export * from "./heby-answer-source-evidence";
+export * from "./heby-origination-invocation";
 export * from "./provider-connectivity-control";
 export * from "./document";
 export * from "./notification";

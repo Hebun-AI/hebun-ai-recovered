@@ -296,9 +296,9 @@ function main(): void {
     'governance subject types are still exactly ["knowledge_node"]',
   );
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 36, "the ledger is unchanged at 36 — counting a table needs no migration");
+  assert.equal(sqlCount, 37, "this phase authored no migration — counting a table needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
-  assert.equal(journal.entries.length, 36, "the journal is unchanged at 36 entries");
+  assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
 
   /* ── 11. NO NEW CLIENT-CROSSABLE WRITER APPEARED ──────────────────────────── */
   assert.deepEqual(

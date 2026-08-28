@@ -168,7 +168,7 @@ const MUTATIONS: readonly Mutation[] = [
       {
         find:
           "  const recorded = proposer\n" +
-          "    ? await recordAgentOriginatedActionRequest(tenant, prepared, proposer, deps)\n" +
+          "    ? await recordAgentOriginatedActionRequest(tenant, prepared, proposer, deps, originationInvocationId)\n" +
           "    : await recordActionRequest(tenant, prepared, deps);",
         replace: "  const recorded = await recordActionRequest(tenant, prepared, deps);",
       },

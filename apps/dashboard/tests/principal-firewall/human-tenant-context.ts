@@ -307,9 +307,9 @@ function main(): void {
 
   /* ── 10. SCHEMA, LEDGER AND HUMAN SUPREMACY UNTOUCHED ─────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 36, "the ledger is unchanged at 36 — a type needs no migration");
+  assert.equal(sqlCount, 37, "this phase authored no migration — a type needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
-  assert.equal(journal.entries.length, 36, "the journal is unchanged at 36 entries");
+  assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))
     .filter((f) => f.endsWith(".sql"))
     .map((f) => read(path.join(MIGRATIONS, f)))

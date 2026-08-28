@@ -135,6 +135,29 @@ export const hebyActionRequests = pgTable(
     proposedByActorType: actorTypeEnum("proposed_by_actor_type").notNull(),
     proposedByActorId: uuid("proposed_by_actor_id").notNull(),
 
+    /*
+     * AGENT-PROPOSAL-4B — WHICH MODEL INVOCATION CAUSED THIS PROPOSAL.
+     *
+     * A recorded reference, of exactly the same kind as `proposed_by_actor_id` above: a value
+     * written at creation, naming something this table does not own. It adds NO authority here —
+     * nothing reads it to decide anything, and no behaviour keys off it.
+     *
+     * NULL FOR EVERY HUMAN-TYPED PROPOSAL, and that is the honest reading: a human dictated the
+     * act, so no model invocation caused it. Null on an agent proposal means the cause was not
+     * recorded, never that none existed.
+     *
+     * DELIBERATELY NO FOREIGN KEY. An FK would make the existence of a provenance row a
+     * database-level precondition for a proposal insert — provenance would acquire a veto over
+     * proposal existence through referential integrity, which is precisely the authority this
+     * design refuses it. The same veto must not be recreated in code either: the proposal writer
+     * never looks the id up, and a firewall test asserts it cannot. The cost is stated plainly —
+     * referential integrity is unenforced, so a dangling value is possible in principle, and the
+     * diagnostic reader must join on tenant equality rather than trust the id alone.
+     *
+     * `heby_origination_invocations` carries no `action_request_id` back: one fact, one place.
+     */
+    originationInvocationId: uuid("origination_invocation_id"),
+
     status: hebyActionRequestStatusEnum("status").notNull().default("pending"),
 
     /* ── Approval. All four move together or none do (CHECK below). ── */

@@ -262,11 +262,11 @@ function nothingIsHardCodedToOneAgent(): void {
 
 function schemaIsUntouched(): void {
   const sql = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sql.length, 36, "AGENT-RUNTIME-0 adds no migration");
+  assert.equal(sql.length, 37, "AGENT-RUNTIME-0 adds no migration");
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 36, "and the ledger is unchanged");
+  assert.equal(journal.entries.length, 37, "and the ledger is unchanged");
 
   /* The two tables this phase writes and reads gained no column. */
   const artifactSchema = read("src/db/schema/work-artifact.ts");

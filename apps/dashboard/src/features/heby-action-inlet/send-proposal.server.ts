@@ -83,6 +83,8 @@ async function fileSendProposal(
   input: SendProposalInput | null,
   proposer: AgentProposer | null,
   deps: SendProposalDeps,
+  /** AGENT-PROPOSAL-4B. Absent on the human path, by construction — see the two entrypoints. */
+  originationInvocationId?: string,
 ): Promise<SendProposalResult> {
   assertServerOnly();
   if (!tenant?.tenantId || !tenant.userId) {
@@ -201,7 +203,7 @@ async function fileSendProposal(
    * this", and it is the only thing the released `/send` path can produce.
    */
   const recorded = proposer
-    ? await recordAgentOriginatedActionRequest(tenant, prepared, proposer, deps)
+    ? await recordAgentOriginatedActionRequest(tenant, prepared, proposer, deps, originationInvocationId)
     : await recordActionRequest(tenant, prepared, deps);
 
   if (recorded.status === "recorded") {
@@ -277,6 +279,12 @@ export function proposeAgentOriginatedSendAction(
   input: SendProposalInput | null,
   proposer: AgentProposer,
   deps: SendProposalDeps = {},
+  /*
+   * AGENT-PROPOSAL-4B. The model invocation that caused this proposal, carried through as a VALUE.
+   * This inlet neither mints it nor resolves it; it only hands it to the writer, so the proposal
+   * insert stays a single statement with no dependency on the provenance table existing.
+   */
+  originationInvocationId?: string,
 ): Promise<SendProposalResult> {
-  return fileSendProposal(tenant, input, proposer, deps);
+  return fileSendProposal(tenant, input, proposer, deps, originationInvocationId);
 }

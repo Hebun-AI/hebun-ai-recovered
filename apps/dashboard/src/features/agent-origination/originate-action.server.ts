@@ -35,6 +35,15 @@
  * Server-only.
  */
 import {
+  registerInvocation,
+  finalizeInvocation,
+  type InvocationProvenanceDeps,
+  type InvocationResultFacts,
+  type OriginationFilingOutcome,
+  type OriginationInvocationState,
+} from "./invocation-provenance.server";
+import type { ClaudeTransport } from "@/features/heby-model";
+import {
   generateHebyModelAnswer,
   selectModelTransport,
   ModelConnectivityError,
@@ -106,6 +115,8 @@ export interface OriginateActionDeps {
   readonly agentIdentity?: AgentIdentityReadDeps;
   readonly candidates?: CandidateSetDeps;
   readonly proposal?: SendProposalDeps;
+  /** AGENT-PROPOSAL-4B. The invocation provenance seam. Injectable for tests; never a client input. */
+  readonly provenance?: InvocationProvenanceDeps;
 }
 
 export type OriginateActionResult =
@@ -179,9 +190,49 @@ export async function originateAgentAction(
   const directorEnabled = await (deps.resolveDirectorEnabled ?? resolveClaudeDirectorEnabled)();
   if (!directorEnabled) return refused("model-unavailable");
 
-  const selection = await selectAction(validation.prompt, candidates, deps);
-  if (selection.status === "refused") return refused(selection.reason);
+  /*
+   * 4b · THE TRANSPORT IS CHOSEN BEFORE THE INVOCATION IS REGISTERED, because the row records
+   * WHICH transport was used and cannot be written truthfully before one exists.
+   */
+  const transportSelection = (deps.selectTransport ?? selectModelTransport)(deps.env ?? process.env);
+  if (!transportSelection.transport) return refused("model-unavailable");
+
+  /*
+   * 4c · REGISTER THE INVOCATION BEFORE ANYTHING IS DISPATCHED (AGENT-PROPOSAL-4B, stage 1).
+   *
+   * FAILS CLOSED, AND THAT IS NOT THE VETO THIS DESIGN REFUSES. At this point no provider call has
+   * been made, nothing has been spent, and no organizational work exists — so refusing costs an
+   * empty act. The veto that IS refused is the opposite one: provenance must never be able to
+   * destroy a proposal that already exists, which is why stage 2 below cannot fail the request.
+   */
+  const invocationId = await registerInvocation(
+    tenant,
+    { transport: transportSelection.transportProvenance ?? "fake" },
+    deps.provenance ?? {},
+  );
+  if (!invocationId) return refused("model-unavailable");
+
+  const selection = await selectAction(
+    validation.prompt,
+    candidates,
+    deps,
+    transportSelection.transport,
+  );
+
+  /* Nothing was proposable. Record how far the call got, then stop. */
+  if (selection.status === "refused") {
+    await settle(tenant, invocationId, selection.invocationState, deps, {
+      failureCode: selection.failureCode,
+      result: selection.result,
+      filingOutcome: "not-attempted",
+    });
+    return refused(selection.reason);
+  }
   if (selection.selection.kind === NO_ACTION_KIND) {
+    await settle(tenant, invocationId, "no-action", deps, {
+      result: selection.result,
+      filingOutcome: "not-attempted",
+    });
     return refused("no-action-proposed", selection.selection.reason);
   }
 
@@ -189,21 +240,109 @@ export async function originateAgentAction(
    * 5 · FILE IT THROUGH THE EXISTING INLET. The references are re-resolved there against R3R and
    * R3W exactly as a human-typed pair would be — membership proved the agent chose from what it
    * was offered; resolution proves the row is still what the proposal will be bound to.
+   *
+   * AGENT-PROPOSAL-4B threads the invocation id as a VALUE. It lands inside the proposal's own
+   * INSERT, so the causal proof commits WITH the proposal — a crash immediately afterwards cannot
+   * lose it, and no write after the commit is ever required for the link to exist.
    */
   const filed = await proposeAgentOriginatedSendAction(
     tenant,
     { recipientRef: selection.selection.recipientRef, draftRef: selection.selection.draftRef },
     proposer,
     deps.proposal ?? {},
+    invocationId,
   );
 
-  if (filed.status !== "proposed") return refused("proposal-refused", filed.reason);
+  if (filed.status !== "proposed") {
+    /*
+     * The inlet's OWN closed refusal reason is recorded verbatim. Without it, `already-pending`
+     * (a duplicate), `persistence-unavailable` (an operational failure) and a retired referent all
+     * collapse into the same silence, and the five causes of "a valid selection that filed
+     * nothing" become indistinguishable.
+     */
+    await settle(tenant, invocationId, "selection-valid", deps, {
+      result: selection.result,
+      filingOutcome: "refused",
+      filingRefusal: filed.reason,
+    });
+    return refused("proposal-refused", filed.reason);
+  }
+
+  /*
+   * The proposal EXISTS and already carries this invocation id. This finalization is an
+   * observation of what the authority answered, and its failure changes nothing: it is awaited but
+   * its result is deliberately ignored, because a proposal must not become less real when a
+   * telemetry write does not land.
+   */
+  await settle(tenant, invocationId, "selection-valid", deps, {
+    result: selection.result,
+    filingOutcome: "proposed",
+  });
   return { status: "proposed", reason: selection.selection.reason, proposal: filed };
 }
 
+/**
+ * Stage 2, in one place so every exit finalizes identically.
+ *
+ * Returns nothing and swallows nothing it should not: `finalizeInvocation` never throws and its
+ * boolean is advisory. A caller must not be able to change the outcome of the request based on
+ * whether provenance landed — that is the veto this design exists to avoid.
+ */
+async function settle(
+  tenant: TenantContext,
+  invocationId: string,
+  state: OriginationInvocationState,
+  deps: OriginateActionDeps,
+  extra: {
+    readonly failureCode?: string;
+    readonly result?: InvocationResultFacts;
+    readonly filingOutcome: OriginationFilingOutcome;
+    readonly filingRefusal?: string;
+  },
+): Promise<void> {
+  await finalizeInvocation(
+    tenant,
+    { invocationId, state, ...extra },
+    deps.provenance ?? {},
+  );
+}
+
+/*
+ * AGENT-PROPOSAL-4B. The outcome now carries the PROVENANCE of the call as well as its result.
+ *
+ * It used to carry only `selection`, so `outcome.result` was read for its `.text` and every other
+ * fact — provider, model, request id, tokens — was discarded one line later. That discard is the
+ * whole reason an agent-originated call could not be proven after the fact.
+ *
+ * `invocationState` is the MODEL-side lifecycle and never a proposal lifecycle. `dispatched`
+ * distinguishes a transport that refused before any I/O (its output bound, its per-instance cap,
+ * an exhausted budget) from one that actually went out — which is the only honest definition of
+ * "attempted" available, because the adapter maps a DNS failure and a refused socket to one code.
+ */
 type SelectionOutcome =
-  | { readonly status: "selected"; readonly selection: AgentActionSelection }
-  | { readonly status: "refused"; readonly reason: OriginationRefusal };
+  | {
+      readonly status: "selected";
+      readonly selection: AgentActionSelection;
+      readonly invocationState: OriginationInvocationState;
+      readonly result?: InvocationResultFacts;
+    }
+  | {
+      readonly status: "refused";
+      readonly reason: OriginationRefusal;
+      readonly invocationState: OriginationInvocationState;
+      readonly failureCode?: string;
+      readonly result?: InvocationResultFacts;
+    };
+
+/** Codes the released transport raises BEFORE any network I/O. Nothing was spent for these. */
+const PRE_DISPATCH_FAILURE_CODES: readonly string[] = Object.freeze([
+  /* Output bound exceeded — a configuration error, detected before anything goes out. */
+  "invalid-configuration",
+  /* The per-instance cap AND an exhausted process budget both raise this; neither dispatches. */
+  "rate-limited",
+  /* Raised when the transport is CONSTRUCTED without a key, so no request can have been made. */
+  "missing-credential",
+]);
 
 /**
  * Run one model turn and turn its text into a selection, or a refusal.
@@ -217,10 +356,9 @@ async function selectAction(
   goal: string,
   candidates: OriginationCandidateSet,
   deps: OriginateActionDeps,
+  transport: ClaudeTransport,
 ): Promise<SelectionOutcome> {
   const env = deps.env ?? process.env;
-  const selection = (deps.selectTransport ?? selectModelTransport)(env);
-  if (!selection.transport) return { status: "refused", reason: "model-unavailable" };
 
   const request: ModelGenerationRequest = {
     correlationId: (deps.newCorrelationId ?? (() => "agent-origination"))(),
@@ -234,21 +372,63 @@ async function selectAction(
   };
 
   let text: string;
+  let result: InvocationResultFacts | undefined;
   try {
-    const outcome = await (deps.generate ?? generateHebyModelAnswer)(request, {
-      env,
-      transport: selection.transport,
-    });
-    if (outcome.status !== "generated") return { status: "refused", reason: "model-unavailable" };
+    const outcome = await (deps.generate ?? generateHebyModelAnswer)(request, { env, transport });
+    if (outcome.status !== "generated") {
+      /*
+       * The generator refused without reaching the transport (connectivity disabled, no provider
+       * configured). Nothing went out, so this is NOT an attempt.
+       */
+      return {
+        status: "refused",
+        reason: "model-unavailable",
+        invocationState: "not-dispatched",
+        failureCode: outcome.state,
+      };
+    }
     text = outcome.result.text;
+    /* AGENT-PROPOSAL-4B — kept, not discarded. Only what the provider actually returned. */
+    result = {
+      provider: outcome.result.provider,
+      model: outcome.result.model,
+      providerRequestId: outcome.result.providerRequestId,
+      inputTokens: outcome.result.inputTokens,
+      outputTokens: outcome.result.outputTokens,
+    };
   } catch (error) {
     if (error instanceof ModelConnectivityError) {
-      return { status: "refused", reason: "model-unavailable" };
+      /*
+       * The code decides whether anything was spent. The released transport checks its output
+       * bound, its per-instance cap and the process budget BEFORE any I/O and raises those codes
+       * there; everything else arises at or after `fetch`. That is the whole basis for the claim,
+       * and it is why `provider-contacted` is never recorded.
+       */
+      const dispatched = !PRE_DISPATCH_FAILURE_CODES.includes(error.code);
+      return {
+        status: "refused",
+        reason: "model-unavailable",
+        invocationState: dispatched ? "dispatch-failed" : "not-dispatched",
+        failureCode: error.code,
+      };
     }
     throw error;
   }
 
   const parsed = parseAgentActionSelection(text, candidates);
-  if (parsed.status === "refused") return { status: "refused", reason: parsed.reason };
-  return { status: "selected", selection: parsed.selection };
+  if (parsed.status === "refused") {
+    return {
+      status: "refused",
+      reason: parsed.reason,
+      invocationState: "selection-invalid",
+      result,
+    };
+  }
+  return {
+    status: "selected",
+    selection: parsed.selection,
+    /* `no-action` is a CORRECT model answer, not a failure — kept distinct from an invalid one. */
+    invocationState: parsed.selection.kind === NO_ACTION_KIND ? "no-action" : "selection-valid",
+    result,
+  };
 }
