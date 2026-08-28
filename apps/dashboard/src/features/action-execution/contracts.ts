@@ -149,6 +149,79 @@ export const PROVIDER_ACCEPTANCE_NON_CLAIMS: readonly string[] = Object.freeze([
 ]);
 
 /**
+ * THE STATUSES A HUMAN MUST LOOK AT BY HAND — ONE DEFINITION, TWO CONSUMERS (GE-1).
+ *
+ * `readUnreconciledAttempts` spelled this set inline as a SQL predicate. The ledger surface needs
+ * the same question answered about rows it has already read, in memory, and re-deriving it there
+ * would be a SECOND definition of "unreconciled" — free to drift from the first, and invisible
+ * when it did. R6B's lesson exactly: SQL duplicating pure logic needs one source and an
+ * equivalence test, not two spellings that happen to agree today.
+ *
+ * `unknown` because the provider may hold a request nobody can confirm. `pending` because a row
+ * that never reached a terminal state means the process died mid-flight — the same ambiguity
+ * wearing a different hat. Neither is resolvable by retrying, and no worker exists to resolve
+ * either automatically.
+ */
+export const UNRECONCILED_ATTEMPT_STATUSES = Object.freeze([
+  "pending",
+  "unknown",
+] as const satisfies readonly ExecutionAttemptStatus[]);
+
+/**
+ * Whether one attempt needs a human to look at it. Pure, total over the status vocabulary.
+ *
+ * It is deliberately a question about STATE and nothing else: no clock, no age threshold, no
+ * heuristic. An attempt does not become less ambiguous because time passed.
+ */
+export function attemptRequiresAttention(status: ExecutionAttemptStatus): boolean {
+  return (UNRECONCILED_ATTEMPT_STATUSES as readonly ExecutionAttemptStatus[]).includes(status);
+}
+
+/**
+ * THE LEDGER SURFACE'S OWN WORDING, as frozen values for the same reason
+ * {@link EXECUTION_OUTCOME_WORDING} is: so a test pins what the Director is told, and a later
+ * edit that softens it fails here rather than in front of a human.
+ *
+ * This surface REPORTS. It offers no control, so none of these sentences may read as an
+ * instruction to a machine — only as a statement of what is and is not known.
+ */
+export const EXECUTION_LEDGER_WORDING = Object.freeze({
+  regionTitle: "Execution Ledger",
+  attentionTitle: "Needs human attention",
+  historyTitle: "Recorded execution attempts",
+  /** Said once, above the attention list, so the reading is never left to inference. */
+  attentionPreamble:
+    "These attempts have no confirmed outcome. The external effect may already have happened. " +
+    "Hebun performs no automatic retry, no replay and no reconciliation, and this surface offers " +
+    "no control that would change any of them.",
+  /** The `pending` row a reload can show: the process ended before an answer was recorded. */
+  pendingAfterReload:
+    "No outcome was ever recorded for this attempt. That is not a provider success and not a " +
+    "provider failure — it is an answer Hebun never received.",
+  /** What a second real send would require. Stated as a fact about authority, not as an offer. */
+  secondSendRequirement:
+    "A second send is a second external act: it requires a new proposal, a new Governance " +
+    "decision and a new permit.",
+  emptyLedger:
+    "No execution attempt has been recorded for this organization. A row appears here only after " +
+    "a Director spends an authorization.",
+  /**
+   * A BOUNDED LIST SAYS IT IS BOUNDED. R6B's rule: silent truncation reads as "everything is
+   * here", which on this surface would mean an irreversible act nobody was shown.
+   */
+  historyTruncated:
+    "Older attempts exist and are not shown. This list is bounded, and a bounded list is not the " +
+    "whole record.",
+  attentionTruncated:
+    "More attempts are missing a confirmed outcome than are shown here. Every one of them still " +
+    "needs a human.",
+  unavailable:
+    "The execution ledger could not be read, so nothing is shown. An unreadable ledger is not an " +
+    "empty one, and no attempt is inferred from its absence.",
+  attentionEmpty: "No recorded attempt is missing a confirmed outcome.",
+} as const);
+
+/**
  * THE RETRY DOCTRINE — generation one, stated as a value so a test can assert nothing softened it.
  *
  * There is no backoff, no queue, no worker and no automatic second attempt anywhere in this

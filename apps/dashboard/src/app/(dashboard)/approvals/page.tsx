@@ -1,12 +1,14 @@
 import { DecisionWorkspace } from "@/components/decision-workspace/decision-workspace";
 import { ActionAuthorizations } from "@/components/decision-workspace/action-authorizations";
 import { AgentProposalRequest } from "@/components/decision-workspace/agent-proposal-request";
+import { ExecutionLedger } from "@/components/decision-workspace/execution-ledger";
 import { getDecisionWorkspaceModel } from "@/features/decisions/workspace-model";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import {
   readActionPermits,
   readPendingActionRequests,
 } from "@/features/action-authorization/read-action-authorizations.server";
+import { readExecutionLedger } from "@/features/action-execution/execution-ledger-projection.server";
 
 export const metadata = { title: "Decisions — Hebun AI" };
 
@@ -31,15 +33,30 @@ export const metadata = { title: "Decisions — Hebun AI" };
  * Every execution outcome shown here is derived from a durable attempt row. The page never says
  * "sent" or "delivered": the strongest available claim is that a provider accepted the operation,
  * and it appears only next to that provider's own message id.
+ *
+ * GOVERNED-EXECUTION-1 MADE THAT RECORD SURVIVE A RELOAD. Until it, an outcome was visible only in
+ * the response to the click that produced it — so the one state a human must never miss, an
+ * `unknown` whose external effect may already have occurred, vanished when the page was refreshed
+ * while the row that recorded it sat unread. The ledger below reads that row. It adds NO control:
+ * it cannot retry, replay, reconcile or resolve anything, and a second send still requires a new
+ * proposal, a new Governance decision and a new permit.
  */
 
 export default async function ApprovalsPage() {
   const model = getDecisionWorkspaceModel();
   const tenant = await resolveTenantContext();
 
-  const [requests, permits] = await Promise.all([
+  const [requests, permits, ledger] = await Promise.all([
     readPendingActionRequests(tenant),
     readActionPermits(tenant),
+    /*
+     * GOVERNED-EXECUTION-1 — the durable record of acts already performed. Read here, with the
+     * same tenant the other two are given, because a component on this surface may not resolve one
+     * of its own. It is a THIRD read with its own availability, not a field on either of the
+     * others: an unreadable ledger must not make the authorization queue look unavailable, and an
+     * unreadable queue must not hide an irreversible act that already happened.
+     */
+    readExecutionLedger(tenant),
   ]);
 
   /*
@@ -64,6 +81,18 @@ export default async function ApprovalsPage() {
             requests={requests.status === "read" ? requests.items : []}
             permits={permits.status === "read" ? permits.items : []}
             connected={connected}
+          />
+          {/*
+           * The ledger sits BELOW the queue on purpose: what is still to be decided comes first,
+           * and what has already been done is the record beneath it. It offers no control — every
+           * act it shows is finished, and a second one would need a new decision.
+           */}
+          <ExecutionLedger
+            entries={ledger.status === "read" ? ledger.entries : []}
+            needsAttention={ledger.status === "read" ? ledger.needsAttention : []}
+            connected={ledger.status === "read"}
+            historyTruncated={ledger.status === "read" ? ledger.historyTruncated : false}
+            attentionTruncated={ledger.status === "read" ? ledger.attentionTruncated : false}
           />
         </>
       }

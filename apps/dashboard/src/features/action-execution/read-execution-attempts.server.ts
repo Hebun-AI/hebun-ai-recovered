@@ -16,7 +16,7 @@ import { actionExecutionAttempts } from "@/db/schema/action-execution";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { toExecutionAttemptView, type ExecutionAttemptRow } from "./attempt-view";
-import type { ExecutionAttemptView } from "./contracts";
+import { UNRECONCILED_ATTEMPT_STATUSES, type ExecutionAttemptView } from "./contracts";
 
 export type ExecutionAttemptRead =
   | { readonly status: "read"; readonly items: readonly ExecutionAttemptView[] }
@@ -61,6 +61,11 @@ export async function readExecutionAttempts(
  * ambiguity wearing a different hat. Neither can be resolved by retrying, and no worker exists to
  * resolve them automatically. This read is the reconciliation surface, and it is deliberately a
  * list for a human rather than an input to a machine.
+ *
+ * THE SET ITSELF MOVED TO `contracts.ts` AT GE-1 and is now named here rather than spelled. The
+ * ledger projection asks the same question of rows already in memory, and two spellings of one
+ * security-relevant predicate is the drift this repository has been bitten by before. The SQL and
+ * the pure predicate now read the same frozen value, and an equivalence test proves it.
  */
 export async function readUnreconciledAttempts(
   tenant: TenantContext | null,
@@ -78,7 +83,7 @@ export async function readUnreconciledAttempts(
       .where(
         and(
           eq(actionExecutionAttempts.tenantId, tenant.tenantId),
-          inArray(actionExecutionAttempts.status, ["unknown", "pending"]),
+          inArray(actionExecutionAttempts.status, [...UNRECONCILED_ATTEMPT_STATUSES]),
         ),
       )
       .orderBy(desc(actionExecutionAttempts.startedAt))
