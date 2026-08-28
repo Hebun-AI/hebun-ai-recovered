@@ -65,6 +65,8 @@ import {
   readAgentModelDistribution,
   readAgentPermitFacts,
   readAgentProposalFacts,
+  readAgentSelectionFacts,
+  readInvocationProvenanceIntegrity,
   readUnattributedInvocationCount,
   type AgentExecutionFacts,
   type AgentInvocationFacts,
@@ -72,6 +74,7 @@ import {
   type AgentOutcomeFactsDeps,
   type AgentPermitFacts,
   type AgentProposalFacts,
+  type AgentSelectionFacts,
 } from "./read-agent-outcome-facts.server";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -137,6 +140,29 @@ export interface AgentModelUsageView {
   readonly distribution: readonly AgentModelBucket[];
 }
 
+/**
+ * Selection outcomes — what became of the calls made ON THIS AGENT'S BEHALF (SIA-2.6).
+ *
+ * Distinct from {@link AgentModelUsageView}, which counts only invocations a PROPOSAL names. This
+ * counts every attributed invocation, including the ones that produced nothing — which is the only
+ * evidence Hebun holds about the part of the work the agent itself controls.
+ *
+ * Every class is carried separately. `registered` in particular is UNKNOWN, not "nothing happened".
+ */
+export interface AgentSelectionView {
+  readonly attributed: number;
+  readonly registered: number;
+  readonly notDispatched: number;
+  readonly dispatchFailed: number;
+  readonly selectionInvalid: number;
+  readonly noAction: number;
+  readonly selectionValid: number;
+  readonly filingNotAttempted: number;
+  readonly filingProposed: number;
+  readonly filingRefused: number;
+  readonly filingFailed: number;
+}
+
 /** Provenance coverage — how much of this agent's authorship Hebun can actually trace. */
 export interface AgentProvenanceView {
   /** Proposals naming the model invocation that caused them. */
@@ -157,6 +183,8 @@ export interface AgentOutcomeObservation {
   readonly governance: AgentGovernanceView;
   readonly execution: AgentExecutionView;
   readonly modelUsage: AgentModelUsageView;
+  /** SIA-2.6. Empty of evidence until this agent has an attributed invocation. */
+  readonly selection: AgentSelectionView;
   readonly provenance: AgentProvenanceView;
 }
 
@@ -181,6 +209,18 @@ export type AgentOutcomeObservationRead =
        * per-agent totals are never quietly short. Expected to be zero.
        */
       readonly unresolvedAgentProposals: number;
+      /**
+       * Invocations written before attribution existed (SIA-2.6). They stay NULL for ever; this is
+       * the count of what can never be attributed, reported rather than quietly excluded.
+       */
+      readonly historicallyUnattributedInvocations: number;
+      /**
+       * Rows where the invocation's own attribution disagrees with the proposer on a proposal that
+       * names it. Expected zero — both come from one resolved proposer in one request. Surfaced
+       * rather than arbitrated: a projection that silently preferred one side would turn a
+       * provenance defect into a confident answer.
+       */
+      readonly attributionConflicts: number;
       /** True when the provider/model breakdown filled its bound, so buckets exist and are not shown. */
       readonly distributionTruncated: boolean;
       /** The bound actually applied, so the surface states a number it did not invent. */
@@ -200,6 +240,7 @@ export interface AgentOutcomeFacts {
   readonly executions: readonly AgentExecutionFacts[];
   readonly invocations: readonly AgentInvocationFacts[];
   readonly distribution: readonly AgentModelDistributionFact[];
+  readonly selection: readonly AgentSelectionFacts[];
 }
 
 /**
@@ -245,6 +286,20 @@ const EMPTY_EXECUTIONS: Omit<AgentExecutionFacts, "agentId"> = {
   unknown: 0,
 };
 
+const EMPTY_SELECTION: Omit<AgentSelectionFacts, "agentId"> = {
+  attributed: 0,
+  stateRegistered: 0,
+  stateNotDispatched: 0,
+  stateDispatchFailed: 0,
+  stateSelectionInvalid: 0,
+  stateNoAction: 0,
+  stateSelectionValid: 0,
+  filingNotAttempted: 0,
+  filingProposed: 0,
+  filingRefused: 0,
+  filingFailed: 0,
+};
+
 const EMPTY_INVOCATIONS: Omit<AgentInvocationFacts, "agentId"> = {
   linkedInvocations: 0,
   inputTokens: 0,
@@ -277,6 +332,7 @@ export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
   const permits = index(facts.permits);
   const executions = index(facts.executions);
   const invocations = index(facts.invocations);
+  const selections = index(facts.selection);
 
   const known = new Set(facts.identities.map((identity) => identity.agentId));
   let unresolved = 0;
@@ -289,6 +345,7 @@ export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
     const m = permits.get(identity.agentId) ?? { agentId: identity.agentId, ...EMPTY_PERMITS };
     const e = executions.get(identity.agentId) ?? { agentId: identity.agentId, ...EMPTY_EXECUTIONS };
     const i = invocations.get(identity.agentId) ?? { agentId: identity.agentId, ...EMPTY_INVOCATIONS };
+    const sel = selections.get(identity.agentId) ?? { agentId: identity.agentId, ...EMPTY_SELECTION };
 
     return {
       agentName: identity.name,
@@ -331,6 +388,19 @@ export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
             invocations: bucket.invocations,
           })),
       },
+      selection: {
+        attributed: sel.attributed,
+        registered: sel.stateRegistered,
+        notDispatched: sel.stateNotDispatched,
+        dispatchFailed: sel.stateDispatchFailed,
+        selectionInvalid: sel.stateSelectionInvalid,
+        noAction: sel.stateNoAction,
+        selectionValid: sel.stateSelectionValid,
+        filingNotAttempted: sel.filingNotAttempted,
+        filingProposed: sel.filingProposed,
+        filingRefused: sel.filingRefused,
+        filingFailed: sel.filingFailed,
+      },
       provenance: {
         proposalsWithInvocation: p.withInvocationLink,
         proposalsWithoutInvocation: p.withoutInvocationLink,
@@ -368,16 +438,27 @@ export async function readAgentOutcomeObservation(
   const distributionLimit = deps.distributionLimit ?? MODEL_DISTRIBUTION_LIMIT;
   const bounded: AgentOutcomeFactsDeps = { ...deps, distributionLimit };
 
-  const [identityState, proposals, permits, executions, invocations, distribution, unattributed] =
-    await Promise.all([
-      readDurableAgentIdentityState(tenant, { getDb: deps.getDb }),
-      readAgentProposalFacts(tenant, bounded),
-      readAgentPermitFacts(tenant, bounded),
-      readAgentExecutionFacts(tenant, bounded),
-      readAgentInvocationFacts(tenant, bounded),
-      readAgentModelDistribution(tenant, bounded),
-      readUnattributedInvocationCount(tenant, bounded),
-    ]);
+  const [
+    identityState,
+    proposals,
+    permits,
+    executions,
+    invocations,
+    distribution,
+    unattributed,
+    selection,
+    integrity,
+  ] = await Promise.all([
+    readDurableAgentIdentityState(tenant, { getDb: deps.getDb }),
+    readAgentProposalFacts(tenant, bounded),
+    readAgentPermitFacts(tenant, bounded),
+    readAgentExecutionFacts(tenant, bounded),
+    readAgentInvocationFacts(tenant, bounded),
+    readAgentModelDistribution(tenant, bounded),
+    readUnattributedInvocationCount(tenant, bounded),
+    readAgentSelectionFacts(tenant, bounded),
+    readInvocationProvenanceIntegrity(tenant, bounded),
+  ]);
 
   if (identityState.status !== "known") {
     return { status: "unavailable", reason: "agent-identity-authority-unavailable" };
@@ -388,6 +469,8 @@ export async function readAgentOutcomeObservation(
   if (invocations.status !== "read") return { status: "unavailable", reason: invocations.reason };
   if (distribution.status !== "read") return { status: "unavailable", reason: distribution.reason };
   if (unattributed.status !== "read") return { status: "unavailable", reason: unattributed.reason };
+  if (selection.status !== "read") return { status: "unavailable", reason: selection.reason };
+  if (integrity.status !== "read") return { status: "unavailable", reason: integrity.reason };
 
   const composed = composeAgentOutcomes({
     identities: identityState.identities,
@@ -396,6 +479,7 @@ export async function readAgentOutcomeObservation(
     executions: executions.rows,
     invocations: invocations.rows,
     distribution: distribution.rows,
+    selection: selection.rows,
   });
 
   return {
@@ -403,6 +487,8 @@ export async function readAgentOutcomeObservation(
     agents: composed.agents,
     unresolvedAgentProposals: composed.unresolvedAgentProposals,
     unattributedInvocations: unattributed.rows[0] ?? 0,
+    historicallyUnattributedInvocations: integrity.rows[0]?.historicallyUnattributed ?? 0,
+    attributionConflicts: integrity.rows[0]?.attributionConflicts ?? 0,
     distributionTruncated: distribution.rows.length >= distributionLimit,
     distributionLimit,
   };

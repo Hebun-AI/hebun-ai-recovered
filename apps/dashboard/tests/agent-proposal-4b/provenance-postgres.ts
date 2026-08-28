@@ -22,6 +22,8 @@ import {
   readInvocationProvenance,
 } from "../../src/features/agent-origination/invocation-provenance.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
+/* SIA-2.6: registration now requires the branded proposer, so the fixture resolves the real one. */
+import { resolveAgentProposer } from "../../src/features/action-authorization/agent-proposer.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import { createExternalRecipient } from "../../src/features/external-recipients/write-external-recipients.server";
 import { proposeSendAction } from "../../src/features/heby-action-inlet/send-proposal.server";
@@ -130,6 +132,12 @@ async function main(): Promise<void> {
 
     const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
     assert.equal(established.status, "established");
+
+    /* SIA-2.6 — the branded proposer every registration must now carry. */
+    const acmeProposerResult = await resolveAgentProposer(acmeCtx, dbDeps);
+    assert.equal(acmeProposerResult.status, "resolved");
+    if (acmeProposerResult.status !== "resolved") throw new Error("unreachable");
+    const acmeProposer = acmeProposerResult.proposer;
 
     const sendEnvelope = JSON.stringify({
       kind: "send",
@@ -341,7 +349,7 @@ async function main(): Promise<void> {
 
     /* ═══ CRASH SEMANTICS — a registered row means UNKNOWN, never "nothing happened" ═══ */
     {
-      const stranded = await registerInvocation(acmeCtx, { transport: "fake" }, dbDeps);
+      const stranded = await registerInvocation(acmeCtx, { transport: "fake", proposer: acmeProposer }, dbDeps);
       assert.ok(stranded, "registration returns an id");
       const row = await setup.query(
         `select state, finalized_at as "finalizedAt", filing_outcome as "filingOutcome"

@@ -52,7 +52,6 @@ const UNTOUCHED: readonly (readonly [string, string])[] = [
   ["src/db/schema/user-session-context.ts", "edc303c"],
   ["src/db/schema/user.ts", "edc303c"],
   ["src/db/schema/membership.ts", "edc303c"],
-  ["src/db/schema/agent.ts", "edc303c"],
   ["src/features/auth-runtime/credential-repository.server.ts", "edc303c"],
   ["src/features/auth-runtime/identity-repository.server.ts", "edc303c"],
   ["src/features/auth-runtime/password-hash.server.ts", "edc303c"],
@@ -259,6 +258,13 @@ function main(): void {
   /*
    * `agents.tenant_id` REMAINS OWNERSHIP, NOT PERMISSION. Every reader uses it as a scoping
    * predicate beside a human's own tenant id; none treats it as a grant.
+   *
+   * EXTENDED BY SIA-2.6, AND EXTENDED RATHER THAN RELAXED. The fourth entry is the origination
+   * invocation TABLE DEFINITION, which names `agents.tenantId` as half of a composite foreign key
+   * so an invocation cannot be attributed to another tenant's agent. That is not a reader treating
+   * tenancy as a grant — it is the same ownership claim made structural, enforced by the database
+   * instead of by a predicate somebody has to remember. The census stays exact: a fifth file still
+   * fails here.
    */
   const agentTenantReaders = srcFiles.filter((f) => /agents\.tenantId/.test(codeOf(read(f))));
   assert.deepEqual(
@@ -267,8 +273,9 @@ function main(): void {
       "src/features/agent-identity/create-durable-agent-identity.server.ts",
       "src/features/agent-identity/read-durable-agent-identity.server.ts",
       "src/features/agent-identity/retire-durable-agent-identity.server.ts",
-    ],
-    "`agents.tenant_id` is still read only by the identity authorities, as a tenant scope",
+      "src/db/schema/heby-origination-invocation.ts",
+    ].sort(),
+    "`agents.tenant_id` is read by the identity authorities as a tenant scope, and named by one table definition as a composite-key target",
   );
 
   /* ── 7. NO MACHINE INGRESS ────────────────────────────────────────────────
@@ -296,6 +303,52 @@ function main(): void {
   }
 
   /* ── 9. RELEASED AUTHORITIES ARE BYTE-IDENTICAL ───────────────────────────── */
+  /*
+   * `src/db/schema/agent.ts` MOVED OUT OF THAT LIST BY SIA-2.6 — and is pinned HARDER here, not
+   * released from scrutiny.
+   *
+   * That phase added the composite-foreign-key anchor `agents_tenant_id_uq`, so byte-identity to
+   * `edc303c` is no longer true. Deleting the entry would have been the weak repair: it would let
+   * any future edit to the agents table pass unnoticed. Instead the released text is reconstructed
+   * forward — apply exactly the two known additions to `edc303c` and require the result to equal
+   * the file on disk. Anything else that moved in that file, by a byte, fails here.
+   */
+  {
+    const released = execFileSync("git", ["show", "edc303c:apps/dashboard/src/db/schema/agent.ts"], {
+      cwd: ROOT,
+      encoding: "utf8",
+      maxBuffer: 8 * 1024 * 1024,
+    });
+    const withImport = released.replace("  timestamp,\n  uuid,", "  timestamp,\n  uniqueIndex,\n  uuid,");
+    assert.notEqual(withImport, released, "the uniqueIndex import is the first of the two additions");
+    const current = read("src/db/schema/agent.ts");
+    const anchorAt = current.indexOf('    uniqueIndex("agents_tenant_id_uq").on(t.tenantId, t.id),');
+    assert.ok(anchorAt > 0, "the composite anchor is present");
+    const reconstructed = withImport.replace(
+      '  (t) => [index("agents_execution_posture_idx").on(t.executionPosture)],',
+      current.slice(
+        current.indexOf('  (t) => [\n    index("agents_execution_posture_idx")'),
+        current.indexOf("  ],", anchorAt) + "  ],".length,
+      ),
+    );
+    assert.equal(
+      current,
+      reconstructed,
+      "src/db/schema/agent.ts differs from edc303c by EXACTLY the composite anchor and its import",
+    );
+    /*
+     * And the added block really is only indexes. Scoped to the table's constraint block — an
+     * earlier version sliced the file by a prefix the new import line had already displaced, so it
+     * scanned the whole file and accused the column definitions of being the addition.
+     */
+    const block = current.slice(current.indexOf("  (t) => ["), current.indexOf("  ],", anchorAt));
+    for (const forbidden of ["notNull", "default(", "check(", "foreignKey(", "jsonb(", "text("]) {
+      assert.ok(
+        !block.includes(forbidden),
+        `the agents-table addition introduces no ${forbidden} — it is an index and nothing else`,
+      );
+    }
+  }
   for (const [file, release] of UNTOUCHED) {
     const released = execFileSync("git", ["show", `${release}:apps/dashboard/${file}`], {
       cwd: ROOT,
@@ -307,7 +360,7 @@ function main(): void {
 
   /* ── 10. SCHEMA, LEDGER AND HUMAN SUPREMACY UNTOUCHED ─────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 37, "this phase authored no migration — a type needs none");
+  assert.equal(sqlCount, 38, "this phase authored no migration — a type needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))

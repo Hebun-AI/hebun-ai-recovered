@@ -207,7 +207,17 @@ export async function originateAgentAction(
    */
   const invocationId = await registerInvocation(
     tenant,
-    { transport: transportSelection.transportProvenance ?? "fake" },
+    {
+      transport: transportSelection.transportProvenance ?? "fake",
+      /*
+       * SIA-2.6 — the SAME `proposer` resolved at step 1 and handed to the proposal inlet at step 7.
+       *
+       * One variable, two writes. That is what makes the invocation's attribution and the
+       * proposal's proposer incapable of disagreeing: they are not two lookups that happen to
+       * match, they are one resolution used twice.
+       */
+      proposer,
+    },
     deps.provenance ?? {},
   );
   if (!invocationId) return refused("model-unavailable");

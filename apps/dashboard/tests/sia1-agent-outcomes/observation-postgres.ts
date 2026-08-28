@@ -260,7 +260,7 @@ async function main(): Promise<void> {
       ctx: TenantContext,
       usage: { inputTokens?: number; outputTokens?: number },
     ): Promise<string> => {
-      const id = await registerInvocation(ctx, { transport: "fake" }, baseDeps);
+      const id = await registerInvocation(ctx, { transport: "fake", proposer: acmeProposer }, baseDeps);
       assert.ok(id, "an invocation must register");
       await finalizeInvocation(
         ctx,
@@ -370,7 +370,7 @@ async function main(): Promise<void> {
     assert.equal(humanFiled.status, "proposed");
 
     /* 8. AN INVOCATION THAT PRODUCED NO PROPOSAL. Nobody owns it, and it is not lost. */
-    const orphan = await registerInvocation(acmeCtx, { transport: "fake" }, baseDeps);
+    const orphan = await registerInvocation(acmeCtx, { transport: "fake", proposer: acmeProposer }, baseDeps);
     assert.ok(orphan);
     await finalizeInvocation(
       acmeCtx,

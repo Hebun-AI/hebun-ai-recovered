@@ -209,6 +209,7 @@ export const AGENT_OUTCOME_WORDING = Object.freeze({
   governanceTitle: "Governance outcomes",
   executionTitle: "Execution outcomes",
   modelUsageTitle: "Model usage",
+  selectionTitle: "Selection outcomes",
   provenanceTitle: "Provenance coverage",
   /** Distinct from an empty observation: an unread store is not an organization with no agents. */
   unavailable: "Agent outcomes could not be read.",
@@ -235,6 +236,22 @@ export const AGENT_OUTCOME_WORDING = Object.freeze({
   invocationsAreLinkedOnly:
     "Only model invocations that a proposal names can be attributed to an agent. An invocation " +
     "that produced no proposal is recorded, but no agent owns it.",
+  /* SIA-2.6 — why this section can see what "Model usage" above cannot. */
+  selectionIncludesNoProposal:
+    "These are calls made on this agent's behalf, counted from the call itself rather than from a " +
+    "proposal. Calls that produced NO proposal appear here and nowhere else — which is the only " +
+    "evidence Hebun holds about the part of the work the agent itself controls.",
+  selectionIsNotQuality:
+    "An invalid selection means the output did not match Hebun's closed contract. It is not " +
+    "evidence the agent is unintelligent, and choosing no action is not a failure.",
+  historicallyUnattributed:
+    "Calls recorded before Hebun stored attribution at all. They stay unattributed for ever: no " +
+    "backfill is performed, and inferring an agent from the tenant having only one would be an " +
+    "invented fact, not a recovered one.",
+  attributionConflict:
+    "Calls whose own attribution disagrees with the proposer on a proposal naming them. This must " +
+    "be zero — both are written from one resolved proposer in one request. A non-zero count is a " +
+    "provenance defect and is shown rather than silently resolved.",
   unattributedInvocations:
     "Model invocations recorded for this organization that no proposal names. They belong to no " +
     "agent here, and they are not missing — they are attributed to nobody because nothing links them.",

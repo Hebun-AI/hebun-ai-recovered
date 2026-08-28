@@ -17,6 +17,7 @@ import {
   jsonb,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -88,5 +89,21 @@ export const agents = pgTable(
     telemetryProfile: jsonb("telemetry_profile"),
     agentProfileVersion: integer("agent_profile_version").notNull().default(1),
   },
-  (t) => [index("agents_execution_posture_idx").on(t.executionPosture)],
+  (t) => [
+    index("agents_execution_posture_idx").on(t.executionPosture),
+    /*
+     * THE COMPOSITE-FK ANCHOR (SIA-2.6).
+     *
+     * `id` is already the primary key, so this index adds no uniqueness the table did not have. It
+     * exists so a sibling table can carry `(tenant_id, agent_id)` and have PostgreSQL enforce that
+     * the agent named belongs to the SAME tenant as the row naming it — the pattern
+     * `heby_action_requests_tenant_id_uq`, `action_permits_tenant_id_uq`,
+     * `work_artifacts_tenant_id_uq` and `external_recipients_tenant_id_uq` already establish.
+     *
+     * R3B added exactly this to `action_permits` for the same reason and recorded why: every
+     * sibling in that chain already carried one, and the one that did not was the one that could
+     * be pointed at another tenant's row without the database noticing.
+     */
+    uniqueIndex("agents_tenant_id_uq").on(t.tenantId, t.id),
+  ],
 );

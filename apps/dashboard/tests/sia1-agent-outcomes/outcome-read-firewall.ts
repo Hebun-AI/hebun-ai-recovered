@@ -551,6 +551,7 @@ function observesWithoutEvaluating(): void {
     executions: [],
     invocations: [],
     distribution: [],
+    selection: [],
   });
 
   const walk = (value: unknown, trail: string): void => {
@@ -709,6 +710,7 @@ function zeroRowAgentSurvivesTheJoin(): void {
     executions: [],
     invocations: [],
     distribution: [],
+    selection: [],
   });
   assert.equal(composed.agents.length, 1, "an agent with no facts does not fall out of the join");
   assert.equal(composed.agents[0]!.activity.proposalsFiled, 0);
@@ -736,6 +738,7 @@ function zeroRowAgentSurvivesTheJoin(): void {
     executions: [],
     invocations: [],
     distribution: [],
+    selection: [],
   });
   assert.equal(orphaned.agents.length, 0);
   assert.equal(
@@ -798,6 +801,7 @@ function provenanceIsNeverInvented(): void {
     executions: [],
     invocations: [],
     distribution: [],
+    selection: [],
   });
   const agent = composed.agents[0]!;
   assert.equal(

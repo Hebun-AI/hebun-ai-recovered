@@ -108,12 +108,64 @@ export interface AgentInvocationFacts {
   readonly invocationsWithoutReportedUsage: number;
 }
 
+/**
+ * One agent's ATTRIBUTED origination invocations, counted by the two closed vocabularies the
+ * released provenance table owns (SIA-2.6).
+ *
+ * ── A DIFFERENT QUESTION FROM {@link AgentInvocationFacts} ───────────────────
+ *
+ * That one asks "which recorded model calls does one of this agent's PROPOSALS name" and is
+ * unchanged. This one asks "which recorded model calls were made ON THIS AGENT'S BEHALF" — and the
+ * difference is the entire point of the phase: a call that ended `selection-invalid` or `no-action`
+ * produced no proposal, so the first question cannot see it and the second can.
+ *
+ * A call that DID produce a proposal appears in both, because both statements are true of it.
+ *
+ * NO CLASS IS COLLAPSED. Six states and four filing outcomes are counted separately because the
+ * released schema separates them deliberately: `state` describes the model side and `filing_outcome`
+ * describes what the proposal authority returned, and folding either would make distinct causes
+ * indistinguishable.
+ */
+export interface AgentSelectionFacts {
+  readonly agentId: string;
+  /** Every invocation attributed to this agent, whatever became of it. */
+  readonly attributed: number;
+  /* ── The model-side lifecycle. `registered` means UNKNOWN, never "nothing happened". ── */
+  readonly stateRegistered: number;
+  readonly stateNotDispatched: number;
+  readonly stateDispatchFailed: number;
+  readonly stateSelectionInvalid: number;
+  readonly stateNoAction: number;
+  readonly stateSelectionValid: number;
+  /* ── What the proposal authority returned to the attempt. An observation, never a lifecycle. ── */
+  readonly filingNotAttempted: number;
+  readonly filingProposed: number;
+  readonly filingRefused: number;
+  readonly filingFailed: number;
+}
+
 /** One (agent, provider, model) bucket. Provider and model are null until a result exists. */
 export interface AgentModelDistributionFact {
   readonly agentId: string;
   readonly provider: string | null;
   readonly model: string | null;
   readonly invocations: number;
+}
+
+/**
+ * Tenant-level provenance integrity (SIA-2.6).
+ *
+ * `historicallyUnattributed` counts invocations written before attribution existed. They stay NULL
+ * for ever — there is no backfill and none is possible without inventing history.
+ *
+ * `attributionConflicts` counts rows where the invocation names one agent and a proposal naming
+ * that invocation names ANOTHER. It must be zero: both values are written from a single resolved
+ * proposer inside one request. It is measured rather than assumed, because a projection that
+ * silently preferred one side would turn a provenance defect into a confident answer.
+ */
+export interface InvocationProvenanceIntegrity {
+  readonly historicallyUnattributed: number;
+  readonly attributionConflicts: number;
 }
 
 export type AgentOutcomeFactsRead<T> =
@@ -458,6 +510,116 @@ export async function readUnattributedInvocationCount(
     const executed = await resolved.db.execute(statement);
     const rows = executed.rows as unknown as readonly Record<string, DriverNumber>[];
     return { status: "read", rows: [toCount(rows[0]?.unattributed)] };
+  } catch {
+    return { status: "unavailable", reason: "read-failed" };
+  }
+}
+
+/**
+ * Attributed origination invocations per agent, counted by state and by filing outcome.
+ *
+ * Grouped on `agent_id` DIRECTLY, so an invocation that produced no proposal is counted — which is
+ * the whole reason SIA-2.6 exists. Rows with no attribution are excluded by the `is not null`
+ * predicate rather than bucketed into an "unknown agent": there is no such agent, and inventing one
+ * would be the fabricated absence this lineage has repaired twice.
+ *
+ * Cross-tenant reads are impossible twice over: the predicate scopes to the session tenant, and the
+ * composite foreign key means `agent_id` cannot name an agent outside the row's own tenant.
+ */
+export async function readAgentSelectionFacts(
+  tenant: TenantContext | null,
+  deps: AgentOutcomeFactsDeps = {},
+): Promise<AgentOutcomeFactsRead<AgentSelectionFacts>> {
+  const resolved = guard(tenant, deps);
+  if ("reason" in resolved) return { status: "unavailable", reason: resolved.reason };
+
+  const statement = sql`
+    select
+      "heby_origination_invocations"."agent_id"::text as "agentId",
+      count(*)                                        as "attributed",
+      count(*) filter (where "heby_origination_invocations"."state" = 'registered')        as "stateRegistered",
+      count(*) filter (where "heby_origination_invocations"."state" = 'not-dispatched')    as "stateNotDispatched",
+      count(*) filter (where "heby_origination_invocations"."state" = 'dispatch-failed')   as "stateDispatchFailed",
+      count(*) filter (where "heby_origination_invocations"."state" = 'selection-invalid') as "stateSelectionInvalid",
+      count(*) filter (where "heby_origination_invocations"."state" = 'no-action')         as "stateNoAction",
+      count(*) filter (where "heby_origination_invocations"."state" = 'selection-valid')   as "stateSelectionValid",
+      count(*) filter (where "heby_origination_invocations"."filing_outcome" = 'not-attempted') as "filingNotAttempted",
+      count(*) filter (where "heby_origination_invocations"."filing_outcome" = 'proposed')      as "filingProposed",
+      count(*) filter (where "heby_origination_invocations"."filing_outcome" = 'refused')       as "filingRefused",
+      count(*) filter (where "heby_origination_invocations"."filing_outcome" = 'failed')        as "filingFailed"
+    from "heby_origination_invocations"
+    where "heby_origination_invocations"."tenant_id" = ${resolved.tenantId}
+      and "heby_origination_invocations"."agent_id" is not null
+    group by "heby_origination_invocations"."agent_id"`;
+
+  try {
+    const executed = await resolved.db.execute(statement);
+    const rows = executed.rows as unknown as readonly Record<string, DriverNumber>[];
+    return {
+      status: "read",
+      rows: rows.map((row) => ({
+        agentId: String(row.agentId ?? ""),
+        attributed: toCount(row.attributed),
+        stateRegistered: toCount(row.stateRegistered),
+        stateNotDispatched: toCount(row.stateNotDispatched),
+        stateDispatchFailed: toCount(row.stateDispatchFailed),
+        stateSelectionInvalid: toCount(row.stateSelectionInvalid),
+        stateNoAction: toCount(row.stateNoAction),
+        stateSelectionValid: toCount(row.stateSelectionValid),
+        filingNotAttempted: toCount(row.filingNotAttempted),
+        filingProposed: toCount(row.filingProposed),
+        filingRefused: toCount(row.filingRefused),
+        filingFailed: toCount(row.filingFailed),
+      })),
+    };
+  } catch {
+    return { status: "unavailable", reason: "read-failed" };
+  }
+}
+
+/**
+ * Tenant-level provenance integrity: what is historically unattributed, and what disagrees.
+ *
+ * The conflict predicate compares the invocation's own attribution against the proposer recorded on
+ * a proposal that NAMES that invocation. Both are written from one resolved proposer in one
+ * request, so the expected answer is zero — and measuring it is how a future defect surfaces as a
+ * number a human sees rather than as a silently-preferred side.
+ */
+export async function readInvocationProvenanceIntegrity(
+  tenant: TenantContext | null,
+  deps: AgentOutcomeFactsDeps = {},
+): Promise<AgentOutcomeFactsRead<InvocationProvenanceIntegrity>> {
+  const resolved = guard(tenant, deps);
+  if ("reason" in resolved) return { status: "unavailable", reason: resolved.reason };
+
+  const statement = sql`
+    select
+      count(*) filter (where "heby_origination_invocations"."agent_id" is null) as "historicallyUnattributed",
+      count(*) filter (
+        where "heby_origination_invocations"."agent_id" is not null
+          and exists (
+            select 1 from "heby_action_requests"
+            where "heby_action_requests"."origination_invocation_id" = "heby_origination_invocations"."id"
+              and "heby_action_requests"."tenant_id" = "heby_origination_invocations"."tenant_id"
+              and "heby_action_requests"."proposed_by_actor_type" = 'agent'
+              and "heby_action_requests"."proposed_by_actor_id" <> "heby_origination_invocations"."agent_id"
+          )
+      ) as "attributionConflicts"
+    from "heby_origination_invocations"
+    where "heby_origination_invocations"."tenant_id" = ${resolved.tenantId}`;
+
+  try {
+    const executed = await resolved.db.execute(statement);
+    const row = (executed.rows as unknown as readonly Record<string, DriverNumber>[])[0];
+    return {
+      status: "read",
+      rows: [
+        {
+          historicallyUnattributed: toCount(row?.historicallyUnattributed),
+          attributionConflicts: toCount(row?.attributionConflicts),
+        },
+      ],
+    };
   } catch {
     return { status: "unavailable", reason: "read-failed" };
   }

@@ -189,7 +189,7 @@ async function main(): Promise<void> {
         /* KR-EXT1: migration 36 (`knowledge_external_references`) grew the ledger once more, and the
          * digest moved with it — again on the DISPOSABLE database, which carries what this working
          * tree authors. Production stands at 35 (`97f1151f…`) until its own gated ceremony. */
-        "69c8a470c24f2c23f32d3adacfc8664f",
+        "c1384ab65d47a7fcada6925e28b9e695",
         /*
          * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
          * sentence had been false since R2H — whose own comment, three lines above it, said

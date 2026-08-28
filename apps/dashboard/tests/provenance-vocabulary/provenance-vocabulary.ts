@@ -384,6 +384,7 @@ async function main(): Promise<void> {
            * TABLE, one nullable column on `heby_action_requests`, zero DROP, and deliberately no
            * foreign key on the causal link. */
           "20260828071500_ap4b_origination_invocation_provenance",
+          "20260828173456_sia26_origination_agent_attribution",
         ],
         "and what follows it is a declared later phase",
       );

@@ -260,6 +260,13 @@
       "when": 1787813063800,
       "tag": "20260828071500_ap4b_origination_invocation_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1787938496520,
+      "tag": "20260828173456_sia26_origination_agent_attribution",
+      "breakpoints": true
     }
   ]
 }

@@ -194,6 +194,25 @@ function AgentBlock({ agent }: { agent: AgentOutcomeObservation }) {
         </p>
       </Section>
 
+      <Section title={AGENT_OUTCOME_WORDING.selectionTitle}>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Figure label="Calls on its behalf" value={agent.selection.attributed} />
+          <Figure label="Selection valid" value={agent.selection.selectionValid} />
+          <Figure label="Selection invalid" value={agent.selection.selectionInvalid} />
+          <Figure label="Chose no action" value={agent.selection.noAction} />
+          <Figure label="Dispatch failed" value={agent.selection.dispatchFailed} />
+          <Figure label="Never dispatched" value={agent.selection.notDispatched} />
+          <Figure label="Outcome unrecorded" value={agent.selection.registered} tone="warn" />
+          <Figure label="Filing refused" value={agent.selection.filingRefused} />
+        </div>
+        <p className="text-[0.65rem] leading-5 text-fg-muted">
+          {AGENT_OUTCOME_WORDING.selectionIncludesNoProposal}
+        </p>
+        <p className="text-[0.65rem] leading-5 text-fg-muted">
+          {AGENT_OUTCOME_WORDING.selectionIsNotQuality}
+        </p>
+      </Section>
+
       <Section title={AGENT_OUTCOME_WORDING.provenanceTitle}>
         <div className="grid grid-cols-2 gap-2">
           <Figure label="Transport proven" value={agent.provenance.proposalsWithInvocation} />
@@ -260,6 +279,18 @@ export function AgentOutcomeObservationSurface({
                   {observation.unattributedInvocations}
                 </span>
               </p>
+              <p className="text-[0.65rem] leading-5 text-fg-muted">
+                {AGENT_OUTCOME_WORDING.historicallyUnattributed}{" "}
+                <span className="tabular-nums text-fg-secondary">
+                  {observation.historicallyUnattributedInvocations}
+                </span>
+              </p>
+              {observation.attributionConflicts > 0 ? (
+                <p className="text-[0.65rem] leading-5 text-danger">
+                  {AGENT_OUTCOME_WORDING.attributionConflict}{" "}
+                  <span className="tabular-nums">{observation.attributionConflicts}</span>
+                </p>
+              ) : null}
               {observation.unresolvedAgentProposals > 0 ? (
                 <p className="text-[0.65rem] leading-5 text-fg-muted">
                   {AGENT_OUTCOME_WORDING.unresolvedActivity}{" "}

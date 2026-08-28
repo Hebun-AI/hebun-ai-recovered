@@ -254,7 +254,7 @@ async function main(): Promise<void> {
       usage: { inputTokens?: number; outputTokens?: number },
       model: { provider: string; model: string } = { provider: "claude", model: "claude-test" },
     ): Promise<string> => {
-      const id = await registerInvocation(acmeCtx, { transport: "fake" }, baseDeps);
+      const id = await registerInvocation(acmeCtx, { transport: "fake", proposer: proposer }, baseDeps);
       assert.ok(id);
       await finalizeInvocation(
         acmeCtx,

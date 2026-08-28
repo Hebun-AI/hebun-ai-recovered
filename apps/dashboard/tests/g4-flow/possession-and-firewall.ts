@@ -619,6 +619,10 @@ function noSchema(): void {
        * two foreign keys and three indexes, zero DROP, `knowledge_nodes` untouched. */
       "20260826064423_kr_ext1_knowledge_external_references.sql",
       "20260828071500_ap4b_origination_invocation_provenance.sql",
+      /* SIA-2.6 — the nullable durable-agent attribution column on origination invocations, plus
+       * the composite-key anchor it needs on `agents`. Additive: one column, one FK, two indexes,
+       * zero DROP and zero backfill. */
+      "20260828173456_sia26_origination_agent_attribution.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );

@@ -128,7 +128,7 @@ const derived = (
  * honest floor, and the next load corrects it.
  */
 export function deriveAgentEvaluation(observation: AgentOutcomeObservation): AgentEvaluation {
-  const { activity, governance, execution, modelUsage, provenance } = observation;
+  const { activity, governance, execution, modelUsage, provenance, selection } = observation;
 
   const decided = governance.approved + governance.rejected;
   const attemptsWithConfirmedOutcome = Math.max(
@@ -140,6 +140,15 @@ export function deriveAgentEvaluation(observation: AgentOutcomeObservation): Age
     0,
     modelUsage.linkedInvocations - modelUsage.invocationsWithoutReportedUsage,
   );
+  /*
+   * SIA-2.6 — attributed calls whose model-side outcome is KNOWN.
+   *
+   * `registered` is the only state that means the outcome was never recorded; the released schema
+   * says so explicitly ("a call may or may not have gone out"). Everything else — including
+   * `selection-invalid` and `dispatch-failed` — is a known outcome, so it belongs in the numerator.
+   * The same anti-success shape as `execution-resolution`: a known failure is a known outcome.
+   */
+  const attributedWithKnownOutcome = Math.max(0, selection.attributed - selection.registered);
 
   return {
     agentName: observation.agentName,
@@ -221,6 +230,79 @@ export function deriveAgentEvaluation(observation: AgentOutcomeObservation): Age
         "A refusal is Hebun's own guard working, not an agent defect.",
       ),
       observed(
+        "selection-attributed",
+        "Calls made on this agent's behalf",
+        "heby_origination_invocations.agent_id",
+        selection.attributed,
+        "Recorded model calls attributed to this agent, INCLUDING those that produced no proposal.",
+        "It is not a count of this agent's successes, and it excludes calls made before Hebun " +
+          "recorded attribution at all.",
+      ),
+      observed(
+        "selection-valid",
+        "Selections the contract accepted",
+        "heby_origination_invocations.state = 'selection-valid'",
+        selection.selectionValid,
+        "The model returned a selection matching the released closed contract.",
+        "A valid selection is not a good one. It says the shape was right, never that the choice was.",
+      ),
+      observed(
+        "selection-invalid",
+        "Selections the contract rejected",
+        "heby_origination_invocations.state = 'selection-invalid'",
+        selection.selectionInvalid,
+        "The model's output did not match the closed contract, so nothing was filed.",
+        "This is not evidence the agent is unintelligent. It is evidence the output did not parse.",
+      ),
+      observed(
+        "selection-no-action",
+        "Chose no action",
+        "heby_origination_invocations.state = 'no-action'",
+        selection.noAction,
+        "The model declined to select an action.",
+        "Choosing nothing is not a failure. Declining to act can be the correct answer.",
+      ),
+      observed(
+        "selection-dispatch-failed",
+        "Dispatch failed",
+        "heby_origination_invocations.state = 'dispatch-failed'",
+        selection.dispatchFailed,
+        "The call to the provider did not complete.",
+        "A transport failure is not a business failure and is not the agent's doing.",
+      ),
+      observed(
+        "selection-not-dispatched",
+        "Never dispatched",
+        "heby_origination_invocations.state = 'not-dispatched'",
+        selection.notDispatched,
+        "Hebun refused before any network call. This is the only state that PROVES nothing was spent.",
+        "It is a guard working, not an agent defect.",
+      ),
+      observed(
+        "selection-outcome-unrecorded",
+        "Outcome never recorded",
+        "heby_origination_invocations.state = 'registered'",
+        selection.registered,
+        "The row was registered and never finalized, so the outcome is UNKNOWN.",
+        "Unknown is not failure, and it is not proof that no call went out.",
+      ),
+      observed(
+        "filing-refused",
+        "Proposal authority refused the filing",
+        "heby_origination_invocations.filing_outcome = 'refused'",
+        selection.filingRefused,
+        "A selection was made and the proposal inlet declined to file it.",
+        "A refusal is not a model failure — a duplicate or a retired referent refuses the same way.",
+      ),
+      observed(
+        "filing-failed",
+        "Filing failed",
+        "heby_origination_invocations.filing_outcome = 'failed'",
+        selection.filingFailed,
+        "The proposal authority was reached and the filing did not complete.",
+        "It says nothing about the quality of what was selected.",
+      ),
+      observed(
         "model-invocations",
         "Linked model invocations",
         "heby_origination_invocations",
@@ -287,6 +369,17 @@ export function deriveAgentEvaluation(observation: AgentOutcomeObservation): Age
         "For how many attempts Hebun knows what happened.",
         "NOT a success rate. Failed and refused attempts are in the numerator, because a known " +
           "failure is a confirmed outcome.",
+      ),
+      derived(
+        "selection-outcome-coverage",
+        "Attributed calls with a known outcome",
+        "heby_origination_invocations.state",
+        "attributed calls whose state is not 'registered', over attributed calls",
+        attributedWithKnownOutcome,
+        selection.attributed,
+        "For how many calls made on this agent's behalf Hebun knows how far they got.",
+        "NOT a success measure. An invalid selection and a failed dispatch are KNOWN outcomes and " +
+          "are counted in the numerator.",
       ),
       derived(
         "provenance-coverage",

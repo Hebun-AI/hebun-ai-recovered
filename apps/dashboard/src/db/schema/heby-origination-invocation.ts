@@ -40,8 +40,18 @@
  * both sides would be one fact in two places, and the two could disagree.
  */
 import { sql } from "drizzle-orm";
-import { pgTable, check, index, integer, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  check,
+  foreignKey,
+  index,
+  integer,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { tenantColumns } from "./_base";
+import { agents } from "./agent";
 
 /**
  * The model-side lifecycle, and nothing else.
@@ -85,6 +95,35 @@ export const hebyOriginationInvocations = pgTable(
   {
     ...tenantColumns,
 
+    /**
+     * WHICH DURABLE AGENT THIS CALL WAS MADE ON BEHALF OF (SIA-2.6).
+     *
+     * ── WHY IT IS HERE AND NOT INFERRED ──────────────────────────────────
+     *
+     * Until this column, an invocation could be attributed to an agent only through the proposal
+     * that names it. That works for calls which produced a proposal and fails for exactly the
+     * calls worth studying: `selection-invalid`, `no-action`, a refused filing. Those produce no
+     * proposal, so they were attributable to nobody and were counted only at tenant level.
+     *
+     * The value was never missing — the origination seam resolves the proposer BEFORE it registers
+     * the invocation, and simply did not store what it already held.
+     *
+     * ── NULLABLE, AND NULL MEANS EXACTLY ONE THING ───────────────────────
+     *
+     * "Durable agent attribution was not recorded." Every row written before this column existed
+     * carries NULL and will carry it for ever: there is no backfill, and none is possible without
+     * inventing history. NULL does NOT mean a system invocation, a deterministic invocation, a
+     * call where no model was used, or an agent that can be guessed from the tenant having only
+     * one. It means Hebun was not yet recording this.
+     *
+     * ── ATTRIBUTION IS NOT AUTHORITY ─────────────────────────────────────
+     *
+     * Recording that a call was made on an agent's behalf grants that agent nothing. It is the
+     * same class of fact as `heby_action_requests.proposed_by_actor_id`: a recorded reference,
+     * read by no decision.
+     */
+    agentId: uuid("agent_id"),
+
     /** "fake" | "live" — which transport the released selector chose. Never null: no transport, no row. */
     transport: text("transport").notNull(),
 
@@ -124,6 +163,39 @@ export const hebyOriginationInvocations = pgTable(
   },
   (t) => [
     index("heby_origination_invocations_tenant_time_idx").on(t.tenantId, t.createdAt),
+    /** The per-agent aggregate SIA-1 reads. Tenant first, exactly like its sibling above. */
+    index("heby_origination_invocations_tenant_agent_idx").on(t.tenantId, t.agentId),
+
+    /*
+     * TENANT-SAFE ATTRIBUTION, ENFORCED BY THE DATABASE.
+     *
+     * A composite key, so an invocation cannot name ANOTHER tenant's agent — the same three-way
+     * binding `action_execution_attempts` uses for its permit, request and recipient, and for the
+     * same stated reason: a row pointing at another tenant's row should be a database error rather
+     * than a bug somebody has to notice.
+     *
+     * ── WHY AN FK HERE, WHEN THIS TABLE DELIBERATELY HAS NONE TO THE PROPOSAL ──
+     *
+     * The rule this table was built on is that PROVENANCE MUST NEVER VETO THE ACTS IT OBSERVES —
+     * which is why `heby_action_requests.origination_invocation_id` has no foreign key: an FK
+     * there would make a provenance row a precondition for a proposal existing.
+     *
+     * This FK points the other way. Provenance depends on IDENTITY, not identity on provenance. It
+     * gives this table no veto over anything; it only stops it from naming an agent that does not
+     * exist or belongs elsewhere. `restrict` blocks nothing that happens: agents are never deleted
+     * in this repository — retirement leaves the row in place, and no delete writer exists.
+     *
+     * `proposed_by_actor_id` carries no FK because it is POLYMORPHIC — human, agent, system or
+     * service. This column is monomorphic, so the constraint is expressible here and was not there.
+     *
+     * NULL is unaffected: with MATCH SIMPLE, a composite key containing a NULL is not enforced, so
+     * every historical row stays valid without a backfill.
+     */
+    foreignKey({
+      name: "heby_origination_invocations_tenant_agent_fk",
+      columns: [t.tenantId, t.agentId],
+      foreignColumns: [agents.tenantId, agents.id],
+    }).onDelete("restrict"),
 
     /*
      * THE TWO VOCABULARIES, ENFORCED AT THE STORAGE LAYER.

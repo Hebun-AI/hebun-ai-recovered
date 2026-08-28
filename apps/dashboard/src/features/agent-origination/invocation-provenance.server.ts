@@ -34,6 +34,7 @@ import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server
 import { hebyOriginationInvocations } from "@/db/schema/heby-origination-invocation";
 import { hebyActionRequests } from "@/db/schema/action-authorization";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { isAgentProposer, type AgentProposer } from "@/features/action-authorization/agent-proposer.server";
 
 /** The model-side lifecycle. Never a proposal lifecycle. */
 export type OriginationInvocationState =
@@ -98,13 +99,34 @@ function resolveDb(deps: InvocationProvenanceDeps): ControlPlaneDatabase | null 
  */
 export async function registerInvocation(
   tenant: TenantContext | null,
-  input: { readonly transport: "fake" | "live" },
+  input: {
+    readonly transport: "fake" | "live";
+    /*
+     * ON WHOSE BEHALF (SIA-2.6). The BRANDED proposer, never a bare id.
+     *
+     * REQUIRED, and the requirement is the point. The column is nullable because every row written
+     * before it existed must stay honestly unattributed for ever — but no NEW row may be. Schema
+     * permits NULL for history; this writer never produces one.
+     *
+     * A raw string parameter would let any caller claim any agent. `AgentProposer`'s brand is a
+     * module-private symbol that exists at RUNTIME, so a value manufactured with a type cast
+     * satisfies the compiler and fails the check below. That is what makes "no caller can name an
+     * arbitrary agent" a property of the code rather than a convention.
+     */
+    readonly proposer: AgentProposer;
+  },
   deps: InvocationProvenanceDeps = {},
 ): Promise<string | null> {
   if (typeof window !== "undefined") {
     throw new Error("Invocation provenance is server-only.");
   }
   if (!tenant?.tenantId || !tenant.userId) return null;
+  /*
+   * THE RUNTIME BRAND CHECK, mirroring `agentPairOrNull` in the proposal writer. It refuses rather
+   * than storing an unverified id — and refusing here is free, because registration runs BEFORE any
+   * provider dispatch, so nothing has been spent and no organizational work exists to destroy.
+   */
+  if (!isAgentProposer(input.proposer)) return null;
   const db = resolveDb(deps);
   if (!db) return null;
 
@@ -115,6 +137,11 @@ export async function registerInvocation(
       id,
       tenantId: tenant.tenantId,
       transport: input.transport,
+      /*
+       * The attribution, from the verified brand and nowhere else. Written beside the tenant this
+       * context resolved, so the composite foreign key can bind the two.
+       */
+      agentId: input.proposer.agentId,
       state: "registered",
       filingOutcome: "not-attempted",
       createdAt: now,
