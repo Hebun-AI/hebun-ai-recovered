@@ -15,6 +15,7 @@ import {
   SECURITY_SIGNAL_KINDS,
   type SecurityCenterModel,
   type SecurityInspectorLens,
+  type SecurityRecordedActObservation,
 } from "./contracts";
 import { listSecuritySources } from "./source-map";
 import { listSecuritySignals } from "./signals";
@@ -38,8 +39,23 @@ export const SECURITY_INSPECTOR_LENSES: readonly SecurityInspectorLens[] = Objec
   { facet: "Uncertainty", question: "What remains uncertain?" },
 ]);
 
-export function getSecurityCenterModel(tenantId: string): SecurityCenterModel {
+/**
+ * Build the Security Center page model.
+ *
+ * E2-2 added ONE parameter and changed nothing else about this function: it is still pure, still
+ * performs no I/O, and still fabricates nothing. The observation is READ BY THE CALLER — the route,
+ * on the server, from the authorized tenant — and passed in. This function must never acquire the
+ * ability to read it itself, because that is how a presentation model becomes a data layer.
+ *
+ * `null` is the honest default: a caller that supplied no observation gets `null`, and the region
+ * renders that as unavailable rather than as an empty ledger.
+ */
+export function getSecurityCenterModel(
+  tenantId: string,
+  recordedActObservation: SecurityRecordedActObservation | null = null,
+): SecurityCenterModel {
   return {
+    recordedActObservation,
     stateStrip: getSecurityStateStrip(),
     sources: listSecuritySources(),
     signalKinds: SECURITY_SIGNAL_KINDS,

@@ -67,7 +67,13 @@ import {
   hasNoRecordedUsage,
   type RecordedProviderUsageRead,
 } from "@/features/heby-provider-ops/usage-contracts";
-import { listSecuritySources, hasConnectedSecurityFeed } from "@/features/security-center/source-map";
+/*
+ * `hasConnectedSecurityFeed` is deliberately NOT imported any more. It answers "is any class
+ * connected", which this command was using to answer "is a live feed connected" — two different
+ * questions that gave the same answer only while nothing was connected. The command now reads the
+ * classes directly, so the two questions cannot be conflated again by an import.
+ */
+import { listSecuritySources } from "@/features/security-center/source-map";
 import { listSecurityFindings } from "@/features/security-center/findings";
 import {
   describeKnowledgeRecord,
@@ -480,20 +486,56 @@ export async function runHebyReadCommand(
       ], ACT_HISTORY_PROVENANCE);
     }
 
+    /*
+     * ── E2-2 REPAIRED TWO CLAIMS HERE ────────────────────────────────────────
+     *
+     * This command reads the same source map the Security Center renders, and it partitioned it
+     * into TWO groups — `derived` and everything-else-called-not-connected — with a headline driven
+     * by `hasConnectedSecurityFeed()`. Both were true while nothing was connected and both became
+     * false the moment the `audit` class was:
+     *
+     *   the headline would have read "A live security feed is connected", which is exactly the
+     *   inference E2-2's `connected` must never license — a bounded read taken for one request is
+     *   not a feed, not live, and not continuous monitoring;
+     *
+     *   the `audit` class would have been listed under "Not connected", because `!== "derived"`
+     *   swept it up. That is the same two-branch defect the source cards carried, in a second file.
+     *
+     * The live-feed denial is now a statement about the classes that WOULD be one — an incident
+     * feed, network telemetry, a live policy evaluator — none of which is connected, rather than
+     * about whether anything at all is. Both halves are stated, so neither can be read alone.
+     *
+     *     CONNECTED         != LIVE FEED
+     *     REQUEST-TIME READ != REAL-TIME STREAM
+     */
     case "security": {
       const sources = listSecuritySources();
-      const connected = hasConnectedSecurityFeed();
       const findings = listSecurityFindings(tenant.tenantId);
+      const connected = sources.filter((source) => source.state === "connected");
       const derived = sources.filter((source) => source.state === "derived");
-      const notConnected = sources.filter((source) => source.state !== "derived");
+      const notConnected = sources.filter((source) => source.state === "not-connected");
+      /* The classes a live feed would arrive through. None is connected, and that is the claim. */
+      const liveFeed = sources.filter(
+        (source) =>
+          (source.sourceClass === "incident-feed" ||
+            source.sourceClass === "network" ||
+            source.sourceClass === "policy") &&
+          source.state !== "not-connected",
+      );
       return ok(
         slash,
         "Security posture",
         [
-          connected
-            ? "A live security feed is connected."
+          liveFeed.length > 0
+            ? `A live security feed is connected (${liveFeed.map((s) => s.sourceClass).join(", ")}).`
             : "No live security feed is connected. Hebun cannot observe an attack, an intrusion, or a breach.",
+          connected.length > 0
+            ? `${connected.length} source class is read directly (${connected.map((s) => s.sourceClass).join(", ")}) — a bounded read taken for this request, not a stream.`
+            : "No source class is read directly by the Security Center.",
           `Findings: ${findings.length}. Hebun produces no finding it cannot support with evidence, and it never confirms a breach.`,
+          "",
+          `Connected — read directly (${connected.length}):`,
+          ...connected.map((source) => `  ${source.sourceClass} — can show: ${source.canProve} Cannot show: ${source.cannotProve}`),
           "",
           `Derived technical state Hebun CAN read (${derived.length}):`,
           ...derived.map((source) => `  ${source.sourceClass} — can show: ${source.canProve} Cannot show: ${source.cannotProve}`),

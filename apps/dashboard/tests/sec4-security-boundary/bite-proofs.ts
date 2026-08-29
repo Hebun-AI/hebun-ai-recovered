@@ -90,12 +90,21 @@ const MUTATIONS: readonly Mutation[] = [
     expect: "the agent identity writer",
   },
   {
-    /* UI != AUTHORITY. A component was outside every released Security guard. */
+    /*
+     * UI != AUTHORITY. A component was outside every released Security guard.
+     *
+     * The find-string was repaired in E2-2, strictly after that component's import line gained the
+     * three state helpers the connected-source branch needs. The harness reported it correctly —
+     * "the mutation would prove nothing" rather than a pass — which is the whole reason a missing
+     * find-string must never be treated as success. The guarantee and the expectation are unchanged.
+     */
     label: "S2 a lifecycle writer imported through a COMPONENT",
     file: COMPONENT,
     suite: GATE,
-    find: 'import { SecurityRegion } from "./security-region";',
-    replace: `import { SecurityRegion } from "./security-region";\n${AGENT_WRITER}`,
+    find: 'import { SecurityRegion, stateLabel, stateTone, toneClass } from "./security-region";',
+    replace:
+      'import { SecurityRegion, stateLabel, stateTone, toneClass } from "./security-region";\n' +
+      `${AGENT_WRITER}`,
     expect: "the agent identity writer",
   },
   {
@@ -215,11 +224,21 @@ const MUTATIONS: readonly Mutation[] = [
     expect: "must not claim",
   },
   {
+    /*
+     * The find-string was repaired in E2-2, strictly after the audit source became connected and
+     * its `canProve` stopped saying "nothing here". The guarantee is unchanged and is arguably
+     * sharper now: the sentence this replaces it with is the very denial the ledger's nine writers
+     * disprove, and it must still be refused on a surface that now READS that ledger.
+     */
     label: "S13 the audit claim regresses to denying the ledger exists",
     file: SOURCE_MAP,
     suite: GATE,
-    find: 'canProve: "Nothing here — no audit source is connected to the Security Center.",',
-    replace: 'canProve: "Nothing — no persisted audit exists.",',
+    find:
+      "    canProve:\n" +
+      '      "Which governed acts Hebun recorded for this organization — the act, the kind of entity, " +\n' +
+      '      "the kind of actor, the result, the recording subsystem, the authority source and whether " +\n' +
+      '      "the act was simulated.",',
+    replace: '    canProve: "Nothing — no persisted audit exists.",',
     expect: "must not claim",
   },
 ];

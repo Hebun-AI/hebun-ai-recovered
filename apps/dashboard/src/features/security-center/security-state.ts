@@ -26,7 +26,14 @@ export function getDeviceSecuritySummary(): DeviceSecuritySummary {
 export function getSecurityStateStrip(): readonly SecurityStateEntry[] {
   const device = getDeviceSecuritySummary();
   return [
-    { label: "Security feed", value: "Not connected", status: "not-connected" },
+    /*
+     * E2-2. "Not connected" became false the moment the `audit` source connected, and "Connected"
+     * would be worse — it would let a reader infer a live security feed, which still does not
+     * exist. Both halves are stated, so neither can be read alone.
+     *
+     *     REQUEST-TIME READ != REAL-TIME STREAM
+     */
+    { label: "Security feed", value: "No live feed · recorded acts connected", status: "derived" },
     { label: "Incidents", value: "Not available", status: "not-available" },
     { label: "Device posture", value: `${device.registeredDevices} registered · runtime not connected`, status: "derived" },
     { label: "Auth security", value: "Derived technical state", status: "derived" },

@@ -105,7 +105,15 @@ export function toneClass(tone: SecurityTone): string {
 /** Map any honest availability state string to a color-independent tone. */
 export function stateTone(state: string): SecurityTone {
   if (state === "restricted") return "restricted";
-  if (state === "structural" || state === "human-authority" || state === "derived") return "accent";
+  /*
+   * `connected` joined the accent group in E2-2. Leaving it in the neutral default would have
+   * rendered the one source class with real evidence behind it more quietly than the derived ones —
+   * and accent is Hebun's structural/authority accent, never a "healthy" green, so it still makes
+   * no claim about the security of what it labels.
+   */
+  if (state === "connected" || state === "structural" || state === "human-authority" || state === "derived") {
+    return "accent";
+  }
   return "muted"; // not-connected / not-available / none / not-executable / unknown
 }
 

@@ -371,6 +371,25 @@ async function main(): Promise<void> {
       assert.ok(/No live security feed is connected/i.test(body), "it states there is no feed");
       assert.ok(/Findings: 0/.test(body), "and reports zero findings rather than inventing one");
       assert.ok(/incident-feed/.test(body), "the not-connected classes are named");
+      /*
+       * E2-2 — the connected class is reported as connected, and the denial above still holds.
+       *
+       * This command drove its headline off "is anything connected" and partitioned the source map
+       * with `!== "derived"`. Both were correct while nothing was connected: connecting the `audit`
+       * class would have made it announce "A live security feed is connected" AND list that same
+       * class under "Not connected", in one breath. Both halves are pinned here so the two claims
+       * cannot drift apart again.
+       *
+       *     CONNECTED != LIVE FEED
+       */
+      assert.ok(/Connected — read directly \(1\)/.test(body), "the connected class is reported as connected");
+      assert.ok(/bounded read taken for this request, not a stream/i.test(body), "and never as a stream");
+      const notConnectedSection = body.slice(body.indexOf("Not connected ("));
+      assert.ok(
+        !/\baudit\b/.test(notConnectedSection),
+        "the connected class is NOT swept into the not-connected list",
+      );
+      assert.ok(/Connected[\s\S]*\baudit\b/.test(body), "it is listed under Connected instead");
       // Honest DENIALS legitimately contain words like "attack" and "breach", so the guard targets
       // AFFIRMATIVE claims instead — the shapes that would assert something Hebun cannot know.
       assert.ok(

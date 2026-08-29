@@ -8,6 +8,7 @@ import { SecurityPipeline } from "./security-pipeline";
 import { SecurityDomains } from "./security-domains";
 import { SecurityDevice } from "./security-device";
 import { SecuritySources } from "./security-sources";
+import { SecurityObservation } from "./security-observation";
 import { SecurityResponse } from "./security-response";
 import { SecurityInvestigation } from "./security-investigation";
 import { SecurityArchitecture } from "./security-architecture";
@@ -43,6 +44,14 @@ export function SecurityCenter({ model }: { model: SecurityCenterModel }) {
       {/* L1 — state + attention */}
       <SecurityCommandStrip model={model} />
       <SecurityAttention model={model} />
+
+      {/*
+        L1b — the one connected evidence source (E2-2). It sits directly under attention because it
+        is the only region on this page backed by real records, and evidence-first is the surface's
+        stated hierarchy. It is NOT under "what requires attention": a recorded governed act is not
+        a finding and requires nothing.
+      */}
+      <SecurityObservation model={model} />
 
       {/* L2 — how it works + coverage by domain */}
       <SecurityPipeline model={model} />

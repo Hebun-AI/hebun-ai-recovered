@@ -63,7 +63,24 @@ function noReinterpretation(): void {
   assert.equal(getSecuritySource("runtime").state, "derived", "runtime is derived, not an attack feed");
   assert.equal(getSecuritySource("authentication").state, "derived", "auth is derived, not an intrusion feed");
   assert.equal(getSecuritySource("incident-feed").state, "not-connected");
-  assert.equal(hasConnectedSecurityFeed(), false, "no connected security feed");
+  /*
+   * E2-2 REPAIRED THIS ASSERTION, STRICTER RATHER THAN WEAKER.
+   *
+   * It read `hasConnectedSecurityFeed() === false`, which was true while nothing was connected and
+   * became stale when the `audit` class was connected to its released tenant-scoped reader. The
+   * weak repair would have been `=== true` or "some feed exists"; both would let a future slice
+   * connect anything at all without a word. So the truth is ENUMERATED: exactly one class is
+   * connected, and it is that one.
+   */
+  assert.equal(hasConnectedSecurityFeed(), true, "E2-2 connected exactly one source class");
+  assert.deepEqual(
+    listSecuritySources().filter((s) => s.state === "connected").map((s) => s.sourceClass),
+    ["audit"],
+    "the audit class and nothing else — a seam existing elsewhere connects nothing",
+  );
+  /* And connected is not a claim about the evidence's standing, nor about liveness. */
+  assert.match(getSecuritySource("audit").cannotProve, /security event/i);
+  assert.match(getSecuritySource("audit").detail, /not a stream/i);
   // No finding is produced from degraded/unavailable state.
   assert.deepEqual(MODEL.findings, []);
 }
@@ -144,10 +161,30 @@ function phase16Preserved(): void {
 
 /* --- Sources honest ----------------------------------------------------------------- */
 function sourcesHonest(): void {
+  /*
+   * E2-2: the blanket "never connected" became stale for exactly one class. Enumerated rather than
+   * relaxed — every source is still pinned to a named state, so a silent transition anywhere else
+   * fails here.
+   */
+  const RELEASED: Readonly<Record<string, string>> = {
+    authentication: "derived",
+    authorization: "derived",
+    device: "derived",
+    runtime: "derived",
+    integration: "derived",
+    provider: "derived",
+    policy: "not-connected",
+    audit: "connected",
+    network: "not-connected",
+    "incident-feed": "not-connected",
+  };
   for (const source of listSecuritySources()) {
-    assert.notEqual(source.state, "connected", `${source.sourceClass} is never connected`);
-    assert.ok(source.state === "derived" || source.state === "not-connected");
+    assert.equal(source.state, RELEASED[source.sourceClass], `${source.sourceClass} keeps its pinned state`);
+    assert.ok(["connected", "derived", "not-connected"].includes(source.state));
+    /* Only a connected or derived source may be usable; a not-connected one contributes nothing. */
+    assert.equal(source.usable, source.state !== "not-connected", `${source.sourceClass} usability matches its state`);
   }
+  assert.equal(Object.keys(RELEASED).length, listSecuritySources().length, "no source class was added");
 }
 
 /* --- Refinement: source coverage states what it can/cannot prove --------------------- */
@@ -176,14 +213,31 @@ function pipelineHonest(): void {
 /* --- Refinement: domains — unknown/not-connected is NEVER healthy -------------------- */
 function domainsHonest(): void {
   assert.equal(MODEL.domains.length, 8);
-  const honest = new Set(["derived", "not-connected", "restricted", "none"]);
+  const honest = new Set(["connected", "derived", "not-connected", "restricted", "none"]);
   for (const domain of MODEL.domains) {
     assert.ok(honest.has(domain.state), `${domain.domain} carries an honest state`);
     assert.notEqual(domain.state as string, "healthy", "no domain is 'healthy'");
   }
   // A domain with no connected feed is not-connected — never derived-as-healthy.
   assert.equal(MODEL.domains.find((d) => d.domain === "policy-governance")!.state, "not-connected");
-  assert.equal(MODEL.domains.find((d) => d.domain === "data-access")!.state, "not-connected");
+  /*
+   * E2-2: `data-access` is the row bound to the `audit` source class, so it moved with it — and it
+   * is the ONLY domain that moved. Enumerated, so a future slice cannot connect a second domain on
+   * the strength of this same read.
+   */
+  assert.deepEqual(
+    MODEL.domains.filter((d) => d.state === "connected").map((d) => d.domain),
+    ["data-access"],
+    "exactly the domain bound to the connected source class",
+  );
+  /*
+   * And connected here means the governed-act ledger, NOT data-access monitoring. The label is the
+   * released one; the detail is what stops it being read as a capability Hebun does not have.
+   */
+  const dataAccess = MODEL.domains.find((d) => d.domain === "data-access")!;
+  assert.equal(dataAccess.sourceClass, "audit");
+  assert.match(dataAccess.detail, /governed-act ledger/i);
+  assert.match(dataAccess.detail, /No data classification, DLP or exfiltration detection exists/i);
 }
 
 /* --- Refinement: architecture uses real system names, no fake agent ------------------ */

@@ -1,12 +1,24 @@
 /*
  * security-center/source-map.ts — the honest map of security source classes (UI Phase 19; S-A).
  *
- * For each source class it states the truthful path state: `derived` (a real, non-authoritative
+ * For each source class it states the truthful path state: `connected` (this surface holds a
+ * legitimate tenant-scoped read-only path and consumes it), `derived` (a real, non-authoritative
  * technical state Hebun already exposes — e.g. authentication subsystem health, the disconnected
- * Phase 18 device boundary, runtime health), or `not-connected` (no live security feed exists —
- * incident feed, network telemetry, live policy evaluation). NOTHING is `connected`: there is no
- * live security intelligence feed wired to this surface. A degraded derived state is never
+ * Phase 18 device boundary, runtime health), or `not-connected` (no feed and no read path —
+ * incident feed, network telemetry, live policy evaluation). A degraded derived state is never
  * reinterpreted as an attack.
+ *
+ * ── WHAT E2-2 CONNECTED, AND WHAT IT DID NOT ─────────────────────────────────
+ *
+ * EXACTLY ONE class moved: `audit`, through the released `governance-activity` seam. Nothing else
+ * moved, and the reason is worth stating because "a real seam exists elsewhere" is the argument
+ * that would connect all of them: authentication, authorization, runtime, integration and provider
+ * all have real seams too, and this surface still reads none of them. A source class is connected
+ * when THIS surface consumes it — never when the capability exists somewhere in the repository.
+ *
+ *   SOURCE EXISTS != SECURITY CENTER CONNECTED
+ *   CONNECTED     != LIVE FEED
+ *   CONNECTED     != AUTHORITATIVE
  *
  * ── THE DISTINCTION S-A EXISTS TO REPAIR ─────────────────────────────────────
  *
@@ -102,16 +114,32 @@ const SOURCES: Readonly<Record<SecuritySourceClass, SecuritySourceStatus>> = Obj
     canProve: "Nothing — no live evaluator is connected.",
     cannotProve: "Any policy violation or control-compliance result.",
   }),
+  /*
+   * E2-2 / S-B — THE FIRST CONNECTED SOURCE THIS SURFACE HAS EVER HAD.
+   *
+   * `connected` means exactly one thing here: a legitimate tenant-scoped read-only path exists and
+   * this surface consumes it on the request. It does NOT mean a live feed, a stream, a provider
+   * connection, a credential, or that the observation is authoritative. The ledger is authoritative
+   * for the acts it recorded; the bounded view of it that reaches this page is derived.
+   *
+   *   CONNECTED             != AUTHORITATIVE
+   *   CONNECTED             != AVAILABLE EVERY REQUEST
+   *   REQUEST-TIME READ     != REAL-TIME STREAM
+   */
   audit: Object.freeze({
-    sourceClass: "audit", state: "not-connected", usable: false,
+    sourceClass: "audit", state: "connected", usable: true,
     detail:
-      "A governed append-only audit ledger exists and has released tenant-scoped readers, but it " +
-      "is not wired to the Security Center. This surface reads no audit history; runtime " +
-      "provenance is not a forensic trail.",
-    canProve: "Nothing here — no audit source is connected to the Security Center.",
+      "The governed append-only ledger is read through its released tenant-scoped seam: the most " +
+      "recent recorded acts, bounded, with the independent total behind them. Read at request " +
+      "time — not a stream, and not continuous monitoring.",
+    canProve:
+      "Which governed acts Hebun recorded for this organization — the act, the kind of entity, " +
+      "the kind of actor, the result, the recording subsystem, the authority source and whether " +
+      "the act was simulated.",
     cannotProve:
-      "A forensic history or a chronology of past security events. What the ledger does record " +
-      "is governed acts, which is not the same thing and is not read here.",
+      "A security event, finding, incident, threat or breach. It records what authorized actors " +
+      "did, so it evidences no intrusion; it is not forensically complete; and the number of acts " +
+      "indicates nothing about whether this organization is secure.",
   }),
   network: Object.freeze({
     sourceClass: "network", state: "not-connected", usable: false,
@@ -135,7 +163,18 @@ export function getSecuritySource(sourceClass: SecuritySourceClass): SecuritySou
   return SOURCES[sourceClass];
 }
 
-/** Whether any source is truly `connected` (a live security feed). ALWAYS false in Phase 19. */
+/**
+ * Whether any source class is `connected` — i.e. this surface holds a legitimate tenant-scoped
+ * read-only path to it and consumes that path.
+ *
+ * E2-2 REPAIRED THIS SENTENCE, NOT THIS FUNCTION. It used to say "a live security feed", which was
+ * true while nothing was connected and would have become the surface's next false claim the moment
+ * something was: a bounded request-time read of a governed ledger is not a feed, is not live, and
+ * is not continuous monitoring. The computation is unchanged and still reads the map rather than
+ * asserting an answer.
+ *
+ *     CONNECTED != LIVE FEED
+ */
 export function hasConnectedSecurityFeed(): boolean {
   return listSecuritySources().some((source) => source.state === "connected");
 }

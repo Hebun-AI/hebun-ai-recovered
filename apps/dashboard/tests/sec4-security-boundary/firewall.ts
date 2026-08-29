@@ -340,16 +340,76 @@ function noAuthorityIsReachable(): void {
 
   /*
    * WHAT IS REACHABLE, STATED RATHER THAN IMPLIED. A firewall that lists only prohibitions lets a
-   * reader assume the graph is otherwise empty. Today it genuinely is: this surface reaches no
-   * session runtime and no database handle at all, which is a stronger position than L4's and is
-   * worth pinning while it holds.
+   * reader assume the graph is otherwise empty.
+   *
+   * ── E2-2 EXTENDED THIS ENUMERATION, EXACTLY AS SEC-4 SAID IT SHOULD ─────────
+   *
+   * It used to be `[]`, pinned while true. E2-2 connected the `audit` source class, so the route
+   * now resolves a tenant from the session and reads a bounded page of recorded acts — and the
+   * ambient floor became non-empty. The sweep above is unchanged and still runs; only this
+   * enumeration moved, and it moved to an EXACT list rather than to "contains" or "subset".
+   *
+   * The question this list exists to answer is WHAT NEW CAPABILITY BECAME REACHABLE, so the honest
+   * answer is written down rather than left in the diff:
+   *
+   *   `db/client.server.ts`  the control-plane handle, reached through the released
+   *                          `governance-activity` reader. The Security Center does not hold it —
+   *                          section 1 still forbids the string in every Security file — the reader
+   *                          resolves it internally, which is exactly why a consumer needs none.
+   *
+   *   `auth-runtime/` + `auth/`  the session floor every AUTHENTICATED surface stands on, reached
+   *                          through `resolveTenantContext()`. L4 excludes the same floor for the
+   *                          same reason: a page that scopes anything to a tenant must first learn
+   *                          which tenant is asking.
+   *
+   * TWO OF THESE WRITE, AND SAYING SO IS THE POINT. `identity-repository.server.ts` and
+   * `credential-repository.server.ts` are durable writers reached because `request-session.server`
+   * is one module. They are excluded from the sweep by AMBIENT_FLOOR, not by accident, and the next
+   * assertion pins that the READ PATH contributes none of them — every writer here arrives through
+   * the session floor, and E2-2's evidence path adds zero.
+   *
+   *     READ CONNECTION != WRITE AUTHORITY
    */
   const floor = [...graph].filter((f) => AMBIENT_FLOOR.test(f));
   assert.deepEqual(
-    floor,
+    floor.slice().sort(),
+    [
+      "src/db/client.server.ts",
+      "src/features/auth-runtime/credential-repository.server.ts",
+      "src/features/auth-runtime/identity-repository.server.ts",
+      "src/features/auth-runtime/password-hash.server.ts",
+      "src/features/auth-runtime/request-session.server.ts",
+      "src/features/auth-runtime/session-cookie.ts",
+      "src/features/auth-runtime/session-digest.server.ts",
+      "src/features/auth-runtime/session-service.server.ts",
+      "src/features/auth/environment/auth-environment.server.ts",
+      "src/features/auth/errors/authentication-error.ts",
+      "src/features/auth/errors/index.ts",
+      "src/features/auth/services/authorized-authentication-result.server.ts",
+      "src/features/auth/tenant/tenant-context.ts",
+    ],
+    "the exact session/handle floor E2-2 made reachable — extend this list deliberately, never " +
+      "relax it to a subset check and never remove the sweep above",
+  );
+
+  /*
+   * AND THE EVIDENCE PATH ITSELF CARRIES NO WRITER.
+   *
+   * The floor above is the price of being an authenticated surface. This asserts that E2-2's actual
+   * contribution — the projection, the seam and the readers under it — added none of it: walked on
+   * its own, the read path reaches zero durable writers, including through the ambient floor that
+   * the assertion above has to forgive.
+   */
+  const readPath = transitiveGraph([
+    "src/features/governance-activity/security-observation-source.server.ts",
+  ]);
+  const readPathWriters = [...readPath]
+    .filter((f) => !f.startsWith("src/db/schema/"))
+    .filter((f) => performsDurableWrite(read(f)));
+  assert.deepEqual(
+    readPathWriters,
     [],
-    "the Security Center reaches no session runtime and no database handle — pinned while true; " +
-      "S-B extends this enumeration rather than removing the sweep above",
+    "the E2-2 read path contributes no durable writer — every writer above is the session floor",
   );
 }
 
@@ -400,14 +460,68 @@ async function sourceMapTellsBothTruths(): Promise<void> {
     assert.equal(pattern.test(src), false, `source-map must not claim "${pattern.source}" — ${why}`);
   }
 
-  /* Direction 2 — and it must not claim a feed it does not read. */
+  /*
+   * Direction 2 — and it must not claim a feed it does not read.
+   *
+   * E2-2 REPAIRED THIS, STRICTER. It asserted `hasConnectedSecurityFeed() === false` and that no
+   * source was connected, which was true until the `audit` class was wired to its released reader.
+   * The weak repair is `=== true`; that would let any future slice connect anything unnoticed. So
+   * the truth is enumerated: exactly one class, named, and every other class still refused.
+   */
   const { listSecuritySources, hasConnectedSecurityFeed } = await import(
     "../../src/features/security-center"
   );
-  assert.equal(hasConnectedSecurityFeed(), false, "no security source is connected to this surface");
-  for (const source of listSecuritySources()) {
-    assert.notEqual(source.state, "connected", `${source.sourceClass} is not connected`);
+  assert.equal(hasConnectedSecurityFeed(), true, "E2-2 connected exactly one source class");
+  assert.deepEqual(
+    listSecuritySources().filter((s) => s.state === "connected").map((s) => s.sourceClass),
+    ["audit"],
+    "the audit class and nothing else — a real seam existing elsewhere connects nothing",
+  );
+  /*
+   * Connected is a claim about the read PATH, never about the evidence's standing or its liveness —
+   * and that is asserted against the RENDERED sentences, not against a comment. The first version
+   * of this check matched a pin in the module header, which `codeOf` strips: it was asking whether
+   * the file documents the rule rather than whether the surface obeys it.
+   */
+  const audit = listSecuritySources().find((s) => s.state === "connected")!;
+  assert.match(audit.cannotProve, /security event/i, "the connected source denies being a security event feed");
+  assert.match(audit.cannotProve, /incident|breach/i, "and denies incidents and breaches");
+  assert.match(audit.detail, /not a stream/i, "and denies being live");
+}
+
+/* ── 4b · THE RETIRED DENIALS CANNOT RETURN ANYWHERE ON THIS SURFACE ──────────
+ *
+ * Section 4 scanned ONE FILE, and that scope was the defect. Two of the three sentences it retired
+ * went on being served from `security-center/domains.ts`, and a third from `pipeline.ts`, for three
+ * releases — the guard was watching the file that had been repaired rather than the surface that
+ * makes the claims. E2-2 repaired the sentences and widened the scan to every entry point, so the
+ * same contradiction cannot come back through a module nobody thought to name.
+ *
+ * The patterns are section 4's, unweakened, plus the twins the originals were re-worded into. The
+ * detailed per-file version lives in `tests/e22-security-observation/firewall.ts`; this is the
+ * scope repair, kept here so SEC-4 is not left describing a narrower guarantee than it has.
+ */
+async function noRetiredDenialSurvivesAnywhere(): Promise<void> {
+  const RETIRED: readonly RegExp[] = [
+    /none connected/i,
+    /simulation vocabulary/i,
+    /simulation only/i,
+    /no persisted audit(?! ledger)/i,
+    /No persisted security audit history exists/i,
+  ];
+  const violations: string[] = [];
+  for (const file of entryPoints()) {
+    /* Comments stripped, string literals kept — for the reason section 4 states at length. */
+    const code = codeOf(read(file));
+    for (const pattern of RETIRED) {
+      if (pattern.test(code)) violations.push(`${file}: /${pattern.source}/`);
+    }
   }
+  assert.deepEqual(
+    violations,
+    [],
+    `a retired denial is being served again:\n  ${violations.join("\n  ")}`,
+  );
 }
 
 /* ── 5 · THIS GATE ADMITS S-B ─────────────────────────────────────────────────
@@ -464,6 +578,7 @@ async function main(): Promise<void> {
   noAuthorityIsReachable();
   noNewAuthorityGrewHere();
   await sourceMapTellsBothTruths();
+  await noRetiredDenialSurvivesAnywhere();
   thisGateAdmitsTheNextSlice();
 
   console.log("sec4-security-boundary/firewall: Security Center non-authority gate passed");
