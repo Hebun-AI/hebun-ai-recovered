@@ -11,6 +11,8 @@ import { retireDurableAgentIdentity } from "@/features/agent-identity/retire-dur
  */
 import type { CreateDurableAgentIdentityResult } from "@/features/agent-identity/contracts";
 import type { RetireDurableAgentIdentityResult } from "@/features/agent-identity/retirement-contracts";
+import { fileImprovementHypothesis } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
+import type { HypothesisResult } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
 
 /*
  * ── THE AGENT-ID-0.1 BOUNDARY ───────────────────────────────────────────────────────────────────
@@ -77,5 +79,72 @@ export async function retireDurableAgentIdentityAction(input: {
   const tenant = await resolveTenantContext();
   const result = await retireDurableAgentIdentity(tenant, { agentId: input?.agentId });
   if (result.status === "retired") revalidatePath("/agents");
+  return result;
+}
+
+/*
+ * ── SIA-3.1: FILING ONE IMPROVEMENT HYPOTHESIS ──────────────────────────────────────────────────
+ *
+ * The first product write path SIA-3 has ever had. SIA-3 shipped its authority, its persistence and
+ * its Governance integration with nothing that could reach them; this action is that reach, and it
+ * is deliberately the thinnest possible one.
+ *
+ * IT IS TRANSPORT, NOT AUTHORITY. It resolves the tenant, calls the ONE released writer, and
+ * returns what that writer said. It holds no gate: every refusal below is produced inside
+ * `fileImprovementHypothesis`, so this boundary cannot drift from the rules it fronts, and it
+ * contains no INSERT of its own — the census that proves exactly one module writes a hypothesis is
+ * unchanged by this file's existence.
+ *
+ * WHAT THE CLIENT MAY SEND, EXHAUSTIVELY: which agent, which closed target, which closed evidence
+ * finding, three pieces of prose, and optionally which earlier hypothesis this replaces.
+ *
+ * WHAT THE CLIENT CANNOT SEND, BECAUSE NO FIELD EXISTS FOR IT: the tenant, the author, the author's
+ * actor type, the evidence counts, the evidence source column, the instant the evidence was read,
+ * any timestamp, any Governance decision, outcome, approval or authority, any agent configuration,
+ * and any lifecycle or version value. The evidence in particular is READ by the writer at write
+ * time through SIA-1's released seams — there is no parameter through which a count could be
+ * supplied, so fabricated evidence is unrepresentable here rather than filtered downstream.
+ *
+ * AUTHORSHIP IS HUMAN, AND STRUCTURALLY SO. The writer stamps `proposed_by_actor_type = 'human'`
+ * from the resolved session, and a database CHECK refuses anything else. This action adds no way
+ * for an agent, a service or a system actor to author a hypothesis, because the authority it fronts
+ * has none.
+ *
+ * FILING IS NOT DECIDING. This writes no `decision_records` row and imports no Governance module.
+ * A filed hypothesis is UNDECIDED, which is a legitimate resting state SIA-3 established — the
+ * decision is a separate act, by a separate authority, on `/governance/authority`.
+ *
+ * FILING TWICE WRITES TWO HYPOTHESES. There is no deduplication here and none in the writer, and
+ * that is a decision rather than an omission: nothing in this repository defines when two arguments
+ * are the same argument, and silently discarding the second would answer that question on the
+ * author's behalf. Accidental double-submit is prevented where it is actually created — the control
+ * is disabled while its transition is pending — and replacing an earlier hypothesis has its own
+ * representation, `supersedesHypothesisId`, which withdraws nothing.
+ *
+ * HEBY CANNOT REACH THIS FILE. Heby's server actions do not import this module, so no message,
+ * model answer, slash command or voice transcript has a representation in which it could file a
+ * hypothesis about the agent it is running as.
+ */
+export async function fileImprovementHypothesisAction(input: {
+  readonly agentId: string;
+  readonly improvementTarget: string;
+  readonly evidenceFindingKey: string;
+  readonly candidateChange: string;
+  readonly expectedEffect: string;
+  readonly limitations: string;
+  readonly supersedesHypothesisId?: string | null;
+}): Promise<HypothesisResult> {
+  const tenant = await resolveTenantContext();
+  const result = await fileImprovementHypothesis(tenant, {
+    agentId: String(input?.agentId ?? ""),
+    improvementTarget: String(input?.improvementTarget ?? ""),
+    evidenceFindingKey: String(input?.evidenceFindingKey ?? ""),
+    candidateChange: String(input?.candidateChange ?? ""),
+    expectedEffect: String(input?.expectedEffect ?? ""),
+    limitations: String(input?.limitations ?? ""),
+    supersedesHypothesisId:
+      typeof input?.supersedesHypothesisId === "string" ? input.supersedesHypothesisId : null,
+  });
+  if (result.status === "filed") revalidatePath("/agents");
   return result;
 }

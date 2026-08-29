@@ -594,20 +594,41 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
    * The six Knowledge surfaces this axis was built to leave alone are untouched, which is what the
    * named form proves and a bumped count never would.
    */
+  /*
+   * NINE NOW, AND THE SIX ARE STILL THE POINT. SIA-3.1 adds two consumers, both for the same
+   * reason AGENT-ID-0.1's was accepted above: they must keep apart distinctions this component
+   * exists to encode, and hand-rolling them would be the regression.
+   *
+   *   the hypothesis FILING control   `restricted` (no session) vs `empty` (no agent in service)
+   *                                   vs `unavailable` (the filing was refused, nothing written)
+   *   the hypothesis DECISION control `empty` (none awaiting) vs `unavailable` (the list could not
+   *                                   be read — which is NOT the same as none awaiting)
+   *
+   * That last pair is the whole reason both use it: "Hebun could not look" and "Hebun looked and
+   * found none" are different facts, and this component is where that difference is already
+   * encoded once for the product.
+   *
+   * Neither opts into a density override; the assertion above still pins that set empty.
+   *
+   * The six Knowledge surfaces this axis was built to leave alone are untouched, which is what the
+   * named form proves and a bumped count never would.
+   */
   const consumers = walk("src").filter((f) => f !== STATE_BLOCK && /<StateBlock/.test(overrides[f] ?? read(f)));
   assert.deepEqual(
     consumers.sort(),
     [
       "src/app/(dashboard)/knowledge/page.tsx",
+      "src/components/agents/agent-improvement-hypothesis-filing.tsx",
       "src/components/agents/durable-agent-identity-card.tsx",
+      "src/components/governance-authority/undecided-hypothesis-card.tsx",
       "src/components/knowledge-workspace/company-understanding-card.tsx",
       "src/components/knowledge-workspace/knowledge-authoring-card.tsx",
       "src/components/knowledge-workspace/knowledge-ingestion-card.tsx",
       "src/components/knowledge-workspace/knowledge-records.tsx",
       "src/components/knowledge-workspace/knowledge-sources-card.tsx",
     ],
-    "the six untouched Knowledge consumers remain, Command is still not among them, and the only " +
-      "addition is AGENT-ID-0.1's durable identity ceremony",
+    "the six untouched Knowledge consumers remain, Command is still not among them, and the three " +
+      "additions are the durable identity ceremony and SIA-3.1's two hypothesis controls",
   );
 }
 

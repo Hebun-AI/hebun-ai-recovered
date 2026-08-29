@@ -247,7 +247,7 @@ const MUTATIONS: readonly Mutation[] = [
       "          actingHumanId={tenant?.userId}\n" +
       "          tenantId={tenant?.tenantId}\n" +
       "          genesisSpent={identityState.status === \"known\" ? identityState.genesisSpent : false}\n" +
-      "          identities={identityState.status === \"known\" ? identityState.identities : []}\n" +
+      "          identities={identities}\n" +
       "        />\n",
       replace: "" },
       { find: "        <AgentsTruthSurface model={model} />",
@@ -258,7 +258,7 @@ const MUTATIONS: readonly Mutation[] = [
         "          actingHumanId={tenant?.userId}\n" +
         "          tenantId={tenant?.tenantId}\n" +
         "          genesisSpent={identityState.status === \"known\" ? identityState.genesisSpent : false}\n" +
-        "          identities={identityState.status === \"known\" ? identityState.identities : []}\n" +
+        "          identities={identities}\n" +
         "        />" },
     ],
     because: "the durable authority is presented BEFORE the simulation",

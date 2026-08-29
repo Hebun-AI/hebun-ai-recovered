@@ -534,18 +534,56 @@ function theSurfaceOffersNothing(): void {
   }
 
   /*
-   * NO ROUTE ANYWHERE IMPORTS A SIA-3 MUTATION. A census, so a future page cannot quietly expose
-   * one without failing here.
+   * ── THE ROUTE CENSUS, NARROWED TO AN ENUMERATION BY SIA-3.1 ────────────────
+   *
+   * This read "no route anywhere imports a SIA-3 mutation", which was true and load-bearing while
+   * SIA-3 had no product write path. SIA-3.1 gave it one, so the claim that survives is not
+   * "nowhere" but "exactly here, and nowhere else".
+   *
+   * THE REPAIR IS STRICTER THAN LOOSENING IT WOULD HAVE BEEN. Two alternatives were available and
+   * both are weaker: deleting the census would let any future page expose either authority
+   * silently, and excluding `actions.ts` files by name would exempt nine unrelated action modules
+   * at once. Naming the two exact files means a THIRD route reaching either authority fails here,
+   * and it also fails if one of these two ever reaches for the OTHER authority — which is the
+   * separation SIA-3.1 exists to hold:
+   *
+   *   /agents                FILES a hypothesis, and cannot decide one
+   *   /governance/authority  DECIDES a hypothesis, and cannot file one
+   *
+   * A single route holding both would put an author one click from accepting their own argument.
    */
+  const EXPOSED_BY: Readonly<Record<string, string>> = {
+    fileImprovementHypothesis: path.join("src", "app", "(dashboard)", "agents", "actions.ts"),
+    decideImprovementHypothesis: path.join(
+      "src",
+      "app",
+      "(dashboard)",
+      "governance",
+      "authority",
+      "actions.ts",
+    ),
+  };
   const routes = collect("src/app");
-  for (const route of routes) {
+  for (const [symbol, permitted] of Object.entries(EXPOSED_BY)) {
+    const exposing = routes.filter((route) => codeOf(read(route)).includes(symbol)).sort();
+    assert.deepEqual(
+      exposing,
+      [permitted],
+      `exactly one route exposes ${symbol}, and it is ${permitted}`,
+    );
+  }
+
+  /*
+   * AND THE TRANSPORT IS TRANSPORT. Neither action file may hold an INSERT of its own — the
+   * one-writer census in section 1 proves that over all of `src/`, and this is the same claim
+   * stated where a reviewer of this phase will look for it.
+   */
+  for (const route of Object.values(EXPOSED_BY)) {
     const source = codeOf(read(route));
-    for (const forbidden of ["fileImprovementHypothesis", "decideImprovementHypothesis"]) {
-      assert.ok(
-        !source.includes(forbidden),
-        `${route} does not expose ${forbidden} — SIA-3 has no product write path yet`,
-      );
-    }
+    assert.ok(
+      !/\.\s*(?:insert|update|delete)\s*\(/.test(source),
+      `${route} performs no durable write of its own — it calls the authority and returns what it said`,
+    );
   }
 }
 

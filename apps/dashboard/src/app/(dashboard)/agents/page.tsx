@@ -13,6 +13,10 @@ import { AgentEvaluationSurface } from "@/components/agents/agent-evaluation";
 import { deriveAgentEvaluationRead } from "@/features/agent-evaluation/agent-evaluation-projection.server";
 import { AgentImprovementHypothesisSurface } from "@/components/agents/agent-improvement-hypothesis";
 import { readImprovementHypotheses } from "@/features/agent-improvement-hypothesis/read-improvement-hypotheses.server";
+import {
+  AgentImprovementHypothesisFiling,
+  type HypothesisFilingBlock,
+} from "@/components/agents/agent-improvement-hypothesis-filing";
 
 export const metadata = { title: "Agents — Hebun AI" };
 
@@ -96,6 +100,24 @@ export default async function AgentsPage() {
       ? { kind: "authority-unavailable" }
       : undefined;
 
+  /*
+   * SIA-3.1's filing seam is offered only when there is something honest to file ABOUT: an
+   * authenticated reader, and at least one durable agent still in service. A retired agent is not
+   * a subject — proposing a change to something withdrawn from service changes nothing, and the
+   * writer refuses it — so an organization whose only agent is retired is told that plainly rather
+   * than being offered a control every use of which would be refused.
+   *
+   * An unreachable identity authority yields NO agents here, and the block below says "none is in
+   * service", which would be a fabricated absence — so it is gated on `status === "known"` and an
+   * unavailable authority falls to the same honest sentence the card above it already shows.
+   */
+  const identities = identityState.status === "known" ? identityState.identities : [];
+  const filingBlock: HypothesisFilingBlock | undefined = !tenant
+    ? { kind: "unauthenticated" }
+    : identityState.status !== "known" || identities.every((identity) => !identity.inService)
+      ? { kind: "no-agent-in-service" }
+      : undefined;
+
   return (
     <>
       <PageHeader
@@ -108,11 +130,22 @@ export default async function AgentsPage() {
           actingHumanId={tenant?.userId}
           tenantId={tenant?.tenantId}
           genesisSpent={identityState.status === "known" ? identityState.genesisSpent : false}
-          identities={identityState.status === "known" ? identityState.identities : []}
+          identities={identities}
         />
         <AgentOutcomeObservationSurface observation={outcomes} />
         <AgentEvaluationSurface evaluation={evaluation} />
         <AgentImprovementHypothesisSurface hypotheses={hypotheses} />
+        {/*
+         * SIA-3.1's filing control sits BELOW the record it writes into, deliberately. The two
+         * cards above are the preparation — an observation and what SIA-2 derived from it — and
+         * the hypothesis list above this one is what has already been filed. Reading comes before
+         * writing on this page, and the order says so.
+         *
+         * It is a SEPARATE component from the hypothesis surface: that surface remains a server
+         * component with no client boundary and nothing imported that could mutate, which is a
+         * released proof worth keeping intact.
+         */}
+        <AgentImprovementHypothesisFiling block={filingBlock} identities={identities} />
         <AgentsTruthSurface model={model} />
       </div>
     </>

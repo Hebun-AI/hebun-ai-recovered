@@ -32,6 +32,11 @@ import type {
   EnrollmentDecision,
   EnrollmentDecisionResult,
 } from "@/features/identity-enrollment/contracts";
+import { decideImprovementHypothesis } from "@/features/agent-improvement-hypothesis/decide-improvement-hypothesis.server";
+import type {
+  HypothesisDecision,
+  HypothesisDecisionResult,
+} from "@/features/agent-improvement-hypothesis/decide-improvement-hypothesis.server";
 
 /*
  * The G2 Governance boundary — the only client-crossable way to write a Governance decision.
@@ -262,6 +267,53 @@ export async function decideIdentityEnrollmentAction(input: {
   });
   if (result.status === "approved" || result.status === "rejected") {
     revalidatePath("/governance/authority");
+  }
+  return result;
+}
+
+/*
+ * ── SIA-3.1: deciding ONE improvement hypothesis ────────────────────────────────────────────────
+ *
+ * The client supplies three things: which hypothesis, which way, and a human-authored
+ * justification. The tenant, the caller's identity, whether they hold Governance authority and how,
+ * the domain, the outcome, the decision id, the session id and every timestamp are resolved
+ * server-side — so "accept somebody else's tenant's hypothesis" has no parameter to arrive in.
+ *
+ * WHY IT BELONGS ON THIS SURFACE AND NOT ON /agents. Filing a hypothesis and deciding one are two
+ * acts by two authorities. Putting the decision beside the control that files it would place an
+ * author one click from accepting their own argument, and would create a second place where
+ * Governance authority is exercised — which is the thing this file exists to prevent. `/agents`
+ * files; Governance decides.
+ *
+ * WHY IT IS NOT `recordGovernanceDecisionAction`. That generic action validates its subject against
+ * `GOVERNANCE_SUBJECT_TYPES`, which is closed at `knowledge_node`, so it already refuses a
+ * hypothesis as `subject-unresolvable`. A hypothesis needs guards the generic path does not have —
+ * that the subject resolves IN THIS TENANT, and that it has not already been decided — and it takes
+ * them from its own subsystem's decider, exactly as enrollment and action-request decisions do.
+ *
+ * ACCEPTANCE IS NOT APPLICATION. This creates no change to any agent, mints no permit, schedules
+ * nothing and executes nothing. It records that a Governance authority judged one hypothesis worth
+ * pursuing, and the ledger outcome is worded `improvement-hypothesis-accepted` rather than
+ * `approved` so a row read years later cannot suggest an improvement was made.
+ *
+ * IT WRITES NOTHING TO THE HYPOTHESIS. No status is stamped back, so the decision and the record it
+ * is about can never disagree — the decider holds no update statement against that table at all.
+ */
+export async function decideImprovementHypothesisAction(input: {
+  hypothesisId: string;
+  decision: HypothesisDecision;
+  justification: string;
+}): Promise<HypothesisDecisionResult> {
+  const tenant = await resolveTenantContext();
+  const result = await decideImprovementHypothesis(tenant, {
+    hypothesisId: String(input?.hypothesisId ?? ""),
+    decision: input?.decision === "reject" ? "reject" : "approve",
+    justification: String(input?.justification ?? ""),
+  });
+  if (result.status === "decided") {
+    revalidatePath("/governance/authority");
+    /* The Agents surface renders each hypothesis WITH its decision, so it is stale now too. */
+    revalidatePath("/agents");
   }
   return result;
 }

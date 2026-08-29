@@ -318,8 +318,21 @@ function main(): void {
   );
 
   /*
-   * THE ACTION MODULE'S OWN IMPORTS ARE THREE. Everything it can reach, it reaches through the
-   * session resolver or through the two authorities — there is no fourth door.
+   * THE ACTION MODULE'S OWN IMPORTS ARE ENUMERATED. Everything it can reach, it reaches through
+   * the session resolver or through a named authority — there is no unnamed door.
+   *
+   * ── EXTENDED BY SIA-3.1, AND EXTENDED RATHER THAN RELAXED ─────────────────
+   *
+   * The `/agents` boundary gained a THIRD authority: the released SIA-3 hypothesis writer, so an
+   * authenticated human can file an evidence-backed question about an agent's selection behaviour.
+   * It is the same shape as the two above it — one authority, called with the resolved tenant, no
+   * gate held here — and it appears TWICE because its result type is declared in the same module
+   * (SIA-3 put the type beside the writer rather than in a contracts file, so the value import and
+   * the `import type` name the same specifier).
+   *
+   * The census stays EXACT, which is the whole value of it: a fourth authority still fails here.
+   * Loosening this to a prefix rule would let any future agent-side capability arrive silently,
+   * which is precisely what this assertion exists to stop.
    */
   assert.deepEqual(
     [...actions.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!).sort(),
@@ -328,6 +341,8 @@ function main(): void {
       "@/features/agent-identity/create-durable-agent-identity.server",
       "@/features/agent-identity/retire-durable-agent-identity.server",
       "@/features/agent-identity/retirement-contracts",
+      "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server",
+      "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server",
       "@/features/auth-runtime/request-session.server",
       "next/cache",
     ],
@@ -404,9 +419,23 @@ function main(): void {
 
   /* ── 6. THE ACTION BOUNDARY IS THIN, SERVER-RESOLVED AND FAIL-CLOSED ──────── */
   assert.ok(actions.trimStart().startsWith('"use server"'), "the boundary is a server-action module");
+  /*
+   * DERIVED FROM THE NUMBER OF ACTIONS, NOT PINNED TO IT (repaired by SIA-3.1).
+   *
+   * This read `=== 2`, which said "each action resolves the tenant for itself" while actually
+   * asserting "there are two actions". SIA-3.1 added a third and the pin failed for a reason that
+   * had nothing to do with what it was defending — the tenant is still resolved exactly once per
+   * action, which is the claim.
+   *
+   * Tying the two counts together says the real thing and cannot rot: an action added WITHOUT its
+   * own resolution fails, an action that resolves twice fails, and a helper that resolved once and
+   * shared the context across actions fails. A bare number could catch none of those.
+   */
+  const exportedActions = (actions.match(/export async function/g) ?? []).length;
+  assert.ok(exportedActions >= 2, "the boundary exports actions to check");
   assert.equal(
     (actions.match(/resolveTenantContext\(\)/g) ?? []).length,
-    2,
+    exportedActions,
     "each action resolves the tenant server-side, exactly once, for itself",
   );
   for (const smuggled of UNREPRESENTABLE_INPUTS) {
@@ -415,11 +444,36 @@ function main(): void {
       `no action accepts \`${smuggled}\` — tenant, human, actor, clock and lifecycle are server-resolved`,
     );
   }
+  /*
+   * ── EXTENDED BY SIA-3.1, WITH THE REAL CLAIM SPLIT OUT ────────────────────
+   *
+   * This enumerated two actions and carried "there is no reinstate" inside the MESSAGE, so the
+   * absence of a reinstate was implied by a count rather than asserted. SIA-3.1 added a third
+   * action — filing a hypothesis, which is not an identity act at all — and the count would have
+   * had to move whatever the third action was.
+   *
+   * So the enumeration is extended (still exact: a fourth fails) AND the reinstate ban is now
+   * asserted by name, immediately below. The claim that mattered is now the one being made.
+   */
   assert.deepEqual(
     [...actions.matchAll(/export async function (\w+)/g)].map((m) => m[1]).sort(),
-    ["createDurableAgentIdentityAction", "retireDurableAgentIdentityAction"],
-    "the boundary exposes exactly two actions: establish, and withdraw. There is no reinstate.",
+    [
+      "createDurableAgentIdentityAction",
+      "fileImprovementHypothesisAction",
+      "retireDurableAgentIdentityAction",
+    ],
+    "the boundary exposes exactly three actions: establish, withdraw, and file a hypothesis",
   );
+  /*
+   * AND THERE IS STILL NO REINSTATE — nor any other verb that would undo a retirement. Retirement
+   * is terminal because no authority was written to reverse it, and none may arrive here quietly.
+   */
+  for (const forbidden of ["reinstate", "restore", "unretire", "revive", "reactivate"]) {
+    assert.ok(
+      !new RegExp(`export async function \\w*${forbidden}`, "i").test(actions),
+      `the boundary exposes no \`${forbidden}\` action — retirement is terminal`,
+    );
+  }
   /* FAIL CLOSED: the null from an unauthenticated request is PASSED THROUGH, never substituted. */
   for (const fallback of ["?? {", "|| {", "tenantId:", "userId:"]) {
     assert.ok(

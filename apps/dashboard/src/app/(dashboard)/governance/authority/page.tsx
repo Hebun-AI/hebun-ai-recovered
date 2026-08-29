@@ -19,6 +19,8 @@ import { PendingEnrollmentCard } from "@/components/governance-authority/pending
 import { PENDING_ENROLLMENT_WORDING } from "@/components/governance-authority/pending-enrollment-wording";
 import { readPendingEnrollments } from "@/features/identity-enrollment/read-pending-enrollments.server";
 import { readRevocableInvitations } from "@/features/human-onboarding/read-revocable-invitations.server";
+import { UndecidedHypothesisCard } from "@/components/governance-authority/undecided-hypothesis-card";
+import { readImprovementHypotheses } from "@/features/agent-improvement-hypothesis/read-improvement-hypotheses.server";
 
 export const metadata = { title: "Governance Authority — Hebun AI" };
 
@@ -45,6 +47,7 @@ export default async function GovernanceAuthorityPage() {
     roleBaseline,
     enrollments,
     revocableInvitations,
+    hypotheses,
   ] = await Promise.all([
     readGovernanceAuthority(tenant),
     readGenesisNomination(tenant),
@@ -63,6 +66,9 @@ export default async function GovernanceAuthorityPage() {
     // Invitations still outstanding in this tenant, so an unusable capability can be ended and the
     // onboarding slot it holds released. Authority-gated like the rest.
     readRevocableInvitations(tenant),
+    // SIA-3.1: which improvement hypotheses are awaiting a Governance decision. This is SIA-3's
+    // OWN released read seam, tenant-scoped by it — this page adds no query and no second reader.
+    readImprovementHypotheses(tenant),
   ]);
 
   const authority = authorityLookup.status === "read" ? authorityLookup.authority : null;
@@ -123,6 +129,44 @@ export default async function GovernanceAuthorityPage() {
           <PendingEnrollmentCard
             pending={enrollments.view.pending}
             wording={PENDING_ENROLLMENT_WORDING}
+          />
+        </div>
+      ) : null}
+      {/*
+       * SIA-3.1 — the decision seam for improvement hypotheses.
+       *
+       * GATED ON HOLDING THE AUTHORITY, like every other decision control on this page. A reader
+       * who is not this tenant's Governance authority is offered nothing, because the decider would
+       * refuse them anyway and a control that always refuses is a false affordance.
+       *
+       * The list is narrowed to UNDECIDED here. A decided hypothesis is not re-decidable — the
+       * decider refuses `already-decided` — so handing one to a control would be the same false
+       * affordance in a different place. Decided hypotheses are read, with their decisions, on
+       * /agents.
+       */}
+      {authority?.viewerIsGovernanceAuthority ? (
+        <div className="min-w-0 max-w-2xl">
+          <UndecidedHypothesisCard
+            unavailable={hypotheses.status !== "read"}
+            hypotheses={
+              hypotheses.status === "read"
+                ? hypotheses.hypotheses
+                    .filter((hypothesis) => hypothesis.decision.status === "undecided")
+                    .map((hypothesis) => ({
+                      hypothesisId: hypothesis.hypothesisId,
+                      agentName: hypothesis.agentName,
+                      evidenceFindingKey: hypothesis.evidenceFindingKey,
+                      evidenceSource: hypothesis.evidenceSource,
+                      evidenceObservedValue: hypothesis.evidenceObservedValue,
+                      evidenceObservedTotal: hypothesis.evidenceObservedTotal,
+                      evidenceObservedAt: hypothesis.evidenceObservedAt,
+                      candidateChange: hypothesis.candidateChange,
+                      expectedEffect: hypothesis.expectedEffect,
+                      limitations: hypothesis.limitations,
+                      filedAt: hypothesis.filedAt,
+                    }))
+                : []
+            }
           />
         </div>
       ) : null}
