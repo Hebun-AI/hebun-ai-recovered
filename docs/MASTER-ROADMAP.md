@@ -73,7 +73,7 @@ Hebun has **six truth-owning product lines**:
 | 2 | **Agents** | Durable agent identity, activity, outcome observation, evaluation, and improvement hypotheses. |
 | 3 | **Governance** | Decisions, authority resolution, ratification, and the decision record. |
 | 4 | **Knowledge** | Facts, sources, provenance, retraction, and external references. |
-| 5 | **Organization** | Organizational structure, departments, people, roles. **Durable authority not yet established** (§9). |
+| 5 | **Organization** | Organizational structure, departments, people, roles. **Organization identity has an authoritative read seam** since L3 (`0644967`); **internal structure remains unavailable** — departments, teams and reporting lines have no authority (§9). |
 | 6 | **Integrations** | External provider contracts, connections, credentials, and provider-sourced reads. |
 
 A new subsystem does **not** automatically become a product line (§18, rule 2).
@@ -224,7 +224,7 @@ Hebun already has legitimate, released owners for most of what Program V gives m
 | **Organization** | **Organization Authority (L3)** | Organizational intelligence evolution | Living organizational system |
 | **Integrations** | Provider contracts + connections | Provider-sourced intelligence | Operational integration |
 | **Live Map** *(promoted surface)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 | Live Map Operational v1 |
-| *Enterprise Security & Trust* **(cross-cutting constraint — §7, not a product line)** | Gates on L3, L4 and Era I closure, plus one carried constraint (§11) | Provisional security direction (§12) | Constraints for consequential autonomy (§13) |
+| *Enterprise Security & Trust* **(cross-cutting constraint — §7, not a product line)** | Gates on L3, L4 and Era I closure — **all four measured CLOSED** (§11.1), including the carried trust boundary | Provisional security direction (§12) | Constraints for consequential autonomy (§13) |
 
 The final row is a **constraint**, not a truth owner. It appears in this matrix so that no Era can be read as closable without it, and for no other reason.
 
@@ -232,7 +232,7 @@ The final row is a **constraint**, not a truth owner. It appears in this matrix 
 
 ## 9. Current Position — YOU ARE HERE
 
-**Measurement baseline:** commit `98fd85922e60c0f49cd83137b2b7ea38e981c2cb` on `main`, equal to `origin/main`, 0 ahead / 0 behind. Migration ledger: **39 entries** (idx 0–38), last `20260828190630_sia3_agent_improvement_hypothesis`.
+**Measurement baseline:** commit `047dde807779e21c7d6ed08e449509df8780c415` on `main`, equal to `origin/main`, 0 ahead / 0 behind. Migration ledger: **39 entries** (idx 0–38), last `20260828190630_sia3_agent_improvement_hypothesis` — **unchanged across the whole of Era I**: the seven Era I releases carry a measured zero delta against `src/db/migrations` and `src/db/schema`.
 
 Classifications are drawn only from: CLOSED · ACTIVE · PARTIAL · DISCOVERY COMPLETE · DESIGN ONLY · NOT STARTED · DEFERRED · UNAVAILABLE.
 
@@ -251,18 +251,21 @@ Release and closure records live in `docs/product-vision/runtime/`. This page sa
 | Mock-surface gating authority | **CLOSED** | `src/features/mock-surface-gating/gate.server.ts` exists and fails closed; permits compiled-in organizational demo data only when the auth environment is explicitly `disabled`. |
 | Heby Executive Overview truthfulness | **CLOSED** | `heby-runtime/overview-source.server.ts` reads `getDirectorDashboardUiModel`, which returns `unavailableDashboard()` when demo data is not permitted — `unavailable`, never a fabricated zero. |
 | Truth boundary across *all* compiled-in fiction — **L1** | **CLOSED — released** | L1 released at `a6e9db9`. 25 surfaces that rendered organizational fiction with no honest marker now carry a released disclosure notice; the mock-surface gate itself was left untouched at the same two call sites and gained no rival authority. `tests/truth1-organizational-fiction/` executes the inclusion rule rather than asserting a list. Zero schema, zero migration, zero writer, zero route. |
-| Organizational durable truth authority | **UNAVAILABLE** | `organizations` and `departments` tables have existed in the ledger since the foundation baseline (`20260711173046_foundation_baseline.sql`) and have **zero writers** — no insert or update against either table exists anywhere in `src`. The live organizational projection is seeded from a compiled-in mock. A table is not an authority. |
+| Organization identity as authoritative truth — **L3** | **CLOSED — released** | L3 released at `0644967`. `src/features/organization-authority/` is one server-only, tenant-scoped, **read-only** seam answering what organization exists, over rows whose lifecycle owners already existed. Provenance comes from `companies.provisioning_source`, a released column with a released CHECK and, until L3, zero readers. Zero schema, zero migration, zero writer, zero authorization. |
+| Internal organizational structure (departments, teams, reporting lines) | **UNAVAILABLE** | Re-measured at this baseline and unchanged: `organizations` and `departments` have existed since the foundation baseline (`20260711173046_foundation_baseline.sql`) with **zero writers and zero readers** — no insert, update or value import against either exists anywhere in `src`. L3 deliberately did not invent one; it reports the absence as `no-authority`. A table is not an authority. |
 | Heby Core v1 — **L2** | **CLOSED — released** | L2 released at `98fd859`. HMR-1's attributed gap was re-measured from repository evidence and found unreproducible as stated; one real gap was found and repaired — a Heby surface could report that a model request was permitted while the Director's durable kill switch would refuse to dispatch it. Repaired by one composed field in the projection that already resolves both operands, Director first. No new authority, no schema, no migration, no writer, no route. |
 | SIA — pre-application loop (OBSERVE → EVALUATE → PREPARE → FILE → GOVERN) | **CLOSED and product-reachable** | `/agents` renders outcome observation, evaluation, and improvement-hypothesis surfaces; writer, reader and Governance decider all exist under `src/features/agent-improvement-hypothesis/`. |
 | SIA — application of an accepted hypothesis | **DEFERRED / UNAVAILABLE** | `decide-improvement-hypothesis.server.ts` reads only the hypothesis and decision records and writes only through the Governance decision authority. It never touches the `agents` table. No apply or rollback path exists anywhere. |
 | Agent behavioral configuration as a durable runtime mutation surface | **UNAVAILABLE** | Independently measured: no agent behavioral-config, system-prompt, or equivalent mutation surface exists in `src`. This is the same conclusion ASA-0 reached; it is recorded here on its own repository evidence. |
 | ASA-0 discovery | **DISCOVERY COMPLETE — read-only** | Confirmed to have left **no repository mutation**: the identifier `ASA` appears nowhere in the repository, in any file or any commit. Its findings live outside the repository and are therefore attributed, never cited as repository evidence. |
-| Live Map | **NOT STARTED** | The term appears in four G7 product-vision documents and **nowhere in `src`**. It has no route, no module, and no organizational truth authority. |
+| Live Map Core v1 — **L4** | **CLOSED — released** | L4 released at `bad04cf`. `/live-map` projects two node kinds — the organization (through L3) and durable agent identities (through AGENT-ID-0's read seam) — and exactly one edge, `agent belongs-to organization`, carrying `agents.tenant_id` as its basis. Departments and people are stated as having **no authority** rather than omitted. `LiveMapTruth` has one member, so a derived or mock node is unconstructable. Zero schema, zero persistence, zero writer; Live Map owns none of the truth it draws. |
 | Enterprise Security architecture (Program V, Phase 30–36) | **DESIGN ONLY** | Complete and published as architecture. Its own constitution records `Implementation authority: None`, and every phase carries an explicit non-implementation rule. It is meaning and constraint, never a delivery backlog (§19). |
-| Security Center | **CLOSED as a released UI surface — NOT connected security operations** | `src/features/security-center/` renders a source-class taxonomy, signal/finding vocabularies, structural response options and a four-actor boundary. Every populated collection is empty and nothing is fabricated: `signals.ts` freezes an empty array and `hasConnectedSecurityFeed()` is `false`. It owns vocabulary and boundaries, not security truth (§14). |
+| Security Center | **CLOSED as a released UI surface — NOT connected security operations** | `src/features/security-center/` renders a source-class taxonomy, signal/finding vocabularies, structural response options and a four-actor boundary. Every populated collection is empty and nothing is fabricated: `signals.ts` freezes an empty array and `hasConnectedSecurityFeed()` is `false` — re-measured here as a computation over the source map, where **no source carries `state: "connected"`**. SEC-4 (`06e2d7e`) corrected three source claims that delivery had overtaken and extended the firewall to the components and the route; it connected no reader. It owns vocabulary and boundaries, not security truth (§14). |
 | Security Event / Finding / Incident authority | **UNAVAILABLE** | Vocabulary exists; no instance, no writer, no reader, no feed. No canonical owner of security-event truth exists anywhere in `src`. |
-| Permission authority | **UNAVAILABLE** | `permissions` and `role_permissions` exist in the schema and have **zero readers and zero writers** outside `src/db/schema/`. Authorization today resolves elsewhere. A table is not an authority. |
+| Permission authority | **UNAVAILABLE** | Re-measured at this baseline: `permissions` and `role_permissions` still have **zero readers, zero writers and zero value importers** outside `src/db/schema/`, and `governance-decision/authority-read.server.ts` still records that it consults neither. L3 answered the entry gate deliberately (§11.1) and left them exactly as inert as it found them. A table is not an authority. |
 | Security policy authority | **UNAVAILABLE** | The `policies` table has **zero importers** of its schema symbol. No policy evaluator is connected; the Heby action governance gate reports `not-connected`, which **blocks** eligibility rather than passing it. |
+| Ingested-content trust boundary — **TB-1** | **CLOSED — released** | TB-1 released at `047dde8`. `heby-runtime/trust-boundary.ts` names the boundary and classifies **every** field of a model request as `Record<keyof ModelGenerationRequest, TrustClass>`, so a new path into model context cannot arrive unclassified without failing to compile. It records its own limits as data: `structurallyIsolatedInInferenceRequest: false`, `restsOnModelCompliance: true`, `detectsInjectedInstructions: false`. Zero schema, zero writer. |
+| **ERA I — HEBUN TRUSTWORTHY FOUNDATION** | **CLOSED** | Closed at `047dde8` against the §11 contract, measured row by row — see §11.3. L1–L4 released and re-verified; all four §11.1 Security & Trust gates measured CLOSED. |
 | Era II | **NOT STARTED** — provisional direction only (§12) | — |
 | Era III | **NOT ACTIVE** | — |
 
@@ -278,15 +281,15 @@ Extended the existing mock-surface-gating truth boundary so that compiled-in fic
 ### L2 — HEBY CORE v1 · **CLOSED — released `98fd859`**
 Closed the remaining bounded Heby Core contract. A Heby surface may no longer report that a model request is permitted while the Director's kill switch would refuse to dispatch it.
 
-### L3 — ORGANIZATION AUTHORITY · **NEXT**
-Establish the legitimate durable owner and read/write contract for organizational truth. **Its schema is deliberately not pre-designed here.**
+### L3 — ORGANIZATION AUTHORITY · **CLOSED — released `0644967`**
+Established the legitimate durable owner and read contract for organizational truth. The narrowest legitimate owner turned out to be a **reader**: the substrate, its writers and its provenance column all already existed, and what was missing was one bounded place to ask the question. No organizational writer was created, and internal structure is reported as having no authority rather than as empty.
 
-### L4 — LIVE MAP CORE v1
-Build the first truthful Live Map over legitimate organizational authority.
+### L4 — LIVE MAP CORE v1 · **CLOSED — released `bad04cf`**
+Built the first truthful Live Map over legitimate authoritative seams. It projects only what other authorities already own, draws one edge and names the durable column that proves it, and states every domain Hebun does not own.
 
 **Why this order:** L1 makes fiction unpresentable; L2 closes the interface that would otherwise speak that fiction; L3 creates the authority that has something true to say; L4 visualizes it. Reversing any pair would produce a surface that renders a claim no authority owns.
 
-**Released milestones are not reopened.** L1 and L2 are immutable evidence (§3, principle 8). Where a security constraint was not resolved inside a released milestone, it is carried honestly to the next legitimate closure or review point — never backdated into closed history. §11 records exactly one such carry.
+**Released milestones are not reopened.** L1, L2, L3 and L4 are immutable evidence (§3, principle 8). Where a security constraint was not resolved inside a released milestone, it is carried honestly to the next legitimate closure or review point — never backdated into closed history. §11.1 records exactly one such carry, and where it was finally closed.
 
 ---
 
@@ -306,14 +309,30 @@ Era I **must not** be called closed before those four contracts are actually imp
 
 These are **gates on existing milestones**. No separate Security milestone is introduced — see §11.2. Each gate is a question that must be answered before the milestone it names may close; none of them authorizes runtime work by appearing here.
 
-| Gate | Attaches to | The question that must be answered |
-|---|---|---|
-| **Ingested-content trust boundary** | **Carried** — see below | Is externally ingested content (provider reads, uploads) explicitly classified as untrusted input everywhere it can reach a model request, or is the boundary's absence explicitly recorded? |
-| **Roles and permissions** | **L3 — entry gate** | Do organizational roles carry permissions? Answer **before** Organization Authority schema and runtime are designed. |
-| **Observation surfaces gain no hidden authority** | **L4 — closure gate** | Can Live Map or the Security Center acquire write, authorization or execution authority through a transitive dependency? |
-| **No stale security-source claim** | **Era I — closure gate** | Does any released security surface still assert a source state that repository reality contradicts? |
+| Gate | Attaches to | The question that must be answered | Status |
+|---|---|---|---|
+| **Ingested-content trust boundary** | **Carried** — see below | Is externally ingested content (provider reads, uploads) explicitly classified as untrusted input everywhere it can reach a model request, or is the boundary's absence explicitly recorded? | **CLOSED** — TB-1 `047dde8` |
+| **Roles and permissions** | **L3 — entry gate** | Do organizational roles carry permissions? Answer **before** Organization Authority schema and runtime are designed. | **CLOSED** — answered at L3 `0644967` |
+| **Observation surfaces gain no hidden authority** | **L4 — closure gate** | Can Live Map or the Security Center acquire write, authorization or execution authority through a transitive dependency? | **CLOSED** — L4 `bad04cf` + SEC-4 `06e2d7e` |
+| **No stale security-source claim** | **Era I — closure gate** | Does any released security surface still assert a source state that repository reality contradicts? | **CLOSED** — SEC-4 `06e2d7e` |
 
-**Carried constraint — ingested-content trust boundary.** L2 closed at `98fd859` without addressing it, and released history is not reopened. Truthful current state, measured at this baseline: the boundary exists in part and is honestly disclaimed where it does not. `heby-actions/result-validator.ts` treats tool output as untrusted; `knowledge/pdf-extract.server.ts` treats extracted text as untrusted; `heby-runtime/prompt-validation.ts` states plainly that it is *not* prompt-injection defence; `agent-origination/originate-action.server.ts` records "containment, not immunity". **No module names a single owning boundary.** This is carried to the next legitimate closure or review point, not backdated into L2.
+Each gate below keeps the statement that was true when it was opened, and records separately how and where it was closed. A gate is not rewritten as though it had never been open.
+
+**Carried constraint — ingested-content trust boundary. CLOSED at `047dde8`.**
+
+*As measured when the gate was opened (L2 baseline `98fd859`):* the boundary existed in part and was honestly disclaimed where it did not. `heby-actions/result-validator.ts` treated tool output as untrusted; `knowledge/pdf-extract.server.ts` treated extracted text as untrusted; `heby-runtime/prompt-validation.ts` stated plainly that it is *not* prompt-injection defence; `agent-origination/originate-action.server.ts` recorded "containment, not immunity". **No module named a single owning boundary.** It was carried forward rather than backdated into L2.
+
+*How it closed:* TB-1 gave the boundary an owner in `heby-runtime/trust-boundary.ts`. Five trust classes, of which exactly one — `trusted-system-instruction` — may direct behaviour. Every field of a model request is classified as `Record<keyof ModelGenerationRequest, TrustClass>`, so a new path into model context **cannot arrive unclassified without failing to compile**; retrieved material is `untrusted-content`, prior turns are `conversation-data`, and the operator's own question is `human-request` rather than an instruction.
+
+*And it states its limits as data rather than prose:* `structurallyIsolatedInInferenceRequest: false` (the provider API accepts one `system` string, so past the transport the separation is a delimiter the model is asked to respect), `restsOnModelCompliance: true`, `detectsInjectedInstructions: false`, `neutralizesInjectedInstructions: false`. What holds regardless of the model is recorded too: `consequentialEffectsContainedByAuthorization: true` — model output is advisory text that reaches no authorization path.
+
+```
+UNTRUSTED CONTENT != INSTRUCTION
+MODEL OUTPUT      != AUTHORIZATION
+MODEL COMPLIANCE  != MECHANICAL GUARANTEE
+```
+
+**Prompt injection is not solved, and TB-1 does not claim it is.**
 
 **L3 entry gate — roles and permissions.** This is an **architectural decision gate, not authorization to implement a permission system.**
 
@@ -323,15 +342,35 @@ PERMISSIONS TABLE EXISTS != PERMISSION AUTHORITY EXISTS
 
 `permissions` and `role_permissions` have zero readers and zero writers (§9). Authorization today is answered by an existing released owner. L3 must decide the question deliberately, because **a second "may this actor act?" system is a regression, not a security improvement** (§7.3). Nothing here authorizes creating one.
 
-**L4 closure gate — observation surfaces.** Partially mechanized already, and the gate is the remainder. `tests/security-center/security-center.ts` runs a released file-level token firewall over `src/features/security-center/*.ts`, forbidding persistence (`.insert(`, `drizzle`, `persist(`), governance/execution/policy/decision imports, network, shell, filesystem and device APIs — plus a fabrication audit on the rendered model. What it does **not** yet do: walk the transitive import graph, or cover `src/components/security-center/` and the route. The gate is to close that remainder before connected observation expands — not to rebuild what exists.
+*Answered at `0644967` — **P3, bounded.*** Organizational roles participate in authorization only through an **existing** owner, and the decisive fact was a missing column: **`roles` has no `organization_id`**, so today's role is a tenant membership band and an *organizational* role does not exist in this repository at all. `roles.type` gates the caller in exactly one released place (`knowledge/knowledge-write-authority.server.ts`) and the target role's eligibility in `membership-authority` and `human-onboarding`; Governance, action authorization and identity enrollment each record that they consult none of it. So L3 touched roles at nothing, and its read seam carries no role, no band, no permission and no authority scope — asserted on the serialized value, so a field *added* later is caught too. `permissions` and `role_permissions` were left exactly as inert as they were found, and are re-measured as such at this baseline (§9).
 
-**Era I closure gate — stale security-source claims.** Re-measured at this baseline; three claims in `security-center/source-map.ts` are contradicted by repository reality:
+**L4 closure gate — observation surfaces. CLOSED at `bad04cf` (Live Map) and `06e2d7e` (Security Center).**
+
+*As measured when the gate was opened:* `tests/security-center/security-center.ts` ran a released **file-level** token firewall over `src/features/security-center/*.ts`, forbidding persistence, governance/execution/policy/decision imports, network, shell, filesystem and device APIs, plus a fabrication audit on the rendered model. What it did **not** do: walk the transitive import graph, or cover `src/components/security-center/` and the route.
+
+*How it closed.* Both halves are now defended by walking the real **transitive value-import closure** from each surface's entry points rather than scanning a directory:
+
+- **Live Map** (L4) — its firewall reaches the authorities it consumes, then asserts that no lifecycle writer, Governance writer, authorization decider, credential store, provider control or model boundary is reachable, and adds what a name list cannot do: **a behavioural sweep proving nothing reachable performs a durable write**, outside an ambient session floor that is enumerated and disclosed rather than assumed.
+- **Security Center** (SEC-4) — the same instrument extended to the 11 component files and the route.
+
+Two measurement defects were found and fixed in the course of closing this gate, and both are worth recording because either would have made the gate green while blind: a walker that follows `import … from` but **not `export … from`** cannot see a barrel re-export, which is precisely the shape the gate exists to catch; and a needle list matching module *names* falsely reported a table definition (`db/schema/provider-connectivity-control.ts`, reachable because the drizzle handle is typed by the schema barrel) as the provider kill switch.
+
+**Era I closure gate — stale security-source claims. CLOSED at `06e2d7e`.**
+
+*As measured when the gate was opened,* three claims in `security-center/source-map.ts` were contradicted by repository reality:
 
 - `integration` — asserts "none connected", while `provider-google/` and `provider-github/` hold released, real connections.
 - `provider` — asserts "simulation vocabulary", while live transports exist for Google, GitHub, Claude and Resend.
 - `audit` — asserts "No persisted security audit history exists". `audit_log` is append-only with nine governance-audit writers and two released readers. The claim is true only of the Security Center's own *connection* to that sink, and false of the repository.
 
-These are honest statements that delivery has overtaken, not fabrications. Era I is defined as *"every surface either grounds its claim in a legitimate authority or says it cannot"* — a released security surface asserting a state the repository contradicts is exactly the defect Era I closes against.
+These were honest statements that delivery had overtaken, not fabrications. Era I is defined as *"every surface either grounds its claim in a legitimate authority or says it cannot"* — a released security surface asserting a state the repository contradicts is exactly the defect Era I closes against.
+
+*How it closed.* SEC-4 rewrote all three to draw the distinction the gate is really about — **the capability exists, and the Security Center is not connected to it** — and each now says so in both directions. `integration`: released tenant-scoped connections exist and are owned by the integration authority; this surface reads none of them, and `canProve` is *"Nothing on this surface"*. `provider`: real transports exist in the runtime; no provider feed is wired here. `audit`: a governed append-only ledger exists with released tenant-scoped readers, and it is not wired to this surface. Re-measured at this baseline: **no source carries `state: "connected"`**, so `hasConnectedSecurityFeed()` is `false` by computation rather than by assertion. No reader was connected and no finding, incident, policy, trust or score was introduced.
+
+```
+AUTHORITY / CAPABILITY EXISTS != SECURITY CENTER CONNECTED
+SECURITY CENTER               != SECURITY AUTHORITY
+```
 
 ### 11.2 No separate Security milestone
 
@@ -346,11 +385,64 @@ L1 → L2 → L3 → L4 → ERA I CLOSED
 
 The rationale is §18 rule 11 — prefer closing coherent product milestones over opening many new programs — and the measurement behind it: Hebun's security foundation is stronger than the architecture assumed, not weaker. The genuine Era I gaps are few and small enough to be gates.
 
+### 11.3 Era I closure record
+
+```
+ERA I — HEBUN TRUSTWORTHY FOUNDATION = CLOSED
+```
+
+**Closure baseline:** `047dde807779e21c7d6ed08e449509df8780c415` on `main`, equal to `origin/main`, 0 ahead / 0 behind. Migration ledger **39**, unchanged throughout.
+
+Measured row by row against the §11 contract. A closure claim is a measurement, not a decision, so the matrix is recorded rather than summarised:
+
+| Closure row | Status | Released at |
+|---|---|---|
+| L1 — Truth Foundation | **CLOSED** | `a6e9db9` |
+| L2 — Heby Core v1 | **CLOSED** | `98fd859` |
+| L3 — Organization Authority | **CLOSED** | `0644967` |
+| L4 — Live Map Core v1 | **CLOSED** | `bad04cf` |
+| Gate — roles and permissions | **CLOSED** | answered at `0644967` |
+| Gate — observation surfaces gain no hidden authority | **CLOSED** | `bad04cf` · `06e2d7e` |
+| Gate — no stale security-source claim | **CLOSED** | `06e2d7e` |
+| Gate — ingested-content trust boundary | **CLOSED** | `047dde8` |
+| Release / remote state | **CLOSED** | HEAD = `origin/main` = `047dde8`, 0/0 |
+| Migration integrity | **CLOSED** | ledger 39; zero schema and zero migration delta across Era I |
+| Concurrent-work integrity | **CLOSED** | tracked tree clean; carry-over untouched |
+
+#### What Era I guarantees
+
+1. **Organizational fiction cannot silently masquerade as authoritative truth.** The mock-surface gate fails closed, and every surface that still renders a compiled-in fixture says so where a reader will see it.
+2. **Heby has a bounded, truthful Core.** It cannot report that a model request is permitted while the Director's durable kill switch would refuse to dispatch it.
+3. **Organization identity has an authoritative read seam**, tenant-resolved from trusted context, with provenance — and no organizational writer was created to get it.
+4. **Live Map projects only admitted truth and owns none of it.** One edge, and it names the durable column that proves it.
+5. **Security observation surfaces cannot silently become authorities**, proved by walking the transitive import closure rather than by scanning a directory.
+6. **External and ingested content is explicitly non-authoritative data**, classified exhaustively enough that a new path into model context cannot arrive unclassified without failing to compile.
+7. **Model output cannot directly become authorization or execution.** The route to a consequential act runs through a human command, a Governance decision, a single-spend permit and an execution boundary — none of which reads model output.
+8. **Roles and permission tables are not represented as an active permission authority.** They are inert, and the roadmap says so.
+
+#### What Era I does NOT mean
+
+Closure is a statement about a foundation, not about a finished product. All of the following remain true at this baseline:
+
+- **The Security Command Center is not connected.** No source is `connected`; there is no live audit feed, no live provider feed, and no security finding, incident, policy result or posture score anywhere in `src`.
+- **Security Center consumes no authoritative evidence yet.** The capability exists elsewhere; the surface is not wired to it.
+- **Internal organizational structure remains unavailable.** Departments, teams and reporting lines have no authority, and Live Map reports that rather than drawing an empty organization.
+- **People are counted, never placed.** Hebun holds a member count and no roster, and membership carries no departmental placement.
+- **Live Map Intelligence is not implemented.** Neither is Heby Intelligence, Director Intelligence, or a Director Twin.
+- **ASA application and agent runtime configuration are not implemented.** No agent behavioural-config or system-prompt mutation surface exists.
+- **Prompt injection is not solved.** TB-1 classifies and contains; it does not detect or neutralise, and it says so in its own contract.
+- **Era I closure does not imply production deployment.** It is a statement about released repository reality, not about what is running.
+
+```
+ERA CLOSED != PRODUCT FINISHED FOREVER
+ERA CLOSED != EVERYTHING DEPLOYED
+```
+
 ---
 
 ## 12. Era II — Provisional Direction
 
-**PROVISIONAL. NOT LOCKED.**
+**PROVISIONAL. NOT LOCKED. AND NOW STALE AS AN ORDER.**
 
 ```
 ASA-2 — Windowed Evidence Seam
@@ -359,11 +451,19 @@ ASA-2 — Windowed Evidence Seam
   → Heby Intelligence
 ```
 
+**That sequence was authored before L3, L4, SEC-4 and TB-1 existed, and it is retained as a record of direction rather than as a decision.** Era I changed what is available to build on — an organization read seam, a Live Map projection, a hardened observation boundary and a named trust boundary — and a candidate that was merely safe to build first is not thereby the right one. Ordering requires **Era II discovery and prioritization** before anything opens.
+
+Note in particular that a fifth candidate now exists which the sequence above predates: **connecting a security surface to the audit sink that already exists** (§12.1). It is not inserted into the order here, because inserting it would be the same mistake as trusting the order.
+
 Later intelligence work may then include, **according to dependency discovery**: Director Intelligence · Director Twin foundations · Memory · Learning · Advanced Self-Improving Agents · Organizational Intelligence evolution · Evaluation · multi-agent intelligence.
 
 No precise implementation order is fabricated here for systems whose prerequisites have not yet been rediscovered.
 
 *Recorded honestly:* `ASA-2` is a Director-named milestone with **no repository record at this baseline**. Its prerequisites must be rediscovered before it opens.
+
+```
+ERA II != AUTOMATIC AUTHORIZATION TO BUILD
+```
 
 Pinned:
 
@@ -568,10 +668,10 @@ HMR-0's "Foundation ~70%" estimate is **not preserved**. It had no defensible de
 
 ## 20. Next Milestone
 
-**L3 — ORGANIZATION AUTHORITY.**
+**ERA II — HEBUN INTELLIGENCE. Discovery and prioritization first; no milestone is open.**
 
-Establish the legitimate durable owner and read/write contract for organizational truth. `organizations` and `departments` have existed in the ledger since the foundation baseline with zero writers; the live organizational projection is still seeded from a compiled-in mock (§9).
+Era I is **CLOSED** at `047dde8` (§11.3). L1–L4 are released and re-verified, and all four Security & Trust gates are measured closed.
 
-L1 and L2 are **CLOSED and released** (`a6e9db9`, `98fd859`). L3 has **not** begun. It requires its own discovery pass and explicit Director authorization before any implementation starts.
+What comes next is **not** decided by this page. §12's candidate sequence predates L3, L4, SEC-4 and TB-1, so it is stale as an order and is retained as direction only. The next legitimate action is an **Era II discovery pass** that re-derives prerequisites against current repository reality and returns a proposed order for Director approval.
 
-**Its Security & Trust entry gate must be answered during that discovery, before schema or runtime is designed:** do organizational roles carry permissions? (§11.1). That is an architectural decision, not authorization to build a permission system.
+Nothing in Era II is authorized by this document. In particular, a candidate being technically safe to build is not a reason for it to be first.
