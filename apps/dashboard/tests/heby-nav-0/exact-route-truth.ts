@@ -212,7 +212,8 @@ function cmdb2Intact(): void {
   /* 6 · canonical Command L2 is still exactly three. */
   assert.deepEqual(
     command.destinations.map((d) => d.label),
-    ["Overview", "Decisions", "Director Intent"],
+    /* L4 added Live Map as a fourth canonical Command destination; the list stays exhaustive. */
+    ["Overview", "Decisions", "Director Intent", "Live Map"],
     "Command canonical L2 is untouched by HEBY-NAV-0",
   );
   /* 7, 17 · and no legacy route was slipped back into the navigation model to make Heby work. */

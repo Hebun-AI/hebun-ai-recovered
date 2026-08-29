@@ -551,8 +551,9 @@ function nothingElseMoved(overrides: Readonly<Record<string, string>> = {}): voi
   assert.equal(WORKSPACES.length, 7, "still seven workspaces");
   assert.deepEqual(
     getWorkspace("command").destinations.map((d) => d.label),
-    ["Overview", "Decisions", "Director Intent"],
-    "Command L2 is the CMD-B2 canonical three",
+    /* L4 added Live Map as a fourth canonical Command destination; the list stays exhaustive. */
+    ["Overview", "Decisions", "Director Intent", "Live Map"],
+    "Command L2 is the CMD-B2 canonical L2",
   );
 
   /* 23. Heby stays ambient and advisory in Command. */

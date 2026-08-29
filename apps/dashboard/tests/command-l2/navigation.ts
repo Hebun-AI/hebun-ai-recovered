@@ -29,12 +29,16 @@ function sevenWorkspacesPreserved(): void {
 function commandFinalNav(): void {
   const command = getWorkspace("command");
   const labels = command.destinations.map((d) => d.label);
+  /*
+   * L4 added Live Map as a fourth canonical destination under CMD-B2's own rule — a row must lead
+   * to something Hebun can answer. The list stays exhaustive and ordered, so a fifth, a reorder or
+   * a removal each still fails; the count assertion is redundant beside it and says less.
+   */
   assert.deepEqual(
     labels,
-    ["Overview", "Decisions", "Director Intent"],
-    "Command L2 is the canonical three, in order (CMD-B2)",
+    ["Overview", "Decisions", "Director Intent", "Live Map"],
+    "Command L2 is the canonical set, in order (CMD-B2, extended by L4)",
   );
-  assert.equal(command.destinations.length, 3, "exactly three canonical Command destinations");
 }
 
 function removedSurfaces(): void {

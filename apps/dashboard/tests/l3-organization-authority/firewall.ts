@@ -21,6 +21,7 @@ const READER = `${AUTHORITY_DIR}/read-organization.server.ts`;
 const CONTRACTS = `${AUTHORITY_DIR}/contracts.ts`;
 const PAGE = "src/app/(dashboard)/director/organization/page.tsx";
 const PANEL = "src/components/organization-domain/authoritative-organization.tsx";
+const LIVE_MAP_PROJECTION = "src/features/live-map/read-live-map.server.ts";
 
 function walk(dir: string): string[] {
   return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {
@@ -125,13 +126,18 @@ function noCallerCanNameAnotherOrganization(): void {
 
 /* ── 4 · EXACTLY ONE SUBSYSTEM ANSWERS THE QUESTION ────────────────────────── */
 function thereIsOnlyOneAnswer(): void {
+  /*
+   * L4 ADDED THE SECOND CONSUMER, AND THE LIST IS WHY THAT IS SAFE. An enumeration names every
+   * caller, so a third one fails here and has to argue for itself — which is the point. Live Map
+   * consumes the authority; it does not reach past it.
+   */
   const callers = walk("src").filter(
     (file) => !file.startsWith(AUTHORITY_DIR) && read(file).includes("readOrganizationAuthority"),
   );
   assert.deepEqual(
     callers.sort(),
-    [PAGE],
-    "the Organization Authority has exactly one consumer, and it is a page that only renders it",
+    [PAGE, LIVE_MAP_PROJECTION].sort(),
+    "the Organization Authority's consumers are exactly the Organization page and the Live Map projection",
   );
 
   /*
@@ -158,9 +164,35 @@ function thereIsOnlyOneAnswer(): void {
     }
   }
 
-  /* And Live Map still does not exist, so it cannot own anything. */
+  /*
+   * LIVE MAP EXISTS NOW, SO THE CLAIM BECOMES A REAL ONE.
+   *
+   * This assertion used to be `Live Map has no module in src`. Absence is the weakest possible form
+   * of this guarantee and it expires the moment somebody builds the thing — so it is replaced by
+   * what actually matters: Live Map reaches organization truth ONLY through the L3 seam, and never
+   * through the tables beneath it.
+   */
   const liveMapFiles = walk("src").filter((f) => /live-?map/i.test(f));
-  assert.deepEqual(liveMapFiles, [], "Live Map has no module in src and owns no organizational truth");
+  assert.ok(liveMapFiles.length > 0, "Live Map exists, so this claim is about a real subsystem");
+  for (const file of liveMapFiles) {
+    const source = read(file);
+    assert.ok(
+      !/from\s+["'][^"']*db\/schema/.test(source),
+      `${file}: Live Map must not reach a schema module — organization truth comes through L3`,
+    );
+    assert.ok(
+      !/from\s+["'][^"']*db\/client/.test(source),
+      `${file}: Live Map must hold no database handle`,
+    );
+    assert.ok(
+      !performsDurableWrite(source),
+      `${file}: Live Map is a projection and must perform no durable write`,
+    );
+  }
+  assert.ok(
+    read(LIVE_MAP_PROJECTION).includes("readOrganizationAuthority"),
+    "the Live Map projection consumes the Organization Authority rather than re-reading companies",
+  );
 }
 
 /* ── 5 · THE UI RENDERS AND CANNOT MUTATE ──────────────────────────────────── */

@@ -81,8 +81,9 @@ function commandNavUndisturbedByIntelligence(): void {
   const labels = command.destinations.map((d) => d.label);
   assert.deepEqual(
     labels,
-    ["Overview", "Decisions", "Director Intent"],
-    "Command canonical three is untouched by Intelligence",
+    /* L4 added Live Map as a fourth canonical Command destination; the list stays exhaustive. */
+    ["Overview", "Decisions", "Director Intent", "Live Map"],
+    "Command canonical L2 is untouched by Intelligence",
   );
   assert.ok(!labels.includes("Alerts"), "Command Alerts still merged into Inbox");
 }

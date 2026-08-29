@@ -319,8 +319,9 @@ function nothingElseMoved(): void {
   const command = getWorkspace("command");
   assert.deepEqual(
     command.destinations.map((d) => d.label),
-    ["Overview", "Decisions", "Director Intent"],
-    "Command L2 is the CMD-B2 canonical three",
+    /* L4 added Live Map as a fourth canonical Command destination; the list stays exhaustive. */
+    ["Overview", "Decisions", "Director Intent", "Live Map"],
+    "Command L2 is the CMD-B2 canonical L2",
   );
   assert.ok(
     existsSync(path.join(ROOT, "src/app/(dashboard)/director/goals/page.tsx")),

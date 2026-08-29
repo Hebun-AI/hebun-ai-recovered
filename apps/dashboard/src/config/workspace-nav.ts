@@ -25,6 +25,7 @@ import {
   Layers,
   Sparkles,
   Compass,
+  Network,
   type LucideIcon,
 } from "lucide-react";
 
@@ -85,7 +86,7 @@ export const WORKSPACES: readonly Workspace[] = [
     href: "/command",
     tagline: "Executive operating surface — situational overview and the human decision.",
     roles: ["director", "operator", "specialist", "admin"],
-    match: ["/dashboard", "/director", "/approvals"],
+    match: ["/dashboard", "/director", "/approvals", "/live-map"],
     /*
      * CMD-B2 — the canonical Command L2: three destinations, and no empty promises.
      *
@@ -109,11 +110,23 @@ export const WORKSPACES: readonly Workspace[] = [
      *
      * The three that remain are the three Hebun can stand behind: the Overview CMD-B1 connected,
      * the Decisions surface that holds the authority, and the intent inlet that reaches Heby.
+     *
+     * ── L4 ADDS A FOURTH, UNDER CMD-B2'S OWN RULE ────────────────────────────────
+     *
+     * CMD-B2's rule was never "three forever". It was that a canonical row must lead to something
+     * Hebun can answer, and it removed five that could not. Live Map qualifies on exactly that
+     * test: it reads L3's Organization Authority and AGENT-ID-0's durable identity seam, and every
+     * domain it cannot source it names as unsourced rather than leaving blank.
+     *
+     * It belongs to Command rather than to a workspace of its own because the top level is closed
+     * at seven and does not grow, and because Command already owns the `/director` organizational
+     * surfaces by `match`. Live Map is where a Director looks to see what Hebun actually knows.
      */
     destinations: [
       { label: "Overview", href: "/command", icon: Gauge, purpose: "Executive cockpit and landing." },
       { label: "Decisions", href: "/approvals", icon: ShieldCheck, purpose: "Pending human authority — navigates to the Decisions surface.", roles: ["director"], elevated: true },
       { label: "Director Intent", href: "/command/intent", icon: Compass, purpose: "Express intent — Heby prepares under authority.", roles: ["director"], elevated: true },
+      { label: "Live Map", href: "/live-map", icon: Network, purpose: "The organization as Hebun can vouch for it — authoritative seams only, unavailable domains named." },
     ],
   },
   {

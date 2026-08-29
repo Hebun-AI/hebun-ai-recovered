@@ -1,0 +1,156 @@
+/*
+ * live-map/contracts.ts — L4. THE SHAPE OF A MAP THAT CANNOT LIE.
+ *
+ * ── WHAT LIVE MAP IS ─────────────────────────────────────────────────────────
+ *
+ *     AUTHORITATIVE SYSTEMS  ->  BOUNDED READ SEAMS  ->  LIVE MAP PROJECTION  ->  USER
+ *
+ * and never the other way round. Live Map composes facts other subsystems own. Composing them does
+ * not make it authoritative over any of them, and it owns no lifecycle, no authorization, no
+ * execution, no provider state and no security state.
+ *
+ * ── THE ADMISSION RULE, ENFORCED BY THE TYPE ─────────────────────────────────
+ *
+ * `truth` has exactly ONE representable value: `"authoritative"`. That is deliberate and it is the
+ * central mechanism of this milestone. A derived, seeded, mock or inferred node is not rejected at
+ * runtime by a check somebody has to remember to write — it cannot be constructed at all. The
+ * compiled-in organizational fixtures L1 disclosed are therefore unrepresentable here rather than
+ * merely discouraged, and widening this union is the single edit a reviewer must refuse.
+ *
+ * ── WHY AN EDGE IS HARDER TO EARN THAN A NODE ────────────────────────────────
+ *
+ * A drawn edge asserts a relationship, and a relationship nobody owns is a fabrication with a line
+ * through it. Core admits exactly ONE, and it carries the durable column that proves it:
+ *
+ *     agent  --belongs-to->  organization        basis: `agents.tenant_id`
+ *
+ * That is not "same tenant, therefore related". L3 established that in Hebun the organization IS
+ * the tenant — `AuthoritativeOrganization.organizationId` is the tenant id — so this edge restates
+ * one foreign key rather than inferring a peer relationship between two rows that happen to share a
+ * scope. Every relationship that would need an inference is absent:
+ *
+ *     agent -> department      no department authority exists (L3)
+ *     agent -> human           `agents.human_owner_id` is durable, but Live Map has no human node
+ *                              and no roster read, so the far end does not exist to draw to
+ *     human -> department      L3 measured that `roles` carries no `organization_id` at all
+ *     agent -> work/goal       no authority
+ *
+ * ── FOUR DOMAIN STATES, AND THEY ARE NOT INTERCHANGEABLE ─────────────────────
+ *
+ *     available      the authority answered and there is something to show
+ *     known-empty    the authority answered and the answer is genuinely zero
+ *     unavailable    the authority could not be reached, or refused
+ *     no-authority   nobody in Hebun owns this concept yet
+ *
+ * `known-empty` is only ever produced where a released seam can actually distinguish it. Today that
+ * is exactly one domain — durable agent identity, whose reader separates "this tenant has created
+ * no agent" from "the authority could not be reached" in its own type. Structure and people get
+ * `no-authority`, because no owner exists to be empty.
+ *
+ *     UNAVAILABLE != EMPTY        NO DATA != KNOWN ZERO        NO AUTHORITY != ZERO
+ *
+ * ── NO REAL-TIME CLAIM, AND NO INVENTED TIMESTAMP ────────────────────────────
+ *
+ * This is a server read performed when the page was requested. It is not a stream, not a
+ * subscription and not auto-refreshing, and nothing here records when it happened, because the
+ * seams it composes expose no freshness fact and inventing one would be the easiest lie on the
+ * surface to believe.
+ *
+ *     CURRENT READ != REAL-TIME STREAM
+ */
+
+/** The only kinds Core admits. Each earned its place from a released, tenant-scoped read seam. */
+export type LiveMapNodeKind = "organization" | "agent";
+
+/**
+ * The truth classification of a rendered node.
+ *
+ * ONE VALUE, ON PURPOSE. Core renders authoritative facts or it renders nothing, so "derived",
+ * "seeded" and "mock" are absent from the union rather than listed and refused. Adding one is how
+ * fiction would enter, and it is a type change a reviewer cannot miss.
+ */
+export type LiveMapTruth = "authoritative";
+
+export interface LiveMapNode {
+  /** Stable projection identity, kind-prefixed. A projection id, never a domain identifier. */
+  readonly nodeId: string;
+  readonly kind: LiveMapNodeKind;
+  readonly label: string;
+  readonly truth: LiveMapTruth;
+  /** The subsystem that OWNS this fact. Live Map is never named here. */
+  readonly sourceAuthority: string;
+  /** Bounded provenance/evidence lines, already resolved into sentences by the owning authority. */
+  readonly detail: readonly string[];
+  /** Where the owning subsystem lives, when a real released route exists. Navigation, not control. */
+  readonly openRoute?: string;
+}
+
+/** The one relationship Core can prove. Extending this union requires a durable owner for it. */
+export type LiveMapRelation = "belongs-to";
+
+export interface LiveMapEdge {
+  readonly fromNodeId: string;
+  readonly toNodeId: string;
+  readonly relation: LiveMapRelation;
+  /** The durable fact that proves the edge. An edge without one may not be constructed. */
+  readonly basis: string;
+}
+
+export type LiveMapDomainState =
+  | { readonly status: "available"; readonly nodes: readonly LiveMapNode[] }
+  | { readonly status: "known-empty"; readonly detail: string }
+  | { readonly status: "unavailable"; readonly reason: string; readonly detail: string }
+  | { readonly status: "no-authority"; readonly detail: string };
+
+/** A domain Live Map shows, whether or not it can show anything in it. */
+export interface LiveMapDomain {
+  readonly domainId: string;
+  readonly label: string;
+  readonly state: LiveMapDomainState;
+}
+
+export interface LiveMapProjection {
+  readonly domains: readonly LiveMapDomain[];
+  /**
+   * Edges across the WHOLE projection, drawn only when both endpoints are present. An edge to a
+   * node that is not on the map would be a claim about something the reader cannot see.
+   */
+  readonly edges: readonly LiveMapEdge[];
+  /** The honest description of what this reading is. No timestamp; see the header. */
+  readonly freshness: string;
+}
+
+export const LIVE_MAP_FRESHNESS =
+  "A server read taken when this page was requested. Live Map is not a stream and does not " +
+  "refresh on its own — reload to read again.";
+
+/**
+ * The domains Core represents, in render order. Structure and people are listed EXPLICITLY rather
+ * than omitted: a map that silently leaves out departments reads as an organization that has none.
+ */
+export const LIVE_MAP_STRUCTURE_ABSENT =
+  "Hebun has no authority for internal organizational structure, so departments, teams and " +
+  "reporting lines cannot be shown. That is an absent authority, not an organization without them.";
+
+export const LIVE_MAP_PEOPLE_ABSENT =
+  "Hebun holds a count of this organization's human members but no authority that lists them, and " +
+  "membership carries no departmental placement. People are therefore counted on the organization " +
+  "and are not drawn as their own nodes.";
+
+/** Frozen so a test can read the milestone's own claims instead of re-deriving them. */
+export const LIVE_MAP_PROJECTION_MODEL = Object.freeze({
+  kind: "read-only-projection" as const,
+  /** Live Map owns no concept it displays. */
+  ownsDomainTruth: false as const,
+  /** No table, no migration, no persistence of projection state. */
+  persistsProjection: false as const,
+  writerCreated: false as const,
+  /** It cannot authorize, execute, or reach a provider. */
+  authorizesAction: false as const,
+  executesAction: false as const,
+  /** No stream, no subscription, no polling. */
+  realTime: false as const,
+  limitation:
+    "Live Map shows what other authorities already know. It cannot create, move, rename or retire " +
+    "anything it draws, and a domain with no owner is shown as having no owner rather than as empty.",
+});

@@ -54,9 +54,18 @@ const SECONDARY = "src/components/layout/secondary-nav.tsx";
 const MOBILE = "src/components/layout/mobile-nav.tsx";
 const TABLET = "src/components/layout/workspace-rail.tsx";
 
-/** The canonical three, in order. */
-const CANONICAL_LABELS = ["Overview", "Decisions", "Director Intent"] as const;
-const CANONICAL_ROUTES = ["/command", "/approvals", "/command/intent"] as const;
+/** The canonical destinations, in order. */
+/*
+ * L4 ADDED A FOURTH, UNDER THIS PHASE'S OWN RULE.
+ *
+ * CMD-B2's rule was never "three forever" — it was that a canonical row must lead to something
+ * Hebun can answer, and it removed five that could not. Live Map reads L3's Organization Authority
+ * and AGENT-ID-0's durable identity seam, and names every domain it cannot source. The list stays
+ * EXHAUSTIVE and ORDERED, so this admits one destination rather than loosening the pin: a fifth,
+ * a reorder, or a removal each still fails.
+ */
+const CANONICAL_LABELS = ["Overview", "Decisions", "Director Intent", "Live Map"] as const;
+const CANONICAL_ROUTES = ["/command", "/approvals", "/command/intent", "/live-map"] as const;
 
 /** The five that left the menu and kept their routes. */
 const LEGACY = [
@@ -90,8 +99,11 @@ const LEGACY = [
  * The cockpit work was written before GITHUB-2 landed and carried 128 forward, which read as a
  * deletion the moment both were in the same tree. CMD-FINAL changes how Command RENDERS and how
  * the shell NAVIGATES; it adds and removes no page, so the released census stands unchanged.
+ *
+ * L4 ADDS EXACTLY ONE: `/live-map`. The census moves 129 -> 130 for that page and nothing else, so
+ * the assertion still catches a deletion anywhere in the dashboard — which is what it is for.
  */
-const DASHBOARD_ROUTE_COUNT = 129;
+const DASHBOARD_ROUTE_COUNT = 130;
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT.
@@ -188,14 +200,27 @@ function canonicalThree(): void {
   assert.deepEqual(
     command.destinations.map((d) => d.label),
     [...CANONICAL_LABELS],
-    "Command canonical L2 is exactly Overview, Decisions, Director Intent — in that order",
+    "Command canonical L2 is exactly Overview, Decisions, Director Intent, Live Map — in that order",
   );
   assert.deepEqual(
     command.destinations.map((d) => d.href),
     [...CANONICAL_ROUTES],
-    "and their routes are exactly /command, /approvals, /command/intent",
+    "and their routes are exactly /command, /approvals, /command/intent, /live-map",
   );
-  assert.equal(command.destinations.length, 3, "exactly three canonical destinations");
+  assert.equal(command.destinations.length, 4, "exactly four canonical destinations");
+
+  /*
+   * THE RULE BEHIND THE LIST, NOW ASSERTED DIRECTLY. CMD-B2 removed five rows because they led to
+   * surfaces the product could not answer, but it only ever pinned the RESULT of that judgement.
+   * Every canonical route must resolve to a real page — so a row can no longer be added for a
+   * surface that does not exist, which is the failure mode the five originally were.
+   */
+  for (const route of CANONICAL_ROUTES) {
+    assert.ok(
+      existsSync(path.join(ROOT, pageFor(route))),
+      `canonical route ${route} resolves to a real page (${pageFor(route)})`,
+    );
+  }
 
   /* 12 · Overview is first — the landing is where the menu starts. */
   assert.equal(command.destinations[0].label, "Overview", "Overview is first");
@@ -247,9 +272,9 @@ function legacyRoutesSurvive(): void {
 
     /* 7 · resolving the route directly does not put it back in the menu. */
     assert.equal(resolveActiveWorkspace(route), "command", `${route} still belongs to Command`);
-    assert.equal(
-      getWorkspace(resolveActiveWorkspace(route)).destinations.length,
-      3,
+    assert.deepEqual(
+      getWorkspace(resolveActiveWorkspace(route)).destinations.map((d) => d.label),
+      [...CANONICAL_LABELS],
       `visiting ${route} does not reinsert it into the canonical L2`,
     );
     const navThere = visible(renderNav(route));
@@ -288,10 +313,25 @@ function oneNavigationAuthority(): void {
     );
   }
 
-  /* All three viewports show the same three rows, because they share the one authority. */
+  /* All three viewports show the same rows, because they share the one authority. */
   const rows = visible(renderNav("/command"));
   for (const label of CANONICAL_LABELS) assert.ok(rows.includes(label), `${label} is rendered`);
-  assert.equal(destinationsForRole(command, "director").length, 3, "director sees the canonical three");
+  /*
+   * Asserted by IDENTITY rather than by count: a count says a director sees four things, and the
+   * claim that matters is that they see exactly THESE four. Live Map carries no `roles`, so it is
+   * visible to every role — unlike Decisions and Director Intent, which stay director-only below.
+   */
+  assert.deepEqual(
+    destinationsForRole(command, "director").map((d) => d.label),
+    [...CANONICAL_LABELS],
+    "a director sees exactly the canonical destinations",
+  );
+  for (const role of ["operator", "specialist", "admin"] as const) {
+    assert.ok(
+      destinationsForRole(command, role).some((d) => d.label === "Live Map"),
+      `Live Map is visible to ${role} — it discloses no elevated authority`,
+    );
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -448,7 +488,7 @@ function main(): void {
   shellIdentityHonest();
   navigationOnly();
   cmdb1AndHebyUntouched();
-  console.log("CMD-B2: Command's canonical L2 is three destinations and the five removed routes still resolve");
+  console.log("CMD-B2: Command's canonical L2 is its enumerated destinations and the five removed routes still resolve");
 }
 
 main();

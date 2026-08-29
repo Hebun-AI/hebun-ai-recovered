@@ -162,8 +162,9 @@ function theCanonicalShapeIsUntouched(overrides: Readonly<Record<string, string>
   assert.equal(WORKSPACES.length, 7, "still seven workspaces");
   assert.deepEqual(
     getWorkspace("command").destinations.map((d) => d.label),
-    ["Overview", "Decisions", "Director Intent"],
-    "Command L2 is still the canonical three",
+    /* L4 added Live Map as a fourth canonical Command destination; the list stays exhaustive. */
+    ["Overview", "Decisions", "Director Intent", "Live Map"],
+    "Command L2 is still the canonical L2",
   );
 }
 
