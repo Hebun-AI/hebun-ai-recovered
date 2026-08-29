@@ -52,13 +52,13 @@ That commitment is why the roadmap is ordered the way it is. Capability is cheap
 
 These are the stable top-level evolution stages of Hebun. Implementation discovery may add, split, or defer work *beneath* an era. It may not casually create a new top-level era (see §18, rule 12).
 
-### ERA I — HEBUN TRUSTWORTHY FOUNDATION
+### ERA I — HEBUN TRUSTWORTHY FOUNDATION · **CLOSED** (§11.3)
 Hebun can be trusted to describe an organization truthfully. Every surface either grounds its claim in a legitimate authority or says it cannot.
 
-### ERA II — HEBUN INTELLIGENCE
+### ERA II — HEBUN INTELLIGENCE · **OPEN / ACTIVE** (§12)
 Hebun understands what it observes. Evidence accumulates, agents are evaluated, and intelligence is layered over an organization that is already truthfully represented.
 
-### ERA III — HEBUN AUTONOMOUS ENTERPRISE
+### ERA III — HEBUN AUTONOMOUS ENTERPRISE · **FUTURE — NOT ACTIVE** (§13)
 The organization runs as a living operational system, observed end to end, with autonomy exercised only where authority was explicitly established.
 
 ---
@@ -217,14 +217,14 @@ Hebun already has legitimate, released owners for most of what Program V gives m
 
 | Product line / surface | Era I | Era II | Era III |
 |---|---|---|---|
-| **Heby** | Core v1 — bounded conversational grounding | Heby Intelligence | Heby as operational interface |
-| **Agents** | Durable identity + truthful activity | Agent Registry · evidence seam · evaluation | Advanced self-improving agents |
+| **Heby** | Core v1 — bounded conversational grounding | Heby Intelligence — **E2-1 opens it** (§12) | Heby as operational interface |
+| **Agents** | Durable identity + truthful activity | Evidence seam · evaluation. **Agent Registry rejected as previously conceived** (§12) | Advanced self-improving agents |
 | **Governance** | Decision authority + recorded acts | Governance intelligence overlays | Governed autonomy |
 | **Knowledge** | Facts, provenance, retraction | Memory · learning | Organizational learning loop |
 | **Organization** | **Organization Authority (L3)** | Organizational intelligence evolution | Living organizational system |
 | **Integrations** | Provider contracts + connections | Provider-sourced intelligence | Operational integration |
-| **Live Map** *(promoted surface)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 | Live Map Operational v1 |
-| *Enterprise Security & Trust* **(cross-cutting constraint — §7, not a product line)** | Gates on L3, L4 and Era I closure — **all four measured CLOSED** (§11.1), including the carried trust boundary | Provisional security direction (§12) | Constraints for consequential autonomy (§13) |
+| **Live Map** *(promoted surface)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 — **E2-3, planned** (§12) | Live Map Operational v1 |
+| *Enterprise Security & Trust* **(cross-cutting constraint — §7, not a product line)** | Gates on L3, L4 and Era I closure — **all four measured CLOSED** (§11.1), including the carried trust boundary | Security direction (§12.1); its first bounded slice is **E2-2, planned** (§12) | Constraints for consequential autonomy (§13) |
 
 The final row is a **constraint**, not a truth owner. It appears in this matrix so that no Era can be read as closable without it, and for no other reason.
 
@@ -232,9 +232,13 @@ The final row is a **constraint**, not a truth owner. It appears in this matrix 
 
 ## 9. Current Position — YOU ARE HERE
 
-**Measurement baseline:** commit `047dde807779e21c7d6ed08e449509df8780c415` on `main`, equal to `origin/main`, 0 ahead / 0 behind. Migration ledger: **39 entries** (idx 0–38), last `20260828190630_sia3_agent_improvement_hypothesis` — **unchanged across the whole of Era I**: the seven Era I releases carry a measured zero delta against `src/db/migrations` and `src/db/schema`.
+**Measurement baseline:** commit `0005f72f1014852a478e557b42344c1ddb52000d` on `main`, equal to `origin/main`, 0 ahead / 0 behind. Migration ledger: **39 entries** (idx 0–38), last `20260828190630_sia3_agent_improvement_hypothesis`.
 
-Classifications are drawn only from: CLOSED · ACTIVE · PARTIAL · DISCOVERY COMPLETE · DESIGN ONLY · NOT STARTED · DEFERRED · UNAVAILABLE.
+The **Era I** rows below were measured at `047dde807779e21c7d6ed08e449509df8780c415`, the Era I closure baseline (§11.3), and are re-confirmed here without re-measurement for one stated reason: `0005f72` is **docs-only over `047dde8`** and carries a measured zero delta against `src` and `tests`. The **Era II** rows were measured at `0005f72` directly (§12). The ledger is **unchanged across the whole of Era I**: the seven Era I releases carry a measured zero delta against `src/db/migrations` and `src/db/schema`.
+
+Classifications are drawn only from: CLOSED · OPEN / ACTIVE · ACTIVE · PLANNED · PARTIAL · DISCOVERY COMPLETE · DESIGN ONLY · NOT STARTED · NOT CONNECTED · AVAILABLE · BLOCKED · DEFERRED · UNAVAILABLE.
+
+Four of those are new at this baseline and are defined here so they cannot drift: **OPEN / ACTIVE** is an era with at least one milestone open; **PLANNED** is a recorded direction that has run no discovery and is authorized for nothing; **NOT CONNECTED** is a capability that exists and that the named surface does not read; **BLOCKED** is work whose prerequisite is measured absent, which is a stronger claim than deferred.
 
 **No percentage is used as a status or progress claim anywhere in this document.** A percentage without a defensible denominator is a fabricated measurement.
 
@@ -256,18 +260,21 @@ Release and closure records live in `docs/product-vision/runtime/`. This page sa
 | Heby Core v1 — **L2** | **CLOSED — released** | L2 released at `98fd859`. HMR-1's attributed gap was re-measured from repository evidence and found unreproducible as stated; one real gap was found and repaired — a Heby surface could report that a model request was permitted while the Director's durable kill switch would refuse to dispatch it. Repaired by one composed field in the projection that already resolves both operands, Director first. No new authority, no schema, no migration, no writer, no route. |
 | SIA — pre-application loop (OBSERVE → EVALUATE → PREPARE → FILE → GOVERN) | **CLOSED and product-reachable** | `/agents` renders outcome observation, evaluation, and improvement-hypothesis surfaces; writer, reader and Governance decider all exist under `src/features/agent-improvement-hypothesis/`. |
 | SIA — application of an accepted hypothesis | **DEFERRED / UNAVAILABLE** | `decide-improvement-hypothesis.server.ts` reads only the hypothesis and decision records and writes only through the Governance decision authority. It never touches the `agents` table. No apply or rollback path exists anywhere. |
+| Windowed or comparable agent evidence | **UNAVAILABLE** — this is what blocks **ASA-2** (§12) | Measured at this baseline: no time-window predicate exists anywhere in `agent-outcome-observation/`, `agent-evaluation/` or `agent-improvement-hypothesis/`. Agent evidence is unbounded `count(*) filter (…)` over every row that exists — correct for a total and unable to express a before-and-after. The one `now` parameter classifies permit expiry, not a window. |
 | Agent behavioral configuration as a durable runtime mutation surface | **UNAVAILABLE** | Independently measured: no agent behavioral-config, system-prompt, or equivalent mutation surface exists in `src`. This is the same conclusion ASA-0 reached; it is recorded here on its own repository evidence. |
 | ASA-0 discovery | **DISCOVERY COMPLETE — read-only** | Confirmed to have left **no repository mutation**: the identifier `ASA` appears nowhere in the repository, in any file or any commit. Its findings live outside the repository and are therefore attributed, never cited as repository evidence. |
 | Live Map Core v1 — **L4** | **CLOSED — released** | L4 released at `bad04cf`. `/live-map` projects two node kinds — the organization (through L3) and durable agent identities (through AGENT-ID-0's read seam) — and exactly one edge, `agent belongs-to organization`, carrying `agents.tenant_id` as its basis. Departments and people are stated as having **no authority** rather than omitted. `LiveMapTruth` has one member, so a derived or mock node is unconstructable. Zero schema, zero persistence, zero writer; Live Map owns none of the truth it draws. |
+| Heby consumption of the Organization Authority (L3) and Live Map (L4) seams | **NOT CONNECTED** — the gap **E2-1** exists to close (§12) | Measured at this baseline: no file under `src/features/heby-*` imports `organization-authority` or `features/live-map`. L3's importers are `/director/organization`, its component and L4's own reader; L4's are `/live-map` and its canvas. Both seams are read-only (zero write verbs) and take a resolved `TenantContext` as their only parameter, so consuming them creates no authority — but nothing in Heby consumes them today. |
 | Enterprise Security architecture (Program V, Phase 30–36) | **DESIGN ONLY** | Complete and published as architecture. Its own constitution records `Implementation authority: None`, and every phase carries an explicit non-implementation rule. It is meaning and constraint, never a delivery backlog (§19). |
 | Security Center | **CLOSED as a released UI surface — NOT connected security operations** | `src/features/security-center/` renders a source-class taxonomy, signal/finding vocabularies, structural response options and a four-actor boundary. Every populated collection is empty and nothing is fabricated: `signals.ts` freezes an empty array and `hasConnectedSecurityFeed()` is `false` — re-measured here as a computation over the source map, where **no source carries `state: "connected"`**. SEC-4 (`06e2d7e`) corrected three source claims that delivery had overtaken and extended the firewall to the components and the route; it connected no reader. It owns vocabulary and boundaries, not security truth (§14). |
+| Tenant-scoped audit observation seam — the **E2-2 / S-B** candidate | **AVAILABLE, NOT CONNECTED** to any security surface | `governance-activity/read.server.ts` (unbounded tenant-scoped aggregates) and `act-history-read.server.ts` (a bounded page) read `audit_log` with zero write verbs. Their consumers today are `/intelligence` and one Heby command reader. **No file in `src/features/security-center/` imports either**, and no source carries `state: "connected"`. SEC-4's own firewall already names them `S_B_READ_SEAMS` and asserts the gate would admit them. |
 | Security Event / Finding / Incident authority | **UNAVAILABLE** | Vocabulary exists; no instance, no writer, no reader, no feed. No canonical owner of security-event truth exists anywhere in `src`. |
 | Permission authority | **UNAVAILABLE** | Re-measured at this baseline: `permissions` and `role_permissions` still have **zero readers, zero writers and zero value importers** outside `src/db/schema/`, and `governance-decision/authority-read.server.ts` still records that it consults neither. L3 answered the entry gate deliberately (§11.1) and left them exactly as inert as it found them. A table is not an authority. |
 | Security policy authority | **UNAVAILABLE** | The `policies` table has **zero importers** of its schema symbol. No policy evaluator is connected; the Heby action governance gate reports `not-connected`, which **blocks** eligibility rather than passing it. |
 | Ingested-content trust boundary — **TB-1** | **CLOSED — released** | TB-1 released at `047dde8`. `heby-runtime/trust-boundary.ts` names the boundary and classifies **every** field of a model request as `Record<keyof ModelGenerationRequest, TrustClass>`, so a new path into model context cannot arrive unclassified without failing to compile. It records its own limits as data: `structurallyIsolatedInInferenceRequest: false`, `restsOnModelCompliance: true`, `detectsInjectedInstructions: false`. Zero schema, zero writer. |
 | **ERA I — HEBUN TRUSTWORTHY FOUNDATION** | **CLOSED** | Closed at `047dde8` against the §11 contract, measured row by row — see §11.3. L1–L4 released and re-verified; all four §11.1 Security & Trust gates measured CLOSED. |
-| Era II | **NOT STARTED** — provisional direction only (§12) | — |
-| Era III | **NOT ACTIVE** | — |
+| **ERA II — HEBUN INTELLIGENCE** | **OPEN / ACTIVE** — bounded direction recorded (§12) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). Exactly one milestone is active — **E2-1, active for discovery and design, not implementation**. E2-2 and E2-3 are **planned, provisional in order**, and neither is implemented, connected or authorized. |
+| Era III | **NOT ACTIVE** (§13) | — |
 
 ---
 
@@ -440,9 +447,37 @@ ERA CLOSED != EVERYTHING DEPLOYED
 
 ---
 
-## 12. Era II — Provisional Direction
+## 12. Era II — Bounded Delivery Direction
 
-**PROVISIONAL. NOT LOCKED. AND NOW STALE AS AN ORDER.**
+```
+ERA II — HEBUN INTELLIGENCE = OPEN / ACTIVE
+```
+
+Era II opened when Era I closed at `047dde8` (§11.3). A read-only Era II discovery and prioritization pass then ran, and **every finding it returned was reproduced against the repository at `0005f72` before it was recorded here** — because a discovery result is not repository truth (§18, rule 5). The reproduction is summarised below and its measurements are the evidence column of §9.
+
+**Exactly one milestone is active, and it is active for discovery and design — not for implementation.**
+
+| # | Milestone | Status |
+|---|---|---|
+| **E2-1** | **Heby Organizational Intelligence Foundation** | **ACTIVE — DISCOVERY & DESIGN** |
+| **E2-2** | Security Authoritative Observation Connection (S-B) | **PLANNED — provisional, in order** |
+| **E2-3** | Live Map Intelligence — authoritative layers | **PLANNED — provisional, in order** |
+
+Anything after E2-3 remains provisional pending repository reality. **This is not a long fixed Era II roadmap and must not become one.** E2-2 and E2-3 are the current bounded direction, and each must run its own discovery and design before it opens. Neither is implemented, connected, or authorized by appearing here.
+
+```
+ERA II ACTIVE != ALL ERA II WORK AUTHORIZED
+PLANNED       != IMPLEMENTED
+IMPLEMENTED   != CONNECTED
+CONNECTED     != AVAILABLE
+AVAILABLE     != AUTHORIZED
+AUTHORIZED    != EXECUTED
+SAFE TO BUILD != SHOULD BUILD FIRST
+```
+
+### The superseded provisional sequence — preserved, not rewritten
+
+The sequence below was Era II's direction of record before discovery ran. It is **superseded as an order** and kept verbatim, because a provisional sequence that was honestly held is historical evidence, not a draft to be tidied (§3, principle 8).
 
 ```
 ASA-2 — Windowed Evidence Seam
@@ -451,33 +486,192 @@ ASA-2 — Windowed Evidence Seam
   → Heby Intelligence
 ```
 
-**That sequence was authored before L3, L4, SEC-4 and TB-1 existed, and it is retained as a record of direction rather than as a decision.** Era I changed what is available to build on — an organization read seam, a Live Map projection, a hardened observation boundary and a named trust boundary — and a candidate that was merely safe to build first is not thereby the right one. Ordering requires **Era II discovery and prioritization** before anything opens.
+*Why it was retired, as recorded when it was retired:* it was authored before L3, L4, SEC-4 and TB-1 existed. Era I changed what is available to build on — an organization read seam, a Live Map projection, a hardened observation boundary and a named trust boundary — and a candidate that was merely safe to build first is not thereby the right one.
 
-Note in particular that a fifth candidate now exists which the sequence above predates: **connecting a security surface to the audit sink that already exists** (§12.1). It is not inserted into the order here, because inserting it would be the same mistake as trusting the order.
+Repository discovery superseded it in four specific places, each recorded below rather than silently dropped:
 
-Later intelligence work may then include, **according to dependency discovery**: Director Intelligence · Director Twin foundations · Memory · Learning · Advanced Self-Improving Agents · Organizational Intelligence evolution · Evaluation · multi-agent intelligence.
+- **ASA-2 cannot lead**, because the comparable evidence it needs does not exist in the repository in a comparable form.
+- **Agent Registry is rejected as previously conceived** — the identity authority it would duplicate already exists.
+- **The fifth candidate the sequence predated** — connecting a security surface to the audit sink that already exists — is now **E2-2**.
+- **Heby Intelligence moved from last to first**, because Era I created authoritative organizational context *after* Heby Core had already closed, leaving a gap that nothing else in the list closes.
 
-No precise implementation order is fabricated here for systems whose prerequisites have not yet been rediscovered.
-
-*Recorded honestly:* `ASA-2` is a Director-named milestone with **no repository record at this baseline**. Its prerequisites must be rediscovered before it opens.
-
-```
-ERA II != AUTOMATIC AUTHORIZATION TO BUILD
-```
-
-Pinned:
+Later intelligence work may still include, **according to dependency discovery**: Director Intelligence · Director Twin foundations · Memory · Learning · Advanced Self-Improving Agents · Organizational Intelligence evolution · Evaluation · multi-agent intelligence. No precise implementation order is fabricated here for systems whose prerequisites have not yet been rediscovered.
 
 ```
 LOCKED ORDER != PROVISIONAL ORDER != FUTURE DIRECTION
 ```
 
+### What repository discovery reproduced
+
+Measured at `0005f72`, which is docs-only over the Era I closure baseline `047dde8` — so every `src` measurement in §9 holds unchanged here.
+
+| # | Finding | Measurement |
+|---|---|---|
+| A | **Heby consumes neither the L3 Organization Authority seam nor the L4 Live Map projection.** | No file under `src/features/heby-*` imports `organization-authority` or `features/live-map`. The importers of L3 are `/director/organization`, its component, and L4's own reader; the importers of L4 are `/live-map` and its canvas. Heby is in neither set. |
+| B | **Both seams remain read-only and legitimate to consume.** | Zero `insert`, `update`, `delete` or `transaction` in either `src/features/organization-authority/` or `src/features/live-map/`. L4 already consumes L3, so the composition direction is not hypothetical. |
+| C | **Consuming them requires no new authority.** | Both are `async function read…(tenant: TenantContext \| null, deps)` — the tenant is the only parameter, and Heby already carries `TenantContext` in thirteen modules. Heby already consumes a governance read seam of exactly this shape (`heby-commands/read-commands.server.ts` → `governance-activity/observe.server.ts`), so the pattern is released, not invented. |
+| D | **S-B has an existing tenant-scoped read-only observation seam that Security Center does not read.** | `governance-activity/read.server.ts` and `act-history-read.server.ts` are tenant-scoped aggregate and paged readers over `audit_log` with zero write verbs. No file in `src/features/security-center/` imports either. Re-measured: **no source carries `state: "connected"`**. |
+| E | **S-B has no hard dependency into E2-1.** | Neither `governance-activity/` nor `security-center/` references Heby, `organization-authority` or `features/live-map`. The dependency runs in neither direction. |
+| F | **Live Map Intelligence has ready-now authoritative layers, and none of them must precede E2-1.** | Tenant-scoped read-only seams already exist for Knowledge (`knowledge/knowledge-read.server.ts`), proposals (`action-authorization/read-action-authorizations.server.ts`), integrations capability (`integration-authority/integration-read.server.ts`) and Governance activity (`governance-activity/read.server.ts`). Candidacy is not admission (see E2-3). |
+| G | **ASA-2 still lacks comparable, windowed evidence.** | No time-window predicate exists anywhere in `agent-outcome-observation/`, `agent-evaluation/` or `agent-improvement-hypothesis/`. The counts are unbounded `count(*) filter (…)` over every row that exists; the one `now` parameter classifies permit expiry, not a window. Cumulative totals cannot express before-and-after. |
+| H | **Agent identity authority already exists.** | `src/features/agent-identity/` holds create, read and retire. They are also the **only two writers of the `agents` table** in `src`, and both write identity and lifecycle. |
+| I | **A generic Agent Registry would duplicate that authority or create a new one.** | `agents` carries **21 behavioural `jsonb` columns** — `reasoning_profile`, `tool_profile`, `allowed_tools`, `execution_defaults`, `cost_limits`, `performance_targets` and the rest. Measured two ways: **no `agents.<column>` accessor for any of the 21 appears anywhere in `src` or `tests`**, and the two writers set none of them. Their only references outside `src/db/schema/` are optional type declarations in `platform-core/agent/types.ts` — a type is not a reader. The genesis ceremony writes none of them and says why: *"writing a plausible value would be the first lie in the record."* |
+| J | **Internal organization structure remains unavailable.** | `db/schema/organization` and `db/schema/department` have **zero importers outside `src/db/schema/`**. The sole reference anywhere else is `tests/l3-organization-authority/firewall.ts`, which names them as *forbidden*. Unchanged from §9. |
+
+One finding was **understated** by discovery rather than contradicted, and the stronger reading is recorded here: **S-B is already a named concept in released repository evidence.** `tests/sec4-security-boundary/firewall.ts` carries a section titled *"THIS GATE ADMITS S-B"* which names `S_B_READ_SEAMS` as exactly those two readers and asserts, at SEC-4 time, that the Security Center firewall would not refuse them. E2-2 therefore begins against a gate that was written to admit it.
+
+No finding was contradicted by the repository.
+
+### E2-1 — Heby Organizational Intelligence Foundation · **ACTIVE — DISCOVERY & DESIGN**
+
+```
+E2-1 = NEXT / ACTIVE FOR DISCOVERY & DESIGN
+```
+
+**Not** implemented · **not** connected · **not** released · Heby Organizational Intelligence is **not available**.
+
+**Why it exists.** Era I created authoritative organizational context *after* Heby Core had already closed. Organization Authority exists (L3). Live Map Core exists (L4). Heby Core exists (L2). Heby consumes neither of the first two — finding A. E2-1 closes that gap and nothing wider:
+
+```
+HEBY
+  ↓ consumes
+ORGANIZATION AUTHORITY  +  LIVE MAP PROJECTION
+```
+
+**Product purpose.** Heby should be able to reason from the organizational truth Hebun already knows. The *class* of capability this eventually enables — identify the authoritative organization context · explain what Hebun knows about it · explain what organizational structure is unavailable · reason over the admitted Live Map projection · describe known organization/agent relationships · reference Live Map context where legitimate.
+
+**Those are product intent, not acceptance criteria.** Exact capability is derived from code during E2-1 Discovery & Design, not assumed here.
+
+**Authority boundary.** This is an **intelligence / read-consumption** milestone. It is not authorization to create: Organization lifecycle authority · Live Map authority · agent lifecycle authority · Governance authority · execution authority · provider mutation · arbitrary tools · organizational structure · or new persistence merely for convenience.
+
+```
+AUTHORITATIVE ORGANIZATION DATA != HEBY AUTHORITY
+LIVE MAP PROJECTION             != ORGANIZATION AUTHORITY
+HEBY REASONING                  != ORGANIZATION TRUTH OWNER
+```
+
+**Heby consumes truth. It does not create organizational truth merely because it can reason over it.** Where Organization Authority says *structure unavailable*, Heby must say *structure unavailable*. It must not infer departments, teams, hierarchy or reporting relationships — the L3 and L4 contracts state that absence deliberately (§9), and a reasoning surface that fills it in would undo Era I on the one surface most able to sound authoritative.
+
+**TB-1 remains binding.** Organization and Live Map context entering model reasoning must preserve the existing context and trust classification architecture (§11.1). **No second trust-boundary system is created.** The exact classification of each new model-context field is determined during E2-1 Discovery & Design, not here.
+
+```
+PROVENANCE             != TRUST
+TRUST                  != AUTHORITY
+AUTHORITATIVE EVIDENCE != INSTRUCTION
+MODEL OUTPUT           != AUTHORIZATION
+```
+
+### E2-1 Discovery & Design — entry contract
+
+The next authorized action is **E2-1 Discovery & Design**, not implementation. These are the questions it must answer **from code**. They are deliberately unanswered here; answering them by design assumption during roadmap alignment is the failure mode this list exists to prevent.
+
+1. What exact Organization Authority read seam should Heby consume?
+2. What exact Live Map projection seam should Heby consume?
+3. Where in Heby's existing evidence assembly should each enter?
+4. Does Heby need direct access to both, or should one be consumed through the other? *(L4 already consumes L3 — finding B — so both shapes are available.)*
+5. What is the narrowest legitimate dependency direction?
+6. What trust class applies to each model-context field?
+7. How is authoritative vs derived vs unavailable disclosed?
+8. What queries and use cases can be supported without inventing structure?
+9. What tenant isolation proof is required?
+10. What mutation and firewall proof prevents Heby from gaining authority?
+11. Does any schema or persistence change actually need to exist?
+12. What product acceptance demonstrates customer value?
+13. How should Heby reference and navigate Live Map without becoming its owner?
+14. What happens when organization truth or Live Map data is unavailable?
+15. What existing tests and regressions define the closure contract?
+
+### E2-2 — Security Authoritative Observation Connection (S-B) · **PLANNED**
+
+Direction: the Security Center begins consuming legitimate **tenant-scoped, read-only** authoritative or derived observation seams — beginning with the audit ledger readers that already exist (finding D).
+
+**Not implemented. Not connected. Not designed here.** No Security Command Center is designed or built in this task, and no claim that S-B is already connected is made anywhere.
+
+```
+SECURITY CENTER      != SECURITY AUTHORITY
+AUTHORITY EXISTS     != SECURITY CENTER CONNECTED
+READ CONNECTION      != INCIDENT AUTHORITY
+READ CONNECTION      != POLICY AUTHORITY
+READ CONNECTION      != SECURITY SCORE
+SECURITY OBSERVATION != SECURITY AUTHORIZATION
+```
+
+Security remains a **cross-cutting program** (§7) and does not become a seventh truth-owning product line by gaining a connection.
+
+### E2-3 — Live Map Intelligence, authoritative layers · **PLANNED**
+
+Direction: overlay intelligence onto the Live Map, **constrained to ready-now authoritative or legitimately derived layers.**
+
+Candidate layers surfaced by discovery — Knowledge · pending action requests and proposals · Governance decisions · integrations capability · execution ledger — are **candidates, not approved implementation scope**. E2-3 performs its own discovery and design before any layer is admitted, exactly as L4 did.
+
+```
+LIVE MAP              != ORGANIZATION AUTHORITY
+LIVE MAP INTELLIGENCE != LIVE MAP OPERATIONAL
+EDGE                  != INFERENCE
+SHARED TENANT         != AUTOMATIC RELATIONSHIP
+DERIVED               != AUTHORITATIVE
+UNAVAILABLE           != EMPTY
+```
+
+### Agent Registry — **REJECTED AS PREVIOUSLY CONCEIVED**
+
+The roadmap no longer implies that a generic Agent Registry is an automatically required Era II milestone. Recorded precisely, because the rejection is narrow:
+
+```
+AGENT IDENTITY          != AGENT CONFIGURATION
+DORMANT COLUMN          != CONFIGURATION AUTHORITY
+GENERIC AGENT REGISTRY  != AUTOMATIC REQUIREMENT
+```
+
+**What already exists:** agent identity and lifecycle authority — create, read, retire — and the only two writers of the `agents` table (finding H).
+
+**What the previously conceived registry would have been:** either a second identity registry duplicating that authority, or, by activating the dormant behavioural columns, a **new behavioural configuration authority** — a durable runtime mutation surface for agents. §9 records that no such surface exists in `src`, and §14 records that nothing in Hebun today implies an agent can modify itself.
+
+So: **no second identity registry**, and **dormant columns are not activated merely because they exist.**
+
+This rejects the generic, duplicate, ambiguous registry as conceived. It does **not** permanently forbid all future registry concepts. If a runtime configuration authority later becomes necessary, it requires **its own discovery and its own Director authorization** — the same rule that governs any consequential authority creation (§18, rules 6 and 8).
+
+### ASA-2 — **BLOCKED / DEFERRED**, and its prerequisite candidate
+
+**ASA-2 is not schedulable as immediately executable.** It remains blocked pending comparable, windowed evidence: today's agent metrics are unbounded cumulative counts with no time window and no before/after comparison anywhere (finding G), and cumulative totals cannot prove controlled improvement across a change.
+
+A prerequisite therefore exists as a **REQUIRED PREREQUISITE CANDIDATE**:
+
+```
+WINDOWED AGENT EVIDENCE
+```
+
+It is **not** created as a milestone here, and no `E2-0` is opened. The reason is deliberate: the prerequisite has not itself received bounded discovery, design or implementation authorization, and manufacturing a milestone number for it would be the same error as trusting a superseded order.
+
+```
+SIA                  != ASA
+WINDOWED EVIDENCE    != IMPROVEMENT AUTHORITY
+SELF-IMPROVEMENT     != SELF-MODIFYING CODE
+```
+
+`ASA-2` remains a Director-named milestone with **no repository record at this baseline** — the identifier `ASA` appears nowhere in `src` or `tests` (§9). **ASA-2 must not become self-modifying code.**
+
+### Organization Structure Authority — a recorded dependency, not a scheduled milestone
+
+The L3 truth is preserved exactly:
+
+```
+ORGANIZATION IDENTITY           = AUTHORITATIVE
+INTERNAL ORGANIZATION STRUCTURE = UNAVAILABLE
+```
+
+Recorded dependency:
+
+> **Organization Structure Authority → required for organization-structure-shaped intelligence.**
+
+It is **not** added to the active sequence merely because future Live Map or Heby features could use it. Repository verification confirms it is not required for E2-1's bounded foundation: E2-1 consumes what L3 and L4 already admit, and where structure is unavailable it must say so rather than supply one (finding J).
 ### 12.1 Era II — Security direction
 
 **FUTURE / PROVISIONAL SECURITY CONSTRAINTS. Not implementation commitments, and no phase order is fabricated here.**
 
 Concerns likely to become load-bearing as intelligence accumulates over authoritative evidence:
 
-- security evidence observation — connecting a security surface to the audit sink that already exists
+- security evidence observation — connecting a security surface to the audit sink that already exists. **This is the one item that has since been placed in the bounded order, as E2-2 (§12).** It is still not implemented and not connected.
 - a Security Event / Finding / Incident authority, **only if a product requirement justifies one**
 - deployment-wide model spend control — today's bound is per-process and honestly says so
 - ingested-content trust boundaries, as external sources become reasoning input
@@ -517,7 +711,7 @@ Distinguish throughout: an operator ceremony that a human runs is not automated 
 
 ### Director Intelligence → within **Hebun Intelligence** (Era II)
 
-It does **not** get a separate top-level era.
+It does **not** get a separate top-level era, and it is **not** in the active E2-1 → E2-3 sequence (§12). It remains future work. It may later benefit from organizational evidence, decision history, agent evidence, outcomes, Knowledge and Governance evidence — none of which activates it.
 
 It must **not** be claimed as implemented merely because adjacent Agent Intelligence exists. A naming collision exists in repository history between Director-facing agent intelligence work and Director Intelligence as a capability; that collision is **preserved, not resolved by renaming**. Future activation begins with repository discovery.
 
@@ -609,7 +803,7 @@ ERA
             → RELEASE
 ```
 
-Where useful, future roadmap milestones may carry explicit ownership identifiers (as `L1`–`L4` do in §10).
+Where useful, future roadmap milestones may carry explicit ownership identifiers — as `L1`–`L4` do in §10, and as `E2-1`–`E2-3` do in §12. An identifier is a delivery label, not an authority: `E2-1` names an active discovery, not a capability that exists.
 
 ---
 
@@ -668,10 +862,25 @@ HMR-0's "Foundation ~70%" estimate is **not preserved**. It had no defensible de
 
 ## 20. Next Milestone
 
-**ERA II — HEBUN INTELLIGENCE. Discovery and prioritization first; no milestone is open.**
+**E2-1 — HEBY ORGANIZATIONAL INTELLIGENCE FOUNDATION. Discovery and design.**
 
-Era I is **CLOSED** at `047dde8` (§11.3). L1–L4 are released and re-verified, and all four Security & Trust gates are measured closed.
+```
+E2-1 = NEXT / ACTIVE FOR DISCOVERY & DESIGN
+```
 
-What comes next is **not** decided by this page. §12's candidate sequence predates L3, L4, SEC-4 and TB-1, so it is stale as an order and is retained as direction only. The next legitimate action is an **Era II discovery pass** that re-derives prerequisites against current repository reality and returns a proposed order for Director approval.
+Era I is **CLOSED** at `047dde8` (§11.3). L1–L4 are released and re-verified, and all four Security & Trust gates are measured closed. Era II is **OPEN / ACTIVE** (§12).
 
-Nothing in Era II is authorized by this document. In particular, a candidate being technically safe to build is not a reason for it to be first.
+The Era II discovery pass §20 previously called for has run. Its findings were **reproduced against the repository at `0005f72` before any of them were recorded**, no finding was contradicted, and the bounded order **E2-1 → E2-2 → E2-3** is recorded in §12 as the current delivery direction. The superseded provisional sequence is preserved there rather than rewritten.
+
+**The next authorized action is E2-1 Discovery & Design** — the fifteen entry questions in §12, answered from code. It is **not** implementation.
+
+E2-1 is **not implemented**, **not connected**, **not released**, and Heby Organizational Intelligence is **not available**. E2-2 and E2-3 are planned and provisional; neither is implemented or connected, and neither is authorized by appearing in §12.
+
+Nothing in Era II is authorized by this document. In particular, a candidate being technically safe to build is not a reason for it to be first, and an active milestone is authorization to *discover*, never to build.
+
+```
+ERA I CLOSED     != PRODUCT FINISHED
+ERA II ACTIVE    != ALL ERA II WORK AUTHORIZED
+ROADMAP          != ARCHITECTURE AUTHORITY
+DISCOVERY RESULT != REPOSITORY TRUTH
+```
