@@ -93,11 +93,11 @@ async function withDatabase(
  * 1. THE CANONICAL LEDGER ITSELF
  * ═════════════════════════════════════════════════════════════════════════ */
 function theCanonicalLedgerIsWellFormed(): void {
-  assert.equal(CANONICAL.length, 38, "this checkout authors 38 canonical migrations");
+  assert.equal(CANONICAL.length, 39, "this checkout authors 39 canonical migrations");
   assert.equal(
-    CANONICAL[37]!.tag,
-    "20260828173456_sia26_origination_agent_attribution",
-    "and the last of them is SIA-2.6",
+    CANONICAL[38]!.tag,
+    "20260828190630_sia3_agent_improvement_hypothesis",
+    "and the last of them is SIA-3",
   );
 
   /* Strictly increasing `when` — the precondition that makes delegating to the engine sound. */
@@ -107,7 +107,7 @@ function theCanonicalLedgerIsWellFormed(): void {
   /* Contiguous positions. */
   CANONICAL.forEach((m, i) => assert.equal(m.index, i));
 
-  assert.equal(canonicalDigest(CANONICAL), "c1384ab65d47a7fcada6925e28b9e695", "the release digest");
+  assert.equal(canonicalDigest(CANONICAL), "bbc1d66cdcfddea3292b46361a6a4856", "the release digest");
   assert.equal(
     canonicalDigest(CANONICAL.slice(0, 35)),
     "97f1151fd57bec5142621f00c1913708",
@@ -135,7 +135,7 @@ function theCanonicalLedgerIsWellFormed(): void {
  * 2. PREFIX VERDICTS, AGAINST REAL LEDGERS
  * ═════════════════════════════════════════════════════════════════════════ */
 async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
-  const folder = truncatedMigrations(37);
+  const folder = truncatedMigrations(38);
   try {
     await withDatabase("prodmig_behind1", async (client) => {
       await applyPendingMigrations(client, folder);
@@ -143,32 +143,35 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
       const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(verdict.status, "pending");
       if (verdict.status !== "pending") return;
-      assert.equal(verdict.applied, 37);
+      assert.equal(verdict.applied, 38);
       assert.deepEqual(
         verdict.pending.map((m) => m.tag),
-        ["20260828173456_sia26_origination_agent_attribution"],
+        ["20260828190630_sia3_agent_improvement_hypothesis"],
         "exactly one migration is pending, and it is the newest release",
       );
-      assert.equal(verdict.finalDigest, "c1384ab65d47a7fcada6925e28b9e695");
+      assert.equal(verdict.finalDigest, "bbc1d66cdcfddea3292b46361a6a4856");
 
       /*
        * THE PENDING MIGRATION'S OWN ADDITION IS ABSENT BEFORE MIGRATING.
        *
-       * This probed for a TABLE while the newest release was AP-4B, which created one. SIA-2.6's
-       * migration adds a COLUMN to a table that already exists, so a table probe would be
-       * satisfied by the previous release and prove nothing about the pending one. The probe
-       * follows the newest migration's actual shape.
+       * THE PROBE FOLLOWS THE NEWEST MIGRATION'S ACTUAL SHAPE, and has now been both kinds. It
+       * probed a TABLE under AP-4B, which created one; SIA-2.6 added a COLUMN to a table that
+       * already existed, so a table probe would have been satisfied by the PREVIOUS release and
+       * proven nothing about the pending one. SIA-3 creates a table again, so it is a table probe
+       * again — and `agent_improvement_hypotheses` did not exist before it.
+       *
+       * The rule, which is the part that survives: probe what the PENDING migration adds, never
+       * something an earlier one already added.
        */
       const before = await organizationalFingerprint(client);
       const externalBefore = await client.query<{ n: string }>(
-        `select count(*)::text as n from information_schema.columns
-          where table_schema='public' and table_name='heby_origination_invocations'
-            and column_name='agent_id'`,
+        `select count(*)::text as n from information_schema.tables
+          where table_schema='public' and table_name='agent_improvement_hypotheses'`,
       );
       assert.equal(
         externalBefore.rows[0]!.n,
         "0",
-        "the PENDING migration's column is absent before migrating",
+        "the PENDING migration's table is absent before migrating",
       );
 
       await applyPendingMigrations(client);
@@ -176,13 +179,12 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.applied, 38);
-      assert.equal(after.digest, "c1384ab65d47a7fcada6925e28b9e695");
+      assert.equal(after.applied, 39);
+      assert.equal(after.digest, "bbc1d66cdcfddea3292b46361a6a4856");
 
       const externalAfter = await client.query<{ n: string }>(
-        `select count(*)::text as n from information_schema.columns
-          where table_schema='public' and table_name='heby_origination_invocations'
-            and column_name='agent_id'`,
+        `select count(*)::text as n from information_schema.tables
+          where table_schema='public' and table_name='agent_improvement_hypotheses'`,
       );
       assert.equal(externalAfter.rows[0]!.n, "1", "and present after");
 
@@ -195,7 +197,7 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
 }
 
 async function aTargetTwoBehindAppliesBoth(): Promise<void> {
-  const folder = truncatedMigrations(36);
+  const folder = truncatedMigrations(37);
   try {
     await withDatabase("prodmig_behind2", async (client) => {
       await applyPendingMigrations(client, folder);
@@ -203,8 +205,8 @@ async function aTargetTwoBehindAppliesBoth(): Promise<void> {
       const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(verdict.status, "pending");
       if (verdict.status !== "pending") return;
-      assert.equal(verdict.applied, 36);
-      assert.deepEqual(verdict.pending.map((m) => m.index), [36, 37], "both 37 and 38 are pending");
+      assert.equal(verdict.applied, 37);
+      assert.deepEqual(verdict.pending.map((m) => m.index), [37, 38], "both 38 and 39 are pending");
 
       /*
        * THE 34-VS-35 CONTRADICTION, ANSWERED BY MECHANISM. The repository disagreed with itself
@@ -216,7 +218,7 @@ async function aTargetTwoBehindAppliesBoth(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.digest, "c1384ab65d47a7fcada6925e28b9e695");
+      assert.equal(after.digest, "bbc1d66cdcfddea3292b46361a6a4856");
     });
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -229,8 +231,8 @@ async function aConvergedTargetIsANoOp(): Promise<void> {
     const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);
     assert.equal(verdict.status, "converged");
     if (verdict.status !== "converged") return;
-    assert.equal(verdict.applied, 38);
-    assert.equal(verdict.digest, "c1384ab65d47a7fcada6925e28b9e695");
+    assert.equal(verdict.applied, 39);
+    assert.equal(verdict.digest, "bbc1d66cdcfddea3292b46361a6a4856");
 
     /* And the released convergence check agrees, so the split did not change its answer. */
     const legacy = await verifyProductionTarget(
@@ -244,7 +246,7 @@ async function aConvergedTargetIsANoOp(): Promise<void> {
 }
 
 async function aTargetAheadIsRefused(): Promise<void> {
-  const folder = truncatedMigrations(38, { extra: 'CREATE TABLE "beyond_this_release" ("id" uuid PRIMARY KEY);' });
+  const folder = truncatedMigrations(39, { extra: 'CREATE TABLE "beyond_this_release" ("id" uuid PRIMARY KEY);' });
   try {
     await withDatabase("prodmig_ahead", async (client) => {
       await applyPendingMigrations(client, folder);
@@ -252,7 +254,7 @@ async function aTargetAheadIsRefused(): Promise<void> {
       assert.equal(verdict.status, "refused", "a target ahead of this repository is ledger-ahead");
       if (verdict.status !== "refused") return;
       assert.equal(verdict.reason, "ledger-ahead", "a target ahead of this repository is ledger-ahead");
-      assert.equal(verdict.applied, 39);
+      assert.equal(verdict.applied, 40);
       assert.match(verdict.detail, /AHEAD of this repository/);
     });
   } finally {
@@ -262,7 +264,7 @@ async function aTargetAheadIsRefused(): Promise<void> {
 
 async function aDivergentLineageIsRefused(): Promise<void> {
   /* Same COUNT as the target would have, different SQL at position 10. */
-  const folder = truncatedMigrations(37, { corruptAt: 10 });
+  const folder = truncatedMigrations(38, { corruptAt: 10 });
   try {
     await withDatabase("prodmig_diverged", async (client) => {
       await applyPendingMigrations(client, folder);
@@ -275,15 +277,15 @@ async function aDivergentLineageIsRefused(): Promise<void> {
 
       /*
        * AND THIS IS WHY A COUNT WAS NEVER ENOUGH. The released count check calls this target
-       * perfectly healthy at 37-of-37 — it cannot see that position 10 holds somebody else's
+       * perfectly healthy at 38-of-38 — it cannot see that position 10 holds somebody else's
        * migration.
        */
-      const byCount = await verifyProductionTarget(client, { systemIdentifier: "s", database: "d" }, 37);
+      const byCount = await verifyProductionTarget(client, { systemIdentifier: "s", database: "d" }, 38);
       assert.equal(byCount.status, "refused");
       assert.equal(byCount.reason, "system-identifier-mismatch", "it never even reaches the ledger");
       const observed = await verifyProductionIdentity(client, { systemIdentifier: "s", database: "d" });
       assert.equal(observed.status, "refused");
-      assert.equal(observed.observed?.appliedMigrations, 37, "the count alone reports a healthy 37");
+      assert.equal(observed.observed?.appliedMigrations, 38, "the count alone reports a healthy 38");
     });
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -327,7 +329,7 @@ async function theEngineCannotSeeAMissingMiddleMigration(): Promise<void> {
      */
     await applyPendingMigrations(client);
     const ledger = await readAppliedLedger(client);
-    assert.equal(ledger.length, 37, "the engine applied 16..38 and never went back for the hole");
+    assert.equal(ledger.length, 38, "the engine applied 16..39 and never went back for the hole");
 
     /* The prefix proof catches it, which is the whole reason it runs BEFORE the engine. */
     const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);

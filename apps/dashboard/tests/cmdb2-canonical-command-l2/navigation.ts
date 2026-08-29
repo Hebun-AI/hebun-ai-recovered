@@ -128,9 +128,9 @@ const USE_SERVER_MODULES = [
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* SIA-2.6 — the ledger grew to 38 when origination agent attribution landed, so BOTH values move with it. */
-const LEDGER_COUNT = 38;
-const LEDGER_DIGEST = "a92038ffe6502f6c";
+/* SIA-3 — the ledger grew to 39 when agent improvement hypotheses landed, so BOTH values move with it. */
+const LEDGER_COUNT = 39;
+const LEDGER_DIGEST = "93cdfee947cfb605";
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

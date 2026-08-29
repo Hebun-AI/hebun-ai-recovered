@@ -19,6 +19,7 @@ export * from "./user-session-context";
 export * from "./role-permission";
 export * from "./provider";
 export * from "./agent";
+export * from "./agent-improvement-hypothesis";
 export * from "./mission";
 export * from "./goal";
 export * from "./plan";

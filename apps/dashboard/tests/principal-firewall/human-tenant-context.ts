@@ -259,12 +259,19 @@ function main(): void {
    * `agents.tenant_id` REMAINS OWNERSHIP, NOT PERMISSION. Every reader uses it as a scoping
    * predicate beside a human's own tenant id; none treats it as a grant.
    *
-   * EXTENDED BY SIA-2.6, AND EXTENDED RATHER THAN RELAXED. The fourth entry is the origination
-   * invocation TABLE DEFINITION, which names `agents.tenantId` as half of a composite foreign key
-   * so an invocation cannot be attributed to another tenant's agent. That is not a reader treating
-   * tenancy as a grant — it is the same ownership claim made structural, enforced by the database
-   * instead of by a predicate somebody has to remember. The census stays exact: a fifth file still
-   * fails here.
+   * EXTENDED BY SIA-2.6 AND AGAIN BY SIA-3, AND EXTENDED RATHER THAN RELAXED BOTH TIMES.
+   *
+   * The two TABLE DEFINITIONS below name `agents.tenantId` as half of a composite foreign key, so
+   * that neither an origination invocation nor an improvement hypothesis can be attached to
+   * another tenant's agent. That is not a reader treating tenancy as a grant — it is the same
+   * ownership claim made structural, enforced by the database instead of by a predicate somebody
+   * has to remember.
+   *
+   * SIA-3 adds a READER as well, and it is the permitted kind: its read model joins
+   * `agents.tenantId` to the hypothesis row's own tenant so an agent NAME can only ever come from
+   * an agent this tenant owns. A scoping predicate beside the human's tenant id — never a grant.
+   *
+   * The census stays EXACT, which is the whole value of it: a seventh file still fails here.
    */
   const agentTenantReaders = srcFiles.filter((f) => /agents\.tenantId/.test(codeOf(read(f))));
   assert.deepEqual(
@@ -274,8 +281,10 @@ function main(): void {
       "src/features/agent-identity/read-durable-agent-identity.server.ts",
       "src/features/agent-identity/retire-durable-agent-identity.server.ts",
       "src/db/schema/heby-origination-invocation.ts",
+      "src/db/schema/agent-improvement-hypothesis.ts",
+      "src/features/agent-improvement-hypothesis/read-improvement-hypotheses.server.ts",
     ].sort(),
-    "`agents.tenant_id` is read by the identity authorities as a tenant scope, and named by one table definition as a composite-key target",
+    "`agents.tenant_id` is a tenant SCOPE in four readers and a composite-key target in two table definitions — a grant in none of them",
   );
 
   /* ── 7. NO MACHINE INGRESS ────────────────────────────────────────────────
@@ -360,7 +369,7 @@ function main(): void {
 
   /* ── 10. SCHEMA, LEDGER AND HUMAN SUPREMACY UNTOUCHED ─────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 38, "this phase authored no migration — a type needs none");
+  assert.equal(sqlCount, 39, "this phase authored no migration — a type needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))

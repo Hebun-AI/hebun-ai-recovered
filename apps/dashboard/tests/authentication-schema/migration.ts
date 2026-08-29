@@ -55,19 +55,28 @@ try {
     // + INT-2 integration-credential-authority = 34
     // + R2H provider control_source = 35
     // + KR-EXT1 knowledge-external-references = 36.
-    // + AGENT-PROPOSAL-4B agent-origination invocation provenance = 38.
+    // + AGENT-PROPOSAL-4B agent-origination invocation provenance = 37.
+    // + SIA-2.6 origination agent attribution = 38.
+    // + SIA-3 agent improvement hypotheses = 39.
     //
     // (The tally had stopped at 33 while the assertion below read 34: INT-2 moved the number and
     // not the prose. Both move together from here.)
+    //
+    // AND IT HAPPENED AGAIN, WHICH IS WHY EACH PHASE NOW GETS ITS OWN LINE. SIA-2.6 re-pinned the
+    // assertion by incrementing the number on the AGENT-PROPOSAL-4B line — relabelling 4B's
+    // migration as 38 when it is 37. A tally where one line absorbs the next phase's count is a
+    // tally that reads correctly and says something false; one line per phase cannot do that.
     //
     // This tally is the ONE place a running total belongs: it is this file's actual subject. Other
     // phases must state "I added none of my own" without pinning a global count, or every later
     // authorized migration falsifies a claim that was never about it.
     /*
-     * Re-pinned by KR-EXT1, which added migration 36 (`knowledge_external_references`) — one
-     * additive table owned by Knowledge, zero DROP, `knowledge_nodes` untouched.
+     * Re-pinned most recently by SIA-3, which added migration 39 (`agent_improvement_hypotheses`) —
+     * one additive table, three foreign keys, three indexes, five CHECKs, zero DROP and zero
+     * backfill. No released migration was edited, which is what the ledger digest pinned elsewhere
+     * proves independently of this count.
      */
-    assert.equal(migrationCount.rows[0]?.count, "38");
+    assert.equal(migrationCount.rows[0]?.count, "39");
 
     /*
      * The rerun is about IDEMPOTENCE, not about the total, so it is compared to what the first run

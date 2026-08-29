@@ -11,6 +11,8 @@ import { AgentOutcomeObservationSurface } from "@/components/agents/agent-outcom
 import { readAgentOutcomeObservation } from "@/features/agent-outcome-observation/agent-outcome-projection.server";
 import { AgentEvaluationSurface } from "@/components/agents/agent-evaluation";
 import { deriveAgentEvaluationRead } from "@/features/agent-evaluation/agent-evaluation-projection.server";
+import { AgentImprovementHypothesisSurface } from "@/components/agents/agent-improvement-hypothesis";
+import { readImprovementHypotheses } from "@/features/agent-improvement-hypothesis/read-improvement-hypotheses.server";
 
 export const metadata = { title: "Agents — Hebun AI" };
 
@@ -75,6 +77,14 @@ export default async function AgentsPage() {
    * statements and let the two cards disagree on one page, because each read is its own instant.
    */
   const evaluation = deriveAgentEvaluationRead(outcomes);
+  /*
+   * SIA-3 reads its own durable rows, so this IS a second read — unavoidably, because a hypothesis
+   * is a stored record rather than something derivable from the observation. What it must never do
+   * is re-derive the evidence: each row carries the snapshot it was filed against, so this card and
+   * the two above it can differ and BOTH be right, which is exactly what a timestamped baseline is
+   * for.
+   */
+  const hypotheses = await readImprovementHypotheses(tenant);
 
   /*
    * The two blocked reasons are distinct facts. `unauthenticated` is about the reader;
@@ -102,6 +112,7 @@ export default async function AgentsPage() {
         />
         <AgentOutcomeObservationSurface observation={outcomes} />
         <AgentEvaluationSurface evaluation={evaluation} />
+        <AgentImprovementHypothesisSurface hypotheses={hypotheses} />
         <AgentsTruthSurface model={model} />
       </div>
     </>

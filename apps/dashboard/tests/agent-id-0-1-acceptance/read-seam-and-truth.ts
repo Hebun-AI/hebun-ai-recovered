@@ -43,7 +43,17 @@ const MIGRATIONS = "src/db/migrations";
 /** The released commit these authorities must still match, byte for byte. */
 const AGENT_ID_0_1_RELEASE = "bcade6a";
 
-/* The seven human-only CHECK constraints. Named individually so a weakening names itself. */
+/*
+ * The seven human-only CHECK constraints RELEASED BEFORE THIS PHASE. Named individually so a
+ * weakening names itself.
+ *
+ * This list is a MUST-EXIST set, not an exhaustive census — each name is asserted present below,
+ * and the count is compared with `>=`. SIA-3 later added an eighth
+ * (`agent_improvement_hypotheses_human_author_chk`); it is deliberately absent here, because
+ * nothing in this phase depends on it and adding it would make an unrelated suite move whenever a
+ * future phase constrains another author to human. The exhaustive censuses live in
+ * `agent-runtime-0` and `agent-proposal-1`.
+ */
 const HUMAN_ONLY_CHECKS = [
   "action_permits_human_authorizer_chk",
   "decision_records_bootstrap_human_chk",
@@ -296,7 +306,7 @@ function main(): void {
     'governance subject types are still exactly ["knowledge_node"]',
   );
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 38, "this phase authored no migration — counting a table needs none");
+  assert.equal(sqlCount, 39, "this phase authored no migration — counting a table needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
 

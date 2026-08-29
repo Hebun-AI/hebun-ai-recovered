@@ -178,9 +178,37 @@ function main(): void {
       /CREATE TYPE "public"\."actor_type" AS ENUM\('human', 'agent', 'system', 'service'\)/.test(sql),
       "the actor vocabulary still admits agent, system and service",
     );
+    /*
+     * SCOPED TO THE TABLE IT WAS ALWAYS ABOUT (repaired by SIA-3).
+     *
+     * This read `!/proposed_by_actor_type[^;]{0,400}CHECK/`, over every migration concatenated —
+     * a claim about a COLUMN NAME anywhere in the corpus, when the invariant it defends is about
+     * ONE table: an agent may one day propose an ACTION, so `heby_action_requests` must not
+     * constrain its proposer to human.
+     *
+     * SIA-3 added `agent_improvement_hypotheses`, which also has a `proposed_by_actor_type` — and
+     * DOES constrain it to human, deliberately, because only a human may file a hypothesis about
+     * an agent. That is a different table making a different claim, and it takes nothing away from
+     * an agent's ability to propose an action.
+     *
+     * The repair is STRICTER, not weaker: it now names the exact qualified column, so a CHECK
+     * added to `heby_action_requests.proposed_by_actor_type` fails here however it is worded —
+     * whereas the old regex could be evaded by more than 400 characters of distance.
+     */
     assert.ok(
-      !/proposed_by_actor_type[^;]{0,400}CHECK/i.test(sql),
-      "and the proposer column carries no human CHECK — an agent may propose when one exists",
+      !/CHECK[^;]{0,600}"heby_action_requests"\."proposed_by_actor_type"/i.test(sql),
+      "no CHECK constrains an ACTION proposal's proposer — an agent may propose when one exists",
+    );
+    /*
+     * And the exception is ENUMERATED rather than left as a hole: exactly one other table
+     * constrains a proposer to human, it is SIA-3's, and it is named here so a THIRD one fails.
+     */
+    assert.deepEqual(
+      [...sql.matchAll(/CONSTRAINT "([a-z0-9_]+)" CHECK \("([a-z0-9_]+)"\."proposed_by_actor_type"/g)].map(
+        (m) => m[1]!,
+      ),
+      ["agent_improvement_hypotheses_human_author_chk"],
+      "and exactly one table constrains a proposer to human — SIA-3's hypothesis author",
     );
   }
 
@@ -212,7 +240,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 38, "A1a adds no migration — the ledger carries none of its authoring");
+    assert.equal(journal.entries.length, 39, "A1a adds no migration — the ledger carries none of its authoring");
   }
 
   console.log("a1a-flow/attribution-firewall: OK");

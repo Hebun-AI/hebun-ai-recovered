@@ -385,6 +385,7 @@ async function main(): Promise<void> {
            * foreign key on the causal link. */
           "20260828071500_ap4b_origination_invocation_provenance",
           "20260828173456_sia26_origination_agent_attribution",
+          "20260828190630_sia3_agent_improvement_hypothesis",
         ],
         "and what follows it is a declared later phase",
       );

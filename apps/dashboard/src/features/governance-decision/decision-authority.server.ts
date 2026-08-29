@@ -67,6 +67,13 @@ import {
   ACTION_REQUEST_SUBJECT_TYPE,
 } from "@/features/action-authorization/contracts";
 import {
+  IMPROVEMENT_HYPOTHESIS_ACCEPTED_OUTCOME,
+  IMPROVEMENT_HYPOTHESIS_APPROVE_TYPE,
+  IMPROVEMENT_HYPOTHESIS_DECLINED_OUTCOME,
+  IMPROVEMENT_HYPOTHESIS_DOMAIN,
+  IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE,
+} from "@/features/agent-improvement-hypothesis/contracts";
+import {
   resolveGovernanceDbOrNull,
   validateJustification,
   type GovernanceDeps,
@@ -146,7 +153,8 @@ export async function writeGovernanceDecisionWithin(
       | typeof ORGANIZATIONAL_ROLE_SUBJECT_TYPE
       | typeof IDENTITY_ENROLLMENT_SUBJECT_TYPE
       | typeof ACTION_REQUEST_SUBJECT_TYPE
-      | typeof ACTION_PERMIT_SUBJECT_TYPE;
+      | typeof ACTION_PERMIT_SUBJECT_TYPE
+      | typeof IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -183,9 +191,20 @@ export async function writeGovernanceDecisionWithin(
             input.subjectType === ACTION_REQUEST_SUBJECT_TYPE ||
               input.subjectType === ACTION_PERMIT_SUBJECT_TYPE
             ? ACTION_AUTHORIZATION_DOMAIN
-            : input.subjectType === "user" || input.subjectType === "governance_decision"
-              ? ("authority-delegation" as const)
-              : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
+            : /*
+               * SIA-3 — deciding whether an evidence-backed hypothesis about an agent's SELECTION
+               * BEHAVIOUR is worth pursuing. `learning` is an existing enum value with no prior
+               * usage, and it is the honest fit: no authority moves (so not
+               * `authority-delegation`), no agent is created or retired (so not
+               * `agent-registration`), and nothing becomes executable (so not
+               * `action-authorization`). A decision here authorizes an INVESTIGATION, never a
+               * change — nothing in this repository can apply a hypothesis.
+               */
+              input.subjectType === IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE
+              ? IMPROVEMENT_HYPOTHESIS_DOMAIN
+              : input.subjectType === "user" || input.subjectType === "governance_decision"
+                ? ("authority-delegation" as const)
+                : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
 
   const outcome =
     /*
@@ -200,7 +219,25 @@ export async function writeGovernanceDecisionWithin(
         : ACTION_APPROVED_OUTCOME
       : input.subjectType === ACTION_PERMIT_SUBJECT_TYPE
         ? ACTION_PERMIT_REVOKED_OUTCOME
-        : input.decisionType === "delegate-authority"
+        : /*
+           * SIA-3 IS CHECKED ON ITS SUBJECT, AND BEFORE EVERY GENERIC BRANCH — the same reason
+           * R3A's comment above gives, and a sharper one.
+           *
+           * A hypothesis decision uses `approve`, which NO branch below matches: it is not
+           * `delegate-authority`, not `revoke`, not the membership type and not `ratify`. It would
+           * therefore have fallen through to the final `: "rejected"` and recorded an ACCEPTANCE
+           * as a REJECTION in the permanent ledger. The subject check is what makes that
+           * unreachable.
+           *
+           * The outcome words are `-accepted` / `-declined` rather than `approved`: what a human
+           * accepted is a HYPOTHESIS, and a ledger row read years later must not suggest that an
+           * improvement was made.
+           */
+          input.subjectType === IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE
+          ? input.decisionType === IMPROVEMENT_HYPOTHESIS_APPROVE_TYPE
+            ? IMPROVEMENT_HYPOTHESIS_ACCEPTED_OUTCOME
+            : IMPROVEMENT_HYPOTHESIS_DECLINED_OUTCOME
+          : input.decisionType === "delegate-authority"
           ? DELEGATION_OUTCOME
           : input.decisionType === "revoke"
             ? REVOCATION_OUTCOME

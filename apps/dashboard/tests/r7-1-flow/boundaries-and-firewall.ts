@@ -281,7 +281,8 @@ function noPersistence(): void {
            * CREATE TABLE, two foreign keys, three indexes, zero DROP. */
           "20260826064423_kr_ext1_knowledge_external_references",
           "20260828071500_ap4b_origination_invocation_provenance",
-      "20260828173456_sia26_origination_agent_attribution"],
+      "20260828173456_sia26_origination_agent_attribution",
+      "20260828190630_sia3_agent_improvement_hypothesis"],
     "R7.1 authored no migration; what follows is a declared later phase",
   );
   for (const name of newer) {

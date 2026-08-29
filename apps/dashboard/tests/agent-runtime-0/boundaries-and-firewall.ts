@@ -262,11 +262,11 @@ function nothingIsHardCodedToOneAgent(): void {
 
 function schemaIsUntouched(): void {
   const sql = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sql.length, 38, "AGENT-RUNTIME-0 adds no migration");
+  assert.equal(sql.length, 39, "AGENT-RUNTIME-0 adds no migration");
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 38, "and the ledger is unchanged");
+  assert.equal(journal.entries.length, 39, "and the ledger is unchanged");
 
   /* The two tables this phase writes and reads gained no column. */
   const artifactSchema = read("src/db/schema/work-artifact.ts");
@@ -310,6 +310,15 @@ function humanOnlyChecksAreIntact(): void {
     declared,
     [
       "action_permits_human_authorizer_chk",
+      /*
+       * SIA-3. The census GREW; nothing in it was widened, which is what this assertion has always
+       * been about. A new table constrained its own author to `human` — the strictest direction —
+       * and the seven released CHECKs below are byte-for-byte the ones that were there before.
+       *
+       * Extending the enumeration is the strict repair. Loosening the assertion to "at least seven"
+       * would have been the weak one: it would let a future phase DELETE a released CHECK and pass.
+       */
+      "agent_improvement_hypotheses_human_author_chk",
       "decision_records_bootstrap_human_chk",
       "heby_action_requests_human_approver_chk",
       "identity_enrollment_requests_human_approver_chk",
@@ -317,7 +326,7 @@ function humanOnlyChecksAreIntact(): void {
       "knowledge_external_references_human_withdrawer_chk",
       "membership_authorizations_human_authorizer_chk",
     ],
-    "the seven human-only CHECKs are exactly as released — this phase widened none of them",
+    "the eight human-only CHECKs are exactly these — this phase widened none of them",
   );
 
   /*

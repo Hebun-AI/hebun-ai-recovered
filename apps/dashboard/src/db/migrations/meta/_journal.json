@@ -267,6 +267,13 @@
       "when": 1787938496520,
       "tag": "20260828173456_sia26_origination_agent_attribution",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1787943990694,
+      "tag": "20260828190630_sia3_agent_improvement_hypothesis",
+      "breakpoints": true
     }
   ]
 }

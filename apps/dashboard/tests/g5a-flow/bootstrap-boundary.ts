@@ -506,6 +506,7 @@ function noSchemaNoRegression(): void {
       "20260826064423_kr_ext1_knowledge_external_references.sql",
       "20260828071500_ap4b_origination_invocation_provenance.sql",
       "20260828173456_sia26_origination_agent_attribution.sql",
+      "20260828190630_sia3_agent_improvement_hypothesis.sql",
     ],
     "G5A authored no migration; what follows is a declared later phase",
   );

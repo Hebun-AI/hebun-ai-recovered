@@ -553,6 +553,15 @@ async function main(): Promise<void> {
         checks.rows.map((r) => r.conname),
         [
           "action_permits_human_authorizer_chk",
+          /*
+           * SIA-3. The census GREW; nothing in it was widened — which is what this assertion has
+           * always been about. A new table constrained its OWN AUTHOR to `human`, the strictest
+           * direction, so that an agent cannot file an improvement hypothesis about itself.
+           *
+           * Extending the enumeration is the strict repair. Loosening it to "at least seven" would
+           * be the weak one: it would let a future phase DELETE a released CHECK and still pass.
+           */
+          "agent_improvement_hypotheses_human_author_chk",
           "decision_records_bootstrap_human_chk",
           "heby_action_requests_human_approver_chk",
           "identity_enrollment_requests_human_approver_chk",
@@ -560,7 +569,7 @@ async function main(): Promise<void> {
           "knowledge_external_references_human_withdrawer_chk",
           "membership_authorizations_human_authorizer_chk",
         ],
-        "the seven human-only CHECKs are enforced by the database, unchanged by this phase",
+        "the eight human-only CHECKs are enforced by the database, and this phase widened none of them",
       );
 
       /* And the approver CHECK really does refuse an agent, on the agent's own proposal. */

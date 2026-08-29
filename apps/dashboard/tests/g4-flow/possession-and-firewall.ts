@@ -623,6 +623,7 @@ function noSchema(): void {
        * the composite-key anchor it needs on `agents`. Additive: one column, one FK, two indexes,
        * zero DROP and zero backfill. */
       "20260828173456_sia26_origination_agent_attribution.sql",
+      "20260828190630_sia3_agent_improvement_hypothesis.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );
