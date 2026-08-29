@@ -15,7 +15,7 @@
  * ── WHO OWNS WHAT ────────────────────────────────────────────────────────────
  *
  *   AUTHORITATIVE   `audit_log` — the append-only record of governance acts. It is written by the
- *                   seven `governance-audit/*.server.ts` writers and by nothing else, and no code
+ *                   nine `governance-audit/*.server.ts` writers and by nothing else, and no code
  *                   in this repository updates or deletes a row in it.
  *   DERIVED         everything in this file. A count over that ledger, recomputed on read.
  *
