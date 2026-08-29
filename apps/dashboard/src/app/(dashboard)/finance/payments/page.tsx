@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { usd } from "@/lib/format";
@@ -21,6 +22,10 @@ export default function PaymentsPage() {
         title="Payment Center"
         context="Payment verification owned by the Payment Agent."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="Finance" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         {paymentStatuses.map((status) => (

@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { employees, accessRequests, equipmentStatus } from "@/features/hr/mock";
@@ -20,6 +21,10 @@ export default function OnboardingPage() {
         title="Onboarding Center"
         context="New-hire onboarding run by the Onboarding Agent."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="HR" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         {/* New employees + progress */}

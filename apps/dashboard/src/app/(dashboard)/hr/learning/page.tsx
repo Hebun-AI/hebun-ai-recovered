@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { learningPaths } from "@/features/hr/mock";
@@ -28,6 +29,10 @@ export default function LearningPage() {
         title="Learning Center"
         context="Learning paths assigned by the Learning & Development Agent."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="HR" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         {stats.map((s) => (

@@ -1,5 +1,6 @@
 import { Copyright, Globe, FileBadge, KeyRound } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ipSummary, ipAssets } from "@/features/legal/mock";
@@ -37,6 +38,10 @@ export default function IpTrademarkPage() {
         title="IP & Trademark Center"
         context="Intellectual assets managed by the IP & Trademark Agent."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="Legal" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         {stats.map((s) => (

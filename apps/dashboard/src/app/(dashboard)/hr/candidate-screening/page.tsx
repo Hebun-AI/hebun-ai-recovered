@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,10 @@ export default function CandidateScreeningPage() {
         title="Candidate Screening Center"
         context="Match scoring by the Candidate Screening Agent."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="HR" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         {/* Skill gap */}

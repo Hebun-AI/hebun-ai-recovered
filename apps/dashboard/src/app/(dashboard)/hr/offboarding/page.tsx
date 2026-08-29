@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { offboardings } from "@/features/hr/mock";
@@ -26,6 +27,10 @@ export default function OffboardingPage() {
         title="Offboarding Center"
         context="Exits managed by the Offboarding Agent."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="HR" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         <div className="col-span-12 sm:col-span-4">

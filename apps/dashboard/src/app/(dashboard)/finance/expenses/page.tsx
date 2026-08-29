@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { usd } from "@/lib/format";
@@ -18,6 +19,10 @@ export default function ExpensesPage() {
         title="Expense Center"
         context="Expenses categorized by the Expense Agent."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="Finance" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         <div className="col-span-12">

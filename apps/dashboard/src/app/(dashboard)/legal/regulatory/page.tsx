@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { regulatorySummary, regulations } from "@/features/legal/mock";
@@ -24,6 +25,10 @@ export default function RegulatoryPage() {
         title="Regulatory Monitoring Center"
         context="Regulation tracking by the Regulatory Monitoring Agent."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="Legal" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         {stats.map((s) => (

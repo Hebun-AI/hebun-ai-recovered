@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { reviews, performanceTrend } from "@/features/hr/mock";
@@ -19,6 +20,10 @@ export default function PerformancePage() {
         title="Performance Center"
         context="Reviews and goals tracked by the Performance Review Agent."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="HR" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         {/* Trend */}

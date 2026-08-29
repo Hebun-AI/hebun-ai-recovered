@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { CommandAction } from "@/components/command/command-action";
@@ -46,6 +47,10 @@ export default function ContractsPage() {
           />
         }
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="Legal" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         {/* Status counts + high risk */}

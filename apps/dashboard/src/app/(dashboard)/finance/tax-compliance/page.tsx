@@ -1,5 +1,6 @@
 import { FileCheck } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { LegacyDomainNotice } from "@/components/workforce-workspace/legacy-domain";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,10 @@ export default function TaxCompliancePage() {
         title="Tax & Compliance Center"
         context="Managed by the Tax Agent via Country Rules Service + Compliance Engine (planned)."
       />
+
+      <div className="mb-6">
+        <LegacyDomainNotice domain="Finance" />
+      </div>
 
       <div className="grid grid-cols-12 gap-6">
         {/* Score cards */}
