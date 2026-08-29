@@ -55,7 +55,7 @@ These are the stable top-level evolution stages of Hebun. Implementation discove
 ### ERA I — HEBUN TRUSTWORTHY FOUNDATION · **CLOSED** (§11.3)
 Hebun can be trusted to describe an organization truthfully. Every surface either grounds its claim in a legitimate authority or says it cannot.
 
-### ERA II — HEBUN INTELLIGENCE · **OPEN / ACTIVE** (§12)
+### ERA II — HEBUN INTELLIGENCE · **OPEN** (§12)
 Hebun understands what it observes. Evidence accumulates, agents are evaluated, and intelligence is layered over an organization that is already truthfully represented.
 
 ### ERA III — HEBUN AUTONOMOUS ENTERPRISE · **FUTURE — NOT ACTIVE** (§13)
@@ -223,7 +223,7 @@ Hebun already has legitimate, released owners for most of what Program V gives m
 | **Knowledge** | Facts, provenance, retraction | Memory · learning | Organizational learning loop |
 | **Organization** | **Organization Authority (L3)** | Organizational intelligence evolution | Living organizational system |
 | **Integrations** | Provider contracts + connections | Provider-sourced intelligence | Operational integration |
-| **Live Map** *(promoted surface — a projection, never a truth owner)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 — **E2-3, ACTIVE — DISCOVERY & DESIGN** (§12) | Live Map Operational v1 |
+| **Live Map** *(promoted surface — a projection, never a truth owner)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 — **E2-3 CLOSED**, authoritative agent nodes enriched with a derived cumulative Agent Outcome observation through an id-keyed read-only projection (§12) | Live Map Operational v1 |
 | *Enterprise Security & Trust* **(cross-cutting constraint — §7, not a product line)** | Gates on L3, L4 and Era I closure — **all four measured CLOSED** (§11.1), including the carried trust boundary | Security direction (§12.1); its first bounded slice **E2-2 is CLOSED** — one derived observation connected, no security authority created (§12) | Constraints for consequential autonomy (§13) |
 
 The final row is a **constraint**, not a truth owner. It appears in this matrix so that no Era can be read as closable without it, and for no other reason.
@@ -236,9 +236,9 @@ The final row is a **constraint**, not a truth owner. It appears in this matrix 
 
 The **Era I** rows below were measured at `047dde807779e21c7d6ed08e449509df8780c415`, the Era I closure baseline (§11.3), and are re-confirmed here without re-measurement for one stated reason: `0005f72` is **docs-only over `047dde8`** and carries a measured zero delta against `src` and `tests`. The **Era II** rows were measured at `0005f72` directly (§12). The ledger is **unchanged across the whole of Era I**: the seven Era I releases carry a measured zero delta against `src/db/migrations` and `src/db/schema`.
 
-Classifications are drawn only from: CLOSED · OPEN / ACTIVE · ACTIVE · PLANNED · PARTIAL · DISCOVERY COMPLETE · DESIGN ONLY · NOT STARTED · NOT CONNECTED · AVAILABLE · BLOCKED · DEFERRED · UNAVAILABLE.
+Classifications are drawn only from: CLOSED · OPEN / ACTIVE · OPEN · ACTIVE · PLANNED · PARTIAL · DISCOVERY COMPLETE · DESIGN ONLY · NOT STARTED · NOT CONNECTED · AVAILABLE · BLOCKED · DEFERRED · UNAVAILABLE.
 
-Four of those are new at this baseline and are defined here so they cannot drift: **OPEN / ACTIVE** is an era with at least one milestone open; **PLANNED** is a recorded direction that has run no discovery and is authorized for nothing; **NOT CONNECTED** is a capability that exists and that the named surface does not read; **BLOCKED** is work whose prerequisite is measured absent, which is a stronger claim than deferred.
+Five of those are defined here so they cannot drift: **OPEN / ACTIVE** is an era with at least one milestone open; **OPEN** is an era that has not closed and has **no milestone currently active** — a distinct state from OPEN / ACTIVE, and the one Era II entered when E2-3 closed with nothing selected to follow it; **PLANNED** is a recorded direction that has run no discovery and is authorized for nothing; **NOT CONNECTED** is a capability that exists and that the named surface does not read; **BLOCKED** is work whose prerequisite is measured absent, which is a stronger claim than deferred.
 
 **No percentage is used as a status or progress claim anywhere in this document.** A percentage without a defensible denominator is a fabricated measurement.
 
@@ -274,7 +274,7 @@ Release and closure records live in `docs/product-vision/runtime/`. This page sa
 | Security policy authority | **UNAVAILABLE** | The `policies` table has **zero importers** of its schema symbol. No policy evaluator is connected; the Heby action governance gate reports `not-connected`, which **blocks** eligibility rather than passing it. |
 | Ingested-content trust boundary — **TB-1** | **CLOSED — released** | TB-1 released at `047dde8`. `heby-runtime/trust-boundary.ts` names the boundary and classifies **every** field of a model request as `Record<keyof ModelGenerationRequest, TrustClass>`, so a new path into model context cannot arrive unclassified without failing to compile. It records its own limits as data: `structurallyIsolatedInInferenceRequest: false`, `restsOnModelCompliance: true`, `detectsInjectedInstructions: false`. Zero schema, zero writer. |
 | **ERA I — HEBUN TRUSTWORTHY FOUNDATION** | **CLOSED** | Closed at `047dde8` against the §11 contract, measured row by row — see §11.3. L1–L4 released and re-verified; all four §11.1 Security & Trust gates measured CLOSED. |
-| **ERA II — HEBUN INTELLIGENCE** | **OPEN / ACTIVE** — bounded direction recorded (§12) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). **E2-1 and E2-2 are both CLOSED** — implemented, released and pushed at `dfa7624` and `7b30893`, **neither deployed** (§12). Exactly one milestone is now active — **E2-3, active for discovery and design, not implementation**. Nothing after E2-3 is scheduled. |
+| **ERA II — HEBUN INTELLIGENCE** | **OPEN** — bounded direction recorded (§12) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). **E2-1, E2-2 and E2-3 are all CLOSED** — implemented, released and pushed at `dfa7624`, `7b30893` and `00eda19`, **none deployed** (§12). **No Era II milestone is currently active**, and closing three milestones closes no era: the next one must be selected from measured repository and product reality, never from numbering. |
 | Era III | **NOT ACTIVE** (§13) | — |
 
 ---
@@ -451,7 +451,7 @@ ERA CLOSED != EVERYTHING DEPLOYED
 ## 12. Era II — Bounded Delivery Direction
 
 ```
-ERA II — HEBUN INTELLIGENCE = OPEN / ACTIVE
+ERA II — HEBUN INTELLIGENCE = OPEN (no milestone active)
 ```
 
 Era II opened when Era I closed at `047dde8` (§11.3). A read-only Era II discovery and prioritization pass then ran, and **every finding it returned was reproduced against the repository at `0005f72` before it was recorded here** — because a discovery result is not repository truth (§18, rule 5). The reproduction is summarised below and its measurements are the evidence column of §9.
@@ -462,19 +462,22 @@ Era II opened when Era I closed at `047dde8` (§11.3). A read-only Era II discov
 |---|---|---|
 | **E2-1** | **Heby Organizational Intelligence Foundation** | **CLOSED** — implemented · released · pushed at `dfa7624` · **NOT deployed** |
 | **E2-2** | **Security Observation Connection over authoritative records (S-B)** | **CLOSED** — implemented · released · pushed at `7b30893` · **NOT deployed** |
-| **E2-3** | **Live Map Intelligence — authoritative layers** | **ACTIVE — DISCOVERY & DESIGN** |
+| **E2-3** | **Live Map Intelligence — authoritative layers** | **CLOSED** — implemented · released · pushed at `00eda19` · **NOT deployed** |
 
-**Neither closure authorized its successor by succession.** E2-2's entry conditions were re-measured from code before it opened, and E2-3's activation is a Director decision recorded here — not an inference from E2-2 closing. **Era II itself remains OPEN**; two milestones closing close no era, and E2-3 is the last item currently in the bounded order.
+**No closure authorized its successor by succession.** E2-2's entry conditions were re-measured from code before it opened, and E2-3's activation was a Director decision recorded here — not an inference from E2-2 closing. **Era II itself remains OPEN**; three milestones closing close no era. **E2-3 was the last item in the bounded order, and no E2-4 exists.** A fourth milestone is not created by the fact that numbering can continue — the next Era II milestone must be selected from measured repository and product reality, by a Director decision recorded here.
 
 ```
 E2-1 CLOSED  != HEBY INTELLIGENCE COMPLETE
 E2-2 CLOSED  != SECURITY COMPLETE
 E2-2 CLOSED  != SECURITY COMMAND CENTER COMPLETE
-E2-3 ACTIVE  != E2-3 IMPLEMENTED
+E2-3 CLOSED  != LIVE MAP COMPLETE
+E2-3 CLOSED  != LIVE MAP INTELLIGENCE COMPLETE
+ERA II OPEN  != ERA II WORK REMAINING IS DEFINED
+NUMBERING    != A MILESTONE
 RELEASED     != DEPLOYED
 ```
 
-Anything after E2-3 remains provisional pending repository reality, and **nothing after it is currently scheduled**. **This is not a long fixed Era II roadmap and must not become one.** E2-3 has opened for discovery and design; that is authorization to **read the repository**, never to build. No Live Map layer is implemented, connected, or authorized by appearing here.
+Anything after E2-3 remains provisional pending repository reality, and **nothing after it is currently scheduled**. **This is not a long fixed Era II roadmap and must not become one.** E2-3 is now closed; its closure opens nothing. **No E2-4 is invented or activated here**, and no Live Map layer beyond the one E2-3 released is implemented, connected, or authorized by appearing anywhere in this document.
 
 ```
 ERA II ACTIVE != ALL ERA II WORK AUTHORIZED
@@ -686,13 +689,112 @@ SEC-4's transitive floor moved from `[]` to the exact thirteen-file session/hand
 
 `572/572` suites pass. **18 E2-2 mutations bite, 13 SEC-4 mutations bite, zero residue.** Typecheck clean, lint 14 pre-existing warnings and zero new, build compiles.
 
-### E2-3 — Live Map Intelligence, authoritative layers · **ACTIVE — DISCOVERY & DESIGN**
+### E2-3 — Live Map Intelligence, authoritative layers · **CLOSED**
 
 ```
-E2-3 = ACTIVE FOR DISCOVERY & DESIGN
+E2-3 = CLOSED
+IMPLEMENTED · RELEASED · PUSHED · NOT DEPLOYED
 ```
 
-**Not** implemented · **not** connected · **not** released · **not** available · **not** deployed. Activation is authorization to **read the repository**, never to build.
+Released at `00eda19`, learnings at `2aff237`, both on `main` and pushed. **It is not deployed.** No repository evidence records a deployment, and until one exists the released capability is not running for any customer.
+
+```
+RELEASED != DEPLOYED
+```
+
+#### What E2-3 actually delivers
+
+One thing, stated narrowly — **existing authoritative Agent nodes enriched with a derived cumulative Agent Outcome observation, joined by durable agent id**:
+
+```
+LIVE MAP ROUTE
+  ↓ resolveTenantContext()
+readLiveMapProjection(tenant)
+  ↓ third authority, awaited independently
+agent-outcome-observation/live-map-agent-outcome.server.ts
+  ↓ readAgentOutcomeObservationIndexed
+readAgentOutcomeCore  →  8 grouped aggregate statements + 1 identity read
+```
+
+Re-measured at `2aff237`:
+
+| Property | Measured state |
+|---|---|
+| Node delta | **Zero.** Two node kinds — `organization`, `agent` — unchanged. No proposal, Governance, permit, execution, activity, human or department node exists |
+| Edge delta | **Zero.** One relation, `belongs-to`, carrying `agents.tenant_id`. Node and edge counts are identical with and without evidence |
+| `LiveMapTruth` | **Unwidened — still one member, `"authoritative"`** |
+| Truth classes | **Two, in two separate fields, each a single-value union.** The node keeps `truth: "authoritative"`; the attachment carries `truthClass: "derived"`. Neither value is representable in the other's field |
+| Join | **`identity.agentId` only** — the same value that builds the node's `nodeId`. Never name, never array position, never timestamp, never similarity. Two fixture identities share a name and the numbers follow the id |
+| Authority ownership | The seam lives **inside** the owning authority, `src/features/agent-outcome-observation/`. Live Map restates no join, names no proposal/permit/execution/invocation table, and consumes no `/agents` page or presentation model |
+| Back-import | **None.** No file under `agent-outcome-observation/` references `features/live-map` |
+| Raw identifier on the surface | **None.** The observation still carries no agent id; the key lives outside it. Asserted by uuid *shape*, not by the fixture's value |
+| Attached measures | 17 counts in three groups — proposals filed / awaiting a decision / withdrawn · approved · rejected · permits issued, active, expired, consumed, revoked · **approved-never-executed** · attempts, awaiting an answer, accepted, refused, failed, unknown |
+| Derived claims | **None.** No rate, ratio, percentage, score, ranking, grade or comparison between agents. Every measure is a whole non-negative count |
+| Freshness | **Cumulative since each agent identity was established, stated in words.** The released statements carry no date predicate, so the surface refuses *real-time*, *today*, *last 24 hours*, *recent activity* and *currently* — banned in the model and again in the rendered page |
+| Unavailable semantics | **Three outcomes, three sentences**: the evidence could not be read · the evidence was read and holds no entry for this identity · the evidence was read and these are the counts. An unread observation carries **no `groups` property at all**, so a zeroed row is unconstructable |
+| Completeness | `unresolvedAgentProposals` is reported at projection level, present even when it is zero, and **absent** when the evidence was never read — a total over nothing is not a total. No agent is invented to hold unplaced proposals |
+| Tenant flow | `resolveTenantContext()` → the seam → the released fact readers' own predicates. **No tenant, organization, slug, scope or agent parameter exists** at either seam, and Live Map owns no filter of its own |
+| Tenant predicate | Pinned by **content and by exact count** — `"<table>"."tenant_id" = ${resolved.tenantId}` on all four tables, **13 bindings exactly**. A floor pin (`>= 11`) passes when one statement's predicate is deleted; the exact pin does not |
+| Query shape | **9 statements — one identity read plus eight grouped aggregates — measured constant from 1 to 60 agents** with a counting handle. Live Map issues the outcome read **once** for 40 nodes |
+| Writer firewall | The closure grew by **4 files** (the seam, the indexed read, the fact readers, and `governance-decision/{contracts,persistence}`). **Zero durable writers** outside the ambient session floor, and fifteen reachability bans — origination, decision, permit, revocation, execution, identity, model, credential, kill switch, Knowledge, agent CRUD — all empty |
+| Mock firewall | Zero fixtures reachable. No department is inferred from a title; Organization Structure is **still unavailable and still stated** |
+| UI delta | One disclosure block per agent card (`details`/`summary`), one completeness line. **No redesign, no control** — `button`, `form`, `input`, `select`, `onClick`, `onSubmit`, `useState` all absent from the rendered markup |
+| Persistence | Zero. Schema delta 0 · migration delta 0 · **ledger 39, unchanged** · new table 0 · writer delta 0 · authority delta 0 |
+
+```
+AUTHORITATIVE AGENT IDENTITY != AUTHORITATIVE OUTCOME
+AGENT NAME                   != AGENT IDENTITY
+DERIVED OBSERVATION          != AUTHORITATIVE OUTCOME AUTHORITY
+UNAVAILABLE                  != ZERO ACTIVITY
+CUMULATIVE                   != CURRENT
+REQUEST-TIME READ            != REAL-TIME STREAM
+APPROVED                     != EXECUTED
+EXECUTED                     != SUCCESSFUL
+COUNT                        != SCORE, RATE OR RANKING
+UNKNOWN AGENT ID             != PERMISSION TO INVENT AN AGENT
+```
+
+#### What E2-3 does NOT mean
+
+- **No new node type.** Proposals, Governance decisions, permits, executions, activity, humans and departments are **not** entities on the map.
+- **No new edge type.** `agent → proposal`, `proposal → Governance` and `Governance → execution` were not created. They may become legitimate later; they were not needed for this slice.
+- **No real-time stream.** The map is a request-time read and the evidence is cumulative. Nothing polls, subscribes or refreshes.
+- **No score, rate, ranking or comparison between agents**, and none is derivable from these counts: the strongest positive value available is `accepted`, and accepted is not delivered.
+- **No Organization Structure.** Departments, teams, reporting lines and a human roster remain unavailable, and the map still says so rather than omitting them.
+- **No Knowledge layer, no Security layer, no Integration layer.** All three stay deferred; E2-2's derived observation was not projected onto the map.
+- **No execution authority, no Governance authority, no agent authority.** Live Map cannot file, approve, reject, permit, revoke, execute or retry anything, and nothing that can is reachable from it.
+- **No new truth authority.** The observation is derived; `audit_log`, `heby_action_requests`, `action_permits`, `action_execution_attempts` and the agent identity authority remain the owners of every fact drawn.
+- **E2-3 is not deployed.**
+- **Live Map is not complete, and Live Map Intelligence is not complete.** One derived layer is attached to one node kind.
+
+#### Two guards that only measurement could have written
+
+Both are recorded because neither was visible to design review, and both are now released proofs:
+
+- **A floor pin cannot tell a removed predicate from a statement that never had one.** E2-2 established that a tenant guard must read predicate *content*. E2-3 found the next layer: with thirteen `${resolved.tenantId}` bindings, deleting one statement's `where` leaves twelve, and every substring check still passes. Only an **exact** count bit.
+- **An N+1 is invisible to every assertion about values** — each rendered number stays correct. The detector is a counting handle asserting that 1 agent and 60 agents cost the same. The mutation that inserts a genuine per-agent loop moves the count from 9 to 549.
+
+One stale pin was repaired in another phase's suite as a direct consequence: splitting the outcome read into a private core left `readAgentOutcomeObservation`'s **signature byte-identical**, so every signature pin passed, while SIA-1's "durable write" bite-proof anchored on the return block that had moved. The harness reported *"the mutation would prove nothing"* rather than passing — the behaviour that makes another phase's proof recoverable instead of silently retired.
+
+#### Product acceptance
+
+Proved on the **released component rendering the released projection** (`renderToStaticMarkup`), not on a harness of its own:
+
+- **BEFORE** — an agent node could say the agent exists, is in service, when it was established, and that it belongs to the organization.
+- **AFTER** — the same node, opened, answers *what has this agent proposed, and what became of it*: 17 counts under three headings, each carrying the sentence that keeps it from being read as more than it is, labelled `derived · Agent Outcome Observation` beside the node's own `authoritative · Durable Agent Identity`.
+- With the evidence unreadable the node renders the unread sentence and **no counts at all** — proved by asserting the three group headings are absent from the page.
+
+#### Validation as released
+
+`577/577` suites pass. **14 E2-3 mutations bite, zero residue.** Typecheck clean, lint 14 pre-existing warnings and zero new, build compiles.
+
+One **pre-existing** rendering semantic, reported rather than repaired: `/live-map` is emitted as a statically prerendered route (`○`), as are every other authenticated dashboard route in this repository. That is L4-era behaviour, unchanged by E2-3 and out of its authorized scope.
+
+---
+
+#### The activation contract, preserved
+
+E2-3 opened for **discovery and design only**, and the contract below is kept as it stood rather than rewritten to match what shipped (§3 principle 8). Its opening line — *not implemented, not connected, not released, not available, not deployed* — is **superseded by the closure above** on the first four; **not deployed still holds**.
 
 #### It is not a visual-polish phase
 
@@ -787,9 +889,9 @@ Heby is the natural-language intelligence and navigation layer; Live Map is the 
 PRESENTATION PROJECTION != HEBY GROUNDING AUTHORITY
 ```
 
-### E2-3 Discovery & Design — entry contract
+### E2-3 Discovery & Design — entry contract · **ANSWERED**
 
-The next authorized action is **E2-3 Discovery & Design**, not implementation. These are the questions it must answer **from code**. They are deliberately unanswered here; answering them by design assumption during roadmap alignment is the failure mode this list exists to prevent.
+Kept as it stood. These thirty questions were the authorized action when E2-3 opened, and they were answered **from code** before implementation began — the answers are the measured table in the closure above, not this list. It is preserved rather than deleted because a contract that disappears once it is met leaves no record of what the implementation was held to.
 
 1. What does Live Map Core v1 actually read today?
 2. What facts does it currently project?
@@ -920,7 +1022,7 @@ Distinguish throughout: an operator ceremony that a human runs is not automated 
 
 ### Director Intelligence → within **Hebun Intelligence** (Era II)
 
-It does **not** get a separate top-level era, and it is **not** in the active E2-1 → E2-3 sequence (§12). It remains future work. It may later benefit from organizational evidence, decision history, agent evidence, outcomes, Knowledge and Governance evidence — none of which activates it.
+It does **not** get a separate top-level era, and it is **not** in the E2-1 → E2-3 sequence (§12), which is now closed and exhausted. It remains future work, and nothing selects it. It may later benefit from organizational evidence, decision history, agent evidence, outcomes, Knowledge and Governance evidence — none of which activates it.
 
 It must **not** be claimed as implemented merely because adjacent Agent Intelligence exists. A naming collision exists in repository history between Director-facing agent intelligence work and Director Intelligence as a capability; that collision is **preserved, not resolved by renaming**. Future activation begins with repository discovery.
 
@@ -1012,7 +1114,7 @@ ERA
             → RELEASE
 ```
 
-Where useful, future roadmap milestones may carry explicit ownership identifiers — as `L1`–`L4` do in §10, and as `E2-1`–`E2-3` do in §12. An identifier is a delivery label, not an authority: `E2-3` names an active discovery, not a capability that exists — and `E2-1` and `E2-2`, now closed, each name one bounded released capability, never the whole product line or cross-cutting program it sits in.
+Where useful, future roadmap milestones may carry explicit ownership identifiers — as `L1`–`L4` do in §10, and as `E2-1`–`E2-3` do in §12. An identifier is a delivery label, not an authority: `E2-1`, `E2-2` and `E2-3`, all now closed, each name **one bounded released capability**, never the whole product line or cross-cutting program it sits in. `E2-3` names one derived observation attached to one node kind — not Live Map, and not Live Map Intelligence.
 
 ---
 
@@ -1071,31 +1173,31 @@ HMR-0's "Foundation ~70%" estimate is **not preserved**. It had no defensible de
 
 ## 20. Next Milestone
 
-**E2-3 — LIVE MAP INTELLIGENCE, AUTHORITATIVE LAYERS. Discovery and design.**
+**NONE SELECTED.** Era II is **OPEN** with **no active milestone**.
 
 ```
-E2-3 = NEXT / ACTIVE FOR DISCOVERY & DESIGN
+NEXT MILESTONE = NOT YET SELECTED
 ```
 
-Era I is **CLOSED** at `047dde8` (§11.3). Era II is **OPEN / ACTIVE** (§12) and remains open — two milestones closing close no era.
+Era I is **CLOSED** at `047dde8` (§11.3). Era II is **OPEN** (§12) and remains open — three milestones closing close no era. The bounded order E2-1 → E2-2 → E2-3 is now exhausted, and **no E2-4 exists**: numbering is not a milestone, and the next one must be chosen from measured repository and product reality by a Director decision recorded here.
 
 **E2-1 is CLOSED.** Released and pushed at `dfa76248c38bad2c994e1494ac41896296b09067`, **not deployed**. Heby grounds on the Organization Authority as one ordinary evidence source; it does not consume Live Map, internal organization structure remains unavailable, no agent fact is admitted, and no new authority was created. **E2-1 closed is not Heby Intelligence complete.**
 
 **E2-2 is CLOSED.** Released and pushed at `7b30893b5231e8a891602964c67842bccf042c87`, **not deployed**, and every closure claim was re-measured from the repository before this status was recorded (§12). The Security Center holds exactly one connected source class — `audit` — read tenant-scoped and bounded through a projection it does not own, and reported as **derived** over authoritative records. It gained no finding authority, no incident authority, no policy authority, no trust authority, no score, and no write, authorization or execution authority. **E2-2 closed is not Security complete, and not a Security Command Center.**
 
-**E2-3 is now ACTIVE for discovery and design**, by Director decision recorded in §12 — not by succession from E2-2 closing. It is authorization to **read the repository** and determine which existing authoritative or legitimately derived facts Live Map may compose, while preserving each subsystem's authority, provenance, tenant isolation and truth semantics. **It is not a visual-polish phase.**
+**E2-3 is CLOSED.** Released and pushed at `00eda193948c6f86b422e84d198ef03363adf761`, learnings at `2aff2376ee72a6229c6a4ab5af15673e04a6408a`, **not deployed**. Existing authoritative Live Map agent nodes are enriched with a derived cumulative Agent Outcome observation through an id-keyed read-only projection owned by the outcome authority. It created **no node type, no edge type, no writer, no schema, no migration and no authority**; `LiveMapTruth` is unwidened, the ledger is unchanged at 39, and the enriched import closure contains no durable writer at any depth. **E2-3 closed is not Live Map complete, and not Live Map Intelligence complete.**
 
-**The next authorized action is E2-3 Discovery & Design** — the thirty entry questions in §12, answered from code. It is **not** implementation.
+**No next milestone is selected.** Organization Structure Authority stays unavailable, the generic Agent Registry stays rejected, ASA-2 stays blocked, Director Intelligence stays outside the sequence, and the Knowledge, Security and Integration Live Map layers stay deferred — none of them is opened by E2-3 closing. Selecting what follows requires reading the repository again, not continuing a number.
 
-E2-3 is **not implemented**, **not connected**, **not released**, **not available** and **not deployed**. Nothing after E2-3 is scheduled. Organization Structure Authority stays unavailable, the generic Agent Registry stays rejected, ASA-2 stays blocked, and Director Intelligence stays outside the active sequence — none of them is opened by this activation.
-
-Nothing in Era II is authorized by this document. In particular, a candidate being technically safe to build is not a reason for it to be first, and an active milestone is authorization to *discover*, never to build.
+Nothing in Era II is authorized by this document. In particular, a candidate being technically safe to build is not a reason for it to be next, and a closed milestone authorizes nothing that follows it.
 
 ```
 ERA I CLOSED     != PRODUCT FINISHED
-ERA II ACTIVE    != ALL ERA II WORK AUTHORIZED
+ERA II OPEN      != ALL ERA II WORK AUTHORIZED
 E2-2 CLOSED      != SECURITY COMPLETE
-E2-3 ACTIVE      != E2-3 IMPLEMENTED
+E2-3 CLOSED      != LIVE MAP COMPLETE
+THREE CLOSED     != ERA II CLOSED
+NUMBERING        != A MILESTONE
 LIVE MAP         != TRUTH AUTHORITY
 TRUTH BEFORE GRAPH COMPLETENESS
 RELEASED         != DEPLOYED
