@@ -9,25 +9,48 @@ import type {
 } from "@/features/live-map/contracts";
 
 /*
- * L4 — the Live Map surface.
+ * LIVE MAP — THE VISUAL ORGANIZATIONAL MAP (LMX-1).
  *
- * It renders a projection and nothing else. It performs no read, holds no database handle, and
- * offers no control that could change anything it draws: the only affordance on a node is a link to
- * the subsystem that OWNS it, because a map that edits an organization has become a second place
- * the organization is decided.
+ * ── WHAT CHANGED, AND WHY IT IS NOT DECORATION ───────────────────────────────
  *
- * THE FOUR DOMAIN STATES ARE RENDERED DIFFERENTLY ON PURPOSE. "Nothing here", "the authority said
- * zero", "the authority could not answer" and "nobody owns this yet" are four different sentences,
- * and collapsing them into an empty area is how a map claims an organization has no departments.
+ * Core v1 rendered four stacked regions of cards. Every sentence in it was true and none of it was
+ * a map: a Director read an inventory and assembled the shape of their own organization in their
+ * head. This renders the shape — organization at the centre, the agents that belong to it hanging
+ * from a drawn spine, and the one proven relationship expressed as GEOMETRY rather than as a
+ * sentence in a list at the bottom of the page.
  *
- * ── THE DERIVED ATTACHMENT IS RENDERED APART FROM THE NODE (E2-3) ────────────
+ * NOTHING NEW IS DRAWN. The nodes, the single edge, the four domain states and every word still
+ * come from the released projection. A map is a stronger claim than a list — a picture is believed
+ * faster than a paragraph — so the rule this file lives under is that the drawing may only express
+ * relationships the projection already proved, and must express absence just as visibly.
  *
- * An agent node's own lines come from the authority that owns the agent. Its outcome numbers are
- * composed from a different authority's records, so they are drawn in their own block, under their
- * own truth-class label, behind a disclosure a reader opens deliberately. Interleaving them with
- * the node's provenance lines would put two truth classes in one list where neither is marked.
+ *     TRUTH BEFORE GRAPH COMPLETENESS        NO NODE FOR VISUAL COMPLETENESS
  *
- * The disclosure is a `details` element and nothing else: it discloses, it does not act.
+ * ── SELECTION WITHOUT A CONTROL ──────────────────────────────────────────────
+ *
+ * Selecting an agent opens its inspector. That is a native `<details name="live-map-agent">` group:
+ * the browser closes the previously open one, so exactly one agent is ever selected, with keyboard
+ * operation, focus and screen-reader semantics supplied by the platform rather than reimplemented.
+ *
+ * It is also the only interaction this surface CAN have. Live Map holds no authority over anything
+ * it draws, and a `<details>` discloses text that is already in the projection — it cannot create,
+ * move, rename, retire, approve or execute. The released firewall forbids `onClick`, `useState`,
+ * `<button>` and `<form>` in this directory, and that ban is unweakened here.
+ *
+ *     VISUAL INTERACTION != WRITE AUTHORITY
+ *
+ * ── THE FOUR DOMAIN STATES STILL RENDER DIFFERENTLY ──────────────────────────
+ *
+ * "Nothing here", "the authority said zero", "the authority could not answer" and "nobody owns this
+ * yet" are four different sentences. On a map the temptation to render all four as empty canvas is
+ * stronger, not weaker, so each keeps its own visible statement.
+ *
+ * ── AND THE ATTACHMENT KEEPS ITS OWN TRUTH CLASS ─────────────────────────────
+ *
+ * A node's identity is authoritative; the numbers beside it are derived. Both classes are printed,
+ * in different places, in the reader's own language — never merged into one confident block.
+ *
+ *     AUTHORITATIVE IDENTITY != DERIVED INTELLIGENCE        COUNT != SCORE
  */
 
 const DOMAIN_ICON: Record<string, typeof Building2> = {
@@ -37,206 +60,310 @@ const DOMAIN_ICON: Record<string, typeof Building2> = {
   people: UsersRound,
 };
 
-function NodeCard({ node }: { node: LiveMapNode }) {
-  const Icon = node.kind === "organization" ? Building2 : Bot;
+/* ═══════════════════════════════════════════════════════════════════════════
+ * THE CENTRE
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The organization node — the centre of the map, and the only node that is one.
+ *
+ * The NAME leads. The record behind it — identifier, lifecycle, tenant status, member count and the
+ * provenance sentence — sits in a disclosure, because a map whose centre is a paragraph of
+ * technical provenance is a document with a border round it. The facts are not hidden: they are one
+ * keystroke away, in the same document, behind no fetch.
+ */
+function OrganizationNode({ node }: { node: LiveMapNode }) {
   return (
-    <article className="min-w-[14rem] flex-1 basis-[16rem] rounded-xl border border-border bg-surface p-4">
-      <div className="flex items-start gap-3">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-subtle text-primary">
-          <Icon className="size-4" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-fg">{node.label}</p>
-          {/*
-           * The truth classification is shown, not implied. Core can only construct
-           * `authoritative` nodes, so this label is never a reassurance a reader has to trust.
-           */}
-          <p className="mt-0.5 text-[0.62rem] font-semibold uppercase tracking-wider text-fg-muted">
-            {node.truth} · {node.sourceAuthority}
-          </p>
-        </div>
-      </div>
-      <ul className="mt-3 space-y-1">
-        {node.detail.map((line) => (
-          <li key={line} className="text-xs leading-5 text-fg-secondary">
-            {line}
-          </li>
-        ))}
-      </ul>
-      {node.intelligence ? <NodeIntelligence intelligence={node.intelligence} /> : null}
-      {node.openRoute ? (
-        <a
-          href={node.openRoute}
-          className="mt-3 inline-block text-xs font-medium text-primary underline-offset-2 hover:underline"
-        >
-          Open {node.kind === "organization" ? "Organization" : "Agents"}
-        </a>
-      ) : null}
+    <article className="lm-org-node" aria-label={`Organization: ${node.label}`}>
+      <span className="lm-org-mark" aria-hidden="true">
+        <Building2 className="size-5" />
+      </span>
+      <h3 className="lm-org-name">{node.label}</h3>
+      <p className="lm-truth">
+        <span className="lm-truth-class">{node.truth}</span>
+        <span aria-hidden="true"> · </span>
+        <span>{node.sourceAuthority}</span>
+      </p>
+      <details className="lm-disclosure">
+        <summary className="lm-disclosure-summary">Organization record</summary>
+        <ul className="lm-record">
+          {node.detail.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        {node.openRoute ? (
+          <a className="lm-open" href={node.openRoute}>
+            Open Organization
+          </a>
+        ) : null}
+      </details>
     </article>
   );
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * THE DERIVED ATTACHMENT
+ * ═════════════════════════════════════════════════════════════════════════ */
+
 /**
- * The derived observation attached to an authoritative node.
+ * The inspector's derived half.
  *
- * ITS TRUTH CLASS IS PRINTED BESIDE THE NODE'S. The card already shows "authoritative · Durable
- * Agent Identity" for the node itself; this shows "derived · Agent Outcome Observation" for the
- * numbers. A reader never has to work out which of the two they are looking at.
- *
- * AN UNREAD OBSERVATION IS A SENTENCE, NOT AN ABSENCE, and never a row of zeros: a blank block
- * would read as an agent that has done nothing, which is the one thing an unread observation
- * cannot tell anybody.
+ * Rendered under its own heading and its own truth-class label, never interleaved with the identity
+ * facts above it. An unread observation is a sentence and never a row of zeros — a zero here would
+ * tell a Director that a working agent has proposed nothing.
  */
-function NodeIntelligence({ intelligence }: { intelligence: LiveMapNodeIntelligence }) {
+function OutcomeIntelligence({ intelligence }: { intelligence: LiveMapNodeIntelligence }) {
   if (intelligence.status === "unavailable") {
     return (
-      <div className="mt-3 rounded-lg border border-border bg-surface-sunken p-3">
-        <p className="text-[0.62rem] font-semibold uppercase tracking-wider text-fg-muted">
-          {intelligence.truthClass} · {intelligence.sourceAuthority}
+      <section className="lm-intel" aria-label="Agent outcome observation">
+        <p className="lm-truth">
+          <span className="lm-truth-class">{intelligence.truthClass}</span>
+          <span aria-hidden="true"> · </span>
+          <span>{intelligence.sourceAuthority}</span>
         </p>
-        <p className="mt-1 text-xs leading-5 text-fg-secondary">{intelligence.detail}</p>
-      </div>
+        <p className="lm-intel-detail">{intelligence.detail}</p>
+      </section>
     );
   }
 
   return (
-    <details className="mt-3 rounded-lg border border-border bg-surface-sunken p-3">
-      <summary className="cursor-pointer text-[0.62rem] font-semibold uppercase tracking-wider text-fg-muted">
-        {intelligence.truthClass} · {intelligence.sourceAuthority}
-      </summary>
-      <p className="mt-2 text-xs leading-5 text-fg-secondary">{intelligence.basis}</p>
+    <section className="lm-intel" aria-label="Agent outcome observation">
+      <p className="lm-truth">
+        <span className="lm-truth-class">{intelligence.truthClass}</span>
+        <span aria-hidden="true"> · </span>
+        <span>{intelligence.sourceAuthority}</span>
+      </p>
+      <p className="lm-intel-basis">{intelligence.basis}</p>
       {intelligence.groups.map((group) => (
-        <div key={group.groupId} className="mt-3">
-          <p className="text-xs font-semibold text-fg">{group.label}</p>
-          <dl className="mt-1 space-y-1">
+        <div key={group.groupId} className="lm-group">
+          <h5 className="lm-group-title">{group.label}</h5>
+          <dl className="lm-measures">
             {group.measures.map((measure) => (
-              <div key={measure.label}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <dt className="text-xs text-fg-secondary">{measure.label}</dt>
-                  <dd className="text-xs font-semibold tabular-nums text-fg">{measure.value}</dd>
-                </div>
-                {measure.note ? (
-                  <p className="text-[0.68rem] leading-4 text-fg-muted">{measure.note}</p>
-                ) : null}
+              <div key={measure.label} className="lm-measure">
+                <dt>{measure.label}</dt>
+                <dd>{measure.value}</dd>
+                {measure.note ? <p className="lm-measure-note">{measure.note}</p> : null}
               </div>
             ))}
           </dl>
         </div>
       ))}
-      <ul className="mt-3 space-y-1">
+      <ul className="lm-nonclaims">
         {intelligence.nonClaims.map((claim) => (
-          <li key={claim} className="text-[0.68rem] leading-4 text-fg-muted">
-            {claim}
-          </li>
+          <li key={claim}>{claim}</li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/**
+ * The glance line on a closed agent node.
+ *
+ * THREE COUNTS, NEVER A SUMMARY OF THEM. Filed, approved and approved-but-never-executed are three
+ * different authorities' facts; a single figure combining them would be the score this milestone is
+ * forbidden to invent. When the observation could not be read the line says so instead of showing
+ * zeros.
+ */
+function GlanceSignal({ intelligence }: { intelligence?: LiveMapNodeIntelligence }) {
+  if (!intelligence) return null;
+  if (intelligence.status === "unavailable") {
+    return <p className="lm-glance lm-glance-unread">Outcome observation unread</p>;
+  }
+  const at = (groupId: string, label: string): number | null => {
+    const group = intelligence.groups.find((g) => g.groupId === groupId);
+    const measure = group?.measures.find((m) => m.label === label);
+    return measure ? measure.value : null;
+  };
+  const filed = at("proposals", "Filed");
+  const approved = at("governance", "Approved");
+  const unexecuted = at("governance", "Approved, never executed");
+  if (filed === null || approved === null || unexecuted === null) return null;
+  return (
+    <p className="lm-glance">
+      <span>{filed} filed</span>
+      <span aria-hidden="true"> · </span>
+      <span>{approved} approved</span>
+      <span aria-hidden="true"> · </span>
+      <span>{unexecuted} never executed</span>
+    </p>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * THE AGENTS
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * One agent on the map, closed as a node and open as an inspector.
+ *
+ * `name="live-map-agent"` makes the group mutually exclusive in the browser, so "exactly one agent
+ * is selected" is a platform guarantee rather than state this surface keeps. The open node spans
+ * the full width (see the stylesheet), which is what makes the inspector readable without a second
+ * column that would have to disappear on a laptop.
+ */
+function AgentNode({ node }: { node: LiveMapNode }) {
+  return (
+    <details className="lm-agent" name="live-map-agent">
+      <summary className="lm-node" aria-label={`${node.label} — ${node.status?.label ?? "agent"}`}>
+        <span className="lm-node-mark" aria-hidden="true">
+          <Bot className="size-4" />
+        </span>
+        <span className="lm-node-body">
+          <span className="lm-node-name">{node.label}</span>
+          {node.status ? (
+            <span className="lm-status" data-tone={node.status.tone}>
+              {node.status.label}
+            </span>
+          ) : null}
+          <GlanceSignal intelligence={node.intelligence} />
+        </span>
+      </summary>
+
+      <div className="lm-inspector">
+        <section className="lm-identity" aria-label="Agent identity">
+          <p className="lm-truth">
+            <span className="lm-truth-class">{node.truth}</span>
+            <span aria-hidden="true"> · </span>
+            <span>{node.sourceAuthority}</span>
+          </p>
+          <ul className="lm-record">
+            {node.detail.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          {node.openRoute ? (
+            <a className="lm-open" href={node.openRoute}>
+              Open Agents
+            </a>
+          ) : null}
+        </section>
+        {node.intelligence ? <OutcomeIntelligence intelligence={node.intelligence} /> : null}
+      </div>
     </details>
   );
 }
 
 function StateNotice({ children }: { children: React.ReactNode }) {
   return (
-    <p className="flex items-start gap-2 rounded-xl border border-border bg-surface p-4 text-sm leading-6 text-fg-secondary">
-      <CircleSlash className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+    <p className="lm-notice">
+      <CircleSlash className="size-4 shrink-0 text-fg-muted" aria-hidden="true" />
       <span>{children}</span>
     </p>
   );
 }
 
-function DomainSection({ domain }: { domain: LiveMapDomain }) {
-  const Icon = DOMAIN_ICON[domain.domainId] ?? Layers;
-  return (
-    <section aria-labelledby={`live-map-${domain.domainId}`}>
-      <div className="mb-2 flex items-center gap-2">
-        <Icon className="size-4 text-fg-muted" aria-hidden="true" />
-        <h2 id={`live-map-${domain.domainId}`} className="text-sm font-semibold text-fg">
-          {domain.label}
-        </h2>
-      </div>
+/* ═══════════════════════════════════════════════════════════════════════════
+ * THE MAP
+ * ═════════════════════════════════════════════════════════════════════════ */
 
-      {domain.state.status === "available" ? (
-        <div className="flex flex-wrap gap-3">
-          {domain.state.nodes.map((node) => (
-            <NodeCard key={node.nodeId} node={node} />
-          ))}
-        </div>
-      ) : (
-        <StateNotice>{domain.state.detail}</StateNotice>
-      )}
-    </section>
+/**
+ * The drawn relationship, and the sentence that proves it.
+ *
+ * The spine is CSS; the BASIS is text, because a line between two boxes says "related" and leaves
+ * the reader to guess how. The edge's own words are printed under the map so a reader who doubts
+ * the geometry can check the column it restates.
+ */
+function Relationship({ edges }: { edges: readonly LiveMapEdge[] }) {
+  const first = edges[0];
+  if (!first) return null;
+  return (
+    <p className="lm-basis">
+      <span className="lm-basis-relation">{first.relation}</span> {first.basis}
+    </p>
   );
 }
 
-/**
- * The edges, written out as sentences rather than drawn as lines.
- *
- * A line between two boxes says "related" and leaves the reader to guess how. Core proves exactly
- * one relationship and can state precisely what proves it, so it says so — and a reader who
- * disagrees can check the column named.
- */
-function EdgeList({ edges, projection }: { edges: readonly LiveMapEdge[]; projection: LiveMapProjection }) {
-  if (edges.length === 0) return null;
-  const labelOf = (nodeId: string): string => {
-    for (const domain of projection.domains) {
-      if (domain.state.status !== "available") continue;
-      const found = domain.state.nodes.find((n) => n.nodeId === nodeId);
-      if (found) return found.label;
-    }
-    return nodeId;
-  };
-
-  return (
-    <section aria-labelledby="live-map-relationships">
-      <h2 id="live-map-relationships" className="mb-2 text-sm font-semibold text-fg">
-        Proven relationships
-      </h2>
-      <ul className="space-y-2">
-        {edges.map((edge) => (
-          <li
-            key={`${edge.fromNodeId}->${edge.toNodeId}`}
-            className="rounded-xl border border-border bg-surface p-3"
-          >
-            <p className="text-sm text-fg">
-              <span className="font-medium">{labelOf(edge.fromNodeId)}</span>{" "}
-              <span className="text-fg-muted">{edge.relation}</span>{" "}
-              <span className="font-medium">{labelOf(edge.toNodeId)}</span>
-            </p>
-            <p className="mt-1 text-xs leading-5 text-fg-secondary">{edge.basis}</p>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/**
- * How much of the derived evidence the join could place.
- *
- * Rendered even when the answer is "all of it". A completeness line that only appears when
- * something is wrong teaches a reader that its absence means nothing was checked.
- */
 function CompletenessNote({ completeness }: { completeness: LiveMapIntelligenceCompleteness }) {
   return (
-    <p className="text-xs leading-5 text-fg-secondary">
-      <span className="font-medium text-fg">
-        Unplaced agent proposals: {completeness.unresolvedAgentProposals}.
-      </span>{" "}
+    <p className="lm-completeness">
+      <strong>Unplaced agent proposals: {completeness.unresolvedAgentProposals}.</strong>{" "}
       {completeness.detail}
     </p>
   );
 }
 
-export function LiveMapCanvas({ projection }: { projection: LiveMapProjection }) {
+/** A domain Hebun does not own, or could not read — stated, never left as empty canvas. */
+function AbsentDomain({ domain }: { domain: LiveMapDomain }) {
+  const Icon = DOMAIN_ICON[domain.domainId] ?? Layers;
+  if (domain.state.status === "available") return null;
   return (
-    <div className="space-y-6">
-      {projection.domains.map((domain) => (
-        <DomainSection key={domain.domainId} domain={domain} />
-      ))}
-      <EdgeList edges={projection.edges} projection={projection} />
+    <section className="lm-absent" aria-labelledby={`live-map-${domain.domainId}`}>
+      <h3 id={`live-map-${domain.domainId}`} className="lm-absent-title">
+        <Icon className="size-4 text-fg-muted" aria-hidden="true" />
+        {domain.label}
+      </h3>
+      <StateNotice>{domain.state.detail}</StateNotice>
+    </section>
+  );
+}
+
+export function LiveMapCanvas({ projection }: { projection: LiveMapProjection }) {
+  const organization = projection.domains.find((d) => d.domainId === "organization");
+  const agents = projection.domains.find((d) => d.domainId === "agents");
+  const others = projection.domains.filter(
+    (d) => d.domainId !== "organization" && d.domainId !== "agents",
+  );
+
+  const organizationNode =
+    organization?.state.status === "available" ? organization.state.nodes[0] : undefined;
+  const agentNodes = agents?.state.status === "available" ? agents.state.nodes : [];
+  /* The spine is drawn only when both ends are on the map — the same rule the edge itself follows. */
+  const connected = Boolean(organizationNode) && agentNodes.length > 0;
+
+  return (
+    <div className="lm-root" data-live-map data-connected={connected ? "yes" : "no"}>
+      <section className="lm-canvas" aria-label="Organizational map">
+        <div className="lm-centre">
+          {organizationNode ? (
+            <OrganizationNode node={organizationNode} />
+          ) : organization ? (
+            <div className="lm-org-absent">
+              <h3 className="lm-absent-title">
+                <Building2 className="size-4 text-fg-muted" aria-hidden="true" />
+                {organization.label}
+              </h3>
+              {organization.state.status !== "available" ? (
+                <StateNotice>{organization.state.detail}</StateNotice>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="lm-branch" aria-hidden={connected ? undefined : "true"} />
+
+        <div className="lm-agents-group">
+          <h3 className="lm-group-label">
+            {agents?.label ?? "Agents"}
+            {agentNodes.length > 0 ? (
+              <span className="lm-group-count">
+                {agentNodes.length} {agentNodes.length === 1 ? "agent" : "agents"}
+              </span>
+            ) : null}
+          </h3>
+          {agentNodes.length > 0 ? (
+            <div className="lm-agents">
+              {agentNodes.map((node) => (
+                <AgentNode key={node.nodeId} node={node} />
+              ))}
+            </div>
+          ) : agents && agents.state.status !== "available" ? (
+            <StateNotice>{agents.state.detail}</StateNotice>
+          ) : null}
+          <Relationship edges={projection.edges} />
+        </div>
+      </section>
+
+      <div className="lm-absences">
+        {others.map((domain) => (
+          <AbsentDomain key={domain.domainId} domain={domain} />
+        ))}
+      </div>
+
       {projection.intelligenceCompleteness ? (
         <CompletenessNote completeness={projection.intelligenceCompleteness} />
       ) : null}
-      <p className="text-xs leading-5 text-fg-secondary">{projection.freshness}</p>
+      <p className="lm-freshness">{projection.freshness}</p>
     </div>
   );
 }

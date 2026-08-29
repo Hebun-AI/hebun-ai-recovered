@@ -130,6 +130,21 @@ export type LiveMapNodeIntelligence =
       readonly detail: string;
     };
 
+/**
+ * A node's own lifecycle state, as DATA rather than as a sentence to be parsed (LMX-1).
+ *
+ * The prose in `detail` already says this, and a visual map needs the same fact as a value: a
+ * surface that decided "retired" by reading the first detail line would be one string edit away
+ * from drawing a withdrawn agent as a working one. The authority that knows the state supplies it.
+ *
+ * It is PRESENTATION, not truth: `tone` selects a rendering, and `label` is the word a reader sees.
+ * Neither adds a claim the node did not already make in words.
+ */
+export interface LiveMapNodeStatus {
+  readonly label: string;
+  readonly tone: "active" | "retired";
+}
+
 export interface LiveMapNode {
   /** Stable projection identity, kind-prefixed. A projection id, never a domain identifier. */
   readonly nodeId: string;
@@ -142,6 +157,8 @@ export interface LiveMapNode {
   readonly detail: readonly string[];
   /** Where the owning subsystem lives, when a real released route exists. Navigation, not control. */
   readonly openRoute?: string;
+  /** The lifecycle word a reader sees on the node itself. Supplied by the owning authority. */
+  readonly status?: LiveMapNodeStatus;
   /**
    * DERIVED evidence about this node, kept in its own field and never merged into `detail`.
    *

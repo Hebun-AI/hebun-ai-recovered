@@ -357,6 +357,14 @@ function agentDomain(
     ],
     openRoute: "/agents",
     /*
+     * THE SAME FACT THE FIRST DETAIL LINE STATES, AS A VALUE. `inService` is the identity
+     * authority's own derivation; handing the surface a word to render keeps a visual map from
+     * having to read a sentence to find out whether an agent is working.
+     */
+    status: identity.inService
+      ? { label: "In service", tone: "active" as const }
+      : { label: "Retired", tone: "retired" as const },
+    /*
      * ATTACHED BY THE SAME ID THE NODE IS BUILT FROM. `identity.agentId` produced this node's
      * `nodeId` two lines above and it is the key here, so the evidence and the node cannot come
      * apart — there is one identifier, used twice.

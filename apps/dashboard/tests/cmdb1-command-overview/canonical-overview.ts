@@ -318,7 +318,16 @@ function commandHoldsNoAuthority(overrides: Readonly<Record<string, string>> = {
     }
   }
 
-  /* The ONLY server modules the route may reach directly are the session resolver and the seam. */
+  /*
+   * THE ROUTE REACHES THE SESSION RESOLVER AND READ SEAMS IT DOES NOT OWN — NOTHING ELSE.
+   *
+   * Enumerated rather than pattern-matched, so a fifth server import fails here instead of arriving
+   * silently. LMX-1 grew the list from two to four by composing the released Live Map projection
+   * and the released E2-2 recorded-act seam into the awareness band; the PROPERTY is unchanged and
+   * is what this assertion is for. Every entry is a read owned by another subsystem, and the
+   * forbidden-token sweep above still proves none of them brought a writer, a handle or an
+   * authority resolver with it.
+   */
   const page = codeOf(overrides[PAGE] ?? read(PAGE));
   const serverImports = [...page.matchAll(/from\s+"([^"]*\.server)"/g)].map((m) => m[1]).sort();
   assert.deepEqual(
@@ -326,8 +335,10 @@ function commandHoldsNoAuthority(overrides: Readonly<Record<string, string>> = {
     [
       "@/features/action-authorization/read-action-authorizations.server",
       "@/features/auth-runtime/request-session.server",
+      "@/features/governance-activity/security-observation-source.server",
+      "@/features/live-map/read-live-map.server",
     ],
-    "the route reaches exactly the session resolver and somebody else's read seam",
+    "the route reaches exactly the session resolver and read seams it does not own",
   );
 
   /*

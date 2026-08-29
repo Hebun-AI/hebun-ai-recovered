@@ -1,10 +1,15 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { CommandOverview } from "@/components/command-overview/command-overview";
+import { GlobalAwareness } from "@/components/awareness/global-awareness";
 import {
   getExpressIntentSummary,
   toWaitingOnYou,
 } from "@/features/command-overview/workspace-model";
 import { readPendingActionRequests } from "@/features/action-authorization/read-action-authorizations.server";
+import { readLiveMapProjection } from "@/features/live-map/read-live-map.server";
+import { summariseLiveMap } from "@/features/live-map/awareness";
+import { readSecurityRecordedActObservation } from "@/features/governance-activity/security-observation-source.server";
+import { summariseSecurityObservation } from "@/features/security-center/awareness";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 
 export const metadata = { title: "Command — Hebun AI" };
@@ -32,6 +37,23 @@ export const metadata = { title: "Command — Hebun AI" };
  * lifecycle stage from a request awaiting one. The surest way to guarantee the two are never merged
  * into a single number is not to fetch the second at all.
  *
+ * ── THE AWARENESS BAND (LMX-1) ───────────────────────────────────────────────
+ *
+ * Two more released seams are composed here, for the same reason the pending queue is: this is the
+ * default authenticated landing, and the two questions a Director opens Hebun asking — "what shape
+ * is my organization in" and "what has actually been recorded" — were previously answerable only by
+ * navigating to two other surfaces first.
+ *
+ * NEITHER IS A NEW READ. `readLiveMapProjection` is L4's released projection and
+ * `readSecurityRecordedActObservation` is E2-2's released seam, both taken unchanged and both
+ * handed the SAME tenant this route already resolved once. The two summaries beside them are pure
+ * functions over those answers — no handle, no clock, no second resolution — so the panels cannot
+ * disagree with the surfaces they lead to.
+ *
+ * THE COST IS STATED. The Live Map projection issues the organization read, the agent identity read
+ * and E2-3's nine grouped statements. That is the price of the panel telling the truth rather than
+ * approximating it from something cheaper, and it is the same work `/live-map` itself does.
+ *
  * ── WHAT REPLACED THE OLD OVERVIEW ───────────────────────────────────────────
  *
  * The Phase 6B/7 Command Center read a demo-gated, tenant-blind executive projection that is
@@ -44,7 +66,16 @@ export const metadata = { title: "Command — Hebun AI" };
 
 export default async function CommandPage() {
   const tenant = await resolveTenantContext();
-  const pending = await readPendingActionRequests(tenant);
+  /*
+   * Three released seams, one resolved tenant, and each failure contained by its own reader: an
+   * unreadable ledger leaves the Live Map panel intact and vice versa. None of them can widen its
+   * own scope — not one takes a tenant identifier.
+   */
+  const [pending, liveMap, recordedActs] = await Promise.all([
+    readPendingActionRequests(tenant),
+    readLiveMapProjection(tenant),
+    readSecurityRecordedActObservation(tenant),
+  ]);
 
   return (
     <>
@@ -60,6 +91,18 @@ export default async function CommandPage() {
          */
         context="Command summarizes and routes; every act belongs to the workspace that owns it."
       />
+      {/*
+        THE BAND SITS ABOVE THE CANONICAL OVERVIEW, and outside it. CMD-B1 pins the Overview at
+        exactly three sections with exactly three provenance chips; awareness is a fourth concern
+        with a different shape, so it is a sibling rather than a fourth region inside a composition
+        whose grammar was settled over five phases.
+      */}
+      <div className="mb-7 lg:mb-8">
+        <GlobalAwareness
+          liveMap={summariseLiveMap(liveMap)}
+          security={summariseSecurityObservation(recordedActs)}
+        />
+      </div>
       <CommandOverview waiting={toWaitingOnYou(pending)} intent={getExpressIntentSummary()} />
     </>
   );

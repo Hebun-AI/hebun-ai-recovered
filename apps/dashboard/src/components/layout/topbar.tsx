@@ -62,19 +62,31 @@ export function TopBar() {
         <p className="truncate text-sm font-semibold text-fg">{surface.label}</p>
       </div>
 
-      <div className="ml-auto hidden min-w-0 max-w-sm flex-1 items-center gap-2 rounded-lg border border-border bg-surface-sunken px-3 lg:flex">
-        <Search className="size-4 text-fg-muted" />
-        <label htmlFor="global-search" className="sr-only">Global search</label>
-        <input
-          id="global-search"
-          type="search"
-          disabled
-          placeholder="Search…"
-          className="h-9 w-full bg-transparent text-sm text-fg outline-none placeholder:text-fg-muted disabled:cursor-not-allowed"
-        />
-      </div>
+      {/*
+        ── THE SEARCH FIELD SHRANK, AND NOTHING WAS TAKEN AWAY (LMX-1) ────────
+        It was a `max-w-sm` field spanning the centre of every authenticated page, and it was
+        DISABLED: measured across `src/`, the only two references to it were its own label and its
+        own input. No shortcut bound it, no route consumed it, no component reused it. It indexed
+        nothing and had never indexed anything.
 
-      <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:ml-0">
+        So the widest element in the global chrome was a control that could not be used, occupying
+        the space a Director's eye lands on first. It is now a compact affordance of the same size
+        as its neighbours, still disabled, still announced, still carrying the same promise — and
+        the premium horizontal space it held is returned to the surface below, where Command's
+        awareness band now answers two questions instead of offering an empty box.
+
+        REDUCED, NOT REMOVED. A future real index has the same affordance waiting for it, and the
+        accessible name is unchanged so nothing that referenced it by name is broken.
+      */}
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          disabled
+          aria-label="Global search — coming soon"
+          className="hidden size-10 items-center justify-center rounded-lg text-fg-secondary transition-colors duration-(--dur-fast) hover:bg-surface-sunken hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring disabled:cursor-not-allowed lg:flex"
+        >
+          <Search className="size-4" aria-hidden="true" />
+        </button>
         <Link
           href="/approvals"
           aria-label="Approvals — pending attention"
