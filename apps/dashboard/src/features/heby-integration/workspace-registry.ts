@@ -61,12 +61,29 @@ const WORKSPACE_PROFILES = {
       { family: "decision-preparation", state: "contract-only" },
       { family: "evidence-tracing", state: "contract-only" },
     ],
-    sourceClasses: ["intelligence", "operations", "decision-records"],
+    /*
+     * E2-1 adds `organization` here and ONLY here. Command is the workspace that already owns the
+     * organization-wide surfaces by route — `/heby`, `/live-map` and `/director/organization` all
+     * resolve to it — so this is the one workspace where the organization is a legitimate referent.
+     * No other profile gains the class: an answer about Knowledge, Governance or Decisions is not
+     * an answer about which organization is asking.
+     *
+     * Until now nothing here could answer "which organization am I in?": `intelligence` and
+     * `decision-records` have no connected reader, and `operations` reads Executive Overview
+     * sections that the mock-surface gate withholds from a real tenant. The organization was the
+     * one authoritative fact Hebun held and Heby could not reach.
+     */
+    sourceClasses: ["intelligence", "operations", "decision-records", "organization"],
     authority: "advisory-only",
     mayExplain: [
       "Why is this critical?",
       "What requires my attention?",
       "What evidence supports this?",
+      /*
+       * E2-1. Truthful in BOTH halves, and the second half is the point: Hebun knows which
+       * organization this is and does not know how it is arranged, and Heby must say both.
+       */
+      "Which organization am I in, and what does Hebun know about it?",
     ],
   },
   intelligence: {

@@ -19,6 +19,9 @@ const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
 const AUTHORITY_DIR = "src/features/organization-authority";
 const READER = `${AUTHORITY_DIR}/read-organization.server.ts`;
 const CONTRACTS = `${AUTHORITY_DIR}/contracts.ts`;
+/* E2-1. The authority's own Heby-facing projection — inside the authority, per G6C/INT-5A. */
+const HEBY_SOURCE = `${AUTHORITY_DIR}/heby-organization-source.server.ts`;
+const HEBY_ANSWER = "src/features/heby-answer/model-answer.server.ts";
 const PAGE = "src/app/(dashboard)/director/organization/page.tsx";
 const PANEL = "src/components/organization-domain/authoritative-organization.tsx";
 const LIVE_MAP_PROJECTION = "src/features/live-map/read-live-map.server.ts";
@@ -86,6 +89,37 @@ function theAuthorityGrantsNothing(): void {
     );
   }
 
+  /*
+   * E2-1 — THE HEBY PROJECTION INHERITS EVERY ONE OF THOSE BANS, AND ADDS THREE.
+   *
+   * It lives inside the authority, so sections 1 and 4 already cover it; this makes the reach bans
+   * cover it too, and names the three that are specific to being Heby's supplier: it must not go
+   * through Live Map (a presentation projection is not a domain seam), must not admit agent
+   * identity (a different product line, needing its own class), and must not touch a mock.
+   */
+  const projectionForbidden = [
+    ...forbiddenImports,
+    "live-map",
+    "agent-identity",
+    "director-dashboard",
+    "runtime-projection",
+    "/mock",
+  ];
+  for (const specifier of projectionForbidden) {
+    assert.ok(
+      !new RegExp(`from\\s+["'][^"']*${specifier}`).test(read(HEBY_SOURCE)),
+      `the Heby organization projection must not import ${specifier}`,
+    );
+  }
+
+  /* And it holds no handle of its own: the authority it consumes holds one, which is the point. */
+  for (const name of ["getControlPlaneDb", "db/schema", "db/client"]) {
+    assert.ok(
+      !codeOf(read(HEBY_SOURCE)).includes(name),
+      `the Heby organization projection must not contain ${name}`,
+    );
+  }
+
   /* The permission tables stay exactly as unactivated as L3 found them. */
   for (const symbol of ["rolePermissions", "permissions", "organizations", "departments"]) {
     assert.ok(!code.includes(symbol), `the Organization Authority must not reference ${symbol}`);
@@ -138,6 +172,49 @@ function thereIsOnlyOneAnswer(): void {
     callers.sort(),
     [PAGE, LIVE_MAP_PROJECTION].sort(),
     "the Organization Authority's consumers are exactly the Organization page and the Live Map projection",
+  );
+
+  /*
+   * E2-1 — AND HEBY IS NOT A THIRD ONE, WHICH IS A CLAIM AND NOT AN OMISSION.
+   *
+   * The enumeration above did not grow when Heby gained organizational evidence, and a reader is
+   * entitled to ask whether that is truth or blindness. It is truth, and the three assertions below
+   * are what make it checkable rather than assumed:
+   *
+   *   Heby imports the authority's own PROJECTION, which lives inside the authority (G6C/INT-5A:
+   *   a projection belongs to the authority that owns the facts, and the consumer imports it). So
+   *   the seam's caller set genuinely did not change — the answer to "who reads the authority?" is
+   *   still the page and the map, and Heby reads what the authority hands out.
+   *
+   *   The projection is the ONLY module Heby imports from this directory. Without this, Heby could
+   *   later import the reader directly and the census would catch it — but a reviewer reading this
+   *   file would not know the boundary had ever been stated.
+   *
+   *   And the directory is enumerated, so a fourth file cannot appear inside the authority — where
+   *   sections 1 and 4 exclude it from the caller census — without somebody stating it here.
+   */
+  assert.deepEqual(
+    walk(AUTHORITY_DIR).sort(),
+    [CONTRACTS, HEBY_SOURCE, READER].sort(),
+    "the Organization Authority is exactly its contracts, its read seam and its Heby projection",
+  );
+
+  const hebyImportsFromAuthority = [
+    ...read(HEBY_ANSWER).matchAll(/from\s+["']@\/features\/organization-authority\/([^"']+)["']/g),
+  ].map((match) => match[1]);
+  assert.deepEqual(
+    hebyImportsFromAuthority,
+    ["heby-organization-source.server"],
+    "Heby imports the authority's projection and nothing else from the authority",
+  );
+
+  /*
+   * THE PROJECTION DOES CONSUME THE SEAM — otherwise the sentence above would be satisfied by a
+   * projection that read `companies` itself, which is the failure the whole census exists to catch.
+   */
+  assert.ok(
+    read(HEBY_SOURCE).includes("readOrganizationAuthority"),
+    "the Heby projection consumes the Organization Authority rather than re-reading companies",
   );
 
   /*

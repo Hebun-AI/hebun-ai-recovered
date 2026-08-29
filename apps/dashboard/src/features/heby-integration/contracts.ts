@@ -264,7 +264,25 @@ export type HebySourceClass =
    * perform and cannot reach. "Drive metadata can be read" is what this source says; "here is a
    * Drive file" is INT-5B and does not exist.
    */
-  | "integrations";
+  | "integrations"
+  /*
+   * E2-1. THE ORGANIZATION THIS TENANT IS — its identity, and nothing about its arrangement.
+   *
+   * It is its own class rather than a flavour of `workforce` or `operations` for the reason
+   * `work-artifacts`, `external-recipients` and `integrations` are: a different authority owner.
+   * `workforce` is unconnected identity/role vocabulary and `operations` reads derived Executive
+   * Overview sections; this reads L3's Organization Authority, which is the released owner of the
+   * `companies` record and the only subsystem that answers "what organization exists?".
+   *
+   * IT IS AN IDENTITY, NEVER AN ARRANGEMENT. Name, slug, lifecycle, tenant status, origin ceremony
+   * and a COUNT of live human members — plus the authority's own statement that internal structure
+   * has no owner. No department, team, reporting line, roster, role, band, permission or agent
+   * travels under this class, because L3 carries none of them to travel.
+   *
+   *     ORGANIZATION IDENTITY != ORGANIZATION STRUCTURE
+   *     STRUCTURE UNAVAILABLE != STRUCTURE EMPTY
+   */
+  | "organization";
 
 export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "knowledge",
@@ -278,6 +296,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "work-artifacts",
   "external-recipients",
   "integrations",
+  "organization",
 ] as const;
 
 export interface HebySourceStatus {

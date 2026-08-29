@@ -71,8 +71,8 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Eleven since INT-5A added `integrations` (ten after R3R's `external-recipients`, nine after
-   * R3W's `work-artifacts`). The list is
+   * Twelve since E2-1 added `organization` (eleven after INT-5A's `integrations`, ten after R3R's
+   * `external-recipients`, nine after R3W's `work-artifacts`). The list is
    * pinned rather than pattern-matched so a new source class cannot appear without somebody
    * stating it here — which is exactly the review this assertion exists to force. The classes
    * themselves are named so the diff says WHICH one arrived, not merely that the number moved.
@@ -99,6 +99,19 @@ function sourceStatusNotCollapsed(): void {
        * system is usable when it is not, which is why the class earns this review.
        */
       "integrations",
+      /*
+       * E2-1. The organization this tenant IS — identity, never arrangement.
+       *
+       * It earns the review for the opposite reason `integrations` does. A fabricated item here
+       * would not overstate a system's usability; it would answer "which organization am I in?"
+       * with something nobody owns. And the class must stay narrow in a specific direction: it may
+       * carry the Organization Authority's own statement that internal structure has no owner, and
+       * it may never carry a department, a team, a reporting line or a member roster, because L3
+       * measured that no authority for any of them exists.
+       *
+       *     ORGANIZATION IDENTITY != ORGANIZATION STRUCTURE
+       */
+      "organization",
     ],
   );
   const context = resolveHebyWorkspaceContext({ workspace: "knowledge" });

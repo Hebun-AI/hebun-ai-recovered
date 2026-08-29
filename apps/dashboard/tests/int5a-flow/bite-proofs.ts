@@ -167,8 +167,19 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M11 the answer flow stops substituting the real tenant-scoped read",
     file: ANSWER,
     suite: GROUNDING_SUITE,
-    find: "  const resolutions = await withIntegrations(governanceResolutions, tenant, deps);",
-    replace: "  const resolutions = governanceResolutions;",
+    /*
+     * E2-1 REPAIRED THIS FIND-STRING, AND REPAIRED IT STRICTLY.
+     *
+     * The chained result used to be named `resolutions` because integrations was the last
+     * substitution in the flow. E2-1 appended `withOrganization` after it, so the binding is now
+     * `integrationResolutions` and the old find-string matched nothing — which the harness reports
+     * as "the mutation would prove nothing" rather than passing, exactly as it should.
+     *
+     * The repair follows the string, not the guarantee: the mutation still unwires `withIntegrations`
+     * and the expectation is unchanged, so INT-5A's proof bites for the same reason it always did.
+     */
+    find: "  const integrationResolutions = await withIntegrations(governanceResolutions, tenant, deps);",
+    replace: "  const integrationResolutions = governanceResolutions;",
     expect: "withIntegrations is not wired",
   },
 ];

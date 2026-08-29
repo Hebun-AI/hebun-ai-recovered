@@ -188,6 +188,23 @@ export function resolveSource(
         "external-recipients",
         "Recorded recipients are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
       );
+    /*
+     * E2-1: the organization IS durable and tenant-scoped, and it is read exactly the way K1 reads
+     * Knowledge and G6C reads Governance — on the server, inside an already-resolved tenant. This
+     * resolver is pure: it holds no tenant and can open no connection, so it reports the honest
+     * default and the server answer flow substitutes the real tenant-scoped resolution
+     * (organization-authority/heby-organization-source.server.ts).
+     *
+     * G6D's rule applies here and is why this sentence explains the seam rather than claiming
+     * non-connection: this resolution is ALSO what `withOrganization` falls back to when the real
+     * read throws, and reporting a transient read failure as "no organization is connected" would
+     * be the exact defect G6D repaired for Governance.
+     */
+    case "organization":
+      return unavailable(
+        "organization",
+        "The organization is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
     default: {
       // Exhaustiveness guard — a new source class must be handled explicitly.
       const never: never = sourceClass;

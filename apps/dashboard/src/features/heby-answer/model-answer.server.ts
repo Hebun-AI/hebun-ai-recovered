@@ -84,6 +84,25 @@ import { readGovernanceGroundingSource } from "@/features/governance-grounding/h
  * never read a provider record.
  */
 import { readIntegrationGroundingSource } from "@/features/integration-authority/heby-integration-source.server";
+/*
+ * E2-1 — the SAME seam once more, for the organization this tenant IS.
+ *
+ * The projection is imported from inside the Organization Authority, exactly as G6C and INT-5A
+ * import theirs from inside Governance and the integration authority. Heby therefore holds neither
+ * the authority's read seam, nor `companies`, nor any handle for organizational truth — it holds
+ * one projection function and nothing else.
+ *
+ * The seam's own name is deliberately NOT spelled here. L3's released firewall enumerates that
+ * symbol's callers by scanning RAW source, so a module that merely mentions it in prose is counted
+ * as a caller — the same trap G2 and R4A both recorded. Repairing the sentence is right; loosening
+ * a guard to accommodate a comment is not.
+ *
+ * IT IS NOT LIVE MAP. Live Map composes this same authority and adds no organizational fact — only
+ * node ids, labels, sentences, a route and a render order. Depending on it would make Heby's
+ * evidence a function of a rendering, and would let a future Live Map Intelligence domain enter
+ * model context through an edit made somewhere else. A firewall test asserts the absence.
+ */
+import { readOrganizationGroundingSource } from "@/features/organization-authority/heby-organization-source.server";
 import {
   toResponseSourceEvidence,
   toStoredSourceEvidence,
@@ -221,6 +240,13 @@ export interface HebyModelAnswerDeps {
    * only ever contribute EVIDENCE — never a provider read, never authority, never an act.
    */
   readonly resolveIntegrations?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /**
+   * E2-1 — explicit organization resolution. Defaults to the real tenant-scoped read through the
+   * Organization Authority's own projection. Consulted ONLY for workspaces that declare the
+   * `organization` source class (today: Command only), and it can only ever contribute EVIDENCE —
+   * never a writer, never authority, never an act.
+   */
+  readonly resolveOrganization?: (tenant: TenantContext) => Promise<SourceResolution>;
 }
 
 /** What actually happened to durable persistence for this request. Never fabricated. */
@@ -423,6 +449,44 @@ async function withIntegrations(
 }
 
 /**
+ * E2-1 — the same seam once more, for the organization this tenant IS.
+ *
+ * The pure resolver reports `organization` unavailable because it holds no tenant; this substitutes
+ * the real tenant-scoped read for the workspaces that declare the class (today: Command only).
+ *
+ * IT IS ONE ITEM, ALWAYS. An organization is one record, so the grounding contribution is bounded
+ * at one line by the shape of the fact rather than by a limit anybody chose — there is no roster to
+ * page and no graph to walk. AGENTS ARE NOT ADMITTED HERE: durable agent identity belongs to the
+ * Agents product line and would need its own class and its own admission.
+ *
+ * IT IS AUTHORITATIVE. `companies` IS the organization record and L3 is its released read
+ * authority, so this class declares `authoritative: true` as Governance does — and the response
+ * builder's existing mix reports "authoritative records and derived read models" when it stands
+ * beside the Executive Overview, rather than flattening one into the other.
+ *
+ * A read failure degrades to the pure resolution — it never fabricates an organization, never
+ * invents a department, and never removes another source's evidence.
+ */
+async function withOrganization(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "organization")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveOrganization ?? readOrganizationGroundingSource;
+    const organization = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "organization" ? organization : resolution,
+    );
+  } catch {
+    return resolutions;
+  }
+}
+
+/**
  * Build the grounding context lines the model receives as DATA. Provenance and availability
  * are PRESERVED (not flattened): a resolved item carries its provenance statement; an
  * unavailable source states its honest reason. Record identifiers come only from retrieval.
@@ -564,7 +628,11 @@ export async function answerHebyModelRequest(
   // G6C — this tenant's own Governance record joins the SAME deterministic evidence set.
   const governanceResolutions = await withGovernance(artifactResolutions, tenant, deps);
   // INT-5A — this tenant's integration capability state joins it too. Control-plane read only.
-  const resolutions = await withIntegrations(governanceResolutions, tenant, deps);
+  const integrationResolutions = await withIntegrations(governanceResolutions, tenant, deps);
+  // E2-1 — and the organization this tenant IS joins the SAME deterministic evidence set. Identity
+  // only: what organization exists, and the authority's own statement that its internal structure
+  // has no owner. No department, no roster, no agent.
+  const resolutions = await withOrganization(integrationResolutions, tenant, deps);
   const assembled = assembleEvidence(resolutions);
 
   // The honest deterministic fallback (an answer where possible, an honest unavailable else).
