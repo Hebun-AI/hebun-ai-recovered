@@ -228,6 +228,31 @@ export type AgentOutcomeObservationRead =
     }
   | { readonly status: "unavailable"; readonly reason: string };
 
+/**
+ * The same observation, addressed by durable agent id (E2-3).
+ *
+ * ── WHY A SEPARATE READ SHAPE RATHER THAN A WIDER `AgentOutcomeObservation` ──
+ *
+ * The observation itself still carries NO agent id — that boundary is the released one and this
+ * does not move it. The id lives on the OUTSIDE, as the key, where it can serve a join and cannot
+ * be rendered by a surface that merely spreads the object.
+ *
+ * ── WHAT THE KEY IS FOR ──────────────────────────────────────────────────────
+ *
+ * Exactly one thing: letting a consumer that already holds an authoritative agent identity attach
+ * the observation belonging to THAT identity. It is a join key, not display data.
+ *
+ *     JOIN BY ID, NEVER BY NAME
+ */
+export type AgentOutcomeObservationIndexedRead =
+  | {
+      readonly status: "read";
+      readonly byAgentId: ReadonlyMap<string, AgentOutcomeObservation>;
+      /** Proposals attributed to an agent id the identity read did not return. Never discarded. */
+      readonly unresolvedAgentProposals: number;
+    }
+  | { readonly status: "unavailable"; readonly reason: string };
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * THE PURE COMPOSER
  * ═════════════════════════════════════════════════════════════════════════ */
@@ -326,6 +351,21 @@ function index<T extends { readonly agentId: string }>(rows: readonly T[]): Read
  */
 export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
   readonly agents: readonly AgentOutcomeObservation[];
+  /**
+   * THE SAME OBSERVATIONS, KEYED BY THE DURABLE AGENT ID THEY WERE BUILT FROM (E2-3).
+   *
+   * Built in the SAME pass that builds the list, from `identity.agentId` — the very value the
+   * per-agent facts were looked up by. So the key is not a second derivation that could drift from
+   * the first: there is one pairing, and both outputs are views of it.
+   *
+   * It exists because a consumer that already holds an authoritative agent node needs to attach the
+   * matching observation, and the observation itself deliberately drops the raw id. Attaching by
+   * name or by array position would be a join Hebun cannot prove — two agents may share a name, and
+   * an order is not an identity.
+   *
+   *     AGENT NAME != AGENT IDENTITY        ARRAY POSITION != IDENTITY
+   */
+  readonly byAgentId: ReadonlyMap<string, AgentOutcomeObservation>;
   readonly unresolvedAgentProposals: number;
 } {
   const proposals = index(facts.proposals);
@@ -340,14 +380,14 @@ export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
     if (!known.has(row.agentId)) unresolved += row.filed;
   }
 
-  const agents = facts.identities.map((identity): AgentOutcomeObservation => {
+  const entries = facts.identities.map((identity): readonly [string, AgentOutcomeObservation] => {
     const p = proposals.get(identity.agentId) ?? { agentId: identity.agentId, ...EMPTY_PROPOSALS };
     const m = permits.get(identity.agentId) ?? { agentId: identity.agentId, ...EMPTY_PERMITS };
     const e = executions.get(identity.agentId) ?? { agentId: identity.agentId, ...EMPTY_EXECUTIONS };
     const i = invocations.get(identity.agentId) ?? { agentId: identity.agentId, ...EMPTY_INVOCATIONS };
     const sel = selections.get(identity.agentId) ?? { agentId: identity.agentId, ...EMPTY_SELECTION };
 
-    return {
+    const observation: AgentOutcomeObservation = {
       agentName: identity.name,
       inService: identity.inService,
       retiredAt: identity.retiredAt,
@@ -406,9 +446,16 @@ export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
         proposalsWithoutInvocation: p.withoutInvocationLink,
       },
     };
+
+    /* The key is the identity the facts were looked up by, paired here and nowhere else. */
+    return [identity.agentId, observation] as const;
   });
 
-  return { agents, unresolvedAgentProposals: unresolved };
+  return {
+    agents: entries.map(([, observation]) => observation),
+    byAgentId: new Map(entries),
+    unresolvedAgentProposals: unresolved,
+  };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -416,7 +463,29 @@ export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
  * ═════════════════════════════════════════════════════════════════════════ */
 
 /**
- * Read this tenant's agent outcome observation.
+ * Everything one read of this tenant's outcome evidence produces, INCLUDING the id-keyed index.
+ *
+ * Private on purpose. The two exported entry points below are two VIEWS of this one read, so there
+ * is exactly one place the nine statements are issued and exactly one composition of their answers.
+ * A second entry point with its own body would be a second set of queries free to drift.
+ */
+interface AgentOutcomeCore {
+  readonly agents: readonly AgentOutcomeObservation[];
+  readonly byAgentId: ReadonlyMap<string, AgentOutcomeObservation>;
+  readonly unattributedInvocations: number;
+  readonly unresolvedAgentProposals: number;
+  readonly historicallyUnattributedInvocations: number;
+  readonly attributionConflicts: number;
+  readonly distributionTruncated: boolean;
+  readonly distributionLimit: number;
+}
+
+type AgentOutcomeCoreRead =
+  | { readonly status: "read"; readonly core: AgentOutcomeCore }
+  | { readonly status: "unavailable"; readonly reason: string };
+
+/**
+ * The one read.
  *
  * The tenant comes from the authorized server context and there is no parameter through which a
  * caller could name another one — every underlying statement scopes itself by predicate, and this
@@ -425,14 +494,15 @@ export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
  * ANY read failing makes the whole observation unavailable. A page assembled from four successful
  * reads and one failure would render as a complete answer with a silently-zeroed section, which is
  * the same class of defect as a bounded list that does not say it is bounded.
+ *
+ * NINE STATEMENTS, ISSUED ONCE, EACH GROUPED PER AGENT. There is no per-agent iteration anywhere
+ * below: the number of statements is a property of this function, not of how many agents the
+ * organization has.
  */
-export async function readAgentOutcomeObservation(
+async function readAgentOutcomeCore(
   tenant: TenantContext | null,
-  deps: AgentOutcomeFactsDeps = {},
-): Promise<AgentOutcomeObservationRead> {
-  if (typeof window !== "undefined") {
-    throw new Error("Agent outcome observation reads are server-only.");
-  }
+  deps: AgentOutcomeFactsDeps,
+): Promise<AgentOutcomeCoreRead> {
   if (!tenant?.tenantId) return { status: "unavailable", reason: "no-authorized-tenant-context" };
 
   const distributionLimit = deps.distributionLimit ?? MODEL_DISTRIBUTION_LIMIT;
@@ -484,12 +554,77 @@ export async function readAgentOutcomeObservation(
 
   return {
     status: "read",
-    agents: composed.agents,
-    unresolvedAgentProposals: composed.unresolvedAgentProposals,
-    unattributedInvocations: unattributed.rows[0] ?? 0,
-    historicallyUnattributedInvocations: integrity.rows[0]?.historicallyUnattributed ?? 0,
-    attributionConflicts: integrity.rows[0]?.attributionConflicts ?? 0,
-    distributionTruncated: distribution.rows.length >= distributionLimit,
-    distributionLimit,
+    core: {
+      agents: composed.agents,
+      byAgentId: composed.byAgentId,
+      unresolvedAgentProposals: composed.unresolvedAgentProposals,
+      unattributedInvocations: unattributed.rows[0] ?? 0,
+      historicallyUnattributedInvocations: integrity.rows[0]?.historicallyUnattributed ?? 0,
+      attributionConflicts: integrity.rows[0]?.attributionConflicts ?? 0,
+      distributionTruncated: distribution.rows.length >= distributionLimit,
+      distributionLimit,
+    },
+  };
+}
+
+/**
+ * Read this tenant's agent outcome observation.
+ *
+ * The released entry point, unchanged in shape and in what it refuses to carry: the id-keyed index
+ * is DROPPED here, so this answer still contains no raw agent identifier for a surface to render.
+ */
+export async function readAgentOutcomeObservation(
+  tenant: TenantContext | null,
+  deps: AgentOutcomeFactsDeps = {},
+): Promise<AgentOutcomeObservationRead> {
+  if (typeof window !== "undefined") {
+    throw new Error("Agent outcome observation reads are server-only.");
+  }
+
+  const read = await readAgentOutcomeCore(tenant, deps);
+  if (read.status !== "read") return read;
+
+  return {
+    status: "read",
+    agents: read.core.agents,
+    unresolvedAgentProposals: read.core.unresolvedAgentProposals,
+    unattributedInvocations: read.core.unattributedInvocations,
+    historicallyUnattributedInvocations: read.core.historicallyUnattributedInvocations,
+    attributionConflicts: read.core.attributionConflicts,
+    distributionTruncated: read.core.distributionTruncated,
+    distributionLimit: read.core.distributionLimit,
+  };
+}
+
+/**
+ * THE ID-KEYED VIEW (E2-3), for a consumer that already holds authoritative agent identities.
+ *
+ * The same read, the same composition, the same tenant rule — with the index kept instead of
+ * dropped. It is narrower than {@link readAgentOutcomeObservation} in every other respect: the
+ * tenant-level model-usage and provenance-integrity totals are NOT carried, because a consumer
+ * attaching evidence to one agent node has no use for them and shipping them would widen the
+ * payload for nobody.
+ *
+ * `unresolvedAgentProposals` IS carried. It is the count of proposals attributed to an agent id the
+ * identity read did not return, and a consumer that joins by id must be able to say how much the
+ * join could not place — otherwise the attached numbers read as the whole record.
+ *
+ *     UNKNOWN AGENT ID != PERMISSION TO INVENT AN AGENT
+ */
+export async function readAgentOutcomeObservationIndexed(
+  tenant: TenantContext | null,
+  deps: AgentOutcomeFactsDeps = {},
+): Promise<AgentOutcomeObservationIndexedRead> {
+  if (typeof window !== "undefined") {
+    throw new Error("Agent outcome observation reads are server-only.");
+  }
+
+  const read = await readAgentOutcomeCore(tenant, deps);
+  if (read.status !== "read") return read;
+
+  return {
+    status: "read",
+    byAgentId: read.core.byAgentId,
+    unresolvedAgentProposals: read.core.unresolvedAgentProposals,
   };
 }

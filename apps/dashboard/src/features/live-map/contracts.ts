@@ -71,6 +71,65 @@ export type LiveMapNodeKind = "organization" | "agent";
  */
 export type LiveMapTruth = "authoritative";
 
+/**
+ * THE SECOND TRUTH CLASS ON THE SAME OBJECT (E2-3).
+ *
+ * ONE VALUE, exactly as `LiveMapTruth` has one — and deliberately a DIFFERENT one. A node's `truth`
+ * says the node itself was read from an authority that owns it. An attachment's `truthClass` says
+ * the numbers beside it were COMPOSED from records other authorities wrote, which is a weaker claim
+ * and must never be able to impersonate the stronger one.
+ *
+ *     AUTHORITATIVE AGENT IDENTITY != AUTHORITATIVE OUTCOME
+ *
+ * Because the two live in separate fields with disjoint single-value unions, "authoritative" is
+ * unrepresentable on an attachment and "derived" is unrepresentable on a node. Neither can drift
+ * into the other by an edit somebody makes in good faith.
+ */
+export type LiveMapDerivedClass = "derived";
+
+/** One number a Director reads, and what it refuses to mean. Counts only; never a proportion. */
+export interface LiveMapMeasure {
+  readonly label: string;
+  readonly value: number;
+  /** The sentence that keeps this number from being read as more than it is. */
+  readonly note?: string;
+}
+
+/** Measures kept in their own groups, because collapsing lifecycle stages loses the distinction. */
+export interface LiveMapMeasureGroup {
+  readonly groupId: string;
+  readonly label: string;
+  readonly measures: readonly LiveMapMeasure[];
+}
+
+/**
+ * Derived observation attached to an authoritative node.
+ *
+ * `unavailable` is a first-class variant rather than an absent attachment: a node rendered with no
+ * numbers and no explanation reads as a node with nothing to show, which is the exact defect the
+ * four domain states exist to prevent one level up.
+ *
+ *     UNAVAILABLE != ZERO ACTIVITY
+ */
+export type LiveMapNodeIntelligence =
+  | {
+      readonly status: "observed";
+      readonly truthClass: LiveMapDerivedClass;
+      /** The subsystem that OWNS this evidence. Live Map is never named here either. */
+      readonly sourceAuthority: string;
+      /** What the numbers are counted from, and over what span. Cumulative, and it says so. */
+      readonly basis: string;
+      readonly groups: readonly LiveMapMeasureGroup[];
+      /** Rendered, not implied: what these counts do not prove. */
+      readonly nonClaims: readonly string[];
+    }
+  | {
+      readonly status: "unavailable";
+      readonly truthClass: LiveMapDerivedClass;
+      readonly sourceAuthority: string;
+      readonly detail: string;
+    };
+
 export interface LiveMapNode {
   /** Stable projection identity, kind-prefixed. A projection id, never a domain identifier. */
   readonly nodeId: string;
@@ -83,6 +142,14 @@ export interface LiveMapNode {
   readonly detail: readonly string[];
   /** Where the owning subsystem lives, when a real released route exists. Navigation, not control. */
   readonly openRoute?: string;
+  /**
+   * DERIVED evidence about this node, kept in its own field and never merged into `detail`.
+   *
+   * `detail` carries provenance lines the OWNING authority already resolved; this carries numbers
+   * composed from a different authority's records. Merging them would put two truth classes in one
+   * list of sentences, where a reader could not tell which was which.
+   */
+  readonly intelligence?: LiveMapNodeIntelligence;
 }
 
 /** The one relationship Core can prove. Extending this union requires a durable owner for it. */
@@ -118,6 +185,20 @@ export interface LiveMapProjection {
   readonly edges: readonly LiveMapEdge[];
   /** The honest description of what this reading is. No timestamp; see the header. */
   readonly freshness: string;
+  /**
+   * How complete the DERIVED attachment is — a statement about the join, never about the nodes.
+   *
+   * Present whenever the attachment could be read at all. It exists because a join that quietly
+   * drops rows produces numbers that look whole, and a map is exactly the surface on which a
+   * number that looks whole is believed.
+   */
+  readonly intelligenceCompleteness?: LiveMapIntelligenceCompleteness;
+}
+
+/** The one completeness signal E2-3 can prove, with the sentence that says what it means. */
+export interface LiveMapIntelligenceCompleteness {
+  readonly unresolvedAgentProposals: number;
+  readonly detail: string;
 }
 
 export const LIVE_MAP_FRESHNESS =
@@ -137,6 +218,20 @@ export const LIVE_MAP_PEOPLE_ABSENT =
   "membership carries no departmental placement. People are therefore counted on the organization " +
   "and are not drawn as their own nodes.";
 
+/**
+ * The two sentences the derived attachment's completeness signal can say.
+ *
+ * Frozen so a test reads the milestone's own claim rather than re-deriving it, and so softening
+ * either fails here rather than in front of a Director.
+ */
+export const LIVE_MAP_INTELLIGENCE_COMPLETENESS_WORDING = Object.freeze({
+  placed:
+    "Every agent-filed proposal this reading counted was placed on an agent identity shown above.",
+  unresolved:
+    "Proposals attributed to an agent identity this reading could not place. They are counted so " +
+    "the numbers above are never quietly short, and no agent was invented to hold them.",
+});
+
 /** Frozen so a test can read the milestone's own claims instead of re-deriving them. */
 export const LIVE_MAP_PROJECTION_MODEL = Object.freeze({
   kind: "read-only-projection" as const,
@@ -150,6 +245,15 @@ export const LIVE_MAP_PROJECTION_MODEL = Object.freeze({
   executesAction: false as const,
   /** No stream, no subscription, no polling. */
   realTime: false as const,
+  /**
+   * E2-3. A derived observation may be ATTACHED to an authoritative node; it is never fused into
+   * one. The node keeps its own truth, the attachment keeps its own, and they are separate fields.
+   */
+  attachesDerivedObservation: true as const,
+  /** And a count stays a count: nothing here divides one number by another. */
+  producesProportion: false as const,
+  comparesAgents: false as const,
+  producesJudgement: false as const,
   limitation:
     "Live Map shows what other authorities already know. It cannot create, move, rename or retire " +
     "anything it draws, and a domain with no owner is shown as having no owner rather than as empty.",

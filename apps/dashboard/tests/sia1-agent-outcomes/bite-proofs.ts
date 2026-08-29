@@ -106,12 +106,19 @@ function main(): void {
     assert.ok(baseline.ok, `baseline: ${suite} must pass before any mutation (${baseline.detail})`);
   }
 
-  /* ── 1. A DURABLE WRITE IN THE READ PATH ───────────────────────────────── */
+  /* ── 1. A DURABLE WRITE IN THE READ PATH ───────────────────────────────────
+   *
+   * THE ANCHOR MOVED, THE PROOF DID NOT. E2-3 split this read into one private core and two views
+   * of it, so the composed answer is now assembled inside `readAgentOutcomeCore`. That is still
+   * THE read path — the only place the nine statements are issued — so the mutation lands exactly
+   * where it did before. A find-string that no longer applies proves nothing, which is why it is
+   * repaired here rather than left to look like a mutation that failed to bite.
+   * ────────────────────────────────────────────────────────────────────── */
   proof(
     "durable write",
     PROJECTION,
-    "  return {\n    status: \"read\",\n    agents: composed.agents,",
-    "  const neverRun = () => smuggledDb.insert(smuggledTable).values({});\n  void neverRun;\n  return {\n    status: \"read\",\n    agents: composed.agents,",
+    "  return {\n    status: \"read\",\n    core: {\n      agents: composed.agents,",
+    "  const neverRun = () => smuggledDb.insert(smuggledTable).values({});\n  void neverRun;\n  return {\n    status: \"read\",\n    core: {\n      agents: composed.agents,",
     "performs a durable write",
   );
 

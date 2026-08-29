@@ -21,6 +21,24 @@
  * filter argument, so no caller can point this at another organization — and both authorities
  * beneath it are themselves tenant-scoped with no widening parameter of their own.
  *
+ * ── THE DERIVED ATTACHMENT (E2-3) ────────────────────────────────────────────
+ *
+ * Agent outcome evidence arrives through the SAME kind of seam as everything else: a read owned by
+ * the authority that produces it, `agent-outcome-observation`, which already owns the nine grouped
+ * statements and the seven lifecycle stages. Live Map restates none of that ladder and touches
+ * none of those tables.
+ *
+ * IT IS ATTACHED BY ID AND BY NOTHING ELSE. The agent node's identity is `identity.agentId` from
+ * the identity authority, and the evidence is looked up by that same value. A name join would be a
+ * guess — two agents may carry one name — and an order join would be a coincidence.
+ *
+ *     JOIN BY ID, NEVER BY NAME        AGENT NAME != AGENT IDENTITY
+ *
+ * AND IT STAYS A SECOND TRUTH CLASS. The node keeps `truth: "authoritative"` because the identity
+ * authority vouches for it; the attachment carries `truthClass: "derived"` because nobody vouches
+ * for a composition. They are separate fields with disjoint single-value unions, so neither can
+ * become the other.
+ *
  * ── IT WRITES NOTHING, AND CAN REACH NOTHING THAT WRITES ─────────────────────
  *
  * No INSERT, no UPDATE, no DELETE, no transaction, no database handle at all: it holds no
@@ -33,19 +51,37 @@ import type { OrganizationAuthorityRead } from "@/features/organization-authorit
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import type { DurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+/*
+ * IMPORTED BY FILE, and there is no barrel to import instead. This module is the outcome
+ * authority's own Live Map seam: it reaches the released indexed read and nothing that writes.
+ */
+import { readLiveMapAgentOutcome } from "@/features/agent-outcome-observation/live-map-agent-outcome.server";
+import {
+  LIVE_MAP_AGENT_OUTCOME_AUTHORITY,
+  LIVE_MAP_AGENT_OUTCOME_BASIS,
+  LIVE_MAP_AGENT_OUTCOME_NON_CLAIMS,
+  LIVE_MAP_AGENT_OUTCOME_NOT_OBSERVED,
+  LIVE_MAP_AGENT_OUTCOME_UNAVAILABLE,
+  type LiveMapAgentOutcome,
+  type LiveMapAgentOutcomeRead,
+} from "@/features/agent-outcome-observation/live-map-agent-outcome.server";
 import {
   LIVE_MAP_FRESHNESS,
+  LIVE_MAP_INTELLIGENCE_COMPLETENESS_WORDING,
   LIVE_MAP_PEOPLE_ABSENT,
   LIVE_MAP_STRUCTURE_ABSENT,
   type LiveMapDomain,
   type LiveMapEdge,
+  type LiveMapIntelligenceCompleteness,
   type LiveMapNode,
+  type LiveMapNodeIntelligence,
   type LiveMapProjection,
 } from "./contracts";
 
 export interface LiveMapDeps {
   readonly readOrganization?: (tenant: TenantContext | null) => Promise<OrganizationAuthorityRead>;
   readonly readAgentIdentity?: (tenant: TenantContext | null) => Promise<DurableAgentIdentityState>;
+  readonly readAgentOutcome?: (tenant: TenantContext | null) => Promise<LiveMapAgentOutcomeRead>;
 }
 
 /** Projection identities. Kind-prefixed so a node id can never be mistaken for a domain id. */
@@ -115,13 +151,166 @@ function organizationDomain(read: OrganizationAuthorityRead): LiveMapDomain {
 }
 
 /**
+ * The derived attachment for ONE agent node, resolved by durable agent id.
+ *
+ * THREE OUTCOMES, AND THEY ARE THREE. The evidence could not be read at all; the evidence was read
+ * and holds no entry for this identity; the evidence was read and these are the counts. The first
+ * two are different sentences and neither is a row of zeros, because a zero here is a MEASURED
+ * zero — this agent filed nothing — and printing one over an unread observation would tell a
+ * Director that a working agent has done nothing.
+ *
+ *     UNAVAILABLE != ZERO ACTIVITY
+ *
+ * The counts are carried across unchanged. Nothing is divided, combined or compared: the lifecycle
+ * stages stay apart because each one is a different authority's fact, and one number claiming to
+ * summarise them would be a claim no record supports.
+ *
+ *     APPROVED != EXECUTED    EXECUTED != SUCCESSFUL    FAILED != REFUSED    UNKNOWN != FAILED
+ */
+function agentIntelligence(
+  outcome: LiveMapAgentOutcomeRead,
+  agentId: string,
+): LiveMapNodeIntelligence {
+  if (outcome.status !== "read") {
+    return {
+      status: "unavailable",
+      truthClass: "derived",
+      sourceAuthority: LIVE_MAP_AGENT_OUTCOME_AUTHORITY,
+      detail: LIVE_MAP_AGENT_OUTCOME_UNAVAILABLE,
+    };
+  }
+
+  /* THE ONLY JOIN. The key is the identity authority's own id — never the name, never the order. */
+  const observed: LiveMapAgentOutcome | undefined = outcome.byAgentId.get(agentId);
+  if (!observed) {
+    return {
+      status: "unavailable",
+      truthClass: "derived",
+      sourceAuthority: LIVE_MAP_AGENT_OUTCOME_AUTHORITY,
+      detail: LIVE_MAP_AGENT_OUTCOME_NOT_OBSERVED,
+    };
+  }
+
+  return {
+    status: "observed",
+    truthClass: "derived",
+    sourceAuthority: LIVE_MAP_AGENT_OUTCOME_AUTHORITY,
+    basis: LIVE_MAP_AGENT_OUTCOME_BASIS,
+    nonClaims: LIVE_MAP_AGENT_OUTCOME_NON_CLAIMS,
+    groups: [
+      {
+        groupId: "proposals",
+        label: "Proposals filed",
+        measures: [
+          {
+            label: "Filed",
+            value: observed.activity.proposalsFiled,
+            note: "This agent filed a proposal. A human still had to read it.",
+          },
+          {
+            label: "Awaiting a decision",
+            value: observed.activity.pending,
+            note:
+              "Nobody has decided these yet. Hebun has no scheduler, so a proposal nobody decides " +
+              "stays undecided rather than expiring.",
+          },
+          { label: "Withdrawn", value: observed.activity.withdrawn },
+        ],
+      },
+      {
+        groupId: "governance",
+        label: "Governance outcome",
+        measures: [
+          {
+            label: "Approved",
+            value: observed.governance.approved,
+            note: "An approval authorizes an act. It does not perform one.",
+          },
+          { label: "Rejected", value: observed.governance.rejected },
+          {
+            label: "Permits issued",
+            value: observed.governance.permitsIssued,
+            note: "A durable authorization to act exists, or existed. It is not an execution.",
+          },
+          { label: "Permits still active", value: observed.governance.permitsActive },
+          { label: "Permits expired", value: observed.governance.permitsExpired },
+          { label: "Permits consumed", value: observed.governance.permitsConsumed },
+          { label: "Permits revoked", value: observed.governance.permitsRevoked },
+          {
+            label: "Approved, never executed",
+            value: observed.governance.approvedWithoutExecution,
+            note:
+              "Approved proposals with no execution attempt behind them — the clearest statement " +
+              "here that an approval is not a thing that happened.",
+          },
+        ],
+      },
+      {
+        groupId: "execution",
+        label: "Execution outcome",
+        measures: [
+          {
+            label: "Attempts",
+            value: observed.execution.attempts,
+            note: "An authorization was spent and an attempt was recorded. It may not have worked.",
+          },
+          { label: "Awaiting an answer", value: observed.execution.pending },
+          {
+            label: "Accepted by the provider",
+            value: observed.execution.accepted,
+            note:
+              "The provider took the request and returned its own id. Accepted is not delivered, " +
+              "not received and not read.",
+          },
+          { label: "Refused", value: observed.execution.refused },
+          {
+            label: "Failed",
+            value: observed.execution.failed,
+            note: "A provider answered and declined, or the connection provably never came up.",
+          },
+          {
+            label: "Unknown",
+            value: observed.execution.unknown,
+            note:
+              "The request was sent and the answer was lost. This is not a failure — the external " +
+              "effect may already have happened.",
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * How much of the evidence the join could place, as a projection-level statement.
+ *
+ * Absent when the evidence could not be read at all: a completeness figure over an unread
+ * observation would be a number about nothing.
+ */
+function intelligenceCompleteness(
+  outcome: LiveMapAgentOutcomeRead,
+): LiveMapIntelligenceCompleteness | undefined {
+  if (outcome.status !== "read") return undefined;
+  return {
+    unresolvedAgentProposals: outcome.unresolvedAgentProposals,
+    detail:
+      outcome.unresolvedAgentProposals === 0
+        ? LIVE_MAP_INTELLIGENCE_COMPLETENESS_WORDING.placed
+        : LIVE_MAP_INTELLIGENCE_COMPLETENESS_WORDING.unresolved,
+  };
+}
+
+/**
  * Build the agent domain.
  *
  * THIS IS THE ONE DOMAIN WHERE `known-empty` IS A REAL ANSWER. The released reader separates "this
  * tenant has created no agent" from "the authority could not be reached" in its own type, so the
  * distinction is inherited rather than invented — and it is the only place Core claims it.
  */
-function agentDomain(state: DurableAgentIdentityState): LiveMapDomain {
+function agentDomain(
+  state: DurableAgentIdentityState,
+  outcome: LiveMapAgentOutcomeRead,
+): LiveMapDomain {
   if (state.status === "unavailable") {
     return {
       domainId: "agents",
@@ -167,6 +356,12 @@ function agentDomain(state: DurableAgentIdentityState): LiveMapDomain {
       `Established: ${identity.createdAt}.`,
     ],
     openRoute: "/agents",
+    /*
+     * ATTACHED BY THE SAME ID THE NODE IS BUILT FROM. `identity.agentId` produced this node's
+     * `nodeId` two lines above and it is the key here, so the evidence and the node cannot come
+     * apart — there is one identifier, used twice.
+     */
+    intelligence: agentIntelligence(outcome, identity.agentId),
   }));
 
   return { domainId: "agents", label: "Agents", state: { status: "available", nodes } };
@@ -213,6 +408,7 @@ export async function readLiveMapProjection(
 
   const readOrganization = deps.readOrganization ?? ((t) => readOrganizationAuthority(t));
   const readAgents = deps.readAgentIdentity ?? ((t) => readDurableAgentIdentityState(t));
+  const readOutcome = deps.readAgentOutcome ?? ((t) => readLiveMapAgentOutcome(t));
 
   let organizationRead: OrganizationAuthorityRead;
   try {
@@ -228,8 +424,22 @@ export async function readLiveMapProjection(
     agentState = { status: "unavailable" };
   }
 
+  /*
+   * ONE READ FOR THE WHOLE ORGANIZATION, whatever its size. The evidence arrives keyed by agent id
+   * and every node then costs a map lookup, so nothing here iterates agents to fetch anything.
+   *
+   * A failure is contained exactly as the other two are, and it degrades to an UNREAD attachment on
+   * an otherwise real node — never to an agent that appears to have done nothing.
+   */
+  let outcomeRead: LiveMapAgentOutcomeRead;
+  try {
+    outcomeRead = await readOutcome(tenant);
+  } catch {
+    outcomeRead = { status: "unavailable", reason: "read-failed" };
+  }
+
   const organization = organizationDomain(organizationRead);
-  const agents = agentDomain(agentState);
+  const agents = agentDomain(agentState, outcomeRead);
 
   /*
    * Structure and people are represented, not omitted. Their state is `no-authority` — a claim
@@ -251,5 +461,6 @@ export async function readLiveMapProjection(
     domains: [organization, agents, structure, people],
     edges: edgesFor(organization, agents),
     freshness: LIVE_MAP_FRESHNESS,
+    intelligenceCompleteness: intelligenceCompleteness(outcomeRead),
   };
 }
