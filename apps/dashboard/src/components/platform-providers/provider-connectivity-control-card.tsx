@@ -71,20 +71,33 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
   const transportTone: Tone =
     view.transport === "live" ? "info" : view.transport === "fake" ? "warn" : "muted";
   /*
-   * AVAILABILITY IS THE ONLY FIELD THAT DECIDES DISPATCH.
+   * DISPATCH IS THE ONLY FIELD THAT DECIDES DISPATCH (L2).
    *
    * The gates beside it can all read healthy while a request is still blocked: two of the five
    * inputs `evaluateModelAvailability` consults were never rendered here, and the field labelled
-   * "Credential" reports a different variable than the credential GATE. So the card is no longer
-   * allowed to imply readiness from the gates alone — it states the evaluator's own verdict.
+   * "Credential" reports a different variable than the credential GATE. So the card is not allowed
+   * to imply readiness from the gates alone — it states a verdict.
+   *
+   * THAT VERDICT USED TO BE `availability`, AND `availability` CANNOT SEE THE DIRECTOR. It is pure
+   * config and transport presence. The Director's durable control is the FIRST gate at request time
+   * and blocks before a transport is selected, so this card rendered a green "an attempt is
+   * permitted" in the kill switch's own intended operating state — configured deployment, Director
+   * off, nothing dispatched. The verdict is now `dispatch`, which is that composition, and it names
+   * the refusing authority instead of collapsing both into one word.
    */
   const availabilityTone: Tone = view.availability === "AVAILABLE" ? "good" : "warn";
   const AVAILABILITY_LABEL: Record<typeof view.availability, string> = {
-    AVAILABLE: "Available — an attempt is permitted",
+    AVAILABLE: "Configuration permits an attempt",
     DISABLED: "Disabled — connectivity flag is not enabled",
     MISCONFIGURED: "Misconfigured — provider, model or output bound",
     CREDENTIAL_UNAVAILABLE: "Blocked — no server-side model credential",
     TRANSPORT_UNAVAILABLE: "Blocked — no live transport selected",
+  };
+  const dispatchTone: Tone = view.dispatch === "permitted" ? "good" : "warn";
+  const DISPATCH_LABEL: Record<typeof view.dispatch, string> = {
+    permitted: "Permitted — an attempt may be made",
+    "blocked-by-director": "Blocked — the Director's connectivity control is off",
+    "blocked-by-availability": "Blocked — the deployment's model configuration",
   };
   const transportLabel =
     view.transport === "live" ? "Live" : view.transport === "fake" ? "Test (fake)" : "Unavailable";
@@ -163,8 +176,11 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
           <Field label="Transport">
             <Pill tone={transportTone} label={transportLabel} />
           </Field>
-          <Field label="Availability">
+          <Field label="Configuration verdict">
             <Pill tone={availabilityTone} label={AVAILABILITY_LABEL[view.availability]} />
+          </Field>
+          <Field label="Dispatch">
+            <Pill tone={dispatchTone} label={DISPATCH_LABEL[view.dispatch]} />
           </Field>
           <Field label="Connectivity">
             <Pill tone="muted" label="Not recorded" />
@@ -180,9 +196,10 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
           <strong className="text-fg-secondary">Enabled</strong> means the Director permits
           connectivity — not that Claude is configured, healthy, reachable, or that the last request
           succeeded. Those are separate facts shown above.{" "}
-          <strong className="text-fg-secondary">Availability</strong> is the only one that decides
-          whether a request may be attempted at all; the other gates can read healthy while it does
-          not. It still never means a provider was reached or that a call succeeded.
+          <strong className="text-fg-secondary">Dispatch</strong> is the only one that decides
+          whether a request may be attempted at all; every other field here — the configuration
+          verdict included — can read healthy while it does not, because none of them can see all
+          the gates. It still never means a provider was reached or that a call succeeded.
         </p>
         <p className="text-xs leading-5 text-fg-muted">
           The API key is never shown or changed here; it stays in server configuration. This control

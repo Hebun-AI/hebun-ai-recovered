@@ -64,8 +64,17 @@ const PROVIDER_OFF = {
   transport: "fake" as const,
   connectivity: "not-recorded" as const,
   lastValidation: null,
-  /* Director OFF, so no request may be attempted regardless of the gates above. */
-  availability: "DISABLED" as const,
+  /*
+   * L2 — THE TWO FACTS ARE NOW SEPARATE, AND THIS FIXTURE STOPPED COMPENSATING FOR THAT.
+   *
+   * It used to hand-write `availability: "DISABLED"` to express "Director off", which the real
+   * evaluator would never return for a configured deployment with a transport — it is pure config
+   * and cannot see the Director at all. The fixture was therefore describing a state that could not
+   * occur, in order to reach the outcome that does. Now `availability` is what the configuration
+   * honestly classifies, and `dispatch` carries the Director's refusal.
+   */
+  availability: "AVAILABLE" as const,
+  dispatch: "blocked-by-director" as const,
 };
 
 function plan(slash: string, args: readonly string[] = []): HebyCommandPlan {

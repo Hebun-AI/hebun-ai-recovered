@@ -83,9 +83,24 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M2 credential existence is treated as capability",
     file: PROJECTION,
     suite: TRUTH_SUITE,
-    find: `    if (ops.availability === "AVAILABLE") {`,
-    replace: `    if (ops.availability === "AVAILABLE" || ops.credential === "present") {`,
+    find: `    if (ops.dispatch === "permitted") {`,
+    replace: `    if (ops.dispatch === "permitted" || ops.credential === "present") {`,
     expect: "a present credential does not make the model usable",
+  },
+  {
+    /*
+     * L2 — THE DIRECTOR'S REFUSAL IS DROPPED AND THE CONFIGURATION ANSWERS ALONE.
+     *
+     * This is the released defect itself, put back: `availability` cannot see the kill switch, so
+     * reading it here offers eight model commands in the one state the kill switch exists to
+     * produce. The mutation is a single field name, which is exactly how the defect got in.
+     */
+    label: "M2b the Director's kill switch is dropped from the /help answer",
+    file: PROJECTION,
+    suite: TRUTH_SUITE,
+    find: `    if (ops.dispatch === "permitted") {`,
+    replace: `    if (ops.availability === "AVAILABLE") {`,
+    expect: "a model command is not offered while the Director's connectivity control is off",
   },
   {
     /* BEING CONNECTABLE IS A FACT ABOUT THE BUILD, NOT ABOUT THE TENANT. */

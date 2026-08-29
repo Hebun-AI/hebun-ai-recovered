@@ -9,7 +9,8 @@
  *   transport        — which transport the current config would select (live/fake/unavailable)
  *   connectivity     — "not-recorded": R2E performs NO live check, so it invents no health
  *   lastValidation   — null: no authoritative last-validation record exists yet
- *   availability     — the AUTHORITATIVE dispatch classification, from `evaluateModelAvailability`
+ *   availability     — the CONFIGURATION-and-transport classification, from `evaluateModelAvailability`
+ *   dispatch         — the AUTHORITATIVE answer to "may a request be attempted right now"
  *
  * ── WHY `availability` HAD TO BE ADDED ───────────────────────────────────────
  *
@@ -36,6 +37,29 @@
  * AVAILABLE still means only "an attempt is permitted" — never that a provider was reached, and
  * never that a call succeeded.
  *
+ * ── WHY `dispatch` HAD TO BE ADDED (L2) ─────────────────────────────────────
+ *
+ * `availability` was documented, and rendered, as the field that decides whether a request may be
+ * attempted. It is not, and it never was: it is `evaluateModelAvailability`, which is pure and
+ * consults server config and transport presence ONLY. The Director's durable connectivity control
+ * is a SEPARATE authority, read from a durable row, and at request time it is the FIRST gate —
+ * `answerHebyModelRequest` reads it before any transport is selected and returns the deterministic
+ * answer with ZERO provider contact when it is off.
+ *
+ * So `directorControl: "disabled"` beside `availability: "AVAILABLE"` was a representable, and in
+ * fact the INTENDED, operating state of the kill switch — and in it the product said an attempt was
+ * permitted while the runtime would dispatch nothing. That is the one thing this card exists to
+ * prevent.
+ *
+ * `dispatch` is not a sixth opinion either. It is the composition of the two authorities this
+ * function ALREADY reads, in the SAME order the request path applies them, so no reader has to
+ * combine them for itself and no second reader can combine them differently. It names the blocking
+ * authority rather than collapsing both into one word: "the Director said no" and "the deployment
+ * is not configured" are different facts and an operator must be able to tell them apart.
+ *
+ * `permitted` still means only "an attempt is permitted" — never that a provider was reached, and
+ * never that a call succeeded.
+ *
  * "Director enabled" ≠ "configured" ≠ "credential present" ≠ "connected" ≠ "last request ok".
  * The view carries no API key, no partial key, no health %, no cost, and no latency.
  *
@@ -57,6 +81,17 @@ import {
   resolveClaudeDirectorEnabled,
 } from "./provider-connectivity-control.server";
 
+/**
+ * Whether a model request may actually be dispatched, and — when it may not — WHICH authority
+ * refused. The Director's control is checked FIRST because the request path checks it first: it
+ * blocks before a transport is even selected, so a deployment that is perfectly configured is
+ * still blocked by it.
+ */
+export type ModelDispatchState =
+  | "permitted"
+  | "blocked-by-director"
+  | "blocked-by-availability";
+
 export interface ProviderOpsView {
   readonly providerLabel: string;
   readonly providerKey: string;
@@ -76,10 +111,17 @@ export interface ProviderOpsView {
   /** No authoritative last-validation record exists yet. */
   readonly lastValidation: null;
   /**
-   * The AUTHORITATIVE dispatch classification — the only field that answers "may a request be
-   * attempted right now". Derived from the released `evaluateModelAvailability`, never restated.
+   * The configuration-and-transport classification, from the released `evaluateModelAvailability`,
+   * never restated. It is NOT the dispatch decision: it cannot see the Director's control. Read
+   * `dispatch` for that.
    */
   readonly availability: ModelAvailabilityState;
+  /**
+   * The AUTHORITATIVE answer to "may a model request be attempted right now" — the composition of
+   * the Director's durable control and `availability`, in the order the request path applies them.
+   * `permitted` is permission to try, never a claim that a provider was reached.
+   */
+  readonly dispatch: ModelDispatchState;
 }
 
 export interface ProviderOpsViewDeps {
@@ -113,6 +155,18 @@ export async function readProviderOpsView(
     transportPresent: Boolean(selection.transport),
   });
 
+  /*
+   * THE COMPOSITION, IN THE REQUEST PATH'S OWN ORDER. `answerHebyModelRequest` reads the Director
+   * control before it selects a transport, so a Director refusal outranks every configuration fact
+   * beneath it. Nothing is re-derived here and no authority is re-interpreted: both operands are
+   * the values already resolved above.
+   */
+  const dispatch: ModelDispatchState = !directorEnabled
+    ? "blocked-by-director"
+    : availability === "AVAILABLE"
+      ? "permitted"
+      : "blocked-by-availability";
+
   return {
     providerLabel: "Anthropic / Claude",
     providerKey: CLAUDE_PROVIDER_KEY,
@@ -125,5 +179,6 @@ export async function readProviderOpsView(
     connectivity: "not-recorded",
     lastValidation: null,
     availability,
+    dispatch,
   };
 }

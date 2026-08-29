@@ -58,12 +58,31 @@ function capabilityView(state: string, reason: string): CapabilityAvailabilityVi
  * is not authentication. A projection that read `credential` would get this case backwards, which
  * is exactly what M2 mutates.
  */
-function ops(availability: string, credential: "present" | "missing" = "missing"): ProviderOpsView {
+/*
+ * L2 — THE FIXTURE GAINED THE DIRECTOR DIMENSION, BECAUSE THE ANSWER DEPENDS ON IT.
+ *
+ * `availability` is pure server config and transport presence; it cannot see the Director's durable
+ * connectivity control, which at request time is the FIRST gate. `dispatch` is the composition of
+ * the two, in that order — restated here only so an injected view is internally coherent. The real
+ * composition is made once, in the provider-ops projection, and is pinned against it in
+ * `tests/l2-heby-core/model-dispatch-truth.ts`.
+ */
+function ops(
+  availability: string,
+  credential: "present" | "missing" = "missing",
+  directorEnabled = true,
+): ProviderOpsView {
   return {
-    providerLabel: "Claude", providerKey: "claude", directorEnabled: true,
-    directorControl: "enabled", configuration: "configured", credential,
+    providerLabel: "Claude", providerKey: "claude", directorEnabled,
+    directorControl: directorEnabled ? "enabled" : "disabled",
+    configuration: "configured", credential,
     model: "claude-test", transport: "live", connectivity: "not-recorded",
     lastValidation: null, availability,
+    dispatch: !directorEnabled
+      ? "blocked-by-director"
+      : availability === "AVAILABLE"
+        ? "permitted"
+        : "blocked-by-availability",
   } as unknown as ProviderOpsView;
 }
 
@@ -154,7 +173,43 @@ async function main(): Promise<void> {
     assert.equal(
       entryFor(inverse, "summary").state,
       "available",
-      "and an absent credential does not make it unusable — only `availability` decides",
+      "and an absent credential does not make it unusable — only `dispatch` decides",
+    );
+  }
+
+  /* ── 3b · THE DIRECTOR OUTRANKS A PERFECT CONFIGURATION (L2) ─────────────── */
+  {
+    /*
+     * THE DEFECT L2 REMOVED, PINNED WHERE IT LIVED.
+     *
+     * `availability` is AVAILABLE, the credential is present, the transport is live — every gate
+     * this projection used to consult reads healthy. The Director's durable control is off, so the
+     * request path will select no transport and dispatch nothing. Offering the command here is
+     * Hebun asserting a runtime capability it does not have, which is the exact thing HEBY-CAP1
+     * exists to prevent — on the model axis rather than the provider axis.
+     */
+    const view = await readCommandCapabilityView(TENANT_A, {
+      readCapabilityAvailability: async () => capabilityView("available", "Usable."),
+      readProviderOps: async () => ops("AVAILABLE", "present", false),
+    });
+    const summary = entryFor(view, "summary");
+    assert.equal(
+      summary.state,
+      "unavailable",
+      "a model command is not offered while the Director's connectivity control is off",
+    );
+    assert.equal(summary.governedBy, "model-availability");
+    assert.match(
+      summary.reason,
+      /Director's connectivity control is off/,
+      "and the denial names the Director rather than blaming the configuration",
+    );
+
+    /* A provider-read command uses no model, so the SAME view must leave it untouched. */
+    assert.equal(
+      entryFor(view, "repositories").state,
+      "available",
+      "the model kill switch does not deny a command that needs no model",
     );
   }
 

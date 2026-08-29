@@ -238,7 +238,17 @@ function resolveCommand(
     return { ...base, ...resolved, governedBy: "provider-capability" };
   }
 
-  /* 5 · MODEL-REQUIRING — the released dispatch classification answers, and only that field. */
+  /*
+   * 5 · MODEL-REQUIRING — the released dispatch classification answers, and only that field.
+   *
+   * THE FIELD READ HERE IS `dispatch`, NOT `availability` (L2). `availability` is pure config and
+   * transport presence; it cannot see the Director's durable connectivity control, which at request
+   * time is the FIRST gate and blocks before a transport is selected. Reading `availability` here
+   * told a tenant that `/summary` could be attempted while the Director's kill switch was off and
+   * the runtime would dispatch nothing — the exact defect class this whole module exists to remove,
+   * on the model axis instead of the provider axis. `dispatch` is the composition of both, made once
+   * by the authority that already holds both, so this projection still combines nothing itself.
+   */
   if (command.requiresModel === true) {
     if (!ops) {
       return {
@@ -248,19 +258,26 @@ function resolveCommand(
         governedBy: "model-availability",
       };
     }
-    if (ops.availability === "AVAILABLE") {
+    if (ops.dispatch === "permitted") {
       return {
         ...base,
         state: "available",
-        /* `AVAILABLE` means an attempt is PERMITTED. It was never a promise that a call succeeds. */
+        /* `permitted` means an attempt is PERMITTED. It was never a promise that a call succeeds. */
         reason: "A model request may currently be attempted. That is permission to try, not a guarantee.",
         governedBy: "model-availability",
       };
     }
+    /*
+     * A DENIAL NAMES THE AUTHORITY THAT MADE IT. "The Director turned it off" and "this deployment
+     * is not configured for it" are different facts, and an operator acts on them differently.
+     */
     return {
       ...base,
       state: "unavailable",
-      reason: `The model is not currently usable (${ops.availability}), so this command cannot run.`,
+      reason:
+        ops.dispatch === "blocked-by-director"
+          ? "The Director's connectivity control is off, so no model request may be dispatched and this command cannot run."
+          : `The model is not currently usable (${ops.availability}), so this command cannot run.`,
       governedBy: "model-availability",
     };
   }
