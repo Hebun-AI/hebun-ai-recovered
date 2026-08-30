@@ -191,6 +191,112 @@ export const GOOGLE_DRIVE_METADATA_CAPABILITY = "google.drive.metadata.read" as 
 export const GOOGLE_DRIVE_METADATA_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
 
 /**
+ * THE DRIVE CONTENT-READ CAPABILITY (KID-1).
+ *
+ * It is a SECOND capability, not a widening of the first, and the two are never merged. A tenant
+ * may have granted the metadata scope and not this one; the availability seam answers each
+ * independently, so `google.drive.metadata.read` keeps meaning exactly what INT-4 made it mean.
+ *
+ *     METADATA READ != CONTENT READ        DISCOVERY != DOWNLOAD
+ */
+export const GOOGLE_DRIVE_CONTENT_CAPABILITY = "google.drive.content.read" as const;
+
+/**
+ * THE SCOPE THIS CAPABILITY REQUESTS, AND THE ONE HEBUN DELIBERATELY COULD NOT USE.
+ *
+ * Verified against Google's current method references rather than assumed:
+ *
+ *   `files.get?alt=media` and `files.export` both accept `drive`, `drive.file`,
+ *   `drive.meet.readonly` and `drive.readonly`. `drive.metadata.readonly` accepts `files.get` for
+ *   METADATA only — INT-4's grant cannot download, which is why this capability exists at all.
+ *
+ * `drive.file` IS THE NARROWER SCOPE AND IT IS NOT USABLE HERE YET. Google classifies it as
+ * NON-SENSITIVE precisely because it grants per-file access only to files the user hands the app
+ * through the Google Picker or the app's own picker. Hebun has no Picker: this repository discovers
+ * documents with `files.list` against the user's Drive, and under `drive.file` that call returns
+ * only files already granted — which on a fresh connection is nothing. Choosing it today would
+ * ship a capability that reports available and reads an empty Drive.
+ *
+ * So `drive.readonly` is chosen, and the cost is stated rather than softened: Google classifies it
+ * RESTRICTED, it reads "view and download all your Drive files", and it makes Google verification
+ * plus a CASA assessment a production prerequisite. That is recorded as release debt, exactly as
+ * INT-4 recorded the same debt for the metadata scope.
+ *
+ * THE LEAST-PRIVILEGE PATH IS NOT CLOSED, it is sequenced: the capability→scope map below is keyed
+ * by CAPABILITY, so a later Picker-based capability can request `drive.file` without touching this
+ * entry or re-interpreting this one.
+ */
+export const GOOGLE_DRIVE_CONTENT_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+
+/**
+ * WHAT KIND OF CONTENT A DRIVE READ RETURNED — a CLOSED vocabulary owned here.
+ *
+ * KID-0 recorded the blocker this answers: a native Google Doc has no filename extension, and the
+ * Knowledge file boundary derives its source type from one. This is the provider's normalized
+ * answer to "what did I just hand you", and it exists so a LATER milestone can map it through an
+ * explicit allowlist instead of trusting a provider-declared MIME string.
+ *
+ * It is three values because three formats are supported. It is not a taxonomy.
+ */
+export type GoogleDriveContentKind = "google-doc-text" | "plain-text" | "markdown";
+
+/**
+ * WHICH DRIVE MIME TYPES THIS CAPABILITY READS, AND HOW — a closed map, and the ONLY way in.
+ *
+ * A MIME type absent from this map is refused. That is the fail-closed direction: an unsupported
+ * type must never fall through to a generic download, because "whatever Drive returns" is how a
+ * spreadsheet, an image or an executable becomes text somebody later ingests.
+ *
+ * `export` names a Google Workspace document, which cannot be downloaded with `alt=media` at all
+ * and must go through `files.export`. `download` names a real stored file.
+ */
+export const GOOGLE_DRIVE_READABLE_TYPES: Readonly<
+  Record<string, { readonly method: "export" | "download"; readonly kind: GoogleDriveContentKind }>
+> = Object.freeze({
+  "application/vnd.google-apps.document": Object.freeze({
+    method: "export" as const,
+    kind: "google-doc-text" as const,
+  }),
+  "text/plain": Object.freeze({ method: "download" as const, kind: "plain-text" as const }),
+  "text/markdown": Object.freeze({ method: "download" as const, kind: "markdown" as const }),
+  "text/x-markdown": Object.freeze({ method: "download" as const, kind: "markdown" as const }),
+});
+
+/** The MIME type a Google Workspace document is exported AS. Never caller-supplied. */
+export const GOOGLE_DRIVE_EXPORT_MIME = "text/plain" as const;
+
+/**
+ * THE MOST CONTENT ONE READ MAY RETURN.
+ *
+ * Google's own export cap is 10 MB. This is far below it, deliberately and for INT-4's stated
+ * reason: a read seam bounded at the provider's maximum is a data export waiting for a caller. It
+ * is also enforced TWICE — once from the metadata Drive reports before the body is fetched, and
+ * again on the bytes actually received, because a declared size is a claim and a byte count is a
+ * measurement.
+ */
+export const MAX_DRIVE_CONTENT_BYTES = 1_000_000;
+
+/** One document's content, and the identity a later milestone needs to attribute it. */
+export interface GoogleDriveContent {
+  readonly fileId: string;
+  readonly name: string;
+  /** What Drive said the document IS. */
+  readonly providerMimeType: string;
+  /** What Hebun actually received — for an exported Doc these differ, and both are reported. */
+  readonly returnedMimeType: string;
+  /** The closed normalized kind. A later boundary maps THIS, never `providerMimeType`. */
+  readonly contentKind: GoogleDriveContentKind;
+  /** The decoded text. Never interpreted, never executed, never treated as an instruction. */
+  readonly text: string;
+  /** Measured from the received body, never taken from Drive's declared size. */
+  readonly byteLength: number;
+}
+
+export type GoogleDriveContentResult =
+  | { readonly ok: true; readonly content: GoogleDriveContent }
+  | GoogleFailure;
+
+/**
  * WHICH EXTRA SCOPES A CAPABILITY UPGRADE MAY REQUEST — a closed map, keyed by capability.
  *
  * The authorization route accepts a CAPABILITY, never a scope. A handler that took scopes would
@@ -204,6 +310,11 @@ export const GOOGLE_DRIVE_METADATA_SCOPE = "https://www.googleapis.com/auth/driv
 export const GOOGLE_CAPABILITY_SCOPE_REQUESTS: Readonly<Record<string, readonly string[]>> =
   Object.freeze({
     [GOOGLE_DRIVE_METADATA_CAPABILITY]: Object.freeze([GOOGLE_DRIVE_METADATA_SCOPE]),
+    /*
+     * KID-1. A SEPARATE ENTRY, so a caller asking for content consent cannot silently obtain
+     * metadata consent or the reverse. The route still accepts a capability and never a scope.
+     */
+    [GOOGLE_DRIVE_CONTENT_CAPABILITY]: Object.freeze([GOOGLE_DRIVE_CONTENT_SCOPE]),
   });
 
 /** The capability names an authorization request may legitimately carry. */

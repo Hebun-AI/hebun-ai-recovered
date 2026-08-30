@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import {
   GOOGLE_DRIVE_METADATA_CAPABILITY,
   GOOGLE_DRIVE_METADATA_SCOPE,
+  GOOGLE_DRIVE_CONTENT_CAPABILITY,
   GOOGLE_REQUESTED_SCOPES,
   MAX_DRIVE_FILES_PER_PAGE,
   extraScopesForCapability,
@@ -181,10 +182,24 @@ async function lifecycleAndHealthStillGate(): Promise<void> {
 /* ── The scope-upgrade request ──────────────────────────────────────────────── */
 
 function theUpgradeRequestIsClosed(): void {
-  assert.deepEqual([...GOOGLE_UPGRADEABLE_CAPABILITIES], [GOOGLE_DRIVE_METADATA_CAPABILITY]);
+  /*
+   * ── AMENDED BY KID-1, THE SAME WAY GITHUB-2 AMENDED THE CENSUS ABOVE ──────
+   *
+   * This list was `[metadata]` because metadata was the only capability that existed. KID-1 added
+   * `google.drive.content.read` behind its own scope and its own consent, so the list is two.
+   *
+   * What INT-4 was actually defending is asserted immediately below and is UNCHANGED: the map is
+   * CLOSED, and the metadata capability still resolves to the metadata scope and nothing wider.
+   * A capability arriving here without somebody naming it is what this assertion still prevents.
+   */
+  assert.deepEqual(
+    [...GOOGLE_UPGRADEABLE_CAPABILITIES],
+    [GOOGLE_DRIVE_METADATA_CAPABILITY, GOOGLE_DRIVE_CONTENT_CAPABILITY],
+  );
   assert.deepEqual(
     [...extraScopesForCapability(GOOGLE_DRIVE_METADATA_CAPABILITY)!],
     [GOOGLE_DRIVE_METADATA_SCOPE],
+    "the metadata capability was not widened by the content capability existing",
   );
   /* Anything else resolves to NOTHING — never to a scope, and never to an echoed error. */
   for (const hostile of [

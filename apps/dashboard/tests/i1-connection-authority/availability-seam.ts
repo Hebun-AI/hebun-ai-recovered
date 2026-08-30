@@ -196,9 +196,14 @@ async function main(): Promise<void> {
        * `not-connected`, and asserting that is stronger than asserting a length.
        */
       const listed = view.capabilities.map((c) => c.capability).sort();
+      /* KID-1 added `google.drive.content.read`; the seam must list it like any other. */
       assert.deepEqual(
         listed,
-        ["github.repository.activity.read", "google.drive.metadata.read"],
+        [
+          "github.repository.activity.read",
+          "google.drive.content.read",
+          "google.drive.metadata.read",
+        ],
         "the view lists every mapped capability",
       );
       const github = view.capabilities.find(

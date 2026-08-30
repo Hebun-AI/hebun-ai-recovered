@@ -57,6 +57,8 @@ import type { ConnectionDefinition, ProviderCatalog } from "@/features/integrati
 import {
   GOOGLE_DRIVE_METADATA_CAPABILITY,
   GOOGLE_DRIVE_METADATA_SCOPE,
+  GOOGLE_DRIVE_CONTENT_CAPABILITY,
+  GOOGLE_DRIVE_CONTENT_SCOPE,
 } from "@/features/provider-google/contracts";
 import {
   GITHUB_PROVIDER_KEY,
@@ -113,11 +115,30 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
      * connection reports `writeCapable: false` however generous the tenant's grant becomes. Drive
      * write is not a scope away; it is a phase away.
      *
-     * No content capability is listed, because `drive.metadata.readonly` cannot download a file.
+     * ── A SECOND CAPABILITY, ADDED BY KID-1 ────────────────────────────────
+     *
+     * Through INT-4 this comment read "No content capability is listed, because
+     * `drive.metadata.readonly` cannot download a file." That sentence is still TRUE of the
+     * metadata scope, and it is why the content capability needed a scope of its own rather than a
+     * looser reading of the existing grant. The rule did not change; the implementation caught up
+     * with it a second time.
+     *
+     * THE TWO ARE NEVER MERGED. A tenant may hold either grant, both, or neither, and the
+     * availability seam answers each independently — so a metadata connection does not become a
+     * content connection by being listed on the same provider.
+     *
+     * `write` STAYS EMPTY ON BOTH. The availability seam treats an empty write set as "no write
+     * capability exists" rather than "vacuously satisfied", so this connection reports
+     * `writeCapable: false` however generous the tenant's grant becomes. Drive write is not a scope
+     * away; it is a phase away — and KID-1 does not take it.
      */
     capabilityScopes: Object.freeze({
       [GOOGLE_DRIVE_METADATA_CAPABILITY]: Object.freeze({
         read: Object.freeze([GOOGLE_DRIVE_METADATA_SCOPE]),
+        write: Object.freeze([]),
+      }),
+      [GOOGLE_DRIVE_CONTENT_CAPABILITY]: Object.freeze({
+        read: Object.freeze([GOOGLE_DRIVE_CONTENT_SCOPE]),
         write: Object.freeze([]),
       }),
     }),

@@ -288,16 +288,31 @@ function main(): void {
      */
     assert.deepEqual([...GOOGLE_REQUESTED_SCOPES], ["openid", "email", "profile"], "the BASE request is still identity-only");
 
-    /* The only Drive scope permitted to exist, anywhere in these directories. */
-    const ALLOWED_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
+    /*
+     * ── THE DRIVE SCOPE ALLOWLIST, EXTENDED BY KID-1 ─────────────────────────
+     *
+     * INT-3 permitted exactly one Drive scope to appear anywhere in these directories, and that
+     * was right while one existed. KID-1 added a content capability, which needs
+     * `drive.readonly` — a RESTRICTED scope Google describes as "view and download all your Drive
+     * files", requested only through the closed capability→scope map and only on its own consent.
+     *
+     * The list stays an ALLOWLIST of exactly two, which is what this assertion defends: a third
+     * Drive scope cannot appear without somebody adding it here. `drive`, `drive.appdata`,
+     * `drive.metadata` (read-write) and every other sibling remain refused, and the non-Drive
+     * product scopes below are untouched.
+     */
+    const ALLOWED_DRIVE_SCOPES = [
+      "https://www.googleapis.com/auth/drive.metadata.readonly",
+      "https://www.googleapis.com/auth/drive.readonly",
+    ];
     for (const file of collect(GOOGLE).concat(collect("src/features/provider-catalog"))) {
       const code = read(file);
       for (const forbidden of ["auth/calendar", "admin.directory", "auth/gmail", "auth/spreadsheets", "auth/contacts", "auth/documents"]) {
         assert.ok(!code.includes(forbidden), `${file} must not request "${forbidden}"`);
       }
-      /* Every Drive scope occurrence must be the metadata-readonly one — never a wider sibling. */
+      /* Every Drive scope occurrence must be one of the two allowed — never a wider sibling. */
       for (const found of code.match(/https:\/\/www\.googleapis\.com\/auth\/drive[A-Za-z.]*/g) ?? []) {
-        assert.equal(found, ALLOWED_DRIVE_SCOPE, `${file} may name only the metadata-readonly Drive scope`);
+        assert.ok(ALLOWED_DRIVE_SCOPES.includes(found), `${file} may name only an allowlisted Drive scope, found ${found}`);
       }
       /* No write-bearing Drive scope may appear even in a comment that a later edit could copy. */
       for (const forbidden of ["auth/drive.file", "auth/drive.appdata", "auth/drive.scripts"]) {
@@ -340,10 +355,16 @@ function main(): void {
      * WRITE SET IS EMPTY. An empty write set is now load-bearing: the availability seam reports
      * `writeCapable: false` for it, so no surface can claim Hebun may modify Drive.
      */
+    /*
+     * AMENDED BY KID-1: the Google definition now maps TWO capabilities — INT-4's metadata read and
+     * KID-1's content read. The sentence the write-set comment above defends is unchanged and is
+     * asserted separately: BOTH declare an empty write set, so no grant makes this connection
+     * write-capable. Naming each capability keeps the diff saying WHICH one arrived.
+     */
     assert.deepEqual(
       Object.keys(google.capabilityScopes),
-      ["google.drive.metadata.read"],
-      "INT-4 delivers exactly one capability, and it is the Drive metadata read",
+      ["google.drive.metadata.read", "google.drive.content.read"],
+      "Google maps exactly the metadata read and the content read — nothing else",
     );
     const drive = google.capabilityScopes["google.drive.metadata.read"]!;
     assert.deepEqual(

@@ -386,9 +386,18 @@ function main(): void {
      * capability makes the availability seam able to say "connected but cannot answer this yet";
      * omitting it would make the seam silent about a capability the catalog's provider offers.
      */
+    /*
+     * KID-1 adds `google.drive.content.read`. It is DECLARED and its scope is a separate consent —
+     * a tenant holding the metadata grant reports it `not-connected` until they grant the content
+     * scope too, which is exactly the sentence this census exists to keep sayable.
+     */
     assert.deepEqual(
       [...listConnectableCapabilities()].sort(),
-      ["github.repository.activity.read", "google.drive.metadata.read"],
+      [
+        "github.repository.activity.read",
+        "google.drive.content.read",
+        "google.drive.metadata.read",
+      ],
       "every mapped capability, and each named by a provider that is genuinely connectable",
     );
 

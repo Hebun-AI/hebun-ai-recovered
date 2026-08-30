@@ -155,16 +155,35 @@ function main(): void {
       [GOOGLE_DRIVE_METADATA_SCOPE],
       "the Drive read claim must rest on the metadata scope and nothing wider",
     );
-    assert.deepEqual(
-      [...scopes!.write],
-      [],
-      'the site says "No Drive write" — the catalog write set must stay empty',
-    );
+    /*
+     * ── WIDENED BY KID-1, AFTER ITS OWN BITE-PROOF FOUND THE GAP ─────────────
+     *
+     * This asserted the METADATA capability's write set and nothing else, which was complete while
+     * Google mapped one capability. KID-1 added a second, and a new bite-proof that put a write
+     * scope on it did NOT bite: the site kept publishing "nothing in Drive is written" while the
+     * catalog said otherwise. The claim is about DRIVE, so the guard must cover every Google
+     * capability rather than whichever one was written first.
+     */
+    for (const [capability, capScopes] of Object.entries(google.capabilityScopes ?? {})) {
+      assert.deepEqual(
+        [...capScopes.write],
+        [],
+        `the site says nothing in Drive is written — ${capability} must declare no write scope`,
+      );
+    }
 
     const drive = claim("drive-metadata-read");
     assert.equal(drive.state, "read-only", "a metadata scope cannot be published as writable");
     assert.match(drive.limit, /drive\.metadata\.readonly/, "the limit must name the exact scope");
-    assert.match(drive.limit, /No file content is read/, "the content refusal must be published");
+    /*
+     * The refusal is now stated ABOUT THIS CAPABILITY rather than about Hebun — see the claim's own
+     * comment. The guard follows the sentence it defends.
+     */
+    assert.match(
+      drive.limit,
+      /This capability reads no file content/,
+      "the content refusal must be published, scoped to the capability it describes",
+    );
     assert.match(drive.limit, /nothing in Drive is written/, "the write refusal must be published");
     assert.match(
       drive.limit,

@@ -69,15 +69,33 @@ function main(): void {
     );
   }
 
-  /* ── 2. NO CONTENT READ EXISTS, ANYWHERE ────────────────────────────────── */
+  /* ── 2. INT-4'S OWN SEAM READS NO CONTENT ───────────────────────────────── */
   {
     /*
-     * Three independent reasons INT-4 reads no file content: no download endpoint constant, no
-     * `alt=media`, and a granted scope that could not perform one. The first two are asserted here;
-     * the third is Google's and is asserted by the scope pin below.
+     * ── RELOCATED BY KID-1, AND DELIBERATELY NOT DELETED ───────────────────
+     *
+     * INT-4 asserted that NO module under provider-google could reach file content — true then,
+     * and the whole point of the phase. KID-1 built a content capability behind a second scope and
+     * a second consent, so a directory-wide ban is now false, and leaving it would have forced the
+     * new milestone to either weaken it or hide from it.
+     *
+     * The sentence INT-4 actually owns survives intact and is asserted more precisely than before:
+     * INT-4'S OWN modules — the metadata seam and the metadata transport function — still cannot
+     * reach content. What moved is the scope of the claim, not the claim.
+     *
+     * `read-drive-content.server.ts` and `readDriveFileContent` are KID-1's, and KID-1's own
+     * boundary suite governs them.
      */
-    for (const file of collect(GOOGLE)) {
-      const code = codeOnly(read(file));
+    const INT4_MODULES = collect(GOOGLE).filter(
+      (f) => !f.endsWith("read-drive-content.server.ts"),
+    );
+    for (const file of INT4_MODULES) {
+      let code = codeOnly(read(file));
+      if (file.endsWith("google-transport.server.ts")) {
+        /* Assert against the METADATA half of the transport, up to KID-1's function. */
+        const boundary = code.indexOf("export async function readDriveFileContent");
+        code = boundary === -1 ? code : code.slice(0, boundary);
+      }
       for (const forbidden of ["alt=media", "webContentLink", "exportLinks", "downloadUrl", "/export"]) {
         assert.ok(!code.includes(forbidden), `${file} must not reach file content (${forbidden})`);
       }

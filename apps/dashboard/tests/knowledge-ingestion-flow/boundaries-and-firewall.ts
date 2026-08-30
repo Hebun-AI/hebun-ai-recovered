@@ -120,17 +120,34 @@ function main(): void {
       "the producer still takes text only — bytes are decoded upstream of it, never within it",
     );
     /*
-     * And the boundary that DOES read a file is exactly one module, named here so this file cannot
-     * be read as a denial that any upload exists. What it is allowed to be is proven in
-     * `tests/r4c-flow/file-boundary-and-firewall.ts`.
+     * And the boundaries that read BYTES are enumerated, named here so this file cannot be read as
+     * a denial that any upload exists. What each is allowed to be is proven in its own suite.
+     *
+     * ── EXTENDED BY KID-1, AND THE TWO ARE NOT THE SAME THING ────────────────
+     *
+     * `knowledge-file-ingest` reads A SELECTED FILE'S bytes — a human's upload, on its way to the
+     * Knowledge authority. That is the module this census was written about, and its meaning is
+     * unchanged (`tests/r4c-flow/file-boundary-and-firewall.ts`).
+     *
+     * `google-transport` reads AN HTTP RESPONSE BODY from a provider. It is not a file boundary, it
+     * reaches no Knowledge module at any depth, and it hands its result to a server-side caller and
+     * stops (`tests/kid1-drive-content-read/boundaries-and-firewall.ts`).
+     *
+     *     A SELECTED FILE != A PROVIDER RESPONSE
+     *
+     * Both are listed rather than the assertion being relaxed to a count, so a THIRD byte reader
+     * still cannot appear without somebody naming it here and saying which kind it is.
      */
-    const fileReaders = collect("src/features")
+    const byteReaders = collect("src/features")
       .concat(collect("src/app"))
       .filter((file) => /\.arrayBuffer\(\)/.test(codeOf(read(file))));
     assert.deepEqual(
-      fileReaders.sort(),
-      ["src/features/knowledge/knowledge-file-ingest.server.ts"],
-      "exactly one module reads a selected file's bytes, and it writes nothing itself",
+      byteReaders.sort(),
+      [
+        "src/features/knowledge/knowledge-file-ingest.server.ts",
+        "src/features/provider-google/google-transport.server.ts",
+      ],
+      "exactly two modules read bytes: one selected file, one provider response — and neither writes Knowledge itself",
     );
   }
 

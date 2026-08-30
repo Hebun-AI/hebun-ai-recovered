@@ -115,9 +115,23 @@ export const PUBLIC_CAPABILITY_CLAIMS: readonly PublicCapabilityClaim[] = Object
     capability: "Drive metadata read",
     state: "read-only" as const,
     limit:
-      "File names, types and timestamps under drive.metadata.readonly. No file content is read, nothing in Drive is written, and nothing read from Drive is persisted as knowledge.",
+      "File names, types and timestamps under drive.metadata.readonly. This capability reads no file content, nothing in Drive is written, and nothing read from Drive is persisted as knowledge.",
+    /*
+     * NARROWED BY KID-1, BECAUSE THE OLD SENTENCE BECAME A PROMISE THIS FILE COULD NOT KEEP.
+     *
+     * It read "No file content is read" — a blanket denial about Hebun. KID-1 built a Drive CONTENT
+     * capability behind a second scope and a second consent, so the blanket form is no longer
+     * something the repository guarantees, even though it remains true of THIS capability and of
+     * every tenant today. The subject is now the capability, which is what the claim was ever
+     * entitled to speak for.
+     *
+     * The content capability is deliberately NOT published: this file's own rule is that a
+     * capability which cannot be used is absent from the site, and that one cannot be used until
+     * Google verification and a CASA assessment complete. It is not "coming soon" here; it is
+     * simply not claimed.
+     */
     provenance:
-      "src/features/provider-google/contracts.ts — GOOGLE_DRIVE_METADATA_SCOPE; src/features/provider-catalog/catalog.ts — empty write scope set",
+      "src/features/provider-google/contracts.ts — GOOGLE_DRIVE_METADATA_SCOPE; src/features/provider-catalog/catalog.ts — empty write scope set on every Google capability",
   }),
 ]);
 

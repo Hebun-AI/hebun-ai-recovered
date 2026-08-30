@@ -30,6 +30,10 @@
 import {
   GOOGLE_DRIVE_FILES_ENDPOINT,
   MAX_DRIVE_FILES_PER_PAGE,
+  GOOGLE_DRIVE_EXPORT_MIME,
+  GOOGLE_DRIVE_READABLE_TYPES,
+  MAX_DRIVE_CONTENT_BYTES,
+  type GoogleDriveContentResult,
   GOOGLE_REVOKE_ENDPOINT,
   GOOGLE_TOKEN_ENDPOINT,
   GOOGLE_USERINFO_ENDPOINT,
@@ -416,6 +420,166 @@ export async function listDriveFiles(
     listing: {
       files: Object.freeze(files),
       nextPageToken: typeof json.nextPageToken === "string" ? json.nextPageToken : null,
+    },
+  };
+}
+
+/**
+ * READ ONE SELECTED DRIVE DOCUMENT'S CONTENT (KID-1).
+ *
+ * ── THE FILE ID IS THE ONLY THING A CALLER CHOOSES ───────────────────────────
+ *
+ * There is no `q`, no folder, no page and no MIME parameter, for `listDriveFiles`' stated reason
+ * turned one notch tighter: a caller who could name the export type could ask Drive to render a
+ * document as HTML and hand the bytes to something downstream that renders it. The export type is
+ * a constant, and the readable-type map is closed and consulted here — not supplied.
+ *
+ * ── TWO STEPS, AND THE FIRST ONE IS A REFUSAL OPPORTUNITY ────────────────────
+ *
+ * The metadata is fetched FIRST, so an unsupported MIME type or an over-large document is refused
+ * BEFORE any body is transferred. Refusing after the download would still be correct and would
+ * already have spent the bytes.
+ *
+ * ── THE SIZE BOUND IS CHECKED TWICE, ON PURPOSE ──────────────────────────────
+ *
+ * Drive's declared `size` is a CLAIM, and it is absent entirely for Workspace documents. The bytes
+ * actually received are a MEASUREMENT. The declared value gates the request; the measured value
+ * gates the result, and neither is trusted to do the other's job.
+ *
+ * ── WHAT COMES BACK IS TEXT, AND ONLY EVER DATA ──────────────────────────────
+ *
+ * The body is decoded as UTF-8 and returned as a string. It is never parsed as HTML, never
+ * evaluated, never logged, and never treated as an instruction by this module or by its type.
+ */
+export async function readDriveFileContent(
+  accessToken: string,
+  fileId: string,
+  deps: GoogleTransportDeps = {},
+): Promise<GoogleDriveContentResult> {
+  assertServerOnly();
+
+  if (typeof fileId !== "string" || fileId.trim().length === 0) {
+    return fail("malformed", "google-file-id-required");
+  }
+  const id = fileId.trim();
+  /*
+   * Drive ids are opaque, but they are not arbitrary text. Refusing anything that could not BE an
+   * id keeps a caller from steering the request path with slashes or a query string.
+   */
+  if (!/^[A-Za-z0-9_-]{1,256}$/.test(id)) {
+    return fail("malformed", "google-file-id-malformed");
+  }
+
+  const doFetch = deps.fetchImpl ?? fetch;
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
+  const call = async (url: string, accept: string): Promise<Response | null> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await doFetch(url, {
+        method: "GET",
+        headers: { authorization: `Bearer ${accessToken}`, accept },
+        signal: controller.signal,
+      });
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  /* ── 1 · WHAT IS IT? Refuse an unreadable or over-large document before any body moves. ── */
+  const metaUrl = new URL(`${GOOGLE_DRIVE_FILES_ENDPOINT}/${encodeURIComponent(id)}`);
+  metaUrl.searchParams.set("fields", "id,name,mimeType,size,trashed");
+  metaUrl.searchParams.set("supportsAllDrives", "false");
+
+  const metaResponse = await call(metaUrl.toString(), "application/json");
+  if (!metaResponse) return fail("transport", "google-unreachable");
+
+  let meta: Record<string, unknown>;
+  try {
+    meta = (await metaResponse.json()) as Record<string, unknown>;
+  } catch {
+    if (!metaResponse.ok) return classifyStatus(metaResponse.status, null);
+    return fail("malformed", "google-unparseable-response");
+  }
+  if (!metaResponse.ok) return classifyStatus(metaResponse.status, googleErrorCode(meta));
+
+  const name = typeof meta.name === "string" ? meta.name : "";
+  const providerMimeType = typeof meta.mimeType === "string" ? meta.mimeType : "";
+  if (!name || !providerMimeType) return fail("malformed", "google-response-missing-file-fields");
+  /* A trashed document is not organizational content a human meant to select. */
+  if (meta.trashed === true) return fail("malformed", "google-file-trashed");
+
+  const readable = GOOGLE_DRIVE_READABLE_TYPES[providerMimeType];
+  if (!readable) return fail("malformed", "google-file-type-unsupported");
+
+  /* Drive reports `size` as a STRING, and omits it for Workspace documents. */
+  const declared = typeof meta.size === "string" ? Number(meta.size) : null;
+  if (declared !== null && Number.isFinite(declared) && declared > MAX_DRIVE_CONTENT_BYTES) {
+    return fail("malformed", "google-file-too-large");
+  }
+
+  /* ── 2 · READ IT, by the ONE method its type permits. ────────────────────── */
+  const contentUrl =
+    readable.method === "export"
+      ? (() => {
+          const u = new URL(`${GOOGLE_DRIVE_FILES_ENDPOINT}/${encodeURIComponent(id)}/export`);
+          u.searchParams.set("mimeType", GOOGLE_DRIVE_EXPORT_MIME);
+          return u;
+        })()
+      : (() => {
+          const u = new URL(`${GOOGLE_DRIVE_FILES_ENDPOINT}/${encodeURIComponent(id)}`);
+          u.searchParams.set("alt", "media");
+          u.searchParams.set("supportsAllDrives", "false");
+          return u;
+        })();
+
+  const contentResponse = await call(contentUrl.toString(), "text/plain");
+  if (!contentResponse) return fail("transport", "google-unreachable");
+  if (!contentResponse.ok) {
+    /* An error body here is JSON; a success body is not, so only this branch parses one. */
+    let errorJson: Record<string, unknown> = {};
+    try {
+      errorJson = (await contentResponse.json()) as Record<string, unknown>;
+    } catch {
+      return classifyStatus(contentResponse.status, null);
+    }
+    return classifyStatus(contentResponse.status, googleErrorCode(errorJson));
+  }
+
+  let buffer: ArrayBuffer;
+  try {
+    buffer = await contentResponse.arrayBuffer();
+  } catch {
+    return fail("transport", "google-content-unreadable");
+  }
+
+  /* THE MEASUREMENT. A document with no declared size, or a lying one, is caught here. */
+  if (buffer.byteLength > MAX_DRIVE_CONTENT_BYTES) {
+    return fail("malformed", "google-file-too-large");
+  }
+
+  let text: string;
+  try {
+    /* Strict: bytes that are not UTF-8 are refused rather than replaced with U+FFFD. */
+    text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+  } catch {
+    return fail("malformed", "google-content-not-utf8");
+  }
+
+  return {
+    ok: true,
+    content: {
+      fileId: id,
+      name,
+      providerMimeType,
+      returnedMimeType:
+        readable.method === "export" ? GOOGLE_DRIVE_EXPORT_MIME : providerMimeType,
+      contentKind: readable.kind,
+      text,
+      byteLength: buffer.byteLength,
     },
   };
 }

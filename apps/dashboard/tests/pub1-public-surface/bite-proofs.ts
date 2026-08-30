@@ -112,13 +112,31 @@ function main(): void {
 
   /* ── CLAIM TRUTH ───────────────────────────────────────────────────────── */
 
+  /*
+   * ── TWO PROOFS SINCE KID-1, AND THE ANCHORS ARE NOW CAPABILITY-SPECIFIC ────
+   *
+   * Google maps two capabilities and each declares its own empty write set, so the old anchor —
+   * the bare `write: Object.freeze([]),` line — matched twice and the mutation could no longer be
+   * applied unambiguously. Anchoring on the `read:` line above each one restores uniqueness AND
+   * makes the proof stronger: the published "No Drive write" claim is now defended against a write
+   * scope appearing on EITHER capability, not on whichever one happened to be first.
+   */
   bites(
-    'Drive write capability is added while the site still publishes "No Drive write"',
+    'Drive write capability is added to the METADATA capability while the site still publishes "No Drive write"',
     CATALOG,
     CLAIM_SUITE,
-    "the catalog write set must stay empty",
-    "        write: Object.freeze([]),",
-    '        write: Object.freeze(["https://www.googleapis.com/auth/drive.file"]),',
+    "must declare no write scope",
+    "        read: Object.freeze([GOOGLE_DRIVE_METADATA_SCOPE]),\n        write: Object.freeze([]),",
+    '        read: Object.freeze([GOOGLE_DRIVE_METADATA_SCOPE]),\n        write: Object.freeze(["https://www.googleapis.com/auth/drive.file"]),',
+  );
+
+  bites(
+    'Drive write capability is added to the CONTENT capability while the site still publishes "No Drive write"',
+    CATALOG,
+    CLAIM_SUITE,
+    "must declare no write scope",
+    "        read: Object.freeze([GOOGLE_DRIVE_CONTENT_SCOPE]),\n        write: Object.freeze([]),",
+    '        read: Object.freeze([GOOGLE_DRIVE_CONTENT_SCOPE]),\n        write: Object.freeze(["https://www.googleapis.com/auth/drive.file"]),',
   );
 
   bites(
@@ -139,7 +157,8 @@ function main(): void {
     'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = ["knowledge_node", "knowledge_node"];',
   );
 
-  assert.equal(bitten, 7, "every bite proof must have bitten");
+  /* Eight since KID-1 split the Drive write proof into one per Google capability. */
+  assert.equal(bitten, 8, "every bite proof must have bitten");
   console.log(`PUB-1 bite proofs: ${bitten} guards proved to bite`);
 }
 
