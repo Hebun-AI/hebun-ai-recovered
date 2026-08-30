@@ -55,8 +55,10 @@ These are the stable top-level evolution stages of Hebun. Implementation discove
 ### ERA I — HEBUN TRUSTWORTHY FOUNDATION · **CLOSED** (§11.3)
 Hebun can be trusted to describe an organization truthfully. Every surface either grounds its claim in a legitimate authority or says it cannot.
 
-### ERA II — HEBUN INTELLIGENCE · **OPEN** (§12)
+### ERA II — HEBUN INTELLIGENCE · **CLOSED** (§12.9)
 Hebun understands what it observes. Evidence accumulates, agents are evaluated, and intelligence is layered over an organization that is already truthfully represented.
+
+**Closed at `6b4a72b` against this outcome, measured clause by clause (§12.9).** The three clauses above are Era II's only stated exit criteria — they were written before the era's work began and are not reconstructed here. Era II closure means the intended intelligence foundation is complete. **It does not mean Hebun is finished**, and it activates nothing.
 
 ### ERA III — HEBUN AUTONOMOUS ENTERPRISE · **FUTURE — NOT ACTIVE** (§13)
 The organization runs as a living operational system, observed end to end, with autonomy exercised only where authority was explicitly established.
@@ -219,10 +221,10 @@ Hebun already has legitimate, released owners for most of what Program V gives m
 |---|---|---|---|
 | **Heby** | Core v1 — bounded conversational grounding | Heby Intelligence — **E2-1 CLOSED**, organization *identity* admitted as evidence · **E2-5 CLOSED · PRODUCTION-ACCEPTED**, the tenant's durable agents and their proposal outcomes admitted as evidence under their own class · **E2-6 CLOSED · PRODUCTION-ACCEPTED**, the bounded recorded-act history admitted as evidence under its own class · **E2-7 CLOSED · PRODUCTION-ACCEPTED**, windowed period counts over that same ledger · **E2-8 CLOSED · PRODUCTION-ACCEPTED**, which declared knowledge areas the organization holds evidence in, and which hold none — from the Knowledge workspace only (§12, §12.5, §12.6, §12.7, §12.8) | Heby as operational interface |
 | **Agents** | Durable identity + truthful activity | Evidence seam · evaluation. **Agent Registry rejected as previously conceived** (§12) · **E2-5 CLOSED · PRODUCTION-ACCEPTED** — E2-3's derived outcome observation reaches Heby as evidence beside authoritative durable-agent identity; no agent authority, writer or lifecycle act added (§12.5) | Advanced self-improving agents |
-| **Governance** | Decision authority + recorded acts | Governance intelligence overlays | Governed autonomy |
-| **Knowledge** | Facts, provenance, retraction | Memory · learning. **E2-8 CLOSED · PRODUCTION-ACCEPTED** — the declared-area coverage aggregate R6B built for `/knowledge` is admitted to Heby as evidence under its own class, so Heby can name an area the organization holds nothing in; no knowledge quality, score or readiness authority added (§12.8) | Organizational learning loop |
-| **Organization** | **Organization Authority (L3)** | Organizational intelligence evolution | Living organizational system |
-| **Integrations** | Provider contracts + connections | Provider-sourced intelligence | Operational integration |
+| **Governance** | Decision authority + recorded acts | Governance intelligence overlays — **CONNECTED**: the `governance` class carries this tenant's own decision record to Heby through a read-only boundary (G6C `5299fdb`), and **E2-6 / E2-7 CLOSED · PRODUCTION-ACCEPTED** add the recorded-act history and its windowed period counts over `audit_log`. No governance authority, writer or policy evaluator was created (§12.6, §12.7) | Governed autonomy |
+| **Knowledge** | Facts, provenance, retraction | Memory · learning — **NEITHER DELIVERED**; the `memory` class is declared and honestly unconnected, because `readCompanyMemory` resolves to an in-memory, process-local store and grounding Heby on it would be the impostor K1 forbids. What Era II delivered here is coverage: **E2-8 CLOSED · PRODUCTION-ACCEPTED** — the declared-area coverage aggregate R6B built for `/knowledge` is admitted to Heby as evidence under its own class, so Heby can name an area the organization holds nothing in; no knowledge quality, score or readiness authority added (§12.8) | Organizational learning loop |
+| **Organization** | **Organization Authority (L3)** | Organizational intelligence evolution — **E2-1 CLOSED**, organization *identity* admitted to Heby through L3's own projection, carrying the authority's refusal verbatim where structure is unavailable · **E2-4 CLOSED · PRODUCTION-ACCEPTED**, elapsed time over authoritative timestamps. **Internal structure remains UNAVAILABLE** — the Organization Structure Authority stays a recorded dependency, not a scheduled milestone (§12) | Living organizational system |
+| **Integrations** | Provider contracts + connections | Provider-sourced intelligence — **INT-5A CONNECTED**: the `integrations` class carries per-provider *capability state* to Heby, read tenant-scoped from the control plane. It reports what CAN be read from a connected system, **never what is inside one**; provider content as reasoning input remains future work | Operational integration |
 | **Live Map** *(promoted surface — a projection, never a truth owner)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 — **E2-3 CLOSED · PRODUCTION-ACCEPTED** (derived cumulative Agent Outcome observation, id-keyed) · **LMX-1 CLOSED · PRODUCTION-ACCEPTED** — the visual organization-centred map, the agent inspector, and the Live Map Live / Security Live awareness band (§12, §12.3) · **E2-4 CLOSED · PRODUCTION-ACCEPTED** — a factual elapsed annotation on the existing agent node, no node or edge kind added (§12.4) | Live Map Operational v1 |
 | *Enterprise Security & Trust* **(cross-cutting constraint — §7, not a product line)** | Gates on L3, L4 and Era I closure — **all four measured CLOSED** (§11.1), including the carried trust boundary | Security direction (§12.1); its first bounded slice **E2-2 is CLOSED** — one derived observation connected, no security authority created (§12) | Constraints for consequential autonomy (§13) |
 
@@ -274,7 +276,7 @@ Release and closure records live in `docs/product-vision/runtime/`. This page sa
 | Security policy authority | **UNAVAILABLE** | The `policies` table has **zero importers** of its schema symbol. No policy evaluator is connected; the Heby action governance gate reports `not-connected`, which **blocks** eligibility rather than passing it. |
 | Ingested-content trust boundary — **TB-1** | **CLOSED — released** | TB-1 released at `047dde8`. `heby-runtime/trust-boundary.ts` names the boundary and classifies **every** field of a model request as `Record<keyof ModelGenerationRequest, TrustClass>`, so a new path into model context cannot arrive unclassified without failing to compile. It records its own limits as data: `structurallyIsolatedInInferenceRequest: false`, `restsOnModelCompliance: true`, `detectsInjectedInstructions: false`. Zero schema, zero writer. |
 | **ERA I — HEBUN TRUSTWORTHY FOUNDATION** | **CLOSED** | Closed at `047dde8` against the §11 contract, measured row by row — see §11.3. L1–L4 released and re-verified; all four §11.1 Security & Trust gates measured CLOSED. |
-| **ERA II — HEBUN INTELLIGENCE** | **OPEN** — bounded direction recorded (§12) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). **E2-1, E2-2 and E2-3 are all CLOSED**, and the product-experience milestone **LMX-1** that followed E2-3 is closed too — implemented, released and pushed at `dfa7624`, `7b30893`, `00eda19` and `8fb299e`. E2-3 and LMX-1 are **DEPLOYED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, after a production migration repair carried the deployment's database from ledger 37 to 39 (§12.3); E2-1 and E2-2 have **no measured deployment** (§12.2). **E2-4 — Organizational Attention Observation — is CLOSED too**, activated by Director decision after a read-only discovery pass and released with zero schema, zero migration and zero writer (§12.4); it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, with no production defect found and no source, schema or migration change required by the acceptance (§12.4). **E2-5 — Heby Agent Grounding — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated Heby acceptance both PASS, after one real production defect was found at the acceptance gate and fixed in the response validator (§12.5). **E2-6 — Heby Recorded Act Grounding — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated Heby acceptance both PASS, after one real truth-semantics defect was found at the acceptance gate and fixed in this milestone's own grounding wording (§12.6). **E2-7 — Heby Windowed Recorded-Act Intelligence — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side, Heby grounding and authenticated Heby acceptance all PASS, with no production defect found and no source, test, schema or migration change required by the acceptance (§12.7). **E2-8 — Heby Knowledge Coverage Grounding — is CLOSED too**, selected from a bounded discovery pass by Director decision and released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — Knowledge authority, Heby grounding and authenticated Heby acceptance all PASS, with no production defect found and no source, test, schema or migration change required by the acceptance; the first human attempt was a truth-safe refusal caused by testing from the wrong workspace, not a runtime defect (§12.8). **No Era II milestone is currently active**, and closing nine milestones closes no era: the next must be selected from measured repository and product reality, never from numbering. |
+| **ERA II — HEBUN INTELLIGENCE** | **CLOSED** at `6b4a72b` against the §4 outcome, measured clause by clause (§12.9) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). **E2-1, E2-2 and E2-3 are all CLOSED**, and the product-experience milestone **LMX-1** that followed E2-3 is closed too — implemented, released and pushed at `dfa7624`, `7b30893`, `00eda19` and `8fb299e`. E2-3 and LMX-1 are **DEPLOYED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, after a production migration repair carried the deployment's database from ledger 37 to 39 (§12.3); E2-1 and E2-2 have **no measured deployment** (§12.2). **E2-4 — Organizational Attention Observation — is CLOSED too**, activated by Director decision after a read-only discovery pass and released with zero schema, zero migration and zero writer (§12.4); it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, with no production defect found and no source, schema or migration change required by the acceptance (§12.4). **E2-5 — Heby Agent Grounding — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated Heby acceptance both PASS, after one real production defect was found at the acceptance gate and fixed in the response validator (§12.5). **E2-6 — Heby Recorded Act Grounding — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated Heby acceptance both PASS, after one real truth-semantics defect was found at the acceptance gate and fixed in this milestone's own grounding wording (§12.6). **E2-7 — Heby Windowed Recorded-Act Intelligence — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side, Heby grounding and authenticated Heby acceptance all PASS, with no production defect found and no source, test, schema or migration change required by the acceptance (§12.7). **E2-8 — Heby Knowledge Coverage Grounding — is CLOSED too**, selected from a bounded discovery pass by Director decision and released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — Knowledge authority, Heby grounding and authenticated Heby acceptance all PASS, with no production defect found and no source, test, schema or migration change required by the acceptance; the first human attempt was a truth-safe refusal caused by testing from the wrong workspace, not a runtime defect (§12.8). **No Era II milestone is active, and none remains required.** Closing nine milestones closed no era — the era closed because the §4 outcome was **measured** satisfied (§12.9), which is the only thing that ever closes one here. The same rule now governs what follows: **Era III is not started**, and the next program or era must be selected from measured repository and product reality by a separate Director decision, never from numbering. |
 | Era III | **NOT ACTIVE** (§13) | — |
 
 ---
@@ -451,8 +453,11 @@ ERA CLOSED != EVERYTHING DEPLOYED
 ## 12. Era II — Bounded Delivery Direction
 
 ```
-ERA II — HEBUN INTELLIGENCE = OPEN (no milestone active)
+ERA II — HEBUN INTELLIGENCE = CLOSED (§12.9)
+NO MILESTONE ACTIVE · NO NEXT MILESTONE SELECTED · ERA III NOT STARTED
 ```
+
+**Era II closed at `6b4a72b` against the §4 outcome, by Director ruling after a read-only closure audit — see §12.9.** Nine milestones closed beneath it (E2-1…E2-8 and LMX-1); **no E2-9 exists and none is created by this closure.** Everything below is preserved as the record of how it was delivered.
 
 Era II opened when Era I closed at `047dde8` (§11.3). A read-only Era II discovery and prioritization pass then ran, and **every finding it returned was reproduced against the repository at `0005f72` before it was recorded here** — because a discovery result is not repository truth (§18, rule 5). The reproduction is summarised below and its measurements are the evidence column of §9.
 
@@ -2224,6 +2229,128 @@ Recorded dependency:
 > **Organization Structure Authority → required for organization-structure-shaped intelligence.**
 
 It is **not** added to the active sequence merely because future Live Map or Heby features could use it. Repository verification confirmed it was not required for E2-1's bounded foundation, and the **released** result is stronger than the prediction: E2-1 consumes what **L3** already admits — it consumes L4 not at all — and where structure is unavailable it carries the authority's own refusal sentence verbatim rather than supplying one (finding J).
+### 12.9 Era II Closure Contract · **CLOSED**
+
+```
+ERA II — HEBUN INTELLIGENCE = CLOSED at 6b4a72b
+    if and only if
+the §4 outcome is satisfied — evidence accumulates, agents are evaluated, and
+intelligence is layered over an organization that is already truthfully represented
+    AND
+no closure firewall below is violated.
+
+REMAINING REQUIRED ERA II MILESTONES = 0
+```
+
+**Era II had no closure contract, and this does not invent one.** Era I closed against §11, whose
+criteria were stated before its work began. §12 was deliberately *"not a long fixed Era II roadmap"*
+and stated no exit criteria — so the only criterion written in advance is **§4's outcome sentence**,
+authored before any Era II milestone existed. §16 forbids reconstructing exit criteria after the
+fact, and this record therefore measures §4 and adds nothing to it. **No retrospective product
+target was created.**
+
+#### The outcome, measured clause by clause
+
+| # | §4 clause | Result | Measurement |
+|---|---|---|---|
+| 1 | **Evidence accumulates** | **PASS** | **11 of 16** Heby source classes are connected to real reads — `knowledge`, `operations`, `governance`, `platform`, `work-artifacts`, `integrations`, `organization`, `agents`, `recorded-acts`, `recorded-act-windows`, `knowledge-coverage` — through **eight** released owner-side grounding modules. Every one exists and is read-only. |
+| 2 | **Agents are evaluated** | **PASS** | `agent-evaluation/agent-evaluation-projection.server.ts` and the five-file `agent-improvement-hypothesis/` (including `decide-improvement-hypothesis.server.ts`) are released and **product-reachable from both `/agents` and `/governance/authority`**. This is the pre-application loop §14 records; it is **not** ASA, self-modification or automatic application. |
+| 3 | **Intelligence layered over a truthfully represented organization** | **PASS** | Era I CLOSED at `047dde8` (§11.3). Over it: E2-1 `dfa7624`, E2-2 `7b30893`, E2-3 `00eda19`, LMX-1 `8fb299e`, E2-4 `9a9caee`, E2-5 `a9815fb`, E2-6 `f0afc2d`, E2-7 `c275d12`, E2-8 `08bd22a` — every commit verified to exist and to carry the subject its milestone claims. |
+
+**`UNCONNECTED CLASS != CLOSURE FAILURE`.** The five unconnected classes are each *correctly*
+unconnected, and connecting any of them would be a fabrication rather than a completion:
+
+| Class | Why it stays unconnected |
+|---|---|
+| `memory` | `readCompanyMemory` resolves to a module-level **in-memory, process-local** store. Grounding Heby on it would be the seeded impostor K1 forbids. Blocked on a durable Memory authority — future work. |
+| `intelligence` | `features/intelligence/` is `mock.ts` only (scores, trends, forecasts) and `organizational-intelligence/` has **zero** `.server.ts` files and zero product consumers. Its engines compute score, health, risk and performance — the exact semantics Hebun refuses to own. Its refusal is **correct behaviour**. |
+| `workforce` | Blocked by the Organization Structure Authority, a **recorded dependency and not a scheduled milestone**. |
+| `decision-records` | Decision-*preparation* retrieval. The Governance decision record already reaches Heby through the `governance` class. |
+| `external-recipients` | R3R released and declared by **no** workspace — an unused capability, not an unfinished one. |
+
+#### Product-line targets
+
+| Product line | Era II target | Result |
+|---|---|---|
+| **Heby** | Heby Intelligence | **MET** — E2-1, E2-4, E2-5, E2-6, E2-7, E2-8 |
+| **Agents** | Evidence seam · evaluation | **MET** — E2-5 plus the released evaluation and hypothesis path |
+| **Governance** | Governance intelligence overlays | **MET** — G6C `5299fdb`, extended by E2-6 and E2-7 |
+| **Knowledge** | Memory · learning | **MET as delivered, not as originally worded** — E2-8 delivered declared-area coverage; **Memory and learning were NOT delivered** and the §8 cell now says so |
+| **Organization** | Organizational intelligence evolution | **MET for identity** — E2-1 and E2-4; internal structure stays UNAVAILABLE by recorded dependency |
+| **Integrations** | Provider-sourced intelligence | **MET as capability state** — INT-5A; provider *content* as reasoning input remains future |
+| *Security (cross-cutting)* | §12.1's one bounded item | **MET** — E2-2; everything else in §12.1 was explicitly *"not created now"* |
+
+#### Closure firewalls — every row measured, none broadened to pass
+
+| Firewall | Result | Measurement |
+|---|---|---|
+| Heby grounding owns no organizational fact | **PASS** | **Zero** writes and **zero** transactions across all eight grounding modules |
+| No second source of truth | **PASS** | Every grounding module reads through its authority's own released seam; E2-8's shaper imports neither the projection nor the taxonomy it renders |
+| No lifecycle, authorization or execution authority | **PASS** | The answer path reaches no execution or permit writer, and the released validator still enforces `FORBIDDEN_ACTION_CLAIMS` |
+| Tenant identity is trusted-context derived | **PASS** | The one server action resolves the tenant server-side; **no** grounding module takes a raw tenant id from a caller; the client supplies only `{prompt, route, conversationId?}` |
+| Tenant isolation intact | **PASS** | Every connected reader carries its authority's own tenant predicate |
+| Workspace scoping intact | **PASS** | Command holds no knowledge inventory; Knowledge holds no act or agent class; every class is declared by a workspace except the known R3R orphan |
+| `unavailable != empty/zero/missing` | **PASS** | All **16** pure resolutions carry a stated reason and fabricate **zero** items |
+| `derived != authoritative` | **PASS** | All **16** classes report `authoritative: false` |
+| Production acceptance recorded | **PASS** | E2-3, LMX-1, E2-4, E2-5, E2-6, E2-7 and E2-8 each carry a production-acceptance record with verified deployment commit-binding (§12.3–§12.8); E2-1 and E2-2 have **no measured deployment** and this record does not claim one |
+| Roadmap truthful | **PASS** | §8's empty Era II cells for Governance, Organization and Integrations were repaired to the connected reality, and the Knowledge cell no longer implies Memory or learning was delivered |
+
+#### What Era II closure does NOT mean
+
+```
+ERA II CLOSED != HEBUN IS FINISHED
+ERA II CLOSED != HEBY MAY ACT
+ERA II CLOSED != HEBY MAY AUTHORIZE CONSEQUENTIAL WORK
+ERA II CLOSED != DIRECTOR INTELLIGENCE IMPLEMENTED
+ERA II CLOSED != DIRECTOR TWIN IMPLEMENTED
+ERA II CLOSED != ASA ACTIVE
+ERA II CLOSED != AGENTS SELF-MODIFY
+ERA II CLOSED != PROACTIVE HEBY
+ERA II CLOSED != DURABLE MEMORY AUTHORITY EXISTS
+ERA II CLOSED != ORGANIZATION STRUCTURE AUTHORITY EXISTS
+ERA II CLOSED != SECURITY OPERATIONS EXISTS
+ERA II CLOSED != EVERY PROVIDER CAPABILITY EXISTS
+ERA II CLOSED != ERA III STARTED
+```
+
+It means one thing: **the intended Hebun Intelligence foundation is complete.**
+
+#### The Director ruling that permitted this closure
+
+Director Intelligence is **FUTURE WORK and NOT an Era II closure blocker.** §14 places it beneath
+Era II so that it never becomes a new top-level era; it also records that *"it remains future work,
+and nothing selects it."* The ruling: **an era closes against its established outcome, not against
+every future program positioned beneath it** — the same reading under which Era I closed while the
+Organization Structure Authority stayed a recorded dependency.
+
+§4's outcome reaches OBSERVE → DESCRIBE → HISTORY → COMPARE → SYNTHESIZE. Director Intelligence
+introduces a later semantic level:
+
+```
+SYNTHESIZED EVIDENCE → ADVISORY INTELLIGENCE → DIRECTOR CALIBRATION
+
+OBSERVATION    != RECOMMENDATION
+ADVICE         != APPROVAL
+CONFIDENCE     != AUTHORITY
+RECOMMENDATION != EXECUTION
+```
+
+**ASA remains BLOCKED / DEFERRED**, re-measured at this closure: `agent-outcome-observation/`,
+`agent-evaluation/` and `agent-improvement-hypothesis/` contain **zero** time-window predicates, and
+the identifier `ASA` appears in **zero** files under `src` or `tests`. E2-7's window is over
+`audit_log` in the recorded-act authority — **not** over agent evidence — so its prerequisite is
+untouched and unauthorized.
+
+**Era III is NOT started.** No era, program or milestone is activated by this closure. **The next one
+requires a separate Director decision**, taken from measured repository and product reality rather
+than from numbering.
+
+```
+ERA CLOSED          != NEXT ERA OPEN
+CLOSURE             != ACTIVATION
+0 MILESTONES REMAIN != NOTHING REMAINS TO BUILD
+```
+
 ### 12.1 Era II — Security direction
 
 **FUTURE / PROVISIONAL SECURITY CONSTRAINTS. Not implementation commitments, and no phase order is fabricated here.**
@@ -2243,7 +2370,7 @@ Concerns likely to become load-bearing as intelligence accumulates over authorit
 
 ## 13. Era III — Constraints and Future Direction
 
-Era III is **not active**. It is constrained in advance:
+Era III is **not active**, and **Era II closing did not start it** (§12.9). It is constrained in advance:
 
 - Autonomy is exercised only where an authority to act was explicitly established and recorded.
 - Observation of the operational chain never becomes authority over it.
@@ -2270,7 +2397,7 @@ Distinguish throughout: an operator ceremony that a human runs is not automated 
 
 ### Director Intelligence → within **Hebun Intelligence** (Era II)
 
-It does **not** get a separate top-level era, and it is **not** in the E2-1 → E2-3 sequence (§12), which is now closed and exhausted. It remains future work, and nothing selects it. It may later benefit from organizational evidence, decision history, agent evidence, outcomes, Knowledge and Governance evidence — none of which activates it.
+It does **not** get a separate top-level era, and it is **not** in the E2-1 → E2-3 sequence (§12), which is now closed and exhausted. It remains future work, and nothing selects it. **Director ruling recorded at Era II closure (§12.9): it is NOT an Era II closure blocker.** An era closes against its established outcome, not against every future program positioned beneath it — and §4's outcome reaches synthesis, while Director Intelligence introduces the later level `SYNTHESIZED EVIDENCE → ADVISORY INTELLIGENCE → DIRECTOR CALIBRATION`. Being placed under Era II is where it would land **if** activated; it is not a debt Era II owed. It may later benefit from organizational evidence, decision history, agent evidence, outcomes, Knowledge and Governance evidence — none of which activates it.
 
 It must **not** be claimed as implemented merely because adjacent Agent Intelligence exists. A naming collision exists in repository history between Director-facing agent intelligence work and Director Intelligence as a capability; that collision is **preserved, not resolved by renaming**. Future activation begins with repository discovery.
 
@@ -2421,13 +2548,15 @@ HMR-0's "Foundation ~70%" estimate is **not preserved**. It had no defensible de
 
 ## 20. Next Milestone
 
-**NONE SELECTED.** Era II is **OPEN** with **no active milestone**. E2-4, E2-5, E2-6, E2-7 and E2-8 are all **PRODUCTION-ACCEPTED**; **no E2-9 is opened, and no closure schedules ASA-2.**
+**NONE SELECTED.** **Era II is CLOSED** at `6b4a72b` against the §4 outcome (§12.9), with **no active milestone** and **zero remaining required Era II milestones**. E2-4, E2-5, E2-6, E2-7 and E2-8 are all **PRODUCTION-ACCEPTED**; **no E2-9 is opened, no era is activated, and no closure schedules ASA-2.**
+
+**An era closing selects nothing.** Era III is **NOT started** (§13) and is not opened by Era II closing, exactly as Era II was not opened by numbering. The next program or era is a **separate Director decision**, taken from measured repository and product reality.
 
 ```
 NEXT MILESTONE = NOT YET SELECTED
 ```
 
-Era I is **CLOSED** at `047dde8` (§11.3). Era II is **OPEN** (§12) and remains open — eight milestones closing close no era. The bounded order E2-1 → E2-2 → E2-3 was exhausted; LMX-1 followed E2-3 as a **product-experience** milestone by Director decision, and **E2-4 followed it as an Era II milestone by Director decision after a read-only discovery pass** — which is exactly how the next one must also be chosen, from measured repository and product reality, never from numbering.
+Era I is **CLOSED** at `047dde8` (§11.3). **Era II is CLOSED** at `6b4a72b` (§12.9) — and it did not close because nine milestones closed beneath it; it closed because the §4 outcome was **measured** satisfied, clause by clause, which is the only thing that ever closes an era here. *(The per-milestone closure records in §12.3–§12.8 each say "Era II remains OPEN". Every one was true when written and is preserved unrewritten under §3 principle 8; §12.9 supersedes them as current state.)* The bounded order E2-1 → E2-2 → E2-3 was exhausted; LMX-1 followed E2-3 as a **product-experience** milestone by Director decision, and **E2-4 followed it as an Era II milestone by Director decision after a read-only discovery pass** — which is exactly how the next one must also be chosen, from measured repository and product reality, never from numbering.
 
 **E2-1 is CLOSED.** Released and pushed at `dfa76248c38bad2c994e1494ac41896296b09067`, **not deployed**. Heby grounds on the Organization Authority as one ordinary evidence source; it does not consume Live Map, internal organization structure remains unavailable, no agent fact is admitted, and no new authority was created. **E2-1 closed is not Heby Intelligence complete.**
 
