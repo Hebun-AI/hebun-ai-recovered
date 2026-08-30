@@ -1331,9 +1331,44 @@ was **extended, not weakened**: `heby-integration`'s enumerated source-class lis
 is that pin working exactly as its comment says — *"a new source class cannot appear without somebody
 stating it here."*
 
-**Deployment is NOT measured and production acceptance has NOT occurred.** The push may trigger a
-production deployment automatically (§12.2); that is a separate, later, independently measured state
-(§16), and nothing here asserts it.
+#### The completeness defect found at the acceptance gate, and fixed
+
+The Director's first acceptance question — *"What has this organization recently done, that Hebun
+recorded?"* — passed. The second — *"How complete is the recorded activity you can see?"* — was a
+**PARTIAL FAIL**, and neither half was a hallucination.
+
+Heby reported 18 acts, 18 of 18 carried, newest first, and that Hebun does not record all
+organizational activity. Then it added that *"18 of 18 … tells me whether I'm seeing everything
+available in that retrieval window, but not whether older acts exist beyond it."* **That is false
+for this reader** — `totalRecordedActs` is a `count(*)` over the tenant's entire ledger, unbounded
+and independent of the page, so carried == total means no further Hebun-recorded act exists beyond
+the result at that instant. The released contract says exactly that, **in a doc comment no model
+reads**, while the grounding called this a bounded PAGE and named only "the total they were drawn
+from". Heby reasoned correctly from what it was given.
+
+It also said *"the individual act records themselves are authoritative, but the coverage summary is
+derived."* Nothing supports that split: the class declares `authoritative: false` for all of it —
+but each item carried a field named `authority source`, and one flag was left to carry the whole
+argument against its connotation.
+
+**The owner is this milestone's own grounding wording.** No schema, no persistence, no authority, no
+writer, and **no validator change** — the E2-5 guard was not involved and was not touched.
+
+| | |
+|---|---|
+| Retrieval coverage | Stated explicitly and labelled in **both** branches. Complete: *"every act Hebun has recorded is carried here, and no further Hebun-recorded act exists beyond this result at the instant it was read — the total is counted over the whole ledger, not over this page."* Partial: the remainder is stated **as a number** — *"5 further acts … exist outside this result"* — never as "more" |
+| Real-world coverage | Carried in the same item, in every branch: *"Hebun does not record every act this organization performs, so this is not a complete history of its activity"* |
+| Authority | The provenance now states that **every item including the individual acts is derived**, that none is authoritative evidence, and that an act's `authority source` names a field recorded on that act, never the standing of this evidence. The detail line renders it as `recorded authority-source field` |
+
+```
+RETRIEVAL COVERAGE != REAL-WORLD COVERAGE
+COMPLETE RETRIEVAL != COMPLETE HISTORY
+DERIVED            != AUTHORITATIVE
+A DOC COMMENT      != EVIDENCE THE ANSWER CAN USE
+```
+
+**E2-6 remains CLOSED and PENDING authenticated acceptance**; the Director's second question is to be
+retried unchanged.
 
 ### E2-3 — Live Map Intelligence, authoritative layers · **CLOSED**
 

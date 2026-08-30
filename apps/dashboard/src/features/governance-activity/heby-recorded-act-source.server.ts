@@ -76,12 +76,21 @@ import { observeRecordedActHistory } from "./observe.server";
  * this organization has done. It holds the acts Hebun's own writers recorded, and stops.
  */
 export const RECORDED_ACT_GROUNDING_PROVENANCE =
-  "Recorded Act History — a bounded, newest-first page of the acts Hebun durably recorded for this " +
-  `tenant, read tenant-scoped from the session and DERIVED (authoritative: false). At most ${RECORDED_ACT_PAGE_LIMIT} ` +
-  "acts are carried and the total they were drawn from is always stated. It is not a complete " +
-  "history of organizational activity: Hebun records some acts and not others, and it evidences no " +
-  "intrusion, incident, threat, provider history or execution history. No payload, entity " +
-  "identifier or actor identity is carried, because the reader withholds those columns.";
+  "Recorded Act History — the acts Hebun durably recorded for this tenant, read tenant-scoped from " +
+  "the session. EVERY ITEM IN THIS SOURCE IS DERIVED (authoritative: false), including the " +
+  "individual act items: none of them is authoritative evidence, and an act's `authority source` " +
+  "names a field recorded on that act, never the standing of this evidence. " +
+  "TWO SEPARATE COVERAGE QUESTIONS, WHICH MUST NOT BE MERGED. (1) RETRIEVAL COVERAGE: at most " +
+  `${RECORDED_ACT_PAGE_LIMIT} acts are carried, newest first, and the stated total is a count over ` +
+  "this tenant's ENTIRE recorded ledger — unbounded, taken independently of the carried page, not a " +
+  "count of some window. So when the carried count equals the total, every act Hebun has recorded " +
+  "for this organization is present here and no further Hebun-recorded act exists beyond this " +
+  "result at the instant it was read; when it is smaller, the difference is stated as acts that " +
+  "exist outside this result. (2) REAL-WORLD COVERAGE: Hebun does not record every act this " +
+  "organization performs, so complete retrieval coverage is still not a complete history of " +
+  "organizational activity. This source evidences no intrusion, incident, threat, provider history " +
+  "or execution history. No payload, entity identifier or actor identity is carried, because the " +
+  "reader withholds those columns.";
 
 /** A successful read that found nothing. An established fact, never a failed read. */
 export const RECORDED_ACT_GROUNDING_EMPTY =
@@ -141,7 +150,8 @@ function detailFor(act: RecordedAct): string {
     `${act.entityType} · ${act.actorType} actor`,
     `outcome ${outcomePhrase(act.result)}`,
     `recorded by ${act.source ?? "an unrecorded subsystem"}`,
-    `authority source ${act.authoritySource ?? "none recorded"}`,
+    /* A FIELD ON THE RECORD, never this evidence's standing — the provenance says so in words. */
+    `recorded authority-source field ${act.authoritySource ?? "none recorded"}`,
     act.simulation ? "SIMULATION — no real effect occurred" : "not a simulation",
     act.occurredAt,
   ].join(" · ");
@@ -186,14 +196,37 @@ export async function readRecordedActGroundingSource(
 
   const { acts, totalRecordedActs, truncated } = read.page;
 
+  /*
+   * BOTH COVERAGE DIMENSIONS, STATED SEPARATELY AND IN EVERY BRANCH.
+   *
+   * The first release of this line said "18 of 18 recorded acts carried, newest first · this is
+   * every act Hebun recorded for this organization" and production Heby still answered that it
+   * could not tell "whether older acts exist beyond it". That was a fair reading of what it was
+   * given: the provenance called this a bounded PAGE and named "the total they were drawn from"
+   * without ever saying that total is an unbounded count over the whole tenant ledger. The released
+   * `RecordedActPage` contract says exactly that — and said it only in a doc comment no model reads.
+   *
+   *     RETRIEVAL COVERAGE  carried vs total Hebun-recorded acts
+   *     REAL-WORLD COVERAGE Hebun does not record everything the organization does
+   *
+   * Merging them is the failure. Complete retrieval coverage is not a complete history, and an
+   * incomplete page is not evidence that the organization did more than Hebun recorded.
+   */
+  const remaining = Math.max(0, totalRecordedActs - acts.length);
   const coverage: ResolvedSourceItem = {
     recordRef: "recorded-acts:coverage",
     label: "Recorded act coverage",
     detail:
-      `${acts.length} of ${totalRecordedActs} recorded acts carried, newest first` +
+      `${acts.length} of ${totalRecordedActs} recorded acts carried, newest first. ` +
       (truncated
-        ? ` · the ledger holds more than this page shows (bound ${RECORDED_ACT_PAGE_LIMIT})`
-        : " · this is every act Hebun recorded for this organization"),
+        ? `Retrieval coverage is PARTIAL: ${remaining} further act${remaining === 1 ? "" : "s"} ` +
+          `Hebun recorded for this organization exist outside this result (page bound ` +
+          `${RECORDED_ACT_PAGE_LIMIT}). `
+        : "Retrieval coverage is COMPLETE: every act Hebun has recorded for this organization is " +
+          "carried here, and no further Hebun-recorded act exists beyond this result at the " +
+          "instant it was read — the total is counted over the whole ledger, not over this page. ") +
+      "Separately, Hebun does not record every act this organization performs, so this is not a " +
+      "complete history of its activity.",
     lifecycle: "settled",
   };
 

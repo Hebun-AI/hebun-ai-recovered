@@ -148,11 +148,17 @@ async function main(): Promise<void> {
     const coverage = complete.items[0]!;
     assert.equal(coverage.recordRef, "recorded-acts:coverage");
     assert.match(coverage.detail, /2 of 2 recorded acts carried/);
-    assert.match(coverage.detail, /this is every act Hebun recorded/);
+    assert.match(coverage.detail, /Retrieval coverage is COMPLETE/i);
 
     const partial = await groundOn(recorded([act(), act()], 137));
     assert.match(partial.items[0]!.detail, /2 of 137 recorded acts carried/);
-    assert.match(partial.items[0]!.detail, /holds more than this page shows/);
+    assert.match(partial.items[0]!.detail, /Retrieval coverage is PARTIAL/i);
+    assert.match(partial.items[0]!.detail, /135 further acts Hebun recorded/);
+
+    /* Both branches keep the SECOND dimension. `coverage-semantics.ts` owns the full proof. */
+    for (const item of [coverage.detail, partial.items[0]!.detail]) {
+      assert.match(item, /Hebun does not record every act this organization performs/i);
+    }
   }
 
   /* ── 6 · UNAVAILABLE != EMPTY, AND NEITHER IS A ZERO ─────────────────────── */

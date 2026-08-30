@@ -42,15 +42,36 @@ function codeOf(source: string): string {
     .replace(/`(?:[^`\\]|\\.)*`/g, "``");
 }
 
-/** VALUE edges only, and RE-EXPORTS COUNT. Both traps are already paid for here. */
+/** Comments removed, STRING LITERALS KEPT — an import specifier IS a string literal. */
+function withoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1 ");
+}
+
+/**
+ * VALUE edges only, and RE-EXPORTS COUNT. Both traps are already paid for here.
+ *
+ * COMMENTS ARE STRIPPED FIRST, and that is a third trap this file paid for itself: prose containing
+ * the word `from` next to a quote made the raw-source regex report a comment block as an import
+ * specifier. An import inside a comment is not an edge, and a walker that thinks it is will both
+ * over-report a graph and fail an exact-edge assertion for a reason that has nothing to do with the
+ * code. Same family as R2F.1's and G2's finding, on the other side: there a comment satisfied a ban,
+ * here a comment invented an edge.
+ */
 function valueEdges(file: string): string[] {
-  const source = read(file);
+  const source = withoutComments(read(file));
   const specifiers: string[] = [];
-  const re = /\b(import|export)\s+(type\s+)?([\s\S]*?)\s*from\s*["']([^"']+)["']/g;
+  /*
+   * ANCHORED AT LINE START, and the clause may not contain `=`. An import statement always begins
+   * its line; `export const PROVENANCE = "... read tenant-scoped from " + "..."` does not, and the
+   * unanchored pattern matched that declaration as an import of `" +\n  "`. Two spurious-edge
+   * shapes, both from prose and string content rather than from code.
+   */
+  const re = /^\s*(import|export)\s+(type\s+)?((?:(?!\bfrom\b)[\s\S])*?)\s*from\s*["']([^"']+)["']/gm;
   let m: RegExpExecArray | null;
   while ((m = re.exec(source)) !== null) {
     if (m[2]) continue;
     const clause = m[3] ?? "";
+    if (clause.includes("=")) continue;
     const named = clause.match(/\{([\s\S]*)\}/);
     if (named && !/(^|,)\s*(?!type\s)[A-Za-z_$]/.test(named[1]!) && !/^[^{]*[A-Za-z_$]/.test(clause)) {
       continue;
