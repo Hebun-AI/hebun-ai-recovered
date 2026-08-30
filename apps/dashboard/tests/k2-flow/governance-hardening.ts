@@ -301,6 +301,20 @@ function main(): void {
          *
          * Still absent, because they still do not exist: delete, edit, rollback, un-ratify.
          */
+        /*
+         * KID-2 — the provider admission boundary. THE THIRD WAY TEXT ARRIVES, and create-class
+         * like the two beside it: it reads one document from a provider this organization already
+         * connected, hands it to the SAME file boundary an upload uses, and that boundary hands it
+         * to the SAME single ingestion writer. It adds no Knowledge authority, no writer, no table
+         * and no schema; the one thing it adds beyond ingestion is KR-EXT1's declaration of which
+         * external record the admitted facts concern, made through that released seam.
+         *
+         * Two authorizations must BOTH hold and neither grants the other — the durable Knowledge
+         * band here, the provider content capability inside the released content seam. Still
+         * absent, because they still do not exist: delete, edit, rollback, un-ratify, and any
+         * scheduled, folder-wide or automatic admission.
+         */
+        "admitProviderDocumentAction",
         "attachKnowledgeExternalReferenceAction",
         "createKnowledgeAction",
         "ingestKnowledgeAction",

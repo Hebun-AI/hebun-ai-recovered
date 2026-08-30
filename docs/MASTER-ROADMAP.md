@@ -224,7 +224,7 @@ Hebun already has legitimate, released owners for most of what Program V gives m
 | **Governance** | Decision authority + recorded acts | Governance intelligence overlays — **CONNECTED**: the `governance` class carries this tenant's own decision record to Heby through a read-only boundary (G6C `5299fdb`), and **E2-6 / E2-7 CLOSED · PRODUCTION-ACCEPTED** add the recorded-act history and its windowed period counts over `audit_log`. No governance authority, writer or policy evaluator was created (§12.6, §12.7) | Governed autonomy |
 | **Knowledge** | Facts, provenance, retraction | Memory · learning — **NEITHER DELIVERED**; the `memory` class is declared and honestly unconnected, because `readCompanyMemory` resolves to an in-memory, process-local store and grounding Heby on it would be the impostor K1 forbids. What Era II delivered here is coverage: **E2-8 CLOSED · PRODUCTION-ACCEPTED** — the declared-area coverage aggregate R6B built for `/knowledge` is admitted to Heby as evidence under its own class, so Heby can name an area the organization holds nothing in; no knowledge quality, score or readiness authority added (§12.8) | Organizational learning loop |
 | **Organization** | **Organization Authority (L3)** | Organizational intelligence evolution — **E2-1 CLOSED**, organization *identity* admitted to Heby through L3's own projection, carrying the authority's refusal verbatim where structure is unavailable · **E2-4 CLOSED · PRODUCTION-ACCEPTED**, elapsed time over authoritative timestamps. **Internal structure remains UNAVAILABLE** — the Organization Structure Authority stays a recorded dependency, not a scheduled milestone (§12) | Living organizational system |
-| **Integrations** | Provider contracts + connections | Provider-sourced intelligence — **INT-5A CONNECTED**: the `integrations` class carries per-provider *capability state* to Heby, read tenant-scoped from the control plane. It reports what CAN be read from a connected system, **never what is inside one**; provider content as reasoning input remains future work — **KID-1 RELEASED** after Era II closed adds a SECOND capability, `google.drive.content.read`, behind its own restricted scope and its own consent: it returns document text to a server-side caller and reaches no Knowledge module at any depth (§12A.1) | Operational integration |
+| **Integrations** | Provider contracts + connections | Provider-sourced intelligence — **INT-5A CONNECTED**: the `integrations` class carries per-provider *capability state* to Heby, read tenant-scoped from the control plane. It reports what CAN be read from a connected system, **never what is inside one**; provider content as reasoning input remains future work for the `integrations` class itself — **KID-1 RELEASED** after Era II closed adds a SECOND capability, `google.drive.content.read`, behind its own restricted scope and its own consent: it returns document text to a server-side caller and reaches no Knowledge module at any depth (§12A.1), and **KID-2 RELEASED** carries that content across into the EXISTING Knowledge authority when a permitted human admits one document, with provider provenance and no new authority (§12A.2) | Operational integration |
 | **Live Map** *(promoted surface — a projection, never a truth owner)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 — **E2-3 CLOSED · PRODUCTION-ACCEPTED** (derived cumulative Agent Outcome observation, id-keyed) · **LMX-1 CLOSED · PRODUCTION-ACCEPTED** — the visual organization-centred map, the agent inspector, and the Live Map Live / Security Live awareness band (§12, §12.3) · **E2-4 CLOSED · PRODUCTION-ACCEPTED** — a factual elapsed annotation on the existing agent node, no node or edge kind added (§12.4) | Live Map Operational v1 |
 | *Enterprise Security & Trust* **(cross-cutting constraint — §7, not a product line)** | Gates on L3, L4 and Era I closure — **all four measured CLOSED** (§11.1), including the carried trust boundary | Security direction (§12.1); its first bounded slice **E2-2 is CLOSED** — one derived observation connected, no security authority created (§12) | Constraints for consequential autonomy (§13) |
 
@@ -2371,7 +2371,8 @@ Concerns likely to become load-bearing as intelligence accumulates over authorit
 ## 12A. Knowledge Ingestion Depth (KID) — a post-Era-II program
 
 ```
-KID = ACTIVE (KID-1 RELEASED)
+KID = IMPLEMENTATION COMPLETE (KID-1 + KID-2 RELEASED)
+KID PRODUCTION ACCEPTANCE = BLOCKED (Google verification + CASA)
 NOT AN ERA · NOT ERA III · NOT AN ERA II MILESTONE
 ```
 
@@ -2385,7 +2386,11 @@ it. KID exists to close that, and only that.
 external provider into Hebun's EXISTING Knowledge authority, with explicit provenance, and Heby can
 later answer from what was admitted.
 
-**The program is finite: two milestones.** KID-1 reads; KID-2 admits. No third is scheduled.
+**The program is finite: two milestones.** KID-1 reads; KID-2 admits. **Both are released, so the
+program's implementation is complete and no third milestone exists or will be created.** What
+remains is a release gate, not engineering: real Google acceptance is blocked on restricted-scope
+verification and a CASA assessment, and *implementation complete* and *production-accepted* are
+recorded here as different states because they are.
 
 ```
 PROVIDER READ        != KNOWLEDGE
@@ -2525,8 +2530,183 @@ scope actually granted, one supported document is selected, and the seam returns
 #### What KID-1 is NOT
 
 It is not ingestion, not admission, not a Knowledge capability and not a product loop. It reads one
-document a caller names and returns it. **KID-2 is not authorized by this release** and requires a
-separate Director decision.
+document a caller names and returns it. KID-2 was not authorized by that release; it was authorized
+separately by the Director and is recorded at 12A.2 below.
+
+---
+
+### 12A.2 KID-2 — Provider Content Admission · **RELEASED**
+
+```
+KID-2 = RELEASED
+IMPLEMENTED · DEPLOYMENT NOT MEASURED · NOT PRODUCTION-ACCEPTED
+REAL GOOGLE ACCEPTANCE = NOT YET VERIFIED (blocked on Google verification + CASA)
+
+PROVIDER READ != KNOWLEDGE        READ CONTENT != ADMITTED CONTENT
+ADMISSION != RATIFICATION         PROVISIONAL != AUTHORITATIVE
+INGESTED != CORRECT               CONTENT != INSTRUCTION
+```
+
+**KID-2 completes the bridge KID-0 found and adds no Knowledge system.** A permitted human selects
+ONE discovered document, supplies the classification the existing authority already requires, and the
+document's content travels the released path unchanged:
+
+```
+KID-1 content read → provider-content adapter → ingestKnowledgeFile → ingestKnowledgeSource
+                   → the ONE Knowledge writer → attachExternalReference (KR-EXT1)
+```
+
+**No new authority, no new writer, no new table, no schema and no migration.** The ledger is
+unmoved at 39, and a suite asserts that count. The bridge contains no `insert`, `update`, `delete`,
+`transaction` or database handle, and names no `@/db` module at all — every act it causes belongs to
+a released module it calls by name.
+
+#### What it reuses, and what that leaves it owning
+
+| Decision | Owner | KID-2's part |
+|---|---|---|
+| Who may admit | `resolveKnowledgeWriteAuthority` (K2's band) | Resolves it FIRST, before any credential is spent |
+| May this be read | KID-1's capability gate | Calls the released seam; adds no second interpretation |
+| Which types are readable | `GOOGLE_DRIVE_READABLE_TYPES` | Unchanged |
+| What the content becomes | **KID-2's closed map**, keyed by content KIND | The one thing this milestone owns |
+| Bounds, decoding, chunking, digest, duplicate rule, transaction, audit, standing | R4C.1 + the ingestion path | Unchanged, and proved unchanged |
+| What it is about | `attachExternalReference` (KR-EXT1) | Composes the reference from released constants |
+
+#### The extensionless Google Doc, closed
+
+The adapter is keyed by `contentKind` — Hebun's own normalized answer from its own transport — and
+**never** by `providerMimeType`. A native Doc exported as `text/plain` becomes `<sanitized name>.txt`
+with type `text/plain`; plain text becomes `.txt`; Markdown becomes `.md`. The released
+`SUPPORTED_FILE_EXTENSIONS` table then derives the source type from the extension **Hebun appended**,
+so a Drive document named `report.pdf` that the transport classified as text becomes `report.pdf.txt`
+and is read as text. **A provider-declared MIME type cannot select a parser**, and there is no
+generic MIME parser, no sniffing and no fallback branch.
+
+The allowlist is keyed by kind and not by MIME type for a reason that is the fail-closed direction:
+**adding a readable type to the provider transport does not silently make it admissible into
+Knowledge.** That is a second decision, taken in the adapter, and a test asserts the two maps agree
+so a fourth kind added on one side alone fails visibly.
+
+The document's name is untrusted text: control characters and both path separators are removed, the
+stem is bounded by the released title bound in code points, and Hebun's extension is appended LAST so
+`extensionOf` — which reads the last dot — can only resolve to the one Hebun chose. A name with
+nothing usable left is **refused**, not replaced with an invented one.
+
+#### Two authorizations, and neither grants the other
+
+```
+PROVIDER READ AUTHORIZED   AND   KNOWLEDGE ADMISSION AUTHORIZED
+```
+
+The Knowledge band is resolved **before** the provider is asked anything. That is R4C.1's gate order
+and its reason — an unauthorized caller must not be able to use the refusals as an oracle — and here
+it buys something further: a person who may not author Knowledge never causes a Google credential to
+be spent and never learns what this organization connected or what is inside it. The file boundary
+re-checks the band for itself, deliberately, exactly as it does for an upload.
+
+Tenant identity comes only from the resolved server context. There is no parameter for a tenant id,
+an integration id or a credential id, so naming another organization's connection is not refused —
+it is **unrepresentable**.
+
+#### Partial failure: the honest answer to a question with no clean one
+
+**Admission and provenance cannot commit together, and that is a fact about the released seams, not
+a preference.** `ingestKnowledgeSource` opens and owns its own transaction and takes no outer one;
+`attachExternalReference` accepts no transaction parameter at all. Inventing a shared one would give
+one authority a handle into the other's write — the cross-authority ownership this repository
+refuses — and simulating a rollback by deleting admitted Knowledge is worse: nothing here holds
+retraction authority, and Knowledge is never deleted.
+
+So the truth is reported rather than smoothed over, and the operation is made **idempotent** instead:
+
+| State | What is true | What the surface says |
+|---|---|---|
+| `admitted`, provenance complete | Every fact carries the declaration | Admitted as N provisional records; all N record which document they came from |
+| `admitted`, provenance incomplete | The Knowledge is real, provisional and readable; some declarations are ABSENT | **"The provenance is incomplete"**, with the count and the reason, and how to finish it |
+| `already-admitted` | The existing duplicate rule refused a second write | Nothing was written; the declarations were completed |
+
+**Repeating the same admission is the recovery path**, and it is proved against a real database: a
+run whose reference authority is unreachable admits the Knowledge and reports `declared 0`; the same
+call again is refused as a duplicate — nothing written twice — and completes every missing
+declaration. The fact identities on that path are derived with the ingestion path's **own exported**
+identity function from the digest it just reported, and one that does not resolve to a row is
+counted as unresolved rather than attached to something else.
+
+A declaration is attached to **every** fact the source produced, not to the first: a chunk of the
+document is still the document, and a reference on one alone would leave a provenance trace that
+dead-ends on every other record the same import created.
+
+#### The trust boundary, proved rather than detected
+
+Provider content is DATA. There is no prompt-injection "detector" here and there deliberately is
+none — **the architectural protection is that content is not instruction**. A hostile document that
+declares its own domain, scope, standing and a tool call is admitted against a real database and
+comes back out as the same characters, filed where the HUMAN filed it, `draft`/`provisional`, with
+zero action permits in existence.
+
+#### What it deliberately does not do
+
+No multi-select, no folders, no crawl, no sync, no scheduler, no automatic admission, no automatic
+ratification, no PDF, no DOCX, no Sheets, no Slides, no vector search. **Deleting the document at
+the provider does not retract admitted Knowledge** — the released retraction authority remains the
+only way, and the surface says so before the act.
+
+#### Validation as released
+
+Typecheck clean, **lint clean with zero errors**, and the build compiles; `/knowledge` prerenders
+with the new section, and the section was rendered and read in a browser rather than assumed. The
+suite total moved 598 → 602 because KID-2 adds four suites and no released suite was deleted.
+
+**The first full run was 601/602, and the one failure was REAL — caused by this milestone.**
+`tests/cmdv3-command-composition/composition.ts` holds a *named* census of every `StateBlock`
+consumer, and the new admission control legitimately joins it: it must keep `restricted` (no session
+or a role that may not author), `unavailable` (no persistence) and `empty` (nothing discovered to
+admit) apart, and hand-rolling a tenth treatment would have been the regression. The census was
+extended with that justification, re-verified green, and **one replacement full suite** was run:
+**602/602, fully green**. A named census failing on a legitimate addition is the census doing its job.
+
+**The known pre-existing K2 concurrency flake did NOT reproduce in either run.** It is not recorded
+as fixed and no claim is made about it here — it simply did not fire.
+
+**Nine bite-proofs were watched to bite**, each mutating real source and required to fail for the
+intended reason: the provider's MIME choosing the representation, a kind added to the allowlist with
+no reader behind it, the provider read moved ahead of the authorization gate, the domain inferred
+from the document, the transport gaining an edge into ingestion, an unnamed door in the bridge, the
+bridge opening a transaction, and two ways the surface could stop naming an outcome.
+
+**Four released censuses were extended precisely, and none relaxed.** The two Knowledge-action
+lists (K2, K3) gained the one new action with its justification. KID-1's "no route, action or UI
+names the content seam" now *also* names the exact set of `src/` consumers, which is stricter than
+the window it sits beside. And the discovery section's provenance assertion, which read a fixed
+900-character window forward, now measures the section's exact extent — necessary because the
+admission section sits immediately after it and is correctly `authoritative`.
+
+#### Provider acceptance — the states, kept apart
+
+```
+IMPLEMENTED          = YES
+CONFIGURED           = NOT MEASURED (no deployment configuration was changed)
+AUTHORIZED           = NO  (no human has granted the content scope)
+CONNECTED            = NO
+VERIFIED             = NO  (no real Google content read or admission has occurred)
+PRODUCTION-AVAILABLE = NO  (blocked on Google verification + CASA)
+```
+
+**No mock proves provider acceptance, and none is claimed here.** Every provider answer in every
+KID-2 test is fabricated; what is real is every Hebun authority downstream of the provider boundary,
+proved against a disposable PostgreSQL database. The acceptance procedure, when the scope becomes
+grantable, is: one real Google Doc selected in `/knowledge`, real content read, the existing
+Knowledge authority admits it, standing is `draft`/`provisional`, the external reference persists,
+Knowledge coverage changes truthfully, Heby answers one question from `/knowledge` grounded in the
+admitted content, and the provenance trace reaches the real provider document.
+
+#### What KID-2 is NOT
+
+It is not synchronization, not a second Knowledge system, not ratification, and not a claim that any
+admitted content is correct. **The KID program's IMPLEMENTATION is complete; its PRODUCTION
+ACCEPTANCE is BLOCKED on Google verification and CASA.** Those are different states and are recorded
+as different states. **No KID-3 exists and none is created** — the eventual real-provider acceptance
+is a release gate, not a new engineering milestone.
 
 ---
 
@@ -2714,7 +2894,7 @@ HMR-0's "Foundation ~70%" estimate is **not preserved**. It had no defensible de
 
 **An era closing selects nothing.** Era III is **NOT started** (§13) and is not opened by Era II closing, exactly as Era II was not opened by numbering. The next program or era is a **separate Director decision**, taken from measured repository and product reality.
 
-**That decision was taken, and it did not open an era.** After a Post-Era-II Strategic Product Gate measured production — 40 Heby messages and 275 grounding-evidence rows against **one** Knowledge fact, zero permits and zero execution attempts — the Director selected **Knowledge Ingestion Depth (KID)**, a finite two-milestone program (§12A). **KID-1 is RELEASED**; KID-2 is not authorized by it. A program is not an era: Era II stays **CLOSED**, Era III stays **NOT STARTED**, and no Era II milestone is reopened.
+**That decision was taken, and it did not open an era.** After a Post-Era-II Strategic Product Gate measured production — 40 Heby messages and 275 grounding-evidence rows against **one** Knowledge fact, zero permits and zero execution attempts — the Director selected **Knowledge Ingestion Depth (KID)**, a finite two-milestone program (§12A). **KID-1 and KID-2 are both RELEASED, so the program's IMPLEMENTATION is COMPLETE; its PRODUCTION ACCEPTANCE is BLOCKED** on Google restricted-scope verification and CASA (§12A.2). Those are different states, and no KID-3 exists — waiting for a provider is a release gate, not a milestone. A program is not an era: Era II stays **CLOSED**, Era III stays **NOT STARTED**, and no Era II milestone is reopened.
 
 ```
 NEXT MILESTONE = NOT YET SELECTED

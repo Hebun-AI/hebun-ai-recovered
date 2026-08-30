@@ -449,6 +449,14 @@ async function main(): Promise<void> {
          *
          * Still absent, because they still do not exist: delete, edit, rollback, un-ratify.
          */
+        /*
+         * KID-2 — provider admission. It reaches the SAME producer the paste and the upload reach,
+         * so it adds no correction, no deletion and no in-place edit: a provider document becomes
+         * new provisional facts, and a CHANGED provider document becomes a different source with a
+         * different content identity rather than an edit of the one already admitted. This list
+         * growing by one is the whole of its Knowledge surface.
+         */
+        "admitProviderDocumentAction",
         "attachKnowledgeExternalReferenceAction",
         "createKnowledgeAction",
         "ingestKnowledgeAction",

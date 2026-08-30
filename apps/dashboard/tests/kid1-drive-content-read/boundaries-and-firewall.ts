@@ -14,7 +14,7 @@
  *     AUTHORIZED READ != PERSISTENCE   CONTENT != INSTRUCTION
  */
 import assert from "node:assert/strict";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
@@ -256,7 +256,7 @@ async function main(): Promise<void> {
     const grep = (dir: string): string[] => {
       const out: string[] = [];
       const walk = (d: string) => {
-        for (const entry of require("node:fs").readdirSync(d, { withFileTypes: true })) {
+        for (const entry of readdirSync(d, { withFileTypes: true })) {
           const p = path.join(d, entry.name);
           if (entry.isDirectory()) walk(p);
           else if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) {
@@ -268,6 +268,37 @@ async function main(): Promise<void> {
       return out;
     };
     assert.deepEqual(grep(app), [], "KID-1 adds no route, action or UI — the seam is server-side only");
+
+    /*
+     * ── EXTENDED BY KID-2, AND EXTENDED RATHER THAN RELAXED ──────────────────
+     *
+     * The assertion above still holds and still means what it meant: no route, action or component
+     * names this seam. What CHANGED is that the seam now has a consumer at all — KID-2's admission
+     * bridge — and a census that passes because a new caller happened to sit one file away would be
+     * passing by accident.
+     *
+     * So the census is stated exactly: repository-wide, under `src/`, this seam is named by ONE
+     * module. That is stricter than the window above, because a second consumer appearing anywhere
+     * in the product now has to be written down here.
+     */
+    const srcImporters: string[] = [];
+    const walkSrc = (d: string) => {
+      for (const entry of readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, entry.name);
+        if (entry.isDirectory()) walkSrc(p);
+        else if (/\.tsx?$/.test(entry.name)) {
+          const rel = path.relative(ROOT, p).replace(/\\/g, "/");
+          if (rel !== SEAM && codeOf(rel).includes("readDriveContent")) srcImporters.push(rel);
+        }
+      }
+    };
+    walkSrc(path.join(ROOT, "src"));
+    assert.deepEqual(
+      srcImporters.sort(),
+      ["src/features/provider-content-admission/admit-provider-document.server.ts"],
+      "exactly one module consumes the content seam: KID-2's admission bridge, which is what a " +
+        "bridge is for. A second consumer is a decision somebody records here.",
+    );
 
     /*
      * WORD BOUNDARIES, NOT SUBSTRINGS. `async` contains `sync`, and a substring ban would have

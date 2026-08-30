@@ -204,7 +204,22 @@ function theSectionDeclaresProviderProvenance(): void {
   const page = read(PAGE);
   const idx = page.indexOf('id="external-sources"');
   assert.ok(idx > 0, "the discovery section exists on the canonical Knowledge page");
-  const section = page.slice(idx, idx + 900);
+  /*
+   * ── NARROWED BY KID-2, AND NARROWED RATHER THAN RELAXED ────────────────────
+   *
+   * This used to read a fixed 900-character window forward, which was the discovery section plus
+   * whatever happened to follow it. KID-2 puts the provider ADMISSION section immediately after —
+   * a genuinely `authoritative` section, correctly so, because it writes canonical Knowledge — and
+   * a fixed window would have read that neighbour's provenance as this section's and failed for a
+   * reason that is not a defect.
+   *
+   * The fix is to measure the section itself: from its id to its own closing tag. That is STRICTER
+   * than the window it replaces — every character it now reads belongs to the discovery section,
+   * and none of the section's own attributes can escape the slice by being far from the id.
+   */
+  const end = page.indexOf("</WorkspaceSection>", idx);
+  assert.ok(end > idx, "the discovery section is closed, so its exact extent is measurable");
+  const section = page.slice(idx, end);
   assert.match(section, /provenance=/, "it declares a provenance, as every section must");
   assert.ok(
     !/provenance="authoritative"/.test(section),

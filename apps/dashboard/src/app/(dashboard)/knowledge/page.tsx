@@ -9,6 +9,7 @@ import { KnowledgeStanding } from "@/components/knowledge-workspace/knowledge-st
 import { CompanyUnderstandingCard } from "@/components/knowledge-workspace/company-understanding-card";
 import { KnowledgeSourcesCard } from "@/components/knowledge-workspace/knowledge-sources-card";
 import { DiscoveredSourcesCard } from "@/components/knowledge-workspace/discovered-sources-card";
+import { ProviderDocumentAdmissionCard } from "@/components/knowledge-workspace/provider-document-admission-card";
 import { getKnowledgeWorkspaceModel } from "@/features/knowledge/workspace-model";
 import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server";
 import { readCompanyUnderstanding } from "@/features/knowledge/company-understanding-read.server";
@@ -239,6 +240,31 @@ export default async function KnowledgePage() {
           provenanceDetail="read live from the provider — provider-derived, never stored, not Knowledge"
         >
           <DiscoveredSourcesCard discovery={discovery} />
+        </WorkspaceSection>
+
+        {/*
+          KID-2. THE DELIBERATE STEP ACROSS THE LINE THE SECTION ABOVE DRAWS.
+
+          It is a SEPARATE section from discovery, and the separation is the point: listing what
+          exists somewhere else is provider-derived and admits nothing, while this writes canonical
+          Knowledge and is `authoritative` for exactly that reason. Its authority is the SAME
+          authoring band as the two write sections higher up the page — `block` is shared, so
+          whatever stops you authoring stops you admitting — and it is not the provider's
+          authorization: the organization's Google grant is resolved separately inside the released
+          content seam, and neither ever stands in for the other.
+
+          One document, chosen by a person, classified by that person. There is no import-all, no
+          folder, no schedule and no sync behind it, because none of those exist.
+        */}
+        <WorkspaceSection
+          id="provider-admission"
+          title="Admit a provider document"
+          question="How does a document in a connected provider become Knowledge this organization holds?"
+          provenance="authoritative"
+          provenanceDetail="writes the canonical Knowledge authority, and records the provider record it came from"
+          authority={authoringBand}
+        >
+          <ProviderDocumentAdmissionCard block={block} discovery={discovery} />
         </WorkspaceSection>
 
         {/*

@@ -614,6 +614,25 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
    * The six Knowledge surfaces this axis was built to leave alone are untouched, which is what the
    * named form proves and a bumped count never would.
    */
+  /*
+   * TEN NOW, AND THE SIX ARE STILL THE POINT. KID-2 adds one consumer, for the same reason the
+   * three before it were accepted: it must keep apart distinctions this component already encodes,
+   * and hand-rolling a tenth treatment would have been the regression.
+   *
+   *   the provider ADMISSION control  `restricted` (no session, or a role that may not author)
+   *                                   vs `unavailable` (persistence is not configured)
+   *                                   vs `empty` (nothing was discovered to admit, which is NOT a
+   *                                   statement that the provider holds nothing, and NOT the same
+   *                                   as the provider having refused)
+   *
+   * That third case is the whole reason it uses this component: "there is nothing to select" and
+   * "Hebun could not look" are different facts about a connected provider, and the discovery
+   * section beside it already owns the second one.
+   *
+   * It opts into NO density override; the assertion above still pins that set empty. The six
+   * Knowledge surfaces this axis was built to leave alone are untouched — which is what the named
+   * form proves and a bumped count never would.
+   */
   const consumers = walk("src").filter((f) => f !== STATE_BLOCK && /<StateBlock/.test(overrides[f] ?? read(f)));
   assert.deepEqual(
     consumers.sort(),
@@ -627,9 +646,11 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
       "src/components/knowledge-workspace/knowledge-ingestion-card.tsx",
       "src/components/knowledge-workspace/knowledge-records.tsx",
       "src/components/knowledge-workspace/knowledge-sources-card.tsx",
+      "src/components/knowledge-workspace/provider-document-admission-card.tsx",
     ],
-    "the six untouched Knowledge consumers remain, Command is still not among them, and the three " +
-      "additions are the durable identity ceremony and SIA-3.1's two hypothesis controls",
+    "the six untouched Knowledge consumers remain, Command is still not among them, and the four " +
+      "additions are the durable identity ceremony, SIA-3.1's two hypothesis controls, and KID-2's " +
+      "provider admission control",
   );
 }
 

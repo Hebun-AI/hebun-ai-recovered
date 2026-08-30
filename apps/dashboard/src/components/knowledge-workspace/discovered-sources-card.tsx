@@ -8,9 +8,11 @@ import type { DriveSourceDiscovery } from "@/features/provider-google/discover-d
  * The type import above disappears at compile time and creates no execution edge.
  *
  * Every sentence is written so a reader cannot come away believing Hebun imported, downloaded,
- * opened, synchronized or owns any of these documents. There is no Import, Sync, Add to Knowledge
- * or Summarize control, because no admission flow for a provider document exists yet — and a
- * control that refused would be a promise Hebun has not kept.
+ * opened, synchronized or owns any of these documents. There is still no Import, Sync, Add to
+ * Knowledge or Summarize control in THIS card, and that is unchanged by KID-2: admission is a
+ * different act under a different authority, so it lives in its own section with its own
+ * provenance rather than as a button on a provider-derived listing. What this card renders is
+ * exactly what Drive reported, and reporting it admits nothing.
  */
 function formatSize(bytes: number | null): string {
   if (bytes === null) return "—";

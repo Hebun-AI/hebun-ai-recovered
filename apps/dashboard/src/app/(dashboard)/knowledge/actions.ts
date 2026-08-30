@@ -42,6 +42,10 @@ import type {
 } from "@/features/knowledge-ratification/contracts";
 import { retractKnowledgeSource } from "@/features/knowledge/retract-source.server";
 import type { RetractionResult } from "@/features/knowledge/retraction-contracts";
+import {
+  admitProviderDocument,
+  type AdmitProviderDocumentResult,
+} from "@/features/provider-content-admission/admit-provider-document.server";
 
 /**
  * The K2 boundary for establishing organizational Knowledge. It is the ONLY client-crossable way
@@ -159,6 +163,48 @@ export async function ingestKnowledgeFileAction(
   });
   if (result.status === "ingested") revalidatePath("/knowledge");
   return result;
+}
+
+/**
+ * THE PROVIDER ADMISSION BOUNDARY (KID-2): one document in a connected provider becomes the same
+ * provisional Knowledge facts a paste or an upload would.
+ *
+ * It is the SAME authority as the three actions above and deliberately not a new one. What it adds
+ * is a third way for text to arrive — read from a provider Hebun is already connected to — and one
+ * further act on the far side: the organization's declaration of which external record the admitted
+ * facts concern, recorded through KR-EXT1's existing seam.
+ *
+ * TWO AUTHORIZATIONS MUST BOTH HOLD, AND NEITHER GRANTS THE OTHER. The durable Knowledge band is
+ * resolved first, before any credential is spent; the provider content capability is resolved by
+ * KID-1's own gate. A Knowledge author whose organization never granted the Drive content scope is
+ * refused with the capability authority's own words, and a connected organization whose signed-in
+ * person cannot author Knowledge never causes a provider call at all.
+ *
+ * WHAT THE CLIENT SUPPLIES: which document, and the Knowledge classification a human must choose
+ * anyway. There is no tenant, actor, role, integration, credential, standing, digest, media type or
+ * source-type field in this payload, and no provider text either — the content is read server-side
+ * from the document the identifier names.
+ *
+ * ADMITTED IS NOT RATIFIED, and admitted is not synchronized. Every row lands `draft`/`provisional`
+ * exactly as an authored fact does; nothing here reaches K4; and there is no schedule, no polling
+ * and no folder walk behind it. Deleting the document at the provider does not retract what this
+ * admitted — only the released Knowledge retraction authority can do that.
+ */
+export async function admitProviderDocumentAction(input: {
+  fileId: string;
+  sourceTitle: string;
+  domainKey: string;
+  scope: string;
+}): Promise<AdmitProviderDocumentResult> {
+  const tenant = await resolveTenantContext();
+  const admission = await admitProviderDocument(tenant, {
+    fileId: input?.fileId ?? "",
+    sourceTitle: input?.sourceTitle ?? "",
+    domainKey: input?.domainKey ?? "",
+    scope: input?.scope as IngestKnowledgeInput["scope"],
+  });
+  if (admission.status === "admitted") revalidatePath("/knowledge");
+  return admission;
 }
 
 /** Read one fact's version chain, tenant-scoped. Read-only; grants nothing. */
