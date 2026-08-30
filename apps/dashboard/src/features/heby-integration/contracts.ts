@@ -282,7 +282,30 @@ export type HebySourceClass =
    *     ORGANIZATION IDENTITY != ORGANIZATION STRUCTURE
    *     STRUCTURE UNAVAILABLE != STRUCTURE EMPTY
    */
-  | "organization";
+  | "organization"
+  /*
+   * E2-5. THE DURABLE AGENTS THIS ORGANIZATION ESTABLISHED, and what became of what each proposed.
+   *
+   * It is its own class rather than a flavour of `workforce` — the class it most looks like — for
+   * the reason `work-artifacts`, `external-recipients`, `integrations` and `organization` are:
+   * a different authority owner. `workforce`'s released profile states the boundary in the words a
+   * Director's answer is composed from: *"Organizational workforce identity — not a runtime
+   * agent."* That class is chartered for the humans an organization is made of, and Hebun holds no
+   * authority for them; routing a runtime agent through it would make the two indistinguishable.
+   *
+   * This reads E2-3's Agent Outcome Observation, the released owner-side projection over durable
+   * agent identity, proposals, permits, execution attempts and model invocations.
+   *
+   * IT IS AN OUTCOME, NEVER A MANDATE. What the agent proposed and what became of it — never what
+   * it is for, what it may do, what it was instructed to do, or who is accountable for it. No agent
+   * id, no capability, no permission and no owner travels under this class, because the observation
+   * carries none of them to travel.
+   *
+   *     RUNTIME AGENT   != WORKFORCE IDENTITY
+   *     OUTCOME         != MANDATE
+   *     APPROVED        != EXECUTED
+   */
+  | "agents";
 
 export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "knowledge",
@@ -297,6 +320,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "external-recipients",
   "integrations",
   "organization",
+  "agents",
 ] as const;
 
 export interface HebySourceStatus {

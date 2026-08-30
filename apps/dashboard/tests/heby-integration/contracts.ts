@@ -71,8 +71,8 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Twelve since E2-1 added `organization` (eleven after INT-5A's `integrations`, ten after R3R's
-   * `external-recipients`, nine after R3W's `work-artifacts`). The list is
+   * Thirteen since E2-5 added `agents` (twelve after E2-1's `organization`, eleven after INT-5A's
+   * `integrations`, ten after R3R's `external-recipients`, nine after R3W's `work-artifacts`). The list is
    * pinned rather than pattern-matched so a new source class cannot appear without somebody
    * stating it here — which is exactly the review this assertion exists to force. The classes
    * themselves are named so the diff says WHICH one arrived, not merely that the number moved.
@@ -112,6 +112,25 @@ function sourceStatusNotCollapsed(): void {
        *     ORGANIZATION IDENTITY != ORGANIZATION STRUCTURE
        */
       "organization",
+      /*
+       * E2-5. The durable agents this organization established, and what became of what each
+       * proposed — E2-3's Agent Outcome Observation, admitted as evidence.
+       *
+       * It earns the review for a third reason again. A fabricated item here would not overstate a
+       * system's usability and would not misname the organization; it would tell a Director that
+       * something in their organization ACTED. So the class must stay narrow in a specific
+       * direction: it carries what was filed, decided and attempted, and it may never carry what an
+       * agent is for, what it may do, what it was instructed to do, or who is accountable for it —
+       * because the observation holds no field for any of them.
+       *
+       * IT IS NOT `workforce`, and the distinction is the reason this class exists rather than that
+       * one being connected. `workforce`'s released profile says "Organizational workforce identity
+       * — not a runtime agent"; it is chartered for the humans an organization is made of, and
+       * Hebun holds no authority for them.
+       *
+       *     RUNTIME AGENT != WORKFORCE IDENTITY        OUTCOME != MANDATE
+       */
+      "agents",
     ],
   );
   const context = resolveHebyWorkspaceContext({ workspace: "knowledge" });

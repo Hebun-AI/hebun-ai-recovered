@@ -73,7 +73,18 @@ const WORKSPACE_PROFILES = {
      * sections that the mock-surface gate withholds from a real tenant. The organization was the
      * one authoritative fact Hebun held and Heby could not reach.
      */
-    sourceClasses: ["intelligence", "operations", "decision-records", "organization"],
+    /*
+     * E2-5 adds `agents` here and ONLY here, on E2-1's precedent and for its reason. Command is the
+     * workspace that already owns the organization-wide surfaces by route — `/heby`, `/live-map`
+     * and `/director/organization` all resolve to it — and `/live-map` is where a Director already
+     * sees the durable agents rendered. It is the one workspace where "what are my agents doing?"
+     * is a legitimate question. No other profile gains the class, and `workforce` in particular
+     * does NOT: its own `mayExplain` says "not a runtime agent", and that boundary is kept.
+     *
+     * Until now nothing here could answer it. Heby held counts and durations after E2-4 and could
+     * not name a single agent — including itself.
+     */
+    sourceClasses: ["intelligence", "operations", "decision-records", "organization", "agents"],
     authority: "advisory-only",
     mayExplain: [
       "Why is this critical?",
@@ -84,6 +95,12 @@ const WORKSPACE_PROFILES = {
        * organization this is and does not know how it is arranged, and Heby must say both.
        */
       "Which organization am I in, and what does Hebun know about it?",
+      /*
+       * E2-5. Truthful in BOTH halves, like E2-1's line above. Hebun knows what each agent
+       * proposed and what became of it, and does not know what any agent is FOR — and Heby must
+       * say both.
+       */
+      "What durable agents does this organization have, and what became of what they proposed?",
     ],
   },
   intelligence: {

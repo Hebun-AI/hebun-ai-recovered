@@ -464,12 +464,32 @@ async function main(): Promise<void> {
      * (C) AGENTS ARE NOT ADMITTED BY E2-1. Live Map projects a durable agent beside the
      * organization; this class does not, and must not start to merely because the map does.
      * Durable agent identity is the Agents product line and needs its own admitted class.
+     *
+     * ── REPAIRED BY E2-5, AND MADE STRICTER ─────────────────────────────────
+     *
+     * This assertion used to scan the WHOLE grounding for `[agent`, which was an exact proxy for
+     * the claim only while no agent class existed. E2-5 gave durable agents the admitted class the
+     * sentence above says they need, and Command declares it — so the broad scan started failing on
+     * the very outcome E2-1 prescribed, while saying nothing about whether E2-1's own class had
+     * leaked.
+     *
+     * The claim was never "Heby may not know about agents". It is "an agent must not arrive as a
+     * property of the ORGANIZATION RECORD". So the ban is now scoped to what E2-1 owns and is
+     * checked twice — on the organization's grounding line, and on the resolution that produced it.
+     * Strictly stronger: the old regex would have passed an organization line that carried an agent
+     * name without the literal token `[agent`.
      */
-    assert.ok(!/\[agent/i.test(grounding), "no agent citation enters through E2-1");
-
-    /* CONTEXT BUDGET: the organization contributes exactly one line. */
     const organizationLines = captured!.evidence.filter((line) => line.startsWith("[organization/"));
     assert.equal(organizationLines.length, 1, "one organization, one grounding line");
+    assert.ok(
+      !/\bagent/i.test(organizationLines.join("\n")),
+      "no agent fact enters through E2-1's own grounding line",
+    );
+    const organizationOnly = await groundOn(available());
+    assert.ok(
+      !/\bagent/i.test(JSON.stringify(organizationOnly)),
+      "the organization resolution itself carries nothing agent-shaped",
+    );
   }
 
   /* ── 12 · (D) THE AGENT POPULATION CANNOT MOVE ORGANIZATION SEMANTICS ─────── */

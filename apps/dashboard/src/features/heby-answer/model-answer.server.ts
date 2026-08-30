@@ -103,6 +103,7 @@ import { readIntegrationGroundingSource } from "@/features/integration-authority
  * model context through an edit made somewhere else. A firewall test asserts the absence.
  */
 import { readOrganizationGroundingSource } from "@/features/organization-authority/heby-organization-source.server";
+import { readAgentGroundingSource } from "@/features/agent-outcome-observation/heby-agent-source.server";
 import { readAttentionGroundingSource } from "@/features/attention-observation/heby-attention-source.server";
 import {
   toResponseSourceEvidence,
@@ -258,6 +259,13 @@ export interface HebyModelAnswerDeps {
     tenant: TenantContext,
     base?: SourceResolution,
   ) => Promise<SourceResolution>;
+  /**
+   * E2-5 — explicit durable-agent resolution for the `agents` class. Defaults to the real
+   * tenant-scoped read through the Agent Outcome authority's own projection. Consulted ONLY for
+   * workspaces that declare the class (today: Command only), and it can only ever contribute
+   * EVIDENCE — never a writer, never an agent lifecycle act, never authority over an agent.
+   */
+  readonly resolveAgents?: (tenant: TenantContext) => Promise<SourceResolution>;
 }
 
 /** What actually happened to durable persistence for this request. Never fabricated. */
@@ -498,6 +506,49 @@ async function withOrganization(
 }
 
 /**
+ * E2-5 — this tenant's durable agents join the SAME deterministic evidence set.
+ *
+ * REPLACES, and that is correct here. E2-4 had to APPEND because `operations`' pure resolution was
+ * already carrying Executive Overview sections, and substituting a fresh one silently deleted them.
+ * `agents` has no such base: its pure resolution is the honest "read tenant-scoped on the server"
+ * default this phase added beside it, carrying zero items. Replacing an empty resolution removes
+ * no evidence — which is the check E2-4's defect made mandatory, not a rule that append always
+ * wins.
+ *
+ *     A CONNECTED READER MAY ADD EVIDENCE. IT MAY NOT DELETE ANOTHER SOURCE'S.
+ *
+ * ONE ITEM PER DURABLE AGENT, and a tenant with no agent gets one item saying so — a measured zero
+ * stated in words, never silence a model could fill.
+ *
+ * IT IS DERIVED. `authoritative: false`, like Operations and Integrations and unlike Governance and
+ * Organization, because every count is recomputed on read — the RECORDS are authoritative, the
+ * outcome numbers are arithmetic over them.
+ *
+ * A read failure degrades to the pure resolution — it never fabricates an agent, never implies the
+ * organization has none, and never removes another source's evidence.
+ *
+ *     OUTCOME != MANDATE        APPROVED != EXECUTED        UNAVAILABLE != NO AGENTS
+ */
+async function withAgents(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "agents")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveAgents ?? readAgentGroundingSource;
+    const agents = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "agents" ? agents : resolution,
+    );
+  } catch {
+    return resolutions;
+  }
+}
+
+/**
  * E2-4 — this tenant's elapsed-time observations join the SAME deterministic evidence set.
  *
  * WHY THE `operations` CLASS WAS EMPTY, AND WHY IT IS NOT A NEW ONE. Command and Operations have
@@ -702,7 +753,11 @@ export async function answerHebyModelRequest(
   // E2-4 — and how long the things already recorded have been waiting. Durations only: elapsed
   // time measured from authoritative timestamps against one instant, with no threshold, no target
   // and no claim that any of it is late.
-  const resolutions = await withOperations(organizationResolutions, tenant, deps);
+  const operationsResolutions = await withOperations(organizationResolutions, tenant, deps);
+  // E2-5 — and which durable agents proposed any of it, and what became of what they proposed.
+  // Outcome evidence only: what was filed, decided and attempted, with no statement of what any
+  // agent is for, may do, or was instructed to do.
+  const resolutions = await withAgents(operationsResolutions, tenant, deps);
   const assembled = assembleEvidence(resolutions);
 
   // The honest deterministic fallback (an answer where possible, an honest unavailable else).

@@ -128,6 +128,22 @@ export function resolveSource(
     case "workforce":
       return unavailable("workforce", "No connected Workforce retrieval path.");
     /*
+     * E2-5. The same arrangement K1, R3W, R3R, G6C, INT-5A and E2-1 use: this resolver is PURE — it
+     * holds no tenant and can open no connection — so it reports the honest default, and the server
+     * answer flow substitutes the real tenant-scoped read. A caller with no server seam gets no
+     * agent observation, which is the truthful outcome rather than a seeded one.
+     *
+     * The sentence states that the read is tenant-scoped and server-side, NOT that nothing is
+     * connected — G6D's correction, for the reason it recorded: this resolution is also what
+     * `withAgents` falls back to when the real read THROWS, and reporting a read failure as a
+     * permanent absence of connection would be false.
+     */
+    case "agents":
+      return unavailable(
+        "agents",
+        "Durable agents are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
+    /*
      * G6D. G6C connected Governance on the server seam exactly as K1 connected Knowledge, and the
      * sentence above is the precedent for what that obliges: state that the read is tenant-scoped
      * and server-side, not that nothing is connected.
