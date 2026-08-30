@@ -2522,3 +2522,19 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
 - **Two symptoms, one owner.** The deterministic composition failed on E2-4's evidence LABELS and the model prose failed on its own honest sentence. Rewording E2-4's labels would have fixed only the first and left the second — a model cannot be reworded. **When two paths fail on the same rule, the rule is the owner; fixing the callers is how you fix it twice and still ship the bug.**
 - **My own release measured this path and missed it, because my synthetic model answer avoided the words.** The E2-5 server smoke composed a "realistic" model sentence that happened not to say `approved`. The Director's real question produced one that did. **A synthetic fixture written by the same author as the code under test inherits that author's blind spot; the acceptance question must be the user's words, not a paraphrase.**
 - **An unowned working-tree edit broke a released guard mid-validation.** `execution-ledger.tsx` had lost its `attentionPreamble` paragraph — the "The external effect may already have happened" disclosure — in the working tree, and GE-1's surface test caught it. Proving it against a worktree at the released SHA separated it from my change in one step. **Before attributing a suite failure to your own diff, run `git status` — a dirty file you did not write looks exactly like a regression you did.**
+
+## E2-5 PRODUCTION ACCEPTANCE — the durable rule, and the refusal that proved the milestone
+
+- **OBSERVATION OF A CONSEQUENTIAL STATE != CLAIMING HEBY PERFORMED THE CONSEQUENTIAL ACT.** This is the rule the validator now encodes, and it is the one to carry forward to every future honesty guard. These three must never be treated as the same sentence:
+
+  ```
+  "The proposal was not approved."          <- observation of absence
+  "The proposal was approved by governance." <- observation of another authority's act
+  "I approved the proposal."                 <- a claim Heby may never make
+  ```
+
+  A substring ban collapses all three. The distinction that separates them is the **actor and the negation**, not the vocabulary — so a guard about who acted must be written about who acted.
+- **The acceptance was won by a refusal, not by a number.** Asked what the two proposals actually were, production Heby said the grounding does not carry proposal content or subject and did not invent them. `AgentOutcomeObservation` holds what became of a proposal and nothing about what it says. **A surface that had supplied a plausible subject would have looked more useful and failed the gate** — `UNAVAILABLE CONTENT != PERMISSION TO DESCRIBE IT`, and `OUTCOME != SUBJECT`.
+- **Two standings in one answer, kept apart.** Heby grounds on authoritative durable-agent identity and the DERIVED Agent Outcome Observation together, and the derived counts are never reported as authoritative identity. **When a milestone joins two sources of different standing, the acceptance question is not "are the numbers right" but "can the reader still tell which is which".**
+
+**Weekly three.** *Learned:* the defect that blocked acceptance was invisible to my own release smoke because I wrote the test sentence myself and unconsciously avoided the word that breaks it — the Director's real question found it in one attempt. *Turkish Rug House:* a signed-in Director can now ask the assistant what its agent has actually proposed and what became of it, get 2 filed and 2 still awaiting a decision, and be told plainly that the proposal contents are not something Hebun holds. *Hebun AI:* E2-5 is production-accepted with zero schema, zero migration, zero writer and zero agent authority — ledger unchanged at 39 — and the honesty gate is now stricter about self-attribution than the substring ban it replaced while no longer withholding true answers.
