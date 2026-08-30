@@ -223,7 +223,7 @@ Hebun already has legitimate, released owners for most of what Program V gives m
 | **Knowledge** | Facts, provenance, retraction | Memory · learning | Organizational learning loop |
 | **Organization** | **Organization Authority (L3)** | Organizational intelligence evolution | Living organizational system |
 | **Integrations** | Provider contracts + connections | Provider-sourced intelligence | Operational integration |
-| **Live Map** *(promoted surface — a projection, never a truth owner)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 — **E2-3 CLOSED** (derived cumulative Agent Outcome observation, id-keyed) · **LMX-1 CLOSED** — the visual organization-centred map, the agent inspector, and the Live Map Live / Security Live awareness band (§12) | Live Map Operational v1 |
+| **Live Map** *(promoted surface — a projection, never a truth owner)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 — **E2-3 CLOSED · PRODUCTION-ACCEPTED** (derived cumulative Agent Outcome observation, id-keyed) · **LMX-1 CLOSED · PRODUCTION-ACCEPTED** — the visual organization-centred map, the agent inspector, and the Live Map Live / Security Live awareness band (§12, §12.3) | Live Map Operational v1 |
 | *Enterprise Security & Trust* **(cross-cutting constraint — §7, not a product line)** | Gates on L3, L4 and Era I closure — **all four measured CLOSED** (§11.1), including the carried trust boundary | Security direction (§12.1); its first bounded slice **E2-2 is CLOSED** — one derived observation connected, no security authority created (§12) | Constraints for consequential autonomy (§13) |
 
 The final row is a **constraint**, not a truth owner. It appears in this matrix so that no Era can be read as closable without it, and for no other reason.
@@ -232,7 +232,7 @@ The final row is a **constraint**, not a truth owner. It appears in this matrix 
 
 ## 9. Current Position — YOU ARE HERE
 
-**Measurement baseline:** commit `0005f72f1014852a478e557b42344c1ddb52000d` on `main`, equal to `origin/main`, 0 ahead / 0 behind. Migration ledger: **39 entries** (idx 0–38), last `20260828190630_sia3_agent_improvement_hypothesis`.
+**Measurement baseline:** commit `0005f72f1014852a478e557b42344c1ddb52000d` on `main`, equal to `origin/main`, 0 ahead / 0 behind. Migration ledger: **39 entries** (idx 0–38), last `20260828190630_sia3_agent_improvement_hypothesis` — this is the **authored** ledger, a property of the repository. The **production** ledger is a separate measurement taken against the deployment, and it reached 39 only after the repair recorded in §12.3.
 
 The **Era I** rows below were measured at `047dde807779e21c7d6ed08e449509df8780c415`, the Era I closure baseline (§11.3), and are re-confirmed here without re-measurement for one stated reason: `0005f72` is **docs-only over `047dde8`** and carries a measured zero delta against `src` and `tests`. The **Era II** rows were measured at `0005f72` directly (§12). The ledger is **unchanged across the whole of Era I**: the seven Era I releases carry a measured zero delta against `src/db/migrations` and `src/db/schema`.
 
@@ -274,7 +274,7 @@ Release and closure records live in `docs/product-vision/runtime/`. This page sa
 | Security policy authority | **UNAVAILABLE** | The `policies` table has **zero importers** of its schema symbol. No policy evaluator is connected; the Heby action governance gate reports `not-connected`, which **blocks** eligibility rather than passing it. |
 | Ingested-content trust boundary — **TB-1** | **CLOSED — released** | TB-1 released at `047dde8`. `heby-runtime/trust-boundary.ts` names the boundary and classifies **every** field of a model request as `Record<keyof ModelGenerationRequest, TrustClass>`, so a new path into model context cannot arrive unclassified without failing to compile. It records its own limits as data: `structurallyIsolatedInInferenceRequest: false`, `restsOnModelCompliance: true`, `detectsInjectedInstructions: false`. Zero schema, zero writer. |
 | **ERA I — HEBUN TRUSTWORTHY FOUNDATION** | **CLOSED** | Closed at `047dde8` against the §11 contract, measured row by row — see §11.3. L1–L4 released and re-verified; all four §11.1 Security & Trust gates measured CLOSED. |
-| **ERA II — HEBUN INTELLIGENCE** | **OPEN** — bounded direction recorded (§12) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). **E2-1, E2-2 and E2-3 are all CLOSED**, and the product-experience milestone **LMX-1** that followed E2-3 is closed too — implemented, released and pushed at `dfa7624`, `7b30893`, `00eda19` and `8fb299e`. E2-3 and LMX-1 are **DEPLOYED and not production-accepted**; E2-1 and E2-2 have **no measured deployment** (§12.2). **No Era II milestone is currently active**, and closing four milestones closes no era: the next must be selected from measured repository and product reality, never from numbering. |
+| **ERA II — HEBUN INTELLIGENCE** | **OPEN** — bounded direction recorded (§12) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). **E2-1, E2-2 and E2-3 are all CLOSED**, and the product-experience milestone **LMX-1** that followed E2-3 is closed too — implemented, released and pushed at `dfa7624`, `7b30893`, `00eda19` and `8fb299e`. E2-3 and LMX-1 are **DEPLOYED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, after a production migration repair carried the deployment's database from ledger 37 to 39 (§12.3); E2-1 and E2-2 have **no measured deployment** (§12.2). **No Era II milestone is currently active**, and closing four milestones closes no era: the next must be selected from measured repository and product reality, never from numbering. |
 | Era III | **NOT ACTIVE** (§13) | — |
 
 ---
@@ -462,8 +462,8 @@ Era II opened when Era I closed at `047dde8` (§11.3). A read-only Era II discov
 |---|---|---|
 | **E2-1** | **Heby Organizational Intelligence Foundation** | **CLOSED** — implemented · released · pushed at `dfa7624` · **deployment not measured** (§12.2) |
 | **E2-2** | **Security Observation Connection over authoritative records (S-B)** | **CLOSED** — implemented · released · pushed at `7b30893` · **deployment not measured** (§12.2) |
-| **E2-3** | **Live Map Intelligence — authoritative layers** | **CLOSED** — implemented · released · pushed at `00eda19` · **DEPLOYED · not production-accepted** (§12.2) |
-| **LMX-1** | **Live Map Product Experience v1 — visual map + global awareness** | **CLOSED** — implemented · released · pushed at `8fb299e` · **DEPLOYED · not production-accepted** |
+| **E2-3** | **Live Map Intelligence — authoritative layers** | **CLOSED** — implemented · released · pushed at `00eda19` · **DEPLOYED · PRODUCTION-ACCEPTED** (§12.3) |
+| **LMX-1** | **Live Map Product Experience v1 — visual map + global awareness** | **CLOSED** — implemented · released · pushed at `8fb299e` · **DEPLOYED · PRODUCTION-ACCEPTED** (§12.3) |
 
 **No closure authorized its successor by succession.** E2-2's entry conditions were re-measured from code before it opened, and E2-3's activation was a Director decision recorded here — not an inference from E2-2 closing. **Era II itself remains OPEN**; three milestones closing close no era. **E2-3 was the last item in the bounded order, and no E2-4 exists.** A fourth milestone is not created by the fact that numbering can continue — the next Era II milestone must be selected from measured repository and product reality, by a Director decision recorded here.
 
@@ -711,6 +711,8 @@ DEPLOYED != PRODUCTION-ACCEPTED
 
 **E2-3 and LMX-1 are DEPLOYED**, measured. Neither is production-accepted: nobody has verified the
 authenticated rendering in production, which needs a real session this work does not create.
+*(That last sentence was true when written and is now **superseded by §12.3** — the session was
+created, and both are production-accepted. It is kept because the state it records is evidence.)*
 
 **E2-1 and E2-2 are recorded as `deployment not measured` rather than re-labelled deployed.** The
 same automatic mechanism was almost certainly in force at their commits, but *almost certainly* is
@@ -725,16 +727,124 @@ confirming the rendered surfaces against this document. Until then:
 DEPLOYED · AUTHENTICATED PRODUCT ACCEPTANCE UNAVAILABLE
 ```
 
+**The paragraph and the block above are SUPERSEDED for E2-3 and LMX-1 by §12.3**, and kept verbatim
+because a state that was honestly held is historical evidence rather than a draft to be tidied (§3,
+principle 8). They still stand for every other milestone: E2-1 and E2-2 remain
+`deployment not measured`, and the Security Center has had no authenticated production acceptance.
+
+### 12.3 Production acceptance — E2-3 and LMX-1 · **PRODUCTION-ACCEPTED**
+
+```
+E2-3   = PRODUCTION-ACCEPTED
+LMX-1  = PRODUCTION-ACCEPTED
+```
+
+Deployment was never the thing standing between these two milestones and production acceptance. The
+code had been running since the pushes recorded in §12.2. What stood in the way was that the
+**production database was behind the release**: its applied migration ledger was at **37** while the
+repository authored **39**. Migration 38 adds `heby_origination_invocations.agent_id`, and two of the
+eight released Agent Outcome readers name that column — so on production both statements failed,
+`readAgentOutcomeCore` returned `unavailable`, and every agent node on the authenticated Live Map
+rendered `Outcome observation unread`. Nothing was broken in the deployed code, and nothing there
+needed fixing.
+
+**Production migration repair 37 → 39 — SUCCESSFUL.** The authorized `platform:migrate` ceremony was
+run by the Director against the production target and applied exactly two migrations:
+`20260828173456_sia26_origination_agent_attribution` and
+`20260828190630_sia3_agent_improvement_hypothesis`. It reported schema converged, its backup
+validated, and its organizational fingerprint unchanged across every counted table.
+
+**Independently verified, read-only, against the production target.** The ceremony's own report is
+not the measurement; a separate read-only pass was taken afterwards and is what this section records.
+
+| Measured | Result |
+|---|---|
+| Target | Bound by `pg_control_system().system_identifier` and `current_database()` before any number was trusted, because a schema fingerprint cannot identify a deployment (G4). PostgreSQL **18.6**. **Both pin values stay out of band and are deliberately not recorded here** — that is G4's design, and this repository is public |
+| Ledger | **39 applied, converged**, digest `bbc1d66cdcfddea3292b46361a6a4856` equal to the canonical digest of this checkout |
+| Strength of that claim | **exact canonical hash prefix, in order — not a matching count.** A count cannot tell a target missing migration 12 from one missing 34, nor one whose migration 20 was applied from a file later edited |
+| Migration 38 structures | `agents_tenant_id_uq`; `heby_origination_invocations.agent_id` `uuid` **nullable**; FK `heby_origination_invocations_tenant_agent_fk` on `(tenant_id, agent_id)` `ON DELETE RESTRICT`; index `heby_origination_invocations_tenant_agent_idx` |
+| Migration 39 structures | `agent_improvement_hypotheses` present with its five CHECK constraints, three foreign keys and three indexes |
+| Historical integrity | attribution conflicts **0** · FK orphans **0** · `agent_improvement_hypotheses` rows **0** · organizational fingerprint unchanged |
+| Attribution | **no backfill was invented.** The one historical invocation predates attribution and remains `agent_id NULL` |
+
+**`__drizzle_migrations.created_at` is the authored journal timestamp, not the moment a migration was
+applied to production.** Drizzle stores the journal's `when`, so those values are properties of the
+repository's files. Reading them as an application time would be the easiest wrong sentence to write
+about this repair, and no measurement here rests on them.
+
+**Server-side production acceptance — PASS.** All eight released Agent Outcome readers return
+`status: "read"` against production, where two of them previously could not run at all. Measured
+production truth for the one durable agent:
+
+| | |
+|---|---|
+| Proposals filed | **2** — both awaiting a decision, 0 withdrawn |
+| Governance | approved **0** · rejected **0** · permits issued **0** · approved-never-executed **0** |
+| Execution | attempts **0**, and all five outcome classes 0 |
+| Model | linked invocations **1** |
+| Selection | attributed **0** |
+| Provenance | historically unattributed **1** · attribution conflicts **0** |
+
+**The zero selection attribution is correct, not missing data.** The single recorded invocation was
+written before attribution existed; it stays `agent_id NULL` for ever, and the reader counts it at
+the tenant level as historically unattributed rather than assigning it to the only agent present.
+Inventing that link would have been the one edit that made every number on the surface look better
+and one of them false.
+
+Boundaries were re-measured on the same pass: a null tenant returns `no-authorized-tenant-context`; a
+foreign tenant returns a successful read holding **no Tenant Zero data**; an absent `DATABASE_URL`
+returns `unavailable` rather than a fabricated zero; a remote control-plane target without the
+explicit flag is refused; and the server-only seams refuse a browser runtime.
+
+**Authenticated production UI acceptance — PASS.** The Director authenticated to
+`www.hebuntech.com` and inspected the Live Map agent inspector directly. It rendered Heby *in
+service* with 2 filed, 0 approved and 0 never executed, and the full derived block — three activity
+counts, eight governance counts and six execution counts — agreeing with the independently measured
+server-side truth. `AUTHORITATIVE · DURABLE AGENT IDENTITY` rendered as a block visibly separate
+from `DERIVED · AGENT OUTCOME OBSERVATION`; the four execution non-claims were visible; and the
+`belongs-to` edge still stated `agents.tenant_id` as its basis while claiming no departmental
+placement, ownership or assignment. The `Outcome observation unread` state is gone.
+
+**Two independent measurements, and they agree.** That agreement is the whole content of the
+acceptance: the server-side pass could not see what a rendered surface says, and the authenticated
+pass could not prove what the database holds.
+
+```
+MIGRATION APPLIED      != APPLICATION ACCEPTED
+SERVER-SIDE PASS       != UI ACCEPTED
+UI RENDERED            != EXECUTED
+APPROVED               != EXECUTED
+PROVIDER ACCEPTED      != DELIVERED
+DERIVED OBSERVATION    != AUTHORITATIVE ORGANIZATIONAL TRUTH
+HISTORICALLY UNATTRIBUTED STAYS HISTORICALLY UNATTRIBUTED
+```
+
+**What this acceptance does not open.** It closes no era, selects no milestone and creates no E2-4.
+Era II remains **OPEN with no active milestone** (§20). E2-1, E2-2 and the Security Center are
+untouched by it and remain without authenticated production acceptance.
+
+**One non-blocking follow-up candidate, recorded and NOT scheduled.** Every one of the eight readers
+ends in a bare `catch { return { status: "unavailable", reason: "read-failed" } }`. That is what the
+behind-by-two production database actually looked like from the outside: a surface saying the
+observation was unread, naming no cause, with the missing column never mentioned. The refusal was
+honest and fail-closed — it invented nothing — but it cost the incident its diagnosis. This
+repository has recorded the same shape once before, as *"a swallowed `persistence-unavailable` …
+exactly the failure mode a catch-all refusal is worst at explaining"* (learnings, G-series). It is a
+**candidate**, not a milestone: nothing here schedules it, and it does not become the next Era II
+item by being written down.
+
 ### E2-3 — Live Map Intelligence, authoritative layers · **CLOSED**
 
 ```
 E2-3 = CLOSED
-IMPLEMENTED · RELEASED · PUSHED · DEPLOYED · NOT PRODUCTION-ACCEPTED
+IMPLEMENTED · RELEASED · PUSHED · DEPLOYED · PRODUCTION-ACCEPTED
 ```
 
 Released at `00eda19`, learnings at `2aff237`, both on `main` and pushed. **It is deployed** — the
-push triggered a production deployment automatically (§12.2). It is **not production-accepted**: no
-authenticated session has verified the rendered surface in production.
+push triggered a production deployment automatically (§12.2) — and it is now **production-accepted**
+(§12.3): a production migration repair carried the deployment's database from ledger 37 to 39, after
+which an independent read-only pass and an authenticated session on `www.hebuntech.com` measured the
+same truth and agreed.
 
 ```
 RELEASED != DEPLOYED
@@ -802,7 +912,7 @@ UNKNOWN AGENT ID             != PERMISSION TO INVENT AN AGENT
 - **No Knowledge layer, no Security layer, no Integration layer.** All three stay deferred; E2-2's derived observation was not projected onto the map.
 - **No execution authority, no Governance authority, no agent authority.** Live Map cannot file, approve, reject, permit, revoke, execute or retry anything, and nothing that can is reachable from it.
 - **No new truth authority.** The observation is derived; `audit_log`, `heby_action_requests`, `action_permits`, `action_execution_attempts` and the agent identity authority remain the owners of every fact drawn.
-- **E2-3 is deployed but not production-accepted** (§12.2). The code is running; nobody has verified the authenticated surface in production.
+- **E2-3 is deployed and production-accepted** (§12.3). Acceptance came after a production migration repair 37 → 39: two of the eight readers name `heby_origination_invocations.agent_id`, which the deployment's database did not yet have, so the authenticated surface rendered `Outcome observation unread`. Server-side and authenticated UI acceptance now both PASS and agree. **Production-accepted is not Live Map complete.**
 - **Live Map is not complete, and Live Map Intelligence is not complete.** One derived layer is attached to one node kind.
 
 #### Two guards that only measurement could have written
@@ -966,11 +1076,14 @@ Kept as it stood. These thirty questions were the authorized action when E2-3 op
 
 ```
 LMX-1 = CLOSED
-IMPLEMENTED · RELEASED · PUSHED · DEPLOYED · NOT PRODUCTION-ACCEPTED
+IMPLEMENTED · RELEASED · PUSHED · DEPLOYED · PRODUCTION-ACCEPTED
 ```
 
 Released at `8fb299e`, learnings at `1b9f88a`, both on `main` and pushed, and deployed
-automatically (§12.2). **It is not production-accepted.**
+automatically (§12.2). **It is production-accepted** (§12.3): the Director authenticated to
+`www.hebuntech.com` and read the agent inspector, which rendered the same counts an independent
+read-only production pass had measured — with authoritative identity and derived observation in
+visibly separate blocks and the execution non-claims present.
 
 **It is not E2-4.** Era II's bounded order ended at E2-3, and this is a **product-experience
 milestone** authorized by a Director decision — the continuation that makes E2-3's intelligence
@@ -1019,7 +1132,7 @@ VISUAL INTERACTION != WRITE AUTHORITY
 - **No score, no rate, no ranking, no comparison between agents.** Counts only.
 - **No write or execution authority.** The map discloses; it cannot create, retire, approve, permit or execute anything.
 - **No new truth authority.** Every fact drawn belongs to the subsystem that already owned it.
-- **Not production-accepted.**
+- **Production-accepted is not Live Map complete** (§12.3). One authenticated reading of one agent inspector against one organization's real records is what was accepted; nothing broader.
 - **Live Map is not complete.** One organization node kind, one agent node kind, one edge.
 
 #### Validation as released
@@ -1294,9 +1407,9 @@ Era I is **CLOSED** at `047dde8` (§11.3). Era II is **OPEN** (§12) and remains
 
 **E2-2 is CLOSED.** Released and pushed at `7b30893b5231e8a891602964c67842bccf042c87`, **not deployed**, and every closure claim was re-measured from the repository before this status was recorded (§12). The Security Center holds exactly one connected source class — `audit` — read tenant-scoped and bounded through a projection it does not own, and reported as **derived** over authoritative records. It gained no finding authority, no incident authority, no policy authority, no trust authority, no score, and no write, authorization or execution authority. **E2-2 closed is not Security complete, and not a Security Command Center.**
 
-**E2-3 is CLOSED.** Released and pushed at `00eda193948c6f86b422e84d198ef03363adf761`, learnings at `2aff2376ee72a6229c6a4ab5af15673e04a6408a`, **deployed and not production-accepted** (§12.2). Existing authoritative Live Map agent nodes are enriched with a derived cumulative Agent Outcome observation through an id-keyed read-only projection owned by the outcome authority. It created **no node type, no edge type, no writer, no schema, no migration and no authority**; `LiveMapTruth` is unwidened, the ledger is unchanged at 39, and the enriched import closure contains no durable writer at any depth. **E2-3 closed is not Live Map complete, and not Live Map Intelligence complete.**
+**E2-3 is CLOSED and PRODUCTION-ACCEPTED.** Released and pushed at `00eda193948c6f86b422e84d198ef03363adf761`, learnings at `2aff2376ee72a6229c6a4ab5af15673e04a6408a`, **deployed and production-accepted** (§12.3) — server-side and authenticated UI acceptance both PASS, after a production migration repair 37 → 39. Existing authoritative Live Map agent nodes are enriched with a derived cumulative Agent Outcome observation through an id-keyed read-only projection owned by the outcome authority. It created **no node type, no edge type, no writer, no schema, no migration and no authority**; `LiveMapTruth` is unwidened, the ledger is unchanged at 39, and the enriched import closure contains no durable writer at any depth. **E2-3 closed is not Live Map complete, and not Live Map Intelligence complete.**
 
-**LMX-1 is CLOSED.** Released and pushed at `8fb299e1aaac36d5f1db295d05877395de91b1e2`, learnings at `1b9f88a007ee40fda2c4cc239b87554f67e2f680`, **deployed and not production-accepted**. `/live-map` is now an organization-centred visual map whose agents open into an inspector separating authoritative identity from derived cumulative outcome, and the authenticated landing carries a Live Map Live / Security Live awareness band built from released seams. It created **no node type, no edge type, no writer, no schema, no migration and no authority**, and it added an executable guard that the authenticated dashboard cannot regress into reusable static HTML. **It is a product-experience milestone, not E2-4** — see §12.
+**LMX-1 is CLOSED and PRODUCTION-ACCEPTED.** Released and pushed at `8fb299e1aaac36d5f1db295d05877395de91b1e2`, learnings at `1b9f88a007ee40fda2c4cc239b87554f67e2f680`, **deployed and production-accepted** (§12.3). `/live-map` is now an organization-centred visual map whose agents open into an inspector separating authoritative identity from derived cumulative outcome, and the authenticated landing carries a Live Map Live / Security Live awareness band built from released seams. It created **no node type, no edge type, no writer, no schema, no migration and no authority**, and it added an executable guard that the authenticated dashboard cannot regress into reusable static HTML. **It is a product-experience milestone, not E2-4** — see §12.
 
 **No next milestone is selected.** Organization Structure Authority stays unavailable, the generic Agent Registry stays rejected, ASA-2 stays blocked, Director Intelligence stays outside the sequence, and the Knowledge, Security and Integration Live Map layers stay deferred — none of them is opened by E2-3 closing. Selecting what follows requires reading the repository again, not continuing a number.
 
@@ -1309,6 +1422,9 @@ E2-2 CLOSED      != SECURITY COMPLETE
 E2-3 CLOSED      != LIVE MAP COMPLETE
 LMX-1 CLOSED     != LIVE MAP COMPLETE
 DEPLOYED         != PRODUCTION-ACCEPTED
+PRODUCTION-ACCEPTED != LIVE MAP COMPLETE
+MIGRATION APPLIED   != APPLICATION ACCEPTED
+SERVER-SIDE PASS    != UI ACCEPTED
 FOUR CLOSED      != ERA II CLOSED
 NUMBERING        != A MILESTONE
 LIVE MAP         != TRUTH AUTHORITY
