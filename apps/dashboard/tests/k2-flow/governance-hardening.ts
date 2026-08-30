@@ -234,6 +234,13 @@ function main(): void {
          * `.limit(` anywhere in it, and a bounded list needs a bound. ALLOWLIST — a new name here
          * is a deliberate act, never a directory prefix. */
         "src/features/governance-activity/act-history-read.server.ts",
+        /* E2-7 — the THIRD declared reader: the unbounded windowed count. It selects and writes
+         * nothing, proved by its absence from the write census directly above. A third file for the
+         * same reason there is a second: `read.server.ts` forbids `.limit(` anywhere and
+         * `act-history-read.server.ts` carries exactly one, so windowed counts in either would have
+         * narrowed a released guarantee from "this file" to "this function". ALLOWLIST — a new name
+         * here is a deliberate act, never a directory prefix. */
+        "src/features/governance-activity/act-window-read.server.ts",
       ].sort(),
       "and no Knowledge module reaches the sink — the only non-writer that imports it is R7.1's reader",
     );

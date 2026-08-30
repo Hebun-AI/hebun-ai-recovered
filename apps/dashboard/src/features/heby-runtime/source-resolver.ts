@@ -155,6 +155,12 @@ export function resolveSource(
         "recorded-acts",
         "Recorded acts are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
       );
+    /* E2-7. Same arrangement, same G6D correction: a server read, not an absent connection. */
+    case "recorded-act-windows":
+      return unavailable(
+        "recorded-act-windows",
+        "Windowed recorded-act counts are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
     /*
      * G6D. G6C connected Governance on the server seam exactly as K1 connected Knowledge, and the
      * sentence above is the precedent for what that obliges: state that the read is tenant-scoped

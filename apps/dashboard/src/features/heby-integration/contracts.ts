@@ -326,7 +326,25 @@ export type HebySourceClass =
    *     RECENT        != IMPORTANT
    *     CHANGE        != CAUSATION
    */
-  | "recorded-acts";
+  | "recorded-acts"
+  /*
+   * E2-7. HOW MUCH Hebun recorded inside EXPLICIT half-open intervals, and nothing about what it
+   * means.
+   *
+   * Its owner is the same as `recorded-acts`, which is normally the reason NOT to add a class. It
+   * is separate for the reason E2-6 gave against the opposite arrangement: that class is a BOUNDED
+   * page that must state its coverage, and these are UNBOUNDED counts that are exact within their
+   * interval. Under one provenance line "is this all of it?" would have two answers.
+   *
+   * TWO WINDOWS ARE TWO COUNTS. No delta, no direction, no rate, no projection — a representation
+   * that cannot express a judgement cannot leak one, which is why `ElapsedObservation` carries no
+   * severity either. And a window is a STATED BOUNDARY: Hebun owns no definition of "recent", so an
+   * answer names its period instead of calling it current.
+   *
+   *     TIME WINDOW != TREND        CHANGE != CAUSATION
+   *     MORE        != BETTER       LESS   != WORSE
+   */
+  | "recorded-act-windows";
 
 export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "knowledge",
@@ -343,6 +361,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "organization",
   "agents",
   "recorded-acts",
+  "recorded-act-windows",
 ] as const;
 
 export interface HebySourceStatus {

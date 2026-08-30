@@ -98,6 +98,12 @@ const WORKSPACE_PROFILES = {
       "organization",
       "agents",
       "recorded-acts",
+      /*
+       * E2-7 adds `recorded-act-windows` here and ONLY here, on the same precedent as its three
+       * predecessors. Command is where a Director asks what changed; `governance` still does not
+       * gain a history class, and no other profile gains a period count.
+       */
+      "recorded-act-windows",
     ],
     authority: "advisory-only",
     mayExplain: [
@@ -120,6 +126,11 @@ const WORKSPACE_PROFILES = {
        * does not know everything that happened, and Heby must say both.
        */
       "What has this organization recently done that Hebun recorded?",
+      /*
+       * E2-7. The period is NAMED in the question, deliberately. Hebun owns no definition of
+       * "recent", so the honest form of the question carries its own boundary.
+       */
+      "How many acts did Hebun record in the last 7 days, and how many in the 7 days before?",
     ],
   },
   intelligence: {

@@ -71,7 +71,8 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Fourteen since E2-6 added `recorded-acts` (thirteen after E2-5's `agents`, twelve after E2-1's
+   * Fifteen since E2-7 added `recorded-act-windows` (fourteen after E2-6's `recorded-acts`,
+   * thirteen after E2-5's `agents`, twelve after E2-1's
    * `organization`, eleven after INT-5A's
    * `integrations`, ten after R3R's `external-recipients`, nine after R3W's `work-artifacts`). The list is
    * pinned rather than pattern-matched so a new source class cannot appear without somebody
@@ -151,6 +152,21 @@ function sourceStatusNotCollapsed(): void {
        *     CONSTITUTION != HISTORY        RECORDED ACT != ALL ORGANIZATIONAL ACTIVITY
        */
       "recorded-acts",
+      /*
+       * E2-7. HOW MANY acts Hebun recorded inside an explicit half-open interval — the first read
+       * in this repository that takes a time window at all.
+       *
+       * It earns the review for a fifth distinct reason, and it is the most dangerous of the five.
+       * A fabricated item here would not overstate a system, misname the organization, claim an
+       * agent acted, or invent an event: it would suggest a DIRECTION. Two counts side by side are
+       * one short step from "activity is up", which is a judgement no authority in Hebun owns and
+       * which a Director would reasonably act on. So the class must stay narrow in a specific
+       * direction: it carries counts and their exact boundaries, and it may never carry a delta,
+       * a rate, a trend, a projection or a definition of "recent".
+       *
+       *     TIME WINDOW != TREND        MORE != BETTER        RECENT != IMPORTANT
+       */
+      "recorded-act-windows",
     ],
   );
   const context = resolveHebyWorkspaceContext({ workspace: "knowledge" });

@@ -356,6 +356,121 @@ export const RECORDED_ACT_HISTORY_BOUNDARY = Object.freeze({
  * Fields of `audit_log` that this seam must NEVER select. Held as a value so the firewall reads it
  * instead of restating it, and so deleting a name from this list is a visible act.
  */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * WINDOWED RECORDED-ACT ACTIVITY (E2-7)
+ *
+ * R7.1.1 answers "what were the most recent acts?" with a bounded page. This answers a different
+ * question — "how many acts happened BETWEEN two instants, and of what kind?" — and it answers it
+ * with NO bound, because a count over a closed interval has a finite, knowable answer.
+ *
+ * ── THE BOUNDARY IS HALF-OPEN, AND THAT IS NOT A DETAIL ──────────────────────
+ *
+ *     [since, until)     since INCLUSIVE, until EXCLUSIVE
+ *
+ * Adjacent windows built this way partition time without overlap and without gaps: an act at
+ * exactly `until` belongs to the next window and to no other, so the same act can never be counted
+ * twice across two periods, and none can fall between them. A closed-closed interval would
+ * double-count every boundary instant, which is the defect that makes two period counts unusable
+ * for comparison.
+ *
+ * ── WHAT A PAIR OF COUNTS IS, AND IS NOT ─────────────────────────────────────
+ *
+ * Two windows produce two numbers. They are two measured facts and NOTHING else. There is no
+ * `direction`, no `delta`, no `rate`, no `percentage`, no `trend` and no `projection` field here,
+ * for the reason `ElapsedObservation` (E2-4) carries no severity: a representation that cannot
+ * express a judgement cannot leak one, and Hebun holds no authority that could fill one truthfully.
+ *
+ *     TIME WINDOW != TREND        CHANGE != CAUSATION
+ *     MORE        != BETTER       LESS   != WORSE
+ *     RECENT      != IMPORTANT    FREQUENCY != RISK
+ *
+ * ── AND HEBUN HOLDS NO DEFINITION OF "RECENT" ────────────────────────────────
+ *
+ * A window is a stated observation boundary, never a policy about what counts as recent or current.
+ * Nothing in this repository owns that semantics, so a window is always reported with its exact
+ * instants and never as a category.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** How many acts of one entity kind fell inside the window. A count, never a rank. */
+export interface RecordedActKindCount {
+  /** `audit_log.entity_type` verbatim — the kind of thing the act was about. */
+  readonly entityType: string;
+  readonly acts: number;
+}
+
+/**
+ * One half-open observation window over this tenant's recorded acts.
+ *
+ * `acts` is counted with NO bound over the interval, so it is exact rather than a page length, and
+ * `byEntityKind` sums to it — a property a test asserts, because a grouped count that disagrees
+ * with its own total is the quietest possible way to under-report activity.
+ */
+export interface RecordedActWindow {
+  /** INCLUSIVE lower boundary, ISO-8601. */
+  readonly since: string;
+  /** EXCLUSIVE upper boundary, ISO-8601. */
+  readonly until: string;
+  readonly acts: number;
+  /** Ordered by count descending then kind, for a stable rendering. NOT a ranking of importance. */
+  readonly byEntityKind: readonly RecordedActKindCount[];
+}
+
+/**
+ * Two ADJACENT, EQUAL-LENGTH windows and the instant they were measured against.
+ *
+ * `previous.until === current.since` exactly, so the pair partitions a contiguous stretch of time.
+ * Asserted by test rather than merely intended: two periods that overlapped or left a gap would
+ * make the two counts incomparable while looking perfectly reasonable.
+ */
+export interface RecordedActWindowComparison {
+  /** The one instant both windows were derived from. */
+  readonly evaluatedAt: string;
+  /** The length of each window, in whole days, stated so no reader has to subtract instants. */
+  readonly windowDays: number;
+  readonly current: RecordedActWindow;
+  readonly previous: RecordedActWindow;
+}
+
+/**
+ * The result of asking for one tenant's windowed activity.
+ *
+ * THREE OUTCOMES, KEPT APART, exactly as {@link RecordedActHistoryResult} keeps its three. A window
+ * that was read and held nothing is `observed` with `acts: 0` — a measured zero is an established
+ * fact about a period. Only a read that could not run is `unavailable`.
+ *
+ *     UNAVAILABLE != A PERIOD IN WHICH NOTHING HAPPENED
+ */
+export type RecordedActWindowResult =
+  | { readonly status: "observed"; readonly tenantId: string; readonly comparison: RecordedActWindowComparison }
+  | { readonly status: "unavailable"; readonly reason: GovernanceActivityUnavailable; readonly detail?: string };
+
+/** The default observation length. A STATED BOUNDARY, never a definition of "recent". */
+export const RECORDED_ACT_WINDOW_DAYS = 7 as const;
+
+/** What a windowed count may and may not say. A value, so the boundary is testable. */
+export const RECORDED_ACT_WINDOW_BOUNDARY = Object.freeze({
+  countsRecordedActsInAnInterval: true as const,
+  statesItsOwnBoundaries: true as const,
+  boundaryIsHalfOpen: true as const,
+  /* The source cannot evidence these, so no reader of it may claim them. */
+  showsTrend: false as const,
+  showsRate: false as const,
+  showsProjection: false as const,
+  showsCausation: false as const,
+  showsImportance: false as const,
+  showsRisk: false as const,
+  definesRecent: false as const,
+  claimsAllOrganizationalActivity: false as const,
+  isAuthoritative: false as const,
+  writesAnything: false as const,
+  rationale:
+    "E2-7 counts the acts Hebun recorded for one tenant inside an explicit half-open interval, and " +
+    "reports two adjacent equal-length windows as two independent counts. It computes no delta, no " +
+    "direction and no rate, because comparing two periods is arithmetic and interpreting the " +
+    "comparison is a judgement no authority in Hebun owns. A window is a stated boundary, not a " +
+    "definition of what is recent or current.",
+});
+
 export const WITHHELD_AUDIT_COLUMNS: readonly string[] = Object.freeze([
   "previousState",
   "nextState",

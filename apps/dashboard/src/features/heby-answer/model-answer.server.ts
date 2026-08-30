@@ -105,6 +105,7 @@ import { readIntegrationGroundingSource } from "@/features/integration-authority
 import { readOrganizationGroundingSource } from "@/features/organization-authority/heby-organization-source.server";
 import { readAgentGroundingSource } from "@/features/agent-outcome-observation/heby-agent-source.server";
 import { readRecordedActGroundingSource } from "@/features/governance-activity/heby-recorded-act-source.server";
+import { readActWindowGroundingSource } from "@/features/governance-activity/heby-act-window-source.server";
 import { readAttentionGroundingSource } from "@/features/attention-observation/heby-attention-source.server";
 import {
   toResponseSourceEvidence,
@@ -274,6 +275,13 @@ export interface HebyModelAnswerDeps {
    * EVIDENCE — never a writer, never an audit row, never authority over the ledger.
    */
   readonly resolveRecordedActs?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /**
+   * E2-7 — explicit windowed-activity resolution for the `recorded-act-windows` class. Defaults to
+   * the real tenant-scoped read through the same authority's own windowed projection. It can only
+   * ever contribute EVIDENCE: two counts and the instants they were measured between, never a
+   * judgement about what the difference means.
+   */
+  readonly resolveActWindows?: (tenant: TenantContext) => Promise<SourceResolution>;
 }
 
 /** What actually happened to durable persistence for this request. Never fabricated. */
@@ -555,6 +563,36 @@ async function withOrganization(
  *     A COUNT OF ACTS != A HISTORY OF ACTS        RECORDED ACT != ALL ORGANIZATIONAL ACTIVITY
  *     RECENT != IMPORTANT                          CHANGE != CAUSATION
  */
+/**
+ * E2-7 — this tenant's windowed activity joins the SAME deterministic evidence set.
+ *
+ * REPLACES an empty pure resolution, so no evidence is removed — the check E2-4's defect made
+ * mandatory. DERIVED, `authoritative: false`, like the class it sits beside.
+ *
+ * A read failure degrades to the pure resolution: it never fabricates a period, never implies a
+ * quiet week, and never removes another source's evidence.
+ *
+ *     TIME WINDOW != TREND        MORE != BETTER        UNAVAILABLE != A QUIET PERIOD
+ */
+async function withActWindows(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "recorded-act-windows")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveActWindows ?? readActWindowGroundingSource;
+    const windows = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "recorded-act-windows" ? windows : resolution,
+    );
+  } catch {
+    return resolutions;
+  }
+}
+
 async function withRecordedActs(
   resolutions: readonly SourceResolution[],
   tenant: TenantContext,
@@ -805,7 +843,9 @@ export async function answerHebyModelRequest(
   const agentResolutions = await withAgents(operationsResolutions, tenant, deps);
   // E2-6 — and what this organization actually did, as Hebun's own writers recorded it. A bounded
   // page that always states the total it was drawn from; never a complete history of activity.
-  const resolutions = await withRecordedActs(agentResolutions, tenant, deps);
+  const recordedActResolutions = await withRecordedActs(agentResolutions, tenant, deps);
+  // E2-7 — and how much of it happened inside explicit, named periods. Two counts, never a trend.
+  const resolutions = await withActWindows(recordedActResolutions, tenant, deps);
   const assembled = assembleEvidence(resolutions);
 
   // The honest deterministic fallback (an answer where possible, an honest unavailable else).
