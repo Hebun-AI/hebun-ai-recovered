@@ -199,12 +199,20 @@ const SEAM_READERS = ["readPendingActionRequests", "readActionPermits"] as const
  * boundary, seam taken unchanged, nothing persisted — which is the architecture CMD-A chose over
  * building a Command-side summary projection. What the pin still forbids is what it always forbade:
  * a component, model or feature module acquiring its own reader.
+ *
+ * E2-4 ADDED THE ONE FEATURE MODULE ON THIS LIST, AND THE PROPERTY IS STILL UNCHANGED. The
+ * attention composition derives elapsed time over the SAME released seam; it holds no query, no
+ * handle of its own and no copy of the queue, and it exists precisely so that three surfaces do
+ * not each grow their own duration logic. That is the opposite of a duplicate reader — and it is
+ * asserted below rather than trusted, by proving the module contains no statement over the action
+ * tables at all.
  */
 const PERMITTED_SEAM_IMPORTERS = [
   "src/app/(dashboard)/approvals/page.tsx",
   "src/app/(dashboard)/heby/page.tsx",
   "src/app/(dashboard)/command/page.tsx",
   "src/features/action-authorization/read-action-authorizations.server.ts",
+  "src/features/attention-observation/read-attention-observation.server.ts",
 ] as const;
 
 function noSecondReader(overrides: Readonly<Record<string, string>> = {}): void {
@@ -226,6 +234,21 @@ function noSecondReader(overrides: Readonly<Record<string, string>> = {}): void 
     [...PERMITTED_SEAM_IMPORTERS].sort(),
     "the action-authorization seam has exactly one reader per surface — no duplicate queue",
   );
+
+  /*
+   * AND THE ONE NON-ROUTE IMPORTER HOLDS NO QUEUE OF ITS OWN. This is the property the list is a
+   * proxy for, asserted directly: a module that consumes the seam may not also build one.
+   */
+  const composition = codeOf(
+    overrides["src/features/attention-observation/read-attention-observation.server.ts"] ??
+      read("src/features/attention-observation/read-attention-observation.server.ts"),
+  );
+  for (const forbidden of ["hebyActionRequests", "actionPermits", "actionExecutionAttempts", "sql`", ".select("]) {
+    assert.ok(
+      !composition.includes(forbidden),
+      `the attention composition must hold no statement of its own (${forbidden})`,
+    );
+  }
 }
 
 const FORBIDDEN_IN_PRESENTATION = [

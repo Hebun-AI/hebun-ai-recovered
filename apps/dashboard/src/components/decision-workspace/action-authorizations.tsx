@@ -17,6 +17,10 @@ import {
   EXECUTION_OUTCOME_WORDING,
   type ExecutionAttemptStatus,
 } from "@/features/action-execution/contracts";
+import {
+  elapsedSince,
+  type ElapsedObservation,
+} from "@/features/attention-observation/contracts";
 
 /*
  * Consequential Action Authorization (R3A) — the first REAL decision act on this surface.
@@ -54,7 +58,14 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RequestCard({ item }: { item: PendingActionRequestView }) {
+function RequestCard({
+  item,
+  waitingFor,
+}: {
+  readonly item: PendingActionRequestView;
+  /** E2-4 — elapsed since this proposal was FILED. `null` when no instant or no usable timestamp. */
+  readonly waitingFor: ElapsedObservation | null;
+}) {
   const [justification, setJustification] = useState("");
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -90,6 +101,24 @@ function RequestCard({ item }: { item: PendingActionRequestView }) {
         <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider text-fg-secondary">
           {item.actionKind}
         </span>
+        {/*
+         * E2-4 — HOW LONG THIS HAS BEEN AWAITING A DECISION.
+         *
+         * Rendered as ordinary secondary metadata, in the SAME neutral treatment as the action
+         * kind beside it — never the `danger` styling that `irreversible` legitimately carries,
+         * because reversibility is a property of the act and elapsed time is not a property of
+         * anything. A duration that looked like a warning would be asserting a policy Hebun has
+         * no authority to hold.
+         *
+         *     AGE != IMPORTANCE     WAITING != LATE     NO THRESHOLD IS A POLICY
+         *
+         * Absent, never zero, when the instant or the timestamp is unusable.
+         */}
+        {waitingFor ? (
+          <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[0.6rem] font-medium tracking-wider text-fg-muted">
+            Awaiting decision · {waitingFor.label}
+          </span>
+        ) : null}
         <span
           className={`rounded-full px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider ${
             item.reversibility === "irreversible"
@@ -413,10 +442,23 @@ export function ActionAuthorizations({
   requests,
   permits,
   connected,
+  evaluatedAt = null,
+  awaitingCount = null,
+  oldestWaiting = null,
 }: {
   readonly requests: readonly PendingActionRequestView[];
   readonly permits: readonly ActionPermitView[];
   readonly connected: boolean;
+  /**
+   * E2-4 — the ONE instant every duration on this surface is measured against, resolved on the
+   * server. It is a prop rather than a `Date.now()` in here so the whole page shares one reading
+   * and a test can pin it. `null` restores the released behaviour: no duration is shown at all.
+   */
+  readonly evaluatedAt?: string | null;
+  /** The UNBOUNDED awaiting count. `requests.length` is capped and must never stand in for it. */
+  readonly awaitingCount?: number | null;
+  /** Elapsed since the oldest pending proposal, from the unbounded aggregate. Never from the list. */
+  readonly oldestWaiting?: ElapsedObservation | null;
 }) {
   return (
     <DecisionRegion
@@ -439,10 +481,30 @@ export function ActionAuthorizations({
         ) : (
           <ul className="flex flex-col gap-3">
             {requests.map((r) => (
-              <RequestCard key={r.requestId} item={r} />
+              <RequestCard
+                key={r.requestId}
+                item={r}
+                waitingFor={
+                  evaluatedAt
+                    ? elapsedSince(r.proposedAt, evaluatedAt, "action-request.created_at")
+                    : null
+                }
+              />
             ))}
           </ul>
         )}
+        {/*
+          THE OLDEST AND THE TOTAL COME FROM THE UNBOUNDED AGGREGATE, NEVER FROM THE LIST ABOVE.
+          The list is `orderBy desc(created_at) limit 50`, so the oldest proposal is the first row
+          it drops. Absent when that aggregate was not read — never computed from what is shown.
+        */}
+        {oldestWaiting ? (
+          <p className="text-xs text-fg-muted">
+            Oldest awaiting decision: {oldestWaiting.label}
+            {awaitingCount !== null ? ` · ${awaitingCount} awaiting` : null}. Elapsed time
+            only — Hebun holds no target or deadline for a human decision.
+          </p>
+        ) : null}
 
         <div>
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-fg-muted">

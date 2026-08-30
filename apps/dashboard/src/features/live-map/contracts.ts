@@ -167,6 +167,46 @@ export interface LiveMapNode {
    * list of sentences, where a reader could not tell which was which.
    */
   readonly intelligence?: LiveMapNodeIntelligence;
+  /**
+   * E2-4 — ELAPSED TIME ABOUT THIS NODE, in its OWN field with its OWN authority.
+   *
+   * It is not folded into {@link intelligence}: that block is attributed to the Agent Outcome
+   * Observation and carries cumulative counts, and a duration composed by a different authority
+   * sitting inside it would be misattributed to the first. Three truth statements on one node
+   * therefore live in three fields — `detail` (authoritative, owner-resolved), `intelligence`
+   * (derived counts), `attention` (derived durations) — and a reader is never asked to tell them
+   * apart inside one list.
+   *
+   * NO NODE KIND AND NO EDGE KIND IS ADDED BY THIS FIELD. It annotates a node that already exists,
+   * with a fact that already belongs to it.
+   */
+  readonly attention?: LiveMapNodeAttention;
+}
+
+/**
+ * A factual elapsed annotation on an existing node.
+ *
+ * It carries a duration and the column it was measured from. There is no severity, no tone, no
+ * class and no flag, because Hebun holds no authority that could fill one — an "attention state"
+ * would be a classification, and no policy owner for it exists.
+ *
+ *     AGE != IMPORTANCE     WAITING != LATE     ANNOTATION != CLASSIFICATION
+ */
+export interface LiveMapNodeAttention {
+  /** Always `derived`. The records are authoritative; the duration is recomputed on read. */
+  readonly truthClass: LiveMapDerivedClass;
+  /** The subsystem that composed it. Live Map is never named here. */
+  readonly sourceAuthority: string;
+  /** What the duration is, and what it is not. Travels with the number, never omitted. */
+  readonly basis: string;
+  /** One line per observation: what it measures, the duration, and the column it came from. */
+  readonly measures: readonly {
+    readonly label: string;
+    /** A DURATION, as words. Deliberately not a number — nothing here may be charted or ranked. */
+    readonly value: string;
+    readonly basis: string;
+  }[];
+  readonly nonClaims: readonly string[];
 }
 
 /** The one relationship Core can prove. Extending this union requires a durable owner for it. */

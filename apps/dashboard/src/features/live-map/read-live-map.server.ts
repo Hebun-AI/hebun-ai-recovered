@@ -57,6 +57,17 @@ import type { TenantContext } from "@/features/auth/tenant/tenant-context";
  */
 import { readLiveMapAgentOutcome } from "@/features/agent-outcome-observation/live-map-agent-outcome.server";
 import {
+  readAgentAwaitingDecision,
+  type AgentAwaitingDecision,
+  type AwaitingDecisionRead,
+} from "@/features/action-authorization/awaiting-decision-aggregate.server";
+import {
+  ATTENTION_NON_CLAIMS,
+  ATTENTION_OBSERVATION_AUTHORITY,
+  ATTENTION_OBSERVATION_BASIS,
+  elapsedSince,
+} from "@/features/attention-observation/contracts";
+import {
   LIVE_MAP_AGENT_OUTCOME_AUTHORITY,
   LIVE_MAP_AGENT_OUTCOME_BASIS,
   LIVE_MAP_AGENT_OUTCOME_NON_CLAIMS,
@@ -74,6 +85,7 @@ import {
   type LiveMapEdge,
   type LiveMapIntelligenceCompleteness,
   type LiveMapNode,
+  type LiveMapNodeAttention,
   type LiveMapNodeIntelligence,
   type LiveMapProjection,
 } from "./contracts";
@@ -82,6 +94,16 @@ export interface LiveMapDeps {
   readonly readOrganization?: (tenant: TenantContext | null) => Promise<OrganizationAuthorityRead>;
   readonly readAgentIdentity?: (tenant: TenantContext | null) => Promise<DurableAgentIdentityState>;
   readonly readAgentOutcome?: (tenant: TenantContext | null) => Promise<LiveMapAgentOutcomeRead>;
+  /**
+   * E2-4 — this tenant's per-agent awaiting-decision position, unbounded and grouped in one
+   * statement. Injected like the other three, and contained like them: a failure leaves the node
+   * intact and simply carries no duration.
+   */
+  readonly readAgentAwaiting?: (
+    tenant: TenantContext | null,
+  ) => Promise<AwaitingDecisionRead<readonly AgentAwaitingDecision[]>>;
+  /** The single instant every duration on one reading is measured against. Injected for tests. */
+  readonly now?: () => Date;
 }
 
 /** Projection identities. Kind-prefixed so a node id can never be mistaken for a domain id. */
@@ -307,9 +329,46 @@ function intelligenceCompleteness(
  * tenant has created no agent" from "the authority could not be reached" in its own type, so the
  * distinction is inherited rather than invented — and it is the only place Core claims it.
  */
+/**
+ * E2-4 — the elapsed annotation for ONE agent node, or nothing.
+ *
+ * Returned `undefined` — not a block of zeros — when the aggregate could not be read, when this
+ * agent has nothing awaiting, or when the oldest instant is unusable. A node with no annotation is
+ * a node this milestone has nothing to say about, and that is different from an agent with a wait
+ * of zero.
+ *
+ *     UNAVAILABLE != ZERO DURATION        NOTHING AWAITING != A DURATION OF NOTHING
+ */
+function agentAttention(
+  awaiting: AwaitingDecisionRead<readonly AgentAwaitingDecision[]>,
+  agentId: string,
+  evaluatedAt: string,
+): LiveMapNodeAttention | undefined {
+  if (awaiting.status !== "read") return undefined;
+  const row = awaiting.value.find((entry) => entry.agentId === agentId);
+  if (!row || row.awaiting === 0) return undefined;
+  const oldest = elapsedSince(row.oldestFiledAt, evaluatedAt, "action-request.created_at");
+  if (oldest === null) return undefined;
+  return {
+    truthClass: "derived",
+    sourceAuthority: ATTENTION_OBSERVATION_AUTHORITY,
+    basis: ATTENTION_OBSERVATION_BASIS,
+    measures: [
+      {
+        label: "Oldest proposal awaiting a decision",
+        value: oldest.label,
+        basis: oldest.basis,
+      },
+    ],
+    nonClaims: ATTENTION_NON_CLAIMS,
+  };
+}
+
 function agentDomain(
   state: DurableAgentIdentityState,
   outcome: LiveMapAgentOutcomeRead,
+  awaiting: AwaitingDecisionRead<readonly AgentAwaitingDecision[]>,
+  evaluatedAt: string,
 ): LiveMapDomain {
   if (state.status === "unavailable") {
     return {
@@ -370,6 +429,11 @@ function agentDomain(
      * apart — there is one identifier, used twice.
      */
     intelligence: agentIntelligence(outcome, identity.agentId),
+    /*
+     * ATTACHED BY THE SAME ID, in its own field. Absent when this agent has nothing awaiting or the
+     * aggregate could not be read — never a zero, and never merged into the block above.
+     */
+    attention: agentAttention(awaiting, identity.agentId, evaluatedAt),
   }));
 
   return { domainId: "agents", label: "Agents", state: { status: "available", nodes } };
@@ -446,8 +510,24 @@ export async function readLiveMapProjection(
     outcomeRead = { status: "unavailable", reason: "read-failed" };
   }
 
+  /*
+   * E2-4 — a FOURTH read, contained exactly as the other three are. One grouped, unbounded
+   * statement for the whole organization; a failure leaves every node intact and simply carries no
+   * duration.
+   */
+  let awaitingRead: AwaitingDecisionRead<readonly AgentAwaitingDecision[]>;
+  try {
+    awaitingRead = await (deps.readAgentAwaiting ?? ((t: TenantContext | null) => readAgentAwaitingDecision(t)))(
+      tenant,
+    );
+  } catch {
+    awaitingRead = { status: "unavailable", reason: "read-failed" };
+  }
+  /* ONE instant for every duration in this reading. */
+  const evaluatedAt = (deps.now?.() ?? new Date()).toISOString();
+
   const organization = organizationDomain(organizationRead);
-  const agents = agentDomain(agentState, outcomeRead);
+  const agents = agentDomain(agentState, outcomeRead, awaitingRead, evaluatedAt);
 
   /*
    * Structure and people are represented, not omitted. Their state is `no-authority` — a claim

@@ -156,11 +156,21 @@ const MUTATIONS: readonly Mutation[] = [
     expect: "must not reach the agent identity writer",
   },
   {
+    /*
+     * REPAIRED AT E2-4, NOT WEAKENED. This anchored on the line that bound `withOrganization`'s
+     * result to `resolutions` — the last link in the chain. E2-4 appended `withOperations` after
+     * it, so the variable was renamed and the find-string stopped matching; the harness reported
+     * "the mutation would prove nothing" rather than passing, which is the behaviour that makes
+     * another phase's proof recoverable instead of silently retired. Fourth recorded instance of a
+     * find-string coupled to a BODY rather than to a signature.
+     *
+     * The mutation is the same one: unwire the organization resolver and keep the chain intact.
+     */
     label: "M9 withOrganization is unwired from the answer flow",
     file: ANSWER,
     suite: TRUTH_SUITE,
-    find: "  const resolutions = await withOrganization(integrationResolutions, tenant, deps);",
-    replace: "  const resolutions = integrationResolutions;",
+    find: "  const organizationResolutions = await withOrganization(integrationResolutions, tenant, deps);",
+    replace: "  const organizationResolutions = integrationResolutions;",
     expect: "withOrganization is not wired",
   },
 ];

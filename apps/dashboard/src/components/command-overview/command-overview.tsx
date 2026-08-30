@@ -230,11 +230,34 @@ function WaitingOnYou({ state, className }: { state: WaitingOnYouState; classNam
                     <span className="text-meta text-fg-secondary">{item.targetLabel}</span>
                   ) : null}
                   <span className="text-meta text-fg-muted">{ordinaryDate(item.proposedAt)}</span>
+                  {/*
+                    E2-4 — ELAPSED TIME, VISUALLY SUBORDINATE AND FACTUALLY FLAT.
+                    Same muted meta treatment as the date beside it: no colour, no badge, no icon,
+                    no size change. A duration that looked different from the other metadata would
+                    be encoding a judgement Hebun holds no authority to make.
+                        AGE != IMPORTANCE        WAITING != LATE
+                  */}
+                  {item.waitingFor ? (
+                    <span className="text-meta text-fg-muted">
+                      Awaiting decision · {item.waitingFor.label}
+                    </span>
+                  ) : null}
                 </div>
                 <p className="text-meta leading-5 text-fg-secondary">{item.expectedEffect}</p>
               </li>
             ))}
           </ul>
+          {/*
+            THE OLDEST COMES FROM THE UNBOUNDED AGGREGATE, NEVER FROM THE LIST ABOVE.
+            That list is newest-first and capped, so the oldest row is the first one it drops. When
+            no aggregate was read, this line is absent — it is never computed from what is shown.
+          */}
+          {state.oldestWaiting ? (
+            <p className="text-meta text-fg-muted">
+              Oldest awaiting decision: {state.oldestWaiting.label}
+              {state.awaitingCount !== null ? ` · ${state.awaitingCount} awaiting` : null}
+            </p>
+          ) : null}
           {state.boundReached ? (
             <p className="text-meta text-fg-muted">
               This read is bounded at {PENDING_READ_BOUND} and came back full, so there may be more

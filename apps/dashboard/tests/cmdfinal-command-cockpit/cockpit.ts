@@ -59,9 +59,9 @@ const INTENT = getExpressIntentSummary();
 const EMPTY: WaitingOnYouState = { status: "none-waiting" };
 const UNAVAILABLE: WaitingOnYouState = { status: "unavailable", reason: "persistence-not-configured" };
 const POPULATED: WaitingOnYouState = {
-  status: "waiting", boundReached: false,
+  status: "waiting", boundReached: false, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null,
   items: [{ requestId: "r1", actionKind: "send-external-communication", targetLabel: "someone@example.test",
-            expectedEffect: "Send one message to one recipient.", proposedAt: "2026-08-21T09:00:00.000Z" }],
+            expectedEffect: "Send one message to one recipient.", proposedAt: "2026-08-21T09:00:00.000Z", waitingFor: null }],
 };
 const render = (w: WaitingOnYouState = EMPTY): string =>
   renderToStaticMarkup(createElement(CommandOverview, { waiting: w, intent: INTENT }));

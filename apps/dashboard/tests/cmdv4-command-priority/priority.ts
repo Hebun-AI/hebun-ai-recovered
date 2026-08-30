@@ -260,9 +260,9 @@ function theStatusLineKeptTheDistinction(): void {
   /* 15 — a populated read still expands into real rows, and still offers no act. */
   const populated = render({
     status: "waiting",
-    boundReached: false,
+    boundReached: false, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null,
     items: [{ requestId: "r1", actionKind: "send-external-communication", targetLabel: "someone@example.test",
-              expectedEffect: "Send one message to one recipient.", proposedAt: "2026-08-21T09:00:00.000Z" }],
+              expectedEffect: "Send one message to one recipient.", proposedAt: "2026-08-21T09:00:00.000Z", waitingFor: null }],
   });
   const p = visible(sectionMarkup(populated, "waiting"));
   assert.ok(p.includes("send-external-communication") && p.includes("1 shown"), "a populated read renders its rows");

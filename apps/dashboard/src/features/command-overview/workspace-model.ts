@@ -41,6 +41,11 @@ import type {
   ActionAuthorizationRead,
   PendingActionRequestView,
 } from "@/features/action-authorization/read-action-authorizations.server";
+import type {
+  AwaitingDecisionAggregate,
+  AwaitingDecisionRead,
+} from "@/features/action-authorization/awaiting-decision-aggregate.server";
+import { elapsedSince, type ElapsedObservation } from "@/features/attention-observation/contracts";
 
 /**
  * The bound the seam applies when the route does not override it. Stated, not guessed: the caller
@@ -59,6 +64,14 @@ export interface WaitingItemView {
   readonly targetLabel: string | null;
   readonly expectedEffect: string;
   readonly proposedAt: string;
+  /**
+   * E2-4 — elapsed since this proposal was FILED, measured against one shared instant.
+   *
+   * `null` when no evaluation instant was supplied, when the timestamp is unusable, or when it
+   * lies in the future. It is never a duration of zero: an absent observation and "filed just now"
+   * are different statements, and only one of them is a claim.
+   */
+  readonly waitingFor: ElapsedObservation | null;
 }
 
 /**
@@ -71,9 +84,38 @@ export type WaitingOnYouState =
       readonly items: readonly WaitingItemView[];
       /** True when the read came back full: what is shown may not be everything there is. */
       readonly boundReached: boolean;
+      /**
+       * E2-4 — the UNBOUNDED count, from the aggregate that carries no `.limit(`.
+       *
+       * `null` when that aggregate was not supplied or could not be read. It is deliberately not
+       * defaulted to `items.length`: the list above is capped at fifty and ordered newest-first, so
+       * substituting it would report a lower bound as the whole count.
+       */
+      readonly awaitingCount: number | null;
+      /**
+       * E2-4 — elapsed since the OLDEST pending proposal was filed.
+       *
+       * It CANNOT be derived from `items`. That list is `orderBy desc(created_at) limit 50`, so the
+       * oldest row is the first one it drops — the answer would be right on small tenants, wrong on
+       * large ones, and indistinguishable between them. It comes from the unbounded aggregate or it
+       * is `null`.
+       */
+      readonly oldestWaiting: ElapsedObservation | null;
     }
   | { readonly status: "none-waiting" }
   | { readonly status: "unavailable"; readonly reason: string };
+
+/**
+ * E2-4's inputs to this projection: one pinned instant and the unbounded aggregate.
+ *
+ * Optional as a whole, because a caller that has no aggregate must get the released behaviour with
+ * every elapsed field `null` — not a fabricated one.
+ */
+export interface WaitingElapsedInput {
+  /** The single instant every duration in this rendering is measured against. */
+  readonly evaluatedAt: string;
+  readonly aggregate: AwaitingDecisionRead<AwaitingDecisionAggregate>;
+}
 
 /**
  * Map the seam's result. Pure, total, and the only place a read becomes a rendering.
@@ -83,6 +125,7 @@ export type WaitingOnYouState =
  */
 export function toWaitingOnYou(
   read: ActionAuthorizationRead<PendingActionRequestView>,
+  elapsed?: WaitingElapsedInput,
 ): WaitingOnYouState {
   if (read.status !== "read") {
     return { status: "unavailable", reason: read.reason };
@@ -90,6 +133,7 @@ export function toWaitingOnYou(
   if (read.items.length === 0) {
     return { status: "none-waiting" };
   }
+  const aggregate = elapsed?.aggregate;
   return {
     status: "waiting",
     items: read.items.map((item) => ({
@@ -98,8 +142,20 @@ export function toWaitingOnYou(
       targetLabel: item.targetLabel,
       expectedEffect: item.expectedEffect,
       proposedAt: item.proposedAt,
+      waitingFor: elapsed
+        ? elapsedSince(item.proposedAt, elapsed.evaluatedAt, "action-request.created_at")
+        : null,
     })),
     boundReached: read.items.length >= PENDING_READ_BOUND,
+    awaitingCount: aggregate?.status === "read" ? aggregate.value.awaiting : null,
+    oldestWaiting:
+      elapsed && aggregate?.status === "read"
+        ? elapsedSince(
+            aggregate.value.oldestFiledAt,
+            elapsed.evaluatedAt,
+            "action-request.created_at",
+          )
+        : null,
   };
 }
 

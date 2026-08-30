@@ -122,6 +122,8 @@ const ITEM = Object.freeze({
   targetLabel: "someone@example.test",
   expectedEffect: "Send one message to one recipient.",
   proposedAt: "2026-08-21T09:00:00.000Z",
+  /* E2-4 widened the view. This fixture supplies no evaluation instant, so there is no duration. */
+  waitingFor: null,
 });
 
 /** A full seam row, so the mapping is exercised against the REAL view type, not a convenient one. */
@@ -177,7 +179,7 @@ const WAITING = "Waiting on you";
 function theThreeStatesAreDistinct(): void {
   const empty = renderOverview({ status: "none-waiting" });
   const unavailable = renderOverview({ status: "unavailable", reason: "persistence-not-configured" });
-  const waiting = renderOverview({ status: "waiting", items: [ITEM], boundReached: false });
+  const waiting = renderOverview({ status: "waiting", items: [ITEM], boundReached: false, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null, });
 
   assert.notEqual(empty, unavailable, "a successful empty read is not the same rendering as an unanswered one");
   assert.notEqual(empty, waiting, "an empty queue is not the same rendering as a populated one");
@@ -239,7 +241,7 @@ function lifecycleStagesAreNotMerged(overrides: Readonly<Record<string, string>>
     }
   }
 
-  const waitingText = sectionText(renderOverview({ status: "waiting", items: [ITEM], boundReached: false }), WAITING);
+  const waitingText = sectionText(renderOverview({ status: "waiting", items: [ITEM], boundReached: false, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null, }), WAITING);
   assert.ok(!/permit/i.test(waitingText), "the waiting section never mentions a permit beside a request");
 
   /* The five states are named where the reader meets them, and in order. */
@@ -321,18 +323,20 @@ function commandHoldsNoAuthority(overrides: Readonly<Record<string, string>> = {
   /*
    * THE ROUTE REACHES THE SESSION RESOLVER AND READ SEAMS IT DOES NOT OWN — NOTHING ELSE.
    *
-   * Enumerated rather than pattern-matched, so a fifth server import fails here instead of arriving
+   * Enumerated rather than pattern-matched, so a sixth server import fails here instead of arriving
    * silently. LMX-1 grew the list from two to four by composing the released Live Map projection
-   * and the released E2-2 recorded-act seam into the awareness band; the PROPERTY is unchanged and
-   * is what this assertion is for. Every entry is a read owned by another subsystem, and the
-   * forbidden-token sweep above still proves none of them brought a writer, a handle or an
-   * authority resolver with it.
+   * and the released E2-2 recorded-act seam into the awareness band; E2-4 grew it to five with the
+   * unbounded awaiting-decision aggregate, which exists precisely because the bounded queue reader
+   * beside it cannot answer "oldest". The PROPERTY is unchanged and is what this assertion is for.
+   * Every entry is a read owned by another subsystem, and the forbidden-token sweep above still
+   * proves none of them brought a writer, a handle or an authority resolver with it.
    */
   const page = codeOf(overrides[PAGE] ?? read(PAGE));
   const serverImports = [...page.matchAll(/from\s+"([^"]*\.server)"/g)].map((m) => m[1]).sort();
   assert.deepEqual(
     serverImports,
     [
+      "@/features/action-authorization/awaiting-decision-aggregate.server",
       "@/features/action-authorization/read-action-authorizations.server",
       "@/features/auth-runtime/request-session.server",
       "@/features/governance-activity/security-observation-source.server",
@@ -412,14 +416,14 @@ function boundedResultIsNotATotal(overrides: Readonly<Record<string, string>> = 
   }
 
   const many = Array.from({ length: PENDING_READ_BOUND }, (_, i) => ({ ...ITEM, requestId: `req-${i}` }));
-  const full = sectionText(renderOverview({ status: "waiting", items: many, boundReached: true }), WAITING);
+  const full = sectionText(renderOverview({ status: "waiting", items: many, boundReached: true, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null, }), WAITING);
   assert.ok(full.includes(`${PENDING_READ_BOUND} shown`), "a full read still says shown");
   assert.ok(
     full.includes(`bounded at ${PENDING_READ_BOUND}`),
     "and says so when the read came back full — what is shown may not be everything",
   );
 
-  const partial = sectionText(renderOverview({ status: "waiting", items: [ITEM], boundReached: false }), WAITING);
+  const partial = sectionText(renderOverview({ status: "waiting", items: [ITEM], boundReached: false, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null, }), WAITING);
   assert.ok(!partial.includes("bounded at"), "a partial read makes no bound claim it does not need");
 }
 
@@ -427,7 +431,7 @@ function boundedResultIsNotATotal(overrides: Readonly<Record<string, string>> = 
  * READING IS NOT ACTING
  * ────────────────────────────────────────────────────────────────────────── */
 function readingIsNotActing(overrides: Readonly<Record<string, string>> = {}): void {
-  const text = sectionText(renderOverview({ status: "waiting", items: [ITEM], boundReached: false }), WAITING).toLowerCase();
+  const text = sectionText(renderOverview({ status: "waiting", items: [ITEM], boundReached: false, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null, }), WAITING).toLowerCase();
   for (const claim of [
     "you can approve",
     "you may approve",
@@ -445,7 +449,7 @@ function readingIsNotActing(overrides: Readonly<Record<string, string>> = {}): v
   assert.ok(text.includes("open decisions"), "routing to the owning surface, not offering the act");
 
   /* No control that could mutate anything is rendered. */
-  const markup = renderOverview({ status: "waiting", items: [ITEM], boundReached: false });
+  const markup = renderOverview({ status: "waiting", items: [ITEM], boundReached: false, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null, });
   assert.ok(!/<button/.test(markup), "the Overview renders no button");
   assert.ok(!/<form/.test(markup), "and no form");
   const overview = codeOf(overrides[OVERVIEW] ?? read(OVERVIEW));

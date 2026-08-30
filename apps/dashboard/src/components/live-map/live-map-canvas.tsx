@@ -4,6 +4,7 @@ import type {
   LiveMapEdge,
   LiveMapIntelligenceCompleteness,
   LiveMapNode,
+  LiveMapNodeAttention,
   LiveMapNodeIntelligence,
   LiveMapProjection,
 } from "@/features/live-map/contracts";
@@ -158,6 +159,44 @@ function OutcomeIntelligence({ intelligence }: { intelligence: LiveMapNodeIntell
 }
 
 /**
+ * E2-4 — THE ELAPSED ANNOTATION, IN ITS OWN BLOCK UNDER ITS OWN AUTHORITY.
+ *
+ * It sits beside the outcome observation rather than inside it, because the two are composed by
+ * different authorities and a duration printed under "Agent Outcome Observation" would be
+ * misattributed. Same neutral treatment as every other derived block: no colour, no badge, no
+ * ordering by size. A duration rendered as a warning would be a classification, and no policy
+ * owner for one exists.
+ *
+ *     AGE != IMPORTANCE     WAITING != LATE     ANNOTATION != CLASSIFICATION
+ */
+function AttentionAnnotation({ attention }: { attention: LiveMapNodeAttention }) {
+  return (
+    <section className="lm-intel" aria-label="Organizational attention observation">
+      <p className="lm-truth">
+        <span className="lm-truth-class">{attention.truthClass}</span>
+        <span aria-hidden="true"> · </span>
+        <span>{attention.sourceAuthority}</span>
+      </p>
+      <p className="lm-intel-basis">{attention.basis}</p>
+      <dl className="lm-measures">
+        {attention.measures.map((measure) => (
+          <div key={measure.label} className="lm-measure">
+            <dt>{measure.label}</dt>
+            <dd>{measure.value}</dd>
+            <p className="lm-measure-note">{measure.basis}</p>
+          </div>
+        ))}
+      </dl>
+      <ul className="lm-nonclaims">
+        {attention.nonClaims.map((claim) => (
+          <li key={claim}>{claim}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
  * The glance line on a closed agent node.
  *
  * THREE COUNTS, NEVER A SUMMARY OF THEM. Filed, approved and approved-but-never-executed are three
@@ -239,6 +278,7 @@ function AgentNode({ node }: { node: LiveMapNode }) {
           ) : null}
         </section>
         {node.intelligence ? <OutcomeIntelligence intelligence={node.intelligence} /> : null}
+        {node.attention ? <AttentionAnnotation attention={node.attention} /> : null}
       </div>
     </details>
   );

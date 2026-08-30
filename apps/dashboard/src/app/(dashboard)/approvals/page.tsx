@@ -8,6 +8,8 @@ import {
   readActionPermits,
   readPendingActionRequests,
 } from "@/features/action-authorization/read-action-authorizations.server";
+import { elapsedSince } from "@/features/attention-observation/contracts";
+import { readAwaitingDecisionAggregate } from "@/features/action-authorization/awaiting-decision-aggregate.server";
 import { readExecutionLedger } from "@/features/action-execution/execution-ledger-projection.server";
 
 export const metadata = { title: "Decisions — Hebun AI" };
@@ -46,7 +48,7 @@ export default async function ApprovalsPage() {
   const model = getDecisionWorkspaceModel();
   const tenant = await resolveTenantContext();
 
-  const [requests, permits, ledger] = await Promise.all([
+  const [requests, permits, ledger, awaiting] = await Promise.all([
     readPendingActionRequests(tenant),
     readActionPermits(tenant),
     /*
@@ -57,7 +59,15 @@ export default async function ApprovalsPage() {
      * unreadable queue must not hide an irreversible act that already happened.
      */
     readExecutionLedger(tenant),
+    /*
+     * E2-4 — a FOURTH read, and the only honest source for "oldest" and for a true total: the
+     * queue reader above is `orderBy desc(created_at) limit 50`, so the oldest pending proposal is
+     * the first row it drops. Its own availability, like the other three.
+     */
+    readAwaitingDecisionAggregate(tenant),
   ]);
+  /* ONE instant for every duration this page renders, resolved on the server. */
+  const evaluatedAt = new Date().toISOString();
 
   /*
    * "Connected" means the durable read actually answered — not that rows exist. An empty queue and
@@ -81,6 +91,17 @@ export default async function ApprovalsPage() {
             requests={requests.status === "read" ? requests.items : []}
             permits={permits.status === "read" ? permits.items : []}
             connected={connected}
+            evaluatedAt={evaluatedAt}
+            awaitingCount={awaiting.status === "read" ? awaiting.value.awaiting : null}
+            oldestWaiting={
+              awaiting.status === "read"
+                ? elapsedSince(
+                    awaiting.value.oldestFiledAt,
+                    evaluatedAt,
+                    "action-request.created_at",
+                  )
+                : null
+            }
           />
           {/*
            * The ledger sits BELOW the queue on purpose: what is still to be decided comes first,

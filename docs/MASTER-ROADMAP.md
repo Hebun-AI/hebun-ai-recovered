@@ -223,7 +223,7 @@ Hebun already has legitimate, released owners for most of what Program V gives m
 | **Knowledge** | Facts, provenance, retraction | Memory · learning | Organizational learning loop |
 | **Organization** | **Organization Authority (L3)** | Organizational intelligence evolution | Living organizational system |
 | **Integrations** | Provider contracts + connections | Provider-sourced intelligence | Operational integration |
-| **Live Map** *(promoted surface — a projection, never a truth owner)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 — **E2-3 CLOSED · PRODUCTION-ACCEPTED** (derived cumulative Agent Outcome observation, id-keyed) · **LMX-1 CLOSED · PRODUCTION-ACCEPTED** — the visual organization-centred map, the agent inspector, and the Live Map Live / Security Live awareness band (§12, §12.3) | Live Map Operational v1 |
+| **Live Map** *(promoted surface — a projection, never a truth owner)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 — **E2-3 CLOSED · PRODUCTION-ACCEPTED** (derived cumulative Agent Outcome observation, id-keyed) · **LMX-1 CLOSED · PRODUCTION-ACCEPTED** — the visual organization-centred map, the agent inspector, and the Live Map Live / Security Live awareness band (§12, §12.3) · **E2-4 CLOSED** — a factual elapsed annotation on the existing agent node, no node or edge kind added (§12.4) | Live Map Operational v1 |
 | *Enterprise Security & Trust* **(cross-cutting constraint — §7, not a product line)** | Gates on L3, L4 and Era I closure — **all four measured CLOSED** (§11.1), including the carried trust boundary | Security direction (§12.1); its first bounded slice **E2-2 is CLOSED** — one derived observation connected, no security authority created (§12) | Constraints for consequential autonomy (§13) |
 
 The final row is a **constraint**, not a truth owner. It appears in this matrix so that no Era can be read as closable without it, and for no other reason.
@@ -274,7 +274,7 @@ Release and closure records live in `docs/product-vision/runtime/`. This page sa
 | Security policy authority | **UNAVAILABLE** | The `policies` table has **zero importers** of its schema symbol. No policy evaluator is connected; the Heby action governance gate reports `not-connected`, which **blocks** eligibility rather than passing it. |
 | Ingested-content trust boundary — **TB-1** | **CLOSED — released** | TB-1 released at `047dde8`. `heby-runtime/trust-boundary.ts` names the boundary and classifies **every** field of a model request as `Record<keyof ModelGenerationRequest, TrustClass>`, so a new path into model context cannot arrive unclassified without failing to compile. It records its own limits as data: `structurallyIsolatedInInferenceRequest: false`, `restsOnModelCompliance: true`, `detectsInjectedInstructions: false`. Zero schema, zero writer. |
 | **ERA I — HEBUN TRUSTWORTHY FOUNDATION** | **CLOSED** | Closed at `047dde8` against the §11 contract, measured row by row — see §11.3. L1–L4 released and re-verified; all four §11.1 Security & Trust gates measured CLOSED. |
-| **ERA II — HEBUN INTELLIGENCE** | **OPEN** — bounded direction recorded (§12) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). **E2-1, E2-2 and E2-3 are all CLOSED**, and the product-experience milestone **LMX-1** that followed E2-3 is closed too — implemented, released and pushed at `dfa7624`, `7b30893`, `00eda19` and `8fb299e`. E2-3 and LMX-1 are **DEPLOYED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, after a production migration repair carried the deployment's database from ledger 37 to 39 (§12.3); E2-1 and E2-2 have **no measured deployment** (§12.2). **No Era II milestone is currently active**, and closing four milestones closes no era: the next must be selected from measured repository and product reality, never from numbering. |
+| **ERA II — HEBUN INTELLIGENCE** | **OPEN** — bounded direction recorded (§12) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). **E2-1, E2-2 and E2-3 are all CLOSED**, and the product-experience milestone **LMX-1** that followed E2-3 is closed too — implemented, released and pushed at `dfa7624`, `7b30893`, `00eda19` and `8fb299e`. E2-3 and LMX-1 are **DEPLOYED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, after a production migration repair carried the deployment's database from ledger 37 to 39 (§12.3); E2-1 and E2-2 have **no measured deployment** (§12.2). **E2-4 — Organizational Attention Observation — is CLOSED too**, activated by Director decision after a read-only discovery pass and released with zero schema, zero migration and zero writer (§12.4). **No Era II milestone is currently active**, and closing five milestones closes no era: the next must be selected from measured repository and product reality, never from numbering. |
 | Era III | **NOT ACTIVE** (§13) | — |
 
 ---
@@ -464,8 +464,9 @@ Era II opened when Era I closed at `047dde8` (§11.3). A read-only Era II discov
 | **E2-2** | **Security Observation Connection over authoritative records (S-B)** | **CLOSED** — implemented · released · pushed at `7b30893` · **deployment not measured** (§12.2) |
 | **E2-3** | **Live Map Intelligence — authoritative layers** | **CLOSED** — implemented · released · pushed at `00eda19` · **DEPLOYED · PRODUCTION-ACCEPTED** (§12.3) |
 | **LMX-1** | **Live Map Product Experience v1 — visual map + global awareness** | **CLOSED** — implemented · released · pushed at `8fb299e` · **DEPLOYED · PRODUCTION-ACCEPTED** (§12.3) |
+| **E2-4** | **Organizational Attention Observation — elapsed time over authoritative records** | **CLOSED** — implemented · released · pushed · **deployment not measured · not production-accepted** (§12.4) |
 
-**No closure authorized its successor by succession.** E2-2's entry conditions were re-measured from code before it opened, and E2-3's activation was a Director decision recorded here — not an inference from E2-2 closing. **Era II itself remains OPEN**; three milestones closing close no era. **E2-3 was the last item in the bounded order, and no E2-4 exists.** A fourth milestone is not created by the fact that numbering can continue — the next Era II milestone must be selected from measured repository and product reality, by a Director decision recorded here.
+**No closure authorized its successor by succession.** E2-2's entry conditions were re-measured from code before it opened, and E2-3's activation was a Director decision recorded here — not an inference from E2-2 closing. **Era II itself remains OPEN**; three milestones closing close no era. **E2-3 was the last item in the bounded order, and no E2-4 exists.** A fourth milestone is not created by the fact that numbering can continue — the next Era II milestone must be selected from measured repository and product reality, by a Director decision recorded here. *(That last sentence is how **E2-4** was in fact chosen — from a read-only discovery pass, by Director decision, recorded in §12.4. The rule held; only the "no E2-4 exists" state is superseded.)*
 
 ```
 E2-1 CLOSED  != HEBY INTELLIGENCE COMPLETE
@@ -478,7 +479,7 @@ NUMBERING    != A MILESTONE
 RELEASED     != DEPLOYED
 ```
 
-Anything after E2-3 remains provisional pending repository reality, and **nothing after it is currently scheduled**. **This is not a long fixed Era II roadmap and must not become one.** E2-3 is now closed; its closure opens nothing. **No E2-4 is invented or activated here**, and no Live Map layer beyond the one E2-3 released is implemented, connected, or authorized by appearing anywhere in this document.
+Anything after E2-3 remains provisional pending repository reality, and **nothing after it is currently scheduled**. **This is not a long fixed Era II roadmap and must not become one.** E2-3 is now closed; its closure opens nothing. **No E2-4 is invented or activated here**, and no Live Map layer beyond the one E2-3 released is implemented, connected, or authorized by appearing anywhere in this document. *(E2-4 was activated later, by a separate Director decision after its own discovery — see §12.4. Nothing in this paragraph authorized it.)*
 
 ```
 ERA II ACTIVE != ALL ERA II WORK AUTHORIZED
@@ -832,6 +833,129 @@ repository has recorded the same shape once before, as *"a swallowed `persistenc
 exactly the failure mode a catch-all refusal is worst at explaining"* (learnings, G-series). It is a
 **candidate**, not a milestone: nothing here schedules it, and it does not become the next Era II
 item by being written down.
+
+### 12.4 E2-4 — Organizational Attention Observation · **CLOSED**
+
+```
+E2-4 = CLOSED
+IMPLEMENTED · RELEASED · PUSHED · DEPLOYMENT NOT MEASURED · NOT PRODUCTION-ACCEPTED
+
+AGE     != IMPORTANCE
+WAITING != LATE
+NO THRESHOLD IS A POLICY
+```
+
+**Activated by Director decision, not by numbering.** Era II's bounded order ended at E2-3 and LMX-1
+followed it as a product-experience milestone. This is the first Era II milestone selected from a
+read-only discovery pass over measured repository reality, which is exactly how §12 said the next
+one had to be chosen. **The sentences above saying "no E2-4 exists" recorded a true state and are
+superseded by this section**; they are kept because a state honestly held is evidence (§3,
+principle 8).
+
+#### The finding it was chosen for
+
+Every durable authority in this repository writes a timestamp, and **nothing read one.** Measured at
+activation: `created_at` NOT NULL on `heby_action_requests`, `action_permits`,
+`action_execution_attempts`, `heby_origination_invocations`, `agents`, `decision_records`,
+`knowledge_facts` and `work_artifacts`; `occurred_at` NOT NULL on `audit_log`. And **zero** elapsed,
+age, waiting-since or oldest computation anywhere in `action-authorization/`,
+`agent-outcome-observation/`, `governance-activity/`, `live-map/` or `command-overview/`. The
+released queue reader had been projecting `proposedAt`, `issuedAt`, `expiresAt`, `consumedAt` and
+`revokedAt` as ISO strings since R3A, and every consumer dropped them.
+
+So Hebun could say how many proposals were waiting and not how long. E2-4 reads what was already
+there.
+
+#### What it delivers
+
+| | |
+|---|---|
+| Five authoritative bases | `action-request.created_at` · `action-request.approved_at` · `action-permit.issued_at` · `action-permit.expires_at` · `audit-log.occurred_at` — a CLOSED union, each naming one column on one table owned by one released authority |
+| Four observations | awaiting a decision (count + oldest filed) · approved with no attempt recorded (count + oldest approved) · authorized and unspent (soonest expiry, longest held) · most recent recorded act |
+| Heby | the `operations` source class gains a connected reader for the first time, **appended to** what the Executive Overview already contributed rather than replacing it |
+| Command | each waiting item carries its own age; the oldest and the awaiting count come from an unbounded aggregate |
+| Decisions | the same duration as ordinary metadata beside each proposal |
+| Live Map | a factual elapsed annotation on the agent node that already exists, in its own field under its own authority |
+| Persistence | **NONE.** Schema delta 0 · migration delta 0 · **ledger 39, unchanged** · authoritative writer delta 0 · node-kind delta 0 · edge-kind delta 0 |
+
+#### The hazard that required one new statement
+
+`readPendingActionRequests` is `orderBy desc(created_at) limit 50`. **Newest first, bounded.** So the
+oldest pending proposal is the first row that reader drops — silently, and precisely when a tenant
+has enough waiting work for the answer to matter. Deriving "oldest awaiting" from it would produce a
+figure that is correct on small tenants, wrong on large ones, and indistinguishable between the two.
+
+That is R6B's finding restated for time, with a sharper edge: the ordering actively selects against
+the answer. The remedy is the same one — an aggregate that needs no bound at all.
+`awaiting-decision-aggregate.server.ts` contains no `.limit(`, `.offset(` or `fetch first` anywhere,
+kept in its own file for R7.1.1's reason so both properties stay checkable. A postgres test builds a
+tenant with sixty pending proposals, measures that the released list reader **cannot** see the
+oldest, and measures that the aggregate can.
+
+#### Two boundaries E2-4 did not cross, and one claim it had to correct
+
+**The execution ledger was dropped, not argued for.** An earlier draft derived "how long has the
+longest attempt been awaiting an outcome" from `readExecutionLedger`. GE-1 pins that read to exactly
+one caller — the `/approvals` route — so the durable record of irreversible acts is read at one
+place and no second surface can render a divergent execution history. The observation was removed
+and a firewall now asserts that no E2-4 module reads it. `approvedUnexecuted` survives because it is
+different in kind: it counts proposals with **no attempt at all**, through a `not exists` inside
+action-authorization's own aggregate, and reads no execution history.
+
+**`operations` was not an empty class, and the first draft deleted evidence.** The discovery pass
+recorded it as declared-but-unconnected; the pure resolver in fact fills it from the Executive
+Overview's operational sections. Substituting a fresh resolution — which is correct for Knowledge,
+Governance, Integrations and Organization, whose pure defaults carry nothing — silently removed
+them. R2C's released prompt-injection test caught it, because the poisoned section it tracks lives
+in exactly that class.
+
+```
+A CONNECTED READER MAY ADD EVIDENCE. IT MAY NOT DELETE ANOTHER SOURCE'S.
+```
+
+#### What E2-4 is NOT, and structurally cannot become
+
+`ElapsedObservation` carries a duration, its basis, its evaluation instant and a direction. It has
+**no severity, no priority, no level, no band, no colour and no flag**, and the suite asserts that
+key list by equality — a representation that cannot express a judgement cannot leak one, the same
+mechanism SIA-2 used when it refused to divide. There is no urgency, threshold, target, SLA,
+escalation, notification, scheduler or ranking, and none is one edit away.
+
+A future timestamp returns **nothing**, never a negative and never a clamp to zero: a proposal filed
+in the future is inconsistent data, not an age. Nothing awaiting is a count of zero and **no oldest
+at all**.
+
+The released `ExecutionLedgerEntry.requiresAttention` predicate stays **status-derived**: a firewall
+asserts no elapsed input reaches it, because age leaking into that predicate is the single edit that
+would turn this milestone into a policy authority.
+
+```
+AGE                  != IMPORTANCE
+WAITING              != LATE
+OLD                  != URGENT
+NO THRESHOLD IS A POLICY
+OBSERVATION          != DECISION
+OBSERVATION          != AUTHORIZATION
+OBSERVATION          != EXECUTION
+UNAVAILABLE          != ZERO DURATION
+ANNOTATION           != CLASSIFICATION
+```
+
+A future policy authority may one day decide what a duration means. **E2-4 does not**, and creating
+one requires its own discovery and its own Director authorization (§18, rules 6 and 8).
+
+#### Validation as released
+
+`587/587` suites pass. Typecheck clean, lint 14 pre-existing warnings and zero new, build compiles.
+Three released proofs were repaired rather than weakened: CMD-B1's enumerated import pin grew 4 → 5,
+APP-1's permitted-reader list gained its first feature module **and** a direct assertion that the
+composition holds no statement of its own, and E2-1's M9 bite-proof anchor was re-pointed after a
+variable rename — the harness reported *"the mutation would prove nothing"* rather than passing,
+which is the behaviour that makes another phase's proof recoverable instead of silently retired.
+
+**Deployment is NOT measured and production acceptance has NOT occurred.** The push may trigger a
+production deployment automatically (§12.2); that is a separate, later, independently measured state
+(§16), and nothing here asserts it.
 
 ### E2-3 — Live Map Intelligence, authoritative layers · **CLOSED**
 
@@ -1395,13 +1519,13 @@ HMR-0's "Foundation ~70%" estimate is **not preserved**. It had no defensible de
 
 ## 20. Next Milestone
 
-**NONE SELECTED.** Era II is **OPEN** with **no active milestone**.
+**NONE SELECTED.** Era II is **OPEN** with **no active milestone**. E2-4 closed; **no E2-5 is opened, and ASA-2 is not scheduled by it.**
 
 ```
 NEXT MILESTONE = NOT YET SELECTED
 ```
 
-Era I is **CLOSED** at `047dde8` (§11.3). Era II is **OPEN** (§12) and remains open — four milestones closing close no era. The bounded order E2-1 → E2-2 → E2-3 is exhausted and **no E2-4 exists**; LMX-1 followed E2-3 as a **product-experience** milestone by Director decision, which is exactly how the next one must also be chosen — from measured repository and product reality, never from numbering.
+Era I is **CLOSED** at `047dde8` (§11.3). Era II is **OPEN** (§12) and remains open — five milestones closing close no era. The bounded order E2-1 → E2-2 → E2-3 was exhausted; LMX-1 followed E2-3 as a **product-experience** milestone by Director decision, and **E2-4 followed it as an Era II milestone by Director decision after a read-only discovery pass** — which is exactly how the next one must also be chosen, from measured repository and product reality, never from numbering.
 
 **E2-1 is CLOSED.** Released and pushed at `dfa76248c38bad2c994e1494ac41896296b09067`, **not deployed**. Heby grounds on the Organization Authority as one ordinary evidence source; it does not consume Live Map, internal organization structure remains unavailable, no agent fact is admitted, and no new authority was created. **E2-1 closed is not Heby Intelligence complete.**
 
@@ -1409,9 +1533,11 @@ Era I is **CLOSED** at `047dde8` (§11.3). Era II is **OPEN** (§12) and remains
 
 **E2-3 is CLOSED and PRODUCTION-ACCEPTED.** Released and pushed at `00eda193948c6f86b422e84d198ef03363adf761`, learnings at `2aff2376ee72a6229c6a4ab5af15673e04a6408a`, **deployed and production-accepted** (§12.3) — server-side and authenticated UI acceptance both PASS, after a production migration repair 37 → 39. Existing authoritative Live Map agent nodes are enriched with a derived cumulative Agent Outcome observation through an id-keyed read-only projection owned by the outcome authority. It created **no node type, no edge type, no writer, no schema, no migration and no authority**; `LiveMapTruth` is unwidened, the ledger is unchanged at 39, and the enriched import closure contains no durable writer at any depth. **E2-3 closed is not Live Map complete, and not Live Map Intelligence complete.**
 
-**LMX-1 is CLOSED and PRODUCTION-ACCEPTED.** Released and pushed at `8fb299e1aaac36d5f1db295d05877395de91b1e2`, learnings at `1b9f88a007ee40fda2c4cc239b87554f67e2f680`, **deployed and production-accepted** (§12.3). `/live-map` is now an organization-centred visual map whose agents open into an inspector separating authoritative identity from derived cumulative outcome, and the authenticated landing carries a Live Map Live / Security Live awareness band built from released seams. It created **no node type, no edge type, no writer, no schema, no migration and no authority**, and it added an executable guard that the authenticated dashboard cannot regress into reusable static HTML. **It is a product-experience milestone, not E2-4** — see §12.
+**LMX-1 is CLOSED and PRODUCTION-ACCEPTED.** Released and pushed at `8fb299e1aaac36d5f1db295d05877395de91b1e2`, learnings at `1b9f88a007ee40fda2c4cc239b87554f67e2f680`, **deployed and production-accepted** (§12.3).
 
-**No next milestone is selected.** Organization Structure Authority stays unavailable, the generic Agent Registry stays rejected, ASA-2 stays blocked, Director Intelligence stays outside the sequence, and the Knowledge, Security and Integration Live Map layers stay deferred — none of them is opened by E2-3 closing. Selecting what follows requires reading the repository again, not continuing a number.
+**E2-4 is CLOSED.** Organizational Attention Observation — released and pushed, **deployment not measured and not production-accepted** (§12.4). Hebun now reads the timestamps its authorities were already writing: how long a proposal has awaited a decision, how long the oldest has waited, how long something approved has gone without an attempt, how long an unspent authorization has left, and how long since the last recorded governed act. It created **no schema, no migration, no writer, no node type, no edge type and no authority**; the ledger is unchanged at 39. **It is not a policy authority: AGE != IMPORTANCE, WAITING != LATE, NO THRESHOLD IS A POLICY.** Deciding what a duration means would need its own discovery and its own authorization. `/live-map` is now an organization-centred visual map whose agents open into an inspector separating authoritative identity from derived cumulative outcome, and the authenticated landing carries a Live Map Live / Security Live awareness band built from released seams. It created **no node type, no edge type, no writer, no schema, no migration and no authority**, and it added an executable guard that the authenticated dashboard cannot regress into reusable static HTML. **It is a product-experience milestone, not E2-4** — see §12.
+
+**No next milestone is selected.** Organization Structure Authority stays unavailable, the generic Agent Registry stays rejected, **ASA-2 stays blocked** — re-measured at E2-4's activation: no time-window predicate exists in `agent-outcome-observation/`, `agent-evaluation/` or `agent-improvement-hypothesis/`, and E2-4 built none (elapsed time is not a window) — Director Intelligence stays outside the sequence, and the Knowledge, Security and Integration Live Map layers stay deferred — none of them is opened by E2-3 or E2-4 closing. Selecting what follows requires reading the repository again, not continuing a number.
 
 Nothing in Era II is authorized by this document. In particular, a candidate being technically safe to build is not a reason for it to be next, and a closed milestone authorizes nothing that follows it.
 
@@ -1425,6 +1551,11 @@ DEPLOYED         != PRODUCTION-ACCEPTED
 PRODUCTION-ACCEPTED != LIVE MAP COMPLETE
 MIGRATION APPLIED   != APPLICATION ACCEPTED
 SERVER-SIDE PASS    != UI ACCEPTED
+AGE                 != IMPORTANCE
+WAITING             != LATE
+NO THRESHOLD IS A POLICY
+ELAPSED TIME        != A WINDOW
+E2-4 CLOSED         != ASA-2 UNBLOCKED
 FOUR CLOSED      != ERA II CLOSED
 NUMBERING        != A MILESTONE
 LIVE MAP         != TRUTH AUTHORITY

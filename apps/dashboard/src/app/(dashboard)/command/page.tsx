@@ -6,6 +6,7 @@ import {
   toWaitingOnYou,
 } from "@/features/command-overview/workspace-model";
 import { readPendingActionRequests } from "@/features/action-authorization/read-action-authorizations.server";
+import { readAwaitingDecisionAggregate } from "@/features/action-authorization/awaiting-decision-aggregate.server";
 import { readLiveMapProjection } from "@/features/live-map/read-live-map.server";
 import { summariseLiveMap } from "@/features/live-map/awareness";
 import { readSecurityRecordedActObservation } from "@/features/governance-activity/security-observation-source.server";
@@ -71,11 +72,21 @@ export default async function CommandPage() {
    * unreadable ledger leaves the Live Map panel intact and vice versa. None of them can widen its
    * own scope — not one takes a tenant identifier.
    */
-  const [pending, liveMap, recordedActs] = await Promise.all([
+  /*
+   * E2-4 adds a FOURTH read, and it is deliberately not a field on the first one. The pending list
+   * is `orderBy desc(created_at) limit 50`, so the oldest awaiting proposal is the first row it
+   * drops; the aggregate below carries no bound and is the only honest source for "oldest" and for
+   * a true total. Its failure is contained like the other three — an unreadable aggregate leaves
+   * the queue itself intact and simply omits the duration.
+   */
+  const [pending, awaiting, liveMap, recordedActs] = await Promise.all([
     readPendingActionRequests(tenant),
+    readAwaitingDecisionAggregate(tenant),
     readLiveMapProjection(tenant),
     readSecurityRecordedActObservation(tenant),
   ]);
+  /* ONE instant for every duration this page renders. Resolved here, never inside a component. */
+  const evaluatedAt = new Date().toISOString();
 
   return (
     <>
@@ -103,7 +114,10 @@ export default async function CommandPage() {
           security={summariseSecurityObservation(recordedActs)}
         />
       </div>
-      <CommandOverview waiting={toWaitingOnYou(pending)} intent={getExpressIntentSummary()} />
+      <CommandOverview
+        waiting={toWaitingOnYou(pending, { evaluatedAt, aggregate: awaiting })}
+        intent={getExpressIntentSummary()}
+      />
     </>
   );
 }

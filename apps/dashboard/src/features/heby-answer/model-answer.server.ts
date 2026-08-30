@@ -103,6 +103,7 @@ import { readIntegrationGroundingSource } from "@/features/integration-authority
  * model context through an edit made somewhere else. A firewall test asserts the absence.
  */
 import { readOrganizationGroundingSource } from "@/features/organization-authority/heby-organization-source.server";
+import { readAttentionGroundingSource } from "@/features/attention-observation/heby-attention-source.server";
 import {
   toResponseSourceEvidence,
   toStoredSourceEvidence,
@@ -247,6 +248,16 @@ export interface HebyModelAnswerDeps {
    * never a writer, never authority, never an act.
    */
   readonly resolveOrganization?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /**
+   * E2-4 — explicit elapsed-time resolution for the `operations` class, which every workspace that
+   * declares it has had unconnected since it was defined. Defaults to the real tenant-scoped read.
+   * It can only ever contribute EVIDENCE: a duration and the authoritative column it was measured
+   * from, never a judgement about what that duration means.
+   */
+  readonly resolveOperations?: (
+    tenant: TenantContext,
+    base?: SourceResolution,
+  ) => Promise<SourceResolution>;
 }
 
 /** What actually happened to durable persistence for this request. Never fabricated. */
@@ -487,6 +498,61 @@ async function withOrganization(
 }
 
 /**
+ * E2-4 — this tenant's elapsed-time observations join the SAME deterministic evidence set.
+ *
+ * WHY THE `operations` CLASS WAS EMPTY, AND WHY IT IS NOT A NEW ONE. Command and Operations have
+ * declared `operations` since the workspace registry was written, and `definedButUnconnected` has
+ * been producing it ever since — a truthful "no reader" that no phase had a reader for. E2-4 does
+ * not invent a class; it connects the one that was already declared.
+ *
+ * FOUR ITEMS, ALWAYS, and each one names the authoritative column its duration was measured from.
+ * A block that could not be read contributes its own unavailable sentence rather than a zero,
+ * because an unread observation and an empty queue are different facts about an organization.
+ *
+ * IT IS DERIVED. `authoritative: false`, unlike Governance and Organization, because every number
+ * is recomputed on read — the RECORDS are authoritative, the durations are arithmetic over them.
+ *
+ * A read failure degrades to the pure resolution — it never fabricates a duration, never implies
+ * that nothing is waiting, and never removes another source's evidence.
+ *
+ *     AGE != IMPORTANCE        WAITING != LATE        NO THRESHOLD IS A POLICY
+ */
+async function withOperations(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "operations")) {
+    return resolutions;
+  }
+  try {
+    const existing = resolutions.find((resolution) => resolution.sourceClass === "operations");
+    /*
+     * THE EXISTING RESOLUTION IS HANDED IN, NOT DISCARDED. `operations` is the one connected class
+     * whose PURE default already carries items — the Executive Overview's operational sections —
+     * so substituting a fresh resolution here would delete evidence another source contributed.
+     * Knowledge, work-artifacts, Governance, Integrations and Organization each replace a default
+     * that carried nothing, which is why they may.
+     */
+    /*
+     * The default is wrapped rather than passed by reference: the released source takes
+     * `(tenant, deps, base)` and this seam injects `(tenant, base)`, so handing it straight through
+     * would put the base resolution in the DEPS slot — which is exactly the defect R2C caught, and
+     * it looked like a merge that silently replaced.
+     */
+    const resolver =
+      deps.resolveOperations ??
+      ((t: TenantContext, b?: SourceResolution) => readAttentionGroundingSource(t, {}, b));
+    const operations = await resolver(tenant, existing);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "operations" ? operations : resolution,
+    );
+  } catch {
+    return resolutions;
+  }
+}
+
+/**
  * Build the grounding context lines the model receives as DATA. Provenance and availability
  * are PRESERVED (not flattened): a resolved item carries its provenance statement; an
  * unavailable source states its honest reason. Record identifiers come only from retrieval.
@@ -632,7 +698,11 @@ export async function answerHebyModelRequest(
   // E2-1 — and the organization this tenant IS joins the SAME deterministic evidence set. Identity
   // only: what organization exists, and the authority's own statement that its internal structure
   // has no owner. No department, no roster, no agent.
-  const resolutions = await withOrganization(integrationResolutions, tenant, deps);
+  const organizationResolutions = await withOrganization(integrationResolutions, tenant, deps);
+  // E2-4 — and how long the things already recorded have been waiting. Durations only: elapsed
+  // time measured from authoritative timestamps against one instant, with no threshold, no target
+  // and no claim that any of it is late.
+  const resolutions = await withOperations(organizationResolutions, tenant, deps);
   const assembled = assembleEvidence(resolutions);
 
   // The honest deterministic fallback (an answer where possible, an honest unavailable else).
