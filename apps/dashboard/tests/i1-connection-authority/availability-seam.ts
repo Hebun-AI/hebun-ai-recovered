@@ -197,11 +197,17 @@ async function main(): Promise<void> {
        */
       const listed = view.capabilities.map((c) => c.capability).sort();
       /* KID-1 added `google.drive.content.read`; the seam must list it like any other. */
+      /*
+       * The least-privilege adaptation added `google.drive.file.content.read`. The seam must list it
+       * like any other — a capability the catalog's provider offers and this tenant has not granted
+       * reports `not-connected`, which is the sentence this census exists to keep sayable.
+       */
       assert.deepEqual(
         listed,
         [
           "github.repository.activity.read",
           "google.drive.content.read",
+          "google.drive.file.content.read",
           "google.drive.metadata.read",
         ],
         "the view lists every mapped capability",

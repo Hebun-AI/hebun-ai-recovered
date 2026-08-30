@@ -59,6 +59,8 @@ import {
   GOOGLE_DRIVE_METADATA_SCOPE,
   GOOGLE_DRIVE_CONTENT_CAPABILITY,
   GOOGLE_DRIVE_CONTENT_SCOPE,
+  GOOGLE_DRIVE_FILE_CAPABILITY,
+  GOOGLE_DRIVE_FILE_SCOPE,
 } from "@/features/provider-google/contracts";
 import {
   GITHUB_PROVIDER_KEY,
@@ -139,6 +141,26 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
       }),
       [GOOGLE_DRIVE_CONTENT_CAPABILITY]: Object.freeze({
         read: Object.freeze([GOOGLE_DRIVE_CONTENT_SCOPE]),
+        write: Object.freeze([]),
+      }),
+      /*
+       * ── A THIRD CAPABILITY, AND THE ONE PRODUCTION IS MEANT TO USE ────────
+       *
+       * The Director chose least privilege over convenience: the released product flow is "a human
+       * selects ONE document", so Drive-wide read is disproportionate to it. This capability reads
+       * only what a human handed to Hebun through the Google Picker.
+       *
+       * It is ADDED, not substituted. The two entries above keep their meaning because production
+       * records name them — a reference declared under `google.drive.content.read` means the
+       * document arrived under a Drive-wide grant, and that must stay readable as what it was.
+       *
+       * `write` STAYS EMPTY on all three, for the reason stated above: the availability seam treats
+       * an empty write set as "no write capability exists", so no grant makes this connection
+       * write-capable. `drive.file` would technically permit writing files this app created; Hebun
+       * declares none, so it has none.
+       */
+      [GOOGLE_DRIVE_FILE_CAPABILITY]: Object.freeze({
+        read: Object.freeze([GOOGLE_DRIVE_FILE_SCOPE]),
         write: Object.freeze([]),
       }),
     }),

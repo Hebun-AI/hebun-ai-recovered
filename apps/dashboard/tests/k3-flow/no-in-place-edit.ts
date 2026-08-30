@@ -450,6 +450,13 @@ async function main(): Promise<void> {
          * Still absent, because they still do not exist: delete, edit, rollback, un-ratify.
          */
         /*
+         * THE GOOGLE LEAST-PRIVILEGE ADAPTATION. `admitPickedGoogleDocumentAction` reaches the same
+         * producer as every entry here, so it adds no correction, no deletion and no in-place edit;
+         * `authorizeGooglePickerSessionAction` reaches no Knowledge writer at all and exists only to
+         * open Google's chooser. Two names, one capability, and nothing here edits anything.
+         */
+        "admitPickedGoogleDocumentAction",
+        /*
          * KID-2 — provider admission. It reaches the SAME producer the paste and the upload reach,
          * so it adds no correction, no deletion and no in-place edit: a provider document becomes
          * new provisional facts, and a CHANGED provider document becomes a different source with a
@@ -458,6 +465,8 @@ async function main(): Promise<void> {
          */
         "admitProviderDocumentAction",
         "attachKnowledgeExternalReferenceAction",
+        /* The chooser authorization, in sort order. It writes nothing — see the note above. */
+        "authorizeGooglePickerSessionAction",
         "createKnowledgeAction",
         "ingestKnowledgeAction",
         /*

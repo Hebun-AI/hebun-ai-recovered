@@ -229,6 +229,63 @@ export const GOOGLE_DRIVE_CONTENT_CAPABILITY = "google.drive.content.read" as co
 export const GOOGLE_DRIVE_CONTENT_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
 
 /**
+ * THE PER-FILE CONTENT CAPABILITY (Google least-privilege adaptation).
+ *
+ * A THIRD capability, and the one the product intends to use in production. It reads the content of
+ * a document THE USER HANDED TO HEBUN THROUGH THE GOOGLE PICKER, and nothing else — not a document
+ * it discovered, not a document it can see, only one a human selected.
+ *
+ *     USER-SELECTED FILE != ALL DRIVE FILES
+ *
+ * ── WHY IT IS A NEW CAPABILITY AND NOT A REMAPPED ONE ───────────────────────
+ *
+ * `google.drive.content.read` was released against `drive.readonly` and PRODUCTION RECORDS NAME IT:
+ * KID-2 writes the capability key into `knowledge_external_references`, so a reference declared
+ * under it means "this fact came from a Drive-wide read". Silently repointing that key at a
+ * narrower scope would rewrite the meaning of records already written, and a reader could no longer
+ * tell which permission a document actually arrived under. The key keeps its meaning; a new key
+ * carries the new one.
+ *
+ * KID-1's decision remains true as of KID-1: with no Picker, `drive.file` could not discover
+ * anything, so `drive.readonly` was the only scope that worked with the architecture that existed.
+ * The Picker is what changed, and it changed the architecture rather than the history.
+ */
+export const GOOGLE_DRIVE_FILE_CAPABILITY = "google.drive.file.content.read" as const;
+
+/**
+ * THE NON-SENSITIVE SCOPE, AND THE WHOLE POINT OF THIS ADAPTATION.
+ *
+ * Google classifies `drive.file` NON-SENSITIVE — verified against Google's current Drive scope
+ * guide rather than remembered. It grants per-file access to files "that the user shares with an
+ * app while using the Google Picker API", and both content methods this repository uses accept it:
+ * `files.export` (a native Google Doc) and `files.get?alt=media` (a stored text file). Verified in
+ * Google's current method references, which is the check KID-1 established and this repeats.
+ *
+ * ── WHAT IT REMOVES, STATED AS A CONSEQUENCE AND NOT A HOPE ─────────────────
+ *
+ * `drive.readonly` and `drive.metadata.readonly` are BOTH classified RESTRICTED. A restricted scope
+ * requires restricted-scope verification AND an annual third-party CASA security assessment for any
+ * app that stores or transmits that data on servers — which Hebun does, by design. A non-sensitive
+ * scope requires neither. The admission path built on this capability therefore needs no restricted
+ * scope at all, and a firewall proves that structurally rather than asserting it here.
+ */
+export const GOOGLE_DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+
+/**
+ * WHICH CAPABILITIES MAY GATE A CONTENT READ — a CLOSED set, and the only values the content seam
+ * accepts.
+ *
+ * The seam takes a capability KEY, never a scope, for the reason the authorization route takes one:
+ * a parameter that accepted scopes would accept whatever a caller put in it. This bounds the key
+ * itself as well, so "which permission was this read performed under" has exactly two possible
+ * answers and both are written on these lines.
+ */
+export const GOOGLE_DRIVE_CONTENT_CAPABILITIES: readonly string[] = Object.freeze([
+  GOOGLE_DRIVE_CONTENT_CAPABILITY,
+  GOOGLE_DRIVE_FILE_CAPABILITY,
+]);
+
+/**
  * WHAT KIND OF CONTENT A DRIVE READ RETURNED — a CLOSED vocabulary owned here.
  *
  * KID-0 recorded the blocker this answers: a native Google Doc has no filename extension, and the
@@ -315,6 +372,15 @@ export const GOOGLE_CAPABILITY_SCOPE_REQUESTS: Readonly<Record<string, readonly 
      * metadata consent or the reverse. The route still accepts a capability and never a scope.
      */
     [GOOGLE_DRIVE_CONTENT_CAPABILITY]: Object.freeze([GOOGLE_DRIVE_CONTENT_SCOPE]),
+    /*
+     * THE PER-FILE ENTRY. This is the door the least-privilege adaptation opens, and KID-1 left it
+     * open on purpose: its own header records that the map is keyed BY CAPABILITY precisely so "a
+     * later Picker-based capability can request `drive.file` without touching this entry or
+     * re-interpreting this one." That is what this line is, and the two entries above are unchanged.
+     *
+     * A tenant may hold any of the three grants, all of them, or none. They are never merged.
+     */
+    [GOOGLE_DRIVE_FILE_CAPABILITY]: Object.freeze([GOOGLE_DRIVE_FILE_SCOPE]),
   });
 
 /** The capability names an authorization request may legitimately carry. */

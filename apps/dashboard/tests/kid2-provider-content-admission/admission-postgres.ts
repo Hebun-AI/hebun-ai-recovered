@@ -29,6 +29,7 @@ import { createDurableKnowledgeRepository } from "../../src/features/knowledge/d
 import { listKnowledgeSources } from "../../src/features/knowledge/knowledge-read.server";
 import { resolveKnowledgeEvidenceDetailed } from "../../src/features/heby-answer/knowledge-evidence.server";
 import {
+  admitPickedProviderDocument,
   admitProviderDocument,
   type AdmitProviderDocumentDeps,
 } from "../../src/features/provider-content-admission/admit-provider-document.server";
@@ -486,6 +487,61 @@ async function main(): Promise<void> {
         }
         const permits = await probe.query(`select count(*)::int as n from action_permits`);
         assert.equal(Number(permits.rows[0]!.n), 0, "and no execution authority came into being");
+      }
+
+      /* ══ 7b. THE PERMISSION A DOCUMENT ARRIVED UNDER IS RECORDED, FOREVER ══ */
+      {
+        /*
+         * THE GOOGLE LEAST-PRIVILEGE ADAPTATION, PROVED IN THE ROW. A document admitted through the
+         * Picker path must record the PER-FILE capability, and one admitted through the released
+         * Drive-wide path must keep recording that one. If both wrote the same key, a reader could
+         * never tell which Google permission a fact actually arrived under — which is exactly why
+         * the capability was not silently repointed at the narrower scope.
+         */
+        const perFile = {
+          fileId: "1PeRfIlE_DoCuMeNt",
+          sourceTitle: "Picker Politikası",
+          domainKey: DOMAIN,
+          scope: SCOPE,
+        };
+        const admittedPerFile = await admitPickedProviderDocument(
+          A,
+          perFile,
+          depsFor(
+            driveContent({
+              fileId: "1PeRfIlE_DoCuMeNt",
+              name: "Picker Politikası",
+              text: "Seçilen belge yalnızca kullanıcı verdiği için okunur.",
+            }),
+          ),
+        );
+        assert.equal(admittedPerFile.status, "admitted");
+        if (admittedPerFile.status !== "admitted") throw new Error("unreachable");
+        assert.equal(admittedPerFile.provenance.complete, true);
+
+        const rows = await probe.query<{ capability: string }>(
+          `select distinct capability from knowledge_external_references
+            where tenant_id = $1 and record_id = $2`,
+          [TENANT_A, "1PeRfIlE_DoCuMeNt"],
+        );
+        assert.equal(rows.rowCount, 1);
+        assert.equal(
+          rows.rows[0]!.capability,
+          "google.drive.file.content.read",
+          "a document chosen in the Picker records the per-file capability, not KID-1's",
+        );
+
+        /* And the released path still records its own, on the very same table. */
+        const wide = await probe.query<{ capability: string }>(
+          `select distinct capability from knowledge_external_references
+            where tenant_id = $1 and record_id = $2`,
+          [TENANT_A, DOC_ID],
+        );
+        assert.equal(
+          wide.rows[0]!.capability,
+          "google.drive.content.read",
+          "and a document admitted the released way keeps naming the Drive-wide capability",
+        );
       }
 
       /* ══ 8. TENANT ISOLATION — THE SAME DOCUMENT IN ANOTHER ORGANIZATION ═══ */

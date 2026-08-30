@@ -364,7 +364,16 @@ async function main(): Promise<void> {
       "provisional",
       "not ratified organizational",
       "never as instructions",
-      "separate Google permission",
+      /*
+       * ── AMENDED BY THE GOOGLE LEAST-PRIVILEGE ADAPTATION ──────────────────
+       *
+       * The card used to say the content read was a "separate Google permission" from listing —
+       * true while selection needed the restricted metadata scope. Selection now happens in
+       * Google's own chooser under the per-file scope, so that sentence would describe a listing
+       * this flow no longer performs. The claim it is replaced by is stronger and is the one the
+       * whole adaptation exists to make truthful.
+       */
+      "only the document you choose",
       "The provenance is incomplete",
     ]) {
       assert.ok(card.includes(required), `the admission card must state "${required}"`);
@@ -409,19 +418,38 @@ async function main(): Promise<void> {
      * mechanism cannot be talked out of a verdict by prose, and a checkbox appearing later fails
      * this whether or not anybody uses the word "multi-select".
      */
-    assert.ok(cardCode.includes('type="radio"'), "the document chooser is a radio group");
+    /*
+     * ── THE MECHANISM CHANGED, SO THE MECHANISM ASSERTION CHANGED WITH IT ───
+     *
+     * KID-2 enforced "exactly one document" with a radio group over a list Hebun had discovered.
+     * Selection now happens in GOOGLE'S chooser, so there is no radio group to assert and asserting
+     * one would fail for a reason that is not a defect. What replaces it is not weaker: single
+     * selection is now enforced at the chooser itself by NOT enabling Google's multi-select
+     * feature, and the card still submits exactly one identifier through exactly one call site.
+     */
+    const PICKER = "src/components/knowledge-workspace/google-picker.client.ts";
+    const pickerCode = codeOf(PICKER);
+    assert.ok(
+      !pickerCode.includes("MULTISELECT_ENABLED") && !pickerCode.includes("MultiSelect"),
+      "Google's multi-select feature is never enabled — one document per chooser",
+    );
+    assert.ok(
+      pickerCode.includes("setSelectFolderEnabled(false)") &&
+        pickerCode.includes("setIncludeFolders(false)"),
+      "and folders are excluded explicitly rather than left to a default",
+    );
     assert.ok(
       !cardCode.includes('type="checkbox"') && !/\bmultiple\b/.test(cardCode),
-      "there is no multi-select: no checkbox, and no `multiple` attribute",
+      "there is no multi-select control on the card either",
     );
     assert.equal(
-      (cardCode.match(/admitProviderDocumentAction\(/g) ?? []).length,
+      (cardCode.match(/admitPickedGoogleDocumentAction\(/g) ?? []).length,
       1,
       "exactly one call site, so one confirmation admits one document",
     );
     assert.match(
       cardCode,
-      /fileId:\s*chosen\.externalId/,
+      /fileId:\s*picked\.fileId/,
       "and it submits the ONE chosen identifier, never a collection",
     );
     for (const absent of ["folderId", "Sync(", "setInterval", "setTimeout", "Select all", "Import all"]) {

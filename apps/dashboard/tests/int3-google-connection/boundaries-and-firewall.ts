@@ -15,7 +15,11 @@ import {
   GOOGLE_REQUIRED_GRANTED_SCOPES,
   coversRequiredScopes,
 } from "../../src/features/provider-google/contracts";
-import { PROVIDER_CATALOG, listConnectableProviders } from "../../src/features/provider-catalog/catalog";
+import {
+  PROVIDER_CATALOG,
+  findProviderDefinition,
+  listConnectableProviders,
+} from "../../src/features/provider-catalog/catalog";
 import { I1_PRODUCIBLE_STATES } from "../../src/features/integration-authority/contracts";
 
 const ROOT = process.cwd();
@@ -301,9 +305,23 @@ function main(): void {
      * `drive.metadata` (read-write) and every other sibling remain refused, and the non-Drive
      * product scopes below are untouched.
      */
+    /*
+     * ── EXTENDED AGAIN BY THE GOOGLE LEAST-PRIVILEGE ADAPTATION ──────────────
+     *
+     * `drive.file` joins the allowlist as the THIRD and NARROWEST entry, and it is the one the
+     * product intends to use in production: Google classifies it NON-SENSITIVE, and it grants
+     * access only to files a user hands the app through the Google Picker.
+     *
+     * INT-3 banned this string outright, and its reason was real and is not dismissed: `drive.file`
+     * is WRITE-CAPABLE for files the app itself created. That concern is now asserted by MECHANISM
+     * immediately below rather than by forbidding the word — Hebun issues no Drive write of any
+     * kind, and every Google capability declares an empty write set. A string ban could only ever
+     * prove the scope was not named; the assertions below prove no write can happen.
+     */
     const ALLOWED_DRIVE_SCOPES = [
       "https://www.googleapis.com/auth/drive.metadata.readonly",
       "https://www.googleapis.com/auth/drive.readonly",
+      "https://www.googleapis.com/auth/drive.file",
     ];
     for (const file of collect(GOOGLE).concat(collect("src/features/provider-catalog"))) {
       const code = read(file);
@@ -314,11 +332,52 @@ function main(): void {
       for (const found of code.match(/https:\/\/www\.googleapis\.com\/auth\/drive[A-Za-z.]*/g) ?? []) {
         assert.ok(ALLOWED_DRIVE_SCOPES.includes(found), `${file} may name only an allowlisted Drive scope, found ${found}`);
       }
-      /* No write-bearing Drive scope may appear even in a comment that a later edit could copy. */
-      for (const forbidden of ["auth/drive.file", "auth/drive.appdata", "auth/drive.scripts"]) {
+      /* The remaining write-bearing Drive scopes stay banned outright — none is on any path. */
+      for (const forbidden of ["auth/drive.appdata", "auth/drive.scripts"]) {
         assert.ok(!code.includes(forbidden), `${file} must not name the write-capable "${forbidden}"`);
       }
     }
+    /*
+     * ── HEBUN ISSUES NO DRIVE WRITE, PROVED BY MECHANISM ─────────────────────
+     *
+     * This is what replaces INT-3's ban on the `drive.file` string, and it is stronger: a scope
+     * that permits writing app-created files is harmless while nothing can perform a write.
+     *
+     * 1. EVERY non-GET request in the Google transport goes through ONE helper, `postForm`, and
+     *    every one of its call sites targets an OAuth endpoint constant — the token exchange and
+     *    the revocation. No Drive URL is ever posted, patched, put or deleted.
+     * 2. EVERY Google capability in the catalog declares an EMPTY write scope set, which the
+     *    availability seam reads as "no write capability exists" rather than vacuously satisfied.
+     */
+    {
+      const transport = read("src/features/provider-google/google-transport.server.ts");
+      const postTargets = [...transport.matchAll(/postForm\(\s*([A-Z_]+)/g)].map((m) => m[1]!);
+      assert.ok(postTargets.length > 0, "the transport does post something — this pin is not vacuous");
+      assert.deepEqual(
+        [...new Set(postTargets)].sort(),
+        ["GOOGLE_REVOKE_ENDPOINT", "GOOGLE_TOKEN_ENDPOINT"],
+        "the only non-GET requests are the OAuth token exchange and revocation — never a Drive call",
+      );
+      for (const method of ['method: "POST"', 'method: "PATCH"', 'method: "PUT"', 'method: "DELETE"']) {
+        const occurrences = transport.split(method).length - 1;
+        assert.ok(
+          method === 'method: "POST"' ? occurrences === 1 : occurrences === 0,
+          `the transport declares no ${method} beyond the single form post`,
+        );
+      }
+
+      const google = findProviderDefinition("google-workspace")!;
+      const capabilities = Object.keys(google.capabilityScopes);
+      assert.ok(capabilities.length > 0, "Google declares capabilities — this pin is not vacuous");
+      for (const capability of capabilities) {
+        assert.deepEqual(
+          [...google.capabilityScopes[capability]!.write],
+          [],
+          `${capability} must declare no write scope — Drive write is a phase away, not a scope away`,
+        );
+      }
+    }
+
     /* Required scopes are compared in GOOGLE'S spelling, not in the short form Hebun requests. */
     assert.ok(GOOGLE_REQUIRED_GRANTED_SCOPES.every((s) => s === "openid" || s.startsWith("https://")));
     assert.ok(!coversRequiredScopes(["openid", "email", "profile"]), "the short form is NOT the grant");
@@ -361,10 +420,21 @@ function main(): void {
      * asserted separately: BOTH declare an empty write set, so no grant makes this connection
      * write-capable. Naming each capability keeps the diff saying WHICH one arrived.
      */
+    /*
+     * AMENDED BY THE GOOGLE LEAST-PRIVILEGE ADAPTATION: a THIRD capability, the per-file content
+     * read, which is the one the production admission path uses. The sentence the write-set comment
+     * above defends is unchanged and is asserted separately — ALL THREE declare an empty write set,
+     * so no grant makes this connection write-capable. Naming each keeps the diff saying WHICH one
+     * arrived, and the order is the definition's own.
+     */
     assert.deepEqual(
       Object.keys(google.capabilityScopes),
-      ["google.drive.metadata.read", "google.drive.content.read"],
-      "Google maps exactly the metadata read and the content read — nothing else",
+      [
+        "google.drive.metadata.read",
+        "google.drive.content.read",
+        "google.drive.file.content.read",
+      ],
+      "Google maps exactly the metadata read, the Drive-wide content read and the per-file content read",
     );
     const drive = google.capabilityScopes["google.drive.metadata.read"]!;
     assert.deepEqual(

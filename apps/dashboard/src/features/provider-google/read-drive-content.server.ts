@@ -33,6 +33,7 @@ import type { ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { getCapabilityAvailability } from "@/features/integration-authority/capability-availability.server";
 import {
+  GOOGLE_DRIVE_CONTENT_CAPABILITIES,
   GOOGLE_DRIVE_CONTENT_CAPABILITY,
   type GoogleDriveContent,
   type GoogleFailureClass,
@@ -56,7 +57,16 @@ export type DriveContentRefusal =
   | "no-document-selected"
   | "capability-not-available"
   | "integration-not-found"
-  | "wrong-provider";
+  | "wrong-provider"
+  /**
+   * The caller named a capability that is not a Drive content capability.
+   *
+   * It exists because this seam now serves TWO permission models — KID-1's Drive-wide grant and the
+   * least-privilege per-file grant — and the choice between them must be a closed one. A caller
+   * naming anything else is refused rather than defaulted, because defaulting would silently
+   * perform the read under the wider of the two.
+   */
+  | "unknown-capability";
 
 export type DriveContentResult =
   | { readonly status: "read"; readonly content: GoogleDriveContent }
@@ -89,10 +99,30 @@ function assertServerOnly(): void {
  */
 export async function readDriveContent(
   tenant: TenantContext | null,
-  input: { readonly fileId: string },
+  input: { readonly fileId: string; readonly capability?: string },
   deps: DriveContentDeps = {},
 ): Promise<DriveContentResult> {
   assertServerOnly();
+
+  /*
+   * ── WHICH PERMISSION IS THIS READ PERFORMED UNDER ──────────────────────────
+   *
+   * A CAPABILITY KEY, never a scope, and from a CLOSED set — the authorization route's own rule,
+   * applied one layer in. A caller can choose between the two content permissions this repository
+   * has; it cannot invent a third, and it cannot name a scope.
+   *
+   * The default is KID-1's capability, so every released caller means exactly what it meant. The
+   * per-file caller passes its own key explicitly, which is what makes the provenance honest: the
+   * capability recorded against an admitted document is the one the read actually used.
+   */
+  const capability = input?.capability ?? GOOGLE_DRIVE_CONTENT_CAPABILITY;
+  if (!GOOGLE_DRIVE_CONTENT_CAPABILITIES.includes(capability)) {
+    return {
+      status: "refused",
+      reason: "unknown-capability",
+      detail: "That is not a Google Drive content capability, so no document was read.",
+    };
+  }
 
   if (!tenant?.tenantId) {
     return {
@@ -116,9 +146,7 @@ export async function readDriveContent(
    * source it names is one this tenant owns.
    */
   const availability = await getCapabilityAvailability(tenant, { getDb: deps.getDb });
-  const entry = availability.capabilities.find(
-    (c) => c.capability === GOOGLE_DRIVE_CONTENT_CAPABILITY,
-  );
+  const entry = availability.capabilities.find((c) => c.capability === capability);
 
   if (!entry || entry.state !== "available") {
     return {

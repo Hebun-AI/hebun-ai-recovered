@@ -391,11 +391,22 @@ function main(): void {
      * a tenant holding the metadata grant reports it `not-connected` until they grant the content
      * scope too, which is exactly the sentence this census exists to keep sayable.
      */
+    /*
+     * THE GOOGLE LEAST-PRIVILEGE ADAPTATION adds `google.drive.file.content.read`, and it is the
+     * one the product intends to use in production. It maps to `drive.file`, which Google classifies
+     * NON-SENSITIVE, so the admission path built on it needs no restricted scope at all.
+     *
+     * THREE GOOGLE CAPABILITIES NOW, AND THEY ARE NEVER MERGED. A tenant may hold any of the grants
+     * or none, and the seam answers each independently — which is exactly why the older two keep
+     * their meaning rather than being repointed at the narrower scope. Production records name the
+     * capability a document arrived under, and that must stay readable as what it was.
+     */
     assert.deepEqual(
       [...listConnectableCapabilities()].sort(),
       [
         "github.repository.activity.read",
         "google.drive.content.read",
+        "google.drive.file.content.read",
         "google.drive.metadata.read",
       ],
       "every mapped capability, and each named by a provider that is genuinely connectable",

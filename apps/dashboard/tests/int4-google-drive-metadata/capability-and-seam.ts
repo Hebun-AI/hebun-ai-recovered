@@ -16,6 +16,9 @@ import {
   GOOGLE_DRIVE_METADATA_CAPABILITY,
   GOOGLE_DRIVE_METADATA_SCOPE,
   GOOGLE_DRIVE_CONTENT_CAPABILITY,
+  GOOGLE_DRIVE_CONTENT_SCOPE,
+  GOOGLE_DRIVE_FILE_CAPABILITY,
+  GOOGLE_DRIVE_FILE_SCOPE,
   GOOGLE_REQUESTED_SCOPES,
   MAX_DRIVE_FILES_PER_PAGE,
   extraScopesForCapability,
@@ -192,10 +195,40 @@ function theUpgradeRequestIsClosed(): void {
    * CLOSED, and the metadata capability still resolves to the metadata scope and nothing wider.
    * A capability arriving here without somebody naming it is what this assertion still prevents.
    */
+  /*
+   * ── AMENDED AGAIN BY THE GOOGLE LEAST-PRIVILEGE ADAPTATION ───────────────
+   *
+   * A third capability, `google.drive.file.content.read`, mapping to the NON-SENSITIVE `drive.file`
+   * scope. The list is three, and what INT-4 was defending is still asserted below and still
+   * unchanged: the map is CLOSED, and each capability resolves to its own scope and nothing wider.
+   *
+   * The order is the map's own insertion order and is asserted as such, so a capability cannot be
+   * quietly reordered into a different meaning either.
+   */
   assert.deepEqual(
     [...GOOGLE_UPGRADEABLE_CAPABILITIES],
-    [GOOGLE_DRIVE_METADATA_CAPABILITY, GOOGLE_DRIVE_CONTENT_CAPABILITY],
+    [
+      GOOGLE_DRIVE_METADATA_CAPABILITY,
+      GOOGLE_DRIVE_CONTENT_CAPABILITY,
+      GOOGLE_DRIVE_FILE_CAPABILITY,
+    ],
   );
+  /*
+   * AND THE NARROW ONE RESOLVES TO THE NARROW SCOPE. This is the assertion the whole adaptation
+   * rests on: the capability the production admission path uses asks Google for `drive.file`, which
+   * Google classifies non-sensitive — never for either restricted Drive scope.
+   */
+  assert.deepEqual(
+    [...extraScopesForCapability(GOOGLE_DRIVE_FILE_CAPABILITY)!],
+    [GOOGLE_DRIVE_FILE_SCOPE],
+    "the per-file capability requests exactly the non-sensitive per-file scope",
+  );
+  for (const restricted of [GOOGLE_DRIVE_METADATA_SCOPE, GOOGLE_DRIVE_CONTENT_SCOPE]) {
+    assert.ok(
+      !extraScopesForCapability(GOOGLE_DRIVE_FILE_CAPABILITY)!.includes(restricted),
+      `the per-file capability must never request the restricted scope ${restricted}`,
+    );
+  }
   assert.deepEqual(
     [...extraScopesForCapability(GOOGLE_DRIVE_METADATA_CAPABILITY)!],
     [GOOGLE_DRIVE_METADATA_SCOPE],

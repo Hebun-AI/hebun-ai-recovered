@@ -15,6 +15,7 @@ import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server
 import { readCompanyUnderstanding } from "@/features/knowledge/company-understanding-read.server";
 import { listIngestedSources } from "@/features/knowledge/ingested-sources-read.server";
 import { discoverDriveSources } from "@/features/provider-google/discover-drive-sources.server";
+import { isGooglePickerConfigured } from "@/features/provider-google/picker-environment.server";
 import { resolveKnowledgeWriteAuthority } from "@/features/knowledge/knowledge-write-authority.server";
 import { isDurableKnowledgeConfigured } from "@/features/knowledge/durable-knowledge-repository.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -255,6 +256,13 @@ export default async function KnowledgePage() {
 
           One document, chosen by a person, classified by that person. There is no import-all, no
           folder, no schedule and no sync behind it, because none of those exist.
+
+          ── AND IT NO LONGER DEPENDS ON THE SECTION ABOVE ──────────────────────
+
+          KID-2 selected from the discovered listing, which needs a RESTRICTED Drive scope. The
+          least-privilege adaptation moved selection into Google's own chooser, where `drive.file`
+          grants access per file. So this section takes no `discovery` prop and reads nothing
+          Drive-wide: the listing above is an observation, and admission no longer stands on it.
         */}
         <WorkspaceSection
           id="provider-admission"
@@ -264,7 +272,7 @@ export default async function KnowledgePage() {
           provenanceDetail="writes the canonical Knowledge authority, and records the provider record it came from"
           authority={authoringBand}
         >
-          <ProviderDocumentAdmissionCard block={block} discovery={discovery} />
+          <ProviderDocumentAdmissionCard block={block} pickerConfigured={isGooglePickerConfigured()} />
         </WorkspaceSection>
 
         {/*

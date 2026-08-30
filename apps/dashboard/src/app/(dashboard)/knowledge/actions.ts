@@ -43,9 +43,14 @@ import type {
 import { retractKnowledgeSource } from "@/features/knowledge/retract-source.server";
 import type { RetractionResult } from "@/features/knowledge/retraction-contracts";
 import {
+  admitPickedProviderDocument,
   admitProviderDocument,
   type AdmitProviderDocumentResult,
 } from "@/features/provider-content-admission/admit-provider-document.server";
+import {
+  authorizePickerSession,
+  type PickerSessionResult,
+} from "@/features/provider-content-admission/authorize-picker-session.server";
 
 /**
  * The K2 boundary for establishing organizational Knowledge. It is the ONLY client-crossable way
@@ -198,6 +203,53 @@ export async function admitProviderDocumentAction(input: {
 }): Promise<AdmitProviderDocumentResult> {
   const tenant = await resolveTenantContext();
   const admission = await admitProviderDocument(tenant, {
+    fileId: input?.fileId ?? "",
+    sourceTitle: input?.sourceTitle ?? "",
+    domainKey: input?.domainKey ?? "",
+    scope: input?.scope as IngestKnowledgeInput["scope"],
+  });
+  if (admission.status === "admitted") revalidatePath("/knowledge");
+  return admission;
+}
+
+/**
+ * AUTHORIZE ONE GOOGLE PICKER SESSION — the least-privilege admission path's first step.
+ *
+ * It takes NO input at all. There is no capability, no scope, no integration id and no tenant to
+ * supply: the tenant comes from the R1 session and the capability is a constant inside the seam. A
+ * client cannot widen what comes back, and cannot ask for another organization's connection.
+ *
+ * WHAT IT RETURNS TO THE BROWSER, and why that is acceptable here: one short-lived Google ACCESS
+ * token plus the Picker's two browser-safe configuration values. Never a refresh token, never the
+ * client secret, never a credential or integration identifier. The token is released ONLY when the
+ * per-file Drive permission is the one available, so it can reach only documents this human has
+ * already handed to Hebun — which is precisely what the least-privilege adaptation bought.
+ *
+ * SELECTION IS NOT ADMISSION. This authorizes a chooser. It writes nothing, admits nothing, and
+ * grants no Knowledge standing; admitting the chosen document is the separate act below, which
+ * re-resolves every authority for itself.
+ */
+export async function authorizeGooglePickerSessionAction(): Promise<PickerSessionResult> {
+  return authorizePickerSession(await resolveTenantContext());
+}
+
+/**
+ * ADMIT ONE DOCUMENT THE HUMAN CHOSE IN THE GOOGLE PICKER.
+ *
+ * The same authority, the same file boundary, the same single Knowledge writer and the same
+ * provisional standing as every other way text arrives. What differs is the Google permission the
+ * read is performed under — the per-file grant rather than the Drive-wide one — and that difference
+ * is fixed by WHICH FUNCTION THIS CALLS. It is not a field, so a client cannot ask for the document
+ * to be read under the wider grant, and the provenance records the permission actually used.
+ */
+export async function admitPickedGoogleDocumentAction(input: {
+  fileId: string;
+  sourceTitle: string;
+  domainKey: string;
+  scope: string;
+}): Promise<AdmitProviderDocumentResult> {
+  const tenant = await resolveTenantContext();
+  const admission = await admitPickedProviderDocument(tenant, {
     fileId: input?.fileId ?? "",
     sourceTitle: input?.sourceTitle ?? "",
     domainKey: input?.domainKey ?? "",

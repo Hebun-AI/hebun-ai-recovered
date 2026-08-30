@@ -302,6 +302,25 @@ function main(): void {
          * Still absent, because they still do not exist: delete, edit, rollback, un-ratify.
          */
         /*
+         * THE GOOGLE LEAST-PRIVILEGE ADAPTATION adds two entries for ONE capability, and neither is
+         * a new Knowledge act.
+         *
+         * `admitPickedGoogleDocumentAction` is the SAME create-class admission as the entry below
+         * it, through the same file boundary and the same single ingestion writer. It differs in
+         * one thing only: the Google permission the read is performed under. That is fixed by which
+         * function it calls, NOT by a field, so a client cannot ask for a document to be read under
+         * the wider Drive-wide grant and recorded as though it had been.
+         *
+         * `authorizeGooglePickerSessionAction` writes NOTHING. It authorizes Google's own file
+         * chooser and takes no input at all. Selection is not admission: it establishes no
+         * Knowledge, no standing and no provenance, and the admission above re-resolves every
+         * authority for itself.
+         *
+         * Still absent, because they still do not exist: delete, edit, rollback, un-ratify, and any
+         * scheduled, folder-wide or automatic admission.
+         */
+        "admitPickedGoogleDocumentAction",
+        /*
          * KID-2 — the provider admission boundary. THE THIRD WAY TEXT ARRIVES, and create-class
          * like the two beside it: it reads one document from a provider this organization already
          * connected, hands it to the SAME file boundary an upload uses, and that boundary hands it
@@ -316,6 +335,8 @@ function main(): void {
          */
         "admitProviderDocumentAction",
         "attachKnowledgeExternalReferenceAction",
+        /* The chooser authorization, in sort order. It writes nothing — see the note above. */
+        "authorizeGooglePickerSessionAction",
         "createKnowledgeAction",
         "ingestKnowledgeAction",
         /* R4C.1 — the file boundary. Create-class like the paste beside it, and no wider. */

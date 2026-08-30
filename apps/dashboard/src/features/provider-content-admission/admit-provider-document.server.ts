@@ -90,6 +90,7 @@ import type {
 } from "@/features/provider-google/contracts";
 import {
   GOOGLE_DRIVE_CONTENT_CAPABILITY,
+  GOOGLE_DRIVE_FILE_CAPABILITY,
   GOOGLE_PROVIDER_KEY,
 } from "@/features/provider-google/contracts";
 import {
@@ -138,10 +139,13 @@ export const PROVIDER_DOCUMENT_RECORD_TYPE = "document" as const;
  * display name follows a rename and an identity must not, and everything else is provider STATE
  * that Hebun does not own and this table does not describe.
  */
-export function providerDocumentReference(fileId: string): ExternalSystemReference {
+export function providerDocumentReference(
+  fileId: string,
+  capability: string = GOOGLE_DRIVE_CONTENT_CAPABILITY,
+): ExternalSystemReference {
   return Object.freeze({
     providerKey: GOOGLE_PROVIDER_KEY,
-    capability: GOOGLE_DRIVE_CONTENT_CAPABILITY,
+    capability,
     recordType: PROVIDER_DOCUMENT_RECORD_TYPE,
     recordId: fileId,
   });
@@ -362,6 +366,38 @@ export async function admitProviderDocument(
   input: AdmitProviderDocumentInput,
   deps: AdmitProviderDocumentDeps = {},
 ): Promise<AdmitProviderDocumentResult> {
+  return admitUnderCapability(tenant, input, GOOGLE_DRIVE_CONTENT_CAPABILITY, deps);
+}
+
+/**
+ * Admit ONE document the human chose in the GOOGLE PICKER, under the per-file permission.
+ *
+ * ── WHY THIS IS A SECOND ENTRY POINT AND NOT A PARAMETER ────────────────────
+ *
+ * The capability decides which Google permission the read is performed under and which permission
+ * the provenance records forever. A field on `AdmitProviderDocumentInput` would make it
+ * CLIENT-SHAPED — the server actions build that object from a form — and a client that could name
+ * the capability could ask for the document to be read under the Drive-wide grant and recorded as
+ * though it had been. Two entry points make the choice a property of WHICH FUNCTION WAS CALLED,
+ * which no payload can influence.
+ *
+ * Everything downstream is identical and shared: same adapter, same file boundary, same single
+ * Knowledge writer, same standing, same duplicate rule, same declaration seam.
+ */
+export async function admitPickedProviderDocument(
+  tenant: TenantContext | null,
+  input: AdmitProviderDocumentInput,
+  deps: AdmitProviderDocumentDeps = {},
+): Promise<AdmitProviderDocumentResult> {
+  return admitUnderCapability(tenant, input, GOOGLE_DRIVE_FILE_CAPABILITY, deps);
+}
+
+async function admitUnderCapability(
+  tenant: TenantContext | null,
+  input: AdmitProviderDocumentInput,
+  capability: string,
+  deps: AdmitProviderDocumentDeps,
+): Promise<AdmitProviderDocumentResult> {
   assertServerOnly();
 
   /* 1 · AUTHENTICATED — before any authority is consulted. */
@@ -380,7 +416,7 @@ export async function admitProviderDocument(
   /* 3 · PROVIDER-AUTHORIZED, AND READ — KID-1's seam owns both, and this module adds neither. */
   const content = await (deps.readContent ?? readDriveContent)(
     tenant,
-    { fileId: input?.fileId ?? "" },
+    { fileId: input?.fileId ?? "", capability },
     deps.provider ?? {},
   );
   if (content.status === "refused") {
@@ -444,7 +480,7 @@ export async function admitProviderDocument(
    * see the header — so the report below is measured rather than assumed, and both statuses carry
    * it so no surface can say "imported" without reading whether the declaration stands.
    */
-  const reference = providerDocumentReference(content.content.fileId);
+  const reference = providerDocumentReference(content.content.fileId, capability);
 
   if (admitted.status === "duplicate-ingestion") {
     /*
