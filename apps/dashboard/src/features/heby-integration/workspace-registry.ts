@@ -84,7 +84,21 @@ const WORKSPACE_PROFILES = {
      * Until now nothing here could answer it. Heby held counts and durations after E2-4 and could
      * not name a single agent — including itself.
      */
-    sourceClasses: ["intelligence", "operations", "decision-records", "organization", "agents"],
+    /*
+     * E2-6 adds `recorded-acts` here and ONLY here, on the same precedent. Command is where a
+     * Director asks what requires attention and what changed; `governance` deliberately does not
+     * gain it, because that workspace's class carries the CONSTITUTION and this one carries a
+     * bounded HISTORY, and one profile asserting both would blur which of the two an answer rests
+     * on. Until now Heby held a COUNT of recorded acts (E2-4) and could not name a single one.
+     */
+    sourceClasses: [
+      "intelligence",
+      "operations",
+      "decision-records",
+      "organization",
+      "agents",
+      "recorded-acts",
+    ],
     authority: "advisory-only",
     mayExplain: [
       "Why is this critical?",
@@ -101,6 +115,11 @@ const WORKSPACE_PROFILES = {
        * say both.
        */
       "What durable agents does this organization have, and what became of what they proposed?",
+      /*
+       * E2-6. Truthful in BOTH halves, like the two lines above: Hebun knows what it recorded and
+       * does not know everything that happened, and Heby must say both.
+       */
+      "What has this organization recently done that Hebun recorded?",
     ],
   },
   intelligence: {

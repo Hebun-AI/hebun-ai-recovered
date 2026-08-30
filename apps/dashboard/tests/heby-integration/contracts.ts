@@ -71,7 +71,8 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Thirteen since E2-5 added `agents` (twelve after E2-1's `organization`, eleven after INT-5A's
+   * Fourteen since E2-6 added `recorded-acts` (thirteen after E2-5's `agents`, twelve after E2-1's
+   * `organization`, eleven after INT-5A's
    * `integrations`, ten after R3R's `external-recipients`, nine after R3W's `work-artifacts`). The list is
    * pinned rather than pattern-matched so a new source class cannot appear without somebody
    * stating it here — which is exactly the review this assertion exists to force. The classes
@@ -131,6 +132,25 @@ function sourceStatusNotCollapsed(): void {
        *     RUNTIME AGENT != WORKFORCE IDENTITY        OUTCOME != MANDATE
        */
       "agents",
+      /*
+       * E2-6. What this organization actually DID, as Hebun's own writers recorded it — a bounded,
+       * newest-first page of `audit_log` that always states the total it was drawn from.
+       *
+       * It earns the review for a fourth distinct reason. A fabricated item here would not
+       * overstate a system's usability, misname the organization, or claim an agent acted; it would
+       * put an event into the organization's HISTORY that never happened — the one kind of false
+       * evidence a Director would have no other record to check it against. So the class must stay
+       * narrow in a specific direction: it carries the acts Hebun recorded and may never imply it
+       * carries all of them, and it exposes no payload, no entity identifier and no actor identity,
+       * because the released reader withholds those columns.
+       *
+       * IT IS NOT `governance`, and that is why it is a separate class. `governance` carries the
+       * CONSTITUTION — who holds authority — and every one of its items is complete. This is
+       * BOUNDED history. One class asserting both would blur which of the two an answer rests on.
+       *
+       *     CONSTITUTION != HISTORY        RECORDED ACT != ALL ORGANIZATIONAL ACTIVITY
+       */
+      "recorded-acts",
     ],
   );
   const context = resolveHebyWorkspaceContext({ workspace: "knowledge" });

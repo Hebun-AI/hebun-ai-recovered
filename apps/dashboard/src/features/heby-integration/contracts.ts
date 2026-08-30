@@ -305,7 +305,28 @@ export type HebySourceClass =
    *     OUTCOME         != MANDATE
    *     APPROVED        != EXECUTED
    */
-  | "agents";
+  | "agents"
+  /*
+   * E2-6. WHAT THIS ORGANIZATION ACTUALLY DID, as Hebun's own writers recorded it.
+   *
+   * It is its own class rather than part of `governance` — the class it most looks like — because
+   * the two carry opposite kinds of fact. `governance` is the CONSTITUTION: the authority record,
+   * the genesis session, delegation and the member role baseline, every item COMPLETE. This is
+   * HISTORY, and it is BOUNDED: a newest-first page that always states the total it was drawn from.
+   * Folding a truncated page in beside complete items would make "is this all of it?" unanswerable
+   * under one provenance line, which is R6B's defect exactly.
+   *
+   * IT IS A RECORD, NEVER A COMPLETE HISTORY. Hebun records some acts and not others, so this class
+   * evidences no intrusion, no incident, no threat, no provider history and no execution history,
+   * and it claims no forensic completeness. It carries no payload, no entity identifier and no
+   * actor identity, because the released reader withholds those columns.
+   *
+   *     CONSTITUTION  != HISTORY
+   *     RECORDED ACT  != ALL ORGANIZATIONAL ACTIVITY
+   *     RECENT        != IMPORTANT
+   *     CHANGE        != CAUSATION
+   */
+  | "recorded-acts";
 
 export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "knowledge",
@@ -321,6 +342,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "integrations",
   "organization",
   "agents",
+  "recorded-acts",
 ] as const;
 
 export interface HebySourceStatus {

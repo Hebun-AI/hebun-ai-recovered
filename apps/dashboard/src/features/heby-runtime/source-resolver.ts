@@ -144,6 +144,18 @@ export function resolveSource(
         "Durable agents are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
       );
     /*
+     * E2-6. The same arrangement every connected class uses: this resolver is PURE — it holds no
+     * tenant and can open no connection — so it reports the honest default, and the server answer
+     * flow substitutes the real tenant-scoped read. G6D's correction applies: it states that the
+     * read is server-side, NOT that nothing is connected, because `withRecordedActs` also falls
+     * back here when the real read THROWS.
+     */
+    case "recorded-acts":
+      return unavailable(
+        "recorded-acts",
+        "Recorded acts are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
+    /*
      * G6D. G6C connected Governance on the server seam exactly as K1 connected Knowledge, and the
      * sentence above is the precedent for what that obliges: state that the read is tenant-scoped
      * and server-side, not that nothing is connected.

@@ -104,6 +104,7 @@ import { readIntegrationGroundingSource } from "@/features/integration-authority
  */
 import { readOrganizationGroundingSource } from "@/features/organization-authority/heby-organization-source.server";
 import { readAgentGroundingSource } from "@/features/agent-outcome-observation/heby-agent-source.server";
+import { readRecordedActGroundingSource } from "@/features/governance-activity/heby-recorded-act-source.server";
 import { readAttentionGroundingSource } from "@/features/attention-observation/heby-attention-source.server";
 import {
   toResponseSourceEvidence,
@@ -266,6 +267,13 @@ export interface HebyModelAnswerDeps {
    * EVIDENCE — never a writer, never an agent lifecycle act, never authority over an agent.
    */
   readonly resolveAgents?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /**
+   * E2-6 — explicit recorded-act resolution for the `recorded-acts` class. Defaults to the real
+   * tenant-scoped read through the recorded-act authority's own projection. Consulted ONLY for
+   * workspaces that declare the class (today: Command only), and it can only ever contribute
+   * EVIDENCE — never a writer, never an audit row, never authority over the ledger.
+   */
+  readonly resolveRecordedActs?: (tenant: TenantContext) => Promise<SourceResolution>;
 }
 
 /** What actually happened to durable persistence for this request. Never fabricated. */
@@ -529,6 +537,43 @@ async function withOrganization(
  *
  *     OUTCOME != MANDATE        APPROVED != EXECUTED        UNAVAILABLE != NO AGENTS
  */
+/**
+ * E2-6 — this tenant's recorded act history joins the SAME deterministic evidence set.
+ *
+ * REPLACES, and the check is the one E2-4's defect made mandatory: what does the base carry?
+ * `recorded-acts`' pure resolution is the honest server-side default this phase added beside it,
+ * holding zero items. Replacing an empty resolution removes no evidence.
+ *
+ * IT IS DERIVED and BOUNDED. `authoritative: false`, because the released
+ * `RECORDED_ACT_HISTORY_BOUNDARY` declares `isAuthoritative: false` and this may not disagree with
+ * its own authority. The first item always states how many acts of the total are carried, so a
+ * bounded page can never read as a complete history.
+ *
+ * A read failure degrades to the pure resolution — it never fabricates an act, never implies the
+ * organization has done nothing, and never removes another source's evidence.
+ *
+ *     A COUNT OF ACTS != A HISTORY OF ACTS        RECORDED ACT != ALL ORGANIZATIONAL ACTIVITY
+ *     RECENT != IMPORTANT                          CHANGE != CAUSATION
+ */
+async function withRecordedActs(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "recorded-acts")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveRecordedActs ?? readRecordedActGroundingSource;
+    const recorded = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "recorded-acts" ? recorded : resolution,
+    );
+  } catch {
+    return resolutions;
+  }
+}
+
 async function withAgents(
   resolutions: readonly SourceResolution[],
   tenant: TenantContext,
@@ -757,7 +802,10 @@ export async function answerHebyModelRequest(
   // E2-5 — and which durable agents proposed any of it, and what became of what they proposed.
   // Outcome evidence only: what was filed, decided and attempted, with no statement of what any
   // agent is for, may do, or was instructed to do.
-  const resolutions = await withAgents(operationsResolutions, tenant, deps);
+  const agentResolutions = await withAgents(operationsResolutions, tenant, deps);
+  // E2-6 — and what this organization actually did, as Hebun's own writers recorded it. A bounded
+  // page that always states the total it was drawn from; never a complete history of activity.
+  const resolutions = await withRecordedActs(agentResolutions, tenant, deps);
   const assembled = assembleEvidence(resolutions);
 
   // The honest deterministic fallback (an answer where possible, an honest unavailable else).
