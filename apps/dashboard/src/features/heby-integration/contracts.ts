@@ -344,7 +344,25 @@ export type HebySourceClass =
    *     TIME WINDOW != TREND        CHANGE != CAUSATION
    *     MORE        != BETTER       LESS   != WORSE
    */
-  | "recorded-act-windows";
+  | "recorded-act-windows"
+  /*
+   * E2-8. WHICH DECLARED KNOWLEDGE AREAS this organization holds facts in force in, and which it
+   * holds nothing in.
+   *
+   * Its owner is the same authority as `knowledge`, which is normally the reason NOT to add a
+   * class. It is separate for the reason E2-7 gave against the opposite arrangement, in the same
+   * direction: `knowledge` is a BOUNDED, ranked, question-shaped retrieval result, and this is an
+   * UNBOUNDED aggregate that is complete by construction. Under one provenance line "is this all of
+   * it?" would have two answers.
+   *
+   * A RETRIEVAL RESULT != AN INVENTORY. Retrieval returns what matched a question; it can never
+   * return the absence of an area nobody asked about, and that absence is the most useful thing
+   * this class reports.
+   *
+   *     COVERAGE != CORRECTNESS     COVERAGE != RATIFICATION
+   *     COVERAGE != UNDERSTANDING   MISSING  != THE ORGANIZATION LACKS IT
+   */
+  | "knowledge-coverage";
 
 export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "knowledge",
@@ -362,6 +380,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "agents",
   "recorded-acts",
   "recorded-act-windows",
+  "knowledge-coverage",
 ] as const;
 
 export interface HebySourceStatus {

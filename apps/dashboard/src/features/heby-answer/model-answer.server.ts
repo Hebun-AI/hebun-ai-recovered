@@ -106,6 +106,7 @@ import { readOrganizationGroundingSource } from "@/features/organization-authori
 import { readAgentGroundingSource } from "@/features/agent-outcome-observation/heby-agent-source.server";
 import { readRecordedActGroundingSource } from "@/features/governance-activity/heby-recorded-act-source.server";
 import { readActWindowGroundingSource } from "@/features/governance-activity/heby-act-window-source.server";
+import { readKnowledgeCoverageGroundingSource } from "@/features/knowledge/heby-knowledge-coverage-source.server";
 import { readAttentionGroundingSource } from "@/features/attention-observation/heby-attention-source.server";
 import {
   toResponseSourceEvidence,
@@ -282,6 +283,14 @@ export interface HebyModelAnswerDeps {
    * judgement about what the difference means.
    */
   readonly resolveActWindows?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /**
+   * E2-8 — explicit declared-area coverage resolution for the `knowledge-coverage` class. Defaults
+   * to the real tenant-scoped read through the Knowledge authority's own aggregate. Consulted ONLY
+   * for workspaces that declare the class (today: Knowledge only), and it can only ever contribute
+   * EVIDENCE: which declared areas hold facts in force and which hold none, never a judgement about
+   * whether the organization is well documented.
+   */
+  readonly resolveKnowledgeCoverage?: (tenant: TenantContext) => Promise<SourceResolution>;
 }
 
 /** What actually happened to durable persistence for this request. Never fabricated. */
@@ -593,6 +602,39 @@ async function withActWindows(
   }
 }
 
+/**
+ * E2-8 — this tenant's declared-area knowledge coverage joins the SAME deterministic evidence set.
+ *
+ * REPLACES an empty pure resolution, so no evidence is removed — the check E2-4's defect made
+ * mandatory. DERIVED, `authoritative: false`, like every class beside it.
+ *
+ * A read failure degrades to the pure resolution: it never fabricates an area, never implies the
+ * organization holds no Knowledge, and never removes another source's evidence. That last guarantee
+ * matters more here than anywhere: an organization reported as covering nothing because a read
+ * failed is the single most damaging sentence this class could produce.
+ *
+ *     A RETRIEVAL RESULT != AN INVENTORY     COVERAGE != CORRECTNESS
+ *     MISSING != THE ORGANIZATION LACKS IT   UNAVAILABLE != NOTHING IS COVERED
+ */
+async function withKnowledgeCoverage(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "knowledge-coverage")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveKnowledgeCoverage ?? readKnowledgeCoverageGroundingSource;
+    const coverage = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "knowledge-coverage" ? coverage : resolution,
+    );
+  } catch {
+    return resolutions;
+  }
+}
+
 async function withRecordedActs(
   resolutions: readonly SourceResolution[],
   tenant: TenantContext,
@@ -845,7 +887,11 @@ export async function answerHebyModelRequest(
   // page that always states the total it was drawn from; never a complete history of activity.
   const recordedActResolutions = await withRecordedActs(agentResolutions, tenant, deps);
   // E2-7 — and how much of it happened inside explicit, named periods. Two counts, never a trend.
-  const resolutions = await withActWindows(recordedActResolutions, tenant, deps);
+  const windowResolutions = await withActWindows(recordedActResolutions, tenant, deps);
+  // E2-8 — and which declared knowledge areas this organization holds facts in force in, and which
+  // hold none. Presence of evidence only: never its correctness, its approval, or a claim that a
+  // missing area is something the organization lacks.
+  const resolutions = await withKnowledgeCoverage(windowResolutions, tenant, deps);
   const assembled = assembleEvidence(resolutions);
 
   // The honest deterministic fallback (an answer where possible, an honest unavailable else).

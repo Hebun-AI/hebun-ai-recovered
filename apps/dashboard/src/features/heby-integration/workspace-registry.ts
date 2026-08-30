@@ -155,12 +155,27 @@ const WORKSPACE_PROFILES = {
       { family: "knowledge-retrieval", state: "contract-only" },
       { family: "evidence-tracing", state: "contract-only" },
     ],
-    sourceClasses: ["knowledge", "memory"],
+    /*
+     * E2-8 adds `knowledge-coverage` here and ONLY here.
+     *
+     * The three Heby milestones before it each went to Command, because Command is where a Director
+     * asks what requires attention and what changed. This one does not: "what do we know, and where
+     * do we hold nothing" is the question this workspace's own route already exists to answer, and
+     * its surface already shows the operator the very card these counts come from. Command gains no
+     * knowledge inventory, and this workspace gains no attention, activity, agent or act class.
+     */
+    sourceClasses: ["knowledge", "memory", "knowledge-coverage"],
     authority: "advisory-only",
     mayExplain: [
       "Where did we learn this?",
       "What superseded this?",
       "What evidence supports this?",
+      /*
+       * E2-8. Truthful in BOTH halves, like E2-1's and E2-5's lines: Hebun knows which declared
+       * areas it holds evidence in, and does not know whether that evidence is right — and Heby
+       * must say both.
+       */
+      "Which declared areas do we hold knowledge in, and which hold nothing?",
     ],
   },
   operations: {

@@ -162,6 +162,18 @@ export function resolveSource(
         "Windowed recorded-act counts are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
       );
     /*
+     * E2-8. Same arrangement again. The sentence must not say "no coverage" or "nothing is
+     * covered": this resolution is ALSO what `withKnowledgeCoverage` falls back to when the real
+     * read throws, and reporting a failed read as an organization holding no Knowledge would be the
+     * exact defect G6D repaired for Governance — here it would additionally be the single most
+     * misleading thing this class could say.
+     */
+    case "knowledge-coverage":
+      return unavailable(
+        "knowledge-coverage",
+        "Declared knowledge-area coverage is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
+    /*
      * G6D. G6C connected Governance on the server seam exactly as K1 connected Knowledge, and the
      * sentence above is the precedent for what that obliges: state that the read is tenant-scoped
      * and server-side, not that nothing is connected.

@@ -71,7 +71,8 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Fifteen since E2-7 added `recorded-act-windows` (fourteen after E2-6's `recorded-acts`,
+   * Sixteen since E2-8 added `knowledge-coverage` (fifteen after E2-7's `recorded-act-windows`,
+   * fourteen after E2-6's `recorded-acts`,
    * thirteen after E2-5's `agents`, twelve after E2-1's
    * `organization`, eleven after INT-5A's
    * `integrations`, ten after R3R's `external-recipients`, nine after R3W's `work-artifacts`). The list is
@@ -167,6 +168,28 @@ function sourceStatusNotCollapsed(): void {
        *     TIME WINDOW != TREND        MORE != BETTER        RECENT != IMPORTANT
        */
       "recorded-act-windows",
+      /*
+       * E2-8. WHICH declared knowledge areas this organization holds facts in force in — R6B's
+       * unbounded per-domain aggregate, admitted as evidence.
+       *
+       * It earns the review for a sixth distinct reason. A fabricated item here would not overstate
+       * a system, misname the organization, claim an agent acted, invent an event or suggest a
+       * direction: it would tell a Director that their organization KNOWS something it has never
+       * recorded — or, worse in the other direction, that an area is empty when it is not, which is
+       * the one error that would send someone to write down what Hebun already holds. So the class
+       * must stay narrow in a specific direction: it carries the presence and count of evidence and
+       * may never carry a score, a percentage, a confidence, a readiness or a priority, because R6B
+       * computes none of them.
+       *
+       * IT IS NOT `knowledge`, and that is why it is a separate class. `knowledge` is a BOUNDED,
+       * ranked, question-shaped retrieval result; this is an aggregate that is complete by
+       * construction and can name an area nobody asked about. One class asserting both would blur
+       * which of the two an answer rests on — E2-6's argument, in the same direction as E2-7's.
+       *
+       *     A RETRIEVAL RESULT != AN INVENTORY     COVERAGE != CORRECTNESS
+       *     COVERAGE != RATIFICATION               MISSING  != THE ORGANIZATION LACKS IT
+       */
+      "knowledge-coverage",
     ],
   );
   const context = resolveHebyWorkspaceContext({ workspace: "knowledge" });
