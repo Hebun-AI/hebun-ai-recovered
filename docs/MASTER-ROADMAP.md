@@ -1146,9 +1146,40 @@ without that literal token. And `heby-integration`'s enumerated source-class lis
 which is that pin working exactly as its comment says: *"a new source class cannot appear without
 somebody stating it here."*
 
-**Deployment is NOT measured and production acceptance has NOT occurred.** The push may trigger a
-production deployment automatically (§12.2); that is a separate, later, independently measured state
-(§16), and nothing here asserts it.
+#### The production defect found at the acceptance gate, and fixed
+
+E2-5 was deployed with commit-binding VERIFIED and its server-side smoke passed. The Director's
+first acceptance question — *"What durable agents does this organization have?"* — was answered
+correctly. The second — *"What has Heby proposed, and what became of those proposals?"* — was
+**WITHHELD**: *"Heby could not produce a response that passed validation."*
+
+Nothing had claimed an action. `validateResponse` scanned the answer for `FORBIDDEN_ACTION_CLAIMS`
+by **bare substring**, and the honest answer to that question is unsayable without the word
+"approved". Both paths failed for the same reason: Heby's deterministic composition carried E2-4's
+evidence labels *"Approved with no execution attempt recorded"* and *"Authorized and not yet used"*,
+and the model's own prose said *"Neither has been approved or rejected"*.
+
+The owner is `heby-runtime/response-validator.ts`, not either grounding source — rewording E2-4's
+labels would have fixed the deterministic path and left the model path broken, and a model cannot be
+reworded. The rule was narrowed to the guarantee it always carried, **by semantics rather than by
+vocabulary**: no verb was added or removed, and a consequential act is still refused unless it is
+negated with the negation attached to the verb, or attributed to a named non-Heby actor.
+Self-attribution — `I`, `we`, `Heby` — is refused ahead of both, so `I approved it` fails while
+`The proposal was approved by governance` does not. Judged per sentence, so `No issues at all, I
+executed it` is still refused.
+
+```
+OBSERVATION                    != ACTION CLAIM
+PAST RECORDED GOVERNANCE STATE != HEBY EXERCISING GOVERNANCE AUTHORITY
+A WORD BAN                     != A SEMANTIC RULE
+```
+
+Every released negative is re-proved verbatim in the new regression, including
+`heby-runtime`'s *"The deploy was executed."* and `r2c-flow`'s four fabricated claims.
+
+**Deployment is NOT measured for the fix at the time of writing and production acceptance has NOT
+occurred.** E2-5 remains **CLOSED and PENDING authenticated acceptance**; the Director's second
+question is to be retried unchanged.
 
 ### E2-3 — Live Map Intelligence, authoritative layers · **CLOSED**
 
