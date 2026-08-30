@@ -224,7 +224,7 @@ Hebun already has legitimate, released owners for most of what Program V gives m
 | **Governance** | Decision authority + recorded acts | Governance intelligence overlays — **CONNECTED**: the `governance` class carries this tenant's own decision record to Heby through a read-only boundary (G6C `5299fdb`), and **E2-6 / E2-7 CLOSED · PRODUCTION-ACCEPTED** add the recorded-act history and its windowed period counts over `audit_log`. No governance authority, writer or policy evaluator was created (§12.6, §12.7) | Governed autonomy |
 | **Knowledge** | Facts, provenance, retraction | Memory · learning — **NEITHER DELIVERED**; the `memory` class is declared and honestly unconnected, because `readCompanyMemory` resolves to an in-memory, process-local store and grounding Heby on it would be the impostor K1 forbids. What Era II delivered here is coverage: **E2-8 CLOSED · PRODUCTION-ACCEPTED** — the declared-area coverage aggregate R6B built for `/knowledge` is admitted to Heby as evidence under its own class, so Heby can name an area the organization holds nothing in; no knowledge quality, score or readiness authority added (§12.8) | Organizational learning loop |
 | **Organization** | **Organization Authority (L3)** | Organizational intelligence evolution — **E2-1 CLOSED**, organization *identity* admitted to Heby through L3's own projection, carrying the authority's refusal verbatim where structure is unavailable · **E2-4 CLOSED · PRODUCTION-ACCEPTED**, elapsed time over authoritative timestamps. **Internal structure remains UNAVAILABLE** — the Organization Structure Authority stays a recorded dependency, not a scheduled milestone (§12) | Living organizational system |
-| **Integrations** | Provider contracts + connections | Provider-sourced intelligence — **INT-5A CONNECTED**: the `integrations` class carries per-provider *capability state* to Heby, read tenant-scoped from the control plane. It reports what CAN be read from a connected system, **never what is inside one**; provider content as reasoning input remains future work for the `integrations` class itself — **KID-1 RELEASED** after Era II closed adds a SECOND capability, `google.drive.content.read`, behind its own restricted scope and its own consent: it returns document text to a server-side caller and reaches no Knowledge module at any depth (§12A.1), and **KID-2 RELEASED** carries that content across into the EXISTING Knowledge authority when a permitted human admits one document, with provider provenance and no new authority (§12A.2). The **production permission model was then adapted** to Google Picker + the non-sensitive `drive.file` scope, so the intended admission path requires no restricted Drive scope at all — a third capability, never a remapping of the two released ones (§12B) | Operational integration |
+| **Integrations** | Provider contracts + connections | Provider-sourced intelligence — **INT-5A CONNECTED**: the `integrations` class carries per-provider *capability state* to Heby, read tenant-scoped from the control plane. It reports what CAN be read from a connected system, **never what is inside one**; provider content as reasoning input remains future work for the `integrations` class itself — **KID-1 RELEASED** after Era II closed adds a SECOND capability, `google.drive.content.read`, behind its own restricted scope and its own consent: it returns document text to a server-side caller and reaches no Knowledge module at any depth (§12A.1), and **KID-2 RELEASED** carries that content across into the EXISTING Knowledge authority when a permitted human admits one document, with provider provenance and no new authority (§12A.2). The **production permission model was then adapted** to Google Picker + the non-sensitive `drive.file` scope — a third capability, never a remapping of the two released ones — and that path is now **PRODUCTION-ACCEPTED**: a real document was admitted in production while Hebun held no restricted Drive scope, and Heby answered from it (§12B) | Operational integration |
 | **Live Map** *(promoted surface — a projection, never a truth owner)* | **Live Map Core v1 (L4)** | Live Map Intelligence v1 — **E2-3 CLOSED · PRODUCTION-ACCEPTED** (derived cumulative Agent Outcome observation, id-keyed) · **LMX-1 CLOSED · PRODUCTION-ACCEPTED** — the visual organization-centred map, the agent inspector, and the Live Map Live / Security Live awareness band (§12, §12.3) · **E2-4 CLOSED · PRODUCTION-ACCEPTED** — a factual elapsed annotation on the existing agent node, no node or edge kind added (§12.4) | Live Map Operational v1 |
 | *Enterprise Security & Trust* **(cross-cutting constraint — §7, not a product line)** | Gates on L3, L4 and Era I closure — **all four measured CLOSED** (§11.1), including the carried trust boundary | Security direction (§12.1); its first bounded slice **E2-2 is CLOSED** — one derived observation connected, no security authority created (§12) | Constraints for consequential autonomy (§13) |
 
@@ -2372,13 +2372,13 @@ Concerns likely to become load-bearing as intelligence accumulates over authorit
 
 ```
 KID = IMPLEMENTATION COMPLETE (KID-1 + KID-2 RELEASED)
-KID PRODUCTION ACCEPTANCE = BLOCKED (Google Picker configuration + a per-file grant)
-NOT AN ERA · NOT ERA III · NOT AN ERA II MILESTONE
+KID PRODUCTION ACCEPTANCE = PASS — the whole path ran once, in production, on a real document
+NOT AN ERA · NOT ERA III · NOT AN ERA II MILESTONE · NO KID-3
 
-The production permission model was CHANGED after KID-2 by Director decision: the intended
-admission path is now Google Picker + the NON-SENSITIVE `drive.file` scope, so restricted-scope
-verification and CASA are no longer on the path (§12B). KID-1's `drive.readonly` decision remains
-true as of KID-1 and is not rewritten.
+The production permission model was CHANGED after KID-2 by Director decision: the admission path
+is Google Picker + the NON-SENSITIVE `drive.file` scope, so restricted-scope verification and CASA
+are not on the accepted path (§12B). KID-1's `drive.readonly` decision remains true as of KID-1 and
+is not rewritten.
 ```
 
 **Selected by Director decision after the Post-Era-II Strategic Product Gate**, from measured
@@ -2392,10 +2392,11 @@ external provider into Hebun's EXISTING Knowledge authority, with explicit prove
 later answer from what was admitted.
 
 **The program is finite: two milestones.** KID-1 reads; KID-2 admits. **Both are released, so the
-program's implementation is complete and no third milestone exists or will be created.** What
-remains is a release gate, not engineering: real Google acceptance is blocked on restricted-scope
-verification and a CASA assessment, and *implementation complete* and *production-accepted* are
-recorded here as different states because they are.
+program's implementation is complete and no third milestone exists or will be created.** The
+release gate that remained has now been run: a human granted the per-file permission, chose one
+real Google Doc in Google's own chooser, admitted it, and Heby answered from it in production
+(§12B). *Implementation complete* and *production-accepted* were recorded here as different states
+because they are — and both are now true.
 
 ```
 PROVIDER READ        != KNOWLEDGE
@@ -2708,17 +2709,19 @@ admitted content, and the provenance trace reaches the real provider document.
 #### What KID-2 is NOT
 
 It is not synchronization, not a second Knowledge system, not ratification, and not a claim that any
-admitted content is correct. **The KID program's IMPLEMENTATION is complete; its PRODUCTION
-ACCEPTANCE is BLOCKED on Google verification and CASA.** Those are different states and are recorded
-as different states. **No KID-3 exists and none is created** — the eventual real-provider acceptance
-is a release gate, not a new engineering milestone.
+admitted content is correct. **The KID program's IMPLEMENTATION is complete, and its PRODUCTION
+ACCEPTANCE is now PASS** — under the Picker + `drive.file` path of §12B, not under this milestone's
+own `drive.readonly` capability, which remains unaccepted and still carries Google's verification and
+CASA debt. Those are different states and are still recorded as different states. **No KID-3 exists
+and none was created** — the acceptance above was run as a release gate, exactly as the procedure in
+this section specified, and it was not an engineering milestone.
 
 ---
 
-## 12B. Google least-privilege adaptation — Picker + `drive.file` · **RELEASED**
+## 12B. Google least-privilege adaptation — Picker + `drive.file` · **PRODUCTION-ACCEPTED**
 
 ```
-GOOGLE LEAST-PRIVILEGE ADAPTATION = RELEASED
+GOOGLE LEAST-PRIVILEGE ADAPTATION = RELEASED + PRODUCTION-ACCEPTED
 NOT A KID MILESTONE · NOT KID-3 · NOT AN ERA · NOT ERA III
 
 USER-SELECTED FILE != ALL DRIVE FILES        SELECTION != ADMISSION
@@ -2800,9 +2803,14 @@ The browser-side alternative — Google Identity Services minting its own token 
 own and cannot see, which is the two-interpreters defect this codebase refuses everywhere else.
 
 Two new configuration values are classified honestly rather than defensively: the Picker **API key**
-is a browser key protected by a referrer restriction, and the **app id** is the Cloud project number.
-Both are browser-safe configuration, both reach the browser by design, and neither is a secret.
-Treating them as secrets would be a false claim in the other direction.
+is a browser key, and the **app id** is the Cloud project number. Both are browser-safe
+configuration, both reach the browser by design, and neither is a secret. Treating them as secrets
+would be a false claim in the other direction.
+
+**The referrer restriction this section once claimed is NOT in force.** Production acceptance below
+records what the deployment actually holds: the key's Application restriction is **None**, and its
+API restriction is Google Picker API. A sentence describing a protection that was later removed is
+the kind of false claim this repository refuses in the other direction too.
 
 ### What the surface does now
 
@@ -2849,22 +2857,78 @@ the scope-upgrade census, the Drive-scope allowlist, and the two Knowledge-actio
   every Google capability declares an empty write set. **The concern outlived the mechanism that
   expressed it, so the mechanism was upgraded rather than the concern discarded.**
 
-### Production acceptance — unchanged in state, changed in cost
+### Production acceptance — RUN, on a real document · **PASS**
 
 ```
 IMPLEMENTED          = YES
-CONFIGURED           = NO   (no Picker API key or app id in any deployment)
-AUTHORIZED           = NO   (no human has granted the per-file scope)
-VERIFIED             = NO   (no real Google content read or admission has occurred)
-RESTRICTED SCOPE REQUIRED BY THE NEW PATH = NO
-CASA REQUIRED BY THE NEW PATH             = NO
+CONFIGURED           = YES  (Picker API key + app id present in production)
+AUTHORIZED           = YES  (a human granted the per-file scope; recorded grant carries drive.file)
+EXECUTED             = YES  (real Picker, real Google Doc, real provider read, real admission)
+VERIFIED             = YES  (measured in production against the released read seams)
+RESTRICTED SCOPE REQUIRED BY THE ACCEPTED PATH = NO
+CASA REQUIRED BY THE ACCEPTED PATH             = NO
 ```
 
-**Real Google acceptance remains NOT YET VERIFIED.** What changed is that it is no longer blocked
-behind restricted-scope verification and an annual third-party security assessment: it is blocked
-behind two configuration values and one human granting a non-sensitive permission. **The KID
-program's implementation stays COMPLETE and its production acceptance stays BLOCKED — on
-configuration now, not on Google's restricted-scope review.**
+The Director revoked Hebun's existing Google access first, re-authorized for identity +
+`drive.file` only, opened Google's chooser, cancelled once, reopened, selected exactly one Google
+Doc, classified it `policies` / company-wide, and admitted it. Heby then answered from it in the
+`/knowledge` workspace, citing the record and its standing.
+
+**Measured in production afterwards, not inferred from the screen:**
+
+| Claim | How it was measured | Result |
+|---|---|---|
+| Grant carries `drive.file` | `integrations.scopes` | `openid`, `userinfo.profile`, `userinfo.email`, `drive.file` |
+| No restricted Drive scope held | same row | `drive.readonly` absent, `drive.metadata.readonly` absent |
+| The read ran under the per-file grant | connection last written 21:50:49Z; reference declared 22:15:48Z, connection unwritten since | **the whole path ran while Hebun held no restricted scope** |
+| Provenance names the per-file capability | `knowledge_external_references` | `google-workspace` · `google.drive.file.content.read` · `document` · declared by a **human** |
+| Provenance does NOT name the Drive-wide capability | same table | `google.drive.content.read` absent |
+| One record, from the selected document | fact ↔ node ↔ reference join | exactly **1**, `chunkCount: 1` |
+| Classification | `knowledge_facts` | `domain_key = policies`, `knowledge_scope = company-wide` |
+| Standing | `knowledge_nodes` | `provisional` · `draft` · `ratification_decision_id` NULL · `ratified_at` NULL |
+| Real provider content landed | node `statement` | 38 chars, contains the acceptance fact |
+| Schema untouched | production migration ledger | **39**, equal to the repository journal |
+
+**Coverage moved truthfully: 0/10 → 1/10.** `policies` now holds one fact in force and reports
+**covered**. The released projection is explicit that this is correct — *"Coverage is not
+RATIFICATION. A category covered entirely by unapproved drafts is covered."* The pre-existing
+`engineering` fact still folds to no declared area and still contributes to nothing.
+
+**Standing was NOT promoted.** The admitted record is provisional, draft, unratified. Nothing in
+this acceptance ratified anything, and admission is not ratification.
+
+### The Picker incident, classified honestly
+
+The Picker first failed in production with Google's own `The API developer key is invalid.` The
+API-key/app-id wiring was traced end to end — env resolver → session authorization → `setDeveloperKey`
+/ `setAppId` — and every hop passes named fields with no possible swap. **No source defect was
+found, and no source was changed.**
+
+The Director then changed the key's **Application restriction from Websites/referrer to None**,
+leaving the API restriction as Google Picker API, and after propagation the Picker opened and
+worked. **That is a correlation with a fix, not a proven cause.** No Google-side evidence was
+obtained; the key's value is write-only in the deployment system and this repository has no Google
+Cloud read seam. The stronger claim is not made.
+
+**The remaining implication is recorded rather than resolved:** the production Picker API key is
+**not website-restricted**. It remains API-restricted to Google Picker API *per the Director's
+Google Cloud configuration* — human-observed, not verified from here. This is a deployment security
+tradeoff that may deserve hardening investigation later. **It does not invalidate the functional
+acceptance, and this closure does not solve it.**
+
+### One observation that is not a defect
+
+Heby's answer rendered a parenthetical English gloss that translated *Mavi* as "Brown". The stored
+Knowledge was checked: the node's statement contains the original fact and does **not** contain that
+word. So the source, the provider read and the admitted record are all intact, and the gloss is a
+presentation artifact of the model's own answer rendering. **Retrieval of the source fact
+succeeded.** Nothing here is repaired, because nothing in the ingestion path is wrong.
+
+### What this acceptance does NOT authorize
+
+**Workspace availability is not global Heby availability.** This ran in `/knowledge` and is evidence
+about `/knowledge`. It is **not** justification to widen Command grounding, and it opens no
+milestone. `drive.file` is not widened. No second Knowledge or provenance authority exists.
 
 ---
 
@@ -3052,7 +3116,7 @@ HMR-0's "Foundation ~70%" estimate is **not preserved**. It had no defensible de
 
 **An era closing selects nothing.** Era III is **NOT started** (§13) and is not opened by Era II closing, exactly as Era II was not opened by numbering. The next program or era is a **separate Director decision**, taken from measured repository and product reality.
 
-**That decision was taken, and it did not open an era.** After a Post-Era-II Strategic Product Gate measured production — 40 Heby messages and 275 grounding-evidence rows against **one** Knowledge fact, zero permits and zero execution attempts — the Director selected **Knowledge Ingestion Depth (KID)**, a finite two-milestone program (§12A). **KID-1 and KID-2 are both RELEASED, so the program's IMPLEMENTATION is COMPLETE; its PRODUCTION ACCEPTANCE is BLOCKED.** Those are different states, and no KID-3 exists — waiting for a provider is a release gate, not a milestone. **What it is blocked ON changed**: an enablement gate found that Hebun held TWO restricted Google scopes, not one, and the Director chose to adapt the permission model rather than pay for restricted-scope verification and an annual CASA assessment. The intended production admission path is now Google Picker + the non-sensitive `drive.file` scope (§12B), so acceptance is blocked on configuration and one human grant instead. A program is not an era: Era II stays **CLOSED**, Era III stays **NOT STARTED**, and no Era II milestone is reopened.
+**That decision was taken, and it did not open an era.** After a Post-Era-II Strategic Product Gate measured production — 40 Heby messages and 275 grounding-evidence rows against **one** Knowledge fact, zero permits and zero execution attempts — the Director selected **Knowledge Ingestion Depth (KID)**, a finite two-milestone program (§12A). **KID-1 and KID-2 are both RELEASED, and the program's PRODUCTION ACCEPTANCE is now PASS.** Those were different states and both are now true; no KID-3 exists — waiting for a provider was a release gate, not a milestone. **What it was blocked ON changed twice**: an enablement gate found that Hebun held TWO restricted Google scopes, not one, so the Director adapted the permission model rather than pay for restricted-scope verification and an annual CASA assessment; the production admission path became Google Picker + the non-sensitive `drive.file` scope (§12B), which left acceptance blocked on configuration and one human grant. Both were then supplied, and the whole path — Picker, real Google Doc, real provider read, human admission, provenance, coverage 0/10 → 1/10, Heby answering in `/knowledge` — ran in production while Hebun held **no restricted Drive scope**. A program is not an era: Era II stays **CLOSED**, Era III stays **NOT STARTED**, and no Era II milestone is reopened.
 
 ```
 NEXT MILESTONE = NOT YET SELECTED
