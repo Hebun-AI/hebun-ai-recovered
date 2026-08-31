@@ -55,6 +55,7 @@ import type { TenantContext } from "../../src/features/auth/tenant/tenant-contex
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 
 const NOW = new Date("2026-08-31T09:00:00.000Z");
+
 const OWNER_WORKSPACE = "operations";
 
 const WITHDRAWAL_JUSTIFICATION =
@@ -502,6 +503,35 @@ async function main(): Promise<void> {
           agentInlet.detail.includes("action-outside-agent-mandate"),
         `the inlet names the ceiling that refused: ${JSON.stringify(agentInlet)}`,
       );
+
+      /* ═════════════════════════════════════════════════════════════════════
+       * AMA-4. THE CEILING THAT REFUSED MUST SURVIVE INTO THE DURABLE RECORD.
+       *
+       * The inlet's own vocabulary has no value for any of the three mandate states, so it
+       * answers `not-authorizable` for all of them and carries the authoritative refusal
+       * alongside. Asserting only the reason would pass while the cause was being destroyed —
+       * which is what production did: `heby_origination_invocations.filing_refusal` recorded
+       * `not-authorizable`, and the difference between an unreachable authority, an unbounded
+       * agent and an excluded kind had to be reconstructed by elimination.
+       * ═══════════════════════════════════════════════════════════════════ */
+      assert.equal(
+        agentInlet.status === "refused" ? agentInlet.reason : "",
+        "not-authorizable",
+        "the inlet's released reason is unchanged — no caller's exhaustive switch moved",
+      );
+      assert.equal(
+        agentInlet.status === "refused" ? agentInlet.authorityRefusal : undefined,
+        "action-outside-agent-mandate",
+        "and the writer's own refusal travels beside it, verbatim",
+      );
+
+      /*
+       * THE DURABLE HALF IS PROVED IN `agent-proposal-1/origination-postgres`, NOT HERE.
+       * `filing_refusal` is written by `originateAgentAction`, which reaches a model — and this
+       * suite's closing assertion pins that it called none. Running one here to save a hop would
+       * have made that released claim false, so the end-to-end proof lives in the suite that
+       * already originates.
+       */
     }
 
     /* ═══════════════════════════════════════════════════════════════════════

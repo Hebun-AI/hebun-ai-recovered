@@ -12,6 +12,8 @@
  * Pure. No I/O, no database, no clock, no authority.
  */
 
+import type { ActionRequestRefusal } from "@/features/action-authorization/contracts";
+
 /** The only action R3A.1 can propose. One command, one kind, chosen deterministically. */
 export const SEND_ACTION_KIND = "send-external-communication" as const;
 export const SEND_TOOL_ID = "heby.operations.send-communication" as const;
@@ -73,6 +75,26 @@ export type SendProposalResult =
       readonly reason: SendProposalRefusal;
       /** Human-readable, deterministic, and never model-authored. */
       readonly detail: string;
+      /**
+       * The AUTHORITATIVE writer's own refusal, carried verbatim when this inlet's closed
+       * vocabulary is coarser than the one it received.
+       *
+       * `not-authorizable` is the collapse point: `recordActionRequest` and
+       * `recordAgentOriginatedActionRequest` refuse in a vocabulary this inlet does not
+       * reproduce, and every value it cannot name arrives here as that one reason. The three
+       * mandate states `action-authorization/contracts.ts` documents as ones that "MAY NEVER
+       * COLLAPSE" were collapsing anyway, one seam downstream of the comment that forbids it.
+       *
+       * INVENTED NOTHING. It is `ActionRequestRefusal` exactly as the writer returned it — this
+       * inlet adds no value, renames none and interprets none. Optional because it exists only
+       * when a writer was actually reached: a refusal raised BEFORE the writer (a retired
+       * recipient, a superseded draft, an unpreparable action) has no authoritative refusal to
+       * carry, and a caller must not be able to mistake this inlet's own verdict for one.
+       *
+       * NOT the prose in `detail`. That sentence embeds a recipient's display name for some
+       * refusals, and a provenance column is not a place to put one.
+       */
+      readonly authorityRefusal?: ActionRequestRefusal;
     };
 
 /**

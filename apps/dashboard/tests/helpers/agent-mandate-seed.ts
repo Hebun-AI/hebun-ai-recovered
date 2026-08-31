@@ -48,6 +48,15 @@ export interface MandateSeedIdentity {
 export interface MandateSeedOptions {
   /** Which kinds the ceiling admits. Defaults to the full released vocabulary. */
   readonly proposalScope?: readonly string[];
+  /**
+   * The revision the caller was shown, for a REVISION rather than a first establishment.
+   *
+   * Defaults to `null`, which is what a first mandate states. A caller revising an existing
+   * ceiling passes the ordinal this helper returned, and the writer's compare-and-swap refuses
+   * `stale-mandate-revision` if anything moved in between — the guarantee is the writer's, and
+   * this helper only stops hard-coding the first-establishment case.
+   */
+  readonly observedMandateRevision?: number | null;
   /** Distinguishes the session-reference hash when one client seeds several tenants. */
   readonly tag?: string;
   readonly now?: Date;
@@ -151,7 +160,7 @@ export async function seedAgentMandate(
       purpose: PURPOSE,
       proposalScope: options.proposalScope ?? [...AGENT_ORIGINABLE_ACTION_KINDS],
       justification: MANDATE_JUSTIFICATION,
-      observedMandateRevision: null,
+      observedMandateRevision: options.observedMandateRevision ?? null,
     },
     deps as never,
   );

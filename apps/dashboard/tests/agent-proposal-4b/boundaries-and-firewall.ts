@@ -172,12 +172,39 @@ function axesStaySeparate(): void {
       `"${proposalState}" is proposal lifecycle and may not be an invocation state`,
     );
   }
-  /* The filing observation carries the released refusal vocabulary, not an invented one. */
+  /*
+   * The filing observation carries the released refusal vocabulary, not an invented one.
+   *
+   * ── AMA-4 REPAIRED THIS PIN, STRICTER ────────────────────────────────────
+   *
+   * It used to read `filingRefusal: filed.reason`, and that spelling was doing two jobs: proving
+   * no vocabulary was invented, and — accidentally — freezing WHICH released vocabulary is
+   * recorded. The second job was wrong. `filed.reason` is the INLET's answer, and the inlet
+   * answers `not-authorizable` for every writer refusal its own closed vocabulary cannot name,
+   * which made `agent-mandate-authority-unavailable`, `no-agent-mandate` and
+   * `action-outside-agent-mandate` indistinguishable in the durable record — the exact three
+   * `action-authorization/contracts.ts` says may never collapse. Production paid for it: an
+   * out-of-mandate refusal had to be identified by elimination.
+   *
+   * So the claim is unchanged and the mechanism is pinned harder. BOTH operands must be released
+   * refusal values read off the inlet's own result, the inlet's reason must remain the FALLBACK
+   * (so a duplicate, an operational failure and a retired referent still record exactly what they
+   * did before), and no literal may be assigned — which the old regex never checked at all.
+   */
   const originate = codeOf(read(ORIGINATE));
   assert.ok(
-    /filingRefusal:\s*filed\.reason/.test(originate),
-    "the inlet's own closed reason is recorded verbatim — this is what separates a duplicate " +
-      "from an operational failure from a retired referent",
+    /const filingRefusal = filed\.authorityRefusal \?\? filed\.reason;/.test(originate),
+    "the recorded refusal is the AUTHORITY's when a writer was reached and the inlet's own " +
+      "closed reason otherwise — two released vocabularies, neither of them invented",
+  );
+  assert.ok(
+    /filingRefusal,/.test(originate),
+    "and that value is what the filing observation actually records",
+  );
+  assert.equal(
+    /filingRefusal:\s*(""|''|``)/.test(originate),
+    false,
+    "no literal may ever be recorded as a filing refusal",
   );
 }
 

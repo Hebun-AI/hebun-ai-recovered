@@ -237,7 +237,20 @@ async function fileSendProposal(
   if (recorded.reason === "persistence-unavailable") {
     return refused("persistence-unavailable", "Durable persistence is not connected, so nothing was prepared.");
   }
-  return refused("not-authorizable", `The proposal was refused (${recorded.reason}). Nothing was filed.`);
+  /*
+   * THE COLLAPSE POINT, AND THE ONE PLACE THAT REPAIRS IT.
+   *
+   * Every writer refusal this inlet's vocabulary cannot name arrives here as `not-authorizable` —
+   * including the three mandate states `action-authorization/contracts.ts` records as ones that
+   * "MAY NEVER COLLAPSE". They were collapsing here anyway. The reason keeps its released value so
+   * no caller's exhaustive switch changes, and the authoritative refusal travels beside it.
+   */
+  return {
+    status: "refused",
+    reason: "not-authorizable",
+    detail: `The proposal was refused (${recorded.reason}). Nothing was filed.`,
+    authorityRefusal: recorded.reason,
+  };
 }
 
 /**

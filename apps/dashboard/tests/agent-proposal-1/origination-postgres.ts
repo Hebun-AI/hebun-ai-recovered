@@ -539,6 +539,74 @@ async function main(): Promise<void> {
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
+     * AMA-4. THE CEILING THAT REFUSED MUST SURVIVE INTO THE DURABLE RECORD.
+     *
+     * `heby_origination_invocations.filing_refusal` is the only durable trace a refused
+     * origination leaves, and it recorded `not-authorizable` for all three mandate states —
+     * because the inlet answers that for every writer refusal its own vocabulary cannot name, and
+     * this seam stored the inlet's reason rather than the authority's.
+     *
+     * Production proved the cost: an out-of-mandate refusal was indistinguishable from an
+     * unreachable authority and from an unbounded agent, and the cause had to be reconstructed by
+     * elimination. The assertion is on the ROW, because the row is what a later reader gets.
+     *
+     * PLACED HERE, on purpose. It withdraws the ceiling this suite established, so it must come
+     * after every section that needs a working one — and BEFORE section 8, which retires the agent
+     * that a mandate can no longer be recorded against.
+     * ═════════════════════════════════════════════════════════════════════ */
+    {
+      await seedAgentMandate(setup, acme, agentId, dbDeps, {
+        tag: "ap1-withdrawn",
+        now: NOW,
+        proposalScope: [],
+        observedMandateRevision: 1,
+      });
+
+      const requestsBefore = (
+        await setup.query<{ n: number }>(`select count(*)::int as n from heby_action_requests`)
+      ).rows[0]!.n;
+
+      const refusedByCeiling = await originateAgentAction(
+        { goal: GOAL },
+        originationDeps(sendEnvelope),
+      );
+      assert.equal(
+        refusedByCeiling.status,
+        "refused",
+        "an empty ceiling admits nothing, so origination is refused",
+      );
+      assert.equal(
+        refusedByCeiling.status === "refused" ? refusedByCeiling.reason : "",
+        "proposal-refused",
+        "the origination reason is unchanged — this repaired a detail, not a vocabulary",
+      );
+      assert.equal(
+        refusedByCeiling.status === "refused" ? refusedByCeiling.detail : "",
+        "action-outside-agent-mandate",
+        "and the detail now names the CEILING rather than the inlet's widened answer",
+      );
+
+      const invocation = await setup.query<{ refusal: string | null; outcome: string }>(
+        `select filing_refusal as "refusal", filing_outcome as "outcome"
+           from heby_origination_invocations
+          order by created_at desc, id desc limit 1`,
+      );
+      assert.equal(invocation.rows[0]!.outcome, "refused");
+      assert.equal(
+        invocation.rows[0]!.refusal,
+        "action-outside-agent-mandate",
+        "THE DURABLE RECORD NAMES THE CEILING — no reconstruction by elimination",
+      );
+
+      assert.equal(
+        (await setup.query<{ n: number }>(`select count(*)::int as n from heby_action_requests`))
+          .rows[0]!.n,
+        requestsBefore,
+        "and the refused origination still wrote no request row",
+      );
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
      * 8. A RETIRED AGENT ORIGINATES NOTHING.
      * ═════════════════════════════════════════════════════════════════════ */
     {

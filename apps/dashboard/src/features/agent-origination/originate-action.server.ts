@@ -270,12 +270,26 @@ export async function originateAgentAction(
      * collapse into the same silence, and the five causes of "a valid selection that filed
      * nothing" become indistinguishable.
      */
+    /*
+     * AMA-4. `filed.reason` alone is not the cause when the inlet had to widen it.
+     *
+     * `not-authorizable` is the inlet's answer for every writer refusal its own closed vocabulary
+     * cannot name, so recording it here made `agent-mandate-authority-unavailable`,
+     * `no-agent-mandate` and `action-outside-agent-mandate` indistinguishable in the durable
+     * record — the exact three the writer's contract says may never collapse. Preferring the
+     * authoritative refusal restores the distinction at the only seam that had lost it.
+     *
+     * NO NEW VOCABULARY. Both values are released enums; this chooses between them and invents
+     * neither. `filed.reason` remains the answer whenever the inlet refused on its own account,
+     * because then no writer was reached and there is nothing more authoritative to record.
+     */
+    const filingRefusal = filed.authorityRefusal ?? filed.reason;
     await settle(tenant, invocationId, "selection-valid", deps, {
       result: selection.result,
       filingOutcome: "refused",
-      filingRefusal: filed.reason,
+      filingRefusal,
     });
-    return refused("proposal-refused", filed.reason);
+    return refused("proposal-refused", filingRefusal);
   }
 
   /*
