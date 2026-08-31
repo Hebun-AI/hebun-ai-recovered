@@ -65,7 +65,16 @@ export type TimestampBasis =
   /** `action_permits.expires_at` — the authoritative expiry the permit itself carries. */
   | "action-permit.expires_at"
   /** `audit_log.occurred_at` — when a recorded governed act happened. */
-  | "audit-log.occurred_at";
+  | "audit-log.occurred_at"
+  /**
+   * `knowledge_nodes.created_at` — when a Knowledge VERSION was authored.
+   *
+   * It is the version's own authoring instant, and the duration measured from it is only
+   * meaningful next to the separate fact that no Governance decision names that version. Neither
+   * half is a claim on its own: a version authored long ago that was decided yesterday produces no
+   * observation at all, because it is not in the population.
+   */
+  | "knowledge-node.created_at";
 
 export const TIMESTAMP_BASES: readonly TimestampBasis[] = Object.freeze([
   "action-request.created_at",
@@ -73,6 +82,7 @@ export const TIMESTAMP_BASES: readonly TimestampBasis[] = Object.freeze([
   "action-permit.issued_at",
   "action-permit.expires_at",
   "audit-log.occurred_at",
+  "knowledge-node.created_at",
 ]);
 
 /**
@@ -106,6 +116,16 @@ export const TIMESTAMP_BASIS_MEANING: Readonly<
   "audit-log.occurred_at": {
     means: "when a governed act Hebun recorded happened",
     doesNotMean: "when the organization last did something — Hebun records some acts and not others",
+  },
+  "knowledge-node.created_at": {
+    means:
+      "this Knowledge version has had no Governance decision naming it for this elapsed duration",
+    doesNotMean:
+      "that it is urgent, important, a priority, overdue, late, stalled, critical, risky or an SLA " +
+      "breach; that it should be approved or should be rejected; that it is unread, or unreviewed " +
+      "in any informal sense — a person may have read it a hundred times. It states one thing: no " +
+      "ratify or reject decision names this exact version, and this much time has passed since the " +
+      "version was authored",
   },
 });
 
@@ -261,6 +281,7 @@ export const ATTENTION_NON_CLAIMS: readonly string[] = Object.freeze([
   "waiting is not late — no target, deadline or service level exists for a human decision here",
   "an expiring permit is not a deadline — an unspent permit expires having caused nothing",
   "an elapsed figure is not a decision, an authorization or an execution",
+  "a Knowledge version with no Governance decision is not thereby wrong, unread or in need of one",
 ]);
 
 /**

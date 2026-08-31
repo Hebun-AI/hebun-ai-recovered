@@ -373,6 +373,46 @@ export interface DurableKnowledgeRepository {
    * Read-only, tenant-scoped, and uncapped for the same reason the domain counts are.
    */
   listIngestedSources(scope: KnowledgeScopeContext): Promise<readonly IngestedSourceSummary[]>;
+  /**
+   * Every CURRENT, in-force Knowledge version this tenant holds, as an identity and an authoring
+   * instant (KGA).
+   *
+   * ── IT ANSWERS ABOUT KNOWLEDGE AND NOTHING ELSE ──────────────────────────────
+   *
+   * It does NOT know what a Governance decision is, does not read `decision_records`, and does not
+   * filter on `ratification_decision_id`. "Which of these has been decided" belongs to Governance
+   * and is asked separately; a join here would put half of Governance's question inside Knowledge's
+   * repository and make the answer unattributable to either owner.
+   *
+   * The population rule is the SAME in-force predicate {@link countFactsByDomain} already uses —
+   * readable, not archived or retired, inside its effective window — so "current version" means
+   * exactly one thing across this repository rather than two things that agree by accident.
+   *
+   * Uncapped, for R6B's reason restated: a bound that is correct for a list is silently wrong for
+   * a set the caller is going to subtract from. Dropping rows here would report versions as decided
+   * that nobody has looked at.
+   *
+   * Read-only, tenant-scoped through {@link activeNodeJoin}. No statement, label, domain, scope or
+   * provenance is returned — a caller that cannot receive content cannot leak it.
+   */
+  listCurrentVersions(
+    scope: KnowledgeScopeContext,
+    now?: Date,
+  ): Promise<readonly CurrentKnowledgeVersion[]>;
+}
+
+/**
+ * One current Knowledge version, reduced to what a review observation legitimately needs.
+ *
+ * TWO FIELDS, AND THE ABSENCE OF THE OTHERS IS THE POINT. There is no statement, no label, no
+ * domain key and no provenance, because the only consumer counts these and measures one duration.
+ * A field that carried content would be a field somebody renders.
+ */
+export interface CurrentKnowledgeVersion {
+  /** The `knowledge_nodes` row id — the exact version a Governance decision would name. */
+  readonly nodeId: string;
+  /** `knowledge_nodes.created_at` as ISO — when this version was authored. */
+  readonly authoredAt: string | null;
 }
 
 /** One ingestion source, as the retraction surface sees it. */
@@ -767,6 +807,39 @@ export function createDurableKnowledgeRepository(
         retiredFactCount: Number(row.retiredFactCount),
         lastUpdatedAt: iso(row.lastUpdatedAt),
       }));
+    },
+
+    /*
+     * ── THE CURRENT VERSIONS, WITHOUT ANY GOVERNANCE OPINION (KGA) ───────────
+     *
+     * `activeNodeJoin` is an INNER join here rather than a left join, because a fact whose active
+     * version did not resolve has no version to decide about. That is the same reading `label is
+     * not null` gives elsewhere, expressed as the join instead of as a filter.
+     *
+     * `ratification_decision_id` is deliberately NOT consulted. A rejected version carries no mark
+     * in Knowledge — K4 writes nothing for a rejection, by design — so "unratified" and "undecided"
+     * are different populations and this repository can only see the wrong one.
+     */
+    async listCurrentVersions(scope, now = new Date()) {
+      if (!UUID_RE.test(scope.tenantId)) return [];
+
+      const at = sql`${now.toISOString()}::timestamptz`;
+      const rows = await db
+        .select({ nodeId: knowledgeNodes.id, authoredAt: knowledgeNodes.createdAt })
+        .from(knowledgeFacts)
+        .innerJoin(knowledgeNodes, activeNodeJoin(scope.tenantId))
+        .where(
+          and(
+            eq(knowledgeFacts.tenantId, scope.tenantId),
+            sql`${knowledgeNodes.label} is not null`,
+            sql`${knowledgeNodes.knowledgeLifecycleStatus} is distinct from 'archived'`,
+            sql`${knowledgeNodes.knowledgeLifecycleStatus} is distinct from 'retired'`,
+            sql`(${knowledgeNodes.effectiveFrom} is null or ${knowledgeNodes.effectiveFrom} <= ${at})`,
+            sql`(${knowledgeNodes.effectiveUntil} is null or ${knowledgeNodes.effectiveUntil} >= ${at})`,
+          ),
+        );
+
+      return rows.map((row) => ({ nodeId: String(row.nodeId), authoredAt: iso(row.authoredAt) }));
     },
   };
 }

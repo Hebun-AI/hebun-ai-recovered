@@ -122,7 +122,7 @@ const AT = "2026-08-30T12:00:00.000Z";
 
 /* ── 8. EVERY BASIS NAMES ONE COLUMN AND STATES WHAT IT IS NOT ────────────── */
 {
-  assert.equal(TIMESTAMP_BASES.length, 5);
+  assert.equal(TIMESTAMP_BASES.length, 6);
   assert.deepEqual(
     [...TIMESTAMP_BASES].sort(),
     [
@@ -131,6 +131,8 @@ const AT = "2026-08-30T12:00:00.000Z";
       "action-request.approved_at",
       "action-request.created_at",
       "audit-log.occurred_at",
+      /* KGA. The union widened by exactly one, and this line is where that had to be admitted. */
+      "knowledge-node.created_at",
     ],
     "the basis union is CLOSED — widening it must be a deliberate edit here",
   );

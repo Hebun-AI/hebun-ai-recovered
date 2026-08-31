@@ -212,7 +212,8 @@ async function main(): Promise<void> {
       false,
       "the RECORDS are authoritative; these durations are recomputed on read",
     );
-    assert.equal(source.items.length, 4, "four blocks, four items, bounded by shape not by a limit");
+    /* KGA added the fifth block. Bounded by SHAPE still — there is no list to page. */
+    assert.equal(source.items.length, 5, "five blocks, five items, bounded by shape not by a limit");
 
     /*
      * THE BAN IS SCOPED TO WHAT E2-4 ASSERTS, AND MATCHES WHOLE WORDS.

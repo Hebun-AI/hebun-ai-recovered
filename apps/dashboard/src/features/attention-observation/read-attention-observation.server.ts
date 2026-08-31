@@ -24,6 +24,17 @@
  *   awaiting decision      -> action-authorization  (`heby_action_requests.created_at`)
  *   authorized, unspent    -> action-authorization  (`action_permits.issued_at` / `expires_at`)
  *   most recent recorded act     -> governance-activity (`audit_log.occurred_at`)
+ *   awaiting Governance review   -> knowledge  (`knowledge_nodes.created_at`)
+ *                                 MINUS governance-decision (decided `knowledge_node` subjects)
+ *
+ * ── THE ONE BLOCK THAT NEEDS TWO OWNERS TO ANSWER ────────────────────────────
+ *
+ * Every other block above is one authority's own count. The Knowledge review block is a SUBTRACTION
+ * across two, and it has to be, because neither side can answer alone: Knowledge cannot see that a
+ * version was REJECTED (K4 writes nothing to Knowledge for a rejection), and Governance does not
+ * know which versions currently exist. So each side answers only about its own tables and this
+ * module subtracts one set from the other. It performs no join, holds no handle to either table,
+ * and constructs no statement.
  *
  * It is deliberately NOT a central module that acquires those subsystems' semantics: each block
  * below names the exact column it was measured from, and the arithmetic is the pure primitive in
@@ -59,6 +70,14 @@ import {
   type ActionPermitView,
 } from "@/features/action-authorization/read-action-authorizations.server";
 import { observeGovernanceActivity } from "@/features/governance-activity/observe.server";
+import {
+  readDecidedKnowledgeVersions,
+  type KnowledgeDecisionReadDeps,
+} from "@/features/governance-decision/knowledge-decision-read.server";
+import {
+  readCurrentKnowledgeVersions,
+  type CurrentVersionsReadDeps,
+} from "@/features/knowledge/current-versions-read.server";
 import {
   ATTENTION_NON_CLAIMS,
   elapsedSince,
@@ -112,6 +131,22 @@ export interface RecordedActRecencyObservation {
   readonly sinceMostRecent: ElapsedObservation | null;
 }
 
+/**
+ * Knowledge versions no Governance decision names, and how long the oldest has been un-named.
+ *
+ *     UNDECIDED != UNRATIFIED        A rejected version is decided and is NOT here.
+ *     UNDECIDED != UNREAD            Hebun records no reading, only decisions.
+ */
+export interface KnowledgeAwaitingReviewObservation {
+  /** Current in-force versions carrying no ratify and no reject decision. Unbounded. */
+  readonly awaitingReview: number;
+  /**
+   * Elapsed since the OLDEST such version was AUTHORED. `null` when none is awaiting, and `null`
+   * is not a duration of zero.
+   */
+  readonly oldestAwaiting: ElapsedObservation | null;
+}
+
 export interface AttentionObservation {
   /** The one instant every duration in this reading was measured against. */
   readonly evaluatedAt: string;
@@ -119,6 +154,7 @@ export interface AttentionObservation {
   readonly approvedUnexecuted: AttentionBlock<ApprovedUnexecutedObservation>;
   readonly authorizedUnspent: AttentionBlock<AuthorizedUnspentObservation>;
   readonly recordedActRecency: AttentionBlock<RecordedActRecencyObservation>;
+  readonly knowledgeAwaitingReview: AttentionBlock<KnowledgeAwaitingReviewObservation>;
   /** Carried with the numbers, never left to a surface to remember. */
   readonly nonClaims: readonly string[];
 }
@@ -127,7 +163,10 @@ export type AttentionObservationRead =
   | { readonly status: "observed"; readonly observation: AttentionObservation }
   | { readonly status: "unavailable"; readonly reason: string };
 
-export interface AttentionObservationDeps extends AwaitingDecisionDeps {
+export interface AttentionObservationDeps
+  extends AwaitingDecisionDeps,
+    KnowledgeDecisionReadDeps,
+    CurrentVersionsReadDeps {
   /** Injected so every duration in one reading shares one pinned instant. */
   readonly now?: () => Date;
   /*
@@ -139,6 +178,9 @@ export interface AttentionObservationDeps extends AwaitingDecisionDeps {
   readonly readApproved?: typeof readApprovedUnexecutedAggregate;
   readonly readPermits?: typeof readActionPermits;
   readonly readActivity?: typeof observeGovernanceActivity;
+  /** The two halves of the review block, injectable independently so each availability is testable. */
+  readonly readCurrentVersions?: typeof readCurrentKnowledgeVersions;
+  readonly readDecidedVersions?: typeof readDecidedKnowledgeVersions;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -175,11 +217,16 @@ export async function readAttentionObservation(
   /* ONE instant, resolved once, shared by every duration below. */
   const evaluatedAt = (deps.now?.() ?? new Date()).toISOString();
 
-  const [awaiting, approved, permits, activity] = await Promise.all([
+  const [awaiting, approved, permits, activity, versions, decided] = await Promise.all([
     (deps.readAwaiting ?? readAwaitingDecisionAggregate)(tenant, deps),
     (deps.readApproved ?? readApprovedUnexecutedAggregate)(tenant, deps),
     (deps.readPermits ?? readActionPermits)(tenant, { getDb: deps.getDb, now: deps.now }),
     (deps.readActivity ?? observeGovernanceActivity)(tenant, { now: deps.now }),
+    (deps.readCurrentVersions ?? readCurrentKnowledgeVersions)(tenant, {
+      getRepo: deps.getRepo,
+      now: deps.now,
+    }),
+    (deps.readDecidedVersions ?? readDecidedKnowledgeVersions)(tenant, { getDb: deps.getDb }),
   ]);
 
   const awaitingDecision: AttentionBlock<AwaitingDecisionObservation> =
@@ -254,6 +301,38 @@ export async function readAttentionObservation(
         }
       : { status: "unavailable", reason: activity.reason };
 
+  /*
+   * ── THE SUBTRACTION, AND ITS TWO SEPARATE AVAILABILITIES ──────────────────
+   *
+   * BOTH sides must have answered. If either did not, the block is unavailable and names which
+   * one — because a readable Knowledge list with an unreadable decision set would let every
+   * current version look undecided, which is the single most misleading number this block could
+   * produce. Failing closed here is not caution; the alternative is a specific falsehood.
+   *
+   *     UNAVAILABLE != NOTHING AWAITING REVIEW
+   *
+   * The oldest is derived with `longerOf`, the same primitive the permit block uses, so "oldest"
+   * means the largest elapsed duration and never a rank, a worst or a first.
+   */
+  const knowledgeAwaitingReview: AttentionBlock<KnowledgeAwaitingReviewObservation> =
+    versions.status === "unavailable"
+      ? { status: "unavailable", reason: `knowledge:${versions.reason}` }
+      : decided.status === "unavailable"
+        ? { status: "unavailable", reason: `governance-decision:${decided.reason}` }
+        : (() => {
+            let oldest: ElapsedObservation | null = null;
+            let count = 0;
+            for (const version of versions.versions) {
+              if (decided.decidedNodeIds.has(version.nodeId)) continue;
+              count += 1;
+              oldest = longerOf(
+                oldest,
+                elapsedSince(version.authoredAt, evaluatedAt, "knowledge-node.created_at"),
+              );
+            }
+            return { status: "observed", value: { awaitingReview: count, oldestAwaiting: oldest } };
+          })();
+
   return {
     status: "observed",
     observation: {
@@ -262,6 +341,7 @@ export async function readAttentionObservation(
       approvedUnexecuted,
       authorizedUnspent,
       recordedActRecency,
+      knowledgeAwaitingReview,
       nonClaims: ATTENTION_NON_CLAIMS,
     },
   };

@@ -3165,6 +3165,78 @@ decision, and the card says so before the act. The gate proves the released auth
 the transition in production. **It creates no ratification policy, no automatic ratification, and no
 permit or execution authority** — all three execution tables remain empty.
 
+**Knowledge Governance Attention (KGA) — released, not numbered.** A bounded discovery after the
+ratification gate found a blind spot: E2-4's attention observation could surface proposals, permits
+and recorded acts, and could not see a Knowledge version waiting on a Governance decision. The
+Director had to open `/knowledge` and look. **It is an extension of a released authority, not a new
+milestone** — no E2-x number, for the reason §12B carries none: numbering is not how work is
+selected here.
+
+**The predicate is the whole design, and the obvious one is WRONG.** "Unratified" and "undecided"
+are different populations, because K4 writes **nothing** to Knowledge for a REJECT — recorded in
+three places, including the audit vocabulary, where `knowledge.reject` is absent since "a rejection
+records a Governance decision and changes NOTHING in Knowledge". So in Knowledge's own tables a
+rejected version is indistinguishable from an unseen one, and an observation built on
+`ratification_decision_id is null` would tell a Director that a decision they already took is still
+outstanding. That is not a smaller truth; it is a false statement about who owes an answer.
+
+    UNDECIDED != UNRATIFIED        UNDECIDED != UNREAD        DECIDED != APPROVED
+
+**Two owners, one subtraction, no join.** Neither side can answer alone: Knowledge cannot see a
+rejection, and Governance does not know which versions exist. So each answers only about its own
+tables and the composition subtracts.
+
+| Question | Owner | Seam |
+|---|---|---|
+| Which versions currently exist? | Knowledge | a new uncapped repository read returning **identities and one timestamp** — no statement, label, domain or provenance |
+| Which of them has Governance decided? | Governance | a new read over `decision_records`, `subject_type = 'knowledge_node'`, returning **identities only** |
+| Which are still waiting, and for how long? | the E2-4 composition | subtracts one set from the other; holds no handle to either table and constructs no statement |
+
+`ratify` and `reject` are deliberately **not** distinguished by the Governance read. Both answer
+"nobody still owes an answer", and a caller that could tell them apart could rank one above the
+other — a judgement no subsystem outside Governance may hold. A firewall asserts the read filters on
+neither `decision_type` nor `outcome`.
+
+**Both availabilities stay separate, and the block fails closed.** A readable Knowledge list with an
+unreadable decision set would make every current version look undecided, so the block reports
+unavailable and names which half failed. `UNAVAILABLE != NOTHING AWAITING REVIEW`.
+
+**What reaches Command: a count, a duration, a basis and a route.** No statement, title, domain,
+scope, node id or tenant id — E2-8's boundary holds because the observation carries no field that
+could hold any of them. The sixth timestamp basis, `knowledge-node.created_at`, states exactly one
+thing: this version has had no Governance decision naming it for this long. Its `doesNotMean`
+explicitly rejects urgent, important, priority, overdue, late, stalled, critical, risky, SLA breach,
+should-approve, should-reject, unread and unreviewed. Heby observes and routes to `/knowledge`;
+**K4 and G2 remain the authorities for the act.**
+
+**Validation.** Suite **607/607** (605 + 2 new suites), typecheck clean, lint zero errors. The
+rejection case is proved against a **real** PostgreSQL database, because it is the one case a fake
+would have to be told about — the seed reproduces K4's asymmetry exactly, writing a decision and no
+Knowledge mark. **Two bite-proofs were watched to bite:** ignoring the decided set failed on the
+ratified assertion, and narrowing the Governance read to `ratify` failed on the rejected one. Three
+released E2-4 censuses were **extended, never relaxed** — the basis union 5 → 6 with the new entry
+named in its closed `deepEqual`, basis usage 5 → 6, and the item count 4 → 5.
+
+**Zero schema, zero migration, zero writer, zero new authority** — ledger unchanged at 39. No
+execution or authorization path became reachable, asserted structurally and against the database.
+
+**Production acceptance is available and NOT yet performed.** Production holds one legitimately
+undecided version — human-authored, `engineering`, `provisional`/`draft`, named by no Governance
+decision. The acceptance is one authenticated Heby answer that reports it with its elapsed duration
+and no Knowledge content.
+
+**A Step A finding is recorded and deliberately NOT solved.** `knowledge_authority` supports
+`authoritative | provisional`; **two writers exist and both hard-code `provisional`**, so nothing in
+the repository can produce `authoritative`. Heby's Knowledge source computes `authoritative:` as
+"every record is authoritative", which is therefore a **constant, not a measurement** — truthful, and
+structurally unable to become anything else. No architecture document, roadmap entry, test or writer
+defines a `provisional → authoritative` transition. Ratification is not it: K4's frozen non-effects
+say it "does not grant anyone new authority", K1 records that Knowledge "cannot promote its own
+authority", and `knowledge_lifecycle_status` already has a `ratified` value that K4 deliberately
+refuses to write rather than "fabricating semantics the repository never defined". **The open
+architecture decision is what Hebun means by authoritative Knowledge and which authority may confer
+it.** It is a Director decision and nothing here presumes it.
+
 ```
 NEXT MILESTONE = NOT YET SELECTED
 ```

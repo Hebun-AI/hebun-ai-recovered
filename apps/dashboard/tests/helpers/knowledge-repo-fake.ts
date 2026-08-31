@@ -17,6 +17,7 @@ import type {
   IngestedSourceSummary,
   KnowledgeDomainCounts,
   KnowledgeSearchRow,
+  CurrentKnowledgeVersion,
 } from "../../src/features/knowledge/durable-knowledge-repository.server";
 import type { KnowledgeSourceRecord, KnowledgeSourceStub } from "../../src/features/knowledge/contracts";
 
@@ -30,6 +31,7 @@ export interface FakeRetrievalHalf {
   hasTrigram(): Promise<boolean>;
   countFactsByDomain(): Promise<readonly KnowledgeDomainCounts[]>;
   listIngestedSources(): Promise<readonly IngestedSourceSummary[]>;
+  listCurrentVersions(): Promise<readonly CurrentKnowledgeVersion[]>;
 }
 
 export function noRetrieval(): FakeRetrievalHalf {
@@ -49,6 +51,13 @@ export function noRetrieval(): FakeRetrievalHalf {
     },
     /* Same reason: a fabricated source list would let a retraction surface look populated. */
     async listIngestedSources() {
+      return [];
+    },
+    /*
+     * Same reason again: a fabricated version list would let the Knowledge review observation
+     * report versions awaiting a Governance decision that no database ever held.
+     */
+    async listCurrentVersions() {
       return [];
     },
   };
@@ -86,11 +95,14 @@ export function retrievalOver(records: readonly KnowledgeSourceRecord[]): FakeRe
     async hasTrigram() {
       return false;
     },
-    /* Retrieval is the subject here; coverage and sources are not. See `noRetrieval`. */
+    /* Retrieval is the subject here; coverage, sources and review are not. See `noRetrieval`. */
     async countFactsByDomain() {
       return [];
     },
     async listIngestedSources() {
+      return [];
+    },
+    async listCurrentVersions() {
       return [];
     },
   };

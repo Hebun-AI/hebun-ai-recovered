@@ -56,8 +56,10 @@ import {
 /** Named for what it is, and for what it is not. */
 export const ATTENTION_GROUNDING_PROVENANCE =
   "Organizational Attention Observation — elapsed time derived on read from timestamps the action " +
-  "authorization, action execution and governance activity authorities already wrote " +
-  "(authoritative: false). " +
+  "authorization, action execution, governance activity, Knowledge and Governance decision " +
+  "authorities already wrote (authoritative: false). The Knowledge review line is a SUBTRACTION " +
+  "across two owners: Knowledge states which versions currently exist, Governance states which of " +
+  "them it has decided about, and neither side is asked the other's question. " +
   ATTENTION_OBSERVATION_BASIS;
 
 /** Why the source could not be resolved. Two reasons, two sentences, and they must not merge. */
@@ -149,6 +151,30 @@ function itemsFor(observation: AttentionObservation): readonly ResolvedSourceIte
     lifecycle: acts.status === "observed" ? "settled" : "unknown",
   });
 
+  /*
+   * ── IDENTIFICATION AND ROUTING ONLY ──────────────────────────────────────
+   *
+   * A COUNT, A DURATION AND A ROUTE. No statement, no title, no domain key, no scope, no node id
+   * and no provenance — Command is where a Director asks what is waiting, and E2-8 established
+   * that Command does not receive Knowledge CONTENT. Nothing crosses that line here, because the
+   * observation this reads from carries no field that could hold any of it.
+   *
+   *     A DURATION IS NOT CONTENT        WAITING FOR A DECISION != WHAT IT SAYS
+   *
+   * The route is the released Knowledge workspace path, so Heby routes the human to the authority
+   * that owns the act instead of offering one it does not hold.
+   */
+  const review = observation.knowledgeAwaitingReview;
+  items.push({
+    recordRef: "attention:knowledge-governance-review",
+    label: "Knowledge versions no Governance decision names",
+    detail:
+      review.status === "observed"
+        ? `${review.value.awaitingReview} with no ratify or reject decision · oldest authored ${duration(review.value.oldestAwaiting)} ago · ${basis(review.value.oldestAwaiting)} · decided in the Knowledge workspace at /knowledge`
+        : `not read (${review.reason}) — this is an unread observation, not an absence of Knowledge waiting on a decision`,
+    lifecycle: review.status === "observed" ? "settled" : "unknown",
+  });
+
   return items;
 }
 
@@ -177,8 +203,8 @@ function itemsFor(observation: AttentionObservation): readonly ResolvedSourceIte
  * own predicate. This module constructs no query and takes no tenant identifier, so a
  * cross-organization read is not refused here; it is UNREPRESENTABLE.
  *
- * FOUR ITEMS, ALWAYS. The contribution is bounded by the number of blocks E2-4 defines, not by a
- * limit somebody chose — there is no list to page and no row to enumerate.
+ * FIVE ITEMS, ALWAYS. The contribution is bounded by the number of blocks this observation defines,
+ * not by a limit somebody chose — there is no list to page and no row to enumerate.
  */
 export async function readAttentionGroundingSource(
   tenant: TenantContext | null,

@@ -266,7 +266,7 @@ function main(): void {
     const composition = codeOf(read("src/features/attention-observation/read-attention-observation.server.ts"));
     const used = new Set<string>();
     for (const basis of TIMESTAMP_BASES) if (composition.includes(`"${basis}"`)) used.add(basis);
-    assert.equal(used.size, 5, "all five bases are used, and no duration is produced without one");
+    assert.equal(used.size, 6, "all six bases are used, and no duration is produced without one");
     /* And no elapsed call exists anywhere in E2-4 without a basis argument. */
     for (const file of E24_FILES) {
       const code = codeOf(read(file));
