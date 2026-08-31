@@ -60,8 +60,10 @@ Hebun understands what it observes. Evidence accumulates, agents are evaluated, 
 
 **Closed at `6b4a72b` against this outcome, measured clause by clause (§12.9).** The three clauses above are Era II's only stated exit criteria — they were written before the era's work began and are not reconstructed here. Era II closure means the intended intelligence foundation is complete. **It does not mean Hebun is finished**, and it activates nothing.
 
-### ERA III — HEBUN AUTONOMOUS ENTERPRISE · **FUTURE — NOT ACTIVE** (§13)
+### ERA III — HEBUN AUTONOMOUS ENTERPRISE · **OPEN** (§13)
 The organization runs as a living operational system, observed end to end, with autonomy exercised only where authority was explicitly established.
+
+**Opened by explicit Director decision** (§18, rule 12), recorded in §13 and §20. **OPEN**, in the sense §9 defines it: the era has not closed and **no milestone is currently active** — the same state Era II occupied between E2-3 closing and E2-4 being selected. The era's outcome sentence above is its exit criterion and is not restated elsewhere. Opening it activates nothing, authorizes nothing, and relaxes none of the §13 constraints.
 
 ---
 
@@ -277,7 +279,8 @@ Release and closure records live in `docs/product-vision/runtime/`. This page sa
 | Ingested-content trust boundary — **TB-1** | **CLOSED — released** | TB-1 released at `047dde8`. `heby-runtime/trust-boundary.ts` names the boundary and classifies **every** field of a model request as `Record<keyof ModelGenerationRequest, TrustClass>`, so a new path into model context cannot arrive unclassified without failing to compile. It records its own limits as data: `structurallyIsolatedInInferenceRequest: false`, `restsOnModelCompliance: true`, `detectsInjectedInstructions: false`. Zero schema, zero writer. |
 | **ERA I — HEBUN TRUSTWORTHY FOUNDATION** | **CLOSED** | Closed at `047dde8` against the §11 contract, measured row by row — see §11.3. L1–L4 released and re-verified; all four §11.1 Security & Trust gates measured CLOSED. |
 | **ERA II — HEBUN INTELLIGENCE** | **CLOSED** at `6b4a72b` against the §4 outcome, measured clause by clause (§12.9) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). **E2-1, E2-2 and E2-3 are all CLOSED**, and the product-experience milestone **LMX-1** that followed E2-3 is closed too — implemented, released and pushed at `dfa7624`, `7b30893`, `00eda19` and `8fb299e`. E2-3 and LMX-1 are **DEPLOYED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, after a production migration repair carried the deployment's database from ledger 37 to 39 (§12.3); E2-1 and E2-2 have **no measured deployment** (§12.2). **E2-4 — Organizational Attention Observation — is CLOSED too**, activated by Director decision after a read-only discovery pass and released with zero schema, zero migration and zero writer (§12.4); it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, with no production defect found and no source, schema or migration change required by the acceptance (§12.4). **E2-5 — Heby Agent Grounding — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated Heby acceptance both PASS, after one real production defect was found at the acceptance gate and fixed in the response validator (§12.5). **E2-6 — Heby Recorded Act Grounding — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated Heby acceptance both PASS, after one real truth-semantics defect was found at the acceptance gate and fixed in this milestone's own grounding wording (§12.6). **E2-7 — Heby Windowed Recorded-Act Intelligence — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side, Heby grounding and authenticated Heby acceptance all PASS, with no production defect found and no source, test, schema or migration change required by the acceptance (§12.7). **E2-8 — Heby Knowledge Coverage Grounding — is CLOSED too**, selected from a bounded discovery pass by Director decision and released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — Knowledge authority, Heby grounding and authenticated Heby acceptance all PASS, with no production defect found and no source, test, schema or migration change required by the acceptance; the first human attempt was a truth-safe refusal caused by testing from the wrong workspace, not a runtime defect (§12.8). **No Era II milestone is active, and none remains required.** Closing nine milestones closed no era — the era closed because the §4 outcome was **measured** satisfied (§12.9), which is the only thing that ever closes one here. The same rule now governs what follows: **Era III is not started**, and the next program or era must be selected from measured repository and product reality by a separate Director decision, never from numbering. |
-| Era III | **NOT ACTIVE** (§13) | — |
+| **ERA III — HEBUN AUTONOMOUS ENTERPRISE** | **OPEN** — opened by Director decision, **no milestone active** (§13, §20) | Opened under §18 rule 12 by explicit Director architectural review, from measured reality and not by succession. The §13 entry constraint was checked, not assumed: *"No Era III capability may be opened while Era I remains open"* — Era I is CLOSED at `047dde8` (§11.3). **Nothing is implemented.** No milestone is selected, no schema, migration, writer or production row exists for it, and the ledger is unchanged at **39**. The first candidate — **Agent Mandate Authority** — is a candidate and nothing more: it was made subject to a mandatory read-only boundary discovery **before** any implementation, and that discovery is recorded at `docs/product-vision/runtime/hebun-era3-agent-mandate-authority-boundary-discovery.md`. |
+| Agent Mandate Authority (Era III candidate) | **DISCOVERY COMPLETE — read-only. NOT AUTHORIZED FOR IMPLEMENTATION** | The boundary discovery ran against `52b4605` and the production control plane read-only, and changed no runtime code. Its finding: the previous conclusion that *"a mandate is just a Governance subject"* is **REJECTED as stated** — a mandate *change* is a Governance subject, a mandate is not a Governance-owned fact. Recommended owner is a **dedicated Agent Mandate Authority** owning a versioned, agent-bound sibling table, with Governance authorizing every transition through the already-multi-subject `writeGovernanceDecisionWithin` seam — the shape Knowledge, Membership, Role provisioning, Identity enrollment, Action authorization and Agent improvement already use. It also **rejects the previously proposed acceptance condition of establishing a second real agent**: `createDurableAgentIdentity` refuses a second identity per tenant under a table lock, and `resolveAgentProposer` refuses `ambiguous-durable-agent-identity` above one in service, so a second agent would mean reopening a released one-way ceremony and designing agent selection — two new authorities manufactured for a test. |
 
 ---
 
@@ -2934,7 +2937,21 @@ milestone. `drive.file` is not widened. No second Knowledge or provenance author
 
 ## 13. Era III — Constraints and Future Direction
 
-Era III is **not active**, and **Era II closing did not start it** (§12.9). It is constrained in advance:
+**Era III is OPEN, by explicit Director decision.**
+
+It was **not** opened by Era II closing, **not** by the first governed production execution succeeding, and **not** by numbering — every one of those was refused in writing before this decision was taken (§12.9, §20). It was opened the only way this document permits: a separate Director decision, taken under §18 rule 12, from measured repository and production reality.
+
+Opening the era **selects no milestone and authorizes no implementation.** Its state is **OPEN** as §9 defines it — not closed, no milestone active. The first candidate, **Agent Mandate Authority**, was made subject to a mandatory read-only architecture boundary discovery before any implementation; that discovery is complete and is recorded at `docs/product-vision/runtime/hebun-era3-agent-mandate-authority-boundary-discovery.md`. Whether it becomes the first Era III program remains a Director decision.
+
+```
+ERA III OPEN        != A MILESTONE IS SELECTED
+ERA III OPEN        != AGENT MANDATE APPROVED
+CANDIDATE           != PROGRAM
+BOUNDARY DISCOVERY  != IMPLEMENTATION AUTHORIZATION
+DISCOVERY COMPLETE  != WORK STARTED
+```
+
+The era is constrained in advance, and opening it relaxes none of the following:
 
 - Autonomy is exercised only where an authority to act was explicitly established and recorded.
 - Observation of the operational chain never becomes authority over it.
@@ -3115,6 +3132,8 @@ HMR-0's "Foundation ~70%" estimate is **not preserved**. It had no defensible de
 **NONE SELECTED.** **Era II is CLOSED** at `6b4a72b` against the §4 outcome (§12.9), with **no active milestone** and **zero remaining required Era II milestones**. E2-4, E2-5, E2-6, E2-7 and E2-8 are all **PRODUCTION-ACCEPTED**; **no E2-9 is opened, no era is activated, and no closure schedules ASA-2.**
 
 **An era closing selects nothing.** Era III is **NOT started** (§13) and is not opened by Era II closing, exactly as Era II was not opened by numbering. The next program or era is a **separate Director decision**, taken from measured repository and product reality.
+
+> **SUPERSEDED AS CURRENT STATE — the rule stands, its status line does not.** The separate Director decision the sentence above requires has since been taken: **Era III is OPEN** (§13, and *"ERA III OPENED"* at the end of this section). The rule itself is unchanged and is what made that a decision rather than a consequence; only the words "Era III is NOT started" are out of date, and they are preserved unrewritten under §3 principle 8. **No milestone is selected**, then or now.
 
 **That decision was taken, and it did not open an era.** After a Post-Era-II Strategic Product Gate measured production — 40 Heby messages and 275 grounding-evidence rows against **one** Knowledge fact, zero permits and zero execution attempts — the Director selected **Knowledge Ingestion Depth (KID)**, a finite two-milestone program (§12A). **KID-1 and KID-2 are both RELEASED, and the program's PRODUCTION ACCEPTANCE is now PASS.** Those were different states and both are now true; no KID-3 exists — waiting for a provider was a release gate, not a milestone. **What it was blocked ON changed twice**: an enablement gate found that Hebun held TWO restricted Google scopes, not one, so the Director adapted the permission model rather than pay for restricted-scope verification and an annual CASA assessment; the production admission path became Google Picker + the non-sensitive `drive.file` scope (§12B), which left acceptance blocked on configuration and one human grant. Both were then supplied, and the whole path — Picker, real Google Doc, real provider read, human admission, provenance, coverage 0/10 → 1/10, Heby answering in `/knowledge` — ran in production while Hebun held **no restricted Drive scope**. A program is not an era: Era II stays **CLOSED**, Era III stays **NOT STARTED**, and no Era II milestone is reopened.
 
@@ -3410,6 +3429,68 @@ measured reality without being that decision.
 GATE RELEASED = YES · CONFIGURED = YES · ARMED = YES · AUTHORIZED = YES (one request)
 EXECUTED = YES (once) · PROVIDER ACCEPTED = YES · DELIVERED = HUMAN-OBSERVED ONLY
 ERA III = NOT STARTED · NEXT MILESTONE = NOT SELECTED
+```
+
+### ERA III OPENED — by Director decision, and it selects nothing
+
+**This supersedes the line above as current state, and does not rewrite it.** *"First Governed
+Execution = PRODUCTION-ACCEPTED. Era III = NOT STARTED"* was true when it was written, and the
+reasoning that produced it — that a capability succeeding is a fact about a capability, never a
+decision about an era — is the reasoning that made this a separate decision rather than a
+consequence. It is preserved unrewritten under §3 principle 8, exactly as §12.3–§12.8's
+"Era II remains OPEN" lines are preserved under §12.9.
+
+**The Director has opened ERA III — HEBUN AUTONOMOUS ENTERPRISE.** Taken under §18 rule 12 as an
+explicit architectural review, from measured repository and production reality. The §13 entry
+constraint was checked rather than assumed: Era I is CLOSED at `047dde8`.
+
+**It selects no milestone.** Era III's state is **OPEN** as §9 defines it — not closed, no milestone
+active. **Nothing is implemented**: no schema, no migration, no writer, no route, no production row,
+ledger unchanged at **39**.
+
+**Agent Mandate Authority is the first CANDIDATE, and was gated before it could become work.** The
+Director selected it subject to a mandatory read-only architecture boundary discovery **before any
+implementation**, and required that the previous conclusion be proved or rejected from repository
+architecture rather than inherited. That discovery is complete, read-only, and recorded at
+`docs/product-vision/runtime/hebun-era3-agent-mandate-authority-boundary-discovery.md`.
+
+**Two of its findings contradict the previous recommendation, and are recorded here because a
+roadmap that only carried the agreeing half would be the succession this document refuses:**
+
+1. **"A mandate is just a Governance subject" is REJECTED as stated.** A mandate *change* must be a
+   Governance subject; a mandate is not a Governance-owned fact. Governance authority itself resolves
+   from `decision_records` and nothing else (G6A), so storing mandate state there would make "what
+   this agent is for" a Governance-derived fact — turning Governance into the workforce authority.
+   Six released subsystems already prove the correct shape: each owns its own subject's state and
+   borrows only `writeGovernanceDecisionWithin`, which accepts eight subject types today over a
+   `text` subject column. The recommended owner is a **dedicated Agent Mandate Authority** owning a
+   versioned, agent-bound sibling table through the composite anchor `agents_tenant_id_uq` that two
+   sibling tables already use.
+
+2. **"Establish a second real agent" is REJECTED as a production acceptance condition.**
+   `createDurableAgentIdentity` counts rows under `lock table agents in share row exclusive mode`
+   and refuses `agent-identity-already-exists`, with retired and soft-deleted rows counted; production
+   already holds one durable identity. `resolveAgentProposer` independently refuses
+   `ambiguous-durable-agent-identity` above one in service. A second agent therefore requires
+   reopening a released one-way ceremony **and** designing agent selection — two authorities
+   manufactured so a test could pass. The mandate is proved against Heby's existing identity, which
+   is also the stronger proof: it constrains the only agent that actually proposes in production, and
+   the multi-agent property is carried by schema shape rather than by inventing an agent to look at.
+
+**What remains a Director decision:** whether Agent Mandate Authority becomes the first Era III
+program. Nothing blocks it — every seam it needs is released and production-exercised — and it would
+be the first Era III capability to carry a migration (**39 → 40**) and the first agent work since
+AGENT-ID-0.1 to write a durable row. Every Era II milestone was zero-schema; this one is not.
+
+```
+ERA III = OPEN · NEXT MILESTONE = NOT SELECTED
+AGENT MANDATE = CANDIDATE · DISCOVERY COMPLETE · NOT AUTHORIZED FOR IMPLEMENTATION
+ERA III OPEN       != A MILESTONE IS SELECTED
+CANDIDATE          != PROGRAM
+DISCOVERY COMPLETE != WORK STARTED
+MANDATE            != AUTHORITY
+MANDATE            != PERMISSION
+MANDATED           != AUTHORIZED
 ```
 
 ```
