@@ -721,15 +721,21 @@ function theVocabulariesStayClosed(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function noSchemaChanged(): void {
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 39, "SIA-3.1 authored no migration — a product seam needs none");
+  assert.equal(sqlCount, 40, "SIA-3.1 authored no migration — a product seam needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json"))) as {
     entries: readonly unknown[];
   };
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
+  /*
+   * THE INDEX FOLLOWS THE LENGTH RATHER THAN A LITERAL. Pinning `entries[38]` meant "the newest"
+   * only until a later phase authored one; AMA-1 did, and the literal then named the
+   * second-newest while the message still said "newest". Deriving the index from the count keeps
+   * the assertion about the same FACT under every future migration.
+   */
   assert.equal(
-    (journal.entries[38] as { tag: string }).tag,
-    "20260828190630_sia3_agent_improvement_hypothesis",
-    "the newest migration is still SIA-3's",
+    (journal.entries[journal.entries.length - 1] as { tag: string }).tag,
+    "20260831110423_ama1_agent_mandate_authority",
+    "the newest migration is AMA-1's — SIA-3 held this line before it",
   );
 
   /* And the human-author CHECK that decides this phase's authorship model is untouched. */

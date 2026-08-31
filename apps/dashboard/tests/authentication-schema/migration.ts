@@ -58,6 +58,7 @@ try {
     // + AGENT-PROPOSAL-4B agent-origination invocation provenance = 37.
     // + SIA-2.6 origination agent attribution = 38.
     // + SIA-3 agent improvement hypotheses = 39.
+    // + AMA-1 agent mandate authority = 40.
     //
     // (The tally had stopped at 33 while the assertion below read 34: INT-2 moved the number and
     // not the prose. Both move together from here.)
@@ -71,12 +72,15 @@ try {
     // phases must state "I added none of my own" without pinning a global count, or every later
     // authorized migration falsifies a claim that was never about it.
     /*
-     * Re-pinned most recently by SIA-3, which added migration 39 (`agent_improvement_hypotheses`) —
-     * one additive table, three foreign keys, three indexes, five CHECKs, zero DROP and zero
-     * backfill. No released migration was edited, which is what the ledger digest pinned elsewhere
-     * proves independently of this count.
+     * Re-pinned most recently by AMA-1, which added migration 40 (`agent_mandates`) — one additive
+     * table, five foreign keys (one of them the composite tenant-safe key onto `agents`), four
+     * indexes, six CHECKs, one `ALTER TYPE ... ADD VALUE` on `governance_domain`, zero DROP and
+     * zero backfill. No released migration was edited, and no existing table was altered, which is
+     * what the ledger digest pinned elsewhere proves independently of this count.
+     *
+     * SIA-3 held this line before it, at 39 (`agent_improvement_hypotheses`).
      */
-    assert.equal(migrationCount.rows[0]?.count, "39");
+    assert.equal(migrationCount.rows[0]?.count, "40");
 
     /*
      * The rerun is about IDEMPOTENCE, not about the total, so it is compared to what the first run

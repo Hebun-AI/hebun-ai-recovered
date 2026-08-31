@@ -235,7 +235,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 39, "OPS-P1 adds no migration — the ledger carries none of its authoring");
+    assert.equal(journal.entries.length, 40, "OPS-P1 adds no migration — the ledger carries none of its authoring");
     const actions = codeOf(read(ACTIONS));
     assert.equal(
       (actions.match(/export async function/g) ?? []).length,

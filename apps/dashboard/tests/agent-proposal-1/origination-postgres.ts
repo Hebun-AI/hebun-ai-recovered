@@ -562,6 +562,13 @@ async function main(): Promise<void> {
            * be the weak one: it would let a future phase DELETE a released CHECK and still pass.
            */
           "agent_improvement_hypotheses_human_author_chk",
+          /*
+           * AMA-1. The census GREW AGAIN, in the same strict direction and for the same reason.
+           * `agent_mandates` constrains its own ESTABLISHER to `human`, so an agent cannot
+           * establish — or widen — its own mandate, and that refusal is PostgreSQL's rather than
+           * the writer's.
+           */
+          "agent_mandates_human_establisher_chk",
           "decision_records_bootstrap_human_chk",
           "heby_action_requests_human_approver_chk",
           "identity_enrollment_requests_human_approver_chk",
@@ -569,7 +576,7 @@ async function main(): Promise<void> {
           "knowledge_external_references_human_withdrawer_chk",
           "membership_authorizations_human_authorizer_chk",
         ],
-        "the eight human-only CHECKs are enforced by the database, and this phase widened none of them",
+        "the nine human-only CHECKs are enforced by the database, and this phase widened none of them",
       );
 
       /* And the approver CHECK really does refuse an agent, on the agent's own proposal. */

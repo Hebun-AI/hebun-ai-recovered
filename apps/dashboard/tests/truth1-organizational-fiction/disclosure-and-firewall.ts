@@ -379,7 +379,7 @@ function main(): void {
       assert.ok(!/tenantId|tenant_id/.test(code), `${file} must not read tenant identity`);
     }
     const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-    assert.equal(migrations.length, 39, "TRUTH-1 adds no migration");
+    assert.equal(migrations.length, 40, "TRUTH-1 adds no migration");
     for (const file of migrations) {
       assert.ok(!/truth1|truth-1|fiction/i.test(file), `no migration bears this phase's name — found ${file}`);
     }

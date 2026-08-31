@@ -237,7 +237,7 @@ function main(): void {
 
   /* ── 7. NO SCHEMA, NO MIGRATION, NO WIDENED GOVERNANCE ────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 39, "this phase authored no migration — a sentence needs none");
+  assert.equal(sqlCount, 40, "this phase authored no migration — a sentence needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const touched = `${codeOf(read(DISCLOSURE))}\n${codeOf(read(DURABLE_CARD))}`;

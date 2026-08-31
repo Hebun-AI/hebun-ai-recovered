@@ -74,6 +74,11 @@ import {
   IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE,
 } from "@/features/agent-improvement-hypothesis/contracts";
 import {
+  AGENT_MANDATE_BOUNDED_OUTCOME,
+  AGENT_MANDATE_DOMAIN,
+  AGENT_MANDATE_SUBJECT_TYPE,
+} from "@/features/agent-mandate/contracts";
+import {
   resolveGovernanceDbOrNull,
   validateJustification,
   type GovernanceDeps,
@@ -154,7 +159,8 @@ export async function writeGovernanceDecisionWithin(
       | typeof IDENTITY_ENROLLMENT_SUBJECT_TYPE
       | typeof ACTION_REQUEST_SUBJECT_TYPE
       | typeof ACTION_PERMIT_SUBJECT_TYPE
-      | typeof IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE;
+      | typeof IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE
+      | typeof AGENT_MANDATE_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -202,9 +208,21 @@ export async function writeGovernanceDecisionWithin(
                */
               input.subjectType === IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE
               ? IMPROVEMENT_HYPOTHESIS_DOMAIN
-              : input.subjectType === "user" || input.subjectType === "governance_decision"
-                ? ("authority-delegation" as const)
-                : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
+              : /*
+                 * AMA-1 — deciding the bounded organizational purpose one durable agent serves.
+                 *
+                 * Its own domain, and the enum's own comment records why `agent-registration` was
+                 * refused despite existing unused since the foundation baseline: registration is
+                 * an agent COMING INTO EXISTENCE, which `features/agent-identity` owns and this
+                 * decision never performs. Not `action-authorization` — nothing becomes executable
+                 * and no act is authorized. Not `authority-delegation` — a mandate grants nothing
+                 * and moves no authority. Not `learning` — nothing is hypothesised or measured.
+                 */
+                input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
+                ? AGENT_MANDATE_DOMAIN
+                : input.subjectType === "user" || input.subjectType === "governance_decision"
+                  ? ("authority-delegation" as const)
+                  : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
 
   const outcome =
     /*
@@ -237,6 +255,18 @@ export async function writeGovernanceDecisionWithin(
           ? input.decisionType === IMPROVEMENT_HYPOTHESIS_APPROVE_TYPE
             ? IMPROVEMENT_HYPOTHESIS_ACCEPTED_OUTCOME
             : IMPROVEMENT_HYPOTHESIS_DECLINED_OUTCOME
+          : /*
+             * AMA-1 IS CHECKED ON ITS SUBJECT, AND BEFORE EVERY GENERIC BRANCH — for the sharper
+             * of the two reasons SIA-3's comment gives.
+             *
+             * A mandate decision uses `approve`, which is ALSO
+             * `MEMBERSHIP_AUTHORIZATION_DECISION_TYPE`. Without this branch a mandate decision
+             * would fall into the membership branch below and record `membership-authorized` in
+             * the permanent ledger — a decision about an agent's purpose, filed as a human being
+             * admitted to the organization. Only the subject distinguishes them.
+             */
+            input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
+          ? AGENT_MANDATE_BOUNDED_OUTCOME
           : input.decisionType === "delegate-authority"
           ? DELEGATION_OUTCOME
           : input.decisionType === "revoke"

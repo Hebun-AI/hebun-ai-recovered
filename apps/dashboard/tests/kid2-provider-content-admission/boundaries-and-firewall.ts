@@ -37,7 +37,7 @@ const CARD = "src/components/knowledge-workspace/provider-document-admission-car
 const PAGE = "src/app/(dashboard)/knowledge/page.tsx";
 
 /** The ledger this milestone must leave exactly as it found it. */
-const MIGRATION_LEDGER = 39;
+const MIGRATION_LEDGER = 40;
 
 function collect(dir: string): string[] {
   return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {

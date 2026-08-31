@@ -101,7 +101,9 @@ function main(): void {
       "20260826064423_kr_ext1_knowledge_external_references.sql",
       "20260828071500_ap4b_origination_invocation_provenance.sql",
       "20260828173456_sia26_origination_agent_attribution.sql",
-      "20260828190630_sia3_agent_improvement_hypothesis.sql"],
+      "20260828190630_sia3_agent_improvement_hypothesis.sql",
+      /* AMA-1 — the Agent Mandate Authority table. A declared later phase, not this one's. */
+      "20260831110423_ama1_agent_mandate_authority.sql"],
       "KR5 adds exactly one migration",
     );
     const journal = JSON.parse(read(MIGRATIONS, "meta", "_journal.json")) as {

@@ -668,8 +668,8 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* SIA-3 — the ledger grew to 39 when agent improvement hypotheses landed, so BOTH values move with it. */
-const LEDGER_COUNT = 39;
+/* AMA-1 — the ledger grew to 40 when the Agent Mandate Authority landed, so BOTH values move with it. */
+const LEDGER_COUNT = 40;
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine. AGENT-ID-0.1 adds exactly
  * one boundary — the durable agent identity one — so nine became false. Naming the set beats bumping

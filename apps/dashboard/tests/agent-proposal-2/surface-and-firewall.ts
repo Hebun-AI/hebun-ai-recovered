@@ -384,11 +384,11 @@ function schemaIsUntouched(): void {
    * here is named after its phase, so such a filter is empty for every possible repository state
    * and could never fail. An absolute pin can rot, but it cannot lie.
    */
-  assert.equal(sql.length, 39, "AGENT-PROPOSAL-2 adds no migration");
+  assert.equal(sql.length, 40, "AGENT-PROPOSAL-2 adds no migration");
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 39, "and the ledger is unchanged");
+  assert.equal(journal.entries.length, 40, "and the ledger is unchanged");
   /* And the ledger still agrees with the files on disk — an integrity check that cannot rot. */
   assert.equal(journal.entries.length, sql.length, "the ledger and the migration files agree");
 

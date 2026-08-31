@@ -888,6 +888,23 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * execution runtime must be able to ask before it runs anything.
    */
   "action-authorization",
+  /**
+   * AMA-1 — Governance authorizing the bounded organizational purpose one durable agent serves,
+   * and the maximum surface inside which it may propose.
+   *
+   * Its OWN concern, and it is deliberately NOT `agent-registration`, which has existed unused
+   * since the foundation baseline. Registration would be about an agent COMING INTO EXISTENCE —
+   * a transition `features/agent-identity` owns and which this domain never performs. A mandate
+   * decision names an agent that already exists and says what it is FOR; reusing the registration
+   * domain would make the ledger unable to tell "an agent was established" from "an agent's
+   * purpose was bounded", which are different acts by different authorities.
+   *
+   * It is not `authority-delegation` — a mandate moves no Governance authority and grants nothing.
+   * It is not `action-authorization` — that authorizes ONE act to become executable; a mandate
+   * authorizes no act at all and can only ever SUBTRACT from what an agent may propose. It is not
+   * `learning` — nothing is hypothesised, measured or improved here.
+   */
+  "agent-mandate",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",

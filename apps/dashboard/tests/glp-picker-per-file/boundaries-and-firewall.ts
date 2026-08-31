@@ -42,7 +42,7 @@ const RESTRICTED_SCOPES = [
 ];
 
 /** The migration ledger this adaptation must leave exactly as it found it. */
-const MIGRATION_LEDGER = 39;
+const MIGRATION_LEDGER = 40;
 
 function collect(dir: string): string[] {
   return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {

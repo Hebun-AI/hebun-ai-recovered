@@ -140,9 +140,9 @@ const USE_SERVER_MODULES = [
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* SIA-3 — the ledger grew to 39 when agent improvement hypotheses landed, so BOTH values move with it. */
-const LEDGER_COUNT = 39;
-const LEDGER_DIGEST = "93cdfee947cfb605";
+/* AMA-1 — the ledger grew to 40 when the Agent Mandate Authority landed, so BOTH values move with it. */
+const LEDGER_COUNT = 40;
+const LEDGER_DIGEST = "a9a8ad3c4908f84c";
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

@@ -387,10 +387,10 @@ function theSurfaceStillCannotAct(): void {
 /* ── 9 · NO SCHEMA, NO MIGRATION, NO PERSISTENCE ──────────────────────────── */
 function nothingWasPersisted(): void {
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 39, "the migration ledger is unchanged at 39");
+  assert.equal(journal.entries.length, 40, "the migration ledger is unchanged at 40");
 
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 39, "and no migration file was added");
+  assert.equal(sqlFiles.length, 40, "and no migration file was added");
 
   for (const file of [...walk(LIVE_MAP_DIR), ...walk(COMPONENT_DIR), SEAM]) {
     const code = codeOf(read(file));

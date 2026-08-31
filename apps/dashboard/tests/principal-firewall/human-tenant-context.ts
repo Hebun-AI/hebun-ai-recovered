@@ -271,7 +271,15 @@ function main(): void {
    * `agents.tenantId` to the hypothesis row's own tenant so an agent NAME can only ever come from
    * an agent this tenant owns. A scoping predicate beside the human's tenant id — never a grant.
    *
-   * The census stays EXACT, which is the whole value of it: a seventh file still fails here.
+   * AMA-1 adds two more, both permitted kinds. `db/schema/agent-mandate.ts` names
+   * `agents.tenantId` as the second half of a composite foreign key — the same tenant-safety
+   * mechanism SIA-2.6 and SIA-3 use, which makes bounding another tenant's agent a DATABASE error
+   * rather than a predicate somebody can forget. `establish-agent-mandate.server.ts` uses it as a
+   * scoping predicate when it resolves the subject agent. Neither is a grant, and neither reads a
+   * configuration column: the AMA-1 firewall enumerates the `agents` columns that feature may
+   * touch at all.
+   *
+   * The census stays EXACT, which is the whole value of it: a ninth file still fails here.
    */
   const agentTenantReaders = srcFiles.filter((f) => /agents\.tenantId/.test(codeOf(read(f))));
   assert.deepEqual(
@@ -283,8 +291,10 @@ function main(): void {
       "src/db/schema/heby-origination-invocation.ts",
       "src/db/schema/agent-improvement-hypothesis.ts",
       "src/features/agent-improvement-hypothesis/read-improvement-hypotheses.server.ts",
+      "src/db/schema/agent-mandate.ts",
+      "src/features/agent-mandate/establish-agent-mandate.server.ts",
     ].sort(),
-    "`agents.tenant_id` is a tenant SCOPE in four readers and a composite-key target in two table definitions — a grant in none of them",
+    "`agents.tenant_id` is a tenant SCOPE in five readers and a composite-key target in three table definitions — a grant in none of them",
   );
 
   /* ── 7. NO MACHINE INGRESS ────────────────────────────────────────────────
@@ -369,7 +379,7 @@ function main(): void {
 
   /* ── 10. SCHEMA, LEDGER AND HUMAN SUPREMACY UNTOUCHED ─────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 39, "this phase authored no migration — a type needs none");
+  assert.equal(sqlCount, 40, "this phase authored no migration — a type needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))

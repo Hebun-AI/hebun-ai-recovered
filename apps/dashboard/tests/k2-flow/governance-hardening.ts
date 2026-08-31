@@ -201,6 +201,12 @@ function main(): void {
     const sinkOwners = [
       "src/features/governance-audit/action-authorization-audit.server.ts",
       "src/features/governance-audit/action-execution-audit.server.ts",
+      /*
+       * AMA-1 — the SEVENTH declared sibling. It owns the history of what a durable agent is FOR,
+       * appends to the SHARED sink like every other, and creates no second audit table. The census
+       * GREW; nothing in it was widened, which is what this assertion has always been about.
+       */
+      "src/features/governance-audit/agent-mandate-audit.server.ts",
       "src/features/governance-audit/genesis-nomination-audit.server.ts",
       "src/features/governance-audit/governance-decision-audit.server.ts",
       "src/features/governance-audit/human-onboarding-audit.server.ts",

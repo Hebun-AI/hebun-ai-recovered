@@ -386,6 +386,8 @@ async function main(): Promise<void> {
           "20260828071500_ap4b_origination_invocation_provenance",
           "20260828173456_sia26_origination_agent_attribution",
           "20260828190630_sia3_agent_improvement_hypothesis",
+          /* AMA-1 — the Agent Mandate Authority table. A declared later phase, not this one's. */
+          "20260831110423_ama1_agent_mandate_authority",
         ],
         "and what follows it is a declared later phase",
       );

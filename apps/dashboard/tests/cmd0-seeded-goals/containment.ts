@@ -56,8 +56,8 @@ const OWNED = [MODEL, COMPONENT] as const;
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-const LEDGER_COUNT = 39;
-const LEDGER_DIGEST = "93cdfee947cfb605";
+const LEDGER_COUNT = 40;
+const LEDGER_DIGEST = "a9a8ad3c4908f84c";
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

@@ -157,7 +157,7 @@ const MUTATIONS: readonly Mutation[] = [
   {
     label: "M12 a migration is added",
     file: JOURNAL,
-    find: `      "tag": "20260828190630_sia3_agent_improvement_hypothesis",\n      "breakpoints": true\n    }\n  ]`,
+    find: `      "tag": "20260831110423_ama1_agent_mandate_authority",\n      "breakpoints": true\n    }\n  ]`,
     replace:
       `      "tag": "20260828190630_sia3_agent_improvement_hypothesis",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 36,\n      "version": "7",\n      "when": 1787900000000,\n` +

@@ -282,7 +282,9 @@ function noPersistence(): void {
           "20260826064423_kr_ext1_knowledge_external_references",
           "20260828071500_ap4b_origination_invocation_provenance",
       "20260828173456_sia26_origination_agent_attribution",
-      "20260828190630_sia3_agent_improvement_hypothesis"],
+      "20260828190630_sia3_agent_improvement_hypothesis",
+      /* AMA-1 — the Agent Mandate Authority table. A declared later phase, not this one's. */
+      "20260831110423_ama1_agent_mandate_authority"],
     "R7.1 authored no migration; what follows is a declared later phase",
   );
   for (const name of newer) {

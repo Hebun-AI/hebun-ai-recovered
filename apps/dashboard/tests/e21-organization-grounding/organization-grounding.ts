@@ -400,7 +400,7 @@ async function main(): Promise<void> {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 39, "E2-1 adds no migration");
+    assert.equal(journal.entries.length, 40, "E2-1 adds no migration");
 
     /*
      * AND THIS IS WHY IT NEEDS NONE: `source_class` is generic `text` whose only constraint excludes

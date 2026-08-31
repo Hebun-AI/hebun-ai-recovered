@@ -20,6 +20,7 @@ export * from "./role-permission";
 export * from "./provider";
 export * from "./agent";
 export * from "./agent-improvement-hypothesis";
+export * from "./agent-mandate";
 export * from "./mission";
 export * from "./goal";
 export * from "./plan";

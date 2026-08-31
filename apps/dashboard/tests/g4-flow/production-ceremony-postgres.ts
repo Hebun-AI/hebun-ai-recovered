@@ -189,7 +189,10 @@ async function main(): Promise<void> {
         /* KR-EXT1: migration 36 (`knowledge_external_references`) grew the ledger once more, and the
          * digest moved with it — again on the DISPOSABLE database, which carries what this working
          * tree authors. Production stands at 35 (`97f1151f…`) until its own gated ceremony. */
-        "bbc1d66cdcfddea3292b46361a6a4856",
+        /* AMA-1: migration 40 (`agent_mandates`) grew the ledger again, and the digest moved with
+         * it — still on the DISPOSABLE database, which carries what this working tree authors.
+         * Production stands at 39 (`bbc1d66c…`) until its own gated migration ceremony. */
+        "2a9522bb36ca3d8406efc4abc0ef3088",
         /*
          * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
          * sentence had been false since R2H — whose own comment, three lines above it, said

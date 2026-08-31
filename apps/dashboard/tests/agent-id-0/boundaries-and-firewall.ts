@@ -293,7 +293,7 @@ function main(): void {
 
   /* ── 9. NO SCHEMA CHANGE, NO MIGRATION ────────────────────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 39, "AGENT-ID-0 authored no migration — this phase needed none");
+  assert.equal(sqlCount, 40, "AGENT-ID-0 authored no migration — this phase needed none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
 
