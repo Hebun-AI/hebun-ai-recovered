@@ -3220,10 +3220,52 @@ named in its closed `deepEqual`, basis usage 5 → 6, and the item count 4 → 5
 **Zero schema, zero migration, zero writer, zero new authority** — ledger unchanged at 39. No
 execution or authorization path became reachable, asserted structurally and against the database.
 
-**Production acceptance is available and NOT yet performed.** Production holds one legitimately
-undecided version — human-authored, `engineering`, `provisional`/`draft`, named by no Governance
-decision. The acceptance is one authenticated Heby answer that reports it with its elapsed duration
-and no Knowledge content.
+**PRODUCTION-ACCEPTED.** Released `dce8a76`, deployed with commit binding VERIFIED and aliased to
+the production domain. The Director asked Heby, in Command, what Knowledge is waiting for a
+Governance decision, and Heby answered from the released grounding: one version awaiting a decision,
+oldest authored 4 days 22 hours ago, basis `knowledge-node.created_at`, no ratify or reject decision,
+decided in the Knowledge workspace. It stated plainly that the content, identifier and subject matter
+were **not carried in grounding**, invented nothing to fill the gap, and used no urgency, priority,
+overdue, risk, SLA or ranking language.
+
+Corroborated afterwards against production through the released predicate, and against a baseline
+captured before the query:
+
+| Claim | Measured |
+|---|---|
+| Versions awaiting a Governance decision | **1** |
+| The undecided version is included | `engineering` — human-authored, current, in force, named by no decision |
+| The decided version is suppressed | `policies` — carries a decision, correctly absent |
+| Elapsed basis | `knowledge-node.created_at`, and 4 days 22 hours matches the row exactly |
+| Production mutation | **NONE** — facts 2, nodes 2, decisions 3, sessions 3, audit 27, permits 0, attempts 0, all unchanged |
+
+No test record was created, and the already-ratified version was not touched.
+
+### One product behaviour observed, recorded, and deliberately NOT solved
+
+The first acceptance attempt asked the broader question — *what needs my decision?* — and Heby's prose
+named only the action-request category, though three pending proposals made that answer correct as far
+as it went. **The released runtime was measured against the production database and every hop was
+right**: the Knowledge read returned, the Governance read returned, the observation reported one
+version awaiting a decision, the grounding source emitted five items, and `groundingLines` carries
+every item with no cap, so the fifth line reached the model verbatim. `assembleEvidence` had already
+put it in the response's evidence set, unfiltered by the prose.
+
+    DETERMINISTIC EVIDENCE COVERAGE != GUARANTEED PROSE COVERAGE
+
+An item can be in context, in evidence, and absent from the sentence a human reads, because the prose
+is a summary and the model chose one of two candidates. **This is not a KGA runtime defect and it is
+not repaired here.** Whether Hebun wants a coverage guarantee over Heby's prose is a Heby-wide
+question touching every workspace and every source class; forcing enumeration to fix one summary would
+trade a model's judgement for a rigid output shape across the product. It is recorded so the property
+is written down somewhere, and it is deferred.
+
+```
+IMPLEMENTED          = YES
+DEPLOYED             = YES  (commit binding verified, aliased)
+VERIFIED             = YES  (runtime measured against the production database)
+PRODUCTION-ACCEPTED  = YES  (authenticated Heby answer, corroborated by rows)
+```
 
 **A Step A finding is recorded and deliberately NOT solved.** `knowledge_authority` supports
 `authoritative | provisional`; **two writers exist and both hard-code `provisional`**, so nothing in
