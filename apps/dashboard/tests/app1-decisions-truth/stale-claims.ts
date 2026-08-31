@@ -213,7 +213,23 @@ const PERMITTED_SEAM_IMPORTERS = [
   "src/app/(dashboard)/command/page.tsx",
   "src/features/action-authorization/read-action-authorizations.server.ts",
   "src/features/attention-observation/read-attention-observation.server.ts",
+  /*
+   * HEBY DECISION QUEUE GROUNDING ADDED THE SECOND FEATURE MODULE, AND THE PROPERTY IS UNCHANGED.
+   *
+   * It projects the SAME released seam into a Heby source class so that a Director can ask what is
+   * waiting; it holds no query, no database handle and no copy of the queue, and it lives inside
+   * the authority that owns the rows rather than beside it. That is E2-4's precedent exactly, and
+   * it is the opposite of a duplicate reader.
+   *
+   * The proof is no longer a comment. The loop below now runs over EVERY non-route importer rather
+   * than the one file it was written for, so this entry — and any future one — is admitted only by
+   * being measured, never by being listed.
+   */
+  "src/features/action-authorization/heby-decision-queue-source.server.ts",
 ] as const;
+
+/** The seam itself legitimately holds the statement; everything else on the list may not. */
+const SEAM_MODULE = "src/features/action-authorization/read-action-authorizations.server.ts";
 
 function noSecondReader(overrides: Readonly<Record<string, string>> = {}): void {
   const walk = (dir: string): string[] => {
@@ -236,18 +252,25 @@ function noSecondReader(overrides: Readonly<Record<string, string>> = {}): void 
   );
 
   /*
-   * AND THE ONE NON-ROUTE IMPORTER HOLDS NO QUEUE OF ITS OWN. This is the property the list is a
-   * proxy for, asserted directly: a module that consumes the seam may not also build one.
+   * AND NO NON-ROUTE IMPORTER HOLDS A QUEUE OF ITS OWN. This is the property the list is a proxy
+   * for, asserted directly: a module that consumes the seam may not also build one.
+   *
+   * Generalised when the second such module arrived. It used to name one file, which meant the
+   * list could grow while the property was only ever checked on the original entry — the list
+   * would have started admitting modules on trust. Now every consumer is measured.
    */
-  const composition = codeOf(
-    overrides["src/features/attention-observation/read-attention-observation.server.ts"] ??
-      read("src/features/attention-observation/read-attention-observation.server.ts"),
+  const consumers = PERMITTED_SEAM_IMPORTERS.filter(
+    (file) => !file.startsWith("src/app/") && file !== SEAM_MODULE,
   );
-  for (const forbidden of ["hebyActionRequests", "actionPermits", "actionExecutionAttempts", "sql`", ".select("]) {
-    assert.ok(
-      !composition.includes(forbidden),
-      `the attention composition must hold no statement of its own (${forbidden})`,
-    );
+  assert.ok(consumers.length >= 2, "the generalised check must actually cover the consumers");
+  for (const file of consumers) {
+    const consumer = codeOf(overrides[file] ?? read(file));
+    for (const forbidden of ["hebyActionRequests", "actionPermits", "actionExecutionAttempts", "sql`", ".select("]) {
+      assert.ok(
+        !consumer.includes(forbidden),
+        `${path.basename(file)} must hold no statement of its own (${forbidden})`,
+      );
+    }
   }
 }
 

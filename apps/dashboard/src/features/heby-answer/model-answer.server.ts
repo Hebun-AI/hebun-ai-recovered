@@ -111,6 +111,7 @@ import { readAgentGroundingSource } from "@/features/agent-outcome-observation/h
  * which re-exports the writer.
  */
 import { readAgentMandateGroundingSource } from "@/features/agent-mandate/heby-mandate-source.server";
+import { readDecisionQueueGroundingSource } from "@/features/action-authorization/heby-decision-queue-source.server";
 import { readRecordedActGroundingSource } from "@/features/governance-activity/heby-recorded-act-source.server";
 import { readActWindowGroundingSource } from "@/features/governance-activity/heby-act-window-source.server";
 import { readKnowledgeCoverageGroundingSource } from "@/features/knowledge/heby-knowledge-coverage-source.server";
@@ -290,6 +291,12 @@ export interface HebyModelAnswerDeps {
    * A mandate reaching model context is a CEILING being reported, never a permission being granted.
    */
   readonly resolveAgentMandate?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /*
+   * Explicit decision-queue resolution for the `decision-records` class. Defaults to the real
+   * tenant-scoped read owned by Action Authorization; injectable so every branch — rows, a
+   * measured empty queue, and an unavailable authority — is provable without a database.
+   */
+  readonly resolveDecisionQueue?: (tenant: TenantContext) => Promise<SourceResolution>;
   readonly resolveRecordedActs?: (tenant: TenantContext) => Promise<SourceResolution>;
   /**
    * E2-7 — explicit windowed-activity resolution for the `recorded-act-windows` class. Defaults to
@@ -688,6 +695,35 @@ async function withAgents(
   }
 }
 
+/*
+ * The pending decision queue joins the SAME deterministic evidence set, through the authority that
+ * owns it. Read-only: `readDecisionQueueGroundingSource` holds no insert, no update and no
+ * transaction, and this module imports nothing else from Action Authorization — so no decision
+ * writer, proposal writer, permit consumer or permit revoker enters Heby's graph for this read.
+ */
+async function withDecisionQueue(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "decision-records")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveDecisionQueue ?? readDecisionQueueGroundingSource;
+    const queue = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "decision-records" ? queue : resolution,
+    );
+  } catch {
+    /*
+     * The pure resolver's `unavailable` stands. It says the read is server-side and does NOT say
+     * the queue is empty — which is why a thrown read may fall back to it safely.
+     */
+    return resolutions;
+  }
+}
+
 async function withAgentMandate(
   resolutions: readonly SourceResolution[],
   tenant: TenantContext,
@@ -926,7 +962,10 @@ export async function answerHebyModelRequest(
   // AMA-3 — and what each of those agents is FOR, and the most it may propose. A recorded ceiling,
   // authoritative and human-decided; never a permission, a permit or execution authority.
   const mandateResolutions = await withAgentMandate(agentResolutions, tenant, deps);
-  const recordedActResolutions = await withRecordedActs(mandateResolutions, tenant, deps);
+  // Heby decision-queue grounding — what this organization has recorded as awaiting a human
+  // decision, through the authority that owns it. Pending only; deciding remains `/approvals`.
+  const queueResolutions = await withDecisionQueue(mandateResolutions, tenant, deps);
+  const recordedActResolutions = await withRecordedActs(queueResolutions, tenant, deps);
   // E2-7 — and how much of it happened inside explicit, named periods. Two counts, never a trend.
   const windowResolutions = await withActWindows(recordedActResolutions, tenant, deps);
   // E2-8 — and which declared knowledge areas this organization holds facts in force in, and which

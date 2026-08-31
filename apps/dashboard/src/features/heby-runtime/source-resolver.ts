@@ -213,10 +213,17 @@ export function resolveSource(
      * printed beside an authoritative item this organization's `decision_records` had just
      * supplied, so the one word both meanings share made a true statement read as a false one.
      */
+    /*
+     * The pure-resolver default, and the same arrangement every connected class uses since G6D:
+     * this resolver holds no tenant and can open no connection, so it reports that the read is
+     * SERVER-SIDE rather than that nothing is connected. `withDecisionQueue` substitutes the real
+     * tenant-scoped resolution in the answer flow, and this sentence is also what a thrown read
+     * falls back to — so it must never read as "nothing is waiting".
+     */
     case "decision-records":
       return unavailable(
         "decision-records",
-        "No connected decision-preparation retrieval path. This is not the Governance decision record, which the governance source class reads.",
+        "Decision-preparation material — the actions awaiting a human decision — is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read. This is not the Governance decision record, which the governance source class reads.",
       );
     /*
      * R3W: prepared work IS durable and tenant-scoped, and it is read exactly the way K1 reads
