@@ -266,9 +266,43 @@ export const LIVE_MAP_FRESHNESS =
  * The domains Core represents, in render order. Structure and people are listed EXPLICITLY rather
  * than omitted: a map that silently leaves out departments reads as an organization that has none.
  */
+/**
+ * The structure sentence when the STRUCTURAL AUTHORITY COULD NOT BE READ (OSA-1).
+ *
+ * Until OSA-1 this said "Hebun has no authority for internal organizational structure", and that
+ * was true — there was none. There is one now, so continuing to say it would be a false statement
+ * about Hebun on the surface a Director trusts most. The sentence is repaired to the case that
+ * survives: the authority exists and could not answer.
+ *
+ *     UNAVAILABLE != EMPTY        NO DEPARTMENTS != NO STRUCTURE AUTHORITY
+ */
 export const LIVE_MAP_STRUCTURE_ABSENT =
-  "Hebun has no authority for internal organizational structure, so departments, teams and " +
-  "reporting lines cannot be shown. That is an absent authority, not an organization without them.";
+  "Hebun could not read this organization's recorded structure, so its departments are unknown — " +
+  "not absent. Nothing here says whether any department exists.";
+
+/** The sentence when the authority answered and this organization has recorded no department. */
+export const LIVE_MAP_STRUCTURE_NONE_RECORDED =
+  "This organization has recorded no departments. Hebun looked and found none — a measured " +
+  "answer, not an unread state. Teams and reporting lines remain unavailable: nothing owns them.";
+
+/**
+ * The sentence when departments ARE recorded.
+ *
+ * A COUNT, never a node. OSA-0 deferred drawing departments on the map to its own product
+ * milestone, so this states what exists and points at the surface that lists it rather than
+ * fabricating map nodes this projection has no contract for.
+ */
+export function liveMapStructureRecorded(inService: number, retired: number): string {
+  const parts = [
+    `${inService} department${inService === 1 ? "" : "s"} in service`,
+    retired > 0 ? `${retired} retired` : null,
+  ].filter(Boolean);
+  return (
+    `This organization has recorded ${parts.join(", ")}, through the Organization Structure ` +
+    "Authority. They are counted here and listed on the Organization surface; drawing them as map " +
+    "nodes is a later milestone. Teams and reporting lines remain unavailable: nothing owns them."
+  );
+}
 
 export const LIVE_MAP_PEOPLE_ABSENT =
   "Hebun holds a count of this organization's human members but no authority that lists them, and " +

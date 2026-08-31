@@ -4,6 +4,7 @@ import { OrganizationOverview } from "@/components/organization-domain/organizat
 import { DepartmentsPanel, ReportingAndBusinessUnits } from "@/components/organization-domain/organization-structure";
 import { EnterpriseRelationshipsPanel, RolesAndResponsibilities } from "@/components/organization-domain/organization-ownership";
 import { AuthoritativeOrganizationPanel } from "@/components/organization-domain/authoritative-organization";
+import { DepartmentStructurePanel } from "@/components/organization-domain/department-structure";
 import { getOrganizationProjection } from "@/features/enterprise-projection-providers";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -35,6 +36,15 @@ export default async function OrganizationDomainPage() {
       />
       <div className="space-y-6">
         <AuthoritativeOrganizationPanel read={authoritative} />
+        {/*
+          * OSA-1. The structural authority's own surface, ABOVE the disclosure line, because every
+          * row it renders is durable. It is deliberately adjacent to `AuthoritativeOrganizationPanel`
+          * and deliberately far from `DepartmentsPanel` below, which is the released mock: a reader
+          * must never be choosing between two controls that both look like "create a department".
+          */}
+        {authoritative.status === "available" ? (
+          <DepartmentStructurePanel structure={authoritative.organization.structure} />
+        ) : null}
         <p className="text-xs leading-5 text-fg-secondary">
           Everything below this line is an illustrative mock projection. It is not connected to any
           live system and Hebun does not vouch for it.

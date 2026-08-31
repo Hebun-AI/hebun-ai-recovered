@@ -44,19 +44,44 @@ function codeOf(source: string): string {
     .replace(/`(?:[^`\\]|\\.)*`/g, "``");
 }
 
-/* ── 1 · THE AUTHORITY HOLDS NO WRITER ─────────────────────────────────────── */
+/* ── 1 · THE ORGANIZATION READ HOLDS NO WRITER, AND EXACTLY ONE FILE WRITES ── */
+/*
+ * ── WHAT OSA-1 CHANGED HERE, AND WHAT IT DID NOT ─────────────────────────────
+ *
+ * L3's claim was "no file in this directory performs a durable write", and OSA-1 makes that
+ * sentence FALSE: the Organization Structure Authority lives here, and it writes `departments`.
+ *
+ * The claim is REPAIRED, not weakened, and the repaired form is STRICTER than a directory sweep:
+ * the writer is pinned BY NAME, so a second one appearing anywhere in this directory fails this
+ * test rather than silently joining an allowed class. L3's own read seam, its contracts and its
+ * grounding source are all still held to the original bar, unchanged.
+ *
+ *   ORGANIZATION IDENTITY (read-only)  !=  ORGANIZATION STRUCTURE (one writer, pinned by name)
+ */
+const STRUCTURE_WRITER = `${AUTHORITY_DIR}/write-structure.server.ts`;
+
 function theAuthorityCannotWrite(): void {
+  const writers = walk(AUTHORITY_DIR).filter((file) => performsDurableWrite(read(file)));
+  assert.deepEqual(
+    writers,
+    [STRUCTURE_WRITER],
+    "exactly ONE file in this directory may perform a durable write — the structure authority, " +
+      "by name. A second one is a new authority and must be a deliberate edit here.",
+  );
+
   for (const file of walk(AUTHORITY_DIR)) {
-    const source = read(file);
-    assert.ok(
-      !performsDurableWrite(source),
-      `${file}: the Organization Authority is read-only and must perform no durable write`,
-    );
-    const code = codeOf(source);
+    if (file === STRUCTURE_WRITER) continue;
+    const code = codeOf(read(file));
     for (const banned of ["transaction(", "delete(", "insert(", "update("]) {
       assert.ok(!code.includes(banned), `${file}: must not contain ${banned}`);
     }
   }
+
+  /* And the one writer that exists deletes nothing, anywhere. */
+  assert.ok(
+    !codeOf(read(STRUCTURE_WRITER)).includes("delete("),
+    "the structure authority retires in place and deletes nothing",
+  );
 }
 
 /* ── 2 · IT CANNOT AUTHORIZE, AND CANNOT REACH SOMETHING THAT DOES ─────────── */
@@ -120,10 +145,30 @@ function theAuthorityGrantsNothing(): void {
     );
   }
 
-  /* The permission tables stay exactly as unactivated as L3 found them. */
-  for (const symbol of ["rolePermissions", "permissions", "organizations", "departments"]) {
+  /*
+   * The permission tables — and the SECOND ORGANIZATION HIERARCHY — stay exactly as unactivated as
+   * L3 found them. `organizations` is still dead, and OSA-1 made it unrepresentable rather than
+   * merely unused: `departments_no_second_parent_chk` fails any row that populates it.
+   */
+  for (const symbol of ["rolePermissions", "permissions", "organizations"]) {
     assert.ok(!code.includes(symbol), `the Organization Authority must not reference ${symbol}`);
   }
+
+  /*
+   * `departments` WAS on that list, and OSA-1 makes its absence FALSE — that is the whole
+   * milestone. The pin is repaired to the stricter thing it was really protecting: L3's own read
+   * still holds NO department query. It delegates to the structure authority through one call, so
+   * there is still exactly ONE Organization read system and this seam did not become a second one.
+   */
+  const readerCode = codeOf(read(READER));
+  assert.ok(
+    !/from\s+["'][^"']*db\/schema\/department/.test(read(READER)),
+    "the L3 read must hold no department table import — it delegates, it does not query",
+  );
+  assert.ok(
+    readerCode.includes("readOrganizationStructure"),
+    "and it does delegate to the structure authority",
+  );
 }
 
 /* ── 3 · THE TENANT IS UNREPRESENTABLE AS AN ARGUMENT ──────────────────────── */
@@ -193,10 +238,23 @@ function thereIsOnlyOneAnswer(): void {
    *   And the directory is enumerated, so a fourth file cannot appear inside the authority — where
    *   sections 1 and 4 exclude it from the caller census — without somebody stating it here.
    */
+  /*
+   * OSA-1 adds THREE files and the census is extended by exactly three, deliberately: the
+   * structural contracts, the structural read, and the ONE structural writer. The enumeration is
+   * the point — a seventh file cannot appear in this directory without somebody stating it here.
+   */
   assert.deepEqual(
     walk(AUTHORITY_DIR).sort(),
-    [CONTRACTS, HEBY_SOURCE, READER].sort(),
-    "the Organization Authority is exactly its contracts, its read seam and its Heby projection",
+    [
+      CONTRACTS,
+      HEBY_SOURCE,
+      READER,
+      `${AUTHORITY_DIR}/structure-contracts.ts`,
+      `${AUTHORITY_DIR}/read-structure.server.ts`,
+      STRUCTURE_WRITER,
+    ].sort(),
+    "the Organization Authority is exactly its contracts, its read seam, its Heby projection, and " +
+      "OSA-1's structural contracts, structural read and single structural writer",
   );
 
   const hebyImportsFromAuthority = [

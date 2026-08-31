@@ -44,14 +44,21 @@ import {
 } from "@/db/schema/company";
 import {
   ORGANIZATION_PROVENANCE_DETAIL,
-  ORGANIZATION_STRUCTURE_UNAVAILABLE,
   type OrganizationAuthorityRead,
   type OrganizationProvenance,
 } from "./contracts";
+import { readOrganizationStructure } from "./read-structure.server";
 
 export interface OrganizationAuthorityDeps {
   /** Injected only by tests. Returning null means "durable persistence is not configured". */
   readonly getDb?: () => ControlPlaneDatabase | null;
+  /**
+   * OSA-1. The structural half of this seam's answer, injectable only by tests. It is a SEPARATE
+   * authority read through ONE call — this module gained no department query, no department table
+   * import and no structural rule of its own, so there is still exactly one Organization read
+   * system and consumers inherit structure without learning a second way to ask.
+   */
+  readonly readStructure?: typeof readOrganizationStructure;
 }
 
 /** The process control-plane handle, or null when this deployment configures none. */
@@ -134,6 +141,11 @@ export async function readOrganizationAuthority(
       .from(memberships)
       .where(and(eq(memberships.tenantId, tenantId), eq(memberships.lifecycleStatus, "active")));
 
+    /* OSA-1 — the structural authority, read through its own seam and its own handle. */
+    const structure = await (deps.readStructure ?? readOrganizationStructure)(tenant, {
+      getDb: () => db,
+    });
+
     return {
       status: "available",
       organization: {
@@ -145,7 +157,12 @@ export async function readOrganizationAuthority(
         provenance,
         provenanceDetail: ORGANIZATION_PROVENANCE_DETAIL[provenance],
         humanMemberCount: Number(memberRows[0]?.value ?? 0),
-        structure: ORGANIZATION_STRUCTURE_UNAVAILABLE,
+        /*
+         * OSA-1. Derived, never owned here. A structural read that FAILS yields the unavailable
+         * value rather than an empty list, because "Hebun could not look" must never render as
+         * "this organization has no departments".
+         */
+        structure,
       },
     };
   } catch {

@@ -281,6 +281,13 @@
       "when": 1788174263067,
       "tag": "20260831110423_ama1_agent_mandate_authority",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1788211494739,
+      "tag": "20260831212454_osa1_department_structure_authority",
+      "breakpoints": true
     }
   ]
 }

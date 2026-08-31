@@ -262,11 +262,11 @@ function nothingIsHardCodedToOneAgent(): void {
 
 function schemaIsUntouched(): void {
   const sql = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sql.length, 40, "AGENT-RUNTIME-0 adds no migration");
+  assert.equal(sql.length, 41, "AGENT-RUNTIME-0 adds no migration"); /* OSA-1 grew the ledger 40 -> 41: the departments additive hardening. */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 40, "and the ledger is unchanged");
+  assert.equal(journal.entries.length, 41, "and the ledger is unchanged");
 
   /* The two tables this phase writes and reads gained no column. */
   const artifactSchema = read("src/db/schema/work-artifact.ts");
@@ -326,13 +326,21 @@ function humanOnlyChecksAreIntact(): void {
        */
       "agent_mandates_human_establisher_chk",
       "decision_records_bootstrap_human_chk",
+      /*
+       * OSA-1. The census GREW A THIRD TIME, in the same strict direction. `departments` constrains
+       * its own OWNER to `human`, so an agent cannot be recorded as accountable for part of a human
+       * organization — and that refusal belongs to PostgreSQL rather than to the writer.
+       *
+       * Naming the census "the nine" and then finding ten is exactly what this enumeration is for.
+       */
+      "departments_human_owner_chk",
       "heby_action_requests_human_approver_chk",
       "identity_enrollment_requests_human_approver_chk",
       "knowledge_external_references_human_declarer_chk",
       "knowledge_external_references_human_withdrawer_chk",
       "membership_authorizations_human_authorizer_chk",
     ],
-    "the nine human-only CHECKs are exactly these — this phase widened none of them",
+    "the ten human-only CHECKs are exactly these — this phase widened none of them",
   );
 
   /*

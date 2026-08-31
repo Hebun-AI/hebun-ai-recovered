@@ -214,6 +214,13 @@ function main(): void {
       "src/features/governance-audit/integration-credential-audit.server.ts",
       "src/features/governance-audit/integration-lifecycle-audit.server.ts",
       "src/features/governance-audit/knowledge-mutation-audit.server.ts",
+      /*
+       * OSA-1 — the ELEVENTH declared sibling. It owns the history of the organization's recorded
+       * structure, appends to the SHARED sink like every other, and creates no second audit table.
+       * The census GREW; nothing in it was widened, which is what this assertion has always been
+       * about.
+       */
+      "src/features/governance-audit/organization-structure-audit.server.ts",
     ];
     const sinkWriters: string[] = [];
     const sinkImporters: string[] = [];

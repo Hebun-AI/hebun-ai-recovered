@@ -120,27 +120,84 @@ export const ORGANIZATION_PROVENANCE_DETAIL: Readonly<Record<OrganizationProvena
   });
 
 /**
- * Internal organizational structure — organizations, departments, teams.
+ * ONE DEPARTMENT, as the Organization Structure Authority records it (OSA-1).
  *
- * Modelled as its own always-unavailable fact rather than omitted, so a consumer must handle it
- * explicitly and cannot mistake a missing field for an empty one. When a legitimate structural
- * authority exists, this becomes available HERE and every consumer inherits it unchanged.
+ * Deliberately narrow: identity, lifecycle and ownership, and nothing else. `organization_id` is
+ * absent because it is permanently NULL and legacy, and `manager_actor_*` is absent because OSA-1
+ * writes no manager — exposing a column no writer sets would publish an empty field as a fact.
  */
-export interface OrganizationStructure {
-  readonly status: "unavailable";
-  readonly reason: "no-structural-authority";
-  /** The measured statement, carried to the surface rather than left in a comment. */
-  readonly detail: string;
+export interface DepartmentView {
+  readonly departmentId: string;
+  readonly name: string;
+  readonly slug: string;
+  /** The generic soft-delete state every governed read in this repository respects. */
+  readonly lifecycleStatus: string;
+  /** DERIVED from the absence of retirement, never stored. Two facts cannot then disagree. */
+  readonly inService: boolean;
+  /**
+   * The accountable human, or `null` when nobody has been made accountable yet.
+   *
+   * `currentlyActiveMember` is a SEPARATE, DERIVED fact: ownership is historical truth and survives
+   * a membership ending, so a department whose owner has left still names them — with this flag
+   * false — rather than silently becoming ownerless. It is a per-owner status check, never a
+   * roster: no name, no email, and no way to enumerate the organization's people.
+   */
+  readonly owner: {
+    readonly actorType: "human";
+    readonly actorId: string;
+    readonly currentlyActiveMember: boolean;
+  } | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
 }
 
+/**
+ * Internal organizational structure.
+ *
+ * ── THREE STATES, AND THEY MUST NEVER COLLAPSE INTO TWO ──────────────────────
+ *
+ *   unavailable            Hebun could not read the structural authority. It is NOT a statement
+ *                          that this organization has no departments.
+ *   available, empty       Hebun looked and this organization has recorded none. A real answer.
+ *   available, departments The recorded structure.
+ *
+ *     UNAVAILABLE != EMPTY        NO DEPARTMENTS != NO STRUCTURE AUTHORITY
+ *
+ * Until OSA-1 this type had exactly ONE possible value and its own comment promised that "when a
+ * legitimate structural authority exists, this becomes available HERE and every consumer inherits
+ * it unchanged". That promise is kept: the seam is the same, the field is the same, and no second
+ * Organization read system was created.
+ */
+export type OrganizationStructure =
+  | {
+      readonly status: "unavailable";
+      readonly reason: "no-structural-authority" | "read-failed";
+      /** The measured statement, carried to the surface rather than left in a comment. */
+      readonly detail: string;
+    }
+  | {
+      readonly status: "available";
+      readonly departments: readonly DepartmentView[];
+      /** The measured statement. Distinguishes "none recorded" from "these are recorded". */
+      readonly detail: string;
+    };
+
+/**
+ * Retained for the case OSA cannot answer at all. A structural read that FAILED must never render
+ * as an organization with no departments, so this stays a distinct value rather than an empty list.
+ */
 export const ORGANIZATION_STRUCTURE_UNAVAILABLE: OrganizationStructure = Object.freeze({
   status: "unavailable",
-  reason: "no-structural-authority",
+  reason: "read-failed",
   detail:
-    "Hebun has no authority for internal organizational structure. The organizations and " +
-    "departments tables exist but have no writer and no reader, so departments, teams and " +
-    "reporting lines are unavailable — not absent.",
+    "Hebun could not read this organization's internal structure, so its departments are " +
+    "unknown — not absent. Nothing here says whether any department exists.",
 });
+
+/** The honest sentence for an organization that has recorded no departments. */
+export const ORGANIZATION_STRUCTURE_EMPTY_DETAIL =
+  "This organization has recorded no departments. Hebun looked and found none — this is a " +
+  "measured answer, not an unread state.";
 
 /** The organization Hebun can actually vouch for. Every field is a durable row, never derived. */
 export interface AuthoritativeOrganization {
@@ -173,16 +230,25 @@ export type OrganizationAuthorityRead =
  */
 export const ORGANIZATION_AUTHORITY_MODEL = Object.freeze({
   kind: "tenant-rooted-read-only" as const,
-  /** L3 creates no organizational writer. The ceremony and `accept-invitation` keep theirs. */
+  /**
+   * L3's own read remains writer-free: it reads `companies` and counts `memberships`, and OSA-1
+   * did not give it an insert, an update or a transaction. The department writer is a SEPARATE
+   * module with a separate authority — see `structure-contracts.ts`.
+   */
   writerCreated: false as const,
-  /** No table was added, altered or activated. */
+  /** L3 added, altered and activated no table. OSA-1's hardening is `departments`, not this seam. */
   schemaChanged: false as const,
   /** The SEC-2 entry gate answer, in the repository rather than only in a document. */
   rolesCarryPermissions: false as const,
   permissionRuntimeConnected: false as const,
-  /** Structural truth is not owned here, and is not owned anywhere. */
-  structuralAuthorityExists: false as const,
+  /**
+   * OSA-1. Structural truth now HAS an owner — the Organization Structure Authority — and this
+   * seam derives it rather than owning it. It still answers no question about roles, permissions
+   * or authorization, and a department still confers nothing.
+   */
+  structuralAuthorityExists: true as const,
   limitation:
-    "This authority answers what organization exists, not how it is arranged. It confers no " +
-    "permission, decides no authorization, and cannot mutate anything.",
+    "This authority answers what organization exists and, since OSA-1, which departments it has " +
+    "recorded and who is accountable for them. It confers no permission, decides no " +
+    "authorization, and cannot mutate anything.",
 });

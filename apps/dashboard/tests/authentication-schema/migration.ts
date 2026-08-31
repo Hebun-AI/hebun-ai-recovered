@@ -80,7 +80,7 @@ try {
      *
      * SIA-3 held this line before it, at 39 (`agent_improvement_hypotheses`).
      */
-    assert.equal(migrationCount.rows[0]?.count, "40");
+    assert.equal(migrationCount.rows[0]?.count, "41"); /* OSA-1 grew the ledger 40 -> 41: the departments additive hardening. */
 
     /*
      * The rerun is about IDEMPOTENCE, not about the total, so it is compared to what the first run

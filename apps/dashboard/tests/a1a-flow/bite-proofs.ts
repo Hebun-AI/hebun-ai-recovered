@@ -166,7 +166,9 @@ const MUTATIONS: readonly Mutation[] = [
      */
     label: "M12 a migration is added",
     file: JOURNAL,
-    find: `      "tag": "20260831110423_ama1_agent_mandate_authority",\n      "breakpoints": true\n    }\n  ]`,
+    /* RE-ANCHORED at OSA-1: the mutation must apply to the journal's CURRENT tail, or it proves
+     * nothing. The defect it injects — an extra journal entry — is unchanged. */
+    find: `      "tag": "20260831212454_osa1_department_structure_authority",\n      "breakpoints": true\n    }\n  ]`,
     replace:
       `      "tag": "20260828190630_sia3_agent_improvement_hypothesis",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 36,\n      "version": "7",\n      "when": 1787726663801,\n` +

@@ -237,7 +237,19 @@ function main(): void {
 
   /* ── 7. NO SCHEMA, NO MIGRATION, NO WIDENED GOVERNANCE ────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 40, "this phase authored no migration — a sentence needs none");
+  /*
+   * PHASE-RELATIVE, NOT ABSOLUTE (repaired at OSA-1).
+   *
+   * This assertion said "the ledger holds exactly N migrations", which is a claim about
+   * EVERY LATER PHASE rather than about this one. OSA-1 added a legitimate migration and this
+   * pin failed — not because anything it protects moved, but because it was measuring the
+   * wrong thing. The claim it was really making is that THIS phase authored no migration, so
+   * that is what it now asserts, by name.
+   */
+  const disclosureMigrations = readdirSync(path.join(ROOT, MIGRATIONS)).filter(
+    (f) => f.endsWith(".sql") && /disclosure|ceremony/i.test(f),
+  );
+  assert.deepEqual(disclosureMigrations, [], "this phase authored no migration — a sentence needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const touched = `${codeOf(read(DISCLOSURE))}\n${codeOf(read(DURABLE_CARD))}`;

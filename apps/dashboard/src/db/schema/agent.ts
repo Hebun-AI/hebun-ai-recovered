@@ -11,6 +11,7 @@
  * later. `replacedByAgentId` is a self-ref succession pointer. Dual-column window:
  * `role` (legacy text) kept alongside the new governed lifecycle/type enums. */
 import {
+  foreignKey,
   index,
   pgTable,
   integer,
@@ -36,7 +37,15 @@ export const agents = pgTable(
   "agents",
   {
     ...tenantColumns,
-    departmentId: uuid("department_id").references(() => departments.id),
+    /**
+     * WHICH DEPARTMENT THIS AGENT BELONGS TO. Nullable, and NULL for every agent today: OSA-1
+     * established department structure and deliberately shipped no assignment writer, because the
+     * fact lives on this row and its writer must therefore be Agent Identity — which states that it
+     * holds "TWO authorities, TWO transitions, and no third".
+     *
+     * The FK is composite ON PURPOSE — see `agents_tenant_department_fk` below.
+     */
+    departmentId: uuid("department_id"),
     name: text("name").notNull(),
     role: text("role"),
 
@@ -105,5 +114,31 @@ export const agents = pgTable(
      * be pointed at another tenant's row without the database noticing.
      */
     uniqueIndex("agents_tenant_id_uq").on(t.tenantId, t.id),
+
+    /**
+     * TENANT-SAFE DEPARTMENT REFERENCE, ENFORCED BY THE DATABASE (OSA-1).
+     *
+     * This REPLACES a single-column FK to `departments(id)` that shipped in the foundation baseline
+     * and was inert only because `departments` was empty. The moment departments exist, that older
+     * shape would have let an agent be pointed at ANOTHER TENANT'S department with PostgreSQL
+     * raising nothing — the exact defect R3B repaired on `action_permits`, which recorded the rule:
+     * every sibling in this chain already carried a composite tenant binding, and the one that did
+     * not was the one that could be pointed elsewhere unnoticed.
+     *
+     * The anchor it needs — `departments_tenant_id_uq` on `(tenant_id, id)` — is added by OSA-1's
+     * hardening of that table.
+     *
+     * MATCH SIMPLE (PostgreSQL's default) means a row with `department_id` NULL satisfies this
+     * constraint regardless of `tenant_id`, so every existing agent — all of which carry NULL —
+     * stays valid. That is the intended behaviour, not a gap: an unassigned agent is a real state.
+     *
+     * `restrict` blocks nothing that happens today: OSA-1 ships no assignment writer, and
+     * departments are retired in place rather than deleted.
+     */
+    foreignKey({
+      name: "agents_tenant_department_fk",
+      columns: [t.tenantId, t.departmentId],
+      foreignColumns: [departments.tenantId, departments.id],
+    }).onDelete("restrict"),
   ],
 );

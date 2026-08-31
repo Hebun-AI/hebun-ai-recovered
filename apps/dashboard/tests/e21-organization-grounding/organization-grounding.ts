@@ -208,7 +208,16 @@ async function main(): Promise<void> {
       "the authority's structure-unavailable sentence must travel verbatim, not be re-worded",
     );
     assert.equal(ORGANIZATION_STRUCTURE_UNAVAILABLE.status, "unavailable");
-    assert.equal(ORGANIZATION_STRUCTURE_UNAVAILABLE.reason, "no-structural-authority");
+    /*
+     * OSA-1 changed WHY this value exists, and the pin follows the change rather than being
+     * loosened. Before OSA-1 the only possible reason was `no-structural-authority` — there was no
+     * authority to read. There is one now, so the value that survives is the one for a structural
+     * read that FAILED, and it is still the value this grounding path must carry when the authority
+     * cannot answer.
+     *
+     *     UNAVAILABLE != EMPTY   — and this is the unavailable half.
+     */
+    assert.equal(ORGANIZATION_STRUCTURE_UNAVAILABLE.reason, "read-failed");
 
     /*
      * AND IT IS NEVER RENDERED AS A KNOWN ZERO. `[]`, `0`, "none" and "no departments" are all
@@ -400,7 +409,16 @@ async function main(): Promise<void> {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 40, "E2-1 adds no migration");
+    /*
+     * PHASE-RELATIVE, NOT ABSOLUTE (repaired at OSA-1). An exact count asserts something about
+     * every LATER phase rather than about this one; the claim being made is that E2-1 added none.
+     */
+    const tags = journal.entries.map((entry) => String((entry as { tag?: unknown }).tag ?? ""));
+    assert.deepEqual(
+      tags.filter((tag) => /e2[_-]?1|organization[_-]?grounding/i.test(tag)),
+      [],
+      "E2-1 adds no migration",
+    );
 
     /*
      * AND THIS IS WHY IT NEEDS NONE: `source_class` is generic `text` whose only constraint excludes

@@ -379,7 +379,15 @@ function main(): void {
       assert.ok(!/tenantId|tenant_id/.test(code), `${file} must not read tenant identity`);
     }
     const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-    assert.equal(migrations.length, 40, "TRUTH-1 adds no migration");
+    /*
+     * PHASE-RELATIVE, NOT ABSOLUTE (repaired at OSA-1). An exact count is a claim about every
+     * later phase rather than about this one; the claim being made is that TRUTH-1 added none.
+     */
+    assert.deepEqual(
+      migrations.filter((f) => /truth|fiction/i.test(f)),
+      [],
+      "TRUTH-1 adds no migration",
+    );
     for (const file of migrations) {
       assert.ok(!/truth1|truth-1|fiction/i.test(file), `no migration bears this phase's name — found ${file}`);
     }

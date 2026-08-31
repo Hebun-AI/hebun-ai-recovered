@@ -280,8 +280,9 @@ async function noFictionIsDrawn(): Promise<void> {
   /* The absences are STATED — the strongest evidence that they were not drawn instead. */
   assert.ok(page.includes("Departments & teams"), "structure is named as a domain");
   assert.ok(
-    page.includes("absent authority, not an organization without them"),
-    "and stated as unowned rather than empty",
+    /* OSA-1: the sentence moved from "no authority exists" to "the authority could not answer". */
+    page.includes("unknown — not absent"),
+    "and stated as unread rather than empty",
   );
   assert.ok(page.includes("People"), "people are named");
   assert.ok(page.includes("no departmental placement"), "and membership is never relabelled");

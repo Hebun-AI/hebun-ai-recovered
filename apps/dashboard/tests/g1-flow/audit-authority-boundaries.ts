@@ -129,6 +129,12 @@ async function main(): Promise<void> {
       "src/features/governance-audit/integration-credential-audit.server.ts",
       "src/features/governance-audit/integration-lifecycle-audit.server.ts",
       "src/features/governance-audit/knowledge-mutation-audit.server.ts",
+      /*
+       * OSA-1 — the Organization Structure Authority's audit sibling. It appends to the SHARED
+       * sink like every other and creates no second audit table. The census GREW; nothing in it
+       * was widened.
+       */
+      "src/features/governance-audit/organization-structure-audit.server.ts",
     ];
     /*
      * WRITING is asked by MECHANISM (R7.1 repair).

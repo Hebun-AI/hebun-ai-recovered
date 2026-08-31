@@ -143,8 +143,42 @@ function detailFor(organization: AuthoritativeOrganization): string {
     /* A COUNT. L3 holds no roster and this line may never imply one. */
     `human members ${organization.humanMemberCount}`,
     organization.provenanceDetail,
-    organization.structure.detail,
+    structureClause(organization.structure),
   ].join(" · ");
+}
+
+/**
+ * THE STRUCTURE CLAUSE, INHERITED (OSA-1).
+ *
+ * Until OSA-1 this was the authority's refusal sentence, verbatim. It now carries whichever of the
+ * authority's THREE states is true, and the three never collapse into two:
+ *
+ *     UNAVAILABLE != EMPTY        NO DEPARTMENTS != NO STRUCTURE AUTHORITY
+ *
+ * Departments are named here — that is the whole point of the milestone — and each one carries
+ * whether an accountable human is recorded. What is NEVER carried is a claim ownership does not
+ * make: no permission, no approval right, no Governance authority. Heby may say "Finance is owned
+ * by <id>" only because OSA recorded exactly that, and for a department OSA has not recorded it
+ * says nothing at all rather than reaching for a role, an email or a seeded name.
+ *
+ * The owner is an IDENTIFIER, not a name: L3 holds a count and no roster, so resolving an id to a
+ * person is a read this authority has not earned and this line must not imply.
+ */
+function structureClause(structure: AuthoritativeOrganization["structure"]): string {
+  if (structure.status === "unavailable") return structure.detail;
+  if (structure.departments.length === 0) return structure.detail;
+
+  const named = structure.departments
+    .map((department) => {
+      const state = department.inService ? "in service" : "retired";
+      const owner = department.owner
+        ? `owner ${department.owner.actorId}${department.owner.currentlyActiveMember ? "" : " (no longer an active member)"}`
+        : "no owner recorded";
+      return `${department.name} [${department.slug}] ${state}, ${owner}`;
+    })
+    .join("; ");
+
+  return `${structure.detail} Departments: ${named}.`;
 }
 
 /**

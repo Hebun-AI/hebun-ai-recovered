@@ -603,9 +603,16 @@ async function structureRemainsUnowned(): Promise<void> {
   /* And the map still states the absence in its own words, unweakened. */
   const structure = domain(projection, "structure").state;
   if (structure.status !== "no-authority") throw new Error("unreachable");
+    /*
+     * OSA-1 repaired this sentence, and the assertion follows the repair rather than being
+     * dropped. "Hebun has no authority for internal organizational structure" became FALSE
+     * when the Organization Structure Authority shipped; the claim that survives — and the
+     * one this test has always really been about — is that an UNREAD structure is never
+     * rendered as a known zero.
+     */
   assert.match(
     structure.detail,
-    /absent authority, not an organization without them/,
+    /unknown — not absent/,
     "no-authority is still not a measured zero",
   );
 }

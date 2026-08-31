@@ -81,7 +81,10 @@ import {
   LIVE_MAP_INTELLIGENCE_COMPLETENESS_WORDING,
   LIVE_MAP_PEOPLE_ABSENT,
   LIVE_MAP_STRUCTURE_ABSENT,
+  LIVE_MAP_STRUCTURE_NONE_RECORDED,
+  liveMapStructureRecorded,
   type LiveMapDomain,
+  type LiveMapDomainState,
   type LiveMapEdge,
   type LiveMapIntelligenceCompleteness,
   type LiveMapNode,
@@ -128,6 +131,29 @@ const ORGANIZATION_UNAVAILABLE_DETAIL: Readonly<Record<string, string>> = Object
 });
 
 /** Build the organization domain from L3's answer, without reinterpreting any of it. */
+/**
+ * The structure domain's state, read off the SAME organization authority the map already consults.
+ *
+ * Three states, never two. A read that failed reports `unavailable`; an organization that recorded
+ * none reports `known-empty`, which is a real answer about the organization; recorded departments
+ * report `known-empty` too — with a count — because this projection draws no department node and
+ * `available` would promise nodes that are not there.
+ */
+function structureState(read: OrganizationAuthorityRead): LiveMapDomainState {
+  if (read.status === "unavailable" || read.organization.structure.status === "unavailable") {
+    return { status: "no-authority", detail: LIVE_MAP_STRUCTURE_ABSENT };
+  }
+  const departments = read.organization.structure.departments;
+  if (departments.length === 0) {
+    return { status: "known-empty", detail: LIVE_MAP_STRUCTURE_NONE_RECORDED };
+  }
+  const inService = departments.filter((department) => department.inService).length;
+  return {
+    status: "known-empty",
+    detail: liveMapStructureRecorded(inService, departments.length - inService),
+  };
+}
+
 function organizationDomain(read: OrganizationAuthorityRead): LiveMapDomain {
   if (read.status === "unavailable") {
     return {
@@ -530,14 +556,27 @@ export async function readLiveMapProjection(
   const agents = agentDomain(agentState, outcomeRead, awaitingRead, evaluatedAt);
 
   /*
-   * Structure and people are represented, not omitted. Their state is `no-authority` — a claim
-   * about Hebun, not about the organization — and it is constant today because no owner exists for
-   * either. When one does, it becomes available HERE and the surface inherits it unchanged.
+   * ── STRUCTURE, AFTER OSA-1 ───────────────────────────────────────────────────
+   *
+   * This domain was a constant `no-authority` because no owner existed for it. One exists now, so
+   * the constant became a FALSE claim about Hebun — the map would tell a Director "no authority for
+   * departments" while the Organization surface listed theirs.
+   *
+   * The repair is the NARROWEST one that makes the map truthful, and it deliberately stops short of
+   * the milestone OSA-0 deferred: the structure the map already receives — Live Map has read
+   * `readOrganizationAuthority` since L4, and OSA-1 put structure inside that read — is reported as
+   * a COUNT with the honest three states. No department NODE is drawn, no edge is invented, and no
+   * new seam is called. Drawing departments is its own product milestone.
+   *
+   *     UNAVAILABLE != EMPTY        COUNTED != DRAWN
+   *
+   * `people` is untouched and stays `no-authority`: OSA-1 shipped no roster, so that sentence is
+   * still exactly true.
    */
   const structure: LiveMapDomain = {
     domainId: "structure",
     label: "Departments & teams",
-    state: { status: "no-authority", detail: LIVE_MAP_STRUCTURE_ABSENT },
+    state: structureState(organizationRead),
   };
   const people: LiveMapDomain = {
     domainId: "people",

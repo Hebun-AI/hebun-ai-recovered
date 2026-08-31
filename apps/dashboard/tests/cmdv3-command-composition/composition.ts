@@ -665,10 +665,16 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
       "src/components/knowledge-workspace/knowledge-records.tsx",
       "src/components/knowledge-workspace/knowledge-sources-card.tsx",
       "src/components/knowledge-workspace/provider-document-admission-card.tsx",
+      /*
+       * OSA-1 — the department structure surface. It uses `StateBlock` for the ONE fact this axis
+       * exists to keep separate: an UNAVAILABLE structural read is not an organization with no
+       * departments. It opts into no density override either, so the pinned set above stays empty.
+       */
+      "src/components/organization-domain/department-structure.tsx",
     ],
-    "the six untouched Knowledge consumers remain, Command is still not among them, and the five " +
+    "the six untouched Knowledge consumers remain, Command is still not among them, and the six " +
       "additions are the durable identity ceremony, SIA-3.1's two hypothesis controls, KID-2's " +
-      "provider admission control, and AMA-3's mandate surface",
+      "provider admission control, AMA-3's mandate surface, and OSA-1's department structure",
   );
 }
 
@@ -686,8 +692,8 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* AMA-1 — the ledger grew to 40 when the Agent Mandate Authority landed, so BOTH values move with it. */
-const LEDGER_COUNT = 40;
+/* OSA-1 — the ledger grew to 41 with the departments additive hardening; BOTH values move with it. */
+const LEDGER_COUNT = 41;
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine. AGENT-ID-0.1 adds exactly
  * one boundary — the durable agent identity one — so nine became false. Naming the set beats bumping
@@ -696,6 +702,8 @@ const LEDGER_COUNT = 40;
 const USE_SERVER_MODULES = [
   "src/app/(dashboard)/agents/actions.ts",
   "src/app/(dashboard)/approvals/actions.ts",
+  /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
+  "src/app/(dashboard)/director/organization/actions.ts",
   "src/app/(dashboard)/foundation/actions.ts",
   "src/app/(dashboard)/governance/authority/actions.ts",
   "src/app/(dashboard)/governance/genesis/actions.ts",

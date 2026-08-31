@@ -79,7 +79,12 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M2 structure is emitted as a fabricated arrangement instead of the authority's denial",
     file: PROJECTION,
     suite: TRUTH_SUITE,
-    find: "    organization.structure.detail,",
+    /*
+     * OSA-1 moved this clause behind `structureClause`, which carries whichever of the authority's
+     * THREE states is true. The defect is unchanged — a fabricated arrangement replacing the
+     * authority's own sentence — so the mutation is re-anchored on the call that now produces it.
+     */
+    find: "    structureClause(organization.structure),",
     replace: '    "departments: Sales, Engineering",',
     expect: "structure-unavailable sentence must travel verbatim",
   },

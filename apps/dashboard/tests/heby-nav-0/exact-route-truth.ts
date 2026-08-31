@@ -73,6 +73,8 @@ const LEGACY_LABELS = ["inbox", "briefings", "strategic goals", "organization he
 const USE_SERVER_MODULES = [
   "src/app/(dashboard)/agents/actions.ts",
   "src/app/(dashboard)/approvals/actions.ts",
+  /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
+  "src/app/(dashboard)/director/organization/actions.ts",
   "src/app/(dashboard)/foundation/actions.ts",
   "src/app/(dashboard)/governance/authority/actions.ts",
   "src/app/(dashboard)/governance/genesis/actions.ts",
@@ -272,7 +274,8 @@ function resolutionGrantsNothing(): void {
   assert.deepEqual(
     walk("src").filter((f) => read(f).includes('"use server"')).sort(),
     USE_SERVER_MODULES,
-    "the server-action boundaries are exactly these — AGENT-ID-0.1 added the agents one and nothing else moved",
+    "the server-action boundaries are exactly these — AGENT-ID-0.1 added the agents one, OSA-1 " +
+      "added the organization one, and nothing else moved",
   );
   assert.equal(getHebyWorkspaceProfile("command").authority, "advisory-only", "Heby stays advisory in Command");
 }

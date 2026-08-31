@@ -74,7 +74,11 @@ export function AuthoritativeOrganizationPanel({ read }: { read: OrganizationAut
             {read.organization.provenanceDetail}
           </p>
           <p className="text-xs leading-5 text-fg-secondary">
-            <strong className="text-fg-secondary">Internal structure is unavailable.</strong>{" "}
+            <strong className="text-fg-secondary">
+              {read.organization.structure.status === "unavailable"
+                ? "Internal structure is unavailable."
+                : "Internal structure."}
+            </strong>{" "}
             {read.organization.structure.detail}
           </p>
         </div>

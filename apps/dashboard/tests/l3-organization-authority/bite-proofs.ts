@@ -119,7 +119,13 @@ const MUTATIONS: readonly Mutation[] = [
       `        organization: {\n` +
       `          organizationId: tenantId, name: "", slug: "", lifecycleStatus: "active",\n` +
       `          tenantStatus: null, provenance: "unrecorded", humanMemberCount: 0,\n` +
-      `          structure: ORGANIZATION_STRUCTURE_UNAVAILABLE,\n` +
+      /*
+       * OSA-1: the mutation must still COMPILE, or the suite fails for the wrong reason and the
+       * proof proves nothing. `read-organization.server.ts` no longer imports the unavailable
+       * constant — it derives structure through the structural authority — so the fabricated
+       * organization carries the shape inline instead of a symbol that is no longer in scope.
+       */
+      `          structure: { status: "unavailable" as const, reason: "read-failed" as const, detail: "" },\n` +
       `        },\n` +
       `      };\n` +
       `    }`,
@@ -168,7 +174,12 @@ const MUTATIONS: readonly Mutation[] = [
       `  await db.update(companies).set({ name: "renamed" }).where(eq(companies.id, id));\n` +
       `}\n` +
       `export interface OrganizationAuthorityDeps {`,
-    expect: "read-only and must perform no durable write",
+    /*
+     * OSA-1 repaired the firewall from a directory sweep to a writer PINNED BY NAME, so the
+     * defect this proof injects — a SECOND writer in this directory — is now caught by a
+     * stricter assertion with a different sentence. The guard still bites; it says more.
+     */
+    expect: "exactly ONE file in this directory may perform a durable write",
   },
   {
     /* THE SURFACE IS NOT THE AUTHORITY. */
@@ -198,8 +209,14 @@ const MUTATIONS: readonly Mutation[] = [
     label: "O11 the mock projection is rendered above the authoritative section",
     file: PAGE,
     suite: FIREWALL_SUITE,
-    find: `        <AuthoritativeOrganizationPanel read={authoritative} />\n        <p className="text-xs leading-5 text-fg-secondary">`,
-    replace: `        <OrganizationOverview items={organization.readiness} />\n        <AuthoritativeOrganizationPanel read={authoritative} />\n        <p className="text-xs leading-5 text-fg-secondary">`,
+    /*
+     * OSA-1 inserted the structural panel between the authoritative panel and the disclosure line,
+     * so the find-string moved. It is re-anchored on the authoritative panel ALONE — the shortest
+     * string that still identifies the position this proof is about — rather than on whatever
+     * happens to follow it, which is what made it brittle in the first place.
+     */
+    find: `        <AuthoritativeOrganizationPanel read={authoritative} />`,
+    replace: `        <OrganizationOverview items={organization.readiness} />\n        <AuthoritativeOrganizationPanel read={authoritative} />`,
     expect: "the authoritative section is rendered before the mock projection",
   },
 ];

@@ -120,6 +120,8 @@ const DASHBOARD_ROUTE_COUNT = 130;
 const USE_SERVER_MODULES = [
   "src/app/(dashboard)/agents/actions.ts",
   "src/app/(dashboard)/approvals/actions.ts",
+  /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
+  "src/app/(dashboard)/director/organization/actions.ts",
   "src/app/(dashboard)/foundation/actions.ts",
   "src/app/(dashboard)/governance/authority/actions.ts",
   "src/app/(dashboard)/governance/genesis/actions.ts",
@@ -140,9 +142,9 @@ const USE_SERVER_MODULES = [
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* AMA-1 — the ledger grew to 40 when the Agent Mandate Authority landed, so BOTH values move with it. */
-const LEDGER_COUNT = 40;
-const LEDGER_DIGEST = "a9a8ad3c4908f84c";
+/* OSA-1 — the ledger grew to 41 with the departments additive hardening; BOTH values move with it. */
+const LEDGER_COUNT = 41;
+const LEDGER_DIGEST = "f735610ebeec164b";
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

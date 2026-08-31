@@ -567,13 +567,18 @@ async function main(): Promise<void> {
            */
           "agent_mandates_human_establisher_chk",
           "decision_records_bootstrap_human_chk",
+          /*
+           * OSA-1. `departments` constrains its own OWNER to `human`: an agent cannot be recorded
+           * as accountable for part of a human organization, and PostgreSQL refuses it.
+           */
+          "departments_human_owner_chk",
           "heby_action_requests_human_approver_chk",
           "identity_enrollment_requests_human_approver_chk",
           "knowledge_external_references_human_declarer_chk",
           "knowledge_external_references_human_withdrawer_chk",
           "membership_authorizations_human_authorizer_chk",
         ],
-        "the nine human-only CHECKs are enforced by the database, and this phase widened none of them",
+        "the ten human-only CHECKs are enforced by the database, and this phase widened none of them",
       );
     }
 

@@ -414,8 +414,8 @@ function amA2AddedNothingToTheDatabase(): void {
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
   assert.equal(
     journal.entries.length,
-    40,
-    "the migration ledger is unchanged at 40 — AMA-2 is a read, not a schema change",
+    41,
+    "the migration ledger is unchanged at 41 — AMA-2 is a read, not a schema change",
   );
 
   /*

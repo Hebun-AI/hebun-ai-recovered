@@ -92,8 +92,8 @@ function main(): void {
       entries: { idx: number; tag: string }[];
     };
     const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-    assert.equal(journal.entries.length, 40, "MIGRATION DELTA = 0 — the ledger stays at 40");
-    assert.equal(files.length, 40, "no `.sql` was added");
+    assert.equal(journal.entries.length, 41, "MIGRATION DELTA = 0 — the ledger stays where OSA-1 left it");
+    assert.equal(files.length, 41, "no `.sql` was added beyond OSA-1's");
   }
 
   /* ── 2. AUTHORITATIVE WRITER DELTA = 0 ───────────────────────────────────── */

@@ -578,7 +578,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 40, "APP-2 adds no migration — the ledger carries none of its authoring");
+    assert.equal(journal.entries.length, 41, "APP-2 adds no migration — the ledger carries none of its authoring"); /* OSA-1 grew the ledger 40 -> 41: the departments additive hardening. */
   }
 
   console.log("app2-decision-truth/decision-surface-firewall: OK");

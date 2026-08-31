@@ -329,8 +329,14 @@ function main(): void {
    * That phase added the composite-foreign-key anchor `agents_tenant_id_uq`, so byte-identity to
    * `edc303c` is no longer true. Deleting the entry would have been the weak repair: it would let
    * any future edit to the agents table pass unnoticed. Instead the released text is reconstructed
-   * forward — apply exactly the two known additions to `edc303c` and require the result to equal
-   * the file on disk. Anything else that moved in that file, by a byte, fails here.
+   * forward — apply exactly the KNOWN additions to `edc303c` and require the result to equal the
+   * file on disk. Anything else that moved in that file, by a byte, fails here.
+   *
+   * OSA-1 added two more, and they are declared rather than absorbed: the `foreignKey` import, and
+   * the replacement of `department_id`'s UNSAFE single-column reference with a documented plain
+   * column whose composite FK lives in the index block. That FK is the repair OSA-0 identified as
+   * the milestone's strongest architectural risk — a single-column FK to `departments` that would
+   * have let an agent be pointed at another tenant's department the day departments existed.
    */
   {
     const released = execFileSync("git", ["show", "edc303c:apps/dashboard/src/db/schema/agent.ts"], {
@@ -339,11 +345,22 @@ function main(): void {
       maxBuffer: 8 * 1024 * 1024,
     });
     const withImport = released.replace("  timestamp,\n  uuid,", "  timestamp,\n  uniqueIndex,\n  uuid,");
-    assert.notEqual(withImport, released, "the uniqueIndex import is the first of the two additions");
+    assert.notEqual(withImport, released, "the uniqueIndex import is the first known addition");
+    const withForeignKey = withImport.replace("import {\n  index,", "import {\n  foreignKey,\n  index,");
+    assert.notEqual(withForeignKey, withImport, "the foreignKey import is the second (OSA-1)");
     const current = read("src/db/schema/agent.ts");
+    /* OSA-1's column change, taken from the file and required to be exactly this shape. */
+    const columnStart = current.indexOf("    /**\n     * WHICH DEPARTMENT THIS AGENT BELONGS TO.");
+    const columnEnd = current.indexOf('    name: text("name").notNull(),');
+    assert.ok(columnStart > 0 && columnEnd > columnStart, "the department column carries its OSA-1 note");
+    const withColumn = withForeignKey.replace(
+      '    departmentId: uuid("department_id").references(() => departments.id),\n',
+      current.slice(columnStart, columnEnd),
+    );
+    assert.notEqual(withColumn, withForeignKey, "the single-column department FK is gone (OSA-1)");
     const anchorAt = current.indexOf('    uniqueIndex("agents_tenant_id_uq").on(t.tenantId, t.id),');
     assert.ok(anchorAt > 0, "the composite anchor is present");
-    const reconstructed = withImport.replace(
+    const reconstructed = withColumn.replace(
       '  (t) => [index("agents_execution_posture_idx").on(t.executionPosture)],',
       current.slice(
         current.indexOf('  (t) => [\n    index("agents_execution_posture_idx")'),
@@ -353,20 +370,37 @@ function main(): void {
     assert.equal(
       current,
       reconstructed,
-      "src/db/schema/agent.ts differs from edc303c by EXACTLY the composite anchor and its import",
+      "src/db/schema/agent.ts differs from edc303c by EXACTLY the composite anchor, the two " +
+        "imports, and OSA-1's department column and its tenant-safe composite FK",
     );
     /*
-     * And the added block really is only indexes. Scoped to the table's constraint block — an
-     * earlier version sliced the file by a prefix the new import line had already displaced, so it
-     * scanned the whole file and accused the column definitions of being the addition.
+     * And the added block introduces no COLUMN and no CHECK. Scoped to the table's constraint
+     * block — an earlier version sliced the file by a prefix the new import line had already
+     * displaced, so it scanned the whole file and accused the column definitions of being the
+     * addition.
+     *
+     * `foreignKey(` LEFT THIS LIST AT OSA-1, and it is the one exception that had to be stated
+     * rather than absorbed: the block now carries `agents_tenant_department_fk`, which REPLACED a
+     * single-column FK that PostgreSQL could not use to enforce same-tenant. The ban is therefore
+     * narrowed to "no SECOND foreign key", by count, so the block cannot quietly grow another one.
      */
     const block = current.slice(current.indexOf("  (t) => ["), current.indexOf("  ],", anchorAt));
-    for (const forbidden of ["notNull", "default(", "check(", "foreignKey(", "jsonb(", "text("]) {
+    for (const forbidden of ["notNull", "default(", "check(", "jsonb(", "text("]) {
       assert.ok(
         !block.includes(forbidden),
-        `the agents-table addition introduces no ${forbidden} — it is an index and nothing else`,
+        `the agents-table addition introduces no ${forbidden} — it is indexes and one FK repair`,
       );
     }
+    assert.equal(
+      block.split("foreignKey(").length - 1,
+      1,
+      "exactly ONE foreign key in the block — OSA-1's tenant-safe department binding, and no other",
+    );
+    assert.match(
+      block,
+      /agents_tenant_department_fk[\s\S]*foreignColumns: \[departments\.tenantId, departments\.id\]/,
+      "and it binds the tenant and the department together, which is the whole repair",
+    );
   }
   for (const [file, release] of UNTOUCHED) {
     const released = execFileSync("git", ["show", `${release}:apps/dashboard/${file}`], {
@@ -379,7 +413,7 @@ function main(): void {
 
   /* ── 10. SCHEMA, LEDGER AND HUMAN SUPREMACY UNTOUCHED ─────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 40, "this phase authored no migration — a type needs none");
+  assert.equal(sqlCount, 41, "this phase authored no migration — a type needs none");
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))

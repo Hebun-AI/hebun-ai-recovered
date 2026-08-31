@@ -90,7 +90,19 @@ async function availableOrganizationIsRead(): Promise<void> {
     "the origin sentence is resolved by the authority",
   );
 
-  /* Structure is unavailable even on the happy path. It is a fact, not a failure mode. */
+  /*
+   * ── WHAT OSA-1 CHANGED HERE ─────────────────────────────────────────────────
+   *
+   * L3 pinned "structure is unavailable even on the happy path", and that WAS the truth: the type
+   * had exactly one possible value. OSA-1 gives structure an authority, so the pin is repaired to
+   * the thing it was really protecting — that the three states never collapse into two.
+   *
+   * This fixture injects no structure read, so the seam falls back to the unavailable value, and
+   * asserting THAT is now the stronger claim: an unread structure must never render as an
+   * organization with no departments.
+   *
+   *     UNAVAILABLE != EMPTY
+   */
   assert.deepEqual(read.organization.structure, ORGANIZATION_STRUCTURE_UNAVAILABLE);
   assert.equal(read.organization.structure.status, "unavailable");
 
@@ -202,7 +214,12 @@ async function provenanceIsTranslatedNeverGuessed(): Promise<void> {
 function theModelStatesWhatWasMeasured(): void {
   assert.equal(ORGANIZATION_AUTHORITY_MODEL.writerCreated, false);
   assert.equal(ORGANIZATION_AUTHORITY_MODEL.schemaChanged, false);
-  assert.equal(ORGANIZATION_AUTHORITY_MODEL.structuralAuthorityExists, false);
+  /*
+   * OSA-1 INVERTED THIS, and it is the only field of the model that moved. L3's own read is still
+   * writer-free and still changed no schema — `writerCreated` and `schemaChanged` above are
+   * unchanged and are asserted first, so this line cannot be read as L3 having gained a writer.
+   */
+  assert.equal(ORGANIZATION_AUTHORITY_MODEL.structuralAuthorityExists, true);
   /* The SEC-2 entry gate answer, readable by a machine and not only by a reviewer. */
   assert.equal(ORGANIZATION_AUTHORITY_MODEL.rolesCarryPermissions, false);
   assert.equal(ORGANIZATION_AUTHORITY_MODEL.permissionRuntimeConnected, false);

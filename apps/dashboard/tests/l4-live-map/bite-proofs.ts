@@ -109,8 +109,14 @@ const MUTATIONS: readonly Mutation[] = [
     label: "V4 no-authority is downgraded to known-empty",
     file: PROJECTION,
     suite: TRUTH_SUITE,
-    find: `    state: { status: "no-authority", detail: LIVE_MAP_STRUCTURE_ABSENT },`,
-    replace: `    state: { status: "known-empty", detail: LIVE_MAP_STRUCTURE_ABSENT },`,
+    /*
+     * RE-ANCHORED at OSA-1. The structure domain's state is now DERIVED by `structureState`, so the
+     * defect is injected where that function decides it: an UNREAD structure downgraded from
+     * `no-authority` to `known-empty` is exactly "could not look" rendered as "looked and found
+     * none", which is the defect this proof has always been about.
+     */
+    find: `    return { status: "no-authority", detail: LIVE_MAP_STRUCTURE_ABSENT };`,
+    replace: `    return { status: "known-empty", detail: LIVE_MAP_STRUCTURE_ABSENT };`,
     expect: "no-authority",
   },
   {

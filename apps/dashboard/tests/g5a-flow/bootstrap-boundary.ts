@@ -509,6 +509,8 @@ function noSchemaNoRegression(): void {
       "20260828190630_sia3_agent_improvement_hypothesis.sql",
       /* AMA-1 — the Agent Mandate Authority table. A declared later phase, not this one's. */
       "20260831110423_ama1_agent_mandate_authority.sql",
+      /* OSA-1 — the departments additive hardening. A declared later phase, not this one's. */
+      "20260831212454_osa1_department_structure_authority.sql",
     ],
     "G5A authored no migration; what follows is a declared later phase",
   );

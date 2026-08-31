@@ -240,7 +240,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 40, "A1a adds no migration — the ledger carries none of its authoring");
+    assert.equal(journal.entries.length, 41, "A1a adds no migration — the ledger carries none of its authoring"); /* OSA-1 grew the ledger 40 -> 41: the departments additive hardening. */
   }
 
   console.log("a1a-flow/attribution-firewall: OK");

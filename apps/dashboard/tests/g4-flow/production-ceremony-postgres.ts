@@ -192,7 +192,11 @@ async function main(): Promise<void> {
         /* AMA-1: migration 40 (`agent_mandates`) grew the ledger again, and the digest moved with
          * it — still on the DISPOSABLE database, which carries what this working tree authors.
          * Production stands at 39 (`bbc1d66c…`) until its own gated migration ceremony. */
-        "2a9522bb36ca3d8406efc4abc0ef3088",
+        /* OSA-1: migration 41 (the `departments` additive hardening) grew it once more, and the
+         * digest moved with it for the same reason. PRODUCTION STANDS AT 40 (`2a9522bb…`) — the
+         * value this line held until now — and converges only when its own gated ceremony runs.
+         * That gap is deliberate: OSA-1 authored the migration and applied it nowhere but here. */
+        "42186bb31b22a719a9b57b528ed42161",
         /*
          * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
          * sentence had been false since R2H — whose own comment, three lines above it, said

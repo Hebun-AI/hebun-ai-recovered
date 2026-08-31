@@ -56,8 +56,8 @@ const OWNED = [MODEL, COMPONENT] as const;
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-const LEDGER_COUNT = 40;
-const LEDGER_DIGEST = "a9a8ad3c4908f84c";
+const LEDGER_COUNT = 41; /* OSA-1 grew the ledger 40 -> 41: the departments additive hardening. */
+const LEDGER_DIGEST = "f735610ebeec164b";
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *
@@ -82,6 +82,8 @@ const LEDGER_DIGEST = "a9a8ad3c4908f84c";
 const USE_SERVER_MODULES = [
   "src/app/(dashboard)/agents/actions.ts",
   "src/app/(dashboard)/approvals/actions.ts",
+  /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
+  "src/app/(dashboard)/director/organization/actions.ts",
   "src/app/(dashboard)/foundation/actions.ts",
   "src/app/(dashboard)/governance/authority/actions.ts",
   "src/app/(dashboard)/governance/genesis/actions.ts",

@@ -175,8 +175,16 @@ function noAuthorityIsReachable(): void {
         [
           "src/features/organization-authority/contracts.ts",
           "src/features/organization-authority/read-organization.server.ts",
+          /*
+           * OSA-1. The structural read is reached TRANSITIVELY, through the one seam Live Map
+           * already called — not by Live Map importing it. That is the milestone's own claim:
+           * consumers INHERIT structure and do not learn a second way to ask. Live Map's own
+           * source is unchanged, and the structure WRITER is still absent from this census.
+           */
+          "src/features/organization-authority/read-structure.server.ts",
         ],
-        "Live Map reaches the Organization Authority's read seam and nothing beside it",
+        "Live Map reaches the Organization Authority's read seam — and, through it, the structural " +
+          "read it delegates to. Nothing beside those, and no writer.",
       );
       continue;
     }

@@ -223,9 +223,27 @@ function noFictionEnters(): void {
 /* ── 7 · NO SCHEMA, NO MIGRATION, NO PERSISTENCE ──────────────────────────── */
 function nothingWasPersisted(): void {
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 40, "the migration ledger is unchanged at 40");
+  /*
+   * PHASE-RELATIVE, NOT ABSOLUTE (repaired at OSA-1).
+   *
+   * These lines said "the ledger holds exactly N", which is a claim about every LATER phase
+   * rather than about this one. OSA-1 added a legitimate migration and they failed — not
+   * because anything they protect moved, but because they measured the wrong thing. The claim
+   * being made is that THIS phase persisted nothing, so that is what is asserted, plus the
+   * integrity check that the journal and the files on disk still agree.
+   */
+  assert.ok(journal.entries.length > 0, "the migration ledger is readable");
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 40, "and no migration file was added");
+  assert.equal(
+    journal.entries.length,
+    sqlFiles.length,
+    "the journal and the files on disk agree — a ledger that disagrees with itself is the real risk",
+  );
+  assert.deepEqual(
+    sqlFiles.filter((f) => /live[_-]?map|experience/i.test(f)),
+    [],
+    "this phase authored no migration",
+  );
 }
 
 /* ── 8 · THE GLOBAL SEARCH WAS REDUCED, NOT SILENTLY DELETED ──────────────── */
