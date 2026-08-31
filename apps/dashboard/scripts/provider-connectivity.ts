@@ -174,7 +174,13 @@ async function main(): Promise<void> {
       `"${providerKey}" cannot be armed through a PRODUCTION ceremony. Model connectivity became ` +
         "production-capable at R2H; external send did not, because arming it sends real messages " +
         "to real recipients and that reachability belongs to its own gate. The LOCAL ceremony is " +
-        "unchanged and still arms it. Nothing was read from the control table and nothing was written.",
+        "unchanged and still arms it. Nothing was read from the control table and nothing was written.\n\n" +
+        "  That gate now exists and is a DIFFERENT command, deliberately:\n" +
+        "    npm run platform:external-send -- arm\n" +
+        "  It refuses unless the send configuration is complete, the recipient table is readable " +
+        "and the deployment holds an active recipient, and it states the blast radius before it " +
+        "asks. This refusal is not weakened by its existence: external send stays unreachable " +
+        "through THIS ceremony in production.",
     );
   }
 

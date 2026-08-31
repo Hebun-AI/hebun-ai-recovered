@@ -15,6 +15,7 @@
     "tenant:provision": "node --import tsx scripts/tenant-provision.ts",
     "tenant:lifecycle": "node --import tsx scripts/tenant-lifecycle.ts",
     "provider:connectivity": "node --import tsx scripts/provider-connectivity.ts",
+    "platform:external-send": "node --import tsx scripts/external-send-arming.ts",
     "integration:rotate-key": "node --import tsx scripts/integration-rotate-encryption-key.ts",
     "verify": "npm run lint && npm run typecheck && npm run test:run && npm run build",
     "platform:preflight": "node --import tsx scripts/platform-preflight.ts",

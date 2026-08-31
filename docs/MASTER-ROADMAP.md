@@ -3279,6 +3279,78 @@ refuses to write rather than "fabricating semantics the repository never defined
 architecture decision is what Hebun means by authoritative Knowledge and which authority may confer
 it.** It is a Director decision and nothing here presumes it.
 
+**ESA — Production external-send arming gate · RELEASED, NOT ARMED.** A discovery pass toward Era III
+found the execution chain already complete: `/send` inlet → `prepareAction` → `recordActionRequest`
+→ `/approvals` → permit → R3B's transaction → a REAL Resend adapter → attempt row → audit → outcome
+observation. Production holds three pending `send-external-communication` requests, one active
+recipient and three active drafts. **Nothing was missing except reachability — and reachability was
+refused by design.**
+
+`provider-connectivity.ts` refuses `external-send` in a production posture, in its own words:
+arming it *"sends real messages to real recipients and that reachability belongs to its own gate…
+It is a DEFERRAL with a named owner, not a prohibition: production arming earns its own gate, where
+the send configuration, the recipient authority and the blast radius are the subject rather than a
+side effect of a connectivity change."* **That gate did not exist. This is it, and it makes those
+three things the subject.**
+
+### What it is, and what it deliberately is not
+
+**No new state owner.** `provider_connectivity_controls` remains the one authoritative row, and the
+write is `setProviderConnectivity` — the same released function, same four columns, same optimistic
+predicate, same `configuration-incomplete` refusal underneath. **No new authority.** The root is
+unchanged: possession of the deployment, proved by G4's signal and a pinned cluster, with
+`updated_by` left NULL because a trust root causes an operation without identifying the operator.
+**No new execution authority.** Arming makes sending REACHABLE and nothing else.
+
+    ARMED != AUTHORIZED     REACHABLE != APPROVED     CONFIGURED != VERIFIED
+
+**A separate command, not a widened one.** G4's reason for the deferral was reachability — *"a
+production-reachable arming switch is one command away from armed."* Folding this into the generic
+CLI would restore exactly that. `npm run platform:external-send -- arm` is production-posture-only,
+demands a longer confirmation phrase than a provider key, and carries preconditions the generic path
+does not have. **The generic ceremony's refusal is untouched and a test asserts it** — `external-send`
+remains unreachable through `provider:connectivity` in production. Its refusal message now names
+where the gate went, which weakens nothing.
+
+**Arming refuses unless:** the posture is production; the credential, sender and subject are all
+present (by NAME in the diagnostic, never by value); the recipient table is readable; and the
+deployment holds at least one active recipient. **An unreadable recipient table is refused, never
+read as zero** — a failed read and a deployment with nobody to send to are different facts.
+
+**Disarming is deliberately easier than arming, and that asymmetry is the point.** It checks posture
+and current state and nothing else. The writer already states the rule for its own gate — *"a kill
+switch that could not be turned off under a degraded configuration would be the wrong failure
+direction"* — and a gate that could arm production sending without closing it again would be a
+one-way door. **Today's generic refusal blocks BOTH directions in production, so before this gate
+existed there was no way to disarm production external send either.** That is now fixed.
+
+### Blast radius, stated rather than softened
+
+The control row is root-scoped: no `tenant_id`, one row per provider key for the whole deployment.
+Arming makes outbound sending reachable **for every tenant at once**. The ceremony prints that, prints
+the deployment-wide count of active recipients and how many tenants hold one, and states plainly that
+per-tenant containment does not exist. **Per-tenant containment is required before multi-tenant
+production execution** — recorded here, not designed here, and not needed for the current
+single-tenant state.
+
+### Validation
+
+Suite **609/609** (607 + 2 new suites), typecheck clean, lint zero errors. The write is proved
+against a real PostgreSQL database: the production root is recorded, `updated_by` stays NULL, exactly
+one control row exists, and **eight watched tables are unchanged across four transitions** — requests,
+permits, attempts, decisions, sessions, audit, Knowledge and recipients. **Four bite-proofs were
+watched to bite**: dropping the production-posture gate, treating an unreadable recipient table as
+zero, gating disarm on configuration, and skipping the confirmation check.
+
+```
+GATE RELEASED        = YES
+CONFIGURED           = NO   (no Resend credential, sender or subject in production)
+ARMED                = NO   (no external-send control row exists)
+REQUEST APPROVED     = NO   ·  PERMIT = NONE  ·  ATTEMPT = NONE  ·  SEND = NONE
+```
+
+**Era III is still NOT STARTED.** The gate is a prerequisite, not the first governed execution.
+
 ```
 NEXT MILESTONE = NOT YET SELECTED
 ```
