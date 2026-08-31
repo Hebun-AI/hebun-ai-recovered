@@ -3351,6 +3351,67 @@ REQUEST APPROVED     = NO   ·  PERMIT = NONE  ·  ATTEMPT = NONE  ·  SEND = NO
 
 **Era III is still NOT STARTED.** The gate is a prerequisite, not the first governed execution.
 
+**FIRST GOVERNED EXECUTION — PRODUCTION-ACCEPTED. Hebun has acted on the outside world, once.**
+A human-proposed `send-external-communication` request was authorized in the product, a bounded
+permit was issued and spent, and R3B's transaction made one real call to Resend, which accepted it.
+**This does NOT start Era III** — see the determination below.
+
+Measured afterwards through the released seams, against a baseline captured before the ceremony:
+
+| | before | after |
+|---|---|---|
+| Request 1 (human-proposed) | pending | **approved**, human decider, no rejection |
+| Governance decisions | 3 | **4** — `approve` · subject `heby_action_request` · outcome `action-authorized` · human actor and human authority source |
+| Governance sessions | 3 | **4** |
+| Permits | 0 | **1** — issued 10:11:52Z, TTL 3600s, **consumed** 10:13:36Z, never revoked |
+| Execution attempts | 0 | **1** — `accepted`, adapter `resend-email-v1`, provider message id present, 320 ms |
+| Audit rows | 27 | **31** — `governance.action.approved`, `…permit.issued`, `…permit.consumed`, `…execution.attempted`, all `committed` |
+| Requests 2 and 3 (agent-proposed) | pending | **pending, untouched** — 0 permits, 0 attempts, 0 sends each |
+
+**Every binding holds.** The permit names request 1 and the approval decision that authorized it; its
+`bound_payload_digest` equals the request's; the attempt names that permit, carries the same
+`handoff_id`, the same payload digest, and the same recipient-endpoint and draft-revision digests the
+request froze. **One decision, one permit, one attempt, one accepted send — no duplicate anywhere.**
+
+### The four semantics, each now at a different value
+
+```
+CONFIGURED  != VERIFIED    configured at the ceremony; VERIFIED only now, by a real provider call
+ARMED       != AUTHORIZED  armed by possession ceremony; authorized by a Governance decision, later
+AUTHORIZED  != EXECUTED    approved 10:11:52Z; executed 10:13:36Z — 104 seconds and a human click apart
+ACCEPTED    != DELIVERED   Resend accepted the request. Hebun does not know it arrived.
+```
+
+**Delivery is HUMAN-OBSERVED and is not system truth.** The Director saw the message in the intended
+inbox, with the configured subject and the drafted body. **Hebun holds no delivery-status seam** — no
+webhook, no reconciliation, no status lookup, and `ExternalSendAdapter` has exactly one operation.
+The attempt's `accepted` is the provider's acknowledgement of the request and nothing more, and the
+adapter's own descriptor says so: *"Acceptance is not delivery."* The sighting is recorded here as a
+human observation and is not promoted into an authoritative delivery record, because no such record
+exists to promote it into.
+
+The attempt is not in `UNRECONCILED_ATTEMPT_STATUSES` — `accepted` is a confirmed outcome, so no
+human reconciliation is owed. External send remains **armed**, version 1, `production-operator-ceremony`.
+
+### Era III determination — NOT STARTED, and this execution does not start it
+
+**The roadmap's rule is explicit and repeated:** *"An era closing selects nothing… The next program
+or era is a **separate Director decision**, taken from measured repository and product reality"*, and
+Era III *"is not opened by Era II closing, exactly as Era II was not opened by numbering."* Nothing in
+this document says an era is opened by a capability succeeding. **A successful first governed
+execution is a fact about a capability, not a decision about an era**, and inferring one from the
+other is precisely the succession this roadmap refuses everywhere else.
+
+So: **First Governed Execution = PRODUCTION-ACCEPTED. Era III = NOT STARTED.** Activating it remains a
+Director decision, recorded as such, taken from measured reality — and this record is part of that
+measured reality without being that decision.
+
+```
+GATE RELEASED = YES · CONFIGURED = YES · ARMED = YES · AUTHORIZED = YES (one request)
+EXECUTED = YES (once) · PROVIDER ACCEPTED = YES · DELIVERED = HUMAN-OBSERVED ONLY
+ERA III = NOT STARTED · NEXT MILESTONE = NOT SELECTED
+```
+
 ```
 NEXT MILESTONE = NOT YET SELECTED
 ```
