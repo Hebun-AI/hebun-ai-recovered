@@ -3118,6 +3118,53 @@ HMR-0's "Foundation ~70%" estimate is **not preserved**. It had no defensible de
 
 **That decision was taken, and it did not open an era.** After a Post-Era-II Strategic Product Gate measured production — 40 Heby messages and 275 grounding-evidence rows against **one** Knowledge fact, zero permits and zero execution attempts — the Director selected **Knowledge Ingestion Depth (KID)**, a finite two-milestone program (§12A). **KID-1 and KID-2 are both RELEASED, and the program's PRODUCTION ACCEPTANCE is now PASS.** Those were different states and both are now true; no KID-3 exists — waiting for a provider was a release gate, not a milestone. **What it was blocked ON changed twice**: an enablement gate found that Hebun held TWO restricted Google scopes, not one, so the Director adapted the permission model rather than pay for restricted-scope verification and an annual CASA assessment; the production admission path became Google Picker + the non-sensitive `drive.file` scope (§12B), which left acceptance blocked on configuration and one human grant. Both were then supplied, and the whole path — Picker, real Google Doc, real provider read, human admission, provenance, coverage 0/10 → 1/10, Heby answering in `/knowledge` — ran in production while Hebun held **no restricted Drive scope**. A program is not an era: Era II stays **CLOSED**, Era III stays **NOT STARTED**, and no Era II milestone is reopened.
 
+**A release gate followed it, and it was run: Knowledge ratification is PRODUCTION-ACCEPTED.** KID
+left production holding two Knowledge facts and **zero** ratified ones, while K4's ratification
+runtime had been released and wired to `/knowledge` for milestones without ever being exercised —
+because `GOVERNANCE_SUBJECT_TYPES` is closed at `knowledge_node` and, until KID, no such row existed.
+KID created the first ratifiable subject. The Director then reviewed version 1 of the admitted
+`policies` record in the released review card and ratified it. **This opened no milestone and wrote
+no code** — running an existing released capability in production is a gate, the same rule KID's own
+closure applied to itself.
+
+Measured afterwards through the released seams, against a baseline captured before the click:
+
+| | before | after |
+|---|---|---|
+| Knowledge facts / nodes | 2 / 2 | **2 / 2** — no duplicate, no v2, no superseding node |
+| Ratified versions | 0 | **1** |
+| Governance decisions | 2 | **3** — `ratify` · subject `knowledge_node` · outcome `ratified` · human actor · human authority source |
+| Governance sessions | 2 | **3** |
+| Audit rows | 25 | **27** — `governance.decision.recorded` and `knowledge.ratify`, both `committed`, at the identical instant |
+| Declared-area coverage | 1/10 | **1/10 — unchanged** |
+| Permits · execution attempts | 0 · 0 | **0 · 0** |
+
+The decision is bound to that exact version and nothing else: the decision's subject id is the
+version's row id, the version points back at that decision, the session matches, the actor is the
+same human, and both timestamps are the same instant — one transaction, as K4 specifies.
+
+**RATIFICATION DID NOT PROMOTE THE AUTHORITY FIELD, and that is the released design.** The record
+still reads `provisional` / `draft` after ratification, because the writer sets exactly eight columns
+— the decision, the session, the ratifying actor pair, `ratified_at`, and the `updated_*` trio — and
+`knowledge_authority` is not among them. The Company Understanding tallies are therefore
+**overlapping buckets, not a partition**: `policies` now reports *1 fact in force · 1 carrying a
+bound Governance decision · 1 not marked authoritative*, and all three describe the same record.
+A reader who takes the third line as "ratification failed" has misread it.
+
+```
+ADMITTED     != RATIFIED
+PROVISIONAL  != RATIFIED
+RATIFIED     != TRUE
+RATIFIED     != EXTERNALLY VERIFIED
+RATIFIED     != PERMANENTLY FRESH
+RATIFIED     != AUTHORITATIVE (the authority field is untouched)
+```
+
+Ratification applies to **this exact version only**; a future version requires its own Governance
+decision, and the card says so before the act. The gate proves the released authority can perform
+the transition in production. **It creates no ratification policy, no automatic ratification, and no
+permit or execution authority** — all three execution tables remain empty.
+
 ```
 NEXT MILESTONE = NOT YET SELECTED
 ```
@@ -3148,7 +3195,7 @@ Nothing in Era II is authorized by this document. In particular, a candidate bei
 
 ```
 ERA I CLOSED     != PRODUCT FINISHED
-ERA II OPEN      != ALL ERA II WORK AUTHORIZED
+ERA II CLOSED    != ALL ERA II WORK AUTHORIZED
 E2-2 CLOSED      != SECURITY COMPLETE
 E2-3 CLOSED      != LIVE MAP COMPLETE
 LMX-1 CLOSED     != LIVE MAP COMPLETE
