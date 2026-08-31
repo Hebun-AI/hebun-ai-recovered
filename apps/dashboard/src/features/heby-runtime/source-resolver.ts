@@ -144,6 +144,18 @@ export function resolveSource(
         "Durable agents are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
       );
     /*
+     * AMA-3. Same arrangement. The sentence must not say "no mandate" or "unbounded": this
+     * resolution is ALSO what `withAgentMandate` falls back to when the real read throws, and
+     * reporting a failed read as an agent nobody has bounded would be the exact defect G6D
+     * repaired for Governance — here it would additionally be the single most dangerous thing this
+     * class could say, because NO MANDATE != UNLIMITED MANDATE runs the other way too.
+     */
+    case "agent-mandate":
+      return unavailable(
+        "agent-mandate",
+        "Recorded agent mandates are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
+    /*
      * E2-6. The same arrangement every connected class uses: this resolver is PURE — it holds no
      * tenant and can open no connection — so it reports the honest default, and the server answer
      * flow substitutes the real tenant-scoped read. G6D's correction applies: it states that the

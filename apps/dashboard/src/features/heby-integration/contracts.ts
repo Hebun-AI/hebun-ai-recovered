@@ -307,6 +307,33 @@ export type HebySourceClass =
    */
   | "agents"
   /*
+   * AMA-3. WHAT A DURABLE AGENT IS **FOR**, and the maximum surface inside which it may PROPOSE.
+   *
+   * The class `agents` says it does not carry, in its own words: *"what it is for, what it may do
+   * … OUTCOME != MANDATE"*. That sentence was a boundary, and this is the class that answers the
+   * other side of it — from a different authority, with a different standing.
+   *
+   * IT IS NOT PART OF `agents`, AND THE REASON IS THE ONE THAT FILE STATES ABOUT ITSELF. `agents`
+   * is DERIVED (`authoritative: false`) because it carries recomputed counts, and
+   * `SourceResolution.authoritative` is ONE boolean for a whole class — so "a class cannot assert
+   * one standing and cite under another". A mandate is a durable, versioned row a human wrote
+   * under a bound Governance decision. Filing it under a derived class would give the one thing on
+   * that surface a human actually DECIDED the standing of a recomputed number.
+   *
+   * IT IS A CEILING, AND IT GRANTS NOTHING. Every item under this class carries the denial with it
+   * rather than trusting a prompt to remember it:
+   *
+   *     IN MANDATE    != AUTHORIZED
+   *     IN MANDATE    != A PERMIT
+   *     IN MANDATE    != EXECUTION
+   *     NO MANDATE    != UNLIMITED MANDATE
+   *     UNAVAILABLE   != NO MANDATE
+   *
+   * No credential, no provider configuration, no permission row, no role, no department and no
+   * `authority_ceiling` travels under it, because the released read seam carries none of them.
+   */
+  | "agent-mandate"
+  /*
    * E2-6. WHAT THIS ORGANIZATION ACTUALLY DID, as Hebun's own writers recorded it.
    *
    * It is its own class rather than part of `governance` — the class it most looks like — because
@@ -378,6 +405,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "integrations",
   "organization",
   "agents",
+  "agent-mandate",
   "recorded-acts",
   "recorded-act-windows",
   "knowledge-coverage",

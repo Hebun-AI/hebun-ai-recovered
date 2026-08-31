@@ -11,6 +11,8 @@ import { retireDurableAgentIdentity } from "@/features/agent-identity/retire-dur
  */
 import type { CreateDurableAgentIdentityResult } from "@/features/agent-identity/contracts";
 import type { RetireDurableAgentIdentityResult } from "@/features/agent-identity/retirement-contracts";
+import { establishAgentMandate } from "@/features/agent-mandate/establish-agent-mandate.server";
+import type { EstablishAgentMandateResult } from "@/features/agent-mandate/contracts";
 import { fileImprovementHypothesis } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
 import type { HypothesisResult } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
 
@@ -146,5 +148,75 @@ export async function fileImprovementHypothesisAction(input: {
       typeof input?.supersedesHypothesisId === "string" ? input.supersedesHypothesisId : null,
   });
   if (result.status === "filed") revalidatePath("/agents");
+  return result;
+}
+
+/*
+ * ── AMA-3: ESTABLISHING OR REVISING ONE AGENT MANDATE ───────────────────────────────────────────
+ *
+ * The first product write path Agent Mandate Authority has ever had. AMA-1 shipped the authority,
+ * its persistence, its Governance binding and its audit sibling with nothing that could reach them;
+ * AMA-2 made the recorded ceiling actually refuse agent proposals. Until this action, every mandate
+ * in existence had been written by a test or a script — the authority was live and unreachable.
+ *
+ * IT IS TRANSPORT, NOT AUTHORITY. It resolves the tenant, calls the ONE released writer, and
+ * returns what that writer said. It holds no gate: every refusal is produced inside
+ * `establishAgentMandate`, so this boundary cannot drift from the rules it fronts, and it contains
+ * no INSERT of its own — AMA-1's census that exactly one module writes `agent_mandates` is
+ * unchanged by this file's existence.
+ *
+ * WHAT THE CLIENT MAY SEND, EXHAUSTIVELY: which agent, a purpose, a proposal scope, a
+ * justification, and the revision the human was shown.
+ *
+ * WHAT THE CLIENT CANNOT SEND, BECAUSE NO FIELD EXISTS FOR IT: the tenant, the actor, the actor's
+ * type, the Governance authority, the Governance decision id, the Governance session id, the
+ * revision ordinal, the predecessor mandate id, `effective_from`, any timestamp, any audit row, any
+ * permit, any lifecycle or agent field. Every one of those is derived by the writer inside its own
+ * transaction. The types make them unrepresentable here rather than filtered downstream.
+ *
+ * THE SCOPE IS NOT VALIDATED HERE, DELIBERATELY. `canonicaliseMandateScope` refuses a scope naming
+ * anything outside the released vocabulary WHOLE, and never narrows it — silently dropping an
+ * inadmissible member would record a mandate nobody authorized. Re-checking here would create a
+ * second opinion about what is admissible, and the second opinion is always the one that drifts.
+ * The UI offers only the released vocabulary; the writer is what enforces it.
+ *
+ * AUTHORITY IS GOVERNANCE'S, AND STRUCTURALLY SO. The writer resolves `resolveGovernanceAuthority`
+ * and refuses `no-governance-authority` or `not-the-governance-authority`. A tenant owner without
+ * Governance authority is refused exactly like a stranger, and this action adds no path around it.
+ *
+ * CONCURRENCY FAILS CLOSED. `observedMandateRevision` is the revision the human was actually shown.
+ * A ceiling revised by somebody else in the meantime is refused `stale-mandate-revision`, never
+ * merged and never overwritten — K4's rule, that a compare-and-swap can only ever REFUSE.
+ *
+ * WITHDRAWAL IS AN EMPTY SCOPE, NOT A BOOLEAN AND NOT A LIFECYCLE. It is the same one transition,
+ * recorded as a new revision, and there is no separate withdraw action here because no such
+ * authority was written.
+ *
+ * ESTABLISHING A MANDATE AUTHORIZES NOTHING. It writes no permit, starts no execution, reaches no
+ * provider, mutates no agent row and grants no permission. It can only ever SUBTRACT from what the
+ * agent could already propose.
+ *
+ * HEBY CANNOT REACH THIS FILE. Heby's server actions do not import this module, and Heby's
+ * grounding imports the mandate READ seam only — so no message, model answer, slash command or
+ * voice transcript has a representation in which Heby could bound, widen or withdraw its own
+ * mandate.
+ */
+export async function establishAgentMandateAction(input: {
+  readonly agentId: string;
+  readonly purpose: string;
+  readonly proposalScope: readonly string[];
+  readonly justification: string;
+  readonly observedMandateRevision: number | null;
+}): Promise<EstablishAgentMandateResult> {
+  const tenant = await resolveTenantContext();
+  const result = await establishAgentMandate(tenant, {
+    agentId: String(input?.agentId ?? ""),
+    purpose: String(input?.purpose ?? ""),
+    proposalScope: Array.isArray(input?.proposalScope) ? input.proposalScope.map(String) : [],
+    justification: String(input?.justification ?? ""),
+    observedMandateRevision:
+      typeof input?.observedMandateRevision === "number" ? input.observedMandateRevision : null,
+  });
+  if (result.status === "established") revalidatePath("/agents");
   return result;
 }

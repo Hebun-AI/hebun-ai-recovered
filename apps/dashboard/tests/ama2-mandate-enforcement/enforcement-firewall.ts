@@ -40,6 +40,8 @@ const ROOT = process.cwd();
 const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
 
 const SEAM = "src/features/action-authorization/record-action-request.server.ts";
+/* AMA-3. The product surface that RENDERS a mandate. It reads one; it enforces nothing. */
+const PRODUCT_SURFACE = "src/app/(dashboard)/agents/page.tsx";
 const CONTRACTS = "src/features/action-authorization/contracts.ts";
 const ORIGINATION_CONTRACTS = "src/features/agent-origination/contracts.ts";
 const MANDATE_FEATURE = "src/features/agent-mandate";
@@ -86,11 +88,42 @@ function exactlyOneEnforcementSeam(): void {
     })
     .sort();
 
+  /*
+   * TWO READERS, AND ONLY ONE OF THEM ENFORCES — AMA-3 INVERTED THIS NARROWLY, IT DID NOT RELAX IT.
+   *
+   * AMA-2's census read "exactly ONE module reads a mandate", which was the same sentence as
+   * "exactly one module enforces one" only while nothing could DISPLAY a mandate. AMA-3 gave the
+   * product a surface, and a surface that renders a ceiling constrains nothing — it writes no
+   * request row, and it is not on any proposal path.
+   *
+   * So the two claims are separated: the readers are named exhaustively, and the ENFORCEMENT claim
+   * is asserted below against the seam alone. A third reader added anywhere still fails here.
+   */
   assert.deepEqual(
     consumers,
-    [SEAM],
-    "exactly ONE module outside the mandate authority reads a mandate, and it is the proposal writer",
+    [PRODUCT_SURFACE, SEAM],
+    "exactly TWO modules outside the mandate authority read a mandate: the product surface renders one, the proposal writer enforces one",
   );
+
+  /*
+   * AND THE PRODUCT SURFACE ENFORCES NOTHING. It holds no proposal writer, no request table and no
+   * ceiling gate — reading a mandate to show a human is not reading one to refuse an act.
+   *
+   *     RENDERING A CEILING != ENFORCING ONE
+   */
+  const surface = codeOf(read(PRODUCT_SURFACE));
+  for (const forbidden of [
+    "recordAgentOriginatedActionRequest",
+    "recordActionRequest",
+    "hebyActionRequests",
+    "mandateCeilingRefusal",
+    "AGENT_ORIGINABLE_REGISTRY_KIND",
+  ]) {
+    assert.ok(
+      !surface.includes(forbidden),
+      `the product surface does not reach ${forbidden} — it renders a ceiling, it does not apply one`,
+    );
+  }
 
   /*
    * AND IT CONSULTS IT EXACTLY ONCE. Two call sites would be two gates, and two gates can disagree
@@ -149,8 +182,36 @@ function enforcementIsNotSmearedAcrossTheSystem(): void {
     /* Providers are further downstream still. */
     "src/features/providers",
   ];
+  /*
+   * AMA-3's THREE PRODUCT FILES ARE EXEMPTED BY NAME, NEVER BY DIRECTORY.
+   *
+   * A human must be able to read and record a mandate, and that surface lives under `src/app` and
+   * `src/components` — the two trees this section otherwise bans outright. Exempting the
+   * DIRECTORIES would have let any page in the product acquire a ceiling of its own; exempting
+   * three named files keeps the ban exactly as strong everywhere else, and each of the three is
+   * proved below to enforce nothing.
+   */
+  const PRODUCT_EXEMPT = new Set(
+    [
+      "src/app/(dashboard)/agents/page.tsx",
+      "src/app/(dashboard)/agents/actions.ts",
+      "src/components/agents/agent-mandate-card.tsx",
+      /*
+       * AMA-3 — HEBY'S ANSWER FLOW READS A MANDATE AS EVIDENCE, AND AMA-2's CLAIM IS UNCHANGED.
+       *
+       * This directory was banned because "a model is not an enforcement mechanism". It still is
+       * not: nothing here gates an act on a mandate, and the class it composes reaches model
+       * context as GROUNDING DATA. Heby can now say what it may propose; it still cannot decide
+       * whether anything may be proposed, and the seam that does is untouched.
+       *
+       *     GROUNDING ON A CEILING != ENFORCING ONE
+       */
+      "src/features/heby-answer/model-answer.server.ts",
+    ].map((f) => path.join(...f.split("/"))),
+  );
   for (const dir of FORBIDDEN_HOMES) {
     for (const file of collect(dir)) {
+      if (PRODUCT_EXEMPT.has(file)) continue;
       const source = codeOf(read(file));
       for (const reach of [
         /features\/agent-mandate/,
@@ -163,6 +224,29 @@ function enforcementIsNotSmearedAcrossTheSystem(): void {
           `${file} does not enforce a mandate (${reach.source}) — enforcement is ONE writer seam`,
         );
       }
+    }
+  }
+
+  /*
+   * AND THE THREE EXEMPTED FILES ENFORCE NOTHING. Each may read a mandate and one may call the
+   * released writer; none may reach the proposal path, the request table or the ceiling gate.
+   *
+   *     RENDERING A CEILING != ENFORCING ONE     RECORDING A CEILING != ENFORCING ONE
+   */
+  for (const file of PRODUCT_EXEMPT) {
+    const source = codeOf(read(file));
+    for (const forbidden of [
+      "recordAgentOriginatedActionRequest",
+      "recordActionRequest",
+      "hebyActionRequests",
+      "mandateCeilingRefusal",
+      "AGENT_ORIGINABLE_REGISTRY_KIND",
+      "agentMandates",
+    ]) {
+      assert.ok(
+        !source.includes(forbidden),
+        `${file} does not reach ${forbidden} — the product asks an authority, it is not one`,
+      );
     }
   }
 

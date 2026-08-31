@@ -111,13 +111,19 @@ function resolveImport(spec: string, from: string): string | null {
   return null;
 }
 
-/** The REAL import graph, walked. A path-name rule would pass while a db handle smuggled the world in. */
-function reachableFrom(entry: string): Set<string> {
+/**
+ * The REAL import graph, walked. A path-name rule would pass while a db handle smuggled the world in.
+ *
+ * `cut` removes named modules from the walk WITHOUT marking them reached, so a caller can ask "what
+ * would still be reachable if this authority were not in the graph?" — which is how AMA-3 proves the
+ * Governance decision writer is reached THROUGH the mandate authority rather than beside it.
+ */
+function reachableFrom(entry: string, cut: ReadonlySet<string> = new Set()): Set<string> {
   const seen = new Set<string>();
   const stack = [entry];
   while (stack.length > 0) {
     const file = stack.pop()!;
-    if (seen.has(file)) continue;
+    if (seen.has(file) || cut.has(file)) continue;
     seen.add(file);
     const code = codeOf(read(file));
     for (const match of code.matchAll(/from\s+"([^"]+)"/g)) {
@@ -299,16 +305,51 @@ function main(): void {
    * reaches one of them (`decision-authority`, because ratification is a governance act), so this
    * boundary is strictly narrower than the released precedent rather than merely equal to it.
    */
+  /*
+   * ── AMA-3 MOVED THIS BOUNDARY FROM "NARROWER THAN THE PRECEDENT" TO "EQUAL TO IT" ──────────
+   *
+   * The comment above already named the shape: Knowledge's action reaches `decision-authority`
+   * BECAUSE RATIFICATION IS A GOVERNANCE ACT. AMA-3 gave `/agents` a third authority whose act is
+   * governance in exactly the same way — AMA-1's design is that Governance authorizes every mandate
+   * transition, in the mandate writer's own transaction. So this boundary now reaches the decision
+   * writer for the same reason the released precedent does, and asserting otherwise would be
+   * asserting that a mandate needs no human authorization.
+   *
+   * IT IS REACHED THROUGH THE MANDATE AUTHORITY, NEVER DIRECTLY, and that is asserted below rather
+   * than assumed. The other three forbidden modules stay unreachable: this boundary still issues no
+   * credential, decides no action request and executes nothing.
+   *
+   *     GOVERNANCE AUTHORIZES A MANDATE != GOVERNANCE OWNS A MANDATE
+   */
+  const GOVERNANCE_DECISION = "src/features/governance-decision/decision-authority.server.ts";
   const actionReach = reachableFrom(ACTIONS);
   for (const forbidden of FORBIDDEN_REACH.filter(
-    (f) => f !== "src/features/auth-runtime/credential-repository.server.ts",
+    (f) =>
+      f !== "src/features/auth-runtime/credential-repository.server.ts" &&
+      f !== GOVERNANCE_DECISION,
   )) {
     assert.ok(
       !actionReach.has(forbidden),
-      `${ACTIONS} must not reach ${forbidden} — the boundary authenticates a human and calls two ` +
-        `authorities; it decides, authorizes and executes nothing`,
+      `${ACTIONS} must not reach ${forbidden} — the boundary authenticates a human and calls ` +
+        `named authorities; it issues no credential, decides no action request and executes nothing`,
     );
   }
+
+  /*
+   * AND THE GOVERNANCE REACH IS THE MANDATE AUTHORITY'S, NOT THE BOUNDARY'S. Removing the mandate
+   * writer from the graph must remove the decision writer with it — otherwise this action would
+   * have acquired a direct path to Governance, which is a different and much worse fact.
+   */
+  assert.ok(
+    actionReach.has(GOVERNANCE_DECISION),
+    "the boundary reaches the Governance decision writer, because recording a mandate is a governance act",
+  );
+  assert.ok(
+    !reachableFrom(ACTIONS, new Set(["src/features/agent-mandate/establish-agent-mandate.server.ts"])).has(
+      GOVERNANCE_DECISION,
+    ),
+    "and it reaches it ONLY through the mandate authority — no direct Governance door was opened",
+  );
   assert.ok(
     reachableFrom("src/app/(dashboard)/knowledge/actions.ts").has(
       "src/features/governance-decision/decision-authority.server.ts",
@@ -330,7 +371,15 @@ function main(): void {
    * (SIA-3 put the type beside the writer rather than in a contracts file, so the value import and
    * the `import type` name the same specifier).
    *
-   * The census stays EXACT, which is the whole value of it: a fourth authority still fails here.
+   * ── EXTENDED AGAIN BY AMA-3, AND AGAIN EXTENDED RATHER THAN RELAXED ──────
+   *
+   * A FOURTH authority: the released AMA-1 mandate writer, so an authenticated human holding
+   * Governance authority can record what a durable agent is FOR. Same shape as the three above it —
+   * one authority, called with the resolved tenant, no gate held here — and its result TYPE comes
+   * from the mandate feature's own `contracts` module, which declares types and refusal codes and
+   * holds no database handle, no query and no authority.
+   *
+   * The census stays EXACT, which is the whole value of it: a fifth authority still fails here.
    * Loosening this to a prefix rule would let any future agent-side capability arrive silently,
    * which is precisely what this assertion exists to stop.
    */
@@ -343,10 +392,12 @@ function main(): void {
       "@/features/agent-identity/retirement-contracts",
       "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server",
       "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server",
+      "@/features/agent-mandate/contracts",
+      "@/features/agent-mandate/establish-agent-mandate.server",
       "@/features/auth-runtime/request-session.server",
       "next/cache",
     ],
-    "the boundary imports exactly the session resolver, the two authorities, their two type-only " +
+    "the boundary imports exactly the session resolver, the FOUR authorities, their type-only " +
       "contracts modules, and revalidation — nothing else has a door here",
   );
 
@@ -459,10 +510,17 @@ function main(): void {
     [...actions.matchAll(/export async function (\w+)/g)].map((m) => m[1]).sort(),
     [
       "createDurableAgentIdentityAction",
+      /*
+       * AMA-3. Recording or revising what a durable agent is FOR. ONE action for both, because
+       * both are the same released transition: a new revision. There is deliberately no
+       * `withdrawAgentMandateAction` — withdrawal is a revision whose scope is empty, and a
+       * separate action would imply a second transition this authority does not have.
+       */
+      "establishAgentMandateAction",
       "fileImprovementHypothesisAction",
       "retireDurableAgentIdentityAction",
     ],
-    "the boundary exposes exactly three actions: establish, withdraw, and file a hypothesis",
+    "the boundary exposes exactly four actions: establish an identity, withdraw one, record a mandate, and file a hypothesis",
   );
   /*
    * AND THERE IS STILL NO REINSTATE — nor any other verb that would undo a retirement. Retirement

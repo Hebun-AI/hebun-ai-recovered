@@ -104,6 +104,13 @@ import { readIntegrationGroundingSource } from "@/features/integration-authority
  */
 import { readOrganizationGroundingSource } from "@/features/organization-authority/heby-organization-source.server";
 import { readAgentGroundingSource } from "@/features/agent-outcome-observation/heby-agent-source.server";
+/*
+ * AMA-3 — the MANDATE authority's own projection, not the outcome authority's. Two different
+ * authorities, two classes, two standings: what an agent may propose is authoritative, what became
+ * of what it proposed is derived. Heby imports the read projection and never the mandate barrel,
+ * which re-exports the writer.
+ */
+import { readAgentMandateGroundingSource } from "@/features/agent-mandate/heby-mandate-source.server";
 import { readRecordedActGroundingSource } from "@/features/governance-activity/heby-recorded-act-source.server";
 import { readActWindowGroundingSource } from "@/features/governance-activity/heby-act-window-source.server";
 import { readKnowledgeCoverageGroundingSource } from "@/features/knowledge/heby-knowledge-coverage-source.server";
@@ -275,6 +282,14 @@ export interface HebyModelAnswerDeps {
    * workspaces that declare the class (today: Command only), and it can only ever contribute
    * EVIDENCE — never a writer, never an audit row, never authority over the ledger.
    */
+  /**
+   * AMA-3 — explicit mandate resolution for the `agent-mandate` class. Defaults to the real
+   * tenant-scoped read through the Agent Mandate Authority's own projection. Consulted ONLY for
+   * workspaces that declare the class (today: Command only), and it can only ever contribute
+   * EVIDENCE — never a mandate writer, never a Governance decision, never authority of any kind.
+   * A mandate reaching model context is a CEILING being reported, never a permission being granted.
+   */
+  readonly resolveAgentMandate?: (tenant: TenantContext) => Promise<SourceResolution>;
   readonly resolveRecordedActs?: (tenant: TenantContext) => Promise<SourceResolution>;
   /**
    * E2-7 — explicit windowed-activity resolution for the `recorded-act-windows` class. Defaults to
@@ -673,6 +688,29 @@ async function withAgents(
   }
 }
 
+async function withAgentMandate(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "agent-mandate")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveAgentMandate ?? readAgentMandateGroundingSource;
+    const mandate = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "agent-mandate" ? mandate : resolution,
+    );
+  } catch {
+    /*
+     * The pure resolver's `unavailable` stands. It says the read is server-side and does NOT say a
+     * mandate is absent — which is why a thrown read may fall back to it safely here.
+     */
+    return resolutions;
+  }
+}
+
 /**
  * E2-4 — this tenant's elapsed-time observations join the SAME deterministic evidence set.
  *
@@ -885,7 +923,10 @@ export async function answerHebyModelRequest(
   const agentResolutions = await withAgents(operationsResolutions, tenant, deps);
   // E2-6 — and what this organization actually did, as Hebun's own writers recorded it. A bounded
   // page that always states the total it was drawn from; never a complete history of activity.
-  const recordedActResolutions = await withRecordedActs(agentResolutions, tenant, deps);
+  // AMA-3 — and what each of those agents is FOR, and the most it may propose. A recorded ceiling,
+  // authoritative and human-decided; never a permission, a permit or execution authority.
+  const mandateResolutions = await withAgentMandate(agentResolutions, tenant, deps);
+  const recordedActResolutions = await withRecordedActs(mandateResolutions, tenant, deps);
   // E2-7 — and how much of it happened inside explicit, named periods. Two counts, never a trend.
   const windowResolutions = await withActWindows(recordedActResolutions, tenant, deps);
   // E2-8 — and which declared knowledge areas this organization holds facts in force in, and which

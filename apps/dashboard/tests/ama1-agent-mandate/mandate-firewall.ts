@@ -11,13 +11,21 @@
  *    EXACTLY ONE module outside this feature reads a mandate to constrain anything — AMA-2's
  *    enforcement seam — proved by census rather than trusted."
  *
- * ── WHAT AMA-2 CHANGED IN THIS FILE, AND WHAT IT DID NOT ─────────────────────
+ * ── WHAT AMA-2 AND AMA-3 CHANGED IN THIS FILE, AND WHAT NEITHER DID ──────────
  *
- * One census was INVERTED and nothing was relaxed. AMA-1 measured "no proposal path reads a
- * mandate"; that absence is now a bounded presence — one named file, asserted by name, with every
- * other file in all four proposal-path directories still blind to a mandate. Every other assertion
- * in this file is untouched, because AMA-2 changed no mandate state, no table, no writer and no
- * vocabulary.
+ * ONE census has been INVERTED TWICE and RELAXED NEITHER TIME.
+ *
+ * AMA-1 measured "no proposal path reads a mandate". AMA-2 made that absence a bounded presence —
+ * one named file, with every other file in all four proposal-path directories still blind to a
+ * mandate. AMA-3 connected the product and Heby, taking the census to EIGHT named modules: three
+ * product files that let a human read and record a ceiling, and one grounding consumer that lets
+ * Heby report its own.
+ *
+ * The enforcement claim did not move. Reading a mandate to SHOW it is not reading one to REFUSE an
+ * act, and AMA-2's own firewall proves that separately against the single seam that makes it.
+ *
+ * Every other assertion here is untouched: neither phase changed mandate state, the table, the
+ * writer, the vocabulary or the ledger.
  *
  * The pins:
  *
@@ -452,8 +460,7 @@ function noProposalEnforcementExists(): void {
     .sort();
 
   /*
-   * EXACTLY FOUR, AND EXACTLY ONE IS A PROPOSAL PATH — AMA-2 INVERTED THIS CENSUS, IT DID NOT
-   * RELAX IT.
+   * EXACTLY EIGHT, EXACTLY ONE OF WHICH ENFORCES — INVERTED TWICE, RELAXED NEITHER TIME.
    *
    * AMA-1's census read "exactly three, and NONE is a proposal path", and that sentence was the
    * measured absence of enforcement. AMA-2 does not delete it and does not widen it to "any
@@ -461,18 +468,31 @@ function noProposalEnforcementExists(): void {
    * point added anywhere still fails here.
    *
    * The schema barrel re-exports the table, as it does every table. The Governance decision writer
-   * learned the subject type. The audit sibling names the vocabulary. And the agent-originated
-   * proposal writer READS the effective mandate before it writes — the seam AMA-2 exists to be.
+   * learned the subject type. The audit sibling names the vocabulary. The agent-originated proposal
+   * writer READS the effective mandate before it writes — the seam AMA-2 exists to be.
+   *
+   * AMA-3 ADDED FOUR, AND NONE OF THEM ENFORCES ANYTHING. Three product files let a human read and
+   * record a ceiling, and one grounding consumer lets Heby report its own. Reading a mandate to
+   * SHOW it, and reading one to REFUSE an act, are different things — AMA-2's firewall proves the
+   * enforcement claim separately, against the one seam that makes it.
+   *
+   *     RENDERING A CEILING != ENFORCING ONE     GROUNDING ON ONE != ENFORCING ONE
    */
   assert.deepEqual(
     importers,
     [
+      /* AMA-3. The product surface a human records a mandate through, and the surface that shows one. */
+      path.join("src", "app", "(dashboard)", "agents", "actions.ts"),
+      path.join("src", "app", "(dashboard)", "agents", "page.tsx"),
+      path.join("src", "components", "agents", "agent-mandate-card.tsx"),
       path.join("src", "db", "schema", "index.ts"),
       path.join("src", "features", "action-authorization", "record-action-request.server.ts"),
       path.join("src", "features", "governance-audit", "agent-mandate-audit.server.ts"),
       path.join("src", "features", "governance-decision", "decision-authority.server.ts"),
+      /* AMA-3. Heby's answer flow, which imports the mandate authority's own read projection. */
+      path.join("src", "features", "heby-answer", "model-answer.server.ts"),
     ],
-    "the schema barrel, the audit sibling, the Governance decision writer — and exactly ONE proposal writer — know a mandate exists",
+    "eight modules know a mandate exists, and each is named: the schema barrel, the audit sibling, the Governance decision writer, ONE proposal writer, THREE product files and ONE grounding consumer",
   );
 
   /*

@@ -97,6 +97,20 @@ const WORKSPACE_PROFILES = {
       "decision-records",
       "organization",
       "agents",
+      /*
+       * AMA-3 adds `agent-mandate` here and ONLY here, on the same precedent as its four
+       * predecessors. Command is where a Director asks what an agent is for and what it may
+       * propose — and it is where `/heby` resolves, which is how the question reaches Heby at all.
+       *
+       * `workforce` deliberately does not gain it, for the reason E2-5 already recorded about
+       * `agents`: that class is chartered for the humans an organization is made of, and routing a
+       * runtime agent's ceiling through it would make an agent's proposal surface
+       * indistinguishable from an employee's remit. `governance` does not gain it either — a
+       * mandate DECISION is a Governance record and lives there already, while the mandate itself
+       * is owned by its own authority, and one profile asserting both would blur which of the two
+       * an answer rests on.
+       */
+      "agent-mandate",
       "recorded-acts",
       /*
        * E2-7 adds `recorded-act-windows` here and ONLY here, on the same precedent as its three

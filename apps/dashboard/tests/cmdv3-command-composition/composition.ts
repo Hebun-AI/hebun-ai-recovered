@@ -639,6 +639,24 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
     [
       "src/app/(dashboard)/knowledge/page.tsx",
       "src/components/agents/agent-improvement-hypothesis-filing.tsx",
+      /*
+       * ELEVEN NOW. AMA-3 adds the mandate surface, for exactly the reason the four before it were
+       * accepted: it must keep apart distinctions this component already encodes, and hand-rolling
+       * an eleventh treatment would have been the regression.
+       *
+       *   the MANDATE surface  `restricted` (no session)
+       *                        vs `empty` for THREE facts that must not merge — the identity
+       *                        authority could not be reached, no durable agent exists, and no
+       *                        mandate has been recorded for one that does
+       *
+       * The last pair is the whole reason it uses this component: "nobody has bounded this agent"
+       * and "Hebun could not read the ceiling" are different facts, and reading either as the other
+       * would tell a human their organization had made a decision it never made.
+       *
+       * It opts into NO density override; the assertion above still pins that set empty, and the
+       * six Knowledge surfaces this axis was built to leave alone are still untouched.
+       */
+      "src/components/agents/agent-mandate-card.tsx",
       "src/components/agents/durable-agent-identity-card.tsx",
       "src/components/governance-authority/undecided-hypothesis-card.tsx",
       "src/components/knowledge-workspace/company-understanding-card.tsx",
@@ -648,9 +666,9 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
       "src/components/knowledge-workspace/knowledge-sources-card.tsx",
       "src/components/knowledge-workspace/provider-document-admission-card.tsx",
     ],
-    "the six untouched Knowledge consumers remain, Command is still not among them, and the four " +
-      "additions are the durable identity ceremony, SIA-3.1's two hypothesis controls, and KID-2's " +
-      "provider admission control",
+    "the six untouched Knowledge consumers remain, Command is still not among them, and the five " +
+      "additions are the durable identity ceremony, SIA-3.1's two hypothesis controls, KID-2's " +
+      "provider admission control, and AMA-3's mandate surface",
   );
 }
 

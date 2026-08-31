@@ -63,7 +63,7 @@ Hebun understands what it observes. Evidence accumulates, agents are evaluated, 
 ### ERA III — HEBUN AUTONOMOUS ENTERPRISE · **OPEN** (§13)
 The organization runs as a living operational system, observed end to end, with autonomy exercised only where authority was explicitly established.
 
-**Opened by explicit Director decision** (§18, rule 12), recorded in §13 and §20. It is now **OPEN / ACTIVE** in the sense §9 defines it — an era with at least one milestone open — because the Director selected **Agent Mandate Authority** as its first program and **AMA-1 and AMA-2 are both RELEASED** (§13, §20) — the authority now both records a ceiling and enforces it on agent-originated proposals. The era's outcome sentence above is its exit criterion and is not restated elsewhere. **An era with an active program is not an era near closing**: nothing about Era III's outcome has been measured, and neither AMA-1 nor AMA-2 satisfies any of it. The §13 constraints are unrelaxed.
+**Opened by explicit Director decision** (§18, rule 12), recorded in §13 and §20. It is now **OPEN / ACTIVE** in the sense §9 defines it — an era with at least one milestone open — because the Director selected **Agent Mandate Authority** as its first program and **AMA-1, AMA-2 and AMA-3 are all RELEASED** (§13, §20) — the authority records a ceiling, enforces it on agent-originated proposals, and is now reachable by a human and reportable by Heby. The era's outcome sentence above is its exit criterion and is not restated elsewhere. **An era with an active program is not an era near closing**: nothing about Era III's outcome has been measured, and no AMA milestone satisfies any of it. The §13 constraints are unrelaxed.
 
 ---
 
@@ -282,6 +282,7 @@ Release and closure records live in `docs/product-vision/runtime/`. This page sa
 | **ERA III — HEBUN AUTONOMOUS ENTERPRISE** | **OPEN / ACTIVE** — one program active: **Agent Mandate Authority** (§13, §20) | Opened under §18 rule 12 by explicit Director architectural review, from measured reality and not by succession. The §13 entry constraint was checked, not assumed: *"No Era III capability may be opened while Era I remains open"* — Era I is CLOSED at `047dde8` (§11.3). The Director then selected **Agent Mandate Authority** as the era's first program, after the mandatory read-only boundary discovery it was gated on (`docs/product-vision/runtime/hebun-era3-agent-mandate-authority-boundary-discovery.md`). **AMA-1 is RELEASED**, and the migration ledger moved **39 → 40** — the first Era III schema, and the first agent-authority write since AGENT-ID-0.1. Era III's own outcome is **unmeasured**, and nothing here closes it. |
 | **Agent Mandate Authority — AMA-1** (first Era III program) | **RELEASED** — implemented, persisted, Governance-bound, audited. **NOT proposal-enforced, NOT Heby-grounded, NOT production-accepted** | One table (`agent_mandates`), one writer, one read seam, one audit sibling, one Governance subject, one `governance_domain` value. Ledger **39 → 40**; **no existing table altered** and `agents` byte-unchanged. A mandate is a **ceiling**: its scope type IS the released `AGENT_ORIGINABLE_ACTION_KINDS`, so a superset does not compile, and the table's own CHECK refuses one by raw SQL. `agents.authority_ceiling` gained no writer and is never named. `permissions` and `role_permissions` still have **zero writers**. The human-only CHECK census across the database grew **8 → 9**, in the tightening direction. Suite **612/612**, typecheck clean, lint zero errors, **12/12 bite-proofs bite**. **AMA-1 enforces nothing** — a census over all of `src/` proves exactly three modules outside the feature can see a mandate, and none is a proposal path. Closure: `docs/product-vision/runtime/hebun-ama1-agent-mandate-authority-closure.md`. |
 | **Agent Mandate Authority — AMA-2** (second Era III milestone) | **RELEASED** — the Agent Mandate Authority is now **PROPOSAL-ENFORCED**. **NOT Heby-grounded, NOT surfaced, NOT production-accepted** | Enforcement is ONE seam: `recordAgentOriginatedActionRequest`, the writer that makes an agent-originated proposal durable, checked **before** the insert so a refusal leaves no row. **ZERO schema** — ledger unchanged at **40**, no table, no column, no enum value, no migration. Three fail-closed states that may never collapse: `agent-mandate-authority-unavailable`, `no-agent-mandate`, `action-outside-agent-mandate`. **The human `/send` path is untouched** — a person may still propose the very act the agent's mandate refuses. AMA-1's enforcement-absence census was **INVERTED, not relaxed**: exactly four modules outside the feature can see a mandate, and exactly one is a proposal path, exempted by name rather than by directory. `AGENT_ORIGINABLE_ACTION_KINDS` untouched, `permissions`/`role_permissions` still zero writers, `agents.authority_ceiling` still never named, no agent authentication. **14/14 bite-proofs bite**, and **six** released suites had to bound their agent before they could propose again. Closure: `docs/product-vision/runtime/hebun-ama2-mandate-proposal-enforcement-closure.md`. |
+| **Agent Mandate Authority — AMA-3** (third Era III milestone) | **RELEASED** — the authority is now **HUMAN-PRODUCT-REACHABLE** and **HEBY-GROUNDED**. **NOT production-accepted** | Before AMA-3 the authority was live and unreachable: every mandate in existence had been written by a test or a script. `/agents` now renders the effective mandate, its scope, its Governance binding and its full revision history, and a Governance-authorized human can record or revise one through the ONE released writer via a thin server action that holds no INSERT, no table import and no gate of its own. Heby gained a **new source class `agent-mandate`** (the 17th, Command only, `authoritative: true`) — deliberately NOT folded into the DERIVED `agents` class, because `SourceResolution.authoritative` is one boolean per class. **ZERO schema** — ledger unchanged at **40**. Withdrawal is still an empty scope; the client may send exactly five values; the scope selector renders `MANDATE_SCOPE_VOCABULARY` itself. The seeded in-memory catalog was **measured and NOT promoted** — it was already honestly labelled, so AMA-3 pinned it with a firewall and changed nothing. Closure: `docs/product-vision/runtime/hebun-ama3-mandate-product-heby-closure.md`. |
 | Agent Mandate — boundary discovery (the gate AMA-1 was subject to) | **DISCOVERY COMPLETE — read-only, and its findings held** | The boundary discovery ran against `52b4605` and the production control plane read-only, and changed no runtime code. Its finding: the previous conclusion that *"a mandate is just a Governance subject"* is **REJECTED as stated** — a mandate *change* is a Governance subject, a mandate is not a Governance-owned fact. Recommended owner is a **dedicated Agent Mandate Authority** owning a versioned, agent-bound sibling table, with Governance authorizing every transition through the already-multi-subject `writeGovernanceDecisionWithin` seam — the shape Knowledge, Membership, Role provisioning, Identity enrollment, Action authorization and Agent improvement already use. It also **rejects the previously proposed acceptance condition of establishing a second real agent**: `createDurableAgentIdentity` refuses a second identity per tenant under a table lock, and `resolveAgentProposer` refuses `ambiguous-durable-agent-identity` above one in service, so a second agent would mean reopening a released one-way ceremony and designing agent selection — two new authorities manufactured for a test. |
 
 ---
@@ -2943,7 +2944,7 @@ milestone. `drive.file` is not widened. No second Knowledge or provenance author
 
 It was **not** opened by Era II closing, **not** by the first governed production execution succeeding, and **not** by numbering — every one of those was refused in writing before this decision was taken (§12.9, §20). It was opened the only way this document permits: a separate Director decision, taken under §18 rule 12, from measured repository and production reality.
 
-Opening the era selected no milestone and authorized no implementation. **That decision was then taken separately**: the Director selected **Agent Mandate Authority** as the first Era III program, and **AMA-1 — Authority Foundation — and AMA-2 — Proposal Enforcement — are both RELEASED** (§20). Era III's state is therefore **OPEN / ACTIVE**: one program, two released milestones, and an era outcome nobody has measured.
+Opening the era selected no milestone and authorized no implementation. **That decision was then taken separately**: the Director selected **Agent Mandate Authority** as the first Era III program, and **AMA-1 — Authority Foundation — AMA-2 — Proposal Enforcement — and AMA-3 — Product Surface and Heby Grounding — are all RELEASED** (§20). Era III's state is therefore **OPEN / ACTIVE**: one program, three released milestones, and an era outcome nobody has measured.
 
 **AMA-1 establishes what a mandate IS. AMA-2 makes it bite.** AMA-1 enforced nothing, and that absence was measured rather than promised; AMA-2 turned the measured absence into a bounded presence at exactly one seam, and **nothing else about a mandate changed**. A mandate is the organization's recorded statement of the bounded purpose one durable agent serves and the maximum surface inside which it may propose — a **ceiling**, never a grant, that can only ever SUBTRACT from what the released origination vocabulary already permits.
 
@@ -3659,6 +3660,75 @@ AN ALIAS            != A REGISTRY KIND
 A REFUSAL NAME      != A READ
 A PROMPT GATE       != ENFORCEMENT
 AMA-2 RELEASED      != AMA-3 AUTHORIZED
+```
+
+### AMA-3 RELEASED — a human can reach the mandate, and Heby can say what it is for
+
+**AMA-3 — Product Surface and Heby Grounding — is RELEASED.** Agent Mandate Authority is now
+**HUMAN-PRODUCT-REACHABLE** and **HEBY-GROUNDED**. It is still **NOT production-accepted**, and
+nothing here establishes that.
+
+**What it closed.** AMA-1 built the authority; AMA-2 made it refuse real proposals. Between them the
+authority was **live and unreachable** — every mandate in existence had been written by a test or a
+script, and no human product workflow existed to establish one.
+
+| | |
+|---|---|
+| Product surface | `/agents`, directly below the identity ceremony and above everything derived |
+| Human workflow | one thin server action → the ONE released writer; no INSERT, no table import, no gate |
+| Client may send | exactly five values: agent, purpose, scope, justification, observed revision |
+| Heby | new source class **`agent-mandate`** — the 17th, Command only, `authoritative: true` |
+| Schema / migration | **ZERO.** Ledger unchanged at **40** |
+
+**The class was NOT folded into `agents`, for a mechanical reason.** `agents` (E2-5) is DERIVED —
+`authoritative: false` — because it carries recomputed counts, and `SourceResolution.authoritative`
+is ONE boolean per class, so in that file's own words *"a class cannot assert one standing and cite
+under another"*. A mandate is a durable row a human wrote under a bound Governance decision. Filing
+it under a derived class would give the one thing on that surface a human actually **decided** the
+standing of a recomputed number. `workforce` did not gain it either: `RUNTIME AGENT != WORKFORCE
+IDENTITY`.
+
+**Six truth classes are kept apart on the surface**, and the two that must never merge are two
+different rendered states: a **measured absence** (*"an agent with no mandate may propose
+NOTHING"*) and an **unreachable authority** (*"UNAVAILABLE is not NO MANDATE"*) — and the
+unavailable state offers **no form**, because a ceiling nobody could read cannot be responsibly
+revised.
+
+**Heby gained a READ and only a read.** The projection lives inside the mandate authority, holds no
+insert, update, delete or transaction, and imports the read seam module rather than the barrel that
+re-exports the writer. Every item carries the denial with it, so `IN MANDATE != AUTHORIZED` travels
+with the record rather than depending on a prompt.
+
+**The seeded catalog was MEASURED AND NOT PROMOTED.** It was already honestly labelled by UI Phase
+25B and AGENT-ID-0.1 — provenance-badged, rendered last, named as an in-memory simulation in the
+page header. So AMA-3 pinned that with a firewall (render order, the seeded modules' inability to
+reach a mandate, the mandate surface being typed on the durable identity record) and **changed
+nothing**. Not every phase that touches a surface owes it a correction.
+
+**The census was inverted a SECOND time and relaxed neither time.** Three modules at AMA-1, four at
+AMA-2, **eight** at AMA-3 — each named. The enforcement claim did not move: AMA-2's firewall proves
+separately that exactly one module reads a mandate to CONSTRAIN an act, and each of the four new
+readers is asserted unable to reach the proposal writer, the request table or the ceiling gate.
+Two directory-wide bans became **name-scoped exemptions**, because exempting the directories would
+have let any page in the product — or any file in Heby's answer path — acquire a ceiling of its own.
+
+**Verified on the running product**, signed in against a local control plane with a real durable
+agent and two real revisions: identity → mandate → derived → seeded, `AUTHORITATIVE · REVISION 2`,
+`MAY PROPOSE: SEND`, history and Governance binding both collapsed, and the caveat that a proposal
+inside the ceiling *"is not approved, not permitted and not executed by being inside it"*.
+
+```
+AMA-3 = RELEASED
+AGENT MANDATE AUTHORITY: durable YES · Governance-bound YES · proposal-enforced YES
+                         human-product-reachable YES · Heby-grounded YES
+                         production-accepted NO
+RENDERING A CEILING  != ENFORCING ONE
+GROUNDING ON ONE     != ENFORCING ONE
+RECORDED MANDATE     != DERIVED OBSERVATION
+SEEDED               != DURABLE
+NO MANDATE           != EMPTY MANDATE
+LOCAL EVIDENCE       != PRODUCTION ACCEPTANCE
+AMA-3 RELEASED       != AMA-4 AUTHORIZED
 ```
 
 ```

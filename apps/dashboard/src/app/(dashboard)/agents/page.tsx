@@ -7,6 +7,15 @@ import {
 import { getAgentsTruthModel } from "@/features/workforce/agents-truth-model";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
+import {
+  AgentMandateCard,
+  type AgentMandateEntry,
+  type MandateBlock,
+} from "@/components/agents/agent-mandate-card";
+import {
+  readAgentMandateHistory,
+  readEffectiveAgentMandate,
+} from "@/features/agent-mandate/read-agent-mandate.server";
 import { AgentOutcomeObservationSurface } from "@/components/agents/agent-outcome-observation";
 import { readAgentOutcomeObservation } from "@/features/agent-outcome-observation/agent-outcome-projection.server";
 import { AgentEvaluationSurface } from "@/components/agents/agent-evaluation";
@@ -112,6 +121,53 @@ export default async function AgentsPage() {
    * unavailable authority falls to the same honest sentence the card above it already shows.
    */
   const identities = identityState.status === "known" ? identityState.identities : [];
+  /*
+   * AMA-3 — each durable agent's recorded ceiling, read through the mandate authority's own seams.
+   *
+   * READ PER AGENT, AND THE THREE ANSWERS ARE KEPT APART. `readEffectiveAgentMandate` returns
+   * `known + mandate`, `known + null`, or `unavailable`, and this page carries all three down
+   * unmerged. Collapsing the last two would tell a human, on a database outage, that their
+   * organization had declined to bound its agent.
+   *
+   *     NO MANDATE  != UNLIMITED MANDATE
+   *     UNAVAILABLE != NO MANDATE
+   */
+  const mandateEntries: AgentMandateEntry[] = [];
+  for (const identity of identities) {
+    const effective = await readEffectiveAgentMandate(tenant, identity.agentId);
+    if (effective.status === "unavailable") {
+      mandateEntries.push({
+        identity,
+        standing: { kind: "unavailable", reason: effective.reason },
+      });
+      continue;
+    }
+    /*
+     * History is read only when a mandate exists — an agent nobody has bounded has no chain, and
+     * asking for one would render an empty list that reads like "there were no earlier revisions"
+     * when the honest answer is "there is no mandate at all".
+     */
+    const history = effective.mandate
+      ? await readAgentMandateHistory(tenant, identity.agentId)
+      : null;
+    mandateEntries.push({
+      identity,
+      standing: {
+        kind: "known",
+        effective: effective.mandate,
+        history: history?.status === "known" ? history.revisions : [],
+      },
+    });
+  }
+
+  const mandateBlock: MandateBlock | undefined = !tenant
+    ? { kind: "unauthenticated" }
+    : identityState.status !== "known"
+      ? { kind: "identity-authority-unavailable" }
+      : identities.length === 0
+        ? { kind: "no-durable-agent" }
+        : undefined;
+
   const filingBlock: HypothesisFilingBlock | undefined = !tenant
     ? { kind: "unauthenticated" }
     : identityState.status !== "known" || identities.every((identity) => !identity.inService)
@@ -132,6 +188,13 @@ export default async function AgentsPage() {
           genesisSpent={identityState.status === "known" ? identityState.genesisSpent : false}
           identities={identities}
         />
+        {/*
+          * AMA-3 sits directly BELOW the identity ceremony and ABOVE everything derived, because
+          * that is the order of the facts: an agent exists, then the organization records what it
+          * is FOR, and only then is there anything to observe about what it proposed. It is the
+          * second thing on this page that writes a database row, and the only other one.
+          */}
+        <AgentMandateCard block={mandateBlock} entries={mandateEntries} />
         <AgentOutcomeObservationSurface observation={outcomes} />
         <AgentEvaluationSurface evaluation={evaluation} />
         <AgentImprovementHypothesisSurface hypotheses={hypotheses} />

@@ -71,7 +71,8 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Sixteen since E2-8 added `knowledge-coverage` (fifteen after E2-7's `recorded-act-windows`,
+   * Seventeen since AMA-3 added `agent-mandate` (sixteen after E2-8's `knowledge-coverage`,
+   * fifteen after E2-7's `recorded-act-windows`,
    * fourteen after E2-6's `recorded-acts`,
    * thirteen after E2-5's `agents`, twelve after E2-1's
    * `organization`, eleven after INT-5A's
@@ -134,6 +135,30 @@ function sourceStatusNotCollapsed(): void {
        *     RUNTIME AGENT != WORKFORCE IDENTITY        OUTCOME != MANDATE
        */
       "agents",
+      /*
+       * AMA-3. What each durable agent is FOR, and the maximum surface inside which it may
+       * PROPOSE — the Agent Mandate Authority's own record, admitted as evidence.
+       *
+       * IT IS NOT `agents`, and the reason is stated in that class's own entry directly above:
+       * `OUTCOME != MANDATE`. That sentence was a boundary, and this is the class on the other side
+       * of it. The mechanical reason is stronger still — `agents` is DERIVED
+       * (`authoritative: false`) because it carries recomputed counts, and
+       * `SourceResolution.authoritative` is ONE boolean per class, so a class cannot assert one
+       * standing and cite under another. A mandate is a durable row a human wrote under a bound
+       * Governance decision; filing it under a derived class would give the one thing on that
+       * surface a human actually DECIDED the standing of a recomputed number.
+       *
+       * It earns the review for the sharpest reason of any class here. A fabricated item would not
+       * merely misdescribe the organization — it would tell a Director that a machine is permitted
+       * to do something. So the class must stay narrow in a specific direction: it carries a
+       * CEILING on what may be PROPOSED, and it may never carry a permission, a permit, an
+       * execution authority, a Governance authority or a capability list, because the released read
+       * seam holds no field for any of them.
+       *
+       *     IN MANDATE   != AUTHORIZED         IN MANDATE  != A PERMIT
+       *     NO MANDATE   != UNLIMITED MANDATE  UNAVAILABLE != NO MANDATE
+       */
+      "agent-mandate",
       /*
        * E2-6. What this organization actually DID, as Hebun's own writers recorded it — a bounded,
        * newest-first page of `audit_log` that always states the total it was drawn from.
