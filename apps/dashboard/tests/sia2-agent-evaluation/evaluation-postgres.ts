@@ -38,6 +38,7 @@ import {
 } from "../../src/features/action-authorization/decide-action-request.server";
 import { executeAuthorizedAction } from "../../src/features/action-execution/execute-authorized-action.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
+import { seedAgentMandate } from "../helpers/agent-mandate-seed";
 import { resolveAgentProposer } from "../../src/features/action-authorization/agent-proposer.server";
 import {
   registerInvocation,
@@ -207,6 +208,14 @@ async function main(): Promise<void> {
     assert.equal(proposerResult.status, "resolved");
     if (proposerResult.status !== "resolved") throw new Error("unreachable");
     const proposer = proposerResult.proposer;
+
+    /*
+     * AMA-2 — THE CEILING IS NOW A PRECONDITION OF PROPOSING AT ALL. A durable agent that exists
+     * but has not been bounded is refused `no-agent-mandate` by the proposal writer, so each tenant
+     * whose agent originates anything here must record a ceiling first. The mandate admits the full
+     * released originable vocabulary, so it subtracts nothing and weakens no assertion below.
+     */
+    await seedAgentMandate(setup, acme, proposer.agentId, baseDeps, { tag: "sia2a" });
 
     /* ═══════════════════════════════════════════════════════════════════════
      * 1. THE ZERO-EVIDENCE AGENT — UNAVAILABLE, never "0 of 0".

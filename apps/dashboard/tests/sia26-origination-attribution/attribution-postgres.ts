@@ -22,6 +22,7 @@ import { createExternalRecipient } from "../../src/features/external-recipients/
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import { proposeAgentOriginatedSendAction } from "../../src/features/heby-action-inlet/send-proposal.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
+import { seedAgentMandate } from "../helpers/agent-mandate-seed";
 import {
   resolveAgentProposer,
   type AgentProposer,
@@ -165,6 +166,15 @@ async function main(): Promise<void> {
       await setup.query<{ id: string }>("select id from agents where tenant_id = $1", [acme.tenantId])
     ).rows[0]!.id;
     assert.equal(acmeProposer.agentId, acmeAgentId, "the proposer names the tenant's own agent");
+
+    /*
+     * AMA-2 — THE CEILING IS NOW A PRECONDITION OF PROPOSING AT ALL. A durable agent that exists
+     * but has not been bounded is refused `no-agent-mandate` by the proposal writer, so each tenant
+     * whose agent originates anything here must record a ceiling first. The mandate admits the full
+     * released originable vocabulary, so it subtracts nothing and weakens no assertion below.
+     */
+    await seedAgentMandate(setup, acme, acmeProposer.agentId, baseDeps, { tag: "sia26a" });
+    await seedAgentMandate(setup, globex, globexProposer.agentId, baseDeps, { tag: "sia26b" });
 
     /* ═══════════════════════════════════════════════════════════════════════
      * 1. A HISTORICAL ROW — written the way rows were written before this phase.

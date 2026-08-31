@@ -20,6 +20,7 @@ import { resolveAgentProposerDisplays } from "../../src/features/action-authoriz
 import { originateAgentAction } from "../../src/features/agent-origination/originate-action.server";
 import { proposeSendAction } from "../../src/features/heby-action-inlet/send-proposal.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
+import { seedAgentMandate } from "../helpers/agent-mandate-seed";
 import { retireDurableAgentIdentity } from "../../src/features/agent-identity/retire-durable-agent-identity.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import { createExternalRecipient } from "../../src/features/external-recipients/write-external-recipients.server";
@@ -121,6 +122,15 @@ async function main(): Promise<void> {
     assert.equal(established.status, "established");
     const agentId = established.status === "established" ? established.identity.agentId : "";
 
+    /*
+     * AMA-2 — THE CEILING IS NOW A PRECONDITION OF PROPOSING AT ALL. A durable agent that exists
+     * but has not been bounded is refused `no-agent-mandate` by the proposal writer, so this suite
+     * records the ceiling before exercising what it was written to prove. The mandate admits the
+     * full released originable vocabulary, so it subtracts nothing here and weakens no assertion
+     * below.
+     */
+    await seedAgentMandate(setup, acme, agentId, dbDeps, { tag: "ap2a" });
+
     /* ═══════════════════════════════════════════════════════════════════════
      * 1. AN AGENT-ORIGINATED PROPOSAL READS BACK WITH THE AGENT'S NAME.
      * ═════════════════════════════════════════════════════════════════════ */
@@ -181,14 +191,23 @@ async function main(): Promise<void> {
       );
       assert.equal(item.proposedByAgentInService, true, "and says it is still in service");
 
-      /* The proposal is PENDING. Naming the proposer authorized nothing. */
+      /*
+       * The proposal is PENDING. Naming the proposer authorized nothing.
+       *
+       * AMA-2 — THE DECISION COUNT IS SCOPED, NOT DROPPED. It was a global zero while nothing in
+       * this suite wrote a decision; bounding the agent is a real Governance act and writes two.
+       * The claim was never "this database holds no decisions" — it was "NOTHING DECIDED ABOUT
+       * THIS ACT" — so it is now asserted over the action-authorization subjects, which is what it
+       * always meant and is what a decision about the proposal would land in.
+       */
       const counts = await setup.query<{ permits: number; decisions: number; attempts: number }>(
         `select (select count(*)::int from action_permits) as permits,
-                (select count(*)::int from decision_records) as decisions,
+                (select count(*)::int from decision_records
+                  where subject_type in ('heby_action_request','action_permit')) as decisions,
                 (select count(*)::int from action_execution_attempts) as attempts`,
       );
       assert.equal(counts.rows[0]!.permits, 0);
-      assert.equal(counts.rows[0]!.decisions, 0);
+      assert.equal(counts.rows[0]!.decisions, 0, "NO decision was taken about the proposed act");
       assert.equal(counts.rows[0]!.attempts, 0);
     }
 

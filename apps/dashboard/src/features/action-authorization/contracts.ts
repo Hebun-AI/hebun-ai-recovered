@@ -123,6 +123,38 @@ export type ActionRequestRefusal =
    * a caller gets an answer in the same vocabulary as every other failure here.
    */
   | "unverified-agent-proposer"
+  /*
+   * ── AMA-2. THE THREE MANDATE STATES, AND WHY THEY MAY NEVER COLLAPSE ───────
+   *
+   * All three refuse and all three write nothing, so a caller that only needed to know "was it
+   * filed?" could have been served by one value. They are three because they are three different
+   * facts about the ORGANIZATION, and the difference is what somebody reading a refusal has to
+   * act on: repair the control plane, ask a human to bound the agent, or accept that the bound
+   * excludes this act. One value would make an outage indistinguishable from a deliberate
+   * withdrawal — the fabricated-absence defect this repository has repaired more than once.
+   */
+  /**
+   * (A) The mandate authority could not produce trustworthy truth. Hebun could not LOOK.
+   *
+   * Fail closed, and never fall back to the released global vocabulary: an unreachable ceiling is
+   * not an absent one. UNAVAILABLE != NO MANDATE.
+   */
+  | "agent-mandate-authority-unavailable"
+  /**
+   * (B) The agent is known, the authority answered, and NO mandate exists. Nobody has bounded it.
+   *
+   * The load-bearing refusal of AMA-2. NO MANDATE != UNLIMITED MANDATE: an unbounded agent is
+   * exactly the thing a mandate exists to prevent, so the absence of a bound is a refusal rather
+   * than a permission.
+   */
+  | "no-agent-mandate"
+  /**
+   * (C) A mandate exists and the requested action kind is outside its `proposal_scope`.
+   *
+   * Includes withdrawal, which is an EMPTY scope rather than a flag: an agent withdrawn from
+   * proposing lands here for every kind, because nothing is inside an empty ceiling.
+   */
+  | "action-outside-agent-mandate"
   | "persistence-unavailable";
 
 export type ActionDecisionRefusal =

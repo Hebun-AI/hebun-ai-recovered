@@ -63,7 +63,7 @@ Hebun understands what it observes. Evidence accumulates, agents are evaluated, 
 ### ERA III — HEBUN AUTONOMOUS ENTERPRISE · **OPEN** (§13)
 The organization runs as a living operational system, observed end to end, with autonomy exercised only where authority was explicitly established.
 
-**Opened by explicit Director decision** (§18, rule 12), recorded in §13 and §20. It is now **OPEN / ACTIVE** in the sense §9 defines it — an era with at least one milestone open — because the Director selected **Agent Mandate Authority** as its first program and **AMA-1 is RELEASED** (§13, §20). The era's outcome sentence above is its exit criterion and is not restated elsewhere. **An era with an active program is not an era near closing**: nothing about Era III's outcome has been measured, and AMA-1 satisfies none of it. The §13 constraints are unrelaxed.
+**Opened by explicit Director decision** (§18, rule 12), recorded in §13 and §20. It is now **OPEN / ACTIVE** in the sense §9 defines it — an era with at least one milestone open — because the Director selected **Agent Mandate Authority** as its first program and **AMA-1 and AMA-2 are both RELEASED** (§13, §20) — the authority now both records a ceiling and enforces it on agent-originated proposals. The era's outcome sentence above is its exit criterion and is not restated elsewhere. **An era with an active program is not an era near closing**: nothing about Era III's outcome has been measured, and neither AMA-1 nor AMA-2 satisfies any of it. The §13 constraints are unrelaxed.
 
 ---
 
@@ -281,6 +281,7 @@ Release and closure records live in `docs/product-vision/runtime/`. This page sa
 | **ERA II — HEBUN INTELLIGENCE** | **CLOSED** at `6b4a72b` against the §4 outcome, measured clause by clause (§12.9) | Era II opened when Era I closed. A read-only discovery pass ran and **every finding was reproduced against the repository at this baseline before it was recorded** (§12). **E2-1, E2-2 and E2-3 are all CLOSED**, and the product-experience milestone **LMX-1** that followed E2-3 is closed too — implemented, released and pushed at `dfa7624`, `7b30893`, `00eda19` and `8fb299e`. E2-3 and LMX-1 are **DEPLOYED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, after a production migration repair carried the deployment's database from ledger 37 to 39 (§12.3); E2-1 and E2-2 have **no measured deployment** (§12.2). **E2-4 — Organizational Attention Observation — is CLOSED too**, activated by Director decision after a read-only discovery pass and released with zero schema, zero migration and zero writer (§12.4); it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated UI acceptance both PASS, with no production defect found and no source, schema or migration change required by the acceptance (§12.4). **E2-5 — Heby Agent Grounding — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated Heby acceptance both PASS, after one real production defect was found at the acceptance gate and fixed in the response validator (§12.5). **E2-6 — Heby Recorded Act Grounding — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side and authenticated Heby acceptance both PASS, after one real truth-semantics defect was found at the acceptance gate and fixed in this milestone's own grounding wording (§12.6). **E2-7 — Heby Windowed Recorded-Act Intelligence — is CLOSED too**, released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — server-side, Heby grounding and authenticated Heby acceptance all PASS, with no production defect found and no source, test, schema or migration change required by the acceptance (§12.7). **E2-8 — Heby Knowledge Coverage Grounding — is CLOSED too**, selected from a bounded discovery pass by Director decision and released with zero schema, zero migration and zero writer, and it is **DEPLOYED with commit-binding VERIFIED and PRODUCTION-ACCEPTED** — Knowledge authority, Heby grounding and authenticated Heby acceptance all PASS, with no production defect found and no source, test, schema or migration change required by the acceptance; the first human attempt was a truth-safe refusal caused by testing from the wrong workspace, not a runtime defect (§12.8). **No Era II milestone is active, and none remains required.** Closing nine milestones closed no era — the era closed because the §4 outcome was **measured** satisfied (§12.9), which is the only thing that ever closes one here. The same rule now governs what follows: **Era III is not started**, and the next program or era must be selected from measured repository and product reality by a separate Director decision, never from numbering. |
 | **ERA III — HEBUN AUTONOMOUS ENTERPRISE** | **OPEN / ACTIVE** — one program active: **Agent Mandate Authority** (§13, §20) | Opened under §18 rule 12 by explicit Director architectural review, from measured reality and not by succession. The §13 entry constraint was checked, not assumed: *"No Era III capability may be opened while Era I remains open"* — Era I is CLOSED at `047dde8` (§11.3). The Director then selected **Agent Mandate Authority** as the era's first program, after the mandatory read-only boundary discovery it was gated on (`docs/product-vision/runtime/hebun-era3-agent-mandate-authority-boundary-discovery.md`). **AMA-1 is RELEASED**, and the migration ledger moved **39 → 40** — the first Era III schema, and the first agent-authority write since AGENT-ID-0.1. Era III's own outcome is **unmeasured**, and nothing here closes it. |
 | **Agent Mandate Authority — AMA-1** (first Era III program) | **RELEASED** — implemented, persisted, Governance-bound, audited. **NOT proposal-enforced, NOT Heby-grounded, NOT production-accepted** | One table (`agent_mandates`), one writer, one read seam, one audit sibling, one Governance subject, one `governance_domain` value. Ledger **39 → 40**; **no existing table altered** and `agents` byte-unchanged. A mandate is a **ceiling**: its scope type IS the released `AGENT_ORIGINABLE_ACTION_KINDS`, so a superset does not compile, and the table's own CHECK refuses one by raw SQL. `agents.authority_ceiling` gained no writer and is never named. `permissions` and `role_permissions` still have **zero writers**. The human-only CHECK census across the database grew **8 → 9**, in the tightening direction. Suite **612/612**, typecheck clean, lint zero errors, **12/12 bite-proofs bite**. **AMA-1 enforces nothing** — a census over all of `src/` proves exactly three modules outside the feature can see a mandate, and none is a proposal path. Closure: `docs/product-vision/runtime/hebun-ama1-agent-mandate-authority-closure.md`. |
+| **Agent Mandate Authority — AMA-2** (second Era III milestone) | **RELEASED** — the Agent Mandate Authority is now **PROPOSAL-ENFORCED**. **NOT Heby-grounded, NOT surfaced, NOT production-accepted** | Enforcement is ONE seam: `recordAgentOriginatedActionRequest`, the writer that makes an agent-originated proposal durable, checked **before** the insert so a refusal leaves no row. **ZERO schema** — ledger unchanged at **40**, no table, no column, no enum value, no migration. Three fail-closed states that may never collapse: `agent-mandate-authority-unavailable`, `no-agent-mandate`, `action-outside-agent-mandate`. **The human `/send` path is untouched** — a person may still propose the very act the agent's mandate refuses. AMA-1's enforcement-absence census was **INVERTED, not relaxed**: exactly four modules outside the feature can see a mandate, and exactly one is a proposal path, exempted by name rather than by directory. `AGENT_ORIGINABLE_ACTION_KINDS` untouched, `permissions`/`role_permissions` still zero writers, `agents.authority_ceiling` still never named, no agent authentication. **14/14 bite-proofs bite**, and **six** released suites had to bound their agent before they could propose again. Closure: `docs/product-vision/runtime/hebun-ama2-mandate-proposal-enforcement-closure.md`. |
 | Agent Mandate — boundary discovery (the gate AMA-1 was subject to) | **DISCOVERY COMPLETE — read-only, and its findings held** | The boundary discovery ran against `52b4605` and the production control plane read-only, and changed no runtime code. Its finding: the previous conclusion that *"a mandate is just a Governance subject"* is **REJECTED as stated** — a mandate *change* is a Governance subject, a mandate is not a Governance-owned fact. Recommended owner is a **dedicated Agent Mandate Authority** owning a versioned, agent-bound sibling table, with Governance authorizing every transition through the already-multi-subject `writeGovernanceDecisionWithin` seam — the shape Knowledge, Membership, Role provisioning, Identity enrollment, Action authorization and Agent improvement already use. It also **rejects the previously proposed acceptance condition of establishing a second real agent**: `createDurableAgentIdentity` refuses a second identity per tenant under a table lock, and `resolveAgentProposer` refuses `ambiguous-durable-agent-identity` above one in service, so a second agent would mean reopening a released one-way ceremony and designing agent selection — two new authorities manufactured for a test. |
 
 ---
@@ -2942,9 +2943,9 @@ milestone. `drive.file` is not widened. No second Knowledge or provenance author
 
 It was **not** opened by Era II closing, **not** by the first governed production execution succeeding, and **not** by numbering — every one of those was refused in writing before this decision was taken (§12.9, §20). It was opened the only way this document permits: a separate Director decision, taken under §18 rule 12, from measured repository and production reality.
 
-Opening the era selected no milestone and authorized no implementation. **That decision was then taken separately**: the Director selected **Agent Mandate Authority** as the first Era III program, and **AMA-1 — Authority Foundation — is RELEASED** (§20). Era III's state is therefore **OPEN / ACTIVE**: one program, one released milestone, and an era outcome nobody has measured.
+Opening the era selected no milestone and authorized no implementation. **That decision was then taken separately**: the Director selected **Agent Mandate Authority** as the first Era III program, and **AMA-1 — Authority Foundation — and AMA-2 — Proposal Enforcement — are both RELEASED** (§20). Era III's state is therefore **OPEN / ACTIVE**: one program, two released milestones, and an era outcome nobody has measured.
 
-**AMA-1 establishes what a mandate IS. It enforces nothing.** A mandate is the organization's recorded statement of the bounded purpose one durable agent serves and the maximum surface inside which it may propose — a **ceiling**, never a grant, that can only ever SUBTRACT from what the released origination vocabulary already permits.
+**AMA-1 establishes what a mandate IS. AMA-2 makes it bite.** AMA-1 enforced nothing, and that absence was measured rather than promised; AMA-2 turned the measured absence into a bounded presence at exactly one seam, and **nothing else about a mandate changed**. A mandate is the organization's recorded statement of the bounded purpose one durable agent serves and the maximum surface inside which it may propose — a **ceiling**, never a grant, that can only ever SUBTRACT from what the released origination vocabulary already permits.
 
 ```
 ERA III OPEN / ACTIVE != ERA III NEAR CLOSING
@@ -3547,7 +3548,7 @@ loosening an enumeration to "at least N" would let a future phase delete a relea
 still pass. Three pins were additionally repaired to be **derived** rather than literal, because each
 had already gone stale once.
 
-**AMA-2 is proposal enforcement, and only that.** It is not opened by AMA-1 closing.
+**AMA-2 is proposal enforcement, and only that.** It was not opened by AMA-1 closing; it was authorized separately, and it is now **RELEASED** — see the section below.
 
 ```
 ERA III = OPEN / ACTIVE · AGENT MANDATE AUTHORITY = FIRST PROGRAM
@@ -3566,6 +3567,98 @@ MANDATED           != AUTHORIZED
 NO MANDATE         != EMPTY MANDATE
 NO MANDATE         != UNBOUNDED
 UNAVAILABLE        != NO MANDATE
+```
+
+### AMA-2 RELEASED — the mandate stops being a record and becomes a constraint
+
+**AMA-2 — Proposal Enforcement — is RELEASED.** The Agent Mandate Authority is now
+**PROPOSAL-ENFORCED**. It is still **not Heby-grounded**, **not surfaced**, and **not
+production-accepted**, and none of those is implied by this.
+
+**The invariant, as the formula the code implements:**
+
+```
+proposal proceeds  REQUIRES  mandate exists AND kind ∈ mandate.proposal_scope   (necessary)
+kind ∈ mandate.proposal_scope  IMPLIES  nothing                                 (never sufficient)
+```
+
+| | |
+|---|---|
+| Enforcement seam | ONE: `recordAgentOriginatedActionRequest`, checked **before** `insertActionRequest` |
+| Schema / migration | **ZERO.** Ledger unchanged at **40**. Only AMA-1's migration ever touched mandate storage |
+| Fail-closed states | THREE, and they may never collapse — see below |
+| Human path | **UNCHANGED.** `recordActionRequest` reads no mandate; its body is asserted to contain no mandate symbol |
+| Validation | typecheck clean, lint zero errors, **14/14 bite-proofs bite**, one full suite |
+
+**Three states, three names, because they are three different facts about the organization.**
+`agent-mandate-authority-unavailable` (Hebun could not look), `no-agent-mandate` (Hebun looked, and
+nobody has bounded this agent), `action-outside-agent-mandate` (a bound exists and excludes this
+kind). All three refuse and **all three write no request row**. One value would make an outage
+indistinguishable from a deliberate withdrawal — the fabricated-absence defect this repository has
+repaired more than once. **AMA-1 predicted two; there are three.**
+
+**The finding this milestone rests on: the two vocabularies were never the same strings.**
+`mandate.proposal_scope` holds ALIASES (`"send"`) and `prepared.actionKind` holds REGISTRY KINDS
+(`"send-external-communication"`). A ceiling comparing them directly matches **nothing** and refuses
+**every** agent proposal, including the ones a mandate admits — and that failure is invisible to any
+test that only checks that out-of-mandate proposals are refused, because it looks perfectly
+fail-closed while enforcing the wrong thing. The correspondence, previously a fact about control
+flow only, is now `AGENT_ORIGINABLE_REGISTRY_KIND`: a **total** record in the vocabulary's own
+module, valued by the released constant itself, with **no reverse direction** — a registry kind no
+alias denotes is exactly what a ceiling must be able to refuse.
+
+**Enforcement is at the durable write, and AMA-1's guess was corrected.** AMA-1's closure named
+`buildOriginationCandidates` as a possible seam. It was rejected: candidate building shapes what a
+model is offered, so a gate there is a **prompt constraint** that a proposal assembled another way
+would never meet. UI, prompt, capability descriptor, seeded adapter, Governance, execution and
+provider homes are each asserted **unreachable**, not merely unused.
+
+**AMA-1's enforcement-absence census was INVERTED, not relaxed.** *"Exactly three modules, none a
+proposal path"* became *"exactly four, exactly one a proposal path"*, with the seam exempted **by
+name** rather than by directory — `action-authorization` also holds the decision writer, the permit
+consumer and the revoker, and none of those may acquire a ceiling of its own. New assertions were
+added: the seam reads the read seam module and not the feature barrel (importing the barrel would
+put a Governance-bound mandate **writer** into the proposal path's import graph — G6C's defect), and
+it writes no mandate state.
+
+**Enforcement is real, and SIX released suites are the evidence.** AGENT-PROPOSAL-1, -2, -4B, SIA-1,
+SIA-2 and SIA-2.6 all began failing at their central assertion the moment the gate went in, because a
+durable agent that exists but has not been bounded can no longer propose. Three were found by
+targeted runs and **three only by the full suite**, because they use agent origination as a fixture
+for something else rather than as their subject. They now record a ceiling first, through the
+released writers. Two of their consequence censuses had to become **honest rather than convenient**:
+global zeros over `decision_records` and `governance_sessions` were never the claim being made —
+*"nothing was decided about this act"* was — so they are now a delta across the proposal and a scope
+over the action-authorization subjects, both strictly harder to satisfy than the zero they replaced.
+
+**One released test anchor was repaired, and the assertions were not weakened.**
+AGENT-PROPOSAL-1's firewall sliced the writer's signature from an `indexOf` on `export function …`;
+making the function `async` turned that into `-1`, and `slice(-1)` is the file's last character, so
+two assertions would have begun reporting a missing parameter that is plainly still there. A
+brittle anchor that fails for the wrong reason is a guard aimed wrong.
+
+**One guard was re-aimed for the same reason.** The directory ban was a bare `agent-mandate`
+substring check, and the new refusal vocabulary legitimately contains that substring —
+`no-agent-mandate` and `action-outside-agent-mandate` are the **names of two refusals**. A name is
+not a read. The ban is now on the import, the table and the read symbol.
+
+**AMA-3 is not selected and is not implied.** What remains: Heby grounding on a mandate, a surface a
+human can record or revise one through, and production acceptance. Every mandate in existence was
+written by a test or a script.
+
+```
+AMA-2 = RELEASED · AGENT MANDATE AUTHORITY = PROPOSAL-ENFORCED
+IN MANDATE          != AUTHORIZED
+NO MANDATE          != UNLIMITED MANDATE
+PROPOSAL REFUSED    != GOVERNANCE REJECTION
+PROPOSAL-ENFORCED   != HEBY-GROUNDED
+PROPOSAL-ENFORCED   != SURFACED
+PROPOSAL-ENFORCED   != PRODUCTION-ACCEPTED
+ENFORCED FOR AGENTS != ENFORCED FOR HUMANS
+AN ALIAS            != A REGISTRY KIND
+A REFUSAL NAME      != A READ
+A PROMPT GATE       != ENFORCEMENT
+AMA-2 RELEASED      != AMA-3 AUTHORIZED
 ```
 
 ```

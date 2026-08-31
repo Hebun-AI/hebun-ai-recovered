@@ -22,6 +22,7 @@ import {
   readInvocationProvenance,
 } from "../../src/features/agent-origination/invocation-provenance.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
+import { seedAgentMandate } from "../helpers/agent-mandate-seed";
 /* SIA-2.6: registration now requires the branded proposer, so the fixture resolves the real one. */
 import { resolveAgentProposer } from "../../src/features/action-authorization/agent-proposer.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
@@ -132,6 +133,21 @@ async function main(): Promise<void> {
 
     const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
     assert.equal(established.status, "established");
+
+    /*
+     * AMA-2 — THE CEILING IS NOW A PRECONDITION OF PROPOSING AT ALL. A durable agent that exists
+     * but has not been bounded is refused `no-agent-mandate` by the proposal writer, so this suite
+     * records the ceiling before exercising what it was written to prove. The mandate admits the
+     * full released originable vocabulary, so it subtracts nothing here and weakens no assertion
+     * below.
+     */
+    await seedAgentMandate(
+      setup,
+      acme,
+      established.status === "established" ? established.identity.agentId : "",
+      dbDeps,
+      { tag: "ap4ba" },
+    );
 
     /* SIA-2.6 — the branded proposer every registration must now carry. */
     const acmeProposerResult = await resolveAgentProposer(acmeCtx, dbDeps);
@@ -389,14 +405,21 @@ async function main(): Promise<void> {
         attempts: number;
         approved: number;
       }>(
+        /*
+         * AMA-2 — SCOPED, NOT DROPPED. Bounding the agent is a real Governance act and writes two
+         * decisions before anything is proposed. The claim here was always "nothing was decided
+         * about THIS ACT", so it is asserted over the action-authorization subjects — where a
+         * decision about the proposal or its permit would land.
+         */
         `select (select count(*)::int from action_permits) as permits,
-                (select count(*)::int from decision_records) as decisions,
+                (select count(*)::int from decision_records
+                  where subject_type in ('heby_action_request','action_permit')) as decisions,
                 (select count(*)::int from action_execution_attempts) as attempts,
                 (select count(*)::int from heby_action_requests where approved_at is not null) as approved`,
       );
       const c = counts.rows[0]!;
       assert.equal(c.permits, 0, "NO PERMIT");
-      assert.equal(c.decisions, 0, "NO Governance decision");
+      assert.equal(c.decisions, 0, "NO Governance decision about the proposed act");
       assert.equal(c.attempts, 0, "NOTHING was executed");
       assert.equal(c.approved, 0, "PROPOSED is not APPROVED");
     }

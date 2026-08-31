@@ -176,8 +176,19 @@ function oneProposalAuthority(): void {
     "THE HUMAN USER ID IS NEVER WRITTEN DIRECTLY INTO THE PROPOSER COLUMN",
   );
 
-  /* The agent entry point cannot be called without a proposer, and has no default. */
-  const signature = code.slice(code.indexOf("export function recordAgentOriginatedActionRequest("));
+  /*
+   * The agent entry point cannot be called without a proposer, and has no default.
+   *
+   * ANCHORED ON THE NAME, NOT ON THE `function` KEYWORD, AND THE ANCHOR IS CHECKED. The released
+   * form was `export function`; AMA-2 made it `export async function` to await the mandate ceiling.
+   * `indexOf` on the old literal returned -1, and `slice(-1)` is the file's LAST CHARACTER — so the
+   * two assertions below would have started reporting a missing `AgentProposer` parameter that is
+   * plainly still there. A brittle anchor that fails for the wrong reason is a guard aimed wrong;
+   * asserting the anchor was found means a real rename fails HERE, saying so.
+   */
+  const anchor = code.indexOf("recordAgentOriginatedActionRequest(");
+  assert.notEqual(anchor, -1, "the agent entry point still exists under its released name");
+  const signature = code.slice(anchor);
   assert.ok(
     /proposer:\s*AgentProposer,/.test(signature.slice(0, 400)),
     "the agent writer takes a required AgentProposer",

@@ -7,9 +7,17 @@
  *    and ONE Governance subject. It cannot execute, approve, mint a permit, reach a provider, read
  *    a credential, grant a permission, modify Governance, or mutate an agent. It cannot widen
  *    itself: its scope type is the released origination vocabulary, so a superset does not compile.
- *    Governance gained no mandate-state writer. `agents.authority_ceiling` gained no writer. And no
- *    proposal path reads a mandate — AMA-1 is not proposal enforcement, and this file proves the
- *    absence rather than trusting it."
+ *    Governance gained no mandate-state writer. `agents.authority_ceiling` gained no writer. And
+ *    EXACTLY ONE module outside this feature reads a mandate to constrain anything — AMA-2's
+ *    enforcement seam — proved by census rather than trusted."
+ *
+ * ── WHAT AMA-2 CHANGED IN THIS FILE, AND WHAT IT DID NOT ─────────────────────
+ *
+ * One census was INVERTED and nothing was relaxed. AMA-1 measured "no proposal path reads a
+ * mandate"; that absence is now a bounded presence — one named file, asserted by name, with every
+ * other file in all four proposal-path directories still blind to a mandate. Every other assertion
+ * in this file is untouched, because AMA-2 changed no mandate state, no table, no writer and no
+ * vocabulary.
  *
  * The pins:
  *
@@ -19,6 +27,7 @@
  *   AGENT MANDATE   != PERMIT
  *   AGENT MANDATE   != EXECUTION
  *   MANDATE RECORDED != PROPOSAL-ENFORCED
+ *   IN MANDATE      != AUTHORIZED
  *   NO MANDATE      != UNBOUNDED
  *   UNAVAILABLE     != NO MANDATE
  *
@@ -443,23 +452,41 @@ function noProposalEnforcementExists(): void {
     .sort();
 
   /*
-   * EXACTLY TWO, AND NEITHER IS A PROPOSAL PATH.
+   * EXACTLY FOUR, AND EXACTLY ONE IS A PROPOSAL PATH — AMA-2 INVERTED THIS CENSUS, IT DID NOT
+   * RELAX IT.
+   *
+   * AMA-1's census read "exactly three, and NONE is a proposal path", and that sentence was the
+   * measured absence of enforcement. AMA-2 does not delete it and does not widen it to "any
+   * proposal module may read a mandate": it names the ONE module that may, so a second enforcement
+   * point added anywhere still fails here.
    *
    * The schema barrel re-exports the table, as it does every table. The Governance decision writer
-   * learned the subject type. The audit sibling names the vocabulary. Nothing else in `src` can see
-   * a mandate, so nothing else can be constrained by one.
+   * learned the subject type. The audit sibling names the vocabulary. And the agent-originated
+   * proposal writer READS the effective mandate before it writes — the seam AMA-2 exists to be.
    */
   assert.deepEqual(
     importers,
     [
       path.join("src", "db", "schema", "index.ts"),
+      path.join("src", "features", "action-authorization", "record-action-request.server.ts"),
       path.join("src", "features", "governance-audit", "agent-mandate-audit.server.ts"),
       path.join("src", "features", "governance-decision", "decision-authority.server.ts"),
     ],
-    "only the schema barrel, the audit sibling and the Governance decision writer know a mandate exists",
+    "the schema barrel, the audit sibling, the Governance decision writer — and exactly ONE proposal writer — know a mandate exists",
   );
 
-  /* The proposal and origination paths in particular are untouched by this phase. */
+  /*
+   * THE ENFORCEMENT SEAM IS ONE FILE, AND EVERY OTHER PROPOSAL-PATH FILE IS STILL BLIND TO A
+   * MANDATE. Enumerated as an exemption of one named file rather than an exemption of its
+   * directory: `action-authorization` holds the decision writer, the permit consumer, the revoker
+   * and the executor's neighbours, and none of those may acquire a ceiling of its own.
+   */
+  const ENFORCEMENT_SEAM = path.join(
+    "src",
+    "features",
+    "action-authorization",
+    "record-action-request.server.ts",
+  );
   for (const dir of [
     "src/features/agent-origination",
     "src/features/action-authorization",
@@ -467,18 +494,72 @@ function noProposalEnforcementExists(): void {
     "src/features/heby-actions",
   ]) {
     for (const file of collect(dir)) {
+      if (file === ENFORCEMENT_SEAM) continue;
       const source = codeOf(read(file));
-      assert.ok(
-        !/agent-mandate/.test(source) && !/agentMandates/.test(source),
-        `${file} does not read a mandate — AMA-1 records, AMA-2 would enforce`,
-      );
+      /*
+       * BANNED: REACHING A MANDATE. Not the SUBSTRING `agent-mandate`, which the refusal vocabulary
+       * in `action-authorization/contracts.ts` legitimately contains — `no-agent-mandate` and
+       * `action-outside-agent-mandate` are the names of two refusals, and a name is not a read.
+       * AMA-1 already learned this shape once, on the writer that must SAY the words it denies:
+       * a guard that punishes honest vocabulary is aimed wrong. So the ban is on the import, the
+       * table and the read symbol — the three ways a module could actually consult a mandate.
+       */
+      for (const reach of [
+        /features\/agent-mandate/,
+        /db\/schema\/agent-mandate/,
+        /\bagentMandates\b/,
+        /\breadEffectiveAgentMandate\b/,
+        /\breadAgentMandateHistory\b/,
+      ]) {
+        assert.ok(
+          !reach.test(source),
+          `${file} does not read a mandate (${reach.source}) — enforcement is ONE seam, not a directory`,
+        );
+      }
     }
   }
 
+  /*
+   * AND THE SEAM ITSELF READS, WITHOUT REACHING THE WRITER.
+   *
+   * It imports the READ SEAM MODULE, never `@/features/agent-mandate` — the barrel re-exports
+   * `establishAgentMandate`, and pulling it into the proposal path's import graph would put a
+   * Governance-bound mandate writer one call away from the module that files proposals. Asserted
+   * as an import, so it is unreachable rather than merely uncalled.
+   */
+  const seam = codeOf(read(ENFORCEMENT_SEAM));
+  assert.ok(
+    seam.includes("agent-mandate/read-agent-mandate.server"),
+    "the enforcement seam reads through the released read seam",
+  );
+  assert.ok(
+    seam.includes("readEffectiveAgentMandate"),
+    "and asks for the EFFECTIVE mandate — the highest revision, derived and never stored",
+  );
+  for (const forbidden of [
+    '"@/features/agent-mandate"',
+    "establishAgentMandate",
+    "agentMandates",
+    "readAgentMandateHistory",
+  ]) {
+    assert.ok(
+      !seam.includes(forbidden),
+      `the enforcement seam does not reach ${forbidden} — enforcing a bound cannot alter one`,
+    );
+  }
+  assert.ok(
+    !/\.\s*(?:insert|update|delete)\s*\(\s*agentMandates\s*\)/.test(seam),
+    "and writes no mandate state",
+  );
+
   /* The ladder says so too, and it cannot lose a rung. */
   const reached = MANDATE_CAPABILITY_LADDER.filter((r) => r.reached).map((r) => r.rung);
-  assert.deepEqual(reached, ["MANDATE RECORDED"], "exactly one rung is reached at AMA-1");
-  for (const unreached of ["PROPOSAL-ENFORCED", "HEBY-GROUNDED", "PERMIT-BEARING", "EXECUTABLE"]) {
+  assert.deepEqual(
+    reached,
+    ["MANDATE RECORDED", "PROPOSAL-ENFORCED"],
+    "exactly two rungs are reached at AMA-2 — recording and proposal enforcement, and nothing above",
+  );
+  for (const unreached of ["HEBY-GROUNDED", "PERMIT-BEARING", "EXECUTABLE"]) {
     assert.ok(
       MANDATE_CAPABILITY_LADDER.some((r) => r.rung === unreached && !r.reached),
       `${unreached} is declared unreached`,

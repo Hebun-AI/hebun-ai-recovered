@@ -9,7 +9,12 @@
  *
  * The barrel exports no update, no delete, no withdraw, no enforce, no apply, no allow and no
  * check surface, because no such surface exists in this feature. Withdrawal is a revision whose
- * scope is empty — the same one transition. Enforcement is AMA-2 and lives nowhere yet.
+ * scope is empty — the same one transition.
+ *
+ * AMA-2 ENFORCES THE CEILING AND ADDED NOTHING HERE. The one enforcement seam is
+ * `recordAgentOriginatedActionRequest`, which reads through `readEffectiveAgentMandate` and refuses
+ * before it writes. This authority still only RECORDS a bound; deciding what is inside one belongs
+ * to the writer whose row is at stake, not to the register of bounds.
  *
  *   AGENT IDENTITY  != AGENT MANDATE
  *   AGENT MANDATE   != CAPABILITY

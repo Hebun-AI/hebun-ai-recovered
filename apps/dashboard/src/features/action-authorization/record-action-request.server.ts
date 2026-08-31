@@ -30,7 +30,18 @@ import { type ControlPlaneDatabase } from "@/db/client.server";
 import { hebyActionRequests } from "@/db/schema/action-authorization";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
-import type { HebyPreparedAction } from "@/features/heby-actions/contracts";
+import type { HebyActionKind, HebyPreparedAction } from "@/features/heby-actions/contracts";
+import { AGENT_ORIGINABLE_REGISTRY_KIND } from "@/features/agent-origination/contracts";
+/*
+ * AMA-2 — the READ SEAM MODULE, never the feature barrel.
+ *
+ * `@/features/agent-mandate` re-exports `establishAgentMandate`, and importing the barrel would put
+ * a Governance-bound WRITER into the proposal path's import graph for the sake of a read. That is
+ * the exact defect G6C repaired in Heby's graph, where a database-handle import dragged
+ * `establishGovernanceAuthority` in behind it. Enforcement needs to LOOK at a mandate and must
+ * remain unable to change one.
+ */
+import { readEffectiveAgentMandate } from "@/features/agent-mandate/read-agent-mandate.server";
 import {
   asCanonicalPayload,
   digestCanonicalAction,
@@ -75,6 +86,80 @@ type ActionProposerPair =
 function agentPairOrNull(proposer: AgentProposer): ActionProposerPair | null {
   if (!isAgentProposer(proposer)) return null;
   return { actorType: "agent", actorId: proposer.agentId };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * AMA-2 — THE AGENT MANDATE CEILING, ENFORCED HERE AND NOWHERE ELSE.
+ *
+ * ── WHY THIS SEAM ───────────────────────────────────────────────────────────
+ *
+ * A ceiling that lived in a UI, a prompt, a capability descriptor or the seeded workforce adapter
+ * would be advice. This is the module that makes an agent-originated proposal DURABLE, so a check
+ * that runs here is the one thing a proposal cannot get around: there is no second writer of
+ * `heby_action_requests` for an agent, and the gate runs BEFORE `insertActionRequest` is ever
+ * called — a refusal therefore leaves no row, not a withdrawn one.
+ *
+ * ── WHAT IT DOES, STATED AS THE FORMULA IT IMPLEMENTS ───────────────────────
+ *
+ *   proposal proceeds  REQUIRES  a mandate exists AND kind ∈ mandate.proposal_scope   (necessary)
+ *   kind ∈ mandate.proposal_scope  IMPLIES  nothing                                   (never sufficient)
+ *
+ * The second line is the whole design. Passing this gate changes NOTHING downstream: the row is
+ * still `pending`, no permit is minted, no Governance decision is written, no provider is reached,
+ * and the human review boundary is exactly where it was. A mandate only ever SUBTRACTS.
+ *
+ * ── IT READS, AND CANNOT WRITE ──────────────────────────────────────────────
+ *
+ * `readEffectiveAgentMandate` holds no insert, update, delete or transaction, and this module
+ * imports nothing else from the mandate authority. Enforcing a bound cannot alter the bound.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The three fail-closed states, kept apart on purpose. See `ActionRequestRefusal` for why one
+ * value would have been a fabricated absence.
+ */
+type MandateCeilingRefusal = Extract<
+  ActionRequestRefusal,
+  "agent-mandate-authority-unavailable" | "no-agent-mandate" | "action-outside-agent-mandate"
+>;
+
+/**
+ * Whether this agent's recorded ceiling admits this action kind.
+ *
+ * Returns `null` to proceed, or the refusal that stops the proposal. There is no third answer and
+ * no default: every path through this function either names a refusal or reports an admitted kind,
+ * so a mandate that could not be read can never be treated as one that permits.
+ *
+ * The agent id comes from the already-verified proposer pair and the tenant from the resolved
+ * server-side context — neither is a caller-supplied value, so no request can ask about another
+ * organization's mandate or another agent's.
+ */
+async function mandateCeilingRefusal(
+  tenant: TenantContext,
+  agentId: string,
+  actionKind: HebyActionKind,
+  deps: ActionRequestDeps,
+): Promise<MandateCeilingRefusal | null> {
+  const read = await readEffectiveAgentMandate(tenant, agentId, { getDb: deps.getDb });
+
+  /* (A) Hebun could not look. An unreachable ceiling is not an absent one. */
+  if (read.status === "unavailable") return "agent-mandate-authority-unavailable";
+  /* (B) Hebun looked, and nobody has bounded this agent. NO MANDATE != UNLIMITED MANDATE. */
+  if (!read.mandate) return "no-agent-mandate";
+
+  /*
+   * (C) A bound exists. The stored scope is in the ORIGINATION ALIAS vocabulary and the prepared
+   * action carries a REGISTRY kind, so the comparison goes through the declared map rather than
+   * through string equality — see `AGENT_ORIGINABLE_REGISTRY_KIND` for why comparing the two
+   * vocabularies directly would refuse every proposal, including the ones a mandate admits.
+   *
+   * An EMPTY scope — withdrawal — admits nothing and lands here for every kind, which is what
+   * withdrawal means.
+   */
+  const admitted = read.mandate.proposalScope.some(
+    (alias) => AGENT_ORIGINABLE_REGISTRY_KIND[alias] === actionKind,
+  );
+  return admitted ? null : "action-outside-agent-mandate";
 }
 
 /**
@@ -257,8 +342,18 @@ export function recordActionRequest(
  *
  * It grants nothing. `status` is still `pending`, no permit is minted, no decision is written, no
  * provider is reached, and the human review boundary is exactly where it was.
+ *
+ * ── AMA-2. THE MANDATE CEILING IS ENFORCED HERE, AND ONLY ON THIS PATH ───────
+ *
+ * This is the ONE place a recorded mandate constrains anything. It is checked after the proposer is
+ * verified — a ceiling is a fact about a KNOWN agent, so there is nothing to look up until one is
+ * resolved — and before `insertActionRequest`, so every mandate refusal writes no row at all.
+ *
+ * `recordActionRequest`, the human entry point below-and-above this one, reads no mandate and is
+ * byte-unchanged in behaviour. A human may still propose an act this agent's mandate excludes:
+ * AGENT MANDATE CONSTRAINS AGENTS, NOT HUMAN AUTHORITY.
  */
-export function recordAgentOriginatedActionRequest(
+export async function recordAgentOriginatedActionRequest(
   tenant: TenantContext | null,
   prepared: HebyPreparedAction | null,
   proposer: AgentProposer,
@@ -269,9 +364,22 @@ export function recordAgentOriginatedActionRequest(
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
   }
-  if (!tenant?.tenantId || !tenant.userId) return Promise.resolve(refused("unauthenticated"));
+  if (!tenant?.tenantId || !tenant.userId) return refused("unauthenticated");
   const pair = agentPairOrNull(proposer);
-  if (!pair) return Promise.resolve(refused("unverified-agent-proposer"));
+  if (!pair) return refused("unverified-agent-proposer");
+
+  /*
+   * A null prepared action carries no kind, so there is no requested act for a ceiling to admit or
+   * exclude. Refused with the reason `insertActionRequest` would have given it anyway — the
+   * released behaviour, unchanged — rather than reported as outside a mandate, which would name the
+   * wrong defect. Nothing is written on either path, and the gate below is never skipped for
+   * anything that could become a row.
+   */
+  if (!prepared) return refused("not-authorizable");
+
+  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps);
+  if (ceiling) return refused(ceiling);
+
   return insertActionRequest(tenant, prepared, pair, deps, originationInvocationId);
 }
 

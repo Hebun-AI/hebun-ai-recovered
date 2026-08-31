@@ -11,16 +11,22 @@
  *   proposal_allowed(agent, action)  REQUIRES  action ∈ mandate.scope      (necessary)
  *   action ∈ mandate.scope           IMPLIES   nothing                     (never sufficient)
  *
- * ── WHAT AMA-1 IS, AND THE FOUR THINGS IT IS NOT ─────────────────────────────
+ * ── WHAT THIS AUTHORITY IS, AND THE THINGS IT IS STILL NOT ───────────────────
  *
- * AMA-1 is the AUTHORITY FOUNDATION: a mandate can be designed, persisted, bound to a Governance
- * decision, and audited. It is deliberately NOT proposal-enforced, NOT Heby-grounded, and NOT
- * production-accepted, and this file must never be edited to imply otherwise.
+ * AMA-1 was the AUTHORITY FOUNDATION: a mandate can be designed, persisted, bound to a Governance
+ * decision, and audited. AMA-2 added the one thing that makes the ceiling real — a single
+ * enforcement seam in the agent-originated proposal writer, which reads a mandate and refuses
+ * before anything durable is written.
  *
  *   DESIGNED / PERSISTED / GOVERNANCE-BOUND / AUDITED   yes, at AMA-1
- *   PROPOSAL-ENFORCED                                   no — AMA-2 owns that seam
+ *   PROPOSAL-ENFORCED                                   yes, at AMA-2 — and ONLY proposals
  *   HEBY-GROUNDED                                       no — nothing reads this for an answer
  *   PRODUCTION-ACCEPTED                                 no — an independent later fact
+ *
+ * THE ENFORCEMENT DOES NOT LIVE HERE, AND THAT IS THE DESIGN. This feature gained no gate, no
+ * predicate and no `allows` surface at AMA-2; the writer that would otherwise create the row is
+ * the thing that asks. An authority that both records a bound and decides who is inside it would
+ * be two authorities wearing one name.
  *
  * Pure types and constants. No React, no I/O, no database, no authority.
  */
@@ -278,9 +284,9 @@ export const MANDATE_CAPABILITY_LADDER = Object.freeze([
   },
   {
     rung: "PROPOSAL-ENFORCED",
-    reached: false,
+    reached: true,
     detail:
-      "No proposal path reads a mandate. What an agent may originate is still the released global vocabulary.",
+      "AMA-2. The agent-originated proposal writer reads the effective mandate before it writes, and refuses when the authority is unreachable, when no mandate exists, or when the requested kind is outside the scope. A refusal writes no request row. It is the only enforcement seam, and passing it authorizes nothing.",
   },
   {
     rung: "HEBY-GROUNDED",

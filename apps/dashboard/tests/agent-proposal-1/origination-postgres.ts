@@ -29,6 +29,7 @@ import {
   type AgentProposer,
 } from "../../src/features/action-authorization/agent-proposer.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
+import { seedAgentMandate } from "../helpers/agent-mandate-seed";
 import { retireDurableAgentIdentity } from "../../src/features/agent-identity/retire-durable-agent-identity.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import { createExternalRecipient } from "../../src/features/external-recipients/write-external-recipients.server";
@@ -197,6 +198,64 @@ async function main(): Promise<void> {
     const agentId = established.status === "established" ? established.identity.agentId : "";
     assert.notEqual(agentId, acme.userId);
 
+    /*
+     * AMA-2 — THE CEILING IS NOW A PRECONDITION OF PROPOSING AT ALL.
+     *
+     * Existing is no longer enough. The agent-originated proposal writer refuses `no-agent-mandate`
+     * until the organization has recorded what this agent is FOR, so this suite must bound it
+     * before the origination it was written to prove can happen. Nothing below is weakened: what
+     * this file asserts about attribution, containment and the human path is unchanged, and the
+     * mandate admits exactly the released originable vocabulary — it subtracts nothing here.
+     */
+    await seedAgentMandate(setup, acme, agentId, dbDeps, { tag: "ap1a", now: NOW });
+
+    /*
+     * THE PRECONDITION HAS A FOOTPRINT, AND SECTION 3 NOW MEASURES A DELTA INSTEAD OF A ZERO.
+     *
+     * Section 3 asserted GLOBAL zeros for permits, decisions, Governance sessions and execution
+     * attempts. That was true only while nothing in this suite wrote them. Recording a mandate is
+     * a real human Governance act — it opens a Governance session and writes decisions — so those
+     * tables are legitimately non-empty before origination is even attempted.
+     *
+     * The CLAIM is unchanged: ORIGINATION CREATED NONE OF THESE. It is now measured across the
+     * proposal rather than against an empty database, which is what the claim always meant and is
+     * strictly harder to satisfy: a global zero would also pass in a world where origination wrote
+     * a permit and something else had deleted it.
+     */
+    const consequenceCounts = async (): Promise<{
+      permits: number;
+      decisions: number;
+      attempts: number;
+      memberships: number;
+      credentials: number;
+      sessions: number;
+      governance: number;
+    }> => {
+      const r = await setup.query<{
+        permits: number;
+        decisions: number;
+        attempts: number;
+        memberships: number;
+        credentials: number;
+        sessions: number;
+        governance: number;
+      }>(
+        `select (select count(*)::int from action_permits) as permits,
+                (select count(*)::int from decision_records) as decisions,
+                (select count(*)::int from action_execution_attempts) as attempts,
+                (select count(*)::int from memberships where user_id = $1) as memberships,
+                (select count(*)::int from auth_credentials) as credentials,
+                (select count(*)::int from user_session_contexts) as sessions,
+                (select count(*)::int from governance_sessions) as governance`,
+        [agentId],
+      );
+      return r.rows[0]!;
+    };
+    const beforeOrigination = await consequenceCounts();
+    assert.equal(beforeOrigination.permits, 0, "bounding an agent minted NO permit");
+    assert.equal(beforeOrigination.attempts, 0, "bounding an agent executed NOTHING");
+    assert.equal(beforeOrigination.memberships, 0, "bounding an agent granted it no membership");
+
     let agentRequestId = "";
     {
       /* The candidate set is server-built and carries NO address. */
@@ -255,34 +314,21 @@ async function main(): Promise<void> {
      * 3. THE CONSEQUENCE FIREWALL — origination created NOTHING else.
      * ═════════════════════════════════════════════════════════════════════ */
     {
-      const counts = await setup.query<{
-        permits: number;
-        decisions: number;
-        attempts: number;
-        memberships: number;
-        credentials: number;
-        sessions: number;
-        governance: number;
-      }>(
-        `select (select count(*)::int from action_permits) as permits,
-                (select count(*)::int from decision_records) as decisions,
-                (select count(*)::int from action_execution_attempts) as attempts,
-                (select count(*)::int from memberships where user_id = $1) as memberships,
-                (select count(*)::int from auth_credentials) as credentials,
-                (select count(*)::int from user_session_contexts) as sessions,
-                (select count(*)::int from governance_sessions) as governance`,
-        [agentId],
-      );
-      const c = counts.rows[0]!;
-      assert.equal(c.permits, 0, "NO PERMIT was issued");
-      assert.equal(c.decisions, 0, "NO Governance decision was recorded");
-      assert.equal(c.attempts, 0, "NOTHING was executed");
-      assert.equal(c.memberships, 0, "the agent holds no membership");
+      const c = await consequenceCounts();
+      const b = beforeOrigination;
+      assert.equal(c.permits, b.permits, "NO PERMIT was issued");
+      assert.equal(c.decisions, b.decisions, "NO Governance decision was recorded");
+      assert.equal(c.attempts, b.attempts, "NOTHING was executed");
+      assert.equal(c.memberships, b.memberships, "the agent holds no membership");
       /* `auth_credentials` keys on `auth_identity_id`, and an agent HAS no auth identity — so the
        * honest assertion is that this phase minted no credential for anybody at all. */
-      assert.equal(c.credentials, 0, "no credential was issued to anybody");
-      assert.equal(c.sessions, 0, "the agent holds no session");
-      assert.equal(c.governance, 0, "no Governance session was opened");
+      assert.equal(c.credentials, b.credentials, "no credential was issued to anybody");
+      assert.equal(c.sessions, b.sessions, "the agent holds no session");
+      assert.equal(c.governance, b.governance, "no Governance session was opened");
+      /* And the absolute claims that survive a mandate existing, stated absolutely. */
+      assert.equal(c.permits, 0, "no permit exists at all");
+      assert.equal(c.attempts, 0, "nothing has been executed at all");
+      assert.equal(c.credentials, 0, "no credential exists at all");
 
       /* The request is still pending — nothing auto-advanced it. */
       const still = await setup.query<{ status: string; approvedAt: string | null }>(

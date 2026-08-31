@@ -27,6 +27,8 @@
  * recorded, bytes the tenant never wrote, another tenant's anything, or any act outside the one
  * admitted kind.
  */
+import { SEND_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import type { HebyActionKind } from "@/features/heby-actions/contracts";
 
 /**
  * The action kinds an agent may originate. EXACTLY ONE, on purpose.
@@ -47,6 +49,41 @@ export type AgentOriginableActionKind = (typeof AGENT_ORIGINABLE_ACTION_KINDS)[n
 
 /** The registry kind each admitted alias maps to. The alias never becomes the kind by string. */
 export const SEND_ORIGINATION_ALIAS = "send" as const;
+
+/**
+ * THE ALIAS-TO-REGISTRY-KIND MAP — stated once, here, where the alias vocabulary lives (AMA-2).
+ *
+ * ── WHY THIS HAD TO EXIST BEFORE A MANDATE COULD BE ENFORCED ─────────────────
+ *
+ * A mandate's `proposal_scope` is `AgentOriginableActionKind[]` — ALIASES, the vocabulary a model
+ * selects from. A prepared action carries a `HebyActionKind` — the REGISTRY kind, the vocabulary
+ * the authorization chain speaks. Those two are deliberately different strings: `"send"` is not
+ * `"send-external-communication"`, and this file has said since AGENT-PROPOSAL-1 that "the alias
+ * never becomes the kind by string".
+ *
+ * Until AMA-2 the translation existed only as a fact about control flow — the inlet's
+ * `proposeAgentOriginatedSendAction` passes the CONSTANT `SEND_ACTION_KIND` because the origination
+ * selected the alias. Nothing named the correspondence, so nothing could check it. A ceiling
+ * comparing `mandate.proposalScope` against `prepared.actionKind` directly would have matched
+ * NOTHING and refused every proposal — fail-closed, and wrong, because it would report an
+ * in-scope act as out of scope.
+ *
+ * ── WHY IT IS A TOTAL RECORD, AND WHY THE VALUE IS IMPORTED ──────────────────
+ *
+ * `Record<AgentOriginableActionKind, HebyActionKind>` is TOTAL: admitting a new alias without
+ * declaring what registry kind it denotes is a COMPILE ERROR, not a silent hole a ceiling would
+ * read as "outside scope". And the value is the released `SEND_ACTION_KIND` itself rather than a
+ * repeated literal, so the inlet's constant and this map cannot drift apart.
+ *
+ * It maps and nothing else. It admits no kind, grants nothing, and reverses nothing: there is no
+ * registry-kind-to-alias direction here, because a registry kind that no alias denotes is exactly
+ * what a ceiling must be able to refuse.
+ */
+export const AGENT_ORIGINABLE_REGISTRY_KIND: Readonly<
+  Record<AgentOriginableActionKind, HebyActionKind>
+> = Object.freeze({
+  [SEND_ORIGINATION_ALIAS]: SEND_ACTION_KIND,
+});
 
 /**
  * The abstain value.
