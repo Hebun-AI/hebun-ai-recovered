@@ -171,7 +171,7 @@ different consumer with different fixtures. All nine bite again.
 ACCEPT them, so nothing downstream catches this" — true when written, false as of this hardening. The
 sentence is the record of why that proof existed before there was a second line of defence.
 
-## 6A · Production acceptance — NON-MUTATING, by design
+## 6A · Production acceptance — PASS, non-mutating, human-observed
 
 **Nothing was written to production to accept this.** No department was created or changed, no
 revoked or deleted user was manufactured to demonstrate a refusal, and no production database read
@@ -185,26 +185,27 @@ is what the brief asked for.
 | no department mutation for acceptance | **PASS** | the four source files changed are one pure predicate and three consumers; the acceptance itself issued no write |
 | Heby remains unchanged | **PASS** | its Organization grounding path is byte-identical at `933b7ce` and `0b46154` by sha256, and no Heby file is in the diff |
 | no Governance decision / permit / execution / provider action | **PASS** | no Governance table is named by any changed file, no adapter is reached, and no production act was performed |
-| existing Engineering readable, label intact, picker still contains the human | **PASS — by monotonicity, not by a fresh render** | see below |
+| existing Engineering readable, label intact, picker still contains the human | **PASS — human-observed after deployment** | the Director opened the deployed `/director/organization`: Engineering in service, accountable human rendering as `senoltr@gmail.com`, the authoritative identifier still beside the label, the `Accountable member` selection control rendering normally, and **no production mutation performed to see it** |
 
-**Why the last row is safe without re-observing it, and what that argument does not cover.**
+**The last row was OPEN when this document was first committed, and is now CLOSED by observation.**
 
-The hardening is **monotonic**: it only ADDS conditions to a predicate. So a human it removes must be
-one who fails a condition that did not exist before. The Director's production evidence for Human
-Legibility Reach was gathered through an authenticated session — and signing in requires
+It was recorded as a monotonicity argument rather than a measurement: the hardening only ADDS
+conditions, and the real human passed five of the six because signing in requires
 `memberships.status = 'active'`, `memberships.lifecycle_status = 'active'`,
-`memberships.revoked_at is null` and `users.lifecycle_status = 'active'`, which is five of the six
-conditions including every one this change added on the membership side.
+`memberships.revoked_at is null` and `users.lifecycle_status = 'active'`. The sixth,
+`users.deleted_at is null`, was named as the one the argument could not reach.
 
-The sixth, `users.deleted_at is null`, is not provable from outside. A row carrying an active
-lifecycle and a deletion timestamp at once would be a contradiction this system has no writer for,
-and such a human could not hold Governance authority — so the risk is named rather than dismissed,
-and it is smaller than the defect being repaired.
+**The Director then opened the deployed surface and looked.** Engineering is in service, the
+accountable human renders as `senoltr@gmail.com`, the authoritative identifier is still displayed
+beside the label, and the `Accountable member` selection control renders normally. Nothing was
+mutated to see it. The argument is superseded by the observation and is kept rather than deleted,
+because what it could and could not prove is worth reading next time a change is accepted this way.
 
-**What was NOT done: nobody has opened the page since the hardening deployed.** The render is
-structurally guaranteed and has not been freshly observed. A ten-second look at
-`/director/organization` would close it outright, and it is recorded as open rather than folded into
-the row above.
+**The observed deployment is `d114321`, not `0b46154`, and that is not a gap.** Production advanced by
+two DOCUMENTATION commits after the release — this closure and the learnings entry — and **zero files
+changed under `apps/dashboard/src` between them**, so the runtime the Director observed is the
+hardened runtime byte for byte. Stated rather than glossed: the release SHA and the observed SHA are
+different strings, and the reason they are equivalent here is measured, not assumed.
 
 ## 7 · Limitations — recorded, not implied away
 
@@ -229,7 +230,7 @@ Schema / migration:                 NONE — ledger 41
 New Organization capability:        NONE
 Heby grounding:                     NOT widened
 Dormant adapter:                    still unreachable, byte-identical
-Production acceptance:              PASS, non-mutating — one render unobserved (§6A)
+Production acceptance:              PASS, non-mutating — human-observed post-deployment (§6A)
 Bite-proofs:                        7 of 7 bit, plus 9 of 9 re-anchored legibility proofs
 Final suite:                        **628 passed, 0 failed, 628 total**
 ```
