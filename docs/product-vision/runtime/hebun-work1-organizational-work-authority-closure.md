@@ -8,8 +8,10 @@ accountable for it, and what state that human has declared.
 **Local migration ledger:** 41 → **42**. **Production ledger: 41, unchanged.**
 **Suite:** **630 passed, 0 failed, 630 total** — the replacement final run, on a stable tree.
 
-**WORK-1 IS RELEASED, NOT PRODUCTION-ACCEPTED.** The production migration and the production
-ceremony are a separate Director authorization and have not begun.
+**WORK-1 IS RELEASED.** It was subsequently **PRODUCTION-ACCEPTED** — production ledger 41 → 42,
+one real work item recorded by the accountable human through `/director/work`. See
+`hebun-work1-production-acceptance-closure.md`. The status table below is the state **at release**
+and is left as it was written.
 
 ---
 
