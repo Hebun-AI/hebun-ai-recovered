@@ -214,3 +214,106 @@ that names the wrong assertion is a bite-proof that has not been read.
 - **Only the Work grounding path is covered.** Two product-surface reads outside the Heby graph
   still floor at an address (§4). They disclose nothing externally today; if either ever becomes
   provider-facing, this same boundary is what it must consume.
+
+---
+
+## 8 · Production acceptance · **PASS**
+
+**Release commit:** `88d2711`. **Deployed and observed commit:** `88d2711` — **identical**, read from
+the Vercel REST API's `meta.githubCommitSha` (deployment `dpl_4meoEiZPJCQncSohUizS41f27C7E`, state
+`READY`, target production), because `vercel inspect` does not surface git metadata.
+
+**Production migration ledger: 42 → 42.** No migration exists or was needed.
+Database identified by `pg_control_system().system_identifier` **7675444875863894887**, database
+`neondb` — the same production control plane WORK-1 and WORK-2 were accepted against.
+
+### The condition the hardening exists for is still live in production
+
+```
+production identity   display_name  ABSENT
+                      name          ABSENT
+                      email         present  (never printed; local-part length 7)
+```
+
+So this is not a hypothetical: the released product label still resolves to an address for this
+human, and the provider-facing path is the only thing that changed.
+
+### The probe, and where it looked
+
+One probe, run against the **production control plane** through the **released answer flow**, with
+the `generate` seam captured — so the **actual provider-bound `ModelGenerationRequest`** was
+inspected rather than sent. **Zero provider calls, zero billable inference, zero rows written.**
+
+> *Who is accountable for Hebun Era III development?*
+
+The acceptance requirement is **email absent from provider-bound work grounding**, not merely absent
+from a model's prose. Reading the final answer would have proved the weaker claim. Every check below
+is a boolean over the **entire serialized request** — not only its evidence field, because a
+disclosure arriving through the instruction, the question or the history is exactly as much of a
+disclosure.
+
+```
+work record reference present      true    work-item/<id>
+work title present                 true    "Hebun Era III development"
+authoritative identifier present   true    d5b496df-…-17672b82dd10
+label reads `name unavailable`     true
+EMAIL ADDRESS present              FALSE
+any `@` present                    FALSE
+email local-part present           FALSE
+```
+
+The composed clause, verbatim:
+
+```
+accountable human: name unavailable (d5b496df-588c-49c5-9cc2-17672b82dd10).
+```
+
+```
+email absent from provider-bound grounding     YES
+guessed name absent                            YES  (local-part hunted in every casing: absent)
+authoritative identity reference preserved     YES
+```
+
+### Non-effects — measured by the window, not by a remembered baseline
+
+Every `public` table carrying a `created_at` was asked the same question at once: what did you gain
+since a timestamp comfortably before the probe? The list is **derived from the catalogue**, so no
+table can be forgotten.
+
+```
+tables scanned                     58
+tables that GREW in the window     NONE
+audit_log rows in the window       NONE
+work row version                   1 -> 1
+work row updated_at                unchanged
+ledger before / after              42 / 42
+```
+
+No Work mutation, no audit row attributable to Work, no Governance decision, no action request, no
+permit, no execution attempt, no Knowledge mutation, no mandate mutation, and **no external provider
+call of any kind** — including the model inference, which was deliberately captured rather than
+performed.
+
+### What was NOT executed, and why it is recorded rather than waved through
+
+**The live product probe through `/heby` in the deployed Command workspace was not run here.** It
+requires an authenticated Director session, which is a Director action and not one this milestone
+can perform. WORK-2's three acceptance probes were run that way, by the Director.
+
+It is recorded as **available and not required for this acceptance**: the stated criterion is about
+the provider-bound *request*, which was measured directly against production data through the
+released composition path. A prose answer would have added a weaker observation at the cost of a
+real billable disclosure to a third party.
+
+---
+
+## 9 · Status
+
+```
+released                    88d2711, origin/main parity verified
+production acceptance       PASS
+WORK-2 POST-ACCEPTANCE PRIVACY HARDENING     CLOSED / PRODUCTION-ACCEPTED
+```
+
+WORK-2 itself remains CLOSED / PRODUCTION-ACCEPTED, unchanged. **No successor milestone is
+authorized. WORK-3 is not authorized. No further privacy or security program is authorized.**
