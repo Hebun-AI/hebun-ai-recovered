@@ -290,6 +290,25 @@ export function resolveSource(
         "work",
         "Recorded work is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
       );
+    /*
+     * Departmental placement is durable and tenant-scoped, and it is read the way `work` and
+     * `organization` are — on the server, inside an already-resolved tenant. This resolver is pure:
+     * it holds no tenant and can open no connection, so it reports the honest default and the
+     * server answer flow substitutes the real tenant-scoped resolution
+     * (organization-authority/heby-placement-source.server.ts).
+     *
+     * The sentence explains the SEAM rather than claiming an absence, for G6D's reason: this
+     * resolution is ALSO what the answer flow falls back to when the real read throws, and
+     * reporting a transient read failure as "nobody is placed anywhere" would tell a Director
+     * something about their people that Hebun did not measure.
+     *
+     *     UNAVAILABLE != NONE RECORDED
+     */
+    case "placement":
+      return unavailable(
+        "placement",
+        "Departmental placements are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
     default: {
       // Exhaustiveness guard — a new source class must be handled explicitly.
       const never: never = sourceClass;

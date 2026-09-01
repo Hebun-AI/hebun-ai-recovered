@@ -72,9 +72,9 @@ const RETIRED = [
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* WORK-1 — the ledger grew to 42 with the Organizational Work Authority table; BOTH values move with it. */
-const LEDGER_COUNT = 42;
-const LEDGER_DIGEST = "ad42a0d92ff3c905"; /* WORK-1 authored a migration, so the ledger digest moved with it. */
+/* Departmental Placement — the ledger grew to 43 with the `department_placements` table; BOTH values move with it. */
+const LEDGER_COUNT = 43;
+const LEDGER_DIGEST = "0f77931ee1d8afbc"; /* Departmental Placement authored a migration, so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

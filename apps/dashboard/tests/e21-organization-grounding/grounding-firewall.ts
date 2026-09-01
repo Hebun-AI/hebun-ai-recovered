@@ -357,11 +357,22 @@ function hebyGainedNoAuthority(): void {
   const imports = [
     ...read(HEBY_ANSWER).matchAll(/from\s+["']@\/features\/organization-authority\/([^"']+)["']/g),
   ].map((match) => match[1]);
+  /*
+   * TWO PROJECTIONS NOW, AND STILL NO SEAM. E2-1's guarantee was never "exactly one import" — it is
+   * that Heby reaches PROJECTIONS and never a writer, a read seam or a table. Departmental Placement
+   * adds the second projection, so the list grows by exactly one and stays exact.
+   */
   assert.deepEqual(
-    imports,
-    ["heby-organization-source.server"],
-    "the Heby answer flow imports the projection and nothing else from the authority",
+    imports.sort(),
+    ["heby-organization-source.server", "heby-placement-source.server"].sort(),
+    "the Heby answer flow imports the authority's PROJECTIONS and nothing else from it",
   );
+  for (const forbidden of ["write-structure", "write-placement", "read-structure", "read-placement"]) {
+    assert.ok(
+      !imports.some((imported) => imported!.includes(forbidden)),
+      `and never the authority's ${forbidden} seam`,
+    );
+  }
 }
 
 function main(): void {

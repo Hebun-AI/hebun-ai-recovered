@@ -671,6 +671,8 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
        * departments. It opts into no density override either, so the pinned set above stays empty.
        */
       "src/components/organization-domain/department-structure.tsx",
+      /* Departmental Placement's surface — the eighth addition, and the count moves with it. */
+      "src/components/organization-domain/departmental-placement.tsx",
       /*
        * WORK-1 — the work register. It uses `StateBlock` for the ONE fact this axis exists to keep
        * separate, and it is the same fact OSA-1's surface uses it for one line above: an
@@ -700,8 +702,8 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* WORK-1 — the ledger grew to 42 with the Organizational Work Authority table; BOTH values move with it. */
-const LEDGER_COUNT = 42;
+/* Departmental Placement — the ledger grew to 43 with the `department_placements` table; BOTH values move with it. */
+const LEDGER_COUNT = 43;
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine. AGENT-ID-0.1 adds exactly
  * one boundary — the durable agent identity one — so nine became false. Naming the set beats bumping

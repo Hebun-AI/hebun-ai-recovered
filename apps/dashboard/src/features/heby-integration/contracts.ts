@@ -301,6 +301,25 @@ export type HebySourceClass =
    */
   | "work"
   /*
+   * DEPARTMENTAL PLACEMENT. WHICH DEPARTMENT EACH HUMAN IS RECORDED AS WORKING IN.
+   *
+   * Its own class although the Organization Structure Authority's feature owns it, because the
+   * `organization` class is chartered around a shape this fact does not have. That class carries
+   * EXACTLY ONE ITEM ALWAYS, its provenance says no member roster is carried, and its department
+   * owner is deliberately an IDENTIFIER. A bounded list of named people cannot travel under any of
+   * those sentences without falsifying all three.
+   *
+   * It is WORK-2's rejection argument unchanged: a work item names a department and is not one; a
+   * placement names a department and a human and is neither.
+   *
+   *     RECORDED PLACEMENT != OBSERVED WORK
+   *     PLACEMENT          != ROLE, AUTHORITY, PERMISSION OR REPORTING LINE
+   *     PLACED             != STILL AN ACTIVE MEMBER
+   *     UNPLACED           != NOT A MEMBER
+   *     PLACEMENT REGISTER != MEMBER ROSTER
+   */
+  | "placement"
+  /*
    * E2-5. THE DURABLE AGENTS THIS ORGANIZATION ESTABLISHED, and what became of what each proposed.
    *
    * It is its own class rather than a flavour of `workforce` — the class it most looks like — for
@@ -422,6 +441,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "integrations",
   "organization",
   "work",
+  "placement",
   "agents",
   "agent-mandate",
   "recorded-acts",

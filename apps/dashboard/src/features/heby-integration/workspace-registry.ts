@@ -136,6 +136,20 @@ const WORKSPACE_PROFILES = {
        * Heby could not reach it.
        */
       "work",
+      /*
+       * Departmental placement joins here and ONLY here, on the same precedent as its six
+       * predecessors. Command is where a Director asks how the organization is arranged and who is
+       * accountable for what, and it is where `/heby` resolves.
+       *
+       * `workforce` deliberately does NOT gain it, and the reason is sharper here than anywhere:
+       * that class is chartered for the humans an organization is made of, and a PLACEMENT is not
+       * a statement about a person's remit. Routing it through `workforce` would make "this
+       * organization recorded that you work in Engineering" indistinguishable from "this is your
+       * job, your role and your reporting line" — the exact four things the class refuses to claim.
+       *
+       * `organization` does not gain a second class either: it keeps ONE item and no roster.
+       */
+      "placement",
     ],
     authority: "advisory-only",
     mayExplain: [

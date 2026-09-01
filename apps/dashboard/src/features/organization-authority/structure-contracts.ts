@@ -160,9 +160,31 @@ export const ORGANIZATION_STRUCTURE_AUTHORITY_MODEL = Object.freeze({
   writesGovernanceDecision: false as const,
   /** No `governance_domain` value was added. */
   governanceDomainAdded: false as const,
-  /** OSA-1 ships no human roster read and no human-to-department assignment. */
+  /**
+   * OSA-1 shipped no human roster read.
+   *
+   * IT STILL SHIPS NONE. Departmental Placement, added later in this feature, records which
+   * department a human works in — but an UNPLACED member is invisible to every read it owns, so it
+   * is a placement register and not a roster. The released member list is, and remains, the Human
+   * Legibility Reach picker.
+   */
   humanRoster: false as const,
-  humanAssignment: false as const,
+  /**
+   * TRUE SINCE DEPARTMENTAL PLACEMENT, AND OWNED BY A SIBLING MODULE, NOT THIS ONE.
+   *
+   * OSA-1 measured this as `false` and it was true when written. The fact now exists, in
+   * `department_placements`, written by `write-placement.server.ts` — a separate module with its own
+   * table, its own audit sink and its own refusal vocabulary, sharing this authority's gate and
+   * eligibility rule.
+   *
+   * `write-structure.server.ts` is UNTOUCHED by it and still writes `departments` and `audit_log`
+   * alone. That separation is not tidiness: the obvious shape for placement was a
+   * `memberships.department_id` column, and it was refused precisely because this authority must
+   * never hold a write handle on the row a session reads to build a `TenantContext`.
+   */
+  humanAssignment: true as const,
+  /** The module that owns it. Named so a reader is never left looking for it in the writer above. */
+  humanAssignmentWriter: "organization-authority/write-placement.server.ts" as const,
   /** The fact lives on `agents`, so its writer must be Agent Identity — not this authority. */
   agentAssignmentWriter: false as const,
   /** `organizations` is untouched, unpopulated, and made unrepresentable by CHECK. */

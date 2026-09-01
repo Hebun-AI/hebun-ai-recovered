@@ -357,7 +357,18 @@ function walk(dir: string): string[] {
  * ═══════════════════════════════════════════════════════════════════════════ */
 {
   assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanRoster, false);
-  assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignment, false);
+  /*
+   * `humanAssignment` WAS false and Departmental Placement made it true. OSA-1's claim was never
+   * "assignment does not exist" — it was "OSA-1 did not build it", and that is what is asserted
+   * now: the fact lives in a module OSA-1 never wrote, while OSA-1's own writer still writes
+   * exactly one table and is byte-untouched by it.
+   */
+  assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignment, true);
+  assert.equal(
+    ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignmentWriter,
+    "organization-authority/write-placement.server.ts",
+  );
+  assert.deepEqual([...ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.writesTables], ["departments"]);
   assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.agentAssignmentWriter, false);
 
   const featureFiles = walk(FEATURE);
@@ -410,11 +421,41 @@ function walk(dir: string): string[] {
       file !== READER &&
       valueEdges(file).some((spec) => resolveSpecifier(file, spec) === READER),
   );
+  const PLACEMENT_READER = "src/features/organization-authority/read-placement.server.ts";
+  const PLACEMENT_WRITER = "src/features/organization-authority/write-placement.server.ts";
   assert.deepEqual(
     consumers.sort(),
-    [L3_READ, WRITER].sort(),
-    "only the L3 seam and the writer reach the structure read — every surface inherits through L3",
+    [L3_READ, WRITER, PLACEMENT_READER, PLACEMENT_WRITER].sort(),
+    "only the L3 seam and this authority's own writers and read seams reach the structure read — " +
+      "every SURFACE still inherits through L3",
   );
+
+  /*
+   * AND THE TWO NEW ONES TAKE CONSTANTS, NOT THE READ.
+   *
+   * The guarantee was never about the file count — it is that nothing builds a second structural
+   * interpretation. Departmental Placement imports the two LIFECYCLE CONSTANTS this module declares,
+   * exactly as the structure writer already did, and never `readOrganizationStructure` itself. That
+   * is asserted rather than assumed, so the widened census cannot hide a second reader.
+   */
+  for (const placementModule of [PLACEMENT_READER, PLACEMENT_WRITER]) {
+    const code = withoutComments(read(placementModule));
+    assert.ok(
+      !code.includes("readOrganizationStructure"),
+      `${placementModule} takes the lifecycle constants and never the structure READ`,
+    );
+    assert.match(
+      code,
+      /import \{[^}]*LIFECYCLE_STATUS[^}]*\} from "\.\/read-structure\.server"/,
+      `${placementModule} imports exactly the lifecycle constants from the structure read`,
+    );
+  }
+
+  /* No SURFACE reaches it, which is the sentence this section has always been about. */
+  const surfaceConsumers = [...walk("src/app"), ...walk("src/components")].filter((file) =>
+    valueEdges(file).some((spec) => resolveSpecifier(file, spec) === READER),
+  );
+  assert.deepEqual(surfaceConsumers, [], "no page and no component reaches the structure read");
 
   const l3 = withoutComments(read(L3_READ));
   assert.ok(

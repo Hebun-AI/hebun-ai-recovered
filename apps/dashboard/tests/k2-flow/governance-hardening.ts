@@ -207,6 +207,7 @@ function main(): void {
        * GREW; nothing in it was widened, which is what this assertion has always been about.
        */
       "src/features/governance-audit/agent-mandate-audit.server.ts",
+      "src/features/governance-audit/departmental-placement-audit.server.ts",
       "src/features/governance-audit/genesis-nomination-audit.server.ts",
       "src/features/governance-audit/governance-decision-audit.server.ts",
       "src/features/governance-audit/human-onboarding-audit.server.ts",

@@ -617,7 +617,12 @@ async function main(): Promise<void> {
     assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.writesGovernanceDecision, false);
     assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.governanceDomainAdded, false);
     assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanRoster, false);
-    assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignment, false);
+    /*
+     * `humanAssignment` was false when OSA-1 measured it; Departmental Placement made it true in a
+     * module OSA-1 never wrote. What OSA-1 asserts here is unchanged in substance: its OWN writer
+     * still writes exactly one table, proved on the line below.
+     */
+    assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignment, true);
     assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.agentAssignmentWriter, false);
     assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.organizationsActivated, false);
     assert.deepEqual(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.writesTables, ["departments"]);

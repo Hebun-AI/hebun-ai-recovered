@@ -178,8 +178,10 @@ function organizationDomain(read: OrganizationAuthorityRead): LiveMapDomain {
     sourceAuthority: "Organization Authority",
     /*
      * The member COUNT travels as a property of the organization, never as people nodes: Hebun has
-     * no authority that lists them and membership carries no departmental placement, so drawing a
-     * person would be claiming a placement nobody owns.
+     * no authority that LISTS this organization's members. Departmental placement is now recorded
+     * and has its own authority, but it is a register of placements rather than a roster — a human
+     * nobody placed is invisible to it — so drawing people from it would draw an incomplete
+     * organization and call it the whole one.
      */
     detail: [
       `Identifier: ${organization.slug}.`,
@@ -485,7 +487,10 @@ function edgesFor(organization: LiveMapDomain, agents: LiveMapDomain): readonly 
     relation: "belongs-to",
     basis:
       "agents.tenant_id — the durable column whose value is this organization's own identity. " +
-      "No departmental placement, ownership or assignment is claimed by this edge.",
+      "No departmental placement, ownership or assignment is claimed by this edge. An AGENT is " +
+      "assigned to a department through `agents.department_id`, which Agent Identity owns, and a " +
+      "HUMAN is placed through the placement authority — neither is this edge, and neither is " +
+      "inferred from it.",
   }));
 }
 

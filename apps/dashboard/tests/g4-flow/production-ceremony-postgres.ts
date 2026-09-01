@@ -198,7 +198,13 @@ async function main(): Promise<void> {
          * That gap is deliberate: WORK-1 authored the migration and applied it nowhere but here,
          * exactly as OSA-1 did before it (`42186bb31b22a719a9b57b528ed42161`, the value this line
          * held until now, and the one production still carries). */
-        "19f0f97195c4cdc17fca61e736f0fe44",
+        /* DEPARTMENTAL PLACEMENT: migration 43 (`department_placements`) grew the ledger once more,
+         * and the digest moved with it for the same reason — still on the DISPOSABLE database,
+         * which carries what this working tree authors. PRODUCTION STANDS AT 42
+         * (`19f0f97195c4cdc17fca61e736f0fe44`, the value this line held until now) and converges
+         * only when its own gated ceremony runs. The gap is the point: authoring a migration is not
+         * applying one. */
+        "c814d6b3eae6fc5631758175b05ae4ea",
         /*
          * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
          * sentence had been false since R2H — whose own comment, three lines above it, said

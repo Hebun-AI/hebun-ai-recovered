@@ -513,6 +513,7 @@ function noSchemaNoRegression(): void {
       "20260831212454_osa1_department_structure_authority.sql",
       /* WORK-1 — the Organizational Work Authority table. A declared later phase, not this one's. */
       "20260901122013_work1_organizational_work_authority.sql",
+      "20260901170404_osa3_departmental_placement.sql",
     ],
     "G5A authored no migration; what follows is a declared later phase",
   );

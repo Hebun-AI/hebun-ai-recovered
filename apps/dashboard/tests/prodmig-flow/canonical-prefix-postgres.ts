@@ -93,7 +93,7 @@ async function withDatabase(
  * 1. THE CANONICAL LEDGER ITSELF
  * ═════════════════════════════════════════════════════════════════════════ */
 function theCanonicalLedgerIsWellFormed(): void {
-  assert.equal(CANONICAL.length, 42, "this checkout authors 42 canonical migrations"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  assert.equal(CANONICAL.length, 43, "this checkout authors 43 canonical migrations"); /* Departmental Placement grew the ledger 42 -> 43. */
   /*
    * PHASE-RELATIVE, not an index. This read `CANONICAL[40]` and therefore named the last entry only
    * while the ledger happened to be 41 long — every migration since has had to move two numbers in
@@ -102,8 +102,8 @@ function theCanonicalLedgerIsWellFormed(): void {
    */
   assert.equal(
     CANONICAL.at(-1)!.tag,
-    "20260901122013_work1_organizational_work_authority",
-    "and the last of them is WORK-1 — OSA-1 held this line before it",
+    "20260901170404_osa3_departmental_placement",
+    "and the last of them is Departmental Placement — WORK-1 held this line before it",
   );
 
   /* Strictly increasing `when` — the precondition that makes delegating to the engine sound. */
@@ -122,7 +122,7 @@ function theCanonicalLedgerIsWellFormed(): void {
    * until the WORK-1 production ceremony is authorized. The digest below is the CHECKOUT's, which is
    * what this test measures; the prefix verifier is what reconciles the two.
    */
-  assert.equal(canonicalDigest(CANONICAL), "19f0f97195c4cdc17fca61e736f0fe44", "the release digest");
+  assert.equal(canonicalDigest(CANONICAL), "c814d6b3eae6fc5631758175b05ae4ea", "the release digest");
   assert.equal(
     canonicalDigest(CANONICAL.slice(0, 35)),
     "97f1151fd57bec5142621f00c1913708",
@@ -166,7 +166,7 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
         [CANONICAL[CANONICAL.length - 1]!.tag],
         "exactly one migration is pending, and it is the newest release",
       );
-      assert.equal(verdict.finalDigest, "19f0f97195c4cdc17fca61e736f0fe44");
+      assert.equal(verdict.finalDigest, "c814d6b3eae6fc5631758175b05ae4ea");
 
       /*
        * THE PENDING MIGRATION'S OWN ADDITION IS ABSENT BEFORE MIGRATING.
@@ -186,12 +186,16 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
        * WORK-1 is a table probe again — `work_items` did not exist before it, and no earlier
        * migration mentions it.
        *
+       * DEPARTMENTAL PLACEMENT is a table probe too, and the probe MOVED TO IT: `work_items` is now
+       * added by an EARLIER migration, so probing it would have been satisfied before migrating and
+       * proven nothing about the pending one. `department_placements` is what this release adds.
+       *
        * The rule, which is the part that survives: probe what the PENDING migration adds, never
        * something an earlier one already added.
        */
       const before = await organizationalFingerprint(client);
       const externalBefore = await client.query<{ n: string }>(
-        `select count(*)::text as n from pg_tables where tablename = 'work_items'`,
+        `select count(*)::text as n from pg_tables where tablename = 'department_placements'`,
       );
       assert.equal(
         externalBefore.rows[0]!.n,
@@ -204,11 +208,11 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.applied, 42);
-      assert.equal(after.digest, "19f0f97195c4cdc17fca61e736f0fe44");
+      assert.equal(after.applied, 43);
+      assert.equal(after.digest, "c814d6b3eae6fc5631758175b05ae4ea");
 
       const externalAfter = await client.query<{ n: string }>(
-        `select count(*)::text as n from pg_tables where tablename = 'work_items'`,
+        `select count(*)::text as n from pg_tables where tablename = 'department_placements'`,
       );
       assert.equal(externalAfter.rows[0]!.n, "1", "and present after");
 
@@ -253,7 +257,7 @@ async function aTargetTwoBehindAppliesBoth(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.digest, "19f0f97195c4cdc17fca61e736f0fe44");
+      assert.equal(after.digest, "c814d6b3eae6fc5631758175b05ae4ea");
     });
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -266,8 +270,8 @@ async function aConvergedTargetIsANoOp(): Promise<void> {
     const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);
     assert.equal(verdict.status, "converged");
     if (verdict.status !== "converged") return;
-    assert.equal(verdict.applied, 42);
-    assert.equal(verdict.digest, "19f0f97195c4cdc17fca61e736f0fe44");
+    assert.equal(verdict.applied, 43);
+    assert.equal(verdict.digest, "c814d6b3eae6fc5631758175b05ae4ea");
 
     /* And the released convergence check agrees, so the split did not change its answer. */
     const legacy = await verifyProductionTarget(

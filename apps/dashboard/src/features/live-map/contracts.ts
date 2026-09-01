@@ -32,7 +32,15 @@
  *     agent -> department      no department authority exists (L3)
  *     agent -> human           `agents.human_owner_id` is durable, but Live Map has no human node
  *                              and no roster read, so the far end does not exist to draw to
- *     human -> department      L3 measured that `roles` carries no `organization_id` at all
+ *     human -> department      DEPARTMENTAL PLACEMENT NOW OWNS THIS RELATIONSHIP, and the edge is
+ *                              still absent — for the reason above it: Live Map has no human node
+ *                              and no roster read, so the near end does not exist to draw from. The
+ *                              reason changed from "nobody owns this concept" to "the concept is
+ *                              owned and this projection has nowhere to draw it", which is a
+ *                              weaker absence than the `agent -> work` one and is recorded as
+ *                              such: drawing people is a later milestone's decision, not a gap.
+ *                              (L3's original measurement — `roles` carries no `organization_id` —
+ *                              remains true and is no longer the operative reason.)
  *     agent -> work            WORK-1 established an Organizational Work Authority, so the near end
  *                              now exists — and the edge still does not, because
  *                              `work_items_human_accountable_chk` makes an AGENT unrepresentable as
@@ -311,9 +319,12 @@ export function liveMapStructureRecorded(inService: number, retired: number): st
 }
 
 export const LIVE_MAP_PEOPLE_ABSENT =
-  "Hebun holds a count of this organization's human members but no authority that lists them, and " +
-  "membership carries no departmental placement. People are therefore counted on the organization " +
-  "and are not drawn as their own nodes.";
+  "Hebun holds a count of this organization's human members but no authority that lists them. " +
+  "Departmental placement IS recorded — which department a human works in has its own authority " +
+  "and its own surface — but a placement register is not a member roster: a human nobody has " +
+  "placed does not appear in it at all. People are therefore still counted on the organization " +
+  "and are not drawn as their own nodes, which is a decision about this map rather than a gap in " +
+  "what Hebun knows.";
 
 /**
  * The two sentences the derived attachment's completeness signal can say.

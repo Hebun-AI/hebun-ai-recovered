@@ -42,6 +42,9 @@ const WORK_WRITER = "src/features/organizational-work/write-work.server.ts";
 const WORK_READER = "src/features/organizational-work/read-work.server.ts";
 const READER = "src/features/organization-authority/read-structure.server.ts";
 const PICKER = "src/features/auth-runtime/human-label-read.server.ts";
+/* Departmental Placement — a third authority act that names a human, so it consults the same rule. */
+const PLACEMENT_WRITER = "src/features/organization-authority/write-placement.server.ts";
+const PLACEMENT_READER = "src/features/organization-authority/read-placement.server.ts";
 const IDENTITY_REPO = "src/features/auth-runtime/identity-repository.server.ts";
 const PASSIVE_ADAPTER = "src/features/persistence/supabase-postgres-adapter.ts";
 
@@ -128,23 +131,30 @@ function walk(dir: string): string[] {
     .filter((file) => read(file).includes("member-eligibility"));
 
   /*
-   * FIVE CONSUMERS, AND THE COUNT GREW FOR THE RIGHT REASON.
+   * SEVEN CONSUMERS, AND THE COUNT GREW FOR THE RIGHT REASON — TWICE.
    *
    * WORK-1 established a second authority that names an accountable human, so it MUST consult this
-   * rule rather than re-type it — that is the entire point of the rule existing. Its writer takes
-   * the full predicate, and its read takes the membership half for the same derived-flag reason the
-   * structure read does.
+   * rule rather than re-type it — that is the entire point of the rule existing.
    *
-   * The assertion is widened, never weakened: it is still an EXACT list, so a sixth consumer
+   * Departmental Placement is the third, and the reason is sharper: its first draft HAND-WROTE the
+   * six conditions as raw SQL in its read. Correct on the day, and the exact shape this rule exists
+   * to prevent. It was caught in review and replaced by an import, which is why this census grew
+   * rather than this file passing while a second copy of the rule drifted somewhere.
+   *
+   * Its READ takes the FULL predicate, not the membership half, because — unlike the structure read
+   * — no firewall forbids it from naming `users`. So its derived flag agrees with its writer
+   * exactly, instead of being a strict subset of it.
+   *
+   * The assertion is widened, never weakened: it is still an EXACT list, so an eighth consumer
    * appearing without a deliberate edit still fails here. What must never happen is a module
    * enforcing eligibility with its own copy of the conditions, and §2 above is what catches that.
    */
   assert.deepEqual(
     consumers.sort(),
-    [PICKER, READER, WRITER, WORK_READER, WORK_WRITER].sort(),
-    "the eligibility rule has exactly five consumers: the two writers that enforce it, the picker " +
-      "that offers by it, and the two reads that derive their accountability flag from its " +
-      "membership half",
+    [PICKER, READER, WRITER, WORK_READER, WORK_WRITER, PLACEMENT_READER, PLACEMENT_WRITER].sort(),
+    "the eligibility rule has exactly seven consumers: the three writers that enforce it, the " +
+      "picker that offers by it, and the three reads that derive their accountability or standing " +
+      "flag from it",
   );
 
   /* The writer takes the WHOLE rule. The reader takes the membership half and says so. */
@@ -169,16 +179,34 @@ function walk(dir: string): string[] {
  * ═══════════════════════════════════════════════════════════════════════════ */
 {
   assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanRoster, false, "still no roster");
-  assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignment, false, "still no assignment");
+  /*
+   * `humanAssignment` WAS false and is now true — and this milestone still added none of it.
+   *
+   * Departmental Placement added the fact, in its own table with its own writer. The claim worth
+   * keeping here is not "the flag is false" but "the OWNER eligibility hardening did not add it",
+   * so the assertion moves to what it always meant: the fact belongs to a module this milestone
+   * never touched, and OSA-1's own writer still writes exactly one table.
+   */
+  assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignment, true, "assignment now exists");
+  assert.equal(
+    ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignmentWriter,
+    "organization-authority/write-placement.server.ts",
+    "and it is owned by a module the hardening did not write",
+  );
+  assert.deepEqual(
+    [...ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.writesTables],
+    ["departments"],
+    "while the structural writer this milestone hardened still writes exactly one table",
+  );
   assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.agentAssignmentWriter, false);
 
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) =>
     f.endsWith(".sql"),
   );
-  /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
-  assert.equal(migrations.length, 42, "no migration was added by the hardening — the ledger grew only for WORK-1");
+  /* WORK-1 grew the ledger to 42; Departmental Placement to 43. Neither is this milestone's. */
+  assert.equal(migrations.length, 43, "no migration was added by the hardening");
 
-  assert.equal(HEBY_SOURCE_CLASSES.length, 18, "Heby's source-class census is unchanged by the hardening"); /* WORK-2 added the 18th class, `work` — a grounding read, not a schema change. */
+  assert.equal(HEBY_SOURCE_CLASSES.length, 19, "Heby's source-class census is unchanged by the hardening"); /* WORK-2 added the 18th class `work`; Departmental Placement added the 19th. Neither is the hardening's. */
   const eligibilityConsumersUnderHeby = walk("src/features")
     .filter((f) => f.includes("heby"))
     .filter((f) => read(f).includes("member-eligibility"));

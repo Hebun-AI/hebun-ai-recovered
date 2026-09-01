@@ -20,11 +20,24 @@ import {
   setDepartmentOwner,
   type DepartmentWriteResult,
 } from "@/features/organization-authority/write-structure.server";
+import {
+  placeHumanInDepartment,
+  withdrawPlacement,
+  type PlacementWriteResult,
+} from "@/features/organization-authority/write-placement.server";
 
 const ORGANIZATION_ROUTE = "/director/organization";
 
 function revalidate(result: DepartmentWriteResult): DepartmentWriteResult {
   if (result.status === "recorded") revalidatePath(ORGANIZATION_ROUTE);
+  return result;
+}
+
+/** A placement act has two success shapes — `recorded` and `withdrawn` — and both change the page. */
+function revalidatePlacement(result: PlacementWriteResult): PlacementWriteResult {
+  if (result.status === "recorded" || result.status === "withdrawn") {
+    revalidatePath(ORGANIZATION_ROUTE);
+  }
   return result;
 }
 
@@ -59,4 +72,30 @@ export async function setDepartmentOwnerAction(input: {
 }): Promise<DepartmentWriteResult> {
   const tenant = await resolveTenantContext();
   return revalidate(await setDepartmentOwner(tenant, input));
+}
+
+/*
+ * ── DEPARTMENTAL PLACEMENT ───────────────────────────────────────────────────
+ *
+ * The same posture, a different authority module. These two actions reach
+ * `write-placement.server.ts`, which writes `department_placements` and `audit_log` and nothing
+ * else — in particular it never writes `memberships`, which is why the fact lives in its own table
+ * rather than as a column on the row a session reads.
+ *
+ * No refusal is reworded here either. `human-not-active-member` reaches the surface exactly as the
+ * authority produced it, so a control can never explain a refusal the authority did not give.
+ */
+export async function placeHumanInDepartmentAction(input: {
+  userId: string;
+  departmentId: string;
+}): Promise<PlacementWriteResult> {
+  const tenant = await resolveTenantContext();
+  return revalidatePlacement(await placeHumanInDepartment(tenant, input));
+}
+
+export async function withdrawPlacementAction(input: {
+  userId: string;
+}): Promise<PlacementWriteResult> {
+  const tenant = await resolveTenantContext();
+  return revalidatePlacement(await withdrawPlacement(tenant, input));
 }

@@ -164,7 +164,7 @@ function walk(dir: string): string[] {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) =>
     f.endsWith(".sql"),
   );
-  assert.equal(migrations.length, 42, "the migration ledger is untouched by HLR"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  assert.equal(migrations.length, 43, "the migration ledger is untouched by HLR"); /* WORK-1 grew it to 42; Departmental Placement to 43. Neither is HLR's. */
 
   /* THE ROSTER CLAIM IS STILL FALSE FOR ORGANIZATION, WHICH IS THE POINT. */
   assert.equal(
@@ -172,7 +172,18 @@ function walk(dir: string): string[] {
     false,
     "OSA still ships no roster — legibility is Identity's read, not Organization's",
   );
-  assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignment, false);
+  /*
+   * `humanAssignment` was false when HLR measured it and Departmental Placement made it true.
+   * HLR's claim was never "assignment does not exist" — it was "HLR did not add it". Repointed to
+   * what it always meant: the fact is owned by a module HLR never wrote, and legibility remains
+   * Identity's read rather than Organization's.
+   */
+  assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignment, true);
+  assert.equal(
+    ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.humanAssignmentWriter,
+    "organization-authority/write-placement.server.ts",
+    "and HLR is not that module",
+  );
   assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.agentAssignmentWriter, false);
   assert.equal(ORGANIZATION_AUTHORITY_MODEL.writerCreated, false);
 }
@@ -363,7 +374,7 @@ function walk(dir: string): string[] {
  * ═══════════════════════════════════════════════════════════════════════════ */
 {
   /* No source class was added, renamed or removed. */
-  assert.equal(HEBY_SOURCE_CLASSES.length, 18, "the source class census is unchanged by HLR"); /* WORK-2 added the 18th class, `work` — a grounding read, not a schema change. */
+  assert.equal(HEBY_SOURCE_CLASSES.length, 19, "the source class census is unchanged by HLR"); /* WORK-2 added the 18th class `work`; Departmental Placement added the 19th. Neither is HLR's. */
   for (const forbidden of ["human-labels", "people", "roster", "members"]) {
     assert.ok(
       !HEBY_SOURCE_CLASSES.includes(forbidden as never),
@@ -427,13 +438,21 @@ function walk(dir: string): string[] {
     "the Heby subsystem itself still holds no legibility read — it only ever receives a projection",
   );
 
+  /*
+   * TWO GROUNDING PROJECTIONS NOW RESOLVE A HUMAN, AND BOTH ARE NAMED.
+   *
+   * WORK-2 was the first. Departmental Placement is the second, and it is the one whose whole
+   * subject is people — so the list grows by exactly one and stays EXACT. A third appearing without
+   * a deliberate edit still fails here, which is the guarantee worth keeping.
+   */
+  const PLACEMENT_GROUNDING = "src/features/organization-authority/heby-placement-source.server.ts";
   const groundingConsumers = walk("src/features")
     .filter((file) => /heby-[a-z-]*source\.server\.ts$/.test(file))
     .filter((file) => read(file).includes("human-label-read"));
   assert.deepEqual(
-    groundingConsumers,
-    [WORK_GROUNDING],
-    "exactly ONE grounding projection resolves a human label, and it is the Work Authority's",
+    groundingConsumers.sort(),
+    [WORK_GROUNDING, PLACEMENT_GROUNDING].sort(),
+    "exactly TWO grounding projections resolve a human, and both are named here",
   );
 
   /*
@@ -447,15 +466,17 @@ function walk(dir: string): string[] {
    * may reach only `resolveHumanNames`. Reaching the address-floored `resolveHumanLabels` from a
    * grounding projection fails here, as does a second projection reaching for either.
    */
-  const workGrounding = withoutComments(read(WORK_GROUNDING));
-  assert.ok(
-    workGrounding.includes("resolveHumanNames"),
-    "the one grounding projection resolves the PROVIDER-SAFE name",
-  );
-  assert.ok(
-    !workGrounding.includes("resolveHumanLabels"),
-    "and never the product label that floors at an email address",
-  );
+  for (const projection of [WORK_GROUNDING, PLACEMENT_GROUNDING]) {
+    const code = withoutComments(read(projection));
+    assert.ok(
+      code.includes("resolveHumanNames"),
+      `${projection} resolves the PROVIDER-SAFE name`,
+    );
+    assert.ok(
+      !code.includes("resolveHumanLabels"),
+      `${projection} never reaches the product label that floors at an email address`,
+    );
+  }
 
   const providerFacingReaders = walk("src/features")
     .filter((file) => /heby-[a-z-]*source\.server\.ts$/.test(file))
@@ -476,35 +497,56 @@ function walk(dir: string): string[] {
     .filter((file) => read(file).includes("human-label-read"));
 
   /*
-   * "no second consumer, YET" — and WORK-1 is it. The Work register names an accountable human, so
-   * it faces exactly the problem this projection exists to solve, and it solves it the same way:
-   * the page reads the labels and the component receives them. Neither holds the read, neither
-   * persists a name, and the identifier still travels beside the label.
+   * "no second consumer, YET" — and there are now SEVEN, each following the same released shape:
+   * a page performs the read and hands a component the answers, or an authority-owned projection
+   * resolves names for grounding. Nobody else holds the read, nobody persists a name, and the
+   * identifier always travels beside the label.
    *
-   * The census GREW; nothing in it was widened. A third pair appearing without a deliberate edit
-   * still fails here.
+   *   two pages          department owner   +  work register
+   *   three components   the two above      +  the placement panel
+   *   two projections    work grounding     +  placement grounding
+   *
+   * The census GREW; nothing in it was widened. An eighth consumer appearing without a deliberate
+   * edit still fails here.
    */
+  const PLACEMENT_PANEL = "src/components/organization-domain/departmental-placement.tsx";
+  const PLACEMENT_GROUNDING_PROJECTION =
+    "src/features/organization-authority/heby-placement-source.server.ts";
   assert.deepEqual(
     consumers.sort(),
-    [PAGE, PANEL, WORK_PAGE, WORK_PANEL, WORK_GROUNDING_PROJECTION].sort(),
-    "exactly two pages read legibility, two components receive it, and ONE grounding projection " +
-      "resolves it for Heby — the department owner, the accountable human on the register, and " +
-      "the accountable human in Heby's context. No other consumer.",
+    [
+      PAGE,
+      PANEL,
+      WORK_PAGE,
+      WORK_PANEL,
+      WORK_GROUNDING_PROJECTION,
+      PLACEMENT_PANEL,
+      PLACEMENT_GROUNDING_PROJECTION,
+    ].sort(),
+    "exactly two pages read legibility, three components receive it, and TWO grounding projections " +
+      "resolve it for Heby. No other consumer.",
   );
 
   /*
-   * AND THE COMPONENT IMPORTS TYPES ONLY. A client component that could CALL the read would be a
+   * AND EVERY COMPONENT IMPORTS TYPES ONLY. A client component that could CALL the read would be a
    * database handle in a browser bundle; `import type` erases at compile time.
    */
-  const panel = read(PANEL);
-  assert.match(
-    panel,
-    /import type \{\s*HumanLabel,\s*SelectableMembersRead,?\s*\} from "@\/features\/auth-runtime\/human-label-read\.server"/,
-    "the panel imports the legibility SHAPES and never the functions",
-  );
-  const panelCode = withoutComments(panel);
-  for (const forbidden of ["readSelectableMembers(", "resolveHumanLabels(", "getControlPlaneDb"]) {
-    assert.ok(!panelCode.includes(forbidden), `the surface performs no read: ${forbidden}`);
+  for (const component of [PANEL, PLACEMENT_PANEL]) {
+    const source = read(component);
+    assert.match(
+      source,
+      /import type \{[\s\S]*?HumanLabel,[\s\S]*?SelectableMembersRead,?[\s\S]*?\} from "@\/features\/auth-runtime\/human-label-read\.server"/,
+      `${component} imports the legibility SHAPES and never the functions`,
+    );
+    const code = withoutComments(source);
+    for (const forbidden of [
+      "readSelectableMembers(",
+      "resolveHumanLabels(",
+      "resolveHumanNames(",
+      "getControlPlaneDb",
+    ]) {
+      assert.ok(!code.includes(forbidden), `${component} performs no read: ${forbidden}`);
+    }
   }
 }
 

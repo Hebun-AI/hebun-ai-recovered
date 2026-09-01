@@ -56,8 +56,8 @@ const OWNED = [MODEL, COMPONENT] as const;
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-const LEDGER_COUNT = 42; /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
-const LEDGER_DIGEST = "ad42a0d92ff3c905"; /* WORK-1 authored a migration, so the ledger digest moved with it. */
+const LEDGER_COUNT = 43; /* Departmental Placement grew the ledger 42 -> 43: the `department_placements` table. */
+const LEDGER_DIGEST = "0f77931ee1d8afbc"; /* Departmental Placement authored a migration, so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

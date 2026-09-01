@@ -179,7 +179,7 @@ const MUTATIONS: readonly Mutation[] = [
      * defect this proof injects — a SECOND writer in this directory — is now caught by a
      * stricter assertion with a different sentence. The guard still bites; it says more.
      */
-    expect: "exactly ONE file in this directory may perform a durable write",
+    expect: "exactly TWO files in this directory may perform a durable write",
   },
   {
     /*

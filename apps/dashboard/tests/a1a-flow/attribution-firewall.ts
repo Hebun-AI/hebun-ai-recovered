@@ -240,7 +240,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 42, "A1a adds no migration — the ledger carries none of its authoring"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+    assert.equal(journal.entries.length, 43, "A1a adds no migration — the ledger carries none of its authoring"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
   }
 
   console.log("a1a-flow/attribution-firewall: OK");

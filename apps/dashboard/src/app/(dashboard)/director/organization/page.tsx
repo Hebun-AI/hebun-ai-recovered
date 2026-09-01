@@ -5,6 +5,7 @@ import { DepartmentsPanel, ReportingAndBusinessUnits } from "@/components/organi
 import { EnterpriseRelationshipsPanel, RolesAndResponsibilities } from "@/components/organization-domain/organization-ownership";
 import { AuthoritativeOrganizationPanel } from "@/components/organization-domain/authoritative-organization";
 import { DepartmentStructurePanel } from "@/components/organization-domain/department-structure";
+import { DepartmentalPlacementPanel } from "@/components/organization-domain/departmental-placement";
 import { getOrganizationProjection } from "@/features/enterprise-projection-providers";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -14,6 +15,10 @@ import {
   type HumanLabel,
   type SelectableMembersRead,
 } from "@/features/auth-runtime/human-label-read.server";
+import {
+  readPlacementRegister,
+  type PlacementRegister,
+} from "@/features/organization-authority/read-placement.server";
 
 /*
  * L3 — THIS PAGE NOW HAS TWO SECTIONS AND THEY ARE NOT THE SAME KIND OF THING.
@@ -52,6 +57,8 @@ export default async function OrganizationDomainPage() {
    */
   let members: SelectableMembersRead = { status: "unavailable", reason: "authority-unavailable" };
   let ownerLabels: readonly HumanLabel[] = [];
+  let placements: PlacementRegister = { status: "unavailable", detail: "" };
+  let placedNames: readonly HumanLabel[] = [];
   if (authoritative.status === "available" && authoritative.organization.structure.status === "available") {
     members = await readSelectableMembers(tenant);
     const ownerIds = authoritative.organization.structure.departments
@@ -59,6 +66,28 @@ export default async function OrganizationDomainPage() {
       .filter((id): id is string => Boolean(id));
     const resolved = await resolveHumanLabels(tenant, ownerIds);
     ownerLabels = [...resolved].map(([userId, label]) => ({ userId, label }));
+
+    /*
+     * ── AND WHO WORKS WHERE ───────────────────────────────────────────────────
+     *
+     * A THIRD independent read, composed here and never joined inside any of the others. The
+     * placement authority stays authoritative for the placement and for the human IDENTIFIER;
+     * Identity stays authoritative for what that identifier is called. `PlacementView` gains no
+     * label field and no name is persisted anywhere.
+     *
+     * The names are resolved with the SAME released product read the owner labels use, deliberately:
+     * this is a server-rendered surface for the organization's own authorized human, where an
+     * address is a true and useful answer. The PROVIDER-SAFE read is what the Heby projection uses,
+     * because that value leaves the process.
+     *
+     *     UI LEGIBILITY != MODEL PROVIDER DISCLOSURE
+     */
+    placements = await readPlacementRegister(tenant);
+    if (placements.status === "available" && placements.placements.length > 0) {
+      const placedIds = placements.placements.map((placement) => placement.userId);
+      const placedResolved = await resolveHumanLabels(tenant, placedIds);
+      placedNames = [...placedResolved].map(([userId, label]) => ({ userId, label }));
+    }
   }
 
   return (
@@ -83,6 +112,18 @@ export default async function OrganizationDomainPage() {
             structure={authoritative.organization.structure}
             members={members}
             ownerLabels={ownerLabels}
+          />
+        ) : null}
+        {/*
+          * WHO WORKS WHERE. Directly beneath the structure it refers to, and still ABOVE the
+          * disclosure line, because every row it renders is durable.
+          */}
+        {authoritative.status === "available" ? (
+          <DepartmentalPlacementPanel
+            register={placements}
+            structure={authoritative.organization.structure}
+            members={members}
+            placedNames={placedNames}
           />
         ) : null}
         <p className="text-xs leading-5 text-fg-secondary">

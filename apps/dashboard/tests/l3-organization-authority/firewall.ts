@@ -61,29 +61,57 @@ function codeOf(source: string): string {
  *   ORGANIZATION IDENTITY (read-only)  !=  ORGANIZATION STRUCTURE (one writer, pinned by name)
  */
 const STRUCTURE_WRITER = `${AUTHORITY_DIR}/write-structure.server.ts`;
+/*
+ * THE SECOND WRITER, ADDED BY DEPARTMENTAL PLACEMENT AND PINNED BY NAME LIKE THE FIRST.
+ *
+ * It writes `department_placements` and nothing else — in particular NOT `departments`, which is
+ * why the structural writer above is untouched by it, and NOT `memberships`, which is the boundary
+ * that made placement a table rather than a column on the session's own row.
+ *
+ * The census grew by exactly one, by name. A THIRD writer appearing in this directory still fails
+ * here rather than joining an allowed class, which is the whole point of pinning names over
+ * counting files.
+ */
+const PLACEMENT_WRITER = `${AUTHORITY_DIR}/write-placement.server.ts`;
 
 function theAuthorityCannotWrite(): void {
   const writers = walk(AUTHORITY_DIR).filter((file) => performsDurableWrite(read(file)));
   assert.deepEqual(
-    writers,
-    [STRUCTURE_WRITER],
-    "exactly ONE file in this directory may perform a durable write — the structure authority, " +
-      "by name. A second one is a new authority and must be a deliberate edit here.",
+    writers.sort(),
+    [STRUCTURE_WRITER, PLACEMENT_WRITER].sort(),
+    "exactly TWO files in this directory may perform a durable write — the structure authority " +
+      "and the placement authority, both by name. A third is a new authority and must be a " +
+      "deliberate edit here.",
   );
 
   for (const file of walk(AUTHORITY_DIR)) {
-    if (file === STRUCTURE_WRITER) continue;
+    if (file === STRUCTURE_WRITER || file === PLACEMENT_WRITER) continue;
     const code = codeOf(read(file));
     for (const banned of ["transaction(", "delete(", "insert(", "update("]) {
       assert.ok(!code.includes(banned), `${file}: must not contain ${banned}`);
     }
   }
 
-  /* And the one writer that exists deletes nothing, anywhere. */
-  assert.ok(
-    !codeOf(read(STRUCTURE_WRITER)).includes("delete("),
-    "the structure authority retires in place and deletes nothing",
-  );
+  /* And NEITHER writer deletes anything, anywhere: both retire in place. */
+  for (const writer of [STRUCTURE_WRITER, PLACEMENT_WRITER]) {
+    assert.ok(
+      !codeOf(read(writer)).includes("delete("),
+      `${writer} retires in place and deletes nothing`,
+    );
+  }
+
+  /*
+   * AND THE SECOND WRITER'S REACH IS PINNED BY TABLE, NOT ONLY BY FILENAME. Being allowed to write
+   * is not being allowed to write ANYTHING — the boundary that made placement its own table is that
+   * this directory must never hold a handle on the session's own row.
+   */
+  const placementCode = codeOf(read(PLACEMENT_WRITER));
+  for (const forbidden of [".update(memberships", ".insert(memberships", ".update(departments", ".insert(departments"]) {
+    assert.ok(
+      !placementCode.includes(forbidden),
+      `the placement authority must never write that table: ${forbidden}`,
+    );
+  }
 }
 
 /* ── 2 · IT CANNOT AUTHORIZE, AND CANNOT REACH SOMETHING THAT DOES ─────────── */
@@ -248,8 +276,13 @@ function thereIsOnlyOneAnswer(): void {
    */
   /*
    * OSA-1 adds THREE files and the census is extended by exactly three, deliberately: the
-   * structural contracts, the structural read, and the ONE structural writer. The enumeration is
-   * the point — a seventh file cannot appear in this directory without somebody stating it here.
+   * structural contracts, the structural read, and the ONE structural writer.
+   *
+   * DEPARTMENTAL PLACEMENT ADDS FOUR MORE, and the same rule applies to them: contracts, a read
+   * seam, a writer and a Heby projection — the identical four-part shape, for a different fact. The
+   * enumeration is the point. An eleventh file cannot appear in this directory without somebody
+   * stating it here, and each of these four is separately constrained above: only the writer may
+   * write, it may write only its own table, and the projection may resolve only provider-safe names.
    */
   assert.deepEqual(
     walk(AUTHORITY_DIR).sort(),
@@ -260,19 +293,36 @@ function thereIsOnlyOneAnswer(): void {
       `${AUTHORITY_DIR}/structure-contracts.ts`,
       `${AUTHORITY_DIR}/read-structure.server.ts`,
       STRUCTURE_WRITER,
+      `${AUTHORITY_DIR}/placement-contracts.ts`,
+      `${AUTHORITY_DIR}/read-placement.server.ts`,
+      `${AUTHORITY_DIR}/heby-placement-source.server.ts`,
+      PLACEMENT_WRITER,
     ].sort(),
-    "the Organization Authority is exactly its contracts, its read seam, its Heby projection, and " +
+    "the Organization Authority is exactly its contracts, its read seam, its Heby projection, " +
+      "OSA-1's structural trio, and Departmental Placement's four — and nothing else. Formerly: " +
       "OSA-1's structural contracts, structural read and single structural writer",
   );
 
   const hebyImportsFromAuthority = [
     ...read(HEBY_ANSWER).matchAll(/from\s+["']@\/features\/organization-authority\/([^"']+)["']/g),
   ].map((match) => match[1]);
+  /*
+   * TWO PROJECTIONS, AND STILL NOTHING ELSE. The guarantee was never "exactly one import" — it is
+   * that Heby reaches the authority's PROJECTIONS and never its writers, its read seams or its
+   * tables. Departmental Placement adds a second projection, so the list grows by exactly one and
+   * stays exact: a writer or a read seam appearing here still fails.
+   */
   assert.deepEqual(
-    hebyImportsFromAuthority,
-    ["heby-organization-source.server"],
-    "Heby imports the authority's projection and nothing else from the authority",
+    hebyImportsFromAuthority.sort(),
+    ["heby-organization-source.server", "heby-placement-source.server"].sort(),
+    "Heby imports the authority's PROJECTIONS and nothing else from the authority",
   );
+  for (const forbidden of ["write-structure", "write-placement", "read-structure", "read-placement"]) {
+    assert.ok(
+      !hebyImportsFromAuthority.some((imported) => imported.includes(forbidden)),
+      `and never its ${forbidden} seam`,
+    );
+  }
 
   /*
    * THE PROJECTION DOES CONSUME THE SEAM — otherwise the sentence above would be satisfied by a

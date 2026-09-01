@@ -42,7 +42,7 @@ const RESTRICTED_SCOPES = [
 ];
 
 /** The migration ledger this adaptation must leave exactly as it found it. */
-const MIGRATION_LEDGER = 42; /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+const MIGRATION_LEDGER = 43; /* Departmental Placement grew the ledger 42 -> 43: the `department_placements` table. */
 
 function collect(dir: string): string[] {
   return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {

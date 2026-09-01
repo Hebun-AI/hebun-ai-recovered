@@ -8,6 +8,7 @@ export * from "./_enums";
 export * from "./company";
 export * from "./organization";
 export * from "./department";
+export * from "./department-placement";
 export * from "./user";
 export * from "./role";
 export * from "./permission";

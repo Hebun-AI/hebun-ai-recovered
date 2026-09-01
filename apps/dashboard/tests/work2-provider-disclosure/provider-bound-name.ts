@@ -323,10 +323,15 @@ async function main(): Promise<void> {
   const groundingConsumers = walk("src/features")
     .filter((file) => /heby-[a-z-]*source\.server\.ts$/.test(file))
     .filter((file) => withoutComments(read(file)).includes("human-label-read"));
+  /*
+   * TWO NOW, AND BOTH PROVIDER-SAFE. Departmental Placement is the second, and it was BUILT against
+   * this boundary rather than discovered to be violating it. The list stays EXACT: a third fails.
+   */
+  const PLACEMENT_GROUNDING = "src/features/organization-authority/heby-placement-source.server.ts";
   assert.deepEqual(
-    groundingConsumers,
-    [GROUNDING],
-    "exactly ONE grounding projection reaches Identity legibility, and it is the Work Authority's",
+    groundingConsumers.sort(),
+    [GROUNDING, PLACEMENT_GROUNDING].sort(),
+    "exactly TWO grounding projections reach Identity legibility, and both are named",
   );
 
   /* No OTHER grounding source resolves a human by any route. A second one still fails here. */
@@ -336,7 +341,18 @@ async function main(): Promise<void> {
       const code = withoutComments(read(file));
       return code.includes("resolveHumanNames") || code.includes("resolveHumanLabels");
     });
-  assert.deepEqual(namingSources, [GROUNDING], "and no second source learned to name a human");
+  assert.deepEqual(
+    namingSources.sort(),
+    [GROUNDING, PLACEMENT_GROUNDING].sort(),
+    "and no THIRD source learned to name a human",
+  );
+  /* Both name humans through the provider-safe read, and neither through the product label. */
+  for (const source of namingSources) {
+    assert.ok(
+      !withoutComments(read(source)).includes("resolveHumanLabels"),
+      `${source} names humans only through the provider-safe read`,
+    );
+  }
 
   /* The Heby subsystem still holds no legibility read of its own. IT RECEIVES; IT DOES NOT READ. */
   const hebyOwn = walk("src/features")
@@ -409,7 +425,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   assert.deepEqual([...AGENT_ORIGINABLE_ACTION_KINDS], ["send"], "no action kind was added");
   assert.deepEqual([...GOVERNANCE_SUBJECT_TYPES], ["knowledge_node"], "no Governance subject type was added");
-  assert.equal(HEBY_SOURCE_CLASSES.length, 18, "no source class was added or removed");
+  assert.equal(HEBY_SOURCE_CLASSES.length, 19, "no source class was added or removed");
   assert.ok(HEBY_SOURCE_CLASSES.includes("work"), "and `work` is still one of them");
 
   const carrying = HEBY_PROFILED_WORKSPACES.filter((w) =>
@@ -419,9 +435,9 @@ async function main(): Promise<void> {
   assert.equal(HEBY_PROFILED_WORKSPACES.length, 8, "no ninth workspace was created");
 
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 42, "the production ledger is structurally unchanged at 42");
+  assert.equal(journal.entries.length, 43, "the ledger is where Departmental Placement left it; this hardening authored none of it");
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 42, "and this hardening authored no migration");
+  assert.equal(sqlFiles.length, 43, "and this hardening authored no migration of its own");
 
   console.log("PASS work2-provider-disclosure/provider-bound-name");
 }

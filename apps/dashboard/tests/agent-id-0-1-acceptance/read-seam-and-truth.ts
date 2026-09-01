@@ -306,7 +306,7 @@ function main(): void {
     'governance subject types are still exactly ["knowledge_node"]',
   );
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 42, "this phase authored no migration — counting a table needs none"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  assert.equal(sqlCount, 43, "this phase authored no migration — counting a table needs none"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
 

@@ -285,7 +285,11 @@ async function noFictionIsDrawn(): Promise<void> {
     "and stated as unread rather than empty",
   );
   assert.ok(page.includes("People"), "people are named");
-  assert.ok(page.includes("no departmental placement"), "and membership is never relabelled");
+  /* Repointed with the released sentence: see `l4-live-map/projection-truth.ts` for the reasoning. */
+  assert.ok(
+    page.includes("a placement register is not a member roster"),
+    "and membership is never relabelled as placement",
+  );
 
   /* No invented entity, and no judgement anywhere on the surface. */
   for (const banned of [

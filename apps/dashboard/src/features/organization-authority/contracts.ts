@@ -249,6 +249,8 @@ export const ORGANIZATION_AUTHORITY_MODEL = Object.freeze({
   structuralAuthorityExists: true as const,
   limitation:
     "This authority answers what organization exists and, since OSA-1, which departments it has " +
-    "recorded and who is accountable for them. It confers no permission, decides no " +
-    "authorization, and cannot mutate anything.",
+    "recorded and who is accountable for them. Which department each human is recorded as working " +
+    "in is a SEPARATE record with its own writer and its own read seam, and this projection " +
+    "carries none of it. It confers no permission, decides no authorization, and cannot mutate " +
+    "anything.",
 });

@@ -140,6 +140,21 @@ function sourceStatusNotCollapsed(): void {
        */
       "work",
       /*
+       * DEPARTMENTAL PLACEMENT. Which department each human is RECORDED as working in.
+       *
+       * It earns the review for a reason none of the others do: it is the only class whose items
+       * are PEOPLE. A fabricated item here would not misname a system or an organization — it would
+       * tell a Director that a named colleague works somewhere they do not, or imply a role, a
+       * reporting line or an authority that Hebun holds no record of. So the class stays narrow in
+       * one direction: it carries a department and a human, both as recorded identifiers with a
+       * provider-safe name, and it may never carry a role, a title, a manager, a team or a work
+       * assignment.
+       *
+       *     RECORDED PLACEMENT != OBSERVED WORK     PLACED   != STILL AN ACTIVE MEMBER
+       *     PLACEMENT REGISTER != MEMBER ROSTER     UNPLACED != NOT A MEMBER
+       */
+      "placement",
+      /*
        * E2-5. The durable agents this organization established, and what became of what each
        * proposed — E2-3's Agent Outcome Observation, admitted as evidence.
        *

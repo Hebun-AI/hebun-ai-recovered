@@ -221,7 +221,36 @@ async function membershipIsNotStructure(): Promise<void> {
   assert.equal(people.status, "no-authority");
   if (people.status !== "no-authority") throw new Error("unreachable");
   assert.equal(people.detail, LIVE_MAP_PEOPLE_ABSENT);
-  assert.match(people.detail, /no departmental placement/, "membership is never relabelled as placement");
+  /*
+   * THE CLAIM IS REPOINTED, NOT DROPPED.
+   *
+   * L4 asserted the sentence "membership carries no departmental placement", which was true until
+   * Departmental Placement recorded one. What the assertion was always PROTECTING is that Live Map
+   * never presents its member COUNT as a statement about where anybody works — and that is now
+   * proved by the two halves of the repaired sentence rather than by the obsolete clause.
+   */
+  assert.match(
+    people.detail,
+    /a placement register is not a member roster/,
+    "the map says why a placement register cannot become the roster it lacks",
+  );
+  assert.match(
+    people.detail,
+    /are not drawn as their own nodes/,
+    "and membership is still never relabelled as placement",
+  );
+  /*
+   * AND IT NAMES NOBODY. A bare `/works in/` ban FAILED here — against the repaired sentence's own
+   * "which department a human works in has its own authority", which is the clause that MAKES the
+   * disclaimer. The honest form asks whether the sentence identifies a PERSON, since that is the
+   * thing the map must not do while it holds only a count.
+   */
+  assert.ok(!/@/.test(people.detail), "the people count carries no address");
+  assert.ok(
+    !/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(people.detail),
+    "and no identifier — it is a count, and a count names nobody",
+  );
+  assert.match(people.detail, /counted on the organization/, "which is exactly what it says it is");
 
   const structure = domain(projection, "structure").state;
   if (structure.status !== "no-authority") throw new Error("unreachable");

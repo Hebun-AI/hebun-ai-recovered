@@ -237,7 +237,10 @@ const MUTATIONS: readonly Mutation[] = [
     relation: "belongs-to",
     basis:
       "agents.tenant_id — the durable column whose value is this organization's own identity. " +
-      "No departmental placement, ownership or assignment is claimed by this edge.",
+      "No departmental placement, ownership or assignment is claimed by this edge. An AGENT is " +
+      "assigned to a department through \`agents.department_id\`, which Agent Identity owns, and a " +
+      "HUMAN is placed through the placement authority — neither is this edge, and neither is " +
+      "inferred from it.",
   }));`,
     replace: `  return agents.state.nodes.flatMap((agent) => [
     {
@@ -246,7 +249,10 @@ const MUTATIONS: readonly Mutation[] = [
       relation: "belongs-to" as const,
       basis:
         "agents.tenant_id — the durable column whose value is this organization's own identity. " +
-        "No departmental placement, ownership or assignment is claimed by this edge.",
+        "No departmental placement, ownership or assignment is claimed by this edge. An AGENT is " +
+        "assigned to a department through \`agents.department_id\`, which Agent Identity owns, and a " +
+        "HUMAN is placed through the placement authority — neither is this edge, and neither is " +
+        "inferred from it.",
     },
     {
       fromNodeId: agent.nodeId,

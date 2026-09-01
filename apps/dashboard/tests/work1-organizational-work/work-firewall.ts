@@ -477,8 +477,8 @@ const FEATURE_FILES = walk(FEATURE);
    */
   assert.equal(
     HEBY_SOURCE_CLASSES.length,
-    18,
-    "the census is eighteen since WORK-2; WORK-1 itself authored none of them",
+    19,
+    "the census is nineteen since Departmental Placement; WORK-1 itself authored none of them",
   );
 
   /*
