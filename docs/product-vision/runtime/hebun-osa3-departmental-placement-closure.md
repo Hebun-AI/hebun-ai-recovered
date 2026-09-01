@@ -184,6 +184,119 @@ movement caused by authoring a migration and adding modules — the class WORK-1
 at roughly fifty test edits. They are enumerated in §8. **No architectural test was weakened to make
 the suite green**, and no general pin-debt cleanup was begun.
 
-## 10 · Production acceptance
+## 10 · Production acceptance · **PASS**
 
-*(filled in after the ceremony)*
+**Release commit:** `eea0fa3`. **Deployed and observed commit:** `eea0fa3` — **identical**, read from
+the Vercel REST API's `meta.githubCommitSha` (deployment `dpl_sYVLwosv7CH7hexVckbdZzLy7fx9`, state
+`READY`). **Production migration ledger: 42 → 43.** Cluster identified by
+`pg_control_system().system_identifier` **7675444875863894887**, database `neondb`.
+
+The migration ceremony and the placement itself were performed **by the Director**, the first
+because `platform:migrate` is TTY-only by design, the second because doing it through the product
+proves the surface works for a real human as well as producing the row.
+
+### The schema landed as authored
+
+All twelve constraints `convalidated`, including both tenant-safe foreign keys, and the partial
+unique index is present with its `WHERE lifecycle_status = 'active'` predicate intact.
+
+### The row, corroborated column by column
+
+```
+tenant            the caller's own organization
+user              the production human            department   Engineering [engineering] active
+version           1                               created_at = updated_at   TRUE
+lifecycle         active                          attributed to             the production human (human)
+```
+
+`version = 1` and `created_at = updated_at` together are the proof that nothing touched the row
+after it was written — two columns the base contract gives every table for free.
+
+### Exactly one audit event, and it names no person
+
+```
+organization.placement.set   result=committed   authority_source=membership
+subject IS the placement (not the department)   no name and no address in metadata
+```
+
+### The two disclosure policies, both live, on the same row
+
+This is the finding worth recording. The Director's own screen showed:
+
+> **senoltr@gmail.com works in Engineering**
+
+…and the provider-bound model context for the same row showed:
+
+> `name unavailable (d5b496df-…-17672b82dd10) is recorded as working in Engineering [engineering]`
+
+Same human, same placement, same instant. The product label still floors at the address because that
+is a true and useful answer for the organization's own authorized human; the model context does not,
+because that value would leave the process. **UI LEGIBILITY != MODEL PROVIDER DISCLOSURE**, proved in
+production rather than asserted.
+
+```
+placement class reaches the model   YES     provenance reaches the model       YES
+department named                    YES     authoritative identifier present   YES
+label reads `name unavailable`      YES
+EMAIL ADDRESS present               NO      any `@` present                    NO
+email local-part present            NO
+```
+
+Measured over the **whole serialized `ModelGenerationRequest`**, not only its evidence field, with
+the `generate` seam captured — **zero provider calls, zero billable inference, zero rows written**.
+
+### Non-effects — measured by the window over a catalogue-derived table list
+
+```
+tables scanned                       59
+tables that grew                     department_placements = 1   (the act itself)
+                                     user_session_contexts = 1   (the Director's own sign-in)
+audit_log events in the window       EXACTLY ONE: department_placement / organization.placement.set
+decision_records created             0
+work_items / memberships / departments mutated   0 / 0 / 0
+ledger before / after                43 / 43
+```
+
+`user_session_contexts` is named rather than waved through: it is the session the Director created by
+signing in to perform the acceptance, and it is not attributable to this capability. **`memberships`
+was not written** — the boundary that chose a table over a column, confirmed against the real row.
+
+No Governance decision, no action request, no permit, no execution attempt, no Knowledge mutation, no
+mandate mutation, and no external provider call of any kind.
+
+### Not executed, and recorded rather than blurred
+
+The destructive negative cases — placing a revoked member, a soft-deleted identity, another
+organization's human, and placing into a retired department — are proved by the **released database
+suite** against real rows, and were deliberately NOT attempted in production. Production holds one
+human and one department; exercising them would have meant damaging real organizational state to
+reach a PASS. Classified as **proved against a real database, not against production**.
+
+---
+
+## 11 · Status
+
+```
+released                 eea0fa3, origin/main parity verified
+production acceptance    PASS
+DEPARTMENTAL PLACEMENT   CLOSED / PRODUCTION-ACCEPTED
+```
+
+**No successor is authorized.** WORK-3 is not authorized, APF and ASA remain deferred with their
+activation conditions unproven, and pin-debt cleanup remains backlog rather than a milestone.
+
+### Known intentional limitations
+
+- **One placement per human.** Multi-department placement is unrepresentable, not refused. If the
+  organization ever needs it, the partial unique index is the one thing that must change.
+- **No manager, no reporting line, no team, no title.** Absent rather than guarded — Hebun holds no
+  authority for any of them, and the class says so in the sentence a model reads.
+- **The read is tenant-scoped, not Governance-gated**, matching its released sibling
+  `readOrganizationStructure`. Changing a placement requires Governance authority; reading your own
+  organization's arrangement does not. A member without that authority sees the register with
+  identifiers and `name unavailable`, because the legibility reads are gated — the placement is
+  visible, the name is not, and it fails in the safe direction.
+- **An agent is not placed here.** `agents.department_id` is Agent Identity's, and this authority
+  makes the agent case unrepresentable rather than refused.
+- **Production proved the happy path and the disclosure boundary.** The refusals are proved where
+  they can be proved without damaging real state.
