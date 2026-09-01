@@ -145,16 +145,30 @@ function walk(dir: string): string[] {
    * — no firewall forbids it from naming `users`. So its derived flag agrees with its writer
    * exactly, instead of being a strict subset of it.
    *
-   * The assertion is widened, never weakened: it is still an EXACT list, so an eighth consumer
+   * OSA-4's people register is the FOURTH read, and the first whose whole subject is the rule
+   * itself: it does not derive a flag from eligibility, it ENUMERATES by it. It takes the full
+   * predicate — including the two identity conditions — and projects no column of `users` at all.
+   *
+   * The assertion is widened, never weakened: it is still an EXACT list, so a ninth consumer
    * appearing without a deliberate edit still fails here. What must never happen is a module
    * enforcing eligibility with its own copy of the conditions, and §2 above is what catches that.
    */
+  const PEOPLE_READER = "src/features/auth-runtime/people-register-read.server.ts";
   assert.deepEqual(
     consumers.sort(),
-    [PICKER, READER, WRITER, WORK_READER, WORK_WRITER, PLACEMENT_READER, PLACEMENT_WRITER].sort(),
-    "the eligibility rule has exactly seven consumers: the three writers that enforce it, the " +
-      "picker that offers by it, and the three reads that derive their accountability or standing " +
-      "flag from it",
+    [
+      PICKER,
+      READER,
+      WRITER,
+      WORK_READER,
+      WORK_WRITER,
+      PLACEMENT_READER,
+      PLACEMENT_WRITER,
+      PEOPLE_READER,
+    ].sort(),
+    "the eligibility rule has exactly eight consumers: the three writers that enforce it, the " +
+      "picker that offers by it, the three reads that derive their accountability or standing " +
+      "flag from it, and the register that enumerates by it",
   );
 
   /* The writer takes the WHOLE rule. The reader takes the membership half and says so. */
@@ -206,7 +220,8 @@ function walk(dir: string): string[] {
   /* WORK-1 grew the ledger to 42; Departmental Placement to 43. Neither is this milestone's. */
   assert.equal(migrations.length, 43, "no migration was added by the hardening");
 
-  assert.equal(HEBY_SOURCE_CLASSES.length, 19, "Heby's source-class census is unchanged by the hardening"); /* WORK-2 added the 18th class `work`; Departmental Placement added the 19th. Neither is the hardening's. */
+  /* WORK-2 added the 18th class `work`, Departmental Placement the 19th, OSA-4 the 20th. None is the hardening's. */
+  assert.equal(HEBY_SOURCE_CLASSES.length, 20, "Heby's source-class census is unchanged by the hardening");
   const eligibilityConsumersUnderHeby = walk("src/features")
     .filter((f) => f.includes("heby"))
     .filter((f) => read(f).includes("member-eligibility"));

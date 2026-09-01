@@ -374,8 +374,19 @@ function walk(dir: string): string[] {
  * ═══════════════════════════════════════════════════════════════════════════ */
 {
   /* No source class was added, renamed or removed. */
-  assert.equal(HEBY_SOURCE_CLASSES.length, 19, "the source class census is unchanged by HLR"); /* WORK-2 added the 18th class `work`; Departmental Placement added the 19th. Neither is HLR's. */
-  for (const forbidden of ["human-labels", "people", "roster", "members"]) {
+  /*
+   * WORK-2 added the 18th class `work`, Departmental Placement the 19th, and OSA-4 the 20th
+   * (`people`). NONE of them is HLR's: this milestone added no class, and the census is pinned here
+   * only so that one appearing without a deliberate edit still fails.
+   *
+   * `people` LEAVES THE FORBIDDEN LIST BELOW, and that is the one line of this section OSA-4
+   * changes. It was forbidden because HLR must not become a directory — and it still must not: the
+   * class is served by `auth-runtime/heby-people-source.server.ts` over a SEPARATE read seam with
+   * its own Governance gate, and this module's own header sentence ("Not a roster authority. Not a
+   * people directory.") is asserted below and remains true of THIS module.
+   */
+  assert.equal(HEBY_SOURCE_CLASSES.length, 20, "the source class census is unchanged by HLR");
+  for (const forbidden of ["human-labels", "roster", "members"]) {
     assert.ok(
       !HEBY_SOURCE_CLASSES.includes(forbidden as never),
       `no ${forbidden} source class was added`,
@@ -446,13 +457,18 @@ function walk(dir: string): string[] {
    * a deliberate edit still fails here, which is the guarantee worth keeping.
    */
   const PLACEMENT_GROUNDING = "src/features/organization-authority/heby-placement-source.server.ts";
+  /*
+   * OSA-4 is the THIRD, and it is the one whose whole subject is membership. The list grows by
+   * exactly one and stays EXACT; a fourth appearing without a deliberate edit still fails here.
+   */
+  const PEOPLE_GROUNDING = "src/features/auth-runtime/heby-people-source.server.ts";
   const groundingConsumers = walk("src/features")
     .filter((file) => /heby-[a-z-]*source\.server\.ts$/.test(file))
     .filter((file) => read(file).includes("human-label-read"));
   assert.deepEqual(
     groundingConsumers.sort(),
-    [WORK_GROUNDING, PLACEMENT_GROUNDING].sort(),
-    "exactly TWO grounding projections resolve a human, and both are named here",
+    [WORK_GROUNDING, PLACEMENT_GROUNDING, PEOPLE_GROUNDING].sort(),
+    "exactly THREE grounding projections resolve a human, and all three are named here",
   );
 
   /*
@@ -466,7 +482,7 @@ function walk(dir: string): string[] {
    * may reach only `resolveHumanNames`. Reaching the address-floored `resolveHumanLabels` from a
    * grounding projection fails here, as does a second projection reaching for either.
    */
-  for (const projection of [WORK_GROUNDING, PLACEMENT_GROUNDING]) {
+  for (const projection of [WORK_GROUNDING, PLACEMENT_GROUNDING, PEOPLE_GROUNDING]) {
     const code = withoutComments(read(projection));
     assert.ok(
       code.includes("resolveHumanNames"),
@@ -512,6 +528,13 @@ function walk(dir: string): string[] {
   const PLACEMENT_PANEL = "src/components/organization-domain/departmental-placement.tsx";
   const PLACEMENT_GROUNDING_PROJECTION =
     "src/features/organization-authority/heby-placement-source.server.ts";
+  /*
+   * OSA-4 adds a FOURTH component and a THIRD grounding projection, each following the same
+   * released shape. The census GREW; nothing in it was widened. A tenth consumer appearing without
+   * a deliberate edit still fails here.
+   */
+  const PEOPLE_PANEL = "src/components/organization-domain/people-register.tsx";
+  const PEOPLE_GROUNDING_PROJECTION = "src/features/auth-runtime/heby-people-source.server.ts";
   assert.deepEqual(
     consumers.sort(),
     [
@@ -522,23 +545,36 @@ function walk(dir: string): string[] {
       WORK_GROUNDING_PROJECTION,
       PLACEMENT_PANEL,
       PLACEMENT_GROUNDING_PROJECTION,
+      PEOPLE_PANEL,
+      PEOPLE_GROUNDING_PROJECTION,
     ].sort(),
-    "exactly two pages read legibility, three components receive it, and TWO grounding projections " +
-      "resolve it for Heby. No other consumer.",
+    "exactly two pages read legibility, four components receive it, and THREE grounding " +
+      "projections resolve it for Heby. No other consumer.",
   );
 
   /*
    * AND EVERY COMPONENT IMPORTS TYPES ONLY. A client component that could CALL the read would be a
    * database handle in a browser bundle; `import type` erases at compile time.
    */
+  /*
+   * The people panel takes the SHAPE only and never `SelectableMembersRead`, because it offers no
+   * picker: OSA-4 adds no writer, so there is nobody to select. Its type-only import is asserted
+   * here, and it faces the same no-read check as the other three.
+   */
+  assert.match(
+    read(PEOPLE_PANEL),
+    /import type \{ HumanLabel \} from "@\/features\/auth-runtime\/human-label-read\.server"/,
+    `${PEOPLE_PANEL} imports the legibility SHAPE and never the functions`,
+  );
   for (const component of [PANEL, PLACEMENT_PANEL]) {
-    const source = read(component);
     assert.match(
-      source,
+      read(component),
       /import type \{[\s\S]*?HumanLabel,[\s\S]*?SelectableMembersRead,?[\s\S]*?\} from "@\/features\/auth-runtime\/human-label-read\.server"/,
       `${component} imports the legibility SHAPES and never the functions`,
     );
-    const code = withoutComments(source);
+  }
+  for (const component of [PANEL, PLACEMENT_PANEL, PEOPLE_PANEL]) {
+    const code = withoutComments(read(component));
     for (const forbidden of [
       "readSelectableMembers(",
       "resolveHumanLabels(",

@@ -71,7 +71,8 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Seventeen since AMA-3 added `agent-mandate` (sixteen after E2-8's `knowledge-coverage`,
+   * Twenty since OSA-4 added `people` (nineteen after OSA-3's `placement`, eighteen after WORK-2's
+   * `work`, seventeen after AMA-3's `agent-mandate`, sixteen after E2-8's `knowledge-coverage`,
    * fifteen after E2-7's `recorded-act-windows`,
    * fourteen after E2-6's `recorded-acts`,
    * thirteen after E2-5's `agents`, twelve after E2-1's
@@ -154,6 +155,7 @@ function sourceStatusNotCollapsed(): void {
        *     PLACEMENT REGISTER != MEMBER ROSTER     UNPLACED != NOT A MEMBER
        */
       "placement",
+      "people",
       /*
        * E2-5. The durable agents this organization established, and what became of what each
        * proposed — E2-3's Agent Outcome Observation, admitted as evidence.

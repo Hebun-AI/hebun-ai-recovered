@@ -150,6 +150,20 @@ const WORKSPACE_PROFILES = {
        * `organization` does not gain a second class either: it keeps ONE item and no roster.
        */
       "placement",
+      /*
+       * OSA-4 adds `people` here and ONLY here, on the same precedent as its seven predecessors.
+       * Command is where a Director asks who the organization is, and it is where `/heby` resolves.
+       *
+       * `workforce` deliberately does NOT gain it, and this is the class it most looks like. That
+       * class is unconnected identity vocabulary declared by a workspace the mock-surface gate
+       * withholds from a real tenant, so filing durable membership rows behind it would make them
+       * invisible to the only tenants that have any — the mistake E2-8 recorded about `operations`.
+       *
+       * `organization` still keeps ONE item and lists nobody, and `placement` still carries only
+       * the people this organization has PLACED. A member it has placed nowhere appears in neither,
+       * which is the gap this class exists to close.
+       */
+      "people",
     ],
     authority: "advisory-only",
     mayExplain: [
@@ -184,6 +198,11 @@ const WORKSPACE_PROFILES = {
        * period — the honest form of the question states its own boundary.
        */
       "What work has this organization recorded, and what state has it declared each to be in?",
+      /*
+       * OSA-4. Truthful in BOTH halves, like the five lines above: Hebun knows whose membership it
+       * records as in force, and knows nothing about anyone's employment — and Heby must say both.
+       */
+      "Who is in this organization, and what does Hebun actually record about them?",
     ],
   },
   intelligence: {

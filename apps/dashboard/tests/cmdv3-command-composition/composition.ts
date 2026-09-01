@@ -674,6 +674,12 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
       /* Departmental Placement's surface — the eighth addition, and the count moves with it. */
       "src/components/organization-domain/departmental-placement.tsx",
       /*
+       * OSA-4 — the people register. The ninth addition, and it uses `StateBlock` for the same ONE
+       * fact as the three surfaces around it: an unavailable or REFUSED read of who is in this
+       * organization is not an organization with nobody in it. No density override either.
+       */
+      "src/components/organization-domain/people-register.tsx",
+      /*
        * WORK-1 — the work register. It uses `StateBlock` for the ONE fact this axis exists to keep
        * separate, and it is the same fact OSA-1's surface uses it for one line above: an
        * UNAVAILABLE read is not an organization with no work. It opts into no density override
@@ -681,10 +687,10 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
        */
       "src/components/organizational-work/work-register.tsx",
     ],
-    "the six untouched Knowledge consumers remain, Command is still not among them, and the seven " +
+    "the six untouched Knowledge consumers remain, Command is still not among them, and the nine " +
       "additions are the durable identity ceremony, SIA-3.1's two hypothesis controls, KID-2's " +
-      "provider admission control, AMA-3's mandate surface, OSA-1's department structure, and " +
-      "WORK-1's work register",
+      "provider admission control, AMA-3's mandate surface, OSA-1's department structure, " +
+      "Departmental Placement's surface, WORK-1's work register, and OSA-4's people register",
   );
 }
 

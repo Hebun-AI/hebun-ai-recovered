@@ -309,6 +309,25 @@ export function resolveSource(
         "placement",
         "Departmental placements are read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
       );
+    /*
+     * The people of an organization are durable, tenant-scoped AND Governance-gated, and are read
+     * the way `work` and `placement` are — on the server, inside an already-resolved tenant and an
+     * already-authorized session. This resolver is pure: it holds no tenant, holds no authority and
+     * can open no connection, so it reports the honest default and the server answer flow
+     * substitutes the real read (auth-runtime/heby-people-source.server.ts).
+     *
+     * The sentence explains the SEAM rather than claiming an absence, for G6D's reason: this
+     * resolution is ALSO what the answer flow falls back to when the real read throws, and
+     * reporting a transient failure as "this organization has no people" would be the worst
+     * fabricated absence in the census.
+     *
+     *     UNAVAILABLE != NONE RECORDED
+     */
+    case "people":
+      return unavailable(
+        "people",
+        "An organization's people are read tenant-scoped on the server under its Governance authority; no authorized server read was supplied here, so nothing was read.",
+      );
     default: {
       // Exhaustiveness guard — a new source class must be handled explicitly.
       const never: never = sourceClass;

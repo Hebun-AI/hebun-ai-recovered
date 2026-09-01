@@ -109,6 +109,7 @@ import { readOrganizationGroundingSource } from "@/features/organization-authori
  */
 import { readWorkGroundingSource } from "@/features/organizational-work/heby-work-source.server";
 import { readPlacementGroundingSource } from "@/features/organization-authority/heby-placement-source.server";
+import { readPeopleGroundingSource } from "@/features/auth-runtime/heby-people-source.server";
 import { readAgentGroundingSource } from "@/features/agent-outcome-observation/heby-agent-source.server";
 /*
  * AMA-3 — the MANDATE authority's own projection, not the outcome authority's. Two different
@@ -312,6 +313,15 @@ export interface HebyModelAnswerDeps {
    * tenant, so the real read is substituted here rather than reached for inside a pure module.
    */
   readonly resolvePlacements?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /**
+   * The Organizational People Register — WHO IS IN THIS ORGANIZATION — read tenant-scoped on the
+   * server under this organization's Governance authority.
+   *
+   * Injected the same way `resolvePlacements` is, and for the same reason: the pure resolver holds
+   * neither a tenant nor an authority, so the real read is substituted here rather than reached for
+   * inside a pure module.
+   */
+  readonly resolvePeople?: (tenant: TenantContext) => Promise<SourceResolution>;
   /*
    * Explicit decision-queue resolution for the `decision-records` class. Defaults to the real
    * tenant-scoped read owned by Action Authorization; injectable so every branch — rows, a
@@ -644,6 +654,45 @@ async function withPlacements(
     /*
      * The pure resolver's `unavailable` stands. It says the read is server-side and does NOT say
      * nobody is placed anywhere — which is why a thrown read may fall back to it safely.
+     */
+    return resolutions;
+  }
+}
+
+/**
+ * OSA-4 — WHO IS IN THIS ORGANIZATION joins the SAME deterministic evidence set.
+ *
+ * The pure resolver reports `people` unavailable because it holds neither a tenant nor an
+ * authority; this substitutes the real read for the workspaces that declare the class (today:
+ * Command only).
+ *
+ * IT IS AUTHORITATIVE, AND THAT WORD MEANS ONE THING HERE. `memberships` IS the record, written by
+ * the released Membership Authority, so the class declares `authoritative: true` exactly as
+ * `organization`, `work`, `placement` and `agent-mandate` do. It says WHOSE RECORD THIS IS — never
+ * that anybody is employed, present, or doing anything. The projection's own provenance carries
+ * that second half in the sentence a model actually reads.
+ *
+ * A read failure degrades to the pure resolution — it never fabricates a member, never invents a
+ * name, and never removes another source's evidence.
+ */
+async function withPeople(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "people")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolvePeople ?? readPeopleGroundingSource;
+    const people = await resolver(tenant);
+    return resolutions.map((resolution) =>
+      resolution.sourceClass === "people" ? people : resolution,
+    );
+  } catch {
+    /*
+     * The pure resolver's `unavailable` stands. It says the read is server-side and does NOT say
+     * this organization has no people — which is why a thrown read may fall back to it safely.
      */
     return resolutions;
   }
@@ -1053,8 +1102,11 @@ export async function answerHebyModelRequest(
   const workResolutions = await withWork(organizationResolutions, tenant, deps);
   /* And who this organization records as working where. Beside the structure, before anything derived. */
   const placementResolutions = await withPlacements(workResolutions, tenant, deps);
+  /* And who this organization records as belonging to it at all. Beside the placements, never merged
+   * with them: a member it has placed nowhere appears in this one and in neither of the others. */
+  const peopleResolutions = await withPeople(placementResolutions, tenant, deps);
 
-  const operationsResolutions = await withOperations(placementResolutions, tenant, deps);
+  const operationsResolutions = await withOperations(peopleResolutions, tenant, deps);
   // E2-5 — and which durable agents proposed any of it, and what became of what they proposed.
   // Outcome evidence only: what was filed, decided and attempted, with no statement of what any
   // agent is for, may do, or was instructed to do.

@@ -320,6 +320,30 @@ export type HebySourceClass =
    */
   | "placement"
   /*
+   * OSA-4. THE HUMANS WHOSE MEMBERSHIP OF THIS ORGANIZATION HEBUN RECORDS AS IN FORCE.
+   *
+   * The other half of the sentence `placement` states about itself — "a register of PLACEMENTS,
+   * not a roster of members". Held apart from it, deliberately and permanently, because collapsing
+   * them would make "this organization has not placed you anywhere" and "you do not belong to this
+   * organization" one indistinguishable answer.
+   *
+   * Not `organization`: that class carries EXACTLY ONE ITEM ALWAYS and its own registry entry says
+   * it keeps one item and no member list. Not `workforce`: that class is unconnected, is declared
+   * by the `workforce` WORKSPACE alone — which the mock-surface gate withholds from a real tenant —
+   * and `/heby` resolves to Command, so durable membership rows filed behind it would be invisible
+   * to the only tenants that have any. E2-5's note below says Hebun holds no authority for the
+   * humans an organization is made of; that stays exactly true of EMPLOYMENT, and this class
+   * carries the one fact Hebun does hold: a MEMBERSHIP, written by the released Membership
+   * Authority and read through Identity's own projection.
+   *
+   *     MEMBER              != EMPLOYEE
+   *     MEMBER REGISTER     != PLACEMENT REGISTER
+   *     LISTED              != AUTHORIZED
+   *     MEMBERSHIP RECORDED != HIRE DATE
+   *     ABSENT              != NEVER A MEMBER
+   */
+  | "people"
+  /*
    * E2-5. THE DURABLE AGENTS THIS ORGANIZATION ESTABLISHED, and what became of what each proposed.
    *
    * It is its own class rather than a flavour of `workforce` — the class it most looks like — for
@@ -442,6 +466,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "organization",
   "work",
   "placement",
+  "people",
   "agents",
   "agent-mandate",
   "recorded-acts",

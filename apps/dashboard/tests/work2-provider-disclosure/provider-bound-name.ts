@@ -328,10 +328,16 @@ async function main(): Promise<void> {
    * this boundary rather than discovered to be violating it. The list stays EXACT: a third fails.
    */
   const PLACEMENT_GROUNDING = "src/features/organization-authority/heby-placement-source.server.ts";
+  /*
+   * THREE NOW, AND ALL PROVIDER-SAFE. OSA-4's people projection is the third, and it too was BUILT
+   * against this boundary rather than discovered to be violating it. The list stays EXACT: a fourth
+   * fails.
+   */
+  const PEOPLE_GROUNDING = "src/features/auth-runtime/heby-people-source.server.ts";
   assert.deepEqual(
     groundingConsumers.sort(),
-    [GROUNDING, PLACEMENT_GROUNDING].sort(),
-    "exactly TWO grounding projections reach Identity legibility, and both are named",
+    [GROUNDING, PLACEMENT_GROUNDING, PEOPLE_GROUNDING].sort(),
+    "exactly THREE grounding projections reach Identity legibility, and all are named",
   );
 
   /* No OTHER grounding source resolves a human by any route. A second one still fails here. */
@@ -343,8 +349,8 @@ async function main(): Promise<void> {
     });
   assert.deepEqual(
     namingSources.sort(),
-    [GROUNDING, PLACEMENT_GROUNDING].sort(),
-    "and no THIRD source learned to name a human",
+    [GROUNDING, PLACEMENT_GROUNDING, PEOPLE_GROUNDING].sort(),
+    "and no FOURTH source learned to name a human",
   );
   /* Both name humans through the provider-safe read, and neither through the product label. */
   for (const source of namingSources) {
@@ -425,7 +431,8 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   assert.deepEqual([...AGENT_ORIGINABLE_ACTION_KINDS], ["send"], "no action kind was added");
   assert.deepEqual([...GOVERNANCE_SUBJECT_TYPES], ["knowledge_node"], "no Governance subject type was added");
-  assert.equal(HEBY_SOURCE_CLASSES.length, 19, "no source class was added or removed");
+  /* Twenty since OSA-4 added `people`. Pinned here only so an undeclared class still fails. */
+  assert.equal(HEBY_SOURCE_CLASSES.length, 20, "no source class was added or removed by this milestone");
   assert.ok(HEBY_SOURCE_CLASSES.includes("work"), "and `work` is still one of them");
 
   const carrying = HEBY_PROFILED_WORKSPACES.filter((w) =>

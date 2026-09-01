@@ -6,6 +6,7 @@ import { EnterpriseRelationshipsPanel, RolesAndResponsibilities } from "@/compon
 import { AuthoritativeOrganizationPanel } from "@/components/organization-domain/authoritative-organization";
 import { DepartmentStructurePanel } from "@/components/organization-domain/department-structure";
 import { DepartmentalPlacementPanel } from "@/components/organization-domain/departmental-placement";
+import { PeopleRegisterPanel } from "@/components/organization-domain/people-register";
 import { getOrganizationProjection } from "@/features/enterprise-projection-providers";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -19,6 +20,10 @@ import {
   readPlacementRegister,
   type PlacementRegister,
 } from "@/features/organization-authority/read-placement.server";
+import {
+  readPeopleRegister,
+  type PeopleRegister,
+} from "@/features/auth-runtime/people-register-read.server";
 
 /*
  * L3 — THIS PAGE NOW HAS TWO SECTIONS AND THEY ARE NOT THE SAME KIND OF THING.
@@ -90,6 +95,29 @@ export default async function OrganizationDomainPage() {
     }
   }
 
+  /*
+   * ── AND WHO IS IN THIS ORGANIZATION AT ALL ───────────────────────────────────
+   *
+   * A FOURTH independent read, and deliberately OUTSIDE the structure branch above: who belongs to
+   * this organization does not depend on whether it has recorded any departments, and gating it on
+   * the structure would make an organization with no departments look like an organization with no
+   * people. The register carries its own unavailable state and the panel renders it.
+   *
+   * Its names use the SAME released product read the owner and placement labels use — this is a
+   * server-rendered surface for the organization's own authorized human, where an address is a true
+   * and useful answer. The PROVIDER-SAFE read is what the Heby projection uses, because that value
+   * leaves the process.
+   *
+   *     UI LEGIBILITY != MODEL PROVIDER DISCLOSURE
+   */
+  const people: PeopleRegister = await readPeopleRegister(tenant);
+  let peopleNames: readonly HumanLabel[] = [];
+  if (people.status === "available" && people.people.length > 0) {
+    const peopleIds = people.people.map((person) => person.userId);
+    const peopleResolved = await resolveHumanLabels(tenant, peopleIds);
+    peopleNames = [...peopleResolved].map(([userId, label]) => ({ userId, label }));
+  }
+
   return (
     <>
       <PageHeader
@@ -126,6 +154,12 @@ export default async function OrganizationDomainPage() {
             placedNames={placedNames}
           />
         ) : null}
+        {/*
+          * WHO IS IN THIS ORGANIZATION. Beneath the placements it is composed with, and still ABOVE
+          * the disclosure line, because every row it renders is durable. Rendered unconditionally:
+          * this register does not depend on the structural authority having answered.
+          */}
+        <PeopleRegisterPanel register={people} names={peopleNames} placements={placements} />
         <p className="text-xs leading-5 text-fg-secondary">
           Everything below this line is an illustrative mock projection. It is not connected to any
           live system and Hebun does not vouch for it.
