@@ -28,8 +28,30 @@
  *
  * The owner grants nothing — no permission, no approval right, no Governance authority — and that
  * sentence is on the surface, not only in a comment, because "owner" is the word a reader is most
- * likely to mistake for authority. The owner is shown as an identifier: Hebun holds a member COUNT
- * and no roster, so this surface cannot resolve an id to a person and must not imply it can.
+ * likely to mistake for authority.
+ *
+ * ── HUMAN LEGIBILITY REACH — THE LABEL IS NOT THE KEY ────────────────────────
+ *
+ * Until this milestone this comment ended: "The owner is shown as an identifier: Hebun holds a
+ * member COUNT and no roster, so this surface cannot resolve an id to a person and must not imply
+ * it can." The first clause is still true of the Organization Authority and the last clause is now
+ * FALSE of this surface — Identity resolves the label, through a read this component never
+ * performs and never holds. The sentence is corrected rather than deleted, because what changed is
+ * worth reading: no roster was created, and a different authority answered.
+ *
+ * Two rules follow and both are enforced below.
+ *
+ *   THE IDENTIFIER IS NEVER ERASED. It travels to the writer, and it stays on the surface beside
+ *   the label as the thing the record actually holds. A label is a rendering; it is not the key,
+ *   and no control here submits one.
+ *
+ *   AN UNRESOLVED HUMAN IS SAID TO BE UNRESOLVED. When Identity returns no label — the person left
+ *   the organization, the read was unavailable, the caller may not ask — this renders the
+ *   identifier and says the name is unavailable. It never falls back to a guess, an initial, or a
+ *   blank.
+ *
+ * A READABLE NAME STILL GRANTS NOTHING. Legibility changed who a reader can recognise, and changed
+ * no authority whatsoever.
  *
  * ACCESSIBILITY: real <label>s, refusals in role="alert", success in role="status", retirement
  * confirmed by retyping the slug rather than by one click.
@@ -50,6 +72,10 @@ import {
 import type { DepartmentWriteResult } from "@/features/organization-authority/write-structure.server";
 import type { OrganizationStructure } from "@/features/organization-authority/contracts";
 import type { DepartmentRefusal } from "@/features/organization-authority/structure-contracts";
+import type {
+  HumanLabel,
+  SelectableMembersRead,
+} from "@/features/auth-runtime/human-label-read.server";
 
 /**
  * What each refusal MEANS to the person reading it. One sentence, no jargon, and never a
@@ -73,6 +99,29 @@ const REFUSAL_SENTENCE: Record<DepartmentRefusal, string> = {
   "owner-not-active-member":
     "The person named is not an active member of this organization, so they were not recorded as accountable.",
 };
+
+/**
+ * What each reason for an unusable member list MEANS. Rendered instead of a picker, never instead
+ * of the recorded owner: a department whose owner cannot be re-chosen still says who owns it.
+ */
+const MEMBERS_UNAVAILABLE_SENTENCE: Record<
+  Extract<SelectableMembersRead, { status: "unavailable" }>["reason"],
+  string
+> = {
+  "no-authorized-tenant-context":
+    "No organization is resolved for this session, so no members can be offered.",
+  "not-authorized":
+    "Naming someone accountable requires this organization's Governance authority.",
+  "authority-unavailable":
+    "Hebun could not reach the member list. This says nothing about who belongs to this organization.",
+};
+
+/** An authorized caller with an empty list. Measured, and never rendered as a failed read. */
+const NO_SELECTABLE_MEMBERS =
+  "This organization has no active member Hebun can offer as accountable.";
+
+/** Said when Identity returns no label for an id the record names. Never replaced by a guess. */
+const LABEL_UNAVAILABLE = "name unavailable";
 
 /** The consequence of retirement, stated before the control that performs it. */
 const RETIREMENT_SUMMARY =
@@ -159,8 +208,13 @@ function CreateDepartment() {
 
 function DepartmentRow({
   department,
+  members,
+  labelFor,
 }: {
   department: Extract<OrganizationStructure, { status: "available" }>["departments"][number];
+  members: SelectableMembersRead;
+  /** Identity's answer for one id, or `undefined`. `undefined` is rendered, never smoothed over. */
+  labelFor: (userId: string) => string | undefined;
 }) {
   const renameId = useId();
   const ownerId = useId();
@@ -192,7 +246,19 @@ function DepartmentRow({
         <UserRound className="mt-0.5 size-3.5 shrink-0 text-fg-muted" aria-hidden="true" />
         {department.owner ? (
           <span>
-            Accountable: <span className="font-mono">{department.owner.actorId}</span>
+            {/*
+              * THE LABEL LEADS, THE IDENTIFIER STAYS. Both are shown because they are different
+              * facts: the record holds the identifier, and Identity says what it is called. When
+              * Identity has no answer the identifier stands alone and is SAID to be unlabelled —
+              * this branch never renders a blank where a name would be.
+              */}
+            Accountable:{" "}
+            {labelFor(department.owner.actorId) ? (
+              <span className="font-medium text-fg">{labelFor(department.owner.actorId)}</span>
+            ) : (
+              <span className="italic">{LABEL_UNAVAILABLE}</span>
+            )}{" "}
+            <span className="font-mono text-fg-muted">{department.owner.actorId}</span>
             {department.owner.currentlyActiveMember ? "" : " — no longer an active member"}
           </span>
         ) : (
@@ -224,33 +290,69 @@ function DepartmentRow({
             </Button>
           </div>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex-1 basis-48 text-xs text-fg-secondary" htmlFor={ownerId}>
-              Accountable member identifier
-              <input
-                id={ownerId}
-                value={owner}
-                onChange={(event) => setOwner(event.target.value)}
-                className="mt-1 w-full rounded-md border border-border bg-bg px-2 py-1.5 font-mono text-sm text-fg"
-                placeholder="member id"
-              />
-            </label>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={pending}
-              onClick={() =>
-                run(() =>
-                  setDepartmentOwnerAction({
-                    departmentId: department.departmentId,
-                    ownerUserId: owner.trim() === "" ? null : owner.trim(),
-                  }),
-                )
-              }
-            >
-              Set accountable
-            </Button>
-          </div>
+          {/*
+            * THE OWNER CONTROL. It offers people, and it submits an identifier.
+            *
+            * `value` and every `<option value>` is a `users.id`; the label is the option's TEXT and
+            * is never read back out. So the writer receives exactly what it received before this
+            * milestone, and a renamed human changes no record.
+            *
+            * A recorded owner who is not in the offered set — they left the organization — still
+            * appears, as a DISABLED option carrying whatever Identity could say about them. Without
+            * it the select would fall back to its first option and a department with an owner would
+            * silently read as one without.
+            *
+            * No picker is rendered when there is nothing honest to put in it, and the reason is
+            * shown instead of an empty control. The owner line above is unaffected either way.
+            */}
+          {members.status === "read" && members.members.length > 0 ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="flex-1 basis-48 text-xs text-fg-secondary" htmlFor={ownerId}>
+                Accountable member
+                <select
+                  id={ownerId}
+                  value={owner}
+                  onChange={(event) => setOwner(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg"
+                >
+                  <option value="">No accountable human</option>
+                  {members.members.map((member) => (
+                    <option key={member.userId} value={member.userId}>
+                      {member.label}
+                    </option>
+                  ))}
+                  {department.owner &&
+                  !members.members.some((member) => member.userId === department.owner!.actorId) ? (
+                    <option value={department.owner.actorId} disabled>
+                      {labelFor(department.owner.actorId) ?? department.owner.actorId} — no longer
+                      selectable
+                    </option>
+                  ) : null}
+                </select>
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() =>
+                  run(() =>
+                    setDepartmentOwnerAction({
+                      departmentId: department.departmentId,
+                      ownerUserId: owner.trim() === "" ? null : owner.trim(),
+                    }),
+                  )
+                }
+              >
+                Set accountable
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs leading-5 text-fg-secondary">
+              {members.status === "read"
+                ? NO_SELECTABLE_MEMBERS
+                : MEMBERS_UNAVAILABLE_SENTENCE[members.reason]}
+            </p>
+          )}
 
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex-1 basis-48 text-xs text-fg-secondary" htmlFor={confirmId}>
@@ -281,7 +383,24 @@ function DepartmentRow({
   );
 }
 
-export function DepartmentStructurePanel({ structure }: { structure: OrganizationStructure }) {
+export function DepartmentStructurePanel({
+  structure,
+  members,
+  ownerLabels,
+}: {
+  structure: OrganizationStructure;
+  /**
+   * Identity's answer to "who may be made accountable", read by the page and passed in. This
+   * component performs no read and holds no database handle — the two authorities meet on this
+   * surface and nowhere else.
+   */
+  members: SelectableMembersRead;
+  /** Labels for the owner ids this structure already names. A SUBSET: absence is normal. */
+  ownerLabels: readonly HumanLabel[];
+}) {
+  const labels = new Map(ownerLabels.map((entry) => [entry.userId, entry.label]));
+  const labelFor = (userId: string) => labels.get(userId);
+
   return (
     <Card>
       <CardHeader>
@@ -305,7 +424,12 @@ export function DepartmentStructurePanel({ structure }: { structure: Organizatio
             {structure.departments.length > 0 ? (
               <ul className="space-y-2">
                 {structure.departments.map((department) => (
-                  <DepartmentRow key={department.departmentId} department={department} />
+                  <DepartmentRow
+                    key={department.departmentId}
+                    department={department}
+                    members={members}
+                    labelFor={labelFor}
+                  />
                 ))}
               </ul>
             ) : null}

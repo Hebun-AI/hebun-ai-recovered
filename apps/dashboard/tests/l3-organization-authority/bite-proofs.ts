@@ -182,13 +182,33 @@ const MUTATIONS: readonly Mutation[] = [
     expect: "exactly ONE file in this directory may perform a durable write",
   },
   {
-    /* THE SURFACE IS NOT THE AUTHORITY. */
+    /*
+     * THE SURFACE IS NOT THE AUTHORITY.
+     *
+     * Re-anchored at Human Legibility Reach, because the page now binds its resolved tenant to a
+     * name instead of inlining the call. The DEFECT is unchanged — the authority read stops
+     * receiving the session's tenant — and the repaired firewall catches it with a sentence about
+     * every read on the page rather than about one call's spelling.
+     */
     label: "O9 the organization page names its own tenant",
     file: PAGE,
     suite: FIREWALL_SUITE,
-    find: `readOrganizationAuthority(await resolveTenantContext())`,
+    find: `readOrganizationAuthority(tenant)`,
     replace: `readOrganizationAuthority(null)`,
-    expect: "tenant from the session only",
+    expect: "receives the session-resolved tenant, never a value from anywhere else",
+  },
+  {
+    /*
+     * THE SAME CLAIM, ABOUT THE READ THE OLD PIN COULD NOT SEE. A legibility read handed something
+     * other than the session's tenant is the exact defect O9 exists to prevent, and before the
+     * repair it would have passed: the old assertion only ever looked at one call.
+     */
+    label: "O9b a legibility read is handed a tenant the session did not resolve",
+    file: PAGE,
+    suite: FIREWALL_SUITE,
+    find: `members = await readSelectableMembers(tenant);`,
+    replace: `members = await readSelectableMembers(null);`,
+    expect: "receives the session-resolved tenant, never a value from anywhere else",
   },
   {
     /* L1 IS NOT REOPENED, AND THE MOCK IS NEVER PROMOTED BY BEING PUT FIRST. */

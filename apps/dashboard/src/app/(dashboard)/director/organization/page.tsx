@@ -8,6 +8,12 @@ import { DepartmentStructurePanel } from "@/components/organization-domain/depar
 import { getOrganizationProjection } from "@/features/enterprise-projection-providers";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
+import {
+  readSelectableMembers,
+  resolveHumanLabels,
+  type HumanLabel,
+  type SelectableMembersRead,
+} from "@/features/auth-runtime/human-label-read.server";
 
 /*
  * L3 — THIS PAGE NOW HAS TWO SECTIONS AND THEY ARE NOT THE SAME KIND OF THING.
@@ -17,13 +23,43 @@ import { resolveTenantContext } from "@/features/auth-runtime/request-session.se
  * disclosed since L1 and left exactly as it was — L3 neither promotes it to truth nor removes it.
  *
  * THE TENANT IS RESOLVED HERE, ON THE SERVER. `resolveTenantContext()` takes no argument, so there
- * is no parameter through which this page could name a different organization, and the read seam it
- * calls has no organization parameter either. This page adds no read of its own and no authority.
+ * is no parameter through which this page could name a different organization, and the read seams it
+ * calls have no organization parameter either. This page adds no authority.
+ *
+ * ── HUMAN LEGIBILITY REACH — TWO READS, COMPOSED, NEVER MERGED ───────────────
+ *
+ * The structure and the people who may be named in it come from DIFFERENT authorities and are read
+ * separately here rather than joined inside either one. OSA stays authoritative for the department
+ * and for the owner IDENTIFIER; Identity stays authoritative for what that identifier is called.
+ * Nothing merges them into a record: `DepartmentView` gains no label field, no label is persisted,
+ * and this page hands the surface two independent answers to hold side by side.
+ *
+ * The two legibility reads have deliberately different predicates and both are the projection's own
+ * business, not this page's: the picker offers ACTIVE members, while the label resolution answers
+ * for ids the structure already names even when that person has since left. Both are gated on this
+ * organization's existing Governance authority and both fail closed to "unavailable" — which the
+ * surface renders as the identifier, never as an invented name.
  */
 
 export default async function OrganizationDomainPage() {
+  const tenant = await resolveTenantContext();
   const organization = await getOrganizationProjection();
-  const authoritative = await readOrganizationAuthority(await resolveTenantContext());
+  const authoritative = await readOrganizationAuthority(tenant);
+
+  /*
+   * Only asked when there is a structure to be legible ABOUT. An unavailable structure renders no
+   * ownership control and names no owner, so neither read would have a consumer.
+   */
+  let members: SelectableMembersRead = { status: "unavailable", reason: "authority-unavailable" };
+  let ownerLabels: readonly HumanLabel[] = [];
+  if (authoritative.status === "available" && authoritative.organization.structure.status === "available") {
+    members = await readSelectableMembers(tenant);
+    const ownerIds = authoritative.organization.structure.departments
+      .map((department) => department.owner?.actorId)
+      .filter((id): id is string => Boolean(id));
+    const resolved = await resolveHumanLabels(tenant, ownerIds);
+    ownerLabels = [...resolved].map(([userId, label]) => ({ userId, label }));
+  }
 
   return (
     <>
@@ -43,7 +79,11 @@ export default async function OrganizationDomainPage() {
           * must never be choosing between two controls that both look like "create a department".
           */}
         {authoritative.status === "available" ? (
-          <DepartmentStructurePanel structure={authoritative.organization.structure} />
+          <DepartmentStructurePanel
+            structure={authoritative.organization.structure}
+            members={members}
+            ownerLabels={ownerLabels}
+          />
         ) : null}
         <p className="text-xs leading-5 text-fg-secondary">
           Everything below this line is an illustrative mock projection. It is not connected to any

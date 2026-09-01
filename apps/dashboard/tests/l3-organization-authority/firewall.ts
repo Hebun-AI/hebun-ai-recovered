@@ -341,9 +341,43 @@ function theSurfaceIsNotTheAuthority(): void {
     }
   }
 
-  /* The page resolves its own tenant server-side and passes no identifier to the seam. */
+  /*
+   * The page resolves its own tenant server-side and passes no identifier to any seam.
+   *
+   * ── REPAIRED AT HUMAN LEGIBILITY REACH, AND STRICTER THAN WHAT IT REPLACES ──
+   *
+   * This was `readOrganizationAuthority(await resolveTenantContext())` — one literal call shape.
+   * That milestone gave the page two more server reads and had to bind the resolved tenant to a
+   * name to share it, which the literal could not survive. The claim it was making, though, was
+   * never about the syntax: it was "the tenant comes from the session and from nothing else".
+   *
+   * So the pin now asserts that claim about EVERY read on this page rather than about one of them.
+   * A page that resolved its tenant correctly for the authority read and then handed a different
+   * value to a legibility read would have satisfied the old assertion and does not satisfy this one.
+   */
   const page = read(PAGE);
-  assert.match(page, /readOrganizationAuthority\(await resolveTenantContext\(\)\)/, "tenant from the session only");
+  assert.match(
+    page,
+    /const tenant = await resolveTenantContext\(\);/,
+    "the tenant is resolved once, server-side, from the session",
+  );
+  assert.ok(
+    !/resolveTenantContext\(\s*[^)\s]/.test(page),
+    "and resolveTenantContext is never handed an argument — a browser cannot name an organization",
+  );
+
+  /*
+   * EVERY server read on this page takes the resolved tenant and nothing else. Listed by name so a
+   * NEW read added later without the same discipline fails this assertion instead of slipping past
+   * a pattern that only knew about the reads that existed when it was written.
+   */
+  for (const seam of ["readOrganizationAuthority", "readSelectableMembers", "resolveHumanLabels"]) {
+    assert.ok(page.includes(`${seam}(`), `${seam} is called on this page`);
+    assert.ok(
+      new RegExp(`${seam}\\(tenant[,)]`).test(page),
+      `${seam} receives the session-resolved tenant, never a value from anywhere else`,
+    );
+  }
 
   /* L1's disclosure is untouched, and the authoritative panel is separated from the mock. */
   assert.ok(page.includes("Mock projection"), "L1's disclosure badge is preserved");
