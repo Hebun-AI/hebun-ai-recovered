@@ -115,6 +115,14 @@ authority and audited in the same transaction, and writes no decision row.
 The refusal for the unrecorded department reached for nothing: no seeded agent, no mock department,
 no role, no Knowledge document, no email address.
 
+**Re-probed on the repaired release** (`d4154f2`, deployed and READY). The answer is unchanged and
+correct, and the `Sources` panel shows the Organization item carrying *"recorded 1 department in
+service … Departments: Engineering [engineering] in service, owner d5b496df-…"*. The repaired
+provenance sentence itself is **not visually inspectable** — see §9.1 — so it is proved by the
+deployed SHA carrying it verbatim, with zero occurrences of the pre-fix clause, plus the regression
+that bites the pre-fix string. That is the strongest evidence available for a string with no
+renderer, and it is stated as such rather than dressed up as a visual confirmation.
+
 **The three states stayed three.** `available + one department`, `available + zero departments` and
 `authority unavailable` each carry a distinct released sentence, and the empty state was measured
 against production *before* the department was created, so the distinction is a delta and not a
@@ -170,15 +178,29 @@ saying:
 > *"…no department, team, reporting line or member roster is carried, because no authority for any
 > of them exists."*
 
-Both travel on **one line**: `groundingLines` joins them with `" | provenance: "`, and
-`assembleProvenance` renders the same sentence to the Director beside an answer naming the very
-department it denies carrying. The model resolved the contradiction in favour of the evidence —
-Probe A passed — so the defect was **behaviourally inert and still a defect**.
+Both travel on **one line**: `groundingLines` joins them with `" | provenance: "`, so the model was
+handed *"Departments: Engineering [engineering] …"* and *"no department … is carried"* together, on a
+line declaring `authoritative: true`. The model resolved the contradiction in favour of the evidence
+— Probe A passed — so the defect was **behaviourally inert and still a defect**.
+
+**It is MODEL-FACING, and an earlier draft of this section said otherwise.** That draft claimed
+`assembleProvenance` renders the sentence to the Director. It does not, and the correction matters
+enough to keep rather than quietly delete. `assembleProvenance` fills
+`HebyRuntimeResponse.provenance`, and **no component reads that field**: `heby-thread.ts` maps
+`body`, `evidence`, `sourceEvidence` and `limitations`, and the `provenance` it attaches is
+`deriveLatestProvenance` — a transport BADGE derived from `origin` and `limitations`. What a Director
+sees under **Sources** is `item.detail`, which is `structureClause`'s output and was always correct.
+The claim was traced as far as `assembleProvenance` and asserted without following it to a renderer.
 
 **It was judged against OSA-1's own released standard**, stated in §8 of its closure when it
 repaired the sibling sentence on Live Map:
 
 > *A false statement on the surface a Director trusts most is a defect, not a feature gap.*
+
+The framing there — *the surface a Director trusts most* — overstated this instance. The standard
+still holds on its general form: **a false statement is a defect, not a feature gap.** A sentence
+handed to the model on an `authoritative: true` line is worth repairing whether or not a human
+reads it.
 
 Two hard-coded denials of structural authority were falsified by one milestone. OSA-1 repaired one
 of them. OSA-2 repaired the other. Nothing else changed: no source class, no workspace re-scoped, no
@@ -222,6 +244,32 @@ the class to Knowledge, which would have been forbidden scope AND contrary to E2
 Command-only admission. **A fix was very nearly released against a failure that was not a defect**;
 the diagnosis that stopped it was reading which workspaces declare the class, not arguing about the
 answer.
+
+### 9.3 · A field that is filled is not a field that is shown
+
+The Director was asked to visually confirm the repaired provenance in the production UI, opened
+`Sources` and the answer disclosure, and could not find it. There was nothing to find.
+
+`assembleProvenance` fills `HebyRuntimeResponse.provenance`; **no component reads it.** The path was
+traced as far as the assembler and a rendered location was asserted from there. The remaining half —
+assembler to component — was never walked, and it does not connect.
+
+```
+A FIELD THAT IS POPULATED != A FIELD THAT IS RENDERED
+```
+
+Two things follow, and both were acted on. The defect's reach was **model-facing only**, which is
+narrower than first recorded and still worth the repair. And the acceptance step built on it was
+**unrunnable as specified** — a human cannot verify a string with no renderer, so the verification
+had to move to the deployed SHA, the source at that SHA, the regression, the Sources payload and the
+production answer. Stated plainly rather than replaced with a different panel and called a pass.
+
+### 9.4 · Closure was declared one step ahead of the evidence
+
+The closure document was committed at `d4154f2` with `Production accepted: YES` **before** the final
+provenance re-acceptance had been run. Every gate it recorded had genuinely been measured, so the
+verdict held — but it was written ahead of its last check, which is the same ordering error as
+claiming a rollback rather than reporting the observed ledger. Recorded here rather than tidied away.
 
 ## 10 · Limitations — recorded, not implied away
 

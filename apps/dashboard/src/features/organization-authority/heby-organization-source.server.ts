@@ -66,14 +66,23 @@
  * structure, and `structureClause` below carries it — so the denial survived its own subject.
  *
  * A stale denial is not a harmless leftover. It travels in `ORGANIZATION_GROUNDING_PROVENANCE`,
- * which `assembleProvenance` renders to the Director beside an answer naming the very department it
- * denies carrying. OSA-1 repaired exactly this failure on Live Map — a hard-coded `no-authority`
- * sentence the milestone had falsified — and recorded the standard it was applying:
+ * which `groundingLines` joins onto the SAME model context line as the item detail — so the model
+ * was handed "Departments: Engineering [engineering] …" and "no department … is carried" in one
+ * breath, on a line declaring `authoritative: true`. OSA-1 repaired the sibling failure on Live Map
+ * — a hard-coded `no-authority` sentence the milestone had falsified — and recorded the standard:
  *
- *     A FALSE STATEMENT ON THE SURFACE A DIRECTOR TRUSTS MOST IS A DEFECT, NOT A FEATURE GAP.
+ *     A FALSE STATEMENT IS A DEFECT, NOT A FEATURE GAP.
  *
  * The same standard applies here, so the same repair is made. Nothing else changed: no new source
  * class, no workspace re-scoped, no field added, no authority moved.
+ *
+ * WHERE IT IS NOT. This is MODEL-FACING and nothing more, and an earlier version of this comment
+ * claimed otherwise — that `assembleProvenance` renders it to the Director. It does not.
+ * `assembleProvenance` fills `HebyRuntimeResponse.provenance`, and NO component reads that field:
+ * `heby-thread.ts` maps `body`, `evidence`, `sourceEvidence` and `limitations`, and its
+ * `provenance` is `deriveLatestProvenance`, a transport BADGE derived from origin and limitations.
+ * What a Director sees under Sources is `item.detail`. Corrected here because a false sentence in
+ * this file's own record is the very thing this paragraph exists to forbid.
  *
  * WHAT TRAVELS NOW: department identity, department lifecycle, and the recorded accountable owner
  * as an IDENTIFIER — because OSA-1 records exactly those three and nothing more.
@@ -102,10 +111,10 @@ import { readOrganizationAuthority } from "./read-organization.server";
  * Named for what it is, and for what it is not.
  *
  * REPAIRED AT OSA-2. Every clause here is checked against what the authority actually carries,
- * because this string is not a comment: it reaches the model as the line's provenance AND is
- * rendered to the Director by `assembleProvenance`. It named three things it does not carry — and
- * one, the department, that it does. A reader who sees this line must still not conclude that Hebun
- * knows who is IN the organization, only how OSA-1 recorded that it is divided.
+ * because this string is not a comment: it reaches the MODEL as the line's provenance, beside the
+ * evidence it describes. It named three things it does not carry — and one, the department, that it
+ * does. A reader who sees this line must still not conclude that Hebun knows who is IN the
+ * organization, only how OSA-1 recorded that it is divided.
  */
 export const ORGANIZATION_GROUNDING_PROVENANCE =
   "Organization Authority — the organization record this tenant IS, read tenant-scoped from the " +
