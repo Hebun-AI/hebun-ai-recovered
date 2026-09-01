@@ -6,7 +6,7 @@ needed it, through the authority that already owns the fact.
 
 **Baseline:** `main` at `856f237`, equal to real `origin/main` by `git ls-remote`.
 **Production migration ledger:** **41 → 41.** No migration was authored, applied or needed.
-**Released at:** `166bcec`.
+**Released at:** `166bcec`. **Production accepted:** YES. **Milestone CLOSED.**
 
 ---
 
@@ -175,46 +175,51 @@ had a new answer. Measured: `memory` is the active provider, Agent CRUD reaches 
 and never this file, and the adapter's two consumers are a health probe and a `registries`
 repository. **Neither activated nor normalized — the file is byte-identical.**
 
-## 9 · Production acceptance — PARTIAL, and the partition is stated rather than blurred
+## 9 · Production acceptance — PASS
 
-**No migration ceremony was run and none was needed. The production ledger is 41 before and after.**
+**No migration ceremony was run and none was needed.** This milestone authored **zero** migrations;
+the released SHA carries 41 migration files, the same 41 the OSA-2 baseline carried. **The ledger
+cannot have moved by this milestone**, and that is stated as what it is — a proof from the absence of
+any migration, not a fresh reading of the production ledger, which was not accessible here.
 
-| # | Acceptance item | Verified | By what |
+| # | Acceptance item | Verdict | Evidence |
 |---|---|---|---|
-| — | released and pushed | **YES** | `166bcec`, equal to real `origin/main` by `git ls-remote` |
-| — | deployed to production | **YES** — `READY`, target `production` | `githubCommitSha` = `166bcec9…` on `main`, read from the Vercel REST API rather than inferred; aliases include `www.hebuntech.com` |
-| 1 | the control no longer requires typing a uuid | **YES, by the deployed source** | the free-text field and its `placeholder="member id"` are gone at this SHA, and the regression bites the pre-fix control |
-| 2 | the candidate control lists the real human by label | **NOT VERIFIED IN PRODUCTION** | see below |
-| 3 | Engineering renders its accountable human readably | **NOT VERIFIED IN PRODUCTION** | see below |
-| 4 | the owner identifier is unchanged | **NOT MEASURED** | see below |
-| 5 | no department mutation required to prove display | **YES** | nothing in this milestone writes; the reads are read-only, proved structurally and by mutation |
-| 6 | no Governance decision, permit, execution or provider action | **YES, structurally** | the module imports no Governance writer, no permit seam and no adapter; asserted, and no production write was attempted |
-| 7 | Heby unchanged and identifier-only | **YES** | its grounding does not import this module, the source-class census is unchanged at 17, and its "the owner is an IDENTIFIER" contract is asserted verbatim |
+| — | released and pushed | **PASS** | `166bcec`, equal to real `origin/main` by `git ls-remote` |
+| — | deployed to production | **PASS** | `githubCommitSha` on `www.hebuntech.com` read from the Vercel REST API, not inferred. It now serves `63fb170`, which differs from `166bcec` **only** in this document and `learnings.md` — **zero** files under `src/`, so the deployed product code IS the released code |
+| 1 | the control no longer requires typing a uuid | **PASS — human-observed** | the Director opened `/director/organization` in production: *"`Accountable member` is now a selection control rather than a free-text UUID field"* |
+| 2 | the candidate control lists the real human by label | **PASS — human-observed** | the control shows `senoltr@gmail.com`; the current accountable human appears in it by readable label |
+| 3 | Engineering renders its accountable human readably | **PASS — human-observed** | *"Accountable: **senoltr@gmail.com** `d5b496df-588c-49c5-9cc2-17672b82dd10`"* |
+| 4 | the owner identifier is unchanged | **PASS** | the observed `d5b496df-588c-…` matches the owner OSA-2 recorded as `d5b496df-…`, and it is rendered **beside** the label rather than replaced by it. No mutation occurred (item 5), and no path in this milestone writes |
+| 5 | no department mutation required to prove display | **PASS** | the existing record was sufficient; the Director explicitly did not mutate the department, and this milestone ships no writer |
+| 6 | no Governance decision, permit, execution or provider action | **PASS** | the module imports no Governance writer, no permit seam and no adapter — asserted structurally — and the only production interaction was a page render |
+| 7 | Heby unchanged and identifier-only | **PASS — by byte-identity** | see below |
 
-**Why 2, 3 and 4 are not verified here, stated plainly rather than dressed up.**
+**Item 7 was proved by byte-identity rather than by a probe, and that is the stronger evidence.**
+Every file in Heby's Organization grounding path is **identical** at `856f237` (the OSA-2 baseline) and
+at the released `166bcec`, by sha256 of the blob:
 
-Two independent limits, and neither was worked around.
+```
+heby-organization-source.server.ts   read-structure.server.ts    read-organization.server.ts
+organization-authority/contracts.ts  structure-contracts.ts      heby-integration/contracts.ts
+workspace-registry.ts                model-answer.server.ts      heby-runtime/source-resolver.ts
+```
 
-*The data-side check was refused.* A read-only script — `SELECT` statements and the released reads,
-no write of any kind — was written to run `readSelectableMembers` and `resolveHumanLabels` against
-the real control plane and report whether the real human's label resolves and whether the recorded
-Engineering owner identifier is unchanged. **The permission layer declined access to the hosted
-database URL, and no workaround was attempted.** The script exists and is unrun.
+HLR changed **eight** files in total — two surfaces, one new module, five test files — and **not one of
+them is a Heby file**. A production probe would have sampled one question; byte-identity covers every
+question Heby can be asked. Heby still answers with the identifier and still declines to resolve it,
+because the code that decides that is the same code OSA-2 accepted.
 
-*The rendered check needs the Director's own session.* Items 2 and 3 are statements about what an
-authenticated human sees on `/director/organization` in production. That surface is behind the
-Director's credentials, which are not mine to hold or to use.
+**The label is an email, and that is the design working rather than a shortfall.** The precedence is
+`display_name → name → email`, and production's `users` row for this human carries neither of the
+first two — so Hebun rendered the only name-ish thing it actually holds. Nothing was invented to fill
+the gap. If a display name is ever set, the same surface will show it with no code change.
 
-**What the equivalent evidence does say.** The same two reads, the same gate and the same writer were
-exercised end to end against a real PostgreSQL database with three tenants and six people, and the
-rendered surface was photographed with a real signed-in human: the control was a `<select>` of names,
-its option values were identifiers, the Governance authority holder appeared in it, and the owner
-line carried the label beside the identifier. That is a full proof of the mechanism and **not** a
-measurement of production, and it is recorded as the former.
-
-**So this milestone is RELEASED and DEPLOYED, and its production acceptance is OPEN on three items
-that need the Director.** Recorded that way deliberately — OSA-2's §9.4 named declaring closure one
-step ahead of the evidence as an ordering error, and this section refuses to repeat it.
+**What was NOT verified, recorded rather than implied away.** No production database read was
+performed: the read-only script that would have re-measured the ledger and the owner column from the
+control plane was declined by the permission layer, and **no workaround was attempted**. It exists and
+is unrun. Item 4's verdict therefore rests on the rendered identifier, OSA-2's recorded value, and the
+absence of any writer in this milestone — which is sufficient for the claim being made, and is stated
+as that rather than as a column reading.
 
 ## 10 · Limitations — recorded, not implied away
 
@@ -225,6 +230,8 @@ no human→department assignment      no agent assignment writer
 no teams, no hierarchy              no scoped Governance delegation
 Heby still answers with identifiers only
 the writer still accepts a revoked member (§7.4)
+no human in this tenant carries a display name, so the label renders as an email address
+no production database read was performed; the read-only script exists and is unrun (§9)
 ```
 
 None of these exists. Nothing here should be read as implying any of them does.
@@ -243,9 +250,13 @@ Human roster created:                      NO
 Human-to-department assignment created:    NO
 Heby grounding widened:                    NO
 Schema migration:                          NO    ledger 41 → 41
-Production acceptance:                     PARTIAL — 4 of 7 items, §9
+Production acceptance:                     PASS   7 of 7, three human-observed, §9
+Production ledger:                         41     zero migrations authored
+Milestone:                                 CLOSED
 Bite-proofs:                               9 of 9 bit
 Final suite:                               **625 passed, 0 failed, 625 total**
 ```
+
+**Human Legibility Reach is CLOSED.**
 
 Era III remains open. This milestone selects no successor, and selecting one is a Director decision.
