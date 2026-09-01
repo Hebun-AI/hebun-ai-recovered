@@ -31,10 +31,34 @@
  * already names; it cannot enumerate the organization's people, carries no name and no email, and
  * L3's own rule — "a COUNT, never a roster" — is untouched by it.
  *
+ * ── IT AGREES WITH THE WRITER ON MEMBERSHIP, AND SAYS WHAT IT CANNOT SEE ─────
+ *
+ * The flag used to test `lifecycle_status` alone, which is what the owner WRITER also did before it
+ * was hardened. Left as it was, a department whose owner's membership had been revoked would have
+ * reported `currentlyActiveMember: true` while the writer refused that same human — one milestone
+ * shipping two contradictory answers to one question. It now takes the shared rule's membership
+ * half, so both consult the same four conditions.
+ *
+ * IT IS A STRICT SUBSET OF THE WRITER'S CHECK, deliberately, and the difference is stated rather
+ * than implied: the writer also requires a live identity, and this module may not read `users` at
+ * all. So an owner whose IDENTITY was soft-deleted while their membership stayed active still reads
+ * `currentlyActiveMember: true` here. That is a known bound of a flag derived from `memberships`,
+ * not a claim that the identity is live.
+ *
+ * NOTHING HISTORICAL IS REWRITTEN. An owner who becomes ineligible is still NAMED by the record and
+ * still returned; only this derived flag changes. There is no automatic retirement, no ownership
+ * erasure and no lifecycle transition anywhere in this authority.
+ *
  * Server-only.
  */
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
+/*
+ * The MEMBERSHIP HALF of the shared eligibility rule. This module may not name `users` — a released
+ * firewall asserts it, so that no name or email can travel with a department — so it takes the
+ * subset that reads `memberships` alone, and says below exactly what that subset cannot see.
+ */
+import { activeMembershipOnlyConditions } from "@/features/auth-runtime/member-eligibility";
 import { departments } from "@/db/schema/department";
 import { memberships } from "@/db/schema/membership";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
@@ -151,8 +175,7 @@ export async function readOrganizationStructure(
         .from(memberships)
         .where(
           and(
-            eq(memberships.tenantId, tenant.tenantId),
-            eq(memberships.lifecycleStatus, ACTIVE_LIFECYCLE_STATUS),
+            ...activeMembershipOnlyConditions(tenant.tenantId),
             inArray(memberships.userId, ownerIds),
           ),
         );

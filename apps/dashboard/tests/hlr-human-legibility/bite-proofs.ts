@@ -30,6 +30,16 @@ const POSTGRES_SUITE = "tests/hlr-human-legibility/legibility-postgres.ts";
 
 const MODULE = "src/features/auth-runtime/human-label-read.server.ts";
 const PANEL = "src/components/organization-domain/department-structure.tsx";
+/*
+ * RE-ANCHORED AT THE OWNER-ELIGIBILITY HARDENING. Three of these mutations targeted where-clause
+ * conditions that used to be typed inside the picker and are now stated once in the shared
+ * eligibility rule, which the Organization Structure Authority's writer also consumes. The DEFECTS
+ * are unchanged and so is the suite that defends them — only the file the condition lives in moved.
+ * Keeping them here is worth more than deleting them as duplicates of the hardening's own proofs:
+ * these show that weakening the shared rule is still caught by the LEGIBILITY suite, which is a
+ * different consumer with different fixtures.
+ */
+const ELIGIBILITY = "src/features/auth-runtime/member-eligibility.ts";
 
 /** Generous, but finite. The Postgres suite mints and migrates a database, so it is the slow one. */
 const CHILD_TIMEOUT_MS = 10 * 60 * 1000;
@@ -87,11 +97,11 @@ const MUTATIONS: readonly Mutation[] = [
      * to another, and only a real database can show it.
      */
     label: "H2 the tenant predicate is dropped from the member read",
-    file: MODULE,
+    file: ELIGIBILITY,
     suite: POSTGRES_SUITE,
-    find: `          eq(memberships.tenantId, opened.tenantId),
-          eq(memberships.lifecycleStatus, "active"),`,
-    replace: `          eq(memberships.lifecycleStatus, "active"),`,
+    find: `    eq(memberships.tenantId, tenantId),
+    eq(memberships.status, ACTIVE_MEMBERSHIP_STATUS),`,
+    replace: `    eq(memberships.status, ACTIVE_MEMBERSHIP_STATUS),`,
     /*
      * The suite catches this on the ACME side first — an unscoped read offers Globex's human to
      * Acme before the Globex-side assertion is ever reached. Same defect, earlier sentence, and the
@@ -114,14 +124,19 @@ const MUTATIONS: readonly Mutation[] = [
   },
   {
     /*
-     * REVOKED IS NOT ACTIVE. The picker must never offer somebody whose membership ended — and the
-     * writer would ACCEPT them, so nothing downstream catches this.
+     * REVOKED IS NOT ACTIVE. The picker must never offer somebody whose membership ended.
+     *
+     * The original version of this comment ended "and the writer would ACCEPT them, so nothing
+     * downstream catches this" — true when it was written and FALSE since the Owner Eligibility
+     * Hardening, which made the writer refuse them too. Corrected rather than deleted: the sentence
+     * is the record of why this proof existed before there was a second line of defence.
      */
     label: "H4 a membership revoked by timestamp becomes selectable",
-    file: MODULE,
+    file: ELIGIBILITY,
     suite: POSTGRES_SUITE,
-    find: `          isNull(memberships.revokedAt),`,
-    replace: ``,
+    find: `    isNull(memberships.revokedAt),
+    eq(users.lifecycleStatus, ACTIVE_LIFECYCLE),`,
+    replace: `    eq(users.lifecycleStatus, ACTIVE_LIFECYCLE),`,
     /*
      * THIS PROOF SURVIVED ONCE, and that is why it is worth reading. Every revoked fixture also
      * carried `status = 'revoked'`, so the sibling predicate caught the mutation and the suite went
@@ -139,11 +154,8 @@ const MUTATIONS: readonly Mutation[] = [
     label: "H5 the caller is excluded, as delegation excludes them",
     file: MODULE,
     suite: POSTGRES_SUITE,
-    find: `          eq(users.lifecycleStatus, "active"),
-          isNull(users.deletedAt),`,
-    replace: `          eq(users.lifecycleStatus, "active"),
-          isNull(users.deletedAt),
-          sql\`\${users.id} not in (select actor_id from decision_records where tenant_id = \${opened.tenantId}::uuid and bootstrap = true)\`,`,
+    find: `      .where(and(...eligibleTenantMemberConditions(opened.tenantId)))`,
+    replace: `      .where(and(...eligibleTenantMemberConditions(opened.tenantId), sql\`\${users.id} not in (select actor_id from decision_records where tenant_id = \${opened.tenantId}::uuid and bootstrap = true)\`))`,
     expect: "the current authority holder may own a department",
   },
   {

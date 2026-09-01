@@ -44,6 +44,7 @@ const OSA_WRITER = "src/features/organization-authority/write-structure.server.t
 const GROUNDING = "src/features/organization-authority/heby-organization-source.server.ts";
 const DELEGATION = "src/features/governance-decision/authority-delegation.server.ts";
 const PASSIVE_ADAPTER = "src/features/persistence/supabase-postgres-adapter.ts";
+const ELIGIBILITY = "src/features/auth-runtime/member-eligibility.ts";
 
 /** Comment-stripped source. String literals are kept: the assertions below never ban a word. */
 function withoutComments(source: string): string {
@@ -244,11 +245,70 @@ function walk(dir: string): string[] {
     );
   }
 
-  /* The writer still verifies the identifier ITSELF, against memberships, not against any label. */
-  assert.match(writer, /\.from\(memberships\)/, "the writer still checks membership itself");
+  /*
+   * The writer still verifies the identifier ITSELF, not against any label.
+   *
+   * REPAIRED AT THE OWNER-ELIGIBILITY HARDENING. `.from(memberships)` was a literal that died when
+   * the owner check began joining `users`; the claim survives and is now asserted by the shared rule
+   * the writer calls, which is a stronger statement than which table it selects from.
+   */
+  assert.match(writer, /\.innerJoin\(memberships/, "the writer still checks membership itself");
   assert.ok(
     !/label/i.test(writer),
     "and no label reaches the writer — there is no parameter through which one could",
+  );
+
+  /*
+   * PICKER AND WRITER SHARE ONE DEFINITION, so they cannot drift. Before the hardening they did:
+   * the picker required an unrevoked membership and a live identity, the writer required neither,
+   * and a control that offers somebody the authority refuses produces a refusal no human can
+   * explain. Asserted on BOTH files by name.
+   */
+  const eligibility = withoutComments(read(ELIGIBILITY));
+  for (const [file, code] of [
+    [MODULE, withoutComments(read(MODULE))],
+    [OSA_WRITER, writer],
+  ] as const) {
+    assert.ok(
+      code.includes("member-eligibility"),
+      `${file} takes its eligibility rule from the shared module rather than re-typing it`,
+    );
+  }
+  for (const condition of [
+    "eq(memberships.tenantId, tenantId)",
+    "eq(memberships.status, ACTIVE_MEMBERSHIP_STATUS)",
+    "eq(memberships.lifecycleStatus, ACTIVE_LIFECYCLE)",
+    "isNull(memberships.revokedAt)",
+    "eq(users.lifecycleStatus, ACTIVE_LIFECYCLE)",
+    "isNull(users.deletedAt)",
+  ]) {
+    assert.ok(
+      eligibility.includes(condition),
+      `the shared eligibility rule carries ${condition} — each closes a different way to stop being eligible`,
+    );
+  }
+
+  /*
+   * THE SHARED RULE IS A PREDICATE, NOT AN AUTHORITY. No handle, no query, no writer — which is also
+   * why it may be imported by a writer whose reachable server modules are pinned to a list.
+   */
+  for (const forbidden of [
+    ".insert(",
+    ".update(",
+    ".delete(",
+    ".transaction(",
+    ".select(",
+    "getControlPlaneDb",
+    "ControlPlaneDatabase",
+  ]) {
+    assert.ok(
+      !eligibility.includes(forbidden),
+      `the eligibility rule holds no database access: ${forbidden}`,
+    );
+  }
+  assert.ok(
+    !/\.server\.ts$/.test(ELIGIBILITY),
+    "and it is deliberately not a .server module, because it is pure",
   );
 }
 

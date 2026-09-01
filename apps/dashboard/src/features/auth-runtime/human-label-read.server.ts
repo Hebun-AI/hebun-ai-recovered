@@ -54,6 +54,15 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { memberships } from "@/db/schema/membership";
 import { users } from "@/db/schema/user";
+/*
+ * The eligibility rule, shared with the Organization Structure Authority's owner writer. One
+ * definition, two consumers: a picker that offered somebody the writer refuses would produce a
+ * refusal no human could explain, and the alignment is now structural rather than coincidental.
+ */
+import {
+  eligibleTenantMemberConditions,
+  joinUsersToMemberships,
+} from "./member-eligibility";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 
@@ -201,17 +210,8 @@ export async function readSelectableMembers(
     const rows = await opened.db
       .select({ userId: users.id, label: LABEL_EXPRESSION })
       .from(users)
-      .innerJoin(memberships, eq(memberships.userId, users.id))
-      .where(
-        and(
-          eq(memberships.tenantId, opened.tenantId),
-          eq(memberships.lifecycleStatus, "active"),
-          eq(memberships.status, "active"),
-          isNull(memberships.revokedAt),
-          eq(users.lifecycleStatus, "active"),
-          isNull(users.deletedAt),
-        ),
-      )
+      .innerJoin(memberships, joinUsersToMemberships())
+      .where(and(...eligibleTenantMemberConditions(opened.tenantId)))
       .orderBy(asc(LABEL_EXPRESSION))
       .limit(MAX_SELECTABLE_MEMBERS);
 

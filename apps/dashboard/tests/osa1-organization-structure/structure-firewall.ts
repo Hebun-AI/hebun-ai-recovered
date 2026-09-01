@@ -202,8 +202,42 @@ function walk(dir: string): string[] {
   assert.match(writerCode, /\.update\(departments\)/, "and update it");
   assert.ok(!/\.delete\(/.test(writerCode), "and deletes nothing, anywhere");
 
-  /* `memberships` is READ inside the writer — verification, never mutation. */
-  assert.match(writerCode, /\.from\(memberships\)/, "membership is read to verify an owner");
+  /*
+   * `memberships` is READ inside the writer — verification, never mutation.
+   *
+   * REPAIRED AT THE OWNER-ELIGIBILITY HARDENING, and stricter than what it replaced. The old pin was
+   * `.from(memberships)`, a literal that died when the owner check began joining `users` for two
+   * lifecycle columns. The claim it was making — membership is READ here and never written — is
+   * unchanged, so it is now asserted by naming both halves of the read and re-stating the mutation
+   * ban that gives it meaning.
+   */
+  assert.match(writerCode, /\.innerJoin\(memberships/, "membership is read to verify an owner");
+  assert.match(
+    writerCode,
+    /eligibleTenantMemberWhere/,
+    "and the owner check uses the SHARED eligibility rule, not one it re-typed for itself",
+  );
+  for (const verb of ["insert", "update", "delete"]) {
+    assert.ok(
+      !new RegExp(`\\.${verb}\\(\\s*memberships\\b`).test(writerCode),
+      `reading membership never became writing it: no .${verb}(memberships)`,
+    );
+    assert.ok(
+      !new RegExp(`\\.${verb}\\(\\s*users\\b`).test(writerCode),
+      `and the identity table is read-only to this authority: no .${verb}(users)`,
+    );
+  }
+
+  /*
+   * THE WRITER LEARNED NO NAME. Hardening reaches `users` for `lifecycle_status` and `deleted_at`
+   * and for nothing else — a projection carrying a name would make this authority a roster read.
+   */
+  for (const column of ["users.name", "users.email", "users.displayName", "display_name"]) {
+    assert.ok(
+      !writerCode.includes(column),
+      `the structure writer never selects ${column} — eligibility is a yes/no, not a description`,
+    );
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

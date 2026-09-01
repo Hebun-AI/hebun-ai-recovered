@@ -36,13 +36,20 @@
  * `governance_domain` value was added. See `structure-contracts.ts` for the measured reason; the
  * released precedent is R6D, which mutates Knowledge under its own band and writes audit alone.
  *
- * ── THE OWNER MUST BE A REAL, ACTIVE MEMBER OF THIS TENANT ───────────────────
+ * ── THE OWNER MUST BE A CURRENTLY ELIGIBLE MEMBER OF THIS TENANT ─────────────
  *
- * Verified inside the transaction against `memberships`, by a predicate over ONE supplied id. That
- * is not a roster: it cannot enumerate anybody, returns no name and no email, and L3's rule — "a
- * COUNT, never a roster" — is untouched. A caller who does not already know a member's id learns
- * nothing from a refusal, because `owner-not-active-member` is returned identically for "not a
- * member of this tenant" and "not a member of any tenant".
+ * Verified inside the transaction by a predicate over ONE supplied id, using the SHARED eligibility
+ * rule that the product's owner picker also uses — so the control and the authority cannot disagree
+ * about who may be made accountable, and the control hiding somebody is never what enforces it.
+ *
+ * That predicate reads `memberships` and two lifecycle columns on `users`. It is still not a roster:
+ * it cannot enumerate anybody, selects no name and no email, and L3's rule — "a COUNT, never a
+ * roster" — is untouched. A caller who does not already know a member's id learns nothing from a
+ * refusal, because `owner-not-active-member` is returned identically for every ineligible case —
+ * revoked, soft-deleted, another tenant's, and nobody at all.
+ *
+ * It previously tested `memberships.lifecycle_status` alone and therefore accepted a revoked member
+ * and a soft-deleted identity. See `isEligibleMember`.
  *
  * ── ONE TRANSACTION, OR NOTHING ──────────────────────────────────────────────
  *
@@ -56,7 +63,16 @@ import { and, eq, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { departments } from "@/db/schema/department";
 import { memberships } from "@/db/schema/membership";
+import { users } from "@/db/schema/user";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+/*
+ * The eligibility rule, imported rather than re-typed. It is a PURE module — drizzle conditions, no
+ * database handle, no query — so it adds no server module to this writer's reachable graph.
+ */
+import {
+  eligibleTenantMemberWhere,
+  joinUsersToMemberships,
+} from "@/features/auth-runtime/member-eligibility";
 import { auditActorFrom } from "@/features/governance-audit/knowledge-mutation-audit.server";
 import { recordDepartmentEventWithin } from "@/features/governance-audit/organization-structure-audit.server";
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
@@ -154,27 +170,43 @@ async function gate(
 }
 
 /**
- * Is this id an ACTIVE human member of this tenant?
+ * Is this id a CURRENTLY ELIGIBLE human member of this tenant?
  *
  * ONE id, this tenant, inside the caller's transaction. It answers a yes/no about a value the caller
- * already holds; it cannot list, page or discover anybody. This is why OSA-1 ships no roster and
- * still refuses an owner who does not belong here.
+ * already holds; it cannot list, page or discover anybody. This is why OSA ships no roster and still
+ * refuses an owner who does not belong here.
+ *
+ * ── HARDENED, AND WHAT IT USED TO ADMIT ──────────────────────────────────────
+ *
+ * This tested `memberships.lifecycle_status` ALONE. That is one of the four ways a membership ends
+ * and none of the ways an identity does, so the released writer ACCEPTED a human whose membership
+ * had been revoked and one whose identity had been soft-deleted, and recorded either as accountable
+ * for a department. It was measured at the Human Legibility Reach gate — an assertion expecting a
+ * refusal got `recorded` — and reported rather than repaired there, because widening or narrowing an
+ * authority's rule was not that milestone's to do.
+ *
+ * The predicate is now the shared one, so the writer and the product's owner picker cannot disagree:
+ * both call `eligibleTenantMemberConditions`, and a test asserts every human the picker offers is
+ * accepted here.
+ *
+ *     THE UI HIDING SOMEBODY IS NOT ENFORCEMENT. THIS IS.
+ *
+ * ── IT STILL CANNOT LEARN A NAME ─────────────────────────────────────────────
+ *
+ * The join reaches `users` for two lifecycle columns and the projection is `memberships.id`. No
+ * name, no display name and no email is selected, so hardening the check bought the writer no
+ * ability to describe anybody — a firewall asserts that.
  */
-async function isActiveMember(
+async function isEligibleMember(
   tx: { select: ControlPlaneDatabase["select"] },
   tenantId: string,
   userId: string,
 ): Promise<boolean> {
   const rows = await tx
     .select({ id: memberships.id })
-    .from(memberships)
-    .where(
-      and(
-        eq(memberships.tenantId, tenantId),
-        eq(memberships.userId, userId),
-        eq(memberships.lifecycleStatus, ACTIVE_LIFECYCLE_STATUS),
-      ),
-    )
+    .from(users)
+    .innerJoin(memberships, joinUsersToMemberships())
+    .where(eligibleTenantMemberWhere(tenantId, userId))
     .limit(1);
   return rows.length > 0;
 }
@@ -213,8 +245,8 @@ export async function recordDepartment(
 
     await db.transaction(async (tx) => {
       if (ownerUserId !== null) {
-        const active = await isActiveMember(tx, authenticated.tenantId, ownerUserId);
-        if (!active) {
+        const eligible = await isEligibleMember(tx, authenticated.tenantId, ownerUserId);
+        if (!eligible) {
           outcome = refuse("owner-not-active-member");
           return;
         }
@@ -482,8 +514,8 @@ export async function setDepartmentOwner(
   return mutateDepartment(tenant, input.departmentId, deps, async (ctx) => {
     const ownerUserId = input.ownerUserId ?? null;
     if (ownerUserId !== null) {
-      const active = await isActiveMember(ctx.tx, ctx.tenantId, ownerUserId);
-      if (!active) return refuse("owner-not-active-member");
+      const eligible = await isEligibleMember(ctx.tx, ctx.tenantId, ownerUserId);
+      if (!eligible) return refuse("owner-not-active-member");
     }
 
     const updated = await ctx.tx

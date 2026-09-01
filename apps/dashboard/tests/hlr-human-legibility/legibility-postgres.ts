@@ -6,9 +6,10 @@
  *   "An organization's Governance authority holder can see the humans of THEIR OWN organization by
  *    a readable label — including themselves — and can resolve an identifier their own records
  *    already name, even after that person has left. Nobody else can see any of it. No other
- *    organization's people are reachable by either read, under any input. The department writer is
- *    unchanged and still verifies the identifier itself, so a label can never become the key. And
- *    being readable, or being named accountable, grants nobody anything."
+ *    organization's people are reachable by either read, under any input. The department writer verifies
+ *    the identifier itself against the SAME eligibility rule the picker uses, so a label can never
+ *    become the key and the control can never offer somebody the authority would refuse. And being
+ *    readable, or being named accountable, grants nobody anything."
  *
  * The pins:
  *
@@ -426,7 +427,6 @@ async function main(): Promise<void> {
     /* And the writer still refuses, judged on the IDENTIFIER alone and on nothing this milestone added. */
     for (const [id, why] of [
       [globex.userId, "another organization's human"],
-      [archivedMembership, "an archived membership"],
       [unknown, "an identifier nobody holds"],
     ] as const) {
       const refused = await setDepartmentOwner(acmeCtx, { departmentId, ownerUserId: id }, deps);
@@ -438,35 +438,31 @@ async function main(): Promise<void> {
     }
 
     /*
-     * ── THE PICKER IS A STRICT SUBSET, AND HERE IS WHERE IT DIFFERS ──────────
+     * ── PICKER AND WRITER NOW AGREE EXACTLY ─────────────────────────────────
      *
-     * MEASURED AT THIS GATE, and it corrected an assumption rather than confirming one. The writer's
-     * own check is `memberships.lifecycle_status = 'active'` and NOTHING else — it consults neither
-     * `memberships.status`, nor `revoked_at`, nor `users.deleted_at`. So the released writer ACCEPTS
-     * a revoked member and a soft-deleted identity as accountable, and it did so before this
-     * milestone existed.
+     * SUPERSEDED, AND THE HISTORY IS THE POINT. This block used to assert the OPPOSITE: that the
+     * released writer ACCEPTED a revoked member and a soft-deleted identity, because its check was
+     * `memberships.lifecycle_status` alone. That was measured here, reported rather than repaired,
+     * and is the defect the Owner Eligibility Hardening then fixed.
      *
-     * That is OSA's behaviour, it is unchanged here, and it is deliberately NOT repaired: widening
-     * or narrowing another authority's rule is not this milestone's to do, and a picker cannot make
-     * a writer stricter by declining to mention somebody.
+     * Both now call `eligibleTenantMemberConditions`, so the picker cannot offer a human the writer
+     * refuses AND the writer cannot accept a human the picker withheld. The subset relation the
+     * previous version settled for has become an equality.
      *
-     * What this milestone owes is the DIRECTION, and it is the only safe one: everything the picker
-     * offers, the writer accepts (asserted above). The reverse does not hold, and these two rows are
-     * the proof that it does not — recorded as a real difference rather than smoothed into a claim
-     * that the two predicates agree.
-     *
-     *     THE PICKER OFFERS FEWER PEOPLE THAN THE WRITER ACCEPTS. NEVER MORE.
+     *     THE UI HIDING SOMEBODY IS NOT ENFORCEMENT.
      */
     for (const [id, who] of [
       [revokedMember, "a revoked membership"],
+      [revokedTimestampOnly, "a membership revoked by timestamp alone"],
       [deletedUser, "a soft-deleted identity"],
+      [archivedMembership, "an archived membership"],
     ] as const) {
       assert.ok(!offeredIds.includes(id), `${who} is not offered by the picker`);
-      const accepted = await setDepartmentOwner(acmeCtx, { departmentId, ownerUserId: id }, deps);
-      assert.equal(
-        accepted.status,
-        "recorded",
-        `and the released writer nevertheless accepts ${who} — OSA's rule, unchanged, stated`,
+      const refused = await setDepartmentOwner(acmeCtx, { departmentId, ownerUserId: id }, deps);
+      assert.deepEqual(
+        refused,
+        { status: "refused", reason: "owner-not-active-member" },
+        `and the hardened writer independently REFUSES ${who}`,
       );
     }
 
