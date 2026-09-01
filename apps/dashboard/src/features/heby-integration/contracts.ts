@@ -284,6 +284,23 @@ export type HebySourceClass =
    */
   | "organization"
   /*
+   * WORK-2. The Organizational Work Authority's own class, and NOT a flavour of `organization`.
+   *
+   * Work NAMES a department; it is not a department. Organization Structure Authority owns what
+   * parts exist, and Organizational Work Authority owns what the organization has declared it is
+   * doing — A DIFFERENT AUTHORITY OWNER, the rule every class since `work-artifacts` has used.
+   *
+   * It is kept distinct from `work-artifacts` for the sharper reason that those two share a word
+   * and nothing else: an artifact is prepared CONTENT with immutable revisions and
+   * `authoritative: false`, while a work item is a COMMITMENT with MUTABLE declared state that IS
+   * a recorded organizational fact.
+   *
+   *     WORK ITEM     != WORK ARTIFACT
+   *     RECORDED WORK != OBSERVED ACTIVITY
+   *     DECLARED      != VERIFIED
+   */
+  | "work"
+  /*
    * E2-5. THE DURABLE AGENTS THIS ORGANIZATION ESTABLISHED, and what became of what each proposed.
    *
    * It is its own class rather than a flavour of `workforce` — the class it most looks like — for
@@ -404,6 +421,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "external-recipients",
   "integrations",
   "organization",
+  "work",
   "agents",
   "agent-mandate",
   "recorded-acts",

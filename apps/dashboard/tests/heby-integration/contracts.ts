@@ -117,6 +117,29 @@ function sourceStatusNotCollapsed(): void {
        */
       "organization",
       /*
+       * WORK-2. What this organization has RECORDED it is doing — the Organizational Work
+       * Authority's own record, admitted as evidence.
+       *
+       * IT IS NOT `organization`, directly above it. That class carries WHAT PARTS EXIST; this one
+       * carries what the organization declared it is doing. Work NAMES a department and is not one,
+       * and folding the two together would put "we have an Engineering department" and "we are
+       * doing something" under one provenance sentence and one `authoritative` boolean.
+       *
+       * IT IS NOT `work-artifacts`, and those two share a word and nothing else. An artifact is
+       * prepared CONTENT with immutable revisions and `authoritative: false`; a work item is a
+       * COMMITMENT with MUTABLE declared state that IS a recorded organizational fact.
+       *
+       * It earns the review for the reason every class since `work-artifacts` has: A DIFFERENT
+       * AUTHORITY OWNER. And it must stay narrow in a specific direction — every state it carries
+       * was DECLARED by a human, so it may never carry an observation, a verification, a progress
+       * figure, a health judgement or an outcome, because the authority holds no field for any of
+       * them.
+       *
+       *     WORK ITEM     != WORK ARTIFACT        RECORDED WORK != OBSERVED ACTIVITY
+       *     DECLARED      != VERIFIED             DECLARED COMPLETE != SUCCESSFUL
+       */
+      "work",
+      /*
        * E2-5. The durable agents this organization established, and what became of what each
        * proposed — E2-3's Agent Outcome Observation, admitted as evidence.
        *

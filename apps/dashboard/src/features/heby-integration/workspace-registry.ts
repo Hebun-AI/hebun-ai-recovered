@@ -118,6 +118,24 @@ const WORKSPACE_PROFILES = {
        * gain a history class, and no other profile gains a period count.
        */
       "recorded-act-windows",
+      /*
+       * WORK-2 adds `work` here and ONLY here, on the same precedent as its five predecessors.
+       * Command is where a Director asks what the organization is doing and who is accountable for
+       * it, and it is where `/heby` resolves, which is how the question reaches Heby at all.
+       *
+       * `workforce` deliberately does NOT gain it, for the reason E2-5 recorded about `agents`:
+       * that class is chartered for the humans an organization is made of, and a work item naming
+       * an accountable human is not a statement about that person's remit — routing work through
+       * it would make "this work is attributed to you" indistinguishable from "this is your job".
+       *
+       * `operations` does not gain it either: that class reads Executive Overview sections the
+       * mock-surface gate withholds from a real tenant, so durable rows filed behind it would be
+       * invisible to the only tenants that have any. And `intelligence` has no connected reader.
+       *
+       * Until now nothing here could answer "what are we working on?" — Hebun held the fact and
+       * Heby could not reach it.
+       */
+      "work",
     ],
     authority: "advisory-only",
     mayExplain: [
@@ -145,6 +163,13 @@ const WORKSPACE_PROFILES = {
        * "recent", so the honest form of the question carries its own boundary.
        */
       "How many acts did Hebun record in the last 7 days, and how many in the 7 days before?",
+      /*
+       * WORK-2. Truthful in BOTH halves, like the four lines above: Hebun knows what this
+       * organization RECORDED it is doing and did not watch any of it happen, and Heby must say
+       * both. The question carries the word `declared` for the same reason E2-7's carries its
+       * period — the honest form of the question states its own boundary.
+       */
+      "What work has this organization recorded, and what state has it declared each to be in?",
     ],
   },
   intelligence: {

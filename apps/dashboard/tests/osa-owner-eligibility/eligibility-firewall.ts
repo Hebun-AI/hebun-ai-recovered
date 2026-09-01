@@ -178,7 +178,7 @@ function walk(dir: string): string[] {
   /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
   assert.equal(migrations.length, 42, "no migration was added by the hardening — the ledger grew only for WORK-1");
 
-  assert.equal(HEBY_SOURCE_CLASSES.length, 17, "Heby's source-class census is unchanged");
+  assert.equal(HEBY_SOURCE_CLASSES.length, 18, "Heby's source-class census is unchanged by the hardening"); /* WORK-2 added the 18th class, `work` — a grounding read, not a schema change. */
   const eligibilityConsumersUnderHeby = walk("src/features")
     .filter((f) => f.includes("heby"))
     .filter((f) => read(f).includes("member-eligibility"));

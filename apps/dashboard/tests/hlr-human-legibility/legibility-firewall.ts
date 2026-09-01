@@ -41,6 +41,12 @@ const PANEL = "src/components/organization-domain/department-structure.tsx";
 /* WORK-1 — the second pair: the Work register page and the register component. */
 const WORK_PAGE = "src/app/(dashboard)/director/work/page.tsx";
 const WORK_PANEL = "src/components/organizational-work/work-register.tsx";
+/*
+ * WORK-2 — the FIRST grounding projection to resolve a human's readable name for a model's context.
+ * It uses this released projection rather than a new read, and the identifier travels beside the
+ * label in every item it produces.
+ */
+const WORK_GROUNDING_PROJECTION = "src/features/organizational-work/heby-work-source.server.ts";
 const OSA_CONTRACTS = "src/features/organization-authority/contracts.ts";
 const OSA_READER = "src/features/organization-authority/read-structure.server.ts";
 const OSA_WRITER = "src/features/organization-authority/write-structure.server.ts";
@@ -320,7 +326,7 @@ function walk(dir: string): string[] {
  * ═══════════════════════════════════════════════════════════════════════════ */
 {
   /* No source class was added, renamed or removed. */
-  assert.equal(HEBY_SOURCE_CLASSES.length, 17, "the source class census is unchanged at 17");
+  assert.equal(HEBY_SOURCE_CLASSES.length, 18, "the source class census is unchanged by HLR"); /* WORK-2 added the 18th class, `work` — a grounding read, not a schema change. */
   for (const forbidden of ["human-labels", "people", "roster", "members"]) {
     assert.ok(
       !HEBY_SOURCE_CLASSES.includes(forbidden as never),
@@ -355,11 +361,43 @@ function walk(dir: string): string[] {
     "no workspace gained a legibility capability",
   );
 
-  /* THE WHOLE HEBY TREE IS BLIND TO THIS MODULE. Measured, not assumed. */
-  const hebyConsumers = walk("src/features")
-    .filter((file) => file.includes("heby"))
+  /*
+   * ── THE CLAIM THIS SECTION MADE, AND WHAT WORK-2 CHANGED ────────────────────
+   *
+   * HLR asserted "THE WHOLE HEBY TREE IS BLIND TO THIS MODULE" — no human's readable name reached
+   * Heby's grounding context, anywhere. WORK-2 changed that DELIBERATELY: the Organizational Work
+   * Authority's grounding projection resolves the accountable human's label so a Director can ask
+   * "who is accountable for this?" and get a name instead of a UUID.
+   *
+   * The claim is therefore REPOINTED, not deleted, and it is now narrower and still exact:
+   *
+   *   1. NO module under `features/heby*` — the Heby subsystem itself — imports the legibility
+   *      read. Heby still holds no roster and no label read of its own; it receives labels the way
+   *      it receives every other fact, through an authority-owned projection it merely imports.
+   *   2. EXACTLY ONE authority-owned projection resolves labels for grounding, and it is named.
+   *
+   * A second grounding projection reaching for names without a deliberate edit still fails here.
+   * That is the guarantee worth keeping, and it survives intact.
+   */
+  const WORK_GROUNDING = "src/features/organizational-work/heby-work-source.server.ts";
+
+  const hebySubsystemConsumers = walk("src/features")
+    .filter((file) => file.startsWith("src/features/heby"))
     .filter((file) => read(file).includes("human-label-read"));
-  assert.deepEqual(hebyConsumers, [], "nothing under a Heby feature imports the legibility read");
+  assert.deepEqual(
+    hebySubsystemConsumers,
+    [],
+    "the Heby subsystem itself still holds no legibility read — it only ever receives a projection",
+  );
+
+  const groundingConsumers = walk("src/features")
+    .filter((file) => /heby-[a-z-]*source\.server\.ts$/.test(file))
+    .filter((file) => read(file).includes("human-label-read"));
+  assert.deepEqual(
+    groundingConsumers,
+    [WORK_GROUNDING],
+    "exactly ONE grounding projection resolves a human label, and it is the Work Authority's",
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -381,9 +419,10 @@ function walk(dir: string): string[] {
    */
   assert.deepEqual(
     consumers.sort(),
-    [PAGE, PANEL, WORK_PAGE, WORK_PANEL].sort(),
-    "exactly two pages read legibility and two components receive it — the department owner and " +
-      "the accountable human, and no other consumer",
+    [PAGE, PANEL, WORK_PAGE, WORK_PANEL, WORK_GROUNDING_PROJECTION].sort(),
+    "exactly two pages read legibility, two components receive it, and ONE grounding projection " +
+      "resolves it for Heby — the department owner, the accountable human on the register, and " +
+      "the accountable human in Heby's context. No other consumer.",
   );
 
   /*

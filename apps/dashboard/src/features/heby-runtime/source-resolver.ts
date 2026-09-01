@@ -270,6 +270,26 @@ export function resolveSource(
         "organization",
         "The organization is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
       );
+    /*
+     * WORK-2: recorded work IS durable and tenant-scoped, and it is read the way E2-1 reads the
+     * organization and AMA-3 reads a mandate — on the server, inside an already-resolved tenant.
+     * This resolver is pure: it holds no tenant and can open no connection, so it reports the
+     * honest default and the server answer flow substitutes the real tenant-scoped resolution
+     * (organizational-work/heby-work-source.server.ts).
+     *
+     * G6D's rule applies here and is why this sentence explains the SEAM rather than claiming an
+     * absence: this resolution is ALSO what `withWork` falls back to when the real read throws, and
+     * reporting a transient read failure as "this organization has recorded no work" would be the
+     * exact defect G6D repaired for Governance — and here it would have Heby telling a Director
+     * their organization is doing nothing.
+     *
+     *     UNAVAILABLE != NONE RECORDED
+     */
+    case "work":
+      return unavailable(
+        "work",
+        "Recorded work is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
     default: {
       // Exhaustiveness guard — a new source class must be handled explicitly.
       const never: never = sourceClass;

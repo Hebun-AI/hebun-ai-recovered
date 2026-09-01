@@ -464,19 +464,38 @@ const FEATURE_FILES = walk(FEATURE);
  * 7. HEBY AND LIVE MAP ARE UNTOUCHED.
  * ═══════════════════════════════════════════════════════════════════════════ */
 {
-  /* No `work` source class was added. The released seventeen are exactly the seventeen. */
+  /*
+   * THE `work` SOURCE CLASS EXISTS, AND IT IS NOT WORK-1'S.
+   *
+   * This read "the released seventeen are exactly the seventeen" and asserted that no `work` class
+   * existed at all. WORK-2 added it — deliberately, as its whole purpose — so the assertion is
+   * REPOINTED at what WORK-1 actually owns rather than deleted: none of WORK-1's OWN modules
+   * declares or reaches a source class, and the eighteenth was authored by a later milestone in a
+   * file WORK-1 did not write.
+   *
+   * Restating the old claim would now be false, and dropping it would lose a real guarantee.
+   */
   assert.equal(
     HEBY_SOURCE_CLASSES.length,
-    17,
-    "WORK-1 adds no Heby source class — grounding is a later milestone",
+    18,
+    "the census is eighteen since WORK-2; WORK-1 itself authored none of them",
   );
+
+  /*
+   * WORK-2's grounding projection lives in this directory and legitimately imports Heby's TYPE
+   * contracts — the released pattern every authority-owned projection uses (E2-1, E2-5, AMA-3).
+   * It is named and excluded here rather than silently widening the ban, so every OTHER file in
+   * the feature stays under it.
+   */
+  const WORK2_GROUNDING = `${FEATURE}/heby-work-source.server.ts`;
   assert.ok(
-    !HEBY_SOURCE_CLASSES.includes("work" as never),
-    "there is no `work` source class",
+    FEATURE_FILES.includes(WORK2_GROUNDING),
+    "the WORK-2 projection is where this exclusion says it is",
   );
 
   /* No WORK-1 module reaches Heby or Live Map. */
   for (const file of [...FEATURE_FILES, AUDIT, ACTIONS, PAGE, PANEL]) {
+    if (file === WORK2_GROUNDING) continue;
     const code = withoutComments(read(file));
     for (const forbidden of ["@/features/heby", "@/features/live-map"]) {
       assert.ok(
@@ -486,15 +505,27 @@ const FEATURE_FILES = walk(FEATURE);
     }
   }
 
-  /* And no Heby or Live Map module has learned about work. */
+  /*
+   * LIVE MAP still knows nothing about work, and `heby-integration` still holds no work module.
+   *
+   * `heby-answer/model-answer.server.ts` DOES import the projection since WORK-2 — that is the
+   * grounding path — so the sweep is scoped to the two directories whose independence WORK-1
+   * actually claimed, and the answer path's own boundary is proved by WORK-2's firewall instead
+   * (it asserts the answer graph reaches the projection and NEVER the writer).
+   */
   for (const file of [...walk("src/features/heby-integration"), ...walk("src/features/live-map")]) {
     const code = withoutComments(read(file));
     assert.ok(
       !code.includes("organizational-work"),
-      `${file} must not reach the work authority — that is a later milestone's edit`,
+      `${file} must not reach the work authority — grounding goes through the answer path`,
     );
   }
 
+  /*
+   * These two model fields were measurements of WORK-1 and remain true OF WORK-1: it shipped no
+   * source class and changed no Live Map. WORK-2 added a class without touching this authority's
+   * write surface, which is why the fields still read false rather than being flipped.
+   */
   assert.equal(ORGANIZATIONAL_WORK_AUTHORITY_MODEL.hebySourceClassAdded, false);
   assert.equal(ORGANIZATIONAL_WORK_AUTHORITY_MODEL.liveMapChanged, false);
 }

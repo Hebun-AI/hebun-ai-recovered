@@ -103,6 +103,11 @@ import { readIntegrationGroundingSource } from "@/features/integration-authority
  * model context through an edit made somewhere else. A firewall test asserts the absence.
  */
 import { readOrganizationGroundingSource } from "@/features/organization-authority/heby-organization-source.server";
+/*
+ * WORK-2. The Organizational Work Authority's OWN projection — its read seam, never its writer.
+ * A firewall asserts this file names no work mutation.
+ */
+import { readWorkGroundingSource } from "@/features/organizational-work/heby-work-source.server";
 import { readAgentGroundingSource } from "@/features/agent-outcome-observation/heby-agent-source.server";
 /*
  * AMA-3 — the MANDATE authority's own projection, not the outcome authority's. Two different
@@ -291,6 +296,14 @@ export interface HebyModelAnswerDeps {
    * A mandate reaching model context is a CEILING being reported, never a permission being granted.
    */
   readonly resolveAgentMandate?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /*
+   * WORK-2. Explicit resolution for the `work` class. Defaults to the real tenant-scoped read owned
+   * by the Organizational Work Authority; injectable so every branch — recorded work, a measured
+   * empty register, and an unavailable authority — is provable without a database.
+   *
+   * Work reaching model context is a RECORDED DECLARATION being reported, never an observation.
+   */
+  readonly resolveWork?: (tenant: TenantContext) => Promise<SourceResolution>;
   /*
    * Explicit decision-queue resolution for the `decision-records` class. Defaults to the real
    * tenant-scoped read owned by Action Authorization; injectable so every branch — rows, a
@@ -548,6 +561,42 @@ async function withOrganization(
       resolution.sourceClass === "organization" ? organization : resolution,
     );
   } catch {
+    return resolutions;
+  }
+}
+
+/**
+ * WORK-2 — the same seam once more, for the work this organization has RECORDED it is doing.
+ *
+ * The pure resolver reports `work` unavailable because it holds no tenant; this substitutes the
+ * real tenant-scoped read for the workspaces that declare the class (today: Command only).
+ *
+ * IT IS AUTHORITATIVE, AND THAT WORD MEANS ONE THING HERE. `work_items` IS the record and WORK-1 is
+ * its released write authority, so the class declares `authoritative: true` exactly as `governance`
+ * and `agent-mandate` do. It says WHOSE RECORD THIS IS — never that the world matches it. The
+ * projection's own provenance carries that second half in the sentence a model actually reads:
+ * every state is DECLARED, Hebun observed nothing and verified nothing.
+ *
+ * A read failure degrades to the pure resolution — it never fabricates work, never invents a
+ * blocker, never invents an outcome, and never removes another source's evidence.
+ */
+async function withWork(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "work")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveWork ?? readWorkGroundingSource;
+    const work = await resolver(tenant);
+    return resolutions.map((resolution) => (resolution.sourceClass === "work" ? work : resolution));
+  } catch {
+    /*
+     * The pure resolver's `unavailable` stands. It says the read is server-side and does NOT say
+     * the organization has no work — which is why a thrown read may fall back to it safely.
+     */
     return resolutions;
   }
 }
@@ -952,7 +1001,10 @@ export async function answerHebyModelRequest(
   // E2-4 — and how long the things already recorded have been waiting. Durations only: elapsed
   // time measured from authoritative timestamps against one instant, with no threshold, no target
   // and no claim that any of it is late.
-  const operationsResolutions = await withOperations(organizationResolutions, tenant, deps);
+  /* WORK-2. Immediately after the organization it belongs to, and before anything derived. */
+  const workResolutions = await withWork(organizationResolutions, tenant, deps);
+
+  const operationsResolutions = await withOperations(workResolutions, tenant, deps);
   // E2-5 — and which durable agents proposed any of it, and what became of what they proposed.
   // Outcome evidence only: what was filed, decided and attempted, with no statement of what any
   // agent is for, may do, or was instructed to do.
