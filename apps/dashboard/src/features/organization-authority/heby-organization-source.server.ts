@@ -59,14 +59,37 @@
  *
  *     AUTHORITATIVE EVIDENCE != INSTRUCTION
  *
- * ── WHAT IT STRUCTURALLY CANNOT SAY ──────────────────────────────────────────
+ * ── WHAT IT STRUCTURALLY CANNOT SAY, AS OF OSA-1 ─────────────────────────────
  *
- * No department, no team, no reporting line, no roster, no individual member, no role, no band, no
- * permission, no agent. Not because each is filtered here, but because `AuthoritativeOrganization`
- * carries none of them — L3 measured that `roles` has no `organization_id` at all, and that
- * `organizations`/`departments` have no writer and no reader. There is no field to read.
+ * This paragraph used to begin "No department", and OSA-1 made that false. `departments` gained a
+ * writer, a reader and a released structural authority, `readOrganizationAuthority` now derives
+ * structure, and `structureClause` below carries it — so the denial survived its own subject.
  *
- * The one structural fact that DOES travel is the authority's own refusal, carried verbatim.
+ * A stale denial is not a harmless leftover. It travels in `ORGANIZATION_GROUNDING_PROVENANCE`,
+ * which `assembleProvenance` renders to the Director beside an answer naming the very department it
+ * denies carrying. OSA-1 repaired exactly this failure on Live Map — a hard-coded `no-authority`
+ * sentence the milestone had falsified — and recorded the standard it was applying:
+ *
+ *     A FALSE STATEMENT ON THE SURFACE A DIRECTOR TRUSTS MOST IS A DEFECT, NOT A FEATURE GAP.
+ *
+ * The same standard applies here, so the same repair is made. Nothing else changed: no new source
+ * class, no workspace re-scoped, no field added, no authority moved.
+ *
+ * WHAT TRAVELS NOW: department identity, department lifecycle, and the recorded accountable owner
+ * as an IDENTIFIER — because OSA-1 records exactly those three and nothing more.
+ *
+ * WHAT STILL CANNOT: no team, no reporting line, no roster, no individual member, no role, no band,
+ * no permission, no agent. Not because each is filtered here, but because `AuthoritativeOrganization`
+ * carries none of them — L3 measured that `roles` has no `organization_id` at all, and OSA-1 shipped
+ * neither a roster nor a team. There is no field to read.
+ *
+ * The owner is an IDENTIFIER and never a name: Hebun holds a member COUNT and no roster, so
+ * resolving an id to a person is a read this authority has not earned.
+ *
+ *     DEPARTMENT CARRIED != ROSTER CARRIED        OWNER RECORDED != OWNER AUTHORIZED
+ *
+ * The structural facts that DO travel are the authority's own — its refusal when it cannot read,
+ * its measured emptiness when it can, and its departments when it has them — each carried verbatim.
  *
  * Server-only.
  */
@@ -76,14 +99,22 @@ import type { AuthoritativeOrganization, OrganizationAuthorityRead } from "./con
 import { readOrganizationAuthority } from "./read-organization.server";
 
 /**
- * Named for what it is, and for what it is not. A reader who sees this line must not conclude that
- * Hebun knows how the organization is arranged, or who is in it.
+ * Named for what it is, and for what it is not.
+ *
+ * REPAIRED AT OSA-2. Every clause here is checked against what the authority actually carries,
+ * because this string is not a comment: it reaches the model as the line's provenance AND is
+ * rendered to the Director by `assembleProvenance`. It named three things it does not carry — and
+ * one, the department, that it does. A reader who sees this line must still not conclude that Hebun
+ * knows who is IN the organization, only how OSA-1 recorded that it is divided.
  */
 export const ORGANIZATION_GROUNDING_PROVENANCE =
   "Organization Authority — the organization record this tenant IS, read tenant-scoped from the " +
-  "session and authoritative (authoritative: true). It answers what organization exists, never how " +
-  "it is arranged: no department, team, reporting line or member roster is carried, because no " +
-  "authority for any of them exists.";
+  "session and authoritative (authoritative: true). It answers what organization exists and, since " +
+  "the Organization Structure Authority, how it is divided: each recorded department's identity, " +
+  "its lifecycle, and the accountable owner recorded for it as an identifier. Ownership is " +
+  "attribution only — it grants no permission, no Governance authority, no approval right and no " +
+  "right to execute anything. No team, no reporting line and no member roster is carried, because " +
+  "no authority for any of them exists.";
 
 /**
  * Why the source could not be resolved.

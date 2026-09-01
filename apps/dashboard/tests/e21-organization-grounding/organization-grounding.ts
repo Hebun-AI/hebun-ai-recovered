@@ -528,6 +528,140 @@ async function main(): Promise<void> {
     }
   }
 
+  /* ── 13 · (OSA-2) THE PROVENANCE MAY NOT DENY WHAT THE ITEMS CARRY ───────── */
+  {
+    /*
+     * THE DEFECT THIS EXISTS TO MAKE UNREPEATABLE.
+     *
+     * OSA-1 taught `structureClause` to carry departments and left
+     * `ORGANIZATION_GROUNDING_PROVENANCE` saying "no department ... is carried, because no
+     * authority for any of them exists". Both then travelled on ONE line — `groundingLines` joins
+     * them with " | provenance: " — and `assembleProvenance` rendered the denial to the Director
+     * beside an answer naming the department. The suite stayed green at 622 because the only
+     * assertion that reads this constant (section 4) STRIPS it before banning structural words, and
+     * runs solely on the structure-UNAVAILABLE branch. Nothing exercised it against a resolved
+     * structure that carries departments. This does.
+     *
+     * WHY NOT A WORD BAN. Section 4 already records why: the product's honest denial contains every
+     * word a ban would forbid — the INT-3 failure, in both directions. So the guard is the PAIRING,
+     * judged per sentence by negation, which is E2-5's technique:
+     *
+     *     A SENTENCE MAY NAME A DEPARTMENT, OR DENY DEPARTMENTS. NEVER BOTH.
+     *
+     * This bites the released defect exactly. The old string was ONE sentence carrying "department"
+     * together with "never" and "no", so it fails here; the repaired string separates what IS
+     * carried from what is NOT into different sentences, so each is judged on its own.
+     */
+    const owned = await groundOn(
+      available({
+        structure: {
+          status: "available",
+          departments: [
+            {
+              departmentId: "33333333-3333-4333-8333-333333333333",
+              name: "Engineering",
+              slug: "engineering",
+              lifecycleStatus: "active",
+              inService: true,
+              owner: {
+                actorType: "human",
+                actorId: "22222222-2222-4222-8222-222222222222",
+                currentlyActiveMember: true,
+              },
+              createdAt: "2026-09-01T00:00:00.000Z",
+              updatedAt: "2026-09-01T00:00:00.000Z",
+            },
+          ],
+          detail: "This organization has recorded 1 department in service.",
+        },
+      }),
+    );
+
+    assert.equal(owned.state, "resolved");
+    const carriedDetail = owned.items[0]!.detail;
+    assert.ok(carriedDetail.includes("Engineering"), "the resolved branch must carry the department");
+
+    /*
+     * THE PAIRING, DIRECTION ONE. No sentence of the provenance may both mention a department and
+     * negate it. `\b` anchors matter: "no" must not match inside "Organization".
+     */
+    const NEGATION = /\b(no|not|never|cannot|neither|nor)\b/i;
+    const sentences = ORGANIZATION_GROUNDING_PROVENANCE.split(/(?<=\.)\s+/).filter(Boolean);
+    assert.ok(sentences.length > 1, "the provenance must separate what is carried from what is not");
+    for (const sentence of sentences) {
+      if (!/department/i.test(sentence)) continue;
+      assert.ok(
+        !NEGATION.test(sentence),
+        `the provenance names a department and denies it in one sentence: ${JSON.stringify(sentence)}`,
+      );
+    }
+
+    /*
+     * THE PAIRING, DIRECTION TWO. Everything the provenance says it WITHHOLDS must be absent from
+     * what the items actually carry — otherwise the sentence would be false the other way round.
+     * Checked against the resolution that carries the most, so a leak has somewhere to show.
+     */
+    for (const withheld of ["team", "reporting line", "roster"]) {
+      assert.ok(
+        NEGATION.test(
+          sentences.find((sentence) => sentence.toLowerCase().includes(withheld)) ?? "",
+        ),
+        `the provenance must state that no ${withheld} is carried`,
+      );
+      assert.ok(
+        !carriedDetail.toLowerCase().includes(withheld),
+        `the items must carry no ${withheld}, as the provenance claims`,
+      );
+    }
+
+    /* THE THREE FACTS OSA-1 RECORDS, EACH NAMED AS CARRIED. */
+    for (const carried of ["identity", "lifecycle", "identifier"]) {
+      assert.ok(
+        ORGANIZATION_GROUNDING_PROVENANCE.toLowerCase().includes(carried),
+        `the provenance must state that a department's ${carried} is carried`,
+      );
+    }
+
+    /*
+     * AND OWNERSHIP STILL GRANTS NOTHING. OSA-1's strongest pin, and the one a truthful "we carry
+     * the owner" sentence is most likely to erode: the provenance may not name an owner without
+     * saying in the same breath what naming one does not do.
+     */
+    const ownership = sentences.find((sentence) => /ownership/i.test(sentence)) ?? "";
+    for (const granted of ["permission", "Governance authority", "approval"]) {
+      assert.ok(
+        ownership.toLowerCase().includes(granted.toLowerCase()),
+        `the provenance must deny that ownership grants ${granted}`,
+      );
+    }
+    assert.ok(NEGATION.test(ownership), "the ownership clause must be a denial, not a grant");
+
+    /*
+     * THE THREE STATES STILL NEVER COLLAPSE. One provenance serves all three, so a repair that made
+     * it true for departments must not have made it false for the other two.
+     */
+    const empty = await groundOn(
+      available({
+        structure: { status: "available", departments: [], detail: "recorded no departments." },
+      }),
+    );
+    const unread = await groundOn(available());
+    for (const resolution of [owned, empty, unread]) {
+      assert.equal(resolution.provenance, ORGANIZATION_GROUNDING_PROVENANCE);
+      assert.equal(resolution.authoritative, true);
+    }
+    assert.notEqual(
+      owned.items[0]!.detail,
+      empty.items[0]!.detail,
+      "one department must not read the same as none recorded",
+    );
+    assert.notEqual(
+      empty.items[0]!.detail,
+      unread.items[0]!.detail,
+      "none recorded must not read the same as could not read",
+    );
+  }
+
   console.log("e21-organization-grounding/organization-grounding: OK");
 }
 
