@@ -108,7 +108,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   const resolved = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([ITEM]),
-    resolveLabels: async () => labelsFor({ "u-1": "Şenol Sevim" }),
+    resolveNames: async () => labelsFor({ "u-1": "Şenol Sevim" }),
   });
   assert.equal(resolved.state, "resolved");
   assert.equal(resolved.sourceClass, "work");
@@ -152,7 +152,7 @@ async function main(): Promise<void> {
   for (const state of WORK_DECLARED_STATES) {
     const one = await readWorkGroundingSource(TENANT, {
       readRegister: async () => available([{ ...ITEM, declaredState: state }]),
-      resolveLabels: async () => labelsFor({}),
+      resolveNames: async () => labelsFor({}),
     });
     const d = one.items[0]!.detail;
     assert.match(d, new RegExp(`declared state: ${state}`), `${state} reaches context`);
@@ -165,7 +165,7 @@ async function main(): Promise<void> {
   /* DECLARED COMPLETE IS NOT VERIFIED — the single most dangerous confusion, asserted directly. */
   const complete = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([{ ...ITEM, declaredState: "complete" }]),
-    resolveLabels: async () => labelsFor({}),
+    resolveNames: async () => labelsFor({}),
   });
   const completeDetail = complete.items[0]!.detail;
   assert.match(completeDetail, /Declared complete by an authorized human/);
@@ -182,7 +182,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   const empty = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([]),
-    resolveLabels: async () => labelsFor({}),
+    resolveNames: async () => labelsFor({}),
   });
   assert.equal(empty.state, "resolved", "looked, found none — a REAL answer, never an outage");
   assert.equal(empty.items.length, 1);
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
 
   const down = await readWorkGroundingSource(TENANT, {
     readRegister: async () => ({ status: "unavailable", detail: "d" }) as WorkRegister,
-    resolveLabels: async () => labelsFor({}),
+    resolveNames: async () => labelsFor({}),
   });
   assert.equal(down.state, "unavailable", "an unreachable authority is UNAVAILABLE");
   assert.equal(down.items.length, 0, "and contributes no item a model could read as work");
@@ -215,7 +215,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   const nothingBlocked = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([ITEM]),
-    resolveLabels: async () => labelsFor({ "u-1": "Şenol Sevim" }),
+    resolveNames: async () => labelsFor({ "u-1": "Şenol Sevim" }),
   });
   const allDetail = nothingBlocked.items.map((i) => i.detail).join(" ");
   assert.ok(
@@ -232,7 +232,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   const unlabelled = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([ITEM]),
-    resolveLabels: async () => labelsFor({}),
+    resolveNames: async () => labelsFor({}),
   });
   assert.match(unlabelled.items[0]!.detail, new RegExp(WORK_LABEL_UNAVAILABLE));
   assert.match(unlabelled.items[0]!.detail, /\(u-1\)/, "the identifier is still there");
@@ -240,7 +240,7 @@ async function main(): Promise<void> {
   /* A legibility outage must not take the work down with it. */
   const labelThrew = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([ITEM]),
-    resolveLabels: async () => { throw new Error("identity down"); },
+    resolveNames: async () => { throw new Error("identity down"); },
   });
   assert.equal(labelThrew.state, "resolved", "work survives a legibility failure");
   assert.match(labelThrew.items[0]!.detail, new RegExp(WORK_LABEL_UNAVAILABLE));
@@ -248,7 +248,7 @@ async function main(): Promise<void> {
   /* Nobody accountable is its own answer, and not an unresolved name. */
   const unowned = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([{ ...ITEM, accountableActorId: null, accountableCurrentlyActiveMember: null }]),
-    resolveLabels: async () => labelsFor({}),
+    resolveNames: async () => labelsFor({}),
   });
   assert.match(unowned.items[0]!.detail, /No human is recorded accountable/);
   assert.ok(!unowned.items[0]!.detail.includes(WORK_LABEL_UNAVAILABLE));
@@ -256,7 +256,7 @@ async function main(): Promise<void> {
   /* A human who has since left is still NAMED, and their standing is stated. */
   const departed = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([{ ...ITEM, accountableCurrentlyActiveMember: false }]),
-    resolveLabels: async () => labelsFor({ "u-1": "Şenol Sevim" }),
+    resolveNames: async () => labelsFor({ "u-1": "Şenol Sevim" }),
   });
   assert.match(departed.items[0]!.detail, /no longer an active member/);
   assert.match(departed.items[0]!.detail, /Şenol Sevim/, "history is not rewritten");
@@ -264,7 +264,7 @@ async function main(): Promise<void> {
   /* No department recorded is its own answer too. */
   const noDept = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([{ ...ITEM, department: null }]),
-    resolveLabels: async () => labelsFor({}),
+    resolveNames: async () => labelsFor({}),
   });
   assert.match(noDept.items[0]!.detail, /No department is recorded/);
 
@@ -273,7 +273,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   const retired = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([{ ...ITEM, inService: false, lifecycleStatus: "archived" }]),
-    resolveLabels: async () => labelsFor({}),
+    resolveNames: async () => labelsFor({}),
   });
   assert.equal(retired.items[0]!.lifecycle, "retired", "the retrieval layer's own word for it");
   assert.match(retired.items[0]!.detail, /retired from service/);
@@ -283,7 +283,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   const bounded = await readWorkGroundingSource(TENANT, {
     readRegister: async () => available([ITEM], true),
-    resolveLabels: async () => labelsFor({}),
+    resolveNames: async () => labelsFor({}),
   });
   const boundedItem = bounded.items.find((i) => i.recordRef === "work:bounded");
   assert.ok(boundedItem, "a truncated register contributes an explicit bound item");

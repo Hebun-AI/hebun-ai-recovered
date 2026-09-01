@@ -31,6 +31,7 @@ import {
   MAX_RESOLVABLE_LABELS,
   readSelectableMembers,
   resolveHumanLabels,
+  resolveHumanNames,
 } from "../../src/features/auth-runtime/human-label-read.server";
 import {
   recordDepartment,
@@ -554,6 +555,96 @@ async function main(): Promise<void> {
       `select count(*)::int as n from decision_records where subject_type = 'department'`,
     );
     assert.equal(structuralDecisions.rows[0]!.n, 0, "and no Governance decision for structure");
+
+    /* ═══════════════════════════════════════════════════════════════════════
+     * 8. THE PROVIDER-SAFE NAME READ — A NAME, OR NOTHING. NEVER AN ADDRESS.
+     *
+     * WORK-2 POST-ACCEPTANCE PRIVACY HARDENING. `resolveHumanLabels` answers what THIS
+     * ORGANIZATION'S OWN SURFACE should call a person and falls back to their address;
+     * `resolveHumanNames` answers what may be SENT OUTSIDE THIS PROCESS and does not. Both are
+     * measured here against the same real rows, in the same database, so the difference is a
+     * measurement and not a claim.
+     *
+     *     UI LEGIBILITY != MODEL PROVIDER DISCLOSURE
+     * ═════════════════════════════════════════════════════════════════════ */
+    const names = await resolveHumanNames(
+      acmeCtx,
+      [displayNamed, nameOnly, emailOnly, revokedMember],
+      deps,
+    );
+
+    /* display_name is allowed out, and still wins over the legal name. */
+    assert.equal(names.get(displayNamed), "Pat Preferred", "display_name is disclosable, and wins");
+    /* name is allowed out when display_name is absent. */
+    assert.equal(names.get(nameOnly), "Sam Only Name", "name is disclosable when display_name is absent");
+
+    /*
+     * THE FINDING PRODUCTION SURFACED, PINNED. A human with neither name column is ABSENT — not
+     * their address, not a blank, not a derived value. Asserted three ways because "absent" and
+     * "present but different" are different failures.
+     */
+    assert.ok(!names.has(emailOnly), "a human with no name is ABSENT — the address is not a fallback");
+    assert.equal(names.get(emailOnly), undefined, "and there is no value for them at all");
+    for (const value of names.values()) {
+      assert.ok(!value.includes("@"), `no disclosable name is an address: ${value}`);
+      assert.ok(
+        !value.includes("acme-hlr.test") && !value.includes("nameless"),
+        "and no address, or any part of one, leaks through as a name",
+      );
+    }
+
+    /*
+     * NO NAME IS DERIVED FROM AN ADDRESS. The local-part of `nameless@acme-hlr.test` is `nameless`;
+     * nothing anywhere in the result resembles it, capitalized or otherwise.
+     */
+    const allNames = [...names.values()].join(" ").toLowerCase();
+    for (const guess of ["nameless", "nameles", "acme-hlr", "n."]) {
+      assert.ok(!allNames.includes(guess), `no name is guessed from an address: ${guess}`);
+    }
+
+    /* A former member keeps their NAME too — the disclosure rule changed, the history rule did not. */
+    assert.equal(
+      names.get(revokedMember),
+      "Former Person",
+      "a human the records still name stays named after their membership ends",
+    );
+
+    /*
+     * THE RELEASED UI READ IS UNCHANGED — asserted in the same breath, over the same ids. This is
+     * the half that proves the hardening did not quietly reach into the product surfaces.
+     */
+    const uiLabels = await resolveHumanLabels(acmeCtx, [displayNamed, nameOnly, emailOnly], deps);
+    assert.equal(uiLabels.get(displayNamed), "Pat Preferred", "the UI read still prefers display_name");
+    assert.equal(uiLabels.get(nameOnly), "Sam Only Name", "the UI read still falls back to name");
+    assert.equal(
+      uiLabels.get(emailOnly),
+      "nameless@acme-hlr.test",
+      "AND THE UI READ STILL FLOORS AT THE ADDRESS — the product surface was deliberately not changed",
+    );
+
+    /* THE SAME GATE, THE SAME PREDICATES. The name read is not a looser door. */
+    assert.equal(
+      (await resolveHumanNames(acmeCtx, [globex.userId], deps)).size,
+      0,
+      "another organization's identifier resolves to no name either",
+    );
+    assert.equal(
+      (await resolveHumanNames(initechCtx, [initechMember], deps)).size,
+      0,
+      "an unauthorized caller resolves no name — the gate is the gate",
+    );
+    assert.equal((await resolveHumanNames(null, [displayNamed], deps)).size, 0, "no session, no name");
+    assert.equal(
+      (await resolveHumanNames(acmeCtx, [deletedUser], deps)).size,
+      0,
+      "a soft-deleted identity yields no name",
+    );
+    assert.equal((await resolveHumanNames(acmeCtx, [unknown], deps)).size, 0, "and neither does nobody");
+    assert.equal(
+      (await resolveHumanNames(acmeCtx, overBound, deps)).size,
+      0,
+      "the bound is the same ceiling, refused whole",
+    );
 
     console.log("HLR legibility (postgres): all assertions passed.");
   } finally {

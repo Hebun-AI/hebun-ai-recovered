@@ -141,7 +141,7 @@ async function main(): Promise<void> {
       resolveWork: async (tenant) =>
         readWorkGroundingSource(tenant, {
           readRegister: async () => REGISTER,
-          resolveLabels: async () => new Map([["u-1", "Şenol Sevim"]]),
+          resolveNames: async () => new Map([["u-1", "Şenol Sevim"]]),
         }),
       generate: async (request) => {
         captured = request;

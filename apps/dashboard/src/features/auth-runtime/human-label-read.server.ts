@@ -30,19 +30,27 @@
  * posture of the delegation candidate read, quoted in its own words: "an unauthorized caller gets
  * an empty list rather than a directory".
  *
- * ── TWO READS, TWO DELIBERATELY DIFFERENT PREDICATES ─────────────────────────
+ * ── THREE READS: TWO PREDICATES, AND TWO DISCLOSURE POSTURES ─────────────────
  *
  * `readSelectableMembers` answers "who may be made accountable" and offers ACTIVE members only.
  * `resolveHumanLabels` answers "who is this identifier" for ids a record already names, and
  * deliberately does NOT filter on membership status — a department keeps naming the human recorded
  * as accountable after their membership ends, and rendering that person as a bare uuid because they
- * left would erase from the surface what the record still says. Both are tenant-scoped by
- * predicate, so neither can reach another organization's people.
+ * left would erase from the surface what the record still says. All are tenant-scoped by
+ * predicate, so none can reach another organization's people.
+ *
+ * `resolveHumanNames` answers the SAME question as `resolveHumanLabels`, over the same rows through
+ * the same gate and the same predicate, and differs in ONE thing: it projects the NAME columns only
+ * and never the address. It exists because a value a surface may show is not automatically a value
+ * that may be sent to a third party.
+ *
+ *     PRODUCT LEGIBILITY != EXTERNAL DISCLOSURE
+ *     AUTHORIZED TO READ != NECESSARY TO DISCLOSE
  *
  * ── WHAT THIS IS NOT, AND MUST NOT BECOME ────────────────────────────────────
  *
- * Not a roster authority. Not a people directory. Not a search. Not a paging API — both reads are
- * bounded by a constant and neither accepts an offset or a cursor. Not a second identity store:
+ * Not a roster authority. Not a people directory. Not a search. Not a paging API — every read is
+ * bounded by a constant and none accepts an offset or a cursor. Not a second identity store:
  * nothing here is written anywhere, and no label is ever persisted onto a department.
  *
  * No secret, no credential, no `auth_id`, no auth-identity internal and no membership internal is
@@ -78,6 +86,31 @@ import { resolveGovernanceAuthority } from "@/features/governance-decision/autho
  * is what Hebun actually knows about them.
  */
 const LABEL_EXPRESSION = sql<string>`coalesce(${users.displayName}, ${users.name}, ${users.email})`;
+
+/**
+ * THE NAME, WITHOUT THE ADDRESS. The same precedence with the floor REMOVED, and nothing else.
+ *
+ * `display_name → name`, and NULL when a human has neither. It is a strict prefix of
+ * `LABEL_EXPRESSION` — the same two columns in the same order — so the two reads can never disagree
+ * about what a person is CALLED. They differ in exactly one thing: whether an unnamed human falls
+ * back to their address.
+ *
+ *     PRODUCT LEGIBILITY != EXTERNAL DISCLOSURE
+ *
+ * WORK-2's production acceptance is what made the difference matter. The identity in production has
+ * neither name column set, so the released label resolves to an EMAIL — correct on a page the
+ * organization's own authorized human is reading, and a disclosure the moment the same string is
+ * put into a model provider's request. `users.email` is a CONTACT ADDRESS and a login credential
+ * half; `display_name` and `name` are what a person chose to be called. Being entitled to READ a
+ * field is not a reason to SEND it.
+ *
+ *     AUTHORIZED TO READ != NECESSARY TO DISCLOSE
+ *
+ * The distinction is made by SELECTING DIFFERENT COLUMNS, never by inspecting a resolved string: no
+ * `@` test, no regex, no heuristic. A human legitimately named "someone@example.com" would be
+ * rendered by a heuristic as unnamed; here they are named, because `display_name` said so.
+ */
+const HUMAN_NAME_EXPRESSION = sql<string | null>`coalesce(${users.displayName}, ${users.name})`;
 
 /**
  * The most members the picker will offer. The same bound `readDelegationCandidates` uses, for the
@@ -264,6 +297,67 @@ export async function resolveHumanLabels(
   userIds: readonly string[],
   deps: HumanLabelReadDeps = {},
 ): Promise<ReadonlyMap<string, string>> {
+  return resolveByExpression(tenant, userIds, LABEL_EXPRESSION, deps);
+}
+
+/**
+ * Resolve the same identifiers to a human's NAME — and to nothing else if they have none.
+ *
+ * ── WHY THIS EXISTS BESIDE `resolveHumanLabels` AND NOT INSTEAD OF IT ────────
+ *
+ * Two questions that look like one:
+ *
+ *   `resolveHumanLabels`  "what should this organization's own surface CALL this person?"
+ *                          Answered for a human who is already authorized to see them, inside
+ *                          Hebun. An address is a true and useful answer there, and the two
+ *                          released pickers keep it.
+ *
+ *   `resolveHumanNames`   "what may be SENT OUTSIDE this process about this person?"
+ *                          Answered for a caller that is about to put the string into a third
+ *                          party's request. A contact address is not necessary to that purpose,
+ *                          so it is not offered.
+ *
+ * Collapsing them would force one of two wrongs: a picker that stops naming the only human this
+ * organization has, or an address that leaves the process on every model call. Both are worse than
+ * two reads over the same rows.
+ *
+ * ── IT IS NOT A SECOND IDENTITY AUTHORITY, AND NOT A SECOND PREDICATE ────────
+ *
+ * Same gate, same tenant predicate, same soft-delete exclusion, same bound, same table, same
+ * module, same shared query. THE ONLY DIFFERENCE IS THE PROJECTED EXPRESSION. It reads no column
+ * the sibling does not read, reaches no row the sibling cannot reach, and writes nothing.
+ *
+ * ── AN ABSENT ENTRY IS THE ANSWER, NOT A FAILURE ─────────────────────────────
+ *
+ * A human with neither name column is simply ABSENT from the map — the same shape the caller
+ * already handles for an unresolvable id, an unauthorized caller and an unreachable database. The
+ * caller therefore says "unknown" in exactly the words it already had, and NOTHING IS INVENTED
+ * HERE: no local-part, no initials, no username, no role, no department, no guess.
+ *
+ *     UNKNOWN REMAINS UNKNOWN.       AN ADDRESS IS NOT A NAME.
+ */
+export async function resolveHumanNames(
+  tenant: TenantContext | null,
+  userIds: readonly string[],
+  deps: HumanLabelReadDeps = {},
+): Promise<ReadonlyMap<string, string>> {
+  return resolveByExpression(tenant, userIds, HUMAN_NAME_EXPRESSION, deps);
+}
+
+/**
+ * The one resolution both reads perform, with the projected expression as its only parameter.
+ *
+ * Written once so the gate, the tenant predicate, the soft-delete exclusion and the bound cannot
+ * drift apart between the two callers — the same reason `member-eligibility.ts` exists for the
+ * picker and the writer. A row whose expression is null contributes NO ENTRY, which is how the name
+ * read reports "this person has no name" without inventing a value or a second return shape.
+ */
+async function resolveByExpression(
+  tenant: TenantContext | null,
+  userIds: readonly string[],
+  expression: typeof LABEL_EXPRESSION | typeof HUMAN_NAME_EXPRESSION,
+  deps: HumanLabelReadDeps,
+): Promise<ReadonlyMap<string, string>> {
   const empty: ReadonlyMap<string, string> = new Map();
 
   const wanted = [...new Set(userIds.filter((id) => typeof id === "string" && id.length > 0))];
@@ -275,7 +369,7 @@ export async function resolveHumanLabels(
 
   try {
     const rows = await opened.db
-      .select({ userId: users.id, label: LABEL_EXPRESSION })
+      .select({ userId: users.id, label: expression })
       .from(users)
       .innerJoin(memberships, eq(memberships.userId, users.id))
       .where(
@@ -287,7 +381,10 @@ export async function resolveHumanLabels(
       );
 
     const resolved = new Map<string, string>();
-    for (const row of rows) resolved.set(row.userId, row.label);
+    for (const row of rows) {
+      if (typeof row.label !== "string" || row.label.length === 0) continue;
+      resolved.set(row.userId, row.label);
+    }
     return resolved;
   } catch {
     return empty;

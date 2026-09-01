@@ -214,9 +214,46 @@ function walk(dir: string): string[] {
     "and legibility uses the same one",
   );
 
-  /* Stated ONCE in the new module, so the two reads can never drift apart from each other. */
+  /*
+   * EACH EXPRESSION IS STATED ONCE, AND THERE ARE NOW EXACTLY TWO.
+   *
+   * ── THE PIN MOVED, AND IT DID NOT WEAKEN ────────────────────────────────────
+   *
+   * HLR pinned this at ONE: "the label expression is written once and shared", so the two reads
+   * could never drift apart. The WORK-2 post-acceptance privacy hardening added a SECOND, narrower
+   * expression — `display_name -> name`, with the address floor removed — because what a surface
+   * may show an organization's own human is not what may be sent to a model provider.
+   *
+   *     UI LEGIBILITY != MODEL PROVIDER DISCLOSURE
+   *
+   * So the count is TWO and pinned exactly, not loosened to "at least one". A third would still
+   * fail here, and so would either of these being written twice.
+   */
   const occurrences = legibility.match(/coalesce\(/g) ?? [];
-  assert.equal(occurrences.length, 1, "the label expression is written once and shared");
+  assert.equal(occurrences.length, 2, "exactly two expressions exist, each written once");
+  assert.equal(
+    (legibility.match(/coalesce\(\$\{users\.displayName\}, \$\{users\.name\}, \$\{users\.email\}\)/g) ?? []).length,
+    1,
+    "the product label — with the address floor — is stated once",
+  );
+  assert.equal(
+    (legibility.match(/coalesce\(\$\{users\.displayName\}, \$\{users\.name\}\)/g) ?? []).length,
+    1,
+    "and the provider-safe name — WITHOUT it — is stated once",
+  );
+
+  /*
+   * AND THEY AGREE ABOUT WHAT A PERSON IS CALLED. The name expression is a strict PREFIX of the
+   * label expression: same columns, same order, one fewer fallback. Two reads that disagreed about
+   * precedence would be two answers to one question — the very thing this section exists to stop.
+   */
+  const NAME_EXPR = "coalesce(${users.displayName}, ${users.name})";
+  const LABEL_EXPR = "coalesce(${users.displayName}, ${users.name}, ${users.email})";
+  assert.ok(
+    LABEL_EXPR.startsWith(NAME_EXPR.slice(0, -1)),
+    "the provider-safe name is the product label with the address floor removed, and nothing else",
+  );
+  assert.ok(legibility.includes(NAME_EXPR) && legibility.includes(LABEL_EXPR));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -397,6 +434,36 @@ function walk(dir: string): string[] {
     groundingConsumers,
     [WORK_GROUNDING],
     "exactly ONE grounding projection resolves a human label, and it is the Work Authority's",
+  );
+
+  /*
+   * ── AND IT MAY RESOLVE ONLY THE PROVIDER-SAFE READ ──────────────────────────
+   *
+   * WORK-2's production acceptance found that the released product label resolves to an EMAIL for
+   * the one identity production holds, because it floors at `users.email` and that identity has
+   * neither name column set. Correct on a page; a disclosure to a third-party model provider.
+   *
+   * The claim above is therefore NARROWED, not widened: still exactly one projection, and that one
+   * may reach only `resolveHumanNames`. Reaching the address-floored `resolveHumanLabels` from a
+   * grounding projection fails here, as does a second projection reaching for either.
+   */
+  const workGrounding = withoutComments(read(WORK_GROUNDING));
+  assert.ok(
+    workGrounding.includes("resolveHumanNames"),
+    "the one grounding projection resolves the PROVIDER-SAFE name",
+  );
+  assert.ok(
+    !workGrounding.includes("resolveHumanLabels"),
+    "and never the product label that floors at an email address",
+  );
+
+  const providerFacingReaders = walk("src/features")
+    .filter((file) => /heby-[a-z-]*source\.server\.ts$/.test(file))
+    .filter((file) => withoutComments(read(file)).includes("resolveHumanLabels"));
+  assert.deepEqual(
+    providerFacingReaders,
+    [],
+    "NO grounding projection reaches the address-floored product label — UI LEGIBILITY != DISCLOSURE",
   );
 }
 

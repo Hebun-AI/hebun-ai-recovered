@@ -65,16 +65,40 @@
  * and says so in its provenance. This module is the first place a person's readable name reaches a
  * model's grounding context.
  *
- * It is done through the RELEASED projection, not a new read: the same Governance-gated,
- * tenant-scoped, fail-closed `resolveHumanLabels` the two pages use. It creates no roster — it
+ * It is done through an Identity-owned projection, not a read of our own: the same
+ * Governance-gated, tenant-scoped, fail-closed module the two pages use. It creates no roster — it
  * answers for ids this register already names and cannot enumerate anybody. And the IDENTIFIER
- * travels beside the label in every item, because:
+ * travels beside the name in every item, because:
  *
- *     THE LABEL IS NOT THE KEY.        A READABLE NAME GRANTS NOTHING.
+ *     THE NAME IS NOT THE KEY.         A READABLE NAME GRANTS NOTHING.
  *     RESOLVED != AUTHORIZED.          UNRESOLVED != NOBODY.
  *
- * When Identity cannot answer, the item says the name is unavailable and shows the identifier. It
- * never guesses, never abbreviates and never falls back to a blank.
+ * ── AND IT IS A NAME, NEVER AN ADDRESS (WORK-2 POST-ACCEPTANCE HARDENING) ────
+ *
+ * WORK-2's production acceptance is what found this. The released product label is
+ * `display_name → name → email`, and the production identity has neither name column set, so the
+ * "readable name" this module put in front of a model was AN EMAIL ADDRESS. Gated, tenant-scoped,
+ * eligible and correct as a product label — and a disclosure to a third-party model provider on
+ * every Command answer, where before it appeared only on two server-rendered pages the
+ * organization's own authorized human was reading.
+ *
+ *     UI LEGIBILITY != MODEL PROVIDER DISCLOSURE
+ *     AUTHORIZED TO READ != NECESSARY TO DISCLOSE
+ *
+ * So this module now consumes `resolveHumanNames`, which projects `display_name → name` and stops
+ * there. The two pages keep the released label, deliberately: showing an organization's own human
+ * their own address is not a disclosure, and blanking those pickers would have been a worse product
+ * for no privacy gained.
+ *
+ * The distinction is made in Identity by SELECTING DIFFERENT COLUMNS, never by inspecting a string
+ * here. This module holds no `@` test, no regex, no local-part split and no heuristic, and it could
+ * not tell a name from an address if it tried — which is exactly why it must not try.
+ *
+ * When Identity has no name for a human — none recorded, unresolvable, unauthorized, or Identity
+ * unreachable — the item says the name is unavailable and shows the identifier. It never guesses,
+ * never derives a name from an address, never abbreviates and never falls back to a blank.
+ *
+ *     UNKNOWN REMAINS UNKNOWN.         AN ADDRESS IS NOT A NAME.
  *
  * ── WHAT IT STRUCTURALLY CANNOT SAY ──────────────────────────────────────────
  *
@@ -86,7 +110,7 @@
  */
 import type { ResolvedSourceItem, SourceResolution } from "@/features/heby-runtime/contracts";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { resolveHumanLabels } from "@/features/auth-runtime/human-label-read.server";
+import { resolveHumanNames } from "@/features/auth-runtime/human-label-read.server";
 import { readWorkRegister, type WorkItemView } from "./read-work.server";
 import { WORK_DECLARED_STATE_MEANING, WORK_NON_CLAIMS, type WorkDeclaredState } from "./work-contracts";
 
@@ -135,12 +159,19 @@ export const WORK_NONE_RECORDED_STATEMENT =
   "this organization's records, never a statement that the organization is doing nothing. Work " +
   "exists in Hebun only once a human records it.";
 
-/** Said when Identity returns no label for an id the register names. Never replaced by a guess. */
+/**
+ * Said when Identity holds no NAME for an id this register names. Never replaced by a guess.
+ *
+ * It covers four different situations on purpose — no name recorded, id unresolvable, caller
+ * unauthorized, Identity unreachable — because a model must not be able to tell them apart, and
+ * because the honest answer is the same in all four: Hebun does not know what to call this person.
+ * The identifier is shown beside it every time, so the record stays fully referenceable.
+ */
 export const WORK_LABEL_UNAVAILABLE = "name unavailable";
 
 export interface WorkGroundingDeps {
   readonly readRegister?: typeof readWorkRegister;
-  readonly resolveLabels?: typeof resolveHumanLabels;
+  readonly resolveNames?: typeof resolveHumanNames;
 }
 
 function base(
@@ -167,16 +198,16 @@ function base(
 /**
  * The accountable clause for one item.
  *
- * Three cases, kept apart: nobody recorded, recorded and resolvable, recorded and unresolvable. The
- * identifier is present in the last two, always, because the label is a rendering and the id is the
- * fact.
+ * Three cases, kept apart: nobody recorded, recorded and named, recorded and unnamed. The
+ * identifier is present in the last two, always, because the name is a rendering and the id is the
+ * fact — and it is what keeps the record referenceable when there is no name to give.
  */
-function accountableClause(item: WorkItemView, labels: ReadonlyMap<string, string>): string {
+function accountableClause(item: WorkItemView, names: ReadonlyMap<string, string>): string {
   if (!item.accountableActorId) {
     return "No human is recorded accountable for this work.";
   }
-  const label = labels.get(item.accountableActorId);
-  const named = label ?? WORK_LABEL_UNAVAILABLE;
+  const name = names.get(item.accountableActorId);
+  const named = name ?? WORK_LABEL_UNAVAILABLE;
   const standing =
     item.accountableCurrentlyActiveMember === false
       ? " — recorded accountable, and no longer an active member of this organization; the record " +
@@ -211,14 +242,14 @@ function departmentClause(item: WorkItemView): string {
  * `detail` is machine-derived and flows into Heby's own deterministic prose, so every clause in it
  * is a fact this authority stores plus the standing non-claim. Nothing in it is inferred.
  */
-function workItem(item: WorkItemView, labels: ReadonlyMap<string, string>): ResolvedSourceItem {
+function workItem(item: WorkItemView, names: ReadonlyMap<string, string>): ResolvedSourceItem {
   const meaning = WORK_DECLARED_STATE_MEANING[item.declaredState as WorkDeclaredState];
   return {
     recordRef: `work-item/${item.workItemId}`,
     label: item.title,
     detail:
       `declared state: ${item.declaredState} — ${meaning} ` +
-      `${departmentClause(item)} ${accountableClause(item, labels)} ` +
+      `${departmentClause(item)} ${accountableClause(item, names)} ` +
       `The work is ${item.inService ? "in service" : "retired from service"}; recorded ` +
       `${item.recordedAt}, last changed ${item.updatedAt}. ` +
       WORK_NON_CLAIM,
@@ -256,7 +287,7 @@ export async function readWorkGroundingSource(
   }
 
   const readRegister = deps.readRegister ?? readWorkRegister;
-  const resolveLabels = deps.resolveLabels ?? resolveHumanLabels;
+  const resolveNames = deps.resolveNames ?? resolveHumanNames;
 
   const register = await readRegister(tenant);
   if (register.status !== "available") {
@@ -286,24 +317,27 @@ export async function readWorkGroundingSource(
   }
 
   /*
-   * ONE label read, for the ids this register already names.
+   * ONE name read, for the ids this register already names.
    *
    * Scoped to those exact ids — it can neither list the organization's members nor reach another
-   * tenant's. A failed or unauthorized read returns an empty map, and every item then renders the
-   * identifier with `name unavailable` rather than a guess. Legibility failing must never make the
-   * work itself unavailable, so this is deliberately not escalated.
+   * tenant's. A failed, unauthorized or nameless read leaves the id ABSENT from the map, and every
+   * such item then renders the identifier with `name unavailable` rather than a guess. Legibility
+   * failing must never make the work itself unavailable, so this is deliberately not escalated.
+   *
+   * `resolveHumanNames`, NOT `resolveHumanLabels`: the address fallback is a product label and must
+   * not leave this process. See the header.
    */
   const accountableIds = register.items
     .map((item) => item.accountableActorId)
     .filter((id): id is string => Boolean(id));
-  let labels: ReadonlyMap<string, string> = new Map();
+  let names: ReadonlyMap<string, string> = new Map();
   try {
-    labels = await resolveLabels(tenant, accountableIds);
+    names = await resolveNames(tenant, accountableIds);
   } catch {
-    labels = new Map();
+    names = new Map();
   }
 
-  const items = register.items.map((item) => workItem(item, labels));
+  const items = register.items.map((item) => workItem(item, names));
 
   if (register.truncated) {
     /*
