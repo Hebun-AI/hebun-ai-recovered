@@ -378,15 +378,28 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
            * Every line rendered below is server data. The client composes no sentence about what
            * GitHub holds, and it never turns a refusal or a fault into an empty list.
            */
+          /*
+           * INT-5B2. The placeholder is PER COMMAND, because two provider-read commands ask GitHub
+           * for different things and a reader must be told which one is happening. A single
+           * sentence covering both would describe neither, and telling somebody Hebun is listing
+           * repositories while it reads their pull requests is a small lie with no upside.
+           */
           patch({
             composer: "",
             commandOutput: {
               command: parsed.command.slash,
               title: "Reading from GitHub…",
-              lines: [
-                "Asking GitHub for one bounded page of the repositories your installation covers.",
-                "Reads only. Nothing is changed, sent or stored.",
-              ],
+              lines:
+                plan.commandId === "pull-requests"
+                  ? [
+                      "Asking GitHub which repositories your installation covers, then what is open in them.",
+                      "Metadata only — titles, numbers, authors and timestamps. No diff, no file, no comment.",
+                      "Reads only. Nothing is changed, sent or stored.",
+                    ]
+                  : [
+                      "Asking GitHub for one bounded page of the repositories your installation covers.",
+                      "Reads only. Nothing is changed, sent or stored.",
+                    ],
               tone: "info",
               provenance: "Provider read in progress.",
             },

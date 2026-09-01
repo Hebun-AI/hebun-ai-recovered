@@ -41,12 +41,25 @@ import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
   GITHUB_PROVIDER_KEY,
   GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
+  MAX_PULL_REQUESTS_PER_PAGE,
   MAX_REPOSITORIES_PER_PAGE,
+  type GitHubRepositoryView,
 } from "@/features/provider-github/contracts";
 import {
   discoverInstallationRepositories,
   type GitHubRepositoryDiscovery,
 } from "@/features/provider-github/discover-installation-repositories.server";
+/*
+ * INT-5B2. The seam GITHUB-4 built against the real GitHub API and that NOTHING consumed until
+ * now. It is imported, never re-implemented: it owns the rule that a repository id is a CLAIM
+ * until GitHub's own installation listing names it, and it owns the shape that has no field for a
+ * diff, a patch, a body, a file or a commit. A second reader here would be a second interpreter of
+ * both, which is the defect that seam exists to prevent.
+ */
+import {
+  readRepositoryPullRequests,
+  type GitHubRepositoryActivity,
+} from "@/features/provider-github/read-repository-pull-requests.server";
 import type { GitHubAuthorizedCallDeps, GitHubAuthorizedOutcome } from "@/features/provider-github/github-authorized-call.server";
 /*
  * THE SHARED PROVIDER VOCABULARY (INT-5C).
@@ -97,6 +110,43 @@ export const GITHUB_PROVIDER_READ_BUDGET = Object.freeze({
   concurrency: 1,
 } as const);
 
+/**
+ * THE PULL-REQUEST READ BUDGET (INT-5B2) — a SIBLING constant, never a widening of the one above.
+ *
+ * `/repositories` spends exactly two provider calls: minting the installation authorization, then
+ * listing. This command spends more, and the ceiling says so out loud rather than quietly
+ * inheriting a number written for a different command:
+ *
+ *     1 discovery call frame   mint + list                     which repositories exist
+ *     N activity call frames   mint + list + pull requests      one per repository examined
+ *
+ * The re-listing inside each frame is NOT waste. It is the released seam's security property: the
+ * listing that proves a repository is never older than the read that trusts it. Skipping it would
+ * mean trusting a repository id proven a second ago, which is exactly what GITHUB-4 refused to do.
+ *
+ * `maxRepositoriesExamined` is what keeps that bounded, and it is DECLARED IN THE OUTPUT whenever
+ * it bites. An organization with more repositories than this gets a truthful partial answer that
+ * says it is partial — never a silent one.
+ */
+export const GITHUB_PULL_REQUEST_READ_BUDGET = Object.freeze({
+  /** One command may consult one provider. There is no cross-provider fan-out. */
+  maxProviders: 1,
+  /** Repositories this command will look inside, at most. A ceiling, never a page size. */
+  maxRepositoriesExamined: 3,
+  /** Discovery (2) plus three activity frames (3 each). Stated, so it cannot drift unnoticed. */
+  maxProviderCalls: 2 + 3 * 3,
+  /** One page per repository. A second page would be a data export wearing a command's clothes. */
+  maxPages: 1,
+  /** Never more rows per repository than the released page bound, restated here on purpose. */
+  maxRecordsPerRepository: MAX_PULL_REQUESTS_PER_PAGE,
+  /** Per HTTP call, matching the transport's own released default. */
+  providerTimeoutMs: 10_000,
+  /** The whole command, including every frame. Wider than `/repositories`, and for a stated reason. */
+  totalTimeoutMs: 45_000,
+  /** One provider request in flight at a time. Nothing here runs concurrently. */
+  concurrency: 1,
+} as const);
+
 /** The single client-controlled input. It carries NO authority. */
 export interface HebyProviderReadCommandInput {
   /** A registry command id. Anything that is not an available provider-read command is refused. */
@@ -114,6 +164,17 @@ export interface HebyProviderReadCommandDeps {
     tenant: TenantContext | null,
     deps: GitHubAuthorizedCallDeps,
   ) => Promise<GitHubAuthorizedOutcome<GitHubRepositoryDiscovery>>;
+  /**
+   * The released GitHub pull-request seam (GITHUB-4). Injectable for the same reason `discover` is:
+   * so every branch — an answer, a refusal, a provider fault, a repository that vanished between
+   * discovery and the read — is provable with no network and no key. Never so a caller can supply a
+   * different provider, and never so a caller can supply a repository.
+   */
+  readonly readPullRequests?: (
+    tenant: TenantContext | null,
+    repositoryId: number,
+    deps: GitHubAuthorizedCallDeps,
+  ) => Promise<GitHubAuthorizedOutcome<GitHubRepositoryActivity>>;
   /** Injected only so the total-timeout ceiling is testable without waiting twenty seconds. */
   readonly totalTimeoutMs?: number;
 }
@@ -247,6 +308,8 @@ export async function runHebyProviderReadCommand(
   switch (command.handler) {
     case "repositories":
       return readRepositories(slash, tenant, deps);
+    case "pull-requests":
+      return readPullRequests(slash, tenant, deps);
     default:
       /* A provider-read command with no implementation reads nothing rather than reading anything. */
       return { status: "rejected", reason: "no-provider-read-handler" };
@@ -324,4 +387,285 @@ async function readRepositories(
       "file, no source line, no commit content and no message body — the shape it returns has no " +
       "field for any of them.",
   ]);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * INT-5B2 — WHAT IS CHANGING IN OUR ENGINEERING REPOSITORIES
+ *
+ * The second provider-read handler, and the first consumer the GITHUB-4 seam has ever had. It
+ * reads OPEN PULL-REQUEST METADATA for the repositories this organization's own installation
+ * covers, and it says — on every path — what that is not.
+ *
+ *     A PULL REQUEST     != ORGANIZATIONAL WORK   (WORK-1 owns work; this is GitHub's record)
+ *     AN AUTHOR LOGIN    != A PERSON IN THIS ORGANIZATION  (OSA-4 owns who is here)
+ *     OPEN               != ACTIVE, HEALTHY, ON TRACK OR AGREED
+ *     A BOUNDED READ     != ALL ACTIVITY
+ *     PROVIDER SILENCE   != NOTHING IS HAPPENING
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The provenance for a pull-request read. Its own constant, and deliberately not the repository
+ * one: the two commands report different things, and one sentence covering both would end up
+ * describing neither. Every clause is a fact about HOW this was obtained.
+ */
+export const GITHUB_PULL_REQUEST_READ_PROVENANCE =
+  "Read live from GitHub just now, for the installation your organization connected, scoped to your " +
+  "tenant (authoritative: false). Provider-derived observation, not organizational truth: nothing " +
+  "was stored, indexed or admitted anywhere, and asking again re-reads it. These are OPEN pull " +
+  "requests as GitHub reported them at this moment — not this organization's recorded work, not a " +
+  "statement that anything is on track, and not a complete account of engineering activity. An " +
+  "author login is a GITHUB IDENTITY and says nothing about who is a member of your organization.";
+
+/**
+ * THE EVIDENCE IDENTITY FOR ONE PULL REQUEST — the repository's released reference, extended.
+ *
+ * It builds on `githubRepositoryRecordRef` rather than beside it, so the repository a pull request
+ * belongs to is readable from the reference itself. The NUMBER is GitHub's own per-repository
+ * pull-request number, which is never reused within a repository — and it is never the title, for
+ * the reason a repository's reference is never its full name.
+ */
+export function githubPullRequestRecordRef(repositoryId: number, number: number): string {
+  return `${githubRepositoryRecordRef(repositoryId)}/pull-request/${number}`;
+}
+
+/** One pull request, as one line, carrying its own stable reference. Untrusted provider text. */
+function pullRequestLine(
+  repositoryId: number,
+  pullRequest: GitHubRepositoryActivity["openPullRequests"][number],
+): string {
+  const flags: string[] = [];
+  if (pullRequest.isDraft) flags.push("draft");
+  flags.push(pullRequest.authorLogin ? `opened by ${pullRequest.authorLogin} on GitHub` : "no author reported");
+  if (pullRequest.updatedAt) flags.push(`updated ${pullRequest.updatedAt}`);
+  return (
+    `[${githubPullRequestRecordRef(repositoryId, pullRequest.number)}] ` +
+    `#${pullRequest.number} ${pullRequest.title} — ${flags.join(" · ")}`
+  );
+}
+
+/**
+ * READ OPEN PULL REQUESTS ACROSS THE INSTALLATION'S REPOSITORIES.
+ *
+ * ── IT TAKES NO ARGUMENTS, AND THAT IS A SECURITY POSTURE, NOT A LIMITATION ──
+ *
+ * The released seam accepts a repository id and proves it against a live listing, so an addressed
+ * command WOULD be safe. This one still takes none, because a command that accepts no address
+ * cannot be pointed anywhere at all — the installation decides what is visible, exactly as it does
+ * for `/repositories`. No repository address crosses the client boundary, which keeps INT-5B1's
+ * released statement about this action's payload true word for word.
+ *
+ * ── A PARTIAL FAN-OUT IS REPORTED AS PARTIAL ─────────────────────────────────
+ *
+ * Each repository is read in its own authorization frame, so one repository failing is not the
+ * command failing. What must never happen is a repository that could not be read disappearing from
+ * the answer as though it had no open pull requests — so every unread repository is NAMED, with
+ * its own reason, beside the ones that answered.
+ */
+async function readPullRequests(
+  slash: string,
+  tenant: TenantContext,
+  deps: HebyProviderReadCommandDeps,
+): Promise<HebyProviderReadCommandResult> {
+  const discover = deps.discover ?? discoverInstallationRepositories;
+  const readActivity = deps.readPullRequests ?? readRepositoryPullRequests;
+  const totalTimeoutMs = deps.totalTimeoutMs ?? GITHUB_PULL_REQUEST_READ_BUDGET.totalTimeoutMs;
+
+  /**
+   * THE WHOLE FAN-OUT, INSIDE ONE CEILING.
+   *
+   * ONE clock, owned by `withinTotalBudget`, and this module reads no clock of its own — a released
+   * assertion forbids it from naming `Date.now(` at all, because a module that must mint no
+   * identifier has no business holding a clock either. A per-repository deadline computed here
+   * would have been exactly that.
+   *
+   * The cost is that a ceiling reached mid-fan-out reports the whole command as unanswered rather
+   * than returning what it had. That is the correct trade: a partial list under a timeout is the
+   * shape most likely to be read as complete.
+   */
+  const timed = await withinTotalBudget(
+    (async () => {
+      const discovered = await discover(tenant, {
+        timeoutMs: GITHUB_PULL_REQUEST_READ_BUDGET.providerTimeoutMs,
+      });
+      if (!discovered.ok) return { discovery: discovered } as const;
+
+      const examined = discovered.value.repositories.slice(
+        0,
+        GITHUB_PULL_REQUEST_READ_BUDGET.maxRepositoriesExamined,
+      );
+      const activities: {
+        readonly repository: GitHubRepositoryView;
+        readonly outcome: GitHubAuthorizedOutcome<GitHubRepositoryActivity>;
+      }[] = [];
+      /* SEQUENTIAL, matching the budget's own `concurrency: 1`. Nothing here runs in parallel. */
+      for (const repository of examined) {
+        activities.push({
+          repository,
+          outcome: await readActivity(tenant, repository.repositoryId, {
+            timeoutMs: GITHUB_PULL_REQUEST_READ_BUDGET.providerTimeoutMs,
+          }),
+        });
+      }
+      return { discovery: discovered, discovered: discovered.value, examined, activities } as const;
+    })(),
+    totalTimeoutMs,
+  );
+
+  if (timed.timedOut) {
+    return unavailable(slash, "GitHub did not answer in time", [
+      `The whole command is bounded at ${totalTimeoutMs} ms and GitHub had not answered, so Hebun stopped waiting.`,
+      "NOTHING IS KNOWN about your repositories from this, and this is not an empty list.",
+    ]);
+  }
+
+  const outcome = timed.value.discovery;
+  if (!outcome.ok) {
+    if ("refusal" in outcome) {
+      return unavailable(
+        slash,
+        "Pull requests were not read",
+        REFUSAL_LINES[outcome.refusal] ?? [
+          "This organization cannot currently read repository activity, and no read was attempted.",
+        ],
+      );
+    }
+    return unavailable(
+      slash,
+      "GitHub did not answer",
+      FAILURE_LINES[outcome.failure] ?? [
+        "GitHub did not return a repository page, and Hebun will not present that as an absence of pull requests.",
+      ],
+    );
+  }
+
+  const discovery = timed.value.discovered!;
+  const examined = timed.value.examined!;
+
+  if (examined.length === 0) {
+    /*
+     * A REAL, GROUNDED ANSWER. GitHub answered and the installation covers nothing, so there is
+     * nowhere for a pull request to be. Every other empty-looking path came through `unavailable`.
+     */
+    return ok(slash, "No repositories in this installation", [
+      "GitHub answered, and this installation currently covers no repositories.",
+      "There is therefore nowhere for a pull request to be — this is GitHub's answer, not a failed read.",
+      "Which repositories an installation covers is chosen on GitHub, in the installation's settings.",
+    ]);
+  }
+
+  const answered: {
+    readonly repository: string;
+    readonly lines: readonly string[];
+    readonly open: number;
+    readonly truncated: boolean;
+  }[] = [];
+  const unread: { readonly repository: string; readonly why: string }[] = [];
+
+  for (const { repository, outcome: activity } of timed.value.activities!) {
+    if (!activity.ok) {
+      /*
+       * NAMED, NEVER DROPPED. A repository Hebun could not read is not a repository with no open
+       * pull requests, and the two must never render the same.
+       */
+      unread.push({
+        repository: repository.fullName,
+        why:
+          "refusal" in activity
+            ? `the read was refused (${activity.refusal})`
+            : `GitHub did not answer (${activity.failure})`,
+      });
+      continue;
+    }
+
+    const value = activity.value;
+    const shown = value.openPullRequests.slice(
+      0,
+      GITHUB_PULL_REQUEST_READ_BUDGET.maxRecordsPerRepository,
+    );
+    answered.push({
+      repository: value.repository.fullName,
+      open: shown.length,
+      truncated: value.truncated || shown.length < value.openPullRequests.length,
+      lines: shown.map((pullRequest) => pullRequestLine(value.repository.repositoryId, pullRequest)),
+    });
+  }
+
+  if (answered.length === 0) {
+    /*
+     * DISCOVERY WORKED AND NOT ONE REPOSITORY COULD BE READ. That is an unavailable result, not an
+     * empty one, and it names each repository and its own reason rather than collapsing them.
+     */
+    return unavailable(slash, "No repository could be read", [
+      "GitHub named this installation's repositories, and none of them could then be read.",
+      ...unread.map((entry) => `${entry.repository}: ${entry.why}.`),
+      "THIS IS NOT AN EMPTY RESULT: Hebun is not reporting that there are no open pull requests.",
+    ]);
+  }
+
+  const totalOpen = answered.reduce((sum, entry) => sum + entry.open, 0);
+  const lines: string[] = [];
+
+  for (const entry of answered) {
+    lines.push(
+      entry.open === 0
+        ? `${entry.repository} — GitHub answered, and no pull request is open.`
+        : `${entry.repository} — ${entry.open} open:`,
+    );
+    lines.push(...entry.lines);
+    if (entry.truncated) {
+      lines.push(
+        `PARTIAL, NOT COMPLETE: GitHub had more open pull requests than one page holds for ` +
+          `${entry.repository}, so this is not all of them.`,
+      );
+    }
+    lines.push("");
+  }
+
+  /* THE BOUNDS, STATED IN BOTH DIRECTIONS, ALWAYS. Silence would read as completeness. */
+  lines.push(
+    `Looked inside ${examined.length} repositor${examined.length === 1 ? "y" : "ies"} — at most ` +
+      `${GITHUB_PULL_REQUEST_READ_BUDGET.maxRepositoriesExamined} per command, and at most ` +
+      `${GITHUB_PULL_REQUEST_READ_BUDGET.maxRecordsPerRepository} open pull requests in each.`,
+  );
+  if (discovery.repositories.length > examined.length) {
+    lines.push(
+      `PARTIAL, NOT COMPLETE: this installation covers ${discovery.repositories.length} repositories ` +
+        "on the page GitHub returned, and this command looked inside only the first few.",
+    );
+  }
+  if (discovery.truncated) {
+    lines.push(
+      `AND THE REPOSITORY LIST ITSELF WAS PARTIAL: GitHub reports ` +
+        `${discovery.totalReportedByProvider ?? "more"} repositories in total for this installation.`,
+    );
+  }
+  if (unread.length > 0) {
+    lines.push("");
+    lines.push("NOT READ, and therefore not answered for — this is not an absence of pull requests:");
+    lines.push(...unread.map((entry) => `${entry.repository}: ${entry.why}.`));
+  }
+  lines.push("");
+  lines.push(
+    "These are pull-request titles, numbers, authors and timestamps, and nothing inside them. This " +
+      "command reads no diff, no patch, no file, no commit and no comment — the shape it returns " +
+      "has no field for any of them.",
+  );
+  lines.push(
+    "An open pull request is GitHub's record of a proposed change. It is NOT this organization's " +
+      "recorded work, and an author login is a GitHub identity, not a member of your organization.",
+  );
+
+  return {
+    status: "ok",
+    result: {
+      command: slash,
+      title:
+        totalOpen === 0
+          ? "No open pull requests in what was read"
+          : `${totalOpen} open pull request${totalOpen === 1 ? "" : "s"}`,
+      lines,
+      tone: "info",
+      provenance: GITHUB_PULL_REQUEST_READ_PROVENANCE,
+    },
+  };
 }

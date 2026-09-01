@@ -45,10 +45,15 @@ function main(): void {
   /* ── 2. EXACTLY ONE COMMAND REACHES A PROVIDER, AND IT DECLARES IT ───────── */
   {
     const external = HEBY_COMMANDS.filter((c) => c.kind === "provider-read");
+    /*
+     * TWO NOW, AND THE SECOND WAS THE DELIBERATE EDIT THIS LINE ASKED FOR. INT-5B2 added
+     * `/pull-requests` on the same kind, the same provider, the same capability key and the same
+     * firewall root — a THIRD still fails here, which is the guarantee worth keeping.
+     */
     assert.deepEqual(
       external.map((c) => c.id),
-      ["repositories"],
-      "INT-5B1 ships exactly one provider-read command; a second is a deliberate edit here",
+      ["repositories", "pull-requests"],
+      "exactly two provider-read commands ship; a third is a deliberate edit here",
     );
 
     /*

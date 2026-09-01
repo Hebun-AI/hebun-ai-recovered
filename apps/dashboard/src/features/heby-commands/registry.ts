@@ -373,6 +373,39 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     availability: "available", handler: "repositories", ...base("provider-read"),
   },
 
+  /* ── The second provider-read command (INT-5B2) ────────────────────────────
+   *
+   * `/pull-requests` answers the question `/repositories` cannot: not which repositories exist, but
+   * WHAT IS CHANGING IN THEM. It reads open pull-request METADATA for the repositories the
+   * organization's own installation covers.
+   *
+   * WHY IT IS `provider-read` AND NOT A NEW KIND. That kind's contract is a bounded read from one
+   * connected external provider and nothing else, and this is exactly that — the same provider, the
+   * same capability key, the same authority gate, the same firewall root. INT-5C needed a sibling
+   * kind because it also reads Knowledge; this one reads nothing Hebun owns, so inventing a kind
+   * would add a plumbing axis without adding a boundary.
+   *
+   * WHY IT IS `available`. GITHUB-4 built `readRepositoryPullRequests` against the real GitHub API
+   * and NOTHING had ever consumed it — the seam existed, proven and stranded. Availability is a
+   * statement about the BUILD, never about a tenant: an organization with no connected installation
+   * gets a truthful refusal from the capability authority at run time.
+   *
+   * IT NEEDS NO NEW PERMISSION. `pull_requests: read` is already one of the two permissions every
+   * minted installation token is asked to carry, and has been since GITHUB-4.
+   *
+   * IT TAKES NO ARGUMENTS, like `/repositories` and for the stronger half of the same reason. The
+   * released seam WOULD accept a repository id and prove it against a live listing — but a command
+   * that accepts no address cannot be pointed anywhere at all, and no repository address then
+   * crosses the client boundary.
+   */
+  {
+    id: "pull-requests", slash: "/pull-requests", label: "Open pull requests", category: "platform",
+    kind: "provider-read",
+    description:
+      "Read the open pull requests in the repositories your connected GitHub installation covers. Metadata only, reads only.",
+    availability: "available", handler: "pull-requests", ...base("provider-read"),
+  },
+
   /* ── The first cross-source command (INT-5C) ──────────────────────────────
    *
    * `/repository-knowledge` answers one narrow question: for the repositories this organization's

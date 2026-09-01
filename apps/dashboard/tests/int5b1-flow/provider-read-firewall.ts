@@ -250,10 +250,37 @@ function main(): void {
       [],
       "only Google's pure contracts may appear (via the catalog); no Google behaviour is reachable",
     );
-    for (const reader of ["readDriveMetadata", "discoverDriveSources", "readRepositoryPullRequests"]) {
+    /*
+     * ── THE CROSS-PROVIDER BAN IS UNCHANGED; THE GITHUB COMPLETENESS PIN MOVED ──
+     *
+     * `readDriveMetadata` and `discoverDriveSources` are the load-bearing half of this section's
+     * title: they belong to a DIFFERENT provider, and reaching either from here would make one
+     * command able to consult two organizations' grants. That ban stands exactly as released.
+     *
+     * `readRepositoryPullRequests` was in the same list for a different reason — at INT-5B1 the
+     * provider-read graph reached exactly ONE GitHub record reader, and the pin recorded that
+     * completeness. INT-5B2 is the deliberate edit: it is the first consumer that seam has ever
+     * had, it is the same provider, the same capability key and the same authority gate.
+     *
+     * So the pin is REPOINTED, not deleted, and it is now stricter than a name ban: the graph may
+     * reach EXACTLY these two GitHub record readers and no other reader of any kind.
+     */
+    for (const reader of ["readDriveMetadata", "discoverDriveSources"]) {
       const offenders = offendersIn(providerGraph, [reader]);
       assert.deepEqual(offenders, [], `the provider-read graph must not reach ${reader}`);
     }
+
+    const githubReaders = [...providerGraph]
+      .filter((file) => /^src\/features\/provider-github\/(read|discover)-[a-z-]+\.server\.ts$/.test(file))
+      .sort();
+    assert.deepEqual(
+      githubReaders,
+      [
+        "src/features/provider-github/discover-installation-repositories.server.ts",
+        "src/features/provider-github/read-repository-pull-requests.server.ts",
+      ],
+      "the provider-read graph reaches exactly two GitHub record readers, and both are named here",
+    );
   }
 
   /* ── 5. NO WRITER OF ANY KIND IS REACHABLE ───────────────────────────────── */
@@ -382,11 +409,26 @@ function main(): void {
     const exported = [...code.matchAll(/export\s+(?:async\s+)?(?:function|const)\s+([A-Za-z0-9_$]+)/g)].map(
       (m) => m[1]!,
     );
+    /*
+     * INT-5B2 ADDS THREE, AND STILL NO ENTRY POINT. `/pull-requests` is dispatched by the SAME
+     * executor — `runHebyProviderReadCommand` is still the only way in — and what it contributes is
+     * one budget, one identity builder and one provenance line, exactly mirroring what
+     * `/repositories` already exports. A write, a mutator or a SECOND entry point is still a
+     * deliberate edit here, which is the guarantee this assertion exists for.
+     */
     assert.deepEqual(
       exported.sort(),
-      ["GITHUB_PROVIDER_READ_BUDGET", "GITHUB_REPOSITORY_READ_PROVENANCE", "githubRepositoryRecordRef", "runHebyProviderReadCommand"].sort(),
-      "the module's whole public surface is one executor, one identity builder, one budget and one " +
-        "provenance line — a write, a mutator or a second entry point is a deliberate edit here",
+      [
+        "GITHUB_PROVIDER_READ_BUDGET",
+        "GITHUB_REPOSITORY_READ_PROVENANCE",
+        "githubRepositoryRecordRef",
+        "runHebyProviderReadCommand",
+        "GITHUB_PULL_REQUEST_READ_BUDGET",
+        "GITHUB_PULL_REQUEST_READ_PROVENANCE",
+        "githubPullRequestRecordRef",
+      ].sort(),
+      "the module's whole public surface is one executor, two identity builders, two budgets and two " +
+        "provenance lines — a write, a mutator or a second entry point is a deliberate edit here",
     );
   }
 

@@ -339,15 +339,27 @@ function theReachableGitHubSeamsAreTheOnesThatShipped(): void {
     "src/features/heby-commands/provider-read-commands.server.ts",
   ]);
   assert.ok(providerReadReach.has(LISTING), "the provider-read executor reaches the listing seam");
+  /*
+   * ── INT-5B2 IS THE PHASE THIS PIN NAMED ─────────────────────────────────────
+   *
+   * The two assertions below used to say the pull-request reader had NO production caller, and the
+   * second one said in as many words that "this pin must be edited deliberately by whichever phase
+   * gives it one". `/pull-requests` is that phase: the seam GITHUB-4 built against the real GitHub
+   * API now has exactly one consumer, the provider-read executor, and reaches production through
+   * the same boundary `/repositories` does.
+   *
+   * The pin is INVERTED, not deleted, and it stays exact in both directions: a released provider
+   * seam that quietly loses its caller still fails here, and so does one that acquires a second
+   * boundary without a deliberate edit.
+   */
   assert.ok(
-    !providerReadReach.has(PULL_REQUESTS),
-    "and it does NOT reach the pull-request reader — INT-5B1 ships no pull-request fan-out",
+    providerReadReach.has(PULL_REQUESTS),
+    "the provider-read executor reaches the pull-request reader — INT-5B2 wired /pull-requests to it",
   );
 
   assert.ok(
-    !appReachable.has(PULL_REQUESTS),
-    "the pull-request reader still has no production caller. That is the honest state, and this " +
-      "pin must be edited deliberately by whichever phase gives it one",
+    appReachable.has(PULL_REQUESTS),
+    "the pull-request reader now has a production caller, and it is the provider-read command",
   );
 }
 

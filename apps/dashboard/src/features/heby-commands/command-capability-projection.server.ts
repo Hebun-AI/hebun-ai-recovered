@@ -101,6 +101,13 @@ import type {
 const PROVIDER_CAPABILITY_BY_HANDLER: Readonly<Record<string, string>> = Object.freeze({
   repositories: GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
   "repository-knowledge": GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
+  /*
+   * INT-5B2. The SAME capability key, and that is the point rather than an oversight: reading a
+   * repository's open pull requests is what `github.repository.activity.read` has meant since
+   * GITHUB-4 declared it, and the minted token already asks for `pull_requests: read`. A second key
+   * would imply a second grant an organization never made.
+   */
+  "pull-requests": GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
 });
 
 export interface CommandCapabilityDeps {
