@@ -9,7 +9,10 @@ own record.
 **Migration ledger: 42 → 42.** No migration was authored, applied or needed.
 **Suite:** **632 passed, 0 failed, 632 total** — one final run.
 
-**WORK-2 IS RELEASED, NOT PRODUCTION-ACCEPTED.**
+**WORK-2 IS RELEASED.** It was subsequently **PRODUCTION-ACCEPTED** — three live Heby probes
+in the Command workspace, all corroborated against the authoritative row, zero mutation. See
+`hebun-work2-production-acceptance-closure.md`. The status table below is the state **at
+release** and is left as it was written.
 
 ---
 
