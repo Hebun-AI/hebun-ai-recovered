@@ -160,3 +160,124 @@ before and after.
    filename, which put it in HLR's exact consumer census as a consumer it is not. Rephrased.
 
 ---
+
+## 7 · Production acceptance
+
+**Deployed commit is the release commit, byte for byte.** `66a188c3faae8b34377bffef010392cea2d58eaa`,
+read from the Vercel REST API's `meta.githubCommitSha` on deployment
+`dpl_3LWd21XQuW5WR5iPsUY7iV6RWq2d` — target `production`, state `READY` at **2026-09-01T20:33:38Z**,
+aliased to `www.hebuntech.com`. Cluster `7675444875863894887`, database `neondb`.
+**Production ledger 43 → 43.** No migration exists in this capability, and production confirms it:
+no `people`, `person`, `member_register` or `roster` table exists in the schema.
+
+### What production authoritatively holds
+
+Read directly from `memberships ⋈ users` under the **released eligibility predicate**, before the
+Director touched anything:
+
+```
+eligible members of "Hebun AI"   exactly 1   d5b496df-588c-49c5-9cc2-17672b82dd10
+its membership row               55aa4d45-9f5e-4ff1-9101-c15b440b4dfd
+membership recorded at           2026-08-18T22:00:19.335Z
+ineligible memberships           none
+that person's placement          Engineering, in service
+Identity's name columns          display_name NULL, name NULL
+```
+
+The last line is the one that made the acceptance worth performing: it **predicted, before the
+observation, that the two surfaces must disagree** — the page rendering the product label
+`senoltr@gmail.com`, and Heby rendering `name unavailable`.
+
+### The human observation, and its authoritative corroboration
+
+The Director observed `/director/organization`: **exactly one in-force person, labelled
+`senoltr@gmail.com`, identifier preserved beside it, "Recorded as working in Engineering", and
+"Membership record created 2026-08-18T22:00:19.335Z. Not a hire date."** Heby, asked *"Who is in
+this organization?"* in Command, answered using **`name unavailable`, not the address**.
+
+That answer was then corroborated **not from prose but from what production stored** — G6D's durable
+answer-source evidence for that very message:
+
+```
+source_class   people
+record_ref     member/55aa4d45-9f5e-4ff1-9101-c15b440b4dfd
+label          name unavailable
+authoritative  true
+detail         name unavailable (d5b496df-588c-49c5-9cc2-17672b82dd10) is recorded as a member of
+               this organization, and Hebun's record of that membership was created
+               2026-08-18T22:00:19.335Z — which is not a hire date and not a start date. This is a
+               RECORDED membership, not an observation. …
+```
+
+Every field matches the authoritative rows exactly: the `record_ref` **is** the membership row's id,
+the identifier **is** the user's id, and the timestamp **is** `memberships.created_at`. The answer
+cited ten source classes, `people` among them at `authoritative: true`, beside `placement` — the two
+kept apart, in one answer, as designed.
+
+**Two renderings of one fact, at one instant, and both correct.** `UI LEGIBILITY != MODEL PROVIDER
+DISCLOSURE` is not asserted here; it is the measured difference between `coalesce(display_name, name,
+email)` on a server-rendered page and `coalesce(display_name, name)` in a provider request.
+**No row this answer stored contains an `@` at all.**
+
+---
+
+## 8 · Non-effects, measured across the whole database
+
+```
+59 tables carrying created_at      scanned for rows created since the deploy
+57 tables carrying updated_at      scanned for rows updated, excluding created = updated
+ 6 tables timestamped otherwise    scanned by recorded_at / occurred_at
+```
+
+Everything that moved, named and explained — nothing filtered out:
+
+| Table | Change | Why it is not this capability |
+|---|---|---|
+| `user_session_contexts` | +2 | The Director signing in to perform the acceptance |
+| `auth_credentials` | 1 updated | The same sign-in |
+| `conversations` / `messages` | +1 / +2 | Asking Heby the question — using the product, not the register |
+| `heby_answer_source_evidence` | +45 | G6D's durable evidence for that answer, `people` = 1 of its items |
+| `department_placements` | +1 at **19:18:50Z** | OSA-3's acceptance, **75 minutes before this deployment was READY** — measured, not assumed |
+
+And what did **not** move:
+
+```
+audit_log                39 before, 39 after   a read writes no audit row
+memberships              version 1, created_at = updated_at   never touched
+users                    version 1, created_at = updated_at   never touched
+department_placements    version 1, created_at = updated_at   untouched by this capability
+drizzle ledger           43 -> 43
+decision_records         no new bootstrap, no new decision
+```
+
+The register enumerates people and **writes nothing**, in production, measured.
+
+**One honest note about the evidence table.** Four rows in `heby_answer_source_evidence` — of its
+entire history — contain an `@`: one `integrations` row carrying a connected Google account, and
+three `work` rows from 15:27–15:28 the same day, recorded **before** WORK-2's privacy hardening
+reached production. **Zero were recorded by this answer.** A permanent record cannot be tidied and
+was not; it is stated instead.
+
+---
+
+## 9 · Closure
+
+**CLOSED / PRODUCTION-ACCEPTED.**
+
+```
+release commit    66a188c   feat(organization): show who is in this organization
+deployed commit   66a188c   identical, READY 2026-09-01T20:33:38Z
+production ledger 43        unchanged — zero schema, zero migration
+suite             641 / 641 (two runs: one intended, one replacement after pin movement)
+```
+
+**Deferred, intentionally and named.** No writer: membership is still created and revoked where it
+always was, and this capability gives nobody a second way. No paging: the register is bounded at 200
+with no offset and no cursor, and declares truncation rather than hiding it. No role, no reporting
+line, no manager, no team, no title, no presence, no activity — ABSENT rather than guarded. No
+history: a revoked membership leaves the register, and the register says that absence is not a claim
+that somebody was never a member. `workforce` remains an unconnected class, and this capability did
+not connect it.
+
+**No successor authorized.** APF and ASA remain deferred with their activation conditions unproven.
+Pin-debt cleanup remains backlog.
