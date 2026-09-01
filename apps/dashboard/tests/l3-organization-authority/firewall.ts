@@ -25,6 +25,8 @@ const HEBY_ANSWER = "src/features/heby-answer/model-answer.server.ts";
 const PAGE = "src/app/(dashboard)/director/organization/page.tsx";
 const PANEL = "src/components/organization-domain/authoritative-organization.tsx";
 const LIVE_MAP_PROJECTION = "src/features/live-map/read-live-map.server.ts";
+/* WORK-1 — the Work register page, the third consumer of this one seam. */
+const WORK_PAGE = "src/app/(dashboard)/director/work/page.tsx";
 
 function walk(dir: string): string[] {
   return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {
@@ -213,10 +215,16 @@ function thereIsOnlyOneAnswer(): void {
   const callers = walk("src").filter(
     (file) => !file.startsWith(AUTHORITY_DIR) && read(file).includes("readOrganizationAuthority"),
   );
+  /*
+   * WORK-1 added the third: `/director/work` reads structure through THIS seam rather than through
+   * `readOrganizationStructure` directly, which is the behaviour the L3 boundary was built to
+   * produce — a new consumer learns no second way to ask. The census GREW; nothing in it widened.
+   */
   assert.deepEqual(
     callers.sort(),
-    [PAGE, LIVE_MAP_PROJECTION].sort(),
-    "the Organization Authority's consumers are exactly the Organization page and the Live Map projection",
+    [PAGE, LIVE_MAP_PROJECTION, WORK_PAGE].sort(),
+    "the Organization Authority's consumers are exactly the Organization page, the Live Map " +
+      "projection, and the Work register page",
   );
 
   /*

@@ -103,7 +103,7 @@ const LEGACY = [
  * L4 ADDS EXACTLY ONE: `/live-map`. The census moves 129 -> 130 for that page and nothing else, so
  * the assertion still catches a deletion anywhere in the dashboard — which is what it is for.
  */
-const DASHBOARD_ROUTE_COUNT = 130;
+const DASHBOARD_ROUTE_COUNT = 131; /* WORK-1 added /director/work — the register, its own route. */
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT.
@@ -122,6 +122,8 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/approvals/actions.ts",
   /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
   "src/app/(dashboard)/director/organization/actions.ts",
+  /* WORK-1 — the Organizational Work Authority's server actions. They hold no authority either. */
+  "src/app/(dashboard)/director/work/actions.ts",
   "src/app/(dashboard)/foundation/actions.ts",
   "src/app/(dashboard)/governance/authority/actions.ts",
   "src/app/(dashboard)/governance/genesis/actions.ts",
@@ -142,9 +144,9 @@ const USE_SERVER_MODULES = [
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* OSA-1 — the ledger grew to 41 with the departments additive hardening; BOTH values move with it. */
-const LEDGER_COUNT = 41;
-const LEDGER_DIGEST = "f735610ebeec164b";
+/* WORK-1 — the ledger grew to 42 with the Organizational Work Authority table; BOTH values move with it. */
+const LEDGER_COUNT = 42;
+const LEDGER_DIGEST = "ad42a0d92ff3c905"; /* WORK-1 authored a migration, so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

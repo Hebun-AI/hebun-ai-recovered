@@ -75,6 +75,8 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/approvals/actions.ts",
   /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
   "src/app/(dashboard)/director/organization/actions.ts",
+  /* WORK-1 — the Organizational Work Authority's server actions. They hold no authority either. */
+  "src/app/(dashboard)/director/work/actions.ts",
   "src/app/(dashboard)/foundation/actions.ts",
   "src/app/(dashboard)/governance/authority/actions.ts",
   "src/app/(dashboard)/governance/genesis/actions.ts",

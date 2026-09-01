@@ -37,6 +37,9 @@ const withoutComments = (s: string): string =>
 
 const ELIGIBILITY = "src/features/auth-runtime/member-eligibility.ts";
 const WRITER = "src/features/organization-authority/write-structure.server.ts";
+/* WORK-1 — the second authority that names an accountable human, and the read beside it. */
+const WORK_WRITER = "src/features/organizational-work/write-work.server.ts";
+const WORK_READER = "src/features/organizational-work/read-work.server.ts";
 const READER = "src/features/organization-authority/read-structure.server.ts";
 const PICKER = "src/features/auth-runtime/human-label-read.server.ts";
 const IDENTITY_REPO = "src/features/auth-runtime/identity-repository.server.ts";
@@ -124,11 +127,24 @@ function walk(dir: string): string[] {
     .filter((file) => file !== ELIGIBILITY)
     .filter((file) => read(file).includes("member-eligibility"));
 
+  /*
+   * FIVE CONSUMERS, AND THE COUNT GREW FOR THE RIGHT REASON.
+   *
+   * WORK-1 established a second authority that names an accountable human, so it MUST consult this
+   * rule rather than re-type it — that is the entire point of the rule existing. Its writer takes
+   * the full predicate, and its read takes the membership half for the same derived-flag reason the
+   * structure read does.
+   *
+   * The assertion is widened, never weakened: it is still an EXACT list, so a sixth consumer
+   * appearing without a deliberate edit still fails here. What must never happen is a module
+   * enforcing eligibility with its own copy of the conditions, and §2 above is what catches that.
+   */
   assert.deepEqual(
     consumers.sort(),
-    [PICKER, READER, WRITER].sort(),
-    "the eligibility rule has exactly three consumers: the writer that enforces it, the picker that " +
-      "offers by it, and the structure read that derives its owner flag from its membership half",
+    [PICKER, READER, WRITER, WORK_READER, WORK_WRITER].sort(),
+    "the eligibility rule has exactly five consumers: the two writers that enforce it, the picker " +
+      "that offers by it, and the two reads that derive their accountability flag from its " +
+      "membership half",
   );
 
   /* The writer takes the WHOLE rule. The reader takes the membership half and says so. */
@@ -159,7 +175,8 @@ function walk(dir: string): string[] {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) =>
     f.endsWith(".sql"),
   );
-  assert.equal(migrations.length, 41, "no migration was added — the ledger is untouched at 41");
+  /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  assert.equal(migrations.length, 42, "no migration was added by the hardening — the ledger grew only for WORK-1");
 
   assert.equal(HEBY_SOURCE_CLASSES.length, 17, "Heby's source-class census is unchanged");
   const eligibilityConsumersUnderHeby = walk("src/features")

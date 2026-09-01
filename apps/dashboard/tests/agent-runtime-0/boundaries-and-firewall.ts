@@ -262,11 +262,11 @@ function nothingIsHardCodedToOneAgent(): void {
 
 function schemaIsUntouched(): void {
   const sql = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sql.length, 41, "AGENT-RUNTIME-0 adds no migration"); /* OSA-1 grew the ledger 40 -> 41: the departments additive hardening. */
+  assert.equal(sql.length, 42, "AGENT-RUNTIME-0 adds no migration"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 41, "and the ledger is unchanged");
+  assert.equal(journal.entries.length, 42, "and the ledger is unchanged by this phase");
 
   /* The two tables this phase writes and reads gained no column. */
   const artifactSchema = read("src/db/schema/work-artifact.ts");
@@ -339,8 +339,15 @@ function humanOnlyChecksAreIntact(): void {
       "knowledge_external_references_human_declarer_chk",
       "knowledge_external_references_human_withdrawer_chk",
       "membership_authorizations_human_authorizer_chk",
+      /*
+       * WORK-1. The census GREW AGAIN, in the same strict direction. `work_items` constrains its
+       * own ACCOUNTABLE PARTY to `human`: an agent cannot be accountable for a unit of the
+       * organization's work, and PostgreSQL refuses it — the same guarantee `departments` makes
+       * about ownership, made about work.
+       */
+      "work_items_human_accountable_chk",
     ],
-    "the ten human-only CHECKs are exactly these — this phase widened none of them",
+    "the eleven human-only CHECKs are exactly these — this phase widened none of them",
   );
 
   /*

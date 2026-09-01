@@ -694,8 +694,15 @@ async function main(): Promise<void> {
           "knowledge_external_references_human_declarer_chk",
           "knowledge_external_references_human_withdrawer_chk",
           "membership_authorizations_human_authorizer_chk",
+          /*
+           * WORK-1. The census GREW AGAIN, in the same strict direction. `work_items` constrains
+           * its own ACCOUNTABLE PARTY to `human`: an agent cannot be accountable for a unit of the
+           * organization's work, and PostgreSQL refuses it — the same guarantee `departments`
+           * makes about ownership, made about work.
+           */
+          "work_items_human_accountable_chk",
         ],
-        "the ten human-only CHECKs are enforced by the database, and this phase widened none of them",
+        "the eleven human-only CHECKs are enforced by the database, and this phase widened none of them",
       );
 
       /* And the approver CHECK really does refuse an agent, on the agent's own proposal. */

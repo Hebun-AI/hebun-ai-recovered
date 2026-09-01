@@ -439,8 +439,8 @@ function amA3AddedNoAuthority(): void {
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
   assert.equal(
     journal.entries.length,
-    41,
-    "the migration ledger is unchanged at 41 — AMA-3 is a surface and a read",
+    42, /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+    "the migration ledger is unchanged by AMA-3 — it is a surface and a read", /* WORK-1 grew it 41 -> 42. */
   );
 
   const writersOf = (symbol: string): string[] =>

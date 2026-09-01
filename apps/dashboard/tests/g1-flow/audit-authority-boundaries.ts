@@ -135,6 +135,12 @@ async function main(): Promise<void> {
        * was widened.
        */
       "src/features/governance-audit/organization-structure-audit.server.ts",
+      /*
+       * WORK-1 — the Organizational Work Authority's audit sibling. It appends to the SHARED sink
+       * like every other and creates no second audit table. The census GREW; nothing in it was
+       * widened.
+       */
+      "src/features/governance-audit/organizational-work-audit.server.ts",
     ];
     /*
      * WRITING is asked by MECHANISM (R7.1 repair).

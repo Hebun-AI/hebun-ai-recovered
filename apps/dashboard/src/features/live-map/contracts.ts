@@ -33,7 +33,13 @@
  *     agent -> human           `agents.human_owner_id` is durable, but Live Map has no human node
  *                              and no roster read, so the far end does not exist to draw to
  *     human -> department      L3 measured that `roles` carries no `organization_id` at all
- *     agent -> work/goal       no authority
+ *     agent -> work            WORK-1 established an Organizational Work Authority, so the near end
+ *                              now exists — and the edge still does not, because
+ *                              `work_items_human_accountable_chk` makes an AGENT unrepresentable as
+ *                              the accountable party. The reason changed from "nobody owns this
+ *                              concept" to "the authority that owns it forbids this edge", which is
+ *                              a stronger absence, not a weaker one. Live Map draws no work node.
+ *     agent -> goal            no authority
  *
  * ── FOUR DOMAIN STATES, AND THEY ARE NOT INTERCHANGEABLE ─────────────────────
  *

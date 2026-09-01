@@ -38,6 +38,9 @@ const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
 const MODULE = "src/features/auth-runtime/human-label-read.server.ts";
 const PAGE = "src/app/(dashboard)/director/organization/page.tsx";
 const PANEL = "src/components/organization-domain/department-structure.tsx";
+/* WORK-1 — the second pair: the Work register page and the register component. */
+const WORK_PAGE = "src/app/(dashboard)/director/work/page.tsx";
+const WORK_PANEL = "src/components/organizational-work/work-register.tsx";
 const OSA_CONTRACTS = "src/features/organization-authority/contracts.ts";
 const OSA_READER = "src/features/organization-authority/read-structure.server.ts";
 const OSA_WRITER = "src/features/organization-authority/write-structure.server.ts";
@@ -155,7 +158,7 @@ function walk(dir: string): string[] {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) =>
     f.endsWith(".sql"),
   );
-  assert.equal(migrations.length, 41, "the migration ledger is untouched at 41");
+  assert.equal(migrations.length, 42, "the migration ledger is untouched by HLR"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
 
   /* THE ROSTER CLAIM IS STILL FALSE FOR ORGANIZATION, WHICH IS THE POINT. */
   assert.equal(
@@ -367,10 +370,20 @@ function walk(dir: string): string[] {
     .filter((file) => file !== MODULE)
     .filter((file) => read(file).includes("human-label-read"));
 
+  /*
+   * "no second consumer, YET" — and WORK-1 is it. The Work register names an accountable human, so
+   * it faces exactly the problem this projection exists to solve, and it solves it the same way:
+   * the page reads the labels and the component receives them. Neither holds the read, neither
+   * persists a name, and the identifier still travels beside the label.
+   *
+   * The census GREW; nothing in it was widened. A third pair appearing without a deliberate edit
+   * still fails here.
+   */
   assert.deepEqual(
     consumers.sort(),
-    [PAGE, PANEL].sort(),
-    "exactly one page reads legibility and one component receives it — no second consumer, yet",
+    [PAGE, PANEL, WORK_PAGE, WORK_PANEL].sort(),
+    "exactly two pages read legibility and two components receive it — the department owner and " +
+      "the accountable human, and no other consumer",
   );
 
   /*

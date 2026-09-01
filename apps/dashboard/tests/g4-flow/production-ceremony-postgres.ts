@@ -195,8 +195,10 @@ async function main(): Promise<void> {
         /* OSA-1: migration 41 (the `departments` additive hardening) grew it once more, and the
          * digest moved with it for the same reason. PRODUCTION STANDS AT 40 (`2a9522bb…`) — the
          * value this line held until now — and converges only when its own gated ceremony runs.
-         * That gap is deliberate: OSA-1 authored the migration and applied it nowhere but here. */
-        "42186bb31b22a719a9b57b528ed42161",
+         * That gap is deliberate: WORK-1 authored the migration and applied it nowhere but here,
+         * exactly as OSA-1 did before it (`42186bb31b22a719a9b57b528ed42161`, the value this line
+         * held until now, and the one production still carries). */
+        "19f0f97195c4cdc17fca61e736f0fe44",
         /*
          * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
          * sentence had been false since R2H — whose own comment, three lines above it, said

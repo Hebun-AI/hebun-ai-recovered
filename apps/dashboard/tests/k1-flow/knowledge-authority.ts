@@ -152,9 +152,17 @@ function main(): void {
       migrations.includes("20260711173046_foundation_baseline.sql"),
       "knowledge_nodes came from the pre-existing baseline migration",
     );
+    /*
+     * DELIMITED, because a bare `k1` is a substring of other people's names.
+     *
+     * This read `/k1|.../` and therefore matched `20260901122013_wor(k1)_organizational_work_...`
+     * — WORK-1's migration, which has nothing to do with Knowledge. The guard means "no migration
+     * NAMED FOR K1", so the token must be delimited by the underscore convention every migration
+     * name in this repository uses. The Knowledge alternatives are unchanged.
+     */
     for (const name of migrations) {
       assert.ok(
-        !/k1|knowledge[-_]?read|knowledge[-_]?source/i.test(name),
+        !/(^|_)k1(_|$)|knowledge[-_]?read|knowledge[-_]?source/i.test(name.replace(/\.sql$/, "")),
         `K1 adds no migration — the canonical Knowledge tables already exist (found ${name})`,
       );
     }

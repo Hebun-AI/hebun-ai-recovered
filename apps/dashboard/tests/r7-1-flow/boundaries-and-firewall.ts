@@ -286,7 +286,9 @@ function noPersistence(): void {
       /* AMA-1 — the Agent Mandate Authority table. A declared later phase, not this one's. */
       "20260831110423_ama1_agent_mandate_authority",
       /* OSA-1 — the departments additive hardening. A declared later phase, not this one's. */
-      "20260831212454_osa1_department_structure_authority"],
+      "20260831212454_osa1_department_structure_authority",
+      /* WORK-1 — the Organizational Work Authority table. A declared later phase, not this one's. */
+      "20260901122013_work1_organizational_work_authority"],
     "R7.1 authored no migration; what follows is a declared later phase",
   );
   for (const name of newer) {

@@ -721,7 +721,7 @@ function theVocabulariesStayClosed(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function noSchemaChanged(): void {
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 41, "SIA-3.1 authored no migration — a product seam needs none");
+  assert.equal(sqlCount, 42, "SIA-3.1 authored no migration — a product seam needs none"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json"))) as {
     entries: readonly unknown[];
   };
@@ -734,8 +734,8 @@ function noSchemaChanged(): void {
    */
   assert.equal(
     (journal.entries[journal.entries.length - 1] as { tag: string }).tag,
-    "20260831212454_osa1_department_structure_authority",
-    "the newest migration is OSA-1's — AMA-1 held this line before it, and SIA-3 before that",
+    "20260901122013_work1_organizational_work_authority",
+    "the newest migration is WORK-1's — OSA-1 held this line before it, and AMA-1 before that",
   );
 
   /* And the human-author CHECK that decides this phase's authorship model is untouched. */

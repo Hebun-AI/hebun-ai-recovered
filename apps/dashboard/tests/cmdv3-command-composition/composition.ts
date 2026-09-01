@@ -671,10 +671,18 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
        * departments. It opts into no density override either, so the pinned set above stays empty.
        */
       "src/components/organization-domain/department-structure.tsx",
+      /*
+       * WORK-1 — the work register. It uses `StateBlock` for the ONE fact this axis exists to keep
+       * separate, and it is the same fact OSA-1's surface uses it for one line above: an
+       * UNAVAILABLE read is not an organization with no work. It opts into no density override
+       * either, so the pinned set above stays empty.
+       */
+      "src/components/organizational-work/work-register.tsx",
     ],
-    "the six untouched Knowledge consumers remain, Command is still not among them, and the six " +
+    "the six untouched Knowledge consumers remain, Command is still not among them, and the seven " +
       "additions are the durable identity ceremony, SIA-3.1's two hypothesis controls, KID-2's " +
-      "provider admission control, AMA-3's mandate surface, and OSA-1's department structure",
+      "provider admission control, AMA-3's mandate surface, OSA-1's department structure, and " +
+      "WORK-1's work register",
   );
 }
 
@@ -692,8 +700,8 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* OSA-1 — the ledger grew to 41 with the departments additive hardening; BOTH values move with it. */
-const LEDGER_COUNT = 41;
+/* WORK-1 — the ledger grew to 42 with the Organizational Work Authority table; BOTH values move with it. */
+const LEDGER_COUNT = 42;
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine. AGENT-ID-0.1 adds exactly
  * one boundary — the durable agent identity one — so nine became false. Naming the set beats bumping
@@ -704,6 +712,8 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/approvals/actions.ts",
   /* OSA-1 — the Organization Structure Authority's product path. Declared, not silent. */
   "src/app/(dashboard)/director/organization/actions.ts",
+  /* WORK-1 — the Organizational Work Authority's server actions. They hold no authority either. */
+  "src/app/(dashboard)/director/work/actions.ts",
   "src/app/(dashboard)/foundation/actions.ts",
   "src/app/(dashboard)/governance/authority/actions.ts",
   "src/app/(dashboard)/governance/genesis/actions.ts",

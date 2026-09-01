@@ -93,11 +93,17 @@ async function withDatabase(
  * 1. THE CANONICAL LEDGER ITSELF
  * ═════════════════════════════════════════════════════════════════════════ */
 function theCanonicalLedgerIsWellFormed(): void {
-  assert.equal(CANONICAL.length, 41, "this checkout authors 41 canonical migrations");
+  assert.equal(CANONICAL.length, 42, "this checkout authors 42 canonical migrations"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  /*
+   * PHASE-RELATIVE, not an index. This read `CANONICAL[40]` and therefore named the last entry only
+   * while the ledger happened to be 41 long — every migration since has had to move two numbers in
+   * lockstep, and one of them was silently the wrong one. `.at(-1)` says what the assertion always
+   * meant: the newest canonical migration is the one this phase expects.
+   */
   assert.equal(
-    CANONICAL[40]!.tag,
-    "20260831212454_osa1_department_structure_authority",
-    "and the last of them is OSA-1",
+    CANONICAL.at(-1)!.tag,
+    "20260901122013_work1_organizational_work_authority",
+    "and the last of them is WORK-1 — OSA-1 held this line before it",
   );
 
   /* Strictly increasing `when` — the precondition that makes delegating to the engine sound. */
@@ -110,12 +116,13 @@ function theCanonicalLedgerIsWellFormed(): void {
   /*
    * THE RELEASE DIGEST MOVES WITH THE LEDGER, AND THAT IS THE POINT.
    *
-   * `2a9522bb36ca3d8406efc4abc0ef3088` was the digest at 40 and is what PRODUCTION still carries —
-   * OSA-1 authored a migration and did not apply it to production, so the checkout and production
-   * are deliberately one migration apart until the OSA-2 ceremony. The digest below is the
-   * CHECKOUT's, which is what this test measures; the prefix verifier is what reconciles the two.
+   * `2a9522bb36ca3d8406efc4abc0ef3088` was the digest at 40. `42186bb31b22a719a9b57b528ed42161`
+   * was the digest at 41 and is what PRODUCTION still carries — WORK-1 authored a migration and did
+   * not apply it to production, so the checkout and production are deliberately one migration apart
+   * until the WORK-1 production ceremony is authorized. The digest below is the CHECKOUT's, which is
+   * what this test measures; the prefix verifier is what reconciles the two.
    */
-  assert.equal(canonicalDigest(CANONICAL), "42186bb31b22a719a9b57b528ed42161", "the release digest");
+  assert.equal(canonicalDigest(CANONICAL), "19f0f97195c4cdc17fca61e736f0fe44", "the release digest");
   assert.equal(
     canonicalDigest(CANONICAL.slice(0, 35)),
     "97f1151fd57bec5142621f00c1913708",
@@ -159,7 +166,7 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
         [CANONICAL[CANONICAL.length - 1]!.tag],
         "exactly one migration is pending, and it is the newest release",
       );
-      assert.equal(verdict.finalDigest, "42186bb31b22a719a9b57b528ed42161");
+      assert.equal(verdict.finalDigest, "19f0f97195c4cdc17fca61e736f0fe44");
 
       /*
        * THE PENDING MIGRATION'S OWN ADDITION IS ABSENT BEFORE MIGRATING.
@@ -171,18 +178,20 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
        * again — and `agent_improvement_hypotheses` did not exist before it. AMA-1 creates a table
        * too, so the probe followed `agent_mandates` for the same reason.
        *
-       * OSA-1 is the third kind and the one the rule was written for: it creates NO table. It
-       * hardens `departments`, which has existed since the foundation baseline, so a table probe
-       * would be satisfied BEFORE migrating and would prove nothing. The probe therefore follows a
-       * CONSTRAINT this migration adds and nothing earlier could have.
+       * OSA-1 was the third kind and the one the rule was written for: it created NO table. It
+       * hardened `departments`, which has existed since the foundation baseline, so a table probe
+       * would have been satisfied BEFORE migrating and proven nothing; the probe followed a
+       * CONSTRAINT that migration added and nothing earlier could have.
+       *
+       * WORK-1 is a table probe again — `work_items` did not exist before it, and no earlier
+       * migration mentions it.
        *
        * The rule, which is the part that survives: probe what the PENDING migration adds, never
        * something an earlier one already added.
        */
       const before = await organizationalFingerprint(client);
       const externalBefore = await client.query<{ n: string }>(
-        `select count(*)::text as n from pg_constraint
-          where conname = 'departments_no_second_parent_chk'`,
+        `select count(*)::text as n from pg_tables where tablename = 'work_items'`,
       );
       assert.equal(
         externalBefore.rows[0]!.n,
@@ -195,12 +204,11 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.applied, 41);
-      assert.equal(after.digest, "42186bb31b22a719a9b57b528ed42161");
+      assert.equal(after.applied, 42);
+      assert.equal(after.digest, "19f0f97195c4cdc17fca61e736f0fe44");
 
       const externalAfter = await client.query<{ n: string }>(
-        `select count(*)::text as n from pg_constraint
-          where conname = 'departments_no_second_parent_chk'`,
+        `select count(*)::text as n from pg_tables where tablename = 'work_items'`,
       );
       assert.equal(externalAfter.rows[0]!.n, "1", "and present after");
 
@@ -245,7 +253,7 @@ async function aTargetTwoBehindAppliesBoth(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.digest, "42186bb31b22a719a9b57b528ed42161");
+      assert.equal(after.digest, "19f0f97195c4cdc17fca61e736f0fe44");
     });
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -258,8 +266,8 @@ async function aConvergedTargetIsANoOp(): Promise<void> {
     const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);
     assert.equal(verdict.status, "converged");
     if (verdict.status !== "converged") return;
-    assert.equal(verdict.applied, 41);
-    assert.equal(verdict.digest, "42186bb31b22a719a9b57b528ed42161");
+    assert.equal(verdict.applied, 42);
+    assert.equal(verdict.digest, "19f0f97195c4cdc17fca61e736f0fe44");
 
     /* And the released convergence check agrees, so the split did not change its answer. */
     const legacy = await verifyProductionTarget(

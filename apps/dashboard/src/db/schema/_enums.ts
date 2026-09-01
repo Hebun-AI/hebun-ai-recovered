@@ -1128,3 +1128,38 @@ export const actionExecutionFailureClassEnum = pgEnum("action_execution_failure_
   "provider-unreachable",
   "internal-persistence-failure",
 ]);
+
+/**
+ * WORK-1 — the DECLARED state of a unit of organizational work.
+ *
+ * The column it types is `work_items.declared_state`, and both names carry the same load: every
+ * value here is something a human SAID about the work, never something Hebun measured, watched or
+ * confirmed. The six words this enum must never be allowed to collapse:
+ *
+ *   DECLARED           a human said so, and Hebun holds the declaration   ← the only one this owns
+ *   OBSERVED           Hebun watched it happen                            ← no observer exists
+ *   VERIFIED           an authority confirmed it against reality          ← no verifier exists
+ *   SUCCESSFUL         a judgement was made about quality                 ← definition not owned
+ *   COMPLETED          finished in the world                              ← unknowable to Hebun
+ *   OUTCOME-ACHIEVED   the intended effect occurred                       ← the record agent
+ *                                                                           evaluation refuses to
+ *                                                                           invent
+ *
+ * So `complete` means "the accountable human declared this complete" and nothing more.
+ *
+ * Four values, each load-bearing and none derived. `blocked` is the ONE value that carries an
+ * attention signal, and it is a declaration too — there is no reason column and no blocker
+ * reference, because either would turn a declaration into a health assessment.
+ *
+ * Deliberately ABSENT, and each absence is a decision the WORK-0 gate recorded: no percentage
+ * progress, no priority, no urgency, no risk, no health, no due date, no dependency, no automatic
+ * transition and no inferred value. This is not a workflow engine's state machine: any active value
+ * may be declared after any other, because a transition graph would encode a process the
+ * organization never told Hebun about.
+ */
+export const workDeclaredStateEnum = pgEnum("work_declared_state", [
+  "planned",
+  "active",
+  "blocked",
+  "complete",
+]);

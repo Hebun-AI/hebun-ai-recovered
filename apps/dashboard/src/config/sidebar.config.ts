@@ -259,6 +259,8 @@ export const sidebarConfig: SidebarSection[] = [
         items: [
           { label: "Command Console", href: "/director/command-center", icon: Terminal },
           { label: "Live Organization", href: "/director/organization", icon: Network },
+          /* WORK-1. Its own entry, not a child of Organization: structure and work are different authorities. */
+          { label: "Work", href: "/director/work", icon: ClipboardList },
           { label: "Director Inbox", href: "/director/inbox", icon: Inbox },
           { label: "Weekly Insights", href: "/director/weekly-insights", icon: TrendingUp },
           {
@@ -707,6 +709,7 @@ export const staticRoutes = new Set([
   "/director/alerts",
   "/director/reports",
   "/director/organization",
+  "/director/work",
   "/director/execution-center",
   "/director/execution-center/graphs",
   "/director/execution-center/failures",

@@ -288,6 +288,13 @@
       "when": 1788211494739,
       "tag": "20260831212454_osa1_department_structure_authority",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1788265213128,
+      "tag": "20260901122013_work1_organizational_work_authority",
+      "breakpoints": true
     }
   ]
 }
