@@ -110,6 +110,10 @@
  */
 import type { ResolvedSourceItem, SourceResolution } from "@/features/heby-runtime/contracts";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import {
+  readWorkEvidenceReferences,
+  type WorkEvidenceReferenceView,
+} from "./read-work-evidence.server";
 import { resolveHumanNames } from "@/features/auth-runtime/human-label-read.server";
 import { readWorkRegister, type WorkItemView } from "./read-work.server";
 import { WORK_DECLARED_STATE_MEANING, WORK_NON_CLAIMS, type WorkDeclaredState } from "./work-contracts";
@@ -172,6 +176,8 @@ export const WORK_LABEL_UNAVAILABLE = "name unavailable";
 export interface WorkGroundingDeps {
   readonly readRegister?: typeof readWorkRegister;
   readonly resolveNames?: typeof resolveHumanNames;
+  /** WEV-1. The DECLARED relationships, with each referent resolved by its own authority. */
+  readonly readEvidence?: typeof readWorkEvidenceReferences;
 }
 
 function base(
@@ -242,7 +248,41 @@ function departmentClause(item: WorkItemView): string {
  * `detail` is machine-derived and flows into Heby's own deterministic prose, so every clause in it
  * is a fact this authority stores plus the standing non-claim. Nothing in it is inferred.
  */
-function workItem(item: WorkItemView, names: ReadonlyMap<string, string>): ResolvedSourceItem {
+function concernsClause(references: readonly WorkEvidenceReferenceView[]): string {
+  /*
+   * WEV-1 — WHAT A HUMAN DECLARED THIS WORK CONCERNS, and each referent's standing IN ITS OWNING
+   * AUTHORITY'S WORDS.
+   *
+   * Three separations are load-bearing in this one sentence, and Heby's prose is built from it:
+   *
+   *   DECLARED BY A PERSON  != INFERRED BY HEBUN   — said outright, every time
+   *   THE RELATIONSHIP      != THE REFERENT        — Work owns the first and nothing of the second
+   *   RESOLVED              != CURRENT/AUTHORITATIVE — the standing is quoted, never summarized
+   *
+   * An UNRESOLVED referent is reported as unknown rather than dropped: a declaration whose referent
+   * authority could not answer is still a declaration this organization made.
+   */
+  if (references.length === 0) return "Nobody has declared what this work concerns.";
+  const declared = references
+    .map((reference) => {
+      const kind = reference.kind === "knowledge-fact" ? "knowledge" : "document";
+      return reference.referent
+        ? `${kind} "${reference.referent.label}" (${reference.referent.standing})`
+        : `${kind} whose owning authority could not be read, so its standing is unknown`;
+    })
+    .join("; ");
+  return (
+    `A person declared that this work concerns: ${declared}. ` +
+    "Hebun inferred none of these relationships, and declaring one says nothing about whether " +
+    "what it names is current, ratified or authoritative — that is its own authority's answer."
+  );
+}
+
+function workItem(
+  item: WorkItemView,
+  names: ReadonlyMap<string, string>,
+  references: readonly WorkEvidenceReferenceView[],
+): ResolvedSourceItem {
   const meaning = WORK_DECLARED_STATE_MEANING[item.declaredState as WorkDeclaredState];
   return {
     recordRef: `work-item/${item.workItemId}`,
@@ -252,6 +292,7 @@ function workItem(item: WorkItemView, names: ReadonlyMap<string, string>): Resol
       `${departmentClause(item)} ${accountableClause(item, names)} ` +
       `The work is ${item.inService ? "in service" : "retired from service"}; recorded ` +
       `${item.recordedAt}, last changed ${item.updatedAt}. ` +
+      `${concernsClause(references)} ` +
       WORK_NON_CLAIM,
     /*
      * `retired` is the retrieval layer's own vocabulary for a record that is no longer in service.
@@ -337,7 +378,31 @@ export async function readWorkGroundingSource(
     names = new Map();
   }
 
-  const items = register.items.map((item) => workItem(item, names));
+  /*
+   * WEV-1 — ONE evidence read, for this tenant's current declarations.
+   *
+   * Its failure is NOT escalated, for the reason legibility's is not: a work item whose
+   * declarations could not be read is still a work item, and an unreadable relationship table must
+   * not make the work itself unavailable. An unreadable read yields an EMPTY list, and the clause
+   * then says nobody has declared anything — which is why the surface, not this source, is where
+   * the read/absent distinction is rendered.
+   */
+  const readEvidence = deps.readEvidence ?? readWorkEvidenceReferences;
+  let references: readonly WorkEvidenceReferenceView[] = [];
+  try {
+    const evidence = await readEvidence(tenant);
+    if (evidence.status === "available") references = evidence.references;
+  } catch {
+    references = [];
+  }
+
+  const items = register.items.map((item) =>
+    workItem(
+      item,
+      names,
+      references.filter((reference) => reference.workItemId === item.workItemId),
+    ),
+  );
 
   if (register.truncated) {
     /*

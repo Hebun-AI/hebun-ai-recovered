@@ -50,12 +50,15 @@
  *
  * Server-only.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { departments } from "@/db/schema/department";
 import { memberships } from "@/db/schema/membership";
 import { users } from "@/db/schema/user";
 import { workItems } from "@/db/schema/work-item";
+import { workEvidenceReferences } from "@/db/schema/work-evidence-reference";
+import { knowledgeFacts } from "@/db/schema/knowledge-fact";
+import { workArtifacts } from "@/db/schema/work-artifact";
 import {
   eligibleTenantMemberWhere,
   joinUsersToMemberships,
@@ -71,10 +74,14 @@ import {
   isWorkDeclaredState,
   WORK_AUDIT_ACCOUNTABLE_SET,
   WORK_AUDIT_RECORDED,
+  WORK_AUDIT_REFERENCE_DECLARED,
+  WORK_AUDIT_REFERENCE_WITHDRAWN,
   WORK_AUDIT_RETIRED,
   WORK_AUDIT_RETITLED,
   WORK_AUDIT_STATE_DECLARED,
+  isWorkReferenceKind,
   type WorkDeclaredState,
+  type WorkReferenceKind,
   type WorkRefusal,
 } from "./work-contracts";
 import { ACTIVE_LIFECYCLE_STATUS, RETIRED_LIFECYCLE_STATUS } from "./read-work.server";
@@ -659,5 +666,235 @@ export async function retireWork(
       ctx.now,
     );
     return { status: "recorded", workItem: viewOf(row) };
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * WEV-1 — WHAT A WORK ITEM DECLARES IT CONCERNS
+ *
+ * Two acts, on the SAME authority, through the SAME gate, under the SAME work-row lock, into the
+ * SAME audit ledger. This is not a new authority and it deliberately did not become one: the fact
+ * being written is a fact about a work item, and the module that owns work items owns it.
+ *
+ *     WORK REFERENCES X   != WORK OWNS X
+ *     REFERENCE EXISTS    != REFERENT IS CURRENT != REFERENT IS AUTHORITATIVE
+ *     DECLARED BY A HUMAN != INFERRED BY HEBUN
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** What a caller may name. A kind and an id — the referent's OWN id, never a rendered string. */
+export interface WorkReferentInput {
+  readonly kind: WorkReferenceKind;
+  readonly referentId: string;
+}
+
+/**
+ * Whether a referent EXISTS in this tenant — and nothing else about it.
+ *
+ * DELIBERATELY NOT A LIFECYCLE CHECK. Whether a knowledge fact's active node was superseded, or
+ * whether an artifact was retired, is the referent authority's answer and it is resolved on READ,
+ * every time. Copying it into this decision would make Work a reader of a lifecycle it does not
+ * own, and would freeze one moment's answer into a durable row.
+ *
+ * The composite foreign keys are the GUARANTEE; this select exists so a caller who named something
+ * absent gets a truthful refusal instead of a constraint violation surfacing as "unavailable".
+ */
+async function referentExists(
+  tx: { select: ControlPlaneDatabase["select"] },
+  tenantId: string,
+  referent: WorkReferentInput,
+): Promise<boolean> {
+  if (referent.kind === "knowledge-fact") {
+    const rows = await tx
+      .select({ id: knowledgeFacts.id })
+      .from(knowledgeFacts)
+      .where(and(eq(knowledgeFacts.tenantId, tenantId), eq(knowledgeFacts.id, referent.referentId)))
+      .limit(1);
+    return rows.length > 0;
+  }
+  const rows = await tx
+    .select({ id: workArtifacts.id })
+    .from(workArtifacts)
+    .where(and(eq(workArtifacts.tenantId, tenantId), eq(workArtifacts.id, referent.referentId)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/** The referent column for a kind. The kind is never stored — this is where it stops being a value. */
+function referentColumns(referent: WorkReferentInput): {
+  readonly knowledgeFactId: string | null;
+  readonly workArtifactId: string | null;
+} {
+  return referent.kind === "knowledge-fact"
+    ? { knowledgeFactId: referent.referentId, workArtifactId: null }
+    : { knowledgeFactId: null, workArtifactId: referent.referentId };
+}
+
+/**
+ * DECLARE THAT A WORK ITEM CONCERNS A REFERENT.
+ *
+ * A human act, and the database says so: `declared_by_type` is CHECK-constrained to `human`, so a
+ * row an agent or the system declared is unrepresentable rather than merely unwritten. There is no
+ * executable action kind for this, no Governance decision, and no seam through which Heby, an
+ * agent, ingestion or a provider read could reach it.
+ *
+ * Runs under the work item's row lock, so a work item retired in the same instant refuses rather
+ * than gaining a declaration nobody can act on.
+ */
+export async function declareWorkEvidenceReference(
+  tenant: TenantContext | null,
+  input: { readonly workItemId: string; readonly referent: WorkReferentInput },
+  deps: WorkWriteDeps = {},
+): Promise<WorkWriteResult> {
+  const referent = input?.referent;
+  if (!referent || !isWorkReferenceKind(referent.kind)) return refuse("referent-unresolved");
+  if (typeof referent.referentId !== "string" || referent.referentId.length === 0) {
+    return refuse("referent-unresolved");
+  }
+
+  return mutateWork(tenant, input?.workItemId, deps, async ({ tx, tenantId, userId, now, current }) => {
+    if (!(await referentExists(tx, tenantId, referent))) return refuse("referent-unresolved");
+
+    const columns = referentColumns(referent);
+    /*
+     * The duplicate is checked HERE, under the work row's lock, so the caller reads a product
+     * refusal rather than a constraint error. The partial unique index remains the GUARANTEE — this
+     * check is the message, not the mechanism.
+     */
+    const existing = await tx
+      .select({ id: workEvidenceReferences.id })
+      .from(workEvidenceReferences)
+      .where(
+        and(
+          eq(workEvidenceReferences.tenantId, tenantId),
+          eq(workEvidenceReferences.workItemId, current.id),
+          isNull(workEvidenceReferences.withdrawnAt),
+          referent.kind === "knowledge-fact"
+            ? eq(workEvidenceReferences.knowledgeFactId, referent.referentId)
+            : eq(workEvidenceReferences.workArtifactId, referent.referentId),
+        ),
+      )
+      .limit(1);
+    if (existing.length > 0) return refuse("reference-already-declared");
+
+    const inserted = await tx
+      .insert(workEvidenceReferences)
+      .values({
+        tenantId,
+        workItemId: current.id,
+        ...columns,
+        declaredAt: now,
+        declaredBy: userId,
+        declaredByType: "human",
+        createdBy: userId,
+        createdByType: "human",
+        updatedBy: userId,
+        updatedByType: "human",
+      })
+      .returning({ id: workEvidenceReferences.id });
+
+    await recordWorkEventWithin(
+      tx,
+      auditActorFrom(tenant as TenantContext),
+      {
+        action: WORK_AUDIT_REFERENCE_DECLARED,
+        workItemId: current.id,
+        referenceId: inserted[0]!.id,
+      },
+      now,
+    );
+
+    return { status: "recorded", workItem: viewOf(current) };
+  });
+}
+
+/**
+ * WITHDRAW A DECLARATION.
+ *
+ * It means ONE thing: this work no longer declares that reference as current. The row is UPDATED,
+ * never deleted — who declared it, when, and who withdrew it all survive, and the audit event
+ * survives with them. The referent is not touched, is not invalidated, and is not told.
+ *
+ * There is no automatic withdrawal anywhere in this authority. A superseded fact or a retired
+ * artifact is its own authority's news; reacting to it here would make Work a reader of a lifecycle
+ * it does not own.
+ */
+export async function withdrawWorkEvidenceReference(
+  tenant: TenantContext | null,
+  input: { readonly referenceId: string },
+  deps: WorkWriteDeps = {},
+): Promise<WorkWriteResult> {
+  const referenceId = input?.referenceId;
+  if (typeof referenceId !== "string" || referenceId.length === 0) {
+    return refuse("reference-unresolved");
+  }
+
+  const gated = await gate(tenant, deps);
+  if (!gated.ok) return gated.result;
+  const authenticated = tenant as TenantContext;
+
+  /*
+   * WHICH WORK ITEM THIS DECLARATION BELONGS TO, resolved inside this tenant so another
+   * organization's declaration is not refused — it is not found. The mutation itself then runs
+   * through the same locked path every other work act uses.
+   */
+  let workItemId: string;
+  try {
+    const rows = await gated.db
+      .select({ workItemId: workEvidenceReferences.workItemId })
+      .from(workEvidenceReferences)
+      .where(
+        and(
+          eq(workEvidenceReferences.tenantId, authenticated.tenantId),
+          eq(workEvidenceReferences.id, referenceId),
+          isNull(workEvidenceReferences.withdrawnAt),
+        ),
+      )
+      .limit(1);
+    if (rows.length === 0) return refuse("reference-unresolved");
+    workItemId = rows[0]!.workItemId;
+  } catch {
+    return refuse("authority-unavailable");
+  }
+
+  return mutateWork(tenant, workItemId, deps, async ({ tx, tenantId, userId, now, current }) => {
+    /*
+     * The predicate re-states `withdrawn_at is null` INSIDE the transaction, so a concurrent
+     * withdrawal makes this one a no-op that refuses rather than a second withdrawal that rewrites
+     * who withdrew it. The row count is the verdict.
+     */
+    const updated = await tx
+      .update(workEvidenceReferences)
+      .set({
+        withdrawnAt: now,
+        withdrawnBy: userId,
+        withdrawnByType: "human",
+        updatedAt: now,
+        updatedBy: userId,
+        updatedByType: "human",
+      })
+      .where(
+        and(
+          eq(workEvidenceReferences.tenantId, tenantId),
+          eq(workEvidenceReferences.id, referenceId),
+          isNull(workEvidenceReferences.withdrawnAt),
+        ),
+      )
+      .returning({ id: workEvidenceReferences.id });
+
+    if (updated.length === 0) return refuse("reference-unresolved");
+
+    await recordWorkEventWithin(
+      tx,
+      auditActorFrom(authenticated),
+      {
+        action: WORK_AUDIT_REFERENCE_WITHDRAWN,
+        workItemId: current.id,
+        referenceId,
+      },
+      now,
+    );
+
+    return { status: "recorded", workItem: viewOf(current) };
   });
 }

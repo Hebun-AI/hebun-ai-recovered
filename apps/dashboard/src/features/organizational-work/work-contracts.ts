@@ -40,13 +40,24 @@ export const WORK_AUDIT_RETITLED = "work.retitled" as const;
 export const WORK_AUDIT_STATE_DECLARED = "work.state-declared" as const;
 export const WORK_AUDIT_ACCOUNTABLE_SET = "work.accountable-set" as const;
 export const WORK_AUDIT_RETIRED = "work.retired" as const;
+/**
+ * WEV-1 — a human declared what a work item concerns, and a human withdrew that declaration.
+ *
+ * TWO verbs, not one with a flag: declaring and withdrawing are different acts by possibly
+ * different people at different times, and a ledger that could not tell them apart would be unable
+ * to answer "who said this work was about that, and who stopped saying it".
+ */
+export const WORK_AUDIT_REFERENCE_DECLARED = "work.reference-declared" as const;
+export const WORK_AUDIT_REFERENCE_WITHDRAWN = "work.reference-withdrawn" as const;
 
 export type WorkAuditAction =
   | typeof WORK_AUDIT_RECORDED
   | typeof WORK_AUDIT_RETITLED
   | typeof WORK_AUDIT_STATE_DECLARED
   | typeof WORK_AUDIT_ACCOUNTABLE_SET
-  | typeof WORK_AUDIT_RETIRED;
+  | typeof WORK_AUDIT_RETIRED
+  | typeof WORK_AUDIT_REFERENCE_DECLARED
+  | typeof WORK_AUDIT_REFERENCE_WITHDRAWN;
 
 export const WORK_AUDIT_ACTIONS: readonly WorkAuditAction[] = Object.freeze([
   WORK_AUDIT_RECORDED,
@@ -54,6 +65,53 @@ export const WORK_AUDIT_ACTIONS: readonly WorkAuditAction[] = Object.freeze([
   WORK_AUDIT_STATE_DECLARED,
   WORK_AUDIT_ACCOUNTABLE_SET,
   WORK_AUDIT_RETIRED,
+  WORK_AUDIT_REFERENCE_DECLARED,
+  WORK_AUDIT_REFERENCE_WITHDRAWN,
+]);
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * WEV-1 — WHAT A WORK ITEM MAY DECLARE IT CONCERNS
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The CLOSED referent vocabulary. Two members, each a thing this repository already owns, reads and
+ * can anchor a tenant-safe foreign key to.
+ *
+ * IT IS NOT STORED. `work_evidence_references` holds two typed nullable columns and the kind is
+ * DERIVED from which one is populated, so a stored kind can never disagree with the referent. This
+ * type is the read vocabulary and the writer's input discriminator — never a column.
+ *
+ * `external-record` is deliberately absent: `knowledge_external_references` already owns external
+ * identity per knowledge fact, so a provider record reaches work THROUGH the fact that declares it.
+ * `knowledge-node` and `work-artifact-revision` are absent because both are VERSIONS, and a
+ * declaration about what work concerns must not go stale when its subject is revised.
+ */
+export const WORK_REFERENCE_KINDS = ["knowledge-fact", "work-artifact"] as const;
+export type WorkReferenceKind = (typeof WORK_REFERENCE_KINDS)[number];
+
+export function isWorkReferenceKind(value: unknown): value is WorkReferenceKind {
+  return typeof value === "string" && (WORK_REFERENCE_KINDS as readonly string[]).includes(value);
+}
+
+/**
+ * What declaring a reference DOES and DOES NOT do, stated in code so a surface quotes it rather
+ * than inventing it and a test can assert the claim matches the repository.
+ */
+export const WORK_REFERENCE_NON_CLAIMS: readonly string[] = Object.freeze([
+  "Declaring a reference does not make this work the owner of what it names.",
+  "It does not say the referent is current, ratified, or authoritative.",
+  "It does not change the referent in any way.",
+  "It was declared by a person; Hebun inferred nothing.",
+]);
+
+/**
+ * What WITHDRAWAL means, and the three things it does not. `withdrawn` is the word most likely to
+ * be read as "deleted" or "wrong", and it is neither.
+ */
+export const WORK_REFERENCE_WITHDRAWAL_MEANING: readonly string[] = Object.freeze([
+  "Withdrawing means this work no longer declares that reference as current.",
+  "The referent is untouched, and is neither deleted nor invalid.",
+  "The declaration stays in the record, with who made it and who withdrew it.",
 ]);
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -143,7 +201,13 @@ export type WorkRefusal =
   /** No ACTIVE department of this tenant carries that id. */
   | "department-unresolved"
   /** The proposed accountable human is not a currently eligible member of this tenant. */
-  | "accountable-not-eligible-member";
+  | "accountable-not-eligible-member"
+  /** WEV-1. The named referent is not a live referent of this tenant. Another tenant's is identical. */
+  | "referent-unresolved"
+  /** WEV-1. This work already declares that exact referent, and a declaration is not repeatable. */
+  | "reference-already-declared"
+  /** WEV-1. No current declaration of this tenant carries that id — absent, or already withdrawn. */
+  | "reference-unresolved";
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * BOUNDS

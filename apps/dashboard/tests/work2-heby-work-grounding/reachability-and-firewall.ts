@@ -287,9 +287,9 @@ async function main(): Promise<void> {
 
   /* NO SCHEMA, NO MIGRATION. WORK-2 is a read. */
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 44, "WORK-2 authored no migration — a grounding read needs none"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
+  assert.equal(journal.entries.length, 45, "WORK-2 authored no migration — a grounding read needs none"); /* WEV-1 grew the ledger 44 -> 45: the `work_evidence_references` table. */
   const sql = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sql.length, 44, "and the ledger is unchanged by this phase");
+  assert.equal(sql.length, 45, "and the ledger is unchanged by this phase");
 
   /* ═════════════════════════════════════════════════════════════════════════
    * 5. THE CLASS IS TENANT-SCOPED, AND CROSS-TENANT IS UNREPRESENTABLE.

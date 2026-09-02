@@ -205,7 +205,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   {
     const journal = JSON.parse(read(JOURNAL)) as { entries: readonly { tag: string }[] };
-    assert.equal(journal.entries.length, 44, "the ledger is UNCHANGED — this capability adds no migration"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
+    assert.equal(journal.entries.length, 45, "the ledger is UNCHANGED — this capability adds no migration"); /* WEV-1 grew the ledger 44 -> 45: the `work_evidence_references` table. */
     /*
      * PHASE-RELATIVE, NOT ABSOLUTE. Pinning "the newest migration is X" is falsified by the next
      * phase that authors one, and the claim this file is making is about INT-5B2: it authored

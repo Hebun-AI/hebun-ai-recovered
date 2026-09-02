@@ -144,9 +144,9 @@ const USE_SERVER_MODULES = [
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* Departmental Placement grew the ledger to 43; GIA-1's `record-work` mandate-scope CHECK to 44. BOTH values move with it. */
-const LEDGER_COUNT = 44;
-const LEDGER_DIGEST = "c236857b89044895"; /* GIA-1 authored a migration — the `record-work` mandate-scope CHECK — so the ledger digest moved with it. */
+/* GIA-1's mandate-scope CHECK grew the ledger to 44; WEV-1's `work_evidence_references` to 45. BOTH values move with it. */
+const LEDGER_COUNT = 45;
+const LEDGER_DIGEST = "1d956a04cc998419"; /* WEV-1 authored a migration — the `work_evidence_references` table — so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

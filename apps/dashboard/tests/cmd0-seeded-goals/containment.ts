@@ -56,8 +56,8 @@ const OWNED = [MODEL, COMPONENT] as const;
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-const LEDGER_COUNT = 44; /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
-const LEDGER_DIGEST = "c236857b89044895"; /* GIA-1 authored a migration — the `record-work` mandate-scope CHECK — so the ledger digest moved with it. */
+const LEDGER_COUNT = 45; /* WEV-1 grew the ledger 44 -> 45: the `work_evidence_references` table. */
+const LEDGER_DIGEST = "1d956a04cc998419"; /* WEV-1 authored a migration — the `work_evidence_references` table — so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

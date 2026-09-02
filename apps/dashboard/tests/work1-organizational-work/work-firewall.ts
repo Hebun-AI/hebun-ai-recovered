@@ -684,8 +684,12 @@ const FEATURE_FILES = walk(FEATURE);
   }
   assert.ok(!isWorkDeclaredState("done"), "a value outside the vocabulary is refused");
 
-  /* The audit vocabulary is closed and every verb names work. */
-  assert.equal(WORK_AUDIT_ACTIONS.length, 5);
+  /*
+   * The audit vocabulary is closed and every verb names work. Five at WORK-1; WEV-1 added the two
+   * reference verbs, and they are counted here rather than exempted so a sixth kind of act still
+   * has to be stated by somebody.
+   */
+  assert.equal(WORK_AUDIT_ACTIONS.length, 7);
   for (const action of WORK_AUDIT_ACTIONS) {
     assert.ok(action.startsWith("work."), `${action} is a work verb`);
   }

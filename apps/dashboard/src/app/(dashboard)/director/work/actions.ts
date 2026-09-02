@@ -15,6 +15,8 @@
 import { revalidatePath } from "next/cache";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import {
+  declareWorkEvidenceReference,
+  withdrawWorkEvidenceReference,
   recordWork,
   retireWork,
   retitleWork,
@@ -22,7 +24,10 @@ import {
   setWorkDeclaredState,
   type WorkWriteResult,
 } from "@/features/organizational-work/write-work.server";
-import type { WorkDeclaredState } from "@/features/organizational-work/work-contracts";
+import type {
+  WorkDeclaredState,
+  WorkReferenceKind,
+} from "@/features/organizational-work/work-contracts";
 import { proposeRecordWorkAction as fileRecordWorkProposal } from "@/features/heby-action-inlet/record-work-proposal.server";
 import type { RecordWorkProposalResult } from "@/features/heby-action-inlet/contracts";
 
@@ -112,4 +117,41 @@ export async function proposeRecordWorkForGovernanceAction(input: {
    */
   if (result.status === "proposed") revalidatePath("/approvals");
   return result;
+}
+
+/**
+ * WEV-1 — DECLARE WHAT A WORK ITEM CONCERNS.
+ *
+ * A human act. The client supplies a work item, a referent kind and the referent's own id, and
+ * NOTHING ELSE — no tenant, no actor, no label, no standing. The Work Authority resolves the tenant
+ * server-side, checks the referent exists inside it, and the database refuses a declarer who is not
+ * a human. This surface holds no authority and rewords no refusal.
+ */
+export async function declareWorkReferenceAction(input: {
+  workItemId: string;
+  kind: WorkReferenceKind;
+  referentId: string;
+}): Promise<WorkWriteResult> {
+  const tenant = await resolveTenantContext();
+  return revalidate(
+    await declareWorkEvidenceReference(tenant, {
+      workItemId: String(input?.workItemId ?? ""),
+      referent: { kind: input?.kind, referentId: String(input?.referentId ?? "") },
+    }),
+  );
+}
+
+/**
+ * WEV-1 — WITHDRAW A DECLARATION.
+ *
+ * It says only that this work no longer declares that reference as current. The referent is not
+ * touched, the row is not deleted, and the audit keeps both acts.
+ */
+export async function withdrawWorkReferenceAction(input: {
+  referenceId: string;
+}): Promise<WorkWriteResult> {
+  const tenant = await resolveTenantContext();
+  return revalidate(
+    await withdrawWorkEvidenceReference(tenant, { referenceId: String(input?.referenceId ?? "") }),
+  );
 }

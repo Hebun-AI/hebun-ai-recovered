@@ -1,6 +1,9 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { WorkRegisterPanel } from "@/components/organizational-work/work-register";
 import { readWorkRegister } from "@/features/organizational-work/read-work.server";
+import { readWorkEvidenceReferences } from "@/features/organizational-work/read-work-evidence.server";
+import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server";
+import { listWorkArtifacts } from "@/features/work-artifacts/read-work-artifacts.server";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { ORGANIZATION_STRUCTURE_UNAVAILABLE } from "@/features/organization-authority/contracts";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -69,6 +72,12 @@ export default async function OrganizationalWorkPage() {
    * Only asked when there is a register to be legible ABOUT. An unavailable register renders no
    * control and names no accountable human, so neither read would have a consumer.
    */
+  /*
+   * WEV-1 — WHAT THE WORK DECLARES IT CONCERNS, and the two referent authorities' own lists so a
+   * human can choose from records that actually exist. THREE separate reads, never merged: the
+   * relationship is Work's, the fact is Knowledge's, the artifact is Work Artifacts'. Each carries
+   * its own availability, so one authority being unreadable cannot make another look empty.
+   */
   let members: SelectableMembersRead = { status: "unavailable", reason: "authority-unavailable" };
   let accountableLabels: readonly HumanLabel[] = [];
   if (register.status === "available") {
@@ -79,6 +88,33 @@ export default async function OrganizationalWorkPage() {
     const resolved = await resolveHumanLabels(tenant, accountableIds);
     accountableLabels = [...resolved].map(([userId, label]) => ({ userId, label }));
   }
+
+  const evidence =
+    register.status === "available"
+      ? await readWorkEvidenceReferences(tenant)
+      : ({ status: "unavailable", detail: "" } as const);
+  const factListing =
+    register.status === "available"
+      ? await listKnowledgeSources(tenant)
+      : ({ status: "unavailable", reason: "", detail: "" } as const);
+  const artifactListing =
+    register.status === "available"
+      ? await listWorkArtifacts(tenant)
+      : ({ status: "unavailable", reason: "" } as const);
+
+  /*
+   * The CHOOSABLE referents, projected to an id and a label only. The surface offers what each
+   * authority says exists; it never invents an option and never carries a referent's standing into
+   * the picker, because a picker is not the place a standing is asserted.
+   */
+  const factOptions =
+    factListing.status === "read"
+      ? factListing.records.map((r) => ({ id: r.factId, label: `${r.factKey} — ${r.title}` }))
+      : [];
+  const artifactOptions =
+    artifactListing.status === "read"
+      ? artifactListing.artifacts.map((a) => ({ id: a.id, label: a.title }))
+      : [];
 
   return (
     <div className="space-y-6">
@@ -95,6 +131,10 @@ export default async function OrganizationalWorkPage() {
         structure={structure}
         members={members}
         accountableLabels={accountableLabels}
+        evidence={evidence.status === "available" ? evidence.references : []}
+        evidenceReadable={evidence.status === "available"}
+        factOptions={factOptions}
+        artifactOptions={artifactOptions}
       />
     </div>
   );

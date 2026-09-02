@@ -447,9 +447,9 @@ async function main(): Promise<void> {
   assert.equal(HEBY_PROFILED_WORKSPACES.length, 8, "no ninth workspace was created");
 
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 44, "the ledger is where GIA-1 left it; this hardening authored none of it"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
+  assert.equal(journal.entries.length, 45, "the ledger is where GIA-1 left it; this hardening authored none of it"); /* WEV-1 grew the ledger 44 -> 45: the `work_evidence_references` table. */
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 44, "and this hardening authored no migration of its own");
+  assert.equal(sqlFiles.length, 45, "and this hardening authored no migration of its own");
 
   console.log("PASS work2-provider-disclosure/provider-bound-name");
 }

@@ -52,8 +52,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { StateBlock } from "@/components/ui/state-block";
 import {
+  declareWorkReferenceAction,
   proposeRecordWorkForGovernanceAction,
   recordWorkAction,
+  withdrawWorkReferenceAction,
   retireWorkAction,
   retitleWorkAction,
   setWorkAccountableHumanAction,
@@ -68,9 +70,13 @@ import {
 import { formatDepartmentRef } from "@/features/organization-authority/department-ref";
 import type { WorkWriteResult } from "@/features/organizational-work/write-work.server";
 import type { WorkItemView, WorkRegister } from "@/features/organizational-work/read-work.server";
+import type { WorkEvidenceReferenceView } from "@/features/organizational-work/read-work-evidence.server";
 import {
   WORK_DECLARED_STATES,
   WORK_DECLARED_STATE_MEANING,
+  WORK_REFERENCE_NON_CLAIMS,
+  WORK_REFERENCE_WITHDRAWAL_MEANING,
+  type WorkReferenceKind,
   type WorkDeclaredState,
   type WorkRefusal,
 } from "@/features/organizational-work/work-contracts";
@@ -100,6 +106,12 @@ const REFUSAL_SENTENCE: Record<WorkRefusal, string> = {
     "No department of this organization is in service under that identity, so nothing was filed against it.",
   "accountable-not-eligible-member":
     "The person named is not a currently eligible member of this organization, so they were not recorded as accountable.",
+  "referent-unresolved":
+    "Nothing of this organization carries that identity, so no relationship was declared.",
+  "reference-already-declared":
+    "This work already declares that reference. A declaration is not repeatable, and nothing was written twice.",
+  "reference-unresolved":
+    "No current declaration of this organization carries that identity — it may already have been withdrawn.",
 };
 
 const MEMBERS_UNAVAILABLE_SENTENCE: Record<
@@ -431,6 +443,178 @@ function ProposeRecordWork({ structure }: { structure: OrganizationStructure }) 
   );
 }
 
+type ReferentOption = { readonly id: string; readonly label: string };
+
+const REFERENT_KIND_LABEL: Record<WorkReferenceKind, string> = {
+  "knowledge-fact": "Knowledge",
+  "work-artifact": "Document",
+};
+
+/**
+ * WHAT ONE WORK ITEM DECLARES IT CONCERNS (WEV-1).
+ *
+ * ── THE ONE THING THIS SURFACE MUST NOT DO ───────────────────────────────────
+ *
+ * Let a DECLARED RELATIONSHIP and a REFERENT'S STANDING look like one fact. They are rendered as
+ * two, always, in that order and in different weights: the organization declared this relationship,
+ * and separately, this is what the owning authority currently says about the thing it names. A
+ * ratified fact is not an authoritative one, and a retired document is still a document this work
+ * declared it was about.
+ *
+ * An UNRESOLVED referent is SAID to be unresolved. It is never replaced by its id, by a guess, or
+ * by silence — the released Human Legibility rule, applied to a different kind of referent.
+ */
+function ConcernsSection({
+  item,
+  references,
+  readable,
+  factOptions,
+  artifactOptions,
+}: {
+  item: WorkItemView;
+  references: readonly WorkEvidenceReferenceView[];
+  readable: boolean;
+  factOptions: readonly ReferentOption[];
+  artifactOptions: readonly ReferentOption[];
+}) {
+  const kindId = useId();
+  const referentId = useId();
+  const [kind, setKind] = useState<WorkReferenceKind>("knowledge-fact");
+  const [referent, setReferent] = useState("");
+  const [result, setResult] = useState<WorkWriteResult | null>(null);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+
+  const mine = references.filter((reference) => reference.workItemId === item.workItemId);
+  const options = kind === "knowledge-fact" ? factOptions : artifactOptions;
+
+  return (
+    <details className="mt-2 rounded-md border border-border bg-bg">
+      <summary className="cursor-pointer px-2.5 py-1.5 text-xs text-fg-secondary">
+        Concerns{mine.length === 0 ? "" : ` (${mine.length})`}
+      </summary>
+      <div className="border-t border-border p-2.5">
+        {!readable ? (
+          <p className="text-xs leading-5 text-fg-secondary">
+            Hebun could not read what this work declares it concerns. That is a read failure, not
+            work that concerns nothing.
+          </p>
+        ) : mine.length === 0 ? (
+          <p className="text-xs leading-5 text-fg-muted">
+            Nobody has declared what this work concerns.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {mine.map((reference) => (
+              <li key={reference.referenceId} className="text-xs leading-5">
+                <span className="text-fg-muted">{REFERENT_KIND_LABEL[reference.kind]} · </span>
+                {/* THE DECLARED RELATIONSHIP. */}
+                <span className="text-fg">{reference.referent?.label ?? "Unresolved referent"}</span>
+                {/* THE REFERENT'S STANDING, from its OWN authority — a separate line, always. */}
+                <span className="block text-fg-muted">
+                  {reference.referent
+                    ? reference.referent.standing
+                    : "Its owning authority could not answer, so its standing is unknown — not absent."}
+                </span>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    start(async () => {
+                      const outcome = await withdrawWorkReferenceAction({
+                        referenceId: reference.referenceId,
+                      });
+                      setResult(outcome);
+                      if (outcome.status === "recorded") router.refresh();
+                    })
+                  }
+                  className="mt-1 rounded-md border border-border px-2 py-0.5 text-[0.65rem] font-semibold text-fg-secondary disabled:opacity-40"
+                >
+                  Withdraw
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {readable ? (
+          <form
+            className="mt-3 border-t border-border pt-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              start(async () => {
+                const outcome = await declareWorkReferenceAction({
+                  workItemId: item.workItemId,
+                  kind,
+                  referentId: referent,
+                });
+                setResult(outcome);
+                if (outcome.status === "recorded") {
+                  setReferent("");
+                  router.refresh();
+                }
+              });
+            }}
+          >
+            <div className="flex flex-wrap gap-2">
+              <label className="flex-1 basis-32 text-xs text-fg-secondary" htmlFor={kindId}>
+                Kind
+                <select
+                  id={kindId}
+                  value={kind}
+                  onChange={(event) => {
+                    setKind(event.target.value as WorkReferenceKind);
+                    setReferent("");
+                  }}
+                  className="mt-1 w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg"
+                >
+                  <option value="knowledge-fact">Knowledge</option>
+                  <option value="work-artifact">Document</option>
+                </select>
+              </label>
+              <label className="flex-1 basis-56 text-xs text-fg-secondary" htmlFor={referentId}>
+                What it concerns
+                <select
+                  id={referentId}
+                  value={referent}
+                  onChange={(event) => setReferent(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg"
+                  disabled={options.length === 0}
+                >
+                  <option value="">
+                    {options.length === 0 ? "Nothing of this kind is recorded" : "Choose"}
+                  </option>
+                  {options.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {/* The denials, quoted from the authority's own contract rather than restated here. */}
+            <ul className="mt-2 space-y-0.5 text-xs leading-5 text-fg-muted">
+              {WORK_REFERENCE_NON_CLAIMS.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            <div className="mt-2">
+              <Button type="submit" disabled={pending || referent === ""}>
+                {pending ? "Declaring…" : "Declare"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+
+        <p className="mt-2 text-xs leading-5 text-fg-muted">
+          {WORK_REFERENCE_WITHDRAWAL_MEANING.join(" ")}
+        </p>
+        <Feedback result={result} />
+      </div>
+    </details>
+  );
+}
+
 function AccountableLine({
   item,
   labels,
@@ -612,11 +796,20 @@ export function WorkRegisterPanel({
   structure,
   members,
   accountableLabels,
+  evidence,
+  evidenceReadable,
+  factOptions,
+  artifactOptions,
 }: {
   register: WorkRegister;
   structure: OrganizationStructure;
   members: SelectableMembersRead;
   accountableLabels: readonly HumanLabel[];
+  /** WEV-1. The DECLARED relationships. Referent standing rides on each one, never merged in. */
+  evidence: readonly WorkEvidenceReferenceView[];
+  evidenceReadable: boolean;
+  factOptions: readonly ReferentOption[];
+  artifactOptions: readonly ReferentOption[];
 }) {
   return (
     <Card>
@@ -660,7 +853,16 @@ export function WorkRegisterPanel({
                       {WORK_DECLARED_STATE_MEANING[item.declaredState]}
                     </p>
                     {item.inService ? (
-                      <WorkItemControls item={item} members={members} />
+                      <>
+                        <ConcernsSection
+                          item={item}
+                          references={evidence}
+                          readable={evidenceReadable}
+                          factOptions={factOptions}
+                          artifactOptions={artifactOptions}
+                        />
+                        <WorkItemControls item={item} members={members} />
+                      </>
                     ) : (
                       <p className="mt-2 text-xs leading-5 text-fg-muted">
                         Retired work is kept and stays readable. It accepts no further change.

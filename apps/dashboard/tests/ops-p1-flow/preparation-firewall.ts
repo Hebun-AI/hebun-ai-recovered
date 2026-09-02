@@ -248,7 +248,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 44, "OPS-P1 adds no migration — the ledger carries none of its authoring"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
+    assert.equal(journal.entries.length, 45, "OPS-P1 adds no migration — the ledger carries none of its authoring"); /* WEV-1 grew the ledger 44 -> 45: the `work_evidence_references` table. */
     const actions = codeOf(read(ACTIONS));
     assert.equal(
       (actions.match(/export async function/g) ?? []).length,

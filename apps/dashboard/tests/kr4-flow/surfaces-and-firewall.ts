@@ -344,7 +344,9 @@ export function run(): void {
       "20260901122013_work1_organizational_work_authority.sql",
       "20260901170404_osa3_departmental_placement.sql",
       /* GIA-1 — the `record-work` mandate-scope CHECK. A declared later phase, not this one's. */
-      "20260902115846_gia1_record_work_mandate_scope.sql"],
+      "20260902115846_gia1_record_work_mandate_scope.sql",
+      /* WEV-1 — the `work_evidence_references` table. A declared later phase, not this one's. */
+      "20260902183808_wev1_work_evidence_reference.sql"],
       "KR4 adds no migration; what follows is a declared later phase",
     );
     const journal = JSON.parse(read(join(MIGRATIONS, "meta", "_journal.json"))) as { entries: unknown[] };

@@ -72,6 +72,16 @@ export interface WorkAuditEvent {
   readonly accountableActorId?: string | null;
   /** Present only when the act named a department. `null` means the reference was cleared. */
   readonly departmentId?: string | null;
+  /**
+   * WEV-1. Present only on a reference act — the declaration row this act is about.
+   *
+   * The ENTITY stays the work item, because that is what changed: a work item now declares one more
+   * thing, or one fewer. Recording the reference id beside it is what lets an operator tell two
+   * declarations on the same work item apart, exactly as `declaredState` does for two state acts.
+   * The REFERENT's identity is deliberately absent — history says that a named declaration was made
+   * or withdrawn, never keeps a copy of what it pointed at.
+   */
+  readonly referenceId?: string;
 }
 
 /**
@@ -117,6 +127,7 @@ export async function recordWorkEventWithin(
         ? {}
         : { accountableActorId: event.accountableActorId }),
       ...(event.departmentId === undefined ? {} : { departmentId: event.departmentId }),
+      ...(event.referenceId === undefined ? {} : { referenceId: event.referenceId }),
     },
     result: "committed",
     simulation: false,
