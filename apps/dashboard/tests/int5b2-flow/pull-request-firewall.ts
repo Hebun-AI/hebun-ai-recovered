@@ -205,8 +205,17 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   {
     const journal = JSON.parse(read(JOURNAL)) as { entries: readonly { tag: string }[] };
-    assert.equal(journal.entries.length, 43, "the ledger is UNCHANGED — this capability adds no migration");
-    assert.match(journal.entries.at(-1)!.tag, /osa3_departmental_placement$/);
+    assert.equal(journal.entries.length, 44, "the ledger is UNCHANGED — this capability adds no migration"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
+    /*
+     * PHASE-RELATIVE, NOT ABSOLUTE. Pinning "the newest migration is X" is falsified by the next
+     * phase that authors one, and the claim this file is making is about INT-5B2: it authored
+     * none. That is what is asserted, and it stays true however far the ledger grows.
+     */
+    assert.equal(
+      journal.entries.filter((entry) => /int5b2|pull_request/i.test(entry.tag)).length,
+      0,
+      "no migration in the ledger bears this capability's name",
+    );
     assert.ok(
       !walk("src/db/schema").some((f) => /pull_?request|pullrequest/i.test(path.basename(f))),
       "there is no table for a pull request, and there is no writer that could fill one",

@@ -120,3 +120,112 @@ export const SEND_PROPOSAL_EFFECTS: readonly string[] = [
   "One pending action request is filed for Director review.",
   "The exact draft revision and the exact recorded address are frozen by digest.",
 ] as const;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * GIA-1 — THE GOVERNED INTERNAL ACT: RECORD ORGANIZATIONAL WORK.
+ *
+ * The second proposable action, and the FIRST whose execution never leaves this system. It is the
+ * same shape as `/send` and deliberately so: one caller-supplied reference plus one caller-supplied
+ * scalar, resolved server-side against the authority that owns the referent, frozen by digest, and
+ * decided by a human before anything happens.
+ *
+ *   WHAT DIFFERS FROM A SEND, AND ONLY THIS
+ *     the substrate       an internal authority, not a provider
+ *     the reversibility   a deterministic inverse exists (`retireWork`) — it is NOT erasure
+ *     the payload         a title and a department, never an address and never a draft's bytes
+ *
+ *   WHAT IS IDENTICAL, AND MUST STAY SO
+ *     a proposal authorizes nothing, mints nothing, and performs nothing
+ *     a human decides at the Governance surface, and a SECOND deliberate act spends the permit
+ *     an agent may propose only inside a mandate a human recorded
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** The registry kind GIA-1 proposes. A constant, chosen by the surface — never by a model. */
+export const RECORD_WORK_ACTION_KIND = "record-work" as const;
+export const RECORD_WORK_OWNER_WORKSPACE = "command" as const;
+
+/**
+ * What the caller may say. A title, and one department reference.
+ *
+ * It carries no tenant, no actor, no authority, no digest, no declared state and no accountable
+ * human — the types make them unrepresentable rather than merely discouraged. The declared state is
+ * absent because the Work Authority's own default (`planned`) is the only honest value for work
+ * nobody has observed yet, and letting a proposal choose one would put an unverified claim about
+ * the world inside an approval.
+ */
+export interface RecordWorkProposalInput {
+  /** The organization's own words for what the work is. Never model-authored on the human path. */
+  readonly title: string;
+  /** `department/<uuid>` — resolved against Organization Structure Authority. Never a name. */
+  readonly departmentRef: string;
+}
+
+/**
+ * Every way a record-work proposal can honestly fail.
+ *
+ * `department-not-found` covers absent, foreign-tenant and malformed with ONE answer, so a probe
+ * cannot use the difference between refusals to discover that a department exists in an
+ * organization the caller cannot see. `department-retired` is deliberately NOT collapsed into it:
+ * a retired department is a real thing the operator can see and fix, and saying so is help.
+ */
+export type RecordWorkProposalRefusal =
+  | "unauthenticated"
+  | "invalid-input"
+  | "persistence-unavailable"
+  | "department-not-found"
+  | "department-retired"
+  | "not-authorizable"
+  | "already-pending";
+
+/** What a surface may truthfully show after a record-work proposal is filed. */
+export interface RecordWorkProposalReceipt {
+  readonly requestId: string;
+  readonly actionKind: typeof RECORD_WORK_ACTION_KIND;
+  readonly title: string;
+  readonly departmentRef: string;
+  readonly departmentName: string;
+  /** Always `pending-review`. There is no other value this type can hold. */
+  readonly status: "pending-review";
+}
+
+export type RecordWorkProposalResult =
+  | { readonly status: "proposed"; readonly receipt: RecordWorkProposalReceipt }
+  | {
+      readonly status: "refused";
+      readonly reason: RecordWorkProposalRefusal;
+      /** Human-readable, deterministic, and never model-authored. */
+      readonly detail: string;
+      /** The AUTHORITATIVE writer's own refusal, carried verbatim. See `SendProposalResult`. */
+      readonly authorityRefusal?: ActionRequestRefusal;
+    };
+
+/**
+ * The sentences a surface may use about a filed record-work proposal.
+ *
+ * NOTE WHAT IS ABSENT: recorded, created, approved, authorized, executed. Filing a proposal creates
+ * no work item whatsoever — the register is unchanged until a human decides and a permit is spent.
+ */
+export const RECORD_WORK_PROPOSAL_NON_EFFECTS: readonly string[] = [
+  "Filing a proposal records no work item and changes the register not at all.",
+  "No permit is created, and nothing is authorized.",
+  "No Governance decision is made; a human decides in /approvals.",
+] as const;
+
+/** What filing a record-work proposal DOES do. Positive facts, kept out of the denial list. */
+export const RECORD_WORK_PROPOSAL_EFFECTS: readonly string[] = [
+  "One pending action request is filed for Director review.",
+  "The exact title and the exact department are frozen by digest.",
+] as const;
+
+/**
+ * WHAT EXECUTING IT WOULD DO, AND WHAT REVERSIBLE DOES NOT MEAN.
+ *
+ * Stated in code so the decision surface quotes rather than invents, and so a test can assert the
+ * claim matches the repository. The second half is the load-bearing half: "reversible" is the word
+ * a reader is most likely to hear as "undoable", and it is not.
+ */
+export const RECORD_WORK_REVERSIBILITY_MEANING: readonly string[] = [
+  "The work item can be retired through the Organizational Work Authority that owns it.",
+  "Retirement does not erase the creation, its audit event, or this Governance decision.",
+  "Nothing rolls a committed transaction backwards, and no automatic rollback exists.",
+] as const;

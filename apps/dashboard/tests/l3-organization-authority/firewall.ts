@@ -26,6 +26,7 @@ const PAGE = "src/app/(dashboard)/director/organization/page.tsx";
 const PANEL = "src/components/organization-domain/authoritative-organization.tsx";
 const LIVE_MAP_PROJECTION = "src/features/live-map/read-live-map.server.ts";
 /* WORK-1 — the Work register page, the third consumer of this one seam. */
+const RECORD_WORK_INLET = "src/features/heby-action-inlet/record-work-proposal.server.ts";
 const WORK_PAGE = "src/app/(dashboard)/director/work/page.tsx";
 
 function walk(dir: string): string[] {
@@ -248,11 +249,17 @@ function thereIsOnlyOneAnswer(): void {
    * `readOrganizationStructure` directly, which is the behaviour the L3 boundary was built to
    * produce — a new consumer learns no second way to ask. The census GREW; nothing in it widened.
    */
+  /*
+   * GIA-1 added the fourth, and for the same reason WORK-1 added the third: the `record-work`
+   * proposal inlet resolves the department it is about through THIS seam rather than reaching
+   * `readOrganizationStructure` directly. The census GREW; nothing in it widened, and a fifth
+   * consumer still fails here and has to argue for itself.
+   */
   assert.deepEqual(
     callers.sort(),
-    [PAGE, LIVE_MAP_PROJECTION, WORK_PAGE].sort(),
+    [PAGE, LIVE_MAP_PROJECTION, WORK_PAGE, RECORD_WORK_INLET].sort(),
     "the Organization Authority's consumers are exactly the Organization page, the Live Map " +
-      "projection, and the Work register page",
+      "projection, the Work register page, and the record-work proposal inlet",
   );
 
   /*
@@ -297,6 +304,15 @@ function thereIsOnlyOneAnswer(): void {
       `${AUTHORITY_DIR}/read-placement.server.ts`,
       `${AUTHORITY_DIR}/heby-placement-source.server.ts`,
       PLACEMENT_WRITER,
+      /*
+       * GIA-1 adds an ELEVENTH, and it is the smallest kind of addition this enumeration exists to
+       * make somebody state: a PURE reference formatter/parser, `department/<uuid>`, with no I/O,
+       * no table, no clock and no authority. It exists because a governed proposal must freeze a
+       * department by reference and the executor must parse that reference back — a bare uuid names
+       * nothing a reader can resolve. It is separately constrained below like every other file
+       * here: it is not a writer, and it reaches no database.
+       */
+      `${AUTHORITY_DIR}/department-ref.ts`,
     ].sort(),
     "the Organization Authority is exactly its contracts, its read seam, its Heby projection, " +
       "OSA-1's structural trio, and Departmental Placement's four — and nothing else. Formerly: " +

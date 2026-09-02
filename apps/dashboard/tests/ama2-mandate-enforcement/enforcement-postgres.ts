@@ -364,17 +364,19 @@ async function main(): Promise<void> {
     /* ═══════════════════════════════════════════════════════════════════════
      * 5. OUT OF MANDATE — REFUSED, AND WITHDRAWAL IS THE FORM IT TAKES HERE.
      *
-     * The released originable vocabulary is CLOSED AT ONE KIND, so "a mandate naming some other
-     * kind" is not representable — `canonicaliseMandateScope` refuses a scope naming anything
-     * outside it, and the table's own CHECK refuses one in SQL. The representable out-of-scope
-     * state is therefore the EMPTY scope, which is what withdrawal is: nothing is inside an empty
-     * ceiling, so every kind is outside it.
+     * The released originable vocabulary is CLOSED — `canonicaliseMandateScope` refuses a scope
+     * naming anything outside it, and the table's own CHECK refuses one in SQL. Withdrawal is the
+     * strongest out-of-scope state and the one this file exercises: nothing is inside an empty
+     * ceiling, so EVERY kind is outside it, whatever the vocabulary's size.
+     *
+     * GIA-1 widened that vocabulary to two, which is why the pin below moved. The proof did not:
+     * an empty ceiling still refuses the kind this agent was proposing.
      * ═════════════════════════════════════════════════════════════════════ */
     {
       assert.deepEqual(
         [...AGENT_ORIGINABLE_ACTION_KINDS],
-        ["send"],
-        "the released vocabulary is one kind, so withdrawal is the representable out-of-scope state",
+        ["send", "record-work"],
+        "the released vocabulary, whatever its size, is entirely outside an empty ceiling",
       );
 
       const withdrawn = await establishAgentMandate(
@@ -615,7 +617,17 @@ async function main(): Promise<void> {
         [1, 2],
         "exactly the two revisions a human recorded — enforcement added none",
       );
-      assert.deepEqual(revisions.rows[0]!.proposalScope, ["send"], "revision 1 is unchanged");
+      /*
+       * The seed records the WHOLE released vocabulary, so revision 1 is that list in the
+       * vocabulary's own canonical order. Pinned against the constant rather than a literal: GIA-1
+       * widened the vocabulary, and a literal here would have made this assertion about the
+       * vocabulary's size instead of about revision 1 being untouched — which is its actual claim.
+       */
+      assert.deepEqual(
+        revisions.rows[0]!.proposalScope,
+        [...AGENT_ORIGINABLE_ACTION_KINDS],
+        "revision 1 is unchanged",
+      );
       assert.deepEqual(revisions.rows[1]!.proposalScope, [], "revision 2 is the withdrawal");
 
       const firstRevisionNow = JSON.parse(await mandateFingerprint()) as unknown[];

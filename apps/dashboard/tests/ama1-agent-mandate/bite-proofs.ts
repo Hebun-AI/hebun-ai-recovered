@@ -147,8 +147,8 @@ function main(): void {
   proof(
     "the storage-layer ceiling admits a kind the released vocabulary does not",
     SCHEMA,
-    "const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send']::text[]`;",
-    "const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','grant-permission']::text[]`;",
+    "const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work']::text[]`;",
+    "const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work','grant-permission']::text[]`;",
     "admits exactly the released originable kinds",
   );
 
@@ -187,10 +187,10 @@ function main(): void {
   proof(
     "the origination path begins enforcing a mandate",
     ORIGINATION,
-    "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\"] as const;",
+    "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\", \"record-work\"] as const;",
     'import type { MandateScopeKind } from "@/features/agent-mandate/contracts";\n' +
       "export type UnusedMandateBinding = MandateScopeKind;\n" +
-      "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\"] as const;",
+      "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\", \"record-work\"] as const;",
     "know a mandate exists",
   );
 
@@ -202,9 +202,9 @@ function main(): void {
   proof(
     "AMA-1 quietly changes what an agent may originate",
     ORIGINATION,
-    "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\"] as const;",
+    "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\", \"record-work\"] as const;",
     "export const AGENT_ORIGINABLE_ACTION_KINDS = [] as const;",
-    "the released originable vocabulary is untouched by AMA-1",
+    "the released originable vocabulary is what the origination feature says it is",
   );
 
   /* ── 11. A SECOND TRANSITION APPEARS ON THE BARREL ─────────────────────

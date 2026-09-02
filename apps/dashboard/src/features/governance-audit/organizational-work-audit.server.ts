@@ -36,6 +36,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export type { AuditActor, AuditWriter };
 
 /**
+ * WHO PERFORMED a work mutation (GIA-1).
+ *
+ * Closed at two, and it will stay closed: `agent` is deliberately absent, because no agent performs
+ * a mutation in Hebun — an agent PROPOSES, a human AUTHORIZES, and the system EXECUTES. Adding a
+ * third value here would be asserting an agent capability that does not exist.
+ */
+export type WorkAuditExecutor = "human" | "system";
+
+/**
  * Re-exported for the same reason, and it is the SAME function — not a second projection.
  * `auditActorFrom` is owned by the Knowledge mutation audit module and every audit sibling has
  * consumed it since; re-declaring it here would be a second way to build an actor, and two ways to
@@ -79,11 +88,24 @@ export async function recordWorkEventWithin(
   actor: AuditActor,
   event: WorkAuditEvent,
   now: Date = new Date(),
+  /*
+   * GIA-1 — WHO PERFORMED THIS MUTATION, which is not always who authorized it.
+   *
+   * `human` is the default and remains the whole of the released product path: a human acting
+   * through the Work surface. `system` is written by ONE caller — the governed internal act, where
+   * a human AUTHORIZED the act at the Governance surface and HEBUN performed the mutation.
+   *
+   *     HUMAN AUTHORIZED != SYSTEM EXECUTED != STATE AUTHORED BY A HUMAN
+   *
+   * `actorId` stays the authenticated human in both cases, and that is deliberate: it is the
+   * correlation to the session the act happened under, never a claim that they performed it. The
+   * TYPE is what says who performed it, and the permit chain is what says who authorized it.
+   */
+  executor: WorkAuditExecutor = "human",
 ): Promise<void> {
   await writer.insert(auditLog).values({
     tenantId: actor.tenantId,
-    /* A human acting through the product. Never accepted from input. */
-    actorType: "human",
+    actorType: executor,
     actorId: actor.userId,
     action: event.action,
     entityType: WORK_ITEM_ENTITY_TYPE,

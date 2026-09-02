@@ -42,7 +42,7 @@ const RESTRICTED_SCOPES = [
 ];
 
 /** The migration ledger this adaptation must leave exactly as it found it. */
-const MIGRATION_LEDGER = 43; /* Departmental Placement grew the ledger 42 -> 43: the `department_placements` table. */
+const MIGRATION_LEDGER = 44; /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
 
 function collect(dir: string): string[] {
   return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {

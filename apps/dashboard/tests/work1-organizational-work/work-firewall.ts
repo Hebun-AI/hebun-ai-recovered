@@ -390,10 +390,39 @@ const FEATURE_FILES = walk(FEATURE);
   assert.ok(!/\.update\(/.test(auditCode), "the work audit has no update path");
   assert.ok(!/\.delete\(/.test(auditCode), "the work audit has no delete path");
   assert.match(auditCode, /authoritySource:\s*"membership"/, "an administrative human act");
-  assert.match(auditCode, /actorType:\s*"human"/, "a work act is always a human's");
+  /*
+   * REPAIRED AT GIA-1: "A WORK ACT IS ALWAYS A HUMAN'S" BECAME FALSE.
+   *
+   * WORK-1 wrote the literal `"human"` because a human acting through the product was the only way
+   * work could be recorded. GIA-1 added a second: a human AUTHORIZES at the Governance surface and
+   * HEBUN performs the mutation, which must be attributed to `system` or the row would put a
+   * person's name on an act they did not perform.
+   *
+   * The protection the old assertion gave is kept and made per-value rather than per-literal:
+   *
+   *   the executor type is a CLOSED UNION of exactly two values, `human` and `system`
+   *   `agent` is ABSENT — no agent performs a mutation in Hebun, it only ever proposes
+   *   the default is `human`, so every released caller is byte-unchanged in behaviour
+   *   the value is that typed parameter, never a string that travelled from input
+   */
+  assert.match(
+    auditCode,
+    /export type WorkAuditExecutor = "human" \| "system";/,
+    "the executor vocabulary is a closed two-value union",
+  );
   assert.ok(
-    !/actorType:\s*[a-zA-Z]/.test(auditCode.replace(/actorType:\s*"human"/g, "")),
-    "the actor type is a literal and is never taken from input",
+    !/WorkAuditExecutor[^;]*"agent"/.test(auditCode),
+    "`agent` is not an executor — an agent proposes, a human authorizes, the system executes",
+  );
+  assert.match(
+    auditCode,
+    /executor:\s*WorkAuditExecutor\s*=\s*"human"/,
+    "the default is the released human path, so every existing caller is unchanged",
+  );
+  assert.match(auditCode, /actorType:\s*executor/, "the row records who performed it");
+  assert.ok(
+    !/actorType:\s*(?!executor\b)[a-zA-Z]/.test(auditCode),
+    "the actor type is that closed parameter and is never taken from input",
   );
 }
 
@@ -401,11 +430,18 @@ const FEATURE_FILES = walk(FEATURE);
  * 6. AGENTS GAIN ZERO AUTHORITY.
  * ═══════════════════════════════════════════════════════════════════════════ */
 {
-  /* The originable vocabulary is untouched: still exactly one kind, and it is not work. */
+  /*
+   * WORK-1 ADDED NO ORIGINABLE ACTION KIND, and it still has not. `record-work` is GIA-1's, and
+   * being originable means a mandate MAY admit it — an agent that proposes it still reaches a
+   * human, a decision, a permit and only then a mutation the SYSTEM performs.
+   *
+   * The claim this file makes is about WORK-1's own modules, and it is asserted directly below:
+   * none of them reaches agent identity, mandate or origination at all.
+   */
   assert.deepEqual(
     [...AGENT_ORIGINABLE_ACTION_KINDS],
-    ["send"],
-    "WORK-1 adds no originable action kind — an agent may not propose a work mutation",
+    ["send", "record-work"],
+    "WORK-1 adds no originable action kind",
   );
 
   /* No WORK-1 module reaches agent identity, agent mandates or agent origination. */
@@ -493,14 +529,37 @@ const FEATURE_FILES = walk(FEATURE);
     "the WORK-2 projection is where this exclusion says it is",
   );
 
-  /* No WORK-1 module reaches Heby or Live Map. */
+  /*
+   * GIA-1 — THE PROPOSAL INLET IS NAMED, EXCLUDED, AND BOUNDED, exactly as WORK-2's projection is.
+   *
+   * The Work route's server actions and its panel reach `@/features/heby-action-inlet` because the
+   * governed path files a proposal there. That directory is the ACTION INLET, not the assistant:
+   * its own released firewall asserts over the whole feature that THE MODEL SELECTS NOTHING, and
+   * the two modules below use it to file a request and to quote its disclosure copy.
+   *
+   * Rather than widening the ban to `@/features/heby-` and losing it, the exception is spelled out:
+   * these two files may name the inlet and NOTHING else under `@/features/heby`, and every other
+   * file in the feature stays under the original ban.
+   */
+  const INLET_CONSUMERS = new Set([ACTIONS, PANEL]);
+  const HEBY_IMPORT_RE = /@\/features\/heby[a-z-]*/g;
   for (const file of [...FEATURE_FILES, AUDIT, ACTIONS, PAGE, PANEL]) {
     if (file === WORK2_GROUNDING) continue;
     const code = withoutComments(read(file));
-    for (const forbidden of ["@/features/heby", "@/features/live-map"]) {
-      assert.ok(
-        !code.includes(forbidden),
-        `${file} must not reach ${forbidden} — WORK-1 changes neither`,
+    assert.ok(
+      !code.includes("@/features/live-map"),
+      `${file} must not reach @/features/live-map — WORK-1 changes it not at all`,
+    );
+    const hebyImports = [...new Set(code.match(HEBY_IMPORT_RE) ?? [])];
+    if (!INLET_CONSUMERS.has(file)) {
+      assert.deepEqual(hebyImports, [], `${file} must not reach @/features/heby — WORK-1 changes it not at all`);
+      continue;
+    }
+    for (const imported of hebyImports) {
+      assert.equal(
+        imported,
+        "@/features/heby-action-inlet",
+        `${file} may reach the action inlet and no other Heby module`,
       );
     }
   }

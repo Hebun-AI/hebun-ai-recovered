@@ -6,6 +6,7 @@ import { DecisionRegion, DecisionEmptyState, StructuralMarker } from "./decision
 import {
   approveActionRequestAction,
   executeAuthorizedActionAction,
+  executeGovernedInternalActionAction,
   rejectActionRequestAction,
   revokeActionPermitAction,
 } from "@/app/(dashboard)/approvals/actions";
@@ -17,6 +18,7 @@ import {
   EXECUTION_OUTCOME_WORDING,
   type ExecutionAttemptStatus,
 } from "@/features/action-execution/contracts";
+import { RECORD_WORK_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
 import {
   elapsedSince,
   type ElapsedObservation,
@@ -359,9 +361,34 @@ function PermitRow({ item }: { item: ActionPermitView }) {
       );
     });
 
+  /*
+   * GIA-1 — WHICH EXECUTOR, DECIDED BY THE PERMIT'S OWN ACTION KIND.
+   *
+   * This is a presentation choice, not a security one. Both server actions resolve the tenant
+   * themselves and both re-check the permit's action kind inside their own transaction, so a client
+   * that called the wrong one is refused by the owning authority. What this branch buys is a
+   * TRUTHFUL button: the two acts have different costs, different reversibility and different
+   * refusal semantics, and one shared sentence about them would be false for one of them.
+   */
+  const internal = item.actionKind === RECORD_WORK_ACTION_KIND;
+
   const execute = () =>
     startTransition(async () => {
       setMessage(null);
+      if (internal) {
+        const result = await executeGovernedInternalActionAction({ permitId: item.permitId });
+        setMessage(
+          result.status === "executed"
+            ? "Recorded. Hebun created one work item under your authorization; you authorized it, the system performed it."
+            : /*
+               * A refusal ABORTED the transaction that was spending the permit, so the
+               * authorization is still the Director's to spend. Saying so is the difference
+               * between a fixable condition and a lost decision.
+               */
+              `Not recorded (${result.reason}). Nothing was written, and the authorization is untouched.`,
+        );
+        return;
+      }
       const result = await executeAuthorizedActionAction({ permitId: item.permitId });
       if (result.status === "refused") {
         /* Nothing was spent — the same permit can be executed once the cause is fixed. */
@@ -412,7 +439,9 @@ function PermitRow({ item }: { item: ActionPermitView }) {
               Execute now
             </button>
             <span className="text-[0.65rem] text-fg-muted">
-              Irreversible, and spends this authorization whether or not it succeeds.
+              {internal
+                ? "Spends this authorization. The record can later be retired through the Work Authority — retirement is not erasure."
+                : "Irreversible, and spends this authorization whether or not it succeeds."}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">

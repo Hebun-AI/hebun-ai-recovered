@@ -413,7 +413,7 @@ function main(): void {
 
   /* ── 10. SCHEMA, LEDGER AND HUMAN SUPREMACY UNTOUCHED ─────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 43, "this phase authored no migration — a type needs none"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  assert.equal(sqlCount, 44, "this phase authored no migration — a type needs none"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))

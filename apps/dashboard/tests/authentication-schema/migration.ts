@@ -80,7 +80,7 @@ try {
      *
      * SIA-3 held this line before it, at 39 (`agent_improvement_hypotheses`).
      */
-    assert.equal(migrationCount.rows[0]?.count, "43"); /* Departmental Placement grew the ledger 42 -> 43: the `department_placements` table. */
+    assert.equal(migrationCount.rows[0]?.count, "44"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
 
     /*
      * The rerun is about IDEMPOTENCE, not about the total, so it is compared to what the first run

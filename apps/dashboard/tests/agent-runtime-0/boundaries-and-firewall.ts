@@ -262,11 +262,11 @@ function nothingIsHardCodedToOneAgent(): void {
 
 function schemaIsUntouched(): void {
   const sql = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sql.length, 43, "AGENT-RUNTIME-0 adds no migration"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  assert.equal(sql.length, 44, "AGENT-RUNTIME-0 adds no migration"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 43, "and the ledger is unchanged by this phase");
+  assert.equal(journal.entries.length, 44, "and the ledger is unchanged by this phase");
 
   /* The two tables this phase writes and reads gained no column. */
   const artifactSchema = read("src/db/schema/work-artifact.ts");

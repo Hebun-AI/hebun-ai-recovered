@@ -197,6 +197,21 @@ export type HebyActionKind =
   | "prepare-operational-plan"
   | "restart-workflow"
   | "send-external-communication"
+  /**
+   * GIA-1 — THE SECOND, AND LAST, EXECUTABLE KIND.
+   *
+   * Recording one organizational work item, performed by Hebun inside the transaction that spends a
+   * human's permit. It is CONSEQUENTIAL and REVERSIBLE: consequential because a durable
+   * organizational record with a real audit trail comes into existence, reversible because the
+   * Organizational Work Authority owns a deterministic compensating operation (`retireWork`) for
+   * exactly this state.
+   *
+   * REVERSIBLE DOES NOT MEAN ERASABLE. Retiring the item does not undo the creation, does not
+   * remove its audit event, and does not roll a committed transaction backwards. It means the
+   * organization can withdraw the item through the authority that owns it — which is what
+   * "deterministic inverse" has always meant here and nothing more.
+   */
+  | "record-work"
   | "grant-permission"
   | "modify-governance-policy"
   | "device-action";

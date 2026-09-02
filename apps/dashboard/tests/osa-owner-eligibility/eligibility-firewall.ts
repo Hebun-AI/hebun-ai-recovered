@@ -218,7 +218,7 @@ function walk(dir: string): string[] {
     f.endsWith(".sql"),
   );
   /* WORK-1 grew the ledger to 42; Departmental Placement to 43. Neither is this milestone's. */
-  assert.equal(migrations.length, 43, "no migration was added by the hardening");
+  assert.equal(migrations.length, 44, "no migration was added by the hardening"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
 
   /* WORK-2 added the 18th class `work`, Departmental Placement the 19th, OSA-4 the 20th. None is the hardening's. */
   assert.equal(HEBY_SOURCE_CLASSES.length, 20, "Heby's source-class census is unchanged by the hardening");

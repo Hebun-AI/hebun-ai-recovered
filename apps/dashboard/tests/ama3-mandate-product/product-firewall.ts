@@ -439,7 +439,7 @@ function amA3AddedNoAuthority(): void {
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
   assert.equal(
     journal.entries.length,
-    43, /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+    44, /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
     "the migration ledger is unchanged by AMA-3 — it is a surface and a read", /* WORK-1 grew it 41 -> 42. */
   );
 

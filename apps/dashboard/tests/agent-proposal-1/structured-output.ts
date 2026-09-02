@@ -51,10 +51,19 @@ function main(): void {
    * 1. THE ADMITTED SET IS SMALLER THAN THE REGISTRY, AND CLOSED.
    * ═════════════════════════════════════════════════════════════════════ */
   {
+    /*
+   * GIA-1 WIDENED THE RELEASED VOCABULARY BY EXACTLY ONE, and this pin moved with it rather than
+   * being deleted. What it guards is unchanged: the admitted set is SMALLER than the registry and
+   * every member is a deliberate admission, not a shape anything satisfies.
+   *
+   * ORIGINABLE MEANS "A MANDATE MAY ADMIT IT, AND AN AGENT-ORIGINATED INLET ACCEPTS IT". It does
+   * not mean the model can select it: `parseAgentActionSelection` still admits `send` and the
+   * abstain value ONLY, and a separate assertion below pins that.
+   */
     assert.deepEqual(
       [...AGENT_ORIGINABLE_ACTION_KINDS],
-      ["send"],
-      "EXACTLY ONE action kind may be agent-originated — admitting a second is a deliberate act",
+      ["send", "record-work"],
+      "EXACTLY TWO action kinds may be agent-originated — admitting each was a deliberate act",
     );
     for (const forbidden of [
       "device-action",

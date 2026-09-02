@@ -163,7 +163,19 @@ function describeConsequences(tool: HebyActionTool): readonly string[] {
       consequences.push("No execution substrate is connected, and human review is required.");
       break;
     case "CONSEQUENTIAL_MUTATION":
-      consequences.push("Would change state irreversibly.");
+      /*
+       * GIA-1 — THE CONSEQUENCE LINE IS DERIVED FROM THE TOOL, NOT FROM THE CLASS.
+       *
+       * These sentences are what a human reads before authorizing. Telling them a `record-work`
+       * act is irreversible would be false, and telling them a send is retirable would be worse.
+       * Reversible is stated WITH what it does not mean, because "the item can be retired" is the
+       * sentence most likely to be read as "this can be undone".
+       */
+      consequences.push(
+        tool.reversibility === "deterministic-inverse"
+          ? "Would change state. A deterministic inverse exists: the record can be retired through the authority that owns it. Retirement is not erasure — the record, its audit event and this decision remain."
+          : "Would change state irreversibly.",
+      );
       consequences.push("Always requires human review; Heby never authorizes or executes it.");
       break;
     case "DEVICE_ACTION":

@@ -6,6 +6,7 @@ import { getOrganizationOperatingStateModel } from "../../src/features/command-o
 import { getCommandReportsModel } from "../../src/features/command-reports/workspace-model";
 import { getStrategicGoalsModel } from "../../src/features/command-goals/workspace-model";
 import { getDirectorIntentModel } from "../../src/features/director-intent/workspace-model";
+import { EXECUTABLE_ACTION_KINDS } from "../../src/features/heby-actions/action-registry";
 import { getHebyWorkspaceProfile } from "../../src/features/heby-integration/workspace-registry";
 import { HEBY_AUTHORITY_DESCRIPTORS } from "../../src/features/heby-integration/contracts";
 
@@ -151,7 +152,12 @@ function directorIntentHonest(): void {
    * free text still cannot reach it.
    */
   assert.equal(m.executionConnected, true, "one execution substrate is connected");
-  assert.equal(m.connectedMutationCount, 1, "and exactly one — never a second");
+  /*
+   * GIA-1 authorized a SECOND executable kind, so the derived count moved from one to two. The
+   * protection is unchanged and is the pair around it: the number is DERIVED from the registry
+   * rather than asserted, and free text still cannot reach any of it.
+   */
+  assert.equal(m.connectedMutationCount, 2, "exactly the two authorized kinds — never a third");
   assert.equal(m.freeTextToExecution, false, "free text is never routed to raw execution");
 
   // No mutation/device tool is invokable; the invokable set is read-only only.
@@ -161,11 +167,12 @@ function directorIntentHonest(): void {
       a.sideEffect === "CONSEQUENTIAL_MUTATION" ||
       a.sideEffect === "DEVICE_ACTION";
     /*
-     * R3B connected exactly ONE mutation substrate. The assertion is narrowed to that one action
-     * kind rather than dropped: every other mutation and device tool must still declare `false`,
-     * which is the protection this loop was written for.
+     * R3B connected one mutation substrate; GIA-1 connected the second. The assertion is narrowed
+     * to the CLOSED EXECUTABLE SET rather than to a name, so every other mutation and device tool
+     * must still declare `false` — which is the protection this loop was written for — and a third
+     * connected kind fails here without anyone remembering to add it.
      */
-    if (isMutationOrDevice && a.actionKind !== "send-external-communication") {
+    if (isMutationOrDevice && !(EXECUTABLE_ACTION_KINDS as readonly string[]).includes(a.actionKind)) {
       assert.equal(a.substrateConnected, false, `${a.actionKind} mutation must not be connected`);
     }
   }

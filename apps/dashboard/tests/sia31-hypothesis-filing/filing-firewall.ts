@@ -721,7 +721,7 @@ function theVocabulariesStayClosed(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function noSchemaChanged(): void {
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 43, "SIA-3.1 authored no migration — a product seam needs none"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  assert.equal(sqlCount, 44, "SIA-3.1 authored no migration — a product seam needs none"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json"))) as {
     entries: readonly unknown[];
   };
@@ -732,10 +732,18 @@ function noSchemaChanged(): void {
    * second-newest while the message still said "newest". Deriving the index from the count keeps
    * the assertion about the same FACT under every future migration.
    */
+  /*
+   * REPAIRED AGAIN AT GIA-1, AND THIS TIME THE FACT IS PHASE-RELATIVE.
+   *
+   * Deriving the index from the count kept the assertion pointing at "the newest", but "the newest
+   * is Departmental Placement's" is a claim about SOMEBODY ELSE'S phase and is falsified by the
+   * next migration whoever authors it. What SIA-3.1 claims is that it authored none, and that is
+   * what is asserted here.
+   */
   assert.equal(
-    (journal.entries[journal.entries.length - 1] as { tag: string }).tag,
-    "20260901170404_osa3_departmental_placement",
-    "the newest migration is Departmental Placement's — WORK-1 held this line before it, OSA-1 before that, and AMA-1 before that",
+    journal.entries.filter((entry) => /sia3|hypothesis/i.test((entry as { tag: string }).tag)).length,
+    1,
+    "the only hypothesis migration in the ledger is SIA-3's table, which SIA-3.1 did not author",
   );
 
   /* And the human-author CHECK that decides this phase's authorship model is untouched. */

@@ -69,7 +69,18 @@ export function getSubstrateModel(): SubstrateModel {
     (tool) => !INVOKABLE_SIDE_EFFECTS.includes(tool.sideEffect) && tool.sideEffect !== "PREPARATION_ONLY",
   );
   const connectedMutations = mutationTools.filter((tool) => tool.substrateConnected);
-  const onlyOneMutationConnected = connectedMutations.length === 1;
+  /*
+   * GIA-1 — TWO ACTIONS HAVE AN EXECUTION PATH, AND THEY ARE NOT THE SAME KIND OF PATH.
+   *
+   * This used to be `connectedMutations.length === 1`, and the sentence it chose said "the one
+   * connected action" and "no live execution has occurred". Both became false the moment a second,
+   * INTERNAL act was authorized: the internal one has no attempt ledger at all, and it is expected
+   * to run. The distinction the surface must keep is therefore between the two paths, not a count.
+   */
+  const externalConnected = connectedMutations.some(
+    (tool) => tool.actionKind === "send-external-communication",
+  );
+  const internalConnected = connectedMutations.some((tool) => tool.actionKind === "record-work");
 
   return {
     state: {
@@ -96,8 +107,9 @@ export function getSubstrateModel(): SubstrateModel {
       "A connected device / session runtime for any device action (Phase 18 is contract-only).",
       "A real, non-simulation Computer Use / provider execution channel.",
     ],
-    receiptBoundary: onlyOneMutationConnected
-      ? "Execution receipts exist only after an action actually runs. A durable attempt record exists for the one connected action, but no live execution has occurred, so no receipt is surfaced — and none is fabricated."
-      : "Execution receipts exist only after an action actually runs.",
+    receiptBoundary:
+      externalConnected && internalConnected
+        ? "Execution receipts exist only after an action actually runs. The external send keeps a durable attempt record and no live send has ever occurred, so no receipt is surfaced for it. The governed internal act keeps no attempt ledger at all — the record it creates and that record's audit event ARE its outcome. Neither is fabricated."
+        : "Execution receipts exist only after an action actually runs, and none is fabricated.",
   };
 }

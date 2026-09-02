@@ -35,12 +35,25 @@ const ACTION_LABELS: Record<HebyActionKind, string> = {
   "prepare-operational-plan": "Prepare operational plan",
   "restart-workflow": "Restart workflow",
   "send-external-communication": "Send external communication",
+  "record-work": "Record organizational work",
   "grant-permission": "Grant permission",
   "modify-governance-policy": "Modify governance policy",
   "device-action": "Device action",
 };
 
-function verdictFor(sideEffect: ToolSideEffectClass, substrateConnected: boolean): string {
+/**
+ * GIA-1 — THE VERDICT READS THE TOOL'S OWN REVERSIBILITY, NOT ITS CLASS.
+ *
+ * "Consequential and irreversible" was one sentence because every consequential tool was
+ * irreversible. `record-work` is consequential and has a deterministic inverse, so a verdict keyed
+ * only on the class would tell a Director that retirement does not exist. The class still decides
+ * whether human review is required; the reversibility decides what is said about undoing it.
+ */
+function verdictFor(
+  sideEffect: ToolSideEffectClass,
+  substrateConnected: boolean,
+  reversibility: HebyReversibility,
+): string {
   switch (sideEffect) {
     case "READ_ONLY":
       return substrateConnected ? "Invokable — read-only, no side effect." : "Read-only, but no substrate is connected.";
@@ -49,7 +62,9 @@ function verdictFor(sideEffect: ToolSideEffectClass, substrateConnected: boolean
     case "REVERSIBLE_MUTATION":
       return "Requires human review — reversible, but no execution substrate is connected.";
     case "CONSEQUENTIAL_MUTATION":
-      return "Requires human review — consequential and irreversible; Heby never authorizes it.";
+      return reversibility === "deterministic-inverse"
+        ? "Requires human review — consequential; a deterministic inverse exists, and nothing is erased. Heby never authorizes it."
+        : "Requires human review — consequential and irreversible; Heby never authorizes it.";
     case "DEVICE_ACTION":
       return "Restricted — device runtime is Platform-owned and not implemented.";
     default:
@@ -67,7 +82,7 @@ export function describeActionBoundary(workspace: HebyWorkspaceId): readonly Heb
       sideEffect: tool.sideEffect,
       reversibility: tool.reversibility,
       authorityRequirement: tool.authorityRequirement,
-      verdict: verdictFor(tool.sideEffect, tool.substrateConnected),
+      verdict: verdictFor(tool.sideEffect, tool.substrateConnected, tool.reversibility),
       invokable: tool.sideEffect === "READ_ONLY" && tool.substrateConnected,
       expectedEffect: tool.outputSummary,
     }));

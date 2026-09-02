@@ -776,7 +776,7 @@ async function main(): Promise<void> {
      * other, this is where it is caught — and the safe direction is that the database is narrower.
      */
     const admitted = await setup.query<{ ok: boolean }>(
-      `select ($1::text[] <@ array['send']::text[]) as ok`,
+      `select ($1::text[] <@ array['send','record-work']::text[]) as ok`,
       [[...AGENT_ORIGINABLE_ACTION_KINDS]],
     );
     assert.equal(

@@ -257,7 +257,20 @@ function proposerIsNotAuthorship(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 
 function theAdmittedSetIsBounded(): void {
-  assert.deepEqual([...AGENT_ORIGINABLE_ACTION_KINDS], ["send"], "exactly one admitted kind");
+  /*
+   * GIA-1 WIDENED THE RELEASED VOCABULARY BY EXACTLY ONE, and this pin moved with it rather than
+   * being deleted. What it guards is unchanged: the admitted set is SMALLER than the registry and
+   * every member is a deliberate admission, not a shape anything satisfies.
+   *
+   * ORIGINABLE MEANS "A MANDATE MAY ADMIT IT, AND AN AGENT-ORIGINATED INLET ACCEPTS IT". It does
+   * not mean the model can select it: `parseAgentActionSelection` still admits `send` and the
+   * abstain value ONLY, and a separate assertion below pins that.
+   */
+  assert.deepEqual(
+    [...AGENT_ORIGINABLE_ACTION_KINDS],
+    ["send", "record-work"],
+    "exactly two admitted kinds, each admitted deliberately",
+  );
 
   /*
    * The admitted kind maps to a tool whose authority requirement is human review. Admitting a kind
@@ -359,11 +372,11 @@ function schemaIsUntouched(): void {
    * here is named after its phase, so such a filter is empty for every possible repository state
    * and could never fail. An absolute pin can rot, but it cannot lie.
    */
-  assert.equal(sql.length, 43, "AGENT-PROPOSAL-1 adds no migration"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  assert.equal(sql.length, 44, "AGENT-PROPOSAL-1 adds no migration"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 43, "and the ledger is unchanged by this phase");
+  assert.equal(journal.entries.length, 44, "and the ledger is unchanged by this phase");
   /* And the ledger still agrees with the files on disk — an integrity check that cannot rot. */
   assert.equal(journal.entries.length, sql.length, "the ledger and the migration files agree");
 

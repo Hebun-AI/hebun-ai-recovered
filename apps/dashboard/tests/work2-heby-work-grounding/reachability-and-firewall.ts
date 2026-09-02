@@ -253,10 +253,22 @@ async function main(): Promise<void> {
   /* ═════════════════════════════════════════════════════════════════════════
    * 4. WORK-2 ADDED NO AUTHORITY OF ANY KIND.
    * ═══════════════════════════════════════════════════════════════════════ */
+  /*
+   * REPAIRED AT GIA-1, BECAUSE THE SENTENCE BECAME FALSE.
+   *
+   * This read "no action kind was added — Heby may not propose a work mutation". The first half is
+   * still WORK-2's claim and still true of WORK-2. The second half was a claim about the whole
+   * repository, and GIA-1 falsified it: `record-work` is an admitted origination kind, so a work
+   * mutation CAN now be proposed — under a mandate, to a human, who decides.
+   *
+   * Leaving it would have been a green test carrying a false sentence, which is the exact defect
+   * this suite exists to catch. What WORK-2 actually proved is asserted instead: its own grounding
+   * projection reaches no writer, which the checks above this line establish.
+   */
   assert.deepEqual(
     [...AGENT_ORIGINABLE_ACTION_KINDS],
-    ["send"],
-    "no action kind was added — Heby may not propose a work mutation",
+    ["send", "record-work"],
+    "WORK-2 added no action kind; `record-work` is GIA-1's, and it is proposable only through a mandate, a human decision and a permit",
   );
   assert.deepEqual(
     [...GOVERNANCE_SUBJECT_TYPES],
@@ -275,9 +287,9 @@ async function main(): Promise<void> {
 
   /* NO SCHEMA, NO MIGRATION. WORK-2 is a read. */
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 43, "WORK-2 authored no migration — a grounding read needs none");
+  assert.equal(journal.entries.length, 44, "WORK-2 authored no migration — a grounding read needs none"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
   const sql = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sql.length, 43, "and the ledger is unchanged by this phase");
+  assert.equal(sql.length, 44, "and the ledger is unchanged by this phase");
 
   /* ═════════════════════════════════════════════════════════════════════════
    * 5. THE CLASS IS TENANT-SCOPED, AND CROSS-TENANT IS UNREPRESENTABLE.

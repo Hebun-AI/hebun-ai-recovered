@@ -269,11 +269,18 @@ async function main(): Promise<void> {
    * 4. ZERO SCHEMA. THE LEDGER DID NOT MOVE.
    * ═══════════════════════════════════════════════════════════════════════ */
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly { tag: string }[] };
-  assert.equal(journal.entries.length, 43, "the ledger is UNCHANGED — OSA-4 adds no migration");
+  assert.equal(journal.entries.length, 44, "the ledger carries no OSA-4 migration"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 43, "and the files agree");
-  assert.match(journal.entries.at(-1)!.tag, /osa3_departmental_placement$/,
-    "the newest migration is still Departmental Placement's");
+  assert.equal(sqlFiles.length, 44, "and the files agree");
+  /*
+   * PHASE-RELATIVE, NOT ABSOLUTE. "The newest migration is still X" is falsified by the next phase
+   * that authors one, and the claim here is about OSA-4: it authored none.
+   */
+  assert.equal(
+    journal.entries.filter((entry) => /osa4|people_register/i.test(entry.tag)).length,
+    0,
+    "no migration in the ledger bears OSA-4's name",
+  );
 
   for (const file of [READER, GROUNDING, PANEL]) {
     assert.ok(!withoutComments(read(file)).includes("pgTable"), `${file} declares no table`);
@@ -301,7 +308,12 @@ async function main(): Promise<void> {
   /* ═════════════════════════════════════════════════════════════════════════
    * 6. GOVERNANCE, ACTION AND MANDATE VOCABULARIES ARE UNTOUCHED.
    * ═══════════════════════════════════════════════════════════════════════ */
-  assert.deepEqual([...AGENT_ORIGINABLE_ACTION_KINDS], ["send"], "no action kind was added");
+  /* GIA-1 admitted `record-work`. OSA-4 admitted neither member, which is what this pins. */
+  assert.deepEqual(
+    [...AGENT_ORIGINABLE_ACTION_KINDS],
+    ["send", "record-work"],
+    "no action kind was added by OSA-4",
+  );
   assert.deepEqual(
     [...GOVERNANCE_SUBJECT_TYPES],
     ["knowledge_node"],

@@ -103,11 +103,12 @@ for (const file of R3A_FILES) {
 for (const tool of listActionTools()) {
   if (tool.sideEffect === "READ_ONLY" || tool.sideEffect === "PREPARATION_ONLY") continue;
   /*
-   * R3B connected exactly one: `send-external-communication`. R3A still authorizes and does not
-   * execute, and this loop still proves the OTHER three mutations and the device tool were not
-   * quietly connected alongside it.
+   * R3B connected `send-external-communication`; GIA-1 connected `record-work`. R3A still
+   * authorizes and does not execute, and this loop still proves that every OTHER mutation and the
+   * device tool were not quietly connected alongside them.
    */
   if (tool.actionKind === "send-external-communication") continue;
+  if (tool.actionKind === "record-work") continue;
   assert.equal(
     tool.substrateConnected,
     false,

@@ -34,6 +34,7 @@ import {
   PROVIDER_ACCEPTANCE_NON_CLAIMS,
 } from "../../src/features/action-execution/contracts";
 import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
+import { EXECUTABLE_ACTION_KINDS } from "../../src/features/heby-actions/action-registry";
 
 const ROOT = process.cwd();
 const read = (p: string) => readFileSync(path.join(ROOT, p), "utf8");
@@ -218,12 +219,29 @@ function ownsOnlyAttempts(): void {
 function exactlyOneExecutableAction(): void {
   assert.deepEqual(validateActionRegistry(), [], "the registry must remain internally honest");
 
+  /*
+   * REPAIRED AT GIA-1: THE GUARD IS EXACT, NOT A COUNT.
+   *
+   * This read "exactly one mutation tool declares a connected substrate", which was R3B's whole
+   * scope and became false when a second act was authorized. Relaxing it to "at most two" would
+   * have been strictly WEAKER than what it replaced — any second tool satisfying a generic shape
+   * would pass. The set is compared instead, in both directions, so a third executor fails here
+   * and so does an executable kind that quietly lost its substrate.
+   *
+   * R3B'S OWN CLAIM IS UNCHANGED AND STILL ASSERTED: its executable kind is still connected, still
+   * backed by its own tool, and still holds every obligation the exception was granted under.
+   */
   const connected = listActionTools().filter(
     (t) => t.sideEffect !== "READ_ONLY" && t.sideEffect !== "PREPARATION_ONLY" && t.substrateConnected,
   );
-  assert.equal(connected.length, 1, "exactly one mutation tool declares a connected substrate");
-  assert.equal(connected[0]!.actionKind, EXECUTABLE_ACTION_KIND);
-  assert.equal(connected[0]!.toolId, EXECUTABLE_TOOL_ID);
+  assert.deepEqual(
+    connected.map((t) => t.actionKind).sort(),
+    [...EXECUTABLE_ACTION_KINDS].sort(),
+    "the connected mutation tools are exactly the closed executable set",
+  );
+  const executableSend = connected.find((t) => t.actionKind === EXECUTABLE_ACTION_KIND);
+  assert.ok(executableSend, "and R3B's own executable kind is one of them");
+  assert.equal(executableSend!.toolId, EXECUTABLE_TOOL_ID);
 
   /* And it kept every obligation the exception was granted under. */
   const send = getActionToolByKind("send-external-communication")!;
@@ -232,9 +250,9 @@ function exactlyOneExecutableAction(): void {
   assert.equal(send.authorityRequirement, "human-review-required");
   assert.equal(send.governanceGated, true);
 
-  /* EVERY OTHER mutation and device tool is still disconnected. */
+  /* EVERY tool outside the closed executable set is still disconnected. */
   for (const tool of listActionTools()) {
-    if (tool.actionKind === EXECUTABLE_ACTION_KIND) continue;
+    if ((EXECUTABLE_ACTION_KINDS as readonly string[]).includes(tool.actionKind)) continue;
     if (tool.sideEffect === "READ_ONLY" || tool.sideEffect === "PREPARATION_ONLY") continue;
     assert.equal(
       tool.substrateConnected,

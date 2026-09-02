@@ -27,13 +27,13 @@
  * recorded, bytes the tenant never wrote, another tenant's anything, or any act outside the one
  * admitted kind.
  */
-import { SEND_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import { RECORD_WORK_ACTION_KIND, SEND_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
 import type { HebyActionKind } from "@/features/heby-actions/contracts";
 
 /**
- * The action kinds an agent may originate. EXACTLY ONE, on purpose.
+ * The action kinds an agent may originate. EXACTLY TWO, on purpose.
  *
- * The registry declares eight action kinds. Seven of them are not here: `device-action` is
+ * The registry declares nine action kinds. Seven of them are not here: `device-action` is
  * Platform-restricted and database-refused, `grant-permission` and `modify-governance-policy` are
  * authority changes no machine should ever draft, `restart-workflow` has no substrate, and the
  * three read/preparation kinds need no proposal at all. Admitting a kind is a deliberate act, and
@@ -42,13 +42,30 @@ import type { HebyActionKind } from "@/features/heby-actions/contracts";
  * `send-external-communication` qualifies for one reason: BOTH of its referents can be resolved
  * authoritatively against released read seams, so every argument the agent chooses is checkable
  * against a row the tenant already owns.
+ *
+ * `record-work` (GIA-1) qualifies for the same reason and no other: its one reference names an
+ * in-service department of this tenant, resolvable against the released Organization Structure read
+ * seam. Its title is prose, and prose is why a human still reads every proposal before it becomes
+ * an act — being admitted here is permission to ASK, and nothing else.
+ *
+ * ADMITTING A KIND HERE GRANTS NO AGENT ANYTHING. A mandate must separately name it, a human must
+ * separately decide it, and a permit must separately be spent. This list is the CEILING of the
+ * ceiling: nothing outside it can be mandated, because the mandate vocabulary IS this list.
  */
-export const AGENT_ORIGINABLE_ACTION_KINDS = ["send"] as const;
+export const AGENT_ORIGINABLE_ACTION_KINDS = ["send", "record-work"] as const;
 
 export type AgentOriginableActionKind = (typeof AGENT_ORIGINABLE_ACTION_KINDS)[number];
 
 /** The registry kind each admitted alias maps to. The alias never becomes the kind by string. */
 export const SEND_ORIGINATION_ALIAS = "send" as const;
+
+/**
+ * GIA-1's alias. It happens to READ the same as its registry kind, and it is still not the same
+ * string by construction: every consumer resolves it through {@link AGENT_ORIGINABLE_REGISTRY_KIND}
+ * exactly as `send` is resolved, so a later rename of either vocabulary moves one side only and the
+ * total map is what fails to compile.
+ */
+export const RECORD_WORK_ORIGINATION_ALIAS = "record-work" as const;
 
 /**
  * THE ALIAS-TO-REGISTRY-KIND MAP — stated once, here, where the alias vocabulary lives (AMA-2).
@@ -83,6 +100,7 @@ export const AGENT_ORIGINABLE_REGISTRY_KIND: Readonly<
   Record<AgentOriginableActionKind, HebyActionKind>
 > = Object.freeze({
   [SEND_ORIGINATION_ALIAS]: SEND_ACTION_KIND,
+  [RECORD_WORK_ORIGINATION_ALIAS]: RECORD_WORK_ACTION_KIND,
 });
 
 /**

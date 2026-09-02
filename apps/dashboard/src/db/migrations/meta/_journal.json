@@ -302,6 +302,13 @@
       "when": 1788282244491,
       "tag": "20260901170404_osa3_departmental_placement",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1788350326593,
+      "tag": "20260902115846_gia1_record_work_mandate_scope",
+      "breakpoints": true
     }
   ]
 }

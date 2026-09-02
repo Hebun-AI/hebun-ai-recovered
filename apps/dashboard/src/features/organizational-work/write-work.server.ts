@@ -235,6 +235,128 @@ function viewOf(row: {
  * legitimately share one ("Q3 audit", twice, two years apart). A work item is identified by its id,
  * not by what it is called.
  */
+/**
+ * WHO PERFORMED THE MUTATION, and therefore who authored the resulting row (GIA-1).
+ *
+ * `human` is the released product path: a human acting through the Work surface authors their own
+ * record. `system` is the governed internal act: a human AUTHORIZED it at the Governance surface and
+ * HEBUN performed it, so the row says `system` and the permit chain says who authorized it.
+ *
+ *     HUMAN AUTHORIZED != SYSTEM EXECUTED != STATE AUTHORED BY A HUMAN
+ *
+ * Collapsing those would put a human's name on a mutation they did not perform, which is the exact
+ * falsehood this type exists to make unrepresentable.
+ */
+export type WorkStateAuthor = { readonly kind: "human" } | { readonly kind: "system" };
+
+/**
+ * The transaction capabilities the recording seam needs — `insert` and `select`, and NOTHING else.
+ *
+ * Stated as a narrow structural type rather than `ControlPlaneDatabase` on purpose: a seam handed a
+ * full handle could open its own transaction, escaping the caller's atomicity, and could `update` or
+ * `delete` rows this act has no business touching. It is deliberately the SAME shape
+ * `PermitConsumptionTx` already exposes, so the permit's spend transaction satisfies it with no
+ * widening of that released type at all.
+ */
+export type WorkRecordingTx = Pick<ControlPlaneDatabase, "insert" | "select">;
+
+/**
+ * RECORD WORK INSIDE A TRANSACTION THE CALLER OWNS (GIA-1).
+ *
+ * ── IT IS AUTHORITY-NEUTRAL, AND SAYS SO ─────────────────────────────────────
+ *
+ * This seam does NOT resolve Governance authority. It cannot: it runs inside a transaction another
+ * authority opened, and the authorization it acts under was established before that transaction
+ * began — a permit, decided by a human, spent by its owner. The released precedent is G5A's
+ * identity writer, which states the same thing in the same words: the caller's authority to have
+ * established this is the caller's, and this seam records what it is told by somebody who holds it.
+ *
+ *     A TRANSACTION-JOINABLE SEAM IS NOT AN OPEN DOOR. A firewall pins its consumers to an exact
+ *     list, because "who may call this" is the whole of its security.
+ *
+ * ── IT IS THE ONE INSERT PATH ────────────────────────────────────────────────
+ *
+ * `recordWork` calls it too. There is exactly ONE place a work row is created, so the preconditions,
+ * the tenant scoping, the actor pair and the audit event cannot drift between the human path and
+ * the governed one — they are the same code, differing only in who is recorded as having performed
+ * it.
+ */
+export async function recordWorkWithin(
+  tx: WorkRecordingTx,
+  tenant: TenantContext,
+  input: {
+    readonly title: string;
+    readonly declaredState?: WorkDeclaredState;
+    readonly departmentId?: string | null;
+    readonly accountableUserId?: string | null;
+  },
+  author: WorkStateAuthor,
+  now: Date = new Date(),
+): Promise<WorkWriteResult> {
+  if (!isWellFormedWorkTitle(input?.title)) return refuse("malformed-work-title");
+  if (input?.declaredState !== undefined && !isWorkDeclaredState(input.declaredState)) {
+    return refuse("malformed-declared-state");
+  }
+  const departmentId = input.departmentId ?? null;
+  const accountableUserId = input.accountableUserId ?? null;
+
+  if (departmentId !== null) {
+    if (!(await isActiveDepartment(tx, tenant.tenantId, departmentId))) {
+      return refuse("department-unresolved");
+    }
+  }
+  if (accountableUserId !== null) {
+    if (!(await isEligibleMember(tx, tenant.tenantId, accountableUserId))) {
+      return refuse("accountable-not-eligible-member");
+    }
+  }
+
+  const inserted = await tx
+    .insert(workItems)
+    .values({
+      tenantId: tenant.tenantId,
+      title: input.title,
+      ...(input.declaredState === undefined ? {} : { declaredState: input.declaredState }),
+      departmentId,
+      accountableActorType: accountableUserId === null ? null : "human",
+      accountableActorId: accountableUserId,
+      /*
+       * THE ATTRIBUTION. `created_by` stays the authenticated human in both paths — it is the
+       * correlation to the session the act happened under — and `created_by_type` is what says who
+       * PERFORMED it. For a governed internal act that is the system, never the authorizer.
+       */
+      createdBy: tenant.userId,
+      createdByType: author.kind,
+      updatedBy: tenant.userId,
+      updatedByType: author.kind,
+    })
+    .returning({
+      id: workItems.id,
+      title: workItems.title,
+      declaredState: workItems.declaredState,
+      lifecycleStatus: workItems.lifecycleStatus,
+      departmentId: workItems.departmentId,
+      accountableActorId: workItems.accountableActorId,
+    });
+
+  const row = inserted[0]!;
+  await recordWorkEventWithin(
+    tx,
+    auditActorFrom(tenant),
+    {
+      action: WORK_AUDIT_RECORDED,
+      workItemId: row.id,
+      declaredState: row.declaredState,
+      accountableActorId: row.accountableActorId,
+      departmentId: row.departmentId,
+    },
+    now,
+    author.kind,
+  );
+
+  return { status: "recorded", workItem: viewOf(row) };
+}
+
 export async function recordWork(
   tenant: TenantContext | null,
   input: {
@@ -250,70 +372,15 @@ export async function recordWork(
   const { db, now } = gated;
   const authenticated = tenant as TenantContext;
 
-  if (!isWellFormedWorkTitle(input?.title)) return refuse("malformed-work-title");
-  if (input?.declaredState !== undefined && !isWorkDeclaredState(input.declaredState)) {
-    return refuse("malformed-declared-state");
-  }
-  const departmentId = input.departmentId ?? null;
-  const accountableUserId = input.accountableUserId ?? null;
-
   try {
     let outcome: WorkWriteResult | null = null;
-
+    /*
+     * THE HUMAN PATH OPENS ITS OWN TRANSACTION and hands it to the same seam the governed path
+     * uses. One insert, one set of preconditions, one audit event — differing only in the author.
+     */
     await db.transaction(async (tx) => {
-      if (departmentId !== null) {
-        if (!(await isActiveDepartment(tx, authenticated.tenantId, departmentId))) {
-          outcome = refuse("department-unresolved");
-          return;
-        }
-      }
-      if (accountableUserId !== null) {
-        if (!(await isEligibleMember(tx, authenticated.tenantId, accountableUserId))) {
-          outcome = refuse("accountable-not-eligible-member");
-          return;
-        }
-      }
-
-      const inserted = await tx
-        .insert(workItems)
-        .values({
-          tenantId: authenticated.tenantId,
-          title: input.title,
-          ...(input.declaredState === undefined ? {} : { declaredState: input.declaredState }),
-          departmentId,
-          accountableActorType: accountableUserId === null ? null : "human",
-          accountableActorId: accountableUserId,
-          createdBy: authenticated.userId,
-          createdByType: "human",
-          updatedBy: authenticated.userId,
-          updatedByType: "human",
-        })
-        .returning({
-          id: workItems.id,
-          title: workItems.title,
-          declaredState: workItems.declaredState,
-          lifecycleStatus: workItems.lifecycleStatus,
-          departmentId: workItems.departmentId,
-          accountableActorId: workItems.accountableActorId,
-        });
-
-      const row = inserted[0]!;
-      await recordWorkEventWithin(
-        tx,
-        auditActorFrom(authenticated),
-        {
-          action: WORK_AUDIT_RECORDED,
-          workItemId: row.id,
-          declaredState: row.declaredState,
-          accountableActorId: row.accountableActorId,
-          departmentId: row.departmentId,
-        },
-        now,
-      );
-
-      outcome = { status: "recorded", workItem: viewOf(row) };
+      outcome = await recordWorkWithin(tx, authenticated, input, { kind: "human" }, now);
     });
-
     return outcome ?? refuse("authority-unavailable");
   } catch {
     return refuse("authority-unavailable");

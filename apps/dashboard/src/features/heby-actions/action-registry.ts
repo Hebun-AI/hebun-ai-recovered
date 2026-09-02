@@ -24,10 +24,23 @@ import {
   NAVIGATE_TOOL_ID,
   INSPECT_SYSTEM_STATE_TOOL_ID,
 } from "@/features/heby-runtime";
-import type { HebyActionKind, HebyActionTool } from "./contracts";
+import type {
+  HebyActionKind,
+  HebyActionTool,
+  HebyReversibility,
+  ToolSideEffectClass,
+} from "./contracts";
 
 /** The reserved device tool id, shared with the Phase 16 registry so the boundary is one thing. */
 export const DEVICE_ACTION_TOOL_ID = "heby.device.action";
+
+/**
+ * GIA-1's tool id, exported so the executor, the inlet and the firewall all name ONE string.
+ *
+ * A repeated literal is how a rename becomes a silent divergence between what a registry declares
+ * and what an executor will accept.
+ */
+export const RECORD_WORK_TOOL_ID = "heby.work.record-work";
 
 const ACTION_TOOLS: readonly HebyActionTool[] = [
   {
@@ -169,6 +182,73 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
     describes: "Sends an external communication. Consequential and irreversible; never auto-executed.",
   },
   {
+    /*
+     * GIA-1 — THE SECOND CONNECTED MUTATION SUBSTRATE, AND THE ONLY INTERNAL ONE.
+     *
+     * `heby.work.record-work` records ONE organizational work item through the Organizational Work
+     * Authority, inside the transaction that spends a human's permit. Its substrate is not a
+     * provider and not a transport: it is `recordWorkWithin`, the authority that owns `work_items`.
+     *
+     * ITS POSTURE IS NOT THE SEND'S POSTURE, and the validator checks the difference rather than
+     * granting an exception by name. A send is irreversible because nobody can un-receive an email.
+     * This is `deterministic-inverse` because `retireWork` exists, is owned by the same authority,
+     * and withdraws exactly this state. Calling it irreversible would be as false as calling the
+     * send reversible.
+     *
+     * REVERSIBLE IS NOT UNDOABLE. Retirement leaves the creation, its audit event and the
+     * Governance record exactly where they are. Nothing in this repository rolls a committed
+     * transaction backwards, and GIA-1 builds no automatic rollback.
+     */
+    toolId: RECORD_WORK_TOOL_ID,
+    actionKind: "record-work",
+    capability: "organizational-work-record",
+    sideEffect: "CONSEQUENTIAL_MUTATION",
+    reversibility: "deterministic-inverse",
+    /*
+     * Command owns the Director's organization-wide routes, and `/director/work` is one of them.
+     * No eighth workspace is invented for one tool.
+     */
+    ownerWorkspace: "command",
+    authorityRequirement: "human-review-required",
+    governanceGated: true,
+    substrateConnected: true,
+    /*
+     * TWO ARGUMENTS, AND THE DEPARTMENT IS REQUIRED HERE.
+     *
+     * `recordWork` lets a human file work against no department, because an organization may
+     * legitimately record work before deciding which part of itself carries it. The GOVERNED path
+     * is stricter on purpose: a consequential mutation a human approves must name something that
+     * exists, and the `record-ref` gate is what makes the department a retrieved row rather than a
+     * string. A proposal that named nothing real would put a decision about a fiction in front of
+     * the Director — the exact failure R3W moved the evidence check above human review to prevent.
+     *
+     * The accountable human is deliberately ABSENT. Naming somebody accountable is a separate
+     * released act with its own writer (`setWorkAccountableHuman`), and folding it in here would
+     * widen one approved payload into two organizational facts.
+     */
+    argumentSchema: {
+      fields: [
+        {
+          name: "title",
+          kind: "string",
+          required: true,
+          describes: "What the work is, in the organization's own words.",
+        },
+        {
+          name: "departmentRef",
+          kind: "record-ref",
+          required: true,
+          describes: "An in-service department: department/<uuid>",
+        },
+      ],
+    },
+    inputSummary: "A title and one in-service department of this organization.",
+    outputSummary:
+      "Would record one organizational work item, authored by the system under a human's authorization. Reversible through retirement; nothing is erased.",
+    describes:
+      "Records one organizational work item through the Organizational Work Authority. Consequential and governed; a human authorizes it and Hebun performs it.",
+  },
+  {
     toolId: "heby.decisions.grant-permission",
     actionKind: "grant-permission",
     capability: "authority-grant",
@@ -252,28 +332,92 @@ export interface RegistryConsistencyIssue {
 }
 
 /**
- * THE ONE ACTION KIND ALLOWED TO DECLARE A CONNECTED MUTATION SUBSTRATE (R3B).
+ * WHAT PERFORMS AN EXECUTABLE ACTION — a fact about the substrate, not a category to fill.
  *
- * Before R3B this list was empty and the invariant read "no mutation or device tool may declare a
- * connected substrate". That was true then and it is false now, so the guard was NARROWED rather
- * than removed: the exception is one named action kind, and it carries four extra obligations
- * (below) that the old blanket rule never had to state. Deleting the guard would have left nothing
- * standing between "we built one executor" and "any tool may claim it can run".
+ * Two values, because two things exist: a bounded HTTPS adapter reaching a provider, and an
+ * in-repository authority mutating its own table inside the caller's transaction. There is no third
+ * value and no "other".
  */
-const SUBSTRATE_CONNECTED_ACTION_KINDS: readonly HebyActionKind[] = Object.freeze([
-  "send-external-communication",
+export type ExecutionSubstrateClass = "external-provider" | "internal-authority";
+
+/**
+ * THE CLOSED, EXACT EXECUTABLE SET AND ITS PER-KIND POSTURE (GIA-1).
+ *
+ * ── WHAT THIS REPLACED, AND WHY THE REPLACEMENT IS STRONGER ──────────────────
+ *
+ * R3B shipped a NAME allowlist plus a CARDINALITY guard: "at most one tool may declare a connected
+ * mutation substrate". That pair was exactly right while one executor existed and becomes useless
+ * the moment a second is authorized — a cardinality of two admits ANY second tool that satisfies a
+ * generic shape, which is the property this repository must not have.
+ *
+ * So the invariant is not relaxed to two. It is replaced by an EXACT SET: the tools declaring a
+ * connected mutation substrate must be precisely the kinds named here — no more, and NO FEWER. A
+ * third executable action cannot appear by satisfying a shape; it can only appear by a human
+ * editing this table and discharging the obligations the entry declares.
+ *
+ * ── EACH KIND CARRIES ITS OWN POSTURE, AND THE POSTURES DIFFER ───────────────
+ *
+ * The exception is granted to a POSTURE, never to a name. `send-external-communication` is
+ * irreversible and reaches a provider; `record-work` has a deterministic inverse and reaches an
+ * internal authority. Both are consequential, both require human review, both are governance-gated.
+ * The validator compares the declared tool against its posture field by field, so loosening either
+ * tool — making the send reversible, making the record irreversible, dropping a governance gate —
+ * is a violation rather than a quiet edit.
+ *
+ * ADDING AN ENTRY HERE AUTHORIZES NOTHING BY ITSELF. A registry entry is not a permit, a mandate,
+ * a decision or an execution; every one of those still has to happen, in that order, per act.
+ */
+export interface ExecutableActionPosture {
+  readonly actionKind: HebyActionKind;
+  readonly toolId: string;
+  /** Both authorized kinds are consequential. A cheaper class is not an executable posture. */
+  readonly sideEffect: ToolSideEffectClass;
+  /** The TRUTH about undoing it, per kind. Never copied from the sibling entry. */
+  readonly reversibility: HebyReversibility;
+  readonly execution: ExecutionSubstrateClass;
+}
+
+export const EXECUTABLE_ACTION_POSTURES: readonly ExecutableActionPosture[] = Object.freeze([
+  Object.freeze({
+    actionKind: "send-external-communication" as const,
+    toolId: "heby.operations.send-communication",
+    sideEffect: "CONSEQUENTIAL_MUTATION" as const,
+    reversibility: "irreversible" as const,
+    execution: "external-provider" as const,
+  }),
+  Object.freeze({
+    actionKind: "record-work" as const,
+    toolId: RECORD_WORK_TOOL_ID,
+    sideEffect: "CONSEQUENTIAL_MUTATION" as const,
+    reversibility: "deterministic-inverse" as const,
+    execution: "internal-authority" as const,
+  }),
 ]);
+
+/** The executable kinds, derived from the postures so the two can never disagree. */
+export const EXECUTABLE_ACTION_KINDS: readonly HebyActionKind[] = Object.freeze(
+  EXECUTABLE_ACTION_POSTURES.map((posture) => posture.actionKind),
+);
+
+/** The posture for a kind, or `undefined` — which is what "not executable" looks like here. */
+export function executablePostureFor(
+  actionKind: HebyActionKind,
+): ExecutableActionPosture | undefined {
+  return EXECUTABLE_ACTION_POSTURES.find((posture) => posture.actionKind === actionKind);
+}
 
 /**
  * Validate the registry's OWN honesty invariants — a structural guard against a dishonest
  * declaration. Enforced:
  *  - reversibility matches the side-effect class (no "reversible" consequential mutation, and no
  *    mutation dressed as READ_ONLY);
- *  - a mutation tool declares a connected substrate ONLY if it is the one action kind that has
- *    one, and only while it stays consequential, irreversible, human-reviewed and governance-gated
- *    — so the exception cannot be borrowed by relaxing the tool it was granted to;
+ *  - a mutation tool declares a connected substrate ONLY if its action kind is in the CLOSED
+ *    executable set, and only while it matches that kind's OWN declared posture — side-effect
+ *    class, reversibility, human review and governance gate — so the exception cannot be borrowed
+ *    by relaxing the tool it was granted to, nor by copying a sibling kind's posture;
  *  - a DEVICE_ACTION may never declare one, under any circumstances;
- *  - at most ONE tool in the whole registry declares a connected mutation substrate;
+ *  - the set of tools declaring a connected mutation substrate is EXACTLY the executable set — no
+ *    third executor, and no executable kind quietly losing its substrate;
  *  - the authority requirement matches the class (mutations/devices are never advisory-only).
  * Returns the list of violations — empty when the registry is internally honest.
  */
@@ -287,8 +431,23 @@ export function validateActionRegistry(): readonly RegistryConsistencyIssue[] {
     if (tool.sideEffect === "REVERSIBLE_MUTATION" && tool.reversibility !== "deterministic-inverse") {
       issues.push({ toolId: tool.toolId, issue: "reversible mutation must have a deterministic inverse" });
     }
-    if ((tool.sideEffect === "CONSEQUENTIAL_MUTATION" || tool.sideEffect === "DEVICE_ACTION") && tool.reversibility !== "irreversible") {
+    /*
+     * CONSEQUENTIAL DID NOT MEAN IRREVERSIBLE — it meant "not cheap", and every consequential tool
+     * happened to be irreversible until GIA-1. `record-work` is consequential AND has a real
+     * deterministic inverse (`retireWork`), so the blanket rule was NARROWED rather than deleted:
+     * the only consequential tools that may state anything other than `irreversible` are the ones
+     * whose executable posture DECLARES that reversibility, and they must state exactly it.
+     *
+     * A device action keeps the blanket rule with no exception at all.
+     */
+    if (tool.sideEffect === "DEVICE_ACTION" && tool.reversibility !== "irreversible") {
       issues.push({ toolId: tool.toolId, issue: "consequential/device must be classified irreversible" });
+    }
+    if (tool.sideEffect === "CONSEQUENTIAL_MUTATION" && tool.reversibility !== "irreversible") {
+      const declared = executablePostureFor(tool.actionKind);
+      if (!declared || declared.reversibility !== tool.reversibility) {
+        issues.push({ toolId: tool.toolId, issue: "consequential/device must be classified irreversible" });
+      }
     }
     // Substrate honesty — narrowed at R3B, never widened. See SUBSTRATE_CONNECTED_ACTION_KINDS.
     const isMutationOrDevice =
@@ -299,19 +458,29 @@ export function validateActionRegistry(): readonly RegistryConsistencyIssue[] {
       // A device action is never exempt, whatever any allowlist says. Computer Use stays absent.
       if (tool.sideEffect === "DEVICE_ACTION") {
         issues.push({ toolId: tool.toolId, issue: "device tool must not declare a connected substrate" });
-      } else if (!SUBSTRATE_CONNECTED_ACTION_KINDS.includes(tool.actionKind)) {
-        issues.push({ toolId: tool.toolId, issue: "mutation tool must not declare a connected substrate" });
       } else {
-        /*
-         * The exception is granted to a tool in a specific posture, not to a name. Loosening any
-         * of these four would let the executor be reached with less friction than the human who
-         * authorized building it agreed to.
-         */
-        if (tool.sideEffect !== "CONSEQUENTIAL_MUTATION" || tool.reversibility !== "irreversible") {
-          issues.push({ toolId: tool.toolId, issue: "connected mutation substrate requires a consequential, irreversible tool" });
-        }
-        if (tool.authorityRequirement !== "human-review-required" || !tool.governanceGated) {
-          issues.push({ toolId: tool.toolId, issue: "connected mutation substrate requires human review and a governance gate" });
+        const posture = executablePostureFor(tool.actionKind);
+        if (!posture) {
+          issues.push({ toolId: tool.toolId, issue: "mutation tool must not declare a connected substrate" });
+        } else {
+          /*
+           * The exception is granted to a tool in ITS OWN posture, not to a name and not to a
+           * shape a sibling kind established. Loosening any of these would let an executor be
+           * reached with less friction — or described less truthfully — than the human who
+           * authorized building it agreed to.
+           */
+          if (tool.toolId !== posture.toolId) {
+            issues.push({ toolId: tool.toolId, issue: "executable action kind is backed by a different tool than its posture names" });
+          }
+          if (tool.sideEffect !== posture.sideEffect) {
+            issues.push({ toolId: tool.toolId, issue: "connected mutation substrate must keep its declared side-effect class" });
+          }
+          if (tool.reversibility !== posture.reversibility) {
+            issues.push({ toolId: tool.toolId, issue: "connected mutation substrate must state its declared reversibility" });
+          }
+          if (tool.authorityRequirement !== "human-review-required" || !tool.governanceGated) {
+            issues.push({ toolId: tool.toolId, issue: "connected mutation substrate requires human review and a governance gate" });
+          }
         }
       }
     }
@@ -325,16 +494,36 @@ export function validateActionRegistry(): readonly RegistryConsistencyIssue[] {
   }
 
   /*
-   * THE CARDINALITY GUARD. Even a correctly-postured second entry in the allowlist is a violation:
-   * "one executed action" is the whole scope of this generation, and a registry that could hold
-   * two executors has already stopped being that.
+   * THE EXACT-SET GUARD (GIA-1), which replaced a cardinality guard.
+   *
+   * A count of "at most two" would admit any second tool that satisfied a generic shape. This
+   * compares the two sets in BOTH directions:
+   *
+   *   a connected mutation tool whose kind is not in the executable set  → a third executor
+   *   an executable kind with no connected mutation tool                 → a claim with no substrate
+   *
+   * The second direction is not pedantry. `EXECUTABLE_ACTION_POSTURES` is read by the decision and
+   * execution surfaces; an entry no tool backs would let this repository state that an act is
+   * executable when nothing can perform it.
    */
-  const connectedMutations = ACTION_TOOLS.filter(
+  const connectedMutationKinds = ACTION_TOOLS.filter(
     (tool) => tool.sideEffect !== "READ_ONLY" && tool.sideEffect !== "PREPARATION_ONLY" && tool.substrateConnected,
-  );
-  if (connectedMutations.length > 1) {
-    for (const tool of connectedMutations) {
-      issues.push({ toolId: tool.toolId, issue: "at most one tool may declare a connected mutation substrate" });
+  ).map((tool) => tool.actionKind);
+
+  for (const kind of connectedMutationKinds) {
+    if (!EXECUTABLE_ACTION_KINDS.includes(kind)) {
+      issues.push({
+        toolId: kind,
+        issue: "the executable set is closed: this kind declares a connected mutation substrate and is not in it",
+      });
+    }
+  }
+  for (const posture of EXECUTABLE_ACTION_POSTURES) {
+    if (!connectedMutationKinds.includes(posture.actionKind)) {
+      issues.push({
+        toolId: posture.toolId,
+        issue: "an executable action kind declares no connected mutation substrate",
+      });
     }
   }
   return issues;

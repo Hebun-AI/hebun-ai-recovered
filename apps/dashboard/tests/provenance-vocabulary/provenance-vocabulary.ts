@@ -392,6 +392,8 @@ async function main(): Promise<void> {
       /* WORK-1 — the Organizational Work Authority table. A declared later phase, not this one's. */
       "20260901122013_work1_organizational_work_authority",
       "20260901170404_osa3_departmental_placement",
+      /* GIA-1 — the `record-work` mandate-scope CHECK. A declared later phase, not this one's. */
+      "20260902115846_gia1_record_work_mandate_scope",
         ],
         "and what follows it is a declared later phase",
       );

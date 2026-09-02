@@ -106,8 +106,19 @@ import { decisionRecords, governanceSessions } from "./governance";
  * The two are pinned equal by a firewall test that reads both. If a later phase widens the
  * released vocabulary without widening this CHECK, a mandate naming the new kind is refused BY THE
  * DATABASE — which is the safe direction to fail.
+ *
+ * GIA-1 WIDENED IT ONCE, BY ONE VALUE, AND THAT IS THE WHOLE CHANGE TO THIS TABLE. `record-work`
+ * joined the released origination vocabulary, so this CHECK moved with it — in that order, because
+ * the released vocabulary is the source and this list is its echo. Nothing else here changed: the
+ * ceiling is still a subset test, the cardinality bound still tracks the vocabulary's own size, and
+ * a mandate naming `grant-permission`, `modify-governance-policy`, `device-action` or an invented
+ * string is still rejected by PostgreSQL.
+ *
+ * WIDENING THIS GRANTS NOTHING. It makes a mandate NAMING `record-work` storable. A mandate is a
+ * ceiling; an agent still proposes nothing until a human records one that includes the kind, and a
+ * proposal is still not a decision, a permit or an act.
  */
-const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send']::text[]`;
+const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work']::text[]`;
 
 export const agentMandates = pgTable(
   "agent_mandates",

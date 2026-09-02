@@ -72,9 +72,9 @@ const RETIRED = [
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-/* Departmental Placement — the ledger grew to 43 with the `department_placements` table; BOTH values move with it. */
-const LEDGER_COUNT = 43;
-const LEDGER_DIGEST = "0f77931ee1d8afbc"; /* Departmental Placement authored a migration, so the ledger digest moved with it. */
+/* Departmental Placement grew the ledger to 43; GIA-1's `record-work` mandate-scope CHECK to 44. BOTH values move with it. */
+const LEDGER_COUNT = 44;
+const LEDGER_DIGEST = "c236857b89044895"; /* GIA-1 authored a migration — the `record-work` mandate-scope CHECK — so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

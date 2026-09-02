@@ -52,12 +52,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { StateBlock } from "@/components/ui/state-block";
 import {
+  proposeRecordWorkForGovernanceAction,
   recordWorkAction,
   retireWorkAction,
   retitleWorkAction,
   setWorkAccountableHumanAction,
   setWorkDeclaredStateAction,
 } from "@/app/(dashboard)/director/work/actions";
+import {
+  RECORD_WORK_PROPOSAL_EFFECTS,
+  RECORD_WORK_PROPOSAL_NON_EFFECTS,
+  type RecordWorkProposalRefusal,
+  type RecordWorkProposalResult,
+} from "@/features/heby-action-inlet/contracts";
+import { formatDepartmentRef } from "@/features/organization-authority/department-ref";
 import type { WorkWriteResult } from "@/features/organizational-work/write-work.server";
 import type { WorkItemView, WorkRegister } from "@/features/organizational-work/read-work.server";
 import {
@@ -281,6 +289,148 @@ function RecordWork({
   );
 }
 
+/*
+ * GIA-1 — THE GOVERNED PATH'S OWN REFUSALS, IN THE ORGANIZATION'S WORDS.
+ *
+ * Separate from `REFUSAL_SENTENCE` because these are refusals to FILE A PROPOSAL, not refusals to
+ * record work. "Not recorded" would be true of both and useful for neither: nothing is recorded on
+ * this path even when it succeeds.
+ */
+const PROPOSAL_REFUSAL_SENTENCE: Record<RecordWorkProposalRefusal, string> = {
+  unauthenticated: "No organization is resolved for this session, so nothing was filed.",
+  "invalid-input":
+    "A title must be present, unpadded, and at most 120 characters, and a department must be chosen. It was not repaired for you.",
+  "persistence-unavailable":
+    "Hebun could not read this organization's departments, so nothing was filed — this is not a refusal of the act itself.",
+  "department-not-found":
+    "No department of this organization is in service under that identity, so nothing was filed against it.",
+  "department-retired":
+    "That department was retired, so work cannot be filed against it and nothing was proposed.",
+  "not-authorizable":
+    "The proposal did not reach human review, so nothing was filed for a decision.",
+  "already-pending":
+    "That exact work record is already waiting for a decision. Nothing was filed again.",
+};
+
+function ProposalFeedback({ result }: { result: RecordWorkProposalResult | null }) {
+  if (!result) return null;
+  if (result.status === "refused") {
+    return (
+      <p role="alert" className="mt-2 text-xs leading-5 text-fg-secondary">
+        <strong className="text-fg">Not proposed.</strong>{" "}
+        {PROPOSAL_REFUSAL_SENTENCE[result.reason]}
+      </p>
+    );
+  }
+  return (
+    <p role="status" className="mt-2 text-xs leading-5 text-fg-secondary">
+      <strong className="text-fg">Proposed, not recorded.</strong> &ldquo;{result.receipt.title}
+      &rdquo; for {result.receipt.departmentName} is waiting for a decision in Decisions. The
+      register is unchanged.
+    </p>
+  );
+}
+
+/**
+ * PROPOSE recording work, for a human to decide and Hebun to perform (GIA-1).
+ *
+ * ── WHY A SECOND CONTROL AND NOT A CHECKBOX ON THE FIRST ─────────────────────
+ *
+ * The two acts have different outcomes, different authors and different failure modes. "Record
+ * work" writes a row this human authored. This one writes NOTHING: it files a proposal, a human
+ * decides it at the Governance surface, and a separately-spent permit lets Hebun perform the
+ * mutation with `created_by_type = system`. A modifier on one button would make the most
+ * consequential difference on this page — who authored the organization's record — a toggle.
+ *
+ * THE DEPARTMENT IS REQUIRED HERE and optional on the direct control, deliberately. A consequential
+ * act a human is asked to approve must name something that exists; a register entry a human is
+ * authoring themselves may legitimately wait for that decision.
+ */
+function ProposeRecordWork({ structure }: { structure: OrganizationStructure }) {
+  const titleId = useId();
+  const departmentFieldId = useId();
+  const [title, setTitle] = useState("");
+  const [department, setDepartment] = useState("");
+  const [result, setResult] = useState<RecordWorkProposalResult | null>(null);
+  const [pending, start] = useTransition();
+
+  const departments = activeDepartments(structure);
+
+  return (
+    <details className="rounded-lg border border-border bg-surface">
+      <summary className="cursor-pointer px-3 py-2 text-xs font-semibold uppercase tracking-wider text-fg-muted">
+        Propose work for a decision
+      </summary>
+      <form
+        className="border-t border-border p-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          start(async () => {
+            const outcome = await proposeRecordWorkForGovernanceAction({
+              title,
+              departmentRef: department === "" ? "" : formatDepartmentRef(department),
+            });
+            setResult(outcome);
+            if (outcome.status === "proposed") {
+              setTitle("");
+              setDepartment("");
+            }
+          });
+        }}
+      >
+        <div className="flex flex-wrap gap-2">
+          <label className="flex-1 basis-64 text-xs text-fg-secondary" htmlFor={titleId}>
+            Title
+            <input
+              id={titleId}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              className="mt-1 w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg"
+              placeholder="Q3 supplier audit"
+            />
+          </label>
+          <label className="flex-1 basis-48 text-xs text-fg-secondary" htmlFor={departmentFieldId}>
+            Department
+            <select
+              id={departmentFieldId}
+              value={department}
+              onChange={(event) => setDepartment(event.target.value)}
+              className="mt-1 w-full rounded-md border border-border bg-bg px-2 py-1.5 text-sm text-fg"
+              disabled={departments.length === 0}
+            >
+              <option value="">Choose a department</option>
+              {departments.map((entry) => (
+                <option key={entry.departmentId} value={entry.departmentId}>
+                  {entry.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {/*
+          * WHAT THIS DOES AND WHAT IT DOES NOT, BEFORE THE CLICK — the released
+          * ceremony-disclosure rule. Both lists are quoted from the inlet's own contract rather
+          * than written here, so the surface cannot say something the module does not.
+          */}
+        <ul className="mt-2 space-y-0.5 text-xs leading-5 text-fg-muted">
+          {RECORD_WORK_PROPOSAL_EFFECTS.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+          {RECORD_WORK_PROPOSAL_NON_EFFECTS.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <div className="mt-2">
+          <Button type="submit" disabled={pending || department === ""}>
+            {pending ? "Filing…" : "Propose for a decision"}
+          </Button>
+        </div>
+        <ProposalFeedback result={result} />
+      </form>
+    </details>
+  );
+}
+
 function AccountableLine({
   item,
   labels,
@@ -487,6 +637,7 @@ export function WorkRegisterPanel({
           <>
             <p className="text-xs leading-5 text-fg-secondary">{register.detail}</p>
             <RecordWork structure={structure} members={members} />
+            <ProposeRecordWork structure={structure} />
             {register.items.length === 0 ? null : (
               <ul className="space-y-2">
                 {register.items.map((item) => (

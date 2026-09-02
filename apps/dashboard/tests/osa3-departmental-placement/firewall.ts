@@ -318,7 +318,12 @@ async function main(): Promise<void> {
   /* ═════════════════════════════════════════════════════════════════════════
    * 6. NO AUTHORITY EXPANSION OF ANY KIND.
    * ═══════════════════════════════════════════════════════════════════════ */
-  assert.deepEqual([...AGENT_ORIGINABLE_ACTION_KINDS], ["send"], "no action kind was added");
+  /* GIA-1 admitted `record-work`. OSA-3 admitted neither member, which is what this pins. */
+  assert.deepEqual(
+    [...AGENT_ORIGINABLE_ACTION_KINDS],
+    ["send", "record-work"],
+    "no action kind was added by OSA-3",
+  );
   assert.deepEqual(
     [...GOVERNANCE_SUBJECT_TYPES],
     ["knowledge_node"],
@@ -360,12 +365,18 @@ async function main(): Promise<void> {
    * 7. THE SCHEMA IS ADDITIVE, TENANT-SAFE, AND ACTIVATES NOTHING DORMANT.
    * ═══════════════════════════════════════════════════════════════════════ */
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly { tag: string }[] };
-  assert.equal(journal.entries.length, 43, "the ledger grew by exactly one");
+  assert.equal(journal.entries.length, 44, "the ledger grew by exactly one, and by exactly one more since"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 43, "and the files agree");
+  assert.equal(sqlFiles.length, 44, "and the files agree");
 
-  const migrationTag = journal.entries.at(-1)!.tag;
-  assert.match(migrationTag, /osa3_departmental_placement$/, "the newest migration is this one");
+  /*
+   * PHASE-RELATIVE, NOT ABSOLUTE. This used to read "the newest migration is this one", which was
+   * true the day it was written and is falsified by every later phase that authors one. What OSA-3
+   * actually claims is that it authored EXACTLY ONE migration, and that claim never expires.
+   */
+  const own = journal.entries.filter((entry) => /osa3_departmental_placement$/.test(entry.tag));
+  assert.equal(own.length, 1, "OSA-3 authored exactly one migration");
+  const migrationTag = own[0]!.tag;
   const migration = read(`src/db/migrations/${migrationTag}.sql`);
   assert.match(migration, /CREATE TABLE "department_placements"/, "it creates the table");
   for (const forbidden of ["DROP ", "INSERT INTO", "DELETE FROM", "ALTER TABLE \"memberships\""]) {

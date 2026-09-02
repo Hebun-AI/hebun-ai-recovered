@@ -585,17 +585,30 @@ async function main(): Promise<void> {
         "no-authority",
         "the map must not claim there is no structural authority once one exists",
       );
-      assert.match(
-        "detail" in structureDomain.state ? structureDomain.state.detail : "",
-        /department/i,
-        "and it reports the recorded structure",
-      );
-      assert.equal(
-        withStructure.domains.filter((d) => d.domainId === "structure" && d.state.status === "available")
-          .length,
-        0,
-        "no department NODE is drawn — that is a deferred milestone, and the map must not imply it",
-      );
+      /*
+       * REPAIRED: LM-1 DREW THEM, AND THIS ASSERTION SAID IT NEVER WOULD.
+       *
+       * OSA-1 deferred department NODES to their own milestone and pinned the map to a COUNTED,
+       * undrawn structure. LM-1 shipped that milestone: departments and people are now nodes, so
+       * the domain is `available` with nodes and carries no `detail` sentence at all. The old pair
+       * of assertions was therefore failing on released work while claiming to be about OSA-1.
+       *
+       * OSA-1's own claim is unchanged and is what is asserted: it added no Live Map seam, and the
+       * map stopped claiming there is no structural authority once one existed. What the map does
+       * with that authority is LM-1's to prove, and its own suite does.
+       */
+      if (structureDomain.state.status === "available") {
+        assert.ok(
+          structureDomain.state.nodes.length > 0,
+          "LM-1 draws the recorded structure — a drawn domain is never an empty one",
+        );
+      } else {
+        assert.match(
+          "detail" in structureDomain.state ? structureDomain.state.detail : "",
+          /department/i,
+          "and an undrawn structure still reports what was recorded",
+        );
+      }
 
       /* An UNREAD structure still reports no-authority, and still never as a zero. */
       const dark = await readLiveMapProjection(acmeCtx, {

@@ -262,8 +262,8 @@ import { establishAgentMandate } from "@/features/agent-mandate/establish-agent-
   proof(
     "the originable vocabulary is widened by the enforcement phase",
     ORIGINATION,
-    `export const AGENT_ORIGINABLE_ACTION_KINDS = ["send"] as const;`,
-    `export const AGENT_ORIGINABLE_ACTION_KINDS = ["send", "grant-permission"] as const;`,
+    `export const AGENT_ORIGINABLE_ACTION_KINDS = ["send", "record-work"] as const;`,
+    `export const AGENT_ORIGINABLE_ACTION_KINDS = ["send", "record-work", "grant-permission"] as const;`,
     "the map is TOTAL over the released originable vocabulary",
   );
 

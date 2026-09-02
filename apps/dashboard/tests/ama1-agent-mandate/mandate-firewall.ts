@@ -294,8 +294,8 @@ function theCeilingCannotBeWidened(): void {
    */
   assert.deepEqual(
     [...AGENT_ORIGINABLE_ACTION_KINDS],
-    ["send"],
-    "the released originable vocabulary is untouched by AMA-1",
+    ["send", "record-work"],
+    "the released originable vocabulary is what the origination feature says it is — AMA-1 changed neither member",
   );
 
   /*

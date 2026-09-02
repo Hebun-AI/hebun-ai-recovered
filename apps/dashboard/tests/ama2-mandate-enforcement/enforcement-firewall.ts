@@ -386,11 +386,16 @@ function theAliasMapIsTotalAndReleased(): void {
     "the map cannot be widened at runtime",
   );
 
-  /* THE VOCABULARY ITSELF IS UNTOUCHED. AMA-2 admits nothing new; it can only subtract. */
+  /*
+   * THE VOCABULARY IS NOT THIS PHASE'S TO CHANGE. AMA-2 admits nothing new; it can only subtract.
+   * GIA-1 admitted `record-work` — through the origination vocabulary, its total map and the
+   * storage-layer CHECK together — which is why this value moved without this file's mechanism
+   * moving at all.
+   */
   assert.deepEqual(
     [...AGENT_ORIGINABLE_ACTION_KINDS],
-    ["send"],
-    "AGENT_ORIGINABLE_ACTION_KINDS is unchanged — a ceiling never widens the floor",
+    ["send", "record-work"],
+    "AGENT_ORIGINABLE_ACTION_KINDS is what the origination feature released — a ceiling never widens the floor",
   );
 
   /*
@@ -414,7 +419,7 @@ function amA2AddedNothingToTheDatabase(): void {
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
   assert.equal(
     journal.entries.length,
-    43, /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+    44, /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
     "the migration ledger is unchanged by AMA-2 — it is a read, not a schema change", /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
   );
 
@@ -431,12 +436,28 @@ function amA2AddedNothingToTheDatabase(): void {
   const mandateMigrations = migrations
     .filter((f) => /agent_mandates/.test(read(path.join("src/db/migrations", f))))
     .sort();
+  /*
+   * TWO MIGRATIONS NOW NAME THE TABLE, AND NEITHER IS AMA-2'S.
+   *
+   * AMA-1 created it. GIA-1 widened ONE CHECK — the `proposal_scope` subset test — because the
+   * released origination vocabulary gained `record-work` and this table's storage-layer ceiling is
+   * that vocabulary's echo. It added no column, no index, no status flag and no writer, which is
+   * what the per-column assertions below still prove about BOTH files.
+   *
+   * The list is pinned by name rather than by count so a third migration touching mandate storage
+   * fails here, loudly, whoever authors it.
+   */
   assert.deepEqual(
     mandateMigrations,
-    ["20260831110423_ama1_agent_mandate_authority.sql"],
-    "only AMA-1's migration ever touched mandate storage — AMA-2 altered none",
+    [
+      "20260831110423_ama1_agent_mandate_authority.sql",
+      "20260902115846_gia1_record_work_mandate_scope.sql",
+    ],
+    "only AMA-1's table and GIA-1's scope widening ever touched mandate storage — AMA-2 altered none",
   );
-  const mandateSql = read(path.join("src/db/migrations", mandateMigrations[0]!));
+  const mandateSql = mandateMigrations
+    .map((file) => read(path.join("src/db/migrations", file)))
+    .join("\n");
   for (const forbidden of ["enforced", "applied_at", "consumed_at", "last_checked_at"]) {
     assert.ok(
       !new RegExp(`\\b${forbidden}\\b`).test(mandateSql),

@@ -119,12 +119,25 @@ function main(): void {
         assert.ok(!read(file).includes(control), `${file} must not offer "${control}"`);
       }
     }
-    /* The caller topology is unchanged: the inlet is still the one caller of the request writer. */
+    /*
+     * The caller topology is unchanged FOR THIS SURFACE: every caller of the request writer is an
+     * inlet module, and none of them is OPS-P1's. GIA-1 added a second inlet — `record-work` —
+     * which is why this is a set rather than a single file; what it still forbids is any module
+     * outside `heby-action-inlet` filing a proposal, which is the boundary this phase rests on.
+     */
     const callers = walk("src").filter(
       (f) => f !== "src/features/action-authorization/record-action-request.server.ts" &&
         /recordActionRequest\s*\(/.test(codeOf(read(f))),
     );
-    assert.deepEqual(callers, [INLET], "recordActionRequest still has exactly one caller");
+    assert.deepEqual(
+      callers,
+      [
+        "src/features/heby-action-inlet/record-work-proposal.server.ts",
+        "src/features/heby-action-inlet/send-proposal.server.ts",
+      ],
+      "every caller of recordActionRequest is an action inlet, and none of them is this surface",
+    );
+    assert.ok(callers.includes(INLET), "including the send inlet OPS-P1 was built beside");
   }
 
   /* ── 4 · WITHHELD FIELDS ARE NOT RENDERED ────────────────────────────────
@@ -235,7 +248,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 43, "OPS-P1 adds no migration — the ledger carries none of its authoring"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+    assert.equal(journal.entries.length, 44, "OPS-P1 adds no migration — the ledger carries none of its authoring"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
     const actions = codeOf(read(ACTIONS));
     assert.equal(
       (actions.match(/export async function/g) ?? []).length,

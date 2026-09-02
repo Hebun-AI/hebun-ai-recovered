@@ -382,9 +382,9 @@ function theProductIsWalledOff(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function itIsInfrastructureNotSchema(): void {
   const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(files.length, 43, "the production migration AUTHORITY authors no migration of its own"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  assert.equal(files.length, 44, "the production migration AUTHORITY authors no migration of its own"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: unknown[] };
-  assert.equal(journal.entries.length, 43, "and the journal agrees");
+  assert.equal(journal.entries.length, 44, "and the journal agrees");
 }
 
 function main(): void {

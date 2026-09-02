@@ -9,6 +9,7 @@ import {
   type ExecutiveOverviewLike,
 } from "../../src/features/heby-runtime";
 import {
+  EXECUTABLE_ACTION_KINDS,
   validateActionRegistry,
   listActionTools,
   getActionToolByKind,
@@ -425,20 +426,32 @@ function phase16Preserved(): void {
 /* --- Registry honesty invariants ---------------------------------------------------- */
 function registryIsHonest(): void {
   assert.deepEqual(validateActionRegistry(), [], "registry declarations are internally honest");
-  // Every mutation/device tool declares no connected substrate — EXCEPT the one R3B built.
+  /*
+   * Every mutation/device tool declares no connected substrate — EXCEPT the CLOSED, EXACT set.
+   * R3B connected one; GIA-1 connected the second and replaced the cardinality guard with a
+   * two-way set comparison, so the exception is derived from the declared postures rather than
+   * from a literal repeated here.
+   */
+  const executable = new Set<string>(EXECUTABLE_ACTION_KINDS);
   for (const tool of listActionTools()) {
-    if (tool.actionKind === "send-external-communication") continue;
+    if (executable.has(tool.actionKind)) continue;
     if (tool.sideEffect === "REVERSIBLE_MUTATION" || tool.sideEffect === "CONSEQUENTIAL_MUTATION" || tool.sideEffect === "DEVICE_ACTION") {
       assert.equal(tool.substrateConnected, false, `${tool.toolId} must not claim a substrate`);
     }
   }
-  // And that exception is exactly one tool wide.
-  assert.equal(
-    listActionTools().filter(
-      (t) => t.sideEffect !== "READ_ONLY" && t.sideEffect !== "PREPARATION_ONLY" && t.substrateConnected,
-    ).length,
-    1,
-    "exactly one mutation tool may claim a substrate",
+  // And the exception is EXACTLY that set — no third executor, and no executable kind without one.
+  assert.deepEqual(
+    listActionTools()
+      .filter((t) => t.sideEffect !== "READ_ONLY" && t.sideEffect !== "PREPARATION_ONLY" && t.substrateConnected)
+      .map((t) => t.actionKind)
+      .sort(),
+    [...EXECUTABLE_ACTION_KINDS].sort(),
+    "the connected mutation tools are exactly the closed executable set",
+  );
+  assert.deepEqual(
+    [...EXECUTABLE_ACTION_KINDS],
+    ["send-external-communication", "record-work"],
+    "and that set is the two specifically authorized kinds, in the order they were authorized",
   );
   // No READ_ONLY tool is reversible-classified.
   const inspectTool = getActionToolByKind("inspect-system-state");

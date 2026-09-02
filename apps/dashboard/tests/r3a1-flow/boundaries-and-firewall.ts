@@ -344,14 +344,23 @@ function answerFlowFilesNothing(): void {
     );
   }
 
-  /* And exactly one production module calls the R3A writer. */
+  /*
+   * And every production module that calls the R3A writer is an ACTION INLET.
+   *
+   * This read "exactly one production caller" while exactly one proposable act existed. GIA-1 added
+   * `record-work`, so the list is pinned BY NAME rather than by count: a caller anywhere outside
+   * `heby-action-inlet` still fails here, which is the property the sentence was protecting.
+   */
   const callers = collect("src")
     .filter((f) => codeOf(read(f)).includes("recordActionRequest"))
     .filter((f) => !f.endsWith("record-action-request.server.ts"));
   assert.deepEqual(
     callers,
-    ["src/features/heby-action-inlet/send-proposal.server.ts"],
-    "exactly one production caller of recordActionRequest",
+    [
+      "src/features/heby-action-inlet/record-work-proposal.server.ts",
+      "src/features/heby-action-inlet/send-proposal.server.ts",
+    ],
+    "the only production callers of recordActionRequest are the two action inlets",
   );
 }
 

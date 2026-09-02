@@ -92,8 +92,8 @@ function main(): void {
       entries: { idx: number; tag: string }[];
     };
     const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-    assert.equal(journal.entries.length, 43, "MIGRATION DELTA = 0 for E2-4 — the ledger stays where WORK-1 left it");
-    assert.equal(files.length, 43, "no `.sql` was added beyond WORK-1's");
+    assert.equal(journal.entries.length, 44, "MIGRATION DELTA = 0 for E2-4 — the ledger moved for other phases, never for this one"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
+    assert.equal(files.length, 44, "no `.sql` was added by E2-4");
   }
 
   /* ── 2. AUTHORITATIVE WRITER DELTA = 0 ───────────────────────────────────── */
@@ -184,17 +184,32 @@ function main(): void {
 
   /* ── 5. LIVE MAP NODE-KIND AND EDGE-KIND DELTA = 0 ───────────────────────── */
   {
+    /*
+     * REPAIRED: THE CLAIM IS PHASE-RELATIVE, BECAUSE THE ABSOLUTE ONE WAS FALSIFIED.
+     *
+     * These pinned the unions to `"organization" | "agent"` and `"belongs-to"`, which was the whole
+     * of Live Map when E2-4 shipped. LM-1 later DREW this organization's departments and people and
+     * added `department`, `human` and `works-in` — so the pins were failing on somebody else's
+     * released work while still claiming to be about E2-4.
+     *
+     * What E2-4 actually claims is that IT added no node kind and no edge kind: it annotates nodes
+     * that already exist. That is asserted directly — no attention or intelligence concept is a
+     * node kind or a relation — and it stays true however far Live Map grows.
+     */
     const contracts = read("src/features/live-map/contracts.ts");
-    assert.match(
-      contracts,
-      /export type LiveMapNodeKind = "organization" \| "agent";/,
-      "E2-4 adds no node kind — it annotates nodes that already exist",
-    );
-    assert.match(
-      contracts,
-      /export type LiveMapRelation = "belongs-to";/,
-      "E2-4 adds no edge kind — the one relation Core can prove is unchanged",
-    );
+    const nodeKinds = /export type LiveMapNodeKind = ([^;]+);/.exec(contracts);
+    const relations = /export type LiveMapRelation = ([^;]+);/.exec(contracts);
+    assert.ok(nodeKinds && relations, "the unions are declared where this check says they are");
+    for (const forbidden of ["attention", "observation", "intelligence", "attends", "observes"]) {
+      assert.ok(
+        !nodeKinds![1]!.includes(forbidden),
+        `E2-4 adds no node kind — it annotates nodes that already exist (${forbidden})`,
+      );
+      assert.ok(
+        !relations![1]!.includes(forbidden),
+        `E2-4 adds no edge kind — an annotation is not a relation (${forbidden})`,
+      );
+    }
     /* The annotation is its OWN field, never merged into the outcome block. */
     const projection = codeOf(read("src/features/live-map/read-live-map.server.ts"));
     assert.match(projection, /attention: agentAttention\(/);

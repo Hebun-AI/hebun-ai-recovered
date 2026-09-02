@@ -341,10 +341,15 @@ function noSurfaceProliferation(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 
 function theCapabilityDidNotWiden(): void {
+  /*
+   * AGENT-PROPOSAL-2 ADMITTED NO ACTION KIND, and it still has not. GIA-1 admitted `record-work`,
+   * which is why this value moved; the claim this file makes is about ITS OWN phase, and the
+   * surface below is still the same single-kind ask control it released.
+   */
   assert.deepEqual(
     [...AGENT_ORIGINABLE_ACTION_KINDS],
-    ["send"],
-    "AGENT-PROPOSAL-2 admitted no second action kind",
+    ["send", "record-work"],
+    "the released vocabulary is `send` (AGENT-PROPOSAL-1) plus `record-work` (GIA-1), and nothing else",
   );
 
   /*
@@ -384,11 +389,11 @@ function schemaIsUntouched(): void {
    * here is named after its phase, so such a filter is empty for every possible repository state
    * and could never fail. An absolute pin can rot, but it cannot lie.
    */
-  assert.equal(sql.length, 43, "AGENT-PROPOSAL-2 adds no migration"); /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
+  assert.equal(sql.length, 44, "AGENT-PROPOSAL-2 adds no migration"); /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 43, "and the ledger is unchanged by this phase");
+  assert.equal(journal.entries.length, 44, "and the ledger is unchanged by this phase");
   /* And the ledger still agrees with the files on disk — an integrity check that cannot rot. */
   assert.equal(journal.entries.length, sql.length, "the ledger and the migration files agree");
 

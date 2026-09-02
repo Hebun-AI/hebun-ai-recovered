@@ -50,7 +50,20 @@ function terminalAndComputerUseRestricted(): void {
   assert.equal(model.terminal.state, "restricted", "terminal is restricted, not available");
   assert.equal(model.computerUse.status, "simulation-only", "Computer Use is simulation-only");
   assert.ok(model.requiredToExecute.length >= 3, "states what must become true to execute");
-  assert.ok(/no live execution/i.test(model.receiptBoundary), "no receipt is fabricated");
+  /*
+   * REPAIRED AT GIA-1. The probe was `/no live execution/`, a phrase that was only true while ONE
+   * act — an external send that has never run — had an execution path. A governed INTERNAL act is
+   * expected to run, so the surface must not claim otherwise. What this file actually protects is
+   * that no receipt is invented, and that is what is asserted.
+   */
+  assert.ok(
+    /(neither|none) is fabricated/i.test(model.receiptBoundary),
+    "no receipt is fabricated",
+  );
+  assert.ok(
+    /no live send has ever occurred/i.test(model.receiptBoundary),
+    "and the external send's own truth is still stated",
+  );
 }
 
 function surfaceHasNoExecutionControls(): void {

@@ -384,7 +384,7 @@ function theTruthContractsHold(overrides: Readonly<Record<string, string>> = {})
    * Re-pinned by INT-2 (34), by R2H (35, `control_source`) and by KR-EXT1 (36,
    * `knowledge_external_references`). CMD-FINAL still adds none — which is what this asserts.
    */
-  assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 43, /* Departmental Placement grew the ledger 42 -> 43: the `department_placements` table. */
+  assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 44, /* GIA-1 grew the ledger 43 -> 44: the `record-work` mandate-scope CHECK. */
     "the migration ledger is untouched by THIS phase");
 
   /* The page header keeps the authority claim and not the table of contents. */
