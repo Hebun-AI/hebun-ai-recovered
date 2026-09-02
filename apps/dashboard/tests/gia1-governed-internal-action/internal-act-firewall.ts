@@ -57,6 +57,7 @@ import {
 } from "../../src/features/organization-authority/department-ref";
 import { AUTHORIZABLE_SIDE_EFFECTS } from "../../src/features/action-authorization/contracts";
 import { EXECUTABLE_ACTION_KIND } from "../../src/features/action-execution/contracts";
+import { permitOutcomeSentence } from "../../src/components/decision-workspace/action-authorizations";
 
 const ROOT = process.cwd();
 const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
@@ -696,6 +697,49 @@ function theSurfaceOffersTwoDeliberateActions(): void {
   for (const forbidden of ["tenantId", "title", "departmentRef", "actorId"]) {
     assert.ok(!params.includes(forbidden), `and no ${forbidden}`);
   }
+
+  /*
+   * ── THE PERMIT OUTCOME SENTENCE CANNOT CONTRADICT THE ACT (GIA-1 repair) ───
+   *
+   * Production acceptance found a consumed `record-work` permit rendering "Authorized, and never
+   * executed." directly above the surface's own "Recorded." confirmation. The branch asked whether
+   * an EXTERNAL attempt row existed; an internal act writes none, by design. The question it must
+   * ask is whether the authorization was SPENT, which `consumedAt` has answered since R3A.
+   *
+   * Exercised with real inputs rather than pinned as a string, so the contradiction is impossible
+   * rather than merely absent from the current source.
+   */
+  const spentInternal = permitOutcomeSentence({
+    actionKind: RECORD_WORK_ACTION_KIND,
+    state: "consumed",
+    consumedAt: "2026-09-02T14:03:35.961Z",
+  });
+  assert.match(spentInternal, /Executed/, "a spent internal authorization says the act happened");
+  assert.ok(
+    !/never executed/i.test(spentInternal),
+    "and never says it did not — that was the contradiction",
+  );
+
+  const spentExternal = permitOutcomeSentence({
+    actionKind: EXECUTABLE_ACTION_KIND,
+    state: "consumed",
+    consumedAt: "2026-08-31T10:13:36.026Z",
+  });
+  assert.ok(
+    !/never executed/i.test(spentExternal) && !/\bsent\b/i.test(spentExternal),
+    "a spent send with no attempt row claims neither a send nor an absence of one",
+  );
+
+  assert.match(
+    permitOutcomeSentence({ actionKind: RECORD_WORK_ACTION_KIND, state: "active", consumedAt: null }),
+    /not executed/i,
+    "an UNSPENT authorization still says it has not been executed",
+  );
+  assert.match(
+    permitOutcomeSentence({ actionKind: RECORD_WORK_ACTION_KIND, state: "expired", consumedAt: null }),
+    /never executed/i,
+    "and an expired one that was never spent still says so",
+  );
 
   /* THE WORK ROUTE'S PROPOSE ACTION RECORDS NOTHING AND REVALIDATES NO REGISTER. */
   const workActions = codeOf(read(WORK_ACTIONS));

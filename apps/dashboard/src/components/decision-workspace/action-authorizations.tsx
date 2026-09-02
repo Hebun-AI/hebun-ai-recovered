@@ -344,6 +344,49 @@ function OutcomeLine({
   );
 }
 
+/**
+ * WHAT HAPPENED TO AN AUTHORIZATION THAT HAS NO EXTERNAL ATTEMPT ROW (GIA-1 repair).
+ *
+ * ── THE CONTRADICTION THIS EXISTS TO REMOVE ──────────────────────────────────
+ *
+ * This branch used to ask `item.state === "active"` and, for anything else, say "Authorized, and
+ * never executed." That was true while the only executable act was an external send, because a
+ * send's spend and its attempt row are written together — so "no attempt row" really did mean
+ * "never executed".
+ *
+ * A GOVERNED INTERNAL ACT WRITES NO ATTEMPT ROW AT ALL. Its outcome record is the work item and
+ * that item's audit event, deliberately, because an internal mutation inside the permit's own
+ * transaction has no ambiguous phase to reconcile. So a consumed `record-work` permit rendered
+ * "Authorized, and never executed." directly above the surface's own "Recorded." confirmation.
+ *
+ * ── THE FACT WAS ALREADY ON THE VIEW ─────────────────────────────────────────
+ *
+ * The question is not "is there an attempt row" but "was this authorization SPENT", and
+ * `consumedAt` has answered that since R3A. Nothing new is read, no ledger is invented, and the
+ * external branch above is untouched: an attempt row still speaks for itself.
+ *
+ *     ACTIVE != SPENT != ATTEMPTED != SUCCEEDED
+ */
+export function permitOutcomeSentence(item: {
+  readonly actionKind: string;
+  readonly state: ActionPermitView["state"];
+  readonly consumedAt: string | null;
+}): string {
+  if (item.consumedAt !== null) {
+    /*
+     * SPENT. For the internal act the outcome is a durable record, and the surface may say so. For
+     * an external send this combination is structurally unreachable — the attempt row and the spend
+     * commit together — so it says only what it can prove: the authorization is gone.
+     */
+    return item.actionKind === RECORD_WORK_ACTION_KIND
+      ? "Executed. Hebun performed this under your authorization; the record it created is on the work register."
+      : "Spent. This authorization was consumed, and no provider attempt is recorded against it.";
+  }
+  return item.state === "active"
+    ? "Authorized — not executed. Executing spends this authorization permanently."
+    : "Authorized, and never executed.";
+}
+
 function PermitRow({ item }: { item: ActionPermitView }) {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -413,11 +456,7 @@ function PermitRow({ item }: { item: ActionPermitView }) {
       </div>
 
       {item.executionStatus === null ? (
-        <p className="text-[0.65rem] text-fg-muted">
-          {item.state === "active"
-            ? "Authorized — not executed. Executing spends this authorization permanently."
-            : "Authorized, and never executed."}
-        </p>
+        <p className="text-[0.65rem] text-fg-muted">{permitOutcomeSentence(item)}</p>
       ) : (
         <OutcomeLine status={item.executionStatus} providerMessageId={item.providerMessageId} />
       )}
