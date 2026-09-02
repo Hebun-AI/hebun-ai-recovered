@@ -168,3 +168,119 @@ horizon is admitted by the measurement loop rather than by being listed. `cmdv3-
    assertion that actually fires, which in every case was the *stronger* completeness guarantee.
 
 ---
+
+## 8 · Production acceptance
+
+**Deployed commit is the release commit, byte for byte.** `200e22cd2c75a670571645b7af25c8781d748c34`,
+read from the Vercel REST API's `meta.githubCommitSha` on deployment
+`dpl_ARQCJWdN6UwZs1oVMBRWupFoxTQb`, target `production`, state `READY`. Cluster
+`7675444875863894887`, database `neondb`. **Production ledger 43 → 43.**
+
+### The answer was determined before anyone looked
+
+All three authorities were read directly first, so the horizon's output was a PREDICTION to be
+checked rather than a screen to be interpreted — and production held a **mixed** case, which is far
+stronger than an empty one:
+
+```
+Action Authorization    3 pending, 1 approved     -> 3, and the approved one must NOT appear
+Improvement Hypothesis  table empty               -> 0, ANSWERED WITH NOTHING, never "missing"
+Knowledge - Governance  2 in-force, 1 ratified    -> 1 (143d8eaf…); 65f7f57f… subtracted
+Verdict                 all three readable        -> complete, total 4
+```
+
+**Before this capability, `/approvals` and Heby both answered 3.** The true answer is **4, across
+three different kinds** — which is the whole reason DH-1 exists.
+
+### What the Director observed, and what the record proves
+
+The `/approvals` panel showed **3 · 0 · 1**, with the hypothesis authority explicitly answering with
+nothing and **no incomplete-horizon banner**. Heby returned the same four-item structure. The Heby
+surface could not be scrolled to its end, so the tail of the answer was **not** taken on trust — it
+was recovered from **G6D's durable answer-source evidence**, which stored the answer as served:
+
+```
+ordinal 0  heby-action-request/368d793d-7961-4e17-b627-0bd5f909ddeb   send-external-communication
+ordinal 1  heby-action-request/499eb5d0-c52f-4fa5-995b-084f6492d4f5   send-external-communication
+ordinal 2  heby-action-request/6531ec43-e5ff-40dd-9255-651fa7d4e395   send-external-communication
+ordinal 3  knowledge-review/143d8eaf-dd7d-4f6f-85c5-4d109dbf008d      Current Knowledge version
+                                                                       with no recorded decision
+ordinal 4  decision-horizon:complete                                   This horizon is complete
+```
+
+Every id matches the authoritative rows exactly. The `approved` request is **absent**. The ratified
+Knowledge version `65f7f57f…` is **absent** — the subtraction working on real production rows. And
+**ordinal 4 is the completeness verdict**: precisely the item the UI truncated, recovered from the
+record instead of from the screen.
+
+**Per-item provenance survived into the stored evidence**, verbatim:
+
+> *"Knowledge, measured against Governance's own decision record records this as a current Knowledge
+> version Governance has recorded no decision about. Recorded 2026-08-26T10:40:11.890Z. The decision
+> is taken at /knowledge, never here. This is RECORDED as awaiting a decision. It is not a statement
+> that the decision is overdue, expected, or more important than anything else here…"*
+
+That timestamp is `knowledge_nodes.created_at` for `143d8eaf…`, unaltered.
+
+**And nothing was misreported as absent.** Zero `:unavailable`, zero `decision-horizon:partial`,
+zero `decision-horizon:none` rows were recorded, and zero evidence rows from this answer contain an
+`@`. The class carried the whole horizon: `decision-records` contributed 5 of the answer's 8
+evidence items.
+
+---
+
+## 9 · Non-effects, measured across the whole database
+
+Baseline `2026-09-02T08:52:56Z`, post `2026-09-02T09:05:22Z`.
+
+```
+59 tables by created_at · 6 by recorded_at/occurred_at · 57 by updated_at — all scanned
+```
+
+**GATHERING IS NOT DECIDING**, measured on every source the horizon touched:
+
+```
+heby_action_requests    3 pending, 1 approved, 4 total   UNCHANGED
+agent_improvement_hypotheses            0                UNCHANGED
+knowledge_nodes                         2                UNCHANGED
+decision_records (knowledge_node)       1                UNCHANGED
+decision_records (all)                  6                UNCHANGED
+action_permits 1 · execution_attempts 1                  UNCHANGED
+audit_log                              39 -> 39          a read writes no audit row
+drizzle ledger                         43 -> 43
+```
+
+The 60-minute audit window is **empty**. Everything that did move is the Director using the product,
+named and explained — nothing filtered out:
+
+| Table | Change | Why it is not the horizon |
+|---|---|---|
+| `user_session_contexts` | +1 | the Director signing in |
+| `auth_credentials` | 1 updated | the same sign-in |
+| `conversations` / `messages` | +1 / +2 | asking Heby the question |
+| `heby_answer_evidence_set` / `heby_answer_source_evidence` | +1 / +8 | G6D recording that answer — the very rows this acceptance was corroborated from |
+
+---
+
+## 10 · Closure
+
+**CLOSED / PRODUCTION-ACCEPTED.**
+
+```
+release commit    200e22c   feat(decisions): gather everything that needs a human decision into one horizon
+deployed commit   200e22c   identical
+production ledger 43        unchanged — zero schema, zero migration, zero table
+suite             647 / 647 (2 runs: one intended, one replacement after pin movement)
+runtime           Node v24.16.0 — pinned during preflight, both suites on it
+bite-proofs       10 / 10 mutations bit
+```
+
+**Deferred, intentionally and named.** No control on the horizon: every decision is still taken on
+its owner's surface. No fourth source — the vocabulary is closed, and a source added without a
+reader makes every horizon partial, which is the correct and loud failure. No priority, urgency,
+risk score, deadline, elapsed time or ordering across sources. No per-item drill-through. No
+Knowledge statement text. No writer, no table, no cache: the horizon is recomputed on every read,
+because a stored copy would go on claiming a decision somebody had already taken.
+
+**No successor authorized.** APF, ASA, Governed Internal Action and Director Intelligence remain
+deferred with their activation conditions unproven. Pin-debt cleanup remains backlog.
