@@ -31,6 +31,7 @@ const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
 const withoutComments = (s: string): string => codeOf(s);
 
 const EXECUTOR = "src/features/heby-commands/provider-read-commands.server.ts";
+const CROSS_SOURCE_EXECUTOR = "src/features/heby-commands/cross-source-commands.server.ts";
 const SEAM = "src/features/provider-github/read-repository-pull-requests.server.ts";
 const REGISTRY = "src/features/heby-commands/registry.ts";
 const ACTION = "src/app/(dashboard)/heby/actions.ts";
@@ -97,11 +98,18 @@ async function main(): Promise<void> {
     const consumers = walk("src")
       .filter((file) => file !== SEAM)
       .filter((file) => withoutComments(read(file)).includes("readRepositoryPullRequests"));
+    /*
+     * WORK-ACTIVITY-1 added the second consumer, and it is the CROSS-SOURCE executor — the sibling
+     * root INT-5C created. The list is pinned BY NAME rather than by count, so what this still
+     * forbids is unchanged: any consumer outside the two command executors, and any module that
+     * COPIES the seam instead of calling it.
+     */
     assert.deepEqual(
       consumers,
-      [EXECUTOR],
-      "exactly ONE consumer of the released seam, and it is the command executor",
+      [CROSS_SOURCE_EXECUTOR, EXECUTOR].sort(),
+      "the only consumers of the released seam are the two command executors",
     );
+    assert.ok(consumers.includes(EXECUTOR), "including INT-5B2's own");
 
     const executor = withoutComments(read(EXECUTOR));
     /*

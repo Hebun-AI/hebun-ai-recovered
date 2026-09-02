@@ -275,3 +275,109 @@ export async function findKnowledgeRelationshipsForExternalRecords(
     return { status: "unavailable", reason: "query-failed" };
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * THE INVERSE DIRECTION (WORK-ACTIVITY-1)
+ *
+ * Every seam above answers "which FACT concerns this external RECORD?". This one answers the
+ * question the other way round — "which external RECORDS does this FACT declare?" — because a
+ * caller that starts from organizational state, not from a provider page, has a fact in hand and
+ * no record id at all.
+ *
+ * IT LIVES HERE BECAUSE KNOWLEDGE OWNS THE DECLARATION. A consumer that queried
+ * `knowledge_external_references` itself would become a second reader of a table it does not own,
+ * and the tenant predicate and the withdrawn-is-not-current rule would then exist in two places.
+ * This module already holds both, and this function reuses them unchanged.
+ *
+ * IT READS NO FACT WORDING. Identity only, exactly as its siblings: no label, no statement, no
+ * authority class, no ratification. What a fact SAYS and what it STANDS AS are answered by the
+ * Knowledge read seam a caller already has; this one answers only what it points at.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** One external record a fact declares. The provider's own id, never a rendered name. */
+export interface DeclaredExternalRecord {
+  readonly knowledgeFactId: string;
+  /** The provider's own stable id, as text — a Drive id is opaque, a GitHub id is numeric. */
+  readonly recordId: string;
+}
+
+export type ExternalRecordLookup =
+  | {
+      readonly status: "resolved";
+      /** Only facts that HAVE a live declaration appear. Absence here is a real absence. */
+      readonly records: readonly DeclaredExternalRecord[];
+      /** Exactly the fact ids that were asked about, so a caller cannot claim beyond its query. */
+      readonly queried: readonly string[];
+    }
+  | { readonly status: "unavailable"; readonly reason: ExternalReferenceLookupRefusal };
+
+/**
+ * WHICH EXTERNAL RECORDS DO THESE KNOWLEDGE FACTS DECLARE?
+ *
+ * Batched and bounded exactly as the forward direction is: one query, one ceiling, and a refusal
+ * rather than a truncation — a truncated answer would turn "we did not ask" into "nothing was
+ * declared", which is the confusion the whole external-reference vocabulary exists to prevent.
+ *
+ * WITHDRAWN DECLARATIONS ARE NOT RETURNED, and are not deleted. `withdrawn_at is null` is the
+ * currency predicate its siblings use, restated here rather than reinvented.
+ */
+export async function findExternalRecordsForKnowledgeFacts(
+  tenant: TenantContext | null,
+  reference: Omit<ExternalSystemReference, "recordId">,
+  knowledgeFactIds: readonly string[],
+  deps: ExternalReferenceReadDeps = {},
+): Promise<ExternalRecordLookup> {
+  assertServerOnly();
+
+  if (!tenant?.tenantId) return { status: "unavailable", reason: "no-tenant" };
+
+  const queried = Object.freeze([...new Set(knowledgeFactIds)]);
+  if (queried.length === 0) {
+    return { status: "resolved", records: Object.freeze([]), queried };
+  }
+  if (queried.length > MAX_EXTERNAL_RECORD_LOOKUP) {
+    return { status: "unavailable", reason: "too-many-records" };
+  }
+
+  const db = resolveDbOrNull(deps);
+  if (!db) return { status: "unavailable", reason: "no-database" };
+
+  try {
+    const rows = await db
+      .select({
+        knowledgeFactId: knowledgeExternalReferences.knowledgeFactId,
+        recordId: knowledgeExternalReferences.recordId,
+      })
+      .from(knowledgeExternalReferences)
+      .innerJoin(
+        knowledgeFacts,
+        and(
+          eq(knowledgeFacts.id, knowledgeExternalReferences.knowledgeFactId),
+          /* The same restated cross-tenant guarantee the forward seam makes, for the same reason. */
+          eq(knowledgeFacts.tenantId, tenant.tenantId),
+        ),
+      )
+      .where(
+        and(
+          eq(knowledgeExternalReferences.tenantId, tenant.tenantId),
+          eq(knowledgeExternalReferences.providerKey, reference.providerKey),
+          eq(knowledgeExternalReferences.capability, reference.capability),
+          eq(knowledgeExternalReferences.recordType, reference.recordType),
+          inArray(knowledgeExternalReferences.knowledgeFactId, [...queried]),
+          isNull(knowledgeExternalReferences.withdrawnAt),
+        ),
+      );
+
+    return {
+      status: "resolved",
+      records: Object.freeze(
+        rows.map((row) =>
+          Object.freeze({ knowledgeFactId: row.knowledgeFactId, recordId: row.recordId }),
+        ),
+      ),
+      queried,
+    };
+  } catch {
+    return { status: "unavailable", reason: "query-failed" };
+  }
+}

@@ -241,12 +241,34 @@ function main(): void {
     assert.deepEqual(
       knowledgeFiles,
       [
+        /*
+         * WORK-ACTIVITY-1 reaches Knowledge's MAIN READ SEAM as well, and does so through WEV-1's
+         * released `readWorkEvidenceReferences` — which asks Knowledge for the standing of a fact
+         * that work declares it concerns, because Work stores none of it. These three arrive with
+         * that seam.
+         */
+        "src/features/knowledge/capability-map.ts",
+        "src/features/knowledge/contracts.ts",
+        "src/features/knowledge/durable-knowledge-repository.server.ts",
+        /* INT-5C's own two, unchanged. */
         "src/features/knowledge/external-reference-contracts.ts",
         "src/features/knowledge/external-reference-read.server.ts",
+        "src/features/knowledge/knowledge-read.server.ts",
       ],
-      "exactly two Knowledge files are reachable: the read seam and its pure contracts. Anything " +
-        "else under src/features/knowledge/ is a deliberate edit here",
+      "exactly the Knowledge READ surface is reachable. Anything else under " +
+        "src/features/knowledge/ is a deliberate edit here",
     );
+    /*
+     * AND THE PROPERTY THE LIST IS PROTECTING, stated directly so it survives the next legitimate
+     * consumer: not one of them is a writer. An enumeration alone would pass if somebody added a
+     * mutation module to it; this cannot.
+     */
+    for (const file of knowledgeFiles) {
+      assert.ok(
+        !/(write|create|ingest|supersede|retract|admit)[a-z-]*\.server\.ts$/.test(file),
+        `${file}: the cross-source root reaches no Knowledge writer`,
+      );
+    }
 
     if (providerGraph.has("src/features/integration-authority/integration-repository.server.ts")) {
       violations.push("provider graph must not reach the integration repository");

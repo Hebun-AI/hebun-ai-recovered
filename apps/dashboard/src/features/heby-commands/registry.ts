@@ -442,6 +442,52 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     availability: "available", handler: "repository-knowledge", ...base("cross-source-read"),
   },
 
+  /*
+   * WORK-ACTIVITY-1 — THE SECOND CROSS-SOURCE COMMAND, AND IT RUNS THE CHAIN THE OTHER WAY.
+   *
+   * `/repository-knowledge` starts at a PROVIDER PAGE and asks what the organization declared about
+   * it. This one starts at the ORGANIZATION'S OWN WORK and follows what people declared out to one
+   * provider record:
+   *
+   *   work item → what it declares it concerns → the Knowledge fact's external reference
+   *     → that repository's live open pull requests
+   *
+   * IT TAKES ONE ARGUMENT, AND IT IS A WORK REFERENCE. That is the point of the capability: the
+   * Director names the WORK, and Hebun walks a chain humans already built. Nobody has to know a
+   * Knowledge fact id, a GitHub repository id, the external-reference mapping, or which provider
+   * command to type. A repository id is NOT accepted here — the only address this command follows is
+   * one a person recorded.
+   *
+   * IT ASKS THE MODEL NOTHING, and it is not `/pull-requests` with extra steps: that command reads
+   * a repository a human named, and this one reads the repository the organization's own
+   * declarations lead to. Both halves keep their own standing, and observed activity never becomes
+   * a statement about declared work.
+   */
+  {
+    id: "work-activity", slash: "/work-activity", label: "Work activity",
+    category: "platform", kind: "cross-source-read",
+    description:
+      "For one recorded work item, show what your organization declared it concerns and what GitHub " +
+      "currently reports about the repository that concern names. Reads only; observes nothing about " +
+      "whether the work is progressing.",
+    availability: "available", handler: "work-activity",
+    ...base("cross-source-read"),
+    /*
+     * AFTER the spread, deliberately: `base` supplies an empty `args`, and this command is the first
+     * cross-source one that takes any. The pattern mirrors the released `work-item/<uuid>` reference
+     * the Work grounding source publishes, anchored and lowercase-only for the reason
+     * `artifact-ref.ts` paid for — several spellings of one id are several different addresses.
+     */
+    args: [
+      {
+        name: "work",
+        required: true,
+        description: "A recorded work reference: work-item/<uuid>",
+        pattern: /^work-item\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      },
+    ],
+  },
+
   /* ── Agents / workforce ───────────────────────────────────────────────────
    * `/agents` and `/workflows` read the Executive Overview's own sections. That data is DERIVED and
    * non-authoritative, and the result says so — it is never presented as live execution.

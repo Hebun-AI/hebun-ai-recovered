@@ -131,9 +131,20 @@ function theCommandDeclaresExactlyWhatItIs(): void {
   assert.equal(command.requiresModel, false, "and it needs no model");
   assert.equal(command.requiresExecution, false, "and no execution runtime");
 
-  /* Exactly one command of this kind exists. A second would need a deliberate edit. */
+  /*
+   * The commands of this kind are enumerated, and a third would need a deliberate edit here.
+   * WORK-ACTIVITY-1 made that edit and added the second: it runs the chain the other way — from the
+   * organization's own work OUT to one provider record — which is why it is a sibling of this
+   * command rather than an argument on it.
+   */
   const crossSource = HEBY_COMMANDS.filter((c) => c.kind === "cross-source-read");
-  assert.deepEqual(crossSource.map((c) => c.id), [COMMAND_ID]);
+  assert.deepEqual(crossSource.map((c) => c.id), [COMMAND_ID, "work-activity"]);
+  /* And THIS command still takes no address, whatever its sibling accepts. */
+  assert.deepEqual(
+    crossSource.find((c) => c.id === COMMAND_ID)!.args,
+    [],
+    "`/repository-knowledge` is unchanged — it still takes no arguments",
+  );
 
   /* `/repositories` is untouched and still its own kind. */
   const repositories = findHebyCommandById("repositories");

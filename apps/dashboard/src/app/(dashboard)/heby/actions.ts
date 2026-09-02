@@ -203,8 +203,14 @@ export async function runHebyProviderReadCommandAction(
  * INT-5B1 proved it was not reachable from.
  *
  * The tenant is resolved on the server, exactly as it is for every other action here. The only
- * client-crossing payload is a registry command id and its (empty) argument list — no tenant, no
+ * client-crossing payload is a registry command id and its argument list — no tenant, no
  * installation, no repository address, no Knowledge fact id.
+ *
+ * WORK-ACTIVITY-1 made that argument list non-empty for the first time, and it is still not an
+ * address: `/work-activity` takes a WORK reference, resolved inside the server-resolved tenant, and
+ * the repository it ends up reading is one the organization's own declarations lead to. A caller
+ * cannot name a repository here, and adding a command that accepted one would be a different
+ * descriptor with a different pattern.
  */
 export async function runHebyCrossSourceCommandAction(
   input: HebyCrossSourceCommandInput,
