@@ -226,6 +226,19 @@ const PERMITTED_SEAM_IMPORTERS = [
    * being measured, never by being listed.
    */
   "src/features/action-authorization/heby-decision-queue-source.server.ts",
+  /*
+   * DH-1 ADDS THE THIRD FEATURE MODULE, AND THE PROPERTY IS STILL UNCHANGED.
+   *
+   * The Decision Horizon composes this seam with the two OTHER authorities that own a human
+   * decision, so that `/approvals` and Heby stop answering a third of "what needs my decision?"
+   * while looking like the whole of it. It holds no query, no database handle and no copy of the
+   * queue — it asks the released reader and arranges what comes back, which is E2-4's precedent
+   * exactly.
+   *
+   * It is admitted by the measurement below, never by being listed: the loop proves it holds no
+   * statement over the action tables at all.
+   */
+  "src/features/decision-horizon/read-decision-horizon.server.ts",
 ] as const;
 
 /** The seam itself legitimately holds the statement; everything else on the list may not. */

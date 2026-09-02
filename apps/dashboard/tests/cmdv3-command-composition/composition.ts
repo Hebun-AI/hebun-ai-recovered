@@ -658,6 +658,12 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
        */
       "src/components/agents/agent-mandate-card.tsx",
       "src/components/agents/durable-agent-identity-card.tsx",
+      /*
+       * DH-1 — the decision horizon. The TENTH addition, and it uses `StateBlock` for the one fact
+       * this axis exists to keep separate, in its sharpest form yet: a horizon that could not ask
+       * every authority is not a horizon with nothing in it. No density override.
+       */
+      "src/components/decision-workspace/decision-horizon-panel.tsx",
       "src/components/governance-authority/undecided-hypothesis-card.tsx",
       "src/components/knowledge-workspace/company-understanding-card.tsx",
       "src/components/knowledge-workspace/knowledge-authoring-card.tsx",
@@ -687,10 +693,11 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
        */
       "src/components/organizational-work/work-register.tsx",
     ],
-    "the six untouched Knowledge consumers remain, Command is still not among them, and the nine " +
+    "the six untouched Knowledge consumers remain, Command is still not among them, and the ten " +
       "additions are the durable identity ceremony, SIA-3.1's two hypothesis controls, KID-2's " +
       "provider admission control, AMA-3's mandate surface, OSA-1's department structure, " +
-      "Departmental Placement's surface, WORK-1's work register, and OSA-4's people register",
+      "Departmental Placement's surface, WORK-1's work register, OSA-4's people register, and " +
+      "DH-1's decision horizon",
   );
 }
 

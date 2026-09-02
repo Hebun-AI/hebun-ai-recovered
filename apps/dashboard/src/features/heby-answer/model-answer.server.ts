@@ -118,7 +118,12 @@ import { readAgentGroundingSource } from "@/features/agent-outcome-observation/h
  * which re-exports the writer.
  */
 import { readAgentMandateGroundingSource } from "@/features/agent-mandate/heby-mandate-source.server";
-import { readDecisionQueueGroundingSource } from "@/features/action-authorization/heby-decision-queue-source.server";
+/*
+ * DH-1. The `decision-records` class is now served by the DECISION HORIZON, which composes the
+ * released queue projection above with the two other authorities that own a human decision. Heby
+ * still holds no decision writer of any kind: the horizon imports read seams only.
+ */
+import { readDecisionHorizonGroundingSource } from "@/features/decision-horizon/heby-decision-horizon-source.server";
 import { readRecordedActGroundingSource } from "@/features/governance-activity/heby-recorded-act-source.server";
 import { readActWindowGroundingSource } from "@/features/governance-activity/heby-act-window-source.server";
 import { readKnowledgeCoverageGroundingSource } from "@/features/knowledge/heby-knowledge-coverage-source.server";
@@ -842,10 +847,14 @@ async function withAgents(
 }
 
 /*
- * The pending decision queue joins the SAME deterministic evidence set, through the authority that
- * owns it. Read-only: `readDecisionQueueGroundingSource` holds no insert, no update and no
- * transaction, and this module imports nothing else from Action Authorization — so no decision
- * writer, proposal writer, permit consumer or permit revoker enters Heby's graph for this read.
+ * The DECISION HORIZON joins the SAME deterministic evidence set — everything the organization has
+ * recorded as awaiting a human decision, from all three authorities that own one (DH-1). It used to
+ * be the pending action queue alone, which answered a third of the question while looking like the
+ * whole of it.
+ *
+ * Read-only: the horizon projection holds no insert, no update and no transaction, and it imports
+ * read seams and one released projection — so no decision writer, proposal writer, permit consumer,
+ * permit revoker, ratification writer or hypothesis filer enters Heby's graph for this read.
  */
 async function withDecisionQueue(
   resolutions: readonly SourceResolution[],
@@ -856,7 +865,7 @@ async function withDecisionQueue(
     return resolutions;
   }
   try {
-    const resolver = deps.resolveDecisionQueue ?? readDecisionQueueGroundingSource;
+    const resolver = deps.resolveDecisionQueue ?? readDecisionHorizonGroundingSource;
     const queue = await resolver(tenant);
     return resolutions.map((resolution) =>
       resolution.sourceClass === "decision-records" ? queue : resolution,

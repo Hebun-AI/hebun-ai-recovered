@@ -2,6 +2,7 @@ import { DecisionWorkspace } from "@/components/decision-workspace/decision-work
 import { ActionAuthorizations } from "@/components/decision-workspace/action-authorizations";
 import { AgentProposalRequest } from "@/components/decision-workspace/agent-proposal-request";
 import { ExecutionLedger } from "@/components/decision-workspace/execution-ledger";
+import { DecisionHorizonPanel } from "@/components/decision-workspace/decision-horizon-panel";
 import { getDecisionWorkspaceModel } from "@/features/decisions/workspace-model";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import {
@@ -11,6 +12,7 @@ import {
 import { elapsedSince } from "@/features/attention-observation/contracts";
 import { readAwaitingDecisionAggregate } from "@/features/action-authorization/awaiting-decision-aggregate.server";
 import { readExecutionLedger } from "@/features/action-execution/execution-ledger-projection.server";
+import { readDecisionHorizon } from "@/features/decision-horizon/read-decision-horizon.server";
 
 export const metadata = { title: "Decisions — Hebun AI" };
 
@@ -66,6 +68,14 @@ export default async function ApprovalsPage() {
      */
     readAwaitingDecisionAggregate(tenant),
   ]);
+
+  /*
+   * DH-1 — a FIFTH read, and the only one that answers the question this whole surface is named
+   * after. The four above are all Action Authorization's; this one asks EVERY authority that owns
+   * a human decision, and carries its own completeness verdict. Its own availability, like the
+   * others: a partial horizon must never render as a complete one.
+   */
+  const horizon = await readDecisionHorizon(tenant);
   /* ONE instant for every duration this page renders, resolved on the server. */
   const evaluatedAt = new Date().toISOString();
 
@@ -86,6 +96,12 @@ export default async function ApprovalsPage() {
            * EXISTING slot. No eighth workspace, no new route, no navigation change: the Director
            * asks and reviews in one place because the proposal is the same object in both.
            */}
+          {/*
+           * DH-1 — the whole shape of what is waiting, ABOVE the queue that is one third of it.
+           * A Director reading a full-looking action queue had no way to learn that hypotheses and
+           * Knowledge versions were waiting on other surfaces.
+           */}
+          <DecisionHorizonPanel horizon={horizon} />
           <AgentProposalRequest />
           <ActionAuthorizations
             requests={requests.status === "read" ? requests.items : []}
