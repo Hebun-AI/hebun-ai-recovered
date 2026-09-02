@@ -160,3 +160,137 @@ pre-existing failure in another workstream — measured twice, and not modified.
    assertions carrying explicit messages, rather than weakened.
 
 ---
+
+## 7 · Production acceptance
+
+**Deployed commit is the release commit, byte for byte.** `44bd77c92d1e865acbb5b852faf540a0e3a832ae`,
+read from the Vercel REST API's `meta.githubCommitSha` on deployment
+`dpl_B6TAwt81TGCjWcNeFiBTU9ARJif7` — target `production`, `READY` at **2026-09-01T22:12:26Z**,
+aliased to `www.hebuntech.com`. Cluster `7675444875863894887`, database `neondb`.
+**Production ledger 43 → 43**, and production confirms no table exists that could hold a pull
+request, a repository, a provider record or a provider cache.
+
+### The acceptance landed on the case this capability exists to get right
+
+Before the Director ran anything, the answer was established from **two independent sides**:
+
+```
+Hebun's own connection state    connected · healthy · verified 2026-08-24T16:47:15Z
+                                installation 156248772 · scopes metadata:read, pull_requests:read
+GitHub, read independently      zero open pull requests in Hebun-AI/hebun-ai-recovered
+  (gh CLI, a DIFFERENT          exactly ONE repository in the Hebun-AI organization
+   credential from the
+   installation token)
+```
+
+So GitHub's true answer was **zero**. That is the hardest case to render honestly, because a broken
+implementation that conflates *the provider did not answer* with *the provider answered nothing*
+looks identical to a correct one — unless the two paths are different code with different tones,
+which is exactly what this command's `ok` and `unavailable` paths are.
+
+### What the Director observed, on production
+
+```
+Title       No open pull requests in what was read
+Line 1      Hebun-AI/hebun-ai-recovered — GitHub answered, and no pull request is open.
+Line 2      Looked inside 1 repository — at most 3 per command, and at most 50 open pull
+            requests in each.
+Line 3      These are pull-request titles, numbers, authors and timestamps, and nothing inside
+            them. This command reads no diff, no patch, no file, no commit and no comment — the
+            shape it returns has no field for any of them.
+Line 4      An open pull request is GitHub's record of a proposed change. It is NOT this
+            organization's recorded work, and an author login is a GitHub identity, not a member
+            of your organization.
+Provenance  … (authoritative: false) … Provider-derived observation, not organizational truth …
+```
+
+**Every string was verified against the released commit rather than accepted as prose.** Each line
+is present in `44bd77c` at the exact site that produces it — the title at the `totalOpen === 0`
+branch, line 1 at the `entry.open === 0` branch, line 2 built from
+`maxRepositoriesExamined = 3` and `maxRecordsPerRepository = 50`. The provenance is
+`GITHUB_PULL_REQUEST_READ_PROVENANCE`, which **only the `ok` path attaches** — the `unavailable`
+path carries a different sentence entirely. The observation therefore proves the informational
+branch ran, not merely that something rendered. (One character differs from the source in the
+transcription — a semicolon where the shipped string has a colon — which is a transcription
+artifact of reporting, not a difference in what was served.)
+
+### Provider corroboration
+
+| Claim in the answer | Independently measured | Verdict |
+|---|---|---|
+| `Hebun-AI/hebun-ai-recovered` | `gh repo view` — exact full name | matches |
+| "no pull request is open" | `gh pr list --state open` → `[]` | matches |
+| "Looked inside 1 repository" | `gh api /orgs/Hebun-AI/repos` → `1` | matches, and the ceiling of 3 correctly did not bite |
+| no truncation lines rendered | 1 repository, 0 pull requests — nothing to truncate | correct by absence |
+
+**UNAVAILABLE != EMPTY, demonstrated in production rather than asserted.** GitHub answered with
+nothing, and Hebun said so as an informational fact naming the provider as the source of the answer
+— never as an outage, and never as silence.
+
+---
+
+## 8 · Non-effects, measured across the acceptance window
+
+Counts taken **before** the Director acted (`2026-09-01T22:14:06Z`) and **after**
+(`2026-09-02T02:01:06Z`):
+
+```
+drizzle ledger                    43  ->  43     no migration exists in this capability
+audit_log                         39  ->  39     a provider read writes no audit row
+                                                 (and the 40-minute window is EMPTY)
+integration_credentials           18  ->  18     NO TOKEN WAS PERSISTED OR REFRESHED — the
+                                                 installation token is minted and discarded inside
+                                                 the seam's own callback frame
+conversations                     29  ->  29     a slash command is not a conversation
+heby_answer_source_evidence      757  -> 757     NOTHING ENTERED THE MODEL'S EVIDENCE STORE
+```
+
+That last line is the production proof of the design decision in §3: this capability declares **no
+Heby source class**, so provider data never becomes standing grounding material. It is not asserted
+here — it is a count that did not move while a live provider read happened.
+
+**The connection lifecycle was not touched by the read**, which is the guarantee that matters most
+for a provider seam:
+
+```
+integrations (github-organization)
+  version             3           unchanged
+  updated_at          2026-08-24T16:47:15.300Z   unchanged, and equal to last_verified_at
+  connection_state    connected   unchanged      health   healthy   unchanged
+  last_error_at       NULL        failure_reason NULL
+  scopes              metadata:read, pull_requests:read   UNCHANGED — no permission was widened
+```
+
+A provider failure could not have ended this tenant's grant, and a provider success did not
+re-verify it either: reading is not verifying, and the timestamps say so.
+
+---
+
+## 9 · Closure
+
+**CLOSED / PRODUCTION-ACCEPTED.**
+
+```
+release commit    44bd77c   feat(integrations): read what is open in this organization's repositories
+deployed commit   44bd77c   identical, READY 2026-09-01T22:12:26Z
+production ledger 43        unchanged — zero schema, zero migration
+provider scope    unchanged — metadata:read, pull_requests:read, granted 2026-08-24
+suite             644 / 644 (2 runs: one intended, one replacement after pin movement)
+bite-proofs       10 / 10 mutations bit
+```
+
+**Deferred, intentionally and named.** No argument, so no repository can be addressed — the
+installation decides what is visible. No closed, merged, draft-only or per-author filter. No review
+state, no check status, no mergeability, no age and no "stale" judgement — Hebun holds no authority
+for any of them. No persistence, no cache and no synchronization: asking again re-reads. No Heby
+source class, so a model is never grounded on provider data. No second provider. And no link
+between a pull request and a WORK-1 work item: that relationship would be a Knowledge declaration,
+which is INT-5C's shape and nobody has declared one.
+
+**No successor authorized.** APF, ASA, Governed Internal Action and Director Intelligence remain
+deferred with their activation conditions unproven. Pin-debt cleanup remains backlog.
+
+**One measurement to carry forward, not a defect.** `ama1-agent-mandate/bite-proofs` fails at clean
+`HEAD` under Node **v20.20.2** and passes under **v24.16.0**, the interpreter this repository's
+baselines have been established on. It was proved unrelated twice and left untouched. Whichever
+phase next touches that workstream should pin the interpreter or re-aim the bite's expectation.
