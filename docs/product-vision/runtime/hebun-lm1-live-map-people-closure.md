@@ -84,3 +84,49 @@ Departments and people are listed beside the map rather than hung off the spine:
 the one relationship the map has always proved, and a second geometry would assert a shape nobody
 owns. No agent→department edge (Agent Identity owns `agents.department_id`; not this milestone). No
 department→department nesting, no teams, no reporting lines — nothing owns them. No Heby exposure.
+
+---
+
+## Production acceptance
+
+**Deployed commit `cae227f` — identical to the release commit**, target production, state READY,
+read from the Vercel REST API's `meta.githubCommitSha`. Cluster `7675444875863894887`, `neondb`.
+
+**The map's output was determined from the authorities before it was observed:**
+
+```
+department   Engineering (e40866a8-deb1-416e-a3fd-47b4dcce809f), in service
+human        senoltr@gmail.com (d5b496df-588c-49c5-9cc2-17672b82dd10)
+edge         1 works-in, human -> department
+```
+
+**Observed on `/live-map`:** Engineering *in service*; `senoltr@gmail.com` as *member*; the
+`works-in` relationship present and **explicitly grounded in `department_placements`**; the surface
+stating that works-in is not a role, job title, reporting line, manager relationship or work
+assignment; the membership/employment/placement distinction preserved; and no unavailable
+organizational truth presented as known. Every element matches the prediction.
+
+**Non-effects, at the boundary that actually changed.** This capability contains **no writer**, so
+the sweep is the three source tables it reads plus the audit log — not the whole database:
+
+```
+drizzle ledger              43       unchanged
+departments                 1, version 2      unchanged
+department_placements       1, version 1      unchanged
+memberships / users         version 1 / 1     unchanged
+audit_log                   39, and the 60-minute window is EMPTY
+```
+
+A read wrote nothing, and the authorities the map draws from were not touched by drawing them.
+
+**CLOSED / PRODUCTION-ACCEPTED.**
+
+```
+release commit    cae227f     deployed commit  cae227f (identical)
+production ledger 43          unchanged — zero schema, zero migration, zero writer
+validation        targeted PASS + every released contract over this boundary re-run
+full suite        NOT REQUIRED, and not run
+```
+
+No successor authorized. APF, ASA, Director Intelligence and Governed Internal Action remain
+deferred. Pin-debt cleanup remains backlog.
