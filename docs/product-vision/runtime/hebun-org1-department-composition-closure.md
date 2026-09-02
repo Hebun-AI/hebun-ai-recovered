@@ -79,3 +79,52 @@ No per-department drill-through, no counts rolled up anywhere, no ordering or ra
 departments, no agent→department composition (Agent Identity owns `agents.department_id`), no Heby
 class — Heby already grounds on organization, placement and work separately, and a fourth class
 carrying the same facts under a composed provenance would be a second telling of them.
+
+---
+
+## Production acceptance
+
+**Deployed commit `bbb4918` — identical to the release commit**, target production, state READY.
+Cluster `7675444875863894887`, `neondb`.
+
+**Predicted from the authorities before the panel was opened:**
+
+```
+Engineering [engineering]   accountable  senoltr@gmail.com (d5b496df…)
+                            placed here  1 — senoltr@gmail.com
+                            work naming  "Hebun Era III development"
+                            denial       required, because BOTH halves are present
+```
+
+**Observed** on `/director/organization` → *"What each department is"*: all four, including the
+denial that the people placed in Engineering are **not** recorded as performing that work, and the
+statement that the work state is human-declared and not observed by Hebun. Every element matches.
+
+That last point is the acceptance that mattered: the denial only renders where both halves are
+present, and production is exactly that case.
+
+**Non-effects, at the boundary that changed.** No writer exists in this capability, so the sweep is
+the four tables it reads plus the audit log:
+
+```
+drizzle ledger          43   unchanged
+departments             version 2   unchanged
+department_placements   version 1   unchanged
+work_items              version 1   unchanged
+users                   version 1   unchanged
+audit_log               39, and the 60-minute window is EMPTY
+```
+
+**CLOSED / PRODUCTION-ACCEPTED.**
+
+```
+release commit    bbb4918     deployed commit  bbb4918 (identical)
+production ledger 43          unchanged — zero schema, zero migration, zero writer
+full suite        NOT REQUIRED, and not run
+```
+
+No successor authorized. APF, ASA, Director Intelligence and Governed Internal Action remain
+deferred. Pin-debt cleanup remains backlog.
+
+**Left for its owner:** `osa1-organization-structure/structure-postgres.ts` fails at clean `HEAD`
+with every change stashed and consistently on rerun. Proven unrelated; not modified.

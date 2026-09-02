@@ -3033,3 +3033,11 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
 - **A pre-existing failure proved unrelated in one stash.** `osa1-organization-structure/structure-postgres` fails at clean HEAD and consistently on rerun. Stash, run, restore — two minutes, and it stops a phantom hunt without touching another workstream.
 
 **Weekly three.** *Learned:* composing released authorities is the cheapest capability there is, and its entire risk is in what the layout implies rather than in what the data says. *Turkish Rug House:* the Organization page now answers "what is this department?" — who is accountable, who works there, what work names it — and says plainly that the people and the work are not connected by Hebun. *Hebun AI:* one FAST capability, zero schema, zero writer, no new authority, no Heby class, no full suite; two censuses joined; one pre-existing failure proven unrelated and left alone.
+
+## ORG-1 production acceptance — the denial was the acceptance
+
+- **The thing worth verifying in production was a SENTENCE, not a number.** Engineering has both people and work, which is the only situation where the wrong inference is available — so the acceptance was whether the denial rendered, and it did. A composition's risk lives in what the layout implies; its acceptance should test exactly that.
+- **Four tables and an audit window is the whole sweep for a capability with no writer.** Ledger 43, three source tables at their pre-existing versions, audit 39 with an empty window. Anything more would have been proving Hebun's universe unchanged when Hebun's universe was never touched.
+- **Predicting the panel from SQL made the observation a comparison.** Owner label, placed count, work title — written down first, matched line for line.
+
+**Weekly three.** *Learned:* when a capability's risk is an implication rather than a value, the production acceptance is reading the sentence that refuses it. *Turkish Rug House:* the Organization page now answers "what is Engineering?" in one place — accountable human, who works there, what work names it — and says plainly that Hebun does not connect the last two. *Hebun AI:* second consecutive FAST capability closed with no full suite; zero schema, zero writer, no new authority; ledger unchanged at 43; deployed commit identical to the release.
