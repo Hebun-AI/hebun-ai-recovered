@@ -171,8 +171,14 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M10 /audit advertises security and intrusion coverage again",
     file: REGISTRY,
     suite: AVAILABILITY_SUITE,
-    find: `    description: "Show the acts Hebun has durably recorded for your organization.",`,
-    replace: `    description: "Show persisted security audit and intrusion history.",`,
+    /*
+     * SUBJECT-ACT-HISTORY-1 re-anchored this find-string. The `/audit` description gained ", or for
+     * one subject." when the command took an optional subject reference; the PIN is unchanged —
+     * the ledger records authorized acts, so no label on it may promise intrusion coverage — and
+     * only the literal it anchors to moved.
+     */
+    find: `      "Show the acts Hebun has durably recorded for your organization, or for one subject.",`,
+    replace: `      "Show persisted security audit and intrusion history.",`,
     expect: "must not describe itself as security, intrusion, incident or breach coverage",
   },
   {

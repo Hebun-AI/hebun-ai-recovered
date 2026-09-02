@@ -355,7 +355,122 @@ export const RECORDED_ACT_HISTORY_BOUNDARY = Object.freeze({
 /**
  * Fields of `audit_log` that this seam must NEVER select. Held as a value so the firewall reads it
  * instead of restating it, and so deleting a name from this list is a visible act.
+ *
+ * SUBJECT-ACT-HISTORY-1 added a SECOND reader over the same table and did not add a second list.
+ * `WITHHELD_AUDIT_COLUMNS` (below) governs both select lists, because two lists is how two readers
+ * come to withhold different things while each looks correct on its own.
  */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SUBJECT ACT HISTORY (SUBJECT-ACT-HISTORY-1)
+ *
+ * R7.1.1 answers "what were this organization's most recent acts?". This answers the question a
+ * person actually asks when they are looking at one thing:
+ *
+ *     "WHAT HAS THIS ORGANIZATION ACTUALLY DONE TO THIS SPECIFIC THING?"
+ *
+ * ── NO NEW TRUTH, AND NO SECOND RECORD ───────────────────────────────────────
+ *
+ * `audit_log` has carried `entity_type` + `entity_id` on every act since R1, written by the
+ * authorities that performed them. This phase adds a PREDICATE and nothing else: no table, no
+ * materialization, no cache, no history authority of its own. Every act it can show was already
+ * recorded, by its own writer, for its own reason.
+ *
+ * ── WHAT A RECORDED ACT IS, AND THE FOUR THINGS IT IS NOT ────────────────────
+ *
+ *     RECORDED ACT != WORLD EVENT       the ledger says what Hebun recorded doing, not what
+ *                                       happened in the world afterwards
+ *     RECORDED ACT != WORK PROGRESS     no act advances a declared state; only a person does
+ *     RECORDED ACT != COMPLETION        a recorded act is a beginning as often as an ending
+ *     RECORDED ACT != VERIFICATION      nothing here checked that the act achieved anything
+ *
+ * ── AND THE FIFTH, WHICH IS THE ONE A ZERO TEMPTS ────────────────────────────
+ *
+ *     EMPTY HISTORY != NOTHING HAPPENED
+ *
+ * An empty result means exactly one thing: Hebun has no recorded acts for this subject in this
+ * record. Work done outside Hebun, work done before the ledger existed, and work done through a
+ * surface that writes no audit row are all invisible here and all real. This is the same
+ * discipline `unavailable` already carries one step earlier — a read that could not run is not a
+ * subject with no history — and it is why both states exist rather than one falsy answer.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The thing acts are asked about.
+ *
+ * Both halves come from the CALLER, and both are matched by exact SQL equality. There is no name
+ * here, no label, no title and no search: a subject is identified by the same two values its
+ * writer stamped, or it is not identified at all. Resolving a subject from prose would make this
+ * reader a second, weaker identity authority for every table it can name.
+ */
+export interface ActSubject {
+  /** `audit_log.entity_type` verbatim, e.g. `work_item`. The writer's own word, never a guess. */
+  readonly entityType: string;
+  /** `audit_log.entity_id` verbatim. A uuid this tenant already owns. */
+  readonly entityId: string;
+}
+
+/**
+ * `audit_log.entity_type` is written by product code, never by a client. This accepts the shape
+ * that code actually writes — lower snake case, bounded — so a caller cannot smuggle a pattern, a
+ * wildcard or an expression into an equality predicate.
+ */
+export const ACT_SUBJECT_ENTITY_TYPE_RE = /^[a-z][a-z0-9_]{0,63}$/;
+
+/**
+ * The reference spellings a product surface may address a subject by, and the `entity_type` each
+ * one denotes.
+ *
+ * TWO ENTRIES, AND DELIBERATELY NOT A UNIVERSAL SUBJECT ONTOLOGY. Both spellings are already
+ * released — `work-item/<uuid>` is what the Work grounding source publishes, `department/<uuid>`
+ * is what GIA-1's permit target carried — and both denote an entity type the production ledger
+ * demonstrably holds acts for. A third entry is a decision to make when a surface needs it, not a
+ * shape to fill in now: an ontology invented ahead of its surfaces would be Hebun asserting what
+ * kinds of things an organization has.
+ *
+ * The READ underneath is generic and takes an `entityType` directly. This map governs only what a
+ * reference STRING may name, which is a separate and narrower question.
+ */
+export const ACT_SUBJECT_REFERENCE_KINDS: Readonly<Record<string, string>> = Object.freeze({
+  "work-item": "work_item",
+  department: "department",
+});
+
+/**
+ * The result of asking what Hebun recorded doing to one subject.
+ *
+ * The three outcomes are the SAME three `RecordedActHistoryResult` keeps apart, for the same
+ * reason, and they are restated rather than reused because this one carries the subject: a page
+ * that could not name what it is about would let a caller render one subject's acts under another
+ * subject's heading.
+ */
+export type SubjectActHistoryResult =
+  | {
+      readonly status: "recorded";
+      readonly tenantId: string;
+      readonly subject: ActSubject;
+      readonly generatedAt: string;
+      readonly page: RecordedActPage;
+    }
+  | {
+      readonly status: "empty";
+      readonly tenantId: string;
+      readonly subject: ActSubject;
+      readonly generatedAt: string;
+    }
+  | {
+      readonly status: "unavailable";
+      readonly reason: SubjectActHistoryUnavailable;
+      readonly detail?: string;
+    };
+
+/**
+ * `unrecognized-subject` is the fourth reason, and it is NOT `empty`.
+ *
+ * A malformed reference means Hebun never looked, so saying "no recorded acts" would be an
+ * organizational claim manufactured out of a typo.
+ */
+export type SubjectActHistoryUnavailable = GovernanceActivityUnavailable | "unrecognized-subject";
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * WINDOWED RECORDED-ACT ACTIVITY (E2-7)
  *

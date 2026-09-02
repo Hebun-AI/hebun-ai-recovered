@@ -261,8 +261,35 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
      * the ledger IS — Hebun's own record of the acts it carried out — and the surface states the
      * limit rather than leaving a reader to infer completeness.
      */
-    description: "Show the acts Hebun has durably recorded for your organization.",
+    /*
+     * ── SUBJECT-ACT-HISTORY-1 · THE OPTIONAL SUBJECT ─────────────────────────
+     *
+     * `/audit` with no argument is R7.1.1's command, unchanged. `/audit work-item/<uuid>` asks the
+     * same authority the narrower question a person actually has in front of one thing: what has
+     * this organization actually DONE to this?
+     *
+     * IT IS AN ARGUMENT, NOT A NEW COMMAND, because it is not a new capability — it is the same
+     * ledger, the same authority, the same projection and the same three outcomes with one more
+     * equality in the predicate. A second slash command would have implied a second thing to learn
+     * and a second place for the recorded-act vocabulary to drift.
+     *
+     * The pattern admits ONLY the reference spellings `ACT_SUBJECT_REFERENCE_KINDS` maps, which is
+     * why it is enumerated here rather than written as a generic `<kind>/<uuid>`: a caller must not
+     * be able to name an entity type no surface has ever addressed. The two lists are asserted to
+     * agree, so the duplication cannot drift.
+     */
+    description:
+      "Show the acts Hebun has durably recorded for your organization, or for one subject.",
     availability: "available", handler: "audit", ...base("read"),
+    args: [
+      {
+        name: "subject",
+        required: false,
+        description: "Optional. One subject reference: work-item/<uuid> or department/<uuid>",
+        pattern:
+          /^(work-item|department)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      },
+    ],
   },
   {
     id: "incidents", slash: "/incidents", label: "Incidents", category: "security", kind: "read",

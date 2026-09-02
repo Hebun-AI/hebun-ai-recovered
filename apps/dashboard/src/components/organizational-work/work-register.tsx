@@ -54,6 +54,7 @@ import { StateBlock } from "@/components/ui/state-block";
 import {
   declareWorkReferenceAction,
   proposeRecordWorkForGovernanceAction,
+  readWorkItemActHistoryAction,
   recordWorkAction,
   withdrawWorkReferenceAction,
   retireWorkAction,
@@ -61,6 +62,7 @@ import {
   setWorkAccountableHumanAction,
   setWorkDeclaredStateAction,
 } from "@/app/(dashboard)/director/work/actions";
+import type { SubjectActHistoryResult } from "@/features/governance-activity/contracts";
 import {
   RECORD_WORK_PROPOSAL_EFFECTS,
   RECORD_WORK_PROPOSAL_NON_EFFECTS,
@@ -464,6 +466,111 @@ const REFERENT_KIND_LABEL: Record<WorkReferenceKind, string> = {
  * An UNRESOLVED referent is SAID to be unresolved. It is never replaced by its id, by a guess, or
  * by silence — the released Human Legibility rule, applied to a different kind of referent.
  */
+/*
+ * SUBJECT-ACT-HISTORY-1 — "Recorded activity" for ONE work item.
+ *
+ * ── WHAT THIS SECTION IS, IN ONE LINE ────────────────────────────────────────
+ *
+ * What HEBUN RECORDED DOING to this work item — not what happened to it.
+ *
+ * `Concerns` above says what a person DECLARED this work is about. `/work-activity` says what a
+ * provider OBSERVES about the repository that declaration names. This is the third face and the
+ * only one drawn from Hebun's own permanent record: the acts Hebun itself carried out.
+ *
+ *     DECLARED   the organization's own statement about its work
+ *     OBSERVED   a provider's answer about the outside world
+ *     RECORDED   what Hebun did, under whose authority, and when
+ *
+ * ── THE FOUR NON-INFERENCES, RENDERED AND NOT ASSUMED ────────────────────────
+ *
+ *     RECORDED ACT != WORLD EVENT != WORK PROGRESS != COMPLETION != VERIFICATION
+ *
+ * A work item can carry ten recorded acts and be untouched; it can carry none and be finished. The
+ * declared state above is the only thing that says what a person believes about this work, and no
+ * act here changes it.
+ *
+ * ── AND ZERO IS THE LINE THAT MATTERS ────────────────────────────────────────
+ *
+ * An empty history says "Hebun has no recorded acts for this work item", never "nothing happened".
+ * The distinction is not pedantic: work done outside Hebun leaves no row, and a surface that
+ * rendered that as inactivity would be inventing an organizational fact out of its own coverage.
+ *
+ * ── IT READS WHEN OPENED, AND NEVER BEFORE ───────────────────────────────────
+ *
+ * Closed, this section reads nothing. The register would otherwise pay one bounded read per work
+ * item on every page load whether or not anybody looked.
+ */
+function RecordedActivitySection({ item }: { item: WorkItemView }) {
+  const [history, setHistory] = useState<SubjectActHistoryResult | null>(null);
+  const [pending, start] = useTransition();
+
+  return (
+    <details
+      className="mt-2 rounded-md border border-border bg-bg"
+      onToggle={(event) => {
+        /* Read once, on the first open. Re-opening shows what was read, not a second read. */
+        if (!event.currentTarget.open || history !== null || pending) return;
+        start(async () => {
+          setHistory(await readWorkItemActHistoryAction({ workItemId: item.workItemId }));
+        });
+      }}
+    >
+      <summary className="cursor-pointer px-2.5 py-1.5 text-xs text-fg-secondary">
+        Recorded activity
+      </summary>
+      <div className="border-t border-border p-2.5">
+        {history === null ? (
+          <p className="text-xs leading-5 text-fg-muted">
+            {pending ? "Reading Hebun's record…" : "Opening this reads Hebun's record for this work item."}
+          </p>
+        ) : history.status === "unavailable" ? (
+          <p className="text-xs leading-5 text-fg-secondary">
+            Hebun could not read its record of its own acts ({history.reason}). UNKNOWN, not empty —
+            Hebun did not establish that nothing was recorded, only that it could not look.
+          </p>
+        ) : history.status === "empty" ? (
+          <p className="text-xs leading-5 text-fg-muted">
+            Hebun has no recorded acts for this work item. That is a statement about Hebun&rsquo;s
+            record, not about the world: work done outside Hebun leaves no act here and is no less
+            real.
+          </p>
+        ) : (
+          <>
+            <p className="text-xs leading-5 text-fg-secondary">
+              Hebun recorded {history.page.totalRecordedActs}{" "}
+              {history.page.totalRecordedActs === 1 ? "act" : "acts"} for this work item
+              {history.page.truncated ? `, showing the ${history.page.acts.length} most recent` : ""}
+              . Most recent first.
+            </p>
+            <ul className="mt-2 space-y-2">
+              {history.page.acts.map((act) => (
+                <li key={`${act.occurredAt}-${act.action}`} className="text-xs leading-5">
+                  {/* The writer's own verb, verbatim. Never relabelled, never categorised. */}
+                  <span className="text-fg">{act.action}</span>
+                  <span className="text-fg-muted"> · {act.result}</span>
+                  {act.simulation ? (
+                    <span className="text-fg-muted"> · SIMULATED — no real effect occurred</span>
+                  ) : null}
+                  {/* A KIND of actor, never which person. The ledger's identifiers stay unread. */}
+                  <span className="block text-fg-muted">
+                    by {act.actorType} under {act.authoritySource ?? "no authority source recorded"}{" "}
+                    via {act.source ?? "no source recorded"}
+                  </span>
+                  <span className="block text-fg-muted">{act.occurredAt}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs leading-5 text-fg-muted">
+              What Hebun recorded doing. Not progress, not completion, and not verification of this
+              work.
+            </p>
+          </>
+        )}
+      </div>
+    </details>
+  );
+}
+
 function ConcernsSection({
   item,
   references,
@@ -861,6 +968,7 @@ export function WorkRegisterPanel({
                           factOptions={factOptions}
                           artifactOptions={artifactOptions}
                         />
+                        <RecordedActivitySection item={item} />
                         <WorkItemControls item={item} members={members} />
                       </>
                     ) : (

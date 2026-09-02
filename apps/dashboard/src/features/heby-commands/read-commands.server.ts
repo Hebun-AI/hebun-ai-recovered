@@ -85,11 +85,15 @@ import { KNOWLEDGE_PROVENANCE, type KnowledgeSourceRecord } from "@/features/kno
 import { findHebyCommandById } from "./registry";
 import {
   observeRecordedActHistory,
+  observeSubjectActHistory,
   type ObserveGovernanceActivityDeps,
 } from "@/features/governance-activity/observe.server";
 import {
+  ACT_SUBJECT_REFERENCE_KINDS,
   RECORDED_ACT_PAGE_LIMIT,
+  type ActSubject,
   type RecordedActHistoryResult,
+  type SubjectActHistoryResult,
 } from "@/features/governance-activity/contracts";
 import type { HebyCommandResult } from "./contracts";
 
@@ -128,6 +132,16 @@ export interface HebyReadCommandDeps {
     tenant: TenantContext,
     deps?: ObserveGovernanceActivityDeps,
   ) => Promise<RecordedActHistoryResult>;
+  /**
+   * SUBJECT-ACT-HISTORY-1 — the SUBJECT-scoped reader, reached through the same projection seam
+   * and for the same reason. It is a separate dep rather than an optional parameter on the one
+   * above so a test that drives one cannot accidentally satisfy the other.
+   */
+  readonly readSubjectActHistory?: (
+    tenant: TenantContext,
+    subject: ActSubject,
+    deps?: ObserveGovernanceActivityDeps,
+  ) => Promise<SubjectActHistoryResult>;
 }
 
 export type HebyReadCommandResult =
@@ -221,6 +235,128 @@ function ok(command: string, title: string, lines: readonly string[], provenance
 
 function unavailable(command: string, title: string, lines: readonly string[], provenance: string): HebyReadCommandResult {
   return { status: "ok", result: { command, title, lines, tone: "unavailable", provenance } };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SUBJECT-ACT-HISTORY-1 — `/audit <subject-ref>`
+ *
+ * ── THE VERB IS "RECORDED", AND IT IS NOT A STYLE CHOICE ─────────────────────
+ *
+ * Every line below says what HEBUN RECORDED, never what happened. The ledger is a record of acts
+ * Hebun carried out; it is not a record of the world. "Hebun recorded a `work.reference-declared`
+ * act by a human" is provable from a row. "The human declared what this work concerns" is a
+ * stronger sentence that only the Work authority's own semantics could license, and this command
+ * holds none of them.
+ *
+ *     RECORDED ACT != WORLD EVENT != WORK PROGRESS != COMPLETION != VERIFICATION
+ *
+ * ── AND THE EMPTY CASE IS THE ONE THAT MATTERS MOST ──────────────────────────
+ *
+ * Zero acts renders as "Hebun has no recorded acts for this subject in this record" and never as
+ * "nothing happened". Work performed outside Hebun, before this ledger existed, or through a
+ * surface that writes no audit row is invisible here and entirely real. Rendering absence of
+ * record as absence of activity would be the exact inference this whole capability exists to
+ * refuse — and it is the inference a reader makes automatically unless the sentence forbids it.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** The one sentence a zero result may say, and the one it may not. */
+const SUBJECT_ACT_EMPTY_LINES: readonly string[] = Object.freeze([
+  "Hebun has no recorded acts for this subject in this record.",
+  "That is a statement about Hebun's record, NOT about the world: the ledger was read successfully " +
+    "and holds nothing for this subject.",
+  "Work done outside Hebun, done before this record existed, or done through a surface that writes " +
+    "no act leaves no row here and is no less real. This is not evidence that nothing happened.",
+]);
+
+/** Stated on every subject answer, so the four non-inferences never have to be inferred. */
+const SUBJECT_ACT_CLOSING: readonly string[] = Object.freeze([
+  "A recorded act is what Hebun recorded doing. It is not progress, not completion and not verification of this subject.",
+  "This is Hebun's record of its own acts — not everything your organization did about this thing.",
+]);
+
+/**
+ * Resolve `work-item/<uuid>` to the `entity_type` + `entity_id` its writers stamped.
+ *
+ * The reference vocabulary is the CONTRACT'S map, not a local list, so the registry pattern, this
+ * resolver and the authority all name the same two kinds. Anything else returns `null` and the
+ * caller REFUSES — it does not fall back to a broader read.
+ */
+function resolveActSubjectRef(reference: string): ActSubject | null {
+  const separator = reference.indexOf("/");
+  if (separator <= 0) return null;
+  const entityType = ACT_SUBJECT_REFERENCE_KINDS[reference.slice(0, separator)];
+  if (entityType === undefined) return null;
+  return { entityType, entityId: reference.slice(separator + 1) };
+}
+
+async function auditSubject(
+  slash: string,
+  reference: string,
+  tenant: TenantContext,
+  deps: HebyReadCommandDeps,
+): Promise<HebyReadCommandResult> {
+  const subject = resolveActSubjectRef(reference);
+  if (!subject) {
+    return unavailable(slash, "Recorded acts for one subject", [
+      "That is not a subject reference Hebun can address.",
+      `Give one of: ${Object.keys(ACT_SUBJECT_REFERENCE_KINDS)
+        .map((kind) => `\`${kind}/<uuid>\``)
+        .join(", ")}.`,
+      "",
+      "NOTHING WAS READ. This is not a subject with no history — Hebun never looked one up.",
+    ], ACT_HISTORY_PROVENANCE);
+  }
+
+  const history = await (deps.readSubjectActHistory ?? observeSubjectActHistory)(tenant, subject);
+
+  if (history.status === "unavailable") {
+    return unavailable(slash, "Recorded acts for one subject", [
+      history.reason === "persistence-not-configured"
+        ? "Durable storage is not configured, so Hebun could not read the record of its own acts."
+        : history.reason === "unrecognized-subject"
+          ? "That subject could not be addressed, so Hebun did not look it up."
+          : "The recorded act history could not be read, and nothing was substituted for it.",
+      `Reason: ${history.reason}.`,
+      "",
+      "UNKNOWN, not empty. Hebun did not establish that nothing was recorded for this subject — it established that it could not look.",
+    ], ACT_HISTORY_PROVENANCE);
+  }
+
+  const subjectLine = `Subject: ${reference} (${subject.entityType}).`;
+
+  if (history.status === "empty") {
+    return ok(slash, "Recorded acts for one subject", [
+      subjectLine,
+      "",
+      ...SUBJECT_ACT_EMPTY_LINES,
+      "",
+      ...SUBJECT_ACT_CLOSING,
+    ], ACT_HISTORY_PROVENANCE);
+  }
+
+  const { acts, totalRecordedActs, truncated } = history.page;
+  const heading = truncated
+    ? `Hebun recorded ${totalRecordedActs} acts for this subject — showing the ${RECORDED_ACT_PAGE_LIMIT} most recent first.`
+    : `Hebun recorded ${totalRecordedActs} ${totalRecordedActs === 1 ? "act" : "acts"} for this subject, most recent first.`;
+
+  return ok(slash, "Recorded acts for one subject", [
+    subjectLine,
+    heading,
+    "",
+    /*
+     * The SAME line shape `/audit` already renders, deliberately. Two spellings of one recorded act
+     * would be two vocabularies for one ledger, and the first edit to either would make the tenant
+     * view and the subject view disagree about what an act is.
+     */
+    ...acts.map((act) => {
+      const authority = act.authoritySource ?? "no authority source recorded";
+      const source = act.source ?? "no source recorded";
+      const simulated = act.simulation ? "  [SIMULATED — no real effect occurred]" : "";
+      return `  ${act.occurredAt} — ${act.action} on ${act.entityType} — ${act.result} — by ${act.actorType} under ${authority} via ${source}${simulated}`;
+    }),
+    "",
+    ...SUBJECT_ACT_CLOSING,
+  ], ACT_HISTORY_PROVENANCE);
 }
 
 /** Describe the freshness the overview reports about ITSELF. Never a claim of live polling. */
@@ -444,6 +580,20 @@ export async function runHebyReadCommand(
      * authorized or successful beyond the `result` the ledger itself stored.
      */
     case "audit": {
+      /*
+       * ── SUBJECT-ACT-HISTORY-1 · ONE SUBJECT, WHEN ONE IS NAMED ─────────────
+       *
+       * The subject branch is taken ONLY when an argument is present. `/audit` alone is R7.1.1's
+       * command byte for byte, and this is why the branch is first: a subject that fails to
+       * resolve must REFUSE, never silently fall through to the tenant-wide history. Falling
+       * through would answer a question about one thing with a page about everything, and a reader
+       * would have no way to tell which question was answered.
+       */
+      const subjectRef = (input.args[0] ?? "").trim();
+      if (subjectRef.length > 0) {
+        return await auditSubject(slash, subjectRef, tenant, deps);
+      }
+
       const history = await (deps.readActHistory ?? observeRecordedActHistory)(tenant);
 
       if (history.status === "unavailable") {

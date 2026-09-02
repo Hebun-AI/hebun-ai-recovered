@@ -195,6 +195,14 @@ async function main(): Promise<void> {
          * narrowed a released guarantee from "this file" to "this function". ALLOWLIST — a new name
          * here is a deliberate act, never a directory prefix. */
         "src/features/governance-activity/act-window-read.server.ts",
+        /* SUBJECT-ACT-HISTORY-1 — the FOURTH declared reader: the bounded read for ONE subject. It
+         * selects and writes nothing, proved by its absence from the write census directly above.
+         * A fourth file for a fourth reason: `act-history-read.server.ts` carries a single
+         * UNCONDITIONAL tenant scope, and adding an optional subject filter there would have made
+         * both of its statements conditional — narrowing "the tenant scope is one expression" to
+         * "one expression on whichever branch was taken". Its own file keeps both scopes absolute.
+         * ALLOWLIST — a new name here is a deliberate act, never a directory prefix. */
+        "src/features/governance-activity/subject-act-history-read.server.ts",
       ].sort(),
       "the sink is imported by its writers and by the declared readers — nothing else",
     );

@@ -30,8 +30,22 @@ import type {
 } from "@/features/organizational-work/work-contracts";
 import { proposeRecordWorkAction as fileRecordWorkProposal } from "@/features/heby-action-inlet/record-work-proposal.server";
 import type { RecordWorkProposalResult } from "@/features/heby-action-inlet/contracts";
+import { observeSubjectActHistory } from "@/features/governance-activity/observe.server";
+import {
+  ACT_SUBJECT_REFERENCE_KINDS,
+  type SubjectActHistoryResult,
+} from "@/features/governance-activity/contracts";
 
 const WORK_ROUTE = "/director/work";
+
+/**
+ * The `audit_log.entity_type` the Organizational Work writers stamp on a work item's acts.
+ *
+ * Taken from the contract's reference map rather than written as a literal here, so this surface
+ * and Heby's `/audit work-item/<uuid>` resolve the SAME entity type. Two literals would be two
+ * chances to address two different populations while both looked correct.
+ */
+const WORK_ITEM_ACT_ENTITY_TYPE = ACT_SUBJECT_REFERENCE_KINDS["work-item"]!;
 
 function revalidate(result: WorkWriteResult): WorkWriteResult {
   if (result.status === "recorded") revalidatePath(WORK_ROUTE);
@@ -154,4 +168,33 @@ export async function withdrawWorkReferenceAction(input: {
   return revalidate(
     await withdrawWorkEvidenceReference(tenant, { referenceId: String(input?.referenceId ?? "") }),
   );
+}
+
+/*
+ * SUBJECT-ACT-HISTORY-1 — read what Hebun recorded doing to ONE work item.
+ *
+ * ── WHY THIS IS AN ACTION AND NOT PART OF THE PAGE READ ──────────────────────
+ *
+ * The register renders every work item this organization has. Reading each one's act history at
+ * page load would make the cost of opening the register scale with the number of work items — one
+ * bounded read per row, every time, whether or not anyone looked. The section is opened
+ * deliberately, so the read happens deliberately.
+ *
+ * ── IT IS A READ, AND IT REVALIDATES NOTHING ─────────────────────────────────
+ *
+ * No `revalidatePath` here: nothing changed. Every other action in this file wraps a writer; this
+ * one wraps `observeSubjectActHistory`, which issues `select` and owns no row.
+ *
+ * The tenant is resolved SERVER-SIDE from the session, exactly as every action above. The client
+ * supplies a work item id and nothing else — it cannot name an entity type, cannot name another
+ * organization, and cannot widen the read to the tenant-wide ledger.
+ */
+export async function readWorkItemActHistoryAction(input: {
+  workItemId: string;
+}): Promise<SubjectActHistoryResult> {
+  const tenant = await resolveTenantContext();
+  return await observeSubjectActHistory(tenant, {
+    entityType: WORK_ITEM_ACT_ENTITY_TYPE,
+    entityId: input.workItemId,
+  });
 }

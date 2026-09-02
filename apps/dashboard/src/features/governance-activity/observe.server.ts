@@ -12,10 +12,19 @@
  */
 
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import type { GovernanceActivityObservationResult, RecordedActHistoryResult } from "./contracts";
+import type {
+  ActSubject,
+  GovernanceActivityObservationResult,
+  RecordedActHistoryResult,
+  SubjectActHistoryResult,
+} from "./contracts";
 import { projectGovernanceActivity } from "./observation";
 import { readGovernanceActivityTallies, type GovernanceActivityReadDeps } from "./read.server";
 import { readRecordedActPage } from "./act-history-read.server";
+import {
+  isAddressableActSubject,
+  readSubjectActPage,
+} from "./subject-act-history-read.server";
 
 export interface ObserveGovernanceActivityDeps extends GovernanceActivityReadDeps {
   /** Injected so `generatedAt` is deterministic under test. Never read inside the projection. */
@@ -104,6 +113,61 @@ export async function observeRecordedActHistory(
       status: "unavailable",
       reason: "read-failed",
       detail: error instanceof Error ? error.message : "recorded act history read failed",
+    };
+  }
+}
+
+/**
+ * SUBJECT-ACT-HISTORY-1 — observe what Hebun recorded doing to ONE subject.
+ *
+ * ── THE TENANT IS STILL NOT A PARAMETER ──────────────────────────────────────
+ *
+ * The subject is the only thing a caller supplies. The tenant comes from the caller's already
+ * authorized context and is used verbatim, exactly as both released observers arrange it, so
+ * naming another organization's work item resolves to that organization's rows for nobody: the
+ * predicate is `AND`-ed with a tenant the caller did not choose.
+ *
+ * ── FOUR OUTCOMES, AND THE THIRD IS THE ONE THIS PHASE EXISTS FOR ────────────
+ *
+ *   `recorded`             the ledger holds acts for this subject; here is a bounded, ordered page.
+ *   `empty`                the ledger was READ SUCCESSFULLY and holds no act for this subject.
+ *                          That is a statement about Hebun's record, NOT about the world: work
+ *                          done outside Hebun leaves no row here and is no less real.
+ *   `unrecognized-subject` the subject was not addressable, so NOTHING WAS READ. Never `empty`:
+ *                          a typo must not be able to produce an organizational claim.
+ *   `unavailable`          the ledger could not be read. "Nothing was recorded" and "Hebun could
+ *                          not look" are different sentences.
+ */
+export async function observeSubjectActHistory(
+  tenant: Pick<TenantContext, "tenantId"> | null,
+  subject: ActSubject,
+  deps: ObserveGovernanceActivityDeps = {},
+): Promise<SubjectActHistoryResult> {
+  if (typeof window !== "undefined") {
+    throw new Error("Governance activity reads are server-only.");
+  }
+  if (!tenant?.tenantId) {
+    return { status: "unavailable", reason: "no-authorized-tenant-context" };
+  }
+  if (!isAddressableActSubject(subject)) {
+    return { status: "unavailable", reason: "unrecognized-subject" };
+  }
+
+  try {
+    const page = await readSubjectActPage(tenant.tenantId, subject, deps);
+    if (!page) {
+      return { status: "unavailable", reason: "persistence-not-configured" };
+    }
+    const generatedAt = (deps.now?.() ?? new Date()).toISOString();
+    if (page.totalRecordedActs === 0) {
+      return { status: "empty", tenantId: tenant.tenantId, subject, generatedAt };
+    }
+    return { status: "recorded", tenantId: tenant.tenantId, subject, generatedAt, page };
+  } catch (error) {
+    return {
+      status: "unavailable",
+      reason: "read-failed",
+      detail: error instanceof Error ? error.message : "subject act history read failed",
     };
   }
 }
