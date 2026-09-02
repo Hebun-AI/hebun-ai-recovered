@@ -7,6 +7,7 @@ import { AuthoritativeOrganizationPanel } from "@/components/organization-domain
 import { DepartmentStructurePanel } from "@/components/organization-domain/department-structure";
 import { DepartmentalPlacementPanel } from "@/components/organization-domain/departmental-placement";
 import { PeopleRegisterPanel } from "@/components/organization-domain/people-register";
+import { DepartmentCompositionPanel } from "@/components/organization-domain/department-composition";
 import { getOrganizationProjection } from "@/features/enterprise-projection-providers";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -24,6 +25,12 @@ import {
   readPeopleRegister,
   type PeopleRegister,
 } from "@/features/auth-runtime/people-register-read.server";
+/*
+ * ORG-1 — the work register, read here for the FIRST time on this page. It is the fourth authority
+ * the department composition needs, and it is read exactly as the other three are: through its own
+ * released seam, with its own availability, composed beside them and never merged into any of them.
+ */
+import { readWorkRegister, type WorkRegister } from "@/features/organizational-work/read-work.server";
 
 /*
  * L3 — THIS PAGE NOW HAS TWO SECTIONS AND THEY ARE NOT THE SAME KIND OF THING.
@@ -111,12 +118,28 @@ export default async function OrganizationDomainPage() {
    *     UI LEGIBILITY != MODEL PROVIDER DISCLOSURE
    */
   const people: PeopleRegister = await readPeopleRegister(tenant);
+  /*
+   * ORG-1. Read unconditionally and contained like the rest: an unreadable work register must not
+   * make the departments look like they carry no work, and the composition panel says so itself.
+   */
+  const work: WorkRegister = await readWorkRegister(tenant);
   let peopleNames: readonly HumanLabel[] = [];
   if (people.status === "available" && people.people.length > 0) {
     const peopleIds = people.people.map((person) => person.userId);
     const peopleResolved = await resolveHumanLabels(tenant, peopleIds);
     peopleNames = [...peopleResolved].map(([userId, label]) => ({ userId, label }));
   }
+
+  /*
+   * ORG-1 — the labels the COMPOSITION needs, which is the union of the three sets already resolved
+   * above: department owners, placed humans, and members. Deduped so one identifier is asked about
+   * once, and composed here rather than inside any register — no view gains a label field.
+   */
+  const compositionLabels: readonly HumanLabel[] = [
+    ...new Map(
+      [...ownerLabels, ...placedNames, ...peopleNames].map((entry) => [entry.userId, entry]),
+    ).values(),
+  ];
 
   return (
     <>
@@ -160,6 +183,19 @@ export default async function OrganizationDomainPage() {
           * this register does not depend on the structural authority having answered.
           */}
         <PeopleRegisterPanel register={people} names={peopleNames} placements={placements} />
+        {/*
+          * ORG-1. The three panels above each answer about ONE authority; this one answers "what is
+          * this department?" by putting their answers side by side. It is last of the durable
+          * panels and still ABOVE the disclosure line, because every fact it shows is durable.
+          */}
+        {authoritative.status === "available" ? (
+          <DepartmentCompositionPanel
+            structure={authoritative.organization.structure}
+            placements={placements}
+            work={work}
+            labels={compositionLabels}
+          />
+        ) : null}
         <p className="text-xs leading-5 text-fg-secondary">
           Everything below this line is an illustrative mock projection. It is not connected to any
           live system and Hebun does not vouch for it.

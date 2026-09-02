@@ -536,6 +536,7 @@ function walk(dir: string): string[] {
   const PEOPLE_PANEL = "src/components/organization-domain/people-register.tsx";
   const PEOPLE_GROUNDING_PROJECTION = "src/features/auth-runtime/heby-people-source.server.ts";
   const LIVE_MAP_PROJECTION = "src/features/live-map/read-live-map.server.ts";
+  const COMPOSITION_PANEL = "src/components/organization-domain/department-composition.tsx";
   assert.deepEqual(
     consumers.sort(),
     [
@@ -557,8 +558,15 @@ function walk(dir: string): string[] {
        * map can reach a model provider.
        */
       LIVE_MAP_PROJECTION,
+      /*
+       * ORG-1 adds the ELEVENTH consumer, and it is a component receiving the shape — the released
+       * pattern exactly. The composition panel takes `HumanLabel` as a TYPE and is handed the
+       * deduped union the page already resolved; it performs no read of its own, which the no-read
+       * loop below proves.
+       */
+      COMPOSITION_PANEL,
     ].sort(),
-    "exactly two pages read legibility, four components receive it, THREE grounding projections " +
+    "exactly two pages read legibility, five components receive it, THREE grounding projections " +
       "resolve it for Heby, and Live Map composes it for the map. No other consumer.",
   );
 
@@ -583,7 +591,7 @@ function walk(dir: string): string[] {
       `${component} imports the legibility SHAPES and never the functions`,
     );
   }
-  for (const component of [PANEL, PLACEMENT_PANEL, PEOPLE_PANEL]) {
+  for (const component of [PANEL, PLACEMENT_PANEL, PEOPLE_PANEL, COMPOSITION_PANEL]) {
     const code = withoutComments(read(component));
     for (const forbidden of [
       "readSelectableMembers(",

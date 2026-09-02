@@ -676,6 +676,12 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
        * exists to keep separate: an UNAVAILABLE structural read is not an organization with no
        * departments. It opts into no density override either, so the pinned set above stays empty.
        */
+      /*
+       * ORG-1 — the department composition. The ELEVENTH addition, and it uses `StateBlock` for the
+       * same ONE fact as the four surfaces around it: an unavailable structural read is not an
+       * organization with no departments. No density override. (Sorted — the comparison sorts.)
+       */
+      "src/components/organization-domain/department-composition.tsx",
       "src/components/organization-domain/department-structure.tsx",
       /* Departmental Placement's surface — the eighth addition, and the count moves with it. */
       "src/components/organization-domain/departmental-placement.tsx",
@@ -693,11 +699,11 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
        */
       "src/components/organizational-work/work-register.tsx",
     ],
-    "the six untouched Knowledge consumers remain, Command is still not among them, and the ten " +
+    "the six untouched Knowledge consumers remain, Command is still not among them, and the eleven " +
       "additions are the durable identity ceremony, SIA-3.1's two hypothesis controls, KID-2's " +
       "provider admission control, AMA-3's mandate surface, OSA-1's department structure, " +
-      "Departmental Placement's surface, WORK-1's work register, OSA-4's people register, and " +
-      "DH-1's decision horizon",
+      "Departmental Placement's surface, WORK-1's work register, OSA-4's people register, " +
+      "DH-1's decision horizon, and ORG-1's department composition",
   );
 }
 
