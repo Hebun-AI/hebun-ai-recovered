@@ -79,8 +79,12 @@ import {
 import {
   LIVE_MAP_FRESHNESS,
   LIVE_MAP_INTELLIGENCE_COMPLETENESS_WORDING,
+  LIVE_MAP_DEPARTMENT_BASIS,
+  LIVE_MAP_HUMAN_BASIS,
   LIVE_MAP_PEOPLE_ABSENT,
+  LIVE_MAP_PEOPLE_NONE_RECORDED,
   LIVE_MAP_STRUCTURE_ABSENT,
+  LIVE_MAP_WORKS_IN_BASIS,
   LIVE_MAP_STRUCTURE_NONE_RECORDED,
   liveMapStructureRecorded,
   type LiveMapDomain,
@@ -92,6 +96,20 @@ import {
   type LiveMapNodeIntelligence,
   type LiveMapProjection,
 } from "./contracts";
+
+/*
+ * LM-1 — the three released reads that let this map draw an organization's parts and its people.
+ * All read-only, all tenant-scoped by their own predicates, and NONE of them is a writer.
+ */
+import {
+  readPeopleRegister,
+  type PeopleRegister,
+} from "@/features/auth-runtime/people-register-read.server";
+import {
+  readPlacementRegister,
+  type PlacementRegister,
+} from "@/features/organization-authority/read-placement.server";
+import { resolveHumanLabels } from "@/features/auth-runtime/human-label-read.server";
 
 export interface LiveMapDeps {
   readonly readOrganization?: (tenant: TenantContext | null) => Promise<OrganizationAuthorityRead>;
@@ -105,6 +123,21 @@ export interface LiveMapDeps {
   readonly readAgentAwaiting?: (
     tenant: TenantContext | null,
   ) => Promise<AwaitingDecisionRead<readonly AgentAwaitingDecision[]>>;
+  /** LM-1 — who is in this organization. Contained like the others: a failure is one domain. */
+  readonly readPeople?: (tenant: TenantContext | null) => Promise<PeopleRegister>;
+  /** LM-1 — who works where. A failure draws no edges and leaves both endpoint domains intact. */
+  readonly readPlacements?: (tenant: TenantContext | null) => Promise<PlacementRegister>;
+  /**
+   * LM-1 — Identity's PRODUCT label for the people this map draws.
+   *
+   * The address-floored read is correct HERE and only here: Live Map is a server-rendered surface
+   * for this organization's own authorized human, and it is NOT a Heby grounding source — a
+   * released firewall keeps the whole Heby tree away from this projection, so no label composed on
+   * this map can reach a model provider.
+   *
+   *     UI LEGIBILITY != MODEL PROVIDER DISCLOSURE
+   */
+  readonly resolveLabels?: typeof resolveHumanLabels;
   /** The single instant every duration on one reading is measured against. Injected for tests. */
   readonly now?: () => Date;
 }
@@ -112,6 +145,8 @@ export interface LiveMapDeps {
 /** Projection identities. Kind-prefixed so a node id can never be mistaken for a domain id. */
 const organizationNodeId = (organizationId: string): string => `organization:${organizationId}`;
 const agentNodeId = (agentId: string): string => `agent:${agentId}`;
+const departmentNodeId = (departmentId: string): string => `department:${departmentId}`;
+const humanNodeId = (userId: string): string => `human:${userId}`;
 
 /**
  * The sentence a reader sees when the organization authority could not answer.
@@ -147,10 +182,79 @@ function structureState(read: OrganizationAuthorityRead): LiveMapDomainState {
   if (departments.length === 0) {
     return { status: "known-empty", detail: LIVE_MAP_STRUCTURE_NONE_RECORDED };
   }
+  /*
+   * LM-1 — DEPARTMENTS ARE NODES NOW. Until this milestone the map carried a count and said out
+   * loud that drawing them was a later decision; this is that decision. The count sentence survives
+   * as the node's own detail rather than as a substitute for the node.
+   */
   const inService = departments.filter((department) => department.inService).length;
+  const summary = liveMapStructureRecorded(inService, departments.length - inService);
   return {
-    status: "known-empty",
-    detail: liveMapStructureRecorded(inService, departments.length - inService),
+    status: "available",
+    nodes: departments.map((department) => ({
+      nodeId: departmentNodeId(department.departmentId),
+      kind: "department" as const,
+      label: department.name,
+      truth: "authoritative" as const,
+      sourceAuthority: "Organization Structure Authority",
+      detail: [
+        `Identifier: ${department.slug}.`,
+        department.inService
+          ? "In service."
+          : "Retired from service. The record is kept; retirement is not deletion.",
+        LIVE_MAP_DEPARTMENT_BASIS,
+        summary,
+      ],
+      openRoute: "/director/organization",
+      status: {
+        label: department.inService ? "in service" : "retired",
+        tone: department.inService ? ("active" as const) : ("retired" as const),
+      },
+    })),
+  };
+}
+
+/**
+ * The people domain (LM-1).
+ *
+ * FOUR STATES, AND THEY ARE FOUR. A refused or unreachable register is `unavailable`; a register
+ * that answered with nobody is `known-empty`, which is a real answer about the organization; people
+ * are `available`. There is no `no-authority` case any more — OSA-4 released the authority, and
+ * saying otherwise on this surface would be the stale claim this milestone repaired.
+ *
+ * THE LABEL IS COMPOSED, NEVER MERGED. The register carries identifiers only; Identity answers what
+ * each one is called, and an unresolved id is drawn as `name unavailable` beside its identifier —
+ * never as a blank and never as a guess.
+ */
+function peopleState(
+  register: PeopleRegister,
+  labels: ReadonlyMap<string, string>,
+): LiveMapDomainState {
+  if (register.status !== "available") {
+    return { status: "unavailable", reason: register.reason, detail: LIVE_MAP_PEOPLE_ABSENT };
+  }
+  if (register.people.length === 0) {
+    return { status: "known-empty", detail: LIVE_MAP_PEOPLE_NONE_RECORDED };
+  }
+  return {
+    status: "available",
+    nodes: register.people.map((person) => ({
+      nodeId: humanNodeId(person.userId),
+      kind: "human" as const,
+      label: labels.get(person.userId) ?? "name unavailable",
+      truth: "authoritative" as const,
+      sourceAuthority: "Organizational People Register",
+      detail: [
+        `Identifier: ${person.userId}.`,
+        `Membership recorded ${person.membershipRecordedAt}. Not a hire date.`,
+        LIVE_MAP_HUMAN_BASIS,
+        register.truncated
+          ? "This organization holds more members than are drawn here; the map is bounded."
+          : "Every member Hebun records as in force is drawn.",
+      ],
+      openRoute: "/director/organization",
+      status: { label: "member", tone: "active" as const },
+    })),
   };
 }
 
@@ -177,11 +281,10 @@ function organizationDomain(read: OrganizationAuthorityRead): LiveMapDomain {
     truth: "authoritative",
     sourceAuthority: "Organization Authority",
     /*
-     * The member COUNT travels as a property of the organization, never as people nodes: Hebun has
-     * no authority that LISTS this organization's members. Departmental placement is now recorded
-     * and has its own authority, but it is a register of placements rather than a roster — a human
-     * nobody placed is invisible to it — so drawing people from it would draw an incomplete
-     * organization and call it the whole one.
+     * The member COUNT stays a property of the organization, and it is the AUTHORITY'S OWN COUNT —
+     * not the number of people nodes drawn beside it. LM-1 draws people from the Organizational
+     * People Register, which is bounded; if the two numbers ever differ, this one is the
+     * organization's and the nodes say so themselves.
      */
     detail: [
       `Identifier: ${organization.slug}.`,
@@ -475,6 +578,43 @@ function agentDomain(
  * shared scope. If the organization is unavailable the agents are still real, but the relationship
  * has no visible far end, so nothing is drawn.
  */
+/**
+ * The `works-in` edges (LM-1).
+ *
+ * DRAWN ONLY WHEN BOTH ENDPOINTS ARE ON THE MAP. A placement whose human or department is not
+ * drawn — an unreadable register, a bound reached, a retired department the structure read still
+ * returns — produces NO edge rather than an edge into empty space, which is the projection's
+ * released rule about edges and is not weakened here.
+ *
+ * An unreadable placement register draws no edges AND changes no node: people and departments keep
+ * their real answers, and the absence of a line is never a claim that somebody is placed nowhere.
+ */
+function placementEdges(
+  placements: PlacementRegister,
+  people: LiveMapDomain,
+  structure: LiveMapDomain,
+): readonly LiveMapEdge[] {
+  if (placements.status !== "available") return [];
+  if (people.state.status !== "available" || structure.state.status !== "available") return [];
+
+  const drawnPeople = new Set(people.state.nodes.map((node) => node.nodeId));
+  const drawnDepartments = new Set(structure.state.nodes.map((node) => node.nodeId));
+
+  return placements.placements.flatMap((placement) => {
+    const from = humanNodeId(placement.userId);
+    const to = departmentNodeId(placement.departmentId);
+    if (!drawnPeople.has(from) || !drawnDepartments.has(to)) return [];
+    return [
+      {
+        fromNodeId: from,
+        toNodeId: to,
+        relation: "works-in" as const,
+        basis: LIVE_MAP_WORKS_IN_BASIS,
+      },
+    ];
+  });
+}
+
 function edgesFor(organization: LiveMapDomain, agents: LiveMapDomain): readonly LiveMapEdge[] {
   if (organization.state.status !== "available") return [];
   if (agents.state.status !== "available") return [];
@@ -554,6 +694,41 @@ export async function readLiveMapProjection(
   } catch {
     awaitingRead = { status: "unavailable", reason: "read-failed" };
   }
+  /*
+   * LM-1 — three more reads, contained exactly as the four above are. A failure of any of them is
+   * ONE domain's unavailability or an absence of edges; none of them can blank the map.
+   */
+  let peopleRead: PeopleRegister;
+  try {
+    peopleRead = await (deps.readPeople ?? readPeopleRegister)(tenant);
+  } catch {
+    peopleRead = { status: "unavailable", reason: "authority-unavailable", detail: LIVE_MAP_PEOPLE_ABSENT };
+  }
+
+  let placementRead: PlacementRegister;
+  try {
+    placementRead = await (deps.readPlacements ?? readPlacementRegister)(tenant);
+  } catch {
+    placementRead = { status: "unavailable", detail: LIVE_MAP_PEOPLE_ABSENT };
+  }
+
+  /*
+   * ONE label read, for the ids the register already names. Legibility failing must never make the
+   * people unavailable, so it is deliberately not escalated: the nodes stay and read
+   * `name unavailable`.
+   */
+  let personLabels: ReadonlyMap<string, string> = new Map();
+  if (peopleRead.status === "available" && peopleRead.people.length > 0) {
+    try {
+      personLabels = await (deps.resolveLabels ?? resolveHumanLabels)(
+        tenant,
+        peopleRead.people.map((person) => person.userId),
+      );
+    } catch {
+      personLabels = new Map();
+    }
+  }
+
   /* ONE instant for every duration in this reading. */
   const evaluatedAt = (deps.now?.() ?? new Date()).toISOString();
 
@@ -586,12 +761,12 @@ export async function readLiveMapProjection(
   const people: LiveMapDomain = {
     domainId: "people",
     label: "People",
-    state: { status: "no-authority", detail: LIVE_MAP_PEOPLE_ABSENT },
+    state: peopleState(peopleRead, personLabels),
   };
 
   return {
     domains: [organization, agents, structure, people],
-    edges: edgesFor(organization, agents),
+    edges: [...edgesFor(organization, agents), ...placementEdges(placementRead, people, structure)],
     freshness: LIVE_MAP_FRESHNESS,
     intelligenceCompleteness: intelligenceCompleteness(outcomeRead),
   };

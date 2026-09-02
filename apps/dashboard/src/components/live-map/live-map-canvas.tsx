@@ -305,12 +305,31 @@ function StateNotice({ children }: { children: React.ReactNode }) {
  * the geometry can check the column it restates.
  */
 function Relationship({ edges }: { edges: readonly LiveMapEdge[] }) {
-  const first = edges[0];
-  if (!first) return null;
+  if (edges.length === 0) return null;
+  /*
+   * ONE LINE PER RELATION KIND, not per edge and no longer just the first.
+   *
+   * The map proved exactly one relationship until LM-1 added `works-in`, and printing only
+   * `edges[0]` then would have shown a reader the basis for a relationship while silently omitting
+   * the basis for another they can see drawn. Each kind states its own column once; the count says
+   * how many edges rest on it.
+   */
+  const byRelation = new Map<string, { basis: string; count: number }>();
+  for (const edge of edges) {
+    const seen = byRelation.get(edge.relation);
+    if (seen) seen.count += 1;
+    else byRelation.set(edge.relation, { basis: edge.basis, count: 1 });
+  }
   return (
-    <p className="lm-basis">
-      <span className="lm-basis-relation">{first.relation}</span> {first.basis}
-    </p>
+    <>
+      {[...byRelation.entries()].map(([relation, { basis, count }]) => (
+        <p className="lm-basis" key={relation}>
+          <span className="lm-basis-relation">{relation}</span>
+          {count > 1 ? ` (${count}) ` : " "}
+          {basis}
+        </p>
+      ))}
+    </>
   );
 }
 
@@ -324,6 +343,52 @@ function CompletenessNote({ completeness }: { completeness: LiveMapIntelligenceC
 }
 
 /** A domain Hebun does not own, or could not read — stated, never left as empty canvas. */
+/**
+ * A domain that HAS nodes and is not the organization or the agents (LM-1).
+ *
+ * Departments and people are drawn here rather than on the spine, deliberately: the spine carries
+ * the one relationship this map has always proved (`agent belongs-to organization`), and hanging a
+ * second geometry off it would assert a shape nobody owns. These are listed, each node carrying its
+ * own authority and its own basis, and the `works-in` relationship is stated as text under the map
+ * exactly as `belongs-to` is.
+ */
+function PresentDomain({ domain }: { domain: LiveMapDomain }) {
+  const Icon = DOMAIN_ICON[domain.domainId] ?? Layers;
+  if (domain.state.status !== "available") return null;
+  const nodes = domain.state.nodes;
+  return (
+    <section className="lm-absent" aria-labelledby={`live-map-${domain.domainId}`}>
+      <h3 id={`live-map-${domain.domainId}`} className="lm-absent-title">
+        <Icon className="size-4 text-fg-muted" aria-hidden="true" />
+        {domain.label}
+        <span className="lm-group-count">
+          {nodes.length} {nodes.length === 1 ? "record" : "records"}
+        </span>
+      </h3>
+      <ul className="lm-record">
+        {nodes.map((node) => (
+          <li key={node.nodeId}>
+            <strong>{node.label}</strong>
+            {node.status ? (
+              <>
+                {" "}
+                <span className="lm-status" data-tone={node.status.tone}>
+                  {node.status.label}
+                </span>
+              </>
+            ) : null}
+            <ul className="lm-record">
+              {node.detail.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function AbsentDomain({ domain }: { domain: LiveMapDomain }) {
   const Icon = DOMAIN_ICON[domain.domainId] ?? Layers;
   if (domain.state.status === "available") return null;
@@ -396,7 +461,10 @@ export function LiveMapCanvas({ projection }: { projection: LiveMapProjection })
 
       <div className="lm-absences">
         {others.map((domain) => (
-          <AbsentDomain key={domain.domainId} domain={domain} />
+          <div key={domain.domainId}>
+            <PresentDomain domain={domain} />
+            <AbsentDomain domain={domain} />
+          </div>
         ))}
       </div>
 

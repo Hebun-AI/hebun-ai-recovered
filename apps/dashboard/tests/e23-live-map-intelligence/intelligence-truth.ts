@@ -582,7 +582,8 @@ async function theGraphDidNotGrow(): Promise<void> {
 async function structureRemainsUnowned(): Promise<void> {
   const projection = await read(OUTCOME_READ);
   assert.equal(domain(projection, "structure").state.status, "no-authority");
-  assert.equal(domain(projection, "people").state.status, "no-authority");
+  /* LM-1 — the People Register exists, so an unreachable one is `unavailable`, not `no-authority`. */
+  assert.equal(domain(projection, "people").state.status, "unavailable");
 
   /*
    * THE BAN IS ON WHAT E2-3 ADDED, NOT ON THE MAP'S OWN DENIAL.

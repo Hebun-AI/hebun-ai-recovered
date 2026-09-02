@@ -535,6 +535,7 @@ function walk(dir: string): string[] {
    */
   const PEOPLE_PANEL = "src/components/organization-domain/people-register.tsx";
   const PEOPLE_GROUNDING_PROJECTION = "src/features/auth-runtime/heby-people-source.server.ts";
+  const LIVE_MAP_PROJECTION = "src/features/live-map/read-live-map.server.ts";
   assert.deepEqual(
     consumers.sort(),
     [
@@ -547,9 +548,18 @@ function walk(dir: string): string[] {
       PLACEMENT_GROUNDING_PROJECTION,
       PEOPLE_PANEL,
       PEOPLE_GROUNDING_PROJECTION,
+      /*
+       * LM-1 adds the TENTH consumer, and the first that is neither a page nor a component nor a
+       * grounding projection: Live Map composes the PRODUCT label for the people it draws. That is
+       * the address-floored read, and it is correct here for the reason the two pages use it —
+       * `/live-map` is server-rendered for this organization's own authorized human, and a released
+       * firewall keeps the whole Heby tree away from this projection, so no label composed on the
+       * map can reach a model provider.
+       */
+      LIVE_MAP_PROJECTION,
     ].sort(),
-    "exactly two pages read legibility, four components receive it, and THREE grounding " +
-      "projections resolve it for Heby. No other consumer.",
+    "exactly two pages read legibility, four components receive it, THREE grounding projections " +
+      "resolve it for Heby, and Live Map composes it for the map. No other consumer.",
   );
 
   /*

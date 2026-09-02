@@ -164,12 +164,18 @@ const MUTATIONS: readonly Mutation[] = [
   },
   {
     /* MEMBERSHIP IS NOT PLACEMENT. */
-    label: "V8 people become their own domain with a measured zero",
+    /*
+     * REPOINTED BY LM-1, NOT DROPPED. This mutation guarded "an unread people domain must not be
+     * downgraded to a measured zero". The domain now DRAWS people, so the same defect lives one
+     * state along: an unavailable register presented as a measured empty one. That is the edit this
+     * mutation now makes, and the guarantee is unchanged.
+     */
+    label: "V8 an unread people register is downgraded to a measured zero",
     file: PROJECTION,
     suite: TRUTH_SUITE,
-    find: `    state: { status: "no-authority", detail: LIVE_MAP_PEOPLE_ABSENT },`,
-    replace: `    state: { status: "known-empty", detail: LIVE_MAP_PEOPLE_ABSENT },`,
-    expect: "no-authority",
+    find: `    return { status: "unavailable", reason: register.reason, detail: LIVE_MAP_PEOPLE_ABSENT };`,
+    replace: `    return { status: "known-empty", detail: LIVE_MAP_PEOPLE_ABSENT };`,
+    expect: "unavailable",
   },
   {
     /*

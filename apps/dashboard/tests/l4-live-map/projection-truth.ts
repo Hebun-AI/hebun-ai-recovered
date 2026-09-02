@@ -83,7 +83,12 @@ async function everyDomainIsNamed(): Promise<void> {
    * has none, so structure and people are present with a stated reason instead.
    */
   assert.equal(domain(projection, "structure").state.status, "no-authority");
-  assert.equal(domain(projection, "people").state.status, "no-authority");
+  /*
+   * LM-1. People became `unavailable` rather than `no-authority`, and that is the milestone's whole
+   * point: OSA-4 released the authority, so "nobody owns this concept" stopped being true. An
+   * unreadable register is now an unread ANSWER, not a missing authority.
+   */
+  assert.equal(domain(projection, "people").state.status, "unavailable");
 }
 
 /* ── 2 · FOUR STATES, AND THEY DO NOT COLLAPSE INTO EACH OTHER ─────────────── */
@@ -218,8 +223,13 @@ async function membershipIsNotStructure(): Promise<void> {
   assert.match(org.nodes[0]!.detail.join(" "), /Human members: 3/, "the count is an organization property");
 
   const people = domain(projection, "people").state;
-  assert.equal(people.status, "no-authority");
-  if (people.status !== "no-authority") throw new Error("unreachable");
+  /*
+   * LM-1 — `no-authority` became `unavailable`. The People Register exists now; this fixture simply
+   * cannot reach it. The assertions below are REPOINTED to the sentence that case produces, and
+   * every property they protected is still proved.
+   */
+  assert.equal(people.status, "unavailable");
+  if (people.status !== "unavailable") throw new Error("unreachable");
   assert.equal(people.detail, LIVE_MAP_PEOPLE_ABSENT);
   /*
    * THE CLAIM IS REPOINTED, NOT DROPPED.
@@ -236,7 +246,7 @@ async function membershipIsNotStructure(): Promise<void> {
   );
   assert.match(
     people.detail,
-    /are not drawn as their own nodes/,
+    /A MEMBER REGISTER IS NOT A PLACEMENT REGISTER/,
     "and membership is still never relabelled as placement",
   );
   /*
@@ -250,7 +260,11 @@ async function membershipIsNotStructure(): Promise<void> {
     !/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(people.detail),
     "and no identifier — it is a count, and a count names nobody",
   );
-  assert.match(people.detail, /counted on the organization/, "which is exactly what it says it is");
+  assert.match(
+    people.detail,
+    /unknown — not absent/,
+    "an unread register is unknown, never an organization with nobody in it",
+  );
 
   const structure = domain(projection, "structure").state;
   if (structure.status !== "no-authority") throw new Error("unreachable");

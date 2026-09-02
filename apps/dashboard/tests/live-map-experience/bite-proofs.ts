@@ -91,8 +91,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M3 the drawn relationship stops naming the column that proves it",
     file: CANVAS,
     suite: MAP_SUITE,
-    find: `      <span className="lm-basis-relation">{first.relation}</span> {first.basis}`,
-    replace: `      <span className="lm-basis-relation">{first.relation}</span> These are related.`,
+    /* LM-1 renders one line per relation kind; the guarantee — the basis is printed — is unchanged. */
+    find: `          {basis}`,
+    replace: `          These are related.`,
     expect: "the durable column that proves it is printed",
   },
   {

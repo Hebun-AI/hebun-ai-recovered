@@ -174,7 +174,16 @@ function noAuthorityIsReachable(): void {
         offenders.sort(),
         [
           "src/features/organization-authority/contracts.ts",
+          /*
+           * LM-1. The PLACEMENT READ SEAM and its pure contracts, reached because the map now draws
+           * the `works-in` relationship this projection's own contract had been waiting for both
+           * endpoints to exist for. It is a READ, exactly like the ones beside it: the placement
+           * WRITER stays absent from this graph, which the writer sweep below proves rather than
+           * assumes. (Listed in sorted order — the comparison sorts the actual set.)
+           */
+          "src/features/organization-authority/placement-contracts.ts",
           "src/features/organization-authority/read-organization.server.ts",
+          "src/features/organization-authority/read-placement.server.ts",
           /*
            * OSA-1. The structural read is reached TRANSITIVELY, through the one seam Live Map
            * already called — not by Live Map importing it. That is the milestone's own claim:

@@ -74,7 +74,15 @@
  */
 
 /** The only kinds Core admits. Each earned its place from a released, tenant-scoped read seam. */
-export type LiveMapNodeKind = "organization" | "agent";
+/*
+ * LM-1 ADDS TWO KINDS, AND EACH ONE EARNED IT BY AN AUTHORITY EXISTING.
+ *
+ * `department` — the Organization Structure Authority (OSA-1) owns it. Until it existed this map
+ * carried a COUNT and said so; the count sentence is now the fallback, not the answer.
+ * `human`      — the Organizational People Register (OSA-4) owns it. Before OSA-4 this map's own
+ * contract said "no authority that lists them", which was TRUE THEN and is FALSE NOW.
+ */
+export type LiveMapNodeKind = "organization" | "agent" | "department" | "human";
 
 /**
  * The truth classification of a rendered node.
@@ -224,7 +232,15 @@ export interface LiveMapNodeAttention {
 }
 
 /** The one relationship Core can prove. Extending this union requires a durable owner for it. */
-export type LiveMapRelation = "belongs-to";
+/*
+ * LM-1 ADDS THE SECOND RELATION, and it is the one this contract predicted:
+ *
+ *     human  --works-in->  department      basis: `department_placements`
+ *
+ * It is drawn from a DURABLE RECORD, never from co-membership. Both endpoints now exist as nodes,
+ * which is the only thing that was missing — the relationship itself has been owned since OSA-3.
+ */
+export type LiveMapRelation = "belongs-to" | "works-in";
 
 export interface LiveMapEdge {
   readonly fromNodeId: string;
@@ -313,18 +329,64 @@ export function liveMapStructureRecorded(inService: number, retired: number): st
   ].filter(Boolean);
   return (
     `This organization has recorded ${parts.join(", ")}, through the Organization Structure ` +
-    "Authority. They are counted here and listed on the Organization surface; drawing them as map " +
-    "nodes is a later milestone. Teams and reporting lines remain unavailable: nothing owns them."
+    "Authority. Teams and reporting lines remain unavailable: nothing owns them."
   );
 }
 
+/**
+ * The people sentence when the REGISTER COULD NOT BE READ (LM-1).
+ *
+ * Until OSA-4 this said Hebun held "no authority that lists them", and that was true — there was
+ * none. There is one now, so continuing to say it would be a false statement about Hebun on the
+ * surface a Director trusts most. The sentence is repaired to the case that survives: the authority
+ * exists and could not answer.
+ *
+ *     UNAVAILABLE != EMPTY        NO PEOPLE DRAWN != NO PEOPLE REGISTER
+ */
 export const LIVE_MAP_PEOPLE_ABSENT =
-  "Hebun holds a count of this organization's human members but no authority that lists them. " +
-  "Departmental placement IS recorded — which department a human works in has its own authority " +
-  "and its own surface — but a placement register is not a member roster: a human nobody has " +
-  "placed does not appear in it at all. People are therefore still counted on the organization " +
-  "and are not drawn as their own nodes, which is a decision about this map rather than a gap in " +
-  "what Hebun knows.";
+  "Hebun could not read this organization's people, so who belongs to it is unknown — not absent. " +
+  "Nothing here says whether anyone is a member. Listing people requires this organization's " +
+  "Governance authority, and a refusal reads the same way: it says nothing about who is here. " +
+  "A MEMBER REGISTER IS NOT A PLACEMENT REGISTER and a placement register is not a member roster: " +
+  "which department a human works in has its own authority and its own record.";
+
+/** The sentence when the register answered and this organization has no eligible member. */
+export const LIVE_MAP_PEOPLE_NONE_RECORDED =
+  "Hebun holds no eligible membership for this organization. It looked and found none — a measured " +
+  "absence in Hebun's own records, never a statement that this organization has no people. " +
+  "A MEMBER REGISTER IS NOT A PLACEMENT REGISTER and a placement register is not a member roster: " +
+  "which department a human works in has its own authority and its own record.";
+
+/**
+ * What a drawn person is, and the four things they are not. Carried on every human node.
+ *
+ * MEMBERSHIP IS NOT EMPLOYMENT, and a map is exactly the surface on which a drawn person reads as
+ * an org chart. So the denial travels on the node rather than in a legend somebody may not read.
+ */
+export const LIVE_MAP_HUMAN_BASIS =
+  "A membership this organization records as in force, from the Organizational People Register. " +
+  "MEMBERSHIP IN HEBUN IS NOT EMPLOYMENT: this is not an org chart, not a reporting line, not a " +
+  "job title, and being drawn here grants nobody anything. A MEMBER REGISTER IS NOT A PLACEMENT " +
+  "REGISTER and a placement register is not a member roster: a person drawn with no department " +
+  "line is a member this organization has not placed, which says nothing about what they do.";
+
+/** What a drawn department is. The structural authority's record, and nothing inferred from it. */
+export const LIVE_MAP_DEPARTMENT_BASIS =
+  "A department this organization has recorded through the Organization Structure Authority. " +
+  "Teams and reporting lines remain unavailable: nothing owns them.";
+
+/**
+ * The basis for the `works-in` edge. A DURABLE ROW, named, so the edge cannot be read as proximity.
+ *
+ * The edge is drawn ONLY when both endpoints are on the map. A placement whose human is not drawn —
+ * because the register could not be read, or because the bound was reached — draws no edge at all,
+ * rather than an edge into empty space.
+ */
+export const LIVE_MAP_WORKS_IN_BASIS =
+  "department_placements — the row an authorized human recorded. IT IS NOT A ROLE, NOT A JOB " +
+  "TITLE, NOT A REPORTING LINE, NOT A MANAGER AND NOT A WORK ASSIGNMENT, and Hebun did not observe " +
+  "anyone working anywhere. A person with no edge is a person this organization has not placed — " +
+  "which is not a statement that they do no work.";
 
 /**
  * The two sentences the derived attachment's completeness signal can say.
