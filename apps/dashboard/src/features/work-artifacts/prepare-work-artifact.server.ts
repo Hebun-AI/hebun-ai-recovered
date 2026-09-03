@@ -57,6 +57,7 @@ import {
   type AgentAuthorshipRefusal,
 } from "./agent-authorship.server";
 import type { ContentDestination, WorkArtifactType } from "./contracts";
+import { preparationBriefFor } from "./preparation-brief";
 import {
   createWorkArtifactFromHebyPreparation,
   reviseWorkArtifactFromHebyPreparation,
@@ -178,7 +179,16 @@ export async function prepareWorkArtifact(
   const answer = await answerFn(
     { prompt: input.prompt, route: input.route, conversationId: input.conversationId },
     deps,
-    { intent: WORK_ARTIFACT_PREPARATION_INTENT },
+    {
+      intent: WORK_ARTIFACT_PREPARATION_INTENT,
+      /*
+       * CGO-4. The model is told, BEFORE it writes, that its whole reply is the artifact — so it
+       * authors the durable bytes directly. This is the only place the product asks for a cleaner
+       * draft: nothing below reads, trims or extracts the reply, and the no-parser rule above is
+       * unchanged. Resolved from the human's declared type and destination, never from the prompt.
+       */
+      preparationBrief: preparationBriefFor(input),
+    },
   );
 
   if (answer.status === "unauthorized") return { status: "refused", reason: "unauthenticated" };

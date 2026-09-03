@@ -22,6 +22,7 @@
  */
 
 import {
+  HEBY_INTENT_DESCRIPTORS,
   resolveHebyWorkspace,
   resolveHebyWorkspaceContext,
   type HebyAuthorityMode,
@@ -199,6 +200,14 @@ export interface HebyModelAnswerInput {
  */
 export interface HebyModelAnswerOptions {
   readonly intent?: HebyProductIntent;
+  /**
+   * CGO-4 — a PREPARATION BRIEF: what the model is told, after Heby's standing system instructions,
+   * about the artifact it is authoring. Honoured ONLY when `intent` is one that `prepares`; for any
+   * other intent it is ignored, so an ordinary answer's system prompt is byte-identical to what it
+   * was before this field existed. It is instruction to the model and nothing else: never stored,
+   * never evidence, never authority, and it never reaches a message row.
+   */
+  readonly preparationBrief?: string;
 }
 
 /** The injectable seams — real in production, faked in tests. */
@@ -986,6 +995,18 @@ function groundingLines(resolutions: readonly SourceResolution[]): readonly stri
   return lines;
 }
 
+/**
+ * CGO-4. The system instructions for one request: Heby's standing instructions, and — only when
+ * the declared intent PREPARES something — the caller's preparation brief after them. The brief
+ * is appended, never substituted, so the trust boundary, the grounding rule and the no-authority
+ * rule apply to a prepared artifact exactly as they apply to an answer. A brief handed in with a
+ * non-preparing intent is dropped: an answer is not an artifact and must not be briefed as one.
+ */
+function systemInstructionsFor(intent: HebyProductIntent, brief: string | undefined): string {
+  if (!brief || !HEBY_INTENT_DESCRIPTORS[intent].prepares) return HEBY_MODEL_SYSTEM_INSTRUCTIONS;
+  return `${HEBY_MODEL_SYSTEM_INSTRUCTIONS}\n\n${brief}`;
+}
+
 /** Split model prose into bounded body lines. Never empty (the validator requires a body). */
 function modelBodyLines(text: string): readonly string[] {
   const lines = text
@@ -1173,7 +1194,7 @@ export async function answerHebyModelRequest(
     const modelRequest: ModelGenerationRequest = {
       correlationId,
       tenantId: tenant.tenantId,
-      systemInstructions: HEBY_MODEL_SYSTEM_INSTRUCTIONS,
+      systemInstructions: systemInstructionsFor(intent, options.preparationBrief),
       userPrompt: validation.prompt,
       evidence: groundingLines(resolutions),
       modelId: "",
