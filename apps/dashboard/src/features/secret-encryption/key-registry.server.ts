@@ -24,6 +24,19 @@
  * registered the row refuses. Trying the remaining keys in turn would be an oracle and a way to
  * quietly decrypt rows with the wrong one.
  *
+ * ── ONE REGISTRY, TWO VARIABLES ──────────────────────────────────────────────
+ *
+ * `HEBUN_INTEGRATION_ENCRYPTION_KEYS` is authoritative and REQUIRED. The optional
+ * `HEBUN_INTEGRATION_ENCRYPTION_KEYS_ADDITIONAL` carries more `keyId:base64Key` entries in the
+ * same shape and contributes them to the SAME map. It exists because a hosting provider's
+ * sensitive variables cannot be read back: a key that has to be held both by the deployment and
+ * by an operator ceremony is added there, without the authoritative variable ever being rewritten.
+ *
+ * It is NOT a second authority. It cannot stand alone (the primary variable is still required), an
+ * id appearing in both is a duplicate and refuses, a malformed entry refuses, and a variable that is
+ * set but contributes no key refuses. The active key is still chosen ONLY by
+ * `HEBUN_INTEGRATION_ENCRYPTION_ACTIVE_KEY_ID`, whichever variable registered it.
+ *
  * ── KEY MATERIAL IS NEVER RENDERED ───────────────────────────────────────────
  *
  * Errors, missing/invalid lists and every value this module returns name KEY IDS ONLY. The
@@ -39,8 +52,13 @@ import {
 } from "./authenticated-encryption.server";
 
 export const INTEGRATION_ENCRYPTION_ENV_KEYS = {
-  /** `keyId:base64Key,keyId:base64Key` — one entry per registered key. */
+  /** `keyId:base64Key,keyId:base64Key` — one entry per registered key. REQUIRED. */
   keys: "HEBUN_INTEGRATION_ENCRYPTION_KEYS",
+  /**
+   * OPTIONAL. Same shape; its entries join the same registry. Never a substitute for `keys`, and
+   * an id present in both is a duplicate. See "ONE REGISTRY, TWO VARIABLES" above.
+   */
+  additionalKeys: "HEBUN_INTEGRATION_ENCRYPTION_KEYS_ADDITIONAL",
   /** The `key_id` new encryptions use. Must name an entry in the map above. */
   activeKeyId: "HEBUN_INTEGRATION_ENCRYPTION_ACTIVE_KEY_ID",
 } as const;
@@ -89,6 +107,55 @@ function decodeKeyMaterial(encoded: string): Buffer | null {
 }
 
 /**
+ * Register every `keyId:base64Key` entry of one variable into the shared map.
+ *
+ * Returns how many keys THIS variable registered. Complaints go to `invalidKeys` as the variable's
+ * NAME (for an entry that cannot even be split) or the KEY ID (for a bad id, a duplicate or bad
+ * material) — never the material. Both variables go through this one function so the duplicate
+ * check is the same check whichever list an id appears in.
+ */
+function registerKeyEntries(
+  raw: string,
+  envName: string,
+  keys: Map<string, EncryptionKey>,
+  invalidKeys: string[],
+): number {
+  let registered = 0;
+  for (const entry of raw.split(",")) {
+    const trimmed = entry.trim();
+    if (trimmed.length === 0) continue;
+
+    /* Split on the FIRST colon only: base64 has no colon, but a future encoding might. */
+    const separator = trimmed.indexOf(":");
+    if (separator <= 0) {
+      invalidKeys.push(envName);
+      continue;
+    }
+    const keyId = trimmed.slice(0, separator).trim();
+    const encoded = trimmed.slice(separator + 1).trim();
+
+    if (!KEY_ID_RE.test(keyId)) {
+      invalidKeys.push(envName);
+      continue;
+    }
+    /* A duplicate id makes "which key sealed this row" unanswerable. Never last-one-wins. */
+    if (keys.has(keyId)) {
+      invalidKeys.push(keyId);
+      continue;
+    }
+    const material = decodeKeyMaterial(encoded);
+    if (!material) {
+      /* The ID, never the material — this string reaches logs and error pages. */
+      invalidKeys.push(keyId);
+      continue;
+    }
+    keys.set(keyId, createEncryptionKey(keyId, material));
+    registered += 1;
+  }
+  return registered;
+}
+
+/**
  * Read the deployment's keys, or say exactly what is wrong.
  *
  * `env` is a parameter so a test can exercise every invalid shape without mutating the process,
@@ -112,38 +179,22 @@ export function resolveIntegrationEncryptionKeys(
   const invalidKeys: string[] = [];
   const keys = new Map<string, EncryptionKey>();
 
-  for (const entry of rawKeys!.split(",")) {
-    const trimmed = entry.trim();
-    if (trimmed.length === 0) continue;
-
-    /* Split on the FIRST colon only: base64 has no colon, but a future encoding might. */
-    const separator = trimmed.indexOf(":");
-    if (separator <= 0) {
-      invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.keys);
-      continue;
-    }
-    const keyId = trimmed.slice(0, separator).trim();
-    const encoded = trimmed.slice(separator + 1).trim();
-
-    if (!KEY_ID_RE.test(keyId)) {
-      invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.keys);
-      continue;
-    }
-    /* A duplicate id makes "which key sealed this row" unanswerable. Never last-one-wins. */
-    if (keys.has(keyId)) {
-      invalidKeys.push(keyId);
-      continue;
-    }
-    const material = decodeKeyMaterial(encoded);
-    if (!material) {
-      /* The ID, never the material — this string reaches logs and error pages. */
-      invalidKeys.push(keyId);
-      continue;
-    }
-    keys.set(keyId, createEncryptionKey(keyId, material));
+  /* The authoritative list must register at least one key on its own. */
+  if (registerKeyEntries(rawKeys!, INTEGRATION_ENCRYPTION_ENV_KEYS.keys, keys, invalidKeys) === 0) {
+    invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.keys);
   }
 
-  if (keys.size === 0) invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.keys);
+  /*
+   * The additional list is optional: absent or blank means "no more keys". Set but contributing
+   * nothing is a configuration MISTAKE, not an absence, and refuses like any other malformed value.
+   * Duplicates against the primary list are caught by the shared parser (same map, same check).
+   */
+  const rawAdditional = env[INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys]?.trim();
+  if (rawAdditional) {
+    if (registerKeyEntries(rawAdditional, INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys, keys, invalidKeys) === 0) {
+      invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys);
+    }
+  }
   if (!KEY_ID_RE.test(rawActive!) || !keys.has(rawActive!)) {
     invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.activeKeyId);
   }

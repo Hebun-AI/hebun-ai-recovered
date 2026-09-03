@@ -13,30 +13,33 @@
  *
  * The key is read from `.env.hosted.local` into process.env by `quiet-env` (no shell, no echo),
  * handed to `storeCredential`, and never printed. Encryption keys and the production database
- * URL come from `.env.production.local`.
+ * URL come from the same file; no value is ever printed.
  */
 import { createHash } from "node:crypto";
 import { loadQuietEnv } from "./lib/quiet-env";
 
-loadQuietEnv([".env.production.local"], [
+/*
+ * Production possession lives in `.env.hosted.local`: the proven production DATABASE_URL, the
+ * production encryption keys the Director copied from Vercel, and the API key. The pulled
+ * `.env.production.local` masks every sensitive value as `[SENSITIVE]` and is not consulted.
+ */
+loadQuietEnv([".env.hosted.local"], [
   "DATABASE_URL",
   "HEBUN_INTEGRATION_ENCRYPTION_KEYS",
+  "HEBUN_INTEGRATION_ENCRYPTION_KEYS_ADDITIONAL",
   "HEBUN_INTEGRATION_ENCRYPTION_ACTIVE_KEY_ID",
+  "HEBUN_YOUTUBE_API_KEY",
 ]);
-const productionDatabaseDigest = createHash("sha256").update(process.env.DATABASE_URL ?? "").digest("hex").slice(0, 12);
-loadQuietEnv([".env.hosted.local"], ["HEBUN_YOUTUBE_API_KEY"]);
-{
-  const hosted: Record<string, string | undefined> = {};
-  const saved = process.env.DATABASE_URL;
-  loadQuietEnv([".env.hosted.local"], ["DATABASE_URL"]);
-  hosted.DATABASE_URL = process.env.DATABASE_URL;
-  process.env.DATABASE_URL = saved;
-  const hostedDigest = createHash("sha256").update(hosted.DATABASE_URL ?? "").digest("hex").slice(0, 12);
-  console.log(`database: production.local ${productionDatabaseDigest} · hosted.local ${hostedDigest} · same=${productionDatabaseDigest === hostedDigest}`);
-}
 process.env.HEBUN_CONTROL_PLANE_ALLOW_REMOTE = "true";
 
 const DRY_RUN = process.argv.includes("--dry-run");
+/*
+ * The operator may hold ONLY a key added through the ADDITIONAL variable (the deployment's primary
+ * key cannot be read back from the host). Then no existing row names a locally held key and equality
+ * with production cannot be proved before the store. Continuing is a Director decision, stated on the
+ * command line; the proof then moves to production acceptance, where the deployed runtime decrypts.
+ */
+const ACCEPT_UNPROVEN_KEYS = process.argv.includes("--accept-unproven-keys");
 const DIRECTOR_EMAIL = process.env.CGO5_DIRECTOR_EMAIL ?? "senoltr@gmail.com";
 
 async function main(): Promise<void> {
@@ -85,6 +88,34 @@ async function main(): Promise<void> {
     const live = listing.connections.filter((c) => c.providerKey === YOUTUBE_PROVIDER_KEY && c.connectionState !== "revoked" && c.connectionState !== "disconnected");
     console.log(`youtube connections (live): ${live.length}${live[0] ? ` · ${live[0].integrationId} ${live[0].connectionState}/${live[0].health}` : ""}`);
     console.log(`other connections: ${listing.connections.filter((c) => c.providerKey !== YOUTUBE_PROVIDER_KEY).map((c) => `${c.providerKey}:${c.connectionState}`).join(", ")}`);
+
+    /*
+     * THE KEYS MUST BE PRODUCTION'S. A credential sealed with any other key would pass a local
+     * acceptance and fail in the deployed runtime. Proved by opening one EXISTING live credential
+     * whose key id is registered locally — the result is a boolean, the plaintext is never held
+     * outside the callback. If no such row exists the proof is UNAVAILABLE, and that is said.
+     */
+    const { withDecryptedSecret } = await import("../src/features/integration-credentials/credential-repository.server");
+    const { resolveIntegrationEncryptionKeys } = await import("../src/features/secret-encryption/key-registry.server");
+    const registry = resolveIntegrationEncryptionKeys(process.env);
+    if (registry.status !== "configured") throw new Error(`local encryption key registry unusable: missing ${registry.missingKeys.join(",") || "-"} invalid ${registry.invalidKeys.join(",") || "-"}`);
+    const localKeyIds = [...registry.keys.keys()];
+    console.log(`local registry: keys [${localKeyIds.join(", ")}] · active ${registry.activeKeyId} (material never shown)`);
+    let probeLive: { credentialId: string; keyId: string } | undefined;
+    for (const c of listing.connections) {
+      const meta = await listCredentialMetadata(tenant, c.integrationId);
+      probeLive = meta.status === "read" ? meta.credentials.find((cr) => cr.live && localKeyIds.includes(cr.keyId)) : undefined;
+      if (probeLive) break;
+    }
+    if (probeLive) {
+      const opened = await withDecryptedSecret(tenant, probeLive.credentialId, async (secret) => secret.length > 0);
+      console.log(`encryption keys open an existing production credential (key ${probeLive.keyId}): ${opened.status === "used" ? "YES" : `NO (${opened.reason})`}`);
+      if (opened.status !== "used") throw new Error("the loaded encryption keys are not production's — refusing to store anything");
+    } else {
+      console.log(`key equality with production: UNPROVABLE here — no live credential names a locally held key id [${localKeyIds.join(", ")}]`);
+      if (!ACCEPT_UNPROVEN_KEYS) throw new Error("refusing to store under an unproven key; re-run with --accept-unproven-keys after the Director confirms the production registry holds the same key id and material");
+      console.log("continuing on Director instruction (--accept-unproven-keys); production acceptance is the proof");
+    }
 
     let integrationId = live[0]?.integrationId;
     if (integrationId) {

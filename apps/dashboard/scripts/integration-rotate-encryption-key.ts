@@ -7,7 +7,8 @@
  *
  * ── WHAT AN OPERATOR IS ACTUALLY DOING ───────────────────────────────────────
  *
- *   1. Add the new key to HEBUN_INTEGRATION_ENCRYPTION_KEYS, keeping the old one.
+ *   1. Add the new key to HEBUN_INTEGRATION_ENCRYPTION_KEYS, keeping the old one — or, when the
+ *      deployment's primary variable cannot be read back, to HEBUN_INTEGRATION_ENCRYPTION_KEYS_ADDITIONAL.
  *   2. Point HEBUN_INTEGRATION_ENCRYPTION_ACTIVE_KEY_ID at it. New writes use it immediately;
  *      existing rows are untouched and still open under the key each of them records.
  *   3. Run this. Every row is decrypted under its own key and re-sealed under the active one.

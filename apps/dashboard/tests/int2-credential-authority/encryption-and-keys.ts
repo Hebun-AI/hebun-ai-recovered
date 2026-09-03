@@ -229,6 +229,97 @@ function main(): void {
     assert.throws(() => sealSecret("", key1, aad), /empty secret/);
   }
 
+  /* ── 9. THE ADDITIONAL VARIABLE: MORE ENTRIES, THE SAME REGISTRY ─────────── */
+  {
+    const ADDITIONAL = INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys;
+    assert.equal(ADDITIONAL, "HEBUN_INTEGRATION_ENCRYPTION_KEYS_ADDITIONAL");
+    const primary = randomBytes(32).toString("base64");
+    const extra = randomBytes(32).toString("base64");
+    const extended = (keys: string, additional: string, active: string): Record<string, string> => ({
+      ...envWith(keys, active),
+      [ADDITIONAL]: additional,
+    });
+
+    /* The primary variable is authoritative and unchanged: without it, nothing is configured. */
+    const primaryOnly = resolveIntegrationEncryptionKeys(envWith(`k1:${primary}`, "k1"));
+    assert.ok(primaryOnly.status === "configured");
+    const sealedBefore = sealSecret(SECRET, activeKeyOf(primaryOnly), aad);
+    assert.equal(sealedBefore.keyId, "k1", "a row written BEFORE the extension names the primary key");
+
+    const additionalAlone = resolveIntegrationEncryptionKeys({
+      [ADDITIONAL]: `k2:${extra}`,
+      [INTEGRATION_ENCRYPTION_ENV_KEYS.activeKeyId]: "k2",
+    });
+    assert.ok(
+      additionalAlone.status === "invalid" &&
+        additionalAlone.missingKeys.includes(INTEGRATION_ENCRYPTION_ENV_KEYS.keys),
+      "ADDITIONAL is not a second authority: the primary variable is still REQUIRED",
+    );
+
+    /* One registry. Both ids resolve, exactly one is active, the old row still opens. */
+    const joined = resolveIntegrationEncryptionKeys(extended(`k1:${primary}`, `k2:${extra}`, "k2"));
+    assert.equal(joined.status, "configured", "primary + additional must configure");
+    assert.ok(joined.status === "configured");
+    assert.equal(joined.keys.size, 2, "the additional entry joins the SAME map");
+    assert.equal(activeKeyOf(joined).keyId, "k2", "the active id may name an additional key");
+    assert.equal(keyForRow(joined, "k1")?.keyId, "k1", "and the primary key stays registered");
+    const stillOpens = openSecret(sealedBefore, keyForRow(joined, sealedBefore.keyId)!, aad);
+    assert.ok(stillOpens.ok, "a row sealed under the primary key before the extension still opens");
+    const viaNewActive = openSecret(sealedBefore, activeKeyOf(joined), aad);
+    assert.ok(!viaNewActive.ok, "and the new active key does NOT silently open it");
+    assert.equal(
+      sealSecret(SECRET, activeKeyOf(joined), aad).keyId,
+      "k2",
+      "new writes use ONLY the active key",
+    );
+
+    /* Active selection is still owned by the active-id variable, not by which list a key sits in. */
+    const activeStaysPrimary = resolveIntegrationEncryptionKeys(
+      extended(`k1:${primary}`, `k2:${extra}`, "k1"),
+    );
+    assert.ok(activeStaysPrimary.status === "configured");
+    assert.equal(activeKeyOf(activeStaysPrimary).keyId, "k1");
+
+    /* An absent or blank additional variable is exactly the legacy behaviour. */
+    for (const blank of ["", "   "]) {
+      const legacy = resolveIntegrationEncryptionKeys(extended(`k1:${primary}`, blank, "k1"));
+      assert.ok(legacy.status === "configured", "a blank additional variable is an absence");
+      assert.deepEqual([...legacy.keys.keys()], ["k1"]);
+    }
+
+    /* Every malformed or contradictory additional configuration FAILS CLOSED. */
+    const bad: ReadonlyArray<readonly [string, Record<string, string>, string]> = [
+      /*
+       * A bad entry BESIDE a good one first: the zero-contribution rule cannot catch these, so
+       * they prove the per-entry complaints are recorded, not just counted.
+       */
+      ["bad material beside a good additional entry", extended(`k1:${primary}`, `k2:${extra},k3:${randomBytes(16).toString("base64")}`, "k1"), "k3"],
+      ["primary id repeated beside a good additional entry", extended(`k1:${primary}`, `k2:${extra},k1:${extra}`, "k1"), "k1"],
+      ["duplicate id across primary and additional", extended(`k1:${primary}`, `k1:${extra}`, "k1"), "k1"],
+      ["duplicate id inside additional", extended(`k1:${primary}`, `k2:${extra},k2:${extra}`, "k1"), "k2"],
+      ["malformed additional entry", extended(`k1:${primary}`, `k2${extra}`, "k1"), ADDITIONAL],
+      ["additional not base64", extended(`k1:${primary}`, "k2:not base64 at all!!", "k1"), "k2"],
+      ["additional short key", extended(`k1:${primary}`, `k2:${randomBytes(16).toString("base64")}`, "k1"), "k2"],
+      ["additional illegal id", extended(`k1:${primary}`, `K 2:${extra}`, "k1"), ADDITIONAL],
+      ["additional set but contributing nothing", extended(`k1:${primary}`, ",,", "k1"), ADDITIONAL],
+      ["additional active id names no key anywhere", extended(`k1:${primary}`, `k2:${extra}`, "k3"), INTEGRATION_ENCRYPTION_ENV_KEYS.activeKeyId],
+    ];
+    for (const [label, env, named] of bad) {
+      const resolution = resolveIntegrationEncryptionKeys(env);
+      assert.equal(resolution.status, "invalid", `"${label}" must FAIL CLOSED, never configure`);
+      assert.ok(resolution.status === "invalid");
+      assert.ok(resolution.invalidKeys.includes(named), `"${label}" must name "${named}"`);
+      const complaint = [...resolution.missingKeys, ...resolution.invalidKeys].join(" ");
+      assert.ok(!complaint.includes(primary), `"${label}" leaked primary key material`);
+      assert.ok(!complaint.includes(extra), `"${label}" leaked additional key material`);
+    }
+
+    /* Material from the additional variable is never rendered either. */
+    const k2 = keyForRow(joined, "k2")!;
+    const rendered = `${String(k2)} ${JSON.stringify(k2)} ${JSON.stringify({ k2 })}`;
+    assert.ok(!rendered.includes(extra), "no additional key material in any rendering");
+  }
+
   console.log("int2-credential-authority/encryption-and-keys: all assertions passed");
 }
 

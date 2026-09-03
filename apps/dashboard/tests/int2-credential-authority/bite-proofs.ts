@@ -1,5 +1,5 @@
 /*
- * INT-2 BITE-PROOFS — sixteen mutations of the REAL source, each re-run in a child process, plus
+ * INT-2 BITE-PROOFS — seventeen mutations of the REAL source, each re-run in a child process, plus
  * one deliberately CORRECT change that must be accepted.
  *
  * A SECURITY TEST THAT STAYS GREEN AFTER ITS PROTECTION IS REMOVED IS NOT A SECURITY TEST. This
@@ -140,6 +140,19 @@ const MUTATIONS: readonly Mutation[] = [
     suite: CRYPTO_SUITE,
     find: '  if (!KEY_ID_RE.test(rawActive!) || !keys.has(rawActive!)) {\n    invalidKeys.push(INTEGRATION_ENCRYPTION_ENV_KEYS.activeKeyId);\n  }',
     replace: "  /* mutated: the active id is no longer checked against the registry */",
+    expect: "must FAIL CLOSED",
+  },
+  {
+    /*
+     * The ADDITIONAL variable's complaints are routed to a throwaway list, so a malformed or
+     * duplicate entry there is silently dropped while the primary list still configures. The
+     * registry would then be "configured" with a hole where an operator believed a key was.
+     */
+    label: "M17 malformed ADDITIONAL configuration is swallowed instead of refusing",
+    file: REGISTRY,
+    suite: CRYPTO_SUITE,
+    find: "    if (registerKeyEntries(rawAdditional, INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys, keys, invalidKeys) === 0) {",
+    replace: "    if (registerKeyEntries(rawAdditional, INTEGRATION_ENCRYPTION_ENV_KEYS.additionalKeys, keys, []) === 0) {",
     expect: "must FAIL CLOSED",
   },
   /* ── TENANT ISOLATION, ONE LAYER AT A TIME ──────────────────────────────── */
