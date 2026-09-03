@@ -285,7 +285,10 @@ async function main(): Promise<void> {
    * 9. EVERY REACHING COMMAND DECLARES ITS REACH, IN BOTH DIRECTIONS.
    * ═══════════════════════════════════════════════════════════════════════ */
   for (const command of HEBY_COMMANDS) {
-    const reaches = command.kind === "provider-read" || command.kind === "cross-source-read";
+    const reaches =
+        command.kind === "provider-read" ||
+        command.kind === "cross-source-read" ||
+        command.kind === "provider-observation";
     assert.equal(
       command.reachesProvider === true,
       reaches,

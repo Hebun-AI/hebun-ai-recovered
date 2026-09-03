@@ -209,6 +209,7 @@ async function main(): Promise<void> {
           "google.drive.content.read",
           "google.drive.file.content.read",
           "google.drive.metadata.read",
+          "youtube.channel.public.read",
         ],
         "the view lists every mapped capability",
       );
@@ -228,12 +229,12 @@ async function main(): Promise<void> {
       );
       assert.equal(
         PROVIDER_CATALOG.length,
-        2,
-        "two released providers, each with a real implementation behind it",
+        3,
+        "three released providers, each with a real implementation behind it",
       );
       assert.deepEqual(
         PROVIDER_CATALOG.map((p) => p.providerKey),
-        ["google-workspace", "github-organization"],
+        ["google-workspace", "github-organization", "youtube"],
       );
     }
 

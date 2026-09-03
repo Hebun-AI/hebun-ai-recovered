@@ -217,8 +217,8 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M16 a command claims external reach it does not have",
     file: REGISTRY,
     suite: CONTRACT_SUITE,
-    find: '    reachesProvider: kind === "provider-read" || kind === "cross-source-read",',
-    replace: '    reachesProvider: kind === "provider-read" || kind === "read",',
+    find: '    reachesProvider:\n      kind === "provider-read" || kind === "cross-source-read" || kind === "provider-observation",',
+    replace: '    reachesProvider:\n      kind === "provider-read" || kind === "read" || kind === "provider-observation",',
     expect: "reachesProvider must be true exactly for provider-reaching commands",
   },
   {

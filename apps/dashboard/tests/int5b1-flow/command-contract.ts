@@ -69,7 +69,10 @@ function main(): void {
        * is unchanged and still exact in both directions: a command of any other kind that claims
        * reach still fails here, and so does a reaching command that omits the claim.
        */
-      const reaches = command.kind === "provider-read" || command.kind === "cross-source-read";
+      const reaches =
+        command.kind === "provider-read" ||
+        command.kind === "cross-source-read" ||
+        command.kind === "provider-observation";
       assert.equal(
         command.reachesProvider === true,
         reaches,

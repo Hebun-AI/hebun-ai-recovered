@@ -400,7 +400,7 @@ function main(): void {
      */
     assert.deepEqual(
       listConnectableProviders().map((d) => d.providerKey),
-      ["google-workspace", "github-organization"],
+      ["google-workspace", "github-organization", "youtube"],
       "the real providers, and each only because it is genuinely implemented",
     );
     const google = PROVIDER_CATALOG[0]!;

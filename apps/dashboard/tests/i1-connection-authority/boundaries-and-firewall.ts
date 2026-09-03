@@ -367,7 +367,7 @@ function main(): void {
      */
     assert.deepEqual(
       listConnectableProviders().map((d) => d.providerKey),
-      ["google-workspace", "github-organization"],
+      ["google-workspace", "github-organization", "youtube"],
       "every connectable provider, and each only because it is genuinely implemented",
     );
     /*
@@ -408,6 +408,8 @@ function main(): void {
         "google.drive.content.read",
         "google.drive.file.content.read",
         "google.drive.metadata.read",
+        /* CGO-5: one public-read capability behind an API key, and no write half. */
+        "youtube.channel.public.read",
       ],
       "every mapped capability, and each named by a provider that is genuinely connectable",
     );
@@ -423,8 +425,8 @@ function main(): void {
      * make every assertion below it vacuous at the TYPE level. */
     assert.equal(
       PROVIDER_CATALOG.length,
-      2,
-      "two entries, and no fixture — a fixture retained for tests that inject their own would " +
+      3,
+      "three entries, and no fixture — a fixture retained for tests that inject their own would " +
         "still be a false entry in a production authority",
     );
 
@@ -448,6 +450,8 @@ function main(): void {
     const VERIFIER_FOR: Readonly<Record<string, string>> = {
       "google-workspace": "src/features/provider-google/verify-google-connection.server.ts",
       "github-organization": "src/features/provider-github/verify-installation.server.ts",
+      /* CGO-5: one real public `channels.list`, proving key + enabled API + quota, binding no account. */
+      youtube: "src/features/provider-youtube/verify-youtube-connection.server.ts",
     };
     for (const definition of PROVIDER_CATALOG) {
       assert.equal(

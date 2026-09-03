@@ -26,6 +26,11 @@ import {
   type HebyCrossSourceCommandResult,
 } from "@/features/heby-commands/cross-source-commands.server";
 import {
+  runHebyProviderObservationCommand,
+  type HebyProviderObservationCommandInput,
+  type HebyProviderObservationCommandResult,
+} from "@/features/heby-commands/provider-observation-commands.server";
+import {
   originateAgentAction,
   type OriginateActionResult,
 } from "@/features/agent-origination/originate-action.server";
@@ -216,6 +221,25 @@ export async function runHebyCrossSourceCommandAction(
   input: HebyCrossSourceCommandInput,
 ): Promise<HebyCrossSourceCommandResult> {
   return runHebyCrossSourceCommand(
+    { commandId: input.commandId, args: input.args },
+    { resolveTenant: resolveTenantContext },
+  );
+}
+
+/**
+ * CGO-5. The SEVENTH Heby server action, and the third that can reach a provider — the only one
+ * that spends a stored secret to do so.
+ *
+ * Separate from the provider-read action for the reason that action is separate from cross-source:
+ * a different root, a different firewall, a different guarantee. The client supplies
+ * `{ commandId, args }`; the tenant is resolved SERVER-SIDE. It cannot name a connection, a key or
+ * an account — no parameter exists. IT OBSERVES: writes no lifecycle, stores nothing, admits
+ * nothing into Knowledge, mints no permit, executes nothing.
+ */
+export async function runHebyProviderObservationCommandAction(
+  input: HebyProviderObservationCommandInput,
+): Promise<HebyProviderObservationCommandResult> {
+  return runHebyProviderObservationCommand(
     { commandId: input.commandId, args: input.args },
     { resolveTenant: resolveTenantContext },
   );

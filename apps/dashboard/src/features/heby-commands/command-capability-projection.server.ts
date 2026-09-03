@@ -80,6 +80,7 @@ import type { CapabilityAvailabilityView } from "@/features/integration-authorit
 import { readProviderOpsView } from "@/features/heby-provider-ops/provider-connectivity-projection.server";
 import type { ProviderOpsView } from "@/features/heby-provider-ops/provider-connectivity-projection.server";
 import { GITHUB_REPOSITORY_ACTIVITY_CAPABILITY } from "@/features/provider-github/contracts";
+import { YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY } from "@/features/provider-youtube/contracts";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { HEBY_COMMANDS } from "./registry";
 import type {
@@ -108,6 +109,8 @@ const PROVIDER_CAPABILITY_BY_HANDLER: Readonly<Record<string, string>> = Object.
    * would imply a second grant an organization never made.
    */
   "pull-requests": GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
+  /* CGO-5. The YouTube public read; the same authority answers whether it may be attempted. */
+  "youtube-channel": YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
 });
 
 export interface CommandCapabilityDeps {

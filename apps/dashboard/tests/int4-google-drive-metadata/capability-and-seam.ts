@@ -99,7 +99,7 @@ function theCapabilityIsNarrow(): void {
     "and exactly once",
   );
   assert.ok(
-    capabilities.every((c) => c.startsWith("google.") || c.startsWith("github.")),
+    capabilities.every((c) => c.startsWith("google.") || c.startsWith("github.") || c.startsWith("youtube.")),
     "every mapped capability is named by a provider that exists",
   );
 

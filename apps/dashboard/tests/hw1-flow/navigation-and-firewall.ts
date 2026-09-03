@@ -181,6 +181,8 @@ function main(): void {
       "runHebyProviderReadCommandAction",
       "runHebyCrossSourceCommandAction",
       "originateHebyActionProposalAction",
+      /* CGO-5: the provider-observation action — the third that can reach a provider. */
+      "runHebyProviderObservationCommandAction",
     ] as const;
     assert.equal(
       (actions.match(/export async function/g) ?? []).length,

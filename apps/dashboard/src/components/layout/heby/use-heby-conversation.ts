@@ -45,6 +45,7 @@ import {
   runHebyReadCommandAction,
   runHebyProviderReadCommandAction,
   runHebyCrossSourceCommandAction,
+  runHebyProviderObservationCommandAction,
 } from "@/app/(dashboard)/heby/actions";
 import {
   findHebyCommandById,
@@ -481,6 +482,56 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
                 commandOutput: refusal(parsed.command.slash, "Not available", [
                   `That command could not be run (${outcome.reason}). No provider was contacted and ` +
                     "nothing was read.",
+                ]),
+              });
+            }
+          } finally {
+            setReading(false);
+          }
+          return;
+        }
+        case "provider-observation": {
+          /*
+           * CGO-5. The third branch that can result in Hebun contacting a third party, and the
+           * only one that spends a stored key to do so. A SEPARATE action, for the reason the other
+           * two are separate. The placeholder says out loud what is about to be asked and of whom;
+           * every rendered line afterwards is server data. The client never composes a sentence
+           * about a channel, never turns a refusal into an empty channel, and never says a count
+           * means anything.
+           */
+          patch({
+            composer: "",
+            commandOutput: {
+              command: parsed.command.slash,
+              title: "Observing YouTube…",
+              lines: [
+                `Asking YouTube what it makes public about ${plan.args[0] ?? "that channel"}: identity, public counts, and one page of recent uploads.`,
+                "Reads only, through the API key your organization holds. Nothing is changed, sent or stored, and no channel is owned or connected by this.",
+              ],
+              tone: "info",
+              provenance: "Provider observation in progress.",
+            },
+          });
+          setReading(true);
+          try {
+            const outcome = await runHebyProviderObservationCommandAction({
+              commandId: plan.commandId,
+              args: plan.args,
+            });
+            if (outcome.status === "ok") {
+              patch({ commandOutput: outcome.result });
+            } else if (outcome.status === "unauthorized") {
+              patch({
+                commandOutput: refusal(parsed.command.slash, "Sign in required", [
+                  "Sign in to observe this.",
+                ]),
+                available: false,
+              });
+            } else {
+              patch({
+                commandOutput: refusal(parsed.command.slash, "Not available", [
+                  `That command could not be run (${outcome.reason}). No provider was contacted and ` +
+                    "nothing was observed.",
                 ]),
               });
             }

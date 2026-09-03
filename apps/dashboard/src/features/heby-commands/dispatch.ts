@@ -107,6 +107,20 @@ export type HebyCommandPlan =
       readonly args: readonly string[];
     }
   /**
+   * Ask the server to run a PROVIDER OBSERVATION (CGO-5): a live public read of an external
+   * platform through a tenant-held API key.
+   *
+   * The same three fields and NOTHING else — no provider key, no integration, no key, no channel
+   * beyond the typed argument. A command becomes a provider observation by declaring
+   * `kind: "provider-observation"` in the registry and in no other way. No prompt, so no model.
+   */
+  | {
+      readonly kind: "provider-observation";
+      readonly commandId: string;
+      readonly handler: string;
+      readonly args: readonly string[];
+    }
+  /**
    * Ask the server to file a durable action proposal for a human to decide on (R3A.1).
    *
    * It carries the two references the operator typed and NOTHING else — no tenant, no actor, no
@@ -300,6 +314,9 @@ export function planHebyCommand(
    */
   if (command.kind === "cross-source-read") {
     return { kind: "cross-source-read", commandId: command.id, handler: command.handler, args };
+  }
+  if (command.kind === "provider-observation") {
+    return { kind: "provider-observation", commandId: command.id, handler: command.handler, args };
   }
 
   if (command.kind === "propose") {

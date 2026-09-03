@@ -179,6 +179,24 @@ export async function createConnection(
 
   try {
     return await db.transaction(async (tx) => {
+      /*
+       * CGO-5 — ONE LIVE CREDENTIAL-ONLY CONNECTION PER PROVIDER, ENFORCED HERE BECAUSE THE INDEX
+       * CANNOT. `integrations_tenant_provider_account_uq` keys on `external_account_id`, and an
+       * accountless connection's identity column is NULL for its whole life — NULLs never collide
+       * in a unique index, so two live YouTube connections would both insert. The rule an
+       * account-bearing provider gets from the schema, an accountless one gets from this query, in
+       * the same transaction and with the same refusal.
+       */
+      if (definition.accountIdentity === "none") {
+        const [live] = await tx
+          .select({ id: integrations.id })
+          .from(integrations)
+          .where(
+            sql`${integrations.tenantId} = ${tenant.tenantId} and ${integrations.providerKey} = ${definition.providerKey} and ${integrations.connectionState} not in ('revoked', 'disconnected')`,
+          )
+          .limit(1);
+        if (live) return { status: "refused", reason: "duplicate-live-connection" } as const;
+      }
       const [row] = await tx
         .insert(integrations)
         .values({
@@ -528,8 +546,14 @@ export async function holdConnectionForProviderRefreshWithin(
  * rather than reaching the table itself.
  */
 export interface VerifiedConnectionFacts {
-  /** The provider's immutable account identifier. NEVER an email — those get reassigned. */
-  readonly externalAccountId: string;
+  /**
+   * The provider's immutable account identifier. NEVER an email — those get reassigned.
+   *
+   * CGO-5: `null` ONLY for a provider whose catalog definition says `accountIdentity: "none"` — a
+   * credential-only connection with no account behind it. It is never "unknown": the writer below
+   * refuses a null for an account-bearing provider and refuses an account for an accountless one.
+   */
+  readonly externalAccountId: string | null;
   /** Human-readable. A label, never an identity. */
   readonly externalAccountLabel: string;
   /** What the PROVIDER said it granted. Never what Hebun requested. */
@@ -538,7 +562,10 @@ export interface VerifiedConnectionFacts {
 
 export type RecordVerifiedResult =
   | { readonly status: "verified"; readonly connection: IntegrationView }
-  | { readonly status: "refused"; readonly reason: ConnectionRefusal | "account-changed" };
+  | {
+      readonly status: "refused";
+      readonly reason: ConnectionRefusal | "account-changed" | "account-identity-mismatch";
+    };
 
 /**
  * Record that a provider accepted this tenant's credential.
@@ -565,6 +592,7 @@ export async function recordVerifiedConnectionWithin(
   integrationId: string,
   facts: VerifiedConnectionFacts,
   now: Date,
+  deps: Pick<IntegrationRepositoryDeps, "catalog"> = {},
 ): Promise<RecordVerifiedResult> {
   assertServerOnly();
   if (!tenant?.tenantId) return refused("no-authorized-tenant-context");
@@ -582,7 +610,23 @@ export async function recordVerifiedConnectionWithin(
   const from = current.connectionState as ConnectionState;
   if (isTerminalConnectionState(from)) return refused("illegal-transition");
 
-  /* The account this connection was verified against before, if any. */
+  /*
+   * CGO-5 — THE ACCOUNT FACT MUST MATCH WHAT THE PROVIDER DEFINITION SAYS A CONNECTION IS BOUND TO.
+   *
+   * An accountless (`none`) provider is verified with `externalAccountId: null` and NOTHING else;
+   * an account-bearing provider is verified with an identifier and NOTHING else. Both directions
+   * refuse, so a null can never be read as "unknown account" on Google or GitHub, and a YouTube
+   * key can never be dressed up as a connected account by supplying one. The definition is looked
+   * up from the row's own provider key — the caller does not get to say which rule applies.
+   */
+  const definition = findProviderDefinition(current.providerKey ?? "", deps.catalog ?? PROVIDER_CATALOG);
+  const accountless = definition?.accountIdentity === "none";
+  if (accountless !== (facts.externalAccountId === null)) {
+    return { status: "refused", reason: "account-identity-mismatch" } as const;
+  }
+
+  /* The account this connection was verified against before, if any. UNCHANGED by CGO-5: an
+   * account-bearing row still refuses any different identity, including a null. */
   if (
     current.externalAccountId !== null &&
     current.externalAccountId !== facts.externalAccountId

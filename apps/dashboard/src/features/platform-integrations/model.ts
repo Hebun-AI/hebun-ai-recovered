@@ -214,6 +214,14 @@ function accountKindStatementFor(
   if (definition?.accountIdentity === "organization") {
     return `${providerLabelFor(connection)} organization. This connection is bound to an organization the provider verified, never to an individual account, and no claim is made about its members.`;
   }
+  /*
+   * CGO-5. A credential-only connection binds NO account. The fallback sentence below would say
+   * "account, as the provider verified it" — and the provider verified no account, because an API
+   * key identifies nobody. Said plainly instead, including what it does not mean.
+   */
+  if (definition?.accountIdentity === "none") {
+    return `${providerLabelFor(connection)} credential only. No account is bound: the provider answers public reads for the key and identifies nobody. No channel or account on ${providerLabelFor(connection)} is owned, connected or represented by this.`;
+  }
 
   /*
    * The Workspace-domain sentences are GOOGLE'S, and they are keyed by Google's provider key rather

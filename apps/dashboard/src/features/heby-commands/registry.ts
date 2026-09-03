@@ -111,7 +111,8 @@ function base(
      * INT-5B1. Derived from the KIND, never hand-written per command, so a descriptor cannot claim
      * external reach it does not have — or, worse, hide reach it does.
      */
-    reachesProvider: kind === "provider-read" || kind === "cross-source-read",
+    reachesProvider:
+      kind === "provider-read" || kind === "cross-source-read" || kind === "provider-observation",
     /*
      * Still true for a provider-read command. "Provider off" is the Director's connectivity control
      * over the MODEL provider, and a provider-read command uses no model at all, so it behaves
@@ -433,6 +434,34 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     availability: "available", handler: "pull-requests", ...base("provider-read"),
   },
 
+  /* ── The first provider-observation command (CGO-5) ────────────────────────
+   *
+   * `/youtube-channel @handle` observes what YouTube makes PUBLIC about one channel, through the
+   * API key this organization holds. The handle is the argument and nothing else: it names no
+   * account of this organization, is stored nowhere, and grants nothing. The observation is live,
+   * provider-derived, and never Knowledge.
+   *
+   * `kind: "provider-observation"`, not `provider-read` — see the kind's own comment in
+   * `contracts.ts`: an API-key read decrypts a stored secret, which the provider-read root is
+   * proved never to reach.
+   */
+  {
+    id: "youtube-channel", slash: "/youtube-channel", label: "YouTube channel", category: "platform",
+    kind: "provider-observation",
+    description:
+      "Observe what YouTube makes public about one channel — identity, public counts and recent uploads. Reads only; no channel is owned, connected or changed.",
+    availability: "available", handler: "youtube-channel",
+    ...base("provider-observation"),
+    args: [
+      {
+        name: "handle",
+        required: true,
+        description: "The channel handle, e.g. @Candamlalari. Public observation only.",
+        pattern: /^@?[A-Za-z0-9._-]{3,30}$/,
+      },
+    ],
+  },
+
   /* ── The first cross-source command (INT-5C) ──────────────────────────────
    *
    * `/repository-knowledge` answers one narrow question: for the repositories this organization's
@@ -678,7 +707,11 @@ export function validateHebyCommandRegistry(): readonly string[] {
      * The `!== true` spelling matters: the field is optional, so `undefined` must read as "no
      * reach". A reaching command that omitted it would otherwise pass by accident.
      */
-    const reachingKinds: readonly HebyCommandKind[] = ["provider-read", "cross-source-read"];
+    const reachingKinds: readonly HebyCommandKind[] = [
+      "provider-read",
+      "cross-source-read",
+      "provider-observation",
+    ];
     if ((command.reachesProvider === true) !== reachingKinds.includes(command.kind)) {
       problems.push(
         `${command.id}: reachesProvider must be true exactly for provider-reaching commands`,

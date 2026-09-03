@@ -69,6 +69,11 @@ import {
   GITHUB_REPOSITORY_ACTIVITY_READ_PERMISSIONS,
   GITHUB_REPOSITORY_ACTIVITY_WRITE_PERMISSIONS,
 } from "@/features/provider-github/contracts";
+import {
+  YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
+  YOUTUBE_PROVIDER_KEY,
+  YOUTUBE_PROVIDER_LABEL,
+} from "@/features/provider-youtube/contracts";
 
 /**
  * THE CATALOG. Frozen at every level — a caller cannot push a definition into it at runtime any
@@ -240,6 +245,38 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
       [GITHUB_REPOSITORY_ACTIVITY_CAPABILITY]: Object.freeze({
         read: GITHUB_REPOSITORY_ACTIVITY_READ_PERMISSIONS,
         write: GITHUB_REPOSITORY_ACTIVITY_WRITE_PERMISSIONS,
+      }),
+    }),
+  }) satisfies ConnectionDefinition,
+  /*
+   * ── THE THIRD ENTRY, EARNED BY CGO-5 ─────────────────────────────────────
+   *
+   * `youtube` is a DISTINCT provider. The key lives in a Google Cloud project, but Google Workspace
+   * does not own it: a different credential kind (`api_key`, held in the released encrypted store),
+   * a different verifier (one public `channels.list`), a different transport, and no account.
+   *
+   * `accountIdentity: "none"` is the first credential-only definition. A connection to it binds no
+   * account and represents no channel; the channel a read observes is a runtime argument. The
+   * lifecycle writer refuses to verify this provider WITH an account, exactly as it refuses to
+   * verify Google or GitHub without one.
+   *
+   * `minimumScopes` and the capability's scopes are EMPTY because an API key carries no scopes —
+   * YouTube grants public reads to any accepted key. "Covering" an empty set is trivially true, so
+   * availability here reduces to what it should: `connected` AND `healthy`, both written only by a
+   * successful real verification. There is no write half, so `writeCapable` is `false` by
+   * construction and a test asserts it.
+   */
+  Object.freeze({
+    providerKey: YOUTUBE_PROVIDER_KEY,
+    label: YOUTUBE_PROVIDER_LABEL,
+    authMethod: "api_key",
+    accountIdentity: "none",
+    connectivity: "connectable",
+    minimumScopes: Object.freeze([]),
+    capabilityScopes: Object.freeze({
+      [YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY]: Object.freeze({
+        read: Object.freeze([]),
+        write: Object.freeze([]),
       }),
     }),
   }) satisfies ConnectionDefinition,

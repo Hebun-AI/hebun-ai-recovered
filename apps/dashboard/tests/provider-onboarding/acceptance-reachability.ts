@@ -279,10 +279,26 @@ function namingACapabilityIsNotExecutingIt(): void {
 function readCapabilityNeverImpliesWrite(): void {
   for (const provider of PROVIDER_CATALOG) {
     for (const [capability, scopes] of Object.entries(provider.capabilityScopes)) {
-      assert.ok(
-        scopes.read.length > 0,
-        `${capability} declares no read scope — a capability requiring nothing grants everything`,
-      );
+      /*
+       * CGO-5 — AN API KEY CARRIES NO SCOPES, AND THE DEFINITION MUST NOT PRETEND OTHERWISE.
+       *
+       * "Requiring nothing grants everything" stays true, and is bounded rather than exempted: an
+       * `api_key` provider may offer exactly ONE capability, may name no minimum scope, and may
+       * declare no write scope — so "everything" is that one public read, and a second capability
+       * or a write half would have to argue its way past this assertion. Every OAuth or App
+       * provider keeps the original rule unchanged.
+       */
+      if (provider.authMethod === "api_key") {
+        assert.equal(scopes.read.length, 0, `${capability}: an API key grants no scope, so the definition names none`);
+        assert.equal(provider.minimumScopes.length, 0, `${provider.providerKey}: no minimum scope exists for an API key`);
+        assert.equal(Object.keys(provider.capabilityScopes).length, 1, `${provider.providerKey}: exactly one capability behind an API key`);
+        assert.equal(scopes.write.length, 0, `${capability}: no write half behind an API key`);
+      } else {
+        assert.ok(
+          scopes.read.length > 0,
+          `${capability} declares no read scope — a capability requiring nothing grants everything`,
+        );
+      }
       /*
        * A write list is permitted but must be DECLARED. `writeCapable` is computed from it, so an
        * empty list makes write structurally unreachable rather than merely unused.
@@ -304,10 +320,15 @@ function theCatalogIsInternallyConsistent(): void {
   assert.equal(new Set(keys).size, keys.length, "provider keys are unique");
   for (const provider of PROVIDER_CATALOG) {
     assert.ok(provider.providerKey.length > 0, "a provider key is never empty");
-    assert.ok(
-      provider.minimumScopes.length > 0,
-      `${provider.providerKey} declares no minimum scope — nothing separates connected from not`,
-    );
+    if (provider.authMethod === "api_key") {
+      /* CGO-5: an API key has no scopes; `connected` is separated from `not` by a real verification. */
+      assert.equal(provider.minimumScopes.length, 0, `${provider.providerKey}: an API key names no minimum scope`);
+    } else {
+      assert.ok(
+        provider.minimumScopes.length > 0,
+        `${provider.providerKey} declares no minimum scope — nothing separates connected from not`,
+      );
+    }
   }
 }
 

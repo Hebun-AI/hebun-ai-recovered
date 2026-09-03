@@ -43,8 +43,23 @@
  */
 export type ProviderAuthMethod = "oauth2" | "api_key" | "github_app";
 
-/** What the provider calls the thing a connection is bound to. Google says workspace, Slack team. */
-export type ProviderAccountIdentity = "workspace" | "organization" | "account" | "team";
+/**
+ * What the provider calls the thing a connection is bound to. Google says workspace, Slack team.
+ *
+ * ── `none` IS ADDED BY CGO-5, AND IT IS A STATEMENT, NOT A GAP ─────────────
+ *
+ * A YouTube Data API key is a credential with NO account behind it: the provider answers public
+ * reads for whoever holds the key and never says who that is. A connection to such a provider is
+ * therefore CREDENTIAL-ONLY — `external_account_id` is NULL because there is no account, not
+ * because Hebun failed to learn one. The lifecycle writer enforces the pairing both ways: a `none`
+ * provider may not be verified WITH an account, and an account-bearing provider may not be verified
+ * WITHOUT one. Nothing about Google Workspace or GitHub changes: their definitions still name an
+ * identity, their verifications still supply one, and the account-change refusal still guards them.
+ *
+ * It never means ownership. A credential-only connection observes what the provider makes public;
+ * it does not connect, authorize or represent any account on that provider.
+ */
+export type ProviderAccountIdentity = "workspace" | "organization" | "account" | "team" | "none";
 
 /**
  * WHETHER A DEFINITION CLAIMS HEBUN CAN ACTUALLY CONNECT TO IT.

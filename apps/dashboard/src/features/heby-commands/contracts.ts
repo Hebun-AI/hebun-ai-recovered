@@ -101,6 +101,16 @@ export type HebyCommandKind =
   | "read"
   | "provider-read"
   | "cross-source-read"
+  /*
+   * CGO-5. A live PUBLIC observation of an external platform through a tenant-held API key.
+   *
+   * A sibling of `provider-read`, not a widening of it. INT-5B1's firewall proves that no
+   * credential accessor is reachable from the provider-read root — GitHub reads mint a token from
+   * Hebun's own App and touch no stored secret. An API-key read must decrypt a stored secret, so
+   * it needs its own root, its own firewall, and its own kind, or the released guarantee on
+   * `/repositories` would be deleted by the file that added `/youtube-channel`.
+   */
+  | "provider-observation"
   | "advisory"
   | "navigation"
   | "propose"

@@ -263,8 +263,8 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M20 a command claims cross-source reach without declaring it",
     file: REGISTRY,
     suite: COMMAND_SUITE,
-    find: '    reachesProvider: kind === "provider-read" || kind === "cross-source-read",',
-    replace: '    reachesProvider: kind === "provider-read",',
+    find: '    reachesProvider:\n      kind === "provider-read" || kind === "cross-source-read" || kind === "provider-observation",',
+    replace: '    reachesProvider:\n      kind === "provider-read" || kind === "provider-observation",',
     expect: "it says out loud that it leaves the building",
   },
 ];

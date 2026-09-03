@@ -46,6 +46,8 @@ function capabilityView(state: string, reason: string): CapabilityAvailabilityVi
     readiness: "catalog-ready",
     capabilities: [
       { capability: GITHUB_CAPABILITY, state, reason, sources: [] },
+      /* CGO-5: the YouTube public read is a fourth reaching command; the same fake authority answers it. */
+      { capability: "youtube.channel.public.read", state, reason, sources: [] },
     ],
   } as unknown as CapabilityAvailabilityView;
 }
