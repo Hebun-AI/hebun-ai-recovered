@@ -56,8 +56,8 @@ const OWNED = [MODEL, COMPONENT] as const;
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-const LEDGER_COUNT = 45; /* WEV-1 grew the ledger 44 -> 45: the `work_evidence_references` table. */
-const LEDGER_DIGEST = "1d956a04cc998419"; /* WEV-1 authored a migration — the `work_evidence_references` table — so the ledger digest moved with it. */
+const LEDGER_COUNT = 46; /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46 (`heby_action_requests` purpose columns). */
+const LEDGER_DIGEST = "5f0c4e249bdcb666"; /* PBGA-1 authored a migration — the `heby_action_requests` purpose columns — so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

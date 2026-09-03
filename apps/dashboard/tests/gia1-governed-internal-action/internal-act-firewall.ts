@@ -676,12 +676,18 @@ function theSurfaceOffersTwoDeliberateActions(): void {
     exported.sort(),
     [
       "approveActionRequestAction",
+      /*
+       * PBGA-1 added a SIXTH, and the pin's meaning is unchanged: it is a DECLARATION, not a
+       * decision and not an execution. It approves nothing, mints no permit and runs nothing —
+       * which is why it is listed here beside the five rather than replacing the guarantee.
+       */
+      "declareActionPurposeAction",
       "executeAuthorizedActionAction",
       "executeGovernedInternalActionAction",
       "rejectActionRequestAction",
       "revokeActionPermitAction",
     ],
-    "five deliberate server actions, and no generic execute-anything",
+    "six deliberate server actions, and no generic execute-anything",
   );
   for (const fn of exported) {
     assert.ok(

@@ -32,6 +32,10 @@ import { proposeRecordWorkAction as fileRecordWorkProposal } from "@/features/he
 import type { RecordWorkProposalResult } from "@/features/heby-action-inlet/contracts";
 import { observeSubjectActHistory } from "@/features/governance-activity/observe.server";
 import {
+  readGovernedActionsForWork,
+  type WorkPurposeRequestsRead,
+} from "@/features/action-authorization/read-work-purpose-requests.server";
+import {
   ACT_SUBJECT_REFERENCE_KINDS,
   type SubjectActHistoryResult,
 } from "@/features/governance-activity/contracts";
@@ -197,4 +201,22 @@ export async function readWorkItemActHistoryAction(input: {
     entityType: WORK_ITEM_ACT_ENTITY_TYPE,
     entityId: input.workItemId,
   });
+}
+
+/*
+ * PBGA-1 — the governed action requests a human declared serve THIS work item.
+ *
+ * A READ, and it revalidates nothing. Read on demand for the same reason the recorded-activity
+ * action is: the register renders every work item, and paying one bounded read per row on every
+ * page load would make opening the register cost whatever the organization's work list costs.
+ *
+ * This is NOT recorded activity, and the two are deliberately different actions reaching different
+ * authorities. Recorded activity asks the audit sink what was done TO this record; this asks Action
+ * Authorization which requests a person declared SERVE it.
+ */
+export async function readWorkItemGovernedActionsAction(input: {
+  workItemId: string;
+}): Promise<WorkPurposeRequestsRead> {
+  const tenant = await resolveTenantContext();
+  return await readGovernedActionsForWork(tenant, input.workItemId);
 }

@@ -382,9 +382,9 @@ function theProductIsWalledOff(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function itIsInfrastructureNotSchema(): void {
   const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(files.length, 45, "the production migration AUTHORITY authors no migration of its own"); /* WEV-1 grew the ledger 44 -> 45: the `work_evidence_references` table. */
+  assert.equal(files.length, 46, "the production migration AUTHORITY authors no migration of its own"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46 (`heby_action_requests` purpose columns). */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: unknown[] };
-  assert.equal(journal.entries.length, 45, "and the journal agrees");
+  assert.equal(journal.entries.length, 46, "and the journal agrees");
 }
 
 function main(): void {

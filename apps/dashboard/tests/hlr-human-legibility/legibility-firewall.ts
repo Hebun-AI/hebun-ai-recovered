@@ -164,7 +164,7 @@ function walk(dir: string): string[] {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) =>
     f.endsWith(".sql"),
   );
-  assert.equal(migrations.length, 45, "the migration ledger is untouched by HLR"); /* WORK-1 grew it to 42; Departmental Placement to 43; GIA-1 to 44. None is HLR's. */
+  assert.equal(migrations.length, 46, "the migration ledger is untouched by HLR"); /* WORK-1 grew it to 42; Departmental Placement to 43; GIA-1 to 44. None is HLR's. */
 
   /* THE ROSTER CLAIM IS STILL FALSE FOR ORGANIZATION, WHICH IS THE POINT. */
   assert.equal(

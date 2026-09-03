@@ -341,6 +341,9 @@ function main(): void {
          * `.limit(` anywhere in it, and a bounded list needs a bound. ALLOWLIST — a new name here
          * is a deliberate act, never a directory prefix. */
         "src/features/governance-activity/act-history-read.server.ts",
+        /* SUBJECT-ACT-HISTORY-1's subject-scoped reader. Same allowlist, same discipline: a name
+         * here is a deliberate, reviewable act and never a directory prefix. */
+        "src/features/governance-activity/subject-act-history-read.server.ts",
         /* E2-7 — the THIRD declared reader: the unbounded windowed count. It selects and writes
          * nothing, proved by its absence from the write census directly above. A third file for the
          * same reason there is a second: `read.server.ts` forbids `.limit(` anywhere and

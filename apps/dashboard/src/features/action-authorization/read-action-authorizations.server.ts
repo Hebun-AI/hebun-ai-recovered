@@ -37,6 +37,7 @@ import {
   resolveAgentProposerDisplays,
   type AgentProposerDisplay,
 } from "./agent-proposer-display.server";
+import { readWorkRegister } from "@/features/organizational-work/read-work.server";
 import { asCanonicalPayload } from "./canonical-payload";
 import { splitPayload, toEvidence } from "./decision-projection";
 import type { EvidenceProjection, PayloadLockView } from "./decision-projection";
@@ -93,6 +94,24 @@ export interface PendingActionRequestView {
   readonly proposedByAgentInService: boolean | null;
   readonly payloadDigest: string;
   readonly proposedAt: string;
+  /**
+   * PBGA-1 — THE DECLARED ORGANIZATIONAL PURPOSE, so the approver knows what they are authorizing
+   * this act FOR before they decide.
+   *
+   * `null` means NO PURPOSE WAS DECLARED IN THIS RECORD. It does not mean the act is purposeless,
+   * unrelated to work, or improper, and the surface renders it as "Not declared" rather than
+   * "No purpose". Every request filed before this capability is null, and none was backfilled.
+   *
+   * The TITLE comes from the Work authority, resolved server-side. The work item id is deliberately
+   * NOT projected: this view crosses to a client component, APP-2's data minimization applies, and
+   * a raw uuid is not a purpose.
+   */
+  readonly purposeWorkTitle: string | null;
+  /**
+   * True when a purpose was declared but the Work authority could not answer for it — UNKNOWN, not
+   * absent. A surface must never render this as "Not declared".
+   */
+  readonly purposeUnresolved: boolean;
 }
 
 export interface ActionPermitView {
@@ -179,6 +198,31 @@ export async function readPendingActionRequests(
         ? await resolveAgentProposerDisplays(tenant, agentIds, { getDb: deps.getDb })
         : new Map();
 
+    /*
+     * PBGA-1 — WHAT THE DECLARED PURPOSE IS CALLED.
+     *
+     * ONE read for the whole page, and only when something on it declared a purpose, mirroring the
+     * agent-name resolution directly above. It goes through the RELEASED Work register seam rather
+     * than joining `work_items` here: Organizational Work owns what its work is called, and a join
+     * would make this module a second reader of that authority's rows.
+     *
+     * A work item the register cannot answer for stays UNRESOLVED. It is never replaced by its id,
+     * by a guess, or by silence — the released Human Legibility rule, applied to a different kind
+     * of referent.
+     */
+    const purposeIds = new Set(
+      rows.map((row) => row.purposeWorkItemId).filter((id): id is string => id !== null),
+    );
+    const workTitles = new Map<string, string>();
+    if (purposeIds.size > 0) {
+      const register = await readWorkRegister(tenant);
+      if (register.status === "available") {
+        for (const item of register.items) {
+          if (purposeIds.has(item.workItemId)) workTitles.set(item.workItemId, item.title);
+        }
+      }
+    }
+
     return {
       status: "read",
       items: rows.map((row) => {
@@ -204,6 +248,10 @@ export async function readPendingActionRequests(
           proposedByAgentInService: display ? display.inService : null,
           payloadDigest: row.payloadDigest,
           proposedAt: iso(row.createdAt) ?? "",
+          purposeWorkTitle:
+            row.purposeWorkItemId === null ? null : (workTitles.get(row.purposeWorkItemId) ?? null),
+          purposeUnresolved:
+            row.purposeWorkItemId !== null && !workTitles.has(row.purposeWorkItemId),
         };
       }),
     };

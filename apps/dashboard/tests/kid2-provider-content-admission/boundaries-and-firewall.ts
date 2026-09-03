@@ -37,7 +37,7 @@ const CARD = "src/components/knowledge-workspace/provider-document-admission-car
 const PAGE = "src/app/(dashboard)/knowledge/page.tsx";
 
 /** The ledger this milestone must leave exactly as it found it. */
-const MIGRATION_LEDGER = 45; /* WEV-1 grew the ledger 44 -> 45: the `work_evidence_references` table. */
+const MIGRATION_LEDGER = 46; /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46 (`heby_action_requests` purpose columns). */
 
 function collect(dir: string): string[] {
   return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {

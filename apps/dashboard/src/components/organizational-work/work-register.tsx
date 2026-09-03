@@ -55,6 +55,7 @@ import {
   declareWorkReferenceAction,
   proposeRecordWorkForGovernanceAction,
   readWorkItemActHistoryAction,
+  readWorkItemGovernedActionsAction,
   recordWorkAction,
   withdrawWorkReferenceAction,
   retireWorkAction,
@@ -63,6 +64,7 @@ import {
   setWorkDeclaredStateAction,
 } from "@/app/(dashboard)/director/work/actions";
 import type { SubjectActHistoryResult } from "@/features/governance-activity/contracts";
+import type { WorkPurposeRequestsRead } from "@/features/action-authorization/read-work-purpose-requests.server";
 import {
   RECORD_WORK_PROPOSAL_EFFECTS,
   RECORD_WORK_PROPOSAL_NON_EFFECTS,
@@ -500,6 +502,99 @@ const REFERENT_KIND_LABEL: Record<WorkReferenceKind, string> = {
  * Closed, this section reads nothing. The register would otherwise pay one bounded read per work
  * item on every page load whether or not anybody looked.
  */
+/*
+ * PBGA-1 — "GOVERNED ACTIONS FOR THIS WORK".
+ *
+ * ── THIS IS NOT RECORDED ACTIVITY, AND THE TWO MAY NEVER MERGE ───────────────
+ *
+ *   RECORDED ACTIVITY               acts recorded ON this work record — created, retitled,
+ *                                   reference-declared. The audit sink's answer.
+ *   GOVERNED ACTIONS FOR THIS WORK  action requests a human DECLARED serve this work. Action
+ *                                   Authorization's answer.
+ *
+ * They are separate sections, from separate authorities, read by separate actions, because they
+ * answer different questions and neither authority can speak for the other. A single "activity"
+ * feed would invent one timeline of what is happening that no authority here can support.
+ *
+ * ── A DECLARED PURPOSE IS NOT PROGRESS ───────────────────────────────────────
+ *
+ * A request declared for this work may sit pending forever, be rejected, or be approved and never
+ * executed. Its presence says a person filed an act and said what it was for.
+ *
+ *     DECLARED PURPOSE != PROGRESS != COMPLETION != VERIFICATION
+ *
+ * ── AND THE EMPTY CASE IS ABOUT THE RECORD ───────────────────────────────────
+ *
+ * "No governed actions are declared for this work in the available record" — never "nothing was
+ * done". Acts taken outside Hebun, acts filed without a declared purpose, and everything a person
+ * did away from this system leave nothing here and are no less real.
+ */
+function GovernedActionsSection({ item }: { item: WorkItemView }) {
+  const [read, setRead] = useState<WorkPurposeRequestsRead | null>(null);
+  const [pending, start] = useTransition();
+
+  return (
+    <details
+      className="mt-2 rounded-md border border-border bg-bg"
+      onToggle={(event) => {
+        if (!event.currentTarget.open || read !== null || pending) return;
+        start(async () => {
+          setRead(await readWorkItemGovernedActionsAction({ workItemId: item.workItemId }));
+        });
+      }}
+    >
+      <summary className="cursor-pointer px-2.5 py-1.5 text-xs text-fg-secondary">
+        Governed actions for this work
+      </summary>
+      <div className="border-t border-border p-2.5">
+        {read === null ? (
+          <p className="text-xs leading-5 text-fg-muted">
+            {pending
+              ? "Reading declared purposes…"
+              : "Opening this reads which governed actions a person declared serve this work."}
+          </p>
+        ) : read.status === "unavailable" ? (
+          <p className="text-xs leading-5 text-fg-secondary">
+            Hebun could not read the declared purposes ({read.reason}). UNKNOWN, not none.
+          </p>
+        ) : read.items.length === 0 ? (
+          <p className="text-xs leading-5 text-fg-muted">
+            No governed actions are declared for this work in the available record. That is a
+            statement about what people declared, not about what was done.
+          </p>
+        ) : (
+          <>
+            <ul className="space-y-2">
+              {read.items.map((request) => (
+                <li key={request.requestId} className="text-xs leading-5">
+                  {/* The registry kind and the request's own state, both verbatim. */}
+                  <span className="text-fg">{request.actionKind}</span>
+                  <span className="text-fg-muted"> · {request.status}</span>
+                  <span className="block text-fg-muted">
+                    {request.targetLabel ?? "no target label recorded"}
+                  </span>
+                  <span className="block text-fg-muted">
+                    proposed {request.proposedAt} · purpose declared {request.purposeDeclaredAt}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {read.truncated ? (
+              <p className="mt-2 text-xs leading-5 text-fg-muted">
+                More declared actions exist than this page shows.
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs leading-5 text-fg-muted">
+              What a person declared these acts serve. Not progress, not completion, and not
+              verification of this work.
+            </p>
+          </>
+        )}
+      </div>
+    </details>
+  );
+}
+
 function RecordedActivitySection({ item }: { item: WorkItemView }) {
   const [history, setHistory] = useState<SubjectActHistoryResult | null>(null);
   const [pending, start] = useTransition();
@@ -969,6 +1064,7 @@ export function WorkRegisterPanel({
                           artifactOptions={artifactOptions}
                         />
                         <RecordedActivitySection item={item} />
+                        <GovernedActionsSection item={item} />
                         <WorkItemControls item={item} members={members} />
                       </>
                     ) : (

@@ -69,6 +69,19 @@ export const ACTION_AUDIT_PERMIT_ISSUED = "governance.action.permit.issued" as c
 export const ACTION_AUDIT_PERMIT_REVOKED = "governance.action.permit.revoked" as const;
 export const ACTION_AUDIT_PERMIT_CONSUMED = "governance.action.permit.consumed" as const;
 
+/**
+ * PBGA-1 — a human declared which Work item a pending request serves.
+ *
+ * A SIXTH VERB IN THIS AUTHORITY'S VOCABULARY, added deliberately: the declaration changes a
+ * request row, so the event belongs to the authority that owns requests and to the one audit writer
+ * that speaks for it. A second sink, or a second writer, would be a second version of what happened
+ * to a request.
+ *
+ * It is NOT an approval, NOT a decision and NOT a permit. Its outcome is always `committed` and its
+ * `executed` stays `false`, exactly as every other event here.
+ */
+export const ACTION_AUDIT_PURPOSE_DECLARED = "governance.action.purpose-declared" as const;
+
 /** The `audit_log.entity_type` for both permit and request events. */
 export const ACTION_REQUEST_ENTITY_TYPE = "heby_action_request" as const;
 export const ACTION_PERMIT_ENTITY_TYPE = "action_permit" as const;
@@ -116,6 +129,12 @@ export type ActionRequestRefusal =
   | "arguments-invalid"
   /** A live pending request already exists for this exact action in this tenant. */
   | "already-pending"
+  /**
+   * PBGA-1. A declared Work purpose named a work item this tenant does not have. Absent and
+   * foreign-tenant are ONE answer, because the composite foreign key answers both with one
+   * violation and telling them apart would leak that a work item exists somewhere else.
+   */
+  | "purpose-work-not-found"
   /**
    * AGENT-PROPOSAL-1. An agent proposer was offered without proof that the authoritative
    * durable-agent read seam produced it. Unreachable through the human entry point — it is the

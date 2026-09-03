@@ -5,6 +5,7 @@ import { Lock } from "lucide-react";
 import { DecisionRegion, DecisionEmptyState, StructuralMarker } from "./decision-region";
 import {
   approveActionRequestAction,
+  declareActionPurposeAction,
   executeAuthorizedActionAction,
   executeGovernedInternalActionAction,
   rejectActionRequestAction,
@@ -60,13 +61,97 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
+/*
+ * PBGA-1 — DECLARE WHICH WORK THIS PENDING ACT SERVES.
+ *
+ * ── IT IS NOT A DECISION CONTROL, AND IT SITS APART FROM ONE ─────────────────
+ *
+ * Declaring a purpose approves nothing, rejects nothing and executes nothing. A Director may
+ * declare what an act is for and then reject it — the two are separate acts by separate authorities,
+ * and this control carries no justification field for exactly that reason: a justification is what
+ * a DECISION requires.
+ *
+ * ── A CLOSED PICKER, NEVER FREE TEXT ────────────────────────────────────────
+ *
+ * The options come from the Work authority, resolved on the server. A typed field would make the
+ * browser a source of work identity; a picker means a declaration can only name work this
+ * organization already recorded.
+ *
+ * ── ONCE DECLARED, THIS CONTROL IS GONE ─────────────────────────────────────
+ *
+ * It renders only while `purposeWorkTitle` is null. Rebinding is refused by the writer, so offering
+ * an edit here would be offering something the authority will not do.
+ */
+function DeclarePurposeControl({
+  requestId,
+  options,
+}: {
+  readonly requestId: string;
+  readonly options: readonly { readonly workItemId: string; readonly title: string }[];
+}) {
+  const [choice, setChoice] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  if (options.length === 0) {
+    return (
+      <p className="mt-1 text-xs leading-5 text-fg-muted">
+        This organization has recorded no work, so there is nothing to declare a purpose against.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+      <select
+        value={choice}
+        onChange={(event) => setChoice(event.target.value)}
+        disabled={pending}
+        aria-label="Declare which work this act serves"
+        className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-fg-primary"
+      >
+        <option value="">Declare which work this serves…</option>
+        {options.map((option) => (
+          <option key={option.workItemId} value={option.workItemId}>
+            {option.title}
+          </option>
+        ))}
+      </select>
+      {/*
+        * Styled as a SECONDARY control, deliberately unlike the authorize button below it. A
+        * declaration is not a decision, and the surface must not invite a reader to mistake one
+        * for the other.
+        */}
+      <button
+        type="button"
+        disabled={pending || choice === ""}
+        className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-fg-secondary disabled:opacity-40"
+        onClick={() =>
+          startTransition(async () => {
+            setMessage(null);
+            const result = await declareActionPurposeAction({ requestId, workItemId: choice });
+            /* The writer's own verdict, unreworded. A second wording is a second interpretation. */
+            setMessage(result.status === "declared" ? null : `Refused: ${result.reason}`);
+          })
+        }
+      >
+        Declare purpose
+      </button>
+      {message ? <span className="text-xs text-danger">{message}</span> : null}
+    </div>
+  );
+}
+
 function RequestCard({
   item,
   waitingFor,
+  workOptions,
 }: {
   readonly item: PendingActionRequestView;
   /** E2-4 — elapsed since this proposal was FILED. `null` when no instant or no usable timestamp. */
   readonly waitingFor: ElapsedObservation | null;
+  /** PBGA-1 — the work a human may declare this act serves. Empty when none is recorded. */
+  readonly workOptions: readonly { readonly workItemId: string; readonly title: string }[];
 }) {
   const [justification, setJustification] = useState("");
   const [reason, setReason] = useState("");
@@ -162,6 +247,38 @@ function RequestCard({
       </div>
 
       <p className="text-sm leading-6 text-fg-primary">{item.expectedEffect}</p>
+
+      {/*
+       * PBGA-1 — THE DECLARED ORGANIZATIONAL PURPOSE, BEFORE THE DECISION.
+       *
+       * The approver reads this above the mechanics, because "what is this act FOR" is the question
+       * the mechanics cannot answer. It is stated as a DECLARATION and never as a justification:
+       * this act serves that work because a person said so, not because Hebun determined the work
+       * needs it, will be advanced by it, or depends on it.
+       *
+       *     DECLARED PURPOSE != NECESSITY != PROGRESS != COMPLETION
+       *
+       * Undeclared renders "Not declared" — a statement about this record. "No purpose" would be a
+       * statement about the act, and would read as a fault in a proposal that has none.
+       */}
+      <div className="rounded-md border border-border bg-bg px-2.5 py-2">
+        <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
+          Declared organizational purpose
+        </p>
+        <p className="mt-0.5 text-sm leading-6 text-fg-primary">
+          {item.purposeUnresolved
+            ? "Declared, but the Work authority could not answer for it — unknown, not absent."
+            : (item.purposeWorkTitle ?? "Not declared")}
+        </p>
+        {item.purposeWorkTitle !== null ? (
+          <p className="mt-0.5 text-xs leading-5 text-fg-muted">
+            A person declared this act serves that work. It is not a claim that the work needs it,
+            or that authorizing it advances the work.
+          </p>
+        ) : (
+          <DeclarePurposeControl requestId={item.requestId} options={workOptions} />
+        )}
+      </div>
 
       <div className="flex flex-col gap-1">
         <Field label="Tool" value={item.toolId} />
@@ -509,6 +626,7 @@ function PermitRow({ item }: { item: ActionPermitView }) {
 export function ActionAuthorizations({
   requests,
   permits,
+  workOptions = [],
   connected,
   evaluatedAt = null,
   awaitingCount = null,
@@ -516,6 +634,15 @@ export function ActionAuthorizations({
 }: {
   readonly requests: readonly PendingActionRequestView[];
   readonly permits: readonly ActionPermitView[];
+  /**
+   * PBGA-1 — the work items a human may declare a pending request serves.
+   *
+   * A CLOSED LIST FROM THE WORK AUTHORITY, resolved on the server. A free-text field would make the
+   * browser the source of a work identity; a picker means a declaration can only ever name work
+   * this organization already recorded. Empty is honest: an organization with no work has nothing
+   * to declare a purpose against.
+   */
+  readonly workOptions?: readonly { readonly workItemId: string; readonly title: string }[];
   readonly connected: boolean;
   /**
    * E2-4 — the ONE instant every duration on this surface is measured against, resolved on the
@@ -557,6 +684,7 @@ export function ActionAuthorizations({
                     ? elapsedSince(r.proposedAt, evaluatedAt, "action-request.created_at")
                     : null
                 }
+                workOptions={workOptions}
               />
             ))}
           </ul>

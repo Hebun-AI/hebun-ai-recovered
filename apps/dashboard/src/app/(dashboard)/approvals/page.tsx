@@ -13,6 +13,7 @@ import { elapsedSince } from "@/features/attention-observation/contracts";
 import { readAwaitingDecisionAggregate } from "@/features/action-authorization/awaiting-decision-aggregate.server";
 import { readExecutionLedger } from "@/features/action-execution/execution-ledger-projection.server";
 import { readDecisionHorizon } from "@/features/decision-horizon/read-decision-horizon.server";
+import { readWorkRegister } from "@/features/organizational-work/read-work.server";
 
 export const metadata = { title: "Decisions — Hebun AI" };
 
@@ -70,6 +71,25 @@ export default async function ApprovalsPage() {
   ]);
 
   /*
+   * PBGA-1 — THE WORK A HUMAN MAY DECLARE A PENDING ACT SERVES.
+   *
+   * A FIFTH read with its own availability, for the same reason the four above have theirs: an
+   * unreadable Work register must leave the authorization queue fully usable. When it cannot be
+   * read the picker is simply absent, and no decision control is affected — declaring a purpose is
+   * not a precondition of deciding anything.
+   *
+   * Only IN-SERVICE work is offered. Declaring that an act serves retired work would be recording
+   * an intention against something the organization has withdrawn.
+   */
+  const workRegister = await readWorkRegister(tenant);
+  const workOptions =
+    workRegister.status === "available"
+      ? workRegister.items
+          .filter((item) => item.inService)
+          .map((item) => ({ workItemId: item.workItemId, title: item.title }))
+      : [];
+
+  /*
    * DH-1 — a FIFTH read, and the only one that answers the question this whole surface is named
    * after. The four above are all Action Authorization's; this one asks EVERY authority that owns
    * a human decision, and carries its own completeness verdict. Its own availability, like the
@@ -107,6 +127,7 @@ export default async function ApprovalsPage() {
             requests={requests.status === "read" ? requests.items : []}
             permits={permits.status === "read" ? permits.items : []}
             connected={connected}
+            workOptions={workOptions}
             evaluatedAt={evaluatedAt}
             awaitingCount={awaiting.status === "read" ? awaiting.value.awaiting : null}
             oldestWaiting={

@@ -78,6 +78,7 @@ import {
   hebyActionRequestStatusEnum,
 } from "./_enums";
 import { decisionRecords, governanceSessions } from "./governance";
+import { workItems } from "./work-item";
 
 /**
  * The proposal, frozen at preparation time.
@@ -157,6 +158,58 @@ export const hebyActionRequests = pgTable(
      * `heby_origination_invocations` carries no `action_request_id` back: one fact, one place.
      */
     originationInvocationId: uuid("origination_invocation_id"),
+
+    /* ═══════════════════════════════════════════════════════════════════════
+     * PURPOSE-BOUND GOVERNED ACT — WHICH WORK THIS ACT IS DECLARED TO SERVE.
+     *
+     * ── THE EXACT TRUTH THESE FOUR COLUMNS HOLD ────────────────────────────
+     *
+     *   "A HUMAN DECLARED THAT THIS ACTION REQUEST SERVES THAT WORK ITEM."
+     *
+     * Not "this work needs this action". Not "this action advances this work". Not "this work is
+     * about this action". A person said what organizational purpose they were filing the act for,
+     * and an approver reads it before deciding. Nothing here is derived, inferred, scored or
+     * matched, and no model may write it.
+     *
+     * ── PURPOSE != EVIDENCE, AND THAT IS WHY IT IS NOT IN `evidence` ────────
+     *
+     * `evidence` is load-bearing: `action-preparer.ts` gates `evidenceSufficient` on the lifecycle
+     * of what it names, so a `superseded` referent makes a proposal insufficient. Purpose must
+     * never do that. A work item moving to `blocked`, being retitled, or changing accountable human
+     * cannot invalidate an authorization a person already granted — the purpose is a statement
+     * about intent at filing time, not a live dependency. Two meanings, two places.
+     *
+     * ── DIRECTION, AND WHY IT IS NOT A WEV REFERENT ────────────────────────
+     *
+     * WEV-1 answers "what is this work ABOUT" and its referents are things work concerns. An act is
+     * not what work is about; it is something done in its service. So the column lives HERE, on the
+     * request, owned by Action Authorization — which continues to own the request and gains no
+     * authority over Work by naming one.
+     *
+     * ── WHY FOUR COLUMNS AND NOT ONE ───────────────────────────────────────
+     *
+     * The truth is "a HUMAN declared", and one nullable id cannot say who or when. The actor pair
+     * plus the instant make the sentence provable from the row, and the human-only CHECK below
+     * makes the agent firewall a database property rather than a code review finding — exactly as
+     * `heby_action_requests_human_approver_chk` already does for approval, three columns above.
+     *
+     * ── ONE REQUEST, ZERO OR ONE WORK ──────────────────────────────────────
+     *
+     * No `purpose_type`, no `purpose_ref`, no polymorphic subject, no join table. V1 supports Work
+     * and nothing else, because a generic organizational-purpose ontology invented ahead of its
+     * surfaces would be Hebun asserting what kinds of purpose an organization has.
+     * ═════════════════════════════════════════════════════════════════════ */
+
+    /**
+     * The work item a human declared this request serves. NULL means NO PURPOSE WAS DECLARED IN
+     * THIS RECORD — never that the act is purposeless, unrelated to work, or incomplete. Every
+     * request that existed before this column is NULL, and none was backfilled.
+     */
+    purposeWorkItemId: uuid("purpose_work_item_id"),
+    /** Constrained to `human` by CHECK. An agent cannot declare organizational purpose. */
+    purposeDeclaredByActorType: actorTypeEnum("purpose_declared_by_actor_type"),
+    purposeDeclaredByActorId: uuid("purpose_declared_by_actor_id"),
+    purposeDeclaredAt: timestamp("purpose_declared_at", { withTimezone: true }),
 
     status: hebyActionRequestStatusEnum("status").notNull().default("pending"),
 
@@ -249,6 +302,49 @@ export const hebyActionRequests = pgTable(
       "heby_action_requests_target_chk",
       sql`(${t.targetKind} is null) = (${t.targetRef} is null)`,
     ),
+
+    /*
+     * ── PURPOSE-BOUND GOVERNED ACT ─────────────────────────────────────────
+     *
+     * A DECLARED PURPOSE MAY ONLY NAME A WORK ITEM OF ITS OWN TENANT. Composite on `tenant_id`
+     * against `work_items_tenant_id_uq`, so a request serving another organization's work is a
+     * database error rather than a check somebody forgot — the arrangement WEV-1 already uses for
+     * its referents, and `action_permits` for its parent request.
+     *
+     * RESTRICT, deliberately. A work item that has been named by an authorization cannot be
+     * deleted out from under it: a cascade would let removing a work row silently rewrite what a
+     * human is recorded as having authorized, and authorization history is not editable by a
+     * deletion elsewhere.
+     */
+    foreignKey({
+      name: "heby_action_requests_tenant_purpose_work_fk",
+      columns: [t.tenantId, t.purposeWorkItemId],
+      foreignColumns: [workItems.tenantId, workItems.id],
+    }).onDelete("restrict"),
+
+    /**
+     * A DECLARATION IS ALL FOUR VALUES OR NONE. "serves work W, but we do not know who said so or
+     * when" is unrepresentable, and so is a declarer with nothing declared.
+     */
+    check(
+      "heby_action_requests_purpose_chk",
+      sql`(${t.purposeWorkItemId} is null) = (${t.purposeDeclaredByActorType} is null and ${t.purposeDeclaredByActorId} is null and ${t.purposeDeclaredAt} is null)`,
+    ),
+
+    /*
+     * HUMAN SUPREMACY AT THE PURPOSE BOUNDARY — the same move the approver CHECK makes above.
+     *
+     * Organizational purpose is a human statement about why the organization is acting. An agent
+     * may PROPOSE an act; it may not say what that act is for. Enforced at the storage layer, so a
+     * model writing purpose is a database error and not a code review finding.
+     */
+    check(
+      "heby_action_requests_human_purpose_declarer_chk",
+      sql`${t.purposeDeclaredByActorType} is null or ${t.purposeDeclaredByActorType} = 'human'`,
+    ),
+
+    /** The inverse read: which governed acts were declared for one work item. */
+    index("heby_action_requests_tenant_purpose_work_idx").on(t.tenantId, t.purposeWorkItemId),
   ],
 );
 

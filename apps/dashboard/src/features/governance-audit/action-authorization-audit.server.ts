@@ -38,6 +38,7 @@ import {
   ACTION_AUDIT_PERMIT_CONSUMED,
   ACTION_AUDIT_PERMIT_ISSUED,
   ACTION_AUDIT_PERMIT_REVOKED,
+  ACTION_AUDIT_PURPOSE_DECLARED,
   ACTION_AUDIT_REJECTED,
   ACTION_PERMIT_ENTITY_TYPE,
   ACTION_REQUEST_ENTITY_TYPE,
@@ -63,7 +64,9 @@ export type ActionAuthorizationAuditAction =
   | typeof ACTION_AUDIT_REJECTED
   | typeof ACTION_AUDIT_PERMIT_ISSUED
   | typeof ACTION_AUDIT_PERMIT_REVOKED
-  | typeof ACTION_AUDIT_PERMIT_CONSUMED;
+  | typeof ACTION_AUDIT_PERMIT_CONSUMED
+  /* PBGA-1. A request event, not a permit event — see `entityTypeFor`. */
+  | typeof ACTION_AUDIT_PURPOSE_DECLARED;
 
 /**
  * Identity and shape only — never content.
@@ -95,6 +98,12 @@ export interface ActionAuthorizationAuditMetadata {
   readonly executed: false;
   /** Why an authorized attempt was refused. Absent on a committed event. */
   readonly refusalReason?: string;
+  /**
+   * PBGA-1. The Work item a human declared this request serves. Present ONLY on a
+   * `purpose-declared` event. It records WHAT was declared; it authorizes nothing and, like every
+   * other field here, is never read to decide anything.
+   */
+  readonly purposeWorkItemId?: string;
 }
 
 /**
@@ -116,7 +125,9 @@ export interface ActionAuthorizationAuditEvent {
 
 /** Permit events are about the permit; approval and rejection are about the request. */
 function entityTypeFor(action: ActionAuthorizationAuditAction): string {
-  return action === ACTION_AUDIT_APPROVED || action === ACTION_AUDIT_REJECTED
+  return action === ACTION_AUDIT_APPROVED ||
+    action === ACTION_AUDIT_REJECTED ||
+    action === ACTION_AUDIT_PURPOSE_DECLARED
     ? ACTION_REQUEST_ENTITY_TYPE
     : ACTION_PERMIT_ENTITY_TYPE;
 }

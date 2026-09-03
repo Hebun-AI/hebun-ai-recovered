@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import {
+  declareActionRequestPurpose,
+  type DeclareActionPurposeResult,
+} from "@/features/action-authorization/declare-action-purpose.server";
+import {
   approveActionRequest,
   rejectActionRequest,
 } from "@/features/action-authorization/decide-action-request.server";
@@ -142,5 +146,31 @@ export async function executeGovernedInternalActionAction(
     revalidatePath("/approvals");
     revalidatePath("/director/work");
   }
+  return result;
+}
+
+/*
+ * PBGA-1 — DECLARE WHICH WORK A PENDING REQUEST SERVES.
+ *
+ * A DECLARATION, NOT A DECISION. It approves nothing, rejects nothing, mints no permit and executes
+ * nothing: it records that a human said what organizational purpose this act is filed for, so the
+ * person deciding about it can see that purpose before they decide.
+ *
+ * It sits beside the decision actions because that is where a pending request is looked at, and the
+ * separation from them is the point — a Director may declare a purpose and still reject the act.
+ *
+ * The tenant and the declaring human are resolved SERVER-SIDE. The browser supplies two ids and
+ * nothing else; it cannot name the declarer, cannot name another organization, and the storage
+ * CHECK refuses a non-human declarer underneath.
+ */
+export async function declareActionPurposeAction(
+  input: { readonly requestId: string; readonly workItemId: string },
+): Promise<DeclareActionPurposeResult> {
+  const tenant = await resolveTenantContext();
+  const result = await declareActionRequestPurpose(tenant, {
+    requestId: String(input?.requestId ?? ""),
+    workItemId: String(input?.workItemId ?? ""),
+  });
+  if (result.status === "declared") revalidatePath("/approvals");
   return result;
 }

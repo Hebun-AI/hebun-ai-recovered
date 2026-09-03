@@ -1,0 +1,8 @@
+ALTER TABLE "heby_action_requests" ADD COLUMN "purpose_work_item_id" uuid;--> statement-breakpoint
+ALTER TABLE "heby_action_requests" ADD COLUMN "purpose_declared_by_actor_type" "actor_type";--> statement-breakpoint
+ALTER TABLE "heby_action_requests" ADD COLUMN "purpose_declared_by_actor_id" uuid;--> statement-breakpoint
+ALTER TABLE "heby_action_requests" ADD COLUMN "purpose_declared_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "heby_action_requests" ADD CONSTRAINT "heby_action_requests_tenant_purpose_work_fk" FOREIGN KEY ("tenant_id","purpose_work_item_id") REFERENCES "public"."work_items"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "heby_action_requests_tenant_purpose_work_idx" ON "heby_action_requests" USING btree ("tenant_id","purpose_work_item_id");--> statement-breakpoint
+ALTER TABLE "heby_action_requests" ADD CONSTRAINT "heby_action_requests_purpose_chk" CHECK (("heby_action_requests"."purpose_work_item_id" is null) = ("heby_action_requests"."purpose_declared_by_actor_type" is null and "heby_action_requests"."purpose_declared_by_actor_id" is null and "heby_action_requests"."purpose_declared_at" is null));--> statement-breakpoint
+ALTER TABLE "heby_action_requests" ADD CONSTRAINT "heby_action_requests_human_purpose_declarer_chk" CHECK ("heby_action_requests"."purpose_declared_by_actor_type" is null or "heby_action_requests"."purpose_declared_by_actor_type" = 'human');

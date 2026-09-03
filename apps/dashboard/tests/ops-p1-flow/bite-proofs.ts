@@ -149,7 +149,7 @@ const MUTATIONS: readonly Mutation[] = [
     /* RE-ANCHORED at GIA-1, as it was at Departmental Placement and WORK-1 before it: the mutation must apply
      * to the journal's CURRENT tail, or it proves nothing. The defect it injects — an extra journal
      * entry — is unchanged, and this anchor moves with every migration by design. */
-    find: `      "tag": "20260902183808_wev1_work_evidence_reference",\n      "breakpoints": true\n    }\n  ]`,
+    find: `      "tag": "20260902212106_pbga1_action_request_work_purpose",\n      "breakpoints": true\n    }\n  ]`,
     replace:
       `      "tag": "20260828190630_sia3_agent_improvement_hypothesis",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 36,\n      "version": "7",\n      "when": 1787726663801,\n` +

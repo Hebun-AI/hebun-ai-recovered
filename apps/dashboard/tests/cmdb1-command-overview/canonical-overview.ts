@@ -73,8 +73,8 @@ const RETIRED = [
  * without moving the count.
  */
 /* GIA-1's mandate-scope CHECK grew the ledger to 44; WEV-1's `work_evidence_references` to 45. BOTH values move with it. */
-const LEDGER_COUNT = 45;
-const LEDGER_DIGEST = "1d956a04cc998419"; /* WEV-1 authored a migration — the `work_evidence_references` table — so the ledger digest moved with it. */
+const LEDGER_COUNT = 46;
+const LEDGER_DIGEST = "5f0c4e249bdcb666"; /* PBGA-1 authored a migration — the `heby_action_requests` purpose columns — so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *
@@ -126,6 +126,9 @@ const ITEM = Object.freeze({
   targetLabel: "someone@example.test",
   expectedEffect: "Send one message to one recipient.",
   proposedAt: "2026-08-21T09:00:00.000Z",
+  /* PBGA-1 — no purpose declared, which is what every released fixture means. */
+  purposeWorkTitle: null,
+  purposeUnresolved: false,
   /* E2-4 widened the view. This fixture supplies no evaluation instant, so there is no duration. */
   waitingFor: null,
 });
@@ -151,6 +154,9 @@ const SEAM_ROW: PendingActionRequestView = Object.freeze({
   proposedByAgentInService: null,
   payloadDigest: "digest",
   proposedAt: "2026-08-21T09:00:00.000Z",
+  /* PBGA-1 — no purpose declared, which is what every released fixture means. */
+  purposeWorkTitle: null,
+  purposeUnresolved: false,
 });
 
 function renderOverview(waiting: WaitingOnYouState): string {

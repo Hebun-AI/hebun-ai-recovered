@@ -365,9 +365,9 @@ async function main(): Promise<void> {
    * 7. THE SCHEMA IS ADDITIVE, TENANT-SAFE, AND ACTIVATES NOTHING DORMANT.
    * ═══════════════════════════════════════════════════════════════════════ */
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly { tag: string }[] };
-  assert.equal(journal.entries.length, 45, "the ledger grew by exactly one, and by exactly one more since"); /* WEV-1 grew the ledger 44 -> 45: the `work_evidence_references` table. */
+  assert.equal(journal.entries.length, 46, "the ledger grew by exactly one, and by exactly one more since"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46 (`heby_action_requests` purpose columns). */
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 45, "and the files agree");
+  assert.equal(sqlFiles.length, 46, "and the files agree");
 
   /*
    * PHASE-RELATIVE, NOT ABSOLUTE. This used to read "the newest migration is this one", which was

@@ -183,6 +183,17 @@ async function insertActionRequest(
    * human-typed proposal, which is the honest reading: a human dictated the act.
    */
   originationInvocationId?: string,
+  /*
+   * PBGA-1 — THE WORK THIS ACT IS DECLARED TO SERVE, when a human declared one while filing it.
+   *
+   * A POSITIONAL ARGUMENT SUPPLIED BY ONE ENTRY POINT ONLY. `recordActionRequest` (human) may pass
+   * it; `recordAgentOriginatedActionRequest` never does and has no parameter for it. So the agent
+   * firewall is the SHAPE of the call, not a check inside it — and the storage CHECK
+   * `heby_action_requests_human_purpose_declarer_chk` refuses a non-human declarer underneath.
+   *
+   * Optional, always. A proposal without a declared purpose is unchanged in every respect.
+   */
+  purposeWorkItemId?: string,
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -278,6 +289,21 @@ async function insertActionRequest(
          * depend on it now.
          */
         originationInvocationId: originationInvocationId ?? null,
+        /*
+         * PBGA-1 — THE DECLARED PURPOSE, ATOMIC WITH THE PROPOSAL.
+         *
+         * Written in the SAME insert rather than patched afterwards, so "a request exists but the
+         * purpose its author declared was lost" is not a state this path can produce. All four
+         * columns move together or none do — the CHECK requires it — and the declarer is the human
+         * whose authenticated request created the row, which is the same person the proposer
+         * columns already name on this entry point.
+         *
+         * Undefined on the agent path by CONSTRUCTION: that entry point has no such parameter.
+         */
+        purposeWorkItemId: purposeWorkItemId ?? null,
+        purposeDeclaredByActorType: purposeWorkItemId ? "human" : null,
+        purposeDeclaredByActorId: purposeWorkItemId ? tenant.userId : null,
+        purposeDeclaredAt: purposeWorkItemId ? now : null,
         proposedByActorType: proposer.actorType,
         proposedByActorId: proposer.actorId,
         status: "pending",
@@ -302,6 +328,12 @@ async function insertActionRequest(
      * persistence failure would make a working invariant look like a broken database.
      */
     if (isUniqueViolation(error)) return refused("already-pending");
+    /*
+     * PBGA-1. The composite FK is the authority on whether the declared work exists in this tenant.
+     * Asking the Work authority first would put a second, weaker copy of that question in a module
+     * that owns neither table, and the two could disagree.
+     */
+    if (isForeignKeyViolation(error)) return refused("purpose-work-not-found");
     return refused("persistence-unavailable");
   }
 }
@@ -317,6 +349,11 @@ export function recordActionRequest(
   tenant: TenantContext | null,
   prepared: HebyPreparedAction | null,
   deps: ActionRequestDeps = {},
+  /**
+   * PBGA-1. The Work item this person declares the act serves. Optional — omitting it is the
+   * released behaviour, byte for byte, and leaves every purpose column NULL.
+   */
+  purposeWorkItemId?: string,
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -327,6 +364,8 @@ export function recordActionRequest(
     prepared,
     { actorType: "human", actorId: tenant.userId },
     deps,
+    undefined,
+    purposeWorkItemId,
   );
 }
 
@@ -381,6 +420,13 @@ export async function recordAgentOriginatedActionRequest(
   if (ceiling) return refused(ceiling);
 
   return insertActionRequest(tenant, prepared, pair, deps, originationInvocationId);
+}
+
+/** PostgreSQL `foreign_key_violation`. Read from the driver's code, never from the message text. */
+function isForeignKeyViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" && error !== null && (error as { code?: unknown }).code === "23503"
+  );
 }
 
 /** PostgreSQL `unique_violation`. Read from the driver's code, never from the message text. */

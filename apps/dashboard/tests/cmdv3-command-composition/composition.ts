@@ -100,6 +100,9 @@ const SEAM_ROW = Object.freeze({
   proposedByAgentInService: null,
   payloadDigest: "digest",
   proposedAt: "2026-08-21T09:00:00.000Z",
+  /* PBGA-1 — no purpose declared, which is what every released fixture means. */
+  purposeWorkTitle: null,
+  purposeUnresolved: false,
 });
 
 function render(waiting: WaitingOnYouState, overview: typeof CommandOverview = CommandOverview): string {
@@ -722,7 +725,7 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  * without moving the count.
  */
 /* Departmental Placement grew the ledger to 43; GIA-1's `record-work` mandate-scope CHECK to 44. BOTH values move with it. */
-const LEDGER_COUNT = 45;
+const LEDGER_COUNT = 46;
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine. AGENT-ID-0.1 adds exactly
  * one boundary — the durable agent identity one — so nine became false. Naming the set beats bumping

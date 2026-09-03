@@ -191,11 +191,19 @@ function main(): void {
   proof(
     "the human writer is put under the agent ceiling",
     SEAM,
+    /*
+     * RE-ANCHORED at PBGA-1: the human writer's call gained two trailing arguments — `undefined`
+     * for the origination invocation a human proposal never has, and the optional Work purpose.
+     * The MUTATION is unchanged (it puts the human path under the agent ceiling); only the literal
+     * it anchors to moved.
+     */
     `  return insertActionRequest(
     tenant,
     prepared,
     { actorType: "human", actorId: tenant.userId },
     deps,
+    undefined,
+    purposeWorkItemId,
   );`,
     `  void mandateCeilingRefusal;
   return insertActionRequest(

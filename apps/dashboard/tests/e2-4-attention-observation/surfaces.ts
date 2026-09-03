@@ -45,6 +45,9 @@ const REQUEST = (id: string, proposedAt: string): PendingActionRequestView => ({
   proposedByAgentInService: null,
   payloadDigest: "d",
   proposedAt,
+  /* PBGA-1 — no purpose declared, which is what every released fixture means. */
+  purposeWorkTitle: null,
+  purposeUnresolved: false,
 });
 
 /** The words a duration may never turn into, matched on WORD BOUNDARIES. */

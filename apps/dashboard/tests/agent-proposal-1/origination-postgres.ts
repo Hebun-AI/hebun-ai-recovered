@@ -690,6 +690,12 @@ async function main(): Promise<void> {
            */
           "departments_human_owner_chk",
           "heby_action_requests_human_approver_chk",
+          /*
+           * PBGA-1. The census GREW AGAIN, in the same strict direction. `heby_action_requests`
+           * constrains who may declare ORGANIZATIONAL PURPOSE to `human`: an agent may propose an
+           * act and may not say what the organization is doing it for.
+           */
+          "heby_action_requests_human_purpose_declarer_chk",
           "identity_enrollment_requests_human_approver_chk",
           "knowledge_external_references_human_declarer_chk",
           "knowledge_external_references_human_withdrawer_chk",
@@ -700,9 +706,13 @@ async function main(): Promise<void> {
            * organization's work, and PostgreSQL refuses it — the same guarantee `departments`
            * makes about ownership, made about work.
            */
+          /* WEV-1's own human-only CHECK, absent from these censuses since it shipped: a work
+           * evidence reference may only be DECLARED by a human. Restored here so the census matches
+           * the migrated database it reads. */
+          "work_evidence_references_human_declarer_chk",
           "work_items_human_accountable_chk",
         ],
-        "the eleven human-only CHECKs are enforced by the database, and this phase widened none of them",
+        "the twelve human-only CHECKs are enforced by the database, and this phase widened none of them",
       );
 
       /* And the approver CHECK really does refuse an agent, on the agent's own proposal. */
