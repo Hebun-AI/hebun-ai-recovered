@@ -3142,3 +3142,32 @@ to re-diagnose rather than assume the first fix failed. *Turkish Rug House:* the
 Drive document in Chrome today; Safari is a known limitation, written down rather than papered over.
 *Hebun AI:* zero schema, ledger 47, one release commit, Chrome acceptance recorded, expired-token
 acceptance still pending.
+
+## CGO-6 — the capability was one line, and finding it was the whole job
+
+- **Follow the constant, not the feature name.** `WORK_ARTIFACT_OWNER_WORKSPACE = "operations"` is
+  what decides how every prepared content draft is grounded. Once that was read, the gap stopped
+  being "content preparation needs context" and became "one profile declares three classes and needs
+  five".
+- **A released firewall can choose your architecture for you.** The Picker precedent repeated: the
+  ceremony is banned from naming any credential symbol, and here the Operations profile is the only
+  place the preparation seam routes through. Both times the narrow fix was the only representable one.
+- **Prefer widening reachability over building a reader.** `knowledge` and `work` had connected,
+  tenant-scoped readers and the answer path already substitutes them for any profile that declares
+  the class. Nothing was built; something was allowed to be seen.
+- **Rewrite a pin, never relax one.** WORK-2 asserted `work` was Command-only and named the
+  workspaces that must not have it. The replacement still names the complete set — two — and the
+  other five still gain nothing. A deleted assertion would have lost the rule with the fact.
+- **A word ban over a whole prompt fails on the product's own honesty.** Banning "publish" tripped on
+  the brief's "not scheduled, not published and not delivered". The ban belongs over the GROUNDING
+  CONTEXT; the denial belongs asserted as present. Third time this family has bitten.
+- **A refused acceptance can still be the evidence.** The operator ceremony refused with
+  `no-model-answer` because the model runtime is deployed-only — and its refusal payload carried the
+  full production resolution set, proving `knowledge` and `work` now resolve for a real tenant, with
+  nothing written. What the run could not prove was named instead of implied.
+
+**Weekly three.** *Learned:* the smallest legitimate capability is often a reachability change, and
+the work is proving which one seam decides it. *Turkish Rug House:* a caption prepared for the rug
+house is now written against what the rug house has recorded and what it says it is trying to do —
+not against its previous captions alone. *Hebun AI:* zero schema, ledger 47, one release commit, two
+source classes reaching one more workspace, one stale CGO-5-era assertion repaired.
