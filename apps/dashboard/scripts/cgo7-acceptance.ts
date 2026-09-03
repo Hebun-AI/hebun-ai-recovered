@@ -28,6 +28,31 @@ loadQuietEnv(
     "HEBUN_INTEGRATION_ENCRYPTION_ACTIVE_KEY_ID",
   ],
 );
+/*
+ * THE MODEL RUNTIME, LOADED BY NAME FROM THE DEVELOPMENT ENV FILE.
+ *
+ * CGO-6's acceptance recorded that "the model runtime is connected only in the deployed
+ * environment" and refused with `no-model-answer`. That was a SCRIPT GAP, not an environment fact:
+ * `scripts/cgo6-acceptance.ts` loaded only `.env.hosted.local`, which carries the production
+ * database and the encryption keys and no model configuration at all. The configuration is in
+ * `.env.local` and always was.
+ *
+ * `loadQuietEnv` loads ONLY the variables it is given, so naming these six brings the model runtime
+ * and nothing else — in particular NOT that file's `DATABASE_URL`, which points at the local
+ * `hebun_r1` database. The production connection string above stays the one in force.
+ */
+loadQuietEnv(
+  [".env.local"],
+  [
+    "ANTHROPIC_API_KEY",
+    "HEBUN_MODEL_ID",
+    "HEBUN_MODEL_PROVIDER",
+    "HEBUN_MODEL_TRANSPORT",
+    "HEBUN_MODEL_CREDENTIAL",
+    "HEBUN_MODEL_CONNECTIVITY_ENABLED",
+    "HEBUN_MODEL_MAX_OUTPUT_TOKENS",
+  ],
+);
 process.env.HEBUN_CONTROL_PLANE_ALLOW_REMOTE = "true";
 
 const HANDLE = process.argv.find((a) => a.startsWith("@")) ?? "@Candamlalari";

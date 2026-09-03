@@ -3171,3 +3171,97 @@ the work is proving which one seam decides it. *Turkish Rug House:* a caption pr
 house is now written against what the rug house has recorded and what it says it is trying to do —
 not against its previous captions alone. *Hebun AI:* zero schema, ledger 47, one release commit, two
 source classes reaching one more workspace, one stale CGO-5-era assertion repaired.
+
+## GOOGLE-PICKER-1 closed — the timestamp was the proof, not the outcome
+
+- **A green run is not a proof unless the repaired branch could have run.** The first Chrome attempt
+  passed and proved nothing: the token was still fresh, ~90 seconds before the skew window opened.
+  Reporting it as acceptance would have closed a defect on evidence that never touched it.
+- **The decisive evidence was 22.7 seconds.** The refresh landed at `20:30:13.303Z` against a token
+  stated to expire at `20:30:36.006Z` — INSIDE the skew window, while Google would still have
+  accepted it. The old reactive rule needs Google to refuse, and Google does not refuse a token with
+  23 seconds left. Only the proactive branch can refresh a still-valid token, so the timestamp
+  discriminates the two code paths where a pass/fail outcome could not.
+- **Design the acceptance so the two hypotheses produce different observations.** "Picker opens" is
+  true under both. "A credential was replaced before its stated expiry" is true under exactly one.
+- **A non-effect can be the subtlest check.** The connection's `version` and `updated_at` did not
+  move, because the refresh writer deliberately writes no lifecycle. If they HAD moved, the refresh
+  would have demoted the connection to `unverified` and disabled every capability it carries — the
+  INT-4 defect, still fixed, and now re-proved in production rather than assumed.
+- **Google returned no rotated refresh token, and none was invented.** The refresh row count stayed
+  at 4 and the live refresh credential is byte-identical. Absent is normal; treating absent as
+  "replace it with nothing" would destroy the tenant's only way back.
+
+**Weekly three.** *Learned:* when two code paths produce the same outcome, find the observation that
+only one of them can produce — usually a time, an order, or a thing that did NOT change. *Turkish Rug
+House:* choosing a Drive document now survives a token going stale, so the Knowledge admission path
+stops failing after an hour of not being used. *Hebun AI:* zero schema, ledger 47, one release commit,
+nine checks measured against a baseline taken before the attempt, Safari recorded as an unclaimed
+limitation rather than papered over.
+
+## CGO-7 — the observation entered the brief, not the grounding context
+
+- **The predecessor's refusal was a location decision, not a permanent no.** CGO-6 refused to add a
+  provider source class because a view count is not an organizational record. That reason did not
+  expire when this phase decided to USE the observation — it decided WHERE the observation goes.
+  The grounding context is the evidence channel (persisted by G6D, asserted provider-free by CGO-6);
+  the preparation brief is the instruction channel (never stored, never evidence, dropped for any
+  non-preparing intent). One of those already had exactly the semantics a provider number needs.
+- **CGO-6's closure predicted a new source class would be required. Discovery falsified it.** A
+  closure's "what comes next" is a hypothesis about the repository, not a fact about it. Minting the
+  class would have persisted provider metrics as answer evidence and made every ordinary answer from
+  that profile spend provider quota — costs the capability never needed to pay.
+- **A token-scan firewall cannot see a provider reached through an import.** R3W and CGO-3 both
+  assert `prepare-work-artifact.server.ts` contains no `fetch(` and no `https://`. Both would have
+  stayed green while the seam reached YouTube transitively. The new firewall walks the real import
+  graph from that seam and proves it reaches no provider `.server.ts` at all — which is why the
+  composition is a separate module and what crosses into preparation is a **string**.
+- **A directory-prefix ban asserts a name, not a reach.** Banning `src/features/provider-` failed on
+  `provider-catalog/catalog.ts` and three `contracts.ts` files — closed vocabulary that can contact
+  nothing. Banning `action-authorization/` would have been outright FALSE: its read seams are
+  reachable through the released answer path and were before this phase. Both bans were restated as
+  what actually matters — no `.server.ts` under a provider, no writer symbol anywhere in the graph.
+- **A word ban trips on the product's own honest prose, again.** "publish" as a forbidden claim
+  failed on `published <date>` — the platform's own word for a publication date, which is a fact.
+  Banned the imperative forms and not the past participle. Same class of failure as INT-3's and
+  E2-5's word bans; the fix is always to ban the ACT, never the stem.
+- **`tsc --noEmit` had been failing on `main` since CGO-6.** `scripts/cgo6-acceptance.ts` read
+  `prepared.revision` and `prepared.content`, neither of which exists on the result. `tsx` strips
+  types, so the script RAN and printed "(content not returned by the seam)" where the production
+  draft should have been. A script that executes is not a script that typechecks.
+- **A released pin can be the right answer to "should this exist?".** Adding a server action put ten
+  tests red at once — every phase that pinned the exact set of `src/app/**/actions.ts` files. The
+  pin was working: a new action boundary is meant to be a deliberate act. The action wrapped a seam
+  no surface calls, so the honest move was to DELETE it rather than move ten pins for polish. The
+  capability is a server seam, exactly as CGO-3, CGO-4 and CGO-6 are.
+- **Two more CGO-6-stale assertions surfaced, both failing on `main` since `fb0641a`.**
+  `k1-flow` asserted Operations reads no Knowledge and `work2-provider-disclosure` asserted Command
+  is the only workspace carrying `work` — CGO-6 falsified both and rewrote only ONE of the two
+  copies of the `work` pin. A pin duplicated across suites is a pin that will rot in exactly one
+  place. Both rewritten to name the complete set, not relaxed.
+- **A read is not a result.** Repairing the K1 assertion, the obvious inversion — "so knowledge now
+  reaches the answer" — was FALSE: the fixture's retrieval matched nothing. The read count moved
+  from 0 to 1 and the grounding stayed empty, which is two different facts about the same turn.
+- **Order carries a judgement.** Sorting the observed videos by view count would have been the
+  renderer deciding which one did better — the exact claim the whole fence exists to refuse. They
+  are rendered in publication order and a test asserts the 800x-views video stays second.
+
+- **A recorded limitation can be a script gap wearing an environment's clothes.** CGO-6 closed
+  saying "the model runtime is connected only in the deployed environment" and accepted without a
+  model call. It was false: `.env.local` had `HEBUN_MODEL_TRANSPORT=live` and the key all along, and
+  `cgo6-acceptance.ts` simply never loaded it. `loadQuietEnv` takes an explicit NAME LIST, so
+  loading the seven model variables imports the runtime without importing that file's local
+  `DATABASE_URL`. Before repeating a predecessor's stated limitation, check whether it is a fact
+  about the world or a fact about its script.
+- **The acceptance that mattered was the one that measured ZERO.** The draft proves little on its
+  own — one caption, no causal claim available. What proves the phase is 22 durable evidence rows
+  carrying `governance`, `work`, `operations` and `work-artifacts` and NOT ONE carrying YouTube;
+  zero message rows naming the channel; zero revisions containing a metric. The capability is
+  defined by where the observation did not go.
+
+**Weekly three.** *Learned:* when a predecessor refuses something for a stated reason, re-read the
+reason before assuming the refusal blocks you — it usually constrains the WHERE, not the WHETHER.
+*Turkish Rug House:* a caption can now be prepared knowing what the channel has already published and
+how it was received, without any of that becoming something the rug house is claimed to know.
+*Hebun AI:* zero schema, zero new provider scope, no new source class, one live observation of a real
+channel (10 uploads, 3 quota units, nothing stored), one pre-existing typecheck failure repaired.
