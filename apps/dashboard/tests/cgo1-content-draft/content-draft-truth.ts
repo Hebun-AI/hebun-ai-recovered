@@ -187,14 +187,31 @@ function destinationIsNeverUpdated(): void {
  * rather than the prose promising it.
  */
 function noProviderIsReachable(): void {
-  /* Not one destination is a connectable provider. */
-  const providerKeys = PROVIDER_CATALOG.map((entry) => entry.providerKey);
+  /*
+   * ── REWRITTEN BY CGO-6, BECAUSE CGO-5 CHANGED THE PREMISE AND NOT THE RULE ──
+   *
+   * This once asserted that no destination NAME appears in the provider catalog, which was true
+   * while no destination had a provider at all. CGO-5 connected `youtube` as a real, credential-only
+   * PUBLIC-READ provider, so a destination name and a provider key now legitimately coincide — and
+   * the old assertion failed on a fact the repository is entitled to have. (It had been failing
+   * since CGO-5 released; the coincidence, not this phase, is what broke it.)
+   *
+   * The rule it was defending never mentioned names: DECLARING A DESTINATION REACHES NOTHING. So it
+   * is restated as the thing that actually matters — a destination that happens to be a provider
+   * must expose no WRITE half anywhere in its catalog entry. A future destination that acquires a
+   * write scope fails here, which the name check could never have caught.
+   */
   for (const destination of CONTENT_DESTINATIONS) {
-    assert.equal(
-      providerKeys.includes(destination),
-      false,
-      `${destination} is NOT in the provider catalog: a destination is a declaration, not a connection`,
-    );
+    const entry = PROVIDER_CATALOG.find((candidate) => candidate.providerKey === destination);
+    if (!entry) continue; /* Not a provider at all — the strongest possible form of "no reach". */
+    for (const [capability, scopes] of Object.entries(entry.capabilityScopes)) {
+      assert.deepEqual(
+        [...scopes.write],
+        [],
+        `${destination} may be a connected provider, but ${capability} must carry NO write scope: ` +
+          "a destination is a declaration, never a place Hebun may publish",
+      );
+    }
   }
 
   /* No adapter can publish. The only external adapter Hebun registers sends email. */

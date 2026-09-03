@@ -94,8 +94,24 @@ async function main(): Promise<void> {
   const carrying = HEBY_PROFILED_WORKSPACES.filter((w) =>
     getHebyWorkspaceProfile(w).sourceClasses.includes("work"),
   );
-  assert.deepEqual(carrying, ["command"], "exactly one workspace declares `work`, and it is Command");
-  for (const w of ["workforce", "operations", "intelligence", "knowledge", "governance", "platform", "decisions"] as const) {
+  /*
+   * CGO-6 WIDENED THIS BY EXACTLY ONE WORKSPACE, AND THE PIN SAYS WHICH.
+   *
+   * WORK-2 pinned `work` to Command alone, which was the exact scope while Command was the only
+   * workspace where "what are we working on?" was a legitimate question. Operations became the
+   * second because `prepareWorkArtifact` declares it as the owner workspace, so every prepared
+   * content draft is grounded through that profile — and a draft prepared without the
+   * organization's declared purpose can only be about the product, never about the intent.
+   *
+   * The assertion is REWRITTEN, not relaxed: it still names the complete set, and the five
+   * workspaces below still gain nothing.
+   */
+  assert.deepEqual(
+    carrying,
+    ["command", "operations"],
+    "exactly two workspaces declare `work`: Command, and Operations because it prepares work",
+  );
+  for (const w of ["workforce", "intelligence", "knowledge", "governance", "platform", "decisions"] as const) {
     assert.ok(
       !getHebyWorkspaceProfile(w).sourceClasses.includes("work"),
       `${w} must not gain \`work\` — scope is exact, not convenient`,

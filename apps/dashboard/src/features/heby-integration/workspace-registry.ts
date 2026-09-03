@@ -264,7 +264,40 @@ const WORKSPACE_PROFILES = {
      * the one workspace where an artifact is a legitimate referent. No other profile gains it,
      * and no eighth workspace is created.
      */
-    sourceClasses: ["operations", "governance", "work-artifacts"],
+    /*
+     * ── CGO-6 · THE WORKSPACE THAT PREPARES CONTENT COULD NOT SEE WHY ────────
+     *
+     * `prepareWorkArtifact` declares `WORK_ARTIFACT_OWNER_WORKSPACE = "operations"`, so EVERY
+     * agent-prepared content draft this product makes is grounded through this profile. Until now
+     * that profile carried `operations` — Executive Overview sections the mock-surface gate
+     * withholds from a real tenant — plus `governance` and the artifacts themselves. So a model
+     * asked to prepare a caption for a real organization could see the organization's PRIOR DRAFTS
+     * and nothing about the organization: not what it knows, not what it is trying to do.
+     *
+     * CGO-3 and CGO-4 made preparation agent-authored and review-ready. This is what it was
+     * review-ready ABOUT.
+     *
+     * `knowledge` — what this organization has established as its own. Its connected reader is
+     * K-series work already declared by `intelligence`, `knowledge` and `decisions`; nothing new is
+     * read and no retrieval is widened. Content prepared for a rug house should rest on what the
+     * rug house has actually recorded about itself.
+     *
+     * `work` — what this organization has COMMITTED to, in its own declared words. WORK-1 owns the
+     * record and `command` was its only reader until now. Purpose is the input a content draft was
+     * most obviously missing: a caption prepared without it can only be about the product, never
+     * about the intent.
+     *
+     * WHAT THIS DELIBERATELY DOES NOT ADD. No provider observation, no performance evidence, no
+     * fourth class. A YouTube view count is not organizational truth and does not belong in a
+     * profile whose other classes are the organization's own records — it is a different authority
+     * with a different provenance, and folding it in here would make an outside number read like
+     * something this organization established.
+     *
+     * SCOPE IS EXACT, NOT CONVENIENT. Both classes gain exactly one workspace. `workforce`,
+     * `platform` and `governance` gain neither: this widening is justified by the preparation seam
+     * that routes here, and no other profile has one.
+     */
+    sourceClasses: ["operations", "governance", "work-artifacts", "knowledge", "work"],
     authority: "advisory-only",
     mayExplain: [
       "Explain this operational state.",
