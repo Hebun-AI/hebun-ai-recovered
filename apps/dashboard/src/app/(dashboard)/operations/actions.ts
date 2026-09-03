@@ -148,6 +148,11 @@ export async function prepareWorkArtifactAction(input: {
   prompt: string;
   route: string;
   artifactType: WorkArtifactType;
+  /*
+   * CGO-3. The human's declaration of where the prepared content is meant to go, carried to the
+   * released validator unchanged. Required for a content draft, refused on every other type.
+   */
+  intendedDestination?: ContentDestination;
   title: string;
   conversationId?: string;
   artifactId?: string;

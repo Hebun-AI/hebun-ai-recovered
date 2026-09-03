@@ -56,7 +56,7 @@ import {
   resolveAgentAuthorship,
   type AgentAuthorshipRefusal,
 } from "./agent-authorship.server";
-import type { WorkArtifactType } from "./contracts";
+import type { ContentDestination, WorkArtifactType } from "./contracts";
 import {
   createWorkArtifactFromHebyPreparation,
   reviseWorkArtifactFromHebyPreparation,
@@ -83,6 +83,20 @@ export interface PrepareWorkArtifactInput {
   readonly prompt: unknown;
   readonly route: string;
   readonly artifactType: WorkArtifactType;
+  /**
+   * CGO-3 — WHERE A PREPARED CONTENT DRAFT WAS PREPARED TO GO.
+   *
+   * THE HUMAN'S DECLARATION, exactly like `title`, and never derived from model output. The model
+   * writes the bytes; it does not choose the destination, and no classifier reads the reply looking
+   * for one. A model that produced a caption mentioning Instagram has not decided anything about
+   * where this organization intends to put it.
+   *
+   * Required by the released validator when `artifactType` is `content-draft` and refused on every
+   * other type — CGO-1's rule, enforced once in the writer rather than restated here. Before this
+   * field existed the agent path could be ASKED for a content draft and always failed closed at
+   * that validator, which is why it is the only thing this phase adds.
+   */
+  readonly intendedDestination?: ContentDestination;
   /** The human's title for the work. Never derived from model output. */
   readonly title: string;
   readonly conversationId?: string;
@@ -211,6 +225,12 @@ export async function prepareWorkArtifact(
         tenant,
         {
           artifactType: input.artifactType,
+          /*
+           * CGO-3. Passed straight through. This seam decides nothing about it — the released
+           * validator requires it for a content draft and refuses it on anything else, and a
+           * second copy of that rule here would be a second place it could drift.
+           */
+          intendedDestination: input.intendedDestination,
           title: input.title,
           content,
           sourceMessageId,
