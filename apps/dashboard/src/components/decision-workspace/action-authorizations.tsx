@@ -118,14 +118,26 @@ function DeclarePurposeControl({
         ))}
       </select>
       {/*
-        * Styled as a SECONDARY control, deliberately unlike the authorize button below it. A
-        * declaration is not a decision, and the surface must not invite a reader to mistake one
-        * for the other.
+        * ── THE AFFORDANCE, WHICH IS NOT DECORATION ──────────────────────────
+        *
+        * This shipped as a secondary control whose ONLY difference between armed and unarmed was
+        * `disabled:opacity-40` on already-muted text, beside a solid primary "Authorize" button.
+        * An operator selected a work item, the button became genuinely clickable, and it still
+        * looked exactly as inert as before — so it was read as disabled and never clicked. The
+        * predicate was right and the surface lied about it.
+        *
+        * It stays SECONDARY: a declaration is not a decision, and this must never look like the
+        * authorize control. But armed and unarmed are now different at a glance — border, weight
+        * and foreground all move, not opacity alone.
         */}
       <button
         type="button"
         disabled={pending || choice === ""}
-        className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-fg-secondary disabled:opacity-40"
+        className={
+          choice === "" || pending
+            ? "rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-fg-muted opacity-60"
+            : "rounded-md border border-fg-secondary bg-surface px-3 py-1.5 text-xs font-semibold text-fg-primary"
+        }
         onClick={() =>
           startTransition(async () => {
             setMessage(null);
@@ -137,6 +149,18 @@ function DeclarePurposeControl({
       >
         Declare purpose
       </button>
+      {/*
+        * WHAT WOULD BE DECLARED, ON THIS CARD, IN WORDS.
+        *
+        * Three identical pending proposals to the same recipient stack on this surface, each with
+        * its own picker. Naming the chosen work beside the button that would record it makes the
+        * selection legible per card rather than something a reader has to hold in their head.
+        */}
+      {choice !== "" && !pending ? (
+        <span className="text-xs leading-5 text-fg-secondary">
+          will declare: {options.find((option) => option.workItemId === choice)?.title ?? choice}
+        </span>
+      ) : null}
       {message ? <span className="text-xs text-danger">{message}</span> : null}
     </div>
   );
