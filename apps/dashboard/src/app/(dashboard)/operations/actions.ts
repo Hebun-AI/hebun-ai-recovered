@@ -8,6 +8,7 @@ import type {
   RetireWorkArtifactResult,
   WorkArtifactReferenceResolution,
   WorkArtifactRevisionView,
+  ContentDestination,
   WorkArtifactType,
 } from "@/features/work-artifacts/contracts";
 import {
@@ -65,6 +66,12 @@ export async function createWorkArtifactAction(input: {
   title: string;
   content: string;
   sourceMessageId?: string;
+  /*
+   * CGO-1. Passed straight through to the domain writer, which refuses it on every type but
+   * `content-draft` and requires it on that one. This action decides nothing about it — a second
+   * copy of the rule here is a second place it could drift.
+   */
+  intendedDestination?: ContentDestination;
 }): Promise<CreateWorkArtifactResult> {
   const tenant = await resolveTenantContext();
   const result = await createWorkArtifact(tenant, input, WORK_ARTIFACT_OWNER_WORKSPACE);

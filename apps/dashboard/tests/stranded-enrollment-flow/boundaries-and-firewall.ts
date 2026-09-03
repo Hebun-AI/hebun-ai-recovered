@@ -277,7 +277,8 @@ function main(): void {
       "20260902115846_gia1_record_work_mandate_scope.sql",
       /* WEV-1 — the `work_evidence_references` table. A declared later phase, not this one's. */
       "20260902183808_wev1_work_evidence_reference.sql",
-      "20260902212106_pbga1_action_request_work_purpose.sql"],
+      "20260902212106_pbga1_action_request_work_purpose.sql",
+      "20260903093716_cgo1_content_draft_destination.sql"],
       "stranded-enrollment recovery added no migration; what follows is a declared later phase",
     );
     for (const file of migrations) {

@@ -7,7 +7,15 @@ import {
   retireWorkArtifactAction,
   reviseWorkArtifactAction,
 } from "@/app/(dashboard)/operations/actions";
+import {
+  CONTENT_DESTINATION_LABELS,
+  CONTENT_DESTINATION_NON_CLAIMS,
+  CONTENT_DESTINATIONS,
+  CONTENT_DRAFT_TYPE,
+  CONTENT_PREPARATION_DISTINCTIONS,
+} from "@/features/work-artifacts/contracts";
 import type {
+  ContentDestination,
   WorkArtifactRevisionView,
   WorkArtifactType,
   WorkArtifactValidationProblem,
@@ -64,6 +72,14 @@ function ArtifactRow({ artifact }: { artifact: WorkArtifactView }) {
           <p className="text-sm text-fg-primary">{artifact.title}</p>
           <p className="text-xs text-fg-secondary">
             {artifact.artifactType} · revision {artifact.currentRevision}
+            {/*
+              * CGO-1. Rendered as "prepared for", never as "publishes to" or "connected to" — the
+              * row records an intention, and the wording is the only thing stopping a reader from
+              * upgrading it into a capability.
+              */}
+            {artifact.intendedDestination
+              ? ` · prepared for ${CONTENT_DESTINATION_LABELS[artifact.intendedDestination]}`
+              : ""}
             {retired ? " · retired" : ""}
           </p>
           <ReferenceChip reference={artifact.currentRef} />
@@ -177,6 +193,11 @@ export function PreparedWorkSection({ listing }: { readonly listing: WorkArtifac
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [artifactType, setArtifactType] = useState<WorkArtifactType>("message-draft");
+  /*
+   * CGO-1. Held even while another type is selected so switching away and back does not silently
+   * lose the operator's choice. It is only SENT for a content draft — see the submit handler.
+   */
+  const [intendedDestination, setIntendedDestination] = useState<ContentDestination>("instagram");
   const [problems, setProblems] = useState<readonly WorkArtifactValidationProblem[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -198,7 +219,16 @@ export function PreparedWorkSection({ listing }: { readonly listing: WorkArtifac
           startTransition(async () => {
             setProblems([]);
             setMessage(null);
-            const result = await createWorkArtifactAction({ artifactType, title, content });
+            const result = await createWorkArtifactAction({
+              artifactType,
+              title,
+              content,
+              /*
+               * ONLY for a content draft. Sending it on any other type is refused by the domain
+               * validator, and rightly — an operational plan has no destination.
+               */
+              ...(artifactType === CONTENT_DRAFT_TYPE ? { intendedDestination } : {}),
+            });
             if (result.status === "created") {
               setTitle("");
               setContent("");
@@ -227,8 +257,46 @@ export function PreparedWorkSection({ listing }: { readonly listing: WorkArtifac
           >
             <option value="message-draft">message-draft</option>
             <option value="operational-plan">operational-plan</option>
+            <option value={CONTENT_DRAFT_TYPE}>content-draft</option>
           </select>
         </div>
+
+        {/*
+          * CGO-1 — the destination picker, shown ONLY for a content draft because only that type
+          * may carry one. A closed list, so an operator cannot type a destination Hebun has never
+          * reasoned about, and the caption underneath states what choosing one does NOT do.
+          */}
+        {artifactType === CONTENT_DRAFT_TYPE ? (
+          <div className="space-y-1 rounded border border-border-subtle bg-surface-2 px-2 py-2">
+            <label className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+              <span className="text-xs text-fg-secondary">Prepared for</span>
+              <select
+                value={intendedDestination}
+                onChange={(event) =>
+                  setIntendedDestination(event.target.value as ContentDestination)
+                }
+                className="shrink-0 rounded border border-border-subtle bg-surface-1 px-2 py-1 text-sm text-fg-primary"
+              >
+                {CONTENT_DESTINATIONS.map((destination) => (
+                  <option key={destination} value={destination}>
+                    {CONTENT_DESTINATION_LABELS[destination]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="text-xs text-fg-muted">
+              A declared preparation target. {CONTENT_DESTINATION_NON_CLAIMS.join(" ")}
+            </p>
+            {/*
+              * The four collapses, rendered in order. They are here rather than in a footnote
+              * because this is the moment an operator declares a destination — the one point where
+              * "prepared for Instagram" is most likely to be read as "will be posted to Instagram".
+              */}
+            <p className="text-xs text-fg-muted">
+              {CONTENT_PREPARATION_DISTINCTIONS.join(" · ")}
+            </p>
+          </div>
+        ) : null}
         <textarea
           value={content}
           onChange={(event) => setContent(event.target.value)}

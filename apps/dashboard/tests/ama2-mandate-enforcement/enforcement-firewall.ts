@@ -419,7 +419,7 @@ function amA2AddedNothingToTheDatabase(): void {
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
   assert.equal(
     journal.entries.length,
-    46, /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46 (`heby_action_requests` purpose columns). */
+    47, /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
     "the migration ledger is unchanged by AMA-2 — it is a read, not a schema change", /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
   );
 

@@ -218,7 +218,7 @@ function walk(dir: string): string[] {
     f.endsWith(".sql"),
   );
   /* WORK-1 grew the ledger to 42; Departmental Placement to 43. Neither is this milestone's. */
-  assert.equal(migrations.length, 46, "no migration was added by the hardening"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46 (`heby_action_requests` purpose columns). */
+  assert.equal(migrations.length, 47, "no migration was added by the hardening"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
 
   /* WORK-2 added the 18th class `work`, Departmental Placement the 19th, OSA-4 the 20th. None is the hardening's. */
   assert.equal(HEBY_SOURCE_CLASSES.length, 20, "Heby's source-class census is unchanged by the hardening");

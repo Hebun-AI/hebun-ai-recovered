@@ -226,7 +226,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   {
     const journal = JSON.parse(read(JOURNAL)) as { entries: readonly { tag: string }[] };
-    assert.equal(journal.entries.length, 46, "the ledger carries no DH-1 migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46 (`heby_action_requests` purpose columns). */
+    assert.equal(journal.entries.length, 47, "the ledger carries no DH-1 migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
     assert.ok(
       !walk("src/db/schema").some((f) => /horizon/i.test(path.basename(f))),
       "there is no horizon table, and no writer that could fill one",

@@ -93,7 +93,7 @@ async function withDatabase(
  * 1. THE CANONICAL LEDGER ITSELF
  * ═════════════════════════════════════════════════════════════════════════ */
 function theCanonicalLedgerIsWellFormed(): void {
-  assert.equal(CANONICAL.length, 46, "this checkout authors 44 canonical migrations"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46 (`heby_action_requests` purpose columns). */
+  assert.equal(CANONICAL.length, 47, "this checkout authors 47 canonical migrations"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
   /*
    * PHASE-RELATIVE, not an index. This read `CANONICAL[40]` and therefore named the last entry only
    * while the ledger happened to be 41 long — every migration since has had to move two numbers in
@@ -102,8 +102,8 @@ function theCanonicalLedgerIsWellFormed(): void {
    */
   assert.equal(
     CANONICAL.at(-1)!.tag,
-    "20260902212106_pbga1_action_request_work_purpose",
-    "and the last of them is PBGA-1's action-request purpose columns — WEV-1's work evidence table held this line before it",
+    "20260903093716_cgo1_content_draft_destination",
+    "and the last of them is CGO-1's content-draft type and destination — PBGA-1's purpose columns held this line before it",
   );
 
   /* Strictly increasing `when` — the precondition that makes delegating to the engine sound. */
@@ -128,7 +128,7 @@ function theCanonicalLedgerIsWellFormed(): void {
    * until those ceremonies are authorized, which is a fact this file exists to make visible rather
    * than one it exists to hide.
    */
-  assert.equal(canonicalDigest(CANONICAL), "c424a8cd7d0f1c9b48976b5c1c0860b3", "the release digest");
+  assert.equal(canonicalDigest(CANONICAL), "8394a8f461cdc9a9bf7dac9e13af8192", "the release digest");
   assert.equal(
     canonicalDigest(CANONICAL.slice(0, 35)),
     "97f1151fd57bec5142621f00c1913708",
@@ -172,7 +172,7 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
         [CANONICAL[CANONICAL.length - 1]!.tag],
         "exactly one migration is pending, and it is the newest release",
       );
-      assert.equal(verdict.finalDigest, "c424a8cd7d0f1c9b48976b5c1c0860b3");
+      assert.equal(verdict.finalDigest, "8394a8f461cdc9a9bf7dac9e13af8192");
 
       /*
        * THE PENDING MIGRATION'S OWN ADDITION IS ABSENT BEFORE MIGRATING.
@@ -208,13 +208,19 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
        * before migrating; `heby_action_requests_human_purpose_declarer_chk` is what this release
        * adds and nothing earlier could have.
        *
+       * CGO-1 IS THAT KIND AGAIN — one enum value, one new type, one column and two CHECKs on
+       * `work_artifacts`, which has existed since R3W — so the probe STAYS ON A CONSTRAINT and
+       * MOVES TO THIS RELEASE'S. PBGA-1's declarer CHECK is now added by an EARLIER migration and
+       * would be satisfied before migrating, proving nothing about the pending one;
+       * `work_artifacts_content_draft_destination_chk` is what this release adds.
+       *
        * The rule, which is the part that survives: probe what the PENDING migration adds, never
        * something an earlier one already added.
        */
       const before = await organizationalFingerprint(client);
       const externalBefore = await client.query<{ n: string }>(
         `select count(*)::text as n from pg_constraint
-          where conname = 'heby_action_requests_human_purpose_declarer_chk'`,
+          where conname = 'work_artifacts_content_draft_destination_chk'`,
       );
       assert.equal(
         externalBefore.rows[0]!.n,
@@ -227,12 +233,12 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.applied, 46);
-      assert.equal(after.digest, "c424a8cd7d0f1c9b48976b5c1c0860b3");
+      assert.equal(after.applied, 47);
+      assert.equal(after.digest, "8394a8f461cdc9a9bf7dac9e13af8192");
 
       const externalAfter = await client.query<{ n: string }>(
         `select count(*)::text as n from pg_constraint
-          where conname = 'heby_action_requests_human_purpose_declarer_chk'`,
+          where conname = 'work_artifacts_content_draft_destination_chk'`,
       );
       assert.equal(externalAfter.rows[0]!.n, "1", "and present after");
 
@@ -277,7 +283,7 @@ async function aTargetTwoBehindAppliesBoth(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.digest, "c424a8cd7d0f1c9b48976b5c1c0860b3");
+      assert.equal(after.digest, "8394a8f461cdc9a9bf7dac9e13af8192");
     });
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -290,8 +296,8 @@ async function aConvergedTargetIsANoOp(): Promise<void> {
     const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);
     assert.equal(verdict.status, "converged");
     if (verdict.status !== "converged") return;
-    assert.equal(verdict.applied, 46);
-    assert.equal(verdict.digest, "c424a8cd7d0f1c9b48976b5c1c0860b3");
+    assert.equal(verdict.applied, 47);
+    assert.equal(verdict.digest, "8394a8f461cdc9a9bf7dac9e13af8192");
 
     /* And the released convergence check agrees, so the split did not change its answer. */
     const legacy = await verifyProductionTarget(

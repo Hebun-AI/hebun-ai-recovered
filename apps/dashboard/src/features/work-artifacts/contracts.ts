@@ -27,16 +27,76 @@
  * `heby.operations.send-communication` calls `draftRef`. A new type arrives with the consumer that
  * needs it, through its own migration.
  */
-export type WorkArtifactType = "operational-plan" | "message-draft";
+export type WorkArtifactType = "operational-plan" | "message-draft" | "content-draft";
 
 export const WORK_ARTIFACT_TYPES: readonly WorkArtifactType[] = [
   "operational-plan",
   "message-draft",
+  "content-draft",
 ] as const;
 
 export function isWorkArtifactType(value: unknown): value is WorkArtifactType {
   return typeof value === "string" && (WORK_ARTIFACT_TYPES as readonly string[]).includes(value);
 }
+
+/**
+ * CGO-1 — the CLOSED destination vocabulary. Where a content draft was prepared to GO.
+ *
+ * A value here is a DECLARATION MADE AT PREPARATION TIME and nothing else. It is not a provider,
+ * not a connection, not an account, not an authorization, not a schedule and not a publication.
+ * `CONTENT_DESTINATION_NON_CLAIMS` below states that in words a surface can quote verbatim, so no
+ * surface has to invent its own sentence and a test can assert the claim matches the repository.
+ */
+export type ContentDestination = "instagram" | "tiktok" | "youtube";
+
+export const CONTENT_DESTINATIONS: readonly ContentDestination[] = [
+  "instagram",
+  "tiktok",
+  "youtube",
+] as const;
+
+export function isContentDestination(value: unknown): value is ContentDestination {
+  return typeof value === "string" && (CONTENT_DESTINATIONS as readonly string[]).includes(value);
+}
+
+/** Human-facing names. Presentation only — the stored value is always the enum member. */
+export const CONTENT_DESTINATION_LABELS: Readonly<Record<ContentDestination, string>> =
+  Object.freeze({
+    instagram: "Instagram",
+    tiktok: "TikTok",
+    youtube: "YouTube",
+  });
+
+/**
+ * The type whose consumer is a preparation surface rather than an action tool, and the only type
+ * that carries a destination. Named once here so writers, readers, validators and surfaces all
+ * agree by construction instead of by three separate string literals.
+ */
+export const CONTENT_DRAFT_TYPE: WorkArtifactType = "content-draft";
+
+/**
+ * WHAT DECLARING A DESTINATION DOES NOT ESTABLISH. Stated in code because the whole risk of this
+ * capability is that a reader upgrades "prepared for Instagram" into "connected to Instagram".
+ *
+ * Every line is a fact about this repository at the commit that ships it, not an aspiration.
+ */
+export const CONTENT_DESTINATION_NON_CLAIMS: readonly string[] = [
+  "A declared destination is not a provider connection. No social provider is connectable in Hebun.",
+  "No account is named, linked or authorized by declaring a destination.",
+  "Nothing is scheduled. Hebun has no scheduler, so no content can be queued to publish.",
+  "Nothing is published. The only external adapter Hebun registers sends email.",
+] as const;
+
+/**
+ * The four collapses this capability exists to keep apart, in order. A surface renders these so a
+ * reader cannot slide from one to the next, and a test asserts the surface still carries them.
+ */
+export const CONTENT_PREPARATION_DISTINCTIONS: readonly string[] = [
+  "PREPARED is not SCHEDULED",
+  "SCHEDULED is not PUBLISHED",
+  "PUBLISHED is not DELIVERED",
+  "DELIVERED is not SEEN",
+] as const;
 
 /**
  * Two states. `superseded` was dropped from Gate A's proposal under stress-test: supersession is a
@@ -71,6 +131,12 @@ export interface CreateWorkArtifactInput {
   readonly title: string;
   readonly content: string;
   /**
+   * CGO-1. REQUIRED when `artifactType` is `content-draft` and REFUSED otherwise — the same rule
+   * the two database CHECKs enforce, applied at the edge so a caller gets a validation problem
+   * rather than a constraint violation. Absent on every other type by design.
+   */
+  readonly intendedDestination?: ContentDestination;
+  /**
    * The assistant message this content came from, when it came from one. Optional because direct
    * human authorship is legitimate. It is re-checked against the tenant server-side; a foreign or
    * unknown id is refused, never silently dropped.
@@ -85,11 +151,17 @@ export interface ReviseWorkArtifactInput {
   readonly sourceMessageId?: string;
 }
 
-export type WorkArtifactField = "artifactType" | "title" | "content";
+export type WorkArtifactField = "artifactType" | "title" | "content" | "intendedDestination";
 
 export interface WorkArtifactValidationProblem {
   readonly field: WorkArtifactField;
-  readonly code: "required" | "too-long" | "control-characters" | "unknown-type";
+  readonly code:
+    | "required"
+    | "too-long"
+    | "control-characters"
+    | "unknown-type"
+    /** CGO-1. A destination was supplied for an artifact type that may not carry one. */
+    | "destination-not-permitted";
   /** Operator-facing text. States what is wrong; never rewrites the input. */
   readonly message: string;
 }
@@ -139,6 +211,11 @@ export interface WorkArtifactView {
   readonly createdAt: string;
   /** The stable reference for the CURRENT revision. See `artifact-ref.ts`. */
   readonly currentRef: string;
+  /**
+   * CGO-1. The declared preparation target, or NULL for every artifact that is not a content
+   * draft. NULL means "not a content draft" — never "destination unknown".
+   */
+  readonly intendedDestination: ContentDestination | null;
 }
 
 export type CreateWorkArtifactResult =
@@ -207,6 +284,8 @@ export const WORK_ARTIFACT_NON_EFFECTS: readonly string[] = [
   "An artifact is never organizational Knowledge, and nothing here writes to Knowledge.",
   "An artifact carries no approval; approval is a Governance decision about an action.",
   "No permit is created or consumed, and nothing is executed.",
+  /* CGO-1 — the non-effect this capability had to add, in the same place surfaces already read. */
+  "A content draft is prepared, never published: declaring a destination reaches no provider.",
 ] as const;
 
 /**

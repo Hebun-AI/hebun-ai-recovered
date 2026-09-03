@@ -68,6 +68,7 @@ import {
 import { tenantColumns } from "./_base";
 import {
   actorTypeEnum,
+  contentDestinationEnum,
   workArtifactLifecycleStatusEnum,
   workArtifactTypeEnum,
 } from "./_enums";
@@ -104,6 +105,29 @@ export const workArtifacts = pgTable(
      * could drift from the thing an approval was bound to.
      */
     currentRevision: integer("current_revision").notNull().default(1),
+
+    /**
+     * CGO-1 — WHERE THIS CONTENT DRAFT WAS PREPARED TO GO. A DECLARATION, NOT A CONNECTION.
+     *
+     * ON THE ARTIFACT AND NOT ON THE REVISION, deliberately. A revision is "the exact bytes, at
+     * each point they were written". A destination is not bytes: retargeting a finished caption
+     * would otherwise force a revision whose content is byte-identical to its predecessor, giving
+     * two revisions the same `content_digest` and making the revision history claim an edit that
+     * never happened.
+     *
+     * IT IS NEVER UPDATED. The row around it is mutable — `tenantColumns` models lifecycle and
+     * `current_revision` movement — but no writer in `features/work-artifacts` issues an UPDATE
+     * against this column, and a structural test asserts that absence. This is the same discipline,
+     * and the same kind of proof, that the revision table already relies on. It matters here
+     * because an approval binds to `<ref>@<revision>`: if a destination could be edited afterwards,
+     * a human could approve a draft prepared for one destination and have it become another.
+     *
+     * NULL IS NOT "UNKNOWN" — it is "this artifact is not a content draft". The two CHECKs below
+     * make that structural in both directions rather than conventional: a `content-draft` MUST
+     * carry a destination, and nothing else MAY. So an `operational-plan` cannot acquire one, and
+     * a content draft cannot exist without saying what it was written for.
+     */
+    intendedDestination: contentDestinationEnum("intended_destination"),
   },
   (t) => [
     /*
@@ -119,6 +143,34 @@ export const workArtifacts = pgTable(
 
     check("work_artifacts_current_revision_chk", sql`${t.currentRevision} >= 1`),
     check("work_artifacts_title_chk", sql`char_length(btrim(${t.title})) > 0`),
+
+    /*
+     * CGO-1 — the destination belongs to content drafts and to nothing else, enforced in BOTH
+     * directions so neither half can rot into a convention.
+     *
+     * ── WHY `::text` AND NOT THE BARE ENUM ──────────────────────────────────
+     *
+     * PostgreSQL refuses to USE a newly added enum value in the same transaction that added it:
+     * "unsafe use of new value ... New enum values must be committed before they can be used."
+     * `content-draft` is added to `work_artifact_type` by the very migration that adds these
+     * constraints, and drizzle runs one migration file in one transaction — so the bare-enum form
+     * of this predicate FAILS on a real database. That was proved against PostgreSQL 14 before
+     * this comment was written, not reasoned about afterwards.
+     *
+     * Casting the COLUMN to text and comparing against a text literal never references the enum
+     * value at all, so the constraint is creatable in the same transaction and enforces exactly the
+     * same rule. The alternative was splitting one coherent change across two migrations to buy a
+     * commit boundary, which would put the column and the rule that makes it honest in different
+     * releases.
+     */
+    check(
+      "work_artifacts_content_draft_destination_chk",
+      sql`${t.artifactType}::text <> 'content-draft' OR ${t.intendedDestination} IS NOT NULL`,
+    ),
+    check(
+      "work_artifacts_non_content_destination_chk",
+      sql`${t.artifactType}::text = 'content-draft' OR ${t.intendedDestination} IS NULL`,
+    ),
   ],
 );
 

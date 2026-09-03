@@ -991,15 +991,70 @@ export const policyAuthorityEnum = pgEnum("policy_authority", [
 /*
  * R3W — durable work artifacts.
  *
- * The type vocabulary is CLOSED and deliberately tiny: one value per action tool that already
- * declares a `record-ref` argument for it today. `operational-plan` is what
- * `heby.operations.prepare-plan` prepares; `message-draft` is what
- * `heby.operations.send-communication` names as `draftRef`. Nothing speculative is registered —
- * a new type arrives with the consumer that needs it, through its own migration.
+ * The type vocabulary is CLOSED and deliberately tiny. Nothing speculative is registered — a new
+ * type arrives with the consumer that needs it, through its own migration.
+ *
+ * `operational-plan` is what `heby.operations.prepare-plan` prepares; `message-draft` is what
+ * `heby.operations.send-communication` names as `draftRef`. Both were registered against an ACTION
+ * TOOL, because through R3W an action tool was the only kind of consumer R3W had.
+ *
+ * ── `content-draft` (CGO-1), AND WHY ITS CONSUMER IS NOT A TOOL ──────────────
+ *
+ * The rule above is "a new type arrives with the consumer that needs it", not "with the action tool
+ * that needs it". CGO-1 satisfies it with a consumer that is deliberately NOT an action tool: the
+ * content preparation surface, the work register, and Heby's existing work-artifact grounding all
+ * read this type today. There is no publishing tool, no publishing adapter and no scheduler, and
+ * that is the point — preparing content is not an act, so registering its type against an action
+ * tool would have been the false claim rather than the careful one.
+ *
+ * A `content-draft` is prose prepared FOR a destination. It is not a `message-draft`: a message is
+ * addressed to a recipient this organization can already reach (`external_recipients`, one channel,
+ * email), and a caption prepared for a social destination has no such recipient and no such reach.
+ * Reusing `message-draft` for it would make `artifact_type` — an indexed, queryable, Heby-visible
+ * classification — say something untrue.
  */
 export const workArtifactTypeEnum = pgEnum("work_artifact_type", [
   "operational-plan",
   "message-draft",
+  "content-draft",
+]);
+
+/*
+ * CGO-1 — WHERE A CONTENT DRAFT WAS PREPARED TO GO. A DECLARATION, NEVER A CONNECTION.
+ *
+ * ── WHAT A VALUE HERE MEANS, EXACTLY ────────────────────────────────────────
+ *
+ * `instagram` on a row means ONE thing: a human or an agent declared, at preparation time, that
+ * this draft was written for Instagram. That is the whole of it.
+ *
+ * It does NOT mean an Instagram provider exists — `PROVIDER_CATALOG` holds `google-workspace` and
+ * `github` and nothing else. It does not mean an account exists, is linked, or is authorized. It
+ * does not mean publishing is available: `adapter-registry.server.ts` registers exactly one
+ * adapter and it posts email to Resend. It does not mean anything is scheduled — no durable
+ * scheduler exists anywhere in this repository. And it does not mean anything was published.
+ *
+ * ── WHY A CLOSED ENUM AND NOT TEXT ──────────────────────────────────────────
+ *
+ * Free text would admit `instagram`, `Instagram`, `IG`, `insta` and a profile URL as four or five
+ * different durable truths for one destination, and no reader could tell whether two drafts shared
+ * a destination or merely resembled one. Worse, it would let a caller write a destination Hebun has
+ * never reasoned about at all.
+ *
+ * The closed shape follows the doctrine `provider-catalog/catalog.ts` already states for providers:
+ * a definition must not be addable by INSERT, because then INSERT privilege would be equivalent to
+ * declaring a capability. The same logic applies one concept over. A destination arrives by
+ * migration, in review, or it does not arrive.
+ *
+ * ── WHY THESE THREE ─────────────────────────────────────────────────────────
+ *
+ * They are the three destinations the Director named as the content operating target. They are
+ * registered as DECLARABLE, which is the only status any of them has: none is connectable, and
+ * this enum cannot make one so.
+ */
+export const contentDestinationEnum = pgEnum("content_destination", [
+  "instagram",
+  "tiktok",
+  "youtube",
 ]);
 
 /*

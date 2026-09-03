@@ -145,8 +145,8 @@ const USE_SERVER_MODULES = [
  * without moving the count.
  */
 /* GIA-1's mandate-scope CHECK grew the ledger to 44; WEV-1's `work_evidence_references` to 45. BOTH values move with it. */
-const LEDGER_COUNT = 46;
-const LEDGER_DIGEST = "5f0c4e249bdcb666"; /* PBGA-1 authored a migration — the `heby_action_requests` purpose columns — so the ledger digest moved with it. */
+const LEDGER_COUNT = 47;
+const LEDGER_DIGEST = "29521f60d3c9e78a"; /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

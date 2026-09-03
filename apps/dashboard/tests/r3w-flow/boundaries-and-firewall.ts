@@ -37,7 +37,10 @@ import {
 } from "../../src/features/work-artifacts/validation";
 import { HEBY_SOURCE_CLASSES } from "../../src/features/heby-integration";
 import { resolveSource } from "../../src/features/heby-runtime";
-import { getActionToolByKind } from "../../src/features/heby-actions/action-registry";
+import {
+  EXECUTABLE_ACTION_KINDS,
+  getActionToolByKind,
+} from "../../src/features/heby-actions/action-registry";
 
 const ROOT = process.cwd();
 const read = (p: string) => readFileSync(path.join(ROOT, p), "utf8");
@@ -340,12 +343,36 @@ function orchestrationStaysDead(): void {
 function vocabularyIsMinimal(): void {
   assert.deepEqual(
     [...WORK_ARTIFACT_TYPES],
-    ["operational-plan", "message-draft"],
-    "one type per action tool that names a record-ref for it today — nothing speculative",
+    ["operational-plan", "message-draft", "content-draft"],
+    "every registered type has a real consumer today — nothing speculative",
   );
-  /* Each declared type has a real consumer in the action registry. */
+  /*
+   * Each ACTION-TOOL-backed type still has a real consumer in the action registry. CGO-1 did not
+   * loosen this: it added a type whose consumer is a preparation surface rather than a tool, and
+   * that distinction is asserted below rather than waved through.
+   */
   assert.ok(getActionToolByKind("prepare-operational-plan"), "operational-plan has a tool");
   assert.ok(getActionToolByKind("send-external-communication"), "message-draft has a tool");
+
+  /*
+   * CGO-1 — `content-draft` HAS NO ACTION TOOL, AND MUST NOT ACQUIRE ONE. Preparing content is not
+   * an act; a tool would make it one.
+   *
+   * This is asserted over the EXECUTABLE kinds rather than by probing for a named tool, because
+   * `HebyActionKind` is a closed union: `getActionToolByKind("publish-content")` does not even
+   * typecheck today. That is a stronger guarantee than a runtime miss — a publishing tool cannot
+   * be looked up until somebody widens the union — and this loop is what fails if they do.
+   */
+  for (const kind of EXECUTABLE_ACTION_KINDS) {
+    for (const forbidden of ["publish", "post-content", "schedule"]) {
+      assert.equal(
+        kind.includes(forbidden),
+        false,
+        `no executable action kind may mean "${forbidden}": content preparation reaches nothing`,
+      );
+    }
+  }
+
   assert.equal(isWorkArtifactType("campaign-brief"), false, "unregistered types are refused");
 
   assert.deepEqual(

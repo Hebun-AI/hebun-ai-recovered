@@ -637,6 +637,8 @@ function noSchema(): void {
       "20260902183808_wev1_work_evidence_reference.sql",
       /* PBGA-1 — the action-request purpose columns. Also a declared later phase. */
       "20260902212106_pbga1_action_request_work_purpose.sql",
+      /* CGO-1 — the `content-draft` type and its declared destination. A later phase, not this one's. */
+      "20260903093716_cgo1_content_draft_destination.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );

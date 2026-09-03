@@ -32,6 +32,7 @@ import type {
   WorkArtifactRevisionView,
   WorkArtifactType,
   WorkArtifactView,
+  ContentDestination,
 } from "./contracts";
 
 export interface WorkArtifactReadDeps {
@@ -58,6 +59,11 @@ function toArtifactView(row: typeof workArtifacts.$inferSelect): WorkArtifactVie
     currentRevision: row.currentRevision,
     createdAt: iso(row.createdAt),
     currentRef: formatWorkArtifactRef(row.id, row.currentRevision),
+    /*
+     * CGO-1. NULL for everything that is not a content draft, which the paired database CHECKs
+     * guarantee rather than this projection assuming it.
+     */
+    intendedDestination: (row.intendedDestination as ContentDestination | null) ?? null,
   };
 }
 

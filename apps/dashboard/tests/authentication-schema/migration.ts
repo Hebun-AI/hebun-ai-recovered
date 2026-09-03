@@ -80,7 +80,7 @@ try {
      *
      * SIA-3 held this line before it, at 39 (`agent_improvement_hypotheses`).
      */
-    assert.equal(migrationCount.rows[0]?.count, "46"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46 (`heby_action_requests` purpose columns). */
+    assert.equal(migrationCount.rows[0]?.count, "47"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
 
     /*
      * The rerun is about IDEMPOTENCE, not about the total, so it is compared to what the first run

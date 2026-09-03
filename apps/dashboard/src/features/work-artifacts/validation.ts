@@ -16,7 +16,9 @@
  * Pure. No I/O, no database, no clock, no authority.
  */
 import {
+  CONTENT_DRAFT_TYPE,
   WORK_ARTIFACT_LIMITS,
+  isContentDestination,
   isWorkArtifactType,
   type WorkArtifactValidationProblem,
 } from "./contracts";
@@ -89,6 +91,7 @@ export function validateWorkArtifactInput(input: {
   readonly artifactType?: unknown;
   readonly title?: unknown;
   readonly content?: unknown;
+  readonly intendedDestination?: unknown;
 }): readonly WorkArtifactValidationProblem[] {
   const problems: WorkArtifactValidationProblem[] = [];
 
@@ -101,8 +104,49 @@ export function validateWorkArtifactInput(input: {
   }
   checkText("title", input.title, WORK_ARTIFACT_LIMITS.title, problems);
   checkText("content", input.content, WORK_ARTIFACT_LIMITS.content, problems);
+  checkIntendedDestination(input.artifactType, input.intendedDestination, problems);
 
   return problems;
+}
+
+/**
+ * CGO-1 — the destination rule, in BOTH directions, mirroring the two database CHECKs.
+ *
+ * A content draft without a destination is incomplete: the whole point of the type is that the
+ * prose was written FOR somewhere. A non-content artifact WITH a destination is a false claim: an
+ * operational plan is not prepared for Instagram, and letting the field ride along would put a
+ * destination on a row no surface would ever show one on.
+ *
+ * The refusal is structural, never a judgement about the destination itself — this domain does not
+ * rank destinations, and it cannot reach any of them.
+ */
+function checkIntendedDestination(
+  artifactType: unknown,
+  intendedDestination: unknown,
+  problems: WorkArtifactValidationProblem[],
+): void {
+  if (artifactType === CONTENT_DRAFT_TYPE) {
+    if (!isContentDestination(intendedDestination)) {
+      problems.push({
+        field: "intendedDestination",
+        code: "required",
+        message: "A content draft must declare the destination it was prepared for.",
+      });
+    }
+    return;
+  }
+
+  /*
+   * Anything other than a content draft. `undefined` and `null` are both "not supplied" — a caller
+   * that omits the field and one that passes an explicit empty are making the same statement.
+   */
+  if (intendedDestination === undefined || intendedDestination === null) return;
+
+  problems.push({
+    field: "intendedDestination",
+    code: "destination-not-permitted",
+    message: "Only a content draft carries a prepared destination.",
+  });
 }
 
 /** Validate only the content of a new revision. The type and title are already fixed. */

@@ -332,7 +332,7 @@ function theMigrationIsAdditive(): void {
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly { tag: string }[];
   };
-  assert.equal(journal.entries.length, 46, "the ledger grew by exactly one");
+  assert.equal(journal.entries.length, 47, "the ledger grew by exactly one");
   assert.equal(
     journal.entries.filter((e) => /wev1|work_evidence/i.test(e.tag)).length,
     1,

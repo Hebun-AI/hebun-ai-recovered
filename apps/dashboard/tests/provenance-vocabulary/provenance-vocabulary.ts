@@ -397,6 +397,7 @@ async function main(): Promise<void> {
       /* WEV-1 — the `work_evidence_references` table. A declared later phase, not this one's. */
       "20260902183808_wev1_work_evidence_reference",
 "20260902212106_pbga1_action_request_work_purpose",
+"20260903093716_cgo1_content_draft_destination",
         ],
         "and what follows it is a declared later phase",
       );

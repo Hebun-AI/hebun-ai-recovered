@@ -240,7 +240,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 46, "A1a adds no migration — the ledger carries none of its authoring"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46 (`heby_action_requests` purpose columns). */
+    assert.equal(journal.entries.length, 47, "A1a adds no migration — the ledger carries none of its authoring"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
   }
 
   console.log("a1a-flow/attribution-firewall: OK");

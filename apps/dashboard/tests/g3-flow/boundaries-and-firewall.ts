@@ -143,6 +143,8 @@ function main(): void {
       /* WEV-1 — the `work_evidence_references` table. A declared later phase, not this one's. */
       "20260902183808_wev1_work_evidence_reference.sql",
 "20260902212106_pbga1_action_request_work_purpose.sql",
+      /* CGO-1 — the `content-draft` type and its declared destination. A later phase, not this one's. */
+      "20260903093716_cgo1_content_draft_destination.sql",
       ],
       "G3 adds no migration — authority is derived from decisions; only Gate-B migrations for other subsystems follow G2",
     );

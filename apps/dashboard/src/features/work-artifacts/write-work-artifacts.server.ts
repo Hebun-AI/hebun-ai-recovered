@@ -171,6 +171,14 @@ async function insertArtifactWithFirstRevision(
           tenantId: tenant.tenantId,
           artifactType: input.artifactType,
           title: input.title,
+          /*
+           * CGO-1. Written ONCE, here, and never again. No writer in this module updates this
+           * column, so a destination declared at preparation cannot change under an approval that
+           * bound to this artifact's revision. Validation has already proved the value is present
+           * for a content draft and absent for every other type, so this is a pass-through and not
+           * a second place the rule is decided.
+           */
+          intendedDestination: input.intendedDestination ?? null,
           /* Always `draft`. There is no input field that could ask for anything else. */
           artifactLifecycleStatus: "draft",
           ownerWorkspace,
