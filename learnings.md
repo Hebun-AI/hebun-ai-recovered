@@ -3041,3 +3041,13 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
 - **Predicting the panel from SQL made the observation a comparison.** Owner label, placed count, work title — written down first, matched line for line.
 
 **Weekly three.** *Learned:* when a capability's risk is an implication rather than a value, the production acceptance is reading the sentence that refuses it. *Turkish Rug House:* the Organization page now answers "what is Engineering?" in one place — accountable human, who works there, what work names it — and says plainly that Hebun does not connect the last two. *Hebun AI:* second consecutive FAST capability closed with no full suite; zero schema, zero writer, no new authority; ledger unchanged at 43; deployed commit identical to the release.
+
+## CGO-4 — the model authors the artifact, because it was told to
+
+- **Fix the ask, not the answer.** The stored bytes were the model's whole reply, preamble and all, and the tempting fix was a parser. A parser is a second author. The fix was one brief BEFORE generation — "your entire reply is the draft; return only the content" — and every downstream seam stayed untouched.
+- **A server-only option is the right channel for a brief.** `HebyModelAnswerOptions` is the third parameter a client can never supply; the brief rides there and is honoured only for `prepares: true` intents, so an ordinary answer's system prompt is byte-identical — proved by capturing the server-built request, not the wire (the transport folds grounding in after it).
+- **Assert on code tokens, not prose.** Two test defects were mine: a `^import .*$` scan missed a multi-line import, and a "no `answer` in the brief module" ban tripped on the brief's own sentence "not answering a question". Strip string literals before banning identifiers.
+- **A corroboration crash after a committed write is not a failed acceptance.** The script died on `work_artifacts.status` (it is `artifact_lifecycle_status`) after the row existed. Do not re-run the script — that is a second artifact. Corroborate by id from a separate read-only script.
+- **"Materially review-ready" is a contract check on one sample, not a quality claim.** First byte is content, no postscript, no claim words — that is all one call proves.
+
+**Weekly three.** *Learned:* the honest place to change what a model produces is the instruction, never a post-hoc transformation of bytes that already have an author. *Turkish Rug House:* Hebun now hands back a caption that starts as a caption — "Three knots per centimetre…" — prepared for Instagram, agent-authored, one revision, and still not published. *Hebun AI:* fourth CGO phase FAST, zero schema, ledger 47, one authorized row, deployed commit identical to the release.
