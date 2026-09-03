@@ -31,6 +31,7 @@ import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import type { SourceResolution } from "@/features/heby-runtime";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { formatWorkArtifactRef } from "./artifact-ref";
+import { CONTENT_DESTINATION_LABELS, type ContentDestination } from "./contracts";
 
 const WORK_ARTIFACT_PROVENANCE =
   "Work artifacts — prepared work held by your organization. Durable and tenant-scoped, and never authoritative (authoritative: false).";
@@ -51,6 +52,31 @@ function unavailable(reason: string): SourceResolution {
     items: [],
     unavailableReason: reason,
   };
+}
+
+/**
+ * CGO-2 — WHERE A CONTENT DRAFT WAS PREPARED TO GO, AND WHAT THAT DOES NOT MEAN.
+ *
+ * Two segments, never one. The destination and its denial are emitted TOGETHER and adjacently so
+ * that no truncation, reordering or partial quotation can carry "prepared for Instagram" without
+ * the sentence that bounds it. A model reading this item cannot separate the fact from its limit,
+ * because they are not separable in the text it is given.
+ *
+ * The denial is written as a statement about HEBUN, not about the destination: nothing here claims
+ * Instagram is unreachable in the world, only that this organization has established no connection
+ * to it, scheduled nothing and published nothing. That is the honest scope of what Hebun knows.
+ *
+ * Empty for every artifact that is not a content draft — the paired database CHECKs guarantee the
+ * column is NULL there, so this returns nothing rather than inventing "destination: none", which a
+ * model could read as a deliberate choice not to publish.
+ */
+function destinationSegments(destination: string | null): readonly string[] {
+  if (!destination) return [];
+  return [
+    `prepared for: ${CONTENT_DESTINATION_LABELS[destination as ContentDestination] ?? destination}`,
+    "destination is DECLARED ONLY — no provider connection exists, nothing is scheduled, " +
+      "nothing was published, nothing was delivered and nothing was seen",
+  ];
 }
 
 function excerpt(content: string): { text: string; truncated: boolean } {
@@ -91,6 +117,12 @@ export async function resolveWorkArtifactSource(
         artifactId: workArtifacts.id,
         title: workArtifacts.title,
         artifactType: workArtifacts.artifactType,
+        /*
+         * CGO-2. The DURABLE field, and the only source of this fact. It is never inferred from a
+         * title or from content — a caption mentioning Instagram is not a caption prepared for it,
+         * and guessing would put a fact into evidence that no human ever declared.
+         */
+        intendedDestination: workArtifacts.intendedDestination,
         currentRevision: workArtifacts.currentRevision,
         content: workArtifactRevisions.content,
         contentDigest: workArtifactRevisions.contentDigest,
@@ -128,6 +160,7 @@ export async function resolveWorkArtifactSource(
         detail: [
           `type: ${row.artifactType}`,
           `revision: ${row.currentRevision}`,
+          ...destinationSegments(row.intendedDestination),
           `authored by: ${row.authoredByActorType}`,
           `digest: ${row.contentDigest.slice(0, 12)}…`,
           body.truncated ? "excerpt: truncated" : "excerpt: complete",
