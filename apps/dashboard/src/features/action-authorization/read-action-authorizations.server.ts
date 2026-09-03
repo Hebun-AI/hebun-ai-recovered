@@ -215,7 +215,15 @@ export async function readPendingActionRequests(
     );
     const workTitles = new Map<string, string>();
     if (purposeIds.size > 0) {
-      const register = await readWorkRegister(tenant);
+      /*
+       * THE INJECTED DATABASE IS FORWARDED, and it must be. This read shipped calling the register
+       * with the tenant alone while the query above honoured `deps.getDb`, so one function reached
+       * two different databases whenever a caller injected one: the requests came from the injected
+       * handle and the titles from whatever the default resolver found. A caller that injected a
+       * database it could read got `purposeUnresolved: true` for a purpose that was declared and
+       * resolvable — an UNKNOWN manufactured by the seam rather than observed in the record.
+       */
+      const register = await readWorkRegister(tenant, { getDb: deps.getDb });
       if (register.status === "available") {
         for (const item of register.items) {
           if (purposeIds.has(item.workItemId)) workTitles.set(item.workItemId, item.title);

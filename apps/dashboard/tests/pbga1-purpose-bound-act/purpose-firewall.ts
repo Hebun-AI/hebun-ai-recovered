@@ -29,6 +29,7 @@ const INVERSE = "src/features/action-authorization/read-work-purpose-requests.se
 const SCHEMA = "src/db/schema/action-authorization.ts";
 const PREPARER = "src/features/heby-actions/action-preparer.ts";
 const MIGRATION = "src/db/migrations/20260902212106_pbga1_action_request_work_purpose.sql";
+const APPROVAL_READ = "src/features/action-authorization/read-action-authorizations.server.ts";
 
 function resolveImport(spec: string, from: string): string | null {
   let base: string;
@@ -206,6 +207,25 @@ function main(): void {
     for (const forbidden of [/\.insert\(/, /\.update\(/, /\.delete\(/]) {
       assert.ok(!forbidden.test(inverse), `the inverse read must not match ${forbidden}`);
     }
+  }
+
+  /* ── 4b · THE APPROVAL READ REACHES ONE DATABASE, NOT TWO ────────────────
+   * It shipped resolving the work title through `readWorkRegister(tenant)` while its own query
+   * honoured `deps.getDb`. A caller that injected a database therefore got its requests from the
+   * injected handle and its titles from whatever the default resolver found — and a purpose that
+   * was declared and resolvable came back as `purposeUnresolved: true`. An UNKNOWN manufactured by
+   * the seam is exactly the class of untruth this capability exists to avoid.
+   */
+  {
+    const approvalRead = codeOf(read(APPROVAL_READ));
+    assert.ok(
+      /readWorkRegister\(tenant, \{ getDb: deps\.getDb \}\)/.test(approvalRead),
+      "the register read forwards the injected database, so one call reaches one database",
+    );
+    assert.ok(
+      !/readWorkRegister\(tenant\)/.test(approvalRead),
+      "and never calls it with the tenant alone",
+    );
   }
 
   /* ── 5 · THE TWO WORK SECTIONS STAY SEPARATE ────────────────────────────
