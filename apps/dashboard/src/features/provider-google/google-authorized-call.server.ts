@@ -28,6 +28,25 @@
  * so a missing scope would still be missing — the honest answer is to say the grant is short and
  * let the tenant re-consent.
  *
+ * ── ONE REFRESH BEFORE THE CALL, TOO, WHEN GOOGLE ALREADY SAID IT IS OVER ────
+ *
+ * GOOGLE-PICKER-1. The rule above is reactive: it needs Google to refuse the token before it can
+ * act. That is enough for every caller that SPENDS the token against Google, because their refusal
+ * arrives on its own. It is not enough for the one caller that does not — the Picker ceremony asks
+ * for the token itself and hands it to a browser, so no `auth` failure ever comes back here and the
+ * reactive rule can never fire. Production handed out a token that had expired ~92 hours earlier
+ * and Google rendered its own 403 inside the chooser.
+ *
+ * So a token Google has ALREADY declared over is replaced BEFORE the attempt. This is not a second
+ * refresh path: it enters the same `refreshAndReplace` below, under the same authority, with the
+ * same ordering. What changed is only WHEN it may be entered.
+ *
+ * `expires_at` is the provider's own statement, recorded at the moment the grant was issued. It is
+ * read HERE, at the acquisition seam, and nowhere else: a credential's LIVENESS is a lifecycle fact
+ * (revoked, destroyed) that this module has no business redefining, and a refresh credential carries
+ * no expiry at all. An access token that is temporally spent and a credential that is lifecycle-dead
+ * are different things, and conflating them would revoke rows nobody revoked.
+ *
  * ── IT WRITES NO LIFECYCLE ───────────────────────────────────────────────────
  *
  * It replaces credentials through INT-2's authority and returns an outcome. It holds no connection
@@ -74,6 +93,34 @@ export function isRefreshableFailure(failure: GoogleFailure["failure"]): boolean
 }
 
 /**
+ * HOW LONG BEFORE GOOGLE'S STATED EXPIRY A TOKEN IS ALREADY TREATED AS SPENT.
+ *
+ * A token that expires while it is in flight is a token that fails at the provider, and for the
+ * Picker it fails inside Google's own iframe where Hebun cannot see it. One minute is smaller than
+ * Google's hour-long grant by a wide margin, so this costs at most one early replacement and never
+ * shortens a usable token by anything a caller would notice.
+ */
+export const ACCESS_TOKEN_EXPIRY_SKEW_MS = 60_000;
+
+/**
+ * Whether this access credential can still be spent, according to what GOOGLE said about it.
+ *
+ * ONLY A STATED EXPIRY IN THE PAST MAKES THIS FALSE. A `null` expiry means Google returned no
+ * `expires_in`, and an unparseable one means the column cannot be read — neither is EVIDENCE that
+ * the token is over, so both keep the reactive behaviour that has always applied: spend it, and let
+ * Google be the one to refuse. Treating "unknown" as "expired" would refresh a working credential on
+ * every call.
+ *
+ * It takes an expiry and a clock and nothing else, so it can be read as a rule and tested as one.
+ */
+export function isAccessCredentialUsable(expiresAt: string | null, now: Date): boolean {
+  if (expiresAt === null) return true;
+  const at = Date.parse(expiresAt);
+  if (Number.isNaN(at)) return true;
+  return at - ACCESS_TOKEN_EXPIRY_SKEW_MS > now.getTime();
+}
+
+/**
  * Run `call` with this tenant's live Google access token, refreshing once if the token was refused.
  *
  * The tenant comes from an already-resolved server-side `TenantContext`, and every credential read
@@ -103,11 +150,42 @@ export async function withGoogleAccessToken<T>(
   const access = listing.credentials.find((c) => c.kind === "oauth_access" && c.live);
   if (!access) return { ok: false, failure: "auth", reason: "no-live-access-credential" };
 
+  /*
+   * The refresh credential is located ONCE, here, because both routes to a refresh need it and
+   * neither may invent a second way to find one. Nothing about it is examined but its liveness: a
+   * refresh credential has no expiry, and the freshness rule below is asked only about the ACCESS
+   * credential.
+   */
+  const refresh = listing.credentials.find((c) => c.kind === "oauth_refresh" && c.live);
+
+  /*
+   * GOOGLE ALREADY SAID THIS ONE IS OVER — see the header. Replace it before the attempt rather
+   * than after a refusal that, for a caller which never asks Google, would never arrive.
+   *
+   * FAIL CLOSED WHEN IT CANNOT BE REPLACED. A tenant with no refresh credential gets a refusal, not
+   * the expired token: handing it over would put a token that cannot work into a browser and report
+   * success. The stale token is never spent and never returned.
+   */
+  const now = (deps.now ?? (() => new Date()))();
+  if (!isAccessCredentialUsable(access.expiresAt, now)) {
+    if (!refresh) {
+      return { ok: false, failure: "auth", reason: "access-credential-expired-no-refresh" };
+    }
+    const replaced = await refreshAndReplace(
+      tenant,
+      integrationId,
+      refresh.credentialId,
+      resolution,
+      deps,
+    );
+    if (!replaced.ok) return { ok: false, failure: replaced.failure, reason: replaced.reason };
+    return spend(tenant, replaced.accessCredentialId, call, deps);
+  }
+
   const first = await spend(tenant, access.credentialId, call, deps);
   if (first.ok || !isRefreshableFailure(first.failure)) return first;
 
   /* Google refused the token. A refresh can fix that — if the tenant has one at all. */
-  const refresh = listing.credentials.find((c) => c.kind === "oauth_refresh" && c.live);
   if (!refresh) return first;
 
   const refreshed = await refreshAndReplace(

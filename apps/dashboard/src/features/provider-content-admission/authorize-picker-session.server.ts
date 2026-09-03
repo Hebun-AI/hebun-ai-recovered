@@ -211,9 +211,17 @@ export async function authorizePickerSession(
   );
 
   if (!minted.ok) {
+    /*
+     * GOOGLE-PICKER-1 — THE SENTENCE MUST BE TRUE IN BOTH FAILURE MODES.
+     *
+     * It used to say Google did not authorize a chooser. That was accurate only when Google had
+     * actually been asked, and this seam's callback never asks: the runner can also refuse because
+     * the connection's token is spent and could not be replaced, with no Google involvement at all.
+     * A refusal that names the wrong party sends a person to look in the wrong place.
+     */
     return {
       status: "provider-failed",
-      detail: "Google did not authorize a document chooser for this connection right now.",
+      detail: "Hebun could not obtain a usable Google session for a document chooser right now.",
     };
   }
 
