@@ -439,15 +439,25 @@ async function main(): Promise<void> {
         knowledge: { getRepo: () => counting },
       },
     );
+    /*
+     * REWRITTEN, NOT RELAXED, AND FOR THE OPPOSITE REASON IT WAS WRITTEN.
+     *
+     * K1 asserted that Operations does not declare `knowledge`, so an Operations answer reads none.
+     * CGO-6 legitimately gave Operations that class — content prepared for an organization should
+     * rest on what the organization has recorded about itself — so this assertion has been failing
+     * since `fb0641a`. What K1 actually defends is that the source class GOVERNS the read: a
+     * workspace reads Knowledge if and only if its profile declares it. That rule is intact and is
+     * now asserted in the direction the registry actually points.
+     */
     assert.equal(
       knowledgeReads,
-      0,
-      "Operations does not declare the knowledge source class, so no knowledge was read",
+      1,
+      "Operations declares the knowledge source class since CGO-6, so exactly one knowledge read happened",
     );
     const grounding = captured.get()!.evidence.join("\n");
     assert.ok(
       !grounding.includes("[knowledge/"),
-      "and no settled knowledge entered an Operations answer",
+      "and this fixture's retrieval matched nothing, so nothing entered the grounding — a read is not a result",
     );
     assert.match(grounding, /\[operations\//, "the live Operations model remains the source");
   }

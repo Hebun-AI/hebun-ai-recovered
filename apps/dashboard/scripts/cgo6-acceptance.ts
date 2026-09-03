@@ -59,9 +59,11 @@ async function main(): Promise<void> {
       process.exitCode = 2;
       return;
     }
-    console.log(`artifact ${prepared.artifactId} revision ${prepared.revision}`);
+    console.log(`artifact ${prepared.artifactId} revision ${prepared.revisionNo}`);
     console.log("── CONTENT ──");
-    console.log(prepared.content ?? "(content not returned by the seam)");
+    /* The seam returns no `content` field; the stored bytes ARE the model's whole reply. */
+    const answer = prepared.answer;
+    console.log(answer.status === "answered" ? answer.outcome.response.body.join("\n") : `(answer status: ${answer.status})`);
 
     const after = await counts();
     console.log("\nafter:", JSON.stringify(after));

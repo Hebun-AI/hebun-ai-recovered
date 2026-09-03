@@ -443,7 +443,19 @@ async function main(): Promise<void> {
   const carrying = HEBY_PROFILED_WORKSPACES.filter((w) =>
     getHebyWorkspaceProfile(w).sourceClasses.includes("work"),
   );
-  assert.deepEqual(carrying, ["command"], "Command remains the ONLY workspace carrying `work`");
+  /*
+   * REWRITTEN, NOT RELAXED. WORK-2 released `work` on Command alone and pinned it here so an
+   * undeclared reader would fail. CGO-6 legitimately gave it to Operations as well — the workspace
+   * that owns content preparation — and rewrote its twin of this pin in
+   * `work2-heby-work-grounding/work-grounding.ts` while missing this copy, so this assertion has
+   * been failing since `fb0641a`. It still names the COMPLETE set, now two, and the other six
+   * workspaces still gain nothing.
+   */
+  assert.deepEqual(
+    [...carrying].sort(),
+    ["command", "operations"].sort(),
+    "`work` is carried by Command and Operations, and by nothing else",
+  );
   assert.equal(HEBY_PROFILED_WORKSPACES.length, 8, "no ninth workspace was created");
 
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };

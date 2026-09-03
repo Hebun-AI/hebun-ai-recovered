@@ -77,11 +77,26 @@ export function contentDraftDestinationSentence(destination: ContentDestination)
 export function preparationBriefFor(input: {
   readonly artifactType: WorkArtifactType;
   readonly intendedDestination?: ContentDestination;
+  /*
+   * CGO-7 — an already-rendered PUBLIC PLATFORM OBSERVATION, appended last.
+   *
+   * A STRING, deliberately, and rendered somewhere else. This module imports the artifact
+   * contracts and nothing else — a released test asserts exactly that — so it cannot reach a
+   * provider, cannot hold a key, and cannot learn what a view count is. It appends what it is
+   * handed, after every sentence of the standing brief, so the contract the model reads first is
+   * still the one that says its whole reply is the draft.
+   *
+   * IT IS NOT GROUNDING. The brief is instruction: honoured only for a preparing intent, never
+   * stored, never evidence, never authority, never a row. The grounding context stays exactly what
+   * CGO-6 released — this organization's own records — and a provider number never enters it.
+   */
+  readonly observationSupplement?: string;
 }): string | undefined {
   if (input.artifactType !== CONTENT_DRAFT_TYPE) return undefined;
   const lines = [...CONTENT_DRAFT_PREPARATION_BRIEF];
   if (input.intendedDestination) {
     lines.push(contentDraftDestinationSentence(input.intendedDestination));
   }
-  return lines.join(" ");
+  const brief = lines.join(" ");
+  return input.observationSupplement ? `${brief}\n\n${input.observationSupplement}` : brief;
 }

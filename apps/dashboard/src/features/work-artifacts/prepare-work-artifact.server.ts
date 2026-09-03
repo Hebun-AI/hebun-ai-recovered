@@ -98,6 +98,21 @@ export interface PrepareWorkArtifactInput {
    * that validator, which is why it is the only thing this phase adds.
    */
   readonly intendedDestination?: ContentDestination;
+  /**
+   * CGO-7 — a PUBLIC PLATFORM OBSERVATION, already rendered and already fenced, appended to the
+   * preparation brief the model receives.
+   *
+   * A STRING AND NOTHING ELSE, and that is the boundary this phase is built on. This seam does not
+   * read a provider, hold a key, know which provider it came from, or contain one line that could
+   * make a call — R3W's and CGO-3's firewalls both assert that about this file and both still hold.
+   * The composition that reads YouTube lives in its own module and hands the result across.
+   *
+   * NEVER STORED AND NEVER GROUNDING. It reaches the model through the brief, which is instruction:
+   * dropped for any non-preparing intent, absent from every message row, and outside the grounding
+   * context that CGO-6 proved carries only this organization's own records. Nothing below reads it,
+   * and the bytes stored as the artifact remain the model's whole reply.
+   */
+  readonly observationSupplement?: string;
   /** The human's title for the work. Never derived from model output. */
   readonly title: string;
   readonly conversationId?: string;
