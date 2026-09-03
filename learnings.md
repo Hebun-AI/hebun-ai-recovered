@@ -3114,3 +3114,31 @@ Hebun can now observe a real YouTube channel it does not own — public counts, 
 per-video views — which is the first outside-world signal it has ever read without owning the account.
 *Hebun AI:* CGO-5 closed, zero schema, ledger 47, one credential admitted under k2, deployed commit
 identical to the release; the Picker expired-token defect recorded as separate debt, not repaired.
+
+## GOOGLE-PICKER-1 — the second defect only becomes visible once the first is gone
+
+- **A changed error message is evidence, not noise.** Google's 403 "you do not have access to this
+  page" and its "Can't access your Google Account … allowing cookie access" are different layers:
+  the first is a rejected bearer token, the second is Google unable to read its own session in a
+  third-party frame. Reading the second as "still broken" would have sent the repair in the wrong
+  direction.
+- **Prove the browser hypothesis by comparison, not by reasoning about ITP.** One Chrome run, same
+  account, same URL, minutes apart, settled it. Before that it was a story.
+- **Check the cheap alternative that produces the SAME message.** A Picker whose granting Google
+  account differs from the browser's signed-in account says exactly this too. One read of
+  `external_account_label` eliminated it; skipping that read would have left the conclusion soft.
+- **Absence of a refresh can be the acceptance.** The Chrome run proved the fresh-token branch in
+  production precisely by writing nothing: rows stayed at 19 and no `provider-refresh` audit row
+  appeared. A capability proven by a non-event still needs a measured window.
+- **A green Chrome run does not prove the repair it rode in on.** The token was fresh, so the
+  repaired branch never executed. Operational-capability and defect-repaired are separate truths and
+  were reported separately; the repair's acceptance stays pending on a post-expiry attempt.
+- **Refuse the workaround that would work.** Making Safari pass means weakening a browser's own
+  privacy control or widening Hebun's reach. The honest output is a recorded limitation and a
+  supported-browser claim that names only what was verified.
+
+**Weekly three.** *Learned:* fixing one defect promotes the next one to visible, and the discipline is
+to re-diagnose rather than assume the first fix failed. *Turkish Rug House:* the Director can choose a
+Drive document in Chrome today; Safari is a known limitation, written down rather than papered over.
+*Hebun AI:* zero schema, ledger 47, one release commit, Chrome acceptance recorded, expired-token
+acceptance still pending.
