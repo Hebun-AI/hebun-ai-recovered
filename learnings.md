@@ -3051,3 +3051,66 @@ noktalı sentinel string kullanma; açık `null` kontrolü hem okunur hem bu sı
 - **"Materially review-ready" is a contract check on one sample, not a quality claim.** First byte is content, no postscript, no claim words — that is all one call proves.
 
 **Weekly three.** *Learned:* the honest place to change what a model produces is the instruction, never a post-hoc transformation of bytes that already have an author. *Turkish Rug House:* Hebun now hands back a caption that starts as a caption — "Three knots per centimetre…" — prepared for Instagram, agent-authored, one revision, and still not published. *Hebun AI:* fourth CGO phase FAST, zero schema, ledger 47, one authorized row, deployed commit identical to the release.
+
+## CGO-5 registry extension — the key nobody can read back
+
+- **A hosting provider's Sensitive variable is a one-way door.** Production `k1` can never be held locally, so "copy the keys from Vercel" was never a plan. The narrowest fix was a second VARIABLE feeding the SAME registry — not a second registry, not a route.
+- **Extension by shared parser, not by second parser.** Both variables run through one `registerKeyEntries`; the duplicate check across primary/additional is therefore the existing `keys.has` check, and bite-proof M6 already pinned it.
+- **A bite that lands on the wrong assertion is a test gap, not a proof.** M17 bit on "must name k1" instead of "must FAIL CLOSED" because every single-entry bad ADDITIONAL was caught by the zero-contribution rule. The missing case was a bad entry BESIDE a good one. Two cases added, then the bite landed where intended.
+- **Set-but-empty is a mistake, not an absence.** Blank ADDITIONAL is legacy behaviour; `",,"` refuses. An operator who typed something meant something.
+- **When equality cannot be proved before the write, say so and gate it.** With only `k2` local, no row can prove equality with prod. The admission script now refuses without `--accept-unproven-keys`; the proof moves to the deployed runtime.
+
+**Weekly three.** *Learned:* a fail-closed registry can be extended additively without a new authority when the new input joins the same map through the same checks. *Turkish Rug House:* nothing user-visible yet — this is the last mechanical step before the YouTube channel becomes observable. *Hebun AI:* zero schema, one env variable, 17/17 bite-proofs, FAST path; production configuration and admission remain Director-gated.
+
+## DEBT — the Picker session cannot mint a fresh token (found during CGO-5, NOT repaired)
+
+**Confirmed defect, deferred by Director decision. Do not repair inside CGO-5.**
+
+`authorizePickerSession` hands the browser whatever `oauth_access` row is live, and "live" means only
+`revoked_at IS NULL AND destroyed_at IS NULL` — `expires_at` is not consulted
+(`credential-repository.server.ts` `toMetadata`). The Picker's callback into `withGoogleAccessToken`
+never contacts Google (it returns the token itself), so the refresh-on-`auth`-failure path that every
+other Google caller relies on can never fire for it. Result: any time the last refresh is more than an
+hour old, the Picker opens with an expired bearer token and Google renders its generic 403 page,
+"We're sorry, but you do not have access to this page."
+
+Observed in production 2026-09-03: live `oauth_access` expired `2026-08-30T22:50:48Z`, ~92 hours stale,
+and the Picker attempt wrote no new credential row — the first `spend` succeeded on the stale token.
+
+- **A boolean called `live` that ignores expiry is a truth defect, not a naming one.** Every other
+  caller survives it because Google refuses the token and the refresh fires. The Picker is the one
+  caller that never asks Google, so it is the one caller the omission actually reaches.
+- **A seam that returns a credential instead of spending it opts out of the credential lifecycle.**
+  The refresh ordering lives in the failure path; a caller with no failure path has no refresh.
+- Repair belongs to whichever phase owns Drive admission next, not to CGO-5.
+
+Same session, the k1 question closed positively: the Picker reaching Google's own iframe at all proves
+the deployed runtime opened a `k1` row, and no new access row was written, so the FIRST decrypt
+succeeded. The earlier Hebun-side refusal was the ADDITIONAL variable making the registry fail closed.
+
+## CGO-5 closure — the proof had to move to the deployment
+
+- **A local decrypt proves the operator's registry, never the deployment's.** With only `k2` held
+  locally and every existing row sealed under `k1`, key equality was unprovable before the write. The
+  ceremony said so, refused, and took `--accept-unproven-keys` as an explicit Director decision on the
+  command line — then the deployed runtime opening the k2 row became the actual proof.
+- **A valid registry is itself evidence about a variable you cannot read.** The Picker reaching
+  Google's iframe proved the deployed registry resolved `configured`, which proved ADDITIONAL
+  registered at least one key and duplicated nothing — so its id was NOT `k1`. Narrowing a secret's
+  shape without reading it is available more often than it looks.
+- **Absence of a capability and refusal of a verb are different guarantees, and both are cheap.**
+  `youtube.channel.public.read` is the only capability, and `oauth`, `insert`, `/upload`, `mine=true`
+  are banned as URL fragments. The first is configuration; the second survives a configuration mistake.
+- **A credential-only connection must say "no account" in the label, not just leave a column null.**
+  `external_account_id` null with `scopes: []` is the machine fact; "YouTube Data API v3 — public read
+  (no account)" is what a human reads.
+- **Non-effects are proved by comparing a snapshot you took BEFORE, not by counting after.** The
+  google-workspace and github-organization rows were captured during diagnosis, hours before the
+  admission, so "unchanged" is a diff and not an assumption.
+
+**Weekly three.** *Learned:* when a proof cannot be produced where the work happens, name the gap, gate
+it on the Director, and move the proof to the place that can actually produce it. *Turkish Rug House:*
+Hebun can now observe a real YouTube channel it does not own — public counts, recent uploads,
+per-video views — which is the first outside-world signal it has ever read without owning the account.
+*Hebun AI:* CGO-5 closed, zero schema, ledger 47, one credential admitted under k2, deployed commit
+identical to the release; the Picker expired-token defect recorded as separate debt, not repaired.
