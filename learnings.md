@@ -3265,3 +3265,44 @@ reason before assuming the refusal blocks you — it usually constrains the WHER
 how it was received, without any of that becoming something the rug house is claimed to know.
 *Hebun AI:* zero schema, zero new provider scope, no new source class, one live observation of a real
 channel (10 uploads, 3 quota units, nothing stored), one pre-existing typecheck failure repaired.
+
+## REV-1 — the gap the previous closure named was already closed
+
+- **A closure's "next gap" is a hypothesis, and this one was FALSE.** CGO-7 said no surface reviews
+  a content draft, citing "`/operations` has server seams and no caller". That was true of
+  `prepareWorkArtifactAction` alone and got over-generalised to the whole route. OPS-P1 had shipped
+  the listing, the per-revision history that renders the bytes, and create/revise/retire back on
+  2026-08-27. **Discovery before design is what caught it** — designing UI first would have rebuilt
+  a surface that existed.
+- **The real defect was one field, and production proved it before any code.** Four revisions
+  human-authored, three agent-authored, all seven rendered identically. A defect you can count is a
+  defect you can justify fixing.
+- **A withheld-field pin can be right when written and wrong later, without anyone touching it.**
+  OPS-P1 grouped `authoredByActorType` with `tenantId` and two digests — correct then, because every
+  revision in existence was human-authored and the field distinguished nothing. AGENT-RUNTIME-0,
+  CGO-3, CGO-4 and CGO-7 falsified the assumption and the pin kept passing, because a pin asserting
+  ABSENCE never notices that absence became a lie.
+- **Rewrite such a pin by asking what it defended, not what it listed.** The invariant was "no
+  identifiers, no digests". Seven of eight members were exactly that and stayed forbidden; the
+  eighth was a four-value classification and became REQUIRED. Dropping it would have left the
+  surface free to render the actor id.
+- **A classification is safe to show where an identifier is not.** "A model wrote this" is what a
+  reviewer needs; which row records the writer is not.
+- **Fail closed on a loosely-typed enum.** The view types the actor type as `string`. Any
+  unrecognised value must say "unknown, not human" — defaulting to the human sentence is the single
+  failure the field exists to prevent.
+- **Root an import-graph firewall at what actually runs, not at a module barrel.**
+  `operations/actions.ts` exports both the read actions and the preparation action, so a graph
+  rooted at the component inherits the whole Heby answer path and proves nothing about reviewing.
+  Rooted at the read seam it proves the real claim, and the components are covered by banning the
+  preparation entry points by name.
+- **The stop conditions were checked, and three held.** No approval authority, no artifact approval
+  state, no review-feedback persistence owner. So the phase shipped a rendered sentence, not a
+  transition — and asserts all three in a test so a future phase cannot assume otherwise.
+
+**Weekly three.** *Learned:* verify the previous phase's stated gap against the repository before
+building for it; a closure records what one session believed, not what is true. *Turkish Rug House:*
+a Director reviewing seven prepared drafts can finally see which three a model wrote, with the
+reminder that seeing is not approving. *Hebun AI:* zero schema, zero authority, zero persistence,
+ledger 47, one released pin rewritten to preserve its invariant, released but NOT closed — the
+rendered half awaits one authenticated look.
