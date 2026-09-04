@@ -1,5 +1,5 @@
 /*
- * Tenant lifecycle ceremony (R4B) — LOCAL OPERATOR CLI.
+ * Tenant lifecycle ceremony (R4B, production posture added by G4) — OPERATOR CLI.
  *
  *   npm run tenant:lifecycle -- suspend    <slug> <reason>
  *   npm run tenant:lifecycle -- reactivate <slug>
@@ -12,7 +12,8 @@
  * `deleted` stay out of R4B structurally rather than by discipline.
  *
  * THE ROOT OF TRUST — READ THIS BEFORE USING IT.
- * Authority is POSSESSION OF THE LOCAL DEPLOYMENT, exactly as for R4A, G2.1 and D1.1. Hebun cannot
+ * Authority is POSSESSION OF THE DEPLOYMENT THIS CEREMONY IS POINTED AT, exactly as for R4A, G2.1
+ * and D1.1, and since G4 that deployment may be the production one. Hebun cannot
  * cryptographically identify the human at this terminal and does not pretend to. It is NOT a
  * platform admin, NOT a Governance authority, NOT a tenant owner.
  *
@@ -28,8 +29,23 @@
  *   - write authentication_disabled_at, deleting_at, lifecycle_status or provisioning_source
  *   - revoke a session, or touch users, memberships, roles, providers or permits
  *   - write an audit row — a terminal has no actor to name
- *   - run in production, or against a non-local database (both refused)
+ *   - run with `NODE_ENV=production` set in the OPERATOR'S OWN SHELL (refused outright)
+ *   - reach production without the exact ceremony signal AND a pinned target (both refused)
  *   - be driven by an environment variable that silently names the tenant
+ *
+ * ── THIS CEREMONY CAN WRITE PRODUCTION, AND THAT IS WHY IT IS THE RECOVERY PATH ──
+ *
+ * `NODE_ENV=production` is a property of the SHELL and is refused always; it says nothing about the
+ * target database. The production POSTURE is a property of the TARGET, opened only by
+ * `HEBUN_PRODUCTION_CEREMONY` set to EXACTLY `production-operator-ceremony` plus a pinned
+ * `HEBUN_PRODUCTION_TARGET_SYSTEM_IDENTIFIER` / `HEBUN_PRODUCTION_TARGET_DATABASE`. Anything else
+ * REFUSES and is never downgraded to local. In that posture a LOCAL database is refused and
+ * `preflight` verifies the connected cluster against the pinned target; it probes no provenance
+ * CHECK, because this ceremony records no ceremony root.
+ *
+ * SUSPENSION IS THE ONLY RECOVERY THERE IS. No hard delete exists anywhere in the repository, and
+ * `companies_slug_uq` is not partial — a suspended tenant keeps its slug forever. So this ceremony
+ * can stop a tenant, and can never un-name one.
  */
 import { createInterface } from "node:readline";
 import { Client } from "pg";

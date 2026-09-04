@@ -1,5 +1,5 @@
 /*
- * Tenant bootstrap ceremony (R4A) — LOCAL OPERATOR CLI.
+ * Tenant bootstrap ceremony (R4A, production posture added by G4) — OPERATOR CLI.
  *
  *   npm run tenant:provision -- <slug> <display-name> <identity-email>
  *
@@ -12,8 +12,9 @@
  * the full cycle and why the cut point is exactly three tables.
  *
  * THE ROOT OF TRUST — READ THIS BEFORE USING IT.
- * Authority to run this command is POSSESSION OF THE LOCAL DEPLOYMENT — the same assumption D1.1 and
- * G2.1 already rest on. Hebun cannot cryptographically identify the human operating this terminal,
+ * Authority to run this command is POSSESSION OF THE DEPLOYMENT IT IS POINTED AT — the same
+ * assumption D1.1 and G2.1 already rest on, and since G4 that deployment may be the production one.
+ * Hebun cannot cryptographically identify the human operating this terminal,
  * and this command does not pretend otherwise. It is NOT a verified platform admin, NOT a certified
  * operator, and NOT a Governance authority. The row it writes records which ROOT produced the
  * tenant (`provisioning_source`), never who ran it, and `created_by` stays NULL for the same reason
@@ -25,15 +26,34 @@
  *   - provision the member baseline role, authorize a membership, or issue an invitation
  *   - write audit_log, provider controls, Knowledge, actions, recipients, or artifacts
  *   - modify an existing tenant — a taken slug is refused, never updated
- *   - run in production, or against a non-local database (both refused)
+ *   - run with `NODE_ENV=production` set in the OPERATOR'S OWN SHELL (refused outright)
+ *   - reach production without the exact ceremony signal AND a pinned target (both refused)
  *   - be driven by an environment variable that silently names the tenant or the human
  *
  * There is deliberately no HEBUN_BOOTSTRAP_TENANT variable and no unattended mode: a tenant that
  * config can name is a tenant a deployment mistake can create. The target is confirmed
  * interactively by retyping the slug — a constitutional act should be impossible by autocomplete.
  *
- * GENERATION ONE IS LOCAL AND DEVELOPMENT-ONLY. This does not deliver production tenant
- * provisioning, self-service signup, or a platform-admin authority. It closes exactly one gap.
+ * ── THIS CEREMONY CAN WRITE PRODUCTION. READ THE POSTURE RULES BEFORE RUNNING IT ──
+ *
+ * G4 gave this CLI a production posture and it is the ONLY production caller of `provisionTenant`.
+ * The two guards above are DIFFERENT questions and were once conflated in this header:
+ *
+ *   `NODE_ENV=production`   a property of the SHELL this command runs in. Refused, always. It is
+ *                           not a statement about the target database, and unsetting it does not
+ *                           open production.
+ *   production posture      a property of the TARGET. Opened only by `HEBUN_PRODUCTION_CEREMONY`
+ *                           set to EXACTLY `production-operator-ceremony`, plus
+ *                           `HEBUN_PRODUCTION_TARGET_SYSTEM_IDENTIFIER` and
+ *                           `HEBUN_PRODUCTION_TARGET_DATABASE`. Anything else REFUSES and is never
+ *                           downgraded to local.
+ *
+ * In production posture a LOCAL database is refused — the exact complement of the local posture's
+ * guard, not the same one. `preflight` then verifies the connected cluster against the pinned
+ * target and probes that `companies_provisioning_source_chk` admits the root before any write.
+ *
+ * What this still does NOT deliver: self-service signup, a platform-admin authority, a verified
+ * operator identity, or any product route to tenant creation. It closes exactly one gap.
  */
 import { createInterface } from "node:readline";
 import { Client } from "pg";

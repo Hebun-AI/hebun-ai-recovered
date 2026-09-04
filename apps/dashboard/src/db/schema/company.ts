@@ -90,11 +90,31 @@ export const COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR = "local-operator-ceremo
  * still a SOURCE and not an ACTOR, still no verified human. NOT a platform admin, NOT a platform
  * operator, NOT an operator identity, NOT a Governance authority. No such principal exists.
  *
- * **VOCABULARY ONLY — NO WRITER EXISTS.** G1 adds no ceremony, relaxes no guard, and creates no
- * application writer. Every ceremony that could name a root still refuses `NODE_ENV=production`
- * and still refuses a non-local database, and nothing under `src/` writes `companies` at all. The
- * database accepting this value does not make it reachable; a later gate must build the ceremony
- * that may legitimately use it.
+ * **G1 ADDED VOCABULARY ONLY. G4 BUILT THE CEREMONY G1 SAID A LATER GATE WOULD BUILD.**
+ *
+ * When this constant landed there was no writer for it, and this paragraph said so. That is now
+ * history rather than current truth, and it is restated here because a schema comment that
+ * describes a value as unreachable is exactly the comment an operator reads before pointing a
+ * ceremony at production.
+ *
+ * What G4 added is a POSTURE, resolved by `scripts/lib/production-possession.ts` and applied by
+ * `scripts/lib/ceremony-preflight.ts`. A ceremony records this root only when all of the following
+ * hold, and every one of them fails closed:
+ *
+ *   - `HEBUN_PRODUCTION_CEREMONY` is EXACTLY `production-operator-ceremony` — no trim, no case
+ *     folding; anything else is REFUSED and is never downgraded to the local root;
+ *   - the target is pinned by `HEBUN_PRODUCTION_TARGET_SYSTEM_IDENTIFIER` and
+ *     `HEBUN_PRODUCTION_TARGET_DATABASE`, and the connected database must match both;
+ *   - the database is NON-LOCAL. In production posture a loopback URL is refused — the opposite of
+ *     the local posture's guard, not the same one;
+ *   - the target's own `companies_provisioning_source_chk` is probed and must already admit this
+ *     value, so a ceremony can never record a root the database cannot express.
+ *
+ * WHAT DID NOT CHANGE, AND IS STILL ASSERTED BY TESTS. Nothing under `src/` writes `companies`, and
+ * nothing under `src/` may even name this literal except a schema module that declares it. The
+ * writer lives under `scripts/`, which `tsconfig.json` cannot resolve from a server action, a route
+ * or a component. Possession is still a SOURCE and never an ACTOR: `created_by` stays NULL, no
+ * `audit_log` row is written, and this column remains the only evidence the ceremony leaves.
  */
 export const COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR = "production-operator-ceremony";
 

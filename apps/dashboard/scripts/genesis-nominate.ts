@@ -1,5 +1,5 @@
 /*
- * Genesis nomination ceremony (G2.1) — LOCAL OPERATOR CLI, KEY 1 of 2.
+ * Genesis nomination ceremony (G2.1, production posture added by G4) — OPERATOR CLI, KEY 1 of 2.
  *
  *   npm run governance:nominate-genesis -- <tenant-slug> <identity-email>
  *
@@ -9,7 +9,8 @@
  * representation in the product at all.
  *
  * THE ROOT OF TRUST — READ THIS BEFORE USING IT.
- * Authority to run this command is POSSESSION OF THE LOCAL DEPLOYMENT. Hebun cannot cryptographically
+ * Authority to run this command is POSSESSION OF THE DEPLOYMENT IT IS POINTED AT, which since G4
+ * may be the production one. Hebun cannot cryptographically
  * identify which human is operating this terminal, and this command does not pretend otherwise. It
  * is NOT a verified platform admin, NOT a certified operator, and NOT a Governance authority. The
  * row it writes records which ROOT produced the nomination, never who ran it. Introducing a real
@@ -21,7 +22,8 @@
  *   - mint a session, cookie, or credential
  *   - create or change a tenant, membership, role, or permission
  *   - touch Knowledge, providers, or execution
- *   - run in production, or against a non-local database (both refused)
+ *   - run with `NODE_ENV=production` set in the OPERATOR'S OWN SHELL (refused outright)
+ *   - reach production without the exact ceremony signal AND a pinned target (both refused)
  *   - be driven by an environment variable that silently names the genesis human
  *
  * There is deliberately no HEBUN_GENESIS_HUMAN variable and no automatic nomination: a genesis
@@ -29,6 +31,19 @@
  *
  * The nomination target is confirmed interactively by retyping the tenant slug. A constitutional act
  * should be impossible to perform by autocomplete.
+ *
+ * ── THIS CEREMONY CAN WRITE PRODUCTION. THE TWO GUARDS ARE DIFFERENT QUESTIONS ──
+ *
+ * `NODE_ENV=production` is a property of the SHELL and is refused always; it says nothing about the
+ * target database. The production POSTURE is a property of the TARGET, opened only by
+ * `HEBUN_PRODUCTION_CEREMONY` set to EXACTLY `production-operator-ceremony` plus a pinned
+ * `HEBUN_PRODUCTION_TARGET_SYSTEM_IDENTIFIER` / `HEBUN_PRODUCTION_TARGET_DATABASE`. Anything else
+ * REFUSES and is never downgraded to local. In that posture a LOCAL database is refused, `preflight`
+ * verifies the connected cluster against the pinned target, and it probes that
+ * `genesis_nominations_source_chk` admits the root before any write.
+ *
+ * The nomination it writes is still only KEY 1 of 2: acceptance remains an in-product act by the
+ * nominated human under a verified session, and possession can never perform it.
  */
 import { createInterface } from "node:readline";
 import { Client } from "pg";
