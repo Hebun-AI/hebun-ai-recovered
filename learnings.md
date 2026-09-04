@@ -3320,3 +3320,37 @@ reminder that seeing is not approving. *Hebun AI:* zero schema, zero authority, 
 ledger 47, one released pin rewritten to preserve its invariant, and CLOSED once the Director
 confirmed the render — nine read-only production checks passed afterwards, including an
 `updated_at` that never moved.
+
+## REV-2 — the row says who wrote the revision it names
+
+- **The scan picked the phase, not the roadmap.** Two candidates looked equally real: row-level
+  authorship, and retirement attribution (`retireWorkArtifact` writes `updatedBy`/`updatedByType`/
+  `updatedAt`; the projection returns none of them). One query settled it — production has
+  `retired = 0`, `updated_by = 0`, `ever_updated = 0`. Accepting retirement attribution would have
+  meant retiring a real draft to manufacture its own evidence. **A gap with no production instance
+  is not the next capability, however real it is.**
+- **The caveat WAS the capability.** An artifact has no author — revision 1 can be agent-written and
+  revision 2 written by the person who rewrote it. Shipping "who wrote this draft" would have been
+  false the first time anyone revised anything. The field answers one question (who wrote revision
+  `currentRevision`) and the list states that bound once, above the rows, before any label is read.
+- **A join direction is a truth decision.** An INNER join would drop an artifact whose current
+  revision did not resolve — hiding prepared work to protect a label. LEFT join, empty string,
+  rendered as REV-1's explicit "unknown, not human". Fail open on the ROW, fail closed on the CLAIM.
+- **The silent upgrade can run backwards.** `resolveWorkArtifactReference` resolves an exact,
+  possibly superseded revision. Handing its author to a field contracted to mean *current* is the
+  same defect this module refuses everywhere else, only in the other direction. Used when the
+  revision IS current, looked up otherwise, and both branches pinned.
+- **Adding a field to a shared view can break a claim made in another module's prose.**
+  `candidate-set.server.ts` says it carries "no digest, no id, no tenant, no actor". Putting an
+  actor classification on the view it reads made that sentence load-bearing for the first time. It
+  is now asserted — every candidate has exactly `ref` and `label` — rather than left as prose.
+- **An intermittent failure is not a fixed one.** `ama1-agent-mandate/bite-proofs.ts` failed in two
+  earlier full-suite runs and passed in this one plus 3/3 in isolation. Reporting it as fixed would
+  have claimed credit for suite ordering. It is recorded as intermittent, untouched.
+
+**Weekly three.** *Learned:* when two gaps look equally real, ask which one production can actually
+prove today — evidence availability is a selection criterion, not an afterthought. *Turkish Rug
+House:* the prepared-work list now shows at a glance that three of seven drafts were written by the
+agent and four by a person, without opening anything. *Hebun AI:* zero schema, zero authority, zero
+persistence, ledger 47, one JOIN, one field, one line of surface, and a neighbouring module's
+privacy sentence turned from prose into an assertion.
