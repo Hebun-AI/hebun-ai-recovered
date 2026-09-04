@@ -142,19 +142,55 @@ function main(): void {
 
   /* ── 4 · WITHHELD FIELDS ARE NOT RENDERED ────────────────────────────────
    * Each of these exists on a view this surface consumes. Absence is the proof.
+   *
+   * REV-1 — `authoredByActorType` LEFT THIS SET, AND THE INVARIANT DID NOT MOVE.
+   *
+   * The invariant this section has always defended is that INTEGRITY INTERNALS AND IDENTIFIERS do
+   * not reach the surface: a tenant id, two digests, a message id, and the actor ids. Seven of the
+   * eight original members are exactly that, and all seven are still here.
+   *
+   * `authoredByActorType` was never one of them in kind. It is not an identifier and not a digest —
+   * it is a four-value classification. It was grouped here because when OPS-P1 shipped it
+   * distinguished nothing: every revision then in existence was human-authored. AGENT-RUNTIME-0,
+   * CGO-3, CGO-4 and CGO-7 falsified that assumption, and in production four revisions are now
+   * human-authored and three agent-authored while the surface rendered all seven identically.
+   *
+   * So the assertion is REWRITTEN RATHER THAN RELAXED: the identifier half is still forbidden and
+   * is proved below to be forbidden, and the classification half is now REQUIRED to be present.
+   * A pin that merely dropped the field would have left the surface free to render the id.
    */
   {
     for (const file of OPS_P1_FILES) {
       const code = codeOf(read(file));
       for (const withheld of [
         "tenantId", "endpointDigest", "contentDigest", "createdByActorId", "createdByActorType",
-        "authoredByActorId", "authoredByActorType", "sourceMessageId",
+        "authoredByActorId", "sourceMessageId",
       ]) {
         assert.ok(!code.includes(withheld), `${file} must not render "${withheld}"`);
       }
       /* No whole-view spread — that is how a withheld field arrives without being named. */
       assert.ok(!/\{\s*\.\.\.(recipient|artifact|revision)\s*\}/.test(code), `${file} spreads no view`);
     }
+
+    /* The classification is SHOWN, and only through the pure vocabulary that fails closed. */
+    const work = codeOf(read(WORK));
+    assert.ok(
+      work.includes("workArtifactAuthorLabel(revision.authoredByActorType)"),
+      "REV-1 — the review surface names WHO wrote each revision",
+    );
+    assert.ok(
+      work.includes("WORK_ARTIFACT_AUTHORSHIP_NON_CLAIMS"),
+      "…beside what knowing the author does NOT establish",
+    );
+    /* The component maps no actor type of its own: one vocabulary, one place it can drift. */
+    for (const inline of ['=== "agent"', '=== "human"', '? "Written by', 'actorType ==']) {
+      assert.ok(!work.includes(inline), `the surface must not classify authorship itself ("${inline}")`);
+    }
+    /* And it is the ONLY new field: recipients gained nothing. */
+    assert.ok(
+      !codeOf(read(RECIPIENTS)).includes("authoredByActorType"),
+      "the recipients section gained no authorship rendering",
+    );
   }
 
   /* ── 5 · REFERENCES ARE CONSUMED, NEVER CONSTRUCTED ──────────────────────

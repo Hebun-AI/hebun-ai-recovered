@@ -13,6 +13,8 @@ import {
   CONTENT_DESTINATIONS,
   CONTENT_DRAFT_TYPE,
   CONTENT_PREPARATION_DISTINCTIONS,
+  WORK_ARTIFACT_AUTHORSHIP_NON_CLAIMS,
+  workArtifactAuthorLabel,
 } from "@/features/work-artifacts/contracts";
 import type {
   ContentDestination,
@@ -41,9 +43,23 @@ import { ReferenceChip } from "./reference-chip";
  * ── WHAT IS NOT SHOWN ────────────────────────────────────────────────────────
  *
  * `WorkArtifactView` carries `tenantId` and a raw `id`; neither is rendered. `contentDigest`,
- * `authoredByActorType`, `authoredByActorId` and `sourceMessageId` on a revision are integrity and
- * audit internals and are not rendered either. What a human needs to choose a draft is its title,
- * its kind, which revision is current, and the text itself.
+ * `authoredByActorId` and `sourceMessageId` on a revision are integrity and audit internals and are
+ * not rendered either. What a human needs to choose a draft is its title, its kind, which revision
+ * is current, the text itself — and, since REV-1, WHO WROTE IT.
+ *
+ * ── REV-1 · AUTHORSHIP IS A CLASSIFICATION, NOT AN IDENTIFIER ────────────────
+ *
+ * `authoredByActorType` left the withheld set and `authoredByActorId` did not, which is the whole
+ * shape of this change. OPS-P1 withheld both as audit internals, and for the type that was correct
+ * at the time: every revision then in existence was written by a person, so the field distinguished
+ * nothing. AGENT-RUNTIME-0, CGO-3, CGO-4 and CGO-7 falsified that — in production four revisions
+ * are human-authored and three are agent-authored, and this surface rendered all seven identically.
+ *
+ * A reviewer needs to know a MODEL wrote the text. They do not need the row id of the writer, so
+ * the identifier stays withheld and the firewall still proves it.
+ *
+ * Nothing about the artifact changes by being looked at. This component reads and renders; it
+ * records no review, sets no state, and Hebun holds no review or approval state to set.
  *
  * NOTHING HERE PROPOSES. Authoring prepared work asks nothing of Governance and creates no action
  * request; `/send` in Heby remains the only way a proposal is filed.
@@ -181,9 +197,33 @@ function ArtifactRow({ artifact }: { artifact: WorkArtifactView }) {
             <li key={revision.revisionNo} className="text-xs text-fg-secondary">
               <span className="font-mono text-fg-muted">@{revision.revisionNo}</span>
               {revision.current ? " · current" : ""} — {revision.content}
+              {/*
+                * REV-1. Adjacent to the bytes, deliberately: this is the moment a reader is
+                * deciding what to make of the text, and it is the moment "a model wrote this"
+                * matters. Resolved from the authoritative revision view through a pure vocabulary
+                * that names an unrecognised actor type as unknown rather than defaulting it.
+                */}
+              <span className="mt-0.5 block text-fg-muted">
+                {workArtifactAuthorLabel(revision.authoredByActorType)}
+              </span>
             </li>
           ))}
         </ol>
+      ) : null}
+
+      {/*
+        * WHAT SEEING THE AUTHOR DOES NOT MEAN. Shown with the history rather than in a footnote,
+        * for the reason CGO-1 gives about the destination caption: the collapse happens at the
+        * moment of reading, so the denial belongs there.
+        */}
+      {history ? (
+        <ul className="mt-2 space-y-0.5">
+          {WORK_ARTIFACT_AUTHORSHIP_NON_CLAIMS.map((claim) => (
+            <li key={claim} className="text-xs text-fg-muted">
+              {claim}
+            </li>
+          ))}
+        </ul>
       ) : null}
     </li>
   );

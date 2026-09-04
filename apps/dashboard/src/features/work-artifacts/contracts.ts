@@ -99,6 +99,64 @@ export const CONTENT_PREPARATION_DISTINCTIONS: readonly string[] = [
 ] as const;
 
 /**
+ * REV-1 — WHO WROTE THESE BYTES, as a sentence a reviewing surface may show.
+ *
+ * ── WHY THIS EXISTS NOW AND DID NOT BEFORE ──────────────────────────────────
+ *
+ * OPS-P1 shipped the review surface on 2026-08-27 and deliberately withheld `authoredByActorType`,
+ * grouping it with `contentDigest`, `sourceMessageId` and `authoredByActorId` as an audit internal.
+ * That was correct THEN: AGENT-RUNTIME-0 had not yet landed, every revision in existence was
+ * written by a person, and a field with one possible value distinguishes nothing.
+ *
+ * Three releases falsified it. AGENT-RUNTIME-0 made the durable agent the author of model-produced
+ * bytes, CGO-3 made an agent able to prepare a content draft, and CGO-4 and CGO-7 made the model
+ * the direct author of the stored text. In production today four revisions are human-authored and
+ * three are agent-authored, and the review surface renders all seven identically.
+ *
+ * ── WHAT THIS IS AND IS NOT ─────────────────────────────────────────────────
+ *
+ * A CLASSIFICATION, never an identifier. `authoredByActorId` stays withheld — a reviewer needs to
+ * know a model wrote the text, not which row records the writer. The distinction is the whole
+ * reason this can be shown at all without reopening what OPS-P1 closed.
+ *
+ * Authorship says who produced the bytes and NOTHING about their standing. It is not a review, not
+ * an approval, not an authorization, and not a claim the content is correct.
+ */
+export const WORK_ARTIFACT_AUTHOR_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  human: "Written by a person",
+  agent: "Written by this organization's durable agent",
+  system: "Written by the platform itself",
+  service: "Written by an automated service",
+});
+
+/**
+ * What a surface says when the recorded actor type is not one this vocabulary names.
+ *
+ * FAIL CLOSED, NEVER DEFAULT. The column is the four-value `actor_type` enum and a future value
+ * would arrive here as an unrecognised string. Rendering "Written by a person" for anything
+ * unrecognised would be the one failure this whole field exists to prevent, so an unknown value
+ * says it is unknown.
+ */
+export const WORK_ARTIFACT_AUTHOR_UNKNOWN =
+  "Authorship was recorded in a form this surface cannot name. It is unknown, not human." as const;
+
+/** Resolve the sentence for a recorded actor type. Pure; guesses nothing. */
+export function workArtifactAuthorLabel(actorType: string): string {
+  return WORK_ARTIFACT_AUTHOR_LABELS[actorType] ?? WORK_ARTIFACT_AUTHOR_UNKNOWN;
+}
+
+/**
+ * WHAT KNOWING THE AUTHOR DOES NOT ESTABLISH. Rendered beside the authorship line for the same
+ * reason `CONTENT_DESTINATION_NON_CLAIMS` is rendered beside the destination: the risk of this
+ * capability is that a reader upgrades "I can see who wrote it" into "so it has been reviewed".
+ */
+export const WORK_ARTIFACT_AUTHORSHIP_NON_CLAIMS: readonly string[] = [
+  "Seeing who wrote a revision is not a review of it, and reading it here records nothing.",
+  "Hebun holds no review, no approval and no rejection for prepared work — those states do not exist in this authority.",
+  "An agent-written revision is not endorsed by this organization, and a person-written one is not either.",
+] as const;
+
+/**
  * Two states. `superseded` was dropped from Gate A's proposal under stress-test: supersession is a
  * relationship BETWEEN REVISIONS of one artifact, derivable from `current_revision`, not a stored
  * state of the artifact. Artifact-level supersession would need a forked identity and a pointer,

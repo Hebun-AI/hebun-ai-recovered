@@ -77,6 +77,30 @@ const MUTATIONS: readonly Mutation[] = [
     expect: `must not render "contentDigest"`,
   },
   {
+    /*
+     * REV-1. The identifier half of the authorship rule. `authoredByActorType` legitimately left
+     * the withheld set; `authoredByActorId` did not, and a pin that merely dropped the type would
+     * have stopped defending the id. This proves it still bites.
+     */
+    label: "M4b the authoring actor IDENTIFIER is rendered",
+    file: WORK,
+    find: `                {workArtifactAuthorLabel(revision.authoredByActorType)}`,
+    replace: `                {workArtifactAuthorLabel(revision.authoredByActorType)} {revision.authoredByActorId}`,
+    expect: `must not render "authoredByActorId"`,
+  },
+  {
+    /*
+     * REV-1. The presence half. A surface that stopped naming the author would render
+     * model-written bytes indistinguishably from bytes a person typed — the defect this phase
+     * exists to remove, and one only a positive assertion can catch.
+     */
+    label: "M4c the surface stops naming who wrote the revision",
+    file: WORK,
+    find: `                {workArtifactAuthorLabel(revision.authoredByActorType)}`,
+    replace: `                {""}`,
+    expect: `REV-1 — the review surface names WHO wrote each revision`,
+  },
+  {
     /* A client-built reference can name something the server never resolved. */
     label: "M5 the recipient reference is constructed in the client",
     file: RECIPIENTS,
