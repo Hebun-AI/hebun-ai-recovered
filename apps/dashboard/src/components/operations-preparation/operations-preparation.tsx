@@ -30,21 +30,30 @@ import {
   listActiveRecipientsAction,
   listRetiredRecipientsAction,
   listWorkArtifactsAction,
+  readArtifactWorkPurposeAction,
 } from "@/app/(dashboard)/operations/actions";
 import { RecipientsSection } from "./recipients-section";
 import { PreparedWorkSection } from "./prepared-work-section";
 
 export async function OperationsPreparation() {
-  const [active, retired, artifacts] = await Promise.all([
+  /*
+   * REV-3 adds one more independent read to the same parallel fetch. It is the Work Authority's
+   * relationship, read through its own released seam, and it is composed HERE rather than inside
+   * the artifact reader — `read-work-evidence.server.ts` already imports `listWorkArtifacts`, so
+   * folding the inverse into that reader would close an import cycle and make the artifact
+   * authority a participant in a relationship it does not own.
+   */
+  const [active, retired, artifacts, workPurpose] = await Promise.all([
     listActiveRecipientsAction(),
     listRetiredRecipientsAction(),
     listWorkArtifactsAction(),
+    readArtifactWorkPurposeAction(),
   ]);
 
   return (
     <div className="mt-8 space-y-8">
       <RecipientsSection active={active} retired={retired} />
-      <PreparedWorkSection listing={artifacts} />
+      <PreparedWorkSection listing={artifacts} workPurpose={workPurpose} />
     </div>
   );
 }

@@ -25,6 +25,13 @@ import type {
   WorkArtifactView,
 } from "@/features/work-artifacts/contracts";
 import type { WorkArtifactListing } from "@/features/work-artifacts/read-work-artifacts.server";
+import {
+  ARTIFACT_WORK_PURPOSE_NON_CLAIMS,
+  NO_DECLARED_WORK_PURPOSE,
+  WORK_PURPOSE_UNAVAILABLE,
+  type ArtifactWorkPurposeIndex,
+  type ArtifactWorkPurposeItem,
+} from "@/features/organizational-work/artifact-work-purpose";
 import { ReferenceChip } from "./reference-chip";
 
 /*
@@ -75,7 +82,44 @@ const REFUSAL_WORDING: Record<string, string> = {
   "source-message-not-found": "The named source message could not be found.",
 };
 
-function ArtifactRow({ artifact }: { artifact: WorkArtifactView }) {
+/*
+ * REV-3 — the declared work relationship for ONE artifact, rendered secondary to the draft itself.
+ *
+ * Three states, and they are three different facts. `undefined` here means the index could not be
+ * read at all and says so; an empty list means this organization has declared nothing, which is a
+ * real answer; a non-empty list names every work item that declares it, because one artifact may
+ * legitimately be evidence for several.
+ *
+ * A work item the register could not name is shown as unresolved rather than dropped — the entry is
+ * the Work Authority's, and only its label is missing.
+ */
+function DeclaredWorkPurpose({ items }: { items: readonly ArtifactWorkPurposeItem[] | undefined }) {
+  if (items === undefined) {
+    return <p className="text-xs text-fg-muted">{WORK_PURPOSE_UNAVAILABLE}</p>;
+  }
+  if (items.length === 0) {
+    return <p className="text-xs text-fg-muted">{NO_DECLARED_WORK_PURPOSE}</p>;
+  }
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={item.workItemId} className="text-xs text-fg-muted">
+          {item.title === null
+            ? "Declared evidence for recorded work Hebun could not name here."
+            : `Declared evidence for: ${item.title} · declared ${item.declaredState}`}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ArtifactRow({
+  artifact,
+  workPurpose,
+}: {
+  artifact: WorkArtifactView;
+  workPurpose: readonly ArtifactWorkPurposeItem[] | undefined;
+}) {
   const [revisionText, setRevisionText] = useState("");
   const [history, setHistory] = useState<readonly WorkArtifactRevisionView[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -110,6 +154,7 @@ function ArtifactRow({ artifact }: { artifact: WorkArtifactView }) {
             revision {artifact.currentRevision}:{" "}
             {workArtifactAuthorLabel(artifact.currentRevisionAuthoredByActorType)}
           </p>
+          <DeclaredWorkPurpose items={workPurpose} />
           <ReferenceChip reference={artifact.currentRef} />
         </div>
         <div className="flex shrink-0 gap-2 self-start">
@@ -241,7 +286,13 @@ function ArtifactRow({ artifact }: { artifact: WorkArtifactView }) {
   );
 }
 
-export function PreparedWorkSection({ listing }: { readonly listing: WorkArtifactListing }) {
+export function PreparedWorkSection({
+  listing,
+  workPurpose,
+}: {
+  readonly listing: WorkArtifactListing;
+  readonly workPurpose: ArtifactWorkPurposeIndex;
+}) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [artifactType, setArtifactType] = useState<WorkArtifactType>("message-draft");
@@ -394,9 +445,34 @@ export function PreparedWorkSection({ listing }: { readonly listing: WorkArtifac
               * reader is told the label is about the current revision before reading any of them.
               */}
             <p className="mb-2 text-xs text-fg-muted">{WORK_ARTIFACT_LIST_AUTHORSHIP_NON_CLAIM}</p>
+            {/*
+              * REV-3. Said once, above the rows, adjacent to the relationships it bounds — the same
+              * placement REV-2 used, and for the same reason: a reader must know what a declaration
+              * is not before reading one.
+              */}
+            <ul className="mb-2">
+              {ARTIFACT_WORK_PURPOSE_NON_CLAIMS.map((claim) => (
+                <li key={claim} className="text-xs text-fg-muted">
+                  {claim}
+                </li>
+              ))}
+            </ul>
             <ul>
               {listing.artifacts.map((artifact) => (
-                <ArtifactRow key={artifact.currentRef} artifact={artifact} />
+                <ArtifactRow
+                key={artifact.currentRef}
+                artifact={artifact}
+                /*
+                 * REV-3. `undefined` ONLY when the relationship could not be read. When it WAS
+                 * read, an artifact nobody declared gets an empty list — a real answer — so a read
+                 * failure can never be rendered as "serves no work".
+                 */
+                workPurpose={
+                  workPurpose.status === "available"
+                    ? (workPurpose.byArtifactId[artifact.id] ?? [])
+                    : undefined
+                }
+              />
               ))}
             </ul>
           </>

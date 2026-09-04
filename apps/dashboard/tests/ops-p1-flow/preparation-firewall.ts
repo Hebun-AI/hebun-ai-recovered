@@ -286,11 +286,38 @@ function main(): void {
     };
     assert.equal(journal.entries.length, 47, "OPS-P1 adds no migration — the ledger carries none of its authoring"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
     const actions = codeOf(read(ACTIONS));
+    /*
+     * REWRITTEN BY REV-3, NOT RELAXED.
+     *
+     * OPS-P1 pinned twelve to defend a real invariant: this surface is a VIEW LAYER and adds no new
+     * capability. REV-3 legitimately adds a thirteenth — `readArtifactWorkPurposeAction` — which is
+     * a pure READ of a relationship the Work Authority owns. The count alone can no longer tell a
+     * read from a write, so the invariant is now asserted directly instead: the new action mutates
+     * nothing.
+     *
+     * `revalidatePath` is the tell. Every mutating action in this file calls it after a successful
+     * write; a read has nothing to revalidate. Asserting the read body is free of it — and of every
+     * writer name — proves what the count was standing in for.
+     */
     assert.equal(
       (actions.match(/export async function/g) ?? []).length,
-      12,
-      "the twelve released server actions are unchanged in number — OPS-P1 adds none",
+      13,
+      "twelve released server actions plus REV-3's one read — and nothing else was added",
     );
+    const readAction = actions.slice(actions.indexOf("export async function readArtifactWorkPurposeAction"));
+    const readBody = readAction.slice(0, readAction.indexOf("\n}") + 2);
+    assert.ok(readBody.length > 0, "the REV-3 read action is present to examine");
+    for (const mutation of [
+      "revalidatePath", "createWorkArtifact", "reviseWorkArtifact", "retireWorkArtifact",
+      "declareWorkEvidenceReference", "withdrawWorkEvidenceReference", "recordWork",
+      "setWorkDeclaredState", "retireWork", ".insert(", ".update(", ".delete(",
+    ]) {
+      assert.equal(
+        readBody.includes(mutation),
+        false,
+        `REV-3's action must not contain "${mutation}" — it reports a relationship, it never changes one`,
+      );
+    }
   }
 
   console.log("ops-p1-flow/preparation-firewall: OK");

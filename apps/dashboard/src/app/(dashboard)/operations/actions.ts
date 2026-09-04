@@ -27,6 +27,12 @@ import {
   WORK_ARTIFACT_OWNER_WORKSPACE,
   type PrepareWorkArtifactResult,
 } from "@/features/work-artifacts/prepare-work-artifact.server";
+import {
+  indexArtifactWorkPurpose,
+  type ArtifactWorkPurposeIndex,
+} from "@/features/organizational-work/artifact-work-purpose";
+import { readWorkEvidenceReferences } from "@/features/organizational-work/read-work-evidence.server";
+import { readWorkRegister } from "@/features/organizational-work/read-work.server";
 import type {
   CreateRecipientResult,
   RecipientEndpointKind,
@@ -160,6 +166,28 @@ export async function prepareWorkArtifactAction(input: {
   const result = await prepareWorkArtifact(input, { resolveTenant: resolveTenantContext });
   if (result.status === "prepared") revalidatePath("/operations");
   return result;
+}
+
+/**
+ * REV-3 — WHICH RECORDED WORK DECLARES EACH PREPARED ARTIFACT AS EVIDENCE.
+ *
+ * READS, GROUPS, AND OWNS NOTHING. The relationship belongs to the Work Authority and is read
+ * through WEV-1's released seam — the one that already serves both directions. This action adds no
+ * reader, no table and no write path: there is no way to declare, withdraw or edit a relationship
+ * from anywhere in this file, and the artifact authority gains no say over it.
+ *
+ * The two reads are independent, so they run together. `listArtifacts` is injected with the listing
+ * this surface has ALREADY fetched, so resolving referent labels costs no second artifact query —
+ * the released seam's own injection point, used for its intended purpose.
+ */
+export async function readArtifactWorkPurposeAction(): Promise<ArtifactWorkPurposeIndex> {
+  const tenant = await resolveTenantContext();
+  const listing = await listWorkArtifacts(tenant);
+  const [evidence, register] = await Promise.all([
+    readWorkEvidenceReferences(tenant, { listArtifacts: async () => listing }),
+    readWorkRegister(tenant),
+  ]);
+  return indexArtifactWorkPurpose(evidence, register);
 }
 
 /*
