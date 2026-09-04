@@ -3370,3 +3370,40 @@ House:* the prepared-work list now shows at a glance that three of seven drafts 
 agent and four by a person, without opening anything. *Hebun AI:* zero schema, zero authority, zero
 persistence, ledger 47, one JOIN, one field, one line of surface, and a neighbouring module's
 privacy sentence turned from prose into an assertion.
+
+## REV-3 — the reverse seam already existed; only the surface never asked
+
+- **Discovery said "missing read seam". The authority's own header said otherwise.** WEV-1 declares
+  itself ONE seam for BOTH directions — "a second seam for the inverse would have been a second
+  authority for one relationship" — and the schema carries a `tenant_artifact` index labelled
+  `REFERENT → WORK`. The gap was never a reader; it was that `/operations` never called one. Read
+  the authority's header before believing a discovery note, including my own.
+- **The composition point was decided by an import cycle.** `read-work-evidence.server.ts` already
+  imports `listWorkArtifacts` to resolve referent labels. Folding the inverse into the artifact
+  reader would have closed a cycle AND made the artifact authority a participant in a relationship
+  it does not own. Composing in the page's server component avoids both; a test pins that the
+  artifact seam still names no work module.
+- **Cardinality had to come from the index, not from the data.** Production holds exactly one
+  declaration, so a single-work-item projection would have been correct by accident and wrong at the
+  second declaration. The unique index is per (work item, artifact) — many — so every artifact maps
+  to a list, and the suite creates the two-work-items case production does not have.
+- **Three states, not two.** Read-failure, declared-nothing, and declared are three different facts.
+  Only an AVAILABLE index yields an empty list, so a read failure can never render as "serves no
+  work" — the same unknown-vs-empty discipline OPS-P1 already applies to its listings.
+- **Unresolved is kept, not dropped.** A work item the bounded register could not name stays in the
+  list with a null title. Dropping it would convert "Hebun could not name this work" into "this
+  draft serves no work" — a different and false claim.
+- **A count pin cannot tell a read from a write.** OPS-P1 pinned twelve server actions to defend
+  "this surface adds no capability". REV-3 legitimately adds a thirteenth READ, so the count was
+  rewritten into the invariant it stood for: the new action's body contains no `revalidatePath` —
+  the tell every mutating action in that file carries — and no writer name. Stronger than before.
+- **My own test caught my own over-broad ban.** Asserting the work item id is never rendered failed
+  on `key={item.workItemId}`, which is React's list key and reaches no reader. Judged on display
+  instead, and the key usage is now asserted as correct. Same class as every prior word-ban trap.
+
+**Weekly three.** *Learned:* when a discovery note and an authority's own header disagree about
+whether a seam exists, the header wins — and the capability usually gets smaller. *Turkish Rug
+House:* the prepared-work list now shows that one draft is declared evidence for active recorded work
+and six are attached to nothing, so "why does this draft exist?" has an answer on the page. *Hebun
+AI:* zero schema, zero persistence, zero new authority, zero new reader, ledger 47, one pure grouping
+module, and one released pin rewritten into something stricter.
