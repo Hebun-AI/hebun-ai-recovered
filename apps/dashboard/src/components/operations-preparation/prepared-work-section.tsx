@@ -14,6 +14,7 @@ import {
   CONTENT_DRAFT_TYPE,
   CONTENT_PREPARATION_DISTINCTIONS,
   WORK_ARTIFACT_AUTHORSHIP_NON_CLAIMS,
+  WORK_ARTIFACT_LIST_AUTHORSHIP_NON_CLAIM,
   workArtifactAuthorLabel,
 } from "@/features/work-artifacts/contracts";
 import type {
@@ -97,6 +98,17 @@ function ArtifactRow({ artifact }: { artifact: WorkArtifactView }) {
               ? ` · prepared for ${CONTENT_DESTINATION_LABELS[artifact.intendedDestination]}`
               : ""}
             {retired ? " · retired" : ""}
+          </p>
+          {/*
+            * REV-2. The author of the CURRENT revision — the same revision the line above names, and
+            * the one `currentRef` points at. Rendered as its own line rather than appended to that
+            * one so it cannot be read as a property of the artifact, and worded "revision N" for the
+            * same reason. REV-1's vocabulary resolves it; an unrecognised actor type says it is
+            * unknown rather than defaulting to a person.
+            */}
+          <p className="text-xs text-fg-muted">
+            revision {artifact.currentRevision}:{" "}
+            {workArtifactAuthorLabel(artifact.currentRevisionAuthoredByActorType)}
           </p>
           <ReferenceChip reference={artifact.currentRef} />
         </div>
@@ -375,11 +387,19 @@ export function PreparedWorkSection({ listing }: { readonly listing: WorkArtifac
             No prepared work yet. The list was read successfully — this is the real state.
           </p>
         ) : (
-          <ul>
-            {listing.artifacts.map((artifact) => (
-              <ArtifactRow key={artifact.currentRef} artifact={artifact} />
-            ))}
-          </ul>
+          <>
+            {/*
+              * REV-2. Said ONCE, above the list, and adjacent to the labels it bounds. A listing row
+              * stands for an artifact that may have several revisions by different authors, so the
+              * reader is told the label is about the current revision before reading any of them.
+              */}
+            <p className="mb-2 text-xs text-fg-muted">{WORK_ARTIFACT_LIST_AUTHORSHIP_NON_CLAIM}</p>
+            <ul>
+              {listing.artifacts.map((artifact) => (
+                <ArtifactRow key={artifact.currentRef} artifact={artifact} />
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </section>

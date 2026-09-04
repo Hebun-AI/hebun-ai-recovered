@@ -48,8 +48,22 @@ function iso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-function toArtifactView(row: typeof workArtifacts.$inferSelect): WorkArtifactView {
+/**
+ * REV-2. `currentRevisionAuthoredByActorType` is supplied by the CALLER, not read from the artifact
+ * row, because no column on `work_artifacts` holds it — it lives on the revision the artifact
+ * currently points at. Passing it in keeps this projection a pure mapping and makes the join the
+ * one place the two tables are related.
+ *
+ * The empty string is the honest value when the current revision did not resolve. It is not
+ * "human", not "unknown" spelled as a fact, and not an omission: `workArtifactAuthorLabel` turns it
+ * into REV-1's explicit "unknown, not human" sentence.
+ */
+function toArtifactView(
+  row: typeof workArtifacts.$inferSelect,
+  currentRevisionAuthoredByActorType: string,
+): WorkArtifactView {
   return {
+    currentRevisionAuthoredByActorType,
     id: row.id,
     tenantId: row.tenantId,
     artifactType: row.artifactType as WorkArtifactType,
@@ -103,12 +117,34 @@ export async function listWorkArtifacts(
   if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
 
   try {
+    /*
+     * REV-2 — the artifact, plus the author of the revision it currently points at.
+     *
+     * A LEFT JOIN, deliberately. An INNER JOIN would DROP any artifact whose current revision did
+     * not resolve, which would hide prepared work from a reviewing human in order to protect a
+     * label — the wrong trade in a listing whose whole job is to show what exists. The row still
+     * appears; its authorship arrives null and is rendered as explicitly unknown.
+     *
+     * The join carries `tenantId` as well as `artifactId`, so the predicate is scoped on BOTH
+     * tables rather than trusting the foreign key to have kept them in the same tenant.
+     */
     const rows = await db
-      .select()
+      .select({ artifact: workArtifacts, authoredByActorType: workArtifactRevisions.authoredByActorType })
       .from(workArtifacts)
+      .leftJoin(
+        workArtifactRevisions,
+        and(
+          eq(workArtifactRevisions.artifactId, workArtifacts.id),
+          eq(workArtifactRevisions.revisionNo, workArtifacts.currentRevision),
+          eq(workArtifactRevisions.tenantId, tenant.tenantId),
+        ),
+      )
       .where(eq(workArtifacts.tenantId, tenant.tenantId))
       .orderBy(desc(workArtifacts.createdAt));
-    return { status: "read", artifacts: rows.map(toArtifactView) };
+    return {
+      status: "read",
+      artifacts: rows.map((row) => toArtifactView(row.artifact, row.authoredByActorType ?? "")),
+    };
   } catch {
     return { status: "unavailable", reason: "persistence-unavailable" };
   }
@@ -214,7 +250,34 @@ export async function resolveWorkArtifactReference(
     const revisionRow = revisionRows[0];
     if (!revisionRow) return miss("unknown-revision");
 
-    const artifact = toArtifactView(artifactRow);
+    /*
+     * REV-2 — the CURRENT revision's author, which is not necessarily this revision's author.
+     *
+     * This seam resolves an EXACT revision, and that revision may be superseded. Handing its author
+     * to `toArtifactView` would put a superseded revision's author in a field whose whole contract
+     * is "the current one" — the same silent upgrade this module refuses everywhere else, only
+     * running the other way. So it is used ONLY when the resolved revision IS the current one, and
+     * looked up otherwise.
+     *
+     * A lookup that returns nothing yields the empty string, which renders as explicitly unknown.
+     */
+    let currentAuthorType = revisionRow.authoredByActorType;
+    if (revisionRow.revisionNo !== artifactRow.currentRevision) {
+      const currentRows = await db
+        .select({ authoredByActorType: workArtifactRevisions.authoredByActorType })
+        .from(workArtifactRevisions)
+        .where(
+          and(
+            eq(workArtifactRevisions.tenantId, tenant.tenantId),
+            eq(workArtifactRevisions.artifactId, parsed.artifactId),
+            eq(workArtifactRevisions.revisionNo, artifactRow.currentRevision),
+          ),
+        )
+        .limit(1);
+      currentAuthorType = currentRows[0]?.authoredByActorType ?? "";
+    }
+
+    const artifact = toArtifactView(artifactRow, currentAuthorType);
     const revision = toRevisionView(revisionRow, artifactRow.currentRevision);
 
     const standing =

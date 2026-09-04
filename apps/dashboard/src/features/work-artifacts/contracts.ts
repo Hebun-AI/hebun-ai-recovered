@@ -157,6 +157,18 @@ export const WORK_ARTIFACT_AUTHORSHIP_NON_CLAIMS: readonly string[] = [
 ] as const;
 
 /**
+ * REV-2 — the sentence a LISTING carries, where one row stands for a whole artifact.
+ *
+ * The revision view above is unambiguous: it renders one revision and names its author. A listing
+ * row is not, because it stands for an artifact that may have many revisions by different authors.
+ * So the list says which revision the label is about, and this sentence keeps a reader from
+ * generalising it to the artifact's whole history.
+ */
+export const WORK_ARTIFACT_LIST_AUTHORSHIP_NON_CLAIM: string =
+  "Authorship shown in this list is the author of each artifact's CURRENT revision only. An earlier " +
+  "revision may have been written by someone else; History shows the whole sequence.";
+
+/**
  * Two states. `superseded` was dropped from Gate A's proposal under stress-test: supersession is a
  * relationship BETWEEN REVISIONS of one artifact, derivable from `current_revision`, not a stored
  * state of the artifact. Artifact-level supersession would need a forked identity and a pointer,
@@ -274,6 +286,26 @@ export interface WorkArtifactView {
    * draft. NULL means "not a content draft" — never "destination unknown".
    */
   readonly intendedDestination: ContentDestination | null;
+  /**
+   * REV-2 — WHO WROTE THE CURRENT REVISION. A classification, exactly as REV-1 established it for
+   * the revision view: `authoredByActorId` is NOT here and never will be.
+   *
+   * ── IT IS THE REVISION'S AUTHOR, NOT THE ARTIFACT'S ──────────────────────
+   *
+   * An artifact has no author. Revision 1 can be agent-written and revision 2 written by the person
+   * who rewrote it, and "who wrote this draft" would then have two true answers. This field answers
+   * one question only — who wrote revision `currentRevision` — which is the same revision
+   * `currentRef` points at and the same one the row already names. Every surface rendering it must
+   * say so; a label reading "this draft was written by…" would assert something no column holds.
+   *
+   * History remains the only place the whole sequence is legible, and REV-1 already made it so.
+   *
+   * UNKNOWN IS A VALUE, NOT AN ABSENCE. The read seam LEFT JOINs the current revision, so an
+   * artifact whose current revision does not resolve still appears in the listing — dropping it
+   * would hide prepared work to protect a label. Its authorship arrives as the empty string and
+   * `workArtifactAuthorLabel` renders REV-1's explicit unknown sentence rather than guessing.
+   */
+  readonly currentRevisionAuthoredByActorType: string;
 }
 
 export type CreateWorkArtifactResult =
