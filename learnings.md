@@ -3450,3 +3450,44 @@ defect; triage it on sight rather than re-proving it pre-existing each phase. *T
 `/work-activity` no longer advertises itself as available while Hebun cannot say whether it may run.
 *Hebun AI:* one line, zero schema, zero scope, zero new authority, suite fully green for the first
 time.
+
+## Mock surface gate — environment state is not tenant identity
+
+- **A gate's own definition was more correct than its implementation.** The module defines the
+  pre-auth shell as "no auth, NO DATABASE, no cookies" and then checked only the first clause. The
+  gap is not hypothetical: a process holding a control-plane connection string with no auth
+  environment wired up — an operator or runtime path — read as demo and released the compiled-in
+  headcount. Read a module's stated contract against its code; the prose was right and the branch
+  was wrong.
+- **The consequence was durable, not cosmetic.** The Executive Overview projection is also Heby's
+  grounding, so G6D recorded the fiction as answer-source evidence FOR A REAL TENANT. Production
+  carries `Active Workflows · 14 records` and `Active Agents · 36 records` while authoritative
+  workflows are 0 and agents 1. A presentation gate that also feeds grounding is not a presentation
+  gate.
+- **The honest signal was unavailable, and saying so beat faking it.** Tenant identity would have
+  been the right input and no caller has one: all three entry points are zero-argument, and the
+  goals model states in its own header that it deliberately resolves no tenant. Threading a
+  `TenantContext` through three released signatures to answer a question about the ENVIRONMENT
+  would have been a projection-layer redesign, not a repair. A configured control plane is the
+  narrowest available proxy for "real tenants are reachable from this process".
+- **A pin duplicated across suites rots in exactly one place — again.** The same import assertion
+  lived in `mock-surface-gating` and `truth1-organizational-fiction`. Fixing one left the other red,
+  and only the full suite found it. Second occurrence of this exact pattern; when restating a pin,
+  grep for its twins first.
+- **A path ban is weaker than a capability ban.** `db/client` was forbidden as a proxy for "cannot
+  touch a database". The repair imports one env-only predicate from that module, so the path ban
+  would have failed while the invariant held. Restated to forbid the CONNECTING symbols by name —
+  which the path ban never did — and to prove the new symbol env-only, exactly as the released test
+  already proved `getAuthEnvironment`.
+- **Never trust a `git diff` taken during a full-suite run.** A bite-proof had
+  `agent-authorship.server.ts` mutated mid-flight and it looked like a foreign edit; it restored
+  itself when the run ended. Diff after the suite, not during it.
+- **The polluted rows stay.** `heby_answer_source_evidence` has one verb — `insert` — and no
+  retraction column or authority. Append-only by construction, so the historical rows are evidence
+  of what happened and are not rewritten. The leak path being closed and the historical record
+  being clean are two different claims.
+
+**Weekly three.** *Learned:* environment state is not tenant identity, and when the honest signal is
+unavailable, name the proxy and its limits rather than inventing an authority. *Turkish Rug House:*
+a real tenant's Heby answers can no longer be grounded on a fictional headcount. *Hebun AI:* one
+branch, one env-only import, zero schema, zero new authority, two twin pins restated, suite 678/678.
