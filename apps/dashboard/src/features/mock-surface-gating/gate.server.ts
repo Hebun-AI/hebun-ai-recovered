@@ -50,10 +50,20 @@
  * Server-only. This decides presentation; it is not an authorization boundary, grants nothing,
  * revokes nothing, and no caller may treat it as permission to read or write anything.
  */
+import { isControlPlaneConfigured } from "@/db/client.server";
 import { getAuthEnvironment } from "@/features/auth-runtime/request-session.server";
 
 /** Why a demo organizational surface was withheld. Presentation reason, never an authz reason. */
-export type MockSurfaceGateReason = "real-tenant-reachable" | "auth-environment-unresolved";
+export type MockSurfaceGateReason =
+  | "real-tenant-reachable"
+  /**
+   * A control-plane database is configured, so real tenants are reachable in this process even
+   * though authentication is not wired up. Distinct from `real-tenant-reachable` on purpose: that
+   * one means "a person could sign in here", this one means "this process is already holding the
+   * organizations' own store", and only the second describes a server-side or operator path.
+   */
+  | "control-plane-configured"
+  | "auth-environment-unresolved";
 
 export interface MockSurfaceGateDecision {
   /** True only in the pre-auth demo shell, where no real tenant can exist. */
@@ -79,8 +89,37 @@ export function resolveMockSurfaceGate(): MockSurfaceGateDecision {
   assertServerRuntime();
   try {
     const environment = getAuthEnvironment();
-    if (environment.status === "disabled") return Object.freeze({ permitted: true });
-    return Object.freeze({ permitted: false, reason: "real-tenant-reachable" as const });
+    if (environment.status !== "disabled") {
+      return Object.freeze({ permitted: false, reason: "real-tenant-reachable" as const });
+    }
+    /*
+     * ── THE SECOND HALF OF `disabled`, RESTORED ─────────────────────────────
+     *
+     * This module's own definition of the demo shell, stated above, is "no auth, NO DATABASE, no
+     * cookies". The implementation only ever checked the first clause, and the gap between the two
+     * is not hypothetical: a process holding a control-plane connection string while no auth
+     * environment is wired up — an operator or runtime path — read as "demo" and released the
+     * compiled-in headcount. Because the Executive Overview projection is also Heby's grounding,
+     * that fiction could then be recorded as durable answer-source evidence FOR A REAL TENANT.
+     *
+     * WHY NOT A TENANT PARAMETER. The honest signal would be the tenant itself, and no caller has
+     * one: all three entry points into this projection — the dashboard adapter, the Heby overview
+     * source and the goals model — are zero-argument by construction, and the goals model says in
+     * its own header that it deliberately resolves no tenant. Threading a `TenantContext` through
+     * three released public signatures to answer a question about the ENVIRONMENT would be a
+     * redesign of the projection layer, not a repair of this gate.
+     *
+     * A configured control plane is the narrowest available proxy for "real tenants are reachable
+     * from this process", it is already the shared meaning of `isControlPlaneConfigured` everywhere
+     * else, and it costs no connection: the helper reads an environment variable and returns.
+     *
+     * The pre-auth demo shell is untouched — it has no database, which is exactly what the
+     * definition above says it has.
+     */
+    if (isControlPlaneConfigured()) {
+      return Object.freeze({ permitted: false, reason: "control-plane-configured" as const });
+    }
+    return Object.freeze({ permitted: true });
   } catch {
     /* An environment that cannot be resolved is not an environment that may be trusted to be a
      * demo. Withhold rather than guess. */

@@ -334,13 +334,25 @@ function main(): void {
   /* ── 7: the gate is the ONE truth authority, unchanged and unwidened ─────── */
   {
     const gate = codeOf(read(GATE));
+    /*
+     * RESTATED, NOT RELAXED — and this is the SECOND copy of this pin. Its twin lives in
+     * `mock-surface-gating/gating-and-firewall.ts`; a pin duplicated across suites rots in exactly
+     * one place, so both are moved together and both keep saying the same thing.
+     *
+     * The invariant is that the gate remains ONE authority reading only what the environment
+     * already states. The control-plane clause added a second EXISTING env-only seam — restoring
+     * the second half of this module's own definition of the demo shell, "no auth, no database, no
+     * cookies" — and widened nothing: the tenant-awareness ban below is untouched, and the gate
+     * still cannot see a tenant, a role, a slug or a permission.
+     */
     const imports = [...gate.matchAll(/from\s+["']([^"']+)["']/g)].map((m) => m[1]!);
     assert.deepEqual(
-      imports,
-      ["@/features/auth-runtime/request-session.server"],
-      "the gate still reads exactly one existing authority",
+      [...imports].sort(),
+      ["@/db/client.server", "@/features/auth-runtime/request-session.server"],
+      "the gate reads the auth environment and the control-plane presence, and nothing else",
     );
-    assert.match(gate, /status === "disabled"/, "the gate still permits only an explicitly disabled environment");
+    assert.match(gate, /status !== "disabled"/, "any environment other than disabled withholds at once");
+    assert.match(gate, /isControlPlaneConfigured\(\)/, "and a configured control plane withholds even when auth is off");
     for (const forbidden of ["tenantId", "tenant_id", "slug", "roles", "memberships", "permission", "authorize", "NODE_ENV"]) {
       assert.ok(!gate.includes(forbidden), `the gate must not read ${forbidden}`);
     }

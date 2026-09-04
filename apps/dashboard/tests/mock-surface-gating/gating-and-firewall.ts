@@ -108,6 +108,27 @@ function withAuthEnabled<T>(enabled: boolean, body: () => T): T {
   }
 }
 
+/**
+ * The SECOND dimension of the demo shell, made explicit.
+ *
+ * The gate's definition of the pre-auth shell is "no auth, no database, no cookies". Until the
+ * control-plane clause was enforced these assertions depended on whatever `DATABASE_URL` happened
+ * to be in the ambient environment, which is not a fixture — it is luck. Both dimensions are now
+ * set deliberately so each case states the environment it is actually about.
+ */
+function withControlPlane<T>(present: boolean, body: () => T): T {
+  const key = "DATABASE_URL";
+  const previous = process.env[key];
+  if (present) process.env[key] = "postgres://fixture/only-presence-is-read";
+  else delete process.env[key];
+  try {
+    return body();
+  } finally {
+    if (previous === undefined) delete process.env[key];
+    else process.env[key] = previous;
+  }
+}
+
 async function main(): Promise<void> {
   const files = srcFiles();
   const graph = importGraph(files);
@@ -206,21 +227,68 @@ async function main(): Promise<void> {
 
   /* ── 7: the pre-auth demo shell keeps its intended seeded behaviour ──────── */
   {
-    const demo = withAuthEnabled(false, () => getDirectorDashboardUiModel());
+    const demo = withControlPlane(false, () => withAuthEnabled(false, () => getDirectorDashboardUiModel()));
     assert.ok(demo.snapshot, "the demo shell still builds its snapshot");
     const ready = demo.overview.sections.filter((s) => s.sourceState === "ready");
     assert.ok(ready.length > 0, "the demo shell still renders seeded sections");
     const agents = demo.overview.sections.find((s) => s.sectionId === "active-agents");
     assert.ok((agents?.recordCount ?? 0) > 0, "the demo shell still shows its reference data");
-    assert.equal(resolveMockSurfaceGate().permitted, true, "auth disabled permits the demo surfaces");
+    assert.equal(
+      withControlPlane(false, () => withAuthEnabled(false, () => resolveMockSurfaceGate())).permitted,
+      true,
+      "auth disabled AND no control plane is the demo shell, and it still permits its own surfaces",
+    );
   }
 
   /* ── The gate fails closed ───────────────────────────────────────────────── */
   {
     assert.equal(withAuthEnabled(true, () => resolveMockSurfaceGate()).permitted, false);
     assert.equal(withAuthEnabled(true, () => resolveMockSurfaceGate()).reason, "real-tenant-reachable");
+
+    /*
+     * ── THE DEMONSTRATED DEFECT ──────────────────────────────────────────────
+     *
+     * Auth unwired AND a control plane configured — an operator or runtime process holding the
+     * organizations' own store. This read as "demo" and released the compiled-in headcount, which
+     * the Executive Overview projection then hands to Heby as grounding, where G6D records it
+     * durably against a REAL TENANT. Production carries evidence rows that were written this way.
+     *
+     * It is asserted on the DECISION and on the PROJECTION, because the decision alone would not
+     * prove the fiction stopped travelling.
+     */
+    const leaked = withControlPlane(true, () => withAuthEnabled(false, () => resolveMockSurfaceGate()));
+    assert.equal(leaked.permitted, false, "a configured control plane means real tenants are reachable");
+    assert.equal(leaked.reason, "control-plane-configured", "and it says which half of the definition refused");
+
+    const projection = withControlPlane(true, () =>
+      withAuthEnabled(false, () => getDirectorDashboardUiModel()),
+    );
+    assert.equal(projection.snapshot, undefined, "no snapshot is built from fiction for a reachable tenant");
+    for (const section of projection.overview.sections) {
+      assert.equal(section.recordCount, 0, `${section.sectionId} still leaked a fictional record count`);
+      assert.notEqual(
+        section.sourceState,
+        "ready",
+        `${section.sectionId} must not claim READY from compiled-in data here`,
+      );
+      /* UNAVAILABLE, NEVER EMPTY. Hebun does not know this tenant has none of these. */
+      assert.equal(section.sourceState, "unavailable", `${section.sectionId} must say unavailable, not empty`);
+    }
+
     const gate = codeOf(read(GATE));
-    assert.match(gate, /status === "disabled"/, "only an explicitly disabled environment permits");
+    /*
+     * RESTATED, NOT RELAXED. This pinned the operator `status === "disabled"`; the gate now inverts
+     * that branch to add the control-plane clause, so the SYNTAX moved while the invariant did not.
+     * What must remain true is that `disabled` is the only status that can reach a permit at all,
+     * and that a configured control plane withholds even then.
+     */
+    assert.match(gate, /status !== "disabled"/, "any status other than disabled withholds immediately");
+    assert.match(gate, /isControlPlaneConfigured\(\)/, "and a configured control plane withholds as well");
+    assert.equal(
+      /permitted: true/.test(gate.split("isControlPlaneConfigured")[0] ?? ""),
+      false,
+      "no permit may be returned before both halves of the definition have been checked",
+    );
     assert.match(gate, /catch/, "an unresolvable environment must withhold, not throw or permit");
   }
 
@@ -250,19 +318,35 @@ async function main(): Promise<void> {
     ]) {
       assert.ok(!gate.includes(forbidden), `the gate must not read ${forbidden}`);
     }
-    /* It reads exactly one authority, and it is an existing one. */
+    /*
+     * It reads EXISTING ENVIRONMENT SEAMS, and only those.
+     *
+     * The control-plane clause added a second import. The invariant this pinned is not the count —
+     * it is that the gate invents no authority and reads only what the environment already says.
+     * Both entries are released seams whose implementations are asserted env-only in section 8,
+     * and the tenant-awareness ban above is untouched: the gate still cannot see a tenant.
+     */
     const imports = [...codeOf(read(GATE)).matchAll(/from\s+["']([^"']+)["']/g)].map((m) => m[1]!);
     assert.deepEqual(
-      imports,
-      ["@/features/auth-runtime/request-session.server"],
-      "the gate reads the existing auth environment and nothing else",
+      [...imports].sort(),
+      ["@/db/client.server", "@/features/auth-runtime/request-session.server"],
+      "the gate reads the auth environment and the control-plane presence, and nothing else",
     );
   }
 
   /* ── 8: no database is touched by the gate or by the gated path ──────────── */
   {
     const gate = codeOf(read(GATE));
-    for (const forbidden of ["db/client", "drizzle", "insert(", "update(", "delete(", "pg"]) {
+    /*
+     * RESTATED FROM A PATH BAN TO A CAPABILITY BAN. `db/client` was forbidden as a proxy for "the
+     * gate cannot touch a database"; the gate now imports one env-only predicate from that module,
+     * so the path ban would fail while the real invariant holds. What must remain impossible is
+     * CONNECTING, so the connecting symbols are banned by name — which the path ban never did.
+     */
+    for (const forbidden of [
+      "drizzle", "insert(", "update(", "delete(", "select(",
+      "getControlPlaneDb", "createControlPlaneDb", "ControlPlaneHandle", "node-postgres", '"pg"',
+    ]) {
       assert.ok(!gate.includes(forbidden), `the gate must not reach ${forbidden}`);
     }
     /*
@@ -275,7 +359,18 @@ async function main(): Promise<void> {
     const imported = [...gate.matchAll(/import\s*\{([^}]*)\}\s*from/g)].flatMap((m) =>
       m[1]!.split(",").map((s) => s.trim()).filter(Boolean),
     );
-    assert.deepEqual(imported, ["getAuthEnvironment"], "the gate calls exactly one auth function");
+    assert.deepEqual(
+      [...imported].sort(),
+      ["getAuthEnvironment", "isControlPlaneConfigured"].sort(),
+      "the gate calls exactly two functions, and both only read the environment",
+    );
+    /* The second symbol gets the same proof the first one does: env-only, no connection. */
+    const dbClient = codeOf(read("src/db/client.server.ts"));
+    assert.match(
+      dbClient,
+      /export function isControlPlaneConfigured\(\s*env: NodeJS\.ProcessEnv = process\.env,?\s*\): boolean \{\s*return Boolean\(env\[CONTROL_PLANE_DATABASE_URL_ENV\]\?\.trim\(\)\);/,
+      "isControlPlaneConfigured reads an environment variable and returns — it opens no connection",
+    );
     const authRuntime = codeOf(read("src/features/auth-runtime/request-session.server.ts"));
     assert.match(
       authRuntime,
