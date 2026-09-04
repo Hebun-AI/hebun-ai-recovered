@@ -3348,6 +3348,22 @@ confirmed the render — nine read-only production checks passed afterwards, inc
   earlier full-suite runs and passed in this one plus 3/3 in isolation. Reporting it as fixed would
   have claimed credit for suite ordering. It is recorded as intermittent, untouched.
 
+- **Director-observed UI evidence is real acceptance, and is not a test.** REV-2 closed on a person
+  confirming what they saw on the authenticated surface. Writing that up as "verified" would have
+  implied a browser check that never ran. Recorded as what it is: one human, one surface, one
+  session — establishing that it renders truthfully, not that every row, browser or viewport does.
+- **The deployed SHA was UNMEASURABLE at closure**, and the substitute was named as weaker.
+  `vercel inspect` hides git metadata and the stored REST token came back `invalidToken`. The
+  fallback — the closure commit touches zero files under `src/`, and all three surface files hash
+  identically at both commits — proves the surface, not the deployment. Stated in the closure as a
+  provenance limitation rather than dressed up as an equivalent answer.
+- **The strongest non-effect was again a thing that did not move.** After the Director's view: max
+  artifact `version` 1, and 0 artifacts whose `updated_at` differs from `created_at`. Not one row
+  has been touched since it was written. Counters can offset; that cannot.
+- **Re-checking the next gap at closure is part of closing.** Retirement attribution was re-measured
+  rather than carried forward on the earlier reading: still `retired = 0`, still nothing ever
+  updated. A named next gap is a claim about production, and it expires like any other.
+
 **Weekly three.** *Learned:* when two gaps look equally real, ask which one production can actually
 prove today — evidence availability is a selection criterion, not an afterthought. *Turkish Rug
 House:* the prepared-work list now shows at a glance that three of seven drafts were written by the

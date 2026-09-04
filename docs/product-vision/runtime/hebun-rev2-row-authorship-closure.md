@@ -1,11 +1,14 @@
-# REV-2 — Row-Level Authorship on the Prepared-Work List — RELEASED · RENDER ACCEPTANCE PENDING
+# REV-2 — Row-Level Authorship on the Prepared-Work List — CLOSED / PRODUCTION-ACCEPTED
 
 **Release** `b9ec9a9` · **ZERO schema** · **Production ledger 47, unchanged** · **Deployment**
-`dpl_FHvEcKsXeNGXbFJLd6uhS32TPg3s`, running `b9ec9a9` on `main`, aliased to `www.hebuntech.com`
+`dpl_FHvEcKsXeNGXbFJLd6uhS32TPg3s` (`b9ec9a9`), superseded in place by the closure commit's own
+auto-deploy — both serving byte-identical surface code, proved below — aliased to
+`www.hebuntech.com`
 
-**Status is deliberately not CLOSED.** The data half is production-accepted against real tenant data
-through the released seam. The rendered half needs one authenticated look at `/operations`, which an
-operator shell must not perform — the same honest split REV-1 used, and for the same reason.
+**Both halves are accepted, and they were accepted by different means.** The data half was accepted
+from an operator shell through the released seam. The rendered half was accepted by the **Director,
+on the deployed authenticated surface**. Neither half is an automated browser check, and this record
+does not claim one.
 
 ---
 
@@ -110,15 +113,69 @@ The released `listWorkArtifacts` returned, for the Director's real tenant:
 every row. Every counter — artifacts, revisions, knowledge, work, integrations, credentials,
 decisions, proposals, executions — identical before and after: **reading recorded nothing.**
 
-### Pending — the rendered half
+### Accepted — the rendered half, by the Director
 
-The capability is something a human *sees*. Confirming it needs one authenticated view of
-`/operations` on the deployed commit, and signing in requires entering the Director's credentials,
-which this environment must not do. The render is therefore **unverified** and reported as such
-rather than simulated.
+**Director UI acceptance: PASS.** `Operations → Prepared work` was inspected on the deployed
+authenticated surface. It visibly rendered:
 
-**The confirming step is one look at `/operations`** — the list should now carry, under each title,
-`revision N: Written by …`, with the current-revision sentence once above the rows.
+1. **The list-level semantic qualification**, once, above the rows —
+   *"Authorship shown in this list is the author of each artifact's CURRENT revision only. An
+   earlier revision may have been written by someone else; History shows the whole sequence."*
+2. **Per-artifact current-revision authorship**, including rows reading
+   *"revision 1: Written by this organization's durable agent"*.
+3. **Multiple** prepared-work rows carrying the classification.
+
+**This is Director-observed production UI evidence. It is real acceptance evidence and it is NOT an
+automated test.** No browser automation ran against the authenticated surface at any point in this
+phase, and none is claimed. The distinction is kept deliberately: what a person confirms they saw is
+different in kind from what a suite asserts, and collapsing the two would misdescribe the evidence.
+
+---
+
+## Post-acceptance verification — READ-ONLY, against production
+
+Run after the Director's view, against the baseline `scripts/rev2-acceptance.ts` recorded before it.
+
+**The rendered rows still come from the authoritative seam.** The released `listWorkArtifacts`
+returns **7 rows**, tally **agent 3 · human 4**. Exactly **3** rows carry
+*"Written by this organization's durable agent"* — matching the Director's *"multiple rows"* — and
+one of them is *"CGO-7 observed reel caption", revision 1*, the same artifact and revision reported
+from the surface.
+
+**Current-revision semantics hold exactly.** Every row's `currentRevisionAuthoredByActorType` and
+`currentRevision` were compared against the database's own answer for that artifact's current
+revision: **0 mismatches**.
+
+**`authoredByActorId` is absent from every row.**
+
+**Nothing transitioned because it was viewed.** All 7 artifacts `draft`; **max `version` 1**; **0
+artifacts whose `updated_at` differs from `created_at`** — no row has been touched since it was
+written. The `approvals` table holds **0 rows**.
+
+**All nine baseline counters identical** — artifacts, revisions, knowledge, work, integrations,
+credentials, decisions, proposals, executions.
+
+**Provider state unchanged and untouched by reading**: `youtube` v3, `google-workspace` v9,
+`github-organization` v3, all `connected`/`healthy`; **0 audit rows in the last three hours**
+(`audit_log` total 50). No provider call, no credential lifecycle, no scheduling, no publishing.
+
+### The deployed identity, and what could not be measured
+
+Production auto-deploys the closure commit after a push, so the surface the Director inspected ran
+either the release `b9ec9a9` or its docs-only successor. **Which one could not be measured at
+closure time**: `vercel inspect` does not expose git metadata, and the REST API rejected the stored
+token (`invalidToken`). That limitation is recorded rather than papered over.
+
+It does not affect the acceptance, and the reason is measurable locally: the closure commit adds
+**207 lines across one document and `learnings.md`, and zero files under `apps/dashboard/src/`**.
+All three surface files hash identically at both commits:
+
+    prepared-work-section.tsx      e7ac2995558b48f9
+    read-work-artifacts.server.ts  cad99dfe5e5f6228
+    work-artifacts/contracts.ts    cd89f14e22aff22d
+
+So whichever of the two production served, **the surface the Director inspected is the released
+surface**.
 
 ---
 
@@ -137,6 +194,10 @@ suite ordering**, and is neither caused nor fixed by this phase.
 
 `tsc --noEmit` clean · `npm run lint` 0 errors · `npm run build` green.
 
+Re-run at closure with no source change since the release: `tsc --noEmit` clean, lint 0 errors, and
+the twelve directly-governing suites — REV-2, REV-1, OPS-P1, R3W and AGENT-PROPOSAL-2 — all green.
+The full suite was not re-run, because the closure commit changes no source file.
+
 ---
 
 ## Truth limitations
@@ -148,12 +209,19 @@ suite ordering**, and is neither caused nor fixed by this phase.
   mean rejected.
 - **Unknown is a real outcome.** An unresolved current revision renders as unknown, and that sentence
   is the honest state, not a failure to look.
+- **The render was confirmed by a person, not by a machine.** One human, one surface, one session.
+  It establishes that the qualification and the labels render and read truthfully — not that every
+  artifact, browser, viewport or future row does.
+- **The deployed commit identity was unmeasurable at closure** (Vercel token rejected). The
+  substitute is a byte-identity proof, which is weaker in provenance than an API answer and is
+  stated as such.
 
 ---
 
 ## Repository parity
 
-`HEAD` = `origin/main` = `b9ec9a9`. The deployment serving `www.hebuntech.com` runs the release commit.
+`HEAD` = `origin/main` at closure. The deployment serving `www.hebuntech.com` runs the release
+commit's surface code, byte-identical as proved above.
 
 ---
 
@@ -164,9 +232,11 @@ suite ordering**, and is neither caused nor fixed by this phase.
 writer, and `toArtifactView` projects none of them — so a retired row reads as a state with no actor
 and no time, indistinguishable from something the system did.
 
-It was **not selected here, on evidence**: production has `retired = 0`, `updated_by = 0` and
-`ever_updated = 0`. Nothing has ever been retired, so accepting it would mean retiring a real draft
-to manufacture the proof. It becomes available the first time a human genuinely sets a draft aside.
+It was **not selected here, on evidence**, and the evidence was **re-checked at closure**: production
+still has `retired = 0`, **max `version` 1**, and **0 artifacts whose `updated_at` differs from
+`created_at`**. Nothing has ever been retired or updated, so accepting the capability would mean
+retiring a real draft to manufacture its own proof. It becomes available the first time a human
+genuinely sets a draft aside — and not before.
 
 Approval remains genuinely undefined and is still not a capability — adopting it is an architecture
 decision (an artifact becomes a Governance subject type, or this authority grows its own state),
