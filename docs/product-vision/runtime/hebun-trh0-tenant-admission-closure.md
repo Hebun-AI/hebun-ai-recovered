@@ -1,13 +1,14 @@
-# TRH-0 — Turkish Rug House Tenant Admission — PROVISIONED / DATA-ACCEPTED / UI-ACCEPTANCE-PENDING
+# TRH-0 — Turkish Rug House Tenant Admission — CLOSED / PRODUCTION-ACCEPTED
 
 **Ceremony** R4A tenant provisioning under the G4 production posture · **DOC-1 prerequisite**
 `79bee6b` · **ZERO schema** · **Production migration ledger 47, unchanged** · **Production cluster**
 `7675444875863894887` / `neondb` · **Deployment** `dpl` alias `hebun-ai-recovered-njnnaykeo`,
 running `79bee6b` on `main`, production, Ready
 
-**This is not a closure.** The data half is accepted and measured below. The rendered half — the
-Director inspecting the real authenticated production UI — has **not happened**, and this record
-claims none of it.
+**Both halves are accepted, and they were accepted by different means.** The data half was accepted
+from an operator shell through the released read seams. The rendered half was accepted by the
+**Director**, inspecting the real authenticated production product surface in both directions.
+Neither half is an automated browser test, and this record claims none.
 
 ---
 
@@ -211,22 +212,51 @@ before either ran. **Nothing was written by any part of this acceptance.**
 
 Twenty-seven checks were required by the acceptance contract. Twenty-seven pass.
 
-## Production acceptance — RENDERED HALF, PENDING
+## Production acceptance — RENDERED HALF, ACCEPTED BY THE DIRECTOR
 
-**Not performed, not simulated, not claimed.** The Director must inspect the real authenticated
-production surface and confirm, in this order:
+**Director UI acceptance: PASS, in both directions.** The real authenticated production surface was
+inspected by a person. This is Director-observed production UI evidence and it is **NOT** an
+automated browser test: no browser automation ran against the authenticated surface at any point in
+this phase, no screenshot was produced by this session, and none is claimed.
 
-1. `/foundation` lists **Turkish Rug House** as an available workspace.
-2. Switching into it succeeds.
-3. In TRH: `/director/work` is empty; Hebun AI's two work items do not appear; `/operations` shows
-   none of Hebun AI's seven artifacts; Knowledge shows no Hebun AI record; integrations show no
-   inherited connection or credential.
-4. Switching back to Hebun AI succeeds.
-5. Hebun AI's work items and artifacts reappear.
+| Step | Surface | Observed |
+|---|---|---|
+| **A** | `/login/select-workspace` | **Both** workspaces listed — *Hebun AI — Owner* and *Turkish Rug House — Owner* |
+| **B** | workspace switch | Entered Turkish Rug House. The authenticated foundation surface resolved company id `9947c78e-2080-4331-81c6-456cb4be7a96` and showed *Turkish Rug House* as **Current workspace**; the session used the **TRH-specific membership and role**, not the Hebun AI one |
+| **C1** | TRH Work | *"This organization has recorded no work. Hebun looked and found none — a measured answer, not an unread state."* |
+| **C2** | TRH Work | Hebun AI's two work items **absent** |
+| **C3** | TRH `/operations` | Hebun AI's seven artifacts **absent**; no TRH recipients recorded; the prepared-work register held none of Hebun AI's artifacts |
+| **C4** | TRH Knowledge | *"Your organization holds no Knowledge record yet"* · *"No Knowledge in your organization came from an ingested source yet"*; no Hebun AI Knowledge |
+| **C5** | TRH Platform → Integrations | *"NO INTEGRATION CONNECTED"* · Connected integrations: **None**. No Hebun AI Google, GitHub or YouTube connection or credential inherited |
+| **D** | switch back | Returned to Hebun AI successfully |
+| **E** | Hebun AI `/operations` | *Test Recipient* returned; the prepared artifacts returned; the existing content artifacts visible again |
 
-What a person confirms they saw is different in kind from what a query asserts, and this record does
-not collapse the two. No browser automation ran against the authenticated surface at any point in
-this phase, no screenshot was produced, and none is claimed.
+**A entered through the sign-in picker, not the in-session switcher.** The acceptance contract
+predicted `/foundation`; the Director used `/login/select-workspace`. Both are released entry points
+with opposite preconditions — `selectTenantForSession` binds a pre-tenant receipt at sign-in and
+refuses a tenant-bound one, `switchTenantForSession` does the reverse from inside an authorized
+session. The path taken is recorded as taken rather than as predicted, and what it proves is the
+same: the candidate list is derived server-side from this human's own active memberships, and TRH
+appeared in it because a membership exists.
+
+**One distinction the Director drew, and it is the right one.** TRH `/operations` renders generic
+runtime cards — declared actions, invokable, non-executable. Those are **vocabulary of the released
+action registry**, not tenant organizational records, and counting them as TRH state would have
+turned a compiled-in list into a claim about this organization. They are not TRH Work, not TRH
+artifacts, and are excluded from every isolation claim in this record.
+
+### What the rendered half proves, exactly
+
+That a second organization is reachable by the same human through the released session authority,
+that it renders as **empty in its own words**, that Hebun AI's organizational state is **not visible
+inside it**, and — the half that a one-directional check could never establish — that Hebun AI's
+state **reappears** when the session resolves back. Absence alone is compatible with a broken read;
+absence followed by return is not.
+
+### What it does not prove, and what nothing here claims
+
+Not configuration, not connection, not capability availability, not authorization, not execution.
+Not that TRH can do anything. It proves the organization exists, is enterable, and is isolated.
 
 ---
 
@@ -239,7 +269,40 @@ DOC-1 landed before the ceremony because three of the four corrected comments de
 ceremony as development-only and unable to reach a non-local database. An operator reading them
 before pointing a ceremony at production is the failure that repair existed to prevent.
 
-**PROVISIONED / DATA-ACCEPTED / UI-ACCEPTANCE-PENDING.**
+## What Turkish Rug House is, and is not, at closure
+
+| | |
+|---|---|
+| Tenant provisioned | **YES** — `9947c78e`, `active`, `production-operator-ceremony` |
+| Production data accepted | **YES** — 27/27, read-only |
+| Authenticated Director UI accepted | **YES** — both directions |
+| Tenant isolation verified | **YES** — measured in data, observed in product |
+| TRH exists | **YES** |
+| TRH configured | **NO** |
+| TRH Governance authority | **NONE** — every consequential act inside it is refused |
+| TRH department | **NONE** |
+| TRH agent | **NONE** |
+| TRH Work | **NONE** |
+| TRH Knowledge | **NONE** |
+| TRH integrations / credentials | **NONE** |
+| TRH recipients | **NONE** |
+| Inherited Hebun AI organizational state | **NONE** |
+| Provider connectivity controls | **deployment-wide**, unchanged, `version 1` on both rows |
+| `external-send` / `claude` global posture | **enabled deployment-wide** — a CEILING, never a TRH capability authorization |
+| Meta / Instagram provider | **does not exist**, in either tenant |
+| Per-tenant model-spend attribution | **UNKNOWN** — not measured, not claimed |
+| Hard delete | **unavailable** — suspension is the only recovery |
+| Slug `turkish-rug-house` | **permanently claimed**, not released by suspension |
+
+    EXISTS != CONFIGURED != CONNECTED != AVAILABLE != AUTHORIZED != EXECUTED != SUCCESSFUL
+
+The global control rows deserve the sharpest line in this record, because they are the one place the
+two tenants genuinely share fate. `external-send` being `director_enabled` is **not** TRH holding a
+send capability. A send in TRH additionally requires TRH Governance authority, a TRH permit bound to
+a TRH artifact revision, and a TRH recipient — and TRH has none of the four. An open switch above an
+organization with no authority underneath it authorizes nothing.
+
+**CLOSED / PRODUCTION-ACCEPTED.**
 
 Next, and only on a separate Director decision: TRH genesis nomination and Governance establishment.
-Nothing in this record authorizes them.
+Nothing in this record authorizes them, and nothing in it was created toward them.
