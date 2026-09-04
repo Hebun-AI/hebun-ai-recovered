@@ -3491,3 +3491,39 @@ time.
 unavailable, name the proxy and its limits rather than inventing an authority. *Turkish Rug House:*
 a real tenant's Heby answers can no longer be grounded on a fictional headcount. *Hebun AI:* one
 branch, one env-only import, zero schema, zero new authority, two twin pins restated, suite 678/678.
+
+## Prose twins — a repaired pin leaves an unrepaired sentence behind
+
+- **When repository reality changes, the executable authority gets repaired and its prose twin does
+  not.** G4 built the production tenant ceremony that G1 had said a later gate would build. The test
+  that owned G1's claim was updated in the same workstream and says so in its own words —
+  *"REPAIRED BY G4 … Both assertions were true of G1 and are false of G4."* Four comments were not:
+  `company.ts` still declared **"VOCABULARY ONLY — NO WRITER EXISTS"**, and three ceremony CLIs still
+  declared themselves development-only and unable to reach a non-local database. The executable code
+  had resolved a production posture the whole time.
+- **This is the third occurrence and the first that cost a wrong verdict.** The first two were
+  pin-to-pin — one import assertion living in two suites, fixed in one place, and the full suite
+  found the twin. This one was pin-to-prose, and nothing finds that: a stale comment fails no test.
+  It travelled into an architecture gate, where "no executable writer exists" was reported as a
+  measured fact about production tenant provisioning. It was read from a comment, not from a branch.
+- **The failure mode is the inverse of the one already recorded.** `46cd3dd` learned to read a
+  module's stated contract against its code because the prose was right and the branch was wrong.
+  Here the branch was right and the prose was wrong. The rule is not "trust the prose" or "trust the
+  code" — it is that the two are separate artifacts and only one of them is executable.
+- **Operational rule, applied after any pin, test, invariant or executable contract is repaired
+  because reality moved.** Executable repository reality stays authoritative. Grep for the superseded
+  claim *and its semantic variants* — the four stale comments shared no wording, only a meaning.
+  Classify every prose hit as current, historical or stale: a paragraph describing what G1 did is
+  history and stays, a header telling an operator what a command refuses today is operational and
+  must be true. Repair the stale operational prose in the same workstream when legitimate. Never
+  change executable behaviour to make stale prose true again. Prove a prose-only repair by diffing
+  with non-comment lines filtered out and showing the result empty.
+- **This is repository maintenance, not a new authority.** It creates no boundary, owns no seam and
+  binds no module. It is a step in the closure checklist, and it belongs beside the existing habit of
+  grepping for a pin's twins before restating it.
+
+**Weekly three.** *Learned:* repairing a pin is half a repair; its prose twin fails no test and can
+carry an obsolete claim into a decision. *Turkish Rug House:* the ceremony that admitted TRH as a
+tenant was correctly described before it was pointed at production, instead of warning an operator
+it was development-only. *Hebun AI:* DOC-1 corrected four comments, zero executable delta proved by
+a filtered diff, and the pattern is now written down at its third occurrence rather than its fourth.
