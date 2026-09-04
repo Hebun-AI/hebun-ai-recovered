@@ -109,6 +109,22 @@ const PROVIDER_CAPABILITY_BY_HANDLER: Readonly<Record<string, string>> = Object.
    * would imply a second grant an organization never made.
    */
   "pull-requests": GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
+  /*
+   * THE SAME KEY AGAIN, for the reason stated directly above about `pull-requests`.
+   *
+   * `/work-activity` follows a work item's own declarations out to the GitHub repository they name,
+   * and it reads that repository through `readRepositoryPullRequests` — the identical released seam
+   * `/pull-requests` uses, spending the identical token. It therefore consults the capability an
+   * organization has already granted and asks for nothing further; a key of its own would imply a
+   * second grant nobody made.
+   *
+   * IT WAS MISSING, AND THE OMISSION WAS THE DEFECT. `/work-activity` declares provider reach and
+   * ships as `available`, so an absent binding resolved it to UNKNOWN through
+   * `noCapabilityBinding` — the surface advertising a command while the authority could not say
+   * whether it may run. That is the exact failure this projection was built to end, and the
+   * completeness assertion in `hebycap1-flow` had been reporting it rather than a test defect.
+   */
+  "work-activity": GITHUB_REPOSITORY_ACTIVITY_CAPABILITY,
   /* CGO-5. The YouTube public read; the same authority answers whether it may be attempted. */
   "youtube-channel": YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
 });

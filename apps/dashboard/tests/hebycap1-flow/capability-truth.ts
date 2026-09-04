@@ -101,7 +101,13 @@ async function main(): Promise<void> {
       readCapabilityAvailability: async () => capabilityView("available", "Usable now."),
       readProviderOps: async () => ops("AVAILABLE"),
     });
-    for (const id of ["repositories", "repository-knowledge"]) {
+    /*
+     * `work-activity` joins this list with its binding, and joins it HERE rather than only in the
+     * completeness check above. Binding a handler routes its question to the authority; it must not
+     * make the answer affirmative. The denial path is therefore asserted for the newly bound command
+     * too — mapped is not connected, and connected is not available.
+     */
+    for (const id of ["repositories", "repository-knowledge", "work-activity"]) {
       const entry = entryFor(usable, id);
       assert.equal(entry.state, "available", `${id} is available when the capability authority says so`);
       assert.equal(entry.governedBy, "provider-capability", `${id} is governed by the capability authority`);
