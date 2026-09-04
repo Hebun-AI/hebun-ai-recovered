@@ -3401,6 +3401,20 @@ privacy sentence turned from prose into an assertion.
   on `key={item.workItemId}`, which is React's list key and reaches no reader. Judged on display
   instead, and the key usage is now asserted as correct. Same class as every prior word-ban trap.
 
+- **The corroboration was the point, not the ceremony.** After the Director reported the render, the
+  released seams were re-run to check that production still resolved to the EXACT strings reported —
+  "Declared evidence for: Hebun Era III development · declared active" and six negatives. A render
+  acceptance nobody corroborates is a claim about a screen; corroborated against the seam it came
+  from, it is a claim about the system.
+- **A closure-only change proves nothing by re-running the suite, and saying so is part of the
+  work.** `git diff --name-only <release> -- src tests` returned 0, so the 677/678 result already
+  belonged to exactly this code. Re-running it and reporting it as fresh validation would have
+  dressed up a tautology as evidence.
+- **Two acceptances, two kinds of evidence, kept apart in the record.** The data half came from an
+  operator shell through the released seams; the render half came from a person looking at the
+  authenticated surface. Both are real; neither is an automated browser test, and the closure says
+  so rather than letting "verified" imply a check that never ran.
+
 **Weekly three.** *Learned:* when a discovery note and an authority's own header disagree about
 whether a seam exists, the header wins — and the capability usually gets smaller. *Turkish Rug
 House:* the prepared-work list now shows that one draft is declared evidence for active recorded work

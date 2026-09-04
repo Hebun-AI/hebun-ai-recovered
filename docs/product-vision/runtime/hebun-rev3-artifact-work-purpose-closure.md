@@ -1,11 +1,14 @@
-# REV-3 — Declared Work Purpose on the Prepared-Work List — RELEASED · RENDER ACCEPTANCE PENDING
+# REV-3 — Declared Work Purpose on the Prepared-Work List — CLOSED / PRODUCTION-ACCEPTED
 
 **Release** `98ac029` · **ZERO schema** · **Production ledger 47, unchanged** · **Deployment**
-`dpl_8T4NK8uhMKZ5fCbk1SATE7pLRBRG`, running `98ac029` on `main`, aliased to `www.hebuntech.com`
+`dpl_8T4NK8uhMKZ5fCbk1SATE7pLRBRG` (`98ac029`), superseded in place by
+`dpl_7pao2DtCF1badnSG6y4sCiFMXz3A` (`3f6ffe8`, the closure commit's own auto-deploy) — both serving
+byte-identical surface code, proved below — aliased to `www.hebuntech.com`
 
-**Status is deliberately not CLOSED.** The data half is production-accepted against real tenant data
-through the released seams. The rendered half needs one authenticated look at `/operations`, which
-an operator shell must not perform — the same honest split REV-1 and REV-2 used.
+**Both halves are accepted, and they were accepted by different means.** The data half was accepted
+from an operator shell through the released read seams. The rendered half was accepted by the
+**Director**, inspecting the real authenticated production `/operations` surface. Neither half is an
+automated browser test, and this record claims none.
 
 ---
 
@@ -127,12 +130,61 @@ authority's own table: one artifact, one declaration. `authoredByActorId` absent
 **Every counter identical before and after** — artifacts, revisions, work items, evidence references,
 knowledge, decisions, proposals, executions, integrations, credentials, audit log.
 
-### Pending — the rendered half
+### Accepted — the rendered half, by the Director
 
-**The confirming step is one look at `/operations` → Prepared work.** Expected: under each draft,
-below the `revision N: Written by …` line, either *"Not declared as evidence for recorded work."* or,
-for **Loom weaving reel — three knots per centimetre**, *"Declared evidence for: Hebun Era III
-development · declared active"* — with the three non-claim sentences once above the rows.
+**Director UI acceptance: PASS.** The real authenticated production `/operations` surface was
+inspected and visibly rendered **both** cases:
+
+| Case | Rendered |
+|---|---|
+| **Positive** — *Loom weaving reel — three knots per centimetre* | **"Declared evidence for: Hebun Era III development · declared active"** |
+| **Negative** — multiple artifacts | **"Not declared as evidence for recorded work."** |
+
+**This is Director-observed production UI evidence. It is real acceptance evidence and it is NOT an
+automated browser test.** No browser automation ran against the authenticated surface at any point in
+this phase, no screenshot was produced by this session, and none is claimed. What a person confirms
+they saw is different in kind from what a suite asserts, and collapsing the two would misdescribe the
+evidence.
+
+**What the render acceptance proves, exactly:** that a declared relationship is visibly rendered when
+one exists, that the recorded work item's name is visible, that its declared state is visible, and
+that an artifact without a declaration visibly renders the explicit negative.
+
+**What it does not prove, and what nothing in this phase claims:** approval, review, acceptance of
+the artifact, publication, usage, work progress caused by the artifact, observed work state,
+execution, or provider activity. Those semantics are unchanged.
+
+---
+
+## Post-acceptance corroboration — READ-ONLY, against production
+
+Re-run of the released seams after the Director's inspection, to confirm no repository or production
+evidence contradicts what was seen:
+
+- **The positive case still resolves to the exact strings reported**: *Loom weaving reel — three
+  knots per centimetre* → *"Declared evidence for: Hebun Era III development · declared active"*.
+- **Six artifacts still resolve to the negative**, matching *"multiple negative cases"*.
+- **LINKED 1 · UNLINKED 6 · total 7**, one declaration on one artifact from the authority's own table.
+- `authoredByActorId` absent from every row.
+- **All eleven counters identical before and after** — artifacts, revisions, work items, evidence
+  references, knowledge, decisions, proposals, executions, integrations, credentials, audit log.
+  **Reading recorded nothing.**
+
+### The deployed identity, measured
+
+Production serves **`3f6ffe8`** — the closure commit, because pushing a closure auto-deploys. Measured
+by API rather than inferred: `githubCommitSha 3f6ffe8…`, `ref main`, `READY`, serving
+`www.hebuntech.com`.
+
+Its delta from the release `98ac029` is **328 added lines across one script, one document and
+`learnings.md`, and zero files under `apps/dashboard/src/`**. All three REV-3 surface files hash
+identically at both commits:
+
+    prepared-work-section.tsx    498406bab93050b0
+    artifact-work-purpose.ts     7a726964ac3c5994
+    operations-preparation.tsx   ad44dc6a3c44d7a4
+
+So the surface the Director inspected **is** the released surface.
 
 ---
 
@@ -168,6 +220,11 @@ from a write. The invariant is now asserted directly: the new action's body cont
   not a judgement about the drafts.
 - **The relationship is one human's declaration**, recorded by the Work Authority, and this surface
   cannot create, edit or withdraw one.
+- **The render was confirmed by a person, not a machine.** One human, one surface, one session. It
+  establishes that both states render and read truthfully — not that every artifact, browser,
+  viewport or future row does.
+- **The many-to-many case has never rendered in production.** Production holds exactly one
+  declaration, so the multi-work-item line is proved by test only.
 
 ---
 
@@ -181,8 +238,8 @@ seven untracked paths — three P3 durable-rollout docs, `.mcp.json`, `.claude/`
 
 ## Repository parity
 
-`HEAD` = `origin/main` = `98ac029`. The deployment serving `www.hebuntech.com` runs that commit,
-measured by API: `githubCommitSha 98ac029…`, `ref main`, `READY`.
+`HEAD` = `origin/main` at closure. The deployment serving `www.hebuntech.com` runs the release
+commit's surface code, byte-identical as proved above.
 
 ---
 
