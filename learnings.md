@@ -3421,3 +3421,32 @@ House:* the prepared-work list now shows that one draft is declared evidence for
 and six are attached to nothing, so "why does this draft exist?" has an answer on the page. *Hebun
 AI:* zero schema, zero persistence, zero new authority, zero new reader, ledger 47, one pure grouping
 module, and one released pin rewritten into something stricter.
+
+## /work-activity capability binding — a red test was the product telling the truth
+
+- **A deterministic red test, correctly proved pre-existing every time, is not neutral.**
+  `hebycap1-flow/capability-truth.ts` was reported as "pre-existing, untouched" across CGO-7, REV-1,
+  REV-2 and REV-3 — four phases of honest, correct triage — while it was reporting a SHIPPED truth
+  defect the whole time: `/work-activity` declared provider reach, shipped as `available`, and had
+  no entry in `PROVIDER_CAPABILITY_BY_HANDLER`, so the capability authority resolved it UNKNOWN.
+  Proving a failure pre-existing is necessary and is NOT the same as triaging it. Repeated
+  "pre-existing" reporting normalizes a red line until nobody reads it.
+- **The doctrine was already written, in the module that violated it.** Its own header says a
+  binding map "can rot" and that "completeness is asserted by a test against the registry itself".
+  The map had four of five reaching handlers. A correct doctrine stated at the point of use does not
+  enforce itself — the assertion does, and only if somebody acts when it fires.
+- **The key was reused, never minted.** `workActivity()` calls `readRepositoryPullRequests`, the
+  identical released seam and token `/pull-requests` spends, so a second capability key would have
+  implied a second grant nobody made — the reasoning INT-5B2 had already recorded one line above.
+- **Binding routes the question; it must not answer it.** The repair extended the released denial
+  assertion ("unavailable when nothing is connected") to cover the newly bound handler, so
+  `mapped != connected != available != authorized != executed` stays enforced rather than assumed.
+  See [[Credential Is Not Verified Connection]] — this is that doctrine's fifth state, defended.
+- **The whole source change was one map entry**, and it produced the first 678/678 fully green suite
+  in this line of work.
+
+**Weekly three.** *Learned:* a long-red deterministic test is unpaid debt that can hide a live
+defect; triage it on sight rather than re-proving it pre-existing each phase. *Turkish Rug House:*
+`/work-activity` no longer advertises itself as available while Hebun cannot say whether it may run.
+*Hebun AI:* one line, zero schema, zero scope, zero new authority, suite fully green for the first
+time.
