@@ -1,11 +1,13 @@
-# REV-1 — Authorship Legibility on the Review Surface — RELEASED · ACCEPTANCE PENDING
+# REV-1 — Authorship Legibility on the Review Surface — CLOSED / PRODUCTION-ACCEPTED
 
 **Release** `33e47d4` · **ZERO schema** · **Production ledger 47, unchanged** · **Deployment**
-`dpl_4V36MyL1usP3jwaLmGjwDbooPekp`, running `33e47d4` on `main`, aliased to `www.hebuntech.com`
+`dpl_4V36MyL1usP3jwaLmGjwDbooPekp` (`33e47d4`), superseded in place by
+`dpl_2vDJyZvnhtzU96tGq6gBsVVgKF5t` (`f7eda65`) — both serving byte-identical surface code, proved
+below — aliased to `www.hebuntech.com`
 
-**Status is deliberately not CLOSED.** The data half is production-accepted against real tenant
-data through the released seam. The rendered half needs one authenticated look at `/operations`,
-which cannot be performed honestly from an operator shell — see *Production acceptance*.
+**Both halves are accepted.** The data half was accepted from an operator shell through the released
+seam. The rendered half was accepted by the Director on the deployed surface, which is the evidence
+this document previously recorded as pending.
 
 ---
 
@@ -163,15 +165,75 @@ sentence was produced for every revision:
 `heby_action_requests` 5, `action_execution_attempts` 1 — every count identical before and after.
 No model call, no provider call, no credential opened, no write.
 
-### Pending — the rendered half
+### Accepted — the rendered half
 
-The capability is something a human *sees*, and confirming that needs one authenticated view of
-`/operations` on the deployed commit. Signing in requires entering the Director's credentials, which
-this environment must not do, so the render is **unverified** and is reported as such rather than
-simulated. What is established without it: the deployment runs the release commit, the route
-fail-closes to `/login`, and the exact strings come from the released seam above.
+**Director UI acceptance: PASS.** The `/operations` surface was inspected on the deployed
+production commit. A real prepared artifact — *CGO-7 observed reel caption* — rendered its current
+revision and displayed the authorship classification:
 
-**The confirming step is one look at `/operations` → any draft → History.**
+> Written by this organization's durable agent
+
+The same surface truthfully stated, in the Director's own reading of it: that seeing who wrote a
+revision is not a review of it, that reading it records nothing, that this authority holds no
+review, approval or rejection semantics, and that agent-written does not mean endorsed.
+
+This is the exact render evidence this document previously recorded as pending. Nothing about it was
+simulated, and nothing was inferred from a button, a route or a local render.
+
+---
+
+## Post-acceptance verification — READ-ONLY, against production
+
+Run after the Director's view, against the pre-view baseline recorded by
+`scripts/rev1-acceptance.ts`. Nine checks, all passing.
+
+**1 · The rendered artifact is the authoritative row.** `18a0ac6e-eaea-4218-bd22-5aa6f2139784` —
+the artifact CGO-7 created — `content-draft`, `instagram`, `operations`, revision 1, authored
+`agent`, digest `588c0b66e277…`, 256 bytes.
+
+**2 · No lifecycle transition occurred because it was viewed.** `version` **1** and `updated_at`
+**equal to `created_at`** (`2026-09-03T22:35:04.492Z`): the row has not been touched since CGO-7
+wrote it, the Director's view included. All seven artifacts are `draft`, and the production enum is
+still exactly `["draft", "retired"]`.
+
+**3 · No review, approval or rejection record was created.** Zero columns matching review, approval
+or reject on `work_artifacts` or `work_artifact_revisions`. A pre-existing Governance-era
+`approvals` table exists, holds **0 rows**, and carries **no column referencing an artifact** — so
+it neither gained anything nor could name one.
+
+**4–6 · Knowledge, Governance, execution, publishing, scheduling — all unmoved.** Every counter is
+identical to the pre-view baseline:
+
+| Table | Before the view | After |
+|---|---|---|
+| `work_artifacts` · `work_artifact_revisions` | 7 · 7 | **7 · 7** |
+| `knowledge_nodes` | 2 | **2** |
+| `work_items` | 2 | **2** |
+| `decision_records` | 7 | **7** |
+| `heby_action_requests` | 5 | **5** |
+| `action_execution_attempts` | 1 | **1** |
+| `integrations` · `integration_credentials` | 3 · 21 | **3 · 21** |
+
+**7 · No provider call or credential lifecycle was triggered by viewing.** All three connections
+unchanged — `youtube` `connected`/`healthy` version 3 last verified `2026-09-03T19:05:09.844Z`,
+`google-workspace` version 9, `github-organization` version 3 — and **zero audit rows in the last
+four hours** (`audit_log` total 50). Credential rows unchanged at 21, so no refresh occurred either.
+
+**8 · Tenant isolation and withheld fields intact.** `work_artifacts`: 1 distinct tenant, 7 rows,
+**0 untenanted**. The released firewall and the REV-1 suite both re-run green against the shipped
+source, so `tenantId`, both digests, `sourceMessageId` and `authoredByActorId` are still absent from
+the surface and no view is spread.
+
+**9 · The deployed release is the intended one.** Production serves `f7eda65`, which is the closure
+commit. The delta from the release `33e47d4` is **384 added lines across one script, one document
+and `learnings.md`, and zero files under `apps/dashboard/src/`** — the two commits carry
+byte-identical surface code, proved by hash:
+
+    prepared-work-section.tsx   2b7d1f8ecdc1a083   at BOTH 33e47d4 and f7eda65
+    work-artifacts/contracts.ts de4c79f9f6ff5579   at BOTH 33e47d4 and f7eda65
+
+So the surface the Director inspected is the released surface, and the SHA difference is measured
+rather than waved through.
 
 ---
 
@@ -184,7 +246,12 @@ fail-closes to `/login`, and the exact strings come from the released seam above
   opens a history still cannot tell. Widening the listing projection was not taken.
 - **The agent is named as a class, not as an identity.** Which durable agent wrote it is recorded
   and deliberately not shown.
-- **Prepared is still not approved**, and approval still does not exist.
+- **Prepared is still not approved**, and approval still does not exist. Production confirms it:
+  two lifecycle states, no approval column, and an empty `approvals` table that cannot name an
+  artifact.
+- **One human looked at one surface.** UI acceptance is a real observation, not a coverage claim:
+  it establishes that the classification renders and reads truthfully, not that every artifact,
+  browser or viewport does.
 
 ---
 

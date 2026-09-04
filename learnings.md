@@ -3300,9 +3300,23 @@ channel (10 uploads, 3 quota units, nothing stored), one pre-existing typecheck 
   state, no review-feedback persistence owner. So the phase shipped a rendered sentence, not a
   transition — and asserts all three in a test so a future phase cannot assume otherwise.
 
+- **The strongest non-effect was a timestamp that did not move.** After the Director viewed the
+  artifact, its `updated_at` still equalled its `created_at` and `version` was still 1 — the row has
+  not been touched since CGO-7 wrote it. A count that stays the same can be a coincidence of two
+  offsetting writes; an untouched `updated_at` cannot.
+- **An empty table is not the same as an absent one, and both had to be checked.** Production has a
+  pre-existing Governance-era `approvals` table. It holds 0 rows AND carries no column referencing
+  an artifact — so "no approval record was created" is true for two independent reasons, and the
+  weaker one alone would have left a reader wondering.
+- **A SHA difference at acceptance is fine only when the delta is measured.** The Director inspected
+  production while it served the CLOSURE commit, not the release commit, because pushing the closure
+  auto-deploys. The delta is zero files under `src/` and both surface files hash identically at both
+  commits — so the observed surface IS the released surface, proved rather than assumed.
+
 **Weekly three.** *Learned:* verify the previous phase's stated gap against the repository before
 building for it; a closure records what one session believed, not what is true. *Turkish Rug House:*
 a Director reviewing seven prepared drafts can finally see which three a model wrote, with the
 reminder that seeing is not approving. *Hebun AI:* zero schema, zero authority, zero persistence,
-ledger 47, one released pin rewritten to preserve its invariant, released but NOT closed — the
-rendered half awaits one authenticated look.
+ledger 47, one released pin rewritten to preserve its invariant, and CLOSED once the Director
+confirmed the render — nine read-only production checks passed afterwards, including an
+`updated_at` that never moved.
