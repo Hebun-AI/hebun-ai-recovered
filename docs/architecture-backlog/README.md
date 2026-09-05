@@ -28,6 +28,7 @@ Platform plumbing, governance, and systems-of-record. Everything else builds on 
 - [14 Permission Engine](14-permission-engine.md)
 - [18 Observability Center](18-observability-center.md)
 - [25 Private Digital Twin](25-private-digital-twin.md)
+- [26 Personal Context Authority](26-personal-context-authority.md)
 
 ### Intelligence
 
@@ -56,6 +57,8 @@ User-facing surfaces and authoring tools. Presentation depends on the layers bel
 - [22 Heby Guided Learning Mode](22-heby-guided-learning-mode.md)
 
 Three items carry the phrase "digital twin" and model different subjects: **21** is a twin of the *organization*; **23** is a twin of the *Director's decision model*; **25** is a twin of one human's *personal context*. They are not variants of one capability — see [23](23-director-digital-twin.md) and [25](25-private-digital-twin.md) for why the separations are load-bearing. **23 and 25 are the pair most easily confused:** 23 is organization-derived and about decisions, 25 is person-supplied and about context.
+
+**[26](26-personal-context-authority.md) is not a fourth twin.** It models no subject. It is the identity-scoped *authority* underneath 25 — ownership, explicit admission, identity-bound read authorization, revocation and lifecycle — recorded separately because 25's promotion criteria demand an authorization model that passes its own security gate, and 25 deliberately refuses to design one. It is the only item in this folder whose scope is an authorization **axis** rather than a capability: every released Hebun read authority is tenant-scoped, and personal context is not.
 
 **24 is the only item whose subject is Hebun itself.** Every other capability here improves the customer's organization; [24](24-hebun-self-evolution-system.md) improves the product. It is a participant in the [Capability Lifecycle](00-capability-lifecycle.md), never a replacement for it — see that record for why the distinction is load-bearing.
 
@@ -117,7 +120,21 @@ Past approvals do not carry forward. Each promotion is its own gate.
 | 06 | [Hebun Guide](06-hebun-guide.md) | Medium | Planned |
 | 07 | [Voice Layer](07-voice-layer.md) | Medium | Planned |
 | 08 | [AI Transformation Playbook Engine](08-ai-transformation-playbook-engine.md) | Medium | Planned |
-| 21 | [Enterprise System Map (Digital Twin)](21-enterprise-system-map.md) | Future | Planned |
+| 09 | [Director Memory](09-director-memory.md) | High | Planned |
+| 10 | [Knowledge Ingestion Engine](10-knowledge-ingestion-engine.md) | High | Planned |
+| 11 | [Agent Registry](11-agent-registry.md) | High | Planned |
+| 12 | [Tool Registry](12-tool-registry.md) | High | Planned |
+| 13 | [Policy Engine](13-policy-engine.md) | High | Planned |
+| 14 | [Permission Engine](14-permission-engine.md) | High | Planned |
+| 15 | [Workflow Designer](15-workflow-designer.md) | Medium | Planned |
+| 16 | [Organizational Simulation](16-organizational-simulation.md) | High | Planned |
+| 17 | [Cost Intelligence](17-cost-intelligence.md) | Medium | Planned |
+| 18 | [Observability Center](18-observability-center.md) | Medium | Planned |
+| 19 | [Learning Engine](19-learning-engine.md) | High | Planned |
+| 20 | [Marketplace](20-marketplace.md) | Medium | Planned |
+| 21 | [Enterprise System Map (Digital Twin)](21-enterprise-system-map.md) | Future | Backlog — design deferred |
 | 22 | [Heby Guided Learning Mode](22-heby-guided-learning-mode.md) | Future | Planned — architecture-prerequisite-gated |
 | 23 | [Director Digital Twin](23-director-digital-twin.md) | Future | Planned — prerequisite-gated |
 | 24 | [Hebun Self-Evolution System](24-hebun-self-evolution-system.md) | Future | Planned — prerequisite-gated |
+| 25 | [Private Digital Twin](25-private-digital-twin.md) | Future | Planned — prerequisite-gated, and gated on its own security design |
+| 26 | [Personal Context Authority](26-personal-context-authority.md) | Future | Planned — prerequisite-gated, and gated on its own security design |

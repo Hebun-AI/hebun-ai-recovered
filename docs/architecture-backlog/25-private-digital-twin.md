@@ -72,6 +72,8 @@ The constitution already names the missing piece — **Individual Approval** —
 
 > **This requires its own architecture design and its own security gate.** No authorization mechanism is proposed in this record. Reusing an existing tenant-scoped read authority for personal context would be the failure mode this paragraph exists to prevent.
 
+**That authority is now recorded separately, and it is still not designed.** [26 — Personal Context Authority](26-personal-context-authority.md) names the identity-scoped authority this requirement describes — ownership, explicit admission, identity-bound read authorization, revocation, and personal-context lifecycle semantics. It is a separate record rather than a section here because this record's own promotion criteria demand an authorization model that *"passes its own security gate"*, and a record that refuses to design one cannot also be the place that satisfies it. **26 is not a fourth twin: it models no subject. This capability is what a person experiences; 26 is the authority it reads through.** Neither record designs a schema.
+
 ## Personal sources — Obsidian as a candidate first source, not the authority
 
 Conceptual direction only. **Nothing is connected, and no source is selected.**
@@ -86,6 +88,19 @@ Obsidian vault (a candidate FIRST personal source)
 
 Obsidian is a **potential first personal source**, never Hebun's Digital Twin authority. The Twin is the identity-bound context; a vault is one place material may enter it from, with the person's explicit authorization. Other explicitly authorized personal systems may follow, and the design must not assume the first one is the only one.
 
+**A personal vault remains DEFERRED, and the admission step is not optional.** With [26](26-personal-context-authority.md) recorded, the chain has an owner in the middle of it:
+
+```
+Person
+  → Personal Source / Vault
+    → explicit admission
+      → Personal Context Authority
+        → Twin evaluation
+          → Heby
+```
+
+**The vault MUST NEVER become authority or a source of truth by itself.** A file appearing in a directory is not a statement, and a directory is not a person. The admission arrow is where a person makes material theirs on the record; a sync that skipped it would have created a second source of truth with no owner, no provenance and no revocation.
+
 ### Provenance is the load-bearing part
 
 Hebun must be able to distinguish, per item and at all times:
@@ -97,6 +112,8 @@ Hebun must be able to distinguish, per item and at all times:
 - **current authoritative organizational** information — which is a different subsystem's, and is not personal context at all.
 
 **An inference must never silently become a stated preference.** This is the same distinction G6D made durable for organizational grounding — `AUTHORITATIVE` must survive persistence and replay without being flattened to `DERIVED` — applied to a person instead of an organization. The lesson transfers directly, and so does the failure mode.
+
+The invariant is stated in its enforceable form by [26 — Personal Context Authority](26-personal-context-authority.md) as **`STATED != IMPORTED != DERIVED`**, together with the temporal pair `CURRENT BELIEF != HISTORICAL BELIEF` and `CURRENT INTENT != HISTORICAL DECISION`. The authority owns those semantics; this capability reads them and must never flatten them on the way to Heby.
 
 ## Heby's relationship to it
 
@@ -183,6 +200,7 @@ Two of these deserve emphasis because nothing comparable exists in the repositor
 ## Dependencies
 
 - **Identity** — a durable human identity distinct from membership and role; the binding this capability requires
+- [26 — Personal Context Authority](26-personal-context-authority.md) — **the authority this capability reads through.** It owns admission, identity-bound read authorization, revocation and lifecycle; this record owns none of them
 - **Individual Approval** — the constitutional category that exists in principle and has no runtime expression
 - [09 — Director Memory](09-director-memory.md) — adjacent and organizational; must not absorb or be absorbed
 - [10 — Knowledge Ingestion Engine](10-knowledge-ingestion-engine.md) — the ingestion discipline personal sources would need an authorized, identity-bound equivalent of
@@ -203,7 +221,7 @@ Two of these deserve emphasis because nothing comparable exists in the repositor
 ## Promotion criteria
 
 - Prerequisite areas above are mature, in particular a durable human identity independent of role and membership.
-- **An identity-bound authorization model is designed and passes its own security gate** — not reusing tenant-scoped or role-based read authority.
+- **An identity-bound authorization model is designed and passes its own security gate** — not reusing tenant-scoped or role-based read authority. That model belongs to [26 — Personal Context Authority](26-personal-context-authority.md), so **26 is promoted before or with this capability, never after it**: a Twin admitted first would have to hold its own context, and would become the second source of truth this record forbids.
 - Provenance model defined such that explicit, imported, derived and stale context remain structurally distinguishable through persistence and replay.
 - Revocation and deletion semantics defined, including for anything derived from withdrawn material.
 - Separation from [09](09-director-memory.md), [21](21-enterprise-system-map.md) and [23](23-director-digital-twin.md) explicit in the design.

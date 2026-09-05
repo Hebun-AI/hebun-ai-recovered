@@ -73,6 +73,31 @@ Every Twin-produced evaluation must remain **clearly derived**.
 
 Guided Learning does not own the Twin. The Twin does not own Heby. Heby does not own Governance.
 
+A fourth subsystem is now recorded beneath them: [26 — Personal Context Authority](26-personal-context-authority.md) owns **one human's personal context** — admission, identity-bound read authorization, revocation and lifecycle. It is not a twin and models no subject. This Twin derives from *organizational* history and must never write to it, nor read it as though the organization's record of a decision were the person's own statement about themselves. **The Twin does not own personal context. The Personal Context Authority does not evaluate.**
+
+### The decision-centre ceiling
+
+The firewall above says what the Twin must not do. Stated as a ceiling, so the permitted half is equally explicit:
+
+| | |
+|---|---|
+| **READ** · **ADVISE** · **PROPOSE** | permitted |
+| **AUTHORIZE** · impersonate the Director · become Governance · mint permits · **EXECUTE** | forbidden |
+
+**Any Twin-originated proposal must enter the existing governed chain at its beginning** — filed as a proposal, decided by a human, permitted, and only then executed, with the kill switch checked before any transport is selected. The Twin's reach ends at `proposal`. **Accuracy is never a route to authority:** a prediction that becomes reliable is still a prediction, and being right more often is an argument for consulting it, never for obeying it.
+
+### Active Elicitation — a designed future capability
+
+The Twin may eventually notice that context is **missing, stale or uncertain** and ask the person a question. Recorded here rather than discovered later, because the dangerous version is the one nobody wrote down:
+
+```
+QUESTION  != ADMISSION
+ANSWER    != AUTOMATIC KNOWLEDGE WRITE
+INFERENCE != CONFIRMED PREFERENCE
+```
+
+An answer may become a person's **stated** context only through [26](26-personal-context-authority.md)'s explicit admission boundary — no shortcut for material that arrived in a conversation. **Heby and the Twin must not become independent personal-context writers**, and a declined question leaves the gap open and honestly reported rather than filled by inference.
+
 ## Future information flow
 
 Conceptual architecture only — no contract, no interface, no schema is implied.
@@ -138,6 +163,7 @@ That last one is the real gate. A decision model derived from a thin or unattrib
 
 - [09 — Director Memory](09-director-memory.md) — the historical record it reasons over
 - [19 — Learning Engine](19-learning-engine.md) — adjacent; organizational patterns, not personal ones
+- [26 — Personal Context Authority](26-personal-context-authority.md) — where a *stated* personal preference would live, and the only admission boundary an elicited answer may pass through. This Twin reads it and never writes it
 - Governance — decision legitimacy, and the authority the Twin must never acquire
 - Organizational Intelligence — the entities evaluations are keyed to
 - Heby — the presentation surface a Twin evaluation reaches the Director through
