@@ -284,7 +284,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 47, "OPS-P1 adds no migration — the ledger carries none of its authoring"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
+    assert.equal(journal.entries.length, 48, "OPS-P1 adds no migration — the ledger carries none of its authoring"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
     const actions = codeOf(read(ACTIONS));
     /*
      * REWRITTEN BY REV-3, NOT RELAXED.
@@ -299,11 +299,66 @@ function main(): void {
      * write; a read has nothing to revalidate. Asserting the read body is free of it — and of every
      * writer name — proves what the count was standing in for.
      */
-    assert.equal(
-      (actions.match(/export async function/g) ?? []).length,
-      13,
-      "twelve released server actions plus REV-3's one read — and nothing else was added",
+    /*
+     * AMENDED AT TRH-10 THE WAY REV-3 AMENDED IT — BY NAME, NOT BY NUMBER.
+     *
+     * TRH-10 adds three: two Governance-owned review requests and one derived read. A bare count
+     * admits ANY sixteenth action, which is precisely the scope leak this pin exists to catch, and
+     * REV-3 already established that the count alone cannot tell a read from a write. So the SET is
+     * pinned instead: an undeclared action fails here by name, and no unrelated action can be
+     * admitted by arithmetic. All sixteen belong to `/operations` — the review controls sit with the
+     * revision bytes they decide about, on this surface, which is why they are declared here.
+     */
+    assert.deepEqual(
+      (actions.match(/export async function ([A-Za-z0-9_]+)/g) ?? []).map((m) =>
+        m.replace("export async function ", ""),
+      ),
+      [
+        /* OPS-P1's released twelve. */
+        "createWorkArtifactAction",
+        "reviseWorkArtifactAction",
+        "retireWorkArtifactAction",
+        "listWorkArtifactsAction",
+        "readWorkArtifactHistoryAction",
+        /* TRH-10 — Governance-owned review of one exact revision, plus its derived read. */
+        "acceptArtifactRevisionAction",
+        "requestArtifactRevisionChangesAction",
+        "readArtifactRevisionReviewStatesAction",
+        "resolveWorkArtifactReferenceAction",
+        "prepareWorkArtifactAction",
+        /* REV-3's one read. */
+        "readArtifactWorkPurposeAction",
+        "createExternalRecipientAction",
+        "retireExternalRecipientAction",
+        "listActiveRecipientsAction",
+        "listRetiredRecipientsAction",
+        "resolveRecipientReferenceAction",
+      ],
+      "exactly these server actions — nothing else was added to the operations surface",
     );
+    /*
+     * AND THE ADDITION STILL CARRIES NO AUTHORITY, which is what OPS-P1's count stood for.
+     *
+     * A review decides; it never authors. Neither review action may reach an artifact writer, mint
+     * a permit, publish, or move `current_revision` — if one did, this surface would have gained the
+     * power to change the very bytes it claims only to present for judgement.
+     */
+    for (const reviewAction of ["acceptArtifactRevisionAction", "requestArtifactRevisionChangesAction"]) {
+      const from = actions.slice(actions.indexOf(`export async function ${reviewAction}`));
+      const body = from.slice(0, from.indexOf("\n}") + 2);
+      assert.ok(body.length > 0, `${reviewAction} is present to examine`);
+      for (const forbidden of [
+        "createWorkArtifact", "reviseWorkArtifact", "retireWorkArtifact",
+        "current_revision", "currentRevision", "mintPermit", "issuePermit",
+        "publish", "send", ".insert(", ".update(", ".delete(",
+      ]) {
+        assert.equal(
+          body.includes(forbidden),
+          false,
+          `${reviewAction} must not contain "${forbidden}" — a review decides about bytes, it never writes them`,
+        );
+      }
+    }
     const readAction = actions.slice(actions.indexOf("export async function readArtifactWorkPurposeAction"));
     const readBody = readAction.slice(0, readAction.indexOf("\n}") + 2);
     assert.ok(readBody.length > 0, "the REV-3 read action is present to examine");

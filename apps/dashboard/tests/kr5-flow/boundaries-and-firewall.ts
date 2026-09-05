@@ -114,7 +114,8 @@ function main(): void {
       /* WEV-1 — the `work_evidence_references` table. A declared later phase, not this one's. */
       "20260902183808_wev1_work_evidence_reference.sql",
       "20260902212106_pbga1_action_request_work_purpose.sql",
-      "20260903093716_cgo1_content_draft_destination.sql"],
+      "20260903093716_cgo1_content_draft_destination.sql",
+      "20260905212157_trh10_artifact_review_domain.sql"],
       "KR5 adds exactly one migration",
     );
     const journal = JSON.parse(read(MIGRATIONS, "meta", "_journal.json")) as {

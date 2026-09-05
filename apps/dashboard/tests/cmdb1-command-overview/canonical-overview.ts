@@ -73,8 +73,11 @@ const RETIRED = [
  * without moving the count.
  */
 /* GIA-1's mandate-scope CHECK grew the ledger to 44; WEV-1's `work_evidence_references` to 45. BOTH values move with it. */
-const LEDGER_COUNT = 47;
-const LEDGER_DIGEST = "29521f60d3c9e78a"; /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it. */
+/* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+const LEDGER_COUNT = 48;
+const LEDGER_DIGEST = "326451dc3e7c6ad1"; /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it.
+ * TRH-10 authored migration 48 — one additive `ALTER TYPE "governance_domain" ADD VALUE 'artifact-review'` — so the digest moves again: `29521f60d3c9e78a` was the digest at 47.
+ * Recomputed with this file's OWN mechanism (sha256 over the sorted migration bodies, first 16 hex), never hand-written. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

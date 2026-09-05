@@ -58,6 +58,12 @@ import {
   IDENTITY_ENROLLMENT_SUBJECT_TYPE,
 } from "@/features/identity-enrollment/contracts";
 import {
+  ARTIFACT_REVIEW_ACCEPTED_OUTCOME,
+  ARTIFACT_REVIEW_ACCEPT_TYPE,
+  ARTIFACT_REVIEW_REJECTED_OUTCOME,
+  ARTIFACT_REVIEW_SUBJECT_TYPE,
+} from "@/features/work-artifact-review/contracts";
+import {
   ACTION_APPROVED_OUTCOME,
   ACTION_AUTHORIZATION_DOMAIN,
   ACTION_PERMIT_REVOKED_OUTCOME,
@@ -150,7 +156,8 @@ export async function writeGovernanceDecisionWithin(
     readonly decisionType:
       | GovernanceDecisionType
       | AuthorityDecisionType
-      | typeof MEMBERSHIP_AUTHORIZATION_DECISION_TYPE;
+      | typeof MEMBERSHIP_AUTHORIZATION_DECISION_TYPE
+      | typeof ARTIFACT_REVIEW_ACCEPT_TYPE;
     readonly subjectType:
       | GovernanceSubjectType
       | AuthoritySubjectType
@@ -160,7 +167,8 @@ export async function writeGovernanceDecisionWithin(
       | typeof ACTION_REQUEST_SUBJECT_TYPE
       | typeof ACTION_PERMIT_SUBJECT_TYPE
       | typeof IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE
-      | typeof AGENT_MANDATE_SUBJECT_TYPE;
+      | typeof AGENT_MANDATE_SUBJECT_TYPE
+      | typeof ARTIFACT_REVIEW_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -226,12 +234,30 @@ export async function writeGovernanceDecisionWithin(
 
   const outcome =
     /*
-     * R3A IS CHECKED FIRST, AND THAT ORDER IS LOAD-BEARING. A permit revocation uses the same
-     * `revoke` decision type G3 uses to end a delegation, so the generic `revoke` branch below
-     * would label it `REVOCATION_OUTCOME` — "Governance authority was revoked". Ending one
-     * action's authorization is not ending anyone's authority, and the ledger must not say it was.
+     * TRH-10 IS CHECKED FIRST, FOR THE SHARPEST FORM OF THE REASON SIA-3 AND AMA-1 BOTH GIVE.
+     *
+     * An artifact review uses `approve` and `reject`. `reject` matches NO branch below and would
+     * fall through to the final `: "rejected"` — which is accidentally right for a rejection and
+     * catastrophically wrong for the acceptance, because `approve` would ALSO reach that same
+     * fallthrough and record an ACCEPTED revision as `rejected` in the permanent ledger. The
+     * subject check is what makes both unreachable.
+     *
+     * The outcome words are `artifact-revision-accepted` / `-changes-requested` rather than
+     * `approved` / `rejected`: a ledger row read years later must not suggest that a draft was
+     * published or that anything was authorized. What a human accepted is A REVISION, for A NEXT
+     * INTERNAL STEP.
      */
-    input.subjectType === ACTION_REQUEST_SUBJECT_TYPE
+    input.subjectType === ARTIFACT_REVIEW_SUBJECT_TYPE
+      ? input.decisionType === ARTIFACT_REVIEW_ACCEPT_TYPE
+        ? ARTIFACT_REVIEW_ACCEPTED_OUTCOME
+        : ARTIFACT_REVIEW_REJECTED_OUTCOME
+      : /*
+         * R3A IS CHECKED NEXT, AND THAT ORDER IS LOAD-BEARING. A permit revocation uses the same
+         * `revoke` decision type G3 uses to end a delegation, so the generic `revoke` branch below
+         * would label it `REVOCATION_OUTCOME` — "Governance authority was revoked". Ending one
+         * action's authorization is not ending anyone's authority, and the ledger must not say it was.
+         */
+        input.subjectType === ACTION_REQUEST_SUBJECT_TYPE
       ? input.decisionType === ACTION_REJECTION_DECISION_TYPE
         ? ACTION_REJECTED_OUTCOME
         : ACTION_APPROVED_OUTCOME

@@ -139,10 +139,18 @@ function theSurfaceRecordsNothing(): void {
    * wrapper, the read seam and the actions file together: a review verb appearing in ANY of them
    * would be the first half of a review authority arriving without one.
    */
+  /*
+   * AMENDED AT TRH-10. The ban's own reason was "the first half of a review authority arriving
+   * WITHOUT one" — and TRH-10 shipped the other half: review is a Governance decision on an exact
+   * revision, with its own subject, domain, writer and tests. So the verbs are no longer forbidden;
+   * what is forbidden is the thing the ban was really guarding — this surface RECORDING a review
+   * itself. `reviewState` and the Governance-backed action are permitted; a local review column,
+   * timestamp or actor is not, because that would be the second approval source of truth.
+   */
   for (const file of [SURFACE, WRAPPER, READER, ACTIONS]) {
     const code = codeOf(read(file));
     for (const banned of [
-      "markReviewed", "recordReview", "reviewedAt", "reviewedBy", "reviewState",
+      "markReviewed", "recordReview", "reviewedAt", "reviewedBy",
       "approveArtifact", "rejectArtifact", "approvedAt", "approvedBy",
       "publish", "schedule", "scheduledAt", "publishedAt",
     ]) {
@@ -272,7 +280,7 @@ function noApprovalSemanticsArrived(): void {
   );
   assert.deepEqual(
     [...GOVERNANCE_SUBJECT_TYPES],
-    ["knowledge_node"],
+    ["knowledge_node", "work_artifact_revision"],
     "Governance still decides about exactly one subject type, and it is not a work artifact",
   );
   const contracts = codeOf(read("src/features/work-artifacts/contracts.ts"));

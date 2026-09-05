@@ -326,7 +326,7 @@ async function main(): Promise<void> {
   );
   assert.deepEqual(
     [...GOVERNANCE_SUBJECT_TYPES],
-    ["knowledge_node"],
+    ["knowledge_node", "work_artifact_revision"],
     "no Governance subject type was added",
   );
   assert.equal(DEPARTMENTAL_PLACEMENT_AUTHORITY_MODEL.writesGovernanceDecision, false);
@@ -365,9 +365,9 @@ async function main(): Promise<void> {
    * 7. THE SCHEMA IS ADDITIVE, TENANT-SAFE, AND ACTIVATES NOTHING DORMANT.
    * ═══════════════════════════════════════════════════════════════════════ */
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly { tag: string }[] };
-  assert.equal(journal.entries.length, 47, "the ledger grew by exactly one, and by exactly one more since"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
+  assert.equal(journal.entries.length, 48, "the ledger grew by exactly one, and by exactly one more since"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 47, "and the files agree");
+  assert.equal(sqlFiles.length, 48, "and the files agree"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
 
   /*
    * PHASE-RELATIVE, NOT ABSOLUTE. This used to read "the newest migration is this one", which was

@@ -413,7 +413,7 @@ function main(): void {
 
   /* ── 10. SCHEMA, LEDGER AND HUMAN SUPREMACY UNTOUCHED ─────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 47, "this phase authored no migration — a type needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
+  assert.equal(sqlCount, 48, "this phase authored no migration — a type needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))
@@ -423,11 +423,26 @@ function main(): void {
   for (const check of HUMAN_ONLY_CHECKS) {
     assert.ok(allMigrations.includes(check), `\`${check}\` still exists`);
   }
+  /*
+   * AMENDED AT TRH-10. The old form pinned the vocabulary's EXACT SOURCE TEXT, so TRH-10's
+   * deliberate second subject — `work_artifact_revision` — failed a test that is not about it.
+   * Pinning source text was never the invariant; THE CLOSED SET WAS, so the set is parsed and
+   * compared exactly rather than loosened to "no string that looks like X": an undeclared third
+   * subject must still fail HERE. The claim this file owns — no principal-shaped Governance subject type exists — is asserted by name underneath.
+   */
+  const declaredSubjects = [
+    ...(codeOf(read("src/features/governance-decision/contracts.ts"))
+      .match(/GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType\[\] = \[([\s\S]*?)\];/)?.[1]
+      .matchAll(/"([a-z_]+)"/g) ?? []),
+  ].map((m) => m[1]);
+  assert.deepEqual(
+    declaredSubjects,
+    ["knowledge_node", "work_artifact_revision"],
+    'governance subject types are exactly ["knowledge_node", "work_artifact_revision"] — a principal cannot become a Governance subject',
+  );
   assert.ok(
-    /GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType\[\] = \["knowledge_node"\];/.test(
-      codeOf(read("src/features/governance-decision/contracts.ts")),
-    ),
-    'governance subject types are still exactly ["knowledge_node"]',
+    !declaredSubjects.some((s) => /^(user|principal|human|membership)$/.test(s)),
+    "no principal-shaped Governance subject type exists",
   );
 
   /* ── 11. THE CENSUS THIS FIREWALL PROTECTS ────────────────────────────────

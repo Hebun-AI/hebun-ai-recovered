@@ -28,6 +28,15 @@ import {
   type PrepareWorkArtifactResult,
 } from "@/features/work-artifacts/prepare-work-artifact.server";
 import {
+  acceptArtifactRevision,
+  readArtifactRevisionReviewStates,
+  requestArtifactRevisionChanges,
+} from "@/features/work-artifact-review/review-revision.server";
+import type {
+  ArtifactRevisionReviewState,
+  ArtifactReviewResult,
+} from "@/features/work-artifact-review/contracts";
+import {
   indexArtifactWorkPurpose,
   type ArtifactWorkPurposeIndex,
 } from "@/features/organizational-work/artifact-work-purpose";
@@ -126,6 +135,49 @@ export async function readWorkArtifactHistoryAction(input: {
 }): Promise<readonly WorkArtifactRevisionView[]> {
   const tenant = await resolveTenantContext();
   return readWorkArtifactHistory(tenant, input.artifactId);
+}
+
+/*
+ * ── TRH-10 — GOVERNANCE-OWNED REVIEW OF ONE EXACT REVISION ───────────────────
+ *
+ * These live beside the artifact surface because that surface OWNS PRESENTATION of the bytes a
+ * human must read before deciding. They own no authority: the decision belongs to Governance, the
+ * existence check and the transaction belong to `work-artifact-review`, and this file only carries
+ * the request. Neither action can reach an artifact writer — no revision is created, no byte is
+ * edited, and `current_revision` is not touched by either path.
+ *
+ * The tenant and the human come from the session; the client supplies the artifact, the revision it
+ * was SHOWN, and a justification, and nothing else.
+ */
+export async function acceptArtifactRevisionAction(input: {
+  artifactId: string;
+  revisionId: string;
+  justification: string;
+}): Promise<ArtifactReviewResult> {
+  const tenant = await resolveTenantContext();
+  const result = await acceptArtifactRevision(tenant, input);
+  if (result.status === "reviewed") revalidatePath("/operations");
+  return result;
+}
+
+/** Records that Governance did not accept this revision. Creates no replacement revision. */
+export async function requestArtifactRevisionChangesAction(input: {
+  artifactId: string;
+  revisionId: string;
+  justification: string;
+}): Promise<ArtifactReviewResult> {
+  const tenant = await resolveTenantContext();
+  const result = await requestArtifactRevisionChanges(tenant, input);
+  if (result.status === "reviewed") revalidatePath("/operations");
+  return result;
+}
+
+/** The DERIVED review state of each revision, read from the Governance ledger. */
+export async function readArtifactRevisionReviewStatesAction(input: {
+  artifactId: string;
+}): Promise<readonly ArtifactRevisionReviewState[]> {
+  const tenant = await resolveTenantContext();
+  return readArtifactRevisionReviewStates(tenant, input.artifactId);
 }
 
 /**

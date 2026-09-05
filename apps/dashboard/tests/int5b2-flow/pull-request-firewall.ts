@@ -213,7 +213,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   {
     const journal = JSON.parse(read(JOURNAL)) as { entries: readonly { tag: string }[] };
-    assert.equal(journal.entries.length, 47, "the ledger is UNCHANGED — this capability adds no migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
+    assert.equal(journal.entries.length, 48, "the ledger is UNCHANGED — this capability adds no migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
     /*
      * PHASE-RELATIVE, NOT ABSOLUTE. Pinning "the newest migration is X" is falsified by the next
      * phase that authors one, and the claim this file is making is about INT-5B2: it authored

@@ -439,7 +439,7 @@ function amA3AddedNoAuthority(): void {
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
   assert.equal(
     journal.entries.length,
-    47, /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
+    48, /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
     "the migration ledger is unchanged by AMA-3 — it is a surface and a read", /* WORK-1 grew it 41 -> 42. */
   );
 

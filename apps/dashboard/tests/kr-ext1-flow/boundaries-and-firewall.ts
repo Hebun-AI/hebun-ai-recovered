@@ -168,7 +168,7 @@ function main(): void {
   {
     assert.deepEqual(
       [...GOVERNANCE_SUBJECT_TYPES],
-      ["knowledge_node"],
+      ["knowledge_node", "work_artifact_revision"],
       "Governance still addresses the Knowledge node and never the provider record",
     );
     const code = codeOf(read(AUTHORITY));

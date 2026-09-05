@@ -248,9 +248,28 @@ export const GOVERNANCE_DECISION_TYPES: readonly GovernanceDecisionType[] = ["ra
  * A free-text subject would let a client name a URL, a path, or a command string; the type makes
  * those unrepresentable rather than filtered. Adding a second subject means proving a second
  * server-side existence check, which is a deliberate edit here.
+ *
+ * ── THE SECOND SUBJECT (TRH-10), AND ITS EXISTENCE CHECK ─────────────────────
+ *
+ * `work_artifact_revision` is that deliberate edit, and it obeys the same rule the first entry
+ * established: THE SUBJECT IS A VERSION, NOT AN IDENTITY. Binding a review to `work_artifacts.id`
+ * would mean "whatever revision is current when someone reads this" — the exact approximation
+ * `knowledge_fact` was removed for. `work_artifact_revisions` carries its own uuid primary key, so
+ * the exact immutable bytes a human read are nameable without inventing a composite id.
+ *
+ * The promised second server-side existence check lives in `work-artifact-review`: it resolves the
+ * revision inside the caller's tenant AND inside the named artifact, so a wrong tenant, a wrong
+ * artifact and a missing revision are one indistinguishable refusal.
+ *
+ * REVIEWING IS NOT RATIFYING. A ratification settles an organization's own knowledge; an accepted
+ * revision is prepared work a human judged fit for the next internal step, and it never becomes
+ * Knowledge by being accepted. The two are different subjects in different domains for that reason.
  */
-export type GovernanceSubjectType = "knowledge_node";
-export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = ["knowledge_node"];
+export type GovernanceSubjectType = "knowledge_node" | "work_artifact_revision";
+export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [
+  "knowledge_node",
+  "work_artifact_revision",
+];
 
 /**
  * The `governance_domain` an ordinary G2 decision belongs to, per subject. Existing enum values,
@@ -258,6 +277,7 @@ export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = ["know
  */
 export const SUBJECT_GOVERNANCE_DOMAIN = Object.freeze({
   knowledge_node: "knowledge-ratification",
+  work_artifact_revision: "artifact-review",
 } as const);
 
 export type DecisionRefusal =

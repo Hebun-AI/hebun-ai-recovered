@@ -382,7 +382,7 @@ const FEATURE_FILES = walk(FEATURE);
   /* No Governance SUBJECT type was added. WORK-1 leaves that closed list exactly as it found it. */
   assert.deepEqual(
     [...GOVERNANCE_SUBJECT_TYPES],
-    ["knowledge_node"],
+    ["knowledge_node", "work_artifact_revision"],
     "WORK-1 adds no Governance subject type — a work item is not a thing Governance decides about yet",
   );
 

@@ -299,14 +299,30 @@ function main(): void {
       `\`${check}\` still exists — a read seam weakens no human-only constraint`,
     );
   }
+  /*
+   * AMENDED AT TRH-10. The old form pinned the vocabulary's EXACT SOURCE TEXT, so TRH-10's
+   * deliberate second subject — `work_artifact_revision`, Governance reviewing one exact immutable
+   * work-artifact revision — failed a test that is not about that at all. Pinning source text was
+   * never the invariant; THE CLOSED SET WAS. So the set is parsed and compared exactly: it is still
+   * closed, an undeclared third subject still fails here, and the claim this file actually owns —
+   * no agent-shaped Governance subject exists — a read seam is not a decision — is asserted by name underneath.
+   */
+  const declaredSubjects = [
+    ...(codeOf(read(GOVERNANCE_CONTRACTS))
+      .match(/GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType\[\] = \[([\s\S]*?)\];/)?.[1]
+      .matchAll(/"([a-z_]+)"/g) ?? []),
+  ].map((m) => m[1]);
+  assert.deepEqual(
+    declaredSubjects,
+    ["knowledge_node", "work_artifact_revision"],
+    'governance subject types are exactly ["knowledge_node", "work_artifact_revision"] — a read seam adds no Governance subject',
+  );
   assert.ok(
-    /GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType\[\] = \["knowledge_node"\];/.test(
-      codeOf(read(GOVERNANCE_CONTRACTS)),
-    ),
-    'governance subject types are still exactly ["knowledge_node"]',
+    !declaredSubjects.some((s) => /agent|retire/.test(s)),
+    "no agent-shaped Governance subject exists — a read seam is not a decision",
   );
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 47, "this phase authored no migration — counting a table needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
+  assert.equal(sqlCount, 48, "this phase authored no migration — counting a table needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
 

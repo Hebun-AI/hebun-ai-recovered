@@ -296,7 +296,8 @@ function noPersistence(): void {
       "20260902183808_wev1_work_evidence_reference",
       "20260902212106_pbga1_action_request_work_purpose",
       /* CGO-1 — the `content-draft` type and its declared destination. A declared later phase. */
-      "20260903093716_cgo1_content_draft_destination"],
+      "20260903093716_cgo1_content_draft_destination",
+      "20260905212157_trh10_artifact_review_domain"],
     "R7.1 authored no migration; what follows is a declared later phase",
   );
   for (const name of newer) {

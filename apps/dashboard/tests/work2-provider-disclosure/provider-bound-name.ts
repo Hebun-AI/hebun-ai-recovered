@@ -435,7 +435,7 @@ async function main(): Promise<void> {
     ["send", "record-work"],
     "no action kind was added by this hardening",
   );
-  assert.deepEqual([...GOVERNANCE_SUBJECT_TYPES], ["knowledge_node"], "no Governance subject type was added");
+  assert.deepEqual([...GOVERNANCE_SUBJECT_TYPES], ["knowledge_node", "work_artifact_revision"], "no Governance subject type was added");
   /* Twenty since OSA-4 added `people`. Pinned here only so an undeclared class still fails. */
   assert.equal(HEBY_SOURCE_CLASSES.length, 20, "no source class was added or removed by this milestone");
   assert.ok(HEBY_SOURCE_CLASSES.includes("work"), "and `work` is still one of them");
@@ -459,9 +459,9 @@ async function main(): Promise<void> {
   assert.equal(HEBY_PROFILED_WORKSPACES.length, 8, "no ninth workspace was created");
 
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 47, "the ledger is where GIA-1 left it; this hardening authored none of it"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
+  assert.equal(journal.entries.length, 48, "the ledger is where GIA-1 left it; this hardening authored none of it"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 47, "and this hardening authored no migration of its own");
+  assert.equal(sqlFiles.length, 48, "and this hardening authored no migration of its own"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
 
   console.log("PASS work2-provider-disclosure/provider-bound-name");
 }

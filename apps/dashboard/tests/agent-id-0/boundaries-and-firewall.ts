@@ -310,11 +310,26 @@ function main(): void {
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
 
   /* ── 10. GOVERNANCE IS NOT WIDENED ────────────────────────────────────────── */
+  /*
+   * AMENDED AT TRH-10. The old form pinned the vocabulary's EXACT SOURCE TEXT, so TRH-10's
+   * deliberate second subject — `work_artifact_revision` — failed a test that is not about it.
+   * Pinning source text was never the invariant; THE CLOSED SET WAS, so the set is parsed and
+   * compared exactly rather than loosened to "no string that looks like X": an undeclared third
+   * subject must still fail HERE. The claim this file owns — an agent is not a governance subject — is asserted by name underneath.
+   */
+  const declaredSubjects = [
+    ...(codeOf(read(GOVERNANCE_CONTRACTS))
+      .match(/GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType\[\] = \[([\s\S]*?)\];/)?.[1]
+      .matchAll(/"([a-z_]+)"/g) ?? []),
+  ].map((m) => m[1]);
+  assert.deepEqual(
+    declaredSubjects,
+    ["knowledge_node", "work_artifact_revision"],
+    'governance subject types are exactly ["knowledge_node", "work_artifact_revision"] — an agent is not a governance subject',
+  );
   assert.ok(
-    /GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType\[\] = \["knowledge_node"\];/.test(
-      codeOf(read(GOVERNANCE_CONTRACTS)),
-    ),
-    "governance subject types are still exactly [\"knowledge_node\"] — an agent is not a governance subject",
+    !declaredSubjects.some((s) => /agent/.test(s)),
+    "an agent is not a governance subject",
   );
 
   /* ── 11. THE CANONICAL READER IS UNCHANGED AND UNDUPLICATED ───────────────── */

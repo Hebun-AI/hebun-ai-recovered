@@ -205,7 +205,7 @@ function main(): void {
 
   /* ── T4: SUBJECT BINDING IS A CLOSED VOCABULARY, SERVER-VALIDATED ────────── */
   {
-    assert.deepEqual(GOVERNANCE_SUBJECT_TYPES, ["knowledge_node"]);
+    assert.deepEqual(GOVERNANCE_SUBJECT_TYPES, ["knowledge_node", "work_artifact_revision"]);
     assert.deepEqual(GOVERNANCE_DECISION_TYPES, ["ratify", "reject"]);
     const decision = codeOf(read(DECISION));
     // The table name is chosen by a switch over a union, never interpolated from input.

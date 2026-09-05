@@ -397,7 +397,10 @@ async function main(): Promise<void> {
       /* WEV-1 — the `work_evidence_references` table. A declared later phase, not this one's. */
       "20260902183808_wev1_work_evidence_reference",
 "20260902212106_pbga1_action_request_work_purpose",
-"20260903093716_cgo1_content_draft_destination",
+      /* CGO-1 — the `content-draft` type and its destination. A declared later phase, not this one's. */
+      "20260903093716_cgo1_content_draft_destination",
+      /* TRH-10 — the `artifact-review` governance domain. A declared later phase, not this one's. */
+      "20260905212157_trh10_artifact_review_domain",
         ],
         "and what follows it is a declared later phase",
       );

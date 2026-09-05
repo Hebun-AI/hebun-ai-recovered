@@ -725,7 +725,8 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  * without moving the count.
  */
 /* Departmental Placement grew the ledger to 43; GIA-1's `record-work` mandate-scope CHECK to 44. BOTH values move with it. */
-const LEDGER_COUNT = 47;
+/* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+const LEDGER_COUNT = 48;
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine. AGENT-ID-0.1 adds exactly
  * one boundary — the durable agent identity one — so nine became false. Naming the set beats bumping

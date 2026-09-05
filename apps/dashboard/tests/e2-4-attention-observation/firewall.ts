@@ -92,8 +92,8 @@ function main(): void {
       entries: { idx: number; tag: string }[];
     };
     const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-    assert.equal(journal.entries.length, 47, "MIGRATION DELTA = 0 for E2-4 — the ledger moved for other phases, never for this one"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
-    assert.equal(files.length, 47, "no `.sql` was added by E2-4");
+    assert.equal(journal.entries.length, 48, "MIGRATION DELTA = 0 for E2-4 — the ledger moved for other phases, never for this one"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+    assert.equal(files.length, 48, "no `.sql` was added by E2-4"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
   }
 
   /* ── 2. AUTHORITATIVE WRITER DELTA = 0 ───────────────────────────────────── */

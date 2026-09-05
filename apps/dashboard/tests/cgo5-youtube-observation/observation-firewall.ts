@@ -216,7 +216,7 @@ function main(): void {
   {
     const schema = walk("src/db/schema").map((f) => path.basename(f));
     assert.ok(!schema.some((f) => /youtube|channel|video|observation/i.test(f)), "no YouTube table");
-    assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 47, "ledger unchanged at 47");
+    assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 48, "ledger unchanged at 47"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
   }
 
   console.log("PASS cgo5 provider-observation firewall");

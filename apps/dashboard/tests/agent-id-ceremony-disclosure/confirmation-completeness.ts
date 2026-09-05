@@ -259,11 +259,27 @@ function main(): void {
       `neither repaired file reaches \`${forbidden}\` — a disclosure owns no schema and no database handle`,
     );
   }
+  /*
+   * AMENDED AT TRH-10. The old form pinned the vocabulary's EXACT SOURCE TEXT, so TRH-10's
+   * deliberate second subject — `work_artifact_revision`, Governance reviewing one exact immutable
+   * work-artifact revision — failed a test that is not about that at all. Pinning source text was
+   * never the invariant; THE CLOSED SET WAS. So the set is parsed and compared exactly: it is still
+   * closed, an undeclared third subject still fails here, and the claim this file actually owns —
+   * no ceremony- or disclosure-shaped Governance subject exists — disclosing a ceremony is not a decision — is asserted by name underneath.
+   */
+  const declaredSubjects = [
+    ...(codeOf(read(GOVERNANCE_CONTRACTS))
+      .match(/GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType\[\] = \[([\s\S]*?)\];/)?.[1]
+      .matchAll(/"([a-z_]+)"/g) ?? []),
+  ].map((m) => m[1]);
+  assert.deepEqual(
+    declaredSubjects,
+    ["knowledge_node", "work_artifact_revision"],
+    'governance subject types are exactly ["knowledge_node", "work_artifact_revision"] — disclosing a ceremony is not a decision',
+  );
   assert.ok(
-    /GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType\[\] = \["knowledge_node"\];/.test(
-      codeOf(read(GOVERNANCE_CONTRACTS)),
-    ),
-    'governance subject types are still exactly ["knowledge_node"] — disclosing a ceremony is not a decision',
+    !declaredSubjects.some((s) => /ceremony|disclosure|agent/.test(s)),
+    "no ceremony- or disclosure-shaped Governance subject exists — disclosing a ceremony is not a decision",
   );
 
   console.log(

@@ -56,8 +56,9 @@ const OWNED = [MODEL, COMPONENT] as const;
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-const LEDGER_COUNT = 47; /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
-const LEDGER_DIGEST = "29521f60d3c9e78a"; /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it. */
+const LEDGER_COUNT = 48; /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+const LEDGER_DIGEST = "326451dc3e7c6ad1"; /* TRH-10 authored migration 48 (`artifact-review` governance domain);
+ * `29521f60d3c9e78a` was the digest at 47. Recomputed with this file's own sha256-over-bodies mechanism. */ /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

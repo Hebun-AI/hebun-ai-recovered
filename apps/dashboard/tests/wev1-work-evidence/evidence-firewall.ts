@@ -177,7 +177,7 @@ function nothingElseBecamePossible(): void {
   );
   assert.deepEqual(
     [...GOVERNANCE_SUBJECT_TYPES],
-    ["knowledge_node"],
+    ["knowledge_node", "work_artifact_revision"],
     "no Governance subject type was added — a declaration is not a decision",
   );
   for (const forbidden of ["work-evidence", "evidence", "work-reference", "reference"]) {
@@ -332,7 +332,7 @@ function theMigrationIsAdditive(): void {
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly { tag: string }[];
   };
-  assert.equal(journal.entries.length, 47, "the ledger grew by exactly one");
+  assert.equal(journal.entries.length, 48, "the ledger grew by exactly one"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
   assert.equal(
     journal.entries.filter((e) => /wev1|work_evidence/i.test(e.tag)).length,
     1,

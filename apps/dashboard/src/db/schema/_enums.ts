@@ -905,6 +905,27 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * `learning` — nothing is hypothesised, measured or improved here.
    */
   "agent-mandate",
+  /**
+   * TRH-10 — Governance deciding whether one EXACT, immutable work-artifact revision is accepted
+   * for the next internal step.
+   *
+   * THE ARTIFACT IS THE CONCERN; CONTENT IS ONE ARTIFACT TYPE. The domain is deliberately not
+   * `content-review`: the same authority must stay valid for a generated-media revision, a
+   * message-draft and an operational-plan without minting a domain per artifact subtype. What the
+   * bytes ARE is `work_artifact_type`'s business, not the ledger's.
+   *
+   * Its OWN concern. It is not `knowledge-ratification` — that settles an organization's own
+   * knowledge, and a reviewed draft is prepared work that never becomes Knowledge by being
+   * accepted. It is not `action-authorization` — that authorizes ONE act to become executable and
+   * mints a permit that expires and is consumed; accepting a revision authorizes nothing, expires
+   * never, and is consumed by no runtime. It is not `command`, `plan` or `workflow` — Tier-2
+   * canonical domains describing dispatch rather than legitimacy.
+   *
+   * ACCEPTANCE IS NOT PUBLICATION AUTHORIZATION. A revision accepted here still needs its own
+   * action request, its own decision and its own permit before anything reaches a provider — and
+   * this domain exists partly so the ledger can tell those two questions apart when it is asked.
+   */
+  "artifact-review",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",

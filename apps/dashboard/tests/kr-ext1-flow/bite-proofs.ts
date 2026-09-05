@@ -148,7 +148,7 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M10 Governance subject types are widened to the provider record",
     file: GOVERNANCE,
     suite: FIREWALL_SUITE,
-    find: 'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = ["knowledge_node"];',
+    find: 'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [\n  "knowledge_node",\n  "work_artifact_revision",\n];',
     replace:
       'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [\n' +
       '  "knowledge_node",\n  "knowledge_node" as GovernanceSubjectType,\n];',

@@ -153,7 +153,7 @@ function main(): void {
     "src/features/governance-decision/contracts.ts",
     CLAIM_SUITE,
     "governed decisions cover one subject",
-    'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = ["knowledge_node"];',
+    'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [\n  "knowledge_node",\n  "work_artifact_revision",\n];',
     'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = ["knowledge_node", "knowledge_node"];',
   );
 

@@ -389,6 +389,8 @@ function main(): void {
 "20260902212106_pbga1_action_request_work_purpose.sql",
       /* CGO-1 — the `content-draft` type and its declared destination. A later phase, not this one's. */
       "20260903093716_cgo1_content_draft_destination.sql",
+      /* TRH-10 — the `artifact-review` governance domain. A later phase, not this one's. */
+      "20260905212157_trh10_artifact_review_domain.sql",
       ],
       "ingestion added no migration; everything after its boundary belongs to a declared later phase",
     );

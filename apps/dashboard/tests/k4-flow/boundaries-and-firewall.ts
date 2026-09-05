@@ -58,7 +58,7 @@ function main(): void {
     assert.equal(RATIFICATION_SUBJECT_TYPE, "knowledge_node");
     assert.deepEqual(
       GOVERNANCE_SUBJECT_TYPES,
-      ["knowledge_node"],
+      ["knowledge_node", "work_artifact_revision"],
       "G2's subject vocabulary must name the VERSION row; a fact-level subject cannot distinguish v2 from v3",
     );
     assert.ok(

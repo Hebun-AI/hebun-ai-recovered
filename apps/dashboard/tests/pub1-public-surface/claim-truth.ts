@@ -245,7 +245,7 @@ function main(): void {
   {
     assert.deepEqual(
       [...GOVERNANCE_SUBJECT_TYPES],
-      ["knowledge_node"],
+      ["knowledge_node", "work_artifact_revision"],
       "governed decisions cover one subject; the published note says so and must stay true",
     );
     const decision = GOVERNED_PATH.find((stage) => stage.name === "Decision");

@@ -272,7 +272,7 @@ async function main(): Promise<void> {
   );
   assert.deepEqual(
     [...GOVERNANCE_SUBJECT_TYPES],
-    ["knowledge_node"],
+    ["knowledge_node", "work_artifact_revision"],
     "no Governance subject type was added",
   );
   assert.equal(ORGANIZATIONAL_WORK_AUTHORITY_MODEL.writesGovernanceDecision, false);
@@ -287,9 +287,9 @@ async function main(): Promise<void> {
 
   /* NO SCHEMA, NO MIGRATION. WORK-2 is a read. */
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 47, "WORK-2 authored no migration — a grounding read needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
+  assert.equal(journal.entries.length, 48, "WORK-2 authored no migration — a grounding read needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
   const sql = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sql.length, 47, "and the ledger is unchanged by this phase");
+  assert.equal(sql.length, 48, "and the ledger is unchanged by this phase"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
 
   /* ═════════════════════════════════════════════════════════════════════════
    * 5. THE CLASS IS TENANT-SCOPED, AND CROSS-TENANT IS UNREPRESENTABLE.

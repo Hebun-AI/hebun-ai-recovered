@@ -161,10 +161,10 @@ const MUTATIONS: readonly Mutation[] = [
      * the mutation must apply to the journal's CURRENT tail, or it proves nothing. The defect it
      * injects — an extra journal entry — is unchanged, and this anchor moves with every migration
      * by design. */
-    find: `      "tag": "20260903093716_cgo1_content_draft_destination",\n      "breakpoints": true\n    }\n  ]`,
+    find: `      "tag": "20260905212157_trh10_artifact_review_domain",\n      "breakpoints": true\n    }\n  ]`,
     replace:
-      `      "tag": "20260828190630_sia3_agent_improvement_hypothesis",\n      "breakpoints": true\n    },\n` +
-      `    {\n      "idx": 36,\n      "version": "7",\n      "when": 1787900000000,\n` +
+      `      "tag": "20260905212157_trh10_artifact_review_domain",\n      "breakpoints": true\n    },\n` +
+      `    {\n      "idx": 48,\n      "version": "7",\n      "when": 1787900000000,\n` +
       `      "tag": "20260827000000_app_2_should_not_exist",\n      "breakpoints": true\n    }\n  ]`,
     expect: "APP-2 adds no migration",
   },

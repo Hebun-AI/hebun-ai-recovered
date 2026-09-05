@@ -269,9 +269,9 @@ async function main(): Promise<void> {
    * 4. ZERO SCHEMA. THE LEDGER DID NOT MOVE.
    * ═══════════════════════════════════════════════════════════════════════ */
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly { tag: string }[] };
-  assert.equal(journal.entries.length, 47, "the ledger carries no OSA-4 migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). */
+  assert.equal(journal.entries.length, 48, "the ledger carries no OSA-4 migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 47, "and the files agree");
+  assert.equal(sqlFiles.length, 48, "and the files agree"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
   /*
    * PHASE-RELATIVE, NOT ABSOLUTE. "The newest migration is still X" is falsified by the next phase
    * that authors one, and the claim here is about OSA-4: it authored none.
@@ -316,7 +316,7 @@ async function main(): Promise<void> {
   );
   assert.deepEqual(
     [...GOVERNANCE_SUBJECT_TYPES],
-    ["knowledge_node"],
+    ["knowledge_node", "work_artifact_revision"],
     "no Governance subject type was added",
   );
   for (const file of [READER, GROUNDING]) {

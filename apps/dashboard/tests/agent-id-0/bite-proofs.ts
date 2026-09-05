@@ -182,13 +182,13 @@ const MUTATIONS: readonly Mutation[] = [
     file: GOVERNANCE,
     suite: FW_SUITE,
     find:
-      'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = ["knowledge_node"];',
+      'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [\n  "knowledge_node",\n  "work_artifact_revision",\n];',
     replace:
       "export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [\n" +
       '  "knowledge_node",\n' +
       '  "agent" as GovernanceSubjectType,\n' +
       "];",
-    because: "governance subject types are still exactly",
+    because: "an agent is not a governance subject",
   },
   {
     label: "M14 a human-only authorization CHECK is weakened",

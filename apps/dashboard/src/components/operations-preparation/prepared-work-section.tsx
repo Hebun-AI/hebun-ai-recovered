@@ -33,6 +33,9 @@ import {
   type ArtifactWorkPurposeItem,
 } from "@/features/organizational-work/artifact-work-purpose";
 import { ReferenceChip } from "./reference-chip";
+import { ArtifactRevisionReview } from "./artifact-revision-review";
+import { readArtifactRevisionReviewStatesAction } from "@/app/(dashboard)/operations/actions";
+import type { ArtifactRevisionReviewState } from "@/features/work-artifact-review/contracts";
 
 /*
  * prepared-work-section.tsx — what exact draft could eventually be proposed (OPS-P1).
@@ -121,6 +124,7 @@ function ArtifactRow({
   workPurpose: readonly ArtifactWorkPurposeItem[] | undefined;
 }) {
   const [revisionText, setRevisionText] = useState("");
+  const [reviewStates, setReviewStates] = useState<readonly ArtifactRevisionReviewState[] | null>(null);
   const [history, setHistory] = useState<readonly WorkArtifactRevisionView[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -175,6 +179,8 @@ function ArtifactRow({
                   return;
                 }
                 setHistory(revisions);
+                /* The DERIVED review state, read from the Governance ledger in the same click. */
+                setReviewStates(await readArtifactRevisionReviewStatesAction({ artifactId: artifact.id }));
               })
             }
             className="rounded border border-border-subtle px-2 py-1 text-xs text-fg-secondary transition-colors hover:border-border hover:text-fg-primary disabled:opacity-50"
@@ -263,6 +269,19 @@ function ArtifactRow({
               <span className="mt-0.5 block text-fg-muted">
                 {workArtifactAuthorLabel(revision.authoredByActorType)}
               </span>
+              {/*
+                * TRH-10. The review control sits WITH the bytes it decides about, for the same
+                * reason the author label does: the judgement is made at the moment of reading, and
+                * a control placed anywhere else would be deciding about something the reader is not
+                * looking at. It is per revision because a decision binds to one exact revision.
+                */}
+              <ArtifactRevisionReview
+                artifactId={artifact.id}
+                revisionId={revision.id}
+                revisionNo={revision.revisionNo}
+                state={reviewStates?.find((s) => s.revisionId === revision.id)}
+                reviewable={!retired}
+              />
             </li>
           ))}
         </ol>
@@ -285,6 +304,7 @@ function ArtifactRow({
     </li>
   );
 }
+
 
 export function PreparedWorkSection({
   listing,
