@@ -32,7 +32,47 @@ Bu projede çalışırken **Director Loop**'u izle. Loop reçetesi: `hebun-loop.
 
 Bir tur bu üçünü yanıtlayamıyorsa yeterince değerli değildir — kaydetme.
 
+## Eşzamanlı Oturumlar — Birincil Ağaç Tek Yazardır
+
+Birden fazla Claude Code / Codex / insan oturumu aynı çalışma ağacına yazabilir. Git kimliği
+hepsinde aynıdır, yani bir commit'in hangi oturuma ait olduğu metadata'dan **anlaşılamaz**.
+Değişmez kural: **bir yazan oturum, başka bir yazan oturumun altındaki repo gerçekliğini
+sessizce değiştiremez.**
+
+1. **BİRİNCİL AĞAÇ TEK YAZARDIR.** `~/Developer/Hebun AI` üzerindeki `main` ağacında aynı anda
+   en fazla **bir** mutating oturum bulunur. İkinci bir uzun soluklu veya implementation
+   oturumu, deponun mevcut git-worktree akışını (`superpowers:using-git-worktrees`) kendi
+   branch/worktree'sinde kullanır. Yeni bir eşzamanlılık altsistemi icat etme.
+
+2. **COMMIT ÖNCESİ COMPARE-AND-SWAP.** Her mutating oturum başladığı HEAD'i kaydeder.
+   Commit'ten hemen önce HEAD'i yeniden okur. HEAD beklenmedik şekilde oynadıysa: **DUR.**
+   Commit etme, amend etme, rebase etme, başka bir oturumun history'sini onarmaya çalışma.
+   Önce repo gerçekliği yeniden kurulur.
+
+3. **SADECE KENDİ DOĞRULANMIŞ HEAD'İNİ AMEND ET.** `commit --amend`, `reset`, `rebase` veya
+   herhangi bir history rewrite yalnızca HEAD **bu oturumun ürettiği tam SHA** ise ve o
+   günden beri başka oturum commit atmadıysa yapılabilir. Aksi halde yeni commit aç ya da
+   Director gate'inde dur. Başka bir oturumun commit'ini asla sessizce yeniden yazma.
+
+4. **YALNIZCA AÇIK YOL İLE STAGE.** Eşzamanlı veya ilgisiz iş varken **asla** `git add -A`,
+   `git add .`, `git commit -a` kullanma. Sadece bu workstream'in açıkça sahip olduğu
+   dosyaları stage'le. **Repo temizliği, geçerli eşzamanlı işin korunmasından daha az
+   önemlidir.**
+
+5. **READ-ONLY OTURUM DİSİPLİNİ.** Read-only oturumlar birincil ağacı paylaşabilir. Başlangıçta
+   HEAD + porcelain status snapshot'ı alır, nihai sonucu bildirmeden önce yeniden ölçer.
+   Denetim sırasında HEAD veya ilgili ağaç durumu oynadıysa bunu **açıkça raporlar** ve repo
+   temeli değişen her sonucu geçersiz sayar. Sabit tarihsel ölçüm için yerleşik
+   throwaway/detached worktree kalıbını kullan.
+
+6. **MAIN'E ENTEGRASYON.** Bir commit setini `main`'e yalnızca o **tam set** için Director'ın
+   açık entegrasyon/push gate'ini elinde tutan oturum entegre eder/push'lar. Özerk eşzamanlı
+   entegrasyon yok. Ayrıca ve açıkça yetkilendirilmiş bir kurtarma prosedürü olmadan force
+   push yok.
+
 ## Kritik Kurallar
 
 - Bu repo asla iCloud (`Documents/`) altına taşınmaz.
 - Commit/merge/deploy bir 🚦 gate'tir — Director onayı olmadan yapma.
+- Birincil çalışma ağacı tek yazardır; commit'ten hemen önce HEAD yeniden doğrulanır
+  (yukarıdaki *Eşzamanlı Oturumlar*).

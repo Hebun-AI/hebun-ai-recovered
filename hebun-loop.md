@@ -43,4 +43,9 @@ repo_path: ~/Developer/Hebun AI
 learnings_file: ~/Developer/Hebun AI/learnings.md
 obsidian_week_notes: ClaudeCodeTest/Hebun AI/Week NN - *.md
 gate_on_commit: true
+single_writer_tree: true        # birincil ağaçta aynı anda tek mutating oturum
+revalidate_head_before_commit: true   # HEAD oynadıysa DUR — commit/amend/rebase yok
 default_end_condition:   # boş = her zaman sor
+
+# Eşzamanlılık kuralının tamamı CLAUDE.md → "Eşzamanlı Oturumlar" bölümündedir.
+# Burada ikinci bir politika tanımlanmaz; bu satırlar yalnızca loop varsayılanıdır.
