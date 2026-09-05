@@ -308,10 +308,17 @@ and is unchanged and still non-blocking.
    lifecycle and the `authoritative` flag all stay put; only `ratified: yes` changes. The value is
    constitutional, not operational, and this record does not dress it up as more.
 2. **No separation of duties**, as above.
-3. **Route-level ratification UI acceptance remains UNPROVEN by test.** The K4 suite asserts the page
-   *source text* contains `KnowledgeReviewCard`; no test renders `/knowledge` and confirms an
-   eligible user sees the ceremony. The Director's rendered observation is currently the only
-   evidence that it paints. This is durable test debt.
+3. **Route-level ratification UI acceptance remains UNPROVEN by test — now narrowed, not closed.**
+   As written at closure, the K4 suite asserted only that the page *source text* contains
+   `KnowledgeReviewCard`, and the Director's rendered observation was the sole evidence that the
+   ceremony paints. `tests/k4-flow/review-card-render.ts` has since raised that by one rung: it
+   RENDERS the card and asserts, per authorization state, that an eligible reviewer is offered the
+   action and the contract's disclosures while a blocked one is offered neither. **That is
+   component-render acceptance, not route acceptance.** The route's own derivation of `reviewBlock`
+   and `reviewable` — the `resolveGovernanceAuthority` wiring inside the async server component —
+   is still proven by nothing but source text and the Director's eyes, because rendering it would
+   require faking the session, the Knowledge read and the authority resolver, which is mocking away
+   the predicate under test. The residual debt is real and is stated here rather than retired.
 4. **Production build SHA is UNAVAILABLE** as a committed artifact. Deployment parity is inferred
    from behaviour — the ceremony wrote `source = knowledge-workspace` rows — not from a build id.
 5. **The full test suite was not run.** This phase changed no source file; the repository effect is
