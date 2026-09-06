@@ -174,12 +174,49 @@ export default async function AgentsPage() {
       ? { kind: "no-agent-in-service" }
       : undefined;
 
+  /*
+   * ── THE PAGE HEADER STATES DURABLE TRUTH (TRH-11) ────────────────────────────
+   *
+   * It used to read `${seededDefinitionCount} seeded agent definitions · in-memory registry ·
+   * runtime ${runtimeMode}` — "36 seeded agent definitions · in-memory registry · runtime
+   * simulation" for every organization, because none of those three values is tenant-scoped.
+   *
+   * Every honest label about the simulation already exists, and stays exactly where it was: inside
+   * `AgentsTruthSurface`, which says "memory · not durable", "Live execution: not connected",
+   * "Provider (ref)", "Model (ref)" and "Definition is not execution". THE DEFECT WAS LOCATION,
+   * NOT WORDING. A `PageHeader` context is the page's own subtitle — it sits above the durable
+   * identity card and outside the labelled section — so the one number a reader met first, framed
+   * as a fact about their organization, was a count of compiled-in fiction. Turkish Rug House has
+   * one durable agent; the header said 36.
+   *
+   * So the header now answers the question the page is FOR: what durable agent identities does
+   * this organization have? The simulation is unchanged — not moved, not relabelled, not demoted
+   * further, not removed — it simply no longer describes the page.
+   *
+   * THE THREE FACTS STAY APART, exactly as `block` and `mandateBlock` already keep them:
+   *
+   *     unauthenticated        -> about the READER
+   *     authority-unavailable  -> about the CONTROL PLANE, never "none exists"
+   *     known + zero rows      -> a measured absence
+   *
+   * `inService` is carried through as the identity authority derives it — the absence of
+   * retirement — and never as a runtime claim. NOTHING on this page observes a running agent.
+   *
+   *     IN SERVICE  != RUNNING
+   *     SEEDED DEFINITION COUNT  != ORGANIZATIONAL AGENT COUNT
+   */
+  const headerContext = !tenant
+    ? "Sign in to see this organization's durable agent identities"
+    : identityState.status !== "known"
+      ? "Durable agent identity authority unavailable — this is not a claim that none exists"
+      : identities.length === 0
+        ? "No durable agent identity has been established for this organization"
+        : `${identities.length} durable agent ${identities.length === 1 ? "identity" : "identities"} · ` +
+          `${identities.filter((identity) => identity.inService).length} in service`;
+
   return (
     <>
-      <PageHeader
-        title="Agents"
-        context={`${model.seededDefinitionCount} seeded agent definitions · in-memory registry · runtime ${model.runtimeMode}`}
-      />
+      <PageHeader title="Agents" context={headerContext} />
       <div className="flex flex-col gap-6">
         <DurableAgentIdentityCard
           block={block}
