@@ -869,9 +869,195 @@ The initiative may become eligible for roadmap consideration only after:
 
 ---
 
+## Initiative — Autonomous Enterprise Evolution
+
+**Readiness Status:** Future Investigation
+
+### Vision
+
+Investigate how Hebun's already-canonical objective — a governed **Enterprise AI Operating System** — would hold together once humans, AI agents, digital twins, software systems and, much later, physical AI systems all operate inside one organization at the same time.
+
+The subject of this initiative is **the composition**, not the parts. Almost every part named below already has an authoritative record elsewhere in this repository, and this initiative deliberately owns none of them. What has no owner today is the question of how they compose without any one of them quietly becoming an authority.
+
+The organizing principle is a restatement of existing constitutional language, not a new rule:
+
+> **Maximum intelligence, bounded authority.**
+
+Model intelligence is not authority. Agent intelligence is not authority. A digital twin is not authority. A provider capability is not authority. Heby is not authority. The [Enterprise Constitution](../architecture/00-enterprise-constitution.md) §1.1 already says the governed form of this — *"coordinates bounded participants without creating uncontrolled autonomy"* — and this initiative adds emphasis, not doctrine.
+
+### Naming — the repository's word, not a new one
+
+**The canonical term is `Enterprise AI Operating System`.** It is fixed by the [Enterprise Constitution](../architecture/00-enterprise-constitution.md) §1.1, appears as the top layer of the five-layer architectural evolution, and is repeated in [50 — Enterprise Master Roadmap](../architecture/architecture-intelligence/50-enterprise-architecture-roadmap.md). Any phrasing that replaces "AI" with "Autonomous" in that term is a **rename of a constitutional identity** and is refused here. This initiative is named for the *investigation* — how the operating system evolves toward higher autonomy — and it renames nothing.
+
+The word *autonomous* in this title describes a **direction of travel with governed ceilings**, never a grant. `50`'s own Vision already fixes the limit: *"The target is not uncontrolled autonomy."*
+
+### Why It Exists
+
+Hebun's parts are being built and released one authority at a time, and that order is deliberate. The risk is not that a part is missing; it is that the parts are individually correct and collectively wrong — that composition introduces an authority nobody designed.
+
+Three failure shapes motivate the investigation, and none is currently owned by any single record:
+
+- **Authority laundering through composition.** Agent A asks Agent B to do something; B does it; the audit shows a governed act with no human anywhere in the chain. Each step passed its own check.
+- **Derived state overtaking authoritative state.** A company twin, a simulation and a prediction are all *derived*. Once a surface renders them beside organizational truth, the distinction is carried only by a label.
+- **A coordinator becoming a super-authority.** Heby sits above every workspace. A coordinator that can ask every capability for anything is one design decision away from being the most powerful actor in the system.
+
+### Problem Statement
+
+The repository can currently answer *"may this actor do this act in this tenant?"* It cannot yet answer:
+
+- what an actor **class** is, when humans, agents, twins, external providers and physical devices must each carry distinct identity, authority, provenance, lifecycle and accountability;
+- how a bounded delegation between two agents stays bounded when it is three hops long;
+- how an organization declares **how much autonomy** a domain has, in a form a runtime could enforce rather than a document could describe;
+- how derived, simulated and predicted organizational state stay structurally distinguishable from authoritative organizational truth at every surface that renders them;
+- how a temporary, purpose-scoped group of agents is created, bounded, measured and ended without becoming a permanent shadow organization.
+
+### What already exists — and why this is not a second copy of it
+
+**This is the load-bearing section of this initiative.** The long-term vision that motivated it spans roughly two dozen areas; most already have an authoritative home. Recording them again here would create exactly the second source of truth this register forbids. The mapping is therefore stated as references:
+
+| Vision area | Existing owner | Status today |
+|---|---|---|
+| AI workforce, agent roles and placement | [11 Agent Registry](11-agent-registry.md) · Phase 17–20 Multi-Agent Orchestration · [Era III agents discovery](../product-vision/runtime/hebun-era3-agents-architecture-discovery.md) | design published; production holds **two** durable agents — **one in each tenant** |
+| Agent proposal ceiling | **Agent Mandate Authority** | **released and production-accepted** — enforced at exactly one seam, and it only ever subtracts |
+| Heby as coordinator | [heby-vision.md](../product-vision/heby-vision.md) · Constitution §5.3 | released as an interface; already forbidden to own authority |
+| Director decision model | [23 Director Digital Twin](23-director-digital-twin.md) | backlog, prerequisite-gated |
+| Personal context and its temporal model | [25 Private Digital Twin](25-private-digital-twin.md) | backlog, gated on its own security design |
+| Identity-scoped ownership, admission, revocation | [26 Personal Context Authority](26-personal-context-authority.md) | backlog, gated on its own security gate |
+| Company digital twin | [21 Enterprise System Map](21-enterprise-system-map.md) | backlog, design deferred |
+| Enterprise simulation | [16 Organizational Simulation](16-organizational-simulation.md) | backlog |
+| Organizational learning and optimization | Program VIII, Phases 44–47 | design **COMPLETE / PUBLISHED**; nothing implemented |
+| Institutional decision memory | [09 Director Memory](09-director-memory.md) · Enterprise Knowledge Graph & Decision Timeline | backlog; and `memories` is **dead schema** with no runtime writer |
+| Internal opportunity discovery | [Innovation Intelligence](#initiative--innovation-intelligence) | this register, Future Investigation |
+| External problem evidence and needs diagnosis | [Problem Intelligence](#initiative--problem-intelligence) | this register, Future Investigation |
+| Solution composition and transformation proposals | [03 Transformation Consultant](03-transformation-consultant.md) · [08 AI Transformation Playbook Engine](08-ai-transformation-playbook-engine.md) | backlog |
+| Capability supply layer | [20 Marketplace](20-marketplace.md) | backlog |
+| Hebun improving Hebun | [24 Hebun Self-Evolution System](24-hebun-self-evolution-system.md) | backlog, prerequisite-gated |
+| Media and creator businesses | [Creator Business Engine](#initiative--creator-business-engine) | this register, Future Investigation |
+| Commerce, spend and venture economics | [Growth & Commerce Engine](#initiative--growth--commerce-engine) | this register, Future Investigation |
+| Device and physical execution surface | [Device Runtime & Computer Use](#initiative--device-runtime--computer-use) · Program VII | this register; Program VII's constitutional **design is published** while its delivery is `PLANNED — NOT OPEN`, and it defines no device substrate |
+| Long-term intellectual growth | Program IX, Phases 48–51 | design **COMPLETE / PUBLISHED**; planning space only |
+
+**Nothing in the table is opened, promoted, re-scoped or re-owned by this initiative.** Where a record above disagrees with anything written here, that record wins.
+
+### Core Capability Areas — only what the table does not already own
+
+Five areas remain without an owner. They are the actual scope of this investigation:
+
+1. **Actor-class model.** A single account of identity, authority, capability, provenance, lifecycle, security and accountability that distinguishes humans, AI agents, digital twins, software systems, external providers and physical devices — without flattening them into one participant type.
+2. **Bounded inter-agent communication.** Whether the three interaction shapes — **query**, **delegation**, **proposal** — are sufficient and closed; how a delegation chain preserves its ceiling across hops; and why an agent instructing another agent transfers no authority. The released mandate seam is the precedent to extend, never to bypass.
+3. **Ephemeral, purpose-scoped agent teams.** A temporary group formed for one problem, carrying its own purpose, participants, ceiling, budget, information access, task graph, outputs and audit trail — and, critically, an ending.
+4. **Enterprise autonomy levels.** A declared, per-domain autonomy ceiling. See below.
+5. **Derived-state separation at scale.** How company-twin state, simulation output and prediction stay structurally distinguishable from authoritative organizational truth — extending the released per-source `authoritative` boolean rather than inventing a parallel scheme.
+
+### Enterprise autonomy levels — a concept to investigate, not a contract
+
+A conceptual ladder for declaring how much autonomy a domain has:
+
+```
+Level 0  Observe            gather information only
+Level 1  Recommend          analyse and advise
+Level 2  Prepare            produce plans and artifacts for a decision
+Level 3  Governed Execution bounded execution under an explicit Governance policy
+Level 4  High Autonomy      broad autonomy inside one domain, with monitoring and rollback
+Level 5  Human Reserved     specific consequential decisions reachable only by human authority
+```
+
+**This ladder is not a production contract and must not be treated as one.** No level maps to a released mechanism today, `Level 5` in particular is a *restriction* rather than a capability, and the numbering must never be read as a maturity score to climb. Whether the ladder survives contact with the released Governance model — permits, mandates, the deployment-global kill switch — is itself part of the investigation, and the honest outcome may be that it does not.
+
+### Actor classes and the invariants they must preserve
+
+Physical execution deserves the sharpest statement, because it is the one class where an error is not reversible:
+
+```
+CONNECTED   != AUTHORIZED
+AUTHORIZED  != EXECUTED
+EXECUTED    != SUCCESSFUL
+```
+
+A connected robot provider is not permission to move a robot. Physical execution would require **higher** authorization than software execution, not equal authorization delivered through the same seam.
+
+### Relationship to Existing Architecture
+
+- **[50 — Enterprise Master Roadmap](../architecture/architecture-intelligence/50-enterprise-architecture-roadmap.md)** owns long-term canonical architecture direction, Programs IV–IX, and the five-layer evolution. This initiative proposes **no Program, no Phase and no phase number**, and asks for no extension of Programs IV–IX. Under that document's own `ROADMAP-015`, a placeholder reserves planning space and creates nothing.
+- **Program VIII Phase 47 — Strategic Enterprise Evolution** is the nearest existing record and is **COMPLETE / PUBLISHED** as constitutional design. It establishes guidance for continuous platform and organizational evolution *without automatic roadmap authority*. This initiative does not reopen, amend or re-own it; if the two ever conflict, Phase 47 wins as published constitutional design.
+- **[MASTER-ROADMAP](../MASTER-ROADMAP.md)** owns what is built next. This initiative selects nothing and competes with no sequenced work. Its rule 12 reserves changes to the era and product-line model for explicit Director architectural review, and nothing here proposes such a change.
+- **The Enterprise Constitution** owns the identity. This initiative introduces no constitutional term and renames none.
+
+**This initiative is not a business engine.** The ten-point standard in *Admitting a New Business Engine* governs business models admitted to this register; this is a platform-composition investigation with no economic model of its own, and it claims no exemption it would fail.
+
+### Architectural Ownership
+
+Ownership maps to the existing **seven-workspace** Information Architecture; this initiative creates **no eighth workspace** and lands inside existing workspaces as future surfaces:
+
+- **Governance** (primary) — autonomy ceilings, delegation boundaries, permits, and the audit record of every consequential act.
+- **Command** — the Director authority boundary, and the decisions reserved to a human.
+- **Operations** — running work, agent teams while they exist, and their measured outcomes.
+- **Intelligence** — derived, simulated and predicted organizational state, all advisory and none authoritative.
+- **Platform** — provider connections, including any future device or physical provider.
+- **Knowledge** — organizational truth, which derived twin state never becomes by default.
+- **Heby** — coordination, explanation and presentation. Heby coordinates; authorities authorize; capabilities execute.
+
+### Dependencies
+
+- released Governance, permit, mandate and audit boundaries as the precedent any autonomy ceiling must extend;
+- the released provider foundation and the published Provider Onboarding Standard, for every actor class that reaches outside Hebun;
+- canonical evidence, provenance, uncertainty, confidence and Tenant-isolation contracts;
+- a durable identity model able to distinguish actor classes without flattening them;
+- [26 Personal Context Authority](26-personal-context-authority.md), wherever an actor's context is identity-scoped rather than tenant-scoped;
+- Program VII opening, before any device or physical execution surface is considerable;
+- Programs VIII and IX, whose published design already covers organizational and intellectual evolution;
+- explicit Director criteria for investigation and future roadmap eligibility.
+
+### Risks
+
+- composition may create an authority no single component was reviewed for;
+- an agent instructing another agent may be mistaken for authorizing it;
+- a delegation chain may lose its ceiling across hops while every individual hop looks bounded;
+- an autonomy level may be read as a maturity score to climb rather than a declared ceiling;
+- a numbered ladder may imply that Level 4 is a goal and Level 5 a failure, which inverts its meaning;
+- simulated or predicted state may be presented as organizational fact;
+- a company twin may be mistaken for the organization, and its derived state for authoritative truth;
+- a digital twin's prediction may be recorded, or read, as an actual human decision;
+- Heby may accumulate coordination reach until it is effectively a super-authority;
+- ephemeral teams may persist and become an unaccountable shadow organization;
+- a connected physical provider may be mistaken for authorization to actuate a device;
+- investigation breadth may itself be mistaken for a delivery commitment — this initiative touches more existing records than any other in this register, and that is precisely why it must own none of them.
+
+### Why It Is Excluded from the Current Roadmap
+
+The canonical roadmap is completing foundational Intelligence, Multi-Agent, Runtime, and Enterprise AI Operating System responsibilities in a protected order. This initiative depends on the composition of capabilities that are, today, mostly **backlog records rather than released systems**: no digital twin of any kind exists, no marketplace exists, no simulation exists, `memories` is dead schema with no runtime writer, and Program VII's delivery is `PLANNED — NOT OPEN` however complete its published constitutional design is.
+
+Composition cannot be investigated meaningfully before there is something to compose. **Inter-agent composition in particular is not yet observable anywhere.** Production holds two durable agents, but exactly one per tenant, and an agent is tenant-scoped — so no two agents share an organization, and there is no seam at which one could query, delegate to, or propose through another. The constraint is not scarcity; it is that the second agent is in a different company.
+
+MASTER-ROADMAP rule 8 — **authority precedes automation** — and rule 10 — **intelligence precedes autonomy** — both place this initiative behind work that is not finished.
+
+### Future Placement
+
+No phase, Program, or roadmap position is assigned. No existing Program is extended.
+
+The initiative may become eligible for roadmap consideration only after:
+
+- **two or more durable agents coexist inside a single tenant**, so inter-agent composition is observable rather than hypothetical — a platform-wide count of two does not satisfy this, because those two are in different organizations;
+- an autonomy ceiling can be expressed in a released mechanism rather than described in a document;
+- derived, simulated and predicted state are structurally separable from authoritative truth end to end;
+- an actor-class identity model is designed and passes its own security review;
+- the digital-twin records ([21](21-enterprise-system-map.md), [23](23-director-digital-twin.md), [25](25-private-digital-twin.md)) and [26](26-personal-context-authority.md) have themselves cleared their stated gates;
+- its boundary from Program VIII Phase 47 and from Program IX is explicit;
+- the Director explicitly opens a roadmap consideration gate.
+
+### Director Notes
+
+- Investigation may compare composition models, autonomy-ceiling designs, actor-class taxonomies, and inter-agent boundary shapes.
+- Investigation must not create a Program, phase number, architecture, Agent, workflow, Runtime service, schema, or execution authority.
+- This initiative is a **frame over existing records**. If it ever begins restating what [21](21-enterprise-system-map.md), [23](23-director-digital-twin.md), [24](24-hebun-self-evolution-system.md), [25](25-private-digital-twin.md), [26](26-personal-context-authority.md), Program VIII or Program IX already own, it has failed and should be narrowed.
+- The Director retains strategy, portfolio selection, autonomy-ceiling decisions, roadmap placement, approval, and execution authorization.
+- Rejection, deferral, decomposition into existing records, and "insufficient evidence" are valid investigation outcomes.
+
+---
+
 ## Backlog Governance
 
-The five initiatives above remain at **Future Investigation**.
+The six initiatives above remain at **Future Investigation**.
 
 They may be investigated for evidence, strategic value, overlap, risk, dependency, and boundary clarity. They must not be represented as canonical roadmap commitments, approved architecture, products, Agents, workflows, Runtime services, implementation plans, or execution authorization.
 
