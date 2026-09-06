@@ -6,6 +6,7 @@ import {
 } from "@/components/agents/durable-agent-identity-card";
 import { getAgentsTruthModel } from "@/features/workforce/agents-truth-model";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
+import { organizationalDemoDataPermitted } from "@/features/mock-surface-gating/gate.server";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import {
   AgentMandateCard,
@@ -78,6 +79,35 @@ export const metadata = { title: "Agents — Hebun AI" };
 
 export default async function AgentsPage() {
   const model = getAgentsTruthModel();
+  /*
+   * ── EXPOSURE IS DECIDED BY THE RELEASED GATE, NOT BY THIS ROUTE (TRH-12) ─────
+   *
+   * `resolveMockSurfaceGate` has answered "may compiled-in organizational fiction be presented in
+   * this environment?" since 2026-08-18. It already withholds the Director dashboard and, through
+   * the same adapter, Heby's grounding. THIS ROUTE SIMPLY NEVER ASKED IT — the identical omission
+   * CMD-0 found on `/director/goals` on 2026-08-20 and repaired the same way, by consulting the
+   * gate that already existed rather than by minting a second policy.
+   *
+   * WITHHELD, NOT RELABELLED — CMD-0's words, and they apply unchanged here. Every cell of
+   * `AgentsTruthSurface` is already honest ("memory · not durable", "Live execution: not
+   * connected", "Provider (ref)"), and honest labels were never the question: showing 36 seeded
+   * definitions on the authoritative organizational route still tells a Director their
+   * organization has 36 agent definitions. Turkish Rug House has one durable agent.
+   *
+   * NO ROUTE-LOCAL ENVIRONMENT LOGIC. This reads the released predicate and nothing else — no
+   * NODE_ENV, no host check, no flag of its own. One authority owns product exposure of mock data,
+   * and a second one here would be the defect this phase exists to remove.
+   *
+   * THE SIMULATION SUBSYSTEM IS UNTOUCHED. `agents/mock.ts` still compiles its 36 definitions and
+   * `agent-crud` still serves them to roughly thirty-five internal consumers; the dedicated
+   * simulation route `/director/registries/agents` does not consult this gate and stays reachable
+   * in every posture. Only this surface — the authoritative organizational one — stops presenting
+   * them.
+   *
+   *     SIMULATION EXISTS      != SIMULATION BELONGS ON THE ORGANIZATIONAL SURFACE
+   *     HIDING A MOCK SURFACE  != DELETING THE MOCK SUBSYSTEM
+   */
+  const mockExposurePermitted = organizationalDemoDataPermitted();
   const tenant = await resolveTenantContext();
   const identityState = await readDurableAgentIdentityState(tenant);
   /*
@@ -246,7 +276,15 @@ export default async function AgentsPage() {
          * released proof worth keeping intact.
          */}
         <AgentImprovementHypothesisFiling block={filingBlock} identities={identities} />
-        <AgentsTruthSurface model={model} />
+        {/*
+          * AGENT-ID-0.1's ORDERING INVARIANT IS PRESERVED, NOT DELETED. Its claim was "the durable
+          * authority is presented BEFORE the simulation, not beneath it" — a rule about coexistence,
+          * which still holds exactly: when the gate permits exposure this renders last, after every
+          * durable surface. TRH-12 adds the question that phase never asked — whether it may be
+          * presented AT ALL in an environment holding real organizations — and defers it to the
+          * gate rather than answering it here.
+          */}
+        {mockExposurePermitted ? <AgentsTruthSurface model={model} /> : null}
       </div>
     </>
   );

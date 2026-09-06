@@ -250,9 +250,17 @@ const MUTATIONS: readonly Mutation[] = [
       "          identities={identities}\n" +
       "        />\n",
       replace: "" },
-      { find: "        <AgentsTruthSurface model={model} />",
+      /*
+       * RE-ANCHORED AT TRH-12, NOT WEAKENED. The simulation's render is now guarded by the released
+       * mock-surface gate — `{mockExposurePermitted ? <AgentsTruthSurface … /> : null}` — so the
+       * anchor moved with the line. The DEFECT THIS MUTATION INJECTS IS UNCHANGED: the durable card
+       * is relocated BELOW the simulation, and AGENT-ID-0.1's ordering assertion must still bite.
+       * Exposure and ordering are different questions; TRH-12 answered the first and preserved the
+       * second, so this proof still proves exactly what it was written to prove.
+       */
+      { find: "        {mockExposurePermitted ? <AgentsTruthSurface model={model} /> : null}",
       replace:
-        "        <AgentsTruthSurface model={model} />\n" +
+        "        {mockExposurePermitted ? <AgentsTruthSurface model={model} /> : null}\n" +
         "        <DurableAgentIdentityCard\n" +
         "          block={block}\n" +
         "          actingHumanId={tenant?.userId}\n" +
