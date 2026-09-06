@@ -112,13 +112,62 @@ const MUTATIONS: readonly Mutation[] = [
       {
         find:
           "  const kind = envelope.kind;\n" +
-          "  if (kind !== SEND_ORIGINATION_ALIAS && kind !== NO_ACTION_KIND) {",
+          "  if (\n" +
+          "    kind !== SEND_ORIGINATION_ALIAS &&\n" +
+          "    kind !== RECORD_WORK_ORIGINATION_ALIAS &&\n" +
+          "    kind !== NO_ACTION_KIND\n" +
+          "  ) {",
         replace:
           "  const kind = envelope.kind === NO_ACTION_KIND ? NO_ACTION_KIND : SEND_ORIGINATION_ALIAS;\n" +
           "  if (false) {",
       },
     ],
     because: 'kind "grant-permission" must be refused',
+  },
+
+  /* ── TRH-17: THE RECORD-WORK BRANCH IS CONTAINED EXACTLY AS THE SEND ONE ── */
+  {
+    label: "M8 a department slug that was never offered is accepted",
+    file: PARSER,
+    suite: PURE_SUITE,
+    edits: [
+      {
+        find:
+          "    const offered = candidates.work.departments.some((d) => d.slug === departmentSlug);\n" +
+          '    if (!offered) return { status: "refused", reason: "reference-not-offered" };',
+        replace: "    /* mutated: the offered department list no longer bounds the scope */",
+      },
+    ],
+    because: "a well-formed slug that was never offered is refused",
+  },
+  {
+    label: "M9 the model-authored work title escapes the released bound",
+    file: PARSER,
+    suite: PURE_SUITE,
+    edits: [
+      {
+        find: '  if (!isWellFormedWorkTitle(title)) return refused("invalid-arguments");',
+        replace: '  if (typeof title !== "string") return refused("invalid-arguments");',
+      },
+    ],
+    /* The FIRST title assertion the released predicate answers. Both fail; this one fails first. */
+    because: "an empty title names no work",
+  },
+  {
+    label: "M10 a scope with no discriminator defaults to organization-level",
+    file: PARSER,
+    suite: PURE_SUITE,
+    edits: [
+      {
+        find:
+          "  /* Neither of the two organizational truths. Refused as an argument, never guessed. */\n" +
+          '  return { status: "refused", reason: "invalid-arguments" };',
+        replace:
+          "  /* mutated: silence now MEANS organization-level */\n" +
+          '  return { status: "ok", scope: { kind: ORGANIZATION_LEVEL_SCOPE } };',
+      },
+    ],
+    because: "a scope with no discriminator asserts neither organizational truth",
   },
 
   /* ── THE PROPOSER MUST BE REAL, IN SERVICE, AND UNFORGEABLE ──────────────── */

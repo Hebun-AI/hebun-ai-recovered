@@ -568,23 +568,52 @@ function theVocabularyGrewByExactlyOne(): void {
   );
 
   /*
-   * ORIGINABLE MEANS MANDATABLE, NOT MODEL-SELECTABLE — AND THE DIFFERENCE IS PINNED.
+   * ORIGINABLE MEANS MANDATABLE. TRH-17 MADE IT MODEL-SELECTABLE TOO — AND NEITHER IS AUTHORITY.
    *
-   * GIA-1 admitted `record-work` to the mandate vocabulary and gave it an agent-originated inlet.
-   * It did NOT teach the model to select it: the structured-output contract still admits `send` and
-   * the abstain value only. Recording that here means the gap is a measured fact rather than a
-   * silence somebody later mistakes for a capability.
+   * GIA-1 admitted `record-work` to the mandate vocabulary and gave it an agent-originated inlet,
+   * and this block used to pin the gap that followed: the model could not SELECT it. TRH-17 closed
+   * that gap deliberately, so the assertion is INVERTED rather than deleted — a pin that merely
+   * disappeared would leave nobody stating what is true now.
+   *
+   * What GIA-1's firewall actually guards is unchanged and is re-stated below: selecting a kind
+   * produces a PENDING request and nothing else.
+   *
+   *     MODEL-SELECTABLE != MANDATED != AUTHORIZED != PERMITTED != EXECUTED
    */
   const selected = parseAgentActionSelection(
+    JSON.stringify({
+      kind: "record-work",
+      args: { title: "Re-warp the standing loom", scope: { kind: "organization-level" } },
+      reason: "because",
+    }),
+    { recipients: [], drafts: [], work: { organizationLevel: true, departments: [] } },
+  );
+  assert.equal(selected.status, "selected", "TRH-17: the model CAN select `record-work`");
+
+  /* The old contract's argument shape is not quietly still accepted alongside the new one. */
+  const legacyShape = parseAgentActionSelection(
     JSON.stringify({ kind: "record-work", args: { title: "x", departmentRef: "y" }, reason: "because" }),
-    { recipients: [], drafts: [] },
+    { recipients: [], drafts: [], work: { organizationLevel: true, departments: [] } },
   );
-  assert.equal(selected.status, "refused", "the model cannot select `record-work` today");
+  assert.equal(legacyShape.status, "refused", "a raw departmentRef argument is not the contract");
   assert.equal(
-    selected.status === "refused" ? selected.reason : "",
-    "unsupported-action-kind",
-    "and it is refused as an unsupported kind, not repaired into one",
+    legacyShape.status === "refused" ? legacyShape.reason : "",
+    "invalid-arguments",
+    "and it is refused as an argument violation — the model names slugs, never references",
   );
+
+  /*
+   * SELECTION IS NOT AUTHORIZATION, AND THE PARSER PROVES IT STRUCTURALLY: there is no field on a
+   * selection that could carry an approval, a permit or an execution. This is the claim GIA-1 made
+   * about admission, restated where admission now reaches further.
+   */
+  if (selected.status === "selected") {
+    assert.deepEqual(
+      Object.keys(selected.selection).sort(),
+      ["kind", "reason", "scope", "title"],
+      "a selection carries intent only — no approval, no permit, no execution, no actor, no tenant",
+    );
+  }
 
   /* NO SECOND AGENT, AND NO AUTONOMOUS PROPOSAL FRAMEWORK WAS ACTIVATED. */
   const touched = [EXECUTOR, INLET, REGISTRY, WORK_WRITER, WORK_AUDIT, APPROVALS_ACTIONS, WORK_ACTIONS];

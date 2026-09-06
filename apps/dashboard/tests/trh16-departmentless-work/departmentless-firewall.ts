@@ -419,27 +419,44 @@ function main(): void {
     "the originable vocabulary is untouched",
   );
 
-  /* ── 12. AND HEBY STILL CANNOT SELECT `record-work` ───────────────────────
+  /* ── 12. TRH-17 CONNECTED WHAT TRH-16 DELIBERATELY LEFT UNCONNECTED ───────
    *
-   * Pinned so this phase's scope cannot be mistaken for the capability it did NOT deliver. GIA-1
-   * recorded this gap deliberately; TRH-16 does not close it.
+   * TRH-16 pinned two measured gaps: the model could not select `record-work`, and the
+   * agent-originated inlet had no production caller. TRH-17 closed BOTH on purpose, so both
+   * assertions are INVERTED here rather than removed — the value of a gap pin is that somebody
+   * states what replaced it.
+   *
+   * TRH-16's OWN finding is what is re-proved below: an organization with zero departments is a
+   * valid organization, and it is now valid all the way from the model's own selection.
    */
   const selected = parseAgentActionSelection(
     JSON.stringify({
       kind: "record-work",
-      args: { title: "x", departmentScope: "organization-level" },
+      args: { title: "Re-warp the standing loom", scope: { kind: "organization-level" } },
       reason: "because",
     }),
-    { recipients: [], drafts: [] },
+    { recipients: [], drafts: [], work: { organizationLevel: true, departments: [] } },
   );
-  assert.equal(selected.status, "refused", "the model still cannot select `record-work`");
   assert.equal(
-    selected.status === "refused" ? selected.reason : "",
-    "unsupported-action-kind",
-    "and it is still refused as an unsupported kind, not repaired into one",
+    selected.status,
+    "selected",
+    "TRH-17: a departmentless organization's agent can select organization-level record-work",
+  );
+  if (selected.status !== "selected") throw new Error("unreachable");
+  if (selected.selection.kind !== "record-work") throw new Error("unreachable");
+  assert.deepEqual(
+    selected.selection.scope,
+    { kind: "organization-level" },
+    "and the scope it selected names no department, because there is none to name",
   );
 
-  /* The agent-originated inlet still has no production caller. Measured, not assumed. */
+  /*
+   * THE INLET NOW HAS EXACTLY ONE PRODUCTION CALLER, AND IT IS THE ORIGINATION RUNTIME.
+   *
+   * Still measured by walking `src`, and still asserted as an EXACT list rather than a count — a
+   * second caller is a second place that decides what an agent may propose, which is precisely
+   * what the inlet's own header forbids.
+   */
   const productionCallers = (function walk(dir: string): string[] {
     const out: string[] = [];
     for (const entry of readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
@@ -453,8 +470,8 @@ function main(): void {
   );
   assert.deepEqual(
     productionCallers,
-    [],
-    "no production module calls the agent-originated record-work inlet — TRH-16 connected nothing",
+    ["src/features/agent-origination/originate-action.server.ts"],
+    "exactly one production module calls the agent-originated record-work inlet",
   );
 
   console.log("trh16-departmentless-work/departmentless-firewall: OK");

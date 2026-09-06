@@ -28,6 +28,8 @@ const LIVE_MAP_PROJECTION = "src/features/live-map/read-live-map.server.ts";
 /* WORK-1 — the Work register page, the third consumer of this one seam. */
 const RECORD_WORK_INLET = "src/features/heby-action-inlet/record-work-proposal.server.ts";
 const WORK_PAGE = "src/app/(dashboard)/director/work/page.tsx";
+/** TRH-17. The agent's record-work choice space is built from this authority, not beside it. */
+const ORIGINATION_CANDIDATES = "src/features/agent-origination/candidate-set.server.ts";
 
 function walk(dir: string): string[] {
   return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {
@@ -241,8 +243,17 @@ function thereIsOnlyOneAnswer(): void {
    * caller, so a third one fails here and has to argue for itself — which is the point. Live Map
    * consumes the authority; it does not reach past it.
    */
+  /*
+   * MEASURED OVER CODE, NOT PROSE (TRH-17).
+   *
+   * This census matched raw file text, so a module that merely NAMED the seam in a comment — while
+   * importing nothing — was counted as a consumer. That is a false positive in the direction that
+   * matters least, and it has a twin in the direction that matters most: a census a comment can
+   * inflate is a census a comment can be written to explain away. Stripping comments first makes
+   * the list measure what the import graph actually is. No consumer was removed by this change.
+   */
   const callers = walk("src").filter(
-    (file) => !file.startsWith(AUTHORITY_DIR) && read(file).includes("readOrganizationAuthority"),
+    (file) => !file.startsWith(AUTHORITY_DIR) && codeOf(read(file)).includes("readOrganizationAuthority"),
   );
   /*
    * WORK-1 added the third: `/director/work` reads structure through THIS seam rather than through
@@ -255,11 +266,19 @@ function thereIsOnlyOneAnswer(): void {
    * `readOrganizationStructure` directly. The census GREW; nothing in it widened, and a fifth
    * consumer still fails here and has to argue for itself.
    */
+  /*
+   * TRH-17 added the fifth, and for the reason every previous addition was made: the origination
+   * candidate builder resolves this tenant's organization and its departments through THIS seam
+   * rather than reaching `readOrganizationStructure` directly — so the agent's choice space and the
+   * inlet that files its proposal read the same authority, one way. The census GREW; nothing in it
+   * widened, and a sixth consumer still fails here and has to argue for itself.
+   */
   assert.deepEqual(
     callers.sort(),
-    [PAGE, LIVE_MAP_PROJECTION, WORK_PAGE, RECORD_WORK_INLET].sort(),
+    [PAGE, LIVE_MAP_PROJECTION, WORK_PAGE, RECORD_WORK_INLET, ORIGINATION_CANDIDATES].sort(),
     "the Organization Authority's consumers are exactly the Organization page, the Live Map " +
-      "projection, the Work register page, and the record-work proposal inlet",
+      "projection, the Work register page, the record-work proposal inlet, and the agent " +
+      "origination candidate builder",
   );
 
   /*

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DecisionRegion } from "./decision-region";
 import { originateHebyActionProposalAction } from "@/app/(dashboard)/heby/actions";
-import type { OriginationRefusal } from "@/features/agent-origination";
+import type { AgentOriginableActionKind, OriginationRefusal } from "@/features/agent-origination";
 
 /*
  * Ask Heby for a proposal (AGENT-PROPOSAL-2) — the Director's entry to bounded agent origination.
@@ -49,7 +49,7 @@ const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
   "no-action-proposed":
     "Heby considered the goal and proposed no action. Nothing was filed.",
   "no-candidates":
-    "There is nothing to propose about yet: this organization has no recorded recipient and prepared draft to choose between. Record them in Operations first.",
+    "There is nothing to propose about yet: this organization has no recipient and prepared draft to send between, and its structure could not be read for recording work. Record a recipient and a draft in Operations, or try again once the organization reads.",
   "model-unavailable":
     "Heby's model runtime is not available, so no reasoning happened. Nothing was filed.",
   "goal-rejected": "That goal was not accepted. State it as a sentence and try again.",
@@ -74,13 +74,14 @@ const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
   "unexpected-shape": "Heby's answer did not match the proposal contract, so nothing was filed.",
   "unsupported-action-kind":
     "Heby named an action it is not permitted to propose, so nothing was filed.",
-  "invalid-arguments": "Heby's proposal was missing or carried unexpected arguments. Nothing was filed.",
+  "invalid-arguments":
+    "Heby's proposal was missing arguments, carried unexpected ones, or named neither of the two organizational truths a work record may declare. Nothing was filed.",
   "malformed-reference": "Heby named a reference that is not well formed. Nothing was filed.",
   "reference-not-offered":
-    "Heby named a recipient or draft that was not among the ones this organization offered it. Nothing was filed.",
+    "Heby named a recipient, draft or department that was not among the ones this organization offered it. Nothing was filed.",
   "invalid-reason": "Heby gave no usable reason for its proposal, so nothing was filed.",
   "proposal-refused":
-    "The references Heby chose could not be filed — they may have been retired or superseded since. Nothing was filed.",
+    "What Heby chose could not be filed — a reference may have been retired or superseded since, or its mandate does not admit that action. Nothing was filed.",
 };
 
 /*
@@ -92,9 +93,21 @@ const ALREADY_PENDING_DETAIL = "already-pending";
 const ALREADY_PENDING_WORDING =
   "Heby proposed exactly this action already, and it is still waiting for your review below. Nothing was filed again.";
 
+/*
+ * WHICH ACTION WAS PROPOSED (TRH-17).
+ *
+ * Two admitted kinds means "Heby proposed one action" no longer says enough: recording work and
+ * sending an external communication are different consequences, and a Director deciding below
+ * should read which one they are about to consider before they scroll.
+ */
+const PROPOSED_KIND_WORDING: Readonly<Record<AgentOriginableActionKind, string>> = {
+  send: "sending an external communication",
+  "record-work": "recording organizational work",
+};
+
 type Outcome =
   | { readonly kind: "idle" }
-  | { readonly kind: "proposed"; readonly reason: string }
+  | { readonly kind: "proposed"; readonly action: AgentOriginableActionKind; readonly reason: string }
   | { readonly kind: "refused"; readonly reason: OriginationRefusal; readonly detail?: string };
 
 export function AgentProposalRequest() {
@@ -110,7 +123,7 @@ export function AgentProposalRequest() {
       setOutcome({ kind: "idle" });
       const result = await originateHebyActionProposalAction({ goal });
       if (result.status === "proposed") {
-        setOutcome({ kind: "proposed", reason: result.reason });
+        setOutcome({ kind: "proposed", action: result.kind, reason: result.reason });
         /*
          * The queue below is server-rendered, and the Heby boundary is forbidden from invalidating
          * routes. Refreshing from the client is how the new pending row appears — it re-reads the
@@ -126,8 +139,9 @@ export function AgentProposalRequest() {
     <DecisionRegion title="Ask Heby for a proposal" eyebrow="Agent origination">
       <div className="flex flex-col gap-3">
         <p className="text-xs text-fg-secondary">
-          State a goal. Heby may propose one bounded action for you to review below — it cannot
-          approve, authorize or perform anything.
+          State a goal. Heby may propose one bounded action for you to review below — recording
+          organizational work, or sending an external communication — and it cannot approve,
+          authorize or perform anything. What its mandate does not admit is refused.
         </p>
         <label className="flex flex-col gap-1 text-xs text-fg-secondary" htmlFor="heby-goal">
           Goal
@@ -158,8 +172,11 @@ export function AgentProposalRequest() {
 
         {outcome.kind === "proposed" ? (
           <p className="rounded-lg border border-border bg-surface p-3 text-sm text-fg-primary">
-            <span className="font-medium">Heby proposed one action.</span> It is waiting for your
-            review below — nothing has been authorized, and nothing has been sent.
+            <span className="font-medium">
+              Heby proposed one action: {PROPOSED_KIND_WORDING[outcome.action]}.
+            </span>{" "}
+            It is waiting for your review below — nothing has been authorized, nothing has been
+            recorded, and nothing has been sent.
             <span className="mt-1 block text-xs text-fg-secondary">
               Heby&rsquo;s stated reason: {outcome.reason}
             </span>

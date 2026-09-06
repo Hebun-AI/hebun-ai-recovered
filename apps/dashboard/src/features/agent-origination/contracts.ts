@@ -16,10 +16,16 @@
  *
  * ── THE CHOICE SPACE IS A SERVER-BUILT LIST, NOT A VOCABULARY ────────────────
  *
- * The agent does not name arbitrary strings. The server reads this tenant's active recipients and
- * proposable drafts, offers exactly those as CANDIDATES, and then requires the selection to be a
- * member of what was offered. A reference the model invented is not merely unresolvable — it was
- * never in the set, and it is refused before any authority is asked to resolve it.
+ * The agent does not name arbitrary strings. The server reads this tenant's active recipients,
+ * proposable drafts and in-service departments, offers exactly those as CANDIDATES, and then
+ * requires the selection to be a member of what was offered. A reference the model invented is not
+ * merely unresolvable — it was never in the set, and it is refused before any authority is asked to
+ * resolve it.
+ *
+ * TRH-17 added ONE thing this paragraph could not previously describe: a record-work TITLE is prose,
+ * and no candidate list can contain prose. It is bounded by the released work-title predicate and
+ * read by a human before any decision — the containment for it is HUMAN REVIEW, stated plainly here
+ * rather than left to look like membership.
  *
  * That is the containment property this phase actually rests on. Prompt-injected content can, at
  * absolute worst, push the agent toward proposing a real draft to a real recorded recipient — a
@@ -43,10 +49,12 @@ import type { HebyActionKind } from "@/features/heby-actions/contracts";
  * authoritatively against released read seams, so every argument the agent chooses is checkable
  * against a row the tenant already owns.
  *
- * `record-work` (GIA-1) qualifies for the same reason and no other: its one reference names an
- * in-service department of this tenant, resolvable against the released Organization Structure read
- * seam. Its title is prose, and prose is why a human still reads every proposal before it becomes
- * an act — being admitted here is permission to ASK, and nothing else.
+ * `record-work` (GIA-1) qualifies for the same reason and no other: its organizational scope is
+ * either an in-service department of this tenant, resolvable against the released Organization
+ * Structure read seam, or — since TRH-16 — an explicit organization-level declaration that names
+ * nothing and therefore invents nothing. Its title is prose, and prose is why a human still reads
+ * every proposal before it becomes an act — being admitted here is permission to ASK, and nothing
+ * else.
  *
  * ADMITTING A KIND HERE GRANTS NO AGENT ANYTHING. A mandate must separately name it, a human must
  * separately decide it, and a permit must separately be spent. This list is the CEILING of the
@@ -131,23 +139,114 @@ export interface OriginationCandidate {
   readonly label: string;
 }
 
+/**
+ * One department the agent may name — BY THE TENANT'S OWN SLUG, never by a uuid (TRH-17).
+ *
+ * ── WHY A SLUG AND NOT THE `department/<uuid>` REFERENCE ─────────────────────
+ *
+ * `send` offers refs because a recipient and a draft have no other stable public name. A
+ * department does: `departments.slug` is the organization's own word for that part of itself, it
+ * is canonical by CHECK (`^[a-z0-9]+(-[a-z0-9]+)*$`), and `departments_tenant_slug_active_uq`
+ * makes it UNIQUE per tenant across exactly the set offered here — the ACTIVE ones. PostgreSQL,
+ * not this module, is what makes one slug resolve to at most one department.
+ *
+ * So the model never sees a database identifier, and a resolved reference is minted by trusted
+ * runtime code from the very list the server built. The model states organizational INTENT; the
+ * server states the authoritative reference.
+ *
+ * ── `departmentRef` IS SERVER-SIDE AND MUST NEVER BE RENDERED ────────────────
+ *
+ * It is carried so the selected slug resolves inside the SAME in-memory list that was offered —
+ * a second lookup could disagree with what the agent was shown. It is not part of what the model
+ * is told, and `originate-action.server.ts` renders only `slug` and `label`. A firewall walks the
+ * rendered prompt lines and fails on a `department/` prefix or a uuid, so this stays a fact rather
+ * than an intention.
+ */
+export interface DepartmentCandidate {
+  /** The tenant's own slug. This, and only this, is what the model may name. */
+  readonly slug: string;
+  /** The department's recorded name. Data, shown verbatim, never an instruction. */
+  readonly label: string;
+  /** SERVER-SIDE ONLY. `department/<uuid>`, minted by the candidate builder. Never rendered. */
+  readonly departmentRef: string;
+}
+
+/**
+ * THE RECORD-WORK CHOICE SPACE (TRH-17).
+ *
+ * ── WHY ORGANIZATION-LEVEL IS A FLAG AND NOT A CANDIDATE ─────────────────────
+ *
+ * TRH-16 established that `{kind:"organization-level"}` NAMES NOTHING — it is the declaration that
+ * this work belongs to the organization itself. There is no row to offer, so there is no candidate
+ * to list. What there IS, is a question of availability: the inlet's organization-level branch
+ * reads `readOrganizationAuthority` and refuses when the organization is not readable, so offering
+ * the choice when it is unreadable would be offering something guaranteed to fail.
+ *
+ * ── AN EMPTY DEPARTMENT LIST IS A REAL ANSWER ────────────────────────────────
+ *
+ * Turkish Rug House has zero departments and that is legitimate. `departments: []` alongside
+ * `organizationLevel: true` is precisely the shape of an organization that can propose work about
+ * itself and about no sub-part — which is why record-work proposability is NOT
+ * `departments.length > 0`.
+ */
+export interface RecordWorkCandidateSpace {
+  /** Whether this tenant's organization was readable, so org-level work may be declared. */
+  readonly organizationLevel: boolean;
+  /** In-service departments. May be empty; empty is a measured answer, not an unread state. */
+  readonly departments: readonly DepartmentCandidate[];
+}
+
 /** What the agent is allowed to see and choose from, for one tenant, at one moment. */
 export interface OriginationCandidateSet {
   readonly recipients: readonly OriginationCandidate[];
   readonly drafts: readonly OriginationCandidate[];
+  /** TRH-17. The record-work half. Independent of the send half — see `candidatesAreProposable`. */
+  readonly work: RecordWorkCandidateSpace;
 }
+
+/**
+ * WHICH PART OF THE ORGANIZATION THE AGENT SAYS THE WORK BELONGS TO (TRH-17).
+ *
+ * A closed union, shaped as TRH-16 shaped the inlet's own scope and for the identical reason: an
+ * optional field would make "the organization holds this itself", "the model forgot" and "the model
+ * produced something malformed" indistinguishable, and silence would have to MEAN something.
+ *
+ *     EXPLICIT ABSENCE   != MALFORMED REFERENCE
+ *     DEPARTMENTLESS WORK != FICTIONAL DEPARTMENT
+ *
+ * It carries a SLUG, never a `department/<uuid>` reference and never an id. The reference is minted
+ * by trusted runtime code from the offered list — see {@link DepartmentCandidate}.
+ */
+export type RecordWorkSelectionScope =
+  | { readonly kind: "organization-level" }
+  | { readonly kind: "department"; readonly departmentSlug: string };
 
 /**
  * The STRUCTURED selection, after parsing and validation. Never a partial or repaired object.
  *
- * There are exactly two shapes because there are exactly two honest outcomes: the agent named an
- * admitted action with a complete argument set, or it named nothing.
+ * There are exactly THREE shapes because there are exactly three honest outcomes: the agent named
+ * one of the two admitted actions with a complete argument set, or it named nothing.
+ *
+ * ── THE RECORD-WORK ARM CARRIES PROSE, AND THAT IS NEW ───────────────────────
+ *
+ * `send`'s two arguments are both REFERENCES, so membership in the candidate set was the whole
+ * containment. A work title is the organization's own words for what the work is, and no candidate
+ * list can contain it. It is therefore bounded by the released `isWellFormedWorkTitle` — the SAME
+ * predicate the Work Authority applies to a title a human typed, not a second, looser one — and it
+ * is read by a person before any decision is made. Being admitted here is permission to ASK.
  */
 export type AgentActionSelection =
   | {
       readonly kind: typeof SEND_ORIGINATION_ALIAS;
       readonly recipientRef: string;
       readonly draftRef: string;
+      readonly reason: string;
+    }
+  | {
+      readonly kind: typeof RECORD_WORK_ORIGINATION_ALIAS;
+      /** Model-authored prose, bounded by the released work-title predicate. Never authority. */
+      readonly title: string;
+      readonly scope: RecordWorkSelectionScope;
       readonly reason: string;
     }
   | { readonly kind: typeof NO_ACTION_KIND; readonly reason: string };

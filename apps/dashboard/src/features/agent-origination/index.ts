@@ -13,13 +13,17 @@ export {
   MAX_CANDIDATES_PER_KIND,
   MAX_ORIGINATION_REASON_LENGTH,
   NO_ACTION_KIND,
+  RECORD_WORK_ORIGINATION_ALIAS,
   SEND_ORIGINATION_ALIAS,
   type AgentActionSelection,
   type AgentOriginableActionKind,
+  type DepartmentCandidate,
   type OriginationCandidate,
   type OriginationCandidateSet,
   type OriginationRefusal,
   type ParseAgentSelectionResult,
+  type RecordWorkCandidateSpace,
+  type RecordWorkSelectionScope,
   type StructuredOutputRefusal,
 } from "./contracts";
 export { parseAgentActionSelection } from "./structured-output";
