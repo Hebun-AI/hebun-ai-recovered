@@ -137,11 +137,37 @@ class AbortInternalAct extends Error {}
  */
 function workInputFrom(authorization: ExecutionAuthorization): {
   readonly title: string;
-  readonly departmentId: string;
+  readonly departmentId: string | null;
 } | null {
   const payload = authorization.canonicalPayload;
   const title = payload["title"];
   if (typeof title !== "string" || title.trim().length === 0) return null;
+
+  /*
+   * ── THE SCOPE A HUMAN APPROVED, READ AS A DECLARATION (TRH-16) ───────────
+   *
+   * The payload states which organizational truth was authorized. It is READ, never defaulted: an
+   * unrecognised or absent scope is `null` — "not recordable" — rather than quietly becoming
+   * organization-level. A value the human did not see is a value they did not authorize, and that
+   * rule applies to an ABSENCE exactly as it applies to a value.
+   *
+   *     EXPLICIT ORGANIZATION-LEVEL  !=  MISSING SCOPE
+   */
+  const scope = payload["departmentScope"];
+
+  if (scope === "organization-level") {
+    /*
+     * NOTHING IS PARSED AND NOTHING IS INVENTED. The human approved work this organization holds
+     * at organization level; `recordWorkWithin` has always accepted `departmentId = null` and
+     * re-applies its own rule, which for null is simply that no department is claimed. A stray
+     * reference beside this scope is a contradiction the inlet already refuses, and is refused
+     * here too rather than silently ignored.
+     */
+    if (payload["departmentRef"] !== undefined) return null;
+    return { title, departmentId: null };
+  }
+
+  if (scope !== "department") return null;
 
   /*
    * THE REFERENCE IS PARSED, NOT TRUSTED. What a human approved is `department/<uuid>`; what the

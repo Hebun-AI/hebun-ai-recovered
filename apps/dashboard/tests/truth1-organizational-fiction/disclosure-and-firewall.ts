@@ -50,6 +50,8 @@ const ROOT = process.cwd();
 const GATE = "src/features/mock-surface-gating/gate.server.ts";
 const ADAPTER = "src/features/director-dashboard-ui/adapter.server.ts";
 const GOALS = "src/features/command-goals/workspace-model.ts";
+/* TRH-12 routed the authoritative Workforce surface through the same gate. See the census below. */
+const AGENTS_PAGE = "src/app/(dashboard)/agents/page.tsx";
 
 function read(file: string): string {
   return readFileSync(path.join(ROOT, file), "utf8");
@@ -356,9 +358,29 @@ function main(): void {
     for (const forbidden of ["tenantId", "tenant_id", "slug", "roles", "memberships", "permission", "authorize", "NODE_ENV"]) {
       assert.ok(!gate.includes(forbidden), `the gate must not read ${forbidden}`);
     }
-    /* Its call sites are the released two. TRUTH-1 neither added nor removed one. */
+    /*
+     * ── ITS CALL SITES, AMENDED AT TRH-12 BY NAMING THE THIRD ────────────────
+     *
+     * TRUTH-1 pinned two and neither added nor removed one. TRH-12 added a THIRD: `/agents`, the
+     * authoritative Workforce surface, which had been presenting 36 compiled-in agent definitions
+     * to organizations holding one durable agent each — the identical omission CMD-0 found on
+     * `/director/goals`, and repaired the identical way, by consulting the gate that already
+     * existed.
+     *
+     * A THIRD CALLER IS NOT A SECOND AUTHORITY, and that distinction is the whole invariant here.
+     * This enumeration exists so a new consumer must be STATED rather than absorbed; it does not
+     * exist to cap how many surfaces may defer to the one policy. Every assertion around it — the
+     * gate reads only the environment, cannot see a tenant, and has no rival beside it — is
+     * unchanged and still passing.
+     *
+     * Recorded honestly: TRH-12 ran only narrow suites and did not catch this. The census did.
+     */
     const callers = files.filter((f) => f !== GATE && codeOf(read(f)).includes("mock-surface-gating/gate.server"));
-    assert.deepEqual(callers.sort(), [ADAPTER, GOALS].sort(), "the gate's call sites are unchanged");
+    assert.deepEqual(
+      callers.sort(),
+      [ADAPTER, GOALS, AGENTS_PAGE].sort(),
+      "the gate's call sites are exactly the released two plus TRH-12's `/agents`",
+    );
     /* And no second truth authority appeared beside it. */
     const rivals = files.filter(
       (f) => f !== GATE && /\b(mockRegistry|fictionDetector|truthGate|productTruth|environmentTruth)\b/.test(codeOf(read(f))),

@@ -234,15 +234,44 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
           required: true,
           describes: "What the work is, in the organization's own words.",
         },
+        /*
+         * ── THE DISCRIMINATOR, REQUIRED (TRH-16) ────────────────────────────
+         *
+         * The department used to be a REQUIRED record-ref, which forced every proposal to name a
+         * department — including proposals from organizations that have none. That made the
+         * governed path stricter than the truth: `recordWorkWithin` has always accepted
+         * `departmentId = null`, and a one-person organization legitimately holds work at
+         * organization level.
+         *
+         * The strictness was right; its shape was wrong. What the governed path must prevent is
+         * FICTION — a fabricated, foreign-tenant or retired reference put in front of the Director
+         * — not ABSENCE. So the caller now DECLARES which organizational truth it is asserting,
+         * and declaring neither is refused. Silence means nothing here, which is the point.
+         */
         {
+          name: "departmentScope",
+          kind: "enum",
+          required: true,
+          enumValues: ["department", "organization-level"],
+          describes: "Whether this work belongs to a department or to the organization itself.",
+        },
+        {
+          /*
+           * OPTIONAL, AND THE GENERIC GATE ALREADY MEANS THE RIGHT THING: "an optional record-ref
+           * that is simply absent is fine; one that is SUPPLIED must resolve." Optionality here
+           * therefore weakens no reference validation — a supplied reference is checked exactly as
+           * before. The cross-field rule (present iff scope is `department`) is enforced by the
+           * resolver, which is the only place that knows both fields.
+           */
           name: "departmentRef",
           kind: "record-ref",
-          required: true,
-          describes: "An in-service department: department/<uuid>",
+          required: false,
+          describes: "An in-service department: department/<uuid>. Required when scope is `department`.",
         },
       ],
     },
-    inputSummary: "A title and one in-service department of this organization.",
+    inputSummary:
+      "A title, and either one in-service department of this organization or an explicit declaration that the work is organization-level.",
     outputSummary:
       "Would record one organizational work item, authored by the system under a human's authorization. Reversible through retirement; nothing is erased.",
     describes:

@@ -44,6 +44,7 @@ import {
 import type { AgentProposer } from "@/features/action-authorization/agent-proposer.server";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { isDepartmentRef, parseDepartmentRef, formatDepartmentRef } from "@/features/organization-authority/department-ref";
+import { formatOrganizationRef } from "@/features/organization-authority/organization-ref";
 import { isWellFormedWorkTitle } from "@/features/organizational-work/work-contracts";
 import {
   RECORD_WORK_ACTION_KIND,
@@ -74,6 +75,122 @@ function assertServerOnly(): void {
  * Returns a typed refusal for every failure rather than throwing: an unresolvable department is
  * ordinary operator input, not a programming error.
  */
+/**
+ * ORGANIZATION-LEVEL WORK — the same gates, one fewer fact (TRH-16).
+ *
+ * It runs the SAME `prepareAction` lifecycle, the SAME human-review requirement and the SAME R3A
+ * writer as the department branch. What differs is only what is true: no department is named, so
+ * none is read, none is evidenced and none is invented.
+ *
+ * NO EVIDENCE ENTRY, AND THAT IS CORRECT. Evidence exists to prove a named record was RETRIEVED
+ * rather than asserted. Nothing is named here, so there is nothing to retrieve, and manufacturing
+ * an entry would be the fabrication this phase removes. The capability gate agrees by construction:
+ * its rule is "an optional record-ref that is simply absent is fine; one that is SUPPLIED must
+ * resolve", and this branch supplies none.
+ *
+ * THE TARGET IS THE WORKSPACE, NOT A RECORD. A `record` target would need a ref, and the only refs
+ * available would be invented. The owning workspace is a real, released identifier, and it is what
+ * this work actually attaches to.
+ */
+async function fileOrganizationLevelProposal(
+  tenant: TenantContext,
+  title: string,
+  proposer: AgentProposer | null,
+  deps: RecordWorkProposalDeps,
+  originationInvocationId?: string,
+): Promise<RecordWorkProposalResult> {
+  /*
+   * ── THE ORGANIZATION IS READ, AND THAT IS THE DEVIATION WORTH NAMING ─────
+   *
+   * This branch names no department, so it resolves none — but it is NOT evidence-free.
+   * `requiredEvidenceCount(CONSEQUENTIAL_MUTATION)` is 1, and that rule asks "does this action
+   * refer to anything real?". Organization-level work refers to the ORGANIZATION, so the honest
+   * answer is to retrieve it and cite it. THE EVIDENCE RULE WAS NOT LOWERED; IT WAS ANSWERED.
+   *
+   * The read goes through `readOrganizationAuthority` — the SAME seam the department branch uses,
+   * not a second one — and it takes no organization parameter, so a caller cannot point it at
+   * another tenant. The id therefore comes from the authority's answer for THIS session's tenant
+   * and from nowhere else; nothing the caller sent can influence which organization is cited.
+   */
+  const authoritative = await readOrganizationAuthority(tenant, deps);
+  if (authoritative.status !== "available") {
+    return refused(
+      "persistence-unavailable",
+      "Organizational truth is not readable, so nothing was prepared.",
+    );
+  }
+  const organizationRef = formatOrganizationRef(authoritative.organization.organizationId);
+
+  const prepared = prepareAction({
+    actionKind: RECORD_WORK_ACTION_KIND,
+    requestingWorkspace: RECORD_WORK_OWNER_WORKSPACE,
+    target: {
+      kind: "record",
+      ref: organizationRef,
+      label: authoritative.organization.name,
+      sourceClass: "organization",
+    },
+    proposedArguments: {
+      title,
+      /* The DECLARATION is the payload. A human reading the decision surface sees an asserted
+       * organizational fact, not a field somebody forgot to fill in. */
+      departmentScope: "organization-level",
+    },
+    /*
+     * ONE entry, because ONE row was read a moment ago — the same sentence the department branch
+     * earns. It is not constructed to satisfy the evidence rule; it IS the read.
+     *
+     * NOTE WHAT IS NOT HERE: no `departmentRef` argument. The generic record-ref gate therefore has
+     * nothing to resolve on this branch, which is exactly its released rule — "an optional
+     * record-ref that is simply absent is fine; one that is SUPPLIED must resolve."
+     */
+    evidence: [{ sourceClass: "organization", recordRef: organizationRef, lifecycle: "settled" }],
+  });
+
+  if (prepared.lifecycleState !== "REQUIRES_HUMAN_REVIEW") {
+    return refused(
+      "not-authorizable",
+      `The action did not reach human review (${prepared.lifecycleState}). Nothing was filed.`,
+    );
+  }
+
+  const recorded = proposer
+    ? await recordAgentOriginatedActionRequest(tenant, prepared, proposer, deps, originationInvocationId)
+    : await recordActionRequest(tenant, prepared, deps);
+
+  if (recorded.status === "recorded") {
+    return {
+      status: "proposed",
+      receipt: {
+        requestId: recorded.requestId,
+        actionKind: RECORD_WORK_ACTION_KIND,
+        title,
+        /* Declared absence, carried as absence. Nothing is named because nothing is. */
+        departmentRef: null,
+        departmentName: null,
+        status: "pending-review",
+      },
+    };
+  }
+
+  /* The department branch's own refusal ladder, followed rather than re-invented. */
+  if (recorded.reason === "already-pending") {
+    return refused(
+      "already-pending",
+      "That exact organization-level work record is already waiting for Director approval. Nothing was filed again.",
+    );
+  }
+  if (recorded.reason === "persistence-unavailable") {
+    return refused("persistence-unavailable", "Durable persistence is not connected, so nothing was prepared.");
+  }
+  return {
+    status: "refused",
+    reason: "not-authorizable",
+    detail: `The proposal was refused (${recorded.reason}). Nothing was filed.`,
+    authorityRefusal: recorded.reason,
+  };
+}
+
 async function fileRecordWorkProposal(
   tenant: TenantContext | null,
   input: RecordWorkProposalInput | null,
@@ -86,7 +203,7 @@ async function fileRecordWorkProposal(
   if (!tenant?.tenantId || !tenant.userId) {
     return refused("unauthenticated", "Sign in to prepare an action.");
   }
-  if (!input) return refused("invalid-input", "A title and a department reference are required.");
+  if (!input) return refused("invalid-input", "A title and a declared department scope are required.");
 
   /*
    * THE TITLE IS CHECKED BY THE WORK AUTHORITY'S OWN RULE, imported rather than restated.
@@ -99,8 +216,51 @@ async function fileRecordWorkProposal(
   if (!isWellFormedWorkTitle(input.title)) {
     return refused("invalid-input", "That title is not one the Work Authority will accept.");
   }
+  /*
+   * ── 0. THE DECLARED SCOPE, BEFORE ANYTHING IS READ (TRH-16) ──────────────
+   *
+   * The caller must say which organizational truth it is asserting. This is checked FIRST, and
+   * separately from whether any department exists, because the two questions have different
+   * audiences: this one is about the caller's own envelope, which it always knows, so refusing it
+   * precisely leaks nothing. Department EXISTENCE stays collapsed into one answer below.
+   *
+   * A CONTRADICTORY ENVELOPE IS REFUSED, NOT REPAIRED. `organization-level` carrying a reference
+   * is not organization-level work with a stray field — it is a caller asserting two different
+   * things, and choosing one for it would be inventing intent.
+   */
+  const scope = input.department;
+  if (!scope || (scope.kind !== "department" && scope.kind !== "organization-level")) {
+    return refused(
+      "invalid-department-scope",
+      "Declare whether this work belongs to a department or to the organization itself.",
+    );
+  }
+  if (scope.kind === "organization-level" && "departmentRef" in scope) {
+    return refused(
+      "invalid-department-scope",
+      "Organization-level work names no department; remove the department reference or declare a department scope.",
+    );
+  }
+  if (scope.kind === "department" && typeof (scope as { departmentRef?: unknown }).departmentRef !== "string") {
+    return refused(
+      "invalid-department-scope",
+      "A department scope must carry the department reference it is scoped to.",
+    );
+  }
+
+  /*
+   * ── ORGANIZATION-LEVEL: NOTHING IS RESOLVED, BECAUSE NOTHING IS NAMED ────
+   *
+   * No Organization Authority read happens here, and that is not a shortcut — there is no
+   * reference to resolve. The absence is carried forward EXPLICITLY into the payload a human will
+   * see, so the decision surface shows a declared organizational fact rather than a blank field.
+   */
+  if (scope.kind === "organization-level") {
+    return fileOrganizationLevelProposal(tenant, input.title, proposer, deps, originationInvocationId);
+  }
+
   /* Shape first — a malformed reference is refused exactly as an absent one is. */
-  if (!isDepartmentRef(input.departmentRef)) {
+  if (!isDepartmentRef(scope.departmentRef)) {
     return refused("department-not-found", "That department reference does not name a department of this organization.");
   }
 
@@ -119,7 +279,7 @@ async function fileRecordWorkProposal(
     return refused("persistence-unavailable", "Organizational truth is not readable, so nothing was prepared.");
   }
 
-  const parsed = parseDepartmentRef(input.departmentRef)!;
+  const parsed = parseDepartmentRef(scope.departmentRef)!;
   const department = structure.departments.find((entry) => entry.departmentId === parsed.departmentId);
   if (!department) {
     return refused("department-not-found", "That department reference does not name a department of this organization.");
@@ -154,6 +314,9 @@ async function fileRecordWorkProposal(
     target: { kind: "record", ref: departmentRef, label: department.name },
     proposedArguments: {
       title: input.title,
+      /* Declared on BOTH branches, so the frozen payload states which truth was asserted rather
+       * than leaving a reader to infer it from which fields happen to be present. */
+      departmentScope: "department",
       /* The RE-FORMATTED reference, not the caller's string — so what is frozen provably came
        * from the row that was read. */
       departmentRef,

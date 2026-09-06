@@ -313,9 +313,26 @@ function thereIsOnlyOneAnswer(): void {
        * here: it is not a writer, and it reaches no database.
        */
       `${AUTHORITY_DIR}/department-ref.ts`,
+      /*
+       * TRH-16 adds a TWELFTH, of exactly the same kind as the eleventh and for exactly the same
+       * reason one level up: a PURE reference formatter/parser, `organization/<uuid>`, with no I/O,
+       * no table, no clock and no authority.
+       *
+       * It exists because governed `record-work` gained an organization-level branch — work an
+       * organization holds itself, naming no department — and `requiredEvidenceCount` for a
+       * CONSEQUENTIAL_MUTATION is 1. That rule asks "does this action refer to anything real?", and
+       * the honest answer for organization-level work is the organization. THE EVIDENCE RULE WAS
+       * NOT LOWERED; IT WAS ANSWERED, and answering it needed a way to name the organization.
+       *
+       * NAMED RATHER THAN COUNTED. This enumeration exists so an addition to the Organization
+       * Authority has to be stated and justified, not absorbed by incrementing a number. It is
+       * separately constrained below like every other file here: it is not a writer, and it reaches
+       * no database.
+       */
+      `${AUTHORITY_DIR}/organization-ref.ts`,
     ].sort(),
     "the Organization Authority is exactly its contracts, its read seam, its Heby projection, " +
-      "OSA-1's structural trio, and Departmental Placement's four — and nothing else. Formerly: " +
+      "OSA-1's structural trio, Departmental Placement's four, and the two pure reference modules — and nothing else. Formerly: " +
       "OSA-1's structural contracts, structural read and single structural writer",
   );
 

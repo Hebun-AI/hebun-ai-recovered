@@ -121,12 +121,23 @@ export async function retireWorkAction(input: {
  */
 export async function proposeRecordWorkForGovernanceAction(input: {
   title: string;
-  departmentRef: string;
+  /*
+   * TRH-16. Absent means ORGANIZATION-LEVEL only because this boundary CONVERTS it into that
+   * explicit declaration here, at the edge, where a client's silence is still visible as silence.
+   * Past this line the inlet sees a closed union and no absence at all, so nothing downstream has
+   * to guess what a missing field meant. A supplied reference is passed through unchanged and is
+   * resolved exactly as before.
+   */
+  departmentRef?: string | null;
 }): Promise<RecordWorkProposalResult> {
   const tenant = await resolveTenantContext();
+  const declaredRef = typeof input?.departmentRef === "string" ? input.departmentRef.trim() : "";
   const result = await fileRecordWorkProposal(tenant, {
     title: String(input?.title ?? ""),
-    departmentRef: String(input?.departmentRef ?? ""),
+    department:
+      declaredRef.length > 0
+        ? { kind: "department", departmentRef: declaredRef }
+        : { kind: "organization-level" },
   });
   /*
    * The REGISTER is deliberately not revalidated. Filing a proposal records no work item, and

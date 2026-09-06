@@ -315,7 +315,10 @@ function RecordWork({
 const PROPOSAL_REFUSAL_SENTENCE: Record<RecordWorkProposalRefusal, string> = {
   unauthenticated: "No organization is resolved for this session, so nothing was filed.",
   "invalid-input":
-    "A title must be present, unpadded, and at most 120 characters, and a department must be chosen. It was not repaired for you.",
+    "A title must be present, unpadded, and at most 120 characters, and a department scope must be declared. It was not repaired for you.",
+  /* TRH-16 — about the caller's own envelope, never about which departments exist. */
+  "invalid-department-scope":
+    "Declare whether this work belongs to a department or to the organization itself. Neither was stated, or both were, so nothing was filed.",
   "persistence-unavailable":
     "Hebun could not read this organization's departments, so nothing was filed — this is not a refusal of the act itself.",
   "department-not-found":

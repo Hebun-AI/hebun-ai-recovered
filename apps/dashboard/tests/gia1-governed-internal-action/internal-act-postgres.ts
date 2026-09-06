@@ -194,7 +194,7 @@ async function main(): Promise<void> {
 
     const proposal = await proposeRecordWorkAction(
       acmeCtx,
-      { title: "Q3 supplier audit", departmentRef: acmeDepartmentRef },
+      { title: "Q3 supplier audit", department: { kind: "department", departmentRef: acmeDepartmentRef } },
       deps,
     );
     assert.equal(proposal.status, "proposed", "the human proposal was filed");
@@ -223,7 +223,7 @@ async function main(): Promise<void> {
     /* THE SAME PROPOSAL TWICE IS THE SAME PROPOSAL. R3A's digest index decides this, not this file. */
     const duplicate = await proposeRecordWorkAction(
       acmeCtx,
-      { title: "Q3 supplier audit", departmentRef: acmeDepartmentRef },
+      { title: "Q3 supplier audit", department: { kind: "department", departmentRef: acmeDepartmentRef } },
       deps,
     );
     assert.equal(duplicate.status, "refused");
@@ -394,7 +394,7 @@ async function main(): Promise<void> {
      */
     const secondProposal = await proposeRecordWorkAction(
       acmeCtx,
-      { title: "Warehouse safety review", departmentRef: acmeDepartmentRef },
+      { title: "Warehouse safety review", department: { kind: "department", departmentRef: acmeDepartmentRef } },
       deps,
     );
     assert.equal(secondProposal.status, "proposed");
@@ -442,7 +442,7 @@ async function main(): Promise<void> {
     /* A refused proposal cannot reach across either: Globex's department is not Acme's. */
     const crossTenant = await proposeRecordWorkAction(
       acmeCtx,
-      { title: "Cross-tenant attempt", departmentRef: globexDepartmentRef },
+      { title: "Cross-tenant attempt", department: { kind: "department", departmentRef: globexDepartmentRef } },
       deps,
     );
     assert.equal(crossTenant.status, "refused");
@@ -465,7 +465,7 @@ async function main(): Promise<void> {
     );
     const doomedProposal = await proposeRecordWorkAction(
       acmeCtx,
-      { title: "Fleet contract renewal", departmentRef: doomedRef },
+      { title: "Fleet contract renewal", department: { kind: "department", departmentRef: doomedRef } },
       deps,
     );
     assert.equal(doomedProposal.status, "proposed");
@@ -509,7 +509,7 @@ async function main(): Promise<void> {
     /* And proposing against a retired department never reaches a decision at all. */
     const retiredProposal = await proposeRecordWorkAction(
       acmeCtx,
-      { title: "Anything at all", departmentRef: doomedRef },
+      { title: "Anything at all", department: { kind: "department", departmentRef: doomedRef } },
       deps,
     );
     assert.equal(retiredProposal.status, "refused");
@@ -531,7 +531,7 @@ async function main(): Promise<void> {
     const requestsBefore = await countOf("heby_action_requests");
     const unmandated = await proposeAgentOriginatedRecordWorkAction(
       acmeCtx,
-      { title: "Agent proposed this", departmentRef: acmeDepartmentRef },
+      { title: "Agent proposed this", department: { kind: "department", departmentRef: acmeDepartmentRef } },
       verifiedProposer!,
       deps,
     );
@@ -553,7 +553,7 @@ async function main(): Promise<void> {
 
     const outOfScope = await proposeAgentOriginatedRecordWorkAction(
       acmeCtx,
-      { title: "Agent proposed this", departmentRef: acmeDepartmentRef },
+      { title: "Agent proposed this", department: { kind: "department", departmentRef: acmeDepartmentRef } },
       verifiedProposer!,
       deps,
     );
@@ -581,7 +581,7 @@ async function main(): Promise<void> {
 
     const agentProposal = await proposeAgentOriginatedRecordWorkAction(
       acmeCtx,
-      { title: "Supplier contract review", departmentRef: acmeDepartmentRef },
+      { title: "Supplier contract review", department: { kind: "department", departmentRef: acmeDepartmentRef } },
       verifiedProposer!,
       deps,
     );

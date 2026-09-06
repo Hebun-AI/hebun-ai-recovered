@@ -243,6 +243,11 @@ function reversibleIsNotErasable(): void {
     target: { kind: "record", ref: "department/11111111-2222-3333-4444-555555555555", label: "Finance" },
     proposedArguments: {
       title: "Q3 supplier audit",
+      /* AMENDED AT TRH-16, to the invariant this fixture protects. The scope is now DECLARED rather
+       * than inferred from the reference's presence, so this payload states what the resolver
+       * actually sends. What is asserted below — PREPARED != AUTHORIZED, and an honest
+       * reversibility sentence — is unchanged. */
+      departmentScope: "department",
       departmentRef: "department/11111111-2222-3333-4444-555555555555",
     },
     evidence: [

@@ -153,11 +153,48 @@ export const RECORD_WORK_OWNER_WORKSPACE = "command" as const;
  * nobody has observed yet, and letting a proposal choose one would put an unverified claim about
  * the world inside an approval.
  */
+/**
+ * WHICH PART OF THE ORGANIZATION CARRIES THIS WORK — declared, never inferred (TRH-16).
+ *
+ * ── WHY A DISCRIMINATED UNION AND NOT AN OPTIONAL FIELD ──────────────────────
+ *
+ * `departmentRef?: string` would make three different facts indistinguishable: work the
+ * organization deliberately holds at organization level, a caller who forgot the field, and a
+ * malformed proposal. Silence would then have to MEAN something, and the meaning a reader picks is
+ * whichever one is convenient. A closed union makes the caller say which of the two organizational
+ * truths it is asserting, and makes saying neither a refusal.
+ *
+ * ── THE THREAT THIS PRESERVES, AND THE ONE IT STOPS MANUFACTURING ────────────
+ *
+ * The governed path is stricter than the human path because "a proposal that named nothing real
+ * would put a decision about a fiction in front of the Director". THE THREAT IS FICTION, NOT
+ * ABSENCE. A fabricated, foreign-tenant or retired department reference is fiction and still
+ * refuses. Explicit organization-level work invents nothing: it names no department because there
+ * is none, which is exactly what `work_items.department_id` NULL has always meant and what the
+ * human path has always allowed.
+ *
+ *     EXPLICIT ABSENCE   != MALFORMED REFERENCE
+ *     DEPARTMENTLESS WORK != FICTIONAL DEPARTMENT
+ */
+export type RecordWorkProposalDepartmentScope =
+  | {
+      readonly kind: "department";
+      /** `department/<uuid>` — resolved against Organization Structure Authority. Never a name. */
+      readonly departmentRef: string;
+    }
+  | {
+      /**
+       * Work this organization holds at organization level. NO department is looked up, and none
+       * is invented — an organization with zero departments is a valid organization.
+       */
+      readonly kind: "organization-level";
+    };
+
 export interface RecordWorkProposalInput {
   /** The organization's own words for what the work is. Never model-authored on the human path. */
   readonly title: string;
-  /** `department/<uuid>` — resolved against Organization Structure Authority. Never a name. */
-  readonly departmentRef: string;
+  /** Declared, and refused when it is neither of the two organizational truths. */
+  readonly department: RecordWorkProposalDepartmentScope;
 }
 
 /**
@@ -171,6 +208,16 @@ export interface RecordWorkProposalInput {
 export type RecordWorkProposalRefusal =
   | "unauthenticated"
   | "invalid-input"
+  /*
+   * THE DISCRIMINATOR ITSELF WAS NOT DECLARED, or contradicts itself — a missing `kind`, an
+   * unknown one, `department` with no reference, or `organization-level` carrying one anyway.
+   *
+   * DELIBERATELY DISTINCT FROM `department-not-found`, and it leaks nothing by being so. That
+   * refusal is collapsed because it answers "does this department exist?", a question about rows
+   * a caller may not be allowed to see. This one answers "what did you claim?", a question about
+   * the caller's own envelope — and a caller always knows what it sent.
+   */
+  | "invalid-department-scope"
   | "persistence-unavailable"
   | "department-not-found"
   | "department-retired"
@@ -182,8 +229,14 @@ export interface RecordWorkProposalReceipt {
   readonly requestId: string;
   readonly actionKind: typeof RECORD_WORK_ACTION_KIND;
   readonly title: string;
-  readonly departmentRef: string;
-  readonly departmentName: string;
+  /*
+   * WHAT WAS FILED, IN THE SAME SHAPE IT WAS DECLARED. A receipt that carried
+   * `departmentRef: string` would have to invent a value for organization-level work, which is the
+   * fiction this phase exists to stop manufacturing. `null` here is the declared absence, and a
+   * surface renders it as organization-level rather than as a missing name.
+   */
+  readonly departmentRef: string | null;
+  readonly departmentName: string | null;
   /** Always `pending-review`. There is no other value this type can hold. */
   readonly status: "pending-review";
 }
