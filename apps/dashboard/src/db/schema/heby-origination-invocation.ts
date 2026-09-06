@@ -131,9 +131,25 @@ export const hebyOriginationInvocations = pgTable(
     state: text("state").notNull(),
 
     /**
-     * The released `ModelConnectivityError` code, when one ended the call. A CLOSED code and never
-     * a provider message: raw error bodies are not stored, so nothing a provider wrote can leak
-     * here. Null means no connectivity failure ended this invocation.
+     * WHY THE CALL PRODUCED NOTHING — a CLOSED code Hebun wrote, never a sentence anyone else did.
+     *
+     * TWO closed vocabularies reach this column, and they never overlap:
+     *   · the released `ModelConnectivityError` code, when connectivity ended the call — paired
+     *     with `state` `not-dispatched` or `dispatch-failed`;
+     *   · TRH-18: the released `StructuredOutputRefusal`, when the provider answered and the
+     *     answer was not the contract — paired with `state = 'selection-invalid'`.
+     *
+     * Both are literal unions declared in this repository, so the column can hold no provider
+     * message, no model text, no goal text and no fragment of a malformed response. That is a
+     * property of what the two writers can pass, not a convention: raw bodies are never read.
+     *
+     * There is deliberately no CHECK enumerating the union. The two vocabularies belong to
+     * released modules that evolve on their own schedules, and a storage constraint that had to be
+     * migrated in lockstep with them would eventually make an honest diagnostic UNWRITABLE — which
+     * is the one thing this column must never do to the row it describes.
+     *
+     * DIAGNOSTIC ONLY. Nothing reads it to decide anything. Null means no failure was recorded for
+     * this invocation — never that none occurred.
      */
     failureCode: text("failure_code"),
 

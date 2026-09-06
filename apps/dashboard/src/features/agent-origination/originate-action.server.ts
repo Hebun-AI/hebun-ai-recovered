@@ -49,6 +49,13 @@ import {
   ModelConnectivityError,
 } from "@/features/heby-model";
 import { validateHebyPrompt, type ModelGenerationRequest } from "@/features/heby-runtime";
+/*
+ * TRH-18. PURE — `work-contracts.ts` imports nothing at all, so naming the released title bound in
+ * the prompt costs no I/O. It is IMPORTED rather than retyped for the same reason the parser
+ * imports the predicate: a number the model is told and a number the parser enforces must be ONE
+ * number, or the contract drifts silently the first time either is changed.
+ */
+import { MAX_WORK_TITLE_LENGTH } from "@/features/organizational-work/work-contracts";
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import {
   resolveAgentProposer,
@@ -70,6 +77,7 @@ import {
   type CandidateSetDeps,
 } from "./candidate-set.server";
 import {
+  MAX_ORIGINATION_REASON_LENGTH,
   NO_ACTION_KIND,
   RECORD_WORK_ORIGINATION_ALIAS,
   SEND_ORIGINATION_ALIAS,
@@ -89,6 +97,22 @@ import { parseAgentActionSelection } from "./structured-output";
  *
  * The refusal path is stated as the PREFERRED answer when unsure. A model that believes it must
  * always name an action will name one, and an invented proposal is worse than none.
+ *
+ * ── TRH-18: THE BOUNDS THE PARSER ENFORCES ARE THE BOUNDS THE MODEL IS TOLD ──
+ *
+ * The parser rejects and never repairs — a missing key, an extra key, a blank reason, an over-long
+ * reason, an untrimmed or over-long title are each a whole-response refusal. Until TRH-18 the
+ * prompt showed the SHAPE of the envelopes and stated none of those bounds, so a model could obey
+ * every instruction it was given and still be refused for a rule it was never told. That is not a
+ * containment property; it is a contract with a hidden half.
+ *
+ * Stating them weakens nothing. The parser is unchanged, refusal is still the outcome for anything
+ * outside the contract, and the model is told that explicitly: a reply that breaks a bound is
+ * DISCARDED, and abstaining is the correct answer when it cannot comply.
+ *
+ * The two numeric bounds are INTERPOLATED FROM THE RELEASED CONSTANTS, never retyped. A literal
+ * here would be a second copy of a number the parser owns, and the first change to either would
+ * leave the model told one bound and held to another with nothing failing to say so.
  */
 export const AGENT_ORIGINATION_SYSTEM_INSTRUCTIONS = [
   "You are Heby, a durable organizational agent inside the Hebun runtime.",
@@ -101,6 +125,14 @@ export const AGENT_ORIGINATION_SYSTEM_INSTRUCTIONS = [
   'To propose recording organizational work that belongs to one department:',
   '{"kind":"record-work","args":{"title":"<what the work is>","scope":{"kind":"department","departmentSlug":"<slug>"}},"reason":"<why>"}',
   'To propose nothing: {"kind":"none","reason":"<why>"}',
+  "Each object above is COMPLETE as shown: send exactly those keys, with none missing and none",
+  "added, and no prose before or after the object. Anything else is discarded unread.",
+  `Every reply must carry a "reason": a non-blank string of at most ${MAX_ORIGINATION_REASON_LENGTH} characters.`,
+  `A record-work "title" is required: a non-blank string of at most ${MAX_WORK_TITLE_LENGTH} characters,`,
+  "written with no leading or trailing whitespace.",
+  "Nothing you send is trimmed, completed, shortened or corrected on your behalf. A reply that",
+  "breaks any bound above is discarded whole, and no proposal is made from it — so if you cannot",
+  "stay inside these bounds, reply with kind \"none\".",
   "Propose ONLY a kind that appears in the CANDIDATES section. A kind with no candidates listed is",
   "not available to you for this organization right now.",
   "You may ONLY use a recipientRef, a draftRef or a departmentSlug that appears VERBATIM in the",
@@ -544,6 +576,25 @@ async function selectAction(
       status: "refused",
       reason: parsed.reason,
       invocationState: "selection-invalid",
+      /*
+       * TRH-18. THE EXACT PARSE REFUSAL, PERSISTED — never a rewording and never "invalid".
+       *
+       * `selection-invalid` said only THAT the response was not the contract. Which bound it broke
+       * — prose instead of an object, an extra key, a blank reason, a reference nobody offered —
+       * was computed and then dropped one line later, so the calls most worth studying were the
+       * ones the record could say least about.
+       *
+       * `parsed.reason` is a member of the CLOSED `StructuredOutputRefusal` vocabulary that Hebun
+       * itself wrote. It carries no model text, no goal text, no provider sentence and no fragment
+       * of the malformed response — nothing a provider or a prompt author authored can reach the
+       * column through this value, which is why the no-prompt/no-response rule this table was
+       * built on survives the addition.
+       *
+       * IT IS A DIAGNOSTIC AND NOTHING ELSE. The refusal returned to the caller is unchanged, no
+       * proposal is filed either way, and no branch anywhere reads `failure_code` to decide
+       * anything — recording why is not deciding what.
+       */
+      failureCode: parsed.reason,
       result,
     };
   }

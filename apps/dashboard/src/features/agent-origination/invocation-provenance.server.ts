@@ -14,8 +14,10 @@
  *
  * The goal text, the model's raw answer, the API key, the Authorization header and any provider
  * error body are all absent by construction: there is no parameter that could carry them. The only
- * failure information stored is the released `ModelConnectivityError` CODE, a closed value Hebun
- * wrote, never a sentence a provider wrote.
+ * failure information stored is a CLOSED CODE HEBUN WROTE — the released `ModelConnectivityError`
+ * code when connectivity ended the call, or (TRH-18) the released `StructuredOutputRefusal` when
+ * the provider answered and the answer was not the contract. Both are literal unions in this
+ * repository, so neither can carry a sentence a provider wrote or a byte the model produced.
  *
  * ── WHY REGISTRATION MAY REFUSE, AND FINALIZATION MAY NOT ────────────────────
  *
