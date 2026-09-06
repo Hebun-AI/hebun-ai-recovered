@@ -3527,3 +3527,41 @@ carry an obsolete claim into a decision. *Turkish Rug House:* the ceremony that 
 tenant was correctly described before it was pointed at production, instead of warning an operator
 it was development-only. *Hebun AI:* DOC-1 corrected four comments, zero executable delta proved by
 a filtered diff, and the pattern is now written down at its third occurrence rather than its fourth.
+
+## TRH-18 — a contract with a hidden half is not a containment property
+
+- **The parser enforced bounds the prompt never stated.** Exact envelope keys, a non-blank `reason`
+  under 400 characters, a non-blank untrimmed `title` under 120 — all refusals, none of them said to
+  the model. Turkish Rug House's first real production origination failed on exactly this: the
+  provider answered, the parser refused, and the record said only `selection-invalid`. A model that
+  obeys every instruction it is given and is still refused has not been contained; it has been asked
+  to guess. **Stating a bound is not relaxing it** — the parser is unchanged, refusal is still the
+  outcome, and the prompt now says so explicitly and routes a non-compliant model to abstain.
+- **Interpolate a shared bound, never retype it.** The two numbers come from
+  `MAX_ORIGINATION_REASON_LENGTH` and the Work Authority's `MAX_WORK_TITLE_LENGTH`. A literal in the
+  prompt would be a second copy of a number the parser owns; the first change to either side would
+  leave the model told one bound and held to another with nothing failing to say so.
+- **A diagnostic gap hides its own cause.** `failure_code` was computed on the parse-refusal path and
+  discarded one line later, so the calls most worth studying were the ones the record could say least
+  about. The fix persists the closed `StructuredOutputRefusal` — a value Hebun wrote, never a
+  sentence a provider wrote — and a firewall proves it moves no proposal, permit, execution, work
+  item, decision or audit row.
+- **Prove a released prompt reached production by measuring, not by trusting the SHA.** Deploy
+  timestamps bracketed both invocations (`22ce9fc` READY 18:09:16Z, `63a4ff3` READY 19:19:04Z), and
+  because the tenant created no artifact, revision, recipient or department in between, the candidate
+  block and goal were byte-identical — so the +144 input tokens is attributable to the instructions
+  alone. **A token delta is evidence when everything else is held still.**
+- **Prove non-effects by WINDOW across every table, not by counting the ones you suspect.** Generating
+  the union query from `information_schema` covered all 60 `created_at` tables and all 58 `updated_at`
+  tables; three rows moved in eleven minutes. A hand-written list of authorities proves only that the
+  authorities you thought of stayed still.
+- **A green ceremony can leave half the phase unproven.** Invocation #2 parsed cleanly, so the
+  persisted-diagnostic path has never fired in production. The closure says so rather than letting
+  "production-accepted" imply both halves were exercised.
+
+**Weekly three.** *Learned:* a parser bound the model is not told about is a defect in the contract,
+not discipline — and the record that would have identified it was being thrown away. *Turkish Rug
+House:* its Heby filed its first proposal ever, `pending`, organization-level, under a mandate whose
+scope is exactly `{record-work}`, with nothing authorized, permitted, executed or recorded. *Hebun
+AI:* the model-facing contract and the parser now share their bounds by construction, and a refused
+parse names which bound it broke.
