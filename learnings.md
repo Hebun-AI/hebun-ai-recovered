@@ -3600,3 +3600,47 @@ Rug House:* its Heby's future proposals will carry the reason it gave, and its o
 proposal honestly says `RATIONALE UNAVAILABLE` rather than inventing one. *Hebun AI:* the proposal
 record now separates what was proposed, why the agent proposed it, and why a human decided — three
 truths, three owners, none of them able to stand in for another.
+
+## TRH-20 — a fence forked is a guarantee kept; a fence loosened is a guarantee deleted
+
+- **The business question and the released fence were both right, about different acts.** "What
+  should we do next" is exactly what CGO-7 forbids the model to answer — and that fence governs a
+  model *writing a draft*, where a prescription arrives dressed as the organization's own finding.
+  Origination is the other act: the model decides whether to *ask*, and every reply it can make is
+  refused, filed pending, or nothing. So the fence was **forked**, keeping every denial about a
+  number and licensing exactly one new thing. Editing the released fence would have bought the same
+  capability by deleting a guarantee that had nothing to do with this phase.
+- **Fork the policy, share the facts.** Two briefs rendering the same observation could drift, and
+  then one channel would say two things depending on which act was being performed. The reported
+  half was extracted into one renderer both call, and a test asserts both blocks end with the same
+  bytes. Policy differs by design; numbers cannot differ at all.
+- **Deny a plausible absence by name, never by category.** A growth question invites watch time,
+  retention, CTR, impressions, traffic sources, search terms, demographics, conversions, revenue —
+  none of which the provider contract can return, and every one of which sounds like something a
+  channel report would contain. "Other metrics are not available" is a sentence a model reads past.
+- **Where a field lives is the safety argument.** The supplement is a DEP of the origination seam,
+  never a field of its client-supplied input. Ten released assertions prove the browser boundary
+  forwards `{ goal }` and nothing else; accepting it there would have opened a channel for a browser
+  to write arbitrary text into the model's grounding. Same capability, same lines of code, opposite
+  security property.
+- **Grounding is never a candidate.** A candidate is something the model may NAME and is
+  membership-checked; the observation is something it may READ. Appending it after the candidate
+  lines — proved by reading the system message the transport actually received — keeps provider text
+  out of the place the parser looks for references.
+- **A safety check defeated by arithmetic is not a safety check.** The admission ceremony's
+  key-equality proof consulted only the selected organization's own credentials, so a NEW
+  organization could never satisfy it and the first one connected would always be admitted under the
+  bypass flag. The question it actually asks is whether these keys open something production sealed;
+  any such credential answers it. Ask the question the check is for, then find every legitimate way
+  to answer it.
+- **`limit 1` over memberships stopped being harmless the day a second tenant existed.** The released
+  ceremony would have connected a provider to whichever organization sorted first. Nothing failed;
+  the query simply began meaning something else.
+
+**Weekly three.** *Learned:* a released rule that blocks you is usually right about a different act
+than the one you are performing — find the act boundary before you touch the rule. *Turkish Rug
+House:* its Heby can now look at the organization's own public channel and ask, in its own recorded
+words, for work to be put on the record — and a human still decides, because the observation
+authorizes nothing. *Hebun AI:* provider observation, derived interpretation and proposed
+organizational work are now three separately-fenced things that no single module owns, and the
+provider-admission ceremony can no longer connect an organization nobody named.
