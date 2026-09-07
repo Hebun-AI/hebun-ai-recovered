@@ -3726,3 +3726,56 @@ provider observation — a baseline of zero public content on a channel created 
 uninteresting, and honest about being neither trend nor performance. *Hebun AI:* provider utterance,
 organizational fact and authority to collect are now three separate things, and the third one still
 does not exist.
+
+## TRH-23 — permission to look is a Governance decision, and the principal that consumes it owns nothing
+
+- **The append-only shape is not a storage preference, it is the security property.** A `revoked_at`
+  stamp and a superseding revision both "work". Only one of them makes
+  `UPDATE … SET capability_key = <broader>` UNREPRESENTABLE, because the authority then has no update
+  writer at all and a test can prove no `.update(` against that table exists anywhere in `src/`. The
+  Director asked for widening not to be an ordinary lifecycle operation; the honest delivery was to
+  make it not an operation.
+- **The tenant trust chain fits in one absent parameter.** `mintObservationPrincipal` takes the
+  authorization's own id and nothing else. A caller that could name a tenant could choose one, so
+  there is no tenant argument — the tenant is whatever the row says. A bite proof adds the parameter
+  back and the firewall bites.
+- **One line would have undone the whole phase, and it is the one nobody would look at.** Narrowing
+  `withDecryptedSecret` to a bare tenant scope would let the machine principal decrypt a provider
+  secret while every other rule in the firewall still passed. Three read seams were narrowed; the
+  OPENER deliberately was not, and the proof that matters is the mutation that narrows it.
+- **A firewall that only mutates the schema module proves nothing about a running database.** The
+  disposable harness applies the `.sql` files and never reads `db/schema/*.ts`, so deleting a CHECK
+  from the drizzle definition changed nothing and the suite passed — a bite reported that never
+  happened. Mutate the artifact the runtime actually reads.
+- **`!/x:\s*(?!"human")/` reads like a guard and is one only by accident.** `\s*` backtracks to zero
+  width and the lookahead then succeeds against the space, so the rule passes on source saying
+  exactly what it forbids. Enumerate every occurrence and compare each; a negative lookahead beside a
+  greedy quantifier is not a control.
+- **Declare the reason a mutation ACTUALLY fails, not the one it ought to.** Four bite proofs claimed
+  a message the suite never printed, because the injected defect tripped an earlier assertion. The
+  repair is to probe the mutation once and name what came back — and, where the earliest assertion
+  had no message at all, to give it one. A generated `strictEqual` message cannot be matched.
+- **A released firewall will tell you where your writer belongs.** Reading `integrations` directly to
+  validate a connection broke a pinned two-module boundary. The repair was not to widen the census
+  but to ask the released `readConnection` seam — and the composite foreign key was the safety
+  mechanism all along, so the check did not even need to be inside the transaction.
+- **A ledger move is now ~45 pins across ~40 files, and six of them are never mechanical:** two
+  ledger digests, one release digest spanning two files, a journal-TAIL bite anchor that must move
+  with every migration, the pending-migration probe (point it at what THIS migration creates, or it
+  is satisfied before migrating), and TRH-21's own "grew 49 -> 50" claim — which was SPLIT into a
+  historical fact and a live measurement rather than rewritten, because the historical half stays
+  true forever.
+- **Two censuses grew, and growing them is the strict repair.** The human-only CHECK census (12 -> 13
+  and 13 -> 14) and the governance-audit sibling census (7 -> 8). Loosening either to "at least N"
+  would let a future phase DELETE a released constraint and still pass.
+- **`standing_observation_authorizations` matches `/observation/` and is not an observation table.**
+  A census that read "the one observation table" had to grow — but the note beside it had to say why:
+  it stores permission to observe, holds no provider response, no facts and no instant, and nothing
+  in it is a thing anybody observed.
+
+**Weekly three.** *Learned:* the shape of a lifecycle decides what is possible, so "append-only" bought
+a security guarantee that no amount of checking could have. *Turkish Rug House:* its Governance can
+now durably authorize exactly one recurring look at its own public channel — and until the Director
+runs the two ceremonies, it has authorized nothing and nothing has looked. *Hebun AI:* a non-human
+principal is representable, mintable and structurally powerless, and the thing that still does not
+exist is anything that would invoke it.
