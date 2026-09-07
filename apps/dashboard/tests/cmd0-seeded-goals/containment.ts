@@ -56,9 +56,13 @@ const OWNED = [MODEL, COMPONENT] as const;
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-const LEDGER_COUNT = 49; /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
-const LEDGER_DIGEST = "b6d5a80092632fa9"; /* TRH-10 authored migration 48 (`artifact-review` governance domain);
- * `29521f60d3c9e78a` was the digest at 47. Recomputed with this file's own sha256-over-bodies mechanism. */ /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it. */
+const LEDGER_COUNT = 50; /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
+const LEDGER_DIGEST = "4a196d7fa8092725"; /* TRH-10 authored migration 48 (`artifact-review` governance domain);
+ * `29521f60d3c9e78a` was the digest at 47. Recomputed with this file's own sha256-over-bodies mechanism. 
+ * TRH-21 authored migration 50 — one additive `CREATE TABLE "provider_observations"` with its
+ * composite tenant/connection foreign key — so the digest moves again: `b6d5a80092632fa9` was the
+ * digest at 49.
+ */ /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

@@ -92,8 +92,8 @@ function main(): void {
       entries: { idx: number; tag: string }[];
     };
     const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-    assert.equal(journal.entries.length, 49, "MIGRATION DELTA = 0 for E2-4 — the ledger moved for other phases, never for this one"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
-    assert.equal(files.length, 49, "no `.sql` was added by E2-4"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
+    assert.equal(journal.entries.length, 50, "MIGRATION DELTA = 0 for E2-4 — the ledger moved for other phases, never for this one"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
+    assert.equal(files.length, 50, "no `.sql` was added by E2-4"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
   }
 
   /* ── 2. AUTHORITATIVE WRITER DELTA = 0 ───────────────────────────────────── */

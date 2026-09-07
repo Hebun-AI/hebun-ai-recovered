@@ -23,6 +23,14 @@ import { YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY, type YouTubeChannelObservation 
 import type { ReadChannelObservationOutcome } from "../../src/features/provider-youtube/read-channel-observation.server";
 import { asHumanTenantContext, type TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+/*
+ * TRH-21 — a successful authorized read now NAMES the connection the capability authority chose,
+ * so a fixture standing in for one has to name a connection too. The value is arbitrary here and
+ * asserted nowhere in this file: what it defends is that a success shape without a connection is
+ * no longer constructible, which is the point of surfacing it.
+ */
+const CONNECTION_ID = "00000000-0000-4000-8000-0000000000c0";
+
 const TENANT: TenantContext = asHumanTenantContext({
   tenantId: "11111111-1111-4111-8111-111111111111",
   userId: "22222222-2222-4222-8222-222222222222",
@@ -120,7 +128,7 @@ async function main(): Promise<void> {
 
   /* ── 2. THE HAPPY PATH SAYS WHAT WAS OBSERVED, AND NOTHING IT WAS NOT ── */
   {
-    const result = await run({ ok: true, value: OBSERVATION });
+    const result = await run({ ok: true, value: OBSERVATION, integrationId: CONNECTION_ID });
     assert.equal(tone(result), "info");
     const t = text(result);
     assert.ok(t.includes("Can Damlaları") && t.includes("UC123"), "channel identity");
@@ -167,7 +175,7 @@ async function main(): Promise<void> {
 
   /* ── 4. THE BUDGET IS ONE CLOCK ── */
   {
-    const slow = await run(() => new Promise((resolve) => setTimeout(() => resolve({ ok: true, value: OBSERVATION }), 80)), { totalTimeoutMs: 10 });
+    const slow = await run(() => new Promise((resolve) => setTimeout(() => resolve({ ok: true, value: OBSERVATION, integrationId: CONNECTION_ID }), 80)), { totalTimeoutMs: 10 });
     assert.equal(tone(slow), "unavailable");
     assert.ok(text(slow).includes("did not answer in time"));
   }
@@ -175,7 +183,7 @@ async function main(): Promise<void> {
   /* ── 5. THE GATES BEFORE ANY OBSERVATION ── */
   {
     let observed = 0;
-    const deny = async () => { observed += 1; return { ok: true, value: OBSERVATION } as const; };
+    const deny = async () => { observed += 1; return { ok: true, value: OBSERVATION, integrationId: CONNECTION_ID } as const; };
     assert.deepEqual(await run(deny, { tenant: null }), { status: "unauthorized" });
     assert.deepEqual(await run(deny, { commandId: "nope" }), { status: "rejected", reason: "unknown-command" });
     assert.deepEqual(await run(deny, { commandId: "repositories" }), { status: "rejected", reason: "not-a-provider-observation-command" });

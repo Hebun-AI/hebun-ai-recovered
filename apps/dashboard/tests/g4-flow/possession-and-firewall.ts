@@ -642,6 +642,8 @@ function noSchema(): void {
       /* TRH-10 — the `artifact-review` governance domain. A later phase, not this one's. */
       "20260905212157_trh10_artifact_review_domain.sql",
       "20260906195534_trh19_agent_proposal_rationale.sql",
+      /* TRH-21 — the `provider_observations` table. A declared later phase, not this one's. */
+      "20260907124912_trh21_provider_observation_history.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );

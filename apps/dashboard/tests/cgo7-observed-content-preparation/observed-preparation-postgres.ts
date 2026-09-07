@@ -31,6 +31,14 @@ import type { SourceResolution } from "../../src/features/heby-runtime/contracts
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 
+/*
+ * TRH-21 — a successful authorized read now NAMES the connection the capability authority chose,
+ * so a fixture standing in for one has to name a connection too. The value is arbitrary here and
+ * asserted nowhere in this file: what it defends is that a success shape without a connection is
+ * no longer constructible, which is the point of surfacing it.
+ */
+const CONNECTION_ID = "00000000-0000-4000-8000-0000000000c0";
+
 const NOW = new Date("2026-09-04T09:00:00.000Z");
 const CAPTION = "Madder root, three days, one colour.";
 
@@ -178,7 +186,7 @@ async function main(): Promise<void> {
         title: "Madder root reel caption",
         observeChannelHandle: "@turkishrughouse",
       },
-      { ...baseDeps, observe: observing({ ok: true, value: OBSERVATION }) },
+      { ...baseDeps, observe: observing({ ok: true, value: OBSERVATION, integrationId: CONNECTION_ID }) },
     );
 
     assert.equal(
@@ -335,7 +343,7 @@ async function main(): Promise<void> {
         title: "Loom maintenance",
         observeChannelHandle: "@turkishrughouse",
       },
-      { ...baseDeps, observe: observing({ ok: true, value: OBSERVATION }) },
+      { ...baseDeps, observe: observing({ ok: true, value: OBSERVATION, integrationId: CONNECTION_ID }) },
     );
     assert.equal(wrongType.observation.status, "refused", "an operational plan carries no brief, so no observation");
     assert.equal(
@@ -355,7 +363,7 @@ async function main(): Promise<void> {
         intendedDestination: "instagram",
         title: "Caption with no observation",
       },
-      { ...baseDeps, observe: observing({ ok: true, value: OBSERVATION }) },
+      { ...baseDeps, observe: observing({ ok: true, value: OBSERVATION, integrationId: CONNECTION_ID }) },
     );
     assert.equal(unobserved.observation.status, "not-requested");
     assert.equal(unobserved.preparation.status, "prepared");

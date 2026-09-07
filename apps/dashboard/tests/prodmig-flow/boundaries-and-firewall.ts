@@ -382,9 +382,9 @@ function theProductIsWalledOff(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function itIsInfrastructureNotSchema(): void {
   const files = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(files.length, 49, "the production migration AUTHORITY authors no migration of its own"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
+  assert.equal(files.length, 50, "the production migration AUTHORITY authors no migration of its own"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: unknown[] };
-  assert.equal(journal.entries.length, 49, "and the journal agrees"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
+  assert.equal(journal.entries.length, 50, "and the journal agrees"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
 }
 
 function main(): void {

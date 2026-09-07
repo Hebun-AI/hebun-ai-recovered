@@ -204,7 +204,7 @@ async function main(): Promise<void> {
          * (`19f0f97195c4cdc17fca61e736f0fe44`, the value this line held until now) and converges
          * only when its own gated ceremony runs. The gap is the point: authoring a migration is not
          * applying one. */
-        "3054a933444257110870a773d5afe4ce",
+        "76d35e01e43a609029bcd2cb86152282",
         /*
          * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
          * sentence had been false since R2H — whose own comment, three lines above it, said

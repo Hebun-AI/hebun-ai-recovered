@@ -116,7 +116,9 @@ function main(): void {
       "20260902212106_pbga1_action_request_work_purpose.sql",
       "20260903093716_cgo1_content_draft_destination.sql",
       "20260905212157_trh10_artifact_review_domain.sql",
-      "20260906195534_trh19_agent_proposal_rationale.sql"],
+      "20260906195534_trh19_agent_proposal_rationale.sql",
+      /* TRH-21 — the `provider_observations` table. A declared later phase, not this one's. */
+      "20260907124912_trh21_provider_observation_history.sql"],
       "KR5 adds exactly one migration",
     );
     const journal = JSON.parse(read(MIGRATIONS, "meta", "_journal.json")) as {

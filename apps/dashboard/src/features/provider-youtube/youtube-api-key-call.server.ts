@@ -43,8 +43,22 @@ export type YouTubeAuthorizationRefusal =
   | "capability-not-available"
   | "no-youtube-connection";
 
+/*
+ * TRH-21 — THE SUCCESS BRANCH NAMES THE CONNECTION IT SPENT.
+ *
+ * `integrationId` is the connection the CAPABILITY AUTHORITY chose for this read. It is surfaced,
+ * never chosen by a caller: no entry point here accepts one, and a caller that wanted a different
+ * connection would have to change what the authority answers.
+ *
+ * It exists because an observation record must be able to say "read through connection C" without
+ * re-resolving the connection somewhere else — a second resolution would be a second answer to a
+ * question this seam already answered, and the two could disagree after a rotation.
+ *
+ * It is on the SUCCESS branch only. A refusal spent no connection, and naming one would imply a
+ * read that never happened.
+ */
 export type YouTubeAuthorizedOutcome<T> =
-  | { readonly ok: true; readonly value: T }
+  | { readonly ok: true; readonly value: T; readonly integrationId: string }
   | { readonly ok: false; readonly refusal: YouTubeAuthorizationRefusal }
   | YouTubeFailure;
 
@@ -102,5 +116,6 @@ export async function withConnectedYouTubeApiKey<T>(
   );
   if (!connection) return { ok: false, refusal: "no-youtube-connection" };
 
-  return withYouTubeApiKey(tenant, connection.integrationId, call, deps);
+  const outcome = await withYouTubeApiKey<T>(tenant, connection.integrationId, call, deps);
+  return outcome.ok ? { ok: true, value: outcome.value, integrationId: connection.integrationId } : outcome;
 }

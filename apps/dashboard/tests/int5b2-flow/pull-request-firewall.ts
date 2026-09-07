@@ -213,7 +213,7 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   {
     const journal = JSON.parse(read(JOURNAL)) as { entries: readonly { tag: string }[] };
-    assert.equal(journal.entries.length, 49, "the ledger is UNCHANGED — this capability adds no migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
+    assert.equal(journal.entries.length, 50, "the ledger is UNCHANGED — this capability adds no migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
     /*
      * PHASE-RELATIVE, NOT ABSOLUTE. Pinning "the newest migration is X" is falsified by the next
      * phase that authors one, and the claim this file is making is about INT-5B2: it authored

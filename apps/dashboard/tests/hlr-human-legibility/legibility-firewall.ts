@@ -164,7 +164,7 @@ function walk(dir: string): string[] {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) =>
     f.endsWith(".sql"),
   );
-  assert.equal(migrations.length, 49, "the migration ledger is untouched by HLR"); /* WORK-1 grew it to 42; Departmental Placement to 43; GIA-1 to 44; CGO-1 to 47. None is HLR's. TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
+  assert.equal(migrations.length, 50, "the migration ledger is untouched by HLR"); /* WORK-1 grew it to 42; Departmental Placement to 43; GIA-1 to 44; CGO-1 to 47. None is HLR's. TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
 
   /* THE ROSTER CLAIM IS STILL FALSE FOR ORGANIZATION, WHICH IS THE POINT. */
   assert.equal(

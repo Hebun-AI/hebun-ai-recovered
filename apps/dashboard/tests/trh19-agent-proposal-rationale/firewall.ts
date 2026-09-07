@@ -269,17 +269,38 @@ function main(): void {
    * ═════════════════════════════════════════════════════════════════════ */
   {
     const files = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).sort();
-    assert.equal(files.length, 49, "TRH-19 authored migration 49"); /* 48 at TRH-18; this phase +1. */
+    /*
+     * "TRH-19 authored migration 49" is a FACT ABOUT HISTORY and stays true forever. The COUNT is
+     * a live measurement and moves whenever any later phase authors one, so the two are stated
+     * separately rather than folded into a sentence that would become false the first time the
+     * ledger grew.
+     */
+    assert.ok(
+      files.some((f) => f.includes("trh19_agent_proposal_rationale")),
+      "TRH-19 authored migration 49, and it is still on disk",
+    );
+    assert.equal(files.length, 50, "the ledger is at 50 — 48 at TRH-18, +1 for TRH-19, +1 for TRH-21");
     const journal = JSON.parse(read(`${MIGRATIONS}/meta/_journal.json`)) as {
       entries: readonly { tag: string }[];
     };
-    assert.equal(journal.entries.length, 49, "and the journal agrees with the files");
+    assert.equal(journal.entries.length, 50, "and the journal agrees with the files");
+    /*
+     * IT IS IN THE JOURNAL — which is what TRH-19 owns. Being LAST was only ever true until the
+     * next phase authored one, and pinning it there would make every later migration fail a test
+     * about a released phase that did nothing wrong.
+     */
     assert.ok(
-      journal.entries[journal.entries.length - 1]!.tag.includes("trh19_agent_proposal_rationale"),
-      "and it is the last entry",
+      journal.entries.some((entry) => entry.tag.includes("trh19_agent_proposal_rationale")),
+      "TRH-19's migration is in the journal",
+    );
+    assert.equal(
+      journal.entries.at(-1)!.tag,
+      "20260907124912_trh21_provider_observation_history",
+      "and TRH-21 holds the newest line — TRH-19 held it before",
     );
 
-    const sql = read(`${MIGRATIONS}/${files[files.length - 1]}`);
+    /* TRH-19's OWN sql, found by name — not "the newest file", which is now another phase's. */
+    const sql = read(`${MIGRATIONS}/${files.find((f) => f.includes("trh19_agent_proposal_rationale"))}`);
     assert.ok(sql.includes('ADD COLUMN "proposal_rationale" text'), "one nullable text column");
     assert.ok(!/\bNOT NULL\b/i.test(sql), "nullable — every historical row stays valid, unbackfilled");
     for (const destructive of ["DROP ", "ALTER COLUMN", "UPDATE ", "DELETE ", "CREATE INDEX"]) {

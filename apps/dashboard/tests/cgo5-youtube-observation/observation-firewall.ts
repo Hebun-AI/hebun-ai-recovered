@@ -215,8 +215,29 @@ function main(): void {
   /* ── 7. NO PERSISTENCE ARRIVED: no table for a channel, a video, or an observation ── */
   {
     const schema = walk("src/db/schema").map((f) => path.basename(f));
-    assert.ok(!schema.some((f) => /youtube|channel|video|observation/i.test(f)), "no YouTube table");
-    assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 49, "ledger unchanged at 47"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
+    /*
+     * CGO-5 ADDED NO PERSISTENCE, AND STILL HAS NOT. What changed is that TRH-21 added a
+     * PROVIDER-NEUTRAL observation history — so this can no longer be "no file whose name
+     * mentions an observation", which would have been satisfied only by the absence of a table
+     * this phase does not own.
+     *
+     * The claim CGO-5 actually makes is narrower and is now asserted as such: no table is named
+     * for YouTube, a channel or a video. A provider-neutral table is not a YouTube table, and a
+     * test asserting otherwise would be pinning an absence rather than a boundary.
+     */
+    assert.ok(!schema.some((f) => /youtube|channel|video/i.test(f)), "no YouTube, channel or video table");
+    assert.deepEqual(
+      schema.filter((f) => /observation/i.test(f)),
+      ["provider-observation.ts"],
+      "the one observation table is the provider-neutral history, and it names no provider",
+    );
+    const observationTable = read("src/db/schema/provider-observation.ts");
+    assert.equal(/youtube/i.test(codeOf(observationTable)), false, "and its code names no provider");
+    assert.equal(
+      readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length,
+      50,
+      "the ledger moved for TRH-21, and CGO-5 authored none of it",
+    ); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
   }
 
   console.log("PASS cgo5 provider-observation firewall");

@@ -317,7 +317,7 @@ async function theProviderIsUnchanged(): Promise<void> {
 
   /* NO SCHEMA, NO MIGRATION. */
   const journal = read("src/db/migrations/meta/_journal.json");
-  assert.equal(JSON.parse(journal).entries.length, 49, "the ledger is unchanged at 49");
+  assert.equal(JSON.parse(journal).entries.length, 50, "the ledger moved for TRH-21; this fix authored none of it");
   assert.equal(journal.includes("trh20"), false, "this fix authored no migration");
 }
 
