@@ -3683,3 +3683,46 @@ through a fence and, finding nothing there, correctly asks for nothing — the c
 content yet, and that is a business fact the system stated rather than hid. *Hebun AI:* provider
 observation reaches a durable agent, informs a governed decision, and becomes no row anywhere —
 measured, not asserted.
+
+## TRH-21 — memory of an authorized observation is not authority to make another
+
+- **The collapse happens through the OWNER, not the value.** `subscriberCount = 100` filed under an
+  authority whose meaning is "what this organization holds" BECOMES that claim, whatever any comment
+  says. That is the whole reason a new narrow authority was correct and every existing home was
+  wrong — and each refusal was a measurement, not a preference: a NOT NULL message id that CASCADES
+  on delete, a human-only CHECK, a ratifiable lifecycle, or zero rows and zero writers.
+- **Dedupe on the INSTANT, never on the values.** A later read with identical numbers is a NEW
+  observation, because "the count did not change" is itself an observation and collapsing it erases
+  the only evidence anyone looked. The bite proof that matters adds the facts digest to the conflict
+  target — it reads like "dedupe more precisely" and silently converts the rule from *when* to
+  *what*.
+- **Derive deploy ordering from the import graph, not from last phase's habit.** TRH-19 needed
+  migration-first because a released read seam on a rendered surface selected the new column. TRH-21
+  is safe code-first because `src/app/**` and `src/components/**` reference the new authority
+  NOWHERE — the only consumer outside its own directory is an operator script. Same repository,
+  opposite answer, and the difference is measurable in seconds.
+- **Put the write where the firewalls allow it.** A released firewall asserts every file under
+  `provider-youtube` and the Heby observation root "touches no table". Persisting there would have
+  breached it AND made the command's own sentence — "Nothing was stored" — a lie. The composition
+  point is a third module, which is the shape CGO-7 and TRH-20 already used.
+- **A ledger move is ~50 edits across 53 files, and four of them are never mechanical.** Two carried
+  prose that had been FALSE since an earlier phase (a message saying "47 canonical migrations" beside
+  an assertion of 49). One pinned a released phase as "the last entry", true only until the next
+  migration — split into a historical fact and a live measurement. One pinned an ABSENCE this phase
+  legitimately ends, and was repaired to the narrower claim its owner actually makes.
+- **Probe what the PENDING migration adds.** The production-migration test probes a thing the newest
+  migration creates; leave it pointing at an earlier migration's addition and it is satisfied before
+  migrating, proving nothing.
+- **A suite that "hangs" may be a waiter that expires.** Polling a backgrounded command with a
+  foreground `until` loop hits the tool's own timeout, re-backgrounds, and looks like a hang while
+  the real run finishes once, cleanly. Wait for the completion notification.
+- **`ama1-agent-mandate/bite-proofs.ts` fails under Node 20 and passes under Node 24** — Node 20
+  prints a generated assertion message where 24 keeps the custom one, so the harness's expected-string
+  check misses. Pre-existing; proved at HEAD in a detached worktree before blaming the phase.
+
+**Weekly three.** *Learned:* where a fact is filed decides what it means, so the authority question
+must be settled before the table question. *Turkish Rug House:* Hebun now holds its first durable
+provider observation — a baseline of zero public content on a channel created that same day, true and
+uninteresting, and honest about being neither trend nor performance. *Hebun AI:* provider utterance,
+organizational fact and authority to collect are now three separate things, and the third one still
+does not exist.
