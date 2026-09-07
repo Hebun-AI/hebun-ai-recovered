@@ -159,6 +159,56 @@ export const hebyActionRequests = pgTable(
      */
     originationInvocationId: uuid("origination_invocation_id"),
 
+    /*
+     * TRH-19 — WHY THE AGENT PROPOSED THIS ACT, IN ITS OWN WORDS.
+     *
+     * ── THE ONE TRUTH THIS COLUMN HOLDS ────────────────────────────────────
+     *
+     *   "THE AGENT THAT PROPOSED THIS ACT STATED THIS REASON FOR PROPOSING IT."
+     *
+     * Not what the act does — `expected_effect` says that, from the tool descriptor. Not what the
+     * act is for — the purpose columns below say that, and only a human may declare one. Not why
+     * anybody approved it — `decision_records.justification` says that, is NOT NULL, is typed by a
+     * person at decision time, and must never be seeded from here.
+     *
+     *     MODEL INVOCATION != AGENT PROPOSAL != PROPOSAL RATIONALE
+     *       != GOVERNANCE JUSTIFICATION != EXECUTION
+     *
+     * ── WHY IT IS HERE AND NOT ON THE INVOCATION ───────────────────────────
+     *
+     * `heby_origination_invocations` owns one sentence about one model CALL — that it was
+     * registered, how far it got, what the provider returned — and its contract forbids storing
+     * what the model said. This is a property of the PROPOSAL: it explains this act, it is read
+     * beside this act, and it outlives the call. One truth, one owner.
+     *
+     * ── WHAT IT IS NOT ALLOWED TO BE ───────────────────────────────────────
+     *
+     * NOT part of `canonical_payload`, and therefore NOT part of `payload_digest`. The digest binds
+     * WHAT WAS APPROVED to WHAT MAY BE EXECUTED, and a rationale is not an executable parameter:
+     * folding it in would make two proposals of the identical act non-identical, break
+     * `one_pending_per_digest`, and bind a human's approval to model prose.
+     *
+     * NOT raw provider output. The value stored is the NORMALIZED `reason` that already crossed the
+     * structured-output admission boundary — non-blank, bounded, and a field of a closed envelope.
+     * No transcript, no prompt, no provider error body has a path to this column.
+     *
+     * NOT AUTHORITY. Nothing reads it to decide anything, exactly as with the invocation reference
+     * above.
+     *
+     * ── NULL, AND WHAT NULL MEANS ──────────────────────────────────────────
+     *
+     * "A rationale was not durably recorded." Every row written before this column existed carries
+     * NULL for ever — there is no backfill and none is possible without inventing history. NULL does
+     * NOT mean the agent gave no reason, that the reason was blank, or that a human filed it.
+     *
+     * ── WRITTEN ONCE, AT FILING ────────────────────────────────────────────
+     *
+     * It states the rationale AS FILED. The two UPDATE writers on this table set decision columns
+     * and purpose columns and touch nothing else, so this value is immutable by construction rather
+     * than by policy. No later-rationale seam exists, and a firewall asserts the absence.
+     */
+    proposalRationale: text("proposal_rationale"),
+
     /* ═══════════════════════════════════════════════════════════════════════
      * PURPOSE-BOUND GOVERNED ACT — WHICH WORK THIS ACT IS DECLARED TO SERVE.
      *
@@ -341,6 +391,38 @@ export const hebyActionRequests = pgTable(
     check(
       "heby_action_requests_human_purpose_declarer_chk",
       sql`${t.purposeDeclaredByActorType} is null or ${t.purposeDeclaredByActorType} = 'human'`,
+    ),
+
+    /*
+     * TRH-19 — A RECORDED RATIONALE IS A REAL SENTENCE.
+     *
+     * Blank-when-present is unrepresentable, so "" and "   " cannot masquerade as a recorded
+     * rationale that a surface would then render as an empty explanation. The repository's own
+     * convention for exactly this — `char_length(btrim(x)) > 0` — is reused rather than reinvented.
+     *
+     * THERE IS DELIBERATELY NO MAXIMUM-LENGTH CHECK. The bound lives in the parser
+     * (`MAX_ORIGINATION_REASON_LENGTH`), which is the authority that admits the value, and no
+     * maximum-length CHECK exists anywhere in this schema — measured, not assumed. A second numeric
+     * bound in SQL would be a copy of a number this table does not own, migrated on a different
+     * schedule from the module that does.
+     */
+    check(
+      "heby_action_requests_proposal_rationale_chk",
+      sql`${t.proposalRationale} is null or char_length(btrim(${t.proposalRationale})) > 0`,
+    ),
+
+    /*
+     * TRH-19 — ONLY AN AGENT'S PROPOSAL MAY CARRY AN AGENT'S RATIONALE.
+     *
+     * The mirror of the purpose declarer CHECK above, pointing the other way. A human proposal
+     * carrying a "rationale" would be a person putting words in the agent's mouth — "Heby said this
+     * because…" — recorded as durable organizational truth. Enforced at the storage layer, so it is
+     * a database error rather than a code review finding, and it holds even if a future caller
+     * reaches the writer by a path nobody has written yet.
+     */
+    check(
+      "heby_action_requests_agent_rationale_chk",
+      sql`${t.proposalRationale} is null or ${t.proposedByActorType} = 'agent'`,
     ),
 
     /** The inverse read: which governed acts were declared for one work item. */

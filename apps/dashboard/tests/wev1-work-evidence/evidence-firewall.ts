@@ -332,7 +332,7 @@ function theMigrationIsAdditive(): void {
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly { tag: string }[];
   };
-  assert.equal(journal.entries.length, 48, "the ledger grew by exactly one"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+  assert.equal(journal.entries.length, 49, "the ledger grew by exactly one"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
   assert.equal(
     journal.entries.filter((e) => /wev1|work_evidence/i.test(e.tag)).length,
     1,

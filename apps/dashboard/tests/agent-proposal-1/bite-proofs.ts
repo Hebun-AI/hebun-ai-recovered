@@ -215,9 +215,21 @@ const MUTATIONS: readonly Mutation[] = [
     suite: PG_SUITE,
     edits: [
       {
+        /*
+         * RE-ANCHORED BY TRH-19. The agent branch now threads the proposal rationale as a sixth
+         * argument, so the call spans several lines. The defect this injects is unchanged: every
+         * proposal, agent or not, filed through the HUMAN writer.
+         */
         find:
           "  const recorded = proposer\n" +
-          "    ? await recordAgentOriginatedActionRequest(tenant, prepared, proposer, deps, originationInvocationId)\n" +
+          "    ? await recordAgentOriginatedActionRequest(\n" +
+          "        tenant,\n" +
+          "        prepared,\n" +
+          "        proposer,\n" +
+          "        deps,\n" +
+          "        originationInvocationId,\n" +
+          "        proposalRationale,\n" +
+          "      )\n" +
           "    : await recordActionRequest(tenant, prepared, deps);",
         replace: "  const recorded = await recordActionRequest(tenant, prepared, deps);",
       },

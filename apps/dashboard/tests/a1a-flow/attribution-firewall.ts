@@ -195,9 +195,33 @@ function main(): void {
      * added to `heby_action_requests.proposed_by_actor_type` fails here however it is worded —
      * whereas the old regex could be evaded by more than 400 characters of distance.
      */
-    assert.ok(
-      !/CHECK[^;]{0,600}"heby_action_requests"\."proposed_by_actor_type"/i.test(sql),
+    /*
+     * AMENDED BY TRH-19, AND STRICTER FOR IT.
+     *
+     * This read "no CHECK anywhere may mention `heby_action_requests.proposed_by_actor_type`" — a
+     * proxy for the invariant, not the invariant. TRH-19 legitimately adds a CHECK that MENTIONS
+     * that column and constrains something else entirely: only an AGENT'S proposal may carry an
+     * AGENT'S rationale. It forbids no proposer; a human proposal is as legal as it ever was.
+     *
+     * A bare-mention ban would have had to be deleted to accommodate that, which is the weak
+     * repair. Instead the exception is ENUMERATED BY NAME and its PREDICATE is read: every CHECK on
+     * this table that references the proposer column must be a known one, and the known one must be
+     * about `proposal_rationale`. A new CHECK that actually restricted proposership would not be in
+     * the list and would fail here, and so would a rewrite of this one into a proposer rule.
+     */
+    const proposerChecks = [
+      ...sql.matchAll(
+        /CONSTRAINT "([a-z0-9_]+)" CHECK \(([^;]*?"heby_action_requests"\."proposed_by_actor_type"[^;]*?)\);/g,
+      ),
+    ];
+    assert.deepEqual(
+      proposerChecks.map((m) => m[1]!),
+      ["heby_action_requests_agent_rationale_chk"],
       "no CHECK constrains an ACTION proposal's proposer — an agent may propose when one exists",
+    );
+    assert.ok(
+      proposerChecks[0]![2]!.includes('"proposal_rationale" is null or'),
+      "and the one that names the proposer column is a RATIONALE rule whose null case admits every proposer",
     );
     /*
      * And the exception is ENUMERATED rather than left as a hole: exactly one other table
@@ -240,7 +264,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 48, "A1a adds no migration — the ledger carries none of its authoring"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+    assert.equal(journal.entries.length, 49, "A1a adds no migration — the ledger carries none of its authoring"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
   }
 
   console.log("a1a-flow/attribution-firewall: OK");

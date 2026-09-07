@@ -103,6 +103,9 @@ const SEAM_ROW = Object.freeze({
   /* PBGA-1 — no purpose declared, which is what every released fixture means. */
   purposeWorkTitle: null,
   purposeUnresolved: false,
+  /* TRH-19. These fixtures are HUMAN-proposed surface shapes; a human proposal never carries an
+   * agent rationale, and the storage CHECK enforces the same. Null is the honest value. */
+  proposalRationale: null,
 });
 
 function render(waiting: WaitingOnYouState, overview: typeof CommandOverview = CommandOverview): string {
@@ -725,8 +728,8 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  * without moving the count.
  */
 /* Departmental Placement grew the ledger to 43; GIA-1's `record-work` mandate-scope CHECK to 44. BOTH values move with it. */
-/* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
-const LEDGER_COUNT = 48;
+/* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
+const LEDGER_COUNT = 49;
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine. AGENT-ID-0.1 adds exactly
  * one boundary — the durable agent identity one — so nine became false. Naming the set beats bumping

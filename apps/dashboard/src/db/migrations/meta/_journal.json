@@ -337,6 +337,13 @@
       "when": 1788643317783,
       "tag": "20260905212157_trh10_artifact_review_domain",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1788724534686,
+      "tag": "20260906195534_trh19_agent_proposal_rationale",
+      "breakpoints": true
     }
   ]
 }

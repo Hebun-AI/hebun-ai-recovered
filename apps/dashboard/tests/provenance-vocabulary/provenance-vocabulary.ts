@@ -401,6 +401,7 @@ async function main(): Promise<void> {
       "20260903093716_cgo1_content_draft_destination",
       /* TRH-10 — the `artifact-review` governance domain. A declared later phase, not this one's. */
       "20260905212157_trh10_artifact_review_domain",
+      "20260906195534_trh19_agent_proposal_rationale",
         ],
         "and what follows it is a declared later phase",
       );

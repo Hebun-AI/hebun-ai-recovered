@@ -73,10 +73,11 @@ const RETIRED = [
  * without moving the count.
  */
 /* GIA-1's mandate-scope CHECK grew the ledger to 44; WEV-1's `work_evidence_references` to 45. BOTH values move with it. */
-/* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
-const LEDGER_COUNT = 48;
-const LEDGER_DIGEST = "326451dc3e7c6ad1"; /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it.
+/* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
+const LEDGER_COUNT = 49;
+const LEDGER_DIGEST = "b6d5a80092632fa9"; /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it.
  * TRH-10 authored migration 48 — one additive `ALTER TYPE "governance_domain" ADD VALUE 'artifact-review'` — so the digest moves again: `29521f60d3c9e78a` was the digest at 47.
+ * TRH-19 authored migration 49 — one additive `ALTER TABLE "heby_action_requests" ADD COLUMN "proposal_rationale"` plus its two CHECKs — so the digest moves again: `326451dc3e7c6ad1` was the digest at 48.
  * Recomputed with this file's OWN mechanism (sha256 over the sorted migration bodies, first 16 hex), never hand-written. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
@@ -132,6 +133,9 @@ const ITEM = Object.freeze({
   /* PBGA-1 — no purpose declared, which is what every released fixture means. */
   purposeWorkTitle: null,
   purposeUnresolved: false,
+  /* TRH-19. These fixtures are HUMAN-proposed surface shapes; a human proposal never carries an
+   * agent rationale, and the storage CHECK enforces the same. Null is the honest value. */
+  proposalRationale: null,
   /* E2-4 widened the view. This fixture supplies no evaluation instant, so there is no duration. */
   waitingFor: null,
 });
@@ -160,6 +164,9 @@ const SEAM_ROW: PendingActionRequestView = Object.freeze({
   /* PBGA-1 — no purpose declared, which is what every released fixture means. */
   purposeWorkTitle: null,
   purposeUnresolved: false,
+  /* TRH-19. These fixtures are HUMAN-proposed surface shapes; a human proposal never carries an
+   * agent rationale, and the storage CHECK enforces the same. Null is the honest value. */
+  proposalRationale: null,
 });
 
 function renderOverview(waiting: WaitingOnYouState): string {

@@ -98,6 +98,13 @@ async function fileOrganizationLevelProposal(
   proposer: AgentProposer | null,
   deps: RecordWorkProposalDeps,
   originationInvocationId?: string,
+  /*
+   * TRH-19. The agent's NORMALIZED rationale, carried through as a VALUE exactly as the invocation
+   * id above is. This inlet does not parse it, bound it, shorten it or read it — it hands it to the
+   * one writer, which stores it only for an agent-resolved proposer. Absent on the human path by
+   * construction: neither human entry point has this parameter.
+   */
+  proposalRationale?: string,
 ): Promise<RecordWorkProposalResult> {
   /*
    * ── THE ORGANIZATION IS READ, AND THAT IS THE DEVIATION WORTH NAMING ─────
@@ -155,7 +162,14 @@ async function fileOrganizationLevelProposal(
   }
 
   const recorded = proposer
-    ? await recordAgentOriginatedActionRequest(tenant, prepared, proposer, deps, originationInvocationId)
+    ? await recordAgentOriginatedActionRequest(
+        tenant,
+        prepared,
+        proposer,
+        deps,
+        originationInvocationId,
+        proposalRationale,
+      )
     : await recordActionRequest(tenant, prepared, deps);
 
   if (recorded.status === "recorded") {
@@ -198,6 +212,13 @@ async function fileRecordWorkProposal(
   deps: RecordWorkProposalDeps,
   /** The model invocation that caused this proposal. Absent on the human path, by construction. */
   originationInvocationId?: string,
+  /*
+   * TRH-19. The agent's NORMALIZED rationale, carried through as a VALUE exactly as the invocation
+   * id above is. This inlet does not parse it, bound it, shorten it or read it — it hands it to the
+   * one writer, which stores it only for an agent-resolved proposer. Absent on the human path by
+   * construction: neither human entry point has this parameter.
+   */
+  proposalRationale?: string,
 ): Promise<RecordWorkProposalResult> {
   assertServerOnly();
   if (!tenant?.tenantId || !tenant.userId) {
@@ -256,7 +277,14 @@ async function fileRecordWorkProposal(
    * see, so the decision surface shows a declared organizational fact rather than a blank field.
    */
   if (scope.kind === "organization-level") {
-    return fileOrganizationLevelProposal(tenant, input.title, proposer, deps, originationInvocationId);
+    return fileOrganizationLevelProposal(
+      tenant,
+      input.title,
+      proposer,
+      deps,
+      originationInvocationId,
+      proposalRationale,
+    );
   }
 
   /* Shape first — a malformed reference is refused exactly as an absent one is. */
@@ -340,7 +368,14 @@ async function fileRecordWorkProposal(
    * call this function is not being allowed to propose.
    */
   const recorded = proposer
-    ? await recordAgentOriginatedActionRequest(tenant, prepared, proposer, deps, originationInvocationId)
+    ? await recordAgentOriginatedActionRequest(
+        tenant,
+        prepared,
+        proposer,
+        deps,
+        originationInvocationId,
+        proposalRationale,
+      )
     : await recordActionRequest(tenant, prepared, deps);
 
   if (recorded.status === "recorded") {
@@ -420,6 +455,20 @@ export function proposeAgentOriginatedRecordWorkAction(
   proposer: AgentProposer,
   deps: RecordWorkProposalDeps = {},
   originationInvocationId?: string,
+  /*
+   * TRH-19. The agent's NORMALIZED rationale, carried through as a VALUE exactly as the invocation
+   * id above is. This inlet does not parse it, bound it, shorten it or read it — it hands it to the
+   * one writer, which stores it only for an agent-resolved proposer. Absent on the human path by
+   * construction: neither human entry point has this parameter.
+   */
+  proposalRationale?: string,
 ): Promise<RecordWorkProposalResult> {
-  return fileRecordWorkProposal(tenant, input, proposer, deps, originationInvocationId);
+  return fileRecordWorkProposal(
+    tenant,
+    input,
+    proposer,
+    deps,
+    originationInvocationId,
+    proposalRationale,
+  );
 }

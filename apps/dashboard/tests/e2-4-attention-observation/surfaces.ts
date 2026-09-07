@@ -48,6 +48,9 @@ const REQUEST = (id: string, proposedAt: string): PendingActionRequestView => ({
   /* PBGA-1 — no purpose declared, which is what every released fixture means. */
   purposeWorkTitle: null,
   purposeUnresolved: false,
+  /* TRH-19. These fixtures are HUMAN-proposed surface shapes; a human proposal never carries an
+   * agent rationale, and the storage CHECK enforces the same. Null is the honest value. */
+  proposalRationale: null,
 });
 
 /** The words a duration may never turn into, matched on WORD BOUNDARIES. */

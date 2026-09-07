@@ -194,6 +194,19 @@ async function insertActionRequest(
    * Optional, always. A proposal without a declared purpose is unchanged in every respect.
    */
   purposeWorkItemId?: string,
+  /*
+   * TRH-19 — WHY THE AGENT SAID IT PROPOSED THIS, as the origination normalized it.
+   *
+   * THE ONE ENTRY POINT THAT MAY SUPPLY IT IS THE AGENT ONE. `recordActionRequest` has no such
+   * parameter, so a human path cannot pass one — and this function does not trust that either: the
+   * value is written only when the RESOLVED proposer pair is an agent, so even a future caller that
+   * reached here with both a human pair and a rationale would store nothing. The storage CHECK
+   * `heby_action_requests_agent_rationale_chk` is the third layer underneath both.
+   *
+   * It is a VALUE and nothing else — not parsed here, not re-validated here, not summarized, and
+   * never read to decide anything.
+   */
+  proposalRationale?: string,
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -304,6 +317,24 @@ async function insertActionRequest(
         purposeDeclaredByActorType: purposeWorkItemId ? "human" : null,
         purposeDeclaredByActorId: purposeWorkItemId ? tenant.userId : null,
         purposeDeclaredAt: purposeWorkItemId ? now : null,
+        /*
+         * TRH-19 — THE AGENT'S RATIONALE, ATOMIC WITH THE PROPOSAL AND BOUND TO THE PROPOSER.
+         *
+         * In the SAME insert as the act it explains, for the reason the purpose columns above give:
+         * "a proposal exists but the reason its author gave was lost" must not be a state this path
+         * can produce. There is no later UPDATE seam, so what is written here is what a human reads
+         * at decision time, unchanged.
+         *
+         * GATED ON THE RESOLVED PAIR, not on the argument. `proposer` here is server-derived — the
+         * human entry point fixes it to the session user and the agent entry point to a runtime-
+         * verified `AgentProposer` — so this condition cannot be satisfied by anything a caller
+         * says about itself.
+         *
+         * It is deliberately NOT in `canonicalPayload` above, and therefore not in `payloadDigest`:
+         * a rationale is an explanation of the act, never one of its executable parameters.
+         */
+        proposalRationale:
+          proposer.actorType === "agent" ? (proposalRationale ?? null) : null,
         proposedByActorType: proposer.actorType,
         proposedByActorId: proposer.actorId,
         status: "pending",
@@ -399,6 +430,14 @@ export async function recordAgentOriginatedActionRequest(
   deps: ActionRequestDeps = {},
   /** AGENT-PROPOSAL-4B. The causing invocation, as a value. Never looked up here. */
   originationInvocationId?: string,
+  /**
+   * TRH-19. The NORMALIZED rationale from the selection that produced this proposal.
+   *
+   * Threaded exactly as the invocation id above is, and for the same reason: the origination
+   * already holds it, and a second lookup — or a second parse — would be a second authority on what
+   * the agent said. It is never re-derived, never regenerated, and never the raw provider response.
+   */
+  proposalRationale?: string,
 ): Promise<ActionRequestResult> {
   if (typeof window !== "undefined") {
     throw new Error("Action requests are server-only.");
@@ -419,7 +458,16 @@ export async function recordAgentOriginatedActionRequest(
   const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps);
   if (ceiling) return refused(ceiling);
 
-  return insertActionRequest(tenant, prepared, pair, deps, originationInvocationId);
+  return insertActionRequest(
+    tenant,
+    prepared,
+    pair,
+    deps,
+    originationInvocationId,
+    /* No declared purpose on this path: only a human may say what an act is for. */
+    undefined,
+    proposalRationale,
+  );
 }
 
 /** PostgreSQL `foreign_key_violation`. Read from the driver's code, never from the message text. */

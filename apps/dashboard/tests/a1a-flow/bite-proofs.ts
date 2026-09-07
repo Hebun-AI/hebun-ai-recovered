@@ -166,13 +166,13 @@ const MUTATIONS: readonly Mutation[] = [
      */
     label: "M12 a migration is added",
     file: JOURNAL,
-    /* RE-ANCHORED at TRH-10 (migration 48), as it was at WORK-1 before it: the mutation must apply
+    /* RE-ANCHORED at TRH-19 (migration 49), as it was at WORK-1 before it: the mutation must apply
      * to the journal's CURRENT tail, or it proves nothing. The defect it injects — an extra journal
      * entry — is unchanged, and this anchor moves with every migration by design. */
-    find: `      "tag": "20260905212157_trh10_artifact_review_domain",\n      "breakpoints": true\n    }\n  ]`,
+    find: `      "tag": "20260906195534_trh19_agent_proposal_rationale",\n      "breakpoints": true\n    }\n  ]`,
     replace:
-      `      "tag": "20260905212157_trh10_artifact_review_domain",\n      "breakpoints": true\n    },\n` +
-      `    {\n      "idx": 48,\n      "version": "7",\n      "when": 1787726663801,\n` +
+      `      "tag": "20260906195534_trh19_agent_proposal_rationale",\n      "breakpoints": true\n    },\n` +
+      `    {\n      "idx": 49,\n      "version": "7",\n      "when": 1787726663801,\n` +
       `      "tag": "20260827000000_a1a_should_not_exist",\n      "breakpoints": true\n    }\n  ]`,
     expect: "A1a adds no migration",
   },

@@ -384,7 +384,7 @@ function theTruthContractsHold(overrides: Readonly<Record<string, string>> = {})
    * Re-pinned by INT-2 (34), by R2H (35, `control_source`) and by KR-EXT1 (36,
    * `knowledge_external_references`). CMD-FINAL still adds none — which is what this asserts.
    */
-  assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 48, /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+  assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 49, /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
     "the migration ledger is untouched by THIS phase");
 
   /* The page header keeps the authority claim and not the table of contents. */

@@ -85,6 +85,13 @@ async function fileSendProposal(
   deps: SendProposalDeps,
   /** AGENT-PROPOSAL-4B. Absent on the human path, by construction — see the two entrypoints. */
   originationInvocationId?: string,
+  /*
+   * TRH-19. The agent's NORMALIZED rationale, carried through as a VALUE exactly as the invocation
+   * id above is. This inlet does not parse it, bound it, shorten it or read it — it hands it to the
+   * one writer, which stores it only for an agent-resolved proposer. Absent on the human path by
+   * construction: neither human entry point has this parameter.
+   */
+  proposalRationale?: string,
 ): Promise<SendProposalResult> {
   assertServerOnly();
   if (!tenant?.tenantId || !tenant.userId) {
@@ -203,7 +210,14 @@ async function fileSendProposal(
    * this", and it is the only thing the released `/send` path can produce.
    */
   const recorded = proposer
-    ? await recordAgentOriginatedActionRequest(tenant, prepared, proposer, deps, originationInvocationId)
+    ? await recordAgentOriginatedActionRequest(
+        tenant,
+        prepared,
+        proposer,
+        deps,
+        originationInvocationId,
+        proposalRationale,
+      )
     : await recordActionRequest(tenant, prepared, deps);
 
   if (recorded.status === "recorded") {
@@ -298,6 +312,20 @@ export function proposeAgentOriginatedSendAction(
    * insert stays a single statement with no dependency on the provenance table existing.
    */
   originationInvocationId?: string,
+  /*
+   * TRH-19. The agent's NORMALIZED rationale, carried through as a VALUE exactly as the invocation
+   * id above is. This inlet does not parse it, bound it, shorten it or read it — it hands it to the
+   * one writer, which stores it only for an agent-resolved proposer. Absent on the human path by
+   * construction: neither human entry point has this parameter.
+   */
+  proposalRationale?: string,
 ): Promise<SendProposalResult> {
-  return fileSendProposal(tenant, input, proposer, deps, originationInvocationId);
+  return fileSendProposal(
+    tenant,
+    input,
+    proposer,
+    deps,
+    originationInvocationId,
+    proposalRationale,
+  );
 }

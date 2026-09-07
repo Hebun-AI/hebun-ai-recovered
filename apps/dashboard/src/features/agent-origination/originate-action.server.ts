@@ -350,6 +350,15 @@ export async function originateAgentAction(
           proposer,
           deps.proposal ?? {},
           invocationId,
+          /*
+           * TRH-19 — THE SAME NORMALIZED REASON THE SELECTION CARRIED, AND NO OTHER STRING.
+           *
+           * `chosen.reason` already crossed the structured-output admission boundary: it is a field
+           * of a closed envelope, non-blank, and bounded by `MAX_ORIGINATION_REASON_LENGTH`. It is
+           * passed verbatim — not re-parsed, not regenerated, not summarized, and never swapped for
+           * the raw provider response, which nothing in this file retains past `outcome.result`.
+           */
+          chosen.reason,
         )
       : await proposeAgentOriginatedRecordWorkAction(
           tenant,
@@ -375,6 +384,8 @@ export async function originateAgentAction(
           proposer,
           deps.recordWork ?? {},
           invocationId,
+          /* TRH-19. The same value, on the same terms, for the second admitted kind. */
+          chosen.reason,
         );
 
   if (filed.status !== "proposed") {

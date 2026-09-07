@@ -499,9 +499,28 @@ function main(): void {
      * added to `heby_action_requests.proposed_by_actor_type` fails here however it is worded —
      * whereas the old regex could be evaded by more than 400 characters of distance.
      */
-    assert.ok(
-      !/CHECK[^;]{0,600}"heby_action_requests"\."proposed_by_actor_type"/i.test(sql),
+    /*
+     * AMENDED BY TRH-19, EXACTLY AS ITS TWIN IN `a1a-flow/attribution-firewall.ts` WAS.
+     *
+     * TRH-19 adds a CHECK that MENTIONS `heby_action_requests.proposed_by_actor_type` and
+     * constrains something else: only an AGENT'S proposal may carry an AGENT'S rationale. It
+     * forbids no proposer. The bare-mention ban would have had to be deleted; instead the one
+     * exception is ENUMERATED BY NAME and its predicate is read, so a CHECK that really did close
+     * the proposer column would still fail here.
+     */
+    const proposerChecks = [
+      ...sql.matchAll(
+        /CONSTRAINT "([a-z0-9_]+)" CHECK \(([^;]*?"heby_action_requests"\."proposed_by_actor_type"[^;]*?)\);/g,
+      ),
+    ];
+    assert.deepEqual(
+      proposerChecks.map((m) => m[1]!),
+      ["heby_action_requests_agent_rationale_chk"],
       "while the ACTION proposer column stays open, so a real agent may propose one day",
+    );
+    assert.ok(
+      proposerChecks[0]![2]!.includes('"proposal_rationale" is null or'),
+      "and the one CHECK that names it is a RATIONALE rule whose null case admits every proposer",
     );
     /*
      * And the exception is ENUMERATED rather than left as a hole: exactly one other table
@@ -578,7 +597,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 48, "APP-2 adds no migration — the ledger carries none of its authoring"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+    assert.equal(journal.entries.length, 49, "APP-2 adds no migration — the ledger carries none of its authoring"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
   }
 
   console.log("app2-decision-truth/decision-surface-firewall: OK");

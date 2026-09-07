@@ -459,9 +459,9 @@ async function main(): Promise<void> {
   assert.equal(HEBY_PROFILED_WORKSPACES.length, 8, "no ninth workspace was created");
 
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 48, "the ledger is where GIA-1 left it; this hardening authored none of it"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+  assert.equal(journal.entries.length, 49, "the ledger is where GIA-1 left it; this hardening authored none of it"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
   const sqlFiles = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 48, "and this hardening authored no migration of its own"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+  assert.equal(sqlFiles.length, 49, "and this hardening authored no migration of its own"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
 
   console.log("PASS work2-provider-disclosure/provider-bound-name");
 }

@@ -1,0 +1,3 @@
+ALTER TABLE "heby_action_requests" ADD COLUMN "proposal_rationale" text;--> statement-breakpoint
+ALTER TABLE "heby_action_requests" ADD CONSTRAINT "heby_action_requests_proposal_rationale_chk" CHECK ("heby_action_requests"."proposal_rationale" is null or char_length(btrim("heby_action_requests"."proposal_rationale")) > 0);--> statement-breakpoint
+ALTER TABLE "heby_action_requests" ADD CONSTRAINT "heby_action_requests_agent_rationale_chk" CHECK ("heby_action_requests"."proposal_rationale" is null or "heby_action_requests"."proposed_by_actor_type" = 'agent');

@@ -273,6 +273,46 @@ function RequestCard({
       <p className="text-sm leading-6 text-fg-primary">{item.expectedEffect}</p>
 
       {/*
+       * TRH-19 — WHY THE AGENT PROPOSED THIS, IN ITS OWN WORDS, DURABLY.
+       *
+       * It renders ONLY for an agent-originated proposal, because only an agent has a rationale to
+       * state — the storage CHECK enforces the same thing underneath, and a human proposal showing
+       * an empty "rationale" slot would invite somebody to read absence as fault.
+       *
+       * THREE STATES, AND THEY ARE DIFFERENT FACTS:
+       *   · a recorded rationale        → shown verbatim
+       *   · null on an agent proposal   → "Proposal rationale unavailable"
+       *   · a human proposal            → nothing at all
+       *
+       * "Unavailable" and NOT "Heby gave no reason". Every proposal filed before this capability
+       * carries null and none was backfilled, so the record cannot support the second sentence.
+       * The historical Turkish Rug House proposal is exactly this case.
+       *
+       * PLAIN ESCAPED TEXT, and the only way it could stop being that is `dangerouslySetInnerHTML`,
+       * which appears nowhere in this repository. It is model-authored and therefore untrusted: it
+       * is displayed, never interpreted, never made editable, and never fed back anywhere.
+       *
+       * IT IS NOT A JUSTIFICATION. The caption says so beside the text rather than in a comment,
+       * because the approver types their own justification a few inches below this and the two must
+       * not blur.
+       */}
+      {item.proposedByActorType === "agent" ? (
+        <div className="rounded-md border border-border bg-bg px-2.5 py-2">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
+            Heby&rsquo;s proposal rationale
+          </p>
+          <p className="mt-0.5 whitespace-pre-wrap text-sm leading-6 text-fg-primary">
+            {item.proposalRationale ?? "Proposal rationale unavailable"}
+          </p>
+          <p className="mt-0.5 text-xs leading-5 text-fg-muted">
+            {item.proposalRationale === null
+              ? "This proposal was filed before Hebun recorded proposal rationales. That is what the record says — not that the agent gave no reason."
+              : "The agent's own stated reason for proposing this, recorded when it was filed. It authorizes nothing, and it is not your justification for deciding."}
+          </p>
+        </div>
+      ) : null}
+
+      {/*
        * PBGA-1 — THE DECLARED ORGANIZATIONAL PURPOSE, BEFORE THE DECISION.
        *
        * The approver reads this above the mechanics, because "what is this act FOR" is the question

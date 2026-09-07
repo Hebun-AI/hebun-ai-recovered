@@ -88,8 +88,26 @@ function main(): void {
     `  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps);
   if (ceiling) return refused(ceiling);
 
-  return insertActionRequest(tenant, prepared, pair, deps, originationInvocationId);`,
-    `  const written = await insertActionRequest(tenant, prepared, pair, deps, originationInvocationId);
+  return insertActionRequest(
+    tenant,
+    prepared,
+    pair,
+    deps,
+    originationInvocationId,
+    /* No declared purpose on this path: only a human may say what an act is for. */
+    undefined,
+    proposalRationale,
+  );`,
+    `  const written = await insertActionRequest(
+    tenant,
+    prepared,
+    pair,
+    deps,
+    originationInvocationId,
+    /* No declared purpose on this path: only a human may say what an act is for. */
+    undefined,
+    proposalRationale,
+  );
   const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps);
   if (ceiling) return refused(ceiling);
 

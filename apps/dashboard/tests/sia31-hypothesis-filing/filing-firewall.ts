@@ -721,7 +721,7 @@ function theVocabulariesStayClosed(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function noSchemaChanged(): void {
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 48, "SIA-3.1 authored no migration — a product seam needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain). */
+  assert.equal(sqlCount, 49, "SIA-3.1 authored no migration — a product seam needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json"))) as {
     entries: readonly unknown[];
   };

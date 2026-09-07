@@ -112,6 +112,22 @@ export interface PendingActionRequestView {
    * absent. A surface must never render this as "Not declared".
    */
   readonly purposeUnresolved: boolean;
+  /**
+   * TRH-19 — WHY THE AGENT SAID IT PROPOSED THIS, as recorded when the proposal was filed.
+   *
+   * `null` means NO RATIONALE WAS DURABLY RECORDED. It does NOT mean the agent gave none, that the
+   * reason was blank, or that a human filed it — every proposal filed before TRH-19 carries null
+   * and none was backfilled. A surface must render that as UNAVAILABLE and must never render it as
+   * "no reason given", which is a claim this record cannot support.
+   *
+   * It is the NORMALIZED rationale and nothing else: no raw provider response, no prompt, no goal
+   * text, no provider error, no credential. Those never reached the column, so they cannot leave
+   * through this view.
+   *
+   * IT IS NOT AUTHORITY. No decision predicate reads it, and it is not a Governance justification —
+   * that is typed by a human at the decision and lives in `decision_records`.
+   */
+  readonly proposalRationale: string | null;
 }
 
 export interface ActionPermitView {
@@ -260,6 +276,8 @@ export async function readPendingActionRequests(
             row.purposeWorkItemId === null ? null : (workTitles.get(row.purposeWorkItemId) ?? null),
           purposeUnresolved:
             row.purposeWorkItemId !== null && !workTitles.has(row.purposeWorkItemId),
+          /* TRH-19. Stored or null. Never substituted, never derived, never explained away. */
+          proposalRationale: row.proposalRationale,
         };
       }),
     };

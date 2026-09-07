@@ -349,7 +349,8 @@ export function run(): void {
       "20260902183808_wev1_work_evidence_reference.sql",
       "20260902212106_pbga1_action_request_work_purpose.sql",
       "20260903093716_cgo1_content_draft_destination.sql",
-      "20260905212157_trh10_artifact_review_domain.sql"],
+      "20260905212157_trh10_artifact_review_domain.sql",
+      "20260906195534_trh19_agent_proposal_rationale.sql"],
       "KR4 adds no migration; what follows is a declared later phase",
     );
     const journal = JSON.parse(read(join(MIGRATIONS, "meta", "_journal.json"))) as { entries: unknown[] };

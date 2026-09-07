@@ -87,14 +87,37 @@ function main(): void {
       "the AGENT entry point has no purpose parameter — the firewall is the call shape",
     );
 
-    /* And the agent path's call into the shared insert must not smuggle one positionally. */
+    /*
+     * And the agent path's call into the shared insert must not smuggle a purpose POSITIONALLY.
+     *
+     * ── AMENDED BY TRH-19, AND STILL ABOUT THE PURPOSE SLOT ────────────────
+     *
+     * This matched the call EXACTLY — five arguments, ending at `originationInvocationId`. That
+     * spelling was a proxy: what PBGA-1 defends is that the SIXTH positional, `purposeWorkItemId`,
+     * is never supplied by the agent path. TRH-19 legitimately adds a SEVENTH, the agent's
+     * rationale, so the agent call now has to name the purpose slot to skip it.
+     *
+     * The repair reads the slot rather than counting arguments: the sixth positional must be
+     * literally `undefined`. That is STRICTER than the old form for the invariant it protects — it
+     * fails on `purposeWorkItemId` appearing there however many arguments follow, where an
+     * exact-match on a five-argument call would simply have to be rewritten by any later phase.
+     */
     const agentBody =
       /export async function recordAgentOriginatedActionRequest\([\s\S]*?\n\}/.exec(code)?.[0] ?? "";
+    const insertCall = /return insertActionRequest\(([\s\S]*?)\);/.exec(agentBody)?.[1] ?? "";
+    assert.ok(insertCall.length > 0, "the agent path still delegates to the shared insert");
+    const positionals = insertCall
+      .split("\n")
+      .map((line) => line.trim().replace(/,$/, ""))
+      .filter((line) => line.length > 0);
+    assert.deepEqual(
+      positionals.slice(0, 6),
+      ["tenant", "prepared", "pair", "deps", "originationInvocationId", "undefined"],
+      "THE PURPOSE SLOT IS EXPLICITLY UNDEFINED on the agent path — no purpose is smuggled in",
+    );
     assert.ok(
-      /return insertActionRequest\(tenant, prepared, pair, deps, originationInvocationId\);/.test(
-        agentBody,
-      ),
-      "the agent path passes exactly five arguments — no sixth, and no purpose",
+      !insertCall.includes("purposeWorkItemId"),
+      "and the agent path names no purpose value at all",
     );
   }
 
