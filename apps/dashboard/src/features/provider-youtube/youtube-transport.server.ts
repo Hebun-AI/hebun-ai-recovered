@@ -66,7 +66,23 @@ function classify(status: number, reason: string | null): YouTubeFailure {
     return fail("quota", `youtube-quota:${r}`);
   }
   if (status === 401 || status === 403) return fail("auth", `youtube-http-${status}:${r || "no-reason"}`);
-  if (status === 404) return fail("not-found", "youtube-http-404");
+  /*
+   * TRH-20-FIX — THE PROVIDER'S OWN WORD SURVIVES A 404.
+   *
+   * Every sibling branch carries the reason and this one dropped it, so `playlistNotFound` (a
+   * channel with nothing in it) and any other 404 arrived as one indistinguishable string. That is
+   * the same defect TRH-18 removed from the parser: the calls most worth studying were the ones the
+   * record could say least about, and diagnosing it cost a round trip.
+   *
+   * `reason` is the short token Google names in its own error envelope, already extracted by
+   * `reasonFrom` and matched against the same closed patterns as every branch above. It is not a
+   * body, not a header, not a URL and not a key — nothing here can carry a secret, because the key
+   * never leaves the frame in `call` and the body is read only to find this one word.
+   *
+   * IT IS A DIAGNOSTIC AND NOTHING ELSE. The failure CLASS is unchanged, no caller branches on this
+   * string, and the one caller that reclassifies a `not-found` does so on the class and a count.
+   */
+  if (status === 404) return fail("not-found", `youtube-http-404:${r || "no-reason"}`);
   if (status === 429) return fail("quota", "youtube-http-429");
   if (status >= 500) return fail("transport", `youtube-http-${status}`);
   return fail("malformed", `youtube-http-${status}:${r || "no-reason"}`);
