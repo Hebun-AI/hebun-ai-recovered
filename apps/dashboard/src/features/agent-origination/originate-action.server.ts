@@ -169,6 +169,25 @@ export interface OriginateActionDeps {
   readonly recordWork?: RecordWorkProposalDeps;
   /** AGENT-PROPOSAL-4B. The invocation provenance seam. Injectable for tests; never a client input. */
   readonly provenance?: InvocationProvenanceDeps;
+  /**
+   * TRH-20 — ONE ALREADY-FENCED BLOCK OF GROUNDING TEXT, COMPOSED ON THE SERVER.
+   *
+   * It is a DEP and not a field of `OriginateActionInput`, and that placement is the whole safety
+   * argument. `OriginateActionInput` is the client-supplied part; ten released assertions read the
+   * browser boundary in `heby/actions.ts` and prove it forwards `{ goal }` and nothing else. A
+   * supplement accepted there would be a channel through which a browser could write arbitrary
+   * text straight into the model's grounding — the exact thing that boundary exists to forbid.
+   *
+   * Here it is unreachable from the browser: `originateHebyActionProposalAction` constructs the
+   * deps itself and passes only `resolveTenant`, so the sole way this is ever non-empty is a
+   * SERVER module that read a provider and fenced what came back — today, exactly one:
+   * `content-observation/originate-with-observation.server.ts`.
+   *
+   * It is appended AFTER the candidate lines, never merged into them. A candidate is something the
+   * model may NAME; this is something it may READ. Rendering an observation as a candidate line
+   * would put provider text where a membership check looks for references.
+   */
+  readonly observationSupplement?: string;
 }
 
 export type OriginateActionResult =
@@ -526,12 +545,23 @@ async function selectAction(
 ): Promise<SelectionOutcome> {
   const env = deps.env ?? process.env;
 
+  /*
+   * TRH-20 — THE CANDIDATES FIRST, THE OBSERVATION AFTER, AND NEVER THE OTHER WAY ROUND.
+   *
+   * The candidate lines are the closed choice space; the supplement is fenced outside text. Order
+   * is not cosmetic: the model reads what it may NAME before it reads what it may merely KNOW, and
+   * an empty or absent supplement adds no line at all rather than an empty one that would read as
+   * a section with nothing in it.
+   */
+  const supplement = deps.observationSupplement?.trim();
+  const evidence = supplement ? [...candidateLines(candidates), supplement] : candidateLines(candidates);
+
   const request: ModelGenerationRequest = {
     correlationId: (deps.newCorrelationId ?? (() => "agent-origination"))(),
     tenantId: undefined,
     systemInstructions: AGENT_ORIGINATION_SYSTEM_INSTRUCTIONS,
     userPrompt: goal,
-    evidence: candidateLines(candidates),
+    evidence,
     /* Both are authoritative from server config inside the generator; these are its placeholders. */
     modelId: "",
     maxOutputTokens: 0,
