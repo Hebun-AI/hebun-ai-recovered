@@ -3565,3 +3565,38 @@ House:* its Heby filed its first proposal ever, `pending`, organization-level, u
 scope is exactly `{record-work}`, with nothing authorized, permitted, executed or recorded. *Hebun
 AI:* the model-facing contract and the parser now share their bounds by construction, and a refused
 parse names which bound it broke.
+
+## TRH-19 — one truth, one owner: where a rationale lives is decided by released code
+
+- **Discovery that is told not to assume a column will find the three homes that are already
+  forbidden.** The canonical payload refuses free model prose in its own header and would have put
+  the rationale inside `payload_digest` — the act's identity, the dedup key, and what an approval
+  binds to. Evidence carries references, so prose would need a fabricated `recordRef`. And
+  `decision_records.justification` is the human's words at decision time. Three refusals, none of
+  them taste. **Dead schema is not a free answer either:** `reasoning_traces` has zero rows and zero
+  references outside `src/db/schema/`, and reviving it would have created a second unowned truth.
+- **Prove the deploy order, don't reason about it.** The new read seam selects the new column, so a
+  push before the migration returns `{"status":"unavailable","reason":"read-failed"}` — measured
+  against a database held at the old ledger, not inferred. Migration first, then push.
+- **A pin that bans a MENTION is a proxy, not an invariant.** Two firewalls forbade any CHECK from
+  naming `heby_action_requests.proposed_by_actor_type`; the new CHECK names it and constrains
+  something else entirely. Both were made STRICTER — the exception enumerated by name and its
+  predicate read — rather than deleted. A third counted call arguments and now asserts the purpose
+  slot is explicitly `undefined`. **When a released pin fails for a legitimate reason, ask what it
+  was protecting, then defend that thing more precisely.**
+- **Classify every failure; never bulk-repin.** 60 failures across 6 classes. The scripted count
+  bump silently rewrote one comment from "TRH-10 authored migration 48" to 49, and only reading each
+  diff line caught it. A ledger number inside prose is a fact about history, not a pin.
+- **Measure a bound convention before inventing one.** There is no maximum-length CHECK anywhere in
+  this schema, and `char_length(btrim(x)) > 0` appears nineteen times. So the non-blank rule was
+  reused and the length bound was left with the parser that owns it.
+- **Three layers beat one.** No parameter on the human path, an insert gated on the server-resolved
+  proposer, and a storage CHECK — and the CHECK was proved by a direct `UPDATE` that Postgres
+  rejected, not by reading the DDL.
+
+**Weekly three.** *Learned:* where a fact lives is an ownership question the repository usually
+answers before you do; the wrong home is the one that quietly changes an act's identity. *Turkish
+Rug House:* its Heby's future proposals will carry the reason it gave, and its one historical
+proposal honestly says `RATIONALE UNAVAILABLE` rather than inventing one. *Hebun AI:* the proposal
+record now separates what was proposed, why the agent proposed it, and why a human decided — three
+truths, three owners, none of them able to stand in for another.
