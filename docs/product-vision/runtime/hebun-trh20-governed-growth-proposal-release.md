@@ -1,11 +1,12 @@
-# TRH-20 — Governed Growth Proposal — RELEASED
+# TRH-20 — Governed Growth Proposal — PRODUCTION-ACCEPTED
 
 A live public YouTube channel observation may now inform whether Turkish Rug House's durable agent
 asks a human to record organizational work. The observation is fenced, the ask is bounded, and a
 human still decides.
 
-Production acceptance is **NOT** claimed by this document. It is blocked on a Director-operated
-provider connection ceremony, described at the end.
+Production acceptance **was** subsequently obtained, and the record of it is at the end of this
+document, below the gate it originally stopped at. The gate section is kept as written rather than
+rewritten, because what a phase stopped on is part of its history.
 
 ## What this phase composed, and what it refused to build
 
@@ -151,3 +152,85 @@ ten tables that must not move.
 Autonomous publishing. Advertising spend authority. Automated comments or direct messages. Platform
 metrics promoted into ratified organizational Knowledge. A channel handle stored on a connection row,
 which would assert an ownership the credential does not carry.
+
+
+---
+
+# Acceptance — the agent looked at the channel and asked for nothing
+
+Everything above was written while Turkish Rug House held no provider connection. The Director then
+ran the connection ceremony and, separately, the two acceptance runs. Two things happened in between
+that the release above could not have known, and both are recorded here rather than folded away.
+
+## The first live read failed, and the handle was never the reason
+
+`OBSERVED: no · not-found · youtube-http-404`.
+
+A read-only forensic proved the channel resolves on the first call, with or without its leading
+marker, and that the provider reports its own canonical spelling back. The failure was one step
+later: **a channel with no public uploads has no uploads playlist to fetch.** The platform
+materialises that playlist only once something is in it, so `playlistItems.list` answered
+`404 playlistNotFound` — and the released seam read that as *the videos did not answer*. It was
+wrong. The platform **did** answer, and `videoCount: 0` in the very same channel response stated the
+same fact a second time.
+
+The fix is recorded in its own commit and its own suite. Exactly one state converts: the typed
+failure class is `not-found` **and** the channel's own statistics report zero videos. A channel that
+claims uploads whose playlist cannot be read is still a real failure; a count the provider did not
+report is null, and null is not zero. The decision is made on a class and a number, never by parsing
+a reason string — a diagnostic must not be able to change what is believed.
+
+Two smaller repairs travelled with it: quota is now counted at the call site rather than derived from
+the shape of the result, and the provider's own word survives a 404 instead of collapsing into one
+indistinguishable string.
+
+## The acceptance run
+
+| Step | Result |
+|---|---|
+| OBSERVED | **yes** — live public read, 2 quota units, third call never made |
+| MODEL-CALLED | **yes** — live transport, ~1.4k input / 76 output tokens |
+| MODEL-SELECTABLE | **yes** — the reply matched the closed contract |
+| PARSE-ACCEPTED | **yes** — recorded as a correct no-action answer, not an invalid one |
+| MANDATE-ADMITTED | not reached — nothing was offered to the ceiling |
+| PROPOSAL-FILED | **no** |
+| ABSTAINED | **yes** |
+| GOVERNANCE-AUTHORIZED · PERMITTED · EXECUTED · SUCCESSFUL(external) | no, and none attempted |
+
+The channel reports **no public videos, no public views and no subscribers**. The agent said so, in
+its own words, named the channel state without claiming any number proved anything, invented none of
+the eleven metrics the fence denies by name, and handed the decision back to a person.
+
+**Abstention is the acceptance, not a shortfall.** A capability that could only succeed by
+manufacturing work would not be a governed capability, and the whole point of the fenced brief is
+that "propose nothing" stays a correct answer. The durable record keeps it separable from every
+neighbouring outcome: the invocation carries the `no-action` state with **no failure code** and a
+filing outcome of `not-attempted` — distinct from a malformed reply, from a refused filing, and from
+a provider failure.
+
+## Non-effects, measured independently after the run
+
+Exactly **one** row moved in the entire tenant: the origination invocation. Action requests, permits,
+execution attempts, Governance decisions, work items, work artifacts, knowledge nodes, knowledge
+facts, external references, connections, credentials, answer-source evidence and the audit log all
+held their counts.
+
+Direct queries confirm **no** knowledge node, knowledge fact, work item or invocation row anywhere
+carries the channel's handle or its provider identifier. The observation informed a decision and
+became nothing — which is the sentence this whole phase exists to be able to say.
+
+The organization's earlier proposal, filed a day before by a different phase, is untouched.
+
+## What this does and does not establish
+
+It establishes that a live public platform observation can reach a durable agent inside a fence, and
+that the agent's answer lands in the governed record with the right semantics — including the answer
+that asks for nothing.
+
+It establishes **nothing about growth**, and the zeros are not a trend. There is no earlier
+observation to compare them against, because nothing is stored. That absence is now the sharpest open
+question this program has: with a channel at zero, the only interesting future fact is a CHANGE, and
+no authority owns one. Naming that owner is the entry condition for any successor phase, and it was
+deliberately not invented here.
+
+Ledger 49 throughout. No schema, no migration, no new provider, no new scope, no write capability.

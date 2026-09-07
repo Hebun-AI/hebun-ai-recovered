@@ -3644,3 +3644,42 @@ words, for work to be put on the record — and a human still decides, because t
 authorizes nothing. *Hebun AI:* provider observation, derived interpretation and proposed
 organizational work are now three separately-fenced things that no single module owns, and the
 provider-admission ceremony can no longer connect an organization nobody named.
+
+## TRH-20 acceptance — "there is nothing here" is an answer, and so is "I am not asking"
+
+- **A provider saying nothing exists is a FACT, not a failed read.** The first live observation
+  returned `404` and the released seam called it an outage. It was not: YouTube materialises a
+  channel's uploads playlist only once something is in it, and `videoCount: 0` in the same response
+  stated the same fact a second time. The seam could describe an empty channel — the renderer had
+  carried the sentence for two phases — and could not *produce* one. **When a read fails, ask what
+  the provider actually said before deciding it did not answer.**
+- **Convert on a typed class and a number; never on a reason string.** The fix admits exactly one
+  state: failure class `not-found` AND the channel's own `videoCount === 0`. A reason token is a
+  diagnostic, and a diagnostic that can change what is believed is no longer a diagnostic. The bite
+  proof that matters removes the count condition — nothing crashes, no type changes, and every
+  unreadable playlist silently becomes a confident "this channel has nothing". **A fabricated fact is
+  worse than the outage it replaces.**
+- **Count what went out; do not derive it from what came back.** The old quota expression reported
+  three operations for a read that made two. A derived number agrees with reality until it doesn't,
+  and nothing fails when it stops.
+- **A dropped diagnostic costs a round trip, every time.** `classify` preserved the provider's word
+  in every branch but the 404, so `playlistNotFound` and every other 404 arrived identical. That is
+  the same defect TRH-18 removed from the parser, in a different file, found the hard way.
+- **Abstention was the acceptance.** Production ran live provider + live model and the agent asked
+  for nothing, because the channel has nothing: no videos, no views, no subscribers. It named the
+  state, claimed no number proved anything, invented none of the eleven denied metrics, and handed
+  the decision back. Exactly one row moved in the whole tenant — the invocation, carrying `no-action`
+  with no failure code. **A capability that can only be shown to work by manufacturing work has not
+  been shown to work.**
+- **The zeros are not a trend, and the absence is now the sharpest question.** Nothing is stored, so
+  there is no earlier observation to compare against. With a channel at zero the only interesting
+  future fact is a CHANGE, and no authority owns one. That owner is the entry condition for any
+  successor phase — and it was deliberately not invented to make this one feel finished.
+
+**Weekly three.** *Learned:* a failing read and an empty answer look identical until you ask what
+the provider said; and a governed capability proves itself by producing the honest answer, not the
+impressive one. *Turkish Rug House:* its Heby now looks at the organization's own public channel
+through a fence and, finding nothing there, correctly asks for nothing — the channel has no public
+content yet, and that is a business fact the system stated rather than hid. *Hebun AI:* provider
+observation reaches a durable agent, informs a governed decision, and becomes no row anywhere —
+measured, not asserted.
