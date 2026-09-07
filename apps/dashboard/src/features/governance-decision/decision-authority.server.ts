@@ -46,6 +46,13 @@ import {
   MEMBERSHIP_AUTHORIZATION_SUBJECT_TYPE,
 } from "@/features/membership-authority/contracts";
 import {
+  STANDING_OBSERVATION_AUTHORIZED_OUTCOME,
+  STANDING_OBSERVATION_DOMAIN,
+  STANDING_OBSERVATION_SUBJECT_TYPE,
+  STANDING_OBSERVATION_WITHDRAWN_OUTCOME,
+  STANDING_OBSERVATION_WITHDRAW_DECISION_TYPE,
+} from "@/features/standing-observation-authority/contracts";
+import {
   ORGANIZATIONAL_ROLE_DOMAIN,
   ORGANIZATIONAL_ROLE_OUTCOME,
   ORGANIZATIONAL_ROLE_SUBJECT_TYPE,
@@ -157,7 +164,8 @@ export async function writeGovernanceDecisionWithin(
       | GovernanceDecisionType
       | AuthorityDecisionType
       | typeof MEMBERSHIP_AUTHORIZATION_DECISION_TYPE
-      | typeof ARTIFACT_REVIEW_ACCEPT_TYPE;
+      | typeof ARTIFACT_REVIEW_ACCEPT_TYPE
+      | typeof STANDING_OBSERVATION_WITHDRAW_DECISION_TYPE;
     readonly subjectType:
       | GovernanceSubjectType
       | AuthoritySubjectType
@@ -168,7 +176,8 @@ export async function writeGovernanceDecisionWithin(
       | typeof ACTION_PERMIT_SUBJECT_TYPE
       | typeof IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE
       | typeof AGENT_MANDATE_SUBJECT_TYPE
-      | typeof ARTIFACT_REVIEW_SUBJECT_TYPE;
+      | typeof ARTIFACT_REVIEW_SUBJECT_TYPE
+      | typeof STANDING_OBSERVATION_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -226,7 +235,19 @@ export async function writeGovernanceDecisionWithin(
                  * and no act is authorized. Not `authority-delegation` — a mandate grants nothing
                  * and moves no authority. Not `learning` — nothing is hypothesised or measured.
                  */
-                input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
+                /*
+                 * TRH-23 — Governance authorizing that ONE exact provider read scope may recur.
+                 *
+                 * Its own domain, and the enum's own comment records why every neighbour was
+                 * refused. The one that matters here is `action-authorization`: that domain's
+                 * decisions authorize ONE act and mint a permit that expires and is consumed. A
+                 * standing authorization mints nothing, expires never, is consumed by no runtime,
+                 * and makes no act executable. Filing it there would make the ledger unable to tell
+                 * "this tenant authorized an act" from "this tenant authorized looking".
+                 */
+                input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
+                ? STANDING_OBSERVATION_DOMAIN
+                : input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
                 ? AGENT_MANDATE_DOMAIN
                 : input.subjectType === "user" || input.subjectType === "governance_decision"
                   ? ("authority-delegation" as const)
@@ -234,6 +255,25 @@ export async function writeGovernanceDecisionWithin(
 
   const outcome =
     /*
+     * TRH-23 IS CHECKED FIRST, AND IT IS THE SHARPEST CASE OF THE RULE EVERY BRANCH BELOW OBEYS.
+     *
+     * A standing observation authorization uses `approve`, which is ALSO
+     * `MEMBERSHIP_AUTHORIZATION_DECISION_TYPE` — so without a subject check it would record
+     * `membership-authorized` in the permanent ledger: a decision about looking at a public channel,
+     * filed as a human being admitted to the organization.
+     *
+     * Its WITHDRAWAL is worse. It uses `revoke`, the same word G3 uses to end a Governance
+     * DELEGATION, and would therefore have recorded `REVOCATION_OUTCOME` — "Governance authority was
+     * revoked". Withdrawing permission to observe a channel takes nobody's authority away, and the
+     * ledger must never say it did.
+     *
+     * Both are unreachable because the subject is matched before either generic branch.
+     */
+    input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
+      ? input.decisionType === STANDING_OBSERVATION_WITHDRAW_DECISION_TYPE
+        ? STANDING_OBSERVATION_WITHDRAWN_OUTCOME
+        : STANDING_OBSERVATION_AUTHORIZED_OUTCOME
+      : /*
      * TRH-10 IS CHECKED FIRST, FOR THE SHARPEST FORM OF THE REASON SIA-3 AND AMA-1 BOTH GIVE.
      *
      * An artifact review uses `approve` and `reject`. `reject` matches NO branch below and would

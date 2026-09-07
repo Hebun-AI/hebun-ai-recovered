@@ -351,6 +351,13 @@
       "when": 1788785352213,
       "tag": "20260907124912_trh21_provider_observation_history",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1788812819321,
+      "tag": "20260907202659_trh23_standing_observation_authorization",
+      "breakpoints": true
     }
   ]
 }

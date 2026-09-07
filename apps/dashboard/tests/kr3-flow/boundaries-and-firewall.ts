@@ -119,6 +119,8 @@ function main(): void {
       "20260906195534_trh19_agent_proposal_rationale.sql",
       /* TRH-21 — the `provider_observations` table. A declared later phase, not this one's. */
       "20260907124912_trh21_provider_observation_history.sql",
+      /* TRH-23 — the `standing_observation_authorizations` table and the `standing-observation` governance domain. A declared later phase, not this one's. */
+      "20260907202659_trh23_standing_observation_authorization.sql",
       ],
       "KR3 added no migration; everything after its boundary belongs to a declared later phase",
     );

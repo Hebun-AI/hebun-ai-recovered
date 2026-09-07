@@ -134,7 +134,13 @@ function refused(reason: CredentialRefusal): { status: "refused"; reason: Creden
 
 /* ── THE ONE TENANT PREDICATE ───────────────────────────────────────────────── */
 
-function ownedBy(tenant: TenantContext) {
+/*
+ * TRH-23 — the predicate needs a TENANT, and only the tenant. Narrowing it here does not widen what
+ * this module grants: every WRITER below still takes the branded human `TenantContext`, because each
+ * of them reads `tenant.userId` to attribute what it changes. Only `listCredentialMetadata` — a read
+ * that returns kinds, liveness and timestamps and never ciphertext — passes a bare tenant scope.
+ */
+function ownedBy(tenant: Pick<TenantContext, "tenantId">) {
   return eq(integrationCredentials.tenantId, tenant.tenantId);
 }
 
@@ -671,8 +677,15 @@ export async function replaceCredentialFromProviderRefresh(
  * entitled to see that history; hiding it would make the audit trail the only place the fact
  * exists, which is a strange place to put a tenant's own record of their own connection.
  */
+/**
+ * TRH-23 — TENANT SCOPE, NOT A HUMAN. This read needs a tenant and nothing about who holds it, and
+ * it already read `tenant.tenantId` and nothing else. Narrowing the parameter lets a future
+ * observation principal ask this question without any human-only writer becoming reachable; the
+ * credential WRITERS in this same module keep the full branded `TenantContext`, because they read
+ * `tenant.userId` to attribute what they change. A firewall test censuses this exact seam.
+ */
 export async function listCredentialMetadata(
-  tenant: TenantContext | null,
+  tenant: Pick<TenantContext, "tenantId"> | null,
   integrationId: string,
   deps: CredentialRepositoryDeps = {},
 ): Promise<CredentialListing> {

@@ -317,7 +317,7 @@ async function theProviderIsUnchanged(): Promise<void> {
 
   /* NO SCHEMA, NO MIGRATION. */
   const journal = read("src/db/migrations/meta/_journal.json");
-  assert.equal(JSON.parse(journal).entries.length, 50, "the ledger moved for TRH-21; this fix authored none of it");
+  assert.equal(JSON.parse(journal).entries.length, 51, "the ledger moved for TRH-21; this fix authored none of it"); /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). */
   assert.equal(journal.includes("trh20"), false, "this fix authored no migration");
 }
 

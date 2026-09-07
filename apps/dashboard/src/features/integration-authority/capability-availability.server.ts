@@ -271,8 +271,15 @@ function classify(
  * The whole view, not one capability, because a consumer asking one at a time would build its own
  * loop and its own idea of what "all capabilities" means.
  */
+/**
+ * TRH-23 — TENANT SCOPE, NOT A HUMAN. This composition needs a tenant and nothing about who holds it, and
+ * it already read `tenant.tenantId` and nothing else. Narrowing the parameter lets a future
+ * observation principal ask this question without any human-only writer becoming reachable; the
+ * credential WRITERS in this same module keep the full branded `TenantContext`, because they read
+ * `tenant.userId` to attribute what they change. A firewall test censuses this exact seam.
+ */
 export async function getCapabilityAvailability(
-  tenant: TenantContext | null,
+  tenant: Pick<TenantContext, "tenantId"> | null,
   deps: CapabilityAvailabilityDeps = {},
 ): Promise<CapabilityAvailabilityView> {
   assertServerOnly();

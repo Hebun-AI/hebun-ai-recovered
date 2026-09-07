@@ -262,11 +262,11 @@ function nothingIsHardCodedToOneAgent(): void {
 
 function schemaIsUntouched(): void {
   const sql = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sql.length, 50, "AGENT-RUNTIME-0 adds no migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
+  assert.equal(sql.length, 51, "AGENT-RUNTIME-0 adds no migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 50, "and the ledger is unchanged by this phase"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
+  assert.equal(journal.entries.length, 51, "and the ledger is unchanged by this phase"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). */
 
   /* The two tables this phase writes and reads gained no column. */
   const artifactSchema = read("src/db/schema/work-artifact.ts");
@@ -352,10 +352,16 @@ function humanOnlyChecksAreIntact(): void {
       /* WEV-1's own human-only CHECK, absent from these censuses since it shipped: a work
        * evidence reference may only be DECLARED by a human. Restored here so the census matches
        * the migrated database it reads. */
+      /*
+       * TRH-23. The census GREW AGAIN, in the same strict direction.
+       * `standing_observation_authorizations` constrains its own AUTHORIZER to `human`, so an agent
+       * cannot authorize — or widen — standing permission to collect from a provider.
+       */
+      "standing_observation_authorizations_human_authorizer_chk",
       "work_evidence_references_human_declarer_chk",
       "work_items_human_accountable_chk",
     ],
-    "the thirteen human-only CHECKs are exactly these — this phase widened none of them",
+    "the fourteen human-only CHECKs are exactly these — this phase widened none of them",
   );
 
   /*

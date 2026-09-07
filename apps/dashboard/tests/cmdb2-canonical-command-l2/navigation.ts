@@ -146,14 +146,20 @@ const USE_SERVER_MODULES = [
  */
 /* GIA-1's mandate-scope CHECK grew the ledger to 44; WEV-1's `work_evidence_references` to 45. BOTH values move with it. */
 /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
-const LEDGER_COUNT = 50;
-const LEDGER_DIGEST = "4a196d7fa8092725"; /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it.
+const LEDGER_COUNT = 51; /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). */
+const LEDGER_DIGEST = "5f0b35164a364c62"; /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it.
  * TRH-10 authored migration 48 — one additive `ALTER TYPE "governance_domain" ADD VALUE 'artifact-review'` — so the digest moves again: `29521f60d3c9e78a` was the digest at 47.
  * TRH-19 authored migration 49 — one additive `ALTER TABLE "heby_action_requests" ADD COLUMN "proposal_rationale"` plus its two CHECKs — so the digest moves again: `326451dc3e7c6ad1` was the digest at 48.
  * TRH-21 authored migration 50 — one additive `CREATE TABLE "provider_observations"` with its
  * composite tenant/connection foreign key and its subject-and-instant unique index — so the digest
  * moves again: `b6d5a80092632fa9` was the digest at 49.
- * Recomputed with this file's OWN mechanism (sha256 over the sorted migration bodies, first 16 hex), never hand-written. */
+ * Recomputed with this file's OWN mechanism (sha256 over the sorted migration bodies, first 16 hex), never hand-written.  * TRH-23 authored migration 51 — one additive `CREATE TABLE "standing_observation_authorizations"`
+ * with its append-only revision lineage, its human-authorizer CHECK and its composite
+ * tenant/connection foreign key, plus `ALTER TYPE "governance_domain" ADD VALUE
+ * 'standing-observation'` — so the digest moves again: `4a196d7fa8092725` was the digest at 50.
+ * Recomputed with this file's OWN mechanism (sha256 over the sorted migration bodies, first 16 hex),
+ * never hand-written.
+*/
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.
  *

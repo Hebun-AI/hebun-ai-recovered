@@ -352,7 +352,9 @@ export function run(): void {
       "20260905212157_trh10_artifact_review_domain.sql",
       "20260906195534_trh19_agent_proposal_rationale.sql",
       /* TRH-21 — the `provider_observations` table. A declared later phase, not this one's. */
-      "20260907124912_trh21_provider_observation_history.sql"],
+      "20260907124912_trh21_provider_observation_history.sql",
+      /* TRH-23 — the `standing_observation_authorizations` table and the `standing-observation` governance domain. A declared later phase, not this one's. */
+      "20260907202659_trh23_standing_observation_authorization.sql"],
       "KR4 adds no migration; what follows is a declared later phase",
     );
     const journal = JSON.parse(read(join(MIGRATIONS, "meta", "_journal.json"))) as { entries: unknown[] };

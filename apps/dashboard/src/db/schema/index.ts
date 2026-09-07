@@ -56,6 +56,7 @@ export * from "./heby-answer-source-evidence";
 export * from "./heby-origination-invocation";
 export * from "./provider-connectivity-control";
 export * from "./provider-observation";
+export * from "./standing-observation-authorization";
 export * from "./document";
 export * from "./notification";
 export * from "./work-artifact";

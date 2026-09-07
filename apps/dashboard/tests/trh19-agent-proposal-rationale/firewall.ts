@@ -279,11 +279,11 @@ function main(): void {
       files.some((f) => f.includes("trh19_agent_proposal_rationale")),
       "TRH-19 authored migration 49, and it is still on disk",
     );
-    assert.equal(files.length, 50, "the ledger is at 50 — 48 at TRH-18, +1 for TRH-19, +1 for TRH-21");
+    assert.equal(files.length, 51, "the ledger is at 51 — 48 at TRH-18, +1 for TRH-19, +1 for TRH-21, +1 for TRH-23"); /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). */
     const journal = JSON.parse(read(`${MIGRATIONS}/meta/_journal.json`)) as {
       entries: readonly { tag: string }[];
     };
-    assert.equal(journal.entries.length, 50, "and the journal agrees with the files");
+    assert.equal(journal.entries.length, 51, "and the journal agrees with the files"); /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). */
     /*
      * IT IS IN THE JOURNAL — which is what TRH-19 owns. Being LAST was only ever true until the
      * next phase authored one, and pinning it there would make every later migration fail a test
@@ -295,8 +295,8 @@ function main(): void {
     );
     assert.equal(
       journal.entries.at(-1)!.tag,
-      "20260907124912_trh21_provider_observation_history",
-      "and TRH-21 holds the newest line — TRH-19 held it before",
+      "20260907202659_trh23_standing_observation_authorization",
+      "and TRH-23 holds the newest line — TRH-21 held it before, and TRH-19 before that",
     );
 
     /* TRH-19's OWN sql, found by name — not "the newest file", which is now another phase's. */

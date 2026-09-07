@@ -226,17 +226,26 @@ function main(): void {
      * test asserting otherwise would be pinning an absence rather than a boundary.
      */
     assert.ok(!schema.some((f) => /youtube|channel|video/i.test(f)), "no YouTube, channel or video table");
+    /*
+     * TRH-23 ADDS A SECOND FILE MATCHING THIS WORD, AND IT IS NOT AN OBSERVATION TABLE.
+     * `standing_observation_authorizations` stores PERMISSION TO OBSERVE — a Governance decision's
+     * downstream evidence. It holds no provider response, no facts, no count and no instant a
+     * provider reported; nothing in it is a thing anybody observed. Listing it here is a census
+     * growing, not the boundary moving: both files are still provider-NEUTRAL, and neither is named
+     * for YouTube, a channel or a video, which is the claim CGO-5 actually makes.
+     */
     assert.deepEqual(
-      schema.filter((f) => /observation/i.test(f)),
-      ["provider-observation.ts"],
-      "the one observation table is the provider-neutral history, and it names no provider",
+      schema.filter((f) => /observation/i.test(f)).sort(),
+      ["provider-observation.ts", "standing-observation-authorization.ts"],
+      "the observation-shaped tables are the provider-neutral history and the authorization to " +
+        "collect — and neither names a provider",
     );
     const observationTable = read("src/db/schema/provider-observation.ts");
     assert.equal(/youtube/i.test(codeOf(observationTable)), false, "and its code names no provider");
     assert.equal(
       readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length,
-      50,
-      "the ledger moved for TRH-21, and CGO-5 authored none of it",
+      51,
+      "the ledger moved for TRH-21 and again for TRH-23, and CGO-5 authored none of it",
     ); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
   }
 

@@ -142,6 +142,13 @@ async function main(): Promise<void> {
        * widened.
        */
       "src/features/governance-audit/organizational-work-audit.server.ts",
+      /*
+       * TRH-23 — the Standing Observation Authority's audit sibling. It appends to the SHARED sink
+       * like every other and creates no second audit table. The census GREW; nothing in it was
+       * widened. Every row it writes carries `collected: false`, because authorizing observation is
+       * not observing.
+       */
+      "src/features/governance-audit/standing-observation-audit.server.ts",
     ];
     /*
      * WRITING is asked by MECHANISM (R7.1 repair).

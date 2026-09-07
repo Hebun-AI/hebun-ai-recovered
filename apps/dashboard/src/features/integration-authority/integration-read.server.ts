@@ -83,7 +83,20 @@ export function resolveIntegrationDbOrNull(): ControlPlaneDatabase | null {
  * Every row this tenant owns. The single expression every read and write in this authority
  * composes with — copying the clause into each call site is how one of them eventually loses it.
  */
-export function ownedBy(tenant: TenantContext) {
+/**
+ * TRH-23 — THE TENANT SCOPE, NAMED.
+ *
+ * `Pick<TenantContext, "tenantId">` is the repository's established narrowing for a read that needs
+ * a tenant and nothing about the human holding it, and every one of the seams already using it is a
+ * READ. This authority's reads join that set deliberately, so that a future non-human observation
+ * principal can pass a tenant scope here WITHOUT any human-only writer becoming reachable — the
+ * writers beside them read `tenant.userId` and keep the full branded `TenantContext`.
+ *
+ * The narrowing changes no behaviour: every line below already read `tenant.tenantId` and nothing
+ * else. What changes is what the TYPE now admits, and a firewall test censuses exactly which seams
+ * were opened.
+ */
+export function ownedBy(tenant: Pick<TenantContext, "tenantId">) {
   return eq(integrations.tenantId, tenant.tenantId);
 }
 
@@ -91,7 +104,7 @@ export function ownedBy(tenant: TenantContext) {
  * ONE row this tenant owns. The id and the tenant are in the SAME `and(...)`, so a foreign id
  * matches nothing at all rather than matching a row this module then has to decide about.
  */
-export function ownedRow(tenant: TenantContext, integrationId: string) {
+export function ownedRow(tenant: Pick<TenantContext, "tenantId">, integrationId: string) {
   return and(eq(integrations.id, integrationId), ownedBy(tenant));
 }
 
@@ -169,7 +182,7 @@ export function toIntegrationView(row: IntegrationRow): IntegrationView {
  * path that could tell them apart, so there is none that could disclose the difference.
  */
 export async function readConnection(
-  tenant: TenantContext | null,
+  tenant: Pick<TenantContext, "tenantId"> | null,
   integrationId: string,
   deps: IntegrationRepositoryDeps = {},
 ): Promise<IntegrationView | null> {
@@ -191,7 +204,7 @@ export async function readConnection(
 
 /** Every connection this tenant owns, oldest first. Bounded so a listing is never a data export. */
 export async function listConnections(
-  tenant: TenantContext | null,
+  tenant: Pick<TenantContext, "tenantId"> | null,
   deps: IntegrationRepositoryDeps = {},
 ): Promise<ConnectionListing> {
   assertServerOnly();

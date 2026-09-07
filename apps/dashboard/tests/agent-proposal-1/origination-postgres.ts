@@ -709,10 +709,18 @@ async function main(): Promise<void> {
           /* WEV-1's own human-only CHECK, absent from these censuses since it shipped: a work
            * evidence reference may only be DECLARED by a human. Restored here so the census matches
            * the migrated database it reads. */
+          /*
+           * TRH-23. The census GREW AGAIN, in the same strict direction and for the sharpest reason
+           * yet. `standing_observation_authorizations` constrains its own AUTHORIZER to `human`, so
+           * an agent cannot authorize — or widen — standing permission to collect from a provider.
+           * That is the boundary the whole standing-observation lineage exists to protect, and here
+           * it is PostgreSQL's refusal rather than the writer's.
+           */
+          "standing_observation_authorizations_human_authorizer_chk",
           "work_evidence_references_human_declarer_chk",
           "work_items_human_accountable_chk",
         ],
-        "the twelve human-only CHECKs are enforced by the database, and this phase widened none of them",
+        "the thirteen human-only CHECKs are enforced by the database, and this phase widened none of them",
       );
 
       /* And the approver CHECK really does refuse an agent, on the agent's own proposal. */

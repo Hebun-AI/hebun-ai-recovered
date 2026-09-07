@@ -729,7 +729,7 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  */
 /* Departmental Placement grew the ledger to 43; GIA-1's `record-work` mandate-scope CHECK to 44. BOTH values move with it. */
 /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
-const LEDGER_COUNT = 50;
+const LEDGER_COUNT = 51; /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine. AGENT-ID-0.1 adds exactly
  * one boundary — the durable agent identity one — so nine became false. Naming the set beats bumping

@@ -926,6 +926,25 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * this domain exists partly so the ledger can tell those two questions apart when it is asked.
    */
   "artifact-review",
+  /**
+   * TRH-23 — Governance authorizing that ONE exact provider READ SCOPE may be observed repeatedly,
+   * for this tenant, until a later revision withdraws it.
+   *
+   * Its OWN concern, and every neighbour was refused for a reason that can be checked. It is not
+   * `provider-tool` — that domain says a capability EXISTS; this one says a specific, bounded USE
+   * of it is permitted to recur. It is not `action-authorization` — that authorizes ONE act to
+   * become executable and mints a permit that expires and is CONSUMED; a standing authorization
+   * authorizes no act, mints no permit, is never consumed, and confers no execution right. It is
+   * not `authority-delegation` — nothing about who holds Governance authority moves. It is not
+   * `agent-mandate` — no agent is named here at all, and a mandate bounds PROPOSING rather than
+   * reading. It is not `knowledge-ratification` — an observation never becomes the organization's
+   * own knowledge by being authorized.
+   *
+   * Folding it into any of those would make the ledger unable to answer the one question this
+   * domain exists for: "what standing provider observation has this tenant authorized, and is it
+   * still authorized?"
+   */
+  "standing-observation",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",
@@ -1238,4 +1257,22 @@ export const workDeclaredStateEnum = pgEnum("work_declared_state", [
   "active",
   "blocked",
   "complete",
+]);
+
+/**
+ * TRH-23 — the state of ONE standing observation authorization REVISION.
+ *
+ * Closed to two values, and both are properties of the revision that carries them rather than of a
+ * lineage somebody has to keep in step. There is no `expired`: nothing expires without a decision
+ * here, and a value no writer can ever produce is a lie the schema would be telling. There is no
+ * `revoked`: withdrawal is a NEW revision, never a stamp on an old one, so the word that fits is
+ * the one describing what this revision SAYS — not what happened to a predecessor.
+ *
+ * Effectiveness is `max(authorization_revision)` for the lineage; it is DERIVED on read and is
+ * deliberately not a column. A stored `is_current` beside a derivable one is two facts that can
+ * disagree.
+ */
+export const standingObservationStateEnum = pgEnum("standing_observation_state", [
+  "active",
+  "withdrawn",
 ]);

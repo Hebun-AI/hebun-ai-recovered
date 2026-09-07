@@ -441,7 +441,17 @@ function theMigrationIsAdditiveAndSingular(): void {
   const journal = JSON.parse(read(`${MIGRATIONS}/meta/_journal.json`)) as { entries: { tag: string }[] };
   const trh21 = journal.entries.filter((e) => e.tag.includes("trh21"));
   assert.equal(trh21.length, 1, "TRH-21 authored exactly one migration");
-  assert.equal(journal.entries.length, 50, "the ledger grew 49 -> 50");
+  /*
+   * SPLIT BY TRH-23, AND DELIBERATELY NOT REWRITTEN.
+   *
+   * "TRH-21 grew the ledger 49 -> 50" is a HISTORICAL FACT about this phase and stays true forever.
+   * "the ledger has 50 entries" was a LIVE MEASUREMENT that was only ever true until the next
+   * migration. Collapsing the two into one number is what makes a pin like this quietly become a
+   * lie; keeping them apart is what lets the historical claim survive.
+   */
+  const trh21Entry = journal.entries.findIndex((e) => /trh21_provider_observation_history/.test(e.tag));
+  assert.equal(trh21Entry, 49, "TRH-21 is the 50th entry — it grew the ledger 49 -> 50, and always did");
+  assert.equal(journal.entries.length, 51, "and the ledger has moved on since: TRH-23 added the 51st");
 
   const sql = read(`${MIGRATIONS}/${trh21[0]!.tag}.sql`);
   assert.equal((sql.match(/CREATE TABLE/g) ?? []).length, 1, "one table");
@@ -451,7 +461,7 @@ function theMigrationIsAdditiveAndSingular(): void {
   assert.equal(sql.includes("integrations"), true, "the composite FK names the connection authority");
 
   const sqlFiles = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 50, "and the files agree with the journal");
+  assert.equal(sqlFiles.length, 51, "and the files agree with the journal");
 
   /* OBSERVATION SUBJECT KINDS ARRIVE BY MIGRATION-REVIEWED CODE, never by data. */
   assert.deepEqual([...OBSERVATION_SUBJECT_KINDS], ["youtube-channel"], "one subject kind ships");
