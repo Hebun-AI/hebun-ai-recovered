@@ -41,8 +41,13 @@
  * It asks the capability authority, the connection authority and the credential METADATA seam —
  * three reads that were measured to need a tenant and nothing about the human holding it, and which
  * TRH-23 narrowed for exactly this. It does NOT call `withDecryptedSecret`, which still requires the
- * branded human context, so no secret is decrypted anywhere on this path. There is no transport
- * caller in this repository, and this module imports none.
+ * branded human context.
+ *
+ * NO SECRET IS OPENED IN THIS FUNCTION, and this module imports no transport. Since TRH-24 a
+ * transport caller does exist — one composition, which calls this function FIRST and only then
+ * spends the connection's key through `withConnectionScopedSecret`, inside a callback frame. So
+ * decryption happens strictly after this returns `authorized`, in a module this one cannot reach.
+ * The order is the point: nothing is opened until every condition below has passed.
  *
  * Server-only.
  */
@@ -103,8 +108,8 @@ export type RevalidateStandingObservationResult =
   | {
       readonly status: "authorized";
       /**
-       * The principal, unchanged. Returning it is NOT a grant — it is how a future transport caller
-       * is forced to hold something this function produced rather than something it minted itself.
+       * The principal, unchanged. Returning it is NOT a grant — it is how the transport caller is
+       * forced to hold something this function produced rather than something it minted itself.
        */
       readonly principal: ObservationPrincipal;
       /** The connection this read is permitted to spend, as the authorization named it. */
