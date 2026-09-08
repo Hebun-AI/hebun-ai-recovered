@@ -3833,3 +3833,29 @@ exist is anything that would invoke it.
 - **A dry run is admissible evidence only after you read what it returns before.** The cadence refusal
   was worth executing because the ceremony provably returns before transport and before any write —
   checked in the source first, then run, then the row count re-measured to confirm it stayed at two.
+- **Prose that describes the rest of the repository ages against commits it never sees.** Four
+  released files claimed there was "no provider transport caller in this repository" and "no
+  machine-caused provider read". TRH-24 built exactly those, one commit later, and touched none of
+  the files that said otherwise. Nothing failed, because every firewall assertion over those files
+  strips comments before matching — a comment cannot be guarded by a test that cannot see it. A
+  claim scoped to ONE FUNCTION ("no secret is opened here") survives; a claim scoped to the whole
+  repository rots on the next commit.
+- **Repair the class, not the report.** One stale sentence was reported. Grepping its phrasing across
+  the feature found three more sites in three more files. Fixing only what was named would have left
+  a security-critical ledger asserting something false.
+- **Prove comment-only two ways before committing it as comment-only.** Strip every comment from
+  before and after and compare the remaining code byte-for-byte, AND check that no changed line in
+  the diff lacks a comment marker. Either alone can be fooled; together they are conclusive.
+- **`observed_at` is HEBUN's clock, not the provider's — so the instant-uniqueness index cannot
+  deduplicate concurrency.** Two simultaneous invocations produce two different instants and two
+  different invocation ids, and both rows insert. The cadence ceiling is read-then-write with no
+  lock. That is safe for one human at one terminal and unsafe for any automatic trigger, and the
+  difference is not visible from the schema.
+- **A kill switch that exists is not a kill switch that covers you.** The connectivity control table
+  is real, is consulted by the model path, and has no row for `youtube` — the released revalidator's
+  own comment says it refuses to consult one rather than fabricate the safety property. Manual
+  ceremonies need no such switch because the human is the switch; unattended ones do.
+- **The strongest scheduler guard already shipped, as three assertions about absence.** A released
+  firewall pins the exact route list, asserts `vercel.json` does not exist, and asserts no product
+  surface names the observation authority. Any scheduler trips all three, so unattended collection
+  cannot be added to this repository quietly.
