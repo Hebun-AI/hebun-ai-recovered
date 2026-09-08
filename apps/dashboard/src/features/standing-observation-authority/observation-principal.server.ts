@@ -25,9 +25,25 @@
  *
  * What it CAN reach is the narrow set of reads that were measured to need a tenant and nothing else,
  * and which TRH-23 narrowed on purpose: capability availability, connection listing and credential
- * METADATA. Note what is missing from that list: `withDecryptedSecret` still takes the full branded
- * human context, so this principal cannot open a secret. Decryption belongs to the transport phase,
- * and that phase does not exist.
+ * METADATA — plus, since TRH-24, the released provider-READ path described below.
+ *
+ * ── THE CREDENTIAL BOUNDARY, AS IT NOW STANDS (TRH-24) ───────────────────────
+ *
+ * `withDecryptedSecret` still takes the full branded human context and was NOT narrowed. This
+ * principal therefore still cannot name a credential and open it — that remains the single most
+ * important line in the released firewall, because narrowing it would let a principal decrypt any
+ * live credential its tenant holds, a Google refresh token included.
+ *
+ * What TRH-24 added instead is a STRICTLY NARROWER sibling, `withConnectionScopedSecret`: it takes a
+ * connection and a KIND, has NO credential parameter at all, refuses rather than choosing when a
+ * connection holds two live credentials of that kind, and confines the plaintext to one callback
+ * frame. So the accurate statement is not "this principal cannot open a secret" — it is that it can
+ * never ASK FOR a secret, only spend the one the authorization's own connection holds for the
+ * authorized purpose, inside a frame it cannot see out of.
+ *
+ * THE PRINCIPAL ITSELF CARRIES NO CREDENTIAL. Nothing on this interface is or exposes secret
+ * material; decryption stays inside the credential authority and no plaintext is ever returned
+ * through a principal.
  *
  * ── THE BRAND IS A RUNTIME SYMBOL ────────────────────────────────────────────
  *
@@ -44,11 +60,25 @@
  * which is why nothing here caches, and why the principal carries no expiry of its own to become
  * stale in a way somebody could trust.
  *
- * ── AND NOTHING CALLS IT IN PRODUCTION ───────────────────────────────────────
+ * ── WHAT CALLS IT, AND WHAT STILL DOES NOT (TRH-24) ──────────────────────────
  *
- * There is no trigger, no scheduler and no provider transport caller in this repository. This module
- * makes a non-human actor REPRESENTABLE and safely constructible. It does not make unattended
- * observation authorized, scheduled or possible.
+ * There IS now a provider transport caller. TRH-24 released one composition —
+ * `provider-observation-history/observe-once-under-authorization.server.ts` — which mints a
+ * principal here, revalidates it immediately before transport, performs ONE provider READ through
+ * the authorized connection's key, and records ONE observation whose human actor pair is NULL. A
+ * valid principal may participate in that path and in no other.
+ *
+ * WHAT THE PRINCIPAL STILL GRANTS IS NOTHING ELSE. It cannot be passed to a Governance writer, a
+ * Work writer, a Knowledge admission seam, an execution runtime or a credential writer — not
+ * because each of them checks, but because none of them can be called with it. It reaches no
+ * provider WRITE either: the transport it participates in issues a single `GET`, and one condition
+ * of the pre-transport check refuses a capability that is not read-only.
+ *
+ * AND THERE IS STILL NO TRIGGER AND NO SCHEDULER. The composition's only caller anywhere in this
+ * repository is an operator terminal ceremony that requires a typed confirmation. There is no cron,
+ * no worker, no queue, no webhook and no HTTP ingress that can reach it. This module makes a
+ * non-human actor REPRESENTABLE and safely constructible, and TRH-24 made ONE MANUAL machine
+ * observation possible. Neither makes UNATTENDED observation authorized, scheduled or possible.
  *
  * Server-only.
  */
@@ -89,8 +119,10 @@ export interface ObservationPrincipal {
   /** The cadence CEILING the authorization carries. Carried for auditability; enforces nothing. */
   readonly intervalMinutes: number;
   /**
-   * THIS RUN. Minted here, never persisted by this phase, and used for correlation only. It confers
-   * nothing: two invocations with different ids have exactly the same (zero) authority.
+   * THIS RUN. Minted here and, since TRH-24, STORED on the observation it produces — as provenance
+   * beside the standing authorization, under a partial unique index so one invocation can never
+   * yield two samples. It is correlation, never authority: two invocations with different ids have
+   * exactly the same (zero) authority, and no principal is persisted anywhere.
    */
   readonly invocationId: string;
   readonly [OBSERVATION_PRINCIPAL_BRAND]: true;
