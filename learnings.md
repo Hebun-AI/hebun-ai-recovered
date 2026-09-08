@@ -3886,3 +3886,20 @@ exist is anything that would invoke it.
 - **A fail-closed switch turns a released, production-accepted capability off the moment it ships.**
   That is the correct direction and it is not a surprise to be discovered later: TRH-24's manual
   observation now refuses in production until the Director runs the arming ceremony.
+- **"Cron config yazıldı" ≠ "cron kayıtlı".** `vercel.json` commit etmek bir dosya işlemidir; scheduler
+  ancak deploy sonrası kayıt olur. İkisini ayrı ölç: `vercel crons ls` VE project API'nin
+  `crons.definitions` alanı — `definitions: []` "capability açık ama tanım yok" demektir, ki bu
+  "cron çalışıyor"dan tamamen farklı bir durumdur.
+- **Vercel cron `CRON_SECRET`'i otomatik `Authorization: Bearer` olarak gönderir.** Route'un env adını
+  buna uydurmak (auth contract'ını platformun değişken adına genişletmek) yanlış yön: platform
+  authority hâline gelir. Doğrusu aynı değeri iki değişkende tutmak — biri Vercel'in transport
+  sözleşmesi, diğeri Hebun'un auth sözleşmesi. Kod değişmez.
+- **Cron redirect takip etmez.** Middleware `/api/*`'ı kapsıyorsa ve carve-out yoksa, scheduler 307 →
+  /login alır ve route hiç çalışmaz — hata da vermez. Sessiz ölüm. Deploy öncesi production'da
+  `curl` ile 401 (login redirect DEĞİL) görmek bu carve-out'un tek gerçek kanıtı.
+- **Bir stdout log satırı auth kanıtı olabilir.** Cron invocation'ında görünen pg SSL uyarısı, route'un
+  veritabanına ULAŞTIĞINI gösterir; auth başarısız olsaydı 401 dönerdi ve DB'ye hiç gidilmezdi.
+  Status code okunamadığında zincirin nereye kadar geldiğini yan etkiden çıkar.
+- **Scheduler frekansı cadence değildir.** Saatlik cron "ne sıklıkta SORUYORUZ"; `interval_minutes`
+  "ne sıklıkta İZİN VAR". İkisini karıştırmak ya ceiling'i düşürmeye (Governance'ın sayısı) ya da
+  gün atlamaya yol açar — Hobby'nin ±59dk jitter'ı ile günlük tarama tam olarak gün atlar.
