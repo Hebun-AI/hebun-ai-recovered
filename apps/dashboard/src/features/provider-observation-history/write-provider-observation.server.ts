@@ -45,6 +45,7 @@
  * Server-only.
  */
 import { createHash } from "node:crypto";
+import { sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { providerObservations } from "@/db/schema/provider-observation";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
@@ -229,43 +230,139 @@ export async function recordAuthorizedProviderObservation(
   const facts = canonicalizeFacts(report.facts);
   const factsDigest = createHash("sha256").update(facts).digest("hex");
 
-  try {
-    const inserted = await db
-      .insert(providerObservations)
-      .values({
-        /* EVERY ONE OF THESE COMES FROM THE AUTHORIZATION, THROUGH THE PRINCIPAL. */
-        tenantId: principal.tenantId,
-        integrationId: principal.integrationId,
-        providerKey: principal.providerKey,
-        capabilityKey: principal.capabilityKey,
-        subjectKind: principal.subjectKind,
-        subjectRef: principal.subjectRef,
-        observedAt,
-        /*
-         * NO HUMAN ACTOR, BECAUSE NO HUMAN ACTED. Stating this as `null` rather than borrowing the
-         * Director's id is the whole point of the phase: the row says what made the read
-         * legitimate, and does not invent somebody who caused it.
-         */
-        observedByActorType: null,
-        observedByActorId: null,
-        standingAuthorizationId: principal.authorizationId,
-        invocationId: principal.invocationId,
-        facts: report.facts,
-        factsDigest,
-      })
-      /* TRH-21's contract, unchanged: one subject, one instant, one row. */
-      .onConflictDoNothing({
-        target: [
-          providerObservations.tenantId,
-          providerObservations.providerKey,
-          providerObservations.subjectRef,
-          providerObservations.observedAt,
-        ],
-      })
-      .returning({ id: providerObservations.id });
+  /*
+   * ── THE CADENCE WINDOW IS CLAIMED BY THE INSERT ITSELF (TRH-25 prerequisite) ──────────────
+   *
+   * WHY THIS IS NOT A SECOND CADENCE AUTHORITY. The revalidator decides whether a read may BEGIN
+   * and remains the only place that decides. This statement decides nothing: it refuses to STORE a
+   * sample the authorization's own ceiling already excludes. Same rule, same source — the interval
+   * arrives on the principal, off the authorization row — asserted at the only moment where the
+   * database can make it atomic.
+   *
+   * WHY IT IS NEEDED AT ALL. `observed_at` is HEBUN'S clock at read time, so two concurrent
+   * invocations produce two different instants and two different invocation ids. Neither unique
+   * index collapses them, and both would previously have inserted. Read-then-write is not
+   * enforcement under concurrency, and the manual ceremony is simply the case where concurrency
+   * never happened to occur.
+   *
+   * WHY NOT A LOCK. A mutex that actually prevented the second PROVIDER CALL would have to be held
+   * across the provider's network I/O. No transaction in this repository spans network I/O — the
+   * OAuth callback deliberately exchanges its token OUTSIDE the transaction that stores it — and
+   * production runs on a transaction-pooled connection where a session-level advisory lock is
+   * unsafe and a transaction-level one would pin a pooled server connection for the length of a
+   * provider call. So the honest guarantee is stated exactly: THIS MAKES A DUPLICATE OBSERVATION
+   * UNRECORDABLE. It does not make a duplicate provider CALL impossible, and this comment does not
+   * pretend otherwise. Two racing invocations may each spend provider quota; exactly one row can
+   * result, and the loser is told which rule stopped it.
+   *
+   * NO LOCK MEANS NOTHING TO LEAK. A crashed process leaves no lease, no lock and no reservation to
+   * reclaim, so there is no scheduler state here and nothing that could need a reaper.
+   *
+   * `on conflict do nothing` STAYS, and is now the inner of two guards: the window claim answers
+   * "a different instant already occupies this window", the conflict target answers TRH-21's
+   * original "this exact instant is already on record". Two facts, two mechanisms, neither removed.
+   */
+  const windowMinutes = Number.isFinite(principal.intervalMinutes) ? principal.intervalMinutes : 0;
 
-    const row = inserted[0];
-    return row ? { status: "recorded", observationId: row.id } : { status: "already-recorded" };
+  try {
+    /*
+     * ── ONE SHORT TRANSACTION, SERIALIZED ON THE AUTHORIZATION'S OWN ROW ──────────────────────
+     *
+     * `insert ... where not exists` ALONE DOES NOT SETTLE THIS, and believing it does is the
+     * subtle version of the bug. Under READ COMMITTED neither of two concurrent statements can see
+     * the other's uncommitted row, so both `not exists` tests pass and both rows commit. The
+     * predicate needs an arbiter, and a time window cannot be a unique index.
+     *
+     * So the writers are serialized on a row that already exists and already means the right
+     * thing: the standing authorization being spent. `for update` makes the second writer WAIT for
+     * the first to commit and then re-evaluate the window against a state that now includes it.
+     * Different authorizations take different row locks, so nothing is globally serialized.
+     *
+     * THE TRANSACTION CONTAINS NO NETWORK I/O — only the lock and the insert. The provider call
+     * already happened, outside it. That matters: no transaction in this repository spans network
+     * I/O, production runs on a transaction-pooled connection, and a lock held across a provider
+     * call would pin a pooled server connection for the length of that call.
+     *
+     * A CRASH RELEASES IT WITH NOTHING TO RECLAIM. The lock is the transaction; a dead process
+     * aborts it and leaves no lease, no reservation and no scheduler state for a reaper to find.
+     */
+    const outcome = await db.transaction(async (tx) => {
+      await tx.execute(sql`
+        select 1
+          from standing_observation_authorizations
+         where id = ${principal.authorizationId}::uuid
+           and tenant_id = ${principal.tenantId}::uuid
+           for update
+      `);
+
+      const claimed = await tx.execute<{ id: string }>(sql`
+        insert into provider_observations (
+          tenant_id, integration_id, provider_key, capability_key, subject_kind, subject_ref,
+          observed_at, observed_by_actor_type, observed_by_actor_id,
+          standing_authorization_id, invocation_id, facts, facts_digest
+        )
+        select
+          ${principal.tenantId}::uuid, ${principal.integrationId}::uuid, ${principal.providerKey},
+          ${principal.capabilityKey}, ${principal.subjectKind}, ${principal.subjectRef},
+          ${observedAt}::timestamptz,
+          null, null,
+          ${principal.authorizationId}::uuid, ${principal.invocationId}::uuid,
+          ${facts}::jsonb, ${factsDigest}
+        where not exists (
+          select 1
+            from provider_observations p
+           where p.tenant_id = ${principal.tenantId}::uuid
+             and p.provider_key = ${principal.providerKey}
+             and p.capability_key = ${principal.capabilityKey}
+             and p.subject_ref = ${principal.subjectRef}
+             /*
+              * MACHINE OBSERVATIONS ONLY, exactly as the revalidator measures it. A human read never
+              * touches the authorization, and letting one bound this window would make a Governance
+              * decision retroactively govern an act performed before it existed.
+              */
+             and p.standing_authorization_id is not null
+             /*
+              * WITHIN THE CEILING IN EITHER DIRECTION, AND THE SYMMETRY IS THE WHOLE POINT.
+              *
+              * The obvious predicate is "a PRIOR observation inside the window", mirroring the
+              * revalidator's "how long since the last one". It is wrong here, and a concurrency
+              * proof is what shows it: of two racing writers, whichever holds the EARLIER instant
+              * never sees the later one, so if the later commits first the earlier still inserts
+              * and two rows survive. A one-sided test cannot serialize a pair.
+              *
+              * Stated symmetrically the rule is order-independent, which is what makes it safe:
+              * TWO MACHINE OBSERVATIONS OF ONE SCOPE MAY NOT LIE WITHIN THE CEILING OF EACH OTHER.
+              * Whichever writer reaches the lock first wins, and the second is refused no matter
+              * which way round their instants fell.
+              */
+             and p.observed_at > ${observedAt}::timestamptz - make_interval(mins => ${windowMinutes})
+             and p.observed_at < ${observedAt}::timestamptz + make_interval(mins => ${windowMinutes})
+        )
+        on conflict (tenant_id, provider_key, subject_ref, observed_at) do nothing
+        returning id
+      `);
+
+      const row = claimed.rows[0];
+      if (row) return { status: "recorded", observationId: row.id } as const;
+
+      /*
+       * ZERO ROWS. The GUARANTEE is already settled — nothing was written — and what remains is
+       * only to say WHICH rule settled it, which is a report and not a decision.
+       */
+      const sameInstant = await tx.execute<{ n: number }>(sql`
+        select count(*)::int as n
+          from provider_observations p
+         where p.tenant_id = ${principal.tenantId}::uuid
+           and p.provider_key = ${principal.providerKey}
+           and p.subject_ref = ${principal.subjectRef}
+           and p.observed_at = ${observedAt}::timestamptz
+      `);
+      return (sameInstant.rows[0]?.n ?? 0) > 0
+        ? ({ status: "already-recorded" } as const)
+        : refused("cadence-window-already-observed");
+    });
+
+    return outcome;
   } catch (error) {
     /*
      * A REPLAY OF THIS RUN'S PERSISTENCE, REPORTED AS ITSELF. The partial unique index on

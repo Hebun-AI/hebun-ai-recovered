@@ -18,6 +18,7 @@ import assert from "node:assert/strict";
 import { Client } from "pg";
 import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
+import { OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
 import {
   PROVIDER_KEYS,
   isProviderKey,
@@ -45,10 +46,15 @@ async function countRows(client: Client, table: string): Promise<number> {
  * 1. THE CLOSED VOCABULARY.
  * ═════════════════════════════════════════════════════════════════════════ */
 async function closedVocabulary(client: Client): Promise<void> {
+  /*
+   * THE CENSUS GREW BY ONE ROW, NOT BY ONE SYSTEM (TRH-25 prerequisite). `provider-observation-read`
+   * is the Director's stop over machine-principal provider READS, kept in this table under R3B's
+   * rule that one ceremony owns every switch. Still enumerated by value, so a fourth key fails here.
+   */
   assert.deepEqual(
     [...PROVIDER_KEYS].sort(),
-    [CLAUDE_PROVIDER_KEY, EXTERNAL_SEND_PROVIDER_KEY].sort(),
-    "exactly the two provider keys the repository defines",
+    [CLAUDE_PROVIDER_KEY, EXTERNAL_SEND_PROVIDER_KEY, OBSERVATION_READ_CONTROL_KEY].sort(),
+    "exactly the three control keys the repository defines",
   );
 
   for (const bogus of ["", "  ", "openai", "resend", "CLAUDE", "Claude", "*", "external_send", "claude;"]) {

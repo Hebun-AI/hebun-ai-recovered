@@ -251,15 +251,31 @@ function theAuthorityHasNoMutationPath(): void {
    * rule — the count grew because a second PROVENANCE MODE arrived, not a second writer authority.
    * The bans below are what actually keep this append-only, and they are unchanged.
    */
+  /*
+   * COUNTED IN BOTH FORMS SINCE THE TRH-25 PREREQUISITE, because one of the two moved.
+   *
+   * The machine path became a single atomic `insert ... select ... where not exists` statement so
+   * the cadence window is claimed by the write itself, which a `.insert(` regex cannot see. The
+   * PROPERTY is unchanged and is not relaxed by one row: exactly TWO write entry points exist, both
+   * append into `provider_observations`, and the mutation bans below are untouched. Counting only
+   * the drizzle form would have reported ONE writer and passed the day a third raw INSERT appeared.
+   */
+  const drizzleInserts = (writer.match(/\.insert\(providerObservations\)/g) ?? []).length;
+  const sqlInserts = (writer.match(/insert into provider_observations/g) ?? []).length;
   assert.equal(
-    (writer.match(/\.insert\(/g) ?? []).length,
+    drizzleInserts + sqlInserts,
     2,
     "exactly two INSERTs — the human entry point and the machine one, into the same table",
   );
   assert.equal(
-    (writer.match(/\.insert\(providerObservations\)/g) ?? []).length,
-    2,
-    "and both write `provider_observations` and nothing else",
+    (writer.match(/\.insert\(/g) ?? []).length,
+    drizzleInserts,
+    "and every drizzle insert in this writer targets `provider_observations` and nothing else",
+  );
+  assert.equal(
+    (writer.match(/insert into (?!provider_observations)/g) ?? []).length,
+    0,
+    "and no raw statement inserts into any other table",
   );
   /*
    * The bans name DATABASE mutation, not the word. `createHash(...).update(...)` is a hash being
@@ -324,15 +340,34 @@ function deduplicationNeverComparesValues(): void {
    * writers is a rule that can be walked around by adding a third. Both must carry the SAME four
    * identity columns, because both write the same table under the same idempotency contract.
    */
-  const conflictTargets = [...writer.matchAll(/target: \[([\s\S]*?)\]/g)].map((m) => m[1]!);
-  assert.equal(conflictTargets.length, 2, "two inserts, two conflict targets — the human and the machine");
+  /*
+   * IN BOTH SPELLINGS, because the machine insert became one atomic statement (TRH-25 prerequisite)
+   * and its conflict target is now SQL rather than a drizzle array. Reading only `target: [` would
+   * have found ONE target and silently stopped checking the newer writer — the exact failure this
+   * block was widened to prevent when the second writer arrived.
+   */
+  const IDENTITY = ["tenant_id", "provider_key", "subject_ref", "observed_at"];
+  const snake = (s: string): string => s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+
+  const drizzleTargets = [...writer.matchAll(/target: \[([\s\S]*?)\]/g)].map((m) =>
+    (m[1]!.match(/providerObservations\.(\w+)/g) ?? []).map((x) => snake(x.split(".")[1]!)),
+  );
+  const sqlTargets = [...writer.matchAll(/on conflict \(([^)]*)\) do nothing/g)].map((m) =>
+    m[1]!.split(",").map((c) => c.trim()),
+  );
+  const conflictTargets = [...drizzleTargets, ...sqlTargets];
+  assert.equal(
+    conflictTargets.length,
+    2,
+    "two inserts, two conflict targets — the human and the machine",
+  );
   for (const conflictTarget of conflictTargets) {
     assert.deepEqual(
-      conflictTarget.match(/providerObservations\.(\w+)/g)?.map((m) => m.split(".")[1]),
-      ["tenantId", "providerKey", "subjectRef", "observedAt"],
+      conflictTarget,
+      IDENTITY,
       "the idempotency key is tenant + provider + subject + instant, and nothing else",
     );
-    for (const factColumn of ["facts", "factsDigest"]) {
+    for (const factColumn of ["facts", "facts_digest"]) {
       assert.equal(
         conflictTarget.includes(factColumn),
         false,

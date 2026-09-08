@@ -27,7 +27,7 @@ import { recordAuthorizedProviderObservation } from "../../src/features/provider
 import { recordProviderObservation } from "../../src/features/provider-observation-history/write-provider-observation.server";
 import { readProviderObservations, readLatestAuthorizedObservationAt } from "../../src/features/provider-observation-history/read-provider-observations.server";
 import { YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY, YOUTUBE_PROVIDER_KEY } from "../../src/features/provider-youtube/contracts";
-import { MIN_OBSERVATION_INTERVAL_MINUTES } from "../../src/features/standing-observation-authority/contracts";
+import { MIN_OBSERVATION_INTERVAL_MINUTES, OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 
@@ -308,6 +308,36 @@ async function main(): Promise<void> {
       memberships: await count(setup, "memberships"),
       audit: await count(setup, "audit_log"),
     };
+
+    /*
+     * ═══ 3B. THE OPERATOR'S STOP GATES THIS SUITE'S OWN SUCCESS (TRH-25 prerequisite) ═══
+     *
+     * Nothing below could run before this block existed. The kill switch fails closed on an ABSENT
+     * row, so a freshly migrated deployment refuses every machine read until an operator arms one —
+     * and this released acceptance suite proving that first, in its own fixture, is a stronger
+     * statement than a dedicated test asserting it in isolation: the manual TRH-24 ceremony has no
+     * exemption, and if it ever gained one this assertion is where it would surface.
+     */
+    const stopped = await observeOnceUnderAuthorization(authorizationId, {
+      getDb, env, fetchImpl: fakeYouTube(99),
+    });
+    assert.deepEqual(
+      stopped,
+      { status: "refused", reason: "observation-read-disabled" },
+      "with no control row, a fully authorized machine read is refused and no provider is contacted",
+    );
+    assert.equal(
+      await count(setup, "provider_observations"),
+      before.observations,
+      "a stopped read writes nothing at all",
+    );
+
+    /* The operator arms it — the row the deployment-possession ceremony writes, written directly. */
+    await setup.query(
+      `insert into provider_connectivity_controls (provider_key, director_enabled, control_source)
+            values ($1, true, 'local-operator-ceremony')`,
+      [OBSERVATION_READ_CONTROL_KEY],
+    );
 
     const observeDeps = { getDb, env, fetchImpl: fakeYouTube(99) };
     const outcome = await observeOnceUnderAuthorization(authorizationId, observeDeps);

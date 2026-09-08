@@ -44,6 +44,7 @@ import {
   STANDING_OBSERVATION_ENTITY_TYPE,
   STANDING_OBSERVATION_SUBJECT_TYPE,
   STANDING_OBSERVATION_WITHDRAWN_OUTCOME,
+  OBSERVATION_READ_CONTROL_KEY,
 } from "../../src/features/standing-observation-authority/contracts";
 import { YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY, YOUTUBE_PROVIDER_KEY } from "../../src/features/provider-youtube/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
@@ -531,6 +532,25 @@ async function main(): Promise<void> {
      * that is the correct outcome, not a defect. An authorization is not a connection, and a
      * capability being authorized does not make it available.
      */
+    /*
+     * TRH-25 PREREQUISITE, AND ITS PRECEDENCE STATED RATHER THAN ASSUMED. The operator's stop is
+     * consulted BEFORE the connection, capability and credential reads, so a stopped deployment
+     * touches no tenant data at all. With no control row this fixture would therefore refuse with
+     * `observation-read-disabled` and never reach the property below — so the switch is armed
+     * first, and the ORIGINAL assertion is preserved exactly as it was written.
+     */
+    const stoppedFirst = await revalidateStandingObservation(principal, baseDeps);
+    assert.equal(
+      (stoppedFirst as { reason?: string }).reason,
+      "observation-read-disabled",
+      "with no control row, the stop precedes every operational read",
+    );
+    await setup.query(
+      `insert into provider_connectivity_controls (provider_key, director_enabled, control_source)
+            values ($1, true, 'local-operator-ceremony')`,
+      [OBSERVATION_READ_CONTROL_KEY],
+    );
+
     const notAvailable = await revalidateStandingObservation(principal, baseDeps);
     assert.equal(notAvailable.status, "refused", "an unverified connection cannot be read through");
     assert.ok(

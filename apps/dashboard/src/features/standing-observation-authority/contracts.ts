@@ -44,6 +44,20 @@ const YOUTUBE_CHANNEL_SUBJECT_KIND: ObservationSubjectKind = "youtube-channel";
  * found when a decision named a Knowledge fact instead of a version. "Whatever authorization is
  * current when someone reads this" is not a thing a human can have decided.
  */
+/**
+ * TRH-25 prerequisite. The control key for the GLOBAL Director kill switch over machine-principal
+ * provider READS, in `provider_connectivity_controls`.
+ *
+ * It is a PERMISSION NAME and not a provider identity, exactly as `external-send` is — the two
+ * existing keys already established that this column names a blast radius rather than a vendor. One
+ * key covers every observable capability, because `OBSERVABLE_CAPABILITIES` is a closed list and a
+ * per-provider key would be a policy model invented ahead of a second provider.
+ *
+ * Declared HERE, in the authority that owns what may be observed, so the ceremony imports it from
+ * the same place the revalidator does and no second spelling can exist.
+ */
+export const OBSERVATION_READ_CONTROL_KEY = "provider-observation-read" as const;
+
 export const STANDING_OBSERVATION_SUBJECT_TYPE = "standing_observation_authorization" as const;
 
 /** The ledger domain. See `governance_domain`'s own comment for why every neighbour was refused. */

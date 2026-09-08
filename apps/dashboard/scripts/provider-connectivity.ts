@@ -168,6 +168,19 @@ async function main(): Promise<void> {
    * where the send configuration, the recipient authority and the blast radius are the subject
    * rather than a side effect of a connectivity change.
    */
+  /*
+   * ── AND THE OBSERVATION-READ KEY IS PRODUCTION-CAPABLE, DELIBERATELY ─────────────────────
+   *
+   * It is NOT narrowed the way `external-send` is, and the difference is the blast radius rather
+   * than an oversight. Arming a machine provider READ permits an authorized read of a public
+   * channel: it spends provider quota, writes one observation and changes nothing outside Hebun.
+   * Arming external send puts real messages in front of real people.
+   *
+   * DISARMING MUST WORK IN PRODUCTION ABOVE ALL. A kill switch reachable only from a local
+   * deployment is not an emergency stop for a production incident, and the whole reason this key
+   * exists is that unattended reads need one. Enabling is reachable there too, because a stop
+   * nobody can lift is an outage rather than a control.
+   */
   if (environment.posture.mode === "production" && providerKey === EXTERNAL_SEND_PROVIDER_KEY) {
     await client.end();
     fail(

@@ -318,19 +318,55 @@ function main(): void {
    */
   const writerCode = codeOf(read(WRITER));
   const machineWriter = writerCode.slice(writerCode.indexOf("recordAuthorizedProviderObservation"));
-  for (const [field, expected] of [
-    ["observedByActorType", "observedByActorType: null"],
-    ["observedByActorId", "observedByActorId: null"],
-  ] as const) {
-    const found = machineWriter.match(new RegExp(`${field}:\\s*[^,\\n]+`));
-    assert.ok(found, `the machine writer sets ${field}`);
+
+  /*
+   * RE-AIMED, NOT WEAKENED (TRH-25 prerequisite). The machine insert became one atomic
+   * `insert ... select ... where not exists` statement so the cadence window is claimed by the
+   * write itself, which moved the actor columns out of a drizzle object literal and into the
+   * statement's own column list. The PROPERTY under test is unchanged and the bar is not lowered:
+   * the two actor columns must still be written, must still be written as NULL, and no actor-type
+   * literal may appear anywhere in this writer.
+   *
+   * The old assertion matched `observedByActorType: null`. It could not see the new form, and a
+   * guard that cannot see the truth it guards is worse than no guard, because it reads as proof.
+   */
+  const columnList = machineWriter.slice(
+    machineWriter.indexOf("insert into provider_observations"),
+    machineWriter.indexOf("where not exists"),
+  );
+  assert.ok(columnList.length > 0, "the machine writer inserts through one statement");
+  for (const column of ["observed_by_actor_type", "observed_by_actor_id"]) {
+    assert.ok(columnList.includes(column), `the machine writer names ${column} explicitly`);
+  }
+
+  /*
+   * AND THE VALUES OPPOSITE THEM ARE THE TWO BARE NULLS. Proved positionally rather than by a
+   * lookahead: the select list is read, and the entries at the actor columns' own offsets must be
+   * exactly `null`.
+   */
+  const columns = columnList
+    .slice(columnList.indexOf("(") + 1, columnList.lastIndexOf(")"))
+    .split(",")
+    .map((c) => c.trim());
+  const selectList = columnList.slice(columnList.indexOf("select", columnList.lastIndexOf(")")));
+  const values = selectList
+    .replace(/^select/, "")
+    .split(",")
+    .map((v) => v.trim());
+  assert.equal(
+    values.length,
+    columns.length,
+    "every inserted column has exactly one value — no positional drift",
+  );
+  for (const column of ["observed_by_actor_type", "observed_by_actor_id"]) {
     assert.equal(
-      found![0]!.replace(/\s+/g, " "),
-      expected,
+      values[columns.indexOf(column)],
+      "null",
       "a machine observation records NO human actor — never a borrowed id, never a service literal",
     );
   }
-  for (const literal of ['"human"', '"service"', '"system"', '"agent"']) {
+
+  for (const literal of ['"human"', '"service"', '"system"', '"agent"', "'human'", "'service'"]) {
     assert.ok(
       !machineWriter.includes(literal),
       `the machine writer never names the actor type ${literal}`,

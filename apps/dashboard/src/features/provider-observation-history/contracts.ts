@@ -112,7 +112,23 @@ export type ProviderObservationRefusal =
    * instant". This one means "this RUN already stored its sample" — a replay of persistence, not a
    * duplicate of a moment. Collapsing them would hide which of the two happened.
    */
-  | "invocation-already-recorded";
+  | "invocation-already-recorded"
+  /**
+   * TRH-25 prerequisite. Another machine observation for this exact scope already lies inside the
+   * authorization's cadence window, so this sample was NOT stored.
+   *
+   * THIS IS THE ATOMIC RESTATEMENT OF A RULE THE REVALIDATOR ALSO CHECKS, and the duplication is
+   * the point. The revalidator decides whether a read may begin; between that decision and this
+   * write there is a provider call, and two invocations that both passed the decision would both
+   * arrive here. The check is therefore made again as PART OF the insert, in one statement, where
+   * the database can settle it — because a rule enforced by reading and then writing is not
+   * enforced at all under concurrency.
+   *
+   * DISTINCT FROM `already-recorded`, which is the idempotency contract answering about ONE INSTANT.
+   * This one means "the window was already claimed by a different instant", and folding them
+   * together would hide a duplicate attempt inside a word that means a harmless replay.
+   */
+  | "cadence-window-already-observed";
 
 /** One stored observation, as a reader sees it. */
 export interface StoredProviderObservation {

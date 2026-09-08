@@ -55,6 +55,7 @@ import type { Client } from "pg";
 import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
 import { isExternalSendConfigured } from "../../src/features/action-execution/execution-arming-projection.server";
+import { OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
 /*
  * The ceremony-source vocabulary, imported rather than restated. `CeremonySource` is the released
  * closed union G4 already defines for postures, and its two values are byte-identical to the
@@ -68,17 +69,24 @@ import {
 } from "./production-possession";
 
 /**
- * The closed provider vocabulary.
+ * The closed control vocabulary.
  *
- * Both values are IMPORTED, never re-declared. They are the only two provider-key constants the
- * repository defines, and each already pins one blast radius: `claude` governs Hebun→Anthropic model
- * generation, `external-send` governs outbound sending. A third key has no constant to come from, so
- * an unknown key is refused rather than silently minting a control row for a provider that does not
+ * Every value is IMPORTED, never re-declared. Each pins ONE blast radius: `claude` governs
+ * Hebun→Anthropic model generation, `external-send` governs outbound sending, and
+ * `provider-observation-read` governs machine-principal provider READS. A key with no constant to
+ * come from is refused rather than silently minting a control row for a permission that does not
  * exist.
+ *
+ * THE THIRD KEY IS A ROW, NOT A TABLE — R3B's decision, applied unchanged. Its blast radius is
+ * genuinely different from the other two: a read spends provider quota and changes nothing outside
+ * Hebun, where model generation spends money and sending puts messages in front of people. Three
+ * permissions, three rows, one ceremony — because two ceremonies is how somebody flips the wrong
+ * switch and believes the system is off.
  */
 export const PROVIDER_KEYS: readonly string[] = Object.freeze([
   CLAUDE_PROVIDER_KEY,
   EXTERNAL_SEND_PROVIDER_KEY,
+  OBSERVATION_READ_CONTROL_KEY,
 ]);
 
 /** The closed set of transitions. A third verb has no representation here. */

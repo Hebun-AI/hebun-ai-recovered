@@ -117,8 +117,20 @@ function possessionGuards(): void {
  * 2. THE CLOSED ARGUMENT SURFACE.
  * ═════════════════════════════════════════════════════════════════════════ */
 function closedArguments(): void {
-  assert.equal(PROVIDER_KEYS.length, 2, "two provider keys, and no third");
-  for (const bad of ["", "openai", "CLAUDE", undefined]) {
+  /*
+   * THE CENSUS GREW; IT DID NOT LOOSEN (TRH-25 prerequisite).
+   *
+   * A third control key exists — `provider-observation-read`, the Director's stop over
+   * machine-principal provider READS. It is a ROW in the same table under R3B's rule that one
+   * ceremony owns every switch, not a second kill-switch system. The list is still CLOSED and
+   * still enumerated here by value, so a fourth key costs a code change and a failing test.
+   */
+  assert.deepEqual(
+    [...PROVIDER_KEYS].sort(),
+    ["claude", "external-send", "provider-observation-read"],
+    "three control keys, each one blast radius, and no fourth",
+  );
+  for (const bad of ["", "openai", "CLAUDE", "observation", "youtube", undefined]) {
     assert.ok(!isProviderKey(bad as string), `${String(bad)} is not a provider key`);
   }
   for (const bad of ["", "toggle", "ENABLE", "on", "off", undefined]) {

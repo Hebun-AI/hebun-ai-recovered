@@ -178,10 +178,15 @@ const MUTATIONS: readonly Mutation[] = [
     label: "B6 the machine writer borrows a human actor instead of writing NULL",
     file: WRITER,
     edits: [
+      /*
+       * RE-AIMED AT THE STATEMENT, NOT THE OBJECT LITERAL (TRH-25 prerequisite). The machine insert
+       * became one atomic `insert ... select`, so the two NULLs the row depends on are now bare
+       * values in that select list. The mutation is the same lie it always was — borrowing a human
+       * id for a read no human performed — and it must still be caught.
+       */
       {
-        find: "        observedByActorType: null,\n        observedByActorId: null,",
-        replace:
-          '        observedByActorType: "human",\n        observedByActorId: principal.tenantId,',
+        find: "          null, null,",
+        replace: "          'human', ${principal.tenantId}::uuid,",
       },
     ],
     suite: FIREWALL,
@@ -203,9 +208,16 @@ const MUTATIONS: readonly Mutation[] = [
     label: "B8 the machine writer takes its scope from the caller instead of the principal",
     file: WRITER,
     edits: [
+      /*
+       * RE-AIMED AT THE STATEMENT (TRH-25 prerequisite). The scope values are now bound parameters
+       * in the atomic insert's select list rather than object properties. Substituting the subject
+       * is the same attack: a row filed against a subject the authorization never named.
+       */
       {
-        find: "        subjectRef: principal.subjectRef,",
-        replace: '        subjectRef: "youtube/channel/UCsubstituted",',
+        find: "${principal.capabilityKey}, ${principal.subjectKind}, ${principal.subjectRef},",
+        /* A SQL STRING LITERAL, not a double-quoted identifier: the mutation must substitute the
+         * subject, not produce a syntax error that bites for the wrong reason. */
+        replace: "${principal.capabilityKey}, ${principal.subjectKind}, 'youtube/channel/UCsubstituted',",
       },
     ],
     suite: POSTGRES,

@@ -58,6 +58,10 @@ import { listCredentialMetadata } from "@/features/integration-credentials/crede
 import { readLatestAuthorizedObservationAt } from "@/features/provider-observation-history/read-provider-observations.server";
 import { isObservableCapability } from "./contracts";
 import {
+  resolveObservationReadEnabled,
+  type ProviderConnectivityControlRepository,
+} from "./observation-read-control.server";
+import {
   mintObservationPrincipal,
   tenantScopeOf,
   type ObservationPrincipal,
@@ -68,6 +72,13 @@ export interface RevalidateStandingObservationDeps {
   readonly env?: Readonly<Record<string, string | undefined>>;
   /** Injectable so the cadence ceiling is provable without waiting a day. Never reaches a column. */
   readonly now?: () => Date;
+  /**
+   * The kill-switch repository. `null` means "no durable authority", which FAILS CLOSED — and is
+   * the value a test uses to prove that an unreadable switch stops a transport rather than
+   * permitting one. There is no value of this field that can ENABLE a read the switch has not
+   * enabled: it selects where the answer is read from, never what the answer is.
+   */
+  readonly controlRepo?: ProviderConnectivityControlRepository | null;
 }
 
 /**
@@ -102,6 +113,17 @@ export type StandingObservationRevalidationRefusal =
   /* ── the cadence ceiling the authorization itself carries (TRH-24) ── */
   | "observed-too-recently"
   | "observation-history-unavailable"
+  /**
+   * TRH-25 prerequisite. The Director's global kill switch over machine-principal provider reads is
+   * OFF, or could not be read — which this system treats identically, because "we could not find
+   * out whether we are allowed" must never be answered as "yes".
+   *
+   * DELIBERATELY NOT COLLAPSED INTO `not-authorized`. The organization's permission is intact and
+   * the authorization is untouched; an operator has temporarily stopped the operation. Telling a
+   * reader "you are not authorized" would send them to Governance to re-grant something they never
+   * lost, which is the one response that would make an incident worse.
+   */
+  | "observation-read-disabled"
   | "persistence-unavailable";
 
 export type RevalidateStandingObservationResult =
@@ -204,10 +226,45 @@ export async function revalidateStandingObservation(
     return { status: "refused", reason: "capability-not-read-only" };
   }
 
+  /*
+   * 12 · THE OPERATOR'S STOP (TRH-25 prerequisite).
+   *
+   * Placed HERE for two reasons that are both about what a refusal tells the reader.
+   *
+   * AFTER the authorization's own truth, so a withdrawn or superseded grant still reports itself.
+   * "You took this away" and "an operator paused everything" are different facts and the more
+   * specific one must win — a disabled switch must never be able to disguise a withdrawal.
+   *
+   * BEFORE the connection, capability and credential reads, so a stopped deployment touches no
+   * tenant data and spends nothing while it is stopped.
+   *
+   * IT IS CHECKED IN THIS FUNCTION rather than in a ceremony, a trigger or a scanner, for the same
+   * reason every other condition is: those are preparatory surfaces, and a check that lives in one
+   * can be walked around by writing a second one. This runs immediately before transport and
+   * applies to EVERY machine-principal read that exists or ever will — the manual TRH-24 ceremony
+   * included. An emergency stop with a documented exemption is not an emergency stop.
+   *
+   * FAIL CLOSED. `resolveObservationReadEnabled` answers `false` for an absent row, an unreachable
+   * database and any read error alike, so a switch that cannot be read stops the transport.
+   *
+   * A DISABLED SWITCH CHANGES NOTHING ELSE. No authorization is altered, no cadence is spent, no
+   * row is written and nothing is recorded — the attempt simply does not happen, and the next one
+   * after the switch returns is permitted on exactly the terms it always had.
+   */
+  if (!(await resolveObservationReadEnabled(
+    deps.controlRepo !== undefined
+      ? { repo: deps.controlRepo }
+      : deps.getDb
+        ? { getDb: deps.getDb }
+        : {},
+  ))) {
+    return { status: "refused", reason: "observation-read-disabled" };
+  }
+
   const scope = tenantScopeOf(current);
 
   /*
-   * 12 · THE CONNECTION STILL BELONGS TO THIS TENANT.
+   * 13 · THE CONNECTION STILL BELONGS TO THIS TENANT.
    *
    * The composite foreign key made it true at write time; this proves it is still true now — a
    * connection can be soft-deleted after an authorization was written.
@@ -223,7 +280,7 @@ export async function revalidateStandingObservation(
   }
 
   /*
-   * 13 · THE CAPABILITY IS STILL AVAILABLE, THROUGH THIS CONNECTION.
+   * 14 · THE CAPABILITY IS STILL AVAILABLE, THROUGH THIS CONNECTION.
    *
    * The capability authority is the released answer to "can this be answered for this tenant, and
    * if not, why not". It is asked here rather than assumed, and the source must be THIS connection —
@@ -247,7 +304,7 @@ export async function revalidateStandingObservation(
   }
 
   /*
-   * 14 · A USABLE CREDENTIAL STILL EXISTS — BY METADATA, AND NOTHING IS OPENED.
+   * 15 · A USABLE CREDENTIAL STILL EXISTS — BY METADATA, AND NOTHING IS OPENED.
    *
    * This seam returns kinds, liveness and timestamps. It never returns ciphertext and never decrypts.
    * Opening a secret requires `withDecryptedSecret`, which still takes the branded HUMAN context and
@@ -265,7 +322,7 @@ export async function revalidateStandingObservation(
   }
 
   /*
-   * 15 · THE CADENCE CEILING — THE ONLY CONDITION THAT IS ABOUT TIME (TRH-24).
+   * 16 · THE CADENCE CEILING — THE ONLY CONDITION THAT IS ABOUT TIME (TRH-24).
    *
    * `interval_minutes` is what Governance authorized: this scope may be observed under this standing
    * permission NO MORE OFTEN than every K minutes. Until now nothing enforced it, because nothing
