@@ -3809,3 +3809,27 @@ exist is anything that would invoke it.
 - **`file` calls a UTF-8 source "data" and grep then hides every match.** Box-drawing characters in
   the header comments were enough; `grep` silently found nothing in a file that plainly contained the
   string. `grep -a` restores it. A silent zero-match is not a measurement.
+- **Prove a non-effect over EVERY table that has a clock, not the ones you suspect.** Enumerating the
+  sixty-six production tables carrying a timestamp column and asking each one "does anything here sit
+  at or after the observation instant?" turned "+1 provider_observations and nothing else" from a
+  claim into a measurement. A hand-picked list of tables to check is a list of the effects you already
+  imagined.
+- **An authority that wrote no audit row is a finding, not an omission to paper over.** The audit
+  sink's newest entry was still the authorization decision from two hours earlier. Looking is not
+  acting, so nothing was owed — but that has to be stated as measured absence, never assumed.
+- **The same facts digest on two rows is the design working, not a duplicate.** The channel reported
+  identical zeros a day apart, so the human baseline and the machine observation hash the same. They
+  are still two observations because dedup keys on the INSTANT. A digest collision here would look
+  like a bug to anyone who deduped on values.
+- **A dated prose claim in an untouched file rots the moment the next commit lands.** TRH-23's
+  principal module still says there is "no provider transport caller in this repository" and that the
+  principal "cannot open a secret". The very next commit built that caller and a narrower opener the
+  principal calls. Nothing failed — no test asserts a comment — so only reading the file caught it.
+  Prose that describes the rest of the repository ages against commits it never sees.
+- **Verify a kill switch by reading its table, not by trusting the doctrine that names it.** The
+  operator connectivity control exists and is real, but holds rows only for `claude` and
+  `external-send`. There is none for `youtube`, and no refusal in the pre-transport check consults it.
+  "There is a kill switch" and "this path is covered by it" are separate facts.
+- **A dry run is admissible evidence only after you read what it returns before.** The cadence refusal
+  was worth executing because the ceremony provably returns before transport and before any write —
+  checked in the source first, then run, then the row count re-measured to confirm it stayed at two.
