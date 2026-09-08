@@ -366,8 +366,18 @@ function main(): void {
       "src/app/api/integrations/github/start/route.ts",
       "src/app/api/integrations/google/callback/route.ts",
       "src/app/api/integrations/google/start/route.ts",
+      "src/app/api/observation/scan/route.ts",
     ],
-    "no ingress was added — the four OAuth browser-redirect handlers are still the only routes",
+    /*
+     * THE CENSUS GREW BY ONE, AND THE ONE IS NAMED (TRH-25). Four OAuth browser-redirect handlers,
+     * plus the machine ingress the automatic trigger knocks on. It is enumerated here rather than
+     * pattern-matched so a SECOND machine route cannot appear without this line failing.
+     *
+     * TRH-23's property is untouched and still exactly true OF TRH-23: that phase added no ingress,
+     * and the principal it minted stayed unreachable from every surface. What changed is a later
+     * phase, which had to add a door and had to come here to say so.
+     */
+    "one machine ingress beside the four OAuth handlers, and no other route",
   );
 
   const phaseFiles = [WRITER, READER, PRINCIPAL, REVALIDATOR, CONTRACTS, SCHEMA, AUDIT];

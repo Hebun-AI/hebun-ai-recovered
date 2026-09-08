@@ -448,6 +448,10 @@ async function main(): Promise<void> {
         "src/app/api/integrations/github/start/route.ts",
         "src/app/api/integrations/google/callback/route.ts",
         "src/app/api/integrations/google/start/route.ts",
+      /* TRH-25 added the machine ingress the automatic due-scan is triggered through. It is
+       * NAMED here rather than pattern-matched, so a SECOND machine route cannot appear
+       * without this census failing. */
+      "src/app/api/observation/scan/route.ts",
       ].sort(),
       "R4C.2 introduces no route handler; the only ones are INT-3's OAuth pair",
     );

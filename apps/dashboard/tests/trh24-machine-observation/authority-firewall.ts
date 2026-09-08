@@ -241,8 +241,14 @@ function main(): void {
       "src/app/api/integrations/github/start/route.ts",
       "src/app/api/integrations/google/callback/route.ts",
       "src/app/api/integrations/google/start/route.ts",
+      /*
+       * TRH-25's machine ingress. TRH-24's own property is unchanged and still true OF TRH-24: it
+       * added no ingress, and its composition was reachable only from an operator terminal. The
+       * door came later, and is named here so a SECOND one cannot appear unnamed.
+       */
+      "src/app/api/observation/scan/route.ts",
     ],
-    "no ingress was added — the four OAuth browser-redirect handlers are still the only routes",
+    "one machine ingress beside the four OAuth browser-redirect handlers, and no other route",
   );
 
   for (const config of ["vercel.json", "src/app/api/cron"]) {

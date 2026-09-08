@@ -56,7 +56,18 @@ const UNTOUCHED: readonly (readonly [string, string])[] = [
   ["src/features/auth-runtime/identity-repository.server.ts", "edc303c"],
   ["src/features/auth-runtime/password-hash.server.ts", "edc303c"],
   ["src/features/auth-runtime/request-session.server.ts", "edc303c"],
-  ["src/middleware.ts", "edc303c"],
+  /*
+   * `src/middleware.ts` LEFT THIS LIST AT TRH-25, and was replaced by something stronger.
+   *
+   * Byte-identity was a cheap way to say "nobody widened ingress", and it worked: it caught the
+   * machine-ingress carve-out on the run that introduced it. But the carve-out is a decision that
+   * was made deliberately, so the pin can no longer express the property — and re-pinning to a new
+   * SHA would only defer the same conversation to the next legitimate change.
+   *
+   * The properties this firewall actually cares about are asserted directly, below, and they are
+   * NARROWER than the byte pin: the human public surface must be exactly what it was, and exactly
+   * ONE machine path may skip the session check.
+   */
 ];
 
 const HUMAN_ONLY_CHECKS = [
@@ -309,6 +320,10 @@ function main(): void {
       "src/app/api/integrations/github/start/route.ts",
       "src/app/api/integrations/google/callback/route.ts",
       "src/app/api/integrations/google/start/route.ts",
+      /* TRH-25 added the machine ingress the automatic due-scan is triggered through. It is
+       * NAMED here rather than pattern-matched, so a SECOND machine route cannot appear
+       * without this census failing. */
+      "src/app/api/observation/scan/route.ts",
     ],
     "no ingress was added — the four OAuth browser-redirect handlers are still the only routes",
   );
@@ -402,6 +417,46 @@ function main(): void {
       "and it binds the tenant and the department together, which is the whole repair",
     );
   }
+  /*
+   * THE INGRESS, ASSERTED BY PROPERTY RATHER THAN BY BYTES (TRH-25).
+   *
+   * A sessionless request still reaches `/login` for everything except a closed, enumerated set.
+   * The human half of that set is unchanged from the released middleware; the machine half is one
+   * path, kept in its OWN list so that a future reader deciding what may join the public list never
+   * reasons from a bearer-authenticated endpoint sitting in it.
+   */
+  {
+    const middleware = codeOf(read("src/middleware.ts"));
+    const listOf = (name: string): readonly string[] => {
+      const found = middleware.match(new RegExp(`${name}\\s*=\\s*\\[([^\\]]*)\\]`));
+      assert.ok(found, `${name} exists in the middleware`);
+      return found![1]!.split(",").map((s) => s.trim()).filter(Boolean);
+    };
+    assert.deepEqual(
+      listOf("PUBLIC_PREFIXES"),
+      ['"/login"', '"/privacy"', '"/terms"', '"/contact"'],
+      "the signed-out HUMAN surface is exactly the released four prefixes",
+    );
+    assert.deepEqual(
+      listOf("PUBLIC_EXACT_PATHS"),
+      ['"/"'],
+      "and the exact-match public list is still closed at the homepage",
+    );
+    assert.deepEqual(
+      listOf("MACHINE_INGRESS_PATHS"),
+      ['"/api/observation/scan"'],
+      "exactly ONE machine path skips the session check, and it is the observation due-scan",
+    );
+    assert.ok(
+      /url\.pathname = "\/login";/.test(middleware) && /NextResponse\.redirect/.test(middleware),
+      "everything else without a session is still redirected to /login",
+    );
+    assert.ok(
+      /matcher:\s*\["\/\(\(\?!_next\//.test(middleware) && !/matcher:[^\]]*!api/.test(middleware),
+      "and the matcher still covers the whole application, api routes included",
+    );
+  }
+
   for (const [file, release] of UNTOUCHED) {
     const released = execFileSync("git", ["show", `${release}:apps/dashboard/${file}`], {
       cwd: ROOT,

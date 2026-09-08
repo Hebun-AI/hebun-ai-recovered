@@ -380,6 +380,8 @@ function phaseFirewalls(): void {
     "src/app/api/integrations/github/start/route.ts",
     "src/app/api/integrations/google/callback/route.ts",
     "src/app/api/integrations/google/start/route.ts",
+    /* TRH-25's machine ingress. Named, so a second machine route fails this census. */
+    "src/app/api/observation/scan/route.ts",
   ].sort();
   const routes = collect("src/app")
     .filter((f) => /(^|\/)route\.tsx?$/.test(f))

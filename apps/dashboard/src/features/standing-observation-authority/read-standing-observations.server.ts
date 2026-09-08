@@ -234,3 +234,108 @@ export async function listEffectiveStandingObservations(
     return { status: "unavailable", reason: "persistence-unavailable" };
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * TRH-25 — PLATFORM RUNTIME DISCOVERY. NOT A TENANT PRODUCT READ.
+ *
+ * ── WHY THIS SEAM HAS NO TENANT PARAMETER, AND WHY THAT IS THE SAFE SHAPE ───
+ *
+ * Every other reader here requires a tenant, because every other reader answers a question a
+ * PERSON asked inside one organization. This one answers a question nobody asked: which
+ * authorizations, across the whole deployment, may be attempted right now.
+ *
+ * A tenant parameter would be the dangerous shape, not the safe one. A trigger that could NAME a
+ * tenant could CHOOSE one, and "the caller says tenantId = X and thereby operates on X" is the
+ * exact attack the whole design exists to prevent. So there is no filter of any kind: no tenant,
+ * no provider, no capability, no subject, no connection, no limit a caller can set. The scope of
+ * every returned row is whatever that row says.
+ *
+ * WHAT IT RETURNS IS AN AUTHORIZATION ID AND FACTS ABOUT IT — never a permission. Holding one of
+ * these rows authorizes nothing: the authoritative decision is still made later, by the
+ * revalidator, immediately before transport, against a freshly re-read row.
+ *
+ * ── EFFECTIVE, ACTIVE, AND REDUCED THE SAME WAY AS EVERY OTHER READER ───────
+ *
+ * The reduction is deliberately IDENTICAL to `listEffectiveStandingObservations` — highest
+ * revision per lineage wins — with the lineage key widened by tenant, because two organizations
+ * may authorize the same provider, capability and subject. Re-deriving "effective" in SQL would
+ * create a second definition of the word, free to disagree with the one the writer and every
+ * reader already apply.
+ *
+ * Withdrawn lineages are dropped HERE rather than reported, because this seam's only consumer is a
+ * runtime asking what to attempt, and "it was taken away" is not something to attempt. Human
+ * readers still get the withdrawn rows from the tenant-scoped reader, which is unchanged.
+ *
+ * ── IT READS NOTHING ELSE ───────────────────────────────────────────────────
+ *
+ * One table. No credential, no connection health, no capability availability, no provider and no
+ * Governance record is read here, and none is written. Server-only.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** One authorization a runtime may ATTEMPT. Carries no permission and no secret. */
+export interface EffectiveStandingObservation {
+  readonly authorizationId: string;
+  readonly tenantId: string;
+  readonly authorizationRevision: number;
+  readonly providerKey: string;
+  readonly capabilityKey: string;
+  readonly subjectKind: string;
+  readonly subjectRef: string;
+  readonly integrationId: string;
+  readonly intervalMinutes: number;
+}
+
+export type ActiveStandingObservationsResult =
+  | { readonly status: "read"; readonly authorizations: readonly EffectiveStandingObservation[] }
+  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" };
+
+/**
+ * Every ACTIVE, EFFECTIVE standing observation authorization in the deployment.
+ *
+ * Takes no arguments beyond injection. There is no parameter through which a caller could narrow,
+ * widen, order or target this — which is what makes it safe to expose to a machine trigger.
+ */
+export async function listActiveStandingObservationsForRuntime(
+  deps: StandingObservationReadDeps = {},
+): Promise<ActiveStandingObservationsResult> {
+  assertServerOnly();
+  const db = resolveDbOrNull(deps);
+  if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
+
+  try {
+    const rows = (await db
+      .select({ ...RECORD_COLUMNS, tenantId: standingObservationAuthorizations.tenantId })
+      .from(standingObservationAuthorizations)
+      .orderBy(desc(standingObservationAuthorizations.authorizationRevision))) as (RecordRow & {
+      readonly tenantId: string;
+    })[];
+
+    const seen = new Set<string>();
+    const active: EffectiveStandingObservation[] = [];
+    for (const row of rows) {
+      /* THE LINEAGE KEY IS WIDENED BY TENANT and by nothing else — two organizations may hold the
+       * same provider, capability and subject, and collapsing them would let one tenant's newer
+       * revision hide another tenant's authorization entirely. */
+      const key = `${row.tenantId} ${row.providerKey} ${row.capabilityKey} ${row.subjectRef}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      /* The EFFECTIVE revision decides. A withdrawn effective revision is not attemptable, and an
+       * older active one beneath it must never resurrect the lineage. */
+      if (row.state !== "active") continue;
+      active.push({
+        authorizationId: row.id,
+        tenantId: row.tenantId,
+        authorizationRevision: row.revision,
+        providerKey: row.providerKey,
+        capabilityKey: row.capabilityKey,
+        subjectKind: row.subjectKind,
+        subjectRef: row.subjectRef,
+        integrationId: row.integrationId,
+        intervalMinutes: row.intervalMinutes,
+      });
+    }
+    return { status: "read", authorizations: active };
+  } catch {
+    return { status: "unavailable", reason: "persistence-unavailable" };
+  }
+}

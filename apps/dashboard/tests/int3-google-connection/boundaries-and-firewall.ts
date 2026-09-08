@@ -606,8 +606,13 @@ function main(): void {
         START,
         "src/app/api/integrations/github/setup/route.ts",
         "src/app/api/integrations/github/start/route.ts",
+        /*
+         * TRH-25's machine ingress — the first route that is not a browser redirect. It is NAMED,
+         * as this list demands, so the next one is a decision somebody has to record here too.
+         */
+        "src/app/api/observation/scan/route.ts",
       ].sort(),
-      "every route handler is accounted for: the Google OAuth pair and the GitHub installation pair",
+      "every route handler is accounted for: the OAuth pairs and the one machine ingress",
     );
     for (const route of routes) {
       const code = codeOnly(read(route));

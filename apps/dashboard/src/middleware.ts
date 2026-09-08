@@ -38,6 +38,31 @@ const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms", "/contact"];
  * So the public homepage is matched by equality, in its own list, where no prefix semantics exist
  * to be reinterpreted. This list is for paths with no children.
  */
+/*
+ * THE MACHINE INGRESS, MATCHED EXACTLY (TRH-25).
+ *
+ * ── WHY IT IS HERE AT ALL ────────────────────────────────────────────────────
+ *
+ * The matcher below covers `/api/...`, so a scheduler's request — which carries no session cookie,
+ * because no human is present — would be REDIRECTED TO `/login` and the route would never run. A
+ * sign-in page returned to a cron is not a security property; it is a scan that silently never
+ * happens.
+ *
+ * ── WHY IT IS ONE EXACT PATH AND NOT `/api` ─────────────────────────────────
+ *
+ * Exempting the prefix would unauthenticate the three OAuth handlers beside it, which rely on the
+ * browser session this middleware proves. So exactly one path is listed, in the EXACT list, where
+ * no prefix semantics exist to be reinterpreted later — the same reasoning `/` is written down for
+ * directly above.
+ *
+ * ── WHAT THIS EXEMPTS, AND WHAT IT DOES NOT ─────────────────────────────────
+ *
+ * It exempts the route from the SESSION check only. The route is not public: it verifies a bearer
+ * secret in constant time before it reads anything, and an unset secret refuses every request. This
+ * line moves the authentication, it does not remove it.
+ */
+const MACHINE_INGRESS_PATHS = ["/api/observation/scan"];
+
 const PUBLIC_EXACT_PATHS = ["/"];
 
 export function middleware(request: NextRequest): NextResponse {
@@ -47,6 +72,18 @@ export function middleware(request: NextRequest): NextResponse {
 
   const { pathname } = request.nextUrl;
   if (PUBLIC_EXACT_PATHS.includes(pathname)) {
+    return NextResponse.next();
+  }
+  /*
+   * THE MACHINE INGRESS IS CHECKED SEPARATELY, AND THAT SEPARATION IS THE POINT.
+   *
+   * The obvious move was to append it to `PUBLIC_EXACT_PATHS`. It would have worked and it would
+   * have been wrong: PUB-1 closed that list at the public homepage and asserts it, because that
+   * list means "a signed-out HUMAN may read this". A bearer-authenticated machine endpoint means
+   * something else entirely, and a future reader deciding what may join a list reasons from what is
+   * already in it. Two meanings, two lists, and PUB-1's invariant survives untouched.
+   */
+  if (MACHINE_INGRESS_PATHS.includes(pathname)) {
     return NextResponse.next();
   }
   if (

@@ -458,6 +458,10 @@ function main(): void {
       "src/app/api/integrations/github/start/route.ts",
       "src/app/api/integrations/google/callback/route.ts",
       "src/app/api/integrations/google/start/route.ts",
+      /* TRH-25 added the machine ingress the automatic due-scan is triggered through. It is
+       * NAMED here rather than pattern-matched, so a SECOND machine route cannot appear
+       * without this census failing. */
+      "src/app/api/observation/scan/route.ts",
     ].sort();
     assert.deepEqual(
       collect("src/app")

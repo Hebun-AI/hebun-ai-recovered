@@ -210,8 +210,14 @@ function main(): void {
       "src/app/api/integrations/github/start/route.ts",
       "src/app/api/integrations/google/callback/route.ts",
       "src/app/api/integrations/google/start/route.ts",
+      "src/app/api/observation/scan/route.ts",
     ],
-    "this phase added NO route — the prerequisites are not the trigger",
+    /*
+     * THE PREREQUISITES STILL ADD NO ROUTE. The machine ingress belongs to TRH-25, which came
+     * after, and is listed here only so this census keeps naming every route that exists — a list
+     * that silently stopped matching reality would stop catching the next addition.
+     */
+    "the kill switch and the lock add no route; the trigger's one ingress is named",
   );
   for (const config of ["vercel.json", "src/app/api/cron"]) {
     let exists = true;
