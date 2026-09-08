@@ -101,8 +101,8 @@ function theCanonicalLedgerIsWellFormed(): void {
    */
   assert.equal(
     CANONICAL.length,
-    51,
-    `this checkout authors ${CANONICAL.length} canonical migrations, and the pin expected 51`,
+    52,
+    `this checkout authors ${CANONICAL.length} canonical migrations, and the pin expected 52`,
   ); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
   /*
    * PHASE-RELATIVE, not an index. This read `CANONICAL[40]` and therefore named the last entry only
@@ -112,8 +112,8 @@ function theCanonicalLedgerIsWellFormed(): void {
    */
   assert.equal(
     CANONICAL.at(-1)!.tag,
-    "20260907202659_trh23_standing_observation_authorization",
-    "and the last of them is TRH-23's standing observation authorization — TRH-21's provider observation history held this line before it",
+    "20260908072926_trh24_machine_observation_provenance",
+    "and the last of them is TRH-24's machine observation provenance — TRH-23's standing observation authorization held this line before it",
   );
 
   /* Strictly increasing `when` — the precondition that makes delegating to the engine sound. */
@@ -150,9 +150,13 @@ function theCanonicalLedgerIsWellFormed(): void {
    * `standing-observation` governance domain — and moves it again:
    * `76d35e01e43a609029bcd2cb86152282` was the digest at 50. Production still
    * carries the digest for ITS ledger until the migration ceremony is authorized — the gap is a
+   * TRH-24 authored 52 — the machine-observation provenance evolution on `provider_observations`,
+   * which drops two NOT NULL constraints and adds the XOR provenance check — and moves it again:
+   * `960f7d53c126d67fdaf9cda30cc3c405` was the digest at 51. Production still
+   * carries the digest for ITS ledger until the migration ceremony is authorized — the gap is a
    * PENDING ROLLOUT, which is exactly what this assertion exists to make visible.
    */
-  assert.equal(canonicalDigest(CANONICAL), "960f7d53c126d67fdaf9cda30cc3c405", "the release digest");
+  assert.equal(canonicalDigest(CANONICAL), "74c3ac54bf016ac2196765c186b27b8c", "the release digest");
   assert.equal(
     canonicalDigest(CANONICAL.slice(0, 35)),
     "97f1151fd57bec5142621f00c1913708",
@@ -196,7 +200,7 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
         [CANONICAL[CANONICAL.length - 1]!.tag],
         "exactly one migration is pending, and it is the newest release",
       );
-      assert.equal(verdict.finalDigest, "960f7d53c126d67fdaf9cda30cc3c405");
+      assert.equal(verdict.finalDigest, "74c3ac54bf016ac2196765c186b27b8c");
 
       /*
        * THE PENDING MIGRATION'S OWN ADDITION IS ABSENT BEFORE MIGRATING.
@@ -250,19 +254,22 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
        * proving nothing about the pending one; `heby_action_requests_agent_rationale_chk` is what
        * this release adds and nothing earlier could have.
        *
-       * TRH-23 MOVES THE PROBE AGAIN, for the same reason and to the same shape.
-       * `provider_observations` is now created by an EARLIER migration and would be satisfied
-       * before migrating, proving nothing about the pending one;
-       * `standing_observation_authorizations` is what THIS release creates and no earlier migration
-       * mentions it.
+       * TRH-24 MOVES THE PROBE AGAIN — AND CHANGES ITS SHAPE, WHICH IS THE POINT.
+       * `standing_observation_authorizations` is now created by an EARLIER migration and would be
+       * satisfied before migrating. TRH-24 creates NO TABLE at all: it evolves an existing one. So
+       * the probe becomes a COLUMN — `provider_observations.standing_authorization_id` — which is
+       * what THIS release adds and which no earlier migration mentions.
+       *
+       * The rule survives the change of shape: probe what the PENDING migration adds, never
+       * something an earlier one already added.
        *
        * The rule, which is the part that survives: probe what the PENDING migration adds, never
        * something an earlier one already added.
        */
       const before = await organizationalFingerprint(client);
       const externalBefore = await client.query<{ n: string }>(
-        `select count(*)::text as n from pg_class
-          where relname = 'standing_observation_authorizations' and relkind = 'r'`,
+        `select count(*)::text as n from information_schema.columns
+          where table_name = 'provider_observations' and column_name = 'standing_authorization_id'`,
       );
       assert.equal(
         externalBefore.rows[0]!.n,
@@ -275,12 +282,12 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.applied, 51);
-      assert.equal(after.digest, "960f7d53c126d67fdaf9cda30cc3c405");
+      assert.equal(after.applied, 52);
+      assert.equal(after.digest, "74c3ac54bf016ac2196765c186b27b8c");
 
       const externalAfter = await client.query<{ n: string }>(
-        `select count(*)::text as n from pg_class
-          where relname = 'standing_observation_authorizations' and relkind = 'r'`,
+        `select count(*)::text as n from information_schema.columns
+          where table_name = 'provider_observations' and column_name = 'standing_authorization_id'`,
       );
       assert.equal(externalAfter.rows[0]!.n, "1", "and present after");
 
@@ -325,7 +332,7 @@ async function aTargetTwoBehindAppliesBoth(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.digest, "960f7d53c126d67fdaf9cda30cc3c405");
+      assert.equal(after.digest, "74c3ac54bf016ac2196765c186b27b8c");
     });
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -338,8 +345,8 @@ async function aConvergedTargetIsANoOp(): Promise<void> {
     const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);
     assert.equal(verdict.status, "converged");
     if (verdict.status !== "converged") return;
-    assert.equal(verdict.applied, 51);
-    assert.equal(verdict.digest, "960f7d53c126d67fdaf9cda30cc3c405");
+    assert.equal(verdict.applied, 52);
+    assert.equal(verdict.digest, "74c3ac54bf016ac2196765c186b27b8c");
 
     /* And the released convergence check agrees, so the split did not change its answer. */
     const legacy = await verifyProductionTarget(

@@ -244,8 +244,8 @@ function main(): void {
     assert.equal(/youtube/i.test(codeOf(observationTable)), false, "and its code names no provider");
     assert.equal(
       readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length,
-      51,
-      "the ledger moved for TRH-21 and again for TRH-23, and CGO-5 authored none of it",
+      52,
+      "the ledger moved for TRH-21, TRH-23 and TRH-24, and CGO-5 authored none of it",
     ); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
   }
 

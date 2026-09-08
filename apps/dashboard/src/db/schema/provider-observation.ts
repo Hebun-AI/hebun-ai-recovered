@@ -91,10 +91,23 @@
  * `facts` holds ONLY the typed projection the released provider contract already defines, written
  * by a pure mapper with a closed key set that a test asserts.
  */
-import { char, foreignKey, index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  char,
+  check,
+  foreignKey,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { actorTypeEnum } from "./_enums";
 import { companies } from "./company";
 import { integrations } from "./integration";
+import { standingObservationAuthorizations } from "./standing-observation-authorization";
 
 export const providerObservations = pgTable(
   "provider_observations",
@@ -141,13 +154,51 @@ export const providerObservations = pgTable(
     recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
 
     /*
-     * WHO CAUSED THE READ. Today this is always a human, because a human session is the only
-     * principal that can reach a provider at all (PRINCIPAL-FW-1). The columns exist so that a
-     * future non-human principal cannot be introduced without this record saying so — an
-     * unattributed observation would be the first place unattended collection could hide.
+     * ── WHO CAUSED THE READ — TWO MODES, EXACTLY ONE OF THEM (TRH-24) ────────
+     *
+     * TRH-21 wrote this pair NOT NULL, and it was truthful for every row that existed: a human
+     * session was the only principal that could reach a provider at all. TRH-23 minted a bounded
+     * EPHEMERAL principal that has no durable identity by design, and this pair could not represent
+     * it. Three forced representations were considered and each is a lie the schema would be
+     * telling: `human` with the Director's id (no human performed it), a service user or machine
+     * membership (the durable machine identity TRH-22 rejected on measured evidence), or
+     * `actor_type = 'service'` with the authorization id as the actor id (an authorization is not
+     * an actor, and `canonical-read/actor-resolution.ts` already answers `unresolved` for service
+     * actors).
+     *
+     * So the pair becomes NULLABLE — TOGETHER, never one of them — and a second, machine-shaped
+     * provenance joins it. Exactly one mode holds, enforced by CHECK below.
+     *
+     * DROPPING NOT NULL IS SCHEMA EVOLUTION, NOT ADDITIVE DDL, and this comment says so rather than
+     * letting a migration diff imply otherwise. No row changes: every existing observation is
+     * human-sourced and already satisfies mode A.
      */
-    observedByActorType: actorTypeEnum("observed_by_actor_type").notNull(),
-    observedByActorId: uuid("observed_by_actor_id").notNull(),
+    observedByActorType: actorTypeEnum("observed_by_actor_type"),
+    observedByActorId: uuid("observed_by_actor_id"),
+
+    /**
+     * MODE B — the standing authorization this read was performed under.
+     *
+     * Not "who", because there is no who. This is the durable thing that made the read legitimate,
+     * and it is the honest answer to the question the actor pair asks: a Governance decision
+     * permitted this scope to be observed, and this row was one exercise of that permission.
+     *
+     * Composite foreign key below, so an observation can never name another tenant's authorization.
+     */
+    standingAuthorizationId: uuid("standing_authorization_id"),
+
+    /**
+     * MODE B — WHICH RUN. Minted by the ephemeral principal and durable only here.
+     *
+     * DELIBERATELY NOT A FOREIGN KEY. The invocation has no table and needs none: nothing else in
+     * this repository records provider-read invocations, and inventing a table to hold one column
+     * would be a second source of truth for a fact this row already owns. `action_permits.handoff_id`
+     * is the released precedent for exactly this shape.
+     *
+     * `heby_origination_invocations` was measured and refused: it owns MODEL calls on the
+     * agent-origination path, not provider reads, and its columns are shaped for model outcomes.
+     */
+    invocationId: uuid("invocation_id"),
 
     /*
      * WHAT WAS REPORTED. The typed projection, never the provider's response.
@@ -190,5 +241,63 @@ export const providerObservations = pgTable(
       columns: [t.integrationId, t.tenantId],
       foreignColumns: [integrations.id, integrations.tenantId],
     }),
+
+    /*
+     * THE SAME ISOLATION FOR THE AUTHORIZATION (TRH-24). An observation cannot be filed under
+     * another tenant's standing authorization — a database error, not a predicate somebody has to
+     * remember. This is the referencing table TRH-23 deferred its `(id, tenant_id)` unique index
+     * for; that index exists now and this is what it is for.
+     */
+    foreignKey({
+      name: "provider_observations_tenant_authorization_fk",
+      columns: [t.standingAuthorizationId, t.tenantId],
+      foreignColumns: [
+        standingObservationAuthorizations.id,
+        standingObservationAuthorizations.tenantId,
+      ],
+    }).onDelete("restrict"),
+
+    /*
+     * ONE INVOCATION, AT MOST ONE STORED SAMPLE (TRH-24).
+     *
+     * Partial, because the column is NULL for every human-sourced row and always will be. It bounds
+     * a REPLAY of persistence for one run; it does not collapse two genuinely separate observations,
+     * because two runs mint two invocation ids — which is the same distinction TRH-21 drew when it
+     * chose to dedupe on the INSTANT rather than on the values.
+     */
+    uniqueIndex("provider_observations_invocation_uidx")
+      .on(t.invocationId)
+      .where(sql`${t.invocationId} is not null`),
+
+    /*
+     * THE HUMAN PAIR MOVES TOGETHER. "Observed by somebody, and we do not know who" is not a
+     * representable state — the both-or-neither invariant `auth_credentials`, `auth_identities`,
+     * `invitations`, `memberships` and `role_permissions` already keep.
+     */
+    check(
+      "provider_observations_human_actor_pair_chk",
+      sql`(${t.observedByActorType} is null) = (${t.observedByActorId} is null)`,
+    ),
+
+    /*
+     * THE MACHINE PAIR MOVES TOGETHER TOO. An authorization with no invocation cannot say which run
+     * it was, and an invocation with no authorization cannot say what made it legitimate.
+     */
+    check(
+      "provider_observations_machine_provenance_pair_chk",
+      sql`(${t.standingAuthorizationId} is null) = (${t.invocationId} is null)`,
+    ),
+
+    /*
+     * EXACTLY ONE PROVENANCE MODE. This is the constraint the whole phase rests on.
+     *
+     * A row saying both would claim a human performed a read that a standing authorization also
+     * performed. A row saying neither would be the unattributed observation TRH-21's own header
+     * named as "the first place unattended collection could hide". Both are now unrepresentable.
+     */
+    check(
+      "provider_observations_provenance_mode_chk",
+      sql`(${t.observedByActorType} is not null)::int + (${t.standingAuthorizationId} is not null)::int = 1`,
+    ),
   ],
 );

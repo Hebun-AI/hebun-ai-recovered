@@ -56,8 +56,8 @@ const OWNED = [MODEL, COMPONENT] as const;
  * authored no migration, and no RELEASED migration was edited — editing one would move the digest
  * without moving the count.
  */
-const LEDGER_COUNT = 51; /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). */
-const LEDGER_DIGEST = "5f0b35164a364c62"; /* TRH-10 authored migration 48 (`artifact-review` governance domain);
+const LEDGER_COUNT = 52; /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
+const LEDGER_DIGEST = "01fa4d409084ce4b"; /* TRH-10 authored migration 48 (`artifact-review` governance domain);
  * `29521f60d3c9e78a` was the digest at 47. Recomputed with this file's own sha256-over-bodies mechanism. 
  * TRH-21 authored migration 50 — one additive `CREATE TABLE "provider_observations"` with its
  * composite tenant/connection foreign key — so the digest moves again: `b6d5a80092632fa9` was the
@@ -65,6 +65,9 @@ const LEDGER_DIGEST = "5f0b35164a364c62"; /* TRH-10 authored migration 48 (`arti
   * TRH-23 authored migration 51 — one additive `CREATE TABLE "standing_observation_authorizations"`
  * plus `ALTER TYPE "governance_domain" ADD VALUE 'standing-observation'` — so the digest moves
  * again: `4a196d7fa8092725` was the digest at 50. Recomputed with this file's own mechanism.
+ * TRH-24 authored migration 52 — the machine-observation provenance evolution on
+ * `provider_observations` — so the digest moves again: `5f0b35164a364c62` was the digest at 51.
+ * Recomputed with this file's OWN mechanism, never hand-written.
 */ /* CGO-1 authored a migration — the `content-draft` type and its declared destination — so the ledger digest moved with it. */
 /*
  * RE-PINNED BY AGENT-PROPOSAL-4B, AND STILL OVER EVERY MIGRATION.

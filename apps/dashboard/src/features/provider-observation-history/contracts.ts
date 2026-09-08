@@ -40,6 +40,18 @@ export type ObservationSubjectKind = (typeof OBSERVATION_SUBJECT_KINDS)[number];
  */
 export type ObservationValue = string | number | boolean | null;
 
+/**
+ * HOW AN OBSERVATION CAME TO BE (TRH-24). Closed, and exactly one of them is true of any row.
+ *
+ * `human`                  a person, through a session, caused this read.
+ * `standing-authorization` an ephemeral principal performed it under a Governance-owned standing
+ *                          authorization. There is no actor, because there is no durable non-human
+ *                          identity in this system — and inventing one to fill a column is the lie
+ *                          this union exists to avoid.
+ */
+export const OBSERVATION_PROVENANCE_MODES = ["human", "standing-authorization"] as const;
+export type ObservationProvenanceMode = (typeof OBSERVATION_PROVENANCE_MODES)[number];
+
 /** The typed projection of what a provider reported. Closed to scalars and arrays of records. */
 export interface ObservationFacts {
   readonly [key: string]: ObservationValue | readonly ObservationValue[] | readonly ObservationFacts[];
@@ -84,7 +96,23 @@ export type ProviderObservationRefusal =
   /** The persistence seam could not be reached. Nothing was written and nothing is claimed. */
   | "persistence-unavailable"
   /** The record did not satisfy the contract above — a blank reference, an unusable instant. */
-  | "invalid-observation";
+  | "invalid-observation"
+  /**
+   * TRH-24. The value presented as an observation principal did not come from the released minter.
+   *
+   * A RUNTIME refusal, not a type error: a `value as ObservationPrincipal` cast satisfies the
+   * compiler and fails here, which is what makes "no caller-manufactured principal can file an
+   * observation" a property of the code rather than a convention.
+   */
+  | "not-an-observation-principal"
+  /**
+   * TRH-24. This exact invocation already recorded an observation.
+   *
+   * DISTINCT FROM `already-recorded`, which means "this subject was already observed at this exact
+   * instant". This one means "this RUN already stored its sample" — a replay of persistence, not a
+   * duplicate of a moment. Collapsing them would hide which of the two happened.
+   */
+  | "invocation-already-recorded";
 
 /** One stored observation, as a reader sees it. */
 export interface StoredProviderObservation {
@@ -96,7 +124,20 @@ export interface StoredProviderObservation {
   readonly integrationId: string;
   readonly observedAt: string;
   readonly recordedAt: string;
-  readonly observedByActorType: string;
+  /**
+   * WHICH PROVENANCE MODE THIS ROW CARRIES (TRH-24).
+   *
+   * `human` for an observation a person caused; `standing-authorization` for one performed under a
+   * Governance-owned standing authorization by an ephemeral principal. The union is closed and the
+   * two are never both present — the database enforces exactly one, so a reader never has to guess.
+   */
+  readonly provenance: ObservationProvenanceMode;
+  /** Mode A only. `null` for a machine-sourced observation, because no human caused it. */
+  readonly observedByActorType: string | null;
+  /** Mode B only. The standing authorization this read was performed under. */
+  readonly standingAuthorizationId: string | null;
+  /** Mode B only. Which run. Durable correlation; it references no table. */
+  readonly invocationId: string | null;
   readonly facts: ObservationFacts;
 }
 

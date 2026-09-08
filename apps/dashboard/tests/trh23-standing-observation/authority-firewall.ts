@@ -104,16 +104,26 @@ function main(): void {
    * The Director's requirement was that `UPDATE … SET capability_key = <broader>` must not be an
    * ordinary lifecycle operation. This is the stronger version: it is not an operation at all.
    * ═══════════════════════════════════════════════════════════════════════ */
+  /*
+   * THE CENSUS GREW BY ONE AT TRH-24, AND THE NEW ENTRY IS A TABLE DEFINITION, NOT A WRITER.
+   *
+   * `db/schema/provider-observation.ts` names this table because a machine-sourced observation
+   * carries a COMPOSITE foreign key to it — `(standing_authorization_id, tenant_id)` — which is what
+   * stops an observation being filed under another tenant's authorization. A schema-to-schema
+   * reference performs no query and can insert nothing; the mutation bans below still apply to every
+   * non-definition entry, so this stays exact rather than being loosened.
+   */
+  const OBSERVATION_TABLE = "src/db/schema/provider-observation.ts";
   const touchesTable = SRC.filter((f) => /standingObservationAuthorizations/.test(codeOf(read(f))));
   assert.deepEqual(
     touchesTable.sort(),
-    [SCHEMA, WRITER, READER, PRINCIPAL].sort(),
-    "exactly four modules name the authorization table: its definition, its one writer, its reader, " +
-      "and the minter that reads one row",
+    [SCHEMA, OBSERVATION_TABLE, WRITER, READER, PRINCIPAL].sort(),
+    "exactly five modules name the authorization table: its definition, the observation table's " +
+      "composite key, its one writer, its reader, and the minter that reads one row",
   );
 
   for (const f of touchesTable) {
-    if (f === SCHEMA) continue;
+    if (f === SCHEMA || f === OBSERVATION_TABLE) continue;
     const code = codeOf(read(f));
     for (const forbidden of [".update(", ".delete(", "onConflictDoUpdate", "onConflictDoNothing"]) {
       assert.ok(
@@ -446,11 +456,11 @@ function main(): void {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations"))
     .filter((f) => f.endsWith(".sql"))
     .sort();
-  assert.equal(migrations.length, 51, "50 -> 51: TRH-23 authored exactly one migration");
+  assert.equal(migrations.length, 52, "50 -> 51: TRH-23 authored exactly one migration"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly { readonly tag: string }[];
   };
-  assert.equal(journal.entries.length, 51, "and the journal agrees with the files");
+  assert.equal(journal.entries.length, 52, "and the journal agrees with the files"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
 
   const mine = migrations.filter((f) => /trh23/.test(f));
   assert.equal(mine.length, 1, "one migration file carries this phase's name");

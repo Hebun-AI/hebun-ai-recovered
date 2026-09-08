@@ -174,20 +174,16 @@ export interface ChannelListing {
   readonly uploadsPlaylistId: string | null;
 }
 
-/** channels.list by handle — 1 unit. `not-found` when YouTube reports zero items. */
-export async function listChannelByHandle(
-  apiKey: string,
-  handle: string,
-  deps: YouTubeTransportDeps = {},
-): Promise<YouTubeResult<ChannelListing>> {
-  const result = await call(
-    "channels.list",
-    { part: "snippet,statistics,contentDetails", forHandle: handle },
-    apiKey,
-    deps,
-  );
-  if (!result.ok) return result;
-  const list = items(result.value);
+/**
+ * The ONE parser for a `channels.list` response.
+ *
+ * Extracted by TRH-24 so that a lookup by HANDLE and a lookup by the provider's own CHANNEL ID
+ * produce identical `ChannelListing` values. Two parsers would be two readings of one provider
+ * response, free to disagree about what "the channel said" — and a machine-sourced observation must
+ * be comparable with a human-sourced one taken minutes earlier.
+ */
+function toChannelListing(body: unknown): YouTubeResult<ChannelListing> {
+  const list = items(body);
   if (list === null) return fail("malformed", "channels-items-missing");
   const first = list[0];
   if (!first) return fail("not-found", "channel-not-found");
@@ -215,6 +211,45 @@ export async function listChannelByHandle(
       uploadsPlaylistId: str(related, "uploads"),
     },
   };
+}
+
+/** channels.list by handle — 1 unit. `not-found` when YouTube reports zero items. */
+export async function listChannelByHandle(
+  apiKey: string,
+  handle: string,
+  deps: YouTubeTransportDeps = {},
+): Promise<YouTubeResult<ChannelListing>> {
+  const result = await call(
+    "channels.list",
+    { part: "snippet,statistics,contentDetails", forHandle: handle },
+    apiKey,
+    deps,
+  );
+  if (!result.ok) return result;
+  return toChannelListing(result.value);
+}
+
+/**
+ * channels.list by the PROVIDER'S OWN CHANNEL ID — 1 unit (TRH-24).
+ *
+ * A standing authorization binds the canonical subject reference, never a handle, because a handle
+ * can be renamed and reassigned and an authorization must not follow whoever holds the name next.
+ * So the machine path needs this lookup, and the released operation allow-list already permitted it:
+ * `channels.list` declares `params: ["part", "forHandle", "id"]`, unchanged by this phase.
+ */
+export async function listChannelById(
+  apiKey: string,
+  channelId: string,
+  deps: YouTubeTransportDeps = {},
+): Promise<YouTubeResult<ChannelListing>> {
+  const result = await call(
+    "channels.list",
+    { part: "snippet,statistics,contentDetails", id: channelId },
+    apiKey,
+    deps,
+  );
+  if (!result.ok) return result;
+  return toChannelListing(result.value);
 }
 
 export interface UploadsPage {

@@ -50,6 +50,7 @@ import type { ControlPlaneDatabase } from "@/db/client.server";
 import { getCapabilityAvailability } from "@/features/integration-authority/capability-availability.server";
 import { listConnections } from "@/features/integration-authority/integration-read.server";
 import { listCredentialMetadata } from "@/features/integration-credentials/credential-repository.server";
+import { readLatestAuthorizedObservationAt } from "@/features/provider-observation-history/read-provider-observations.server";
 import { isObservableCapability } from "./contracts";
 import {
   mintObservationPrincipal,
@@ -60,6 +61,8 @@ import {
 export interface RevalidateStandingObservationDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly env?: Readonly<Record<string, string | undefined>>;
+  /** Injectable so the cadence ceiling is provable without waiting a day. Never reaches a column. */
+  readonly now?: () => Date;
 }
 
 /**
@@ -91,6 +94,9 @@ export type StandingObservationRevalidationRefusal =
   /* ── the credential, by METADATA only. Nothing is opened here. ── */
   | "credential-authority-unavailable"
   | "credential-unavailable"
+  /* ── the cadence ceiling the authorization itself carries (TRH-24) ── */
+  | "observed-too-recently"
+  | "observation-history-unavailable"
   | "persistence-unavailable";
 
 export type RevalidateStandingObservationResult =
@@ -251,6 +257,48 @@ export async function revalidateStandingObservation(
   }
   if (!credentials.credentials.some((c) => c.live)) {
     return { status: "refused", reason: "credential-unavailable" };
+  }
+
+  /*
+   * 15 · THE CADENCE CEILING — THE ONLY CONDITION THAT IS ABOUT TIME (TRH-24).
+   *
+   * `interval_minutes` is what Governance authorized: this scope may be observed under this standing
+   * permission NO MORE OFTEN than every K minutes. Until now nothing enforced it, because nothing
+   * could exercise the authorization at all.
+   *
+   * IT IS A REFUSAL, NEVER A TRIGGER. Nothing here schedules anything, nothing computes a next run,
+   * and a missed interval is not owed. The only thing this can do is stop an otherwise-authorized
+   * invocation from proceeding too soon.
+   *
+   * IT IS CHECKED HERE RATHER THAN IN THE CEREMONY for the same reason every other condition is: a
+   * ceremony's check is a courtesy that can be skipped by writing a second ceremony. This one runs
+   * immediately before transport and cannot be.
+   *
+   * A FAILED PROVIDER READ STORES NOTHING, so it leaves no timestamp and a retry is permitted. That
+   * falls out of measuring stored observations rather than attempts, and it is the correct
+   * behaviour rather than a lucky one.
+   */
+  const lastAuthorized = await readLatestAuthorizedObservationAt(
+    scope,
+    {
+      providerKey: current.providerKey,
+      capabilityKey: current.capabilityKey,
+      subjectRef: current.subjectRef,
+    },
+    { getDb: deps.getDb },
+  );
+  if (lastAuthorized.status !== "read") {
+    /*
+     * FAIL CLOSED. "We could not find out when this was last observed" is not "it was never
+     * observed" — reporting the second would let an unreadable history become a licence.
+     */
+    return { status: "refused", reason: "observation-history-unavailable" };
+  }
+  if (lastAuthorized.observedAt !== null) {
+    const since = (deps.now ?? (() => new Date()))().getTime() - Date.parse(lastAuthorized.observedAt);
+    if (!Number.isFinite(since) || since < current.intervalMinutes * 60_000) {
+      return { status: "refused", reason: "observed-too-recently" };
+    }
   }
 
   return { status: "authorized", principal: current, integrationId: current.integrationId };

@@ -49,7 +49,13 @@ import {
   type YouTubeApiKeyCallDeps,
   type YouTubeAuthorizedOutcome,
 } from "./youtube-api-key-call.server";
-import { listChannelByHandle, listUploadsPage, listVideos } from "./youtube-transport.server";
+import {
+  listChannelById,
+  listChannelByHandle,
+  listUploadsPage,
+  listVideos,
+  type ChannelListing,
+} from "./youtube-transport.server";
 
 export interface ReadChannelObservationDeps extends YouTubeApiKeyCallDeps {
   readonly now?: () => Date;
@@ -67,7 +73,33 @@ export async function observeChannelWithKey(
   handle: string,
   deps: ReadChannelObservationDeps = {},
 ): Promise<YouTubeResult<YouTubeChannelObservation>> {
-  const channel = await listChannelByHandle(apiKey, handle, deps);
+  return observeFromChannel(apiKey, () => listChannelByHandle(apiKey, handle, deps), deps);
+}
+
+/**
+ * The same observation, against the provider's own CHANNEL ID (TRH-24).
+ *
+ * A standing authorization binds the canonical subject reference, so the machine path has an id and
+ * never a handle. Everything after the first call is IDENTICAL and literally shared — the uploads
+ * page, the videos, the quota accounting and the empty-channel exception all live in one function
+ * below. Duplicating them would have created a second reading of the same provider, free to drift
+ * from the human one, and the whole value of an observation is that two of them are comparable.
+ */
+export async function observeChannelById(
+  apiKey: string,
+  channelId: string,
+  deps: ReadChannelObservationDeps = {},
+): Promise<YouTubeResult<YouTubeChannelObservation>> {
+  return observeFromChannel(apiKey, () => listChannelById(apiKey, channelId, deps), deps);
+}
+
+/** Everything after the channel is found. One body, two entry points, no duplicated transport. */
+async function observeFromChannel(
+  apiKey: string,
+  fetchChannel: () => Promise<YouTubeResult<ChannelListing>>,
+  deps: ReadChannelObservationDeps,
+): Promise<YouTubeResult<YouTubeChannelObservation>> {
+  const channel = await fetchChannel();
   if (!channel.ok) return channel;
 
   /*

@@ -21,6 +21,7 @@
     "platform:preflight": "node --import tsx scripts/platform-preflight.ts",
     "platform:migrate": "node --import tsx scripts/platform-migrate.ts",
     "platform:authorize-observation": "node --import tsx scripts/trh23-authorize-standing-observation.ts",
+    "platform:observe-once": "node --import tsx scripts/trh24-observe-once.ts",
     "platform:bootstrap-first-human": "node --import tsx scripts/bootstrap-first-human.ts",
     "platform:recover-bootstrap-credential": "node --import tsx scripts/recover-bootstrap-credential.ts"
   },

@@ -813,6 +813,110 @@ export async function withDecryptedSecret<T>(
   return { status: "used", value } as const;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * TRH-24 — THE CONNECTION-SCOPED OPENER. STRICTLY NARROWER THAN `withDecryptedSecret`.
+ *
+ * ── WHY `withDecryptedSecret` WAS NOT WIDENED INSTEAD ───────────────────────
+ *
+ * That function takes a CALLER-NAMED `credentialId`. Narrowing its tenant parameter — the obvious
+ * one-line move — would have let anything holding a bare tenant scope open ANY live credential of
+ * that tenant, a Google refresh token included. TRH-23 refused that on purpose and wrote a bite
+ * proof against it; that refusal stands and this function does not touch it.
+ *
+ * ── WHAT MAKES THIS ONE NARROWER, PRECISELY ─────────────────────────────────
+ *
+ * There is no credential parameter at all. The caller names a CONNECTION it has already been
+ * authorized for and the KIND its transport requires; this function resolves the credential itself,
+ * from rows that are live, of that kind, on that connection, owned by that tenant. A caller cannot
+ * ask for a credential — it can only ask for "the one this connection holds for this purpose", and
+ * be refused if there is none.
+ *
+ * So the reachable set shrinks from "every live credential in the tenant" to "the credential the
+ * capability authority already decided this read may spend".
+ *
+ * ── AND IT IS NOT AMBIENTLY AVAILABLE ───────────────────────────────────────
+ *
+ * A firewall censuses its callers to exactly one — the provider-read seam that spends it. That is
+ * the same mechanism that already pins the `integrations` table to two modules, and it is what
+ * stops this from becoming a generic credential-enumeration upgrade by accident.
+ *
+ * ── THE SECRET STILL NEVER ESCAPES ──────────────────────────────────────────
+ *
+ * `ScopedSecretResult<T>` carries the CALLBACK'S value, never the plaintext. The secret exists only
+ * inside `scopedOperation`, is never returned, never logged and never stored — the same confinement
+ * `withDecryptedSecret` has, unchanged.
+ *
+ * PROVIDER-NEUTRAL: `kind` is the released credential-kind union, so an OAuth access token for a
+ * future Drive or GitHub observation uses this same seam without a second one being written.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Spend the live credential OF ONE KIND that ONE CONNECTION holds, inside one callback frame.
+ *
+ * Refuses rather than choosing when a connection holds more than one live credential of a kind:
+ * "which of these did you mean" is not a question this function may answer on a caller's behalf,
+ * and picking one silently is how a rotated-but-not-revoked secret gets spent by accident.
+ */
+export async function withConnectionScopedSecret<T>(
+  tenant: Pick<TenantContext, "tenantId"> | null,
+  integrationId: string,
+  kind: IntegrationCredentialKind,
+  scopedOperation: (secret: string) => Promise<T> | T,
+  deps: CredentialRepositoryDeps = {},
+): Promise<ScopedSecretResult<T>> {
+  assertServerOnly();
+  if (!tenant?.tenantId) return refused("no-authorized-tenant-context");
+  if (!UUID_RE.test(integrationId)) return refused("not-found");
+
+  const db = (deps.getDb ?? resolveCredentialDbOrNull)();
+  if (!db) return refused("persistence-not-configured");
+
+  const keys = resolveKeysOrNull(deps);
+  if (!keys) return refused("encryption-not-configured");
+
+  /*
+   * TENANT, CONNECTION, KIND AND LIVENESS IN ONE `and(...)`. A credential belonging to another
+   * tenant, another connection, another kind, or one that has been revoked or destroyed is
+   * indistinguishable from one that never existed — there is no branch that could tell them apart.
+   */
+  const rows = await db
+    .select(SEALED_COLUMNS)
+    .from(integrationCredentials)
+    .where(
+      and(
+        ownedBy(tenant),
+        eq(integrationCredentials.integrationId, integrationId),
+        eq(integrationCredentials.kind, kind),
+        liveOnly(),
+      ),
+    )
+    .limit(2);
+
+  if (rows.length === 0) return refused("not-found");
+  if (rows.length > 1) return refused("ambiguous-credential");
+
+  const row = rows[0] as (typeof rows)[number];
+  const key = keyForRow(keys, row.keyId);
+  if (!key) return refused("decryption-failed");
+
+  const opened = openSecret(
+    {
+      algorithm: row.algorithm as SealedSecret["algorithm"],
+      keyId: row.keyId,
+      ciphertext: row.ciphertext,
+      iv: row.iv,
+      authTag: row.authTag,
+    },
+    key,
+    /* The AAD is rebuilt from THIS ROW's identity, exactly as the released opener rebuilds it. */
+    credentialAad(tenant.tenantId, row.integrationId, row.kind as IntegrationCredentialKind),
+  );
+  if (!opened.ok) return refused("decryption-failed");
+
+  const value = await scopedOperation(opened.plaintext);
+  return { status: "used", value } as const;
+}
+
 /* ── End of life ────────────────────────────────────────────────────────────── */
 
 /**

@@ -124,14 +124,40 @@ function noRawPayloadCanReachStorage(): void {
   assert.equal(/\.\.\.\s*(observation|channel|video|outcome|response|body|rest)/.test(code), false, "no spread of provider data");
   assert.equal(code.includes("JSON.parse"), false, "the composition parses no provider body");
 
-  /* And nothing anywhere in the authority names a credential, a URL or a header. */
+  /*
+   * And nothing anywhere in the authority names a credential, a URL or a header.
+   *
+   * ── ONE BAN WAS REPAIRED BY TRH-24, AND MADE MORE PRECISE RATHER THAN WEAKER ──
+   *
+   * A case-insensitive substring ban on "authorization" was correct while the only thing that word
+   * could mean here was an HTTP header. TRH-24 gave this authority a legitimate, governance-shaped
+   * use of it: `standingAuthorizationId` — the standing authorization a machine-sourced observation
+   * was performed under. That is a Governance reference stored on purpose, not a secret leaking.
+   *
+   * A guard that fails on the product's own honest vocabulary teaches nothing and gets deleted. So
+   * the ban is narrowed to the SPELLINGS AN HTTP HEADER ACTUALLY TAKES — a quoted key, or a header
+   * object entry — which still catches every way a request header could be named, and no longer
+   * catches a column. Every other banned word is untouched and still a plain substring.
+   */
+  const HEADER_SPELLINGS = [
+    /["'`]authorization["'`]/i,
+    /\bauthorization\s*:\s*["'`]/i,
+    /headers\b[\s\S]{0,80}authorization/i,
+  ];
   for (const file of [CONTRACTS, WRITER, READER, COMPOSITION, TABLE]) {
     const source = codeOf(read(file));
-    for (const banned of ["apiKey", "api_key", "Authorization", "bearer", "secret", "token", "http://", "https://", "fetch("]) {
+    for (const banned of ["apiKey", "api_key", "bearer", "secret", "token", "http://", "https://", "fetch("]) {
       assert.equal(
         source.toLowerCase().includes(banned.toLowerCase()),
         false,
         `${file} must not name "${banned}"`,
+      );
+    }
+    for (const spelling of HEADER_SPELLINGS) {
+      assert.equal(
+        spelling.test(source),
+        false,
+        `${file} must not name an HTTP authorization header (${spelling.source})`,
       );
     }
   }
@@ -217,7 +243,24 @@ function theHistoryGainsNoOrganizationalStanding(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function theAuthorityHasNoMutationPath(): void {
   const writer = codeOf(read(WRITER));
-  assert.equal((writer.match(/\.insert\(/g) ?? []).length, 1, "exactly one INSERT");
+  /*
+   * TWO INSERTS SINCE TRH-24, AND BOTH ARE THE SAME ROW WITH DIFFERENT PROVENANCE.
+   *
+   * `recordProviderObservation` writes a human-caused observation; `recordAuthorizedProviderObservation`
+   * writes one performed under a standing authorization. One authority, one table, one append-only
+   * rule — the count grew because a second PROVENANCE MODE arrived, not a second writer authority.
+   * The bans below are what actually keep this append-only, and they are unchanged.
+   */
+  assert.equal(
+    (writer.match(/\.insert\(/g) ?? []).length,
+    2,
+    "exactly two INSERTs — the human entry point and the machine one, into the same table",
+  );
+  assert.equal(
+    (writer.match(/\.insert\(providerObservations\)/g) ?? []).length,
+    2,
+    "and both write `provider_observations` and nothing else",
+  );
   /*
    * The bans name DATABASE mutation, not the word. `createHash(...).update(...)` is a hash being
    * fed bytes and has nothing to do with a row — a bare `.update(` ban would forbid computing the
@@ -273,15 +316,29 @@ function deduplicationNeverComparesValues(): void {
    * identity columns: adding a fact column would turn "the same subject at the same instant" into
    * "the same numbers", which is the value-comparison this contract exists to forbid.
    */
-  const conflictTarget = writer.slice(writer.indexOf("target: ["), writer.indexOf("]", writer.indexOf("target: [")));
-  assert.ok(conflictTarget.length > 0, "the conflict target is present");
-  assert.deepEqual(
-    conflictTarget.match(/providerObservations\.(\w+)/g)?.map((m) => m.split(".")[1]),
-    ["tenantId", "providerKey", "subjectRef", "observedAt"],
-    "the idempotency key is tenant + provider + subject + instant, and nothing else",
-  );
-  for (const factColumn of ["facts", "factsDigest"]) {
-    assert.equal(conflictTarget.includes(factColumn), false, `${factColumn} is stored but never deduplicated on`);
+  /*
+   * EVERY CONFLICT TARGET, NOT THE FIRST ONE.
+   *
+   * TRH-24 added a second entry point for machine-sourced provenance, so reading only the first
+   * `target: [` would have left the newer insert unchecked — and a rule that inspects one of two
+   * writers is a rule that can be walked around by adding a third. Both must carry the SAME four
+   * identity columns, because both write the same table under the same idempotency contract.
+   */
+  const conflictTargets = [...writer.matchAll(/target: \[([\s\S]*?)\]/g)].map((m) => m[1]!);
+  assert.equal(conflictTargets.length, 2, "two inserts, two conflict targets — the human and the machine");
+  for (const conflictTarget of conflictTargets) {
+    assert.deepEqual(
+      conflictTarget.match(/providerObservations\.(\w+)/g)?.map((m) => m.split(".")[1]),
+      ["tenantId", "providerKey", "subjectRef", "observedAt"],
+      "the idempotency key is tenant + provider + subject + instant, and nothing else",
+    );
+    for (const factColumn of ["facts", "factsDigest"]) {
+      assert.equal(
+        conflictTarget.includes(factColumn),
+        false,
+        `${factColumn} is stored but never deduplicated on`,
+      );
+    }
   }
   assert.ok(writer.includes("factsDigest,"), "and the digest is still written");
 
@@ -451,7 +508,7 @@ function theMigrationIsAdditiveAndSingular(): void {
    */
   const trh21Entry = journal.entries.findIndex((e) => /trh21_provider_observation_history/.test(e.tag));
   assert.equal(trh21Entry, 49, "TRH-21 is the 50th entry — it grew the ledger 49 -> 50, and always did");
-  assert.equal(journal.entries.length, 51, "and the ledger has moved on since: TRH-23 added the 51st");
+  assert.equal(journal.entries.length, 52, "and the ledger has moved on since: TRH-23 added the 51st"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
 
   const sql = read(`${MIGRATIONS}/${trh21[0]!.tag}.sql`);
   assert.equal((sql.match(/CREATE TABLE/g) ?? []).length, 1, "one table");
@@ -461,7 +518,7 @@ function theMigrationIsAdditiveAndSingular(): void {
   assert.equal(sql.includes("integrations"), true, "the composite FK names the connection authority");
 
   const sqlFiles = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 51, "and the files agree with the journal");
+  assert.equal(sqlFiles.length, 52, "and the files agree with the journal"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
 
   /* OBSERVATION SUBJECT KINDS ARRIVE BY MIGRATION-REVIEWED CODE, never by data. */
   assert.deepEqual([...OBSERVATION_SUBJECT_KINDS], ["youtube-channel"], "one subject kind ships");

@@ -302,7 +302,9 @@ function noPersistence(): void {
       /* TRH-21 — the `provider_observations` table. A declared later phase, not this one's. */
       "20260907124912_trh21_provider_observation_history",
       /* TRH-23 — the `standing_observation_authorizations` table and the `standing-observation` governance domain. A declared later phase, not this one's. */
-      "20260907202659_trh23_standing_observation_authorization"],
+      "20260907202659_trh23_standing_observation_authorization",
+      /* TRH-24 — machine observation provenance on `provider_observations`. A declared later phase, not this one's. */
+      "20260908072926_trh24_machine_observation_provenance"],
     "R7.1 authored no migration; what follows is a declared later phase",
   );
   for (const name of newer) {

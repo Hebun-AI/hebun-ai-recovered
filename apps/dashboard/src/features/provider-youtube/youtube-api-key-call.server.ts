@@ -20,6 +20,7 @@ import type { ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
   listCredentialMetadata,
+  withConnectionScopedSecret,
   withDecryptedSecret,
 } from "@/features/integration-credentials/credential-repository.server";
 import { getCapabilityAvailability } from "@/features/integration-authority/capability-availability.server";
@@ -118,4 +119,58 @@ export async function withConnectedYouTubeApiKey<T>(
 
   const outcome = await withYouTubeApiKey<T>(tenant, connection.integrationId, call, deps);
   return outcome.ok ? { ok: true, value: outcome.value, integrationId: connection.integrationId } : outcome;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * TRH-24 — SPENDING THE KEY FOR AN ALREADY-REVALIDATED MACHINE OBSERVATION.
+ *
+ * ── IT TAKES NO TENANT AND NO CONNECTION ────────────────────────────────────
+ *
+ * Both come off the value the pre-transport revalidator returned, which came off the authorization
+ * row. There is no parameter through which a caller could name either, so "spend a different
+ * tenant's key" and "spend a different connection's key" are not refused — they are unsayable.
+ *
+ * ── AND IT ASKS THE CAPABILITY AUTHORITY NOTHING ────────────────────────────
+ *
+ * `withConnectedYouTubeApiKey` consults availability and the connection listing because a human
+ * command arrives with nothing decided. This path arrives with EVERYTHING decided, and decided more
+ * recently: the revalidator has just re-read the authorization, the capability, the connection's
+ * health and the credential's presence, in that order, immediately before this call. Asking again
+ * would be a second answer to a question already answered, and the two could disagree.
+ *
+ * ── THE CREDENTIAL IS OPENED THROUGH THE NARROW SEAM ────────────────────────
+ *
+ * `withConnectionScopedSecret` — connection and kind, never a caller-named credential id. The
+ * released `withDecryptedSecret` still requires a branded HUMAN context and is untouched by this
+ * phase, which is why a machine principal cannot open an arbitrary secret of its tenant.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * What the pre-transport revalidator hands this seam. Deliberately structural and tiny: it is a
+ * PROJECTION of an already-verified principal, not an authority of its own, and it grants nothing by
+ * being held — the revalidation that produced it is what made the read legitimate.
+ */
+export interface RevalidatedYouTubeRead {
+  readonly tenantId: string;
+  readonly integrationId: string;
+}
+
+/** Spend the live `api_key` of the authorized connection, inside one callback frame. */
+export async function withAuthorizedYouTubeApiKey<T>(
+  authorized: RevalidatedYouTubeRead,
+  call: (apiKey: string) => Promise<YouTubeResult<T>>,
+  deps: YouTubeApiKeyCallDeps = {},
+): Promise<YouTubeResult<T>> {
+  assertServerOnly();
+  const used = await withConnectionScopedSecret(
+    { tenantId: authorized.tenantId },
+    authorized.integrationId,
+    "api_key",
+    call,
+    { getDb: deps.getDb, env: deps.env },
+  );
+  if (used.status !== "used") {
+    return { ok: false, failure: "auth", reason: `credential-${used.reason}` };
+  }
+  return used.value;
 }

@@ -127,6 +127,15 @@ export type CredentialRefusal =
   | "duplicate-live-credential"
   /** `replace` was asked to replace nothing. */
   | "no-live-credential"
+  /**
+   * TRH-24. A connection holds MORE THAN ONE live credential of the requested kind, so
+   * "the credential this connection holds for this purpose" does not name one thing.
+   *
+   * A REFUSAL RATHER THAN A PICK, deliberately. Choosing silently is how a rotated-but-not-revoked
+   * secret gets spent by accident, and the connection-scoped opener exists precisely because its
+   * caller may not name a credential — so it must not have one chosen for it either.
+   */
+  | "ambiguous-credential"
   /** The row is revoked or destroyed, so it may not be opened. */
   | "credential-not-live"
   /**

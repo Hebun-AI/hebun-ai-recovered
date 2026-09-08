@@ -49,7 +49,12 @@ import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server
 import { providerObservations } from "@/db/schema/provider-observation";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
+  isObservationPrincipal,
+  type ObservationPrincipal,
+} from "@/features/standing-observation-authority/observation-principal.server";
+import {
   canonicalizeFacts,
+  type ObservationFacts,
   type ProviderObservationRecord,
   type ProviderObservationRefusal,
   type ProviderObservationWriteResult,
@@ -159,4 +164,140 @@ export async function recordProviderObservation(
      */
     return refused("persistence-unavailable");
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * TRH-24 — THE MACHINE-PROVENANCE ENTRY POINT.
+ *
+ * ── ONE AUTHORITY, TWO ENTRY POINTS, NOT TWO AUTHORITIES ────────────────────
+ *
+ * This is the same table, the same append-only rule, the same idempotency contract and the same
+ * closed `facts` projection. What differs is the ONE thing that actually differs: who caused the
+ * read. A second observation authority would have been a second source of truth for a question this
+ * one already answers.
+ *
+ * ── NOTHING ABOUT THE SCOPE IS ACCEPTED FROM THE CALLER ─────────────────────
+ *
+ * The tenant, provider, capability, subject and connection are read OFF THE PRINCIPAL, which read
+ * them off the authorization row. The caller supplies only what the PROVIDER said — the instant and
+ * the typed facts — because those are the only two things the authorization cannot know in advance.
+ *
+ * A caller that wanted to file against a different scope would have to change what Governance
+ * authorized.
+ *
+ * ── AND IT STILL CANNOT CAUSE A READ ────────────────────────────────────────
+ *
+ * This module imports no transport, no credential seam and no provider adapter. Recording an
+ * observation and performing one remain different acts in different modules, exactly as TRH-21 left
+ * them.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** What the PROVIDER said. The only two facts the authorization could not already know. */
+export interface ObservedProviderReport {
+  /** Hebun's read instant, UTC, as the released observation seam recorded it. */
+  readonly observedAt: string;
+  readonly facts: ObservationFacts;
+}
+
+/**
+ * Record one observation performed under a standing authorization by an ephemeral principal.
+ *
+ * The principal is verified at RUNTIME through the released guard, so a cast cannot forge one. Its
+ * `authorizationId` and `invocationId` become the row's whole provenance, and the human actor pair
+ * is written NULL — which the database's XOR check requires and which is simply true: no human
+ * performed this read.
+ */
+export async function recordAuthorizedProviderObservation(
+  principal: ObservationPrincipal,
+  report: ObservedProviderReport,
+  deps: ProviderObservationWriteDeps = {},
+): Promise<ProviderObservationWriteResult> {
+  assertServerOnly();
+
+  /*
+   * THE RUNTIME GUARD. `AgentProposer`'s precedent, for the same reason: the brand exists at runtime
+   * precisely so that satisfying the compiler is not enough.
+   */
+  if (!isObservationPrincipal(principal)) return refused("not-an-observation-principal");
+
+  const observedAt = parseInstant(report?.observedAt);
+  if (observedAt === null) return refused("invalid-observation");
+
+  const db = resolveDbOrNull(deps);
+  if (!db) return refused("persistence-unavailable");
+
+  const facts = canonicalizeFacts(report.facts);
+  const factsDigest = createHash("sha256").update(facts).digest("hex");
+
+  try {
+    const inserted = await db
+      .insert(providerObservations)
+      .values({
+        /* EVERY ONE OF THESE COMES FROM THE AUTHORIZATION, THROUGH THE PRINCIPAL. */
+        tenantId: principal.tenantId,
+        integrationId: principal.integrationId,
+        providerKey: principal.providerKey,
+        capabilityKey: principal.capabilityKey,
+        subjectKind: principal.subjectKind,
+        subjectRef: principal.subjectRef,
+        observedAt,
+        /*
+         * NO HUMAN ACTOR, BECAUSE NO HUMAN ACTED. Stating this as `null` rather than borrowing the
+         * Director's id is the whole point of the phase: the row says what made the read
+         * legitimate, and does not invent somebody who caused it.
+         */
+        observedByActorType: null,
+        observedByActorId: null,
+        standingAuthorizationId: principal.authorizationId,
+        invocationId: principal.invocationId,
+        facts: report.facts,
+        factsDigest,
+      })
+      /* TRH-21's contract, unchanged: one subject, one instant, one row. */
+      .onConflictDoNothing({
+        target: [
+          providerObservations.tenantId,
+          providerObservations.providerKey,
+          providerObservations.subjectRef,
+          providerObservations.observedAt,
+        ],
+      })
+      .returning({ id: providerObservations.id });
+
+    const row = inserted[0];
+    return row ? { status: "recorded", observationId: row.id } : { status: "already-recorded" };
+  } catch (error) {
+    /*
+     * A REPLAY OF THIS RUN'S PERSISTENCE, REPORTED AS ITSELF. The partial unique index on
+     * `invocation_id` refuses a second row for one invocation, and that is a different fact from
+     * "this subject was already observed at this instant" — so it gets a different refusal instead
+     * of being folded into `persistence-unavailable`, which would have blamed the database.
+     */
+    if (isInvocationConflict(error)) return refused("invocation-already-recorded");
+    /*
+     * NOTHING IS CLAIMED FROM A FAILED WRITE. The observation still happened and is still true;
+     * what failed is Hebun's memory of it. OBSERVED and RECORDED are different states and the
+     * caller is told which one it has.
+     */
+    return refused("persistence-unavailable");
+  }
+}
+
+/**
+ * PostgreSQL `unique_violation` naming the invocation index. Read from the DRIVER, never guessed
+ * from a message.
+ *
+ * BOTH LEVELS ARE INSPECTED because drizzle wraps the driver's error and the code and constraint
+ * name then live on `cause`. The released credential authority reads both for exactly this reason;
+ * checking only the top level looks correct and silently never matches, which would have reported a
+ * replay as `persistence-unavailable` — blaming the database for a rule this phase wrote.
+ */
+function isInvocationConflict(error: unknown): boolean {
+  const named = (value: unknown): boolean => {
+    if (typeof value !== "object" || value === null) return false;
+    const e = value as { code?: unknown; constraint?: unknown };
+    return e.code === "23505" && e.constraint === "provider_observations_invocation_uidx";
+  };
+  if (named(error)) return true;
+  return named((error as { cause?: unknown } | null)?.cause);
 }

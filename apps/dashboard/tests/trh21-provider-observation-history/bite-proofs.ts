@@ -96,8 +96,40 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M2 the facts digest joins the conflict target",
     file: WRITER,
     suite: TRUTH_SUITE,
-    find: "          providerObservations.observedAt,\n        ],",
-    replace: "          providerObservations.observedAt,\n          providerObservations.factsDigest,\n        ],",
+    /*
+     * RE-ANCHORED BY TRH-24, WITH THE INJECTED DEFECT UNCHANGED.
+     *
+     * That phase gave this module a second insert whose conflict target is byte-identical, so the
+     * bare four-line anchor stopped being unique and the proof would have mutated a line it did not
+     * choose. The anchor now starts at `facts: record.facts` — the human writer's own field name,
+     * where the machine writer says `report.facts` — and the defect is still exactly "the digest
+     * joins the conflict target", which turns "the same subject at the same instant" into "the same
+     * numbers". The suite checks BOTH targets now, so either one biting is correct.
+     */
+    find:
+      "        facts: record.facts,\n" +
+      "        factsDigest,\n" +
+      "      })\n" +
+      "      /* THE IDEMPOTENCY CONTRACT. One subject, one instant, one row — see the header. */\n" +
+      "      .onConflictDoNothing({\n" +
+      "        target: [\n" +
+      "          providerObservations.tenantId,\n" +
+      "          providerObservations.providerKey,\n" +
+      "          providerObservations.subjectRef,\n" +
+      "          providerObservations.observedAt,\n" +
+      "        ],",
+    replace:
+      "        facts: record.facts,\n" +
+      "        factsDigest,\n" +
+      "      })\n" +
+      "      .onConflictDoNothing({\n" +
+      "        target: [\n" +
+      "          providerObservations.tenantId,\n" +
+      "          providerObservations.providerKey,\n" +
+      "          providerObservations.subjectRef,\n" +
+      "          providerObservations.observedAt,\n" +
+      "          providerObservations.factsDigest,\n" +
+      "        ],",
     because: "the idempotency key is tenant + provider + subject + instant, and nothing else",
   },
   /* ── APPEND-ONLY MEANS A REPLAY CANNOT REWRITE A ROW ────────────────────── */
@@ -105,8 +137,18 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M3 the insert upgrades itself into an upsert",
     file: WRITER,
     suite: TRUTH_SUITE,
-    find: "      .onConflictDoNothing({",
-    replace: "      .onConflictDoUpdate({\n        set: { factsDigest: facts },",
+    /* Re-anchored by TRH-24 for the same reason as M2; the injected upsert is unchanged. */
+    find:
+      "        facts: record.facts,\n" +
+      "        factsDigest,\n" +
+      "      })\n" +
+      "      /* THE IDEMPOTENCY CONTRACT. One subject, one instant, one row — see the header. */\n" +
+      "      .onConflictDoNothing({",
+    replace:
+      "        facts: record.facts,\n" +
+      "        factsDigest,\n" +
+      "      })\n" +
+      "      .onConflictDoUpdate({\n        set: { factsDigest: facts },",
     because: 'the writer must not contain "onConflictDoUpdate"',
   },
   /* ── THE SUBJECT IS THE PROVIDER'S, NOT THE HUMAN'S ─────────────────────── */

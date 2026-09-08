@@ -173,9 +173,9 @@ const MUTATIONS: readonly Mutation[] = [
     /* RE-ANCHORED at GIA-1, as it was at Departmental Placement and WORK-1 before it: the mutation must apply
      * to the journal's CURRENT tail, or it proves nothing. The defect it injects — an extra journal
      * entry — is unchanged, and this anchor moves with every migration by design. */
-    find: `      "tag": "20260907202659_trh23_standing_observation_authorization",\n      "breakpoints": true\n    }\n  ]`,
+    find: `      "tag": "20260908072926_trh24_machine_observation_provenance",\n      "breakpoints": true\n    }\n  ]`,
     replace:
-      `      "tag": "20260907202659_trh23_standing_observation_authorization",\n      "breakpoints": true\n    },\n` +
+      `      "tag": "20260908072926_trh24_machine_observation_provenance",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 50,\n      "version": "7",\n      "when": 1787726663801,\n` +
       `      "tag": "20260827000000_ops_p1_should_not_exist",\n      "breakpoints": true\n    }\n  ]`,
     expect: "OPS-P1 adds no migration",

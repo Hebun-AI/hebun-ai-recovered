@@ -186,6 +186,19 @@ export const standingObservationAuthorizations = pgTable(
 
     index("standing_observation_authorizations_tenant_state_idx").on(t.tenantId, t.state),
 
+    /*
+     * THE DEFERRED INDEX, ADDED BY THE PHASE THAT NEEDED IT (TRH-24).
+     *
+     * TRH-23 deliberately did not add this: nothing referenced an authorization, and an unused
+     * unique index is noise. `provider_observations.standing_authorization_id` now does, and a
+     * composite `(standing_authorization_id, tenant_id)` foreign key needs this exact target — the
+     * same mechanism `integrations_id_tenant_uq` provides for connections.
+     *
+     * It is a UNIQUE index on a primary key plus the tenant, so it constrains nothing new. What it
+     * does is make "an observation filed under another tenant's authorization" a database error.
+     */
+    uniqueIndex("standing_observation_authorizations_id_tenant_uq").on(t.id, t.tenantId),
+
     /**
      * STRUCTURAL TENANT BINDING FOR THE CONNECTION. Reuses `integrations_id_tenant_uq`, exactly as
      * `provider_observations_tenant_integration_fk` does — "authorized to read through another
