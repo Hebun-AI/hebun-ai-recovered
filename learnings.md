@@ -3774,8 +3774,38 @@ does not exist.
   in it is a thing anybody observed.
 
 **Weekly three.** *Learned:* the shape of a lifecycle decides what is possible, so "append-only" bought
-a security guarantee that no amount of checking could have. *Turkish Rug House:* its Governance can
-now durably authorize exactly one recurring look at its own public channel — and until the Director
-runs the two ceremonies, it has authorized nothing and nothing has looked. *Hebun AI:* a non-human
+a security guarantee that no amount of checking could have. *Turkish Rug House:* its Governance HAS now
+durably authorized exactly one recurring look at its own public channel — revision 1, active, at most
+once a day — and nothing has looked, because nothing exists that could. *Hebun AI:* a non-human
 principal is representable, mintable and structurally powerless, and the thing that still does not
 exist is anything that would invoke it.
+
+### TRH-23 acceptance — the detour was the lesson
+
+- **A fail-closed fence will look like a broken feature, and the difference is one reproduction.**
+  The first dry run died on `persistence-not-configured`. Not a bug, not a stale deploy, not a
+  missing table: `getControlPlaneDb()` refuses any non-localhost target unless
+  `HEBUN_CONTROL_PLANE_ALLOW_REMOTE=true` is set explicitly, and the hand-off command sourced the one
+  env file that lacks it. Proving it meant running the same call with and without the flag before
+  touching anything — and the answer was that no source needed to change at all.
+- **Do not let a ceremony set the safety flag for the operator.** The tempting fix was to export
+  `HEBUN_CONTROL_PLANE_ALLOW_REMOTE` inside the script. That flag exists so pointing released code at
+  a remote database is a deliberate, stated act; a ceremony that sets it removes the fence it was
+  standing behind. The command changed, the code did not.
+- **The raw driver connecting is not evidence that the authority can.** The ceremony's own `pg.Client`
+  reached production and resolved three lookups successfully; the released reader then refused. Same
+  URL, same cluster, different gate. "The database is reachable" and "the released seam will use it"
+  are separate facts.
+- **Prove atomicity with the clock.** `authorized_at`, `decided_at` and both audit `occurred_at`
+  values identical to the millisecond is a stronger statement than any prose about transactions —
+  four rows across four tables at one instant.
+- **Prove a non-effect by its own timestamp, not by a delta you did not take.** No before-snapshot of
+  production existed. `provider_observations` still holds one row — recorded sixteen hours BEFORE the
+  authorization — and the single execution attempt is eight days older. Absence dated is absence
+  proved.
+- **Prove an ephemeral thing is ephemeral by watching the tables while you make one.** Minting a
+  principal in production and snapshotting thirteen tables before and after turned a demonstration
+  into the proof that minting is inert.
+- **`file` calls a UTF-8 source "data" and grep then hides every match.** Box-drawing characters in
+  the header comments were enough; `grep` silently found nothing in a file that plainly contained the
+  string. `grep -a` restores it. A silent zero-match is not a measurement.
