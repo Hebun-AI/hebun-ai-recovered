@@ -396,15 +396,39 @@ function main(): void {
     }
   }
 
-  /* No timing configuration was introduced anywhere. */
-  for (const config of ["vercel.json", "src/app/api/cron"]) {
-    let exists = true;
+  /*
+   * THE SCHEDULE, PINNED BY VALUE (TRH-25). Until the trigger phase this asserted that
+   * `vercel.json` DID NOT EXIST — a cheap way to say "nothing runs on its own", and it worked: it
+   * failed on the run that introduced the schedule. It cannot express the property now that a
+   * schedule is a deliberate decision, so it is replaced by a NARROWER one: exactly ONE cron
+   * exists, it points at the machine ingress, and it runs hourly. A second entry, a different
+   * path, or a different cadence fails here.
+   *
+   * `src/app/api/cron` still must not exist: the ingress lives at its own named path, and a second
+   * conventional cron directory would be a second door.
+   */
+  {
+    let cronDir = true;
     try {
-      readFileSync(path.join(ROOT, config), "utf8");
+      readFileSync(path.join(ROOT, "src/app/api/cron"), "utf8");
     } catch {
-      exists = false;
+      cronDir = false;
     }
-    assert.equal(exists, false, `${config} does not exist — TRH-23 created no timing mechanism`);
+    assert.equal(cronDir, false, "src/app/api/cron does not exist — there is one ingress, not two");
+
+    const vercelConfig = JSON.parse(readFileSync(path.join(ROOT, "vercel.json"), "utf8")) as {
+      readonly crons?: readonly { readonly path: string; readonly schedule: string }[];
+    };
+    assert.deepEqual(
+      vercelConfig.crons,
+      [{ path: "/api/observation/scan", schedule: "0 * * * *" }],
+      "exactly one schedule exists: hourly, aimed at the machine ingress, and nothing else",
+    );
+    assert.deepEqual(
+      Object.keys(vercelConfig).sort(),
+      ["$schema", "crons"],
+      "and the deployment config carries NOTHING but that schedule",
+    );
   }
 
   /* THE MINTER IS UNREACHABLE FROM THE PRODUCT SURFACE. */
