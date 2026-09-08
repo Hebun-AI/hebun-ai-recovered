@@ -27,9 +27,15 @@
  * THE JUSTIFICATION PROSE IS NOT COPIED HERE. `decision_records.justification` is the durable single
  * home of why. A copy in the ledger would be a second version of it, free to disagree.
  *
- * `collected: false` IS STATED ON EVERY ROW. TRH-23 authorizes; NOTHING COLLECTS. There is no
- * scheduler, no runtime invocation and no machine-caused provider read in this repository, and
- * history says so on every row rather than leaving a reader to assume it.
+ * `collected: false` IS STATED ON EVERY ROW, AND STILL MEANS EXACTLY WHAT IT SAID. Authorizing
+ * collects nothing: no row this ledger writes is evidence that a provider was contacted, and
+ * history says so rather than leaving a reader to assume it.
+ *
+ * TRH-24 made a machine-caused provider read possible — manually, once, under an authorization —
+ * and deliberately did NOT route it here. A performed observation is recorded by Provider
+ * Observation History, which is its only owner; this ledger records the GRANT and never the
+ * spending of it. `collected` therefore stays `false` on every row, and a phase that ever needed it
+ * to be `true` would be writing the wrong record in the wrong place.
  *
  * APPEND-ONLY, ENFORCED BY WHAT IS ABSENT: one write, one read, no update/delete/upsert.
  *
@@ -87,8 +93,10 @@ export interface StandingObservationAuditMetadata {
   readonly governanceSessionId: string;
   readonly supersedesAuthorizationId: string | null;
   /**
-   * TRH-23 authorizes; nothing collects. Always `false` in this phase — there is no trigger, no
-   * runtime and no machine-caused provider read anywhere in this repository.
+   * Authorizing collects nothing, so this is ALWAYS `false` and the type admits no other value. It
+   * is a statement about THIS row — the grant — and never about whether the scope was later
+   * observed. A performed observation lives in Provider Observation History; since TRH-24 one such
+   * observation can exist, and it still leaves every row here `false`.
    */
   readonly collected: false;
 }

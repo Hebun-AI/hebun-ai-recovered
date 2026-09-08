@@ -46,10 +46,17 @@
  *
  * ── AND IT COLLECTS NOTHING ──────────────────────────────────────────────────
  *
- * This is the property TRH-23 must not blur. Writing an authorization changes what the ORGANIZATION
- * HAS PERMITTED and changes nothing about what actually happens: there is no scheduler, no trigger,
- * no runtime invocation and no machine-caused provider read in this repository, and every audit row
- * this transaction writes carries `collected: false`.
+ * This is the property TRH-23 must not blur, and TRH-24 did not blur it. Writing an authorization
+ * changes what the ORGANIZATION HAS PERMITTED and changes nothing about what actually happens: no
+ * provider is contacted here, nothing is collected here, and every audit row this transaction
+ * writes carries `collected: false`.
+ *
+ * SINCE TRH-24 A MACHINE-CAUSED PROVIDER READ IS POSSIBLE — manually, once, under an authorization
+ * exactly like the one this function writes. That does not weaken the sentence above; it sharpens
+ * it. Writing the authorization still collects nothing. Something else, later, initiated by an
+ * operator, may spend it — and there is still NO SCHEDULER and no automatic trigger anywhere in
+ * this repository, so an authorization written here will be exercised zero times until a human
+ * runs a ceremony.
  *
  *   AUTHORIZED != OBSERVED
  *   AUTHORIZED != SCHEDULED
