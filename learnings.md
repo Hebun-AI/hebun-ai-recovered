@@ -3859,3 +3859,30 @@ exist is anything that would invoke it.
   firewall pins the exact route list, asserts `vercel.json` does not exist, and asserts no product
   surface names the observation authority. Any scheduler trips all three, so unattended collection
   cannot be added to this repository quietly.
+- **`insert ... where not exists` is not a mutex.** Under READ COMMITTED two concurrent statements
+  cannot see each other's uncommitted rows, so both predicates pass and both rows commit. It reads
+  like an atomic claim and is not one. A time-window rule cannot be a unique index either, so it
+  needs a real arbiter — here a `for update` row lock on the authorization being spent, in a short
+  transaction that contains no network I/O.
+- **A concurrency proof that fires both writers with `Promise.all` proves nothing until you delete
+  the lock and watch it still pass.** That is exactly what happened: the first version of the race
+  test passed with the mutex removed, because the two transactions never actually overlapped. The
+  fix is to CONSTRUCT the overlap — a second connection holds the row lock, the writer is required
+  to still be pending after a wait, and only then is the competitor committed.
+- **A one-sided cadence window is the natural formulation and it is wrong.** "Is there a PRIOR
+  observation inside the interval" mirrors how a human states the rule, but of two racing writers
+  the one holding the earlier instant never sees the later row. Stated symmetrically — two
+  observations may not lie within the ceiling OF EACH OTHER — it becomes order-independent, which
+  is the property that makes it safe.
+- **Moving code out of an ORM call and into raw SQL blinds every guard that was watching the ORM
+  form.** Four released assertions stopped seeing properties that were still true: an actor-NULL
+  rule, an INSERT census, a conflict-target rule and two bite-proof anchors. None of them failed
+  loudly for the right reason — they failed for absence. Re-aim at the new form and count BOTH
+  spellings; a census that counts one spelling passes the day a second appears.
+- **Check whether the ceremony you are extending already refuses in production, and for which key.**
+  The connectivity ceremony blocks `external-send` from production arming and always did; the
+  observation-read key needed the opposite (disarming from production is the entire point), and the
+  existing narrowing was keyed to one constant, so nothing had to be relaxed to get it.
+- **A fail-closed switch turns a released, production-accepted capability off the moment it ships.**
+  That is the correct direction and it is not a surprise to be discovered later: TRH-24's manual
+  observation now refuses in production until the Director runs the arming ceremony.
