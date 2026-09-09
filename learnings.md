@@ -3944,3 +3944,24 @@ exist is anything that would invoke it.
   taşıdı; Era I / Era II satırlarını yeniden ölçmedi, era veya product-line modeline dokunmadı
   (§18 rule 12 Director review isterdi) ve hiçbir program kararı almadı. Kapanışın "ne yapmadım"
   bölümü, "ne yaptım" kadar bağlayıcıdır.
+- **Census'leri toplu regex ile büyütmek, listeleri anlamlarına bakmadan aynı sayar.** İkinci provider
+  eklerken otomatik ekleme iki yanlış yere düştü: bir HOSTILE capability fixture'ına (kural "bu
+  capability reddedilmeli" diyordu) ve Google'a ÖZEL bir capability listesine. İkisi de census değil.
+  Bir listeye eklemeden önce assertion mesajını oku — "every mapped capability" ile "Google maps
+  exactly" farklı iddialardır.
+- **`connectable` bir iddiadır ve kanıt ister.** Catalog'a provider eklerken firewall reddetti:
+  "names no verifier — a connectable claim needs one". Bu bir census değil, gerçek bir eksikti;
+  guard doğru çalıştı. Verifier'ın şekli credential'a bağlı: YouTube üçüncü taraf bir kanalı
+  yoklar (key hesap bağlamaz), Instagram'da probe hesabın KENDİSİdir (token hesabı bağlar) —
+  üçüncü taraf yoklaması token'ın çalıştığını kanıtlar, BURADA çalıştığını değil.
+- **Bite proof anchor'ı, koruduğu kod taşındığında onu takip etmeli.** Composition'dan dispatch'e
+  taşınan üç mutasyon "anchor bulunamadı" ile öldü — bu, guard'ın kırıldığı değil, nişan aldığı
+  yerin boşaldığı anlamına gelir. Yeniden nişanla; ve crash mesajı değiştiyse (`subjectRef` →
+  `tenantId`) beklenen metni ölç, tahmin etme.
+- **Yasak listesi request'i hedeflemeli, kelimeyi değil.** `body:` yasağı response parsing'i
+  (`let body: unknown`) yakaladı. Doğrusu `JSON.stringify` yokluğu + fetch init'te `body` alanı
+  yokluğu: bir write payload gerektirir, ve inşa edilemeyen payload write'ı imkânsız kılar.
+- **İkinci provider, mimarinin gerçekten provider-agnostic olduğunun ilk sınavıdır.** Persistence
+  (text + jsonb, CHECK yok), standing authorization, revalidator ve scheduler hiç değişmeden
+  Instagram'ı taşıdı; değişmesi gereken tek yer composition'ın tek yollu olmasıydı. Tek provider'la
+  "agnostic" iddiası test edilmemiş bir iddiadır.
