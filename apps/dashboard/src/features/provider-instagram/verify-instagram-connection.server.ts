@@ -24,6 +24,7 @@ import type { VerifiedConnectionFacts } from "@/features/integration-authority/i
 import {
   INSTAGRAM_BUSINESS_BASIC_SCOPE,
   INSTAGRAM_CONNECTION_LABEL,
+  classifyAccountType,
   type InstagramFailure,
   type InstagramFailureClass,
 } from "./contracts";
@@ -31,7 +32,7 @@ import {
   withAuthorizedInstagramToken,
   type InstagramAccessTokenCallDeps,
 } from "./instagram-access-token-call.server";
-import { readAccount } from "./instagram-transport.server";
+import { readOwnAccount } from "./instagram-transport.server";
 
 export type VerifyInstagramDeps = InstagramAccessTokenCallDeps & {
   readonly fetchImpl?: import("@/features/provider-youtube/youtube-transport.server").FetchLike;
@@ -50,7 +51,7 @@ export type InstagramVerificationOutcome =
  *                     narrowed grant is a changed grant and reconnecting is what restores it
  *   not-professional  a permanent property of the ACCOUNT, not of the credential — `degraded`,
  *                     lifecycle untouched: reconnecting will not fix it, converting the account will
- *   not-found         the account this connection names is gone — `degraded`
+ *   not-found         the node Instagram was asked for was not available to this token — `degraded`
  *   rate-limited      the token is fine, the window is spent — `degraded`, lifecycle untouched
  *   transport         nothing is known — `unreachable`, lifecycle untouched
  *   malformed         `degraded`
@@ -72,20 +73,47 @@ export function lifecycleClassFor(
 export async function verifyInstagramConnection(
   tenant: TenantContext,
   integrationId: string,
-  accountId: string,
   deps: VerifyInstagramDeps = {},
 ): Promise<InstagramVerificationOutcome> {
   if (typeof window !== "undefined") {
     throw new Error("Instagram verification is server-only.");
   }
+  /*
+   * NO ACCOUNT ID IS ACCEPTED. The account is whichever one this token authorizes, read at `/me`,
+   * and its identity is the provider's answer rather than a value a caller handed in for this
+   * function to agree with. That is what makes this the identity authority instead of a checker of
+   * somebody else's claim.
+   */
   const outcome = await withAuthorizedInstagramToken(
     { tenantId: tenant.tenantId, integrationId },
-    (accessToken) => readAccount(accessToken, accountId, deps),
+    (accessToken) => readOwnAccount(accessToken, deps),
     deps,
   );
   if (!outcome.ok) return outcome;
 
   const account = outcome.value;
+
+  /*
+   * ── THE ONLY PLACE `not-professional` MAY BE CLAIMED ────────────────────
+   *
+   * From the account's OWN stated type, never from a request that failed. A documented
+   * non-professional type is refused; a literal outside the known vocabulary is refused as
+   * malformed rather than guessed in either direction; and an unstated type claims nothing — this
+   * API answers for professional accounts only, so a successful read is left standing rather than
+   * being turned into an accusation Hebun has no evidence for.
+   */
+  const verdict = classifyAccountType(account.accountType);
+  if (verdict === "non-professional") {
+    return {
+      ok: false,
+      failure: "not-professional",
+      reason: "instagram-account-not-professional",
+    };
+  }
+  if (verdict === "unrecognized") {
+    return { ok: false, failure: "malformed", reason: "instagram-account-type-unrecognized" };
+  }
+
   return {
     ok: true,
     accountId: account.accountId,

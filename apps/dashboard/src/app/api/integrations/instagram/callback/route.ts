@@ -120,8 +120,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const exchanged = await exchangeAuthorizationCode({ code }, config);
   if (!exchanged.ok) return outcome(`exchange-${exchanged.failure}`);
 
-  const accountId = exchanged.grant.accountId;
-  if (!accountId) return outcome("exchange-malformed");
+  /*
+   * The token response must still be well formed — Meta states an account id on it, and a response
+   * without one is not a grant this ceremony understands. It is NOT used as an identity: see the
+   * verifier call below.
+   */
+  if (!exchanged.grant.accountId) return outcome("exchange-malformed");
 
   /*
    * ── 3. IF INSTAGRAM STATED THE GRANT, IT MUST COVER THIS CONNECTION ─────
@@ -178,7 +182,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (stored.status === "refused") return outcome(`credential-${stored.reason}`);
 
   /* ── 6. VERIFY. REAL NETWORK I/O, WITH THE CREDENTIAL JUST STORED. ──────── */
-  const verification = await verifyInstagramConnection(tenant, integrationId, accountId, {
+  /*
+   * NO ACCOUNT ID IS PASSED. Identity is the verifier's to establish from the provider's own answer
+   * at `/me`; a route that supplied one would be a second identity authority, and the id it had to
+   * hand — the token response's `user_id` — is precisely the value that addressed nothing.
+   */
+  const verification = await verifyInstagramConnection(tenant, integrationId, {
     getDb: () => db,
   });
 

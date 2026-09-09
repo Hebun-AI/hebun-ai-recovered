@@ -176,6 +176,57 @@ function main(): void {
     "and an unstated grant is no longer misreported as an insufficient scope",
   );
 
+  /*
+   * ═══ 2c. THE CALLBACK IS NOT A SECOND IDENTITY AUTHORITY ══════════════════
+   *
+   * It hands the verifier NO account id. The only id it could hand over is the token response's
+   * `user_id`, and that is exactly the value that addressed nothing in production — Meta's node
+   * carries an app-scoped `id` that differs from it. Identity is established by the verifier from
+   * the provider's own answer at `/me`, so there is no id for a route to be wrong about.
+   */
+  assert.ok(
+    /verifyInstagramConnection\(\s*tenant,\s*integrationId,\s*\{/.test(callback),
+    "the verifier is called with the tenant and the connection, and no account id",
+  );
+  assert.ok(
+    !/verifyInstagramConnection\([^)]*accountId/.test(callback),
+    "no account id is passed to the verifier — identity is not the route's to supply",
+  );
+
+  /*
+   * ═══ 2d. `not-professional` IS A FACT ABOUT A TYPE, NOWHERE ELSE ══════════
+   *
+   * It may be produced ONLY by the verifier, and only from `classifyAccountType`. A production
+   * ceremony once refused a real Business account with this label because a NODE error carried it;
+   * the transport may no longer say it at all.
+   */
+  const verifier = "src/features/provider-instagram/verify-instagram-connection.server.ts";
+  const observationTransport = "src/features/provider-instagram/instagram-transport.server.ts";
+  assert.ok(
+    codeOf(read(observationTransport)).includes('fail("not-found", "instagram-node-unavailable")'),
+    "a node Instagram could not load is reported as a NODE fact",
+  );
+  assert.ok(
+    !codeOf(read(observationTransport)).includes("not-professional"),
+    "and the transport cannot claim an account is not professional — it never read its type",
+  );
+  assert.ok(
+    codeOf(read(verifier)).includes("classifyAccountType("),
+    "the verifier decides professional status from the account's OWN stated type",
+  );
+  assert.ok(
+    codeOf(read(verifier)).includes('failure: "not-professional"'),
+    "and it is the one place that may say so",
+  );
+  assert.ok(
+    codeOf(read(verifier)).includes("readOwnAccount("),
+    "the verifier reads `/me` — the node that cannot be given a wrong id",
+  );
+  assert.ok(
+    !codeOf(read(verifier)).includes("readAccount("),
+    "and it does not use the by-id read, whose subject a caller would have to supply",
+  );
+
   /* ═══ 3. NO SECOND AUTHORITY IS MINTED ═════════════════════════════════════ */
   for (const [f, code] of [[START, start], [CALLBACK, callback]] as const) {
     for (const banned of ["drizzle-orm", "@/db/schema", ".insert(", "sealSecret", "decrypt"]) {

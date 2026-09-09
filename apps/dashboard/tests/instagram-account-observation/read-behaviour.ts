@@ -153,7 +153,14 @@ async function main(): Promise<void> {
     ["expired or revoked token", err(400, 190), "auth"],
     ["insufficient permission", err(400, 10), "scope"],
     ["permission family 200", err(403, 200), "scope"],
-    ["not a professional account", err(400, 100, 33), "not-professional"],
+    /*
+     * RE-AIMED, NOT LOOSENED. This line used to read `not-professional`, and that reading refused a
+     * real Business account in production: 100/33 is Meta's answer for "object does not exist,
+     * cannot be loaded due to missing permissions, or does not support this operation" — three
+     * facts about a NODE and none about an account type. The refusal is unchanged; only the fact it
+     * reports is now the one Meta actually stated.
+     */
+    ["a node this token cannot load", err(400, 100, 33), "not-found"],
     ["unknown account", err(404, null), "not-found"],
     ["rate limited", err(429, 4), "rate-limited"],
     ["provider fault", err(503, null), "transport"],

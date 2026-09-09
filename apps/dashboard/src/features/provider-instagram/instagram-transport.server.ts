@@ -70,12 +70,21 @@ function classify(status: number, code: number | null, subcode: number | null): 
   /* 10 and 200 are the permission families — the token is real, the grant does not cover this. */
   if (code === 10 || code === 200) return fail("scope", "instagram-scope-insufficient");
   /*
-   * 100 with subcode 33 is Instagram's answer for "this node is not visible to you", which is what
-   * a personal (non-professional) account looks like from this API. Reported as its own fact
-   * because reconnecting will not fix it — converting the account will.
+   * ── 100/33 IS NOT A STATEMENT ABOUT THE ACCOUNT ─────────────────────────
+   *
+   * This used to be read as "the account is not professional", and a real ceremony proved that
+   * wrong: a genuine Business account was refused with that label while Meta was answering
+   * `account_type: "BUSINESS"` for the very same token. Meta's own text for 100/33 is
+   * "Object with ID does not exist, cannot be loaded due to missing permissions, or does not
+   * support this operation" — three different facts about a NODE, and none of them about the
+   * account's type.
+   *
+   * So it is reported for what it is: the node Hebun asked for was not available to this token.
+   * Whether the account is professional is answered by `account_type`, which this API returns and
+   * which the verifier reads — not inferred from a request that failed to address anything.
    */
   if (code === 100 && subcode === 33) {
-    return fail("not-professional", "instagram-account-not-professional");
+    return fail("not-found", "instagram-node-unavailable");
   }
   if (status === 401 || status === 403) return fail("auth", `instagram-${status}`);
   return fail("malformed", `instagram-unclassified-${status}`);
@@ -183,6 +192,57 @@ export async function readAccount(
    */
   if (id === null) return fail("malformed", "instagram-account-id-missing");
   if (id !== accountId) return fail("malformed", "instagram-account-id-mismatch");
+
+  return {
+    ok: true,
+    value: {
+      accountId: id,
+      username: stringOrNull(node.username),
+      accountType: stringOrNull(node.account_type),
+      followersCount: numberOrNull(node.followers_count),
+      followsCount: numberOrNull(node.follows_count),
+      mediaCount: numberOrNull(node.media_count),
+    },
+  };
+}
+
+/**
+ * Read the account THIS TOKEN belongs to, at Meta's documented `/me`.
+ *
+ * ── WHY THIS TAKES NO ACCOUNT ID ────────────────────────────────────────────
+ *
+ * Because there is no id it could be given that would be safe to trust. Meta's node carries two:
+ * `id`, the app-scoped one, and `user_id`, the Instagram professional account id. They are
+ * different values, the token response supplies `user_id`, and a ceremony that used it as the path
+ * was answered with a node error that Hebun then misread as a statement about the account.
+ *
+ * `/me` removes the choice. The account it returns is the account the token authorizes, by
+ * construction, and the `id` it reports is the identity a connection is bound by — so identity is
+ * the PROVIDER'S answer rather than something a caller supplied and this function agreed with.
+ *
+ * THE ID-MISMATCH GUARD IS NOT WEAKENED BY ITS ABSENCE HERE. That guard exists on `readAccount` to
+ * make an authorization binding: a subject named in an authorization must be the subject that
+ * answers. There is no supplied subject on this path to disagree with, so the guard has nothing to
+ * check — and it remains exactly as it was on the by-id read that observation uses.
+ */
+export async function readOwnAccount(
+  accessToken: string,
+  deps: InstagramTransportDeps = {},
+): Promise<InstagramResult<InstagramAccountView>> {
+  const result = await call(
+    "account.read.self",
+    /* No account id is interpolated: `/me` carries no `{account-id}` placeholder. */
+    "",
+    { fields: INSTAGRAM_ACCOUNT_FIELDS.join(",") },
+    accessToken,
+    deps,
+  );
+  if (!result.ok) return result;
+
+  const node = result.value as Record<string, unknown>;
+  const id = stringOrNull(node?.id);
+  /* Same rule as the by-id read: no id, no account. */
+  if (id === null) return fail("malformed", "instagram-account-id-missing");
 
   return {
     ok: true,

@@ -73,7 +73,21 @@ export const INSTAGRAM_CONNECTION_LABEL =
  * ONE OPERATION. The account node, by id, with an explicit field list.
  */
 export const INSTAGRAM_ALLOWED_OPERATIONS = Object.freeze([
+  /*
+   * BY ID. The observation path: an authorization names a subject, and this reads exactly that
+   * subject. The id-mismatch guard on this operation is what makes an authorization binding, and it
+   * stays.
+   */
   Object.freeze({ id: "account.read", path: "/{account-id}", params: ["fields"] }),
+  /*
+   * THE SELF-READ. `/me` is Meta's documented node for "the account this token belongs to", and it
+   * takes NO id at all — which is the point. A real ceremony was lost to the id it used to take:
+   * Meta distinguishes the app-scoped `id` from `user_id` (the Instagram professional account id),
+   * the token response supplies the latter, and asking for a node by the wrong one is how Hebun
+   * ended up telling a Business account it was not professional. A path with no id cannot be given
+   * the wrong one.
+   */
+  Object.freeze({ id: "account.read.self", path: "/me", params: ["fields"] }),
 ] as const);
 
 export type InstagramOperationId = (typeof INSTAGRAM_ALLOWED_OPERATIONS)[number]["id"];
@@ -271,6 +285,58 @@ export interface InstagramTokenGrant {
 export type InstagramTokenResult =
   | { readonly ok: true; readonly grant: InstagramTokenGrant }
   | InstagramFailure;
+
+/*
+ * ════ ACCOUNT TYPE ══════════════════════════════════════════════════════════
+ *
+ * Meta documents `Business` and `Media_Creator` for this API. A live professional account answered
+ * `"BUSINESS"` — same value, different casing — so a literal comparison against the documented
+ * spelling would refuse a real Business account. Normalization is therefore not a convenience; it
+ * is the difference between reading the provider and reading the documentation.
+ *
+ * `CREATOR` is carried too: Meta's own account-type vocabulary has used it, and this API is
+ * documented as serving Business AND Creator accounts.
+ */
+const NORMALIZED = (raw: string): string => raw.trim().toUpperCase().replace(/[\s-]+/g, "_");
+
+/** Account types this API is documented to serve. */
+export const INSTAGRAM_PROFESSIONAL_ACCOUNT_TYPES: readonly string[] = Object.freeze([
+  "BUSINESS",
+  "MEDIA_CREATOR",
+  "CREATOR",
+]);
+
+/** Account types Meta uses for accounts this API does not serve. */
+export const INSTAGRAM_NON_PROFESSIONAL_ACCOUNT_TYPES: readonly string[] = Object.freeze([
+  "PERSONAL",
+]);
+
+/**
+ * What the provider said about the account's type.
+ *
+ *   professional      a documented professional type. The connection may proceed.
+ *   non-professional  a documented type this API does not serve. THIS is the only thing that may
+ *                     ever be reported as `not-professional`.
+ *   unstated          the field was absent or null. NOT read as personal, and NOT read as Business:
+ *                     nothing is claimed, and the successful read stands on its own — this API
+ *                     answers for no other kind of account.
+ *   unrecognized      a literal outside both lists. Present, and with no honest reading. Refused as
+ *                     malformed rather than guessed in either direction.
+ */
+export type InstagramAccountTypeVerdict =
+  | "professional"
+  | "non-professional"
+  | "unstated"
+  | "unrecognized";
+
+export function classifyAccountType(raw: unknown): InstagramAccountTypeVerdict {
+  if (raw === undefined || raw === null || raw === "") return "unstated";
+  if (typeof raw !== "string") return "unrecognized";
+  const normalized = NORMALIZED(raw);
+  if (INSTAGRAM_PROFESSIONAL_ACCOUNT_TYPES.includes(normalized)) return "professional";
+  if (INSTAGRAM_NON_PROFESSIONAL_ACCOUNT_TYPES.includes(normalized)) return "non-professional";
+  return "unrecognized";
+}
 
 /**
  * Why an Instagram call did not produce an observation. Each is a DIFFERENT fact, and they are not
