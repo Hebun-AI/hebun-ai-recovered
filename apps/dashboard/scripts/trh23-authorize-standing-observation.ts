@@ -1,9 +1,15 @@
 /*
  * TRH-23 — the standing observation authorization CEREMONY (operator terminal only).
  *
- *   npm run platform:authorize-observation -- --tenant=turkish-rug-house            # dry run
- *   npm run platform:authorize-observation -- --tenant=turkish-rug-house --confirm
+ *   npm run platform:authorize-observation -- --tenant=turkish-rug-house                       # dry run
+ *   npm run platform:authorize-observation -- --tenant=turkish-rug-house --provider=instagram
+ *   npm run platform:authorize-observation -- --tenant=turkish-rug-house --provider=instagram --confirm
  *   npm run platform:authorize-observation -- --tenant=turkish-rug-house --withdraw --confirm
+ *
+ * `--provider=` defaults to `youtube`, which is the scope this ceremony was written for and the
+ * only one it could reach. Naming a provider does not widen anything: the capability and subject
+ * kind are read off `OBSERVABLE_CAPABILITIES`, so the set of scopes an operator can authorize is
+ * the set the authority already declared eligible.
  *
  * ── WHY A CEREMONY AND NOT A GOVERNANCE UI ───────────────────────────────────
  *
@@ -34,6 +40,20 @@
  */
 import { createInterface } from "node:readline";
 import { Client } from "pg";
+/*
+ * STATIC, and only these. Both are pure — a frozen constant and a ceremony-side resolver that
+ * writes nothing — so importing them cannot start a database, open a credential or reach a
+ * provider. Everything consequential stays behind the lazy imports below, which is what makes a
+ * misconfigured environment fail before any authority loads.
+ */
+import { YOUTUBE_PROVIDER_KEY } from "../src/features/provider-youtube/contracts";
+import {
+  readSoleConnection,
+  resolveObservableScope,
+  subjectFromConnection,
+  subjectFromLatestObservation,
+  subjectSourceFor,
+} from "./lib/observable-scope";
 
 const CONFIRMATION = "AUTHORIZE STANDING OBSERVATION";
 const WITHDRAWAL_CONFIRMATION = "WITHDRAW STANDING OBSERVATION";
@@ -71,6 +91,7 @@ async function main(): Promise<void> {
   const tenantSlug = arg("tenant");
   if (!tenantSlug) fail("--tenant=<slug> is required");
   const directorEmail = arg("director") ?? "senoltr@gmail.com";
+  const providerKey = arg("provider") ?? YOUTUBE_PROVIDER_KEY;
   const withdraw = has("withdraw");
   const confirmed = has("confirm");
   const intervalMinutes = Number(arg("interval") ?? "1440");
@@ -98,10 +119,6 @@ async function main(): Promise<void> {
   const { mintObservationPrincipal } = await import(
     "../src/features/standing-observation-authority/observation-principal.server"
   );
-  const { YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY, YOUTUBE_PROVIDER_KEY } = await import(
-    "../src/features/provider-youtube/contracts"
-  );
-
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
 
@@ -130,39 +147,43 @@ async function main(): Promise<void> {
     const w = who.rows[0];
     if (!w) fail(`no active membership for ${directorEmail} in organization "${tenantSlug}"`);
 
-    /* ── THROUGH WHICH CONNECTION. The tenant's own YouTube integration. ─────────────────────── */
-    const conn = await client.query<{ id: string; status: string; connection_state: string | null }>(
-      `select id, status, connection_state
-         from integrations
-        where tenant_id = $1 and provider_key = $2 and deleted_at is null
-        order by created_at
-        limit 2`,
-      [w.tenant_id, YOUTUBE_PROVIDER_KEY],
-    );
-    if (conn.rows.length === 0) fail(`"${tenantSlug}" has no ${YOUTUBE_PROVIDER_KEY} connection`);
-    if (conn.rows.length > 1) {
-      fail(
-        `"${tenantSlug}" has more than one ${YOUTUBE_PROVIDER_KEY} connection — this ceremony will ` +
-          `not choose between them`,
-      );
-    }
-    const connection = conn.rows[0]!;
+    /* ── WHICH SCOPE. From the authority's own eligibility list, never from this file. ───────── */
+    const resolved = resolveObservableScope(providerKey);
+    if (!resolved.ok) fail(resolved.reason);
+    const observable = resolved.scope;
 
-    /* ── WHAT. The canonical subject the PROVIDER already confirmed, from TRH-21's history. ──── */
-    const subject = await client.query<{ subject_kind: string; subject_ref: string; observed_at: Date }>(
-      `select subject_kind, subject_ref, observed_at
-         from provider_observations
-        where tenant_id = $1 and provider_key = $2 and capability_key = $3
-        order by observed_at desc
-        limit 1`,
-      [w.tenant_id, YOUTUBE_PROVIDER_KEY, YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY],
-    );
-    const observed = subject.rows[0];
-    if (!observed) {
-      fail(
-        `"${tenantSlug}" has no stored provider observation to take a canonical subject from. ` +
-          `Authorize nothing until the provider has confirmed which channel this is.`,
-      );
+    /* ── THROUGH WHICH CONNECTION. Exactly one, or a refusal. ────────────────────────────────── */
+    const sole = await readSoleConnection(client, w.tenant_id, providerKey);
+    if (!sole.ok) fail(`"${tenantSlug}" ${sole.reason}`);
+    const connection = sole.connection;
+
+    /*
+     * ── WHAT. The canonical subject the PROVIDER already confirmed. ─────────────────────────
+     *
+     * TWO SHAPES, AND THE CATALOG DECIDES WHICH — not this file. A provider whose connection binds
+     * one account (`accountIdentity: "account"`) already has its subject: the verifier wrote it
+     * onto the connection from a real provider answer. A provider whose connection binds no account
+     * only learns its subject by reading one, so its subject comes from the stored history exactly
+     * as it always did.
+     *
+     * Requiring a prior observation for the first shape would demand an observation before the
+     * authorization that permits it.
+     */
+    const source = subjectSourceFor(providerKey);
+    if (!source) fail(`"${providerKey}" is not a provider this deployment declares`);
+
+    let subjectKind: string;
+    let subjectRef: string;
+    if (source === "connection") {
+      const fromConnection = subjectFromConnection(observable.subjectKind, connection);
+      if (!fromConnection.ok) fail(`"${tenantSlug}" ${providerKey}: ${fromConnection.reason}`);
+      subjectKind = observable.subjectKind;
+      subjectRef = fromConnection.subjectRef;
+    } else {
+      const fromHistory = await subjectFromLatestObservation(client, w.tenant_id, observable);
+      if (!fromHistory.ok) fail(`"${tenantSlug}" ${providerKey}: ${fromHistory.reason}`);
+      subjectKind = fromHistory.subjectKind;
+      subjectRef = fromHistory.subjectRef;
     }
 
     const tenant = asHumanTenantContext({
@@ -181,10 +202,10 @@ async function main(): Promise<void> {
     });
 
     const scope = {
-      providerKey: YOUTUBE_PROVIDER_KEY,
-      capabilityKey: YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
-      subjectKind: observed.subject_kind,
-      subjectRef: observed.subject_ref,
+      providerKey: observable.providerKey,
+      capabilityKey: observable.capabilityKey,
+      subjectKind,
+      subjectRef,
     } as const;
 
     /* ── WHERE THE LINEAGE STANDS, through the released reader. ──────────────────────────────── */
@@ -198,8 +219,13 @@ async function main(): Promise<void> {
     console.log(`  provider            ${scope.providerKey}`);
     console.log(`  capability          ${scope.capabilityKey}`);
     console.log(`  subject             ${scope.subjectKind} ${scope.subjectRef}`);
-    console.log(`                      (the id the provider returned on ${observed.observed_at.toISOString()})`);
-    console.log(`  connection          ${connection.id} · ${connection.status} · ${connection.connection_state ?? "no state"}`);
+    /* WHERE THE ID CAME FROM. Both are the provider's own answer; they are answered at different moments. */
+    console.log(
+      `                      (${source === "connection" ? "the account the provider confirmed when this connection was verified" : "the id the provider returned on the most recent stored observation"})`,
+    );
+    console.log(
+      `  connection          ${connection.id} · ${connection.connection_state ?? "no state"} · ${connection.health ?? "no health"}`,
+    );
     console.log(
       `  effective revision  ${current ? `${current.authorizationRevision} (${current.state}), every ${current.intervalMinutes} min` : "none — this scope has never been authorized"}`,
     );

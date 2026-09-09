@@ -1,8 +1,14 @@
 /*
  * TRH-24 — ONE machine-sourced observation, manually initiated (operator terminal only).
  *
- *   npm run platform:observe-once -- --tenant=turkish-rug-house            # dry run
+ *   npm run platform:observe-once -- --tenant=turkish-rug-house                            # dry run
  *   npm run platform:observe-once -- --tenant=turkish-rug-house --confirm
+ *   npm run platform:observe-once -- --tenant=turkish-rug-house --provider=instagram --confirm
+ *   npm run platform:observe-once -- --tenant=turkish-rug-house --authorization=<uuid> --confirm
+ *
+ * `--provider=` and `--authorization=` NARROW; they never widen. A tenant with one active
+ * authorization needs neither. A tenant with several must name one — see the selection below,
+ * which still refuses to choose and now offers a way to say which was meant.
  *
  * ── WHAT THIS CEREMONY DECIDES, AND WHAT IT DOES NOT ────────────────────────
  *
@@ -59,6 +65,9 @@ function promptVisible(question: string): Promise<string> {
 
 async function main(): Promise<void> {
   const tenantSlug = arg("tenant");
+  /* NARROWING ONLY. Neither may name a scope the authority has not already made active. */
+  const wantedProvider = arg("provider");
+  const wantedAuthorization = arg("authorization");
   if (!tenantSlug) fail("--tenant=<slug> is required");
   const confirmed = has("confirm");
   if (!process.env.DATABASE_URL) fail("DATABASE_URL is not set");
@@ -95,13 +104,49 @@ async function main(): Promise<void> {
     if (active.length === 0) {
       fail(`"${tenantSlug}" has no ACTIVE standing observation authorization. Nothing may be observed.`);
     }
-    if (active.length > 1) {
+
+    /*
+     * ── SELECTION NARROWS. IT NEVER WIDENS, AND IT NEVER GUESSES. ───────────────────────────
+     *
+     * This ceremony refused outright when a tenant held more than one authorization, which was the
+     * right refusal and the wrong end state: a second observable provider made it unreachable. The
+     * refusal is UNCHANGED — what is added is a way for an operator to say which scope they meant.
+     *
+     * Both filters are applied to the list the AUTHORITY returned for THIS tenant, so naming an
+     * authorization that belongs to another tenant, or a provider this tenant has not authorized,
+     * finds nothing and fails closed. There is no first-match fallback anywhere below.
+     */
+    let candidates = active;
+    if (wantedProvider) {
+      candidates = candidates.filter((r) => r.providerKey === wantedProvider);
+      if (candidates.length === 0) {
+        fail(
+          `"${tenantSlug}" has no ACTIVE standing authorization for provider "${wantedProvider}". ` +
+            `Active providers: ${[...new Set(active.map((r) => r.providerKey))].sort().join(", ")}`,
+        );
+      }
+    }
+    if (wantedAuthorization) {
+      candidates = candidates.filter((r) => r.authorizationId === wantedAuthorization);
+      if (candidates.length === 0) {
+        fail(
+          `no ACTIVE standing authorization "${wantedAuthorization}" for "${tenantSlug}"` +
+            (wantedProvider ? ` under provider "${wantedProvider}"` : "") +
+            ". Nothing was observed.",
+        );
+      }
+    }
+    if (candidates.length > 1) {
       fail(
-        `"${tenantSlug}" has ${active.length} active standing authorizations. This ceremony observes ` +
-          `ONE scope and will not choose between them.`,
+        `"${tenantSlug}" has ${candidates.length} active standing authorizations. This ceremony ` +
+          `observes ONE scope and will not choose between them. Name one with --provider= or ` +
+          `--authorization=:\n` +
+          candidates
+            .map((r) => `    --authorization=${r.authorizationId}  ${r.providerKey}  ${r.subjectRef}`)
+            .join("\n"),
       );
     }
-    const authorization = active[0]!;
+    const authorization = candidates[0]!;
 
     /* ── THE CADENCE, reported honestly before anything is decided. ───────────────────────────── */
     const last = await readLatestAuthorizedObservationAt(scopeTenant, {
