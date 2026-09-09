@@ -3903,3 +3903,23 @@ exist is anything that would invoke it.
 - **Scheduler frekansı cadence değildir.** Saatlik cron "ne sıklıkta SORUYORUZ"; `interval_minutes`
   "ne sıklıkta İZİN VAR". İkisini karıştırmak ya ceiling'i düşürmeye (Governance'ın sayısı) ya da
   gün atlamaya yol açar — Hobby'nin ±59dk jitter'ı ile günlük tarama tam olarak gün atlar.
+- **Bir zamanlayıcının otorite kazanmadığını kanıtlayan şey, çalıştığı tick değil; ÇALIŞMADIĞI
+  tick'tir.** 09:00 tick'i düştü ve hiçbir şey yazmadı (cadence 09:03:57'de doluyordu), 10:00 yazdı.
+  Tek başına 10:00 "scheduler observation yaptı" der; ikisi birlikte "cadence cron'dan bağımsız karar
+  veriyor" der. Acceptance kanıtı ararken sistemin reddettiği anı da topla.
+- **Cron frekansı cadence değildir.** Saatlik tarama "ne sıklıkta SORUYORUZ"; `interval_minutes` "ne
+  sıklıkta İZİN VAR". Karıştırılırsa iki hata çıkar: ya Governance'ın sayısını düşürmeye kalkarsın,
+  ya da scheduler'ı ceiling'e eşitleyip jitter yüzünden gün atlarsın.
+- **Acceptance penceresinde push yapma — `ignoreCommand` yoksa docs-only commit bile deploy tetikler.**
+  Yeni deployment cron'un `definitions[].host` bağını değiştirir ve "hangi build tick'i çalıştırdı"
+  sorusunu bulanıklaştırır. Ölç: `commandForIgnoringBuildStep`. Pencere boyunca deployment'ın
+  sabit kaldığını raporda kanıt olarak göster.
+- **Terminal state'i convention'dan oku, istenen kelimeden değil.** Bu repo'da 14 closure
+  `PRODUCTION-ACCEPTED`, 15'i `CLOSED` ile biter; `COMPLETE` hiçbir fazın durumu değil (tek geçtiği
+  yer TRH-8'de bir revision niteleyicisi). Sorulduğu için yeni bir terminal state uydurmak, closure
+  doktrininin tam tersi olurdu.
+- **Sequencing authority'nin sessiz olması ile çelişkili olması farklı şeylerdir.** MASTER-ROADMAP
+  kendini "canonical delivery authority" ilan ediyor ama baseline'ı ledger 39'da donmuş ve
+  `grep TRH- → 0`. Çelişmiyor; TRH hakkında hiçbir şey iddia etmiyor. Kendi kuralı da bunu
+  meşrulaştırıyor: "Repository truth overrides this roadmap." Stale authority'yi çelişki sanıp
+  "düzeltmeye" girişmek yanlış iş olurdu — ayrı borç olarak kaydedilir.
