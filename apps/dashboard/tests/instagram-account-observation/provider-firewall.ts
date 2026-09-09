@@ -20,6 +20,9 @@ import {
   INSTAGRAM_ACCOUNT_SUBJECT_KIND,
   INSTAGRAM_BUSINESS_BASIC_SCOPE,
   INSTAGRAM_FORBIDDEN_FRAGMENTS,
+  INSTAGRAM_FORBIDDEN_VERBS,
+  INSTAGRAM_OAUTH_TRANSPORT_MODULE,
+  INSTAGRAM_TOKEN_ENDPOINT,
   INSTAGRAM_PROVIDER_KEY,
   accountIdFromSubjectRef,
 } from "../../src/features/provider-instagram/contracts";
@@ -63,6 +66,50 @@ function main(): void {
       );
     }
   }
+
+  /*
+   * ── THE VERB BAN, RE-AIMED RATHER THAN LOOSENED ──────────────────────────
+   *
+   * `POST` and `DELETE` used to sit in the list above, which covers every provider file. That was
+   * expressible while this directory held only a read. Meta documents the authorization-code
+   * exchange as a POST with no GET form, so a ceremony cannot exist under a blanket ban.
+   *
+   * The ban therefore names ONE exempt module and pins what that module may contain: exactly one
+   * POST, aimed at the token endpoint. Every other provider file — the observation transport
+   * included — is still refused both verbs, so the rule covers strictly more than the sentence it
+   * replaced: before, no file could POST; now, no file can POST except one, which can POST once, to
+   * one URL. A second POST anywhere, including inside the exempt module, fails here.
+   */
+  for (const f of providerFiles) {
+    if (f === CONTRACTS || f === INSTAGRAM_OAUTH_TRANSPORT_MODULE) continue;
+    const code = codeOf(read(f));
+    for (const verb of INSTAGRAM_FORBIDDEN_VERBS) {
+      assert.ok(!code.includes(verb), `${f} contains no \`${verb}\` — only the ceremony may POST`);
+    }
+  }
+  assert.ok(
+    providerFiles.includes(INSTAGRAM_OAUTH_TRANSPORT_MODULE),
+    "the exempt module is a real file — an exemption naming nothing is an exemption nobody audits",
+  );
+  const oauthTransport = codeOf(read(INSTAGRAM_OAUTH_TRANSPORT_MODULE));
+  assert.equal(
+    (oauthTransport.match(/method:\s*"POST"/g) ?? []).length,
+    1,
+    "the ceremony constructs exactly one POST",
+  );
+  assert.ok(
+    !oauthTransport.includes("DELETE"),
+    "and never a DELETE — the ceremony creates, it does not remove",
+  );
+  assert.ok(
+    oauthTransport.includes("INSTAGRAM_TOKEN_ENDPOINT, { method: \"POST\""),
+    "and that POST is aimed at the token endpoint, not at a URL assembled elsewhere",
+  );
+  assert.equal(
+    INSTAGRAM_TOKEN_ENDPOINT,
+    "https://api.instagram.com/oauth/access_token",
+    "the token endpoint is Meta's documented one for Instagram Login",
+  );
   const transport = codeOf(read(TRANSPORT));
   assert.equal(
     (transport.match(/method:\s*"GET"/g) ?? []).length,
@@ -175,10 +222,28 @@ function main(): void {
   }
 
   /* ═══ 7. NO SECOND AUTHORITY ══════════════════════════════════════════════ */
+  /*
+   * ── AIMED AT A TABLE, NOT AT AN IDENTIFIER ──────────────────────────────
+   *
+   * A bare `.update(` used to be banned here, and it caught the OAuth ceremony's HMAC —
+   * `createHmac(...).update(...)` is a digest, not a write. Banning the method name would have
+   * forbidden signing a state cookie, which is the one mechanism that makes the callback safe.
+   *
+   * So the ban names the QUERY BUILDER — `db.` and `tx.` — and, because that alone would be weaker
+   * than what it replaced, it is paired with a ban on importing the schema or the ORM at all. A
+   * provider file can now not even reach for a table, which is a stronger claim than never calling
+   * one method on one variable name.
+   */
   for (const f of providerFiles.concat([MAPPER])) {
     const code = codeOf(read(f));
-    for (const banned of [".insert(", ".update(", ".delete(", "db.transaction(", "setInterval", "cron"]) {
-      assert.ok(!code.includes(banned), `${f} contains no \`${banned}\` — it owns no table and no clock`);
+    const banned = [
+      "db.insert(", "db.update(", "db.delete(",
+      "tx.insert(", "tx.update(", "tx.delete(",
+      "db.transaction(", "setInterval", "cron",
+      "drizzle-orm", "@/db/schema",
+    ];
+    for (const b of banned) {
+      assert.ok(!code.includes(b), `${f} contains no \`${b}\` — it owns no table and no clock`);
     }
   }
   assert.ok(

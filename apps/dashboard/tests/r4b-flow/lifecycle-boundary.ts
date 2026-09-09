@@ -300,6 +300,9 @@ function main(): void {
       "src/app/api/integrations/github/start/route.ts",
       "src/app/api/integrations/google/callback/route.ts",
       "src/app/api/integrations/google/start/route.ts",
+      /* The Instagram OAuth ceremony — the third provider pair, added by this phase. */
+      "src/app/api/integrations/instagram/callback/route.ts",
+      "src/app/api/integrations/instagram/start/route.ts",
       /* TRH-25 added the machine ingress the automatic due-scan is triggered through. It is
        * NAMED here rather than pattern-matched, so a SECOND machine route cannot appear
        * without this census failing. */

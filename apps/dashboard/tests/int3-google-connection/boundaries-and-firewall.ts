@@ -508,6 +508,13 @@ function main(): void {
         "src/features/integration-authority/integration-repository.server.ts",
         "src/features/provider-github/connect-installation.server.ts",
         CALLBACK,
+        /*
+         * The Instagram callback is the THIRD acceptance seam, and it is named here for the same
+         * reason the other two are: it can mint `connected`, so a reviewer must see it. Like
+         * Google's, it writes only after a real provider answer — the verifier runs first and its
+         * facts, not the route's, are what get recorded.
+         */
+        "src/app/api/integrations/instagram/callback/route.ts",
       ].sort(),
       "every module that can record a verified connection is a named provider-acceptance seam",
     );
@@ -612,6 +619,9 @@ function main(): void {
         START,
         "src/app/api/integrations/github/setup/route.ts",
         "src/app/api/integrations/github/start/route.ts",
+        /* The Instagram OAuth ceremony — the third provider pair, added by this phase. */
+        "src/app/api/integrations/instagram/callback/route.ts",
+        "src/app/api/integrations/instagram/start/route.ts",
         /*
          * TRH-25's machine ingress — the first route that is not a browser redirect. It is NAMED,
          * as this list demands, so the next one is a decision somebody has to record here too.

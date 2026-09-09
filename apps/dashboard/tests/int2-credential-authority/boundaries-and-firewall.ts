@@ -219,7 +219,16 @@ function main(): void {
      * `secret-encryption` remains completely unreachable from `src/app`. The callback stores
      * through the credential authority and never touches the cipher.
      */
-    const CALLBACK_ROUTE = "src/app/api/integrations/google/callback/route.ts";
+    /*
+     * AMENDED AGAIN, EQUALLY NARROWLY. Instagram's callback is the second OAuth callback and needs
+     * the same thing for the same reason: it holds tokens Meta just issued and must hand them to the
+     * credential authority. NAMED, not matched by a prefix or a wildcard: a pattern over callback
+     * routes would admit every future one without a reviewer, which is what this list exists to deny.
+     */
+    const CALLBACK_ROUTES = [
+      "src/app/api/integrations/google/callback/route.ts",
+      "src/app/api/integrations/instagram/callback/route.ts",
+    ];
     const clientish = collect("src/components").concat(collect("src/app"));
     for (const file of clientish) {
       const normalized = file.replace(/\\/g, "/");
@@ -228,17 +237,19 @@ function main(): void {
         !code.includes("secret-encryption"),
         `${file} must not import secret-encryption — the cipher is never a surface's business`,
       );
-      if (normalized === CALLBACK_ROUTE) continue;
+      if (CALLBACK_ROUTES.includes(normalized)) continue;
       assert.ok(
         !code.includes("integration-credentials"),
         `${file} must not import integration-credentials`,
       );
     }
-    /* The exemption is real, not decorative: the callback does store credentials. */
-    assert.ok(
-      codeOf(read(CALLBACK_ROUTE)).includes("integration-credentials"),
-      "the exemption above must name a file that actually uses it",
-    );
+    /* EVERY exemption is real, not decorative: each named callback does store credentials. */
+    for (const route of CALLBACK_ROUTES) {
+      assert.ok(
+        codeOf(read(route)).includes("integration-credentials"),
+        `the exemption for ${route} must name a file that actually uses it`,
+      );
+    }
   }
 
   /* ── 8. THE TEST-ONLY FAILURE SEAMS HAVE NO PRODUCTION CALLER ────────────── */

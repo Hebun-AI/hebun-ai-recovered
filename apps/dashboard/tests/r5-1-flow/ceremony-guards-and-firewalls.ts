@@ -380,6 +380,9 @@ function phaseFirewalls(): void {
     "src/app/api/integrations/github/start/route.ts",
     "src/app/api/integrations/google/callback/route.ts",
     "src/app/api/integrations/google/start/route.ts",
+    /* The Instagram OAuth ceremony — the third provider pair, added by this phase. */
+    "src/app/api/integrations/instagram/callback/route.ts",
+    "src/app/api/integrations/instagram/start/route.ts",
     /* TRH-25's machine ingress. Named, so a second machine route fails this census. */
     "src/app/api/observation/scan/route.ts",
   ].sort();

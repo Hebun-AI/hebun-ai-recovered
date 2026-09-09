@@ -103,7 +103,13 @@ const LEGACY = [
  * L4 ADDS EXACTLY ONE: `/live-map`. The census moves 129 -> 130 for that page and nothing else, so
  * the assertion still catches a deletion anywhere in the dashboard — which is what it is for.
  */
-const DASHBOARD_ROUTE_COUNT = 131; /* WORK-1 added /director/work — the register, its own route. */
+/*
+ * 131 -> 132: the Instagram OAuth ceremony adds `/integrations/instagram`, following the surface
+ * convention `/integrations/google` set — the per-provider page owns the connect action and is where
+ * both routes land with an outcome. It is reachable by URL and adds NO navigation entry, exactly as
+ * the Google page still does not; the shell is a concurrent workstream this phase did not touch.
+ */
+const DASHBOARD_ROUTE_COUNT = 132; /* WORK-1 added /director/work; this phase adds Instagram's. */
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT.

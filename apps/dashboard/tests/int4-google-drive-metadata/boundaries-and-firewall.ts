@@ -41,7 +41,35 @@ function main(): void {
      * this check used `\bfetch\(`, which matches neither `doFetch(` nor `?? fetch` and therefore
      * found NOTHING while looking like a passing firewall. A guard that cannot fail is not a guard.
      */
-    const withFetch = collect("src").filter((f) => /(?<![\w.])fetch\b/.test(codeOnly(read(f))));
+    /*
+     * ── THE DETECTOR, REPAIRED TWICE OVER ─────────────────────────────────
+     *
+     * `(?<![\w.])fetch\b` alone was wrong in BOTH directions, and the Instagram ceremony exposed
+     * both at once:
+     *
+     *   FALSE POSITIVE  it matched the string literal "fetch-unavailable" — a REASON, not a call.
+     *                   The module belonged on the list anyway, so the census passed for a reason
+     *                   that had nothing to do with what it claims to detect.
+     *   FALSE NEGATIVE  it cannot see `?? globalThis.fetch`, because of the dot. YouTube and the
+     *                   Instagram read transport have both talked to the internet since they were
+     *                   released, and this census — which says "every outbound-HTTP module" — has
+     *                   never seen either of them.
+     *
+     * So string literals are stripped before matching, and the qualified form is matched too. The
+     * list below grows from two named modules to seven, which is what the sentence claimed all
+     * along.
+     */
+    const withoutStrings = (s: string): string =>
+      s.replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/`(?:[^`\\]|\\.)*`/g, "``");
+    /*
+     * STRINGS FIRST, THEN COMMENTS. `codeOnly` strips `//` to end-of-line, which cuts a URL literal
+     * in half and leaves an unbalanced quote behind; stripping strings after that would swallow
+     * whole regions of real code — including the `globalThis.fetch` lines this check is looking for.
+     * The order is the fix, and getting it backwards is how a census quietly stops seeing files.
+     */
+    const withFetch = collect("src").filter((f) =>
+      /(?<![\w.])fetch\b|globalThis\.fetch\b/.test(codeOnly(withoutStrings(read(f)))),
+    );
 
     /*
      * ── AMENDED BY GITHUB-2: THE CLAIM IS PER PROVIDER ─────────────────────
@@ -64,8 +92,31 @@ function main(): void {
     );
     assert.deepEqual(
       withFetch,
-      [TRANSPORT, "src/features/provider-github/github-transport.server.ts"].sort(),
-      "every outbound-HTTP module in src is a named provider transport",
+      [
+        /* ── PROVIDER TRANSPORTS — one integration provider each ───────────── */
+        TRANSPORT,
+        "src/features/provider-github/github-transport.server.ts",
+        "src/features/provider-youtube/youtube-transport.server.ts",
+        "src/features/provider-instagram/instagram-transport.server.ts",
+        /*
+         * The Instagram OAuth ceremony. A SECOND module inside that provider that talks to Meta,
+         * and deliberately so: it reaches two hosts the read transport is forbidden to touch, and
+         * it is the only file in the provider permitted to POST. Separating them is what lets the
+         * read transport stay a read.
+         */
+        "src/features/provider-instagram/instagram-oauth-transport.server.ts",
+        /*
+         * ── NOT INTEGRATION PROVIDERS, AND NAMED ANYWAY ──────────────────────
+         *
+         * Hebun's own outbound dependencies: the email sender and the model. They are not
+         * connections a tenant authorizes and they hold no `integrations` row, but they DO leave
+         * the process, which is what this list is for. Excluding them by category would leave the
+         * repository with unlisted outbound HTTP, which is the exact thing this pin exists to deny.
+         */
+        "src/features/action-execution-live/resend-email-transport.server.ts",
+        "src/features/heby-model-live/claude-http-transport.server.ts",
+      ].sort(),
+      "every outbound-HTTP module in src is a named transport",
     );
   }
 

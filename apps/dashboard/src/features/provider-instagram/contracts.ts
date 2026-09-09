@@ -110,9 +110,115 @@ export const INSTAGRAM_FORBIDDEN_FRAGMENTS: readonly string[] = Object.freeze([
   "instagram_business_manage_messages",
   "instagram_business_manage_insights",
   "pages_",
-  "POST",
-  "DELETE",
 ]);
+
+/*
+ * ── WHY THE VERBS LEFT THE LIST ABOVE, AND WHERE THEY WENT ──────────────────
+ *
+ * `POST` and `DELETE` were originally in `INSTAGRAM_FORBIDDEN_FRAGMENTS`, which the provider
+ * firewall applies to EVERY file in `provider-instagram`. That was correct while the only thing in
+ * that directory was a read. It stopped being expressible the moment an OAuth ceremony arrived,
+ * because Meta's authorization-code exchange is documented as a POST and there is no GET form of it.
+ *
+ * THE BAN WAS NOT LOOSENED. It was re-aimed and made narrower: the verbs are banned from every
+ * provider file EXCEPT the one module named below, and that module is separately pinned to contain
+ * exactly one `POST` whose target is the token endpoint. A second POST anywhere — including a second
+ * one in that module — fails a test.
+ */
+export const INSTAGRAM_FORBIDDEN_VERBS: readonly string[] = Object.freeze(["POST", "DELETE"]);
+
+/**
+ * The ONE module permitted to construct a POST, by path. Spelled here rather than in the test so the
+ * exemption is part of the provider's declared contract and not a quiet property of a test file.
+ */
+export const INSTAGRAM_OAUTH_TRANSPORT_MODULE =
+  "src/features/provider-instagram/instagram-oauth-transport.server.ts" as const;
+
+/*
+ * ════ THE OAUTH CEREMONY'S OWN CONTRACT ═════════════════════════════════════
+ *
+ * Three DIFFERENT Meta hosts take part, and conflating them is the mistake to avoid:
+ *
+ *   www.instagram.com    the human-facing consent screen. A browser goes here; Hebun never does.
+ *   api.instagram.com    the authorization-code exchange. Server-to-server, once per ceremony.
+ *   graph.instagram.com  the long-lived exchange AND every later read. Already declared above.
+ *
+ * NONE of them is `graph.facebook.com`, which stays banned everywhere in this provider.
+ */
+
+/** Where the BROWSER is sent for consent. Hebun never makes a request to this host itself. */
+export const INSTAGRAM_AUTHORIZATION_ENDPOINT = "https://www.instagram.com/oauth/authorize" as const;
+
+/** Where the authorization code is exchanged for a short-lived token. The one POST. */
+export const INSTAGRAM_TOKEN_ENDPOINT = "https://api.instagram.com/oauth/access_token" as const;
+
+/** Where a short-lived token becomes a long-lived one. A GET, per Meta's documented contract. */
+export const INSTAGRAM_LONG_LIVED_TOKEN_ENDPOINT = "https://graph.instagram.com/access_token" as const;
+
+/** Meta's grant type for the long-lived exchange. Not an OAuth 2.0 standard value. */
+export const INSTAGRAM_LONG_LIVED_GRANT_TYPE = "ig_exchange_token" as const;
+
+/**
+ * EVERY scope this ceremony may request. ONE entry, and the authorization request is built from this
+ * constant rather than from anything a caller supplies — so the set of things Hebun can ever ask an
+ * Instagram user to grant is the set written on this line.
+ */
+export const INSTAGRAM_REQUESTED_SCOPES: readonly string[] = Object.freeze([
+  INSTAGRAM_BUSINESS_BASIC_SCOPE,
+]);
+
+/**
+ * What a grant must cover for a connection to mean anything.
+ *
+ * Identical to the requested set today, and kept as its own name because they answer different
+ * questions: one is what Hebun ASKS for, the other is what Hebun REFUSES to proceed without. A
+ * future optional scope would widen the first and must not widen the second.
+ */
+export const INSTAGRAM_REQUIRED_SCOPES: readonly string[] = Object.freeze([
+  INSTAGRAM_BUSINESS_BASIC_SCOPE,
+]);
+
+/**
+ * Meta reports granted permissions as a comma-separated string on the token response.
+ *
+ * Returns `null` when the field is absent or not a string — which is NOT the same as "granted
+ * nothing". An absent field means Instagram did not state the grant, and a caller must refuse
+ * rather than infer one; collapsing the two would let a malformed response look like a denial or,
+ * worse, like a grant.
+ */
+export function parseGrantedPermissions(raw: unknown): readonly string[] | null {
+  if (typeof raw !== "string") return null;
+  const parsed = raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  return Object.freeze(parsed);
+}
+
+/** Whether what Instagram SAID it granted covers what this connection needs. */
+export function coversRequiredScopes(granted: readonly string[]): boolean {
+  return INSTAGRAM_REQUIRED_SCOPES.every((required) => granted.includes(required));
+}
+
+/**
+ * A token exactly as the ceremony obtained it.
+ *
+ * `expiresAt` is `null` for a short-lived token whose lifetime Meta does not state on the response,
+ * and a real instant for a long-lived one, computed from `expires_in` against Hebun's clock. It is
+ * NOT defaulted to an hour: a guessed expiry stored as a fact is a fact Hebun invented.
+ */
+export interface InstagramTokenGrant {
+  readonly accessToken: string;
+  /** The Instagram-scoped account id the token belongs to. Absent on the long-lived exchange. */
+  readonly accountId: string | null;
+  /** What Instagram said it granted. `null` when the response did not state it. */
+  readonly grantedScopes: readonly string[] | null;
+  readonly expiresAt: Date | null;
+}
+
+export type InstagramTokenResult =
+  | { readonly ok: true; readonly grant: InstagramTokenGrant }
+  | InstagramFailure;
 
 /**
  * Why an Instagram call did not produce an observation. Each is a DIFFERENT fact, and they are not
