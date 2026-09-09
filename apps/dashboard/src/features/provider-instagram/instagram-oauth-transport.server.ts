@@ -200,8 +200,25 @@ function grantFromCodeExchange(json: Record<string, unknown>): InstagramTokenRes
         : null;
   if (accountId === null) return fail("malformed", "instagram-account-id-absent");
 
-  const grantedScopes = parseGrantedPermissions(record.permissions);
-  if (grantedScopes === null) return fail("scope", "instagram-grant-not-stated");
+  /*
+   * ── AN UNSTATED GRANT IS NOT AN INSUFFICIENT ONE ────────────────────────
+   *
+   * This used to refuse with `scope` whenever the permissions could not be read as a string, and a
+   * real ceremony died there: Meta issued a token for the right account and described the grant in
+   * a form this parser did not accept, and Hebun told the tenant their scope was insufficient. It
+   * was not. Hebun simply had not read it.
+   *
+   * Now the three answers stay apart. UNREADABLE is still a hard refusal — a present-but-unreadable
+   * statement is malformed, and nothing proceeds on it. UNSTATED carries `null` forward and decides
+   * nothing: whether the grant covers the read is settled by the VERIFIER, which performs a real
+   * authenticated read of the account and cannot succeed without `instagram_business_basic`. That is
+   * strictly stronger evidence than a list the provider reports about itself.
+   */
+  const permissions = parseGrantedPermissions(record.permissions);
+  if (permissions.kind === "unreadable") {
+    return fail("malformed", "instagram-permissions-unreadable");
+  }
+  const grantedScopes = permissions.kind === "stated" ? permissions.scopes : null;
 
   return {
     ok: true,

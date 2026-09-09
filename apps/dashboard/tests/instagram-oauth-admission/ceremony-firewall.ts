@@ -115,6 +115,67 @@ function main(): void {
     "the state cookie is deleted inside the single function every exit path goes through",
   );
 
+  /*
+   * ═══ 2b. THE CALLBACK IS NOT A SECOND SCOPE AUTHORITY ═════════════════════
+   *
+   * It refuses a grant Instagram STATED and that falls short. It does NOT refuse a grant Instagram
+   * never stated: inventing a scope verdict from an absent field is exactly the second authority
+   * this repository refuses to grow. Coverage in that case is settled by the verifier, which reads
+   * the account for real.
+   *
+   * A production ceremony was lost to the older shape, which treated an unread grant as an
+   * insufficient one. These lines exist so that regression fails here rather than at Meta.
+   */
+  assert.ok(
+    /statedScopes\s*!==\s*null\s*&&\s*!coversRequiredScopes\(/.test(callback),
+    "the scope refusal fires ONLY when Instagram actually stated the grant",
+  );
+  assert.equal(
+    (callback.match(/outcome\("insufficient-scope"\)/g) ?? []).length,
+    1,
+    "and there is exactly one such refusal, so no second path can refuse on a scope",
+  );
+  assert.ok(
+    !/!\s*exchanged\.grant\.grantedScopes/.test(callback),
+    "an absent grant is never treated as an empty one",
+  );
+  /*
+   * AND WHATEVER THE GRANT SAID, THE VERIFIER STILL RUNS AND STILL GATES. There is no branch that
+   * records a connection without one: `recordVerifiedConnectionWithin` is reached from exactly one
+   * place, after the verifier answered, and the facts it writes are the VERIFIER'S — never the
+   * token response's self-report.
+   */
+  assert.equal(
+    (callback.match(/verifyInstagramConnection\(/g) ?? []).length,
+    1,
+    "the real read happens on exactly one path — it cannot be skipped",
+  );
+  assert.equal(
+    (callback.match(/recordVerifiedConnectionWithin\(/g) ?? []).length,
+    1,
+    "and a connection is recorded from exactly one place",
+  );
+  assert.ok(
+    /recordVerifiedConnectionWithin\(\s*tx,\s*tenant,\s*integrationId,\s*verification\.facts/.test(
+      callback,
+    ),
+    "with the VERIFIER's facts — the grant Hebun proves, not the grant Meta reports",
+  );
+  assert.ok(
+    callback.indexOf("if (!verification.ok)") > 0 &&
+      callback.indexOf("if (!verification.ok)") < callback.indexOf("recordVerifiedConnectionWithin("),
+    "a failed verification returns before anything is recorded — fail closed after an unstated grant",
+  );
+  /* The transport, not the route, is what refuses an unreadable statement. */
+  assert.ok(
+    codeOf(read(OAUTH_TRANSPORT)).includes('fail("malformed", "instagram-permissions-unreadable")'),
+    "a present-but-unreadable grant is refused as malformed, never carried forward as unstated",
+  );
+  assert.ok(
+    !codeOf(read(OAUTH_TRANSPORT)).includes('fail("scope", "instagram-grant-not-stated")'),
+    "and an unstated grant is no longer misreported as an insufficient scope",
+  );
+
   /* ═══ 3. NO SECOND AUTHORITY IS MINTED ═════════════════════════════════════ */
   for (const [f, code] of [[START, start], [CALLBACK, callback]] as const) {
     for (const banned of ["drizzle-orm", "@/db/schema", ".insert(", "sealSecret", "decrypt"]) {

@@ -124,14 +124,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!accountId) return outcome("exchange-malformed");
 
   /*
-   * ── 3. THE GRANT MUST COVER WHAT THIS CONNECTION NEEDS ──────────────────
+   * ── 3. IF INSTAGRAM STATED THE GRANT, IT MUST COVER THIS CONNECTION ─────
    *
    * Checked against what INSTAGRAM SAID it granted, not what Hebun asked for. A user can decline a
    * permission on the consent screen, and a connection built on a grant that cannot read the
-   * account would be a connection to nobody. A response that stated no permissions at all was
-   * already refused in the transport rather than treated as a grant.
+   * account would be a connection to nobody. THIS REFUSAL IS UNCHANGED.
+   *
+   * WHEN INSTAGRAM STATED NOTHING, THIS ROUTE DECIDES NOTHING. `null` is not an empty grant and is
+   * not refused here: a route inventing a scope verdict from an absent field would be a second
+   * scope authority, and this repository has exactly one — the verifier below, which reads the
+   * account for real and cannot succeed without `instagram_business_basic`. So an unstated grant
+   * proceeds to that read and is settled there, and a connection still cannot become `connected`
+   * without a real provider answer.
+   *
+   * A grant stated in a shape Hebun could not read never reaches this line — the transport refuses
+   * it as malformed.
    */
-  if (!exchanged.grant.grantedScopes || !coversRequiredScopes(exchanged.grant.grantedScopes)) {
+  const statedScopes = exchanged.grant.grantedScopes;
+  if (statedScopes !== null && !coversRequiredScopes(statedScopes)) {
     return outcome("insufficient-scope");
   }
 

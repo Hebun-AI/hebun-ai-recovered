@@ -179,20 +179,66 @@ export const INSTAGRAM_REQUIRED_SCOPES: readonly string[] = Object.freeze([
 ]);
 
 /**
- * Meta reports granted permissions as a comma-separated string on the token response.
+ * What the token response said about the grant.
  *
- * Returns `null` when the field is absent or not a string — which is NOT the same as "granted
- * nothing". An absent field means Instagram did not state the grant, and a caller must refuse
- * rather than infer one; collapsing the two would let a malformed response look like a denial or,
- * worse, like a grant.
+ * ── THREE ANSWERS, BECAUSE THERE ARE THREE FACTS ────────────────────────────
+ *
+ * The first version of this returned `readonly string[] | null` and folded two unlike things into
+ * that `null`: "Instagram did not state the grant" and "Instagram stated it in a shape this code
+ * does not understand". A real production ceremony then failed on the difference — Meta issued a
+ * token, named the account, and described the grant in a form the parser refused, and Hebun
+ * reported that as an insufficient scope. It was not insufficient. It was unread.
+ *
+ *   STATED      Instagram named the permissions. They can be checked.
+ *   UNSTATED    the field was absent or null. NOTHING is claimed either way, and the decision
+ *               belongs to the one authority that can actually settle it — a real read.
+ *   UNREADABLE  the field was present in a shape with no honest reading. FAIL CLOSED: this is
+ *               refused as malformed, never quietly treated as sufficient and never as unstated.
  */
-export function parseGrantedPermissions(raw: unknown): readonly string[] | null {
-  if (typeof raw !== "string") return null;
-  const parsed = raw
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-  return Object.freeze(parsed);
+export type GrantedPermissions =
+  | { readonly kind: "stated"; readonly scopes: readonly string[] }
+  | { readonly kind: "unstated" }
+  | { readonly kind: "unreadable" };
+
+/**
+ * Read Meta's statement of the grant.
+ *
+ * BOTH DOCUMENTED AND OBSERVED FORMS ARE ACCEPTED. Meta publishes a comma-separated string; a JSON
+ * array of strings is the same statement written differently, and accepting it is not a widening —
+ * an explicit list is an explicit list. Anything else is `unreadable`, including an array with a
+ * non-string member, because a grant Hebun can only half-read is a grant it cannot check.
+ */
+export function parseGrantedPermissions(raw: unknown): GrantedPermissions {
+  /* ABSENT. Not empty, not denied — simply not said. */
+  if (raw === undefined || raw === null) return Object.freeze({ kind: "unstated" as const });
+
+  if (typeof raw === "string") {
+    return Object.freeze({
+      kind: "stated" as const,
+      scopes: Object.freeze(
+        raw
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.length > 0),
+      ),
+    });
+  }
+
+  if (Array.isArray(raw)) {
+    /* EVERY member must be a string. One that is not makes the whole list unreadable. */
+    if (!raw.every((entry) => typeof entry === "string")) {
+      return Object.freeze({ kind: "unreadable" as const });
+    }
+    return Object.freeze({
+      kind: "stated" as const,
+      scopes: Object.freeze(
+        (raw as readonly string[]).map((entry) => entry.trim()).filter((entry) => entry.length > 0),
+      ),
+    });
+  }
+
+  /* A number, a boolean, an object. Present, and with no honest reading. */
+  return Object.freeze({ kind: "unreadable" as const });
 }
 
 /** Whether what Instagram SAID it granted covers what this connection needs. */
@@ -211,7 +257,13 @@ export interface InstagramTokenGrant {
   readonly accessToken: string;
   /** The Instagram-scoped account id the token belongs to. Absent on the long-lived exchange. */
   readonly accountId: string | null;
-  /** What Instagram said it granted. `null` when the response did not state it. */
+  /**
+   * What Instagram SAID it granted, or `null` when it said nothing.
+   *
+   * `null` IS NOT "GRANTED NOTHING". It means the provider made no statement, so no statement is
+   * repeated. It is never the basis for admitting a connection: coverage is settled by a real read,
+   * and this field is a claim to be checked when it exists, not a substitute for that read.
+   */
   readonly grantedScopes: readonly string[] | null;
   readonly expiresAt: Date | null;
 }

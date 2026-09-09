@@ -166,13 +166,90 @@ async function main(): Promise<void> {
   assert.ok(numericId.ok && typeof numericId.grant.accountId === "string", "a numeric id is read as an id");
 
   /* ═══ 3. WHAT THE EXCHANGE REFUSES ═════════════════════════════════════════ */
-  const noPermissions = await exchangeAuthorizationCode({ code: CODE }, CONFIG, {
-    fetchImpl: fake(() => ok({ data: [{ access_token: SHORT, user_id: ACCOUNT }] })),
+  /*
+   * ── THE GRANT, IN EVERY SHAPE A REAL PROVIDER PRODUCED OR MIGHT ─────────
+   *
+   * A production ceremony failed here once: Meta issued a token for the right account and stated
+   * the grant in a form the parser refused, and Hebun reported an insufficient scope. The three
+   * facts are now kept apart, and each is asserted.
+   */
+
+  /* (a) THE DOCUMENTED FORM — a comma-separated string. Unchanged. */
+  const commaString = await exchangeAuthorizationCode({ code: CODE }, CONFIG, {
+    fetchImpl: fake(() =>
+      ok({ data: [{ access_token: SHORT, user_id: ACCOUNT, permissions: "instagram_business_basic,instagram_business_manage_comments" }] }),
+    ),
   });
-  assert.ok(
-    !noPermissions.ok && noPermissions.failure === "scope",
-    "a response stating NO permissions is refused, never read as a grant",
+  assert.ok(commaString.ok, "a comma-separated statement is a grant");
+  assert.deepEqual(
+    [...(commaString.grant.grantedScopes ?? [])],
+    ["instagram_business_basic", "instagram_business_manage_comments"],
+    "and every named permission is carried, verbatim and in order",
   );
+
+  /* (b) AN ARRAY OF STRINGS — the same statement written differently, and equally explicit. */
+  const arrayForm = await exchangeAuthorizationCode({ code: CODE }, CONFIG, {
+    fetchImpl: fake(() =>
+      ok({ data: [{ access_token: SHORT, user_id: ACCOUNT, permissions: [INSTAGRAM_BUSINESS_BASIC_SCOPE] }] }),
+    ),
+  });
+  assert.ok(arrayForm.ok, "an array statement is a grant too — a list is a list");
+  assert.deepEqual([...(arrayForm.grant.grantedScopes ?? [])], [INSTAGRAM_BUSINESS_BASIC_SCOPE]);
+
+  /*
+   * (c) ABSENT, and (d) EXPLICITLY NULL. NOT refused, and NOT read as a grant: the exchange carries
+   * `null` forward and decides nothing. The verifier settles coverage with a real read — asserted
+   * in the ceremony firewall, which pins that a connection is recorded only after one.
+   */
+  for (const [label, body] of [
+    ["absent", { access_token: SHORT, user_id: ACCOUNT }],
+    ["null", { access_token: SHORT, user_id: ACCOUNT, permissions: null }],
+  ] as const) {
+    const unstated = await exchangeAuthorizationCode({ code: CODE }, CONFIG, {
+      fetchImpl: fake(() => ok({ data: [body] })),
+    });
+    assert.ok(unstated.ok, `a ${label} permissions field is not a refusal — nothing was claimed`);
+    assert.equal(
+      unstated.grant.grantedScopes,
+      null,
+      `and it states no scopes rather than inventing an empty grant (${label})`,
+    );
+  }
+
+  /*
+   * (e) EXPLICITLY INSUFFICIENT. Stated, and short of what this connection needs. The refusal is
+   * UNCHANGED and belongs to the caller: the transport reports the grant truthfully and the
+   * callback is what refuses. Asserted here on the arithmetic the callback uses.
+   */
+  const insufficient = await exchangeAuthorizationCode({ code: CODE }, CONFIG, {
+    fetchImpl: fake(() =>
+      ok({ data: [{ access_token: SHORT, user_id: ACCOUNT, permissions: "instagram_business_manage_comments" }] }),
+    ),
+  });
+  assert.ok(insufficient.ok, "a stated-but-short grant is still a STATED grant");
+  assert.ok(
+    !coversRequiredScopes(insufficient.grant.grantedScopes ?? []),
+    "and it does not cover the read — the callback refuses it as insufficient-scope",
+  );
+
+  /*
+   * (f) PRESENT AND UNREADABLE. FAIL CLOSED. A number, an object, or an array with a non-string
+   * member is a statement Hebun cannot check, and it is refused as malformed — never carried
+   * forward as unstated, and never treated as sufficient.
+   */
+  for (const shape of [42, true, { a: 1 }, ["instagram_business_basic", 7], [{}]] as const) {
+    const unreadable = await exchangeAuthorizationCode({ code: CODE }, CONFIG, {
+      fetchImpl: fake(() => ok({ data: [{ access_token: SHORT, user_id: ACCOUNT, permissions: shape }] })),
+    });
+    assert.ok(
+      !unreadable.ok && unreadable.failure === "malformed",
+      `an unreadable permissions shape (${JSON.stringify(shape)}) is refused as malformed`,
+    );
+    assert.ok(
+      !unreadable.ok && !unreadable.reason.includes(SHORT),
+      "and its reason carries no token",
+    );
+  }
 
   const noAccount = await exchangeAuthorizationCode({ code: CODE }, CONFIG, {
     fetchImpl: fake(() => ok({ data: [{ access_token: SHORT, permissions: "instagram_business_basic" }] })),
@@ -266,19 +343,37 @@ async function main(): Promise<void> {
   );
 
   /* ═══ 5. THE SCOPE ARITHMETIC ══════════════════════════════════════════════ */
-  assert.deepEqual(parseGrantedPermissions("a, b ,c"), ["a", "b", "c"], "trimmed, split, no blanks");
   /*
-   * AN ABSENT FIELD AND AN EMPTY ONE ARE DIFFERENT FACTS, and the difference is load-bearing.
-   * `null` means Meta did not state the grant — the transport refuses outright. `[]` means Meta
-   * stated the grant and it is empty — which then fails the coverage check below. Collapsing them
-   * would let an unparseable response look like a denial, or a denial look like a malformed reply.
+   * THREE ANSWERS, NEVER TWO. `unstated` (the provider said nothing), `stated` (it said something,
+   * which may be empty or short), and `unreadable` (it said something with no honest reading). The
+   * bug this replaces folded the first and third together and reported both as an insufficient
+   * scope, which is a claim about the TENANT'S GRANT that Hebun had no evidence for.
    */
-  assert.equal(parseGrantedPermissions(undefined), null, "an absent field is UNSTATED");
-  assert.equal(parseGrantedPermissions(42), null, "and so is a non-string");
-  assert.deepEqual(parseGrantedPermissions(""), [], "an empty string is a STATED grant of nothing");
+  assert.deepEqual(
+    parseGrantedPermissions("a, b ,c"),
+    { kind: "stated", scopes: ["a", "b", "c"] },
+    "a comma-separated statement is trimmed, split and kept",
+  );
+  assert.deepEqual(
+    parseGrantedPermissions([" a ", "b"]),
+    { kind: "stated", scopes: ["a", "b"] },
+    "an array statement is trimmed and kept",
+  );
+  assert.deepEqual(parseGrantedPermissions(undefined), { kind: "unstated" }, "absent is UNSTATED");
+  assert.deepEqual(parseGrantedPermissions(null), { kind: "unstated" }, "null is UNSTATED");
+  for (const bad of [42, true, { a: 1 }, ["ok", 7], [null]]) {
+    assert.deepEqual(
+      parseGrantedPermissions(bad),
+      { kind: "unreadable" },
+      `${JSON.stringify(bad)} is present and UNREADABLE — never unstated, never sufficient`,
+    );
+  }
+  /* AN EMPTY STATEMENT IS STILL A STATEMENT, and it covers nothing. */
+  const emptyStatement = parseGrantedPermissions("");
+  assert.equal(emptyStatement.kind, "stated", "an empty string is a STATED grant of nothing");
   assert.ok(
-    !coversRequiredScopes(parseGrantedPermissions("") ?? []),
-    "which covers nothing, and is refused one step later",
+    emptyStatement.kind === "stated" && !coversRequiredScopes(emptyStatement.scopes),
+    "which the callback refuses as insufficient-scope",
   );
   assert.ok(coversRequiredScopes([INSTAGRAM_BUSINESS_BASIC_SCOPE]), "the one scope covers the read");
   assert.ok(!coversRequiredScopes([]), "an empty grant covers nothing");
@@ -288,8 +383,8 @@ async function main(): Promise<void> {
   );
 
   console.log(
-    "instagram-oauth-admission/token-exchange: one scope asked, data[] read, permissions required, " +
-      "long-lived expiry computed not guessed, every refusal classified, no secret in any reason",
+    "instagram-oauth-admission/token-exchange: one scope asked, data[] read, grant stated/unstated/" +
+      "unreadable kept apart, long-lived expiry computed not guessed, no secret in any reason",
   );
 }
 
