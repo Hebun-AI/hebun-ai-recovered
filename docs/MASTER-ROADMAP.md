@@ -236,6 +236,21 @@ The final row is a **constraint**, not a truth owner. It appears in this matrix 
 
 ## 9. Current Position — YOU ARE HERE
 
+> **SUPERSEDED AS CURRENT POSITION — the measurement stands, its currency does not.** The baseline
+> below was true when it was taken and is preserved unrewritten under §3 principle 8 and §18 rule 3.
+> It is no longer where the repository is.
+>
+> **Current baseline:** commit `098d49e01fe568229d17f8a6412b4d280322906a` on `main`, equal to
+> `origin/main`, 0 ahead / 0 behind. **Authored migration ledger: 52 entries**, last
+> `20260908072926_trh24_machine_observation_provenance`. **Production ledger: 52**, measured against
+> the deployment read-only. **Thirteen migrations and 170 commits** separate the two baselines; 124
+> of those commits landed after this page was last touched.
+>
+> What changed between them is one program this section did not know existed — **TRH**, the Turkish
+> Rug House delivery line — recorded in §13.2. This section's Era I and Era II rows below were **not**
+> re-measured at the new baseline and are not re-asserted by this note; they are left exactly as they
+> were taken. **Where this document and the repository disagree, the repository wins (§18 rule 5).**
+
 **Measurement baseline:** commit `0005f72f1014852a478e557b42344c1ddb52000d` on `main`, equal to `origin/main`, 0 ahead / 0 behind. Migration ledger: **39 entries** (idx 0–38), last `20260828190630_sia3_agent_improvement_hypothesis` — this is the **authored** ledger, a property of the repository. The **production** ledger is a separate measurement taken against the deployment, and it reached 39 only after the repair recorded in §12.3.
 
 The **Era I** rows below were measured at `047dde807779e21c7d6ed08e449509df8780c415`, the Era I closure baseline (§11.3), and are re-confirmed here without re-measurement for one stated reason: `0005f72` is **docs-only over `047dde8`** and carries a measured zero delta against `src` and `tests`. The **Era II** rows were measured at `0005f72` directly (§12). The ledger is **unchanged across the whole of Era I**: the seven Era I releases carry a measured zero delta against `src/db/migrations` and `src/db/schema`.
@@ -2994,6 +3009,85 @@ The era is constrained in advance, and opening it relaxes none of the following:
 
 Distinguish throughout: an operator ceremony that a human runs is not automated resilience. Credential rotation and bootstrap credential recovery exist today as **ceremonies**; that is what they are, and it is not disaster recovery.
 
+### 13.2 TRH — the Turkish Rug House delivery line · recorded after the fact
+
+**Recorded here after the fact, because this document did not know it existed.** TRH ran from `TRH-0`
+to `TRH-25` while §9's baseline stayed at `0005f72` / ledger 39. That is a navigation failure in this
+page, not a governance failure in the work: every phase carries its own closure record, and those
+records — not this section — remain the authority for what each one measured. This is a pointer, and
+deliberately not a summary of twenty closure documents.
+
+**It was never selected as an Era III program, and this section does not retroactively make it one.**
+§4 and §13 both still read *"no next program is selected"*, and they are **correct as written**: no
+Director program-selection decision was ever recorded for TRH in this document, which is exactly the
+gap being closed here. TRH was directed phase by phase against a real customer, not chartered as a
+program. Calling it one now would be reconstructing a decision nobody took — the same failure §16
+forbids when it says exit criteria are *"stated before the work begins, not reconstructed after it."*
+So it is recorded for what the repository can prove it is: **a delivery line that ran, and closed
+twenty phases, inside an open era.**
+
+**What TRH is.** One real organization — Turkish Rug House, a real tenant with a real YouTube
+connection — carried end to end through the authorities Eras I–III built, so that each authority is
+proved by a customer rather than by a fixture. It is a **delivery line**, not a product line (§5) and
+not an era (§18 rule 12): it opens no new top-level structure and every capability it exercised was
+placed by an existing authority.
+
+**Terminal states, as the closure corpus actually spells them.** Twenty closure records exist. They
+end at `CLOSED`, `PRODUCTION-ACCEPTED`, or both. **`COMPLETE` is not a phase state in this
+repository** — its single occurrence in the corpus qualifies a *revision* in TRH-8 — and TRH-25's
+closure says so explicitly rather than inventing one.
+
+**The numbering is not contiguous, and that is recorded rather than tidied.** `TRH-15` and `TRH-22`
+were **discovery only** and correctly produced no closure. `TRH-2` is a **documentation gap —
+reported, not repaired**: the work happened, the record was not written. `TRH-5`, `TRH-6` and `TRH-9`
+were **never opened**. Force-renumbering any of them would violate §17.
+
+**The arc, in one line each.** Tenant admission and Genesis governance (`TRH-0`, `TRH-1`) · knowledge
+foundation and first ratification (`TRH-3`, `TRH-4`) · first durable agent identity and first
+operational work (`TRH-7`, `TRH-8`) · Governance reviewing one exact artifact revision (`TRH-10`) ·
+surface-truth and mock-gate repairs (`TRH-11`, `TRH-12`, `TRH-13`) · the agent's mandate and the
+scope of governed work (`TRH-14`, `TRH-16`, `TRH-17`) · model contract, parse provenance and durable
+proposal rationale (`TRH-18`, `TRH-19`) · the first governed growth proposal, which **abstained**
+(`TRH-20`) · and then the observation chain: history (`TRH-21`), standing authorization (`TRH-23`),
+one manual machine read (`TRH-24`), and an automatic trigger (`TRH-25`).
+
+#### The observation chain, and why it is the line's result
+
+Four phases built one capability by refusing to build it early. `TRH-21` gave a provider utterance a
+durable owner and could not cause a read. `TRH-23` let a human authorize a scope to recur and
+exercised it zero times. `TRH-24` performed exactly one machine read under that authorization, with a
+NULL human actor, and created no scheduler. `TRH-25` added the scheduler and nothing else.
+
+**`TRH-25` is PRODUCTION-ACCEPTED.** On 2026-09-09 at 10:00:20.919Z an hourly scheduler that holds no
+authority over tenant, provider, capability, subject, connection, credential or Governance asked
+whether anything was due; an ephemeral machine principal performed one permitted YouTube READ; and
+Provider Observation History stored the provider's report with authorization + invocation provenance
+and no human actor. Across all 66 timestamped production tables exactly one row moved. Closure:
+`docs/product-vision/runtime/hebun-trh25-automatic-observation-trigger-closure.md`.
+
+The proof the line was built for is the tick that **refused**: the 09:00 scheduler run wrote nothing
+because the authorization was not due until 09:03:57Z. A trigger that decided WHETHER would have
+observed at 09:00.
+
+```
+UNATTENDED OBSERVATION   != UNATTENDED ACTION
+SCHEDULER FREQUENCY      != GOVERNANCE CADENCE
+OBSERVED                 != UNDERSTOOD
+ONE CAPABILITY OBSERVED  != A PROVIDER PROGRAM
+PRODUCTION-ACCEPTED      != COMPLETE (no such phase state exists here)
+```
+
+#### What TRH leaves open, deferred or unavailable
+
+| Item | State | Measured at this baseline |
+|---|---|---|
+| Observation → Knowledge / Work / proposal | **NOT CONNECTED** | Three observations exist and reach no other authority. `TRH-20` proved the honest path: the agent **abstained**, because the channel reports 0 subscribers, 0 views and 0 videos. There is nothing yet to reason from — a data condition, not a missing capability. |
+| Per-tenant observation stop | **DEFERRED** | The provider-read kill switch is deployment-global, exactly as §13.1 already records for the outbound switch. Pausing one tenant pauses every tenant. The per-authorization stop is Governance's: withdrawal. |
+| Duplicate provider CALL under distributed concurrency | **DEFERRED — bounded** | Duplicate *recording* is structurally impossible; duplicate *calls* are possible because cron delivery is best-effort by the platform's own documentation. Cost is provider quota, not truth. |
+| Observable capabilities beyond one | **UNAVAILABLE** | `OBSERVABLE_CAPABILITIES` is a closed list with a single entry: YouTube public channel read. |
+| Meta / Instagram as a provider | **UNAVAILABLE** | No provider module, no catalog entry, no capability, no transport, no credential kind. The string `instagram` exists only as a content **destination** on work artifacts. See §20. |
+| `TRH-2` closure record | **UNAVAILABLE** | The work happened; the closure record was never written, and a later closure reports the gap rather than repairing it. A missing record is not a missing capability — it is this line's one documentation debt. |
+
 ---
 
 ## 14. Major Capability Placement
@@ -3823,3 +3917,52 @@ RELEASED         != DEPLOYED
 ROADMAP          != ARCHITECTURE AUTHORITY
 DISCOVERY RESULT != REPOSITORY TRUTH
 ```
+
+---
+
+### 20.1 Current frontier — reconciled at `098d49e`
+
+**Everything above this line was written before the TRH delivery line existed in this page.** None of
+it is rewritten; §18 rule 3 forbids that and §3 principle 8 explains why. This subsection states
+where the work stands **now**, and nothing else.
+
+**Era III is OPEN.** One **program** has closed inside it — **Agent Mandate Authority** (§13). Beside
+it, and never chartered as a program, the **TRH delivery line** (§13.2) ran twenty phases against a
+real customer and its last phase `TRH-25` is PRODUCTION-ACCEPTED. **No program is active. No successor
+is selected**, and none is implied by TRH-25 closing — the rule this document has applied since §12.9
+is unchanged: *the next program is a separate Director decision, taken from measured repository and
+product reality, never from numbering.*
+
+**What Hebun can now do that it could not at the previous baseline:** observe an authorized provider
+scope **unattended**, on a Governance-bounded cadence, with an operator stop, truthful machine
+provenance and no human session. That is the frontier. It is an **observation** capability and confers
+no authority to act on what it observes.
+
+#### Candidates measured, and not privileged
+
+| Candidate | State | Why |
+|---|---|---|
+| **Meta / Instagram provider** | **PLANNED** — recorded direction, no discovery run, authorized for nothing (§9 vocabulary) | The commercially strongest direction: Turkish Rug House's YouTube channel reports 0/0/0, so the observation chain currently observes an empty room, and the organization's real audience is elsewhere. But **nothing exists**: no provider module, catalog entry, capability, transport or credential kind. Under §18 rule 6 — *architecture discovery precedes consequential authority creation* — this must run **discovery first**, as a separate phase. It is not authorized by appearing here. |
+| **Observation → proposal / Knowledge / Work** | **NOT CONNECTED — data-blocked, not capability-blocked** | `TRH-20` already proved the honest path end to end and the agent **abstained**, correctly, because there was nothing to reason from. Building more of this against 0/0/0 would produce a mechanism nobody can evaluate. It is waiting on observable reality, not on code. |
+| **Per-tenant provider-read stop** | **DEFERRED** | Recorded in §13.2 and consistent with §13.1's existing entry for the outbound switch. Real, bounded, and not blocking anything measured today. |
+
+**Recommended reading of the above, offered as navigation and not as a decision:** discovery on
+Meta/Instagram, because it is the only candidate whose prerequisite is *information* rather than more
+code, and because the observation capability Hebun just proved is currently pointed at an empty
+channel. **Selecting it remains a Director decision** and this page does not take one.
+
+```
+RECORDED DIRECTION   != SELECTED PROGRAM
+SELECTED PROGRAM     != AUTHORIZED IMPLEMENTATION
+DISCOVERY            != IMPLEMENTATION
+STRONGEST CANDIDATE  != DECISION TAKEN
+ROADMAP RECONCILED   != HISTORY REWRITTEN
+```
+
+#### What this reconciliation did and did not do
+
+It moved **navigation** back into line with the repository: a current baseline in §9, the TRH line in
+§13.2, and this frontier. It rewrote no released history, re-measured no Era I or Era II row, changed
+no era or product-line model (§18 rule 12), and took no program decision. The authority for what each
+TRH phase measured stays where it has always been — in `docs/product-vision/runtime/`, one closure
+record per phase. This page points at them; it does not absorb them.

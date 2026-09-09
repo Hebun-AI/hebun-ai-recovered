@@ -3923,3 +3923,24 @@ exist is anything that would invoke it.
   `grep TRH- → 0`. Çelişmiyor; TRH hakkında hiçbir şey iddia etmiyor. Kendi kuralı da bunu
   meşrulaştırıyor: "Repository truth overrides this roadmap." Stale authority'yi çelişki sanıp
   "düzeltmeye" girişmek yanlış iş olurdu — ayrı borç olarak kaydedilir.
+- **Stale bir authority'yi güncellemek, geçmişi yeniden yazmak değildir — ve ikisini ayıran şey silme
+  sayısıdır.** MASTER-ROADMAP reconciliation'ı 143 ekleme / **0 silme** ile yapıldı. Roadmap'in kendi
+  §18 rule 3'ü ("released historical phases are immutable evidence") ve §3 principle 8'i bunu zaten
+  emrediyordu; doğru hamle eski baseline'ı SUPERSEDED işaretleyip yenisini yanına koymak, eski
+  ölçümü düzeltmek değil. `git diff | grep -c "^-"` bu turda bir doğruluk testidir.
+- **Bir programı sonradan "seçilmiş" ilan etmek, alınmamış bir kararı uydurmaktır.** TRH'yi "Era III's
+  second program" diye yazmıştım; §4 ve §13 hâlâ "no next program is selected" diyordu ve HAKLIYDILAR
+  — repository'de TRH için hiçbir program-selection kaydı yok. Roadmap'in kendi §16'sı bunu zaten
+  yasaklıyor: exit criteria "stated before the work begins, not reconstructed after it". Doğru kayıt:
+  chartered olmayan bir delivery line'ın açık bir era içinde yirmi faz kapattığı.
+- **Status vocabulary kapalıysa, tablo hücresine yeni bir kelime yazmak sessiz bir genişletmedir.**
+  `**DEBT**` yazmıştım; §9 "Classifications are drawn only from…" ile listeyi kapatmış ve DEBT listede
+  yok. Doğrusu mevcut terimi kullanıp (UNAVAILABLE) borcu düz metinde anlatmak. Kapalı liste varsa
+  önce listeyi oku, sonra hücreyi doldur.
+- **Doküman iddiaları da ölçülür.** "Twenty-one commits separate the two baselines" diye yazmıştım;
+  `git rev-list --count` 170 dedi. Roadmap sayı iddia ediyorsa o sayı bir ölçümdür ve commit'ten önce
+  doğrulanır — prose olması onu tahminden muaf tutmaz.
+- **Kapsam kapalıysa yaptığın işin bir de yapmadıkların listesi vardır.** Reconciliation navigation'ı
+  taşıdı; Era I / Era II satırlarını yeniden ölçmedi, era veya product-line modeline dokunmadı
+  (§18 rule 12 Director review isterdi) ve hiçbir program kararı almadı. Kapanışın "ne yapmadım"
+  bölümü, "ne yaptım" kadar bağlayıcıdır.
