@@ -556,7 +556,16 @@ function theMigrationIsAdditiveAndSingular(): void {
   assert.equal(sqlFiles.length, 52, "and the files agree with the journal"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
 
   /* OBSERVATION SUBJECT KINDS ARRIVE BY MIGRATION-REVIEWED CODE, never by data. */
-  assert.deepEqual([...OBSERVATION_SUBJECT_KINDS], ["youtube-channel"], "one subject kind ships");
+  /*
+   * THE CENSUS GREW WITH A SECOND PROVIDER, and the rule above it is unchanged: a subject kind is a
+   * reviewed CODE constant, never a value that arrives from data. `instagram-account` is the second,
+   * and a third still has to be added here by somebody who reads this line.
+   */
+  assert.deepEqual(
+    [...OBSERVATION_SUBJECT_KINDS],
+    ["youtube-channel", "instagram-account"],
+    "two subject kinds ship, both declared in reviewed code",
+  );
 }
 
 async function main(): Promise<void> {

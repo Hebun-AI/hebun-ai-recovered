@@ -180,13 +180,20 @@ async function main(): Promise<void> {
       case "observed": {
         const o = outcome.observation;
         console.log(`  ✔ the provider answered`);
-        console.log(`    channel        ${o.channel.title} (${o.channel.channelId})`);
-        console.log(`    subscribers    ${o.channel.subscriberCount ?? "not reported"}`);
-        console.log(`    views          ${o.channel.viewCount ?? "not reported"}`);
-        console.log(`    videos         ${o.channel.videoCount ?? "not reported"}`);
-        console.log(`    recent videos  ${o.recentVideos.length}`);
+        /*
+         * PRINTED FROM THE FACTS THE DISPATCH PRODUCED, not from a provider-shaped object. This
+         * ceremony was written when YouTube was the only provider and read `observation.channel`
+         * directly; a second provider made that shape wrong for half the authorizations it can now
+         * run. `null` is printed as "not reported" and never as 0.
+         */
+        for (const [key, value] of Object.entries(o.facts)) {
+          if (Array.isArray(value)) {
+            console.log(`    ${key.padEnd(14)} ${value.length} item(s)`);
+            continue;
+          }
+          console.log(`    ${key.padEnd(14)} ${value === null ? "not reported" : String(value)}`);
+        }
         console.log(`    observed at    ${o.observedAt}`);
-        console.log(`    quota spent    ${o.quotaUnitsSpent}`);
         console.log("");
         console.log(`    authorization  ${outcome.authorizationId}`);
         console.log(`    invocation     ${outcome.invocationId}`);

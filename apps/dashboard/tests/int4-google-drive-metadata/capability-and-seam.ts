@@ -99,7 +99,14 @@ function theCapabilityIsNarrow(): void {
     "and exactly once",
   );
   assert.ok(
-    capabilities.every((c) => c.startsWith("google.") || c.startsWith("github.") || c.startsWith("youtube.")),
+    capabilities.every(
+      (c) =>
+        c.startsWith("google.") ||
+        c.startsWith("github.") ||
+        c.startsWith("youtube.") ||
+        /* The second integration provider. Its prefix is `instagram.`, never `meta.`. */
+        c.startsWith("instagram."),
+    ),
     "every mapped capability is named by a provider that exists",
   );
 

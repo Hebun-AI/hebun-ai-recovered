@@ -367,7 +367,13 @@ function main(): void {
      */
     assert.deepEqual(
       listConnectableProviders().map((d) => d.providerKey),
-      ["google-workspace", "github-organization", "youtube"],
+      /*
+       * INSTAGRAM earned its entry the same way: a released transport with one GET and one
+       * closed operation, a released read, a dispatch branch, and a firewall that asserts it
+       * can never publish, comment or reach a Facebook Page. A FOURTH entry still has to
+       * justify itself here.
+       */
+      ["google-workspace", "github-organization", "youtube", "instagram"],
       "every connectable provider, and each only because it is genuinely implemented",
     );
     /*
@@ -408,6 +414,12 @@ function main(): void {
         "google.drive.content.read",
         "google.drive.file.content.read",
         "google.drive.metadata.read",
+        /*
+         * INSTAGRAM: one professional-account read behind an OAuth access token, asking for
+         * `instagram_business_basic` and nothing else. Its write scope set is empty, so the
+         * connection reports writeCapable:false however generous a future grant becomes.
+         */
+        "instagram.account.public.read",
         /* CGO-5: one public-read capability behind an API key, and no write half. */
         "youtube.channel.public.read",
       ],
@@ -425,8 +437,8 @@ function main(): void {
      * make every assertion below it vacuous at the TYPE level. */
     assert.equal(
       PROVIDER_CATALOG.length,
-      3,
-      "three entries, and no fixture — a fixture retained for tests that inject their own would " +
+      4,
+      "four entries, and no fixture — a fixture retained for tests that inject their own would " +
         "still be a false entry in a production authority",
     );
 
@@ -452,6 +464,12 @@ function main(): void {
       "github-organization": "src/features/provider-github/verify-installation.server.ts",
       /* CGO-5: one real public `channels.list`, proving key + enabled API + quota, binding no account. */
       youtube: "src/features/provider-youtube/verify-youtube-connection.server.ts",
+      /*
+       * INSTAGRAM: one real read of the connection's OWN account, proving token + grant + account
+       * type at once. The probe is the subject, because this token binds an account rather than a
+       * project — a third-party probe would prove the token works and not that it works HERE.
+       */
+      instagram: "src/features/provider-instagram/verify-instagram-connection.server.ts",
     };
     for (const definition of PROVIDER_CATALOG) {
       assert.equal(

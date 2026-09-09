@@ -23,6 +23,7 @@ const codeOf = (s: string): string =>
 
 const HISTORY = "src/features/provider-observation-history";
 const COMPOSITION = `${HISTORY}/observe-once-under-authorization.server.ts`;
+const DISPATCH = `${HISTORY}/observe-authorized-subject.server.ts`;
 const WRITER = `${HISTORY}/write-provider-observation.server.ts`;
 const READER = `${HISTORY}/read-provider-observations.server.ts`;
 const SCHEMA = "src/db/schema/provider-observation.ts";
@@ -124,15 +125,24 @@ function main(): void {
 
   /*
    * ITS CALLERS ARE CENSUSED. A second caller is how this becomes a generic credential-enumeration
-   * upgrade by accident, so a second caller fails here rather than being discovered later.
+   * upgrade by accident, so an UNNAMED caller fails here rather than being discovered later.
+   *
+   * THE CENSUS GREW BY ONE PROVIDER, NOT BY ONE CATEGORY. Instagram's read seam spends the same
+   * narrow opener with a different credential KIND (`oauth_access` rather than `api_key`), which is
+   * the seam working as designed: the opener still takes a connection and a kind and still has no
+   * credential parameter. Each entry is enumerated by path, so a THIRD caller — or a caller that is
+   * not a provider read seam — still fails this line.
    */
   const openerCallers = SRC.filter(
     (f) => f !== CREDENTIALS && /\bwithConnectionScopedSecret\s*\(/.test(codeOf(read(f))),
   );
   assert.deepEqual(
     openerCallers,
-    [YOUTUBE_CALL],
-    "exactly one module spends a connection-scoped secret, and it is the provider read seam",
+    [
+      "src/features/provider-instagram/instagram-access-token-call.server.ts",
+      YOUTUBE_CALL,
+    ].sort(),
+    "exactly two modules spend a connection-scoped secret, and both are provider read seams",
   );
 
   /* Neither the composition nor the ceremony can resolve, name or hold a credential. */
@@ -151,11 +161,43 @@ function main(): void {
    * not happen is the key being stored, returned, logged or read; so the rule pins the one shape it
    * may appear in and forbids every other mention.
    */
-  const compositionKeyUses = codeOf(read(COMPOSITION)).match(/apiKey/g) ?? [];
-  assert.equal(compositionKeyUses.length, 2, "`apiKey` appears exactly twice: bound, then passed");
+  /*
+   * RE-AIMED AT THE DISPATCH, AND THE COMPOSITION'S BAR WENT UP (Instagram phase).
+   *
+   * When YouTube was the only provider, the composition itself opened the key and this rule pinned
+   * the two mentions that confinement requires. A second provider moved the read behind a dispatch,
+   * so the composition now names NO credential at all — a stricter state than the one this rule was
+   * written to protect, and it is asserted as such rather than quietly dropped.
+   *
+   * The confinement rule itself is unchanged; it now applies where the key actually is.
+   */
+  const dispatchSource = codeOf(read(DISPATCH));
+  assert.equal(
+    (codeOf(read(COMPOSITION)).match(/apiKey|accessToken/g) ?? []).length,
+    0,
+    "the composition names NO credential — the read moved behind the dispatch",
+  );
+  assert.equal(
+    (dispatchSource.match(/apiKey/g) ?? []).length,
+    2,
+    "`apiKey` appears exactly twice in the dispatch: bound, then passed",
+  );
+  assert.equal(
+    (dispatchSource.match(/accessToken/g) ?? []).length,
+    2,
+    "`accessToken` appears exactly twice in the dispatch: bound, then passed",
+  );
+  for (const forbidden of ["withDecryptedSecret", "credentialId", "plaintext", "listCredentialMetadata"]) {
+    assert.ok(!dispatchSource.includes(forbidden), `the dispatch names no \`${forbidden}\``);
+  }
+  /* Each credential is the callback's parameter, handed straight to its released read. */
   assert.ok(
-    /\(apiKey\)\s*=>\s*observeChannelById\(apiKey,/.test(codeOf(read(COMPOSITION))),
-    "and both are the callback parameter handed directly to the released read — never stored or logged",
+    /\(apiKey\)\s*=>\s*observeChannelById\(apiKey,/.test(dispatchSource),
+    "the YouTube key is the callback parameter handed directly to the released read",
+  );
+  assert.ok(
+    /\(accessToken\)\s*=>\s*observeAccountById\(accessToken,/.test(dispatchSource),
+    "the Instagram token is the callback parameter handed directly to the released read",
   );
   for (const f of [COMPOSITION, CEREMONY]) {
     assert.ok(!/console\.[a-z]+\([^)]*apiKey/.test(codeOf(read(f))), `${f} never logs a key`);
@@ -304,9 +346,19 @@ function main(): void {
    * too, and a raw occurrence count would have made "1" mean "imported but never called".
    */
   assert.equal(
-    (compositionCode.match(/await withAuthorizedYouTubeApiKey</g) ?? []).length,
+    (dispatchSource.match(/await withAuthorizedYouTubeApiKey\(/g) ?? []).length,
     1,
-    "the composition spends the provider key at exactly one call site",
+    "the dispatch spends the YouTube key at exactly one call site",
+  );
+  assert.equal(
+    (dispatchSource.match(/await withAuthorizedInstagramToken\(/g) ?? []).length,
+    1,
+    "and the Instagram token at exactly one call site",
+  );
+  assert.equal(
+    (compositionCode.match(/withAuthorized\w+\(/g) ?? []).length,
+    0,
+    "the composition spends no credential itself — it delegates the read whole",
   );
   assert.ok(
     !/observeOnceUnderAuthorization\s*\(/.test(

@@ -209,6 +209,12 @@ async function main(): Promise<void> {
           "google.drive.content.read",
           "google.drive.file.content.read",
           "google.drive.metadata.read",
+          /*
+           * INSTAGRAM: one professional-account read behind an OAuth access token, asking for
+           * `instagram_business_basic` and nothing else. Its write scope set is empty, so the
+           * connection reports writeCapable:false however generous a future grant becomes.
+           */
+          "instagram.account.public.read",
           "youtube.channel.public.read",
         ],
         "the view lists every mapped capability",
@@ -229,12 +235,12 @@ async function main(): Promise<void> {
       );
       assert.equal(
         PROVIDER_CATALOG.length,
-        3,
-        "three released providers, each with a real implementation behind it",
+        4,
+        "four released providers, each with a real implementation behind it",
       );
       assert.deepEqual(
         PROVIDER_CATALOG.map((p) => p.providerKey),
-        ["google-workspace", "github-organization", "youtube"],
+        ["google-workspace", "github-organization", "youtube", "instagram"],
       );
     }
 

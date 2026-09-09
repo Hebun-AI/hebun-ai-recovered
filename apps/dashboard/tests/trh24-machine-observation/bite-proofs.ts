@@ -34,6 +34,7 @@ const sha = (s: string): string => createHash("sha256").update(s).digest("hex");
 
 const HISTORY = "src/features/provider-observation-history";
 const COMPOSITION = `${HISTORY}/observe-once-under-authorization.server.ts`;
+const DISPATCH = `${HISTORY}/observe-authorized-subject.server.ts`;
 const WRITER = `${HISTORY}/write-provider-observation.server.ts`;
 const READER = `${HISTORY}/read-provider-observations.server.ts`;
 const CREDENTIALS = "src/features/integration-credentials/credential-repository.server.ts";
@@ -127,7 +128,11 @@ const MUTATIONS: readonly Mutation[] = [
       },
     ],
     suite: FIREWALL,
-    because: "exactly one module spends a connection-scoped secret",
+    /*
+     * THE CENSUS GREW TO TWO WITH INSTAGRAM, so the declared reason follows it. The property is
+     * unchanged and still bites: a THIRD, unnamed caller of the narrow opener fails the census.
+     */
+    because: "exactly two modules spend a connection-scoped secret",
   },
 
   /* ── THE PROVENANCE INVARIANTS, IN THE ARTEFACT THAT IS APPLIED ──────────── */
@@ -281,14 +286,25 @@ const MUTATIONS: readonly Mutation[] = [
      * A crash before the provider is contacted is a stronger property than a caught mistake: it
      * means no path to the provider exists that skips the authoritative check.
      */
-    because: "Cannot read properties of undefined (reading 'subjectRef')",
+    /*
+     * THE CRASH MOVED ONE FIELD, and the property did not. It used to be `subjectRef` — the
+     * composition parsed the subject itself. Since the dispatch, the first thing read off the
+     * revalidated value is `tenantId`, inside the dispatch's own scope object. Deleting the guard
+     * still cannot reach a provider; it just fails one line earlier.
+     */
+    because: "Cannot read properties of undefined (reading 'tenantId')",
   },
   {
     label: "B13 the composition records an observation even when the provider failed",
     file: COMPOSITION,
     edits: [
       {
-        find: "  if (!read.ok) {",
+        /*
+         * RE-AIMED, SAME PROPERTY. The composition used to inspect the provider result itself
+         * (`if (!read.ok)`); since the dispatch it inspects the dispatch's outcome instead. Ignoring
+         * a failure still leaves nothing to record.
+         */
+        find: '  if (dispatched.status === "provider-failed") {',
         replace: "  if (false) {",
       },
     ],
@@ -298,11 +314,17 @@ const MUTATIONS: readonly Mutation[] = [
      * the composition cannot reach the writer at all — there is no synthetic observation for it to
      * store, which is why "record a failure as an observation" is not a mistake this code can make.
      */
-    because: "Cannot read properties of undefined (reading 'observedAt')",
+    /*
+     * THE FAILURE MODE MOVED FROM A CRASH TO A REFUSAL, and that is an improvement worth recording.
+     * The composition used to dereference a provider result it had not checked; now it carries a
+     * typed outcome, so ignoring the failure branch means the suite's own "the provider did not
+     * answer" assertion is what catches it. Still no synthetic observation, still no write.
+     */
+    because: "the provider did not answer",
   },
   {
-    label: "B14 the composition reads by a handle instead of the authorized subject",
-    file: COMPOSITION,
+    label: "B14 the read uses a substituted subject instead of the authorized one",
+    file: DISPATCH,
     edits: [
       {
         find: "    (apiKey) => observeChannelById(apiKey, channelId, deps),",

@@ -42,17 +42,12 @@
  * Server-only.
  */
 import type { ControlPlaneDatabase } from "@/db/client.server";
+import type { ReadChannelObservationDeps } from "@/features/provider-youtube/read-channel-observation.server";
 import {
-  observeChannelById,
-  type ReadChannelObservationDeps,
-} from "@/features/provider-youtube/read-channel-observation.server";
-import { withAuthorizedYouTubeApiKey } from "@/features/provider-youtube/youtube-api-key-call.server";
-import {
-  YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
-  YOUTUBE_PROVIDER_KEY,
-  type YouTubeChannelObservation,
-  type YouTubeFailure,
-} from "@/features/provider-youtube/contracts";
+  observeAuthorizedSubject,
+  type DispatchedObservation,
+  type ProviderReadFailure,
+} from "./observe-authorized-subject.server";
 import {
   mintObservationPrincipal,
   type ObservationPrincipal,
@@ -62,10 +57,6 @@ import {
   revalidateStandingObservation,
   type StandingObservationRevalidationRefusal,
 } from "@/features/standing-observation-authority/revalidate-standing-observation.server";
-import {
-  channelIdFromSubjectRef,
-  youtubeChannelObservationFacts,
-} from "./record-youtube-channel-observation.server";
 import { recordAuthorizedProviderObservation } from "./write-provider-observation.server";
 import type { ProviderObservationWriteResult } from "./contracts";
 
@@ -90,7 +81,7 @@ export type ObserveOnceOutcome =
   /** The provider was contacted and did not answer usefully. NOTHING was recorded. */
   | {
       readonly status: "provider-failed";
-      readonly failure: YouTubeFailure;
+      readonly failure: ProviderReadFailure;
       readonly invocationId: string;
     }
   /**
@@ -101,7 +92,12 @@ export type ObserveOnceOutcome =
       readonly status: "observed";
       readonly invocationId: string;
       readonly authorizationId: string;
-      readonly observation: YouTubeChannelObservation;
+      /*
+       * WHAT THE PROVIDER SAID, in this authority's vocabulary rather than a provider's. It was a
+       * `YouTubeChannelObservation` while one provider existed; naming a second provider's read by
+       * the first provider's type would have been a lie the compiler happened to accept.
+       */
+      readonly observation: DispatchedObservation;
       readonly record: ProviderObservationWriteResult;
     };
 
@@ -146,42 +142,34 @@ export async function observeOnceUnderAuthorization(
   if (authorized.status !== "authorized") return { status: "refused", reason: authorized.reason };
 
   /*
-   * 3 · THE SUBJECT, AS THE PROVIDER IDENTIFIES IT.
+   * 3 · ONE PROVIDER READ, THROUGH THE PROVIDER THIS AUTHORIZATION NAMES.
    *
-   * The authorization stores the canonical reference the provider itself returned. This path reads
-   * by that id and never by a handle, so a channel that was renamed since the authorization was
-   * granted is still the same channel — which is the whole reason the authorization binds an id.
-   */
-  const channelId = channelIdFromSubjectRef(authorized.principal.subjectRef);
-  if (
-    channelId === null ||
-    authorized.principal.providerKey !== YOUTUBE_PROVIDER_KEY ||
-    authorized.principal.capabilityKey !== YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY
-  ) {
-    return { status: "unsupported-subject" };
-  }
-
-  /*
-   * 4 · ONE PROVIDER READ, THROUGH THE AUTHORIZED CONNECTION'S KEY.
+   * The dispatch matches the authorization's (provider, capability, subject-kind) triple WHOLE and
+   * performs the read through that provider's released module — YouTube's public channel read, or
+   * Instagram's professional account read. It decides WHICH; the revalidator above already decided
+   * WHETHER, and every value it matches on came off the authorization row.
    *
-   * The key is opened by connection and kind inside a callback frame and never returned. The read
-   * body is literally the one the human path runs — a machine-sourced observation and a
-   * human-sourced one of the same channel are therefore comparable, which is the only reason to
-   * store either.
+   * The subject is read by the PROVIDER'S OWN ID, never by a name a human typed. A channel renamed
+   * or an Instagram username changed since the authorization was granted is still the same subject,
+   * which is the whole reason an authorization binds a canonical reference.
+   *
+   * The credential is opened by connection and kind inside a callback frame and never returned:
+   * `api_key` for YouTube, `oauth_access` for Instagram, through the same narrow opener.
    */
-  const read = await withAuthorizedYouTubeApiKey<YouTubeChannelObservation>(
-    { tenantId: authorized.principal.tenantId, integrationId: authorized.integrationId },
-    (apiKey) => observeChannelById(apiKey, channelId, deps),
-    { getDb: deps.getDb, env: deps.env, timeoutMs: deps.timeoutMs, fetchImpl: deps.fetchImpl },
+  const dispatched = await observeAuthorizedSubject(
+    authorized.principal,
+    authorized.integrationId,
+    deps,
   );
-  if (!read.ok) {
+  if (dispatched.status === "unsupported-subject") return { status: "unsupported-subject" };
+  if (dispatched.status === "provider-failed") {
     /*
      * NOTHING IS RECORDED FROM A FAILED READ. There is no row, so there is no cadence timestamp
      * either, and the next attempt is permitted immediately — a failure must not spend the ceiling.
      */
     return {
       status: "provider-failed",
-      failure: read,
+      failure: { failure: dispatched.failure, reason: dispatched.reason },
       invocationId: authorized.principal.invocationId,
     };
   }
@@ -195,7 +183,7 @@ export async function observeOnceUnderAuthorization(
    */
   const record = await recordAuthorizedProviderObservation(
     authorized.principal,
-    { observedAt: read.value.observedAt, facts: youtubeChannelObservationFacts(read.value) },
+    dispatched.observation,
     { getDb: deps.getDb },
   );
 
@@ -203,7 +191,7 @@ export async function observeOnceUnderAuthorization(
     status: "observed",
     invocationId: authorized.principal.invocationId,
     authorizationId: authorized.principal.authorizationId,
-    observation: read.value,
+    observation: dispatched.observation,
     record,
   };
 }

@@ -25,6 +25,11 @@ import {
   YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
   YOUTUBE_PROVIDER_KEY,
 } from "@/features/provider-youtube/contracts";
+import {
+  INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+  INSTAGRAM_ACCOUNT_SUBJECT_KIND,
+  INSTAGRAM_PROVIDER_KEY,
+} from "@/features/provider-instagram/contracts";
 import type { ObservationSubjectKind } from "@/features/provider-observation-history/contracts";
 
 /**
@@ -139,6 +144,19 @@ export const OBSERVABLE_CAPABILITIES: readonly ObservableCapability[] = Object.f
     providerKey: YOUTUBE_PROVIDER_KEY,
     capabilityKey: YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
     subjectKind: YOUTUBE_CHANNEL_SUBJECT_KIND,
+  }),
+  /*
+   * INSTAGRAM ACCOUNT READ. The second entry, and the first proof that this list is a list.
+   *
+   * It earns its place on the same terms the first one did: this exact triple is a READ that changes
+   * nothing outside Hebun. Instagram's write surfaces — publishing, comments, messages — are not
+   * expressible by the released transport and none of their scopes is requested, so `writeCapable`
+   * on this connection stays false however generous a future grant becomes.
+   */
+  Object.freeze({
+    providerKey: INSTAGRAM_PROVIDER_KEY,
+    capabilityKey: INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+    subjectKind: INSTAGRAM_ACCOUNT_SUBJECT_KIND,
   }),
 ]);
 

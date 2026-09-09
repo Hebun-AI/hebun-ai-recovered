@@ -400,7 +400,13 @@ function main(): void {
      */
     assert.deepEqual(
       listConnectableProviders().map((d) => d.providerKey),
-      ["google-workspace", "github-organization", "youtube"],
+      /*
+       * INSTAGRAM earned its entry the same way: a released transport with one GET and one
+       * closed operation, a released read, a dispatch branch, and a firewall that asserts it
+       * can never publish, comment or reach a Facebook Page. A FOURTH entry still has to
+       * justify itself here.
+       */
+      ["google-workspace", "github-organization", "youtube", "instagram"],
       "the real providers, and each only because it is genuinely implemented",
     );
     const google = PROVIDER_CATALOG[0]!;

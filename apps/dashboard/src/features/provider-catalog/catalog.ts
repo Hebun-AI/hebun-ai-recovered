@@ -70,6 +70,13 @@ import {
   GITHUB_REPOSITORY_ACTIVITY_WRITE_PERMISSIONS,
 } from "@/features/provider-github/contracts";
 import {
+  INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+  INSTAGRAM_BUSINESS_BASIC_SCOPE,
+  INSTAGRAM_CONNECTION_LABEL,
+  INSTAGRAM_PROVIDER_KEY,
+  INSTAGRAM_PROVIDER_LABEL,
+} from "@/features/provider-instagram/contracts";
+import {
   YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
   YOUTUBE_PROVIDER_KEY,
   YOUTUBE_PROVIDER_LABEL,
@@ -276,6 +283,47 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
     capabilityScopes: Object.freeze({
       [YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY]: Object.freeze({
         read: Object.freeze([]),
+        write: Object.freeze([]),
+      }),
+    }),
+  }) satisfies ConnectionDefinition,
+
+  /*
+   * ── INSTAGRAM · professional account read, via Instagram Login ─────────────
+   *
+   * `authMethod: "oauth2"` and `accountIdentity: "account"`, because a connection here IS bound to
+   * one Instagram professional account — unlike YouTube, whose public read binds no account at all
+   * and holds only a key.
+   *
+   * THE SCOPE SET IS ONE ENTRY, AND THAT IS THE WHOLE POINT. `instagram_business_basic` covers the
+   * five facts the capability reads. Insights would need `instagram_business_manage_insights`,
+   * publishing would need `instagram_business_content_publish`, and neither is requested — so the
+   * availability seam cannot report a capability Hebun did not build, and a tenant cannot be asked
+   * to grant more than the released read consumes.
+   *
+   * `minimumScopes` CARRIES THE SAME SINGLE SCOPE rather than a broader login set. This API has no
+   * separate identity scope to add: `instagram_business_basic` is what a connection needs to exist
+   * at all, and listing anything beside it would request access nothing spends.
+   *
+   * `write` IS EMPTY AND MEANS IT. The availability seam treats an empty write set as "no write
+   * capability exists" rather than vacuously satisfied, so this connection reports
+   * `writeCapable: false` permanently. Instagram publishing is not a scope away; it is a phase away.
+   *
+   * NO FACEBOOK PAGE. This entry describes Instagram Login, which Meta documents as requiring a
+   * professional account and no Page. The Facebook-Login variant, its Page token and its Commerce
+   * surfaces are deliberately outside this definition.
+   */
+  Object.freeze({
+    providerKey: INSTAGRAM_PROVIDER_KEY,
+    label: INSTAGRAM_PROVIDER_LABEL,
+    connectionLabel: INSTAGRAM_CONNECTION_LABEL,
+    authMethod: "oauth2",
+    accountIdentity: "account",
+    connectivity: "connectable",
+    minimumScopes: Object.freeze([INSTAGRAM_BUSINESS_BASIC_SCOPE]),
+    capabilityScopes: Object.freeze({
+      [INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY]: Object.freeze({
+        read: Object.freeze([INSTAGRAM_BUSINESS_BASIC_SCOPE]),
         write: Object.freeze([]),
       }),
     }),

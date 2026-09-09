@@ -28,7 +28,7 @@
  */
 
 /** How a subject is identified. One value per provider concept, added by migration, never by data. */
-export const OBSERVATION_SUBJECT_KINDS = ["youtube-channel"] as const;
+export const OBSERVATION_SUBJECT_KINDS = ["youtube-channel", "instagram-account"] as const;
 export type ObservationSubjectKind = (typeof OBSERVATION_SUBJECT_KINDS)[number];
 
 /**
