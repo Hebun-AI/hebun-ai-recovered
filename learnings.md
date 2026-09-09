@@ -3965,3 +3965,32 @@ exist is anything that would invoke it.
   (text + jsonb, CHECK yok), standing authorization, revalidator ve scheduler hiç değişmeden
   Instagram'ı taşıdı; değişmesi gereken tek yer composition'ın tek yollu olmasıydı. Tek provider'la
   "agnostic" iddiası test edilmemiş bir iddiadır.
+- **Bu repository'de paylaşılan bir OAuth framework YOK — ölçülmüş bir convention var.** Google
+  `oauth-state.server.ts`, GitHub `install-state.server.ts`: ~130 kod satırının ~75'i ortak, ve
+  birbirlerini import etmiyorlar. Yani "ikinci framework yaratma" talimatının doğru karşılığı
+  ortak çekirdek çıkarmak DEĞİL, per-provider modül convention'ını izlemek. Ortak çekirdek iki
+  released ceremony'yi bir dilim içinde yeniden yazmak demekti; duplication borç olarak kaydedildi.
+- **Provider'ları körlemesine kopyalamak sessiz hata üretir; farkları ölç.** Instagram Login'de
+  PKCE YOK (Meta'nın authorization endpoint'i `code_challenge` kabul etmiyor), redirect URI
+  HTTPS zorunlu (Google'ın loopback istisnası burada consent'ten SONRA reddedilen bir config
+  üretirdi), ve `oauth_refresh` karşılığı bir credential yok. Üçü de kopyalanmış olsaydı test
+  yeşil, ceremony ölü olurdu.
+- **`.update(` yasağı bir tabloyu değil bir kelimeyi hedefliyordu.** `createHmac(...).update(...)`
+  bir digest'tir, write değil — yasak state cookie imzalamayı yasaklıyordu. Doğrusu query
+  builder'ı hedeflemek (`db.`/`tx.`) + `drizzle-orm`/`@/db/schema` import yasağı: bu, "bir
+  değişken üzerinde bir metot çağırma" iddiasından daha güçlü, çünkü dosya tabloya uzanamıyor bile.
+- **Verb yasağı gevşetilmez, yeniden nişanlanır.** `POST` tüm provider dosyalarında yasaktı; Meta
+  code exchange'i POST olarak belgeliyor ve GET karşılığı yok. Çözüm: yasak TEK bir modülü muaf
+  tutar, o modül de tam olarak BİR POST içerir ve hedefi token endpoint'idir. Öncesi "hiçbir dosya
+  POST edemez"; sonrası "bir dosya, bir kez, bir URL'e" — kapsam daraldı, genişlemedi.
+- **`null` (beyan edilmedi) ile `[]` (boş beyan edildi) farkı OAuth'ta da yük taşır.** Meta
+  `permissions` alanını göndermezse grant BEYAN EDİLMEMİŞTİR ve transport reddeder; boş string
+  gönderirse grant beyan edilmiş ve boştur, coverage kontrolü bir adım sonra reddeder. İkisini
+  birleştirmek malformed bir cevabı reddedilmiş bir izin gibi gösterirdi.
+- **Kısa ömürlü token saklanmaz.** Instagram short-lived token ~1 saat yaşar; saklamak, kendini
+  sağlıklı bildiren ve kimse bakmadan ölen bir connection üretir. Long-lived exchange başarısızsa
+  HİÇBİR ŞEY saklanmaz — yarım tutulamayan bir grant reddedilir.
+- **Migration'da geçen bir kelime o subsystem'e ait olduğunu kanıtlamaz.** CGO-1'in
+  `content_destination` enum'u `'instagram'` içeriyor; bu editoryal bir hedef, connection değil.
+  Yasağı "hiçbir migration bu kelimeyi içermesin" diye kurmak yanlıştı; doğrusu içerenlerin TAM
+  KÜMESİNİ pinlemek — yeni bir tanesi eklenirse test düşer, released olan yanlış okunmaz.
