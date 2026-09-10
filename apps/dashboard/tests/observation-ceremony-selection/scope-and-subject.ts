@@ -60,10 +60,42 @@ function main(): void {
   assert.equal(yt.ok && yt.scope.capabilityKey, YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY);
   assert.equal(yt.ok && yt.scope.subjectKind, "youtube-channel");
 
+  /*
+   * ── INSTAGRAM NOW REFUSES TO BE GUESSED, AND THAT IS THE DESIGNED ANSWER ──
+   *
+   * A second Instagram capability (`instagram.media.public.read`) exists, so "the provider's one
+   * observable scope" is no longer a well-formed question for this provider. The resolver was
+   * written to fail closed on exactly this, and it does: it refuses rather than picking whichever
+   * capability happens to be first in the list.
+   *
+   * PICKING ONE WOULD HAVE BEEN THE BUG. A ceremony that silently chose between "read the account's
+   * five facts" and "read every recent post, its caption and its engagement counts" would let list
+   * order decide what a human was asked to authorize.
+   *
+   * The consequence is a CEREMONY CONSTRAINT, recorded here rather than patched away: until the
+   * authorize ceremony can be told which scope it means, neither Instagram capability can be
+   * authorized through it. That is the next phase's work, not a reason to weaken this refusal.
+   */
   const ig = resolveObservableScope(INSTAGRAM_PROVIDER_KEY);
-  assert.ok(ig.ok, "Instagram resolves");
-  assert.equal(ig.ok && ig.scope.capabilityKey, INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY);
-  assert.equal(ig.ok && ig.scope.subjectKind, INSTAGRAM_ACCOUNT_SUBJECT_KIND);
+  assert.ok(!ig.ok, "Instagram no longer resolves to a single scope — it offers two");
+  assert.ok(
+    !ig.ok && ig.reason.includes("name the scope explicitly"),
+    "and the refusal tells the operator to name the scope rather than letting a ceremony choose",
+  );
+  assert.equal(
+    OBSERVABLE_CAPABILITIES.filter((c) => c.providerKey === INSTAGRAM_PROVIDER_KEY).length,
+    2,
+    "because exactly two Instagram scopes are declared: the account read and the media read",
+  );
+  assert.ok(
+    OBSERVABLE_CAPABILITIES.some(
+      (c) =>
+        c.providerKey === INSTAGRAM_PROVIDER_KEY &&
+        c.capabilityKey === INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY &&
+        c.subjectKind === INSTAGRAM_ACCOUNT_SUBJECT_KIND,
+    ),
+    "the released account scope is still declared, unchanged",
+  );
 
   /* A provider the AUTHORITY has not declared observable is refused, whatever the catalog says. */
   for (const unsupported of ["google-workspace", "github-organization", "meta", "", "instagram "]) {
@@ -74,8 +106,8 @@ function main(): void {
   /* The ceremony can never reach a scope the authority did not declare. */
   assert.equal(
     OBSERVABLE_CAPABILITIES.length,
-    2,
-    "two observable scopes exist; a third is a code change in the authority, not in a ceremony",
+    3,
+    "three observable scopes exist; a fourth is a code change in the authority, not in a ceremony",
   );
 
   /* ═══ 2. WHICH SHAPE — READ OFF THE RELEASED CATALOG ══════════════════════ */

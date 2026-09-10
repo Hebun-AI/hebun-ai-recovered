@@ -420,6 +420,8 @@ function main(): void {
          * connection reports writeCapable:false however generous a future grant becomes.
          */
         "instagram.account.public.read",
+        /* Its media read: a SEPARATE capability under the SAME already-granted scope. */
+        "instagram.media.public.read",
         /* CGO-5: one public-read capability behind an API key, and no write half. */
         "youtube.channel.public.read",
       ],

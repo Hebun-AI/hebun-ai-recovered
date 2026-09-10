@@ -182,10 +182,16 @@ function main(): void {
     2,
     "`apiKey` appears exactly twice in the dispatch: bound, then passed",
   );
+  /*
+   * TWICE PER INSTAGRAM BRANCH — bound by the credential seam, then passed to the read — and there
+   * are now two branches (account, media). The point of the pin is unchanged: the token is never
+   * stored, never returned, never logged and never widened; it only ever travels from the seam that
+   * opened it into the one call that spends it.
+   */
   assert.equal(
     (dispatchSource.match(/accessToken/g) ?? []).length,
-    2,
-    "`accessToken` appears exactly twice in the dispatch: bound, then passed",
+    4,
+    "`accessToken` appears twice per Instagram branch: bound, then passed",
   );
   for (const forbidden of ["withDecryptedSecret", "credentialId", "plaintext", "listCredentialMetadata"]) {
     assert.ok(!dispatchSource.includes(forbidden), `the dispatch names no \`${forbidden}\``);
@@ -353,10 +359,17 @@ function main(): void {
     1,
     "the dispatch spends the YouTube key at exactly one call site",
   );
+  /*
+   * ONE CALL SITE PER INSTAGRAM CAPABILITY — two, since the media read was added as its own
+   * capability rather than by widening the account read. The invariant this pin protects is not
+   * "one", it is "one per released branch, and none anywhere else": the credential is opened by the
+   * connection-scoped seam inside a capability guard, and there is no path that opens it outside
+   * one.
+   */
   assert.equal(
     (dispatchSource.match(/await withAuthorizedInstagramToken\(/g) ?? []).length,
-    1,
-    "and the Instagram token at exactly one call site",
+    2,
+    "and the Instagram token at exactly one call site per capability branch",
   );
   assert.equal(
     (compositionCode.match(/withAuthorized\w+\(/g) ?? []).length,

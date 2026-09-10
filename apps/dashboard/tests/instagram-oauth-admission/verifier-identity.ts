@@ -102,12 +102,12 @@ async function main(): Promise<void> {
   /* Both operations are declared; nothing reaches an undeclared path. */
   assert.deepEqual(
     INSTAGRAM_ALLOWED_OPERATIONS.map((o) => o.id).sort(),
-    ["account.read", "account.read.self"],
-    "exactly two operations exist: the bound read and the self read",
+    ["account.media.read", "account.read", "account.read.self"],
+    "exactly three operations exist: the bound read, the self read and the bound media read",
   );
   assert.deepEqual(
     INSTAGRAM_ALLOWED_OPERATIONS.map((o) => o.path).sort(),
-    ["/me", "/{account-id}"],
+    ["/me", "/{account-id}", "/{account-id}/media"],
     "and their paths are the documented ones",
   );
 

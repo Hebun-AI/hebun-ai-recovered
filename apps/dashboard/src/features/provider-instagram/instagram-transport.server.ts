@@ -28,8 +28,11 @@ import {
   INSTAGRAM_ALLOWED_OPERATIONS,
   INSTAGRAM_API_ORIGIN,
   INSTAGRAM_API_VERSION,
+  INSTAGRAM_MEDIA_FIELDS,
+  MAX_RECENT_MEDIA,
   type InstagramAccountView,
   type InstagramFailureClass,
+  type InstagramMediaView,
   type InstagramOperationId,
   type InstagramResult,
 } from "./contracts";
@@ -253,6 +256,88 @@ export async function readOwnAccount(
       followersCount: numberOrNull(node.followers_count),
       followsCount: numberOrNull(node.follows_count),
       mediaCount: numberOrNull(node.media_count),
+    },
+  };
+}
+
+
+/**
+ * Read ONE BOUNDED PAGE of the account's recent media. By id, so the authorization's subject is the
+ * subject that answers.
+ *
+ * ── IT DOES NOT PAGINATE, AND THAT IS THE FEATURE ───────────────────────────
+ *
+ * Instagram's media edge is cursor-paged and will serve up to 10K media. This function asks for
+ * `MAX_RECENT_MEDIA` and then STOPS. It never follows a cursor, never loops, and never accumulates.
+ * An observation is a bounded window on an instant; a function that walked the whole history would
+ * turn one cadence tick into thousands of provider calls and one enormous row.
+ *
+ * Truncation is DISCLOSED rather than hidden: `moreMediaExist` is derived from what Instagram itself
+ * said about further pages, so a reader can tell a complete window from a clipped one.
+ *
+ * ── ITEMS THAT ARE NOT MEDIA ARE DROPPED, NOT REPAIRED ──────────────────────
+ *
+ * An entry with no usable `id` is not a media, and inventing one would attach facts to a subject
+ * Instagram never confirmed. Everything else may legitimately be withheld and survives as `null`.
+ */
+export async function readAccountMedia(
+  accessToken: string,
+  accountId: string,
+  deps: InstagramTransportDeps = {},
+): Promise<InstagramResult<{ readonly media: readonly InstagramMediaView[]; readonly moreMediaExist: boolean }>> {
+  const result = await call(
+    "account.media.read",
+    accountId,
+    { fields: INSTAGRAM_MEDIA_FIELDS.join(","), limit: String(MAX_RECENT_MEDIA) },
+    accessToken,
+    deps,
+  );
+  if (!result.ok) return result;
+
+  const body = result.value as { data?: unknown; paging?: unknown };
+  /*
+   * `data` MUST BE AN ARRAY. An account with no posts answers with an empty one — which is a fact,
+   * not a failure. A body with no array at all is a shape this transport does not understand, and
+   * it says so rather than reporting zero media.
+   */
+  if (!Array.isArray(body?.data)) return fail("malformed", "instagram-media-payload-unreadable");
+
+  const media: InstagramMediaView[] = [];
+  for (const entry of body.data) {
+    if (entry === null || typeof entry !== "object") continue;
+    const node = entry as Record<string, unknown>;
+    const mediaId = stringOrNull(node.id);
+    if (mediaId === null) continue;
+    /* THE BOUND IS ENFORCED HERE TOO. `limit` is a request; this is a guarantee. */
+    if (media.length >= MAX_RECENT_MEDIA) break;
+    media.push(
+      Object.freeze({
+        mediaId,
+        mediaType: stringOrNull(node.media_type),
+        caption: stringOrNull(node.caption),
+        permalink: stringOrNull(node.permalink),
+        publishedAt: stringOrNull(node.timestamp),
+        likeCount: numberOrNull(node.like_count),
+        commentCount: numberOrNull(node.comments_count),
+      }),
+    );
+  }
+
+  /*
+   * WHETHER MORE EXIST, ASKED OF INSTAGRAM RATHER THAN GUESSED. Meta describes this edge as
+   * cursor-paged, and documents both a `next` link and `cursors.after` depending on the surface. A
+   * bare `after` cursor is not by itself proof of a further page — it is also present on a final
+   * page — so it only counts when the window came back full.
+   */
+  const paging = (body.paging ?? {}) as { next?: unknown; cursors?: { after?: unknown } };
+  const hasNext = typeof paging.next === "string" && paging.next.length > 0;
+  const hasAfter = typeof paging.cursors?.after === "string" && paging.cursors.after.length > 0;
+
+  return {
+    ok: true,
+    value: {
+      media: Object.freeze(media),
+      moreMediaExist: hasNext || (hasAfter && media.length >= MAX_RECENT_MEDIA),
     },
   };
 }

@@ -27,6 +27,7 @@ import {
 } from "@/features/provider-youtube/contracts";
 import {
   INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+  INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
   INSTAGRAM_ACCOUNT_SUBJECT_KIND,
   INSTAGRAM_PROVIDER_KEY,
 } from "@/features/provider-instagram/contracts";
@@ -156,6 +157,23 @@ export const OBSERVABLE_CAPABILITIES: readonly ObservableCapability[] = Object.f
   Object.freeze({
     providerKey: INSTAGRAM_PROVIDER_KEY,
     capabilityKey: INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+    subjectKind: INSTAGRAM_ACCOUNT_SUBJECT_KIND,
+  }),
+  /*
+   * INSTAGRAM · MEDIA — a SEPARATE eligible scope, on the same subject.
+   *
+   * Same provider, same subject kind, DIFFERENT capability — and `isObservableScope` matches all
+   * three fields, so an authorization for the account capability can never satisfy a media read and
+   * an authorization for media can never satisfy an account read. The production authorization that
+   * already exists gains nothing from this entry.
+   *
+   * ELIGIBLE IS NOT AUTHORIZED. This list is a statement about what a human COULD be asked to
+   * approve; it grants nothing by appearing here, and no media observation can run until Governance
+   * approves this scope for a tenant.
+   */
+  Object.freeze({
+    providerKey: INSTAGRAM_PROVIDER_KEY,
+    capabilityKey: INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
     subjectKind: INSTAGRAM_ACCOUNT_SUBJECT_KIND,
   }),
 ]);

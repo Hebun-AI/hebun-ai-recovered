@@ -215,6 +215,12 @@ async function main(): Promise<void> {
            * connection reports writeCapable:false however generous a future grant becomes.
            */
           "instagram.account.public.read",
+          /*
+           * AND ITS MEDIA READ, declared as a SEPARATE capability under the SAME single scope. It
+           * asks a tenant for nothing new; it exists as its own key so the account authorization
+           * cannot silently become a media authorization.
+           */
+          "instagram.media.public.read",
           "youtube.channel.public.read",
         ],
         "the view lists every mapped capability",

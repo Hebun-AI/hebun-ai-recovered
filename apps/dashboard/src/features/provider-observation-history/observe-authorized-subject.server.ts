@@ -34,11 +34,13 @@
 import {
   INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
   INSTAGRAM_ACCOUNT_SUBJECT_KIND,
+  INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
   INSTAGRAM_PROVIDER_KEY,
   accountIdFromSubjectRef,
   type InstagramFailureClass,
 } from "@/features/provider-instagram/contracts";
 import { observeAccountById } from "@/features/provider-instagram/read-account-observation.server";
+import { observeAccountMediaById } from "@/features/provider-instagram/read-media-observation.server";
 import { withAuthorizedInstagramToken } from "@/features/provider-instagram/instagram-access-token-call.server";
 import {
   YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
@@ -55,6 +57,7 @@ import {
   youtubeChannelObservationFacts,
 } from "./record-youtube-channel-observation.server";
 import { instagramAccountObservationFacts } from "./record-instagram-account-observation.server";
+import { instagramMediaObservationFacts } from "./record-instagram-media-observation.server";
 import type { ObservationFacts } from "./contracts";
 
 /**
@@ -158,6 +161,35 @@ export async function observeAuthorizedSubject(
       observation: {
         observedAt: read.value.observedAt,
         facts: instagramAccountObservationFacts(read.value),
+      },
+    };
+  }
+
+  /* ── INSTAGRAM · recent media window ─────────────────────────────────────
+   *
+   * A SEPARATE BRANCH FOR A SEPARATE CAPABILITY. It differs from the account branch by exactly one
+   * field of the triple, which is what keeps the two authorizations from standing in for each other:
+   * a principal minted for the account capability cannot reach this code at all.
+   */
+  if (
+    principal.providerKey === INSTAGRAM_PROVIDER_KEY &&
+    principal.capabilityKey === INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY &&
+    principal.subjectKind === INSTAGRAM_ACCOUNT_SUBJECT_KIND
+  ) {
+    const accountId = accountIdFromSubjectRef(principal.subjectRef);
+    if (accountId === null) return { status: "unsupported-subject" };
+
+    const read = await withAuthorizedInstagramToken(
+      scope,
+      (accessToken) => observeAccountMediaById(accessToken, accountId, deps),
+      { getDb: deps.getDb, env: deps.env },
+    );
+    if (!read.ok) return { status: "provider-failed", failure: read.failure, reason: read.reason };
+    return {
+      status: "observed",
+      observation: {
+        observedAt: read.value.observedAt,
+        facts: instagramMediaObservationFacts(read.value),
       },
     };
   }

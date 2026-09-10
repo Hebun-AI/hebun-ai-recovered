@@ -20,6 +20,7 @@ import {
   INSTAGRAM_ACCOUNT_SUBJECT_KIND,
   INSTAGRAM_BUSINESS_BASIC_SCOPE,
   INSTAGRAM_FORBIDDEN_FRAGMENTS,
+  INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
   INSTAGRAM_FORBIDDEN_VERBS,
   INSTAGRAM_OAUTH_TRANSPORT_MODULE,
   INSTAGRAM_TOKEN_ENDPOINT,
@@ -181,10 +182,29 @@ function main(): void {
     [],
     "the write scope set is EMPTY, so this connection reports writeCapable:false permanently",
   );
+  /*
+   * TWO CAPABILITIES NOW, AND THE SET IS STILL EXACT. The media read was added as its own key rather
+   * than by widening the account key, so this pin grew by one entry and lost none of its force:
+   * insights, publishing, comments and messaging are still absent, and a third capability appearing
+   * here still fails.
+   */
+  const mediaScopes = definition!.capabilityScopes[INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY];
+  assert.ok(mediaScopes, "the media capability declares its scopes");
   assert.deepEqual(
-    Object.keys(definition!.capabilityScopes),
-    [INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY],
-    "exactly one capability is offered — insights and publishing are not listed",
+    [...mediaScopes!.read],
+    [INSTAGRAM_BUSINESS_BASIC_SCOPE],
+    "media reads under the SAME scope already granted — no second consent is requested",
+  );
+  assert.deepEqual([...mediaScopes!.write], [], "and it grants no write half either");
+  assert.notEqual(
+    INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
+    INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+    "the two capabilities are distinct keys — media is not a wider account read",
+  );
+  assert.deepEqual(
+    Object.keys(definition!.capabilityScopes).sort(),
+    [INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY, INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY].sort(),
+    "exactly two capabilities are offered — insights and publishing are not listed",
   );
 
   /* ═══ 5. THE OBSERVABLE TRIPLE IS REGISTERED WHOLE ════════════════════════ */

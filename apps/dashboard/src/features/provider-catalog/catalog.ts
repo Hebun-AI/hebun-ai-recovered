@@ -71,6 +71,7 @@ import {
 } from "@/features/provider-github/contracts";
 import {
   INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+  INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
   INSTAGRAM_BUSINESS_BASIC_SCOPE,
   INSTAGRAM_CONNECTION_LABEL,
   INSTAGRAM_PROVIDER_KEY,
@@ -323,6 +324,24 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
     minimumScopes: Object.freeze([INSTAGRAM_BUSINESS_BASIC_SCOPE]),
     capabilityScopes: Object.freeze({
       [INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY]: Object.freeze({
+        read: Object.freeze([INSTAGRAM_BUSINESS_BASIC_SCOPE]),
+        write: Object.freeze([]),
+      }),
+      /*
+       * MEDIA READ — THE SAME SCOPE, A DIFFERENT CAPABILITY.
+       *
+       * Meta's IG Media reference states the Instagram-Login variant reads media under
+       * `instagram_business_basic`, which this connection already holds. So this declaration asks a
+       * tenant for NOTHING new: no second consent, no wider grant, no Facebook Page.
+       *
+       * DECLARING IT IS NOT HOLDING IT. This entry says what scope the capability WOULD spend; it is
+       * not evidence that Hebun's production token actually returns media, because no media read has
+       * ever been performed. Availability still resolves through connection health and coverage, and
+       * a Governance authorization is still required before anything may run.
+       *
+       * `write` IS EMPTY AND MEANS IT, as above. Reading what was posted is not permission to post.
+       */
+      [INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY]: Object.freeze({
         read: Object.freeze([INSTAGRAM_BUSINESS_BASIC_SCOPE]),
         write: Object.freeze([]),
       }),

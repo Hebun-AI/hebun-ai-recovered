@@ -48,8 +48,37 @@ export const INSTAGRAM_API_ORIGIN = "https://graph.instagram.com" as const;
  */
 export const INSTAGRAM_API_VERSION = "v23.0" as const;
 
-/** The one capability this provider offers. */
+/** The account capability. Five facts about the account itself, and nothing about its posts. */
 export const INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY = "instagram.account.public.read" as const;
+
+/**
+ * The media capability — SEPARATE, and deliberately not folded into the account read.
+ *
+ * ── WHY A SECOND CAPABILITY RATHER THAN A WIDER FIRST ONE ───────────────────
+ *
+ * A standing authorization for `instagram.account.public.read` already exists in production. A human
+ * approved it when that capability meant five account facts. Teaching that same key to also mean
+ * "and every recent post, its caption and its engagement counts" would expand what an
+ * ALREADY-GRANTED permission permits, retroactively, with nobody deciding to — which is the exact
+ * failure `CONNECTED != AUTHORIZED` exists to prevent.
+ *
+ * The released YouTube channel capability does carry its videos inside one key. That was decided
+ * before anything had been authorized. Instagram's account capability is already authorized, so the
+ * same move is no longer available here.
+ *
+ * A separate key also buys independent cadence (the cadence read keys on capability), independent
+ * revocation, and a scope a human can refuse without losing the account read.
+ */
+export const INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY = "instagram.media.public.read" as const;
+
+/**
+ * How many recent media one observation may carry. Ten, matching the released YouTube bound.
+ *
+ * NOT Meta's maximum. The media edge will serve up to 10K of the most recent media; inheriting that
+ * would put a five-figure array in one `jsonb` column on every cadence tick — a denial of service
+ * aimed at Hebun's own database, requested politely by Hebun.
+ */
+export const MAX_RECENT_MEDIA = 10 as const;
 
 /** How this provider's subject is identified in an authorization and an observation. */
 export const INSTAGRAM_ACCOUNT_SUBJECT_KIND = "instagram-account" as const;
@@ -88,7 +117,26 @@ export const INSTAGRAM_ALLOWED_OPERATIONS = Object.freeze([
    * the wrong one.
    */
   Object.freeze({ id: "account.read.self", path: "/me", params: ["fields"] }),
+  /*
+   * THE MEDIA EDGE, BY ID. Same argument as `account.read`: an authorization names a subject, and
+   * this reads exactly that subject's media. `/me/media` would read whatever account the token
+   * happens to belong to, which is not the same sentence and would not bind the authorization.
+   *
+   * `limit` is a permitted parameter so the bound travels IN the request rather than being applied
+   * after a large answer has already been paid for and parsed.
+   */
+  Object.freeze({ id: "account.media.read", path: "/{account-id}/media", params: ["fields", "limit"] }),
 ] as const);
+
+/**
+ * EVERY SHAPE A REQUEST PATH MAY TAKE, as one closed pattern.
+ *
+ * This replaces the blunt `"/media"` substring that used to sit in the ban list below, and it is
+ * stricter than what it replaces: a substring ban says which one word may not appear, while this
+ * enumerates the only three paths that may. `/{account-id}/media_publish`, `/{account-id}/comments`
+ * and `/{account-id}/insights` are not merely discouraged here — they are unrepresentable.
+ */
+export const INSTAGRAM_ALLOWED_OPERATION_PATH_PATTERN = /^\/(?:me|\{account-id\})(?:\/media)?$/;
 
 export type InstagramOperationId = (typeof INSTAGRAM_ALLOWED_OPERATIONS)[number]["id"];
 
@@ -107,8 +155,56 @@ export const INSTAGRAM_ACCOUNT_FIELDS: readonly string[] = Object.freeze([
 ]);
 
 /**
+ * The exact fields requested for each media. A closed list, and SHORTER than what Meta offers.
+ *
+ * ── WHAT WAS LEFT OUT, AND WHY EACH ONE WAS REFUSED ─────────────────────────
+ *
+ * `media_url` and `thumbnail_url` are EPHEMERAL SIGNED CDN URLS. They expire, so storing one inside
+ * an immutable observation would record a fact that stops being true while the row still claims it —
+ * and it would quietly make the observation history look like an archive of the images themselves,
+ * which it is not and must not become. Hebun stores what the provider SAID, not the provider's
+ * bytes.
+ *
+ * `username` is the connected account's own, already carried by the account observation. Repeating
+ * it on every item duplicates a fact that has a home and can drift from it.
+ *
+ * `shortcode` is derivable from `permalink`; storing both is two spellings of one identity.
+ *
+ * `is_shared_to_feed`, `alt_text`, `is_ai_generated`, `media_audio_type` and the copyright fields
+ * are real, and none of them answers a question anybody has asked yet. They can be added by a
+ * capability that needs them.
+ *
+ * WHAT SURVIVED: a stable id, what kind of post it is, what it said, where it lives, when it was
+ * published, and the two engagement counts Instagram states publicly.
+ */
+export const INSTAGRAM_MEDIA_FIELDS: readonly string[] = Object.freeze([
+  "id",
+  "media_type",
+  "caption",
+  "permalink",
+  "timestamp",
+  "like_count",
+  "comments_count",
+]);
+
+/**
  * Paths, verbs and scopes that must never appear in this provider. Asserted by test against the
  * transport, so a future edit that reaches one of them fails rather than ships.
+ *
+ * ── WHY `/media` IS NO LONGER ON THIS LIST, AND WHAT REPLACED IT ────────────
+ *
+ * It was here while this provider could only read the account node, and it was the right rule then.
+ * The media READ capability cannot exist under a blanket ban on the word, so the ban was RE-AIMED
+ * rather than deleted — the same move the verb ban already made for the OAuth ceremony.
+ *
+ * What replaced it is stronger, not weaker. `INSTAGRAM_ALLOWED_OPERATION_PATH_PATTERN` enumerates
+ * the only three paths any request may take, so `/media_publish` is now unrepresentable as a PATH
+ * rather than merely unmentionable as a STRING — and `/media_publish` also stays on this list, so it
+ * still may not appear anywhere in this directory in any form.
+ *
+ * The substring relationship is the trap this comment exists to name: `/media` is a prefix of
+ * `/media_publish`, so a careless "just drop the ban" would have unbanned publishing too. It did
+ * not, and a test proves it did not.
  */
 export const INSTAGRAM_FORBIDDEN_FRAGMENTS: readonly string[] = Object.freeze([
   "graph.facebook.com",
@@ -117,7 +213,6 @@ export const INSTAGRAM_FORBIDDEN_FRAGMENTS: readonly string[] = Object.freeze([
   "/messages",
   "/conversations",
   "/insights",
-  "/media",
   "ig_hashtag_search",
   "instagram_business_content_publish",
   "instagram_business_manage_comments",
@@ -384,6 +479,47 @@ export interface InstagramAccountView {
 
 export interface InstagramAccountObservation {
   readonly account: InstagramAccountView;
+  /** Hebun's read instant, UTC. The provider does not timestamp this read. */
+  readonly observedAt: string;
+}
+
+/**
+ * One media, exactly as Instagram reported it.
+ *
+ * EVERY FIELD EXCEPT THE ID IS NULLABLE, AND `null` MEANS THE PROVIDER DID NOT REPORT IT. Instagram
+ * documents that `like_count` is omitted when the account owner has hidden like counts — so `null`
+ * here is a real, expected, meaningful answer, and rendering it as `0` would state a number the
+ * owner deliberately withheld.
+ *
+ * `caption` is UNTRUSTED EXTERNAL TEXT written by whoever posted it. It is carried verbatim as data
+ * and is never a command, never a template, and never interpolated into anything that executes.
+ *
+ * `permalink` is a PROVIDER-SUPPLIED URL. It is stored and may be shown; it is never fetched,
+ * validated by visiting, or treated as a destination Hebun vouches for.
+ */
+export interface InstagramMediaView {
+  readonly mediaId: string;
+  readonly mediaType: string | null;
+  readonly caption: string | null;
+  readonly permalink: string | null;
+  readonly publishedAt: string | null;
+  readonly likeCount: number | null;
+  readonly commentCount: number | null;
+}
+
+/**
+ * What one media observation is: a BOUNDED, TRUNCATION-DISCLOSING window on the account's recent
+ * media at one instant.
+ *
+ * `recentMediaCount` IS THE SIZE OF THIS WINDOW, NOT THE ACCOUNT'S TOTAL MEDIA COUNT. The account
+ * node reports the total; this edge reports a page. Conflating them would let a bound look like a
+ * fact about the account.
+ */
+export interface InstagramMediaObservation {
+  readonly accountId: string;
+  readonly recentMedia: readonly InstagramMediaView[];
+  /** True when Instagram indicated further media exist beyond this bounded window. */
+  readonly moreMediaExist: boolean;
   /** Hebun's read instant, UTC. The provider does not timestamp this read. */
   readonly observedAt: string;
 }
