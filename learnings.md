@@ -4134,3 +4134,32 @@ exist is anything that would invoke it.
 - **Ekranda gösterilen an, saklanan `observed_at` ile bayt bayt aynı olmalı — asıl kanıt budur.**
   Canlı bir okuma yeni bir instant üretirdi. Aynı instant, kaynağın saklanmış satır olduğunu
   gösterir; ekran görüntüsü değil, bu eşitlik ispat eder.
+
+## TRH-IG5 — tek izin, iki ayrı yetkilendirilmiş kabiliyet: scope genişletmek yerine kabiliyeti böl (2026-09-10)
+- **Sağlayıcı izni, Hebun kabiliyeti ve Governance yetkisi üç ayrı şeydir.** Meta'nın
+  `instagram_business_basic` kapsamı hem hesap düğümünü hem media edge'ini kapsıyor — yani tek bir
+  OAuth izni. Ama Hebun bunu **iki ayrı kabiliyet** olarak açtı: `instagram.account.public.read` ve
+  `instagram.media.public.read`. Sonuç: hiçbir tenant'tan yeni bir izin istenmedi, yeni consent
+  yok, yeni scope yok — buna rağmen media okuması **ayrı bir Governance kararı** gerektirdi.
+  **PROVIDER PERMISSION != HEBUN CAPABILITY != GOVERNANCE AUTHORIZATION.**
+- **Bölmeyi zorunlu kılan şey, zaten verilmiş olan yetkiydi.** Hesap kabiliyeti üretimde
+  yetkilendirilmişti; anahtarın anlamını "ve tüm son gönderiler, caption'ları ve etkileşim sayıları"
+  olacak şekilde genişletmek, **verilmiş bir izni geriye dönük büyütmek** olurdu — kimse buna karar
+  vermeden. YouTube kanal kabiliyeti videoları içine alıyor; o karar hiçbir şey yetkilendirilmeden
+  ÖNCE verildi. Aynı hamle burada artık mevcut değildi.
+- **Yeni kabiliyet eklemek bir operatör dikişini kırdı ve kırılma DOĞRUYDU.** `--provider=instagram`
+  artık tek bir scope'a çözülemiyordu ve resolver reddetti. Bir ceremony'nin "beş hesap gerçeği" ile
+  "her gönderi, caption ve etkileşim sayısı" arasında sessizce seçim yapması, insana ne
+  onaylattığına **liste sırasının** karar vermesi demekti. Çözüm reddi zayıflatmak değil, insana
+  açıkça isim verdirmek oldu (`--capability=`), ve tek kabiliyetli sağlayıcı hâlâ bayrak istemiyor.
+- **İlk çalıştırmayı yine zamanlayıcı sahiplendi ve bu ölçülerek atfedildi.** Yetki 13:59:57Z,
+  gözlem 14:00:19Z — 22 saniye. Atıf saatten değil, kalıcı provenance'tan geldi:
+  `observed_by_actor_type` ve `observed_by_actor_id` NULL, `standing_authorization_id` ve
+  `invocation_id` dolu. Director az önce yetki verdi diye buna "manuel" demek yanlış olurdu.
+- **Dokümante edilmiş izin, doğrulanmış izin değildir — farkı bir üretim okuması kapatır.** Meta'nın
+  referansı media node'unun bu kapsamla okunduğunu söylüyordu; bu "beklenen"di. Sekiz gerçek gönderi,
+  gerçek caption'lar ve gerçek beğeni sayıları geldiğinde "doğrulanmış" oldu. Yerelde üretilemeyecek
+  değerler, dış çağrının ve iznin en güçlü kanıtıdır.
+- **Üretimde alınmayan yol, alınan yol kadar kayda değer.** Bu hesap beğeni sayısını gizlemiyor ve
+  sekiz gönderisi pencereye sığıyor; yani `null` beğeni ve `moreMediaExist = true` yolları üretimde
+  **çalışmadı** — yalnızca testte kanıtlı. Kapanış bunu düzleştirmeden yazar.
