@@ -26,6 +26,7 @@ import {
 import { OBSERVABLE_CAPABILITIES } from "../../src/features/standing-observation-authority/contracts";
 import {
   INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+  INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
   INSTAGRAM_ACCOUNT_SUBJECT_KIND,
   INSTAGRAM_PROVIDER_KEY,
   INSTAGRAM_SUBJECT_PREFIX,
@@ -178,6 +179,84 @@ function main(): void {
     "no provider key is spelled here — every name comes from its owner",
   );
 
+  /* ═══ 4b. EXPLICIT CAPABILITY SELECTION ══════════════════════════════════
+   *
+   * Naming a scope is how an operator says WHICH eligible triple they mean. It is not a widening:
+   * every name below is checked against the authority's own list, and one outside it is refused.
+   */
+  const igAccount = resolveObservableScope(
+    INSTAGRAM_PROVIDER_KEY,
+    INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+  );
+  assert.ok(igAccount.ok, "the account capability resolves when named");
+  assert.equal(igAccount.ok && igAccount.scope.capabilityKey, INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY);
+  assert.equal(igAccount.ok && igAccount.scope.subjectKind, INSTAGRAM_ACCOUNT_SUBJECT_KIND);
+
+  const igMedia = resolveObservableScope(
+    INSTAGRAM_PROVIDER_KEY,
+    INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
+  );
+  assert.ok(igMedia.ok, "the media capability resolves when named");
+  assert.equal(igMedia.ok && igMedia.scope.capabilityKey, INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY);
+  assert.equal(
+    igMedia.ok && igMedia.scope.subjectKind,
+    INSTAGRAM_ACCOUNT_SUBJECT_KIND,
+    "and the media scope's subject is still the ACCOUNT — naming a capability did not mint a subject",
+  );
+  /* THE TWO RESOLVE TO DIFFERENT SCOPES. If they did not, the flag would be decoration. */
+  assert.notEqual(
+    igAccount.ok && igAccount.scope.capabilityKey,
+    igMedia.ok && igMedia.scope.capabilityKey,
+    "naming different capabilities yields different scopes",
+  );
+
+  /* A SINGLE-CAPABILITY PROVIDER MAY STILL BE NAMED, and naming it changes nothing. */
+  const ytNamed = resolveObservableScope(YOUTUBE_PROVIDER_KEY, YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY);
+  assert.ok(ytNamed.ok, "YouTube resolves when named explicitly too");
+  assert.deepEqual(
+    ytNamed.ok && ytNamed.scope,
+    yt.ok && yt.scope,
+    "and names the same scope the provider-only form does — explicitness is not a different answer",
+  );
+
+  /* ── EVERY WRONG NAME IS REFUSED, AND EACH SAYS WHICH KIND OF WRONG ────── */
+  const crossProvider = resolveObservableScope(
+    INSTAGRAM_PROVIDER_KEY,
+    YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
+  );
+  assert.ok(!crossProvider.ok, "another provider's capability is refused");
+  assert.ok(
+    !crossProvider.ok && crossProvider.reason.includes(YOUTUBE_PROVIDER_KEY),
+    "and the refusal names the provider it actually belongs to",
+  );
+
+  const unknown = resolveObservableScope(INSTAGRAM_PROVIDER_KEY, "instagram.comments.read");
+  assert.ok(!unknown.ok, "an unknown capability is refused");
+  assert.ok(
+    !unknown.ok && unknown.reason.includes("not an observable capability"),
+    "and says so plainly",
+  );
+
+  /*
+   * DECLARED BY THE CATALOG BUT NOT OBSERVABLE is its own answer. Google declares Drive reads; the
+   * authority never made any of them eligible for standing observation, and "unknown" would send an
+   * operator hunting a typo that is not there.
+   */
+  const notObservable = resolveObservableScope("google-workspace", "google.drive.metadata.read");
+  assert.ok(!notObservable.ok, "a declared-but-not-observable capability is refused");
+  assert.ok(
+    !notObservable.ok && notObservable.reason.includes("no observable capability"),
+    "refused at the provider gate, because that provider is not observable at all",
+  );
+
+  /* Whitespace is not a capability, and an empty flag is treated as absent rather than as a name. */
+  const blank = resolveObservableScope(INSTAGRAM_PROVIDER_KEY, "   ");
+  assert.ok(!blank.ok, "a blank capability falls back to the ambiguity refusal, not to a guess");
+  assert.ok(
+    !blank.ok && blank.reason.includes("name the scope explicitly"),
+    "and asks for a name",
+  );
+
   /* ═══ 5. THE CEREMONIES ══════════════════════════════════════════════════ */
   const authorize = codeOf(read(AUTHORIZE));
   /* YOUTUBE REMAINS THE DEFAULT, so every released invocation means what it always meant. */
@@ -186,8 +265,46 @@ function main(): void {
     "the authorize ceremony defaults to YouTube",
   );
   assert.ok(
-    authorize.includes("resolveObservableScope(providerKey)"),
-    "and resolves capability and subject kind from the authority's list",
+    authorize.includes("resolveObservableScope(providerKey, capabilityKey)"),
+    "and resolves capability and subject kind from the authority's list, with the operator's choice",
+  );
+  /* THE FLAG IS READ FROM ARGV AND NOWHERE ELSE — no default, no inference, no fallback. */
+  assert.ok(
+    /const capabilityKey = arg\("capability"\)/.test(authorize),
+    "the capability is taken from an explicit flag",
+  );
+  assert.ok(
+    !/capabilityKey\s*(\?\?|\|\|)/.test(authorize),
+    "and it is never defaulted — an unnamed capability stays unnamed, so the resolver can refuse",
+  );
+  /* THE CONFIRMATION SHOWS IT. `provider = instagram` is no longer enough to know what is authorized. */
+  assert.ok(
+    /capability\s+\$\{scope\.capabilityKey\}/.test(authorize),
+    "the confirmation prints the exact capability being authorized",
+  );
+  /*
+   * DISCOVERABLE IN BOTH PLACES AN OPERATOR ACTUALLY LOOKS.
+   *
+   * The usage block is read RAW rather than through `codeOf`, because usage lives in the header
+   * comment that strips away — checking the stripped source would have proved nothing and passed.
+   * The refusal matters more: it is what a human sees at the moment they get it wrong, so it must
+   * carry the flag and the candidates rather than only telling them they were ambiguous.
+   */
+  assert.ok(
+    read(AUTHORIZE).includes("--capability="),
+    "the usage block tells an operator the flag exists",
+  );
+  const ambiguous = resolveObservableScope(INSTAGRAM_PROVIDER_KEY);
+  assert.ok(!ambiguous.ok);
+  assert.ok(
+    !ambiguous.ok && ambiguous.reason.includes("--capability="),
+    "and the refusal itself names the flag, at the moment the operator needs it",
+  );
+  assert.ok(
+    !ambiguous.ok &&
+      ambiguous.reason.includes(INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY) &&
+      ambiguous.reason.includes(INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY),
+    "listing both candidates, so nobody has to read source to choose",
   );
   assert.ok(
     !authorize.includes("YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY"),

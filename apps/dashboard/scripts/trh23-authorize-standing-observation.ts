@@ -2,14 +2,30 @@
  * TRH-23 — the standing observation authorization CEREMONY (operator terminal only).
  *
  *   npm run platform:authorize-observation -- --tenant=turkish-rug-house                       # dry run
- *   npm run platform:authorize-observation -- --tenant=turkish-rug-house --provider=instagram
- *   npm run platform:authorize-observation -- --tenant=turkish-rug-house --provider=instagram --confirm
+ *   npm run platform:authorize-observation -- --tenant=turkish-rug-house --provider=instagram \
+ *       --capability=instagram.media.public.read
+ *   npm run platform:authorize-observation -- --tenant=turkish-rug-house --provider=instagram \
+ *       --capability=instagram.account.public.read --interval=1440 --confirm
  *   npm run platform:authorize-observation -- --tenant=turkish-rug-house --withdraw --confirm
  *
  * `--provider=` defaults to `youtube`, which is the scope this ceremony was written for and the
  * only one it could reach. Naming a provider does not widen anything: the capability and subject
  * kind are read off `OBSERVABLE_CAPABILITIES`, so the set of scopes an operator can authorize is
  * the set the authority already declared eligible.
+ *
+ * ── `--capability=` EXISTS BECAUSE A PROVIDER MAY OFFER MORE THAN ONE ────────
+ *
+ * Instagram now declares two observable scopes — the account read and the media read — and they are
+ * NOT interchangeable: one sees five account facts, the other sees recent posts, their captions and
+ * their engagement counts. So `--provider=instagram` alone is REFUSED, and the refusal lists the
+ * candidates.
+ *
+ * A ceremony picking between those on an operator's behalf would let list order decide what a human
+ * was asked to approve. Naming the capability is not a widening — the set of nameable scopes is
+ * still exactly `OBSERVABLE_CAPABILITIES`, and a name outside it is refused.
+ *
+ * A provider offering ONE scope still needs no flag: there is no ambiguity to resolve, and a flag
+ * that restates the only possible answer is ceremony for its own sake.
  *
  * ── WHY A CEREMONY AND NOT A GOVERNANCE UI ───────────────────────────────────
  *
@@ -92,6 +108,8 @@ async function main(): Promise<void> {
   if (!tenantSlug) fail("--tenant=<slug> is required");
   const directorEmail = arg("director") ?? "senoltr@gmail.com";
   const providerKey = arg("provider") ?? YOUTUBE_PROVIDER_KEY;
+  /* Optional. Required only when the provider declares more than one observable scope. */
+  const capabilityKey = arg("capability");
   const withdraw = has("withdraw");
   const confirmed = has("confirm");
   const intervalMinutes = Number(arg("interval") ?? "1440");
@@ -148,7 +166,7 @@ async function main(): Promise<void> {
     if (!w) fail(`no active membership for ${directorEmail} in organization "${tenantSlug}"`);
 
     /* ── WHICH SCOPE. From the authority's own eligibility list, never from this file. ───────── */
-    const resolved = resolveObservableScope(providerKey);
+    const resolved = resolveObservableScope(providerKey, capabilityKey);
     if (!resolved.ok) fail(resolved.reason);
     const observable = resolved.scope;
 

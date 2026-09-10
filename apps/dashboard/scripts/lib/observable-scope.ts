@@ -42,12 +42,35 @@ export type ScopeResolution =
   | { readonly ok: false; readonly reason: string };
 
 /**
- * The one observable scope a provider offers.
+ * The observable scope a ceremony is talking about.
  *
- * FAIL CLOSED IN BOTH DIRECTIONS. A provider with no observable capability is refused, and so is
- * one with more than one — a ceremony must never pick a scope on an operator's behalf.
+ * ── RESOLVING IS NOT AUTHORIZING ────────────────────────────────────────────
+ *
+ * This function turns names into a triple the released authority already declared eligible. It
+ * grants nothing, widens nothing and writes nothing: naming a capability here is how an operator
+ * says WHICH scope they are about to ask Governance to approve, not a way to approve it.
+ *
+ * ── WITHOUT AN EXPLICIT CAPABILITY ──────────────────────────────────────────
+ *
+ * One eligible scope resolves; none refuses; MORE THAN ONE REFUSES. A ceremony must never pick a
+ * scope on an operator's behalf, and the refusal now names the candidates so the operator can see
+ * exactly what there is to choose between rather than reading source to find out.
+ *
+ * A single-capability provider therefore keeps working exactly as it did. That is deliberate: a
+ * provider offering one scope has no ambiguity to resolve, and demanding a flag to restate the only
+ * possible answer would be ceremony for its own sake.
+ *
+ * ── WITH ONE ──────────────────────────────────────────────────────────────
+ *
+ * The triple must be declared eligible for THIS provider. Every other case is refused, and each
+ * refusal says which kind of wrong it was — a capability belonging to another provider, a
+ * capability the catalog declares but the authority never made observable, and a name nothing knows
+ * are three different mistakes, and collapsing them would send an operator hunting the wrong one.
  */
-export function resolveObservableScope(providerKey: string): ScopeResolution {
+export function resolveObservableScope(
+  providerKey: string,
+  capabilityKey?: string | null,
+): ScopeResolution {
   const matches = OBSERVABLE_CAPABILITIES.filter((c) => c.providerKey === providerKey);
   if (matches.length === 0) {
     const offered = [...new Set(OBSERVABLE_CAPABILITIES.map((c) => c.providerKey))].sort();
@@ -56,13 +79,74 @@ export function resolveObservableScope(providerKey: string): ScopeResolution {
       reason: `"${providerKey}" has no observable capability. Observable providers: ${offered.join(", ")}`,
     };
   }
-  if (matches.length > 1) {
+
+  const named = typeof capabilityKey === "string" ? capabilityKey.trim() : "";
+
+  if (named.length === 0) {
+    if (matches.length > 1) {
+      const candidates = matches.map((c) => c.capabilityKey).sort();
+      return {
+        ok: false,
+        reason:
+          `"${providerKey}" offers ${matches.length} observable capabilities — name the scope explicitly ` +
+          `rather than letting a ceremony choose. Use --capability=<key>, one of: ${candidates.join(", ")}`,
+      };
+    }
+    const only = matches[0]!;
     return {
-      ok: false,
-      reason: `"${providerKey}" offers ${matches.length} observable capabilities — name the scope explicitly rather than letting a ceremony choose`,
+      ok: true,
+      scope: { providerKey: only.providerKey, capabilityKey: only.capabilityKey, subjectKind: only.subjectKind },
     };
   }
-  const only = matches[0]!;
+
+  const exact = matches.filter((c) => c.capabilityKey === named);
+
+  if (exact.length === 0) {
+    /*
+     * WHICH KIND OF WRONG, ANSWERED FROM THE REGISTRIES RATHER THAN GUESSED.
+     *
+     * A capability that belongs to a DIFFERENT provider is the dangerous mistake — an operator one
+     * word away from authorizing the wrong provider's scope — so it is named as such. A capability
+     * the provider DECLARES but the authority never made observable is a different fact entirely:
+     * the catalog knowing about it does not make it authorizable, and saying "unknown" there would
+     * send someone looking for a typo that is not there.
+     */
+    const elsewhere = OBSERVABLE_CAPABILITIES.find((c) => c.capabilityKey === named);
+    if (elsewhere) {
+      return {
+        ok: false,
+        reason: `"${named}" is observable for provider "${elsewhere.providerKey}", not for "${providerKey}"`,
+      };
+    }
+    const definition = findProviderDefinition(providerKey);
+    if (definition && Object.prototype.hasOwnProperty.call(definition.capabilityScopes, named)) {
+      return {
+        ok: false,
+        reason:
+          `"${named}" is declared by provider "${providerKey}" but is NOT observable — ` +
+          `the authority has not made it eligible for standing observation`,
+      };
+    }
+    const candidates = matches.map((c) => c.capabilityKey).sort();
+    return {
+      ok: false,
+      reason: `"${named}" is not an observable capability. For "${providerKey}", one of: ${candidates.join(", ")}`,
+    };
+  }
+
+  if (exact.length > 1) {
+    /*
+     * TWO ELIGIBILITY ROWS FOR ONE TRIPLE. Unreachable today and refused anyway: if the authority
+     * ever declared the same capability twice with different subject kinds, picking either would be
+     * a ceremony deciding what a human meant.
+     */
+    return {
+      ok: false,
+      reason: `"${named}" is declared ${exact.length} times for "${providerKey}" — the authority's eligibility list is ambiguous`,
+    };
+  }
+
+  const only = exact[0]!;
   return {
     ok: true,
     scope: { providerKey: only.providerKey, capabilityKey: only.capabilityKey, subjectKind: only.subjectKind },
