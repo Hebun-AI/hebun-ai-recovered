@@ -33,7 +33,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { listConnections } from "@/features/integration-authority/integration-repository.server";
 import { isInstagramOAuthConfigured } from "@/features/provider-instagram/instagram-environment.server";
-import { INSTAGRAM_PROVIDER_KEY } from "@/features/provider-instagram/contracts";
+import {
+  INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+  INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
+  INSTAGRAM_PROVIDER_KEY,
+} from "@/features/provider-instagram/contracts";
 import { readProviderObservations } from "@/features/provider-observation-history/read-provider-observations.server";
 import {
   buildInstagramConnectionModel,
@@ -46,6 +50,18 @@ import {
   INSTAGRAM_OBSERVATION_HEADING,
   INSTAGRAM_OBSERVATION_MEANING,
 } from "@/features/instagram-connection-surface/latest-observation";
+import {
+  describeMediaCounts,
+  projectLatestInstagramMediaObservation,
+  windowStateOf,
+  INSTAGRAM_MEDIA_ABSENCE,
+  INSTAGRAM_MEDIA_HEADING,
+  INSTAGRAM_MEDIA_MEANING,
+  INSTAGRAM_MEDIA_NO_CAPTION,
+  INSTAGRAM_MEDIA_NO_PUBLISHED_AT,
+  INSTAGRAM_MEDIA_NO_TYPE,
+  INSTAGRAM_MEDIA_WINDOW,
+} from "@/features/instagram-connection-surface/latest-media-observation";
 
 export const metadata = { title: "Instagram — Integrations — Hebun AI" };
 export const dynamic = "force-dynamic";
@@ -98,7 +114,31 @@ export default async function InstagramIntegrationPage({
    * this surface has no way to show.
    */
   const latestObservation = projectLatestInstagramObservation(
-    await readProviderObservations(tenant, { providerKey: INSTAGRAM_PROVIDER_KEY, limit: 1 }),
+    await readProviderObservations(tenant, {
+      providerKey: INSTAGRAM_PROVIDER_KEY,
+      /*
+       * NAMING THE CAPABILITY IS NOT OPTIONAL HERE, AND THE OMISSION WAS A REAL DEFECT.
+       *
+       * This section understands ONE fact vocabulary — the account's five facts. When Instagram
+       * gained a second capability, the unscoped query started returning the newest MEDIA row, whose
+       * keys are entirely different, and this surface reported five facts as unreported that the
+       * provider had actually reported. A consumer that understands one vocabulary must ask for it.
+       */
+      capabilityKey: INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+      limit: 1,
+    }),
+  );
+
+  /*
+   * THE SECOND STORED CAPABILITY, READ THE SAME WAY. Same released authority, same tenant, one row —
+   * the only difference is which capability's vocabulary this section understands.
+   */
+  const latestMedia = projectLatestInstagramMediaObservation(
+    await readProviderObservations(tenant, {
+      providerKey: INSTAGRAM_PROVIDER_KEY,
+      capabilityKey: INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
+      limit: 1,
+    }),
   );
 
   return (
@@ -187,6 +227,82 @@ export default async function InstagramIntegrationPage({
               {latestObservation.status === "none"
                 ? INSTAGRAM_OBSERVATION_ABSENCE.none
                 : INSTAGRAM_OBSERVATION_ABSENCE[latestObservation.reason]}
+            </p>
+          )}
+        </div>
+
+        {/*
+         * A THIRD SUBORDINATE SECTION, INDEPENDENT OF THE CONNECTION'S LIFECYCLE for the same reason
+         * the account observation is: Instagram did say these things, at that instant, and a grant
+         * ending later does not un-say them.
+         */}
+        <div className="rounded-md border border-[var(--line)] px-4 py-4 space-y-3">
+          <p className="font-semibold">{INSTAGRAM_MEDIA_HEADING}</p>
+
+          {latestMedia.status === "observed" ? (
+            <>
+              <p>{INSTAGRAM_MEDIA_MEANING}</p>
+              <p>
+                Hebun observed Instagram at{" "}
+                <span className="font-mono text-xs">{latestMedia.observation.observedAt}</span>
+              </p>
+              <p>
+                Instagram reported{" "}
+                <span className="font-medium">
+                  {latestMedia.observation.recentMediaCount ?? latestMedia.observation.items.length}
+                </span>{" "}
+                media in this observation. {INSTAGRAM_MEDIA_WINDOW[windowStateOf(latestMedia.observation)]}
+              </p>
+
+              <ul className="space-y-3">
+                {latestMedia.observation.items.map((item, index) => (
+                  <li
+                    key={item.permalink ?? `${item.publishedAt ?? "unknown"}-${index}`}
+                    className="rounded-md border border-[var(--line)] px-3 py-3 space-y-1"
+                  >
+                    <p className="text-xs">
+                      {item.mediaType ?? INSTAGRAM_MEDIA_NO_TYPE}
+                      {" · published "}
+                      <span className="font-mono">
+                        {item.publishedAt ?? INSTAGRAM_MEDIA_NO_PUBLISHED_AT}
+                      </span>
+                    </p>
+                    {/*
+                     * THE CAPTION IS PROVIDER-WRITTEN TEXT. React escapes it; nothing here parses
+                     * it, and `whitespace-pre-wrap` only preserves the line breaks the author typed.
+                     */}
+                    <p className="whitespace-pre-wrap break-words">
+                      {item.caption ?? INSTAGRAM_MEDIA_NO_CAPTION}
+                    </p>
+                    <ul className="space-y-0.5">
+                      {describeMediaCounts(item).map((row) => (
+                        <li key={row.label} className="text-xs">
+                          {row.label}: <span className="font-medium">{row.value}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {/* A LINK ONLY WHEN THE PERMALINK PASSED THE POLICY. Never fetched, never previewed. */}
+                    {item.permalink ? (
+                      <p className="text-xs">
+                        <a
+                          href={item.permalink}
+                          target="_blank"
+                          rel="noreferrer noopener nofollow"
+                          className="underline underline-offset-4"
+                        >
+                          Open this post on Instagram
+                        </a>
+                      </p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p>
+              {latestMedia.status === "none"
+                ? INSTAGRAM_MEDIA_ABSENCE.none
+                : INSTAGRAM_MEDIA_ABSENCE[latestMedia.reason]}
             </p>
           )}
         </div>

@@ -30,6 +30,28 @@ export interface ProviderObservationReadDeps {
 
 export interface ProviderObservationQuery {
   readonly providerKey?: string;
+  /**
+   * WHICH CAPABILITY'S OBSERVATIONS. Optional, and omitting it means "any".
+   *
+   * ── WHY THIS EXISTS, AND WHAT IT COST TO LEARN ──────────────────────────
+   *
+   * While a provider had exactly one observable capability, "the newest observation for this
+   * provider" was an unambiguous question and this predicate was unnecessary. A second Instagram
+   * capability made it ambiguous, and the ambiguity did not announce itself: the account surface
+   * asked for the newest Instagram observation, received a MEDIA row, found none of the account
+   * fact keys on it, and truthfully reported every one of them as "the provider did not report
+   * this" — about facts the provider had reported hours earlier.
+   *
+   * The lesson is the shape of the failure rather than the missing line. The authorize ceremony hit
+   * the same ambiguity on the same day and REFUSED, because it could not know which scope a human
+   * meant. This seam could not refuse — a read has to return something — so it returned the wrong
+   * row and let a projection describe it. A filter a caller cannot express is a filter every caller
+   * silently omits.
+   *
+   * Different capabilities of one provider carry DIFFERENT FACT VOCABULARIES. A consumer that
+   * understands one of them must say which one it means.
+   */
+  readonly capabilityKey?: string;
   readonly subjectRef?: string;
   readonly limit?: number;
 }
@@ -74,6 +96,7 @@ export async function readProviderObservations(
   const limit = Math.min(Math.max(query.limit ?? MAX_OBSERVATIONS_PER_READ, 1), MAX_OBSERVATIONS_PER_READ);
   const predicates = [eq(providerObservations.tenantId, tenant.tenantId)];
   if (query.providerKey) predicates.push(eq(providerObservations.providerKey, query.providerKey));
+  if (query.capabilityKey) predicates.push(eq(providerObservations.capabilityKey, query.capabilityKey));
   if (query.subjectRef) predicates.push(eq(providerObservations.subjectRef, query.subjectRef));
 
   try {

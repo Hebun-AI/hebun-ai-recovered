@@ -50,11 +50,20 @@ function main(): void {
     ),
     "the page reads observations through the RELEASED authority",
   );
-  assert.equal(
-    (page.match(/readProviderObservations\(/g) ?? []).length,
-    1,
-    "from exactly one place — a second call site is a second contract",
-  );
+  /*
+   * TWO CALL SITES NOW — one per capability the page understands — and the rule that matters got
+   * STRICTER rather than looser: every call must name a capability. The single-call-site pin was a
+   * proxy for "one contract"; when Instagram gained a second capability the proxy stopped tracking
+   * the thing it protected, and an unscoped read silently returned the wrong capability's row.
+   */
+  const observationCalls = page.match(/readProviderObservations\(tenant, \{[\s\S]*?\}\)/g) ?? [];
+  assert.equal(observationCalls.length, 2, "one read per capability the page renders");
+  for (const call of observationCalls) {
+    assert.ok(
+      call.includes("capabilityKey:"),
+      "every stored-observation read names its capability — none may be unscoped",
+    );
+  }
   /* AND IT DEFINED NO SEAM OF ITS OWN. */
   for (const f of [PAGE, PROJECTION]) {
     const code = codeOf(read(f));
@@ -133,10 +142,13 @@ function main(): void {
     "the tenant comes from the authenticated session",
   );
   assert.ok(
-    /readProviderObservations\(\s*tenant,\s*\{\s*providerKey:\s*INSTAGRAM_PROVIDER_KEY,\s*limit:\s*1\s*\}\s*\)/.test(
-      page,
+    observationCalls.some(
+      (call) =>
+        call.includes("providerKey: INSTAGRAM_PROVIDER_KEY") &&
+        call.includes("capabilityKey: INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY") &&
+        call.includes("limit: 1"),
     ),
-    "the query is exactly: this session's tenant, provider `instagram`, one row",
+    "the account query is exactly: this session's tenant, provider `instagram`, the ACCOUNT capability, one row",
   );
   assert.equal(INSTAGRAM_PROVIDER_KEY, "instagram", "and the provider key is `instagram`");
   /* NO TENANT MAY BE INFERRED FROM THE ACCOUNT, THE URL OR THE CONNECTION. */
@@ -165,7 +177,6 @@ function main(): void {
     "standingAuthorizationId",
     "invocationId",
     "integrationId",
-    "capabilityKey",
     "subjectKind",
     "observedByActorType",
     "recordedAt",
@@ -176,6 +187,22 @@ function main(): void {
       `the page cannot render \`${provenance}\` — it never names it`,
     );
   }
+  /*
+   * `capabilityKey` LEFT THE LIST ABOVE, AND THE RULE IT SERVED IS NOW STATED DIRECTLY.
+   *
+   * The ban existed so provenance could not be RENDERED. Scoping a query is a different act, and
+   * the page must now do it — so instead of forbidding the word, this forbids the word anywhere
+   * except inside a query object. Every occurrence must sit in a `readProviderObservations` call.
+   */
+  const capabilityMentions = (page.match(/capabilityKey/g) ?? []).length;
+  const capabilityInQueries = observationCalls.join("\n").match(/capabilityKey/g)?.length ?? 0;
+  assert.ok(capabilityMentions > 0, "the page scopes its reads by capability");
+  assert.equal(
+    capabilityMentions,
+    capabilityInQueries,
+    "and `capabilityKey` appears ONLY inside those queries — never in anything rendered",
+  );
+
   /* The projection may NAME a fact key it reads, but must not carry an id into the view. */
   const viewShape = projection.slice(
     projection.indexOf("export interface InstagramObservationView"),
