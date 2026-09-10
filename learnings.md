@@ -4188,3 +4188,27 @@ exist is anything that would invoke it.
   kendi daraltma kurallarının gerçek üretim satırı üzerinde çalıştırılmasıyla kanıtlandı; onarım da
   ekranda 08:00 damgasının belirmesiyle doğrulandı. Bir sayfanın hatasız açılması onarıldığının kanıtı
   değildir — **doğru satırı göstermesi kanıttır.**
+
+## TRH-IG7 — token'ın varlığını kanıtlayan test, korumayı iddia ettiği özelliği kanıtlamaz (2026-09-10)
+- **Test YEŞİLDİ ve korumayı iddia ettiği şey YANLIŞTI.** Firewall şunu doğruluyordu: dosyada bir
+  `sr-only` span'i var mı, `count.value` token'ı geçiyor mu. İkisi de doğruydu. Ama ekranda ekran
+  okuyucuya giden metin **yalnızca rakamdı** — ikonlar `aria-hidden` olduğu için kullanıcı "5 … 0"
+  duyuyordu; hangisinin beğeni hangisinin yorum olduğunu söyleyen hiçbir şey yoktu. Etiket metni
+  sayfanın RSC payload'ında **seri hale getirilmiş prop olarak vardı ama hiç render edilmiyordu**.
+- **Testin cümlesi ile testin asserti aynı şey değildi.** Assert'in mesajı "the full sentence is
+  carried for screen readers" diyordu; assert'in kendisi bunu ölçmüyordu. **Bir testin mesajı bir
+  iddiadır; asserti ise kanıttır — ve ikisi sessizce ayrışabilir.**
+- **Mimari/ürün semantiğini koruyan testler token değil, GÖZLEMLENEBİLİR ANLAM iddia etmeli.**
+  Düzeltilmiş hali `sr-only` elementinin içeriğini okuyup içinde `count.label` olmasını şart koşuyor.
+  Fark şu: önceki "bu mekanizma var mı" diye soruyordu, yenisi "bu anlam üretiliyor mu" diye soruyor.
+- **Kendi düzeltmeni bite-proof et.** Her iki defect (etiketsiz sr-only, etiketsiz tarih) tek tek geri
+  konuldu, testin DOĞRU mesajla patladığı görüldü, sonra geri alındı ve yeşile döndüğü doğrulandı.
+  Bunu yapmasaydım, "testi düzelttim" derken az önce teşhis ettiğim hatanın aynısını tekrarlamış
+  olabilirdim.
+- **TRH-IG6'dan farkı:** IG6 aynı belirsizliğin *reddedebilen* ve *cevap vermek zorunda olan* iki
+  bileşende farklı davranmasıydı. Bu ise **doğrulama katmanının kendisinin** sessizce yalan
+  söylemesi — kod doğru şeyi yapmıyordu ve test bunu haber vermiyordu, çünkü test yanlış soruyu
+  soruyordu.
+- **Hatayı hiçbir otomatik kapı bulmadı; üretimde gerçek sayfaya bakmak buldu.** 726/726 yeşil,
+  typecheck temiz, lint temiz, build 0 — ve yüzey yine de erişilebilirlik açısından bozuktu.
+  **Yeşil bir pipeline, ürünü açıp bakmanın yerine geçmez.**
