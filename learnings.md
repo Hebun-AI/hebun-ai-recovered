@@ -4078,3 +4078,28 @@ exist is anything that would invoke it.
 - **Kayıt provenance: authorization `316085c2`, revision 1, active; decision `9a2e0b78`, session
   `2a154246`; scope `instagram.account.public.read`, ceiling 1440 dk.** Instagram, standing-observation
   otoritesinden geçen ikinci provider oldu — ama ilk gerçek observation'ı HENÜZ çalıştırılmadı.
+
+## TRH-IG3 — izin veren insan, zamanı seçen zamanlayıcı: ilk Instagram okuması sahipsiz gerçekleşti (2026-09-10)
+- **Yetkilendirmek bir iş (job) yaratmaz; zaten çalışan provider-agnostik tarayıcı yeni kapsamı
+  kendisi bulur.** Instagram için hiçbir cron, hiçbir schedule, hiçbir timer kurulmadı. Saatlik
+  due-scan aktif authorization'ları tenant ve provider filtresi OLMADAN saydığı için, 42 dakika
+  sonraki ilk turunda yeni kapsamı gördü ve due buldu — çünkü hiç machine observation'ı olmayan bir
+  kapsam tavanını hiç tüketmemiştir. **AUTHORIZED != SCHEDULE CREATED**, ve bunun sonucu "hiçbir şey
+  olmaz" değil, "bir sonraki turda olur"dur.
+- **Katmanların her biri farklı bir soruyu yanıtlıyor ve hiçbiri Knowledge otoritesi değil.** İnsan
+  kararı: makine bu kapsamı GÖREBİLİR Mİ. Tarayıcı: ŞU AN bakılmaya değer mi. Revalidator: bu anda
+  hâlâ İZİNLİ Mİ. Runtime: okur. Writer: türetilmiş kanıtı kaydeder. Aynı 08:00 tick'i YouTube'a
+  dokunmadı çünkü onun tavanı açılmamıştı — tek tetik, iki authorization, iki farklı doğru cevap.
+- **Tavanı tüketmek grant'ı yazmayı gerektirmiyor.** Authorization revision 1, version 1 ve
+  `updated_at == created_at` olarak kaldı; cadence observation history üzerinden ölçülüyor. Kendi
+  kullanımını kaydeden bir grant, kullanılarak bozulabilen bir grant olurdu.
+- **Provider okuması Knowledge kabulü değildir, ve bu iddia ölçülerek biliniyor.** `created_at`
+  taşıyan **61 tablonun tamamında** 08:00Z'den sonra hiçbir satır yok; yalnızca
+  `provider_observations` bir satır kazandı. Saklanan şey bir anlık provider beyanıdır, işletme
+  hakkında bir gerçek değil.
+- **Meta'ya gerçekten gidildiğinin kanıtı log değil, veridir.** Hesap kimliği ve üç sayacın hiçbiri
+  repository'de geçmiyor (`src/`, `scripts/`, `tests/` → 0 eşleşme). Yerelde üretilemeyecek değerler,
+  dış çağrının en güçlü kanıtıdır.
+- **Üretim runtime'ı zaten kanıtladıysa, operatörü sırf çalıştırmak için ikinci bir provider çağrısı
+  yapma.** `platform:observe-once` Instagram için bilerek çalıştırılmadı: yarının tavanını tüketip
+  zaten gösterilmiş bir şeyi göstermek kanıt değil, kötü gerekçeli ikinci bir dış çağrıdır.
