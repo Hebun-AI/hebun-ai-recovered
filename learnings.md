@@ -4103,3 +4103,34 @@ exist is anything that would invoke it.
 - **Üretim runtime'ı zaten kanıtladıysa, operatörü sırf çalıştırmak için ikinci bir provider çağrısı
   yapma.** `platform:observe-once` Instagram için bilerek çalıştırılmadı: yarının tavanını tüketip
   zaten gösterilmiş bir şeyi göstermek kanıt değil, kötü gerekçeli ikinci bir dış çağrıdır.
+
+## TRH-IG4 — üretilen veri tüketilmiyorsa önce tüketiciyi bul, yeni otorite yaratma (2026-09-10)
+- **Bir alt sistem production-accepted olabilir ve hâlâ hiçbir ürün tüketicisi olmayabilir.**
+  Provider Observation History TRH-21'de kabul edildi, TRH-24 provenance ekledi, TRH-25 otomatik
+  tetikleyici ekledi — satırlar gerçek bir cadence ile birikiyordu ve **hiçbir yüzey onları
+  okumuyordu**. Refleks "bu veri nereye terfi etmeli" diye sormaktır; doğru soru önce gelenidir:
+  **"bu veriyi bugün kim okuyor?"** Cevap "kimse" olunca iş, terfi (promotion) probleminden tüketim
+  (consumption) problemine döndü.
+- **Gereken okuma otoritesi zaten vardı; ikinci bir seam yazmak düzeltme değil, risk üretmek olurdu.**
+  `readProviderObservations` server-only, `TenantContext` tabanlı, tenant predikatı **koşulsuz**,
+  sınırlı, sıralı ve read/unavailable ayrımlı. Tenant predikatı bir güvenlik kontrolüdür: kendi
+  `where`'ini yazabilen tüketici, onu atlayabilen tüketicidir. Sonuç ~200 satırlık bir tüketici oldu —
+  bu, otoritenin zaten doğru olmasının kanıtı, tesadüf değil.
+- **Knowledge'a terfi ölçülerek reddedildi, tercih olarak değil.** Şema `effective_from` /
+  `effective_until` taşıyor ve **okuyucu** bunları yorumluyor; ama durable Knowledge writer üç insert
+  noktasının hiçbirinde bunları yazmıyor — her satır NULL. Yani sütun var diye Knowledge zamansal
+  değildir: **DESIGNED · READ IMPLEMENTED · NEVER WRITTEN**. Bugün kabul edilen bir takipçi sayısı,
+  geçerlilik sınırı olmayan yani *kalıcı olarak doğru* bir olgu olarak yazılırdı. `knowledge_authority
+  = authoritative` ise hâlâ hiçbir writer'a sahip değil (yalnızca iki yerde `provisional`).
+- **Bir sayfa yüklemesi saklanmış geçmişin okunmasıdır; asla bir provider'a gitme gerekçesi değildir.**
+  Üretim kabulünde `provider_observations` 4→4, tenant'ın Instagram gözlemi 1→1, standing
+  authorization revision 1/active değişmedi, credential version 1 değişmedi, `audit_log` 80→80 ve
+  BEFORE işaretinden sonra **hiç** audit satırı oluşmadı.
+- **Kanıt, hata görmemek değil, kıpırdamayan sayaçtır.** Hatasız yüklenen bir sayfa yan etki
+  üretmediğinin kanıtı değildir — **absence of an error is not absence of an effect**. Ayrıca
+  atıf (attribution) şansa bırakılmadı: cadence 1440 dakika ve son makine gözlemi 08:00Z olduğu için
+  saatlik due-scan kabul penceresinde due olamazdı; "sayfa mı yaptı, tarayıcı mı" ikilemi ölçüldüğü
+  için hiç doğmadı.
+- **Ekranda gösterilen an, saklanan `observed_at` ile bayt bayt aynı olmalı — asıl kanıt budur.**
+  Canlı bir okuma yeni bir instant üretirdi. Aynı instant, kaynağın saklanmış satır olduğunu
+  gösterir; ekran görüntüsü değil, bu eşitlik ispat eder.
