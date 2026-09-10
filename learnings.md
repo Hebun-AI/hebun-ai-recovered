@@ -3994,3 +3994,58 @@ exist is anything that would invoke it.
   `content_destination` enum'u `'instagram'` içeriyor; bu editoryal bir hedef, connection değil.
   Yasağı "hiçbir migration bu kelimeyi içermesin" diye kurmak yanlıştı; doğrusu içerenlerin TAM
   KÜMESİNİ pinlemek — yeni bir tanesi eklenirse test düşer, released olan yanlış okunmaz.
+
+## PRODMIG-ROT — bir sırrı döndürmenin sırası, sırrın kendisinden daha önemlidir (2026-09-10)
+- **Bu kabuğun `grep`'i bir ripgrep sarmalayıcısıdır ve gizli + gitignore'lu dosyaları atlar.** İlk
+  secret taraması TEMİZ döndü; `/usr/bin/grep` ile aynı tarama üç dosya buldu. Secret taraması bir
+  güvenlik gate'i olduğunda kabuk fonksiyonuna değil binary'ye çağrı yapılır. Yanlış negatif veren
+  bir tarama, tarama yapmamaktan daha tehlikelidir — çünkü geçtiğini sanırsın.
+- **Rotation yöntemi tercih değil, ownership gerçeğinden çıkar.** `neondb_owner` 68 nesnenin tamamının
+  sahibi; "yeni role + cutover" bu yüzden ownership transfer, yani schema mutation demekti. Neon'un
+  role password reset'i atomiktir: yeni parola basıldığı anda eskisi ölür. Daha güvenli görünen
+  çift-credential cutover, bu repository'de daha büyük bir değişiklikti ve exposed credential'ı
+  boyunca canlı bırakıyordu.
+- **`ALTER ROLE ... PASSWORD` reddedildi çünkü bir sırrı statement log'undan geçirir.** Console reset,
+  sırrı loglanan hiçbir kanaldan geçirmez. "SQL ile yapılabiliyor" ile "SQL ile yapılmalı" ayrı
+  sorulardır.
+- **Negatif testi dosyaları ezmeden ÖNCE çalıştırmak, compromised sırrı hiçbir yere kopyalamama
+  ihtiyacını ortadan kaldırır.** Eski credential'ı negatif test için geçici dosyaya yazma girişimi
+  permission classifier tarafından engellendi — doğru çözüm izin istemek değil, sıralamayı
+  değiştirmekti. Sıra: reset → eski credential hâlâ yerel dosyadayken negatif test → dosyaları ez.
+- **Vercel'de Neon integration YOK (`vercel integration ls` → "No resources found"), yani `DATABASE_URL`
+  elle yönetilir ve hiçbir şey kendiliğinden yayılmaz.** Yeni değer `vercel env add --sensitive --force`
+  ile stdin üzerinden geçirildi: ara dosyaya yazılmadı, ekrana basılmadı, shell history'ye düşmedi.
+- **Aynı veritabanına bağlandığının kanıtı sysid + rotation ÖNCESİ alınmış sayım taban çizgisidir.**
+  Rotation sonrası 68 tablo / ledger 52 / 5 integration / 26 credential / 1 standing auth / 3
+  observation birebir aynı çıktı. "Yeni credential çalışıyor" ile "yeni credential AYNI otoriteye
+  bakıyor" farklı iddialardır; ikincisi ancak önceden ölçülmüş bir taban çizgisiyle kanıtlanır.
+
+## TRH-IG1 — aynı dış hesap iki tenant altında bağımsız yaşayabilir, çünkü index öyle diyor (2026-09-10)
+- **Duplicate sorusunun cevabı denemekle değil, index tanımını okumakla bulundu.**
+  `integrations_tenant_provider_account_uq` `(tenant_id, provider_key, external_account_id)` üzerinde
+  ve PARTIAL (terminal state'leri dışlar). `tenant_id` ile anahtarlandığı için iki tenant aynı dış
+  hesabı meşru biçimde tutabilir; şema yorumu bunu zaten açıkça yazıyordu. Ölçüm sonrası her iki
+  satır da `28295264780115792` taşıyor. Global bir unique olsaydı bir tenant diğerini bloke ederdi.
+- **Meta'nın `expires_in` değeri YENİ ceremony'ye değil, İLK grant anına çakılıdır.** TRH credential'ı
+  `2026-09-10 06:57:03Z`'de yazıldı ama `2026-11-08 21:02:04Z`'de sona eriyor — bir gün önce basılan
+  Hebun credential'ıyla aynı saniye. Yani ikinci tenant ~60 değil ~59 gün tutar. Bu ancak kod Meta'nın
+  kendi cevabını sakladığı için ölçülebildi; sabit bir "+60 gün" yazılmış olsaydı kayıt yalan söyler
+  ve fark hiç görünmezdi. Bu, iki tenant'ın AYNI token değerini tuttuğunu KANITLAMAZ — o iddia iki
+  credential'ı çözmeyi gerektirir, yapılmadı.
+- **Yeniden yetkilendirme ilk tenant'ın satırına dokunmadı, ve bu hata yokluğuyla değil version +
+  timestamp özdeşliğiyle kanıtlandı.** Hebun satırı ceremony öncesi ve sonrası version 6,
+  `updated_at` = `2026-09-09 21:36:58.817Z`; canlı credential'ı version 1, revoked değil. Non-effect
+  iddiası için "hata görmedim" bir kanıt değildir; taban çizgisiyle alan alan karşılaştırma kanıttır.
+- **Tenant binding'i UI'dan değil session satırından doğrulandı.** `/foundation` "Current workspace"
+  diyordu; asıl kanıt `user_session_contexts.active_tenant_id = turkish-rug-house` ve switch'ten önceki
+  session'ın revoke edilmiş olmasıydı (canlı session listesinden düşmüştü). OAuth state tenant taşıdığı
+  için bu gate ceremony'den ÖNCE geçilmeliydi — sonradan bakmak yanlış tenant'a bağlanmış bir
+  connection'ı ancak rapor eder, önlemez.
+- **Ceremony tam olarak iki audit satırı yazdı ve ikisi de tenant-scoped/human'dı:**
+  `integration.connection.created` + `integration.credential.stored`. Sıfır governance satırı, sıfır
+  observation satırı, sıfır Hebun-scoped satır. Callback'in "governance import etmez" firewall'ı
+  böylece sadece testte değil üretim verisinde de görünür oldu. Bir firewall'ın en iyi kanıtı,
+  yazılmayan satırlardır.
+- **Bir discovery turunun doğru çıktısı "diff yok" olabilir.** Hedef, released mimarinin zaten
+  desteklediği bir şeydi: ceremony tenant'ı session'dan türetiyor, hiçbir sorgu tenant sınırını
+  aşmıyor. Kod yazmamak burada eksik iş değil, ölçümün sonucuydu.
