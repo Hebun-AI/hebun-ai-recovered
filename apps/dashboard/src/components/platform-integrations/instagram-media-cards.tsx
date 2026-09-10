@@ -56,11 +56,15 @@ function MediaCard({ item }: { item: InstagramMediaItemView }) {
           <Badge variant="neutral">{INSTAGRAM_MEDIA_NO_TYPE}</Badge>
         )}
         {/*
-         * PUBLICATION DATE, NOT OBSERVATION DATE. When Instagram says the post was published — a
-         * different fact from when Hebun looked, which the section header states once above.
+         * "Published" IS NOT DECORATION. The section header states when HEBUN OBSERVED; this states
+         * when INSTAGRAM PUBLISHED. Two instants, two different facts, and a bare date beside an
+         * observation timestamp invites a reader to conflate them. The word is the whole guard.
+         *
+         * When the provider reported no publication time the sentence already says so, and prefixing
+         * that with "Published" would read as a claim about a date that does not exist.
          */}
         <span className="text-xs text-fg-muted">
-          {publishedOn ?? INSTAGRAM_MEDIA_NO_PUBLISHED_AT}
+          {publishedOn ? `Published ${publishedOn}` : INSTAGRAM_MEDIA_NO_PUBLISHED_AT}
         </span>
       </div>
 
@@ -86,15 +90,29 @@ function MediaCard({ item }: { item: InstagramMediaItemView }) {
             return (
               <span key={count.label} className="flex items-center gap-1.5 text-sm text-fg-secondary">
                 {/*
-                 * THE ICON IS NEVER THE ONLY MEANING. It is hidden from assistive technology, and the
-                 * full sentence — including "Instagram did not report the like count" — is carried in
-                 * the adjacent screen-reader text.
+                 * THE ICON IS NEVER THE ONLY MEANING. It is hidden from assistive technology; the
+                 * screen-reader span below carries both the metric's identity and its value.
                  */}
                 <Icon className="size-3.5 text-fg-muted" aria-hidden="true" />
                 <span className={count.reported ? "font-medium text-fg" : "text-fg-muted"}>
                   {count.display}
                 </span>
-                <span className="sr-only">{count.value}</span>
+                {/*
+                 * THE ACCESSIBLE TEXT MUST SAY WHICH NUMBER THIS IS.
+                 *
+                 * It previously carried `count.value` alone, which for a REPORTED count is just the
+                 * digit — so a screen reader announced "5 … 0" with both icons hidden and nothing
+                 * saying which was likes and which was comments. Production acceptance caught it;
+                 * the test that was supposed to prevent it only checked that a `sr-only` span and a
+                 * `count.value` token existed, which was true while the meaning was absent.
+                 *
+                 * A WITHHELD COUNT KEEPS ITS OWN SENTENCE. `count.value` is already
+                 * "Instagram did not report the like count"; prefixing the label onto that would
+                 * read as a label applied to a number that was never given.
+                 */}
+                <span className="sr-only">
+                  {count.reported ? `${count.label}: ${count.value}` : count.value}
+                </span>
               </span>
             );
           })}

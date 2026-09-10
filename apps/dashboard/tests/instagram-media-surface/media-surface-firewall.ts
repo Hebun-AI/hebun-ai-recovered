@@ -284,10 +284,38 @@ function main(): void {
   assert.ok(!cards.includes("dangerouslySetInnerHTML"), "provider text is never injected as HTML");
   /* AN ICON IS NEVER THE ONLY MEANING. */
   assert.ok(cards.includes('aria-hidden="true"'), "decorative icons are hidden from assistive tech");
-  assert.ok(cards.includes("sr-only"), "and the full sentence is carried for screen readers");
+  /*
+   * ── THIS PIN NOW PROVES MEANING, NOT TOKENS ─────────────────────────────
+   *
+   * The previous version asserted that a `sr-only` span existed and that `count.value` appeared
+   * somewhere in the file. Both were true while the rendered accessible text was the DIGIT ALONE —
+   * a screen reader announced "5 … 0" with both icons hidden and nothing saying which was which.
+   * Production acceptance found it; this test had reported success.
+   *
+   * A CHECK THAT CANNOT FAIL FOR THE CASE THAT MATTERS IS NOT A CHECK. So the assertion below reads
+   * the sr-only element itself and requires the metric's IDENTITY to be in it.
+   */
+  const srOnly = cards.match(/className="sr-only">([\s\S]*?)<\/span>/);
+  assert.ok(srOnly, "the accessible text is rendered in a sr-only span");
   assert.ok(
-    cards.includes("count.value") && cards.includes("count.display"),
-    "the compact glyph and the spelled-out meaning come from ONE source, so they cannot disagree",
+    srOnly![1].includes("count.label"),
+    "and it carries the metric's IDENTITY — a bare number tells a screen-reader user nothing",
+  );
+  assert.ok(
+    srOnly![1].includes("count.value"),
+    "together with its value, so the glyph and the spoken text cannot disagree",
+  );
+  /* THE WITHHELD SENTENCE IS PRESERVED, not prefixed with a label it would contradict. */
+  assert.ok(
+    /count\.reported\s*\?/.test(srOnly![1]),
+    "and a withheld count keeps its own sentence rather than being labelled as a number",
+  );
+  assert.ok(cards.includes("count.display"), "the compact glyph comes from the same source");
+
+  /* THE DATE SAYS WHICH INSTANT IT IS. A bare date beside an observation timestamp is ambiguous. */
+  assert.ok(
+    /Published \$\{publishedOn\}/.test(cards) || cards.includes("`Published ${publishedOn}`"),
+    "a card's publication date is labelled `Published`, distinguishing it from the observation instant",
   );
   /* Design-system primitives rather than a parallel visual language, and no hardcoded colours. */
   for (const primitive of ["@/components/ui/card", "@/components/ui/badge"]) {
