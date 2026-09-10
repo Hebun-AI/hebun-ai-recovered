@@ -16,16 +16,36 @@
  *
  * NO CREDENTIAL AUTHORITY IS IMPORTED HERE and none can be: a surface that could see a secret would
  * eventually render one. `configured` arrives as a boolean.
+ *
+ * ── IT ALSO SHOWS THE LATEST STORED OBSERVATION, AND ONLY THAT ──────────────
+ *
+ * The page reads the released provider-observation read authority for ONE row and renders what
+ * Instagram said at that instant. It is a CONSUMER: it creates no authority, holds no table, adds
+ * no capability and cannot cause a read. Nothing on this page contacts Meta, decrypts a credential,
+ * revalidates an authorization or schedules anything — a human opening a page is not an event that
+ * may reach a provider.
+ *
+ * AND IT DERIVES NOTHING. No delta, no rate, no direction, no verdict about whether the observation
+ * is recent. The instant is shown; what it means is not this surface's to say.
  */
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { listConnections } from "@/features/integration-authority/integration-repository.server";
 import { isInstagramOAuthConfigured } from "@/features/provider-instagram/instagram-environment.server";
+import { INSTAGRAM_PROVIDER_KEY } from "@/features/provider-instagram/contracts";
+import { readProviderObservations } from "@/features/provider-observation-history/read-provider-observations.server";
 import {
   buildInstagramConnectionModel,
   INSTAGRAM_STATE_SENTENCES,
 } from "@/features/instagram-connection-surface/model";
+import {
+  describeInstagramObservation,
+  projectLatestInstagramObservation,
+  INSTAGRAM_OBSERVATION_ABSENCE,
+  INSTAGRAM_OBSERVATION_HEADING,
+  INSTAGRAM_OBSERVATION_MEANING,
+} from "@/features/instagram-connection-surface/latest-observation";
 
 export const metadata = { title: "Instagram — Integrations — Hebun AI" };
 export const dynamic = "force-dynamic";
@@ -63,6 +83,23 @@ export default async function InstagramIntegrationPage({
   const listing = tenant ? await listConnections(tenant) : null;
   const connections = listing?.status === "read" ? listing.connections : [];
   const model = buildInstagramConnectionModel(connections, configured);
+
+  /*
+   * STORED HISTORY, NOT A LOOK. This reads rows Hebun already holds through the released
+   * observation read authority — which contacts no provider, decrypts no credential and writes
+   * nothing. Rendering a page has never been, and must not become, a reason to ask Instagram
+   * anything.
+   *
+   * THE TENANT IS THE SESSION'S. It is handed to the seam as the seam requires and is not
+   * derivable from the connection, the account or the URL; a null session is answered as
+   * unavailable by the seam itself, which is why it is passed rather than branched on here.
+   *
+   * ONE ROW. `limit: 1` asks for the newest and nothing more, so no page render can pull a history
+   * this surface has no way to show.
+   */
+  const latestObservation = projectLatestInstagramObservation(
+    await readProviderObservations(tenant, { providerKey: INSTAGRAM_PROVIDER_KEY, limit: 1 }),
+  );
 
   return (
     <>
@@ -117,6 +154,41 @@ export default async function InstagramIntegrationPage({
               </Link>
             </p>
           ) : null}
+        </div>
+
+        {/*
+         * A SUBORDINATE SECTION, AND INDEPENDENT OF THE CONNECTION'S LIFECYCLE. A stored
+         * observation stays true after a grant ends: Instagram did say it, at that instant. So
+         * this renders on its own evidence rather than being hidden when the connection can no
+         * longer be exercised — the sentence is historical either way.
+         */}
+        <div className="rounded-md border border-[var(--line)] px-4 py-4 space-y-3">
+          <p className="font-semibold">{INSTAGRAM_OBSERVATION_HEADING}</p>
+
+          {latestObservation.status === "observed" ? (
+            <>
+              <p>{INSTAGRAM_OBSERVATION_MEANING}</p>
+              <p>
+                Hebun observed Instagram at{" "}
+                <span className="font-mono text-xs">
+                  {latestObservation.observation.observedAt}
+                </span>
+              </p>
+              <ul className="space-y-0.5">
+                {describeInstagramObservation(latestObservation.observation).map((row) => (
+                  <li key={row.label}>
+                    {row.label}: <span className="font-medium">{row.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p>
+              {latestObservation.status === "none"
+                ? INSTAGRAM_OBSERVATION_ABSENCE.none
+                : INSTAGRAM_OBSERVATION_ABSENCE[latestObservation.reason]}
+            </p>
+          )}
         </div>
       </section>
     </>
