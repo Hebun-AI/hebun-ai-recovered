@@ -4163,3 +4163,28 @@ exist is anything that would invoke it.
 - **Üretimde alınmayan yol, alınan yol kadar kayda değer.** Bu hesap beğeni sayısını gizlemiyor ve
   sekiz gönderisi pencereye sığıyor; yani `null` beğeni ve `moreMediaExist = true` yolları üretimde
   **çalışmadı** — yalnızca testte kanıtlı. Kapanış bunu düzleştirmeden yazar.
+
+## TRH-IG6 — reddedebilen bileşen söyler, cevap vermek zorunda olan susar (2026-09-10)
+- **Aynı belirsizlik, iki farklı yerde iki farklı şekilde ortaya çıktı — ve tehlikeli olan sessiz
+  olanıydı.** Instagram ikinci bir kabiliyet kazanınca "bu sağlayıcının kapsamı" sorusu belirsizleşti.
+  Yetkilendirme ceremony'si **REDDETTİ** (bir resolver fail-closed olabilir). Okuma seam'i ise
+  reddedemezdi — bir read bir şey döndürmek zorundadır — bu yüzden **yanlış satırı döndürdü** ve bir
+  projection onu tarif etti. **Reddedebilen bileşen sana haber verir; cevap vermek zorunda olan
+  vermez.**
+- **Sonuç, üretimde bir doğruluk hatasıydı.** Hesap bölümü `{providerKey, limit:1}` soruyordu; 14:00'te
+  ilk media gözlemi gelince en yeni Instagram satırı MEDIA satırı oldu, fact anahtarları tamamen
+  farklıydı, hesap projection'ı beşini de `null`'a daralttı ve ekran **"Instagram did not report
+  this"** dedi — sağlayıcının altı saat önce gerçekten bildirdiği beş olgu için.
+- **Caller'ın ifade EDEMEDİĞİ bir predicate, her caller'ın sessizce atladığı predicate'tir.** Kimse
+  dikkatsiz değildi: seam'de `capabilityKey` diye bir alan yoktu. Eksik olan bir kontrol değil, bir
+  **kelime**ydi. Onarım da yeni bir seam değil, mevcut otoriteye tek bir opsiyonel predicate oldu.
+- **`PROVIDER KEY != OBSERVATION CAPABILITY`.** Bir sağlayıcı tek kabiliyet taşıdığı sürece provider
+  anahtarı bir okuma kimliği gibi davranır. İkinci kabiliyette bu biter: farklı kabiliyetler **farklı
+  fact sözlükleri** taşır, ve bir sözlüğü anlayan tüketici hangisini istediğini söylemek zorundadır.
+- **Hatayı bulan şey, özelliği inşa etme girişimiydi.** Media tüketicisini yazmak için "en son media
+  gözlemi"ni istemek gerekti; seam bunu ifade edemiyordu. Bir sonraki özelliği inşa etmek, bir önceki
+  özelliğin sessiz kusurunu ortaya çıkarır — **kusur, onu gerektiren iş yapılmadan görünmez kalmıştı.**
+- **Kanıt, iddia değil ölçümdü.** Defect, tek satır kod yazılmadan önce, yayınlanmış projection'ın
+  kendi daraltma kurallarının gerçek üretim satırı üzerinde çalıştırılmasıyla kanıtlandı; onarım da
+  ekranda 08:00 damgasının belirmesiyle doğrulandı. Bir sayfanın hatasız açılması onarıldığının kanıtı
+  değildir — **doğru satırı göstermesi kanıttır.**
