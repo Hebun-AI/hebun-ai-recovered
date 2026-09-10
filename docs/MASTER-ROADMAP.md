@@ -3966,3 +3966,85 @@ It moved **navigation** back into line with the repository: a current baseline i
 no era or product-line model (§18 rule 12), and took no program decision. The authority for what each
 TRH phase measured stays where it has always been — in `docs/product-vision/runtime/`, one closure
 record per phase. This page points at them; it does not absorb them.
+
+---
+
+### 20.2 Social Intelligence — recorded direction, reconciled at `f735450`
+
+**§20.1 is not rewritten.** It was accurate at `098d49e` and §18 rule 3 makes it immutable evidence.
+This subsection records what changed since, and one Director-selected direction.
+
+**§20.1's Instagram row is now historical.** It read *"**UNAVAILABLE** — no provider module, no
+catalog entry, no capability, no transport, no credential kind."* Every clause of that has since been
+answered: the Instagram provider shipped, OAuth credential admission shipped, two observable
+capabilities were added (`instagram.account.public.read`, `instagram.media.public.read`), Governance
+authorized both to recur, and a production surface renders the stored evidence.
+`OBSERVABLE_CAPABILITIES` is no longer a single-entry list — §13.2's row saying it is describes the
+baseline it was written at.
+
+#### Measured evidence at this baseline
+
+| Provider · capability | Stored observations | Span | Standing authorization |
+|---|---|---|---|
+| `youtube.channel.public.read` | **4** | 2026-09-07 → 2026-09-10 | active, rev 1, 1440 min |
+| `instagram.account.public.read` | **1** | 2026-09-10T08:00:18.986Z | active, rev 1, 1440 min |
+| `instagram.media.public.read` | **1** | 2026-09-10T14:00:19.320Z | active, rev 1, 1440 min |
+
+**The frontier has moved from *can Hebun observe* to *can Hebun make sense of what it observed*.**
+Three scopes are observed unattended on a Governance-bounded cadence. Exactly one product surface
+consumes any of it, and no surface composes across providers.
+
+#### The direction, and the single decision it requires
+
+**SOCIAL INTELLIGENCE** — one workspace answering *what is happening across the social channels this
+organization has connected*, kept separate from Integrations, which answers *what is connected*.
+Full specification: `docs/product-vision/ui/hebun-social-intelligence-specification.md`.
+
+The navigation decision is the consequential part, and it is **not** a free addition. The live shell
+is `workspace-nav.ts` — seven workspaces, with `WORKSPACES.length === 7` asserted in six released
+test files and *"the top level does not grow"* stated as principle 2 of the Navigation Architecture.
+Intelligence's Level 2 is locked at six surfaces by `tests/intelligence-l2/navigation.ts` and by an
+exact label list in `tests/phase-20d/closure.ts`.
+
+**Recommended: Social Intelligence enters as a seventh Intelligence Level-2 surface at
+`/intelligence/social`; per-platform drill-down stays at Level 3 and never enters navigation.** An
+eighth workspace is rejected — §18 rule 12 reserves changes to the product-line model for explicit
+Director architectural review, and principle 2 exists to stop normal product growth from widening
+the top level. Platform is rejected — it owns connection, not analysis, and is director/admin-only.
+
+Per-platform navigation entries are forbidden for a reason this repository already paid for: the
+deleted Gmail/GitHub/Supabase/Vercel entries claimed connections that did not exist, and the `status`
+badge variant was removed so a false badge is unrepresentable. Navigation is build-time and shared
+across tenants; connection truth is per-tenant and per-request.
+
+#### The measured inversion
+
+The assumption entering this phase was that Instagram leads. **It does not.** YouTube holds four
+observations and is the only platform with comparable history today; Instagram holds one and its
+delta phase is data-blocked. Instagram has the richer content evidence; YouTube has the only time
+series. `YT-SOC1` is therefore the only analytics phase that is not data-blocked — and the honest
+YouTube chart is a flat line at zero, because the channel genuinely reports 0/0/0 with
+`hiddenSubscriberCount: false`.
+
+#### Sequence, by dependency
+
+`SOC-0` (architecture + navigation, this record) · `IG-AN1` **RELEASED** `f735450` · `YT-SOC1`
+(YouTube series — ready now) · `SOC-UI1` (shell + platform cards) · `IG-AN2` (**data-blocked**,
+needs a second observation) · `SOC-UI2` (audience evolution) · `YT-SOC2` (YouTube recent content) ·
+`SOC-UI3` (content performance) · `IG-AN3` (per-post evolution, data-blocked) · `SOC-PROVIDERS` ·
+`SOC-HEBY`.
+
+LinkedIn, TikTok, Facebook and X have no provider module, catalog entry, capability, transport or
+credential kind. They appear on no surface, in no state, until they exist.
+
+```
+RECORDED DIRECTION    != SELECTED PROGRAM
+LOCKED IA             != IMMOVABLE IA (it moves by decision, not by addition)
+OBSERVED              != UNDERSTOOD
+PROVIDER COUNT        != ANALYTICS
+CONNECTION SURFACE    != ANALYSIS SURFACE
+MORE HISTORY          != MORE INTERESTING HISTORY (YouTube's four points are all zero)
+```
+
+**This section takes no program decision and authorizes no implementation.** It records a direction,
+a measured baseline, and one navigation recommendation awaiting Director approval.
