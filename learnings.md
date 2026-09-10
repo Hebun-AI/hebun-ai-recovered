@@ -4049,3 +4049,32 @@ exist is anything that would invoke it.
 - **Bir discovery turunun doğru çıktısı "diff yok" olabilir.** Hedef, released mimarinin zaten
   desteklediği bir şeydi: ceremony tenant'ı session'dan türetiyor, hiçbir sorgu tenant sınırını
   aşmıyor. Kod yazmamak burada eksik iş değil, ölçümün sonucuydu.
+
+## TRH-IG2 — bağlanmak bakmaya izin değildir: yetki ayrı bir otorite sınırıdır (2026-09-10)
+- **CONNECTED, VERIFIED, AUTHORIZED, EXECUTED ve SUCCESSFUL beş ayrı gerçektir ve üretim bunu satır
+  satır kanıtlıyor.** TRH Instagram bağlantısı bir gündür `connected/healthy` ve provider tarafından
+  doğrulanmıştı; buna rağmen bu turdan önce hiçbir standing authorization yoktu. Yetki verildikten
+  sonra da observation sayısı **0** kaldı. Kimlik bilgisine sahip olmak, onu tekrar tekrar kullanma
+  iznini üretmez — bu iki iddia arasındaki boşluk Governance'a aittir.
+- **Ceremony hiçbir şey icat etmedi; scope'u released registry'den okudu.** `OBSERVABLE_CAPABILITIES`
+  kapalı bir liste ve Instagram'ın oradaki tek üçlüsü çözüldü. Operatörün yazdığı tek şey provider
+  adıydı; capability, subject kind ve subject'in kendisi kod ve üretim satırlarından türedi. Bir
+  ceremony'nin operatöre "hangi capability" diye sormaması, kapsamı daraltan bir tasarımdır.
+- **Subject'in nereden geldiğini catalog belirledi, ceremony değil.** `accountIdentity: "account"`
+  olduğu için subject bağlantının kendisinden alındı (verifier'ın Meta'nın `/me` cevabından yazdığı
+  hesap); YouTube'un `"none"` şekli hâlâ saklanmış bir observation'dan alıyor. Instagram için önceki
+  yolu zorlamak, izni veren authorization'dan ÖNCE bir observation talep etmek olurdu.
+- **Atomiklik saatle kanıtlandı, iddiayla değil.** `authorized_at` ile iki audit satırının
+  `occurred_at` değeri mikrosaniyesine kadar aynı: karar, authorization ve denetim izi tek
+  transaction. Delta tam olarak +1 standing authorization, +1 decision, +1 session, +2 audit.
+- **Ephemeral principal üretmek icra değildir.** Ceremony bir `ObservationPrincipal` bastı ve
+  kullanmadı; deployment'taki tek invocation-benzeri tabloda taban çizgisinden sonra **0** satır var.
+  Principal süreçle birlikte bitti. "Bir principal mint edildi" ile "bir provider okundu" arasında
+  ölçülebilir bir fark olması, tasarımın kendisi.
+- **Yetkilendirme, yetkilendirdiği şeye dokunmaz.** TRH bağlantısı version 3 ve credential version 1
+  olarak kaldı; Hebun'un bağlantısı version 6, credential version 1. Authorization bir bağlantıyı
+  tüketmez, ona atıfta bulunur — ve iki tenant'ın aynı dış hesabı ayrı ayrı taşıması bu ayrımı
+  bozmadı.
+- **Kayıt provenance: authorization `316085c2`, revision 1, active; decision `9a2e0b78`, session
+  `2a154246`; scope `instagram.account.public.read`, ceiling 1440 dk.** Instagram, standing-observation
+  otoritesinden geçen ikinci provider oldu — ama ilk gerçek observation'ı HENÜZ çalıştırılmadı.
