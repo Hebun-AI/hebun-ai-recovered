@@ -303,9 +303,27 @@ function theCeilingCannotBeWidened(): void {
    * itself, so a mandate can never admit a kind the origination path does not, and the two cannot
    * drift apart by anyone editing one of them.
    */
-  assert.equal(
-    MANDATE_SCOPE_VOCABULARY,
-    AGENT_ORIGINABLE_ACTION_KINDS as readonly string[],
+  /*
+   * ── WHY `assert.ok(a === b)` AND NOT `assert.equal(a, b)` ────────────────
+   *
+   * The invariant is UNCHANGED — still reference identity, still `===`. What changed is that the
+   * assertion can now SAY SO when it fails.
+   *
+   * `assert.equal` under `node:assert/strict` is `strictEqual`, and Node has a special case for
+   * exactly the situation this line exists to catch: when two values are structurally deep-equal but
+   * not reference-equal, it DISCARDS the caller's message and substitutes
+   * "Values have same structure but are not reference-equal:". It reports `generatedMessage: false`
+   * while doing it — Node knows a message was supplied and overrides it anyway.
+   *
+   * That is the ONLY way this assertion can ever fail: a copy of the vocabulary has the same members
+   * by construction. So the sentence below was unreachable, and the bite-proof that exists to prove
+   * this guard bites for the RIGHT REASON could never see it — the guard fired, the reason went
+   * missing, and the bite-proof correctly refused to accept a failure it could not attribute.
+   *
+   * `assert.ok` has no such special case: a false condition always prints the message it was given.
+   */
+  assert.ok(
+    MANDATE_SCOPE_VOCABULARY === (AGENT_ORIGINABLE_ACTION_KINDS as readonly string[]),
     "the mandate vocabulary IS the released originable vocabulary — the same reference, not a copy",
   );
 
