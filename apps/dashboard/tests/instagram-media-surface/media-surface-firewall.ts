@@ -30,14 +30,17 @@ const PAGE = "src/app/(dashboard)/integrations/instagram/page.tsx";
 const MEDIA_PROJECTION = "src/features/instagram-connection-surface/latest-media-observation.ts";
 const ACCOUNT_PROJECTION = "src/features/instagram-connection-surface/latest-observation.ts";
 const SEAM = "src/features/provider-observation-history/read-provider-observations.server.ts";
+const CARDS = "src/components/platform-integrations/instagram-media-cards.tsx";
 
 function main(): void {
-  for (const f of [PAGE, MEDIA_PROJECTION, ACCOUNT_PROJECTION, SEAM]) {
+  for (const f of [PAGE, MEDIA_PROJECTION, ACCOUNT_PROJECTION, SEAM, CARDS]) {
     assert.ok(existsSync(path.join(ROOT, f)), `${f} exists`);
   }
   const page = codeOf(read(PAGE));
   const projection = codeOf(read(MEDIA_PROJECTION));
-  const consumer = `${page}\n${projection}`;
+  const cards = codeOf(read(CARDS));
+  /* THE PRESENTATION COMPONENT IS PART OF THE CONSUMER and inherits every ban below. */
+  const consumer = `${page}\n${projection}\n${cards}`;
   const seam = codeOf(read(SEAM));
 
   /* ═══ 1. THE REPAIR: THE SEAM CAN EXPRESS A CAPABILITY, AND USES IT ═══════ */
@@ -199,9 +202,35 @@ function main(): void {
     assert.ok(!consumer.includes(math), `no arithmetic over the window — \`${math}\``);
   }
 
-  /* ═══ 7. NO FRESHNESS VERDICT, NO CLOCK ══════════════════════════════════ */
-  for (const clock of ["Date.now(", "new Date(", "toLocale", "Intl.", " ago", "stale", "fresh", "outdated"]) {
-    assert.ok(!consumer.includes(clock), `no time arithmetic or freshness verdict — \`${clock}\``);
+  /* ═══ 7. NO CLOCK, NO FRESHNESS VERDICT — BUT FORMATTING IS ALLOWED ══════
+   *
+   * The original ban included `new Date(` and `Intl.`, which was right while nothing rendered a
+   * date. It is too blunt now: FORMATTING A STORED INSTANT is not reading a clock. The distinction
+   * this pin defends is the one that matters —
+   *
+   *   `new Date(storedIso)`  parses a value the provider gave      ALLOWED
+   *   `Date.now()`           reads the present                     FORBIDDEN
+   *   "28 Jul 2026"          what was said                         ALLOWED
+   *   "43 days ago"          a claim about now                     FORBIDDEN
+   */
+  for (const clock of ["Date.now(", " ago", "stale", "fresh", "outdated", "relative"]) {
+    assert.ok(!consumer.includes(clock), `no clock reading or freshness verdict — \`${clock}\``);
+  }
+  /* Where an instant IS formatted, it must be deterministic: fixed locale, fixed zone. */
+  if (projection.includes("Intl.DateTimeFormat")) {
+    assert.ok(
+      /Intl\.DateTimeFormat\(\s*"en-GB"/.test(projection),
+      "a formatted instant uses a FIXED locale, so server and browser cannot disagree",
+    );
+    assert.ok(
+      /timeZone:\s*"UTC"/.test(projection),
+      "and a FIXED zone, so the value does not change meaning with the reader",
+    );
+  }
+  /* The page and the component never construct a Date at all — only the projection may. */
+  for (const [f, code] of [[PAGE, page], [CARDS, cards]] as const) {
+    assert.ok(!code.includes("new Date("), `${f} constructs no Date`);
+    assert.ok(!code.includes("Intl."), `${f} formats no instant of its own`);
   }
 
   /* ═══ 8. THE PERMALINK IS A POLICY, NOT A GUESS ══════════════════════════ */
@@ -214,17 +243,60 @@ function main(): void {
     "and only Instagram's own hosts",
   );
   assert.ok(
-    page.includes('rel="noreferrer noopener nofollow"'),
-    "an outbound link carries noreferrer and noopener",
+    cards.includes('rel="noreferrer noopener nofollow"'),
+    "an outbound link carries noreferrer, noopener and nofollow",
   );
   assert.ok(
-    page.includes("item.permalink ? ("),
+    cards.includes("item.permalink ? ("),
     "and a link is rendered only when the permalink passed the policy",
   );
-  /* NOTHING IS FETCHED, AND NO IMAGE IS IMPLIED. */
-  for (const asset of ["<img", "next/image", "media_url", "mediaUrl", "thumbnail", "backgroundImage"]) {
-    assert.ok(!page.includes(asset), `no asset is fetched or implied — \`${asset}\``);
+  /*
+   * NOTHING IS FETCHED, AND NO IMAGE IS IMPLIED — checked across the WHOLE consumer, component
+   * included. The observation deliberately stores no asset URL, so there is nothing to render; a
+   * placeholder tile or a background gradient standing in for a photo would imply content Hebun does
+   * not hold, and scraping the permalink for a preview would be a provider call from a page load.
+   */
+  for (const asset of [
+    "<img",
+    "next/image",
+    "media_url",
+    "mediaUrl",
+    "thumbnail",
+    "backgroundImage",
+    "og:image",
+    "opengraph",
+  ]) {
+    assert.ok(!consumer.includes(asset), `no asset is fetched or implied — \`${asset}\``);
   }
+
+  /* ═══ 8b. THE CARD IS A PRODUCT SURFACE, AND STILL AN HONEST ONE ═════════ */
+  assert.ok(/grid-cols-1[\s\S]*sm:grid-cols-2[\s\S]*xl:grid-cols-3/.test(cards),
+    "the grid follows the product's existing responsive shape");
+  assert.ok(cards.includes("line-clamp-4"), "the caption is CLAMPED visually, not truncated in data");
+  assert.ok(
+    cards.includes("break-words"),
+    "and an unbroken hashtag cannot widen a column and scroll the page sideways",
+  );
+  assert.ok(
+    !/caption[^\n]*\.(slice|substring|substr)\(/.test(cards),
+    "the stored caption value is never cut — only its display is bounded",
+  );
+  assert.ok(!cards.includes("dangerouslySetInnerHTML"), "provider text is never injected as HTML");
+  /* AN ICON IS NEVER THE ONLY MEANING. */
+  assert.ok(cards.includes('aria-hidden="true"'), "decorative icons are hidden from assistive tech");
+  assert.ok(cards.includes("sr-only"), "and the full sentence is carried for screen readers");
+  assert.ok(
+    cards.includes("count.value") && cards.includes("count.display"),
+    "the compact glyph and the spelled-out meaning come from ONE source, so they cannot disagree",
+  );
+  /* Design-system primitives rather than a parallel visual language, and no hardcoded colours. */
+  for (const primitive of ["@/components/ui/card", "@/components/ui/badge"]) {
+    assert.ok(cards.includes(primitive), `the card reuses \`${primitive}\``);
+  }
+  assert.ok(
+    !/#[0-9a-fA-F]{3,8}\b/.test(cards) && !/\b(bg|text)-\[/.test(cards),
+    "no hardcoded colour — theme tokens only",
+  );
 
   /* ═══ 9. THE ACCOUNT AND CONNECTION SECTIONS SURVIVE ═════════════════════ */
   for (const kept of [

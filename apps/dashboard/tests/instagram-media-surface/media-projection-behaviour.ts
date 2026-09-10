@@ -18,12 +18,15 @@
 import assert from "node:assert/strict";
 import {
   describeMediaCounts,
+  formatPublishedOn,
+  mediaTypeLabel,
   projectLatestInstagramMediaObservation,
   safeInstagramPermalink,
   windowStateOf,
   INSTAGRAM_MEDIA_ABSENCE,
   INSTAGRAM_MEDIA_NO_COMMENTS,
   INSTAGRAM_MEDIA_NO_LIKES,
+  INSTAGRAM_MEDIA_COUNT_UNREPORTED,
   INSTAGRAM_MEDIA_WINDOW,
 } from "../../src/features/instagram-connection-surface/latest-media-observation";
 import type { ObservationFacts, StoredProviderObservation } from "../../src/features/provider-observation-history/contracts";
@@ -269,10 +272,60 @@ function main(): void {
     "two items produce no total and no average — this consumer computes nothing",
   );
 
+  /* ═══ 10. PRESENTATION HELPERS — READABLE, AND STILL TRUTHFUL ════════════ */
+
+  /* A DATE IS FORMATTED, NOT INTERPRETED. Fixed locale + UTC, so the value never moves. */
+  assert.equal(
+    formatPublishedOn("2026-07-28T18:02:35+0000"),
+    "28 Jul 2026",
+    "a provider instant becomes a readable date",
+  );
+  assert.equal(
+    formatPublishedOn("2026-01-01T23:30:00+0000"),
+    "1 Jan 2026",
+    "and the same input always yields the same output, in UTC",
+  );
+  assert.equal(formatPublishedOn(null), null, "an absent publication time stays absent");
+  assert.equal(
+    formatPublishedOn("not a date"),
+    null,
+    "and an unparseable provider string is reported as absent, never as `Invalid Date`",
+  );
+
+  /* A TYPE IS RELABELLED, NOT REINTERPRETED. */
+  assert.equal(mediaTypeLabel("IMAGE"), "Image");
+  assert.equal(mediaTypeLabel("VIDEO"), "Video");
+  assert.equal(mediaTypeLabel("CAROUSEL_ALBUM"), "Carousel");
+  assert.equal(
+    mediaTypeLabel("REELS_SOMETHING_NEW"),
+    "REELS_SOMETHING_NEW",
+    "an undocumented type is shown AS THE PROVIDER SAID IT — no invented label, and not hidden",
+  );
+  assert.equal(mediaTypeLabel(null), null, "an absent type stays absent");
+
+  /* THE COMPACT GLYPH AND THE SPELLED-OUT MEANING AGREE, ALWAYS. */
+  const zeroRows = describeMediaCounts(zero!);
+  assert.equal(zeroRows[0]!.display, "0", "a real zero displays as 0");
+  assert.equal(zeroRows[0]!.reported, true, "and is marked reported");
+  const withheldRows = describeMediaCounts(withheld!);
+  assert.equal(
+    withheldRows[0]!.display,
+    INSTAGRAM_MEDIA_COUNT_UNREPORTED,
+    "a withheld count displays as an em dash",
+  );
+  assert.notEqual(withheldRows[0]!.display, "0", "NEVER as 0");
+  assert.equal(withheldRows[0]!.reported, false, "and is marked unreported");
+  assert.equal(
+    withheldRows[0]!.value,
+    INSTAGRAM_MEDIA_NO_LIKES,
+    "while the spelled-out meaning remains the full sentence, for assistive technology",
+  );
+
   console.log(
     "instagram-media-surface/media-projection-behaviour: window+instant together, null!=0, 0!=null, " +
       "caption absence preserved, malformed skipped, three window answers, count read not recomputed, " +
-      "empty!=unavailable, permalink policy enforced, no internal ids, nothing derived",
+      "empty!=unavailable, permalink policy enforced, no internal ids, nothing derived, " +
+      "dates formatted deterministically, unknown media types shown verbatim",
   );
 }
 

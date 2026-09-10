@@ -213,10 +213,62 @@ export const INSTAGRAM_MEDIA_ABSENCE: Readonly<
     "exists is unknown. This is not a statement that there is none.",
 });
 
-/** One rendered row of an item's counts. Values are already text; the component only places them. */
+/**
+ * A human-readable publication date, or `null` when the provider did not report one.
+ *
+ * ── FIXED LOCALE, FIXED ZONE, AND NO CLOCK ──────────────────────────────────
+ *
+ * The repository's released convention for rendering an instant: a server-rendered timestamp must
+ * not depend on ambient locale or time zone, or the server and the browser disagree and the value
+ * changes meaning with whoever is looking.
+ *
+ * THIS FORMATS A STORED VALUE; IT DOES NOT READ A CLOCK. There is no `Date.now()` here and there
+ * never may be: "28 Jul 2026" is what the provider said, while "43 days ago" would be a statement
+ * about the present that no stored observation supports.
+ */
+export function formatPublishedOn(iso: string | null): string | null {
+  if (iso === null) return null;
+  const parsed = new Date(iso);
+  /* An unparseable provider string is not a date, and is reported as absent rather than as `Invalid Date`. */
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "UTC" }).format(parsed);
+}
+
+/**
+ * A readable label for a provider media type.
+ *
+ * PRESENTATION ONLY. The stored fact keeps the provider's own spelling; this changes how it reads,
+ * never what it means. A type outside the documented set is shown AS THE PROVIDER SAID IT rather
+ * than mapped to a guess or hidden — Meta may add one, and inventing a label for an unknown value
+ * would be this surface claiming to understand something it does not.
+ */
+const MEDIA_TYPE_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  IMAGE: "Image",
+  VIDEO: "Video",
+  CAROUSEL_ALBUM: "Carousel",
+});
+
+export function mediaTypeLabel(raw: string | null): string | null {
+  if (raw === null) return null;
+  return MEDIA_TYPE_LABELS[raw] ?? raw;
+}
+
+/** Shown in place of a count the provider did not report. Never `0`. */
+export const INSTAGRAM_MEDIA_COUNT_UNREPORTED = "—" as const;
+
+/**
+ * One rendered row of an item's counts.
+ *
+ * `value` is the full sentence — used where the meaning must be spelled out, including for assistive
+ * technology. `display` is the compact glyph a card shows beside an icon. They must never disagree,
+ * which is why one function produces both: a `0` displays as `0` and reads as `0`, while a withheld
+ * count displays as an em dash and reads as "Instagram did not report the like count".
+ */
 export interface InstagramMediaCountRow {
   readonly label: string;
   readonly value: string;
+  readonly display: string;
+  readonly reported: boolean;
 }
 
 /**
@@ -226,15 +278,17 @@ export interface InstagramMediaCountRow {
  * the world and the difference survives to the screen.
  */
 export function describeMediaCounts(item: InstagramMediaItemView): readonly InstagramMediaCountRow[] {
+  const row = (label: string, count: number | null, withheld: string): InstagramMediaCountRow =>
+    Object.freeze({
+      label,
+      value: count === null ? withheld : String(count),
+      display: count === null ? INSTAGRAM_MEDIA_COUNT_UNREPORTED : String(count),
+      reported: count !== null,
+    });
+
   return Object.freeze([
-    Object.freeze({
-      label: "Likes Instagram reported",
-      value: item.likeCount === null ? INSTAGRAM_MEDIA_NO_LIKES : String(item.likeCount),
-    }),
-    Object.freeze({
-      label: "Comments Instagram reported",
-      value: item.commentCount === null ? INSTAGRAM_MEDIA_NO_COMMENTS : String(item.commentCount),
-    }),
+    row("Likes Instagram reported", item.likeCount, INSTAGRAM_MEDIA_NO_LIKES),
+    row("Comments Instagram reported", item.commentCount, INSTAGRAM_MEDIA_NO_COMMENTS),
   ]);
 }
 

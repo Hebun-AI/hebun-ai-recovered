@@ -51,17 +51,14 @@ import {
   INSTAGRAM_OBSERVATION_MEANING,
 } from "@/features/instagram-connection-surface/latest-observation";
 import {
-  describeMediaCounts,
   projectLatestInstagramMediaObservation,
   windowStateOf,
   INSTAGRAM_MEDIA_ABSENCE,
   INSTAGRAM_MEDIA_HEADING,
   INSTAGRAM_MEDIA_MEANING,
-  INSTAGRAM_MEDIA_NO_CAPTION,
-  INSTAGRAM_MEDIA_NO_PUBLISHED_AT,
-  INSTAGRAM_MEDIA_NO_TYPE,
   INSTAGRAM_MEDIA_WINDOW,
 } from "@/features/instagram-connection-surface/latest-media-observation";
+import { InstagramMediaCards } from "@/components/platform-integrations/instagram-media-cards";
 
 export const metadata = { title: "Instagram — Integrations — Hebun AI" };
 export const dynamic = "force-dynamic";
@@ -235,71 +232,49 @@ export default async function InstagramIntegrationPage({
          * A THIRD SUBORDINATE SECTION, INDEPENDENT OF THE CONNECTION'S LIFECYCLE for the same reason
          * the account observation is: Instagram did say these things, at that instant, and a grant
          * ending later does not un-say them.
+         *
+         * ── THE FRAMING IS SHORTER THAN IT WAS, AND SAYS THE SAME THING ─────────
+         *
+         * The long paragraph belonged to an acceptance, where every clause had to be defended. On a
+         * finished surface the same truth fits in a heading and one line: these are posts from a
+         * STORED observation, taken at a stated instant. The full sentence is still carried — as the
+         * section's own title text — so nothing was traded away for brevity.
          */}
         <div className="rounded-md border border-[var(--line)] px-4 py-4 space-y-3">
-          <p className="font-semibold">{INSTAGRAM_MEDIA_HEADING}</p>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <p className="font-semibold" title={INSTAGRAM_MEDIA_MEANING}>
+              {INSTAGRAM_MEDIA_HEADING}
+            </p>
+            {latestMedia.status === "observed" ? (
+              <p className="text-xs text-fg-muted">
+                Observed by Hebun at{" "}
+                <span className="font-mono">{latestMedia.observation.observedAt}</span>
+              </p>
+            ) : null}
+          </div>
 
           {latestMedia.status === "observed" ? (
             <>
-              <p>{INSTAGRAM_MEDIA_MEANING}</p>
-              <p>
-                Hebun observed Instagram at{" "}
-                <span className="font-mono text-xs">{latestMedia.observation.observedAt}</span>
-              </p>
-              <p>
-                Instagram reported{" "}
-                <span className="font-medium">
-                  {latestMedia.observation.recentMediaCount ?? latestMedia.observation.items.length}
-                </span>{" "}
-                media in this observation. {INSTAGRAM_MEDIA_WINDOW[windowStateOf(latestMedia.observation)]}
+              <p className="text-xs leading-5 text-fg-secondary">
+                Posts from the latest stored Instagram observation — what the provider reported at
+                that instant, not a live view of the account.
               </p>
 
-              <ul className="space-y-3">
-                {latestMedia.observation.items.map((item, index) => (
-                  <li
-                    key={item.permalink ?? `${item.publishedAt ?? "unknown"}-${index}`}
-                    className="rounded-md border border-[var(--line)] px-3 py-3 space-y-1"
-                  >
-                    <p className="text-xs">
-                      {item.mediaType ?? INSTAGRAM_MEDIA_NO_TYPE}
-                      {" · published "}
-                      <span className="font-mono">
-                        {item.publishedAt ?? INSTAGRAM_MEDIA_NO_PUBLISHED_AT}
-                      </span>
-                    </p>
-                    {/*
-                     * THE CAPTION IS PROVIDER-WRITTEN TEXT. React escapes it; nothing here parses
-                     * it, and `whitespace-pre-wrap` only preserves the line breaks the author typed.
-                     */}
-                    <p className="whitespace-pre-wrap break-words">
-                      {item.caption ?? INSTAGRAM_MEDIA_NO_CAPTION}
-                    </p>
-                    <ul className="space-y-0.5">
-                      {describeMediaCounts(item).map((row) => (
-                        <li key={row.label} className="text-xs">
-                          {row.label}: <span className="font-medium">{row.value}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    {/* A LINK ONLY WHEN THE PERMALINK PASSED THE POLICY. Never fetched, never previewed. */}
-                    {item.permalink ? (
-                      <p className="text-xs">
-                        <a
-                          href={item.permalink}
-                          target="_blank"
-                          rel="noreferrer noopener nofollow"
-                          className="underline underline-offset-4"
-                        >
-                          Open this post on Instagram
-                        </a>
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
+              <InstagramMediaCards items={latestMedia.observation.items} />
+
+              {/*
+               * THE WINDOW EDGE, KEPT PROPORTIONATE. A clipped or unknown window is a real caveat and
+               * is stated in full; a complete one needs no paragraph on every render, so it is a
+               * quiet footer line.
+               */}
+              <p className="text-xs leading-5 text-fg-muted">
+                {latestMedia.observation.recentMediaCount ?? latestMedia.observation.items.length}{" "}
+                media in this observation.{" "}
+                {INSTAGRAM_MEDIA_WINDOW[windowStateOf(latestMedia.observation)]}
+              </p>
             </>
           ) : (
-            <p>
+            <p className="text-sm text-fg-secondary">
               {latestMedia.status === "none"
                 ? INSTAGRAM_MEDIA_ABSENCE.none
                 : INSTAGRAM_MEDIA_ABSENCE[latestMedia.reason]}
