@@ -53,6 +53,29 @@ export interface ProviderObservationQuery {
    */
   readonly capabilityKey?: string;
   readonly subjectRef?: string;
+  /**
+   * ONE EXACT STORED OBSERVATION, BY ITS DURABLE ID (SOC-ACT1).
+   *
+   * ── WHY AN EXACT PREDICATE AND NOT A WINDOW SCAN ────────────────────────
+   *
+   * A governed proposal cites the observation it rests on, and a human later approves a payload
+   * that names it. Resolving that citation by reading a bounded window and matching in memory
+   * would make the answer depend on how many observations happened to arrive since — an
+   * observation older than the window would resolve as ABSENT while still existing, and the
+   * refusal would be about the window rather than about the row. A citation must resolve to the
+   * row it names or to nothing.
+   *
+   * ── IT NARROWS; IT CANNOT WIDEN ─────────────────────────────────────────
+   *
+   * This predicate is ANDed with the unconditional tenant predicate below, exactly as every other
+   * optional predicate here is. There is no argument — this one included — that can reach a row
+   * belonging to another tenant: a foreign id simply matches nothing, and the seam answers with an
+   * empty read rather than with a different row. That is why a cross-tenant lookup is
+   * unrepresentable here rather than merely refused.
+   *
+   * Omitting it leaves every existing caller's behaviour byte-identical.
+   */
+  readonly observationId?: string;
   readonly limit?: number;
 }
 
@@ -98,6 +121,17 @@ export async function readProviderObservations(
   if (query.providerKey) predicates.push(eq(providerObservations.providerKey, query.providerKey));
   if (query.capabilityKey) predicates.push(eq(providerObservations.capabilityKey, query.capabilityKey));
   if (query.subjectRef) predicates.push(eq(providerObservations.subjectRef, query.subjectRef));
+  /*
+   * SOC-ACT1. Added to the SAME predicate list as every other filter, so it is ANDed with the
+   * tenant predicate and can only ever narrow the answer.
+   *
+   * THE COLUMN IS `uuid`, SO THE CALLER OWES A UUID. A value that is not one is a malformed
+   * citation, and malformed citations are rejected by `parseProviderObservationRef` before they
+   * ever reach this seam — which is where that check belongs, because only the reference module
+   * knows what a canonical reference looks like. Guarding again here would put a second, drifting
+   * opinion about reference syntax inside the read authority.
+   */
+  if (query.observationId) predicates.push(eq(providerObservations.id, query.observationId));
 
   try {
     const rows = await db

@@ -437,7 +437,7 @@ async function main(): Promise<void> {
   );
   assert.deepEqual([...GOVERNANCE_SUBJECT_TYPES], ["knowledge_node", "work_artifact_revision"], "no Governance subject type was added");
   /* Twenty since OSA-4 added `people`. Pinned here only so an undeclared class still fails. */
-  assert.equal(HEBY_SOURCE_CLASSES.length, 20, "no source class was added or removed by this milestone");
+  assert.equal(HEBY_SOURCE_CLASSES.length, 21, "no source class was added or removed by THIS milestone; SOC-ACT1 later added the 21st");
   assert.ok(HEBY_SOURCE_CLASSES.includes("work"), "and `work` is still one of them");
 
   const carrying = HEBY_PROFILED_WORKSPACES.filter((w) =>

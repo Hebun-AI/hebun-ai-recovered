@@ -385,7 +385,7 @@ function walk(dir: string): string[] {
    * its own Governance gate, and this module's own header sentence ("Not a roster authority. Not a
    * people directory.") is asserted below and remains true of THIS module.
    */
-  assert.equal(HEBY_SOURCE_CLASSES.length, 20, "the source class census is unchanged by HLR");
+  assert.equal(HEBY_SOURCE_CLASSES.length, 21, "the source class census is unchanged by HLR; SOC-ACT1 later added the 21st");
   for (const forbidden of ["human-labels", "roster", "members"]) {
     assert.ok(
       !HEBY_SOURCE_CLASSES.includes(forbidden as never),

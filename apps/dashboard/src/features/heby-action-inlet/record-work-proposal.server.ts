@@ -47,11 +47,21 @@ import { isDepartmentRef, parseDepartmentRef, formatDepartmentRef } from "@/feat
 import { formatOrganizationRef } from "@/features/organization-authority/organization-ref";
 import { isWellFormedWorkTitle } from "@/features/organizational-work/work-contracts";
 import {
+  readProviderObservations,
+} from "@/features/provider-observation-history/read-provider-observations.server";
+import {
+  formatProviderObservationRef,
+  parseProviderObservationRef,
+} from "@/features/provider-observation-history/observation-ref";
+import {
   RECORD_WORK_ACTION_KIND,
   RECORD_WORK_OWNER_WORKSPACE,
   type RecordWorkProposalInput,
   type RecordWorkProposalRefusal,
   type RecordWorkProposalResult,
+  type SocialWorkProposalInput,
+  type SocialWorkProposalRefusal,
+  type SocialWorkProposalResult,
 } from "./contracts";
 
 export interface RecordWorkProposalDeps {
@@ -471,4 +481,172 @@ export function proposeAgentOriginatedRecordWorkAction(
     originationInvocationId,
     proposalRationale,
   );
+}
+
+/* ===========================================================================
+ * SOC-ACT1 — record-work proposed from a STORED PROVIDER OBSERVATION
+ * ========================================================================= */
+
+/**
+ * File a record-work proposal whose evidence is one stored provider observation.
+ *
+ * ── WHY IT LIVES HERE AND NOT IN SOCIAL INTELLIGENCE ─────────────────────────
+ *
+ * This is the Command-owned `record-work` inlet, and `record-work` is a Command-owned capability.
+ * A second proposal writer inside the Social Intelligence feature would be a second set of rules to
+ * keep honest, and — worse — it would be the Intelligence workspace wielding Command's tool. The
+ * capability gate calls that a confused deputy and refuses it, correctly. So the request is filed
+ * HERE, under the owning workspace, and Social Intelligence contributes what it legitimately has:
+ * a reference a human selected and a sentence a human typed.
+ *
+ *     `requestingWorkspace` IS COMMAND'S BECAUSE COMMAND'S INLET IS FILING IT.
+ *
+ * The workspace-ownership gate is untouched by this phase and is satisfied without modification.
+ *
+ * ── THE CALLER NAMES THE OBSERVATION; THE SERVER READS IT ────────────────────
+ *
+ * The reference is parsed, then RE-READ through the released observation authority under that
+ * authority's own unconditional tenant predicate. A foreign, deleted or invented id resolves to
+ * nothing and is refused with the same answer, so the difference between them cannot be used to
+ * discover what another tenant holds.
+ *
+ * The evidence is then built from THE ROW THAT WAS READ — the reference is re-derived from
+ * `observationId` rather than echoed back from the caller's string, so a canonical-looking variant
+ * cannot become the thing a human approves. Nothing the browser sent describes the observation: not
+ * its provider, not its capability, not its instant, and no measurement whatsoever.
+ *
+ *     IT IS NOT CONSTRUCTED TO SATISFY THE EVIDENCE RULE; IT IS THE READ.
+ *
+ * ── WHAT IT DOES NOT DO ──────────────────────────────────────────────────────
+ *
+ * It records no work, approves nothing, mints no permit, executes nothing, and reaches no provider.
+ * Filing returns a PENDING request and nothing else. The register is unchanged until a human decides
+ * and a separately-spent permit lets Hebun perform the mutation.
+ *
+ * Server-only.
+ */
+export async function proposeSocialObservationWorkAction(
+  tenant: TenantContext | null,
+  input: SocialWorkProposalInput | null,
+  deps: RecordWorkProposalDeps = {},
+): Promise<SocialWorkProposalResult> {
+  if (typeof window !== "undefined") {
+    throw new Error("Social work proposals are server-only.");
+  }
+  if (!tenant?.tenantId || !tenant.userId) {
+    return socialRefused("unauthenticated", "This session could not be resolved, so nothing was filed.");
+  }
+
+  const title = typeof input?.title === "string" ? input.title.trim() : "";
+  if (!isWellFormedWorkTitle(title)) {
+    return socialRefused("invalid-input", "A work request needs a title in the organization's own words.");
+  }
+
+  /*
+   * THE REFERENCE IS PARSED BEFORE IT IS READ. `parseProviderObservationRef` is the only thing that
+   * knows what a canonical reference looks like, and a malformed one must never reach a `uuid`
+   * column — a database type error would be reported as persistence trouble, which would be a lie
+   * about whose mistake it was.
+   */
+  const parsed = parseProviderObservationRef(input?.observationRef);
+  if (!parsed) {
+    return socialRefused(
+      "invalid-observation-ref",
+      "That is not a canonical provider observation reference, so nothing was read.",
+    );
+  }
+
+  const read = await readProviderObservations(
+    tenant,
+    { observationId: parsed.observationId, limit: 1 },
+    deps.getDb ? { getDb: deps.getDb } : {},
+  );
+  if (read.status === "unavailable") {
+    return socialRefused(
+      "persistence-unavailable",
+      "Hebun could not read its own observation history just now, so nothing was filed.",
+    );
+  }
+  const observation = read.observations[0];
+  if (!observation) {
+    /*
+     * ONE ANSWER FOR ABSENT, FOREIGN AND DELETED. The seam's tenant predicate already made a
+     * cross-tenant row unreachable; collapsing the three here means the refusal cannot be used to
+     * learn that an observation exists somewhere this caller cannot see.
+     */
+    return socialRefused(
+      "observation-not-found",
+      "No stored observation of this organization's matches that reference, so nothing was filed.",
+    );
+  }
+
+  /* Re-derived from the row, never echoed from the caller. */
+  const observationRef = formatProviderObservationRef(observation.observationId);
+
+  const prepared = prepareAction({
+    actionKind: RECORD_WORK_ACTION_KIND,
+    requestingWorkspace: RECORD_WORK_OWNER_WORKSPACE,
+    target: {
+      kind: "record",
+      ref: observationRef,
+      /*
+       * PROVIDER AND INSTANT ONLY. Both are Hebun's own record of what it did — never a
+       * measurement, never a subject id, never an account name, and never a caption.
+       */
+      label: `${observation.providerKey} observation recorded ${observation.observedAt}`,
+      sourceClass: "provider-observations",
+    },
+    proposedArguments: {
+      title,
+      /*
+       * TRH-16's discriminator, declared explicitly. Work proposed from a channel measurement is
+       * the organization's own, and naming a department Hebun did not resolve would be the fiction
+       * that discriminator exists to prevent.
+       */
+      departmentScope: "organization-level",
+    },
+    /*
+     * ONE ENTRY, because ONE row was read a moment ago. It is the read, not a construction that
+     * satisfies `requiredEvidenceCount`.
+     */
+    evidence: [
+      { sourceClass: "provider-observations", recordRef: observationRef, lifecycle: "settled" },
+    ],
+  });
+
+  if (prepared.lifecycleState !== "REQUIRES_HUMAN_REVIEW") {
+    return socialRefused(
+      "not-authorizable",
+      `The action did not reach human review (${prepared.lifecycleState}). Nothing was filed.`,
+    );
+  }
+
+  const recorded = await recordActionRequest(tenant, prepared, deps);
+  if (recorded.status !== "recorded") {
+    return {
+      status: "refused",
+      reason: recorded.reason === "already-pending" ? "already-pending" : "not-authorizable",
+      detail: "The action authority did not file this request.",
+      authorityRefusal: recorded.reason,
+    };
+  }
+
+  return {
+    status: "proposed",
+    receipt: {
+      requestId: recorded.requestId,
+      actionKind: RECORD_WORK_ACTION_KIND,
+      title,
+      observationRef,
+      observedAt: observation.observedAt,
+      status: "pending-review",
+    },
+  };
+}
+
+function socialRefused(
+  reason: SocialWorkProposalRefusal,
+  detail: string,
+): SocialWorkProposalResult {
+  return { status: "refused", reason, detail };
 }

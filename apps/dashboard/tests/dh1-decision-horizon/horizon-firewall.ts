@@ -201,7 +201,7 @@ async function main(): Promise<void> {
    * 4. NO NEW SOURCE CLASS. THE CLASS WAS ALWAYS THIS QUESTION.
    * ═══════════════════════════════════════════════════════════════════════ */
   {
-    assert.equal(HEBY_SOURCE_CLASSES.length, 20, "the census is unchanged by DH-1");
+    assert.equal(HEBY_SOURCE_CLASSES.length, 21, "the census is unchanged by DH-1; SOC-ACT1 later added the 21st");
     for (const forbidden of ["decision-horizon", "horizon", "decisions"]) {
       assert.ok(!(HEBY_SOURCE_CLASSES as readonly string[]).includes(forbidden), `no ${forbidden} class was added`);
     }

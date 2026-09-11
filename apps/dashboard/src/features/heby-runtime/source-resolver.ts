@@ -328,6 +328,26 @@ export function resolveSource(
         "people",
         "An organization's people are read tenant-scoped on the server under its Governance authority; no authorized server read was supplied here, so nothing was read.",
       );
+    /*
+     * SOC-ACT1. THIS BRANCH EXISTS BECAUSE THE COMPILER DEMANDS ONE, AND IT SAYS NO.
+     *
+     * Every other `unavailable` above is a class whose reader is absent or whose tenant-scoped read
+     * was not supplied. This one is different and must not be mistaken for them: there is NO Heby
+     * reader for stored provider observations, none was built, and none is planned by the phase that
+     * added the class. The class exists so an action's evidence can NAME an observation — the
+     * governed chain carries that reference as a handle and never resolves it here.
+     *
+     *     SOURCE-CLASS MEMBERSHIP != HEBY CONNECTIVITY.
+     *
+     * Returning `unavailable` is therefore the whole truth rather than a placeholder, and this
+     * branch must never be "completed" by wiring a reader into it. A reader would be a new Heby
+     * data path over provider records, which is a separate charter nobody has been given.
+     */
+    case "provider-observations":
+      return unavailable(
+        "provider-observations",
+        "Stored provider observations are not readable through Heby: this class carries action evidence only, and no Heby reader over provider observations exists.",
+      );
     default: {
       // Exhaustiveness guard — a new source class must be handled explicitly.
       const never: never = sourceClass;

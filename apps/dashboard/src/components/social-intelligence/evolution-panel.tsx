@@ -46,6 +46,14 @@ export interface EvolutionPanelProps {
   readonly changes: SocialChangeBlock | null;
   readonly changesSentence: string | null;
   readonly changeProvenance: SocialProvenance;
+  /**
+   * SOC-ACT1. An optional affordance rendered BELOW the evidence, never among it.
+   *
+   * The panel stays a reading surface: it decides nothing about what a child does, computes nothing
+   * for it, and passes it no measurement. Placing it last is deliberate — a control above the
+   * numbers would read as an instruction about them.
+   */
+  readonly children?: React.ReactNode;
 }
 
 export function EvolutionPanel({
@@ -60,6 +68,7 @@ export function EvolutionPanel({
   changes,
   changesSentence,
   changeProvenance,
+  children,
 }: EvolutionPanelProps) {
   return (
     <section
@@ -112,6 +121,8 @@ export function EvolutionPanel({
           <p className="mt-1.5 text-meta leading-5 text-fg-secondary text-pretty">{changesSentence}</p>
         </div>
       ) : null}
+
+      {children}
     </section>
   );
 }

@@ -449,7 +449,31 @@ export type HebySourceClass =
    *     COVERAGE != CORRECTNESS     COVERAGE != RATIFICATION
    *     COVERAGE != UNDERSTANDING   MISSING  != THE ORGANIZATION LACKS IT
    */
-  | "knowledge-coverage";
+  | "knowledge-coverage"
+  /*
+   * SOC-ACT1. STORED PROVIDER OBSERVATIONS — what a provider reported about a subject this tenant
+   * connected, at the instant Hebun recorded it. Owned by Provider Observation History.
+   *
+   * ── IT IS ITS OWN CLASS FOR THE RULE EVERY CLASS SINCE `work-artifacts` USES ──
+   *
+   * A DIFFERENT AUTHORITY OWNER. `integrations` reads INT-5A's capability state and says of itself
+   * that it reads no provider record; a stored observation IS the provider record, one authority
+   * over. `intelligence` is chartered advisory — candidates, assessments, hypotheses — and
+   * `SourceResolution.authoritative` is one boolean for a whole class, so a class cannot assert one
+   * standing for advice and another for a recorded provider fact.
+   *
+   * ── MEMBERSHIP IS NOT CONNECTIVITY ──────────────────────────────────────────
+   *
+   * THIS CLASS HAS NO CONNECTED HEBY READER AND SOC-ACT1 DOES NOT ADD ONE. It exists so an action's
+   * evidence can name the observation it rests on; the governed action chain never resolves a source
+   * class, it carries the reference as a handle and shows it to a human. `memory`, `workforce` and
+   * `external-recipients` are already members with no reader, and `external-recipients` already
+   * carries released action evidence — so this is the existing shape, not a new one.
+   *
+   * A reader may be chartered later for a conversational brief. That is a separate decision and
+   * nothing here anticipates it.
+   */
+  | "provider-observations";
 
 export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "knowledge",
@@ -472,6 +496,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "recorded-acts",
   "recorded-act-windows",
   "knowledge-coverage",
+  "provider-observations",
 ] as const;
 
 export interface HebySourceStatus {

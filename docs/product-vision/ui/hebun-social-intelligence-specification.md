@@ -41,6 +41,16 @@ know how the organization's audience is developing has nowhere to look.
 Social Intelligence is that place. It is a **reading** surface over stored provider evidence. It
 connects nothing, authorizes nothing, and calls no provider.
 
+**Amended by `SOC-ACT1`.** All three denials above still hold, and they are the load-bearing half of
+that sentence. What changed is the word *reading*: a human may now **begin** a governed internal work
+request from evidence shown here. Beginning one files a **pending request** and nothing else — the
+tenant is resolved server-side, the cited observation is re-read by the authority that owns it, a
+person decides at `/approvals`, and only a separately-spent permit lets Hebun record anything.
+
+Social Intelligence still owns none of that chain: not the proposal lifecycle, not Governance
+authorization, not execution, not the Work lifecycle, and no provider write capability. §3's table is
+unchanged and remains the authority on what this surface may never own.
+
 ### The separation this document will not collapse
 
 ```

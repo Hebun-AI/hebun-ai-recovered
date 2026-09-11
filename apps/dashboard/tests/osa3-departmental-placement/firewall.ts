@@ -518,7 +518,7 @@ async function main(): Promise<void> {
   );
 
   assert.ok(HEBY_SOURCE_CLASSES.includes("placement"));
-  assert.equal(HEBY_SOURCE_CLASSES.length, 20); /* OSA-4 added `people` as the 20th. */
+  assert.equal(HEBY_SOURCE_CLASSES.length, 21); /* OSA-4 added `people` as the 20th; SOC-ACT1 `provider-observations` as the 21st. */
 
   console.log("PASS osa3-departmental-placement/firewall");
 }

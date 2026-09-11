@@ -30,6 +30,7 @@
  */
 import type { ConnectionListing } from "@/features/integration-authority/contracts";
 import type { ProviderObservationReadResult } from "@/features/provider-observation-history/read-provider-observations.server";
+import { formatProviderObservationRef } from "@/features/provider-observation-history/observation-ref";
 import {
   deriveInstagramAccountMeasurementSeries,
   INSTAGRAM_ACCOUNT_SERIES_SENTENCES,
@@ -224,6 +225,21 @@ export interface InstagramSection {
   readonly changesSentence: string | null;
   readonly content: InstagramLatestMediaObservation;
   readonly account: InstagramLatestObservation;
+  /**
+   * SOC-ACT1. The canonical reference of the NEWEST stored account observation, or `null` when
+   * there is none to name.
+   *
+   * ── IT IS A HANDLE, NOT A MEASUREMENT ──────────────────────────────────────
+   *
+   * It carries no count, no instant and no subject — only the identity of a row this organization
+   * owns, so a human can say "file work about THIS observation" and the server can re-read exactly
+   * that row. Everything the approval eventually shows is read again server-side; nothing about the
+   * observation travels with this value.
+   *
+   * `null` when the read failed or no observation exists. A surface with no reference offers no
+   * affordance, which is the honest outcome: there is nothing to cite.
+   */
+  readonly latestObservationRef: string | null;
 }
 
 export interface YouTubeSection {
@@ -269,6 +285,36 @@ export interface SocialDashboardModel {
    * it must stay answerable without scraping JSX.
    */
   readonly changesProse: readonly string[];
+}
+
+/**
+ * The canonical reference of the newest observation in a read, or `null`.
+ *
+ * Pure. The read seam returns newest-first, so element zero is the newest — the same ordering every
+ * released projection here relies on. A failed read yields `null` rather than an empty string: a
+ * surface must be able to tell "nothing to cite" from "a citation that is blank".
+ */
+function latestObservationRefOf(result: ProviderObservationReadResult): string | null {
+  if (result.status !== "read") return null;
+  const newest = result.observations[0];
+  if (!newest) return null;
+  /*
+   * ── WHY THE FORMATTER'S THROW IS CAUGHT HERE AND NOWHERE ELSE ─────────────
+   *
+   * `formatProviderObservationRef` throws on a non-uuid, and that is right where it matters: a
+   * malformed reference on the ACTION path would be hashed into something a human approves, so it
+   * has to fail loudly there. This is the READING path, and the same throw would take down a page
+   * whose only job is to show what was observed.
+   *
+   * So a stored id this module cannot name degrades to "nothing to cite" — the surface simply
+   * offers no affordance — while the action path keeps its loud failure. The states stay honest in
+   * both directions: a citation is never invented, and a dashboard never dies over one.
+   */
+  try {
+    return formatProviderObservationRef(newest.observationId);
+  } catch {
+    return null;
+  }
 }
 
 export interface SocialDashboardInput {
@@ -649,6 +695,7 @@ export function composeSocialDashboard(input: SocialDashboardInput): SocialDashb
     changesSentence: instagramComparisonSentence(instagramComparison),
     content: instagramContent,
     account: instagramAccount,
+    latestObservationRef: latestObservationRefOf(input.instagramAccount),
   });
 
   const youtubeSeriesPoints = youtubePoints(youtubeSeries);

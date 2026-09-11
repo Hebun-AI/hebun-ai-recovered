@@ -282,3 +282,81 @@ export const RECORD_WORK_REVERSIBILITY_MEANING: readonly string[] = [
   "Retirement does not erase the creation, its audit event, or this Governance decision.",
   "Nothing rolls a committed transaction backwards, and no automatic rollback exists.",
 ] as const;
+
+/* ===========================================================================
+ * SOC-ACT1 — a record-work proposal whose evidence is a STORED PROVIDER OBSERVATION
+ * ========================================================================= */
+
+/**
+ * What a Social Intelligence caller may say. One reference and one sentence a human typed.
+ *
+ * IT CARRIES NO TENANT, NO ACTOR, NO PROVIDER FACT AND NO MEASUREMENT. The types make them
+ * unrepresentable rather than merely discouraged, exactly as `SendProposalInput` does. The browser
+ * identifies WHICH observation and states WHY; every fact that reaches the approval is re-read
+ * server-side from the authority that owns it.
+ */
+export interface SocialWorkProposalInput {
+  /** `provider-observation/<uuid>` — resolved against Provider Observation History. */
+  readonly observationRef: string;
+  /** The organization's own words for what the work is. Never model-authored. */
+  readonly title: string;
+}
+
+/**
+ * Every way a SOC-ACT1 proposal can honestly fail.
+ *
+ * ── WHY THIS EXTENDS RATHER THAN WIDENS ──────────────────────────────────────
+ *
+ * `RecordWorkProposalRefusal` is exhaustively mapped to sentences by a released Command surface.
+ * Widening it in place would have forced that surface to answer for refusals it can never produce.
+ * This union adds the two SOC-ACT1 can, and leaves every existing caller byte-identical.
+ *
+ * `observation-not-found` covers absent, foreign-tenant AND deleted with ONE answer, so a probe
+ * cannot use the difference between refusals to discover that an observation exists in a tenant the
+ * caller cannot see. `invalid-observation-ref` is deliberately distinct and leaks nothing by being
+ * so: it answers "what did you send?", a question about the caller's own envelope.
+ */
+export type SocialWorkProposalRefusal =
+  | RecordWorkProposalRefusal
+  | "invalid-observation-ref"
+  | "observation-not-found";
+
+/** What a surface may truthfully show after a SOC-ACT1 proposal is filed. */
+export interface SocialWorkProposalReceipt {
+  readonly requestId: string;
+  readonly actionKind: typeof RECORD_WORK_ACTION_KIND;
+  readonly title: string;
+  /** The canonical reference, re-derived from the row that was actually read. */
+  readonly observationRef: string;
+  /** HEBUN OBSERVED. The instant the cited observation was recorded, carried as stored. */
+  readonly observedAt: string;
+  /** Always `pending-review`. There is no other value this type can hold. */
+  readonly status: "pending-review";
+}
+
+export type SocialWorkProposalResult =
+  | { readonly status: "proposed"; readonly receipt: SocialWorkProposalReceipt }
+  | {
+      readonly status: "refused";
+      readonly reason: SocialWorkProposalRefusal;
+      readonly detail: string;
+      readonly authorityRefusal?: ActionRequestRefusal;
+    };
+
+/**
+ * The sentences a Social Intelligence surface may use about a filed proposal.
+ *
+ * NOTE WHAT IS ABSENT: recorded, created, approved, authorized, executed, published, posted. Filing
+ * this proposal creates no work item, mints no permit, and asks Instagram and YouTube nothing.
+ */
+export const SOCIAL_WORK_PROPOSAL_SENTENCES = Object.freeze({
+  proposed:
+    "A work request was filed and is waiting for a decision. No work item exists yet, nothing was " +
+    "authorized, and nothing was sent to any social platform.",
+  pendingMeaning:
+    "A person must decide this at the approvals surface before Hebun may record anything. Until " +
+    "then the organization's work register is unchanged.",
+  evidenceMeaning:
+    "The request cites the stored observation it rests on. Hebun re-read that observation from its " +
+    "own records to build the citation — nothing about it was supplied by this page.",
+});

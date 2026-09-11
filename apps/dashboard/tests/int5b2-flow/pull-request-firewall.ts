@@ -238,7 +238,7 @@ async function main(): Promise<void> {
    * GitHub and would dress somebody else's records as this organization's own.
    * ═══════════════════════════════════════════════════════════════════════ */
   {
-    assert.equal(HEBY_SOURCE_CLASSES.length, 20, "the source-class census is unchanged by INT-5B2");
+    assert.equal(HEBY_SOURCE_CLASSES.length, 21, "the source-class census is unchanged by INT-5B2; SOC-ACT1 later added the 21st");
     for (const forbidden of ["pull-requests", "pull_requests", "repositories", "github"]) {
       assert.ok(
         !(HEBY_SOURCE_CLASSES as readonly string[]).includes(forbidden),

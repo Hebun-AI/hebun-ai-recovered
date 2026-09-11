@@ -75,7 +75,7 @@ async function main(): Promise<void> {
    * 1. `placement` IS A DECLARED SOURCE CLASS, AND THE PURE RESOLVER KNOWS IT.
    * ═══════════════════════════════════════════════════════════════════════ */
   assert.ok(HEBY_SOURCE_CLASSES.includes("placement"), "`placement` is a declared source class");
-  assert.equal(HEBY_SOURCE_CLASSES.length, 20, "the census is twenty — placement was the 19th, OSA-4's `people` the 20th");
+  assert.equal(HEBY_SOURCE_CLASSES.length, 21, "the census is twenty-one — placement was the 19th, OSA-4's `people` the 20th, SOC-ACT1's `provider-observations` the 21st");
 
   const pure = resolveSource("placement");
   assert.equal(pure.sourceClass, "placement");

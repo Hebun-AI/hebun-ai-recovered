@@ -188,7 +188,7 @@ function nothingElseBecamePossible(): void {
   }
   assert.equal(
     HEBY_SOURCE_CLASSES.length,
-    20,
+    21,
     "no Heby source class was added — the released `work` source carries this",
   );
   assert.ok(HEBY_SOURCE_CLASSES.includes("work"));

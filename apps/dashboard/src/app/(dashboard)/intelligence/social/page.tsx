@@ -37,6 +37,7 @@ import { StateBlock } from "@/components/ui/state-block";
 import { WorkspaceSection } from "@/components/ui/workspace-section";
 import { InstagramMediaCards } from "@/components/platform-integrations/instagram-media-cards";
 import { EvolutionPanel } from "@/components/social-intelligence/evolution-panel";
+import { WorkRequestForm } from "@/components/social-intelligence/work-request-form";
 import { ObservationCoverage } from "@/components/social-intelligence/observation-coverage";
 import { PlatformSummaryCard } from "@/components/social-intelligence/platform-summary-card";
 import { readSocialDashboard } from "@/features/social-intelligence/dashboard-read.server";
@@ -201,7 +202,27 @@ export default async function SocialIntelligencePage() {
               changes={model.instagram.changes}
               changesSentence={model.instagram.changesSentence}
               changeProvenance="derived"
-            />
+            >
+              {/*
+                SOC-ACT1. The one affordance, and it sits HERE rather than on the platform card
+                because a card shows a LEVEL and a level is not a reason. What a person acts on is a
+                CHANGE, and this is the panel that renders one.
+
+                It is rendered only when there is an observation to cite. No reference, no form —
+                not a disabled one, because a disabled control still says the action exists and is
+                merely unavailable, and with nothing stored there is nothing to file a request
+                ABOUT.
+
+                Pressing it files a PENDING request. It records no work, authorizes nothing, mints
+                no permit, executes nothing and asks Instagram nothing.
+              */}
+              {model.instagram.latestObservationRef !== null ? (
+                <WorkRequestForm
+                  observationRef={model.instagram.latestObservationRef}
+                  platformLabel={INSTAGRAM_PLATFORM.label}
+                />
+              ) : null}
+            </EvolutionPanel>
             <EvolutionPanel
               platformLabel={YOUTUBE_PLATFORM.label}
               subjectNoun={YOUTUBE_PLATFORM.subjectNoun}

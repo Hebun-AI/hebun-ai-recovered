@@ -71,7 +71,7 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Twenty since OSA-4 added `people` (nineteen after OSA-3's `placement`, eighteen after WORK-2's
+   * Twenty-one since SOC-ACT1 added `provider-observations` (twenty after OSA-4's `people`, nineteen after OSA-3's `placement`, eighteen after WORK-2's
    * `work`, seventeen after AMA-3's `agent-mandate`, sixteen after E2-8's `knowledge-coverage`,
    * fifteen after E2-7's `recorded-act-windows`,
    * fourteen after E2-6's `recorded-acts`,
@@ -255,6 +255,17 @@ function sourceStatusNotCollapsed(): void {
        *     COVERAGE != RATIFICATION               MISSING  != THE ORGANIZATION LACKS IT
        */
       "knowledge-coverage",
+      /*
+       * SOC-ACT1. Stored provider observations, owned by Provider Observation History. It carries
+       * ACTION EVIDENCE and nothing else: there is no Heby reader for it, none was added, and the
+       * pure resolver says so in its own branch.
+       *
+       *     SOURCE-CLASS MEMBERSHIP != HEBY CONNECTIVITY.
+       *
+       * It earns this review because a fabricated item here would put a provider fact nobody
+       * observed in front of a human deciding a consequential mutation.
+       */
+      "provider-observations",
     ],
   );
   const context = resolveHebyWorkspaceContext({ workspace: "knowledge" });

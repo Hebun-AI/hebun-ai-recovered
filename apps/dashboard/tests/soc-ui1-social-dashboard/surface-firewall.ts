@@ -147,6 +147,26 @@ function nothingIsWritten(): void {
 }
 
 function noKnowledgeGovernanceOrHebyReach(): void {
+  /*
+   * ── WHAT SOC-ACT1 CHANGED HERE, AND WHAT IT DELIBERATELY DID NOT ───────────
+   *
+   * This rule was written when the surface was purely a reading one, and it banned every reach into
+   * `features/heby`. SOC-ACT1 gives the surface ONE governed affordance, by Director decision, so
+   * the ban is narrowed rather than removed — and narrowed by naming the single allowed path
+   * instead of weakening the substring.
+   *
+   * `heby-action-inlet/contracts` is PURE: types and the sentences a surface may print. It holds no
+   * database handle, no writer, no permit and no executor, and the rules below still apply to the
+   * affordance in full — it may not write, may not reach a table, and may not fabricate analytics.
+   * Everything consequential still happens server-side in the Command-owned inlet, which has its own
+   * firewall proving it reaches no provider, no work writer and no permit.
+   *
+   * ANY OTHER `features/heby` PATH REMAINS BANNED, including the inlet's own server module: a
+   * component that could import the originator could call it from a browser bundle.
+   */
+  const ALLOWED_HEBY_IMPORT = "features/heby-action-inlet/contracts";
+  const withoutAllowed = PHASE_CODE.split(ALLOWED_HEBY_IMPORT).join("");
+
   for (const forbidden of [
     "features/knowledge",
     "features/governance",
@@ -158,10 +178,16 @@ function noKnowledgeGovernanceOrHebyReach(): void {
     "action-execution",
   ]) {
     assert.ok(
-      !PHASE_CODE.includes(forbidden),
+      !withoutAllowed.includes(forbidden),
       `SOC-UI1 reaches no other authority — found "${forbidden}"`,
     );
   }
+
+  /* The allowance is exactly one module, and the server originator is not it. */
+  assert.ok(
+    !PHASE_CODE.includes("record-work-proposal.server"),
+    "no Social Intelligence component may import the proposal originator",
+  );
 }
 
 function noFabricatedAnalytics(): void {
