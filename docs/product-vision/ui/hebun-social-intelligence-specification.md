@@ -7,7 +7,7 @@
 **STATUS: SOC-0 APPROVED AND SUPERSEDED IN PART BY RELEASED WORK.** This document decided *where*
 Social Intelligence belongs and *what it may truthfully say*, and built none of it. That was true
 when it was written and is no longer the whole picture: the Director approved SOC-0, and `SOC-UI1`,
-`YT-SOC1`, `YT-SOC2` and `IG-AN2` have since been released and production-accepted.
+`YT-SOC1`, `YT-SOC2`, `IG-AN2` and `IG-AN3` have since been released and production-accepted.
 
 **§11 was reconciled against measured repository and production reality on 2026-09-11 at
 `fcd5f6495ac9de23db49c906fb049da5caa1daf1`.** Sections 1–10 and 12–14 are the original design and
@@ -363,7 +363,7 @@ only *time series*. The roadmap below follows that measured reality rather than 
 | Instagram recent content | **AVAILABLE NOW** — released consumer, production-accepted |
 | Instagram measurement series | **BUILT** — IG-AN1 `f735450`; with two observations it now returns `series` |
 | Instagram follower change | **BUILT** — IG-AN2 `fcd5f64`; the truthful answer is `0` across all three counts. Trend and % growth remain unbuilt and unauthorized |
-| Instagram per-post evolution | **BUILT — NOT RELEASED** — IG-AN3, implemented locally and pending release review. The second media observation arrived at `2026-09-11T14:00:21.998Z`; all 8 posts match by `mediaId` and the truthful answer is `0` for every like and comment count |
+| Instagram per-post evolution | **BUILT** — IG-AN3 `b7e1c09`; released and production-accepted. All 8 posts match by `mediaId` across the two stored media observations and the truthful answer is `0` for every like and comment change. Rate, ranking and per-post scoring remain unbuilt and unauthorized |
 | YouTube platform card | **BUILT** — SOC-UI1 `ddf7803` |
 | YouTube subscriber series | **BUILT** — YT-SOC1 `ad81811`; four points, honestly flat at zero |
 | YouTube subscriber change | **BUILT** — YT-SOC2 `a373639`; the truthful answer is `0` |
@@ -396,7 +396,7 @@ table so the correction is auditable rather than silent.
 | **SOC-UI2** | Audience evolution visualization | YT-SOC1, IG-AN2 | **SATISFIED BY SOC-UI1** — see below. No separate phase remains |
 | **SOC-UI3** | Recent-content composition + content performance | IG-UI1, YouTube content consumer | **PARTIALLY SATISFIED** — Instagram half delivered by SOC-UI1; YouTube half blocked; "performance" has no authority |
 | **YT-SOC3** | YouTube recent-content consumer (read model over stored `recentVideos`) | YT-SOC1 | **NOT STARTED.** Newly identified — the ID `YT-SOC2` was spent on the comparison |
-| **IG-AN3** | Instagram per-post measurement evolution | ≥2 usable media observations | **IMPLEMENTED LOCALLY / READY FOR RELEASE REVIEW** — evidence gate opened `2026-09-11T14:00:21.998Z`; not pushed, not deployed, no production acceptance of a rendered surface |
+| **IG-AN3** | Instagram per-post measurement evolution | ≥2 usable media observations | **RELEASED + PRODUCTION VISUALLY ACCEPTED** `b7e1c09` — evidence gate opened `2026-09-11T14:00:21.998Z`; the rendered *Change per post* section was observed on production serving this exact commit |
 | **SOC-PROVIDERS** | Additional platforms | A real connection + capability each | Not started; no candidate exists |
 | **SOC-HEBY** | Heby social brief / recommendations | Analytics contracts mature | Deferred |
 
@@ -457,8 +457,11 @@ split by gate, and neither half is a scheduling decision:
   arrived unattended at `2026-09-11T14:00:21.998Z` under the standing authorization — it was
   observed, never seeded or triggered. Against the two real observations the derivation matches all
   8 posts by `mediaId`, reports `0` for every like and comment change, and names 0 posts on only one
-  side. It is implemented locally and **not released**: no push, no deploy, and no production
-  acceptance of the rendered surface.
+  side. It is **released and production-accepted** at `b7e1c09`: the *Change per post* section was
+  observed rendering those eight posts on production, with each provider count and each calculated
+  `0` carrying its own provenance. The comparison window it states — `10 Sept 14:00 UTC` to
+  `11 Sept 14:00 UTC` — is the MEDIA capability's own, distinct from the account window IG-AN2
+  states one panel above, which is how the surface shows the two reads stayed capability-scoped.
 
 ---
 
