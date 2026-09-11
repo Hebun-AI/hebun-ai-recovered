@@ -279,11 +279,11 @@ function main(): void {
       files.some((f) => f.includes("trh19_agent_proposal_rationale")),
       "TRH-19 authored migration 49, and it is still on disk",
     );
-    assert.equal(files.length, 52, "the ledger is at 51 — 48 at TRH-18, +1 for TRH-19, +1 for TRH-21, +1 for TRH-23"); /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
+    assert.equal(files.length, 53, "the ledger is at 51 — 48 at TRH-18, +1 for TRH-19, +1 for TRH-21, +1 for TRH-23"); /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`, so a tenant a visitor created stays distinguishable from one an operator ceremony created). */
     const journal = JSON.parse(read(`${MIGRATIONS}/meta/_journal.json`)) as {
       entries: readonly { tag: string }[];
     };
-    assert.equal(journal.entries.length, 52, "and the journal agrees with the files"); /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
+    assert.equal(journal.entries.length, 53, "and the journal agrees with the files"); /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
     /*
      * IT IS IN THE JOURNAL — which is what TRH-19 owns. Being LAST was only ever true until the
      * next phase authored one, and pinning it there would make every later migration fail a test
@@ -295,7 +295,9 @@ function main(): void {
     );
     assert.equal(
       journal.entries.at(-1)!.tag,
-      "20260908072926_trh24_machine_observation_provenance",
+      /* SELF-SERVICE SIGNUP — `companies_provisioning_source_chk` widened to admit a THIRD root,
+       * `self-service-signup`, so this is now the newest canonical migration. */
+      "20260911200000_self_service_signup_provenance",
       "and TRH-24 holds the newest line — TRH-23 held it before, TRH-21 before that, and TRH-19 before that",
     );
 

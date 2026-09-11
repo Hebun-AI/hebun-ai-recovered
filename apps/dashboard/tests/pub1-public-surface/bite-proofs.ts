@@ -79,7 +79,7 @@ function main(): void {
     MIDDLEWARE,
     BOUNDARY_SUITE,
     "/command must not be public",
-    'const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms", "/contact"];',
+    'const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"];',
     'const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms", "/contact", "/command"];',
   );
 
@@ -97,7 +97,7 @@ function main(): void {
     MIDDLEWARE,
     BOUNDARY_SUITE,
     '"/" is too short to be a safe prefix',
-    'const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms", "/contact"];',
+    'const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"];',
     'const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms", "/contact", "/"];',
   );
 
@@ -106,7 +106,7 @@ function main(): void {
     MIDDLEWARE,
     BOUNDARY_SUITE,
     "/contact must be public at the edge gate",
-    'const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms", "/contact"];',
+    'const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"];',
     'const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms"];',
   );
 

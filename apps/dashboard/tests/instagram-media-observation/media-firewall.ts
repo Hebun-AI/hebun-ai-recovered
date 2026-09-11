@@ -297,7 +297,7 @@ function main(): void {
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 52, "a new capability added no migration");
+  assert.equal(journal.entries.length, 53, "a new capability added no migration");
   const cron = JSON.parse(read("vercel.json")) as { crons?: readonly { path: string }[] };
   assert.deepEqual(
     (cron.crons ?? []).map((c) => c.path),

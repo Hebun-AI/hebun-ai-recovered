@@ -60,10 +60,29 @@
  *   - run against a non-local database (the CLI refuses; see scripts/tenant-provision.ts)
  */
 import type { Client } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 import type { CeremonySource } from "./production-possession";
+import { companies } from "../../src/db/schema/company";
+import { memberships } from "../../src/db/schema/membership";
+import { roles } from "../../src/db/schema/role";
+import {
+  TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR as CORE_LOCAL_OPERATOR,
+  type TenantBootstrapOutcome,
+} from "../../src/features/tenant-provisioning/contracts";
+import {
+  provisionTenant as provisionTenantCore,
+  isUniqueViolation as coreIsUniqueViolation,
+  type TenantBootstrapWriter,
+} from "../../src/features/tenant-provisioning/provision-tenant.server";
 
-/** Mirrors the value the schema's CHECK constraint permits. */
-export const TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR = "local-operator-ceremony";
+/**
+ * Re-exported from the ONE provenance vocabulary, never restated.
+ *
+ * It was a literal here while this file owned the write. Two copies of a value the database
+ * CHECK-constrains is exactly how a vocabulary drifts, so the authority now owns it and this is a
+ * name for the same constant.
+ */
+export const TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR = CORE_LOCAL_OPERATOR;
 
 /**
  * G4. The root is now a PARAMETER, and deliberately not an argument, a flag or a default.
@@ -243,16 +262,26 @@ export async function findTenantBySlug(
 /**
  * The whole ceremony, in ONE transaction.
  *
- *   1. resolve the existing active identity   (refuse before any write if absent)
- *   2. check the slug is unclaimed            (courtesy read; the unique index is the invariant)
- *   3. insert companies, tenant_status='provisioning'
- *   4. insert the owner role
- *   5. insert the bootstrap membership
- *   6. move the company to 'active'
+ *   1. validate the input shape             (pure; refuse before anything is read)
+ *   2. resolve the existing active identity (refuse before any write if absent)
+ *   3. hand the three-table write to THE tenant-provisioning authority, inside a transaction
  *
- * Any failure rolls back all of it. `provisioning` is transient INSIDE the transaction and is never
- * observable by any reader, so there is no incomplete tenant to recover and deliberately no recovery
- * state machine — the operator simply re-runs the command.
+ * ── THE WRITE IS NO LONGER HERE ──────────────────────────────────────────────
+ *
+ * It used to be. R4A put the `companies` / `roles` / `memberships` inserts in this file because
+ * `scripts/` was unreachable from the application tree, and that unreachability WAS the enforcement
+ * of "tenant creation is not a product act". The Director has since decided a new customer must be
+ * able to create their own organization, so that rule no longer holds and the write moved to
+ * `src/features/tenant-provisioning` where both callers can reach exactly one implementation.
+ *
+ * WHAT DID NOT CHANGE: the write set is still those three tables, the slug is still refused rather
+ * than rewritten, a taken slug still leaves the existing tenant untouched, the identity must still
+ * pre-exist, and the whole thing is still atomic. This ceremony's OUTCOMES are unchanged — the
+ * refusal vocabulary below is the same three values it always returned.
+ *
+ * WHY THE TRANSACTION MOVED UP: the authority no longer owns one, because signup has to compose it
+ * with identity and credential creation in a single transaction. So the caller opens it, and here
+ * the caller is this function.
  *
  * There is no `on conflict` anywhere. `scripts/r1-seed.mjs` uses one because it is a re-runnable
  * fixture; a ceremony that silently renamed an existing tenant on re-run would be a cross-tenant
@@ -271,99 +300,51 @@ export async function provisionTenant(
   const human = await resolveExistingHuman(client, email);
   if (!human) return refused("identity-not-found");
 
-  await client.query("begin");
+  /*
+   * A drizzle handle over the ceremony's OWN client — not the application's pool.
+   *
+   * The CLI has already pointed this client at a deliberately-chosen database and proved the
+   * posture; wrapping it keeps that target exactly, while letting the shared authority speak the one
+   * query builder it was written in. Nothing here reaches `getControlPlaneDb()`.
+   */
+  const db = drizzle(client, { schema: { companies, memberships, roles } });
+
+  let outcome: TenantBootstrapOutcome;
   try {
-    const claimed = await findTenantBySlug(client, slug);
-    if (claimed) {
-      await client.query("rollback");
-      return refused("slug-already-taken");
-    }
-
-    /*
-     * THE TENANT. `plan` is omitted so the column keeps its own default — R4A assigns it no
-     * meaning, and writing 'free' here would be this ceremony quietly claiming a billing concept
-     * that has no consumer. `created_by` / `created_by_type` are omitted for the same reason they
-     * are omitted everywhere below: there is no honest actor.
-     */
-    const company = await client.query<{ id: string }>(
-      `insert into companies (name, slug, tenant_status, provisioning_source)
-       values ($1, $2, 'provisioning', $3)
-       returning id`,
-      [displayName, slug, input.provisioningSource ?? TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR],
+    outcome = await db.transaction(async (tx) =>
+      provisionTenantCore(tx as unknown as TenantBootstrapWriter, {
+        slug,
+        displayName,
+        userId: human.userId,
+        provisioningSource: input.provisioningSource ?? TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR,
+      }),
     );
-    const tenantId = company.rows[0]!.id;
-
-    /*
-     * THE OWNER ROLE. Shape copied from the one existing role writer
-     * (`tenant-role-baseline/provision-member-role.server.ts`): `system_role` false because this is
-     * an ordinary tenant role and not a built-in, `authority_rank` and `policy_refs` left NULL
-     * because no runtime reads them and populating them would invent an authority.
-     *
-     * It does not collide with the later `member` baseline: `roles_one_member_per_tenant_uq` is
-     * PARTIAL on `type = 'member'`, so the privileged bands are unconstrained and
-     * `provision-member-role` guards only on its own band.
-     */
-    const role = await client.query<{ id: string }>(
-      `insert into roles (tenant_id, name, type, system_role)
-       values ($1, $2, $3, false)
-       returning id`,
-      [tenantId, BOOTSTRAP_ROLE_NAME, BOOTSTRAP_ROLE_TYPE],
-    );
-    const roleId = role.rows[0]!.id;
-
-    /*
-     * THE BOOTSTRAP MEMBERSHIP. `status` is written because the column is nullable and every read
-     * seam filters `status = 'active'` — a NULL membership is invisible to sign-in.
-     *
-     * `accepted_invitation_id` stays NULL, and that is the truthful value: no invitation exists.
-     * `memberships_accepted_invitation_uq` is a plain UNIQUE, and Postgres treats NULLs as distinct,
-     * so any number of bootstrap memberships coexist with invited ones. Nothing is fabricated here —
-     * no invitation id, no authorization id, no delegating actor, no created-by.
-     */
-    const membership = await client.query<{ id: string }>(
-      `insert into memberships (tenant_id, user_id, role_id, status, status_changed_at)
-       values ($1, $2, $3, 'active', now())
-       returning id`,
-      [tenantId, human.userId, roleId],
-    );
-    const membershipId = membership.rows[0]!.id;
-
-    /*
-     * ACTIVE, in the same transaction as the membership. There is therefore no window in which a
-     * tenant is active and memberless, and none in which `provisioning` is durable.
-     *
-     * The predicate names the id created above, so this statement is structurally incapable of
-     * touching another tenant's row.
-     */
-    await client.query(
-      `update companies
-          set tenant_status = 'active', tenant_status_changed_at = now(), updated_at = now()
-        where id = $1`,
-      [tenantId],
-    );
-
-    await client.query("commit");
-    return {
-      status: "provisioned",
-      tenant: { tenantId, slug, displayName, roleId, membershipId, human },
-    };
   } catch (error) {
-    await client.query("rollback");
     /*
-     * A unique violation here is `companies_slug_uq` deciding a race the courtesy read could not.
-     * The database refusing a second tenant on one slug is the expected, correct outcome — not an
-     * error condition — and the rollback has already removed the losing role and membership.
+     * `companies_slug_uq` deciding a race the courtesy read could not. The database refusing a
+     * second tenant on one slug is the expected, correct outcome — not an error condition — and the
+     * transaction has already removed the losing role and membership.
      */
     if (isUniqueViolation(error)) return refused("slug-already-taken");
     throw error;
   }
+
+  if (outcome.status === "refused") return refused(outcome.reason);
+
+  return {
+    status: "provisioned",
+    tenant: {
+      tenantId: outcome.tenant.tenantId,
+      slug: outcome.tenant.slug,
+      displayName: outcome.tenant.displayName,
+      roleId: outcome.tenant.roleId,
+      membershipId: outcome.tenant.membershipId,
+      human,
+    },
+  };
 }
 
-/** Postgres unique_violation. The database enforcing one tenant per slug. */
+/** Postgres unique_violation. The database enforcing one tenant per slug. One definition, shared. */
 export function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    (error as { code?: unknown }).code === "23505"
-  );
+  return coreIsUniqueViolation(error);
 }

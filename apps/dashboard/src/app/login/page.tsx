@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   getAuthEnvironment,
@@ -116,6 +117,18 @@ export default async function LoginPage(props: {
           Sign in
         </button>
       </form>
+      {/*
+        NEW CUSTOMERS. The distinction the page has to make is "existing Hebun user" versus "new
+        Hebun customer", and it is made in words rather than by a second identically-weighted button:
+        the form above is the primary act on a SIGN-IN page, and signup is the way out of it.
+      */}
+      <p className="text-sm text-neutral-500">
+        New to Hebun?{" "}
+        <Link href="/register" className="font-medium text-neutral-900 underline underline-offset-4">
+          Create account
+        </Link>
+      </p>
+
       <p className="text-xs text-neutral-500">
         Password recovery is not available yet — there is no reset flow in this
         build. Single-factor sign-in only; MFA and single sign-on are not

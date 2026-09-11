@@ -314,7 +314,7 @@ function main(): void {
       .filter((entry) => entry.length > 0);
     assert.deepEqual(
       prefixes,
-      ["/login", "/privacy", "/terms", "/contact"],
+      ["/login", "/register", "/privacy", "/terms", "/contact"],
       "the public prefix list is closed at the sign-in flow, the legal notices and the public contact page",
     );
     /*

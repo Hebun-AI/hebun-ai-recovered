@@ -71,12 +71,20 @@ function main(): void {
       ],
       "invitations are written by Human Onboarding and nowhere else",
     );
-    /* Membership never became a second writer, and revocation did not become one either. */
+    /*
+     * REVOCATION DID NOT BECOME A MEMBERSHIP WRITER — which is what this block is about, and is
+     * unchanged. The second entry is tenant birth, which writes the bootstrap membership because the
+     * invitation chain structurally cannot run inside a tenant that does not exist yet; it was
+     * always that writer, and lived under `scripts/` until self-service signup moved it into `src/`.
+     *
+     * Neither invitation module is in this list, and that is the property being protected.
+     */
     const membershipWriters = collect("src/features")
       .concat(collect("src/app"))
       .filter((f) => /\.insert\(memberships\)/.test(read(f)));
-    assert.deepEqual(membershipWriters, [
+    assert.deepEqual(membershipWriters.slice().sort(), [
       "src/features/human-onboarding/accept-invitation.server.ts",
+      "src/features/tenant-provisioning/provision-tenant.server.ts",
     ]);
   }
 
@@ -354,6 +362,8 @@ function main(): void {
       "20260907202659_trh23_standing_observation_authorization.sql",
       /* TRH-24 — machine observation provenance on `provider_observations`. A declared later phase, not this one's. */
       "20260908072926_trh24_machine_observation_provenance.sql",
+      /* SELF-SERVICE SIGNUP — `companies_provisioning_source_chk` widened to admit a THIRD root, `self-service-signup`. A declared later phase, not this one's. */
+      "20260911200000_self_service_signup_provenance.sql",
       ],
       "invitation revocation added no migration; what follows is a declared later phase",
     );

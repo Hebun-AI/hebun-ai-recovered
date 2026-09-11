@@ -150,7 +150,7 @@ const MUTATIONS: readonly Mutation[] = [
     file: MIDDLEWARE,
     edits: [
       {
-        find: 'const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms", "/contact"];',
+        find: 'const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"];',
         replace: 'const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms", "/contact", "/api"];',
       },
     ],

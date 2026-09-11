@@ -167,15 +167,36 @@ function main(): void {
         roleWriters.push(file);
       }
     }
+    /*
+     * ── TWO MEMBERSHIP WRITERS NOW, AND BOTH ARE NAMED ────────────────────────
+     *
+     * `accept-invitation` still owns every membership created by INVITATION, with the Governance
+     * chain behind it unchanged. What joined it is tenant birth, which writes the bootstrap
+     * membership in the same transaction as the tenant — because the invitation chain structurally
+     * cannot run inside a tenant that does not exist yet. It was always this writer; it lived under
+     * `scripts/` until self-service signup moved it into `src/`, where this scan can see it.
+     *
+     * Still exhaustive on purpose: a THIRD membership writer would be an invitation bypass, which is
+     * exactly what this census exists to catch.
+     */
     assert.deepEqual(
-      membershipWriters,
-      ["src/features/human-onboarding/accept-invitation.server.ts"],
+      membershipWriters.slice().sort(),
+      ["src/features/human-onboarding/accept-invitation.server.ts", "src/features/tenant-provisioning/provision-tenant.server.ts"].sort(),
       "memberships still has exactly ONE product writer",
     );
+    /*
+     * TWO ROLE WRITERS, for the same reason there are two membership writers: the `member` baseline
+     * is provisioned by I1.1, and the tenant's own `owner` role is written by tenant birth, in the
+     * same transaction as the tenant. They do not collide — `roles_one_member_per_tenant_uq` is
+     * PARTIAL on `type = 'member'`, so the privileged bands are unconstrained.
+     */
     assert.deepEqual(
-      roleWriters,
-      ["src/features/tenant-role-baseline/provision-member-role.server.ts"],
-      "roles still has exactly ONE product writer",
+      roleWriters.slice().sort(),
+      [
+        "src/features/tenant-provisioning/provision-tenant.server.ts",
+        "src/features/tenant-role-baseline/provision-member-role.server.ts",
+      ].sort(),
+      "roles has exactly TWO product writers: the member baseline, and tenant birth",
     );
   }
 

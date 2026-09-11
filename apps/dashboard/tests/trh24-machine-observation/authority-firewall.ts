@@ -503,11 +503,11 @@ function main(): void {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations"))
     .filter((f) => f.endsWith(".sql"))
     .sort();
-  assert.equal(migrations.length, 52, "51 -> 52: TRH-24 authored exactly one migration");
+  assert.equal(migrations.length, 53, "51 -> 52: TRH-24 authored exactly one migration"); /* SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`, so a tenant a visitor created stays distinguishable from one an operator ceremony created). */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly { readonly tag: string }[];
   };
-  assert.equal(journal.entries.length, 52, "and the journal agrees with the files");
+  assert.equal(journal.entries.length, 53, "and the journal agrees with the files");
 
   const mine = migrations.filter((f) => /trh24/.test(f));
   assert.equal(mine.length, 1, "one migration file carries this phase's name");

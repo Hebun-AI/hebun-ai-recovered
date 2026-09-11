@@ -322,7 +322,7 @@ function main(): void {
     "no agent-shaped Governance subject exists — a read seam is not a decision",
   );
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 52, "this phase authored no migration — counting a table needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
+  assert.equal(sqlCount, 53, "this phase authored no migration — counting a table needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`, so a tenant a visitor created stays distinguishable from one an operator ceremony created). */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
 
@@ -348,6 +348,10 @@ function main(): void {
       "src/app/(dashboard)/operations/actions.ts",
       "src/app/login/actions.ts",
       "src/app/login/onboarding-actions.ts",
+  /* SELF-SERVICE SIGNUP added exactly one server-action boundary: the signup action. It is the
+   * only way a browser can cause tenant creation, which is why it is named here rather than matched
+   * by a pattern — a second one appearing is a decision somebody has to record. */
+      "src/app/register/actions.ts",
     ],
     "the server-action boundaries are exactly these — this phase added no writer",
   );

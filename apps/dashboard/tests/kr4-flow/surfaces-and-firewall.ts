@@ -356,7 +356,9 @@ export function run(): void {
       /* TRH-23 — the `standing_observation_authorizations` table and the `standing-observation` governance domain. A declared later phase, not this one's. */
       "20260907202659_trh23_standing_observation_authorization.sql",
       /* TRH-24 — machine observation provenance on `provider_observations`. A declared later phase, not this one's. */
-      "20260908072926_trh24_machine_observation_provenance.sql"],
+      "20260908072926_trh24_machine_observation_provenance.sql",
+      /* SELF-SERVICE SIGNUP — the third provisioning root. A declared later phase, not this one's. */
+      "20260911200000_self_service_signup_provenance.sql"],
       "KR4 adds no migration; what follows is a declared later phase",
     );
     const journal = JSON.parse(read(join(MIGRATIONS, "meta", "_journal.json"))) as { entries: unknown[] };

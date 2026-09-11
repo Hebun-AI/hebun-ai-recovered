@@ -263,8 +263,20 @@ function provenanceIsDerived(): void {
       !source.includes(`"${CEREMONY_SOURCE_PRODUCTION}"`),
       `${label} must not hard-code the production root — it is derived from posture`,
     );
+    /*
+     * ── NAMING THE LOCAL ROOT, OR REACHING IT ────────────────────────────────
+     *
+     * `nominate-genesis-human` still carries the literal. `provision-tenant` no longer does: the
+     * closed provenance vocabulary moved to the tenant-provisioning authority, and the ceremony now
+     * re-exports that constant and defaults to it by NAME. One definition the database CHECK is
+     * mirrored against beats two copies that must be kept in agreement — the same strengthening this
+     * block already records for the production root, applied to the local one.
+     *
+     * Either spelling satisfies this; a ceremony that stopped defaulting altogether does not.
+     */
     assert.ok(
-      source.includes(`"${CEREMONY_SOURCE_LOCAL}"`),
+      source.includes(`"${CEREMONY_SOURCE_LOCAL}"`) ||
+        /\?\?\s*TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR/.test(source),
       `${label} still defaults to the local root`,
     );
   }
@@ -648,6 +660,8 @@ function noSchema(): void {
       "20260907202659_trh23_standing_observation_authorization.sql",
       /* TRH-24 — machine observation provenance on `provider_observations`. A declared later phase, not this one's. */
       "20260908072926_trh24_machine_observation_provenance.sql",
+      /* SELF-SERVICE SIGNUP — `companies_provisioning_source_chk` widened to admit a THIRD root, `self-service-signup`. A declared later phase, not this one's. */
+      "20260911200000_self_service_signup_provenance.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );

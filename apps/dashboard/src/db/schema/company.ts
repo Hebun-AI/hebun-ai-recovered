@@ -4,7 +4,13 @@
  *
  * ── R4A: WHICH ROOT PRODUCED THIS TENANT ─────────────────────────────────────
  *
- * `provisioning_source` records the CEREMONY that created the row, and nothing else.
+ * `provisioning_source` records the ROOT that created the row, and nothing else.
+ *
+ * It recorded a CEREMONY until self-service signup existed. It now admits a third value that is not
+ * a ceremony at all — `self-service-signup`, written when an anonymous visitor proved an email and a
+ * password and named their own organization. That is a WEAKER provenance than either operator root,
+ * and keeping it a distinct value rather than folding it into the local one is the point: a later
+ * phase that wants to treat self-service tenants differently can, because the row says so.
  *
  * It exists because tenant birth writes no `audit_log` entry and cannot: `actor_type` and
  * `actor_id` are both NOT NULL there, and a local operator ceremony has no actor to name —
@@ -62,7 +68,7 @@ export const companies = pgTable(
      */
     check(
       "companies_provisioning_source_chk",
-      sql`${t.provisioningSource} is null or ${t.provisioningSource} = 'local-operator-ceremony' or ${t.provisioningSource} = 'production-operator-ceremony'`,
+      sql`${t.provisioningSource} is null or ${t.provisioningSource} = 'local-operator-ceremony' or ${t.provisioningSource} = 'production-operator-ceremony' or ${t.provisioningSource} = 'self-service-signup'`,
     ),
   ]
 );

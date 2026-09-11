@@ -87,6 +87,10 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/operations/actions.ts",
   "src/app/login/actions.ts",
   "src/app/login/onboarding-actions.ts",
+  /* SELF-SERVICE SIGNUP added exactly one server-action boundary: the signup action. It is the
+   * only way a browser can cause tenant creation, which is why it is named here rather than matched
+   * by a pattern — a second one appearing is a decision somebody has to record. */
+  "src/app/register/actions.ts",
 ];
 
 const read = (file: string): string => readFileSync(path.join(ROOT, file), "utf8");

@@ -493,11 +493,11 @@ function main(): void {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations"))
     .filter((f) => f.endsWith(".sql"))
     .sort();
-  assert.equal(migrations.length, 52, "50 -> 51: TRH-23 authored exactly one migration"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
+  assert.equal(migrations.length, 53, "50 -> 51: TRH-23 authored exactly one migration"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`, so a tenant a visitor created stays distinguishable from one an operator ceremony created). */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly { readonly tag: string }[];
   };
-  assert.equal(journal.entries.length, 52, "and the journal agrees with the files"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
+  assert.equal(journal.entries.length, 53, "and the journal agrees with the files"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
 
   const mine = migrations.filter((f) => /trh23/.test(f));
   assert.equal(mine.length, 1, "one migration file carries this phase's name");

@@ -365,6 +365,13 @@
       "when": 1788852566439,
       "tag": "20260908072926_trh24_machine_observation_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1789156800000,
+      "tag": "20260911200000_self_service_signup_provenance",
+      "breakpoints": true
     }
   ]
 }

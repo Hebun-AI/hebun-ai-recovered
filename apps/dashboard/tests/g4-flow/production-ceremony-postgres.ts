@@ -204,7 +204,16 @@ async function main(): Promise<void> {
          * (`19f0f97195c4cdc17fca61e736f0fe44`, the value this line held until now) and converges
          * only when its own gated ceremony runs. The gap is the point: authoring a migration is not
          * applying one. */
-        "74c3ac54bf016ac2196765c186b27b8c",
+        /* SELF-SERVICE SIGNUP: migration 53 widens `companies_provisioning_source_chk` to admit
+         * `self-service-signup`, so the ledger grew and the digest moved with it — still on the
+         * DISPOSABLE database, which carries what this working tree authors. PRODUCTION STANDS AT 52
+         * (`74c3ac54bf016ac2196765c186b27b8c`, the value this line held until now) and converges
+         * only when its own gated ceremony runs.
+         *
+         * That this line moved at all is also the migration's first proof: the assertion above it
+         * counted the full authored ledger on a database that applied every file including the new
+         * one, so the SQL is valid against a real PostgreSQL rather than merely well-formed. */
+        "ed173ef9839d3688fd550a522f85f115",
         /*
          * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
          * sentence had been false since R2H — whose own comment, three lines above it, said
@@ -481,6 +490,18 @@ async function main(): Promise<void> {
        *
        * Recorded rather than papered over, because a reader who assumes the rollback call is what
        * protects the bootstrap would draw the wrong conclusion about what is safe to change.
+       *
+       * ── THE STATEMENT MOVED; THE GUARANTEE DID NOT ────────────────────────
+       *
+       * Self-service signup made the three-table write a SHARED authority that must compose with
+       * identity and credential creation in ONE transaction, so the authority stopped owning a
+       * transaction and the caller started. The explicit `client.query("begin")` this assertion
+       * used to name is therefore gone, replaced by `db.transaction(...)` around the same writes.
+       *
+       * The behavioural proof above is unchanged and still the real evidence: the injected failure
+       * leaves no orphan tenant, role or membership. What is asserted here is the narrower true
+       * fact — the ceremony still opens a transaction of its own, and the shared authority still
+       * cannot open one, which is what keeps signup's larger transaction genuinely atomic.
        */
       const provisionSource = readFileSync(
         path.join(process.cwd(), "scripts/lib/provision-tenant.ts"),
@@ -488,8 +509,25 @@ async function main(): Promise<void> {
       );
       assert.match(
         provisionSource,
-        /await client\.query\("begin"\)/,
+        /await db\.transaction\(/,
         "the bootstrap opens an explicit transaction — this is what makes it atomic",
+      );
+      /*
+       * SCANNED ON COMMENT-STRIPPED CODE, and the first version of this assertion was not — it
+       * failed on the authority's own header, which explains `db.transaction(...)` in order to say
+       * the authority does not call it. A rule about code must look at code; prose that names a
+       * prohibition is not the violation.
+       */
+      const authorityCode = readFileSync(
+        path.join(process.cwd(), "src/features/tenant-provisioning/provision-tenant.server.ts"),
+        "utf8",
+      )
+        .replace(/\/\*[\s\S]*?\*\//g, " ")
+        .replace(/(^|[^:])\/\/.*$/gm, "$1");
+      assert.doesNotMatch(
+        authorityCode,
+        /\.transaction\(|query\("begin"\)/,
+        "the shared authority never opens a transaction — its caller owns one, so signup stays atomic",
       );
     }
 

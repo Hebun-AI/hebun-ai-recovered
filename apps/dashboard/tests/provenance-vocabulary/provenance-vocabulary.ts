@@ -200,7 +200,22 @@ async function main(): Promise<void> {
         codeOf(read(f)),
       ),
     );
-    assert.deepEqual(writers, [], "no file under src may write companies");
+    /*
+     * ── ONE WRITER NOW, AND IT IS NAMED ───────────────────────────────────────
+     *
+     * This asserted zero because tenant birth lived under `scripts/`, structurally unreachable from
+     * the application tree. The Director approved moving it into `src/` so a new customer can create
+     * their own organization, so the honest assertion is no longer "none" — it is "exactly this one".
+     *
+     * The property being protected is unchanged and is arguably better stated: a SECOND module
+     * writing `companies` would be a tenant authority nobody approved, and this list is what stops
+     * one appearing quietly.
+     */
+    assert.deepEqual(
+      writers,
+      ["src/features/tenant-provisioning/provision-tenant.server.ts"],
+      "exactly one file under src may write companies — the tenant provisioning authority",
+    );
 
     /*
      * Nothing under src/ names the production root either — it is schema vocabulary, not a value
@@ -218,24 +233,54 @@ async function main(): Promise<void> {
      * adding a non-declaring file to `src/db/schema/` would no longer be silently exempt, and a
      * declaring module cannot be forgotten.
      */
-    const declaresVocabulary = (file: string): boolean =>
-      file.startsWith("src/db/schema/") &&
-      /export const [A-Z_]+ = "production-operator-ceremony";/.test(read(file));
+    /*
+     * ── EXTENDED BY SELF-SERVICE SIGNUP, STRUCTURALLY AGAIN ───────────────────
+     *
+     * The exemption was "a SCHEMA module that exports it", because at R2H every declarer was one.
+     * Tenant provisioning now owns the closed provenance vocabulary in a feature module — it is the
+     * single place the three roots are enumerated and the place the database CHECK is mirrored — so
+     * the directory half of the rule had become an accident of where declarers happened to live.
+     *
+     * It is widened by CAPABILITY, not by path: a file is a declarer if it exports the constant AND
+     * is either a schema module or the module that enumerates the CLOSED SET. An incidental consumer
+     * satisfies neither, which is the property this rule has always been protecting.
+     */
+    const declaresVocabulary = (file: string): boolean => {
+      const src = read(file);
+      /* The declaration may wrap, and may carry `as const`; both are the same declaring act. */
+      if (!/export const [A-Z_]+ =\s*"production-operator-ceremony"(\s+as const)?;/.test(src)) {
+        return false;
+      }
+      return (
+        file.startsWith("src/db/schema/") ||
+        /export const TENANT_PROVISIONING_SOURCES:/.test(src)
+      );
+    };
 
     const namers = srcFiles.filter(
       (f) => !declaresVocabulary(f) && codeOf(read(f)).includes("production-operator-ceremony"),
     );
     assert.deepEqual(namers, [], "only a declaring schema module may name the production root");
 
-    /* And the declaring set is exactly the three columns that record a ceremony root. */
+    /*
+     * And the declaring set is exactly the three columns that record a ceremony root, PLUS the one
+     * module that owns the closed tenant-provisioning vocabulary.
+     *
+     * The fourth is not a fourth column. `companies.provisioning_source` is still the only tenant
+     * column, and `company.ts` still declares what the database admits; the feature module is where
+     * the closed TypeScript union lives so a caller cannot pass a root the CHECK would reject. Two
+     * declarers for one column is the cost of having the vocabulary typed as well as constrained,
+     * and a test asserts they agree.
+     */
     assert.deepEqual(
       srcFiles.filter(declaresVocabulary).sort(),
       [
         "src/db/schema/company.ts",
         "src/db/schema/genesis-nomination.ts",
         "src/db/schema/provider-connectivity-control.ts",
+        "src/features/tenant-provisioning/contracts.ts",
       ],
-      "three columns record a ceremony root, and each declares the vocabulary it uses",
+      "three columns record a ceremony root, and the provisioning vocabulary declares the closed set",
     );
 
     /*
@@ -267,7 +312,23 @@ async function main(): Promise<void> {
         !source.includes('"production-operator-ceremony"'),
         `${label} must not hard-code the production root — G4 derives it from posture`,
       );
-      assert.ok(source.includes("local-operator-ceremony"), `${label} still names the local root`);
+      /*
+       * ── NAMING IT, OR REACHING IT ─────────────────────────────────────────
+       *
+       * `nominate-genesis-human` still carries the literal. `provision-tenant` no longer does: the
+       * closed vocabulary moved to the tenant-provisioning authority and the ceremony re-exports the
+       * constant rather than restating the string. That is the same strengthening this block already
+       * records for the production root — one definition the database CHECK is mirrored against,
+       * instead of two copies that have to be kept in agreement.
+       *
+       * So the assertion is "reaches the local root", satisfied either way, and never satisfied by a
+       * ceremony that stopped declaring its provenance altogether.
+       */
+      assert.ok(
+        source.includes("local-operator-ceremony") ||
+          /TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR/.test(source),
+        `${label} still names or reaches the local root`,
+      );
     }
 
     /* NODE_ENV=production is refused by all five, unchanged. G4 relaxed nothing here. */
@@ -408,6 +469,10 @@ async function main(): Promise<void> {
       "20260907202659_trh23_standing_observation_authorization",
       /* TRH-24 — machine observation provenance on `provider_observations`. A declared later phase, not this one's. */
       "20260908072926_trh24_machine_observation_provenance",
+      /* SELF-SERVICE SIGNUP — `companies_provisioning_source_chk` widened to admit a THIRD root,
+       * `self-service-signup`, so a tenant a visitor created stays distinguishable from one an
+       * operator ceremony created. A declared later phase, not this one's. */
+      "20260911200000_self_service_signup_provenance",
         ],
         "and what follows it is a declared later phase",
       );

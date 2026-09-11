@@ -76,7 +76,7 @@ function main(): void {
       .filter((entry) => entry.length > 0);
     assert.deepEqual(
       prefixes,
-      ["/login", "/privacy", "/terms", "/contact"],
+      ["/login", "/register", "/privacy", "/terms", "/contact"],
       "the public prefix list is closed at the sign-in flow, the legal notices and the public contact page",
     );
     /*
@@ -422,9 +422,21 @@ function main(): void {
     const writers = collect("src/features")
       .concat(collect("src/app"))
       .filter((file) => /\.insert\(memberships\)/.test(read(file)));
+    /*
+     * ── TWO MEMBERSHIP WRITERS NOW, AND BOTH ARE NAMED ────────────────────────
+     *
+     * `accept-invitation` still owns every membership created by INVITATION, with the Governance
+     * chain behind it unchanged. What joined it is tenant birth, which writes the bootstrap
+     * membership in the same transaction as the tenant — because the invitation chain structurally
+     * cannot run inside a tenant that does not exist yet. It was always this writer; it lived under
+     * `scripts/` until self-service signup moved it into `src/`, where this scan can see it.
+     *
+     * Still exhaustive on purpose: a THIRD membership writer would be an invitation bypass, which is
+     * exactly what this census exists to catch.
+     */
     assert.deepEqual(
-      writers,
-      ["src/features/human-onboarding/accept-invitation.server.ts"],
+      writers.slice().sort(),
+      ["src/features/human-onboarding/accept-invitation.server.ts", "src/features/tenant-provisioning/provision-tenant.server.ts"].sort(),
       "the entry surface calls the membership writer; it did not become one",
     );
   }

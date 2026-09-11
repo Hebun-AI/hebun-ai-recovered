@@ -398,6 +398,8 @@ function main(): void {
       "20260907202659_trh23_standing_observation_authorization.sql",
       /* TRH-24 — machine observation provenance on `provider_observations`. A declared later phase, not this one's. */
       "20260908072926_trh24_machine_observation_provenance.sql",
+      /* SELF-SERVICE SIGNUP — `companies_provisioning_source_chk` widened to admit a THIRD root, `self-service-signup`. A declared later phase, not this one's. */
+      "20260911200000_self_service_signup_provenance.sql",
       ],
       "ingestion added no migration; everything after its boundary belongs to a declared later phase",
     );

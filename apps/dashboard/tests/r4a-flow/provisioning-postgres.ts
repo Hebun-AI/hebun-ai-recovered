@@ -399,7 +399,28 @@ async function main(): Promise<void> {
             displayName: "Crash Co",
             identityEmail: carol.email,
           }),
-          /r4a_injected_failure/,
+          /*
+           * THE WRAPPER IS NOT THE PROPERTY. The ceremony now runs the three writes through the
+           * shared drizzle authority, and drizzle wraps a driver error in `DrizzleQueryError` — so
+           * the constraint name moved from the error's own message into its `cause`. What is being
+           * asserted is unchanged: the failure SURFACES rather than being swallowed, and it is the
+           * injected one rather than some other error that happened to abort the transaction.
+           *
+           * The rollback assertions below are the atomicity proof and they are untouched.
+           */
+          (error: unknown) => {
+            const chain: string[] = [];
+            for (let e: unknown = error, depth = 0; e && depth < 5; depth += 1) {
+              chain.push(String((e as { message?: unknown }).message ?? e));
+              e = (e as { cause?: unknown }).cause;
+            }
+            assert.match(
+              chain.join(" | "),
+              /r4a_injected_failure/,
+              "the injected constraint is named somewhere in the error chain",
+            );
+            return true;
+          },
           "the failure surfaces rather than being swallowed",
         );
       } finally {

@@ -543,7 +543,7 @@ function theMigrationIsAdditiveAndSingular(): void {
    */
   const trh21Entry = journal.entries.findIndex((e) => /trh21_provider_observation_history/.test(e.tag));
   assert.equal(trh21Entry, 49, "TRH-21 is the 50th entry — it grew the ledger 49 -> 50, and always did");
-  assert.equal(journal.entries.length, 52, "and the ledger has moved on since: TRH-23 added the 51st"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
+  assert.equal(journal.entries.length, 53, "and the ledger has moved on since: TRH-23 added the 51st"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
 
   const sql = read(`${MIGRATIONS}/${trh21[0]!.tag}.sql`);
   assert.equal((sql.match(/CREATE TABLE/g) ?? []).length, 1, "one table");
@@ -553,7 +553,7 @@ function theMigrationIsAdditiveAndSingular(): void {
   assert.equal(sql.includes("integrations"), true, "the composite FK names the connection authority");
 
   const sqlFiles = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql"));
-  assert.equal(sqlFiles.length, 52, "and the files agree with the journal"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
+  assert.equal(sqlFiles.length, 53, "and the files agree with the journal"); /* TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`). */
 
   /* OBSERVATION SUBJECT KINDS ARRIVE BY MIGRATION-REVIEWED CODE, never by data. */
   /*

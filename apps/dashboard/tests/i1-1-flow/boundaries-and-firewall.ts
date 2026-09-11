@@ -288,7 +288,26 @@ function main(): void {
     const writers = collect("src/features").filter((file) =>
       /\.insert\(roles\)/.test(codeOf(read(file))),
     );
-    assert.deepEqual(writers, [SERVER], "exactly one module may create a role, and only this one");
+    /*
+     * ── TWO ROLE WRITERS NOW, AND BOTH ARE NAMED ──────────────────────────────
+     *
+     * This module still owns the `member` BASELINE role — the one I1.1 provisions, the one the
+     * partial unique index constrains to at most one per tenant, and the only one an invitation can
+     * ever produce. Self-service signup did not touch that.
+     *
+     * What changed is that tenant birth moved into `src/`. It writes the tenant's `owner` role in
+     * the same transaction as the tenant itself, because a tenant with no role has no possible
+     * membership. It was always a role writer; it was previously under `scripts/`, where this scan
+     * could not see it.
+     *
+     * Still an exhaustive list on purpose: a THIRD role writer is a decision somebody has to record
+     * here rather than a generic role-administration surface appearing by accident.
+     */
+    assert.deepEqual(
+      writers.sort(),
+      [SERVER, "src/features/tenant-provisioning/provision-tenant.server.ts"].sort(),
+      "exactly two modules may create a role: the member baseline, and tenant birth",
+    );
   }
 
   console.log("PASS i1.1 boundaries and firewall");

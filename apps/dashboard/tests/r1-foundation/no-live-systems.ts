@@ -59,6 +59,10 @@ function main(): void {
   for (const clientFile of [
     "src/app/login/page.tsx",
     "src/app/(dashboard)/foundation/page.tsx",
+  /* SELF-SERVICE SIGNUP added exactly one server-action boundary: the signup action. It is the
+   * only way a browser can cause tenant creation, which is why it is named here rather than matched
+   * by a pattern — a second one appearing is a decision somebody has to record. */
+  "src/app/register/actions.ts",
   ]) {
     const source = read(clientFile);
     for (const secretToken of [

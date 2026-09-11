@@ -736,7 +736,7 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
  */
 /* Departmental Placement grew the ledger to 43; GIA-1's `record-work` mandate-scope CHECK to 44. BOTH values move with it. */
 /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). */
-const LEDGER_COUNT = 52; /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
+const LEDGER_COUNT = 53; /* TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT. This was a COUNT of nine. AGENT-ID-0.1 adds exactly
  * one boundary — the durable agent identity one — so nine became false. Naming the set beats bumping
@@ -759,6 +759,10 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/operations/actions.ts",
   "src/app/login/actions.ts",
   "src/app/login/onboarding-actions.ts",
+  /* SELF-SERVICE SIGNUP added exactly one server-action boundary: the signup action. It is the
+   * only way a browser can cause tenant creation, which is why it is named here rather than matched
+   * by a pattern — a second one appearing is a decision somebody has to record. */
+      "src/app/register/actions.ts",
 ];
 
 function nothingArchitecturalMoved(overrides: Readonly<Record<string, string>> = {}): void {

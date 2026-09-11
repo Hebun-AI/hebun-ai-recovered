@@ -29,6 +29,7 @@ const CREDENTIAL_REPOSITORY = "src/features/auth-runtime/credential-repository.s
 const PASSWORD_HASH = "src/features/auth-runtime/password-hash.server.ts";
 const SESSION_SERVICE = "src/features/auth-runtime/session-service.server.ts";
 const LOGIN_ACTION = "src/app/login/actions.ts";
+const REGISTER_ACTION = "src/app/register/actions.ts";
 const LOGIN_PAGE = "src/app/login/page.tsx";
 const CREDENTIAL_SCHEMA = "src/db/schema/auth-credential.ts";
 
@@ -142,14 +143,51 @@ function main(): void {
       "success is downstream of every refusal branch",
     );
 
-    // There is exactly ONE sign-in entry point in the whole app.
+    /*
+     * ── ONE SIGN-IN IMPLEMENTATION, AND NOW TWO CALLERS ──────────────────────
+     *
+     * This asserted exactly one caller, which was the right shape while sign-in was the only way to
+     * obtain a session. Self-service signup added a second: after provisioning succeeds, the signup
+     * action signs the new human in.
+     *
+     * THE PROPERTY THIS PIN ACTUALLY PROTECTS IS UNCHANGED, and it is not "one caller" — it is that
+     * every session in the product is minted by THIS function, whose refusal branches are asserted
+     * above and whose success path is downstream of all of them. Signup does not bypass any of that:
+     * it hands over the email and the password the visitor just chose and takes whatever the
+     * credential authority decides. A signup that minted its own session, or that called this with
+     * an email alone, would be the second DOOR this pin exists to forbid — and both are asserted
+     * against below.
+     */
     const signInCallers = collect("src").filter((file) =>
       /issueLocalSession\s*\(/.test(readFileSync(path.join(ROOT, file), "utf8")),
     );
     assert.deepEqual(
       signInCallers.sort(),
-      [LOGIN_ACTION, SESSION_SERVICE].sort(),
-      "only the login action calls the sign-in service — there is no second door",
+      [LOGIN_ACTION, REGISTER_ACTION, SESSION_SERVICE].sort(),
+      "sign-in has one implementation and exactly two declared callers",
+    );
+
+    /* The signup caller proves a password like every other caller — no email-only session. */
+    const registerCode = readFileSync(path.join(ROOT, REGISTER_ACTION), "utf8");
+    assert.match(
+      registerCode,
+      /issueLocalSession\(getControlPlaneDb\(\), env, \{\s*email,\s*password,/,
+      "signup signs in by proving the password, never by asserting the email",
+    );
+
+    /*
+     * AND NO MODULE MINTS SESSION MATERIAL ANOTHER WAY. `issueSessionReference` is the primitive the
+     * service uses internally; a second module reaching it would be a door that skips verification
+     * entirely, which no census of `issueLocalSession` callers would ever catch.
+     */
+    const referenceMinters = collect("src").filter((file) =>
+      /issueSessionReference\s*\(|persistSessionContext\s*\(/.test(
+        readFileSync(path.join(ROOT, file), "utf8"),
+      ),
+    );
+    assert.ok(
+      referenceMinters.every((f) => f === SESSION_SERVICE),
+      `only the session service may mint session material — found ${referenceMinters.join(", ")}`,
     );
 
     // And no environment flag can turn verification off.

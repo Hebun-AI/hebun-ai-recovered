@@ -15,13 +15,19 @@ import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
 /*
  * The paths the edge gate lets through unauthenticated.
  *
- * `/login` is the sign-in flow. `/privacy` and `/terms` are the public legal notices — documents a
- * signed-out reader, and Google's OAuth review, must be able to open. `/contact` (PUB-1) is where
- * the public site's one call to action leads; it holds an address and no form, so nothing can be
- * submitted through it. None of them is a dashboard route: no surface under `(dashboard)` appears
- * here, so no product data is reachable through this list.
+ * `/login` is the sign-in flow. `/register` is the self-service signup flow — an anonymous visitor
+ * must be able to reach it, by definition, and it is the ONE route this list gained for that. It
+ * reads no tenant data and renders none: its page is a form, and its action creates a brand-new
+ * human and a brand-new organization or refuses. `/privacy` and `/terms` are the public legal
+ * notices — documents a signed-out reader, and Google's OAuth review, must be able to open.
+ * `/contact` (PUB-1) is where the public site's one call to action leads; it holds an address and no
+ * form, so nothing can be submitted through it.
+ *
+ * NONE of them is a dashboard route: no surface under `(dashboard)` appears here, so no product data
+ * is reachable through this list. Adding `/register` widened anonymous reach by exactly one form and
+ * changed nothing about what an unauthenticated request may READ.
  */
-const PUBLIC_PREFIXES = ["/login", "/privacy", "/terms", "/contact"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"];
 
 /*
  * The public paths matched EXACTLY, never as a prefix.

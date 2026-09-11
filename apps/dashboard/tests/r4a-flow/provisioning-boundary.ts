@@ -9,8 +9,22 @@
  * import this, "create a membership" would be one route handler away from being an invitation
  * bypass.
  *
- * So this file asserts two things the prose cannot: that the write set is exactly three tables, and
- * that nothing in the product can call the thing that writes them.
+ * ── AMENDED BY SELF-SERVICE SIGNUP ──────────────────────────────────────────
+ *
+ * The second half of that sentence is no longer the approved architecture. The Director decided a
+ * new customer must be able to create their own organization, so the write moved OUT of `scripts/`
+ * and into one authority under `src/` that both the operator ceremony and signup call.
+ *
+ * THE FIREWALL WAS NARROWED, NOT REMOVED. "Nothing in the product may reach it" became "exactly two
+ * named callers may, and the write set is still three tables". That is a weaker rule and it is the
+ * true one; the assertions below are what stop it weakening any further:
+ *
+ *   - exactly ONE module writes tenant bootstrap state, and it writes exactly three tables
+ *   - the operator ceremony calls it rather than duplicating it
+ *   - self-service signup calls it rather than duplicating it
+ *   - NO OTHER product module reaches it — the caller census is exhaustive, so a third one fails here
+ *   - no client component imports it
+ *   - the provenance vocabulary is closed and matches the database CHECK
  */
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -41,6 +55,9 @@ function collect(dir: string): string[] {
 
 const CLI = "scripts/tenant-provision.ts";
 const CORE = "scripts/lib/provision-tenant.ts";
+const AUTHORITY = "src/features/tenant-provisioning/provision-tenant.server.ts";
+const AUTHORITY_CONTRACTS = "src/features/tenant-provisioning/contracts.ts";
+const SIGNUP = "src/features/self-service-signup/create-account.server.ts";
 const SCHEMA = "src/db/schema/company.ts";
 const MIGRATION = "src/db/migrations/20260817195446_r4a_tenant_provisioning_source.sql";
 
@@ -60,6 +77,24 @@ function sqlStatementsOf(src: string): string[] {
     statements.push(match[1]!.slice(1, -1));
   }
   return statements;
+}
+
+/**
+ * The tables the AUTHORITY writes, read from its drizzle calls.
+ *
+ * The write used to be raw SQL in the ceremony and this file extracted it from `client.query`
+ * template literals. It is now drizzle, so the mechanism changed and the property did not: a table
+ * named in a comment still cannot reach this list, and a table written in code still cannot escape
+ * it. `.insert(x)` and `.update(x)` are mutations; `.select()` is not, and is deliberately not
+ * counted — the authority must be free to READ `companies` to check a slug.
+ */
+function drizzleWrittenTablesOf(src: string): string[] {
+  const code = codeOf(src);
+  const tables: string[] = [];
+  for (const m of code.matchAll(/\.insert\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g)) tables.push(m[1]!);
+  for (const m of code.matchAll(/\.update\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g)) tables.push(m[1]!);
+  for (const m of code.matchAll(/\.delete\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)/g)) tables.push(m[1]!);
+  return tables;
 }
 
 /** The tables a statement writes. Reads are not writes; this looks only at mutation verbs. */
@@ -108,25 +143,42 @@ function main(): void {
   const coreCode = codeOf(coreSrc);
   const cliCode = codeOf(cliSrc);
 
-  /* ── The exact write set is three tables ─────────────────────────────────── */
-  {
-    const statements = [...sqlStatementsOf(coreSrc), ...sqlStatementsOf(cliSrc)];
-    assert.ok(statements.length > 0, "no SQL statements were extracted — the matcher is broken");
+  const authoritySrc = read(AUTHORITY);
+  const authorityCode = codeOf(authoritySrc);
 
-    const written = new Set(statements.flatMap(writtenTablesOf));
+  /* ── The exact write set is three tables, and it is the AUTHORITY's ──────── */
+  {
+    const written = new Set(drizzleWrittenTablesOf(authoritySrc));
     assert.deepEqual(
       [...written].sort(),
       ["companies", "memberships", "roles"],
       "the bootstrap exception is exactly three tables",
     );
+
+    /*
+     * AND THE CEREMONY NO LONGER WRITES AT ALL. It resolves a human and opens a transaction; every
+     * mutation is the authority's. If raw SQL writes ever reappear here, there are two bootstrap
+     * writers again — which is the exact thing this phase was allowed to refactor away, not to
+     * duplicate.
+     */
+    const ceremonyWrites = new Set(
+      [...sqlStatementsOf(coreSrc), ...sqlStatementsOf(cliSrc)].flatMap(writtenTablesOf),
+    );
+    assert.deepEqual(
+      [...ceremonyWrites].sort(),
+      [],
+      "the operator ceremony writes nothing of its own — it calls the one authority",
+    );
   }
 
   /* ── Every forbidden table is absent from the write set ──────────────────── */
   {
-    const statements = [...sqlStatementsOf(coreSrc), ...sqlStatementsOf(cliSrc)];
-    const written = new Set(statements.flatMap(writtenTablesOf));
+    const written = new Set([
+      ...drizzleWrittenTablesOf(authoritySrc),
+      ...[...sqlStatementsOf(coreSrc), ...sqlStatementsOf(cliSrc)].flatMap(writtenTablesOf),
+    ]);
     for (const table of FORBIDDEN_WRITES) {
-      assert.ok(!written.has(table), `R4A must never write ${table}`);
+      assert.ok(!written.has(table), `tenant bootstrap must never write ${table}`);
     }
     /*
      * And the identity tables are not even READ for mutation elsewhere: the resolver selects from
@@ -151,14 +203,102 @@ function main(): void {
     }
   }
 
-  /* ── Nothing in the application tree may reach the ceremony ──────────────── */
+  /* ── Nothing in the application tree may reach the SCRIPTS ceremony ──────── */
   {
+    /*
+     * Still absolute, and still the original rule. The ceremony under `scripts/` holds the operator
+     * posture, the TTY confirmation and the production guards; a product module that imported IT
+     * would inherit an operator's authority. What moved to `src/` is the three-table write, and
+     * nothing else.
+     */
     const offenders = collect("src").filter((file) =>
-      /scripts\/(lib\/)?(tenant-provision|provision-tenant)|provision-tenant/.test(
-        readFileSync(path.join(ROOT, file), "utf8"),
+      /scripts\/(lib\/)?(tenant-provision|provision-tenant)/.test(
+        /* CODE, NOT PROSE. The authority's header names the path it replaced, in order to say the
+         * write moved out of it — a mention that is the documentation, not the violation. */
+        codeOf(readFileSync(path.join(ROOT, file), "utf8")),
       ),
     );
-    assert.deepEqual(offenders, [], "no product module may import the tenant bootstrap ceremony");
+    assert.deepEqual(offenders, [], "no product module may import the operator ceremony");
+  }
+
+  /* ── EXACTLY TWO CALLERS REACH THE AUTHORITY, AND THEY ARE NAMED ─────────── */
+  {
+    /*
+     * THE REPLACEMENT FIREWALL.
+     *
+     * The old rule — nothing in `src/` may mention tenant provisioning — was enforceable because the
+     * answer was zero. The answer is no longer zero, so the rule becomes a CENSUS: an exhaustive
+     * list, so a third module appearing is a decision somebody has to record here rather than a
+     * quiet second bootstrap path.
+     *
+     * `create-account.server.ts` is signup. The two files under `tenant-provisioning/` are the
+     * authority itself and its own vocabulary. That is the whole list.
+     */
+    const referencing = collect("src")
+      .filter((file) =>
+        /provision-tenant|provisionTenant|tenant-provisioning/.test(
+          readFileSync(path.join(ROOT, file), "utf8"),
+        ),
+      )
+      .map((f) => f.replace(/\\/g, "/"))
+      .sort();
+    assert.deepEqual(
+      referencing,
+      [SIGNUP, AUTHORITY_CONTRACTS, AUTHORITY].sort(),
+      "exactly one authority, one vocabulary and one product caller reference tenant provisioning",
+    );
+  }
+
+  /* ── The authority is server-only and cannot be reached by a client ──────── */
+  {
+    assert.doesNotMatch(authorityCode, /"use client"/, "the authority is never a client module");
+    assert.doesNotMatch(
+      authorityCode,
+      /"use server"/,
+      "the authority is not itself a server action — a caller must own the act",
+    );
+    /*
+     * A client component importing it would ship tenant-writing code to a browser. Neither the
+     * authority nor signup may appear in one.
+     */
+    const clientOffenders = collect("src").filter((file) => {
+      const code = readFileSync(path.join(ROOT, file), "utf8");
+      return (
+        /^\s*["']use client["']/m.test(code) &&
+        /tenant-provisioning|self-service-signup/.test(code)
+      );
+    });
+    assert.deepEqual(clientOffenders, [], "no client component imports tenant provisioning or signup");
+  }
+
+  /* ── The provenance vocabulary is closed, and matches the database ───────── */
+  {
+    const contracts = codeOf(read(AUTHORITY_CONTRACTS));
+    const schema = codeOf(read(SCHEMA));
+    for (const value of [
+      "local-operator-ceremony",
+      "production-operator-ceremony",
+      "self-service-signup",
+    ]) {
+      assert.ok(contracts.includes(value), `the vocabulary admits ${value}`);
+      assert.ok(schema.includes(value), `the database CHECK admits ${value}`);
+    }
+    /*
+     * SIGNUP MAY ONLY EVER CLAIM ONE OF THEM. If `create-account.server.ts` ever names an operator
+     * root, a self-service tenant would be indistinguishable from a ceremony-born one — which is
+     * precisely the distinction Director Decision 1 required be preserved.
+     */
+    const signupCode = codeOf(read(SIGNUP));
+    assert.ok(
+      signupCode.includes("TENANT_PROVISIONING_SOURCE_SELF_SERVICE"),
+      "signup states its own provenance",
+    );
+    for (const operatorRoot of ["local-operator-ceremony", "production-operator-ceremony"]) {
+      assert.ok(
+        !signupCode.includes(operatorRoot),
+        `signup may never claim the ${operatorRoot} root`,
+      );
+    }
   }
 
   /* ── And the ceremony may not reach INTO the application runtime ─────────── */
@@ -224,10 +364,37 @@ function main(): void {
       .sort();
     assert.deepEqual(routes, INT3_ROUTES, "R4A introduces no HTTP route handler of its own");
 
-    const actions = collect("src/app").filter((f) =>
-      /tenant[-_]?provision|provisionTenant/i.test(readFileSync(path.join(ROOT, f), "utf8")),
+    /*
+     * ── WHICH APP-LAYER MODULES MAY CAUSE A TENANT ───────────────────────────
+     *
+     * This asserted an empty list, which was right while nothing in the product could provision. It
+     * would still pass today by ACCIDENT — signup reaches the authority through
+     * `createSelfServiceAccount`, whose name matches neither pattern — and a rule that passes by
+     * accident is not a rule. So it becomes an exhaustive census of the app-layer modules that may
+     * cause tenant creation by ANY route, direct or indirect.
+     */
+    const actions = collect("src/app")
+      .filter((f) =>
+        /tenant[-_]?provision|provisionTenant|createSelfServiceAccount|self-service-signup/i.test(
+          codeOf(readFileSync(path.join(ROOT, f), "utf8")),
+        ),
+      )
+      .map((f) => f.replace(/\\/g, "/"))
+      .sort();
+    assert.deepEqual(
+      actions,
+      ["src/app/register/actions.ts", "src/app/register/page.tsx"],
+      "exactly one signup action and its page may cause tenant creation",
     );
-    assert.deepEqual(actions, [], "no page or action references tenant provisioning");
+    /*
+     * AND THE PAGE ONLY READS THE VOCABULARY. A page is rendered on GET; if it could provision, a
+     * crawler could create tenants.
+     */
+    assert.doesNotMatch(
+      codeOf(read("src/app/register/page.tsx")),
+      /createSelfServiceAccount|provisionTenant/,
+      "the signup PAGE renders a form and provisions nothing",
+    );
   }
 
   /* ── Guards: production, remote database, non-TTY, slug confirmation ─────── */
@@ -370,43 +537,96 @@ function main(): void {
     );
   }
 
+  /*
+   * ── THE WRITE SHAPES, RESTATED IN THE AUTHORITY'S OWN LANGUAGE ────────────
+   *
+   * These assertions used to read raw SQL out of the ceremony. The write is drizzle now, so each one
+   * is re-expressed against the `.values({...})` object it actually writes. Every property they
+   * asserted is asserted still: one insert per table, no `plan`, no fabricated provenance, no actor,
+   * and an activation that cannot reach another tenant's row.
+   */
+
+  /** The object literal passed to the `.values(...)` that follows an `.insert(<table>)`. */
+  const valuesFor = (table: string): string => {
+    const at = authorityCode.indexOf(`.insert(${table})`);
+    assert.ok(at >= 0, `the authority inserts ${table}`);
+    const open = authorityCode.indexOf("{", authorityCode.indexOf(".values(", at));
+    let depth = 0;
+    for (let i = open; i < authorityCode.length; i += 1) {
+      if (authorityCode[i] === "{") depth += 1;
+      if (authorityCode[i] === "}") {
+        depth -= 1;
+        if (depth === 0) return authorityCode.slice(open + 1, i);
+      }
+    }
+    throw new Error(`unterminated values object for ${table}`);
+  };
+
+  const keysOf = (block: string): string[] =>
+    [...block.matchAll(/(^|[,{\s])([A-Za-z_][A-Za-z0-9_]*)\s*[:,]/g)].map((m) => m[2]!).sort();
+
   /* ── `plan` is not written, and is given no meaning ──────────────────────── */
   {
-    const inserts = sqlStatementsOf(coreSrc).filter((s) => /insert into companies/i.test(s));
-    assert.equal(inserts.length, 1, "exactly one companies insert");
-    assert.doesNotMatch(inserts[0]!, /\bplan\b/, "R4A assigns `plan` no meaning and does not write it");
+    assert.equal(
+      [...authorityCode.matchAll(/\.insert\(companies\)/g)].length,
+      1,
+      "exactly one companies insert",
+    );
+    assert.ok(
+      !keysOf(valuesFor("companies")).includes("plan"),
+      "tenant birth assigns `plan` no meaning and does not write it",
+    );
+  }
+
+  /* ── The company insert names no actor, and records its root ─────────────── */
+  {
+    const keys = keysOf(valuesFor("companies"));
+    for (const fabricated of ["createdBy", "createdByType", "updatedBy", "updatedByType"]) {
+      assert.ok(!keys.includes(fabricated), `${fabricated} must stay NULL — there is no actor`);
+    }
+    assert.ok(keys.includes("provisioningSource"), "the row must record which root produced it");
   }
 
   /* ── The company UPDATE can only ever reach the row just created ─────────── */
   {
-    const updates = sqlStatementsOf(coreSrc).filter((s) => /update companies/i.test(s));
-    assert.equal(updates.length, 1, "exactly one companies update");
+    assert.equal(
+      [...authorityCode.matchAll(/\.update\(companies\)/g)].length,
+      1,
+      "exactly one companies update",
+    );
+    /*
+     * KEYED BY THE ID CREATED IN THIS TRANSACTION, and additionally by the transient status — so the
+     * activation is structurally incapable of touching another tenant's row OR of re-activating a
+     * suspended one.
+     */
     assert.match(
-      updates[0]!.replace(/\s+/g, " "),
-      /where id = \$1/,
+      authorityCode.slice(authorityCode.indexOf(".update(companies)")).replace(/\s+/g, " "),
+      /eq\(companies\.id, tenantId\)/,
       "the activation must be keyed by the id created in this transaction",
     );
   }
 
-  /* ── The transaction is one transaction ──────────────────────────────────── */
-  {
-    assert.match(coreCode, /client\.query\("begin"\)/, "one explicit transaction");
-    assert.match(coreCode, /client\.query\("commit"\)/, "…that commits");
-    const rollbacks = [...coreCode.matchAll(/client\.query\("rollback"\)/g)].length;
-    assert.ok(rollbacks >= 2, "…and rolls back on every refusal path inside it");
-  }
-
   /* ── The band is one frozen literal, and it is existing vocabulary ───────── */
   {
-    assert.match(coreSrc, /BOOTSTRAP_ROLE_TYPE = "owner"/, "the band is `owner`");
-    assert.match(coreSrc, /BOOTSTRAP_ROLE_NAME = "Owner"/, "the name matches the seeded owner role");
-    const roleInserts = sqlStatementsOf(coreSrc).filter((s) => /insert into roles/i.test(s));
-    assert.equal(roleInserts.length, 1, "exactly one roles insert");
-    assert.doesNotMatch(
-      roleInserts[0]!,
-      /authority_rank|policy_refs/,
-      "unused authority columns stay untouched — populating them would invent an authority",
+    const contractsSrc = read(AUTHORITY_CONTRACTS);
+    assert.match(contractsSrc, /BOOTSTRAP_ROLE_TYPE = "owner"/, "the band is `owner`");
+    assert.match(
+      contractsSrc,
+      /BOOTSTRAP_ROLE_NAME = "Owner"/,
+      "the name matches the seeded owner role",
     );
+    assert.equal(
+      [...authorityCode.matchAll(/\.insert\(roles\)/g)].length,
+      1,
+      "exactly one roles insert",
+    );
+    const keys = keysOf(valuesFor("roles"));
+    for (const unused of ["authorityRank", "policyRefs"]) {
+      assert.ok(
+        !keys.includes(unused),
+        "unused authority columns stay untouched — populating them would invent an authority",
+      );
+    }
     /* The enum vocabulary is not extended: `owner` must already exist in the schema. */
     assert.match(
       read("src/db/schema/_enums.ts"),
@@ -417,36 +637,28 @@ function main(): void {
 
   /* ── The membership fabricates no provenance ─────────────────────────────── */
   {
-    const inserts = sqlStatementsOf(coreSrc).filter((s) => /insert into memberships/i.test(s));
-    assert.equal(inserts.length, 1, "exactly one memberships insert");
-    const columns = inserts[0]!.match(/insert into memberships \(([^)]*)\)/i)?.[1] ?? "";
+    assert.equal(
+      [...authorityCode.matchAll(/\.insert\(memberships\)/g)].length,
+      1,
+      "exactly one memberships insert",
+    );
     assert.deepEqual(
-      columns.split(",").map((c) => c.trim()).sort(),
-      ["role_id", "status", "status_changed_at", "tenant_id", "user_id"],
+      keysOf(valuesFor("memberships")),
+      ["roleId", "status", "statusChangedAt", "tenantId", "userId"],
       "no invitation id, no authorization id, no delegating actor, no created_by",
     );
     for (const fabricated of [
-      "accepted_invitation_id",
-      "delegated_by_id",
-      "delegated_by_type",
-      "created_by",
-      "authority_scope",
+      "acceptedInvitationId",
+      "delegatedById",
+      "delegatedByType",
+      "createdBy",
+      "authorityScope",
     ]) {
       assert.ok(
-        !columns.includes(fabricated),
+        !keysOf(valuesFor("memberships")).includes(fabricated),
         `${fabricated} must stay unwritten — the truthful value is absence`,
       );
     }
-  }
-
-  /* ── The company insert names no actor ───────────────────────────────────── */
-  {
-    const inserts = sqlStatementsOf(coreSrc).filter((s) => /insert into companies/i.test(s));
-    const columns = inserts[0]!.match(/insert into companies \(([^)]*)\)/i)?.[1] ?? "";
-    for (const fabricated of ["created_by", "created_by_type", "updated_by"]) {
-      assert.ok(!columns.includes(fabricated), `${fabricated} must stay NULL — there is no actor`);
-    }
-    assert.match(columns, /provisioning_source/, "the row must record which root produced it");
   }
 
   /* ── The migration CHECK literal and the TypeScript constant agree ───────── */
@@ -463,10 +675,29 @@ function main(): void {
       /COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR = "local-operator-ceremony"/,
       "the schema constant must match the migration literal",
     );
+    /*
+     * ── ONE DEFINITION, NOT TWO THAT AGREE ────────────────────────────────────
+     *
+     * The ceremony used to carry its own `= "local-operator-ceremony"` literal, and this asserted
+     * that it matched the migration. Two copies of a database-constrained value is how a vocabulary
+     * drifts, so the authority now owns the constant and the ceremony RE-EXPORTS it. That is the
+     * stronger property and it is what is asserted: the literal exists in exactly one place, and the
+     * ceremony reaches it rather than restating it.
+     */
     assert.match(
-      coreSrc,
+      read(AUTHORITY_CONTRACTS),
       /TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR = "local-operator-ceremony"/,
-      "the ceremony constant must match too",
+      "the authority owns the constant",
+    );
+    assert.doesNotMatch(
+      codeOf(coreSrc).replace(/CORE_LOCAL_OPERATOR/g, ""),
+      /"local-operator-ceremony"/,
+      "the ceremony must not restate the literal — it imports the one definition",
+    );
+    assert.match(
+      codeOf(coreSrc),
+      /TENANT_PROVISIONING_SOURCE_LOCAL_OPERATOR = CORE_LOCAL_OPERATOR/,
+      "…and re-exports it under its released name",
     );
     /* It shares wording with the genesis root on purpose — the same root, the same limitation. */
     assert.match(

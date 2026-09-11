@@ -331,9 +331,18 @@ function main(): void {
 
   /* ── R4A is untouched, and `provisioning` stays its own ──────────────────── */
   {
-    const provision = read("scripts/lib/provision-tenant.ts");
-    assert.match(provision, /tenant_status = 'active'/, "R4A still activates at birth");
-    assert.match(provision, /'provisioning'/, "…via its own transient state");
+    /*
+     * ── THE ACTIVATION MOVED WITH THE WRITE ───────────────────────────────────
+     *
+     * Tenant birth now lives in `src/features/tenant-provisioning`, so the two statements this
+     * pinned are drizzle calls in the authority rather than raw SQL in the ceremony. The PROPERTY is
+     * unchanged and is what is asserted: a tenant is born `provisioning` and promoted to `active` in
+     * the same transaction, so `provisioning` is never durable and a tenant is never active and
+     * memberless.
+     */
+    const provision = read("src/features/tenant-provisioning/provision-tenant.server.ts");
+    assert.match(provision, /tenantStatus: "active"/, "tenant birth still activates at birth");
+    assert.match(provision, /tenantStatus: "provisioning"/, "…via its own transient state");
     for (const [label, code] of [["core", coreCode], ["cli", cliCode]] as const) {
       assert.doesNotMatch(code, /provisionTenant|provisioning_source|insert into companies/i,
         `${label}: R4B never creates a tenant`);
