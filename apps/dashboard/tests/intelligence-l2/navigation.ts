@@ -28,10 +28,16 @@ function intelligenceFinalNav(): void {
       "Insights",
       "Readiness & Pathways",
       "Recommendations",
+      /*
+       * SOC-UI1 amended this list from six to seven, under SOC-0's approval. The six above keep
+       * their identity, their order and their lifecycle meaning; Social Intelligence is appended
+       * because it is a new SOURCE of intelligence rather than a new stage of the existing cycle.
+       */
+      "Social Intelligence",
     ],
-    "Intelligence L2 is the locked six-surface IA, in lifecycle order",
+    "Intelligence L2 is the locked seven-surface IA — six in lifecycle order, then SOC-UI1",
   );
-  assert.equal(intel.destinations.length, 6, "exactly six Intelligence surfaces");
+  assert.equal(intel.destinations.length, 7, "exactly seven Intelligence surfaces");
 }
 
 function patternsRemoved(): void {
@@ -52,6 +58,7 @@ function retainedSurfacesPresent(): void {
   assert.equal(byLabel("Insights")?.href, "/director/intelligence/insights");
   assert.equal(byLabel("Readiness & Pathways")?.href, "/intelligence/evolution");
   assert.equal(byLabel("Recommendations")?.href, "/director/intelligence/recommendations");
+  assert.equal(byLabel("Social Intelligence")?.href, "/intelligence/social", "SOC-0's approved route");
   // Every retained Intelligence surface has a real, working route — no `unavailable` placeholders.
   for (const d of intel.destinations) {
     assert.ok(d.href && !d.unavailable, `${d.label} has a real route`);
@@ -66,6 +73,7 @@ function routesResolveToIntelligence(): void {
     "/intelligence/evolution",
     "/director/intelligence/insights",
     "/director/intelligence/recommendations",
+    "/intelligence/social",
   ]) {
     assert.equal(resolveActiveWorkspace(route), "intelligence", `${route} resolves to Intelligence`);
   }

@@ -109,7 +109,13 @@ const LEGACY = [
  * both routes land with an outcome. It is reachable by URL and adds NO navigation entry, exactly as
  * the Google page still does not; the shell is a concurrent workstream this phase did not touch.
  */
-const DASHBOARD_ROUTE_COUNT = 132; /* WORK-1 added /director/work; this phase adds Instagram's. */
+/*
+ * SOC-UI1 added `/intelligence/social`, the seventh Intelligence L2 surface, so the census moves
+ * from 132 to 133. The property this constant defends is that no route was DELETED and none appeared
+ * unannounced — it was never a claim that the product stops growing, and the pin is amended
+ * deliberately rather than relaxed into an inequality.
+ */
+const DASHBOARD_ROUTE_COUNT = 133;
 /** CMD-B1's pins, restated so this phase cannot move them without saying so. */
 /*
  * AMENDED BY AGENT-ID-0.1, AND STRICTER FOR IT.

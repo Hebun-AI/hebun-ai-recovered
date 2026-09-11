@@ -68,8 +68,13 @@ function authoritativeIaIntact(): void {
   );
   assert.deepEqual(
     getWorkspace("intelligence").destinations.map((d) => d.label),
-    ["Overview", "Signals & Assessments", "Candidates", "Insights", "Readiness & Pathways", "Recommendations"],
-    "Intelligence 6-surface IA intact",
+    /*
+     * SOC-UI1 appended a seventh surface under SOC-0's approval. Phase 20D's property is that its
+     * redirect closure did not DISTURB the authoritative IA, not that the IA never grows — the six
+     * it closed over are all still here, in order, with their routes unchanged.
+     */
+    ["Overview", "Signals & Assessments", "Candidates", "Insights", "Readiness & Pathways", "Recommendations", "Social Intelligence"],
+    "Intelligence IA intact — Phase 20C's six, then SOC-UI1's Social Intelligence",
   );
   assert.equal(getWorkspace("command").destinations.find((d) => d.label === "Decisions")?.href, "/approvals");
   const sec = getWorkspace("governance").destinations.find((d) => d.href === "/director/governance/security");

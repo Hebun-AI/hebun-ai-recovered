@@ -188,9 +188,22 @@ function main(): void {
       `${page} consumes the YouTube series — UI is SOC-UI1's phase, not this one`,
     );
   }
+  /*
+   * ── SOC-UI1 HAS NOW BUILT IT, AND THIS IS THE CONSCIOUS CHANGE ────────────
+   *
+   * The assertion above USED to be `!existsSync(...)` — "/intelligence/social does not exist yet".
+   * That deferral was written to be amended by exactly one phase, and this is it. What replaces it
+   * is not a weaker claim but a different one, and the property that actually mattered is kept
+   * intact by the page loop above: NO PAGE re-derives. The route exists; it reaches this derivation
+   * only through the SOC-UI1 composition boundary, which is a pure module over the released read
+   * seam, so the derivation still has exactly one kind of caller.
+   */
+  const SOCIAL_ROUTE = "src/app/(dashboard)/intelligence/social";
+  assert.ok(existsSync(path.join(ROOT, SOCIAL_ROUTE)), "SOC-UI1 built /intelligence/social");
+  const composition = "src/features/social-intelligence/dashboard-model.ts";
   assert.ok(
-    !existsSync(path.join(ROOT, "src/app/(dashboard)/intelligence/social")),
-    "/intelligence/social does not exist yet — SOC-UI1 creates it",
+    codeOf(read(composition)).includes("channel-measurement-series"),
+    "the composition boundary is the consumer of this derivation",
   );
 
   /* ═══ 13. PURE UNDER A HOSTILE ENVIRONMENT ═════════════════════════════ */

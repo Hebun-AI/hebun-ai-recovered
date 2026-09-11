@@ -26,6 +26,7 @@ import {
   Sparkles,
   Compass,
   Network,
+  Radio,
   type LucideIcon,
 } from "lucide-react";
 
@@ -147,6 +148,24 @@ export const WORKSPACES: readonly Workspace[] = [
       { label: "Insights", href: "/director/intelligence/insights", icon: Sparkles, purpose: "Validated intelligence." },
       { label: "Readiness & Pathways", href: "/intelligence/evolution", icon: Activity, purpose: "Readiness to change and transition paths." },
       { label: "Recommendations", href: "/director/intelligence/recommendations", icon: Sparkles, purpose: "Advisory — distinct from a decision." },
+      /*
+       * SOC-UI1 — the seventh Intelligence surface, approved by SOC-0.
+       *
+       * IT IS A LEVEL-2 DESTINATION, NOT AN EIGHTH WORKSPACE. Social evidence is something the
+       * organization LEARNS about itself from outside, which is what Intelligence is for; a
+       * top-level workspace would claim social is a mode of operating rather than a source of
+       * understanding, and the top level is exactly seven and does not grow.
+       *
+       * NO PROVIDER APPEARS IN NAVIGATION. There is no Instagram row and no YouTube row here, and
+       * there must not be: this nav is TENANT-SHARED and compiled in, so a provider named at Level
+       * 2 would tell every organization that Hebun is watching a platform theirs may not have
+       * connected. Which platforms are live is answered on the surface, from the connection
+       * authority, per tenant. Provider drill-down remains Level 3.
+       *
+       * It sits last because it is the newest source of intelligence, not because it is the least
+       * important — the preceding six are in lifecycle order and this one does not join that cycle.
+       */
+      { label: "Social Intelligence", href: "/intelligence/social", icon: Radio, purpose: "What connected social platforms reported, and when Hebun observed it." },
     ],
   },
   {

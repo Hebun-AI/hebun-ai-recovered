@@ -643,6 +643,13 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
   assert.deepEqual(
     consumers.sort(),
     [
+      /*
+       * SOC-UI1 — the Social Intelligence surface. The TWELFTH addition, and it spends `StateBlock`
+       * on the same ONE fact as the eleven before it: an UNAVAILABLE read of this organization's
+       * connections is not an organization with no social platforms connected. It opts into no
+       * density override, so the pinned set above stays empty. (Sorted — the comparison sorts.)
+       */
+      "src/app/(dashboard)/intelligence/social/page.tsx",
       "src/app/(dashboard)/knowledge/page.tsx",
       "src/components/agents/agent-improvement-hypothesis-filing.tsx",
       /*
@@ -705,7 +712,7 @@ function densityIsPresentationOnly(overrides: Readonly<Record<string, string>> =
        */
       "src/components/organizational-work/work-register.tsx",
     ],
-    "the six untouched Knowledge consumers remain, Command is still not among them, and the eleven " +
+    "the six untouched Knowledge consumers remain, Command is still not among them, and the twelve " +
       "additions are the durable identity ceremony, SIA-3.1's two hypothesis controls, KID-2's " +
       "provider admission control, AMA-3's mandate surface, OSA-1's department structure, " +
       "Departmental Placement's surface, WORK-1's work register, OSA-4's people register, " +

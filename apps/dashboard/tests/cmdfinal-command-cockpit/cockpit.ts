@@ -343,9 +343,15 @@ function theTruthContractsHold(overrides: Readonly<Record<string, string>> = {})
     }
     return out;
   };
+  /*
+   * SOC-UI1 is the SECOND consumer of `WorkspaceSection`. The claim this line defends is that
+   * COMMAND stopped using the primitive and that the primitive itself was not changed to suit a new
+   * caller — neither of which a second, unrelated workspace adopting it disturbs. Command's absence
+   * is still asserted, and it is still the point.
+   */
   assert.deepEqual(walk("src").filter((f) => /<WorkspaceSection/.test(overrides[f] ?? read(f))),
-    ["src/app/(dashboard)/knowledge/page.tsx"],
-    "WorkspaceSection keeps its Knowledge consumer and no longer serves Command");
+    ["src/app/(dashboard)/intelligence/social/page.tsx", "src/app/(dashboard)/knowledge/page.tsx"],
+    "WorkspaceSection serves Knowledge and SOC-UI1's Social Intelligence — and still not Command");
   assert.ok(!/emphasis/.test(overrides[SECTION] ?? read(SECTION)),
     "and carries no Command-shaped variant — CMD-V5's approach was reverted, not shipped");
 
