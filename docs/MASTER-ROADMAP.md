@@ -4040,7 +4040,8 @@ this line once named) · `SOC-UI1` **RELEASED + PRODUCTION-ACCEPTED** `ddf7803` 
 **RELEASED + PRODUCTION-ACCEPTED** `fcd5f64` · `SOC-UI2` **satisfied by SOC-UI1** · `SOC-UI3`
 **partially satisfied** (Instagram recent content delivered; YouTube half pending; "performance" has
 no authority) · `YT-SOC3` (YouTube recent-content consumer — not started) · `IG-AN3` (per-post
-evolution, **evidence-blocked** on a second media observation) · `SOC-PROVIDERS` · `SOC-HEBY`.
+evolution, **IMPLEMENTED LOCALLY / READY FOR RELEASE REVIEW** — the second media observation arrived
+unattended at `2026-09-11T14:00:21.998Z`; not pushed, not deployed) · `SOC-PROVIDERS` · `SOC-HEBY`.
 
 Measured, not carried forward. `YT-SOC2` keeps its released name under §17; the YouTube
 recent-content consumer it was once expected to be is now tracked separately as `YT-SOC3`.

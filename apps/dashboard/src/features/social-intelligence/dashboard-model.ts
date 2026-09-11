@@ -17,9 +17,9 @@
  * percentage, an engagement score or a cross-platform total could be placed — the absence of the
  * field is the boundary, not a promise in a comment.
  *
- * In particular INSTAGRAM HAS NO `changes`. IG-AN2 is not released; this organization holds exactly
- * one Instagram account measurement, and a surface that reached for a second would be inventing the
- * evidence its own honesty rules exist to protect.
+ * Every number is therefore a provider's count, or the `change` a RELEASED derivation computed —
+ * YT-SOC2 for the YouTube channel, IG-AN2 for the Instagram account, IG-AN3 for each Instagram post.
+ * This file maps those answers onto presentation shapes and subtracts nothing of its own.
  *
  * ── WHY THE SECTIONS ARE NOT SYMMETRIC ──────────────────────────────────────
  *
@@ -47,9 +47,19 @@ import {
   type InstagramAccountComparison,
 } from "@/features/instagram-connection-surface/account-measurement-comparison";
 import {
+  formatPublishedOn,
+  mediaTypeLabel,
   projectLatestInstagramMediaObservation,
   type InstagramLatestMediaObservation,
 } from "@/features/instagram-connection-surface/latest-media-observation";
+import {
+  deriveInstagramMediaEvolution,
+  INSTAGRAM_MEDIA_EVOLUTION_SENTENCES,
+  INSTAGRAM_MEDIA_GAP_NOTES,
+  INSTAGRAM_MEDIA_UNMATCHED_NOTES,
+  type InstagramMediaEvolution,
+  type InstagramMediaMetricComparison,
+} from "@/features/instagram-connection-surface/media-measurement-evolution";
 import {
   deriveYouTubeChannelMeasurementSeries,
   YOUTUBE_CHANNEL_SERIES_SENTENCES,
@@ -62,10 +72,12 @@ import {
   type YouTubeChannelComparison,
 } from "@/features/youtube-channel-surface/channel-measurement-comparison";
 import {
+  INSTAGRAM_MEDIA_METRICS,
   INSTAGRAM_PLATFORM,
   METRIC_UNREPORTED_DISPLAY,
   SOCIAL_PLATFORMS,
   YOUTUBE_PLATFORM,
+  type SocialMetricDefinition,
   type SocialPlatformDefinition,
   type SocialPlatformKey,
 } from "./contracts";
@@ -199,6 +211,74 @@ export interface SocialChangeBlock {
   readonly cells: readonly SocialChangeCell[];
 }
 
+/* ── IG-AN3: the calculated change, per post ───────────────────────────────── */
+
+/**
+ * One metric of one post, ready to render.
+ *
+ * ── TWO DISPLAYS, BECAUSE THERE ARE TWO DIFFERENT FACTS ────────────────────
+ *
+ * `latestDisplay` is INSTAGRAM REPORTED — the count itself, at the later instant. `changeDisplay` is
+ * HEBUN CALCULATED — the subtraction. They are separate fields because a surface must be able to
+ * present them as separate claims with separate provenance; one combined string would make the
+ * provider's number and Hebun's arithmetic indistinguishable at the point of rendering.
+ *
+ * A withheld count shows an em dash in BOTH, never a zero, and carries the `note` that says which
+ * side was missing.
+ */
+export interface SocialMediaChangeCell {
+  readonly shortLabel: string;
+  readonly label: string;
+  readonly status: "comparable" | "not-comparable";
+  readonly previous: number | null;
+  readonly latest: number | null;
+  /** HEBUN CALCULATED: `latest - previous`. `null` only when the pair was not comparable. */
+  readonly change: number | null;
+  /** INSTAGRAM REPORTED, at the later instant. `"0"` is a count; `"—"` is a withheld one. */
+  readonly latestDisplay: string;
+  /** HEBUN CALCULATED. `"0"` is a result. `"+15"` and `"-6"` carry their sign. */
+  readonly changeDisplay: string;
+  /** Why the pair could not be compared. `null` when it was. Never a verdict about the numbers. */
+  readonly note: string | null;
+}
+
+/**
+ * One post that appeared in BOTH compared observations.
+ *
+ * The identity fields are what lets a human recognise which post this is. `mediaId` is carried so
+ * the match is auditable, not because a surface must print it.
+ */
+export interface SocialMediaEvolutionRow {
+  readonly mediaId: string;
+  readonly typeLabel: string | null;
+  readonly caption: string | null;
+  /** The provider's publication date, formatted. `null` when Instagram reported none. */
+  readonly publishedOn: string | null;
+  readonly cells: readonly SocialMediaChangeCell[];
+}
+
+/*
+ * THERE IS DELIBERATELY NO `permalink` ON THE ROW ABOVE.
+ *
+ * IG-AN3 projects one — through the released permalink policy — and the recent-content section one
+ * panel up already renders every one of these posts as a link, through the one released component
+ * that carries the outbound `rel` policy. Carrying the URL into a second presentation shape would
+ * invite a second link renderer, and the released surface firewall requires there to be exactly one.
+ */
+
+export interface SocialMediaEvolutionBlock {
+  readonly status: "compared";
+  /** HEBUN OBSERVED — the window every row's arithmetic spans. Never labelled an interval. */
+  readonly previousObservedAt: string;
+  readonly latestObservedAt: string;
+  readonly rows: readonly SocialMediaEvolutionRow[];
+  /**
+   * What the window could NOT compare, said as facts about the stored evidence. Empty when every
+   * identified post appeared in both observations.
+   */
+  readonly unmatchedNotes: readonly string[];
+}
+
 /* ── The two platform sections ─────────────────────────────────────────────── */
 
 export interface InstagramSection {
@@ -224,6 +304,19 @@ export interface InstagramSection {
   /** The released sentence for a state that is not a comparison. `null` when it is one. */
   readonly changesSentence: string | null;
   readonly content: InstagramLatestMediaObservation;
+  /**
+   * IG-AN3. How the counts Instagram reports for each POST moved between the last two stored media
+   * observations, or `null` when the evidence does not support a comparison.
+   *
+   * It is a SECOND, INDEPENDENT question from `changes` above. That one compares the account's three
+   * counts; this compares each post's two. They are never summed, never averaged into one figure,
+   * and never presented as one verdict — an account-level delta and a per-post delta are different
+   * facts about different subjects.
+   */
+  readonly mediaEvolution: SocialMediaEvolutionBlock | null;
+  readonly mediaEvolutionState: InstagramMediaEvolution;
+  /** The released sentence for a state that is not a per-post comparison. `null` when it is one. */
+  readonly mediaEvolutionSentence: string | null;
   readonly account: InstagramLatestObservation;
   /**
    * SOC-ACT1. The canonical reference of the NEWEST stored account observation, or `null` when
@@ -573,6 +666,95 @@ function instagramComparisonSentence(comparison: InstagramAccountComparison): st
   return INSTAGRAM_ACCOUNT_COMPARISON_SENTENCES[comparison.status] ?? null;
 }
 
+/* ── IG-AN3 comparison → per-post change rows ──────────────────────────────── */
+
+/**
+ * One released media metric comparison, mapped to the presentation cell.
+ *
+ * The labels come from `INSTAGRAM_MEDIA_METRICS` — the per-POST vocabulary — so a post's like change
+ * can never be rendered under the account's "Followers". This file performs no arithmetic: `change`
+ * is IG-AN3's answer, carried.
+ */
+function mediaChangeCell(
+  definition: SocialMetricDefinition,
+  metric: InstagramMediaMetricComparison,
+): SocialMediaChangeCell {
+  if (metric.status === "comparable") {
+    return Object.freeze({
+      shortLabel: definition.shortLabel,
+      label: definition.label,
+      status: "comparable" as const,
+      previous: metric.previous,
+      latest: metric.latest,
+      change: metric.change,
+      latestDisplay: String(metric.latest),
+      changeDisplay: changeDisplay(metric.change),
+      note: null,
+    });
+  }
+  return Object.freeze({
+    shortLabel: definition.shortLabel,
+    label: definition.label,
+    status: "not-comparable" as const,
+    previous: metric.previous,
+    latest: metric.latest,
+    change: null,
+    /*
+     * A PRESENT ENDPOINT IS STILL SHOWN. When only the earlier side was withheld, Instagram DID
+     * report the later count and the reader may see it; only the CHANGE is unknowable. An em dash
+     * appears for the latest count solely when Instagram withheld that one too.
+     */
+    latestDisplay: metric.latest === null ? METRIC_UNREPORTED_DISPLAY : String(metric.latest),
+    changeDisplay: METRIC_UNREPORTED_DISPLAY,
+    note: INSTAGRAM_MEDIA_GAP_NOTES[metric.gap] ?? null,
+  });
+}
+
+/**
+ * The IG-AN3 evolution, mapped to rows.
+ *
+ * ROW ORDER IS THE DERIVATION'S, WHICH IS THE PROVIDER'S. Nothing here re-sorts: sorting by change
+ * would be a ranking, and this file owns no more authority to rank than IG-AN3 does.
+ */
+function mediaEvolutionBlockOf(evolution: InstagramMediaEvolution): SocialMediaEvolutionBlock | null {
+  if (evolution.status !== "compared") return null;
+
+  const rows = evolution.items.map((item) =>
+    Object.freeze({
+      mediaId: item.mediaId,
+      typeLabel: mediaTypeLabel(item.mediaType),
+      caption: item.caption,
+      publishedOn: formatPublishedOn(item.publishedAt),
+      cells: Object.freeze([
+        mediaChangeCell(INSTAGRAM_MEDIA_METRICS[0]!, item.likeCount),
+        mediaChangeCell(INSTAGRAM_MEDIA_METRICS[1]!, item.commentCount),
+      ]),
+    }),
+  );
+
+  /* Said only when there is something to say. An empty list is not "0 posts were unmatched". */
+  const unmatchedNotes: string[] = [];
+  if (evolution.onlyInLatest > 0) unmatchedNotes.push(INSTAGRAM_MEDIA_UNMATCHED_NOTES.onlyInLatest);
+  if (evolution.onlyInPrevious > 0) unmatchedNotes.push(INSTAGRAM_MEDIA_UNMATCHED_NOTES.onlyInPrevious);
+
+  return Object.freeze({
+    status: "compared" as const,
+    previousObservedAt: evolution.previousObservedAt,
+    latestObservedAt: evolution.latestObservedAt,
+    rows: Object.freeze(rows),
+    unmatchedNotes: Object.freeze(unmatchedNotes),
+  });
+}
+
+/** The released IG-AN3 sentence for a state that is not a comparison. */
+function mediaEvolutionSentence(evolution: InstagramMediaEvolution): string | null {
+  if (evolution.status === "compared") return null;
+  if (evolution.status === "unavailable") {
+    return INSTAGRAM_MEDIA_EVOLUTION_SENTENCES[evolution.reason];
+  }
+  return INSTAGRAM_MEDIA_EVOLUTION_SENTENCES[evolution.status] ?? null;
+}
+
 function comparisonSentence(comparison: YouTubeChannelComparison): string | null {
   if (comparison.status === "compared") return null;
   if (comparison.status === "unavailable") return YOUTUBE_CHANNEL_COMPARISON_SENTENCES[comparison.reason];
@@ -630,6 +812,7 @@ export function composeSocialDashboard(input: SocialDashboardInput): SocialDashb
   const instagramAccount = projectLatestInstagramObservation(input.instagramAccount);
   const instagramSeries = deriveInstagramAccountMeasurementSeries(input.instagramAccount);
   const instagramContent = projectLatestInstagramMediaObservation(input.instagramMedia);
+  const instagramMediaEvolution = deriveInstagramMediaEvolution(input.instagramMedia);
   const youtubeSeries = deriveYouTubeChannelMeasurementSeries(input.youtubeChannel);
   const youtubeComparison = compareYouTubeChannelMeasurements(youtubeSeries);
 
@@ -694,6 +877,9 @@ export function composeSocialDashboard(input: SocialDashboardInput): SocialDashb
     comparison: instagramComparison,
     changesSentence: instagramComparisonSentence(instagramComparison),
     content: instagramContent,
+    mediaEvolution: mediaEvolutionBlockOf(instagramMediaEvolution),
+    mediaEvolutionState: instagramMediaEvolution,
+    mediaEvolutionSentence: mediaEvolutionSentence(instagramMediaEvolution),
     account: instagramAccount,
     latestObservationRef: latestObservationRefOf(input.instagramAccount),
   });
@@ -725,6 +911,10 @@ export function composeSocialDashboard(input: SocialDashboardInput): SocialDashb
       instagram.evolutionSentence,
       instagram.changesSentence,
       ...(instagramChanges?.cells.map((c) => c.note) ?? []),
+      /* IG-AN3 sits beside calculated numbers too, so its prose is auditable by the same test. */
+      instagram.mediaEvolutionSentence,
+      ...(instagram.mediaEvolution?.rows.flatMap((row) => row.cells.map((c) => c.note)) ?? []),
+      ...(instagram.mediaEvolution?.unmatchedNotes ?? []),
       youtube.evolutionSentence,
       youtube.changesSentence,
       ...(youtubeChanges?.cells.map((c) => c.note) ?? []),

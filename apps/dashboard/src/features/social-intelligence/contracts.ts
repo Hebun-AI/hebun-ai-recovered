@@ -77,6 +77,32 @@ export const YOUTUBE_PLATFORM: SocialPlatformDefinition = Object.freeze({
   ]),
 });
 
+/**
+ * The two counts Instagram reports PER POST, in the order a row presents them.
+ *
+ * ── WHY THESE ARE NOT IN `INSTAGRAM_PLATFORM.metrics` ───────────────────────
+ *
+ * Those three describe the ACCOUNT: one subject, one value each, at one instant. These describe a
+ * POST, and there are as many of each as there are posts. Putting a per-post like count into the
+ * platform's metric list would let a card that renders "the platform's metrics" print a number that
+ * belongs to one post as though it belonged to the account.
+ *
+ * `factKey` names the key the released MEDIA mapper writes inside each `recentMedia` entry — not a
+ * top-level observation fact. They are different vocabularies under different capabilities.
+ */
+export const INSTAGRAM_MEDIA_METRICS: readonly SocialMetricDefinition[] = Object.freeze([
+  Object.freeze({
+    factKey: "likeCount",
+    shortLabel: "Likes",
+    label: "Likes Instagram reported for this post",
+  }),
+  Object.freeze({
+    factKey: "commentCount",
+    shortLabel: "Comments",
+    label: "Comments Instagram reported for this post",
+  }),
+]);
+
 /** In the order the dashboard presents them. Not a ranking — Instagram simply came first. */
 export const SOCIAL_PLATFORMS: readonly SocialPlatformDefinition[] = Object.freeze([
   INSTAGRAM_PLATFORM,

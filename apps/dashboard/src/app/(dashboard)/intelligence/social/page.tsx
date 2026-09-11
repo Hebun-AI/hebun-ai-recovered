@@ -38,6 +38,7 @@ import { WorkspaceSection } from "@/components/ui/workspace-section";
 import { InstagramMediaCards } from "@/components/platform-integrations/instagram-media-cards";
 import { EvolutionPanel } from "@/components/social-intelligence/evolution-panel";
 import { WorkRequestForm } from "@/components/social-intelligence/work-request-form";
+import { MediaEvolution } from "@/components/social-intelligence/media-evolution";
 import { ObservationCoverage } from "@/components/social-intelligence/observation-coverage";
 import { PlatformSummaryCard } from "@/components/social-intelligence/platform-summary-card";
 import { readSocialDashboard } from "@/features/social-intelligence/dashboard-read.server";
@@ -303,6 +304,39 @@ export default async function SocialIntelligencePage() {
                   ? INSTAGRAM_MEDIA_ABSENCE.none
                   : INSTAGRAM_MEDIA_ABSENCE[model.instagram.content.reason]
               }
+            />
+          )}
+        </WorkspaceSection>
+
+        {/* ── F. Per-post measurement change (IG-AN3) ───────────────────── */}
+        <WorkspaceSection
+          title="Change per post"
+          question="For the same Instagram post, how did the counts Instagram reports differ between the last two stored observations?"
+          provenance="derived"
+          provenanceDetail="Hebun calculated"
+        >
+          {/*
+            WHY THIS IS ITS OWN SECTION AND NOT A BADGE ON THE CONTENT CARDS ABOVE.
+
+            "Recent content" answers what Instagram reported at ONE instant, under authoritative
+            provenance. This answers a question about TWO, and the answer is Hebun's arithmetic. They
+            are different claims with different sources, and folding a calculated delta into a card
+            whose section chip says "Instagram reported" would attribute Hebun's subtraction to the
+            provider.
+
+            The posts shown here are matched by the identifier Instagram gives each one — never by
+            caption, position, permalink or publication time. A post that appears in only one of the
+            two observations is counted and named below the grid, never compared against zero.
+          */}
+          {model.instagram.mediaEvolution !== null ? (
+            <MediaEvolution block={model.instagram.mediaEvolution} />
+          ) : (
+            <StateBlock
+              tone={
+                model.instagram.mediaEvolutionState.status === "unavailable" ? "unavailable" : "empty"
+              }
+              title="No per-post comparison"
+              description={model.instagram.mediaEvolutionSentence ?? ""}
             />
           )}
         </WorkspaceSection>

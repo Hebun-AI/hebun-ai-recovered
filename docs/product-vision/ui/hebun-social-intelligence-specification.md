@@ -363,7 +363,7 @@ only *time series*. The roadmap below follows that measured reality rather than 
 | Instagram recent content | **AVAILABLE NOW** — released consumer, production-accepted |
 | Instagram measurement series | **BUILT** — IG-AN1 `f735450`; with two observations it now returns `series` |
 | Instagram follower change | **BUILT** — IG-AN2 `fcd5f64`; the truthful answer is `0` across all three counts. Trend and % growth remain unbuilt and unauthorized |
-| Instagram per-post evolution | **WAITING FOR HISTORY** — still one media observation (2026-09-10T14:00:19.320Z) |
+| Instagram per-post evolution | **BUILT — NOT RELEASED** — IG-AN3, implemented locally and pending release review. The second media observation arrived at `2026-09-11T14:00:21.998Z`; all 8 posts match by `mediaId` and the truthful answer is `0` for every like and comment count |
 | YouTube platform card | **BUILT** — SOC-UI1 `ddf7803` |
 | YouTube subscriber series | **BUILT** — YT-SOC1 `ad81811`; four points, honestly flat at zero |
 | YouTube subscriber change | **BUILT** — YT-SOC2 `a373639`; the truthful answer is `0` |
@@ -396,7 +396,7 @@ table so the correction is auditable rather than silent.
 | **SOC-UI2** | Audience evolution visualization | YT-SOC1, IG-AN2 | **SATISFIED BY SOC-UI1** — see below. No separate phase remains |
 | **SOC-UI3** | Recent-content composition + content performance | IG-UI1, YouTube content consumer | **PARTIALLY SATISFIED** — Instagram half delivered by SOC-UI1; YouTube half blocked; "performance" has no authority |
 | **YT-SOC3** | YouTube recent-content consumer (read model over stored `recentVideos`) | YT-SOC1 | **NOT STARTED.** Newly identified — the ID `YT-SOC2` was spent on the comparison |
-| **IG-AN3** | Instagram per-post measurement evolution | ≥2 usable media observations | **EVIDENCE-BLOCKED** — 1 media observation exists (2026-09-10T14:00:19Z) |
+| **IG-AN3** | Instagram per-post measurement evolution | ≥2 usable media observations | **IMPLEMENTED LOCALLY / READY FOR RELEASE REVIEW** — evidence gate opened `2026-09-11T14:00:21.998Z`; not pushed, not deployed, no production acceptance of a rendered surface |
 | **SOC-PROVIDERS** | Additional platforms | A real connection + capability each | Not started; no candidate exists |
 | **SOC-HEBY** | Heby social brief / recommendations | Analytics contracts mature | Deferred |
 
@@ -453,9 +453,12 @@ split by gate, and neither half is a scheduling decision:
 - **`YT-SOC3`** is not evidence-blocked. Stored `recentVideos` exist today, so it could be built —
   but this tenant's channel reports **0 videos**, so the honest surface would be an empty one. That
   is a Director product call, not a technical one.
-- **`IG-AN3`** is evidence-blocked and cannot be unblocked by deciding to build it. It needs a
-  second usable Instagram media observation; the standing authorization observes that capability on
-  a 1440-minute cadence, so one is expected in the ordinary course rather than engineered.
+- **`IG-AN3`** was evidence-blocked and is no longer. The second usable Instagram media observation
+  arrived unattended at `2026-09-11T14:00:21.998Z` under the standing authorization — it was
+  observed, never seeded or triggered. Against the two real observations the derivation matches all
+  8 posts by `mediaId`, reports `0` for every like and comment change, and names 0 posts on only one
+  side. It is implemented locally and **not released**: no push, no deploy, and no production
+  acceptance of the rendered surface.
 
 ---
 

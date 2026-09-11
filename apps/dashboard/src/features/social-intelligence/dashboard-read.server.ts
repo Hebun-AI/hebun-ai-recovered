@@ -19,15 +19,23 @@
  *
  * ── THE LIMITS ARE THE DERIVATIONS' OWN ─────────────────────────────────────
  *
- * `ACCOUNT_SERIES_OBSERVATION_LIMIT` and `YOUTUBE_CHANNEL_SERIES_OBSERVATION_LIMIT` are the bounds
- * the released derivations recommend for their own cadence. They are imported rather than restated,
- * so a phase that changes a cadence changes this page with it — and they are deliberately separate
- * constants that happen to be equal, not one constant shared by two platforms.
+ * `ACCOUNT_SERIES_OBSERVATION_LIMIT`, `MEDIA_EVOLUTION_OBSERVATION_LIMIT` and
+ * `YOUTUBE_CHANNEL_SERIES_OBSERVATION_LIMIT` are the bounds the released derivations recommend for
+ * their own cadence. They are imported rather than restated, so a phase that changes a cadence
+ * changes this page with it — and they are deliberately separate constants that happen to be equal,
+ * not one constant shared by three reads.
  *
- * ── THE MEDIA READ ASKS FOR ONE ROW ─────────────────────────────────────────
+ * ── THE MEDIA READ NOW ASKS FOR HISTORY, AND WHY THAT IS NOT A WIDENING ─────
  *
- * The recent-content section shows ONE stored observation. `limit: 1` means no page render can pull
- * a history this surface has no way to display.
+ * It asked for ONE row while the only media consumer was the recent-content section, which shows one
+ * stored observation. IG-AN3 needs the SAME POST in two observations to say anything at all, so the
+ * read now carries `MEDIA_EVOLUTION_OBSERVATION_LIMIT` — the bound that derivation recommends for
+ * its own cadence, imported rather than restated.
+ *
+ * This is the same authority, the same capability, the same tenant predicate and the same kill
+ * switch; only the row count moved, and it moved to a bounded constant rather than to no bound at
+ * all. The recent-content projection is unaffected: it reads the newest row, which is element zero
+ * of a newest-first read whether the read returned one row or thirty.
  */
 import { listConnections } from "@/features/integration-authority/integration-read.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
@@ -42,6 +50,7 @@ import {
   YOUTUBE_PROVIDER_KEY,
 } from "@/features/provider-youtube/contracts";
 import { ACCOUNT_SERIES_OBSERVATION_LIMIT } from "@/features/instagram-connection-surface/account-measurement-series";
+import { MEDIA_EVOLUTION_OBSERVATION_LIMIT } from "@/features/instagram-connection-surface/media-measurement-evolution";
 import { YOUTUBE_CHANNEL_SERIES_OBSERVATION_LIMIT } from "@/features/youtube-channel-surface/channel-measurement-series";
 import { composeSocialDashboard, type SocialDashboardModel } from "./dashboard-model";
 
@@ -79,7 +88,7 @@ export async function readSocialDashboard(): Promise<SocialDashboardModel> {
     readProviderObservations(tenant, {
       providerKey: INSTAGRAM_PROVIDER_KEY,
       capabilityKey: INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
-      limit: 1,
+      limit: MEDIA_EVOLUTION_OBSERVATION_LIMIT,
     }),
     readProviderObservations(tenant, {
       providerKey: YOUTUBE_PROVIDER_KEY,
