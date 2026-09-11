@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:local": "set -a && . ./.env.local && set +a && next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:run",

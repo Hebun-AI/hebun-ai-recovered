@@ -11,10 +11,27 @@
  *
  * Discipline:
  * - Server only. Never import from client code.
- * - Local-first. Refuses a non-localhost target unless the operator explicitly
- *   sets HEBUN_CONTROL_PLANE_ALLOW_REMOTE=true (mirrors the persistence adapter).
+ * - Local-first. Refuses a non-localhost target unless the runtime is explicitly
+ *   authorized (see `assertControlPlaneTargetAllowed`).
  * - Fail closed. When DATABASE_URL is unset, `getControlPlaneDb()` throws; it
- *   NEVER silently substitutes an in-memory store.
+ *   NEVER silently substitutes an in-memory store, and never rewrites a target.
+ *
+ * ── PRODUCTION MODE IS NOT PRODUCTION DEPLOYMENT ────────────────────────────
+ *
+ * `next start` runs Next in production mode, and production mode loads
+ * `.env.production.local` ABOVE `.env.local`. `vercel env pull` writes that file,
+ * so a developer's checkout can hold the deployment's entire environment shape —
+ * `DATABASE_URL` and `HEBUN_CONTROL_PLANE_ALLOW_REMOTE` included. A local process
+ * is still a local process no matter what its environment claims, so neither
+ * `NODE_ENV` nor `VERCEL`/`VERCEL_ENV` is consulted here: `vercel env pull`
+ * writes the latter two verbatim, and a guard keyed on them is defeated on a
+ * laptop.
+ *
+ * `scripts/lib/production-possession.ts` already drew this line for ceremony
+ * AUTHORIZATION, warning that "a `.env` file copied from the running deployment
+ * silently carries constitutional authority". Reachability was left on a bare
+ * flag because, when that was written, only the deployment could hold it.
+ * `vercel env pull` ended that assumption; this module closes the other half.
  */
 
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
@@ -25,6 +42,62 @@ export const CONTROL_PLANE_DATABASE_URL_ENV = "DATABASE_URL";
 export const CONTROL_PLANE_ALLOW_REMOTE_ENV = "HEBUN_CONTROL_PLANE_ALLOW_REMOTE";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+/**
+ * The literal `vercel env pull` writes in place of every value the project marks Sensitive.
+ *
+ * A REAL deployment holds the real values and never this placeholder. Its presence anywhere in an
+ * environment is therefore positive proof that the environment is a PULLED SNAPSHOT — which means
+ * the process reading it is a developer's machine wearing the deployment's clothes.
+ */
+const VERCEL_SENSITIVE_PLACEHOLDER = "[SENSITIVE]";
+
+/** Where a developer is sent. Named once so the guard and package.json cannot drift apart. */
+const SAFE_LOCAL_COMMAND = "npm run start:local";
+
+/**
+ * WHY `.env.production.local` IS THE HAZARD, IN ONE PARAGRAPH.
+ *
+ * `next start` runs Next in PRODUCTION MODE, and in production mode Next loads
+ * `.env.production.local` ABOVE `.env.local`. `vercel env pull` writes that file, so a checkout can
+ * hold the deployment's whole environment shape. Measured during SOC-UI1 acceptance: a plain
+ * `next start` could not resolve a session that the SAME build resolved immediately once
+ * `.env.local` was exported into the process first.
+ */
+const PRECEDENCE_EXPLANATION =
+  "Next.js loads `.env.production.local` ABOVE `.env.local` in production mode, and " +
+  "`vercel env pull` writes that file — so `next start` can silently adopt the deployment's " +
+  `environment instead of yours. Use \`${SAFE_LOCAL_COMMAND}\`, which exports \`.env.local\` into ` +
+  "the process first so it wins.";
+
+/**
+ * `new URL(...).hostname` returns an IPv6 literal WITH brackets — "[::1]", not "::1".
+ *
+ * The allowlist above was written without them, so an IPv6 loopback database was classified as
+ * REMOTE and refused. That failed closed and was therefore harmless, but it was wrong: it is a local
+ * database and always was.
+ */
+function normalizeHost(hostname: string): string {
+  return hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;
+}
+
+/**
+ * The environment shape this module reads.
+ *
+ * Deliberately the same permissive record `resolveCeremonyPosture` accepts, rather than
+ * `NodeJS.ProcessEnv`: a guard must be callable with an arbitrary environment in a test without
+ * having to satisfy ambient Node typings that demand `NODE_ENV` — the one variable this module
+ * makes a point of never consulting.
+ */
+export type ControlPlaneEnvironment = Readonly<Record<string, string | undefined>>;
+
+/** True when this environment is a `vercel env pull` snapshot, i.e. this process is LOCAL. */
+function isPulledEnvSnapshot(env: ControlPlaneEnvironment): boolean {
+  for (const value of Object.values(env)) {
+    if (value === VERCEL_SENSITIVE_PLACEHOLDER) return true;
+  }
+  return false;
+}
 
 export type ControlPlaneDatabase = NodePgDatabase<typeof schema>;
 
@@ -49,27 +122,100 @@ function assertServerRuntime(): void {
   }
 }
 
-function assertAllowedTarget(
+/**
+ * May THIS process open a connection to THIS control-plane target?
+ *
+ * ── PRODUCTION MODE IS NOT PRODUCTION DEPLOYMENT ────────────────────────────
+ *
+ * `NODE_ENV` is never consulted here: it says how a process COMPILES, not where it RUNS. Neither is
+ * `VERCEL` nor `VERCEL_ENV` — `vercel env pull` writes both verbatim into `.env.production.local`
+ * (`VERCEL="1"`, `VERCEL_ENV="production"`), so a guard keyed on either is already defeated on a
+ * laptop. The tests assert that they grant nothing, precisely because they look like they should.
+ *
+ * ── NOTHING IN A MESSAGE BELOW COMES FROM THE URL ───────────────────────────
+ *
+ * No password, no host, no database name, no connection string — a refusal a developer pastes into
+ * a chat must not carry a credential with it. What the messages carry instead is the REMEDIATION,
+ * which is the part that was actually missing.
+ *
+ * Exported so the invariant can be tested without constructing a pool, and so no caller needs to
+ * reimplement it. This is the ONE classification path; there is no second environment authority.
+ */
+export function assertControlPlaneTargetAllowed(
   connectionString: string,
-  env: NodeJS.ProcessEnv,
+  env: ControlPlaneEnvironment = process.env,
 ): void {
+  const trimmed = connectionString.trim();
+  if (!trimmed) {
+    throw new ControlPlaneUnavailableError(
+      "A control-plane connection string is required.",
+    );
+  }
+
+  /*
+   * THE PLACEHOLDER IS A DIAGNOSIS, NOT A TYPO. The released code already refused this string —
+   * it is not a URL — but as "not a valid connection string", which sends a developer hunting for a
+   * mistake they did not make. `[SENSITIVE]` has exactly one cause, and naming it turns a confusing
+   * failure into an instruction.
+   */
+  if (trimmed === VERCEL_SENSITIVE_PLACEHOLDER) {
+    throw new ControlPlaneUnavailableError(
+      `DATABASE_URL is the literal \`${VERCEL_SENSITIVE_PLACEHOLDER}\` placeholder that ` +
+        "`vercel env pull` writes for a value marked Sensitive, so a generated " +
+        `\`.env.production.local\` is in effect. ${PRECEDENCE_EXPLANATION}`,
+    );
+  }
+
   let target: URL;
   try {
-    target = new URL(connectionString);
+    target = new URL(trimmed);
   } catch {
     throw new ControlPlaneUnavailableError(
       "DATABASE_URL is not a valid connection string.",
     );
   }
-  if (
-    env[CONTROL_PLANE_ALLOW_REMOTE_ENV] !== "true" &&
-    !LOCAL_HOSTS.has(target.hostname)
-  ) {
+
+  /* A loopback target is always allowed, whatever else the environment looks like. */
+  if (LOCAL_HOSTS.has(normalizeHost(target.hostname))) return;
+
+  /*
+   * ── A SNAPSHOT CANNOT AUTHORIZE ITSELF ────────────────────────────────────
+   *
+   * Checked BEFORE the flag, and that order is the whole protection. The hazard is not a developer
+   * who sets the flag on purpose; it is a developer who runs `next start` and inherits the flag,
+   * the URL and the deployment's entire env from a file they never opened. One masked value proves
+   * the environment came out of `vercel env pull`, and a pulled environment is by definition being
+   * read somewhere other than the deployment that produced it.
+   */
+  if (isPulledEnvSnapshot(env)) {
     throw new ControlPlaneUnavailableError(
-      "Control-plane database target must be localhost unless " +
-        `${CONTROL_PLANE_ALLOW_REMOTE_ENV}=true is set explicitly.`,
+      "Refusing a non-local control-plane target: this environment contains " +
+        `\`${VERCEL_SENSITIVE_PLACEHOLDER}\` values, which only a \`vercel env pull\` snapshot has ` +
+        "— so this process is local, whatever the environment claims. " +
+        `${CONTROL_PLANE_ALLOW_REMOTE_ENV} cannot authorize a remote database from a pulled ` +
+        `snapshot. ${PRECEDENCE_EXPLANATION}`,
     );
   }
+
+  /*
+   * THE EXACT LITERAL, AND NOTHING ELSE. Not trimmed, not lowercased, not coerced — the same
+   * discipline `resolveCeremonyPosture` applies to its own signal, and for the same reason.
+   * `Boolean(env[...])` here would make the string "[SENSITIVE]" truthy and open the hazard.
+   */
+  if (env[CONTROL_PLANE_ALLOW_REMOTE_ENV] === "true") return;
+
+  throw new ControlPlaneUnavailableError(
+    "Refusing a non-local control-plane target: this process is not authorized to reach a remote " +
+      `database. ${CONTROL_PLANE_ALLOW_REMOTE_ENV} must be exactly "true", which the deployed ` +
+      `runtime sets. If you are running locally, ${PRECEDENCE_EXPLANATION}`,
+  );
+}
+
+function assertAllowedTarget(
+  connectionString: string,
+  env: NodeJS.ProcessEnv,
+): void {
+  assertControlPlaneTargetAllowed(connectionString, env);
 }
 
 /** True only when a control-plane connection string is present. */

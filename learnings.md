@@ -4212,3 +4212,34 @@ exist is anything that would invoke it.
 - **Hatayı hiçbir otomatik kapı bulmadı; üretimde gerçek sayfaya bakmak buldu.** 726/726 yeşil,
   typecheck temiz, lint temiz, build 0 — ve yüzey yine de erişilebilirlik açısından bozuktu.
   **Yeşil bir pipeline, ürünü açıp bakmanın yerine geçmez.**
+
+## ENV-1 — production MODU, production DEPLOYMENT değildir (2026-09-11)
+- **`next start` Next'i production modunda çalıştırır ve production modu `.env.production.local`'i
+  `.env.local`'in ÜSTÜNDE yükler.** O dosyayı `vercel env pull` yazar. Yani bir geliştiricinin
+  checkout'u, deployment'ın tüm ortam şeklini taşıyabilir — `DATABASE_URL` ve
+  `HEBUN_CONTROL_PLANE_ALLOW_REMOTE` dahil. Düz `npm start` sessizce o ortamı benimser.
+- **Çıkarım değil, ölçüm:** SOC-UI1 kabulünde düz `npx next start` bir oturumu çözemedi; AYNI build,
+  `.env.local` process'e export edildikten sonra aynı cookie ve aynı satırlarla oturumu anında çözdü.
+  Fark yalnızca hangi `DATABASE_URL`'in kazandığıydı.
+- **`VERCEL` ve `VERCEL_ENV` güvenilir sinyal DEĞİLDİR.** `vercel env pull` ikisini de birebir yazıyor
+  — bu checkout'ta `VERCEL="1"`, `VERCEL_ENV="production"` literal olarak duruyor. "Vercel'de miyim"
+  diye soran bir koruma, dizüstü bilgisayarda çoktan aşılmış durumda. `NODE_ENV` de değil: o bir
+  DERLEME modudur, bir YER değil.
+- **Sinyal olarak maskeyi kullan.** `vercel env pull`, projede Sensitive işaretli her değerin yerine
+  literal `[SENSITIVE]` yazar. Gerçek bir deployment gerçek değerleri taşır ve bu placeholder'ı asla
+  görmez. Ortamda herhangi bir yerde `[SENSITIVE]` bulunması, sürecin YEREL olduğunun pozitif kanıtı.
+- **Sıra korumanın kendisidir.** Snapshot kontrolü bayrak kontrolünden ÖNCE çalışır. Tehlike bayrağı
+  bilerek açan geliştirici değil; `next start` çalıştırıp bayrağı, URL'i ve tüm ortamı hiç açmadığı
+  bir dosyadan miras alan geliştiricidir.
+- **Erişilebilirlik yetkilendirme değildir — ve repo bunu zaten yarısı için yazmıştı.**
+  `production-possession.ts`, "çalışan deployment'tan kopyalanan bir `.env` dosyası sessizce anayasal
+  yetki taşır" diye uyarıp CEREMONY yetkisini bundan korumuştu. Reachability çıplak bir bayrakta
+  bırakılmıştı, çünkü yazıldığı anda o bayrağı yalnızca deployment taşıyabilirdi. `vercel env pull`
+  o varsayımı bitirdi.
+- **Hatalı bite-proof, hatalı üründen daha sinsi.** "Boş string kontrolünü sil" mutasyonu HAYATTA
+  KALDI — çünkü `new URL("")` zaten patlıyor ve koruma ikinci katmandan kapanıyor. O kontrol bir
+  güvenlik sınırı değil, daha iyi bir MESAJ satın alıyordu. Isırmayan bir bite-proof tiyatrodur;
+  onu zorlamak yerine gerçek bir gevşemeyi test eden bir mutasyonla değiştir.
+- **Ben de yanlış rapor ettim.** Director'a "o dosyada production DATABASE_URL ve
+  ALLOW_REMOTE=true vardı" dedim. İkisi de `[SENSITIVE]` maskesiydi; tehlike gerçekti ama LATENT'ti,
+  gerçekleşmemişti. **Bir güvenlik bulgusunu bildirmeden önce değeri gerçekten oku.**
