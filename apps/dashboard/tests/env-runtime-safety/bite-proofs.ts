@@ -17,6 +17,7 @@ import path from "node:path";
 
 const ROOT = process.cwd();
 const SUITE = "tests/env-runtime-safety/control-plane-target.ts";
+const POOL_SUITE = "tests/env-runtime-safety/control-plane-pool.ts";
 const CLIENT = "src/db/client.server.ts";
 
 const abs = (file: string): string => path.join(ROOT, file);
@@ -37,6 +38,8 @@ function runSuite(suite: string): { ok: boolean; output: string } {
 
 interface Mutation {
   readonly label: string;
+  /** Which suite must notice. Defaults to the target suite. */
+  readonly suite?: string;
   readonly find: string;
   readonly replace: string;
   /** A fragment the failure must contain. A bare non-zero exit is not enough. */
@@ -119,6 +122,27 @@ const MUTATIONS: readonly Mutation[] = [
    * does open a real hole.
    */
   {
+    label: "M12 the connect budget is reverted to the value that lost an observation cycle",
+    suite: POOL_SUITE,
+    find: "  connectionTimeoutMillis: 5000,",
+    replace: "  connectionTimeoutMillis: 2000,",
+    expect: "must leave room for a cold wake",
+  },
+  {
+    label: "M13 the pool is built before the target is authorized",
+    suite: POOL_SUITE,
+    find: "  /* THE GUARD RUNS FIRST, so a refused target never reaches the pool below. */\n  assertAllowedTarget(trimmed, env);",
+    replace: "",
+    expect: "no pool may be constructed",
+  },
+  {
+    label: "M14 the settings constant is bypassed so the pool keeps the old budget",
+    suite: POOL_SUITE,
+    find: "    ...CONTROL_PLANE_POOL_SETTINGS,",
+    replace: "    max: 4,\n    idleTimeoutMillis: 1000,\n    connectionTimeoutMillis: 2000,",
+    expect: "AssertionError",
+  },
+  {
     label: "M11 the snapshot scan is narrowed to DATABASE_URL, missing a masked sibling",
     find: "  for (const value of Object.values(env)) {",
     replace: "  for (const value of [env[CONTROL_PLANE_DATABASE_URL_ENV]]) {",
@@ -130,8 +154,10 @@ function main(): void {
   const original = readFile(CLIENT);
   const digest = sha(original);
 
-  const baseline = runSuite(SUITE);
-  assert.ok(baseline.ok, `${SUITE} must pass before mutation:\n${baseline.output}`);
+  for (const suite of [SUITE, POOL_SUITE]) {
+    const baseline = runSuite(suite);
+    assert.ok(baseline.ok, `${suite} must pass before mutation:\n${baseline.output}`);
+  }
 
   let survived: string | null = null;
   try {
@@ -142,7 +168,8 @@ function main(): void {
       );
       writeFileSync(abs(CLIENT), original.replace(mutation.find, mutation.replace), "utf8");
 
-      const run = runSuite(SUITE);
+      /* Each mutation names the suite that must notice it; the target suite is the default. */
+      const run = runSuite(mutation.suite ?? SUITE);
       writeFileSync(abs(CLIENT), original, "utf8");
 
       if (run.ok) {

@@ -99,6 +99,43 @@ function isPulledEnvSnapshot(env: ControlPlaneEnvironment): boolean {
   return false;
 }
 
+/**
+ * What the connection is given before it is opened.
+ *
+ * ── WHY `connectionTimeoutMillis` IS 5000 AND NOT 2000 ──────────────────────
+ *
+ * On 2026-09-11 the hourly observation cron fired at 09:00:18Z and returned 503. `ScanResult` has
+ * exactly two variants, and the route returns 503 only for the non-`scanned` one, so the meaning is
+ * not a guess: the authorization register could not be read, and NOTHING was attempted. The scan
+ * aborted on its FIRST database operation, against a pool that had just been constructed — before
+ * the cadence gate, before any authorization was resolved, before any provider was contacted. One
+ * observation cycle was lost to a connection that never opened.
+ *
+ * Measured the same morning against the production database, six consecutive connect-plus-`select 1`
+ * round trips: 1086, 461, 436, 419, 407, 354 ms. The FIRST cost 1086ms against a database that was
+ * already awake — 54% of the entire 2000ms budget. Production is a serverless Postgres that suspends
+ * when idle, and a genuinely cold wake is the tail beyond that first sample. The 2000ms figure was
+ * chosen when every target was a local Postgres.
+ *
+ * 5000 is BORROWED, not invented: `canonical-read/config.ts` already sets `statementTimeoutMs: 5000`
+ * as this repository's budget for "a database operation may take this long", and a connection is a
+ * database operation. It is ~4.6x the measured warm first connect, and it stays below the 10_000ms
+ * each released provider transport allows for a single network call — so a failing connect cannot
+ * dominate an invocation that still has three authorizations to scan. It elapses only on failure.
+ *
+ * ── WHY `idleTimeoutMillis` IS UNCHANGED ────────────────────────────────────
+ *
+ * Evaluated, and deliberately left alone. The observed failure was on a FRESH pool's first connect;
+ * no connection had yet been idle, so the idle window cannot have contributed to it. Raising it
+ * would address a different and so far unobserved problem, and this change fixes the failure that
+ * actually happened.
+ */
+export const CONTROL_PLANE_POOL_SETTINGS = Object.freeze({
+  max: 4,
+  idleTimeoutMillis: 1000,
+  connectionTimeoutMillis: 5000,
+});
+
 export type ControlPlaneDatabase = NodePgDatabase<typeof schema>;
 
 export interface ControlPlaneHandle {
@@ -213,7 +250,7 @@ export function assertControlPlaneTargetAllowed(
 
 function assertAllowedTarget(
   connectionString: string,
-  env: NodeJS.ProcessEnv,
+  env: ControlPlaneEnvironment,
 ): void {
   assertControlPlaneTargetAllowed(connectionString, env);
 }
@@ -229,9 +266,19 @@ export function isControlPlaneConfigured(
  * Build an isolated control-plane handle for an explicit connection string.
  * Used by tests (disposable database) and by the process singleton below.
  */
+export interface ControlPlaneDbDeps {
+  /**
+   * Pool constructor seam. Present so a test can observe WHAT THE CONNECTION WAS GIVEN, and so the
+   * "a refused target never reaches a pool" invariant is provable by the pool never being built —
+   * something no source-scanning test could establish. Production passes nothing and gets `pg`.
+   */
+  readonly createPool?: (config: Record<string, unknown>) => Pool;
+}
+
 export function createControlPlaneDb(
   connectionString: string,
-  env: NodeJS.ProcessEnv = process.env,
+  env: ControlPlaneEnvironment = process.env,
+  deps: ControlPlaneDbDeps = {},
 ): ControlPlaneHandle {
   assertServerRuntime();
   const trimmed = connectionString.trim();
@@ -240,14 +287,14 @@ export function createControlPlaneDb(
       "A control-plane connection string is required.",
     );
   }
+  /* THE GUARD RUNS FIRST, so a refused target never reaches the pool below. */
   assertAllowedTarget(trimmed, env);
-  const pool = new Pool({
+  const config = {
     connectionString: trimmed,
-    max: 4,
-    idleTimeoutMillis: 1000,
-    connectionTimeoutMillis: 2000,
+    ...CONTROL_PLANE_POOL_SETTINGS,
     application_name: "hebun-control-plane",
-  });
+  };
+  const pool = deps.createPool ? deps.createPool(config) : new Pool(config);
   const db = drizzle(pool, { schema });
   return {
     db,
