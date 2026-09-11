@@ -4026,13 +4026,24 @@ series. `YT-SOC1` is therefore the only analytics phase that is not data-blocked
 YouTube chart is a flat line at zero, because the channel genuinely reports 0/0/0 with
 `hiddenSubscriberCount: false`.
 
+**SUPERSEDED 2026-09-11 at `fcd5f6495ac9de23db49c906fb049da5caa1daf1`.** The finding above was true
+when recorded and is now spent: the flat-zero chart was built and accepted in production, and
+Instagram's second observation arrived at `2026-09-11T10:00:20.258Z`, so `IG-AN2` is no longer
+data-blocked. The reconciled per-phase state lives in the Social Intelligence specification §11 and
+is not restated here.
+
 #### Sequence, by dependency
 
-`SOC-0` (architecture + navigation, this record) · `IG-AN1` **RELEASED** `f735450` · `YT-SOC1`
-(YouTube series — ready now) · `SOC-UI1` (shell + platform cards) · `IG-AN2` (**data-blocked**,
-needs a second observation) · `SOC-UI2` (audience evolution) · `YT-SOC2` (YouTube recent content) ·
-`SOC-UI3` (content performance) · `IG-AN3` (per-post evolution, data-blocked) · `SOC-PROVIDERS` ·
-`SOC-HEBY`.
+`SOC-0` **APPROVED** `6c4e1ef` · `IG-AN1` **RELEASED** `f735450` · `YT-SOC1` **RELEASED** `ad81811` ·
+`YT-SOC2` **RELEASED** `a373639` (channel measurement COMPARISON — not the recent-content consumer
+this line once named) · `SOC-UI1` **RELEASED + PRODUCTION-ACCEPTED** `ddf7803` · `IG-AN2`
+**RELEASED + PRODUCTION-ACCEPTED** `fcd5f64` · `SOC-UI2` **satisfied by SOC-UI1** · `SOC-UI3`
+**partially satisfied** (Instagram recent content delivered; YouTube half pending; "performance" has
+no authority) · `YT-SOC3` (YouTube recent-content consumer — not started) · `IG-AN3` (per-post
+evolution, **evidence-blocked** on a second media observation) · `SOC-PROVIDERS` · `SOC-HEBY`.
+
+Measured, not carried forward. `YT-SOC2` keeps its released name under §17; the YouTube
+recent-content consumer it was once expected to be is now tracked separately as `YT-SOC3`.
 
 LinkedIn, TikTok, Facebook and X have no provider module, catalog entry, capability, transport or
 credential kind. They appear on no surface, in no state, until they exist.

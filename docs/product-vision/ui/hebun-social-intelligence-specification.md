@@ -4,13 +4,21 @@
 
 **DOCUMENT TYPE: PRODUCT VISION — SOCIAL INTELLIGENCE — PRODUCT ARCHITECTURE + INFORMATION ARCHITECTURE**
 
-**STATUS: DESIGN ONLY — NO IMPLEMENTATION.** No sidebar code, no UI, no runtime, no schema, no
-provider contact, no production change. This document decides *where* Social Intelligence belongs
-and *what it may truthfully say*; it builds none of it.
+**STATUS: SOC-0 APPROVED AND SUPERSEDED IN PART BY RELEASED WORK.** This document decided *where*
+Social Intelligence belongs and *what it may truthfully say*, and built none of it. That was true
+when it was written and is no longer the whole picture: the Director approved SOC-0, and `SOC-UI1`,
+`YT-SOC1`, `YT-SOC2` and `IG-AN2` have since been released and production-accepted.
 
-**Discovery basis:** branch `main`, `HEAD == origin/main == f7354505559672bdea4b7f3c81da944d06a66a19`,
-0 ahead / 0 behind, staging empty. Production evidence read read-only through the released
-observation history on 2026-09-10T21:07Z. Read: `workspace-nav.ts`, `sidebar.config.ts`,
+**§11 was reconciled against measured repository and production reality on 2026-09-11 at
+`fcd5f6495ac9de23db49c906fb049da5caa1daf1`.** Sections 1–10 and 12–14 are the original design and
+are unchanged; where they describe intent they still hold. Where any of them appears to disagree
+with §11 about what EXISTS, §11 is the measured answer and this document's own rule applies:
+repository truth overrides the page.
+
+**Original discovery basis:** branch `main`,
+`HEAD == origin/main == f7354505559672bdea4b7f3c81da944d06a66a19`, 0 ahead / 0 behind, staging
+empty. Production evidence read read-only through the released observation history on
+2026-09-10T21:07Z. **That basis is historical**; §11 carries the current one. Read: `workspace-nav.ts`, `sidebar.config.ts`,
 `hebun-navigation-architecture.md`, `OBSERVABLE_CAPABILITIES`, the Instagram and YouTube provider
 contracts, `read-provider-observations.server.ts`, `account-measurement-series.ts`, and the released
 navigation-truth tests.
@@ -320,9 +328,12 @@ Measured against production on 2026-09-10T21:07Z, not inferred from plans.
 
 **Stored evidence**
 
+*Observation counts re-measured read-only on 2026-09-11T10:57Z. The element table below was
+reconciled with §11 on the same date; where a row said "derivable" it now says what was built.*
+
 | Provider · capability | Observations | Span |
 |---|---|---|
-| `instagram.account.public.read` | **1** | 2026-09-10T08:00:18.986Z |
+| `instagram.account.public.read` | **2** | 2026-09-10T08:00:18.986Z → 2026-09-11T10:00:20.258Z |
 | `instagram.media.public.read` | **1** | 2026-09-10T14:00:19.320Z |
 | `youtube.channel.public.read` | **4** | 2026-09-07T14:40Z → 2026-09-10T11:00Z |
 
@@ -340,14 +351,14 @@ only *time series*. The roadmap below follows that measured reality rather than 
 |---|---|
 | Instagram platform card | **AVAILABLE NOW** — connection, identity and four counts stored |
 | Instagram recent content | **AVAILABLE NOW** — released consumer, production-accepted |
-| Instagram measurement series | **DERIVABLE NOW** — IG-AN1 released; returns `single-measurement` |
-| Instagram follower delta / trend / % growth | **WAITING FOR HISTORY** — one observation; nothing to subtract |
-| Instagram per-post evolution | **WAITING FOR HISTORY** — one media observation |
-| YouTube platform card | **DERIVABLE NOW** — evidence stored, no consumer built |
-| YouTube subscriber series | **DERIVABLE NOW** — four points; honest result is flat at zero |
-| YouTube subscriber delta | **DERIVABLE NOW** — and the truthful answer is `0` |
-| YouTube recent content | **REQUIRES NEW CONSUMER** — `recentVideos` stored, nothing reads it |
-| Unified cross-platform overview | **FUTURE** — no composition layer exists |
+| Instagram measurement series | **BUILT** — IG-AN1 `f735450`; with two observations it now returns `series` |
+| Instagram follower change | **BUILT** — IG-AN2 `fcd5f64`; the truthful answer is `0` across all three counts. Trend and % growth remain unbuilt and unauthorized |
+| Instagram per-post evolution | **WAITING FOR HISTORY** — still one media observation (2026-09-10T14:00:19.320Z) |
+| YouTube platform card | **BUILT** — SOC-UI1 `ddf7803` |
+| YouTube subscriber series | **BUILT** — YT-SOC1 `ad81811`; four points, honestly flat at zero |
+| YouTube subscriber change | **BUILT** — YT-SOC2 `a373639`; the truthful answer is `0` |
+| YouTube recent content | **REQUIRES NEW CONSUMER** — `recentVideos` stored, nothing reads it. Now tracked as `YT-SOC3` (§11) |
+| Unified cross-platform overview | **COMPOSITION LAYER EXISTS** — SOC-UI1 composes both platforms on one surface. A unified cross-platform *metric* remains deferred indefinitely (§12): composing two providers is not the same act as summing them |
 | LinkedIn · TikTok · Facebook · X | **REQUIRES NEW PROVIDER CAPABILITY** — no module, catalog entry, capability, transport or credential kind. They do not appear on this dashboard, in any state, until they exist. |
 | Engagement score, benchmarks, forecasts | **FUTURE / NOT IMPLEMENTED** — no authority defines them |
 | Heby social brief | **FUTURE / NOT IMPLEMENTED** |
@@ -359,24 +370,82 @@ only *time series*. The roadmap below follows that measured reality rather than 
 Ordered by dependency, not by date. IDs conform to MASTER-ROADMAP §17 (delivery labels, never
 authorities); `IG-AN1` keeps its released name — §17 forbids force-renumbering.
 
+**RECONCILED 2026-09-11 against `fcd5f6495ac9de23db49c906fb049da5caa1daf1`.** Every state below was
+measured — release commit, released source, and read-only production evidence — not carried forward
+from the previous draft. Four statements in that draft had become false; they are listed under the
+table so the correction is auditable rather than silent.
+
 | ID | Scope | Depends on | State |
 |---|---|---|---|
-| **SOC-0** | Product architecture + navigation decision (this document) | — | **THIS PHASE — awaiting Director approval** |
+| **SOC-0** | Product architecture + navigation decision (this document) | — | **APPROVED** `6c4e1ef` |
 | **IG-AN1** | Instagram account measurement-series foundation | — | **RELEASED** `f735450` |
-| **YT-SOC1** | YouTube channel measurement-series derivation, mirroring IG-AN1 | IG-AN1 pattern | **READY** — 4 observations exist |
-| **SOC-UI1** | Social Intelligence shell + platform cards | SOC-0, YT-SOC1 | Blocked on SOC-0 approval |
-| **IG-AN2** | Instagram account deltas | ≥2 usable observations | **BLOCKED — data.** Next observation expected at the 2026-09-11T09:00Z tick |
-| **SOC-UI2** | Audience evolution visualization | YT-SOC1, IG-AN2 | Renders honestly with either |
-| **YT-SOC2** | YouTube recent-content consumer | YT-SOC1 | Not started |
-| **SOC-UI3** | Content performance + recent content composition | IG-UI1, YT-SOC2 | Not started |
-| **IG-AN3** | Instagram per-post measurement evolution | ≥2 media observations | Blocked — data |
+| **YT-SOC1** | YouTube channel measurement-series derivation, mirroring IG-AN1 | IG-AN1 pattern | **RELEASED** `ad81811` |
+| **YT-SOC2** | YouTube channel measurement **comparison** (last two measurements) | YT-SOC1 | **RELEASED** `a373639` |
+| **SOC-UI1** | Social Intelligence shell, platform cards, evolution panels, recent content, observation coverage | SOC-0, YT-SOC1, YT-SOC2 | **RELEASED + PRODUCTION VISUALLY ACCEPTED** `ddf7803` |
+| **IG-AN2** | Instagram account measurement comparison (last two measurements) | ≥2 usable observations | **RELEASED + PRODUCTION VISUALLY ACCEPTED** `fcd5f64` |
+| **SOC-UI2** | Audience evolution visualization | YT-SOC1, IG-AN2 | **SATISFIED BY SOC-UI1** — see below. No separate phase remains |
+| **SOC-UI3** | Recent-content composition + content performance | IG-UI1, YouTube content consumer | **PARTIALLY SATISFIED** — Instagram half delivered by SOC-UI1; YouTube half blocked; "performance" has no authority |
+| **YT-SOC3** | YouTube recent-content consumer (read model over stored `recentVideos`) | YT-SOC1 | **NOT STARTED.** Newly identified — the ID `YT-SOC2` was spent on the comparison |
+| **IG-AN3** | Instagram per-post measurement evolution | ≥2 usable media observations | **EVIDENCE-BLOCKED** — 1 media observation exists (2026-09-10T14:00:19Z) |
 | **SOC-PROVIDERS** | Additional platforms | A real connection + capability each | Not started; no candidate exists |
 | **SOC-HEBY** | Heby social brief / recommendations | Analytics contracts mature | Deferred |
 
-**The ordering finding:** `YT-SOC1` is the only analytics phase that is not data-blocked. It can be
-built and honestly rendered today, where `IG-AN2` cannot. Whether flat-zero YouTube analytics is
-worth building first is a Director product call, not a technical one — the technical answer is that
-it is available.
+### What the previous draft got wrong
+
+Recorded rather than quietly overwritten, because a roadmap that silently repairs itself teaches
+nobody why it drifted.
+
+1. **`SOC-UI1` — "Blocked on SOC-0 approval".** SOC-0 was approved and SOC-UI1 was built, released
+   at `ddf7803` and accepted on the real production surface. The row had never been updated after
+   its own gate cleared.
+2. **`IG-AN2` — "BLOCKED — data. Next observation expected at the 2026-09-11T09:00Z tick".** The
+   prediction was nearly right and the label outlived it. The second observation landed at
+   **2026-09-11T10:00:20.258Z** — the 09:00 tick returned 503 on a control-plane connect that never
+   opened, and the 10:00 tick recorded it. IG-AN2 is released at `fcd5f64`.
+3. **`YT-SOC2` — "YouTube recent-content consumer".** The released `YT-SOC2` (`a373639`) is the
+   channel measurement **comparison**, not a content consumer. §17 forbids renumbering released
+   work, so YT-SOC2 keeps its name and the still-unbuilt content consumer is now **`YT-SOC3`**.
+   §7 already anticipated it under the generic name "YT-SOC".
+4. **`YT-SOC1` — "READY — 4 observations exist".** It was built and released the same day.
+
+### SOC-UI2 and SOC-UI3, measured against §6 and §7
+
+These two rows were the ones most at risk of being marked complete because adjacent functionality
+exists. They were checked clause by clause against their own defining sections.
+
+**`SOC-UI2` is SATISFIED**, not merely adjacent. §6 asks for exactly three things and SOC-UI1
+delivers all three: a chart that never unifies the *metric* (it goes further — Instagram and YouTube
+never share an axis at all, each panel naming its platform and its own metric); `single-measurement`
+rendered as an honest statement rather than a one-point trend; and the flat-zero case rendered as a
+deliberate level line rather than an error or missing data. No separate SOC-UI2 phase remains.
+
+**`SOC-UI3` is PARTIALLY SATISFIED**, and the remainder splits in two:
+
+- *Recent-content composition (Instagram)* — **delivered** by SOC-UI1, which composes the released
+  IG-UI1 card grid unchanged, keeps `Published …` visually distinct from `Observed by Hebun …`, and
+  renders no images, exactly as §7 requires.
+- *Recent content (YouTube)* — **still required**, and now carries the ID `YT-SOC3`. §7's finding
+  stands unchanged: stored `recentVideos` exist, no consumer does.
+- *"Content performance"* — **has no authority and is not scheduled.** §12 defers the universal
+  engagement score because it would be a Hebun calculation presented as a fact. Ranking or scoring
+  posts needs its own definition and governance before any surface may show it. The phrase survives
+  in this row's title only because §17 forbids renaming released labels; it is not a commitment.
+
+### The ordering finding, superseded
+
+The previous draft's finding — that `YT-SOC1` was the only analytics phase not data-blocked — was
+true when written and is now spent: YT-SOC1, YT-SOC2 and IG-AN2 are all released, and the flat-zero
+question it raised was answered by building it and accepting it in production.
+
+**The current finding:** every analytics phase whose evidence exists has been built. What remains is
+split by gate, and neither half is a scheduling decision:
+
+- **`YT-SOC3`** is not evidence-blocked. Stored `recentVideos` exist today, so it could be built —
+  but this tenant's channel reports **0 videos**, so the honest surface would be an empty one. That
+  is a Director product call, not a technical one.
+- **`IG-AN3`** is evidence-blocked and cannot be unblocked by deciding to build it. It needs a
+  second usable Instagram media observation; the standing authorization observes that capability on
+  a 1440-minute cadence, so one is expected in the ordinary course rather than engineered.
 
 ---
 
