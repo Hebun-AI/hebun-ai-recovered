@@ -117,13 +117,48 @@ const MUTATIONS: readonly Mutation[] = [
     expect: "AssertionError",
   },
   {
+    /*
+     * M8 ORIGINALLY pinned `changes: null` — "IG-AN2 is not released". IG-AN2 now IS released, so
+     * the mutation that matters changed with it: the defect is no longer "a change appears at all",
+     * it is "a change appears WITHOUT the evidence for one". Fabricating a comparison while the
+     * series holds a single measurement is exactly that, and the guard must still bite.
+     */
     label: "M8 Instagram is given a calculated change it has no evidence for",
     file: MODEL,
     suite: BEHAVIOUR,
-    find: "    changes: null,\n    content: instagramContent,",
+    find: "  const instagramChanges = instagramChangeBlockOf(instagramComparison);",
     replace:
-      "    changes: { status: \"compared\", previousObservedAt: \"x\", latestObservedAt: \"y\", cells: [] } as unknown as null,\n    content: instagramContent,",
-    expect: "the UI computes nothing",
+      "  const instagramChanges = instagramChangeBlockOf(instagramComparison) ?? Object.freeze({ status: \"compared\" as const, previousObservedAt: \"x\", latestObservedAt: \"y\", cells: Object.freeze([]) });",
+    expect: "one measurement still yields no comparison",
+  },
+  {
+    /*
+     * IT MISLABELS WITHOUT CRASHING, ON PURPOSE. Swapping the whole definition list to
+     * `YOUTUBE_PLATFORM.metrics` throws a TypeError — YouTube's fact keys are absent from
+     * Instagram's map — and a crash proves the code breaks, not that the MEANING is defended. This
+     * keeps every key valid and renames one label, so the only thing that can catch it is the
+     * assertion that Instagram's cells never carry YouTube's names.
+     */
+    label: "M19 Instagram's comparison is mapped under YouTube's metric names",
+    file: MODEL,
+    suite: BEHAVIOUR,
+    find: "  const cells = INSTAGRAM_PLATFORM.metrics.map((definition) => {",
+    replace:
+      "  const cells = INSTAGRAM_PLATFORM.metrics\n    .map((d) => ({ ...d, shortLabel: d.shortLabel === \"Followers\" ? \"Subscribers\" : d.shortLabel }))\n    .map((definition) => {",
+    /*
+     * TWO assertions catch this and the FIRST one fires: renaming Followers makes it absent from
+     * the cells before the "belongs to YouTube alone" check is ever reached. Naming the later
+     * assertion would let this bite-proof pass on a failure it did not predict.
+     */
+    expect: "Followers is present",
+  },
+  {
+    label: "M20 a real zero change is rendered as an absence on the Instagram block",
+    file: MODEL,
+    suite: BEHAVIOUR,
+    find: "        display: changeDisplay(metric.change),\n        note: null,\n      });\n    }\n    return Object.freeze({\n      shortLabel: definition.shortLabel,\n      label: definition.label,\n      status: \"not-comparable\" as const,\n      previous: metric.previous,\n      latest: metric.latest,\n      change: null,\n      display: METRIC_UNREPORTED_DISPLAY,\n      note: GAP_NOTES[metric.gap] ?? null,\n    });\n  });\n\n  return Object.freeze({\n    status: \"compared\" as const,\n    previousObservedAt: comparison.previousObservedAt,\n    latestObservedAt: comparison.latestObservedAt,\n    cells: Object.freeze(cells),\n  });\n}\n\n/** The released Instagram sentence",
+    replace: "        display: metric.change === 0 ? METRIC_UNREPORTED_DISPLAY : changeDisplay(metric.change),\n        note: null,\n      });\n    }\n    return Object.freeze({\n      shortLabel: definition.shortLabel,\n      label: definition.label,\n      status: \"not-comparable\" as const,\n      previous: metric.previous,\n      latest: metric.latest,\n      change: null,\n      display: METRIC_UNREPORTED_DISPLAY,\n      note: GAP_NOTES[metric.gap] ?? null,\n    });\n  });\n\n  return Object.freeze({\n    status: \"compared\" as const,\n    previousObservedAt: comparison.previousObservedAt,\n    latestObservedAt: comparison.latestObservedAt,\n    cells: Object.freeze(cells),\n  });\n}\n\n/** The released Instagram sentence",
+    expect: 'displays as "0", never a dash',
   },
   {
     label: "M9 a zero change is written as an absence rather than a result",
@@ -202,7 +237,7 @@ const MUTATIONS: readonly Mutation[] = [
      * THE DEFECT VISUAL ACCEPTANCE FOUND, PUT BACK. A single measurement captioned "the line is
      * level because the value did not move" is a comparison invented out of one point.
      */
-    label: "M16 one measurement is captioned as a value that held steady",
+    label: "M17 one measurement is captioned as a value that held steady",
     file: CHART,
     suite: RENDERED,
     find: "  const scaleNote = single\n",
@@ -211,7 +246,7 @@ const MUTATIONS: readonly Mutation[] = [
   },
   {
     /* The second acceptance defect: every metric announcing its own name twice. */
-    label: "M17 a metric's name is announced twice to assistive technology",
+    label: "M18 a metric's name is announced twice to assistive technology",
     file: CARD,
     suite: RENDERED,
     find: '                  <span aria-hidden="true">{metric.shortLabel}</span>\n                  <span className="sr-only">{metric.label}</span>',

@@ -41,6 +41,11 @@ import {
   type InstagramLatestObservation,
 } from "@/features/instagram-connection-surface/latest-observation";
 import {
+  compareInstagramAccountMeasurements,
+  INSTAGRAM_ACCOUNT_COMPARISON_SENTENCES,
+  type InstagramAccountComparison,
+} from "@/features/instagram-connection-surface/account-measurement-comparison";
+import {
   projectLatestInstagramMediaObservation,
   type InstagramLatestMediaObservation,
 } from "@/features/instagram-connection-surface/latest-media-observation";
@@ -207,11 +212,16 @@ export interface InstagramSection {
   readonly evolutionSentence: string | null;
   readonly seriesProvenance: SocialProvenance;
   /**
-   * ALWAYS `null`, and structurally so. IG-AN2 does not exist, and this surface may not become the
-   * first place a follower delta appears. The field is present and pinned so a future phase must
-   * change a released type — and trip this file's tests — rather than quietly fill a gap.
+   * The IG-AN2 comparison, once there are two usable measurements to compare.
+   *
+   * SOC-UI1 pinned this to `null` and said a future phase must change a released type — and trip
+   * this file's tests — rather than quietly fill a gap. IG-AN2 is that phase, and it did both. The
+   * surface still computes nothing itself: this is the released derivation's answer, carried.
    */
-  readonly changes: null;
+  readonly changes: SocialChangeBlock | null;
+  readonly comparison: InstagramAccountComparison;
+  /** The released sentence for a state that is not a comparison. `null` when it is one. */
+  readonly changesSentence: string | null;
   readonly content: InstagramLatestMediaObservation;
   readonly account: InstagramLatestObservation;
 }
@@ -457,6 +467,66 @@ function changeBlockOf(comparison: YouTubeChannelComparison): SocialChangeBlock 
   });
 }
 
+/**
+ * The Instagram comparison, mapped to the same PRESENTATION shape the YouTube one uses.
+ *
+ * The shape is shared; the semantics are not. This reads `followersCount`, `followsCount` and
+ * `mediaCount` — Instagram's own three — and labels them from `INSTAGRAM_PLATFORM.metrics`, so a
+ * follower change can never be rendered under a subscriber's name. The two mappers are kept apart
+ * for the same reason the two derivations are: they consume different types that only look alike.
+ */
+function instagramChangeBlockOf(comparison: InstagramAccountComparison): SocialChangeBlock | null {
+  if (comparison.status !== "compared") return null;
+
+  const metricByKey = {
+    followersCount: comparison.followersCount,
+    followsCount: comparison.followsCount,
+    mediaCount: comparison.mediaCount,
+  } as const;
+
+  const cells = INSTAGRAM_PLATFORM.metrics.map((definition) => {
+    const metric = metricByKey[definition.factKey as keyof typeof metricByKey];
+    if (metric.status === "comparable") {
+      return Object.freeze({
+        shortLabel: definition.shortLabel,
+        label: definition.label,
+        status: "comparable" as const,
+        previous: metric.previous,
+        latest: metric.latest,
+        change: metric.change,
+        display: changeDisplay(metric.change),
+        note: null,
+      });
+    }
+    return Object.freeze({
+      shortLabel: definition.shortLabel,
+      label: definition.label,
+      status: "not-comparable" as const,
+      previous: metric.previous,
+      latest: metric.latest,
+      change: null,
+      display: METRIC_UNREPORTED_DISPLAY,
+      note: GAP_NOTES[metric.gap] ?? null,
+    });
+  });
+
+  return Object.freeze({
+    status: "compared" as const,
+    previousObservedAt: comparison.previousObservedAt,
+    latestObservedAt: comparison.latestObservedAt,
+    cells: Object.freeze(cells),
+  });
+}
+
+/** The released Instagram sentence for a state that is not a comparison. */
+function instagramComparisonSentence(comparison: InstagramAccountComparison): string | null {
+  if (comparison.status === "compared") return null;
+  if (comparison.status === "unavailable") {
+    return INSTAGRAM_ACCOUNT_COMPARISON_SENTENCES[comparison.reason];
+  }
+  return INSTAGRAM_ACCOUNT_COMPARISON_SENTENCES[comparison.status] ?? null;
+}
+
 function comparisonSentence(comparison: YouTubeChannelComparison): string | null {
   if (comparison.status === "compared") return null;
   if (comparison.status === "unavailable") return YOUTUBE_CHANNEL_COMPARISON_SENTENCES[comparison.reason];
@@ -561,6 +631,9 @@ export function composeSocialDashboard(input: SocialDashboardInput): SocialDashb
   const youtubeChangesSentence = comparisonSentence(youtubeComparison);
 
   const instagramSeriesPoints = instagramPoints(instagramSeries);
+  const instagramComparison = compareInstagramAccountMeasurements(instagramSeries);
+  const instagramChanges = instagramChangeBlockOf(instagramComparison);
+
   const instagram: InstagramSection = Object.freeze({
     evolution: instagramSeries,
     points: instagramSeriesPoints,
@@ -571,7 +644,9 @@ export function composeSocialDashboard(input: SocialDashboardInput): SocialDashb
       INSTAGRAM_ACCOUNT_SERIES_SENTENCES,
     ),
     seriesProvenance: "authoritative" as const,
-    changes: null,
+    changes: instagramChanges,
+    comparison: instagramComparison,
+    changesSentence: instagramComparisonSentence(instagramComparison),
     content: instagramContent,
     account: instagramAccount,
   });
@@ -601,6 +676,8 @@ export function composeSocialDashboard(input: SocialDashboardInput): SocialDashb
   const changesProse = Object.freeze(
     [
       instagram.evolutionSentence,
+      instagram.changesSentence,
+      ...(instagramChanges?.cells.map((c) => c.note) ?? []),
       youtube.evolutionSentence,
       youtube.changesSentence,
       ...(youtubeChanges?.cells.map((c) => c.note) ?? []),

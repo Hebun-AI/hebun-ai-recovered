@@ -192,12 +192,14 @@ export default async function SocialIntelligencePage() {
               evolutionSentence={model.instagram.evolutionSentence}
               seriesProvenance={model.instagram.seriesProvenance}
               /*
-                INSTAGRAM HAS NO CHANGE, AND CANNOT ACQUIRE ONE HERE. IG-AN2 is not released; the
-                model pins this to `null` and the panel prints the released "a second observation is
-                needed" sentence instead. Nothing on this page computes a follower delta.
+                IG-AN2 IS NOW RELEASED, and this is its answer — not this page's. The composition
+                carries the released comparison; the panel renders it with `Hebun calculated`
+                provenance, exactly as it already does for YouTube. When there is still only one
+                measurement the same panel prints the released "a second observation is needed"
+                sentence instead. Nothing on this page computes a follower delta of its own.
               */
               changes={model.instagram.changes}
-              changesSentence={null}
+              changesSentence={model.instagram.changesSentence}
               changeProvenance="derived"
             />
             <EvolutionPanel

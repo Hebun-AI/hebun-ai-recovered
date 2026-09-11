@@ -256,9 +256,56 @@ function oneInstagramMeasurementProducesNoComparison(): void {
   assert.equal(model.instagram.points.length, 1, "exactly one point is plotted — no invented partner");
 }
 
-function instagramNeverGainsACalculatedChange(): void {
+function instagramGainsItsChangeOnlyFromTheReleasedDerivation(): void {
+  /*
+   * SOC-UI1 pinned this to `null` and declared that IG-AN2 would be the phase to change it. It is,
+   * and it did. What the pin actually defended is unchanged and is re-asserted here: the UI computes
+   * nothing of its own. With ONE measurement there is still no comparison — the fixture carries a
+   * single Instagram observation, so the honest answer remains "insufficient history".
+   */
   const model = compose(LIVE_BOTH);
-  assert.equal(model.instagram.changes, null, "IG-AN2 is not released; the UI computes nothing");
+  assert.equal(model.instagram.changes, null, "one measurement still yields no comparison");
+  assert.equal(model.instagram.comparison.status, "insufficient-history");
+  assert.ok(
+    model.instagram.changesSentence && /second/i.test(model.instagram.changesSentence),
+    `and the released sentence says why: ${model.instagram.changesSentence}`,
+  );
+}
+
+function twoInstagramMeasurementsProduceTheReleasedComparison(): void {
+  /*
+   * The real production evidence that unblocked IG-AN2: two observations, identical counts. The
+   * change is 0/0/0 and every cell must be a CALCULATION, never an absence.
+   */
+  const model = composeSocialDashboard({
+    connections: LIVE_BOTH,
+    instagramAccount: read(
+      NEWEST_FIRST([
+        { observedAt: "2026-09-10T08:00:18.986Z", facts: { followersCount: 56, followsCount: 83, mediaCount: 8 } },
+        { observedAt: "2026-09-11T10:00:20.258Z", facts: { followersCount: 56, followsCount: 83, mediaCount: 8 } },
+      ]),
+    ),
+    instagramMedia: read(IG_MEDIA),
+    youtubeChannel: read(YT_ZEROS),
+  });
+  assert.equal(model.instagram.comparison.status, "compared");
+  assert.equal(model.instagram.changesSentence, null, "a comparison needs no excuse");
+  const changes = model.instagram.changes;
+  assert.ok(changes, "the comparison reaches the surface");
+  assert.equal(changes!.previousObservedAt, "2026-09-10T08:00:18.986Z");
+  assert.equal(changes!.latestObservedAt, "2026-09-11T10:00:20.258Z");
+  const byShort = Object.fromEntries(changes!.cells.map((c) => [c.shortLabel, c]));
+  for (const name of ["Followers", "Following", "Posts"]) {
+    const cell = byShort[name];
+    assert.ok(cell, `${name} is present`);
+    assert.equal(cell.status, "comparable", `${name} was comparable`);
+    assert.equal(cell.change, 0, `${name} change is the number zero`);
+    assert.equal(cell.display, "0", `${name} displays as "0", never a dash`);
+  }
+  /* And Instagram's metric names never become YouTube's. */
+  for (const forbidden of ["Subscribers", "Videos", "Views"]) {
+    assert.ok(!(forbidden in byShort), `${forbidden} belongs to YouTube alone`);
+  }
 }
 
 /* ── 14/15 — a real flat zero series remains a valid calculation ───────────── */
@@ -449,7 +496,8 @@ function main(): void {
   hiddenAndNotReportedRemainDifferentSentences();
   metricIdentityIsExplicitAndNeverShared();
   oneInstagramMeasurementProducesNoComparison();
-  instagramNeverGainsACalculatedChange();
+  instagramGainsItsChangeOnlyFromTheReleasedDerivation();
+  twoInstagramMeasurementsProduceTheReleasedComparison();
   flatZeroSeriesIsAValidSeries();
   zeroChangeIsACalculationNotAnAbsence();
   noChangeCellCarriesAVerdict();
