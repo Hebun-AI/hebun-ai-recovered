@@ -135,6 +135,14 @@ async function main(): Promise<void> {
        * sink like every other and creates no second audit table. The census GREW; nothing in it
        * was widened.
        */
+      /*
+       * MEMBERSHIP LIFECYCLE — the audit sibling of the membership revocation authority. It appends
+       * to the SHARED sink like every other and creates no second audit table. The census GREW;
+       * nothing in it was widened. Its rows carry `authority_source: "membership"` — the closed
+       * CHECK's value for "the actor reached the system through their own membership" — while the
+       * Governance authority that permitted the transition is recorded in the metadata.
+       */
+      "src/features/governance-audit/membership-lifecycle-audit.server.ts",
       "src/features/governance-audit/organization-structure-audit.server.ts",
       /*
        * WORK-1 — the Organizational Work Authority's audit sibling. It appends to the SHARED sink

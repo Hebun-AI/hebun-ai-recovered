@@ -154,6 +154,20 @@ function walk(dir: string): string[] {
    * enforcing eligibility with its own copy of the conditions, and §2 above is what catches that.
    */
   const PEOPLE_READER = "src/features/auth-runtime/people-register-read.server.ts";
+  /*
+   * THE NINTH CONSUMER — the membership revocation authority.
+   *
+   * It is the first consumer that is neither a reader nor a placement writer: it asks the predicate
+   * a COUNTING question, "would revoking this membership leave the tenant with no eligible owner",
+   * and refuses the transition when the answer is none.
+   *
+   * It uses the FULL predicate rather than `activeMembershipOnlyConditions`, deliberately. The
+   * subset can call a human eligible whose identity has been soft-deleted, and such a human cannot
+   * sign in — counting one as the remaining owner would strand the tenant while reporting that it
+   * had not been stranded. An earlier version spelled the conditions out locally, which is exactly
+   * the local-copy anti-pattern §2 exists to catch; it now shares this definition.
+   */
+  const MEMBERSHIP_REVOCATION = "src/features/membership-lifecycle/revoke-membership.server.ts";
   assert.deepEqual(
     consumers.sort(),
     [
@@ -165,8 +179,9 @@ function walk(dir: string): string[] {
       PLACEMENT_READER,
       PLACEMENT_WRITER,
       PEOPLE_READER,
+      MEMBERSHIP_REVOCATION,
     ].sort(),
-    "the eligibility rule has exactly eight consumers: the three writers that enforce it, the " +
+    "the eligibility rule has exactly nine consumers: the three writers that enforce it, the " +
       "picker that offers by it, the three reads that derive their accountability or standing " +
       "flag from it, and the register that enumerates by it",
   );

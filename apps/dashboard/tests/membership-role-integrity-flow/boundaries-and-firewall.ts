@@ -156,12 +156,20 @@ function main(): void {
   {
     const src = collect("src").filter((f) => /\.tsx?$/.test(f));
     const membershipWriters: string[] = [];
+    const membershipUpdaters: string[] = [];
+    const membershipDeleters: string[] = [];
     const roleWriters: string[] = [];
     for (const file of src) {
       if (file.startsWith("src/db/schema")) continue;
       const code = codeOf(read(file));
-      if (/\.insert\(memberships\)|\.update\(memberships\)|\.delete\(memberships\)/.test(code)) {
+      if (/\.insert\(memberships\)/.test(code)) {
         membershipWriters.push(file);
+      }
+      if (/\.update\(memberships\)/.test(code)) {
+        membershipUpdaters.push(file);
+      }
+      if (/\.delete\(memberships\)/.test(code)) {
+        membershipDeleters.push(file);
       }
       if (/\.insert\(roles\)|\.update\(roles\)|\.delete\(roles\)/.test(code)) {
         roleWriters.push(file);
@@ -182,7 +190,32 @@ function main(): void {
     assert.deepEqual(
       membershipWriters.slice().sort(),
       ["src/features/human-onboarding/accept-invitation.server.ts", "src/features/tenant-provisioning/provision-tenant.server.ts"].sort(),
-      "memberships still has exactly ONE product writer",
+      "membership CREATION still has exactly its two named paths",
+    );
+
+    /*
+     * ── AND EXACTLY ONE WRITER MAY END ONE ────────────────────────────────────
+     *
+     * This census used to fold insert, update and delete into a single list, so the first legitimate
+     * UPDATE writer read as "a third membership writer" — the thing the comment above calls an
+     * invitation bypass. It is not one: revoking a membership creates nothing and bypasses no
+     * invitation chain. The scan was SPLIT rather than relaxed, so the rule it always meant —
+     * membership CREATION is limited to the invitation chain and tenant birth — is now enforced
+     * exactly, and ending a membership is held to its own single-writer rule beside it.
+     *
+     * `membership-lifecycle` writes only `status = 'revoked'` with the actor pair, never a role, a
+     * user or a tenant; its own firewall proves that and proves the eligibility reader refuses the
+     * result.
+     */
+    assert.deepEqual(
+      membershipUpdaters.slice().sort(),
+      ["src/features/membership-lifecycle/revoke-membership.server.ts"],
+      "exactly one authority may END a membership",
+    );
+    assert.deepEqual(
+      membershipDeleters,
+      [],
+      "and nothing deletes a membership row — a revoked membership stays as history",
     );
     /*
      * TWO ROLE WRITERS, for the same reason there are two membership writers: the `member` baseline
