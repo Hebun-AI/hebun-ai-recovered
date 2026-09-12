@@ -59,6 +59,7 @@ import {
   INSTAGRAM_MEDIA_WINDOW,
 } from "@/features/instagram-connection-surface/latest-media-observation";
 import { InstagramMediaCards } from "@/components/platform-integrations/instagram-media-cards";
+import { disconnectInstagramAction } from "./actions";
 
 export const metadata = { title: "Instagram — Integrations — Hebun AI" };
 export const dynamic = "force-dynamic";
@@ -72,6 +73,17 @@ export const dynamic = "force-dynamic";
  */
 const OUTCOMES: Readonly<Record<string, string>> = Object.freeze({
   connected: "Instagram confirmed the account and the connection is live.",
+  /*
+   * DISCONNECT OUTCOMES. The success sentence states the boundary in the same breath as the fact,
+   * because "disconnected" is exactly the word a reader will over-read: Hebun's access ended, and
+   * Meta was not asked to forget anything.
+   */
+  disconnected:
+    "Hebun's access token was revoked and this connection was ended. Hebun may still be listed " +
+    "among the authorized apps in your Instagram settings — ending it there is a separate step.",
+  "disconnect-nothing-to-do": "There was no live Instagram connection to end.",
+  "disconnect-unavailable":
+    "Hebun could not read its own connection records just now, so nothing was changed.",
   declined: "The authorization was declined at Instagram. Nothing was stored.",
   "invalid-state": "That authorization could not be matched to this session, so it was refused.",
   "missing-code": "Instagram returned no authorization code, so nothing was exchanged.",
@@ -180,6 +192,14 @@ export default async function InstagramIntegrationPage({
 
           {model.failureReason ? <p>Last failure: {model.failureReason}</p> : null}
 
+          {/*
+            ── THE THREE LIFECYCLE CONTROLS ──────────────────────────────────
+            Connect and "connect a different account" are the SAME released ceremony; the only
+            difference is that the second asks Meta to re-authenticate, because without that Meta
+            silently reuses whichever Instagram account the browser is already signed in to. They
+            are rendered as different sentences because they answer different questions, not
+            because they run different code.
+          */}
           {model.connectable ? (
             <p>
               <Link
@@ -190,6 +210,52 @@ export default async function InstagramIntegrationPage({
                 Connect Instagram
               </Link>
             </p>
+          ) : null}
+
+          {model.disconnectable ? (
+            <div className="space-y-3 pt-1">
+              <p>
+                <Link
+                  href="/api/integrations/instagram/start?switch=1"
+                  prefetch={false}
+                  className="underline underline-offset-4"
+                >
+                  Connect a different account
+                </Link>
+                <span className="block text-xs text-fg-muted">
+                  Instagram will ask you to sign in again so you can choose which professional
+                  account to connect. The account above stays connected until the new one is
+                  verified.
+                </span>
+              </p>
+
+              {/*
+                DESTRUCTIVE, AND SAID SO BEFORE THE CLICK. `formNoValidate` is not used and the
+                control is a real submit rather than a link: a GET that ends a grant would be
+                followed by a crawler, a prefetch or a back button.
+
+                THE FORM CARRIES NO FIELDS. The action takes no arguments at all — the tenant comes
+                from the session and the connection is re-derived server-side — so there is nothing
+                here for anyone to forge.
+              */}
+              <form action={disconnectInstagramAction} className="space-y-2">
+                <p className="text-xs text-fg-muted">
+                  Disconnecting revokes the access token Hebun holds and ends this connection.
+                  Observations Hebun already stored are kept — Instagram did report them, and ending
+                  a grant does not make that untrue.{" "}
+                  <strong className="font-medium">
+                    This does not remove Hebun from your Instagram account&rsquo;s authorized apps.
+                  </strong>{" "}
+                  To do that as well, remove it in Instagram under Settings → Apps and websites.
+                </p>
+                <button
+                  type="submit"
+                  className="rounded-md border border-[var(--line)] px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-sunken"
+                >
+                  Disconnect Instagram
+                </button>
+              </form>
+            </div>
           ) : null}
         </div>
 

@@ -104,6 +104,11 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/governance/genesis/actions.ts",
   "src/app/(dashboard)/heby/actions.ts",
   /* SOC-ACT1 — Social Intelligence's one governed boundary. It resolves a tenant and forwards to the Command-owned proposal inlet; it holds no authority. */
+  /* PROVIDER ACCOUNT LIFECYCLE added exactly one server-action boundary: the Instagram
+   * disconnect. It is a THIN caller — the credential/connection composition lives in
+   * `provider-connection-lifecycle`, because a released INT-2 firewall keeps the credential
+   * authority unreachable from `src/app`. A second one appearing is a decision to record. */
+  "src/app/(dashboard)/integrations/instagram/actions.ts",
   "src/app/(dashboard)/intelligence/social/actions.ts",
   "src/app/(dashboard)/knowledge/actions.ts",
   "src/app/(dashboard)/operations/actions.ts",

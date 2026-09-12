@@ -61,7 +61,22 @@ function back(reason: string): NextResponse {
   );
 }
 
-export async function GET(): Promise<NextResponse> {
+/**
+ * The one query parameter this route reads, and why reading it is safe.
+ *
+ * `?switch=1` asks Meta to re-authenticate rather than silently reuse the Instagram account the
+ * browser is already signed in to. It is the ONLY thing a caller may influence here: the tenant
+ * comes from the session, the integration is derived from that tenant's own connections, the scopes
+ * come from a frozen constant, and the redirect URI comes from configuration.
+ *
+ * A forged value can therefore only ask for MORE authentication, never less and never wider. There
+ * is no value of this parameter that reaches another tenant, another integration or another scope.
+ */
+const SWITCH_ACCOUNT_PARAM = "switch" as const;
+
+export async function GET(request: Request): Promise<NextResponse> {
+  const switchAccount =
+    new URL(request.url).searchParams.get(SWITCH_ACCOUNT_PARAM) === "1";
   const config = resolveInstagramOAuthEnvironment();
   /* FAIL CLOSED. An unconfigured deployment offers nothing rather than a broken consent screen. */
   if (config.status !== "configured") return back("not-configured");
@@ -115,7 +130,9 @@ export async function GET(): Promise<NextResponse> {
    * cannot widen the request even by accident, and the App secret is not part of what it builds.
    */
   const response = NextResponse.redirect(
-    buildInstagramAuthorizationUrl(config, minted.stateParameter),
+    buildInstagramAuthorizationUrl(config, minted.stateParameter, {
+      forceReauth: switchAccount,
+    }),
   );
   response.cookies.set(
     INSTAGRAM_OAUTH_STATE_COOKIE,

@@ -64,12 +64,36 @@ function main(): void {
     }
   }
   /*
-   * THE START ROUTE READS NOTHING AT ALL. Google's equivalent accepts one capability name; this
-   * provider has one capability, so there is nothing to name and no parameter to validate.
+   * ── AMENDED: THE START ROUTE READS EXACTLY ONE PARAMETER ──────────────────
+   *
+   * This asserted it read NOTHING, and the reason given was "there is nothing to name" — a
+   * statement about this provider having one capability, not a principle that parameters are
+   * forbidden. Google's equivalent already accepted one.
+   *
+   * There is now something to name. Without `force_reauth`, Meta issues a code for whichever
+   * Instagram account the browser is already signed in to and shows no chooser — a tenant in
+   * production silently received the account another tenant was already using. The switch flag is
+   * how a human says "let me pick a different one".
+   *
+   * THE SECURITY PROPERTY IS UNCHANGED AND IS THE LIST ABOVE: no tenant, integration, scope,
+   * redirect or next may be read. This flag can only ever ask Meta for MORE authentication, never
+   * less and never wider — so the rule becomes an exhaustive census of one rather than a ban.
    */
-  assert.ok(
-    !start.includes("searchParams"),
-    "the start route reads no query parameter whatsoever",
+  const startReads = [...start.matchAll(/searchParams\.get\(([^)]*)\)/g)].map((m) => m[1]!.trim());
+  assert.deepEqual(
+    startReads,
+    ["SWITCH_ACCOUNT_PARAM"],
+    "the start route reads exactly one query parameter, and it is the account-switch flag",
+  );
+  assert.match(
+    start,
+    /const SWITCH_ACCOUNT_PARAM = "switch" as const/,
+    "…named as a constant rather than an inline literal",
+  );
+  assert.match(
+    start,
+    /forceReauth: switchAccount/,
+    "…and it reaches nothing but the re-authentication flag",
   );
   /* And the CONNECTION it authorizes comes from the signed state, not from the callback's URL. */
   assert.ok(

@@ -18,6 +18,11 @@ const R1_SOURCE_FILES = [
   "src/features/auth-runtime/identity-repository.server.ts",
   "src/features/tenant-registry/durable-registry-repository.server.ts",
   "src/features/tenant-registry/tenant-registry-service.server.ts",
+  /* PROVIDER ACCOUNT LIFECYCLE added exactly one server-action boundary: the Instagram
+   * disconnect. It is a THIN caller — the credential/connection composition lives in
+   * `provider-connection-lifecycle`, because a released INT-2 firewall keeps the credential
+   * authority unreachable from `src/app`. A second one appearing is a decision to record. */
+  "src/app/(dashboard)/integrations/instagram/actions.ts",
   "src/app/login/actions.ts",
   "src/app/login/page.tsx",
   "src/app/(dashboard)/foundation/actions.ts",

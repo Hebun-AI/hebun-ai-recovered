@@ -73,10 +73,33 @@ function fail(failure: InstagramFailureClass, reason: string): InstagramTokenRes
  * THE SCOPES COME FROM A FROZEN CONSTANT, never from a parameter. There is no argument by which a
  * caller — or a query string reaching a route — can widen what an Instagram user is asked to grant.
  * `response_type` is `code`, the only value Meta accepts.
+ *
+ * ── `force_reauth`, AND THE BEHAVIOUR IT EXISTS TO CORRECT ──────────────────
+ *
+ * Without it, Meta issues a code for whatever Instagram account is ALREADY logged in to that
+ * browser and shows no chooser at all. Meta's Business Login reference is explicit about both
+ * halves: `force_reauth` "forces an app user to use their Instagram professional account
+ * credentials to log into your app even if the user is logged into Instagram", and the login page
+ * "is only shown if the user is not logged in prior to beginning authorization flow or if the
+ * `force_reauth` parameter field is passed in".
+ *
+ * That is not a theoretical edge. A tenant connected Instagram in production and silently received
+ * the account another tenant was already using, because the operator happened to be signed in to
+ * it — the grant was correct, tenant-isolated and useless.
+ *
+ * IT IS OFF BY DEFAULT AND ASKED FOR EXPLICITLY. A first connection should not force a human to
+ * retype a password they are already holding a session for; a deliberate "connect a different
+ * account" should. So the caller states the intent and this function spends it.
+ *
+ * IT CAN ONLY EVER STRENGTHEN THE CHALLENGE. The flag adds an authentication step and touches
+ * nothing else — not the scope set, not the redirect, not the state. A request that reached here
+ * asking for it has asked to prove MORE, which is why it is safe for the value to originate in a
+ * query string when nothing else about this URL may.
  */
 export function buildInstagramAuthorizationUrl(
   config: ConfiguredInstagramOAuth,
   stateParameter: string,
+  options: { readonly forceReauth?: boolean } = {},
 ): string {
   assertServerOnly();
   const url = new URL(INSTAGRAM_AUTHORIZATION_ENDPOINT);
@@ -87,6 +110,8 @@ export function buildInstagramAuthorizationUrl(
   /* Meta accepts a comma-separated list. One entry today, and the join is what keeps it honest. */
   url.searchParams.set("scope", INSTAGRAM_REQUESTED_SCOPES.join(","));
   url.searchParams.set("state", stateParameter);
+  /* Absent unless asked for, rather than present-and-false: Meta reads the FIELD, not its value. */
+  if (options.forceReauth === true) url.searchParams.set("force_reauth", "true");
   return url.toString();
 }
 

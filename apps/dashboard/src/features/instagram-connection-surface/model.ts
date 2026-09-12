@@ -36,6 +36,15 @@ export interface InstagramConnectionModel {
   readonly failureReason: string | null;
   /** True only when a human may start an authorization right now. */
   readonly connectable: boolean;
+  /**
+   * True only when a NON-TERMINAL connection exists for this tenant to end.
+   *
+   * Deliberately not `!connectable`: those answer different questions and disagree in real states.
+   * A `degraded` connection is not connectable (a grant already exists) AND is disconnectable (that
+   * grant can be ended). An `ended` one is connectable and NOT disconnectable — the released
+   * authority refuses a terminal row, so offering the control would be offering a refusal.
+   */
+  readonly disconnectable: boolean;
 }
 
 const NOT_CONFIGURED: InstagramConnectionModel = Object.freeze({
@@ -45,6 +54,7 @@ const NOT_CONFIGURED: InstagramConnectionModel = Object.freeze({
   lastVerifiedAt: null,
   failureReason: null,
   connectable: false,
+  disconnectable: false,
 });
 
 /** Fold the tenant's connections into one statement about Instagram. */
@@ -78,17 +88,19 @@ export function buildInstagramConnectionModel(
         ...base,
         state: instagram.health === "healthy" ? "connected" : "degraded",
         connectable: false,
+        disconnectable: true,
       };
     case "expired":
-      return { ...base, state: "expired", connectable: true };
+      return { ...base, state: "expired", connectable: true, disconnectable: true };
     case "draft":
     case "unverified":
-      return { ...base, state: "unverified", connectable: true };
+      return { ...base, state: "unverified", connectable: true, disconnectable: true };
     case "revoked":
     case "disconnected":
-      return { ...base, state: "ended", connectable: true };
+      /* TERMINAL. The authority refuses a second transition, so no control is offered. */
+      return { ...base, state: "ended", connectable: true, disconnectable: false };
     default:
-      return { ...base, state: "not-connected", connectable: true };
+      return { ...base, state: "not-connected", connectable: true, disconnectable: false };
   }
 }
 
