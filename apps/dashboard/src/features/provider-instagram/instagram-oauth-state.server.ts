@@ -68,6 +68,43 @@ export interface InstagramOAuthStatePayload {
   readonly integrationId: string;
   /** Absolute expiry, seconds since epoch. Inside the signature, so it cannot be extended. */
   readonly expiresAt: number;
+  /**
+   * WHETHER THIS AUTHORIZATION MAY REBIND THE CONNECTION TO A DIFFERENT INSTAGRAM ACCOUNT.
+   *
+   * ── WHY IT LIVES INSIDE THE SIGNED STATE ──────────────────────────────────
+   *
+   * The intent is formed at the START route, where a human clicked "connect a different account",
+   * and it is CONSUMED at the callback, where the released integration authority decides whether a
+   * changed account is a substitution attack or an expected switch. Between those two points sits
+   * Meta and the browser.
+   *
+   * Carrying it in the query string would let anyone append it to a callback URL and turn every
+   * ordinary reconnect into a silent account rebind — precisely the substitution the authority's
+   * `account-changed` refusal exists to prevent. Inside the HMAC it is unforgeable: only a start
+   * route that already resolved this tenant's session could have set it.
+   *
+   * OPTIONAL ON READ, AND ABSENT MEANS NO. A state minted before this field existed parses with
+   * `undefined`, which the callback reads as `false` — the stricter answer. Nothing in flight during
+   * a deploy is upgraded into a switch by accident.
+   */
+  readonly accountSwitch?: boolean;
+
+  /**
+   * THE CONNECTION THIS AUTHORIZATION IS REPLACING, if it is replacing one.
+   *
+   * On a switch, `integrationId` above is a NEW candidate row and this names the currently active
+   * one. The candidate is verified and recorded first; only then is the row named here retired. If
+   * anything fails in between, this id is never acted on and the old connection is left exactly as
+   * it was.
+   *
+   * IT IS SIGNED FOR THE SAME REASON THE TENANT IS. This id selects a row that will have its
+   * credentials revoked and its lifecycle ended. Read from a query parameter it would be an
+   * instruction from the browser about which connection to destroy; inside the HMAC it can only be
+   * a row the start route already resolved from this tenant's own listing. The lifecycle authority
+   * is tenant-predicated underneath regardless, so a forged id would refuse as `not-found` — this
+   * keeps the request from ever being expressible in the first place.
+   */
+  readonly supersedesIntegrationId?: string;
 }
 
 function assertServerOnly(): void {
@@ -110,6 +147,10 @@ export function mintInstagramOAuthState(
     readonly tenantId: string;
     readonly sessionReference: string;
     readonly integrationId: string;
+    /** Explicit "connect a different account" intent. Defaults to false — a switch is never implied. */
+    readonly accountSwitch?: boolean;
+    /** The active connection this one replaces, retired only after the replacement is recorded. */
+    readonly supersedesIntegrationId?: string;
   },
   secret: string,
   nowSeconds: number = Math.floor(Date.now() / 1000),
@@ -123,6 +164,15 @@ export function mintInstagramOAuthState(
     sessionDigest: digestSessionReference(input.sessionReference, secret),
     integrationId: input.integrationId,
     expiresAt: nowSeconds + INSTAGRAM_OAUTH_STATE_TTL_SECONDS,
+    accountSwitch: input.accountSwitch === true,
+    /*
+     * OMITTED WHEN THERE IS NOTHING TO REPLACE, rather than written as null. An absent field and a
+     * null both read as "retire nothing", and absent is the shape an ordinary connect has always
+     * had.
+     */
+    ...(input.supersedesIntegrationId
+      ? { supersedesIntegrationId: input.supersedesIntegrationId }
+      : {}),
   });
 
   return {

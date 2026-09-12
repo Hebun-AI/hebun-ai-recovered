@@ -36,9 +36,11 @@ import { getControlPlaneDb } from "@/db/client.server";
 import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import {
+  listConnections,
   recordVerificationFailureWithin,
   recordVerifiedConnectionWithin,
 } from "@/features/integration-authority/integration-repository.server";
+import { retireSupersededConnection } from "@/features/provider-connection-lifecycle/disconnect-connection.server";
 import {
   listCredentialMetadata,
   replaceCredential,
@@ -209,11 +211,62 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return outcome(`verification-${verification.failure}`);
   }
 
-  /* ── 7. AND ONLY NOW, `connected`. ──────────────────────────────────────── */
+  /*
+   * ── 7. IS THIS REPLACEMENT ACTUALLY A REPLACEMENT? ──────────────────────
+   *
+   * On a switch, `integrationId` is a NEW candidate row and `supersedesIntegrationId` names the
+   * connection it would replace. If Meta hands back the SAME account the incumbent already holds —
+   * the human re-picked the account they were already using — then recording it here would try to
+   * put one account on two non-terminal rows, which the partial unique index
+   * `integrations_tenant_provider_account_uq` forbids. That would surface as a database error on a
+   * flow that did nothing wrong.
+   *
+   * So it is settled before the write: the candidate is retired instead of the incumbent, and the
+   * incumbent is left exactly as it was, still connected and still holding its own credential.
+   */
+  const supersedes = verified.payload.supersedesIntegrationId;
+  if (supersedes) {
+    const listing = await listConnections(tenant, { getDb: () => db });
+    const incumbent =
+      listing.status === "read"
+        ? listing.connections.find((c) => c.integrationId === supersedes)
+        : undefined;
+
+    if (incumbent && incumbent.externalAccountId === verification.facts.externalAccountId) {
+      /* Not a switch after all. Discard the candidate, including the token just stored for it. */
+      await retireSupersededConnection(tenant, integrationId, { getDb: () => db });
+      return outcome("connected");
+    }
+  }
+
+  /* ── 8. AND ONLY NOW, `connected`. ──────────────────────────────────────── */
+  /*
+   * NO ACCOUNT-CHANGE PERMISSION IS PASSED, AND NONE EXISTS.
+   *
+   * A candidate row names no account yet, so the authority's `account-changed` refusal is never
+   * reached — the invariant is obeyed rather than waived. An ordinary reconnect still goes through
+   * the same call against its own row, where a different account still fails closed.
+   */
   const recorded = await db.transaction(async (tx) =>
     recordVerifiedConnectionWithin(tx, tenant, integrationId, verification.facts, now),
   );
   if (recorded.status !== "verified") return outcome(`record-${recorded.reason}`);
+
+  /*
+   * ── 9. THE OLD CONNECTION IS RETIRED LAST, AND ONLY NOW ─────────────────
+   *
+   * Everything above could still have failed: the exchange, the token, the verification, the
+   * record. Each of those exits leaves the incumbent connected, holding its own live credential,
+   * untouched — which is the whole point of building the replacement on a separate row.
+   *
+   * A failure HERE is the one remaining partial state, and it is the harmless direction: two
+   * connected rows, the new one correct and the old one still valid. Nothing is lost and no secret
+   * is stranded; the tenant can disconnect the old one, and re-running the switch converges.
+   */
+  if (supersedes) {
+    const retired = await retireSupersededConnection(tenant, supersedes, { getDb: () => db });
+    if (retired.status === "refused") return outcome(`retire-${retired.reason}`);
+  }
 
   /*
    * THE CEREMONY ENDS HERE. No standing observation authorization is written, no subject is

@@ -580,6 +580,19 @@ export type RecordVerifiedResult =
  * ends up with a connection to account B — the exact substitution an OAuth flow must never allow
  * to pass unnoticed. Connecting a different account is a NEW connection, not an update.
  *
+ * ── THAT LAST SENTENCE IS LOAD-BEARING, AND IT WAS BRIEFLY DOUBTED ───────────
+ *
+ * A released Instagram "connect a different account" flow reused the tenant's existing row, and
+ * this refused it with `account-changed` in production — three times — after Meta had already
+ * authorized the new account. The first repair added an `allowAccountChange` escape hatch here.
+ * That repair was WITHDRAWN before release: the correct fix was to make the switch flow obey the
+ * sentence above rather than to make the sentence conditional. A switch now creates a new
+ * connection row, whose `externalAccountId` is null, so it never reaches this comparison at all —
+ * and the old row stays untouched until the replacement is verified and recorded.
+ *
+ * The escape hatch is therefore absent by design, not by oversight. Nothing may rebind an
+ * account-bearing row to a different account.
+ *
  * ── HEALTH MOVES WITH IT, BECAUSE THIS IS THE ONE MOMENT BOTH ARE KNOWN ──────
  *
  * A successful verification is the only event that establishes lifecycle AND health together:

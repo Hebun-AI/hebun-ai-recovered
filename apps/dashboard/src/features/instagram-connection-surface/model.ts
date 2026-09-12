@@ -64,9 +64,34 @@ export function buildInstagramConnectionModel(
 ): InstagramConnectionModel {
   if (!configured) return NOT_CONFIGURED;
 
-  const instagram = connections
+  /*
+   * ── WHICH CONNECTION THIS PAGE IS ABOUT, NOW THAT THERE CAN BE TWO ────────
+   *
+   * An account switch builds the replacement on a NEW row while the incumbent stays connected, so
+   * during that window the tenant has two non-terminal Instagram connections. Newest-first alone
+   * would then show the half-built candidate and make a working connection look like it had
+   * vanished — the incumbent is still connected and still observable, and the page must say so.
+   *
+   * An ACCOUNT-BEARING row is one a provider has verified; an accountless one has never been
+   * anything a tenant could use. So a verified connection wins over a candidate, and among equals
+   * the newest still wins. Once the switch completes the old row is terminal and the replacement is
+   * account-bearing, so this settles on the new one without any special case for "during a switch".
+   *
+   * THE PREFERENCE IS NARROW ON PURPOSE: a LIVE account-bearing row. A retired one must not win,
+   * or an ordinary reconnect after a disconnect would show the old disconnected account instead of
+   * the connection being built — the released newest-first answer is correct in that case and is
+   * kept as the fallback.
+   */
+  const candidates = connections
     .filter((c) => c.providerKey === INSTAGRAM_PROVIDER_KEY)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const instagram =
+    candidates.find(
+      (c) =>
+        c.externalAccountId !== null &&
+        c.connectionState !== "disconnected" &&
+        c.connectionState !== "revoked",
+    ) ?? candidates[0];
 
   if (!instagram) return { ...NOT_CONFIGURED, state: "not-connected", connectable: true };
 

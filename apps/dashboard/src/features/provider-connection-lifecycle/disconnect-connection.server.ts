@@ -89,16 +89,64 @@ export async function disconnectProviderConnection(
   const listing = await listConnections(tenant, deps);
   if (listing.status !== "read") return { status: "refused", reason: "connections-unavailable" };
 
-  const connection = listing.connections.find(
+  const live = listing.connections.filter(
     (c) =>
       c.providerKey === providerKey &&
       c.connectionState !== "disconnected" &&
       c.connectionState !== "revoked",
   );
+  /*
+   * ── WHICH ONE, NOW THAT THERE CAN BE TWO ────────────────────────────────
+   *
+   * An account switch creates a replacement row while the incumbent is still connected, so for a
+   * short window this tenant has two non-terminal Instagram connections. "Disconnect" means the one
+   * the human can see, and the surface shows the account-bearing one — an accountless row is an
+   * in-flight candidate the tenant was never told about. Picking the first row in listing order
+   * would make the button's meaning depend on insertion order.
+   */
+  const connection = live.find((c) => c.externalAccountId !== null) ?? live[0];
   if (!connection) return { status: "nothing-to-do" };
 
+  return await endConnection(tenant, connection.integrationId, deps);
+}
+
+/**
+ * End ONE named connection, because a replacement for it has been verified and recorded.
+ *
+ * ── WHY THIS ONE TAKES AN ID WHEN ITS SIBLING REFUSES TO ────────────────────
+ *
+ * `disconnectProviderConnection` deliberately has no id parameter: it serves a browser-triggered
+ * button, and a signature with nowhere to put an id cannot be aimed at another tenant's row. This
+ * one is aimed by definition — an account switch must retire the specific connection it replaced,
+ * not "whichever one is active", which by then is ambiguous because the replacement is also active.
+ *
+ * The id it accepts is NOT browser-supplied. Its only caller reads it out of the HMAC-signed OAuth
+ * state, where the start route wrote a row it had already resolved from this tenant's own listing.
+ * Underneath, both authorities re-check the tenant predicate and answer `not-found` for a row this
+ * tenant does not own, so a forged id fails closed rather than reaching another customer.
+ */
+export async function retireSupersededConnection(
+  tenant: TenantContext | null,
+  integrationId: string,
+  deps: DisconnectProviderDeps = {},
+): Promise<DisconnectProviderOutcome> {
+  if (!tenant?.tenantId) return { status: "refused", reason: "no-authorized-tenant-context" };
+  return await endConnection(tenant, integrationId, deps);
+}
+
+/**
+ * The composition both entry points share: revoke every live secret, then move the lifecycle.
+ *
+ * ORDER IS CHOSEN — see the header. It is written once so the two callers cannot drift into
+ * disagreeing about which half goes first.
+ */
+async function endConnection(
+  tenant: TenantContext,
+  integrationId: string,
+  deps: DisconnectProviderDeps,
+): Promise<DisconnectProviderOutcome> {
   /* ── 1 · THE SECRET FIRST ────────────────────────────────────────────────── */
-  const credentials = await listCredentialMetadata(tenant, connection.integrationId, deps);
+  const credentials = await listCredentialMetadata(tenant, integrationId, deps);
   if (credentials.status === "read") {
     for (const credential of credentials.credentials.filter((c) => c.live)) {
       const revoked = await revokeCredential(tenant, credential.credentialId, deps);
@@ -114,7 +162,7 @@ export async function disconnectProviderConnection(
   }
 
   /* ── 2 · THEN THE LIFECYCLE ──────────────────────────────────────────────── */
-  const ended = await disconnectConnection(tenant, connection.integrationId, deps);
+  const ended = await disconnectConnection(tenant, integrationId, deps);
   if (ended.status === "refused") return { status: "refused", reason: `connection-${ended.reason}` };
 
   return { status: "hebun-access-ended" };

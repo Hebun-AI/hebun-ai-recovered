@@ -95,33 +95,83 @@ export async function GET(request: Request): Promise<NextResponse> {
   const db = getControlPlaneDb();
 
   /*
-   * REUSE THE TENANT'S EXISTING NON-TERMINAL INSTAGRAM CONNECTION, or create one. Minting a second
-   * `draft` on every click would leave a trail of abandoned rows.
+   * ── WHICH ROW THIS AUTHORIZATION IS FOR ─────────────────────────────────
+   *
+   * A RECONNECT reuses the tenant's existing non-terminal Instagram connection. A SWITCH does not:
+   * a different account is a new connection, which is what the integration authority has always
+   * said, and reusing the row is exactly the defect that produced `record-account-changed` in
+   * production. The active connection must stay usable until the replacement is proven.
    */
   const listing = await listConnections(tenant, { getDb: () => db });
-  const existing =
+  const instagram =
     listing.status === "read"
-      ? listing.connections.find(
+      ? listing.connections.filter(
           (c) =>
             c.providerKey === INSTAGRAM_PROVIDER_KEY &&
             c.connectionState !== "disconnected" &&
             c.connectionState !== "revoked",
         )
-      : undefined;
+      : [];
 
-  let integrationId = existing?.integrationId;
-  if (!integrationId) {
-    const created = await createConnection(
-      tenant,
-      { providerKey: INSTAGRAM_PROVIDER_KEY, name: INSTAGRAM_PROVIDER_LABEL },
-      { getDb: () => db },
-    );
-    if (created.status !== "created") return back(`connection-${created.reason}`);
-    integrationId = created.connection.integrationId;
+  /*
+   * An "active" connection is one already bound to a provider account. A row that has never been
+   * verified names no account, so replacing it would retire nothing — it is a candidate, not an
+   * incumbent, and the reuse branch below is the right home for it.
+   */
+  const active = instagram.find((c) => c.externalAccountId !== null);
+  const replacing = switchAccount && active !== undefined;
+
+  let integrationId: string | undefined;
+  let supersedesIntegrationId: string | undefined;
+
+  if (replacing) {
+    /*
+     * REUSE AN ABANDONED CANDIDATE BEFORE MINTING ANOTHER. A human who starts a switch, sees Meta's
+     * account picker and closes the tab leaves an accountless `draft` behind; minting a fresh row
+     * per click would accumulate them. Any accountless non-terminal row is that same candidate.
+     */
+    const candidate = instagram.find((c) => c.externalAccountId === null);
+    if (candidate) {
+      integrationId = candidate.integrationId;
+    } else {
+      const created = await createConnection(
+        tenant,
+        { providerKey: INSTAGRAM_PROVIDER_KEY, name: INSTAGRAM_PROVIDER_LABEL },
+        { getDb: () => db },
+      );
+      if (created.status !== "created") return back(`connection-${created.reason}`);
+      integrationId = created.connection.integrationId;
+    }
+    supersedesIntegrationId = active.integrationId;
+  } else {
+    integrationId = instagram[0]?.integrationId;
+    if (!integrationId) {
+      const created = await createConnection(
+        tenant,
+        { providerKey: INSTAGRAM_PROVIDER_KEY, name: INSTAGRAM_PROVIDER_LABEL },
+        { getDb: () => db },
+      );
+      if (created.status !== "created") return back(`connection-${created.reason}`);
+      integrationId = created.connection.integrationId;
+    }
   }
 
+  /*
+   * THE SWITCH INTENT AND THE ROW IT REPLACES TRAVEL INSIDE THE SIGNATURE, NOT THE QUERY STRING.
+   *
+   * Meta is asked to re-authenticate via `force_reauth` below, but that only changes what the HUMAN
+   * sees. The CALLBACK also has to know that this authorization is a replacement, and WHICH
+   * connection it replaces, because it is the callback that retires the old one once the new one is
+   * proven. A browser can append anything to a callback URL; nothing it appends is inside this HMAC.
+   */
   const minted = mintInstagramOAuthState(
-    { tenantId: tenant.tenantId, sessionReference, integrationId },
+    {
+      tenantId: tenant.tenantId,
+      sessionReference,
+      integrationId,
+      accountSwitch: switchAccount,
+      ...(supersedesIntegrationId ? { supersedesIntegrationId } : {}),
+    },
     config.stateSecret,
   );
 

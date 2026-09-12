@@ -39,9 +39,13 @@ const MODEL = "src/features/instagram-connection-surface/model.ts";
  * refused that, and the composition moved here rather than the boundary moving for it.
  */
 const LIFECYCLE = "src/features/provider-connection-lifecycle/disconnect-connection.server.ts";
+/* The single writer of `connected`, and the only holder of the account-change invariant. */
+const AUTHORITY = "src/features/integration-authority/integration-repository.server.ts";
 
 const TRANSPORT_CODE = codeOf(read(TRANSPORT));
 const START_CODE = codeOf(read(START));
+const CALLBACK_CODE = codeOf(read(CALLBACK));
+const AUTHORITY_CODE = codeOf(read(AUTHORITY));
 const ACTION_CODE = codeOf(read(ACTION));
 const PAGE_CODE = codeOf(read(PAGE));
 const LIFECYCLE_CODE = codeOf(read(LIFECYCLE));
@@ -121,7 +125,145 @@ function theSwitchFlagCannotWidenAnything(): void {
   assert.match(
     START_CODE,
     /forceReauth: switchAccount/,
-    "…and it reaches nothing but the re-auth flag",
+    "…and it reaches the re-auth flag",
+  );
+
+  /*
+   * IT NOW REACHES A SECOND PLACE, AND THIS ASSERTION WAS REWRITTEN RATHER THAN DELETED.
+   *
+   * It used to read "…and it reaches nothing but the re-auth flag", which was true of the released
+   * flow and was exactly what made it break: forcing re-authentication let a human pick a different
+   * account, and then NOTHING carried that intent to the callback, where the integration authority
+   * refused the changed account as a substitution attack. Production produced `record-account-changed`
+   * three times.
+   *
+   * So the flag now reaches two destinations and no more — the re-auth parameter, and the minted
+   * state. The census below is what keeps "no more" true.
+   */
+  const destinations = [...START_CODE.matchAll(/(\w+): switchAccount\b/g)].map((m) => m[1]!);
+  assert.deepEqual(
+    destinations.sort(),
+    ["accountSwitch", "forceReauth"].sort(),
+    "the switch flag reaches exactly the re-auth parameter and the signed state — nothing else",
+  );
+}
+
+/* ── 1b · the switch intent is unforgeable because it is signed ────────────── */
+
+function theSwitchIntentTravelsOnlyInsideTheSignature(): void {
+  /* The start route puts it into the MINTED state, not onto the redirect URL. */
+  assert.match(
+    START_CODE,
+    /mintInstagramOAuthState\(\s*\{[^}]*accountSwitch: switchAccount/,
+    "the intent is minted into the signed state",
+  );
+  assert.ok(
+    !/searchParams\.set\("[^"]*switch/i.test(START_CODE),
+    "…and never placed on the authorization URL, where a browser could re-add it",
+  );
+
+  /*
+   * THE ROW BEING RETIRED IS SIGNED TOO, AND THE CALLBACK READS IT FROM `verified.payload` ALONE.
+   *
+   * That id selects a connection whose credentials get revoked and whose lifecycle ends. Read from
+   * a query parameter it would be an instruction from the browser about which connection to
+   * destroy.
+   */
+  assert.match(
+    CALLBACK_CODE,
+    /const supersedes = verified\.payload\.supersedesIntegrationId/,
+    "the callback takes the retirement target from the signed payload",
+  );
+  assert.ok(
+    !/params\.get\([^)]*(switch|supersede)/i.test(CALLBACK_CODE),
+    "…and never from a query parameter",
+  );
+  const retireCalls = [...CALLBACK_CODE.matchAll(/retireSupersededConnection\(\s*tenant,\s*(\w+)/g)]
+    .map((m) => m[1]!)
+    .sort();
+  assert.deepEqual(
+    retireCalls,
+    ["integrationId", "supersedes"],
+    "the callback retires exactly two things: the signed target, or the candidate it just built",
+  );
+
+  /*
+   * ── THE AUTHORITY HAS NO ESCAPE HATCH, AND MUST NOT REGROW ONE ──────────
+   *
+   * The first repair for `record-account-changed` added an `allowAccountChange` parameter here. It
+   * was withdrawn: a switch builds a NEW row, whose account is null, so the comparison below is
+   * never reached rather than being waived. This asserts the withdrawal, because an escape hatch is
+   * exactly the kind of thing that gets re-added by someone fixing the same symptom again.
+   */
+  assert.ok(
+    !/allowAccountChange/.test(AUTHORITY_CODE),
+    "the integration authority has NO account-change permission parameter",
+  );
+  assert.match(
+    AUTHORITY_CODE,
+    /if \(\s*current\.externalAccountId !== null &&\s*current\.externalAccountId !== facts\.externalAccountId\s*\) \{\s*return \{ status: "refused", reason: "account-changed" \} as const;/,
+    "…and the refusal is unconditional on any caller-supplied permission",
+  );
+}
+
+/* ── 1c · a switch replaces a connection, it does not rebind one ───────────── */
+
+function aSwitchBuildsANewRowAndRetiresTheOldOneLast(): void {
+  /*
+   * THE START ROUTE MUST NOT REUSE THE ACTIVE ROW FOR A SWITCH. Reusing it is the released defect:
+   * the callback then verified a different account against a row that already named one, and the
+   * integration authority refused — correctly — with `account-changed`.
+   */
+  assert.match(
+    START_CODE,
+    /const active = instagram\.find\(\(c\) => c\.externalAccountId !== null\)/,
+    "the start route identifies the incumbent by it having an account",
+  );
+  assert.match(
+    START_CODE,
+    /const replacing = switchAccount && active !== undefined/,
+    "…and only a switch WITH an incumbent is a replacement",
+  );
+  assert.match(
+    START_CODE,
+    /supersedesIntegrationId = active\.integrationId/,
+    "…which records the incumbent as the row to retire",
+  );
+
+  /*
+   * ORDER IS THE WHOLE PROPERTY, and it is compared at the CALL SITES. The incumbent may only be
+   * retired AFTER the replacement has been recorded — that is what makes a failed switch harmless.
+   * An import-position comparison would prove nothing about execution order.
+   */
+  const recordAt = CALLBACK_CODE.indexOf("recordVerifiedConnectionWithin(tx");
+  const retireAt = CALLBACK_CODE.indexOf("retireSupersededConnection(tenant, supersedes");
+  assert.ok(recordAt > 0, "the record call site was located");
+  assert.ok(retireAt > 0, "the retire call site was located");
+  assert.ok(
+    recordAt < retireAt,
+    "the replacement is RECORDED before the incumbent is retired — never the other way round",
+  );
+
+  /*
+   * AND THE RETIREMENT IS GUARDED BY THE RECORD SUCCEEDING. Without this, a refused recording would
+   * fall through and retire a working connection in exchange for nothing.
+   */
+  const between = CALLBACK_CODE.slice(recordAt, retireAt);
+  assert.match(
+    between,
+    /if \(recorded\.status !== "verified"\) return outcome\(`record-\$\{recorded\.reason\}`\)/,
+    "a refused recording returns before anything is retired",
+  );
+
+  /* No second lifecycle authority was created to do this. */
+  assert.match(
+    LIFECYCLE_CODE,
+    /export async function retireSupersededConnection/,
+    "the targeted retirement lives in the existing lifecycle module",
+  );
+  assert.ok(
+    !/\bdb\.(insert|update|delete)\b|drizzle-orm/.test(LIFECYCLE_CODE),
+    "…which still owns no table and writes nothing itself",
   );
 }
 
@@ -133,12 +275,21 @@ function theTenantAndIntegrationStillComeFromTheServer(): void {
     ),
     "no authoritative value is ever read from the query string",
   );
-  /* The state is still minted over all three bindings. */
-  assert.match(
-    START_CODE,
-    /mintInstagramOAuthState\(\s*\{ tenantId: tenant\.tenantId, sessionReference, integrationId \}/,
-    "the signed state still binds tenant, session and integration",
-  );
+  /*
+   * The state is still minted over all three bindings. The pin used to require the argument to be
+   * EXACTLY those three and nothing else; the switch intent is now a fourth field inside the same
+   * signature, so the pin names the three it cares about instead of forbidding a fourth. What stops
+   * a fourth field from being something dangerous is the census in
+   * `theSwitchIntentTravelsOnlyInsideTheSignature`, not the shape of this literal.
+   */
+  const mintArgs = /mintInstagramOAuthState\(\s*\{([^}]*)\}/.exec(START_CODE)?.[1] ?? "";
+  assert.ok(mintArgs.length > 0, "the mint call was located");
+  for (const binding of ["tenantId: tenant.tenantId", "sessionReference", "integrationId"]) {
+    assert.ok(
+      mintArgs.includes(binding),
+      `the signed state still binds ${binding} — tenant, session and integration are unchanged`,
+    );
+  }
 }
 
 function theCallbackStillFailsClosed(): void {
@@ -179,12 +330,40 @@ function theDisconnectActionAcceptsNothingFromTheBrowser(): void {
   );
   assert.match(
     LIFECYCLE_CODE,
-    /listing\.connections\.find\(/,
-    "the connection is re-derived from the tenant's own listing",
+    /listing\.connections\.filter\(/,
+    "the connection is still re-derived from the tenant's own listing",
+  );
+
+  /*
+   * ── THE BUTTON'S ENTRY POINT STILL HAS NOWHERE TO PUT AN ID ─────────────
+   *
+   * This assertion used to read "the lifecycle module exposes no integration-id parameter", and
+   * that is no longer true of the MODULE: `retireSupersededConnection` takes one, because an
+   * account switch must retire the specific row it replaced, and by that moment "the active one" is
+   * ambiguous — the replacement is active too.
+   *
+   * The property that actually protected the tenant was never module-wide. It was that the
+   * BROWSER-FACING path has no parameter to forge. So the assertion is narrowed to that path
+   * instead of being deleted, and the id-taking sibling is pinned to the one caller that may aim
+   * it: the callback, from the signed state.
+   */
+  const buttonPath = LIFECYCLE_CODE.slice(
+    LIFECYCLE_CODE.indexOf("export async function disconnectProviderConnection"),
+    LIFECYCLE_CODE.indexOf("export async function retireSupersededConnection"),
+  );
+  assert.ok(buttonPath.length > 0, "both lifecycle entry points were located");
+  assert.ok(
+    !/integrationId\??:/.test(buttonPath),
+    "the disconnect path still accepts no integration id — a forged one cannot be expressed",
+  );
+  assert.match(
+    ACTION_CODE,
+    /disconnectProviderConnection\(/,
+    "…and the server action calls that path, not the targeted one",
   );
   assert.ok(
-    !/integrationId\??:/.test(LIFECYCLE_CODE.slice(0, LIFECYCLE_CODE.indexOf("export async function disconnectProviderConnection"))),
-    "the lifecycle module exposes no integration-id parameter for a caller to supply",
+    !/retireSupersededConnection/.test(ACTION_CODE) && !/retireSupersededConnection/.test(PAGE_CODE),
+    "no browser surface reaches the id-taking retirement",
   );
 }
 
@@ -362,6 +541,8 @@ function theReleasedCeremonyIsUnchangedForAFirstConNection(): void {
 function main(): void {
   forceReauthIsOptOutByDefault();
   theSwitchFlagCannotWidenAnything();
+  theSwitchIntentTravelsOnlyInsideTheSignature();
+  aSwitchBuildsANewRowAndRetiresTheOldOneLast();
   theTenantAndIntegrationStillComeFromTheServer();
   theCallbackStillFailsClosed();
   theDisconnectActionAcceptsNothingFromTheBrowser();
