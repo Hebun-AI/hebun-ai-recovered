@@ -45,6 +45,7 @@ import type {
   AwaitingDecisionAggregate,
   AwaitingDecisionRead,
 } from "@/features/action-authorization/awaiting-decision-aggregate.server";
+import type { WorkRegister } from "@/features/organizational-work/read-work.server";
 import { elapsedSince, type ElapsedObservation } from "@/features/attention-observation/contracts";
 
 /**
@@ -246,3 +247,104 @@ export const UNCONNECTED_CAPABILITIES: readonly UnconnectedCapability[] = Object
       "The only goal source in this system is a compiled-in seed, so it is withheld from a real tenant rather than shown as this organization's goals. Hebun does not know what goals this organization holds.",
   },
 ]);
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * SECTION 4 — WORK IN MOTION
+ *
+ * The fourth question a Director opens Hebun asking, and the first one Command can answer without
+ * a new authority: WHAT WORK IS THIS ORGANIZATION CARRYING?
+ *
+ * The rule that governs the other three governs this one. `readWorkRegister` is WORK-1's own
+ * tenant-scoped reader, taken unchanged; the route resolves the tenant once and hands this file the
+ * RESULT. There is no Command copy of the register, no second seam, and no cache. `/operations`,
+ * `/approvals` and `/director/work` already consume the same reader the same way.
+ *
+ * ── WHAT THIS MODEL REFUSES TO SAY ───────────────────────────────────────────
+ *
+ * 1. IT NEVER CALLS A DECLARED STATE AN OBSERVED ONE. The authority's own sentence is that every
+ *    state is DECLARED by a human and that Hebun observed nothing, verified nothing, and holds no
+ *    record of any outcome. A count of items whose state says `in-progress` is a count of CLAIMS.
+ *    That word travels with the number or the number does not render.
+ *
+ * 2. IT NEVER PRESENTS A BOUNDED READ AS AN ORGANIZATIONAL TOTAL. The seam caps its rows and says
+ *    so through `truncated`. When the cap is hit this model reports a LOWER BOUND and says the
+ *    organization holds more — the same discipline `toWaitingOnYou` applies to its own cap.
+ *
+ * 3. IT NEVER HIDES A RETIREMENT. WORK-1 retires in place and returns retired rows with
+ *    `inService: false`. Dropping them silently would make a retirement look like a deletion, so
+ *    they are counted separately and named.
+ *
+ * 4. IT NEVER TURNS AN UNREADABLE REGISTER INTO ZERO WORK. `unavailable` and `empty` are different
+ *    facts about the organization and may never share a rendering.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** One recorded work item, reduced to what Command may show without becoming a second inspector. */
+export interface WorkInMotionItem {
+  readonly workItemId: string;
+  readonly title: string;
+  /** DECLARED by a human. Never an observation, and never rendered without that word nearby. */
+  readonly declaredState: string;
+  /** The department this work names, or `null` when it names none. */
+  readonly departmentName: string | null;
+  readonly recordedAt: string;
+}
+
+export type WorkInMotionState =
+  /** The register could not be read. This says nothing about whether work exists. */
+  | { readonly status: "unavailable"; readonly detail: string }
+  /** The register was read and this organization has recorded no work. */
+  | { readonly status: "empty"; readonly detail: string }
+  | {
+      readonly status: "recorded";
+      /** Items still in service, most recently recorded first. Never includes retired work. */
+      readonly items: readonly WorkInMotionItem[];
+      /** How many of the rows READ are in service. A lower bound when `truncated`. */
+      readonly inServiceShown: number;
+      /** How many of the rows READ are retired. Counted, never hidden. */
+      readonly retiredShown: number;
+      /** True when the seam hit its cap, so every count above is a lower bound. */
+      readonly truncated: boolean;
+      /** The authority's own sentence about what these states are and are not. */
+      readonly detail: string;
+    };
+
+/** How many in-service items Command lists before it stops and routes to Operations. */
+export const WORK_IN_MOTION_SHOWN = 4;
+
+/**
+ * Map WORK-1's register into what Command may honestly say about it.
+ *
+ * A pure function over somebody else's answer: no handle, no clock, no tenant, no second read.
+ */
+export function toWorkInMotion(register: WorkRegister): WorkInMotionState {
+  if (register.status === "unavailable") {
+    return { status: "unavailable", detail: register.detail };
+  }
+
+  const inService = register.items.filter((item) => item.inService);
+  const retiredShown = register.items.length - inService.length;
+
+  /*
+   * An empty register is only empty when the read was NOT truncated. A truncated read that happens
+   * to carry no in-service rows still proves the organization holds work, so it can never be
+   * reported as "no work recorded".
+   */
+  if (register.items.length === 0) {
+    return { status: "empty", detail: register.detail };
+  }
+
+  return {
+    status: "recorded",
+    items: inService.slice(0, WORK_IN_MOTION_SHOWN).map((item) => ({
+      workItemId: item.workItemId,
+      declaredState: item.declaredState,
+      title: item.title,
+      departmentName: item.department?.name ?? null,
+      recordedAt: item.recordedAt,
+    })),
+    inServiceShown: inService.length,
+    retiredShown,
+    truncated: register.truncated,
+    detail: register.detail,
+  };
+}

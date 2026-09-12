@@ -1,12 +1,15 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { CommandOverview } from "@/components/command-overview/command-overview";
+import { WorkInMotion } from "@/components/command-work/work-in-motion";
 import { GlobalAwareness } from "@/components/awareness/global-awareness";
 import {
   getExpressIntentSummary,
   toWaitingOnYou,
+  toWorkInMotion,
 } from "@/features/command-overview/workspace-model";
 import { readPendingActionRequests } from "@/features/action-authorization/read-action-authorizations.server";
 import { readAwaitingDecisionAggregate } from "@/features/action-authorization/awaiting-decision-aggregate.server";
+import { readWorkRegister } from "@/features/organizational-work/read-work.server";
 import { readLiveMapProjection } from "@/features/live-map/read-live-map.server";
 import { summariseLiveMap } from "@/features/live-map/awareness";
 import { readSecurityRecordedActObservation } from "@/features/governance-activity/security-observation-source.server";
@@ -79,11 +82,19 @@ export default async function CommandPage() {
    * a true total. Its failure is contained like the other three — an unreadable aggregate leaves
    * the queue itself intact and simply omits the duration.
    */
-  const [pending, awaiting, liveMap, recordedActs] = await Promise.all([
+  /*
+   * CMD-W adds a FIFTH read, and it is somebody else's too. `readWorkRegister` is WORK-1's own
+   * tenant-scoped reader, taken unchanged and handed the same tenant this route already resolved
+   * once. It takes no work id, department id or tenant parameter, so pointing it at another
+   * organization is unrepresentable rather than refused. Its failure is contained like the other
+   * four — an unreadable register leaves the queue, the Live Map panel and the ledger intact.
+   */
+  const [pending, awaiting, liveMap, recordedActs, work] = await Promise.all([
     readPendingActionRequests(tenant),
     readAwaitingDecisionAggregate(tenant),
     readLiveMapProjection(tenant),
     readSecurityRecordedActObservation(tenant),
+    readWorkRegister(tenant),
   ]);
   /* ONE instant for every duration this page renders. Resolved here, never inside a component. */
   const evaluatedAt = new Date().toISOString();
@@ -118,6 +129,19 @@ export default async function CommandPage() {
         waiting={toWaitingOnYou(pending, { evaluatedAt, aggregate: awaiting })}
         intent={getExpressIntentSummary()}
       />
+      {/*
+        CMD-W SITS BELOW THE CANONICAL OVERVIEW, AND OUTSIDE IT — the same placement decision LMX-1
+        made for the awareness band, for the same reason: CMD-B1 pins the Overview at exactly three
+        sections and four released suites assert that count. A new question earns a new region; it
+        does not earn a rewrite of a settled one.
+
+        It FOLLOWS the Overview rather than preceding it because attention outranks inventory. What
+        is waiting on a human is the first thing a Director must see; what the organization is
+        carrying is the second.
+      */}
+      <div className="mt-7 lg:mt-8">
+        <WorkInMotion state={toWorkInMotion(work)} />
+      </div>
     </>
   );
 }

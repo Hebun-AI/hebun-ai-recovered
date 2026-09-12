@@ -77,7 +77,7 @@ import {
  * Presentational and server-safe. It reads nothing, resolves nothing, and grants nothing.
  */
 
-function ordinaryDate(iso: string): string {
+export function ordinaryDate(iso: string): string {
   /* Deterministic and locale-free: a timestamp is evidence, not a greeting. */
   return iso.length >= 10 ? iso.slice(0, 10) : iso;
 }
@@ -90,7 +90,7 @@ function ordinaryDate(iso: string): string {
  * heading, which is the `/finance` defect measured at 158.3px of a 197px row against a title
  * needing 93px — and it sits after the content it qualifies, because it describes that content.
  */
-function CommandRegion({
+export function CommandRegion({
   id,
   title,
   question,
@@ -149,7 +149,7 @@ function CommandRegion({
  * the third carrier the boxed primitive uses — the word moved up beside the label to replace it,
  * where it is more legible than it was inside the card.
  */
-function OperatingStatement({
+export function OperatingStatement({
   tone,
   title,
   detail,

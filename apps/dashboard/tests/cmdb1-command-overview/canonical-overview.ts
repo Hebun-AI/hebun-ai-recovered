@@ -46,8 +46,14 @@ const ROOT = process.cwd();
 const PAGE = "src/app/(dashboard)/command/page.tsx";
 const OVERVIEW = "src/components/command-overview/command-overview.tsx";
 const MODEL = "src/features/command-overview/workspace-model.ts";
+/*
+ * CMD-W's sibling region. It is NOT part of the Overview — CMD-B1's three-section pin below is
+ * untouched and it renders outside that composition — but it is a Command surface, so it is held
+ * to the same firewall: no writer, no handle, no authority resolver, no "use server".
+ */
+const WORK = "src/components/command-work/work-in-motion.tsx";
 /** Everything CMD-B1 owns. The firewall is about these files and no others. */
-const OWNED = [PAGE, OVERVIEW, MODEL] as const;
+const OWNED = [PAGE, OVERVIEW, MODEL, WORK] as const;
 
 /** The eight components the old Overview was built from. None may return. */
 const RETIRED = [
@@ -373,7 +379,9 @@ function commandHoldsNoAuthority(overrides: Readonly<Record<string, string>> = {
    * silently. LMX-1 grew the list from two to four by composing the released Live Map projection
    * and the released E2-2 recorded-act seam into the awareness band; E2-4 grew it to five with the
    * unbounded awaiting-decision aggregate, which exists precisely because the bounded queue reader
-   * beside it cannot answer "oldest". The PROPERTY is unchanged and is what this assertion is for.
+   * beside it cannot answer "oldest". CMD-W grew it to six with WORK-1's organizational work
+   * register, so the landing can answer what work this organization is carrying without the reader
+   * navigating to Operations first. The PROPERTY is unchanged and is what this assertion is for.
    * Every entry is a read owned by another subsystem, and the forbidden-token sweep above still
    * proves none of them brought a writer, a handle or an authority resolver with it.
    */
@@ -387,6 +395,7 @@ function commandHoldsNoAuthority(overrides: Readonly<Record<string, string>> = {
       "@/features/auth-runtime/request-session.server",
       "@/features/governance-activity/security-observation-source.server",
       "@/features/live-map/read-live-map.server",
+      "@/features/organizational-work/read-work.server",
     ],
     "the route reaches exactly the session resolver and read seams it does not own",
   );
