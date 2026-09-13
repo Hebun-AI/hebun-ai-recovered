@@ -13,6 +13,10 @@ import {
 import { revokeActionPermit } from "@/features/action-authorization/revoke-action-permit.server";
 import { executeAuthorizedAction } from "@/features/action-execution/execute-authorized-action.server";
 import { executeRecordWork } from "@/features/governed-internal-action/execute-record-work.server";
+import {
+  executePlaceHuman,
+  type PlacementActResult,
+} from "@/features/governed-internal-action/execute-place-human.server";
 import type {
   ActionApprovalResult,
   ActionRejectionResult,
@@ -145,6 +149,35 @@ export async function executeGovernedInternalActionAction(
   if (result.status === "executed") {
     revalidatePath("/approvals");
     revalidatePath("/director/work");
+  }
+  return result;
+}
+
+/*
+ * GIA-2 — PERFORM ONE AUTHORIZED PLACEMENT.
+ *
+ * A THIRD SERVER ACTION, NOT A DISPATCHER. It would be shorter to switch on the permit's action
+ * kind inside one action and call whichever executor matched, and that is exactly what is avoided:
+ * the kind would then be read from a row rather than from the function a reviewer is looking at,
+ * and a future kind would join the switch without anybody deciding it should be executable from
+ * here. Each executable act gets its own named entry point.
+ *
+ * Same refusal economics as the record-work action: a refused internal act aborts the transaction
+ * that was spending the permit, so the permit reverts to `active` and nothing was written. Only a
+ * success revalidates.
+ *
+ * `/director/organization` is revalidated because that is where the placement register is read.
+ */
+export async function executeGovernedPlacementAction(
+  input: { readonly permitId: string },
+): Promise<PlacementActResult> {
+  const tenant = await resolveTenantContext();
+  const result = await executePlaceHuman(tenant, {
+    permitId: String(input?.permitId ?? ""),
+  });
+  if (result.status === "executed") {
+    revalidatePath("/approvals");
+    revalidatePath("/director/organization");
   }
   return result;
 }

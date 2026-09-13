@@ -41,6 +41,7 @@ export const DEVICE_ACTION_TOOL_ID = "heby.device.action";
  * and what an executor will accept.
  */
 export const RECORD_WORK_TOOL_ID = "heby.work.record-work";
+export const PLACE_HUMAN_TOOL_ID = "heby.organization.place-human";
 
 const ACTION_TOOLS: readonly HebyActionTool[] = [
   {
@@ -278,6 +279,68 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
       "Records one organizational work item through the Organizational Work Authority. Consequential and governed; a human authorizes it and Hebun performs it.",
   },
   {
+    /*
+     * GIA-2 — THE SECOND GOVERNED INTERNAL ACT.
+     *
+     * Placing one human of this organization into one of its departments, performed by Hebun inside
+     * the transaction that spends a human's permit. It exists to prove the GIA-1 seam is a reusable
+     * pattern; it is deliberately the NARROWEST second act available, because it is the only
+     * candidate in this repository that mutates internal state through an existing authority,
+     * carries a real deterministic inverse, needs no schema and reaches no provider.
+     *
+     * REVERSIBLE, IN THE SAME SENSE AS `record-work`. The Organization Authority owns
+     * `withdrawPlacement`. Withdrawing does not erase the placement's audit event and does not roll
+     * a committed transaction backwards.
+     *
+     * WHAT IT DOES NOT GRANT. A placement says which part of the organization a human works in. It
+     * is not a membership, not a role, not a permission and not Governance authority — none of
+     * which this tool can reach.
+     */
+    toolId: PLACE_HUMAN_TOOL_ID,
+    actionKind: "place-human-in-department",
+    capability: "organization-placement-set",
+    sideEffect: "CONSEQUENTIAL_MUTATION",
+    reversibility: "deterministic-inverse",
+    /*
+     * COMMAND, NOT WORKFORCE. Workforce was the intuitive choice and a released firewall refuses
+     * it: no Heby action tool may be owned by Workforce, because Workforce must not be able to
+     * manage agents. Command owns the Director's organization-wide routes — `/director/organization`
+     * among them, exactly as `/director/work` is why `record-work` is Command's — so the tool joins
+     * the workspace that already owns the surface rather than a rule being relaxed for it.
+     */
+    ownerWorkspace: "command",
+    authorityRequirement: "human-review-required",
+    governanceGated: true,
+    substrateConnected: true,
+    /*
+     * TWO RECORD-REFS, BOTH REQUIRED. `record-ref` is what makes each a retrieved row rather than a
+     * string, so a proposal cannot put a decision about a fiction in front of the Director. The
+     * authority still re-resolves both inside the transaction — this gate is about the proposal
+     * being about real things, not about trusting it.
+     */
+    argumentSchema: {
+      fields: [
+        {
+          name: "humanRef",
+          kind: "record-ref",
+          required: true,
+          describes: "An active member of this organization: user/<uuid>.",
+        },
+        {
+          name: "departmentRef",
+          kind: "record-ref",
+          required: true,
+          describes: "An in-service department of this organization: department/<uuid>.",
+        },
+      ],
+    },
+    inputSummary: "One member of this organization and one of its departments.",
+    outputSummary:
+      "Would place one human into one department, authored by the system under a human's authorization. Reversible through withdrawal; nothing is erased.",
+    describes:
+      "Places one human into one department through the Organization Authority. Consequential and governed; a human authorizes it and Hebun performs it.",
+  },
+  {
     toolId: "heby.decisions.grant-permission",
     actionKind: "grant-permission",
     capability: "authority-grant",
@@ -417,6 +480,13 @@ export const EXECUTABLE_ACTION_POSTURES: readonly ExecutableActionPosture[] = Ob
   Object.freeze({
     actionKind: "record-work" as const,
     toolId: RECORD_WORK_TOOL_ID,
+    sideEffect: "CONSEQUENTIAL_MUTATION" as const,
+    reversibility: "deterministic-inverse" as const,
+    execution: "internal-authority" as const,
+  }),
+  Object.freeze({
+    actionKind: "place-human-in-department" as const,
+    toolId: PLACE_HUMAN_TOOL_ID,
     sideEffect: "CONSEQUENTIAL_MUTATION" as const,
     reversibility: "deterministic-inverse" as const,
     execution: "internal-authority" as const,

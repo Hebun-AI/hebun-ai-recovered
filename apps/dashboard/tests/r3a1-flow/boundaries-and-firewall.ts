@@ -357,10 +357,12 @@ function answerFlowFilesNothing(): void {
   assert.deepEqual(
     callers,
     [
+      /* GIA-2's proposer. Still an inlet, still named — the census counts inlets, not two. */
+      "src/features/heby-action-inlet/place-human-proposal.server.ts",
       "src/features/heby-action-inlet/record-work-proposal.server.ts",
       "src/features/heby-action-inlet/send-proposal.server.ts",
     ],
-    "the only production callers of recordActionRequest are the two action inlets",
+    "the only production callers of recordActionRequest are the three action inlets",
   );
 }
 

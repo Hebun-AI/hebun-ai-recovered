@@ -197,6 +197,132 @@ async function isEligibleMember(
  * The department is locked FOR UPDATE, so a concurrent retirement cannot interleave between the
  * check and the write. The placement row is located under the same lock.
  */
+/**
+ * The transaction slice a governed placement needs — and no more.
+ *
+ * `insert` and `select` ONLY, which is exactly what `PermitConsumptionTx` offers. GIA-1's firewall
+ * pins that type and records that it "WAS NOT WIDENED"; this seam therefore asks for nothing the
+ * permit's spend transaction does not already provide, rather than asking the permit authority to
+ * hand out more power so that a second act could use it.
+ */
+export type GovernedPlacementTx = Pick<ControlPlaneDatabase, "insert" | "select">;
+
+/**
+ * PLACE AN UNPLACED HUMAN, INSIDE A TRANSACTION THE CALLER OWNS (GIA-2).
+ *
+ * ── WHY THIS IS A SECOND ENTRY POINT AND NOT A PARAMETER ─────────────────────
+ *
+ * `placeHumanInDepartment` performs an upsert: a human already in a department is MOVED. Moving
+ * needs `update`, and `PermitConsumptionTx` deliberately exposes only `insert` and `select`. The
+ * choice was to widen that type for every governed act, or to make the governed act narrower than
+ * the human one. Narrower won.
+ *
+ * So the governed path places a human who has NO active placement, and refuses `already-placed`
+ * otherwise — including when the existing placement is in a different department. Re-organising who
+ * works where remains a human act on the human path, which is the more conservative reading of what
+ * a Director approves when they approve "place this person in this department".
+ *
+ *     THE GOVERNED ACT IS A STRICT SUBSET OF THE HUMAN ACT.
+ *
+ * ── THE RULES ARE THIS AUTHORITY'S, NOT THE CALLER'S ─────────────────────────
+ *
+ * The department must exist, belong to this tenant and be in service; the human must be an eligible
+ * active member of this tenant; and a human may hold one active placement. Every one of those is
+ * re-asked here under this transaction, because the proposal that led to the permit was written at
+ * a different moment and the world may have moved. The caller supplies a transaction and an
+ * instant — it does not supply a verdict.
+ *
+ * ── CONCURRENCY ──────────────────────────────────────────────────────────────
+ *
+ * The read below is not `FOR UPDATE`: this slice has no `update` verb and takes no row locks. The
+ * real guarantee against two concurrent first-placements is the released partial unique index
+ * `department_placements_tenant_user_active_uq`, and the loser surfaces as a unique violation the
+ * caller's transaction will roll back. That is the same guarantee the human path relies on.
+ */
+export async function placeUnplacedHumanWithin(
+  tx: GovernedPlacementTx,
+  authenticated: TenantContext,
+  input: { readonly userId: string; readonly departmentId: string },
+  now: Date,
+): Promise<PlacementWriteResult> {
+  const userId = typeof input?.userId === "string" ? input.userId : "";
+  const departmentId = typeof input?.departmentId === "string" ? input.departmentId : "";
+  if (userId.length === 0) return refuse("human-not-active-member");
+  if (departmentId.length === 0) return refuse("department-unresolved");
+
+  /* Another tenant's department is `department-unresolved` exactly as one that never existed. */
+  const departmentRows = await tx
+    .select({ id: departments.id, lifecycleStatus: departments.lifecycleStatus })
+    .from(departments)
+    .where(and(eq(departments.tenantId, authenticated.tenantId), eq(departments.id, departmentId)))
+    .limit(1);
+
+  const department = departmentRows[0];
+  if (!department) return refuse("department-unresolved");
+  if (department.lifecycleStatus !== ACTIVE_LIFECYCLE_STATUS) return refuse("department-retired");
+
+  if (!(await isEligibleMember(tx, authenticated.tenantId, userId))) {
+    return refuse("human-not-active-member");
+  }
+
+  /* One active placement per human. The governed path does not move anybody. */
+  const existingRows = await tx
+    .select({ id: departmentPlacements.id })
+    .from(departmentPlacements)
+    .where(
+      and(
+        eq(departmentPlacements.tenantId, authenticated.tenantId),
+        eq(departmentPlacements.userId, userId),
+        eq(departmentPlacements.lifecycleStatus, ACTIVE_LIFECYCLE_STATUS),
+        isNull(departmentPlacements.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (existingRows[0]) return refuse("already-placed");
+
+  const row = (
+    await tx
+      .insert(departmentPlacements)
+      .values({
+        tenantId: authenticated.tenantId,
+        userId,
+        departmentId: department.id,
+        createdBy: authenticated.userId,
+        createdByType: "human",
+        updatedBy: authenticated.userId,
+        updatedByType: "human",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning({
+        id: departmentPlacements.id,
+        userId: departmentPlacements.userId,
+        departmentId: departmentPlacements.departmentId,
+      })
+  )[0]!;
+
+  /*
+   * THE SAME AUDIT EVENT THE HUMAN PATH WRITES, under the authorizing human's name. A governed act
+   * is not a different kind of placement and does not get a different provenance vocabulary.
+   */
+  await recordPlacementEventWithin(
+    tx,
+    auditActorFrom(authenticated),
+    {
+      action: PLACEMENT_AUDIT_SET,
+      placementId: row.id,
+      userId: row.userId,
+      departmentId: row.departmentId,
+    },
+    now,
+  );
+
+  return {
+    status: "recorded",
+    placement: { placementId: row.id, userId: row.userId, departmentId: row.departmentId },
+  };
+}
+
 export async function placeHumanInDepartment(
   tenant: TenantContext | null,
   input: { readonly userId: string; readonly departmentId: string },

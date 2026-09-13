@@ -36,6 +36,7 @@ const ACTION_LABELS: Record<HebyActionKind, string> = {
   "restart-workflow": "Restart workflow",
   "send-external-communication": "Send external communication",
   "record-work": "Record organizational work",
+  "place-human-in-department": "Place a human in a department",
   "grant-permission": "Grant permission",
   "modify-governance-policy": "Modify governance policy",
   "device-action": "Device action",

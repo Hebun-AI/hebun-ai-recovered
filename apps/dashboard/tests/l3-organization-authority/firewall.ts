@@ -30,6 +30,7 @@ const RECORD_WORK_INLET = "src/features/heby-action-inlet/record-work-proposal.s
 const WORK_PAGE = "src/app/(dashboard)/director/work/page.tsx";
 /** TRH-17. The agent's record-work choice space is built from this authority, not beside it. */
 const ORIGINATION_CANDIDATES = "src/features/agent-origination/candidate-set.server.ts";
+const PLACE_HUMAN_INLET = "src/features/heby-action-inlet/place-human-proposal.server.ts";
 
 function walk(dir: string): string[] {
   return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {
@@ -273,11 +274,26 @@ function thereIsOnlyOneAnswer(): void {
    * inlet that files its proposal read the same authority, one way. The census GREW; nothing in it
    * widened, and a sixth consumer still fails here and has to argue for itself.
    */
+  /*
+   * GIA-2 added the sixth, and argued for itself the way this census demands. The
+   * `place-human-in-department` proposal inlet resolves the department it is about through THIS
+   * seam rather than reaching `readOrganizationStructure` directly — the same correction the
+   * record-work inlet made before it, made once rather than discovered twice. The census GREW;
+   * nothing in it widened, and a seventh consumer still fails here.
+   */
   assert.deepEqual(
     callers.sort(),
-    [PAGE, LIVE_MAP_PROJECTION, WORK_PAGE, RECORD_WORK_INLET, ORIGINATION_CANDIDATES].sort(),
+    [
+      PAGE,
+      LIVE_MAP_PROJECTION,
+      WORK_PAGE,
+      RECORD_WORK_INLET,
+      ORIGINATION_CANDIDATES,
+      PLACE_HUMAN_INLET,
+    ].sort(),
     "the Organization Authority's consumers are exactly the Organization page, the Live Map " +
-      "projection, the Work register page, the record-work proposal inlet, and the agent " +
+      "projection, the Work register page, the record-work proposal inlet, the place-human " +
+      "proposal inlet, and the agent " +
       "origination candidate builder",
   );
 

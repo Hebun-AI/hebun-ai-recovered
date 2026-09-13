@@ -212,6 +212,24 @@ export type HebyActionKind =
    * "deterministic inverse" has always meant here and nothing more.
    */
   | "record-work"
+  /**
+   * GIA-2 — THE THIRD EXECUTABLE KIND, AND THE ONE THAT PROVED THE PATTERN GENERALISES.
+   *
+   * Placing one human of this organization into one of its departments, performed by Hebun inside
+   * the transaction that spends a human's permit. GIA-1's comment above called `record-work` "the
+   * second, AND LAST, executable kind" — accurate when written, and no longer true. It was not
+   * changed to make room: it was changed because a second domain proved the governed internal-act
+   * seam is a reusable pattern rather than a `record-work` special case.
+   *
+   * It is REVERSIBLE in the same exact sense `record-work` is: the Organization Authority owns a
+   * deterministic compensating operation (`withdrawPlacement`) for precisely this state. Reversible
+   * still does not mean erasable — withdrawing a placement does not remove its audit event and does
+   * not roll a committed transaction backwards.
+   *
+   * It touches NO provider, NO credential, NO membership and NO Governance authority. A placement
+   * says which part of the organization a human works in; it grants nothing.
+   */
+  | "place-human-in-department"
   | "grant-permission"
   | "modify-governance-policy"
   | "device-action";

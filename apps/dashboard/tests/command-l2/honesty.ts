@@ -157,7 +157,12 @@ function directorIntentHonest(): void {
    * protection is unchanged and is the pair around it: the number is DERIVED from the registry
    * rather than asserted, and free text still cannot reach any of it.
    */
-  assert.equal(m.connectedMutationCount, 2, "exactly the two authorized kinds — never a third");
+  /*
+   * GIA-2 authorized a THIRD, so the derived count moved from two to three. The protection is
+   * unchanged and is the pair around it: the number is DERIVED from the registry rather than
+   * asserted, and free text still cannot reach any of it.
+   */
+  assert.equal(m.connectedMutationCount, 3, "exactly the three authorized kinds — never a fourth");
   assert.equal(m.freeTextToExecution, false, "free text is never routed to raw execution");
 
   // No mutation/device tool is invokable; the invokable set is read-only only.

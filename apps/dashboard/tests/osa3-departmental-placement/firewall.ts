@@ -484,10 +484,25 @@ async function main(): Promise<void> {
     .filter((f) =>
       valueEdges(f).some((spec) => resolveSpecifier(f, spec) === WRITER),
     );
+  /*
+   * ── A SECOND CONSUMER, NAMED (GIA-2) ──────────────────────────────────────
+   *
+   * This read "exactly one module can CALL the writer". A Director decision made placement the
+   * second governed internal action, so the governed executor now calls it too — through
+   * `placeUnplacedHumanWithin`, an entry point that takes the CALLER'S transaction and performs a
+   * strict subset of the human act: it places an unplaced human and refuses `already-placed`,
+   * because the permit transaction exposes no `update` and that narrowing is pinned elsewhere.
+   *
+   * The census GREW BY ONE NAMED FILE and nothing was widened. It is still exact, so a third caller
+   * cannot appear without somebody editing this list — which is the property that mattered, not the
+   * number one.
+   */
+  const GOVERNED_EXECUTOR =
+    "src/features/governed-internal-action/execute-place-human.server.ts";
   assert.deepEqual(
-    writerValueConsumers,
-    [ACTIONS],
-    "exactly one module can CALL the writer: the server actions the page invokes, and nothing else",
+    writerValueConsumers.slice().sort(),
+    [ACTIONS, GOVERNED_EXECUTOR].sort(),
+    "exactly two modules may CALL the writer: the page's server actions, and the governed executor",
   );
 
   /* And the two text matches are proved harmless, by name, rather than excused. */

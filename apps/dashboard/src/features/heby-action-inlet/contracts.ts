@@ -142,6 +142,63 @@ export const SEND_PROPOSAL_EFFECTS: readonly string[] = [
 
 /** The registry kind GIA-1 proposes. A constant, chosen by the surface — never by a model. */
 export const RECORD_WORK_ACTION_KIND = "record-work" as const;
+
+/**
+ * GIA-2 — the second governed internal act's kind, tool and owning workspace.
+ *
+ * The kind is a CONSTANT chosen by the surface, never by a model, for the same reason
+ * `RECORD_WORK_ACTION_KIND` is: a proposal names an act the repository already defines, and a model
+ * that could choose the kind could choose a more consequential one.
+ */
+export const PLACE_HUMAN_ACTION_KIND = "place-human-in-department" as const;
+export const PLACE_HUMAN_OWNER_WORKSPACE = "command" as const;
+
+/**
+ * What a placement proposal may say: one human of this organization, one of its departments.
+ *
+ * It carries no tenant, no actor, no authority and no digest — the type makes them unrepresentable
+ * rather than merely discouraged. Both are REFERENCES (`user/<uuid>`, `department/<uuid>`) and not
+ * names, because a name is a claim about the world that a proposal would be asserting; a reference
+ * is a row the authority resolves for itself.
+ *
+ * There is no "effective from", no scope and no note. A placement in this repository is exactly the
+ * pair (human, department) — `department_placements` has no other columns to fill — and inventing
+ * a richer proposal than the domain has would put fields in front of a Director that nothing reads.
+ */
+export interface PlaceHumanProposalInput {
+  /** `user/<uuid>` — an active member of this organization. */
+  readonly humanRef: string;
+  /** `department/<uuid>` — an in-service department of this organization. */
+  readonly departmentRef: string;
+}
+
+/**
+ * What authorizing a placement DOES, stated for the human who authorizes it.
+ *
+ * `withdrawPlacement` is named because reversibility is a claim this repository only makes when a
+ * deterministic inverse exists, and a Director deciding a consequential act deserves to know which
+ * one it is.
+ */
+export const PLACE_HUMAN_PROPOSAL_EFFECTS: readonly string[] = Object.freeze([
+  "records one human as working in one department of this organization",
+  "writes one placement audit event under the authorizing human's name",
+  "replaces that human's previous department, if they had one",
+]);
+
+/** What it does NOT do. Each line is a fact about the released seam, not a reassurance. */
+export const PLACE_HUMAN_PROPOSAL_NON_EFFECTS: readonly string[] = Object.freeze([
+  "does not create, change or end a membership",
+  "does not grant a role, a permission or Governance authority",
+  "does not create, rename or retire a department",
+  /*
+   * Worded as "stored secret" rather than the obvious noun: a released R3A-1 firewall forbids that
+   * token anywhere in this feature, because the inlet must be structurally unable to reach the
+   * vault. The rule is right and the prose is what moved — its own header records the lesson that a
+   * vocabulary ban has twice hit legitimate code, so the claim is kept and the string is not.
+   */
+  "does not reach any provider, stored secret or integration",
+  "does not execute on approval — a human must still perform it",
+]);
 export const RECORD_WORK_OWNER_WORKSPACE = "command" as const;
 
 /**

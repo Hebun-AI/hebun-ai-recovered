@@ -167,8 +167,8 @@ function nothingElseBecamePossible(): void {
   /* THE EXECUTABLE SET IS EXACTLY UNCHANGED. Declaring a reference is not an executable act. */
   assert.deepEqual(
     [...EXECUTABLE_ACTION_KINDS],
-    ["send-external-communication", "record-work"],
-    "the closed executable set is exactly what GIA-1 left — WEV-1 added no executable action",
+    ["send-external-communication", "record-work", "place-human-in-department"],
+    "the closed executable set is exactly what GIA-2 left — WEV-1 added no executable action",
   );
   assert.deepEqual(
     [...AGENT_ORIGINABLE_ACTION_KINDS],

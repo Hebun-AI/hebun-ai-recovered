@@ -109,6 +109,9 @@ for (const tool of listActionTools()) {
    */
   if (tool.actionKind === "send-external-communication") continue;
   if (tool.actionKind === "record-work") continue;
+  /* GIA-2 connected `place-human-in-department` through the Organization Authority. Named here
+   * one kind at a time, so connecting a tool remains a decision somebody records. */
+  if (tool.actionKind === "place-human-in-department") continue;
   assert.equal(
     tool.substrateConnected,
     false,

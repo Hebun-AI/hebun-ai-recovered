@@ -70,6 +70,8 @@ const codeOf = (s: string): string =>
     .replace(/"(?:[^"\\]|\\[\s\S])*"/g, '""')
     .replace(/'(?:[^'\\]|\\[\s\S])*'/g, "''");
 
+const PLACEMENT_EXECUTOR =
+  "src/features/governed-internal-action/execute-place-human.server.ts";
 const EXECUTOR = "src/features/governed-internal-action/execute-record-work.server.ts";
 const INLET = "src/features/heby-action-inlet/record-work-proposal.server.ts";
 const WORK_WRITER = "src/features/organizational-work/write-work.server.ts";
@@ -138,10 +140,21 @@ function walk(dir: string): string[] {
 function theExecutableSetIsClosed(): void {
   assert.deepEqual(validateActionRegistry(), [], "the registry is internally honest");
 
+  /*
+   * ── THE SET GREW BY ONE, DELIBERATELY (GIA-2) ─────────────────────────────
+   *
+   * This read "EXACTLY the two specifically authorized kinds". A Director decision authorized a
+   * THIRD — `place-human-in-department` — to answer a question GIA-1 left open: whether the
+   * governed internal-act seam was a reusable pattern or a `record-work` special case. It is now
+   * proven on a second domain, with a second authority and a second refusal vocabulary.
+   *
+   * The census is still EXACT and still ordered, so a fourth kind cannot arrive without somebody
+   * editing this line. That property — not the number two — was always the point.
+   */
   assert.deepEqual(
     [...EXECUTABLE_ACTION_KINDS],
-    ["send-external-communication", "record-work"],
-    "EXACTLY the two specifically authorized kinds — no more, and no fewer",
+    ["send-external-communication", "record-work", "place-human-in-department"],
+    "EXACTLY the three specifically authorized kinds — no more, and no fewer",
   );
   assert.ok(Object.isFrozen(EXECUTABLE_ACTION_POSTURES), "the set cannot be widened at runtime");
   for (const posture of EXECUTABLE_ACTION_POSTURES) {
@@ -508,9 +521,37 @@ function theArchitectureIsUnchanged(): void {
     "and that value is the closed parameter, never something taken from input",
   );
 
-  /* NO SECOND EXECUTION LEDGER, AND NO GENERIC INTERNAL EXECUTION AUTHORITY. */
+  /*
+   * ── NO SECOND EXECUTION LEDGER, AND NO GENERIC INTERNAL EXECUTION AUTHORITY ─
+   *
+   * This asserted the feature was ONE file. That was the right rule expressed by the only means
+   * available when one act existed: "no framework" and "one file" were indistinguishable.
+   *
+   * GIA-2 added a SECOND governed act, and the rule it must not break is the one about frameworks,
+   * not the one about counting. So the census became EXACT AND NAMED — every file in this feature
+   * is a per-act executor somebody deliberately listed — and gained the check the file-count could
+   * never make: that no file here dispatches between acts. A dispatcher is what a framework looks
+   * like before anyone calls it one, and it is precisely what a third act must not be added to.
+   */
   const featureFiles = walk("src/features/governed-internal-action");
-  assert.deepEqual(featureFiles, [EXECUTOR], "the feature is ONE file — there is no framework here");
+  assert.deepEqual(
+    featureFiles.slice().sort(),
+    [EXECUTOR, PLACEMENT_EXECUTOR].sort(),
+    "the feature is exactly its named per-act executors — no shared framework file",
+  );
+  for (const file of featureFiles) {
+    const code = codeOf(read(file));
+    const importsBothActs =
+      code.includes("execute-record-work") && code.includes("execute-place-human");
+    assert.ok(
+      !importsBothActs,
+      `${file}: no file may know about two acts at once — that is a dispatcher`,
+    );
+    assert.ok(
+      !/actionKind\s*===\s*[^)]*\|\||switch\s*\(\s*\w*[aA]ctionKind/.test(code),
+      `${file}: an executor performs ONE kind; it does not branch across kinds`,
+    );
+  }
   const executor = codeOf(read(EXECUTOR));
   for (const banned of ["pgTable", "actionExecutionAttempts", "action_execution_attempts", ".insert(", ".update(", ".delete("]) {
     assert.ok(!executor.includes(banned), `the executor declares and writes no ${banned}`);
@@ -718,10 +759,18 @@ function theSurfaceOffersTwoDeliberateActions(): void {
       "declareActionPurposeAction",
       "executeAuthorizedActionAction",
       "executeGovernedInternalActionAction",
+      /*
+       * GIA-2 added a SEVENTH, and it is a THIRD named executor rather than a dispatcher. Switching
+       * on the permit's action kind inside one action would have been shorter and is exactly what
+       * this census exists to prevent: the kind would then be read from a row instead of from the
+       * function a reviewer is looking at, and a fourth kind would join a switch without anybody
+       * deciding it should be executable from here.
+       */
+      "executeGovernedPlacementAction",
       "rejectActionRequestAction",
       "revokeActionPermitAction",
     ],
-    "six deliberate server actions, and no generic execute-anything",
+    "seven deliberate server actions, and still no generic execute-anything",
   );
   for (const fn of exported) {
     assert.ok(
