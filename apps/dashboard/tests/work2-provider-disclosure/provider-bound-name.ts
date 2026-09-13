@@ -57,6 +57,7 @@ const GROUNDING = "src/features/organizational-work/heby-work-source.server.ts";
 const MODEL_ANSWER = "src/features/heby-answer/model-answer.server.ts";
 const ORGANIZATION_PAGE = "src/app/(dashboard)/director/organization/page.tsx";
 const WORK_PAGE = "src/app/(dashboard)/director/work/page.tsx";
+const COMMAND_PAGE = "src/app/(dashboard)/command/page.tsx";
 const JOURNAL = "src/db/migrations/meta/_journal.json";
 
 const TENANT = { tenantId: "t-1", userId: "u-1" } as unknown as TenantContext;
@@ -386,9 +387,46 @@ async function main(): Promise<void> {
     );
   }
 
+  /*
+   * ONE PRODUCT SURFACE READS IT, AND IT ARGUED FOR ITSELF.
+   *
+   * This list was EMPTY when WORK-2 shipped, and the sentence it carried — "no product surface
+   * adopted the provider-safe read by accident" — was true of a repository where no surface had a
+   * reason to. Command Center V3 gave one. It greets the viewer BY NAME, and the label read is the
+   * wrong answer to that question: an address is a true label and a false greeting.
+   *
+   * NOTHING WAS RELAXED TO ADMIT IT. The narrow read is the STRICTER of the two — same gate, same
+   * tenant predicate, same rows, one column fewer — so a surface moving to it discloses less, never
+   * more. The danger the original clause guarded is unchanged and still guarded below: the two
+   * released PICKERS must keep the product label, because switching a picker would blank the only
+   * human this organization has. That is asserted per page, above, and a bite-proof fires on it.
+   *
+   * The list stays EXACT. A SECOND product surface still fails here and has to argue for itself.
+   */
   const uiConsumers = [...walk("src/app"), ...walk("src/components")]
     .filter((file) => withoutComments(read(file)).includes("resolveHumanNames"));
-  assert.deepEqual(uiConsumers, [], "no product surface adopted the provider-safe read by accident");
+  assert.deepEqual(
+    uiConsumers,
+    [COMMAND_PAGE],
+    "exactly one product surface reads the provider-safe name, and it is named",
+  );
+
+  /*
+   * AND IT READS ONLY THE VIEWER. The admission above is for a greeting, not for a roster: this
+   * surface resolves the caller's OWN id and nobody else's. Widening it into a list of humans would
+   * be a different change with a different argument, so the call shape is pinned rather than the
+   * mere import — an admitted consumer is not an admitted appetite.
+   */
+  const commandCode = withoutComments(read(COMMAND_PAGE));
+  assert.equal(
+    commandCode.split("resolveHumanNames(").length - 1,
+    1,
+    `${COMMAND_PAGE} calls the provider-safe read exactly once`,
+  );
+  assert.ok(
+    commandCode.includes("resolveHumanNames(tenant, tenant?.userId ? [tenant.userId] : [])"),
+    `${COMMAND_PAGE} resolves the viewer's own id and no other human`,
+  );
 
   /* ═════════════════════════════════════════════════════════════════════════
    * 11. OWNERSHIP IS UNCHANGED ON BOTH SIDES.
