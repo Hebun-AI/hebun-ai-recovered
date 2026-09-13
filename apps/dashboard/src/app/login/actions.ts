@@ -13,6 +13,7 @@ import {
 import type { WorkspaceSelectionResult } from "@/features/tenant-selection/contracts";
 import type { WorkspaceSwitchResult } from "@/features/tenant-switching/contracts";
 import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
+import { AUTHENTICATED_LANDING_ROUTE } from "@/features/auth-runtime/landing-route";
 import {
   issueLocalSession,
   revokeSessionByReference,
@@ -80,7 +81,7 @@ export async function loginAction(formData: FormData): Promise<void> {
   }
 
   await setSessionCookie(issued.reference, issued.maxAgeSeconds);
-  redirect("/foundation");
+  redirect(AUTHENTICATED_LANDING_ROUTE);
 }
 
 /**

@@ -9,6 +9,7 @@ import {
   setSessionCookie,
 } from "@/features/auth-runtime/request-session.server";
 import { issueLocalSession } from "@/features/auth-runtime/session-service.server";
+import { AUTHENTICATED_LANDING_ROUTE } from "@/features/auth-runtime/landing-route";
 import { createSelfServiceAccount } from "@/features/self-service-signup/create-account.server";
 import type { SignupRefusal } from "@/features/self-service-signup/contracts";
 
@@ -92,5 +93,5 @@ export async function registerAction(formData: FormData): Promise<void> {
   }
 
   await setSessionCookie(issued.reference, issued.maxAgeSeconds);
-  redirect("/foundation");
+  redirect(AUTHENTICATED_LANDING_ROUTE);
 }

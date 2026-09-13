@@ -25,6 +25,7 @@ import {
   resolveTenantContext,
 } from "@/features/auth-runtime/request-session.server";
 import { WorkspaceSelectionCard } from "@/components/auth/workspace-selection-card";
+import { AUTHENTICATED_LANDING_ROUTE } from "@/features/auth-runtime/landing-route";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export default async function SelectWorkspacePage() {
    * asking a question they have answered.
    */
   const tenant = await resolveTenantContext();
-  if (tenant) redirect("/foundation");
+  if (tenant) redirect(AUTHENTICATED_LANDING_ROUTE);
 
   const workspaces = await readSelectableWorkspacesForRequest();
 

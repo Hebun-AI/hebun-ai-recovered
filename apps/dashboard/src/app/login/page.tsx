@@ -4,6 +4,7 @@ import {
   getAuthEnvironment,
   resolveRequestAuthentication,
 } from "@/features/auth-runtime/request-session.server";
+import { AUTHENTICATED_LANDING_ROUTE } from "@/features/auth-runtime/landing-route";
 import { loginAction } from "./actions";
 
 /*
@@ -55,10 +56,10 @@ export default async function LoginPage(props: {
     );
   }
 
-  // Already authorized -> go straight to the durable proof surface.
+  // Already authorized -> go straight to the canonical landing surface.
   const existing = await resolveRequestAuthentication(env);
   if (existing.status === "authorized") {
-    redirect("/foundation");
+    redirect(AUTHENTICATED_LANDING_ROUTE);
   }
 
   const searchParams = (await props.searchParams) ?? {};

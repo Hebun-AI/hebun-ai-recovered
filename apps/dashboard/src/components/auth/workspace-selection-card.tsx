@@ -26,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { selectWorkspaceAction } from "@/app/login/actions";
+import { AUTHENTICATED_LANDING_ROUTE } from "@/features/auth-runtime/landing-route";
 import {
   PRE_TENANT_RECEIPT,
   TENANT_SELECTION_EFFECT,
@@ -66,7 +67,7 @@ export function WorkspaceSelectionCard({
     startTransition(async () => {
       const result = await selectWorkspaceAction({ membershipId: selected });
       if (result.status === "selected") {
-        router.replace("/foundation");
+        router.replace(AUTHENTICATED_LANDING_ROUTE);
         router.refresh();
         return;
       }

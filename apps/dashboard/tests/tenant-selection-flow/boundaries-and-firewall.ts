@@ -345,7 +345,14 @@ function main(): void {
     /* And the page itself refuses without a receipt rather than relying on the edge. */
     assert.match(page, /readSelectableWorkspacesForRequest\(\)/);
     assert.match(page, /const tenant = await resolveTenantContext\(\);/);
-    assert.match(page, /if \(tenant\) redirect\("\/foundation"\);/);
+    /*
+     * The DESTINATION moved and the GUARD did not. A human who already holds a tenant-bound session
+     * is still sent away from this picker rather than being asked a question they have answered;
+     * they are simply sent to the canonical landing surface instead of a route this page had
+     * spelled out for itself. The named constant is asserted rather than a literal, because a page
+     * that hard-codes the landing is exactly the duplication that let this answer drift.
+     */
+    assert.match(page, /if \(tenant\) redirect\(AUTHENTICATED_LANDING_ROUTE\);/);
     assert.ok(
       !/searchParams|params\./.test(codeOf(page)),
       "the page takes no parameter, so nothing on it can be aimed at another account",

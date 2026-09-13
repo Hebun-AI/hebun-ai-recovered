@@ -10,6 +10,7 @@ import {
   type SignupRefusal,
 } from "@/features/self-service-signup/contracts";
 import { registerAction } from "./actions";
+import { AUTHENTICATED_LANDING_ROUTE } from "@/features/auth-runtime/landing-route";
 
 /*
  * Create an account, and the organization it will own.
@@ -69,7 +70,7 @@ export default async function RegisterPage(props: {
    * tenant-bound session would invite them to create a second organization by accident.
    */
   const tenant = await resolveTenantContext();
-  if (tenant) redirect("/foundation");
+  if (tenant) redirect(AUTHENTICATED_LANDING_ROUTE);
 
   const searchParams = (await props.searchParams) ?? {};
   const rawError = searchParams.error;
