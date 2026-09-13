@@ -75,9 +75,18 @@ export const TENANT_PROVISIONING_SOURCES: readonly TenantProvisioningSource[] = 
 /**
  * The band the bootstrap role carries.
  *
- * `owner` is existing canonical vocabulary (`roleTypeEnum`), not a new one, and this authority is
- * still the ONLY possible origin of one: `ONBOARDING_EXCLUDED_ROLE_TYPES` keeps `owner` off the
- * invitation path, so a role of this band can only ever come from tenant birth.
+ * `owner` is existing canonical vocabulary (`roleTypeEnum`), not a new one.
+ *
+ * THIS AUTHORITY IS NO LONGER THE ONLY ORIGIN OF ONE, and this paragraph used to say it was:
+ * `ONBOARDING_EXCLUDED_ROLE_TYPES` kept `owner` off the invitation path, so an owner could only
+ * come from tenant birth. That was true until a Director decision admitted `owner` to
+ * `ELIGIBLE_ROLE_TYPE_LIST`, because a tenant needing to replace its only owner had no released way
+ * to gain a second one — provisioning refuses an existing slug by design, and the only membership
+ * UPDATE writer revokes.
+ *
+ * Tenant birth remains the origin of the FIRST owner. A later one now arrives through the governed
+ * invitation path, under the same Governance authority, and creates its membership through the same
+ * `accept-invitation` writer — no second membership creation path was added.
  *
  * WHAT IT ACTUALLY GRANTS, MEASURED RATHER THAN ASSUMED. `roles.type` is consulted by exactly one
  * connected authority in the repository today — `KNOWLEDGE_AUTHOR_ROLE_TYPES`, whose resolver

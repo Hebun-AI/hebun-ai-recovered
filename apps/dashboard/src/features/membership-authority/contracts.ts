@@ -62,11 +62,32 @@ export const MEMBERSHIP_AUTHORIZATION_AUDIT_ACTION = "governance.membership.auth
  * Widening this set is a Governance decision, not a convenience — the same doctrine
  * `KNOWLEDGE_AUTHOR_ROLE_TYPES` states about its own band list.
  */
-export type OnboardingEligibleRoleType = "member";
+export type OnboardingEligibleRoleType = "member" | "owner";
 
-/** The single source of truth for the eligible bands. The Set below is derived from it. */
+/**
+ * The single source of truth for the eligible bands. The Set below is derived from it.
+ *
+ * ── WHY `owner` JOINED, AND WHAT THAT COST ────────────────────────────────────
+ *
+ * `owner` was on the exclusion list below, and the repository was consistent about it: tenant
+ * provisioning recorded that an owner "can only ever come from tenant birth". That was true and it
+ * was also a dead end. A tenant whose only owner must be replaced had NO released path to a second
+ * one: provisioning refuses an existing slug, the first-human ceremony refuses once any user exists,
+ * and the sole membership UPDATE writer only ever revokes. So the last-owner guard — correctly —
+ * made such a tenant permanently unable to change hands.
+ *
+ * Widening this set was named by this file's own doctrine as "a Governance decision, not a
+ * convenience", and it was taken as one: a Director decision to make owner onboarding a governed,
+ * repeatable capability rather than a one-off.
+ *
+ * WHAT DID NOT CHANGE. The authorization still resolves through `resolveGovernanceAuthority`, the
+ * role is still resolved server-side from the tenant's OWN active roles, the permit still carries
+ * it, and acceptance re-checks it. `director`, `operator` and `auditor` remain excluded — this is
+ * two named bands, not "any role".
+ */
 export const ELIGIBLE_ROLE_TYPE_LIST: readonly OnboardingEligibleRoleType[] = Object.freeze([
   "member",
+  "owner",
 ]);
 
 export const ONBOARDING_ELIGIBLE_ROLE_TYPES: ReadonlySet<string> = Object.freeze(
@@ -74,8 +95,16 @@ export const ONBOARDING_ELIGIBLE_ROLE_TYPES: ReadonlySet<string> = Object.freeze
 );
 
 /** Stated so the surface and the tests read the same list. */
+/**
+ * The `roles.type` value that means "can administer this tenant".
+ *
+ * It lives here because this module owns the onboarding band vocabulary, and because two different
+ * rules now need it: which bands may be onboarded, and who is senior enough to authorize the owner
+ * one. Spelled once so those two rules cannot drift apart.
+ */
+export const OWNER_ROLE_TYPE = "owner" as const;
+
 export const ONBOARDING_EXCLUDED_ROLE_TYPES: readonly string[] = Object.freeze([
-  "owner",
   "director",
   "operator",
   "auditor",
@@ -103,6 +132,19 @@ export type MembershipAuthorizationRefusal =
    * privileged" would make a legitimate authority debug by guessing.
    */
   | "role-not-eligible"
+  /**
+   * THE BAND IS ELIGIBLE, BUT THIS CALLER IS NOT SENIOR ENOUGH TO AUTHORIZE IT.
+   *
+   * Only `owner` reaches this today. A Governance DELEGATE may authorize a `member`, because a
+   * member carries no connected privilege anywhere; it may not authorize an `owner`, because an
+   * owner is a tenant-level privilege boundary and delegation must not quietly become the power to
+   * mint additional owners. Bootstrap authority — the tenant's genesis actor — may authorize both.
+   *
+   * Distinct from `not-the-governance-authority`, which means "no Governance authority at all". A
+   * delegate genuinely holds Governance authority; collapsing the two would tell a legitimate
+   * delegate they are not an authority, and they would debug the wrong thing.
+   */
+  | "owner-requires-bootstrap-authority"
   /**
    * The tenant holds no role of an eligible band at all. This is NOT the caller's
    * mistake and is reported separately: it is the tenant role-baseline gap, and I1

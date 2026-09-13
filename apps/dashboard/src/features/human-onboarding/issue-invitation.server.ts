@@ -42,7 +42,7 @@ import { digestInvitationToken } from "@/features/identity-enrollment/enrollment
 import {
   INVITATION_ISSUED_ACTION,
   INVITATION_LIFETIME_HOURS,
-  ONBOARDING_MEMBERSHIP_ROLE_TYPE,
+  ONBOARDING_ELIGIBLE_ROLE_TYPES,
   type InvitationIssuanceRefusal,
   type InvitationIssuanceResult,
 } from "./contracts";
@@ -121,7 +121,12 @@ export async function issueInvitation(
     const authorization = rows[0];
     if (!authorization) return refused("authorization-unresolvable");
     if (authorization.status !== "authorized") return refused("authorization-not-live");
-    if (authorization.roleType !== ONBOARDING_MEMBERSHIP_ROLE_TYPE) {
+    /*
+     * THE CANONICAL SET, NOT A SCALAR. This compared against a local `"member"` constant, so I1
+     * admitting `owner` would have left issuance refusing a permit I1 had legitimately granted.
+     * The role still comes from the PERMIT ROW via the join above — never from the caller.
+     */
+    if (!ONBOARDING_ELIGIBLE_ROLE_TYPES.has(authorization.roleType)) {
       return refused("role-not-eligible");
     }
 

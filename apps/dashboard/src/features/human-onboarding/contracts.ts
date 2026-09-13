@@ -38,10 +38,28 @@ export const INVITATION_LIFETIME_HOURS = 72;
 /**
  * WHICH ROLE BANDS AN ONBOARDING MAY PRODUCE.
  *
- * `member` only, and NOT re-derived here: this is I1's `ELIGIBLE_ROLE_TYPE_LIST`, re-checked at
- * acceptance because the authorization was written at a different moment and a role's band is the
- * one fact that must still be true when the membership is finally created. Widening this set is
- * I1's decision to make, not I2's.
+ * NOT DECIDED HERE, AND NOW NOT COPIED HERE EITHER. This is I1's `ELIGIBLE_ROLE_TYPE_LIST`,
+ * re-checked at acceptance because the authorization was written at a different moment and a role's
+ * band is the one fact that must still be true when the membership is finally created. Widening the
+ * set is I1's decision to make, not I2's.
+ *
+ * ── WHY THIS IS A RE-EXPORT AND NO LONGER A LITERAL ──────────────────────────
+ *
+ * It used to be `= "member" as const`, directly beneath a comment saying it was "NOT re-derived
+ * here" — which it plainly was. The duplication was harmless only while both sides happened to
+ * agree, and it stopped being harmless the moment I1 admitted a second band: issuance and
+ * acceptance would each have kept enforcing a policy I1 no longer held, and an owner permit would
+ * have been refused at redemption by a constant nobody remembered to update.
+ *
+ * One contract, imported by both server paths. There is now no second place to forget.
+ */
+export { ONBOARDING_ELIGIBLE_ROLE_TYPES } from "@/features/membership-authority/contracts";
+
+/**
+ * The band an ordinary onboarding produces when nothing else is stated.
+ *
+ * Retained because surfaces and tests name it; it is NOT the eligibility rule. Anything deciding
+ * whether a band may be onboarded must ask `ONBOARDING_ELIGIBLE_ROLE_TYPES`.
  */
 export const ONBOARDING_MEMBERSHIP_ROLE_TYPE = "member" as const;
 

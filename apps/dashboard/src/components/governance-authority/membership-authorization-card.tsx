@@ -68,6 +68,8 @@ const REFUSAL_TEXT: Record<MembershipAuthorizationRefusal, string> = {
   "justification-required": `A reason of at least ${JUSTIFICATION_LIMITS.minimumLength} characters is required.`,
   "role-unresolvable": "That role does not exist in this organization.",
   "role-not-eligible": `A new member may not be authorized directly into that role. Excluded: ${ONBOARDING_EXCLUDED_ROLE_TYPES.join(", ")}.`,
+  "owner-requires-bootstrap-authority":
+    "Only this organization's founding Governance authority may authorize a new owner. A delegated authority may authorize a member, but not another owner.",
   "no-eligible-role-in-tenant": `This organization has no role a new member may hold. ${TENANT_ROLE_BASELINE_GAP.remedy}`,
   "already-authorized": "That person already has a live authorization awaiting onboarding.",
   "persistence-unavailable": "The durable store is unavailable. Nothing was changed.",

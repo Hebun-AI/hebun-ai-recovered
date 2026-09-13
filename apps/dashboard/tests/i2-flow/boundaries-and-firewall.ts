@@ -22,7 +22,11 @@ import {
   TENANT_ACCESS_REALITY,
 } from "../../src/features/human-onboarding/contracts";
 import { ONBOARDING_AUDIT_BOUNDARY } from "../../src/features/governance-audit/human-onboarding-audit.server";
-import { ELIGIBLE_ROLE_TYPE_LIST } from "../../src/features/membership-authority/contracts";
+import {
+  ELIGIBLE_ROLE_TYPE_LIST,
+  ONBOARDING_ELIGIBLE_ROLE_TYPES,
+  ONBOARDING_EXCLUDED_ROLE_TYPES,
+} from "../../src/features/membership-authority/contracts";
 import { KNOWLEDGE_AUTHOR_ROLE_TYPES } from "../../src/features/knowledge/knowledge-write-authority.server";
 
 const ROOT = process.cwd();
@@ -87,15 +91,51 @@ function main(): void {
       "I2 must not borrow another domain's role band as authority",
     );
     assert.ok(KNOWLEDGE_AUTHOR_ROLE_TYPES.size > 0);
-    for (const band of ["owner", "director", "operator", "auditor"]) {
+    /*
+     * I2 NAMES NO BAND AT ALL — not the excluded ones, and not the eligible ones either. This loop
+     * used to list `owner` among the forbidden literals; `owner` is now ELIGIBLE, and the rule is
+     * unchanged and stronger for it: whether a band may be onboarded is I1's answer, so I2 must not
+     * spell ANY band, admitted or refused. A literal here would be a second policy.
+     */
+    for (const band of ["owner", "director", "operator", "auditor", "member"]) {
       assert.ok(
         !new RegExp(`["']${band}["']`).test(runtimeCode),
-        `I2 must never name the ${band} band`,
+        `I2 must never name the ${band} band — eligibility is I1's contract, not a local literal`,
       );
     }
-    /* The only band it may produce is I1's, not a second list. */
+
+    /*
+     * ── THE BANDS I2 MAY PRODUCE ARE EXACTLY I1'S, AND ARE DERIVED, NOT COPIED ─
+     *
+     * This asserted `ELIGIBLE_ROLE_TYPE_LIST` equalled `[ONBOARDING_MEMBERSHIP_ROLE_TYPE]`, which
+     * quietly encoded two different facts as one: "the list has a single band" and "I2 agrees with
+     * I1". The first stopped being true when a Director decision admitted `owner`; the second is the
+     * one that always mattered, so it is now asserted directly — I2 re-exports I1's set rather than
+     * holding a list of its own.
+     */
+    assert.deepEqual(
+      [...ELIGIBLE_ROLE_TYPE_LIST].sort(),
+      ["member", "owner"],
+      "exactly two bands are onboarding-eligible",
+    );
+    assert.deepEqual(
+      [...ONBOARDING_ELIGIBLE_ROLE_TYPES].sort(),
+      [...ELIGIBLE_ROLE_TYPE_LIST].sort(),
+      "the set I2 enforces IS I1's list — one contract, not two",
+    );
+    assert.deepEqual(
+      [...ONBOARDING_EXCLUDED_ROLE_TYPES].sort(),
+      ["auditor", "director", "operator"],
+      "the privileged bands that remain excluded are named exhaustively",
+    );
+    for (const excluded of ONBOARDING_EXCLUDED_ROLE_TYPES) {
+      assert.ok(
+        !ONBOARDING_ELIGIBLE_ROLE_TYPES.has(excluded),
+        `${excluded} is excluded and must never also be eligible`,
+      );
+    }
+    /* The default band an ordinary onboarding produces is still `member`. */
     assert.equal(ONBOARDING_MEMBERSHIP_ROLE_TYPE, "member");
-    assert.deepEqual([...ELIGIBLE_ROLE_TYPE_LIST], [ONBOARDING_MEMBERSHIP_ROLE_TYPE]);
   }
 
   /* ── 3. I2 creates NOTHING that belongs to Identity, Credential or Session ─ */

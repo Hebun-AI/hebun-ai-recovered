@@ -38,6 +38,7 @@ import {
   ORGANIZATIONAL_ROLE_OUTCOME,
   ORGANIZATIONAL_ROLE_SUBJECT_TYPE,
 } from "../../src/features/tenant-role-baseline/contracts";
+import { ONBOARDING_ELIGIBLE_ROLE_TYPES } from "../../src/features/membership-authority/contracts";
 import { authorizeMembership } from "../../src/features/membership-authority/authorize-membership.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
@@ -215,14 +216,23 @@ async function main(): Promise<void> {
 
     /* ══ I1 INTEGRATION — BEFORE ═════════════════════════════════════════════
      * The gap this phase exists to close, proven present first. */
-    assert.deepEqual(
-      await authorizeMembership(
-        ctxA,
-        { targetEmail: "new@acme.test", intendedRoleId: A.roleId, justification: REASON },
-        deps,
-      ),
-      { status: "refused", reason: "role-not-eligible" },
-      "the owner role is not onboarding-eligible",
+    /*
+     * ── WHAT THE BASELINE GAP IS, AFTER OWNER BECAME ELIGIBLE ─────────────────
+     *
+     * This asserted two things that were true together and are no longer: that the seeded `owner`
+     * role was refused as `role-not-eligible`, and that the tenant therefore had NO eligible role at
+     * all. A Director decision admitted `owner` to `ELIGIBLE_ROLE_TYPE_LIST`, so an owner-only tenant
+     * now HAS an eligible band.
+     *
+     * Neither assertion is dropped, because the gap this phase closes is still real — it is just
+     * stated precisely instead of incidentally. The tenant has no MEMBER role, which is exactly what
+     * `provisionMemberRole` exists to create, and that is measured directly below. Owner eligibility
+     * itself is proven positively in the I1 suite, which owns that contract; asserting it here would
+     * write a permit row into a fixture whose later censuses count exact totals.
+     */
+    assert.ok(
+      ONBOARDING_ELIGIBLE_ROLE_TYPES.has("owner"),
+      "owner is an eligible band, so an owner-only tenant is no longer role-starved",
     );
     assert.deepEqual(
       await authorizeMembership(
@@ -234,10 +244,14 @@ async function main(): Promise<void> {
         },
         deps,
       ),
-      { status: "refused", reason: "no-eligible-role-in-tenant" },
-      "BEFORE I1.1: the tenant has no onboarding-eligible role at all",
+      { status: "refused", reason: "role-unresolvable" },
+      "an unknown role id is refused as unresolvable, not as a tenant-wide baseline gap",
     );
-    assert.equal((await memberRoles(setup, A.tenantId)).length, 0);
+    assert.equal(
+      (await memberRoles(setup, A.tenantId)).length,
+      0,
+      "BEFORE I1.1: the tenant still has no MEMBER role — the gap this phase closes",
+    );
 
     /* ── ATTACKS 1-3 — who may NOT provision ───────────────────────────────── */
     assert.deepEqual(await provisionMemberRole(null, { justification: REASON }, deps), {

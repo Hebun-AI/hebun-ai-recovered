@@ -27,20 +27,14 @@ export const REVOCATION_REASON_MAX_LENGTH = 128;
 /**
  * The `roles.type` value that means "can administer this tenant".
  *
- * ── WHY THIS IS SPELLED HERE RATHER THAN IMPORTED ────────────────────────────
- *
- * The same string lives in the tenant provisioning vocabulary as `BOOTSTRAP_ROLE_TYPE`, and importing
- * it was the first instinct. A released R4A firewall refused that: it keeps an exhaustive census of
- * every file in `src/` that references tenant provisioning, precisely so "a third module appearing
- * is a decision somebody has to record here rather than a quiet second bootstrap path". This module
- * is not a bootstrap path, and adding it to a census about bootstrap paths would blur what that
- * census means.
- *
- * The boundary was kept and the drift risk was answered a different way: `tests/membership-lifecycle`
- * imports BOTH constants and asserts they are equal. A test may reference provisioning freely — the
- * census scans `src/` only — so the two strings cannot silently diverge.
+ * RE-EXPORTED, NOT RESPELLED. It briefly lived here as its own literal, to keep this module out of
+ * R4A's provisioning census — which scans raw file text, so even a comment naming that module in
+ * full would enrol this one. The census is about bootstrap paths, and `membership-authority` is not
+ * one, so the constant now comes from the module that owns band vocabulary and the duplicate is
+ * gone. `tests/membership-lifecycle` still asserts it equals the band tenant birth writes, so the
+ * two cannot diverge.
  */
-export const OWNER_ROLE_TYPE = "owner" as const;
+export { OWNER_ROLE_TYPE } from "@/features/membership-authority/contracts";
 
 export type RevokeMembershipRefusal =
   /** No authenticated tenant context. */

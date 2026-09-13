@@ -196,29 +196,49 @@ function main(): void {
     );
   }
 
-  /* ── 7. Eligible role bands: `member` only, and derived from real reality ── */
+  /* ── 7. Eligible role bands: `member` and `owner`, derived from real reality ── */
   {
-    assert.deepEqual([...ELIGIBLE_ROLE_TYPE_LIST], ["member"]);
+    assert.deepEqual([...ELIGIBLE_ROLE_TYPE_LIST].sort(), ["member", "owner"]);
     assert.ok(ONBOARDING_ELIGIBLE_ROLE_TYPES.has("member"));
+    assert.ok(ONBOARDING_ELIGIBLE_ROLE_TYPES.has("owner"));
     for (const excluded of ONBOARDING_EXCLUDED_ROLE_TYPES) {
       assert.ok(
         !ONBOARDING_ELIGIBLE_ROLE_TYPES.has(excluded),
         `${excluded} must not be an onboarding-eligible band`,
       );
     }
+
     /*
-     * The two privileged bands are excluded BECAUSE other connected authorities already treat them
-     * as privileged. If either of those lists ever changes, this assertion makes I1 re-examined
-     * rather than silently stale.
+     * ── WHAT ADMITTING `owner` ACTUALLY COSTS, STATED RATHER THAN ELIDED ──────
+     *
+     * This block used to read: owner and director are excluded BECAUSE `KNOWLEDGE_AUTHOR_ROLE_TYPES`
+     * privileges them. That reasoning was sound and it is the reason this assertion could not simply
+     * be deleted when a Director decision admitted `owner`.
+     *
+     * The consequence is real and is recorded here: AN INVITED OWNER CAN AUTHOR KNOWLEDGE, because a
+     * connected authority privileges the band. That is now a known, accepted cost of making owner
+     * onboarding possible — not an oversight, and not something a reader has to infer.
+     *
+     * The tripwire is kept and sharpened. `director` must remain BOTH privileged and excluded; if it
+     * ever becomes eligible while still privileged, that is a decision somebody must take
+     * deliberately here. And `owner` must remain privileged — if Knowledge ever stops privileging it,
+     * this assertion fails and the paragraph above stops being true.
      */
     for (const band of ["owner", "director"]) {
       assert.ok(
         KNOWLEDGE_AUTHOR_ROLE_TYPES.has(band),
-        `${band} is excluded from onboarding because a connected authority privileges it`,
+        `${band} is privileged by a connected authority — onboarding it is a Governance decision`,
       );
-      assert.ok(!ONBOARDING_ELIGIBLE_ROLE_TYPES.has(band));
     }
-    /* `member` carries no connected privilege anywhere — that is why it is the safe band. */
+    assert.ok(
+      !ONBOARDING_ELIGIBLE_ROLE_TYPES.has("director"),
+      "director is privileged AND still excluded",
+    );
+    assert.ok(
+      ONBOARDING_ELIGIBLE_ROLE_TYPES.has("owner"),
+      "owner is privileged and DELIBERATELY admitted: an invited owner may author Knowledge",
+    );
+    /* `member` carries no connected privilege anywhere — that is why it needed no such decision. */
     assert.ok(!KNOWLEDGE_AUTHOR_ROLE_TYPES.has("member"));
   }
 

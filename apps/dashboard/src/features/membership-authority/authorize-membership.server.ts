@@ -43,6 +43,7 @@ import { writeGovernanceDecisionWithin } from "@/features/governance-decision/de
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import {
   ELIGIBLE_ROLE_TYPE_LIST,
+  OWNER_ROLE_TYPE,
   MEMBERSHIP_AUTHORIZATION_AUDIT_ACTION,
   MEMBERSHIP_AUTHORIZATION_DECISION_TYPE,
   MEMBERSHIP_AUTHORIZATION_SUBJECT_TYPE,
@@ -152,6 +153,33 @@ export async function authorizeMembership(
     }
 
     if (!ONBOARDING_ELIGIBLE_ROLE_TYPES.has(role.type)) return refused("role-not-eligible");
+
+    /*
+     * ── PRIVILEGE SEPARATION: WHO MAY CREATE AN OWNER ─────────────────────────
+     *
+     * Admitting `owner` to the onboarding band made a second question urgent, and it is answered
+     * HERE rather than at issuance: a Governance DELEGATE must not be able to mint additional tenant
+     * owners. Delegation is a grant to act on Governance matters; it is not a grant to widen the set
+     * of people who hold the tenant. Left unseparated, one delegation would silently become
+     * owner-minting authority, and an owner inherits every capability attached to the band —
+     * Knowledge authoring among them.
+     *
+     * THE DISTINCTION IS THE ONE THE RESOLVER ALREADY MAKES. `resolveGovernanceAuthority` returns
+     * `via: "none" | "bootstrap" | "delegated"`, so no new authority, rank, permission or role check
+     * was invented for this — the narrowest existing signal answers it.
+     *
+     * IT IS BOUND BEFORE THE PERMIT EXISTS. A refusal here writes nothing: no decision, no
+     * governance session, no authorization row, and therefore no invitation and no membership
+     * downstream. The role-consistency checks in issuance and acceptance stay exactly as they are,
+     * as defense in depth — they answer "is this permit's band still eligible", never "was this
+     * caller senior enough", which is this authority's question alone.
+     *
+     * A `member` is unaffected: it carries no connected privilege, and a delegate may authorize one
+     * exactly as before.
+     */
+    if (role.type === OWNER_ROLE_TYPE && authority.via !== "bootstrap") {
+      return refused("owner-requires-bootstrap-authority");
+    }
 
     /*
      * A live authorization for the same human already exists. The partial unique index is the real

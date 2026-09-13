@@ -158,7 +158,11 @@ async function main(): Promise<void> {
      * Acme   : A genesis (owner band), B member band (future delegate),
      *          D owner band with NO Governance authority, R a director-band role holder.
      * Globex : X genesis, Y member band — a foreign tenant with a foreign eligible role.
-     * Solo   : S genesis, owner band ONLY — the real role-baseline gap, preserved.
+     * Solo   : S genesis, its ONLY role retyped to an EXCLUDED band — the role-baseline gap.
+     *          It was owner-only, which WAS the gap while owner was excluded; owner is now
+     *          eligible, so an owner-only tenant is onboardable and no longer models the gap.
+     *          The gap itself still exists and is still refused, so the fixture moved to a band
+     *          that is still excluded rather than the assertion being dropped.
      */
     const A = await seedLocalIdentity(setup, {
       companyName: "Acme",
@@ -184,6 +188,14 @@ async function main(): Promise<void> {
       email: "s@solo.test",
       password: "s-correct-password-2Zt",
     });
+
+    /*
+     * Solo's only role becomes `director`: still a real band from `roleTypeEnum`, still excluded
+     * from onboarding, so ATTACK 12 keeps asserting a tenant that has NO eligible role. Governance
+     * authority is unaffected — `resolveGovernanceAuthority` reads `decision_records.bootstrap`,
+     * never `roles.type`.
+     */
+    await setup.query(`update roles set type = 'director' where tenant_id = $1`, [S.tenantId]);
 
     const ctxA = contextFor(A, await sessionRowFor(setup, A, "aaaa"));
     const ctxB = contextFor(B, await sessionRowFor(setup, B, "bbbb"));
@@ -241,15 +253,6 @@ async function main(): Promise<void> {
     );
 
     /* ── ATTACK 9/10/11 — target role band and existence ────────────────────── */
-    assert.deepEqual(
-      await authorizeMembership(
-        ctxA,
-        { targetEmail: "new@acme.test", intendedRoleId: D.roleId, justification: REASON },
-        deps,
-      ),
-      { status: "refused", reason: "role-not-eligible" },
-      "owner is not an onboarding-eligible band",
-    );
     assert.deepEqual(
       await authorizeMembership(
         ctxA,
@@ -582,6 +585,56 @@ async function main(): Promise<void> {
       /membership_authorizations_human_authorizer_chk/,
       "human supremacy must be a database fact",
     );
+
+    /*
+     * ── OWNER IS AN ELIGIBLE BAND, ASSERTED POSITIVELY AND LAST ───────────────
+     *
+     * An owner role used to be refused here with `role-not-eligible`. A Director decision admitted
+     * `owner` to `ELIGIBLE_ROLE_TYPE_LIST`, because a tenant needing to replace its only owner had
+     * no released path to a second one. That refusal was a real contract, so it was replaced by the
+     * stronger positive claim rather than deleted.
+     *
+     * It runs LAST, and measures a DELTA rather than an absolute count, because two earlier censuses
+     * depend on exact permit totals — "no refusal may create a row", and the happy path's own count.
+     * A legitimate write dropped into either would have quietly weakened it.
+     */
+    {
+      const permitCount = async () =>
+        Number(
+          (await setup.query(`select count(*) from membership_authorizations`)).rows[0]!.count,
+        );
+      const beforeOwner = await permitCount();
+      const ownerPermit = await authorizeMembership(
+        ctxA,
+        { targetEmail: "owner-elect@acme.test", intendedRoleId: D.roleId, justification: REASON },
+        deps,
+      );
+      assert.equal(
+        ownerPermit.status,
+        "authorized",
+        `an owner band is onboarding-eligible: ${JSON.stringify(ownerPermit)}`,
+      );
+      assert.equal(await permitCount(), beforeOwner + 1, "exactly one permit was written");
+
+      /* Bound to the OWNER role the authority named, so redemption cannot produce another band. */
+      const bound = await setup.query<{ intended_role_id: string }>(
+        `select intended_role_id from membership_authorizations
+          where normalized_email = 'owner-elect@acme.test'`,
+      );
+      assert.equal(bound.rows.length, 1);
+      assert.equal(bound.rows[0]!.intended_role_id, D.roleId, "the permit names the owner role");
+
+      /* The excluded bands are still refused, through the same call. */
+      assert.deepEqual(
+        await authorizeMembership(
+          ctxA,
+          { targetEmail: "director-elect@acme.test", intendedRoleId: R.roleId, justification: REASON },
+          deps,
+        ),
+        { status: "refused", reason: "role-not-eligible" },
+        "director remains excluded after owner was admitted",
+      );
+    }
 
     console.log("PASS i1 membership authorization (postgres)");
   } finally {

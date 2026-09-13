@@ -67,7 +67,7 @@ import {
 } from "@/features/identity-enrollment/enrollment-digest.server";
 import {
   MEMBERSHIP_CREATED_ACTION,
-  ONBOARDING_MEMBERSHIP_ROLE_TYPE,
+  ONBOARDING_ELIGIBLE_ROLE_TYPES,
   type InvitationAcceptanceRefusal,
   type InvitationAcceptanceResult,
 } from "./contracts";
@@ -178,7 +178,13 @@ export async function acceptInvitation(
     }
 
     /* The band must still be eligible at the moment the membership is created, not only when authorized. */
-    if (invitation.roleType !== ONBOARDING_MEMBERSHIP_ROLE_TYPE) {
+    /*
+     * RE-CHECKED AT REDEMPTION, against the same canonical set issuance used. The band is read from
+     * the INVITATION ROW, which carries the permit's role — the redeemer supplies no role and has
+     * no field to put one in, so an invitation authorized for one band cannot be redeemed as
+     * another.
+     */
+    if (!ONBOARDING_ELIGIBLE_ROLE_TYPES.has(invitation.roleType)) {
       await spendEquivalentCredentialWork(password);
       return refused("role-not-eligible");
     }
