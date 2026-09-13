@@ -244,21 +244,87 @@ function main(): void {
     for (const root of commandRoots) {
       const graph = reachableFrom(root);
 
+      /*
+       * ── AMENDED BY CMD-V2, NARROWLY AND BY NAME ──────────────────────────
+       *
+       * As released this said Command may reach NOTHING in the connection subsystem, and it was the
+       * correct rule while Command made no claim about connections. CMD-V2 makes exactly one: the
+       * Command Center now states WHICH PROVIDERS THIS ORGANIZATION HAS ACTUALLY CONNECTED, and the
+       * connection register is the only thing in this repository that records that. The alternatives
+       * are all fiction — a catalog entry proves the PRODUCT knows a provider, a credential proves
+       * bytes were stored, a capability descriptor proves somebody declared an intention.
+       *
+       *     CATALOG != CONNECTION    CREDENTIAL != CONNECTED    CONNECTED != CAPABILITY AVAILABLE
+       *
+       * So the rule is not relaxed; it is made SPECIFIC. Exactly two modules are admitted, both from
+       * the READ-ONLY half INT-5A split out of the module that can `createConnection`,
+       * `disconnectConnection` and attach a credential — and that split is the entire reason this
+       * amendment is safe to make rather than a hole in the firewall:
+       *
+       *   contracts.ts            types, lifecycle vocabulary and bounds. No handle, no query.
+       *   integration-read.server the two tenant-scoped reads, `listConnections` and
+       *                           `readConnection`. No writer, no credential, no encryption.
+       *
+       * EVERYTHING ELSE IN THE SUBSYSTEM STAYS FORBIDDEN, AND THE CATALOG STAYS FORBIDDEN ENTIRELY —
+       * including `provider-catalog/`, which is exactly the module a surface would reach for if it
+       * wanted to draw a provider tile that no connection row justifies. The writer ban below is
+       * asserted separately and by symbol, so admitting these two files cannot admit an act.
+       */
+      const COMMAND_MAY_READ = Object.freeze([
+        "src/features/integration-authority/contracts.ts",
+        "src/features/integration-authority/integration-read.server.ts",
+      ]);
+
       const subsystem = [...graph].filter((f) => {
         const normalized = f.replace(/\\/g, "/");
         return (
-          normalized.startsWith("src/features/integration-authority/") ||
+          (normalized.startsWith("src/features/integration-authority/") &&
+            !COMMAND_MAY_READ.includes(normalized)) ||
           normalized.startsWith("src/features/provider-catalog/")
         );
       });
       assert.deepEqual(
         subsystem,
         [],
-        `${root} must not reach the connection subsystem or the connectable-provider catalog`,
+        `${root} may reach only the writer-free connection read seam, never the rest of the ` +
+          "connection subsystem and never the connectable-provider catalog",
       );
 
+      /*
+       * AND NOT ONE ACT CAME WITH THE READ. Asserted by SYMBOL over the whole graph, so a future
+       * re-merge of the read and write halves fails here rather than arriving silently.
+       */
+      for (const act of [
+        "createConnection",
+        "disconnectConnection",
+        "attachCredentialToConnection",
+        "recordVerifiedConnection",
+        "recordUnverifiedProviderGrant",
+        "recordVerificationFailure",
+        "holdConnectionForProviderRefresh",
+      ]) {
+        for (const file of graph) {
+          assert.ok(
+            !codeOf(read(file)).includes(`export async function ${act}`) &&
+              !codeOf(read(file)).includes(`export function ${act}`),
+            `${root} reaches ${file}, which declares the connection act ${act}`,
+          );
+        }
+      }
+
+      /*
+       * AND THE TABLE IS STILL READ BY ITS OWN AUTHORITY AND NOBODY ELSE.
+       *
+       * The authority's reader necessarily imports the `integrations` table — that is what makes it
+       * the authority. What this assertion has always been for is that NO OTHER module in Command's
+       * graph does, which is how a surface ends up with its own private query and its own private
+       * idea of what "connected" means. That property is unchanged; the authority's own reader is
+       * excluded by name, exactly as the schema barrel already was and for a narrower reason.
+       */
+      const TABLE_OWNER = "src/features/integration-authority/integration-read.server.ts";
       const directImporters = [...graph]
         .filter((f) => f.replace(/\\/g, "/") !== SCHEMA_BARREL)
+        .filter((f) => f.replace(/\\/g, "/") !== TABLE_OWNER)
         .filter((f) => /from\s+"(@\/db\/schema\/integration|[^"]*\/db\/schema\/integration)"/.test(codeOf(read(f))))
         .map((f) => f.replace(/\\/g, "/"));
       assert.deepEqual(

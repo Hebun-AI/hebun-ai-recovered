@@ -16,6 +16,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
 
 import { CommandOverview } from "../../src/components/command-overview/command-overview";
+import { commandProps } from "../helpers/command-composition";
 import { toWaitingOnYou } from "../../src/features/command-overview/workspace-model";
 import { getExpressIntentSummary } from "../../src/features/command-overview/workspace-model";
 import { ActionAuthorizations } from "../../src/components/decision-workspace/action-authorizations";
@@ -75,6 +76,13 @@ function assertNoAlarm(html: string, where: string): void {
   }
 }
 
+/*
+ * CMD-V2.1 RE-WORDED THE SAME TWO FACTS. "Awaiting decision · 3d 4h" became "Waiting 3d 4h", and
+ * "Oldest awaiting decision: 3d 4h" became "Oldest waiting 3d 4h" — the Director's copy reduction.
+ * Every property E2-4 exists for is unchanged and still asserted here: the per-item duration comes
+ * from the item, the oldest comes from the UNBOUNDED aggregate and never from the capped list, a
+ * missing aggregate produces no claim at all, and no duration is ever dressed as an alarm.
+ */
 function main(): void {
   /* ── 1. COMMAND RENDERS A DURATION PER ITEM ──────────────────────────────── */
   {
@@ -83,10 +91,10 @@ function main(): void {
       { evaluatedAt: AT, aggregate: { status: "read", value: { awaiting: 1, oldestFiledAt: "2026-08-27T08:00:00.000Z" } } },
     );
     const html = renderToStaticMarkup(
-      React.createElement(CommandOverview, { waiting, intent: getExpressIntentSummary() }),
+      React.createElement(CommandOverview, commandProps({ waiting, intent: getExpressIntentSummary() })),
     );
-    assert.match(html, /Awaiting decision · 3d 4h/, "the per-item duration reaches the page");
-    assert.match(html, /Oldest awaiting decision: 3d 4h/);
+    assert.match(html, /Waiting 3d 4h/, "the per-item duration reaches the page");
+    assert.match(html, /Oldest waiting 3d 4h/);
     assert.match(html, /· 1 awaiting/);
     assertNoAlarm(html, "Command");
   }
@@ -108,10 +116,10 @@ function main(): void {
     assert.equal(waiting.awaitingCount, 137, "the total is unbounded, never `items.length`");
 
     const html = renderToStaticMarkup(
-      React.createElement(CommandOverview, { waiting, intent: getExpressIntentSummary() }),
+      React.createElement(CommandOverview, commandProps({ waiting, intent: getExpressIntentSummary() })),
     );
-    assert.match(html, /Oldest awaiting decision: 3d 4h/);
-    assert.ok(!/Oldest awaiting decision: 2h/.test(html));
+    assert.match(html, /Oldest waiting 3d 4h/);
+    assert.ok(!/Oldest waiting 2h/.test(html));
   }
 
   /* ── 3. NO AGGREGATE MEANS NO CLAIM — NEVER A SUBSTITUTED ONE ────────────── */
@@ -124,10 +132,10 @@ function main(): void {
     assert.equal(waiting.oldestWaiting, null);
     assert.equal(waiting.awaitingCount, null, "a capped list length may never stand in for a total");
     const html = renderToStaticMarkup(
-      React.createElement(CommandOverview, { waiting, intent: getExpressIntentSummary() }),
+      React.createElement(CommandOverview, commandProps({ waiting, intent: getExpressIntentSummary() })),
     );
-    assert.ok(!/Oldest awaiting decision/.test(html), "no aggregate, no oldest line");
-    assert.match(html, /Awaiting decision · 3d 4h/, "the per-item duration is unaffected");
+    assert.ok(!/Oldest waiting/.test(html), "no aggregate, no oldest line");
+    assert.match(html, /Waiting 3d 4h/, "the per-item duration is unaffected");
   }
 
   /* ── 4. THE RELEASED BEHAVIOUR SURVIVES WITH NO ELAPSED INPUT ────────────── */
@@ -137,7 +145,7 @@ function main(): void {
     assert.equal(waiting.items[0]!.waitingFor, null, "no instant, no duration — never a zero");
     assert.equal(waiting.oldestWaiting, null);
     const html = renderToStaticMarkup(
-      React.createElement(CommandOverview, { waiting, intent: getExpressIntentSummary() }),
+      React.createElement(CommandOverview, commandProps({ waiting, intent: getExpressIntentSummary() })),
     );
     assert.ok(!/Awaiting decision ·/.test(html));
   }
@@ -150,10 +158,10 @@ function main(): void {
     );
     assert.equal(none.status, "none-waiting", "an empty queue is its own state, not a zero duration");
     const html = renderToStaticMarkup(
-      React.createElement(CommandOverview, { waiting: none, intent: getExpressIntentSummary() }),
+      React.createElement(CommandOverview, commandProps({ waiting: none, intent: getExpressIntentSummary() })),
     );
     assert.ok(!/Awaiting decision ·/.test(html));
-    assert.ok(!/Oldest awaiting decision/.test(html));
+    assert.ok(!/Oldest waiting/.test(html));
 
     /* And an UNAVAILABLE read still says so, rather than becoming a queue with no age. */
     const down = toWaitingOnYou(

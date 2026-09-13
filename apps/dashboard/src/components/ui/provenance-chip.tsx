@@ -1,4 +1,4 @@
-import { CircleSlash, FunctionSquare, Landmark, Lock, Sprout } from "lucide-react";
+import { CircleSlash, FunctionSquare, Landmark, Lock, Settings2, Sprout } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /*
@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 export type Provenance =
   | "authoritative"
   | "derived"
+  | "configuration"
   | "seeded"
   | "not-connected"
   | "restricted";
@@ -57,6 +58,12 @@ const PROVENANCE: Readonly<Record<Provenance, ProvenanceSpec>> = Object.freeze({
     className: "border border-dashed border-border-strong bg-surface-sunken text-fg-secondary",
     icon: FunctionSquare,
     meaning: "Recomputed on each read from an authority, and stored nowhere.",
+  },
+  configuration: {
+    label: "Configuration",
+    className: "border border-dashed border-border-strong bg-surface-sunken text-fg-secondary",
+    icon: Settings2,
+    meaning: "Computed from declared product configuration, not from this organization's operating record.",
   },
   seeded: {
     label: "Seeded",

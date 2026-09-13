@@ -173,8 +173,8 @@ function main(): void {
   bites(
     "M13 — the CMD-B1 Overview presentation is changed",
     OVERVIEW,
-    'CMD-B1 section "Waiting on you" is unchanged',
-    (s) => replaceOnce(s, 'title="Waiting on you"', 'title="Your queue"', "M13"),
+    'CMD-B1 section "Needs your decision" is unchanged',
+    (s) => replaceOnce(s, 'title="Needs your decision"', 'title="Your queue"', "M13"),
   );
   /*
    * The expected message follows the assertion AGENT-ID-0.1 repaired: the pin stopped being a COUNT

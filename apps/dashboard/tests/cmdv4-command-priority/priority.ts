@@ -35,6 +35,11 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { CommandOverview } from "../../src/components/command-overview/command-overview";
+import { commandProps } from "../helpers/command-composition";
+import {
+  COMMAND_REGION_IDS,
+  COMMAND_REGION_PROVENANCE,
+} from "../../src/features/command-overview/workspace-model";
 import { StateBlock } from "../../src/components/ui/state-block";
 import {
   UNCONNECTED_CAPABILITIES,
@@ -63,7 +68,7 @@ const EMPTY: WaitingOnYouState = { status: "none-waiting" };
 const UNAVAILABLE: WaitingOnYouState = { status: "unavailable", reason: "persistence-not-configured" };
 
 function render(waiting: WaitingOnYouState = EMPTY): string {
-  return renderToStaticMarkup(createElement(CommandOverview, { waiting, intent: INTENT }));
+  return renderToStaticMarkup(createElement(CommandOverview, commandProps({ waiting, intent: INTENT })));
 }
 
 /** The markup of one section, sliced by its own tags. */
@@ -94,41 +99,58 @@ function everyCapabilityIsNamedClosedAndEveryReasonIsReachable(markupOverride?: 
   const nc = sectionMarkup(markup, "not-connected");
   const rows = disclosures(nc);
 
-  assert.equal(rows.length, 6, `six disclosures, one per capability; found ${rows.length}`);
+  /*
+   * ── AMENDED BY CMD-V2.1 — ONE DISCLOSURE, NOT SIX ────────────────────────
+   *
+   * CMD-V4 released six `<details>`, one per capability, so every name and every "Not connected"
+   * marker was on screen while closed. That was the right answer to ITS defect (six architectural
+   * reasons occupying half the page) and it became the next one: a landing whose closing act was six
+   * full-width rows reading "Not connected" made a working product look unfinished, and the Director
+   * rejected it in those words.
+   *
+   * V2.1 keeps every capability, every reason character-for-character, the native widget and the
+   * in-document reachability — and folds them behind ONE disclosure that states the count while
+   * closed. WHAT IS ASSERTED IS UNCHANGED IN SUBSTANCE: nothing is summarized away, nothing hides
+   * behind navigation, nothing is a tooltip-only disclosure, and no figure is invented for a source
+   * that does not exist.
+   */
+  assert.equal(rows.length, 1, `the capability limits are one disclosure; found ${rows.length}`);
   assert.equal(UNCONNECTED_CAPABILITIES.length, 6, "and the model still declares six");
 
+  const row = rows[0]!;
+
+  /* While CLOSED the region states how many are not connected — a count, never a zero. */
+  assert.ok(
+    /not connected/i.test(visible(row.summary)),
+    "the closed row states the not-connected state in words",
+  );
+  assert.ok(
+    visible(row.summary).includes(String(UNCONNECTED_CAPABILITIES.length)),
+    "and how many capabilities it covers",
+  );
+
   for (const cap of UNCONNECTED_CAPABILITIES) {
-    const row = rows.find((r) => visible(r.summary).includes(cap.capability));
-
-    /* 21 — the NAME is in the summary, so it is on screen while the row is closed. */
-    assert.ok(row, `"${cap.capability}" is named in a summary, visible while closed`);
-
-    /* The state marker is on the closed row too, as a word — not a colour and not a tooltip. */
+    /* 21 — every capability is NAMED, one keystroke away, in this document. */
+    assert.ok(visible(row.body).includes(cap.capability), `"${cap.capability}" is named`);
+    /* 22 + 14 — with its OWN reason, in full, character for character. */
     assert.ok(
-      /not connected/i.test(visible(row!.summary)),
-      `"${cap.capability}" shows its not-connected state while closed`,
-    );
-
-    /* 22 + 14 — the reason is in the body, in this document, character for character. */
-    assert.ok(
-      visible(row!.body).includes(cap.reason),
+      visible(row.body).includes(cap.reason),
       `"${cap.capability}" keeps its OWN reason, in full, unshortened`,
     );
-    /* And reachable without navigating: nothing in the body is a link or a control. */
-    assert.ok(!/<a\b|<button\b|href=/.test(row!.body), `"${cap.capability}" hides no reason behind navigation`);
-    assert.ok(!/title="|aria-label="/.test(row!.body), `"${cap.capability}" uses no tooltip-only disclosure`);
   }
+  /* And reachable without navigating: nothing in the body is a link or a control. */
+  assert.ok(!/<a\b|<button\b|href=/.test(row.body), "no reason hides behind navigation");
+  assert.ok(!/title="|aria-label="/.test(row.body), "and none is a tooltip-only disclosure");
 
   /* No reason was collapsed into a summary of itself: the six are still six distinct strings. */
   assert.equal(new Set(UNCONNECTED_CAPABILITIES.map((r) => r.reason)).size, 6, "six distinct reasons");
 
-  /* The doctrine sentence the retired panel uniquely carried is still on the page. */
-  assert.ok(
-    visible(nc).includes("None is shown as an empty result, a zero, or a placeholder figure"),
-    "the no-fabricated-figure sentence survived the panel that used to carry it",
-  );
-
-  /* Still no invented figure, and no connection control. */
+  /*
+   * THE NO-FABRICATED-FIGURE SENTENCE IS GONE, AND THE PROPERTY IT ASSERTED IS ASSERTED DIRECTLY.
+   * V2.0 printed "None is shown as an empty result, a zero, or a placeholder figure…" — a sentence
+   * explaining a rule rather than a rule. The rule itself is below, and it fails for the actual
+   * defect rather than for the disappearance of prose about it.
+   */
   assert.ok(!/\b0\b/.test(visible(nc)), "no zero stands in for a missing source");
   assert.ok(!/%/.test(visible(nc)), "and no percentage");
   for (const invented of [/\bConnect\b/, /Manage connections/, /Ask Heby/, /At a glance/]) {
@@ -142,15 +164,29 @@ function everyCapabilityIsNamedClosedAndEveryReasonIsReachable(markupOverride?: 
 function disclosureIsNativeAndConfined(overrides: Readonly<Record<string, string>> = {}, markupOverride?: string): void {
   const markup = markupOverride ?? render();
 
-  /* Authoritative and derived content is NEVER behind a click. */
-  for (const id of ["waiting", "intent"]) {
-    assert.equal(
-      disclosures(sectionMarkup(markup, id)).length,
-      0,
-      `the "${id}" section collapses nothing — a Director may not have to click to learn whether something is waiting on them`,
-    );
-  }
-  assert.equal((markup.match(/<details\b/g) ?? []).length, 6, "every disclosure on the page is a tertiary one");
+  /*
+   * ── WHAT MAY COLLAPSE, AMENDED BY CMD-V2.1 ───────────────────────────────
+   *
+   * THE ATTENTION REGION STILL COLLAPSES NOTHING. That is the rule this proof exists for: a Director
+   * may not have to click to learn whether something is waiting on them, in any state.
+   *
+   * Ask Hebun now carries ONE disclosure, and it holds no answer — it holds the five-state
+   * governance doctrine the Director rejected as a paragraph on the card. The region's own ANSWER
+   * (what you can ask for, and how many capabilities are declared and invokable) stays on screen
+   * while closed, which is asserted below rather than assumed.
+   */
+  assert.equal(
+    disclosures(sectionMarkup(markup, "waiting")).length,
+    0,
+    "the attention region collapses nothing — a Director may not have to click to learn whether something is waiting on them",
+  );
+  const intentMarkup = sectionMarkup(markup, "intent");
+  assert.equal(disclosures(intentMarkup).length, 0, "Ask Hebun uses the compact provenance popover, not a second accordion");
+  assert.ok(/\d+ capabilities declared/.test(visible(intentMarkup)) && /can run now/.test(visible(intentMarkup)),
+    "its registry counts stay on screen");
+  assert.ok(intentMarkup.includes('popoverTarget="intent-provenance"') && intentMarkup.includes('popover="auto"'),
+    "its governance detail is keyboard and touch activatable");
+  assert.equal((markup.match(/<details\b/g) ?? []).length, 1, "only Capability Limits uses a disclosure");
 
   /* Native semantics, not a reimplementation. */
   for (const forged of [/<summary[^>]*role=/, /<summary[^>]*tabindex=/, /<summary[^>]*aria-expanded=/]) {
@@ -163,7 +199,28 @@ function disclosureIsNativeAndConfined(overrides: Readonly<Record<string, string
   /* The default marker is suppressed in both engines, or the chevron doubles up. */
   assert.ok(/list-none/.test(src) && /-webkit-details-marker\]:hidden/.test(src), "one marker, not two");
   /* Keyboard reachability is the summary's own; it must still be focusable-visible. */
-  assert.ok(/<summary[^>]*focus-visible:/.test(overrides[OVERVIEW] ?? read(OVERVIEW)), "the summary shows focus");
+  /*
+   * AMENDED BY CMD-V2.1: asserted on EVERY rendered summary rather than on the first one in the
+   * source. The page now has two disclosures, and a source-level "at least one has a focus ring"
+   * check passes while the other loses it — which a bite-proof caught.
+   */
+  const summaries = [...markup.matchAll(/<summary\b[^>]*>/g)].map((m) => m[0]);
+  assert.ok(summaries.length > 0, "the page has at least one disclosure summary");
+  for (const summary of summaries) {
+    assert.match(summary, /focus-visible:/, `every summary shows focus: ${summary.slice(0, 80)}`);
+  }
+  /*
+   * AND AT SOURCE, PER SUMMARY. The rendered check above cannot see a source override, so a
+   * mutation that strips the ring from ONE of the two disclosures would slip past it. Counting
+   * summaries against summaries-with-a-focus-ring fails for exactly that.
+   */
+  const source = overrides[OVERVIEW] ?? read(OVERVIEW);
+  const declared = [...source.matchAll(/<summary\b[\s\S]*?>/g)].map((m) => m[0]);
+  assert.equal(
+    declared.filter((tag) => /focus-visible:/.test(tag)).length,
+    declared.length,
+    "every declared summary carries its own focus treatment",
+  );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -249,12 +306,30 @@ function theStatusLineKeptTheDistinction(): void {
   const empty = visible(sectionMarkup(render(EMPTY), "waiting"));
   const unavailable = visible(sectionMarkup(render(UNAVAILABLE), "waiting"));
 
-  assert.ok(/\bEmpty\b/i.test(empty), "the successful empty read still shows its word");
-  assert.ok(!/Unavailable/i.test(empty), "and is never labelled unavailable");
-  assert.ok(/\bUnavailable\b/i.test(unavailable), "the unanswered read still shows its word");
-  assert.ok(unavailable.includes("persistence-not-configured"), "and still names the reason the read gave");
+  /*
+   * AMENDED BY CMD-V2.1 — THE DISTINCTION MOVED FROM AN EYEBROW WORD TO THE STATEMENT ITSELF.
+   *
+   * V2.0 put a status word ("Empty" / "Unavailable") beside the heading of a region that had
+   * nothing to report. The Director removed status eyebrows from states that are not asking for
+   * anything, so the two states are now told apart by the tone mark, the heading and the sentence —
+   * three carriers, none of them colour, which is the property this assertion exists to protect.
+   *
+   * The refusal code is CARRIED, NOT PRINTED: `persistence-not-configured` is a diagnostic, and it
+   * stays on the element (as `title`, and in the accessible name) instead of on the card.
+   */
+  const emptyMarkup = sectionMarkup(render(EMPTY), "waiting");
+  const unavailableMarkup = sectionMarkup(render(UNAVAILABLE), "waiting");
+  assert.match(emptyMarkup, /data-state-tone="empty"/, "the successful empty read carries the empty tone");
+  assert.ok(!/data-state-tone="unavailable"/.test(emptyMarkup), "and is never marked unavailable");
+  assert.match(unavailableMarkup, /data-state-tone="unavailable"/, "the unanswered read carries the unavailable tone");
+  assert.ok(/\bunavailable\b/i.test(unavailable), "and says so in words, not only in a mark");
+  assert.ok(
+    unavailableMarkup.includes("persistence-not-configured"),
+    "and still carries the reason the read gave",
+  );
   assert.ok(!/Nothing is waiting/.test(unavailable), "an unanswered read never claims nothing is waiting");
-  assert.ok(!/\b0\b/.test(empty) && !/\b0\b/.test(unavailable), "neither fabricates a zero");
+  assert.ok(/\b0 waiting\b/.test(empty), "the successful authority read may state its measured zero");
+  assert.ok(!/\b0\b/.test(unavailable), "the unanswered read never falls back to zero");
   assert.ok(!/\bshown\b/.test(unavailable), "and an unanswered read carries no badge");
 
   /* 15 — a populated read still expands into real rows, and still offers no act. */
@@ -266,7 +341,8 @@ function theStatusLineKeptTheDistinction(): void {
   });
   const p = visible(sectionMarkup(populated, "waiting"));
   assert.ok(p.includes("send-external-communication") && p.includes("1 shown"), "a populated read renders its rows");
-  assert.ok(!/<button|<form|<input/.test(populated), "and still offers no control");
+  assert.ok(!/<form|<input/.test(populated), "and still offers no mutation control");
+  assert.ok([...populated.matchAll(/<button\b[^>]*>/g)].every((match) => /popoverTarget=/.test(match[0])), "buttons only reveal provenance detail");
   assert.equal(disclosures(sectionMarkup(populated, "waiting")).length, 0, "and collapses nothing");
 }
 
@@ -275,20 +351,25 @@ function theStatusLineKeptTheDistinction(): void {
  * ────────────────────────────────────────────────────────────────────────── */
 function theCanonicalContractHolds(overrides: Readonly<Record<string, string>> = {}, markupOverride?: string): void {
   const markup = markupOverride ?? render();
-  assert.equal((markup.match(/<section\b/g) ?? []).length, 3, "three canonical sections");
+  /*
+   * CMD-V2 — THE COUNT BECAME A REGISTRY. CMD-V4 is about PRIORITY: that the attention region is
+   * never collapsed behind a disclosure and that the page's reading order puts it first among the
+   * roles. Neither property needed a literal count of three, and asserting against the declared
+   * registry makes this fail for an UNDECLARED region too — which a count never could.
+   */
   assert.deepEqual(
     [...markup.matchAll(/<section[^>]*\bid="([^"]+)"/g)].map((m) => m[1]),
-    ["waiting", "intent", "not-connected"],
-    "in the canonical DOM order",
+    [...COMMAND_REGION_IDS],
+    "exactly the declared regions, in the declared DOM order",
   );
   assert.deepEqual(
     [...markup.matchAll(/data-provenance="([^"]+)"/g)].map((m) => m[1]),
-    ["authoritative", "derived", "not-connected"],
-    "with the released provenance mapping",
+    [...COMMAND_REGION_PROVENANCE],
+    "with each region's declared provenance",
   );
-  assert.ok(!markup.includes("<h1"), "the Overview contributes no h1");
+  assert.equal((markup.match(/<h1\b/g) ?? []).length, 1, "the V3 organization context contributes one h1");
   const levels = [...markup.matchAll(/<h([1-6])\b/g)].map((m) => Number(m[1]));
-  assert.ok(levels.every((l) => l >= 2 && l <= 3), "headings stay between h2 and h3");
+  assert.ok(levels.every((l) => l >= 1 && l <= 3), "headings stay between h1 and h3");
 
   /* 17 — no raw size, no Tailwind step, no inline font-size, in anything this phase touched. */
   for (const f of [OVERVIEW, STATE_BLOCK, MODEL, PAGE]) {
@@ -327,8 +408,12 @@ function biteProofs(): void {
   );
 
   /* M2 — the closed row stops saying what state it is in. */
-  bites("drop the not-connected marker from the closed rows", () =>
-    everyCapabilityIsNamedClosedAndEveryReasonIsReachable(mutate(M, /Not connected/g, "")),
+  /*
+   * M2 — the closed row loses the state it must show. With one disclosure instead of six, the
+   * marker that must survive is the summary's own "N not connected"; the mutation blanks it.
+   */
+  bites("drop the not-connected marker from the closed row", () =>
+    everyCapabilityIsNamedClosedAndEveryReasonIsReachable(mutate(M, /\d+ not connected/, "")),
   );
 
   /* M3 — a reason is summarized away. */
@@ -434,7 +519,8 @@ function biteProofs(): void {
   bites("hide the eyebrow on the row status line", () => {
     const m = renderToStaticMarkup(createElement(StateBlock, {
       tone: "unavailable", layout: "row", density: "compact", hideEyebrow: true,
-      title: "Hebun could not read your authorization queue", description: "persistence-not-configured",
+      /* The title must not contain the eyebrow's own word, or this proof passes on the title. */
+      title: "Hebun could not read the queue", description: "persistence-not-configured",
     }));
     assert.ok(/\bUnavailable\b/i.test(visible(m)), "the unanswered read still shows its word");
   });

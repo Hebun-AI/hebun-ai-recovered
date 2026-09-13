@@ -505,7 +505,7 @@ function walk(dir: string): string[] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * 7. THE CONSUMER CENSUS. ONE PAGE, AND NOTHING ELSE.
+ * 7. THE CONSUMER CENSUS. THREE PAGES, AND NOTHING ELSE.
  * ═══════════════════════════════════════════════════════════════════════════ */
 {
   const consumers = [...walk("src/features"), ...walk("src/app"), ...walk("src/components")]
@@ -537,6 +537,7 @@ function walk(dir: string): string[] {
   const PEOPLE_GROUNDING_PROJECTION = "src/features/auth-runtime/heby-people-source.server.ts";
   const LIVE_MAP_PROJECTION = "src/features/live-map/read-live-map.server.ts";
   const COMPOSITION_PANEL = "src/components/organization-domain/department-composition.tsx";
+  const COMMAND_PAGE = "src/app/(dashboard)/command/page.tsx";
   assert.deepEqual(
     consumers.sort(),
     [
@@ -565,8 +566,13 @@ function walk(dir: string): string[] {
        * loop below proves.
        */
       COMPOSITION_PANEL,
+      /*
+       * Command resolves only the address-free name projection for its authenticated greeting.
+       * It passes the server-resolved tenant once and never derives a name from an email.
+       */
+      COMMAND_PAGE,
     ].sort(),
-    "exactly two pages read legibility, five components receive it, THREE grounding projections " +
+    "exactly three pages read legibility, five components receive it, THREE grounding projections " +
       "resolve it for Heby, and Live Map composes it for the map. No other consumer.",
   );
 

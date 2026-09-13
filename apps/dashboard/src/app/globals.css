@@ -694,6 +694,24 @@
   container-type: size;
 }
 
+/* The integrated desktop rail is a single premium dark field on every authenticated workspace. */
+@media (min-width: 768px) {
+  :root [data-shell="rail"] {
+    background: var(--cmd-nav-canvas);
+    border-color: var(--cmd-nav-line);
+    --color-text-primary: var(--cmd-nav-text);
+    --color-text-secondary: var(--cmd-nav-muted);
+    --color-text-muted: color-mix(in srgb, var(--cmd-nav-muted) 74%, transparent);
+    --color-surface: var(--cmd-nav-canvas);
+    --color-surface-raised: var(--cmd-nav-surface);
+    --color-surface-sunken: var(--cmd-nav-canvas);
+    --color-border: var(--cmd-nav-line);
+    --color-border-strong: color-mix(in srgb, var(--cmd-nav-muted) 35%, transparent);
+    --color-primary: #9bb7ff;
+    --color-primary-subtle: var(--cmd-nav-selected);
+  }
+}
+
 /*
  * ── FOCUSED HEBY MODE ─────────────────────────────────────────────────────────
  *
@@ -1847,3 +1865,238 @@
 }
 
 [data-live-map] .lm-completeness strong { color: var(--color-text-secondary); }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * COMMAND VISUAL V2 — the executive band, the ledger strip, the attention edge.
+ *
+ * Scoped to `[data-command-v2]`, exactly the way the Live Map's own surface CSS is scoped: nothing
+ * here can reach another route, and no existing class is redefined. Every value resolves through a
+ * token declared in `src/styles/tokens.css` — there is no hex, no px colour and no timing literal.
+ *
+ * The four rules below are the ones Tailwind utilities cannot express without arbitrary values:
+ * a multi-layer derived ground, a ruled non-representational plate, a hairline ledger divider that
+ * flips axis at the breakpoint, and a 3px accent edge. Everything else in the composition is a
+ * token-backed utility on the element.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+[data-command-v2] .cmd-hero {
+  background-image: var(--cmd-hero-ground);
+  color: var(--cmd-hero-fg);
+}
+
+/*
+ * THE RESERVED IMAGE SLOT. It depicts nothing and is `aria-hidden` in the markup: a ruled tonal
+ * field standing where a tenant-managed hero image will go once an authority exists that can own
+ * one. It is never labelled as this organization's image, because it is not.
+ */
+[data-command-v2] .cmd-hero-plate {
+  background-image: var(--cmd-hero-plate);
+}
+
+[data-command-v2] .cmd-hero-rule {
+  background-color: var(--cmd-hero-line);
+}
+
+/* The ledger strip's dividers: vertical between cells on a wide canvas, horizontal when stacked. */
+[data-command-v2] .cmd-ledger {
+  display: grid;
+  gap: 1px;
+  background-color: var(--cmd-grid-line);
+}
+
+/* The one accent edge on the page. It marks the attention region and nothing else. */
+[data-command-v2] .cmd-attention-edge::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 3px;
+  border-start-start-radius: inherit;
+  border-end-start-radius: inherit;
+  background-image: var(--cmd-attention-edge);
+}
+
+/* Command V3 — compact executive hierarchy; all selectors are route-scoped. */
+[data-command-v3] .cmd-context {
+  min-height: 144px;
+  background: var(--cmd-context-ground);
+}
+
+[data-command-v3] .cmd-executive-presentation {
+  background:
+    radial-gradient(circle at 72% 36%, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 34%),
+    linear-gradient(110deg, var(--color-surface) 0%, var(--color-surface-sunken) 100%);
+}
+
+[data-command-v3] .cmd-hero-image {
+  filter: saturate(0.9) contrast(1.02);
+  opacity: 0.98;
+}
+
+[data-command-v3] .cmd-hero-wash {
+  background:
+    linear-gradient(90deg, rgba(249, 251, 255, 0.76) 0%, rgba(249, 251, 255, 0.46) 29%, rgba(249, 251, 255, 0.02) 56%, rgba(249, 251, 255, 0.16) 76%, rgba(249, 251, 255, 0.58) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(225, 234, 246, 0.18));
+}
+
+[data-command-v3] .cmd-hero-layout {
+  grid-template-columns: minmax(0, 45fr) minmax(0, 30fr) minmax(13rem, 25fr);
+}
+
+[data-command-v3] .cmd-greeting {
+  grid-column: 1;
+  min-width: 0;
+}
+
+[data-command-v3] .cmd-greeting-title {
+  font-size: clamp(2rem, 1.72rem + 0.72vw, 2.35rem);
+}
+
+[data-command-v3] .cmd-context-eyebrow { opacity: 0.72; }
+
+[data-command-v3] .cmd-hero-quote {
+  grid-column: 2;
+  align-self: center;
+  justify-self: center;
+  text-shadow: 0 1px 14px rgba(255, 255, 255, 0.96);
+}
+
+[data-command-v3] .cmd-local-date {
+  grid-column: 3;
+  align-self: start;
+  justify-self: end;
+  margin-block-start: 1rem;
+  margin-inline-end: 1.5rem;
+}
+
+[data-command-v3] .cmd-signal-strip {
+  gap: 0.75rem;
+  background: transparent;
+}
+
+[data-command-v3] .cmd-signal-value {
+  font-size: 1.55rem;
+}
+
+[data-command-v3] .cmd-signal-card {
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+[data-command-v3] .cmd-signal-region > div:last-child > div:last-child {
+  position: absolute;
+  inset-inline-end: 0.25rem;
+  inset-block-end: -1.15rem;
+  z-index: 2;
+}
+
+[data-command-v3] .cmd-ask-region {
+  background: linear-gradient(90deg, transparent, rgba(247, 249, 255, 0.24) 28%, rgba(247, 249, 255, 0.44));
+}
+
+[data-command-v3] .cmd-ask-entry {
+  text-shadow: 0 1px 16px rgba(255, 255, 255, 0.82);
+}
+
+[data-command-v3] .cmd-local-date {
+  text-shadow: 0 1px 14px rgba(255, 255, 255, 0.92);
+}
+
+[data-command-v3] .cmd-map-canvas {
+  background:
+    linear-gradient(color-mix(in srgb, var(--cmd-map-line) 34%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--cmd-map-line) 34%, transparent) 1px, transparent 1px),
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--cmd-map-accent) 25%, transparent), transparent 26%),
+    radial-gradient(80% 100% at 50% 100%, color-mix(in srgb, var(--cmd-map-accent) 18%, transparent), transparent 72%),
+    var(--cmd-map-ground);
+  background-size: 24px 24px, 24px 24px, auto, auto, auto;
+}
+
+[data-command-v3] .cmd-map-canvas > div { filter: drop-shadow(0 0 12px color-mix(in srgb, var(--cmd-map-accent) 18%, transparent)); }
+
+[data-command-v3] .cmd-map-root {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cmd-map-accent) 16%, transparent), 0 0 24px color-mix(in srgb, var(--cmd-map-accent) 20%, transparent);
+}
+
+[data-command-v3] .cmd-map-node {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 20px rgba(0, 0, 0, 0.16);
+}
+
+/*
+ * The operating horizon is one composed surface, not three product cards. The faint unfinished
+ * rails suggest reserved structure without resembling a measured chart or progress value.
+ */
+[data-command-v3] .cmd-horizon {
+  background:
+    linear-gradient(118deg, color-mix(in srgb, var(--color-primary) 3%, transparent), transparent 38%),
+    var(--color-surface);
+}
+
+[data-command-v3] .cmd-heby-orbit {
+  box-shadow:
+    0 0 0 9px color-mix(in srgb, var(--color-highlight) 5%, transparent),
+    0 0 0 18px color-mix(in srgb, var(--color-highlight) 2%, transparent),
+    0 12px 28px color-mix(in srgb, var(--color-highlight) 14%, transparent);
+}
+
+[data-command-v3] .cmd-goals-ring {
+  border: 2px dashed color-mix(in srgb, var(--color-text-muted) 32%, transparent);
+  box-shadow:
+    inset 0 0 0 8px color-mix(in srgb, var(--color-primary) 3%, transparent),
+    0 0 0 7px color-mix(in srgb, var(--color-surface-sunken) 48%, transparent);
+}
+
+[data-command-v3] .cmd-heby-panel {
+  gap: 0.5rem;
+  background:
+    radial-gradient(70% 74% at 50% 52%, color-mix(in srgb, var(--color-highlight) 5%, transparent), transparent 72%),
+    var(--color-surface);
+}
+
+@media (max-width: 1023px) {
+  [data-command-v3] .cmd-context { min-height: 192px; }
+  [data-command-v3] .cmd-hero-layout { grid-template-columns: minmax(0, 1fr) 10rem; grid-template-rows: 106px 1fr; }
+  [data-command-v3] .cmd-greeting { grid-column: 1; grid-row: 1; }
+  [data-command-v3] .cmd-hero-quote { display: none; }
+  [data-command-v3] .cmd-local-date { grid-column: 2; grid-row: 1; margin-inline-end: 1.25rem; }
+  [data-command-v3] .cmd-hero-image { object-position: 70% 45%; }
+}
+
+@media (max-width: 639px) {
+  [data-command-v3] .cmd-context { min-height: 208px; }
+  [data-command-v3] .cmd-hero-layout { grid-template-columns: minmax(0, 1fr) 7rem; grid-template-rows: 112px 1fr; }
+  [data-command-v3] .cmd-greeting { grid-column: 1 / -1; grid-row: 1; padding-right: 7rem; }
+  [data-command-v3] .cmd-greeting > p:last-child { max-width: 15rem; }
+  [data-command-v3] .cmd-local-date { grid-column: 2; grid-row: 1; max-width: 7rem; margin-inline-end: 1rem; }
+  [data-command-v3] .cmd-org-context { display: none; }
+}
+
+[data-command-v3] .cmd-priority-card,
+[data-command-v3] .cmd-support-card {
+  gap: 0.5rem;
+}
+
+[data-command-v3] .cmd-priority-card > div:last-child,
+[data-command-v3] .cmd-support-card > div:last-child {
+  gap: 0.5rem;
+}
+
+[data-command-v3] .cmd-priority-empty {
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+[data-command-v3] .cmd-priority-empty > div:last-child {
+  gap: 0.375rem;
+}
+
+@media (min-width: 1280px) {
+  [data-command-v3] .cmd-executive-triad {
+    grid-template-columns: minmax(0, 1.16fr) repeat(2, minmax(0, 1fr));
+  }
+  [data-command-v3] .cmd-executive-panel { height: 272px; min-height: 0; }
+  [data-command-v3] .cmd-priority-card { min-height: 190px; }
+  [data-command-v3] .cmd-priority-card.cmd-executive-panel { min-height: 0; }
+  [data-command-v3] .cmd-priority-card.cmd-priority-empty { min-height: 150px; }
+  [data-command-v3] .cmd-priority-card.cmd-priority-empty.cmd-executive-panel { min-height: 0; }
+  [data-command-v3] .cmd-support-card { min-height: 224px; }
+}

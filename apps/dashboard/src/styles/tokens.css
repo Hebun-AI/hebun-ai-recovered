@@ -253,3 +253,70 @@
     --blueprint-cell: 64px;
   }
 }
+
+/*
+ * ── COMMAND VISUAL V2 (CMD-V2) ───────────────────────────────────────────────
+ *
+ * ADDITIVE, and spent by the Command Center only. Nothing above is renamed, no shell-navigation
+ * geometry token is touched, and no other surface resolves through these.
+ *
+ * WHY A DARK BAND AT ALL. The Command Center is the executive operating ledger, and every other
+ * authenticated surface is a light working canvas. One deep band at the top of one route is how the
+ * page says "this is the standing of the organization" without a single extra word — and it is the
+ * only place a Director's eye can land first by construction rather than by font size.
+ *
+ * EVERY VALUE IS DERIVED, NOT CHOSEN. The ground is `--color-text-primary` (the product's navy ink)
+ * mixed toward black; the wash is `--color-highlight` and `--color-primary`, the two brand values
+ * the product already had. No new hue enters the system, which is why this band reads as Hebun and
+ * not as a template hero.
+ *
+ * `--cmd-hero-plate` IS DELIBERATELY NON-REPRESENTATIONAL. It is the reserved image slot: a
+ * ruled, tonal field that a future tenant-managed hero image can replace without the composition
+ * moving. It depicts nothing, claims nothing, and is never captioned as this organization's
+ * anything. There is no configuration authority in this repository that could hold such an image
+ * today — see the Hero component's header.
+ */
+:root {
+  --cmd-ink:          color-mix(in srgb, var(--color-text-primary) 92%, black);
+  --cmd-ink-raised:   color-mix(in srgb, var(--color-text-primary) 78%, black);
+  --cmd-hero-ground:
+    radial-gradient(115% 135% at 8% -10%, color-mix(in srgb, var(--color-highlight) 40%, transparent) 0%, transparent 58%),
+    radial-gradient(80% 120% at 100% 0%, color-mix(in srgb, var(--color-accent) 26%, transparent) 0%, transparent 62%),
+    linear-gradient(148deg, var(--cmd-ink-raised) 0%, var(--cmd-ink) 72%);
+  --cmd-hero-fg:       var(--color-text-inverse);
+  --cmd-hero-fg-soft:  color-mix(in srgb, var(--color-text-inverse) 74%, transparent);
+  --cmd-hero-fg-muted: color-mix(in srgb, var(--color-text-inverse) 55%, transparent);
+  --cmd-hero-line:     color-mix(in srgb, var(--color-text-inverse) 15%, transparent);
+  --cmd-hero-line-faint: color-mix(in srgb, var(--color-text-inverse) 8%, transparent);
+  --cmd-hero-plate:
+    repeating-linear-gradient(115deg, color-mix(in srgb, var(--color-text-inverse) 7%, transparent) 0 1px, transparent 1px 13px),
+    radial-gradient(120% 100% at 20% 100%, color-mix(in srgb, var(--color-primary) 46%, transparent) 0%, transparent 70%),
+    linear-gradient(160deg, color-mix(in srgb, var(--color-highlight) 30%, transparent) 0%, transparent 68%);
+  /* The attention region's edge. One accent, one place, so dominance is structural not decorative. */
+  --cmd-attention-edge: linear-gradient(180deg, var(--color-primary) 0%, var(--color-highlight) 100%);
+  --cmd-grid-line:     color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  /*
+   * The Ask Hebun card's ground. A single wash so the product's one AI entry point reads as an
+   * invitation rather than as one more bordered box — derived from the brand values already here,
+   * never a new hue, and never carrying a claim.
+   */
+  --cmd-ask-ground:
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--color-primary) 10%, transparent) 0%, transparent 62%),
+    linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface) 100%);
+
+  /* Command V3: one dark navigation field, one light operating canvas. */
+  --cmd-nav-canvas: #0f192b;
+  --cmd-nav-surface: #16233a;
+  --cmd-nav-text: #f7faff;
+  --cmd-nav-muted: #a9b5c7;
+  --cmd-nav-line: rgba(255, 255, 255, 0.08);
+  --cmd-nav-selected: rgba(37, 99, 235, 0.18);
+  --cmd-context-ground: linear-gradient(100deg, #f7f9fc 0%, #edf3fa 62%, #e8f0f8 100%);
+  --cmd-map-ground: #0b1424;
+  --cmd-map-node: #14233b;
+  --cmd-map-fg: #f4f7fb;
+  --cmd-map-muted: #9eacc0;
+  --cmd-map-accent: #7aa2ff;
+  --cmd-map-line: rgba(148, 163, 184, 0.2);
+  --cmd-map-line-strong: rgba(122, 162, 255, 0.42);
+}

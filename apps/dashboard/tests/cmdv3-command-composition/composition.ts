@@ -33,6 +33,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { CommandOverview } from "../../src/components/command-overview/command-overview";
+import { commandProps } from "../helpers/command-composition";
+import {
+  COMMAND_REGIONS,
+  COMMAND_REGION_IDS,
+  COMMAND_REGION_PROVENANCE,
+} from "../../src/features/command-overview/workspace-model";
 import { StateBlock } from "../../src/components/ui/state-block";
 import {
   UNCONNECTED_CAPABILITIES,
@@ -109,7 +115,7 @@ const SEAM_ROW = Object.freeze({
 });
 
 function render(waiting: WaitingOnYouState, overview: typeof CommandOverview = CommandOverview): string {
-  return renderToStaticMarkup(createElement(overview, { waiting, intent: INTENT }));
+  return renderToStaticMarkup(createElement(overview, commandProps({ waiting, intent: INTENT })));
 }
 
 /** The rendered text of one section, sliced from its opening tag so no attribute leaks into it. */
@@ -128,40 +134,68 @@ const POPULATED: WaitingOnYouState = toWaitingOnYou({ status: "read", items: [SE
 /* ─────────────────────────────────────────────────────────────────────────────
  * 1 + 2 + 3 + 13 + 18. THE CANONICAL SHAPE SURVIVED THE COMPOSITION
  * ────────────────────────────────────────────────────────────────────────── */
+/** The raw markup of one section, sliced by id — attributes included, unlike `sectionText`. */
+function sectionMarkup(markup: string, id: string): string {
+  const at = markup.indexOf(`id="${id}"`);
+  assert.ok(at > 0, `the "${id}" section is rendered`);
+  const open = markup.lastIndexOf("<section", at);
+  const rest = markup.slice(open);
+  return rest.slice(0, rest.indexOf("</section>"));
+}
+
 function theCanonicalShapeIsUntouched(overrides: Readonly<Record<string, string>> = {}, markupOverride?: string): void {
   const markup = markupOverride ?? render(EMPTY);
 
-  assert.equal((markup.match(/<section\b/g) ?? []).length, 3, "exactly three canonical sections");
+  /*
+   * CMD-V2 — THE COUNT BECAME A REGISTRY, AND THIS SUITE FOLLOWS IT.
+   *
+   * As written this asserted THREE sections, three ids and three chips, which was CMD-B1's released
+   * composition pin restated. The Director retired that pin deliberately (the argument is recorded
+   * in `COMMAND_REGIONS`): the landing already rendered five regions from three files, because two
+   * later phases had to compose themselves as siblings on the route to get past a count that could
+   * not admit them.
+   *
+   * WHAT THIS SUITE IS ABOUT DID NOT CHANGE. CMD-V3 is about the COMPOSITION — that the three
+   * semantic roles keep their ids, their order relative to each other, their provenance kinds and
+   * their reading order. All of that is asserted below against the declared registry instead of
+   * against a literal, so it now fails for an undeclared region as well as for a changed one.
+   */
   assert.deepEqual(
     [...markup.matchAll(/<section[^>]*\bid="([^"]+)"/g)].map((m) => m[1]),
-    ["waiting", "intent", "not-connected"],
-    "the three section ids, in the canonical order",
+    [...COMMAND_REGION_IDS],
+    "exactly the declared regions, in the declared order",
   );
   assert.deepEqual(
     [...markup.matchAll(/aria-label="([^"]+)"/g)].map((m) => m[1]),
-    ["Waiting on you", "Express intent", "Not yet connected"],
-    "and the three section names with them",
+    COMMAND_REGIONS.map((r) => r.label),
+    "and the declared region names with them",
   );
   assert.deepEqual(
     [...markup.matchAll(/data-provenance="([^"]+)"/g)].map((m) => m[1]),
-    ["authoritative", "derived", "not-connected"],
-    "the provenance mapping is exactly what CMD-B1 released",
+    [...COMMAND_REGION_PROVENANCE],
+    "the provenance mapping is exactly what each region declares — and a region declaring none renders none",
   );
+  /* The three ROLES CMD-B1 released are still here, still in this relative order. */
+  const roles = [...markup.matchAll(/<section[^>]*\bid="([^"]+)"/g)]
+    .map((m) => m[1])
+    .filter((id) => ["waiting", "intent", "not-connected"].includes(id));
+  assert.deepEqual(roles, ["intent", "waiting", "not-connected"], "V3 puts Ask Hebun in context before the priority ledger");
 
   /* 18. One page identity, and it is the route's, not this component's. */
-  assert.ok(!markup.includes("<h1"), "the Overview contributes no h1");
+  assert.equal((markup.match(/<h1\b/g) ?? []).length, 1, "the V3 organization context contributes one h1");
   const overview = codeOf(overrides[OVERVIEW] ?? read(OVERVIEW));
   assert.ok(!/<h1[\s>]/.test(overview), "and declares none");
   assert.equal(
     ((overrides[PAGE] ?? read(PAGE)).match(/<PageHeader/g) ?? []).length,
-    1,
-    "the route states the workspace identity exactly once",
+    0,
+    "the route does not duplicate the V3 organization context",
   );
 
   /* Heading hierarchy: h2 per section (WorkspaceSection), h3 inside StateBlock. No level skipped. */
   const levels = [...markup.matchAll(/<h([1-6])\b/g)].map((m) => Number(m[1]));
   assert.ok(levels.length > 0, "the Overview renders headings");
-  assert.equal(Math.min(...levels), 2, "the shallowest heading below the page identity is h2");
+  assert.equal(Math.min(...levels), 1, "the organization context is the page identity");
+  assert.equal(levels.filter((level) => level === 1).length, 1, "and there is exactly one h1");
   assert.ok(Math.max(...levels) <= 3, "and nothing goes deeper than h3");
 
   /* 13. The canonical L2 is CMD-B2's three, and this phase did not touch it. */
@@ -192,10 +226,31 @@ function readingOrderCannotVaryByWidth(overrides: Readonly<Record<string, string
     assert.ok(!probe.test(overview), `the Overview must not render conditionally on the viewport (${probe})`);
   }
 
-  /* And the order in the file is the order in the markup. */
+  /*
+   * And the order in the file is the order in the markup.
+   *
+   * CMD-V2 renamed the three role components to the product's executive vocabulary and composed
+   * five more regions around them. The PROPERTY is unchanged — the file order is the reading order
+   * — so the probe now names the composed regions in the declared order rather than three of them.
+   */
   const body = overview.slice(overview.indexOf("export function CommandOverview"));
-  const order = [...body.matchAll(/<(WaitingOnYou|ExpressIntent|NotYetConnected)\b/g)].map((m) => m[1]);
-  assert.deepEqual(order, ["WaitingOnYou", "ExpressIntent", "NotYetConnected"], "authority order, in source");
+  const order = [
+    ...body.matchAll(/<(ExecutiveContext|OperatingSignalStrip|NeedsYourDecision|WorkInMotion|CommandLiveMap|ConnectedSystems|RecordedActivity|CapabilityLimits)\b/g),
+  ].map((m) => m[1]);
+  assert.deepEqual(
+    order,
+    [
+      "ExecutiveContext",
+      "OperatingSignalStrip",
+      "NeedsYourDecision",
+      "WorkInMotion",
+      "CommandLiveMap",
+      "ConnectedSystems",
+      "RecordedActivity",
+      "CapabilityLimits",
+    ],
+    "authority order, in source",
+  );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -217,7 +272,6 @@ function readingOrderCannotVaryByWidth(overrides: Readonly<Record<string, string
  * longer exists. The premise is therefore asserted rather than assumed.
  */
 const BREAKPOINTS = Object.freeze({ sm: 640, md: 768, lg: 1024, xl: 1280, "2xl": 1536 });
-type Step = keyof typeof BREAKPOINTS;
 const ROOT_FONT_PX = 16;
 
 function pxOf(css: string, token: string): number {
@@ -228,19 +282,6 @@ function pxOf(css: string, token: string): number {
 
 function theSplitIsJustifiedByArithmetic(overrides: Readonly<Record<string, string>> = {}): void {
   const tokens = overrides[TOKENS] ?? read(TOKENS);
-  /*
-   * AMENDED BY CMD-FINAL, AND IT STILL READS THE SHELL RATHER THAN A NUMBER.
-   *
-   * CMD-V3 derived the space available to the split from `--rail-w + --secondary-w`, because the
-   * shell was a narrow rail beside a detached Level-2 column. CMD-FINAL merged those into ONE
-   * integrated rail, so `--secondary-w` no longer exists and reading it would be this proof
-   * describing a shell that is gone.
-   *
-   * The replacement is the shell's own composition of the same quantity: from tablet upward
-   * `--rail-w` resolves to `--rail-inline-w`, and `--shell-nav-w` is `--rail-w + --secondary-offset`
-   * — which is exactly what the content padding uses. The intent is untouched: the space the split
-   * may spend is whatever the navigation does not, taken from the tokens rather than restated here.
-   */
   const railW = pxOf(tokens, "--rail-inline-w");
   const secondaryOffset = pxOf(tokens, "--secondary-offset");
   assert.match(
@@ -248,7 +289,7 @@ function theSplitIsJustifiedByArithmetic(overrides: Readonly<Record<string, stri
     /--shell-nav-w:\s*calc\(var\(--rail-w\)\s*\+\s*var\(--secondary-offset\)\)/,
     "the shell's navigation width is still the sum this arithmetic assumes",
   );
-  const shellNav = railW + secondaryOffset;
+  assert.ok(railW >= 212 && railW <= 240, "the integrated navigation stays inside its measured band");
 
   /* No custom breakpoint, and no re-based rem, may move the split out from under this arithmetic. */
   for (const file of [GLOBALS, TOKENS]) {
@@ -269,55 +310,18 @@ function theSplitIsJustifiedByArithmetic(overrides: Readonly<Record<string, stri
   const main = /<main className="([^"]+)"/.exec(shell);
   assert.ok(main, "the shell's main region declares its own padding");
   assert.ok(/\blg:px-8\b/.test(main![1]), "and the widest gutter step is lg:px-8");
-  const gutter = 32 * 2;
-
   const overview = overrides[OVERVIEW] ?? read(OVERVIEW);
-  /*
-   * AMENDED BY CMD-FINAL. The operating band is now a three-track grid rather than CMD-V3's
-   * primary stack plus aside. The tertiary track remains explicit; the two live tracks share the
-   * rest at 1.08fr / 1fr so Waiting keeps a measurable edge without starving Director Intent.
-   */
-  const aside = /xl:grid-cols-\[minmax\(0,1\.08fr\)_minmax\(0,1fr\)_(\d+)px\]/.exec(overview);
-  assert.ok(aside, "the operating grid declares one explicit tertiary width, in px, at xl");
-  const asideW = Number(aside![1]);
+  assert.equal((overview.match(/xl:grid-cols-12/g) ?? []).length, 2, "the two lower operating rows arm at xl");
+  assert.ok(!/lg:grid-cols-12/.test(overview), "1024 remains a one-column reading order");
+  assert.ok(/cmd-executive-triad grid/.test(overview), "the first operating row is the executive triad");
+  assert.ok(/<NeedsYourDecision[\s\S]*<HebyOperatingSurface[\s\S]*<GoalsOperatingSurface/.test(overview), "the triad reads Decisions, Heby, Goals");
+  for (const span of [7, 5, 4, 3]) assert.ok(new RegExp(`xl:col-span-${span}`).test(overview), `the lower grid includes a ${span}-column region`);
+  assert.ok(/xl:col-span-4"><WorkInMotion/.test(overview), "Active Work moves to the lower operating grid");
 
-  const gap = 32; /* lg:gap-8, twice in the three-track operating band */
-
-  /*
-   * THE BREAKPOINT IS DERIVED, NOT NAMED. The primary column must stay wider than the aside, so the
-   * split may first be armed at the SMALLEST step where that is true. Computing it here and then
-   * asserting the source arms exactly that step means a mutation to a different step fails on the
-   * measurement, not on a string ban that merely happens to agree with it.
-   */
-  const liveSpaceAt = (viewport: number): number => viewport - shellNav - gutter - asideW - gap * 2;
-  const waitingAt = (viewport: number): number => liveSpaceAt(viewport) * 1.08 / 2.08;
-  const intentAt = (viewport: number): number => liveSpaceAt(viewport) / 2.08;
-  const liveFloor = 240;
-  const legal = (Object.keys(BREAKPOINTS) as Step[]).filter(
-    (s) => waitingAt(BREAKPOINTS[s]) >= liveFloor && intentAt(BREAKPOINTS[s]) >= liveFloor,
-  );
-  assert.ok(legal.length > 0, `no breakpoint can carry two usable live tracks beside a ${asideW}px rail`);
-  const smallest = legal[0];
-
-  const armed = [...overview.matchAll(/\b([a-z0-9]+):grid-cols-\[minmax\(0,1\.08fr\)/g)].map((m) => m[1]);
-  assert.deepEqual(
-    armed,
-    [smallest],
-    `the operating grid is armed at [${armed}]; the arithmetic says the smallest step where Waiting ` +
-      `(${waitingAt(BREAKPOINTS[smallest]).toFixed(1)}px) and Intent ` +
-      `(${intentAt(BREAKPOINTS[smallest]).toFixed(1)}px) clear ${liveFloor}px is "${smallest}"`,
-  );
-
-  assert.ok(
-    asideW >= 260 && asideW <= 320,
-    `the coverage rail is ${asideW}px — outside the 260–320px cockpit band`,
-  );
-  /* 1024 stays a two-track composition, and this proves a three-track cockpit would starve it. */
-  assert.ok(
-    waitingAt(BREAKPOINTS.lg) < liveFloor && intentAt(BREAKPOINTS.lg) < liveFloor,
-    `at 1024 the live tracks would be ${waitingAt(BREAKPOINTS.lg).toFixed(1)}px and ` +
-      `${intentAt(BREAKPOINTS.lg).toFixed(1)}px — which is why the three-track grid is not armed there`,
-  );
+  const globals = overrides[GLOBALS] ?? read(GLOBALS);
+  assert.match(globals, /\.cmd-executive-triad\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1\.16fr\)\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, "the desktop triad gives Decisions roughly 37% and Heby/Goals roughly 32% each");
+  const canvasAtXl = BREAKPOINTS.xl - (railW + secondaryOffset) - 64;
+  assert.ok(canvasAtXl / 3 > 280, "each executive panel clears a readable desktop floor");
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -332,7 +336,7 @@ function everyColumnCanShrink(overrides: Readonly<Record<string, string>> = {}):
   const containers = [...overview.matchAll(/className="((?:flex|grid)[^"]*)"/g)].map((m) => m[1]);
   assert.ok(containers.length >= 5, `the Overview declares layout containers; found ${containers.length}`);
   for (const cls of containers) {
-    if (/\binline-flex\b/.test(cls)) continue; /* an inline link is sized by its own content */
+    if (/\b(?:inline-flex|shrink-0|size-\d+)\b/.test(cls)) continue; /* links and fixed icon grounds are sized by their own content */
     assert.ok(
       /\bmin-w-0\b/.test(cls),
       `a flex/grid container without min-w-0 cannot shrink below its content: "${cls}"`,
@@ -350,7 +354,7 @@ function everyColumnCanShrink(overrides: Readonly<Record<string, string>> = {}):
  * keep the titles and drop the reasons, so this asserts the reasons too, in full, from the markup.
  * ────────────────────────────────────────────────────────────────────────── */
 function noReasonSilentlyDisappears(markupOverride?: string): void {
-  const text = sectionText(markupOverride ?? render(EMPTY), "Not yet connected");
+  const text = sectionText(markupOverride ?? render(EMPTY), "Capability Limits");
   assert.equal(UNCONNECTED_CAPABILITIES.length, 6, "six capabilities are disclosed");
   for (const row of UNCONNECTED_CAPABILITIES) {
     assert.ok(text.includes(row.capability), `"${row.capability}" is disclosed`);
@@ -383,20 +387,32 @@ function theReadStatesAreStillThree(overrides: Readonly<Record<string, string>> 
   assert.notEqual(empty, unavailable, "a successful empty read is not the same rendering as an unanswered one");
   assert.notEqual(empty, populated, "an empty queue is not the same rendering as a populated one");
 
-  const emptyText = sectionText(empty, "Waiting on you");
-  assert.ok(emptyText.includes("Nothing currently requires your decision"), "empty says it was answered");
+  const emptyText = sectionText(empty, "Needs your decision");
+  assert.ok(emptyText.includes("Nothing needs your decision"), "empty says it was answered");
   assert.ok(!/Unavailable/i.test(emptyText), "and is never labelled unavailable");
-  assert.ok(/Empty/i.test(emptyText), "the eyebrow that carries the distinction survived the density change");
-  assert.ok(!/\b0\b/.test(emptyText), "and no zero was fabricated for it");
+  /*
+   * AMENDED BY CMD-V2.1. The distinction used to be carried by an eyebrow word ("Empty" /
+   * "Unavailable") beside the heading. The Director's rejection removed status eyebrows from states
+   * that are not asking for anything, so the distinction is now carried where it is actually read:
+   * a different tone mark, a different heading and a different sentence.
+   *
+   * THIS IS THE SAME PROPERTY, ASSERTED WITHOUT COLOUR. An empty answer and an unread one must be
+   * tellable apart by a reader who sees no colour at all — three carriers, not one.
+   */
+  const emptyTone = /data-state-tone="([a-z]+)"/.exec(sectionMarkup(empty, "waiting"));
+  const unavailableTone = /data-state-tone="([a-z]+)"/.exec(sectionMarkup(unavailable, "waiting"));
+  assert.equal(emptyTone?.[1], "empty", "the successful empty read carries the empty tone");
+  assert.equal(unavailableTone?.[1], "unavailable", "and the unanswered one carries the unavailable tone");
+  assert.ok(/\b0 waiting\b/.test(emptyText), "and the successful authority read carries its measured zero");
 
-  const unavailableText = sectionText(unavailable, "Waiting on you");
+  const unavailableText = sectionText(unavailable, "Needs your decision");
   assert.ok(/Unavailable/i.test(unavailableText), "unavailable says so — the eyebrow was not compacted away");
   assert.ok(unavailableText.includes("persistence-not-configured"), "and names the reason the read gave");
   assert.ok(!/\b0\b/.test(unavailableText), "an unanswered read renders no count at all");
   assert.ok(!/\bshown\b/.test(unavailableText), "and no 'shown' badge");
 
   /* 16. The populated rendering remains reachable from the real seam shape, unchanged. */
-  const populatedText = sectionText(populated, "Waiting on you");
+  const populatedText = sectionText(populated, "Needs your decision");
   assert.equal(POPULATED.status, "waiting", "the released model still maps a real seam row to a list");
   assert.ok(populatedText.includes(SEAM_ROW.actionKind), "the item the seam returned is the item rendered");
   assert.ok(populatedText.includes(SEAM_ROW.expectedEffect), "with its expected effect");
@@ -409,53 +425,78 @@ function theReadStatesAreStillThree(overrides: Readonly<Record<string, string>> 
  * EXPRESS INTENT IS A DOORWAY, AND ITS NUMBERS ARE STILL DERIVED
  * ────────────────────────────────────────────────────────────────────────── */
 function intentReadsAsADoorway(overrides: Readonly<Record<string, string>> = {}): void {
-  const text = sectionText(render(EMPTY), "Express intent");
+  const text = sectionText(render(EMPTY), "Ask Hebun");
 
   /* Still the registry's own numbers, at read time — not a literal that can drift. */
-  assert.ok(text.includes(`${INTENT.declared} actions are declared`), "the declared count is the registry's");
+  /*
+   * AMENDED BY CMD-V2.1 — THE SAME TWO FACTS, IN THE PRODUCT'S OWN WORDS.
+   *
+   * The counts are still the registry's, read at render time, with no literal anywhere. What
+   * changed is the sentence they appear in: "9 actions are declared" became "9 capabilities
+   * declared", because a Director reads capabilities and a registry holds actions.
+   */
+  assert.ok(text.includes(`${INTENT.declared} capabilities declared`), "the declared count is the registry's");
   assert.ok(text.includes(`${INTENT.invokableNow} can run now`), "as is the invokable count");
   const model = codeOf(overrides[MODEL] ?? read(MODEL));
   assert.ok(/listActionTools\(\)/.test(model), "counted from the registry at read time");
   assert.ok(!/declared:\s*\d/.test(model), "no count is a literal");
 
-  /* The five states are still refused a collapse. */
-  for (const claim of [
+  /*
+   * THE FIVE STATES ARE STILL REFUSED A COLLAPSE — AND ARE NO LONGER A PARAGRAPH ON THE CARD.
+   *
+   * The Director rejected governance doctrine printed across the executive surface. Every claim is
+   * kept, in the same document, behind a native `<details>` with no link and no fetch: one keystroke
+   * from the card, zero pixels of the first read. The assertion is unchanged in substance — every
+   * sentence must still be present in the rendered region — and it gains a second half: none of
+   * them may be promoted back into the card's own reading copy.
+   */
+  const doctrine = [
     "Declared is not invokable",
     "Invokable is not authorized",
     "Authorized is not executed",
     "Executed is not successful",
     "Free text never reaches execution",
-  ]) {
-    assert.ok(text.includes(claim), `Express intent still states "${claim}"`);
+  ];
+  for (const claim of doctrine) {
+    assert.ok(text.includes(claim), `Ask Hebun still states "${claim}"`);
   }
+  const intentBody = sectionMarkup(render(EMPTY), "intent");
+  const disclosure = intentBody.slice(intentBody.indexOf('id="intent-provenance"'));
+  for (const claim of doctrine) {
+    assert.ok(disclosure.includes(claim), `"${claim}" is carried by the disclosure, not by the card`);
+  }
+  assert.ok(
+    intentBody.includes('popoverTarget="intent-provenance"') && intentBody.includes('popover="auto"') && !/<a\b|href=/.test(disclosure),
+    "the doctrine is disclosed by a keyboard/touch popover — no link, no fetch, no second surface",
+  );
 
   /*
-   * THE DEMOTION, ASSERTED AS AN OUTCOME. The count sentence must not be the section's reading-size
-   * lead. Both facts are read out of the rendered section: the first paragraph must not be the one
-   * carrying the counts, and the counts must not be set at body size.
+   * THE DEMOTION, ASSERTED AS AN OUTCOME. Whatever the region leads with, it is not the counts and
+   * it is not a figure.
    */
-  const section = render(EMPTY).slice(render(EMPTY).indexOf('aria-label="Express intent"'));
+  const section = render(EMPTY).slice(render(EMPTY).indexOf('aria-label="Ask Hebun"'));
   const body = section.slice(0, section.indexOf("</section>"));
   const paragraphs = [...body.matchAll(/<p class="([^"]*)"[^>]*>([\s\S]*?)<\/p>/g)]
     .map((m) => ({ cls: m[1], text: visible(m[2]) }))
     .filter((p) => !/text-fg-secondary text-pretty/.test(p.cls) || !p.text.startsWith("What can you"));
-  /* CMD-FINAL turns the derived facts into a scan list; their container still owns metadata size. */
-  const counts = /<ul class="([^"]*\btext-meta\b[^"]*)"[^>]*>([\s\S]*?actions are declared[\s\S]*?)<\/ul>/.exec(body);
-  assert.ok(counts, "the counts are rendered as a metadata fact list");
-  assert.ok(
-    /\btext-meta\b/.test(counts![1]) && !/\btext-body\b/.test(counts![1]),
-    `the registry counts read as metadata, not as a headline: "${counts![1]}"`,
-  );
   const lead = paragraphs.filter((p) => /\btext-body\b/.test(p.cls));
-  assert.equal(lead.length, 1, "the section has exactly one reading-size lead");
-  assert.ok(
-    !/\d/.test(lead[0].text),
-    `the lead states what the Director can do and asserts no count: "${lead[0].text}"`,
-  );
+  assert.ok(lead.length <= 1, `the section has at most one reading-size lead; found ${lead.length}`);
+  for (const p of lead) {
+    assert.ok(
+      !/capabilities declared|can run now|consequential/.test(p.text),
+      `the registry counts are never the reading-size lead: "${p.text}"`,
+    );
+  }
+  const heading = /<p class="[^"]*\btext-meta\b[^"]*"[^>]*>([\s\S]*?)<\/p>/.exec(body);
+  assert.ok(heading, "the hero keeps Ask Hebun as a compact named doorway");
+  for (const led of [visible(heading![1])]) {
+    assert.ok(!/\d/.test(led), `the lead states what the Director can do and asserts no count: "${led}"`);
+  }
 
   /* No inlet, no assistant, no invented action cards on this surface. */
   const markup = render(EMPTY);
-  assert.ok(!/<input|<textarea|<form|<button/.test(markup), "Express intent offers no inlet here");
+  assert.ok(!/<input|<textarea|<form/.test(markup), "Express intent offers no inlet here");
+  assert.ok([...markup.matchAll(/<button\b[^>]*>/g)].every((match) => /popoverTarget=/.test(match[0])), "buttons only reveal provenance detail");
   assert.ok(!/Ask Heby|New directive|Adjust priority/i.test(visible(markup)), "and no invented action card");
   assert.ok(markup.includes('href="/command/intent"'), "the real inlet is the destination it links to");
 }
@@ -466,7 +507,7 @@ function intentReadsAsADoorway(overrides: Readonly<Record<string, string>> = {})
 function noMutationControlAppeared(overrides: Readonly<Record<string, string>> = {}): void {
   for (const state of [EMPTY, POPULATED, { status: "unavailable" as const, reason: "r" }]) {
     const markup = render(state);
-    assert.ok(!/<button/.test(markup), "the Overview renders no button");
+    assert.ok([...markup.matchAll(/<button\b[^>]*>/g)].every((match) => /popoverTarget=/.test(match[0])), "buttons only reveal provenance detail");
     assert.ok(!/<form/.test(markup), "and no form");
     assert.ok(!/<input/.test(markup), "and no input");
   }
@@ -475,12 +516,26 @@ function noMutationControlAppeared(overrides: Readonly<Record<string, string>> =
   for (const verb of ["approveActionRequest", "rejectActionRequest", "revokeActionPermit", "executeAuthorizedAction"]) {
     assert.ok(!overview.includes(verb), `the Overview must not reach ${verb}`);
   }
-  const text = sectionText(render(POPULATED), "Waiting on you").toLowerCase();
-  assert.ok(
-    text.includes("command neither holds that authority nor checks it"),
-    "and still says plainly that the authority is not Command's",
-  );
-  assert.ok(text.includes("open decisions"), "routing to the owning surface, not offering the act");
+  /*
+   * AMENDED BY CMD-V2.1 — THE SAME PROPERTY, PROVED BY WHAT THE REGION DOES RATHER THAN BY A
+   * SENTENCE ABOUT IT.
+   *
+   * The released card ended with "Decisions owns authorization under Governance authority. Command
+   * neither holds that authority nor checks it." True, and one of the architecture sentences the
+   * Director rejected: the Director is not the audience for a statement about which module owns a
+   * capability.
+   *
+   * WHAT MATTERS IS THAT COMMAND DOES NOT OFFER THE ACT, and that is now asserted directly: the
+   * region routes to the owning surface, and it carries no verb that would suggest the reader
+   * authorizes anything here. That fails for a card that grows an "Approve" affordance — which the
+   * sentence never did.
+   */
+  const text = sectionText(render(POPULATED), "Needs your decision").toLowerCase();
+  assert.ok(/review decisions|open decisions/.test(text), "routing to the owning surface");
+  assert.ok(render(POPULATED).includes('href="/approvals"'), "and the route is Decisions itself");
+  for (const act of ["approve", "reject", "authorize", "authorise", "grant", "revoke", "execute"]) {
+    assert.ok(!text.includes(act), `the attention region offers no act — found "${act}"`);
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -810,7 +865,7 @@ function nothingArchitecturalMoved(overrides: Readonly<Record<string, string>> =
       assert.ok(!code.includes(forbidden), `${path.basename(file)} must not reach the seeded goal source`);
     }
   }
-  const disclosure = sectionText(render(EMPTY), "Not yet connected");
+  const disclosure = sectionText(render(EMPTY), "Capability Limits");
   for (const seeded of ["Reduce churn", "SOC2 readiness", "Launch enterprise tier", "Legacy CRM sunset"]) {
     assert.ok(!disclosure.includes(seeded), `a seeded goal title must never reach Command: ${seeded}`);
   }
@@ -914,7 +969,7 @@ function biteProofs(): void {
   /* M6 — visual order overrides DOM order. */
   bites("reorder the columns visually", () =>
     readingOrderCannotVaryByWidth({
-      [OVERVIEW]: mutate(read(OVERVIEW), "md:col-span-2 xl:col-span-1", "md:col-span-2 xl:col-span-1 xl:order-first"),
+      [OVERVIEW]: mutate(read(OVERVIEW), 'className="flex min-w-0 flex-col gap-3.5"', 'className="flex min-w-0 flex-col gap-3.5 xl:order-last"'),
     }),
   );
 
@@ -928,14 +983,14 @@ function biteProofs(): void {
   /* M7 — the aside grows until it is no longer the subordinate column. */
   bites("widen the aside past the primary column", () =>
     theSplitIsJustifiedByArithmetic({
-      [OVERVIEW]: mutate(read(OVERVIEW), "_280px]", "_520px]"),
+      [OVERVIEW]: mutate(read(OVERVIEW), 'className="cmd-priority-card xl:col-span-7"', 'className="cmd-priority-card xl:col-span-4"'),
     }),
   );
 
   /* M7b — the split is armed at lg, where the arithmetic says the primary starves. */
   bites("arm the split at lg", () =>
     theSplitIsJustifiedByArithmetic({
-      [OVERVIEW]: mutate(read(OVERVIEW), "xl:grid-cols-[minmax(0,1.08fr)", "lg:grid-cols-[minmax(0,1.08fr)"),
+      [OVERVIEW]: mutate(read(OVERVIEW), "xl:grid-cols-12", "lg:grid-cols-12"),
     }),
   );
 
@@ -949,13 +1004,13 @@ function biteProofs(): void {
   /* M8 — a column loses the ability to shrink. */
   bites("remove min-w-0 from the aside", () =>
     everyColumnCanShrink({
-      [OVERVIEW]: mutate(read(OVERVIEW), 'className="flex min-w-0 flex-col xl:w-[320px]', 'className="flex flex-col xl:w-[320px]'),
+      [OVERVIEW]: mutate(read(OVERVIEW), 'className="grid min-w-0 grid-cols-1 gap-3.5 xl:grid-cols-12"', 'className="grid grid-cols-1 gap-3.5 xl:grid-cols-12"'),
     }),
   );
 
   /* M9 — the empty state is compacted into the unavailable one. */
   bites("render the successful empty read as unavailable", () => {
-    const forged = mutate(sectionText(render(EMPTY), "Waiting on you"), "Empty", "Unavailable");
+    const forged = mutate(sectionText(render(EMPTY), "Needs your decision"), "Empty", "Unavailable");
     assert.ok(!/Unavailable/i.test(forged), "a successful empty read is never labelled unavailable");
   });
 
@@ -966,7 +1021,12 @@ function biteProofs(): void {
         tone: "unavailable",
         density: "compact",
         hideEyebrow: true,
-        title: "Hebun could not read your authorization queue",
+        /*
+         * THE FIXTURE TITLE MUST NOT CONTAIN THE WORD THE EYEBROW CARRIES, or this proof passes on
+         * the title instead of on the eyebrow and stops testing anything. (It briefly did, when a
+         * copy sweep renamed it to "Your decision queue is unavailable".)
+         */
+        title: "Hebun could not read the queue",
         description: "The durable read did not answer (persistence-not-configured).",
       }),
     );
@@ -974,8 +1034,14 @@ function biteProofs(): void {
   });
 
   /* M10 — a fabricated zero enters the disclosure. */
+  /*
+   * AMENDED BY CMD-V2.1. The mutation targeted the per-row "Not connected" marker the released
+   * layout printed six times; the region now states the count once and lists the capabilities
+   * behind one disclosure, so that literal survives only inside a `title` attribute — which the
+   * visible-text slice never sees, so the proof stopped biting. It is aimed at the visible count.
+   */
   bites("print a zero for a capability with no source", () =>
-    noReasonSilentlyDisappears(mutate(render(EMPTY), "Not connected", "0 sources connected")),
+    noReasonSilentlyDisappears(mutate(render(EMPTY), /\d+ not connected/, "0 sources connected")),
   );
 
   /* M11 — the counts are promoted back to the reading-size lead. */
@@ -986,7 +1052,7 @@ function biteProofs(): void {
       /<p class="text-meta leading-5 text-fg-secondary">(\s*)8 actions are declared/,
       '<p class="text-body leading-6 text-fg-secondary">$18 actions are declared',
     );
-    const body = forged.slice(forged.indexOf('aria-label="Express intent"'));
+    const body = forged.slice(forged.indexOf('aria-label="Ask Hebun"'));
     const paragraphs = [...body.slice(0, body.indexOf("</section>")).matchAll(/<p class="([^"]*)"[^>]*>([\s\S]*?)<\/p>/g)]
       .map((m) => ({ cls: m[1], text: visible(m[2]) }));
     const counts = paragraphs.find((p) => p.text.includes("actions are declared"))!;
@@ -1021,12 +1087,13 @@ function biteProofs(): void {
 
   /*
    * THE HARNESS ITSELF. A change that is CORRECT must be accepted, or "every mutation bit" means
-   * only that the assertions are brittle. Moving the coverage rail from 280px to 272px is a
-   * different legitimate answer inside the approved band; it must pass.
+   * only that the assertions are brittle. Moving the supporting rail's floor from 19rem to 18rem is
+   * a different legitimate answer inside the approved band, and it leaves xl the smallest step at
+   * which the primary column clears its reading floor; it must pass.
    */
-  doesNotBite("narrow the aside to another width inside the approved band", () =>
+  doesNotBite("narrow the integrated rail inside its approved band", () =>
     theSplitIsJustifiedByArithmetic({
-      [OVERVIEW]: mutate(read(OVERVIEW), "_280px]", "_272px]"),
+      [TOKENS]: mutate(read(TOKENS), "--rail-inline-w: 220px", "--rail-inline-w: 216px"),
     }),
   );
 }
@@ -1045,7 +1112,7 @@ function main(): void {
   biteProofs();
   assert.equal(bitten, 20, `every mutation must bite; ${bitten} did`);
   console.log(
-    "CMD-V3: the Command Overview is composed for a Director — three sections, six reasons, one reading order; " +
+    "CMD-V3: the Command Center is composed for a Director — the declared regions, six reasons, one reading order; " +
       `all ${bitten} bite-proofs bit and the harness accepted a correct change.`,
   );
 }

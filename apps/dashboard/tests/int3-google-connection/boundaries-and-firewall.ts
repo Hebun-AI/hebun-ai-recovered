@@ -545,18 +545,39 @@ function main(): void {
 
   /* ── 9. COMMAND AND KNOWLEDGE ARE STILL NOT CONNECTION OWNERS ────────────── */
   {
+    /*
+     * ── AMENDED BY CMD-V2, AND STILL A BAN ON OWNERSHIP ──────────────────────
+     *
+     * The heading is the property: Command and Knowledge are not connection OWNERS. As written the
+     * check enforced it by banning the STRING `integration-authority` anywhere in either surface,
+     * which also banned reading the authority's answer — a stricter rule than the one the heading
+     * states, and the one CMD-V2 has a reason to change.
+     *
+     * The Command Center now says which providers this organization has connected, and the only
+     * honest source for that is the connection register itself. What it must still never do is own
+     * a connection: no provider module, no credential module, no encryption, no writer, and no
+     * provider-specific vocabulary that would let it draw a tile the register does not justify.
+     *
+     * So the ban keeps every clause it had, and admits exactly the writer-free read seam by name.
+     * `provider-google` and `integration-credentials` remain forbidden outright — the second is the
+     * credential authority, and no surface has any business naming it.
+     */
+    const READ_SEAM = /"@\/features\/integration-authority\/(contracts|integration-read\.server)"/;
     const foreign = collect("src/features/command-overview")
       .concat(collect("src/features/knowledge"))
       .concat(collect("src/components/command-overview"))
       .filter((f) => {
         const code = codeOf(read(f));
+        const rawSpecifiers = [...read(f).matchAll(/from\s+("[^"]*integration-authority[^"]*")/g)].map((m) => m[1]);
+        const reachesOnlyTheReadSeam =
+          rawSpecifiers.length > 0 && rawSpecifiers.every((spec) => READ_SEAM.test(spec));
         return (
           code.includes("provider-google") ||
-          code.includes("integration-authority") ||
-          code.includes("integration-credentials")
+          code.includes("integration-credentials") ||
+          (code.includes("integration-authority") && !reachesOnlyTheReadSeam)
         );
       });
-    assert.deepEqual(foreign, [], "Command and Knowledge must not read the connection subsystem");
+    assert.deepEqual(foreign, [], "Command and Knowledge must not own or write a connection");
 
     /*
      * ── PIN AMENDED BY INT-3.1 ──────────────────────────────────────────────

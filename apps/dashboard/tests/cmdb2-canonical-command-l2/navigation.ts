@@ -44,6 +44,7 @@ import {
 } from "../../src/config/workspace-nav";
 import { SecondaryNavContent } from "../../src/components/layout/secondary-nav";
 import { CommandOverview } from "../../src/components/command-overview/command-overview";
+import { commandProps } from "../helpers/command-composition";
 import { getExpressIntentSummary } from "../../src/features/command-overview/workspace-model";
 import { getHebyWorkspaceProfile } from "../../src/features/heby-integration/workspace-registry";
 
@@ -486,21 +487,21 @@ function navigationOnly(): void {
 function cmdb1AndHebyUntouched(): void {
   /* 19 · the CMD-B1 Overview still renders exactly its three sections, unchanged. */
   const overview = renderToStaticMarkup(
-    createElement(CommandOverview, {
-      waiting: { status: "none-waiting" as const },
-      intent: getExpressIntentSummary(),
-    }),
+    createElement(
+      CommandOverview,
+      commandProps({ waiting: { status: "none-waiting" as const }, intent: getExpressIntentSummary() }),
+    ),
   );
   const sectionIds = [...overview.matchAll(/id="([^"]+)"/g)].map((m) => m[1]);
   for (const id of ["waiting", "intent", "not-connected"]) {
     assert.ok(sectionIds.includes(id), `CMD-B1 section "${id}" still renders`);
   }
   const shown = visible(overview);
-  for (const title of ["Waiting on you", "Express intent", "Not yet connected"]) {
+  for (const title of ["Needs your decision", "Ask Hebun", "More intelligence"]) {
     assert.ok(shown.includes(title), `CMD-B1 section "${title}" is unchanged`);
   }
   assert.ok(
-    shown.includes("Nothing currently requires your decision"),
+    shown.includes("Nothing needs your decision"),
     "successful-empty still reads as answered, not unavailable",
   );
   const commandPage = codeOf(read(`${APP}/command/page.tsx`));

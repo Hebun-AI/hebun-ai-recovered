@@ -31,8 +31,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { CommandOverview } from "../../src/components/command-overview/command-overview";
+import { commandProps } from "../helpers/command-composition";
 import type { PendingActionRequestView } from "../../src/features/action-authorization/read-action-authorizations.server";
 import {
+  COMMAND_REGIONS,
+  COMMAND_REGION_IDS,
+  COMMAND_REGION_PROVENANCE,
   PENDING_READ_BOUND,
   UNCONNECTED_CAPABILITIES,
   getExpressIntentSummary,
@@ -202,7 +206,7 @@ const SEAM_ROW: PendingActionRequestView = Object.freeze({
 });
 
 function renderOverview(waiting: WaitingOnYouState): string {
-  return renderToStaticMarkup(createElement(CommandOverview, { waiting, intent: INTENT }));
+  return renderToStaticMarkup(createElement(CommandOverview, commandProps({ waiting, intent: INTENT })));
 }
 
 /**
@@ -223,7 +227,7 @@ function sectionText(markup: string, label: string): string {
   return visible(rest.slice(0, end === -1 ? undefined : end));
 }
 
-const WAITING = "Waiting on you";
+const WAITING = "Needs your decision";
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * 6 + 7 + 8 + 27. THE THREE READ STATES ARE THREE DIFFERENT RENDERINGS
@@ -237,7 +241,7 @@ function theThreeStatesAreDistinct(): void {
   assert.notEqual(empty, waiting, "an empty queue is not the same rendering as a populated one");
 
   const emptyText = sectionText(empty, WAITING);
-  assert.ok(emptyText.includes("Nothing currently requires your decision"), "the empty state says nothing requires a decision");
+  assert.ok(emptyText.includes("Nothing needs your decision"), "the empty state says nothing requires a decision");
   assert.ok(!/Unavailable/i.test(emptyText), "and is never labelled unavailable");
 
   const unavailableText = sectionText(unavailable, WAITING);
@@ -254,7 +258,7 @@ function theThreeStatesAreDistinct(): void {
   /* THE FABRICATED ZERO, GUARDED WHERE IT WOULD APPEAR. */
   assert.ok(!/\b0\b/.test(unavailableText), `an unanswered read renders no count at all: ${unavailableText}`);
   assert.ok(!/\bshown\b/.test(unavailableText), "and no 'shown' badge");
-  assert.ok(!/\b0\b/.test(emptyText), "a successful empty read renders no zero either — it says the words");
+  assert.ok(/\b0 waiting\b/.test(emptyText), "a successful authoritative read may render its measured zero");
 
   /* 27. What the seam returned is what is rendered. */
   const waitingText = sectionText(waiting, WAITING);
@@ -297,7 +301,7 @@ function lifecycleStagesAreNotMerged(overrides: Readonly<Record<string, string>>
   assert.ok(!/permit/i.test(waitingText), "the waiting section never mentions a permit beside a request");
 
   /* The five states are named where the reader meets them, and in order. */
-  const intentText = sectionText(renderOverview({ status: "none-waiting" }), "Express intent");
+  const intentText = sectionText(renderOverview({ status: "none-waiting" }), "Ask Hebun");
   for (const claim of [
     "Declared is not invokable",
     "Invokable is not authorized",
@@ -309,36 +313,90 @@ function lifecycleStagesAreNotMerged(overrides: Readonly<Record<string, string>>
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * 14 + 13 + 24. THREE SECTIONS, EACH WITH PROVENANCE, ONE PAGE IDENTITY
+ * 14 + 13 + 24. THE DECLARED COMPOSITION, EACH REGION WITH THE CLAIM IT DECLARES
+ *
+ * ── WHAT THIS REPLACED, AND WHY IT IS STRICTER RATHER THAN LOOSER ────────────
+ *
+ * As released this asserted a COUNT: exactly three `<section>` elements, three aria-labels in one
+ * order, three provenance chips in one order. CMD-V2 retires that pin by Director decision, and the
+ * reason is recorded where the replacement lives (`COMMAND_REGIONS` in `workspace-model.ts`): the
+ * landing already rendered five regions from three files, because LMX-1 and CMD-W had to compose
+ * themselves as SIBLINGS on the route to get past a count that could not admit them. A contract
+ * that describes one third of the page a Director meets is not protecting the other two thirds.
+ *
+ * The count becomes a REGISTRY, and the registry admits strictly LESS than the count did:
+ *
+ *   - the old pin passed any composition totalling three sections. This one names them, so an
+ *     UNDECLARED region fails even when the total is unchanged, and a swap fails that a count
+ *     tolerates — the same weakness AGENT-ID-0.1 recorded when it replaced a count of nine
+ *     `"use server"` modules with a named set.
+ *   - a declared region that stops rendering fails.
+ *   - a region rendering out of declared order fails.
+ *   - a region whose chip states a different KIND of claim than it declares fails.
+ *   - a region declaring a provenance and rendering no chip fails (the released property).
+ *   - a region declaring NO provenance and rendering one fails (a NEW property: the executive band
+ *     is decorative, and a chip over a decorative surface asserts it is evidence).
+ *
+ * THE THREE SEMANTIC ROLES ARE UNTOUCHED. `waiting`, `intent` and `not-connected` keep their ids,
+ * their questions, their sources and their provenance kinds. Their visible labels moved to the
+ * product's executive vocabulary — Needs your decision, Ask Hebun, Capability limits — and CMD-B2's
+ * own assertion that all three still render is unchanged in substance.
  * ────────────────────────────────────────────────────────────────────────── */
-function threeSectionsEachWithProvenance(
+function declaredRegionsEachWithProvenance(
   overrides: Readonly<Record<string, string>> = {},
   markupOverride?: string,
 ): void {
   const markup = markupOverride ?? renderOverview({ status: "none-waiting" });
-  const sections = markup.match(/<section\b/g) ?? [];
-  assert.equal(sections.length, 3, "the canonical Overview has exactly three sections");
 
-  const labels = [...markup.matchAll(/aria-label="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(labels, ["Waiting on you", "Express intent", "Not yet connected"], "in the canonical order");
-
-  const chips = markup.match(/data-provenance="([^"]+)"/g) ?? [];
-  assert.equal(chips.length, 3, "every section carries exactly one provenance chip");
+  const sections = [...markup.matchAll(/<section[^>]*\bid="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(
-    [...markup.matchAll(/data-provenance="([^"]+)"/g)].map((m) => m[1]),
-    ["authoritative", "derived", "not-connected"],
-    "and each states the kind of claim it actually is",
+    sections,
+    [...COMMAND_REGION_IDS],
+    "the Command Center renders exactly the declared regions, in the declared reading order",
   );
 
-  /* 24. The shell owns workspace identity (VI-1). The Overview adds no heading of its own. */
+  const labels = [...markup.matchAll(/aria-label="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(
+    labels,
+    COMMAND_REGIONS.map((region) => region.label),
+    "and each carries the label it is declared with",
+  );
+
+  const chips = [...markup.matchAll(/data-provenance="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(
+    chips,
+    [...COMMAND_REGION_PROVENANCE],
+    "every chip states the kind of claim its region declares — and a region declaring none renders no chip",
+  );
+
+  /*
+   * THE CHIP IS INSIDE THE REGION THAT DECLARED IT. Comparing two flat sequences would pass if the
+   * chips were correct in aggregate and attached to the wrong regions, so each declared region's
+   * own markup is sliced and checked.
+   */
+  for (const region of COMMAND_REGIONS) {
+    const at = markup.indexOf(`id="${region.id}"`);
+    assert.ok(at > 0, `the "${region.id}" region is rendered`);
+    const open = markup.lastIndexOf("<section", at);
+    const body = markup.slice(open, open + markup.slice(open).indexOf("</section>"));
+    const own = [...body.matchAll(/data-provenance="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(
+      own,
+      region.provenance ? [region.provenance] : [],
+      `the "${region.id}" region renders exactly the provenance it declares`,
+    );
+  }
+
+  /* V3. The shallow organization context owns the page identity; the retired PageHeader does not. */
   const overview = codeOf(overrides[OVERVIEW] ?? read(OVERVIEW));
-  assert.ok(!/<h1[\s>]/.test(overview), "the Overview renders no h1 — the page header is the one identity");
-  assert.ok(!markup.includes("<h1"), "and none reaches the markup");
+  assert.equal((markup.match(/<h1\b/g) ?? []).length, 1, "the composition renders one organization identity");
+  assert.ok(!/<h1[\s>]/.test(overview), "the composition wrapper does not declare a competing identity");
+  assert.ok(/<h1[\s>]/.test(read("src/components/command-overview/executive-presentation-client.tsx")), "the context presentation declares that identity");
   const page = codeOf(overrides[PAGE] ?? read(PAGE));
   assert.equal(
     (page.match(/<PageHeader/g) ?? []).length,
-    1,
-    "the route states the workspace identity exactly once",
+    0,
+    "the route does not duplicate the V3 organization context with a PageHeader",
   );
 }
 
@@ -384,6 +442,25 @@ function commandHoldsNoAuthority(overrides: Readonly<Record<string, string>> = {
    * navigating to Operations first. The PROPERTY is unchanged and is what this assertion is for.
    * Every entry is a read owned by another subsystem, and the forbidden-token sweep above still
    * proves none of them brought a writer, a handle or an authority resolver with it.
+   *
+   * CMD-V2 GREW IT TO SEVEN, AND THE SEVENTH IS THE NARROWEST ENTRY ON THE LIST.
+   * `listConnections` is the integration authority's read seam — the half INT-5A split out of the
+   * module that can `createConnection`, `disconnectConnection` and attach a credential, precisely
+   * so a consumer holds no reference to a writer. It is admitted for one reason: the Command Center
+   * now states which providers are CONNECTED, and the connection register is the only thing in this
+   * repository that records that. The alternatives all lie — a catalog entry proves the product
+   * knows a provider, a credential proves bytes were stored, and a capability descriptor proves
+   * somebody declared an intention.
+   *
+   *     CATALOG != CONNECTION      CREDENTIAL != CONNECTED      CONNECTED != CAPABILITY AVAILABLE
+   *
+   * VISUAL REFINEMENT adds Identity's existing name-only projection. It reads the already
+   * authenticated human's chosen display name, never their address, and remains tenant-gated and
+   * writer-free. The greeting treats absence as absence and invents no name.
+   *
+   * The list stays ENUMERATED rather than pattern-matched, so a ninth import fails here instead
+   * of arriving silently — and the forbidden-token sweep above still proves this one brought no
+   * writer with it.
    */
   const page = codeOf(overrides[PAGE] ?? read(PAGE));
   const serverImports = [...page.matchAll(/from\s+"([^"]*\.server)"/g)].map((m) => m[1]).sort();
@@ -392,8 +469,10 @@ function commandHoldsNoAuthority(overrides: Readonly<Record<string, string>> = {
     [
       "@/features/action-authorization/awaiting-decision-aggregate.server",
       "@/features/action-authorization/read-action-authorizations.server",
+      "@/features/auth-runtime/human-label-read.server",
       "@/features/auth-runtime/request-session.server",
       "@/features/governance-activity/security-observation-source.server",
+      "@/features/integration-authority/integration-read.server",
       "@/features/live-map/read-live-map.server",
       "@/features/organizational-work/read-work.server",
     ],
@@ -462,7 +541,7 @@ function tenantResolvedOnceAtTheRoute(overrides: Readonly<Record<string, string>
  * ────────────────────────────────────────────────────────────────────────── */
 function boundedResultIsNotATotal(overrides: Readonly<Record<string, string>> = {}): void {
   const overview = codeOf(overrides[OVERVIEW] ?? read(OVERVIEW));
-  assert.ok(/\{state\.items\.length\} shown/.test(overview), "the badge says what it shows");
+  assert.ok(/\{shown\.length\} shown/.test(overview), "the badge says what the compact V3 ledger shows");
   for (const word of ["total", "in total", "pending decisions in your organization", "organization has"]) {
     assert.ok(
       !overview.toLowerCase().includes(word),
@@ -472,11 +551,21 @@ function boundedResultIsNotATotal(overrides: Readonly<Record<string, string>> = 
 
   const many = Array.from({ length: PENDING_READ_BOUND }, (_, i) => ({ ...ITEM, requestId: `req-${i}` }));
   const full = sectionText(renderOverview({ status: "waiting", items: many, boundReached: true, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null, }), WAITING);
-  assert.ok(full.includes(`${PENDING_READ_BOUND} shown`), "a full read still says shown");
+  assert.ok(full.includes("3 shown"), "the compact priority ledger says how many rows it shows");
+  /*
+   * AMENDED BY CMD-V2.1 — THE SAME DISCLOSURE, IN THE DIRECTOR'S LANGUAGE.
+   *
+   * The released sentence was "This read is bounded at 50 and came back full, so there may be more
+   * than is shown here." It says the cap twice and names the mechanism; a Director needs the FACT,
+   * which is that more are waiting than the page is showing. The bound is still stated, still
+   * computed from `PENDING_READ_BOUND`, and still appears only when the read actually came back
+   * full — which is the whole property.
+   */
   assert.ok(
-    full.includes(`bounded at ${PENDING_READ_BOUND}`),
+    full.includes(`most recent ${PENDING_READ_BOUND}`),
     "and says so when the read came back full — what is shown may not be everything",
   );
+  assert.ok(/more are waiting/i.test(full), "and says plainly that more are waiting");
 
   const partial = sectionText(renderOverview({ status: "waiting", items: [ITEM], boundReached: false, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null, }), WAITING);
   assert.ok(!partial.includes("bounded at"), "a partial read makes no bound claim it does not need");
@@ -497,15 +586,23 @@ function readingIsNotActing(overrides: Readonly<Record<string, string>> = {}): v
   ]) {
     assert.ok(!text.includes(claim), `the Overview must not imply "${claim}"`);
   }
-  assert.ok(
-    text.includes("command neither holds that authority nor checks it"),
-    "and says plainly that the authority is not Command's",
-  );
-  assert.ok(text.includes("open decisions"), "routing to the owning surface, not offering the act");
+  /*
+   * AMENDED BY CMD-V2.1 — PROVED BY WHAT THE REGION DOES, NOT BY A SENTENCE ABOUT MODULES.
+   *
+   * The released card closed with "Decisions owns authorization under Governance authority. Command
+   * neither holds that authority nor checks it." The Director rejected that class of sentence on the
+   * executive surface, and the property it was standing in for is stronger when asserted directly:
+   * the region names no act, offers no control, and routes to the surface that owns the decision.
+   */
+  for (const act of ["approve", "reject", "authorize", "authorise", "grant", "revoke", "execute"]) {
+    assert.ok(!text.includes(act), `the attention region must not offer the act "${act}"`);
+  }
+  assert.ok(/review decisions|open decisions/.test(text), "routing to the owning surface, not offering the act");
 
   /* No control that could mutate anything is rendered. */
   const markup = renderOverview({ status: "waiting", items: [ITEM], boundReached: false, /* E2-4: no aggregate supplied in this fixture. */ awaitingCount: null, oldestWaiting: null, });
-  assert.ok(!/<button/.test(markup), "the Overview renders no button");
+  const buttons = [...markup.matchAll(/<button\b[^>]*>/g)].map((match) => match[0]);
+  assert.ok(buttons.length > 0 && buttons.every((button) => /popoverTarget=/.test(button)), "every button only opens provenance detail");
   assert.ok(!/<form/.test(markup), "and no form");
   const overview = codeOf(overrides[OVERVIEW] ?? read(OVERVIEW));
   assert.ok(!/onClick|onSubmit|useTransition/.test(overview), "and no client-side action handler");
@@ -521,7 +618,7 @@ function seededGoalsNeverSurface(overrides: Readonly<Record<string, string>> = {
       assert.ok(!code.includes(forbidden), `${path.basename(file)} must not reach the seeded goal source`);
     }
   }
-  const text = sectionText(renderOverview({ status: "none-waiting" }), "Not yet connected");
+  const text = sectionText(renderOverview({ status: "none-waiting" }), "Capability Limits");
   for (const seeded of ["Reduce churn", "SOC2 readiness", "Launch enterprise tier", "Legacy CRM sunset"]) {
     assert.ok(!text.includes(seeded), `a seeded goal title must never reach Command: ${seeded}`);
   }
@@ -538,7 +635,7 @@ function theDisclosureIsHonest(): void {
   assert.equal(UNCONNECTED_CAPABILITIES.length, 6, "six capabilities are disclosed");
   const reasons = UNCONNECTED_CAPABILITIES.map((r) => r.reason);
   assert.equal(new Set(reasons).size, 6, "each states its own reason — not one grey sentence six times");
-  const text = sectionText(renderOverview({ status: "none-waiting" }), "Not yet connected");
+  const text = sectionText(renderOverview({ status: "none-waiting" }), "Capability Limits");
   for (const row of UNCONNECTED_CAPABILITIES) {
     assert.ok(text.includes(row.capability), `${row.capability} is disclosed`);
   }
@@ -755,16 +852,47 @@ function biteProofs(): void {
   bites("drop the provenance from a canonical section", () => {
     const markup = renderOverview({ status: "none-waiting" });
     const forged = mutate(markup, /data-provenance="derived"/, 'data-nothing="derived"');
-    threeSectionsEachWithProvenance({}, forged);
+    declaredRegionsEachWithProvenance({}, forged);
+  });
+
+  /*
+   * M9b/M9c/M9d — THE THREE PROPERTIES THE OLD COUNT COULD NOT DEFEND.
+   *
+   * A count of three passed any composition totalling three. These are the mutations it tolerated
+   * and the registry does not: a region that was never declared, a declared region that stops
+   * rendering, and a chip on the one region that declares it asserts nothing.
+   */
+  bites("add an undeclared region to the composition", () => {
+    const forged = mutate(
+      renderOverview({ status: "none-waiting" }),
+      "</div></div>",
+      '</div><section id="kpi" aria-label="At a glance"></section></div>',
+    );
+    declaredRegionsEachWithProvenance({}, forged);
+  });
+  bites("drop a declared region from the composition", () => {
+    const markup = renderOverview({ status: "none-waiting" });
+    const at = markup.indexOf('id="recorded-activity"');
+    const open = markup.lastIndexOf("<section", at);
+    const close = markup.indexOf("</section>", at) + "</section>".length;
+    declaredRegionsEachWithProvenance({}, markup.slice(0, open) + markup.slice(close));
+  });
+  bites("add a second provenance claim to the organization context", () => {
+    const forged = mutate(
+      renderOverview({ status: "none-waiting" }),
+      'aria-label="Organization context"',
+      'aria-label="Organization context" data-provenance="authoritative"',
+    );
+    declaredRegionsEachWithProvenance({}, forged);
   });
 
   /* M15 — a second workspace identity, proved the same way and additionally at source. */
   bites("add a second workspace identity to the Overview", () => {
     const forged = mutate(renderOverview({ status: "none-waiting" }), /<div/, "<h1>Command</h1><div");
-    threeSectionsEachWithProvenance({}, forged);
+    declaredRegionsEachWithProvenance({}, forged);
   });
   bites("declare a second identity in the Overview source", () =>
-    threeSectionsEachWithProvenance({
+    declaredRegionsEachWithProvenance({
       [OVERVIEW]: mutate(read(OVERVIEW), "export function CommandOverview", "export function Second() { return <h1>Command</h1>; }\nexport function CommandOverview"),
     }),
   );
@@ -813,7 +941,7 @@ function biteProofs(): void {
 function main(): void {
   theThreeStatesAreDistinct();
   lifecycleStagesAreNotMerged();
-  threeSectionsEachWithProvenance();
+  declaredRegionsEachWithProvenance();
   commandHoldsNoAuthority();
   tenantResolvedOnceAtTheRoute();
   boundedResultIsNotATotal();

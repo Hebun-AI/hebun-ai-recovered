@@ -7,6 +7,7 @@ import { resolveShellSurface, workspacesForRole } from "@/config/workspace-nav";
 import { useRole } from "./role-context";
 import { HebyLauncher } from "./heby/heby-launcher";
 import { SecondaryNavContent } from "./secondary-nav";
+import { Sparkles } from "lucide-react";
 
 /*
  * Level-1 primary rail: the seven product workspaces + the ambient Heby launcher. At tablet and
@@ -40,10 +41,14 @@ export function WorkspaceRail() {
       <Link
         href="/command"
         aria-label="Hebun AI — Command"
-        className="flex h-(--topbar-h) w-full shrink-0 items-center justify-center border-b border-border/70"
+        className="flex h-(--topbar-h) w-full shrink-0 items-center gap-2.5 border-b border-border/70 px-4"
       >
-        <span className="flex size-9 items-center justify-center rounded-lg bg-(image:--gradient-primary) text-sm font-bold text-on-primary">
-          H
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-(image:--gradient-primary) text-on-primary">
+          <Sparkles className="size-5" aria-hidden="true" />
+        </span>
+        <span data-rail-label="" className="min-w-0 text-left leading-snug">
+          <span className="block text-sm font-semibold leading-4 text-fg">Hebun AI</span>
+          <span className="mt-0.5 block text-xs leading-3 text-fg-muted">Your Organization’s Intelligence OS</span>
         </span>
       </Link>
 
