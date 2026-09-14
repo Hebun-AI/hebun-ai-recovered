@@ -4060,3 +4060,142 @@ MORE HISTORY          != MORE INTERESTING HISTORY (YouTube's four points are all
 
 **This section takes no program decision and authorizes no implementation.** It records a direction,
 a measured baseline, and one navigation recommendation awaiting Director approval.
+
+---
+
+### GOVERNED INTERNAL ACTION is a PROGRAM now, and the roadmap had not noticed
+
+**This section repairs a continuity gap, and says so plainly.** Three capabilities were released and
+production-verified while this document's last edit stood at `8ba77b1` (IG-AN3). None of them appears
+anywhere above. A roadmap that records only the work it happened to be present for is not a
+navigation authority, so they are recorded here as measured facts rather than folded silently into a
+future plan.
+
+| | commit | state |
+|---|---|---|
+| **GIA-1** `record-work` | release `93c6384` · closure `a596ab2` | **RELEASED · PRODUCTION-ACCEPTED** |
+| **GIA-2** `place-human-in-department` | `2de878c1` | **RELEASED · PRODUCTION-AVAILABLE · NOT PRODUCTION-EXECUTED** |
+| **Command Landing** | `ef5f8f9e` | **RELEASED · PRODUCTION-VERIFIED · NO PRODUCTION MUTATION** |
+
+**GIA-2's production state is deliberately incomplete and must not be read as a gap.** The capability
+is deployed and wired; it has never run in production because no legitimate placement occasion
+exists, and no department, member or permit was manufactured to produce one. **AVAILABLE != EXECUTED**
+remains the honest line, and the acceptance stays deferred until the organization actually needs a
+human placed.
+
+What GIA-2 proved that GIA-1 could not is that the governed internal-act seam is a **reusable
+pattern** rather than a `record-work` special case. GIA-1's own contract had called `record-work`
+"the second, AND LAST, executable kind"; that sentence was accurate when written and is now false,
+and it was changed because a second domain earned it.
+
+### HEBY CONTROLLED AUTONOMY — DISCOVERED · NOT SELECTED · NOT IMPLEMENTED
+
+**No program is selected here and no implementation is authorized.** This records the outcome of a
+read-only architecture discovery, in the state §9's vocabulary allows for work that has been designed
+and not begun. Stated without room to misread: **NOT IMPLEMENTED · NOT DEPLOYED · NOT
+PRODUCTION-EXECUTED**, and no schema, migration, principal, switch or runtime line was written for
+it. Selecting it remains a separate Director decision under §18 rule 12's spirit, taken
+from measured reality — and this record is part of that reality without being that decision.
+
+**It has no existing phase identity.** The backlog's *Autonomous Enterprise Evolution* initiative is
+a Future Investigation into **composition** — how humans, agents and twins compose without one of
+them quietly becoming an authority — and it deliberately owns none of the parts. This work is a
+different question and must not be filed under it. No phase number is assigned here.
+
+**The objective, stated as narrowly as the architecture permits.** Not "let Heby act". The measured
+gap is **machine-triggered use of existing authorized execution** — and the distinction is the whole
+design, because the repository already has execution authority and does not need a second one.
+
+Measured from code, the chain is whole and only one link is human by construction:
+
+| link | owner | machine-reachable today |
+|---|---|---|
+| **A · proposal** | `heby-action-inlet` + `AgentProposer` (`agent-proposer.server.ts`) | **YES** — `proposed_by_actor_type` carries no `human` CHECK, on purpose, and TRH Heby has filed a real proposal |
+| **B · authorization** | Governance · `decide-action-request.server.ts` | **NO, AND NEVER** — enforced in the DATABASE by `heby_action_requests_human_approver_chk` and `action_permits_human_authorizer_chk` |
+| **C · execution trigger** | server actions under `/approvals` | **NO** — this is the gap |
+| **D · internal mutation** | `governed-internal-action/*` → the owning domain authority | **NO** — entry points take the branded human `TenantContext` |
+| **E · provider effect** | `action-execution` → `action-execution-live` (Resend) | **NO** — same, plus an armed kill switch |
+| **F · result** | `audit_log`; `action_execution_attempts` for external only | reads exist |
+
+**"Heby cannot execute" is the wrong sentence.** What blocks it is a TYPE, and that type is a
+deliberate released control: PRINCIPAL-FW-1 made `TenantContext` nominally human so a future machine
+principal would be structurally unable to reach the 87 call sites that stamp `actor_type = 'human'`.
+`consumeActionPermit`, `executeRecordWork`, `executePlaceHuman` and `executeAuthorizedAction` all take
+that branded type, and there is exactly ONE mint site for it: the human session runtime.
+
+**The machine principal already exists and is the right shape.** TRH-22/23/24's ephemeral
+`observation-principal.server.ts` is not a `TenantContext` and not a subtype of one, carries no
+credential, is minted per invocation from an ACTIVE authorization row, and — the load-bearing
+property — **takes no tenant parameter**. Its own design note already answers the question this work
+asks: *"how does a future trigger obtain trusted tenant identity"* — it does not supply one; it names
+an authorization, and the tenant is a property of that row. Today it may participate in exactly one
+released path, a provider READ. Nothing about mutation is in scope for it yet.
+
+**The autonomy ladder, and which rung is next.** These are RUNGS, deliberately not "L" numbers:
+**`L1`–`L4` already name the Era I milestones in §10** — Truth Foundation, Heby Core, Organization
+Authority, Live Map — and reusing those labels for autonomy levels inside the same document would
+make "L1" ambiguous in a navigation authority. The rungs are described here, not adopted as
+vocabulary, and nothing below is a committed name:
+
+- **RUNG 0 — Heby proposes · human authorizes · human triggers.** The released state. Verified.
+- **RUNG 1 — Heby proposes · human/Governance authorizes · a machine may trigger THAT EXACT PERMIT.**
+  The recommended next rung. Governance keeps authorization; single-spend keeps scope; nothing
+  standing is granted.
+- **RUNG 2 — narrow standing authorization; a machine may act inside the envelope.** Not next.
+- **RUNG 3 — policy-bounded operational autonomy.** Not designed.
+
+**The first action should be `record-work`, not `place-human-in-department` and not the email.**
+Ranked on consequence rather than on which executor already exists: `record-work` writes one row in
+one transaction with the permit spend, touches no second human, has no provider, no adapter, no
+attempt ledger and no ambiguous phase, and its production occasions are genuine and frequent.
+`place-human-in-department` changes where a SECOND human sits and is the better second step.
+`send-external-communication` is last: it leaves the process, and **accepted is not delivered**.
+
+**The failure model that matters is small, because the first act is internal and transactional.**
+The external executor inserts a `pending` attempt inside the spend transaction and completes it with
+a later `update`; a crash between the two leaves a pending row and **no reconciler exists** — real,
+verified, and NOT this work's problem, because an internal governed act writes no attempt row at all
+and its mutation commits with the permit or not at all. What the first rung must still answer is
+narrower: who is recorded as having spent the permit.
+
+**That is the one place a schema question is real, and it is left open here.** `action_permits`
+records `authorized_by_actor_*` and, for the spend, only `consumed_at` and `handoff_id` — there is no
+column for WHO consumed it, because until now the consumer was always the human whose session called.
+A machine trigger makes "who spent this" a new fact with no home. Whether that becomes a column, an
+audit-only fact, or a property of the authorization being named is the first decision of the
+implementation phase and is not taken here.
+
+**Minimum safe control: one new key in the released switch, not a new subsystem.**
+`resolveDirectorEnabled(<key>)` already backs external-send, provider-observation-read and Claude,
+is written by a deployment-possession ceremony rather than by a UI, and fails closed with no durable
+authority. Machine-triggered internal execution needs its own key so it can be disarmed without
+disarming sending or observation. Nothing else is recommended yet — an action allowlist and a
+tenant policy are plausible and unproven, and adding them now would be inventing controls before the
+capability they control exists.
+
+**Explicit non-goals.** No standing mutation authorization. No machine ability to mint, broaden or
+alter an authorization. No autonomous external send. No second execution engine. No MCP, browser,
+shell or device execution — `Device Runtime & Computer Use` is a backlog initiative and has **no
+established authority**, so it is not a foundation anything may be built on. And the invariant that
+outranks the rest:
+
+> **Heby must never be AUTHORIZER and EXECUTOR for the same consequential act.**
+
+**Do not activate anything merely because its name matches.** `src/features/execution/` is a full
+simulated pipeline — dispatcher, retry engine, timeout engine, monitor, metrics — reachable only from
+`providers/codex/simulation.ts` and itself. `execution-bridge`, `execution-queue`,
+`execution-readiness`, `execution-shadow-read`, `offline-execution` and `operations-execution` have
+**zero importers** in `src`, `scripts` and `tests`. The live seams are `action-authorization`,
+`governed-internal-action`, `action-execution` and `action-execution-live`, and nothing else.
+
+```
+EXECUTION AUTHORITY EXISTS   != HEBY MAY TRIGGER IT
+MACHINE PRINCIPAL EXISTS     != MACHINE MUTATION PRINCIPAL EXISTS
+PROPOSAL IS MACHINE-REACHABLE != AUTHORIZATION IS
+AVAILABLE                    != EXECUTED
+NAMED "execution"            != WIRED
+```
+
+**This section takes no program decision and authorizes no implementation.** It records a measured
+architecture, one recommended rung (**RUNG 1**), one recommended first action (**`record-work`**),
+and one open schema question awaiting Director decision.
