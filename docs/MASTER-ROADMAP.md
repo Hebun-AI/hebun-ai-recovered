@@ -4869,3 +4869,79 @@ ROOT-ARMED: no. AUTOMATIC DELIVERY PRODUCTION-ACCEPTED: no. PRODUCTION MACHINE E
 phase: none** (still only RUNG 1's single accepted act). The trigger is scheduled and will find
 **zero candidates** while no permit is outstanding, and would be **refused at the root control** if
 one were.
+
+---
+
+### RUNG 2 — **AUTOMATIC MACHINE DELIVERY: PRODUCTION-ACCEPTED** · ROOT RETURNED TO DISARMED
+
+On 2026-09-14 at **23:00:47.494Z** an hourly Vercel cron tick delivered one already-authorized
+`record-work` permit to the released machine executor. **Nobody clicked Execute.** The full chain was
+proved in order, each step separately, and the deployment was returned to its safe baseline
+immediately afterwards.
+
+#### THE CHAIN, WITH ITS EXACT IDS
+
+| step | fact |
+|---|---|
+| Heby proposal | request `a56b1e02-36ef-4081-98c2-d168a26c5293`, `proposed_by_actor_type = agent` (`67f4460c…`) |
+| model provenance | invocation `d7bcbd4c…`, transport **live**, `claude-haiku-4-5-20251001`, provider request `msg_011Cf47dxnRLwJZGaJZRsb6D`, 853 in / 89 out |
+| Governance | decision `2d5c2db7…` / session `8a3f777a…`, `approve` / `action-authorized`, **human** `d5b496df…`, 22:41:07.971Z |
+| permit | `a735df37-f4eb-424c-82ab-f148ea827496`, ttl 3600s, digest `9e3c7bc6…2898d0` |
+| DISARMED refusal | scan found 1 candidate, executor refused `machine-execution-disarmed`, **nothing spent** |
+| ARM | Director ceremony, version 2 → **3**, `updated_by NULL` |
+| delivery | **23:00:47.494Z**, handoff `2f9b81c7-284e-4f17-83c7-1adef39fbbd8` |
+| work | `5bee4e4e-a942-4478-8171-3fce74760f75` — "Turkish Rug House — ilk tam gözlem döngüsü tamamlandı", organization-level |
+| replay | two further scans: `considered 0`, zero delta |
+| DISARM | Director ceremony, version 3 → **4** |
+
+#### WHAT THE EVIDENCE ACTUALLY PROVES
+
+**THE TICK WAS THE PLATFORM'S.** A read-only poller observed `active`/work 4 at 23:00:30 and
+`consumed`/work 5 at 23:01:01, with the spend stamped 23:00:47 — seventeen seconds past the hour
+boundary. No executor call, no ingress call and no human action occurred in that window.
+
+**THE SPLIT IN THE AUDIT IS THE WHOLE POINT.** `governance.action.permit.consumed` names a **human**
+(`d5b496df…`) because a human's authority was spent; `work.recorded` names **system** `67f4460c…`
+because a machine performed the act. The work row carries `created_by NULL` /
+`created_by_type system` — **no human is named at the moment of the act, because none was present.**
+Both rows committed at the same instant, in one transaction.
+
+**ONE SPEND, ONE WORK ITEM, AND REPLAY CANNOT DUPLICATE EITHER.** Exactly one permit moved in the
+entire acceptance window. Two further passes over the released delivery path, **while root was still
+armed**, found zero candidates and changed nothing — `handoff_id` and `consumed_at` byte-unchanged.
+The consumed permit is simply no longer discoverable; the executor was never reached.
+
+**`action_execution_attempts` DID NOT MOVE, AND THAT IS CORRECT.** Its only writer is
+`action-execution/execute-authorized-action.server.ts` — the EXTERNAL send ledger. Internal
+`record-work` is owned by Organizational Work and records itself through `work_items` + `audit_log`.
+Measured, not assumed: the count stayed at 1, still the 2026-08-31 external send.
+
+#### FINAL MUTATION ACCOUNTING
+
+```
+work_items  4 → 5      audit_log 106 → 111     permits 4 → 5 (minted 1, spent 1)
+decisions  20 → 21     sessions  20 → 21       requests 8 → 9
+action_execution_attempts 1 → 1     migration ledger 54 → 54     observations 18 → 18
+```
+
+No schema change, no migration, no provider mutation, no tenant-policy mutation, no new execution
+authority. Exactly two crons remain. TRH-25's observation ingress is healthy.
+
+#### THE STATE THIS LEAVES BEHIND
+
+```
+ROOT MACHINE EXECUTION      DISARMED — version 4
+TRH                         ENROLLED, revision 1, record-work
+HEBUN AI / MULIFY           NOT ENROLLED
+EFFECTIVE TRH REACHABILITY  refused — root-control-disabled
+MACHINE-EXECUTABLE SCOPE    record-work ONLY
+```
+
+Re-read through the released composition after disarming: TRH refuses with **`root-control-disabled`**
+(it passes the tenant gate and is stopped by the deployment's master stop) while Hebun AI and Mulify
+refuse earlier with **`tenant-not-authorized`**. Two different words for two different reasons — the
+isolation proof, unchanged by acceptance.
+
+**ARMED IS A MOMENT, NOT A POSTURE.** Root was enabled for roughly twenty-two minutes, spanning one
+delivery, and returned to `false` under a second Director ceremony. The organization's enrollment
+survived it, because disarming a deployment is not withdrawing an organization's decision.
