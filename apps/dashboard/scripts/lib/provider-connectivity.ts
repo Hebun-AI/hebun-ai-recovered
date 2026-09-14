@@ -56,6 +56,7 @@ import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provid
 import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
 import { isExternalSendConfigured } from "../../src/features/action-execution/execution-arming-projection.server";
 import { OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
+import { MACHINE_INTERNAL_EXECUTION_CONTROL_KEY } from "../../src/features/governed-machine-execution/machine-execution-control.server";
 /*
  * The ceremony-source vocabulary, imported rather than restated. `CeremonySource` is the released
  * closed union G4 already defines for postures, and its two values are byte-identical to the
@@ -72,22 +73,119 @@ import {
  * The closed control vocabulary.
  *
  * Every value is IMPORTED, never re-declared. Each pins ONE blast radius: `claude` governs
- * Hebun→Anthropic model generation, `external-send` governs outbound sending, and
- * `provider-observation-read` governs machine-principal provider READS. A key with no constant to
- * come from is refused rather than silently minting a control row for a permission that does not
- * exist.
+ * Hebun→Anthropic model generation, `external-send` governs outbound sending,
+ * `provider-observation-read` governs machine-principal provider READS, and
+ * `machine-internal-execution` governs machine TRIGGERING of an already human/Governance-authorized
+ * internal organizational mutation. A key with no constant to come from is refused rather than
+ * silently minting a control row for a permission that does not exist.
  *
- * THE THIRD KEY IS A ROW, NOT A TABLE — R3B's decision, applied unchanged. Its blast radius is
- * genuinely different from the other two: a read spends provider quota and changes nothing outside
- * Hebun, where model generation spends money and sending puts messages in front of people. Three
- * permissions, three rows, one ceremony — because two ceremonies is how somebody flips the wrong
- * switch and believes the system is off.
+ * EVERY KEY IS A ROW, NOT A TABLE — R3B's decision, applied unchanged. Four permissions, four
+ * rows, one ceremony — because two ceremonies is how somebody flips the wrong switch and believes
+ * the system is off.
+ *
+ * ── MEMBERSHIP HERE IS EXPRESSIBILITY, NOT PRODUCTION REACH ─────────────────────
+ *
+ * This list answers "does a control row for this permission exist at all", and it has to contain
+ * `machine-internal-execution` for the same reason it contains `external-send`: the writer refuses
+ * every key outside it, so a permission absent from here has no disarm either. What it does NOT
+ * answer is whether the GENERIC ceremony may reach a key in a PRODUCTION posture. That question has
+ * its own answer, immediately below, and it is answered fail-closed — see
+ * `resolveGenericProductionReach`.
  */
 export const PROVIDER_KEYS: readonly string[] = Object.freeze([
   CLAUDE_PROVIDER_KEY,
   EXTERNAL_SEND_PROVIDER_KEY,
   OBSERVATION_READ_CONTROL_KEY,
+  MACHINE_INTERNAL_EXECUTION_CONTROL_KEY,
 ]);
+
+/*
+ * ═══ WHICH KEYS THE GENERIC CEREMONY MAY REACH IN A PRODUCTION POSTURE ════════════
+ *
+ * ── WHAT WAS WRONG, STATED PLAINLY ────────────────────────────────────
+ *
+ * The released CLI narrowed production with ONE EQUALITY:
+ *
+ *     if (posture.mode === "production" && providerKey === EXTERNAL_SEND_PROVIDER_KEY)
+ *
+ * That is an ALLOW-BY-DEFAULT rule wearing a refusal's clothes. It names the single key that must
+ * not pass and lets every other key through, so the production reach of a permission was decided by
+ * whether somebody had remembered to add a second clause — which means a key added to
+ * `PROVIDER_KEYS` becomes PRODUCTION-ARMABLE MERELY BY BEING A NEW STRING. For `claude` and
+ * `provider-observation-read` that outcome happened to be the decision that was actually taken. For
+ * a capability that performs unattended organizational mutation it would be an accident.
+ *
+ * ── WHAT REPLACES IT ─────────────────────────────────────────────
+ *
+ * The same decision, inverted so that SILENCE REFUSES. A key reaches production through the generic
+ * ceremony only by being enumerated in `GENERIC_PRODUCTION_REACHABLE_KEYS`, and every other key —
+ * the two that hold dedicated gates, and any key a later phase adds — is refused there.
+ *
+ * THE RELEASED OUTCOMES ARE PRESERVED EXACTLY, and that is the point of listing them as values:
+ *
+ *   claude                     → reachable   (R2H made model connectivity production-capable)
+ *   provider-observation-read  → reachable   (TRH-25: a read spends quota and changes nothing
+ *                                             outside Hebun; and its kill switch must be pullable
+ *                                             in production above all)
+ *   external-send              → refused     (ESA's gate owns it — unchanged, by value)
+ *   machine-internal-execution → refused     (RUNG 1's gate owns it)
+ *   anything else              → refused     (no decision has been taken, so none is inferred)
+ *
+ * ── THIS IS NOT A SECOND AUTHORITY, AND NOT A POLICY FRAMEWORK ─────────────────
+ *
+ * No table, no row, no environment variable, no token and no persisted state. It is a pure function
+ * over a constant, in the file that already owns the control vocabulary, replacing a conditional
+ * that already existed. `provider_connectivity_controls` remains the ONE authoritative state, and
+ * `setProviderConnectivity` remains the ONE writer — the dedicated gates call it too.
+ *
+ * ── IT GOVERNS BOTH DIRECTIONS, AND THAT IS DELIBERATE ───────────────────────
+ *
+ * A refused key is refused for `enable` AND `disable`, exactly as the released `external-send`
+ * narrowing already was. That does not strand the kill switch: the dedicated gate owns the whole
+ * switch and disarms WITHOUT the preconditions arming has to satisfy. One ceremony per switch is
+ * R3B's rule; a key whose OFF lived in one command and whose ON lived in another is how somebody
+ * flips the wrong one and believes the system is stopped.
+ */
+
+/**
+ * The keys the generic ceremony may mutate in a PRODUCTION posture. Enumerated by value — a fifth
+ * key does not join this list by existing, it joins by somebody writing it here in a diff.
+ */
+export const GENERIC_PRODUCTION_REACHABLE_KEYS: readonly string[] = Object.freeze([
+  CLAUDE_PROVIDER_KEY,
+  OBSERVATION_READ_CONTROL_KEY,
+]);
+
+/**
+ * The dedicated production ceremony that owns each refused key, so a refusal can send the operator
+ * somewhere instead of merely stopping them. A key with no entry is still refused — absence here
+ * means "nobody has built that gate yet", never "use the generic one".
+ */
+export const DEDICATED_PRODUCTION_CEREMONIES: Readonly<Record<string, string>> = Object.freeze({
+  [EXTERNAL_SEND_PROVIDER_KEY]: "npm run platform:external-send -- arm",
+  [MACHINE_INTERNAL_EXECUTION_CONTROL_KEY]: "npm run platform:machine-execution -- arm",
+});
+
+export type GenericProductionReach =
+  /** The generic ceremony may mutate this key in production. */
+  | { readonly status: "reachable" }
+  /**
+   * It may not. `dedicatedCommand` is the gate that owns the key, or `null` when no gate exists
+   * yet — which is a refusal with no alternative, not a fallback to the generic path.
+   */
+  | { readonly status: "refused"; readonly dedicatedCommand: string | null };
+
+/**
+ * May the GENERIC connectivity ceremony mutate this key under a PRODUCTION posture?
+ *
+ * PURE. No clock, no connection, no environment. FAIL-CLOSED: everything that is not enumerated as
+ * reachable is refused, including a key that is not in `PROVIDER_KEYS` at all.
+ */
+export function resolveGenericProductionReach(providerKey: string | undefined): GenericProductionReach {
+  const key = (providerKey ?? "").trim();
+  if (GENERIC_PRODUCTION_REACHABLE_KEYS.includes(key)) return { status: "reachable" };
+  return { status: "refused", dedicatedCommand: DEDICATED_PRODUCTION_CEREMONIES[key] ?? null };
+}
 
 /** The closed set of transitions. A third verb has no representation here. */
 export type ConnectivityTransition = "enable" | "disable";

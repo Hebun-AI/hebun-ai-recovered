@@ -5,8 +5,13 @@
  *   npm run provider:connectivity -- <provider-key> disable
  *
  * ONE CLI WITH A CLOSED KEY AND A CLOSED VERB, matching `tenant:lifecycle`. Enable and disable are
- * one capability seen from both ends, and the provider key is chosen from the two constants the
+ * one capability seen from both ends, and the provider key is chosen from the constants the
  * repository defines — so an unknown provider has no argument that could express it.
+ *
+ * EXPRESSIBLE IS NOT REACHABLE. Every key in that vocabulary is reachable from a LOCAL posture. In
+ * a PRODUCTION posture only the keys `resolveGenericProductionReach` enumerates are, and that rule
+ * refuses by default: a key added later is production-unreachable here until somebody decides
+ * otherwise in a diff. The keys it refuses hold ceremonies of their own.
  *
  * THE ROOT OF TRUST — READ THIS BEFORE USING IT.
  *
@@ -35,7 +40,9 @@
  * product entirely and left the READ exactly where it was.
  *
  * WHAT IT DELIBERATELY CANNOT DO:
- *   - reach any provider key outside the two the repository defines
+ *   - reach any provider key outside the vocabulary the repository defines
+ *   - reach, in a PRODUCTION posture, any key not enumerated as generically reachable — including
+ *     `external-send`, `machine-internal-execution`, and any key a later phase adds
  *   - read, print, accept, write or rotate a credential — connectivity is a boolean
  *   - create a control row for a `disable` (an absent row already reads as disabled)
  *   - arm external send while the deployment is unconfigured
@@ -53,9 +60,9 @@ import {
   preflightEnvironment,
 } from "./lib/ceremony-preflight";
 import { resolveCeremonyPosture } from "./lib/production-possession";
-import { EXTERNAL_SEND_PROVIDER_KEY } from "../src/features/action-execution/contracts";
 import {
   PROVIDER_KEYS,
+  resolveGenericProductionReach,
   isProviderKey,
   isTransition,
   readProviderControl,
@@ -152,48 +159,53 @@ async function main(): Promise<void> {
   }
 
   /*
-   * ── EXTERNAL SEND STAYS OUT OF PRODUCTION, AND THAT IS G4'S REASON, NOT A NEW ONE ────────
+   * ── WHICH KEYS THIS CEREMONY MAY REACH IN PRODUCTION — FAIL-CLOSED, BY VALUE ───────
    *
-   * G4 recorded exactly why it left this whole CLI local-only: "a production-reachable arming
-   * switch is one command away from armed." R2H makes the ceremony production-capable because
-   * MODEL CONNECTIVITY needs it — enabling `claude` permits an inference and spends money. Arming
-   * `external-send` sends real email to real people, which is a different order of consequence,
-   * and nothing in this phase was authorized to make that reachable in production.
+   * The narrowing this replaces was a single equality against the arming key. It refused the one
+   * key somebody had thought of and ADMITTED EVERY OTHER ONE, so a permission's production reach
+   * was decided by whether a second clause had been remembered. A key added to the vocabulary
+   * became production-reachable merely by being a new string.
    *
-   * So the posture is narrowed for that key alone, HERE, in the CLI. The writer stays completely
-   * provider-agnostic: it never asks which key it is writing when deciding a root, and both keys
-   * record their source identically. This is a reachability decision, not a source-semantics one.
+   * It is now the other way round: `resolveGenericProductionReach` enumerates the keys that MAY be
+   * reached here, and refuses everything else — the keys that hold dedicated gates today, and any
+   * key a later phase adds before its blast radius has been decided.
    *
-   * It is a DEFERRAL with a named owner, not a prohibition: production arming earns its own gate,
-   * where the send configuration, the recipient authority and the blast radius are the subject
-   * rather than a side effect of a connectivity change.
+   * NOTHING THE RELEASED CEREMONY COULD DO IN PRODUCTION WAS TAKEN AWAY. Model connectivity stays
+   * reachable, because R2H decided that. The machine provider READ stays reachable, because TRH-25
+   * decided that and because a kill switch nobody can pull in production is not a kill switch.
+   *
+   * WHAT THE REFUSED KEYS HAVE IN COMMON is that a human decided, in writing, that their
+   * reachability deserved a ceremony where the blast radius is the SUBJECT rather than a side
+   * effect of a connectivity change. Outbound sending puts real messages in front of real people.
+   * Machine-triggered internal execution mutates the organization with no human present at the
+   * moment of the act. Each owns its own command, in both directions, so one switch never has its
+   * ON in one place and its OFF in another.
+   *
+   * IT IS A DEFERRAL WITH A NAMED OWNER FOR A KEY WITH NO GATE YET, NOT A PROHIBITION — and a
+   * refusal that cannot name one says so rather than quietly falling back to this path.
+   *
+   * THE LOCAL CEREMONY IS COMPLETELY UNCHANGED. This condition is reached only in a production
+   * posture; a local deployment still arms and disarms every key in the vocabulary from here.
    */
-  /*
-   * ── AND THE OBSERVATION-READ KEY IS PRODUCTION-CAPABLE, DELIBERATELY ─────────────────────
-   *
-   * It is NOT narrowed the way `external-send` is, and the difference is the blast radius rather
-   * than an oversight. Arming a machine provider READ permits an authorized read of a public
-   * channel: it spends provider quota, writes one observation and changes nothing outside Hebun.
-   * Arming external send puts real messages in front of real people.
-   *
-   * DISARMING MUST WORK IN PRODUCTION ABOVE ALL. A kill switch reachable only from a local
-   * deployment is not an emergency stop for a production incident, and the whole reason this key
-   * exists is that unattended reads need one. Enabling is reachable there too, because a stop
-   * nobody can lift is an outage rather than a control.
-   */
-  if (environment.posture.mode === "production" && providerKey === EXTERNAL_SEND_PROVIDER_KEY) {
+  const genericReach = resolveGenericProductionReach(providerKey);
+  if (environment.posture.mode === "production" && genericReach.status === "refused") {
     await client.end();
     fail(
-      `"${providerKey}" cannot be armed through a PRODUCTION ceremony. Model connectivity became ` +
-        "production-capable at R2H; external send did not, because arming it sends real messages " +
-        "to real recipients and that reachability belongs to its own gate. The LOCAL ceremony is " +
-        "unchanged and still arms it. Nothing was read from the control table and nothing was written.\n\n" +
-        "  That gate now exists and is a DIFFERENT command, deliberately:\n" +
-        "    npm run platform:external-send -- arm\n" +
-        "  It refuses unless the send configuration is complete, the recipient table is readable " +
-        "and the deployment holds an active recipient, and it states the blast radius before it " +
-        "asks. This refusal is not weakened by its existence: external send stays unreachable " +
-        "through THIS ceremony in production.",
+      `"${providerKey}" cannot be reached through this GENERIC ceremony in a PRODUCTION posture, ` +
+        "in either direction. Its reachability was deliberately given to a ceremony of its own, " +
+        "where the blast radius and the prerequisites are the subject rather than a side effect " +
+        "of a connectivity change. The LOCAL ceremony is unchanged and still reaches it. Nothing " +
+        "was read from the control table and nothing was written.\n\n" +
+        (genericReach.dedicatedCommand
+          ? "  That gate exists and is a DIFFERENT command, deliberately:\n" +
+            `    ${genericReach.dedicatedCommand}\n` +
+            "  It states the blast radius and what arming does NOT do before it asks, and it " +
+            "disarms without the preconditions arming has to satisfy.\n\n" +
+            "  This refusal is not weakened by its existence: the key stays unreachable through " +
+            "THIS ceremony in production."
+          : "  NO DEDICATED GATE EXISTS FOR THIS KEY YET, so there is nothing to redirect you to. " +
+            "That is a refusal, not a fallback — a production reach nobody has decided on is not " +
+            "granted by default here."),
     );
   }
 

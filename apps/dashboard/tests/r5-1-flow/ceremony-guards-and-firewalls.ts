@@ -118,19 +118,24 @@ function possessionGuards(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function closedArguments(): void {
   /*
-   * THE CENSUS GREW; IT DID NOT LOOSEN (TRH-25 prerequisite).
+   * THE CENSUS GREW AGAIN; IT DID NOT LOOSEN (RUNG 1 arming hardening).
    *
-   * A third control key exists — `provider-observation-read`, the Director's stop over
-   * machine-principal provider READS. It is a ROW in the same table under R3B's rule that one
-   * ceremony owns every switch, not a second kill-switch system. The list is still CLOSED and
-   * still enumerated here by value, so a fourth key costs a code change and a failing test.
+   * A fourth control key exists — `machine-internal-execution`, the Director's stop over
+   * machine-TRIGGERED governed internal execution. It is a ROW in the same table under R3B's rule
+   * that one ceremony owns every switch, not a second kill-switch system, and it has to be
+   * expressible here or the switch would have no OFF. The list is still CLOSED and still
+   * enumerated by value, so a fifth key costs a code change and a failing test.
+   *
+   * EXPRESSIBLE IS NOT PRODUCTION-REACHABLE. Membership here says a control row can exist; whether
+   * the GENERIC ceremony may reach it in a production posture is `resolveGenericProductionReach`'s
+   * question, answered fail-closed and pinned in `tests/rung1-production-arming`.
    */
   assert.deepEqual(
     [...PROVIDER_KEYS].sort(),
-    ["claude", "external-send", "provider-observation-read"],
-    "three control keys, each one blast radius, and no fourth",
+    ["claude", "external-send", "machine-internal-execution", "provider-observation-read"],
+    "four control keys, each one blast radius, and no fifth",
   );
-  for (const bad of ["", "openai", "CLAUDE", "observation", "youtube", undefined]) {
+  for (const bad of ["", "openai", "CLAUDE", "observation", "youtube", "machine-execution", undefined]) {
     assert.ok(!isProviderKey(bad as string), `${String(bad)} is not a provider key`);
   }
   for (const bad of ["", "toggle", "ENABLE", "on", "off", undefined]) {

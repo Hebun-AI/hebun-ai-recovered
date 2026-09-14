@@ -33,6 +33,7 @@ import {
   readExternalSendOpsView,
 } from "../../src/features/action-execution/execution-arming-projection.server";
 import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
+import { resolveGenericProductionReach } from "../../scripts/lib/provider-connectivity";
 import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 import {
   checkAdapterAvailability,
@@ -262,24 +263,39 @@ function armingAuthority(): void {
 
   /* EXTERNAL SEND IS NOT PRODUCTION-REACHABLE. R2H narrowed the posture for this key alone. */
   /*
-   * ANCHORED TO THE `if (`, NOT TO THE CONDITION TEXT — a substring match survives
+   * RESTATED FOR THE FAIL-CLOSED RESHAPING, AND STRENGTHENED RATHER THAN RELAXED.
+   *
+   * The released narrowing was `providerKey === EXTERNAL_SEND_PROVIDER_KEY` — an ALLOW-BY-DEFAULT
+   * equality that refused the one key somebody had thought of and admitted every other one. It is
+   * now `resolveGenericProductionReach(providerKey).status === "refused"`, which enumerates what
+   * MAY pass and refuses the rest. The property this pin has always guarded is unchanged and is
+   * now asserted TWICE: behaviourally, that the resolver refuses this key, and structurally, that a
+   * live `if (` anchored to the posture test consults that resolver. The structural half keeps the
+   * original anchoring rationale — a substring match on the condition survives
    * `if (false && <condition>)`, which reads as present while being permanently dead.
    */
+  assert.equal(
+    resolveGenericProductionReach(EXTERNAL_SEND_PROVIDER_KEY).status,
+    "refused",
+    "arming external send through the GENERIC production ceremony is refused",
+  );
   assert.ok(
-    /if \(environment\.posture\.mode === "production" && providerKey === EXTERNAL_SEND_PROVIDER_KEY\) \{/.test(
+    /if \(environment\.posture\.mode === "production" && \w+\.status === "refused"\) \{/.test(
       CEREMONY_CLI_CODE,
     ),
-    "arming external send through a production ceremony is refused",
+    "and the refusal is a LIVE `if` anchored to the posture test, not a dead or reshaped condition",
   );
   assert.ok(
-    /fail\(/.test(
-      CEREMONY_CLI_CODE.slice(
-        CEREMONY_CLI_CODE.indexOf('if (environment.posture.mode === "production" && providerKey'),
-      ).slice(0, 400),
-    ),
+    /const \w+ = resolveGenericProductionReach\(providerKey\)/.test(CEREMONY_CLI_CODE),
+    "whose verdict comes from the fail-closed resolver, given the actual key",
+  );
+  const prodGuard = CEREMONY_CLI_CODE.search(
+    /if \(environment\.posture\.mode === "production" && \w+\.status === "refused"\) \{/,
+  );
+  assert.ok(
+    /fail\(/.test(CEREMONY_CLI_CODE.slice(prodGuard, prodGuard + 400)),
     "and the guarded branch refuses rather than falling through",
   );
-  const prodGuard = CEREMONY_CLI_CODE.indexOf('environment.posture.mode === "production" && providerKey');
   const setCall = CEREMONY_CLI_CODE.indexOf("setProviderConnectivity(client");
   assert.ok(prodGuard > -1 && setCall > -1 && prodGuard < setCall, "and refused before the write");
   /* It must not claim an authority Hebun does not have. */

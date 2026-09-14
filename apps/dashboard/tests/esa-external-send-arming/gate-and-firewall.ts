@@ -20,6 +20,8 @@ import {
   readConfigurationPresence,
   type RecipientReach,
 } from "../../scripts/lib/external-send-arming";
+import { resolveGenericProductionReach } from "../../scripts/lib/provider-connectivity";
+import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
 import {
   EXTERNAL_SEND_API_KEY_ENV,
   EXTERNAL_SEND_FROM_ENV,
@@ -46,13 +48,39 @@ const REACHABLE: RecipientReach = { readable: true, activeRecipients: 1, tenants
 
 /* ── 1. THE GENERIC CEREMONY STILL REFUSES EXTERNAL SEND IN PRODUCTION ────── */
 {
+  /*
+   * RESTATED FOR THE FAIL-CLOSED RESHAPING, AND STRENGTHENED.
+   *
+   * ESA's refusal was a literal equality in the generic CLI. The RUNG 1 arming hardening replaced
+   * that ALLOW-BY-DEFAULT shape with `resolveGenericProductionReach`, which enumerates the keys
+   * that MAY pass and refuses everything else. So the property is now asserted from the resolver
+   * itself — external send is refused, and the refusal still NAMES this gate — plus a structural
+   * pin that the live `if (` consults that resolver before any write.
+   *
+   * THE GATE STILL EXISTS BESIDE THE REFUSAL, NEVER INSTEAD OF IT.
+   */
+  const verdict = resolveGenericProductionReach(EXTERNAL_SEND_PROVIDER_KEY);
+  assert.equal(verdict.status, "refused", "the released refusal is intact");
+  assert.equal(
+    verdict.status === "refused" && verdict.dedicatedCommand,
+    "npm run platform:external-send -- arm",
+    "and it sends the operator to THIS gate",
+  );
+
   const generic = codeOf(read(GENERIC));
   assert.match(
     generic,
-    /if \(environment\.posture\.mode === "production" && providerKey === EXTERNAL_SEND_PROVIDER_KEY\) \{/,
-    "the released refusal is intact — this gate exists BESIDE it, never instead of it",
+    /if \(environment\.posture\.mode === "production" && \w+\.status === "refused"\) \{/,
+    "the refusal is a LIVE `if` anchored to the posture test",
   );
-  const guard = generic.indexOf('environment.posture.mode === "production" && providerKey');
+  assert.match(
+    generic,
+    /const \w+ = resolveGenericProductionReach\(providerKey\)/,
+    "whose verdict comes from the fail-closed resolver, given the actual key",
+  );
+  const guard = generic.search(
+    /if \(environment\.posture\.mode === "production" && \w+\.status === "refused"\) \{/,
+  );
   const write = generic.indexOf("setProviderConnectivity(client");
   assert.ok(guard > -1 && write > -1 && guard < write, "and it still refuses BEFORE any write");
 }

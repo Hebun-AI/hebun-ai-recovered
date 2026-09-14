@@ -25,6 +25,8 @@ import {
 } from "../../scripts/lib/production-possession";
 import { preflightEnvironment } from "../../scripts/lib/ceremony-preflight";
 import { assertLocalDatabaseUrl } from "../../scripts/lib/provision-dev-credential";
+import { resolveGenericProductionReach } from "../../scripts/lib/provider-connectivity";
+import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
 
 const ROOT = process.cwd();
 const read = (p: string) => readFileSync(path.join(ROOT, p), "utf8");
@@ -353,22 +355,41 @@ function fencesThatHeld(): void {
    */
   {
     const connectivity = codeOf(read("scripts/provider-connectivity.ts"));
-    /*
-     * ANCHORED TO THE `if (`, NOT TO THE CONDITION TEXT. A substring match on the condition
-     * survives `if (false && <condition>)` — the guard reads as present while being permanently
-     * dead. Found by a bite-proof that failed to bite, not by reading.
-     */
-    assert.match(
-      connectivity,
-      /if \(environment\.posture\.mode === "production" && providerKey === EXTERNAL_SEND_PROVIDER_KEY\) \{/,
-      "external send may not be armed through a production ceremony",
+  /*
+   * RESTATED FOR THE FAIL-CLOSED RESHAPING, AND STRENGTHENED RATHER THAN RELAXED.
+   *
+   * The released narrowing was `providerKey === EXTERNAL_SEND_PROVIDER_KEY` — an ALLOW-BY-DEFAULT
+   * equality that refused the one key somebody had thought of and admitted every other one. It is
+   * now `resolveGenericProductionReach(providerKey).status === "refused"`, which enumerates what
+   * MAY pass and refuses the rest. The property this pin has always guarded is unchanged and is
+   * now asserted TWICE: behaviourally, that the resolver refuses this key, and structurally, that a
+   * live `if (` anchored to the posture test consults that resolver. The structural half keeps the
+   * original anchoring rationale — a substring match on the condition survives
+   * `if (false && <condition>)`, which reads as present while being permanently dead.
+   */
+    assert.equal(
+      resolveGenericProductionReach(EXTERNAL_SEND_PROVIDER_KEY).status,
+      "refused",
+      "external send may not be armed through the GENERIC production ceremony",
     );
     assert.match(
-      connectivity.slice(connectivity.indexOf('if (environment.posture.mode === "production" && providerKey')).slice(0, 400),
+      connectivity,
+      /if \(environment\.posture\.mode === "production" && \w+\.status === "refused"\) \{/,
+      "and the refusal is a LIVE `if` anchored to the posture test, not a dead or reshaped condition",
+    );
+    assert.match(
+      connectivity,
+      /const \w+ = resolveGenericProductionReach\(providerKey\)/,
+      "whose verdict comes from the fail-closed resolver, given the actual key",
+    );
+    const guard = connectivity.search(
+      /if \(environment\.posture\.mode === "production" && \w+\.status === "refused"\) \{/,
+    );
+    assert.match(
+      connectivity.slice(guard, guard + 400),
       /fail\(/,
       "and the guarded branch refuses rather than falling through",
     );
-    const guard = connectivity.indexOf('environment.posture.mode === "production" && providerKey');
     const write = connectivity.indexOf("setProviderConnectivity(client");
     assert.ok(guard > -1 && write > -1 && guard < write, "and it refuses BEFORE the write");
   }

@@ -4312,3 +4312,102 @@ proved to bite by throwaway mutation.
 MACHINE-TRIGGERABLE  != TRIGGERED        ARMED IN CODE   != ARMED IN A DEPLOYMENT
 IMPLEMENTED          != DEPLOYED         AGENT PROPOSES  != AGENT PERFORMS
 ```
+
+---
+
+### RUNG 1 — **PRODUCTION ARMING HARDENING** · RELEASED · **STILL NOT ARMED**
+
+**A Controlled Production Acceptance was attempted and correctly stopped before any mutation.** The
+attempt is what found this, and finding it is the only thing that happened: no production control
+row was written, no permit was created or consumed, no machine execution occurred, and the table
+above still reads exactly as it did.
+
+**THE GAP, STATED AS IT WAS ACTUALLY MEASURED — and narrower than it first looked.**
+
+The released generic ceremony narrowed production with ONE EQUALITY:
+
+```
+if (environment.posture.mode === "production" && providerKey === EXTERNAL_SEND_PROVIDER_KEY)
+```
+
+That is an **allow-by-default rule wearing a refusal's clothes**. It names the single key that must
+not pass and admits every other one.
+
+What it did NOT mean is that `machine-internal-execution` was production-armable on the released
+build. It was not armable **anywhere**, by any command: the key was absent from `PROVIDER_KEYS`, and
+`setProviderConnectivity` refuses every key outside that vocabulary. The released deployment was
+safe — but it was safe **by omission**, and the omission also meant the switch had no OFF.
+
+So the real defect was the shape of the rule, and it would have become a live one at the exact
+moment somebody made the key expressible in order to arm it: **a key added to the vocabulary became
+production-reachable merely by being a new string.** That is not a property anybody decided; it is
+one that would have been inherited.
+
+**THE HARDENING — one inverted rule and one dedicated ceremony. No new subsystem.**
+
+`resolveGenericProductionReach` now enumerates the keys the generic ceremony MAY mutate in a
+production posture and refuses everything else, so **silence refuses**:
+
+| key | generic production reach | why |
+|---|---|---|
+| `claude` | **reachable** | R2H decided it — unchanged |
+| `provider-observation-read` | **reachable** | TRH-25 decided it; and a kill switch nobody can pull in production is not a kill switch — unchanged |
+| `external-send` | **refused** → `platform:external-send` | ESA's gate owns it — unchanged |
+| `machine-internal-execution` | **refused** → `platform:machine-execution` | RUNG 1's own gate, new |
+| anything a later phase adds | **refused**, with nothing to fall back to | no decision has been taken, so none is inferred |
+
+`machine-internal-execution` joined `PROVIDER_KEYS` — which is what gives the switch an OFF — while
+`GENERIC_PRODUCTION_REACHABLE_KEYS` kept it out of the generic production path. **Expressible is not
+reachable**, and the two questions now have two answers instead of one accident.
+
+`npm run platform:machine-execution -- arm | disarm` is the dedicated gate: production-only in both
+directions, a confirmation phrase far longer than a provider key, and a blast-radius statement
+printed **before** it asks. It says what arming does — *permits Hebun to TRIGGER an already
+human/Governance-authorized exact permit with no human Execute click* — and reads the scope it shows
+from the released frozen set rather than restating it. Arming still authorizes nothing: no permit is
+minted, approved or consumed, no standing mutation authority is granted, and nothing schedules an
+execution. Disarming satisfies no precondition beyond being armed.
+
+**NO SECOND AUTHORITY, NO SECOND STATE.** `provider_connectivity_controls` remains the one
+authoritative row, `resolveDirectorEnabled` the one reader and `setProviderConnectivity` the one
+writer — the dedicated gates call it too. **ZERO SCHEMA. The ledger stays at 53.**
+
+**FOUR RELEASED FIREWALLS REJECTED THE DESIGN, AND WERE RIGHT TO — then were restated, not
+weakened.** ESA, R2H, R3B and G4 each pinned the literal `providerKey === EXTERNAL_SEND_PROVIDER_KEY`
+spelling. Every one of them was anchored to a *conditional's shape* as a proxy for a *property*. The
+property is now asserted **twice** in each: behaviourally, from the resolver itself — which a regex
+could never do — and structurally, that a live `if (` anchored to the posture test consults that
+resolver before any read or write. Five throwaway mutations were run to confirm the new pins bite,
+including smuggling the machine key into the reachable list and reverting the resolver to
+allow-by-default.
+
+**Suite: 765/765**, measured in an isolated worktree from the released baseline `2adbf858` because
+the primary tree carried concurrent foreign work.
+
+**AND THE FIRST RUN WAS NOT GREEN, WHICH IS RECORDED RATHER THAN ROUNDED OFF.** It ended 763/2/765,
+failing `tb1-trust-boundary/bite-proofs` and `trh19-agent-proposal-rationale/bite-proofs`. Their
+diagnostics were lost because the capture kept stdout only — the exact trap `run-tests.mjs`'s own
+header warns about. Both suites pass individually, both passed in a clean full re-run of the SAME
+tree, and neither reads, imports or mutates any file this change touches: they mutate
+`src/features/heby-*`, `src/features/action-authorization/*` and `src/components/*`, while this
+change is confined to `scripts/`, four test files and this document. **No cause was proven, so none
+is claimed** — the honest statement is that the failure did not reproduce and has no path to this
+work, not that it was explained.
+
+**AND THE CEILING IS UNCHANGED, WHICH IS THE POINT OF RECORDING THIS AT ALL:**
+
+| | |
+|---|---|
+| PRODUCTION-AVAILABLE | **yes** |
+| PRODUCTION-ARMED | **no** — production still holds no row for this key |
+| PRODUCTION-AUTHORIZED | **no** |
+| PRODUCTION-EXECUTED | **no** |
+| SUCCESSFUL | **not proven** |
+| PRODUCTION MUTATION during this phase | **none** |
+
+```
+ALLOW-BY-DEFAULT  != FAIL-CLOSED      EXPRESSIBLE   != REACHABLE
+ARMED             != AUTHORIZED       A GATE BUILT  != A GATE USED
+```
+
+**Next: HEBY CONTROLLED AUTONOMY — RUNG 1 · CONTROLLED PRODUCTION ACCEPTANCE.** Not started.

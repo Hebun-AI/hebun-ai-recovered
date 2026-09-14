@@ -16,7 +16,10 @@ import {
   resolveCeremonyPosture,
 } from "../../scripts/lib/production-possession";
 import { preflightEnvironment } from "../../scripts/lib/ceremony-preflight";
-import { PROVIDER_KEYS } from "../../scripts/lib/provider-connectivity";
+import {
+  PROVIDER_KEYS,
+  resolveGenericProductionReach,
+} from "../../scripts/lib/provider-connectivity";
 import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
 import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 
@@ -265,18 +268,38 @@ function externalSendIsProductionUnreachableAndClaudeIsNot(): void {
   );
 
   /*
-   * ANCHORED TO `if (` IMMEDIATELY FOLLOWED BY THE POSTURE TEST, and the guarded key is CAPTURED
+   * RESTATED FOR THE FAIL-CLOSED RESHAPING — THE PROPERTY IS THE SAME, ASSERTED TWICE.
+   *
+   * R2H's narrowing was `providerKey === EXTERNAL_SEND_PROVIDER_KEY`: an ALLOW-BY-DEFAULT equality
+   * that refused the one key somebody had thought of and admitted every other one. The RUNG 1
+   * arming hardening inverted it — `resolveGenericProductionReach` enumerates what may pass and
+   * refuses the rest — so the key being refused is no longer a literal at this call site. It is
+   * therefore asserted BEHAVIOURALLY, from the resolver itself, which is stronger than a regex
+   * could ever be; the structural half below keeps the original anchoring rationale.
+   *
+   * ANCHORED TO `if (` IMMEDIATELY FOLLOWED BY THE POSTURE TEST, and the verdict is CAPTURED
    * rather than matched as a substring. A substring check survives `if (false && <condition>)`,
    * which reads as present while being permanently dead.
    */
+  assert.equal(
+    resolveGenericProductionReach(EXTERNAL_SEND_PROVIDER_KEY).status,
+    "refused",
+    "the key this ceremony refuses in production is still the ARMING key",
+  );
+  assert.equal(
+    resolveGenericProductionReach(CLAUDE_PROVIDER_KEY).status,
+    "reachable",
+    "and R2H's own decision survives it: model connectivity stays production-reachable",
+  );
+
   const guard = cli.match(
-    /if\s*\(\s*environment\.posture\.mode\s*===\s*"production"\s*&&\s*providerKey\s*===\s*([A-Za-z_$][\w$]*)\s*\)\s*\{/,
+    /if\s*\(\s*environment\.posture\.mode\s*===\s*"production"\s*&&\s*([A-Za-z_$][\w$]*)\.status\s*===\s*"refused"\s*\)\s*\{/,
   );
   assert.ok(guard, "the narrowing is a LIVE `if`, not a dead, reshaped or commented condition");
-  assert.equal(
-    guard[1],
-    "EXTERNAL_SEND_PROVIDER_KEY",
-    "and the key it refuses is the ARMING key, named by its released constant",
+  assert.match(
+    cli,
+    new RegExp(`const\\s+${guard[1]}\\s*=\\s*resolveGenericProductionReach\\(providerKey\\)`),
+    "and what it tests is the fail-closed resolver, given the actual key",
   );
 
   const guardAt = guard.index!;
@@ -313,7 +336,12 @@ function externalSendIsProductionUnreachableAndClaudeIsNot(): void {
     "the production refusal does not reach the model key",
   );
 
-  /* And both keys remain in the closed vocabulary: claude is reachable, external-send is not. */
+  /*
+   * And both keys remain in the closed vocabulary: claude is reachable, external-send is not.
+   * EXPRESSIBLE IS NOT REACHABLE — membership says a control row can exist, which every key needs
+   * or its switch would have no OFF. Production reach is the resolver's separate, fail-closed
+   * question, asserted above.
+   */
   assert.notEqual(CLAUDE_PROVIDER_KEY, EXTERNAL_SEND_PROVIDER_KEY, "two keys, two blast radii");
   for (const key of [CLAUDE_PROVIDER_KEY, EXTERNAL_SEND_PROVIDER_KEY]) {
     assert.ok(PROVIDER_KEYS.includes(key), `${key} is still an expressible provider key`);
