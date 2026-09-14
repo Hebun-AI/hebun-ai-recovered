@@ -54,20 +54,28 @@ const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"
  * sign-in page returned to a cron is not a security property; it is a scan that silently never
  * happens.
  *
- * ── WHY IT IS ONE EXACT PATH AND NOT `/api` ─────────────────────────────────
+ * ── WHY THEY ARE EXACT PATHS AND NOT `/api` ─────────────────────────────────
  *
- * Exempting the prefix would unauthenticate the three OAuth handlers beside it, which rely on the
- * browser session this middleware proves. So exactly one path is listed, in the EXACT list, where
- * no prefix semantics exist to be reinterpreted later — the same reasoning `/` is written down for
- * directly above.
+ * Exempting the prefix would unauthenticate the three OAuth handlers beside them, which rely on the
+ * browser session this middleware proves. So each ingress is listed individually, in the EXACT
+ * list, where no prefix semantics exist to be reinterpreted later — the same reasoning `/` is
+ * written down for directly above.
+ *
+ * ── WHY THERE ARE NOW TWO, AND WHY THAT IS STILL A CLOSED LIST (RUNG 2) ─────
+ *
+ * The delivery scan is a SECOND scheduler knocking on a SECOND door, and it is written down here
+ * one entry at a time for the same reason the first was. This list grows only by a diff a reviewer
+ * reads as a decision; the firewalls pin it BY VALUE, so a third entry fails a test rather than
+ * arriving quietly. Each ingress carries its OWN bearer secret — sharing one would make these two
+ * doors a single credential.
  *
  * ── WHAT THIS EXEMPTS, AND WHAT IT DOES NOT ─────────────────────────────────
  *
- * It exempts the route from the SESSION check only. The route is not public: it verifies a bearer
+ * It exempts these routes from the SESSION check only. They are not public: each verifies a bearer
  * secret in constant time before it reads anything, and an unset secret refuses every request. This
  * line moves the authentication, it does not remove it.
  */
-const MACHINE_INGRESS_PATHS = ["/api/observation/scan"];
+const MACHINE_INGRESS_PATHS = ["/api/observation/scan", "/api/machine-delivery/scan"];
 
 const PUBLIC_EXACT_PATHS = ["/"];
 

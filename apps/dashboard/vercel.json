@@ -4,6 +4,10 @@
     {
       "path": "/api/observation/scan",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/machine-delivery/scan",
+      "schedule": "0 * * * *"
     }
   ]
 }

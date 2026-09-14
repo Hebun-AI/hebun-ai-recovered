@@ -297,6 +297,7 @@ function main(): void {
        * added no ingress, and its composition was reachable only from an operator terminal. The
        * door came later, and is named here so a SECOND one cannot appear unnamed.
        */
+      "src/app/api/machine-delivery/scan/route.ts",
       "src/app/api/observation/scan/route.ts",
     ],
     "one machine ingress beside the four OAuth browser-redirect handlers, and no other route",
@@ -327,7 +328,10 @@ function main(): void {
     };
     assert.deepEqual(
       vercelConfig.crons,
-      [{ path: "/api/observation/scan", schedule: "0 * * * *" }],
+      [
+      { path: "/api/observation/scan", schedule: "0 * * * *" },
+      { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
+    ],
       "exactly one schedule exists: hourly, aimed at the machine ingress, and nothing else",
     );
     assert.deepEqual(

@@ -183,8 +183,8 @@ function main(): void {
   assert.ok(exactList, "the machine ingress list exists");
   assert.deepEqual(
     exactList![1]!.split(",").map((s) => s.trim()).filter(Boolean),
-    ['"/api/observation/scan"'],
-    "exactly ONE machine path leaves the session check",
+    ['"/api/observation/scan"', '"/api/machine-delivery/scan"'],
+    "exactly TWO machine paths leave the session check, and both are pinned by value",
   );
 
   /* ═══════════════════════════════════════════════════════════════════════════
@@ -242,6 +242,7 @@ function main(): void {
       /* The Instagram OAuth ceremony — the third provider pair, added by this phase. */
       "src/app/api/integrations/instagram/callback/route.ts",
       "src/app/api/integrations/instagram/start/route.ts",
+      "src/app/api/machine-delivery/scan/route.ts",
       "src/app/api/observation/scan/route.ts",
     ],
     "exactly one route was added, and it is the machine ingress",
@@ -272,7 +273,10 @@ function main(): void {
     };
     assert.deepEqual(
       vercelConfig.crons,
-      [{ path: "/api/observation/scan", schedule: "0 * * * *" }],
+      [
+      { path: "/api/observation/scan", schedule: "0 * * * *" },
+      { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
+    ],
       "exactly one schedule exists: hourly, aimed at the machine ingress, and nothing else",
     );
     assert.deepEqual(

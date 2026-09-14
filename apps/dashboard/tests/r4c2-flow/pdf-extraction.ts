@@ -454,6 +454,7 @@ async function main(): Promise<void> {
       /* TRH-25 added the machine ingress the automatic due-scan is triggered through. It is
        * NAMED here rather than pattern-matched, so a SECOND machine route cannot appear
        * without this census failing. */
+      "src/app/api/machine-delivery/scan/route.ts",
       "src/app/api/observation/scan/route.ts",
       ].sort(),
       "R4C.2 introduces no route handler; the only ones are INT-3's OAuth pair",

@@ -220,8 +220,8 @@ async function main(): Promise<void> {
     const vercel = JSON.parse(read("vercel.json")) as { crons?: { path: string }[] };
     assert.deepEqual(
       (vercel.crons ?? []).map((c) => c.path),
-      ["/api/observation/scan"],
-      "this phase adds no cron — the only one is TRH-25's observation scan",
+      ["/api/observation/scan", "/api/machine-delivery/scan"],
+      "the tenant AUTHORITY adds no cron; the two are TRH-25 observation and RUNG 2 delivery",
     );
 
     /* No execution ingress route exists. */
@@ -234,8 +234,8 @@ async function main(): Promise<void> {
     const middleware = codeOf(read("src/middleware.ts"));
     assert.match(
       middleware,
-      /MACHINE_INGRESS_PATHS = \["\/api\/observation\/scan"\]/,
-      "the machine ingress allowlist is unchanged",
+      /MACHINE_INGRESS_PATHS = \["\/api\/observation\/scan", "\/api\/machine-delivery\/scan"\]/,
+      "the machine ingress allowlist holds exactly the two pinned ingresses",
     );
 
     /* The new authority contains no scanner, timer or schedule of any kind. */

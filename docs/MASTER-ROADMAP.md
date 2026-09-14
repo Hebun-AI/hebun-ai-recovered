@@ -4782,3 +4782,90 @@ WHO MAY PERFORM IT != WHEN IT HAPPENS
 **MIGRATION-APPLIED: no. TENANT-AUTHORIZED: no. ROOT-ARMED: no. TRIGGER-IMPLEMENTED: no.
 PRODUCTION-EXECUTED: no** (beyond RUNG 1's single accepted act). Production mutation this phase:
 **none**.
+
+---
+
+### RUNG 2 — **MIGRATION 54 ADMITTED · TRH ENROLLED · AUTOMATIC DELIVERY TRIGGER RELEASED** · **ROOT STILL DISARMED**
+
+Three Director gates were taken in sequence, each verified before the next opened. Nothing in this
+section is an acceptance of automatic execution: **no permit has ever been delivered by the trigger,
+and the root control has not moved.**
+
+#### 1 · MIGRATION 54 — APPLIED
+
+Applied by the Director at a TTY through the released `platform:migrate` ceremony. Production ledger
+**53 → 54**, digest `3d42c2e5d1fdb93f0e9c1816906e63c6`, organizational counts byte-identical across
+it. `tenant_machine_execution_authorizations` exists exactly once, its 22 columns, 4 foreign keys,
+6 CHECK constraints and 5 indexes match the released migration exactly, and `governance_domain`
+gained `machine-execution` as its 20th value. **Zero authorization rows existed immediately after.**
+
+The released read seam stopped answering `persistence-unavailable` and began answering `absent` —
+the distinction the authority exists to keep. **Persistence became AVAILABLE; nobody became enrolled.**
+
+#### 2 · TURKISH RUG HOUSE — ENROLLED
+
+Through `platform:tenant-machine-execution`, confirmed by the Director with the phrase
+`enrol turkish-rug-house`. Authorization `accd5d3c`, **revision 1**, `state = active`, capability
+`record-work`, `supersedes = NULL`, authorizer **human**, under Governance decision `2c669502` and
+session `d47034fd` — the first row ever written in the `machine-execution` domain. Authority resolved
+via **bootstrap** (`7303974e`, dated ten days earlier), never delegation, and the decision's own
+evidence names that bootstrap id. Decision and session carry an identical commit timestamp: one
+transaction. Four rows moved — authorization, decision, session, audit — and nothing else.
+
+**Hebun AI and Mulify remain NOT ENROLLED**, and are refused with a *different word*
+(`tenant-not-authorized`) than TRH's (`root-control-disabled`). That difference is the isolation
+proof: TRH passes the tenant gate and is stopped by the deployment's master stop.
+
+```
+ENROLLED != ARMED != REACHABLE != EXECUTED
+```
+
+#### 3 · THE TRIGGER — MODEL B, AND IT IS A SECOND INSTANCE OF A PATTERN THAT ALREADY EXISTED
+
+Discovery searched before assuming, and found that **Hebun already had a released, production-accepted
+automatic trigger**: TRH-25's `/api/observation/scan`. RUNG 2 needed no new subsystem — it needed a
+second instance of an accepted shape:
+
+```
+Vercel cron → authenticated scope-free ingress → bounded discovery → RELEASED EXECUTOR
+```
+
+**The executor had already written this boundary down**, before the trigger existed: *"RUNG 2 will
+discover eligible permits asynchronously; a discovery made minutes ago must never be able to carry a
+permission that has since been withdrawn. THE SCANNER IS A COURTESY FILTER. THIS IS THE BOUNDARY."*
+The implementation was built to that sentence rather than choosing its own.
+
+**THE TRIGGER DECIDES *WHEN*. IT NEVER DECIDES *WHETHER*.** Every consequential check — armed,
+tenant-enrolled, agent-in-service, kind-admitted, payload-recordable, unexpired, unconsumed,
+right-tenant — is re-decided by the executor against freshly re-read rows, inside the spend's own
+transaction. The scan re-implements none of them and hands across **a permit id and nothing else**,
+though it holds the tenant in scope at that exact line.
+
+**NO SCHEMA. NO MIGRATION. NO CLAIM STATE. NO LOCK. NO SECOND LEDGER.** Concurrency was already
+settled by the released single spend — one conditional `UPDATE` whose row count is the verdict — so
+a claim column would have been persistence invented to duplicate an authority that already works. A
+PostgreSQL test races two scans over one permit and proves **one spend, one work item**, with the
+trigger holding nothing.
+
+**EXPIRY IS DERIVED, NEVER SWEPT**, and that is not theoretical: production holds a permit whose
+stored `status` is `active` and whose `expires_at` passed hours earlier. A predicate without the
+clock would rediscover it every tick forever. Discovery applies `expires_at > now()` in **the
+database's clock** — the same predicate, column and clock the spend itself uses.
+
+**The final Hobby cron slot is now consumed.** Two schedules exist, both hourly, each aimed at its
+own ingress and carrying its **own** bearer secret — one credential for two doors would be one door.
+Measured cadence is best-effort: ticks land on hour boundaries but not every hour.
+
+**FIREWALL #14 WAS NARROWED, NOT WEAKENED.** It asserted that *nothing* triggered the executor,
+which was true then and is not now. It now asserts the property it always meant: no page, component
+or server action reaches machine execution; **no file under `src/app` names the executor at all** —
+the admitted ingress included; exactly one module calls the executor and exactly one ingress calls
+that module, both pinned by path; the ingress reads the request for one thing only; and the
+deployment's schedules are pinned by value, so a third cron fails a test.
+
+**Truth after this phase:** DESIGNED · IMPLEMENTED · TESTED · COMMITTED · PUSHED · DEPLOYED — yes.
+**MIGRATION-APPLIED: yes. TENANT-AUTHORIZED: yes (TRH only). CRON CONFIGURED: yes.
+ROOT-ARMED: no. AUTOMATIC DELIVERY PRODUCTION-ACCEPTED: no. PRODUCTION MACHINE EXECUTION this
+phase: none** (still only RUNG 1's single accepted act). The trigger is scheduled and will find
+**zero candidates** while no permit is outstanding, and would be **refused at the root control** if
+one were.

@@ -351,7 +351,11 @@ function main(): void {
   };
   assert.equal(journal.entries.length, 54, "a consumer adds no migration");
   const cron = JSON.parse(read("vercel.json")) as { crons?: readonly { path: string }[] };
-  assert.deepEqual((cron.crons ?? []).map((c) => c.path), ["/api/observation/scan"], "no new cron");
+  assert.deepEqual(
+    (cron.crons ?? []).map((c) => c.path),
+    ["/api/observation/scan", "/api/machine-delivery/scan"],
+    "this phase adds no cron — the two are TRH-25 observation and RUNG 2 delivery",
+  );
 
   console.log(
     "instagram-media-surface/media-surface-firewall: both reads capability-scoped, seam predicate " +

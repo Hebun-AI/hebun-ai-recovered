@@ -647,6 +647,7 @@ function main(): void {
          * TRH-25's machine ingress — the first route that is not a browser redirect. It is NAMED,
          * as this list demands, so the next one is a decision somebody has to record here too.
          */
+        "src/app/api/machine-delivery/scan/route.ts",
         "src/app/api/observation/scan/route.ts",
       ].sort(),
       "every route handler is accounted for: the OAuth pairs and the one machine ingress",

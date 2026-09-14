@@ -326,6 +326,7 @@ function main(): void {
       /* TRH-25 added the machine ingress the automatic due-scan is triggered through. It is
        * NAMED here rather than pattern-matched, so a SECOND machine route cannot appear
        * without this census failing. */
+      "src/app/api/machine-delivery/scan/route.ts",
       "src/app/api/observation/scan/route.ts",
     ],
     "no ingress was added — the four OAuth browser-redirect handlers are still the only routes",
@@ -447,8 +448,8 @@ function main(): void {
     );
     assert.deepEqual(
       listOf("MACHINE_INGRESS_PATHS"),
-      ['"/api/observation/scan"'],
-      "exactly ONE machine path skips the session check, and it is the observation due-scan",
+      ['"/api/observation/scan"', '"/api/machine-delivery/scan"'],
+      "exactly TWO machine paths skip the session check: the observation due-scan and the RUNG 2 delivery scan",
     );
     assert.ok(
       /url\.pathname = "\/login";/.test(middleware) && /NextResponse\.redirect/.test(middleware),

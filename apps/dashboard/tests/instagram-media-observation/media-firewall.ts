@@ -301,8 +301,8 @@ function main(): void {
   const cron = JSON.parse(read("vercel.json")) as { crons?: readonly { path: string }[] };
   assert.deepEqual(
     (cron.crons ?? []).map((c) => c.path),
-    ["/api/observation/scan"],
-    "no second scheduler — the released generic scan is still the only cron",
+    ["/api/observation/scan", "/api/machine-delivery/scan"],
+    "no scheduler was added HERE — the two crons are TRH-25 observation and RUNG 2 delivery",
   );
 
   /* ═══ 10. NO UI REACHES THE PROVIDER ══════════════════════════════════════ */

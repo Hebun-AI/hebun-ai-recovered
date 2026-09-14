@@ -285,19 +285,158 @@ function theActIsHonest(): void {
   );
 }
 
-/* ── 14. THERE IS NO TRIGGER, AND NO PRODUCT SURFACE REACHES THIS ────────── */
-function nothingTriggersItYet(): void {
+/* ── 14. NO PRODUCT SURFACE REACHES THIS, AND EXACTLY ONE MACHINE PATH DOES ──
+ *
+ * RUNG 1 asserted that NOTHING triggered the executor, which was the truth then and is no longer.
+ * RUNG 2 adds an automatic delivery trigger, so this rule is NARROWED rather than relaxed: the
+ * property it always meant — a product surface cannot cause machine execution — is now stated
+ * directly instead of being implied by "nobody calls this at all".
+ *
+ * WHAT IS STILL FORBIDDEN, AND IS ASSERTED BELOW:
+ *   · a page, a component or an ordinary server action reaching the executor
+ *   · ANY file under `src/app` naming the executor — including the admitted ingress itself
+ *   · a second ingress appearing that can cause machine execution
+ *   · caller-supplied tenant, permit, payload or action kind travelling to the executor
+ *
+ * WHAT IS ADMITTED, AND ONLY IN THIS SHAPE:
+ *   authenticated machine ingress route → scan module → released executor
+ *
+ * The ingress is PINNED BY PATH. A third route that reaches the scan module, or any route that
+ * reaches the executor directly, fails here.
+ */
+const DELIVERY_SCAN = "src/features/machine-delivery-trigger/scan-deliverable-permits.server.ts";
+const DELIVERY_ROUTE = "src/app/api/machine-delivery/scan/route.ts";
+
+function onlyTheAdmittedMachineIngressTriggersIt(): void {
+  /*
+   * NO FILE UNDER `src/app` OR `src/components` NAMES THE EXECUTOR — the admitted route included.
+   * This is the assertion that survives unchanged from RUNG 1, and it is what makes the indirection
+   * structural rather than stylistic: the route cannot reach the executor even by accident.
+   */
   const callers = [...walk("src/app"), ...walk("src/components")].filter((f) =>
     codeOf(read(f)).includes("executeRecordWorkAsMachine"),
   );
   assert.deepEqual(
     callers,
     [],
-    "RUNG 1 makes an act machine-TRIGGERABLE; no route, page or server action triggers it",
+    "no route, page, component or server action names the executor — not even the machine ingress",
   );
+
+  /* THE ONLY MODULE IN THE WHOLE TREE THAT CALLS IT IS THE SCAN MODULE. */
+  const executorCallers = walk("src")
+    .filter((f) => f !== EXECUTOR)
+    .filter((f) => codeOf(read(f)).includes("executeRecordWorkAsMachine"));
+  assert.deepEqual(
+    executorCallers,
+    [DELIVERY_SCAN],
+    "exactly one module reaches the executor, and it is the delivery scan",
+  );
+
+  /* AND THE ONLY MODULE THAT REACHES THE SCAN IS THE ONE PINNED INGRESS. */
+  const scanCallers = walk("src")
+    .filter((f) => f !== DELIVERY_SCAN)
+    .filter((f) => codeOf(read(f)).includes("scanDeliverablePermits"));
+  assert.deepEqual(
+    scanCallers,
+    [DELIVERY_ROUTE],
+    "exactly one ingress reaches the delivery scan, and it is the pinned machine-delivery route",
+  );
+
+  /*
+   * THE INGRESS ADMITS NO SCOPE. A route that could read a body, a query parameter or a route
+   * parameter would be a syntax in which a caller names a tenant, a permit or a payload — which is
+   * the entire threat this boundary exists to refuse.
+   */
+  const routeCode = codeOf(read(DELIVERY_ROUTE));
+  for (const inlet of [
+    "request.json", "request.text", "request.formData", "request.body",
+    "nextUrl", "searchParams", "URL(", "params",
+  ]) {
+    assert.ok(!routeCode.includes(inlet), `the machine ingress never reads \`${inlet}\``);
+  }
+  const reads = [...routeCode.matchAll(/request\.(\w+)/g)].map((m) => m[1]!);
+  assert.deepEqual(
+    [...new Set(reads)].sort(),
+    ["headers"],
+    "the ingress reads the request for exactly one thing: the authorization header",
+  );
+  assert.match(
+    routeCode,
+    /await scanDeliverablePermits\(\)/,
+    "and it starts the scan with NO arguments — there is nothing it could aim",
+  );
+
+  /* AUTHENTICATION HAPPENS BEFORE THE SCAN, AND AN UNSET SECRET REFUSES EVERYTHING. */
+  const guard = routeCode.indexOf("if (!isAuthorized(request.headers");
+  const call = routeCode.indexOf("await scanDeliverablePermits(");
+  assert.ok(guard >= 0 && call > guard, "the bearer is verified BEFORE the scan is started");
+  assert.equal(
+    (routeCode.match(/scanDeliverablePermits\(/g) ?? []).length,
+    1,
+    "the scan is started exactly once, so no copy of it can run above the guard",
+  );
+  assert.match(
+    routeCode,
+    /if \(!expected\) return false;/,
+    "an unset secret refuses every request — an unconfigured deployment is closed",
+  );
+  assert.match(routeCode, /timingSafeEqual/, "and the comparison is constant time");
+
+  /*
+   * EACH INGRESS CARRIES ITS OWN SECRET: one credential for two doors would be one door.
+   *
+   * Read WITHOUT the string-blanking `codeOf` applies, because the env name IS a string literal —
+   * `codeOf` would erase the very thing this rule is about. Comments are still stripped, so prose
+   * naming either secret can neither satisfy nor trip it.
+   */
+  const routeStrings = withoutComments(read(DELIVERY_ROUTE));
+  assert.ok(
+    routeStrings.includes("HEBUN_MACHINE_DELIVERY_TRIGGER_SECRET"),
+    "the delivery ingress names its own secret",
+  );
+  assert.ok(
+    !routeStrings.includes("HEBUN_OBSERVATION_TRIGGER_SECRET"),
+    "and never the observation ingress's — two doors must not share one credential",
+  );
+
+  /* THE SCAN HANDS OVER A PERMIT ID AND NOTHING ELSE. */
+  const scanCode = codeOf(read(DELIVERY_SCAN));
+  assert.match(
+    scanCode,
+    /execute\(\{ permitId \}/,
+    "only a permit id crosses to the executor — never a tenant, payload or action kind",
+  );
+  for (const forbidden of ["tenantId:", "actionKind", "payload"]) {
+    assert.ok(
+      !scanCode.includes(`${forbidden} `) || !scanCode.includes(`execute({ ${forbidden}`),
+      `the scan forwards no ${forbidden} to the executor`,
+    );
+  }
+
+  /* THE TRIGGER OWNS NO STATE: no writes, no claim, no scheduler bookkeeping. */
+  for (const write of [".insert(", ".update(", ".delete(", ".transaction("]) {
+    assert.ok(!scanCode.includes(write), `the scan performs no \`${write}\` — it owns no state`);
+  }
+  for (const timing of ["setInterval", "setTimeout", "cron", "schedule"]) {
+    assert.ok(!scanCode.includes(timing), `and it schedules nothing itself: ${timing}`);
+  }
+
+  /* THE DEPLOYMENT'S SCHEDULES ARE PINNED BY VALUE — a third cron fails here. */
+  const vercelConfig = JSON.parse(read("vercel.json")) as {
+    readonly crons?: readonly { readonly path: string; readonly schedule: string }[];
+  };
+  assert.deepEqual(
+    vercelConfig.crons,
+    [
+      { path: "/api/observation/scan", schedule: "0 * * * *" },
+      { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
+    ],
+    "exactly two schedules exist, both hourly, each aimed at its own machine ingress",
+  );
+
   const exec = codeOf(read(EXECUTOR));
   for (const forbidden of ["setInterval", "setTimeout", "cron", "schedule"]) {
-    assert.ok(!exec.includes(forbidden), `and it schedules nothing itself: ${forbidden}`);
+    assert.ok(!exec.includes(forbidden), `and the executor schedules nothing itself: ${forbidden}`);
   }
 }
 
@@ -311,7 +450,7 @@ function main(): void {
   theSwitchIsMandatory();
   authorizationStaysHuman();
   theActIsHonest();
-  nothingTriggersItYet();
+  onlyTheAdmittedMachineIngressTriggersIt();
   console.log("rung1 machine execution firewall: OK");
 }
 

@@ -389,6 +389,7 @@ function phaseFirewalls(): void {
     "src/app/api/integrations/instagram/callback/route.ts",
     "src/app/api/integrations/instagram/start/route.ts",
     /* TRH-25's machine ingress. Named, so a second machine route fails this census. */
+    "src/app/api/machine-delivery/scan/route.ts",
     "src/app/api/observation/scan/route.ts",
   ].sort();
   const routes = collect("src/app")
