@@ -211,7 +211,18 @@ function main(): void {
       !/\b(Run|Execute|Deploy|Approve|Reject|Delete|Terminate|Restart|Apply)\b\s*<\/(?:button|a)>/i.test(html),
       "no execution/approval action control",
     );
-    assert.ok(html.includes("it never executes"), "the surface states it does not execute");
+    /*
+     * THE SURFACE'S CLAIM WAS NARROWED BECAUSE ONE HALF OF IT STOPPED BEING TRUE.
+     *
+     * It said "it never executes", which RUNG 1 falsified for `record-work`. What this workspace
+     * must still state — and what this pin now guards — is the half that is permanent and is the
+     * reason the surface carries no action control at all: HEBY NEVER AUTHORIZES.
+     */
+    assert.ok(html.includes("never authorizes"), "the surface states Heby never authorizes");
+    assert.ok(
+      !html.includes("it never executes"),
+      "and no longer claims it never executes, which is false for a machine-performable act",
+    );
   }
 
   // 11. Composer semantics + accessibility: labelled, described, keyboard hint, no autofocus trap.

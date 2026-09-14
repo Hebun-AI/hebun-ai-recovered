@@ -32,6 +32,7 @@ import {
 import { approveActionRequest } from "../../src/features/action-authorization/decide-action-request.server";
 import { executeRecordWork } from "../../src/features/governed-internal-action/execute-record-work.server";
 import { executeRecordWorkAsMachine } from "../../src/features/governed-machine-execution/execute-record-work-as-machine.server";
+import { retireDurableAgentIdentity } from "../../src/features/agent-identity/retire-durable-agent-identity.server";
 import { RECORD_WORK_ACTION_KIND } from "../../src/features/heby-action-inlet/contracts";
 import { authorizeTenantMachineExecution } from "../../src/features/tenant-machine-execution-authority/authorize-tenant-machine-execution.server";
 import { resolveMachineExecutionReachability } from "../../src/features/tenant-machine-execution-authority/resolve-machine-execution-reachability.server";
@@ -382,6 +383,60 @@ async function main(): Promise<void> {
       );
       assert.equal(work.rows[0]!.created_by, acme.userId, "and still correlates to the human's session");
       assert.equal(work.rows[0]!.created_by_type, "system");
+    }
+
+    /* ═══ 9. A RETIRED AGENT'S AUTHORIZED PERMIT IS REFUSED BEFORE THE SPEND ═══
+     *
+     * PROVENANCE IS NOT ELIGIBILITY. The request keeps saying an agent proposed it — that is
+     * history and is never rewritten. What changes is whether that principal may still act, and
+     * a permit authorized while the agent was in service must not outlive the agent.
+     *
+     * ORDER MATTERS HERE: the permit is minted while the agent is live, exactly as a future
+     * scanner would discover it, and the agent is retired only afterwards. That is the race the
+     * gate exists for — eligible at discovery, retired before execution.
+     */
+    {
+      const permitId = await agentPermit("Authorized while the agent was still in service");
+      const workBefore = await countOf("work_items");
+
+      assert.equal(
+        (
+          await retireDurableAgentIdentity(
+            acmeCtx,
+            { agentId },
+            deps,
+          )
+        ).status,
+        "retired",
+        "the agent authority retired it through its own ceremony",
+      );
+
+      const refused = await executeRecordWorkAsMachine({ permitId }, withSwitch(ARMED));
+      assert.equal(
+        refused.status === "refused" && refused.reason,
+        "agent-not-in-service",
+        JSON.stringify(refused),
+      );
+      assert.equal(
+        refused.status === "refused" ? refused.authorityReason : "",
+        "not-in-service",
+        "and the agent authority's own word is carried, not invented here",
+      );
+
+      assert.equal(
+        (await permitRow(permitId)).status,
+        "active",
+        "THE PERMIT WAS NOT SPENT — the refusal happens before the spend",
+      );
+      assert.equal(await countOf("work_items"), workBefore, "and no work row was written");
+
+      /* PROVENANCE SURVIVED. Retiring an agent rewrites no history. */
+      const proposer = await setup.query<{ t: string; id: string }>(
+        `select proposed_by_actor_type t, proposed_by_actor_id id from heby_action_requests
+          order by created_at desc limit 1`,
+      );
+      assert.equal(proposer.rows[0]!.t, "agent", "the request still records that an agent proposed it");
+      assert.equal(proposer.rows[0]!.id, agentId, "naming the same agent it always named");
     }
 
     console.log("rung1 machine-triggered record-work (PostgreSQL): all assertions passed");

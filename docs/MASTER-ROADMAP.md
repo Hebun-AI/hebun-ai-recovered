@@ -4695,3 +4695,90 @@ asserts each of those.
 **Remaining RUNG 2 work:** one authoritative deployment-wide eligible-permit read seam, one bounded
 scan runner, one machine ingress route reusing TRH-25's constant-time bearer pattern, one middleware
 entry and one cron line. No schema.
+
+---
+
+### RUNG 2 PREREQUISITE — **PRE-MIGRATION NARROWING** · RELEASED · MIGRATION 54 STILL UNAPPLIED
+
+An architecture review of `d3c4e8ad` returned **KEEP BUT NARROW BEFORE MIGRATION**. It found the
+tenant machine-execution authority correct — it duplicates no existing fact, and the gap it fills
+(*who decides that an organization's authorized work may be delivered unattended*) is owned by
+nothing else — but it found three things that had to be settled before production persistence
+admitted it. All three are now settled. **Migration 54 is unchanged and still not applied.**
+
+#### 1 · A HUMAN WAS BEING TOLD SOMETHING THAT STOPPED BEING TRUE
+
+Every consequential act's disclosed consequences carried, from `action-preparer.ts`:
+
+> *"Always requires human review; Heby never authorizes or executes it."*
+
+The first clause is a permanent invariant. **The second stopped being true when RUNG 1 executed
+`4e9612b8` in production** — and it was already false at the moment RUNG 1's own acceptance was
+obtained. This is the one disclosure a human cannot verify for themselves afterwards, and it is
+stored on the request they approve.
+
+The sentence is now action-aware, because machine execution is frozen to one kind:
+
+| kind | what the human is told |
+|---|---|
+| `record-work` | *"Always requires your authorization — Heby never authorizes it. Once you authorize it, Hebun may perform it for you; nothing is performed before that."* |
+| every other consequential act | *"…and a person must perform it."* |
+
+**One false blanket was not replaced with another.** It promises no automation — nothing schedules,
+queues or triggers an execution — because *who may perform it* and *when it happens* are different
+facts. Four more surfaces carrying the same blanket were corrected the same way; every statement
+that only said **Heby never authorizes** was left exactly as it was, because that one is still true.
+
+**The preparer states the machine-performable kind in Heby's own vocabulary rather than importing
+the execution authority**, since Heby's preparation path must not reach execution. A firewall
+imports both and asserts they agree, so the drift risk is paid for in a test instead of in coupling.
+
+#### 2 · GOVERNANCE SUCCESSION — the organization's decision, not the signer's
+
+**DECIDED: a tenant machine-execution authorization is a durable organizational Governance decision
+and does not belong to the human who signed it.** If that human later loses Governance authority,
+the standing authorization **remains valid**; only the subsystem that owns its lifecycle may
+supersede or withdraw it, and doing so requires Governance authority *at the time of the change*.
+
+This was already the behaviour; it was **accidental rather than stated**, which is what the review
+objected to. It is now asserted as a contract: nothing on the read or composition path consults the
+authorizer's *current* authority, and a test pins that absence — which is precisely what makes the
+row the organization's position rather than a personal capability. The human authorizer stays on
+the row as **provenance**, and no phase rewrites it.
+
+**No persistence was added to encode this.** A column recording that a signer later lost authority
+would be a second, derivable fact.
+
+#### 3 · AGENT LIVENESS — provenance is not eligibility
+
+The review found that the machine principal mint read `proposed_by_actor_type === 'agent'` and
+**never read the `agents` table at all**. A retired, replaced or out-of-service agent's already
+authorized permit stayed machine-executable indefinitely — a permission outliving the principal it
+belonged to. Pre-existing, and not fixed by `d3c4e8ad`.
+
+**DECIDED: proposal provenance is immutable history; execution eligibility is a question about NOW.**
+The executor resolves agent liveness from the agent authority's own seam, using the released
+`inService` predicate rather than a second definition, and refuses `agent-not-in-service` carrying
+that authority's own word. **No second agent registry, and the executor never mutates agent state.**
+
+Both ids come off authoritative rows — tenant from the permit, agent from that permit's request — so
+a mismatched pair resolves to `unknown-agent` and fails closed rather than reaching another
+organization's row. A PostgreSQL test mints the permit while the agent is in service, retires it
+through its own ceremony, and proves the permit is **refused with nothing spent and no work row** —
+while the request still records that the agent proposed it.
+
+**THE RESIDUAL WINDOW IS STATED RATHER THAN PAPERED OVER.** The check is the last read before the
+spend, but the agent row is **not read inside the spend's transaction**, so an in-process window of
+milliseconds remains between the liveness read and the conditional `UPDATE`. Closing it would mean
+making permit consumption depend on agent lifecycle inside a released authority's transaction —
+outside this mission's boundary. The single-spend guarantee is untouched.
+
+```
+PROVENANCE != ELIGIBILITY        THE SIGNER != THE ORGANIZATION
+WHO MAY PERFORM IT != WHEN IT HAPPENS
+```
+
+**Truth after this phase:** DESIGNED · IMPLEMENTED · TESTED · COMMITTED · PUSHED · DEPLOYED — yes.
+**MIGRATION-APPLIED: no. TENANT-AUTHORIZED: no. ROOT-ARMED: no. TRIGGER-IMPLEMENTED: no.
+PRODUCTION-EXECUTED: no** (beyond RUNG 1's single accepted act). Production mutation this phase:
+**none**.

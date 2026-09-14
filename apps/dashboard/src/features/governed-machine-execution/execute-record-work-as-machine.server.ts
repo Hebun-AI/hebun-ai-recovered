@@ -67,6 +67,7 @@ import {
   type MachineExecutionControlDeps,
 } from "./machine-execution-control.server";
 import { resolveMachineExecutionReachability } from "@/features/tenant-machine-execution-authority/resolve-machine-execution-reachability.server";
+import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
 
 /**
  * THE ALLOWLIST. One entry, frozen, and consulted rather than assumed.
@@ -96,6 +97,13 @@ export type MachineRecordWorkRefusal =
   | MachinePrincipalRefusal
   /** The permit authorizes an act no machine may trigger. The spend was rolled back. */
   | "action-kind-not-machine-executable"
+  /**
+   * The durable agent whose proposal this permit descends from is no longer in service — retired,
+   * out of service, unknown in that tenant, or its state could not be read. PROPOSAL PROVENANCE IS
+   * HISTORY AND IS NEVER REWRITTEN; this is a statement about NOW. `authorityReason` carries the
+   * agent authority's own word. The permit was NOT spent.
+   */
+  | "agent-not-in-service"
   /** The approved payload does not describe recordable work. The spend was rolled back. */
   | "payload-not-recordable"
   /** The Work Authority refused. The spend was rolled back and no row exists. */
@@ -133,6 +141,8 @@ export interface MachineRecordWorkDeps extends MachineExecutionControlDeps {
   readonly armed?: typeof resolveMachineInternalExecutionEnabled;
   /** Injectable so the tenant boundary is provable without a control-plane database. */
   readonly reachable?: typeof resolveMachineExecutionReachability;
+  /** Injectable so agent liveness is provable without a control-plane database. */
+  readonly agentLiveness?: typeof readDurableAgentRuntimeLiveness;
 }
 
 /** Aborts the callback, and with it the transaction that was spending the permit. */
@@ -213,6 +223,36 @@ export async function executeRecordWorkAsMachine(
   );
   if (reachability.status !== "reachable") {
     return { status: "refused", reason: "machine-execution-not-reachable", authorityReason: reachability.reason };
+  }
+
+  /*
+   * ── IS THE PROPOSING AGENT STILL IN SERVICE? ─────────────────────────────────────────────
+   *
+   * PROVENANCE IS NOT ELIGIBILITY. `proposed_by_actor_type = 'agent'` records who drafted this act
+   * and is immutable history; it says nothing about whether that principal may still act. Until
+   * now the mint read that column and nothing else, so a RETIRED agent's already-authorized permit
+   * stayed machine-executable forever — a permission that outlived the principal it belonged to.
+   *
+   * Both ids come off authoritative rows the caller does not control: the tenant from the permit,
+   * the agent from that permit's request. Neither is an argument, so a mismatched pair resolves to
+   * `unknown-agent` and fails closed rather than reaching another organization's row.
+   *
+   * THE EXECUTOR DOES NOT BECOME AGENT LIFECYCLE AUTHORITY. It READS the agent authority's own
+   * seam, which applies that authority's own `inService` predicate. Retiring stays a ceremony.
+   *
+   * HERE, AND NOT AT THE MINT. The mint runs before the tenant boundary and well before the spend;
+   * checking liveness there would widen the window in which a retirement could be outrun. This is
+   * the last read before the permit is consumed. THE RESIDUAL WINDOW IS NOT ZERO — see the phase
+   * report — because the agent row is not read inside the spend's transaction, and this file will
+   * not pretend otherwise by claiming atomicity it does not have.
+   */
+  const liveness = await (deps.agentLiveness ?? readDurableAgentRuntimeLiveness)(
+    principal.tenantId,
+    principal.agentId,
+    deps.getDb ? { getDb: deps.getDb } : {},
+  );
+  if (liveness !== "in-service") {
+    return { status: "refused", reason: "agent-not-in-service", authorityReason: liveness };
   }
 
   let outcome: WorkWriteResult | null = null;

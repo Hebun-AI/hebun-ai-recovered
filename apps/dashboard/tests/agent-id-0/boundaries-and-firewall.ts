@@ -146,8 +146,24 @@ function main(): void {
     (featureCode.match(/export async function (\w+)/g) ?? [])
       .map((match) => match.replace("export async function ", ""))
       .sort(),
-    ["createDurableAgentIdentity", "readDurableAgentIdentityState", "retireDurableAgentIdentity"],
-    "the feature exports exactly these three async functions: two one-way transitions and one read",
+    [
+      "createDurableAgentIdentity",
+      /*
+       * THE PRE-MIGRATION NARROWING ADDED A FOURTH, AND IT IS A SECOND READ — NOT A TRANSITION.
+       *
+       * Machine execution must ask whether the agent a permit descends from is still in service,
+       * and it has no `TenantContext` to call the product reader with. Rather than invent a second
+       * place that knows about agents, the same authority exposes the same `inService` predicate in
+       * the shape a runtime can honestly call: two authoritative ids, no filter it can widen.
+       *
+       * The pin stays STRICT: still an exact set by name, so a fifth export — or a rename — fails
+       * here. What must never grow is the number of TRANSITIONS, and that is still two.
+       */
+      "readDurableAgentIdentityState",
+      "readDurableAgentRuntimeLiveness",
+      "retireDurableAgentIdentity",
+    ],
+    "the feature exports exactly these four async functions: two one-way transitions and two reads",
   );
 
   /* ── 2. THE AUTHORITY DOES NOT REACH THE GENERIC PERSISTENCE SUBSTRATE ────── */

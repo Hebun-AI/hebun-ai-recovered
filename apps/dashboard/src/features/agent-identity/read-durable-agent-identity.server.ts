@@ -21,7 +21,7 @@
  *
  * Server-only.
  */
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { agents } from "@/db/schema/agent";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
@@ -117,5 +117,82 @@ export async function readDurableAgentIdentityState(
     };
   } catch {
     return { status: "unavailable" };
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * RUNTIME LIVENESS — ONE AGENT, NO TENANT CONTEXT, NO WIDENING.
+ *
+ * ── WHY A SECOND READER IN THE SAME AUTHORITY, AND NOT A SECOND AUTHORITY ───
+ *
+ * `readDurableAgentIdentityState` answers a question a PERSON asked inside one organization, so it
+ * takes the `TenantContext` only an authenticated session mints. A machine execution path has no
+ * such context and must never manufacture one — so it cannot use that reader, and inventing a
+ * second place that knows about agents would be worse than either problem.
+ *
+ * This is therefore the same authority, reading the same table, applying the SAME `inService`
+ * predicate, exposed in the shape a runtime can honestly call: two authoritative ids it already
+ * holds, and no filter it can widen. It is the shape TRH-25 established when the observation
+ * register needed a runtime read beside its product readers.
+ *
+ * ── WHY BOTH IDS, AND WHY THE TENANT IS PART OF THE PREDICATE ───────────────
+ *
+ * The caller supplies a tenant it READ off a permit and an agent it READ off that permit's request
+ * — never values it chose. Matching on both means an agent id that belongs to another organization
+ * resolves to `unknown-agent` rather than to that other tenant's row, so a mismatched pair fails
+ * closed instead of crossing a boundary.
+ *
+ * ── WHAT IT DOES NOT DO ─────────────────────────────────────────────────────
+ *
+ * It reads. It never writes, never retires, never creates and never decides whether an act may
+ * happen — lifecycle stays with the ceremonies that own it, and eligibility stays with the caller.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type DurableAgentRuntimeLiveness =
+  /** The agent exists in that tenant and is in service. */
+  | "in-service"
+  /** It exists in that tenant and has been retired or is otherwise out of service. */
+  | "not-in-service"
+  /** No such agent in that tenant — including an id belonging to a different organization. */
+  | "unknown-agent"
+  /** The control plane could not be reached. NEVER collapsed into any answer above. */
+  | "unavailable";
+
+/**
+ * Is this durable agent, in this tenant, in service RIGHT NOW?
+ *
+ * FAIL-CLOSED BY CONSTRUCTION: every non-`in-service` answer is a refusal for any caller that needs
+ * permission, and `unavailable` is reported as itself so an outage is never recorded as a retirement.
+ */
+export async function readDurableAgentRuntimeLiveness(
+  tenantId: string,
+  agentId: string,
+  deps: AgentIdentityReadDeps = {},
+): Promise<DurableAgentRuntimeLiveness> {
+  const tenant = (tenantId ?? "").trim();
+  const agent = (agentId ?? "").trim();
+  /* A malformed id is not a database question, and not an outage either. */
+  if (!UUID_RE.test(tenant) || !UUID_RE.test(agent)) return "unknown-agent";
+
+  const db = resolveDbOrNull(deps);
+  if (!db) return "unavailable";
+
+  try {
+    const rows = await db
+      .select({ retiredAt: agents.retiredAt, lifecycle: agents.agentLifecycleStatus })
+      .from(agents)
+      .where(and(eq(agents.tenantId, tenant), eq(agents.id, agent)))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) return "unknown-agent";
+    /* THE SAME PREDICATE the product reader applies, not a second definition of "in service". */
+    return row.retiredAt === null && row.lifecycle !== RETIRED_AGENT_LIFECYCLE_STATUS
+      ? "in-service"
+      : "not-in-service";
+  } catch {
+    return "unavailable";
   }
 }

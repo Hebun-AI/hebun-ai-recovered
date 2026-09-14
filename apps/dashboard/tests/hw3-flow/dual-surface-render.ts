@@ -280,7 +280,11 @@ function main(): void {
     // 28. Peripheral truth stays visible during a long thread.
     assert.ok(textOf(html).includes("3 evidence references"), "the real evidence count is still shown");
     assert.ok(textOf(html).includes("Deterministic — model not used"), "the real provenance is still shown");
-    assert.ok(html.includes("it never executes"), "the advisory boundary is still stated");
+    /*
+     * NARROWED, NOT DROPPED. "it never executes" was falsified by RUNG 1 for `record-work`; the
+     * advisory boundary this surface must still state is the permanent half — Heby never authorizes.
+     */
+    assert.ok(html.includes("never authorizes"), "the advisory boundary is still stated");
     // And nothing fabricated crept in with the length.
     for (const banned of BANNED_TELEMETRY) assert.ok(!banned.test(textOf(html)), `banned readout: ${banned}`);
   }
@@ -305,7 +309,7 @@ function main(): void {
     assert.ok(empty.includes("heby-surface"), "it inherits the Heby token scope");
     assert.ok(empty.includes('aria-label="Message Heby"'), "the same composer");
     assert.ok(empty.includes("Enter to send, Shift+Enter for a new line"), "the same keyboard semantics");
-    assert.ok(empty.includes("it never executes"), "the same advisory boundary");
+    assert.ok(empty.includes("never authorizes"), "the same advisory boundary");
     assert.ok(empty.includes('data-heby-size="inline"'), "a compact presence identity");
     // DIFFERENT job: it does NOT squeeze the immersive hero composition into a panel.
     assert.ok(!empty.includes("heby-workspace"), "it is not the Full Workspace");

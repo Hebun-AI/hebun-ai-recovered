@@ -279,7 +279,21 @@ function reversibleIsNotErasable(): void {
   );
   assert.match(consequences, /deterministic inverse/i, "they are told the inverse exists");
   assert.match(consequences, /not erasure/i, "and that it is not erasure");
-  assert.match(consequences, /human review/i, "and that a human decides");
+  /*
+   * THE PRE-MIGRATION NARROWING CORRECTED THIS SENTENCE AND KEPT ITS LOAD-BEARING HALF.
+   *
+   * It used to read "Always requires human review; Heby never authorizes or executes it." RUNG 1
+   * made the second clause false — it machine-executed exactly this act in production — so the
+   * wording is now action-aware. What a human must still be told is unchanged and is what is
+   * asserted: THEY decide, and Heby never decides for them.
+   */
+  assert.match(consequences, /requires your authorization/i, "and that a human decides");
+  assert.match(consequences, /Heby never authorizes it/i, "and that Heby never authorizes it");
+  assert.match(
+    consequences,
+    /Hebun may perform it for you/i,
+    "and — since RUNG 1 — that Hebun itself may perform it once they have",
+  );
 
   /* AND THE SEND'S OWN SENTENCE IS UNTOUCHED. */
   const sendPrepared = prepareAction({

@@ -197,7 +197,13 @@ export const PLACE_HUMAN_PROPOSAL_NON_EFFECTS: readonly string[] = Object.freeze
    * vocabulary ban has twice hit legitimate code, so the claim is kept and the string is not.
    */
   "does not reach any provider, stored secret or integration",
-  "does not execute on approval — a human must still perform it",
+  /*
+   * RUNG 1 CORRECTED THE SECOND HALF. Approval still executes nothing — that is the load-bearing
+   * claim and it is unchanged. What is no longer true is "a human must still perform it": a
+   * human-authorized `record-work` permit may be performed by Hebun. Nothing is triggered
+   * automatically, so approval remains the end of this seam's effect.
+   */
+  "does not execute on approval — performing it is a separate, separately gated act",
 ]);
 export const RECORD_WORK_OWNER_WORKSPACE = "command" as const;
 

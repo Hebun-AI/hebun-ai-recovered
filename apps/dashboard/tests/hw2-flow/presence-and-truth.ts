@@ -299,7 +299,11 @@ function main(): void {
     assert.ok(html.includes('aria-label="Message Heby"') && html.includes('aria-label="Send"'), "composer intact");
     assert.ok(html.includes("Enter to send, Shift+Enter for a new line"), "keyboard semantics discoverable");
     assert.ok(html.includes("/</span> for commands"), "slash discovery stays visible but subtle");
-    assert.ok(html.includes("it never executes"), "the advisory boundary is still stated");
+    /*
+     * NARROWED, NOT DROPPED. "it never executes" was falsified by RUNG 1 for `record-work`; the
+     * advisory boundary this surface must still state is the permanent half — Heby never authorizes.
+     */
+    assert.ok(html.includes("never authorizes"), "the advisory boundary is still stated");
     // No database id and no key-shaped token reaches the markup.
     assert.ok(!/sk-[a-z0-9-]{6,}/i.test(html) && !html.includes("tenantId"), "no secret or tenant id in markup");
   }

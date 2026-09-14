@@ -68,7 +68,12 @@ export function invokeTool(input: ToolInvocationInput): HebyToolResult {
     return result(
       tool.toolId,
       "REQUIRES_HUMAN_REVIEW",
-      "This action changes state and requires human authority. Heby prepares it; it does not execute.",
+      /*
+       * "Heby prepares it; it does not execute" was a blanket claim RUNG 1 falsified for one
+       * action kind. What this gate actually decides is unchanged and is what it now says: the
+       * tool is DEFERRED here, never run here.
+       */
+      "This action changes state and requires human authority. Heby prepares it; nothing runs here.",
     );
   }
 

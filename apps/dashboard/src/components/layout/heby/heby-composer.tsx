@@ -332,7 +332,7 @@ export function HebyComposer(props: HebyComposerProps) {
       </div>
 
       <p className="mt-1.5 px-1 text-[0.68rem] leading-4 text-fg-muted">
-        Heby advises and prepares; it never executes — the authoritative act is yours. Recent
+        Heby advises and prepares; it never authorizes — the decision is yours. Recent
         conversation is context, not organizational fact.
       </p>
     </div>

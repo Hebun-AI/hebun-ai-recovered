@@ -11,7 +11,8 @@ import type { DirectorIntentModel } from "@/features/director-intent/workspace-m
  * execution, and never routes free text to raw execution. It presents the Phase 17 action
  * lifecycle read-only: only READ_ONLY / side-effect-free preparation is invokable; every mutation
  * stays gated to human authority with no connected substrate. There is no "authorized" state the
- * system can produce. Prepared ≠ authorized ≠ executed. Heby prepares; it never executes.
+ * system can produce. Prepared != authorized != executed. Heby prepares and never authorizes;
+ * after a human authorizes, performing the act is a separate, separately gated step.
  */
 
 const SIDE_EFFECT_LABEL: Record<string, string> = {
@@ -27,7 +28,7 @@ export function DirectorIntent({ model }: { model: DirectorIntentModel }) {
     <>
       <PageHeader
         title="Director Intent"
-        context="Express what you want Hebun to investigate, prepare, or change. Heby understands and prepares — it never authorizes or executes."
+        context="Express what you want Hebun to investigate, prepare, or change. Heby understands and prepares — it never authorizes."
         action={<Badge variant="neutral">Preparation only</Badge>}
       />
 

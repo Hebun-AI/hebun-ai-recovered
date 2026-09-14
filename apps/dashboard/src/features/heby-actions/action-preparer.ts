@@ -35,6 +35,17 @@ import { evaluateCapability } from "./capability-gate";
 import { evaluateGovernance } from "./governance-gate";
 import { evaluateAuthority } from "./authority-gate";
 
+/**
+ * The ONE action kind a machine may perform once a human has authorized it (RUNG 1).
+ *
+ * STATED IN THIS FEATURE'S OWN VOCABULARY, DELIBERATELY. Heby's preparation path must not import
+ * the execution authority — a released boundary this repository has defended repeatedly — so the
+ * value is the `HebyActionKind` literal this feature already declares rather than a reach into
+ * `governed-machine-execution`. A firewall test imports BOTH and asserts they agree, which is where
+ * the drift risk is paid for without coupling preparation to execution.
+ */
+const MACHINE_PERFORMABLE_ACTION_KIND = "record-work" as const;
+
 /** Default lifetime, in caller-supplied logical ticks, before a preparation must be revalidated. */
 export const DEFAULT_PREPARATION_TTL_TICKS = 100;
 
@@ -176,7 +187,31 @@ function describeConsequences(tool: HebyActionTool): readonly string[] {
           ? "Would change state. A deterministic inverse exists: the record can be retired through the authority that owns it. Retirement is not erasure — the record, its audit event and this decision remain."
           : "Would change state irreversibly.",
       );
-      consequences.push("Always requires human review; Heby never authorizes or executes it.");
+      /*
+       * ── THE SENTENCE RUNG 1 MADE FALSE, AND THE HALF OF IT THAT WAS ALWAYS TRUE ──────────
+       *
+       * This read "Always requires human review; Heby never authorizes or executes it." The first
+       * clause is a permanent invariant and is kept verbatim in spirit: Heby proposes, a human
+       * authorizes, and no phase has ever changed that.
+       *
+       * THE SECOND CLAUSE STOPPED BEING TRUE. RUNG 1 released machine-triggered execution of an
+       * already human-authorized `record-work` permit, and performed one in production. A human
+       * who authorizes such an act may no longer be told that Heby will never perform it — that is
+       * the one disclosure they cannot verify for themselves afterwards.
+       *
+       * IT IS NOT REPLACED WITH THE OPPOSITE BLANKET. Machine execution is frozen to one action
+       * kind, so only that kind says so; every other consequential act still requires a person to
+       * perform it, and is told exactly that. `tests/narrowing-before-migration` pins this branch
+       * against the released frozen set, so the two cannot drift apart.
+       *
+       * AND IT PROMISES NO AUTOMATION. Nothing schedules, queues or triggers an execution today;
+       * "may be performed by Hebun" is a statement about WHO may perform it, never about WHEN.
+       */
+      consequences.push(
+        tool.actionKind === MACHINE_PERFORMABLE_ACTION_KIND
+          ? "Always requires your authorization — Heby never authorizes it. Once you authorize it, Hebun may perform it for you; nothing is performed before that."
+          : "Always requires your authorization — Heby never authorizes it, and a person must perform it.",
+      );
       break;
     case "DEVICE_ACTION":
       consequences.push("Device runtime is Platform-owned, Director-authorized, and not implemented.");
