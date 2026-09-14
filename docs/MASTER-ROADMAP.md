@@ -4199,3 +4199,78 @@ NAMED "execution"            != WIRED
 **This section takes no program decision and authorizes no implementation.** It records a measured
 architecture, one recommended rung (**RUNG 1**), one recommended first action (**`record-work`**),
 and one open schema question awaiting Director decision.
+
+---
+
+### CONTROLLED AUTONOMY **RUNG 1** — IMPLEMENTED · TESTED · NOT DEPLOYED
+
+**Measured, and deliberately short of the words it would be easy to reach for.** The capability
+exists in the repository and has never run anywhere but a disposable test database. It is not
+deployed, not production-available, not production-authorized and not production-executed, and no
+production permit was created or consumed to write this line.
+
+**NO SCHEMA. NO MIGRATION.** The ledger stays at **53**, and the Phase 0 question — where
+permit-consumption actor provenance belongs — was answered by measurement rather than by adding
+columns:
+
+- **"Who executed" was already durable.** GIA-1's `WorkStateAuthor` is a closed `human | system`
+  union and its released prose already states the rule this work needed: *HUMAN AUTHORIZED !=
+  SYSTEM EXECUTED*. A governed internal act authors the row `system`, and a machine-triggered one
+  authors it `system` too, because Hebun performs both.
+- **"Who triggered it" had a canonical home.** `audit_log` owns "who did what under which
+  authority": its actor pair is polymorphic, `action` is free text, and `session_context_id` and
+  `request_id` are NULLABLE — which is exactly the shape an actor with no session needs.
+- **A durable actor existed here, unlike TRH-24.** That work had to nullify its actor pair and
+  invent a second provenance mode because an unattended provider read had no durable actor at all.
+  A RUNG 1 permit descends from a request an AGENT filed, and `proposed_by_actor_id` is NOT NULL.
+
+Adding `consumed_by_actor_*` to `action_permits` would therefore have given one fact a second home —
+the same duplication TRH-24 refused when it declined to invent an invocation table.
+
+**A released firewall corrected the design mid-implementation, and was not weakened.** The first
+attempt widened the work audit's executor vocabulary to admit `agent`, and
+`gia1-governed-internal-action/internal-act-firewall` bit it with one sentence: *an agent proposes,
+it never performs*. The rule was right. The machine act now records `system` as the performer and
+names the agent in `actor_id`, which is what that column has always been — the correlation, never a
+claim of performance. The two-value union is untouched.
+
+**What was built, as three doors onto authorities that already existed:**
+
+| | |
+|---|---|
+| `mintMachineExecutionPrincipal` | ephemeral, runtime-branded, **takes no tenant** — the tenant is read off the permit row |
+| `consumeActionPermitAsMachine` | a second typed door onto the **one** single-spend statement, which was extracted, not duplicated |
+| `recordWorkWithinAsMachine` | the Work Authority's own writer, re-asking every rule it owns |
+
+**A machine may trigger `record-work` and nothing else.** `MACHINE_EXECUTABLE_ACTION_KINDS` is a
+frozen one-member set, checked before the spend and again inside the transaction; no environment
+variable, config value or database row can widen it. Placement is unreachable twice over — it has no
+agent-proposal seam, so every placement permit is human-proposed and refused at the mint.
+
+**Human/Governance authorization is unchanged and remains mandatory** — enforced in the DATABASE by
+`action_permits_human_authorizer_chk` and `heby_action_requests_human_approver_chk`, not by
+convention. There is no standing mutation authorization, and a machine can neither mint a permit nor
+alter one.
+
+**Fail-closed by absence.** `machine-internal-execution` is a new key on the released
+`resolveDirectorEnabled` seam — a ROW, not a table. No deployment has that row, so the released
+default is DISARMED, and it is disarmed because nobody has decided otherwise rather than because
+somebody decided to disarm it.
+
+**Atomicity is the permit's own transaction.** The spend, the work row and the audit event commit
+together or not at all. A test retires the department after authorization so the Work Authority
+refuses inside the callback, then re-reads the permit: still `active`, no work row, nothing burned.
+
+**Nothing triggers it.** No scheduler, no timer, no route and no server action — a firewall asserts
+no product surface reaches it. RUNG 1 makes an authorized act machine-TRIGGERABLE; deciding when to
+trigger one is a later decision that has not been taken.
+
+**Suite: 763/763 on the implementation tree**, measured in an isolated worktree from the released
+baseline `953c05c2` because the primary tree carried concurrent foreign work. Two new suites: a
+PostgreSQL behaviour suite and an architectural firewall whose four load-bearing pins were each
+proved to bite by throwaway mutation.
+
+```
+MACHINE-TRIGGERABLE  != TRIGGERED        ARMED IN CODE   != ARMED IN A DEPLOYMENT
+IMPLEMENTED          != DEPLOYED         AGENT PROPOSES  != AGENT PERFORMS
+```

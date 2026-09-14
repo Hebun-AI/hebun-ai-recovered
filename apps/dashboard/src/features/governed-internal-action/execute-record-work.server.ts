@@ -135,7 +135,14 @@ class AbortInternalAct extends Error {}
  * digest before this runs. Nothing here may add a field, default one, or read anything from
  * anywhere else — a value the human did not see is a value they did not authorize.
  */
-function workInputFrom(authorization: ExecutionAuthorization): {
+/*
+ * EXPORTED FOR EXACTLY ONE REUSE (RUNG 1), and exported rather than copied on purpose.
+ *
+ * The machine-triggered path must read the approved payload the SAME way a human-triggered one
+ * does. A second copy of this function would be a second interpretation of what a human approved,
+ * and the two would drift the first time either was corrected.
+ */
+export function workInputFrom(authorization: ExecutionAuthorization): {
   readonly title: string;
   readonly departmentId: string | null;
 } | null {

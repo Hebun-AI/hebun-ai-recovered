@@ -52,6 +52,10 @@ import { recordActionAuthorizationEventWithin } from "@/features/governance-audi
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { asCanonicalPayload, digestCanonicalAction, digestsMatch } from "./canonical-payload";
 import {
+  isMachineExecutionPrincipal,
+  type MachineExecutionPrincipal,
+} from "./machine-execution-principal.server";
+import {
   ACTION_AUDIT_PERMIT_CONSUMED,
   type ExecutionAuthorization,
   type PermitConsumptionRefusal,
@@ -95,20 +99,36 @@ function refused(reason: PermitConsumptionRefusal): PermitConsumptionResult {
 }
 
 /**
+ * WHO IS SPENDING, reduced to the only three things the spend actually needs.
+ *
+ * The tenant is a PREDICATE, never a claim: it appears in the `WHERE` clause of the single-spend
+ * statement, so a caller naming the wrong tenant updates zero rows. `requestId` and
+ * `sessionContextId` are correlation only — they are written to the audit row and decide nothing.
+ *
+ * This type exists so that the ONE single-spend statement can serve two doors. It is module-private
+ * on purpose: exporting it would let any caller assemble a tenant string and spend with it, which
+ * is precisely the authority the two typed doors below exist to withhold.
+ */
+interface PermitSpendCaller {
+  readonly tenantId: string;
+  readonly requestId: string | undefined;
+  readonly sessionContextId: string | undefined;
+}
+
+/**
  * Spend one permit and return the authorization handoff.
  *
  * The caller supplies which permit and nothing else. It cannot supply the tenant (session), the
  * handoff id (minted here), the consumption time, or the digest.
  */
-export async function consumeActionPermit(
-  tenant: TenantContext | null,
+async function spendPermit(
+  caller: PermitSpendCaller,
   input: { readonly permitId: string },
   deps: PermitConsumptionDeps = {},
 ): Promise<PermitConsumptionResult> {
   if (typeof window !== "undefined") {
     throw new Error("Permit consumption is server-only.");
   }
-  if (!tenant?.tenantId) return refused("unauthenticated");
 
   const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
   if (!db) return refused("persistence-unavailable");
@@ -134,7 +154,7 @@ export async function consumeActionPermit(
         .where(
           and(
             eq(actionPermits.id, input.permitId),
-            eq(actionPermits.tenantId, tenant.tenantId),
+            eq(actionPermits.tenantId, caller.tenantId),
             eq(actionPermits.status, "active"),
             gt(actionPermits.expiresAt, sql`now()`),
           ),
@@ -162,7 +182,7 @@ export async function consumeActionPermit(
         .where(
           and(
             eq(hebyActionRequests.id, permit.actionRequestId),
-            eq(hebyActionRequests.tenantId, tenant.tenantId),
+            eq(hebyActionRequests.tenantId, caller.tenantId),
           ),
         )
         .limit(1);
@@ -199,10 +219,10 @@ export async function consumeActionPermit(
       await recordActionAuthorizationEventWithin(
         tx,
         {
-          tenantId: tenant.tenantId,
+          tenantId: caller.tenantId,
           userId: permit.authorizedByActorId,
-          requestId: tenant.requestId,
-          sessionContextId: tenant.sessionContextId,
+          requestId: caller.requestId,
+          sessionContextId: caller.sessionContextId,
         },
         {
           action: ACTION_AUDIT_PERMIT_CONSUMED,
@@ -231,7 +251,7 @@ export async function consumeActionPermit(
       const authorization: ExecutionAuthorization = {
         handoffId,
         permitId: permit.id,
-        tenantId: tenant.tenantId,
+        tenantId: caller.tenantId,
         actionRequestId: request.id,
         actionKind: request.actionKind,
         toolId: request.toolId,
@@ -279,4 +299,67 @@ export async function consumeActionPermit(
     }
     return refused("persistence-unavailable");
   }
+}
+
+/**
+ * DOOR ONE — A HUMAN SPENDS THE PERMIT. The released path, unchanged in behaviour.
+ *
+ * The tenant, the request id and the session all come from the authenticated context, and the
+ * caller still supplies nothing but a permit id.
+ */
+export async function consumeActionPermit(
+  tenant: TenantContext | null,
+  input: { readonly permitId: string },
+  deps: PermitConsumptionDeps = {},
+): Promise<PermitConsumptionResult> {
+  if (!tenant?.tenantId) return refused("unauthenticated");
+  return spendPermit(
+    {
+      tenantId: tenant.tenantId,
+      requestId: tenant.requestId,
+      sessionContextId: tenant.sessionContextId,
+    },
+    input,
+    deps,
+  );
+}
+
+/**
+ * DOOR TWO — A MACHINE SPENDS ONE EXACT PERMIT (RUNG 1).
+ *
+ * ── IT IS A DOOR, NOT A SECOND SPEND ─────────────────────────────────────────
+ *
+ * Both doors call the SAME `spendPermit`, so there is exactly one single-spend statement in this
+ * repository and neither door can drift from the other's guarantees. Duplicating the statement to
+ * serve a second caller is how one approval quietly becomes two acts.
+ *
+ * ── THE PERMIT ID IS NOT A PARAMETER ─────────────────────────────────────────
+ *
+ * It is read off the principal, which read it off the permit row. There is therefore no way to mint
+ * a principal against one permit and spend a different one, and no way to supply a tenant at all:
+ * the tenant predicate is the principal's, which is the permit's.
+ *
+ * ── WHAT THE AUDIT ROW SAYS, AND WHAT IT STILL DOES NOT ──────────────────────
+ *
+ * The consumption event's actor remains the AUTHORIZING HUMAN in both doors, because that is what
+ * it has always meant and it is still true: a human authorized this. What changes for a machine is
+ * only the correlation — there is no session, so `sessionContextId` is null and `requestId` is the
+ * invocation that caused the spend. WHO TRIGGERED IT is recorded by the act itself, on the entity
+ * it changed, where the effect is; putting it here as well would give one fact two homes.
+ */
+export async function consumeActionPermitAsMachine(
+  principal: MachineExecutionPrincipal,
+  deps: PermitConsumptionDeps = {},
+): Promise<PermitConsumptionResult> {
+  /* A forged object literal cannot carry the runtime symbol, so it fails here rather than spending. */
+  if (!isMachineExecutionPrincipal(principal)) return refused("unauthenticated");
+  return spendPermit(
+    {
+      tenantId: principal.tenantId,
+      requestId: principal.invocationId,
+      sessionContextId: undefined,
+    },
+    { permitId: principal.permitId },
+    deps,
+  );
 }

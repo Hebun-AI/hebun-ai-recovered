@@ -66,6 +66,8 @@ import {
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import {
   auditActorFrom,
+  type AuditActor,
+  type WorkAuditExecutor,
   recordWorkEventWithin,
 } from "@/features/governance-audit/organizational-work-audit.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
@@ -288,9 +290,25 @@ export type WorkRecordingTx = Pick<ControlPlaneDatabase, "insert" | "select">;
  * the governed one — they are the same code, differing only in who is recorded as having performed
  * it.
  */
-export async function recordWorkWithin(
+interface WorkRecordingContext {
+  /** The tenant every predicate and the inserted row are scoped to. */
+  readonly tenantId: string;
+  /**
+   * The SESSION CORRELATION, not a claim of performance — and `null` when there was no session.
+   *
+   * A machine-triggered act has no authenticated human to correlate to, and inventing one would put
+   * a person's id on a mutation they were not present for. TRH-24 answered the same question the
+   * same way when a provider read had no human behind it.
+   */
+  readonly createdBy: string | null;
+  readonly audit: AuditActor;
+  /** What the audit row says about who caused this. See `WorkAuditExecutor`. */
+  readonly executor: WorkAuditExecutor;
+}
+
+async function recordWorkCore(
   tx: WorkRecordingTx,
-  tenant: TenantContext,
+  ctx: WorkRecordingContext,
   input: {
     readonly title: string;
     readonly declaredState?: WorkDeclaredState;
@@ -308,12 +326,12 @@ export async function recordWorkWithin(
   const accountableUserId = input.accountableUserId ?? null;
 
   if (departmentId !== null) {
-    if (!(await isActiveDepartment(tx, tenant.tenantId, departmentId))) {
+    if (!(await isActiveDepartment(tx, ctx.tenantId, departmentId))) {
       return refuse("department-unresolved");
     }
   }
   if (accountableUserId !== null) {
-    if (!(await isEligibleMember(tx, tenant.tenantId, accountableUserId))) {
+    if (!(await isEligibleMember(tx, ctx.tenantId, accountableUserId))) {
       return refuse("accountable-not-eligible-member");
     }
   }
@@ -321,7 +339,7 @@ export async function recordWorkWithin(
   const inserted = await tx
     .insert(workItems)
     .values({
-      tenantId: tenant.tenantId,
+      tenantId: ctx.tenantId,
       title: input.title,
       ...(input.declaredState === undefined ? {} : { declaredState: input.declaredState }),
       departmentId,
@@ -332,9 +350,9 @@ export async function recordWorkWithin(
        * correlation to the session the act happened under — and `created_by_type` is what says who
        * PERFORMED it. For a governed internal act that is the system, never the authorizer.
        */
-      createdBy: tenant.userId,
+      createdBy: ctx.createdBy,
       createdByType: author.kind,
-      updatedBy: tenant.userId,
+      updatedBy: ctx.createdBy,
       updatedByType: author.kind,
     })
     .returning({
@@ -349,7 +367,7 @@ export async function recordWorkWithin(
   const row = inserted[0]!;
   await recordWorkEventWithin(
     tx,
-    auditActorFrom(tenant),
+    ctx.audit,
     {
       action: WORK_AUDIT_RECORDED,
       workItemId: row.id,
@@ -358,10 +376,109 @@ export async function recordWorkWithin(
       departmentId: row.departmentId,
     },
     now,
-    author.kind,
+    ctx.executor,
   );
 
   return { status: "recorded", workItem: viewOf(row) };
+}
+
+/**
+ * DOOR ONE — RECORD WORK INSIDE A CALLER'S TRANSACTION, FOR AN AUTHENTICATED HUMAN (GIA-1).
+ *
+ * Unchanged in behaviour and still the only door the released product path uses. `created_by` is
+ * the authenticated human as the session correlation, and `author.kind` decides whether the row
+ * says a person or Hebun performed the mutation.
+ */
+export async function recordWorkWithin(
+  tx: WorkRecordingTx,
+  tenant: TenantContext,
+  input: {
+    readonly title: string;
+    readonly declaredState?: WorkDeclaredState;
+    readonly departmentId?: string | null;
+    readonly accountableUserId?: string | null;
+  },
+  author: WorkStateAuthor,
+  now: Date = new Date(),
+): Promise<WorkWriteResult> {
+  return recordWorkCore(
+    tx,
+    {
+      tenantId: tenant.tenantId,
+      createdBy: tenant.userId,
+      audit: auditActorFrom(tenant),
+      executor: author.kind,
+    },
+    input,
+    author,
+    now,
+  );
+}
+
+/**
+ * DOOR TWO — RECORD WORK WITH NO HUMAN PRESENT (RUNG 1).
+ *
+ * ── WHAT IS THE SAME, AND WHY THAT MATTERS MOST ──────────────────────────────
+ *
+ * Every rule this authority owns is re-asked by the SHARED core: the title must be well formed, the
+ * department must be active and this tenant's, the accountable human must be an eligible member.
+ * A machine gets no relaxed validation, because the whole point is that the same authority performs
+ * the same act — only the caller changed.
+ *
+ * The row is still authored `system`: HEBUN performed the mutation, exactly as it does when a human
+ * clicks Execute. RUNG 1 changed who TRIGGERED it, not who performed it.
+ *
+ * ── WHAT IS DIFFERENT, AND WHY EACH DIFFERENCE IS THE TRUTH ──────────────────
+ *
+ * `created_by` is NULL. There was no session, and naming a human would put their id on an act they
+ * were not present for.
+ *
+ * The audit row still says `system` PERFORMED it, and that is not a concession to a firewall — it
+ * is the same fact GIA-1 records, and a released rule states the reason in one line: an agent
+ * PROPOSES, it never PERFORMS. Hebun performed this mutation.
+ *
+ * What changes is the CORRELATION, which is what `actorId` has always been. The released comment on
+ * that column says so outright: it is "the correlation to the session the act happened under, never
+ * a claim that they performed it". There was no session here, so the correlation is the durable
+ * agent whose request this act discharges — the only durable, truthful referent available, since the
+ * machine principal is ephemeral by design and has no id of its own. `requestId` carries the
+ * invocation, tying this row to the permit spend it committed with.
+ *
+ * ── IT GRANTS NOTHING ────────────────────────────────────────────────────────
+ *
+ * Reaching this door requires a transaction the permit authority opened around a won single-spend.
+ * It cannot be called with a tenant a caller chose, because it is handed one that a permit row
+ * supplied.
+ */
+export async function recordWorkWithinAsMachine(
+  tx: WorkRecordingTx,
+  principal: {
+    readonly tenantId: string;
+    readonly agentId: string;
+    readonly invocationId: string;
+  },
+  input: {
+    readonly title: string;
+    readonly declaredState?: WorkDeclaredState;
+    readonly departmentId?: string | null;
+    readonly accountableUserId?: string | null;
+  },
+  now: Date = new Date(),
+): Promise<WorkWriteResult> {
+  const audit: AuditActor = {
+    tenantId: principal.tenantId,
+    userId: principal.agentId,
+    requestId: principal.invocationId,
+    sessionContextId: undefined,
+  };
+  const executor: WorkAuditExecutor = "system";
+  return recordWorkCore(
+    tx,
+    { tenantId: principal.tenantId, createdBy: null, audit, executor },
+    input,
+    { kind: "system" },
+    now,
+  );
 }
 
 export async function recordWork(
