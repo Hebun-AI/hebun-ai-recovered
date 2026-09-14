@@ -57,6 +57,8 @@ export * from "./heby-origination-invocation";
 export * from "./provider-connectivity-control";
 export * from "./provider-observation";
 export * from "./standing-observation-authorization";
+/* RUNG 2 prerequisite. Tenant PARTICIPATION in machine execution — never an act's authorization. */
+export * from "./tenant-machine-execution-authorization";
 export * from "./document";
 export * from "./notification";
 export * from "./work-artifact";

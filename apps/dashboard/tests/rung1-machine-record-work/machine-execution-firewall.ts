@@ -35,6 +35,17 @@ function walk(dir: string): string[] {
 const PRINCIPAL = "src/features/action-authorization/machine-execution-principal.server.ts";
 const CONSUMER = "src/features/action-authorization/consume-action-permit.server.ts";
 const EXECUTOR = "src/features/governed-machine-execution/execute-record-work-as-machine.server.ts";
+/*
+ * THE ALLOWLIST MOVED HOUSE, AND THE PROPERTY DID NOT.
+ *
+ * The RUNG 2 prerequisite gave the executor a tenant-reachability check, and the composition that
+ * answers it needs the same frozen set — so leaving the constant in the executor would have made
+ * the two modules import each other. TypeScript compiles such a cycle and ESM resolves it to
+ * `undefined` at runtime, where `undefined.has(...)` THROWS on the arming path: worse than any
+ * refusal. So the VOCABULARY lives here now and the executor RE-EXPORTS it, which is asserted
+ * below so the move cannot become a second definition.
+ */
+const ACTION_KINDS = "src/features/governed-machine-execution/contracts.ts";
 const CONTROL = "src/features/governed-machine-execution/machine-execution-control.server.ts";
 const WORK_WRITER = "src/features/organizational-work/write-work.server.ts";
 const PERMIT_SCHEMA = "src/db/schema/action-authorization.ts";
@@ -95,16 +106,32 @@ function theMachineCannotAuthorize(): void {
 
 /* ── 5. EXACTLY ONE ACTION IS ADMITTED, AND WIDENING IS A CODE CHANGE ────── */
 function onlyRecordWorkIsAdmitted(): void {
+  const vocabulary = read(ACTION_KINDS);
   const src = read(EXECUTOR);
-  const code = codeOf(src);
+  const code = codeOf(src) + codeOf(vocabulary);
   assert.match(
-    src,
+    vocabulary,
     /MACHINE_EXECUTABLE_ACTION_KINDS[\s\S]{0,200}Object\.freeze\(/,
     "the allowlist is frozen",
   );
   assert.ok(
-    src.includes("new Set<string>([RECORD_WORK_ACTION_KIND])"),
+    vocabulary.includes("new Set<string>([RECORD_WORK_ACTION_KIND])"),
     "and its only member is `record-work`, named by the released constant",
+  );
+  /* EXACTLY ONE DEFINITION. The executor re-exports it and never re-declares it. */
+  assert.match(
+    withoutComments(src),
+    /export \{ MACHINE_EXECUTABLE_ACTION_KINDS \} from "\.\/contracts"/,
+    "the executor re-exports the allowlist, so released import paths still resolve",
+  );
+  assert.ok(
+    !/const MACHINE_EXECUTABLE_ACTION_KINDS/.test(codeOf(src)),
+    "and does not declare a second copy of it",
+  );
+  /* The vocabulary module imports nothing that could import it back. */
+  assert.ok(
+    !withoutComments(vocabulary).includes("execute-record-work-as-machine"),
+    "the vocabulary cannot import the executor — that cycle is what this move removed",
   );
   /* Nothing may add to it at runtime. */
   for (const mutator of [".add(", ".delete(", ".clear("]) {

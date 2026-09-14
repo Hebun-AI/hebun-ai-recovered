@@ -32,6 +32,9 @@ import {
 import { approveActionRequest } from "../../src/features/action-authorization/decide-action-request.server";
 import { executeRecordWork } from "../../src/features/governed-internal-action/execute-record-work.server";
 import { executeRecordWorkAsMachine } from "../../src/features/governed-machine-execution/execute-record-work-as-machine.server";
+import { RECORD_WORK_ACTION_KIND } from "../../src/features/heby-action-inlet/contracts";
+import { authorizeTenantMachineExecution } from "../../src/features/tenant-machine-execution-authority/authorize-tenant-machine-execution.server";
+import { resolveMachineExecutionReachability } from "../../src/features/tenant-machine-execution-authority/resolve-machine-execution-reachability.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 
@@ -124,6 +127,48 @@ async function main(): Promise<void> {
     assert.equal(
       (await establishGovernanceAuthority(acmeCtx, { justification: GENESIS_JUSTIFICATION }, deps)).status,
       "established",
+    );
+
+    /*
+     * ── THE RUNG 2 PREREQUISITE, SATISFIED SO THIS SUITE STILL TESTS ITS OWN PROPERTIES ──────
+     *
+     * Machine execution now requires TWO permissions: the deployment operator's root switch, which
+     * every case below already supplies through `withSwitch`, and THIS ORGANIZATION'S OWN
+     * Governance decision to participate at all.
+     *
+     * Without the enrolment, every case here would refuse at the new gate and this file would
+     * silently stop proving what it exists to prove — the permit's single spend, the replay
+     * refusal, the atomic rollback. So Acme is enrolled once, through the released writer, by the
+     * same Governance authority established above. THE ABSENCE of that enrolment is proved to
+     * refuse immediately below, and again in `tests/rung2-tenant-containment`.
+     */
+    {
+      const unenrolled = await resolveMachineExecutionReachability(
+        acme.tenantId,
+        RECORD_WORK_ACTION_KIND,
+        withSwitch(ARMED),
+      );
+      assert.equal(
+        unenrolled.status === "refused" && unenrolled.reason,
+        "tenant-not-authorized",
+        "an ARMED deployment still refuses an organization that never enrolled",
+      );
+    }
+    assert.equal(
+      (
+        await authorizeTenantMachineExecution(
+          acmeCtx,
+          {
+            capabilityKey: RECORD_WORK_ACTION_KIND,
+            justification:
+              "Acme agrees that work it has already authorized may be delivered by machine, and I accept responsibility for that.",
+            observedRevision: null,
+          },
+          deps,
+        )
+      ).status,
+      "written",
+      "Acme's own Governance enrolled it in machine delivery",
     );
 
     const dept = await recordDepartment(acmeCtx, { name: "Finance", slug: "finance" }, deps);
@@ -242,7 +287,7 @@ async function main(): Promise<void> {
         [permitId],
       );
       const refused = await executeRecordWorkAsMachine({ permitId }, withSwitch(ARMED));
-      assert.equal(refused.status === "refused" && refused.reason, "permit-not-consumable");
+      assert.equal(refused.status === "refused" && refused.reason, "permit-not-consumable", JSON.stringify(refused));
       assert.equal((await permitRow(permitId)).status, "active", "an expired permit is refused, not consumed");
       assert.equal(await countOf("work_items"), 0);
     }

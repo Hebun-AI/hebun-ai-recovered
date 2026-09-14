@@ -213,7 +213,7 @@ async function main(): Promise<void> {
          * That this line moved at all is also the migration's first proof: the assertion above it
          * counted the full authored ledger on a database that applied every file including the new
          * one, so the SQL is valid against a real PostgreSQL rather than merely well-formed. */
-        "ed173ef9839d3688fd550a522f85f115",
+        "3d42c2e5d1fdb93f0e9c1816906e63c6",
         /*
          * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
          * sentence had been false since R2H — whose own comment, three lines above it, said

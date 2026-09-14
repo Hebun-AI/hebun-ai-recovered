@@ -105,6 +105,13 @@ import {
   resolveGovernanceAuthority,
   type GovernanceAuthorityResolution,
 } from "./authority-read.server";
+import {
+  TENANT_MACHINE_EXECUTION_AUTHORIZED_OUTCOME,
+  TENANT_MACHINE_EXECUTION_DOMAIN,
+  TENANT_MACHINE_EXECUTION_SUBJECT_TYPE,
+  TENANT_MACHINE_EXECUTION_WITHDRAWN_OUTCOME,
+  TENANT_MACHINE_EXECUTION_WITHDRAW_DECISION_TYPE,
+} from "@/features/tenant-machine-execution-authority/contracts";
 
 function refused(reason: DecisionRefusal): DecisionResult {
   return { status: "refused", reason };
@@ -177,7 +184,8 @@ export async function writeGovernanceDecisionWithin(
       | typeof IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE
       | typeof AGENT_MANDATE_SUBJECT_TYPE
       | typeof ARTIFACT_REVIEW_SUBJECT_TYPE
-      | typeof STANDING_OBSERVATION_SUBJECT_TYPE;
+      | typeof STANDING_OBSERVATION_SUBJECT_TYPE
+      | typeof TENANT_MACHINE_EXECUTION_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -245,7 +253,20 @@ export async function writeGovernanceDecisionWithin(
                  * and makes no act executable. Filing it there would make the ledger unable to tell
                  * "this tenant authorized an act" from "this tenant authorized looking".
                  */
-                input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
+                /*
+                 * RUNG 2 PREREQUISITE — Governance agreeing that THIS ORGANIZATION may have its
+                 * already-authorized acts delivered by machine.
+                 *
+                 * Its own domain, for the reason the enum records. The neighbour that matters is
+                 * `action-authorization` again: that domain's decisions authorize ONE act and mint
+                 * a permit. This one authorizes no act, mints nothing and makes nothing executable
+                 * — it widens WHO MAY TRIGGER acts whose authority already exists. Filing it there
+                 * would make the ledger unable to tell "this tenant authorized an act" from "this
+                 * tenant agreed to unattended delivery".
+                 */
+                input.subjectType === TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
+                ? TENANT_MACHINE_EXECUTION_DOMAIN
+                : input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
                 ? STANDING_OBSERVATION_DOMAIN
                 : input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
                 ? AGENT_MANDATE_DOMAIN
@@ -269,7 +290,16 @@ export async function writeGovernanceDecisionWithin(
      *
      * Both are unreachable because the subject is matched before either generic branch.
      */
-    input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
+    /*
+     * THE SAME TRAP, AND THE SAME DEFENCE. `approve` would otherwise record `membership-authorized`
+     * — an organization agreeing to machine delivery, filed as a person joining it — and `revoke`
+     * would record that Governance AUTHORITY was revoked, which withdrawing delivery never does.
+     */
+    input.subjectType === TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
+      ? input.decisionType === TENANT_MACHINE_EXECUTION_WITHDRAW_DECISION_TYPE
+        ? TENANT_MACHINE_EXECUTION_WITHDRAWN_OUTCOME
+        : TENANT_MACHINE_EXECUTION_AUTHORIZED_OUTCOME
+      : input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
       ? input.decisionType === STANDING_OBSERVATION_WITHDRAW_DECISION_TYPE
         ? STANDING_OBSERVATION_WITHDRAWN_OUTCOME
         : STANDING_OBSERVATION_AUTHORIZED_OUTCOME

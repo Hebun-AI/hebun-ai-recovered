@@ -56,7 +56,7 @@ import {
   type MachineExecutionPrincipal,
   type MachinePrincipalRefusal,
 } from "@/features/action-authorization/machine-execution-principal.server";
-import { RECORD_WORK_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import { MACHINE_EXECUTABLE_ACTION_KINDS } from "./contracts";
 import { workInputFrom } from "@/features/governed-internal-action/execute-record-work.server";
 import { recordWorkWithinAsMachine } from "@/features/organizational-work/write-work.server";
 import type { WorkWriteResult } from "@/features/organizational-work/write-work.server";
@@ -66,6 +66,7 @@ import {
   resolveMachineInternalExecutionEnabled,
   type MachineExecutionControlDeps,
 } from "./machine-execution-control.server";
+import { resolveMachineExecutionReachability } from "@/features/tenant-machine-execution-authority/resolve-machine-execution-reachability.server";
 
 /**
  * THE ALLOWLIST. One entry, frozen, and consulted rather than assumed.
@@ -74,13 +75,23 @@ import {
  * comparison invites the next author to write `|| === SOMETHING_ELSE`, whereas adding a member here
  * is a visible decision in a diff a reviewer reads as one.
  */
-export const MACHINE_EXECUTABLE_ACTION_KINDS: ReadonlySet<string> = Object.freeze(
-  new Set<string>([RECORD_WORK_ACTION_KIND]),
-) as ReadonlySet<string>;
+/*
+ * RE-EXPORTED, NOT REDEFINED. The set moved to `./contracts` so the reachability composition can
+ * read it without importing this module, which would have made the two import each other. Released
+ * callers that import it from here are unchanged, and exactly one definition still exists.
+ */
+export { MACHINE_EXECUTABLE_ACTION_KINDS } from "./contracts";
 
 export type MachineRecordWorkRefusal =
   /** The Director has not armed machine-triggered internal execution. Nothing was read. */
   | "machine-execution-disarmed"
+  /**
+   * The control plane does not permit this TENANT to participate in machine execution for this
+   * capability — or stopped permitting it since the arming read above. `authorityReason` carries
+   * the composition's own word, so "this organization withdrew" never reads as "an operator
+   * paused everything". The permit was NOT spent.
+   */
+  | "machine-execution-not-reachable"
   /** The principal could not be minted. Carries the permit authority's own reason. */
   | MachinePrincipalRefusal
   /** The permit authorizes an act no machine may trigger. The spend was rolled back. */
@@ -120,6 +131,8 @@ export interface MachineRecordWorkDeps extends MachineExecutionControlDeps {
   readonly mint?: typeof mintMachineExecutionPrincipal;
   readonly recordWithin?: typeof recordWorkWithinAsMachine;
   readonly armed?: typeof resolveMachineInternalExecutionEnabled;
+  /** Injectable so the tenant boundary is provable without a control-plane database. */
+  readonly reachable?: typeof resolveMachineExecutionReachability;
 }
 
 /** Aborts the callback, and with it the transaction that was spending the permit. */
@@ -160,6 +173,46 @@ export async function executeRecordWorkAsMachine(
    */
   if (!MACHINE_EXECUTABLE_ACTION_KINDS.has(principal.actionKind)) {
     return { status: "refused", reason: "action-kind-not-machine-executable" };
+  }
+
+  /*
+   * ── TENANT PARTICIPATION, RE-READ AS LATE AS IT CAN HONESTLY BE READ ──────────────────────
+   *
+   * WHY IT IS HERE AND NOT BESIDE THE ARMING READ ABOVE. This check needs a tenant, and the only
+   * legitimate tenant is the one on the permit — which is not known until the principal is minted.
+   * Reading it earlier would mean accepting a tenant from a caller, which is the exact shape the
+   * whole design exists to refuse.
+   *
+   * WHY IT IS A FULL RE-READ AND NOT A REUSE OF THE ARMING READ ABOVE. This resolves BOTH
+   * authorities again — the organization's participation AND the deployment's master stop — as
+   * close to the spend as the tenant's availability allows. RUNG 2 will discover eligible permits
+   * asynchronously; a discovery made minutes ago must never be able to carry a permission that has
+   * since been withdrawn. THE SCANNER IS A COURTESY FILTER. THIS IS THE BOUNDARY.
+   *
+   * It also closes the window on the root switch: an operator who disarms between the read above
+   * and this line stops this execution, rather than it proceeding on a stale `true`.
+   *
+   * NOTHING ABOVE WAS REMOVED. The early arming read still exists so a disarmed deployment does
+   * not spend a permit to discover it; this is an ADDITIONAL prerequisite, never a replacement for
+   * one. The permit, its human authorizer, the agent proposer and the frozen action set all still
+   * apply in full below.
+   */
+  const reachability = await (deps.reachable ?? resolveMachineExecutionReachability)(
+    principal.tenantId,
+    principal.actionKind,
+    {
+      getDb: deps.getDb,
+      repo: deps.repo,
+      /*
+       * THE SAME ROOT READER THE EARLY CHECK USED — resolved once, above, and handed on rather
+       * than re-derived. Two independent resolutions of "is the deployment armed" would be two
+       * facts that can disagree, and a caller that injected one would silently get the other.
+       */
+      rootEnabled: armed,
+    },
+  );
+  if (reachability.status !== "reachable") {
+    return { status: "refused", reason: "machine-execution-not-reachable", authorityReason: reachability.reason };
   }
 
   let outcome: WorkWriteResult | null = null;

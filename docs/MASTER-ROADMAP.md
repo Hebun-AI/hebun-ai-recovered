@@ -4570,3 +4570,128 @@ anything is built:
 
 **No RUNG or phase number is assigned here.** The canonical roadmap has not authorized one, and
 inventing one would be a commitment nobody made. **Implementation not started.**
+
+> **SUPERSEDED AS CURRENT STATE — the two paragraphs above stand as written.** They were true when
+> written and are preserved unrewritten under §3 principle 8. A rung has since been named, and the
+> containment question the investigation raised has been built and released. The trigger itself is
+> still not started, exactly as that section says.
+
+---
+
+### **RUNG 2 — AUTOMATIC DELIVERY OF PRE-AUTHORIZED WORK** · PREREQUISITE RELEASED · TRIGGER NOT STARTED
+
+**The name, and the narrow thing it means.**
+
+> Human/Governance decides **WHAT** exact act may happen.
+> Tenant Governance decides **whether that organization may participate** in machine delivery.
+> The deployment operator controls **global reachability**.
+> Hebun may later decide **WHEN** to deliver already-authorized work through its machine runtime.
+
+It does **NOT** mean autonomous goal selection, autonomous Governance, standing mutation authority,
+arbitrary action choice, external provider autonomy, browser autonomy, Computer Use, or shell and
+device autonomy. None of those is implied by any line below.
+
+---
+
+#### THE PREREQUISITE — TENANT-CONTAINED MACHINE EXECUTION AUTHORIZATION
+
+**Why it had to come first, stated as the measurement that forced it.** Under RUNG 1 the root
+switch was permissive: a human chose one permit id and invoked it, so the blast radius was bounded
+by human selection rather than by the switch. `provider_connectivity_controls` spreads `rootColumns`
+and has no `tenant_id` — its reach was always deployment-wide, and manual invocation merely hid
+that. **An automatic trigger deletes the selecting human**, and global ARM plus an automatic scan
+would have made every eligible permit in every tenant reachable in one tick. The Director's decision
+was therefore to build containment before any trigger, and repository evidence agreed rather than
+merely permitted it.
+
+**The architecture: a sibling authority, and the root control untouched.**
+
+| Layer | Owner | Question | Authority |
+|---|---|---|---|
+| `provider_connectivity_controls` | possession ceremony | *may this deployment do it at all* | operator emergency stop, **unchanged** |
+| `tenant_machine_execution_authorizations` | **tenant Governance** | *may this organization participate* | a named human, revisioned, audited |
+
+```
+effective reachability = supported capability
+                         AND tenant authorization active
+                         AND root control enabled
+```
+
+**The root control was not tenant-scoped, and that was the point.** One deployment holds one
+provider account, one credential and one runtime, so for `claude`, `external-send` and
+`provider-observation-read` there is exactly one thing to turn off; a tenant dimension there would
+model a boundary that does not physically exist, and its unique index is on `provider_key` ALONE. A
+test asserts the root schema still spreads `rootColumns`, gained no `tenant_id`, and kept that
+index. **No second switch authority was created.**
+
+**Governance, not possession — and that is an audit decision, not a taste one.** The root ceremony
+writes `updated_by = NULL` because possession is a SOURCE and not an ACTOR: Hebun cannot identify
+the human at that terminal. Acceptable for an emergency stop, whose failure direction is safe. **Not
+acceptable for enrolling an organization into unattended mutation**, where somebody must own the
+decision by name, forever. So enrolment goes through `resolveGovernanceAuthority` — the one released
+resolver, reading `decision_records.bootstrap` or an unrevoked delegation — and writes a Governance
+decision, its session, the revision and an audit event in one transaction.
+`tenant_machine_execution_authorizations_human_authorizer_chk` makes *an agent cannot enrol its own
+organization* a fact about PostgreSQL. **A tenant OWNER without Governance authority is refused
+exactly like a stranger, and a test proves it.**
+
+**Specificity wins, and a withdrawal is never disguised.** TRH-25's rule is applied and pinned: the
+tenant's own state is resolved BEFORE the root switch, so with the operator's stop on, a withdrawn
+organization is still told `tenant-authorization-withdrawn` and one that never enrolled is told
+`tenant-not-authorized`. `absent`, `withdrawn` and `unavailable` are three facts and are never
+collapsed — an outage must not be recordable as a decision.
+
+**The executor boundary was hardened, and nothing was removed.** The early arming read still runs so
+a disarmed deployment never spends a permit to discover it. After the principal is minted — the
+first moment a legitimate tenant exists, read off the permit and never from an argument — the
+executor re-resolves BOTH authorities before the spend. **That is what makes a future scanner a
+courtesy filter rather than a permission:** a discovery made minutes ago cannot carry a grant that
+has since been withdrawn, and an operator disarming between the two reads stops the act. Every RUNG
+1 prerequisite still applies in full: exact permit, human authorizer, agent proposer, frozen action
+set, atomic single spend.
+
+**No cadence and no subject, deliberately.** The observation sibling carries `interval_minutes`,
+`subject_ref`, `subject_kind` and `integration_id`; this table carries none of them, and a test
+asserts their ABSENCE rather than their nullity. Machine execution has no subject to read and no
+schedule of its own — **WHEN is decided by a permit existing, never by a row here.**
+
+**Schema: one additive table, and the migration touches nothing else.** Ledger **53 → 54**. Drizzle
+also emitted an unrelated `companies_provisioning_source_chk` DROP-and-identical-re-ADD — pre-existing
+snapshot drift this phase does not own — and those two statements were removed, so the migration's
+only table is the new one. Twenty-six-plus pinned test files were mechanically updated from 53.
+
+**An import cycle was found and fixed rather than tolerated.** The executor imports the composition,
+which needed the frozen action set back from the executor. TypeScript compiles such a cycle and ESM
+resolves it to `undefined` at runtime — and `undefined.has(...)` throws, which on an arming path is
+worse than any refusal. `MACHINE_EXECUTABLE_ACTION_KINDS` moved to a dependency-free
+`governed-machine-execution/contracts`, re-exported from its old home so every released import path
+still works and exactly one definition exists.
+
+**Enrolment authorizes no act, and that is asserted against a real database.** Across enrol,
+re-enrol, withdraw, withdraw-again and re-enrol, the counts of `action_permits`,
+`heby_action_requests` and `work_items` are unchanged.
+
+```
+ENROLLED != AUTHORIZED != REACHABLE != EXECUTED
+ENROLLING IS NOT ARMING       TENANT GOVERNANCE != DEPLOYMENT POSSESSION
+```
+
+**Truth classification for the prerequisite:**
+
+| | |
+|---|---|
+| DESIGNED · IMPLEMENTED | **yes** |
+| TESTED | **yes** — a pure/structural firewall and a PostgreSQL authority suite |
+| RELEASED | recorded at commit time below |
+| PRODUCTION-ACCEPTED | **no** at the time of writing |
+
+**ROOT MACHINE EXECUTION CONTROL: authority UNCHANGED, final production state DISARMED.**
+
+**AUTOMATIC DELIVERY / TRIGGER: NOT IMPLEMENTED · NOT CONFIGURED · NOT PRODUCTION-AVAILABLE · NOT
+EXECUTED.** No cron was added — the deployment still configures exactly one, TRH-25's observation
+scan — no `/api/execution` ingress exists, the machine-ingress allowlist is unchanged, and a test
+asserts each of those.
+
+**Remaining RUNG 2 work:** one authoritative deployment-wide eligible-permit read seam, one bounded
+scan runner, one machine ingress route reusing TRH-25's constant-time bearer pattern, one middleware
+entry and one cron line. No schema.

@@ -101,8 +101,8 @@ function theCanonicalLedgerIsWellFormed(): void {
    */
   assert.equal(
     CANONICAL.length,
-    53,
-    `this checkout authors ${CANONICAL.length} canonical migrations, and the pin expected 53`,
+    54,
+    `this checkout authors ${CANONICAL.length} canonical migrations, and the pin expected 54`,
   ); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`). */
   /*
    * PHASE-RELATIVE, not an index. This read `CANONICAL[40]` and therefore named the last entry only
@@ -112,10 +112,10 @@ function theCanonicalLedgerIsWellFormed(): void {
    */
   assert.equal(
     CANONICAL.at(-1)!.tag,
-    /* SELF-SERVICE SIGNUP — `companies_provisioning_source_chk` widened to admit a THIRD root,
-     * `self-service-signup`, so this is now the newest canonical migration. */
-    "20260911200000_self_service_signup_provenance",
-    "and the last of them is self-service signup provenance — TRH-24's machine observation provenance held this line before it",
+    /* RUNG 2 PREREQUISITE — `tenant_machine_execution_authorizations`, one additive table plus the
+     * `machine-execution` governance domain, so this is now the newest canonical migration. */
+    "20260914120405_rung2_tenant_machine_execution_authorization",
+    "and the last of them is the tenant machine-execution authority — self-service signup provenance held this line before it",
   );
 
   /* Strictly increasing `when` — the precondition that makes delegating to the engine sound. */
@@ -158,7 +158,7 @@ function theCanonicalLedgerIsWellFormed(): void {
    * carries the digest for ITS ledger until the migration ceremony is authorized — the gap is a
    * PENDING ROLLOUT, which is exactly what this assertion exists to make visible.
    */
-  assert.equal(canonicalDigest(CANONICAL), "ed173ef9839d3688fd550a522f85f115", "the release digest");
+  assert.equal(canonicalDigest(CANONICAL), "3d42c2e5d1fdb93f0e9c1816906e63c6", "the release digest");
   assert.equal(
     canonicalDigest(CANONICAL.slice(0, 35)),
     "97f1151fd57bec5142621f00c1913708",
@@ -202,7 +202,7 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
         [CANONICAL[CANONICAL.length - 1]!.tag],
         "exactly one migration is pending, and it is the newest release",
       );
-      assert.equal(verdict.finalDigest, "ed173ef9839d3688fd550a522f85f115");
+      assert.equal(verdict.finalDigest, "3d42c2e5d1fdb93f0e9c1816906e63c6");
 
       /*
        * THE PENDING MIGRATION'S OWN ADDITION IS ABSENT BEFORE MIGRATING.
@@ -276,18 +276,26 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
        * migration adds, never something an earlier one already added.
        */
       const before = await organizationalFingerprint(client);
+      /*
+       * THE RUNG 2 PREREQUISITE MOVES IT AGAIN, AND BACK TO A TABLE.
+       *
+       * `companies_provisioning_source_chk` now admits `self-service-signup` through an EARLIER
+       * migration and would be satisfied before migrating. The pending migration adds a TABLE —
+       * `tenant_machine_execution_authorizations` — which no earlier migration mentions. The rule
+       * is unchanged and is the only part that was ever meant to survive: probe what the PENDING
+       * migration adds, never something an earlier one already added.
+       */
       const admitsSelfService = async (): Promise<string> => {
         const r = await client.query<{ n: string }>(
-          `select count(*)::text as n from pg_constraint
-            where conname = 'companies_provisioning_source_chk'
-              and pg_get_constraintdef(oid) like '%self-service-signup%'`,
+          `select count(*)::text as n from information_schema.tables
+            where table_name = 'tenant_machine_execution_authorizations'`,
         );
         return r.rows[0]!.n;
       };
       assert.equal(
         await admitsSelfService(),
         "0",
-        "the PENDING migration's widened CHECK is absent before migrating",
+        "the PENDING migration's new table is absent before migrating",
       );
 
       await applyPendingMigrations(client);
@@ -295,8 +303,8 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.applied, 53);
-      assert.equal(after.digest, "ed173ef9839d3688fd550a522f85f115");
+      assert.equal(after.applied, 54);
+      assert.equal(after.digest, "3d42c2e5d1fdb93f0e9c1816906e63c6");
 
       assert.equal(await admitsSelfService(), "1", "and present after");
 
@@ -341,7 +349,7 @@ async function aTargetTwoBehindAppliesBoth(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.digest, "ed173ef9839d3688fd550a522f85f115");
+      assert.equal(after.digest, "3d42c2e5d1fdb93f0e9c1816906e63c6");
     });
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -354,8 +362,8 @@ async function aConvergedTargetIsANoOp(): Promise<void> {
     const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);
     assert.equal(verdict.status, "converged");
     if (verdict.status !== "converged") return;
-    assert.equal(verdict.applied, 53);
-    assert.equal(verdict.digest, "ed173ef9839d3688fd550a522f85f115");
+    assert.equal(verdict.applied, 54);
+    assert.equal(verdict.digest, "3d42c2e5d1fdb93f0e9c1816906e63c6");
 
     /* And the released convergence check agrees, so the split did not change its answer. */
     const legacy = await verifyProductionTarget(

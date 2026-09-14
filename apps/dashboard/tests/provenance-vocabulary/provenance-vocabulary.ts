@@ -473,6 +473,9 @@ async function main(): Promise<void> {
        * `self-service-signup`, so a tenant a visitor created stays distinguishable from one an
        * operator ceremony created. A declared later phase, not this one's. */
       "20260911200000_self_service_signup_provenance",
+      /* RUNG 2 PREREQUISITE — `tenant_machine_execution_authorizations`, one additive table plus the
+         `machine-execution` governance domain. A declared later phase, */
+      "20260914120405_rung2_tenant_machine_execution_authorization",
         ],
         "and what follows it is a declared later phase",
       );

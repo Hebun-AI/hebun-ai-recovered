@@ -945,6 +945,30 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * still authorized?"
    */
   "standing-observation",
+
+  /**
+   * TENANT PARTICIPATION IN MACHINE EXECUTION (RUNG 2 prerequisite).
+   *
+   * Governance's permission for THIS TENANT to participate in machine-triggered execution of an
+   * act a human already authorized — never the authorization of any particular act, which
+   * `action-authorization` owns and will keep owning.
+   *
+   * It is NOT `action-authorization`: that domain answers "was this exact act approved?", one
+   * decision per act. This one answers "may this organization have its already-approved acts
+   * delivered by machine at all?", which is asked once and stands until withdrawn.
+   *
+   * It is NOT `standing-observation`: that authorizes repeated READS of an outside scope. This
+   * authorizes nothing to be read and nothing new to be done \u2014 it widens WHO MAY TRIGGER an act
+   * whose authority already exists.
+   *
+   * It is NOT `agent-mandate`: a mandate bounds what an agent may PROPOSE. This bounds whether the
+   * organization accepts machine DELIVERY of what a human already decided.
+   *
+   * Folding it into any of those would make the ledger unable to answer the one question this
+   * domain exists for: "has this organization agreed to unattended delivery of its authorized
+   * work, and is that agreement still standing?"
+   */
+  "machine-execution",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",
@@ -1273,6 +1297,18 @@ export const workDeclaredStateEnum = pgEnum("work_declared_state", [
  * disagree.
  */
 export const standingObservationStateEnum = pgEnum("standing_observation_state", [
+  "active",
+  "withdrawn",
+]);
+
+/**
+ * The lifecycle of one TENANT MACHINE-EXECUTION AUTHORIZATION revision.
+ *
+ * The same two words its observation sibling uses, and for the same reason: a revision either
+ * stands or it has been taken away, and "superseded" is DERIVED from a later revision existing
+ * rather than stored. A stored `is_current` beside a derivable one is two facts that can disagree.
+ */
+export const tenantMachineExecutionStateEnum = pgEnum("tenant_machine_execution_state", [
   "active",
   "withdrawn",
 ]);

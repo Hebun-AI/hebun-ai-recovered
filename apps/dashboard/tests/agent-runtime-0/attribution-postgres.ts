@@ -597,10 +597,17 @@ async function main(): Promise<void> {
            * it is PostgreSQL's refusal rather than the writer's.
            */
           "standing_observation_authorizations_human_authorizer_chk",
-          "work_evidence_references_human_declarer_chk",
+          /*
+       * RUNG 2 PREREQUISITE. The census GREW AGAIN, in the same strict direction.
+       * `tenant_machine_execution_authorizations` constrains its own AUTHORIZER to `human`, so an
+       * AGENT CANNOT ENROL ITS OWN ORGANIZATION into machine delivery of already-authorized work.
+       * The one authority that could widen who may trigger an act is itself closed to machines.
+       */
+      "tenant_machine_execution_authorizations_human_authorizer_chk",
+      "work_evidence_references_human_declarer_chk",
           "work_items_human_accountable_chk",
         ],
-        "the fourteen human-only CHECKs are enforced by the database, and this phase widened none of them",
+        "the fifteen human-only CHECKs are enforced by the database, and this phase widened none of them",
       );
     }
 

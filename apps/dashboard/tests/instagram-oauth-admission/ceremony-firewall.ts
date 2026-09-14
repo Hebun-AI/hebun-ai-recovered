@@ -414,7 +414,7 @@ function main(): void {
   };
   assert.equal(
     journal.entries.length,
-    53,
+    54,
     "the ceremony added no migration — the released schema already expresses everything it stores",
   );
   /*

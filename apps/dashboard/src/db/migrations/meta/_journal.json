@@ -372,6 +372,13 @@
       "when": 1789156800000,
       "tag": "20260911200000_self_service_signup_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1789387445976,
+      "tag": "20260914120405_rung2_tenant_machine_execution_authorization",
+      "breakpoints": true
     }
   ]
 }
