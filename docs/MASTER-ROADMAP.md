@@ -4411,3 +4411,162 @@ ARMED             != AUTHORIZED       A GATE BUILT  != A GATE USED
 ```
 
 **Next: HEBY CONTROLLED AUTONOMY — RUNG 1 · CONTROLLED PRODUCTION ACCEPTANCE.** Not started.
+
+> **SUPERSEDED AS CURRENT STATE — the line above stands as written.** It was true when written and
+> is preserved unrewritten under §3 principle 8. That acceptance has since been performed and is
+> recorded below.
+
+---
+
+### CONTROLLED AUTONOMY **RUNG 1** — **CLOSED · PRODUCTION-ACCEPTED**
+
+**Heby machine-triggered one exact internal organizational mutation in production, under a
+human/Governance authorization that already existed, with no human Execute click at the moment of
+the act.** Every line below was measured by authoritative production read, not inferred.
+
+| | |
+|---|---|
+| DESIGNED · IMPLEMENTED · TESTED · COMMITTED · PUSHED · DEPLOYED | **yes** — suite 765/765, baseline `d035ae57` |
+| PRODUCTION-AVAILABLE | **yes** |
+| PRODUCTION-AUTHORIZED | **yes** — a human/Governance authorization existed for the exact accepted act |
+| PRODUCTION-EXECUTED | **yes** — the machine path consumed that exact permit and invoked the authoritative internal writer |
+| SUCCESSFUL | **yes** — authoritative read-back proved the intended internal mutation committed |
+| PRODUCTION-ARMED | **no** — final state; the capability was explicitly DISARMED after acceptance |
+| PRODUCTION MUTATION | **yes** — exactly one intentional acceptance `record-work` |
+
+**THE ACCEPTED CHAIN, END TO END.**
+
+| | |
+|---|---|
+| tenant | `9947c78e-2080-4331-81c6-456cb4be7a96` — Turkish Rug House |
+| proposer | **agent** `67f4460c-0d44-4ae7-a3ed-729c705e2609` — TRH Heby, durable |
+| request | `40f5da14-a1a0-494b-9202-03bed95aed50` · `record-work` · organization-level |
+| origination evidence | invocation `de26e0a6-eb4c-46c3-878e-e58cc79db9b9`, with a recorded `proposal_rationale` |
+| authorizer | **human** `d5b496df…`, Governance decision `35ee391a-6f53-4a30-9523-68cfe6f6d588` |
+| permit | `b3452e70-26c4-4d26-98ca-852d922c088d` — consumed `09:30:59.511Z`, handoff `91879aa0-1c24-4e58-9326-f14b0b4492ea` |
+| machine invocation | `8368da2c-0183-43c4-a7d2-7577dd281e4e` |
+| work item | `4e9612b8-045c-440a-93e5-cb5ad7ce778d` — *Turkish Rug House — ilk Instagram içerik taslağı hazırlandı* |
+
+The payload digest `e9bb61c5…` is **byte-identical across all three**: the request, the recomputed
+canonical digest, and the permit's `bound_payload_digest`. Nothing was rebound between proposal and
+execution.
+
+**THE AUDIT TRAIL SEPARATES AUTHORITY FROM PERFORMANCE, WHICH IS THE WHOLE POINT.** Four rows, and
+the last two carry the same `request_id` — the machine invocation:
+
+| action | actor_type | actor_id | session |
+|---|---|---|---|
+| `governance.action.approved` | human | `d5b496df…` | `716ada45…` |
+| `governance.action.permit.issued` | human | `d5b496df…` | `716ada45…` |
+| `governance.action.permit.consumed` | human | `d5b496df…` | **NULL** |
+| `work.recorded` | **system** | `67f4460c…` (the agent) | **NULL** |
+
+The performer is `system`; the agent is named in `actor_id` as the **correlation**, never as a claim
+of performance, and never as the authorizer. The null sessions on the last two rows are the
+measured shape of "no human was present at the moment of the act" — while the authority those rows
+spend still belongs to the human who granted it 13 minutes earlier.
+
+**THE WORK ROW MATCHES THE RELEASED GOVERNED-INTERNAL CONTRACT EXACTLY.** `created_by = NULL`,
+`created_by_type = system`, `declared_state = planned`, `department_id = NULL` (organization-level),
+`lifecycle_status = active`, `version = 1`, committed `09:30:59.560Z` — 49 ms after the permit spend,
+inside the permit's own transaction.
+
+**MEASURED BEFORE AND AFTER, BOTH BY THIS SESSION'S OWN READS.** At `09:21:57Z`, before execution:
+TRH held **1** work item and the deployment held **0** machine-authored ones. After: **2** and **1**.
+A title search returns exactly one row — there is no duplicate.
+
+**THE FIRST PERMIT EXPIRED UNUSED, AND THAT IS KEPT AS LIFECYCLE EVIDENCE.** The acceptance was
+first authorized against request `57f488cb…`, minting permit `012f9795…` at `06:49:42Z` with a
+3600-second TTL. The execution path was blocked by an operator-environment permission boundary long
+enough for it to lapse at `07:49:42Z`. It was never consumed: `consumed_at` and `handoff_id` are
+still NULL, and its `status` column still reads `active` because expiry here is the passage of time
+against `expires_at`, not a status transition. **Nothing executed from it.** A fresh Heby proposal
+and a fresh human authorization produced the permit that succeeded. Two permits were issued across
+the acceptance; exactly one was spent.
+
+**REPLAY IS REFUSED BY THE RELEASED AUTHORITY, BEFORE ANY SPEND.** A second invocation of the same
+permit was refused `permit-not-active` — raised at the principal mint, where
+`permit.status !== "active"` is checked before a transaction is opened. Current authoritative state
+corroborates it: one `consumed_at`, one `handoff_id`, one `work.recorded` audit row, one machine
+work item. *(The refusal string was reported by the Director from the run; this session verified the
+resulting state rather than observing the refusal itself, and did not re-run the replay, because
+re-running it would invoke the execution seam for documentation.)*
+
+**DISARMED, AND VERIFIED BY READ RATHER THAN BY THE CEREMONY'S OWN SUCCESS.**
+`machine-internal-execution` now reads `director_enabled = false`, `version = 2`, source
+`production-operator-ceremony`, updated `09:32:40Z` — about 100 seconds after the acceptance
+committed. Armed at version 1, disarmed at version 2: one row, two transitions, no second switch.
+
+**NOTHING ELSE MOVED.** No external send, no departmental placement, no provider mutation, no
+scheduler. `department_placements` holds one row from 2026-09-01 and
+`action_execution_attempts` one from 2026-08-31 — both predate this day. Every row created on
+2026-09-14 is accounted for by the acceptance itself: 1 work item, 2 permits, 1 action request, 2
+Governance decisions.
+
+**A MEASURED LIMITATION, RECORDED RATHER THAN REDESIGNED.** `provider_connectivity_controls` spreads
+`rootColumns` and has **no `tenant_id`**. So `machine-internal-execution` is ROOT/GLOBAL scoped: while
+ARMED, machine triggering is reachable deployment-wide for every tenant that otherwise satisfies the
+exact permit and execution requirements. **Per-tenant containment does not exist.**
+
+This is not, by itself, an unsafe design: an exact human/Governance permit remains mandatory for
+every act, enforced in the DATABASE by `action_permits_human_authorizer_chk` and
+`heby_action_requests_human_approver_chk`, and the machine-executable vocabulary is a frozen
+one-member set. The switch widens WHO MAY TRIGGER an already-authorized act; it grants no authority
+to create one. But the containment question is now a real one rather than a hypothetical, and
+**any future autonomy expansion must evaluate narrower tenant and capability containment before
+broader or standing execution is considered.** Not redesigned here, and no second switch authority
+was created.
+
+**WHAT THIS PROVED — and the list of what it did not is the longer one.**
+
+Heby can machine-trigger an exact internal action that a human/Governance authority had already
+authorized, without a human Execute click at the moment of execution.
+
+It did **NOT** prove, and nothing below may be read into it:
+
+- autonomous authorization
+- autonomous action selection
+- standing mutation authority
+- scheduler / event-loop autonomy
+- external-send autonomy
+- GIA-2 machine execution
+- RUNG 2
+
+```
+TRIGGERED BY A MACHINE  != AUTHORIZED BY A MACHINE
+ONE PERMIT, ONE SPEND   != STANDING AUTHORITY
+ARMED FOR 12 MINUTES    != ARMED
+```
+
+**RUNG 1 IS CLOSED.**
+
+---
+
+### NEXT — CONTROLLED AUTONOMY: THE TRIGGER QUESTION · **INVESTIGATION NOT STARTED**
+
+**The next problem is not "make Heby execute."** That is now proven, in production, with a row to
+point at. The open question is the one RUNG 1 deliberately left alone:
+
+> **How does an authorized machine execution become legitimately TRIGGERED, without a human manually
+> invoking the execution entry point?**
+
+RUNG 1's acceptance was machine-EXECUTED but human-INVOKED: an operator ran the released entry point
+by hand. Closing that gap is a different architecture, and it has to answer at least these before
+anything is built:
+
+- **trigger / event source** — what legitimately says "now", and what authority does that signal carry
+- **cadence** — and why a timer decides WHEN, never WHETHER
+- **scheduler / event-loop authority** — who owns it, and whether it is a principal at all
+- **exact action selection boundary** — the hardest one: selection is not authorization, and a
+  trigger that chooses WHICH permit to spend is closer to autonomy than one that spends a named one
+- **tenant containment** and **control-plane scope** — the root-scoped limitation recorded above
+- **Governance interaction** — what a standing trigger owes a Governance authority, and when
+- **replay / idempotency** beyond the single-spend permit
+- **quotas and rate limits**
+- **observability** — how a human sees what ran while they were not watching
+- **failure and reconciliation** — what a half-run leaves behind, and who repairs it
+- **kill-switch behaviour** under an active trigger, including whether disarming mid-flight is
+  a stop or a corruption
+
+**No RUNG or phase number is assigned here.** The canonical roadmap has not authorized one, and
+inventing one would be a commitment nobody made. **Implementation not started.**
