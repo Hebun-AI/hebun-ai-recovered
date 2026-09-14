@@ -4202,12 +4202,50 @@ and one open schema question awaiting Director decision.
 
 ---
 
-### CONTROLLED AUTONOMY **RUNG 1** — IMPLEMENTED · TESTED · NOT DEPLOYED
+### CONTROLLED AUTONOMY **RUNG 1** — RELEASED · DEPLOYED · PRODUCTION-AVAILABLE · **NOT ARMED**
 
 **Measured, and deliberately short of the words it would be easy to reach for.** The capability
 exists in the repository and has never run anywhere but a disposable test database. It is not
 deployed, not production-available, not production-authorized and not production-executed, and no
 production permit was created or consumed to write this line.
+
+> **SUPERSEDED AS CURRENT STATE — the paragraph above stands as written.** It was true when written
+> and is preserved unrewritten under §3 principle 8: at that moment the capability was committed and
+> had never left a test database. It has since been pushed and deployed, so only its *deployment*
+> clauses are out of date. Everything it says about arming, authorization and execution is still
+> exactly true.
+
+**RUNG 1 IS RELEASED.** Commit `29d47d30`, deployment `dpl_4SxrDgnsnnX69cSfUU8JYLC2uqzP` — READY,
+target production, `githubCommitSha` bound to that exact commit, and `www.hebuntech.com` resolves to
+it. The deployed build's route manifest still carries `/command`, `/foundation` and `/approvals`, and
+the smoke checks returned no 5xx.
+
+**AND IT IS DORMANT, WHICH IS THE POINT.** The line the header now draws is the one this program has
+to keep drawing, so it is spelled out rather than implied:
+
+| | |
+|---|---|
+| IMPLEMENTED · TESTED · COMMITTED · PUSHED · DEPLOYED | **yes** — suite 763/763 |
+| PRODUCTION-AVAILABLE | **yes** — the capability exists in the deployed build |
+| PRODUCTION-ARMED | **no** |
+| PRODUCTION-AUTHORIZED | **no** — no permit was created for an acceptance |
+| PRODUCTION-EXECUTED | **no** |
+| SUCCESSFUL | **not proven** |
+| PRODUCTION MUTATION during the release | **none** |
+
+**"NOT ARMED" IS AN ABSENCE, NOT A DECISION, and the difference is worth the sentence.** Production's
+`provider_connectivity_controls` holds three rows — `claude`, `external-send` and
+`provider-observation-read`, all enabled — and **no row at all** for
+`machine-internal-execution`. Nobody disabled it; nobody has ever armed it. `resolveDirectorEnabled`
+answers `false` for a missing row, so the released default holds because a decision was never taken.
+
+**NO MACHINE EXECUTION HAS OCCURRED IN PRODUCTION, and that was measured rather than assumed.** A
+machine-triggered `record-work` writes `created_by = NULL`; production holds **zero** such
+`work_items` rows, against 3 work items and 2 permits. The read was read-only and wrote nothing.
+
+**NOTHING TRIGGERS IT.** No scheduler, no timer, no queue, no route, no server action — a firewall
+asserts no product surface reaches the entry point. A deployed capability that nothing calls and no
+Director has armed is available and dormant, which is the state this rung was designed to reach.
 
 **NO SCHEMA. NO MIGRATION.** The ledger stays at **53**, and the Phase 0 question — where
 permit-consumption actor provenance belongs — was answered by measurement rather than by adding
