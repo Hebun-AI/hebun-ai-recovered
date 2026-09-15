@@ -641,14 +641,14 @@ function theVocabularyGrewByExactlyOne(): void {
       args: { title: "Re-warp the standing loom", scope: { kind: "organization-level" } },
       reason: "because",
     }),
-    { recipients: [], drafts: [], work: { organizationLevel: true, departments: [] } },
+    { recipients: [], drafts: [], work: { organizationLevel: true, departments: [], observations: [] } },
   );
   assert.equal(selected.status, "selected", "TRH-17: the model CAN select `record-work`");
 
   /* The old contract's argument shape is not quietly still accepted alongside the new one. */
   const legacyShape = parseAgentActionSelection(
     JSON.stringify({ kind: "record-work", args: { title: "x", departmentRef: "y" }, reason: "because" }),
-    { recipients: [], drafts: [], work: { organizationLevel: true, departments: [] } },
+    { recipients: [], drafts: [], work: { organizationLevel: true, departments: [], observations: [] } },
   );
   assert.equal(legacyShape.status, "refused", "a raw departmentRef argument is not the contract");
   assert.equal(

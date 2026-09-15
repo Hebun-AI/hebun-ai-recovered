@@ -192,13 +192,99 @@ for (const area of ["src/app", "src/components", "src/features/heby-runtime", "s
   }
 }
 
-/* And exactly one module under src/ names it: itself. */
+/*
+ * AND THE NAMERS UNDER `src/features` ARE AN ENUMERATED LIST OF TWO.
+ *
+ * ── WHY THIS WIDENED BY EXACTLY ONE, AND WHAT DID NOT WIDEN ────────────────
+ *
+ * It used to read `[ISSUER]` — the issuer was the only module allowed to name the issuer, which is
+ * another way of saying the authority had no trigger and could never fire. A human could authorize
+ * an envelope that nothing could ever act under.
+ *
+ * The ban's STATED purpose is directly above: Heby proposes, and no agent runtime, server action,
+ * route or component may decide its own authorization. A SCHEDULER TICK IS NONE OF THOSE THINGS.
+ * So the trigger module is admitted BY NAME, and everything that made the ban meaningful is
+ * untouched — the six area bans above still prove that no file under `src/app`, `src/components`,
+ * `heby-runtime`, `heby-actions`, `heby-action-inlet` or `agent-origination` may name the issuer.
+ *
+ * A LIST, NOT A PREFIX, AND NOT A COUNT. `startsWith("src/features/standing-issuance-trigger")`
+ * would admit any future file dropped into that directory, and `length <= 2` would admit any second
+ * namer anywhere. Enumerating the exact paths means a third namer — wherever it is, whatever it is
+ * called — fails this assertion and has to be argued for on its own merits.
+ */
+const ISSUANCE_TRIGGER = "src/features/standing-issuance-trigger/scan-issuable-requests.server.ts";
+/*
+ * The trigger's vocabulary module names the issuer too, and for a materially weaker reason: it
+ * borrows the issuer's RESULT TYPE so its report cannot invent a refusal word. That is asserted
+ * below rather than assumed — a type import erases at compile time and reaches nothing.
+ */
+const ISSUANCE_TRIGGER_CONTRACTS = "src/features/standing-issuance-trigger/contracts.ts";
 const namers = walk("src/features").filter((f) => read(f).includes(ISSUER_MODULE));
 assert.deepEqual(
-  namers,
-  [ISSUER],
-  `exactly one module may name the issuing seam, found: ${namers.join(", ")}`,
+  namers.sort(),
+  [ISSUER, ISSUANCE_TRIGGER, ISSUANCE_TRIGGER_CONTRACTS].sort(),
+  `only the issuer and the named issuance trigger may name the issuing seam, found: ${namers.join(", ")}`,
 );
+
+/*
+ * THE CONTRACTS MODULE'S NAMING IS TYPE-ONLY, AND THEREFORE NOT REACH AT ALL.
+ *
+ * `import type` is erased by the compiler: no runtime binding exists, and the module cannot call
+ * what it names. Stripping the comments and string literals leaves no mention of the issuer at all
+ * — which is the difference between borrowing a vocabulary and holding an authority.
+ */
+assert.ok(
+  /^\s*import type[^\n]*issue-permit-under-standing-authorization/m.test(read(ISSUANCE_TRIGGER_CONTRACTS)),
+  "the trigger's contracts may name the issuer only as a type import",
+);
+assert.equal(
+  codeOf(read(ISSUANCE_TRIGGER_CONTRACTS)).replace(/^\s*import type[\s\S]*?;$/m, "").includes(ISSUER_MODULE),
+  false,
+  "and must hold no runtime reference to it",
+);
+
+/*
+ * THE ADMITTED TRIGGER IS A TRIGGER, NOT A SECOND AUTHORITY.
+ *
+ * Admitting a module by name is only safe if that module cannot do the thing the ban exists to
+ * prevent. So the trigger is held to what it claims: it mints nothing, executes nothing, and holds
+ * no vocabulary of its own for deciding whether issuance is authorized.
+ */
+const triggerCode = codeOf(read(ISSUANCE_TRIGGER));
+for (const banned of [
+  /* It may not write a permit, an envelope or a decision itself. */
+  "actionPermits",
+  "standingMutationAuthorizations",
+  "writeGovernanceDecision",
+  "db.insert",
+  "db.transaction",
+  "drizzle-orm",
+  /* It may not execute, deliver, arm, or enrol. */
+  "executeRecordWorkAsMachine",
+  "scanDeliverablePermits",
+  "resolveMachineInternalExecutionEnabled",
+  "writeTenantMachineExecution",
+  "mintMachineExecutionPrincipal",
+]) {
+  assert.equal(
+    triggerCode.includes(banned),
+    false,
+    `the issuance trigger must not reach ${banned} — it decides WHEN, never WHETHER`,
+  );
+}
+
+/*
+ * AND IT MAY NOT RE-DECIDE THE ENVELOPE'S BOUNDS. Every one of these is the issuer's to evaluate
+ * behind its own row lock; a second evaluation here would be a second quota, a second clock and a
+ * second cadence that could disagree with the authoritative ones.
+ */
+for (const bound of ["maxActs", "minIntervalMinutes", "notBefore", "notAfter", "authorizationRevision"]) {
+  assert.equal(
+    triggerCode.includes(bound),
+    false,
+    `the issuance trigger must not evaluate ${bound} — the issuer owns it, under a lock`,
+  );
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 4 · ONE ACTION KIND, CONSULTED AND ALSO FROZEN IN THE DATABASE

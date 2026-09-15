@@ -211,12 +211,22 @@ async function main(): Promise<void> {
     /**
      * ONE AGENT PROPOSAL, carrying ONE admitted evidence reference.
      *
-     * The released agent inlet attaches `organization` evidence, which RUNG 2 deliberately does NOT
-     * admit. The released OBSERVATION proposal seam attaches `provider-observations` — but reaching
-     * it needs a full provider integration and observation seed that would prove nothing further
-     * about the envelope. So the proposal is filed through the released seam and its stored evidence
-     * is then set to the shape the observation seam writes. This is a FIXTURE, stated as one: what
-     * is under test is the issuer's treatment of admitted evidence, not how the bytes got there.
+     * The DEPARTMENT-scoped agent inlet attaches `organization` evidence, which RUNG 2 deliberately
+     * does NOT admit. So the proposal is filed through that seam and its stored evidence is then set
+     * to the shape the observation seam writes. This is a FIXTURE, stated as one: what is under test
+     * HERE is the issuer's treatment of admitted evidence, not how the bytes got there.
+     *
+     * ── THIS IS NO LONGER THE ONLY WAY THE BYTES CAN EXIST ──────────────────
+     *
+     * When this file was written, NO agent path could produce `provider-observations` evidence, and
+     * the note here said so. The RUNG 2 ACT PATH phase closed that gap: the released
+     * `proposeAgentOriginatedObservationWorkAction` now writes exactly this shape from a row it
+     * re-read. `rung2-act-path/chain-postgres.ts` walks the whole chain through that writer with NO
+     * SQL SURGERY, and would fail if the gap reopened.
+     *
+     * The fixture is KEPT here rather than replaced, because this file is about the ENVELOPE and
+     * needs many proposals cheaply; seeding an integration and an observation per case would add
+     * setup that proves nothing further about quota, cadence or the partial index.
      */
     const proposeWithEvidence = async (title: string, observationRef: string): Promise<string> => {
       const proposal = await proposeAgentOriginatedRecordWorkAction(

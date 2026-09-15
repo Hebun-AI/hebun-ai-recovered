@@ -37,7 +37,7 @@ const CANDIDATES: OriginationCandidateSet = {
   drafts: [{ ref: DRAFT, label: "Quarterly summary" }],
   work: {
     organizationLevel: true,
-    departments: [{ slug: DEPARTMENT_SLUG, label: "Loom Floor", departmentRef: DEPARTMENT_REF }],
+    departments: [{ slug: DEPARTMENT_SLUG, label: "Loom Floor", departmentRef: DEPARTMENT_REF }], observations: [],
   },
 };
 
@@ -45,14 +45,14 @@ const CANDIDATES: OriginationCandidateSet = {
 const DEPARTMENTLESS: OriginationCandidateSet = {
   recipients: [],
   drafts: [],
-  work: { organizationLevel: true, departments: [] },
+  work: { organizationLevel: true, departments: [], observations: [] },
 };
 
 /* Nothing of either kind. The organization itself could not be read. */
 const NOTHING: OriginationCandidateSet = {
   recipients: [],
   drafts: [],
-  work: { organizationLevel: false, departments: [] },
+  work: { organizationLevel: false, departments: [], observations: [] },
 };
 
 function refusalFor(text: unknown, candidates: OriginationCandidateSet = CANDIDATES): string {

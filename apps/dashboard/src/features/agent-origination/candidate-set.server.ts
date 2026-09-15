@@ -40,10 +40,16 @@ import type { WorkArtifactReadDeps } from "@/features/work-artifacts/read-work-a
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import type { OrganizationAuthorityDeps } from "@/features/organization-authority/read-organization.server";
 import { formatDepartmentRef } from "@/features/organization-authority/department-ref";
+import {
+  readProviderObservations,
+  type ProviderObservationReadDeps,
+} from "@/features/provider-observation-history/read-provider-observations.server";
+import { formatProviderObservationRef } from "@/features/provider-observation-history/observation-ref";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
   MAX_CANDIDATES_PER_KIND,
   type DepartmentCandidate,
+  type ObservationCandidate,
   type OriginationCandidateSet,
   type RecordWorkCandidateSpace,
 } from "./contracts";
@@ -53,12 +59,15 @@ export interface CandidateSetDeps {
   readonly artifacts?: WorkArtifactReadDeps;
   /** TRH-17. The SAME Organization seam the record-work inlet uses — not a second one. */
   readonly organization?: OrganizationAuthorityDeps;
+  /** RUNG 2. The SAME observation seam the observation inlet re-reads through — not a second one. */
+  readonly observations?: ProviderObservationReadDeps;
 }
 
 /** Nothing about this organization was readable, so record-work is not proposable. */
 const NO_RECORD_WORK: RecordWorkCandidateSpace = Object.freeze({
   organizationLevel: false,
   departments: Object.freeze([]) as readonly DepartmentCandidate[],
+  observations: Object.freeze([]) as readonly ObservationCandidate[],
 });
 
 /**
@@ -90,6 +99,16 @@ export async function buildOriginationCandidates(
   const recipientListing = await listActiveRecipients(tenant, deps.recipients ?? {});
   const artifactListing = await listWorkArtifacts(tenant, deps.artifacts ?? {});
   const organization = await readOrganizationAuthority(tenant, deps.organization ?? {});
+  /*
+   * RUNG 2 — the stored observations this tenant owns, through the SAME released seam the
+   * observation inlet re-reads through. It takes no tenant argument and resolves the tenant from
+   * the session, so this cannot be pointed at another organization's history.
+   */
+  const observationListing = await readProviderObservations(
+    tenant,
+    { limit: MAX_CANDIDATES_PER_KIND },
+    deps.observations ?? {},
+  );
 
   const recipients = recipientListing.recipients
     .slice(0, MAX_CANDIDATES_PER_KIND)
@@ -105,7 +124,7 @@ export async function buildOriginationCandidates(
           .map((artifact) => ({ ref: artifact.currentRef, label: artifact.title }))
       : [];
 
-  return { recipients, drafts, work: recordWorkSpace(organization) };
+  return { recipients, drafts, work: recordWorkSpace(organization, observationListing) };
 }
 
 /**
@@ -138,8 +157,21 @@ export async function buildOriginationCandidates(
  */
 function recordWorkSpace(
   organization: Awaited<ReturnType<typeof readOrganizationAuthority>>,
+  observationListing: Awaited<ReturnType<typeof readProviderObservations>>,
 ): RecordWorkCandidateSpace {
-  if (organization.status !== "available") return NO_RECORD_WORK;
+  const observations = observationSpace(observationListing);
+  if (organization.status !== "available") {
+    /*
+     * RUNG 2 — AN UNREADABLE ORGANIZATION DOES NOT SILENCE THE OBSERVATION HALF.
+     *
+     * Observation-evidenced work names no department and declares no organizational scope: it says
+     * "this happened, and here is the row that records it". The organization-level branch's
+     * readability question was never going to be asked of it, exactly as TRH-16 established for
+     * organization-level work against the STRUCTURAL read. Collapsing the two would make an
+     * organization outage silently disable the only evidence class the standing issuer admits.
+     */
+    return { ...NO_RECORD_WORK, observations };
+  }
 
   const structure = organization.organization.structure;
   const departments: DepartmentCandidate[] = [];
@@ -162,7 +194,54 @@ function recordWorkSpace(
    * on the structural read. TRH-16: organization-level work names no department, so a structural
    * read that failed cannot make it unproposable — it was never going to consult one.
    */
-  return { organizationLevel: true, departments };
+  return { organizationLevel: true, departments, observations };
+}
+
+/**
+ * The observation half of the record-work choice space (RUNG 2 act path).
+ *
+ * ── THE SLUG IS MINTED HERE AND LIVES FOR ONE REQUEST ───────────────────────
+ *
+ * `observation-1`, `observation-2`, … positional within THIS offered list. It is deliberately not
+ * derived from the id, because a slug derived from an id is an id in a costume: a model that
+ * learned the derivation could name a row it was never shown. A positional token can only ever
+ * resolve inside the list it was minted for, and `originate-action.server.ts` resolves it against
+ * that same in-memory list.
+ *
+ * ── THE LABEL IS PROVIDER AND INSTANT. NOTHING ELSE. ────────────────────────
+ *
+ * Not the subject reference, not the capability's payload, and no measurement of any kind. This is
+ * the same projection the released human observation path renders into a proposal target, and the
+ * prompt firewall walks the rendered lines for uuids and reference prefixes.
+ *
+ * ── UNREADABLE IS AN EMPTY OFFER, NOT A FABRICATED ONE ──────────────────────
+ *
+ * An unavailable read offers nothing. The two cases are honestly identical AT THIS SEAM: whether
+ * the tenant has observed nothing or the history could not be read, there is nothing an agent may
+ * legitimately name right now — the same judgement the send half already makes.
+ */
+function observationSpace(
+  listing: Awaited<ReturnType<typeof readProviderObservations>>,
+): readonly ObservationCandidate[] {
+  if (listing.status !== "read") return [];
+  const candidates: ObservationCandidate[] = [];
+  for (const observation of listing.observations) {
+    if (candidates.length >= MAX_CANDIDATES_PER_KIND) break;
+    let observationRef: string;
+    try {
+      observationRef = formatProviderObservationRef(observation.observationId);
+    } catch {
+      /* A row that cannot be named canonically is dropped rather than offered under a reference
+       * nothing could resolve — the same rule the department projection follows. */
+      continue;
+    }
+    candidates.push({
+      slug: `observation-${candidates.length + 1}`,
+      label: `${observation.providerKey} observed ${observation.observedAt}`,
+      observationRef,
+    });
+  }
+  return candidates;
 }
 
 /**
@@ -196,5 +275,15 @@ export function sendIsProposable(candidates: OriginationCandidateSet): boolean {
  * `departments.length > 0` here would re-impose the department requirement that phase removed.
  */
 export function recordWorkIsProposable(candidates: OriginationCandidateSet): boolean {
-  return candidates.work.organizationLevel || candidates.work.departments.length > 0;
+  return (
+    candidates.work.organizationLevel ||
+    candidates.work.departments.length > 0 ||
+    /*
+     * RUNG 2 — a stored observation is a third independent way record-work is proposable, for the
+     * same reason TRH-16 made organization-level work one: it depends on none of the others. An
+     * organization Hebun could not read this instant may still own observations it demonstrably
+     * made, and work about something that happened is proposable on that basis alone.
+     */
+    candidates.work.observations.length > 0
+  );
 }

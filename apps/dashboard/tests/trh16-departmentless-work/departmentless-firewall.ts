@@ -435,7 +435,7 @@ function main(): void {
       args: { title: "Re-warp the standing loom", scope: { kind: "organization-level" } },
       reason: "because",
     }),
-    { recipients: [], drafts: [], work: { organizationLevel: true, departments: [] } },
+    { recipients: [], drafts: [], work: { organizationLevel: true, departments: [], observations: [] } },
   );
   assert.equal(
     selected.status,

@@ -525,13 +525,70 @@ export function proposeAgentOriginatedRecordWorkAction(
  *
  * Server-only.
  */
-export async function proposeSocialObservationWorkAction(
+export function proposeSocialObservationWorkAction(
   tenant: TenantContext | null,
   input: SocialWorkProposalInput | null,
   deps: RecordWorkProposalDeps = {},
 ): Promise<SocialWorkProposalResult> {
+  return fileObservationWorkProposal(tenant, input, null, deps);
+}
+
+/**
+ * The AGENT-ORIGINATED observation-evidenced record-work proposal (RUNG 2 act path).
+ *
+ * ── WHY THIS EXISTS, AND WHY IT IS THE SAME FUNCTION ────────────────────────
+ *
+ * The standing issuer admits exactly one evidence source class — `provider-observations` — because
+ * it is the only released class that describes an EVENT. Before this, the only writer of that class
+ * was the HUMAN path above, and the only agent-originated `record-work` carried `organization`
+ * evidence, which the issuer refuses by name. So no proposal that could exist was issuable, and the
+ * released envelope authorized a shape of act nothing could produce.
+ *
+ * The fix is NOT a new evidence vocabulary and NOT a second inlet. It is the same body, told who is
+ * proposing — exactly the `proposer ? agent : human` split `fileRecordWorkProposal` already uses.
+ * The reference is still parsed, still re-read through the released observation authority under its
+ * own tenant predicate, and the evidence is still built from THE ROW THAT WAS READ.
+ *
+ * ── THE AGENT CANNOT NAME AN OBSERVATION IT WAS NOT OFFERED ─────────────────
+ *
+ * Not because this function checks — it does not, and must not, since a human legitimately names
+ * one this way. It is because the ONLY caller that passes a proposer is the released origination
+ * runtime, where the reference is minted by trusted code from the candidate list the server built.
+ * The model names a slug; it never sees, types or emits an observation id.
+ *
+ * ── A MANDATE IS STILL REQUIRED, AND STILL NOT ENFORCED HERE ────────────────
+ *
+ * `recordAgentOriginatedActionRequest` reads the agent's effective mandate before it writes. That
+ * is the ONE enforcement seam and this adds no second.
+ */
+export function proposeAgentOriginatedObservationWorkAction(
+  tenant: TenantContext | null,
+  input: SocialWorkProposalInput | null,
+  proposer: AgentProposer,
+  deps: RecordWorkProposalDeps = {},
+  originationInvocationId?: string,
+  proposalRationale?: string,
+): Promise<SocialWorkProposalResult> {
+  return fileObservationWorkProposal(
+    tenant,
+    input,
+    proposer,
+    deps,
+    originationInvocationId,
+    proposalRationale,
+  );
+}
+
+async function fileObservationWorkProposal(
+  tenant: TenantContext | null,
+  input: SocialWorkProposalInput | null,
+  proposer: AgentProposer | null,
+  deps: RecordWorkProposalDeps = {},
+  originationInvocationId?: string,
+  proposalRationale?: string,
+): Promise<SocialWorkProposalResult> {
   if (typeof window !== "undefined") {
-    throw new Error("Social work proposals are server-only.");
+    throw new Error("Observation-evidenced work proposals are server-only.");
   }
   if (!tenant?.tenantId || !tenant.userId) {
     return socialRefused("unauthenticated", "This session could not be resolved, so nothing was filed.");
@@ -621,7 +678,21 @@ export async function proposeSocialObservationWorkAction(
     );
   }
 
-  const recorded = await recordActionRequest(tenant, prepared, deps);
+  /*
+   * ONE MODULE, TWO TRUTHS — the same split the department and organization-level branches make.
+   * `AgentProposer` is branded in the authorization feature and only its resolver mints one, so a
+   * null proposer means a human named this observation.
+   */
+  const recorded = proposer
+    ? await recordAgentOriginatedActionRequest(
+        tenant,
+        prepared,
+        proposer,
+        deps,
+        originationInvocationId,
+        proposalRationale,
+      )
+    : await recordActionRequest(tenant, prepared, deps);
   if (recorded.status !== "recorded") {
     return {
       status: "refused",

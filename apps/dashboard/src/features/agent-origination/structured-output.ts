@@ -62,10 +62,14 @@ const RECORD_WORK_ENVELOPE_KEYS = SEND_ENVELOPE_KEYS;
 const RECORD_WORK_ARG_KEYS = ["title", "scope"] as const;
 const ORGANIZATION_LEVEL_SCOPE_KEYS = ["kind"] as const;
 const DEPARTMENT_SCOPE_KEYS = ["kind", "departmentSlug"] as const;
+/* RUNG 2. Exactly two keys, as the department arm has — a slug and the discriminator. */
+const OBSERVATION_SCOPE_KEYS = ["kind", "observationSlug"] as const;
 
-/** The two scope discriminators, mirroring the inlet's released union exactly. */
+/** The three scope discriminators, mirroring the inlet's released union exactly. */
 const ORGANIZATION_LEVEL_SCOPE = "organization-level" as const;
 const DEPARTMENT_SCOPE = "department" as const;
+/* RUNG 2 — "this work is about something that happened, and here is the row that records it". */
+const OBSERVATION_SCOPE = "observation" as const;
 
 /**
  * A single fenced JSON block and NOTHING else.
@@ -300,6 +304,28 @@ function parseScope(value: unknown, candidates: OriginationCandidateSet): ScopeR
     return { status: "ok", scope: { kind: DEPARTMENT_SCOPE, departmentSlug } };
   }
 
-  /* Neither of the two organizational truths. Refused as an argument, never guessed. */
+  if (kind === OBSERVATION_SCOPE) {
+    if (!keysAreExactly(scope, OBSERVATION_SCOPE_KEYS)) {
+      return { status: "refused", reason: "invalid-arguments" };
+    }
+    const observationSlug = scope.observationSlug;
+    /* Shape first, membership second — the same order and the same two refusals as the others. */
+    if (typeof observationSlug !== "string" || observationSlug.length === 0) {
+      return { status: "refused", reason: "malformed-reference" };
+    }
+    /*
+     * THE CONTAINMENT, AND IT MATTERS MORE HERE THAN ANYWHERE ELSE ON THIS BOUNDARY.
+     *
+     * An observation reference is the idempotence anchor of the standing act path — one
+     * organizational fact funds one standing-authorized act. Exact string membership in the list
+     * this request offered is what makes it impossible for a model to name a row it was not shown,
+     * including one it saw in an earlier request. Not a prefix, not case-folded, not normalized.
+     */
+    const offered = candidates.work.observations.some((o) => o.slug === observationSlug);
+    if (!offered) return { status: "refused", reason: "reference-not-offered" };
+    return { status: "ok", scope: { kind: OBSERVATION_SCOPE, observationSlug } };
+  }
+
+  /* None of the three admitted truths. Refused as an argument, never guessed. */
   return { status: "refused", reason: "invalid-arguments" };
 }

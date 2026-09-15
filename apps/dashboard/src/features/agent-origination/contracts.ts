@@ -194,6 +194,41 @@ export interface RecordWorkCandidateSpace {
   readonly organizationLevel: boolean;
   /** In-service departments. May be empty; empty is a measured answer, not an unread state. */
   readonly departments: readonly DepartmentCandidate[];
+  /**
+   * RUNG 2 ACT PATH — stored provider observations this agent may propose work ABOUT.
+   *
+   * May be empty, and empty is a measured answer: an organization that has observed nothing has
+   * nothing that happened to record work about. Independent of the other two, exactly as the send
+   * and record-work halves are independent of each other.
+   */
+  readonly observations: readonly ObservationCandidate[];
+}
+
+/**
+ * ONE STORED PROVIDER OBSERVATION, AS THE AGENT IS ALLOWED TO SEE IT (RUNG 2 act path).
+ *
+ * ── WHY THE AGENT NEVER SEES AN OBSERVATION ID ──────────────────────────────
+ *
+ * Same rule `DepartmentCandidate` established, and for a sharper reason here. An observation
+ * reference is the IDEMPOTENCE ANCHOR of the whole standing act path: one organizational fact may
+ * fund one standing-authorized act, and the issuer enforces that by the reference. A model that
+ * could emit a reference could emit one it was never offered, or re-emit a spent one under a
+ * different title. So it names a SLUG minted by the candidate builder, and trusted runtime code
+ * resolves that slug inside the SAME in-memory list the model was shown.
+ *
+ * ── THE LABEL CARRIES NO MEASUREMENT ────────────────────────────────────────
+ *
+ * Provider and instant only — Hebun's own record of what IT did. Never a follower count, never a
+ * subject id, never an account name, never a caption. This is the same projection the released
+ * human observation path already renders into a proposal target, restated here rather than widened.
+ */
+export interface ObservationCandidate {
+  /** A server-minted, per-request token. This, and only this, is what the model may name. */
+  readonly slug: string;
+  /** Provider and instant. Data, shown verbatim, never an instruction, never a measurement. */
+  readonly label: string;
+  /** SERVER-SIDE ONLY. `provider-observation/<uuid>`, minted by the builder. Never rendered. */
+  readonly observationRef: string;
 }
 
 /** What the agent is allowed to see and choose from, for one tenant, at one moment. */
@@ -219,7 +254,17 @@ export interface OriginationCandidateSet {
  */
 export type RecordWorkSelectionScope =
   | { readonly kind: "organization-level" }
-  | { readonly kind: "department"; readonly departmentSlug: string };
+  | { readonly kind: "department"; readonly departmentSlug: string }
+  /*
+   * RUNG 2 ACT PATH. A THIRD member, not an optional field on the other two, for the reason the
+   * union exists at all: "this work is about something that happened" is a different assertion from
+   * "this work belongs to the organization", and an optional observation slug would make a model
+   * that forgot indistinguishable from one that meant organization-level work.
+   *
+   * It carries a SLUG. The `provider-observation/<uuid>` reference is minted by trusted runtime code
+   * from the offered list — see {@link ObservationCandidate}.
+   */
+  | { readonly kind: "observation"; readonly observationSlug: string };
 
 /**
  * The STRUCTURED selection, after parsing and validation. Never a partial or repaired object.
