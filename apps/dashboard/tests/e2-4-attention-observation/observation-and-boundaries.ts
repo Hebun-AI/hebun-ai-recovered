@@ -48,6 +48,7 @@ const HEALTHY: AttentionObservationDeps = {
         state: "active", issuedAt: "2026-08-30T09:00:00.000Z", expiresAt: "2026-08-30T14:11:00.000Z",
         consumedAt: null, revokedAt: null, revocationReason: null, boundPayloadDigest: "d",
         executionStatus: null, providerAccepted: false, providerMessageId: null,
+        proposedByActorType: "agent",
       },
       {
         /* EXPIRED is the OWNER's derivation. It must not appear as an active permit here. */
@@ -55,6 +56,7 @@ const HEALTHY: AttentionObservationDeps = {
         state: "expired", issuedAt: "2026-08-20T09:00:00.000Z", expiresAt: "2026-08-21T09:00:00.000Z",
         consumedAt: null, revokedAt: null, revocationReason: null, boundPayloadDigest: "d",
         executionStatus: null, providerAccepted: false, providerMessageId: null,
+        proposedByActorType: "agent",
       },
     ],
   }),

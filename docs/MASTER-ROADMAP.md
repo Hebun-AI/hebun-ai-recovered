@@ -4141,8 +4141,61 @@ vocabulary, and nothing below is a committed name:
 - **RUNG 1 — Heby proposes · human/Governance authorizes · a machine may trigger THAT EXACT PERMIT.**
   The recommended next rung. Governance keeps authorization; single-spend keeps scope; nothing
   standing is granted.
-- **RUNG 2 — narrow standing authorization; a machine may act inside the envelope.** Not next.
+- **RUNG 1.5 — automatic delivery of THAT EXACT PERMIT.** Same authorization semantics as RUNG 1;
+  the only addition is that a scheduled trigger, rather than a human click, decides *when* the
+  already-authorized permit is handed over. Nothing standing is granted. **Released and
+  production-accepted** — see the LABEL RECONCILIATION note directly below.
+- **RUNG 2 — narrow standing authorization; a machine may act inside the envelope.** Not next, and
+  **NOT IMPLEMENTED**.
 - **RUNG 3 — policy-bounded operational autonomy.** Not designed.
+
+> **LABEL RECONCILIATION — THE RUNG 2 COLLISION, NAMED RATHER THAN REWRITTEN.**
+>
+> The phase headings below that read *"RUNG 2 — AUTOMATIC DELIVERY OF PRE-AUTHORIZED WORK"* and its
+> successors describe **automatic delivery**, which is the RUNG 1.5 entry above — not the standing
+> authorization this ladder has called RUNG 2 since the ladder was written. One label named two
+> different capabilities: RUNG 1 semantics plus automatic triggering, and a standing envelope inside
+> which a machine chooses its own acts. Those are not the same grant, and the second remains
+> unbuilt.
+>
+> **The historical headings are left exactly as they were written.** They are the record of what was
+> released under the name it was released under, and rewriting them would make the commits, the
+> closures and this document disagree about history. This note is the reconciliation; the ladder
+> above is the vocabulary. Where the two conflict, **the ladder is canonical**:
+>
+> | Capability | Ladder name | State |
+> |---|---|---|
+> | Exact human-authorized machine execution, human-invoked | RUNG 1 | **PRODUCTION-ACCEPTED** |
+> | Automatic delivery of exact already-authorized permits | RUNG 1.5 | **PRODUCTION-ACCEPTED** (headed "RUNG 2" below) |
+> | Standing mutation authorization | RUNG 2 | **NOT IMPLEMENTED / DEFERRED** |
+>
+> No commit, closure or acceptance record is amended by this note, and no phase is re-dated.
+
+> **DEFERRED BY DELIVERY LEGIBILITY — `/approvals` DOES NOT READ THE ARMING STATE.**
+>
+> The permit surface now says whether an authorization is awaiting automatic delivery, was
+> delivered, or expired undelivered. It does **not** say whether automatic delivery is currently
+> armed for the organization, and the sentence names that condition rather than asserting it.
+>
+> This is a scope decision. The three questions the milestone owes an answer to are answerable from
+> the permit row and its proposal alone; composing the machine-execution reachability authority onto
+> a product surface would add a cross-feature import edge and a sixth per-page read in order to
+> qualify one sentence. Deferred, not refused.
+>
+> **UNRELATED, PRE-EXISTING: `next build` IS NONDETERMINISTICALLY BROKEN AT HEAD.**
+>
+> Measured during this milestone and **reproduced on clean HEAD with none of its changes applied**:
+> `next build` intermittently fails with `ReferenceError: Cannot access 'o' before initialization`
+> at `Module.tenantColumns`, while collecting page data for `/api/machine-delivery/scan`. The cause
+> is a mutual recursion in the schema layer — `_base` imports `companies` for a lazy `.references()`
+> thunk while `company` spreads `rootColumns` eagerly — which is safe in exactly one module
+> evaluation order and which the bundler does not always choose. It is load-dependent, so a green
+> build is not evidence of its absence.
+>
+> **This is not Delivery Legibility's defect and is not repaired by it.** It predates the milestone,
+> it affects every build including deployments, and repairing it means breaking the `_base`/`company`
+> module cycle in the schema source layer — out of scope here. Recorded as an open repository-level
+> blocker, owned by no phase yet.
 
 **The first action should be `record-work`, not `place-human-in-department` and not the email.**
 Ranked on consequence rather than on which executor already exists: `record-work` writes one row in

@@ -160,6 +160,19 @@ export interface ActionPermitView {
   readonly providerAccepted: boolean;
   /** Present only on acceptance. The provider's own id, the only receipt metadata carried. */
   readonly providerMessageId: string | null;
+  /**
+   * WHO PROPOSED THE ACT THIS PERMIT AUTHORIZES (Delivery Legibility).
+   *
+   * The same column the pending-request view has always projected, on a join this query has always
+   * performed. It is carried here because automatic delivery is a question ONLY about an
+   * agent-proposed act — the runtime discovery predicate refuses a human-proposed one — so without
+   * it the surface cannot tell an authorization awaiting delivery from one that will never be
+   * delivered, and would have to guess in whichever direction is convenient.
+   *
+   * No new query, no new join, no new seam and no new authority: one more column off a row this
+   * reader already selects from.
+   */
+  readonly proposedByActorType: string;
 }
 
 export type ActionAuthorizationRead<T> =
@@ -308,6 +321,7 @@ export async function readActionPermits(
         actionKind: hebyActionRequests.actionKind,
         toolId: hebyActionRequests.toolId,
         targetLabel: hebyActionRequests.targetLabel,
+        proposedByActorType: hebyActionRequests.proposedByActorType,
         /* LEFT joined: a permit that was never spent has no attempt, and that is not an error. */
         attemptStatus: actionExecutionAttempts.status,
         providerMessageId: actionExecutionAttempts.providerMessageId,
@@ -334,7 +348,15 @@ export async function readActionPermits(
     return {
       status: "read",
       items: rows.map(
-        ({ permit, actionKind, toolId, targetLabel, attemptStatus, providerMessageId }) => ({
+        ({
+          permit,
+          actionKind,
+          toolId,
+          targetLabel,
+          proposedByActorType,
+          attemptStatus,
+          providerMessageId,
+        }) => ({
           permitId: permit.id,
           requestId: permit.actionRequestId,
           actionKind,
@@ -351,6 +373,7 @@ export async function readActionPermits(
           /* Acceptance requires BOTH, exactly as the database CHECK requires both. */
           providerAccepted: attemptStatus === "accepted" && providerMessageId !== null,
           providerMessageId: providerMessageId ?? null,
+          proposedByActorType,
         }),
       ),
     };

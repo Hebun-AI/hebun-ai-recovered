@@ -21,6 +21,14 @@ import {
 } from "@/features/action-execution/contracts";
 import { RECORD_WORK_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
 import {
+  PERMIT_DEFAULT_TTL_SECONDS,
+  PERMIT_TTL_CHOICES,
+} from "@/features/action-authorization/contracts";
+import {
+  derivePermitDeliveryBand,
+  permitDeliverySentence,
+} from "@/features/action-authorization/delivery-legibility";
+import {
   elapsedSince,
   type ElapsedObservation,
 } from "@/features/attention-observation/contracts";
@@ -179,6 +187,18 @@ function RequestCard({
 }) {
   const [justification, setJustification] = useState("");
   const [reason, setReason] = useState("");
+  /*
+   * DELIVERY LEGIBILITY — HOW LONG THIS AUTHORITY SHOULD LAST, CHOSEN BY THE PERSON GRANTING IT.
+   *
+   * The server action and the clamp have accepted a requested lifetime since R3A. This surface
+   * never sent one, so every permit ever minted through it silently took the default — the human
+   * who is accountable for the authorization had no say in how long it stood.
+   *
+   * A CLOSED PICKER, NOT A NUMBER FIELD. Every option is inside the server's own bounds, so the
+   * lifetime CHOSEN here and the lifetime GRANTED by the clamp are the same value. A free field
+   * would let a person ask for a week, be granted a day, and never be told.
+   */
+  const [ttlSeconds, setTtlSeconds] = useState<number>(PERMIT_DEFAULT_TTL_SECONDS);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -189,7 +209,11 @@ function RequestCard({
       setMessage(null);
       const result =
         kind === "approve"
-          ? await approveActionRequestAction({ requestId: item.requestId, justification })
+          ? await approveActionRequestAction({
+              requestId: item.requestId,
+              justification,
+              requestedTtlSeconds: ttlSeconds,
+            })
           : await rejectActionRequestAction({
               requestId: item.requestId,
               justification,
@@ -453,6 +477,35 @@ function RequestCard({
         />
       </label>
 
+      {/*
+       * HOW LONG THIS AUTHORIZATION SHOULD STAND.
+       *
+       * It sits with the justification, above the controls, because it is part of WHAT is being
+       * granted — not a setting applied to a decision already made. A shorter lifetime is the one
+       * control a Director has over an authorization they will not be present to watch.
+       */}
+      <label className="flex flex-col gap-1">
+        <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
+          How long this authorization stands
+        </span>
+        <select
+          value={String(ttlSeconds)}
+          onChange={(e) => setTtlSeconds(Number(e.target.value))}
+          disabled={pending}
+          className="rounded-md border border-border bg-surface p-2 text-xs text-fg-primary"
+        >
+          {PERMIT_TTL_CHOICES.map((choice) => (
+            <option key={choice.seconds} value={String(choice.seconds)}>
+              {choice.label}
+            </option>
+          ))}
+        </select>
+        <span className="text-[0.65rem] text-fg-muted">
+          After this it expires on its own and can no longer be executed or delivered. The exact
+          expiry the server granted is reported back when you authorize.
+        </span>
+      </label>
+
       <label className="flex flex-col gap-1">
         <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-fg-muted">
           Reason, if refusing
@@ -596,6 +649,19 @@ function PermitRow({ item }: { item: ActionPermitView }) {
    */
   const internal = item.actionKind === RECORD_WORK_ACTION_KIND;
 
+  /*
+   * PURE, AND DERIVED FROM ROWS THIS COMPONENT WAS ALREADY GIVEN. No fetch, no effect, no state,
+   * and no new prop: the permit's own state, the frozen action set and the proposal's provenance.
+   * Re-rendering cannot change what it says, and nothing on this path can fail.
+   */
+  const delivery = permitDeliverySentence(
+    derivePermitDeliveryBand({
+      actionKind: item.actionKind,
+      proposedByActorType: item.proposedByActorType,
+      state: item.state,
+    }),
+  );
+
   const execute = () =>
     startTransition(async () => {
       setMessage(null);
@@ -641,6 +707,18 @@ function PermitRow({ item }: { item: ActionPermitView }) {
       ) : (
         <OutcomeLine status={item.executionStatus} providerMessageId={item.providerMessageId} />
       )}
+
+      {/*
+       * DELIVERY LEGIBILITY — a SECOND line, never a replacement for the one above.
+       *
+       * The outcome sentence answers "was this authorization spent"; this one answers "will
+       * something spend it without me". They are different questions with different answers, and
+       * merging them would let a reader who understood one believe they understood the other.
+       *
+       * Absent entirely — not empty, not "n/a" — for a permit automatic delivery was never a
+       * question about. Silence is the honest rendering of a question that does not apply.
+       */}
+      {delivery ? <p className="text-[0.65rem] text-fg-muted">{delivery}</p> : null}
 
       {item.revocationReason ? (
         <p className="text-[0.65rem] text-fg-muted">Revoked: {item.revocationReason}</p>

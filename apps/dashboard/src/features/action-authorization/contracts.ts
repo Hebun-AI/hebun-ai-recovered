@@ -102,6 +102,30 @@ export const PERMIT_DEFAULT_TTL_SECONDS = 3_600;
 export const PERMIT_MIN_TTL_SECONDS = 60;
 
 /**
+ * THE LIFETIMES THE AUTHORIZING HUMAN MAY CHOOSE FROM (Delivery Legibility).
+ *
+ * ── A CLOSED LIST, NOT A NUMBER FIELD ───────────────────────────────────────
+ *
+ * `clampTtlSeconds` has always accepted any number and silently narrowed it, which is the correct
+ * server behaviour and the wrong thing to hand a person. A free number field lets a human ask for
+ * ten million seconds, be granted 86,400, and never be told the two differed. Every entry here is
+ * inside `[PERMIT_MIN_TTL_SECONDS, PERMIT_MAX_TTL_SECONDS]`, so what was CHOSEN and what was
+ * GRANTED are the same value by construction, and a test asserts exactly that against the clamp.
+ *
+ * ── IT NARROWS THE UI, NEVER THE AUTHORITY ──────────────────────────────────
+ *
+ * The server action and `clampTtlSeconds` are untouched: they still accept any number and still
+ * clamp it. This list is what one surface offers, not what the authority permits — so a future
+ * caller is bounded by the clamp exactly as it was before, and this constant can never widen it.
+ */
+export const PERMIT_TTL_CHOICES = [
+  { seconds: 300, label: "5 minutes" },
+  { seconds: PERMIT_DEFAULT_TTL_SECONDS, label: "1 hour" },
+  { seconds: 28_800, label: "8 hours" },
+  { seconds: PERMIT_MAX_TTL_SECONDS, label: "24 hours" },
+] as const satisfies readonly { readonly seconds: number; readonly label: string }[];
+
+/**
  * The side-effect classes R3A will accept a request for.
  *
  * `DEVICE_ACTION` is absent and a database CHECK enforces the same thing. Computer Use is
