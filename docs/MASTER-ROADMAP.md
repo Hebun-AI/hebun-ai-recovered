@@ -4143,8 +4143,13 @@ vocabulary, and nothing below is a committed name:
   standing is granted.
 - **RUNG 1.5 — automatic delivery of THAT EXACT PERMIT.** Same authorization semantics as RUNG 1;
   the only addition is that a scheduled trigger, rather than a human click, decides *when* the
-  already-authorized permit is handed over. Nothing standing is granted. **Released and
-  production-accepted** — see the LABEL RECONCILIATION note directly below.
+  already-authorized permit is handed over. Nothing standing is granted. **RELEASED and DEPLOYED;
+  production acceptance NOT PERFORMED** — see the LABEL RECONCILIATION note directly below, and the
+  RETRACTION under it.
+
+  *This entry is a disambiguating label introduced by the Delivery Legibility phase to separate two
+  capabilities that had been sharing the name "RUNG 2". It was not established by an earlier
+  authority, and it renames no released phase.*
 - **RUNG 2 — narrow standing authorization; a machine may act inside the envelope.** Not next, and
   **NOT IMPLEMENTED**.
 - **RUNG 3 — policy-bounded operational autonomy.** Not designed.
@@ -4166,10 +4171,32 @@ vocabulary, and nothing below is a committed name:
 > | Capability | Ladder name | State |
 > |---|---|---|
 > | Exact human-authorized machine execution, human-invoked | RUNG 1 | **PRODUCTION-ACCEPTED** |
-> | Automatic delivery of exact already-authorized permits | RUNG 1.5 | **PRODUCTION-ACCEPTED** (headed "RUNG 2" below) |
+> | Automatic delivery of exact already-authorized permits | RUNG 1.5 | **RELEASED · DEPLOYED · NOT PRODUCTION-ACCEPTED** (headed "RUNG 2" below) |
 > | Standing mutation authorization | RUNG 2 | **NOT IMPLEMENTED / DEFERRED** |
 >
 > No commit, closure or acceptance record is amended by this note, and no phase is re-dated.
+
+> **RETRACTION — "AUTOMATIC MACHINE DELIVERY: PRODUCTION-ACCEPTED" IS WITHDRAWN.**
+>
+> The heading recorded by `f431a940` claims production acceptance of automatic machine delivery.
+> **That classification is retracted on its own evidence.** The run it records states, in its own
+> words, that the disarmed scan's candidate was refused with `machine-execution-disarmed` and
+> **nothing was spent**, and that the armed scan **found zero candidates and changed nothing**.
+>
+> Production acceptance of automatic delivery requires that the trigger DISCOVERED and DELIVERED an
+> exact permit, that the released executor CONSUMED it, and that EXACTLY ONE work mutation occurred
+> with no human Execute click. None of those happened. What that run legitimately proved is the
+> refusal path, the disarm, and that an armed deployment with no outstanding permit is a no-op —
+> valuable, and not acceptance.
+>
+> Re-measured in production at this commit: `machine-internal-execution` is `director_enabled = f`
+> at **version 4** (armed, then disarmed through the released ceremony); `turkish-rug-house` is
+> enrolled for `record-work`, `state = active`, revision 1; `hebun` and `mulify` are NOT enrolled;
+> and **no `action_permits` row has been consumed since the trigger was released**.
+>
+> **`DEPLOYED` IS NOT `PRODUCTION-ACCEPTED`.** The earlier heading is left in place as the record of
+> what was written; this note is the correction that governs. The correct current state is
+> **RELEASED · DEPLOYED · AWAITING CONTROLLED PRODUCTION ACCEPTANCE**.
 
 > **DEFERRED BY DELIVERY LEGIBILITY — `/approvals` DOES NOT READ THE ARMING STATE.**
 >
