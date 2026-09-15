@@ -78,6 +78,7 @@ import {
   hebyActionRequestStatusEnum,
 } from "./_enums";
 import { decisionRecords, governanceSessions } from "./governance";
+import { standingMutationAuthorizations } from "./standing-mutation-authorization";
 import { workItems } from "./work-item";
 
 /**
@@ -269,6 +270,19 @@ export const hebyActionRequests = pgTable(
       onDelete: "restrict",
     }),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
+    /**
+     * THE STANDING ENVELOPE THIS REQUEST WAS APPROVED UNDER, OR NULL (RUNG 2).
+     *
+     * NULL is the ordinary case: a human read this proposal and clicked Approve. NON-NULL means a
+     * bounded standing authorization covered it, so `approval_decision_id` names that STANDING
+     * decision and the approver columns name the human who signed it.
+     *
+     * It exists for the same reason its twin on `action_permits` does — to carry the predicate that
+     * keeps the ordinary one-decision-one-approval invariant intact for every permit and request a
+     * human actually decided.
+     */
+    standingAuthorizationId: uuid("standing_authorization_id"),
+
     approvedByActorType: actorTypeEnum("approved_by_actor_type"),
     approvedByActorId: uuid("approved_by_actor_id"),
 
@@ -290,10 +304,28 @@ export const hebyActionRequests = pgTable(
       .on(t.tenantId, t.payloadDigest)
       .where(sql`${t.status} = 'pending'`),
 
-    /** One Governance decision approves at most one request. */
+    /**
+     * ONE GOVERNANCE DECISION APPROVES AT MOST ONE REQUEST — FOR ORDINARY APPROVALS.
+     *
+     * PARTIAL for exactly the reason its twin on `action_permits` is, and discovered the same way:
+     * a standing envelope is ONE decision that covers SEVERAL acts, so the unconditional form makes
+     * the second act structurally impossible. Every request a human actually decided still has
+     * `standing_authorization_id IS NULL` and is still covered by the original invariant — which is
+     * every request that has ever existed.
+     */
     uniqueIndex("heby_action_requests_approval_decision_uq")
       .on(t.approvalDecisionId)
-      .where(sql`${t.approvalDecisionId} is not null`),
+      .where(sql`${t.approvalDecisionId} is not null and ${t.standingAuthorizationId} is null`),
+    /**
+     * Structural tenant binding to the standing envelope. "Approved under another tenant's
+     * envelope" is a database error, not an application `where` clause somebody can forget.
+     */
+    foreignKey({
+      name: "heby_action_requests_tenant_standing_authorization_fk",
+      columns: [t.tenantId, t.standingAuthorizationId],
+      foreignColumns: [standingMutationAuthorizations.tenantId, standingMutationAuthorizations.id],
+    }).onDelete("restrict"),
+
     /** One Governance decision rejects at most one request. */
     uniqueIndex("heby_action_requests_rejection_decision_uq")
       .on(t.rejectionDecisionId)
@@ -479,6 +511,22 @@ export const actionPermits = pgTable(
     /** The bounded lifetime actually granted, recorded so a review can see what was chosen. */
     ttlSeconds: integer("ttl_seconds").notNull(),
 
+    /**
+     * THE STANDING ENVELOPE THIS PERMIT WAS ISSUED UNDER, OR NULL (RUNG 2).
+     *
+     * NULL is the ordinary case and the released one: a human decided this exact act, and the
+     * decision-uniqueness index below still holds for every such permit, unchanged.
+     *
+     * NON-NULL means the permit was issued under a bounded standing authorization instead of a
+     * per-act human click. `governance_decision_id` then names the STANDING decision, and
+     * `authorized_by_actor_id` names the human who signed it — both TRUE statements: that person
+     * did authorize this act, in advance, inside bounds they chose.
+     *
+     * The composite FK binds `(tenant_id, standing_authorization_id)`, so a permit issued under
+     * ANOTHER tenant's envelope is a database error rather than an application `where` clause.
+     */
+    standingAuthorizationId: uuid("standing_authorization_id"),
+
     /* ── Consumption. Written by R3A's handoff seam; the EFFECT belongs to R3B. ── */
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
     /**
@@ -497,8 +545,31 @@ export const actionPermits = pgTable(
     revocationReason: varchar("revocation_reason", { length: 256 }),
   },
   (t) => [
-    /** One Governance decision authorizes at most one permit. */
-    uniqueIndex("action_permits_decision_uq").on(t.governanceDecisionId),
+    /**
+     * ONE GOVERNANCE DECISION AUTHORIZES AT MOST ONE PERMIT — FOR ORDINARY PERMITS.
+     *
+     * ── WHY THIS INDEX IS NOW PARTIAL, AND WHAT THAT DELIBERATELY MEANS ──────
+     *
+     * Until RUNG 2 this was unconditional, and it said something true of every permit that could
+     * exist: a human decides one act, and that decision backs exactly one authorization to perform
+     * it. That sentence is the whole of RUNG 0 and RUNG 1, and it is UNCHANGED — every permit with
+     * `standing_authorization_id IS NULL` is still covered by it, which is every permit that has
+     * ever existed and every permit any released path still mints.
+     *
+     * A STANDING ENVELOPE IS PRECISELY THE DECISION THAT ONE DECISION MAY BACK SEVERAL ACTS. That
+     * is what "standing" means, and expressing it required saying so somewhere. The honest place is
+     * here, as a visible, reviewed narrowing of the predicate — not by relaxing the invariant for
+     * everyone, and not by fabricating a per-act human Governance decision so the old index could
+     * be satisfied by a row that records a decision nobody made.
+     *
+     * WHAT BOUNDS A STANDING-ISSUED PERMIT INSTEAD: the envelope's own window, quota, cadence,
+     * agent and action kind, enforced under a row lock by the issuing seam. The bound moved; it did
+     * not disappear. Everything downstream of issuance — the digest binding, the expiry, the single
+     * conditional spend, revocation, the audit row — is byte-unchanged and still applies in full.
+     */
+    uniqueIndex("action_permits_decision_uq")
+      .on(t.governanceDecisionId)
+      .where(sql`${t.standingAuthorizationId} is null`),
     /** One approved request yields at most one permit. */
     uniqueIndex("action_permits_request_uq").on(t.actionRequestId),
 
@@ -535,6 +606,22 @@ export const actionPermits = pgTable(
       columns: [t.tenantId, t.actionRequestId],
       foreignColumns: [hebyActionRequests.tenantId, hebyActionRequests.id],
     }).onDelete("restrict"),
+
+    /**
+     * Structural tenant binding to the standing envelope (RUNG 2). Reuses
+     * `standing_mutation_authorizations_id_tenant_uq` — "a permit issued under another tenant's
+     * envelope" is a database error, the same pattern `action_permits_tenant_request_fk` uses.
+     */
+    foreignKey({
+      name: "action_permits_tenant_standing_authorization_fk",
+      columns: [t.tenantId, t.standingAuthorizationId],
+      foreignColumns: [standingMutationAuthorizations.tenantId, standingMutationAuthorizations.id],
+    }).onDelete("restrict"),
+
+    /** The quota and cadence reads: every permit issued under one envelope, newest first. */
+    index("action_permits_standing_authorization_idx")
+      .on(t.standingAuthorizationId, t.issuedAt)
+      .where(sql`${t.standingAuthorizationId} is not null`),
 
     index("action_permits_tenant_status_idx").on(t.tenantId, t.status),
     index("action_permits_expiry_idx").on(t.tenantId, t.expiresAt),

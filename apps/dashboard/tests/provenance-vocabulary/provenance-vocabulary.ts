@@ -476,6 +476,8 @@ async function main(): Promise<void> {
       /* RUNG 2 PREREQUISITE — `tenant_machine_execution_authorizations`, one additive table plus the
          `machine-execution` governance domain. A declared later phase, */
       "20260914120405_rung2_tenant_machine_execution_authorization",
+      /* RUNG 2 — `standing_mutation_authorizations` plus the `standing-mutation` governance domain. */
+      "20260915100638_rung2_standing_mutation_authorization",
         ],
         "and what follows it is a declared later phase",
       );

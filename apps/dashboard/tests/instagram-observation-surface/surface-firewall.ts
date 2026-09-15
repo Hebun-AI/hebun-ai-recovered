@@ -307,7 +307,7 @@ function main(): void {
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 54, "a consumer adds no migration");
+  assert.equal(journal.entries.length, 55, "a consumer adds no migration");
 
   console.log(
     "instagram-observation-surface/surface-firewall: released seam reused, no query, no provider " +

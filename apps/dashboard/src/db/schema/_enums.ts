@@ -969,6 +969,26 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * work, and is that agreement still standing?"
    */
   "machine-execution",
+  /**
+   * RUNG 2 — Governance authorizing a bounded STANDING ENVELOPE inside which an agent's own
+   * `record-work` proposals may be turned into permits without a further human decision per act.
+   *
+   * It is NOT `machine-execution`: that asks whether this organization accepts unattended DELIVERY
+   * of an act a human already authorized individually. This asks whether the organization will let
+   * authorization itself stand in advance, for a bounded number of acts, inside a window.
+   *
+   * It is NOT `standing-observation`: that authorizes repeated READS of an outside scope and
+   * changes nothing. This authorizes repeated MUTATION of the organization's own record, which is
+   * exactly why it could not be a widening of that domain.
+   *
+   * It is NOT `agent-mandate`: a mandate bounds what an agent may PROPOSE, and proposing remains
+   * free. This bounds what may be AUTHORIZED without a human present.
+   *
+   * It is NOT `action-authorization`: that domain records one human deciding one exact act. A
+   * standing envelope is the decision that a class of acts need not be decided one at a time, and
+   * folding it in would make the ledger unable to distinguish the two.
+   */
+  "standing-mutation",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",
@@ -1309,6 +1329,23 @@ export const standingObservationStateEnum = pgEnum("standing_observation_state",
  * rather than stored. A stored `is_current` beside a derivable one is two facts that can disagree.
  */
 export const tenantMachineExecutionStateEnum = pgEnum("tenant_machine_execution_state", [
+  "active",
+  "withdrawn",
+]);
+
+/**
+ * The lifecycle of one STANDING MUTATION AUTHORIZATION revision (RUNG 2).
+ *
+ * The same two words both siblings use, and for the same reason: a revision either stands or it has
+ * been taken away.
+ *
+ * `expired` and `exhausted` are DELIBERATELY ABSENT. A window that has passed and a quota that has
+ * been spent are both DERIVED — from `not_after` against the clock, and from counting the permits
+ * this authorization issued — exactly as permit expiry is derived and never swept. A stored
+ * `exhausted` would need a writer, that writer would race the issuer, and the column would then be
+ * a second opinion about a question the rows already answer.
+ */
+export const standingMutationStateEnum = pgEnum("standing_mutation_state", [
   "active",
   "withdrawn",
 ]);

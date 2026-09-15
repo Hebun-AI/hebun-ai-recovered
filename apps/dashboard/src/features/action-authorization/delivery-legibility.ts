@@ -114,6 +114,11 @@ export type PermitDeliveryBand =
 /** The shape facts a permit must have before automatic delivery is a question about it at all. */
 export interface PermitDeliveryShape {
   readonly actionKind: string;
+  /**
+   * Whether this permit was issued under a standing envelope (RUNG 2) rather than by a human
+   * reading this exact act and clicking Approve. `null` is the ordinary, per-act case.
+   */
+  readonly standingAuthorizationId?: string | null;
   /** `heby_action_requests.proposed_by_actor_type`, carried through the permit read. */
   readonly proposedByActorType: string;
   /** `derivePermitState`'s answer. Taken, never recomputed. */
@@ -165,6 +170,20 @@ export function derivePermitDeliveryBand(shape: PermitDeliveryShape): PermitDeli
  * Every claim here is one the rows can carry. Read the header before changing a word: two of these
  * sentences exist specifically to DENY something the surface cannot know.
  */
+/**
+ * HOW THIS AUTHORIZATION CAME TO EXIST, when that is not what a reader would assume.
+ *
+ * `authorized_by_actor_id` names a human on EVERY permit, and for a standing-issued one that human
+ * did not read this act and approve it — they authorized it in advance, inside a bounded envelope
+ * they may withdraw. Saying nothing would let the ordinary reading stand, and the ordinary reading
+ * would be wrong. `null` for an ordinary permit, where the ordinary reading is correct.
+ */
+export function permitAuthorizationProvenanceSentence(shape: PermitDeliveryShape): string | null {
+  return shape.standingAuthorizationId
+    ? "Authorized in advance under a standing authorization — not by a person reviewing this act. The human named on it signed the envelope this was issued from, and can withdraw it at any time."
+    : null;
+}
+
 export function permitDeliverySentence(band: PermitDeliveryBand): string | null {
   switch (band.band) {
     case "not-machine-deliverable":

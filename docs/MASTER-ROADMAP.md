@@ -4149,8 +4149,36 @@ vocabulary, and nothing below is a committed name:
   *This entry is a disambiguating label introduced by the Delivery Legibility phase to separate two
   capabilities that had been sharing the name "RUNG 2". It was not established by an earlier
   authority, and it renames no released phase.*
-- **RUNG 2 — narrow standing authorization; a machine may act inside the envelope.** Not next, and
-  **NOT IMPLEMENTED**.
+- **RUNG 2 — narrow standing authorization; a machine may act inside the envelope.**
+  **IMPLEMENTED · MIGRATION APPLIED TO PRODUCTION — code NOT YET RELEASED.** Migration 55
+  (`20260915100638_rung2_standing_mutation_authorization`) was applied to production on
+  2026-09-15; the production ledger is 55 and the table exists and is EMPTY. No standing
+  authorization has been created, the root `machine-internal-execution` control remains DISARMED,
+  and no act has ever been issued under an envelope.
+
+  A human authorizes a bounded *envelope* — one named agent, `record-work` only, a window, a
+  maximum number of acts, a minimum interval — and that agent's own EVIDENCED proposals may then be
+  turned into ordinary single-use permits without a human deciding each one. What it is NOT: a
+  reusable permit, agent self-authorization, Governance delegation, or a widening of the frozen
+  action set. Scope beyond `record-work` costs a reviewed migration; the kind is a database CHECK.
+
+  > **THE TWO INVARIANTS THAT MOVED, AND EXACTLY HOW FAR.**
+  >
+  > `action_permits_decision_uq` and `heby_action_requests_approval_decision_uq` each said "one
+  > Governance decision backs at most one permit / approval". Both are now **PARTIAL**, excluding
+  > only rows carrying a `standing_authorization_id`. **Every permit and request a human actually
+  > decided — which is every one that has ever existed — keeps the original invariant unchanged.**
+  > A standing envelope is precisely the decision that one decision may back several acts, and this
+  > is where the repository says so.
+  >
+  > The alternatives were considered and refused by name: minting a per-act Governance decision with
+  > `actor_type = 'agent'` hands Governance to a machine; minting one with `actor_type = 'human'`
+  > records a deliberation that never happened. **The issuing seam therefore writes NO decision.**
+  > The bound did not disappear — it moved to the envelope's window, quota, cadence, agent and kind,
+  > enforced under a row lock, and proved against a real PostgreSQL.
+  >
+  > `action_permits_human_authorizer_chk` is UNTOUCHED. Every permit still names an accountable
+  > human: the person who signed the envelope, which is the truth about who authorized the act.
 - **RUNG 3 — policy-bounded operational autonomy.** Not designed.
 
 > **LABEL RECONCILIATION — THE RUNG 2 COLLISION, NAMED RATHER THAN REWRITTEN.**
@@ -4171,7 +4199,7 @@ vocabulary, and nothing below is a committed name:
 > |---|---|---|
 > | Exact human-authorized machine execution, human-invoked | RUNG 1 | **PRODUCTION-ACCEPTED** |
 > | Automatic delivery of exact already-authorized permits | RUNG 1.5 | **PRODUCTION-ACCEPTED** 2026-09-14 (headed "RUNG 2" below) |
-> | Standing mutation authorization | RUNG 2 | **NOT IMPLEMENTED / DEFERRED** |
+> | Standing mutation authorization | RUNG 2 | **IMPLEMENTED · MIGRATION APPLIED (ledger 55) · 0 authorizations · root DISARMED** |
 >
 > No commit, closure or acceptance record is amended by this note, and no phase is re-dated.
 

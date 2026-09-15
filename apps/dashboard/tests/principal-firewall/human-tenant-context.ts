@@ -290,7 +290,15 @@ function main(): void {
    * configuration column: the AMA-1 firewall enumerates the `agents` columns that feature may
    * touch at all.
    *
-   * The census stays EXACT, which is the whole value of it: a ninth file still fails here.
+   * RUNG 2 adds two more, both permitted kinds and neither a grant.
+   * `db/schema/standing-mutation-authorization.ts` names `agents.tenantId` as the second half of a
+   * composite foreign key, so an envelope naming ANOTHER tenant's agent is a DATABASE error rather
+   * than a predicate somebody can forget — the same mechanism AMA-1, SIA-2.6 and SIA-3 use.
+   * `read-standing-mutations.server.ts` uses it as a scoping predicate when it joins the agent's
+   * own name onto an envelope it has already scoped to the session tenant. Neither reads a
+   * configuration column, and neither confers anything on anybody.
+   *
+   * The census stays EXACT, which is the whole value of it: an eleventh file still fails here.
    */
   const agentTenantReaders = srcFiles.filter((f) => /agents\.tenantId/.test(codeOf(read(f))));
   assert.deepEqual(
@@ -304,8 +312,10 @@ function main(): void {
       "src/features/agent-improvement-hypothesis/read-improvement-hypotheses.server.ts",
       "src/db/schema/agent-mandate.ts",
       "src/features/agent-mandate/establish-agent-mandate.server.ts",
+      "src/db/schema/standing-mutation-authorization.ts",
+      "src/features/standing-mutation-authority/read-standing-mutations.server.ts",
     ].sort(),
-    "`agents.tenant_id` is a tenant SCOPE in five readers and a composite-key target in three table definitions — a grant in none of them",
+    "`agents.tenant_id` is a tenant SCOPE in six readers and a composite-key target in four table definitions — a grant in none of them",
   );
 
   /* ── 7. NO MACHINE INGRESS ────────────────────────────────────────────────
@@ -472,7 +482,7 @@ function main(): void {
 
   /* ── 10. SCHEMA, LEDGER AND HUMAN SUPREMACY UNTOUCHED ─────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 54, "this phase authored no migration — a type needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). */
+  assert.equal(sqlCount, 55, "this phase authored no migration — a type needs none"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))

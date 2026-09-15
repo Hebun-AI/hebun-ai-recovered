@@ -379,6 +379,13 @@
       "when": 1789387445976,
       "tag": "20260914120405_rung2_tenant_machine_execution_authorization",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1789466798733,
+      "tag": "20260915100638_rung2_standing_mutation_authorization",
+      "breakpoints": true
     }
   ]
 }

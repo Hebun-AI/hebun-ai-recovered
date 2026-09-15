@@ -160,6 +160,8 @@ function main(): void {
       `machine-execution` governance domain: tenant Governance's permission for ONE organization to
       participate in machine delivery of work a human already authorized. A declared later phase, */
       "20260914120405_rung2_tenant_machine_execution_authorization.sql",
+      /* RUNG 2 — `standing_mutation_authorizations` plus the `standing-mutation` governance domain. */
+      "20260915100638_rung2_standing_mutation_authorization.sql",
       ],
       "G3 adds no migration — authority is derived from decisions; only Gate-B migrations for other subsystems follow G2",
     );

@@ -716,6 +716,8 @@ async function main(): Promise<void> {
            * That is the boundary the whole standing-observation lineage exists to protect, and here
            * it is PostgreSQL's refusal rather than the writer's.
            */
+          /* RUNG 2 — an agent may never authorize its own standing envelope. A DATABASE fact. */
+          "standing_mutation_authorizations_human_authorizer_chk",
           "standing_observation_authorizations_human_authorizer_chk",
           /*
        * RUNG 2 PREREQUISITE. The census GREW AGAIN, in the same strict direction.
@@ -727,7 +729,7 @@ async function main(): Promise<void> {
       "work_evidence_references_human_declarer_chk",
           "work_items_human_accountable_chk",
         ],
-        "the fourteen human-only CHECKs are enforced by the database, and this phase widened none of them",
+        "the fifteen human-only CHECKs are enforced by the database, and this phase widened none of them",
       );
 
       /* And the approver CHECK really does refuse an agent, on the agent's own proposal. */

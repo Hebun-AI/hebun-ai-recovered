@@ -26,6 +26,7 @@ import {
 } from "@/features/action-authorization/contracts";
 import {
   derivePermitDeliveryBand,
+  permitAuthorizationProvenanceSentence,
   permitDeliverySentence,
 } from "@/features/action-authorization/delivery-legibility";
 import {
@@ -666,13 +667,15 @@ function PermitRow({ item }: { item: ActionPermitView }) {
    * and no new prop: the permit's own state, the frozen action set and the proposal's provenance.
    * Re-rendering cannot change what it says, and nothing on this path can fail.
    */
-  const delivery = permitDeliverySentence(
-    derivePermitDeliveryBand({
-      actionKind: item.actionKind,
-      proposedByActorType: item.proposedByActorType,
-      state: item.state,
-    }),
-  );
+  const shape = {
+    actionKind: item.actionKind,
+    proposedByActorType: item.proposedByActorType,
+    state: item.state,
+    standingAuthorizationId: item.standingAuthorizationId,
+  };
+  const delivery = permitDeliverySentence(derivePermitDeliveryBand(shape));
+  /* RUNG 2 — how this authorization came to exist, said only when it is not what a reader assumes. */
+  const provenance = permitAuthorizationProvenanceSentence(shape);
 
   const execute = () =>
     startTransition(async () => {
@@ -731,6 +734,14 @@ function PermitRow({ item }: { item: ActionPermitView }) {
        * question about. Silence is the honest rendering of a question that does not apply.
        */}
       {delivery ? <p className="text-[0.65rem] text-fg-muted">{delivery}</p> : null}
+
+      {/*
+       * RUNG 2 — PROVENANCE, AND ONLY WHEN IT CORRECTS AN ASSUMPTION.
+       *
+       * Absent for an ordinary permit, where "a human authorized this" means exactly what a reader
+       * would take it to mean. Present for a standing-issued one, where it does not.
+       */}
+      {provenance ? <p className="text-[0.65rem] text-fg-muted">{provenance}</p> : null}
 
       {item.revocationReason ? (
         <p className="text-[0.65rem] text-fg-muted">Revoked: {item.revocationReason}</p>

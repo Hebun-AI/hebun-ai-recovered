@@ -173,6 +173,16 @@ export interface ActionPermitView {
    * reader already selects from.
    */
   readonly proposedByActorType: string;
+  /**
+   * THE STANDING ENVELOPE THIS PERMIT WAS ISSUED UNDER, OR NULL (RUNG 2).
+   *
+   * Carried so a surface can tell two very different provenances apart. `authorized_by_actor_id`
+   * names a human in BOTH cases, and for a standing-issued permit that human did NOT read this act
+   * and click Approve — they authorized it IN ADVANCE, inside a bounded envelope they can withdraw.
+   * A surface that could not distinguish those would eventually imply the first while the second is
+   * true, which is the class of claim this repository repairs rather than tolerates.
+   */
+  readonly standingAuthorizationId: string | null;
 }
 
 export type ActionAuthorizationRead<T> =
@@ -323,6 +333,7 @@ export async function readActionPermits(
         targetLabel: hebyActionRequests.targetLabel,
         proposedByActorType: hebyActionRequests.proposedByActorType,
         /* LEFT joined: a permit that was never spent has no attempt, and that is not an error. */
+        standingAuthorizationId: actionPermits.standingAuthorizationId,
         attemptStatus: actionExecutionAttempts.status,
         providerMessageId: actionExecutionAttempts.providerMessageId,
       })
@@ -354,6 +365,7 @@ export async function readActionPermits(
           toolId,
           targetLabel,
           proposedByActorType,
+          standingAuthorizationId,
           attemptStatus,
           providerMessageId,
         }) => ({
@@ -374,6 +386,7 @@ export async function readActionPermits(
           providerAccepted: attemptStatus === "accepted" && providerMessageId !== null,
           providerMessageId: providerMessageId ?? null,
           proposedByActorType,
+          standingAuthorizationId: standingAuthorizationId ?? null,
         }),
       ),
     };

@@ -112,6 +112,13 @@ import {
   TENANT_MACHINE_EXECUTION_WITHDRAWN_OUTCOME,
   TENANT_MACHINE_EXECUTION_WITHDRAW_DECISION_TYPE,
 } from "@/features/tenant-machine-execution-authority/contracts";
+import {
+  STANDING_MUTATION_AUTHORIZED_OUTCOME,
+  STANDING_MUTATION_DOMAIN,
+  STANDING_MUTATION_SUBJECT_TYPE,
+  STANDING_MUTATION_WITHDRAWN_OUTCOME,
+  STANDING_MUTATION_WITHDRAW_DECISION_TYPE,
+} from "@/features/standing-mutation-authority/contracts";
 
 function refused(reason: DecisionRefusal): DecisionResult {
   return { status: "refused", reason };
@@ -185,7 +192,9 @@ export async function writeGovernanceDecisionWithin(
       | typeof AGENT_MANDATE_SUBJECT_TYPE
       | typeof ARTIFACT_REVIEW_SUBJECT_TYPE
       | typeof STANDING_OBSERVATION_SUBJECT_TYPE
-      | typeof TENANT_MACHINE_EXECUTION_SUBJECT_TYPE;
+      | typeof TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
+      /* RUNG 2 — the standing envelope revision a decision authorizes or withdraws. */
+      | typeof STANDING_MUTATION_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -264,7 +273,23 @@ export async function writeGovernanceDecisionWithin(
                  * would make the ledger unable to tell "this tenant authorized an act" from "this
                  * tenant agreed to unattended delivery".
                  */
-                input.subjectType === TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
+                /*
+                 * RUNG 2 — Governance agreeing that a named agent's evidenced `record-work`
+                 * proposals need not be decided one at a time, inside a bounded envelope.
+                 *
+                 * Its own domain, and `action-authorization` is again the neighbour that matters:
+                 * that domain's decisions authorize ONE act and mint ONE permit that expires and is
+                 * consumed. This one authorizes no act and mints nothing at the moment it is taken
+                 * — it decides that a CLASS of acts may later be authorized without a human
+                 * present. Filing it there would make the ledger unable to tell "a human decided
+                 * this act" from "a human decided these acts need not be decided".
+                 *
+                 * It is also NOT `machine-execution`: that asks whether the organization accepts
+                 * unattended DELIVERY of acts a human already decided individually.
+                 */
+                input.subjectType === STANDING_MUTATION_SUBJECT_TYPE
+                ? STANDING_MUTATION_DOMAIN
+                : input.subjectType === TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
                 ? TENANT_MACHINE_EXECUTION_DOMAIN
                 : input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
                 ? STANDING_OBSERVATION_DOMAIN
@@ -295,7 +320,12 @@ export async function writeGovernanceDecisionWithin(
      * — an organization agreeing to machine delivery, filed as a person joining it — and `revoke`
      * would record that Governance AUTHORITY was revoked, which withdrawing delivery never does.
      */
-    input.subjectType === TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
+    /* THE SAME TRAP AGAIN, AND THE SAME DEFENCE — see the contracts module for the two words. */
+    input.subjectType === STANDING_MUTATION_SUBJECT_TYPE
+      ? input.decisionType === STANDING_MUTATION_WITHDRAW_DECISION_TYPE
+        ? STANDING_MUTATION_WITHDRAWN_OUTCOME
+        : STANDING_MUTATION_AUTHORIZED_OUTCOME
+      : input.subjectType === TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
       ? input.decisionType === TENANT_MACHINE_EXECUTION_WITHDRAW_DECISION_TYPE
         ? TENANT_MACHINE_EXECUTION_WITHDRAWN_OUTCOME
         : TENANT_MACHINE_EXECUTION_AUTHORIZED_OUTCOME
