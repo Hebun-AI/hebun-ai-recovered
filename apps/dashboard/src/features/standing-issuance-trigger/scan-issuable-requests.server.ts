@@ -83,6 +83,19 @@
  *
  * Server-only.
  */
+/*
+ * THE SCHEMA BARREL, IMPORTED FOR ITS SIDE EFFECT AND NOT FOR A BINDING.
+ *
+ * `@/db/schema` initialises lazily, and the shared `tenantColumns` base sits in a module cycle: a
+ * module that reaches a single table file COLD throws `Cannot access 'tenantColumns' before
+ * initialization`. Importing the barrel first is the released fix — every module in the standing
+ * mutation authority already carries this exact line for this exact reason.
+ *
+ * IT IS NOT COSMETIC. Without it this file loaded fine under the test runner and under `tsx`, and
+ * the deployed route answered production with a 500 on every call: the handler never ran, so its
+ * bearer check never ran either. A guard that cannot load is not a guard.
+ */
+import "@/db/schema";
 import {
   listStandingIssuableRequestsForRuntime,
   type StandingIssuableRequestReadDeps,
