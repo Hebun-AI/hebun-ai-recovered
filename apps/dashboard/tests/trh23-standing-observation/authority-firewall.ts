@@ -371,6 +371,8 @@ function main(): void {
       "src/app/api/integrations/instagram/start/route.ts",
       "src/app/api/machine-delivery/scan/route.ts",
       "src/app/api/observation/scan/route.ts",
+      /* The RUNG 2 act path's standing issuance ingress — a third machine door, named not matched. */
+      "src/app/api/standing-issuance/scan/route.ts",
     ],
     /*
      * THE CENSUS GREW BY ONE, AND THE ONE IS NAMED (TRH-25). Four OAuth browser-redirect handlers,
@@ -428,6 +430,7 @@ function main(): void {
       [
       { path: "/api/observation/scan", schedule: "0 * * * *" },
       { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
+      { path: "/api/standing-issuance/scan", schedule: "0 * * * *" },
     ],
       "exactly one schedule exists: hourly, aimed at the machine ingress, and nothing else",
     );

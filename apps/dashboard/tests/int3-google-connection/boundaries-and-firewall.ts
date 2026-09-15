@@ -649,6 +649,8 @@ function main(): void {
          */
         "src/app/api/machine-delivery/scan/route.ts",
         "src/app/api/observation/scan/route.ts",
+        /* The RUNG 2 act path's standing issuance ingress — a third machine door, named not matched. */
+        "src/app/api/standing-issuance/scan/route.ts",
       ].sort(),
       "every route handler is accounted for: the OAuth pairs and the one machine ingress",
     );

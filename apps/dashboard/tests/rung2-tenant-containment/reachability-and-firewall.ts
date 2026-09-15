@@ -216,12 +216,16 @@ async function main(): Promise<void> {
 
   /* ── 7. NO SECOND SWITCH, NO TRIGGER, NO CRON ─────────────────────────────── */
   {
-    /* The deployment configures exactly one cron, and it is TRH-25's observation scan. */
+    /*
+     * The deployment's crons are pinned BY VALUE, and the point of the pin is unchanged: the TENANT
+     * ENROLMENT AUTHORITY adds none of them. The third is the RUNG 2 act path's standing issuance
+     * scan, which is no more this authority's than the other two are.
+     */
     const vercel = JSON.parse(read("vercel.json")) as { crons?: { path: string }[] };
     assert.deepEqual(
       (vercel.crons ?? []).map((c) => c.path),
-      ["/api/observation/scan", "/api/machine-delivery/scan"],
-      "the tenant AUTHORITY adds no cron; the two are TRH-25 observation and RUNG 2 delivery",
+      ["/api/observation/scan", "/api/machine-delivery/scan", "/api/standing-issuance/scan"],
+      "the tenant AUTHORITY adds no cron; the three are observation, delivery and standing issuance",
     );
 
     /* No execution ingress route exists. */
@@ -230,12 +234,19 @@ async function main(): Promise<void> {
       "no /api/execution ingress was introduced",
     );
 
-    /* The middleware admits exactly one machine ingress, unchanged. */
+    /*
+     * The middleware admits exactly the pinned machine ingresses, and the tenant enrolment authority
+     * adds none of them. Matched on the list's MEMBERS rather than on one line of source: the
+     * released list is now written across several lines, and a guard that depended on its formatting
+     * would fail on a reformat while passing on a real fourth entry.
+     */
     const middleware = codeOf(read("src/middleware.ts"));
-    assert.match(
-      middleware,
-      /MACHINE_INGRESS_PATHS = \["\/api\/observation\/scan", "\/api\/machine-delivery\/scan"\]/,
-      "the machine ingress allowlist holds exactly the two pinned ingresses",
+    const ingressList = middleware.match(/MACHINE_INGRESS_PATHS = \[([^\]]*)\]/);
+    assert.ok(ingressList, "the machine ingress allowlist exists");
+    assert.deepEqual(
+      ingressList![1]!.split(",").map((entry) => entry.trim()).filter(Boolean),
+      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"'],
+      "the machine ingress allowlist holds exactly the three pinned ingresses",
     );
 
     /* The new authority contains no scanner, timer or schedule of any kind. */

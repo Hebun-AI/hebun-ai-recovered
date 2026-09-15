@@ -347,6 +347,8 @@ async function main(): Promise<void> {
        * without this census failing. */
       "src/app/api/machine-delivery/scan/route.ts",
       "src/app/api/observation/scan/route.ts",
+      /* The RUNG 2 act path's standing issuance ingress — a third machine door, named not matched. */
+      "src/app/api/standing-issuance/scan/route.ts",
       ],
       "the only route handlers are still the two OAuth pairs — admission is a server action",
     );

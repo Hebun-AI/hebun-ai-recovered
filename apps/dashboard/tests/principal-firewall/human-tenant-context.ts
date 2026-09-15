@@ -338,8 +338,14 @@ function main(): void {
        * without this census failing. */
       "src/app/api/machine-delivery/scan/route.ts",
       "src/app/api/observation/scan/route.ts",
+      /*
+       * The RUNG 2 act path's ingress — a THIRD machine door, NAMED here rather than pattern
+       * matched, for the same reason the second was: a route that appears without a line in this
+       * census is a route nobody decided to add.
+       */
+      "src/app/api/standing-issuance/scan/route.ts",
     ],
-    "no ingress was added — the four OAuth browser-redirect handlers are still the only routes",
+    "no ingress was added by THIS phase — every machine door is named, and the rest are OAuth",
   );
 
   /* ── 8. NO ESCAPE HATCHES IN THE FILES THIS PHASE OWNS ────────────────────── */
@@ -458,8 +464,8 @@ function main(): void {
     );
     assert.deepEqual(
       listOf("MACHINE_INGRESS_PATHS"),
-      ['"/api/observation/scan"', '"/api/machine-delivery/scan"'],
-      "exactly TWO machine paths skip the session check: the observation due-scan and the RUNG 2 delivery scan",
+      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"'],
+      "exactly THREE machine paths skip the session check: the observation due-scan, the delivery scan and the standing issuance scan",
     );
     assert.ok(
       /url\.pathname = "\/login";/.test(middleware) && /NextResponse\.redirect/.test(middleware),

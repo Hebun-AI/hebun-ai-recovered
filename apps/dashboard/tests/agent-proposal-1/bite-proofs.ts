@@ -160,7 +160,13 @@ const MUTATIONS: readonly Mutation[] = [
     edits: [
       {
         find:
-          "  /* Neither of the two organizational truths. Refused as an argument, never guessed. */\n" +
+          /*
+           * RUNG 2 ACT PATH added a third admitted scope, so the comment this anchor names changed
+           * from "the two organizational truths" to "the three admitted truths". The anchor is
+           * re-pointed rather than loosened: a bite-proof must mutate the line the proof CHOSE, and
+           * an anchor that matched on the `return` alone would land wherever the parser refuses.
+           */
+          "  /* None of the three admitted truths. Refused as an argument, never guessed. */\n" +
           '  return { status: "refused", reason: "invalid-arguments" };',
         replace:
           "  /* mutated: silence now MEANS organization-level */\n" +

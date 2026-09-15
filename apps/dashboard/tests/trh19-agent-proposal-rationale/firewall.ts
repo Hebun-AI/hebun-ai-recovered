@@ -52,10 +52,17 @@ function main(): void {
    * ═════════════════════════════════════════════════════════════════════ */
   {
     const origination = codeOf(read(ORIGINATION));
+    /*
+     * FOUR SINCE THE RUNG 2 ACT PATH: three filings — send, department/organization-level
+     * record-work, and observation-evidenced record-work — plus the returned result. The property
+     * this count protects is unchanged and is the reason it is a COUNT and not a permission: every
+     * use must be `chosen.reason` VERBATIM, so a second validator, a regeneration, a summarizer or
+     * a fallback string would each show up here as a use that is not this expression.
+     */
     assert.equal(
       (origination.match(/chosen\.reason/g) ?? []).length,
-      3,
-      "the selection's reason is used exactly three times: two filings and the returned result",
+      4,
+      "the selection's reason is used exactly four times: three filings and the returned result",
     );
     for (const banned of ["summariz", "rationaleFrom", "buildRationale", "defaultRationale"]) {
       assert.ok(!origination.includes(banned), `the origination contains no ${banned}`);

@@ -353,7 +353,7 @@ function main(): void {
   const cron = JSON.parse(read("vercel.json")) as { crons?: readonly { path: string }[] };
   assert.deepEqual(
     (cron.crons ?? []).map((c) => c.path),
-    ["/api/observation/scan", "/api/machine-delivery/scan"],
+    ["/api/observation/scan", "/api/machine-delivery/scan", "/api/standing-issuance/scan"],
     "this phase adds no cron — the two are TRH-25 observation and RUNG 2 delivery",
   );
 

@@ -183,8 +183,14 @@ function main(): void {
   assert.ok(exactList, "the machine ingress list exists");
   assert.deepEqual(
     exactList![1]!.split(",").map((s) => s.trim()).filter(Boolean),
-    ['"/api/observation/scan"', '"/api/machine-delivery/scan"'],
-    "exactly TWO machine paths leave the session check, and both are pinned by value",
+    ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"'],
+    /*
+     * THREE, and the third is the RUNG 2 act path's. Listing it here is not a formality: deployed
+     * WITHOUT this entry, that route answered a scheduler with `307 -> /login` — the sign-in page
+     * the middleware's own comment calls "a scan that silently never happens". The route was
+     * correct and unreachable, and this assertion is where that is caught before production.
+     */
+    "exactly THREE machine paths leave the session check, and all are pinned by value",
   );
 
   /* ═══════════════════════════════════════════════════════════════════════════
@@ -244,8 +250,14 @@ function main(): void {
       "src/app/api/integrations/instagram/start/route.ts",
       "src/app/api/machine-delivery/scan/route.ts",
       "src/app/api/observation/scan/route.ts",
+      /*
+       * The RUNG 2 act path's ingress — a THIRD machine door, NAMED here rather than pattern
+       * matched, for the same reason the second was: a route that appears without a line in this
+       * census is a route nobody decided to add.
+       */
+      "src/app/api/standing-issuance/scan/route.ts",
     ],
-    "exactly one route was added, and it is the machine ingress",
+    "the machine ingresses are named one at a time, and nothing else is a route",
   );
 
   /*
@@ -276,8 +288,9 @@ function main(): void {
       [
       { path: "/api/observation/scan", schedule: "0 * * * *" },
       { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
+      { path: "/api/standing-issuance/scan", schedule: "0 * * * *" },
     ],
-      "exactly one schedule exists: hourly, aimed at the machine ingress, and nothing else",
+      "exactly three schedules exist: hourly, each aimed at its own machine ingress, and nothing else",
     );
     assert.deepEqual(
       Object.keys(vercelConfig).sort(),

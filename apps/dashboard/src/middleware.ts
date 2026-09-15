@@ -61,13 +61,18 @@ const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"
  * list, where no prefix semantics exist to be reinterpreted later — the same reasoning `/` is
  * written down for directly above.
  *
- * ── WHY THERE ARE NOW TWO, AND WHY THAT IS STILL A CLOSED LIST (RUNG 2) ─────
+ * ── WHY THERE ARE NOW THREE, AND WHY THAT IS STILL A CLOSED LIST ────────────
  *
- * The delivery scan is a SECOND scheduler knocking on a SECOND door, and it is written down here
- * one entry at a time for the same reason the first was. This list grows only by a diff a reviewer
- * reads as a decision; the firewalls pin it BY VALUE, so a third entry fails a test rather than
- * arriving quietly. Each ingress carries its OWN bearer secret — sharing one would make these two
- * doors a single credential.
+ * The delivery scan was a SECOND scheduler knocking on a SECOND door, and the standing issuance
+ * scan is a THIRD. Each is written down here one entry at a time for the same reason the first was.
+ * This list grows only by a diff a reviewer reads as a decision; the firewalls pin it BY VALUE, so
+ * a fourth entry fails a test rather than arriving quietly. Each ingress carries its OWN bearer
+ * secret — sharing one would make these doors a single credential.
+ *
+ * THE THIRD ENTRY WAS FOUND BY THE SMOKE TEST, NOT BY THE DIFF. Deployed without it, the standing
+ * issuance route answered a scheduler with `307 -> /login`: the sign-in page this file's own comment
+ * above calls "a scan that silently never happens". The route was correct, its secret check was
+ * correct, and it was unreachable. An ingress is not shipped until it is listed here.
  *
  * ── WHAT THIS EXEMPTS, AND WHAT IT DOES NOT ─────────────────────────────────
  *
@@ -75,7 +80,11 @@ const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"
  * secret in constant time before it reads anything, and an unset secret refuses every request. This
  * line moves the authentication, it does not remove it.
  */
-const MACHINE_INGRESS_PATHS = ["/api/observation/scan", "/api/machine-delivery/scan"];
+const MACHINE_INGRESS_PATHS = [
+  "/api/observation/scan",
+  "/api/machine-delivery/scan",
+  "/api/standing-issuance/scan",
+];
 
 const PUBLIC_EXACT_PATHS = ["/"];
 

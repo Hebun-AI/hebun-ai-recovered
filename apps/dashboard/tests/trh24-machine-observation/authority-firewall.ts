@@ -299,8 +299,14 @@ function main(): void {
        */
       "src/app/api/machine-delivery/scan/route.ts",
       "src/app/api/observation/scan/route.ts",
+      /*
+       * The RUNG 2 act path's ingress — a THIRD door, named here for the same reason the second
+       * was. Each is an authenticated machine ingress with its own bearer secret, and each is a
+       * line in this list that a reviewer reads as a decision rather than a route that appeared.
+       */
+      "src/app/api/standing-issuance/scan/route.ts",
     ],
-    "one machine ingress beside the four OAuth browser-redirect handlers, and no other route",
+    "three machine ingresses beside the six OAuth browser-redirect handlers, and no other route",
   );
 
   /*
@@ -331,8 +337,9 @@ function main(): void {
       [
       { path: "/api/observation/scan", schedule: "0 * * * *" },
       { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
+      { path: "/api/standing-issuance/scan", schedule: "0 * * * *" },
     ],
-      "exactly one schedule exists: hourly, aimed at the machine ingress, and nothing else",
+      "exactly three schedules exist: hourly, each aimed at its own machine ingress, and nothing else",
     );
     assert.deepEqual(
       Object.keys(vercelConfig).sort(),

@@ -391,6 +391,8 @@ function phaseFirewalls(): void {
     /* TRH-25's machine ingress. Named, so a second machine route fails this census. */
     "src/app/api/machine-delivery/scan/route.ts",
     "src/app/api/observation/scan/route.ts",
+    /* The RUNG 2 act path's standing issuance ingress — a third machine door, named not matched. */
+    "src/app/api/standing-issuance/scan/route.ts",
   ].sort();
   const routes = collect("src/app")
     .filter((f) => /(^|\/)route\.tsx?$/.test(f))

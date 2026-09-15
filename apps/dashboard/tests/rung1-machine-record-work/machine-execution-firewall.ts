@@ -421,7 +421,14 @@ function onlyTheAdmittedMachineIngressTriggersIt(): void {
     assert.ok(!scanCode.includes(timing), `and it schedules nothing itself: ${timing}`);
   }
 
-  /* THE DEPLOYMENT'S SCHEDULES ARE PINNED BY VALUE — a third cron fails here. */
+  /*
+   * THE DEPLOYMENT'S SCHEDULES ARE PINNED BY VALUE — a fourth cron fails here.
+   *
+   * The third is the RUNG 2 standing issuance scan. It is the same shape as the other two: hourly,
+   * aimed at its own ingress, carrying no scope. Saying "now" more often buys it nothing — the
+   * envelope's window, quota and cadence are enforced by the issuer behind a row lock that no
+   * scheduler can reach, influence or shorten.
+   */
   const vercelConfig = JSON.parse(read("vercel.json")) as {
     readonly crons?: readonly { readonly path: string; readonly schedule: string }[];
   };
@@ -430,8 +437,9 @@ function onlyTheAdmittedMachineIngressTriggersIt(): void {
     [
       { path: "/api/observation/scan", schedule: "0 * * * *" },
       { path: "/api/machine-delivery/scan", schedule: "0 * * * *" },
+      { path: "/api/standing-issuance/scan", schedule: "0 * * * *" },
     ],
-    "exactly two schedules exist, both hourly, each aimed at its own machine ingress",
+    "exactly three schedules exist, all hourly, each aimed at its own machine ingress",
   );
 
   const exec = codeOf(read(EXECUTOR));
