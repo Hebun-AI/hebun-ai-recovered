@@ -46,14 +46,26 @@ import {
  * Core Phase 6 rule, and an approval control that appears before them would break it.
  *
  * R3B ADDED ONE CONTROL: Execute, on an active permit, and nowhere else. It is a SECOND deliberate
- * click by the same human — approving still authorizes and stops. There is no auto-execute, no
- * queue and no worker, so an authorization nobody clicks simply expires.
+ * click by the same human — approving still authorizes and stops.
  *
- * WHAT THIS COMPONENT STILL REFUSES TO SAY. It never renders "sent" or "delivered". The strongest
- * claim available is "accepted by the provider", and it appears only alongside the provider's own
- * message id. An `unknown` outcome is rendered as prominently as an accepted one, with an explicit
- * instruction not to retry — because the one thing a human must not do with an ambiguous send is
- * assume it failed.
+ * ── THAT CLAUSE USED TO END "…so an authorization nobody clicks simply expires" ──────────────
+ *
+ * It no longer does, and the sentence was corrected rather than kept. Automatic machine delivery is
+ * released and production-accepted: an AGENT-PROPOSED `record-work` permit may be discovered by the
+ * scheduled scan and spent by the released executor with no further click, while an authorization
+ * of any other shape still expires exactly as described. A component whose own header described the
+ * pre-delivery world is the same defect this surface's delivery band exists to repair, one level up.
+ *
+ * WHAT THIS COMPONENT STILL REFUSES TO SAY, AND WHAT IT MAY NOW SAY. For an EXTERNAL send it never
+ * renders "sent" or "delivered": the strongest claim available is "accepted by the provider", and it
+ * appears only alongside the provider's own message id. An `unknown` outcome is rendered as
+ * prominently as an accepted one, with an explicit instruction not to retry — because the one thing
+ * a human must not do with an ambiguous send is assume it failed.
+ *
+ * The delivery band's "Delivered." is a DIFFERENT claim about a different act: an internal
+ * `record-work` spend, whose mutation commits inside the permit's own transaction, so there is no
+ * ambiguous phase to reconcile and no provider to disagree with. It says the authorization was
+ * spent and the work recorded, and it says explicitly that WHICH door spent it is not recorded.
  */
 
 const MIN_JUSTIFICATION = 12;

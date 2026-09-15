@@ -4143,9 +4143,8 @@ vocabulary, and nothing below is a committed name:
   standing is granted.
 - **RUNG 1.5 — automatic delivery of THAT EXACT PERMIT.** Same authorization semantics as RUNG 1;
   the only addition is that a scheduled trigger, rather than a human click, decides *when* the
-  already-authorized permit is handed over. Nothing standing is granted. **RELEASED and DEPLOYED;
-  production acceptance NOT PERFORMED** — see the LABEL RECONCILIATION note directly below, and the
-  RETRACTION under it.
+  already-authorized permit is handed over. Nothing standing is granted. **RELEASED · DEPLOYED ·
+  PRODUCTION-ACCEPTED** (TRH, 2026-09-14) — see the LABEL RECONCILIATION note directly below.
 
   *This entry is a disambiguating label introduced by the Delivery Legibility phase to separate two
   capabilities that had been sharing the name "RUNG 2". It was not established by an earlier
@@ -4171,32 +4170,42 @@ vocabulary, and nothing below is a committed name:
 > | Capability | Ladder name | State |
 > |---|---|---|
 > | Exact human-authorized machine execution, human-invoked | RUNG 1 | **PRODUCTION-ACCEPTED** |
-> | Automatic delivery of exact already-authorized permits | RUNG 1.5 | **RELEASED · DEPLOYED · NOT PRODUCTION-ACCEPTED** (headed "RUNG 2" below) |
+> | Automatic delivery of exact already-authorized permits | RUNG 1.5 | **PRODUCTION-ACCEPTED** 2026-09-14 (headed "RUNG 2" below) |
 > | Standing mutation authorization | RUNG 2 | **NOT IMPLEMENTED / DEFERRED** |
 >
 > No commit, closure or acceptance record is amended by this note, and no phase is re-dated.
 
-> **RETRACTION — "AUTOMATIC MACHINE DELIVERY: PRODUCTION-ACCEPTED" IS WITHDRAWN.**
+> **THE RETRACTION IN `29171444` WAS ITSELF WRONG, AND IS WITHDRAWN.**
 >
-> The heading recorded by `f431a940` claims production acceptance of automatic machine delivery.
-> **That classification is retracted on its own evidence.** The run it records states, in its own
-> words, that the disarmed scan's candidate was refused with `machine-execution-disarmed` and
-> **nothing was spent**, and that the armed scan **found zero candidates and changed nothing**.
+> `29171444` withdrew `f431a940`'s "AUTOMATIC MACHINE DELIVERY: PRODUCTION-ACCEPTED" on the claim
+> that nothing had been spent. **That claim was false.** It came from reading fragments of the
+> acceptance section — the DISARMED REHEARSAL, in which a candidate was correctly refused
+> `machine-execution-disarmed`, and a later zero-candidate scan — and mistaking the rehearsal for
+> the whole run. A second error compounded it: "no permit consumed since the trigger was released"
+> compared a local-time commit stamp (`23:37 +0300`) against UTC database rows, when the trigger
+> was committed at **20:37 UTC** and the delivery happened at **23:00 UTC**, plainly after it.
 >
-> Production acceptance of automatic delivery requires that the trigger DISCOVERED and DELIVERED an
-> exact permit, that the released executor CONSUMED it, and that EXACTLY ONE work mutation occurred
-> with no human Execute click. None of those happened. What that run legitimately proved is the
-> refusal path, the disarm, and that an armed deployment with no outstanding permit is a no-op —
-> valuable, and not acceptance.
+> **Re-measured directly against production** (`neondb`, sysid `7675444875863894887`):
 >
-> Re-measured in production at this commit: `machine-internal-execution` is `director_enabled = f`
-> at **version 4** (armed, then disarmed through the released ceremony); `turkish-rug-house` is
-> enrolled for `record-work`, `state = active`, revision 1; `hebun` and `mulify` are NOT enrolled;
-> and **no `action_permits` row has been consumed since the trigger was released**.
+> | Fact | Row |
+> |---|---|
+> | Agent-proposed request | `a56b1e02` — TRH, `record-work`, `proposed_by_actor_type = agent` |
+> | Human Governance approval | `governance.action.approved` @ `2026-09-14 22:41:07.971Z` |
+> | Exact permit issued | `a735df37`, TTL 3600, expiry `23:41:07Z` |
+> | **Automatic** consumption | `governance.action.permit.consumed` @ `23:00:47.494Z` — **47s past the hour**, the `0 * * * *` cron tick |
+> | Handoff | `2f9b81c7` — exactly one |
+> | **Exactly one** work mutation | `5bee4e4e` @ `23:00:47.496Z`, TRH, `created_by = NULL`, `created_by_type = system` |
+> | No external-send attempt | `action_execution_attempts` unchanged, max `2026-08-31` |
+> | Root disarmed after | version **4** @ `23:06:29Z` |
 >
-> **`DEPLOYED` IS NOT `PRODUCTION-ACCEPTED`.** The earlier heading is left in place as the record of
-> what was written; this note is the correction that governs. The correct current state is
-> **RELEASED · DEPLOYED · AWAITING CONTROLLED PRODUCTION ACCEPTANCE**.
+> Nineteen minutes and forty seconds separate the human authorization from the machine's spend, and
+> nothing human touched it in between. The permit row carries no consuming actor and the consumption
+> audit row names the AUTHORIZING human for both doors — so the proof that no one clicked Execute is
+> the work row's own provenance (`created_by_type = system`, NULL human actor) together with the
+> tick-aligned timestamp, not an actor column.
+>
+> **AUTOMATIC MACHINE DELIVERY IS PRODUCTION-ACCEPTED.** `f431a940`'s heading stands. `29171444` is
+> superseded by this note and no commit is rewritten.
 
 > **DEFERRED BY DELIVERY LEGIBILITY — `/approvals` DOES NOT READ THE ARMING STATE.**
 >
