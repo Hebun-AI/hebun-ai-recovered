@@ -14,6 +14,13 @@ import { readAwaitingDecisionAggregate } from "@/features/action-authorization/a
 import { readExecutionLedger } from "@/features/action-execution/execution-ledger-projection.server";
 import { readDecisionHorizon } from "@/features/decision-horizon/read-decision-horizon.server";
 import { readWorkRegister } from "@/features/organizational-work/read-work.server";
+import { StandingMutationEnvelopes } from "@/components/decision-workspace/standing-mutation-envelopes";
+import { readStandingMutations } from "@/features/standing-mutation-authority/read-standing-mutations.server";
+import {
+  STANDING_MUTATION_MAX_ACTS_CEILING,
+  STANDING_MUTATION_MIN_INTERVAL_CEILING_MINUTES,
+} from "@/features/standing-mutation-authority/authorize-standing-mutation.server";
+import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 
 export const metadata = { title: "Decisions — Hebun AI" };
 
@@ -96,6 +103,27 @@ export default async function ApprovalsPage() {
    * others: a partial horizon must never render as a complete one.
    */
   const horizon = await readDecisionHorizon(tenant);
+
+  /*
+   * RUNG 2 — THE ENVELOPES THIS ORGANIZATION HAS GRANTED, and the agents one could name.
+   *
+   * A SIXTH and SEVENTH read, each with its own availability, for the same reason the others have
+   * theirs: an unreadable envelope register must leave the authorization queue fully usable, and an
+   * unreadable agent register must not make the envelope register look empty.
+   *
+   * Only IN-SERVICE agents are offered. An envelope naming a retired agent is refused by the writer
+   * and would authorize nothing, so offering one would only manufacture a refusal.
+   */
+  const [standing, agentState] = await Promise.all([
+    readStandingMutations(tenant),
+    readDurableAgentIdentityState(tenant),
+  ]);
+  const agentOptions =
+    agentState.status === "known"
+      ? agentState.identities
+          .filter((identity) => identity.inService)
+          .map((identity) => ({ agentId: identity.agentId, name: identity.name }))
+      : [];
   /* ONE instant for every duration this page renders, resolved on the server. */
   const evaluatedAt = new Date().toISOString();
 
@@ -122,6 +150,22 @@ export default async function ApprovalsPage() {
            * Knowledge versions were waiting on other surfaces.
            */}
           <DecisionHorizonPanel horizon={horizon} />
+          {/*
+           * RUNG 2 — STANDING ENVELOPES, ABOVE the queue and ABOVE the ask.
+           *
+           * It sits first because it is the only control here that authorizes acts that have not
+           * happened yet: a Director scrolling a queue of individual decisions must meet the one
+           * control whose consequences are NOT individual decisions before they meet the rest.
+           * It offers no execution and no issuance — it cannot, the firewall forbids this file's
+           * whole directory from naming the issuing seam.
+           */}
+          <StandingMutationEnvelopes
+            items={standing.status === "read" ? standing.items : []}
+            connected={standing.status === "read"}
+            agentOptions={agentOptions}
+            maxActsCeiling={STANDING_MUTATION_MAX_ACTS_CEILING}
+            minIntervalCeilingMinutes={STANDING_MUTATION_MIN_INTERVAL_CEILING_MINUTES}
+          />
           <AgentProposalRequest />
           <ActionAuthorizations
             requests={requests.status === "read" ? requests.items : []}

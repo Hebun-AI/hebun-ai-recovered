@@ -24,6 +24,11 @@ import type {
 } from "@/features/action-authorization/contracts";
 import type { ExecutionResult } from "@/features/action-execution/contracts";
 import type { InternalActResult } from "@/features/governed-internal-action/execute-record-work.server";
+import {
+  writeStandingMutationAuthorization,
+  type StandingMutationWriteResult,
+} from "@/features/standing-mutation-authority/authorize-standing-mutation.server";
+import { readStandingMutations } from "@/features/standing-mutation-authority/read-standing-mutations.server";
 
 /*
  * The R3A authorization boundary — the only client-crossable way to authorize a consequential act.
@@ -205,5 +210,117 @@ export async function declareActionPurposeAction(
     workItemId: String(input?.workItemId ?? ""),
   });
   if (result.status === "declared") revalidatePath("/approvals");
+  return result;
+}
+
+/*
+ * ── RUNG 2 · THE STANDING ENVELOPE BOUNDARY ─────────────────────────────────
+ *
+ * The two actions below are the ONLY client-crossable way a standing mutation envelope comes into
+ * being or is taken away. They are the product surface the tenant machine-execution ceremony said
+ * it was standing in for: *"a tenant Governance decision has to be reachable from a terminal until
+ * a product surface exists"*. This is that surface; the ceremony is unchanged and still works.
+ *
+ * WHAT THE CLIENT MAY SUPPLY, EXHAUSTIVELY: which agent, which action kind, the two window
+ * instants, a maximum number of acts, a minimum interval, a justification, and WHICH REVISION IT
+ * WAS SHOWN. The tenant, the human, the Governance authority, the decision type, the outcome
+ * vocabulary, the lineage revision, the supersession pointer and every timestamp are resolved
+ * SERVER-SIDE by the released writer — so a forged tenant, authorizer, revision or decision is
+ * unrepresentable here rather than filtered downstream.
+ *
+ * AUTHORIZING AN ENVELOPE IS NOT AN ACT, AND NOT AN ARMING. It mints no permit, spends nothing,
+ * records no work and reaches no provider. It does not touch the deployment's
+ * `machine-internal-execution` control, and it cannot enrol its own organization: both remain
+ * possession-and-ceremony decisions that no browser can reach.
+ *
+ * IT CANNOT WIDEN ANYTHING. `actionKind` is checked against the released frozen machine-executable
+ * set by the writer and again by a database CHECK, so a client asking for a kind outside it is
+ * refused twice and adds nothing to what a machine may do.
+ *
+ * THESE ACTIONS DO NOT ISSUE. Neither imports the issuing seam — the firewall pins that no file
+ * under `src/app` may name it — so no browser event can turn a proposal into a permit. Issuance is
+ * decided by the released authority against a pending agent proposal, never by a click here.
+ */
+export async function authorizeStandingMutationAction(
+  input: {
+    readonly agentId: string;
+    readonly actionKind: string;
+    readonly notBefore: string;
+    readonly notAfter: string;
+    readonly maxActs: number;
+    readonly minIntervalMinutes: number;
+    readonly justification: string;
+    readonly observedRevision: number | null;
+  },
+): Promise<StandingMutationWriteResult> {
+  const tenant = await resolveTenantContext();
+  /*
+   * The two instants arrive as strings because that is what a browser has. They are parsed HERE and
+   * an unparseable one becomes an `invalid-envelope` refusal from the writer's own bounds check —
+   * never a silent `Invalid Date` that a comparison would then treat as false.
+   */
+  const result = await writeStandingMutationAuthorization(tenant, "active", {
+    agentId: String(input?.agentId ?? ""),
+    actionKind: String(input?.actionKind ?? ""),
+    notBefore: new Date(String(input?.notBefore ?? "")),
+    notAfter: new Date(String(input?.notAfter ?? "")),
+    maxActs: Number(input?.maxActs),
+    minIntervalMinutes: Number(input?.minIntervalMinutes),
+    justification: String(input?.justification ?? ""),
+    observedRevision:
+      typeof input?.observedRevision === "number" ? input.observedRevision : null,
+  });
+  if (result.status === "written") revalidatePath("/approvals");
+  return result;
+}
+
+/*
+ * Withdrawing appends a `withdrawn` revision. It edits nothing, and it does NOT revoke permits the
+ * envelope already issued: those are ordinary single-use permits with their own expiry and their
+ * own revocation control, and collapsing the two would let one click silently unmake acts a human
+ * separately authorized. Withdrawing where nothing stands is refused rather than recorded.
+ *
+ * ── WHY THE WINDOW, QUOTA AND CADENCE ARE RE-READ AND NOT ACCEPTED ──────────
+ *
+ * The withdrawn revision is a ROW, and its `not_before`, `not_after`, `max_acts` and
+ * `min_interval_minutes` are NOT NULL — the released writer stores them, and it also writes them
+ * into the Governance decision's evidence. So a withdrawal that supplied placeholder bounds would
+ * record a decision claiming the envelope being withdrawn had a one-millisecond window and a quota
+ * of one. That is not a cosmetic inaccuracy: it is a false Governance record, written by the act
+ * whose whole purpose is to be auditable.
+ *
+ * They are therefore RE-READ from the effective revision through the released reader, server-side,
+ * inside this action. The browser supplies which agent and which revision it was shown; it supplies
+ * no bound, and cannot restate one.
+ */
+export async function withdrawStandingMutationAction(
+  input: { readonly agentId: string; readonly justification: string; readonly observedRevision: number | null },
+): Promise<StandingMutationWriteResult> {
+  const tenant = await resolveTenantContext();
+  const agentId = String(input?.agentId ?? "");
+
+  const standing = await readStandingMutations(tenant);
+  if (standing.status !== "read") return { status: "refused", reason: "persistence-unavailable" };
+  const effective = standing.items.find((item) => item.agentId === agentId);
+  /*
+   * No effective revision for this agent means there is nothing to take back. Answered with the
+   * writer's own word for it rather than a second vocabulary, so the surface has one wording to
+   * render whether the refusal came from here or from inside the transaction.
+   */
+  if (!effective) return { status: "refused", reason: "no-active-authorization" };
+
+  const result = await writeStandingMutationAuthorization(tenant, "withdrawn", {
+    agentId,
+    /* The row's own kind and bounds, never the caller's. */
+    actionKind: effective.actionKind,
+    notBefore: new Date(effective.notBefore),
+    notAfter: new Date(effective.notAfter),
+    maxActs: effective.maxActs,
+    minIntervalMinutes: effective.minIntervalMinutes,
+    justification: String(input?.justification ?? ""),
+    observedRevision:
+      typeof input?.observedRevision === "number" ? input.observedRevision : null,
+  });
+  if (result.status === "written") revalidatePath("/approvals");
   return result;
 }

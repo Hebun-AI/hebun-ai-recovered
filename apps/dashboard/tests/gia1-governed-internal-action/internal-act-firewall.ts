@@ -754,7 +754,7 @@ function theReferenceFailsClosed(): void {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * 9. TWO EXECUTE ACTIONS, EACH NAMING ITS OWN EXECUTOR — NOT A DISPATCHER.
+ * 9. THREE EXECUTE ACTIONS, EACH NAMING ITS OWN EXECUTOR — NOT A DISPATCHER.
  * ═════════════════════════════════════════════════════════════════════════ */
 function theSurfaceOffersTwoDeliberateActions(): void {
   const actions = codeOf(read(APPROVALS_ACTIONS));
@@ -765,6 +765,17 @@ function theSurfaceOffersTwoDeliberateActions(): void {
     exported.sort(),
     [
       "approveActionRequestAction",
+      /*
+       * RUNG 2 INGRESS added an EIGHTH and a NINTH, and the pin's meaning survives both intact:
+       * neither approves a request, mints a permit, spends one, or runs anything. They record a
+       * GOVERNANCE DECISION about a bounded envelope — `authorize` appends an active revision,
+       * `withdraw` appends a withdrawn one — and the permits that envelope later produces are
+       * issued by an authority NO file in this directory may name. That is asserted separately, in
+       * `rung2-ingress/surface-and-firewall.ts`, and it is the reason these two can be added here
+       * without weakening the sentence below: there are now nine deliberate actions and still no
+       * generic execute-anything, because neither of the new two executes at all.
+       */
+      "authorizeStandingMutationAction",
       /*
        * PBGA-1 added a SIXTH, and the pin's meaning is unchanged: it is a DECLARATION, not a
        * decision and not an execution. It approves nothing, mints no permit and runs nothing —
@@ -783,8 +794,9 @@ function theSurfaceOffersTwoDeliberateActions(): void {
       "executeGovernedPlacementAction",
       "rejectActionRequestAction",
       "revokeActionPermitAction",
+      "withdrawStandingMutationAction",
     ],
-    "seven deliberate server actions, and still no generic execute-anything",
+    "nine deliberate server actions, and still no generic execute-anything",
   );
   for (const fn of exported) {
     assert.ok(
