@@ -28,12 +28,8 @@
  */
 
 import { check, pgTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
-import { relations, sql } from "drizzle-orm";
-import { rootColumns } from "./_base";
-import { organizations } from "./organization";
-import { departments } from "./department";
-import { agents } from "./agent";
-import { registries } from "./registry";
+import { sql } from "drizzle-orm";
+import { rootColumns } from "./_root-columns";
 import { tenantStatusEnum } from "./_enums";
 
 export const companies = pgTable(
@@ -124,10 +120,7 @@ export const COMPANY_PROVISIONING_SOURCE_LOCAL_OPERATOR = "local-operator-ceremo
  */
 export const COMPANY_PROVISIONING_SOURCE_PRODUCTION_OPERATOR = "production-operator-ceremony";
 
-/* Ownership relations that are already certain. */
-export const companiesRelations = relations(companies, ({ many }) => ({
-  organizations: many(organizations),
-  departments: many(departments),
-  agents: many(agents),
-  registries: many(registries),
-}));
+/*
+ * `companiesRelations` lives in `./company-relations`. It needs the tenant tables, and this module
+ * must never import one: see that module for the load-order failure that caused.
+ */

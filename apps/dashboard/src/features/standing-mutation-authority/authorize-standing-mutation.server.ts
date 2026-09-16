@@ -40,7 +40,6 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
-import "@/db/schema";
 import { standingMutationAuthorizations } from "@/db/schema/standing-mutation-authorization";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordGovernanceEventWithin } from "@/features/governance-audit/governance-decision-audit.server";

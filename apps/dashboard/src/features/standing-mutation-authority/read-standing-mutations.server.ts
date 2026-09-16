@@ -35,7 +35,6 @@
  */
 import { and, desc, eq } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
-import "@/db/schema";
 import { standingMutationAuthorizations } from "@/db/schema/standing-mutation-authorization";
 import { actionPermits } from "@/db/schema/action-authorization";
 import { agents } from "@/db/schema/agent";

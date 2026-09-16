@@ -4,6 +4,11 @@
  * - rootColumns  : global / platform tables (companies, users, providers, …)
  * - tenantColumns : every tenant-owned table. Adds the mandatory tenantId FK.
  *
+ * `rootColumns` is DEFINED in `./_root-columns` and re-exported here unchanged, so this module
+ * remains the one place a table imports its column contract from. See that module for why the
+ * definition cannot live here: `tenantColumns` below must import `companies`, and `company` must
+ * never have to import this module back.
+ *
  * Actor references (S2). createdBy / updatedBy / deletedBy remain plain `uuid`
  * columns (unchanged — no data loss, no runtime change). Each now has a NULLABLE
  * companion `*_by_type` (actorTypeEnum) column, forming the canonical polymorphic
@@ -15,28 +20,11 @@
  * the real ownership FK.
  */
 
-import { integer, timestamp, uuid } from "drizzle-orm/pg-core";
-import { actorTypeEnum, lifecycleStatusEnum } from "./_enums";
+import { uuid } from "drizzle-orm/pg-core";
+import { rootColumns } from "./_root-columns";
 import { companies } from "./company";
 
-export const rootColumns = {
-  id: uuid("id").primaryKey().defaultRandom(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  createdBy: uuid("created_by"),
-  /** Companion to createdBy — the actor's type in the polymorphic reference. */
-  createdByType: actorTypeEnum("created_by_type"),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedBy: uuid("updated_by"),
-  /** Companion to updatedBy. */
-  updatedByType: actorTypeEnum("updated_by_type"),
-  version: integer("version").notNull().default(1),
-  lifecycleStatus: lifecycleStatusEnum("lifecycle_status").notNull().default("active"),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  /** Soft-delete actor attribution — nullable; set only when the row is deleted. */
-  deletedBy: uuid("deleted_by"),
-  /** Companion to deletedBy. */
-  deletedByType: actorTypeEnum("deleted_by_type"),
-};
+export { rootColumns };
 
 export const tenantColumns = {
   ...rootColumns,

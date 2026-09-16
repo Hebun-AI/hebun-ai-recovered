@@ -51,20 +51,6 @@
  */
 import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
-/*
- * THE SCHEMA BARREL, IMPORTED FOR ITS SIDE EFFECT AND NOT FOR A BINDING.
- *
- * `@/db/schema` initialises lazily and the shared `tenantColumns` base sits in a module cycle, so a
- * module that reaches a single table file COLD can throw `Cannot access 'tenantColumns' before
- * initialization`. Whether it does depends on the bundle's module order, which is why this was
- * latent: the same source answered 401 on one production deployment and 500 on the next.
- *
- * BOTH WERE OBSERVED, on this route, in production, during the RUNG 2 act path phase. A 500 here
- * means the handler never ran — so its constant-time bearer check never ran either, and the hourly
- * scan silently did nothing. Every module of the standing mutation authority already carries this
- * line; the delivery path is given it for the same reason rather than left to the bundler.
- */
-import "@/db/schema";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { MACHINE_EXECUTABLE_ACTION_KINDS } from "@/features/governed-machine-execution/contracts";

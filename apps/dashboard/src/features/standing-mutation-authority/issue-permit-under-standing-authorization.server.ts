@@ -44,7 +44,6 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
-import "@/db/schema";
 import { standingMutationAuthorizations } from "@/db/schema/standing-mutation-authorization";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
 import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
