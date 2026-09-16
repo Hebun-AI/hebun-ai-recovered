@@ -4038,8 +4038,8 @@ is not restated here.
 `YT-SOC2` **RELEASED** `a373639` (channel measurement COMPARISON — not the recent-content consumer
 this line once named) · `SOC-UI1` **RELEASED + PRODUCTION-ACCEPTED** `ddf7803` · `IG-AN2`
 **RELEASED + PRODUCTION-ACCEPTED** `fcd5f64` · `SOC-UI2` **satisfied by SOC-UI1** · `SOC-UI3`
-**partially satisfied** (Instagram recent content delivered; YouTube half pending; "performance" has
-no authority) · `YT-SOC3` (YouTube recent-content consumer — not started) · `IG-AN3` **RELEASED +
+**partially satisfied** (recent content delivered for Instagram and YouTube; "performance" has
+no authority) · `YT-SOC3` **RELEASED + PRODUCTION-EMPTY-STATE-ACCEPTED** `81a5fcba` (YouTube recent-content consumer; populated state outstanding) · `IG-AN3` **RELEASED +
 PRODUCTION-ACCEPTED** `b7e1c09` (per-post measurement evolution; the second media observation
 arrived unattended at `2026-09-11T14:00:21.998Z`) · `SOC-PROVIDERS` · `SOC-HEBY`.
 

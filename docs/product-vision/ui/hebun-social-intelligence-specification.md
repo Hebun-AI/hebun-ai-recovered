@@ -13,7 +13,9 @@ when it was written and is no longer the whole picture: the Director approved SO
 `fcd5f6495ac9de23db49c906fb049da5caa1daf1`.** Sections 1–10 and 12–14 are the original design and
 are unchanged; where they describe intent they still hold. Where any of them appears to disagree
 with §11 about what EXISTS, §11 is the measured answer and this document's own rule applies:
-repository truth overrides the page.
+repository truth overrides the page. The `YT-SOC3` and `SOC-UI3` rows of §10–§11 were updated
+2026-09-16 at `81a5fcbad1bf2e2e25fc4f6213b53b6b833985f4`; see *YT-SOC3 — production empty-state
+acceptance* in §11.
 
 **Original discovery basis:** branch `main`,
 `HEAD == origin/main == f7354505559672bdea4b7f3c81da944d06a66a19`, 0 ahead / 0 behind, staging
@@ -367,7 +369,7 @@ only *time series*. The roadmap below follows that measured reality rather than 
 | YouTube platform card | **BUILT** — SOC-UI1 `ddf7803` |
 | YouTube subscriber series | **BUILT** — YT-SOC1 `ad81811`; four points, honestly flat at zero |
 | YouTube subscriber change | **BUILT** — YT-SOC2 `a373639`; the truthful answer is `0` |
-| YouTube recent content | **REQUIRES NEW CONSUMER** — `recentVideos` stored, nothing reads it. Now tracked as `YT-SOC3` (§11) |
+| YouTube recent content | **BUILT** — YT-SOC3 `81a5fcba`; production empty state accepted (the channel's stored page holds 0 videos). Populated state not yet accepted (§11) |
 | Unified cross-platform overview | **COMPOSITION LAYER EXISTS** — SOC-UI1 composes both platforms on one surface. A unified cross-platform *metric* remains deferred indefinitely (§12): composing two providers is not the same act as summing them |
 | LinkedIn · TikTok · Facebook · X | **REQUIRES NEW PROVIDER CAPABILITY** — no module, catalog entry, capability, transport or credential kind. They do not appear on this dashboard, in any state, until they exist. |
 | Engagement score, benchmarks, forecasts | **FUTURE / NOT IMPLEMENTED** — no authority defines them |
@@ -394,8 +396,8 @@ table so the correction is auditable rather than silent.
 | **SOC-UI1** | Social Intelligence shell, platform cards, evolution panels, recent content, observation coverage | SOC-0, YT-SOC1, YT-SOC2 | **RELEASED + PRODUCTION VISUALLY ACCEPTED** `ddf7803` |
 | **IG-AN2** | Instagram account measurement comparison (last two measurements) | ≥2 usable observations | **RELEASED + PRODUCTION VISUALLY ACCEPTED** `fcd5f64` |
 | **SOC-UI2** | Audience evolution visualization | YT-SOC1, IG-AN2 | **SATISFIED BY SOC-UI1** — see below. No separate phase remains |
-| **SOC-UI3** | Recent-content composition + content performance | IG-UI1, YouTube content consumer | **PARTIALLY SATISFIED** — Instagram half delivered by SOC-UI1; YouTube half blocked; "performance" has no authority |
-| **YT-SOC3** | YouTube recent-content consumer (read model over stored `recentVideos`) | YT-SOC1 | **NOT STARTED.** Newly identified — the ID `YT-SOC2` was spent on the comparison |
+| **SOC-UI3** | Recent-content composition + content performance | IG-UI1, YouTube content consumer | **PARTIALLY SATISFIED** — recent-content composition delivered for both platforms (Instagram by SOC-UI1, YouTube by YT-SOC3); "performance" has no authority |
+| **YT-SOC3** | YouTube recent-content consumer (read model over stored `recentVideos`) | YT-SOC1 | **RELEASED + PRODUCTION-EMPTY-STATE-ACCEPTED** `81a5fcba` (implementation `c0c4878a`). **PRODUCTION-POPULATED-STATE-ACCEPTANCE: OUTSTANDING** until a real video is observed and stored |
 | **IG-AN3** | Instagram per-post measurement evolution | ≥2 usable media observations | **RELEASED + PRODUCTION VISUALLY ACCEPTED** `b7e1c09` — evidence gate opened `2026-09-11T14:00:21.998Z`; the rendered *Change per post* section was observed on production serving this exact commit |
 | **SOC-PROVIDERS** | Additional platforms | A real connection + capability each | Not started; no candidate exists |
 | **SOC-HEBY** | Heby social brief / recommendations | Analytics contracts mature | Deferred |
@@ -435,7 +437,8 @@ deliberate level line rather than an error or missing data. No separate SOC-UI2 
   IG-UI1 card grid unchanged, keeps `Published …` visually distinct from `Observed by Hebun …`, and
   renders no images, exactly as §7 requires.
 - *Recent content (YouTube)* — **still required**, and now carries the ID `YT-SOC3`. §7's finding
-  stands unchanged: stored `recentVideos` exist, no consumer does.
+  stands unchanged: stored `recentVideos` exist, no consumer does. **SUPERSEDED 2026-09-16:**
+  delivered by YT-SOC3 at `81a5fcba`.
 - *"Content performance"* — **has no authority and is not scheduled.** §12 defers the universal
   engagement score because it would be a Hebun calculation presented as a fact. Ranking or scoring
   posts needs its own definition and governance before any surface may show it. The phrase survives
@@ -452,7 +455,8 @@ split by gate, and neither half is a scheduling decision:
 
 - **`YT-SOC3`** is not evidence-blocked. Stored `recentVideos` exist today, so it could be built —
   but this tenant's channel reports **0 videos**, so the honest surface would be an empty one. That
-  is a Director product call, not a technical one.
+  is a Director product call, not a technical one. **DECIDED 2026-09-16:** the Director chose to
+  build against the stored contract with a truthful empty state; see below.
 - **`IG-AN3`** was evidence-blocked and is no longer. The second usable Instagram media observation
   arrived unattended at `2026-09-11T14:00:21.998Z` under the standing authorization — it was
   observed, never seeded or triggered. Against the two real observations the derivation matches all
@@ -462,6 +466,37 @@ split by gate, and neither half is a scheduling decision:
   `0` carrying its own provenance. The comparison window it states — `10 Sept 14:00 UTC` to
   `11 Sept 14:00 UTC` — is the MEDIA capability's own, distinct from the account window IG-AN2
   states one panel above, which is how the surface shows the two reads stayed capability-scoped.
+
+### YT-SOC3 — production empty-state acceptance
+
+**Implemented:** a pure projection of the newest stored `youtube.channel.public.read` observation's
+`recentVideos` (title, published time, view/like/comment counts as stored), composed once from the
+existing Social Intelligence read. It adds no read, schema, migration, capability, authority, link or
+derived number. **Released:** `origin/main = 81a5fcbad1bf2e2e25fc4f6213b53b6b833985f4`.
+**Deployed:** `dpl_H2tr4m8uvnCiDKqK9SU39861Z4Kh`, READY, serving production.
+
+**Production empty state — PASS, in the Turkish Rug House workspace.** The latest authoritative
+YouTube observation, `2026-09-16T15:00:20.738Z`, stores `recentVideoCount = 0`, a recent-video
+array of length `0` and `moreVideosExist = false`. The authenticated `/intelligence/social` render
+returned 200 with no YT-SOC3-attributable runtime error. The surface showed *No recent videos
+reported*, `Observed by Hebun 16 Sept 2026, 15:00 UTC`, no constructed YouTube URL, and the existing
+Instagram intelligence intact.
+
+**PRODUCTION-POPULATED-STATE-ACCEPTANCE: OUTSTANDING** until a real YouTube video is observed and
+stored through the standing authorization. No video was seeded or published for acceptance.
+
+**A connection is not an observation enrolment.** The Hebun AI workspace has healthy, connected
+Instagram and YouTube integrations and no standing observation authorization, so it holds zero
+stored observations by design, and its *No stored YouTube observation* is the correct answer there.
+The scheduler observes only authorized subjects, per tenant.
+
+**Release lesson.** The first release, `c0c4878a`, failed its production build: the new
+malformed-data test fixture violated TypeScript, and `next build` type-checks `tests/`. Production
+stayed on the previous READY deployment throughout. The test-only fix `81a5fcba` was validated by
+real command exit codes (`tsc` 0, lint 0, tests 0, `next build` 0) and deployed. The earlier "tsc 0"
+had been measured before the tests were written and through a pipe, so the exit status belonged to
+another command. Typecheck and build acceptance must be measured on the final tracked candidate
+state, never through a piped command's exit code.
 
 ---
 
