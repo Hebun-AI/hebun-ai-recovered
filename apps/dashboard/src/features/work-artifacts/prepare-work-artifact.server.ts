@@ -39,6 +39,26 @@
  * The human `TenantContext` remains the AUTHORIZATION context for the whole request. The agent
  * identity supplies AUTHORSHIP only. Nothing here authenticates or authorizes the agent.
  *
+ * ── NOTHING IS ASKED OF THE MODEL THAT COULD NOT BE FILED (CGO-9) ─────────────
+ *
+ * Every prerequisite that does not need the model is checked BEFORE the model is invoked, in this
+ * order: tenant → durable-agent authorship → Claude provider control → target and input validity.
+ * Until CGO-9 the model was asked first and the author was resolved afterwards, so a tenant with no
+ * agent still spent a model call and persisted two message rows for work that could never be filed.
+ *
+ * That gives three outcomes, and they are three different facts:
+ *
+ *   preflight refusal        no model invocation, no message row, no artifact or revision write.
+ *   post-invocation failure  a model was really invoked; its `messages` provenance stays exactly
+ *                            as the answer flow recorded it, and no artifact or revision is written.
+ *                            Erasing that row would hide real usage in order to look tidy.
+ *   prepared                 the invocation's provenance plus exactly one legitimate artifact
+ *                            creation or revision append, linked by `source_message_id`.
+ *
+ * The provider-control read here is the same injected read the answer flow uses. If the Director
+ * switches Claude off between this check and the invocation, the answer flow still degrades to its
+ * honest deterministic answer and this seam refuses it as `no-model-answer`.
+ *
  * ── WHAT A PREPARED ARTIFACT IS NOT ──────────────────────────────────────────
  *
  * Not Knowledge, not approved, not authoritative, not executed. It is text somebody may now read,
@@ -52,12 +72,23 @@ import {
   type HebyModelAnswerResult,
 } from "@/features/heby-answer/model-answer.server";
 import type { AgentIdentityReadDeps } from "@/features/agent-identity/read-durable-agent-identity.server";
+import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import {
   resolveAgentAuthorship,
   type AgentAuthorshipRefusal,
 } from "./agent-authorship.server";
-import type { ContentDestination, WorkArtifactType } from "./contracts";
+import type {
+  ContentDestination,
+  WorkArtifactType,
+  WorkArtifactValidationProblem,
+} from "./contracts";
 import { preparationBriefFor } from "./preparation-brief";
+import {
+  listWorkArtifacts,
+  readWorkArtifactHistory,
+  type WorkArtifactReadDeps,
+} from "./read-work-artifacts.server";
+import { validateWorkArtifactInput } from "./validation";
 import {
   createWorkArtifactFromHebyPreparation,
   reviseWorkArtifactFromHebyPreparation,
@@ -131,6 +162,11 @@ export interface PrepareWorkArtifactDeps {
    * the same reason: without it the read would resolve the ambient `DATABASE_URL`.
    */
   readonly agentIdentity?: AgentIdentityReadDeps;
+  /**
+   * CGO-9. The released artifact reader's handle, for the preflight read of a revision's target.
+   * Defaults to the writer's handle so a caller that injected one database never reads another.
+   */
+  readonly read?: WorkArtifactReadDeps;
 }
 
 /**
@@ -151,6 +187,16 @@ export type PreparationRefusal =
    * authority is unreachable" are three different facts and a human acts differently on each.
    */
   | AgentAuthorshipRefusal
+  /** CGO-9 preflight. The Director's Claude provider control is off, so no model was invoked. */
+  | "model-connectivity-disabled"
+  /** CGO-9 preflight. The released validator refused the classification or title; see `problems`. */
+  | "invalid-input"
+  /** CGO-9 preflight. No such artifact in this tenant — a foreign id is indistinguishable, on purpose. */
+  | "artifact-not-found"
+  /** CGO-9 preflight. A retired artifact takes no further revisions. */
+  | "artifact-retired"
+  /** CGO-9 preflight. The artifact authority could not be read, so the target is unknown, not absent. */
+  | "target-unavailable"
   | "write-refused";
 
 export type PrepareWorkArtifactResult =
@@ -168,15 +214,21 @@ export type PrepareWorkArtifactResult =
   | {
       readonly status: "refused";
       readonly reason: PreparationRefusal;
-      /** Present when an answer was produced but not stored — the human still sees it. */
+      /**
+       * Present only when the answer flow ran. A preflight refusal carries none, because no model
+       * was invoked and nothing was said.
+       */
       readonly answer?: HebyModelAnswerResult;
+      /** The released validator's problems, for an `invalid-input` preflight refusal. */
+      readonly problems?: readonly WorkArtifactValidationProblem[];
     };
 
 /**
  * Ask Heby to prepare work, and durably keep what it produced.
  *
- * WHY A DETERMINISTIC FALLBACK IS NOT STORED. When the Director's kill-switch is off, or the
- * transport fails, or validation withholds the answer, `answerHebyModelRequest` returns an honest
+ * WHY A DETERMINISTIC FALLBACK IS NOT STORED. When the transport fails, validation withholds the
+ * answer, or the Director's kill-switch turned off after the preflight read it (a kill-switch that
+ * is already off is refused before invocation), `answerHebyModelRequest` returns an honest
  * deterministic response — for `PREPARE_RECOMMENDATION` that is an explicit UNAVAILABLE, because
  * preparation genuinely needs generative reasoning. Storing that as a revision would file
  * "no model runtime is connected" as though it were prepared work. Refused instead, and the
@@ -190,6 +242,66 @@ export async function prepareWorkArtifact(
     throw new Error("Work artifact preparation is server-only.");
   }
 
+  /*
+   * ── PREFLIGHT: everything that does not need the model, before the model (CGO-9) ──
+   *
+   * 1. THE TENANT. Resolved server-side, exactly as the answer flow resolves it.
+   */
+  const tenant = await deps.resolveTenant();
+  if (!tenant) return { status: "refused", reason: "unauthenticated" };
+
+  /*
+   * 2. WHO IS ABOUT TO BE RECORDED AS THE AUTHOR. Resolved from the authoritative durable-agent read
+   * seam against THIS tenant — never from the prompt, the client, or the human's own id.
+   *
+   * A refusal here stops everything. No valid durable agent means nothing Hebun prepared could be
+   * filed truthfully, so Hebun does not invoke the model and does not persist model messages for it.
+   */
+  const authorship = await resolveAgentAuthorship(tenant, deps.agentIdentity ?? {});
+  if (authorship.status === "refused") {
+    return { status: "refused", reason: authorship.reason };
+  }
+
+  /* 3. THE DIRECTOR'S CLAUDE PROVIDER CONTROL. The same fail-closed read the answer flow makes. */
+  const directorEnabled = await (deps.resolveDirectorEnabled ?? resolveClaudeDirectorEnabled)();
+  if (!directorEnabled) return { status: "refused", reason: "model-connectivity-disabled" };
+
+  /*
+   * 4. THE TARGET AND THE INPUT. A revision's target is read through the released reader, tenant-
+   * scoped; its own type and destination brief the model, never the client's restatement of them.
+   * A new artifact's classification and title are judged by the released validator — the content
+   * is the model's to write, so only the content problem is not asked about yet.
+   */
+  let briefInput: Parameters<typeof preparationBriefFor>[0];
+  if (input.artifactId) {
+    const readDeps: WorkArtifactReadDeps = deps.read ?? { getDb: deps.write?.getDb };
+    const listing = await listWorkArtifacts(tenant, readDeps);
+    if (listing.status !== "read") return { status: "refused", reason: "target-unavailable" };
+    const target = listing.artifacts.find((artifact) => artifact.id === input.artifactId);
+    if (!target) return { status: "refused", reason: "artifact-not-found" };
+    if (target.lifecycleStatus === "retired") return { status: "refused", reason: "artifact-retired" };
+
+    const history = await readWorkArtifactHistory(tenant, target.id, readDeps);
+    const current = history.find((revision) => revision.current);
+    if (!current) return { status: "refused", reason: "target-unavailable" };
+
+    briefInput = {
+      artifactType: target.artifactType,
+      intendedDestination: target.intendedDestination ?? undefined,
+      observationSupplement: input.observationSupplement,
+      currentRevision: { revisionNo: current.revisionNo, content: current.content },
+    };
+  } else {
+    const problems = validateWorkArtifactInput({
+      artifactType: input.artifactType,
+      title: input.title,
+      intendedDestination: input.intendedDestination,
+    }).filter((problem) => problem.field !== "content");
+    if (problems.length > 0) return { status: "refused", reason: "invalid-input", problems };
+    briefInput = input;
+  }
+
+  /* ── INVOCATION: from here on, a refusal may follow a real model call ── */
   const answerFn = deps.answer ?? answerHebyModelRequest;
   const answer = await answerFn(
     { prompt: input.prompt, route: input.route, conversationId: input.conversationId },
@@ -202,7 +314,7 @@ export async function prepareWorkArtifact(
        * draft: nothing below reads, trims or extracts the reply, and the no-parser rule above is
        * unchanged. Resolved from the human's declared type and destination, never from the prompt.
        */
-      preparationBrief: preparationBriefFor(input),
+      preparationBrief: preparationBriefFor(briefInput),
     },
   );
 
@@ -218,22 +330,6 @@ export async function prepareWorkArtifact(
   }
   if (!answer.persistence.durable) {
     return { status: "refused", reason: "not-durable", answer };
-  }
-
-  const tenant = await deps.resolveTenant();
-  if (!tenant) return { status: "refused", reason: "unauthenticated", answer };
-
-  /*
-   * WHO IS ABOUT TO BE RECORDED AS THE AUTHOR. Resolved from the authoritative durable-agent read
-   * seam against THIS tenant — never from the prompt, the client, or the human's own id.
-   *
-   * A refusal here stops the write and nothing else: the human still receives the answer, because
-   * Heby genuinely produced it. What cannot happen is that the answer is FILED as work authored by
-   * an agent the organization does not have.
-   */
-  const authorship = await resolveAgentAuthorship(tenant, deps.agentIdentity ?? {});
-  if (authorship.status === "refused") {
-    return { status: "refused", reason: authorship.reason, answer };
   }
 
   const content = answer.outcome.response.body.join("\n");

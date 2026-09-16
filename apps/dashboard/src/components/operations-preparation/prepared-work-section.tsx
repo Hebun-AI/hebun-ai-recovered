@@ -34,6 +34,7 @@ import {
 } from "@/features/organizational-work/artifact-work-purpose";
 import { ReferenceChip } from "./reference-chip";
 import { ArtifactRevisionReview } from "./artifact-revision-review";
+import { PrepareDraftWithHebun, PrepareRevisionWithHebun } from "./prepare-with-hebun";
 import {
   readArtifactRevisionReviewStatesAction,
   readCurrentRevisionReviewStatesAction,
@@ -89,6 +90,12 @@ import {
  * History. It is one of four closed answers, and a ledger that could not be read is *Review state
  * unknown*, never *Awaiting review*. It authorizes nothing: an accepted revision is accepted for a
  * next internal step, not for publishing, sending or execution.
+ *
+ * ── CGO-9 · A HUMAN MAY ASK HEBUN TO PREPARE ─────────────────────────────────
+ *
+ * Beside writing by hand, a person may ask Hebun to prepare a content draft or a new revision of
+ * one (`prepare-with-hebun.tsx`). The result is an agent-authored revision in this same list, and it
+ * reaches review the same way every other revision does.
  *
  * NOTHING HERE PROPOSES. Authoring prepared work asks nothing of Governance and creates no action
  * request; `/send` in Heby remains the only way a proposal is filed.
@@ -304,6 +311,18 @@ function ArtifactRow({
         </form>
       )}
 
+      {/*
+        * CGO-9. Only a content draft that still takes revisions. The seam re-checks both facts
+        * against the tenant, so this condition is a courtesy, not the boundary.
+        */}
+      {!retired && artifact.artifactType === CONTENT_DRAFT_TYPE ? (
+        <PrepareRevisionWithHebun
+          artifactId={artifact.id}
+          title={artifact.title}
+          onPrepared={rereadReview}
+        />
+      ) : null}
+
       {message ? <p className="mt-2 text-xs text-fg-secondary">{message}</p> : null}
 
       {history ? (
@@ -500,6 +519,8 @@ export function PreparedWorkSection({
         </ul>
       ) : null}
       {message ? <p className="mt-2 text-xs text-fg-secondary">{message}</p> : null}
+
+      <PrepareDraftWithHebun />
 
       <div className="mt-5">
         {listing.status === "unavailable" ? (

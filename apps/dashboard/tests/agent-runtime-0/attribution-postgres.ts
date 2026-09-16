@@ -155,6 +155,7 @@ async function main(): Promise<void> {
         "THE REFUSAL MUST NOT CARRY THE HUMAN USER ID — no fallback, not even in the shape",
       );
 
+      const messagesBefore = await setup.query<{ n: number }>(`select count(*)::int as n from messages`);
       const prepared = await prepareWorkArtifact(
         {
           prompt: "Draft a quarterly summary email for Ayşe.",
@@ -170,9 +171,24 @@ async function main(): Promise<void> {
         "no-durable-agent-identity",
         "and the whole preparation seam refuses for that exact reason",
       );
-      assert.ok(
-        prepared.status === "refused" && prepared.answer,
-        "the human still receives the answer Heby genuinely produced",
+      /*
+       * AMENDED AT CGO-9, DELIBERATELY. This assertion used to read "the human still receives the
+       * answer Heby genuinely produced": the seam invoked the model first and resolved the author
+       * afterwards, so a tenant with no agent spent a model call and persisted two message rows for
+       * work that could never be filed. The Director approved the reversed order: when no valid
+       * durable agent can author the prepared artifact, Hebun must not invoke the model or persist
+       * model messages. The refusal therefore carries no answer, because none was produced.
+       */
+      assert.equal(
+        prepared.status === "refused" ? prepared.answer : "unreachable",
+        undefined,
+        "NO DURABLE AGENT, NO MODEL INVOCATION — the refusal carries no answer because none was produced",
+      );
+      const messagesAfter = await setup.query<{ n: number }>(`select count(*)::int as n from messages`);
+      assert.equal(
+        messagesAfter.rows[0]!.n,
+        messagesBefore.rows[0]!.n,
+        "and no model message was persisted for work that could never be filed",
       );
 
       const rows = await setup.query<{ n: number }>(

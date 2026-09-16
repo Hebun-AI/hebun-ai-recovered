@@ -198,14 +198,21 @@ async function main(): Promise<void> {
         "no-durable-agent-identity",
         "no durable agent means no agent-authored work — never a fallback to the human id",
       );
-      assert.ok(
-        refused.status === "refused" && refused.answer,
-        "the human still receives the answer Heby genuinely produced",
+      /*
+       * AMENDED AT CGO-9 with AGENT-RUNTIME-0's matching assertion: the author is resolved BEFORE the
+       * model is invoked, so this refusal produces no answer and persists no message rows.
+       */
+      assert.equal(
+        refused.status === "refused" ? refused.answer : "unreachable",
+        undefined,
+        "no durable agent means no model invocation, so there is no answer to hand back",
       );
       const after = await setup.query<{ n: number }>(
         `select count(*)::int as n from work_artifacts`,
       );
       assert.equal(after.rows[0]!.n, before.rows[0]!.n, "and nothing was filed");
+      const messages = await setup.query<{ n: number }>(`select count(*)::int as n from messages`);
+      assert.equal(messages.rows[0]!.n, 2, "and no message row joined the control case's two");
     }
 
     /* The tenant establishes its durable agent identity through the released AGENT-ID-0 authority. */
@@ -298,9 +305,11 @@ async function main(): Promise<void> {
         `select count(*)::int as n from work_artifacts`,
       );
       /*
-       * Director connectivity OFF: the flow degrades to the honest deterministic answer, which for
-       * PREPARE_RECOMMENDATION is an explicit UNAVAILABLE. Storing that would file "no model
-       * runtime is connected" as though somebody had prepared it.
+       * Director connectivity OFF. Before CGO-9 the flow degraded to the honest deterministic answer
+       * and the seam refused to file it as `no-model-answer`. CGO-9 checks the provider control in
+       * the preflight, so the model is never asked and the refusal names the switch itself. The
+       * `no-model-answer` branch stays for a switch turned off AFTER the preflight read it, and
+       * for a transport that fails — both proven in the CGO-9 suite.
        */
       const refused = await prepareWorkArtifact(
         {
@@ -317,10 +326,11 @@ async function main(): Promise<void> {
         },
       );
       assert.equal(refused.status, "refused");
-      assert.equal(refused.status === "refused" ? refused.reason : "", "no-model-answer");
-      assert.ok(
-        refused.status === "refused" && refused.answer,
-        "the human still sees what happened",
+      assert.equal(refused.status === "refused" ? refused.reason : "", "model-connectivity-disabled");
+      assert.equal(
+        refused.status === "refused" ? refused.answer : "unreachable",
+        undefined,
+        "a disabled provider control is refused before any invocation, so no answer exists",
       );
 
       const after = await setup.query<{ n: number }>(
