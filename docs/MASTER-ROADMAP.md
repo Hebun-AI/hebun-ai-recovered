@@ -4199,7 +4199,7 @@ vocabulary, and nothing below is a committed name:
 > |---|---|---|
 > | Exact human-authorized machine execution, human-invoked | RUNG 1 | **PRODUCTION-ACCEPTED** |
 > | Automatic delivery of exact already-authorized permits | RUNG 1.5 | **PRODUCTION-ACCEPTED** 2026-09-14 (headed "RUNG 2" below) |
-> | Standing mutation authorization | RUNG 2 | **IMPLEMENTED · MIGRATION APPLIED (ledger 55) · 0 authorizations · root DISARMED** |
+> | Standing mutation authorization | RUNG 2 | **PRODUCTION-ACCEPTED** 2026-09-16 · 1 act executed · envelope authority **CLOSED** (revision 4 WITHDRAWN, 0 active) · root **DISARMED v8** · see `hebun-rung2-standing-mutation-authorization-closure.md` |
 >
 > No commit, closure or acceptance record is amended by this note, and no phase is re-dated.
 
