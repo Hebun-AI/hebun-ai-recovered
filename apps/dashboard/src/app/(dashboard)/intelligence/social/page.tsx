@@ -41,6 +41,7 @@ import { WorkRequestForm } from "@/components/social-intelligence/work-request-f
 import { MediaEvolution } from "@/components/social-intelligence/media-evolution";
 import { ObservationCoverage } from "@/components/social-intelligence/observation-coverage";
 import { PlatformSummaryCard } from "@/components/social-intelligence/platform-summary-card";
+import { YouTubeRecentVideos } from "@/components/social-intelligence/youtube-recent-videos";
 import { readSocialDashboard } from "@/features/social-intelligence/dashboard-read.server";
 import { INSTAGRAM_PLATFORM, YOUTUBE_PLATFORM } from "@/features/social-intelligence/contracts";
 import {
@@ -49,6 +50,14 @@ import {
   INSTAGRAM_MEDIA_WINDOW,
   windowStateOf,
 } from "@/features/instagram-connection-surface/latest-media-observation";
+import {
+  recentVideoEmptyStateOf,
+  recentVideoWindowStateOf,
+  YOUTUBE_RECENT_VIDEOS_ABSENCE,
+  YOUTUBE_RECENT_VIDEOS_EMPTY,
+  YOUTUBE_RECENT_VIDEOS_MEANING,
+  YOUTUBE_RECENT_VIDEOS_WINDOW,
+} from "@/features/youtube-channel-surface/recent-video-observation";
 
 export const metadata = { title: "Social Intelligence — Intelligence — Hebun AI" };
 export const dynamic = "force-dynamic";
@@ -252,60 +261,119 @@ export default async function SocialIntelligencePage() {
         {/* ── E. Recent content ─────────────────────────────────────────── */}
         <WorkspaceSection
           title="Recent content"
-          question="Which posts did Instagram report in the latest stored observation?"
+          question="Which posts and videos did each provider report in its latest stored observation?"
           provenance="authoritative"
-          provenanceDetail="Instagram reported"
+          provenanceDetail="Instagram and YouTube reported"
         >
-          {model.instagram.content.status === "observed" ? (
+          {/*
+            TWO PROVIDERS, TWO BLOCKS, EACH NAMED. A post and a video are different objects under
+            different provider rules; they are never interleaved into one feed, sorted together, or
+            counted together.
+          */}
+          <div className="flex min-w-0 flex-col gap-8">
             <div className="flex min-w-0 flex-col gap-3">
-              <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <p className="text-meta text-fg-secondary text-pretty" title={INSTAGRAM_MEDIA_MEANING}>
-                  What Instagram reported at that instant — not a live view of the account.
-                </p>
-                {/*
-                  "Observed by Hebun" here, "Published" on each card. Two instants, two different
-                  facts; a bare date beside an observation timestamp invites a reader to conflate
-                  them, and the word is the whole guard.
-                */}
-                <p className="text-meta text-fg-muted">
-                  Observed by Hebun{" "}
-                  <span className="font-medium text-fg-secondary">
-                    {instant(model.instagram.content.observation.observedAt)}
-                  </span>
-                </p>
-              </div>
+              <h3 className="text-label font-semibold uppercase tracking-[0.12em] text-fg-muted">
+                {INSTAGRAM_PLATFORM.label}
+              </h3>
+              {model.instagram.content.status === "observed" ? (
+                <div className="flex min-w-0 flex-col gap-3">
+                  <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <p className="text-meta text-fg-secondary text-pretty" title={INSTAGRAM_MEDIA_MEANING}>
+                      What Instagram reported at that instant — not a live view of the account.
+                    </p>
+                    {/*
+                      "Observed by Hebun" here, "Published" on each card. Two instants, two different
+                      facts; a bare date beside an observation timestamp invites a reader to conflate
+                      them, and the word is the whole guard.
+                    */}
+                    <p className="text-meta text-fg-muted">
+                      Observed by Hebun{" "}
+                      <span className="font-medium text-fg-secondary">
+                        {instant(model.instagram.content.observation.observedAt)}
+                      </span>
+                    </p>
+                  </div>
 
-              <InstagramMediaCards items={model.instagram.content.observation.items} />
+                  <InstagramMediaCards items={model.instagram.content.observation.items} />
 
-              <p className="text-meta leading-5 text-fg-muted text-pretty">
-                {model.instagram.content.observation.recentMediaCount ??
-                  model.instagram.content.observation.items.length}{" "}
-                media in this observation.{" "}
-                {INSTAGRAM_MEDIA_WINDOW[windowStateOf(model.instagram.content.observation)]}
-              </p>
-
-              {/*
-                WHY THERE IS NO YOUTUBE ROW HERE, said once rather than drawn as an empty panel.
-                The channel genuinely reports zero videos, and no released YouTube content read model
-                exists to render if it had any. A matching card grid built for symmetry would be a
-                panel with nothing behind it.
-              */}
-              <p className="text-meta leading-5 text-fg-muted text-pretty">
-                No YouTube content is shown: this channel reported 0 videos, and Hebun has no
-                released reader for YouTube content to draw from if it had any.
-              </p>
+                  <p className="text-meta leading-5 text-fg-muted text-pretty">
+                    {model.instagram.content.observation.recentMediaCount ??
+                      model.instagram.content.observation.items.length}{" "}
+                    media in this observation.{" "}
+                    {INSTAGRAM_MEDIA_WINDOW[windowStateOf(model.instagram.content.observation)]}
+                  </p>
+                </div>
+              ) : (
+                <StateBlock
+                  tone={model.instagram.content.status === "none" ? "empty" : "unavailable"}
+                  title="No stored media observation"
+                  description={
+                    model.instagram.content.status === "none"
+                      ? INSTAGRAM_MEDIA_ABSENCE.none
+                      : INSTAGRAM_MEDIA_ABSENCE[model.instagram.content.reason]
+                  }
+                />
+              )}
             </div>
-          ) : (
-            <StateBlock
-              tone={model.instagram.content.status === "none" ? "empty" : "unavailable"}
-              title="No stored media observation"
-              description={
-                model.instagram.content.status === "none"
-                  ? INSTAGRAM_MEDIA_ABSENCE.none
-                  : INSTAGRAM_MEDIA_ABSENCE[model.instagram.content.reason]
-              }
-            />
-          )}
+
+            {/* ── YT-SOC3. YouTube recent videos ──────────────────────────── */}
+            <div className="flex min-w-0 flex-col gap-3">
+              <h3 className="text-label font-semibold uppercase tracking-[0.12em] text-fg-muted">
+                {YOUTUBE_PLATFORM.label}
+              </h3>
+              {model.youtube.content.status === "observed" ? (
+                <>
+                  <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <p className="text-meta text-fg-secondary text-pretty" title={YOUTUBE_RECENT_VIDEOS_MEANING}>
+                      What YouTube reported at that instant — not a live view of the channel.
+                    </p>
+                    {/* "Observed by Hebun" here, "Published" on each card: two instants, two facts. */}
+                    <p className="text-meta text-fg-muted">
+                      Observed by Hebun{" "}
+                      <span className="font-medium text-fg-secondary">
+                        {instant(model.youtube.content.observation.observedAt)}
+                      </span>
+                    </p>
+                  </div>
+
+                  {recentVideoEmptyStateOf(model.youtube.content.observation) === null ? (
+                    <>
+                      <YouTubeRecentVideos items={model.youtube.content.observation.items} />
+                      <p className="text-meta leading-5 text-fg-muted text-pretty">
+                        {model.youtube.content.observation.recentVideoCount ??
+                          model.youtube.content.observation.items.length}{" "}
+                        videos in this observation.{" "}
+                        {YOUTUBE_RECENT_VIDEOS_WINDOW[recentVideoWindowStateOf(model.youtube.content.observation)]}
+                      </p>
+                    </>
+                  ) : (
+                    /*
+                      AN OBSERVED EMPTY PAGE IS THE PROVIDER'S ANSWER, rendered as `empty` (the read
+                      succeeded) and worded as what YouTube said at that instant — never as
+                      inactivity, a failure, or a prompt to publish.
+                    */
+                    <StateBlock
+                      tone="empty"
+                      title="No recent videos reported"
+                      description={
+                        YOUTUBE_RECENT_VIDEOS_EMPTY[recentVideoEmptyStateOf(model.youtube.content.observation)!]
+                      }
+                    />
+                  )}
+                </>
+              ) : (
+                <StateBlock
+                  tone={model.youtube.content.status === "none" ? "empty" : "unavailable"}
+                  title="No stored YouTube observation"
+                  description={
+                    model.youtube.content.status === "none"
+                      ? YOUTUBE_RECENT_VIDEOS_ABSENCE.none
+                      : YOUTUBE_RECENT_VIDEOS_ABSENCE[model.youtube.content.reason]
+                  }
+                />
+              )}
+            </div>
+          </div>
         </WorkspaceSection>
 
         {/* ── F. Per-post measurement change (IG-AN3) ───────────────────── */}

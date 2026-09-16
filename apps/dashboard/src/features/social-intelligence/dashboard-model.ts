@@ -23,10 +23,10 @@
  *
  * ── WHY THE SECTIONS ARE NOT SYMMETRIC ──────────────────────────────────────
  *
- * Instagram has content and no comparison. YouTube has a comparison and no content — the channel
- * genuinely has zero videos, and no released YouTube content read model exists to render if it had
- * any. Forcing a matching panel onto each platform would mean drawing at least one panel with
- * nothing behind it. The shape follows the evidence.
+ * Instagram has an account comparison, per-post change and recent content. YouTube has a channel
+ * comparison and recent content (YT-SOC3), and no per-video change: no released derivation compares a
+ * video across observations. Forcing a matching panel onto each platform would mean drawing at least
+ * one panel with nothing behind it. The shape follows the evidence.
  */
 import type { ConnectionListing } from "@/features/integration-authority/contracts";
 import type { ProviderObservationReadResult } from "@/features/provider-observation-history/read-provider-observations.server";
@@ -71,6 +71,10 @@ import {
   YOUTUBE_CHANNEL_COMPARISON_SENTENCES,
   type YouTubeChannelComparison,
 } from "@/features/youtube-channel-surface/channel-measurement-comparison";
+import {
+  projectLatestYouTubeRecentVideos,
+  type YouTubeLatestRecentVideos,
+} from "@/features/youtube-channel-surface/recent-video-observation";
 import {
   INSTAGRAM_MEDIA_METRICS,
   INSTAGRAM_PLATFORM,
@@ -346,6 +350,12 @@ export interface YouTubeSection {
   /** The sentence explaining why there is no comparison. `null` when there is one. */
   readonly changesSentence: string | null;
   readonly changeProvenance: SocialProvenance;
+  /**
+   * YT-SOC3. The videos YouTube reported in the NEWEST stored channel observation, projected from the
+   * same read the series above consumes. No second read, no derived number: an observed page with
+   * zero videos is carried as observed-and-empty, never as "no observation".
+   */
+  readonly content: YouTubeLatestRecentVideos;
 }
 
 /* ── How much evidence stands behind this page ─────────────────────────────── */
@@ -815,6 +825,7 @@ export function composeSocialDashboard(input: SocialDashboardInput): SocialDashb
   const instagramMediaEvolution = deriveInstagramMediaEvolution(input.instagramMedia);
   const youtubeSeries = deriveYouTubeChannelMeasurementSeries(input.youtubeChannel);
   const youtubeComparison = compareYouTubeChannelMeasurements(youtubeSeries);
+  const youtubeContent = projectLatestYouTubeRecentVideos(input.youtubeChannel);
 
   const metricsFor = (key: SocialPlatformKey): readonly SocialMetricCell[] =>
     key === "instagram" ? instagramMetrics(instagramAccount) : youtubeMetrics(youtubeSeries);
@@ -899,6 +910,7 @@ export function composeSocialDashboard(input: SocialDashboardInput): SocialDashb
     changes: youtubeChanges,
     changesSentence: youtubeChangesSentence,
     changeProvenance: "derived" as const,
+    content: youtubeContent,
   });
 
   /*
