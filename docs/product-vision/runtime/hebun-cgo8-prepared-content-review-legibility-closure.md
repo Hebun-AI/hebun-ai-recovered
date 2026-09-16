@@ -85,3 +85,7 @@ Review is not publishing:
 - Prepared drafts carry no link to a provider connection or observation.
 
 CGO-9 has not been selected, scoped, or started.
+
+> **Superseded by CGO-9 (2026-09-17).** Agent/model preparation now has a UI trigger on `/operations`,
+> and CGO-9 is released and production-accepted. See
+> `hebun-cgo9-human-reachable-hebun-preparation-closure.md`.
