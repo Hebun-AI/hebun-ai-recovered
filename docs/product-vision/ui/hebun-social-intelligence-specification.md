@@ -15,7 +15,8 @@ are unchanged; where they describe intent they still hold. Where any of them app
 with §11 about what EXISTS, §11 is the measured answer and this document's own rule applies:
 repository truth overrides the page. The `YT-SOC3` and `SOC-UI3` rows of §10–§11 were updated
 2026-09-16 at `81a5fcbad1bf2e2e25fc4f6213b53b6b833985f4`; see *YT-SOC3 — production empty-state
-acceptance* in §11.
+acceptance* in §11. `SOC-ACT1` and the stale §1/§10 counts were reconciled the same day; see
+*SOC-ACT1 — production acceptance* in §11.
 
 **Original discovery basis:** branch `main`,
 `HEAD == origin/main == f7354505559672bdea4b7f3c81da944d06a66a19`, 0 ahead / 0 behind, staging
@@ -39,6 +40,8 @@ Hebun should eventually answer one question in one place:
 Today that answer is scattered. Instagram has a real surface at `/integrations/instagram`; YouTube
 has four stored observations and **no surface at all**; nothing composes them. A Director wanting to
 know how the organization's audience is developing has nowhere to look.
+
+*Superseded 2026-09-16: SOC-UI1 and later phases built that surface. §11 is the current state.*
 
 Social Intelligence is that place. It is a **reading** surface over stored provider evidence. It
 connects nothing, authorizes nothing, and calls no provider.
@@ -357,6 +360,11 @@ leads. It does not. **YouTube is the only platform with enough history to compar
 observations against Instagram's one. Instagram has the richer *content* evidence; YouTube has the
 only *time series*. The roadmap below follows that measured reality rather than the assumption.
 
+**SUPERSEDED 2026-09-16.** The counts above and the "four against one" inversion are a 2026-09-11
+snapshot. In Turkish Rug House all three capabilities are now observed by the hourly scan (for
+example `instagram.account.public.read` at `2026-09-16T14:00:19.789Z` and
+`youtube.channel.public.read` at `2026-09-16T15:00:20.738Z`), so neither platform leads on history.
+
 **Per element**
 
 | Element | State |
@@ -398,6 +406,7 @@ table so the correction is auditable rather than silent.
 | **SOC-UI2** | Audience evolution visualization | YT-SOC1, IG-AN2 | **SATISFIED BY SOC-UI1** — see below. No separate phase remains |
 | **SOC-UI3** | Recent-content composition + content performance | IG-UI1, YouTube content consumer | **PARTIALLY SATISFIED** — recent-content composition delivered for both platforms (Instagram by SOC-UI1, YouTube by YT-SOC3); "performance" has no authority |
 | **YT-SOC3** | YouTube recent-content consumer (read model over stored `recentVideos`) | YT-SOC1 | **RELEASED + PRODUCTION-EMPTY-STATE-ACCEPTED** `81a5fcba` (implementation `c0c4878a`). **PRODUCTION-POPULATED-STATE-ACCEPTANCE: OUTSTANDING** until a real video is observed and stored |
+| **SOC-ACT1** | Governed work request filed from a stored observation (pending `record-work` request only) | SOC-UI1, released action inlet | **RELEASED `fe395086` + PRODUCTION-ACCEPTED.** The form renders on the Instagram panel only |
 | **IG-AN3** | Instagram per-post measurement evolution | ≥2 usable media observations | **RELEASED + PRODUCTION VISUALLY ACCEPTED** `b7e1c09` — evidence gate opened `2026-09-11T14:00:21.998Z`; the rendered *Change per post* section was observed on production serving this exact commit |
 | **SOC-PROVIDERS** | Additional platforms | A real connection + capability each | Not started; no candidate exists |
 | **SOC-HEBY** | Heby social brief / recommendations | Analytics contracts mature | Deferred |
@@ -497,6 +506,27 @@ real command exit codes (`tsc` 0, lint 0, tests 0, `next build` 0) and deployed.
 had been measured before the tests were written and through a pipe, so the exit status belonged to
 another command. Typecheck and build acceptance must be measured on the final tracked candidate
 state, never through a piped command's exit code.
+
+### SOC-ACT1 — production acceptance
+
+**Implemented** in `fe395086` (2026-09-11). From a stored observation, a human files a **pending
+`record-work` request**. The server re-reads the cited observation under the tenant predicate and
+records it as `provider-observations` evidence. It issues no permit, executes nothing, creates no work
+item and calls no provider.
+
+**PRODUCTION-ACCEPTED 2026-09-16, in Turkish Rug House.** The Director filed one request from the
+Instagram panel. The read-only verification found exactly one new request, `c35bb211-6bc1-4034-aa03-5e58a1833368`
+(created `2026-09-16T16:27:37.577Z`):
+- `record-work`, `pending`, proposed by a human, requesting workspace `command`, no standing
+  authorization;
+- target and evidence `provider-observation/ca6b3a38-91a2-48ab-be6a-8a7ef63186ec`, a stored
+  same-tenant `instagram.account.public.read` observation from `2026-09-16T14:00:19.789Z`;
+- 0 permits, 0 execution attempts, 0 work items; `machine-internal-execution` stayed disarmed
+  (version 8).
+
+**Both requests remain pending and unexecuted.** A person decides them at `/approvals`; acceptance
+did not decide them. An earlier request, `6720cacf…` (2026-09-11), is also still pending. The form
+appears on the Instagram panel only; a YouTube equivalent does not exist.
 
 ---
 

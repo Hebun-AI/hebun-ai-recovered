@@ -1,5 +1,7 @@
 # Hebun — Social Intelligence: Governed Action Loop Design Review
 
+> **SUPERSEDED 2026-09-16.** `SOC-ACT1` was implemented in `fe395086` and is **PRODUCTION-ACCEPTED**; see *SOC-ACT1 — production acceptance* in `docs/product-vision/ui/hebun-social-intelligence-specification.md` §11. The statements below are historical.
+
 > ### DESIGN REVIEW — NOT ROADMAP AUTHORITY
 >
 > **NOT IMPLEMENTATION AUTHORITY. NOT EXECUTION AUTHORITY. NOT APPROVAL TO BUILD.**
@@ -508,7 +510,7 @@ already housed, and is rejected.**
 
 ## 12. Candidate first phase — provisional `SOC-ACT1`
 
-> **`SOC-ACT1` is PROVISIONAL, NOT ROADMAP-APPROVED and NOT IMPLEMENTED.**
+> **`SOC-ACT1` is PROVISIONAL, NOT ROADMAP-APPROVED and NOT IMPLEMENTED.** *(Superseded 2026-09-16: implemented in `fe395086` and production-accepted.)*
 >
 > Provisional label only. `SOC-*` follows the released Social Intelligence delivery convention and
 > MASTER-ROADMAP §17 (delivery labels, never authorities). `SOC-ACT1` is unused at this baseline.

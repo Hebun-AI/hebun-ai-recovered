@@ -1,5 +1,7 @@
 # SOC-ACT1 — Implementation Readiness Review
 
+> **SUPERSEDED 2026-09-16.** `SOC-ACT1` was implemented in `fe395086` and is **PRODUCTION-ACCEPTED**; see *SOC-ACT1 — production acceptance* in `docs/product-vision/ui/hebun-social-intelligence-specification.md` §11. The statements below are historical.
+
 > ### IMPLEMENTATION READINESS REVIEW
 >
 > **NOT ROADMAP AUTHORITY. NOT IMPLEMENTATION APPROVAL. NOT EXECUTION AUTHORITY.**

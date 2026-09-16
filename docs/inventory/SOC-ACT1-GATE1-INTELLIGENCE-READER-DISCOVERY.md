@@ -1,5 +1,7 @@
 # SOC-ACT1 Gate 1 — `intelligence` Connected Reader Discovery
 
+> **SUPERSEDED 2026-09-16.** `SOC-ACT1` was implemented in `fe395086` and is **PRODUCTION-ACCEPTED**; see *SOC-ACT1 — production acceptance* in `docs/product-vision/ui/hebun-social-intelligence-specification.md` §11. The statements below are historical.
+
 > ### ARCHITECTURE DISCOVERY
 >
 > **NOT ROADMAP AUTHORITY. NOT IMPLEMENTATION APPROVAL. NOT EXECUTION AUTHORITY.**
@@ -778,4 +780,4 @@ Director decision.** Gate 2 (workspace ownership) is satisfied *without modifica
 request originates in Command. The remaining decision is the source-class **value**, which is a much
 smaller ask than the connected class deferred in Part One.
 
-**SOC-ACT1 is not implemented and is not approved for implementation by this document.**
+**SOC-ACT1 is not implemented and is not approved for implementation by this document.** *(Superseded 2026-09-16: implemented in `fe395086` and production-accepted.)*

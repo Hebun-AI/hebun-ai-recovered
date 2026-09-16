@@ -4037,7 +4037,7 @@ is not restated here.
 `SOC-0` **APPROVED** `6c4e1ef` · `IG-AN1` **RELEASED** `f735450` · `YT-SOC1` **RELEASED** `ad81811` ·
 `YT-SOC2` **RELEASED** `a373639` (channel measurement COMPARISON — not the recent-content consumer
 this line once named) · `SOC-UI1` **RELEASED + PRODUCTION-ACCEPTED** `ddf7803` · `IG-AN2`
-**RELEASED + PRODUCTION-ACCEPTED** `fcd5f64` · `SOC-UI2` **satisfied by SOC-UI1** · `SOC-UI3`
+**RELEASED + PRODUCTION-ACCEPTED** `fcd5f64` · `SOC-ACT1` **RELEASED + PRODUCTION-ACCEPTED** `fe395086` (governed pending work request from a stored observation) · `SOC-UI2` **satisfied by SOC-UI1** · `SOC-UI3`
 **partially satisfied** (recent content delivered for Instagram and YouTube; "performance" has
 no authority) · `YT-SOC3` **RELEASED + PRODUCTION-EMPTY-STATE-ACCEPTED** `81a5fcba` (YouTube recent-content consumer; populated state outstanding) · `IG-AN3` **RELEASED +
 PRODUCTION-ACCEPTED** `b7e1c09` (per-post measurement evolution; the second media observation
@@ -4059,7 +4059,7 @@ MORE HISTORY          != MORE INTERESTING HISTORY (YouTube's four points are all
 ```
 
 **This section takes no program decision and authorizes no implementation.** It records a direction,
-a measured baseline, and one navigation recommendation awaiting Director approval.
+a measured baseline, and one navigation recommendation, since approved as `SOC-0` (`6c4e1ef`).
 
 ---
 
