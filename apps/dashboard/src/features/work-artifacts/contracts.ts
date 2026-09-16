@@ -81,10 +81,10 @@ export const CONTENT_DRAFT_TYPE: WorkArtifactType = "content-draft";
  * Every line is a fact about this repository at the commit that ships it, not an aspiration.
  */
 export const CONTENT_DESTINATION_NON_CLAIMS: readonly string[] = [
-  "A declared destination is not a provider connection. No social provider is connectable in Hebun.",
+  "A declared destination is not a provider connection. Connecting a provider is a separate act, and a connection does not make a draft publishable.",
   "No account is named, linked or authorized by declaring a destination.",
-  "Nothing is scheduled. Hebun has no scheduler, so no content can be queued to publish.",
-  "Nothing is published. The only external adapter Hebun registers sends email.",
+  "Nothing is scheduled. Hebun has no content scheduler, so no content can be queued to publish.",
+  "Nothing is published. Hebun holds no provider capability that can publish, and the only external adapter it registers sends email.",
 ] as const;
 
 /**
@@ -152,7 +152,7 @@ export function workArtifactAuthorLabel(actorType: string): string {
  */
 export const WORK_ARTIFACT_AUTHORSHIP_NON_CLAIMS: readonly string[] = [
   "Seeing who wrote a revision is not a review of it, and reading it here records nothing.",
-  "Hebun holds no review, no approval and no rejection for prepared work — those states do not exist in this authority.",
+  "Governance review of a revision is a separate recorded decision, and it is no approval to publish, send or execute anything.",
   "An agent-written revision is not endorsed by this organization, and a person-written one is not either.",
 ] as const;
 

@@ -31,6 +31,7 @@ import {
   listRetiredRecipientsAction,
   listWorkArtifactsAction,
   readArtifactWorkPurposeAction,
+  readCurrentRevisionReviewStatesAction,
 } from "@/app/(dashboard)/operations/actions";
 import { RecipientsSection } from "./recipients-section";
 import { PreparedWorkSection } from "./prepared-work-section";
@@ -50,10 +51,25 @@ export async function OperationsPreparation() {
     readArtifactWorkPurposeAction(),
   ]);
 
+  /*
+   * CGO-8. The Governance review state of each row's CURRENT revision, read once for the whole
+   * listing from the review authority's own batched reader. It depends on the listing, so it follows
+   * it rather than joining the parallel fetch; an unreadable listing asks the ledger nothing.
+   */
+  const reviewStates =
+    artifacts.status === "read"
+      ? await readCurrentRevisionReviewStatesAction({
+          artifacts: artifacts.artifacts.map((a) => ({
+            artifactId: a.id,
+            revisionNo: a.currentRevision,
+          })),
+        })
+      : ({ status: "unavailable" } as const);
+
   return (
     <div className="mt-8 space-y-8">
       <RecipientsSection active={active} retired={retired} />
-      <PreparedWorkSection listing={artifacts} workPurpose={workPurpose} />
+      <PreparedWorkSection listing={artifacts} workPurpose={workPurpose} reviewStates={reviewStates} />
     </div>
   );
 }

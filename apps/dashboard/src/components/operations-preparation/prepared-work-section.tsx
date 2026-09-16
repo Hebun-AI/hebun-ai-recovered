@@ -34,8 +34,16 @@ import {
 } from "@/features/organizational-work/artifact-work-purpose";
 import { ReferenceChip } from "./reference-chip";
 import { ArtifactRevisionReview } from "./artifact-revision-review";
-import { readArtifactRevisionReviewStatesAction } from "@/app/(dashboard)/operations/actions";
-import type { ArtifactRevisionReviewState } from "@/features/work-artifact-review/contracts";
+import {
+  readArtifactRevisionReviewStatesAction,
+  readCurrentRevisionReviewStatesAction,
+} from "@/app/(dashboard)/operations/actions";
+import {
+  ARTIFACT_ROW_REVIEW_LABELS,
+  artifactRowReviewStatus,
+  type ArtifactCurrentReviewStates,
+  type ArtifactRevisionReviewState,
+} from "@/features/work-artifact-review/contracts";
 
 /*
  * prepared-work-section.tsx — what exact draft could eventually be proposed (OPS-P1).
@@ -69,8 +77,18 @@ import type { ArtifactRevisionReviewState } from "@/features/work-artifact-revie
  * A reviewer needs to know a MODEL wrote the text. They do not need the row id of the writer, so
  * the identifier stays withheld and the firewall still proves it.
  *
- * Nothing about the artifact changes by being looked at. This component reads and renders; it
- * records no review, sets no state, and Hebun holds no review or approval state to set.
+ * Nothing about the artifact changes by being looked at. This component reads and renders the
+ * artifact; it writes no artifact state. A Governance review decision about a revision is a
+ * separate act (TRH-10), recorded in the decision ledger through `ArtifactRevisionReview`, and the
+ * artifact authority holds no review state of its own.
+ *
+ * ── CGO-8 · EACH ROW SAYS WHERE ITS CURRENT REVISION STANDS ──────────────────
+ *
+ * The review state of the current revision is shown on the row itself, derived by the review
+ * authority from the ledger, so a reviewer can see what awaits a decision without opening every
+ * History. It is one of four closed answers, and a ledger that could not be read is *Review state
+ * unknown*, never *Awaiting review*. It authorizes nothing: an accepted revision is accepted for a
+ * next internal step, not for publishing, sending or execution.
  *
  * NOTHING HERE PROPOSES. Authoring prepared work asks nothing of Governance and creates no action
  * request; `/send` in Heby remains the only way a proposal is filed.
@@ -119,9 +137,11 @@ function DeclaredWorkPurpose({ items }: { items: readonly ArtifactWorkPurposeIte
 function ArtifactRow({
   artifact,
   workPurpose,
+  initialReview,
 }: {
   artifact: WorkArtifactView;
   workPurpose: readonly ArtifactWorkPurposeItem[] | undefined;
+  initialReview: ArtifactCurrentReviewStates;
 }) {
   const [revisionText, setRevisionText] = useState("");
   const [reviewStates, setReviewStates] = useState<readonly ArtifactRevisionReviewState[] | null>(null);
@@ -129,6 +149,29 @@ function ArtifactRow({
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const retired = artifact.lifecycleStatus === "retired";
+  /* CGO-8. The row's own copy of the ledger answer, replaced whenever a decision or revision lands. */
+  const [rowReview, setRowReview] = useState<ArtifactCurrentReviewStates>(initialReview);
+  const rowState = rowReview.status === "read" ? rowReview.states[artifact.id] : undefined;
+  /*
+   * A state read for an EARLIER revision says nothing about the current one. If the row's copy is
+   * about a different revision than the one this row now names, it is unknown until re-read.
+   */
+  const rowStatus =
+    rowState && rowState.revisionNo !== artifact.currentRevision
+      ? "unknown"
+      : artifactRowReviewStatus(rowReview, artifact.id);
+
+  /* Re-read the authoritative derived state. Never computed here, never assumed from the click. */
+  async function rereadReview(currentRevision: number) {
+    setRowReview(
+      await readCurrentRevisionReviewStatesAction({
+        artifacts: [{ artifactId: artifact.id, revisionNo: currentRevision }],
+      }),
+    );
+    if (history) {
+      setReviewStates(await readArtifactRevisionReviewStatesAction({ artifactId: artifact.id }));
+    }
+  }
 
   return (
     <li className="border-b border-border-subtle py-3 last:border-b-0">
@@ -157,6 +200,14 @@ function ArtifactRow({
           <p className="text-xs text-fg-muted">
             revision {artifact.currentRevision}:{" "}
             {workArtifactAuthorLabel(artifact.currentRevisionAuthoredByActorType)}
+          </p>
+          {/*
+            * CGO-8. Its own line, worded "revision N" like the author line above, so it cannot be
+            * read as a property of the artifact or of any other revision.
+            */}
+          <p className="text-xs text-fg-muted" data-review-status={rowStatus}>
+            Governance review of revision {artifact.currentRevision}:{" "}
+            <span className="text-fg-secondary">{ARTIFACT_ROW_REVIEW_LABELS[rowStatus]}</span>
           </p>
           <DeclaredWorkPurpose items={workPurpose} />
           <ReferenceChip reference={artifact.currentRef} />
@@ -222,6 +273,7 @@ function ArtifactRow({
               });
               if (result.status === "revised") {
                 setRevisionText("");
+                await rereadReview(result.revisionNo);
                 setMessage(
                   `Revision ${result.revisionNo} appended. Earlier revisions are unchanged.`,
                 );
@@ -281,6 +333,7 @@ function ArtifactRow({
                 revisionNo={revision.revisionNo}
                 state={reviewStates?.find((s) => s.revisionId === revision.id)}
                 reviewable={!retired}
+                onDecided={() => rereadReview(artifact.currentRevision)}
               />
             </li>
           ))}
@@ -309,9 +362,11 @@ function ArtifactRow({
 export function PreparedWorkSection({
   listing,
   workPurpose,
+  reviewStates,
 }: {
   readonly listing: WorkArtifactListing;
   readonly workPurpose: ArtifactWorkPurposeIndex;
+  readonly reviewStates: ArtifactCurrentReviewStates;
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -492,6 +547,7 @@ export function PreparedWorkSection({
                     ? (workPurpose.byArtifactId[artifact.id] ?? [])
                     : undefined
                 }
+                initialReview={reviewStates}
               />
               ))}
             </ul>

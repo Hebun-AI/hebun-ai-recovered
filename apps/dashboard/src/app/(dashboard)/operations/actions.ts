@@ -30,9 +30,11 @@ import {
 import {
   acceptArtifactRevision,
   readArtifactRevisionReviewStates,
+  readCurrentRevisionReviewStates,
   requestArtifactRevisionChanges,
 } from "@/features/work-artifact-review/review-revision.server";
 import type {
+  ArtifactCurrentReviewStates,
   ArtifactRevisionReviewState,
   ArtifactReviewResult,
 } from "@/features/work-artifact-review/contracts";
@@ -178,6 +180,17 @@ export async function readArtifactRevisionReviewStatesAction(input: {
 }): Promise<readonly ArtifactRevisionReviewState[]> {
   const tenant = await resolveTenantContext();
   return readArtifactRevisionReviewStates(tenant, input.artifactId);
+}
+
+/**
+ * CGO-8. The derived review state of the CURRENT revision of each named artifact, read from the
+ * Governance ledger in one batch. A read: it decides nothing, writes nothing and names no writer.
+ */
+export async function readCurrentRevisionReviewStatesAction(input: {
+  artifacts: readonly { artifactId: string; revisionNo: number }[];
+}): Promise<ArtifactCurrentReviewStates> {
+  const tenant = await resolveTenantContext();
+  return readCurrentRevisionReviewStates(tenant, input.artifacts);
 }
 
 /**

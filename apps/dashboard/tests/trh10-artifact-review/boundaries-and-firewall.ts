@@ -171,7 +171,12 @@ function main(): void {
     assert.ok(!/>\s*Approve\s*</.test(card), "no bare Approve control exists");
 
     assert.match(ARTIFACT_REVIEW_PUBLICATION_NOTICE, /not publication authorization/i);
-    assert.match(ARTIFACT_REVIEW_PUBLICATION_NOTICE, /no provider is connected/i);
+    /*
+     * CGO-8 corrected this sentence. "No provider is connected" became false when Instagram OAuth and
+     * YouTube observation shipped; what stays true, and is what a reviewer needs, is that no
+     * capability exists that could publish what they accept.
+     */
+    assert.match(ARTIFACT_REVIEW_PUBLICATION_NOTICE, /no provider capability that can publish/i);
     assert.match(ARTIFACT_REVIEW_REVISION_SCOPE_NOTICE, /only to the displayed revision/i);
     assert.match(ARTIFACT_REVIEW_ACCEPT_EFFECT, /this exact revision/);
     assert.ok(

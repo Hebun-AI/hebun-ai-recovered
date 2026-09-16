@@ -326,6 +326,8 @@ function main(): void {
         "acceptArtifactRevisionAction",
         "requestArtifactRevisionChangesAction",
         "readArtifactRevisionReviewStatesAction",
+        /* CGO-8's one read: the current-revision review state of a listing, in one batch. */
+        "readCurrentRevisionReviewStatesAction",
         "resolveWorkArtifactReferenceAction",
         "prepareWorkArtifactAction",
         /* REV-3's one read. */

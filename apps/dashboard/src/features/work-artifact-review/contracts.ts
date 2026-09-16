@@ -113,7 +113,7 @@ export const ARTIFACT_REVIEW_REJECT_NON_EFFECTS: readonly string[] = Object.free
 export const ARTIFACT_REVIEW_PUBLICATION_NOTICE =
   "Content acceptance is not publication authorization. Accepting this revision authorizes no " +
   "external act: publishing it would need its own action request, its own Governance decision and " +
-  "its own permit, and no provider is connected.";
+  "its own permit, and Hebun holds no provider capability that can publish.";
 
 /**
  * The version-scoping notice, mirroring K4's. A reviewer must not believe they blessed the artifact.
@@ -184,4 +184,46 @@ export interface ArtifactRevisionReviewState {
   readonly decisionId: string | null;
   /** How many decisions this revision has accumulated. Append-only history is visible, not hidden. */
   readonly decisionCount: number;
+}
+
+/**
+ * CGO-8 — the batched current-revision read. `unavailable` is its own answer: a ledger that could
+ * not be read must never be rendered as a revision nobody has decided about.
+ */
+export type ArtifactCurrentReviewStates =
+  | { readonly status: "read"; readonly states: Readonly<Record<string, ArtifactRevisionReviewState>> }
+  | { readonly status: "unavailable" };
+
+/** The four things a Prepared Work row may say about its current revision. Closed. */
+export type ArtifactRowReviewStatus =
+  | "awaiting-review"
+  | "changes-requested"
+  | "accepted"
+  | "unknown";
+
+export const ARTIFACT_ROW_REVIEW_LABELS: Readonly<Record<ArtifactRowReviewStatus, string>> =
+  Object.freeze({
+    "awaiting-review": "Awaiting review",
+    "changes-requested": "Changes requested",
+    accepted: "Accepted for next internal step",
+    unknown: "Review state unknown",
+  });
+
+/**
+ * PURE. What a row says about the current revision of one artifact.
+ *
+ * *Awaiting review* is claimed only when the ledger WAS read and holds no decision for that exact
+ * revision. An unreadable ledger, an unresolved revision, or a decision whose outcome this
+ * vocabulary does not recognise are all `unknown` — never quietly "awaiting", and never "accepted".
+ */
+export function artifactRowReviewStatus(
+  read: ArtifactCurrentReviewStates,
+  artifactId: string,
+): ArtifactRowReviewStatus {
+  if (read.status !== "read") return "unknown";
+  const state = read.states[artifactId];
+  if (!state) return "unknown";
+  if (state.decision === "accepted") return "accepted";
+  if (state.decision === "changes-requested") return "changes-requested";
+  return state.decisionCount === 0 ? "awaiting-review" : "unknown";
 }

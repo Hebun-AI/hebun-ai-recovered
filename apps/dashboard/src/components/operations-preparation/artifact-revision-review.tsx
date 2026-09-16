@@ -68,6 +68,7 @@ export function ArtifactRevisionReview({
   revisionNo,
   state,
   reviewable,
+  onDecided,
 }: {
   artifactId: string;
   revisionId: string;
@@ -75,6 +76,12 @@ export function ArtifactRevisionReview({
   state?: ArtifactRevisionReviewState;
   /** False when the reader may see the bytes but may not decide about them. */
   reviewable: boolean;
+  /**
+   * CGO-8. Called after a decision is RECORDED, so the owner re-reads the derived state from the
+   * Governance ledger. `router.refresh()` re-renders server data, but state a client component
+   * already holds would otherwise keep showing the answer from before the decision.
+   */
+  onDecided?: () => void | Promise<void>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -104,6 +111,7 @@ export function ArtifactRevisionReview({
       );
       setIntent(null);
       setJustification("");
+      await onDecided?.();
       router.refresh();
     });
   }

@@ -22,9 +22,9 @@
  *     DECLARED EVIDENCE != PURPOSE FACT != APPROVAL != USE != OUTCOME
  *
  * It does not say the artifact was created for that work, that anyone used it, that it was
- * reviewed, accepted or approved, or that the work progressed because of it. Hebun holds no review,
- * approval or rejection for prepared work at all — those states do not exist in the artifact
- * authority — and nothing here invents them.
+ * reviewed, accepted or approved, or that the work progressed because of it. The artifact authority
+ * holds no review state; a Governance review of a revision lives in the decision ledger
+ * (`work-artifact-review`), and nothing here reads, derives or invents it.
  *
  * ── CARDINALITY IS MANY, AND IS NOT COLLAPSED ────────────────────────────────
  *

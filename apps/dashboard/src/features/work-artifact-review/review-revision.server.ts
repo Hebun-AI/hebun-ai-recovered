@@ -48,6 +48,7 @@ import {
   ARTIFACT_REVIEW_REJECTED_OUTCOME,
   ARTIFACT_REVIEW_REJECT_TYPE,
   ARTIFACT_REVIEW_SUBJECT_TYPE,
+  type ArtifactCurrentReviewStates,
   type ArtifactRevisionReviewState,
   type ArtifactReviewDecision,
   type ArtifactReviewRefusal,
@@ -98,9 +99,11 @@ async function requireGovernanceAuthority(
   if (!authority.bootstrapDecisionId) throw new ReviewAbort("no-governance-authority");
   /*
    * THE AUTHORIZATION LINE THAT MATTERS. Preparing an artifact and deciding about it are different
-   * authorities: preparation is gated on the Knowledge/work authoring band, and that band grants
-   * nothing here. Only the human established by the tenant's bootstrap decision may review — so the
-   * author of a draft, if they are not the Governance authority, is refused.
+   * authorities: authoring a draft grants nothing here. Only a human who holds this tenant's
+   * Governance authority may review, exactly as `resolveGovernanceAuthority` defines it — the human
+   * established by the bootstrap decision, or a human named by an ACTIVE delegation of that
+   * authority (G3). The author of a draft who holds neither is refused. This module widens nothing:
+   * it reads the released resolver's answer and adds no path of its own.
    */
   if (!authority.authorized) throw new ReviewAbort("not-the-governance-authority");
   return authority;
@@ -324,25 +327,125 @@ export async function readArtifactRevisionReviewStates(
       )
       .orderBy(desc(decisionRecords.decidedAt));
 
-    return revisions.map((revision) => {
-      const mine = decisions.filter((d) => d.subjectId === revision.id);
-      const latest = mine[0];
-      return {
-        revisionId: revision.id,
-        revisionNo: revision.revisionNo,
-        decision: latest
-          ? latest.outcome === ARTIFACT_REVIEW_ACCEPTED_OUTCOME
-            ? ("accepted" as const)
-            : latest.outcome === ARTIFACT_REVIEW_REJECTED_OUTCOME
-              ? ("changes-requested" as const)
-              : null
-          : null,
-        decidedAt: latest?.decidedAt ? new Date(latest.decidedAt).toISOString() : null,
-        decisionId: latest?.decisionId ?? null,
-        decisionCount: mine.length,
-      };
-    });
+    return deriveReviewStates(revisions, decisions);
   } catch {
     return [];
+  }
+}
+
+interface RevisionRow {
+  readonly id: string;
+  readonly revisionNo: number;
+}
+
+interface DecisionRow {
+  readonly subjectId: string | null;
+  readonly decisionId: string;
+  readonly outcome: string | null;
+  readonly decidedAt: Date | string | null;
+}
+
+/**
+ * THE ONE DERIVATION. Both readers call it, so "the current review state of a revision" cannot mean
+ * two things. `decisions` must be ordered newest-first; the latest decision for a revision wins and
+ * every earlier one is still counted.
+ */
+function deriveReviewStates(
+  revisions: readonly RevisionRow[],
+  decisions: readonly DecisionRow[],
+): readonly ArtifactRevisionReviewState[] {
+  return revisions.map((revision) => {
+    const mine = decisions.filter((d) => d.subjectId === revision.id);
+    const latest = mine[0];
+    return {
+      revisionId: revision.id,
+      revisionNo: revision.revisionNo,
+      decision: latest
+        ? latest.outcome === ARTIFACT_REVIEW_ACCEPTED_OUTCOME
+          ? ("accepted" as const)
+          : latest.outcome === ARTIFACT_REVIEW_REJECTED_OUTCOME
+            ? ("changes-requested" as const)
+            : null
+        : null,
+      decidedAt: latest?.decidedAt ? new Date(latest.decidedAt).toISOString() : null,
+      decisionId: latest?.decisionId ?? null,
+      decisionCount: mine.length,
+    };
+  });
+}
+
+/**
+ * CGO-8 — the derived review state of the CURRENT revision of many artifacts, in two queries.
+ *
+ * The same tenant predicate, the same subject type and the same derivation as
+ * `readArtifactRevisionReviewStates`; only the fan-out changed, so a listing does not issue one pair
+ * of queries per row. It reads the revision table and the Governance ledger, and writes nothing.
+ *
+ * ── A FAILED READ IS NOT "UNREVIEWED" ────────────────────────────────────────
+ *
+ * The per-artifact reader answers `[]` on failure, which a caller cannot tell apart from "no
+ * decisions". A row claiming *Awaiting review* while the ledger was unreadable would be a
+ * statement about Governance that nobody checked, so this reader says `unavailable` instead, and an
+ * artifact whose current revision did not resolve is simply absent from `states`.
+ */
+export async function readCurrentRevisionReviewStates(
+  tenant: TenantContext | null,
+  artifacts: readonly { readonly artifactId: string; readonly revisionNo: number }[],
+  deps: ArtifactReviewDeps = {},
+): Promise<ArtifactCurrentReviewStates> {
+  if (!tenant?.tenantId) return { status: "unavailable" };
+  if (artifacts.length === 0) return { status: "read", states: {} };
+  const db = (deps.getDb ?? resolveReviewDbOrNull)();
+  if (!db) return { status: "unavailable" };
+
+  try {
+    const artifactIds = [...new Set(artifacts.map((a) => a.artifactId))];
+    const rows = await db
+      .select({
+        id: workArtifactRevisions.id,
+        revisionNo: workArtifactRevisions.revisionNo,
+        artifactId: workArtifactRevisions.artifactId,
+      })
+      .from(workArtifactRevisions)
+      .where(
+        and(
+          eq(workArtifactRevisions.tenantId, tenant.tenantId),
+          sql`${workArtifactRevisions.artifactId} in ${artifactIds}`,
+        ),
+      );
+
+    const current = new Map<string, RevisionRow>();
+    for (const artifact of artifacts) {
+      const row = rows.find(
+        (r) => r.artifactId === artifact.artifactId && r.revisionNo === artifact.revisionNo,
+      );
+      if (row) current.set(artifact.artifactId, { id: row.id, revisionNo: row.revisionNo });
+    }
+    if (current.size === 0) return { status: "read", states: {} };
+
+    const decisions = await db
+      .select({
+        subjectId: decisionRecords.subjectId,
+        decisionId: decisionRecords.id,
+        outcome: decisionRecords.outcome,
+        decidedAt: decisionRecords.decidedAt,
+      })
+      .from(decisionRecords)
+      .where(
+        and(
+          eq(decisionRecords.tenantId, tenant.tenantId),
+          eq(decisionRecords.subjectType, ARTIFACT_REVIEW_SUBJECT_TYPE),
+          sql`${decisionRecords.subjectId} in ${[...current.values()].map((r) => r.id)}`,
+        ),
+      )
+      .orderBy(desc(decisionRecords.decidedAt));
+
+    const states: Record<string, ArtifactRevisionReviewState> = {};
+    for (const [artifactId, revision] of current) {
+      states[artifactId] = deriveReviewStates([revision], decisions)[0]!;
+    }
+    return { status: "read", states };
+  } catch {
+    return { status: "unavailable" };
   }
 }
