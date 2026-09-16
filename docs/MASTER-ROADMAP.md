@@ -4261,6 +4261,33 @@ vocabulary, and nothing below is a committed name:
 > module cycle in the schema source layer — out of scope here. Recorded as an open repository-level
 > blocker, owned by no phase yet.
 
+> **SCHEMA MODULE CYCLE RELIABILITY — PRODUCTION-ACCEPTED 2026-09-16.** The blocker above is closed.
+> Nothing above is rewritten; two of its claims are corrected here.
+>
+> **Correction 1: the cycle was larger than `_base`/`company`.** It was a six-module strongly connected
+> component, `{_base, company, organization, department, agent, registry}`. `_base` imported
+> `company` for the `tenantColumns.tenantId → companies.id` reference; `company` imported `_base`
+> (`rootColumns`) and four tenant tables (for `companiesRelations`), each of which spreads
+> `tenantColumns` from a `_base` that has not finished evaluating yet. Cutting only the `rootColumns`
+> edge was measured and still failed (55 of 64 schema modules threw on a cold load). Both edges had
+> to go: `rootColumns` → `_root-columns.ts` (re-exported by `_base`), and `companiesRelations` →
+> `company-relations.ts` (re-exported by the barrel; relations emit no SQL).
+>
+> **Correction 2: the seven `import "@/db/schema"` lines were mitigations, not the repair.** Four came
+> from `cf403393` (delivery and issuance scan paths) and three from `c416d654`
+> (standing-mutation-authority). They forced the barrel to load before a table was read, which
+> changed the evaluation order without removing the cycle. `0d7d7d89` removes the cycle itself and
+> removes all seven lines as no longer needed.
+>
+> | State | Answer | Evidence |
+> |---|---|---|
+> | IMPLEMENTED | YES | 13 files. Schema modules that fail on a cold load: 55/64 → 0/66. Runtime modules with a TDZ error: 36/105 → 0. Controlled `next build` (both arms without the mitigations, differing only in the cycle): control 6 TDZ failures in 15 builds, repair 0 in 15. Suite 777/0, `tsc` 0, DDL byte-identical, drizzle-kit "No schema changes". |
+> | COMMITTED | YES | `0d7d7d89ea8585701f7c953322bf67b98d2aa475` on `fix/schema-module-cycle`, parent `e96dd365`. |
+> | RELEASED | YES | `origin/main` fast-forwarded `e96dd365..0d7d7d89` by the Director. No merge commit. |
+> | DEPLOYED | YES | `dpl_DQGoZ77wCiFWKQ8D4EDs9Gk6jfrx`, automatic, READY `2026-09-16T12:22Z`, bound to `0d7d7d89` (build log and `githubCommitSha` filter), aliased to `www.hebuntech.com`. No migration: none created or applied. |
+> | NATURALLY EXECUTED | YES | Natural ticks, HTTP 200, on this deployment. `13:00Z`: observation `13:00:18.431`, standing-issuance `13:00:43.419`, machine-delivery `13:00:47.188`. `14:00Z`: `14:00:18.080`, `14:00:43.287`, `14:00:47.241`. No manual invocation. |
+> | PRODUCTION-VERIFIED | YES | Runtime logs since deploy: 0 matches for `before initialization`, 0 for `tenantColumns`, 0 responses 5xx. The same query over the 48h before the deploy found 16 historical TDZ 500s on the scan routes (positive control). Read-only production read (`read_only = on`): the `14:00Z` tick persisted a real observation, `instagram.account.public.read`, `observed_at 14:00:19.789Z`, `recorded_at 14:00:19.792Z`. `machine-internal-execution` stayed `director_enabled = false`, version **8**, `production-operator-ceremony`. |
+
 **The first action should be `record-work`, not `place-human-in-department` and not the email.**
 Ranked on consequence rather than on which executor already exists: `record-work` writes one row in
 one transaction with the permit spend, touches no second human, has no provider, no adapter, no
