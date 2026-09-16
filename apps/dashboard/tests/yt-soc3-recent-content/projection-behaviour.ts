@@ -188,7 +188,8 @@ function main(): void {
 
   /* ═══ 9. MALFORMED SHAPES ═══════════════════════════════════════════════ */
   const junk = projectLatestYouTubeRecentVideos(
-    readOf(stored({ recentVideoCount: 3, recentVideos: [null, "x", [1], { title: 5, viewCount: "10", likeCount: Number.NaN }] })),
+    /* Deliberately outside the facts type: this is the malformed storage the projection must survive. */
+    readOf(stored({ recentVideoCount: 3, recentVideos: [null, "x", [1], { title: 5, viewCount: "10", likeCount: Number.NaN }] } as unknown as ObservationFacts)),
   );
   assert.equal(junk.status, "observed");
   if (junk.status !== "observed") return;
