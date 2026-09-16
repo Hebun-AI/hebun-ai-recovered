@@ -294,3 +294,8 @@ needs persistence, and the first that could manufacture a trend — it is named 
 phase decides it deliberately rather than drifting into it.
 
 CGO-8 has not been selected, scoped, or started.
+
+> **SUPERSEDED 2026-09-16.** The review surface this section says is missing already existed:
+> OPS-P1 and REV-1..3 render prepared artifacts on `/operations`, and TRH-10 records Governance review
+> per revision. The remaining gap was closed by **CGO-8**, which is RELEASED and PRODUCTION-ACCEPTED at
+> `0a4daf2ef0f3400b6443aaf52255779e0ad4eeae`. See `hebun-cgo8-prepared-content-review-legibility-closure.md`.
