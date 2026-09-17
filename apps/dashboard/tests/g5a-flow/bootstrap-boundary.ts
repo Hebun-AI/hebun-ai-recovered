@@ -540,6 +540,7 @@ function noSchemaNoRegression(): void {
       "20260915100638_rung2_standing_mutation_authorization.sql",
       /* MEDIA-1 — `media_generation_invocations`, `media_assets` and the `media-asset-review` governance domain. */
       "20260917001519_media1_media_asset_authority.sql",
+      "20260917135027_media2a_live_image_transport.sql",
     ],
     "G5A authored no migration; what follows is a declared later phase",
   );

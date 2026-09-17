@@ -38,6 +38,7 @@ import { MACHINE_EXECUTABLE_ACTION_KINDS } from "../../src/features/governed-mac
 import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/contracts";
 import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 import { OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
+import { OPENAI_IMAGE_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/openai-image-control";
 
 const ROOT = process.cwd();
 const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
@@ -134,6 +135,8 @@ const GENERIC = "scripts/provider-connectivity.ts";
   );
   assert.equal(resolveGenericProductionReach(CLAUDE_PROVIDER_KEY).status, "reachable");
   assert.equal(resolveGenericProductionReach(OBSERVATION_READ_CONTROL_KEY).status, "reachable");
+  /* MEDIA-2A: paid image generation has no production decision yet — refused, and no dedicated gate. */
+  assert.deepEqual(resolveGenericProductionReach(OPENAI_IMAGE_GENERATION_CONTROL_KEY), { status: "refused", dedicatedCommand: null });
 
   const send = resolveGenericProductionReach(EXTERNAL_SEND_PROVIDER_KEY);
   assert.equal(send.status, "refused", "ESA's refusal survives the reshaping");
@@ -190,8 +193,10 @@ const GENERIC = "scripts/provider-connectivity.ts";
       EXTERNAL_SEND_PROVIDER_KEY,
       OBSERVATION_READ_CONTROL_KEY,
       MACHINE_INTERNAL_EXECUTION_CONTROL_KEY,
+      /* MEDIA-2A: expressible for local arming; refused in production until MEDIA-2B. */
+      OPENAI_IMAGE_GENERATION_CONTROL_KEY,
     ].sort(),
-    "exactly the four control keys the repository defines",
+    "exactly the five control keys the repository defines",
   );
   assert.ok(Object.isFrozen(PROVIDER_KEYS) && Object.isFrozen(GENERIC_PRODUCTION_REACHABLE_KEYS));
   assert.ok(Object.isFrozen(DEDICATED_PRODUCTION_CEREMONIES));

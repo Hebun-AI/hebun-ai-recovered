@@ -5,15 +5,16 @@
  * that output: its declared content type is only ever used to refuse a mismatch, and any URL it
  * returns is followed once, inside `allowedDownloadHosts`, then discarded.
  *
- * ── `transport: "fake"` IS A TYPE, NOT A CONVENTION ─────────────────────────
+ * ── `transport` IS A CLOSED TYPE, NOT A CONVENTION ──────────────────────────
  *
- * MEDIA-1 admits no live provider. The literal type makes a live transport unrepresentable at compile
- * time, and `media_generation_invocations_transport_chk` makes it unwritable at runtime. Adding a real
- * provider is a gate that must widen both, deliberately.
+ * MEDIA-1 admitted only `fake`. MEDIA-2A widened the type and
+ * `media_generation_invocations_transport_chk` together to `fake | live`, deliberately. A transport
+ * is still only a transport: it returns bytes (or reports a closed failure code); it never writes a
+ * row, never stores bytes, and never decides admission.
  *
  * Pure types. No I/O.
  */
-import type { MEDIA_GENERATION_TRANSPORT } from "./contracts";
+import type { MediaGenerationTransportKind, MediaProviderFailure, MediaProviderUsage } from "./contracts";
 
 export type MediaGenerationOutput =
   | {
@@ -33,14 +34,17 @@ export type MediaGenerationOutcome =
       readonly status: "succeeded";
       readonly providerJobId: string | null;
       readonly output: MediaGenerationOutput;
+      readonly usage: MediaProviderUsage | null;
     }
   | {
       readonly status: "failed";
       readonly providerJobId: string | null;
+      readonly failure: Exclude<MediaProviderFailure, "dispatch-error">;
+      readonly usage: MediaProviderUsage | null;
     };
 
 export interface MediaGenerationTransport {
-  readonly transport: typeof MEDIA_GENERATION_TRANSPORT;
+  readonly transport: MediaGenerationTransportKind;
   readonly provider: string;
   readonly model: string;
   /** Exact lowercase hostnames a returned URL may point at. Empty means URLs are refused. */
@@ -48,9 +52,14 @@ export interface MediaGenerationTransport {
   generate(input: {
     readonly promptText: string;
     readonly inputDigest: string;
+    /** The registered invocation's id — a correlation id only, never an idempotency key. */
+    readonly invocationId: string;
   }): Promise<MediaGenerationOutcome>;
 }
 
 export type MediaGenerationTransportResolution =
   | { readonly status: "available"; readonly transport: MediaGenerationTransport }
-  | { readonly status: "unavailable"; readonly reason: "no-generation-provider" };
+  | {
+      readonly status: "unavailable";
+      readonly reason: "no-generation-provider" | "generation-misconfigured" | "generation-disabled";
+    };

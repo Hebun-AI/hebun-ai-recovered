@@ -23,7 +23,7 @@
  * ── MEDIA-1 BOUNDARIES THAT ARE VALUES, SO A TEST CAN ASSERT THEM ────────────
  *
  *   image only         PNG, JPEG, WebP — no video, no SVG, no GIF
- *   fake transport     the only representable transport is `fake`
+ *   transports         `fake` and, since MEDIA-2A, `live` (OpenAI GPT Image, text-to-image only)
  *   storage            the resolver answers `unavailable` unless the VPS store is fully configured
  *   no human door      no route, action or surface reaches this authority
  *
@@ -56,8 +56,47 @@ export const MEDIA_DOWNLOAD_LIMITS = Object.freeze({
   maxRedirects: 2,
 });
 
-/** The one transport MEDIA-1 can record. Mirrored by `media_generation_invocations_transport_chk`. */
-export const MEDIA_GENERATION_TRANSPORT = "fake" as const;
+/** The transport kinds that can be recorded. Mirrored by `media_generation_invocations_transport_chk`. */
+export const MEDIA_GENERATION_TRANSPORTS = Object.freeze(["fake", "live"] as const);
+
+export type MediaGenerationTransportKind = (typeof MEDIA_GENERATION_TRANSPORTS)[number];
+
+/**
+ * Why a transport reported that no image came back (MEDIA-2A). Recorded on the invocation as
+ * `provider_failure`; mirrored by `media_generation_invocations_provider_failure_chk`.
+ *
+ *   authentication-failed   the provider refused the credential (401/403)
+ *   request-rejected        the provider refused the request for another client-side reason (4xx)
+ *   moderation-blocked      the provider's safety system refused the prompt or output
+ *   rate-limited            too many requests (429)
+ *   quota-exhausted         the provider account has no credit left (429, quota code)
+ *   timeout                 no complete answer inside the transport's deadline — the provider MAY
+ *                           still have generated and billed; nothing is retried
+ *   provider-unavailable    server error, overload, or no network path
+ *   malformed-response      a success status whose body is not the documented contract
+ *   budget-exhausted        the process live-call budget refused: NO request left Hebun
+ *   dispatch-error          the transport threw instead of reporting (state `dispatch-failed`)
+ */
+export const MEDIA_PROVIDER_FAILURES = Object.freeze([
+  "authentication-failed",
+  "request-rejected",
+  "moderation-blocked",
+  "rate-limited",
+  "quota-exhausted",
+  "timeout",
+  "provider-unavailable",
+  "malformed-response",
+  "budget-exhausted",
+  "dispatch-error",
+] as const);
+
+export type MediaProviderFailure = (typeof MEDIA_PROVIDER_FAILURES)[number];
+
+/** Provider-reported usage. Both counts or none. */
+export interface MediaProviderUsage {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+}
 
 export type MediaInvocationState =
   | "registered"
@@ -108,7 +147,7 @@ export type RequestMediaGenerationResult =
       readonly invocationId: string;
       readonly state: MediaInvocationState;
       readonly admissionOutcome: MediaAdmissionOutcome;
-      readonly failure: MediaAdmissionRefusal | MediaAdmissionFailure | null;
+      readonly failure: MediaAdmissionRefusal | MediaAdmissionFailure | MediaProviderFailure | null;
     }
   | {
       readonly status: "admitted";

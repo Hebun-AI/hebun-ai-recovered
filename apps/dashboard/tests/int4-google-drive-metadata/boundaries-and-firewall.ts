@@ -131,6 +131,12 @@ function main(): void {
          * the deployed runtime reaches the VPS store. Redirects refused, timed out.
          */
         "src/features/media-storage-acceptance/run-storage-acceptance.server.ts",
+        /*
+         * MEDIA-2A — the OpenAI GPT Image transport. One fixed official endpoint
+         * (https://api.openai.com/v1/images/generations), redirects refused, timed out, reached only
+         * through the generation resolver, and only when the Director control is ON.
+         */
+        "src/features/media-generation-live/openai-image-transport.server.ts",
       ].sort(),
       "every outbound-HTTP module in src is a named transport",
     );

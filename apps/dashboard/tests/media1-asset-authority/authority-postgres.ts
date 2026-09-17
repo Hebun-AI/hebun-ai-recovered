@@ -36,6 +36,8 @@ import {
 } from "../../src/features/media-asset-review/review-media-asset.server";
 import type { MediaStorageResolution } from "../../src/features/media-assets/media-object-store";
 import { createVpsMediaObjectStore } from "../../src/features/media-assets/vps-media-object-store.server";
+import { createOpenAiImageTransport } from "../../src/features/media-generation-live/openai-image-transport.server";
+import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import { startLocalVpsStore } from "../helpers/media-vps-store-process";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
@@ -469,7 +471,8 @@ async function main(): Promise<void> {
          values ('${tenantId}', gen_random_uuid(), '${actorType}', '${alice.userId}', '${agentId}',
                  '${artifactId}', 1, 'p', repeat('a', 64), '${transportName}', 'p', 'm', 'registered', now())`;
       void base;
-      await expectDbRefusal(setup, "a live transport", insertInvocation("live", "human"), []);
+      /* MEDIA-2A widened the CHECK to exactly `fake | live`; any other transport kind stays unwritable. */
+      await expectDbRefusal(setup, "an unknown transport kind", insertInvocation("openai", "human"), []);
       await expectDbRefusal(setup, "an agent-originated request", insertInvocation("fake", "agent"), []);
       await expectDbRefusal(setup, "a source revision from another tenant", insertInvocation("fake", "human", alice.tenantId, foreignDraft.artifactId), []);
       await expectDbRefusal(
@@ -685,6 +688,136 @@ async function main(): Promise<void> {
       } finally {
         await local.dispose();
       }
+    }
+
+    /* ── 16. MEDIA-2A: THE LIVE OPENAI TRANSPORT THROUGH THE SAME AUTHORITY (fake HTTP) ─ */
+    {
+      const liveStore = createMemoryMediaObjectStore();
+      const liveStorage = (): MediaStorageResolution => ({ status: "available", store: liveStore });
+      let fetches = 0;
+      let respond: () => Response | Promise<Response> = () => new Response("", { status: 500 });
+      const budget = createLiveSpendBudget(20);
+      const live = createOpenAiImageTransport({
+        apiKey: "sk-test-not-a-real-key-000000000000000000",
+        spendBudget: budget,
+        fetchImpl: async () => {
+          fetches += 1;
+          return respond();
+        },
+      });
+      const liveDeps = (overrides: Record<string, unknown> = {}) =>
+        deps({ resolveStorage: liveStorage, resolveTransport: async () => ({ status: "available" as const, transport: live }), ...overrides });
+      const b64 = (b: Uint8Array) => Buffer.from(b).toString("base64");
+      const row = async (id: string) => (await setup.query(`select * from media_generation_invocations where id = $1`, [id])).rows[0];
+
+      /* success: provenance, request id, usage, admitted through storage */
+      const liveBytes = pngBytes(1024, 1024, 128);
+      respond = () =>
+        new Response(JSON.stringify({ data: [{ b64_json: b64(liveBytes) }], usage: { input_tokens: 21, output_tokens: 1056 } }), {
+          status: 200,
+          headers: { "x-request-id": "req_live_ok" },
+        });
+      const liveKey = randomUUID();
+      const okResult = await requestMediaGeneration(aliceCtx, ask(liveKey), liveDeps());
+      assert.equal(okResult.status, "admitted");
+      if (okResult.status !== "admitted") throw new Error("unreachable");
+      const okRow = await row(okResult.invocationId);
+      assert.deepEqual(
+        [okRow.transport, okRow.provider, okRow.model, okRow.provider_job_id, okRow.provider_failure, okRow.provider_input_tokens, okRow.provider_output_tokens],
+        ["live", "openai", "gpt-image-2.5-flare-2026-09-08", "req_live_ok", null, 21, 1056],
+      );
+      assert.equal(
+        okRow.input_digest,
+        digestMediaGenerationInput({
+          promptText: PROMPT, sourceArtifactId: draft.artifactId, sourceRevisionNo: 1, sourceContentDigest: draft.digest,
+          transport: "live", provider: "openai", model: "gpt-image-2.5-flare-2026-09-08",
+        }),
+        "the digest binds the live transport identity",
+      );
+      const okAsset = (await setup.query(`select * from media_assets where id = $1`, [okResult.assetId])).rows[0];
+      assert.equal(okAsset.byte_digest, sha(liveBytes));
+      assert.ok(liveStore.objects.has(String(okAsset.storage_key)), "provider bytes became an asset only through the storage port");
+
+      /* the same request key never reaches the provider again */
+      const before = fetches;
+      assert.deepEqual(await requestMediaGeneration(aliceCtx, ask(liveKey), liveDeps()), { status: "refused", reason: "duplicate-request" });
+      assert.equal(fetches, before, "duplicate request key: no second paid call");
+
+      /* every provider failure is recorded by closed code, with no asset and no storage write */
+      const failures: [string, () => Response | Promise<Response>, string, string | null, number | null][] = [
+        ["moderation", () => new Response(JSON.stringify({ error: { code: "moderation_blocked" } }), { status: 400, headers: { "x-request-id": "req_mod" } }), "moderation-blocked", "req_mod", null],
+        ["auth", () => new Response(JSON.stringify({ error: { code: "invalid_api_key" } }), { status: 401 }), "authentication-failed", null, null],
+        ["rate", () => new Response("{}", { status: 429 }), "rate-limited", null, null],
+        ["quota", () => new Response(JSON.stringify({ error: { code: "credit_balance_exhausted" } }), { status: 429 }), "quota-exhausted", null, null],
+        ["timeout", () => Promise.reject(Object.assign(new Error("t"), { name: "TimeoutError" })), "timeout", null, null],
+        ["server", () => new Response("{}", { status: 503 }), "provider-unavailable", null, null],
+        ["malformed", () => new Response(JSON.stringify({ data: [{ url: "https://evil.example/a.png" }], usage: { input_tokens: 5, output_tokens: 0 } }), { status: 200 }), "malformed-response", null, 5],
+      ];
+      for (const [label, r, code, requestId, inputTokens] of failures) {
+        respond = r;
+        const [a0, p0, f0] = [await assets(), liveStore.puts.length, fetches];
+        const result = await requestMediaGeneration(aliceCtx, ask(), liveDeps());
+        assert.equal(result.status, "not-admitted", label);
+        if (result.status !== "not-admitted") throw new Error("unreachable");
+        assert.deepEqual([result.state, result.admissionOutcome, result.failure], ["provider-failed", "not-attempted", code], label);
+        const failedRow = await row(result.invocationId);
+        assert.deepEqual(
+          [failedRow.state, failedRow.provider_failure, failedRow.admission_failure, failedRow.provider_job_id, failedRow.provider_input_tokens],
+          ["provider-failed", code, null, requestId, inputTokens],
+          label,
+        );
+        assert.ok(failedRow.finalized_at, `${label}: finalized`);
+        assert.equal(await assets(), a0, `${label}: no asset`);
+        assert.equal(liveStore.puts.length, p0, `${label}: storage untouched`);
+        assert.equal(fetches, f0 + 1, `${label}: exactly one request, no retry`);
+      }
+
+      /* oversized provider bytes: the transport hands them on, ADMISSION refuses them */
+      const oversized = new Uint8Array(21 * 1024 * 1024);
+      oversized.set(pngBytes(1024, 1024));
+      respond = () => new Response(JSON.stringify({ data: [{ b64_json: b64(oversized) }] }), { status: 200 });
+      const big = await requestMediaGeneration(aliceCtx, ask(), liveDeps());
+      assert.equal(big.status === "not-admitted" ? `${big.state}/${big.admissionOutcome}/${big.failure}` : big.status, "provider-succeeded/refused/byte-size-exceeded");
+      respond = () => new Response(JSON.stringify({ data: [{ b64_json: b64(svgBytes()) }] }), { status: 200 });
+      const svg = await requestMediaGeneration(aliceCtx, ask(), liveDeps());
+      assert.equal(svg.status === "not-admitted" ? svg.failure : svg.status, "unsupported-image-signature", "magic bytes decide, not the declared png");
+
+      /* budget exhausted: recorded, and nothing left the process */
+      const spentOut = createOpenAiImageTransport({ apiKey: "sk-test-not-a-real-key-000000000000000000", spendBudget: createLiveSpendBudget(0), fetchImpl: async () => { fetches += 1; return new Response("{}"); } });
+      const f1 = fetches;
+      const exhausted = await requestMediaGeneration(aliceCtx, ask(), deps({ resolveStorage: liveStorage, resolveTransport: async () => ({ status: "available" as const, transport: spentOut }) }));
+      assert.equal(exhausted.status === "not-admitted" ? exhausted.failure : exhausted.status, "budget-exhausted");
+      assert.equal(fetches, f1, "budget exhausted: no request");
+
+      /* a transport that throws is dispatch-failed / dispatch-error */
+      const throwing = { ...live, generate: async () => { throw new Error("boom"); } };
+      const thrown = await requestMediaGeneration(aliceCtx, ask(), deps({ resolveStorage: liveStorage, resolveTransport: async () => ({ status: "available" as const, transport: throwing }) }));
+      assert.equal(thrown.status === "not-admitted" ? `${thrown.state}/${thrown.failure}` : thrown.status, "dispatch-failed/dispatch-error");
+
+      /* a transport reporting a code outside the closed set is recorded malformed-response */
+      const lying = { ...live, generate: async () => ({ status: "failed" as const, providerJobId: null, failure: "totally-fine" as never, usage: null }) };
+      const lied = await requestMediaGeneration(aliceCtx, ask(), deps({ resolveStorage: liveStorage, resolveTransport: async () => ({ status: "available" as const, transport: lying }) }));
+      assert.equal(lied.status === "not-admitted" ? lied.failure : lied.status, "malformed-response");
+
+      /* a resolver that is unavailable or throws writes nothing */
+      await refusedInPreflight("live transport disabled", () => requestMediaGeneration(aliceCtx, ask(), deps({ resolveTransport: async () => ({ status: "unavailable" as const, reason: "generation-disabled" as const }) })), "generation-transport-unavailable");
+      await refusedInPreflight("live resolver throws", () => requestMediaGeneration(aliceCtx, ask(), deps({ resolveTransport: async () => { throw new Error("db down"); } })), "generation-transport-unavailable");
+
+      /* the database refuses provenance the code would never write */
+      const anyInvocation = okResult.invocationId;
+      const refusesUpdate = async (label: string, set: string) => {
+        await setup.query("savepoint media2a_chk");
+        await assert.rejects(setup.query(`update media_generation_invocations set ${set} where id = $1`, [anyInvocation]), /violates check constraint/, label);
+        await setup.query("rollback to savepoint media2a_chk");
+      };
+      await setup.query("begin");
+      await refusesUpdate("unknown transport", "transport = 'openai-direct'");
+      await refusesUpdate("unknown failure code", "state = 'provider-failed', admission_outcome = 'not-attempted', provider_failure = 'fine'");
+      await refusesUpdate("failure code on a success", "provider_failure = 'timeout'");
+      await refusesUpdate("failure state without a code", "state = 'provider-failed', admission_outcome = 'not-attempted', provider_failure = null");
+      await refusesUpdate("half usage", "provider_output_tokens = null");
+      await refusesUpdate("negative usage", "provider_input_tokens = -1");
+      await setup.query("rollback");
     }
 
     /* ── 14. A RETIRED DURABLE AGENT STOPS GENERATION BEFORE ANYTHING IS WRITTEN ─ */

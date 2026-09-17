@@ -26,8 +26,10 @@
  *
  * ── AFTER DISPATCH ───────────────────────────────────────────────────────────
  *
- *   9.  transport throws            → state dispatch-failed         (finalized, no admission)
- *       transport reports failure   → state provider-failed         (finalized, no admission)
+ *   9.  transport throws            → state dispatch-failed, provider_failure dispatch-error
+ *       transport reports failure   → state provider-failed, provider_failure = its closed code
+ *                                     (a code outside the closed set is recorded malformed-response)
+ *       every finalization after dispatch records the provider-reported token usage, if any
  *       transport succeeds          → state provider-succeeded, provider job id recorded
  *   10. obtain bytes (inline, or ONE bounded download inside the transport's allowlist)
  *   11. verify bytes (size, magic bytes, declared-type agreement, dimensions, SHA-256)
@@ -58,13 +60,16 @@ import { resolveAgentAuthorship } from "@/features/work-artifacts/agent-authorsh
 import { verifyAdmissibleImage } from "./admission-verification";
 import {
   MEDIA_ASSET_LIMITS,
-  MEDIA_GENERATION_TRANSPORT,
+  MEDIA_GENERATION_TRANSPORTS,
+  MEDIA_PROVIDER_FAILURES,
   countCodePoints,
   isUuid,
   mediaAssetStorageKey,
   type MediaAdmissionFailure,
   type MediaAdmissionRefusal,
   type MediaGenerationRefusal,
+  type MediaProviderFailure,
+  type MediaProviderUsage,
   type RequestMediaGenerationInput,
   type RequestMediaGenerationResult,
 } from "./contracts";
@@ -79,8 +84,16 @@ export interface MediaGenerationDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly now?: () => Date;
   readonly resolveStorage?: () => MediaStorageResolution;
-  readonly resolveTransport?: () => MediaGenerationTransportResolution;
+  readonly resolveTransport?: () => MediaGenerationTransportResolution | Promise<MediaGenerationTransportResolution>;
   readonly download?: ProviderDownloadDeps;
+}
+
+function validUsage(value: MediaProviderUsage | null | undefined): MediaProviderUsage | null {
+  if (!value) return null;
+  const { inputTokens, outputTokens } = value;
+  if (!Number.isSafeInteger(inputTokens) || !Number.isSafeInteger(outputTokens)) return null;
+  if (inputTokens < 0 || outputTokens < 0 || inputTokens > 2_147_483_647 || outputTokens > 2_147_483_647) return null;
+  return { inputTokens, outputTokens };
 }
 
 function refused(reason: MediaGenerationRefusal): RequestMediaGenerationResult {
@@ -111,11 +124,18 @@ export async function requestMediaGeneration(
   const storage = (deps.resolveStorage ?? resolveMediaObjectStore)();
   if (storage.status !== "available") return refused("storage-unavailable");
 
-  const transportResolution = (deps.resolveTransport ?? resolveMediaGenerationTransport)();
+  let transportResolution: MediaGenerationTransportResolution;
+  try {
+    transportResolution = await (deps.resolveTransport ?? resolveMediaGenerationTransport)();
+  } catch {
+    return refused("generation-transport-unavailable");
+  }
   if (transportResolution.status !== "available") return refused("generation-transport-unavailable");
   const transport = transportResolution.transport;
   /* The type already forbids anything else; this line forbids it at runtime too. */
-  if (transport.transport !== MEDIA_GENERATION_TRANSPORT) return refused("generation-transport-unavailable");
+  if (!(MEDIA_GENERATION_TRANSPORTS as readonly string[]).includes(transport.transport)) {
+    return refused("generation-transport-unavailable");
+  }
 
   const db = (deps.getDb ?? resolveMediaDbOrNull)();
   if (!db) return refused("persistence-unavailable");
@@ -197,16 +217,33 @@ export async function requestMediaGeneration(
     eq(mediaGenerationInvocations.id, invocationId),
   );
 
+  /*
+   * Usage is recorded as the transport reported it on every finalization after dispatch; a provider
+   * failure carries its closed code in `provider_failure`, never in `admission_failure`. There is NO
+   * retry on any path: a second attempt is a new human request with a new request key.
+   */
+  let usage: MediaProviderUsage | null = null;
   const finalize = async (
     state: "dispatch-failed" | "provider-failed" | "provider-succeeded",
     admissionOutcome: "not-attempted" | "refused" | "failed",
-    failure: MediaAdmissionRefusal | MediaAdmissionFailure | null,
+    failure: MediaAdmissionRefusal | MediaAdmissionFailure | MediaProviderFailure | null,
     providerJobId: string | null,
   ): Promise<RequestMediaGenerationResult> => {
+    const providerFailure = state === "provider-succeeded" ? null : (failure as MediaProviderFailure);
+    const admissionFailure = state === "provider-succeeded" ? (failure as MediaAdmissionRefusal | MediaAdmissionFailure | null) : null;
     try {
       await db
         .update(mediaGenerationInvocations)
-        .set({ state, admissionOutcome, admissionFailure: failure, providerJobId, finalizedAt: now() })
+        .set({
+          state,
+          admissionOutcome,
+          admissionFailure,
+          providerFailure,
+          providerJobId,
+          providerInputTokens: usage?.inputTokens ?? null,
+          providerOutputTokens: usage?.outputTokens ?? null,
+          finalizedAt: now(),
+        })
         .where(and(thisInvocation, eq(mediaGenerationInvocations.state, "registered")));
     } catch {
       /* The attempt row stays `registered`; the result below is still the truth about this call. */
@@ -217,16 +254,22 @@ export async function requestMediaGeneration(
   /* ── Dispatch ─────────────────────────────────────────────────────────── */
   let outcome;
   try {
-    outcome = await transport.generate({ promptText: input.promptText, inputDigest });
+    outcome = await transport.generate({ promptText: input.promptText, inputDigest, invocationId });
   } catch {
-    return finalize("dispatch-failed", "not-attempted", null, null);
+    return finalize("dispatch-failed", "not-attempted", "dispatch-error", null);
   }
+  usage = validUsage(outcome.usage);
   const providerJobId =
     typeof outcome.providerJobId === "string" && outcome.providerJobId.length > 0
       ? outcome.providerJobId.slice(0, 256)
       : null;
   if (outcome.status !== "succeeded") {
-    return finalize("provider-failed", "not-attempted", null, providerJobId);
+    /* A transport that reports a code outside the closed set is itself malformed. */
+    const code =
+      (MEDIA_PROVIDER_FAILURES as readonly string[]).includes(outcome.failure) && (outcome.failure as string) !== "dispatch-error"
+        ? outcome.failure
+        : "malformed-response";
+    return finalize("provider-failed", "not-attempted", code, providerJobId);
   }
 
   /* ── Admission ────────────────────────────────────────────────────────── */
@@ -289,7 +332,10 @@ export async function requestMediaGeneration(
           state: "provider-succeeded",
           admissionOutcome: "admitted",
           admissionFailure: null,
+          providerFailure: null,
           providerJobId,
+          providerInputTokens: usage?.inputTokens ?? null,
+          providerOutputTokens: usage?.outputTokens ?? null,
           finalizedAt: admittedAt,
         })
         .where(and(thisInvocation, eq(mediaGenerationInvocations.state, "registered")))

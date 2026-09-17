@@ -132,8 +132,9 @@ function closedArguments(): void {
    */
   assert.deepEqual(
     [...PROVIDER_KEYS].sort(),
-    ["claude", "external-send", "machine-internal-execution", "provider-observation-read"],
-    "four control keys, each one blast radius, and no fifth",
+    ["claude", "external-send", "machine-internal-execution", "openai-image-generation", "provider-observation-read"],
+    /* MEDIA-2A added the fifth by value: OpenAI image generation, production-refused until MEDIA-2B. */
+    "five control keys, each one blast radius, and no sixth",
   );
   for (const bad of ["", "openai", "CLAUDE", "observation", "youtube", "machine-execution", undefined]) {
     assert.ok(!isProviderKey(bad as string), `${String(bad)} is not a provider key`);

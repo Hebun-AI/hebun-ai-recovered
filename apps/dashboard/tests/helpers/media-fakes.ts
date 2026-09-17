@@ -67,7 +67,7 @@ export type FakeBehaviour =
   | { readonly kind: "throw" };
 
 export interface FakeTransport extends MediaGenerationTransport {
-  readonly calls: { promptText: string; inputDigest: string }[];
+  readonly calls: { promptText: string; inputDigest: string; invocationId: string }[];
   behaviour: FakeBehaviour;
 }
 
@@ -80,22 +80,24 @@ export function createFakeMediaGenerationTransport(behaviour: FakeBehaviour): Fa
     calls: [],
     behaviour,
     async generate(input): Promise<MediaGenerationOutcome> {
-      transport.calls.push({ promptText: input.promptText, inputDigest: input.inputDigest });
+      transport.calls.push({ promptText: input.promptText, inputDigest: input.inputDigest, invocationId: input.invocationId });
       const b = transport.behaviour;
       const jobId = `fake-job-${transport.calls.length}`;
       if (b.kind === "throw") throw new Error("fake transport unreachable");
-      if (b.kind === "provider-failure") return { status: "failed", providerJobId: jobId };
+      if (b.kind === "provider-failure") return { status: "failed", providerJobId: jobId, failure: "provider-unavailable", usage: null };
       if (b.kind === "bytes") {
         return {
           status: "succeeded",
           providerJobId: jobId,
           output: { kind: "bytes", bytes: b.bytes, declaredContentType: b.declaredContentType ?? null },
+          usage: null,
         };
       }
       return {
         status: "succeeded",
         providerJobId: jobId,
         output: { kind: "url", url: b.url, declaredContentType: b.declaredContentType ?? null },
+        usage: null,
       };
     },
   };

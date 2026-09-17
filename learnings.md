@@ -4280,3 +4280,19 @@ exist is anything that would invoke it.
 - Weekly 3: learned to prove connectivity in the runtime that owns it; TRH gets a storage path for
   admitted rug imagery that is live and verified; Hebun AI gets the pattern "port acceptance ingress,
   then close by secret removal" for every future adapter.
+
+## MEDIA-2A OpenAI live image transport (inert) — 2026-09-17
+
+- One additive migration moved 58 count pins, 14 filename lists, 3 bite-proof journal tails, 3 16-hex
+  ledger digests, 6 release digests and the prodmig probe (73 failing files). Replaying the previous
+  migration's own pin diff line-by-line (git show <prev> -U0) is the fast, safe way through it — but an
+  "is this a list?" heuristic mis-fired on two `.at(-1)` equality asserts; check what follows the line.
+- `AbortSignal.timeout` is unref'd: with only a hung fake fetch pending, Node empties the loop and exits
+  0 mid-test. The `finished` exit guard caught it; tests of timeouts need a keep-alive timer.
+- A bite proof whose mutation is caught by an EARLIER assertion than intended is still a bite; name the
+  assertion that actually objects. And make the harness collect every result instead of dying at the first.
+- A response-size guard is untested if the oversized fixture is also invalid JSON — the parse failure
+  answers first. Oversized fixtures must be otherwise valid.
+- Weekly 3: learned that credential ≠ capability can be made structural (selection + key + Director row);
+  TRH gets a real, spend-bounded path to generated rug imagery once MEDIA-2B arms it; Hebun AI gets a
+  provider-transport pattern with closed failure provenance that later providers reuse unchanged.

@@ -31,11 +31,25 @@
  * that is not a PNG, JPEG or WebP image is representable. Video is a future migration, not a
  * nullable column waiting for it.
  *
- * ── MEDIA-1 IS FAKE-TRANSPORT-ONLY, AND THE SCHEMA SAYS SO ───────────────────
+ * ── TRANSPORT KINDS: `fake` AND, SINCE MEDIA-2A, `live` ─────────────────────────
  *
- * `transport` is CHECKed to `'fake'`. No live generation provider exists in this repository, and a
- * row claiming otherwise is unwritable rather than merely unwritten. Connecting a real provider is a
- * separate gate that must widen this constraint deliberately.
+ * MEDIA-1 CHECKed `transport` to `'fake'`, so a live row was unwritable. MEDIA-2A widens it to exactly
+ * `fake | live` — the one live transport being OpenAI GPT Image, text-to-image. Widening the CHECK
+ * authorizes nothing: a live transport is only ever resolved when its configuration is complete AND
+ * the Director connectivity control `openai-image-generation` is ON (default OFF).
+ *
+ * ── MEDIA-2A: WHY A FAILURE CODE AND TWO TOKEN COUNTS, AND NOTHING ELSE ───────────
+ *
+ * `provider_failure`: MEDIA-1 finalized `dispatch-failed` / `provider-failed` with no reason, and
+ * `admission_failure` may not carry one. Against a real provider "blocked by moderation", "rate
+ * limited", "quota exhausted", "authentication failed" and "timed out" are different facts with
+ * different remedies; recording them as one would be false legibility. Closed set, CHECKed.
+ *
+ * `provider_input_tokens` / `provider_output_tokens`: OpenAI prices GPT Image per token, not per
+ * image. Without them a paid call's spend is unmeasurable. Same two facts the live Claude path
+ * already records on `messages`. Nullable: a fake transport and a failed call report none.
+ *
+ * The provider's request identity reuses `provider_job_id` (OpenAI's `x-request-id`). No column added.
  *
  * ── NO PROVIDER URL IS EVER STORED ───────────────────────────────────────────
  *
@@ -100,8 +114,16 @@ export const mediaGenerationInvocations = pgTable(
     transport: text("transport").notNull(),
     provider: text("provider").notNull(),
     model: text("model").notNull(),
-    /** Null until and unless the provider returned one. */
+    /**
+     * The provider's own identity for this request or job — for OpenAI the `x-request-id` response
+     * header. Null until and unless the provider returned one.
+     */
     providerJobId: text("provider_job_id"),
+    /** A closed provider failure code; non-null exactly when the state is a dispatch/provider failure. */
+    providerFailure: text("provider_failure"),
+    /** Provider-reported usage, when it reported any. Both or neither. */
+    providerInputTokens: integer("provider_input_tokens"),
+    providerOutputTokens: integer("provider_output_tokens"),
 
     /** registered → dispatch-failed | provider-failed | provider-succeeded */
     state: text("state").notNull(),
@@ -159,7 +181,19 @@ export const mediaGenerationInvocations = pgTable(
       "media_generation_invocations_input_digest_chk",
       sql`${t.inputDigest} ~ '^[0-9a-f]{64}$'`,
     ),
-    check("media_generation_invocations_transport_chk", sql`${t.transport} = 'fake'`),
+    check("media_generation_invocations_transport_chk", sql`${t.transport} in ('fake','live')`),
+    check(
+      "media_generation_invocations_provider_failure_chk",
+      sql`${t.providerFailure} is null or ${t.providerFailure} in ('authentication-failed','request-rejected','moderation-blocked','rate-limited','quota-exhausted','timeout','provider-unavailable','malformed-response','budget-exhausted','dispatch-error')`,
+    ),
+    check(
+      "media_generation_invocations_provider_failure_state_chk",
+      sql`(${t.providerFailure} is not null) = (${t.state} in ('dispatch-failed','provider-failed'))`,
+    ),
+    check(
+      "media_generation_invocations_provider_usage_chk",
+      sql`(${t.providerInputTokens} is null) = (${t.providerOutputTokens} is null) and (${t.providerInputTokens} is null or (${t.providerInputTokens} >= 0 and ${t.providerOutputTokens} >= 0))`,
+    ),
     check(
       "media_generation_invocations_state_chk",
       sql`${t.state} in ('registered','dispatch-failed','provider-failed','provider-succeeded')`,

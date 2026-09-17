@@ -57,6 +57,7 @@ import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/
 import { isExternalSendConfigured } from "../../src/features/action-execution/execution-arming-projection.server";
 import { OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
 import { MACHINE_INTERNAL_EXECUTION_CONTROL_KEY } from "../../src/features/governed-machine-execution/machine-execution-control.server";
+import { OPENAI_IMAGE_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/openai-image-control";
 /*
  * The ceremony-source vocabulary, imported rather than restated. `CeremonySource` is the released
  * closed union G4 already defines for postures, and its two values are byte-identical to the
@@ -97,6 +98,13 @@ export const PROVIDER_KEYS: readonly string[] = Object.freeze([
   EXTERNAL_SEND_PROVIDER_KEY,
   OBSERVATION_READ_CONTROL_KEY,
   MACHINE_INTERNAL_EXECUTION_CONTROL_KEY,
+  /*
+   * MEDIA-2A: OpenAI image generation (paid, text-to-image). EXPRESSIBLE, so a local ceremony can arm
+   * and disarm it against a local database — and deliberately NOT in `GENERIC_PRODUCTION_REACHABLE_KEYS`
+   * nor in `DEDICATED_PRODUCTION_CEREMONIES`: no production decision has been taken, so production
+   * refuses it in both directions until MEDIA-2B. With no row, production reads it as OFF.
+   */
+  OPENAI_IMAGE_GENERATION_CONTROL_KEY,
 ]);
 
 /*

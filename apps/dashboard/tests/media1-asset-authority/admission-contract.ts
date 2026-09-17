@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import {
   MEDIA_ASSET_LIMITS,
   MEDIA_ASSET_MIME_TYPES,
-  MEDIA_GENERATION_TRANSPORT,
+  MEDIA_GENERATION_TRANSPORTS,
   mediaAssetStorageKey,
 } from "../../src/features/media-assets/contracts";
 import { readImageSignature } from "../../src/features/media-assets/image-signature";
@@ -149,9 +149,12 @@ async function main(): Promise<void> {
     process.env.AWS_REGION = "eu-central-1";
     process.env.HEBUN_MEDIA_BUCKET = "looks-configured";
     process.env.BLOB_READ_WRITE_TOKEN = "looks-configured";
+    /* A credential alone selects nothing: no transport selection, no provider (MEDIA-2A). */
+    process.env.OPENAI_API_KEY = "sk-looks-configured-0000000000000000";
+    process.env.HEBUN_OPENAI_IMAGE_API_KEY = "sk-looks-configured-0000000000000000";
     try {
       assert.deepEqual(resolveMediaObjectStore(), { status: "unavailable", reason: "storage-not-connected" });
-      assert.deepEqual(resolveMediaGenerationTransport(), { status: "unavailable", reason: "no-generation-provider" });
+      assert.deepEqual(await resolveMediaGenerationTransport(), { status: "unavailable", reason: "no-generation-provider" });
     } finally {
       for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key];
       Object.assign(process.env, saved);
@@ -165,7 +168,7 @@ async function main(): Promise<void> {
   {
     const fake = createFakeMediaGenerationTransport({ kind: "bytes", bytes: pngBytes(1, 1) });
     assert.equal(fake.transport, "fake");
-    assert.equal(MEDIA_GENERATION_TRANSPORT, "fake");
+    assert.deepEqual([...MEDIA_GENERATION_TRANSPORTS], ["fake", "live"]);
     assert.match(fake.provider, /fake/);
     assert.match(fake.model, /fake/);
     assert.ok(fake.allowedDownloadHosts.every((h) => h.endsWith(".invalid")), "fake hosts are unresolvable by RFC 2606");

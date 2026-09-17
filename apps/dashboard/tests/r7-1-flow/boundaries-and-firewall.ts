@@ -309,7 +309,7 @@ function noPersistence(): void {
       "20260911200000_self_service_signup_provenance",
       /* RUNG 2 PREREQUISITE — `tenant_machine_execution_authorizations`, one additive table plus the
          `machine-execution` governance domain. A declared later phase, */
-      "20260914120405_rung2_tenant_machine_execution_authorization", "20260915100638_rung2_standing_mutation_authorization", "20260917001519_media1_media_asset_authority"],
+      "20260914120405_rung2_tenant_machine_execution_authorization", "20260915100638_rung2_standing_mutation_authorization", "20260917001519_media1_media_asset_authority", "20260917135027_media2a_live_image_transport"],
     "R7.1 authored no migration; what follows is a declared later phase",
   );
   for (const name of newer) {

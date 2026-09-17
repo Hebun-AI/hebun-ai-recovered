@@ -213,7 +213,11 @@ async function main(): Promise<void> {
          * That this line moved at all is also the migration's first proof: the assertion above it
          * counted the full authored ledger on a database that applied every file including the new
          * one, so the SQL is valid against a real PostgreSQL rather than merely well-formed. */
-        "3296764e10a243fa621c03b0bfd3cbd7",
+        /* MEDIA-2A: migration 57 widens `media_generation_invocations_transport_chk` to fake|live and
+         * adds `provider_failure` and provider token usage, so the ledger grew and the digest moved —
+         * still on the DISPOSABLE database. PRODUCTION STANDS AT 56 (`3296764e10a243fa621c03b0bfd3cbd7`,
+         * the value this line held until now) and converges only when its own gated ceremony runs. */
+        "91ea9382a425cf2289b38dfe7abd2789",
         /*
          * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
          * sentence had been false since R2H — whose own comment, three lines above it, said

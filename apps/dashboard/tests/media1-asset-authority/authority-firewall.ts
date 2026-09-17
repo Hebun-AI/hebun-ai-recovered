@@ -69,6 +69,8 @@ const code = (f: string): string => stripComments(read(f));
     "src/db/schema/index.ts",
     "src/features/governance-decision/decision-authority.server.ts",
     "src/features/media-storage-acceptance/run-storage-acceptance.server.ts",
+    /* MEDIA-2A: the OpenAI transport imports only the port's TYPES (see section 4c). */
+    "src/features/media-generation-live/openai-image-transport.server.ts",
   ]);
   for (const f of SRC) {
     const c = code(f);
@@ -109,8 +111,11 @@ const code = (f: string): string => stripComments(read(f));
     assert.ok(!/@aws-sdk|@vercel\/blob|@supabase|S3Client|createSignedUrl|putObject|BLOB_READ_WRITE_TOKEN/i.test(c), `${f}: no storage SDK`);
     assert.ok(!/console\./.test(c), `${f}: nothing is logged, so no URL can be`);
     assert.ok(
-      !/process\.env/.test(c) || f.endsWith("media-db.server.ts") || f.endsWith("media-storage.server.ts"),
-      `${f}: no configuration contract beyond the database URL and the storage resolver`,
+      !/process\.env/.test(c) ||
+        f.endsWith("media-db.server.ts") ||
+        f.endsWith("media-storage.server.ts") ||
+        f.endsWith("media-generation-transport.server.ts"),
+      `${f}: no configuration contract beyond the database URL, the storage resolver and the generation resolver`,
     );
     if (!f.endsWith("provider-output-download.server.ts") && !f.endsWith("vps-media-object-store.server.ts")) {
       assert.ok(!/\bfetch\b/.test(c), `${f}: only the download seam and the storage adapter may open a socket`);
@@ -139,6 +144,37 @@ const code = (f: string): string => stripComments(read(f));
   assert.ok(!/media-fakes|createMemoryMediaObjectStore|tests\//.test(resolver), "the resolver has no test fallback");
 }
 
+/* ── 4c. MEDIA-2A: the OpenAI transport is a transport, reached only by the resolver ─ */
+{
+  const TRANSPORT = "src/features/media-generation-live/openai-image-transport.server.ts";
+  const CONTROL = "src/features/media-generation-live/openai-image-control.ts";
+  const RESOLVER = "src/features/media-assets/media-generation-transport.server.ts";
+  const LIVE = SRC.filter((f) => f.startsWith("src/features/media-generation-live/"));
+  assert.deepEqual(LIVE.sort(), [CONTROL, TRANSPORT].sort(), "the live generation feature is exactly the control key and the transport");
+
+  const t = code(TRANSPORT);
+  const imports = [...t.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).sort();
+  assert.deepEqual(imports, [
+    "@/features/heby-model-live/live-spend-budget.server",
+    "@/features/media-assets/contracts",
+    "@/features/media-assets/media-generation-transport",
+  ]);
+  assert.ok([...t.matchAll(/^import (type )?/gm)].every((m) => m[1] === "type "), "the transport imports TYPES only");
+  assert.ok(!/process\.env|@\/db|drizzle|console\.|governance|permit|action-|media-storage|MediaObjectStore|request-media-generation/i.test(t), "no config, row, log or authority");
+  assert.equal((t.match(/https:\/\/[a-z0-9.-]+[^"]*/g) ?? []).join(","), "https://api.openai.com/v1/images/generations", "one fixed official endpoint");
+  assert.ok(/redirect: "error"/.test(t) && !/redirect: "follow"/.test(t), "redirects refused");
+  assert.ok(/allowedDownloadHosts: Object\.freeze\(\[\]\)/.test(t), "no download host: the transport never hands out a URL");
+  assert.ok(/OPENAI_IMAGE_MODEL = "gpt-image-2\.5-flare-2026-09-08"/.test(t), "the model snapshot is pinned");
+  assert.ok(!/\b(image|images|mask|reference_images?|stream|partial_images|response_format|input_fidelity)\s*:/.test(t.replace(/allowedDownloadHosts/g, "")), "text-to-image only: no image, mask, stream or url request parameter");
+  assert.ok(!/images\/edits|\bwhile\s*\(|retry/i.test(t), "no edit endpoint and no retry loop");
+
+  const r = code(RESOLVER);
+  assert.ok(/resolveDirectorEnabled/.test(r) && /OPENAI_IMAGE_GENERATION_CONTROL_KEY/.test(r), "the resolver reads the connectivity control");
+  const selectors = SRC.filter((f) => f !== TRANSPORT && /openai-image-transport/.test(code(f)));
+  assert.deepEqual(selectors, [RESOLVER], "only the resolver constructs the OpenAI transport");
+  assert.ok(!/media-fakes|tests\//.test(r), "the resolver has no test fallback");
+}
+
 /* ── 5. Code limits and database CHECKs state the same numbers ────────────── */
 {
   const schema = read("src/db/schema/media-asset.ts");
@@ -146,7 +182,7 @@ const code = (f: string): string => stripComments(read(f));
   assert.equal((schema.match(new RegExp(`between 1 and ${MEDIA_ASSET_LIMITS.maxDimension}\\b`, "g")) ?? []).length, 2, "width and height CHECKs match");
   assert.ok(schema.includes(`between 1 and ${MEDIA_ASSET_LIMITS.maxPromptCodePoints}`), "prompt CHECK matches");
   assert.ok(schema.includes(`in (${MEDIA_ASSET_MIME_TYPES.map((m) => `'${m}'`).join(",")})`), "MIME CHECK matches");
-  assert.ok(schema.includes("= 'fake'"), "the transport CHECK admits only fake");
+  assert.ok(schema.includes("in ('fake','live')"), "the transport CHECK admits exactly fake and live (MEDIA-2A)");
   assert.ok(!/duration|media_kind|video/i.test(stripComments(schema)), "no premature video capability in the schema");
 }
 
