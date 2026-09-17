@@ -141,7 +141,19 @@ async function main(): Promise<void> {
     );
     assert.match(surface, /useMemo\(\(\) => crypto\.randomUUID\(\), \[\]\)/, "one key per mounted form");
     assert.ok(!/setTimeout|setInterval|useEffect/.test(surface), "nothing dispatches without a click");
-    assert.ok(!/retry|Retry/.test(surface), "there is no retry control");
+    /*
+     * A CONTROL, NOT A WORD. This used to ban the substring "retry", which flagged the surface's
+     * own copy telling a reader that a configuration refusal is NOT something to retry — honest
+     * product language, caught by a lexical rule. What must be impossible is a SECOND dispatch
+     * path, so the check counts dispatchers instead: exactly one control invokes `submit`, and the
+     * single-call-site assertion above already pins the action itself.
+     */
+    assert.equal(
+      (surface.match(/onClick=\{submit\}/g) ?? []).length,
+      1,
+      "exactly one control dispatches, so there is no retry control",
+    );
+    assert.ok(!/onClick=\{\(\) => submit/.test(surface), "no second, wrapped dispatcher");
     assert.ok(!/for\s*\(|\.map\(async|Promise\.all/.test(surface), "no batch, no fan-out");
     assert.match(surface, /disabled=\{!ready \|\| pending\}/, "a pending call cannot be submitted again");
   }
