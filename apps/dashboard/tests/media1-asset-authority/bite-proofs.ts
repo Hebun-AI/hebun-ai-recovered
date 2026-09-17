@@ -237,7 +237,7 @@ const MUTATIONS: readonly Mutation[] = [
     suite: CONTRACT_SUITE,
     edits: [
       {
-        find: '  return { status: "unavailable", reason: "storage-not-connected" };',
+        find: '    return { status: "unavailable", reason: "storage-not-connected" };',
         replace:
           '  return { status: "available", store: { backend: "s3", put: async () => {}, verify: async () => ({ status: "absent" }), createReadAccess: async () => ({ url: "", expiresAt: "" }) } } as never;',
       },

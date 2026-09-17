@@ -1,30 +1,81 @@
 /*
- * media-assets/media-storage.server.ts — the runtime storage resolver (MEDIA-1).
+ * media-assets/media-storage.server.ts — the runtime storage resolver.
  *
- * IT ANSWERS `unavailable`, UNCONDITIONALLY, AND THAT IS THE RELEASED BEHAVIOUR.
+ * MEDIA-1 released this resolver answering `unavailable` unconditionally. The VPS storage phase gives
+ * it exactly one backend it may select: the dedicated Hebun VPS media store, reached through
+ * `vps-media-object-store.server.ts`. The authority above it does not change.
  *
- * AWS S3 `eu-central-1` reached through Vercel OIDC is the Director's preferred production storage,
- * and it is NOT connected: no bucket is provisioned, no IAM role trusts this deployment, no adapter
- * exists in this repository, and no AWS dependency is installed. This resolver reads no environment
- * variable on purpose — a configuration contract for a backend that does not exist would let a
- * deployment look "configured" while nothing stands behind it.
+ * ── THE CONFIGURATION CONTRACT, AND HOW IT FAILS CLOSED ──────────────────────
  *
- * Consequences, all fail-closed:
- *   - a generation request is refused `storage-unavailable` BEFORE any invocation is written or any
- *     transport is called, so nothing is generated that could not be kept;
- *   - a read is answered `unavailable`, never "not found" and never an empty success.
+ *   HEBUN_MEDIA_STORE_ORIGIN         https origin of the store — no path, query, fragment or credentials
+ *   HEBUN_MEDIA_STORE_WRITE_SECRET   ≥ 32 characters; signs put and verify
+ *   HEBUN_MEDIA_STORE_READ_SECRET    ≥ 32 characters; signs browser read grants; must differ
  *
- * Connecting real storage is a separate Director gate: an adapter, its dependency, its credentials
- * model, and a production acceptance of its own. Tests inject an in-memory store through deps; that
- * store lives under `tests/helpers` and is not part of the application bundle.
+ *   none of the three set            unavailable  storage-not-connected   (the released behaviour)
+ *   any set, any missing or invalid  unavailable  storage-misconfigured   (never a partial store)
+ *   all three valid                  available    backend `hebun-vps`
+ *
+ * A deployment that looks half-configured is NOT connected. Nothing here falls back to memory, to
+ * a local path, or to plain http. Values are never echoed, logged or returned.
+ *
+ * WHAT "AVAILABLE" DOES NOT MEAN: that the store is reachable, that bytes were ever written, or that
+ * anything is backed up. Reachability is proved per call by `put`/`verify`, each of which fails closed.
  *
  * Server-only.
  */
 import type { MediaStorageResolution } from "./media-object-store";
+import { createVpsMediaObjectStore } from "./vps-media-object-store.server";
 
-export function resolveMediaObjectStore(): MediaStorageResolution {
+export const MEDIA_STORE_ENV = Object.freeze({
+  origin: "HEBUN_MEDIA_STORE_ORIGIN",
+  writeSecret: "HEBUN_MEDIA_STORE_WRITE_SECRET",
+  readSecret: "HEBUN_MEDIA_STORE_READ_SECRET",
+});
+
+const MIN_SECRET_LENGTH = 32;
+
+function validOrigin(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === "https:" &&
+    url.username === "" &&
+    url.password === "" &&
+    url.search === "" &&
+    url.hash === "" &&
+    (url.pathname === "/" || url.pathname === "") &&
+    !value.endsWith("?") &&
+    !value.endsWith("#")
+  );
+}
+
+export function resolveMediaObjectStore(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): MediaStorageResolution {
   if (typeof window !== "undefined") {
     throw new Error("Media storage resolution is server-only.");
   }
-  return { status: "unavailable", reason: "storage-not-connected" };
+  const origin = env[MEDIA_STORE_ENV.origin]?.trim() ?? "";
+  const writeSecret = env[MEDIA_STORE_ENV.writeSecret] ?? "";
+  const readSecret = env[MEDIA_STORE_ENV.readSecret] ?? "";
+
+  if (!origin && !writeSecret && !readSecret) {
+    return { status: "unavailable", reason: "storage-not-connected" };
+  }
+  if (
+    !validOrigin(origin) ||
+    writeSecret.length < MIN_SECRET_LENGTH ||
+    readSecret.length < MIN_SECRET_LENGTH ||
+    writeSecret === readSecret
+  ) {
+    return { status: "unavailable", reason: "storage-misconfigured" };
+  }
+  return {
+    status: "available",
+    store: createVpsMediaObjectStore({ origin: new URL(origin).origin, writeSecret, readSecret }),
+  };
 }

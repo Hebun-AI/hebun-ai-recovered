@@ -100,9 +100,12 @@ const code = (f: string): string => stripComments(read(f));
     const c = code(f);
     assert.ok(!/@aws-sdk|@vercel\/blob|@supabase|S3Client|createSignedUrl|putObject|BLOB_READ_WRITE_TOKEN/i.test(c), `${f}: no storage SDK`);
     assert.ok(!/console\./.test(c), `${f}: nothing is logged, so no URL can be`);
-    assert.ok(!/process\.env/.test(c) || f.endsWith("media-db.server.ts"), `${f}: no configuration contract beyond the database URL`);
-    if (!f.endsWith("provider-output-download.server.ts")) {
-      assert.ok(!/\bfetch\b/.test(c), `${f}: only the download seam may open a socket`);
+    assert.ok(
+      !/process\.env/.test(c) || f.endsWith("media-db.server.ts") || f.endsWith("media-storage.server.ts"),
+      `${f}: no configuration contract beyond the database URL and the storage resolver`,
+    );
+    if (!f.endsWith("provider-output-download.server.ts") && !f.endsWith("vps-media-object-store.server.ts")) {
+      assert.ok(!/\bfetch\b/.test(c), `${f}: only the download seam and the storage adapter may open a socket`);
     }
     assert.ok(!/tests\/|media-fakes/.test(c), `${f}: test fakes never enter the application`);
     assert.ok(!/higgsfield/i.test(c), `${f}: no generation provider is named`);
@@ -113,6 +116,19 @@ const code = (f: string): string => stripComments(read(f));
     ["clsx", "drizzle-orm", "lucide-react", "next", "pdfjs-dist", "pg", "react", "react-dom", "tailwind-merge"],
     "MEDIA-1 installs no dependency",
   );
+}
+
+/* ── 4b. The VPS storage adapter is a transport, reached only by the resolver ─ */
+{
+  const ADAPTER = "src/features/media-assets/vps-media-object-store.server.ts";
+  const importers = SRC.filter((f) => f !== ADAPTER && /vps-media-object-store/.test(code(f)));
+  assert.deepEqual(importers, ["src/features/media-assets/media-storage.server.ts"], "only the resolver selects the VPS adapter");
+  const adapter = code(ADAPTER);
+  assert.ok(!/@\/db|drizzle|schema\/|TenantContext|governance|permit|action-/i.test(adapter), "the adapter reads no row and holds no authority");
+  assert.ok(!/\b(delete|remove|purge)\s*\(|method:\s*"DELETE"/.test(adapter), "the adapter has no delete verb");
+  assert.ok(!/redirect:\s*"follow"/.test(adapter) && (adapter.match(/redirect:\s*"error"/g) ?? []).length === 2, "the adapter never follows a redirect");
+  const resolver = code("src/features/media-assets/media-storage.server.ts");
+  assert.ok(!/media-fakes|createMemoryMediaObjectStore|tests\//.test(resolver), "the resolver has no test fallback");
 }
 
 /* ── 5. Code limits and database CHECKs state the same numbers ────────────── */

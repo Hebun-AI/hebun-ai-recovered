@@ -4243,3 +4243,27 @@ exist is anything that would invoke it.
 - **Ben de yanlış rapor ettim.** Director'a "o dosyada production DATABASE_URL ve
   ALLOW_REMOTE=true vardı" dedim. İkisi de `[SENSITIVE]` maskesiydi; tehlike gerçekti ama LATENT'ti,
   gerçekleşmemişti. **Bir güvenlik bulgusunu bildirmeden önce değeri gerçekten oku.**
+
+## VPS Media Storage (implementation gate) — 2026-09-17
+
+- Node exits 0 when an awaited promise can never settle and the event loop empties. Awaiting `exit`
+  on a child killed by signal (`exitCode === null`, `signalCode` set) did exactly that: the contract
+  test "passed" without running half its assertions. Guard long async tests with a `finished` flag
+  checked in `process.on("exit")`, and bite-proof the guard.
+- A storage port that records a backend NAME (regex CHECK) instead of an enum needs no migration to
+  add an adapter. Check the CHECK before assuming a schema change.
+- Write-once on a filesystem: `link(tmp, final)` refuses an existing name atomically; `rename`
+  silently replaces. Pre-check + link, never rename.
+- A nonce cache in memory reopens the replay window on restart. Refusing any request signed before
+  process start closes it without persisting nonces.
+- The Hostinger PTR name (`srv…hstgr.cloud`) forward-resolves elsewhere; it is not a usable TLS
+  hostname. TLS ingress needs a Director DNS decision.
+- Vercel DNS serves a default `*` ALIAS. An explicit A record for one label overrides it without an
+  AAAA answer, so the subdomain is cleanly IPv4-only; verify with `dig AAAA` before assuming IPv6.
+- Caddy tries ACME the moment it starts. Enabling it before opening 80/443 burns the first attempt;
+  open the firewall first, or restart Caddy after.
+- A leak scan must not print what it scans for. Grepping logs for secret prefixes echoed those
+  prefixes to the terminal. Print only hit counts, never the needle.
+- Weekly 3: learned that the storage boundary could stay a port + a dumb byte service; TRH gets a
+  place to keep generated rug imagery that Hebun verifies itself; Hebun AI gets a swappable storage
+  adapter pattern (VPS now, S3 later) without touching Media Asset authority.

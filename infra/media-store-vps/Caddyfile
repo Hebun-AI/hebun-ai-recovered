@@ -1,0 +1,41 @@
+# /etc/caddy/Caddyfile — HTTPS ingress for the Hebun media store ONLY.
+#
+# Terminates TLS (automatic Let's Encrypt) and forwards exactly the three store routes to the
+# loopback service. It adds no authentication and removes none: every write, verify and read is still
+# decided by the store's HMAC checks. No access log is configured, so no query string (which carries a
+# read signature) is ever written by this proxy. /healthz and every other path answer 404 here.
+{
+	servers {
+		timeouts {
+			read_body 60s
+			read_header 10s
+			write 120s
+			idle 30s
+		}
+	}
+}
+
+media.hebuntech.com {
+	@store {
+		method GET PUT
+		path_regexp ^/v1/(objects|verify|read)/tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/media/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+	}
+
+	handle @store {
+		request_body {
+			max_size 20MiB
+		}
+		reverse_proxy 127.0.0.1:8787 {
+			header_down -Server
+		}
+	}
+
+	handle {
+		respond 404
+	}
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+	}
+}

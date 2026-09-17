@@ -15,6 +15,8 @@
  */
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
+import { chmodSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
@@ -33,6 +35,8 @@ import {
   readMediaAssetReviewState,
 } from "../../src/features/media-asset-review/review-media-asset.server";
 import type { MediaStorageResolution } from "../../src/features/media-assets/media-object-store";
+import { createVpsMediaObjectStore } from "../../src/features/media-assets/vps-media-object-store.server";
+import { startLocalVpsStore } from "../helpers/media-vps-store-process";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 import {
@@ -626,6 +630,61 @@ async function main(): Promise<void> {
         await acceptMediaAsset(aliceCtx, { assetId: admitted.assetId, byteDigest: admitted.byteDigest, justification: REASON }, deciding),
         { status: "refused", reason: "asset-retired" },
       );
+    }
+
+    /* ── 15. THE SAME AUTHORITY OVER THE REAL VPS STORE PROCESS ─────────────── */
+    {
+      const local = await startLocalVpsStore();
+      try {
+        const vps = createVpsMediaObjectStore({ origin: local.origin, writeSecret: local.writeSecret, readSecret: local.readSecret });
+        const viaVps = (): MediaStorageResolution => ({ status: "available", store: vps });
+        const vpsBytes = pngBytes(640, 480, 256);
+        transport.behaviour = { kind: "bytes", bytes: vpsBytes };
+
+        const result = await requestMediaGeneration(aliceCtx, ask(), deps({ resolveStorage: viaVps }));
+        assert.equal(result.status, "admitted", "admitted through the VPS store");
+        if (result.status !== "admitted") throw new Error("unreachable");
+        const row = (
+          await setup.query(`select storage_backend, storage_key, byte_digest, byte_size from media_assets where id = $1`, [result.assetId])
+        ).rows[0];
+        assert.deepEqual([row.storage_backend, row.byte_digest, Number(row.byte_size)], ["hebun-vps", sha(vpsBytes), vpsBytes.length]);
+        const onDisk = path.join(local.root, String(row.storage_key));
+        assert.deepEqual(new Uint8Array(readFileSync(onDisk)), vpsBytes, "the persisted digest names the bytes on disk");
+        assert.equal(statSync(onDisk).mode & 0o777, 0o440, "admitted bytes are read-only on disk");
+
+        const read = await readMediaAsset(aliceCtx, result.assetId, { getDb, resolveStorage: viaVps });
+        assert.equal(read.status, "read");
+        if (read.status !== "read") throw new Error("unreachable");
+        const served = await fetch(read.access.url);
+        assert.equal(served.status, 200);
+        assert.deepEqual(new Uint8Array(await served.arrayBuffer()), vpsBytes, "the read grant serves exactly the admitted bytes");
+        assert.ok(Date.parse(read.access.expiresAt) - Date.now() <= 61_000, "the grant is short-lived");
+        assert.deepEqual(await readMediaAsset(erinCtx, result.assetId, { getDb, resolveStorage: viaVps }), { status: "not-found" });
+
+        await local.restart();
+        assert.equal((await readMediaAsset(aliceCtx, result.assetId, { getDb, resolveStorage: viaVps })).status, "read", "survives a store restart");
+
+        chmodSync(onDisk, 0o640);
+        writeFileSync(onDisk, pngBytes(640, 480, 257));
+        assert.deepEqual(
+          await readMediaAsset(aliceCtx, result.assetId, { getDb, resolveStorage: viaVps }),
+          { status: "unavailable", reason: "integrity-mismatch" },
+          "bytes changed under the store are never granted",
+        );
+
+        await local.stop();
+        const [inv, ast] = [await invocations(), await assets()];
+        const down = await requestMediaGeneration(aliceCtx, ask(), deps({ resolveStorage: viaVps }));
+        assert.equal(down.status === "not-admitted" ? down.failure : down.status, "storage-write-failed", "an unreachable store admits nothing");
+        assert.equal(await assets(), ast, "no asset without stored bytes");
+        assert.equal(await invocations(), inv + 1);
+        assert.deepEqual(
+          await readMediaAsset(aliceCtx, result.assetId, { getDb, resolveStorage: viaVps }),
+          { status: "unavailable", reason: "object-absent" },
+        );
+      } finally {
+        await local.dispose();
+      }
     }
 
     /* ── 14. A RETIRED DURABLE AGENT STOPS GENERATION BEFORE ANYTHING IS WRITTEN ─ */

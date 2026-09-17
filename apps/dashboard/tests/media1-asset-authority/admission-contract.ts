@@ -6,7 +6,6 @@
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
 import {
   MEDIA_ASSET_LIMITS,
   MEDIA_ASSET_MIME_TYPES,
@@ -157,8 +156,9 @@ async function main(): Promise<void> {
       for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key];
       Object.assign(process.env, saved);
     }
-    const storageSource = readFileSync("src/features/media-assets/media-storage.server.ts", "utf8");
-    assert.ok(!/process\.env/.test(storageSource), "the storage resolver reads no configuration contract");
+    /* The VPS storage phase gave the resolver a configuration contract; without it, and with every
+       other vendor's configuration present, storage is still `storage-not-connected`. The contract
+       itself is proved in tests/media-vps-storage/vps-adapter-contract.ts. */
   }
 
   /* ── 9. The fake transport is unmistakably fake ─────────────────────────── */

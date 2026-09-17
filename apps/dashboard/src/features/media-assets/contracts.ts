@@ -24,7 +24,7 @@
  *
  *   image only         PNG, JPEG, WebP — no video, no SVG, no GIF
  *   fake transport     the only representable transport is `fake`
- *   no storage         the runtime storage resolver answers `unavailable`; nothing is connected
+ *   storage            the resolver answers `unavailable` unless the VPS store is fully configured
  *   no human door      no route, action or surface reaches this authority
  *
  * Pure types and frozen values. No React, no I/O, no database, no authority.

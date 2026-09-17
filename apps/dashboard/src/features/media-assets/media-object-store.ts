@@ -3,7 +3,8 @@
  *
  * The Media Asset authority talks to bytes only through this interface. It names no vendor, no
  * bucket, no region, no credential and no SDK type, so the authority cannot come to depend on AWS,
- * Vercel Blob or any other backend's semantics. A concrete adapter is a separate, gated phase.
+ * Vercel Blob or any other backend's semantics. Adapters live beside it (the VPS store today); swapping
+ * one for another (e.g. S3) changes the resolver, never the authority.
  *
  * ── THE CONTRACT EVERY IMPLEMENTATION MUST HONOUR ────────────────────────────
  *
@@ -52,7 +53,7 @@ export interface MediaObjectStore {
 
 export type MediaStorageResolution =
   | { readonly status: "available"; readonly store: MediaObjectStore }
-  | { readonly status: "unavailable"; readonly reason: "storage-not-connected" };
+  | { readonly status: "unavailable"; readonly reason: "storage-not-connected" | "storage-misconfigured" };
 
 /** Read access lifetime. Short on purpose: a leaked grant is a leaked asset until it expires. */
 export const MEDIA_READ_ACCESS_TTL_SECONDS = 60;

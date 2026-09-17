@@ -1,0 +1,35 @@
+{
+  "note": "Throwaway test vectors shared by the Python service and the TypeScript adapter. Not real secrets.",
+  "writeSecret": "test-vector-write-secret-not-a-real-secret-0001",
+  "readSecret": "test-vector-read-secret-not-a-real-secret-0002",
+  "write": [
+    {
+      "method": "PUT",
+      "key": "tenants/0b6f3d9e-6c1a-4f5e-9d2b-3a4c5d6e7f80/media/2d8b5f10-8e3c-4b70-9f4d-5c6e7f8091a2",
+      "timestamp": "1790000000",
+      "nonce": "00112233445566778899aabbccddeeff",
+      "sha256Hex": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contentType": "image/png",
+      "contentLength": 1234,
+      "signature": "dae33f44ecfd0f8731caef07574db686023f33a19b503fa08a876feafb690ddd"
+    },
+    {
+      "method": "GET",
+      "key": "tenants/0b6f3d9e-6c1a-4f5e-9d2b-3a4c5d6e7f80/media/2d8b5f10-8e3c-4b70-9f4d-5c6e7f8091a2",
+      "timestamp": "1790000001",
+      "nonce": "ffeeddccbbaa99887766554433221100",
+      "sha256Hex": "",
+      "contentType": "",
+      "contentLength": 0,
+      "signature": "5741b50e0bc319fe596718209fe459b70ec968590c5fce1dc6ffaecb5c5864ac"
+    }
+  ],
+  "read": [
+    {
+      "key": "tenants/0b6f3d9e-6c1a-4f5e-9d2b-3a4c5d6e7f80/media/2d8b5f10-8e3c-4b70-9f4d-5c6e7f8091a2",
+      "contentType": "image/webp",
+      "expires": "1790000060",
+      "signature": "8bacf77aa11274b5e2d3c9271ba616fe31ef062d94e22e7e1277f34d706671b1"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+# /etc/systemd/system/hebun-media-store.service
+# Hebun media byte store: the VPS side of the MediaObjectStore port. A storage adapter, not an authority.
+# Secrets live only in /etc/hebun-media-store/env (root:hebun-media 0640). Nothing here is secret.
+[Unit]
+Description=Hebun media byte store (VPS storage adapter; not an authority)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hebun-media
+Group=hebun-media
+Environment=HEBUN_MEDIA_STORE_ROOT=/var/lib/hebun-media
+Environment=HEBUN_MEDIA_STORE_BIND=127.0.0.1
+Environment=HEBUN_MEDIA_STORE_PORT=8787
+Environment=HEBUN_MEDIA_STORE_MIN_FREE_BYTES=5368709120
+EnvironmentFile=/etc/hebun-media-store/env
+ExecStart=/usr/bin/python3 -I /opt/hebun-media-store/hebun_media_store.py
+Restart=always
+RestartSec=2
+
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/hebun-media
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target
