@@ -1,19 +1,19 @@
 # MEDIA-2B — Controlled Live OpenAI Image Generation
 
-**Status:** implemented and locally validated on `feat/media2b-live-generation` (base `origin/main = bb229944`). **Not pushed, not deployed, not armed. No real image has been generated and no paid call has been made.**
+**Status:** MEDIA-2B RELEASED + PRODUCTION-ACCEPTED (release `7fcd1a6a`, deployment `dpl_BXhtigMEGxSY1qihK5vaewirjw8b`) — see `hebun-media2b-live-image-generation-closure.md`. One controlled human-initiated generation was executed in production and admitted; it is routed to Governance and remains unreviewed and unapproved. No migration: the ledger stays at 57.
 
 | Truth | State |
 |-------|-------|
 | DESIGNED | yes |
 | IMPLEMENTED | yes |
-| VERIFIED | yes — focused door suite, retargeted firewall, 13/13 MEDIA-2A bites, full suite, tsc, lint, build |
-| CONFIGURED | **yes** — production holds `HEBUN_MEDIA_GENERATION_TRANSPORT` and a Sensitive `HEBUN_OPENAI_IMAGE_API_KEY` (presence verified by name; no value was read) |
-| CONNECTED | no — no request has ever reached OpenAI |
-| AVAILABLE | no — the control has no row, so the resolver answers `generation-disabled` |
-| AUTHORIZED | no — no Director ceremony has been run |
-| EXECUTED | no |
-| SUCCESSFUL | no |
-| PRODUCTION-ACCEPTED | no |
+| VERIFIED | yes — focused door suite, retargeted firewall, 13/13 MEDIA-2A bites, full suite 795/795, tsc 0, lint 0, build |
+| CONFIGURED | **yes** — proven by use: the invocation records `transport = live`, `provider = openai`, the pinned model. The credential was never read by any session |
+| CONNECTED | **yes** — provider job `req_ac8aa8dd3bce41ecbadc8244de60d3f3`, usage 37 in / 439 out |
+| AVAILABLE | **yes** — the resolver returned the live transport, which is what `transport = live` on the row means |
+| AUTHORIZED | **yes** — Director connectivity ceremony (`v1`, `production-operator-ceremony`), then an authenticated human request |
+| EXECUTED | **yes** — state `provider-succeeded`, finalized 10 s after it was requested |
+| SUCCESSFUL | **yes** — verified bytes admitted, stored on the VPS store, authoritative `media_assets` row, routed to Governance unapproved (storage proven by construction, not independently re-read) |
+| PRODUCTION-ACCEPTED | **yes** — declared by the Director on the Gate 3 evidence |
 | BACKUP-ACCEPTED | no — out of scope, unchanged |
 
 ## What this adds, and what it deliberately reuses
