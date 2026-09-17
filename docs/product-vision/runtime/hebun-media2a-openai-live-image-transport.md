@@ -1,5 +1,7 @@
 # MEDIA-2A — OpenAI Live Image Transport (Inert Release)
 
+**Status:** MEDIA-2A RELEASED + PRODUCTION-SCHEMA-ACCEPTED (release `f0aad238`, migration 57 applied to production) — see `hebun-media2a-openai-live-image-transport-closure.md`. Schema acceptance only: not provider acceptance, no credential, no control row, no call.
+
 Date: 2026-09-17. Base: `origin/main = 91583701`. Branch: `feat/media2a-openai-image-transport`.
 
 | Truth | State |
@@ -10,10 +12,10 @@ Date: 2026-09-17. Base: `origin/main = 91583701`. Branch: `feat/media2a-openai-i
 | CONFIGURED | no — no `HEBUN_MEDIA_GENERATION_TRANSPORT`, no `HEBUN_OPENAI_IMAGE_API_KEY` anywhere |
 | CONNECTED | no — no request has ever reached OpenAI |
 | AVAILABLE | no — resolver answers `no-generation-provider` in every deployment |
-| AUTHORIZED | no — control `openai-image-generation` has no row (= OFF); production ceremony refuses it |
+| AUTHORIZED | no — control `openai-image-generation` has no row in production (= OFF); production ceremony refuses it |
 | EXECUTED | no |
 | SUCCESSFUL | no |
-| PRODUCTION-SCHEMA-ACCEPTED | no — migration 57 authored, not applied to production |
+| PRODUCTION-SCHEMA-ACCEPTED | yes — migration 57 applied to production, recorded exactly once; ledger converged at 57 |
 
 ## What exists
 
