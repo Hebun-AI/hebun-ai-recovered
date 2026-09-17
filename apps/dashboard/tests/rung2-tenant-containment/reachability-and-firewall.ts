@@ -245,8 +245,8 @@ async function main(): Promise<void> {
     assert.ok(ingressList, "the machine ingress allowlist exists");
     assert.deepEqual(
       ingressList![1]!.split(",").map((entry) => entry.trim()).filter(Boolean),
-      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"'],
-      "the machine ingress allowlist holds exactly the three pinned ingresses",
+      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"'],
+      "the machine ingress allowlist holds exactly the four pinned ingresses",
     );
 
     /* The new authority contains no scanner, timer or schedule of any kind. */

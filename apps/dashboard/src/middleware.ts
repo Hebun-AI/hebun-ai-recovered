@@ -74,6 +74,10 @@ const PUBLIC_PREFIXES = ["/login", "/register", "/privacy", "/terms", "/contact"
  * above calls "a scan that silently never happens". The route was correct, its secret check was
  * correct, and it was unreachable. An ingress is not shipped until it is listed here.
  *
+ * THE FOURTH IS NOT A SCHEDULER. `/api/media-storage/acceptance` is an operator-triggered proof that
+ * the deployed runtime reaches the VPS media store. Same rule: its own bearer secret, refused when
+ * unset, listed here by value so its reachability is a reviewed decision.
+ *
  * ── WHAT THIS EXEMPTS, AND WHAT IT DOES NOT ─────────────────────────────────
  *
  * It exempts these routes from the SESSION check only. They are not public: each verifies a bearer
@@ -84,6 +88,7 @@ const MACHINE_INGRESS_PATHS = [
   "/api/observation/scan",
   "/api/machine-delivery/scan",
   "/api/standing-issuance/scan",
+  "/api/media-storage/acceptance",
 ];
 
 const PUBLIC_EXACT_PATHS = ["/"];

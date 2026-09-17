@@ -346,6 +346,9 @@ async function main(): Promise<void> {
        * NAMED here rather than pattern-matched, so a SECOND machine route cannot appear
        * without this census failing. */
       "src/app/api/machine-delivery/scan/route.ts",
+      /* MEDIA-VPS production connection: the storage acceptance ingress, NAMED like every other machine
+       * door. Its own bearer secret; it reaches the storage port only (tests/media-storage-acceptance). */
+      "src/app/api/media-storage/acceptance/route.ts",
       "src/app/api/observation/scan/route.ts",
       /* The RUNG 2 act path's standing issuance ingress — a third machine door, named not matched. */
       "src/app/api/standing-issuance/scan/route.ts",

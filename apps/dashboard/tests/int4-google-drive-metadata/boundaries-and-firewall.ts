@@ -126,6 +126,11 @@ function main(): void {
          * store origin (https enforced by the resolver), HMAC-signed, redirects refused, timed out.
          */
         "src/features/media-assets/vps-media-object-store.server.ts",
+        /*
+         * Storage acceptance — fetches the read grants the adapter minted, and only those, to prove
+         * the deployed runtime reaches the VPS store. Redirects refused, timed out.
+         */
+        "src/features/media-storage-acceptance/run-storage-acceptance.server.ts",
       ].sort(),
       "every outbound-HTTP module in src is a named transport",
     );

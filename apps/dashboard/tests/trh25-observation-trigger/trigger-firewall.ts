@@ -183,7 +183,7 @@ function main(): void {
   assert.ok(exactList, "the machine ingress list exists");
   assert.deepEqual(
     exactList![1]!.split(",").map((s) => s.trim()).filter(Boolean),
-    ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"'],
+    ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"'],
     /*
      * THREE, and the third is the RUNG 2 act path's. Listing it here is not a formality: deployed
      * WITHOUT this entry, that route answered a scheduler with `307 -> /login` — the sign-in page
@@ -249,6 +249,9 @@ function main(): void {
       "src/app/api/integrations/instagram/callback/route.ts",
       "src/app/api/integrations/instagram/start/route.ts",
       "src/app/api/machine-delivery/scan/route.ts",
+      /* MEDIA-VPS production connection: the storage acceptance ingress, NAMED like every other machine
+       * door. Its own bearer secret; it reaches the storage port only (tests/media-storage-acceptance). */
+      "src/app/api/media-storage/acceptance/route.ts",
       "src/app/api/observation/scan/route.ts",
       /*
        * The RUNG 2 act path's ingress — a THIRD machine door, NAMED here rather than pattern

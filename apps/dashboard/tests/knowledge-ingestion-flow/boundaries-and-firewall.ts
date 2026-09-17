@@ -145,9 +145,13 @@ function main(): void {
       byteReaders.sort(),
       [
         "src/features/knowledge/knowledge-file-ingest.server.ts",
+        /* MEDIA-VPS: the storage acceptance run reads back its OWN synthetic fixture through a signed
+           grant to prove byte equality. Neither a selected file nor Knowledge-bound; reaches no
+           Knowledge module (tests/media-storage-acceptance). */
+        "src/features/media-storage-acceptance/run-storage-acceptance.server.ts",
         "src/features/provider-google/google-transport.server.ts",
       ],
-      "exactly two modules read bytes: one selected file, one provider response — and neither writes Knowledge itself",
+      "exactly three modules read bytes: one selected file, one provider response, one storage acceptance fixture — and none writes Knowledge",
     );
   }
 

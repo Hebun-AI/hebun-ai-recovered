@@ -61,7 +61,15 @@ const code = (f: string): string => stripComments(read(f));
 
 /* ── 2. Nothing outside the authority reaches it: no human door in MEDIA-1 ── */
 {
-  const allowedImporters = new Set([...MEDIA, ...REVIEW, "src/db/schema/index.ts", "src/features/governance-decision/decision-authority.server.ts"]);
+  /* The storage acceptance run reaches the storage PORT only (resolver, port types, key function);
+     tests/media-storage-acceptance pins that it imports nothing else and holds no authority. */
+  const allowedImporters = new Set([
+    ...MEDIA,
+    ...REVIEW,
+    "src/db/schema/index.ts",
+    "src/features/governance-decision/decision-authority.server.ts",
+    "src/features/media-storage-acceptance/run-storage-acceptance.server.ts",
+  ]);
   for (const f of SRC) {
     const c = code(f);
     const touches =

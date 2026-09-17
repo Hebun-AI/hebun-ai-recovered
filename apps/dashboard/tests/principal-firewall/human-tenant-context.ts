@@ -343,6 +343,9 @@ function main(): void {
        * NAMED here rather than pattern-matched, so a SECOND machine route cannot appear
        * without this census failing. */
       "src/app/api/machine-delivery/scan/route.ts",
+      /* MEDIA-VPS production connection: the storage acceptance ingress, NAMED like every other machine
+       * door. Its own bearer secret; it reaches the storage port only (tests/media-storage-acceptance). */
+      "src/app/api/media-storage/acceptance/route.ts",
       "src/app/api/observation/scan/route.ts",
       /*
        * The RUNG 2 act path's ingress — a THIRD machine door, NAMED here rather than pattern
@@ -470,8 +473,8 @@ function main(): void {
     );
     assert.deepEqual(
       listOf("MACHINE_INGRESS_PATHS"),
-      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"'],
-      "exactly THREE machine paths skip the session check: the observation due-scan, the delivery scan and the standing issuance scan",
+      ['"/api/observation/scan"', '"/api/machine-delivery/scan"', '"/api/standing-issuance/scan"', '"/api/media-storage/acceptance"'],
+      "exactly FOUR machine paths skip the session check: the observation due-scan, the delivery scan, the standing issuance scan and the storage acceptance run",
     );
     assert.ok(
       /url\.pathname = "\/login";/.test(middleware) && /NextResponse\.redirect/.test(middleware),

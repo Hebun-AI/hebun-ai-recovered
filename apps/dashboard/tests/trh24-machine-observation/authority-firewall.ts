@@ -298,6 +298,9 @@ function main(): void {
        * door came later, and is named here so a SECOND one cannot appear unnamed.
        */
       "src/app/api/machine-delivery/scan/route.ts",
+      /* MEDIA-VPS production connection: the storage acceptance ingress, NAMED like every other machine
+       * door. Its own bearer secret; it reaches the storage port only (tests/media-storage-acceptance). */
+      "src/app/api/media-storage/acceptance/route.ts",
       "src/app/api/observation/scan/route.ts",
       /*
        * The RUNG 2 act path's ingress — a THIRD door, named here for the same reason the second
