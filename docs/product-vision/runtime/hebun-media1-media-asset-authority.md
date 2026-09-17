@@ -1,6 +1,6 @@
 # MEDIA-1 — Media Asset Authority
 
-**Status:** implemented, locally validated and committed on `feat/media1-asset-authority` (base `origin/main = 983c7948`). **Not pushed, not released, not deployed; migration 56 not applied anywhere but disposable test databases.**
+**Status:** MEDIA-1 RELEASED + PRODUCTION-SCHEMA-ACCEPTED (release `288e5583`, migration 56 applied to production) — see `hebun-media1-media-asset-authority-closure.md`. Not production storage acceptance and not generation-provider acceptance.
 
 **Local validation:** tsc 0, lint 0, `next build` 0, full suite 788/788, MEDIA-1 bite proofs 16/16.
 
