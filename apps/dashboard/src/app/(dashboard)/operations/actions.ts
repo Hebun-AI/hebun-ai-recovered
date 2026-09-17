@@ -22,6 +22,11 @@ import {
   retireWorkArtifact,
   reviseWorkArtifact,
 } from "@/features/work-artifacts/write-work-artifacts.server";
+import { requestMediaGeneration } from "@/features/media-assets/request-media-generation.server";
+import type {
+  RequestMediaGenerationInput,
+  RequestMediaGenerationResult,
+} from "@/features/media-assets/contracts";
 import {
   prepareWorkArtifact,
   WORK_ARTIFACT_OWNER_WORKSPACE,
@@ -215,6 +220,37 @@ export async function resolveWorkArtifactReferenceAction(input: {
  * become prepared work. This action is the only route to a Heby-authored artifact, and it is
  * reached only when a human explicitly asked for one.
  */
+/**
+ * MEDIA-2B — THE ONLY HUMAN DOOR TO A REAL IMAGE GENERATION.
+ *
+ * This is the narrowest seam that makes the released MEDIA-1 authority reachable. It adds no
+ * authority of its own: it resolves the tenant from the trusted session and hands the human's four
+ * fields to `requestMediaGeneration`, which owns validation, idempotency, dispatch, admission,
+ * storage and the asset row. There is no second generation path, no retry, and no way to reach the
+ * transport from anywhere else in `src/app` or `src/components`.
+ *
+ * WHAT THIS DELIBERATELY CANNOT DO.
+ *   - It cannot be reached by an agent. `resolveTenantContext` yields a human session or null, and
+ *     the invocation row carries a `requested_by_actor_type = 'human'` CHECK underneath.
+ *   - It cannot name a tenant. The tenant is never an input; a client-supplied one is impossible.
+ *   - It cannot publish. Admission produces a `media_assets` row and a Governance review subject —
+ *     never an action request, a permit or an execution. A generated asset is not an approved one.
+ *   - It cannot edit, mask, or supply a reference image. Text-to-image only, by the transport's
+ *     pinned parameters.
+ *
+ * `requestKey` is minted by the CLIENT once per form and resent verbatim on a retry of the same
+ * submission, so a double submit collides on `(tenant_id, request_key)` and returns
+ * `duplicate-request` without a second paid call. A genuinely new request needs a new key.
+ */
+export async function requestMediaGenerationAction(
+  input: RequestMediaGenerationInput,
+): Promise<RequestMediaGenerationResult> {
+  const tenant = await resolveTenantContext();
+  const result = await requestMediaGeneration(tenant, input);
+  if (result.status === "admitted") revalidatePath("/operations");
+  return result;
+}
+
 export async function prepareWorkArtifactAction(input: {
   prompt: string;
   route: string;

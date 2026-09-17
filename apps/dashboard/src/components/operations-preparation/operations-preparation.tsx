@@ -35,6 +35,8 @@ import {
 } from "@/app/(dashboard)/operations/actions";
 import { RecipientsSection } from "./recipients-section";
 import { PreparedWorkSection } from "./prepared-work-section";
+import { GenerateImageWithHebun } from "./generate-image-with-hebun";
+import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
 
 export async function OperationsPreparation() {
   /*
@@ -70,6 +72,20 @@ export async function OperationsPreparation() {
     <div className="mt-8 space-y-8">
       <RecipientsSection active={active} retired={retired} />
       <PreparedWorkSection listing={artifacts} workPurpose={workPurpose} reviewStates={reviewStates} />
+      {/*
+        MEDIA-2B. The generation door is offered only for drafts the authority would actually
+        accept: a content draft that is still `draft`. The authority re-resolves the pair against
+        the tenant anyway — this list is a convenience, never the permission.
+      */}
+      <GenerateImageWithHebun
+        targets={
+          artifacts.status === "read"
+            ? artifacts.artifacts
+                .filter((a) => a.artifactType === CONTENT_DRAFT_TYPE && a.lifecycleStatus === "draft")
+                .map((a) => ({ artifactId: a.id, title: a.title, currentRevision: a.currentRevision }))
+            : []
+        }
+      />
     </div>
   );
 }

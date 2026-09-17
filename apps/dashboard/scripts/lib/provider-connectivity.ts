@@ -99,10 +99,10 @@ export const PROVIDER_KEYS: readonly string[] = Object.freeze([
   OBSERVATION_READ_CONTROL_KEY,
   MACHINE_INTERNAL_EXECUTION_CONTROL_KEY,
   /*
-   * MEDIA-2A: OpenAI image generation (paid, text-to-image). EXPRESSIBLE, so a local ceremony can arm
-   * and disarm it against a local database — and deliberately NOT in `GENERIC_PRODUCTION_REACHABLE_KEYS`
-   * nor in `DEDICATED_PRODUCTION_CEREMONIES`: no production decision has been taken, so production
-   * refuses it in both directions until MEDIA-2B. With no row, production reads it as OFF.
+   * MEDIA-2A: OpenAI image generation (paid, text-to-image). MEDIA-2B took the production decision
+   * and enumerated it in `GENERIC_PRODUCTION_REACHABLE_KEYS` below, so the generic ceremony now
+   * reaches it in both directions. With no row it still reads as OFF — the decision made it
+   * ARMABLE, not armed.
    */
   OPENAI_IMAGE_GENERATION_CONTROL_KEY,
 ]);
@@ -162,6 +162,22 @@ export const PROVIDER_KEYS: readonly string[] = Object.freeze([
 export const GENERIC_PRODUCTION_REACHABLE_KEYS: readonly string[] = Object.freeze([
   CLAUDE_PROVIDER_KEY,
   OBSERVATION_READ_CONTROL_KEY,
+  /*
+   * MEDIA-2B. Written here in a diff, which is the only way a key joins this list.
+   *
+   * WHY THE GENERIC GATE IS THE RIGHT ONE, AND NOT A DEDICATED CEREMONY. The two keys that hold
+   * dedicated gates do so because arming them has PRECONDITIONS the generic path cannot check:
+   * external-send must have a configured sender, machine-internal-execution must have an armed
+   * trigger. Image generation has none — the control is a single boolean, and the other two things
+   * a live call needs (`HEBUN_MEDIA_GENERATION_TRANSPORT=live` and a credential-shaped
+   * `HEBUN_OPENAI_IMAGE_API_KEY`) are checked INDEPENDENTLY by the released resolver on every
+   * single call, fail-closed. A dedicated ceremony would re-ask what the resolver already refuses.
+   *
+   * WHAT ARMING THIS ACTUALLY PERMITS. One authenticated human, on one content-draft revision, one
+   * paid text-to-image call per idempotency key, bounded by the shared per-process live spend
+   * budget. It authorizes no agent, no batch, no retry and no publication.
+   */
+  OPENAI_IMAGE_GENERATION_CONTROL_KEY,
 ]);
 
 /**

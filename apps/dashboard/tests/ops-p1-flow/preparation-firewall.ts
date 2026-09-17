@@ -329,6 +329,14 @@ function main(): void {
         /* CGO-8's one read: the current-revision review state of a listing, in one batch. */
         "readCurrentRevisionReviewStatesAction",
         "resolveWorkArtifactReferenceAction",
+        /*
+         * MEDIA-2B's one action: the only human door to a real image generation. It is enumerated
+         * here, in order, for the same reason every other name is — so a THIRTEENTH action cannot
+         * reach this surface without a diff. It carries no authority of its own; the assertion
+         * below still holds for it, because it resolves the session tenant and calls the released
+         * Media Asset authority and nothing else.
+         */
+        "requestMediaGenerationAction",
         "prepareWorkArtifactAction",
         /* REV-3's one read. */
         "readArtifactWorkPurposeAction",

@@ -130,13 +130,18 @@ const GENERIC = "scripts/provider-connectivity.ts";
 {
   assert.deepEqual(
     [...GENERIC_PRODUCTION_REACHABLE_KEYS].sort(),
-    [CLAUDE_PROVIDER_KEY, OBSERVATION_READ_CONTROL_KEY].sort(),
-    "R2H's model decision and TRH-25's read decision, unchanged and enumerated",
+    [CLAUDE_PROVIDER_KEY, OBSERVATION_READ_CONTROL_KEY, OPENAI_IMAGE_GENERATION_CONTROL_KEY].sort(),
+    "R2H's model decision, TRH-25's read decision and MEDIA-2B's generation decision, enumerated",
   );
   assert.equal(resolveGenericProductionReach(CLAUDE_PROVIDER_KEY).status, "reachable");
   assert.equal(resolveGenericProductionReach(OBSERVATION_READ_CONTROL_KEY).status, "reachable");
-  /* MEDIA-2A: paid image generation has no production decision yet — refused, and no dedicated gate. */
-  assert.deepEqual(resolveGenericProductionReach(OPENAI_IMAGE_GENERATION_CONTROL_KEY), { status: "refused", dedicatedCommand: null });
+  /*
+   * MEDIA-2B took the production decision for paid image generation, so the generic ceremony now
+   * reaches it. REACHABLE IS NOT ARMED: with no row the released reader still answers OFF, and the
+   * resolver additionally requires `HEBUN_MEDIA_GENERATION_TRANSPORT=live` and a credential-shaped
+   * key on every call. This asserts only that a Director ceremony CAN now decide it.
+   */
+  assert.equal(resolveGenericProductionReach(OPENAI_IMAGE_GENERATION_CONTROL_KEY).status, "reachable");
 
   const send = resolveGenericProductionReach(EXTERNAL_SEND_PROVIDER_KEY);
   assert.equal(send.status, "refused", "ESA's refusal survives the reshaping");

@@ -124,13 +124,23 @@ const MUTATIONS: readonly Mutation[] = [
     because: "no config, row, log or authority",
   },
   {
-    label: "B12 paid image generation becomes production-armable by the generic ceremony",
+    /*
+     * MEDIA-2B RETARGETED THIS PROOF, because its premise expired by decision rather than by
+     * accident. It used to bite the INSERTION of the image key into the production-reachable list,
+     * which was the right proof while no production decision existed. MEDIA-2B took that decision,
+     * so insertion is now the released truth and biting it would assert the opposite of the code.
+     *
+     * It was NOT deleted, and it was not left to pass by coincidence — the old mutation still
+     * "passed" only because inserting a duplicate happens to break a deepEqual. What matters now is
+     * the SAME invariant from the other side: the list is pinned BY VALUE, so a key cannot silently
+     * LEAVE it either. Removing the key must still be caught.
+     */
+    label: "B12 paid image generation silently loses its enumerated production decision",
     file: CEREMONY,
     suite: ARMING,
-    find: "export const GENERIC_PRODUCTION_REACHABLE_KEYS: readonly string[] = Object.freeze([\n  CLAUDE_PROVIDER_KEY,",
-    replace: "export const GENERIC_PRODUCTION_REACHABLE_KEYS: readonly string[] = Object.freeze([\n  OPENAI_IMAGE_GENERATION_CONTROL_KEY,\n  CLAUDE_PROVIDER_KEY,",
-    /* The enumerated production-reachable list objects first, naming the key that joined it. */
-    because: "R2H's model decision and TRH-25's read decision, unchanged and enumerated",
+    find: "  OPENAI_IMAGE_GENERATION_CONTROL_KEY,\n]);\n\n/**\n * The dedicated production ceremony",
+    replace: "]);\n\n/**\n * The dedicated production ceremony",
+    because: "MEDIA-2B's generation decision, enumerated",
   },
   {
     label: "B13 the migration admits a third transport kind",

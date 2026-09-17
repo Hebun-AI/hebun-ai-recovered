@@ -71,6 +71,9 @@ const code = (f: string): string => stripComments(read(f));
     "src/features/media-storage-acceptance/run-storage-acceptance.server.ts",
     /* MEDIA-2A: the OpenAI transport imports only the port's TYPES (see section 4c). */
     "src/features/media-generation-live/openai-image-transport.server.ts",
+    /* MEDIA-2B: the human door — exactly one action and one surface (section 2b). */
+    "src/app/(dashboard)/operations/actions.ts",
+    "src/components/operations-preparation/generate-image-with-hebun.tsx",
   ]);
   for (const f of SRC) {
     const c = code(f);
@@ -83,9 +86,59 @@ const code = (f: string): string => stripComments(read(f));
   const decisionAuthority = code("src/features/governance-decision/decision-authority.server.ts");
   assert.match(decisionAuthority, /from "@\/features\/media-asset-review\/contracts"/);
   assert.ok(!/media-asset-review\/review-media-asset/.test(decisionAuthority), "the G2 writer imports only the review vocabulary");
-  for (const f of SRC.filter((f) => f.startsWith("src/app/") || f.startsWith("src/components/"))) {
-    assert.ok(!/media[-_]?asset|mediaAsset|requestMediaGeneration/i.test(code(f)), `${f}: no route, action or surface in MEDIA-1`);
+  /* ── 2b. MEDIA-2B: the door is EXACTLY these three files, and nothing more ──
+     MEDIA-1 banned every mention under src/app and src/components. MEDIA-2B does not relax that
+     into "anything may reach it" — it names the whole reachable set and pins it, so a fourth file
+     cannot acquire a generation path without this assertion failing. */
+  const doorFiles = SRC.filter(
+    (f) =>
+      (f.startsWith("src/app/") || f.startsWith("src/components/")) &&
+      /media[-_]?asset|mediaAsset|requestMediaGeneration/i.test(code(f)),
+  ).sort();
+  assert.deepEqual(
+    doorFiles,
+    [
+      "src/app/(dashboard)/operations/actions.ts",
+      "src/components/operations-preparation/generate-image-with-hebun.tsx",
+    ],
+    "exactly one action and one surface may reach the Media Asset authority",
+  );
+
+  /* The action is a pass-through: it calls the authority and holds none of its own. */
+  const doorAction = code("src/app/(dashboard)/operations/actions.ts");
+  assert.match(doorAction, /requestMediaGeneration\(tenant, input\)/, "the door passes the session tenant, never a client one");
+  assert.ok(!/tenantId\s*[:,]/.test(doorAction), "no action in this file accepts a tenant id");
+  for (const f of doorFiles) {
+    const c = code(f);
+    assert.ok(!/mediaAssets|mediaGenerationInvocations/.test(c), `${f}: names no media table`);
+    assert.ok(!/\.(insert|update|delete)\(/.test(c) || !/media/i.test(c), `${f}: writes no media row`);
+    /* Naming the provider in user-facing copy is honest and stays allowed; REACHING it does not.
+       What is banned is the endpoint, the credential, the transport module and its constants. */
+    assert.ok(
+      !/api\.openai\.com|HEBUN_OPENAI|OPENAI_IMAGE_|media-generation-live|createOpenAiImageTransport/.test(c),
+      `${f}: never reaches the provider, its credential or its transport`,
+    );
+    assert.ok(!/process\.env/.test(c), `${f}: reads no configuration, so it cannot infer capability`);
+    assert.ok(!/acceptMediaAsset|declineMediaAsset|writeGovernanceDecision/.test(c), `${f}: cannot approve its own asset`);
+    /* Again: SAYING "this is not published" is the honest copy; REACHING a publishing authority is
+       what must be impossible. Identifiers and module paths, never prose. */
+    assert.ok(
+      !/recordActionRequest|action-authorization|action-execution|standing-mutation|heby-action-inlet/.test(c),
+      `${f}: generation is not publication`,
+    );
+    assert.ok(!/retireMediaAsset/.test(c), `${f}: cannot retire an asset`);
   }
+
+  /* The surface offers ONE generation control and no second, retrying, or batching one. */
+  const surface = code("src/components/operations-preparation/generate-image-with-hebun.tsx");
+  assert.equal(
+    (surface.match(/requestMediaGenerationAction\(/g) ?? []).length,
+    1,
+    "exactly one call site, so a retry cannot become a second paid call",
+  );
+  assert.ok(!/setTimeout|setInterval|useEffect/.test(surface), "nothing dispatches on its own; only a human click does");
+  assert.match(surface, /crypto\.randomUUID\(\)/, "the idempotency key is minted once per form");
+  assert.match(surface, /useMemo/, "the key is stable across re-renders, so a resubmit collides rather than pays twice");
 }
 
 /* ── 3. Review cannot create a request, a permit or an execution ──────────── */

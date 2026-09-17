@@ -207,7 +207,17 @@ const MUTATIONS: readonly Mutation[] = [
     label: "P8 the control key is retyped in the ceremony instead of imported",
     file: CEREMONY_LIB,
     edits: [
-      { find: "  OBSERVATION_READ_CONTROL_KEY,\n]);", replace: '  "provider-observation-read",\n]);' },
+      /*
+       * MEDIA-2B RE-ANCHORED THIS MUTATION, and changed nothing about what it proves. The anchor
+       * used to be the reachable list's LAST entry (`OBSERVATION_READ_CONTROL_KEY,\n]);`), which
+       * stopped existing the moment MEDIA-2B enumerated a key after it. It now anchors on the
+       * `PROVIDER_KEYS` occurrence, which is unique and does not sit at a list boundary, so a later
+       * phase appending another key cannot silently void this proof again.
+       */
+      {
+        find: "  EXTERNAL_SEND_PROVIDER_KEY,\n  OBSERVATION_READ_CONTROL_KEY,",
+        replace: '  EXTERNAL_SEND_PROVIDER_KEY,\n  "provider-observation-read",',
+      },
     ],
     suite: FIREWALL,
     because: "and never spells the literal itself",
