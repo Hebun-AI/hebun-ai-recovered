@@ -4267,3 +4267,16 @@ exist is anything that would invoke it.
 - Weekly 3: learned that the storage boundary could stay a port + a dumb byte service; TRH gets a
   place to keep generated rug imagery that Hebun verifies itself; Hebun AI gets a swappable storage
   adapter pattern (VPS now, S3 later) without touching Media Asset authority.
+
+## MEDIA-VPS production connection + closure — 2026-09-17
+
+- A capability with no runtime caller cannot be production-accepted by configuration alone: sensitive
+  env values cannot be read back, and nothing in the deployment evaluates them. Prove it from inside
+  the runtime (a narrow bearer ingress, port-level only), then close the door by removing its secret.
+- A route count/census is pinned in ~16 suites plus INT-3's GET-only invariant. A new ingress follows
+  the house verb (GET) instead of loosening an invariant, and is named in every census.
+- The Vercel token in the CLI auth file can go stale between calls; `vercel whoami` refreshes it.
+  Re-read the token after an `invalidToken` before concluding access was lost.
+- Weekly 3: learned to prove connectivity in the runtime that owns it; TRH gets a storage path for
+  admitted rug imagery that is live and verified; Hebun AI gets the pattern "port acceptance ingress,
+  then close by secret removal" for every future adapter.
