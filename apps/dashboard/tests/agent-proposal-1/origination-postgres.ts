@@ -699,6 +699,8 @@ async function main(): Promise<void> {
           "identity_enrollment_requests_human_approver_chk",
           "knowledge_external_references_human_declarer_chk",
           "knowledge_external_references_human_withdrawer_chk",
+          /* MEDIA-1 — only a human may ask for an image. A DATABASE fact. */
+          "media_generation_invocations_human_requester_chk",
           "membership_authorizations_human_authorizer_chk",
           /*
            * WORK-1. The census GREW AGAIN, in the same strict direction. `work_items` constrains
@@ -729,7 +731,7 @@ async function main(): Promise<void> {
       "work_evidence_references_human_declarer_chk",
           "work_items_human_accountable_chk",
         ],
-        "the fifteen human-only CHECKs are enforced by the database, and this phase widened none of them",
+        "the sixteen human-only CHECKs are enforced by the database, and this phase widened none of them",
       );
 
       /* And the approver CHECK really does refuse an agent, on the agent's own proposal. */

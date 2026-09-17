@@ -264,11 +264,19 @@ export const GOVERNANCE_DECISION_TYPES: readonly GovernanceDecisionType[] = ["ra
  * REVIEWING IS NOT RATIFYING. A ratification settles an organization's own knowledge; an accepted
  * revision is prepared work a human judged fit for the next internal step, and it never becomes
  * Knowledge by being accepted. The two are different subjects in different domains for that reason.
+ *
+ * ── THE THIRD SUBJECT (MEDIA-1) ──────────────────────────────────────────────
+ *
+ * `media_asset` names one admitted image. An asset has no revisions — its byte identity is immutable —
+ * so its own id already names exact bytes, and the reviewer must also present the byte digest they
+ * were shown. Its existence check lives in `media-asset-review`: tenant-scoped, still admitted, digest
+ * equal. The generic G2 path above still refuses it, exactly as it refuses `work_artifact_revision`.
  */
-export type GovernanceSubjectType = "knowledge_node" | "work_artifact_revision";
+export type GovernanceSubjectType = "knowledge_node" | "work_artifact_revision" | "media_asset";
 export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [
   "knowledge_node",
   "work_artifact_revision",
+  "media_asset",
 ];
 
 /**
@@ -278,6 +286,7 @@ export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [
 export const SUBJECT_GOVERNANCE_DOMAIN = Object.freeze({
   knowledge_node: "knowledge-ratification",
   work_artifact_revision: "artifact-review",
+  media_asset: "media-asset-review",
 } as const);
 
 export type DecisionRefusal =

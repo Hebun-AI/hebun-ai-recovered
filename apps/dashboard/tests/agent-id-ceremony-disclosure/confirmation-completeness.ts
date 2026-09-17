@@ -274,8 +274,8 @@ function main(): void {
   ].map((m) => m[1]);
   assert.deepEqual(
     declaredSubjects,
-    ["knowledge_node", "work_artifact_revision"],
-    'governance subject types are exactly ["knowledge_node", "work_artifact_revision"] — disclosing a ceremony is not a decision',
+    ["knowledge_node", "work_artifact_revision", "media_asset"],
+    'governance subject types are exactly ["knowledge_node", "work_artifact_revision", "media_asset"] — disclosing a ceremony is not a decision',
   );
   assert.ok(
     !declaredSubjects.some((s) => /ceremony|disclosure|agent/.test(s)),

@@ -989,6 +989,21 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * folding it in would make the ledger unable to distinguish the two.
    */
   "standing-mutation",
+  /**
+   * MEDIA-1 — Governance judging ONE exact admitted media asset fit for the next internal step.
+   *
+   * It is NOT `artifact-review`: that domain judges an immutable TEXT revision of prepared work.
+   * An image is a different subject with a different identity (an admitted asset, bound by its own
+   * byte digest), and the ledger must be able to say which of the two was judged.
+   *
+   * It is NOT `action-authorization`: accepting an asset authorizes no act, mints no permit and
+   * makes nothing publishable. Publication, when it exists, is its own action request, its own
+   * decision and its own permit.
+   *
+   * It is NOT `knowledge-ratification`: a generated image never becomes organizational Knowledge by
+   * being accepted.
+   */
+  "media-asset-review",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",

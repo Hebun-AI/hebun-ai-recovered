@@ -121,11 +121,21 @@ function oneAgentLookupAuthority(): void {
     );
   }
 
-  /* Exactly one module in `src/` resolves an agent author. */
+  /*
+   * Exactly these modules in `src/` resolve an agent author.
+   *
+   * MEDIA-1 adds the second, and it is the same use: a generation invocation records WHICH durable
+   * agent authored an image, through this one seam, and refuses before any write when none serves.
+   * It adds no second lookup, and the census stays exact so a third caller still fails here.
+   */
   const resolvers = collect("src").filter(
     (f) => f !== AUTHORSHIP && /resolveAgentAuthorship\s*\(/.test(codeOf(read(f))),
   );
-  assert.deepEqual(resolvers, [SEAM], "the preparation seam is the only caller of the resolver");
+  assert.deepEqual(
+    resolvers.sort(),
+    [SEAM, "src/features/media-assets/request-media-generation.server.ts"].sort(),
+    "the preparation seam and media generation are the only callers of the resolver",
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -262,11 +272,11 @@ function nothingIsHardCodedToOneAgent(): void {
 
 function schemaIsUntouched(): void {
   const sql = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-  assert.equal(sql.length, 55, "AGENT-RUNTIME-0 adds no migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`, so a tenant a visitor created stays distinguishable from one an operator ceremony created). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */
+  assert.equal(sql.length, 56, "AGENT-RUNTIME-0 adds no migration"); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`, so a tenant a visitor created stays distinguishable from one an operator ceremony created). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly unknown[];
   };
-  assert.equal(journal.entries.length, 55, "and the ledger is unchanged by this phase"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */
+  assert.equal(journal.entries.length, 56, "and the ledger is unchanged by this phase"); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */
 
   /* The two tables this phase writes and reads gained no column. */
   const artifactSchema = read("src/db/schema/work-artifact.ts");
@@ -342,6 +352,8 @@ function humanOnlyChecksAreIntact(): void {
       "identity_enrollment_requests_human_approver_chk",
       "knowledge_external_references_human_declarer_chk",
       "knowledge_external_references_human_withdrawer_chk",
+      /* MEDIA-1 — only a human may ask for an image. A DATABASE fact. */
+      "media_generation_invocations_human_requester_chk",
       "membership_authorizations_human_authorizer_chk",
       /*
        * WORK-1. The census GREW AGAIN, in the same strict direction. `work_items` constrains its
@@ -370,7 +382,7 @@ function humanOnlyChecksAreIntact(): void {
       "work_evidence_references_human_declarer_chk",
       "work_items_human_accountable_chk",
     ],
-    "the fifteen human-only CHECKs are exactly these — this phase widened none of them",
+    "the sixteen human-only CHECKs are exactly these — this phase widened none of them",
   );
 
   /*

@@ -101,8 +101,8 @@ function theCanonicalLedgerIsWellFormed(): void {
    */
   assert.equal(
     CANONICAL.length,
-    55,
-    `this checkout authors ${CANONICAL.length} canonical migrations, and the pin expected 55`,
+    56,
+    `this checkout authors ${CANONICAL.length} canonical migrations, and the pin expected 56`,
   ); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`). */
   /*
    * PHASE-RELATIVE, not an index. This read `CANONICAL[40]` and therefore named the last entry only
@@ -112,10 +112,10 @@ function theCanonicalLedgerIsWellFormed(): void {
    */
   assert.equal(
     CANONICAL.at(-1)!.tag,
-    /* RUNG 2 — `standing_mutation_authorizations`, one additive table plus the
-     * `standing-mutation` governance domain, so this is now the newest canonical migration. */
-    "20260915100638_rung2_standing_mutation_authorization",
-    "and the last of them is the standing mutation authority — the tenant machine-execution authority held this line before it",
+    /* MEDIA-1 — `media_generation_invocations`, `media_assets` and the `media-asset-review`
+     * governance domain, so this is now the newest canonical migration. */
+    "20260917001519_media1_media_asset_authority",
+    "and the last of them is the Media Asset authority — the standing mutation authority held this line before it",
   );
 
   /* Strictly increasing `when` — the precondition that makes delegating to the engine sound. */
@@ -158,7 +158,7 @@ function theCanonicalLedgerIsWellFormed(): void {
    * carries the digest for ITS ledger until the migration ceremony is authorized — the gap is a
    * PENDING ROLLOUT, which is exactly what this assertion exists to make visible.
    */
-  assert.equal(canonicalDigest(CANONICAL), "31056ffd14779350d191a2d17ddbcde5", "the release digest");
+  assert.equal(canonicalDigest(CANONICAL), "3296764e10a243fa621c03b0bfd3cbd7", "the release digest");
   assert.equal(
     canonicalDigest(CANONICAL.slice(0, 35)),
     "97f1151fd57bec5142621f00c1913708",
@@ -202,7 +202,7 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
         [CANONICAL[CANONICAL.length - 1]!.tag],
         "exactly one migration is pending, and it is the newest release",
       );
-      assert.equal(verdict.finalDigest, "31056ffd14779350d191a2d17ddbcde5");
+      assert.equal(verdict.finalDigest, "3296764e10a243fa621c03b0bfd3cbd7");
 
       /*
        * THE PENDING MIGRATION'S OWN ADDITION IS ABSENT BEFORE MIGRATING.
@@ -287,9 +287,9 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
        */
       const admitsSelfService = async (): Promise<string> => {
         const r = await client.query<{ n: string }>(
-          /* RUNG 2's table — whatever the NEWEST migration adds, never something earlier. */
+          /* MEDIA-1's table — whatever the NEWEST migration adds, never something earlier. */
           `select count(*)::text as n from information_schema.tables
-            where table_name = 'standing_mutation_authorizations'`,
+            where table_name = 'media_assets'`,
         );
         return r.rows[0]!.n;
       };
@@ -304,8 +304,8 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.applied, 55);
-      assert.equal(after.digest, "31056ffd14779350d191a2d17ddbcde5");
+      assert.equal(after.applied, 56);
+      assert.equal(after.digest, "3296764e10a243fa621c03b0bfd3cbd7");
 
       assert.equal(await admitsSelfService(), "1", "and present after");
 
@@ -350,7 +350,7 @@ async function aTargetTwoBehindAppliesBoth(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.digest, "31056ffd14779350d191a2d17ddbcde5");
+      assert.equal(after.digest, "3296764e10a243fa621c03b0bfd3cbd7");
     });
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -363,8 +363,8 @@ async function aConvergedTargetIsANoOp(): Promise<void> {
     const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);
     assert.equal(verdict.status, "converged");
     if (verdict.status !== "converged") return;
-    assert.equal(verdict.applied, 55);
-    assert.equal(verdict.digest, "31056ffd14779350d191a2d17ddbcde5");
+    assert.equal(verdict.applied, 56);
+    assert.equal(verdict.digest, "3296764e10a243fa621c03b0bfd3cbd7");
 
     /* And the released convergence check agrees, so the split did not change its answer. */
     const legacy = await verifyProductionTarget(

@@ -115,6 +115,12 @@ function main(): void {
          */
         "src/features/action-execution-live/resend-email-transport.server.ts",
         "src/features/heby-model-live/claude-http-transport.server.ts",
+        /*
+         * MEDIA-1 — the one seam that follows a generation provider's output URL. It reaches only
+         * hosts the transport declares, exactly, with manual redirects re-checked per hop, a timeout
+         * and a byte cap. No provider transport exists yet; this names the socket anyway.
+         */
+        "src/features/media-assets/provider-output-download.server.ts",
       ].sort(),
       "every outbound-HTTP module in src is a named transport",
     );

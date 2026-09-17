@@ -752,8 +752,8 @@ function main(): void {
   ].map((m) => m[1]);
   assert.deepEqual(
     declaredSubjects,
-    ["knowledge_node", "work_artifact_revision"],
-    'governance subject types are exactly ["knowledge_node", "work_artifact_revision"] — retiring an agent is not a governance decision',
+    ["knowledge_node", "work_artifact_revision", "media_asset"],
+    'governance subject types are exactly ["knowledge_node", "work_artifact_revision", "media_asset"] — retiring an agent is not a governance decision',
   );
   assert.ok(
     !declaredSubjects.some((s) => /agent|retire/.test(s)),

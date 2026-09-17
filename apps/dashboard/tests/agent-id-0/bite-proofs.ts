@@ -182,7 +182,7 @@ const MUTATIONS: readonly Mutation[] = [
     file: GOVERNANCE,
     suite: FW_SUITE,
     find:
-      'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [\n  "knowledge_node",\n  "work_artifact_revision",\n];',
+      'export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [\n  "knowledge_node",\n  "work_artifact_revision",\n  "media_asset",\n];',
     replace:
       "export const GOVERNANCE_SUBJECT_TYPES: readonly GovernanceSubjectType[] = [\n" +
       '  "knowledge_node",\n' +

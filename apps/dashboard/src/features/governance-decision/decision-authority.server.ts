@@ -119,6 +119,13 @@ import {
   STANDING_MUTATION_WITHDRAWN_OUTCOME,
   STANDING_MUTATION_WITHDRAW_DECISION_TYPE,
 } from "@/features/standing-mutation-authority/contracts";
+import {
+  MEDIA_ASSET_REVIEW_ACCEPTED_OUTCOME,
+  MEDIA_ASSET_REVIEW_ACCEPT_TYPE,
+  MEDIA_ASSET_REVIEW_DECLINED_OUTCOME,
+  MEDIA_ASSET_REVIEW_DOMAIN,
+  MEDIA_ASSET_REVIEW_SUBJECT_TYPE,
+} from "@/features/media-asset-review/contracts";
 
 function refused(reason: DecisionRefusal): DecisionResult {
   return { status: "refused", reason };
@@ -194,7 +201,9 @@ export async function writeGovernanceDecisionWithin(
       | typeof STANDING_OBSERVATION_SUBJECT_TYPE
       | typeof TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
       /* RUNG 2 — the standing envelope revision a decision authorizes or withdraws. */
-      | typeof STANDING_MUTATION_SUBJECT_TYPE;
+      | typeof STANDING_MUTATION_SUBJECT_TYPE
+      /* MEDIA-1 — one exact admitted image. */
+      | typeof MEDIA_ASSET_REVIEW_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -287,7 +296,13 @@ export async function writeGovernanceDecisionWithin(
                  * It is also NOT `machine-execution`: that asks whether the organization accepts
                  * unattended DELIVERY of acts a human already decided individually.
                  */
-                input.subjectType === STANDING_MUTATION_SUBJECT_TYPE
+                /*
+                 * MEDIA-1 — Governance judging one exact admitted image. Its own domain rather than
+                 * `artifact-review`, so the ledger can say whether prose or an image was judged.
+                 */
+                input.subjectType === MEDIA_ASSET_REVIEW_SUBJECT_TYPE
+                ? MEDIA_ASSET_REVIEW_DOMAIN
+                : input.subjectType === STANDING_MUTATION_SUBJECT_TYPE
                 ? STANDING_MUTATION_DOMAIN
                 : input.subjectType === TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
                 ? TENANT_MACHINE_EXECUTION_DOMAIN
@@ -351,6 +366,14 @@ export async function writeGovernanceDecisionWithin(
       ? input.decisionType === ARTIFACT_REVIEW_ACCEPT_TYPE
         ? ARTIFACT_REVIEW_ACCEPTED_OUTCOME
         : ARTIFACT_REVIEW_REJECTED_OUTCOME
+      : /*
+         * MEDIA-1, checked on its subject for the same reason as TRH-10 above: `approve` would
+         * otherwise reach the membership branch, and `reject` the final fallthrough.
+         */
+        input.subjectType === MEDIA_ASSET_REVIEW_SUBJECT_TYPE
+      ? input.decisionType === MEDIA_ASSET_REVIEW_ACCEPT_TYPE
+        ? MEDIA_ASSET_REVIEW_ACCEPTED_OUTCOME
+        : MEDIA_ASSET_REVIEW_DECLINED_OUTCOME
       : /*
          * R3A IS CHECKED NEXT, AND THAT ORDER IS LOAD-BEARING. A permit revocation uses the same
          * `revoke` decision type G3 uses to end a delegation, so the generic `revoke` branch below

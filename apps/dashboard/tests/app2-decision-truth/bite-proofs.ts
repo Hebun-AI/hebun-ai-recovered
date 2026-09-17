@@ -161,7 +161,7 @@ const MUTATIONS: readonly Mutation[] = [
      * the mutation must apply to the journal's CURRENT tail, or it proves nothing. The defect it
      * injects — an extra journal entry — is unchanged, and this anchor moves with every migration
      * by design. */
-    find: `      "tag": "20260915100638_rung2_standing_mutation_authorization",\n      "breakpoints": true\n    }\n  ]`,
+    find: `      "tag": "20260917001519_media1_media_asset_authority",\n      "breakpoints": true\n    }\n  ]`,
     replace:
       `      "tag": "20260908072926_trh24_machine_observation_provenance",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 50,\n      "version": "7",\n      "when": 1787900000000,\n` +

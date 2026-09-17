@@ -280,7 +280,7 @@ function noApprovalSemanticsArrived(): void {
   );
   assert.deepEqual(
     [...GOVERNANCE_SUBJECT_TYPES],
-    ["knowledge_node", "work_artifact_revision"],
+    ["knowledge_node", "work_artifact_revision", "media_asset"],
     "Governance still decides about exactly one subject type, and it is not a work artifact",
   );
   const contracts = codeOf(read("src/features/work-artifacts/contracts.ts"));

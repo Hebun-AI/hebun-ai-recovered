@@ -188,7 +188,7 @@ const MUTATIONS: readonly Mutation[] = [
           "  }))();",
       },
     ],
-    because: "the preparation seam is the only caller of the resolver",
+    because: "the preparation seam and media generation are the only callers of the resolver",
   },
 ];
 

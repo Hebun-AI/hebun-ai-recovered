@@ -131,6 +131,8 @@ function main(): void {
       "20260914120405_rung2_tenant_machine_execution_authorization.sql",
       /* RUNG 2 — `standing_mutation_authorizations` plus the `standing-mutation` governance domain. */
       "20260915100638_rung2_standing_mutation_authorization.sql",
+      /* MEDIA-1 — `media_generation_invocations`, `media_assets` and the `media-asset-review` governance domain. */
+      "20260917001519_media1_media_asset_authority.sql",
       ],
       "KR3 added no migration; everything after its boundary belongs to a declared later phase",
     );

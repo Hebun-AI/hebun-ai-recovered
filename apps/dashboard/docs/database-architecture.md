@@ -30,9 +30,20 @@ Design must fit what exists (phases 58–60), not replace it.
 repositories, Command Bus, and UI do not change when Postgres arrives — only a new
 `SupabasePostgresAdapter` is added and selected in `storage-manager`.
 
+> **Implementation status (measured at MEDIA-1 against `983c7948`).** Planned, not what shipped:
+> `storage-manager` still selects the memory adapter, and the governed runtime reaches PostgreSQL
+> through `db/client.server` (Drizzle + `pg`) directly.
+
 ---
 
 ## 2. Multi-tenant strategy
+
+> **Implementation status (measured at MEDIA-1 against `983c7948`).** This section is the
+> Phase 61 PLAN. It is **not implemented.** The migrations contain zero `ENABLE ROW LEVEL SECURITY`
+> and zero `CREATE POLICY` statements; authentication is Hebun's own `local` provider, not Supabase
+> Auth; the hosted database is Neon, not Supabase Postgres. Tenant isolation today is enforced by the
+> application — tenant predicates on every query plus composite `(tenant_id, id)` foreign keys —
+> not by RLS.
 
 **Model: single Postgres, shared schema, row-level tenancy.** Chosen over
 schema-per-tenant and db-per-tenant because it scales to millions of tenants with
@@ -188,6 +199,13 @@ High-volume append-only tables are **declaratively partitioned**:
 ---
 
 ## 8. RLS strategy (tenant isolation)
+
+> **Implementation status (measured at MEDIA-1 against `983c7948`).** This section is the
+> Phase 61 PLAN. It is **not implemented.** The migrations contain zero `ENABLE ROW LEVEL SECURITY`
+> and zero `CREATE POLICY` statements; authentication is Hebun's own `local` provider, not Supabase
+> Auth; the hosted database is Neon, not Supabase Postgres. Tenant isolation today is enforced by the
+> application — tenant predicates on every query plus composite `(tenant_id, id)` foreign keys —
+> not by RLS.
 
 Supabase Auth issues a JWT with `auth.uid()`. RLS is the isolation boundary.
 

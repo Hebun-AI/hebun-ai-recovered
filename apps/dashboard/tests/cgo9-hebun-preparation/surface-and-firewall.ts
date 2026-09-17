@@ -185,8 +185,8 @@ function theRevisionBasisIsFencedInstruction(): void {
 
 function outOfScopeStaysOut(): void {
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 55, "CGO-9 adds no migration");
-  assert.deepEqual([...GOVERNANCE_SUBJECT_TYPES], ["knowledge_node", "work_artifact_revision"], "no new Governance subject");
+  assert.equal(journal.entries.length, 56, "CGO-9 adds no migration");
+  assert.deepEqual([...GOVERNANCE_SUBJECT_TYPES], ["knowledge_node", "work_artifact_revision", "media_asset"], "no new Governance subject");
 
   for (const file of [SEAM, HEBUN, BRIEF]) {
     const code = codeOf(read(file)).toLowerCase();

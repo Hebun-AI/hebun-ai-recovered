@@ -1,0 +1,153 @@
+/*
+ * MEDIA-1 — structural firewall.
+ *
+ * What only reading the source can prove:
+ *   - the asset's byte identity has no writer; the ONLY update of `media_assets` sets retirement;
+ *   - nothing outside the Media Asset authority and its review reaches it (no route, action, surface);
+ *   - review cannot reach action requests, permits or execution;
+ *   - no storage SDK, no vendor name, no new dependency, no logging of URLs;
+ *   - the test fakes never enter the application;
+ *   - the code limits and the database CHECKs state the same numbers;
+ *   - the migration is additive and touches no existing table.
+ */
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
+import {
+  MEDIA_ASSET_LIMITS,
+  MEDIA_ASSET_MIME_TYPES,
+} from "../../src/features/media-assets/contracts";
+import {
+  GOVERNANCE_SUBJECT_TYPES,
+  SUBJECT_GOVERNANCE_DOMAIN,
+} from "../../src/features/governance-decision/contracts";
+
+const read = (f: string): string => readFileSync(f, "utf8");
+const stripComments = (code: string): string =>
+  code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+function walk(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const full = path.join(dir, name);
+    if (statSync(full).isDirectory()) return walk(full);
+    return /\.(ts|tsx)$/.test(name) ? [full] : [];
+  });
+}
+
+const SRC = walk("src");
+const MEDIA = SRC.filter((f) => f.startsWith("src/features/media-assets/"));
+const REVIEW = SRC.filter((f) => f.startsWith("src/features/media-asset-review/"));
+const code = (f: string): string => stripComments(read(f));
+
+/* ── 1. Byte identity has no writer; retirement is the only update ────────── */
+{
+  const updaters = SRC.filter((f) => /\.update\(\s*mediaAssets\s*\)/.test(code(f)));
+  assert.deepEqual(updaters, ["src/features/media-assets/retire-media-asset.server.ts"], "only retirement updates media_assets");
+  const retire = code("src/features/media-assets/retire-media-asset.server.ts");
+  const setBlock = /\.set\(\{([^}]*)\}\)/.exec(retire)?.[1] ?? "";
+  const keys = setBlock.split(",").map((part) => part.split(":")[0]!.trim()).filter(Boolean).sort();
+  assert.deepEqual(keys, ["assetLifecycleStatus", "retiredAt", "retiredByActorId"], "retirement sets only the retirement columns");
+
+  const inserters = SRC.filter((f) => /\.insert\(\s*mediaAssets\s*\)/.test(code(f)));
+  assert.deepEqual(inserters, ["src/features/media-assets/request-media-generation.server.ts"], "only admission inserts an asset");
+  const invocationWriters = SRC.filter((f) => /\.(insert|update)\(\s*mediaGenerationInvocations\s*\)/.test(code(f)));
+  assert.deepEqual(invocationWriters, ["src/features/media-assets/request-media-generation.server.ts"]);
+  for (const f of SRC) {
+    assert.ok(!/\.delete\(\s*(mediaAssets|mediaGenerationInvocations)\s*\)/.test(code(f)), `${f} deletes nothing media`);
+    assert.ok(!/delete\s+from\s+media_/i.test(code(f)), `${f} issues no raw media delete`);
+  }
+  assert.ok(!/\b(delete|remove|purge)\s*\(/.test(code("src/features/media-assets/media-object-store.ts")), "the storage port has no delete verb");
+}
+
+/* ── 2. Nothing outside the authority reaches it: no human door in MEDIA-1 ── */
+{
+  const allowedImporters = new Set([...MEDIA, ...REVIEW, "src/db/schema/index.ts", "src/features/governance-decision/decision-authority.server.ts"]);
+  for (const f of SRC) {
+    const c = code(f);
+    const touches =
+      /features\/media-assets\//.test(c) ||
+      /features\/media-asset-review\//.test(c) ||
+      /schema\/media-asset["']/.test(c);
+    if (touches) assert.ok(allowedImporters.has(f), `${f} must not reach the Media Asset authority in MEDIA-1`);
+  }
+  const decisionAuthority = code("src/features/governance-decision/decision-authority.server.ts");
+  assert.match(decisionAuthority, /from "@\/features\/media-asset-review\/contracts"/);
+  assert.ok(!/media-asset-review\/review-media-asset/.test(decisionAuthority), "the G2 writer imports only the review vocabulary");
+  for (const f of SRC.filter((f) => f.startsWith("src/app/") || f.startsWith("src/components/"))) {
+    assert.ok(!/media[-_]?asset|mediaAsset|requestMediaGeneration/i.test(code(f)), `${f}: no route, action or surface in MEDIA-1`);
+  }
+}
+
+/* ── 3. Review cannot create a request, a permit or an execution ──────────── */
+{
+  for (const f of REVIEW) {
+    const c = code(f);
+    assert.ok(!/action-authorization|action-execution|standing-mutation|heby-action-inlet/.test(c), `${f} imports no act authority`);
+    assert.ok(!/hebyActionRequests|actionPermits|actionExecutionAttempts/.test(c), `${f} names no act table`);
+    assert.ok(!/\.(insert|update|delete)\(\s*media/.test(c), `${f} writes nothing to the media tables`);
+    assert.ok(!/request-media-generation|retire-media-asset/.test(c), `${f} imports no media writer`);
+  }
+  for (const f of MEDIA) {
+    const c = code(f);
+    assert.ok(!/decisionRecords|governanceSessions|writeGovernanceDecisionWithin/.test(c), `${f} writes no Governance decision`);
+    assert.ok(!/action-authorization|action-execution|knowledge/.test(c), `${f} reaches no act or Knowledge authority`);
+  }
+}
+
+/* ── 4. No storage vendor, no SDK, no new dependency, no logging ──────────── */
+{
+  for (const f of [...MEDIA, ...REVIEW]) {
+    const c = code(f);
+    assert.ok(!/@aws-sdk|@vercel\/blob|@supabase|S3Client|createSignedUrl|putObject|BLOB_READ_WRITE_TOKEN/i.test(c), `${f}: no storage SDK`);
+    assert.ok(!/console\./.test(c), `${f}: nothing is logged, so no URL can be`);
+    assert.ok(!/process\.env/.test(c) || f.endsWith("media-db.server.ts"), `${f}: no configuration contract beyond the database URL`);
+    if (!f.endsWith("provider-output-download.server.ts")) {
+      assert.ok(!/\bfetch\b/.test(c), `${f}: only the download seam may open a socket`);
+    }
+    assert.ok(!/tests\/|media-fakes/.test(c), `${f}: test fakes never enter the application`);
+    assert.ok(!/higgsfield/i.test(c), `${f}: no generation provider is named`);
+  }
+  const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+  assert.deepEqual(
+    Object.keys(pkg.dependencies).sort(),
+    ["clsx", "drizzle-orm", "lucide-react", "next", "pdfjs-dist", "pg", "react", "react-dom", "tailwind-merge"],
+    "MEDIA-1 installs no dependency",
+  );
+}
+
+/* ── 5. Code limits and database CHECKs state the same numbers ────────────── */
+{
+  const schema = read("src/db/schema/media-asset.ts");
+  assert.ok(schema.includes(`between 1 and ${MEDIA_ASSET_LIMITS.maxByteSize}`), "byte size CHECK matches");
+  assert.equal((schema.match(new RegExp(`between 1 and ${MEDIA_ASSET_LIMITS.maxDimension}\\b`, "g")) ?? []).length, 2, "width and height CHECKs match");
+  assert.ok(schema.includes(`between 1 and ${MEDIA_ASSET_LIMITS.maxPromptCodePoints}`), "prompt CHECK matches");
+  assert.ok(schema.includes(`in (${MEDIA_ASSET_MIME_TYPES.map((m) => `'${m}'`).join(",")})`), "MIME CHECK matches");
+  assert.ok(schema.includes("= 'fake'"), "the transport CHECK admits only fake");
+  assert.ok(!/duration|media_kind|video/i.test(stripComments(schema)), "no premature video capability in the schema");
+}
+
+/* ── 6. Governance vocabulary ─────────────────────────────────────────────── */
+{
+  assert.ok(GOVERNANCE_SUBJECT_TYPES.includes("media_asset"));
+  assert.equal(SUBJECT_GOVERNANCE_DOMAIN.media_asset, "media-asset-review");
+  assert.ok(read("src/db/schema/_enums.ts").includes('"media-asset-review",'));
+  const g2 = code("src/features/governance-decision/decision-authority.server.ts");
+  const existence = /async function subjectExistsInTenant[\s\S]*?\n}\n/.exec(g2)?.[0] ?? "";
+  assert.ok(existence.length > 0 && !/media/.test(existence), "the generic G2 existence check does not resolve assets");
+}
+
+/* ── 7. The migration is additive and touches no existing table ───────────── */
+{
+  const dir = "src/db/migrations";
+  const file = readdirSync(dir).filter((f) => /_media1_media_asset_authority\.sql$/.test(f));
+  assert.equal(file.length, 1);
+  const sql = read(path.join(dir, file[0]!));
+  assert.ok(!/\bDROP\b/i.test(sql), "no DROP");
+  const altered = [...sql.matchAll(/ALTER TABLE "([a-z_]+)"/g)].map((m) => m[1]);
+  assert.ok(altered.every((t) => t === "media_assets" || t === "media_generation_invocations"), `only new tables altered: ${altered}`);
+  const types = [...sql.matchAll(/ALTER TYPE "public"\."([a-z_]+)" ADD VALUE '([a-z-]+)'/g)].map((m) => `${m[1]}:${m[2]}`);
+  assert.deepEqual(types, ["governance_domain:media-asset-review"]);
+  assert.ok(!/CREATE TYPE/.test(sql), "no new enum type");
+}
+
+console.log("media1-asset-authority/authority-firewall: ok");

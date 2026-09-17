@@ -514,11 +514,11 @@ function main(): void {
   const migrations = readdirSync(path.join(ROOT, "src/db/migrations"))
     .filter((f) => f.endsWith(".sql"))
     .sort();
-  assert.equal(migrations.length, 55, "51 -> 52: TRH-24 authored exactly one migration"); /* SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`, so a tenant a visitor created stays distinguishable from one an operator ceremony created). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */
+  assert.equal(migrations.length, 56, "51 -> 52: TRH-24 authored exactly one migration"); /* SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`, so a tenant a visitor created stays distinguishable from one an operator ceremony created). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
     entries: readonly { readonly tag: string }[];
   };
-  assert.equal(journal.entries.length, 55, "and the journal agrees with the files");
+  assert.equal(journal.entries.length, 56, "and the journal agrees with the files");
 
   const mine = migrations.filter((f) => /trh24/.test(f));
   assert.equal(mine.length, 1, "one migration file carries this phase's name");
