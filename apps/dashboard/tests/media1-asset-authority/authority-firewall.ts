@@ -74,6 +74,9 @@ const code = (f: string): string => stripComments(read(f));
     /* MEDIA-2B: the human door — exactly one action and one surface (section 2b). */
     "src/app/(dashboard)/operations/actions.ts",
     "src/components/operations-preparation/generate-image-with-hebun.tsx",
+    /* MEDIA-3: seeing and deciding — the asset surface and the composer that places it. */
+    "src/components/operations-preparation/revision-media-assets.tsx",
+    "src/components/operations-preparation/operations-preparation.tsx",
   ]);
   for (const f of SRC) {
     const c = code(f);
@@ -100,14 +103,22 @@ const code = (f: string): string => stripComments(read(f));
     [
       "src/app/(dashboard)/operations/actions.ts",
       "src/components/operations-preparation/generate-image-with-hebun.tsx",
+      "src/components/operations-preparation/operations-preparation.tsx",
+      "src/components/operations-preparation/revision-media-assets.tsx",
     ],
-    "exactly one action and one surface may reach the Media Asset authority",
+    "exactly one action file and the MEDIA-3 surfaces may reach the Media Asset authority",
   );
 
   /* The action is a pass-through: it calls the authority and holds none of its own. */
   const doorAction = code("src/app/(dashboard)/operations/actions.ts");
   assert.match(doorAction, /requestMediaGeneration\(tenant, input\)/, "the door passes the session tenant, never a client one");
   assert.ok(!/tenantId\s*[:,]/.test(doorAction), "no action in this file accepts a tenant id");
+  /*
+   * MEDIA-3 READS, AND THAT IS ALL IT DOES. These bans apply to EVERY file that may reach the
+   * authority, reading or writing: none may name a media table, write a media row, reach the
+   * provider or its credential, approve on its own, publish, or retire. The review surface calls
+   * the released Governance writers through the action seam — it never touches `decision_records`.
+   */
   for (const f of doorFiles) {
     const c = code(f);
     assert.ok(!/mediaAssets|mediaGenerationInvocations/.test(c), `${f}: names no media table`);
@@ -119,7 +130,7 @@ const code = (f: string): string => stripComments(read(f));
       `${f}: never reaches the provider, its credential or its transport`,
     );
     assert.ok(!/process\.env/.test(c), `${f}: reads no configuration, so it cannot infer capability`);
-    assert.ok(!/acceptMediaAsset|declineMediaAsset|writeGovernanceDecision/.test(c), `${f}: cannot approve its own asset`);
+    assert.ok(!/writeGovernanceDecision|decisionRecords|governanceSessions/.test(c), `${f}: never writes a Governance record itself`);
     /* Again: SAYING "this is not published" is the honest copy; REACHING a publishing authority is
        what must be impossible. Identifiers and module paths, never prose. */
     assert.ok(

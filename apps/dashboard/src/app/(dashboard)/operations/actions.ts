@@ -22,6 +22,21 @@ import {
   retireWorkArtifact,
   reviseWorkArtifact,
 } from "@/features/work-artifacts/write-work-artifacts.server";
+import {
+  listRevisionMediaAssets,
+  readMediaAsset,
+  type ReadMediaAssetResult,
+  type RevisionMediaAssetListing,
+} from "@/features/media-assets/read-media-assets.server";
+import {
+  acceptMediaAsset,
+  declineMediaAsset,
+  readMediaAssetReviewStates,
+} from "@/features/media-asset-review/review-media-asset.server";
+import type {
+  MediaAssetReviewResult,
+  MediaAssetReviewState,
+} from "@/features/media-asset-review/contracts";
 import { requestMediaGeneration } from "@/features/media-assets/request-media-generation.server";
 import type {
   RequestMediaGenerationInput,
@@ -220,6 +235,83 @@ export async function resolveWorkArtifactReferenceAction(input: {
  * become prepared work. This action is the only route to a Heby-authored artifact, and it is
  * reached only when a human explicitly asked for one.
  */
+/*
+ * ── MEDIA-3: SEEING, AND DECIDING ABOUT, WHAT WAS GENERATED ──────────────────
+ *
+ * Four actions, each a pass-through to a released authority. None of them owns state, and together
+ * they add no authority at all: the listing and the review states are DERIVED reads, the preview is
+ * the released verified read, and the two decisions are the released Governance writers.
+ *
+ * WHY LISTING AND PREVIEW ARE SEPARATE ACTIONS. Listing must be cheap: it answers "what exists for
+ * this revision" from the database alone, touching no store and minting no signed URL. Preview is
+ * deliberately expensive: it re-verifies byte size and SHA-256 against the store before granting a
+ * URL that lives ~60 s. Fusing them would either make a list of N assets do N store round-trips, or
+ * hand out N grants that expire before anyone clicks one.
+ */
+
+/** Every admitted asset of one content-draft revision. A database read: no bytes, no access. */
+export async function listRevisionMediaAssetsAction(input: {
+  artifactId: string;
+  revisionNo: number;
+}): Promise<RevisionMediaAssetListing> {
+  const tenant = await resolveTenantContext();
+  return listRevisionMediaAssets(tenant, input);
+}
+
+/**
+ * The derived Governance review state of several assets, in one read.
+ *
+ * Returned as an array because a Map does not survive the server-action boundary. `null` decision
+ * means NO DECISION HAS BEEN RECORDED — it is not, and must never be rendered as, an approval.
+ */
+export async function readMediaAssetReviewStatesAction(input: {
+  assetIds: readonly string[];
+}): Promise<readonly { assetId: string; state: MediaAssetReviewState }[]> {
+  const tenant = await resolveTenantContext();
+  const states = await readMediaAssetReviewStates(tenant, input.assetIds);
+  return [...states].map(([assetId, state]) => ({ assetId, state }));
+}
+
+/**
+ * A short-lived private read grant for ONE asset, requested when a human opens it.
+ *
+ * Reuses the released `readMediaAsset`, so size and SHA-256 are re-verified against the store
+ * before any URL exists. The grant is minted per call, never persisted and never logged, and the
+ * TTL is the released one — this action does not widen it.
+ */
+export async function readMediaAssetAction(input: { assetId: string }): Promise<ReadMediaAssetResult> {
+  const tenant = await resolveTenantContext();
+  return readMediaAsset(tenant, input.assetId);
+}
+
+/**
+ * Governance accepts or declines one asset, bound to the digest the reviewer was shown.
+ *
+ * THE ONLY WRITERS ARE THE RELEASED ONES. This file does not touch `decision_records`, does not
+ * touch `media_assets`, and cannot: accepting changes no byte, no lifecycle and no custody, and
+ * grants no publication, no action request, no permit and no execution. A decision is a record of
+ * judgement, not an effect.
+ */
+export async function reviewMediaAssetAction(input: {
+  assetId: string;
+  byteDigest: string;
+  justification: string;
+  decision: "accept" | "decline";
+}): Promise<MediaAssetReviewResult> {
+  const tenant = await resolveTenantContext();
+  const payload = {
+    assetId: input.assetId,
+    byteDigest: input.byteDigest,
+    justification: input.justification,
+  };
+  const result =
+    input.decision === "accept"
+      ? await acceptMediaAsset(tenant, payload)
+      : await declineMediaAsset(tenant, payload);
+  if (result.status === "reviewed") revalidatePath("/operations");
+  return result;
+}
+
 /**
  * MEDIA-2B — THE ONLY HUMAN DOOR TO A REAL IMAGE GENERATION.
  *

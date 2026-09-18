@@ -19,7 +19,7 @@
  *
  * Server-only.
  */
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { mediaAssets, mediaGenerationInvocations } from "@/db/schema/media-asset";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
@@ -160,4 +160,111 @@ export async function readMediaAsset(
   const { storageKey: _storageKey, ...asset } = record;
   void _storageKey;
   return { status: "read", asset, access };
+}
+
+/*
+ * ── MEDIA-3: THE ASSETS OF ONE CONTENT-DRAFT REVISION ────────────────────────
+ *
+ * The listing a human needs is "what images exist for THIS revision", and the relationship that
+ * answers it already exists: the invocation carries `(tenant_id, source_artifact_id,
+ * source_revision_no)` as a foreign key, and `media_generation_invocations_source_idx` indexes
+ * exactly that triple. So this adds a READER over a relationship MEDIA-1 already owns — no column,
+ * no table, no second place where "which draft is this image for" is recorded.
+ *
+ * IT DELIBERATELY GRANTS NO ACCESS. Listing is a database read; it resolves no store, verifies no
+ * bytes and mints no signed URL. A gallery of N assets must not become N store round-trips and N
+ * short-lived grants that expire before anyone clicks. Access is requested for ONE asset when a
+ * human opens it, by `readMediaAsset`, which verifies size and digest first. That split is the
+ * whole point: the list is cheap and authoritative, the preview is verified and expensive.
+ *
+ * It also carries no review state. Approval lives in the Governance ledger and is read from there.
+ */
+
+/**
+ * One admitted asset of a revision, as the database records it. No access, no bytes.
+ *
+ * Deliberately the SAME projection as a single read, so a listed asset and an opened one are the
+ * same record and cannot drift into two shapes that disagree about provenance.
+ */
+export type RevisionMediaAsset = MediaAssetRecord;
+
+export type RevisionMediaAssetListing =
+  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" }
+  | { readonly status: "read"; readonly assets: readonly RevisionMediaAsset[] };
+
+/**
+ * Every admitted asset generated for one exact content-draft revision, oldest first.
+ *
+ * Tenant-predicated on both tables. An empty list is a fact, never a failure — and a failure is
+ * never rendered as an empty list.
+ */
+export async function listRevisionMediaAssets(
+  tenant: TenantContext | null,
+  input: { readonly artifactId: string; readonly revisionNo: number } | null,
+  deps: MediaReadDeps = {},
+): Promise<RevisionMediaAssetListing> {
+  if (typeof window !== "undefined") {
+    throw new Error("Media asset reads are server-only.");
+  }
+  if (!tenant?.tenantId) return { status: "unavailable", reason: "persistence-unavailable" };
+  if (!input || !isUuid(input.artifactId)) return { status: "read", assets: [] };
+  if (!Number.isSafeInteger(input.revisionNo) || input.revisionNo < 1) {
+    return { status: "read", assets: [] };
+  }
+
+  const db = (deps.getDb ?? resolveMediaDbOrNull)();
+  if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
+
+  try {
+    const rows = await db
+      .select({
+        assetId: mediaAssets.id,
+        invocationId: mediaAssets.invocationId,
+        mimeType: mediaAssets.mimeType,
+        byteSize: mediaAssets.byteSize,
+        byteDigest: mediaAssets.byteDigest,
+        width: mediaAssets.width,
+        height: mediaAssets.height,
+        admittedAt: mediaAssets.admittedAt,
+        lifecycle: mediaAssets.assetLifecycleStatus,
+        sourceArtifactId: mediaGenerationInvocations.sourceArtifactId,
+        sourceRevisionNo: mediaGenerationInvocations.sourceRevisionNo,
+        agentId: mediaGenerationInvocations.agentId,
+        requestedByActorId: mediaGenerationInvocations.requestedByActorId,
+        transport: mediaGenerationInvocations.transport,
+        provider: mediaGenerationInvocations.provider,
+        model: mediaGenerationInvocations.model,
+        providerJobId: mediaGenerationInvocations.providerJobId,
+        inputDigest: mediaGenerationInvocations.inputDigest,
+      })
+      .from(mediaAssets)
+      .innerJoin(
+        mediaGenerationInvocations,
+        and(
+          eq(mediaGenerationInvocations.id, mediaAssets.invocationId),
+          eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
+        ),
+      )
+      .where(
+        and(
+          eq(mediaAssets.tenantId, tenant.tenantId),
+          eq(mediaGenerationInvocations.tenantId, tenant.tenantId),
+          eq(mediaGenerationInvocations.sourceArtifactId, input.artifactId),
+          eq(mediaGenerationInvocations.sourceRevisionNo, input.revisionNo),
+        ),
+      )
+      .orderBy(asc(mediaAssets.admittedAt));
+
+    return {
+      status: "read",
+      assets: rows.map((row) => ({
+        ...row,
+        mimeType: row.mimeType as MediaAssetMimeType,
+        lifecycle: row.lifecycle as MediaAssetLifecycleStatus,
+        admittedAt: new Date(row.admittedAt).toISOString(),
+      })),
+    };
+  } catch {
+    return { status: "unavailable", reason: "persistence-unavailable" };
+  }
 }

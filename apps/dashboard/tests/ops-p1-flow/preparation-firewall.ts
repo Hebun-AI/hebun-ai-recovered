@@ -336,6 +336,14 @@ function main(): void {
          * below still holds for it, because it resolves the session tenant and calls the released
          * Media Asset authority and nothing else.
          */
+        /*
+         * MEDIA-3's four: three derived/verified READS and one pass-through to the released
+         * Governance writers. None owns state; none is a second authority.
+         */
+        "listRevisionMediaAssetsAction",
+        "readMediaAssetReviewStatesAction",
+        "readMediaAssetAction",
+        "reviewMediaAssetAction",
         "requestMediaGenerationAction",
         "prepareWorkArtifactAction",
         /* REV-3's one read. */

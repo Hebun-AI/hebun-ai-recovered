@@ -27,6 +27,8 @@
  * holds no client state and offers no mutation of its own.
  */
 import {
+  listRevisionMediaAssetsAction,
+  readMediaAssetReviewStatesAction,
   listActiveRecipientsAction,
   listRetiredRecipientsAction,
   listWorkArtifactsAction,
@@ -36,6 +38,7 @@ import {
 import { RecipientsSection } from "./recipients-section";
 import { PreparedWorkSection } from "./prepared-work-section";
 import { GenerateImageWithHebun } from "./generate-image-with-hebun";
+import { RevisionMediaAssets } from "./revision-media-assets";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
 
 export async function OperationsPreparation() {
@@ -77,6 +80,24 @@ export async function OperationsPreparation() {
         accept: a content draft that is still `draft`. The authority re-resolves the pair against
         the tenant anyway — this list is a convenience, never the permission.
       */}
+      {/*
+        MEDIA-3. The images generated for each draft's CURRENT revision, shown beside the draft they
+        belong to. The relationship is the invocation's own `(tenant, artifact, revision)` key, so
+        this reads a relationship MEDIA-1 already owns and records nothing new.
+
+        The listings run in parallel and touch the database only — no store round-trip and no signed
+        URL is created here. The review states are then read for EVERY listed asset in one batched
+        call rather than one per asset, and a preview grant is minted only when a human opens one.
+      */}
+      <MediaAssetsForDrafts
+        drafts={
+          artifacts.status === "read"
+            ? artifacts.artifacts
+                .filter((a) => a.artifactType === CONTENT_DRAFT_TYPE && a.lifecycleStatus === "draft")
+                .map((a) => ({ artifactId: a.id, title: a.title, revisionNo: a.currentRevision }))
+            : []
+        }
+      />
       <GenerateImageWithHebun
         targets={
           artifacts.status === "read"
@@ -86,6 +107,57 @@ export async function OperationsPreparation() {
             : []
         }
       />
+    </div>
+  );
+}
+
+/**
+ * The generated images of several drafts' current revisions.
+ *
+ * Server-only composition. It owns nothing: each listing is the released per-revision reader, and
+ * every asset's Governance state comes from ONE batched derived read. A draft with no images
+ * renders nothing at all, so an empty organization sees no empty scaffolding.
+ */
+async function MediaAssetsForDrafts({
+  drafts,
+}: {
+  readonly drafts: readonly { readonly artifactId: string; readonly title: string; readonly revisionNo: number }[];
+}) {
+  if (drafts.length === 0) return null;
+
+  const listings = await Promise.all(
+    drafts.map(async (draft) => ({
+      draft,
+      listing: await listRevisionMediaAssetsAction({
+        artifactId: draft.artifactId,
+        revisionNo: draft.revisionNo,
+      }),
+    })),
+  );
+
+  const withAssets = listings.filter(
+    (entry) => entry.listing.status === "read" && entry.listing.assets.length > 0,
+  );
+  if (withAssets.length === 0) return null;
+
+  /* One read for every asset on the page, not one per asset. */
+  const reviewStates = await readMediaAssetReviewStatesAction({
+    assetIds: withAssets.flatMap((entry) =>
+      entry.listing.status === "read" ? entry.listing.assets.map((a) => a.assetId) : [],
+    ),
+  });
+
+  return (
+    <div className="min-w-0 space-y-6">
+      {withAssets.map(({ draft, listing }) => (
+        <section key={draft.artifactId} className="min-w-0 space-y-2">
+          <h3 className="text-sm font-medium text-fg-primary">{draft.title}</h3>
+          <RevisionMediaAssets
+            assets={listing.status === "read" ? listing.assets : []}
+            reviewStates={reviewStates}
+          />
+        </section>
+      ))}
     </div>
   );
 }
