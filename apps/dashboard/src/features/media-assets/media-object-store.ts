@@ -37,6 +37,7 @@
  *
  * Pure types. No I/O.
  */
+import type { MediaAssetMimeType } from "./contracts";
 
 export interface MediaObjectPut {
   readonly key: string;
@@ -74,8 +75,18 @@ export interface MediaObjectStore {
    *
    * IT VERIFIES NOTHING. The bytes are reported as stored; comparing them to the authoritative row
    * is the Media Asset authority's job and it is never skipped.
+   *
+   * `contentType` is the AUTHORITATIVE type from the `media_assets` row, and it is required rather
+   * than optional because a backend may have to present it to reach the object at all — the VPS
+   * store signs it into the read grant and refuses a type outside its allowlist. An implementation
+   * that invents one instead of being told cannot know what the row says, which is exactly the
+   * defect this parameter exists to make unrepresentable. It is never supplied by a client.
    */
-  get(input: { readonly key: string; readonly maxBytes: number }): Promise<MediaObjectRead>;
+  get(input: {
+    readonly key: string;
+    readonly contentType: MediaAssetMimeType;
+    readonly maxBytes: number;
+  }): Promise<MediaObjectRead>;
   createReadAccess(input: {
     readonly key: string;
     readonly contentType: string;

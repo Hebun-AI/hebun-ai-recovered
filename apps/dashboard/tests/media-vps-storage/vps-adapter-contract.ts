@@ -66,6 +66,21 @@ async function main(): Promise<void> {
     }
   }
 
+  /* ── 1b. No invented content type anywhere in the adapter ───────────────── */
+  {
+    /*
+     * A source-level guard, deliberately. The released defect was a literal in this file, and a
+     * behavioural test can only catch the paths it happens to walk. This catches the literal itself,
+     * so the mistake cannot reappear in a branch no test reaches.
+     */
+    const adapter = readFileSync("src/features/media-assets/vps-media-object-store.server.ts", "utf8");
+    const code = adapter.replace(/\/\*[\s\S]*?\*\//g, "");
+    assert.ok(
+      !code.includes("application/octet-stream"),
+      "the VPS adapter must never invent a content type; it is given the authoritative one",
+    );
+  }
+
   /* ── 2. The resolver: all-or-nothing, https only, fails closed ──────────── */
   {
     const env = (o: Record<string, string | undefined>) => o;
@@ -202,6 +217,94 @@ async function main(): Promise<void> {
     assert.equal((await fetch(expiredGrant.url)).status, 403, "an expired grant is refused");
     const forged = createVpsMediaObjectStore({ ...local, origin: local.origin, readSecret: local.writeSecret });
     assert.equal((await fetch((await forged.createReadAccess({ key, contentType: "image/png", ttlSeconds: 60 })).url)).status, 403, "the write secret cannot mint a read grant");
+
+    /*
+     * ── 5. MEDIA-5: get() against the REAL read route ────────────────────────
+     *
+     * THE REGRESSION THIS EXISTS FOR. `get()` was released signing a hardcoded
+     * `application/octet-stream`, which the store's read route refuses with 403 BEFORE it checks the
+     * signature. Every MEDIA-5 test passed because they all ran against the in-memory fake, and this
+     * suite — the only one that speaks to the real store — never called `get()`. The hole is closed
+     * by exercising the actual signing and content-type semantics for every type Hebun can store.
+     */
+    {
+      /* Every media type the authority can hold must be readable server-side, not just PNG. */
+      const cases = [
+        { contentType: "image/png" as const, bytes: pngBytes(16, 16, 200) },
+        { contentType: "image/jpeg" as const, bytes: pngBytes(17, 17, 90) },
+        { contentType: "image/webp" as const, bytes: pngBytes(18, 18, 30) },
+      ];
+
+      for (const c of cases) {
+        const sentUrls: string[] = [];
+        const watching = createVpsMediaObjectStore({
+          origin: local.origin,
+          writeSecret: local.writeSecret,
+          readSecret: local.readSecret,
+          fetchImpl: (input, init) => {
+            sentUrls.push(typeof input === "string" ? input : String(input));
+            return fetch(input as string, init);
+          },
+        });
+        const k = mediaAssetStorageKey(tenantA, randomUUID());
+        await watching.put({ key: k, bytes: c.bytes, contentType: c.contentType, sha256Hex: sha(c.bytes) });
+
+        sentUrls.length = 0;
+        const read = await watching.get({ key: k, contentType: c.contentType, maxBytes: 1_000_000 });
+
+        assert.equal(read.status, "read", `${c.contentType}: the store served the object`);
+        assert.ok(read.status === "read" && read.bytes.byteLength === c.bytes.byteLength, `${c.contentType}: length`);
+        assert.equal(read.status === "read" ? sha(read.bytes) : "", sha(c.bytes), `${c.contentType}: bytes round-trip exactly`);
+
+        /* The literal request the adapter made: the authoritative type, and never the invented one. */
+        const url = new URL(sentUrls.at(-1)!);
+        assert.equal(url.pathname, `/v1/read/${k}`, `${c.contentType}: path`);
+        assert.equal(url.searchParams.get("ct"), c.contentType, `${c.contentType}: ct is the authoritative type`);
+        assert.ok(!sentUrls.at(-1)!.includes("octet-stream"), `${c.contentType}: no invented octet-stream`);
+        assert.deepEqual([...url.searchParams.keys()].sort(), ["ct", "exp", "sig"], `${c.contentType}: query shape`);
+
+        /* And the signature covers that exact type — recomputed here from the canonical string. */
+        const exp = url.searchParams.get("exp")!;
+        assert.equal(
+          url.searchParams.get("sig"),
+          hmacHex(local.readSecret, readCanonical({ key: k, contentType: c.contentType, expires: exp })),
+          `${c.contentType}: signature is over the canonical string carrying this exact type`,
+        );
+        /* A signature over any OTHER type is a different signature — the binding is real, not decorative. */
+        assert.notEqual(
+          url.searchParams.get("sig"),
+          hmacHex(local.readSecret, readCanonical({ key: k, contentType: "application/octet-stream", expires: exp })),
+          `${c.contentType}: the octet-stream signature is not this signature`,
+        );
+      }
+
+      /* Absent object: `absent`, never a throw and never an empty "read". */
+      assert.deepEqual(
+        await store.get({ key: mediaAssetStorageKey(tenantA, randomUUID()), contentType: "image/png", maxBytes: 1_000_000 }),
+        { status: "absent" },
+        "a missing object reads as absent",
+      );
+
+      /* The ceiling still bounds the read, so an oversized object yields no bytes. */
+      assert.deepEqual(
+        await store.get({ key, contentType: "image/png", maxBytes: bytes.length - 1 }),
+        { status: "too-large" },
+        "maxBytes is enforced",
+      );
+
+      /* Non-200 still fails closed and still leaks nothing: a forged grant is refused by the store. */
+      const forgedRead = createVpsMediaObjectStore({
+        origin: local.origin,
+        writeSecret: local.writeSecret,
+        readSecret: local.writeSecret,
+      });
+      await rejects(
+        () => forgedRead.get({ key, contentType: "image/png", maxBytes: 1_000_000 }),
+        /read refused \(403\)/,
+        "a forged read signature is refused, closed",
+        [local.writeSecret, local.readSecret],
+      );
+    }
 
     // restart persistence (process level): bytes and identity survive
     await local.restart();

@@ -199,7 +199,15 @@ export function createVpsMediaObjectStore(options: VpsMediaStoreOptions): MediaO
     async get(input): Promise<MediaObjectRead> {
       assertKey(input.key);
       const maxBytes = Math.max(0, Math.floor(input.maxBytes));
-      const contentType = "application/octet-stream";
+      /*
+       * THE AUTHORITATIVE TYPE, NOT AN INVENTED ONE. The store's read route admits only the media
+       * types it stores and answers anything else with 403 — checked BEFORE the signature, so a
+       * perfectly signed grant for a type it does not serve is still refused. An earlier revision
+       * signed a hardcoded `application/octet-stream` here and could therefore never read its own
+       * objects. The type now comes from the `media_assets` row, through the port, which is the only
+       * place that knows it.
+       */
+      const contentType = input.contentType;
       const expiresSeconds = Math.floor(nowMs() / 1000) + VPS_SERVER_READ_TTL_SECONDS;
       const expires = String(expiresSeconds);
       const sig = hmacHex(options.readSecret, readCanonical({ key: input.key, contentType, expires }));

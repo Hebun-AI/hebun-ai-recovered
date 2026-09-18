@@ -77,11 +77,13 @@ import { verifyAdmissibleImage } from "./admission-verification";
 import {
   MEDIA_ASSET_LIMITS,
   MEDIA_GENERATION_TRANSPORTS,
+  MEDIA_ASSET_MIME_TYPES,
   MEDIA_PROVIDER_FAILURES,
   countCodePoints,
   isUuid,
   mediaAssetStorageKey,
   type MediaAdmissionFailure,
+  type MediaAssetMimeType,
   type MediaAdmissionRefusal,
   type MediaGenerationRefusal,
   type MediaProviderFailure,
@@ -239,9 +241,24 @@ export async function requestMediaGeneration(
      * admission. No caller supplies it, and the database CHECK guarantees it is the row's own key.
      */
     const key = mediaAssetStorageKey(tenant.tenantId, sourceAssetId);
+    /*
+     * The row's own type, carried to the store because the store may need it to serve the object at
+     * all. `mime_type` is `text` in the column and a closed set in the CHECK constraint, so this
+     * narrows what the database already guarantees rather than re-deciding it. A value outside the
+     * set could only mean the row and the constraint disagree — a custody fact, refused like any
+     * other, before a provider is reached.
+     */
+    if (!MEDIA_ASSET_MIME_TYPES.includes(asset.mimeType as MediaAssetMimeType)) {
+      return refused("source-asset-unavailable");
+    }
+    const sourceContentType = asset.mimeType as MediaAssetMimeType;
     let read;
     try {
-      read = await storage.store.get({ key, maxBytes: MEDIA_ASSET_LIMITS.maxByteSize });
+      read = await storage.store.get({
+        key,
+        contentType: sourceContentType,
+        maxBytes: MEDIA_ASSET_LIMITS.maxByteSize,
+      });
     } catch {
       return refused("source-asset-unavailable");
     }

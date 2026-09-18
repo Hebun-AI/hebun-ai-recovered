@@ -30,7 +30,8 @@ export interface MemoryMediaStore extends MediaObjectStore {
   readonly puts: string[];
   readonly readGrants: string[];
   /** MEDIA-5 — every server-side byte read, in order. */
-  readonly gets: string[];
+  /** MEDIA-5: what each server-side read asked for, so a test can assert the type it carried. */
+  readonly gets: { readonly key: string; readonly contentType: string }[];
   failNextPut: boolean;
   /** MEDIA-5 — corrupt what the store returns, without touching the row, to prove the digest check. */
   corruptNextGet: boolean;
@@ -62,7 +63,7 @@ export function createMemoryMediaObjectStore(): MemoryMediaStore {
       return { status: "present", byteSize: object.bytes.length, sha256Hex: sha(object.bytes) };
     },
     async get(input): Promise<MediaObjectRead> {
-      store.gets.push(input.key);
+      store.gets.push({ key: input.key, contentType: input.contentType });
       const object = objects.get(input.key);
       if (!object) return { status: "absent" };
       if (object.bytes.length > input.maxBytes) return { status: "too-large" };

@@ -92,16 +92,20 @@ async function main(): Promise<void> {
   /* ── 3. THE PORT GAINED BYTES, AND THE PREVIEW SEAM IS NOT THE INPUT SEAM ── */
   {
     const port = strip(read(PORT));
-    assert.match(port, /get\(input: \{ readonly key: string; readonly maxBytes: number \}\)/, "the port exposes a bounded byte read");
+    assert.match(
+      port,
+      /get\(input: \{\s*readonly key: string;\s*readonly contentType: MediaAssetMimeType;\s*readonly maxBytes: number;\s*\}\)/,
+      "the port exposes a bounded byte read that is TOLD the authoritative content type",
+    );
     assert.ok(!/delete|purge|remove/i.test(port.replace(/deliberately no `delete`/g, "")), "still no delete verb");
 
     const store = createMemoryMediaObjectStore();
     const bytes = pngBytes(64, 64, 32);
     await store.put({ key: "tenants/x/media/y", bytes, contentType: "image/png", sha256Hex: createHash("sha256").update(bytes).digest("hex") });
 
-    assert.deepEqual(await store.get({ key: "tenants/x/media/missing", maxBytes: 10 }), { status: "absent" });
-    assert.deepEqual((await store.get({ key: "tenants/x/media/y", maxBytes: 4 })).status, "too-large");
-    const got = await store.get({ key: "tenants/x/media/y", maxBytes: MEDIA_ASSET_LIMITS.maxByteSize });
+    assert.deepEqual(await store.get({ key: "tenants/x/media/missing", contentType: "image/png", maxBytes: 10 }), { status: "absent" });
+    assert.deepEqual((await store.get({ key: "tenants/x/media/y", contentType: "image/png", maxBytes: 4 })).status, "too-large");
+    const got = await store.get({ key: "tenants/x/media/y", contentType: "image/png", maxBytes: MEDIA_ASSET_LIMITS.maxByteSize });
     assert.equal(got.status, "read");
     /* Reading bytes mints NO grant: the preview path and the input path are genuinely separate. */
     assert.deepEqual(store.readGrants, [], "a server-side byte read creates no read grant");
