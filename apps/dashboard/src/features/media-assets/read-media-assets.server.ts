@@ -19,7 +19,7 @@
  *
  * Server-only.
  */
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { mediaAssets, mediaGenerationInvocations } from "@/db/schema/media-asset";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
@@ -254,6 +254,115 @@ export async function listRevisionMediaAssets(
         ),
       )
       .orderBy(asc(mediaAssets.admittedAt));
+
+    return {
+      status: "read",
+      assets: rows.map((row) => ({
+        ...row,
+        mimeType: row.mimeType as MediaAssetMimeType,
+        lifecycle: row.lifecycle as MediaAssetLifecycleStatus,
+        admittedAt: new Date(row.admittedAt).toISOString(),
+      })),
+    };
+  } catch {
+    return { status: "unavailable", reason: "persistence-unavailable" };
+  }
+}
+
+/*
+ * ── MEDIA-4A: THE ASSETS OF A DRAFT, ACROSS ALL OF ITS REVISIONS ─────────────
+ *
+ * MEDIA-3 answered "what images exist for THIS revision". The moment a draft advances to revision
+ * N+1 that question stops mentioning the images of revision N — they remain authoritative, they
+ * remain reviewable, and they vanish from the surface. This reader answers the wider question the
+ * human actually has: "what images exist for THIS DRAFT, and which revision did each come from".
+ *
+ * IT IS THE SAME RELATIONSHIP, READ ONE PREDICATE WIDER. The revision predicate is dropped; the
+ * artifact predicate stays. `media_generation_invocations_source_idx` is
+ * (tenant_id, source_artifact_id, source_revision_no), so this uses the same index by its leading
+ * columns and needs no new index, no column and no table.
+ *
+ * WHY BATCHED ACROSS DRAFTS. The surface shows several drafts at once. Reading per draft, per
+ * revision, would be a product of two N's. One `inArray` over the drafts already on the page
+ * answers all of them in a single statement, and it REPLACES the per-draft query MEDIA-3 issued
+ * rather than adding to it.
+ *
+ * IT INVENTS NO REVISION HISTORY. `sourceRevisionNo` is read from the invocation's own composite
+ * foreign key into `work_artifact_revisions`, so a revision number here cannot name a revision that
+ * does not exist. Which revision is CURRENT is not decided here at all — that is the Work Artifact
+ * authority's `current_revision`, and this reader neither reads it nor guesses it.
+ *
+ * SORTED NEWEST REVISION FIRST, then oldest asset first inside a revision — the order the surface
+ * presents, computed once in the database rather than re-sorted per group in React.
+ *
+ * Like the MEDIA-3 listing, it GRANTS NOTHING: no store, no verification, no signed URL, and the
+ * storage key is not even projected.
+ */
+
+export type ArtifactMediaAssetListing =
+  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" }
+  | { readonly status: "read"; readonly assets: readonly RevisionMediaAsset[] };
+
+/**
+ * Every admitted asset generated for any revision of the given content drafts.
+ *
+ * Tenant-predicated on both tables, exactly as the per-revision listing is. An empty list is a
+ * fact; a read failure is never rendered as one.
+ */
+export async function listArtifactMediaAssets(
+  tenant: TenantContext | null,
+  input: { readonly artifactIds: readonly string[] } | null,
+  deps: MediaReadDeps = {},
+): Promise<ArtifactMediaAssetListing> {
+  if (typeof window !== "undefined") {
+    throw new Error("Media asset reads are server-only.");
+  }
+  if (!tenant?.tenantId) return { status: "unavailable", reason: "persistence-unavailable" };
+
+  const wanted = [...new Set((input?.artifactIds ?? []).filter(isUuid))];
+  if (wanted.length === 0) return { status: "read", assets: [] };
+
+  const db = (deps.getDb ?? resolveMediaDbOrNull)();
+  if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
+
+  try {
+    const rows = await db
+      .select({
+        assetId: mediaAssets.id,
+        invocationId: mediaAssets.invocationId,
+        mimeType: mediaAssets.mimeType,
+        byteSize: mediaAssets.byteSize,
+        byteDigest: mediaAssets.byteDigest,
+        width: mediaAssets.width,
+        height: mediaAssets.height,
+        admittedAt: mediaAssets.admittedAt,
+        lifecycle: mediaAssets.assetLifecycleStatus,
+        sourceArtifactId: mediaGenerationInvocations.sourceArtifactId,
+        sourceRevisionNo: mediaGenerationInvocations.sourceRevisionNo,
+        agentId: mediaGenerationInvocations.agentId,
+        requestedByActorId: mediaGenerationInvocations.requestedByActorId,
+        transport: mediaGenerationInvocations.transport,
+        provider: mediaGenerationInvocations.provider,
+        model: mediaGenerationInvocations.model,
+        providerJobId: mediaGenerationInvocations.providerJobId,
+        inputDigest: mediaGenerationInvocations.inputDigest,
+      })
+      .from(mediaAssets)
+      .innerJoin(
+        mediaGenerationInvocations,
+        and(
+          eq(mediaGenerationInvocations.id, mediaAssets.invocationId),
+          eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
+        ),
+      )
+      .where(
+        and(
+          eq(mediaAssets.tenantId, tenant.tenantId),
+          eq(mediaGenerationInvocations.tenantId, tenant.tenantId),
+          inArray(mediaGenerationInvocations.sourceArtifactId, wanted),
+        ),
+      )
+      .orderBy(desc(mediaGenerationInvocations.sourceRevisionNo), asc(mediaAssets.admittedAt));
 
     return {
       status: "read",

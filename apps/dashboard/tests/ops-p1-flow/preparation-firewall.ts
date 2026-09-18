@@ -341,6 +341,12 @@ function main(): void {
          * Governance writers. None owns state; none is a second authority.
          */
         "listRevisionMediaAssetsAction",
+        /*
+         * MEDIA-4A's one read: the same relationship one predicate wider, so a draft's earlier
+         * revisions' images stay reachable after `current_revision` advances. A READ — it is
+         * covered by the no-authority assertion below like every other name here.
+         */
+        "listArtifactMediaAssetsAction",
         "readMediaAssetReviewStatesAction",
         "readMediaAssetAction",
         "reviewMediaAssetAction",

@@ -23,8 +23,10 @@ import {
   reviseWorkArtifact,
 } from "@/features/work-artifacts/write-work-artifacts.server";
 import {
+  listArtifactMediaAssets,
   listRevisionMediaAssets,
   readMediaAsset,
+  type ArtifactMediaAssetListing,
   type ReadMediaAssetResult,
   type RevisionMediaAssetListing,
 } from "@/features/media-assets/read-media-assets.server";
@@ -256,6 +258,22 @@ export async function listRevisionMediaAssetsAction(input: {
 }): Promise<RevisionMediaAssetListing> {
   const tenant = await resolveTenantContext();
   return listRevisionMediaAssets(tenant, input);
+}
+
+/**
+ * MEDIA-4A — every admitted asset of several drafts, across ALL of their revisions, in one read.
+ *
+ * The same pass-through discipline as the per-revision listing, one predicate wider. It answers
+ * "which images exist for this draft, and which revision did each come from"; it does NOT decide
+ * which revision is current, does not order revisions into a history, and records nothing.
+ *
+ * A DATABASE READ: no store, no bytes, no access, no signed URL.
+ */
+export async function listArtifactMediaAssetsAction(input: {
+  artifactIds: readonly string[];
+}): Promise<ArtifactMediaAssetListing> {
+  const tenant = await resolveTenantContext();
+  return listArtifactMediaAssets(tenant, input);
 }
 
 /**
