@@ -65,6 +65,57 @@ signature), `403` bad/expired read grant, `409` key exists, `411` no length, `41
 
 Service account `hebun-media` (system, nologin, no home). Listens on `127.0.0.1:8787` only.
 Firewall: ufw default deny incoming, allow outgoing, allow `22/tcp`, `80/tcp`, `443/tcp`.
+SSH on that port is key-only since 2026-09-18 — see *SSH access* below.
+
+## SSH access (VPS-SEC-1, hardened 2026-09-18)
+
+**Key-only. No password authentication anywhere, and no direct root SSH.**
+
+| Setting (`sshd -T`, effective) | Value |
+|---|---|
+| `permitrootlogin` | **no** |
+| `passwordauthentication` | **no** |
+| `kbdinteractiveauthentication` | **no** |
+| `pubkeyauthentication` | yes |
+| `permitemptypasswords` | no |
+| `port` | 22 |
+
+Administration is `hebun-admin` (uid 1000, groups `hebun-admin sudo users`), password **locked** —
+it authenticates by key only. `sudo` is `NOPASSWD` via `/etc/sudoers.d/90-hebun-admin` (0440),
+because an account with no password cannot answer a sudo prompt; this preserves exactly the
+capability root-by-key had before, and removes password auth and direct root login. Its
+`authorized_keys` carries the same Director key that was previously on root — no key was created,
+copied or rotated.
+
+Configuration lives in **`/etc/ssh/sshd_config.d/10-hebun-hardening.conf`** (0644). The number is
+load-bearing: `/etc/ssh/sshd_config` line 12 includes `sshd_config.d/*.conf`, **sshd takes the first
+value it obtains for a keyword**, and the image ships `50-cloud-init.conf` with
+`PasswordAuthentication yes` (which already overrode `60-cloudimg-settings.conf`). A conventionally
+numbered `99-` file would be silently ignored. Any future SSH change must sort before `50-`.
+
+`ssh.socket` is the enabled unit (socket activation), so `ssh.service` reads `enabled=disabled` and
+each connection spawns a fresh sshd. Config changes therefore apply to new connections on
+`systemctl reload ssh`, without a host restart and without dropping live sessions.
+
+**`root` keeps a usable password on purpose.** It is unreachable over SSH, and it is the Hostinger
+console rescue path — the out-of-band recovery that makes locking down SSH safe. Locking it would
+remove the safety net. This does mean Hostinger panel security is part of the SSH threat model.
+
+### fail2ban
+
+`fail2ban 1.0.2-3ubuntu0.1`, enabled and active, with **one** jail and no other security machinery:
+`/etc/fail2ban/jail.d/hebun-sshd.conf` — `[sshd]`, `backend = systemd`, `maxretry 5`,
+`findtime 10m`, `bantime 1h`.
+
+Its security contribution after key-only hardening is small: a password brute force cannot succeed.
+It earns its place on measured churn — **3,557 failed SSH authentications since boot** before
+hardening, each spawning an sshd under socket activation.
+
+**Operational warning, learned the hard way.** Deliberately testing refused logins produces exactly
+the failures this jail bans on, and the operator's own address is not exempt. During VPS-SEC-1 the
+acceptance tests for "root refused" and "password refused" banned the operator for the full hour.
+Normal use never trips it, because successful key logins are not failures. **Stop fail2ban before
+any future negative SSH testing, or test from an address you can afford to lose.**
 
 ## HTTPS ingress (as installed 2026-09-17)
 
