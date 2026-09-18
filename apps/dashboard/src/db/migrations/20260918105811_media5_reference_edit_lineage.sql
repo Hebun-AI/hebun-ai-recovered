@@ -1,0 +1,2 @@
+ALTER TABLE "media_generation_invocations" ADD COLUMN "source_media_asset_id" uuid;--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD CONSTRAINT "media_generation_invocations_source_asset_fk" FOREIGN KEY ("tenant_id","source_media_asset_id") REFERENCES "public"."media_assets"("tenant_id","id") ON DELETE restrict ON UPDATE no action;

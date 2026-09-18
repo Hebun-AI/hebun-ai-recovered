@@ -58,6 +58,7 @@
  * facts.
  */
 import { sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   char,
   check,
@@ -75,6 +76,32 @@ import { actorTypeEnum } from "./_enums";
 import { agents } from "./agent";
 import { companies } from "./company";
 import { workArtifactRevisions } from "./work-artifact";
+
+/*
+ * ── A TYPED FORWARD REFERENCE TO `media_assets`, AND WHY IT EXISTS ───────────
+ *
+ * MEDIA-5 makes the two tables reference each other: an asset names the invocation that produced it,
+ * and a reference-edit invocation names the asset it was performed on. At RUNTIME that is fine —
+ * drizzle evaluates a table's config lazily, and the generated SQL carries both constraints.
+ *
+ * TypeScript is the problem: inferring either table's type would require inferring the other's, and
+ * it stops with "implicitly has type any ... referenced directly or indirectly in its own
+ * initializer". The getters below carry an EXPLICIT return type, so inference has something to trust
+ * and never recurses. Nothing the constraint depends on is weakened — the columns, the target table
+ * and the ON DELETE behaviour are all still declared at the constraint itself, and drizzle-kit emits
+ * exactly the foreign key it would have emitted without this indirection.
+ *
+ * This is the two-table form of the escape hatch drizzle already prescribes for a self-referencing
+ * column (`(): AnyPgColumn => table.column`).
+ */
+const mediaAssetsForwardRef = {
+  get tenantId(): AnyPgColumn {
+    return mediaAssets.tenantId;
+  },
+  get id(): AnyPgColumn {
+    return mediaAssets.id;
+  },
+};
 
 /**
  * One generation attempt. Written ONCE as `registered` before any transport call, then finalized
@@ -104,6 +131,36 @@ export const mediaGenerationInvocations = pgTable(
     /** The exact draft revision the prompt was prepared from — a reference, never a copy. */
     sourceArtifactId: uuid("source_artifact_id").notNull(),
     sourceRevisionNo: integer("source_revision_no").notNull(),
+
+    /**
+     * MEDIA-5 — the admitted image this attempt was performed ON, when there was one.
+     *
+     * NULL means text-to-image, which is every invocation MEDIA-1 through MEDIA-4A ever wrote. The
+     * column is nullable for that reason and for no other: absence is a real, permanent kind of
+     * request, not a backfill gap.
+     *
+     * IT SITS BESIDE THE DRAFT PROVENANCE, NOT INSTEAD OF IT. A reference edit is still asked from a
+     * draft revision, so `source_artifact_id` / `source_revision_no` stay NOT NULL. The two facts
+     * answer different questions — "which draft asked for this" and "which image was edited" — and
+     * collapsing them would lose one.
+     *
+     * ── WHY A COLUMN, AND NOT A RELATION TABLE ──────────────────────────────
+     *
+     * The relation is 0..1 and the input is SINGULAR: the provider's edit contract has one
+     * distinguished image. MEDIA-1 already models this invocation's other singular provenance as
+     * columns on this row, and `work_evidence_references` settled the general principle that a typed
+     * column with a composite foreign key beats a polymorphic pair no constraint can enforce. If
+     * additional reference images are ever admitted, "the other references" is a DIFFERENT fact and
+     * deserves its own table — not a retrofit of this one.
+     *
+     * ── LINEAGE IS NOT OWNERSHIP ────────────────────────────────────────────
+     *
+     * Naming an asset here changes nothing about it. It does not select it, attach it, approve it,
+     * retire it or extend its lifecycle, and no writer reads this column to decide any of those. A
+     * chain A → B → C is walkable one hop at a time because `media_assets_invocation_uq` keeps one
+     * asset per invocation, so each hop is unambiguous without a graph.
+     */
+    sourceMediaAssetId: uuid("source_media_asset_id"),
 
     /** The bounded prompt, verbatim. Data, never executed. */
     promptText: text("prompt_text").notNull(),
@@ -166,6 +223,35 @@ export const mediaGenerationInvocations = pgTable(
         workArtifactRevisions.artifactId,
         workArtifactRevisions.revisionNo,
       ],
+    }).onDelete("restrict"),
+
+    /*
+     * MEDIA-5 — structural tenant containment for the image input, exactly as the source revision
+     * already has. The target is the `media_assets_id_tenant_uq` constraint MEDIA-1 already declared,
+     * so no index and no column is added to `media_assets`.
+     *
+     * MATCH SIMPLE (PostgreSQL's default) lets a NULL satisfy the constraint, so a text-to-image
+     * invocation passes untouched while a supplied asset id is forced to be THIS tenant's. Borrowing
+     * another tenant's image is unrepresentable, not merely refused in code.
+     *
+     * `restrict` on delete for the same reason every other media foreign key uses it: lineage is
+     * history, and history is not deleted out from under a row that cites it.
+     */
+    /*
+     * ── WHY THE REFERENCED COLUMNS ARE ANNOTATED ────────────────────────────
+     *
+     * `media_assets` already references THIS table, so naming it here closes a circle. At runtime
+     * that is fine — drizzle evaluates this config lazily — but TypeScript must infer each table's
+     * type from the other's and gives up with "implicitly has type any ... referenced directly or
+     * indirectly in its own initializer".
+     *
+     * `mediaAssetsForwardRef` above is the way out; its header explains why. The generated SQL is
+     * unchanged and the constraint is real.
+     */
+    foreignKey({
+      name: "media_generation_invocations_source_asset_fk",
+      columns: [t.tenantId, t.sourceMediaAssetId],
+      foreignColumns: [mediaAssetsForwardRef.tenantId, mediaAssetsForwardRef.id],
     }).onDelete("restrict"),
 
     check(

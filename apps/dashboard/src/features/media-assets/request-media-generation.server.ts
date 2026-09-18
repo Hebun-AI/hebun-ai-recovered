@@ -13,6 +13,22 @@
  *   7. the source is THIS tenant's content-draft,
  *      still a draft, at exactly that revision          source-revision-unresolvable
  *
+ * ── MEDIA-5 PREFLIGHT, WHEN A SOURCE ASSET IS NAMED ──────────────────────────
+ *
+ *   7a. the transport declares `reference-edit`         reference-edit-unsupported
+ *   7b. the asset is THIS tenant's, by id               source-asset-unresolvable
+ *   7c. its custody lifecycle is `admitted`             source-asset-retired
+ *   7d. its bytes are read PRIVATELY from the store
+ *       and their size AND SHA-256 equal the row        source-asset-unavailable
+ *
+ * ALL OF IT BEFORE THE INVOCATION ROW EXISTS, so a refusal costs nothing and no unverified byte can
+ * reach a provider. The asset is named BY ID; the storage key is derived here from the tenant and the
+ * id, never accepted from a caller.
+ *
+ * GOVERNANCE IS NOT CONSULTED, AND THAT IS THE DESIGN. Approval is a judgement about an image, not a
+ * capability grant: accepting may not authorize, so declining may not forbid. An `admitted` asset is
+ * eligible whether it is approved, declined or never reviewed. Only the CUSTODY lifecycle gates it.
+ *
  * Storage is checked BEFORE the transport is even resolved: an image that could not be kept must not
  * be generated. A refusal in preflight leaves no row and makes no call.
  *
@@ -49,7 +65,7 @@
  *
  * Server-only.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { resolveMediaDbOrNull } from "./media-db.server";
@@ -74,7 +90,10 @@ import {
   type RequestMediaGenerationResult,
 } from "./contracts";
 import { digestMediaGenerationInput } from "./input-digest";
-import type { MediaGenerationTransportResolution } from "./media-generation-transport";
+import type {
+  MediaGenerationRequest,
+  MediaGenerationTransportResolution,
+} from "./media-generation-transport";
 import { resolveMediaGenerationTransport } from "./media-generation-transport.server";
 import type { MediaStorageResolution } from "./media-object-store";
 import { resolveMediaObjectStore } from "./media-storage.server";
@@ -105,7 +124,16 @@ function validInput(input: RequestMediaGenerationInput | null): input is Request
   if (!isUuid(input.artifactId) || !isUuid(input.requestKey)) return false;
   if (!Number.isSafeInteger(input.revisionNo) || input.revisionNo < 1) return false;
   if (typeof input.promptText !== "string" || input.promptText.trim().length === 0) return false;
-  return countCodePoints(input.promptText) <= MEDIA_ASSET_LIMITS.maxPromptCodePoints;
+  if (countCodePoints(input.promptText) > MEDIA_ASSET_LIMITS.maxPromptCodePoints) return false;
+  /* MEDIA-5: present-and-unusable is invalid input; absent is text-to-image and always fine. */
+  const asset = input.sourceAssetId;
+  return asset === undefined || asset === null || isUuid(asset);
+}
+
+/** The multipart filename for a reference image. DERIVED — never a caller string, never a path. */
+function referenceFileName(assetId: string, mimeType: string): string {
+  const extension = mimeType === "image/png" ? "png" : mimeType === "image/jpeg" ? "jpg" : "webp";
+  return `${assetId}.${extension}`;
 }
 
 export async function requestMediaGeneration(
@@ -172,6 +200,77 @@ export async function requestMediaGeneration(
   }
   if (!source) return refused("source-revision-unresolvable");
 
+  /*
+   * ── MEDIA-5: RESOLVE THE SOURCE ASSET, READ ITS BYTES, PROVE THEY ARE THE ADMITTED ONES ──
+   *
+   * Everything here happens BEFORE the invocation row and therefore before the paid call. The order
+   * is deliberate: the cheapest refusal first, the store round-trip last.
+   */
+  const sourceAssetId = input.sourceAssetId ?? null;
+  let generationRequest: MediaGenerationRequest = { mode: "text-to-image" };
+  let sourceAssetDigest: string | null = null;
+
+  if (sourceAssetId !== null) {
+    if (!transport.modes.includes("reference-edit")) return refused("reference-edit-unsupported");
+
+    let asset: { readonly byteDigest: string; readonly byteSize: number; readonly mimeType: string; readonly lifecycle: string } | undefined;
+    try {
+      const rows = await db
+        .select({
+          byteDigest: mediaAssets.byteDigest,
+          byteSize: mediaAssets.byteSize,
+          mimeType: mediaAssets.mimeType,
+          lifecycle: mediaAssets.assetLifecycleStatus,
+        })
+        .from(mediaAssets)
+        /* Predicated on the tenant: another tenant's asset is indistinguishable from no asset. */
+        .where(and(eq(mediaAssets.tenantId, tenant.tenantId), eq(mediaAssets.id, sourceAssetId)))
+        .limit(1);
+      asset = rows[0];
+    } catch {
+      return refused("persistence-unavailable");
+    }
+    if (!asset) return refused("source-asset-unresolvable");
+    /* Custody, and ONLY custody, decides eligibility. No Governance state is read here at all. */
+    if (asset.lifecycle !== "admitted") return refused("source-asset-retired");
+
+    /*
+     * The key is DERIVED from the tenant and the asset id by the same function that minted it at
+     * admission. No caller supplies it, and the database CHECK guarantees it is the row's own key.
+     */
+    const key = mediaAssetStorageKey(tenant.tenantId, sourceAssetId);
+    let read;
+    try {
+      read = await storage.store.get({ key, maxBytes: MEDIA_ASSET_LIMITS.maxByteSize });
+    } catch {
+      return refused("source-asset-unavailable");
+    }
+    if (read.status !== "read") return refused("source-asset-unavailable");
+
+    /*
+     * INDEPENDENT VERIFICATION AGAINST THE AUTHORITATIVE ROW, and it is not optional.
+     *
+     * The store is trusted to hold bytes, never to describe them. Size and SHA-256 are recomputed
+     * here and compared to `media_assets`; a mismatch is a storage custody problem and it stops the
+     * request cold — no provider call, no invocation row, nothing spent. This is the same refusal a
+     * preview gives, made before bytes can leave Hebun rather than before they can be displayed.
+     */
+    const actualDigest = createHash("sha256").update(read.bytes).digest("hex");
+    if (read.bytes.byteLength !== asset.byteSize || actualDigest !== asset.byteDigest) {
+      return refused("source-asset-unavailable");
+    }
+
+    sourceAssetDigest = asset.byteDigest;
+    generationRequest = {
+      mode: "reference-edit",
+      referenceImage: {
+        bytes: read.bytes,
+        contentType: asset.mimeType,
+        fileName: referenceFileName(sourceAssetId, asset.mimeType),
+      },
+    };
+  }
+
   const inputDigest = digestMediaGenerationInput({
     promptText: input.promptText,
     sourceArtifactId: input.artifactId,
@@ -180,6 +279,8 @@ export async function requestMediaGeneration(
     transport: transport.transport,
     provider: transport.provider,
     model: transport.model,
+    /* v2 exactly when there is a source asset; a text-to-image digest stays byte-identical to v1. */
+    sourceAsset: sourceAssetId && sourceAssetDigest ? { assetId: sourceAssetId, byteDigest: sourceAssetDigest } : null,
   });
 
   /* ── The idempotent dispatch boundary ─────────────────────────────────── */
@@ -195,6 +296,8 @@ export async function requestMediaGeneration(
         agentId: authorship.authorship.agentId,
         sourceArtifactId: input.artifactId,
         sourceRevisionNo: input.revisionNo,
+        /* MEDIA-5 lineage. NULL for text-to-image — absence is a real request kind, not a gap. */
+        sourceMediaAssetId: sourceAssetId,
         promptText: input.promptText,
         inputDigest,
         transport: transport.transport,
@@ -254,7 +357,12 @@ export async function requestMediaGeneration(
   /* ── Dispatch ─────────────────────────────────────────────────────────── */
   let outcome;
   try {
-    outcome = await transport.generate({ promptText: input.promptText, inputDigest, invocationId });
+    outcome = await transport.generate({
+      promptText: input.promptText,
+      inputDigest,
+      invocationId,
+      request: generationRequest,
+    });
   } catch {
     return finalize("dispatch-failed", "not-attempted", "dispatch-error", null);
   }

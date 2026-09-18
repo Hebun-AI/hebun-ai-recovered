@@ -42,12 +42,32 @@ import type {
   MediaProviderUsage,
 } from "@/features/media-assets/contracts";
 import type {
+  MediaGenerationMode,
   MediaGenerationOutcome,
   MediaGenerationTransport,
 } from "@/features/media-assets/media-generation-transport";
 import type { LiveSpendBudget } from "@/features/heby-model-live/live-spend-budget.server";
 
 export const OPENAI_IMAGE_GENERATIONS_URL = "https://api.openai.com/v1/images/generations";
+/**
+ * MEDIA-5 — the image EDIT endpoint. `multipart/form-data`, verified against the current official
+ * API reference immediately before this was written.
+ *
+ * ── WHAT IS DELIBERATELY NOT SENT ───────────────────────────────────────────
+ *
+ * `input_fidelity` is NOT sent. Official OpenAI surfaces disagree about it: the Go API reference
+ * lists `InputFidelity: high | low` for GPT image models, while the image-generation guide and the
+ * Python reference do not mention the parameter at all. MEDIA-5 therefore omits it rather than
+ * building correctness on a contradiction — and because the released contract here is
+ * "source image + instruction -> new image", not "guaranteed composition preservation". Sending an
+ * unknown field risks a 400 on a call that may already have been billed, and there is no automatic
+ * retry anywhere in this transport to paper over one.
+ *
+ * `mask` is not sent: MEDIA-5 has no masks. `n` is not sent: the shared parameters pin exactly one
+ * output. No Files API is used, so nothing is persisted provider-side and there is nothing to clean
+ * up; the image is one part of one request and exists only for its duration.
+ */
+export const OPENAI_IMAGE_EDITS_URL = "https://api.openai.com/v1/images/edits";
 export const OPENAI_IMAGE_PROVIDER = "openai";
 /** Pinned dated snapshot (Director, MEDIA-2A). Never an alias that could move under Hebun. */
 export const OPENAI_IMAGE_MODEL = "gpt-image-2.5-flare-2026-09-08";
@@ -81,7 +101,8 @@ export type OpenAiFetch = (
   init: {
     readonly method: "POST";
     readonly headers: Record<string, string>;
-    readonly body: string;
+    /* MEDIA-5: a JSON string for text-to-image, multipart FormData for a reference edit. */
+    readonly body: string | FormData;
     readonly redirect: "error";
     readonly cache: "no-store";
     readonly signal: AbortSignal;
@@ -194,6 +215,8 @@ export function createOpenAiImageTransport(config: OpenAiImageTransportConfig): 
     provider: OPENAI_IMAGE_PROVIDER,
     model: OPENAI_IMAGE_MODEL,
     allowedDownloadHosts: Object.freeze([]) as readonly string[],
+    /* MEDIA-5: this transport does both. The authority checks this BEFORE it registers anything. */
+    modes: Object.freeze(["text-to-image", "reference-edit"]) as readonly MediaGenerationMode[],
 
     async generate(input: Parameters<MediaGenerationTransport["generate"]>[0]): Promise<MediaGenerationOutcome> {
       const failed = (failure: Failure, providerJobId: string | null = null, usage: MediaProviderUsage | null = null): MediaGenerationOutcome =>
@@ -201,17 +224,50 @@ export function createOpenAiImageTransport(config: OpenAiImageTransportConfig): 
 
       if (!config.spendBudget.attempt()) return failed("budget-exhausted");
 
+      /*
+       * ── ONE BUDGET, ONE TIMEOUT, ONE SHOT — FOR BOTH MODES ─────────────────
+       *
+       * The two modes differ ONLY in the URL and the body. Everything that protects Hebun — the
+       * spend budget above, the timeout, `redirect: "error"`, the capped read, the closed failure
+       * mapping, and the absence of any retry — is written once and applies to both. A second
+       * request-building function would have been a second place to forget one of them.
+       */
+      const edit = input.request.mode === "reference-edit" ? input.request.referenceImage : null;
+
+      /*
+       * `content-type` is omitted for multipart ON PURPOSE: fetch derives it from the FormData and
+       * appends the boundary. Setting it by hand produces a body the provider cannot parse.
+       */
+      const headers: Record<string, string> = {
+        authorization: `Bearer ${config.apiKey}`,
+        "x-client-request-id": input.invocationId,
+      };
+      let url = OPENAI_IMAGE_GENERATIONS_URL;
+      let requestBody: string | FormData;
+
+      if (edit) {
+        url = OPENAI_IMAGE_EDITS_URL;
+        const form = new FormData();
+        form.append("model", OPENAI_IMAGE_MODEL);
+        form.append("prompt", input.promptText);
+        for (const [name, value] of Object.entries(OPENAI_IMAGE_REQUEST_PARAMETERS)) {
+          form.append(name, String(value));
+        }
+        /* EXACTLY ONE image part. No mask, no second reference, no array form. */
+        form.append("image", new Blob([new Uint8Array(edit.bytes)], { type: edit.contentType }), edit.fileName);
+        requestBody = form;
+      } else {
+        headers["content-type"] = "application/json";
+        requestBody = JSON.stringify({ model: OPENAI_IMAGE_MODEL, prompt: input.promptText, ...OPENAI_IMAGE_REQUEST_PARAMETERS });
+      }
+
       const signal = AbortSignal.timeout(timeoutMs);
       let response: Response;
       try {
-        response = await doFetch(OPENAI_IMAGE_GENERATIONS_URL, {
+        response = await doFetch(url, {
           method: "POST",
-          headers: {
-            authorization: `Bearer ${config.apiKey}`,
-            "content-type": "application/json",
-            "x-client-request-id": input.invocationId,
-          },
-          body: JSON.stringify({ model: OPENAI_IMAGE_MODEL, prompt: input.promptText, ...OPENAI_IMAGE_REQUEST_PARAMETERS }),
+          headers,
+          body: requestBody,
           redirect: "error",
           cache: "no-store",
           signal,

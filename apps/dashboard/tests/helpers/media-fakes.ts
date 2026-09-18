@@ -6,8 +6,14 @@
  * runtime resolver can ever select them. The application's own resolvers answer `unavailable`.
  */
 import { createHash } from "node:crypto";
-import type { MediaGenerationOutcome, MediaGenerationTransport } from "../../src/features/media-assets/media-generation-transport";
 import type {
+  MediaGenerationMode,
+  MediaGenerationOutcome,
+  MediaGenerationRequest,
+  MediaGenerationTransport,
+} from "../../src/features/media-assets/media-generation-transport";
+import type {
+  MediaObjectRead,
   MediaObjectStore,
   MediaObjectVerification,
   MediaReadAccess,
@@ -23,7 +29,11 @@ export interface MemoryMediaStore extends MediaObjectStore {
   readonly objects: Map<string, { bytes: Uint8Array; contentType: string }>;
   readonly puts: string[];
   readonly readGrants: string[];
+  /** MEDIA-5 — every server-side byte read, in order. */
+  readonly gets: string[];
   failNextPut: boolean;
+  /** MEDIA-5 — corrupt what the store returns, without touching the row, to prove the digest check. */
+  corruptNextGet: boolean;
 }
 
 export function createMemoryMediaObjectStore(): MemoryMediaStore {
@@ -33,7 +43,9 @@ export function createMemoryMediaObjectStore(): MemoryMediaStore {
     objects,
     puts: [],
     readGrants: [],
+    gets: [],
     failNextPut: false,
+    corruptNextGet: false,
     async put(input) {
       store.puts.push(input.key);
       if (store.failNextPut) {
@@ -48,6 +60,19 @@ export function createMemoryMediaObjectStore(): MemoryMediaStore {
       const object = objects.get(key);
       if (!object) return { status: "absent" };
       return { status: "present", byteSize: object.bytes.length, sha256Hex: sha(object.bytes) };
+    },
+    async get(input): Promise<MediaObjectRead> {
+      store.gets.push(input.key);
+      const object = objects.get(input.key);
+      if (!object) return { status: "absent" };
+      if (object.bytes.length > input.maxBytes) return { status: "too-large" };
+      if (store.corruptNextGet) {
+        store.corruptNextGet = false;
+        const tampered = new Uint8Array(object.bytes);
+        tampered[tampered.length - 1] = (tampered[tampered.length - 1] ?? 0) ^ 0xff;
+        return { status: "read", bytes: tampered };
+      }
+      return { status: "read", bytes: new Uint8Array(object.bytes) };
     },
     async createReadAccess(input): Promise<MediaReadAccess> {
       store.readGrants.push(input.key);
@@ -67,20 +92,35 @@ export type FakeBehaviour =
   | { readonly kind: "throw" };
 
 export interface FakeTransport extends MediaGenerationTransport {
-  readonly calls: { promptText: string; inputDigest: string; invocationId: string }[];
+  readonly calls: {
+    promptText: string;
+    inputDigest: string;
+    invocationId: string;
+    request: MediaGenerationRequest;
+  }[];
   behaviour: FakeBehaviour;
 }
 
-export function createFakeMediaGenerationTransport(behaviour: FakeBehaviour): FakeTransport {
+export function createFakeMediaGenerationTransport(
+  behaviour: FakeBehaviour,
+  /** MEDIA-5. Defaults to BOTH modes; pass text-only to prove the authority refuses fail-closed. */
+  modes: readonly MediaGenerationMode[] = ["text-to-image", "reference-edit"],
+): FakeTransport {
   const transport: FakeTransport = {
     transport: "fake",
     provider: FAKE_MEDIA_PROVIDER,
     model: FAKE_MEDIA_MODEL,
     allowedDownloadHosts: [FAKE_MEDIA_HOST],
+    modes,
     calls: [],
     behaviour,
     async generate(input): Promise<MediaGenerationOutcome> {
-      transport.calls.push({ promptText: input.promptText, inputDigest: input.inputDigest, invocationId: input.invocationId });
+      transport.calls.push({
+        promptText: input.promptText,
+        inputDigest: input.inputDigest,
+        invocationId: input.invocationId,
+        request: input.request,
+      });
       const b = transport.behaviour;
       const jobId = `fake-job-${transport.calls.length}`;
       if (b.kind === "throw") throw new Error("fake transport unreachable");

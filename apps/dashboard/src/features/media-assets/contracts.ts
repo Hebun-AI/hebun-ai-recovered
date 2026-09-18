@@ -138,7 +138,23 @@ export type MediaGenerationRefusal =
   | "no-durable-agent"
   | "source-revision-unresolvable"
   /** The request key was already used in this tenant. The earlier attempt is not repeated. */
-  | "duplicate-request";
+  | "duplicate-request"
+  /*
+   * ── MEDIA-5 ──────────────────────────────────────────────────────────────
+   * Four refusals, all reached in preflight — before any row is written and before any paid call.
+   */
+  /** Missing, another tenant's, or not an asset id. One reason, so a refusal reveals nothing. */
+  | "source-asset-unresolvable"
+  /** The asset exists in this tenant but its custody lifecycle ended. A retired image is not reused. */
+  | "source-asset-retired"
+  /**
+   * The object could not be read, was larger than the authority accepts, or the bytes as stored no
+   * longer match the admitted digest. A CUSTODY problem, never "no image" — and it stops the request
+   * before the provider is called, so unverified bytes can never leave Hebun.
+   */
+  | "source-asset-unavailable"
+  /** The resolved transport does not do reference edits. Refused before registering an invocation. */
+  | "reference-edit-unsupported";
 
 export type RequestMediaGenerationResult =
   | { readonly status: "refused"; readonly reason: MediaGenerationRefusal }
@@ -166,6 +182,15 @@ export interface RequestMediaGenerationInput {
   readonly revisionNo: number;
   readonly promptText: string;
   readonly requestKey: string;
+  /**
+   * MEDIA-5 — the admitted image to edit, named BY ASSET ID and by nothing else.
+   *
+   * Absent means text-to-image, exactly as released. A storage key, a store URL, an external URL or
+   * raw bytes are all unrepresentable here on purpose: the authority resolves the id against THIS
+   * tenant and derives the key itself, so a caller can never point the reader at an object it was
+   * not entitled to, and never at another tenant's.
+   */
+  readonly sourceAssetId?: string | null;
 }
 
 export const MEDIA_ASSET_ACCEPTANCE_NOTICE =

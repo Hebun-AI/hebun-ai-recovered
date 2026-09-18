@@ -170,10 +170,10 @@ const MUTATIONS: readonly Mutation[] = [
   {
     label: "M12 a migration is added",
     file: JOURNAL,
-    /* RE-ANCHORED at GIA-1, as it was at Departmental Placement and WORK-1 before it: the mutation must apply
+    /* RE-ANCHORED at MEDIA-5, as at GIA-1, Departmental Placement and WORK-1 before it: the mutation must apply
      * to the journal's CURRENT tail, or it proves nothing. The defect it injects — an extra journal
      * entry — is unchanged, and this anchor moves with every migration by design. */
-    find: `      "tag": "20260917135027_media2a_live_image_transport",\n      "breakpoints": true\n    }\n  ]`,
+    find: `      "tag": "20260918105811_media5_reference_edit_lineage",\n      "breakpoints": true\n    }\n  ]`,
     replace:
       `      "tag": "20260908072926_trh24_machine_observation_provenance",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 50,\n      "version": "7",\n      "when": 1787726663801,\n` +

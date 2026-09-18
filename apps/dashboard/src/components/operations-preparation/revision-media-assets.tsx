@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   readMediaAssetAction,
+  requestMediaGenerationAction,
   reviewMediaAssetAction,
 } from "@/app/(dashboard)/operations/actions";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,10 @@ import type {
   MediaAssetReviewState,
 } from "@/features/media-asset-review/contracts";
 import type { ReadMediaAssetResult } from "@/features/media-assets/read-media-assets.server";
+import type {
+  MediaGenerationRefusal,
+  RequestMediaGenerationResult,
+} from "@/features/media-assets/contracts";
 
 /*
  * revision-media-assets.tsx — the images generated for one content-draft revision (MEDIA-3).
@@ -32,6 +37,20 @@ import type { ReadMediaAssetResult } from "@/features/media-assets/read-media-as
  * Accepting records judgement and causes nothing. The released
  * `MEDIA_ASSET_REVIEW_ACCEPT_NON_EFFECTS` are rendered verbatim beside the decision controls rather
  * than paraphrased here, so the promise the authority makes is the sentence the reviewer reads.
+ *
+ * ── MEDIA-5: "USE AS REFERENCE" IS A NEW GENERATION, NEVER AN EDIT OF THIS ONE ──
+ *
+ * The control reads as what it is: this image is the INPUT to a new one. The original is never
+ * opened for writing — there is no code path in Hebun that can rewrite admitted bytes — and the copy
+ * says so beside the control rather than in a tooltip nobody opens.
+ *
+ * IT SENDS AN ASSET ID AND NOTHING ELSE. No storage key, no URL and no bytes cross this boundary;
+ * the server resolves the id against the session tenant and derives the key itself.
+ *
+ * GOVERNANCE STATE IS SHOWN AND IS NOT A GATE. An admitted image may be used as a reference whether
+ * it is approved, declined or never reviewed. Approving may not authorize an external act, so
+ * declining may not forbid an internal one — the badge above informs the human, it does not permit
+ * them. Only RETIRED removes the control, because that is a custody fact rather than a judgement.
  *
  * ── WHY PREVIEW IS LAZY ──────────────────────────────────────────────────────
  *
@@ -75,6 +94,23 @@ const REVIEW_REFUSAL_WORDING: Record<MediaAssetReviewRefusal, string> = {
   "asset-digest-mismatch": "The image you were shown is not the image on record, so nothing was recorded. Reload before deciding again.",
   "justification-required": "A reason is required. Nothing was recorded.",
   "persistence-unavailable": "The Governance ledger could not be reached. Nothing was recorded.",
+};
+
+/* MEDIA-5. Every one of these is a preflight refusal: nothing was dispatched and nothing was spent. */
+const GENERATION_REFUSAL_WORDING: Record<MediaGenerationRefusal, string> = {
+  unauthenticated: "Your session could not be resolved.",
+  "invalid-input": "The request was not well formed.",
+  "storage-unavailable": "Media storage is not connected, so a new image would have nowhere to live.",
+  "generation-transport-unavailable": "Image generation is not available right now.",
+  "persistence-unavailable": "The database could not be reached.",
+  "no-durable-agent": "Your organization has no durable agent that could author this.",
+  "source-revision-unresolvable": "That content draft revision could not be resolved.",
+  "duplicate-request": "This exact request was already submitted. It was not sent again, and you were not charged twice.",
+  "source-asset-unresolvable": "That image could not be resolved in your organization.",
+  "source-asset-retired": "This image has been retired, and a retired image is not used as a reference.",
+  "source-asset-unavailable":
+    "The stored bytes could not be read, or no longer match the admitted digest. Nothing was sent. This is a storage custody problem and should be raised.",
+  "reference-edit-unsupported": "The configured image provider cannot edit an existing image.",
 };
 
 function formatBytes(bytes: number): string {
@@ -275,6 +311,9 @@ function AssetCard({
         </details>
       )}
 
+      {/* ── MEDIA-5: this image as the input to a new one ── */}
+      {retired ? null : <UseAsReference asset={asset} />}
+
       <details className="min-w-0">
         <summary className="cursor-pointer text-xs text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring">
           Record details
@@ -297,5 +336,84 @@ function AssetCard({
         </dl>
       </details>
     </article>
+  );
+}
+
+/**
+ * MEDIA-5 — ask for a new image, using this one as the visual reference.
+ *
+ * ONE CLICK IS ONE REQUEST. `requestKey` is minted once per mounted form, so a double-click, a
+ * double-submit or a resubmission after an error all carry the SAME key and the authority answers
+ * `duplicate-request` without dispatching or charging again. The disabled button is a courtesy; the
+ * database's unique index is the actual guarantee, and the copy says which one is load-bearing.
+ */
+function UseAsReference({ asset }: { readonly asset: RevisionMediaAssetView }) {
+  const requestKey = useMemo(() => crypto.randomUUID(), []);
+  const [instruction, setInstruction] = useState("");
+  const [result, setResult] = useState<RequestMediaGenerationResult | null>(null);
+  const [generating, startGeneration] = useTransition();
+
+  function generate() {
+    if (generating || instruction.trim().length === 0) return;
+    setResult(null);
+    startGeneration(async () => {
+      setResult(
+        await requestMediaGenerationAction({
+          artifactId: asset.sourceArtifactId,
+          revisionNo: asset.sourceRevisionNo,
+          promptText: instruction.trim(),
+          requestKey,
+          /* The ID, and only the ID. No key, no URL, no bytes. */
+          sourceAssetId: asset.assetId,
+        }),
+      );
+    });
+  }
+
+  return (
+    <details className="min-w-0">
+      <summary className="cursor-pointer text-xs text-fg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring">
+        Use as reference
+      </summary>
+      <div className="mt-3 space-y-2">
+        <p className="text-xs text-fg-muted">
+          Hebun will generate a <strong className="font-medium text-fg-secondary">new</strong> image using
+          this one as the visual reference. This image is not changed: its bytes, its record and its
+          review stay exactly as they are.
+        </p>
+        <label htmlFor={`ref-${asset.assetId}`} className="block text-xs font-medium text-fg-secondary">
+          Instruction
+        </label>
+        <textarea
+          id={`ref-${asset.assetId}`}
+          rows={3}
+          value={instruction}
+          disabled={generating}
+          onChange={(e) => setInstruction(e.target.value)}
+          placeholder="What should change, and what should stay."
+          className="w-full min-w-0 resize-y rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm text-fg-primary placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring disabled:cursor-not-allowed disabled:text-fg-muted"
+        />
+        <dl className="text-xs">
+          <dt className="text-fg-muted">Reference image</dt>
+          <dd className="break-all font-mono text-fg-secondary">{asset.assetId}</dd>
+        </dl>
+        <p className="text-xs text-fg-muted">
+          The new image is filed for this draft at revision {asset.sourceRevisionNo}, and arrives
+          unreviewed. Generating it publishes nothing and authorizes nothing.
+        </p>
+        <Button size="sm" onClick={generate} disabled={generating || instruction.trim().length === 0} aria-busy={generating}>
+          {generating ? "Generating…" : "Generate from this image"}
+        </Button>
+        {result === null ? null : (
+          <p role="status" aria-live="polite" className="text-sm text-fg-primary">
+            {result.status === "admitted"
+              ? "A new image was generated and admitted. It appears with this draft's images, awaiting review."
+              : result.status === "refused"
+                ? GENERATION_REFUSAL_WORDING[result.reason]
+                : "The request was made, but no image was admitted. The attempt is on record."}
+          </p>
+        )}
+      </div>
+    </details>
   );
 }

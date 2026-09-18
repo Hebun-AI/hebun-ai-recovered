@@ -203,7 +203,12 @@ const code = (f: string): string => stripComments(read(f));
   const adapter = code(ADAPTER);
   assert.ok(!/@\/db|drizzle|schema\/|TenantContext|governance|permit|action-/i.test(adapter), "the adapter reads no row and holds no authority");
   assert.ok(!/\b(delete|remove|purge)\s*\(|method:\s*"DELETE"/.test(adapter), "the adapter has no delete verb");
-  assert.ok(!/redirect:\s*"follow"/.test(adapter) && (adapter.match(/redirect:\s*"error"/g) ?? []).length === 2, "the adapter never follows a redirect");
+  /*
+   * THREE since MEDIA-5, not two: `put`, `verify` and now the server-side `get`. The count is pinned
+   * rather than merely "at least one" so a FOURTH fetch cannot appear in this adapter without a
+   * diff — and every one of them must refuse redirects.
+   */
+  assert.ok(!/redirect:\s*"follow"/.test(adapter) && (adapter.match(/redirect:\s*"error"/g) ?? []).length === 3, "the adapter never follows a redirect");
   const resolver = code("src/features/media-assets/media-storage.server.ts");
   assert.ok(!/media-fakes|createMemoryMediaObjectStore|tests\//.test(resolver), "the resolver has no test fallback");
 }
@@ -225,12 +230,26 @@ const code = (f: string): string => stripComments(read(f));
   ]);
   assert.ok([...t.matchAll(/^import (type )?/gm)].every((m) => m[1] === "type "), "the transport imports TYPES only");
   assert.ok(!/process\.env|@\/db|drizzle|console\.|governance|permit|action-|media-storage|MediaObjectStore|request-media-generation/i.test(t), "no config, row, log or authority");
-  assert.equal((t.match(/https:\/\/[a-z0-9.-]+[^"]*/g) ?? []).join(","), "https://api.openai.com/v1/images/generations", "one fixed official endpoint");
+  /*
+   * TWO fixed official endpoints since MEDIA-5, listed by exact value: generations for
+   * text-to-image, edits for a one-image reference edit. Pinned as a set, so a THIRD endpoint —
+   * variations, files, uploads, a Responses-API path — cannot appear without this line failing.
+   */
+  assert.deepEqual(
+    (t.match(/https:\/\/[a-z0-9.-]+[^"]*/g) ?? []).sort(),
+    ["https://api.openai.com/v1/images/edits", "https://api.openai.com/v1/images/generations"],
+    "exactly the two fixed official endpoints",
+  );
   assert.ok(/redirect: "error"/.test(t) && !/redirect: "follow"/.test(t), "redirects refused");
   assert.ok(/allowedDownloadHosts: Object\.freeze\(\[\]\)/.test(t), "no download host: the transport never hands out a URL");
   assert.ok(/OPENAI_IMAGE_MODEL = "gpt-image-2\.5-flare-2026-09-08"/.test(t), "the model snapshot is pinned");
   assert.ok(!/\b(image|images|mask|reference_images?|stream|partial_images|response_format|input_fidelity)\s*:/.test(t.replace(/allowedDownloadHosts/g, "")), "text-to-image only: no image, mask, stream or url request parameter");
-  assert.ok(!/images\/edits|\bwhile\s*\(|retry/i.test(t), "no edit endpoint and no retry loop");
+  /*
+   * MEDIA-5 admits `/images/edits` — pinned by exact value in the endpoint set above, so it is named
+   * once and cannot multiply. What must NEVER return is the retry loop: a paid call that failed is
+   * finished, and a second attempt is a new human request with a new request key.
+   */
+  assert.ok(!/\bwhile\s*\(|retry|backoff/i.test(t), "no retry loop, in either mode");
 
   const r = code(RESOLVER);
   assert.ok(/resolveDirectorEnabled/.test(r) && /OPENAI_IMAGE_GENERATION_CONTROL_KEY/.test(r), "the resolver reads the connectivity control");

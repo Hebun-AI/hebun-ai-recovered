@@ -33,7 +33,7 @@ import { MEDIA_PROVIDER_FAILURES } from "../../src/features/media-assets/contrac
 import { pngBytes } from "../helpers/media-fakes";
 
 const KEY = "sk-test-not-a-real-key-000000000000000000";
-const INPUT = { promptText: "A hand-knotted kilim on a loom, morning light.", inputDigest: "a".repeat(64), invocationId: "11111111-2222-4333-8444-555555555555" };
+const INPUT = { promptText: "A hand-knotted kilim on a loom, morning light.", inputDigest: "a".repeat(64), invocationId: "11111111-2222-4333-8444-555555555555", request: { mode: "text-to-image" } } as const;
 
 let finished = false;
 process.on("exit", (code) => {
@@ -102,7 +102,10 @@ async function main(): Promise<void> {
     assert.deepEqual(Object.keys(call!.init.headers).sort(), ["authorization", "content-type", "x-client-request-id"]);
     assert.equal(call!.init.headers.authorization, `Bearer ${KEY}`);
     assert.equal(call!.init.headers["x-client-request-id"], INPUT.invocationId);
-    const body = JSON.parse(call!.init.body) as Record<string, unknown>;
+    /* MEDIA-5 kept this a JSON STRING. If text-to-image ever became multipart, this fails first. */
+    assert.equal(typeof call!.init.body, "string", "text-to-image sends a JSON body, never multipart");
+    const rawBody = call!.init.body as string;
+    const body = JSON.parse(rawBody) as Record<string, unknown>;
     assert.deepEqual(body, {
       model: OPENAI_IMAGE_MODEL,
       prompt: INPUT.promptText,
@@ -112,7 +115,7 @@ async function main(): Promise<void> {
       output_format: "png",
       moderation: "auto",
     }, "text-to-image only: no image, mask, stream or response_format");
-    assert.ok(!call!.init.body.includes(INPUT.inputDigest), "only the prompt is organizational content sent");
+    assert.ok(!rawBody.includes(INPUT.inputDigest), "only the prompt is organizational content sent");
     assert.equal(budget.spent(), 1, "one unit of the shared budget per call");
   }
 
