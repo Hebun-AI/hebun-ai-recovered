@@ -128,11 +128,16 @@ any future negative SSH testing, or test from an address you can afford to lose.
   Port 80 only redirects to HTTPS (308) and serves ACME challenges.
 - It adds and removes no authentication. HMAC decisions stay in the store.
 
-## Not yet in place (Director gate)
+## Vercel configuration (in place since MEDIA-1 production acceptance)
 
-- **Vercel configuration.** `HEBUN_MEDIA_STORE_ORIGIN`, `HEBUN_MEDIA_STORE_WRITE_SECRET`,
-  `HEBUN_MEDIA_STORE_READ_SECRET` are not set anywhere. Until all three are, production answers
-  `storage-not-connected`; a partial set answers `storage-misconfigured`.
+`HEBUN_MEDIA_STORE_ORIGIN`, `HEBUN_MEDIA_STORE_WRITE_SECRET` and `HEBUN_MEDIA_STORE_READ_SECRET`
+are **all three set on the production target**, verified by listing the project's environment
+variable NAMES — values are Vercel-sensitive and were never read. Until all three are set production
+answers `storage-not-connected`, and a partial set answers `storage-misconfigured`; neither applies.
+
+*(This section previously said they were unset. That was written before the MEDIA-1 acceptance
+configured them and was never corrected; the storage acceptance ingress has been reaching the store
+from the deployed runtime ever since.)*
 
 ## Backup truth
 

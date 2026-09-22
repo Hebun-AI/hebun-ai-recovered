@@ -1,6 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {
+  deselectMediaForRevision,
+  selectMediaForRevision,
+} from "@/features/content-composition/select-media.server";
+import {
+  readContentPackage,
+  type ContentPackageResult,
+} from "@/features/content-composition/read-content-package.server";
+import type { ContentSelectionResult } from "@/features/content-composition/select-media.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import type {
   CreateWorkArtifactResult,
@@ -310,6 +319,41 @@ export async function readMediaAssetAction(input: { assetId: string }): Promise<
  * grants no publication, no action request, no permit and no execution. A decision is a record of
  * judgement, not an effect.
  */
+/**
+ * CONTENT-COMPOSE-1 — put an image into this draft revision, or take it out.
+ *
+ * Adds no authority. The tenant comes from the trusted session and is never an input; the writer
+ * owns validation, custody gating and idempotency. Selecting is not approving and not publishing —
+ * there is no publishing path in this repository for it to reach.
+ */
+export async function setMediaSelectionAction(input: {
+  artifactId: string;
+  revisionNo: number;
+  mediaAssetId: string;
+  selected: boolean;
+}): Promise<ContentSelectionResult> {
+  const tenant = await resolveTenantContext();
+  const payload = {
+    artifactId: input.artifactId,
+    revisionNo: input.revisionNo,
+    mediaAssetId: input.mediaAssetId,
+  };
+  const result = input.selected
+    ? await selectMediaForRevision(tenant, payload)
+    : await deselectMediaForRevision(tenant, payload);
+  if (result.status !== "refused") revalidatePath("/operations");
+  return result;
+}
+
+/** CONTENT-COMPOSE-1 — the composed package for one revision. A read; it writes nothing. */
+export async function readContentPackageAction(input: {
+  artifactId: string;
+  revisionNo: number;
+}): Promise<ContentPackageResult> {
+  const tenant = await resolveTenantContext();
+  return readContentPackage(tenant, input);
+}
+
 export async function reviewMediaAssetAction(input: {
   assetId: string;
   byteDigest: string;

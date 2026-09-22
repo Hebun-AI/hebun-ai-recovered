@@ -5,10 +5,12 @@ import {
   readMediaAssetAction,
   requestMediaGenerationAction,
   reviewMediaAssetAction,
+  setMediaSelectionAction,
 } from "@/app/(dashboard)/operations/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MEDIA_ASSET_REVIEW_ACCEPT_NON_EFFECTS } from "@/features/media-asset-review/contracts";
+import type { ContentSelectionRefusal } from "@/features/content-composition/contracts";
 import type {
   MediaAssetReviewRefusal,
   MediaAssetReviewState,
@@ -77,6 +79,15 @@ export interface RevisionMediaAssetView {
   readonly providerJobId: string | null;
 }
 
+const SELECTION_REFUSAL_WORDING: Record<ContentSelectionRefusal, string> = {
+  unauthenticated: "Your session has expired. Sign in again.",
+  "invalid-input": "That image could not be added to this draft.",
+  "persistence-unavailable": "Hebun could not record that right now. Nothing was changed.",
+  "revision-unresolvable": "This draft revision could not be found in your organization.",
+  "asset-unresolvable": "That image could not be found in your organization.",
+  "asset-retired": "This image has been retired, and a retired image is not used in a draft.",
+};
+
 const PREVIEW_WORDING: Record<string, string> = {
   "storage-unavailable": "Media storage is not connected, so the image cannot be shown right now.",
   "persistence-unavailable": "The record could not be read right now.",
@@ -132,9 +143,16 @@ function reviewBadge(state: MediaAssetReviewState | undefined) {
 export function RevisionMediaAssets({
   assets,
   reviewStates,
+  selectionTarget,
 }: {
   readonly assets: readonly RevisionMediaAssetView[];
   readonly reviewStates: readonly { readonly assetId: string; readonly state: MediaAssetReviewState }[];
+  /*
+   * CONTENT-COMPOSE-1. Which revision a chosen image would be chosen FOR — always the draft's
+   * current revision, never the revision the image happens to have come from. An older image may be
+   * chosen for today's revision; that is the whole point of keeping it reachable.
+   */
+  readonly selectionTarget?: { readonly artifactId: string; readonly revisionNo: number };
 }) {
   if (assets.length === 0) return null;
   const byAsset = new Map(reviewStates.map((r) => [r.assetId, r.state]));
@@ -146,7 +164,11 @@ export function RevisionMediaAssets({
       <ul className="min-w-0 space-y-3">
         {assets.map((asset) => (
           <li key={asset.assetId} className="min-w-0">
-            <AssetCard asset={asset} reviewState={byAsset.get(asset.assetId)} />
+            <AssetCard
+              asset={asset}
+              reviewState={byAsset.get(asset.assetId)}
+              selectionTarget={selectionTarget}
+            />
           </li>
         ))}
       </ul>
@@ -157,9 +179,11 @@ export function RevisionMediaAssets({
 function AssetCard({
   asset,
   reviewState,
+  selectionTarget,
 }: {
   readonly asset: RevisionMediaAssetView;
   readonly reviewState: MediaAssetReviewState | undefined;
+  readonly selectionTarget?: { readonly artifactId: string; readonly revisionNo: number };
 }) {
   const [preview, setPreview] = useState<ReadMediaAssetResult | null>(null);
   const [loadingPreview, startPreview] = useTransition();
@@ -313,6 +337,9 @@ function AssetCard({
 
       {/* ── MEDIA-5: this image as the input to a new one ── */}
       {retired ? null : <UseAsReference asset={asset} />}
+      {retired || !selectionTarget ? null : (
+        <ChooseForDraft asset={asset} target={selectionTarget} />
+      )}
 
       <details className="min-w-0">
         <summary className="cursor-pointer text-xs text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring">
@@ -336,6 +363,55 @@ function AssetCard({
         </dl>
       </details>
     </article>
+  );
+}
+
+/*
+ * CONTENT-COMPOSE-1 — put this image into the draft.
+ *
+ * Adds no rule. Custody is already reflected by the caller (a retired image gets no button), and
+ * Governance is deliberately NOT consulted here: a declined image may still be chosen, because
+ * declining may not forbid an internal act. Whether the package is READY is a separate question,
+ * answered by the panel above from live Governance.
+ */
+function ChooseForDraft({
+  asset,
+  target,
+}: {
+  readonly asset: RevisionMediaAssetView;
+  readonly target: { readonly artifactId: string; readonly revisionNo: number };
+}) {
+  const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState<string | null>(null);
+
+  function choose() {
+    startTransition(async () => {
+      const result = await setMediaSelectionAction({
+        artifactId: target.artifactId,
+        revisionNo: target.revisionNo,
+        mediaAssetId: asset.assetId,
+        selected: true,
+      });
+      setMessage(
+        result.status === "refused"
+          ? SELECTION_REFUSAL_WORDING[result.reason]
+          : "Added to this draft. It appears in the content package above.",
+      );
+    });
+  }
+
+  return (
+    <div className="mt-2 space-y-1">
+      <button
+        type="button"
+        onClick={choose}
+        disabled={pending}
+        className="text-xs underline underline-offset-2 text-fg-secondary disabled:opacity-50"
+      >
+        Use in this draft
+      </button>
+      {message ? <p className="text-[11px] text-fg-muted">{message}</p> : null}
+    </div>
   );
 }
 

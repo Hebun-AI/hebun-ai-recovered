@@ -65,6 +65,7 @@ export * from "./document";
 export * from "./notification";
 export * from "./work-artifact";
 /* MEDIA-1. Admitted image bytes and the attempt that produced them — never the draft, never review. */
+export * from "./content-selected-media";
 export * from "./media-asset";
 /* WORK-1. A COMMITMENT with mutable declared state — not the immutable content above it. */
 export * from "./work-item";

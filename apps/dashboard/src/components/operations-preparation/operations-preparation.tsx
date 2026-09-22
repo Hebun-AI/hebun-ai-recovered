@@ -39,6 +39,7 @@ import { RecipientsSection } from "./recipients-section";
 import { PreparedWorkSection } from "./prepared-work-section";
 import { GenerateImageWithHebun } from "./generate-image-with-hebun";
 import { RevisionMediaAssets } from "./revision-media-assets";
+import { ContentPackagePanel } from "./content-package-panel";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
 
 export async function OperationsPreparation() {
@@ -185,6 +186,13 @@ async function MediaAssetsForDrafts({
           <h3 className="text-sm font-medium text-fg-primary">{draft.title}</h3>
 
           {/*
+            CONTENT-COMPOSE-1. The package is composed for the CURRENT revision, because that is the
+            one a human is finishing. Older revisions keep their images (MEDIA-4A) but are not what
+            is being assembled.
+          */}
+          <ContentPackagePanel artifactId={draft.artifactId} revisionNo={draft.currentRevision} />
+
+          {/*
             The current revision, named explicitly. It is stated even when it has no images, because
             "revision 4 is current and has none" is exactly the fact a human needs in order to read
             the historical groups below correctly.
@@ -194,7 +202,11 @@ async function MediaAssetsForDrafts({
               Revision {draft.currentRevision} — current
             </p>
             {current.length > 0 ? (
-              <RevisionMediaAssets assets={current} reviewStates={reviewStates} />
+              <RevisionMediaAssets
+                assets={current}
+                reviewStates={reviewStates}
+                selectionTarget={{ artifactId: draft.artifactId, revisionNo: draft.currentRevision }}
+              />
             ) : (
               <p className="text-xs text-fg-muted">No images have been generated for this revision.</p>
             )}
@@ -216,7 +228,11 @@ async function MediaAssetsForDrafts({
               {previous.map(([revisionNo, assets]) => (
                 <div key={revisionNo} className="min-w-0 space-y-2">
                   <p className="text-xs text-fg-muted">Revision {revisionNo}</p>
-                  <RevisionMediaAssets assets={assets} reviewStates={reviewStates} />
+                  <RevisionMediaAssets
+                    assets={assets}
+                    reviewStates={reviewStates}
+                    selectionTarget={{ artifactId: draft.artifactId, revisionNo: draft.currentRevision }}
+                  />
                 </div>
               ))}
             </div>

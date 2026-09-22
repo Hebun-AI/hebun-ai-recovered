@@ -77,6 +77,15 @@ const code = (f: string): string => stripComments(read(f));
     /* MEDIA-3: seeing and deciding — the asset surface and the composer that places it. */
     "src/components/operations-preparation/revision-media-assets.tsx",
     "src/components/operations-preparation/operations-preparation.tsx",
+    /*
+     * CONTENT-COMPOSE-1: composition CONSUMES the authority and never becomes one. The writer reads
+     * `media_assets.asset_lifecycle_status` to gate selection on custody and writes only
+     * `content_selected_media`; the reader joins the asset row for display and the review reader for
+     * judgement. Neither writes a media row, a lifecycle or a decision — pinned in
+     * tests/content-compose1/package-and-firewall.
+     */
+    "src/features/content-composition/select-media.server.ts",
+    "src/features/content-composition/read-content-package.server.ts",
   ]);
   for (const f of SRC) {
     const c = code(f);
@@ -102,11 +111,15 @@ const code = (f: string): string => stripComments(read(f));
     doorFiles,
     [
       "src/app/(dashboard)/operations/actions.ts",
+      "src/components/operations-preparation/content-package-panel.tsx",
       "src/components/operations-preparation/generate-image-with-hebun.tsx",
       "src/components/operations-preparation/operations-preparation.tsx",
       "src/components/operations-preparation/revision-media-assets.tsx",
     ],
-    "exactly one action file and the MEDIA-3 surfaces may reach the Media Asset authority",
+    /* CONTENT-COMPOSE-1 added the package panel: it renders selected images and a readiness the
+       reader already decided. It holds no authority and issues no generation — the set is still
+       enumerated exactly, so a sixth file cannot acquire a path without this failing. */
+    "exactly one action file and the MEDIA-3 + CONTENT-COMPOSE-1 surfaces may reach the Media Asset authority",
   );
 
   /* The action is a pass-through: it calls the authority and holds none of its own. */
