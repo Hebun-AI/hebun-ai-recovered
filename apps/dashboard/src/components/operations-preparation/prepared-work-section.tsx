@@ -269,7 +269,8 @@ function ArtifactRow({
 
       {retired ? null : (
         <form
-          className="mt-2 flex flex-col gap-2 sm:flex-row"
+          data-manual-revision="section"
+          className="mt-3 space-y-2 rounded border border-border-subtle px-3 py-3"
           onSubmit={(event) => {
             event.preventDefault();
             startTransition(async () => {
@@ -282,7 +283,7 @@ function ArtifactRow({
                 setRevisionText("");
                 await rereadReview(result.revisionNo);
                 setMessage(
-                  `Revision ${result.revisionNo} appended. Earlier revisions are unchanged.`,
+                  `Manual revision ${result.revisionNo} saved, authored by you. Earlier revisions are unchanged.`,
                 );
                 return;
               }
@@ -294,19 +295,34 @@ function ArtifactRow({
             });
           }}
         >
-          <textarea
-            value={revisionText}
-            onChange={(event) => setRevisionText(event.target.value)}
-            rows={2}
-            placeholder="New revision text — appended, never replacing"
-            className="min-w-0 flex-1 rounded border border-border-subtle bg-surface-2 px-2 py-1.5 text-xs text-fg-primary placeholder:text-fg-muted"
-          />
+          {/*
+            * NAMED, AND NAMED AS THE HUMAN ONE. This control and the Hebun one below it were two
+            * adjacent bare textareas telling a reader apart only by placeholder text, and a real
+            * production revision was written into the wrong one. The heading says whose hand this
+            * is, the helper sentence says what saving does, and the button says it again — because
+            * the label a person reads last is the one on the thing they click.
+            */}
+          <p className="text-xs font-medium text-fg-primary">Manual revision</p>
+          <p className="text-xs text-fg-muted">
+            Saving here creates a new revision authored by you, not by Hebun. Earlier revisions stay
+            byte-identical, and the new one still awaits Governance review.
+          </p>
+          <label className="block space-y-1">
+            <span className="block text-xs text-fg-secondary">Revision text</span>
+            <textarea
+              value={revisionText}
+              onChange={(event) => setRevisionText(event.target.value)}
+              rows={3}
+              placeholder="Write the new revision text"
+              className="w-full rounded border border-border-subtle bg-surface px-2 py-1.5 text-xs text-fg-primary placeholder:text-fg-muted"
+            />
+          </label>
           <button
             type="submit"
             disabled={pending}
-            className="shrink-0 self-start rounded border border-border-subtle px-3 py-1.5 text-xs text-fg-secondary transition-colors hover:border-border hover:text-fg-primary disabled:opacity-50"
+            className="rounded border border-border-subtle px-3 py-1.5 text-xs text-fg-secondary transition-colors hover:border-border hover:text-fg-primary disabled:opacity-50"
           >
-            {pending ? "Appending…" : "Append revision"}
+            {pending ? "Saving…" : "Save manual revision"}
           </button>
         </form>
       )}

@@ -108,7 +108,7 @@ export function PrepareDraftWithHebun() {
   return (
     <form
       data-cgo9="prepare-draft"
-      className="mt-4 space-y-2 rounded border border-border-subtle bg-surface-2 px-3 py-3"
+      className="mt-4 space-y-2 rounded border border-border-subtle bg-surface-sunken px-3 py-3"
       onSubmit={(event) => {
         event.preventDefault();
         startTransition(async () => {
@@ -219,7 +219,8 @@ export function PrepareRevisionWithHebun({
   return (
     <form
       data-cgo9="prepare-revision"
-      className="mt-2 flex flex-col gap-2 sm:flex-row"
+      data-hebun-preparation="revision"
+      className="mt-3 space-y-2 rounded border border-border-subtle bg-surface-sunken px-3 py-3"
       onSubmit={(event) => {
         event.preventDefault();
         startTransition(async () => {
@@ -244,21 +245,34 @@ export function PrepareRevisionWithHebun({
         });
       }}
     >
-      <textarea
-        value={instruction}
-        onChange={(event) => setInstruction(event.target.value)}
-        rows={1}
-        placeholder="What should Hebun change in a new revision?"
-        className="min-w-0 flex-1 rounded border border-border-subtle bg-surface-2 px-2 py-1.5 text-xs text-fg-primary placeholder:text-fg-muted"
-      />
-      <button
-        type="submit"
-        disabled={pending}
-        className="shrink-0 self-start rounded border border-border-subtle px-3 py-1.5 text-xs text-fg-secondary transition-colors hover:border-border hover:text-fg-primary disabled:opacity-50"
-      >
-        {pending ? "Hebun is preparing…" : "Prepare revision with Hebun"}
-      </button>
-      <label className="flex items-start gap-2 text-xs text-fg-secondary sm:basis-full">
+      {/*
+        * THE HEADING IS THE FIX. Before this, the instruction field sat as a bare one-row textarea
+        * directly beneath the human append control, in the same flat row, distinguishable only by a
+        * placeholder that vanishes the moment anyone types. A human put a Hebun instruction into the
+        * manual box and it was stored as draft content. Naming the section, and drawing a border
+        * around everything that belongs to Hebun, is what makes that mistake unavailable.
+        */}
+      <p className="text-xs font-medium text-fg-primary">Prepare with Hebun</p>
+      <p className="text-xs text-fg-muted">
+        Hebun writes a NEW revision, authored by this organization&apos;s durable agent. The current
+        revision is left byte-identical, and the new one still awaits Governance review.
+      </p>
+      <label className="block space-y-1">
+        <span className="block text-xs text-fg-secondary">Instruction for Hebun</span>
+        <textarea
+          value={instruction}
+          onChange={(event) => setInstruction(event.target.value)}
+          rows={2}
+          placeholder="What should Hebun change in a new revision?"
+          className="w-full rounded border border-border-subtle bg-surface px-2 py-1.5 text-xs text-fg-primary placeholder:text-fg-muted"
+        />
+      </label>
+      {/*
+        * INSIDE the Hebun section, deliberately. The grounding option is meaningless beside a manual
+        * revision — nothing a person types is grounded — so placing it anywhere else would imply an
+        * authority it does not have.
+        */}
+      <label className="flex items-start gap-2 text-xs text-fg-secondary">
         <input
           type="checkbox"
           checked={useOwnContent}
@@ -272,7 +286,14 @@ export function PrepareRevisionWithHebun({
           </span>
         </span>
       </label>
-      {message ? <p className="text-xs text-fg-secondary sm:basis-full">{message}</p> : null}
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded border border-border-subtle px-3 py-1.5 text-xs text-fg-secondary transition-colors hover:border-border hover:text-fg-primary disabled:opacity-50"
+      >
+        {pending ? "Hebun is preparing…" : "Prepare revision with Hebun"}
+      </button>
+      {message ? <p className="text-xs text-fg-secondary">{message}</p> : null}
     </form>
   );
 }
