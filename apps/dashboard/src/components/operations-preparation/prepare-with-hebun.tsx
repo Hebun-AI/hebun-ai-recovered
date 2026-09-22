@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import {
+  GROUNDING_NON_CLAIMS,
+  type GroundingDisposition,
+  type OwnContentGrounding,
+} from "@/features/content-grounding/contracts";
 import { prepareWorkArtifactAction } from "@/app/(dashboard)/operations/actions";
 import {
   CONTENT_DESTINATION_LABELS,
@@ -71,6 +76,24 @@ export const HEBUN_PREPARATION_NON_CLAIMS: readonly string[] = [
 
 function refusalSentence(result: Extract<PrepareWorkArtifactResult, { status: "refused" }>): string {
   return HEBUN_PREPARATION_REFUSAL_WORDING[result.reason] ?? `Not prepared: ${result.reason}.`;
+}
+
+/* CONTENT-GROUND-1 — what a human is told about the grounding. Never any caption text. */
+const GROUNDING_WORDING: Record<GroundingDisposition, string> = {
+  grounded: "",
+  "not-requested": "",
+  "destination-not-supported": "This draft is not going to Instagram, so your own captions were not used.",
+  "no-observation": "Hebun has not yet observed this organization's Instagram posts, so none were used.",
+  "no-captions": "The observation Hebun has holds no caption text, so none was used.",
+  unavailable: "Your own captions could not be read just now, so Hebun prepared without them.",
+};
+
+function groundingSentence(g: OwnContentGrounding | undefined): string {
+  if (!g || g.disposition === "not-requested") return "";
+  if (g.disposition === "grounded") {
+    return `It was written with ${g.captionCount} of your own recent Instagram captions as a voice reference${g.observedAt ? ` (observed ${new Date(g.observedAt).toISOString().slice(0, 10)})` : ""}.`;
+  }
+  return GROUNDING_WORDING[g.disposition];
 }
 
 /** Prepare a NEW content draft with Hebun. */
@@ -189,6 +212,8 @@ export function PrepareRevisionWithHebun({
 }) {
   const [instruction, setInstruction] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  /* CONTENT-GROUND-1 — the human's ask. A boolean leaves this component; text never does. */
+  const [useOwnContent, setUseOwnContent] = useState(true);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -205,12 +230,13 @@ export function PrepareRevisionWithHebun({
             artifactType: CONTENT_DRAFT_TYPE,
             title,
             artifactId,
+            useOwnContentGrounding: useOwnContent,
           });
           if (result.status === "prepared") {
             setInstruction("");
             await onPrepared(result.revisionNo);
             setMessage(
-              `Hebun prepared revision ${result.revisionNo}. Earlier revisions are unchanged; it awaits Governance review.`,
+              `Hebun prepared revision ${result.revisionNo}. ${groundingSentence(result.grounding)} Earlier revisions are unchanged; it awaits Governance review.`,
             );
             return;
           }
@@ -232,6 +258,20 @@ export function PrepareRevisionWithHebun({
       >
         {pending ? "Hebun is preparing…" : "Prepare revision with Hebun"}
       </button>
+      <label className="flex items-start gap-2 text-xs text-fg-secondary sm:basis-full">
+        <input
+          type="checkbox"
+          checked={useOwnContent}
+          onChange={(event) => setUseOwnContent(event.target.checked)}
+          className="mt-0.5"
+        />
+        <span>
+          Use our own recent Instagram captions as a voice reference
+          <span className="block text-[11px] text-fg-muted">
+            {GROUNDING_NON_CLAIMS[0]}
+          </span>
+        </span>
+      </label>
       {message ? <p className="text-xs text-fg-secondary sm:basis-full">{message}</p> : null}
     </form>
   );

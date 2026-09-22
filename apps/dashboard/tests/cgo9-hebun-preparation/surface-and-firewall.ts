@@ -73,9 +73,19 @@ function noNewAuthorityWasInvented(): void {
   const actions = codeOf(read(ACTIONS));
   const from = actions.slice(actions.indexOf("export async function prepareWorkArtifactAction"));
   const body = from.slice(0, from.indexOf("\n}\n") + 2);
+  /*
+   * CONTENT-GROUND-1 widened the first argument: the action now derives an `observationSupplement`
+   * SERVER-SIDE and spreads it onto the human's input. What this pin guards is unchanged and is
+   * asserted here in two halves — the released seam is still the one called, and the tenant session
+   * is still the authority it resolves. A client-supplied supplement is banned separately below.
+   */
   assert.ok(
-    body.includes("prepareWorkArtifact(input, { resolveTenant: resolveTenantContext })"),
+    /prepareWorkArtifact\(\s*\{ \.\.\.input, observationSupplement: grounding\.supplement \},\s*\{ resolveTenant: resolveTenantContext \},\s*\)/.test(body),
     "the released action is reused: the tenant session is the preparation authority",
+  );
+  assert.ok(
+    !/observationSupplement\??:\s*string/.test(actions),
+    "no action may accept grounding TEXT from a client",
   );
   for (const banned of [
     "KNOWLEDGE_AUTHOR_ROLE_TYPES",
@@ -101,6 +111,13 @@ function theSurfaceAsksOnlyThroughTheReleasedAction(): void {
     [...new Set(imports)].sort(),
     [
       'from "@/app/(dashboard)/operations/actions"',
+      /*
+       * CONTENT-GROUND-1: the grounding CONTRACTS only — the closed disposition vocabulary, the
+       * sentence shown beside the checkbox, and the result type. The surface imports no reader and
+       * no server module, so it still cannot resolve, render or supply grounding itself; it sends a
+       * boolean and displays what came back.
+       */
+      'from "@/features/content-grounding/contracts"',
       'from "@/features/work-artifacts/contracts"',
       'from "@/features/work-artifacts/prepare-work-artifact.server"',
       'from "react"',
@@ -185,7 +202,15 @@ function theRevisionBasisIsFencedInstruction(): void {
 
 function outOfScopeStaysOut(): void {
   const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: readonly unknown[] };
-  assert.equal(journal.entries.length, 57, "CGO-9 adds no migration");
+  /*
+   * CGO-9 itself authored none, and still authors none. The ledger has grown twice since under
+   * phases that legitimately did: MEDIA-5 57 -> 58 (`media_generation_invocations.source_media_asset_id`)
+   * and CONTENT-COMPOSE-1 58 -> 59 (`content_selected_media`). Both landed while this number still
+   * read 57, so this suite was red on `main` before CONTENT-GROUND-1 touched it; re-anchoring here
+   * is the repair. CONTENT-GROUND-1 adds no migration of its own — it reads observations that
+   * TRH-21 already stored.
+   */
+  assert.equal(journal.entries.length, 59, "CGO-9 adds no migration");
   assert.deepEqual([...GOVERNANCE_SUBJECT_TYPES], ["knowledge_node", "work_artifact_revision", "media_asset"], "no new Governance subject");
 
   for (const file of [SEAM, HEBUN, BRIEF]) {

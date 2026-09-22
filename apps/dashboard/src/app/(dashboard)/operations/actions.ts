@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { resolveOwnContentGrounding } from "@/features/content-grounding/own-instagram-context.server";
+import type { OwnContentGrounding } from "@/features/content-grounding/contracts";
 import {
   deselectMediaForRevision,
   selectMediaForRevision,
@@ -417,10 +419,50 @@ export async function prepareWorkArtifactAction(input: {
   title: string;
   conversationId?: string;
   artifactId?: string;
-}): Promise<PrepareWorkArtifactResult> {
-  const result = await prepareWorkArtifact(input, { resolveTenant: resolveTenantContext });
+  /*
+   * CONTENT-GROUND-1 — a BOOLEAN, and deliberately never a string.
+   *
+   * The human asks for their organization's own observed Instagram captions to be shown to the
+   * model as voice examples. What the model actually reads is resolved server-side from THIS
+   * tenant's authoritative observations. A `supplement?: string` here would be one convenient field
+   * and an open channel from any client straight into the model's brief.
+   */
+  useOwnContentGrounding?: boolean;
+}): Promise<PrepareWorkArtifactResult & { grounding?: OwnContentGrounding }> {
+  const tenant = await resolveTenantContext();
+
+  /*
+   * The destination the grounding is gated on is the DRAFT'S, read from the Work Artifact
+   * authority — never the client's restatement of it, and never the model's opinion.
+   */
+  let destination: ContentDestination | null | undefined = input.intendedDestination;
+  if (input.artifactId) {
+    const listing = await listWorkArtifacts(tenant);
+    destination =
+      listing.status === "read"
+        ? listing.artifacts.find((a) => a.id === input.artifactId)?.intendedDestination
+        : undefined;
+  }
+
+  const grounding = await resolveOwnContentGrounding(tenant, {
+    requested: input.useOwnContentGrounding === true,
+    destination,
+  });
+
+  /*
+   * The released call, unchanged in its authority: the preparation seam resolves the tenant session
+   * itself, exactly as before. The only addition is a supplement this server derived — never a
+   * field a client supplied.
+   */
+  const result = await prepareWorkArtifact(
+    { ...input, observationSupplement: grounding.supplement },
+    { resolveTenant: resolveTenantContext },
+  );
   if (result.status === "prepared") revalidatePath("/operations");
-  return result;
+  /* The disposition travels beside the result, never folded into it. Carries no caption text. */
+  const { supplement: _supplement, ...disposition } = grounding;
+  void _supplement;
+  return { ...result, grounding: disposition };
 }
 
 /**
