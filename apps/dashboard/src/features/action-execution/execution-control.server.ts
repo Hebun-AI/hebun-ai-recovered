@@ -23,6 +23,26 @@
  * tenant pauses everyone. It is recorded as a limitation rather than hidden behind a per-tenant
  * shape the credential model cannot honour.
  *
+ * ── SINCE TENANT-ARM-1: THIS IS THE ROOT HALF, AND IT IS NEVER SUFFICIENT ────
+ *
+ * R3B's limitation had an inverse that mattered more than the one it named: pausing one tenant
+ * paused everyone, and ARMING one tenant armed everyone, because arming had no tenant dimension at
+ * all. TENANT-ARM-1 supplied the missing half in a sibling authority,
+ * `tenant_external_send_authorizations`, written only under a tenant Governance decision.
+ *
+ * THIS ROW AND THIS READER ARE BYTE-UNCHANGED IN MEANING. `resolveExternalSendEnabled` still
+ * answers exactly one question — "does the DEPLOYMENT permit outbound sending at all?" — and it
+ * still fails closed. What changed is that a `true` from here NO LONGER AUTHORIZES ANY TENANT. It
+ * is the second conjunct of
+ *
+ *     effective external-send arming = tenant arming active AND root control enabled
+ *
+ * composed in exactly one place, `resolve-external-send-reachability.server.ts`. Callers that need
+ * to know whether a TENANT may send must go through that composition and must not call this reader
+ * directly; the two runtime call sites in `execute-authorized-action.server.ts` were moved to it.
+ * This function survives for the deployment-level question, which the operations surface and the
+ * possession ceremony still legitimately ask.
+ *
  * ── READ-ONLY SINCE R5.1 ─────────────────────────────────────────────────────
  *
  * `setExternalSendDirectorEnabled` is gone. R3B added it because the switch could otherwise only be

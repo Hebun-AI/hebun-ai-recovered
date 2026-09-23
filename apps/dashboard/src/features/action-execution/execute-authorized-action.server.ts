@@ -49,7 +49,11 @@ import { parseWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
 import { parseRecipientRef } from "@/features/external-recipients/recipient-ref";
 import type { ExternalSendAdapter, ProviderOutcome } from "./adapter-contract";
 import { checkAdapterAvailability, resolveExternalSendAdapter } from "./adapter-registry.server";
-import { resolveExternalSendEnabled, type ExecutionControlDeps } from "./execution-control.server";
+import { type ExecutionControlDeps } from "./execution-control.server";
+import {
+  resolveExternalSendReachability,
+  type ExternalSendReachabilityDeps,
+} from "@/features/tenant-external-send-authority/resolve-external-send-reachability.server";
 import {
   EXECUTABLE_ACTION_KIND,
   type ExecutionAttemptView,
@@ -59,7 +63,9 @@ import {
 } from "./contracts";
 import { toExecutionAttemptView, type ExecutionAttemptRow } from "./attempt-view";
 
-export interface ExecuteAuthorizedActionDeps extends ExecutionControlDeps {
+export interface ExecuteAuthorizedActionDeps
+  extends ExecutionControlDeps,
+    ExternalSendReachabilityDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly now?: () => Date;
   readonly env?: Readonly<Record<string, string | undefined>>;
@@ -269,9 +275,31 @@ export async function executeAuthorizedAction(
   const now = (deps.now ?? (() => new Date()))();
   const env = deps.env ?? process.env;
 
-  /* ── 1. THE KILL SWITCH, BEFORE ANYTHING ELSE ──────────────────────────── */
-  /* Read first so a disabled system never burns a permit and never reads a recipient's address. */
-  if (!(await resolveExternalSendEnabled(deps))) return refused("execution-disabled");
+  /* ── 1. THE ARMING CONJUNCTION, BEFORE ANYTHING ELSE ───────────────────── */
+  /*
+   * Read first so an unarmed system never burns a permit and never reads a recipient's address.
+   *
+   * TENANT-ARM-1: this is a CONJUNCTION, not a single switch. `resolveExternalSendReachability`
+   * requires BOTH this organization's own Governance arming AND the deployment-wide control, and
+   * it refuses on either half. The tenant travelling into it is `tenant.tenantId`, read off the
+   * branded `TenantContext` minted from the authenticated session above — never from `input`,
+   * which carries only a permit id, and never from anything a client could supply.
+   *
+   * The two refusals stay apart: another organization being armed cannot make this one reachable,
+   * and a deployment-wide stop cannot be mistaken for this organization never having been armed.
+   */
+  const reach = await resolveExternalSendReachability(tenant.tenantId, deps);
+  if (reach.status === "refused") {
+    switch (reach.reason) {
+      case "tenant-not-armed":
+      case "tenant-arming-withdrawn":
+        return refused("tenant-not-armed");
+      case "persistence-unavailable":
+        return refused("persistence-unavailable");
+      default:
+        return refused("execution-disabled");
+    }
+  }
 
   /* ── 2. THE PERMIT AND ITS REQUEST, READ-ONLY ──────────────────────────── */
   let permitRow: {
@@ -468,7 +496,18 @@ export async function executeAuthorizedAction(
    * Re-read rather than cached: the window between commit and dispatch is exactly when a Director
    * reaching for the switch most needs it to work.
    */
-  if (!(await resolveExternalSendEnabled(deps))) {
+  const reachAgain = await resolveExternalSendReachability(tenant.tenantId, deps);
+  if (reachAgain.status === "refused") {
+    /*
+     * THE RECORDED FAILURE CLASS IS UNCHANGED, AND THAT IS DELIBERATE.
+     *
+     * `action_execution_failure_class` is a PostgreSQL enum on a durable attempt row. Adding a
+     * member to it would rewrite the vocabulary every historical attempt was recorded in, for a
+     * distinction this row does not need: whichever half refused, the fact this attempt records is
+     * that execution was not permitted at dispatch and nothing was sent. The half that refused is
+     * a control-plane fact, readable from the two authorities at any time; it is not a property of
+     * the attempt. The PRE-spend path, which persists nothing, keeps the two apart in full.
+     */
     await completeAttempt(db, tenant.tenantId, recordedAttemptId, {
       status: "refused",
       providerResponseClass: null,

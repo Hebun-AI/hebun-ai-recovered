@@ -25,6 +25,14 @@
  * could arm outbound sending for every tenant on the deployment. Arming moved to the
  * deployment-possession ceremony, which keeps R3B's configuration refusal — enabling is impossible
  * while credential, sender or subject is missing, and disarming is never refused.
+ *
+ * ── TWO HALVES SINCE TENANT-ARM-1 ────────────────────────────────────────────
+ *
+ * The deployment pill at the top answers a DEPLOYMENT question and no longer answers whether THIS
+ * organization may send. Arming is now a conjunction: this organization's own Governance arming
+ * AND the deployment control AND the configuration. The card renders both halves and the composite
+ * separately, because the whole failure this phase closed was a surface that said "Armed" while
+ * meaning "armed for somebody".
  */
 
 import { KeyRound, Mail, ShieldCheck, Terminal } from "lucide-react";
@@ -96,9 +104,46 @@ const ARMING_META: Record<
   },
 };
 
+/**
+ * The tenant half, each state as its own sentence.
+ *
+ * `not-established` is NOT "not armed" — it is "we could not find out, or there is no session", and
+ * it is rendered as such. An outage must never read as a decision somebody made.
+ */
+const TENANT_ARMING_META: Record<
+  ExternalSendOpsView["tenantArming"],
+  { tone: Tone; label: string; detail: string }
+> = {
+  armed: {
+    tone: "good",
+    label: "This organization: armed",
+    detail:
+      "This organization's Governance armed it to send outside. No other organization is armed by this decision, and no other organization's arming applies here.",
+  },
+  "never-armed": {
+    tone: "warn",
+    label: "This organization: never armed",
+    detail:
+      "Nobody has ever armed this organization to send outside. The deployment control being on does not arm it, and another organization being armed does not arm it.",
+  },
+  withdrawn: {
+    tone: "warn",
+    label: "This organization: withdrawn",
+    detail:
+      "This organization's Governance armed it and later withdrew that arming. Sending is blocked server-side for this organization only.",
+  },
+  "not-established": {
+    tone: "muted",
+    label: "This organization: not established",
+    detail:
+      "Hebun could not establish this organization's arming — there is no authenticated context, or the arming authority could not be read. This is not a decision; sending is blocked while it stands.",
+  },
+};
+
 export function ExternalSendArmingCard({ view }: { view: ExternalSendOpsView }) {
   const enabled = view.directorEnabled;
   const arming = ARMING_META[view.armingState];
+  const tenantArming = TENANT_ARMING_META[view.tenantArming];
 
   return (
     <Card>
@@ -115,7 +160,18 @@ export function ExternalSendArmingCard({ view }: { view: ExternalSendOpsView }) 
             </CardDescription>
           </div>
         </div>
-        <Pill tone={arming.tone} label={arming.label} />
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <Pill tone={arming.tone} label={`Deployment: ${arming.label}`} />
+          <Pill tone={tenantArming.tone} label={tenantArming.label} />
+          <Pill
+            tone={view.effectiveSend === "reachable" ? "good" : "warn"}
+            label={
+              view.effectiveSend === "reachable"
+                ? "Effective: can send"
+                : "Effective: cannot send"
+            }
+          />
+        </div>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-4">
@@ -172,6 +228,13 @@ export function ExternalSendArmingCard({ view }: { view: ExternalSendOpsView }) 
               label={view.subject === "configured" ? "Configured" : "Missing"}
             />
           </Field>
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-fg">This organization&rsquo;s arming</p>
+              <p className="text-xs leading-5 text-fg-muted">{tenantArming.detail}</p>
+            </div>
+          </div>
           <Field label="Sender domain">
             <Pill tone="muted" label="Not established by Hebun" />
           </Field>
@@ -183,9 +246,16 @@ export function ExternalSendArmingCard({ view }: { view: ExternalSendOpsView }) 
 
       <CardFooter className="flex-col items-start gap-1">
         <p className="text-xs leading-5 text-fg-muted">
-          <strong className="text-fg-secondary">Armed</strong> means the Director permits dispatch
-          and the deployment is complete. It does not mean the sending domain is verified, that the
-          provider is reachable, or that anything has been sent, accepted or delivered.
+          <strong className="text-fg-secondary">Deployment: Armed</strong> means the Director
+          permits dispatch and the deployment is complete. It does not mean THIS organization may
+          send. It does not mean the sending domain is verified, that the provider is reachable, or
+          that anything has been sent, accepted or delivered.
+        </p>
+        <p className="text-xs leading-5 text-fg-muted">
+          <strong className="text-fg-secondary">Effective: can send</strong> requires BOTH halves —
+          this organization armed by its own Governance, AND the deployment armed and configured.
+          Arming one organization arms no other, and the deployment control cannot arm an
+          organization by itself.
         </p>
         <p className="text-xs leading-5 text-fg-muted">
           Resend is the authority on domain verification — Hebun performs no check and shows no

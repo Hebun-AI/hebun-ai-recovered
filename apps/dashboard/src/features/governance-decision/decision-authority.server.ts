@@ -113,6 +113,13 @@ import {
   TENANT_MACHINE_EXECUTION_WITHDRAW_DECISION_TYPE,
 } from "@/features/tenant-machine-execution-authority/contracts";
 import {
+  TENANT_EXTERNAL_SEND_ARMED_OUTCOME,
+  TENANT_EXTERNAL_SEND_DISARMED_OUTCOME,
+  TENANT_EXTERNAL_SEND_DISARM_DECISION_TYPE,
+  TENANT_EXTERNAL_SEND_DOMAIN,
+  TENANT_EXTERNAL_SEND_SUBJECT_TYPE,
+} from "@/features/tenant-external-send-authority/contracts";
+import {
   STANDING_MUTATION_AUTHORIZED_OUTCOME,
   STANDING_MUTATION_DOMAIN,
   STANDING_MUTATION_SUBJECT_TYPE,
@@ -200,6 +207,8 @@ export async function writeGovernanceDecisionWithin(
       | typeof ARTIFACT_REVIEW_SUBJECT_TYPE
       | typeof STANDING_OBSERVATION_SUBJECT_TYPE
       | typeof TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
+      /* TENANT-ARM-1 — the external-send arming revision a decision arms or disarms. */
+      | typeof TENANT_EXTERNAL_SEND_SUBJECT_TYPE
       /* RUNG 2 — the standing envelope revision a decision authorizes or withdraws. */
       | typeof STANDING_MUTATION_SUBJECT_TYPE
       /* MEDIA-1 — one exact admitted image. */
@@ -306,6 +315,16 @@ export async function writeGovernanceDecisionWithin(
                 ? STANDING_MUTATION_DOMAIN
                 : input.subjectType === TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
                 ? TENANT_MACHINE_EXECUTION_DOMAIN
+                : /*
+                   * TENANT-ARM-1 — Governance arming THIS ORGANIZATION to reach the outside world.
+                   *
+                   * Its own domain, for the reason the enum records. `action-authorization` is the
+                   * neighbour that matters: that domain's decisions authorize ONE act and mint a
+                   * permit that expires and is consumed. This one authorizes no send, mints
+                   * nothing, and leaves every permit requirement exactly where it was.
+                   */
+                  input.subjectType === TENANT_EXTERNAL_SEND_SUBJECT_TYPE
+                ? TENANT_EXTERNAL_SEND_DOMAIN
                 : input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
                 ? STANDING_OBSERVATION_DOMAIN
                 : input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
@@ -344,6 +363,16 @@ export async function writeGovernanceDecisionWithin(
       ? input.decisionType === TENANT_MACHINE_EXECUTION_WITHDRAW_DECISION_TYPE
         ? TENANT_MACHINE_EXECUTION_WITHDRAWN_OUTCOME
         : TENANT_MACHINE_EXECUTION_AUTHORIZED_OUTCOME
+      /*
+       * THE SAME TRAP AGAIN, AND THE SAME DEFENCE. `approve` would otherwise record
+       * `membership-authorized` — an organization being armed to send outside, filed as a person
+       * joining it — and `revoke` would record that Governance AUTHORITY was revoked, which
+       * disarming outbound sending never does.
+       */
+      : input.subjectType === TENANT_EXTERNAL_SEND_SUBJECT_TYPE
+      ? input.decisionType === TENANT_EXTERNAL_SEND_DISARM_DECISION_TYPE
+        ? TENANT_EXTERNAL_SEND_DISARMED_OUTCOME
+        : TENANT_EXTERNAL_SEND_ARMED_OUTCOME
       : input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
       ? input.decisionType === STANDING_OBSERVATION_WITHDRAW_DECISION_TYPE
         ? STANDING_OBSERVATION_WITHDRAWN_OUTCOME

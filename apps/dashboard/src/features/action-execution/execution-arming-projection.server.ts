@@ -37,6 +37,10 @@ import {
   resolveExternalSendSender,
   resolveExternalSendSubject,
 } from "@/features/action-execution-live/resend-email-transport.server";
+import {
+  resolveExternalSendReachability,
+  type ExternalSendReachabilityDeps,
+} from "@/features/tenant-external-send-authority/resolve-external-send-reachability.server";
 import { EXTERNAL_SEND_PROVIDER_KEY } from "./contracts";
 import { resolveExternalSendEnabled, type ExecutionControlDeps } from "./execution-control.server";
 
@@ -49,6 +53,19 @@ import { resolveExternalSendEnabled, type ExecutionControlDeps } from "./executi
  * enabled-but-unconfigured deployment is legible rather than hidden.
  */
 export type ExternalSendArmingState = "unconfigured" | "configured-disarmed" | "armed";
+
+/**
+ * TENANT-ARM-1 — WHAT THIS ORGANIZATION HOLDS, beside what the deployment holds.
+ *
+ * `not-established` is NOT "not armed". It is the honest answer when this surface was rendered
+ * without an authenticated tenant context, or when the arming authority could not be read. An
+ * outage and an absence of context must never be shown as a decision somebody made.
+ */
+export type TenantExternalSendArming =
+  | "armed"
+  | "never-armed"
+  | "withdrawn"
+  | "not-established";
 
 export interface ExternalSendOpsView {
   readonly providerLabel: string;
@@ -67,8 +84,25 @@ export interface ExternalSendOpsView {
   readonly subject: "configured" | "missing";
   /** All three present, or not. */
   readonly configuration: "configured" | "needs-configuration";
-  /** The composite the runtime actually behaves as: permission AND configuration. */
+  /**
+   * THE DEPLOYMENT HALF ONLY: root permission AND configuration.
+   *
+   * SINCE TENANT-ARM-1 THIS IS NO LONGER SUFFICIENT FOR ANY SEND. `armed` here means the
+   * deployment could send for SOME organization, never that it may send for THIS one. The field
+   * keeps its name and its meaning so no released reader silently changes behaviour; the tenant
+   * half is a separate field and the composite is `effectiveSend`.
+   */
   readonly armingState: ExternalSendArmingState;
+  /** THE TENANT HALF: what THIS organization's Governance has decided. Never another tenant's. */
+  readonly tenantArming: TenantExternalSendArming;
+  /**
+   * THE CONJUNCTION THE RUNTIME ACTUALLY BEHAVES AS, for this organization:
+   * tenant armed AND root enabled AND deployment configured.
+   *
+   * `blocked` whenever any half is missing, unknown or off — this field never resolves an
+   * uncertainty in the permissive direction.
+   */
+  readonly effectiveSend: "reachable" | "blocked";
   /** Resend owns this fact. Hebun performs no check and invents no badge. */
   readonly senderDomainVerification: "not-established-by-hebun";
   /** No live check is performed here, so no health is claimed. */
@@ -77,8 +111,15 @@ export interface ExternalSendOpsView {
   readonly lastSend: null;
 }
 
-export interface ExternalSendOpsViewDeps extends ExecutionControlDeps {
+export interface ExternalSendOpsViewDeps
+  extends ExecutionControlDeps,
+    ExternalSendReachabilityDeps {
   readonly env?: Readonly<Record<string, string | undefined>>;
+  /**
+   * The tenant whose arming to report — read SERVER-SIDE off an authenticated context by the
+   * caller, never accepted from a request. `null`/absent yields `not-established`, which blocks.
+   */
+  readonly tenantId?: string | null;
 }
 
 /**
@@ -106,6 +147,33 @@ export async function readExternalSendOpsView(
   const directorEnabled = await resolveExternalSendEnabled(deps);
   const configured = isExternalSendConfigured(env);
 
+  /*
+   * THE TENANT HALF. Resolved through the SAME composition the executor uses, so this surface
+   * cannot drift from the runtime it describes. With no tenant context there is nothing truthful
+   * to report, and `not-established` blocks — a surface must not guess a permission.
+   */
+  const tenantId = (deps.tenantId ?? "").trim();
+  let tenantArming: TenantExternalSendArming = "not-established";
+  if (tenantId.length > 0) {
+    const reach = await resolveExternalSendReachability(tenantId, deps);
+    if (reach.status === "reachable") tenantArming = "armed";
+    else if (reach.reason === "tenant-not-armed") tenantArming = "never-armed";
+    else if (reach.reason === "tenant-arming-withdrawn") tenantArming = "withdrawn";
+    /*
+     * The composition refuses TENANT-FIRST, so reaching a root refusal PROVES the tenant half was
+     * active. Reporting `armed` here is therefore a fact this surface read, not an assumption —
+     * and `effectiveSend` below still blocks, because the root half is off.
+     */
+    else if (reach.reason === "root-control-disabled") tenantArming = "armed";
+    else tenantArming = "not-established";
+  }
+
+  const armingState: ExternalSendArmingState = !configured
+    ? "unconfigured"
+    : directorEnabled
+      ? "armed"
+      : "configured-disarmed";
+
   return {
     providerLabel: "Resend",
     providerKey: EXTERNAL_SEND_PROVIDER_KEY,
@@ -117,7 +185,10 @@ export async function readExternalSendOpsView(
     sender: resolveExternalSendSender(env) !== null ? "configured" : "missing",
     subject: resolveExternalSendSubject(env) !== null ? "configured" : "missing",
     configuration: configured ? "configured" : "needs-configuration",
-    armingState: !configured ? "unconfigured" : directorEnabled ? "armed" : "configured-disarmed",
+    armingState,
+    tenantArming,
+    effectiveSend:
+      armingState === "armed" && tenantArming === "armed" ? "reachable" : "blocked",
     senderDomainVerification: "not-established-by-hebun",
     connectivity: "not-recorded",
     lastSend: null,

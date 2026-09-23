@@ -91,7 +91,18 @@ export type ExecutionPreflightRefusal =
   | "artifact-retired"
   | "artifact-unresolvable"
   | "digest-mismatch"
+  /** The DEPLOYMENT-WIDE external-send control is off. Nobody can send while it is off. */
   | "execution-disabled"
+  /**
+   * TENANT-ARM-1 — THIS ORGANIZATION is not armed to send outside, or its arming was withdrawn.
+   *
+   * Kept apart from `execution-disabled` deliberately. They are different facts with different
+   * remedies: one is a deployment operator holding the world still, the other is this tenant's own
+   * Governance never having armed it (or having taken the arming back). Collapsing them would tell
+   * a Director to go looking for an outage that does not exist, and would hide the containment
+   * boundary at the only moment it is visible.
+   */
+  | "tenant-not-armed"
   | "adapter-unavailable"
   | "credential-unavailable";
 

@@ -19,6 +19,7 @@
     "platform:external-send": "node --import tsx scripts/external-send-arming.ts",
     "platform:machine-execution": "node --import tsx scripts/machine-execution-arming.ts",
     "platform:tenant-machine-execution": "node --import tsx scripts/rung2-authorize-tenant-machine-execution.ts",
+    "platform:tenant-external-send": "node --import tsx scripts/tenant-arm-external-send.ts",
     "integration:rotate-key": "node --import tsx scripts/integration-rotate-encryption-key.ts",
     "verify": "npm run lint && npm run typecheck && npm run test:run && npm run build",
     "platform:preflight": "node --import tsx scripts/platform-preflight.ts",

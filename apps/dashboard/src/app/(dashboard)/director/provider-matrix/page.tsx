@@ -25,15 +25,28 @@ export const metadata = { title: "Providers & Models — Hebun AI" };
 export default async function ProviderMatrixPage() {
   // Truthful, secret-free provider-ops view (durable Director control + server config). Fail-closed.
   const providerOps = await readProviderOpsView();
-  // The external-send arming boundary (R3B). A DIFFERENT provider key, a different blast radius.
-  const externalSendOps = await readExternalSendOpsView();
+  /*
+   * The session's tenant, resolved SERVER-SIDE. Used by both the usage card and the external-send
+   * arming card below; never read from the URL, a prop or a request body.
+   */
+  const sessionTenant = await resolveTenantContext();
+  /*
+   * The external-send arming boundary (R3B). A DIFFERENT provider key, a different blast radius.
+   *
+   * TENANT-ARM-1: the card now reports TWO halves. The deployment half is root-scoped as it always
+   * was; the tenant half is THIS organization's own Governance arming. With no authenticated
+   * context the tenant half reads `not-established` and the composite blocks.
+   */
+  const externalSendOps = await readExternalSendOpsView({
+    tenantId: sessionTenant?.tenantId ?? null,
+  });
   /*
    * R2F.1 — recorded provider usage, scoped to the tenant this session is authorized in. The
    * tenant is resolved SERVER-SIDE here exactly as every other authorized read resolves it; an
    * unauthenticated or suspended session yields no context and the card says so rather than
    * showing another tenant's numbers or a fabricated zero.
    */
-  const recordedUsage = await readRecordedProviderUsage(await resolveTenantContext());
+  const recordedUsage = await readRecordedProviderUsage(sessionTenant);
 
   return (
     <>

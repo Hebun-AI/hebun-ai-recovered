@@ -1004,6 +1004,31 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * being accepted.
    */
   "media-asset-review",
+  /**
+   * TENANT-ARM-1 — Governance's permission for THIS TENANT to reach the outside world at all,
+   * through the deployment's outbound external-send seam.
+   *
+   * It is NOT `action-authorization`: that domain records one human deciding ONE EXACT act, and it
+   * keeps owning that question in full. A permit remains mandatory afterwards. This domain answers
+   * the prior and coarser question — "may this organization's authorized sends leave the building
+   * at all?" — which is asked once and stands until withdrawn.
+   *
+   * It is NOT `machine-execution`: that asks whether the organization accepts UNATTENDED delivery
+   * of acts a human already authorized. External sending here is attended — a human spends a
+   * permit through an authenticated session — and conflating the two would let an answer about
+   * machines decide a question about people, or the reverse.
+   *
+   * It is NOT `provider-tool`: that is about which provider capability exists. This is about
+   * whether one organization may use the consequential one.
+   *
+   * It is NOT `emergency`: the deployment-wide stop lives in `provider_connectivity_controls` and
+   * is written only under deployment possession. It keeps that ownership, untouched.
+   *
+   * Folding it into any of those would make the ledger unable to answer the one question this
+   * domain exists for: "has this organization been armed to send outside, and is that arming still
+   * standing?"
+   */
+  "external-send",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",
@@ -1344,6 +1369,24 @@ export const standingObservationStateEnum = pgEnum("standing_observation_state",
  * rather than stored. A stored `is_current` beside a derivable one is two facts that can disagree.
  */
 export const tenantMachineExecutionStateEnum = pgEnum("tenant_machine_execution_state", [
+  "active",
+  "withdrawn",
+]);
+
+/**
+ * The lifecycle of one TENANT EXTERNAL-SEND ARMING revision (TENANT-ARM-1).
+ *
+ * The same two words its machine-execution and standing-mutation siblings use, and for the same
+ * reason: a revision either stands or it has been taken back. `superseded` is deliberately absent
+ * — it is what a revision BECOMES when a later one exists in the same lineage, derived from that
+ * fact rather than stored beside it, because a stored `is_current` and a derivable one are two
+ * facts that can disagree.
+ *
+ * A SEPARATE ENUM FROM `tenant_machine_execution_state`, although the members are identical.
+ * Reusing that type would make PostgreSQL say these two authorities share a lifecycle, and the
+ * next person widening one of them would silently widen the other.
+ */
+export const tenantExternalSendStateEnum = pgEnum("tenant_external_send_state", [
   "active",
   "withdrawn",
 ]);
