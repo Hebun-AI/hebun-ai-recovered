@@ -205,6 +205,15 @@ function noProviderIsReachable(): void {
     const entry = PROVIDER_CATALOG.find((candidate) => candidate.providerKey === destination);
     if (!entry) continue; /* Not a provider at all — the strongest possible form of "no reach". */
     for (const [capability, scopes] of Object.entries(entry.capabilityScopes)) {
+      /*
+       * ── RE-AIMED BY PUBLISH-0, NOT LOOSENED ──────────────────────────────
+       *
+       * Instagram now declares ONE write capability, `instagram.media.publish`, Director-approved and
+       * reachable only as a governed act. The rule this test defends still holds and is asserted
+       * below in a stronger form: declaring a destination reaches nothing, because no work-artifact
+       * module imports any provider publish path. Every OTHER capability must still carry no write.
+       */
+      if (destination === "instagram" && capability === "instagram.media.publish") continue;
       assert.deepEqual(
         [...scopes.write],
         [],
@@ -212,6 +221,17 @@ function noProviderIsReachable(): void {
           "a destination is a declaration, never a place Hebun may publish",
       );
     }
+  }
+
+  /* PUBLISH-0: the destination declaration cannot reach the publish path. */
+  for (const file of readdirSync(path.join(process.cwd(), "src/features/work-artifacts"))) {
+    if (!/\.tsx?$/.test(file)) continue;
+    const source = readFileSync(path.join(process.cwd(), "src/features/work-artifacts", file), "utf8");
+    assert.equal(
+      /provider-instagram|instagram-publishing/.test(source),
+      false,
+      `work-artifacts/${file} imports no Instagram provider or publishing module`,
+    );
   }
 
   /* No adapter can publish. The only external adapter Hebun registers sends email. */

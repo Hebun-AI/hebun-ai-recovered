@@ -92,6 +92,17 @@ export const INSTAGRAM_ACCOUNT_SUBJECT_KIND = "instagram-account" as const;
  */
 export const INSTAGRAM_BUSINESS_BASIC_SCOPE = "instagram_business_basic" as const;
 
+/**
+ * PUBLISH-0 — the publishing scope. Requested at consent; recorded only when Meta states it.
+ *
+ * A granted scope is necessary for publishing and never sufficient: see
+ * `publish-capability.ts` for everything else a connection must prove.
+ */
+export const INSTAGRAM_CONTENT_PUBLISH_SCOPE = "instagram_business_content_publish" as const;
+
+/** PUBLISH-0 — the capability key for organic feed publishing. Separate from every read key. */
+export const INSTAGRAM_MEDIA_PUBLISH_CAPABILITY = "instagram.media.publish" as const;
+
 export const INSTAGRAM_CONNECTION_LABEL =
   "Instagram Login — professional account read (no Facebook Page)" as const;
 
@@ -153,6 +164,20 @@ export const INSTAGRAM_ACCOUNT_FIELDS: readonly string[] = Object.freeze([
   "follows_count",
   "media_count",
 ]);
+
+/**
+ * PUBLISH-0 — the `/me` fields that name the publishing identity. `id` binds it to the connection;
+ * `user_id` is the Instagram professional account id the publishing edges take.
+ */
+export const INSTAGRAM_PUBLISHING_IDENTITY_FIELDS: readonly string[] = Object.freeze(["id", "user_id"]);
+
+/** The two ids `/me` reports for one token. Read at the moment of need; never persisted. */
+export interface InstagramPublishingIdentity {
+  /** Equal to the connection's `external_account_id`, or the read is refused. */
+  readonly appScopedAccountId: string;
+  /** The `{ig-user-id}` for `/media` and `/media_publish`. */
+  readonly publishingAccountId: string;
+}
 
 /**
  * The exact fields requested for each media. A closed list, and SHORTER than what Meta offers.
@@ -243,6 +268,31 @@ export const INSTAGRAM_FORBIDDEN_VERBS: readonly string[] = Object.freeze(["POST
 export const INSTAGRAM_OAUTH_TRANSPORT_MODULE =
   "src/features/provider-instagram/instagram-oauth-transport.server.ts" as const;
 
+/**
+ * PUBLISH-0 — THE ONE MODULE PERMITTED TO PUBLISH, by path.
+ *
+ * The same re-aim the verb ban already made for the OAuth ceremony, not a loosening. Every other
+ * provider file is still refused `POST` and still refused `/media_publish`. This module may contain
+ * exactly those, and the provider firewall separately pins what it contains: exactly two POST
+ * operations (container, publish) and one GET (container status), against the pinned host.
+ */
+export const INSTAGRAM_PUBLISH_TRANSPORT_MODULE =
+  "src/features/provider-instagram/instagram-publish-transport.server.ts" as const;
+
+/** The forbidden fragments that module alone may contain. Everything else on the list still binds it. */
+export const INSTAGRAM_PUBLISH_TRANSPORT_PERMITTED_FRAGMENTS: readonly string[] = Object.freeze([
+  "/media_publish",
+]);
+
+/** Whether `fragment` is forbidden in provider file `file`. The ONE place the exemption is decided. */
+export function isForbiddenFragmentIn(file: string, fragment: string): boolean {
+  if (!INSTAGRAM_FORBIDDEN_FRAGMENTS.includes(fragment)) return false;
+  return !(
+    file === INSTAGRAM_PUBLISH_TRANSPORT_MODULE &&
+    INSTAGRAM_PUBLISH_TRANSPORT_PERMITTED_FRAGMENTS.includes(fragment)
+  );
+}
+
 /*
  * ════ THE OAUTH CEREMONY'S OWN CONTRACT ═════════════════════════════════════
  *
@@ -268,13 +318,48 @@ export const INSTAGRAM_LONG_LIVED_TOKEN_ENDPOINT = "https://graph.instagram.com/
 export const INSTAGRAM_LONG_LIVED_GRANT_TYPE = "ig_exchange_token" as const;
 
 /**
- * EVERY scope this ceremony may request. ONE entry, and the authorization request is built from this
- * constant rather than from anything a caller supplies — so the set of things Hebun can ever ask an
- * Instagram user to grant is the set written on this line.
+ * EVERY scope this ceremony may request. The authorization request is built from this constant
+ * rather than from anything a caller supplies — so the set of things Hebun can ever ask an
+ * Instagram user to grant is the set written on these lines.
+ *
+ * PUBLISH-0 added exactly one entry, `instagram_business_content_publish`, and nothing else: no
+ * comments, no messages, no insights. It is REQUESTED, not REQUIRED (see below) — a human who
+ * declines it on the consent screen still gets a working read connection, and simply never becomes
+ * publish-capable.
  */
 export const INSTAGRAM_REQUESTED_SCOPES: readonly string[] = Object.freeze([
   INSTAGRAM_BUSINESS_BASIC_SCOPE,
+  INSTAGRAM_CONTENT_PUBLISH_SCOPE,
 ]);
+
+/**
+ * The scopes a connection may RECORD beyond the one its verifying read proves.
+ *
+ * `instagram_business_basic` is proven by the verifier's own successful `/me` read. Nothing Hebun
+ * reads proves `instagram_business_content_publish` without publishing, so that scope is recorded
+ * ONLY when Meta's own token response stated it. An unstated grant records basic alone, and a
+ * connection whose grant is unstated is therefore never publish-capable — the fail-closed direction.
+ */
+export const INSTAGRAM_STATEMENT_ONLY_SCOPES: readonly string[] = Object.freeze([
+  INSTAGRAM_CONTENT_PUBLISH_SCOPE,
+]);
+
+/**
+ * The scopes to persist on `integrations.scopes` for a verified connection.
+ *
+ * `statedScopes` is Meta's token-response statement (`null` when Meta stated nothing). The result is
+ * the proven basic scope plus whichever statement-only scope Meta actually stated. Anything else
+ * Meta may list is dropped: a scope Hebun never asked for is not a capability Hebun records.
+ */
+export function recordableGrantedScopes(statedScopes: readonly string[] | null): readonly string[] {
+  const recorded = [INSTAGRAM_BUSINESS_BASIC_SCOPE as string];
+  if (statedScopes !== null) {
+    for (const scope of INSTAGRAM_STATEMENT_ONLY_SCOPES) {
+      if (statedScopes.includes(scope)) recorded.push(scope);
+    }
+  }
+  return Object.freeze(recorded);
+}
 
 /**
  * What a grant must cover for a connection to mean anything.

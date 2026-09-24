@@ -22,7 +22,7 @@
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import type { VerifiedConnectionFacts } from "@/features/integration-authority/integration-repository.server";
 import {
-  INSTAGRAM_BUSINESS_BASIC_SCOPE,
+  recordableGrantedScopes,
   INSTAGRAM_CONNECTION_LABEL,
   classifyAccountType,
   type InstagramFailure,
@@ -74,6 +74,12 @@ export async function verifyInstagramConnection(
   tenant: TenantContext,
   integrationId: string,
   deps: VerifyInstagramDeps = {},
+  /**
+   * PUBLISH-0 — what Meta's token response STATED about the grant, or `null` when it stated
+   * nothing. Not an identity input and not a scope authority on its own: it can only ADD a
+   * statement-only scope to the basic scope this read proves (see `recordableGrantedScopes`).
+   */
+  statedScopes: readonly string[] | null = null,
 ): Promise<InstagramVerificationOutcome> {
   if (typeof window !== "undefined") {
     throw new Error("Instagram verification is server-only.");
@@ -127,11 +133,12 @@ export async function verifyInstagramConnection(
         ? `@${account.username} · ${INSTAGRAM_CONNECTION_LABEL}`
         : INSTAGRAM_CONNECTION_LABEL,
       /*
-       * WHAT THE READ PROVES WAS GRANTED, not what Hebun asked for. This call succeeding IS the
-       * evidence that `instagram_business_basic` covers it; no wider scope is inferred, and none is
-       * reported, because nothing here exercised one.
+       * WHAT WAS GRANTED, not what Hebun asked for. This call succeeding IS the evidence that
+       * `instagram_business_basic` covers it. The publishing scope cannot be exercised without
+       * publishing, so it is recorded only when Meta's own token response stated it (PUBLISH-0);
+       * an unstated grant records basic alone. No other scope is ever recorded.
        */
-      grantedScopes: Object.freeze([INSTAGRAM_BUSINESS_BASIC_SCOPE]),
+      grantedScopes: recordableGrantedScopes(statedScopes),
     },
   };
 }

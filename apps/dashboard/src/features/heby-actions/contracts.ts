@@ -230,6 +230,15 @@ export type HebyActionKind =
    * says which part of the organization a human works in; it grants nothing.
    */
   | "place-human-in-department"
+  /**
+   * PUBLISH-0 — THE FOURTH EXECUTABLE KIND, AND THE SECOND EXTERNAL ONE.
+   *
+   * Publishing ONE approved image with ONE approved caption to the organization's OWN connected
+   * Instagram professional account. CONSEQUENTIAL and IRREVERSIBLE: a public post exists the moment
+   * Meta accepts it, and Hebun owns no inverse (deleting a post is not something Hebun can do, and
+   * would not un-show it). It has no third-party recipient, which is why its attempt carries none.
+   */
+  | "publish-instagram-media"
   | "grant-permission"
   | "modify-governance-policy"
   | "device-action";

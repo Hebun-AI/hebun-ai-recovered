@@ -19,7 +19,7 @@
  *
  * Server-only.
  */
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { decisionRecords } from "@/db/schema/governance";
 import { mediaAssets } from "@/db/schema/media-asset";
@@ -102,7 +102,14 @@ async function review(
           lifecycle: mediaAssets.assetLifecycleStatus,
         })
         .from(mediaAssets)
-        .where(and(eq(mediaAssets.tenantId, tenant.tenantId), eq(mediaAssets.id, input!.assetId)))
+        /* PUBLISH-0: a derived (publish) asset is not a reviewable creative subject. */
+        .where(
+          and(
+            eq(mediaAssets.tenantId, tenant.tenantId),
+            eq(mediaAssets.id, input!.assetId),
+            isNull(mediaAssets.derivedFromAssetId),
+          ),
+        )
         .for("share")
         .limit(1);
       const asset = rows[0];

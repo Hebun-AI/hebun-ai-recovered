@@ -488,6 +488,8 @@ function main(): void {
         "instagram.account.public.read",
         /* Its media read: a SEPARATE capability under the SAME already-granted scope. */
         "instagram.media.public.read",
+        /* PUBLISH-0: the governed publish capability, write half = instagram_business_content_publish. */
+        "instagram.media.publish",
         /* CGO-5: one public-read capability behind an API key, and no write half. */
         "youtube.channel.public.read",
       ],

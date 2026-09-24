@@ -49,7 +49,15 @@ const code = (f: string): string => stripComments(read(f));
   assert.deepEqual(keys, ["assetLifecycleStatus", "retiredAt", "retiredByActorId"], "retirement sets only the retirement columns");
 
   const inserters = SRC.filter((f) => /\.insert\(\s*mediaAssets\s*\)/.test(code(f)));
-  assert.deepEqual(inserters, ["src/features/media-assets/request-media-generation.server.ts"], "only admission inserts an asset");
+  assert.deepEqual(
+    inserters,
+    [
+      /* PUBLISH-0 — the deterministic JPEG derivative writer, inside this same authority. */
+      "src/features/media-assets/derive-publish-jpeg.server.ts",
+      "src/features/media-assets/request-media-generation.server.ts",
+    ],
+    "only admission and the publish-derivative writer insert an asset",
+  );
   const invocationWriters = SRC.filter((f) => /\.(insert|update)\(\s*mediaGenerationInvocations\s*\)/.test(code(f)));
   assert.deepEqual(invocationWriters, ["src/features/media-assets/request-media-generation.server.ts"]);
   for (const f of SRC) {
@@ -86,6 +94,13 @@ const code = (f: string): string => stripComments(read(f));
      */
     "src/features/content-composition/select-media.server.ts",
     "src/features/content-composition/read-content-package.server.ts",
+    /*
+     * PUBLISH-0: the publish inlet reads one asset row to bind its digest, and the ONE execution
+     * authority re-reads it and mints a short-lived read grant for Meta. Neither writes a media row,
+     * a lifecycle or a decision.
+     */
+    "src/features/heby-action-inlet/instagram-publish-proposal.server.ts",
+    "src/features/action-execution/execute-authorized-action.server.ts",
   ]);
   for (const f of SRC) {
     const c = code(f);
@@ -203,8 +218,9 @@ const code = (f: string): string => stripComments(read(f));
   const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
   assert.deepEqual(
     Object.keys(pkg.dependencies).sort(),
-    ["clsx", "drizzle-orm", "lucide-react", "next", "pdfjs-dist", "pg", "react", "react-dom", "tailwind-merge"],
-    "MEDIA-1 installs no dependency",
+    /* PUBLISH-0 adds `sharp` — Director-approved, used ONLY by the JPEG publish derivative writer. */
+    ["clsx", "drizzle-orm", "lucide-react", "next", "pdfjs-dist", "pg", "react", "react-dom", "sharp", "tailwind-merge"],
+    "MEDIA-1 installs no dependency; PUBLISH-0 adds only sharp",
   );
 }
 

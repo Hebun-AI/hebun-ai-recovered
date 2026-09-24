@@ -162,7 +162,8 @@ function directorIntentHonest(): void {
    * unchanged and is the pair around it: the number is DERIVED from the registry rather than
    * asserted, and free text still cannot reach any of it.
    */
-  assert.equal(m.connectedMutationCount, 3, "exactly the three authorized kinds — never a fourth");
+  /* PUBLISH-0 authorized a FOURTH (Instagram publishing), Director-approved. Still DERIVED. */
+  assert.equal(m.connectedMutationCount, 4, "exactly the four authorized kinds — never a fifth");
   assert.equal(m.freeTextToExecution, false, "free text is never routed to raw execution");
 
   // No mutation/device tool is invokable; the invokable set is read-only only.

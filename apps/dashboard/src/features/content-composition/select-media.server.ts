@@ -36,7 +36,7 @@
  *
  * Server-only.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { contentSelectedMedia } from "@/db/schema/content-selected-media";
 import { mediaAssets } from "@/db/schema/media-asset";
@@ -95,7 +95,14 @@ async function resolveParents(
     db
       .select({ lifecycle: mediaAssets.assetLifecycleStatus })
       .from(mediaAssets)
-      .where(and(eq(mediaAssets.tenantId, tenantId), eq(mediaAssets.id, input.mediaAssetId)))
+      /* PUBLISH-0: a derived (publish) asset is not creative work and cannot be selected. */
+      .where(
+        and(
+          eq(mediaAssets.tenantId, tenantId),
+          eq(mediaAssets.id, input.mediaAssetId),
+          isNull(mediaAssets.derivedFromAssetId),
+        ),
+      )
       .limit(1),
   ]);
   return {

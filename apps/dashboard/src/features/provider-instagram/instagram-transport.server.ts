@@ -29,11 +29,13 @@ import {
   INSTAGRAM_API_ORIGIN,
   INSTAGRAM_API_VERSION,
   INSTAGRAM_MEDIA_FIELDS,
+  INSTAGRAM_PUBLISHING_IDENTITY_FIELDS,
   MAX_RECENT_MEDIA,
   type InstagramAccountView,
   type InstagramFailureClass,
   type InstagramMediaView,
   type InstagramOperationId,
+  type InstagramPublishingIdentity,
   type InstagramResult,
 } from "./contracts";
 
@@ -340,4 +342,55 @@ export async function readAccountMedia(
       moreMediaExist: hasNext || (hasAfter && media.length >= MAX_RECENT_MEDIA),
     },
   };
+}
+
+/**
+ * PUBLISH-0 — the account this token publishes AS, read from Meta at `/me`, never stored.
+ *
+ * ── TWO IDS, AND WHY BOTH ARE READ ──────────────────────────────────────────
+ *
+ * `/me` answers `id` (app-scoped; the identity every connection is bound by) and `user_id` (the
+ * Instagram professional account id that `/{ig-user-id}/media` and `/media_publish` take). They are
+ * different values — production acceptance read `id` = the connection's `external_account_id` and a
+ * distinct `user_id` for the same token.
+ *
+ * The caller supplies the connection's own bound id, and a token that answers with any other `id` is
+ * refused: the publishing id is only trusted when it arrives beside the identity the connection was
+ * verified as. There is no column for `user_id` and there is no second identity authority — this is
+ * the provider's answer, read at the moment it is needed.
+ *
+ * GET only, through the same closed `/me` operation the verifier uses. Nothing is written.
+ */
+export async function readPublishingIdentity(
+  accessToken: string,
+  boundAccountId: string,
+  deps: InstagramTransportDeps = {},
+): Promise<InstagramResult<InstagramPublishingIdentity>> {
+  const result = await call(
+    "account.read.self",
+    "",
+    { fields: INSTAGRAM_PUBLISHING_IDENTITY_FIELDS.join(",") },
+    accessToken,
+    deps,
+  );
+  if (!result.ok) return result;
+
+  const node = result.value as Record<string, unknown>;
+  const id = stringOrNull(node?.id);
+  if (id === null) return fail("malformed", "instagram-account-id-missing");
+  if (id !== boundAccountId) return fail("malformed", "instagram-account-id-mismatch");
+
+  /*
+   * A STRING, OR A NUMBER THAT SURVIVED PARSING INTACT. Instagram professional ids are 17 digits,
+   * above `Number.MAX_SAFE_INTEGER`; a numeric one has already been rounded by `JSON.parse` and would
+   * address a different account. Such a value is refused, never stringified.
+   */
+  const rawUserId = node.user_id;
+  const userId =
+    typeof rawUserId === "number" && Number.isSafeInteger(rawUserId) ? String(rawUserId) : stringOrNull(rawUserId);
+  if (userId === null || !/^[0-9]{1,32}$/.test(userId)) {
+    return fail("malformed", "instagram-publishing-id-missing");
+  }
+
+  return { ok: true, value: { appScopedAccountId: id, publishingAccountId: userId } };
 }

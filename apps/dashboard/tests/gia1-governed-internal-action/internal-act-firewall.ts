@@ -153,8 +153,9 @@ function theExecutableSetIsClosed(): void {
    */
   assert.deepEqual(
     [...EXECUTABLE_ACTION_KINDS],
-    ["send-external-communication", "record-work", "place-human-in-department"],
-    "EXACTLY the three specifically authorized kinds — no more, and no fewer",
+    /* PUBLISH-0 — a FOURTH, Director-approved, named here so a fifth still needs an edit. */
+    ["send-external-communication", "record-work", "place-human-in-department", "publish-instagram-media"],
+    "EXACTLY the four specifically authorized kinds — no more, and no fewer",
   );
   assert.ok(Object.isFrozen(EXECUTABLE_ACTION_POSTURES), "the set cannot be widened at runtime");
   for (const posture of EXECUTABLE_ACTION_POSTURES) {

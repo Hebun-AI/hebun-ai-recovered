@@ -344,8 +344,8 @@ function main(): void {
       Object.keys(pkg.dependencies)
         .filter((name) => !BASELINE.includes(name))
         .sort(),
-      ["pdfjs-dist"],
-      "the only dependency added since this phase is the reviewed PDF parser (R4C.2)",
+      ["pdfjs-dist", "sharp"],
+      "the only dependencies added since this phase are the reviewed PDF parser (R4C.2) and the Director-approved JPEG publish transform (PUBLISH-0, sharp)",
     );
     assert.deepEqual(
       Object.keys(pkg.devDependencies).sort(),

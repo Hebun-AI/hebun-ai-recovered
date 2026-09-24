@@ -98,11 +98,21 @@ export const actionExecutionAttempts = pgTable(
      * believe it was sending" without depending on rows that may since have been retired.
      */
     boundPayloadDigest: char("bound_payload_digest", { length: 64 }).notNull(),
-    recipientEndpointDigest: char("recipient_endpoint_digest", { length: 64 }).notNull(),
+    /**
+     * PUBLISH-0: NULL exactly for a recipient-less kind — see `recipient_binding_chk` below. Every
+     * recipient-bound kind, and every kind not named there, must still carry it.
+     */
+    recipientEndpointDigest: char("recipient_endpoint_digest", { length: 64 }),
     draftRevisionDigest: char("draft_revision_digest", { length: 64 }).notNull(),
 
-    /** A REFERENCE to the recipient. Never the address itself. See the header. */
-    recipientId: uuid("recipient_id").notNull(),
+    /**
+     * A REFERENCE to the recipient. Never the address itself. See the header.
+     *
+     * PUBLISH-0: nullable at the column, NOT in meaning. `recipient_binding_chk` requires it for
+     * every kind except the explicitly enumerated recipient-less ones, so an unknown or new kind
+     * cannot become recipient-less by omission. When present, the composite FK still binds it.
+     */
+    recipientId: uuid("recipient_id"),
 
     status: actionExecutionAttemptStatusEnum("status").notNull().default("pending"),
 
@@ -211,6 +221,19 @@ export const actionExecutionAttempts = pgTable(
     check(
       "action_execution_attempts_failure_class_chk",
       sql`(${t.failureClass} is not null) = (${t.status} in ('failed', 'refused'))`,
+    ),
+
+    /**
+     * PUBLISH-0 — THE RECIPIENT BINDING, keyed on the attempt's OWN action kind.
+     *
+     * A CLOSED allowlist of recipient-less kinds (today exactly `publish-instagram-media`, which
+     * publishes to the connection's own account and has no third-party recipient). For those, both
+     * recipient columns MUST be NULL; for every other kind — `send-external-communication` and any
+     * kind not yet invented — both MUST be present. Fail closed: widening the list is a migration.
+     */
+    check(
+      "action_execution_attempts_recipient_binding_chk",
+      sql`case when ${t.actionKind} in ('publish-instagram-media') then ${t.recipientId} is null and ${t.recipientEndpointDigest} is null else ${t.recipientId} is not null and ${t.recipientEndpointDigest} is not null end`,
     ),
 
     check("action_execution_attempts_adapter_id_chk", sql`char_length(btrim(${t.adapterId})) > 0`),

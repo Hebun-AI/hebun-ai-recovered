@@ -55,8 +55,11 @@ export interface ActionExecutionAuditMetadata {
   readonly adapterId: string;
   /** The binding, carried so history can prove the spent thing was the approved thing. */
   readonly payloadDigest: string;
-  /** A reference, never the address. */
-  readonly recipientId: string;
+  /**
+   * A reference, never the address. PUBLISH-0: `null` exactly for a recipient-less kind, mirroring
+   * `action_execution_attempts_recipient_binding_chk`.
+   */
+  readonly recipientId: string | null;
   /**
    * Stated because the ledger must record that attempting is not succeeding. Always `false`: at
    * the instant this row is written, no external call has been made and none can have been.

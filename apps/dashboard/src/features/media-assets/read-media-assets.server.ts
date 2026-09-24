@@ -68,7 +68,13 @@ export type ReadMediaAssetResult =
   | { readonly status: "not-found" }
   | { readonly status: "read"; readonly asset: MediaAssetRecord; readonly access: MediaReadAccess };
 
-/** The row plus its provenance, tenant-predicated on BOTH tables. Internal to this authority. */
+/**
+ * The row plus its provenance, tenant-predicated on BOTH tables. Internal to this authority.
+ *
+ * PUBLISH-0: the INNER join through the invocation is also what keeps a DERIVED asset (no
+ * invocation) out of every generated-asset read — gallery, composer, preview. `invocationId` is
+ * projected from the joined invocation, which the join makes non-null and equal to the asset's.
+ */
 export async function selectMediaAssetRecord(
   db: Pick<ControlPlaneDatabase, "select">,
   tenantId: string,
@@ -77,7 +83,7 @@ export async function selectMediaAssetRecord(
   const rows = await db
     .select({
       assetId: mediaAssets.id,
-      invocationId: mediaAssets.invocationId,
+      invocationId: mediaGenerationInvocations.id,
       mimeType: mediaAssets.mimeType,
       byteSize: mediaAssets.byteSize,
       byteDigest: mediaAssets.byteDigest,
@@ -219,7 +225,7 @@ export async function listRevisionMediaAssets(
     const rows = await db
       .select({
         assetId: mediaAssets.id,
-        invocationId: mediaAssets.invocationId,
+        invocationId: mediaGenerationInvocations.id,
         mimeType: mediaAssets.mimeType,
         byteSize: mediaAssets.byteSize,
         byteDigest: mediaAssets.byteDigest,
@@ -329,7 +335,7 @@ export async function listArtifactMediaAssets(
     const rows = await db
       .select({
         assetId: mediaAssets.id,
-        invocationId: mediaAssets.invocationId,
+        invocationId: mediaGenerationInvocations.id,
         mimeType: mediaAssets.mimeType,
         byteSize: mediaAssets.byteSize,
         byteDigest: mediaAssets.byteDigest,

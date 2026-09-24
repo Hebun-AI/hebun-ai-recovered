@@ -1,0 +1,3 @@
+ALTER TABLE "action_execution_attempts" ALTER COLUMN "recipient_endpoint_digest" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "action_execution_attempts" ALTER COLUMN "recipient_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "action_execution_attempts" ADD CONSTRAINT "action_execution_attempts_recipient_binding_chk" CHECK (case when "action_execution_attempts"."action_kind" in ('publish-instagram-media') then "action_execution_attempts"."recipient_id" is null and "action_execution_attempts"."recipient_endpoint_digest" is null else "action_execution_attempts"."recipient_id" is not null and "action_execution_attempts"."recipient_endpoint_digest" is not null end);

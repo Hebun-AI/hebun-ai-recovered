@@ -96,10 +96,15 @@ async function main(): Promise<void> {
 
   /* ── LEAST PRIVILEGE, ASSERTED AS AN EXACT SET ─────────────────────────── */
   const asked = (authUrl.searchParams.get("scope") ?? "").split(",").filter(Boolean);
-  assert.deepEqual(asked, [INSTAGRAM_BUSINESS_BASIC_SCOPE], "exactly one scope is ever requested");
-  assert.deepEqual([...INSTAGRAM_REQUESTED_SCOPES], [INSTAGRAM_BUSINESS_BASIC_SCOPE]);
+  /* PUBLISH-0 added exactly one scope, Director-approved. Still an exact set: nothing else. */
+  assert.deepEqual(
+    asked,
+    [INSTAGRAM_BUSINESS_BASIC_SCOPE, "instagram_business_content_publish"],
+    "exactly basic + content_publish are requested",
+  );
+  assert.deepEqual([...INSTAGRAM_REQUESTED_SCOPES], [INSTAGRAM_BUSINESS_BASIC_SCOPE, "instagram_business_content_publish"]); /* PUBLISH-0 */
   for (const forbidden of [
-    "instagram_business_content_publish",
+    /* PUBLISH-0: `instagram_business_content_publish` left this list, Director-approved; comments, messages and insights stay banned. */
     "instagram_business_manage_comments",
     "instagram_business_manage_messages",
     "instagram_business_manage_insights",

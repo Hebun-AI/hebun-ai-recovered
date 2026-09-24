@@ -30,6 +30,8 @@ import {
   INSTAGRAM_MEDIA_FIELDS,
   INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
   INSTAGRAM_OAUTH_TRANSPORT_MODULE,
+  INSTAGRAM_PUBLISH_TRANSPORT_MODULE,
+  isForbiddenFragmentIn,
   INSTAGRAM_PROVIDER_KEY,
   INSTAGRAM_REQUESTED_SCOPES,
   MAX_RECENT_MEDIA,
@@ -87,6 +89,8 @@ function main(): void {
     if (f === CONTRACTS) continue;
     const code = codeOf(read(f));
     for (const forbidden of INSTAGRAM_FORBIDDEN_FRAGMENTS) {
+      /* PUBLISH-0: the ONE publish module may say `/media_publish`; every other ban still binds it. */
+      if (!isForbiddenFragmentIn(f, forbidden)) continue;
       assert.ok(!code.includes(forbidden), `${f} contains no \`${forbidden}\``);
     }
   }
@@ -137,7 +141,7 @@ function main(): void {
 
   /* ═══ 3. STILL A READ. No verbs, no body, no write half. ══════════════════ */
   for (const f of providerFiles) {
-    if (f === CONTRACTS || f === INSTAGRAM_OAUTH_TRANSPORT_MODULE) continue;
+    if (f === CONTRACTS || f === INSTAGRAM_OAUTH_TRANSPORT_MODULE || f === INSTAGRAM_PUBLISH_TRANSPORT_MODULE) continue;
     const code = codeOf(read(f));
     for (const verb of INSTAGRAM_FORBIDDEN_VERBS) {
       assert.ok(!code.includes(verb), `${f} contains no \`${verb}\``);
@@ -158,8 +162,9 @@ function main(): void {
   );
   assert.deepEqual(
     [...INSTAGRAM_REQUESTED_SCOPES],
-    [INSTAGRAM_BUSINESS_BASIC_SCOPE],
-    "and the ceremony still requests exactly one scope",
+    /* PUBLISH-0 added the publishing scope, Director-approved; the media read still needs nothing new. */
+    [INSTAGRAM_BUSINESS_BASIC_SCOPE, "instagram_business_content_publish"],
+    "the ceremony requests basic + publish, and nothing else",
   );
 
   /* ═══ 5. THE ACCOUNT AUTHORIZATION DOES NOT AUTHORIZE MEDIA ═══════════════

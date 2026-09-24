@@ -189,9 +189,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
    * at `/me`; a route that supplied one would be a second identity authority, and the id it had to
    * hand — the token response's `user_id` — is precisely the value that addressed nothing.
    */
-  const verification = await verifyInstagramConnection(tenant, integrationId, {
-    getDb: () => db,
-  });
+  const verification = await verifyInstagramConnection(
+    tenant,
+    integrationId,
+    { getDb: () => db },
+    /* PUBLISH-0: Meta's own statement, so a stated publishing grant is recorded, never assumed. */
+    statedScopes,
+  );
 
   if (!verification.ok) {
     /*

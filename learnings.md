@@ -4296,3 +4296,6 @@ exist is anything that would invoke it.
 - Weekly 3: learned that credential ≠ capability can be made structural (selection + key + Director row);
   TRH gets a real, spend-bounded path to generated rug imagery once MEDIA-2B arms it; Hebun AI gets a
   provider-transport pattern with closed failure provenance that later providers reuse unchanged.
+
+- PUBLISH-0 (2026-09-25): Next file tracing follows static imports — importing even a constant from a module that imports a native lib (sharp) puts its binaries into every route reaching it; a server action wired in a shared layout reaches every page. Keep native imports in one leaf module, measure `.nft.json` before/after.
+- PUBLISH-0 known deployment trade-off (Director decision 2026-09-25, Option 1): sharp is traced into 134/158 dashboard server functions (+16.66 MB darwin-arm64 each, ~3.4 → ~20.1 MB; Linux size unmeasured) because `/publish` runs through the shared Heby propose action. A lazy `import()` did not change tracing. Accepted to keep one proposal inlet and pre-approval derivative binding; not the desired long-term boundary — the recommended future fix is a Media-owned, page-scoped derivation action with `/publish` resolving an existing derivative.

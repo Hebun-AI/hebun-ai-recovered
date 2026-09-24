@@ -204,6 +204,8 @@ function main(): void {
         "pg",
         "react",
         "react-dom",
+        /* PUBLISH-0 — Director-approved server-only JPEG derivation; not a motion dependency. */
+        "sharp",
         "tailwind-merge",
       ],
       "PUB-2A installed a runtime dependency — the approved route was zero new motion dependency",

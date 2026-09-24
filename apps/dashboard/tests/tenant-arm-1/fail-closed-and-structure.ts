@@ -181,8 +181,12 @@ async function main(): Promise<void> {
   const conjunctionCalls = executorCode.match(/resolveExternalSendReachability\(/g) ?? [];
   assert.equal(
     conjunctionCalls.length,
-    2,
-    "both kill-switch sites — before the spend and immediately before the adapter — go through it",
+    /*
+     * PUBLISH-0: ONE shared site before the spend, plus one immediately before dispatch PER external
+     * kind (the send's adapter, the Instagram publish). Every site still goes through the conjunction.
+     */
+    3,
+    "every kill-switch site — before the spend, and immediately before each external dispatch — goes through it",
   );
   assert.ok(
     !/resolveExternalSendEnabled\s*\(/.test(executorCode),

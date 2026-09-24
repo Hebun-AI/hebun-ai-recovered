@@ -29,7 +29,7 @@ export interface ExecutionAttemptRow {
   readonly providerResponseClass: ProviderResponseClass | null;
   readonly providerMessageId: string | null;
   readonly failureClass: ExecutionFailureClass | null;
-  readonly recipientId: string;
+  readonly recipientId: string | null;
   readonly startedAt: Date;
   readonly completedAt: Date | null;
 }

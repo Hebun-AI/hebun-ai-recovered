@@ -171,9 +171,12 @@ function authorityFirewall(): void {
     assert.equal(plan.kind, "unavailable", `/${id} must dispatch nothing`);
   }
 
-  /* Exactly ONE proposable command exists, so a second cannot appear unnoticed. */
+  /*
+   * The proposable commands are pinned, so another cannot appear unnoticed. PUBLISH-0 added
+   * `/publish` deliberately, through the same dispatcher and handler switch as `/send`.
+   */
   const proposable = HEBY_COMMANDS.filter((c) => c.kind === "propose").map((c) => c.id);
-  assert.deepEqual(proposable, ["send"], "one proposable command");
+  assert.deepEqual(proposable, ["send", "publish"], "exactly the pinned proposable commands");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -358,11 +361,13 @@ function answerFlowFilesNothing(): void {
     callers,
     [
       /* GIA-2's proposer. Still an inlet, still named — the census counts inlets, not two. */
+      /* PUBLISH-0's proposer — the Instagram publish inlet. Still an inlet, still named. */
+      "src/features/heby-action-inlet/instagram-publish-proposal.server.ts",
       "src/features/heby-action-inlet/place-human-proposal.server.ts",
       "src/features/heby-action-inlet/record-work-proposal.server.ts",
       "src/features/heby-action-inlet/send-proposal.server.ts",
     ],
-    "the only production callers of recordActionRequest are the three action inlets",
+    "the only production callers of recordActionRequest are the four action inlets",
   );
 }
 

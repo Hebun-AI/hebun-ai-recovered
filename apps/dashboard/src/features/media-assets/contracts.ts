@@ -214,6 +214,12 @@ export function isByteDigest(value: unknown): value is string {
  * no caller text — and CHECKed in the database to equal exactly this, so a row can never name an
  * object under another tenant's prefix.
  */
+/**
+ * PUBLISH-0 — the one derivation this authority knows. Mirrored by `media_assets_derivation_chk`.
+ * Lives here, not beside the transform, so a lineage READER never has to load the image codec.
+ */
+export const JPEG_PUBLISH_DERIVATION = "jpeg-publish-v1" as const;
+
 export function mediaAssetStorageKey(tenantId: string, assetId: string): string {
   return `tenants/${tenantId.toLowerCase()}/media/${assetId.toLowerCase()}`;
 }

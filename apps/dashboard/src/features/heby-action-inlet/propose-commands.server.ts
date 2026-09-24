@@ -31,6 +31,11 @@
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { findHebyCommandById } from "@/features/heby-commands/registry";
 import { proposeSendAction, type SendProposalDeps } from "./send-proposal.server";
+import {
+  proposeInstagramPublish,
+  type InstagramPublishProposalDeps,
+  type InstagramPublishProposalResult,
+} from "./instagram-publish-proposal.server";
 import type { SendProposalResult } from "./contracts";
 
 export interface HebyProposeCommandInput {
@@ -39,11 +44,13 @@ export interface HebyProposeCommandInput {
 }
 
 export type HebyProposeCommandOutcome =
-  | { readonly status: "ok"; readonly result: SendProposalResult }
+  | { readonly status: "ok"; readonly kind: "send"; readonly result: SendProposalResult }
+  /* PUBLISH-0 — a filed Instagram publish proposal. Filed ≠ authorized ≠ posted. */
+  | { readonly status: "ok"; readonly kind: "publish-instagram"; readonly result: InstagramPublishProposalResult }
   | { readonly status: "unauthorized" }
   | { readonly status: "refused"; readonly reason: "unknown-command" | "not-proposable" | "invalid-arguments" };
 
-export interface HebyProposeCommandDeps extends SendProposalDeps {
+export interface HebyProposeCommandDeps extends SendProposalDeps, InstagramPublishProposalDeps {
   readonly resolveTenant: () => Promise<TenantContext | null>;
 }
 
@@ -73,7 +80,20 @@ export async function runHebyProposeCommand(
       const [recipientRef, draftRef] = input.args;
       if (!recipientRef || !draftRef) return { status: "refused", reason: "invalid-arguments" };
       const result = await proposeSendAction(tenant, { recipientRef, draftRef }, deps);
-      return { status: "ok", result };
+      return { status: "ok", kind: "send", result };
+    }
+    case "publish-instagram": {
+      /*
+       * PUBLISH-0. Same seam, same trust: the tenant above came from the session, the two args are
+       * references the inlet resolves against their own authorities. The inlet derives the JPEG
+       * publish derivative and files ONE pending request — no permit, no attempt, no provider call.
+       */
+      const [draftRef, mediaAssetId] = input.args;
+      if (!draftRef || !mediaAssetId || input.args.length !== 2) {
+        return { status: "refused", reason: "invalid-arguments" };
+      }
+      const result = await proposeInstagramPublish(tenant, { draftRef, mediaAssetId }, deps);
+      return { status: "ok", kind: "publish-instagram", result };
     }
     default:
       /*

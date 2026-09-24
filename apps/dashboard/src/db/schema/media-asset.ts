@@ -317,8 +317,34 @@ export const mediaAssets = pgTable(
       .notNull()
       .references(() => companies.id),
 
-    /** The attempt that produced these bytes. One asset per invocation in MEDIA-1. */
-    invocationId: uuid("invocation_id").notNull(),
+    /**
+     * The attempt that produced these bytes. One asset per invocation in MEDIA-1.
+     *
+     * PUBLISH-0 — NULL exactly when the asset is a DERIVED asset (below). A derivative was produced
+     * by no generation attempt, so naming one would be a false provenance; `media_assets_origin_chk`
+     * makes "generated" (invocation set) and "derived" (lineage set) mutually exclusive and
+     * exhaustive, so every row is exactly one of the two.
+     */
+    invocationId: uuid("invocation_id"),
+
+    /*
+     * ── PUBLISH-0: DETERMINISTIC DERIVED ASSETS ─────────────────────────────
+     *
+     * A derived asset is a deterministic transform of ONE generated asset of the SAME tenant — today
+     * only `jpeg-publish-v1`, the JPEG Instagram's publish API requires. It is a Media Asset like any
+     * other (verified bytes, immutable identity, storage key under its own id), and it is NOT new
+     * creative work: normal gallery / composer / review reads join through the invocation and so
+     * never see it.
+     *
+     *   derived_from_asset_id   the original, by composite FK on (tenant_id, id) — cross-tenant
+     *                           lineage is unrepresentable
+     *   derivation              the closed transform name; CHECKed; one row per source + derivation
+     *
+     * Derivation grants NOTHING. No permit, action or execution path reads these columns as
+     * authority; a publish still needs proposal → human approval → permit → execution.
+     */
+    derivedFromAssetId: uuid("derived_from_asset_id"),
+    derivation: text("derivation"),
 
     /** Detected from magic bytes by Hebun — never taken from the provider. */
     mimeType: text("mime_type").notNull(),
@@ -349,6 +375,36 @@ export const mediaAssets = pgTable(
       columns: [t.tenantId, t.invocationId],
       foreignColumns: [mediaGenerationInvocations.tenantId, mediaGenerationInvocations.id],
     }).onDelete("restrict"),
+
+    /*
+     * PUBLISH-0 — lineage is THIS tenant's asset, structurally. The target is the table's own
+     * (tenant_id, id) constraint; MATCH SIMPLE lets a generated row's NULL pass.
+     */
+    foreignKey({
+      name: "media_assets_tenant_derived_from_fk",
+      columns: [t.tenantId, t.derivedFromAssetId],
+      foreignColumns: [t.tenantId, t.id],
+    }).onDelete("restrict"),
+    /* One derivative per source + derivation. NULLs are distinct, so generated rows are untouched. */
+    uniqueIndex("media_assets_derivation_uq").on(t.derivedFromAssetId, t.derivation),
+    /* Generated XOR derived — exclusive and exhaustive. */
+    check(
+      "media_assets_origin_chk",
+      sql`(${t.invocationId} is not null and ${t.derivedFromAssetId} is null and ${t.derivation} is null)
+        or (${t.invocationId} is null and ${t.derivedFromAssetId} is not null and ${t.derivation} is not null)`,
+    ),
+    check(
+      "media_assets_derivation_chk",
+      sql`${t.derivation} is null or ${t.derivation} in ('jpeg-publish-v1')`,
+    ),
+    check(
+      "media_assets_derivation_jpeg_chk",
+      sql`${t.derivation} is distinct from 'jpeg-publish-v1' or ${t.mimeType} = 'image/jpeg'`,
+    ),
+    check(
+      "media_assets_derivation_not_self_chk",
+      sql`${t.derivedFromAssetId} is null or ${t.derivedFromAssetId} <> ${t.id}`,
+    ),
 
     check(
       "media_assets_mime_type_chk",

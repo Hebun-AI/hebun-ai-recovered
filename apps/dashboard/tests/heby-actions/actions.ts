@@ -450,8 +450,9 @@ function registryIsHonest(): void {
   );
   assert.deepEqual(
     [...EXECUTABLE_ACTION_KINDS],
-    ["send-external-communication", "record-work", "place-human-in-department"],
-    "and that set is the three specifically authorized kinds, in the order they were authorized",
+    /* PUBLISH-0 — the fourth, Director-approved, appended in authorization order. */
+    ["send-external-communication", "record-work", "place-human-in-department", "publish-instagram-media"],
+    "and that set is the four specifically authorized kinds, in the order they were authorized",
   );
   // No READ_ONLY tool is reversible-classified.
   const inspectTool = getActionToolByKind("inspect-system-state");

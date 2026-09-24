@@ -184,6 +184,71 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
   },
   {
     /*
+     * PUBLISH-0 — ORGANIC INSTAGRAM PUBLISHING, the second external substrate.
+     *
+     * ONE image post to the organization's OWN connected Instagram account. Every argument is a
+     * reference plus a digest DERIVED server-side from what was read — the connection, its bound
+     * account id, the caption revision and the image — so a decision binds exact bytes to one exact
+     * account. The publishing id Meta addresses (`user_id`) is NOT an argument: it is read from Meta
+     * at execution time and must arrive beside the bound account id.
+     *
+     * CONNECTED IS NOT ARMED, AND AVAILABLE IS NOT AUTHORIZED. Execution still requires this
+     * organization's external-send arming, the deployment-wide external-send control, a human
+     * Governance decision, a digest-bound permit, and the publish capability at the moment of
+     * execution.
+     */
+    toolId: "heby.content.publish-instagram-media",
+    actionKind: "publish-instagram-media",
+    capability: "external-publication",
+    sideEffect: "CONSEQUENTIAL_MUTATION",
+    reversibility: "irreversible",
+    ownerWorkspace: "operations",
+    authorityRequirement: "human-review-required",
+    governanceGated: true,
+    substrateConnected: true,
+    argumentSchema: {
+      fields: [
+        { name: "integrationId", kind: "string", required: true, describes: "The organization's own Instagram connection." },
+        {
+          name: "externalAccountId",
+          kind: "string",
+          required: true,
+          describes: "The account id that connection was verified as, read server-side.",
+        },
+        { name: "draftRef", kind: "record-ref", required: true, describes: "The prepared caption revision (not raw text)." },
+        {
+          name: "draftRevisionDigest",
+          kind: "string",
+          required: true,
+          describes: "SHA-256 of the exact caption revision's bytes, derived server-side.",
+        },
+        { name: "mediaAssetRef", kind: "string", required: true, describes: "The admitted, generated original image asset." },
+        {
+          name: "mediaAssetDigest",
+          kind: "string",
+          required: true,
+          describes: "SHA-256 of the exact original image bytes, derived server-side.",
+        },
+        {
+          name: "publishAssetRef",
+          kind: "string",
+          required: true,
+          describes: "The deterministic JPEG derivative of exactly that original — the only bytes Meta receives.",
+        },
+        {
+          name: "publishAssetDigest",
+          kind: "string",
+          required: true,
+          describes: "SHA-256 of the exact derivative bytes, derived server-side.",
+        },
+      ],
+    },
+    inputSummary: "One connection, one caption revision, one original image and its JPEG derivative, each bound to its exact bytes.",
+    outputSummary: "Would publish one public Instagram post — irreversible; always requires human review.",
+    describes: "Publishes one image post to the organization's own Instagram account. Consequential and irreversible; never auto-executed.",
+  },
+  {
+    /*
      * GIA-1 — THE SECOND CONNECTED MUTATION SUBSTRATE, AND THE ONLY INTERNAL ONE.
      *
      * `heby.work.record-work` records ONE organizational work item through the Organizational Work
@@ -490,6 +555,17 @@ export const EXECUTABLE_ACTION_POSTURES: readonly ExecutableActionPosture[] = Ob
     sideEffect: "CONSEQUENTIAL_MUTATION" as const,
     reversibility: "deterministic-inverse" as const,
     execution: "internal-authority" as const,
+  }),
+  /*
+   * PUBLISH-0 — the second EXTERNAL executable kind. Same posture shape as the send: consequential,
+   * irreversible, performed by an external provider after a human's permit is spent.
+   */
+  Object.freeze({
+    actionKind: "publish-instagram-media" as const,
+    toolId: "heby.content.publish-instagram-media",
+    sideEffect: "CONSEQUENTIAL_MUTATION" as const,
+    reversibility: "irreversible" as const,
+    execution: "external-provider" as const,
   }),
 ]);
 

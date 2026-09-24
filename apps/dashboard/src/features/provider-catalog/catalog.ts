@@ -73,6 +73,8 @@ import {
   INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
   INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
   INSTAGRAM_BUSINESS_BASIC_SCOPE,
+  INSTAGRAM_CONTENT_PUBLISH_SCOPE,
+  INSTAGRAM_MEDIA_PUBLISH_CAPABILITY,
   INSTAGRAM_CONNECTION_LABEL,
   INSTAGRAM_PROVIDER_KEY,
   INSTAGRAM_PROVIDER_LABEL,
@@ -344,6 +346,26 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
       [INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY]: Object.freeze({
         read: Object.freeze([INSTAGRAM_BUSINESS_BASIC_SCOPE]),
         write: Object.freeze([]),
+      }),
+      /*
+       * PUBLISH-0 — ORGANIC FEED PUBLISHING. The first Instagram capability with a write half.
+       *
+       * `read` is what the capability READS on the way: the `/me` publishing identity and the
+       * container status, both under `instagram_business_basic`. `write` is the publish itself,
+       * under `instagram_business_content_publish`. No scope sits in both halves.
+       *
+       * So the seam reports `writeCapable: true` ONLY for a connected, healthy connection whose
+       * recorded grant — as Meta stated it — includes publishing. A basic-only connection (today's
+       * TRH connection) reads as `writeCapable: false`.
+       *
+       * DECLARED IS NOT AVAILABLE, AVAILABLE IS NOT AUTHORIZED. `writeCapable` is necessary, never
+       * sufficient: `publish-capability.ts` additionally requires Meta's runtime publishing identity,
+       * and any actual publish still requires a Governance decision, a digest-bound permit, and this
+       * organization's external-send arming.
+       */
+      [INSTAGRAM_MEDIA_PUBLISH_CAPABILITY]: Object.freeze({
+        read: Object.freeze([INSTAGRAM_BUSINESS_BASIC_SCOPE]),
+        write: Object.freeze([INSTAGRAM_CONTENT_PUBLISH_SCOPE]),
       }),
     }),
   }) satisfies ConnectionDefinition,

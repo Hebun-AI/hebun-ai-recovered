@@ -221,6 +221,8 @@ async function main(): Promise<void> {
            * cannot silently become a media authorization.
            */
           "instagram.media.public.read",
+          /* PUBLISH-0: the governed publish capability, write half = instagram_business_content_publish. */
+          "instagram.media.publish",
           "youtube.channel.public.read",
         ],
         "the view lists every mapped capability",

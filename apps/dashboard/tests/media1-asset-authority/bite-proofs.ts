@@ -182,8 +182,8 @@ const MUTATIONS: readonly Mutation[] = [
     suite: PG_SUITE,
     edits: [
       {
-        find: "        .where(and(eq(mediaAssets.tenantId, tenant.tenantId), eq(mediaAssets.id, input!.assetId)))",
-        replace: "        .where(eq(mediaAssets.id, input!.assetId))",
+        find: "            eq(mediaAssets.tenantId, tenant.tenantId),\n            eq(mediaAssets.id, input!.assetId),",
+        replace: "            eq(mediaAssets.id, input!.assetId),",
       },
     ],
     because: "asset-unresolvable",

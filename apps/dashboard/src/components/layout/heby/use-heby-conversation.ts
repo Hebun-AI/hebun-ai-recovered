@@ -579,6 +579,27 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
                   `That command could not be prepared (${outcome.reason}). Nothing was filed.`,
                 ]),
               });
+            } else if (outcome.kind === "publish-instagram") {
+              /* PUBLISH-0 — a filed publish proposal. Heby never says posted or approved here. */
+              patch({
+                commandOutput:
+                  outcome.result.status === "proposed"
+                    ? {
+                        command: parsed.command.slash,
+                        title: "Prepared for Director approval",
+                        lines: [
+                          `Request ${outcome.result.requestId}`,
+                          "Action: publish-instagram-media",
+                          "Status: pending review",
+                          "Nothing was posted. A human decides in /approvals.",
+                        ],
+                        tone: "info",
+                        provenance: "Durable action request — pending Director review.",
+                      }
+                    : refusal(parsed.command.slash, "Not prepared", [
+                        `The post could not be prepared (${outcome.result.reason}). Nothing was filed.`,
+                      ]),
+              });
             } else if (outcome.result.status === "proposed") {
               const { receipt } = outcome.result;
               patch({

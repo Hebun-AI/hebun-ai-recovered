@@ -106,6 +106,11 @@ function main(): void {
          */
         "src/features/provider-instagram/instagram-oauth-transport.server.ts",
         /*
+         * PUBLISH-0 — the ONE Instagram publish module. Two enumerated POSTs and one GET against the
+         * pinned host, no caller-supplied URL; nothing imports it yet.
+         */
+        "src/features/provider-instagram/instagram-publish-transport.server.ts",
+        /*
          * ── NOT INTEGRATION PROVIDERS, AND NAMED ANYWAY ──────────────────────
          *
          * Hebun's own outbound dependencies: the email sender and the model. They are not

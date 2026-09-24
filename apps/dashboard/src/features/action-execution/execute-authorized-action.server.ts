@@ -62,6 +62,34 @@ import {
   type ExecutionResult,
 } from "./contracts";
 import { toExecutionAttemptView, type ExecutionAttemptRow } from "./attempt-view";
+import {
+  PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND,
+  asPublishInstagramMediaPayload,
+  type PublishInstagramMediaPayload,
+} from "@/features/instagram-publishing/contracts";
+import type { MediaStorageResolution } from "@/features/media-assets/media-object-store";
+import { resolveMediaObjectStore } from "@/features/media-assets/media-storage.server";
+import { selectMediaAssetRecord } from "@/features/media-assets/read-media-assets.server";
+import {
+  readPublishDerivative,
+  selectPublishLineage,
+  type PublishLineageBinding,
+  type ReadPublishDerivativeResult,
+} from "@/features/media-assets/read-publish-derivative.server";
+import { withAuthorizedInstagramToken } from "@/features/provider-instagram/instagram-access-token-call.server";
+import {
+  INSTAGRAM_PUBLISH_ADAPTER_ID,
+  publishInstagramImage,
+  type InstagramPublishInput,
+  type InstagramPublishOutcome,
+} from "@/features/provider-instagram/instagram-publish-transport.server";
+import type { InstagramPublishCapability } from "@/features/provider-instagram/publish-capability";
+import { evaluatePublishConnection } from "@/features/provider-instagram/publish-capability";
+import {
+  readInstagramPublishFacts,
+  resolveInstagramPublishCapability,
+} from "@/features/provider-instagram/resolve-publish-capability.server";
+
 
 export interface ExecuteAuthorizedActionDeps
   extends ExecutionControlDeps,
@@ -75,6 +103,8 @@ export interface ExecuteAuthorizedActionDeps
    * registry (no credential is configured anywhere) rather than a live call.
    */
   readonly adapter?: ExternalSendAdapter | null;
+  /** PUBLISH-0 — injected provider seams for the Instagram publish half. Unset in production. */
+  readonly instagramPublish?: InstagramPublishExecutionPorts;
 }
 
 function refused(reason: ExecutionPreflightRefusal): ExecutionResult {
@@ -358,6 +388,14 @@ export async function executeAuthorizedAction(
    * `modify-governance-policy` is a valid authorization for something this generation cannot
    * perform, and saying so is more honest than a generic failure.
    */
+  /*
+   * PUBLISH-0 — THE SECOND EXTERNAL KIND, dispatched from INSIDE this authority, after the arming
+   * conjunction above and after the live-permit read. It spends through the same permit consumer,
+   * writes the same attempt ledger (recipient-less, as its CHECK requires) and the same audit event.
+   */
+  if (requestRow.actionKind === PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND) {
+    return executeInstagramPublish(tenant, db, now, permitRow, requestRow, deps);
+  }
   if (requestRow.actionKind !== EXECUTABLE_ACTION_KIND) return refused("action-not-executable");
 
   const payload = asSendPayload(requestRow.canonicalPayload);
@@ -577,6 +615,353 @@ export async function executeAuthorizedAction(
     status: "attempted",
     attempt: await readAttempt(db, tenant.tenantId, recordedAttemptId),
   };
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * PUBLISH-0 — THE `publish-instagram-media` HALF OF THIS SAME AUTHORITY.
+ *
+ * Kept IN this module on purpose: `action_execution_attempts` has exactly one writer, and it is this
+ * file. The publish half is reached only from `executeAuthorizedAction` above, after the arming
+ * conjunction and the live-permit read, and follows the send's shape exactly — pre-flight (no
+ * spend), one transaction (spend + attempt + audit, bindings re-read), post-commit (arming re-read,
+ * image grant minted, ONE publish through the one transport). The attempt carries NO recipient, as
+ * `action_execution_attempts_recipient_binding_chk` requires for this kind and forbids for any other.
+ * Only a media id Meta returned is `accepted`; a post-write fault is `unknown`, never `failed`.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The provider-facing seams, injectable so no test ever reaches Meta, the media store or a
+ * credential. Production leaves every one unset.
+ */
+export interface InstagramPublishExecutionPorts {
+  readonly resolveCapability?: (tenant: TenantContext) => Promise<InstagramPublishCapability>;
+  readonly resolveStorage?: () => MediaStorageResolution;
+  /** Lineage + integrity re-verified; a grant minted for the DERIVATIVE only. */
+  readonly readPublishImage?: (
+    tenant: TenantContext,
+    binding: PublishLineageBinding,
+  ) => Promise<ReadPublishDerivativeResult>;
+  /** Runs `publish` with the connection's token; `null` when no credential could be opened. */
+  readonly withToken?: (
+    tenant: TenantContext,
+    integrationId: string,
+    publish: (accessToken: string) => Promise<InstagramPublishOutcome>,
+  ) => Promise<InstagramPublishOutcome | null>;
+  readonly publish?: (input: InstagramPublishInput, accessToken: string) => Promise<InstagramPublishOutcome>;
+}
+
+interface ResolvedPublishTarget {
+  readonly caption: string;
+}
+
+/**
+ * Re-read every binding the decision froze and check it against the database now. Used in
+ * pre-flight AND inside the spend transaction — one definition of "still valid".
+ */
+async function resolvePublishTarget(
+  reader: Pick<ControlPlaneDatabase, "select">,
+  tenantId: string,
+  payload: PublishInstagramMediaPayload,
+  deps: ExecuteAuthorizedActionDeps,
+): Promise<{ readonly target: ResolvedPublishTarget } | { readonly failure: ExecutionFailureClass }> {
+  const artifactRef = parseWorkArtifactRef(payload.draftRef);
+  if (!artifactRef) return { failure: "artifact-unresolvable" };
+
+  const artifactRows = await reader
+    .select({ id: workArtifacts.id, lifecycle: workArtifacts.artifactLifecycleStatus })
+    .from(workArtifacts)
+    .where(and(eq(workArtifacts.tenantId, tenantId), eq(workArtifacts.id, artifactRef.artifactId)))
+    .limit(1);
+  const artifact = artifactRows[0];
+  if (!artifact) return { failure: "artifact-unresolvable" };
+  if (artifact.lifecycle === "retired") return { failure: "artifact-retired" };
+
+  const revisionRows = await reader
+    .select({ content: workArtifactRevisions.content, contentDigest: workArtifactRevisions.contentDigest })
+    .from(workArtifactRevisions)
+    .where(
+      and(
+        eq(workArtifactRevisions.tenantId, tenantId),
+        eq(workArtifactRevisions.artifactId, artifactRef.artifactId),
+        eq(workArtifactRevisions.revisionNo, artifactRef.revisionNo),
+      ),
+    )
+    .limit(1);
+  const revision = revisionRows[0];
+  if (!revision) return { failure: "artifact-unresolvable" };
+  if (revision.contentDigest !== payload.draftRevisionDigest) return { failure: "digest-mismatch" };
+
+  /* The generated original: of THIS draft (provenance read through its invocation). */
+  const asset = await selectMediaAssetRecord(reader, tenantId, payload.mediaAssetRef);
+  if (!asset) return { failure: "artifact-unresolvable" };
+  if (asset.lifecycle !== "admitted") return { failure: "artifact-retired" };
+  if (asset.byteDigest !== payload.mediaAssetDigest) return { failure: "digest-mismatch" };
+  if (asset.sourceArtifactId !== artifactRef.artifactId) return { failure: "digest-mismatch" };
+
+  /* The derivative: exactly the bound `jpeg-publish-v1` of exactly that original. */
+  const lineage = await selectPublishLineage(reader, tenantId, publishLineageOf(payload));
+  if (lineage.status !== "verified") {
+    switch (lineage.reason) {
+      case "original-retired":
+      case "derivative-retired":
+        return { failure: "artifact-retired" };
+      case "original-unresolvable":
+      case "derivative-unresolvable":
+        return { failure: "artifact-unresolvable" };
+      default:
+        return { failure: "digest-mismatch" };
+    }
+  }
+
+  /* The connection the decision named must still be THE publish-eligible connection, same account. */
+  const facts = await readInstagramPublishFacts({ tenantId }, { getDb: () => reader as ControlPlaneDatabase, env: deps.env });
+  if (!facts) return { failure: "credential-unavailable" };
+  const eligibility = evaluatePublishConnection(facts);
+  if (
+    eligibility.status !== "eligible" ||
+    eligibility.connection.integrationId !== payload.integrationId ||
+    eligibility.connection.externalAccountId !== payload.externalAccountId
+  ) {
+    return { failure: "credential-unavailable" };
+  }
+
+  return { target: { caption: revision.content } };
+}
+
+function publishLineageOf(payload: PublishInstagramMediaPayload): PublishLineageBinding {
+  return {
+    originalAssetId: payload.mediaAssetRef,
+    originalDigest: payload.mediaAssetDigest,
+    derivedAssetId: payload.publishAssetRef,
+    derivedDigest: payload.publishAssetDigest,
+  };
+}
+
+function publishPreflightReasonFor(failure: ExecutionFailureClass): ExecutionPreflightRefusal {
+  switch (failure) {
+    case "artifact-retired":
+      return "artifact-retired";
+    case "artifact-unresolvable":
+      return "artifact-unresolvable";
+    case "credential-unavailable":
+      return "capability-unavailable";
+    default:
+      return "digest-mismatch";
+  }
+}
+
+/** Meta's answer → the ledger's terminal state. The table's CHECKs enforce the same pairs. */
+function publishTerminalFor(outcome: InstagramPublishOutcome): {
+  status: "accepted" | "failed" | "unknown";
+  providerResponseClass: "accepted" | "rejected" | "unreachable" | "ambiguous";
+  providerMessageId: string | null;
+  failureClass: ExecutionFailureClass | null;
+} {
+  switch (outcome.class) {
+    case "accepted":
+      /* The real Instagram media id Meta returned — the only thing ever recorded as success. */
+      return { status: "accepted", providerResponseClass: "accepted", providerMessageId: outcome.mediaId, failureClass: null };
+    case "rejected":
+      return { status: "failed", providerResponseClass: "rejected", providerMessageId: null, failureClass: "provider-rejected" };
+    case "unreachable":
+      return { status: "failed", providerResponseClass: "unreachable", providerMessageId: null, failureClass: "provider-unreachable" };
+    case "ambiguous":
+      /* The post may exist. Never `failed` — a `failed` invites a retry that posts twice. */
+      return { status: "unknown", providerResponseClass: "ambiguous", providerMessageId: null, failureClass: null };
+  }
+}
+
+async function executeInstagramPublish(
+  tenant: TenantContext,
+  db: ControlPlaneDatabase,
+  now: Date,
+  permit: { readonly id: string },
+  request: { readonly canonicalPayload: unknown },
+  deps: ExecuteAuthorizedActionDeps,
+): Promise<ExecutionResult> {
+  const ports = deps.instagramPublish ?? {};
+  const tenantId = tenant.tenantId!;
+
+  const payload = asPublishInstagramMediaPayload(request.canonicalPayload);
+  if (!payload) return refused("digest-mismatch");
+
+  /* ── PRE-FLIGHT. Nothing is spent by any refusal here. ── */
+  const preflight = await resolvePublishTarget(db, tenantId, payload, deps);
+  if ("failure" in preflight) return refused(publishPreflightReasonFor(preflight.failure));
+
+  /* Capability is a PREREQUISITE (and Meta's identity answer), never an authorization. */
+  const capability = await (ports.resolveCapability ?? ((t) => resolveInstagramPublishCapability(t, { env: deps.env })))(tenant);
+  if (capability.status !== "available" || capability.integrationId !== payload.integrationId) {
+    return refused("capability-unavailable");
+  }
+  const publishingAccountId = capability.publishingAccountId;
+
+  const storage = (ports.resolveStorage ?? resolveMediaObjectStore)();
+  if (storage.status !== "available") return refused("adapter-unavailable");
+
+  /* ── THE ATOMIC HALF: spend + attempt + audit. ── */
+  let inTxRefusal: ExecutionFailureClass | null = null;
+  let inTxTarget: ResolvedPublishTarget | null = null;
+  let attemptId: string | null = null;
+
+  const consumption = await consumeActionPermit(
+    tenant,
+    { permitId: permit.id },
+    {
+      getDb: () => db,
+      now: () => now,
+      async onAuthorizedWithin(tx, authorization: ExecutionAuthorization) {
+        const resolved = await resolvePublishTarget(tx, tenantId, payload, deps);
+        const failure = "failure" in resolved ? resolved.failure : null;
+
+        const inserted = await tx
+          .insert(actionExecutionAttempts)
+          .values({
+            tenantId: authorization.tenantId,
+            permitId: authorization.permitId,
+            handoffId: authorization.handoffId,
+            actionRequestId: authorization.actionRequestId,
+            actionKind: authorization.actionKind,
+            adapterId: INSTAGRAM_PUBLISH_ADAPTER_ID,
+            boundPayloadDigest: authorization.boundPayloadDigest,
+            /* RECIPIENT-LESS: the binding CHECK requires exactly this for this kind. */
+            recipientEndpointDigest: null,
+            recipientId: null,
+            draftRevisionDigest: payload.draftRevisionDigest,
+            status: failure ? "refused" : "pending",
+            providerResponseClass: null,
+            providerMessageId: null,
+            failureClass: failure,
+            startedAt: now,
+            completedAt: failure ? now : null,
+            createdBy: tenant.userId,
+            createdByType: "human",
+            updatedBy: tenant.userId,
+            updatedByType: "human",
+          })
+          .returning({ id: actionExecutionAttempts.id });
+        const row = inserted[0];
+        if (!row) throw new Error("attempt-not-recorded");
+
+        await recordActionExecutionEventWithin(
+          tx,
+          {
+            tenantId: authorization.tenantId,
+            userId: tenant.userId!,
+            requestId: tenant.requestId,
+            sessionContextId: tenant.sessionContextId,
+          },
+          {
+            entityId: row.id,
+            metadata: {
+              attemptId: row.id,
+              permitId: authorization.permitId,
+              handoffId: authorization.handoffId,
+              actionRequestId: authorization.actionRequestId,
+              actionKind: authorization.actionKind,
+              adapterId: INSTAGRAM_PUBLISH_ADAPTER_ID,
+              payloadDigest: authorization.boundPayloadDigest,
+              recipientId: null,
+              externalEffectConfirmed: false,
+            },
+          },
+          now,
+        );
+
+        attemptId = row.id;
+        inTxRefusal = failure;
+        inTxTarget = "target" in resolved ? resolved.target : null;
+      },
+    },
+  );
+
+  if (consumption.status === "refused") {
+    switch (consumption.reason) {
+      case "unauthenticated":
+        return refused("unauthenticated");
+      case "digest-mismatch":
+        return refused("digest-mismatch");
+      case "permit-not-consumable":
+        return refused("permit-not-executable");
+      default:
+        return refused("persistence-unavailable");
+    }
+  }
+
+  const recordedAttemptId = attemptId as string | null;
+  if (!recordedAttemptId) return refused("persistence-unavailable");
+  const refuseAfterSpend = async (failureClass: ExecutionFailureClass): Promise<ExecutionResult> => {
+    await completeAttempt(db, tenantId, recordedAttemptId, {
+      status: "refused",
+      providerResponseClass: null,
+      providerMessageId: null,
+      failureClass,
+      completedAt: now,
+    });
+    return { status: "refused-after-spend", attempt: await readAttempt(db, tenantId, recordedAttemptId) };
+  };
+
+  if (inTxRefusal !== null || inTxTarget === null) {
+    return { status: "refused-after-spend", attempt: await readAttempt(db, tenantId, recordedAttemptId) };
+  }
+  const target: ResolvedPublishTarget = inTxTarget;
+
+  /* ── THE KILL SWITCH AND THE ARMING, AGAIN, IMMEDIATELY BEFORE THE CALL. ── */
+  const reachAgain = await resolveExternalSendReachability(tenantId, deps);
+  if (reachAgain.status === "refused") return refuseAfterSpend("execution-disabled");
+
+  /*
+   * ── THE IMAGE GRANT. The media authority re-verifies the lineage AND both stored objects, then
+   * mints ONE short-lived grant — for the derivative, never the original.
+   */
+  const image = await (
+    ports.readPublishImage ??
+    ((t, binding) => readPublishDerivative(t, binding, { getDb: () => db, resolveStorage: () => storage }))
+  )(tenant, publishLineageOf(payload));
+  if (
+    image.status !== "read" ||
+    image.derivedAssetId !== payload.publishAssetRef ||
+    image.derivedDigest !== payload.publishAssetDigest ||
+    image.mimeType !== "image/jpeg"
+  ) {
+    return refuseAfterSpend("artifact-unresolvable");
+  }
+
+  /* ── ONE PUBLISH. No loop, no retry. ── */
+  const publish = ports.publish ?? ((input: InstagramPublishInput, token: string) => publishInstagramImage(input, token));
+  const withToken =
+    ports.withToken ??
+    (async (t: TenantContext, integrationId: string, run: (token: string) => Promise<InstagramPublishOutcome>) => {
+      const used = await withAuthorizedInstagramToken(
+        { tenantId: t.tenantId!, integrationId },
+        async (token) => ({ ok: true as const, value: await run(token) }),
+        { getDb: () => db, env: deps.env },
+      );
+      return used.ok ? used.value : null;
+    });
+
+  let outcome: InstagramPublishOutcome | null;
+  try {
+    outcome = await withToken(tenant, payload.integrationId, (token) =>
+      publish({ publishingAccountId, imageUrl: image.access.url, caption: target.caption }, token),
+    );
+  } catch {
+    /* A throw after the transport may have dispatched cannot prove nothing was posted. */
+    outcome = { class: "ambiguous", reason: "publish-threw", containerId: null };
+  }
+  /* No credential could be opened: nothing left the process. */
+  if (outcome === null) return refuseAfterSpend("credential-unavailable");
+
+  const terminal = publishTerminalFor(outcome);
+  await completeAttempt(db, tenantId, recordedAttemptId, {
+    status: terminal.status,
+    providerResponseClass: terminal.providerResponseClass,
+    providerMessageId: terminal.providerMessageId,
+    failureClass: terminal.failureClass,
+    completedAt: (deps.now ?? (() => new Date()))(),
+  });
+  return { status: "attempted", attempt: await readAttempt(db, tenantId, recordedAttemptId) };
 }
 
 /**

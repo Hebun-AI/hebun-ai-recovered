@@ -363,7 +363,14 @@ function vocabularyIsMinimal(): void {
    * typecheck today. That is a stronger guarantee than a runtime miss — a publishing tool cannot
    * be looked up until somebody widens the union — and this loop is what fails if they do.
    */
+  /*
+   * PUBLISH-0 — RE-AIMED, NOT DELETED. The Director approved ONE governed publishing kind,
+   * `publish-instagram-media`, which is NOT content preparation: it is a separate act with its own
+   * proposal, decision, permit and execution. Preparation still reaches nothing, and every OTHER
+   * executable kind still may not mean publish, post or schedule.
+   */
   for (const kind of EXECUTABLE_ACTION_KINDS) {
+    if (kind === "publish-instagram-media") continue;
     for (const forbidden of ["publish", "post-content", "schedule"]) {
       assert.equal(
         kind.includes(forbidden),

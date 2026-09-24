@@ -616,6 +616,34 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     requiresExecution: false,
     safeWhenProviderOff: true,
   },
+  /*
+   * PUBLISH-0 — `/publish` prepares ONE Instagram feed post for Director approval, through the SAME
+   * propose seam `/send` uses. Two references, never raw text or a URL: the caption revision and the
+   * admitted, generated image. The server derives the JPEG publish derivative and binds both image
+   * identities; it posts nothing, mints no permit and reaches no provider.
+   */
+  {
+    id: "publish", slash: "/publish", label: "Prepare an Instagram post", category: "actions", kind: "propose",
+    description: "Prepare one Instagram post for Director approval. Posts nothing.",
+    availability: "available", handler: "publish-instagram",
+    args: [
+      {
+        name: "draft",
+        required: true,
+        description: "An exact caption revision reference: work-artifact/<uuid>@<n>",
+        pattern: /^work-artifact\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@[1-9][0-9]{0,8}$/,
+      },
+      {
+        name: "image",
+        required: true,
+        description: "The admitted image asset id: <uuid>",
+        pattern: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      },
+    ],
+    requiresModel: false,
+    requiresExecution: false,
+    safeWhenProviderOff: true,
+  },
 
   /* ── Future capabilities (RESERVED — registered, inert) ───────────────────
    * These exist so the shape of Hebun's future is visible and honest, and so a later phase adds a

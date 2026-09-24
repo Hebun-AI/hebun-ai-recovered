@@ -104,7 +104,13 @@ export type ExecutionPreflightRefusal =
    */
   | "tenant-not-armed"
   | "adapter-unavailable"
-  | "credential-unavailable";
+  | "credential-unavailable"
+  /**
+   * PUBLISH-0 — the Instagram publish capability is not available at this moment: the connection
+   * is not publish-capable, or Meta did not confirm the publishing identity for the bound account.
+   * A prerequisite, never an authorization: nothing was spent.
+   */
+  | "capability-unavailable";
 
 /** What a surface may show about one attempt. Carries no address, no credential, no body. */
 export interface ExecutionAttemptView {
@@ -118,7 +124,8 @@ export interface ExecutionAttemptView {
   readonly providerResponseClass: ProviderResponseClass | null;
   readonly providerMessageId: string | null;
   readonly failureClass: ExecutionFailureClass | null;
-  readonly recipientId: string;
+  /** PUBLISH-0: `null` exactly for a recipient-less kind (see the recipient binding CHECK). */
+  readonly recipientId: string | null;
   readonly startedAt: string;
   readonly completedAt: string | null;
 }

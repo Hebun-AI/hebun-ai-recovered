@@ -112,6 +112,8 @@ for (const tool of listActionTools()) {
   /* GIA-2 connected `place-human-in-department` through the Organization Authority. Named here
    * one kind at a time, so connecting a tool remains a decision somebody records. */
   if (tool.actionKind === "place-human-in-department") continue;
+  /* PUBLISH-0 connected `publish-instagram-media` through the one execution authority. Named. */
+  if (tool.actionKind === "publish-instagram-media") continue;
   assert.equal(
     tool.substrateConnected,
     false,

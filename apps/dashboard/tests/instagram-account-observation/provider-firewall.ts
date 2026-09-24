@@ -23,6 +23,8 @@ import {
   INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
   INSTAGRAM_FORBIDDEN_VERBS,
   INSTAGRAM_OAUTH_TRANSPORT_MODULE,
+  INSTAGRAM_PUBLISH_TRANSPORT_MODULE,
+  isForbiddenFragmentIn,
   INSTAGRAM_TOKEN_ENDPOINT,
   INSTAGRAM_PROVIDER_KEY,
   accountIdFromSubjectRef,
@@ -61,6 +63,8 @@ function main(): void {
     for (const forbidden of INSTAGRAM_FORBIDDEN_FRAGMENTS) {
       /* The contracts file DECLARES the ban list, so it is exempt from its own literals. */
       if (f === CONTRACTS) continue;
+      /* PUBLISH-0: the ONE publish module may say `/media_publish`; every other ban still binds it. */
+      if (!isForbiddenFragmentIn(f, forbidden)) continue;
       assert.ok(
         !code.includes(forbidden),
         `${f} contains no \`${forbidden}\` — the ban list is asserted, not merely written down`,
@@ -82,7 +86,7 @@ function main(): void {
    * one URL. A second POST anywhere, including inside the exempt module, fails here.
    */
   for (const f of providerFiles) {
-    if (f === CONTRACTS || f === INSTAGRAM_OAUTH_TRANSPORT_MODULE) continue;
+    if (f === CONTRACTS || f === INSTAGRAM_OAUTH_TRANSPORT_MODULE || f === INSTAGRAM_PUBLISH_TRANSPORT_MODULE) continue;
     const code = codeOf(read(f));
     for (const verb of INSTAGRAM_FORBIDDEN_VERBS) {
       assert.ok(!code.includes(verb), `${f} contains no \`${verb}\` — only the ceremony may POST`);
@@ -111,6 +115,24 @@ function main(): void {
     "https://api.instagram.com/oauth/access_token",
     "the token endpoint is Meta's documented one for Instagram Login",
   );
+  /*
+   * ── PUBLISH-0: THE SECOND EXEMPT MODULE, PINNED THE SAME WAY ─────────────
+   *
+   * It may POST, and only to two enumerated operations; it may GET one; it may never DELETE, PUT or
+   * PATCH; it builds its URL only from the pinned origin; and `/media_publish` appears nowhere else.
+   */
+  assert.ok(providerFiles.includes(INSTAGRAM_PUBLISH_TRANSPORT_MODULE), "the publish exemption names a real file");
+  const publishTransport = codeOf(read(INSTAGRAM_PUBLISH_TRANSPORT_MODULE));
+  assert.equal((publishTransport.match(/method:\s*"POST"/g) ?? []).length, 2, "exactly two POST operations");
+  assert.equal((publishTransport.match(/method:\s*"GET"/g) ?? []).length, 1, "exactly one GET operation");
+  for (const verb of ["DELETE", "PUT", "PATCH"]) {
+    assert.ok(!publishTransport.includes(`"${verb}"`), `the publish module never constructs ${verb}`);
+  }
+  assert.ok(!/https?:\/\//.test(publishTransport), "no URL literal: only the pinned origin constant");
+  for (const f of providerFiles) {
+    if (f === CONTRACTS || f === INSTAGRAM_PUBLISH_TRANSPORT_MODULE) continue;
+    assert.ok(!codeOf(read(f)).includes("media_publish"), `${f} cannot reach /media_publish`);
+  }
   const transport = codeOf(read(TRANSPORT));
   assert.equal(
     (transport.match(/method:\s*"GET"/g) ?? []).length,
@@ -203,8 +225,13 @@ function main(): void {
   );
   assert.deepEqual(
     Object.keys(definition!.capabilityScopes).sort(),
-    [INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY, INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY].sort(),
-    "exactly two capabilities are offered — insights and publishing are not listed",
+    /* PUBLISH-0 added publishing, Director-approved. Insights, comments, messages: still absent. */
+    [
+      INSTAGRAM_ACCOUNT_PUBLIC_READ_CAPABILITY,
+      INSTAGRAM_MEDIA_PUBLIC_READ_CAPABILITY,
+      "instagram.media.publish",
+    ].sort(),
+    "exactly three capabilities are offered — insights, comments and messages are not listed",
   );
 
   /* ═══ 5. THE OBSERVABLE TRIPLE IS REGISTERED WHOLE ════════════════════════ */
