@@ -222,7 +222,7 @@ Hebun already has legitimate, released owners for most of what Program V gives m
 | Product line / surface | Era I | Era II | Era III |
 |---|---|---|---|
 | **Heby** | Core v1 — bounded conversational grounding | Heby Intelligence — **E2-1 CLOSED**, organization *identity* admitted as evidence · **E2-5 CLOSED · PRODUCTION-ACCEPTED**, the tenant's durable agents and their proposal outcomes admitted as evidence under their own class · **E2-6 CLOSED · PRODUCTION-ACCEPTED**, the bounded recorded-act history admitted as evidence under its own class · **E2-7 CLOSED · PRODUCTION-ACCEPTED**, windowed period counts over that same ledger · **E2-8 CLOSED · PRODUCTION-ACCEPTED**, which declared knowledge areas the organization holds evidence in, and which hold none — from the Knowledge workspace only (§12, §12.5, §12.6, §12.7, §12.8) | Heby as operational interface |
-| **Agents** | Durable identity + truthful activity | Evidence seam · evaluation. **Agent Registry rejected as previously conceived** (§12) · **E2-5 CLOSED · PRODUCTION-ACCEPTED** — E2-3's derived outcome observation reaches Heby as evidence beside authoritative durable-agent identity; no agent authority, writer or lifecycle act added (§12.5) | Advanced self-improving agents |
+| **Agents** | Durable identity + truthful activity | Evidence seam · evaluation. **Agent Registry rejected as previously conceived** (§12) · **E2-5 CLOSED · PRODUCTION-ACCEPTED** — E2-3's derived outcome observation reaches Heby as evidence beside authoritative durable-agent identity; no agent authority, writer or lifecycle act added (§12.5) | Advanced self-improving agents · **Agent Workforce — recorded direction, NOT SELECTED** (§20.4) |
 | **Governance** | Decision authority + recorded acts | Governance intelligence overlays — **CONNECTED**: the `governance` class carries this tenant's own decision record to Heby through a read-only boundary (G6C `5299fdb`), and **E2-6 / E2-7 CLOSED · PRODUCTION-ACCEPTED** add the recorded-act history and its windowed period counts over `audit_log`. No governance authority, writer or policy evaluator was created (§12.6, §12.7) | Governed autonomy |
 | **Knowledge** | Facts, provenance, retraction | Memory · learning — **NEITHER DELIVERED**; the `memory` class is declared and honestly unconnected, because `readCompanyMemory` resolves to an in-memory, process-local store and grounding Heby on it would be the impostor K1 forbids. What Era II delivered here is coverage: **E2-8 CLOSED · PRODUCTION-ACCEPTED** — the declared-area coverage aggregate R6B built for `/knowledge` is admitted to Heby as evidence under its own class, so Heby can name an area the organization holds nothing in; no knowledge quality, score or readiness authority added (§12.8) | Organizational learning loop |
 | **Organization** | **Organization Authority (L3)** | Organizational intelligence evolution — **E2-1 CLOSED**, organization *identity* admitted to Heby through L3's own projection, carrying the authority's refusal verbatim where structure is unavailable · **E2-4 CLOSED · PRODUCTION-ACCEPTED**, elapsed time over authoritative timestamps. **Internal structure remains UNAVAILABLE** — the Organization Structure Authority stays a recorded dependency, not a scheduled milestone (§12) | Living organizational system |
@@ -5089,3 +5089,170 @@ isolation proof, unchanged by acceptance.
 **ARMED IS A MOMENT, NOT A POSTURE.** Root was enabled for roughly twenty-two minutes, spanning one
 delivery, and returned to `false` under a second Director ceremony. The organization's enrollment
 survived it, because disarming a deployment is not withdrawing an organization's decision.
+
+---
+
+### 20.3 Continuity — released phases this page had not recorded, reconciled at `dd20b62d`
+
+**This subsection repairs a navigation gap and rewrites nothing.** The phases below were released
+and closed while this document's last edits recorded other work. Each one's closure record under
+`docs/product-vision/runtime/` remains the authority for what it measured; this table is a pointer,
+deliberately not a summary. States are copied from those records, not upgraded.
+
+| Phase | Release | State (as its closure record states it) | Ledger | Closure record |
+|---|---|---|---|---|
+| **CGO-8** Prepared Content Review Legibility | `0a4daf2e` | RELEASED / PRODUCTION-ACCEPTED | unchanged | `hebun-cgo8-prepared-content-review-legibility-closure.md` |
+| **CGO-9** Human-Reachable Hebun Preparation | `6d17d055` | RELEASED / PRODUCTION-ACCEPTED · zero schema, zero new action | unchanged | `hebun-cgo9-human-reachable-hebun-preparation-closure.md` |
+| **MEDIA-1** Media Asset Authority | `288e5583` | RELEASED + PRODUCTION-SCHEMA-ACCEPTED | migration **56** | `hebun-media1-media-asset-authority-closure.md` |
+| VPS Media Storage *(storage port beneath MEDIA-1)* | `68a5ed3e` | PRODUCTION-ACCEPTED, storage port level | unchanged | `hebun-media-vps-storage-production-closure.md` |
+| **MEDIA-2A** OpenAI Live Image Transport (inert) | `f0aad238` | RELEASED + PRODUCTION-SCHEMA-ACCEPTED | migration **57** | `hebun-media2a-openai-live-image-transport-closure.md` |
+| **MEDIA-2B** Controlled Live Image Generation | `7fcd1a6a` | RELEASED + PRODUCTION-ACCEPTED | no migration | `hebun-media2b-live-image-generation-closure.md` |
+| **MEDIA-3** Per-Revision Media Asset Review | `2a065f82` | CLOSED — RELEASED + PRODUCTION-ACCEPTED | no migration | `hebun-media3-media-asset-review-closure.md` |
+| **MEDIA-4A** Revision Media History | `598bf572` | CLOSED — RELEASED + PRODUCTION-ACCEPTED | no migration | `hebun-media4a-revision-media-history-closure.md` |
+| **MEDIA-5** Reference Image and Editing | `0fd1dc67` | CLOSED — RELEASED + PRODUCTION-ACCEPTED | migration **58** | `hebun-media5-reference-edit-closure.md` |
+| **CONTENT-COMPOSE-1** The Content Package | `23dca8a8` | CLOSED — RELEASED + PRODUCTION-ACCEPTED | migration **59** | `hebun-content-compose1-content-package-closure.md` |
+| **CONTENT-GROUND-1** The Organization's Own Voice | `8a0bd395` (UI correction `92c3f5d7`) | CLOSED — RELEASED + PRODUCTION-ACCEPTED, one limitation recorded | no migration | `hebun-content-ground1-own-voice-closure.md` |
+| **TENANT-ARM-1** Per-Organization External-Send Arming | `8816dfba` | tenant containment PRODUCTION-VERIFIED · **real external-send execution NOT VERIFIED / DEFERRED** | migration **60** | `hebun-tenant-arm-1-closure.md` |
+
+**Authored migration ledger at this baseline: 60**, last
+`20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
+measurement owned by each closure record and is not re-asserted here.
+
+```
+POINTER               != SUMMARY
+PRODUCTION-ACCEPTED   != COMPLETE (no such phase state exists here)
+PREPARED / GENERATED  != APPROVED != PUBLISHED != SENT
+TENANT ARMED          != SENT
+```
+
+---
+
+### 20.4 Agent Workforce — Recorded Direction
+
+**RECORDED DIRECTION · NOT SELECTED · NOT IMPLEMENTED.** This records the outcome of a read-only
+reconciliation of proposed agent and workforce capabilities against repository reality at
+`dd20b62d`. It selects no program, opens no milestone, assigns no phase number, creates no
+authority and authorizes no implementation. **APF is not selected and not opened by this section.**
+
+```
+RECORDED DIRECTION   != SELECTED PROGRAM
+DEPARTMENT           != AGENT
+CAPABILITY           != AGENT
+DOMAIN               != AGENT
+SEEDED CATALOG       != WORKFORCE
+AGENT CAPABILITY     != AUTHORIZATION != EXECUTION != SUCCESS
+```
+
+#### The boundaries this direction preserves, unchanged
+
+- **Hebun is the operating system; agents are workforce running on it.**
+- **Heby remains the coordination interface, not a privileged supervisor.** Its released identity
+  contract is read-only, it cannot select or delegate to an agent today, and **Heby must never be
+  AUTHORIZER and EXECUTOR for the same consequential act** (see *Heby Controlled Autonomy* above).
+  The durable agent row named "Heby" is a separate fact from the interface
+  (`hebun-era3-agents-architecture-discovery.md` §3).
+- **Governance remains the consequential authorization authority.** The human-only CHECKs on
+  decision, approval and permit are untouched by anything recorded here.
+- **Work, Knowledge, Integrations and the execution authorities** (`action-authorization`,
+  `governed-internal-action`, `action-execution`, `action-execution-live`, the machine-delivery and
+  standing-issuance triggers) **remain the owners they are.** Providers never become authorization
+  authorities.
+- No duplicate runtime, memory, knowledge, work, governance or execution system is implied.
+
+#### The reconciled model
+
+```
+Hebun OS
+  → OSA Departments                       (Organization Structure Authority — released)
+    → a small number of durable, mandate-bounded agents
+                                          (Agent Identity + Agent Mandate — released)
+      → reusable capabilities             (owned by their existing authorities)
+```
+
+The test for whether something is an **agent** is the one the Era III agents discovery already
+applies (§9 of that record): it needs its own human-owned name, its own Governance-decided proposal
+ceiling, and its own retirement. **Something that needs only different data or a different prompt is
+a capability, not an agent.** A domain is a **department** whose work may be carried by an agent; it
+is not itself one.
+
+#### Measured since the Era III agents discovery (at `dd20b62d`)
+
+| Fact | Then | Now |
+|---|---|---|
+| `AGENT_ORIGINABLE_ACTION_KINDS` | `["send"]` — two mandates could not differ | `["send", "record-work"]` — mandates **can** differ |
+| Departments | dead schema, zero writers | OSA-1…4 released |
+| Internal governed act | none | GIA-1 `record-work`; RUNG 1 / 1.5 / 2 production-accepted |
+| Second identity per tenant | refused `agent-identity-already-exists` | **still refused** |
+| Proposer / authorship with >1 agent | refused `ambiguous-durable-agent-identity` | **still refused** (both seams) |
+| Delegation authority | none | **still none** |
+| Permission / policy authority | UNAVAILABLE | **still UNAVAILABLE** |
+
+The blocker APF-0 found (identical ceilings) is measured removed; the **motive** — a real
+same-tenant need for a second agent — is not yet measured. APF stays **RECOMMENDED / DEFERRED (C)**.
+
+#### Capability and domain directions — classified, not declared as agents
+
+| Direction | Classification | Existing home | Shape |
+|---|---|---|---|
+| **Research** | PARTIALLY COVERED | backlog 01; Phase 17 (design) | capability — reads and answers, proposes nothing |
+| **Content** | PARTIALLY COVERED — largely delivered | CGO-1…9, CONTENT-COMPOSE-1, CONTENT-GROUND-1 (§20.3) | capability of an existing agent; a separate agent is REDUNDANT |
+| **Social** | PARTIALLY COVERED | Social Intelligence (§20.2) | intelligence surface; publishing is TOO EARLY |
+| **Growth** | PARTIALLY COVERED | TRH-20; Growth & Commerce Engine (future investigation) | capability within a department; TOO EARLY as an agent |
+| **SEO** | NEW EXTENSION (capability) · DEFER | no provider; seeded entry is fiction | provider read capability under the onboarding standard |
+| **Creative** | PARTIALLY COVERED — largely delivered | MEDIA-1…5 (§20.3) | capability; a separate agent is REDUNDANT |
+| **Analytics** | PARTIALLY COVERED | Social Intelligence, E2-7, agent evaluation | intelligence layer; a separate agent is REDUNDANT |
+| **Performance Marketing** | TOO EARLY / DEFER · as a budget-holding agent **ARCHITECTURALLY CONFLICTING** | Growth & Commerce Engine *Spend Authority* | see below |
+| **Email / CRM** | PARTIALLY COVERED (one governed send, TENANT-ARM-1) · CRM TOO EARLY / DEFER · bulk sending CONFLICTING until recipient-class authority and delivery truth exist | R3R, action-execution-live, GDR (deferred) | capability + future provider |
+| **Digital Product Factory** | PARTIALLY COVERED across registers · TOO EARLY / DEFER as a whole | Personal Enterprise Mode, Innovation Intelligence, Creator Business Engine, Growth & Commerce Engine | see below |
+| **Sales** | ALREADY PLANNED (architecture, Phase 18) · runtime TOO EARLY / DEFER | Sales Intelligence | department + capabilities |
+| **Customer Success** | ALREADY PLANNED (architecture, Phase 18) · TOO EARLY / DEFER | Customer Success Intelligence | department + capabilities |
+| **Finance / Revenue Intelligence** | ALREADY PLANNED as composition · as an authority REDUNDANT / CONFLICTING | Finance Intelligence; Revenue Intelligence ownership decision | see below |
+| **Engineering / QA / DevOps / IT** | PARTIALLY COVERED (GitHub read seam) · execution TOO EARLY (behind permission authority) · a Security authority CONFLICTING | Phase 17; Platform & Technology Intelligence; Program V; Program VII | capability; see Security below |
+
+**Performance Marketing.** **No agent receives autonomous budget authority.** Connecting an
+advertising provider grants no ability to spend. Future paid-media execution requires a **separate,
+bounded spend-permit authority and design**, taken through its own discovery and Director gate.
+
+**Digital Product Factory.** A future **business-engine composition and admission candidate** under
+*Admitting a New Business Engine* in `future-architecture-backlog.md`. It is **NOT a new authority**
+and **NOT automatically a standalone agent**; Personal Enterprise Mode keeps product meaning.
+
+**Finance.** Finance and Revenue Intelligence are **intelligence and composition**. They **must not
+become ledger authority**, and the ledger does not adopt their estimates.
+
+**Security.** **Do not create a Security Agent or Security Sentinel authority.** §7 stands: Security
+is a cross-cutting constraint that owns no truth.
+
+**Autonomous evolution.** **Do not create another Observe → Learn runtime.** The chain already has
+owners: provider observation, derived intelligence, origination, proposal, human Governance
+decision, permit-bounded execution, outcome observation and the SIA pre-application loop. **Future
+autonomy extends the existing Hebun authority and runtime seams** — the RUNG ladder above — and never
+runs beside them. "Decide" stays human.
+
+#### Proposed sequencing — **NOT SELECTED**
+
+Recorded as navigation only. No step is selected, opened, numbered or authorized, and each requires
+its own Director decision taken from measured reality:
+
+```
+APF-0 re-gate
+→ explicit agent selection
+→ second durable identity ceremony
+→ same-tenant multi-agent acceptance
+→ department-scoped workforce
+→ additional intelligence capabilities
+→ separately governed publishing / spend / provider authorities
+→ Digital Product Factory admission
+→ eventual RUNG 3 prerequisites
+```
+
+#### What must not be added
+
+A seventh product line or eighth workspace · an Agent Registry or Agent Runtime Foundation as
+previously rejected · promotion of `features/agents/mock.ts` or the placeholder `agent-runtime`,
+`orchestration`, `agent-crud`, `task-planning` modules · an `agent_assignments` or recommendation
+authority · ephemeral sub-agents · model-based agent selection as authority · activation of dead
+schema (`tasks`, `workflows`, `goals`, `missions`, `permissions`, `agents.authority_ceiling`) merely
+because it exists.
+
+**This section takes no program decision and authorizes no implementation.**
