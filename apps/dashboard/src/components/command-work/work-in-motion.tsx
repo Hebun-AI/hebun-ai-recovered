@@ -1,9 +1,12 @@
+import { BriefcaseBusiness } from "lucide-react";
+
+import { CardHeading, HIDE_REGION_HEADING } from "@/components/command-overview/command-surface";
 import {
   CommandRegion,
   OperatingStatement,
   QuietLink,
-  ordinaryDate,
 } from "@/components/command-overview/region";
+import { cn } from "@/lib/utils";
 import { type WorkInMotionState } from "@/features/command-overview/workspace-model";
 
 /**
@@ -35,21 +38,25 @@ export function WorkInMotion({
   state: WorkInMotionState;
   className?: string;
 }) {
+  const count = state.status === "recorded" ? `${state.inServiceShown}${state.truncated ? "+" : ""}` : null;
   return (
     <CommandRegion
       id="work-in-motion"
-      title="Active Work"
+      title="Work in motion"
       question="What work has this organization recorded, and what state did a human declare it in?"
       provenance="authoritative"
       provenanceDetail="the organizational work register, scoped to this tenant"
-      weight="card"
-      className={className}
-      eyebrow={
-        state.status === "recorded"
-          ? `${state.inServiceShown}${state.truncated ? "+" : ""} in service`
-          : undefined
-      }
+      readState={state.status === "unavailable" ? "unavailable" : state.status === "empty" ? "empty" : "available"}
+      provenanceNonClaims="progress, execution, completion, or success"
+      weight="bare"
+      className={cn(className, HIDE_REGION_HEADING)}
     >
+      <CardHeading
+        icon={BriefcaseBusiness}
+        tone="work"
+        title={count !== null ? <><span className="tabular-nums">{count}</span> work in motion</> : "Work in motion"}
+        subtitle="in service, as your team declared it"
+      />
       {state.status === "unavailable" ? (
         <OperatingStatement
           tone="unavailable"
@@ -65,46 +72,35 @@ export function WorkInMotion({
           detail="Record work in Operations to see it here."
         />
       ) : (
-        <div className="flex min-w-0 flex-col gap-3">
-          <ul className="flex min-w-0 flex-col divide-y divide-border">
-            {state.items.map((item) => (
-              <li key={item.workItemId} className="flex min-w-0 items-start justify-between gap-3 py-2.5 first:pt-0">
-                <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <span className="min-w-0 text-meta font-semibold text-fg">{item.title}</span>
-                  {item.departmentName ? (
-                    <span className="text-label text-fg-secondary">{item.departmentName}</span>
-                  ) : null}
-                </div>
+        <ul className="flex min-w-0 flex-col divide-y divide-border">
+          {state.items.slice(0, 3).map((item) => (
+            <li key={item.workItemId} className="flex min-w-0 items-center justify-between gap-3 py-2.5 first:pt-0">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-meta font-semibold text-fg">{item.title}</p>
                 {/*
                   "Declared" is not decoration and never moves to a tooltip. A bare state word here
                   would read as something Hebun measured, which is exactly the claim WORK-1 refuses
                   to let any surface make on its behalf.
                 */}
-                <p className="mt-0.5 text-label leading-4 text-fg-secondary">
-                  Declared <span className="font-medium text-fg">{item.declaredState}</span> by a human
+                <p className="truncate text-label text-fg-muted">
+                  Declared by a human{item.departmentName ? ` · ${item.departmentName}` : ""}
                 </p>
-                </div>
-                <span className="shrink-0 text-label text-fg-muted">{ordinaryDate(item.recordedAt)}</span>
-              </li>
-            ))}
-          </ul>
-          {state.inServiceShown > state.items.length ? (
-            <p className="text-meta text-fg-muted">
-              {state.items.length} of {state.inServiceShown}
-              {state.truncated ? " or more" : ""} shown
-            </p>
-          ) : null}
-          {state.retiredShown > 0 ? (
-            <p className="text-meta text-fg-muted">
-              {state.retiredShown} retired {state.retiredShown === 1 ? "item" : "items"} kept in the
-              register
-            </p>
-          ) : null}
-        </div>
+              </div>
+              <span className="shrink-0 rounded-full bg-primary-subtle px-2.5 py-1 text-label font-semibold capitalize text-primary">{item.declaredState}</span>
+            </li>
+          ))}
+        </ul>
       )}
 
-      <QuietLink href="/operations">Open Operations</QuietLink>
+      <div className="mt-auto flex min-w-0 items-center justify-between gap-3">
+        <span className="min-w-0 truncate text-label text-fg-muted">
+          {state.status === "recorded" && state.inServiceShown > Math.min(3, state.items.length)
+            ? `+${state.inServiceShown - Math.min(3, state.items.length)}${state.truncated ? " or more" : ""} more · progress lives in Operations`
+            : "Progress lives in Operations"}
+          {state.status === "recorded" && state.retiredShown > 0 ? ` · ${state.retiredShown} retired kept` : ""}
+        </span>
+        <QuietLink href="/operations">Open Operations</QuietLink>
+      </div>
     </CommandRegion>
   );
 }

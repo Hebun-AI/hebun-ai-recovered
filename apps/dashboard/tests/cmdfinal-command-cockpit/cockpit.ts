@@ -247,10 +247,9 @@ function theExecutiveHierarchyAdaptsToTruth(): void {
   const intent = sectionOf(emptyMarkup, "intent");
   const source = read(OVERVIEW);
   assert.ok(/data-command-v3/.test(source), "the V3 composition is explicitly scoped");
-  assert.ok(/xl:col-span-5/.test(source) && /xl:col-span-7/.test(source),
-    "the priority row gives Active Work the larger ledger");
-  assert.ok(/xl:col-span-5/.test(source) && /xl:col-span-4/.test(source) && /xl:col-span-3/.test(source),
-    "the supporting row is a deliberate 5/4/3 hierarchy");
+  /* COMMAND-FINAL: the decision column is the widest track of the operating row. */
+  assert.ok(/xl:grid-cols-\[minmax\(0,0\.95fr\)_minmax\(0,1\.25fr\)_minmax\(0,1fr\)\]/.test(source),
+    "the operating row gives Decisions the widest track");
   assert.ok(!/cmd-hero/.test(source), "V3 does not restore the rejected dark hero");
   assert.ok(seen(intent).includes("Ask Hebun"), "the operating doorway stays in the shallow context");
   assert.notEqual(emptyMarkup, populatedMarkup, "truth state still changes the primary ask");

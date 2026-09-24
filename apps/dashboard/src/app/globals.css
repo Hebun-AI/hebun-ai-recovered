@@ -1934,9 +1934,7 @@
 }
 
 [data-command-v3] .cmd-hero-wash {
-  background:
-    linear-gradient(90deg, rgba(249, 251, 255, 0.76) 0%, rgba(249, 251, 255, 0.46) 29%, rgba(249, 251, 255, 0.02) 56%, rgba(249, 251, 255, 0.16) 76%, rgba(249, 251, 255, 0.58) 100%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(225, 234, 246, 0.18));
+  background: linear-gradient(90deg, rgba(236, 241, 248, 0.94) 0%, rgba(236, 241, 248, 0.7) 44%, rgba(236, 241, 248, 0.18) 100%);
 }
 
 [data-command-v3] .cmd-hero-layout {
@@ -2099,4 +2097,45 @@
   [data-command-v3] .cmd-priority-card.cmd-priority-empty { min-height: 150px; }
   [data-command-v3] .cmd-priority-card.cmd-priority-empty.cmd-executive-panel { min-height: 0; }
   [data-command-v3] .cmd-support-card { min-height: 224px; }
+}
+
+/* ── command-final: the accepted Command composition ─────────────────────── */
+
+[data-command-v3] .cmd-hero {
+  min-height: 11.75rem;
+  background: var(--cmd-context-ground);
+}
+
+[data-command-v3] .cmd-attention {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-warning) 32%, transparent), 0 8px 20px -10px color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
+[data-command-v3] .cmd-card-attention {
+  border-color: color-mix(in srgb, var(--color-warning) 38%, var(--color-border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-warning-subtle) 55%, var(--color-surface)) 0, var(--color-surface) 8rem);
+  box-shadow: 0 18px 40px -22px color-mix(in srgb, var(--color-warning) 55%, transparent);
+}
+
+[data-command-v3] .cmd-live-map-card {
+  border-color: transparent;
+  background:
+    linear-gradient(color-mix(in srgb, var(--cmd-map-line) 30%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--cmd-map-line) 30%, transparent) 1px, transparent 1px),
+    var(--cmd-map-ground);
+  background-size: 22px 22px, 22px 22px, auto;
+  color: var(--cmd-map-fg);
+}
+
+[data-command-v3] .cmd-ledger-card {
+  background:
+    repeating-linear-gradient(transparent 0 27px, color-mix(in srgb, var(--color-primary) 6%, transparent) 27px 28px),
+    color-mix(in srgb, var(--color-primary-subtle) 35%, var(--color-surface));
+}
+
+[data-command-v3] .cmd-bridge {
+  position: absolute;
+  top: 50%;
+  right: -1.3rem;
+  z-index: 2;
+  margin-top: -0.8rem;
 }

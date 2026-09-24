@@ -235,13 +235,14 @@ function readingOrderCannotVaryByWidth(overrides: Readonly<Record<string, string
    */
   const body = overview.slice(overview.indexOf("export function CommandOverview"));
   const order = [
-    ...body.matchAll(/<(ExecutiveContext|OperatingSignalStrip|NeedsYourDecision|WorkInMotion|CommandLiveMap|ConnectedSystems|RecordedActivity|CapabilityLimits)\b/g),
+    ...body.matchAll(/<(ExecutiveContext|PeopleAndHeby|NeedsYourDecision|WorkInMotion|CommandLiveMap|ConnectedSystems|RecordedActivity|CapabilityLimits)\b/g),
   ].map((m) => m[1]);
+  /* COMMAND-FINAL: the signal strip is retired; People + Heby opens the operating model. */
   assert.deepEqual(
     order,
     [
       "ExecutiveContext",
-      "OperatingSignalStrip",
+      "PeopleAndHeby",
       "NeedsYourDecision",
       "WorkInMotion",
       "CommandLiveMap",
@@ -311,15 +312,11 @@ function theSplitIsJustifiedByArithmetic(overrides: Readonly<Record<string, stri
   assert.ok(main, "the shell's main region declares its own padding");
   assert.ok(/\blg:px-8\b/.test(main![1]), "and the widest gutter step is lg:px-8");
   const overview = overrides[OVERVIEW] ?? read(OVERVIEW);
-  assert.equal((overview.match(/xl:grid-cols-12/g) ?? []).length, 2, "the two lower operating rows arm at xl");
-  assert.ok(!/lg:grid-cols-12/.test(overview), "1024 remains a one-column reading order");
-  assert.ok(/cmd-executive-triad grid/.test(overview), "the first operating row is the executive triad");
-  assert.ok(/<NeedsYourDecision[\s\S]*<HebyOperatingSurface[\s\S]*<GoalsOperatingSurface/.test(overview), "the triad reads Decisions, Heby, Goals");
-  for (const span of [7, 5, 4, 3]) assert.ok(new RegExp(`xl:col-span-${span}`).test(overview), `the lower grid includes a ${span}-column region`);
-  assert.ok(/xl:col-span-4"><WorkInMotion/.test(overview), "Active Work moves to the lower operating grid");
-
-  const globals = overrides[GLOBALS] ?? read(GLOBALS);
-  assert.match(globals, /\.cmd-executive-triad\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1\.16fr\)\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, "the desktop triad gives Decisions roughly 37% and Heby/Goals roughly 32% each");
+  /* COMMAND-FINAL: two three-track rows (operating model, then organization context) arm at xl. */
+  assert.equal((overview.match(/xl:grid-cols-\[/g) ?? []).length, 2, "the two operating rows arm at xl");
+  assert.ok(!/lg:grid-cols-/.test(overview), "1024 does not split into three tracks");
+  assert.ok(/<PeopleAndHeby[\s\S]*<NeedsYourDecision[\s\S]*<WorkInMotion/.test(overview), "the operating row reads People + Heby, Decisions, Work");
+  assert.ok(/<CommandLiveMap[\s\S]*<ConnectedSystems[\s\S]*<RecordedActivity/.test(overview), "the context row reads Live Map, Connections, Activity");
   const canvasAtXl = BREAKPOINTS.xl - (railW + secondaryOffset) - 64;
   assert.ok(canvasAtXl / 3 > 280, "each executive panel clears a readable desktop floor");
 }

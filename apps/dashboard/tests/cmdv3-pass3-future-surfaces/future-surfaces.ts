@@ -46,31 +46,26 @@ function futureDeclarationsCarryNoTenantFacts(): void {
   }
 }
 
+/*
+ * COMMAND-FINAL retired the three large not-connected blocks (Heby runtime, Goals, Capability
+ * Limits). Their truth did not go away: it moved into the quiet UNKNOWN line of the governed-activity
+ * region and into the Heby participant, and it is asserted there with the same refusals.
+ */
 function renderedStatesAreHonestAndDistinct(): void {
   const markup = renderCommand();
-  const limitsAt = markup.indexOf('id="not-connected"');
-  assert.ok(limitsAt >= 0, "the operating horizon remains the declared Capability Limits region");
-  const limits = markup.slice(limitsAt, markup.indexOf("</section>", limitsAt));
-  assert.match(limits, /data-provenance="not-connected"/);
+  const trustAt = markup.indexOf('id="not-connected"');
+  assert.ok(trustAt >= 0, "the truth basis keeps the declared Capability Limits region");
+  const limits = markup.slice(trustAt, markup.indexOf("</section>", trustAt));
   assert.match(limits, /data-read-state="not-connected"/);
   assert.ok(!/data-read-state="empty"/.test(limits), "not-connected is never encoded as a successful empty read");
+  const trust = visible(limits);
+  assert.match(trust, /Unknown\s*·\s*goals, execution outcomes/i, "goals and execution outcomes are stated as unknown in words");
+  assert.ok(!/goals[^,]*\b0\b|execution outcomes[^,]*\b0\b/i.test(trust), "unknown is never rendered as zero");
 
-  for (const surface of FUTURE_OPERATING_SURFACES.filter((candidate) => candidate.id !== "briefings")) {
-    const article = surfaceMarkup(markup, surface.id);
-    assert.match(article, /data-capability-state="not-connected"/);
-    assert.ok(visible(article).includes("Not connected"), `${surface.label} states the lifecycle condition in words`);
-    assert.ok(!/\b0\b|%/.test(visible(article)), `${surface.label} renders no fake zero or progress`);
-  }
-
-  const runtime = visible(surfaceMarkup(markup, "heby-runtime"));
-  assert.ok(!/Heby is (idle|live|working|analyzing|complete|ready)/i.test(runtime), "Heby Runtime claims no current activity");
-  assert.match(runtime, /will appear here when runtime telemetry is available/i, "runtime language is explicitly future-conditional");
-
-  assert.ok(!/data-future-surface="briefings"/.test(markup), "Briefings is not promoted to a fabricated first-viewport artifact surface");
-  assert.ok(visible(limits).includes("Executive briefings"), "the briefing capability boundary remains disclosed");
-  assert.ok(!/\.pdf\b|\d{4}-\d{2}-\d{2}/i.test(visible(limits)), "Briefings fabricates no artifact row or timestamp");
-
-  assert.ok(!/data-future-surface="recommendation"/.test(markup), "no recommendation surface is rendered");
+  const heby = visible(markup.slice(markup.indexOf('id="people-heby"'), markup.indexOf("</section>", markup.indexOf('id="people-heby"'))));
+  assert.match(heby, /Execution not observed here/, "Heby's execution is stated as unobserved");
+  assert.ok(!/Heby is (idle|live|working|analyzing|complete|ready)/i.test(heby), "Heby claims no current activity");
+  assert.ok(!/data-future-surface=/.test(markup), "no future surface is promoted to a fabricated card");
   assert.ok(!/Your next move|Hebun recommends|Do this next/i.test(visible(markup)), "no unsupported next-move claim appears");
 }
 

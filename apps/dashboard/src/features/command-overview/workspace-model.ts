@@ -472,16 +472,14 @@ export interface CommandRegionDeclaration {
  * arrive without stating what kind of claim it makes.
  */
 export const COMMAND_REGIONS: readonly CommandRegionDeclaration[] = Object.freeze([
-  Object.freeze({ id: "executive-context", label: "Organization context", provenance: "authoritative" as const, lane: "context" as const }),
+  Object.freeze({ id: "executive-context", label: "Organization context", provenance: null, lane: "context" as const }),
   Object.freeze({ id: "intent", label: "Ask Hebun", provenance: "configuration" as const, lane: "context" as const }),
-  Object.freeze({ id: "operating-signals", label: "Operating signals", provenance: "derived" as const, lane: "signals" as const }),
+  Object.freeze({ id: "people-heby", label: "People + Heby", provenance: "configuration" as const, lane: "priority" as const }),
   Object.freeze({ id: "waiting", label: "Needs your decision", provenance: "authoritative" as const, lane: "priority" as const }),
-  Object.freeze({ id: "heby-runtime", label: "Heby", provenance: "not-connected" as const, lane: "priority" as const }),
-  Object.freeze({ id: "goals", label: "Goals", provenance: "not-connected" as const, lane: "priority" as const }),
-  Object.freeze({ id: "work-in-motion", label: "Active Work", provenance: "authoritative" as const, lane: "priority" as const }),
+  Object.freeze({ id: "work-in-motion", label: "Work in motion", provenance: "authoritative" as const, lane: "priority" as const }),
   Object.freeze({ id: "live-map", label: "Live Map", provenance: "authoritative" as const, lane: "support" as const }),
-  Object.freeze({ id: "connected-systems", label: "Connected Systems", provenance: "authoritative" as const, lane: "support" as const }),
-  Object.freeze({ id: "recorded-activity", label: "Recorded Activity", provenance: "derived" as const, lane: "support" as const }),
+  Object.freeze({ id: "connected-systems", label: "Connected systems", provenance: "authoritative" as const, lane: "support" as const }),
+  Object.freeze({ id: "recorded-activity", label: "Governed activity", provenance: "derived" as const, lane: "support" as const }),
   Object.freeze({ id: "not-connected", label: "Capability Limits", provenance: "not-connected" as const, lane: "limits" as const }),
 ]);
 

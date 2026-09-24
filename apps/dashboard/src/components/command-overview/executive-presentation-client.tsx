@@ -53,26 +53,16 @@ export function ExecutivePresentation({ humanName, organizationName }: { readonl
           style={{ objectPosition: presentation.objectPosition }}
         />
       ) : null}
-      <div className="cmd-hero-wash absolute inset-0" style={{ opacity: presentation?.overlayStrength ?? 1 }} />
-      <div className="cmd-hero-layout absolute inset-0 z-10 grid min-w-0">
-        <div className="cmd-greeting flex min-w-0 flex-col justify-center px-5 sm:px-6">
-          <p className="cmd-context-eyebrow text-[0.625rem] font-semibold uppercase tracking-[0.18em] text-primary">Command Center</p>
-          <h1 className="cmd-greeting-title mt-1 min-w-0 font-bold leading-none tracking-tight text-fg text-balance">
-            {greeting}{firstName ? `, ${firstName}` : ""}
-          </h1>
-          <p className="mt-2 text-meta font-semibold text-fg">
-            Şirketini daha ileriye taşımak için her şey hazır.{organizationName ? <span className="font-medium text-fg-secondary"> · {organizationName}</span> : null}
-          </p>
-        </div>
-        {presentation?.quote ? (
-          <p className="cmd-hero-quote max-w-60 text-center text-meta font-semibold italic leading-5 text-fg">
-            “{presentation.quote}” <span className="block font-medium not-italic text-fg-secondary">— Hebun AI</span>
-          </p>
-        ) : null}
-        <div className="cmd-local-date text-right">
-          {date ? <p className="max-w-36 text-meta font-bold capitalize leading-5 text-fg">{date}</p> : <span className="block h-5 w-28" />}
-          <p className="mt-0.5 text-label font-semibold capitalize text-fg">{weekday ?? "Yerel saat"}</p>
-        </div>
+      <div className="cmd-hero-wash absolute inset-0" />
+      <div className="absolute left-6 right-6 top-5 z-10 min-w-0 sm:left-8 lg:right-[26rem]">
+        <p className="text-label font-bold uppercase tracking-[0.16em] text-primary">Command Center</p>
+        <h1 className="cmd-greeting-title mt-1 min-w-0 truncate font-bold leading-none tracking-tight text-fg">
+          {greeting}{firstName ? `, ${firstName}` : ""}
+        </h1>
+        <p className="mt-2 truncate text-meta text-fg-secondary">
+          {organizationName ? <span className="font-semibold text-fg">{organizationName}</span> : null}
+          {date ? <span>{organizationName ? " · " : ""}<span className="capitalize">{date}, {weekday}</span></span> : null}
+        </p>
       </div>
     </div>
   );

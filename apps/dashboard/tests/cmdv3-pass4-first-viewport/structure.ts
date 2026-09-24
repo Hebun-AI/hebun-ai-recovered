@@ -1,15 +1,16 @@
-/* CMD-V3 PASS 4 — first-viewport composition without invented operating truth. */
+/*
+ * COMMAND-FINAL — first-viewport composition without invented operating truth.
+ *
+ * The accepted design (command-final) replaced the CMD-V3 first viewport: the four-card KPI strip,
+ * the Heby-runtime and Goals blocks and the Capability Limits disclosure are gone, and the operating
+ * model reads People + Heby → Needs your decision → Work in motion. This file pins that structure and
+ * keeps every refusal the old one enforced.
+ */
 import assert from "node:assert/strict";
 import path from "node:path";
 import { readFileSync } from "node:fs";
 
 import { renderCommand } from "../helpers/command-composition";
-import { toExecutiveSummary } from "../../src/features/command-overview/workspace-model";
-import {
-  FIXTURE_CAPABILITY,
-  FIXTURE_SECURITY,
-  FIXTURE_WORK,
-} from "../helpers/command-composition";
 
 const ROOT = process.cwd();
 const read = (file: string): string => readFileSync(path.join(ROOT, file), "utf8");
@@ -23,65 +24,62 @@ function section(markup: string, id: string): string {
   return tail.slice(0, tail.indexOf("</section>") + "</section>".length);
 }
 
-function structureMatchesTheReference(): void {
+function structureMatchesTheAcceptedDesign(): void {
   const markup = renderCommand();
-  assert.equal((markup.match(/cmd-signal-card/g) ?? []).length, 4, "four distinct signal cards render");
-  assert.match(markup, /grid-cols-2 xl:grid-cols-4/, "signals remain a 2-by-2 grid below desktop");
-  assert.match(markup, /group inline-flex size-11/, "Ask Hebun keeps a 44px responsive target");
-  assert.match(markup, /cmd-hero-layout absolute inset-0 z-10 grid/, "hero information shares one deliberate layout grid");
+  assert.equal((markup.match(/cmd-signal-card/g) ?? []).length, 0, "the four-card KPI wall is retired");
+  assert.ok(!/data-future-surface=/.test(markup), "no large not-connected block occupies the first viewport");
+  assert.match(markup, /href="\/command\/intent"/, "Ask Hebun links to Director Intent");
 
-  const order = ["waiting", "heby-runtime", "goals", "work-in-motion", "live-map", "connected-systems"]
+  const order = ["executive-context", "intent", "people-heby", "waiting", "work-in-motion", "live-map", "connected-systems", "recorded-activity"]
     .map((id) => markup.indexOf(`id="${id}"`));
-  assert.ok(order.every((position) => position >= 0), "every primary and lower operating region exists");
-  assert.deepEqual([...order].sort((a, b) => a - b), order, "Decisions → Heby → Goals precede Active Work and the lower grid");
+  assert.ok(order.every((position) => position >= 0), "every operating region exists");
+  assert.deepEqual([...order].sort((a, b) => a - b), order, "People + Heby → Decisions → Work precede the lower row");
 
   const overview = read("src/components/command-overview/command-overview.tsx");
-  assert.match(overview, /cmd-executive-triad grid/);
-  assert.match(overview, /<NeedsYourDecision[\s\S]*<HebyOperatingSurface[\s\S]*<GoalsOperatingSurface/);
+  assert.match(overview, /<PeopleAndHeby[\s\S]*<NeedsYourDecision[\s\S]*<WorkInMotion/);
 
   const css = read("src/app/globals.css");
-  assert.match(css, /\.cmd-context\s*\{[\s\S]*?min-height:\s*144px/, "desktop hero is shallow");
-  assert.match(css, /\.cmd-signal-strip\s*\{[\s\S]*?gap:\s*0\.75rem/, "signal cards are separated by a 12px rhythm");
-  assert.match(css, /\.cmd-hero-layout\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*45fr\)\s*minmax\(0,\s*30fr\)\s*minmax\(13rem,\s*25fr\)/, "desktop hero uses the approved 45/30/25 alignment");
-  assert.match(css, /\.cmd-executive-panel\s*\{[\s\S]*?height:\s*272px/, "the three desktop panels share the final compact height");
-  assert.match(css, /grid-template-columns:\s*minmax\(0,\s*1\.16fr\)\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/, "the triad holds the reference-like 37/32/32 balance");
+  assert.match(css, /\.cmd-card-attention\s*\{/, "the decision card carries the contextual attention surface");
+  assert.match(css, /\.cmd-live-map-card\s*\{/, "the Live Map keeps its dark surface");
 }
 
-function emptyAndDisconnectedRemainDifferent(): void {
-  const summary = toExecutiveSummary({
-    waiting: { status: "none-waiting" },
-    work: FIXTURE_WORK,
-    capability: FIXTURE_CAPABILITY,
-    security: FIXTURE_SECURITY,
-  });
-  assert.equal(summary.find((card) => card.key === "attention")?.value, "0", "Decision zero is proven by its authority");
-  assert.equal(summary.find((card) => card.key === "work")?.value, "0", "Work zero is proven by its authority");
+function emptyUnavailableAndDisconnectedRemainDifferent(): void {
+  const empty = renderCommand({ waiting: { status: "none-waiting" } });
+  assert.match(visible(section(empty, "waiting")), /Nothing needs your decision/);
+  assert.match(visible(section(empty, "executive-context")), /Nothing is waiting on your decision/);
 
-  const markup = renderCommand();
-  const heby = visible(section(markup, "heby-runtime"));
-  const goals = visible(section(markup, "goals"));
-  assert.match(heby, /Runtime not connected/);
+  const unread = renderCommand({ waiting: { status: "unavailable", reason: "read-failed" } });
+  const unreadWaiting = visible(section(unread, "waiting"));
+  assert.match(unreadWaiting, /Decision queue unavailable/);
+  assert.ok(!/Nothing needs your decision|\b0 waiting\b/.test(unreadWaiting), "an unread queue is never shown as empty");
+  assert.match(visible(section(unread, "executive-context")), /could not be read/, "the hero says the queue was not read");
+  const basis = unread.slice(unread.indexOf("data-truth-basis"));
+  assert.ok(!/Read\s*·[^<]*decisions/.test(visible(basis.slice(0, basis.indexOf("</div>")))), "an unread source is never listed as read");
+
+  const heby = visible(section(renderCommand(), "people-heby"));
   assert.ok(!/Heby is (live|idle|working|analyzing)|\b\d+%\b/i.test(heby), "Heby claims no current runtime state or progress");
-  assert.match(goals, /Not connected/);
-  assert.ok(!/\b0\b|%|Reduce churn|SOC2 readiness|Launch enterprise tier/i.test(goals), "Goals shows neither numeric fallback nor seed data");
-  assert.ok(!/Your next move|Hebun recommends|Do this next/i.test(visible(markup)), "no unsupported recommendation is introduced");
+  assert.ok(!/Your next move|Hebun recommends|Do this next/i.test(visible(renderCommand())), "no unsupported recommendation is introduced");
 }
 
 function interactionAndTruthRemainSubordinate(): void {
   const markup = renderCommand();
-  assert.equal((markup.match(/<a [^>]*class="[^"]*\bbg-primary\b/g) ?? []).length, 1, "one primary action remains");
-  for (const id of ["waiting", "heby-runtime", "goals"]) {
+  const primaries = (m: string) => m.match(/<a [^>]*class="[^"]*\bbg-primary\b[^"]*"[^>]*>/g) ?? [];
+  const waitingPrimaries = primaries(renderCommand({ waiting: { status: "waiting", items: [], boundReached: false, awaitingCount: 1, oldestWaiting: null } }));
+  assert.equal(waitingPrimaries.length, 1, "one primary act when something waits");
+  assert.match(waitingPrimaries[0]!, /href="\/approvals"/, "and it leads to Decisions");
+  const quietPrimaries = primaries(renderCommand({ waiting: { status: "none-waiting" } }));
+  assert.equal(quietPrimaries.length, 1, "one primary act when nothing waits");
+  assert.match(quietPrimaries[0]!, /href="\/command\/intent"/, "and it is Ask Hebun");
+  for (const id of ["people-heby", "waiting", "work-in-motion", "live-map", "connected-systems", "recorded-activity"]) {
     assert.match(section(markup, id), /data-provenance=/, `${id} keeps its provenance affordance`);
   }
-  assert.match(markup, /popoverTarget="heby-operating-surface-provenance"/);
-  assert.match(markup, /popoverTarget="goals-operating-surface-provenance"/);
 }
 
 function main(): void {
-  structureMatchesTheReference();
-  emptyAndDisconnectedRemainDifferent();
+  structureMatchesTheAcceptedDesign();
+  emptyUnavailableAndDisconnectedRemainDifferent();
   interactionAndTruthRemainSubordinate();
-  console.log("CMD-V3 Pass 4: first viewport matches the reference structure without invented runtime or goal truth.");
+  console.log("COMMAND-FINAL: first viewport matches the accepted design without invented runtime or goal truth.");
 }
 
 main();
