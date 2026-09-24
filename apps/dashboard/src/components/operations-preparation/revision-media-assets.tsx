@@ -161,7 +161,13 @@ export function RevisionMediaAssets({
       <h4 className="text-xs font-medium text-fg-secondary">
         Generated images ({assets.length})
       </h4>
-      <ul className="min-w-0 space-y-3">
+      {/*
+        OPS-VIS-2. A GRID, not a stack. Each asset card is unchanged — same badges, same metadata,
+        same lazy verified preview, same review controls, same custody wording. Stacking them full
+        width made four images four screens; a grid makes them one, and changes nothing about what
+        any card claims.
+      */}
+      <ul className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {assets.map((asset) => (
           <li key={asset.assetId} className="min-w-0">
             <AssetCard
@@ -221,13 +227,13 @@ function AssetCard({
   }
 
   return (
-    <article className="min-w-0 space-y-3 rounded-lg border border-border-subtle bg-surface-2 p-4">
+    <article className="flex min-w-0 flex-col gap-2 rounded-lg border border-border-subtle bg-surface-2 p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={retired ? "neutral" : "success"}>{retired ? "Retired" : "Admitted"}</Badge>
         <Badge variant={badge.variant}>{badge.label}</Badge>
       </div>
 
-      <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+      <dl className="grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
         <div className="min-w-0">
           <dt className="text-xs text-fg-muted">Dimensions</dt>
           <dd className="text-fg-primary">
@@ -264,7 +270,7 @@ function AssetCard({
               alt={`Generated image for revision ${asset.sourceRevisionNo}`}
               width={preview.asset.width}
               height={preview.asset.height}
-              className="h-auto w-full max-w-sm rounded-lg border border-border-subtle"
+              className="h-auto w-full rounded-lg border border-border-subtle"
             />
             <figcaption className="text-xs text-fg-muted">
               Private link, expires shortly. Verified against the admitted digest before it was shown.

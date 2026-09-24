@@ -33,11 +33,34 @@ function availabilityIsHonest(): void {
     assert.ok(!/\d+\s*%/.test(area.detail), `${area.area} states no fabricated percentage`);
     assert.ok(!/\b\d+\s+(runs?|executions?|tasks?|workflows?|incidents?|agents?|events?)\b/i.test(area.detail), `${area.area} states no fabricated count`);
   }
-  // Execution is honestly not-connected; Computer Use honestly simulated.
   const byArea = (a: string) => model.availability.find((x) => x.area === a);
-  assert.equal(byArea("Execution records")?.status, "not-connected");
+  /*
+   * CORRECTED PIN. This asserted `not-connected` for "Execution records" — a claim that was true
+   * in Phase 22A and false from R3B onward, once a real executor, adapter and attempt ledger
+   * shipped. The pin was holding the surface to a world that no longer exists, so it moves with
+   * repository truth rather than outliving it.
+   */
+  assert.equal(byArea("Execution records")?.status, "connected");
+  /* Still honestly unavailable. These must NOT drift to connected without a released substrate. */
   assert.equal(byArea("Computer Use")?.status, "simulated");
   assert.equal(byArea("Device runtime")?.status, "not-connected");
+}
+
+/*
+ * Band 3 keeps its known gaps VISIBLE. Director's constraint, pinned: the seeded / simulated /
+ * not-connected rows are capability gaps, and deleting them to make the surface look healthier is
+ * the exact dishonesty this page exists to refuse.
+ */
+function knownGapsStayVisible(): void {
+  const model = getOperationsOverviewModel();
+  const statuses = new Set(model.availability.map((a) => a.status));
+  for (const required of ["seeded", "simulated", "not-connected", "in-memory"]) {
+    assert.ok(statuses.has(required as never), `Band 3 still names its ${required} subsystems`);
+  }
+  const byArea = (a: string) => model.availability.find((x) => x.area === a);
+  for (const area of ["Workflow runtime", "Orchestration", "Task dispatch", "Persistence"]) {
+    assert.ok(byArea(area), `${area} is still reported rather than quietly dropped`);
+  }
 }
 
 function executionBoundaryIsReal(): void {
@@ -83,6 +106,7 @@ function navAndRoutesIntact(): void {
 
 function main(): void {
   availabilityIsHonest();
+  knownGapsStayVisible();
   executionBoundaryIsReal();
   noFabricatedAggregateOrControls();
   pageIsMockFreeAndHonest();

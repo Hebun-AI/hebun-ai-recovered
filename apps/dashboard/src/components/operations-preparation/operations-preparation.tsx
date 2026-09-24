@@ -72,44 +72,123 @@ export async function OperationsPreparation() {
         })
       : ({ status: "unavailable" } as const);
 
+  /*
+   * OPS-VIS-1. The drafts a generation door and an asset listing may be offered for, computed ONCE
+   * and passed to both consumers. It is the same filter both call sites already applied
+   * independently; deriving it here removes the duplicate, not a check — the Media authority
+   * re-resolves every pair against the tenant regardless, and this list is a convenience rather
+   * than a permission.
+   */
+  const drafts =
+    artifacts.status === "read"
+      ? artifacts.artifacts
+          .filter((a) => a.artifactType === CONTENT_DRAFT_TYPE && a.lifecycleStatus === "draft")
+          .map((a) => ({ artifactId: a.id, title: a.title, currentRevision: a.currentRevision }))
+      : [];
+
+  /*
+   * OPS-VIS-1. The media listing is read HERE rather than inside the gallery, so the summary strip
+   * and the gallery are two renderings of ONE read. A second read for the tile would be a second
+   * count of the same rows, free to disagree with the first.
+   */
+  const mediaListing =
+    drafts.length > 0
+      ? await listArtifactMediaAssetsAction({ artifactIds: drafts.map((d) => d.artifactId) })
+      : ({ status: "read", assets: [] } as const);
+
+  const mediaReviewStates =
+    mediaListing.status === "read" && mediaListing.assets.length > 0
+      ? await readMediaAssetReviewStatesAction({
+          assetIds: mediaListing.assets.map((a) => a.assetId),
+        })
+      /*
+       * The reader's own empty answer. It is reached only when there is no asset to have a state
+       * for, so it never stands in for a read that failed.
+       */
+      : [];
+
   return (
-    <div className="mt-8 space-y-8">
-      <RecipientsSection active={active} retired={retired} />
-      <PreparedWorkSection listing={artifacts} workPurpose={workPurpose} reviewStates={reviewStates} />
+    /*
+     * OPS-VIS-3. `mt-8` is gone. The page header already carries `mb-8`, so the two stacked into a
+     * band of empty canvas between the title and the first operational fact — the most valuable
+     * vertical space on the page, spent on nothing.
+     */
+    <div className="flex min-w-0 flex-col gap-4">
       {/*
-        MEDIA-2B. The generation door is offered only for drafts the authority would actually
-        accept: a content draft that is still `draft`. The authority re-resolves the pair against
-        the tenant anyway — this list is a convenience, never the permission.
+        THE COUNTERS. Four of them, and they are COUNTERS — a number, what it counts, and the
+        authority that answered, in three lines of falling weight. They were feature-sized cards
+        with a sentence each; a counter that needs a sentence is not a counter.
+
+        Every value is a count of rows a released reader returned on THIS render. No health score,
+        no trend, no percentage, no campaign or idea count, and no second read. A reader that failed
+        contributes "unknown", never zero: an unreadable listing is not an empty organization.
       */}
+      <ul className="grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-4">
+        {[
+          {
+            label: "Prepared work",
+            value: artifacts.status === "read" ? `${artifacts.artifacts.length}` : "unknown",
+            note: "Work Artifact",
+          },
+          {
+            label: "Content drafts",
+            value: artifacts.status === "read" ? `${drafts.length}` : "unknown",
+            note: "open for revision",
+          },
+          {
+            label: "Images held",
+            value: mediaListing.status === "read" ? `${mediaListing.assets.length}` : "unknown",
+            note: "admitted, not sent out",
+          },
+          {
+            label: "Recipients",
+            value: active.unavailableReason ? "unknown" : `${active.recipients.length}`,
+            note: "active addresses",
+          },
+        ].map((tile) => (
+          <li
+            key={tile.label}
+            className="min-w-0 rounded-lg border border-border bg-surface px-3 py-2.5"
+          >
+            <p className="text-2xl font-semibold leading-8 tabular-nums text-fg">{tile.value}</p>
+            <p className="truncate text-xs font-medium leading-5 text-fg-secondary">{tile.label}</p>
+            <p className="truncate text-[0.65rem] leading-4 text-fg-muted">{tile.note}</p>
+          </li>
+        ))}
+      </ul>
+
+      {/*
+        The workspace, two columns on a desktop: the work a human is finishing leads, and the
+        addresses it could eventually be sent to sit beside it rather than above it.
+      */}
+      <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <PreparedWorkSection listing={artifacts} workPurpose={workPurpose} reviewStates={reviewStates} />
+        <RecipientsSection active={active} retired={retired} />
+      </div>
+
       {/*
         MEDIA-3, widened by MEDIA-4A. The images generated for each draft, shown beside the draft
         they belong to and GROUPED BY THE EXACT REVISION THEY WERE GENERATED FROM. The relationship
         is the invocation's own `(tenant, artifact, revision)` key, so this reads a relationship
         MEDIA-1 already owns and records nothing new.
-
-        One database read for every draft on the page, not one per draft and certainly not one per
-        revision. No store round-trip and no signed URL is created here. The review states are then
-        read for EVERY listed asset in one batched call rather than one per asset, and a preview
-        grant is minted only when a human opens one.
       */}
-      <MediaAssetsForDrafts
-        drafts={
-          artifacts.status === "read"
-            ? artifacts.artifacts
-                .filter((a) => a.artifactType === CONTENT_DRAFT_TYPE && a.lifecycleStatus === "draft")
-                .map((a) => ({ artifactId: a.id, title: a.title, currentRevision: a.currentRevision }))
-            : []
-        }
-      />
-      <GenerateImageWithHebun
-        targets={
-          artifacts.status === "read"
-            ? artifacts.artifacts
-                .filter((a) => a.artifactType === CONTENT_DRAFT_TYPE && a.lifecycleStatus === "draft")
-                .map((a) => ({ artifactId: a.id, title: a.title, currentRevision: a.currentRevision }))
-            : []
-        }
-      />
+      <MediaAssetsForDrafts drafts={drafts} listing={mediaListing} reviewStates={mediaReviewStates} />
+
+      {/*
+        MEDIA-2B. The generation door is offered only for drafts the authority would actually
+        accept: a content draft that is still `draft`. The authority re-resolves the pair against
+        the tenant anyway — this list is a convenience, never the permission.
+
+        It is a secondary operational action, so it rests closed rather than occupying the page.
+      */}
+      <details className="min-w-0 rounded-lg border border-border bg-surface">
+        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-fg-secondary">
+          + Generate an image with Hebun
+        </summary>
+        <div className="border-t border-border px-3 pb-3 pt-3">
+          <GenerateImageWithHebun targets={drafts} />
+        </div>
+      </details>
     </div>
   );
 }
@@ -137,27 +216,26 @@ export async function OperationsPreparation() {
  * released batched reader for their Governance state, and the released MEDIA-3 card for every
  * asset in every group — there is no second asset-review implementation.
  */
-async function MediaAssetsForDrafts({
+function MediaAssetsForDrafts({
   drafts,
+  listing,
+  reviewStates,
 }: {
   readonly drafts: readonly {
     readonly artifactId: string;
     readonly title: string;
     readonly currentRevision: number;
   }[];
+  /*
+   * OPS-VIS-1. Both reads are performed by the caller and handed down, so the summary tile and
+   * this gallery render ONE listing rather than two that may disagree. This component became a
+   * pure arrangement of already-read rows; it opens nothing.
+   */
+  readonly listing: Awaited<ReturnType<typeof listArtifactMediaAssetsAction>>;
+  readonly reviewStates: Awaited<ReturnType<typeof readMediaAssetReviewStatesAction>>;
 }) {
   if (drafts.length === 0) return null;
-
-  /* One read for every draft on the page, across every revision. Never one query per revision. */
-  const listing = await listArtifactMediaAssetsAction({
-    artifactIds: drafts.map((d) => d.artifactId),
-  });
   if (listing.status !== "read" || listing.assets.length === 0) return null;
-
-  /* One read for every asset on the page, not one per asset. */
-  const reviewStates = await readMediaAssetReviewStatesAction({
-    assetIds: listing.assets.map((a) => a.assetId),
-  });
 
   const byDraft = drafts
     .map((draft) => {
@@ -180,10 +258,19 @@ async function MediaAssetsForDrafts({
   if (byDraft.length === 0) return null;
 
   return (
-    <div className="min-w-0 space-y-6">
+    /*
+     * OPS-VIS-2. One card per draft, with the draft's name as its heading, so the media the
+     * workspace holds reads as a section of the workspace rather than as loose blocks under it.
+     * Nothing about the grouping changed: current revision first, earlier revisions apart and
+     * named, and no asset carried forward into a revision it did not come from.
+     */
+    <div className="min-w-0 space-y-4">
       {byDraft.map(({ draft, current, previous }) => (
-        <section key={draft.artifactId} className="min-w-0 space-y-3">
-          <h3 className="text-sm font-medium text-fg-primary">{draft.title}</h3>
+        <section
+          key={draft.artifactId}
+          className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-4"
+        >
+          <h3 className="text-sm font-semibold text-fg-primary">{draft.title}</h3>
 
           {/*
             CONTENT-COMPOSE-1. The package is composed for the CURRENT revision, because that is the
@@ -212,9 +299,16 @@ async function MediaAssetsForDrafts({
             )}
           </div>
 
+          {/*
+            OPS-VIS-2. Earlier revisions REST CLOSED. They are history, not the work being
+            finished, and a draft at revision 6 pushed five revisions of images between the current
+            one and everything below it. Every word of the historical wording is kept, inside.
+          */}
           {previous.length === 0 ? null : (
-            <div className="min-w-0 space-y-2">
-              <p className="text-xs font-medium text-fg-secondary">Previous revisions</p>
+            <details className="min-w-0 space-y-2 rounded-lg border border-border-subtle bg-surface-sunken p-3">
+              <summary className="cursor-pointer select-none text-xs font-medium text-fg-secondary">
+                Previous revisions ({previous.length})
+              </summary>
               {/*
                 Stated once, above the historical groups, so no asset card has to carry a disclaimer
                 and no reader can mistake an older image for this revision's. Each card still names
@@ -235,7 +329,7 @@ async function MediaAssetsForDrafts({
                   />
                 </div>
               ))}
-            </div>
+            </details>
           )}
         </section>
       ))}

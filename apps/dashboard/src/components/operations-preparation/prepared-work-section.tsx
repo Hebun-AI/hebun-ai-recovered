@@ -181,10 +181,16 @@ function ArtifactRow({
   }
 
   return (
-    <li className="border-b border-border-subtle py-3 last:border-b-0">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          <p className="text-sm text-fg-primary">{artifact.title}</p>
+    /*
+     * OPS-VIS-3. AN OPERATIONAL ROW, not a document block. Every fact the row carried is still
+     * carried, and each is still worded "revision N" so it cannot be read as a property of the
+     * artifact — what changed is that the five stacked paragraphs became a title line, one wrapped
+     * meta line, and a disclosure for the two facts a reader consults rather than scans.
+     */
+    <li className="border-b border-border-subtle py-2 last:border-b-0">
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-0.5">
+          <p className="truncate text-sm font-medium text-fg-primary">{artifact.title}</p>
           <p className="text-xs text-fg-secondary">
             {artifact.artifactType} · revision {artifact.currentRevision}
             {/*
@@ -204,7 +210,7 @@ function ArtifactRow({
             * same reason. REV-1's vocabulary resolves it; an unrecognised actor type says it is
             * unknown rather than defaulting to a person.
             */}
-          <p className="text-xs text-fg-muted">
+          <p className="text-[0.7rem] leading-4 text-fg-muted">
             revision {artifact.currentRevision}:{" "}
             {workArtifactAuthorLabel(artifact.currentRevisionAuthoredByActorType)}
           </p>
@@ -212,12 +218,25 @@ function ArtifactRow({
             * CGO-8. Its own line, worded "revision N" like the author line above, so it cannot be
             * read as a property of the artifact or of any other revision.
             */}
-          <p className="text-xs text-fg-muted" data-review-status={rowStatus}>
+          <p className="text-[0.7rem] leading-4 text-fg-muted" data-review-status={rowStatus}>
             Governance review of revision {artifact.currentRevision}:{" "}
-            <span className="text-fg-secondary">{ARTIFACT_ROW_REVIEW_LABELS[rowStatus]}</span>
+            <span className="font-medium text-fg-secondary">{ARTIFACT_ROW_REVIEW_LABELS[rowStatus]}</span>
           </p>
-          <DeclaredWorkPurpose items={workPurpose} />
-          <ReferenceChip reference={artifact.currentRef} />
+          {/*
+            The declared work purpose and the canonical reference are CONSULTED, not scanned: one
+            answers "what recorded work is this evidence for", the other is copied into `/send`.
+            Both stay one click away and neither lost a word — including the sentence that says an
+            unreadable relationship is unknown rather than "serves no work".
+          */}
+          <details className="min-w-0 pt-0.5">
+            <summary className="cursor-pointer select-none text-[0.7rem] text-fg-muted">
+              Reference and declared purpose
+            </summary>
+            <div className="space-y-1 pt-1">
+              <DeclaredWorkPurpose items={workPurpose} />
+              <ReferenceChip reference={artifact.currentRef} />
+            </div>
+          </details>
         </div>
         <div className="flex shrink-0 gap-2 self-start">
           <button
@@ -267,6 +286,20 @@ function ArtifactRow({
         </div>
       </div>
 
+      {/*
+        OPS-VIS-2. The two revision controls REST CLOSED.
+        Every non-retired row rendered both of them open, so a listing of five drafts was five
+        textareas, two buttons each, before a single word of the work could be read. Collapsing
+        them changes neither control: the manual form is the same form, with the same marker, the
+        same labels, the same single action and the same disclaimer, and the Hebun control is
+        untouched inside its own file. What changed is that a human now opens the one they mean —
+        which is the same defect OPS-UI-CLARITY closed, one level further out.
+      */}
+      {retired ? null : (
+        <details className="mt-3 min-w-0">
+          <summary className="cursor-pointer select-none text-xs font-medium text-fg-secondary">
+            Revise this draft
+          </summary>
       {retired ? null : (
         <form
           data-manual-revision="section"
@@ -338,6 +371,8 @@ function ArtifactRow({
           onPrepared={rereadReview}
         />
       ) : null}
+        </details>
+      )}
 
       {message ? <p className="mt-2 text-xs text-fg-secondary">{message}</p> : null}
 
@@ -415,18 +450,106 @@ export function PreparedWorkSection({
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  /* Rendered ONLY when the listing was actually read. An unreadable listing has no count. */
+  const preparedCount = listing.status === "unavailable" ? null : listing.artifacts.length;
+
   return (
-    <section className="rounded-lg border border-border-subtle bg-surface-1 p-5">
-      <header className="mb-1">
-        <h2 className="text-sm font-semibold text-fg-primary">Prepared work</h2>
-        <p className="mt-1 text-xs text-fg-secondary">
-          What exact draft could eventually be proposed. Writing a draft here proposes nothing and
-          sends nothing.
-        </p>
+    /*
+     * OPS-VIS-3. The primary workspace, read in the order a workspace is read: what is in flight,
+     * then the control that adds to it. The sentence describing what writing a draft does NOT do
+     * moved inside the authoring form — it is a statement about an act, and it belongs where the
+     * act happens rather than in the panel's resting state. It is unchanged, and so is every
+     * non-claim rendered around the listing below.
+     */
+    <section className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-surface p-3">
+      <header className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <h2 className="text-sm font-semibold text-fg-primary">Work in flight</h2>
+        <span className="text-xs tabular-nums text-fg-muted">
+          {preparedCount === null ? "count unknown" : `${preparedCount} prepared`}
+        </span>
       </header>
 
+
+      {/*
+        The list leads. Height-capped and scrolling inside its own card, so a long backlog does not
+        push the act boundary below the first screen.
+      */}
+      <div className="min-w-0 max-h-[32rem] overflow-y-auto">
+        {listing.status === "unavailable" ? (
+          /* UNAVAILABLE IS NOT EMPTY. */
+          <p className="text-xs text-warning">
+            Your prepared work could not be read ({listing.reason}), so this list is unknown rather
+            than empty.
+          </p>
+        ) : listing.artifacts.length === 0 ? (
+          /*
+             A DELIBERATE empty state, and a TRUE one: the listing resolved and holds nothing. It
+             says which of the two it is, because "nothing here" and "we could not look" are the
+             two facts this panel must never blur.
+          */
+          <div className="flex min-w-0 flex-col items-start gap-1 rounded-lg border border-dashed border-border-subtle px-3 py-6">
+            <p className="text-sm font-medium text-fg-secondary">Nothing is in flight.</p>
+            <p className="text-xs text-fg-muted">
+              No prepared work yet. The list was read successfully — this is the real state.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/*
+              * REV-2. Said ONCE, above the list, and adjacent to the labels it bounds. A listing row
+              * stands for an artifact that may have several revisions by different authors, so the
+              * reader is told the label is about the current revision before reading any of them.
+              */}
+            <p className="mb-2 text-xs text-fg-muted">{WORK_ARTIFACT_LIST_AUTHORSHIP_NON_CLAIM}</p>
+            {/*
+              * REV-3. Said once, above the rows, adjacent to the relationships it bounds — the same
+              * placement REV-2 used, and for the same reason: a reader must know what a declaration
+              * is not before reading one.
+              */}
+            <ul className="mb-2">
+              {ARTIFACT_WORK_PURPOSE_NON_CLAIMS.map((claim) => (
+                <li key={claim} className="text-xs text-fg-muted">
+                  {claim}
+                </li>
+              ))}
+            </ul>
+            <ul>
+              {listing.artifacts.map((artifact) => (
+                <ArtifactRow
+                key={artifact.currentRef}
+                artifact={artifact}
+                /*
+                 * REV-3. `undefined` ONLY when the relationship could not be read. When it WAS
+                 * read, an artifact nobody declared gets an empty list — a real answer — so a read
+                 * failure can never be rendered as "serves no work".
+                 */
+                workPurpose={
+                  workPurpose.status === "available"
+                    ? (workPurpose.byArtifactId[artifact.id] ?? [])
+                    : undefined
+                }
+                initialReview={reviewStates}
+              />
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+      {/*
+        Authoring is SECONDARY: a native <details>, collapsed by default, needing no new
+        interaction framework and working before hydration.
+      */}
+      <details className="min-w-0 rounded-lg border border-border-subtle bg-surface-sunken">
+        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-fg-secondary">
+          + Write a new draft
+        </summary>
+        <div className="border-t border-border-subtle px-3 pb-3 pt-3">
+      <p className="mb-2 text-xs leading-5 text-fg-secondary">
+        What exact draft could eventually be proposed. Writing a draft here proposes nothing and
+        sends nothing.
+      </p>
       <form
-        className="mt-4 space-y-2"
+        className="space-y-2"
         onSubmit={(event) => {
           event.preventDefault();
           startTransition(async () => {
@@ -537,60 +660,8 @@ export function PreparedWorkSection({
       {message ? <p className="mt-2 text-xs text-fg-secondary">{message}</p> : null}
 
       <PrepareDraftWithHebun />
-
-      <div className="mt-5">
-        {listing.status === "unavailable" ? (
-          /* UNAVAILABLE IS NOT EMPTY. */
-          <p className="text-xs text-warning">
-            Your prepared work could not be read ({listing.reason}), so this list is unknown rather
-            than empty.
-          </p>
-        ) : listing.artifacts.length === 0 ? (
-          <p className="text-xs text-fg-muted">
-            No prepared work yet. The list was read successfully — this is the real state.
-          </p>
-        ) : (
-          <>
-            {/*
-              * REV-2. Said ONCE, above the list, and adjacent to the labels it bounds. A listing row
-              * stands for an artifact that may have several revisions by different authors, so the
-              * reader is told the label is about the current revision before reading any of them.
-              */}
-            <p className="mb-2 text-xs text-fg-muted">{WORK_ARTIFACT_LIST_AUTHORSHIP_NON_CLAIM}</p>
-            {/*
-              * REV-3. Said once, above the rows, adjacent to the relationships it bounds — the same
-              * placement REV-2 used, and for the same reason: a reader must know what a declaration
-              * is not before reading one.
-              */}
-            <ul className="mb-2">
-              {ARTIFACT_WORK_PURPOSE_NON_CLAIMS.map((claim) => (
-                <li key={claim} className="text-xs text-fg-muted">
-                  {claim}
-                </li>
-              ))}
-            </ul>
-            <ul>
-              {listing.artifacts.map((artifact) => (
-                <ArtifactRow
-                key={artifact.currentRef}
-                artifact={artifact}
-                /*
-                 * REV-3. `undefined` ONLY when the relationship could not be read. When it WAS
-                 * read, an artifact nobody declared gets an empty list — a real answer — so a read
-                 * failure can never be rendered as "serves no work".
-                 */
-                workPurpose={
-                  workPurpose.status === "available"
-                    ? (workPurpose.byArtifactId[artifact.id] ?? [])
-                    : undefined
-                }
-                initialReview={reviewStates}
-              />
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
+        </div>
+      </details>
     </section>
   );
 }

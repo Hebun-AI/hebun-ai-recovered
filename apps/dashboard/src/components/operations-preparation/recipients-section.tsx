@@ -63,10 +63,10 @@ function RecipientRow({ recipient, retirable }: { recipient: RecipientView; reti
   const [pending, startTransition] = useTransition();
 
   return (
-    <li className="flex flex-col gap-2 border-b border-border-subtle py-3 last:border-b-0 sm:flex-row sm:items-start sm:justify-between">
-      <div className="min-w-0 space-y-1">
-        <p className="text-sm text-fg-primary">{recipient.displayName}</p>
-        <p className="text-xs text-fg-secondary">
+    <li className="flex flex-col gap-1.5 border-b border-border-subtle py-2 last:border-b-0 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0 space-y-0.5">
+        <p className="truncate text-sm font-medium text-fg-primary">{recipient.displayName}</p>
+        <p className="truncate text-xs text-fg-secondary">
           {recipient.endpointKind}: {recipient.endpointValue}
         </p>
         {/* Retired recipients are readable and NOT proposable, so no reference is offered. */}
@@ -111,18 +111,84 @@ export function RecipientsSection({
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const activeCount = active.unavailableReason ? null : active.recipients.length;
+
   return (
-    <section className="rounded-lg border border-border-subtle bg-surface-1 p-5">
-      <header className="mb-1">
+    /*
+     * OPS-VIS-3. A PANEL, not a document. The header states the count, the list states who is
+     * recorded, and the creation control sits at the bottom where a human reaches for it — the
+     * order a small operational panel is read in.
+     *
+     * The explanation of what recording does NOT do moved INSIDE the creation form. It is a
+     * statement about an act, and it now sits where the act is performed rather than occupying the
+     * panel's resting state. Nothing was deleted: the sentence is unchanged, and so is the rule
+     * that an address is never edited.
+     */
+    <section className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-surface p-3">
+      <header className="flex flex-wrap items-baseline justify-between gap-x-3">
         <h2 className="text-sm font-semibold text-fg-primary">Recipients</h2>
-        <p className="mt-1 text-xs text-fg-secondary">
-          Who a prepared communication could eventually go to. Recording an address here proposes
-          nothing, approves nothing and sends nothing.
-        </p>
+        {/* A count is rendered ONLY when the listing was actually read. Unknown stays unknown. */}
+        <span className="text-xs tabular-nums text-fg-muted">
+          {activeCount === null ? "count unknown" : `${activeCount} active`}
+        </span>
       </header>
 
+
+      {/*
+        The list leads. It is height-capped and scrolls INSIDE its own card rather than pushing the
+        act boundary below it off the first screen — a long recipient list is not a reason for the
+        page's execution question to become unreachable.
+      */}
+      <div className="min-w-0 max-h-64 overflow-y-auto">
+        {active.unavailableReason ? (
+          /* UNAVAILABLE IS NOT EMPTY. A failed read must never render as "you have no recipients". */
+          <p className="text-xs text-warning">
+            Your recipients could not be read ({active.unavailableReason}), so this list is unknown
+            rather than empty.
+          </p>
+        ) : active.recipients.length === 0 ? (
+          <div className="flex min-w-0 flex-col items-start gap-1 rounded-lg border border-dashed border-border-subtle px-3 py-5">
+            <p className="text-sm font-medium text-fg-secondary">No addresses recorded.</p>
+            <p className="text-xs text-fg-muted">
+              No recipients recorded yet. The list was read successfully — this is the real state.
+            </p>
+          </div>
+        ) : (
+          <ul>
+            {active.recipients.map((recipient) => (
+              <RecipientRow key={recipient.recordRef} recipient={recipient} retirable />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {!retired.unavailableReason && retired.recipients.length > 0 ? (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-xs text-fg-muted">
+            Retired ({retired.recipients.length}) — readable, and not proposable
+          </summary>
+          <ul className="mt-2">
+            {retired.recipients.map((recipient) => (
+              <RecipientRow key={recipient.recordRef} recipient={recipient} retirable={false} />
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      {/*
+        The creation form is SECONDARY and collapsed by default. It is a native <details>, so it
+        needs no new interaction framework and works before hydration.
+      */}
+      <details className="min-w-0 rounded-lg border border-border-subtle bg-surface-sunken">
+        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-fg-secondary">
+          + Record recipient
+        </summary>
+        <div className="border-t border-border-subtle px-3 pb-3 pt-3">
+      <p className="mb-2 text-xs leading-5 text-fg-secondary">
+        Who a prepared communication could eventually go to. Recording an address here proposes
+        nothing, approves nothing and sends nothing.
+      </p>
       <form
-        className="mt-4 flex flex-col gap-2 sm:flex-row"
+        className="flex flex-col gap-2 sm:flex-row"
         onSubmit={(event) => {
           event.preventDefault();
           startTransition(async () => {
@@ -181,39 +247,8 @@ export function RecipientsSection({
         </ul>
       ) : null}
       {message ? <p className="mt-2 text-xs text-fg-secondary">{message}</p> : null}
-
-      <div className="mt-5">
-        {active.unavailableReason ? (
-          /* UNAVAILABLE IS NOT EMPTY. A failed read must never render as "you have no recipients". */
-          <p className="text-xs text-warning">
-            Your recipients could not be read ({active.unavailableReason}), so this list is unknown
-            rather than empty.
-          </p>
-        ) : active.recipients.length === 0 ? (
-          <p className="text-xs text-fg-muted">
-            No recipients recorded yet. The list was read successfully — this is the real state.
-          </p>
-        ) : (
-          <ul>
-            {active.recipients.map((recipient) => (
-              <RecipientRow key={recipient.recordRef} recipient={recipient} retirable />
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {!retired.unavailableReason && retired.recipients.length > 0 ? (
-        <details className="mt-4">
-          <summary className="cursor-pointer text-xs text-fg-muted">
-            Retired ({retired.recipients.length}) — readable, and not proposable
-          </summary>
-          <ul className="mt-2">
-            {retired.recipients.map((recipient) => (
-              <RecipientRow key={recipient.recordRef} recipient={recipient} retirable={false} />
-            ))}
-          </ul>
-        </details>
-      ) : null}
+        </div>
+      </details>
     </section>
   );
 }

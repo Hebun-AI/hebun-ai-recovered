@@ -29,13 +29,42 @@ const AVAILABILITY: readonly OperationalAreaView[] = [
     detail:
       "The runtime observability layer is connected and instruments the runtime's own operation (projection refreshes, startup). Signals are recorded; a signal feed is not surfaced here.",
   },
+  /*
+   * CORRECTED. This row read `not-connected` — "there is no execution dispatcher, so no execution
+   * record exists" — which was true when it was written and stopped being true at R3B. A real
+   * executor, a real adapter and a durable `action_execution_attempts` ledger all exist, and the
+   * act boundary above counts their rows. A surface whose purpose is honesty cannot keep reporting
+   * a world two releases old.
+   *
+   * `connected` here means the substrate exists, NOT that anything has run and NOT that this
+   * organization may send. Both of those are the act boundary's questions, and it answers them
+   * from the arming projection rather than from this literal.
+   */
   {
     area: "Execution records",
-    question: "Is anything running?",
-    status: "not-connected",
+    question: "Can Hebun execute, and is it recorded?",
+    status: "connected",
     detail:
-      "No live execution substrate is connected. There is no execution dispatcher, so no execution record exists.",
+      "A real execution path exists: one registered adapter, a durable attempt ledger, and a two-half arming authority (deployment + organization). The ledger may hold nothing; whether this organization may send is answered by the act boundary, not here.",
     href: "/director/execution-center",
+  },
+  /*
+   * ADDED. Each of these is backed by a released schema and a released reader, named in the
+   * detail so the claim is checkable rather than asserted.
+   */
+  {
+    area: "Provider observation",
+    question: "Can Hebun observe an external account?",
+    status: "connected",
+    detail:
+      "Provider observations are recorded durably against a standing authorization, per capability and per subject. Real observations exist; the cadence is a human decision, not a scheduler.",
+  },
+  {
+    area: "Media custody",
+    question: "Can Hebun hold an image it made?",
+    status: "connected",
+    detail:
+      "Admitted images are durable assets with provenance, review state and retirement. Custody is real; publishing them anywhere is not, and no publishing path exists.",
   },
   {
     area: "Workflow runtime",
