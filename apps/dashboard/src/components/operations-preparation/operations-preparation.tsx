@@ -38,6 +38,7 @@ import {
 import { RecipientsSection } from "./recipients-section";
 import { PreparedWorkSection } from "./prepared-work-section";
 import { GenerateImageWithHebun } from "./generate-image-with-hebun";
+import { SupplyImageFromDrive } from "./supply-image-from-drive";
 import { RevisionMediaAssets } from "./revision-media-assets";
 import { ContentPackagePanel } from "./content-package-panel";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
@@ -187,6 +188,15 @@ export async function OperationsPreparation() {
         </summary>
         <div className="border-t border-border px-3 pb-3 pt-3">
           <GenerateImageWithHebun targets={drafts} />
+        </div>
+      </details>
+      {/* MEDIA-SUPPLIED — a photograph the organization already has, admitted from its own Drive. */}
+      <details className="min-w-0 rounded-lg border border-border bg-surface">
+        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-fg-secondary">
+          + Add an image from Google Drive
+        </summary>
+        <div className="border-t border-border px-3 pb-3 pt-3">
+          <SupplyImageFromDrive targets={drafts} />
         </div>
       </details>
     </div>

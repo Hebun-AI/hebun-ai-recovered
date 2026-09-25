@@ -36,7 +36,7 @@
  *
  * Server-only.
  */
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { contentSelectedMedia } from "@/db/schema/content-selected-media";
 import { mediaAssets } from "@/db/schema/media-asset";
@@ -95,12 +95,18 @@ async function resolveParents(
     db
       .select({ lifecycle: mediaAssets.assetLifecycleStatus })
       .from(mediaAssets)
-      /* PUBLISH-0: a derived (publish) asset is not creative work and cannot be selected. */
+      /*
+       * PUBLISH-0: a derived (publish) asset is not creative work and cannot be selected.
+       * MEDIA-SUPPLIED: the content package reads its images through the generation invocation, so a
+       * supplied image would be selected and then silently absent from the package. Until the package
+       * reads supplied provenance, only a generated asset is selectable — refused, never hidden.
+       */
       .where(
         and(
           eq(mediaAssets.tenantId, tenantId),
           eq(mediaAssets.id, input.mediaAssetId),
           isNull(mediaAssets.derivedFromAssetId),
+          isNotNull(mediaAssets.invocationId),
         ),
       )
       .limit(1),

@@ -51,6 +51,11 @@ import type {
   MediaAssetReviewState,
 } from "@/features/media-asset-review/contracts";
 import { requestMediaGeneration } from "@/features/media-assets/request-media-generation.server";
+import {
+  admitSuppliedDriveImage,
+  type AdmitSuppliedDriveImageResult,
+} from "@/features/media-assets/admit-supplied-drive-image.server";
+import { driveFileIdFrom } from "@/features/media-assets/drive-file-ref";
 import type {
   RequestMediaGenerationInput,
   RequestMediaGenerationResult,
@@ -403,6 +408,31 @@ export async function requestMediaGenerationAction(
 ): Promise<RequestMediaGenerationResult> {
   const tenant = await resolveTenantContext();
   const result = await requestMediaGeneration(tenant, input);
+  if (result.status === "admitted") revalidatePath("/operations");
+  return result;
+}
+
+/**
+ * MEDIA-SUPPLIED — admit ONE image a human chose from the organization's own Google Drive, for one
+ * exact content-draft revision.
+ *
+ * The tenant and the supplying human come from the trusted session, never from input. The caller
+ * names a Drive file (its id, or a Drive share link the id is taken from) and the revision; the Media
+ * authority does the rest — tenant-gated Drive read, verification from the bytes, write-once
+ * storage, re-verification, provenance row. Supplying is custody, not approval, and not publishing.
+ */
+export async function admitSuppliedDriveImageAction(input: {
+  artifactId: string;
+  revisionNo: number;
+  driveFile: string;
+}): Promise<AdmitSuppliedDriveImageResult> {
+  const tenant = await resolveTenantContext();
+  const driveFileId = driveFileIdFrom(typeof input?.driveFile === "string" ? input.driveFile : "");
+  const result = await admitSuppliedDriveImage(tenant, {
+    artifactId: input?.artifactId,
+    revisionNo: input?.revisionNo,
+    driveFileId: driveFileId ?? "",
+  });
   if (result.status === "admitted") revalidatePath("/operations");
   return result;
 }

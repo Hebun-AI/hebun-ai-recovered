@@ -33,7 +33,10 @@ import {
   GOOGLE_DRIVE_EXPORT_MIME,
   GOOGLE_DRIVE_READABLE_TYPES,
   MAX_DRIVE_CONTENT_BYTES,
+  GOOGLE_DRIVE_IMAGE_TYPES,
+  MAX_DRIVE_IMAGE_BYTES,
   type GoogleDriveContentResult,
+  type GoogleDriveImageResult,
   GOOGLE_REVOKE_ENDPOINT,
   GOOGLE_TOKEN_ENDPOINT,
   GOOGLE_USERINFO_ENDPOINT,
@@ -420,6 +423,110 @@ export async function listDriveFiles(
     listing: {
       files: Object.freeze(files),
       nextPageToken: typeof json.nextPageToken === "string" ? json.nextPageToken : null,
+    },
+  };
+}
+
+/**
+ * READ ONE SELECTED DRIVE IMAGE'S BYTES (MEDIA-SUPPLIED).
+ *
+ * The same two-step shape as the KID-1 content read below: metadata first, so an unsupported type,
+ * a trashed file or an over-large file is refused before any body moves; then ONE `alt=media`
+ * download of a real stored file. The caller chooses the file id and nothing else — no query, no
+ * MIME type, no size, no shared drive.
+ *
+ * It returns bytes and Drive's claims. It decides nothing about them.
+ */
+export async function readDriveFileImage(
+  token: string,
+  fileId: string,
+  deps: GoogleTransportDeps = {},
+): Promise<GoogleDriveImageResult> {
+  assertServerOnly();
+
+  if (typeof fileId !== "string" || fileId.trim().length === 0) {
+    return fail("malformed", "google-file-id-required");
+  }
+  const id = fileId.trim();
+  if (!/^[A-Za-z0-9_-]{1,256}$/.test(id)) return fail("malformed", "google-file-id-malformed");
+
+  const doFetch = deps.fetchImpl ?? fetch;
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const call = async (url: string, accept: string): Promise<Response | null> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await doFetch(url, {
+        method: "GET",
+        headers: { authorization: `Bearer ${token}`, accept },
+        signal: controller.signal,
+      });
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  /* ── 1 · WHAT IS IT? ── */
+  const metaUrl = new URL(`${GOOGLE_DRIVE_FILES_ENDPOINT}/${encodeURIComponent(id)}`);
+  metaUrl.searchParams.set("fields", "id,name,mimeType,size,trashed");
+  metaUrl.searchParams.set("supportsAllDrives", "false");
+  const metaResponse = await call(metaUrl.toString(), "application/json");
+  if (!metaResponse) return fail("transport", "google-unreachable");
+  let meta: Record<string, unknown>;
+  try {
+    meta = (await metaResponse.json()) as Record<string, unknown>;
+  } catch {
+    if (!metaResponse.ok) return classifyStatus(metaResponse.status, null);
+    return fail("malformed", "google-unparseable-response");
+  }
+  if (!metaResponse.ok) return classifyStatus(metaResponse.status, googleErrorCode(meta));
+
+  const name = typeof meta.name === "string" ? meta.name : "";
+  const providerMimeType = typeof meta.mimeType === "string" ? meta.mimeType : "";
+  if (!name || !providerMimeType) return fail("malformed", "google-response-missing-file-fields");
+  if (meta.trashed === true) return fail("malformed", "google-file-trashed");
+  if (!GOOGLE_DRIVE_IMAGE_TYPES.includes(providerMimeType)) {
+    return fail("malformed", "google-file-type-unsupported");
+  }
+  const declared = typeof meta.size === "string" ? Number(meta.size) : null;
+  if (declared !== null && Number.isFinite(declared) && declared > MAX_DRIVE_IMAGE_BYTES) {
+    return fail("malformed", "google-file-too-large");
+  }
+
+  /* ── 2 · DOWNLOAD the stored file. ── */
+  const contentUrl = new URL(`${GOOGLE_DRIVE_FILES_ENDPOINT}/${encodeURIComponent(id)}`);
+  contentUrl.searchParams.set("alt", "media");
+  contentUrl.searchParams.set("supportsAllDrives", "false");
+  const contentResponse = await call(contentUrl.toString(), providerMimeType);
+  if (!contentResponse) return fail("transport", "google-unreachable");
+  if (!contentResponse.ok) {
+    let errorJson: Record<string, unknown> = {};
+    try {
+      errorJson = (await contentResponse.json()) as Record<string, unknown>;
+    } catch {
+      return classifyStatus(contentResponse.status, null);
+    }
+    return classifyStatus(contentResponse.status, googleErrorCode(errorJson));
+  }
+  let buffer: ArrayBuffer;
+  try {
+    buffer = await contentResponse.arrayBuffer();
+  } catch {
+    return fail("transport", "google-content-unreadable");
+  }
+  if (buffer.byteLength === 0) return fail("malformed", "google-content-empty");
+  if (buffer.byteLength > MAX_DRIVE_IMAGE_BYTES) return fail("malformed", "google-file-too-large");
+
+  return {
+    ok: true,
+    image: {
+      fileId: id,
+      name,
+      providerMimeType,
+      bytes: new Uint8Array(buffer),
+      byteLength: buffer.byteLength,
     },
   };
 }

@@ -346,6 +346,41 @@ export const mediaAssets = pgTable(
     derivedFromAssetId: uuid("derived_from_asset_id"),
     derivation: text("derivation"),
 
+    /*
+     * ── MEDIA-SUPPLIED: IMAGES A HUMAN SUPPLIED, NOT IMAGES A MODEL MADE ────────
+     *
+     * A supplied asset is bytes a named human chose from the tenant's own Google Drive and asked
+     * Hebun to admit for ONE exact content-draft revision. It is the third origin, beside generated
+     * and derived, and like them it is a row of THIS authority — same verification, same storage
+     * port, same key shape, same lifecycle. It is not a second media system.
+     *
+     * WHY COLUMNS HERE AND NOT AN INVOCATION ROW. `media_generation_invocations` records a GENERATION:
+     * its agent, prompt, transport, provider and model are NOT NULL, and each would be a lie for a
+     * photograph a human supplied. PUBLISH-0 settled the precedent for derived assets: singular
+     * provenance of a non-generated asset is typed columns on the asset, CHECKed exclusive with the
+     * other origins. The asset row is written once and never transitions, so no attempt table is
+     * needed — a refused supply writes nothing.
+     *
+     *   supplied_by_actor_type / _id   the human, from the trusted session — CHECKed to `human`
+     *   supplied_source                closed: `google-drive`
+     *   supplied_source_file_id        Drive's opaque file id — an IDENTITY, never a URL
+     *   supplied_source_capability     the Drive content capability the read actually ran under
+     *   supplied_artifact_id / _rev    the exact draft revision it was supplied for, by composite FK
+     *
+     * A Drive file is NEVER media because it exists in Drive. Only the bytes Hebun read, verified,
+     * stored and re-verified become an asset, and the file id is kept as where they came from — not
+     * as a live pointer anything reads again.
+     *
+     * Supplying grants NOTHING. It is not a review, not an approval, not a permit.
+     */
+    suppliedByActorType: actorTypeEnum("supplied_by_actor_type"),
+    suppliedByActorId: uuid("supplied_by_actor_id"),
+    suppliedSource: text("supplied_source"),
+    suppliedSourceFileId: text("supplied_source_file_id"),
+    suppliedSourceCapability: text("supplied_source_capability"),
+    suppliedArtifactId: uuid("supplied_artifact_id"),
+    suppliedRevisionNo: integer("supplied_revision_no"),
+
     /** Detected from magic bytes by Hebun — never taken from the provider. */
     mimeType: text("mime_type").notNull(),
     byteSize: integer("byte_size").notNull(),
@@ -387,11 +422,69 @@ export const mediaAssets = pgTable(
     }).onDelete("restrict"),
     /* One derivative per source + derivation. NULLs are distinct, so generated rows are untouched. */
     uniqueIndex("media_assets_derivation_uq").on(t.derivedFromAssetId, t.derivation),
-    /* Generated XOR derived — exclusive and exhaustive. */
+    /*
+     * Generated XOR derived XOR supplied — exclusive and exhaustive. A supplied row carries ALL of its
+     * provenance or it is not representable; a generated or derived row carries none of it.
+     */
     check(
       "media_assets_origin_chk",
-      sql`(${t.invocationId} is not null and ${t.derivedFromAssetId} is null and ${t.derivation} is null)
-        or (${t.invocationId} is null and ${t.derivedFromAssetId} is not null and ${t.derivation} is not null)`,
+      sql`(${t.invocationId} is not null and ${t.derivedFromAssetId} is null and ${t.derivation} is null
+          and ${t.suppliedByActorType} is null and ${t.suppliedByActorId} is null and ${t.suppliedSource} is null
+          and ${t.suppliedSourceFileId} is null and ${t.suppliedSourceCapability} is null
+          and ${t.suppliedArtifactId} is null and ${t.suppliedRevisionNo} is null)
+        or (${t.invocationId} is null and ${t.derivedFromAssetId} is not null and ${t.derivation} is not null
+          and ${t.suppliedByActorType} is null and ${t.suppliedByActorId} is null and ${t.suppliedSource} is null
+          and ${t.suppliedSourceFileId} is null and ${t.suppliedSourceCapability} is null
+          and ${t.suppliedArtifactId} is null and ${t.suppliedRevisionNo} is null)
+        or (${t.invocationId} is null and ${t.derivedFromAssetId} is null and ${t.derivation} is null
+          and ${t.suppliedByActorType} is not null and ${t.suppliedByActorId} is not null and ${t.suppliedSource} is not null
+          and ${t.suppliedSourceFileId} is not null and ${t.suppliedSourceCapability} is not null
+          and ${t.suppliedArtifactId} is not null and ${t.suppliedRevisionNo} is not null)`,
+    ),
+
+    /* MEDIA-SUPPLIED — the draft revision is THIS tenant's, structurally. MATCH SIMPLE passes NULLs. */
+    foreignKey({
+      name: "media_assets_supplied_revision_fk",
+      columns: [t.tenantId, t.suppliedArtifactId, t.suppliedRevisionNo],
+      foreignColumns: [
+        workArtifactRevisions.tenantId,
+        workArtifactRevisions.artifactId,
+        workArtifactRevisions.revisionNo,
+      ],
+    }).onDelete("restrict"),
+    index("media_assets_supplied_source_idx").on(t.tenantId, t.suppliedArtifactId, t.suppliedRevisionNo),
+    /*
+     * Idempotent supply: the same bytes from the same Drive file for the same revision are ONE asset.
+     * NULLs are distinct, so generated and derived rows are untouched.
+     */
+    uniqueIndex("media_assets_supplied_uq").on(
+      t.tenantId,
+      t.suppliedArtifactId,
+      t.suppliedRevisionNo,
+      t.suppliedSource,
+      t.suppliedSourceFileId,
+      t.byteDigest,
+    ),
+    check(
+      "media_assets_supplied_human_chk",
+      sql`${t.suppliedByActorType} is null or ${t.suppliedByActorType} = 'human'`,
+    ),
+    check(
+      "media_assets_supplied_source_chk",
+      sql`${t.suppliedSource} is null or ${t.suppliedSource} in ('google-drive')`,
+    ),
+    check(
+      "media_assets_supplied_file_id_chk",
+      /* PostgreSQL caps a regex bound at 255, so the length is its own predicate. */
+      sql`${t.suppliedSourceFileId} is null or (${t.suppliedSourceFileId} ~ '^[A-Za-z0-9_-]+$' and char_length(${t.suppliedSourceFileId}) between 1 and 256)`,
+    ),
+    check(
+      "media_assets_supplied_capability_chk",
+      sql`${t.suppliedSourceCapability} is null or ${t.suppliedSourceCapability} in ('google.drive.content.read','google.drive.file.content.read')`,
+    ),
+    check(
+      "media_assets_supplied_revision_no_chk",
+      sql`${t.suppliedRevisionNo} is null or ${t.suppliedRevisionNo} >= 1`,
     ),
     check(
       "media_assets_derivation_chk",

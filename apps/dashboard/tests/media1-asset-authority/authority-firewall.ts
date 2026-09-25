@@ -52,11 +52,13 @@ const code = (f: string): string => stripComments(read(f));
   assert.deepEqual(
     inserters,
     [
+      /* MEDIA-SUPPLIED — a human-supplied Drive image, admitted inside this same authority. */
+      "src/features/media-assets/admit-supplied-drive-image.server.ts",
       /* PUBLISH-0 — the deterministic JPEG derivative writer, inside this same authority. */
       "src/features/media-assets/derive-publish-jpeg.server.ts",
       "src/features/media-assets/request-media-generation.server.ts",
     ],
-    "only admission and the publish-derivative writer insert an asset",
+    "only generated admission, supplied admission and the publish-derivative writer insert an asset",
   );
   const invocationWriters = SRC.filter((f) => /\.(insert|update)\(\s*mediaGenerationInvocations\s*\)/.test(code(f)));
   assert.deepEqual(invocationWriters, ["src/features/media-assets/request-media-generation.server.ts"]);
@@ -82,6 +84,8 @@ const code = (f: string): string => stripComments(read(f));
     /* MEDIA-2B: the human door — exactly one action and one surface (section 2b). */
     "src/app/(dashboard)/operations/actions.ts",
     "src/components/operations-preparation/generate-image-with-hebun.tsx",
+    /* MEDIA-SUPPLIED: the human door for a Drive photo — one component, calling the one action above. */
+    "src/components/operations-preparation/supply-image-from-drive.tsx",
     /* MEDIA-3: seeing and deciding — the asset surface and the composer that places it. */
     "src/components/operations-preparation/revision-media-assets.tsx",
     "src/components/operations-preparation/operations-preparation.tsx",
@@ -130,11 +134,14 @@ const code = (f: string): string => stripComments(read(f));
       "src/components/operations-preparation/generate-image-with-hebun.tsx",
       "src/components/operations-preparation/operations-preparation.tsx",
       "src/components/operations-preparation/revision-media-assets.tsx",
+      "src/components/operations-preparation/supply-image-from-drive.tsx",
     ],
     /* CONTENT-COMPOSE-1 added the package panel: it renders selected images and a readiness the
        reader already decided. It holds no authority and issues no generation — the set is still
-       enumerated exactly, so a sixth file cannot acquire a path without this failing. */
-    "exactly one action file and the MEDIA-3 + CONTENT-COMPOSE-1 surfaces may reach the Media Asset authority",
+       enumerated exactly, so a sixth file cannot acquire a path without this failing.
+       MEDIA-SUPPLIED added the Drive-photo door: it calls the one action file's supplied-admission
+       action and nothing else — still enumerated exactly, a seventh file still fails. */
+    "exactly one action file and the MEDIA-3 + CONTENT-COMPOSE-1 + MEDIA-SUPPLIED surfaces may reach the Media Asset authority",
   );
 
   /* The action is a pass-through: it calls the authority and holds none of its own. */

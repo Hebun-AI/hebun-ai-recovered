@@ -247,8 +247,12 @@ async function main(): Promise<void> {
     assert.ok(!/storageKey|storage_key|\/v1\/read|signature|secret/i.test(card), "no key, url or credential on the surface");
     assert.match(card, /useMemo\(\(\) => crypto\.randomUUID\(\), \[\]\)/, "one request key per mounted form");
     assert.match(card, /disabled=\{generating/, "an in-flight request cannot be double-submitted");
-    /* Retired removes the control; Governance state never does. */
-    assert.match(card, /\{retired \? null : <UseAsReference/, "a retired asset offers no reference control");
+    /*
+     * Retired removes the control; Governance state never does. MEDIA-SUPPLIED: a human-supplied
+     * photo is not offered as a reference either — sending it to an image provider is a separate
+     * Director decision, not a side effect of admitting it.
+     */
+    assert.match(card, /\{retired \|\| supplied \? null : <UseAsReference/, "a retired or supplied asset offers no reference control");
     assert.ok(
       !/decision === "declined"[\s\S]{0,200}disabled/.test(card),
       "a declined decision does not disable anything",

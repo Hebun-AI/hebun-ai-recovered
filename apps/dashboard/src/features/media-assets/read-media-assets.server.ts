@@ -19,7 +19,7 @@
  *
  * Server-only.
  */
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { mediaAssets, mediaGenerationInvocations } from "@/db/schema/media-asset";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
@@ -37,9 +37,21 @@ export interface MediaReadDeps {
   readonly resolveStorage?: () => MediaStorageResolution;
 }
 
-export interface MediaAssetRecord {
+/*
+ * ── MEDIA-SUPPLIED: A RECORD SAYS WHERE ITS BYTES CAME FROM ─────────────────
+ *
+ * Every record carries `origin`. A GENERATED record carries the invocation's provenance (agent,
+ * transport, provider, model); a SUPPLIED record carries the human who supplied it and the Drive
+ * file it came from — and NONE of the generation fields, so no surface can render a photograph a
+ * human chose as something a model made. DERIVED assets are not records of this reader at all: they
+ * are publish plumbing, not creative work, and every read below excludes them.
+ *
+ * `sourceArtifactId` / `sourceRevisionNo` mean the same thing for both origins — the exact draft
+ * revision the image is FOR — read from the invocation for a generated asset and from the asset's
+ * own composite foreign key for a supplied one.
+ */
+interface MediaAssetRecordBase {
   readonly assetId: string;
-  readonly invocationId: string;
   readonly mimeType: MediaAssetMimeType;
   readonly byteSize: number;
   readonly byteDigest: string;
@@ -47,9 +59,14 @@ export interface MediaAssetRecord {
   readonly height: number;
   readonly admittedAt: string;
   readonly lifecycle: MediaAssetLifecycleStatus;
-  /** Provenance, read by join from the invocation — never copied onto the asset. */
   readonly sourceArtifactId: string;
   readonly sourceRevisionNo: number;
+}
+
+export interface GeneratedMediaAssetRecord extends MediaAssetRecordBase {
+  readonly origin: "generated";
+  readonly invocationId: string;
+  /** Provenance, read by join from the invocation — never copied onto the asset. */
   readonly agentId: string;
   readonly requestedByActorId: string;
   readonly transport: string;
@@ -58,6 +75,17 @@ export interface MediaAssetRecord {
   readonly providerJobId: string | null;
   readonly inputDigest: string;
 }
+
+export interface SuppliedMediaAssetRecord extends MediaAssetRecordBase {
+  readonly origin: "supplied";
+  readonly suppliedByActorId: string;
+  readonly suppliedSource: "google-drive";
+  /** Drive's opaque id — where the bytes came from, never a pointer anything re-reads. */
+  readonly suppliedSourceFileId: string;
+  readonly suppliedSourceCapability: string;
+}
+
+export type MediaAssetRecord = GeneratedMediaAssetRecord | SuppliedMediaAssetRecord;
 
 export type ReadMediaAssetResult =
   | { readonly status: "unauthenticated" }
@@ -68,58 +96,194 @@ export type ReadMediaAssetResult =
   | { readonly status: "not-found" }
   | { readonly status: "read"; readonly asset: MediaAssetRecord; readonly access: MediaReadAccess };
 
-/**
- * The row plus its provenance, tenant-predicated on BOTH tables. Internal to this authority.
+/*
+ * THE ONE PROJECTION every record read uses — so a single read, a revision listing and a draft
+ * listing cannot drift into shapes that disagree about provenance.
  *
- * PUBLISH-0: the INNER join through the invocation is also what keeps a DERIVED asset (no
- * invocation) out of every generated-asset read — gallery, composer, preview. `invocationId` is
- * projected from the joined invocation, which the join makes non-null and equal to the asset's.
+ * LEFT join to the invocation, tenant-predicated IN the join, so a supplied asset (no invocation)
+ * survives and a generated asset can only ever meet its own tenant's invocation. Derived assets are
+ * excluded by predicate (`derived_from_asset_id is null`), as the inner join used to exclude them.
+ */
+const recordColumns = {
+  assetId: mediaAssets.id,
+  assetInvocationId: mediaAssets.invocationId,
+  invocationId: mediaGenerationInvocations.id,
+  mimeType: mediaAssets.mimeType,
+  byteSize: mediaAssets.byteSize,
+  byteDigest: mediaAssets.byteDigest,
+  width: mediaAssets.width,
+  height: mediaAssets.height,
+  admittedAt: mediaAssets.admittedAt,
+  lifecycle: mediaAssets.assetLifecycleStatus,
+  storageKey: mediaAssets.storageKey,
+  invSourceArtifactId: mediaGenerationInvocations.sourceArtifactId,
+  invSourceRevisionNo: mediaGenerationInvocations.sourceRevisionNo,
+  agentId: mediaGenerationInvocations.agentId,
+  requestedByActorId: mediaGenerationInvocations.requestedByActorId,
+  transport: mediaGenerationInvocations.transport,
+  provider: mediaGenerationInvocations.provider,
+  model: mediaGenerationInvocations.model,
+  providerJobId: mediaGenerationInvocations.providerJobId,
+  inputDigest: mediaGenerationInvocations.inputDigest,
+  suppliedByActorId: mediaAssets.suppliedByActorId,
+  suppliedSource: mediaAssets.suppliedSource,
+  suppliedSourceFileId: mediaAssets.suppliedSourceFileId,
+  suppliedSourceCapability: mediaAssets.suppliedSourceCapability,
+  suppliedArtifactId: mediaAssets.suppliedArtifactId,
+  suppliedRevisionNo: mediaAssets.suppliedRevisionNo,
+};
+
+type RecordRow = {
+  readonly assetId: string;
+  readonly assetInvocationId: string | null;
+  readonly invocationId: string | null;
+  readonly mimeType: string;
+  readonly byteSize: number;
+  readonly byteDigest: string;
+  readonly width: number;
+  readonly height: number;
+  readonly admittedAt: Date | string;
+  readonly lifecycle: string;
+  readonly storageKey: string;
+  readonly invSourceArtifactId: string | null;
+  readonly invSourceRevisionNo: number | null;
+  readonly agentId: string | null;
+  readonly requestedByActorId: string | null;
+  readonly transport: string | null;
+  readonly provider: string | null;
+  readonly model: string | null;
+  readonly providerJobId: string | null;
+  readonly inputDigest: string | null;
+  readonly suppliedByActorId: string | null;
+  readonly suppliedSource: string | null;
+  readonly suppliedSourceFileId: string | null;
+  readonly suppliedSourceCapability: string | null;
+  readonly suppliedArtifactId: string | null;
+  readonly suppliedRevisionNo: number | null;
+};
+
+/** The draft revision an asset is FOR, whichever origin recorded it — the draft listing's sort key. */
+const sourceRevisionExpr = sql<number>`coalesce(${mediaGenerationInvocations.sourceRevisionNo}, ${mediaAssets.suppliedRevisionNo})`;
+
+function selectRecordRows(db: Pick<ControlPlaneDatabase, "select">) {
+  return db
+    .select(recordColumns)
+    .from(mediaAssets)
+    .leftJoin(
+      mediaGenerationInvocations,
+      and(
+        eq(mediaGenerationInvocations.id, mediaAssets.invocationId),
+        eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
+      ),
+    );
+}
+
+/**
+ * Row → record, or null when the row is not a coherent generated or supplied asset. The database
+ * CHECK already makes the origins exclusive; this refuses to invent a record if it ever were not.
+ */
+function toRecord(row: RecordRow): (MediaAssetRecord & { readonly storageKey: string }) | null {
+  const base = {
+    assetId: row.assetId,
+    mimeType: row.mimeType as MediaAssetMimeType,
+    byteSize: row.byteSize,
+    byteDigest: row.byteDigest,
+    width: row.width,
+    height: row.height,
+    admittedAt: new Date(row.admittedAt).toISOString(),
+    lifecycle: row.lifecycle as MediaAssetLifecycleStatus,
+    storageKey: row.storageKey,
+  };
+  if (row.assetInvocationId !== null) {
+    if (
+      row.invocationId === null ||
+      row.invSourceArtifactId === null ||
+      row.invSourceRevisionNo === null ||
+      row.agentId === null ||
+      row.requestedByActorId === null ||
+      row.transport === null ||
+      row.provider === null ||
+      row.model === null ||
+      row.inputDigest === null
+    ) {
+      return null;
+    }
+    return {
+      ...base,
+      origin: "generated",
+      invocationId: row.invocationId,
+      sourceArtifactId: row.invSourceArtifactId,
+      sourceRevisionNo: row.invSourceRevisionNo,
+      agentId: row.agentId,
+      requestedByActorId: row.requestedByActorId,
+      transport: row.transport,
+      provider: row.provider,
+      model: row.model,
+      providerJobId: row.providerJobId,
+      inputDigest: row.inputDigest,
+    };
+  }
+  if (
+    row.suppliedSource !== "google-drive" ||
+    row.suppliedByActorId === null ||
+    row.suppliedSourceFileId === null ||
+    row.suppliedSourceCapability === null ||
+    row.suppliedArtifactId === null ||
+    row.suppliedRevisionNo === null
+  ) {
+    return null;
+  }
+  return {
+    ...base,
+    origin: "supplied",
+    sourceArtifactId: row.suppliedArtifactId,
+    sourceRevisionNo: row.suppliedRevisionNo,
+    suppliedByActorId: row.suppliedByActorId,
+    suppliedSource: "google-drive",
+    suppliedSourceFileId: row.suppliedSourceFileId,
+    suppliedSourceCapability: row.suppliedSourceCapability,
+  };
+}
+
+function withoutStorageKey(record: MediaAssetRecord & { readonly storageKey: string }): MediaAssetRecord {
+  const { storageKey: _storageKey, ...rest } = record;
+  void _storageKey;
+  return rest as MediaAssetRecord;
+}
+
+/** Listing rows → records. A row that is not a coherent record is left out, never guessed at. */
+function recordsOf(rows: readonly RecordRow[]): MediaAssetRecord[] {
+  const out: MediaAssetRecord[] = [];
+  for (const row of rows) {
+    const record = toRecord(row);
+    if (record) out.push(withoutStorageKey(record));
+  }
+  return out;
+}
+
+/**
+ * One generated or supplied asset plus its provenance, tenant-predicated. Internal to this
+ * authority and to the governed publish chain that must re-read it. A derived asset is never
+ * returned: it is not a creative subject.
  */
 export async function selectMediaAssetRecord(
   db: Pick<ControlPlaneDatabase, "select">,
   tenantId: string,
   assetId: string,
 ): Promise<(MediaAssetRecord & { readonly storageKey: string }) | null> {
-  const rows = await db
-    .select({
-      assetId: mediaAssets.id,
-      invocationId: mediaGenerationInvocations.id,
-      mimeType: mediaAssets.mimeType,
-      byteSize: mediaAssets.byteSize,
-      byteDigest: mediaAssets.byteDigest,
-      width: mediaAssets.width,
-      height: mediaAssets.height,
-      admittedAt: mediaAssets.admittedAt,
-      lifecycle: mediaAssets.assetLifecycleStatus,
-      storageKey: mediaAssets.storageKey,
-      sourceArtifactId: mediaGenerationInvocations.sourceArtifactId,
-      sourceRevisionNo: mediaGenerationInvocations.sourceRevisionNo,
-      agentId: mediaGenerationInvocations.agentId,
-      requestedByActorId: mediaGenerationInvocations.requestedByActorId,
-      transport: mediaGenerationInvocations.transport,
-      provider: mediaGenerationInvocations.provider,
-      model: mediaGenerationInvocations.model,
-      providerJobId: mediaGenerationInvocations.providerJobId,
-      inputDigest: mediaGenerationInvocations.inputDigest,
-    })
-    .from(mediaAssets)
-    .innerJoin(
-      mediaGenerationInvocations,
+  const rows = await selectRecordRows(db)
+    .where(
       and(
-        eq(mediaGenerationInvocations.id, mediaAssets.invocationId),
-        eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
+        eq(mediaAssets.tenantId, tenantId),
+        eq(mediaAssets.id, assetId),
+        isNull(mediaAssets.derivedFromAssetId),
+        /* A generated row's invocation is this tenant's too — stated, not only implied by the join. */
+        or(isNull(mediaAssets.invocationId), eq(mediaGenerationInvocations.tenantId, tenantId)),
       ),
     )
-    .where(and(eq(mediaAssets.tenantId, tenantId), eq(mediaAssets.id, assetId)))
     .limit(1);
   const row = rows[0];
-  if (!row) return null;
-  return {
-    ...row,
-    mimeType: row.mimeType as MediaAssetMimeType,
-    lifecycle: row.lifecycle as MediaAssetLifecycleStatus,
-    admittedAt: new Date(row.admittedAt).toISOString(),
-  };
+  return row ? toRecord(row) : null;
 }
 
 export async function readMediaAsset(
@@ -163,9 +327,7 @@ export async function readMediaAsset(
     contentType: record.mimeType,
     ttlSeconds: MEDIA_READ_ACCESS_TTL_SECONDS,
   });
-  const { storageKey: _storageKey, ...asset } = record;
-  void _storageKey;
-  return { status: "read", asset, access };
+  return { status: "read", asset: withoutStorageKey(record), access };
 }
 
 /*
@@ -222,54 +384,27 @@ export async function listRevisionMediaAssets(
   if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
 
   try {
-    const rows = await db
-      .select({
-        assetId: mediaAssets.id,
-        invocationId: mediaGenerationInvocations.id,
-        mimeType: mediaAssets.mimeType,
-        byteSize: mediaAssets.byteSize,
-        byteDigest: mediaAssets.byteDigest,
-        width: mediaAssets.width,
-        height: mediaAssets.height,
-        admittedAt: mediaAssets.admittedAt,
-        lifecycle: mediaAssets.assetLifecycleStatus,
-        sourceArtifactId: mediaGenerationInvocations.sourceArtifactId,
-        sourceRevisionNo: mediaGenerationInvocations.sourceRevisionNo,
-        agentId: mediaGenerationInvocations.agentId,
-        requestedByActorId: mediaGenerationInvocations.requestedByActorId,
-        transport: mediaGenerationInvocations.transport,
-        provider: mediaGenerationInvocations.provider,
-        model: mediaGenerationInvocations.model,
-        providerJobId: mediaGenerationInvocations.providerJobId,
-        inputDigest: mediaGenerationInvocations.inputDigest,
-      })
-      .from(mediaAssets)
-      .innerJoin(
-        mediaGenerationInvocations,
-        and(
-          eq(mediaGenerationInvocations.id, mediaAssets.invocationId),
-          eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
-        ),
-      )
+    const rows = await selectRecordRows(db)
       .where(
         and(
           eq(mediaAssets.tenantId, tenant.tenantId),
-          eq(mediaGenerationInvocations.tenantId, tenant.tenantId),
-          eq(mediaGenerationInvocations.sourceArtifactId, input.artifactId),
-          eq(mediaGenerationInvocations.sourceRevisionNo, input.revisionNo),
+          or(isNull(mediaAssets.invocationId), eq(mediaGenerationInvocations.tenantId, tenant.tenantId)),
+          isNull(mediaAssets.derivedFromAssetId),
+          or(
+            and(
+              eq(mediaGenerationInvocations.sourceArtifactId, input.artifactId),
+              eq(mediaGenerationInvocations.sourceRevisionNo, input.revisionNo),
+            ),
+            and(
+              eq(mediaAssets.suppliedArtifactId, input.artifactId),
+              eq(mediaAssets.suppliedRevisionNo, input.revisionNo),
+            ),
+          ),
         ),
       )
-      .orderBy(asc(mediaAssets.admittedAt));
+      .orderBy(mediaAssets.admittedAt, mediaAssets.id);
 
-    return {
-      status: "read",
-      assets: rows.map((row) => ({
-        ...row,
-        mimeType: row.mimeType as MediaAssetMimeType,
-        lifecycle: row.lifecycle as MediaAssetLifecycleStatus,
-        admittedAt: new Date(row.admittedAt).toISOString(),
-      })),
-    };
+    return { status: "read", assets: recordsOf(rows) };
   } catch {
     return { status: "unavailable", reason: "persistence-unavailable" };
   }
@@ -332,53 +467,21 @@ export async function listArtifactMediaAssets(
   if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
 
   try {
-    const rows = await db
-      .select({
-        assetId: mediaAssets.id,
-        invocationId: mediaGenerationInvocations.id,
-        mimeType: mediaAssets.mimeType,
-        byteSize: mediaAssets.byteSize,
-        byteDigest: mediaAssets.byteDigest,
-        width: mediaAssets.width,
-        height: mediaAssets.height,
-        admittedAt: mediaAssets.admittedAt,
-        lifecycle: mediaAssets.assetLifecycleStatus,
-        sourceArtifactId: mediaGenerationInvocations.sourceArtifactId,
-        sourceRevisionNo: mediaGenerationInvocations.sourceRevisionNo,
-        agentId: mediaGenerationInvocations.agentId,
-        requestedByActorId: mediaGenerationInvocations.requestedByActorId,
-        transport: mediaGenerationInvocations.transport,
-        provider: mediaGenerationInvocations.provider,
-        model: mediaGenerationInvocations.model,
-        providerJobId: mediaGenerationInvocations.providerJobId,
-        inputDigest: mediaGenerationInvocations.inputDigest,
-      })
-      .from(mediaAssets)
-      .innerJoin(
-        mediaGenerationInvocations,
-        and(
-          eq(mediaGenerationInvocations.id, mediaAssets.invocationId),
-          eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
-        ),
-      )
+    const rows = await selectRecordRows(db)
       .where(
         and(
           eq(mediaAssets.tenantId, tenant.tenantId),
-          eq(mediaGenerationInvocations.tenantId, tenant.tenantId),
-          inArray(mediaGenerationInvocations.sourceArtifactId, wanted),
+          or(isNull(mediaAssets.invocationId), eq(mediaGenerationInvocations.tenantId, tenant.tenantId)),
+          isNull(mediaAssets.derivedFromAssetId),
+          or(
+            inArray(mediaGenerationInvocations.sourceArtifactId, wanted),
+            inArray(mediaAssets.suppliedArtifactId, wanted),
+          ),
         ),
       )
-      .orderBy(desc(mediaGenerationInvocations.sourceRevisionNo), asc(mediaAssets.admittedAt));
+      .orderBy(sql`${sourceRevisionExpr} desc`, mediaAssets.admittedAt, mediaAssets.id);
 
-    return {
-      status: "read",
-      assets: rows.map((row) => ({
-        ...row,
-        mimeType: row.mimeType as MediaAssetMimeType,
-        lifecycle: row.lifecycle as MediaAssetLifecycleStatus,
-        admittedAt: new Date(row.admittedAt).toISOString(),
-      })),
-    };
+    return { status: "read", assets: recordsOf(rows) };
   } catch {
     return { status: "unavailable", reason: "persistence-unavailable" };
   }

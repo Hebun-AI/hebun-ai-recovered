@@ -349,6 +349,44 @@ export interface GoogleDriveContent {
   readonly byteLength: number;
 }
 
+/*
+ * ── MEDIA-SUPPLIED: ONE DRIVE IMAGE, AS BYTES ─────────────────────────────────
+ *
+ * A SEPARATE closed map from `GOOGLE_DRIVE_READABLE_TYPES`, on purpose. That map decides what may
+ * become TEXT on its way toward Knowledge; this one decides which stored Drive files may be
+ * downloaded as IMAGE BYTES on their way toward the Media authority's own verification. Adding a
+ * type here does not make it Knowledge, and adding one there does not make it media.
+ *
+ * Only real stored files: a Google Workspace document is never an image and has no `alt=media`.
+ * The bound equals the Media authority's own admission ceiling (20 MiB), checked twice as KID-1
+ * checks its bound — declared size first, measured bytes after.
+ *
+ * Reading an image is not admitting it. What this returns is untrusted bytes plus the provider's
+ * claims about them; the Media authority re-derives every fact from the bytes themselves.
+ */
+export const GOOGLE_DRIVE_IMAGE_TYPES: readonly string[] = Object.freeze([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+export const MAX_DRIVE_IMAGE_BYTES = 20_971_520;
+
+export interface GoogleDriveImage {
+  readonly fileId: string;
+  /** Provider-chosen label. Untrusted text; never a path, never persisted as authority. */
+  readonly name: string;
+  /** What Drive SAID the file is. A claim the Media authority checks against the magic bytes. */
+  readonly providerMimeType: string;
+  readonly bytes: Uint8Array;
+  /** Measured from the received body, never taken from Drive's declared size. */
+  readonly byteLength: number;
+}
+
+export type GoogleDriveImageResult =
+  | { readonly ok: true; readonly image: GoogleDriveImage }
+  | GoogleFailure;
+
 export type GoogleDriveContentResult =
   | { readonly ok: true; readonly content: GoogleDriveContent }
   | GoogleFailure;

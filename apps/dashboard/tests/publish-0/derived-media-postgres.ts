@@ -271,7 +271,7 @@ async function main(): Promise<void> {
     );
     assert.deepEqual(
       await derivePublishJpeg(acmeCtx, { originalAssetId: d1.derivative.assetId }, deps),
-      { status: "refused", reason: "source-not-generated" },
+      { status: "refused", reason: "source-not-original" },
       "no derivative of a derivative",
     );
     assert.deepEqual(

@@ -146,8 +146,9 @@ const MUTATIONS: readonly Mutation[] = [
     suite: PG_SUITE,
     edits: [
       {
-        find: "    .where(and(eq(mediaAssets.tenantId, tenantId), eq(mediaAssets.id, assetId)))",
-        replace: "    .where(eq(mediaAssets.id, assetId))",
+        /* MEDIA-SUPPLIED moved the single read onto the shared projection; the tenant predicate is here. */
+        find: "        eq(mediaAssets.tenantId, tenantId),\n        eq(mediaAssets.id, assetId),\n        isNull(mediaAssets.derivedFromAssetId),\n        /* A generated row's invocation is this tenant's too — stated, not only implied by the join. */\n        or(isNull(mediaAssets.invocationId), eq(mediaGenerationInvocations.tenantId, tenantId)),",
+        replace: "        eq(mediaAssets.id, assetId),\n        isNull(mediaAssets.derivedFromAssetId),",
       },
     ],
     because: "another tenant's asset is not found",

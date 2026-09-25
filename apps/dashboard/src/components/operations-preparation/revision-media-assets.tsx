@@ -62,7 +62,7 @@ import type {
  * grants that expire before anyone clicks. The URL is deliberately short-lived and never cached.
  */
 
-export interface RevisionMediaAssetView {
+interface RevisionMediaAssetViewBase {
   readonly assetId: string;
   readonly mimeType: string;
   readonly byteSize: number;
@@ -73,11 +73,25 @@ export interface RevisionMediaAssetView {
   readonly lifecycle: string;
   readonly sourceArtifactId: string;
   readonly sourceRevisionNo: number;
-  readonly provider: string;
-  readonly model: string;
-  readonly transport: string;
-  readonly providerJobId: string | null;
 }
+
+/*
+ * MEDIA-SUPPLIED — a card renders what the record says about WHERE the bytes came from. A supplied
+ * image carries no provider or model, so it cannot be captioned as generated.
+ */
+export type RevisionMediaAssetView =
+  | (RevisionMediaAssetViewBase & {
+      readonly origin: "generated";
+      readonly provider: string;
+      readonly model: string;
+      readonly transport: string;
+      readonly providerJobId: string | null;
+    })
+  | (RevisionMediaAssetViewBase & {
+      readonly origin: "supplied";
+      readonly suppliedSource: "google-drive";
+      readonly suppliedSourceFileId: string;
+    });
 
 const SELECTION_REFUSAL_WORDING: Record<ContentSelectionRefusal, string> = {
   unauthenticated: "Your session has expired. Sign in again.",
@@ -159,7 +173,7 @@ export function RevisionMediaAssets({
   return (
     <section className="min-w-0 space-y-3">
       <h4 className="text-xs font-medium text-fg-secondary">
-        Generated images ({assets.length})
+        Images ({assets.length})
       </h4>
       {/*
         OPS-VIS-2. A GRID, not a stack. Each asset card is unchanged — same badges, same metadata,
@@ -199,6 +213,7 @@ function AssetCard({
 
   const badge = reviewBadge(reviewState);
   const retired = asset.lifecycle === "retired";
+  const supplied = asset.origin === "supplied";
   const decided = reviewState?.status === "read" && reviewState.decision !== null;
 
   function openPreview() {
@@ -230,7 +245,8 @@ function AssetCard({
     <article className="flex min-w-0 flex-col gap-2 rounded-lg border border-border-subtle bg-surface-2 p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={retired ? "neutral" : "success"}>{retired ? "Retired" : "Admitted"}</Badge>
-        <Badge variant={badge.variant}>{badge.label}</Badge>
+        <Badge variant="neutral">{supplied ? "Supplied from Google Drive" : "AI-generated"}</Badge>
+        {supplied ? null : <Badge variant={badge.variant}>{badge.label}</Badge>}
       </div>
 
       <dl className="grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
@@ -251,7 +267,7 @@ function AssetCard({
           <dd className="text-fg-primary">Revision {asset.sourceRevisionNo} of this draft</dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-xs text-fg-muted">Generated</dt>
+          <dt className="text-xs text-fg-muted">{supplied ? "Admitted" : "Generated"}</dt>
           <dd className="text-fg-primary">{new Date(asset.admittedAt).toLocaleString()}</dd>
         </div>
       </dl>
@@ -267,7 +283,7 @@ function AssetCard({
             {/* eslint-disable-next-line @next/next/no-img-element -- a short-lived signed URL is not a static asset and must not be optimized, cached or proxied. */}
             <img
               src={preview.access.url}
-              alt={`Generated image for revision ${asset.sourceRevisionNo}`}
+              alt={`${supplied ? "Supplied" : "Generated"} image for revision ${asset.sourceRevisionNo}`}
               width={preview.asset.width}
               height={preview.asset.height}
               className="h-auto w-full rounded-lg border border-border-subtle"
@@ -287,8 +303,12 @@ function AssetCard({
         )}
       </div>
 
-      {/* ── Governance decision: the released writers, and nothing else ── */}
-      {retired ? null : (
+      {/*
+        ── Governance decision: the released writers, and nothing else ──
+        MEDIA-SUPPLIED: the MEDIA-3 review is a creative review of GENERATED output; it is not offered
+        for an image a human supplied.
+      */}
+      {retired || supplied ? null : (
         <details className="min-w-0">
           <summary className="cursor-pointer text-xs text-fg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring">
             {decided ? "Record another Governance decision" : "Review this image"}
@@ -342,8 +362,8 @@ function AssetCard({
       )}
 
       {/* ── MEDIA-5: this image as the input to a new one ── */}
-      {retired ? null : <UseAsReference asset={asset} />}
-      {retired || !selectionTarget ? null : (
+      {retired || supplied ? null : <UseAsReference asset={asset} />}
+      {retired || supplied || !selectionTarget ? null : (
         <ChooseForDraft asset={asset} target={selectionTarget} />
       )}
 
@@ -360,12 +380,21 @@ function AssetCard({
             <dt className="text-fg-muted">SHA-256</dt>
             <dd className="break-all font-mono text-fg-secondary">{asset.byteDigest}</dd>
           </div>
-          <div className="min-w-0">
-            <dt className="text-fg-muted">Generated by</dt>
-            <dd className="text-fg-secondary">
-              {asset.provider} · {asset.model}
-            </dd>
-          </div>
+          {asset.origin === "supplied" ? (
+            <div className="min-w-0">
+              <dt className="text-fg-muted">Supplied from</dt>
+              <dd className="break-all text-fg-secondary">
+                Google Drive file <span className="font-mono">{asset.suppliedSourceFileId}</span>
+              </dd>
+            </div>
+          ) : (
+            <div className="min-w-0">
+              <dt className="text-fg-muted">Generated by</dt>
+              <dd className="text-fg-secondary">
+                {asset.provider} · {asset.model}
+              </dd>
+            </div>
+          )}
         </dl>
       </details>
     </article>

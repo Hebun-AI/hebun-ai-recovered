@@ -6,11 +6,18 @@
  * authority on purpose: a derivative is a Media Asset — verified bytes, immutable identity, storage
  * key under its own id — not a second store and not a second authority.
  *
- *   authoritative generated asset  →  deterministic JPEG derivative  →  governed Instagram execution
+ *   authoritative original asset  →  deterministic JPEG derivative  →  governed Instagram execution
+ *
+ * MEDIA-SUPPLIED: the original may be GENERATED (a model made it) or SUPPLIED (a human chose it from
+ * Drive). Both are admitted, verified originals of this authority. A supplied JPEG is STILL derived:
+ * `jpeg-publish-v1` also strips EXIF/ICC/XMP (a camera photo's GPS and serial number must not reach
+ * Meta) and fixes the encoding, and the governed chain binds the derivative's digest, never the
+ * original's. "Already JPEG" is not a reason to skip the lineage or the integrity checks.
  *
  * ── WHAT THE TRANSFORM IS, EXACTLY (`jpeg-publish-v1`) ───────────────────────
  *
- *   1. the original row must be THIS tenant's, GENERATED (not itself derived) and `admitted`
+ *   1. the original row must be THIS tenant's, an ORIGINAL — generated or supplied, never itself
+ *      derived — and `admitted`
  *   2. its stored bytes are read and verified against the row's SHA-256 AND size — never trusted
  *   3. alpha is flattened onto white; no resize, no rotate: dimensions are preserved
  *   4. fixed JPEG settings (below); sharp writes NO metadata unless asked, so EXIF/ICC/XMP are gone
@@ -86,7 +93,7 @@ export type DerivePublishJpegRefusal =
   | "storage-unavailable"
   | "persistence-unavailable"
   | "source-not-found"
-  | "source-not-generated"
+  | "source-not-original"
   | "source-retired"
   | "source-object-absent"
   | "source-integrity-mismatch"
@@ -198,7 +205,7 @@ function toDerivative(originalAssetId: string, row: DerivedRow): PublishDerivati
 }
 
 /**
- * Produce — or find — the `jpeg-publish-v1` derivative of one generated asset.
+ * Produce — or find — the `jpeg-publish-v1` derivative of one original (generated or supplied) asset.
  *
  * An existing derivative is returned only after its stored object is verified against its row;
  * a retired one is refused rather than replaced (one derivative per source, ever).
@@ -219,7 +226,7 @@ export async function derivePublishJpeg(
   const db = (deps.getDb ?? resolveMediaDbOrNull)();
   if (!db) return refused("persistence-unavailable");
 
-  /* ── 1. THE ORIGINAL: this tenant's, generated, admitted. ── */
+  /* ── 1. THE ORIGINAL: this tenant's, generated or supplied (never derived), admitted. ── */
   let original;
   try {
     original = (
@@ -228,6 +235,7 @@ export async function derivePublishJpeg(
           id: mediaAssets.id,
           invocationId: mediaAssets.invocationId,
           derivedFromAssetId: mediaAssets.derivedFromAssetId,
+          suppliedSource: mediaAssets.suppliedSource,
           mimeType: mediaAssets.mimeType,
           byteSize: mediaAssets.byteSize,
           byteDigest: mediaAssets.byteDigest,
@@ -244,7 +252,8 @@ export async function derivePublishJpeg(
     return refused("persistence-unavailable");
   }
   if (!original) return refused("source-not-found");
-  if (original.invocationId === null || original.derivedFromAssetId !== null) return refused("source-not-generated");
+  if (original.derivedFromAssetId !== null) return refused("source-not-original");
+  if (original.invocationId === null && original.suppliedSource === null) return refused("source-not-original");
   if (original.lifecycle !== "admitted") return refused("source-retired");
   if (!MEDIA_ASSET_MIME_TYPES.includes(original.mimeType as MediaAssetMimeType)) return refused("source-integrity-mismatch");
 

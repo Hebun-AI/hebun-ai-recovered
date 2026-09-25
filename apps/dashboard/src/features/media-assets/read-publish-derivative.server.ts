@@ -4,7 +4,8 @@
  *
  * Two readers, one definition of "this derivative is still the approved one":
  *
- *   selectPublishLineage     database only. The original must be THIS tenant's GENERATED asset,
+ *   selectPublishLineage     database only. The original must be THIS tenant's ORIGINAL asset —
+ *                            generated, or supplied by a human (MEDIA-SUPPLIED), never derived —
  *                            `admitted`, with the bound digest; the derivative must be THIS tenant's
  *                            `jpeg-publish-v1` of exactly that original — invocation NULL, JPEG,
  *                            `admitted`, with the bound digest. Used in execution pre-flight and
@@ -64,6 +65,7 @@ const lineageColumns = {
   invocationId: mediaAssets.invocationId,
   derivedFromAssetId: mediaAssets.derivedFromAssetId,
   derivation: mediaAssets.derivation,
+  suppliedSource: mediaAssets.suppliedSource,
   mimeType: mediaAssets.mimeType,
   byteSize: mediaAssets.byteSize,
   byteDigest: mediaAssets.byteDigest,
@@ -88,7 +90,12 @@ export async function selectPublishLineage(
       .where(and(eq(mediaAssets.tenantId, tenantId), eq(mediaAssets.id, binding.originalAssetId)))
       .limit(1)
   )[0];
-  if (!original || original.invocationId === null || original.derivedFromAssetId !== null) {
+  /* An ORIGINAL: generated (invocation) or MEDIA-SUPPLIED (supplied provenance) — never a derivative. */
+  if (
+    !original ||
+    original.derivedFromAssetId !== null ||
+    (original.invocationId === null && original.suppliedSource === null)
+  ) {
     return refused("original-unresolvable");
   }
   if (original.lifecycle !== "admitted") return refused("original-retired");

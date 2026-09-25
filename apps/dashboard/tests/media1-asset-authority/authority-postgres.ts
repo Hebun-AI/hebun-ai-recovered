@@ -509,9 +509,10 @@ async function main(): Promise<void> {
       assert.equal(own.status, "read");
       if (own.status === "read") {
         assert.equal(own.asset.byteDigest, sha(bytes));
-        assert.equal(own.asset.agentId, agentId);
+        assert.equal(own.asset.origin, "generated");
+        assert.equal(own.asset.origin === "generated" && own.asset.agentId, agentId);
         assert.equal(own.asset.sourceArtifactId, draft.artifactId);
-        assert.equal(own.asset.transport, "fake");
+        assert.equal(own.asset.origin === "generated" && own.asset.transport, "fake");
         assert.ok(!("storageKey" in own.asset), "the storage key is not handed to readers");
         assert.match(own.access.url, /^memory:\/\//);
       }

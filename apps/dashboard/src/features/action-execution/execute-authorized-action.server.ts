@@ -692,7 +692,7 @@ async function resolvePublishTarget(
   if (!revision) return { failure: "artifact-unresolvable" };
   if (revision.contentDigest !== payload.draftRevisionDigest) return { failure: "digest-mismatch" };
 
-  /* The generated original: of THIS draft (provenance read through its invocation). */
+  /* The original (generated or supplied): of THIS draft, read from its own provenance. */
   const asset = await selectMediaAssetRecord(reader, tenantId, payload.mediaAssetRef);
   if (!asset) return { failure: "artifact-unresolvable" };
   if (asset.lifecycle !== "admitted") return { failure: "artifact-retired" };

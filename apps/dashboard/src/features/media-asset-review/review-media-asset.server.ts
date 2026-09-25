@@ -19,7 +19,7 @@
  *
  * Server-only.
  */
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { decisionRecords } from "@/db/schema/governance";
 import { mediaAssets } from "@/db/schema/media-asset";
@@ -102,12 +102,17 @@ async function review(
           lifecycle: mediaAssets.assetLifecycleStatus,
         })
         .from(mediaAssets)
-        /* PUBLISH-0: a derived (publish) asset is not a reviewable creative subject. */
+        /*
+         * PUBLISH-0: a derived (publish) asset is not a reviewable creative subject.
+         * MEDIA-SUPPLIED: neither is an image a human supplied — this is the creative review of
+         * GENERATED output, and only a generated asset (one with an invocation) is its subject.
+         */
         .where(
           and(
             eq(mediaAssets.tenantId, tenant.tenantId),
             eq(mediaAssets.id, input!.assetId),
             isNull(mediaAssets.derivedFromAssetId),
+            isNotNull(mediaAssets.invocationId),
           ),
         )
         .for("share")

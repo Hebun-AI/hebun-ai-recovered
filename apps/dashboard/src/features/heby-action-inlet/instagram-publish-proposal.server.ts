@@ -101,7 +101,11 @@ export async function proposeInstagramPublish(
   }
   if (draft.revision.content.length > INSTAGRAM_MAX_CAPTION_LENGTH) return refused("caption-too-long");
 
-  /* ── 3. THE IMAGE — the generated original: admitted, of THIS draft. Any admitted type. ── */
+  /*
+   * ── 3. THE IMAGE — an original (generated, or MEDIA-SUPPLIED by a human from Drive): admitted, of
+   * THIS draft. Any admitted type. Its draft binding is read from its own provenance — the
+   * invocation for a generated image, the asset's composite revision FK for a supplied one.
+   */
   const db = (deps.getDb ?? resolveMediaDbOrNull)();
   if (!db) return refused("persistence-unavailable");
   let asset;
@@ -169,7 +173,7 @@ function derivationRefusal(reason: DerivePublishJpegRefusal): InstagramPublishPr
     case "source-retired":
       return refused("media-retired");
     case "source-not-found":
-    case "source-not-generated":
+    case "source-not-original":
       return refused("media-not-found");
     default:
       return refused("media-not-publishable", reason);
