@@ -210,7 +210,7 @@ function outOfScopeStaysOut(): void {
    * is the repair. CONTENT-GROUND-1 adds no migration of its own — it reads observations that
    * TRH-21 already stored.
    */
-  assert.equal(journal.entries.length, 59, "CGO-9 adds no migration");
+  assert.equal(journal.entries.length, 63, "CGO-9 adds no migration"); /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */
   assert.deepEqual([...GOVERNANCE_SUBJECT_TYPES], ["knowledge_node", "work_artifact_revision", "media_asset"], "no new Governance subject");
 
   for (const file of [SEAM, HEBUN, BRIEF]) {
