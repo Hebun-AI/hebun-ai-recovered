@@ -5113,10 +5113,21 @@ deliberately not a summary. States are copied from those records, not upgraded.
 | **CONTENT-COMPOSE-1** The Content Package | `23dca8a8` | CLOSED — RELEASED + PRODUCTION-ACCEPTED | migration **59** | `hebun-content-compose1-content-package-closure.md` |
 | **CONTENT-GROUND-1** The Organization's Own Voice | `8a0bd395` (UI correction `92c3f5d7`) | CLOSED — RELEASED + PRODUCTION-ACCEPTED, one limitation recorded | no migration | `hebun-content-ground1-own-voice-closure.md` |
 | **TENANT-ARM-1** Per-Organization External-Send Arming | `8816dfba` | tenant containment PRODUCTION-VERIFIED · **real external-send execution NOT VERIFIED / DEFERRED** | migration **60** | `hebun-tenant-arm-1-closure.md` |
+| **PUBLISH-0** One Approved Image to Instagram | `f2005e84` (deployed at `3db976a6`) | **PRODUCTION ACCEPTED / CLOSED** — 53/53, one real publish (media id `18091512017663172`), read-back matched, TRH disarmed after | migrations **61, 62** | `hebun-publish-0-closure.md` |
+| **MEDIA-SUPPLIED** Human-Supplied Images (third Media origin) | `72d28682` + Picker/`drive.file` correction `3db976a6` | RELEASED + PRODUCTION-ACCEPTED / CLOSED — admission 34/34 | migration **63** | `hebun-media-supplied-closure.md` |
 
 **Authored migration ledger at this baseline: 60**, last
 `20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
 measurement owned by each closure record and is not re-asserted here.
+
+**Continuity extended at `3db976a6` (2026-09-25).** The PUBLISH-0 and MEDIA-SUPPLIED rows were added
+after the table above was reconciled. Authored and production migration ledger: **63**, last
+`20260925055841_media_supplied_origin`, as measured by those two closure records. TENANT-ARM-1's
+deferred item — a permitted send, under an armed tenant, reaching a real destination — is now met
+for `publish-instagram-media` by PUBLISH-0; TENANT-ARM-1's own record stays as written. After
+PUBLISH-0, Turkish Rug House external-send is **refused** (`tenant-arming-withdrawn`, rev 4); the
+deployment root stays enabled and `machine-internal-execution` stays disabled. Supplied media enters
+only through Google Picker + `drive.file` (§12B); `drive.readonly` is not part of the accepted path.
 
 ```
 POINTER               != SUMMARY
@@ -5219,6 +5230,11 @@ and **NOT automatically a standalone agent**; Personal Enterprise Mode keeps pro
 
 **Finance.** Finance and Revenue Intelligence are **intelligence and composition**. They **must not
 become ledger authority**, and the ledger does not adopt their estimates.
+
+*Post-classification note (`3db976a6`, 2026-09-25):* the table above was classified at `dd20b62d`.
+Since then PUBLISH-0 released and production-accepted one governed Instagram image publish (§20.3).
+That changes the **Social** row's "publishing is TOO EARLY" only to this extent: one human-approved,
+permit-bound publish action exists. It selects no Social program and no agent.
 
 **Security.** **Do not create a Security Agent or Security Sentinel authority.** §7 stands: Security
 is a cross-cutting constraint that owns no truth.
