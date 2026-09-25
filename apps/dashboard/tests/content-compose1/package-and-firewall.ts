@@ -303,6 +303,41 @@ async function main(): Promise<void> {
       );
       const foreignRead = await pkg(erinCtx, draft, 1);
       assert.equal(foreignRead.status, "not-found", "another tenant cannot read this package at all");
+    }
+
+    /* ── 3b. MEDIA-SELECT-INTEGRITY: the image must come FROM this draft ─────── */
+    {
+      /* Same tenant, a different draft: its image is not this draft's, however valid it is. */
+      const otherDraft = (await seedDraft(setup, alice.tenantId, alice.userId)).id;
+      const otherAsset = (await seedAsset(setup, alice.tenantId, alice.userId, agent.rows[0]!.id, otherDraft, 1)).id;
+      const before = await count(setup, "content_selected_media");
+      assert.deepEqual(
+        await sel({ artifactId: draft, revisionNo: 1, mediaAssetId: otherAsset }),
+        { status: "refused", reason: "asset-unresolvable" },
+        "another draft's image is indistinguishable from absent — provenance, not the caller, says where it belongs",
+      );
+      assert.equal(await count(setup, "content_selected_media"), before, "a refused selection writes no row");
+      assert.deepEqual(
+        await sel({ artifactId: otherDraft, revisionNo: 1, mediaAssetId: otherAsset }),
+        { status: "selected" },
+        "the same image is selectable for the draft it was generated from",
+      );
+      await deselectMediaForRevision(aliceCtx, { artifactId: otherDraft, revisionNo: 1, mediaAssetId: otherAsset }, { getDb });
+
+      /* Cross-revision within ONE draft stays allowed: CONTENT-COMPOSE-1's production-proven case. */
+      await setup.query(
+        `insert into work_artifact_revisions
+           (tenant_id, artifact_id, revision_no, content, content_digest, authored_by_actor_type, authored_by_actor_id)
+         values ($1,$2,2,'Revision two',$3,'human',$4)`,
+        [alice.tenantId, otherDraft, sha(new TextEncoder().encode("Revision two")), alice.userId],
+      );
+      assert.deepEqual(
+        await sel({ artifactId: otherDraft, revisionNo: 2, mediaAssetId: otherAsset }),
+        { status: "selected" },
+        "an image generated in revision 1 may be chosen for revision 2 of the same draft",
+      );
+      await deselectMediaForRevision(aliceCtx, { artifactId: otherDraft, revisionNo: 2, mediaAssetId: otherAsset }, { getDb });
+      assert.equal(await count(setup, "content_selected_media"), before, "and deselecting leaves the world as it was");
       assert.equal(await count(setup, "content_selected_media"), 1, "no refusal wrote a row");
     }
 

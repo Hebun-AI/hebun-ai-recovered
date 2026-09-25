@@ -39,7 +39,7 @@
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { contentSelectedMedia } from "@/db/schema/content-selected-media";
-import { mediaAssets } from "@/db/schema/media-asset";
+import { mediaAssets, mediaGenerationInvocations } from "@/db/schema/media-asset";
 import { workArtifactRevisions } from "@/db/schema/work-artifact";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { isUuid } from "@/features/media-assets/contracts";
@@ -96,6 +96,20 @@ async function resolveParents(
       .select({ lifecycle: mediaAssets.assetLifecycleStatus })
       .from(mediaAssets)
       /*
+       * MEDIA-SELECT-INTEGRITY: the image must have been generated FROM this draft. Its invocation's
+       * `source_artifact_id` is the Media authority's own record of that, so the join proves it and
+       * nothing is inferred. The revision is deliberately NOT matched: an image generated in an
+       * earlier revision of the same draft may be chosen for a later one (CONTENT-COMPOSE-1's
+       * production-proven cross-revision case). Another draft's image is unresolvable, like absent.
+       */
+      .innerJoin(
+        mediaGenerationInvocations,
+        and(
+          eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
+          eq(mediaGenerationInvocations.id, mediaAssets.invocationId),
+        ),
+      )
+      /*
        * PUBLISH-0: a derived (publish) asset is not creative work and cannot be selected.
        * MEDIA-SUPPLIED: the content package reads its images through the generation invocation, so a
        * supplied image would be selected and then silently absent from the package. Until the package
@@ -107,6 +121,7 @@ async function resolveParents(
           eq(mediaAssets.id, input.mediaAssetId),
           isNull(mediaAssets.derivedFromAssetId),
           isNotNull(mediaAssets.invocationId),
+          eq(mediaGenerationInvocations.sourceArtifactId, input.artifactId),
         ),
       )
       .limit(1),
