@@ -145,6 +145,50 @@ export async function authorizePickerSession(
     };
   }
 
+  return mintPickerSession(tenant, deps);
+}
+
+/*
+ * ── MEDIA-SUPPLIED: THE SAME CHOOSER, FOR AN IMAGE A HUMAN SUPPLIES ─────────
+ *
+ * A SECOND ENTRY into this ONE ceremony, and deliberately not a second ceremony. The census that
+ * keeps "exactly one module hands a Google token to a caller" is the reason it lives here: a
+ * Media-owned copy would be a second module doing the one thing this file is the bounded
+ * exception for.
+ *
+ * Its gate is the Media one, not the Knowledge one: an authenticated human of this organization may
+ * supply an image for a draft, whether or not their role may author Knowledge — so it neither asks
+ * for nor grants Knowledge authority. Everything after that gate is the SAME code as the Knowledge
+ * entry: the Picker configuration, the PER-FILE capability by name, the Google connection check and
+ * the scoped token handoff. It takes no capability, scope, integration or tenant parameter, so it
+ * cannot open a wider grant than `drive.file` either.
+ *
+ * SELECTION IS NOT ADMISSION here too. The chooser returns a file id; the Media authority admits it
+ * — or refuses — separately, re-resolving tenant, capability and bytes for itself.
+ */
+export async function authorizeMediaPickerSession(
+  tenant: TenantContext | null,
+  deps: PickerSessionDeps = {},
+): Promise<PickerSessionResult> {
+  assertServerOnly();
+  if (!tenant?.tenantId || !tenant.userId) {
+    return {
+      status: "refused",
+      reason: "not-authenticated",
+      detail: "No organization is resolved for this request, so no connection could be consulted.",
+    };
+  }
+  return mintPickerSession(tenant, deps);
+}
+
+/**
+ * Steps 3–5, shared by both entries and exported by neither: configuration, the per-file capability
+ * by name, and the one scoped token handoff.
+ */
+async function mintPickerSession(
+  tenant: TenantContext,
+  deps: PickerSessionDeps,
+): Promise<PickerSessionResult> {
   /* 3 · CONFIGURED. Checked before the capability, because it costs nothing and needs no database. */
   const picker = (deps.picker ?? (() => resolveGooglePickerEnvironment(deps.env ?? process.env)))();
   if (picker.status !== "configured") {

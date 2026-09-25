@@ -140,6 +140,8 @@ export async function openGooglePicker(session: {
   readonly apiKey: string;
   readonly appId: string;
   readonly mimeTypes: readonly string[];
+  /** MEDIA-SUPPLIED: the chooser's heading, so an image chooser does not claim to admit Knowledge. */
+  readonly title?: string;
 }): Promise<PickerOutcome> {
   let picker: GooglePickerNamespace;
   try {
@@ -175,7 +177,7 @@ export async function openGooglePicker(session: {
       .setOAuthToken(session.accessToken)
       .setDeveloperKey(session.apiKey)
       .setAppId(session.appId)
-      .setTitle("Choose one document to admit into Hebun Knowledge")
+      .setTitle(session.title ?? "Choose one document to admit into Hebun Knowledge")
       .setCallback((data) => {
         const action = data[picker.Response.ACTION];
         if (action === picker.Action.CANCEL) {

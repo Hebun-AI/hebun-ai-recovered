@@ -55,7 +55,11 @@ import {
   admitSuppliedDriveImage,
   type AdmitSuppliedDriveImageResult,
 } from "@/features/media-assets/admit-supplied-drive-image.server";
-import { driveFileIdFrom } from "@/features/media-assets/drive-file-ref";
+import {
+  authorizeMediaPickerSession,
+  type PickerSessionResult,
+} from "@/features/provider-content-admission/authorize-picker-session.server";
+import { GOOGLE_DRIVE_IMAGE_TYPES } from "@/features/provider-google/contracts";
 import type {
   RequestMediaGenerationInput,
   RequestMediaGenerationResult,
@@ -413,25 +417,38 @@ export async function requestMediaGenerationAction(
 }
 
 /**
- * MEDIA-SUPPLIED — admit ONE image a human chose from the organization's own Google Drive, for one
- * exact content-draft revision.
+ * MEDIA-SUPPLIED — open the Google Picker for ONE image a human will supply for a draft.
  *
- * The tenant and the supplying human come from the trusted session, never from input. The caller
- * names a Drive file (its id, or a Drive share link the id is taken from) and the revision; the Media
- * authority does the rest — tenant-gated Drive read, verification from the bytes, write-once
- * storage, re-verification, provenance row. Supplying is custody, not approval, and not publishing.
+ * The released Picker ceremony's Media entry: tenant from the trusted session, the PER-FILE
+ * capability by name, one scoped access token for Google's own chooser. The image MIME types are
+ * decided HERE, on the server, from the Drive image transport's own closed list — so the chooser
+ * cannot offer a format admission would refuse. Opening a chooser admits nothing.
+ */
+export async function authorizeMediaPickerSessionAction(): Promise<
+  PickerSessionResult & { readonly mimeTypes: readonly string[] }
+> {
+  const session = await authorizeMediaPickerSession(await resolveTenantContext());
+  return { ...session, mimeTypes: GOOGLE_DRIVE_IMAGE_TYPES };
+}
+
+/**
+ * MEDIA-SUPPLIED — admit the ONE image the human selected in the Google Picker, for one exact
+ * content-draft revision.
+ *
+ * The tenant and the supplying human come from the trusted session, never from input. The file id is
+ * the Picker's; the read runs under the per-file capability, fixed inside the Media authority — no
+ * field here can ask for a wider grant. Supplying is custody, not approval, and not publishing.
  */
 export async function admitSuppliedDriveImageAction(input: {
   artifactId: string;
   revisionNo: number;
-  driveFile: string;
+  driveFileId: string;
 }): Promise<AdmitSuppliedDriveImageResult> {
   const tenant = await resolveTenantContext();
-  const driveFileId = driveFileIdFrom(typeof input?.driveFile === "string" ? input.driveFile : "");
   const result = await admitSuppliedDriveImage(tenant, {
     artifactId: input?.artifactId,
     revisionNo: input?.revisionNo,
-    driveFileId: driveFileId ?? "",
+    driveFileId: typeof input?.driveFileId === "string" ? input.driveFileId : "",
   });
   if (result.status === "admitted") revalidatePath("/operations");
   return result;

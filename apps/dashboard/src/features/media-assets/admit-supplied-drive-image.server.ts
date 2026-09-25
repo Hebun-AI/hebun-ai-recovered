@@ -4,8 +4,10 @@
  *
  * The third origin of the ONE Media authority, beside generated (MEDIA-1) and derived (PUBLISH-0).
  * Same verification, same storage port, same key shape, same lifecycle, same reads. No second store,
- * no second authority, no upload route: the only byte source is the tenant's own Google Drive,
- * reached through the integration authority's released content capabilities.
+ * no second authority, no upload route: the only byte source is ONE file the human selected in the
+ * Google Picker, read under the per-file capability `google.drive.file.content.read` (`drive.file`)
+ * — the production-accepted least-privilege model. There is no capability input and no Drive-wide
+ * fallback: the Drive-wide `drive.readonly` capability cannot reach this admission at all.
  *
  *     A DRIVE FILE IS NOT MEDIA.     Only bytes Hebun read, verified from themselves, wrote, and
  *                                    re-verified AS STORED become an asset — and the Drive file id is
@@ -14,8 +16,7 @@
  * ── PREFLIGHT — NOTHING IS READ FROM DRIVE UNTIL ALL OF THIS HOLDS ────────────
  *
  *   1. an authenticated human tenant context            unauthenticated
- *   2. well-formed input (uuid, revision, Drive id,
- *      a capability from the closed content set)        invalid-input
+ *   2. well-formed input (uuid, revision, Drive id)     invalid-input
  *   3. storage is connected                             storage-unavailable
  *   4. the control-plane database is reachable          persistence-unavailable
  *   5. the target is THIS tenant's content-draft,
@@ -23,7 +24,8 @@
  *
  * ── ADMISSION ─────────────────────────────────────────────────────────────────
  *
- *   6. ONE Drive image read for this tenant             drive-capability-not-available
+ *   6. ONE Drive image read for this tenant, under
+ *      the per-file capability by name                  drive-capability-not-available
  *                                                       drive-read-failed (+ provider reason)
  *   7. verify from the bytes: size, magic bytes, Drive's
  *      declared type must AGREE, dimensions, SHA-256     the MEDIA-1 refusal codes
@@ -47,10 +49,7 @@ import type { ControlPlaneDatabase } from "@/db/client.server";
 import { mediaAssets } from "@/db/schema/media-asset";
 import { workArtifactRevisions, workArtifacts } from "@/db/schema/work-artifact";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import {
-  GOOGLE_DRIVE_CONTENT_CAPABILITIES,
-  GOOGLE_DRIVE_CONTENT_CAPABILITY,
-} from "@/features/provider-google/contracts";
+import { GOOGLE_DRIVE_FILE_CAPABILITY } from "@/features/provider-google/contracts";
 import { readDriveImage, type DriveImageResult } from "@/features/provider-google/read-drive-image.server";
 import { verifyAdmissibleImage } from "./admission-verification";
 import {
@@ -68,9 +67,8 @@ export const SUPPLIED_MEDIA_SOURCE = "google-drive" as const;
 export interface AdmitSuppliedDriveImageInput {
   readonly artifactId: string;
   readonly revisionNo: number;
+  /** The file id the Google Picker returned for the human's selection. */
   readonly driveFileId: string;
-  /** Which released Drive content capability to read under. Defaults to KID-1's; closed set. */
-  readonly capability?: string;
 }
 
 export type AdmitSuppliedDriveImageRefusal =
@@ -97,7 +95,7 @@ export interface SuppliedMediaAsset {
   readonly sourceRevisionNo: number;
   readonly suppliedSource: typeof SUPPLIED_MEDIA_SOURCE;
   readonly suppliedSourceFileId: string;
-  readonly suppliedSourceCapability: string;
+  readonly suppliedSourceCapability: typeof GOOGLE_DRIVE_FILE_CAPABILITY;
 }
 
 export type AdmitSuppliedDriveImageResult =
@@ -111,7 +109,7 @@ export interface AdmitSuppliedDriveImageDeps {
   /** The Drive read. Injected in tests; production uses the tenant-gated seam. */
   readonly readImage?: (
     tenant: TenantContext,
-    input: { readonly fileId: string; readonly capability: string },
+    input: { readonly fileId: string },
   ) => Promise<DriveImageResult>;
 }
 
@@ -164,8 +162,6 @@ export async function admitSuppliedDriveImage(
   ) {
     return refused("invalid-input");
   }
-  const capability = input.capability ?? GOOGLE_DRIVE_CONTENT_CAPABILITY;
-  if (!GOOGLE_DRIVE_CONTENT_CAPABILITIES.includes(capability)) return refused("invalid-input");
   const tenantId = tenant.tenantId;
   const artifactId = input.artifactId.toLowerCase();
   const revisionNo = input.revisionNo;
@@ -212,7 +208,6 @@ export async function admitSuppliedDriveImage(
   try {
     read = await (deps.readImage ?? ((t, i) => readDriveImage(t, i, { getDb: () => db })))(tenant, {
       fileId: driveFileId,
-      capability,
     });
   } catch {
     return refused("drive-read-failed", "google-unreachable");
@@ -224,6 +219,9 @@ export async function admitSuppliedDriveImage(
   }
   if (read.status === "provider-failed") return refused("drive-read-failed", read.reason);
   if (read.image.fileId !== driveFileId) return refused("drive-read-failed", "google-file-id-mismatch");
+  /* Provenance names the capability the read ACTUALLY ran under — and only the per-file one is accepted. */
+  if (read.capability !== GOOGLE_DRIVE_FILE_CAPABILITY) return refused("drive-read-failed", "unexpected-capability");
+  const capability = GOOGLE_DRIVE_FILE_CAPABILITY;
   const bytes = read.image.bytes;
 
   /* ── 7. EVERY FACT FROM THE BYTES. Drive's type is a claim that must agree, never a source. ── */

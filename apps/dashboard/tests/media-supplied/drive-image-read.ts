@@ -5,10 +5,11 @@
  *     PROVIDER READ != MEDIA ADMISSION
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   GOOGLE_DRIVE_CONTENT_SCOPE,
+  GOOGLE_DRIVE_FILE_SCOPE,
   GOOGLE_DRIVE_IMAGE_TYPES,
   GOOGLE_DRIVE_METADATA_SCOPE,
   GOOGLE_DRIVE_READABLE_TYPES,
@@ -16,7 +17,8 @@ import {
 } from "../../src/features/provider-google/contracts";
 import { readDriveFileImage } from "../../src/features/provider-google/google-transport.server";
 import { readDriveImage } from "../../src/features/provider-google/read-drive-image.server";
-import { driveFileIdFrom } from "../../src/features/media-assets/drive-file-ref";
+import { authorizeMediaPickerSession } from "../../src/features/provider-content-admission/authorize-picker-session.server";
+import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { MEDIA_ASSET_LIMITS } from "../../src/features/media-assets/contracts";
 import type { IntegrationView } from "../../src/features/integration-authority/contracts";
 import { connectedFixture, GOOGLE_IDENTITY_SCOPES } from "../helpers/integration-connection-fixtures";
@@ -131,41 +133,94 @@ async function main(): Promise<void> {
     }
   }
 
-  /* ── 5 · THE SEAM GATES ON THE CAPABILITY BEFORE SPENDING A CREDENTIAL ── */
+  /* ── 5 · THE SEAM OPENS ONLY UNDER THE PER-FILE GRANT, BEFORE SPENDING A CREDENTIAL ── */
   {
-    let spent = false;
-    const spy = {
-      getDb: dbFor([connectedFixture({ scopes: [...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_METADATA_SCOPE] })]),
-      fetchImpl: (async () => {
-        spent = true;
-        return new Response("{}", { status: 200 });
-      }) as never,
-    };
-    assert.deepEqual(await readDriveImage(TENANT, { fileId: FILE_ID }, spy), { status: "refused", reason: "capability-not-available" });
-    assert.equal(spent, false, "a metadata-only grant spends nothing");
-    assert.deepEqual(await readDriveImage(null, { fileId: FILE_ID }, spy), { status: "refused", reason: "no-authorized-tenant-context" });
-    assert.deepEqual(await readDriveImage(TENANT, { fileId: " " }, spy), { status: "refused", reason: "no-document-selected" });
+    for (const [label, scopes] of [
+      ["identity-only connection", [] as string[]],
+      ["metadata-only grant", [GOOGLE_DRIVE_METADATA_SCOPE]],
+      ["Drive-wide drive.readonly grant", [GOOGLE_DRIVE_CONTENT_SCOPE]],
+    ] as const) {
+      let spent = false;
+      const spy = {
+        getDb: dbFor([connectedFixture({ scopes: [...GOOGLE_IDENTITY_SCOPES, ...scopes] })]),
+        fetchImpl: (async () => {
+          spent = true;
+          return new Response("{}", { status: 200 });
+        }) as never,
+      };
+      assert.deepEqual(
+        await readDriveImage(TENANT, { fileId: FILE_ID }, spy),
+        { status: "refused", reason: "capability-not-available" },
+        `${label}: no Drive image read`,
+      );
+      assert.equal(spent, false, `${label}: no credential spent`);
+    }
+    const none = { getDb: dbFor([]) };
+    assert.deepEqual(await readDriveImage(TENANT, { fileId: FILE_ID }, none), { status: "refused", reason: "capability-not-available" });
+    assert.deepEqual(await readDriveImage(null, { fileId: FILE_ID }, none), { status: "refused", reason: "no-authorized-tenant-context" });
+    assert.deepEqual(await readDriveImage(TENANT, { fileId: " " }, none), { status: "refused", reason: "no-document-selected" });
+    /* A caller cannot name a wider grant: the parameter does not exist, and an extra field is ignored. */
     assert.deepEqual(
-      await readDriveImage(TENANT, { fileId: FILE_ID, capability: "google.drive.metadata.read" }, spy),
-      { status: "refused", reason: "unknown-capability" },
-      "only a content capability, never a scope and never metadata",
+      await readDriveImage(TENANT, { fileId: FILE_ID, capability: "google.drive.content.read" } as never, {
+        getDb: dbFor([connectedFixture({ scopes: [...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_CONTENT_SCOPE] })]),
+      }),
+      { status: "refused", reason: "capability-not-available" },
+      "an injected capability field cannot select the Drive-wide grant",
     );
-    void GOOGLE_DRIVE_CONTENT_SCOPE;
   }
 
-  /* ── 6 · A HUMAN'S DRIVE REFERENCE → THE ID, AND NOTHING ELSE ── */
-  assert.equal(driveFileIdFrom("1AbCdEf_GhIjKlMnOp"), "1AbCdEf_GhIjKlMnOp");
-  assert.equal(driveFileIdFrom("https://drive.google.com/file/d/1AbCdEf_GhIjKlMnOp/view?usp=sharing"), "1AbCdEf_GhIjKlMnOp");
-  assert.equal(driveFileIdFrom("https://drive.google.com/open?id=1AbCdEf_GhIjKlMnOp"), "1AbCdEf_GhIjKlMnOp");
-  for (const bad of [
-    "http://drive.google.com/file/d/1AbCdEf_GhIjKlMnOp/view",
-    "https://evil.example/file/d/1AbCdEf_GhIjKlMnOp/view",
-    "https://drive.google.com.evil.example/file/d/1AbCdEf_GhIjKlMnOp",
-    "short",
-    "../../etc/passwd",
-    "",
-  ]) {
-    assert.equal(driveFileIdFrom(bad), null, `not a Drive reference: ${bad}`);
+  /* ── 6 · THE MEDIA PICKER ENTRY: per-file grant only, no Knowledge authority asked or given ── */
+  {
+    const human = asHumanTenantContext({
+      tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      authIdentityId: "identity",
+      membershipId: "membership",
+      membershipVersion: 1,
+      roleId: "role",
+      sessionContextId: "session",
+      provider: "local",
+      assuranceLevel: "aal1",
+      mfaVerified: false,
+      requestId: "media-picker",
+      authenticatedAt: "2026-09-25T09:00:00.000Z",
+    });
+    const configured = () => ({ status: "configured" as const, apiKey: "picker-key", appId: "1234567890" });
+    let knowledgeAsked = false;
+    const knowledgeDenied = async () => {
+      knowledgeAsked = true;
+      return { authorized: false, roleType: "member" } as never;
+    };
+    const run = (scopes: readonly string[] | null, over: Record<string, unknown> = {}) =>
+      authorizeMediaPickerSession(human, {
+        picker: configured,
+        resolveAuthority: knowledgeDenied,
+        env: {},
+        getDb: dbFor(scopes === null ? [] : [connectedFixture({ scopes: [...GOOGLE_IDENTITY_SCOPES, ...scopes] })]),
+        ...over,
+      } as never);
+
+    const unauth = await authorizeMediaPickerSession(null, { picker: configured, getDb: dbFor([]) });
+    assert.equal(unauth.status === "refused" && unauth.reason, "not-authenticated");
+    for (const [label, scopes] of [
+      ["no Google connection", null],
+      ["identity-only connection", []],
+      ["Drive-wide drive.readonly grant", [GOOGLE_DRIVE_CONTENT_SCOPE]],
+      ["metadata-only grant", [GOOGLE_DRIVE_METADATA_SCOPE]],
+    ] as const) {
+      const r = await run(scopes);
+      assert.equal(r.status === "refused" && r.reason, "capability-not-available", `${label}: no chooser, no token`);
+    }
+    const unconfigured = await run([GOOGLE_DRIVE_FILE_SCOPE], { picker: () => ({ status: "unconfigured", missingKeys: ["GOOGLE_PICKER_API_KEY"] }) });
+    assert.equal(unconfigured.status === "refused" && unconfigured.reason, "picker-not-configured");
+    /*
+     * drive.file AVAILABLE: the gate is passed and the ceremony reaches the scoped token handoff. With
+     * no OAuth environment the runner cannot produce a token here, so the answer is provider-failed —
+     * which is the proof the gate opened (a gate refusal would be `refused`), with no network.
+     */
+    const passed = await run([GOOGLE_DRIVE_FILE_SCOPE]);
+    assert.equal(passed.status, "provider-failed", JSON.stringify(passed));
+    assert.equal(knowledgeAsked, false, "the Media entry neither asks for nor depends on Knowledge authority");
   }
 
   /* ── 7 · FIREWALL: the read writes nothing; the admission grants nothing ── */
@@ -193,6 +248,25 @@ async function main(): Promise<void> {
   /* `createHash(...).update(` is hashing, not a write — so the ban is on the database handle. */
   assert.ok(!/\b(db|tx)\s*\.\s*(update|delete)\(/.test(admission), "admission only inserts; it never mutates an asset");
   assert.ok(/\bdb\s*\.\s*insert\(/.test(admission), "the ban above is looking at the right handle");
+
+  /* ── 8 · LEAST PRIVILEGE, STRUCTURALLY: no Drive-wide path reaches supplied Media ── */
+  for (const f of [
+    "src/features/media-assets/admit-supplied-drive-image.server.ts",
+    "src/features/provider-google/read-drive-image.server.ts",
+    "src/components/operations-preparation/supply-image-from-drive.tsx",
+  ]) {
+    const c = code(f);
+    for (const banned of ["GOOGLE_DRIVE_CONTENT_CAPABILITY", "GOOGLE_DRIVE_CONTENT_SCOPE", "GOOGLE_DRIVE_METADATA", "auth/drive.readonly", "auth/drive.metadata"]) {
+      assert.ok(!c.includes(banned), `${f} must not reach ${banned}`);
+    }
+  }
+  assert.ok(code("src/features/provider-google/read-drive-image.server.ts").includes("GOOGLE_DRIVE_FILE_CAPABILITY"), "the image seam names the per-file capability");
+  const door = code("src/components/operations-preparation/supply-image-from-drive.tsx");
+  assert.ok(door.includes("openGooglePicker"), "the Media door is Google's chooser");
+  assert.ok(!/drive\.google\.com|driveFileIdFrom|drive-file-ref/.test(door), "no pasted Drive link is a Media path any more");
+  assert.ok(/accessToken:\s*session\.accessToken/.test(door), "the token goes from the server answer straight into the chooser");
+  assert.ok(!/useState[^\n]*accessToken|setAccessToken|localStorage|sessionStorage/.test(door), "the door keeps no token");
+  assert.ok(!existsSync(path.join(ROOT, "src/features/media-assets/drive-file-ref.ts")), "the link parser is gone");
 
   console.log("PASS media-supplied drive image read (no network)");
 }

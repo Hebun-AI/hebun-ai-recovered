@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { listConnections } from "@/features/integration-authority/integration-repository.server";
 import { isGoogleOAuthConfigured } from "@/features/provider-google/google-environment.server";
+import { GOOGLE_DRIVE_FILE_CAPABILITY, GOOGLE_DRIVE_FILE_SCOPE } from "@/features/provider-google/contracts";
 import {
   buildGoogleConnectionModel,
   GOOGLE_STATE_SENTENCES,
@@ -101,6 +102,30 @@ export default async function GoogleIntegrationPage({
           ) : null}
 
           {model.failureReason ? <p>Last failure: {model.failureReason}</p> : null}
+
+          {/*
+            MEDIA-SUPPLIED — the per-file permission, as its OWN opt-in. Connecting Google grants
+            identity only; this asks for `drive.file` and nothing wider, through the released
+            capability route. Offered only on a live connection that does not already hold it.
+          */}
+          {(model.state === "connected" || model.state === "degraded") &&
+          !model.grantedScopes.includes(GOOGLE_DRIVE_FILE_SCOPE) ? (
+            <div className="space-y-1">
+              <p>
+                <Link
+                  href={`/api/integrations/google/start?capability=${encodeURIComponent(GOOGLE_DRIVE_FILE_CAPABILITY)}`}
+                  prefetch={false}
+                  className="underline underline-offset-4"
+                >
+                  Grant access to files you choose
+                </Link>
+              </p>
+              <p className="text-xs">
+                Hebun will be able to open only the individual Drive files you select for it in
+                Google&apos;s chooser — never the rest of your Drive.
+              </p>
+            </div>
+          ) : null}
 
           {model.connectable ? (
             <p>

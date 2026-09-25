@@ -103,12 +103,12 @@ async function cameraJpeg(width: number, height: number, tint = 120): Promise<Ui
 }
 
 function driveReturns(bytes: Uint8Array, providerMimeType = "image/jpeg", fileId = DRIVE_ID) {
-  const calls: { fileId: string; capability: string }[] = [];
-  const readImage = async (_t: TenantContext, input: { fileId: string; capability: string }): Promise<DriveImageResult> => {
+  const calls: { fileId: string }[] = [];
+  const readImage = async (_t: TenantContext, input: { fileId: string }): Promise<DriveImageResult> => {
     calls.push(input);
     return {
       status: "read",
-      capability: input.capability,
+      capability: "google.drive.file.content.read",
       image: { fileId, name: "kilim.jpg", providerMimeType, bytes, byteLength: bytes.byteLength },
     };
   };
@@ -180,7 +180,7 @@ async function main(): Promise<void> {
         supplied_by_actor_id: acme.userId,
         supplied_source: "google-drive",
         supplied_source_file_id: DRIVE_ID,
-        supplied_source_capability: "google.drive.content.read",
+        supplied_source_capability: "google.drive.file.content.read",
         supplied_artifact_id: acmeDraft,
         supplied_revision_no: 1,
         ...over,
@@ -211,6 +211,13 @@ async function main(): Promise<void> {
     assert.equal(await assetRows(), 0);
 
     /* ══ 1. ADMISSION ══ */
+    const effects = async () => ({
+      decisions: await count("select count(*)::int n from decision_records"),
+      permits: await count("select count(*)::int n from action_permits"),
+      attempts: await count("select count(*)::int n from action_execution_attempts"),
+      requests: await count("select count(*)::int n from heby_action_requests"),
+    });
+    const effectsBefore = await effects();
     const photo = await cameraJpeg(120, 90);
     const drive = driveReturns(photo);
     const admitted = await admitSuppliedDriveImage(
@@ -220,7 +227,7 @@ async function main(): Promise<void> {
     );
     assert.equal(admitted.status, "admitted", JSON.stringify(admitted));
     assert.equal(drive.calls.length, 1, "one Drive read");
-    assert.deepEqual(drive.calls[0], { fileId: DRIVE_ID, capability: "google.drive.content.read" });
+    assert.deepEqual(drive.calls[0], { fileId: DRIVE_ID }, "the caller names a file and nothing else — no capability");
     const asset = admitted.status === "admitted" ? admitted.asset : null!;
     assert.equal(asset.assetId, suppliedAssetId(acme.tenantId, acmeDraft, 1, DRIVE_ID, sha(photo)));
     assert.equal(asset.byteDigest, sha(photo), "digest computed from the bytes");
@@ -234,7 +241,7 @@ async function main(): Promise<void> {
     assert.equal(row.supplied_by_actor_id, acme.userId, "the supplier is the session's human");
     assert.equal(row.supplied_source, "google-drive");
     assert.equal(row.supplied_source_file_id, DRIVE_ID);
-    assert.equal(row.supplied_source_capability, "google.drive.content.read");
+    assert.equal(row.supplied_source_capability, "google.drive.file.content.read", "provenance names the per-file (Picker) grant");
     assert.equal(row.supplied_artifact_id, acmeDraft);
     assert.equal(row.supplied_revision_no, 1);
     assert.equal(row.asset_lifecycle_status, "admitted");
@@ -250,6 +257,12 @@ async function main(): Promise<void> {
     assert.equal(again.status === "existing" && again.asset.assetId, asset.assetId);
     assert.equal(await assetRows(), 1);
 
+    assert.deepEqual(
+      await effects(),
+      effectsBefore,
+      "admission writes no Governance decision, mints no permit, starts no execution and files no request",
+    );
+
     /* ══ 2. FAILURES WRITE NOTHING ══ */
     const before = { rows: await assetRows(), objects: store.objects.size };
     const unchanged = async (label: string) => {
@@ -263,7 +276,6 @@ async function main(): Promise<void> {
       ["empty bytes", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "emptyFile000001" }, driveReturns(new Uint8Array(), "image/jpeg", "emptyFile000001").readImage, "empty-bytes"],
       ["Drive answered a different file", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "askedForThis001" }, driveReturns(photo, "image/jpeg", "gotSomethingElse").readImage, "drive-read-failed"],
       ["malformed Drive id", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "a/b?c" }, undefined, "invalid-input"],
-      ["capability outside the closed set", { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID, capability: "google.drive.metadata.read" }, undefined, "invalid-input"],
       ["revision that does not exist", { artifactId: acmeDraft, revisionNo: 7, driveFileId: DRIVE_ID }, undefined, "source-revision-unresolvable"],
     ];
     for (const [label, input, readImage, reason] of cases) {
@@ -271,6 +283,21 @@ async function main(): Promise<void> {
       assert.equal(r.status === "refused" && r.reason, reason, `${label}: ${JSON.stringify(r)}`);
       await unchanged(label);
     }
+    /* A read that reports any grant other than the per-file one is refused — no Drive-wide fallback. */
+    const wideRead = await admitSuppliedDriveImage(
+      acmeCtx,
+      { artifactId: acmeDraft, revisionNo: 1, driveFileId: "wideGrantFile01" },
+      {
+        ...deps,
+        readImage: async () => ({
+          status: "read",
+          capability: "google.drive.content.read" as never,
+          image: { fileId: "wideGrantFile01", name: "x.jpg", providerMimeType: "image/jpeg", bytes: photo, byteLength: photo.byteLength },
+        }),
+      },
+    );
+    assert.equal(wideRead.status === "refused" && wideRead.detail, "unexpected-capability", "a Drive-wide read is never admitted");
+    await unchanged("Drive-wide read");
     const capRefused = await admitSuppliedDriveImage(
       acmeCtx,
       { artifactId: acmeDraft, revisionNo: 1, driveFileId: "otherFile000001" },

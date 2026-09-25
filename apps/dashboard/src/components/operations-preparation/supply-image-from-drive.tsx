@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { admitSuppliedDriveImageAction } from "@/app/(dashboard)/operations/actions";
+import {
+  admitSuppliedDriveImageAction,
+  authorizeMediaPickerSessionAction,
+} from "@/app/(dashboard)/operations/actions";
+import { openGooglePicker } from "@/components/knowledge-workspace/google-picker.client";
 import { Button } from "@/components/ui/button";
 import type {
   AdmitSuppliedDriveImageRefusal,
@@ -12,21 +16,26 @@ import type { GenerationTarget } from "./generate-image-with-hebun";
 /*
  * MEDIA-SUPPLIED — the human door for a photograph the organization already has in Google Drive.
  *
- * One control, calling `admitSuppliedDriveImageAction` and nothing else. The person names the draft
- * revision and the Drive file; the Media authority reads, verifies, stores and records it. The result
- * is an admitted asset marked "Supplied from Google Drive" — never "generated", never "approved".
+ * Least privilege, the production-accepted way: the human picks ONE image in GOOGLE'S OWN CHOOSER,
+ * which is what grants Hebun per-file access (`drive.file`) to exactly that file. There is no pasted
+ * link and no Drive-wide read. The chooser shows only JPEG, PNG and WebP — the list comes from the
+ * server, the same list admission enforces.
+ *
+ * Two acts, kept separate: authorizing a chooser, then admitting what was chosen. The access token
+ * goes from the server's answer straight into Google's chooser and is never kept in state. Selecting
+ * a file admits nothing; the Media authority admits — or refuses — on its own.
  */
 
 const NOTHING_KEPT = "Nothing was stored.";
 
 const REFUSAL_WORDING: Record<AdmitSuppliedDriveImageRefusal, string> = {
   unauthenticated: `Your session could not be resolved. ${NOTHING_KEPT}`,
-  "invalid-input": `That is not a Google Drive file id or file link, or the draft revision is not valid. ${NOTHING_KEPT}`,
+  "invalid-input": `The selection or the draft revision is not valid. ${NOTHING_KEPT}`,
   "storage-unavailable": `Media storage is not connected. ${NOTHING_KEPT}`,
   "persistence-unavailable": `The database could not be reached. ${NOTHING_KEPT}`,
   "source-revision-unresolvable": `That content draft revision could not be resolved in your organization. ${NOTHING_KEPT}`,
-  "drive-capability-not-available": `Google Drive file access is not granted for your organization. ${NOTHING_KEPT}`,
-  "drive-read-failed": `Google Drive did not return that file as a JPEG, PNG or WebP image. ${NOTHING_KEPT}`,
+  "drive-capability-not-available": `Hebun has not been granted access to files you choose in Google Drive. ${NOTHING_KEPT}`,
+  "drive-read-failed": `Google Drive did not return the selected file as a JPEG, PNG or WebP image. ${NOTHING_KEPT}`,
   "unsupported-image-signature": `The file's bytes are not a JPEG, PNG or WebP image. ${NOTHING_KEPT}`,
   "malformed-image": `The file does not parse as a complete image. ${NOTHING_KEPT}`,
   "declared-type-mismatch": `Drive's declared type does not match the file's bytes. ${NOTHING_KEPT}`,
@@ -39,8 +48,8 @@ const REFUSAL_WORDING: Record<AdmitSuppliedDriveImageRefusal, string> = {
   "download-status-refused": NOTHING_KEPT,
   "download-timeout": NOTHING_KEPT,
   "download-failed": NOTHING_KEPT,
-  "storage-write-failed": `The verified image could not be written to media storage. No asset was filed.`,
-  "integrity-mismatch": `The stored bytes did not match the verified image. No asset was filed; this should be raised.`,
+  "storage-write-failed": "The verified image could not be written to media storage. No asset was filed.",
+  "integrity-mismatch": "The stored bytes did not match the verified image. No asset was filed; this should be raised.",
   "asset-retired": "This exact image was already supplied for this revision and has since been retired.",
 };
 
@@ -53,19 +62,47 @@ const LABEL = "block text-xs font-medium text-fg-secondary";
 export function SupplyImageFromDrive({ targets }: { readonly targets: readonly GenerationTarget[] }) {
   const [artifactId, setArtifactId] = useState("");
   const [revisionNo, setRevisionNo] = useState("");
-  const [driveFile, setDriveFile] = useState("");
-  const [result, setResult] = useState<AdmitSuppliedDriveImageResult | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const selected = targets.find((t) => t.artifactId === artifactId);
-  const ready = Boolean(artifactId) && Boolean(revisionNo) && driveFile.trim().length > 0;
+  const ready = Boolean(artifactId) && Boolean(revisionNo);
 
-  function submit() {
+  function chooseAndSupply() {
     if (!ready || pending) return;
-    setResult(null);
+    setMessage(null);
     startTransition(async () => {
-      setResult(
-        await admitSuppliedDriveImageAction({ artifactId, revisionNo: Number(revisionNo), driveFile: driveFile.trim() }),
+      const session = await authorizeMediaPickerSessionAction();
+      if (session.status !== "authorized") {
+        setMessage(session.detail);
+        return;
+      }
+      const outcome = await openGooglePicker({
+        accessToken: session.accessToken,
+        apiKey: session.apiKey,
+        appId: session.appId,
+        mimeTypes: session.mimeTypes,
+        title: "Choose one image to supply to Hebun",
+      });
+      if (outcome.status === "cancelled") {
+        setMessage("No image was chosen. Nothing was read or stored.");
+        return;
+      }
+      if (outcome.status === "unavailable") {
+        setMessage(outcome.detail);
+        return;
+      }
+      const result: AdmitSuppliedDriveImageResult = await admitSuppliedDriveImageAction({
+        artifactId,
+        revisionNo: Number(revisionNo),
+        driveFileId: outcome.document.fileId,
+      });
+      setMessage(
+        result.status === "refused"
+          ? REFUSAL_WORDING[result.reason]
+          : result.status === "admitted"
+            ? "Admitted as a supplied image for this draft. It is not reviewed, approved or published."
+            : "This exact image was already supplied for this revision. Nothing new was stored.",
       );
     });
   }
@@ -121,32 +158,16 @@ export function SupplyImageFromDrive({ targets }: { readonly targets: readonly G
           />
         </div>
       </div>
-      <div className="min-w-0 space-y-1.5">
-        <label htmlFor="supply-drive-file" className={LABEL}>
-          Google Drive file link or id
-        </label>
-        <input
-          id="supply-drive-file"
-          className={FIELD}
-          value={driveFile}
-          disabled={pending}
-          placeholder="https://drive.google.com/file/d/…"
-          onChange={(e) => setDriveFile(e.target.value)}
-        />
-        <p className="text-xs text-fg-muted">
-          JPEG, PNG or WebP, up to 20 MiB. Hebun reads the file once, verifies it and keeps its own copy.
-        </p>
-      </div>
-      <Button size="sm" onClick={submit} disabled={!ready || pending} aria-busy={pending}>
-        {pending ? "Reading from Drive…" : "Add image from Drive"}
+      <p className="text-xs text-fg-muted">
+        You choose one JPEG, PNG or WebP image (up to 20 MiB) in Google&apos;s own chooser. Hebun can open
+        only the file you choose, reads it once, verifies it and keeps its own copy.
+      </p>
+      <Button size="sm" onClick={chooseAndSupply} disabled={!ready || pending} aria-busy={pending}>
+        {pending ? "Working…" : "Choose image in Google Drive"}
       </Button>
-      {result ? (
+      {message ? (
         <p role="status" aria-live="polite" className="text-sm text-fg-primary">
-          {result.status === "refused"
-            ? REFUSAL_WORDING[result.reason]
-            : result.status === "admitted"
-              ? "Admitted as a supplied image for this draft. It is not reviewed, approved or published."
-              : "This exact image was already supplied for this revision. Nothing new was stored."}
+          {message}
         </p>
       ) : null}
     </div>
