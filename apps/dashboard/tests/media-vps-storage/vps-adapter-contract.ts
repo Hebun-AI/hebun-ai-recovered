@@ -231,8 +231,10 @@ async function main(): Promise<void> {
       /* Every media type the authority can hold must be readable server-side, not just PNG. */
       const cases = [
         { contentType: "image/png" as const, bytes: pngBytes(16, 16, 200) },
-        { contentType: "image/jpeg" as const, bytes: pngBytes(17, 17, 90) },
-        { contentType: "image/webp" as const, bytes: pngBytes(18, 18, 30) },
+        /* MV-3: the store serves a type only when the stored bytes ARE that type, so each case carries
+         * its own format's leading signature — PNG bytes labelled jpeg/webp are now refused (403). */
+        { contentType: "image/jpeg" as const, bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...pngBytes(17, 17, 90)]) },
+        { contentType: "image/webp" as const, bytes: new Uint8Array([...Buffer.from("RIFF\0\0\0\0WEBPVP8 "), ...pngBytes(18, 18, 30)]) },
       ];
 
       for (const c of cases) {

@@ -440,6 +440,83 @@ class ReadV2(V2TestCase):
         self.assertEqual(self.get(url, headers={"Range": "bytes=0-1"})[0], 403)
 
 
+class ReadContentTypeBinding(V2TestCase):
+    """MV-3: a validly signed grant for the WRONG type of an existing object is refused (403) on GET,
+    HEAD and Range alike. The object's own bytes are the type truth; READ-V1 is unchanged."""
+
+    JPEG = b"\xff\xd8\xff\xe0" + bytes(range(256))
+    WEBP = b"RIFF\x00\x01\x00\x00WEBPVP8 " + bytes(range(256))
+    IDS = {"image/png": A1, "image/jpeg": A2,
+           "image/webp": "4fad7132-a05e-4d92-b16f-7e8091a2b3c4", "video/mp4": "5abe8243-b16f-4ea3-8270-8f91a2b3c4d5"}
+
+    def setUp(self):
+        super().setUp()
+        self.bodies = {"image/png": PNG, "image/jpeg": self.JPEG, "image/webp": self.WEBP, "video/mp4": MP4}
+        for ct, a in self.IDS.items():
+            k = key(T1, a)
+            assert self.put_chunked(k, [self.bodies[ct]], self.grant(k, ctype=ct))[0] == 201, ct
+
+    def test_matching_type_is_served_on_get_head_and_range(self):
+        for ct, a in self.IDS.items():
+            url, body = self.read_url(key(T1, a), ctype=ct), self.bodies[ct]
+            status, data, resp = self.get(url)
+            self.assertEqual((status, data, resp.getheader("Content-Type")), (200, body, ct), ct)
+            status, data, resp = self.get(url, method="HEAD")
+            self.assertEqual((status, data, resp.getheader("Content-Length")), (200, b"", str(len(body))), ct)
+            status, data, resp = self.get(url, headers={"Range": "bytes=0-9"})
+            self.assertEqual((status, data), (206, body[:10]), ct)
+            self.assertEqual(self.get(url, headers={"Range": f"bytes={len(body)}-"})[0], 416, ct)
+
+    def test_wrongly_typed_grant_is_refused_everywhere(self):
+        for ct, a in self.IDS.items():
+            for wrong in self.IDS:
+                if wrong == ct:
+                    continue
+                url, body = self.read_url(key(T1, a), ctype=wrong), self.bodies[ct]
+                label = f"{ct} signed as {wrong}"
+                for method, headers in (("GET", {}), ("HEAD", {}), ("GET", {"Range": "bytes=0-9"}),
+                                        ("GET", {"Range": f"bytes={len(body)}-"}), ("HEAD", {"Range": "bytes=0-9"})):
+                    status, data, resp = self.get(url, method=method, headers=headers)
+                    self.assertEqual(status, 403, f"{label} {method} {headers}")
+                    self.assertIsNone(resp.getheader("Content-Range"), label)
+                    self.assertNotIn(body[:8], data, label)
+
+    def test_video_grant_refusals_unchanged(self):
+        k = key(T1, self.IDS["video/mp4"])
+        for path in (f"/v1/read/{k}", self.read_url(k, ctype="video/mp4", exp=self.now - 1),
+                     self.read_url(k, ctype="video/mp4", secret=self.write_secret)):
+            self.assertEqual(self.get(path)[0], 403, path)
+            self.assertEqual(self.get(path, method="HEAD")[0], 403, path)
+            self.assertEqual(self.get(path, headers={"Range": "bytes=0-1"})[0], 403, path)
+
+    def test_bite_proof_the_guard_is_what_refuses(self):
+        # Mutation: disable the byte/type check. The production failure (image/jpeg grant → 200 on an
+        # MP4) must come back, proving the refusal above is this guard and nothing else.
+        k = key(T1, self.IDS["video/mp4"])
+        url = self.read_url(k, ctype="image/jpeg")
+        self.assertEqual(self.get(url)[0], 403)
+        original = store.object_matches_content_type
+        store.object_matches_content_type = lambda head, ct: True
+        try:
+            status, data, resp = self.get(url)
+            self.assertEqual((status, data, resp.getheader("Content-Type")), (200, MP4, "image/jpeg"))
+        finally:
+            store.object_matches_content_type = original
+        self.assertEqual(self.get(url)[0], 403)
+
+    def test_signature_table(self):
+        m = store.object_matches_content_type
+        self.assertTrue(m(PNG[:12], "image/png"))
+        self.assertTrue(m(self.JPEG[:12], "image/jpeg"))
+        self.assertTrue(m(self.WEBP[:12], "image/webp"))
+        self.assertTrue(m(MP4[:12], "video/mp4"))
+        self.assertFalse(m(b"RIFF\x00\x00\x00\x00AVI ", "image/webp"))
+        for ct in ("image/png", "image/jpeg", "image/webp", "video/mp4"):
+            self.assertFalse(m(b"", ct), ct)
+            self.assertFalse(m(b"\x00" * 12, ct), ct)
+        self.assertFalse(m(PNG[:12], "application/octet-stream"))
+
+
 class Probe(V2TestCase):
     def read_probe_argv(self):
         with open(self.probe_log) as f:

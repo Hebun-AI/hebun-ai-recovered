@@ -243,6 +243,25 @@ def _open_object_file(root: str, key: str) -> tuple[int, os.stat_result] | None:
         os.close(dir_fd)
 
 
+# MV-3 read integrity. READ-V1 signs `ct`, but a signature only proves the SIGNER chose that type; the
+# store keeps no MIME metadata of its own. The one type truth it has is the object's bytes, so a read
+# is served only when the signed type agrees with the stored object's leading signature. No sidecar,
+# no second authority, no database: the object is the authority for what it is.
+_SNIFF_BYTES = 12
+
+
+def object_matches_content_type(head: bytes, content_type: str) -> bool:
+    if content_type == "image/png":
+        return head[:8] == b"\x89PNG\r\n\x1a\n"
+    if content_type == "image/jpeg":
+        return head[:3] == b"\xff\xd8\xff"
+    if content_type == "image/webp":
+        return head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    if content_type == "video/mp4":
+        return head[4:8] == b"ftyp"
+    return False
+
+
 class StoreError(Exception):
     def __init__(self, status: int, code: str):
         super().__init__(code)
@@ -798,6 +817,15 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
             if opened is None:
                 return self._send(404, {"error": "not-found"})
             fd, st = opened
+            # MV-3: the signed type must be what the stored bytes are — checked before HEAD, Range or
+            # body, answered exactly like any other refused grant.
+            try:
+                head = os.pread(fd, _SNIFF_BYTES, 0)
+            except OSError:
+                head = b""
+            if not object_matches_content_type(head, ctype):
+                os.close(fd)
+                return self._send(403, {"error": "forbidden"})
             # MV-1: one byte range, decided only after the grant held and the object exists.
             size = st.st_size
             start, end, status = 0, size - 1, 200

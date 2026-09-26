@@ -37,6 +37,10 @@ Headers: `X-Hebun-Timestamp`, `X-Hebun-Nonce` (32–64 hex), `X-Hebun-Signature`
 
 Read canonical string (HMAC-SHA256, read secret): `HEBUN-MEDIA-READ-V1, key, contentType, expires`.
 
+A valid read grant is served only when the signed `contentType` agrees with the stored object's own
+leading bytes (PNG signature, JPEG `FFD8FF`, `RIFF….WEBP`, MP4 `ftyp` box) — MV-3. The store keeps
+no MIME metadata; the object is the type truth. A mismatch is `403`, before HEAD, Range or body.
+
 Refusals: `400` invalid key, `401` unauthorized (stale/future/pre-start timestamp, reused nonce, bad
 signature), `403` bad/expired read grant, `409` key exists, `411` no length, `413` > 20 MiB,
 `415` type not png/jpeg/webp, `422` digest mismatch, `507` free space below threshold.
