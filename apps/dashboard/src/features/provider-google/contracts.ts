@@ -372,6 +372,23 @@ export const GOOGLE_DRIVE_IMAGE_TYPES: readonly string[] = Object.freeze([
 
 export const MAX_DRIVE_IMAGE_BYTES = 20_971_520;
 
+/*
+ * MV-3 — the one Drive video type, and its ceiling. Drive's `mimeType` is a CLAIM that gates whether a
+ * download is attempted at all; it is never the admitted truth — the Media authority takes container
+ * and codecs from ffprobe over the stored bytes. The ceiling is the Media byte-size CHECK and the VPS
+ * v2 ceiling (20 MiB); no larger video limit has been decided.
+ */
+export const GOOGLE_DRIVE_VIDEO_TYPES: readonly string[] = Object.freeze(["video/mp4"]);
+export const MAX_DRIVE_VIDEO_BYTES = 20_971_520;
+
+/** What Drive said about a video before its bytes were relayed. Claims only. */
+export interface GoogleDriveVideoMeta {
+  readonly fileId: string;
+  readonly name: string;
+  readonly providerMimeType: string;
+  readonly declaredSize: number | null;
+}
+
 export interface GoogleDriveImage {
   readonly fileId: string;
   /** Provider-chosen label. Untrusted text; never a path, never persisted as authority. */

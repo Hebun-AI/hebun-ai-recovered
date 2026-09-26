@@ -54,6 +54,8 @@ const code = (f: string): string => stripComments(read(f));
     [
       /* MEDIA-SUPPLIED — a human-supplied Drive image, admitted inside this same authority. */
       "src/features/media-assets/admit-supplied-drive-image.server.ts",
+      /* MV-3 — a human-supplied Drive video, streamed and probed, admitted inside this same authority. */
+      "src/features/media-assets/admit-supplied-drive-video.server.ts",
       /* PUBLISH-0 — the deterministic JPEG derivative writer, inside this same authority. */
       "src/features/media-assets/derive-publish-jpeg.server.ts",
       "src/features/media-assets/request-media-generation.server.ts",
@@ -105,6 +107,9 @@ const code = (f: string): string => stripComments(read(f));
      */
     "src/features/heby-action-inlet/instagram-publish-proposal.server.ts",
     "src/features/action-execution/execute-authorized-action.server.ts",
+    /* MV-3: the supplied-video door and the revision's video list — client components over actions. */
+    "src/components/operations-preparation/supply-video-from-drive.tsx",
+    "src/components/operations-preparation/revision-media-videos.tsx",
   ]);
   for (const f of SRC) {
     const c = code(f);
@@ -134,13 +139,17 @@ const code = (f: string): string => stripComments(read(f));
       "src/components/operations-preparation/generate-image-with-hebun.tsx",
       "src/components/operations-preparation/operations-preparation.tsx",
       "src/components/operations-preparation/revision-media-assets.tsx",
+      "src/components/operations-preparation/revision-media-videos.tsx",
       "src/components/operations-preparation/supply-image-from-drive.tsx",
+      "src/components/operations-preparation/supply-video-from-drive.tsx",
     ],
     /* CONTENT-COMPOSE-1 added the package panel: it renders selected images and a readiness the
        reader already decided. It holds no authority and issues no generation — the set is still
        enumerated exactly, so a sixth file cannot acquire a path without this failing.
        MEDIA-SUPPLIED added the Drive-photo door: it calls the one action file's supplied-admission
-       action and nothing else — still enumerated exactly, a seventh file still fails. */
+       action and nothing else — still enumerated exactly, a seventh file still fails.
+       MV-3 added the Drive-video door and the revision's video list: they call the one action file's
+       supplied-video admission and video read actions, nothing else — still enumerated exactly. */
     "exactly one action file and the MEDIA-3 + CONTENT-COMPOSE-1 + MEDIA-SUPPLIED surfaces may reach the Media Asset authority",
   );
 
@@ -243,7 +252,12 @@ const code = (f: string): string => stripComments(read(f));
   /* MV-1's v2 client imports only the shared signing helpers (hmacHex, readCanonical); 4c pins it. */
   assert.deepEqual(
     importers,
-    ["src/features/media-assets/media-storage.server.ts", "src/features/media-assets/vps-media-storage-v2.server.ts"],
+    [
+      /* MV-3: the video admission names the backend constant only (`hebun-vps`), never the adapter. */
+      "src/features/media-assets/admit-supplied-drive-video.server.ts",
+      "src/features/media-assets/media-storage.server.ts",
+      "src/features/media-assets/vps-media-storage-v2.server.ts",
+    ],
     "only the resolver selects the VPS adapter; the v2 client reuses its signing helpers",
   );
   const adapter = code(ADAPTER);
@@ -262,7 +276,12 @@ const code = (f: string): string => stripComments(read(f));
 /* ── 4c. MV-1: the storage v2 client is custody only, and reached by nothing ─ */
 {
   const V2 = "src/features/media-assets/vps-media-storage-v2.server.ts";
-  assert.deepEqual(SRC.filter((f) => f !== V2 && /vps-media-storage-v2/.test(code(f))), [], "nothing in the application calls storage v2 yet");
+  /* MV-3: the storage resolver builds it (same three keys) and the supplied-video admission uses its types. */
+  assert.deepEqual(
+    SRC.filter((f) => f !== V2 && /vps-media-storage-v2/.test(code(f))).sort(),
+    ["src/features/media-assets/admit-supplied-drive-video.server.ts", "src/features/media-assets/media-storage.server.ts"],
+    "only the storage resolver constructs storage v2, and only the supplied-video admission uses it",
+  );
   const v2 = code(V2);
   assert.ok(!/@\/db|drizzle|schema\/|TenantContext|governance|permit|action-|media_assets/i.test(v2), "the v2 client reads no row and holds no authority");
   assert.ok(!/\b(delete|remove|purge)\s*\(|method:\s*"DELETE"/.test(v2), "the v2 client has no delete verb");

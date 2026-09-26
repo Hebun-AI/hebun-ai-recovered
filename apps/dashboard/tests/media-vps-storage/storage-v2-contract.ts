@@ -80,7 +80,12 @@ async function main(): Promise<void> {
       }
     };
     walk("src");
-    assert.deepEqual(offenders, [], "MV-1 must not connect storage v2 to any Media path");
+    /* MV-3 connected it on purpose: the resolver builds it, the supplied-video admission uses it. */
+    assert.deepEqual(
+      offenders.sort(),
+      ["src/features/media-assets/admit-supplied-drive-video.server.ts", "src/features/media-assets/media-storage.server.ts"],
+      "storage v2 is reached only through the resolver, by the supplied-video admission",
+    );
     assert.deepEqual([...MEDIA_ASSET_MIME_TYPES].sort(), ["image/jpeg", "image/png", "image/webp"], "Media admission gains no video type in MV-1");
   }
 

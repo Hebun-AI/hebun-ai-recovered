@@ -39,6 +39,8 @@ import { RecipientsSection } from "./recipients-section";
 import { PreparedWorkSection } from "./prepared-work-section";
 import { GenerateImageWithHebun } from "./generate-image-with-hebun";
 import { SupplyImageFromDrive } from "./supply-image-from-drive";
+import { SupplyVideoFromDrive } from "./supply-video-from-drive";
+import { RevisionMediaVideos } from "./revision-media-videos";
 import { RevisionMediaAssets } from "./revision-media-assets";
 import { ContentPackagePanel } from "./content-package-panel";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
@@ -199,6 +201,15 @@ export async function OperationsPreparation() {
           <SupplyImageFromDrive targets={drafts} />
         </div>
       </details>
+      {/* MV-3 — a video the organization already has, streamed from its own Drive into Media. */}
+      <details className="min-w-0 rounded-lg border border-border bg-surface">
+        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-fg-secondary">
+          + Add a video from Google Drive
+        </summary>
+        <div className="border-t border-border px-3 pb-3 pt-3">
+          <SupplyVideoFromDrive targets={drafts} />
+        </div>
+      </details>
     </div>
   );
 }
@@ -307,6 +318,7 @@ function MediaAssetsForDrafts({
             ) : (
               <p className="text-xs text-fg-muted">No images have been generated for this revision.</p>
             )}
+            <RevisionMediaVideos artifactId={draft.artifactId} revisionNo={draft.currentRevision} />
           </div>
 
           {/*

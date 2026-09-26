@@ -35,6 +35,9 @@ import {
   MAX_DRIVE_CONTENT_BYTES,
   GOOGLE_DRIVE_IMAGE_TYPES,
   MAX_DRIVE_IMAGE_BYTES,
+  GOOGLE_DRIVE_VIDEO_TYPES,
+  MAX_DRIVE_VIDEO_BYTES,
+  type GoogleDriveVideoMeta,
   type GoogleDriveContentResult,
   type GoogleDriveImageResult,
   GOOGLE_REVOKE_ENDPOINT,
@@ -529,6 +532,83 @@ export async function readDriveFileImage(
       byteLength: buffer.byteLength,
     },
   };
+}
+
+/**
+ * MV-3 — RELAY ONE DRIVE VIDEO AS A STREAM. Never buffered, never base64, never handed to anyone but
+ * the caller's `consume`.
+ *
+ * Metadata first, exactly like the image read: the file must be a stored `video/mp4` (Drive's claim —
+ * a gate on whether to download, not a fact about the bytes), not trashed, and not declared over the
+ * ceiling. Then ONE `alt=media` GET, whose body is given to `consume` as-is. The bearer token goes
+ * only to Google's own endpoint here; `consume` receives bytes and Drive's claims, never the token.
+ *
+ * The body is consumed within `bodyTimeoutMs`; a Drive stream that stalls is aborted, and `consume`
+ * sees the abort as a stream error. What `consume` returns is passed through untouched.
+ */
+export async function relayDriveFileVideo<T>(
+  token: string,
+  fileId: string,
+  consume: (body: ReadableStream<Uint8Array>, meta: GoogleDriveVideoMeta) => Promise<T>,
+  deps: GoogleTransportDeps & { readonly bodyTimeoutMs?: number } = {},
+): Promise<{ readonly ok: true; readonly value: T } | GoogleFailure> {
+  assertServerOnly();
+  if (typeof fileId !== "string" || fileId.trim().length === 0) return fail("malformed", "google-file-id-required");
+  const id = fileId.trim();
+  if (!/^[A-Za-z0-9_-]{1,256}$/.test(id)) return fail("malformed", "google-file-id-malformed");
+
+  const doFetch = deps.fetchImpl ?? fetch;
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
+  const metaUrl = new URL(`${GOOGLE_DRIVE_FILES_ENDPOINT}/${encodeURIComponent(id)}`);
+  metaUrl.searchParams.set("fields", "id,name,mimeType,size,trashed");
+  metaUrl.searchParams.set("supportsAllDrives", "false");
+  let metaResponse: Response;
+  try {
+    metaResponse = await doFetch(metaUrl.toString(), {
+      method: "GET",
+      headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch {
+    return fail("transport", "google-unreachable");
+  }
+  let meta: Record<string, unknown>;
+  try {
+    meta = (await metaResponse.json()) as Record<string, unknown>;
+  } catch {
+    if (!metaResponse.ok) return classifyStatus(metaResponse.status, null);
+    return fail("malformed", "google-unparseable-response");
+  }
+  if (!metaResponse.ok) return classifyStatus(metaResponse.status, googleErrorCode(meta));
+  const name = typeof meta.name === "string" ? meta.name : "";
+  const providerMimeType = typeof meta.mimeType === "string" ? meta.mimeType : "";
+  if (!name || !providerMimeType) return fail("malformed", "google-response-missing-file-fields");
+  if (meta.trashed === true) return fail("malformed", "google-file-trashed");
+  if (!GOOGLE_DRIVE_VIDEO_TYPES.includes(providerMimeType)) return fail("malformed", "google-file-type-unsupported");
+  const declared = typeof meta.size === "string" && /^[0-9]{1,15}$/.test(meta.size) ? Number(meta.size) : null;
+  if (declared !== null && declared > MAX_DRIVE_VIDEO_BYTES) return fail("malformed", "google-file-too-large");
+  if (declared === 0) return fail("malformed", "google-content-empty");
+
+  const contentUrl = new URL(`${GOOGLE_DRIVE_FILES_ENDPOINT}/${encodeURIComponent(id)}`);
+  contentUrl.searchParams.set("alt", "media");
+  contentUrl.searchParams.set("supportsAllDrives", "false");
+  let contentResponse: Response;
+  try {
+    contentResponse = await doFetch(contentUrl.toString(), {
+      method: "GET",
+      headers: { authorization: `Bearer ${token}`, accept: providerMimeType },
+      signal: AbortSignal.timeout(deps.bodyTimeoutMs ?? 120_000),
+    });
+  } catch {
+    return fail("transport", "google-unreachable");
+  }
+  if (!contentResponse.ok || !contentResponse.body) {
+    await contentResponse.body?.cancel().catch(() => undefined);
+    return classifyStatus(contentResponse.status, null);
+  }
+  const value = await consume(contentResponse.body, { fileId: id, name, providerMimeType, declaredSize: declared });
+  return { ok: true, value };
 }
 
 /**

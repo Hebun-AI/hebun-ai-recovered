@@ -56,7 +56,8 @@ async function terminate(child: ChildProcess | null): Promise<void> {
   });
 }
 
-export async function startLocalVpsStore(): Promise<LocalVpsStore> {
+/** `extraEnv` — MV-3: e.g. HEBUN_MEDIA_STORE_ENABLE_VIDEO / HEBUN_MEDIA_STORE_FFPROBE for a video-capable store. */
+export async function startLocalVpsStore(extraEnv: Record<string, string> = {}): Promise<LocalVpsStore> {
   const root = mkdtempSync(path.join(tmpdir(), "hebun-vps-store-"));
   const writeSecret = randomBytes(32).toString("hex");
   const readSecret = randomBytes(32).toString("hex");
@@ -65,6 +66,7 @@ export async function startLocalVpsStore(): Promise<LocalVpsStore> {
     HEBUN_MEDIA_STORE_WRITE_SECRET: writeSecret,
     HEBUN_MEDIA_STORE_READ_SECRET: readSecret,
     HEBUN_MEDIA_STORE_MIN_FREE_BYTES: "0",
+    ...extraEnv,
   };
   const launched = await launch({ ...env, HEBUN_MEDIA_STORE_PORT: "0" });
   let child = launched.child;

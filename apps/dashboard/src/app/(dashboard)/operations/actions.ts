@@ -42,6 +42,12 @@ import {
   type RevisionMediaAssetListing,
 } from "@/features/media-assets/read-media-assets.server";
 import {
+  listRevisionMediaVideos,
+  readMediaVideo,
+  type ReadMediaVideoResult,
+  type RevisionMediaVideoListing,
+} from "@/features/media-assets/read-media-videos.server";
+import {
   acceptMediaAsset,
   declineMediaAsset,
   readMediaAssetReviewStates,
@@ -59,7 +65,11 @@ import {
   authorizeMediaPickerSession,
   type PickerSessionResult,
 } from "@/features/provider-content-admission/authorize-picker-session.server";
-import { GOOGLE_DRIVE_IMAGE_TYPES } from "@/features/provider-google/contracts";
+import { GOOGLE_DRIVE_IMAGE_TYPES, GOOGLE_DRIVE_VIDEO_TYPES } from "@/features/provider-google/contracts";
+import {
+  admitSuppliedDriveVideo,
+  type AdmitSuppliedDriveVideoResult,
+} from "@/features/media-assets/admit-supplied-drive-video.server";
 import type {
   RequestMediaGenerationInput,
   RequestMediaGenerationResult,
@@ -452,6 +462,44 @@ export async function admitSuppliedDriveImageAction(input: {
   });
   if (result.status === "admitted") revalidatePath("/operations");
   return result;
+}
+
+/*
+ * MV-3 — the video siblings. Same Picker session (the per-file `drive.file` grant), offering only
+ * `video/mp4`; admission streams Drive → VPS and admits from probed facts. Playback is a verified,
+ * short-lived signed read the browser fetches with single Range requests.
+ */
+export async function authorizeMediaVideoPickerSessionAction(): Promise<
+  PickerSessionResult & { readonly mimeTypes: readonly string[] }
+> {
+  const session = await authorizeMediaPickerSession(await resolveTenantContext());
+  return { ...session, mimeTypes: GOOGLE_DRIVE_VIDEO_TYPES };
+}
+
+export async function admitSuppliedDriveVideoAction(input: {
+  artifactId: string;
+  revisionNo: number;
+  driveFileId: string;
+}): Promise<AdmitSuppliedDriveVideoResult> {
+  const tenant = await resolveTenantContext();
+  const result = await admitSuppliedDriveVideo(tenant, {
+    artifactId: input?.artifactId,
+    revisionNo: input?.revisionNo,
+    driveFileId: typeof input?.driveFileId === "string" ? input.driveFileId : "",
+  });
+  if (result.status === "admitted") revalidatePath("/operations");
+  return result;
+}
+
+export async function listRevisionMediaVideosAction(input: {
+  artifactId: string;
+  revisionNo: number;
+}): Promise<RevisionMediaVideoListing> {
+  return listRevisionMediaVideos(await resolveTenantContext(), input);
+}
+
+export async function readMediaVideoAction(input: { assetId: string }): Promise<ReadMediaVideoResult> {
+  return readMediaVideo(await resolveTenantContext(), input?.assetId);
 }
 
 export async function prepareWorkArtifactAction(input: {

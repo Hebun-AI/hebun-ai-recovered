@@ -25,6 +25,9 @@
  */
 import type { MediaStorageResolution } from "./media-object-store";
 import { createVpsMediaObjectStore } from "./vps-media-object-store.server";
+import { createVpsMediaStorageV2 } from "./vps-media-storage-v2.server";
+
+export type VpsMediaStorageV2 = ReturnType<typeof createVpsMediaStorageV2>;
 
 export const MEDIA_STORE_ENV = Object.freeze({
   origin: "HEBUN_MEDIA_STORE_ORIGIN",
@@ -77,5 +80,30 @@ export function resolveMediaObjectStore(
   return {
     status: "available",
     store: createVpsMediaObjectStore({ origin: new URL(origin).origin, writeSecret, readSecret }),
+  };
+}
+
+/*
+ * MV-3 — the storage v2 client (streamed write, HEAD, Range), from the SAME three keys under the SAME
+ * validation as the port above. Not a second configuration, not a second store: the same VPS store,
+ * reached through its v2 verbs. Whether that store accepts `video/mp4` is the store's own switch
+ * (HEBUN_MEDIA_STORE_ENABLE_VIDEO on the VPS), not something this resolver can turn on.
+ */
+export type MediaStorageV2Resolution =
+  | { readonly status: "available"; readonly client: VpsMediaStorageV2 }
+  | { readonly status: "unavailable"; readonly reason: "storage-not-connected" | "storage-misconfigured" };
+
+export function resolveMediaStorageV2(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): MediaStorageV2Resolution {
+  const port = resolveMediaObjectStore(env);
+  if (port.status !== "available") return port;
+  return {
+    status: "available",
+    client: createVpsMediaStorageV2({
+      origin: new URL(env[MEDIA_STORE_ENV.origin]!.trim()).origin,
+      writeSecret: env[MEDIA_STORE_ENV.writeSecret]!,
+      readSecret: env[MEDIA_STORE_ENV.readSecret]!,
+    }),
   };
 }
