@@ -216,7 +216,12 @@ const code = (f: string): string => stripComments(read(f));
         f.endsWith("media-generation-transport.server.ts"),
       `${f}: no configuration contract beyond the database URL, the storage resolver and the generation resolver`,
     );
-    if (!f.endsWith("provider-output-download.server.ts") && !f.endsWith("vps-media-object-store.server.ts")) {
+    if (
+      !f.endsWith("provider-output-download.server.ts") &&
+      !f.endsWith("vps-media-object-store.server.ts") &&
+      /* MV-1: the storage v2 client, a second transport to the same store; pinned in 4c. */
+      !f.endsWith("vps-media-storage-v2.server.ts")
+    ) {
       assert.ok(!/\bfetch\b/.test(c), `${f}: only the download seam and the storage adapter may open a socket`);
     }
     assert.ok(!/tests\/|media-fakes/.test(c), `${f}: test fakes never enter the application`);
@@ -235,7 +240,12 @@ const code = (f: string): string => stripComments(read(f));
 {
   const ADAPTER = "src/features/media-assets/vps-media-object-store.server.ts";
   const importers = SRC.filter((f) => f !== ADAPTER && /vps-media-object-store/.test(code(f)));
-  assert.deepEqual(importers, ["src/features/media-assets/media-storage.server.ts"], "only the resolver selects the VPS adapter");
+  /* MV-1's v2 client imports only the shared signing helpers (hmacHex, readCanonical); 4c pins it. */
+  assert.deepEqual(
+    importers,
+    ["src/features/media-assets/media-storage.server.ts", "src/features/media-assets/vps-media-storage-v2.server.ts"],
+    "only the resolver selects the VPS adapter; the v2 client reuses its signing helpers",
+  );
   const adapter = code(ADAPTER);
   assert.ok(!/@\/db|drizzle|schema\/|TenantContext|governance|permit|action-/i.test(adapter), "the adapter reads no row and holds no authority");
   assert.ok(!/\b(delete|remove|purge)\s*\(|method:\s*"DELETE"/.test(adapter), "the adapter has no delete verb");
@@ -247,6 +257,17 @@ const code = (f: string): string => stripComments(read(f));
   assert.ok(!/redirect:\s*"follow"/.test(adapter) && (adapter.match(/redirect:\s*"error"/g) ?? []).length === 3, "the adapter never follows a redirect");
   const resolver = code("src/features/media-assets/media-storage.server.ts");
   assert.ok(!/media-fakes|createMemoryMediaObjectStore|tests\//.test(resolver), "the resolver has no test fallback");
+}
+
+/* ── 4c. MV-1: the storage v2 client is custody only, and reached by nothing ─ */
+{
+  const V2 = "src/features/media-assets/vps-media-storage-v2.server.ts";
+  assert.deepEqual(SRC.filter((f) => f !== V2 && /vps-media-storage-v2/.test(code(f))), [], "nothing in the application calls storage v2 yet");
+  const v2 = code(V2);
+  assert.ok(!/@\/db|drizzle|schema\/|TenantContext|governance|permit|action-|media_assets/i.test(v2), "the v2 client reads no row and holds no authority");
+  assert.ok(!/\b(delete|remove|purge)\s*\(|method:\s*"DELETE"/.test(v2), "the v2 client has no delete verb");
+  assert.ok(!/redirect:\s*"follow"/.test(v2) && (v2.match(/redirect:\s*"error"/g) ?? []).length === 3, "the v2 client never follows a redirect");
+  assert.ok(!/process\.env/.test(v2), "the v2 client is configured by its caller, never by the environment");
 }
 
 /* ── 4c. MEDIA-2A: the OpenAI transport is a transport, reached only by the resolver ─ */

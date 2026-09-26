@@ -1,8 +1,8 @@
 # /etc/caddy/Caddyfile — HTTPS ingress for the Hebun media store ONLY.
 #
-# Terminates TLS (automatic Let's Encrypt) and forwards exactly the three store routes to the
-# loopback service. It adds no authentication and removes none: every write, verify and read is still
-# decided by the store's HMAC checks. No access log is configured, so no query string (which carries a
+# Terminates TLS (automatic Let's Encrypt) and forwards exactly the store routes (the three v1 routes,
+# plus MV-1's v2 write and HEAD on the read route) to the loopback service. It adds no authentication
+# and removes none: every write, verify and read is still decided by the store's HMAC checks. No access log is configured, so no query string (which carries a
 # read signature) is ever written by this proxy. /healthz and every other path answer 404 here.
 {
 	servers {
@@ -19,6 +19,34 @@ media.hebuntech.com {
 	@store {
 		method GET PUT
 		path_regexp ^/v1/(objects|verify|read)/tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/media/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+	}
+
+	# MV-1: HEAD only on the signed read route, never on objects or verify.
+	@read_head {
+		method HEAD
+		path_regexp ^/v1/read/tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/media/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+	}
+
+	# MV-1: streamed WRITE-V2, PUT only. Same 20 MiB body cap as v1: no larger (video) ceiling has been
+	# decided, and the store's own v2 ceiling defaults to the v1 one. Raising either is a Director gate.
+	@store_v2 {
+		method PUT
+		path_regexp ^/v2/objects/tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/media/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+	}
+
+	handle @read_head {
+		reverse_proxy 127.0.0.1:8787 {
+			header_down -Server
+		}
+	}
+
+	handle @store_v2 {
+		request_body {
+			max_size 20MiB
+		}
+		reverse_proxy 127.0.0.1:8787 {
+			header_down -Server
+		}
 	}
 
 	handle @store {

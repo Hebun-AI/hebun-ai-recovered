@@ -10,6 +10,18 @@ WHAT THIS PROCESS IS
         GET  /v1/verify/<key>       {"status":"present","byteSize":N,"sha256Hex":H} | {"status":"absent"}
         GET  /v1/read/<key>?ct=&exp=&sig=
                                     short-lived signed browser read
+        HEAD /v1/read/<key>?ct=&exp=&sig=
+                                    MV-1: same grant, same checks, headers only
+
+    MV-1 (storage v2 foundation) adds, additively and without touching the v1 signatures:
+
+        PUT  /v2/objects/<key>      streamed write-once. The caller does NOT know the digest: the
+                                    store counts and hashes while it writes, and answers the measured
+                                    {"byteSize","sha256Hex"} (+ probe facts when the grant asked).
+        Range: bytes=a-b | a- | -n  on the v1 read (GET): one range, 206; bad/unsatisfiable, 416.
+
+    A v2 success is technical custody, never Media admission. Video types are known to this file but
+    INERT unless HEBUN_MEDIA_STORE_ENABLE_VIDEO=1, which the production unit does not set.
 
 WHAT THIS PROCESS IS NOT
     It owns no media lifecycle, no tenant authority, no Governance, no generation, no publishing and no
@@ -40,6 +52,7 @@ import json
 import os
 import re
 import stat
+import subprocess
 import sys
 import threading
 import time
@@ -63,6 +76,28 @@ TS_RE = re.compile(r"^[0-9]{1,12}$")
 
 WRITE_SCHEME = "HEBUN-MEDIA-WRITE-V1"
 READ_SCHEME = "HEBUN-MEDIA-READ-V1"
+WRITE_V2_SCHEME = "HEBUN-MEDIA-WRITE-V2"
+
+# MV-1. Known, never enabled by default. Only HEBUN_MEDIA_STORE_ENABLE_VIDEO=1 makes them writable or
+# readable, and the production unit does not set it: video stays unavailable until a later gate.
+VIDEO_CONTENT_TYPES = frozenset({"video/mp4"})
+WRITE_V2_MAX_TTL_SECONDS = 600
+LENGTH_RE = re.compile(r"^[0-9]{1,15}$")
+RANGE_RE = re.compile(r"^bytes=([0-9]{0,15})-([0-9]{0,15})$")
+CHUNK_LINE_MAX = 1024
+PROBE_MODES = frozenset({"none", "required"})
+PROBE_TIMEOUT_SECONDS = 10
+PROBE_MAX_OUTPUT = 256 * 1024
+DEFAULT_FFPROBE = "/usr/bin/ffprobe"
+PROBE_FORMATS = "mov,mp4,m4a,3gp,3g2,mj2"
+TEMP_PREFIX = ".tmp-"
+
+
+def write_v2_canonical(key: str, timestamp: str, nonce: str, content_type: str, expected_length: str,
+                       max_bytes: int, expires: str, probe: str) -> bytes:
+    """No digest: the caller streams bytes it has not hashed, and the store measures them."""
+    return "\n".join([WRITE_V2_SCHEME, "PUT", key, timestamp, nonce, content_type, expected_length,
+                      str(max_bytes), expires, probe]).encode("utf-8")
 
 
 def write_canonical(method: str, key: str, timestamp: str, nonce: str, sha256_hex: str,
@@ -81,12 +116,16 @@ def sign(secret: bytes, canonical: bytes) -> str:
 
 class Config:
     def __init__(self, root: str, write_secret: bytes, read_secret: bytes, min_free_bytes: int,
-                 clock=time.time):
+                 clock=time.time, v2_max_bytes: int = MAX_BYTE_SIZE, enable_video: bool = False,
+                 ffprobe: str = DEFAULT_FFPROBE):
         self.root = root
         self.write_secret = write_secret
         self.read_secret = read_secret
         self.min_free_bytes = min_free_bytes
         self.clock = clock
+        self.v2_max_bytes = v2_max_bytes
+        self.ffprobe = ffprobe
+        self.content_types = ALLOWED_CONTENT_TYPES | (VIDEO_CONTENT_TYPES if enable_video else frozenset())
 
 
 def load_config(env) -> Config:
@@ -112,10 +151,25 @@ def load_config(env) -> Config:
     except ValueError:
         problems.append("HEBUN_MEDIA_STORE_MIN_FREE_BYTES must be a non-negative integer")
         min_free = DEFAULT_MIN_FREE_BYTES
+    # MV-1. Unset means the v1 ceiling: no larger object is accepted until someone decides a number.
+    try:
+        v2_max = int(env.get("HEBUN_MEDIA_STORE_V2_MAX_BYTES", str(MAX_BYTE_SIZE)))
+        if v2_max < 1:
+            raise ValueError
+    except ValueError:
+        problems.append("HEBUN_MEDIA_STORE_V2_MAX_BYTES must be a positive integer")
+        v2_max = MAX_BYTE_SIZE
+    video = env.get("HEBUN_MEDIA_STORE_ENABLE_VIDEO", "")
+    if video not in ("", "0", "1"):
+        problems.append("HEBUN_MEDIA_STORE_ENABLE_VIDEO must be 0 or 1")
+    ffprobe = env.get("HEBUN_MEDIA_STORE_FFPROBE", DEFAULT_FFPROBE)
+    if not os.path.isabs(ffprobe):
+        problems.append("HEBUN_MEDIA_STORE_FFPROBE must be an absolute path")
     if problems:
         # Names of the problems only. Never a secret value.
         raise SystemExit("hebun-media-store refuses to start: " + "; ".join(problems))
-    return Config(root, write_secret.encode("utf-8"), read_secret.encode("utf-8"), min_free)
+    return Config(root, write_secret.encode("utf-8"), read_secret.encode("utf-8"), min_free,
+                  v2_max_bytes=v2_max, enable_video=video == "1", ffprobe=ffprobe)
 
 
 class NonceCache:
@@ -274,6 +328,275 @@ def put_object(config: Config, key: str, content_type: str, content_length: int,
         os.close(dir_fd)
 
 
+# ── MV-1: streamed write, probe, orphan temp cleanup ──────────────────────────────────────────────
+
+def _finalize_once(dir_fd: int, tmp_name: str, asset_id: str) -> None:
+    """link() never replaces an existing name: the atomic write-once step, shared shape with v1."""
+    try:
+        os.link(tmp_name, asset_id, src_dir_fd=dir_fd, dst_dir_fd=dir_fd, follow_symlinks=False)
+    except FileExistsError:
+        raise StoreError(409, "key-exists")
+    os.fsync(dir_fd)
+
+
+def put_object_stream(config: Config, key: str, content_type: str, expected: int | None,
+                      max_bytes: int, probe_required: bool, chunks) -> dict:
+    """
+    Stream `chunks` into a private temp file while counting and hashing, then — only if every check
+    holds — link it under its final write-once name. Nothing is visible under the key until then.
+    Any refusal, truncation or probe failure unlinks the temp file and leaves the key absent.
+    """
+    m = KEY_RE.match(key)
+    if not m:
+        raise StoreError(400, "invalid-key")
+    if content_type not in config.content_types:
+        raise StoreError(415, "content-type-refused")
+    if max_bytes < 1 or max_bytes > config.v2_max_bytes:
+        raise StoreError(413, "size-refused")
+    if expected is not None and (expected < 1 or expected > max_bytes):
+        raise StoreError(413, "size-refused")
+
+    reserve = expected if expected is not None else max_bytes
+    vfs = os.statvfs(config.root)
+    if vfs.f_bavail * vfs.f_frsize - reserve < config.min_free_bytes:
+        raise StoreError(507, "insufficient-storage")
+
+    dir_fd = _open_object_dir(config.root, m.group(1), create=True)
+    try:
+        asset_id = m.group(2)
+        # Early refusal only; link() below is the authoritative write-once step.
+        try:
+            os.lstat(asset_id, dir_fd=dir_fd)
+        except FileNotFoundError:
+            pass
+        else:
+            raise StoreError(409, "key-exists")
+
+        tmp_name = f"{TEMP_PREFIX}{asset_id}-{os.urandom(8).hex()}"
+        tmp_fd = os.open(tmp_name, os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+                         | getattr(os, "O_CLOEXEC", 0), 0o600, dir_fd=dir_fd)
+        try:
+            digest = hashlib.sha256()
+            size = 0
+            for chunk in chunks:
+                size += len(chunk)
+                if size > max_bytes or (expected is not None and size > expected):
+                    raise StoreError(413, "size-exceeded")
+                digest.update(chunk)
+                view = memoryview(chunk)
+                while view:
+                    view = view[os.write(tmp_fd, view):]
+            if size < 1:
+                raise StoreError(400, "body-empty")
+            if expected is not None and size != expected:
+                raise StoreError(400, "size-mismatch")
+            os.fsync(tmp_fd)
+            probe = probe_local_fd(config, tmp_fd) if probe_required else None
+            os.fchmod(tmp_fd, 0o440)
+            _finalize_once(dir_fd, tmp_name, asset_id)
+        finally:
+            os.close(tmp_fd)
+            try:
+                os.unlink(tmp_name, dir_fd=dir_fd)
+            except FileNotFoundError:
+                pass
+    finally:
+        os.close(dir_fd)
+    result = {"status": "stored", "byteSize": size, "sha256Hex": digest.hexdigest()}
+    if probe is not None:
+        result["probe"] = probe
+    return result
+
+
+_CODEC_RE = re.compile(r"^[a-z0-9_]{1,32}$")
+_FORMAT_RE = re.compile(r"^[a-z0-9_,]{1,64}$")
+_RATE_RE = re.compile(r"^[0-9]{1,9}/[0-9]{1,9}$")
+_DURATION_RE = re.compile(r"^[0-9]{1,9}(\.[0-9]{1,9})?$")
+
+
+def _bounded_int(value, low: int, high: int):
+    return value if isinstance(value, int) and not isinstance(value, bool) and low <= value <= high else None
+
+
+def parse_probe(raw: bytes) -> dict:
+    """
+    Allowlisted, bounded technical facts from ffprobe JSON. Everything not named here — tags, titles,
+    encoder strings, file names, anything a file author controls as free text — is dropped.
+    """
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        raise StoreError(422, "probe-failed")
+    if not isinstance(doc, dict) or not isinstance(doc.get("format"), dict):
+        raise StoreError(422, "probe-failed")
+    fmt = doc["format"]
+    format_name = fmt.get("format_name")
+    duration = fmt.get("duration")
+    if not (isinstance(format_name, str) and _FORMAT_RE.match(format_name)):
+        raise StoreError(422, "probe-failed")
+    result = {
+        "container": format_name,
+        "durationSeconds": float(duration) if isinstance(duration, str) and _DURATION_RE.match(duration) else None,
+        "video": None,
+        "audio": None,
+    }
+    streams = doc.get("streams")
+    if not isinstance(streams, list) or len(streams) > 64:
+        raise StoreError(422, "probe-failed")
+    for s in streams:
+        if not isinstance(s, dict):
+            continue
+        kind = s.get("codec_type")
+        codec = s.get("codec_name")
+        if not (isinstance(codec, str) and _CODEC_RE.match(codec)):
+            continue
+        if kind == "video" and result["video"] is None:
+            rate = s.get("avg_frame_rate") or s.get("r_frame_rate")
+            result["video"] = {
+                "codec": codec,
+                "width": _bounded_int(s.get("width"), 1, 65535),
+                "height": _bounded_int(s.get("height"), 1, 65535),
+                "frameRate": rate if isinstance(rate, str) and _RATE_RE.match(rate) else None,
+            }
+        elif kind == "audio" and result["audio"] is None:
+            result["audio"] = {"codec": codec}
+    return result
+
+
+def probe_local_fd(config: Config, fd: int) -> dict:
+    """
+    ffprobe over an ALREADY-OPEN local file descriptor. The child inherits exactly that fd and is
+    pointed at /dev/fd/N through the `file` protocol only, so it cannot be handed a URL, a path
+    another process could swap, a playlist, or a concat list. Fixed argv, no shell, minimal env,
+    bounded time and bounded output. Memory and task limits are the unit's cgroup (MemoryMax,
+    TasksMax), which a child shares — this function claims nothing beyond that.
+    """
+    if not (os.path.isabs(config.ffprobe) and os.access(config.ffprobe, os.X_OK)):
+        raise StoreError(503, "probe-unavailable")
+    os.lseek(fd, 0, os.SEEK_SET)
+    argv = [
+        config.ffprobe, "-v", "error", "-hide_banner",
+        "-protocol_whitelist", "file",
+        "-format_whitelist", PROBE_FORMATS,
+        "-print_format", "json", "-show_format", "-show_streams",
+        f"file:/dev/fd/{fd}",
+    ]
+    try:
+        done = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, pass_fds=(fd,), close_fds=True,
+                              env={"PATH": "/usr/bin:/bin"}, timeout=PROBE_TIMEOUT_SECONDS, check=False)
+    except subprocess.TimeoutExpired:
+        raise StoreError(422, "probe-timeout")
+    except OSError:
+        raise StoreError(503, "probe-unavailable")
+    if done.returncode != 0 or len(done.stdout) > PROBE_MAX_OUTPUT:
+        raise StoreError(422, "probe-failed")
+    return parse_probe(done.stdout)
+
+
+def sweep_orphan_temps(root: str) -> int:
+    """
+    Remove temp files a crash left behind. Called once, at startup, before the socket is bound —
+    the only moment this single process provably has no write in flight. Symlinked components are
+    never followed; only regular files with the temp prefix are removed.
+    """
+    removed = 0
+    try:
+        tenants_fd = os.open(os.path.join(root, "tenants"), _DIR_FLAGS)
+    except FileNotFoundError:
+        return 0
+    try:
+        for tenant in os.listdir(tenants_fd):
+            if not re.fullmatch(_UUID, tenant):
+                continue
+            try:
+                t_fd = os.open(tenant, _DIR_FLAGS, dir_fd=tenants_fd)
+            except OSError:
+                continue
+            try:
+                try:
+                    m_fd = os.open("media", _DIR_FLAGS, dir_fd=t_fd)
+                except OSError:
+                    continue
+                try:
+                    for name in os.listdir(m_fd):
+                        if not name.startswith(TEMP_PREFIX):
+                            continue
+                        st = os.stat(name, dir_fd=m_fd, follow_symlinks=False)
+                        if stat.S_ISREG(st.st_mode):
+                            os.unlink(name, dir_fd=m_fd)
+                            removed += 1
+                finally:
+                    os.close(m_fd)
+            finally:
+                os.close(t_fd)
+    finally:
+        os.close(tenants_fd)
+    return removed
+
+
+def _content_length_chunks(rfile, length: int, counter: list):
+    remaining = length
+    while remaining > 0:
+        chunk = rfile.read(min(CHUNK, remaining))
+        if not chunk:
+            raise StoreError(400, "body-truncated")
+        counter[0] += len(chunk)
+        remaining -= len(chunk)
+        yield chunk
+
+
+def _chunked_chunks(rfile):
+    """HTTP/1.1 chunked decoding, bounded line lengths, fails closed on anything malformed or short."""
+    while True:
+        line = rfile.readline(CHUNK_LINE_MAX + 1)
+        if not line:
+            raise StoreError(400, "body-truncated")
+        if len(line) > CHUNK_LINE_MAX or not line.endswith(b"\r\n"):
+            raise StoreError(400, "body-malformed")
+        size_text = line[:-2].split(b";", 1)[0].strip()
+        if not re.fullmatch(rb"[0-9a-fA-F]{1,8}", size_text):
+            raise StoreError(400, "body-malformed")
+        size = int(size_text, 16)
+        if size == 0:
+            for _ in range(32):
+                trailer = rfile.readline(CHUNK_LINE_MAX + 1)
+                if not trailer:
+                    raise StoreError(400, "body-truncated")
+                if trailer == b"\r\n":
+                    return
+            raise StoreError(400, "body-malformed")
+        remaining = size
+        while remaining > 0:
+            chunk = rfile.read(min(CHUNK, remaining))
+            if not chunk:
+                raise StoreError(400, "body-truncated")
+            remaining -= len(chunk)
+            yield chunk
+        if rfile.read(2) != b"\r\n":
+            raise StoreError(400, "body-malformed")
+
+
+def parse_range(header: str, size: int):
+    """One `bytes=` range → (start, end) inclusive; None → unsatisfiable/invalid (416)."""
+    m = RANGE_RE.match(header.strip())
+    if not m:
+        return None
+    first, last = m.group(1), m.group(2)
+    if first == "" and last == "":
+        return None
+    if first == "":
+        n = int(last)
+        if n == 0:
+            return None
+        return max(0, size - n), size - 1
+    start = int(first)
+    end = size - 1 if last == "" else min(int(last), size - 1)
+    if start >= size or start > end:
+        return None
+    return start, end
+
+
 class _CountingReader:
     def __init__(self, raw):
         self.raw = raw
@@ -340,8 +663,70 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
             # Claimed only after the signature holds, so an attacker cannot burn legitimate nonces.
             return nonces.claim(nonce, now)
 
+        def _put_v2(self, key: str):
+            """
+            MV-1 streamed write. Headers carry the grant; the signature binds key, type, the expected
+            length ("" when unknown), the ceiling, the expiry and the probe mode — never a digest.
+            """
+            h = self.headers
+            ts = h.get("X-Hebun-Timestamp", "")
+            nonce = h.get("X-Hebun-Nonce", "")
+            sig = h.get("X-Hebun-Signature", "")
+            ctype = h.get("Content-Type", "")
+            expected_text = h.get("X-Hebun-Expected-Length", "")
+            max_text = h.get("X-Hebun-Max-Bytes", "")
+            expires = h.get("X-Hebun-Expires", "")
+            probe = h.get("X-Hebun-Probe", "")
+            te = h.get("Transfer-Encoding")
+            length_header = h.get("Content-Length")
+            chunked = te is not None
+            if chunked and (te.strip().lower() != "chunked" or length_header is not None):
+                return self._send(400, {"error": "invalid-framing"})
+            if not chunked:
+                if length_header is None or not length_header.isdigit():
+                    return self._send(411, {"error": "length-required"})
+                self._unread_body = int(length_header)
+            if not KEY_RE.match(key):
+                return self._send(400, {"error": "invalid-key"})
+            if not (TS_RE.match(ts) and NONCE_RE.match(nonce) and SIG_RE.match(sig)
+                    and TS_RE.match(expires) and LENGTH_RE.match(max_text) and probe in PROBE_MODES
+                    and (expected_text == "" or LENGTH_RE.match(expected_text))):
+                return self._send(401, {"error": "unauthorized"})
+            now = config.clock()
+            t, e = int(ts), int(expires)
+            if t < int(started_at) or abs(now - t) > CLOCK_SKEW_SECONDS:
+                return self._send(401, {"error": "unauthorized"})
+            if e <= now or e > t + WRITE_V2_MAX_TTL_SECONDS:
+                return self._send(401, {"error": "unauthorized"})
+            expected_sig = sign(config.write_secret, write_v2_canonical(
+                key, ts, nonce, ctype, expected_text, int(max_text), expires, probe))
+            if not hmac.compare_digest(expected_sig, sig) or not nonces.claim(nonce, now):
+                return self._send(401, {"error": "unauthorized"})
+            expected = int(expected_text) if expected_text else None
+            if not chunked and expected is not None and int(length_header) != expected:
+                return self._send(400, {"error": "size-mismatch"})
+            if not chunked and int(length_header) > int(max_text):
+                return self._send(413, {"error": "size-refused"})
+            counter = [0]
+            chunks = _chunked_chunks(self.rfile) if chunked else _content_length_chunks(
+                self.rfile, int(length_header), counter)
+            try:
+                result = put_object_stream(config, key, ctype, expected, int(max_text), probe == "required", chunks)
+            except StoreError as err:
+                # A refused chunked body cannot be drained safely; the connection is closed instead.
+                self._unread_body = 0 if chunked else int(length_header) - counter[0]
+                return self._send(err.status, {"error": err.code})
+            except OSError as err:
+                self._unread_body = 0 if chunked else int(length_header) - counter[0]
+                code = "symlink-refused" if err.errno in (errno.ELOOP, errno.ENOTDIR) else "storage-error"
+                return self._send(500, {"error": code})
+            self._unread_body = 0
+            return self._send(201, result)
+
         def do_PUT(self):
             parts = urlsplit(self.path)
+            if parts.path.startswith("/v2/objects/") and not parts.query:
+                return self._put_v2(parts.path[len("/v2/objects/"):])
             if not parts.path.startswith("/v1/objects/") or parts.query:
                 return self._send(404, {"error": "not-found"})
             key = parts.path[len("/v1/objects/"):]
@@ -395,7 +780,7 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
             ctype = (q.get("ct") or [""])[0]
             exp = (q.get("exp") or [""])[0]
             sig = (q.get("sig") or [""])[0]
-            if (not KEY_RE.match(key) or ctype not in ALLOWED_CONTENT_TYPES or not TS_RE.match(exp)
+            if (not KEY_RE.match(key) or ctype not in config.content_types or not TS_RE.match(exp)
                     or not SIG_RE.match(sig) or any(len(v) != 1 for v in q.values())
                     or set(q.keys()) != {"ct", "exp", "sig"}):
                 return self._send(403, {"error": "forbidden"})
@@ -413,10 +798,31 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
             if opened is None:
                 return self._send(404, {"error": "not-found"})
             fd, st = opened
+            # MV-1: one byte range, decided only after the grant held and the object exists.
+            size = st.st_size
+            start, end, status = 0, size - 1, 200
+            range_header = self.headers.get("Range")
+            if range_header is not None:
+                span = parse_range(range_header, size)
+                if span is None:
+                    os.close(fd)
+                    self.send_response(416)
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    self.send_header("Accept-Ranges", "bytes")
+                    self.send_header("Content-Length", "0")
+                    self.send_header("Cache-Control", "private, no-store")
+                    self.send_header("Connection", "close")
+                    self.end_headers()
+                    self.close_connection = True
+                    return
+                start, end, status = span[0], span[1], 206
             with os.fdopen(fd, "rb") as f:
-                self.send_response(200)
+                self.send_response(status)
                 self.send_header("Content-Type", ctype)
-                self.send_header("Content-Length", str(st.st_size))
+                self.send_header("Content-Length", str(end - start + 1))
+                self.send_header("Accept-Ranges", "bytes")
+                if status == 206:
+                    self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
                 self.send_header("Cache-Control", "private, no-store")
                 self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("Content-Disposition", "inline")
@@ -424,12 +830,23 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
                 self.send_header("Referrer-Policy", "no-referrer")
                 self.send_header("Connection", "close")
                 self.end_headers()
-                while True:
-                    chunk = f.read(CHUNK)
-                    if not chunk:
-                        break
-                    self.wfile.write(chunk)
+                if self.command != "HEAD":
+                    f.seek(start)
+                    remaining = end - start + 1
+                    while remaining > 0:
+                        chunk = f.read(min(CHUNK, remaining))
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        remaining -= len(chunk)
             self.close_connection = True
+
+        def do_HEAD(self):
+            # MV-1: HEAD exists only for the signed read, under exactly the same grant checks as GET.
+            parts = urlsplit(self.path)
+            if parts.path.startswith("/v1/read/"):
+                return self._read(parts)
+            return self._send(404, {"error": "not-found"})
 
         def do_POST(self):
             self._send(405, {"error": "method-not-allowed"})
@@ -442,7 +859,8 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
 
 def build_server(config: Config, host: str, port: int) -> ThreadingHTTPServer:
     started_at = config.clock()
-    server = ThreadingHTTPServer((host, port), make_handler(config, started_at, NonceCache()))
+    sweep_orphan_temps(config.root)
+    server =ThreadingHTTPServer((host, port), make_handler(config, started_at, NonceCache()))
     server.daemon_threads = True
     return server
 

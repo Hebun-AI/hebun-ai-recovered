@@ -17,6 +17,7 @@ generation, publishing, permit or execution. Neon `media_assets` stays authorita
 | `hebun_media_store.py` | The service. Python 3.12 standard library only. |
 | `hebun-media-store.service` | systemd unit (hardened, non-root, loopback bind). |
 | `test_hebun_media_store.py` | 22 tests; real server on an ephemeral port, throwaway secrets. |
+| `test_hebun_media_store_v2.py` | MV-1: 36 tests (WRITE-V2, HEAD, Range, probe with a fake ffprobe, firewall). |
 | `signing-vectors.json` | Throwaway HMAC vectors shared with the TypeScript adapter test. |
 | `Caddyfile` | HTTPS ingress for `media.hebuntech.com` → `127.0.0.1:8787` (store routes only). |
 
@@ -39,6 +40,48 @@ Read canonical string (HMAC-SHA256, read secret): `HEBUN-MEDIA-READ-V1, key, con
 Refusals: `400` invalid key, `401` unauthorized (stale/future/pre-start timestamp, reused nonce, bad
 signature), `403` bad/expired read grant, `409` key exists, `411` no length, `413` > 20 MiB,
 `415` type not png/jpeg/webp, `422` digest mismatch, `507` free space below threshold.
+
+## MV-1 — storage v2 foundation (additive; v1 signatures unchanged)
+
+Technical custody only. A v2 success is **never** Media admission; the dashboard client
+(`vps-media-storage-v2.server.ts`) is not wired into the Media authority.
+
+| Verb | Path | Auth |
+|------|------|------|
+| put v2 | `PUT /v2/objects/tenants/<uuid>/media/<uuid>` (chunked or Content-Length) | write HMAC, v2 canonical |
+| head | `HEAD /v1/read/...?ct=&exp=&sig=` | the unchanged READ-V1 grant |
+| range | `GET /v1/read/...` + `Range: bytes=a-b` / `a-` / `-n` | the unchanged READ-V1 grant |
+
+WRITE-V2 canonical (write secret): `HEBUN-MEDIA-WRITE-V2, PUT, key, timestamp, nonce, contentType,
+expectedLength ("" if unknown), maxBytes, expires, probe ("none"|"required")`. Headers
+`X-Hebun-Expected-Length`, `X-Hebun-Max-Bytes`, `X-Hebun-Expires` (≤ timestamp + 600s),
+`X-Hebun-Probe`. **No digest from the caller**: the store hashes and counts while writing to an
+`O_EXCL` temp file and answers `{"status":"stored","byteSize","sha256Hex"[,"probe"]}`. Size mismatch,
+ceiling overrun, truncated/malformed chunking, duplicate key and probe failure unlink the temp file;
+the key only appears after `link()`.
+
+Range: one range only → `206` + `Content-Range`; malformed, multi-range or unsatisfiable → `416`
+with `Content-Range: bytes */size`. Every read answer carries `Accept-Ranges: bytes`. Grant checks
+run before existence, for HEAD exactly as for GET.
+
+Probe: `ffprobe` over the temp file's **inherited fd** (`file:/dev/fd/N`), `-protocol_whitelist file`,
+`-format_whitelist mov,mp4,m4a,3gp,3g2,mj2`, fixed argv, no shell, `PATH=/usr/bin:/bin`, 10 s timeout,
+output ≤ 256 KiB, allowlisted JSON parse (container, duration, video codec/width/height/frame rate,
+audio codec). Nothing is persisted. Resource limits are the unit's cgroup (`MemoryMax=512M`,
+`TasksMax=64`), which the child shares. Missing ffprobe → `503 probe-unavailable`.
+
+Orphan temps: removed once at startup, before the socket binds (single process, nothing in flight).
+
+Configuration (all optional; defaults keep video OFF):
+
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `HEBUN_MEDIA_STORE_ENABLE_VIDEO` | unset (off) | `1` admits `video/mp4` to v2 write and read. **Not set in the unit.** |
+| `HEBUN_MEDIA_STORE_V2_MAX_BYTES` | 20 MiB | v2 ceiling. No video ceiling decided; raising it (and Caddy's) is a Director gate. |
+| `HEBUN_MEDIA_STORE_FFPROBE` | `/usr/bin/ffprobe` | absolute path only. |
+
+**ffprobe on the VPS: NOT installed** (checked 2026-09-25: `command -v ffprobe` empty, no `ffmpeg`
+package). Required-probe writes therefore answer `503` until the ffprobe installation gate.
 
 ## Controls
 

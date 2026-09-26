@@ -31,5 +31,29 @@
       "expires": "1790000060",
       "signature": "8bacf77aa11274b5e2d3c9271ba616fe31ef062d94e22e7e1277f34d706671b1"
     }
+  ],
+  "writeV2": [
+    {
+      "key": "tenants/0b6f3d9e-6c1a-4f5e-9d2b-3a4c5d6e7f80/media/2d8b5f10-8e3c-4b70-9f4d-5c6e7f8091a2",
+      "timestamp": "1790000002",
+      "nonce": "0123456789abcdef0123456789abcdef",
+      "contentType": "image/png",
+      "expectedLength": "",
+      "maxBytes": 20971520,
+      "expires": "1790000300",
+      "probe": "none",
+      "signature": "15694828b8f22717def5029929832606cfc2c7048346fc8f784967a5a074b860"
+    },
+    {
+      "key": "tenants/0b6f3d9e-6c1a-4f5e-9d2b-3a4c5d6e7f80/media/2d8b5f10-8e3c-4b70-9f4d-5c6e7f8091a2",
+      "timestamp": "1790000002",
+      "nonce": "0123456789abcdef0123456789abcdef",
+      "contentType": "video/mp4",
+      "expectedLength": "1048576",
+      "maxBytes": 1048576,
+      "expires": "1790000300",
+      "probe": "required",
+      "signature": "08320c0eddba8ee4c3c88d8017bf3785e208b68b9653cc91cad54fb9862c7486"
+    }
   ]
 }

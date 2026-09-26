@@ -132,6 +132,11 @@ function main(): void {
          */
         "src/features/media-assets/vps-media-object-store.server.ts",
         /*
+         * MV-1 — the storage v2 client. Same Hebun media store origin (given by its caller), HMAC-
+         * signed, redirects refused, timed out, ranges bounded. Not yet reached by any application path.
+         */
+        "src/features/media-assets/vps-media-storage-v2.server.ts",
+        /*
          * Storage acceptance — fetches the read grants the adapter minted, and only those, to prove
          * the deployed runtime reaches the VPS store. Redirects refused, timed out.
          */
