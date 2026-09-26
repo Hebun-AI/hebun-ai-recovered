@@ -20,6 +20,16 @@ WHAT THIS PROCESS IS
                                     {"byteSize","sha256Hex"} (+ probe facts when the grant asked).
         Range: bytes=a-b | a- | -n  on the v1 read (GET): one range, 206; bad/unsatisfiable, 416.
 
+    MV-5 adds one transform, additively:
+
+        POST /v2/derive/<dest key>  DERIVE-V1. Runs ONE closed, fixed-argument ffmpeg profile over an
+                                    already-stored source object of the SAME tenant, writes the result
+                                    temp-first and write-once under the destination key, ffprobes the
+                                    stored result and answers the measured facts. The request carries
+                                    only a source key, a destination key and a closed derivation name.
+                                    It is execution, never admission: no `media_assets` row exists
+                                    because of it, and the source is only ever opened read-only.
+
     A v2 success is technical custody, never Media admission. Video types are known to this file but
     INERT unless HEBUN_MEDIA_STORE_ENABLE_VIDEO=1, which the production unit does not set.
 
@@ -92,6 +102,25 @@ DEFAULT_FFPROBE = "/usr/bin/ffprobe"
 PROBE_FORMATS = "mov,mp4,m4a,3gp,3g2,mj2"
 TEMP_PREFIX = ".tmp-"
 
+# MV-5 — DERIVE-V1. A CLOSED set: the name selects a fixed argv below; nothing from the request ever
+# reaches ffmpeg except two descriptors this process opened itself.
+DERIVE_SCHEME = "HEBUN-MEDIA-DERIVE-V1"
+DERIVATIONS = frozenset({"mp4-normalize-v1"})
+DERIVATION_RE = re.compile(r"^[a-z0-9-]{1,40}$")
+DEFAULT_FFMPEG = "/usr/bin/ffmpeg"
+DERIVE_TIMEOUT_SECONDS = 90          # inside Caddy's 120 s write timeout
+DERIVE_MAX_TTL_SECONDS = 600
+# mp4-normalize-v1: H.264 (libx264, preset pinned) CRF 23, yuv420p, AAC 128k only when the source has
+# audio, faststart, metadata/chapters/subtitles/data stripped, one thread. Never upscales: the box is
+# min(1920, source); aspect ratio preserved; both dimensions forced even.
+NORMALIZE_PRESET = "veryfast"
+NORMALIZE_MAX_DIMENSION = 1920
+NORMALIZE_FILTER = (
+    f"scale=w='min({NORMALIZE_MAX_DIMENSION},iw)':h='min({NORMALIZE_MAX_DIMENSION},ih)'"
+    ":force_original_aspect_ratio=decrease:force_divisible_by=2"
+)
+_derive_slot = threading.BoundedSemaphore(1)
+
 
 def write_v2_canonical(key: str, timestamp: str, nonce: str, content_type: str, expected_length: str,
                        max_bytes: int, expires: str, probe: str) -> bytes:
@@ -110,6 +139,12 @@ def read_canonical(key: str, content_type: str, expires: str) -> bytes:
     return "\n".join([READ_SCHEME, key, content_type, expires]).encode("utf-8")
 
 
+def derive_canonical(dest_key: str, source_key: str, derivation: str, timestamp: str, nonce: str,
+                     expires: str) -> bytes:
+    return "\n".join([DERIVE_SCHEME, "POST", dest_key, source_key, derivation, timestamp, nonce,
+                      expires]).encode("utf-8")
+
+
 def sign(secret: bytes, canonical: bytes) -> str:
     return hmac.new(secret, canonical, hashlib.sha256).hexdigest()
 
@@ -117,7 +152,8 @@ def sign(secret: bytes, canonical: bytes) -> str:
 class Config:
     def __init__(self, root: str, write_secret: bytes, read_secret: bytes, min_free_bytes: int,
                  clock=time.time, v2_max_bytes: int = MAX_BYTE_SIZE, enable_video: bool = False,
-                 ffprobe: str = DEFAULT_FFPROBE):
+                 ffprobe: str = DEFAULT_FFPROBE, ffmpeg: str = DEFAULT_FFMPEG,
+                 derive_timeout: int = DERIVE_TIMEOUT_SECONDS):
         self.root = root
         self.write_secret = write_secret
         self.read_secret = read_secret
@@ -125,6 +161,9 @@ class Config:
         self.clock = clock
         self.v2_max_bytes = v2_max_bytes
         self.ffprobe = ffprobe
+        self.ffmpeg = ffmpeg
+        self.derive_timeout = derive_timeout
+        self.enable_video = enable_video
         self.content_types = ALLOWED_CONTENT_TYPES | (VIDEO_CONTENT_TYPES if enable_video else frozenset())
 
 
@@ -165,11 +204,14 @@ def load_config(env) -> Config:
     ffprobe = env.get("HEBUN_MEDIA_STORE_FFPROBE", DEFAULT_FFPROBE)
     if not os.path.isabs(ffprobe):
         problems.append("HEBUN_MEDIA_STORE_FFPROBE must be an absolute path")
+    ffmpeg = env.get("HEBUN_MEDIA_STORE_FFMPEG", DEFAULT_FFMPEG)
+    if not os.path.isabs(ffmpeg):
+        problems.append("HEBUN_MEDIA_STORE_FFMPEG must be an absolute path")
     if problems:
         # Names of the problems only. Never a secret value.
         raise SystemExit("hebun-media-store refuses to start: " + "; ".join(problems))
     return Config(root, write_secret.encode("utf-8"), read_secret.encode("utf-8"), min_free,
-                  v2_max_bytes=v2_max, enable_video=video == "1", ffprobe=ffprobe)
+                  v2_max_bytes=v2_max, enable_video=video == "1", ffprobe=ffprobe, ffmpeg=ffmpeg)
 
 
 class NonceCache:
@@ -511,6 +553,124 @@ def probe_local_fd(config: Config, fd: int) -> dict:
     if done.returncode != 0 or len(done.stdout) > PROBE_MAX_OUTPUT:
         raise StoreError(422, "probe-failed")
     return parse_probe(done.stdout)
+
+
+def normalize_argv(ffmpeg: str, source_fd: int, out_path: str, max_bytes: int) -> list:
+    """
+    mp4-normalize-v1, fixed. The only variable parts are a descriptor and a path THIS process chose.
+    `-n` refuses to overwrite; `-fs` stops writing one byte past the ceiling so an oversize result is
+    detected, never trusted.
+    """
+    return [
+        ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error",
+        "-protocol_whitelist", "file", "-format_whitelist", PROBE_FORMATS,
+        "-threads", "1", "-filter_threads", "1",
+        "-i", f"file:/dev/fd/{source_fd}",
+        "-map", "0:v:0", "-map", "0:a:0?",
+        "-vf", NORMALIZE_FILTER,
+        "-c:v", "libx264", "-preset", NORMALIZE_PRESET, "-crf", "23", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k",
+        "-map_metadata", "-1", "-map_chapters", "-1", "-sn", "-dn",
+        "-movflags", "+faststart", "-fs", str(max_bytes + 1),
+        "-threads", "1", "-f", "mp4", "-n", out_path,
+    ]
+
+
+def derive_object(config: Config, source_key: str, dest_key: str, derivation: str) -> dict:
+    """
+    Run the closed transform over the stored source; write the result temp-first, link it write-once
+    under `dest_key`, probe the STORED result and answer measured facts. Any failure leaves no object
+    under `dest_key` and the source untouched (it is only ever opened O_RDONLY).
+    """
+    ms, md = KEY_RE.match(source_key), KEY_RE.match(dest_key)
+    if not ms or not md:
+        raise StoreError(400, "invalid-key")
+    if ms.group(1) != md.group(1):
+        raise StoreError(403, "cross-tenant-refused")
+    if ms.group(2) == md.group(2):
+        raise StoreError(400, "source-is-destination")
+    if derivation not in DERIVATIONS:
+        raise StoreError(400, "derivation-unknown")
+    if not config.enable_video:
+        raise StoreError(415, "derivation-unavailable")
+    if not (os.path.isabs(config.ffmpeg) and os.access(config.ffmpeg, os.X_OK)):
+        raise StoreError(503, "derive-unavailable")
+    max_bytes = config.v2_max_bytes
+    if not _derive_slot.acquire(blocking=False):
+        raise StoreError(503, "derive-busy")
+    try:
+        opened = _open_object_file(config.root, source_key)
+        if opened is None:
+            raise StoreError(404, "source-absent")
+        src_fd, st = opened
+        try:
+            if st.st_size < 1 or st.st_size > max_bytes:
+                raise StoreError(413, "source-size-refused")
+            if os.pread(src_fd, 12, 0)[4:8] != b"ftyp":
+                raise StoreError(422, "source-not-mp4")
+            vfs = os.statvfs(config.root)
+            if vfs.f_bavail * vfs.f_frsize - max_bytes < config.min_free_bytes:
+                raise StoreError(507, "insufficient-storage")
+            tenant_id, asset_id = md.group(1), md.group(2)
+            dir_fd = _open_object_dir(config.root, tenant_id, create=True)
+            try:
+                try:
+                    os.lstat(asset_id, dir_fd=dir_fd)
+                except FileNotFoundError:
+                    pass
+                else:
+                    raise StoreError(409, "key-exists")
+                tmp_name = f"{TEMP_PREFIX}{asset_id}-{os.urandom(8).hex()}"
+                out_path = os.path.join(config.root, "tenants", tenant_id, "media", tmp_name)
+                try:
+                    try:
+                        done = subprocess.run(
+                            normalize_argv(config.ffmpeg, src_fd, out_path, max_bytes),
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            pass_fds=(src_fd,), close_fds=True, env={"PATH": "/usr/bin:/bin"},
+                            timeout=config.derive_timeout, check=False)
+                    except subprocess.TimeoutExpired:
+                        raise StoreError(422, "derive-timeout")
+                    except OSError:
+                        raise StoreError(503, "derive-unavailable")
+                    if done.returncode != 0:
+                        raise StoreError(422, "derive-failed")
+                    try:
+                        out_fd = os.open(tmp_name, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                                         dir_fd=dir_fd)
+                    except OSError:
+                        raise StoreError(422, "derive-failed")
+                    try:
+                        ost = os.fstat(out_fd)
+                        if not stat.S_ISREG(ost.st_mode) or ost.st_size < 1:
+                            raise StoreError(422, "derive-failed")
+                        if ost.st_size > max_bytes:
+                            raise StoreError(413, "output-too-large")
+                        digest = hashlib.sha256()
+                        size = 0
+                        while True:
+                            chunk = os.read(out_fd, CHUNK)
+                            if not chunk:
+                                break
+                            digest.update(chunk)
+                            size += len(chunk)
+                        probe = probe_local_fd(config, out_fd)
+                        os.fchmod(out_fd, 0o440)
+                        _finalize_once(dir_fd, tmp_name, asset_id)
+                    finally:
+                        os.close(out_fd)
+                finally:
+                    try:
+                        os.unlink(tmp_name, dir_fd=dir_fd)
+                    except FileNotFoundError:
+                        pass
+            finally:
+                os.close(dir_fd)
+        finally:
+            os.close(src_fd)
+    finally:
+        _derive_slot.release()
+    return {"status": "stored", "byteSize": size, "sha256Hex": digest.hexdigest(), "probe": probe}
 
 
 def sweep_orphan_temps(root: str) -> int:
@@ -876,11 +1036,54 @@ def make_handler(config: Config, started_at: float, nonces: NonceCache):
                 return self._read(parts)
             return self._send(404, {"error": "not-found"})
 
+        def _derive(self, dest_key: str):
+            """
+            MV-5 DERIVE-V1. Headers carry the grant; the write secret signs destination, source,
+            derivation, timestamp, nonce and expiry. The body must be empty.
+            """
+            h = self.headers
+            ts = h.get("X-Hebun-Timestamp", "")
+            nonce = h.get("X-Hebun-Nonce", "")
+            sig = h.get("X-Hebun-Signature", "")
+            expires = h.get("X-Hebun-Expires", "")
+            source_key = h.get("X-Hebun-Source-Key", "")
+            derivation = h.get("X-Hebun-Derivation", "")
+            if h.get("Transfer-Encoding") is not None or h.get("Content-Length", "0") != "0":
+                return self._send(400, {"error": "body-refused"})
+            if not KEY_RE.match(dest_key) or not KEY_RE.match(source_key):
+                return self._send(400, {"error": "invalid-key"})
+            if not (TS_RE.match(ts) and NONCE_RE.match(nonce) and SIG_RE.match(sig) and TS_RE.match(expires)
+                    and DERIVATION_RE.match(derivation)):
+                return self._send(401, {"error": "unauthorized"})
+            now = config.clock()
+            t, e = int(ts), int(expires)
+            if t < int(started_at) or abs(now - t) > CLOCK_SKEW_SECONDS:
+                return self._send(401, {"error": "unauthorized"})
+            if e <= now or e > t + DERIVE_MAX_TTL_SECONDS:
+                return self._send(401, {"error": "unauthorized"})
+            expected = sign(config.write_secret, derive_canonical(dest_key, source_key, derivation, ts, nonce, expires))
+            if not hmac.compare_digest(expected, sig) or not nonces.claim(nonce, now):
+                return self._send(401, {"error": "unauthorized"})
+            try:
+                result = derive_object(config, source_key, dest_key, derivation)
+            except StoreError as err:
+                return self._send(err.status, {"error": err.code})
+            except OSError as err:
+                code = "symlink-refused" if err.errno in (errno.ELOOP, errno.ENOTDIR) else "storage-error"
+                return self._send(500, {"error": code})
+            return self._send(201, result)
+
         def do_POST(self):
+            parts = urlsplit(self.path)
+            if parts.path.startswith("/v2/derive/") and not parts.query:
+                return self._derive(parts.path[len("/v2/derive/"):])
             self._send(405, {"error": "method-not-allowed"})
 
-        do_DELETE = do_POST
-        do_PATCH = do_POST
+        def _refuse_method(self):
+            self._send(405, {"error": "method-not-allowed"})
+
+        do_DELETE = _refuse_method
+        do_PATCH = _refuse_method
 
     return Handler
 

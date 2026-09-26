@@ -18,6 +18,9 @@
  *               mode; the store counts and hashes while writing and answers the measured facts.
  *   head        HEAD on the v1 read route under a v1 read grant (signature unchanged).
  *   readRange   one `bytes=a-b` range on the v1 read route (signature unchanged). 206 or 416.
+ *   derive      MV-5 DERIVE-V1. Asks the store to run ONE closed transform over a stored source of the
+ *               same tenant and keep the result write-once under a new key. Answers the store's
+ *               measured facts of the STORED result — evidence for the Media authority, never admission.
  *
  * Same two-secret model as v1 (`vps-media-object-store.server.ts`): the write secret signs writes,
  * the read secret signs reads. Errors carry a status code only — never a URL, header or signature.
@@ -28,6 +31,14 @@ import { randomBytes } from "node:crypto";
 import { hmacHex, readCanonical } from "./vps-media-object-store.server";
 
 const WRITE_V2_SCHEME = "HEBUN-MEDIA-WRITE-V2";
+const DERIVE_SCHEME = "HEBUN-MEDIA-DERIVE-V1";
+/** Mirrors `DERIVATIONS` in the store. A closed set; the name selects a fixed ffmpeg argv there. */
+export const VPS_DERIVATIONS = Object.freeze(["mp4-normalize-v1"] as const);
+export type VpsDerivation = (typeof VPS_DERIVATIONS)[number];
+/** Mirrors `DERIVE_MAX_TTL_SECONDS`. The store's own ffmpeg bound is 90 s, inside Caddy's 120 s. */
+const DERIVE_TTL_SECONDS = 300;
+const DERIVE_TIMEOUT_MS = 125_000;
+const STORE_ERROR_CODE = /^[a-z0-9-]{1,40}$/;
 /** Mirrors `WRITE_V2_MAX_TTL_SECONDS` in the store. */
 export const VPS_WRITE_V2_MAX_TTL_SECONDS = 600;
 const SERVER_READ_TTL_SECONDS = 30;
@@ -94,6 +105,27 @@ export function writeV2Canonical(input: {
     input.expires,
     input.probe,
   ].join("\n");
+}
+
+export function deriveCanonical(input: {
+  readonly destKey: string;
+  readonly sourceKey: string;
+  readonly derivation: string;
+  readonly timestamp: string;
+  readonly nonce: string;
+  readonly expires: string;
+}): string {
+  return [DERIVE_SCHEME, "POST", input.destKey, input.sourceKey, input.derivation, input.timestamp, input.nonce, input.expires].join("\n");
+}
+
+/** A refused derive: the HTTP status and the store's closed error code. Never a URL, header or secret. */
+export class VpsDeriveRefused extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string | null,
+  ) {
+    super(`media store: derive refused (${status}${code ? ` ${code}` : ""})`);
+  }
 }
 
 function assertKey(key: string): void {
@@ -194,6 +226,47 @@ export function createVpsMediaStorageV2(options: VpsStorageV2Options) {
         throw new Error(`media store: v2 write refused (${response.status})`);
       }
       return parseFacts(await response.json(), probe);
+    },
+
+    /** MV-5 DERIVE-V1. Empty body; the grant carries destination, source and the closed derivation. */
+    async derive(input: {
+      readonly sourceKey: string;
+      readonly destKey: string;
+      readonly derivation: VpsDerivation;
+    }): Promise<StoredObjectFacts & { readonly probe: ProbeFacts }> {
+      assertKey(input.sourceKey);
+      assertKey(input.destKey);
+      if (!(VPS_DERIVATIONS as readonly string[]).includes(input.derivation)) throw new Error("media store: derivation unknown");
+      const nowSeconds = Math.floor(nowMs() / 1000);
+      const timestamp = String(nowSeconds);
+      const expires = String(nowSeconds + DERIVE_TTL_SECONDS);
+      const n = nonce();
+      const signature = hmacHex(
+        options.writeSecret,
+        deriveCanonical({ destKey: input.destKey, sourceKey: input.sourceKey, derivation: input.derivation, timestamp, nonce: n, expires }),
+      );
+      const response = await doFetch(`${origin}/v2/derive/${input.destKey}`, {
+        method: "POST",
+        headers: {
+          "content-length": "0",
+          "x-hebun-timestamp": timestamp,
+          "x-hebun-nonce": n,
+          "x-hebun-signature": signature,
+          "x-hebun-expires": expires,
+          "x-hebun-source-key": input.sourceKey,
+          "x-hebun-derivation": input.derivation,
+        },
+        redirect: "error",
+        cache: "no-store",
+        signal: AbortSignal.timeout(DERIVE_TIMEOUT_MS),
+      });
+      if (response.status !== 201) {
+        const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+        const code = typeof body?.error === "string" && STORE_ERROR_CODE.test(body.error) ? body.error : null;
+        throw new VpsDeriveRefused(response.status, code);
+      }
+      const facts = parseFacts(await response.json(), "required");
+      return facts as StoredObjectFacts & { readonly probe: ProbeFacts };
     },
 
     async head(input: { readonly key: string; readonly contentType: string }): Promise<HeadResult> {

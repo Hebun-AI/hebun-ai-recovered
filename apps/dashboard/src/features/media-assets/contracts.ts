@@ -237,6 +237,8 @@ export function isByteDigest(value: unknown): value is string {
  * Lives here, not beside the transform, so a lineage READER never has to load the image codec.
  */
 export const JPEG_PUBLISH_DERIVATION = "jpeg-publish-v1" as const;
+/** MV-5 — the normalized web video derivation. Mirrored by `media_assets_derivation_chk`. */
+export const MP4_NORMALIZE_DERIVATION = "mp4-normalize-v1" as const;
 
 export function mediaAssetStorageKey(tenantId: string, assetId: string): string {
   return `tenants/${tenantId.toLowerCase()}/media/${assetId.toLowerCase()}`;

@@ -55,5 +55,16 @@
       "probe": "required",
       "signature": "08320c0eddba8ee4c3c88d8017bf3785e208b68b9653cc91cad54fb9862c7486"
     }
+  ],
+  "derive": [
+    {
+      "destKey": "tenants/0b6f3d9e-6c1a-4f5e-9d2b-3a4c5d6e7f80/media/3e9c6021-9f4d-4c81-a05e-6d7f8091a2b3",
+      "sourceKey": "tenants/0b6f3d9e-6c1a-4f5e-9d2b-3a4c5d6e7f80/media/2d8b5f10-8e3c-4b70-9f4d-5c6e7f8091a2",
+      "derivation": "mp4-normalize-v1",
+      "timestamp": "1790000100",
+      "nonce": "0123456789abcdef0123456789abcdef",
+      "expires": "1790000220",
+      "signature": "7dea0f1e06e708641e104238e791e49699185704a2dfd48d8cb5604d8fa82712"
+    }
   ]
 }

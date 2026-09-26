@@ -18,6 +18,7 @@ import { createVpsMediaObjectStore, hmacHex } from "../../src/features/media-ass
 import {
   createVpsMediaStorageV2,
   writeV2Canonical,
+  deriveCanonical,
 } from "../../src/features/media-assets/vps-media-storage-v2.server";
 import { MEDIA_ASSET_MIME_TYPES, mediaAssetStorageKey } from "../../src/features/media-assets/contracts";
 import { pngBytes } from "../helpers/media-fakes";
@@ -65,6 +66,11 @@ async function main(): Promise<void> {
     for (const v of vectors.writeV2) {
       assert.equal(hmacHex(vectors.writeSecret, writeV2Canonical(v)), v.signature, `write v2 vector ${v.contentType}`);
     }
+    /* MV-5: DERIVE-V1 — the TypeScript client signs exactly what the Python store verifies. */
+    assert.ok(vectors.derive.length >= 1);
+    for (const v of vectors.derive) {
+      assert.equal(hmacHex(vectors.writeSecret, deriveCanonical(v)), v.signature, `derive vector ${v.derivation}`);
+    }
   }
 
   /* ── 2. Not wired into Media: nothing in src imports the v2 client ──────── */
@@ -80,11 +86,16 @@ async function main(): Promise<void> {
       }
     };
     walk("src");
-    /* MV-3 connected it on purpose: the resolver builds it, the supplied-video admission uses it. */
+    /* MV-3 connected it on purpose: the resolver builds it, the supplied-video admission uses it.
+     * MV-5 adds the normalized-video derivation, which uses its DERIVE-V1 and one range read. */
     assert.deepEqual(
       offenders.sort(),
-      ["src/features/media-assets/admit-supplied-drive-video.server.ts", "src/features/media-assets/media-storage.server.ts"],
-      "storage v2 is reached only through the resolver, by the supplied-video admission",
+      [
+        "src/features/media-assets/admit-supplied-drive-video.server.ts",
+        "src/features/media-assets/derive-normalized-video.server.ts",
+        "src/features/media-assets/media-storage.server.ts",
+      ],
+      "storage v2 is reached only through the resolver, by the supplied-video admission and the video derivation",
     );
     assert.deepEqual([...MEDIA_ASSET_MIME_TYPES].sort(), ["image/jpeg", "image/png", "image/webp"], "Media admission gains no video type in MV-1");
   }

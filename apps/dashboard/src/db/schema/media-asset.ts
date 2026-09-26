@@ -571,7 +571,18 @@ export const mediaAssets = pgTable(
     ),
     check(
       "media_assets_derivation_chk",
-      sql`${t.derivation} is null or ${t.derivation} in ('jpeg-publish-v1')`,
+      sql`${t.derivation} is null or ${t.derivation} in ('jpeg-publish-v1','mp4-normalize-v1')`,
+    ),
+    /*
+     * MV-5 — a normalized video IS the accepted profile, structurally: an H.264 MP4 video with AAC
+     * audio or none. "Its source is a video" is cross-row truth and belongs to the writer
+     * (`derive-normalized-video.server.ts`), guarded by tests.
+     */
+    check(
+      "media_assets_derivation_mp4_chk",
+      sql`${t.derivation} is distinct from 'mp4-normalize-v1'
+        or (${t.mediaKind} = 'video' and ${t.mimeType} = 'video/mp4' and ${t.videoCodec} = 'h264'
+          and (${t.audioCodec} is null or ${t.audioCodec} = 'aac'))`,
     ),
     check(
       "media_assets_derivation_jpeg_chk",

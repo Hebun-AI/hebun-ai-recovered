@@ -87,6 +87,33 @@ Configuration (all optional; defaults keep video OFF):
 **ffprobe on the VPS: installed** 2026-09-26 (MV-1 production acceptance): `ffmpeg 7:6.1.1-3ubuntu5`
 from Ubuntu `noble/universe`, `/usr/bin/ffprobe`; verified under this unit's sandbox properties.
 
+## MV-5 — DERIVE-V1 (additive; no existing signature changed)
+
+`POST /v2/derive/<dest key>`, empty body. Headers: `X-Hebun-Timestamp`, `X-Hebun-Nonce`,
+`X-Hebun-Signature`, `X-Hebun-Expires`, `X-Hebun-Source-Key`, `X-Hebun-Derivation`.
+Canonical (HMAC-SHA256, **write** secret), joined by `\n`:
+`HEBUN-MEDIA-DERIVE-V1, POST, destKey, sourceKey, derivation, timestamp, nonce, expires`.
+Skew 60 s, expiry ≤ 600 s after the timestamp, nonce single-use (claimed after the signature holds).
+
+The request names only two canonical keys **of the same tenant** and one closed derivation
+(`mp4-normalize-v1`). It carries no ffmpeg argument, no path and no body. The store opens the
+source `O_RDONLY|O_NOFOLLOW`, refuses a non-`ftyp` source before ffmpeg, runs the fixed argv
+(`normalize_argv`: libx264 `veryfast` CRF 23 yuv420p, AAC 128k only when the source has audio,
+`+faststart`, metadata/chapters/subtitles/data stripped, `-threads 1`, box ≤ 1920 never upscaled,
+even dimensions, `-n`, `-fs max+1`) with the source as `/dev/fd/N` under `-protocol_whitelist file`,
+a 90 s timeout, a single derive slot, no stdin/stdout/stderr. The result is hashed, **ffprobed as
+stored**, chmod 0440 and linked write-once. Any failure leaves nothing under the destination.
+
+Answers: `201 {"status":"stored","byteSize","sha256Hex","probe"}` — technical facts, never
+admission. Refusals: `400` invalid-key / source-is-destination / derivation-unknown / body-refused,
+`401` unauthorized, `403` cross-tenant-refused, `404` source-absent, `409` key-exists,
+`413` source-size-refused / output-too-large, `415` derivation-unavailable (video off),
+`422` source-not-mp4 / derive-failed / derive-timeout / probe-failed, `503` derive-busy /
+derive-unavailable, `507` insufficient-storage.
+
+`HEBUN_MEDIA_STORE_FFMPEG` (absolute, default `/usr/bin/ffmpeg`). The Media authority re-verifies
+size/SHA (v1 verify), brand, probe policy and the profile before it admits a row.
+
 ## Controls
 
 - Canonical key regex; no other path reaches the filesystem.

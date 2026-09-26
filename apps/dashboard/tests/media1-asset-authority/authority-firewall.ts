@@ -56,11 +56,13 @@ const code = (f: string): string => stripComments(read(f));
       "src/features/media-assets/admit-supplied-drive-image.server.ts",
       /* MV-3 — a human-supplied Drive video, streamed and probed, admitted inside this same authority. */
       "src/features/media-assets/admit-supplied-drive-video.server.ts",
+      /* MV-5 — the normalized video derivative, admitted after re-verifying DERIVE-V1's stored result. */
+      "src/features/media-assets/derive-normalized-video.server.ts",
       /* PUBLISH-0 — the deterministic JPEG derivative writer, inside this same authority. */
       "src/features/media-assets/derive-publish-jpeg.server.ts",
       "src/features/media-assets/request-media-generation.server.ts",
     ],
-    "only generated admission, supplied admission and the publish-derivative writer insert an asset",
+    "only generated admission, supplied admission and the two derivative writers insert an asset",
   );
   const invocationWriters = SRC.filter((f) => /\.(insert|update)\(\s*mediaGenerationInvocations\s*\)/.test(code(f)));
   assert.deepEqual(invocationWriters, [
@@ -259,6 +261,8 @@ const code = (f: string): string => stripComments(read(f));
     [
       /* MV-3: the video admission names the backend constant only (`hebun-vps`), never the adapter. */
       "src/features/media-assets/admit-supplied-drive-video.server.ts",
+      /* MV-5: the video derivation names the same backend constant only, never the adapter. */
+      "src/features/media-assets/derive-normalized-video.server.ts",
       "src/features/media-assets/media-storage.server.ts",
       "src/features/media-assets/vps-media-storage-v2.server.ts",
     ],
@@ -283,13 +287,18 @@ const code = (f: string): string => stripComments(read(f));
   /* MV-3: the storage resolver builds it (same three keys) and the supplied-video admission uses its types. */
   assert.deepEqual(
     SRC.filter((f) => f !== V2 && /vps-media-storage-v2/.test(code(f))).sort(),
-    ["src/features/media-assets/admit-supplied-drive-video.server.ts", "src/features/media-assets/media-storage.server.ts"],
-    "only the storage resolver constructs storage v2, and only the supplied-video admission uses it",
+    /* MV-5: the normalized-video derivation catches the client's typed DERIVE-V1 refusal. */
+    [
+      "src/features/media-assets/admit-supplied-drive-video.server.ts",
+      "src/features/media-assets/derive-normalized-video.server.ts",
+      "src/features/media-assets/media-storage.server.ts",
+    ],
+    "only the storage resolver constructs storage v2, and only the video admission and derivation use it",
   );
   const v2 = code(V2);
   assert.ok(!/@\/db|drizzle|schema\/|TenantContext|governance|permit|action-|media_assets/i.test(v2), "the v2 client reads no row and holds no authority");
   assert.ok(!/\b(delete|remove|purge)\s*\(|method:\s*"DELETE"/.test(v2), "the v2 client has no delete verb");
-  assert.ok(!/redirect:\s*"follow"/.test(v2) && (v2.match(/redirect:\s*"error"/g) ?? []).length === 3, "the v2 client never follows a redirect");
+  assert.ok(!/redirect:\s*"follow"/.test(v2) && (v2.match(/redirect:\s*"error"/g) ?? []).length === 4, "the v2 client never follows a redirect"); /* MV-5: putStream, head, readRange + derive. */
   assert.ok(!/process\.env/.test(v2), "the v2 client is configured by its caller, never by the environment");
 }
 

@@ -40,6 +40,22 @@ media.hebuntech.com {
 		}
 	}
 
+	# MV-5: DERIVE-V1, POST only, empty body. The store runs its own closed ffmpeg profile (<= 90 s,
+	# inside the 120 s write timeout above) and decides everything by HMAC, exactly like a write.
+	@store_derive {
+		method POST
+		path_regexp ^/v2/derive/tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/media/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+	}
+
+	handle @store_derive {
+		request_body {
+			max_size 1KiB
+		}
+		reverse_proxy 127.0.0.1:8787 {
+			header_down -Server
+		}
+	}
+
 	handle @store_v2 {
 		request_body {
 			max_size 20MiB

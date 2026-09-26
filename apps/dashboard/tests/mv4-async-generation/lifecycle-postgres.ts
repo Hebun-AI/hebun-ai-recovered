@@ -66,8 +66,8 @@ function walk(dir: string): string[] {
 
 async function migrationProof(): Promise<void> {
   const journal = JSON.parse(readFileSync(path.join(MIGRATIONS_DIR, "meta", "_journal.json"), "utf8")) as { entries: { tag: string }[] };
-  assert.equal(journal.entries.length, 65, "MV-4 authors exactly one migration: 64 -> 65");
-  assert.equal(journal.entries[64]!.tag, MV4_TAG, "and it is the newest");
+  assert.equal(journal.entries.length, 66, "MV-4 authored exactly one migration: 64 -> 65"); /* MV-5: ledger 65 -> 66. */
+  assert.equal(journal.entries[64]!.tag, MV4_TAG, "and it is the 65th");
   const sql = readFileSync(path.join(MIGRATIONS_DIR, `${MV4_TAG}.sql`), "utf8");
   assert.ok(!/\b(update|delete|drop\s+table|drop\s+column|truncate|create\s+table|trigger)\b/i.test(sql), "no data rewrite, no dropped column, no table, no trigger");
   const tables = new Set([...sql.matchAll(/(?:ALTER TABLE|ON) "([a-z_]+)"/g)].map((m) => m[1]));
