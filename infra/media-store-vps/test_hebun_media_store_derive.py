@@ -244,6 +244,28 @@ class Protocol(DeriveCase):
             self.assertNotIn(self.write_secret.encode(), raw)
         self.assert_nothing()
 
+    def test_unauthenticated_callers_learn_syntax_only(self):
+        """
+        Same contract as WRITE-V1/V2: framing and key SYNTAX are refused before authentication (400),
+        exactly as documented; nothing about existence, tenancy or the derivation set is answered
+        until the signature holds.
+        """
+        unsigned = {"Content-Length": "0", "X-Hebun-Derivation": "mp4-normalize-v1"}
+        d = key(T1, DST)
+        for source, why in ((key(T1, DST2), "absent source"), (key(T2, SRC), "cross-tenant source"),
+                            (key(T1, SRC), "present source")):
+            status, body, _ = self.post(d, {**unsigned, "X-Hebun-Source-Key": source})
+            self.assertEqual((status, body), (401, {"error": "unauthorized"}), f"unsigned, {why}")
+        status, body, _ = self.post(d, {**unsigned, "X-Hebun-Source-Key": key(T1, SRC), "X-Hebun-Derivation": "x-unknown"})
+        self.assertEqual((status, body), (401, {"error": "unauthorized"}), "unsigned, unknown derivation")
+        s, _ = key(T1, SRC), None
+        g = self.grant(d, key(T1, SRC)); g["X-Hebun-Signature"] = "f" * 64
+        self.assertEqual(self.post(d, g)[:2], (401, {"error": "unauthorized"}), "forged signature, canonical keys")
+        for headers, why in (({"Content-Length": "0"}, "no source header"),
+                             ({**unsigned, "X-Hebun-Source-Key": "tenants/x/media/y"}, "malformed source")):
+            self.assertEqual(self.post(d, headers)[:2], (400, {"error": "invalid-key"}), why)
+        self.assert_nothing()
+
     def test_replayed_nonce_refused(self):
         s, d = key(T1, SRC), key(T1, DST)
         g = self.grant(d, s)

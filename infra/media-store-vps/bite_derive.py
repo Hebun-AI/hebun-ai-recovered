@@ -15,6 +15,8 @@ BITES = [
      "                        os.replace(tmp_name, asset_id, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)\n"),
     ("S6 nonce not claimed", "if not hmac.compare_digest(expected, sig) or not nonces.claim(nonce, now):\n                return self._send(401, {\"error\": \"unauthorized\"})\n            try:\n                result = derive_object",
      "if not hmac.compare_digest(expected, sig):\n                return self._send(401, {\"error\": \"unauthorized\"})\n            try:\n                result = derive_object"),
+    ("S9 signature not checked", "if not hmac.compare_digest(expected, sig) or not nonces.claim(nonce, now):\n                return self._send(401, {\"error\": \"unauthorized\"})\n            try:\n                result = derive_object",
+     "if not nonces.claim(nonce, now):\n                return self._send(401, {\"error\": \"unauthorized\"})\n            try:\n                result = derive_object"),
     ("S7 expiry not enforced", "            if e <= now or e > t + DERIVE_MAX_TTL_SECONDS:\n", "            if False:\n"),
     ("S8 non-mp4 source reaches ffmpeg", '            if os.pread(src_fd, 12, 0)[4:8] != b"ftyp":\n                raise StoreError(422, "source-not-mp4")\n', ""),
 ]

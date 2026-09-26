@@ -94,6 +94,10 @@ from Ubuntu `noble/universe`, `/usr/bin/ffprobe`; verified under this unit's san
 Canonical (HMAC-SHA256, **write** secret), joined by `\n`:
 `HEBUN-MEDIA-DERIVE-V1, POST, destKey, sourceKey, derivation, timestamp, nonce, expires`.
 Skew 60 s, expiry ≤ 600 s after the timestamp, nonce single-use (claimed after the signature holds).
+Like WRITE-V1/V2, body framing and key **syntax** (destination path and `X-Hebun-Source-Key`) are
+refused before authentication (`400 body-refused` / `400 invalid-key`); existence, tenancy and the
+derivation set are answered only after the signature holds. `mv5_derive_readiness.py` probes exactly
+this on production without writing anything.
 
 The request names only two canonical keys **of the same tenant** and one closed derivation
 (`mp4-normalize-v1`). It carries no ffmpeg argument, no path and no body. The store opens the
