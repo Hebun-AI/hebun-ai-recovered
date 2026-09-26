@@ -480,7 +480,7 @@ async function main(): Promise<void> {
       "20260915100638_rung2_standing_mutation_authorization",
       /* MEDIA-1 — `media_generation_invocations`, `media_assets` and the `media-asset-review` governance domain. */
       "20260917001519_media1_media_asset_authority",
-      "20260917135027_media2a_live_image_transport", /* MV-0: declared later phases — MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 (two), MEDIA-SUPPLIED. */ "20260918105811_media5_reference_edit_lineage", "20260922181241_contentcompose1_selected_media", "20260923071401_tenantarm1_tenant_external_send_authorization", "20260924133417_publish0_recipientless_attempts", "20260924173451_publish0_derived_media", "20260925055841_media_supplied_origin",
+      "20260917135027_media2a_live_image_transport", /* MV-0: declared later phases — MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 (two), MEDIA-SUPPLIED. */ "20260918105811_media5_reference_edit_lineage", "20260922181241_contentcompose1_selected_media", "20260923071401_tenantarm1_tenant_external_send_authorization", "20260924133417_publish0_recipientless_attempts", "20260924173451_publish0_derived_media", "20260925055841_media_supplied_origin", "20260926083521_mv2_media_video_kind",
         ],
         "and what follows it is a declared later phase",
       );

@@ -58,6 +58,8 @@ export type MediaAssetReviewRefusal =
   | "asset-unresolvable"
   /** The asset exists in this tenant but has been retired; a retired asset is not reviewed. */
   | "asset-retired"
+  /** MV-2 — the asset is not an image; the image review does not take a video. Nothing is recorded. */
+  | "asset-not-image"
   /** The digest the reviewer was shown is not the digest of the asset. Nothing is recorded. */
   | "asset-digest-mismatch"
   | "justification-required"

@@ -323,7 +323,13 @@ const code = (f: string): string => stripComments(read(f));
   assert.ok(schema.includes(`between 1 and ${MEDIA_ASSET_LIMITS.maxPromptCodePoints}`), "prompt CHECK matches");
   assert.ok(schema.includes(`in (${MEDIA_ASSET_MIME_TYPES.map((m) => `'${m}'`).join(",")})`), "MIME CHECK matches");
   assert.ok(schema.includes("in ('fake','live')"), "the transport CHECK admits exactly fake and live (MEDIA-2A)");
-  assert.ok(!/duration|media_kind|video/i.test(stripComments(schema)), "no premature video capability in the schema");
+  /*
+   * MV-2 — video became REPRESENTABLE (a kind column and probe-derived facts), never admitted: the
+   * admission allowlist is still exactly the three image types, and the kind is tied to the MIME type.
+   */
+  assert.ok(schema.includes(`mediaKind: text("media_kind").notNull().default("image")`), "media_kind is explicit and defaults to image");
+  assert.ok(schema.includes("media_assets_media_kind_mime_chk") && schema.includes("media_assets_video_facts_chk"), "kind agrees with MIME, and video facts exist exactly for video");
+  assert.deepEqual([...MEDIA_ASSET_MIME_TYPES], ["image/png", "image/jpeg", "image/webp"], "admission still takes images only");
 }
 
 /* ── 6. Governance vocabulary ─────────────────────────────────────────────── */

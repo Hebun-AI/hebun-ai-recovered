@@ -52,6 +52,11 @@ export interface MediaReadDeps {
  */
 interface MediaAssetRecordBase {
   readonly assetId: string;
+  /**
+   * MV-2 — read from `media_kind`, never guessed from the MIME type. These records are the IMAGE
+   * gallery/composer/review read model, so a video row is not a record here (see `toRecord`).
+   */
+  readonly mediaKind: "image";
   readonly mimeType: MediaAssetMimeType;
   readonly byteSize: number;
   readonly byteDigest: string;
@@ -107,6 +112,7 @@ export type ReadMediaAssetResult =
 const recordColumns = {
   assetId: mediaAssets.id,
   assetInvocationId: mediaAssets.invocationId,
+  mediaKind: mediaAssets.mediaKind,
   invocationId: mediaGenerationInvocations.id,
   mimeType: mediaAssets.mimeType,
   byteSize: mediaAssets.byteSize,
@@ -136,6 +142,7 @@ const recordColumns = {
 type RecordRow = {
   readonly assetId: string;
   readonly assetInvocationId: string | null;
+  readonly mediaKind: string;
   readonly invocationId: string | null;
   readonly mimeType: string;
   readonly byteSize: number;
@@ -183,8 +190,14 @@ function selectRecordRows(db: Pick<ControlPlaneDatabase, "select">) {
  * CHECK already makes the origins exclusive; this refuses to invent a record if it ever were not.
  */
 function toRecord(row: RecordRow): (MediaAssetRecord & { readonly storageKey: string }) | null {
+  /*
+   * MV-2 — a video row is representable in the schema but not in this IMAGE read model. It is left
+   * out rather than rendered as an image; video playback/listing belongs to a later phase.
+   */
+  if (row.mediaKind !== "image") return null;
   const base = {
     assetId: row.assetId,
+    mediaKind: "image" as const,
     mimeType: row.mimeType as MediaAssetMimeType,
     byteSize: row.byteSize,
     byteDigest: row.byteDigest,

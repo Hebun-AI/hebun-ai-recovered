@@ -72,6 +72,8 @@ export const CONTENT_SELECTION_REFUSALS = [
   "asset-unresolvable",
   /** Custody, and only custody, gates selection. A retired image is not selectable. */
   "asset-retired",
+  /** MV-2 — the package carries images only; a video asset is representable, not selectable. */
+  "asset-not-image",
 ] as const;
 
 export type ContentSelectionRefusal = (typeof CONTENT_SELECTION_REFUSALS)[number];

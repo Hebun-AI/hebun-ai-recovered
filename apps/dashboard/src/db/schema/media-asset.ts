@@ -25,11 +25,16 @@
  * It does NOT hold bytes. Bytes live behind the storage port; this row holds their verified identity
  * (SHA-256, size, MIME, dimensions) and the key they were written under.
  *
- * ── MEDIA-1 IS IMAGE-ONLY, AND THE SCHEMA SAYS SO ────────────────────────────
+ * ── MEDIA-1 WAS IMAGE-ONLY; MV-2 MAKES VIDEO REPRESENTABLE, NOT ADMITTED ──────
  *
- * There is no media kind column and no duration column: the MIME allowlist is the kind, and nothing
- * that is not a PNG, JPEG or WebP image is representable. Video is a future migration, not a
- * nullable column waiting for it.
+ * MEDIA-1 had no kind column: the MIME allowlist was the kind. MV-2 adds `media_kind` ('image' |
+ * 'video', every existing row 'image') and the video facts of the admitted bytes — container,
+ * duration, video codec, optional audio codec, frame rate — on the SAME row, because they describe
+ * the same bytes. CHECKs tie kind to MIME and forbid video facts on an image.
+ *
+ * REPRESENTABLE IS NOT ADMITTED. No writer produces a video row yet (the admission allowlist in
+ * `media-assets/contracts.ts` is still images), and every image-only operation — JPEG derivation,
+ * publish lineage, selection, review, reference edit — refuses a video row explicitly.
  *
  * ── TRANSPORT KINDS: `fake` AND, SINCE MEDIA-2A, `live` ─────────────────────────
  *
@@ -389,6 +394,23 @@ export const mediaAssets = pgTable(
     width: integer("width").notNull(),
     height: integer("height").notNull(),
 
+    /*
+     * ── MV-2: WHAT KIND OF MEDIA THESE BYTES ARE ─────────────────────────────
+     *
+     * Explicit, never guessed from MIME by a reader. Tied to `mime_type` by CHECK. The video facts are
+     * probe-derived from the admitted bytes (never a provider's claim) and exist exactly when the kind
+     * is video; `audio_codec` alone may be NULL, because silent video is legitimate. Width/height above
+     * are the video frame size for a video. Codec/container policy (e.g. H.264 + AAC in MP4) belongs to
+     * the admission seam, not to these CHECKs, which only refuse malformed facts.
+     */
+    mediaKind: text("media_kind").notNull().default("image"),
+    videoContainer: text("video_container"),
+    videoDurationMs: integer("video_duration_ms"),
+    videoCodec: text("video_codec"),
+    audioCodec: text("audio_codec"),
+    /** Exact rational as probed, e.g. `25/1`, `30000/1001` — never a rounded float. */
+    videoFrameRate: text("video_frame_rate"),
+
     /** Which storage port implementation holds the bytes. Named by the port, not by this row. */
     storageBackend: text("storage_backend").notNull(),
     /** `tenants/<tenant_id>/media/<id>` — CHECKed below, so the key can never name another tenant. */
@@ -501,8 +523,29 @@ export const mediaAssets = pgTable(
 
     check(
       "media_assets_mime_type_chk",
-      sql`${t.mimeType} in ('image/png','image/jpeg','image/webp')`,
+      sql`${t.mimeType} in ('image/png','image/jpeg','image/webp','video/mp4')`,
     ),
+    /* MV-2 — kind is explicit, closed, and agrees with the MIME type. */
+    check("media_assets_media_kind_chk", sql`${t.mediaKind} in ('image','video')`),
+    check(
+      "media_assets_media_kind_mime_chk",
+      sql`(${t.mediaKind} = 'image' and ${t.mimeType} in ('image/png','image/jpeg','image/webp'))
+        or (${t.mediaKind} = 'video' and ${t.mimeType} in ('video/mp4'))`,
+    ),
+    /* An image carries no video facts; a video carries all required ones (audio may be absent). */
+    check(
+      "media_assets_video_facts_chk",
+      sql`(${t.mediaKind} = 'image' and ${t.videoContainer} is null and ${t.videoDurationMs} is null
+          and ${t.videoCodec} is null and ${t.audioCodec} is null and ${t.videoFrameRate} is null)
+        or (${t.mediaKind} = 'video' and ${t.videoContainer} is not null and ${t.videoDurationMs} is not null
+          and ${t.videoCodec} is not null and ${t.videoFrameRate} is not null)`,
+    ),
+    check("media_assets_video_container_chk", sql`${t.videoContainer} is null or ${t.videoContainer} ~ '^[a-z0-9_]+(,[a-z0-9_]+)*$' and char_length(${t.videoContainer}) <= 64`),
+    check("media_assets_video_duration_chk", sql`${t.videoDurationMs} is null or ${t.videoDurationMs} >= 1`),
+    check("media_assets_video_codec_chk", sql`${t.videoCodec} is null or ${t.videoCodec} ~ '^[a-z0-9_]{1,32}$'`),
+    check("media_assets_audio_codec_chk", sql`${t.audioCodec} is null or ${t.audioCodec} ~ '^[a-z0-9_]{1,32}$'`),
+    check("media_assets_video_frame_rate_chk", sql`${t.videoFrameRate} is null or ${t.videoFrameRate} ~ '^[1-9][0-9]{0,8}/[1-9][0-9]{0,8}$'`),
+    /* A derivative is a JPEG image, so its source lineage never names a video (jpeg check above). */
     check("media_assets_byte_size_chk", sql`${t.byteSize} between 1 and 20971520`),
     check("media_assets_byte_digest_chk", sql`${t.byteDigest} ~ '^[0-9a-f]{64}$'`),
     check("media_assets_width_chk", sql`${t.width} between 1 and 8192`),

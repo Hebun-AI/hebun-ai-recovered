@@ -100,6 +100,7 @@ const SELECTION_REFUSAL_WORDING: Record<ContentSelectionRefusal, string> = {
   "revision-unresolvable": "This draft revision could not be found in your organization.",
   "asset-unresolvable": "That image could not be found in your organization.",
   "asset-retired": "This image has been retired, and a retired image is not used in a draft.",
+  "asset-not-image": "This asset is not an image, and a draft's content package takes images only.",
 };
 
 const PREVIEW_WORDING: Record<string, string> = {
@@ -116,6 +117,7 @@ const REVIEW_REFUSAL_WORDING: Record<MediaAssetReviewRefusal, string> = {
   "not-the-governance-authority": "Reviewing is a Governance act, and you do not hold it here. Nothing was recorded.",
   "asset-unresolvable": "That image could not be resolved in your organization. Nothing was recorded.",
   "asset-retired": "This image has been retired, and a retired image is not reviewed.",
+  "asset-not-image": "This asset is not an image, and this review is for generated images only. Nothing was recorded.",
   "asset-digest-mismatch": "The image you were shown is not the image on record, so nothing was recorded. Reload before deciding again.",
   "justification-required": "A reason is required. Nothing was recorded.",
   "persistence-unavailable": "The Governance ledger could not be reached. Nothing was recorded.",
@@ -133,6 +135,7 @@ const GENERATION_REFUSAL_WORDING: Record<MediaGenerationRefusal, string> = {
   "duplicate-request": "This exact request was already submitted. It was not sent again, and you were not charged twice.",
   "source-asset-unresolvable": "That image could not be resolved in your organization.",
   "source-asset-retired": "This image has been retired, and a retired image is not used as a reference.",
+  "source-asset-not-image": "This asset is not an image, and only an image can be used as a reference.",
   "source-asset-unavailable":
     "The stored bytes could not be read, or no longer match the admitted digest. Nothing was sent. This is a storage custody problem and should be raised.",
   "reference-edit-unsupported": "The configured image provider cannot edit an existing image.",

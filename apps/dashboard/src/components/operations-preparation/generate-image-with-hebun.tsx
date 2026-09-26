@@ -68,6 +68,7 @@ const REFUSAL_WORDING: Record<MediaGenerationRefusal, string> = {
   /* MEDIA-5 — all four are preflight, so none of them reached a provider or cost anything. */
   "source-asset-unresolvable": `That image could not be resolved in your organization. ${NOT_DISPATCHED}`,
   "source-asset-retired": `That image has been retired, and a retired image is not used as a reference. ${NOT_DISPATCHED}`,
+  "source-asset-not-image": `That asset is not an image, and only an image can be used as a reference. ${NOT_DISPATCHED}`,
   "source-asset-unavailable": `The stored bytes of that image could not be read, or no longer match its admitted digest. This is a storage custody problem and should be raised. ${NOT_DISPATCHED}`,
   "reference-edit-unsupported": `The configured image provider cannot edit an existing image. ${NOT_DISPATCHED}`,
 };

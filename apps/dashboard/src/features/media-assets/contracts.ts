@@ -30,6 +30,14 @@
  * Pure types and frozen values. No React, no I/O, no database, no authority.
  */
 
+/**
+ * MV-2 — what kind of media an asset is. Read from `media_assets.media_kind`, never inferred from a
+ * MIME type, filename, provider or credential. `video` is REPRESENTABLE in the schema; no writer
+ * admits one yet, and `MEDIA_ASSET_MIME_TYPES` below — the admission allowlist — is still images.
+ */
+export type MediaKind = "image" | "video";
+export const MEDIA_KINDS: readonly MediaKind[] = Object.freeze(["image", "video"]);
+
 /** The admitted image types. Detected from magic bytes, never from a declared Content-Type. */
 export type MediaAssetMimeType = "image/png" | "image/jpeg" | "image/webp";
 
@@ -154,7 +162,9 @@ export type MediaGenerationRefusal =
    */
   | "source-asset-unavailable"
   /** The resolved transport does not do reference edits. Refused before registering an invocation. */
-  | "reference-edit-unsupported";
+  | "reference-edit-unsupported"
+  /** MV-2 — the reference is not an image (e.g. a video row). Image generation never takes it. */
+  | "source-asset-not-image";
 
 export type RequestMediaGenerationResult =
   | { readonly status: "refused"; readonly reason: MediaGenerationRefusal }

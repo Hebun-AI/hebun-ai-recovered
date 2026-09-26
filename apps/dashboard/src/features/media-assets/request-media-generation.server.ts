@@ -215,7 +215,9 @@ export async function requestMediaGeneration(
   if (sourceAssetId !== null) {
     if (!transport.modes.includes("reference-edit")) return refused("reference-edit-unsupported");
 
-    let asset: { readonly byteDigest: string; readonly byteSize: number; readonly mimeType: string; readonly lifecycle: string } | undefined;
+    let asset:
+      | { readonly byteDigest: string; readonly byteSize: number; readonly mimeType: string; readonly lifecycle: string; readonly mediaKind: string }
+      | undefined;
     try {
       const rows = await db
         .select({
@@ -223,6 +225,7 @@ export async function requestMediaGeneration(
           byteSize: mediaAssets.byteSize,
           mimeType: mediaAssets.mimeType,
           lifecycle: mediaAssets.assetLifecycleStatus,
+          mediaKind: mediaAssets.mediaKind,
         })
         .from(mediaAssets)
         /* Predicated on the tenant: another tenant's asset is indistinguishable from no asset. */
@@ -233,6 +236,8 @@ export async function requestMediaGeneration(
       return refused("persistence-unavailable");
     }
     if (!asset) return refused("source-asset-unresolvable");
+    /* MV-2 — an image edit takes an image. A video row is refused before any row or paid call. */
+    if (asset.mediaKind !== "image") return refused("source-asset-not-image");
     /* Custody, and ONLY custody, decides eligibility. No Governance state is read here at all. */
     if (asset.lifecycle !== "admitted") return refused("source-asset-retired");
 

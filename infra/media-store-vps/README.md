@@ -80,8 +80,8 @@ Configuration (all optional; defaults keep video OFF):
 | `HEBUN_MEDIA_STORE_V2_MAX_BYTES` | 20 MiB | v2 ceiling. No video ceiling decided; raising it (and Caddy's) is a Director gate. |
 | `HEBUN_MEDIA_STORE_FFPROBE` | `/usr/bin/ffprobe` | absolute path only. |
 
-**ffprobe on the VPS: NOT installed** (checked 2026-09-25: `command -v ffprobe` empty, no `ffmpeg`
-package). Required-probe writes therefore answer `503` until the ffprobe installation gate.
+**ffprobe on the VPS: installed** 2026-09-26 (MV-1 production acceptance): `ffmpeg 7:6.1.1-3ubuntu5`
+from Ubuntu `noble/universe`, `/usr/bin/ffprobe`; verified under this unit's sandbox properties.
 
 ## Controls
 

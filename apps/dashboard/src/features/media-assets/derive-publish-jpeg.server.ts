@@ -94,6 +94,8 @@ export type DerivePublishJpegRefusal =
   | "persistence-unavailable"
   | "source-not-found"
   | "source-not-original"
+  /** MV-2 — the source is not an image. A video never enters `jpeg-publish-v1`. */
+  | "source-not-image"
   | "source-retired"
   | "source-object-absent"
   | "source-integrity-mismatch"
@@ -236,6 +238,7 @@ export async function derivePublishJpeg(
           invocationId: mediaAssets.invocationId,
           derivedFromAssetId: mediaAssets.derivedFromAssetId,
           suppliedSource: mediaAssets.suppliedSource,
+          mediaKind: mediaAssets.mediaKind,
           mimeType: mediaAssets.mimeType,
           byteSize: mediaAssets.byteSize,
           byteDigest: mediaAssets.byteDigest,
@@ -254,6 +257,7 @@ export async function derivePublishJpeg(
   if (!original) return refused("source-not-found");
   if (original.derivedFromAssetId !== null) return refused("source-not-original");
   if (original.invocationId === null && original.suppliedSource === null) return refused("source-not-original");
+  if (original.mediaKind !== "image") return refused("source-not-image");
   if (original.lifecycle !== "admitted") return refused("source-retired");
   if (!MEDIA_ASSET_MIME_TYPES.includes(original.mimeType as MediaAssetMimeType)) return refused("source-integrity-mismatch");
 

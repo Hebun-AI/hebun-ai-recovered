@@ -127,7 +127,7 @@ function main(): void {
       "20260911200000_self_service_signup_provenance.sql",
       /* RUNG 2 PREREQUISITE — `tenant_machine_execution_authorizations`, one additive table plus the
          `machine-execution` governance domain. A declared later phase, */
-      "20260914120405_rung2_tenant_machine_execution_authorization.sql", "20260915100638_rung2_standing_mutation_authorization.sql", "20260917001519_media1_media_asset_authority.sql", "20260917135027_media2a_live_image_transport.sql", /* MV-0: declared later phases — MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 (two), MEDIA-SUPPLIED. */ "20260918105811_media5_reference_edit_lineage.sql", "20260922181241_contentcompose1_selected_media.sql", "20260923071401_tenantarm1_tenant_external_send_authorization.sql", "20260924133417_publish0_recipientless_attempts.sql", "20260924173451_publish0_derived_media.sql", "20260925055841_media_supplied_origin.sql"],
+      "20260914120405_rung2_tenant_machine_execution_authorization.sql", "20260915100638_rung2_standing_mutation_authorization.sql", "20260917001519_media1_media_asset_authority.sql", "20260917135027_media2a_live_image_transport.sql", /* MV-0: declared later phases — MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 (two), MEDIA-SUPPLIED. */ "20260918105811_media5_reference_edit_lineage.sql", "20260922181241_contentcompose1_selected_media.sql", "20260923071401_tenantarm1_tenant_external_send_authorization.sql", "20260924133417_publish0_recipientless_attempts.sql", "20260924173451_publish0_derived_media.sql", "20260925055841_media_supplied_origin.sql", "20260926083521_mv2_media_video_kind.sql"],
       "KR5 adds exactly one migration",
     );
     const journal = JSON.parse(read(MIGRATIONS, "meta", "_journal.json")) as {

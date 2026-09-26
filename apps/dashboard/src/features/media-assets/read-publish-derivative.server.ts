@@ -43,6 +43,8 @@ export interface PublishLineageBinding {
 export type PublishLineageFailure =
   | "original-unresolvable"
   | "original-retired"
+  /** MV-2 — the bound original is not an image. An image publish never carries a video. */
+  | "original-not-image"
   | "original-digest-mismatch"
   | "derivative-unresolvable"
   | "derivative-retired"
@@ -66,6 +68,7 @@ const lineageColumns = {
   derivedFromAssetId: mediaAssets.derivedFromAssetId,
   derivation: mediaAssets.derivation,
   suppliedSource: mediaAssets.suppliedSource,
+  mediaKind: mediaAssets.mediaKind,
   mimeType: mediaAssets.mimeType,
   byteSize: mediaAssets.byteSize,
   byteDigest: mediaAssets.byteDigest,
@@ -98,6 +101,7 @@ export async function selectPublishLineage(
   ) {
     return refused("original-unresolvable");
   }
+  if (original.mediaKind !== "image") return refused("original-not-image");
   if (original.lifecycle !== "admitted") return refused("original-retired");
   if (original.byteDigest !== binding.originalDigest) return refused("original-digest-mismatch");
 

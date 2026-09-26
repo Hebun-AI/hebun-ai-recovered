@@ -100,6 +100,7 @@ async function review(
           height: mediaAssets.height,
           invocationId: mediaAssets.invocationId,
           lifecycle: mediaAssets.assetLifecycleStatus,
+          mediaKind: mediaAssets.mediaKind,
         })
         .from(mediaAssets)
         /*
@@ -119,6 +120,8 @@ async function review(
         .limit(1);
       const asset = rows[0];
       if (!asset) throw new ReviewAbort("asset-unresolvable");
+      /* MV-2 — this is the review of generated IMAGES. A video row is not its subject. */
+      if (asset.mediaKind !== "image") throw new ReviewAbort("asset-not-image");
       if (asset.lifecycle !== "admitted") throw new ReviewAbort("asset-retired");
       if (asset.byteDigest !== input!.byteDigest) throw new ReviewAbort("asset-digest-mismatch");
 

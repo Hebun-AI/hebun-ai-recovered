@@ -244,7 +244,7 @@ function main(): void {
     assert.equal(/youtube/i.test(codeOf(observationTable)), false, "and its code names no provider");
     assert.equal(
       readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length,
-      63, /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */
+      64, /* MV-2: ledger 63 -> 64 (media_kind + video facts on media_assets, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */
       "the ledger moved for TRH-21, TRH-23, TRH-24 and the RUNG 2 prerequisite, and CGO-5 authored none of it",
     ); /* TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). RUNG 2 54 -> 55 (`standing_mutation_authorizations` plus the `standing-mutation` governance domain, a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests`, and both decision-uniqueness indexes made PARTIAL on it.) */
   }

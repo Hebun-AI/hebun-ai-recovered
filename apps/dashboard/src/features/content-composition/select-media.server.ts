@@ -79,7 +79,7 @@ async function resolveParents(
   db: ControlPlaneDatabase,
   tenantId: string,
   input: ContentSelectionInput,
-): Promise<{ revision: boolean; assetLifecycle: string | null }> {
+): Promise<{ revision: boolean; assetLifecycle: string | null; assetKind: string | null }> {
   const [revisionRows, assetRows] = await Promise.all([
     db
       .select({ revisionNo: workArtifactRevisions.revisionNo })
@@ -93,7 +93,7 @@ async function resolveParents(
       )
       .limit(1),
     db
-      .select({ lifecycle: mediaAssets.assetLifecycleStatus })
+      .select({ lifecycle: mediaAssets.assetLifecycleStatus, mediaKind: mediaAssets.mediaKind })
       .from(mediaAssets)
       /*
        * MEDIA-SELECT-INTEGRITY: the image must have been generated FROM this draft. Its invocation's
@@ -129,6 +129,7 @@ async function resolveParents(
   return {
     revision: revisionRows.length > 0,
     assetLifecycle: assetRows[0]?.lifecycle ?? null,
+    assetKind: assetRows[0]?.mediaKind ?? null,
   };
 }
 
@@ -155,6 +156,8 @@ export async function selectMediaForRevision(
   }
   if (!parents.revision) return refused("revision-unresolvable");
   if (parents.assetLifecycle === null) return refused("asset-unresolvable");
+  /* MV-2 — the content package is image-only. A video row is refused, never selected. */
+  if (parents.assetKind !== "image") return refused("asset-not-image");
   /* Custody, and ONLY custody. No Governance state is read here at all. */
   if (parents.assetLifecycle !== "admitted") return refused("asset-retired");
 
