@@ -63,7 +63,11 @@ const code = (f: string): string => stripComments(read(f));
     "only generated admission, supplied admission and the publish-derivative writer insert an asset",
   );
   const invocationWriters = SRC.filter((f) => /\.(insert|update)\(\s*mediaGenerationInvocations\s*\)/.test(code(f)));
-  assert.deepEqual(invocationWriters, ["src/features/media-assets/request-media-generation.server.ts"]);
+  assert.deepEqual(invocationWriters, [
+    /* MV-4 — the asynchronous lifecycle of the SAME invocation authority: one CAS writer, no second table. */
+    "src/features/media-assets/async-generation-lifecycle.server.ts",
+    "src/features/media-assets/request-media-generation.server.ts",
+  ]);
   for (const f of SRC) {
     assert.ok(!/\.delete\(\s*(mediaAssets|mediaGenerationInvocations)\s*\)/.test(code(f)), `${f} deletes nothing media`);
     assert.ok(!/delete\s+from\s+media_/i.test(code(f)), `${f} issues no raw media delete`);

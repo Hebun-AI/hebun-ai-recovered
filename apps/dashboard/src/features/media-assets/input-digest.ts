@@ -100,3 +100,32 @@ export function canonicalMediaGenerationInput(input: MediaGenerationCanonicalInp
 export function digestMediaGenerationInput(input: MediaGenerationCanonicalInput): string {
   return createHash("sha256").update(canonicalMediaGenerationInput(input), "utf8").digest("hex");
 }
+
+/*
+ * ── MV-4: VERSION 3, A VIDEO WAS ASKED FOR ───────────────────────────────────
+ *
+ * The output kind is part of what was asked, so it is inside the digest: the same prompt against the
+ * same revision through the same transport digests differently when a video rather than an image is
+ * requested. A separate function and literal, so the v1/v2 documents above stay byte-identical.
+ */
+export const MEDIA_INPUT_CANONICAL_VERSION_VIDEO = 3 as const;
+
+export function canonicalVideoGenerationInput(input: Omit<MediaGenerationCanonicalInput, "sourceAsset">): string {
+  return JSON.stringify({
+    v: MEDIA_INPUT_CANONICAL_VERSION_VIDEO,
+    outputMediaKind: "video",
+    promptText: input.promptText,
+    source: {
+      artifactId: input.sourceArtifactId.toLowerCase(),
+      revisionNo: input.sourceRevisionNo,
+      contentDigest: input.sourceContentDigest,
+    },
+    transport: input.transport,
+    provider: input.provider,
+    model: input.model,
+  });
+}
+
+export function digestVideoGenerationInput(input: Omit<MediaGenerationCanonicalInput, "sourceAsset">): string {
+  return createHash("sha256").update(canonicalVideoGenerationInput(input), "utf8").digest("hex");
+}

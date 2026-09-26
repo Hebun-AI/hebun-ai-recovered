@@ -449,6 +449,13 @@
       "when": 1790411721768,
       "tag": "20260926083521_mv2_media_video_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1790431463676,
+      "tag": "20260926140423_mv4_async_generation_lifecycle",
+      "breakpoints": true
     }
   ]
 }

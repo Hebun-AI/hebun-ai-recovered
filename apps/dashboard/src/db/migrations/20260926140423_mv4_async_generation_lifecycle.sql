@@ -1,0 +1,18 @@
+ALTER TABLE "media_generation_invocations" DROP CONSTRAINT "media_generation_invocations_state_chk";--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" DROP CONSTRAINT "media_generation_invocations_finalized_chk";--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD COLUMN "output_media_kind" text DEFAULT 'image' NOT NULL;--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD COLUMN "provider_accepted_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD COLUMN "provider_completed_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD COLUMN "last_polled_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD COLUMN "poll_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD COLUMN "provider_output_ref" text;--> statement-breakpoint
+CREATE INDEX "media_generation_invocations_pending_poll_idx" ON "media_generation_invocations" USING btree ("tenant_id","state") WHERE "media_generation_invocations"."state" = 'provider-pending';--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD CONSTRAINT "media_generation_invocations_output_kind_chk" CHECK ("media_generation_invocations"."output_media_kind" in ('image','video'));--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD CONSTRAINT "media_generation_invocations_poll_count_chk" CHECK ("media_generation_invocations"."poll_count" >= 0);--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD CONSTRAINT "media_generation_invocations_pending_job_chk" CHECK ("media_generation_invocations"."state" <> 'provider-pending' or "media_generation_invocations"."provider_job_id" is not null);--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD CONSTRAINT "media_generation_invocations_output_ref_chk" CHECK ("media_generation_invocations"."provider_output_ref" is null or ("media_generation_invocations"."state" = 'provider-succeeded' and char_length("media_generation_invocations"."provider_output_ref") between 1 and 256 and "media_generation_invocations"."provider_output_ref" ~ '^[A-Za-z0-9._:-]+$'));--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD CONSTRAINT "media_generation_invocations_completed_at_chk" CHECK ("media_generation_invocations"."provider_completed_at" is null or "media_generation_invocations"."state" in ('provider-succeeded','provider-failed'));--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD CONSTRAINT "media_generation_invocations_accepted_at_chk" CHECK ("media_generation_invocations"."provider_accepted_at" is null or "media_generation_invocations"."state" in ('provider-pending','provider-succeeded','provider-failed'));--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD CONSTRAINT "media_generation_invocations_polled_chk" CHECK (("media_generation_invocations"."last_polled_at" is null) = ("media_generation_invocations"."poll_count" = 0));--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD CONSTRAINT "media_generation_invocations_state_chk" CHECK ("media_generation_invocations"."state" in ('registered','dispatching','dispatch-unknown','provider-pending','dispatch-failed','provider-failed','provider-succeeded'));--> statement-breakpoint
+ALTER TABLE "media_generation_invocations" ADD CONSTRAINT "media_generation_invocations_finalized_chk" CHECK (("media_generation_invocations"."finalized_at" is null) = ("media_generation_invocations"."state" in ('registered','dispatching','provider-pending')));

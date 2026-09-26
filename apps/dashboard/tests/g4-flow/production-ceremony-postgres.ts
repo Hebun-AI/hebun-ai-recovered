@@ -218,7 +218,7 @@ async function main(): Promise<void> {
          * still on the DISPOSABLE database. PRODUCTION STANDS AT 56 (`3296764e10a243fa621c03b0bfd3cbd7`,
          * the value this line held until now) and converges only when its own gated ceremony runs. */
         /* MV-0: MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 (two) and MEDIA-SUPPLIED appended six migrations (57 -> 63, none edited), so the release digest moved; 91ea9382… was the 57-migration release. */
-        /* MV-2: one appended migration (63 -> 64), so the release digest moved from 71058586…. */ "525c27906a627a7b04fc9a73c95c2d88",
+        /* MV-4: 64 -> 65 appended; the first 64 files still digest to the MV-2 values. */ /* MV-2: one appended migration (63 -> 64), so the release digest moved from 71058586…. */ "a1485c40d450ce1fbd138844a5d06ed4",
         /*
          * THE MESSAGE, REPAIRED. It read "…equals the canonical and production one", and that
          * sentence had been false since R2H — whose own comment, three lines above it, said

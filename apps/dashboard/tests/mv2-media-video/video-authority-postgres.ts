@@ -128,8 +128,8 @@ process.on("exit", (code) => {
 async function backfillProof(): Promise<void> {
   /* ══ A. MIGRATION 64 CLASSIFIES AN EXISTING ASSET AS IMAGE, AND REWRITES NOTHING ELSE ══ */
   const journal = JSON.parse(readFileSync(path.join(MIGRATIONS_DIR, "meta", "_journal.json"), "utf8")) as { entries: { tag: string }[] };
-  assert.equal(journal.entries.length, 64, "MV-2 authors exactly one migration: 63 -> 64");
-  assert.equal(journal.entries[63]!.tag, MV2_TAG, "and it is the newest");
+  assert.equal(journal.entries.length, 65, "MV-2 authored exactly one migration: 63 -> 64"); /* MV-4: ledger 64 -> 65. */
+  assert.equal(journal.entries[63]!.tag, MV2_TAG, "and it is the 64th");
   const sql = readFileSync(path.join(MIGRATIONS_DIR, `${MV2_TAG}.sql`), "utf8");
   assert.ok(!/\b(update|delete|drop\s+table|drop\s+column|truncate|create\s+table)\b/i.test(sql), "no data rewrite, no dropped column, no new table");
   assert.deepEqual(

@@ -106,8 +106,16 @@ export interface MediaProviderUsage {
   readonly outputTokens: number;
 }
 
+/**
+ * Mirrored by `media_generation_invocations_state_chk`. MV-4 adds the three asynchronous states:
+ * `dispatching` (intent recorded before the external call), `dispatch-unknown` (the call was made and
+ * its fate cannot be known — not a failure, never retried) and `provider-pending` (accepted, working).
+ */
 export type MediaInvocationState =
   | "registered"
+  | "dispatching"
+  | "dispatch-unknown"
+  | "provider-pending"
   | "dispatch-failed"
   | "provider-failed"
   | "provider-succeeded";

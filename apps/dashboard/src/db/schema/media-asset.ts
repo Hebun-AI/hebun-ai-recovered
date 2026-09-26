@@ -187,8 +187,38 @@ export const mediaGenerationInvocations = pgTable(
     providerInputTokens: integer("provider_input_tokens"),
     providerOutputTokens: integer("provider_output_tokens"),
 
-    /** registered → dispatch-failed | provider-failed | provider-succeeded */
+    /**
+     * The attempt's lifecycle. Synchronous (MEDIA-1): registered → dispatch-failed | provider-failed |
+     * provider-succeeded. Asynchronous (MV-4): registered → dispatching → provider-pending |
+     * provider-failed | dispatch-unknown; provider-pending → provider-succeeded | provider-failed.
+     *
+     * `dispatching` is written BEFORE the external call, so a crash mid-call leaves "we may have
+     * sent it", never "we did not". `dispatch-unknown` is a timeout or transport fault after that
+     * point: Hebun cannot tell whether the provider accepted, so it is NOT a failure and it is NOT
+     * retried. `provider-succeeded` means the provider reported completion — never that bytes were
+     * retrieved, verified or admitted; `admission_outcome` below keeps owning that.
+     *
+     * Transitions are owned by exactly one CAS writer per path (`request-media-generation.server.ts`,
+     * `async-generation-lifecycle.server.ts`): `UPDATE … WHERE state = <expected>`. No trigger.
+     */
     state: text("state").notNull(),
+
+    /* ── MV-4: asynchronous provider lifecycle ───────────────────────────── */
+    /** What was ASKED for. Every MEDIA-1…MV-3 row asked for an image; the default says so. */
+    outputMediaKind: text("output_media_kind").notNull().default("image"),
+    /** When the provider acknowledged the job (async dispatch accepted). */
+    providerAcceptedAt: timestamp("provider_accepted_at", { withTimezone: true }),
+    /** When Hebun OBSERVED the provider's terminal answer for an async job. */
+    providerCompletedAt: timestamp("provider_completed_at", { withTimezone: true }),
+    /** The last poll observation of a pending job, and how many were made. Polling changes nothing else. */
+    lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+    pollCount: integer("poll_count").notNull().default(0),
+    /**
+     * The provider's OPAQUE reference to its output, as reported at completion. Provider-derived
+     * truth, never Media truth: no asset exists because of it. Never a URL — the CHECK forbids `/`,
+     * so an ephemeral signed link cannot be persisted here by accident.
+     */
+    providerOutputRef: text("provider_output_ref"),
     /** not-attempted → admitted | refused | failed. Orthogonal to `state` on purpose. */
     admissionOutcome: text("admission_outcome").notNull().default("not-attempted"),
     /** A closed refusal/failure code; null unless the admission outcome is refused or failed. */
@@ -287,8 +317,36 @@ export const mediaGenerationInvocations = pgTable(
     ),
     check(
       "media_generation_invocations_state_chk",
-      sql`${t.state} in ('registered','dispatch-failed','provider-failed','provider-succeeded')`,
+      sql`${t.state} in ('registered','dispatching','dispatch-unknown','provider-pending','dispatch-failed','provider-failed','provider-succeeded')`,
     ),
+    /* ── MV-4 structural invariants. Transitions themselves belong to the CAS writers. ── */
+    check("media_generation_invocations_output_kind_chk", sql`${t.outputMediaKind} in ('image','video')`),
+    check("media_generation_invocations_poll_count_chk", sql`${t.pollCount} >= 0`),
+    check(
+      "media_generation_invocations_pending_job_chk",
+      sql`${t.state} <> 'provider-pending' or ${t.providerJobId} is not null`,
+    ),
+    check(
+      "media_generation_invocations_output_ref_chk",
+      /* Postgres caps a regex bound at 255, so the length is its own predicate. */
+      sql`${t.providerOutputRef} is null or (${t.state} = 'provider-succeeded' and char_length(${t.providerOutputRef}) between 1 and 256 and ${t.providerOutputRef} ~ '^[A-Za-z0-9._:-]+$')`,
+    ),
+    check(
+      "media_generation_invocations_completed_at_chk",
+      sql`${t.providerCompletedAt} is null or ${t.state} in ('provider-succeeded','provider-failed')`,
+    ),
+    check(
+      "media_generation_invocations_accepted_at_chk",
+      sql`${t.providerAcceptedAt} is null or ${t.state} in ('provider-pending','provider-succeeded','provider-failed')`,
+    ),
+    check(
+      "media_generation_invocations_polled_chk",
+      sql`(${t.lastPolledAt} is null) = (${t.pollCount} = 0)`,
+    ),
+    /* Only a pending job is polled; the poller reads exactly this. */
+    index("media_generation_invocations_pending_poll_idx")
+      .on(t.tenantId, t.state)
+      .where(sql`${t.state} = 'provider-pending'`),
     check(
       "media_generation_invocations_admission_outcome_chk",
       sql`${t.admissionOutcome} in ('not-attempted','admitted','refused','failed')`,
@@ -302,10 +360,13 @@ export const mediaGenerationInvocations = pgTable(
       "media_generation_invocations_admission_failure_chk",
       sql`(${t.admissionFailure} is not null) = (${t.admissionOutcome} in ('refused','failed'))`,
     ),
-    /* Finalized exactly when it left `registered`. */
+    /*
+     * Finalized exactly when the attempt is TERMINAL. MEDIA-1 wrote this as "left `registered`", which
+     * was the same fact while `registered` was the only non-terminal state; MV-4 adds two more.
+     */
     check(
       "media_generation_invocations_finalized_chk",
-      sql`(${t.finalizedAt} is null) = (${t.state} = 'registered')`,
+      sql`(${t.finalizedAt} is null) = (${t.state} in ('registered','dispatching','provider-pending'))`,
     ),
   ],
 );
