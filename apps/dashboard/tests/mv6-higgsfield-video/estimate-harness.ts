@@ -182,7 +182,7 @@ async function main(): Promise<void> {
       for (const args of [["estimate", "all"], ["estimate", "seedance", "extra"], ["estimate", "generate"]]) {
         const r = run(args, { MV6_HIGGSFIELD_ENV_FILE: good });
         assert.notEqual(r.status, 0, `${args.join(" ")}: refused`);
-        assert.match(r.stderr, /usage: .*no generation stage exists in this build/);
+        assert.match(r.stderr, /usage: .*no generation stage here/);
       }
       /* The Seedance set is refused exactly like the baseline when the credential is missing. */
       const seedanceMissing = run(["estimate", "seedance"], { MV6_HIGGSFIELD_ENV_FILE: path.join(dir, "absent") });
@@ -192,7 +192,7 @@ async function main(): Promise<void> {
       for (const cmd of ["generate", "dispatch", "poll", ""]) {
         const r = run(cmd ? [cmd] : [], { MV6_HIGGSFIELD_ENV_FILE: good });
         assert.notEqual(r.status, 0, `${cmd || "(none)"}: refused`);
-        assert.match(r.stderr, /no generation stage exists in this build/);
+        assert.match(r.stderr, /no generation stage here/);
       }
     } finally {
       rmSync(dir, { recursive: true, force: true });

@@ -8,9 +8,9 @@
  * Each estimate run is one `POST /estimate/<model>` per candidate of ONE named set; no job.
  *
  * WHAT IT NEVER DOES. It submits no generation, reads no job status, cancels nothing, writes no row,
- * reads or writes no database, and arms no control. There is no generation subcommand in this build:
- * a billable Higgsfield job is a separate Director authorization, and the stage that performs one
- * (through the released MV-4 lifecycle, at most one job, synthetic prompt) is written only after it.
+ * reads or writes no database, and arms no control. Generation is NOT here: the one-job, Director-
+ * gated real-provider stage is `scripts/mv6-generate-acceptance.ts`, kept separate so this estimate
+ * harness can never reach a generation endpoint.
  *
  * ENV. HEBUN_HIGGSFIELD_API_KEY — the ONE opaque key copied from open.higgsfield.ai, used verbatim —
  * read by name only from the file
@@ -18,53 +18,20 @@
  * is read from the ambient environment, so a production value cannot be picked up by accident.
  * Absent or malformed → refused before any call. No value, header or provider message is printed.
  */
-import { existsSync } from "node:fs";
-import path from "node:path";
-import { loadQuietEnv } from "./lib/quiet-env";
+import { loadHiggsfieldCredentialOrRefuse } from "./lib/higgsfield-credential-file";
 import { estimateCandidates, MV6_ESTIMATE_SETS, MV6_SYNTHETIC_PROMPT } from "./lib/higgsfield-estimate";
-import { isHiggsfieldCredentialShaped } from "../src/features/media-generation-live/higgsfield-video-transport.server";
-
-const NAME = "HEBUN_HIGGSFIELD_API_KEY";
-/* The retired pair. Cleared from the process and never read, so it cannot stand in for the key. */
-const RETIRED = ["HEBUN_HIGGSFIELD_API_KEY_ID", "HEBUN_HIGGSFIELD_API_KEY_SECRET"] as const;
-
-/*
- * A bare uuid is the console's key RECORD id ("Copy ID" in the API-keys list), not the API key: MV-6
- * measured a uuid-only credential answering 401. Refused here, before any call. Acceptance-harness
- * rule only — the product's shape check does not assume a real key can never be a uuid.
- */
-const RECORD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function loadCredentialOrRefuse(): { apiKey: string } {
-  const file = process.env.MV6_HIGGSFIELD_ENV_FILE ?? path.resolve(process.cwd(), ".env.higgsfield.local");
-  if (!existsSync(file)) throw new Error("REFUSED: MV6_HIGGSFIELD_ENV_FILE (or ./.env.higgsfield.local) does not exist");
-  for (const name of [NAME, ...RETIRED]) delete process.env[name];
-  loadQuietEnv([file], [NAME]);
-  const credential = { apiKey: process.env[NAME] ?? "" };
-  delete process.env[NAME];
-  if (!isHiggsfieldCredentialShaped(credential)) {
-    throw new Error("REFUSED: the credential file does not hold a credential-shaped HEBUN_HIGGSFIELD_API_KEY (values not shown)");
-  }
-  if (RECORD_ID_RE.test(credential.apiKey)) {
-    throw new Error(
-      "REFUSED: HEBUN_HIGGSFIELD_API_KEY is only a uuid — that is the key's record id (Copy ID), not the API key. " +
-        "Use \"Copy API key\" from the key-creation screen (values not shown)",
-    );
-  }
-  return credential;
-}
 
 async function main(): Promise<void> {
   const command = process.argv[2] ?? "";
   const setName = process.argv[3] ?? "baseline";
   if ((command !== "preflight" && command !== "estimate") || process.argv.length > 4) {
-    throw new Error("usage: mv6-acceptance.ts preflight | estimate [baseline|seedance]  (no generation stage exists in this build)");
+    throw new Error("usage: mv6-acceptance.ts preflight | estimate [baseline|seedance]  (no generation stage here — see mv6-generate-acceptance.ts)");
   }
   const candidates = Object.prototype.hasOwnProperty.call(MV6_ESTIMATE_SETS, setName) ? MV6_ESTIMATE_SETS[setName]! : null;
   if (command === "estimate" && !candidates) {
-    throw new Error("usage: mv6-acceptance.ts preflight | estimate [baseline|seedance]  (unknown estimate set; no generation stage exists in this build)");
+    throw new Error("usage: mv6-acceptance.ts preflight | estimate [baseline|seedance]  (unknown estimate set; no generation stage here — see mv6-generate-acceptance.ts)");
   }
-  const credential = loadCredentialOrRefuse();
+  const credential = loadHiggsfieldCredentialOrRefuse();
   console.log("PASS  credential file holds a credential-shaped HEBUN_HIGGSFIELD_API_KEY (value not shown)");
   if (command === "preflight") return;
 

@@ -32,6 +32,7 @@ import {
   HIGGSFIELD_VIDEO_MODEL,
   HIGGSFIELD_VIDEO_REQUEST_PARAMETERS,
   HIGGSFIELD_VIDEO_SUBMIT_URL,
+  HIGGSFIELD_VIDEO_PROFILES,
   HiggsfieldObservationNotRecorded,
   classifyHiggsfieldDispatchStatus,
   createHiggsfieldVideoTransport,
@@ -367,6 +368,32 @@ async function main(): Promise<void> {
     assert.ok(!/higgsfield-client|@higgsfield\/client/.test(source), "no SDK: generation POST retry is zero by construction");
     assert.ok(!/\bfor\s*\(|\bwhile\s*\(/.test(source.slice(source.indexOf("export function createHiggsfieldVideoTransport"))), "no loop in dispatch or poll");
     assert.ok(!/media_assets|mediaAssets|mediaGenerationInvocations|drizzle/.test(source), "the transport writes no row and names no Media table");
+  }
+
+  /* ── Model profiles: a closed set, PixVerse by default, Hailuo only when named ── */
+  {
+    assert.deepEqual(Object.keys(HIGGSFIELD_VIDEO_PROFILES).sort(), ["hailuo-2.3-standard", "pixverse-v6"], "exactly two profiles");
+    const pix = scripted(() => queued());
+    const tPix = createHiggsfieldVideoTransport({ credential: CREDENTIAL, spendBudget: createLiveSpendBudget(1), fetchImpl: pix.fetch });
+    assert.equal(tPix.model, HIGGSFIELD_VIDEO_MODEL, "no profile → the pinned PixVerse model");
+    await tPix.dispatch(INPUT);
+    assert.equal(pix.calls[0]!.url, "https://api.higgsfield.ai/pixverse/v6/text-to-video");
+    const hl = scripted(() => queued());
+    const tHl = createHiggsfieldVideoTransport({ credential: CREDENTIAL, profile: "hailuo-2.3-standard", spendBudget: createLiveSpendBudget(1), fetchImpl: hl.fetch });
+    assert.equal(tHl.model, "minimax/hailuo-2.3/standard/text-to-video@6s-768p-no-optimizer");
+    assert.deepEqual(await tHl.dispatch(INPUT), { status: "accepted", providerJobId: JOB });
+    assert.equal(hl.calls.length, 1, "one POST");
+    assert.equal(hl.calls[0]!.url, "https://api.higgsfield.ai/minimax/hailuo-2.3/standard/text-to-video");
+    assert.deepEqual(JSON.parse(hl.calls[0]!.init.body!), { prompt: INPUT.promptText, duration: 6, prompt_optimizer: false }, "exactly the documented fields: no audio, no resolution, nothing invented");
+    assert.equal(hl.calls[0]!.init.headers.authorization, `Key ${API_KEY}`);
+    /* A one-unit budget makes a second POST impossible below any caller. */
+    assert.deepEqual(await tHl.dispatch(INPUT), { status: "rejected", failure: "budget-exhausted" });
+    assert.equal(hl.calls.length, 1, "no second POST");
+    assert.throws(() => createHiggsfieldVideoTransport({ credential: CREDENTIAL, profile: "seedance-2.5" as never, spendBudget: createLiveSpendBudget(1) }), "an unknown profile is refused");
+    assert.throws(() => createHiggsfieldVideoTransport({ credential: CREDENTIAL, profile: "__proto__" as never, spendBudget: createLiveSpendBudget(1) }));
+    /* The production resolver can only ever build the default. */
+    const resolverSource = readFileSync(path.join(SRC, "features/media-generation-live/live-video-generation-resolver.server.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    assert.ok(!/hailuo|profile/i.test(resolverSource), "the resolver names no profile and never Hailuo");
   }
 
   /* ── Q. The resolver: fail-closed, no fallback ────────────────────────────── */

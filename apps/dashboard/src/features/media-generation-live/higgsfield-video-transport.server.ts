@@ -118,6 +118,34 @@ export const HIGGSFIELD_VIDEO_REQUEST_PARAMETERS = Object.freeze({
 export const HIGGSFIELD_VIDEO_MODEL = `${HIGGSFIELD_VIDEO_MODEL_PATH}@3s-540p-16x9-silent`;
 export const HIGGSFIELD_VIDEO_SUBMIT_URL = `${HIGGSFIELD_API_ORIGIN}/${HIGGSFIELD_VIDEO_MODEL_PATH}`;
 
+/*
+ * ── MODEL PROFILES: A CLOSED SET, ONE DEFAULT ────────────────────────────────
+ *
+ * `pixverse-v6` is the pinned production model and the default; the resolver never passes a profile,
+ * so production can only ever get it. `hailuo-2.3-standard` exists for MV-6 real-provider acceptance
+ * only (the cheapest authenticated estimate, $0.070 for 6 s): it is selectable solely by a caller that
+ * constructs the transport itself — the acceptance tooling — and never through configuration.
+ *
+ * Hailuo's body is exactly its documented fields: `prompt`, `duration: 6` (enum 6 | 10) and
+ * `prompt_optimizer: false` (documented default true). Its resolution is fixed at 768P by the
+ * endpoint and it documents no audio field, so none is sent — nothing is invented, and because its
+ * schema does not declare `additionalProperties: false`, an invented field could be silently ignored.
+ */
+export const HIGGSFIELD_VIDEO_PROFILES = Object.freeze({
+  "pixverse-v6": Object.freeze({
+    modelPath: HIGGSFIELD_VIDEO_MODEL_PATH,
+    parameters: HIGGSFIELD_VIDEO_REQUEST_PARAMETERS as Readonly<Record<string, string | number | boolean>>,
+    model: HIGGSFIELD_VIDEO_MODEL,
+  }),
+  "hailuo-2.3-standard": Object.freeze({
+    modelPath: "minimax/hailuo-2.3/standard/text-to-video",
+    parameters: Object.freeze({ duration: 6, prompt_optimizer: false }) as Readonly<Record<string, string | number | boolean>>,
+    model: "minimax/hailuo-2.3/standard/text-to-video@6s-768p-no-optimizer",
+  }),
+});
+export type HiggsfieldVideoProfile = keyof typeof HIGGSFIELD_VIDEO_PROFILES;
+export const HIGGSFIELD_DEFAULT_VIDEO_PROFILE: HiggsfieldVideoProfile = "pixverse-v6";
+
 /** The submission "returns immediately" per the docs; this bounds a hung connection, nothing more. */
 export const HIGGSFIELD_DISPATCH_TIMEOUT_MS = 30_000;
 /** The docs' own polling example uses a 30 s request timeout. */
@@ -160,6 +188,8 @@ export interface HiggsfieldCredential {
 
 export interface HiggsfieldVideoTransportConfig {
   readonly credential: HiggsfieldCredential;
+  /** Omitted everywhere in production: the pinned default. Acceptance tooling may name another. */
+  readonly profile?: HiggsfieldVideoProfile;
   /** The shared per-process live-call budget. Spent by dispatch only: a status read bills nothing. */
   readonly spendBudget: LiveSpendBudget;
   readonly fetchImpl?: HiggsfieldFetch;
@@ -327,6 +357,12 @@ export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportC
   if (!isHiggsfieldCredentialShaped(config.credential)) {
     throw new Error("The Higgsfield video transport needs a credential-shaped API key.");
   }
+  const profileName = config.profile ?? HIGGSFIELD_DEFAULT_VIDEO_PROFILE;
+  if (!Object.prototype.hasOwnProperty.call(HIGGSFIELD_VIDEO_PROFILES, profileName)) {
+    throw new Error("Unknown Higgsfield video profile.");
+  }
+  const profile = HIGGSFIELD_VIDEO_PROFILES[profileName];
+  const submitUrl = `${HIGGSFIELD_API_ORIGIN}/${profile.modelPath}`;
   const doFetch: HiggsfieldFetch = config.fetchImpl ?? ((input, init) => fetch(input, init));
   const dispatchTimeoutMs = config.dispatchTimeoutMs ?? HIGGSFIELD_DISPATCH_TIMEOUT_MS;
   const pollTimeoutMs = config.pollTimeoutMs ?? HIGGSFIELD_POLL_TIMEOUT_MS;
@@ -336,7 +372,7 @@ export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportC
   return Object.freeze({
     transport: "live" as MediaGenerationTransportKind,
     provider: HIGGSFIELD_PROVIDER,
-    model: HIGGSFIELD_VIDEO_MODEL,
+    model: profile.model,
     outputMediaKind: "video" as const,
 
     async dispatch(input: Parameters<MediaAsyncGenerationTransport["dispatch"]>[0]): Promise<MediaAsyncDispatchOutcome> {
@@ -345,14 +381,14 @@ export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportC
 
       let response: Response;
       try {
-        response = await doFetch(HIGGSFIELD_VIDEO_SUBMIT_URL, {
+        response = await doFetch(submitUrl, {
           method: "POST",
           headers: {
             authorization: authorization(),
             "content-type": "application/json",
             accept: "application/json",
           },
-          body: JSON.stringify({ prompt: input.promptText, ...HIGGSFIELD_VIDEO_REQUEST_PARAMETERS }),
+          body: JSON.stringify({ prompt: input.promptText, ...profile.parameters }),
           redirect: "error",
           cache: "no-store",
           signal: AbortSignal.timeout(dispatchTimeoutMs),
