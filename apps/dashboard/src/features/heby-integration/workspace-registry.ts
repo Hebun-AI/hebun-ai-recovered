@@ -297,7 +297,13 @@ const WORKSPACE_PROFILES = {
      * `platform` and `governance` gain neither: this widening is justified by the preparation seam
      * that routes here, and no other profile has one.
      */
-    sourceClasses: ["operations", "governance", "work-artifacts", "knowledge", "work"],
+    /*
+     * HEBY-MEDIA-1 adds `content-media` here and ONLY here: content drafts, their media and their
+     * package live on this workspace's route, and it is the one profile that already carries the
+     * drafts themselves. Because preparation routes here too, a prepared caption's grounding now
+     * also carries the draft's media FACTS — added evidence, nothing removed, no authority gained.
+     */
+    sourceClasses: ["operations", "governance", "work-artifacts", "knowledge", "work", "content-media"],
     authority: "advisory-only",
     mayExplain: [
       "Explain this operational state.",

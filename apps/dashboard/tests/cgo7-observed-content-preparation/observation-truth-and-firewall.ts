@@ -214,8 +214,8 @@ function noProviderClassEntersTheGroundingVocabulary(): void {
   assert.equal(HEBY_PROFILED_WORKSPACES.length, 8, "no ninth workspace was created");
   assert.deepEqual(
     [...getHebyWorkspaceProfile("operations").sourceClasses],
-    ["operations", "governance", "work-artifacts", "knowledge", "work"],
-    "Operations carries exactly what CGO-6 released — this phase adds no class to it",
+    ["operations", "governance", "work-artifacts", "knowledge", "work", "content-media"],
+    "Operations carries exactly what CGO-6 released — this phase adds no class to it (HEBY-MEDIA-1 later adds `content-media`)",
   );
   assert.equal(
     getHebyWorkspaceProfile("operations").authority,

@@ -73,6 +73,7 @@ import {
 } from "@/features/heby-answer/model-answer.server";
 import type { AgentIdentityReadDeps } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
+import { resolveSource } from "@/features/heby-runtime/source-resolver";
 import {
   resolveAgentAuthorship,
   type AgentAuthorshipRefusal,
@@ -305,7 +306,14 @@ export async function prepareWorkArtifact(
   const answerFn = deps.answer ?? answerHebyModelRequest;
   const answer = await answerFn(
     { prompt: input.prompt, route: input.route, conversationId: input.conversationId },
-    deps,
+    /*
+     * HEBY-MEDIA-1 gives Operations a `content-media` class so Heby can SEE a draft's media when
+     * asked. Preparation writes the caption and is production-accepted as grounded on the
+     * organization's own records only (CGO-6); media facts and connectivity switches would widen
+     * what a caption rests on. So preparation resolves the class to its pure, unread form — pinned
+     * in tests/heby-media-1 — and its grounding is exactly what it was before this phase.
+     */
+    { ...deps, resolveContentMedia: async () => resolveSource("content-media") },
     {
       intent: WORK_ARTIFACT_PREPARATION_INTENT,
       /*

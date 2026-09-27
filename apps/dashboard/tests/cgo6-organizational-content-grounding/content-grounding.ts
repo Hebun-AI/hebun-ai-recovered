@@ -107,8 +107,8 @@ function theScopeIsExactlyOneMoreWorkspace(): void {
 
   assert.deepEqual(
     [...operations.sourceClasses],
-    ["operations", "governance", "work-artifacts", "knowledge", "work"],
-    "Operations carries exactly its released three classes plus the two CGO-6 adds",
+    ["operations", "governance", "work-artifacts", "knowledge", "work", "content-media"],
+    "Operations carries exactly its released three classes plus the two CGO-6 adds (HEBY-MEDIA-1 later adds `content-media`)",
   );
 
   const carryingKnowledge = HEBY_PROFILED_WORKSPACES.filter((w) =>

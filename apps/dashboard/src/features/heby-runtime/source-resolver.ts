@@ -348,6 +348,15 @@ export function resolveSource(
         "provider-observations",
         "Stored provider observations are not readable through Heby: this class carries action evidence only, and no Heby reader over provider observations exists.",
       );
+    /*
+     * HEBY-MEDIA-1. Connected on the server seam like its neighbours; this is also what
+     * `withContentMedia` falls back to when the real read throws, so it must not say "no media".
+     */
+    case "content-media":
+      return unavailable(
+        "content-media",
+        "Content draft media is read tenant-scoped on the server; no authorized server read was supplied here, so nothing was read.",
+      );
     default: {
       // Exhaustiveness guard — a new source class must be handled explicitly.
       const never: never = sourceClass;

@@ -128,6 +128,7 @@ import { readDecisionHorizonGroundingSource } from "@/features/decision-horizon/
 import { readRecordedActGroundingSource } from "@/features/governance-activity/heby-recorded-act-source.server";
 import { readActWindowGroundingSource } from "@/features/governance-activity/heby-act-window-source.server";
 import { readKnowledgeCoverageGroundingSource } from "@/features/knowledge/heby-knowledge-coverage-source.server";
+import { readContentMediaGroundingSource } from "@/features/content-composition/heby-content-media-source.server";
 import { readAttentionGroundingSource } from "@/features/attention-observation/heby-attention-source.server";
 import {
   toResponseSourceEvidence,
@@ -358,6 +359,12 @@ export interface HebyModelAnswerDeps {
    * whether the organization is well documented.
    */
   readonly resolveKnowledgeCoverage?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /**
+   * HEBY-MEDIA-1 — content-draft media resolution for the `content-media` class. Defaults to the
+   * shaper over the released Media, review, generation and Content Package readers. Consulted ONLY
+   * for workspaces that declare the class (today: Operations). Evidence only; it writes nothing.
+   */
+  readonly resolveContentMedia?: (tenant: TenantContext) => Promise<SourceResolution>;
 }
 
 /** What actually happened to durable persistence for this request. Never fabricated. */
@@ -817,6 +824,30 @@ async function withKnowledgeCoverage(
   }
 }
 
+/**
+ * HEBY-MEDIA-1 — each open content draft's media joins the SAME deterministic evidence set.
+ *
+ * REPLACES an empty pure resolution, so no evidence is removed. A read failure degrades to the pure
+ * resolution: it never reports "no media" because a read failed, and never removes another
+ * source's evidence.
+ */
+async function withContentMedia(
+  resolutions: readonly SourceResolution[],
+  tenant: TenantContext,
+  deps: HebyModelAnswerDeps,
+): Promise<readonly SourceResolution[]> {
+  if (!resolutions.some((resolution) => resolution.sourceClass === "content-media")) {
+    return resolutions;
+  }
+  try {
+    const resolver = deps.resolveContentMedia ?? readContentMediaGroundingSource;
+    const media = await resolver(tenant);
+    return resolutions.map((resolution) => (resolution.sourceClass === "content-media" ? media : resolution));
+  } catch {
+    return resolutions;
+  }
+}
+
 async function withRecordedActs(
   resolutions: readonly SourceResolution[],
   tenant: TenantContext,
@@ -1155,7 +1186,10 @@ export async function answerHebyModelRequest(
   // E2-8 — and which declared knowledge areas this organization holds facts in force in, and which
   // hold none. Presence of evidence only: never its correctness, its approval, or a claim that a
   // missing area is something the organization lacks.
-  const resolutions = await withKnowledgeCoverage(windowResolutions, tenant, deps);
+  const coverageResolutions = await withKnowledgeCoverage(windowResolutions, tenant, deps);
+  // HEBY-MEDIA-1 — and what media each open content draft holds, as Media, MEDIA-3 and the Content
+  // Package record it. Seeing it grants nothing: no generation, review, selection or publish.
+  const resolutions = await withContentMedia(coverageResolutions, tenant, deps);
   const assembled = assembleEvidence(resolutions);
 
   // The honest deterministic fallback (an answer where possible, an honest unavailable else).

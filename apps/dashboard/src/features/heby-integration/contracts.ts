@@ -473,7 +473,17 @@ export type HebySourceClass =
    * A reader may be chartered later for a conversational brief. That is a separate decision and
    * nothing here anticipates it.
    */
-  | "provider-observations";
+  | "provider-observations"
+  /*
+   * HEBY-MEDIA-1. WHAT MEDIA each open content draft has, as the authorities that own it record it:
+   * admitted images and videos (Media), their review records (MEDIA-3), video attempts with their
+   * source-image lineage (MV-4 / MEDIA-5), the derived Content Package (CONTENT-COMPOSE-1), and the
+   * two Higgsfield connectivity switches. A read, shaped — never a writer, never a recommendation.
+   *
+   *     SEEING MEDIA != OWNING MEDIA        PACKAGE READ != PACKAGE READY
+   *     REVIEW ACCEPTED != PUBLISH AUTHORIZED
+   */
+  | "content-media";
 
 export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "knowledge",
@@ -497,6 +507,7 @@ export const HEBY_SOURCE_CLASSES: readonly HebySourceClass[] = [
   "recorded-act-windows",
   "knowledge-coverage",
   "provider-observations",
+  "content-media",
 ] as const;
 
 export interface HebySourceStatus {

@@ -71,7 +71,7 @@ function capabilityStatesAreHonest(): void {
 /* --- Source status is multi-dimensional; a defined-but-unconnected source is honest -- */
 function sourceStatusNotCollapsed(): void {
   /*
-   * Twenty-one since SOC-ACT1 added `provider-observations` (twenty after OSA-4's `people`, nineteen after OSA-3's `placement`, eighteen after WORK-2's
+   * Twenty-two since HEBY-MEDIA-1 added `content-media` (twenty-one after SOC-ACT1's `provider-observations`, twenty after OSA-4's `people`, nineteen after OSA-3's `placement`, eighteen after WORK-2's
    * `work`, seventeen after AMA-3's `agent-mandate`, sixteen after E2-8's `knowledge-coverage`,
    * fifteen after E2-7's `recorded-act-windows`,
    * fourteen after E2-6's `recorded-acts`,
@@ -266,6 +266,13 @@ function sourceStatusNotCollapsed(): void {
        * observed in front of a human deciding a consequential mutation.
        */
       "provider-observations",
+      /*
+       * HEBY-MEDIA-1. Each open content draft's media as Media, MEDIA-3, MV-4 and the Content
+       * Package record it, plus two connectivity switches. A fabricated item here would tell a
+       * Director a post has a reviewed video it does not have — so the class is a shaper over the
+       * released readers and carries no recommendation.
+       */
+      "content-media",
     ],
   );
   const context = resolveHebyWorkspaceContext({ workspace: "knowledge" });

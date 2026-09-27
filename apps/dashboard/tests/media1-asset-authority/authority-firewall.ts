@@ -130,6 +130,12 @@ const code = (f: string): string => stripComments(read(f));
      * shared prompt limit from the Media contracts and holds no authority.
      */
     "src/components/operations-preparation/generate-video-with-hebun.tsx",
+    /*
+     * HEBY-MEDIA-1: Heby's content-media grounding SHAPES released reads — the image and video
+     * listings and the attempt listing — and imports no writer. Its import list is pinned by name
+     * in tests/heby-media-1/content-media-firewall.
+     */
+    "src/features/content-composition/heby-content-media-source.server.ts",
   ]);
   for (const f of SRC) {
     const c = code(f);
