@@ -25,20 +25,32 @@
  * exactly once per dispatch, with `redirect: "error"`, a bounded timeout and a capped body read.
  * Nothing here loops. A second attempt is a new human request with a new request key.
  *
- * ── WHAT EACH DISPATCH ANSWER MEANS ─────────────────────────────────────────
+ * ── WHAT EACH DISPATCH ANSWER MEANS (MV-6 4xx truth gate) ─────────────────────
  *
- *   2xx + a uuid `request_id`          accepted  → MV-4 provider-pending
- *   401 / 403 / 429 / other 4xx        rejected  → MV-4 provider-failed (closed code)
- *   thrown, timed out, 3xx, 408, 409,  unknown   → MV-4 dispatch-unknown
- *   any 5xx, 2xx without a usable id
+ *   2xx + a uuid `request_id`                     accepted  → MV-4 provider-pending
+ *   a DOCUMENTED synchronous refusal: 400, 401,   rejected  → MV-4 provider-failed (closed code)
+ *   403, 404, 422 or 423 WITH Higgsfield's
+ *   FastAPI error envelope (`{ "detail": … }`)
+ *   everything else — thrown, timed out, 3xx,     unknown   → MV-4 dispatch-unknown
+ *   any 5xx, any other 4xx (408, 409, 429, …),
+ *   a documented 4xx WITHOUT the envelope, or
+ *   a 2xx without a usable id
  *
- * A 5xx is `unknown`, never `rejected`: Higgsfield does not document that a server error means no
- * job was created, and a gateway error can follow a job the backend already accepted. 408 and 409
- * are `unknown` for the same reason — undocumented here, and in other APIs they can mean "your
- * request is already being processed". A 4xx is a refusal by HTTP semantics and by Higgsfield's own
- * error table (400 invalid/concurrency, 401 credentials, 403 insufficient credits, 404/422/423/503
- * model or body); that it creates no job is HTTP convention, NOT a Higgsfield guarantee, and is on
- * the real-provider acceptance list.
+ * WHY THIS SET AND NO OTHER. Higgsfield's errors guide separates errors that "occur before a request
+ * is accepted" — the synchronous table: 400 invalid/rejected input or concurrency reached, 401
+ * credentials, 403 insufficient credits, 404 request or model not found for the account, 422 body
+ * validation, 423 model temporarily blocked, 500, 503 — from failures of an ACCEPTED request, which
+ * finish later as `failed` or `nsfw`. That documented split is the only evidence that a refusal left
+ * no job, and it is a classification, not an explicit "no job was created" guarantee (none exists).
+ * So a refusal is recorded only where BOTH hold: the status is in that table with a request-refusal
+ * meaning, and the body carries the documented envelope, which is what distinguishes Higgsfield's API
+ * answering from a proxy, CDN or gateway in front of it. The envelope's text is never read.
+ *
+ * 5xx stays `unknown` although the table lists 500 and 503: its own safe-retry policy retries only
+ * status GETs after a 5xx and forbids repeating an ambiguous POST, and a 5xx can follow a job the
+ * backend already accepted. 408, 409 and 429 are not in Higgsfield's table at all (it reports
+ * concurrency as 400), so for this provider they are undocumented — `unknown`, never a guessed
+ * refusal. Nothing here is retried; a second attempt is a new human request with a new request key.
  *
  * ── WHAT EACH POLL ANSWER MEANS ─────────────────────────────────────────────
  *
@@ -224,16 +236,34 @@ function isHttpsUrl(value: unknown): boolean {
 type RejectedFailure = Exclude<MediaAsyncProviderFailure, "timeout" | "malformed-response">;
 
 /**
- * A dispatch HTTP status → rejected (with a closed code) or unknown. Never "accepted": acceptance is
- * decided only by a readable body naming a job.
+ * The documented synchronous refusals and the closed code each is recorded as. Nothing outside this
+ * table is ever a refusal.
  */
-export function classifyHiggsfieldDispatchStatus(status: number): { readonly rejected: RejectedFailure } | "unknown" {
-  if (status === 408 || status === 409) return "unknown";
-  if (status === 401) return { rejected: "authentication-failed" };
-  if (status === 403) return { rejected: "quota-exhausted" };
-  if (status === 429) return { rejected: "rate-limited" };
-  if (status >= 400 && status < 500) return { rejected: "request-rejected" };
-  return "unknown";
+export const HIGGSFIELD_DOCUMENTED_DISPATCH_REFUSALS: Readonly<Record<number, RejectedFailure>> = Object.freeze({
+  400: "request-rejected", // invalid parameters, rejected input, or concurrency reached
+  401: "authentication-failed", // missing or invalid credentials
+  403: "quota-exhausted", // insufficient credits
+  404: "request-rejected", // request or model not found for this account
+  422: "request-rejected", // request body validation failed
+  423: "provider-unavailable", // model temporarily blocked
+});
+
+/** Higgsfield's documented FastAPI envelope: `detail` is a string, or a list for validation errors. */
+export function hasHiggsfieldErrorEnvelope(body: unknown): boolean {
+  const detail = field(body, "detail");
+  return (typeof detail === "string" && detail.length > 0) || (Array.isArray(detail) && detail.length > 0);
+}
+
+/**
+ * A dispatch HTTP status and body → rejected (with a closed code) or unknown. Never "accepted":
+ * acceptance is decided only by a readable body naming a job.
+ */
+export function classifyHiggsfieldDispatchStatus(status: number, body: unknown): { readonly rejected: RejectedFailure } | "unknown" {
+  const failure = Object.prototype.hasOwnProperty.call(HIGGSFIELD_DOCUMENTED_DISPATCH_REFUSALS, status)
+    ? HIGGSFIELD_DOCUMENTED_DISPATCH_REFUSALS[status]
+    : undefined;
+  if (!failure || !hasHiggsfieldErrorEnvelope(body)) return "unknown";
+  return { rejected: failure };
 }
 
 /** A status read's HTTP answer and body → one typed observation. Pure. */
@@ -331,8 +361,8 @@ export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportC
         /* A success status naming no job Hebun could ever poll: the job may exist. */
         return { status: "unknown" };
       }
-      await response.body?.cancel().catch(() => undefined);
-      const verdict = classifyHiggsfieldDispatchStatus(response.status);
+      /* The body is read for the envelope's SHAPE only; its text never leaves this function. */
+      const verdict = classifyHiggsfieldDispatchStatus(response.status, await readJson(response));
       return verdict === "unknown" ? { status: "unknown" } : { status: "rejected", failure: verdict.rejected };
     },
 

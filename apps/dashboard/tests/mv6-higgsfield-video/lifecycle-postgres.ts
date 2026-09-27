@@ -7,7 +7,7 @@
  *   "Behind the one MV-4 CAS writer, an acknowledged Higgsfield submission records the provider's
  *    request id and moves the invocation to provider-pending; polling moves it to provider-succeeded
  *    with the request id as the opaque reference, and creates NO Media asset. An ambiguous dispatch
- *    (timeout, 5xx) lands in dispatch-unknown with no job id and no failure code, after exactly one
+ *    (timeout, 5xx, an undocumented 4xx, a 4xx without Higgsfield's envelope) lands in dispatch-unknown with no job id and no failure code, after exactly one
  *    POST, and is never dispatched again. A 4xx lands in provider-failed with a closed code.
  *    Higgsfield `failed` and `canceled` land in provider-failed with the two MV-6 codes; a 404 or
  *    any unreadable answer moves nothing and is reported as observation-unreadable, never pending. No credential or provider URL reaches a
@@ -173,6 +173,8 @@ async function main(): Promise<void> {
       ["timeout", () => { throw Object.assign(new Error("aborted"), { name: "TimeoutError" }); }],
       ["connection reset", () => { throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNRESET" } }); }],
       ["502", () => json(502, { detail: "bad gateway" })],
+      ["429 (undocumented for Higgsfield)", () => json(429, { detail: "slow down" })],
+      ["403 without the envelope (maybe an intermediary)", () => new Response("<html>Forbidden</html>", { status: 403 })],
       ["200 without a job", () => json(200, { status: "queued" })],
     ] as const) {
       const id = await register(a);

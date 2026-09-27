@@ -8,8 +8,11 @@
  *
  *   "Dispatch spends one unit of the shared live-call budget, then sends EXACTLY ONE fixed POST to the
  *    pinned Higgsfield model endpoint and never retries. It returns `accepted` only for a readable
- *    body naming a uuid request id; a timeout, reset, redirect, 5xx, 408, 409 or a success body with no
- *    usable id is `unknown` — never a failure and never an invented id; a 4xx is a closed refusal. A
+ *    body naming a uuid request id; a refusal only for a status Higgsfield documents as a synchronous
+ *    pre-acceptance error (400, 401, 403, 404, 422, 423) carrying its FastAPI envelope; and `unknown`
+ *    — never a failure, never an invented id — for everything else: timeout, reset, redirect, any 5xx,
+ *    any undocumented 4xx (408, 409, 429, …), a documented 4xx without the envelope, or a success body
+ *    with no usable id. A
  *    poll maps queued/in_progress → pending, completed → succeeded with the request id as the opaque
  *    reference (never the URL), nsfw → moderation-blocked, failed → generation-failed and canceled →
  *    provider-canceled without reading the provider's free text, and THROWS for 404 rather than
@@ -191,23 +194,51 @@ async function main(): Promise<void> {
     noLeak(out, String(status));
   }
 
-  /* ── 4xx: a refusal, with a closed code; the message is never parsed ────── */
+  /* ── Documented synchronous refusals WITH the FastAPI envelope: a closed code ── */
   for (const [status, failure] of [
     [400, "request-rejected"],
     [401, "authentication-failed"],
     [403, "quota-exhausted"],
     [404, "request-rejected"],
     [422, "request-rejected"],
-    [423, "request-rejected"],
-    [429, "rate-limited"],
+    [423, "provider-unavailable"],
   ] as const) {
-    const http = scripted(() => json(status, { detail: "Maximum number of concurrent requests (4) has been reached — secret provider text" }));
-    const out = await transportWith(http).dispatch(INPUT);
-    assert.deepEqual(out, { status: "rejected", failure }, `${status} → ${failure}`);
-    assert.equal(http.calls.length, 1);
-    noLeak(out, String(status));
+    for (const detail of ["Maximum number of concurrent requests (4) has been reached — secret provider text", [{ loc: ["body", "prompt"], msg: "secret provider text" }]]) {
+      const http = scripted(() => json(status, { detail }));
+      const out = await transportWith(http).dispatch(INPUT);
+      assert.deepEqual(out, { status: "rejected", failure }, `${status} → ${failure}`);
+      assert.equal(http.calls.length, 1, `${status}: one POST`);
+      noLeak(out, String(status));
+    }
   }
-  assert.equal(classifyHiggsfieldDispatchStatus(200), "unknown", "a status alone never means accepted");
+  /* The envelope's text is never read: a message that sounds like another cause changes nothing. */
+  assert.deepEqual(await transportWith(scripted(() => json(400, { detail: "Invalid credentials; insufficient credits; timeout" }))).dispatch(INPUT), { status: "rejected", failure: "request-rejected" });
+
+  /* ── A documented status WITHOUT the envelope may be an intermediary: ambiguous ─ */
+  for (const status of [400, 401, 403, 404, 422, 423]) {
+    for (const [label, response] of [
+      ["html", () => new Response("<html>Forbidden</html>", { status })],
+      ["empty", () => new Response(null, { status })],
+      ["no detail", () => json(status, { error: "x" })],
+      ["empty detail", () => json(status, { detail: "" })],
+      ["non-string detail", () => json(status, { detail: 42 })],
+    ] as const) {
+      const http = scripted(response);
+      assert.deepEqual(await transportWith(http).dispatch(INPUT), { status: "unknown" }, `${status} ${label}: not proven to be Higgsfield's refusal`);
+      assert.equal(http.calls.length, 1, `${status} ${label}: no retry`);
+    }
+  }
+
+  /* ── Undocumented 4xx, even with an envelope: unknown, never a guessed refusal ── */
+  for (const status of [402, 405, 406, 408, 409, 410, 411, 412, 413, 415, 418, 425, 428, 429, 431, 451, 499]) {
+    const http = scripted(() => json(status, { detail: "secret provider text" }));
+    const out = await transportWith(http).dispatch(INPUT);
+    assert.deepEqual(out, { status: "unknown" }, `${status}: undocumented for Higgsfield`);
+    assert.equal(http.calls.length, 1, `${status}: exactly one POST`);
+  }
+  assert.equal(classifyHiggsfieldDispatchStatus(200, { detail: "x" }), "unknown", "a status alone never means accepted");
+  assert.equal(classifyHiggsfieldDispatchStatus(500, { detail: "x" }), "unknown", "5xx is never a refusal, even though the table lists 500");
+  assert.equal(classifyHiggsfieldDispatchStatus(503, { detail: "x" }), "unknown", "nor 503");
 
   /* ── E. Malformed success: no invented job id ─────────────────────────────── */
   for (const [label, response] of [
