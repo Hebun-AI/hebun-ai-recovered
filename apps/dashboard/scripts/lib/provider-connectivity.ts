@@ -58,6 +58,7 @@ import { isExternalSendConfigured } from "../../src/features/action-execution/ex
 import { OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
 import { MACHINE_INTERNAL_EXECUTION_CONTROL_KEY } from "../../src/features/governed-machine-execution/machine-execution-control.server";
 import { OPENAI_IMAGE_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/openai-image-control";
+import { HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/higgsfield-video-control";
 /*
  * The ceremony-source vocabulary, imported rather than restated. `CeremonySource` is the released
  * closed union G4 already defines for postures, and its two values are byte-identical to the
@@ -105,6 +106,13 @@ export const PROVIDER_KEYS: readonly string[] = Object.freeze([
    * ARMABLE, not armed.
    */
   OPENAI_IMAGE_GENERATION_CONTROL_KEY,
+  /*
+   * MV-6: Higgsfield video generation (paid, asynchronous, text-to-video). Expressible here so a
+   * LOCAL ceremony can arm and disarm it for provider acceptance. Deliberately NOT enumerated in
+   * `GENERIC_PRODUCTION_REACHABLE_KEYS`: taking it to production is a separate Director decision,
+   * as MEDIA-2B was for images, and until then the generic ceremony refuses it there.
+   */
+  HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
 ]);
 
 /*

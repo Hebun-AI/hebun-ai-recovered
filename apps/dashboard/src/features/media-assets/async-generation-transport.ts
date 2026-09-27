@@ -57,4 +57,13 @@ export interface MediaAsyncGenerationTransport {
 
 export type MediaAsyncGenerationTransportResolution =
   | { readonly status: "available"; readonly transport: MediaAsyncGenerationTransport }
-  | { readonly status: "unavailable"; readonly reason: "no-video-generation-provider" };
+  | {
+      readonly status: "unavailable";
+      /**
+       * no-video-generation-provider   nothing is selected
+       * video-generation-misconfigured something is selected, but not a live provider with a
+       *                                credential-shaped key (MV-6)
+       * video-generation-disabled      configured, and the Director control is not ON (MV-6)
+       */
+      readonly reason: "no-video-generation-provider" | "video-generation-misconfigured" | "video-generation-disabled";
+    };

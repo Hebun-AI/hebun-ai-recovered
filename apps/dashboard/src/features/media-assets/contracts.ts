@@ -84,6 +84,12 @@ export type MediaGenerationTransportKind = (typeof MEDIA_GENERATION_TRANSPORTS)[
  *   malformed-response      a success status whose body is not the documented contract
  *   budget-exhausted        the process live-call budget refused: NO request left Hebun
  *   dispatch-error          the transport threw instead of reporting (state `dispatch-failed`)
+ *   generation-failed       MV-6: an ACCEPTED asynchronous job that the provider reported as failed
+ *                           without a documented cause. The provider's free-text reason is never
+ *                           recorded and never mapped onto any other code here.
+ *   provider-canceled       MV-6: the provider reports the accepted job as canceled. Hebun has no
+ *                           cancel capability, so this records that the provider says so — never
+ *                           that Hebun decided it, and never that nothing was executed or billed.
  */
 export const MEDIA_PROVIDER_FAILURES = Object.freeze([
   "authentication-failed",
@@ -96,6 +102,8 @@ export const MEDIA_PROVIDER_FAILURES = Object.freeze([
   "malformed-response",
   "budget-exhausted",
   "dispatch-error",
+  "generation-failed",
+  "provider-canceled",
 ] as const);
 
 export type MediaProviderFailure = (typeof MEDIA_PROVIDER_FAILURES)[number];

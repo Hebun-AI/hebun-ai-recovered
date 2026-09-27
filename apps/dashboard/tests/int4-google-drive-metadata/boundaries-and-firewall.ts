@@ -147,6 +147,13 @@ function main(): void {
          * through the generation resolver, and only when the Director control is ON.
          */
         "src/features/media-generation-live/openai-image-transport.server.ts",
+        /*
+         * MV-6 — the Higgsfield video transport. One fixed model endpoint and the documented status
+         * endpoint on https://api.higgsfield.ai, one POST per dispatch with no retry, redirects
+         * refused, timed out, bodies capped, reached only through the async generation resolver and
+         * only when the Director control is ON.
+         */
+        "src/features/media-generation-live/higgsfield-video-transport.server.ts",
       ].sort(),
       "every outbound-HTTP module in src is a named transport",
     );

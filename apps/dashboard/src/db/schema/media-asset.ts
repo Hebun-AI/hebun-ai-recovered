@@ -305,7 +305,7 @@ export const mediaGenerationInvocations = pgTable(
     check("media_generation_invocations_transport_chk", sql`${t.transport} in ('fake','live')`),
     check(
       "media_generation_invocations_provider_failure_chk",
-      sql`${t.providerFailure} is null or ${t.providerFailure} in ('authentication-failed','request-rejected','moderation-blocked','rate-limited','quota-exhausted','timeout','provider-unavailable','malformed-response','budget-exhausted','dispatch-error')`,
+      sql`${t.providerFailure} is null or ${t.providerFailure} in ('authentication-failed','request-rejected','moderation-blocked','rate-limited','quota-exhausted','timeout','provider-unavailable','malformed-response','budget-exhausted','dispatch-error','generation-failed','provider-canceled')`,
     ),
     check(
       "media_generation_invocations_provider_failure_state_chk",

@@ -31,6 +31,7 @@ import { createDisposablePostgresHarness } from "../helpers/disposable-postgres"
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { CEREMONY_SOURCE_LOCAL } from "../../scripts/lib/production-possession";
 import { OPENAI_IMAGE_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/openai-image-control";
+import { HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/higgsfield-video-control";
 
 /** Complete external-send configuration. Never a real credential. */
 const FULL = Object.freeze({
@@ -64,8 +65,10 @@ async function closedVocabulary(client: Client): Promise<void> {
       MACHINE_INTERNAL_EXECUTION_CONTROL_KEY,
       /* MEDIA-2A: expressible for local arming; refused in production until MEDIA-2B. */
       OPENAI_IMAGE_GENERATION_CONTROL_KEY,
+      /* MV-6: expressible for local arming; refused in production until a Director decision. */
+      HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
     ].sort(),
-    "exactly the five control keys the repository defines",
+    "exactly the six control keys the repository defines",
   );
 
   for (const bogus of ["", "  ", "openai", "resend", "CLAUDE", "Claude", "*", "external_send", "claude;"]) {

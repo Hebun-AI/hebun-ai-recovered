@@ -89,6 +89,10 @@ const code = (f: string): string => stripComments(read(f));
     "src/features/media-storage-acceptance/run-storage-acceptance.server.ts",
     /* MEDIA-2A: the OpenAI transport imports only the port's TYPES (see section 4c). */
     "src/features/media-generation-live/openai-image-transport.server.ts",
+    /* MV-6: the Higgsfield video transport imports only the async transport's TYPES and contract types. */
+    "src/features/media-generation-live/higgsfield-video-transport.server.ts",
+    /* MV-6: the live video resolver returns the async resolution TYPE and nothing else from here. */
+    "src/features/media-generation-live/live-video-generation-resolver.server.ts",
     /* MEDIA-2B: the human door — exactly one action and one surface (section 2b). */
     "src/app/(dashboard)/operations/actions.ts",
     "src/components/operations-preparation/generate-image-with-hebun.tsx",
@@ -302,13 +306,40 @@ const code = (f: string): string => stripComments(read(f));
   assert.ok(!/process\.env/.test(v2), "the v2 client is configured by its caller, never by the environment");
 }
 
+/* ── 4d. MV-6: the Higgsfield transport is a transport, reached only by the video resolver ─ */
+{
+  const TRANSPORT = "src/features/media-generation-live/higgsfield-video-transport.server.ts";
+  const RESOLVER = "src/features/media-generation-live/live-video-generation-resolver.server.ts";
+  const t = code(TRANSPORT);
+  assert.deepEqual([...t.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).sort(), [
+    "@/features/heby-model-live/live-spend-budget.server",
+    "@/features/media-assets/async-generation-transport",
+    "@/features/media-assets/contracts",
+  ]);
+  assert.ok([...t.matchAll(/^import (type )?/gm)].every((m) => m[1] === "type "), "the video transport imports TYPES only");
+  assert.ok(!/process\.env|@\/db|drizzle|console\.|governance|permit|action-|media-storage|MediaObjectStore|mediaAssets|provider-output-download/i.test(t), "no config, row, log, download or authority");
+  assert.deepEqual((t.match(/https:\/\/[a-z0-9.-]+[^"`]*/g) ?? []).sort(), ["https://api.higgsfield.ai"], "exactly the one official API origin");
+  assert.ok(!/\bwhile\s*\(|retry|backoff|hf_webhook|\/cancel\b|cancel_url/i.test(t), "no retry, no webhook, no provider cancel (a stream `.cancel()` is only a body release)");
+  assert.ok(/redirect: "error"/.test(t) && !/redirect: "follow"/.test(t), "redirects refused");
+  const importers = SRC.filter((f) => f !== TRANSPORT && /higgsfield-video-transport/.test(code(f)));
+  assert.deepEqual(importers, [RESOLVER], "only the video resolver constructs it");
+  const neutral = code("src/features/media-assets/async-generation-transport.server.ts");
+  assert.ok(!/higgsfield|process\.env/i.test(neutral), "the media-assets resolver stays provider-neutral");
+}
+
 /* ── 4c. MEDIA-2A: the OpenAI transport is a transport, reached only by the resolver ─ */
 {
   const TRANSPORT = "src/features/media-generation-live/openai-image-transport.server.ts";
   const CONTROL = "src/features/media-generation-live/openai-image-control.ts";
   const RESOLVER = "src/features/media-assets/media-generation-transport.server.ts";
   const LIVE = SRC.filter((f) => f.startsWith("src/features/media-generation-live/"));
-  assert.deepEqual(LIVE.sort(), [CONTROL, TRANSPORT].sort(), "the live generation feature is exactly the control key and the transport");
+  /* MV-6 adds the video pair and its resolver; section 4d pins them. */
+  const MV6 = [
+    "src/features/media-generation-live/higgsfield-video-control.ts",
+    "src/features/media-generation-live/higgsfield-video-transport.server.ts",
+    "src/features/media-generation-live/live-video-generation-resolver.server.ts",
+  ];
+  assert.deepEqual(LIVE.sort(), [CONTROL, TRANSPORT, ...MV6].sort(), "the live generation feature is exactly the control keys, the transports and the video resolver");
 
   const t = code(TRANSPORT);
   const imports = [...t.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).sort();

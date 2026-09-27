@@ -39,6 +39,7 @@ import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/
 import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 import { OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
 import { OPENAI_IMAGE_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/openai-image-control";
+import { HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/higgsfield-video-control";
 
 const ROOT = process.cwd();
 const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
@@ -200,8 +201,10 @@ const GENERIC = "scripts/provider-connectivity.ts";
       MACHINE_INTERNAL_EXECUTION_CONTROL_KEY,
       /* MEDIA-2A: expressible for local arming; refused in production until MEDIA-2B. */
       OPENAI_IMAGE_GENERATION_CONTROL_KEY,
+      /* MV-6: expressible for local arming; refused in production until a Director decision. */
+      HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
     ].sort(),
-    "exactly the five control keys the repository defines",
+    "exactly the six control keys the repository defines",
   );
   assert.ok(Object.isFrozen(PROVIDER_KEYS) && Object.isFrozen(GENERIC_PRODUCTION_REACHABLE_KEYS));
   assert.ok(Object.isFrozen(DEDICATED_PRODUCTION_CEREMONIES));

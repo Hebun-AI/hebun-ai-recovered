@@ -133,7 +133,8 @@ export async function runScenarios(mod: LifecycleModule, client: Client, getDb: 
       assert.equal(r.provider_completed_at, null);
     }
     t.pollScript.push(new Error("simulated poll timeout"));
-    assert.equal((await mod.pollAsyncMediaGeneration(a.ctx, id, depsFor(t))).status, "observed-pending", `${label}: an unreadable poll is not a failure`);
+    /* MV-6 Gate 1: an unreadable poll is reported as exactly that, never as "still pending". */
+    assert.equal((await mod.pollAsyncMediaGeneration(a.ctx, id, depsFor(t))).status, "observation-unreadable", `${label}: an unreadable poll is not a failure`);
     assert.equal((await row(client, id)).state, "provider-pending");
 
     t.pollScript.push({ status: "succeeded", outputRef: "sim-output-1" });

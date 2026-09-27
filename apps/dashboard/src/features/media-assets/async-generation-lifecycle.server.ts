@@ -103,8 +103,15 @@ export type AsyncTransitionResult =
   | { readonly status: "no-transition"; readonly state: MediaInvocationState }
   /** The step ran. `state` is what the row now holds (or would, if the final write failed). */
   | { readonly status: "transitioned"; readonly from: MediaInvocationState; readonly state: MediaInvocationState }
-  /** A poll found the job still pending (or unreadable); only the observation counters moved. */
-  | { readonly status: "observed-pending"; readonly state: "provider-pending" };
+  /** A poll READ the provider saying the job is still pending; only the observation counters moved. */
+  | { readonly status: "observed-pending"; readonly state: "provider-pending" }
+  /**
+   * MV-6: a poll was made but no authoritative answer was read — a network failure, an unreadable
+   * body, or a provider answer the lifecycle cannot record (e.g. the provider no longer answers for a
+   * known job id). The row stays `provider-pending`, the last provider fact Hebun holds; only the
+   * observation counters moved. It is NOT "still pending", and it is NOT a failure.
+   */
+  | { readonly status: "observation-unreadable"; readonly state: "provider-pending" };
 
 /** Mirrors `media_generation_invocations_output_ref_chk`: opaque, bounded, and never a URL. */
 export const PROVIDER_OUTPUT_REF_RE = /^[A-Za-z0-9._:-]{1,256}$/;
@@ -420,7 +427,7 @@ export async function pollAsyncMediaGeneration(
     to = "provider-failed";
     patch = { ...counted, state: to, providerFailure: closedFailure(observation.failure), providerCompletedAt: at, finalizedAt: at };
   } else {
-    /* Still pending, or unreadable: an observation, not a transition. */
+    /* Still pending, or unreadable: an observation, not a transition. Which one is reported below. */
     to = "provider-pending";
     patch = counted;
   }
@@ -436,9 +443,10 @@ export async function pollAsyncMediaGeneration(
     const current = await loadRow(db, tenantId, invocationId).catch(() => null);
     return { status: "no-transition", state: current?.state ?? row.state };
   }
-  return to === "provider-pending"
+  if (to !== "provider-pending") return { status: "transitioned", from: "provider-pending", state: to };
+  return observation?.status === "pending"
     ? { status: "observed-pending", state: "provider-pending" }
-    : { status: "transitioned", from: "provider-pending", state: to };
+    : { status: "observation-unreadable", state: "provider-pending" };
 }
 
 /* ── Read: what Hebun knows about one asynchronous attempt ────────────────── */

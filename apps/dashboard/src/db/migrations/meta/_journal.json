@@ -463,6 +463,13 @@
       "when": 1790434644293,
       "tag": "20260926145724_mv5_video_derivation",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1790491263873,
+      "tag": "20260927064103_mv6_higgsfield_failure_codes",
+      "breakpoints": true
     }
   ]
 }

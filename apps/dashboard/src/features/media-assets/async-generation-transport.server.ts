@@ -2,18 +2,27 @@
  * media-assets/async-generation-transport.server.ts — the runtime asynchronous (video) generation
  * transport resolver.
  *
- * MV-4 answers `unavailable` unconditionally, exactly as MEDIA-1 did for images before a live
- * transport existed. No real video provider is connected, and none is inferred from configuration or
- * credentials. The simulated transport lives under `tests/helpers` and enters only through deps; it is
- * never resolvable here, so a simulated answer can never be mistaken for a provider's.
+ * MV-4 answered `unavailable` unconditionally. MV-6 delegates the question to the ONE live video
+ * resolver in `media-generation-live`, which returns a real provider transport only when selection, a
+ * credential-shaped key pair AND the Director connectivity control all hold, and `unavailable`
+ * otherwise. This module stays provider-neutral: it names no provider and reads no configuration.
+ *
+ * The simulated transport lives under `tests/helpers` and enters only through deps; it is never
+ * resolvable here, so a simulated answer can never be mistaken for a provider's.
  *
  * Server-only.
  */
 import type { MediaAsyncGenerationTransportResolution } from "./async-generation-transport";
+import {
+  resolveLiveVideoGenerationTransport,
+  type LiveVideoGenerationResolverDeps,
+} from "@/features/media-generation-live/live-video-generation-resolver.server";
 
-export async function resolveMediaAsyncGenerationTransport(): Promise<MediaAsyncGenerationTransportResolution> {
+export async function resolveMediaAsyncGenerationTransport(
+  deps: LiveVideoGenerationResolverDeps = {},
+): Promise<MediaAsyncGenerationTransportResolution> {
   if (typeof window !== "undefined") {
     throw new Error("Media generation transport resolution is server-only.");
   }
-  return { status: "unavailable", reason: "no-video-generation-provider" };
+  return resolveLiveVideoGenerationTransport(deps);
 }
