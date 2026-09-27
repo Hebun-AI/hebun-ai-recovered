@@ -115,6 +115,13 @@ async function main(): Promise<void> {
       assert.match(malformed.stderr, /REFUSED: .*values not shown/);
       assert.ok(!malformed.stderr.includes("short"), "a malformed value is not echoed");
 
+      const combined = path.join(dir, "combined.env");
+      writeFileSync(combined, `HEBUN_HIGGSFIELD_API_KEY_ID=${CREDENTIAL.keyId}\nHEBUN_HIGGSFIELD_API_KEY_SECRET=${CREDENTIAL.keyId}:${CREDENTIAL.keySecret}\n`);
+      const combinedRun = run(["estimate"], { MV6_HIGGSFIELD_ENV_FILE: combined });
+      assert.notEqual(combinedRun.status, 0, "the combined id:secret is refused before any call");
+      assert.match(combinedRun.stderr, /REFUSED: .*values not shown/);
+      assert.ok(!(combinedRun.stdout + combinedRun.stderr).includes(CREDENTIAL.keySecret) && !(combinedRun.stdout + combinedRun.stderr).includes(CREDENTIAL.keyId), "and nothing is echoed");
+
       const good = path.join(dir, "good.env");
       writeFileSync(good, `HEBUN_HIGGSFIELD_API_KEY_ID=${CREDENTIAL.keyId}\nHEBUN_HIGGSFIELD_API_KEY_SECRET=${CREDENTIAL.keySecret}\n`);
       const empty = path.join(dir, "empty.env");

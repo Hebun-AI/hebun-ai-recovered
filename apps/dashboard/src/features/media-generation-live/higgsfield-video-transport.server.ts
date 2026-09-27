@@ -306,9 +306,17 @@ export function toMediaAsyncPollOutcome(observation: HiggsfieldStatusObservation
 const CREDENTIAL_PART_RE = /^[\x21-\x39\x3b-\x7e]{8,512}$/; // printable ASCII, no space, no ':'
 const SECRET_RE = /^[\x21-\x7e]{8,512}$/;
 
-/** Shape only. A well-formed credential is not a working one; nothing is probed. */
+/**
+ * Shape only. A well-formed credential is not a working one; nothing is probed.
+ *
+ * The Higgsfield console and SDKs present the credential as ONE string, `key_id:key_secret`. Pasting
+ * that whole string as the secret yields `Key <id>:<id>:<secret>` and a 401 on every call — measured
+ * in MV-6 acceptance. A secret that begins with its own key id and a colon is therefore refused.
+ */
 export function isHiggsfieldCredentialShaped(credential: { keyId?: string; keySecret?: string }): boolean {
-  return CREDENTIAL_PART_RE.test(credential.keyId ?? "") && SECRET_RE.test(credential.keySecret ?? "");
+  const keyId = credential.keyId ?? "";
+  const keySecret = credential.keySecret ?? "";
+  return CREDENTIAL_PART_RE.test(keyId) && SECRET_RE.test(keySecret) && !keySecret.startsWith(`${keyId}:`);
 }
 
 export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportConfig): MediaAsyncGenerationTransport {

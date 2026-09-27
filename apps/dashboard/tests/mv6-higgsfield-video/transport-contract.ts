@@ -36,6 +36,7 @@ import {
   classifyHiggsfieldDispatchStatus,
   createHiggsfieldVideoTransport,
   higgsfieldStatusUrl,
+  isHiggsfieldCredentialShaped,
   type HiggsfieldFetch,
 } from "../../src/features/media-generation-live/higgsfield-video-transport.server";
 import { HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/higgsfield-video-control";
@@ -341,6 +342,10 @@ async function main(): Promise<void> {
   {
     assert.throws(() => createHiggsfieldVideoTransport({ credential: { keyId: "short", keySecret: KEY_SECRET }, spendBudget: createLiveSpendBudget(1) }));
     assert.throws(() => createHiggsfieldVideoTransport({ credential: { keyId: "has:colon-in-key-id", keySecret: KEY_SECRET }, spendBudget: createLiveSpendBudget(1) }));
+    /* The console's combined `key_id:key_secret` pasted as the secret is refused (it 401s every call). */
+    assert.throws(() => createHiggsfieldVideoTransport({ credential: { keyId: KEY_ID, keySecret: `${KEY_ID}:${KEY_SECRET}` }, spendBudget: createLiveSpendBudget(1) }));
+    assert.ok(!isHiggsfieldCredentialShaped({ keyId: KEY_ID, keySecret: `${KEY_ID}:${KEY_SECRET}` }), "combined form is not credential-shaped");
+    assert.ok(isHiggsfieldCredentialShaped({ keyId: KEY_ID, keySecret: `other:${KEY_SECRET}` }), "a colon alone is not refused");
     const t = transportWith(scripted(() => queued()));
     assert.ok(!JSON.stringify(t).includes(KEY_SECRET) && !JSON.stringify(t).includes(KEY_ID), "the transport object does not expose the credential");
     const source = readFileSync(path.join(SRC, "features/media-generation-live/higgsfield-video-transport.server.ts"), "utf8");
@@ -375,6 +380,11 @@ async function main(): Promise<void> {
         `${selection}: no fallback to any other transport`,
       );
     }
+    assert.deepEqual(
+      await resolveMediaAsyncGenerationTransport({ env: { ...good, [VIDEO_GENERATION_ENV.higgsfieldKeySecret]: `${KEY_ID}:${KEY_SECRET}` }, resolveDirectorEnabled: on }),
+      { status: "unavailable", reason: "video-generation-misconfigured" },
+      "the combined id:secret pasted as the secret is misconfiguration",
+    );
     for (const missing of [VIDEO_GENERATION_ENV.higgsfieldKeyId, VIDEO_GENERATION_ENV.higgsfieldKeySecret]) {
       assert.deepEqual(
         await resolveMediaAsyncGenerationTransport({ env: { ...good, [missing]: "" }, resolveDirectorEnabled: on }),
