@@ -31,7 +31,10 @@ import { createDisposablePostgresHarness } from "../helpers/disposable-postgres"
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { CEREMONY_SOURCE_LOCAL } from "../../scripts/lib/production-possession";
 import { OPENAI_IMAGE_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/openai-image-control";
-import { HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/higgsfield-video-control";
+import {
+  HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
+  HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
+} from "../../src/features/media-generation-live/higgsfield-video-control";
 
 /** Complete external-send configuration. Never a real credential. */
 const FULL = Object.freeze({
@@ -67,8 +70,10 @@ async function closedVocabulary(client: Client): Promise<void> {
       OPENAI_IMAGE_GENERATION_CONTROL_KEY,
       /* MV-6: expressible for local arming; refused in production until a Director decision. */
       HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
+      /* IMAGE → VIDEO: a SEPARATE key, so arming text-to-video never arms image-to-video. */
+      HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
     ].sort(),
-    "exactly the six control keys the repository defines",
+    "exactly the seven control keys the repository defines",
   );
 
   for (const bogus of ["", "  ", "openai", "resend", "CLAUDE", "Claude", "*", "external_send", "claude;"]) {

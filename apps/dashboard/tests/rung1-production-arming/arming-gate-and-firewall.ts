@@ -39,7 +39,10 @@ import { EXTERNAL_SEND_PROVIDER_KEY } from "../../src/features/action-execution/
 import { CLAUDE_PROVIDER_KEY } from "../../src/features/heby-provider-ops/provider-connectivity-control.server";
 import { OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
 import { OPENAI_IMAGE_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/openai-image-control";
-import { HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/higgsfield-video-control";
+import {
+  HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
+  HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
+} from "../../src/features/media-generation-live/higgsfield-video-control";
 
 const ROOT = process.cwd();
 const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
@@ -131,8 +134,15 @@ const GENERIC = "scripts/provider-connectivity.ts";
 {
   assert.deepEqual(
     [...GENERIC_PRODUCTION_REACHABLE_KEYS].sort(),
-    [CLAUDE_PROVIDER_KEY, OBSERVATION_READ_CONTROL_KEY, OPENAI_IMAGE_GENERATION_CONTROL_KEY, HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY].sort(),
-    "R2H's model decision, TRH-25's read decision, MEDIA-2B's image and MV-7's video generation decisions, enumerated",
+    [
+      CLAUDE_PROVIDER_KEY,
+      OBSERVATION_READ_CONTROL_KEY,
+      OPENAI_IMAGE_GENERATION_CONTROL_KEY,
+      HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
+      /* IMAGE → VIDEO production-acceptance preparation (Director decision, 2026-09-27). */
+      HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
+    ].sort(),
+    "R2H's model decision, TRH-25's read decision, MEDIA-2B's image, MV-7's video and IMAGE → VIDEO's generation decisions, enumerated",
   );
   assert.equal(resolveGenericProductionReach(CLAUDE_PROVIDER_KEY).status, "reachable");
   assert.equal(resolveGenericProductionReach(OBSERVATION_READ_CONTROL_KEY).status, "reachable");
@@ -203,8 +213,10 @@ const GENERIC = "scripts/provider-connectivity.ts";
       OPENAI_IMAGE_GENERATION_CONTROL_KEY,
       /* MV-6: expressible for local arming; refused in production until a Director decision. */
       HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
+      /* IMAGE → VIDEO: a SEPARATE key, so arming text-to-video never arms image-to-video. */
+      HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
     ].sort(),
-    "exactly the six control keys the repository defines",
+    "exactly the seven control keys the repository defines",
   );
   assert.ok(Object.isFrozen(PROVIDER_KEYS) && Object.isFrozen(GENERIC_PRODUCTION_REACHABLE_KEYS));
   assert.ok(Object.isFrozen(DEDICATED_PRODUCTION_CEREMONIES));

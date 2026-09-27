@@ -94,9 +94,20 @@ const RULES: Rule[] = [
     },
   },
   {
-    name: "image-to-video has its own control, unreachable by the production ceremony",
+    /*
+     * Updated by the Director's production-acceptance decision (2026-09-27): the key is now ARMABLE
+     * through the existing generic ceremony — named by value in both lists — and still a SEPARATE key.
+     */
+    name: "image-to-video has its own control, armable only through the existing ceremony",
     check: (f) => {
-      assert.ok(!/higgsfield-image-to-video|HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY/.test(f[CEREMONY]!), "the connectivity ceremony does not name it at all");
+      const c = strip(f[CEREMONY]!);
+      const lists = c.match(/export const (PROVIDER_KEYS|GENERIC_PRODUCTION_REACHABLE_KEYS): readonly string\[\] = Object\.freeze\(\[[\s\S]*?\]\)/g) ?? [];
+      assert.equal(lists.length, 2, "both key lists found");
+      for (const list of lists) {
+        assert.match(list, /HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,/, "named by value");
+        assert.match(list, /HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,/, "beside, not instead of, the text key");
+      }
+      assert.ok(!/HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY\s*=/.test(c), "the ceremony defines no key of its own");
     },
   },
 ];
@@ -111,7 +122,7 @@ const BITES: { readonly rule: number; readonly file: string; readonly from: stri
   { rule: 2, file: TRANSPORT, from: "if (!tags.includes(\"retention=temporary\")) return null;", to: "" },
   { rule: 3, file: LIFECYCLE, from: "return { status: \"registered-not-sent\", invocationId: registered.invocationId, reason };", to: "void reason;" },
   { rule: 4, file: DOOR, from: "sourceAssetId: sourceAssetId || null,", to: "sourceAssetId: sourceAssetId || null, image_url: promptText," },
-  { rule: 5, file: CEREMONY, from: "  HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,\n]);", to: "  HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,\n  HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,\n]);" },
+  { rule: 5, file: CEREMONY, from: "  HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,\n]);", to: "]);" },
 ];
 for (const bite of BITES) {
   const original = files[bite.file]!;

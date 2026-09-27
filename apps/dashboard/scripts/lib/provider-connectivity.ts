@@ -58,7 +58,10 @@ import { isExternalSendConfigured } from "../../src/features/action-execution/ex
 import { OBSERVATION_READ_CONTROL_KEY } from "../../src/features/standing-observation-authority/contracts";
 import { MACHINE_INTERNAL_EXECUTION_CONTROL_KEY } from "../../src/features/governed-machine-execution/machine-execution-control.server";
 import { OPENAI_IMAGE_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/openai-image-control";
-import { HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY } from "../../src/features/media-generation-live/higgsfield-video-control";
+import {
+  HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
+  HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
+} from "../../src/features/media-generation-live/higgsfield-video-control";
 /*
  * The ceremony-source vocabulary, imported rather than restated. `CeremonySource` is the released
  * closed union G4 already defines for postures, and its two values are byte-identical to the
@@ -112,6 +115,11 @@ export const PROVIDER_KEYS: readonly string[] = Object.freeze([
    * for images. With no row it still reads as OFF — the decision made it ARMABLE, not armed.
    */
   HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
+  /*
+   * IMAGE → VIDEO: Higgsfield image-to-video (paid, asynchronous; uploads one organization image to the
+   * provider). A SEPARATE key so arming text-to-video never arms it. With no row it reads as OFF.
+   */
+  HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
 ]);
 
 /*
@@ -198,6 +206,19 @@ export const GENERIC_PRODUCTION_REACHABLE_KEYS: readonly string[] = Object.freez
    * agent origination, no batch, no publication. Admission of the output is a separate writer.
    */
   HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
+  /*
+   * IMAGE → VIDEO (Director decision, 2026-09-27: production acceptance preparation). Written here in
+   * a diff for the MV-7 reason — a single boolean with no precondition the generic path cannot check;
+   * the transport selection and a credential-shaped key are re-checked by the released resolver on
+   * every call, and Vercel production holds neither. ARMABLE is not ARMED: no row reads OFF, and the
+   * Director arms it only for the one synthetic-source acceptance and disarms it after.
+   *
+   * WHAT ARMING THIS PERMITS. A process that ALSO holds the transport selection and a key may upload
+   * one verified admitted image and dispatch one image-to-video job per registered invocation. Real
+   * company or customer images remain NOT authorized for this provider path (Director G2): Higgsfield's
+   * Terms allow inputs to be used for training absent an Enterprise Agreement.
+   */
+  HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY,
 ]);
 
 /**

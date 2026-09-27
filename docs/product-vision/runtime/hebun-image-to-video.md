@@ -72,3 +72,35 @@ Real-provider generation; production arming; estimate calls; real TRH images; He
 orchestration; scheduler; YouTube; Instagram video; APF. `read-verified-source-image` restates MEDIA-5
 eligibility instead of refactoring MEDIA-5 (whose order of operations is pinned by its firewall);
 `tests/image-to-video/lifecycle-postgres.ts` proves the two refuse the same sources the same way.
+
+## 6 · Production acceptance preparation (Director decision, 2026-09-27)
+
+**Harness:** `apps/dashboard/scripts/i2v-production-acceptance.ts` (CLI) +
+`scripts/lib/i2v-production-acceptance.ts` (testable steps), the MV-7 pattern. Stages `preflight`
+(read-only), `backup` (validated pg_dump), `run` (requires `--confirm-one-billable-image-to-video-generation`).
+It admits nothing itself, arms nothing, prints no key and no upload/public/output/signed URL.
+`run` refuses unless `higgsfield-image-to-video` is ON and no Higgsfield image-to-video invocation
+exists yet. A fetch guard allows at most ONE upload-preparation POST, ONE presigned PUT and ONE
+generation POST; the live-call budget is 1. An output host other than the approved exact host
+(`d3u0tzju9qaucj.cloudfront.net`) stops the run before any output byte.
+
+**Control:** `higgsfield-image-to-video` is now named in the generic connectivity ceremony's
+`PROVIDER_KEYS` and `GENERIC_PRODUCTION_REACHABLE_KEYS`, beside — not instead of — the text key. No
+row reads OFF. Arming one does not arm the other.
+
+**Synthetic source:** admitted through the existing MEDIA-SUPPLIED Google Drive path (no new writer).
+The prepared file is a 1280x720 PNG of three flat geometric shapes on a neutral background — no text,
+brand, person or product; SHA-256 `3daa7c242f0349bbc9dfad2231059be3b9f8f0de4abba34dc66eb2e507ce9ccd`,
+30989 bytes. Drive returns the file's own bytes, so the admitted digest should equal it.
+
+**Price:** UNKNOWN (no documented price for the profile; estimate not called).
+
+**Tests:** `tests/image-to-video/production-acceptance.ts` (guard caps, CLI refusals, control OFF,
+no credential, wrong tenant / video / mismatched / missing source → provider calls 0, upload failures →
+generation POST 0, unapproved host → no output fetch, approved host → admitted + lineage + 206).
+
+**Known red, not fixed here:** `tests/prodmig-flow/boundaries-and-firewall.ts` pins
+`scripts/platform-migrate.ts` as the only importer of the migration mechanics. It is already red at
+`2be01616` because the MV-7 harness imports `production-migration` for its validated backup; the
+image-to-video harness follows the same backup pattern and appears in the same failure. Whether
+acceptance harnesses may use the validated backup is a firewall-policy decision left to the Director.

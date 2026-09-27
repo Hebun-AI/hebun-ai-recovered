@@ -19,7 +19,7 @@ export const HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY = "higgsfield-video-generat
  * Director G2 (2026-09-27): absent an Enterprise Agreement, Higgsfield's Terms (§4.4) allow inputs to
  * be used for model training, so real company/customer images are NOT authorized for this path.
  * Arming text-to-video therefore must not arm image-to-video: a different key, read fail-closed the
- * same way, not enumerated as production-reachable by the connectivity ceremony. Arming it is a
- * separate Director decision.
+ * same way. The generic connectivity ceremony names it (Director decision, production-acceptance
+ * preparation) so it can be ARMED and DISARMED there; no row still reads OFF.
  */
 export const HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY = "higgsfield-image-to-video";
