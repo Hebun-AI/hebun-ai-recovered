@@ -1,7 +1,8 @@
 # VIDEO CONTENT CHAIN — Implementation Record
 
-**State:** SELECTED / IN PROGRESS · IMPLEMENTED · locally VERIFIED · **production acceptance NOT done** ·
-**not CLOSED**. This is an implementation record, not a closure record.
+**State at writing:** SELECTED / IN PROGRESS · IMPLEMENTED · locally VERIFIED. This is an
+implementation record, kept as historical evidence. **Superseded for state by
+`hebun-video-content-chain-closure.md` — PRODUCTION ACCEPTED / CLOSED.**
 
 **Baseline:** `origin/main` = `2be01616` (MV-7 closure). Branch `feat/video-content-chain`.
 **Schema:** no migration. Ledger unchanged (67).

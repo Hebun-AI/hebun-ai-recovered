@@ -5116,7 +5116,7 @@ deliberately not a summary. States are copied from those records, not upgraded.
 | **PUBLISH-0** One Approved Image to Instagram | `f2005e84` (deployed at `3db976a6`) | **PRODUCTION ACCEPTED / CLOSED** — 53/53, one real publish (media id `18091512017663172`), read-back matched, TRH disarmed after | migrations **61, 62** | `hebun-publish-0-closure.md` |
 | **MEDIA-SUPPLIED** Human-Supplied Images (third Media origin) | `72d28682` + Picker/`drive.file` correction `3db976a6` | RELEASED + PRODUCTION-ACCEPTED / CLOSED — admission 34/34 | migration **63** | `hebun-media-supplied-closure.md` |
 | **MV-7** Generated Video Admission | `e36e143a` + host pin `0dcc73d6` + acceptance `c2905715` (deployed at `c2905715`) | **PRODUCTION ACCEPTED / CLOSED** — one real Higgsfield PixVerse V6 generation admitted (asset `c3eb1139`), connectivity DISABLED after | no migration (ledger 67) | `hebun-mv7-generated-video-admission-closure.md` |
-| **VIDEO CONTENT CHAIN** Video in the Content Workflow | implementation commit on `main` after `2be01616` (SHA recorded by the closure record) | **SELECTED / IN PROGRESS** — IMPLEMENTED + locally VERIFIED; production acceptance NOT done | no migration (ledger 67) | `hebun-video-content-chain.md` *(implementation record, not a closure)* |
+| **VIDEO CONTENT CHAIN** Video in the Content Workflow | `fb1ed329` + acceptance fix `9ffd024c` (deployed at `9ffd024c`) | **PRODUCTION ACCEPTED / CLOSED** — existing MV-7 video `c3eb1139` played, APPROVED, selected, shown as "0 images · 1 video" by the authoritative package read; 0 generation POST, connectivity DISABLED | no migration (ledger 67) | `hebun-video-content-chain-closure.md` |
 
 **Authored migration ledger at this baseline: 60**, last
 `20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
@@ -5144,9 +5144,12 @@ provider credential. `higgsfield-video-generation` is **DISABLED** (version 2) a
 as MV-7's successor: a generated video enters the SAME review (MEDIA-3), selection
 (CONTENT-COMPOSE-1) and Content Package the images use, and a human can request text-to-video through
 the MV-4 lifecycle, observe it, and admit it through MV-7 — no second authority, no migration. Its row
-above says IN PROGRESS until its own closure record exists. **IMAGE → VIDEO** (an admitted image as the
+above now reads PRODUCTION ACCEPTED / CLOSED (closure record `hebun-video-content-chain-closure.md`;
+the implementation record stays as historical evidence). Supplied video remains outside review and
+selection, exactly as supplied images are (MEDIA-SUPPLIED) — an open Director decision. **IMAGE → VIDEO** (an admitted image as the
 source of a Higgsfield image-to-video generation) is recorded as the intended NEXT Media capability
-after this program; it is **not selected, not authorized and not implemented** by this note.
+after this program and the next Director selection candidate; it is **not selected, not authorized
+and not implemented** by this note.
 
 ```
 POINTER               != SUMMARY
