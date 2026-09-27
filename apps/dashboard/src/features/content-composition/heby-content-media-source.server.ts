@@ -44,6 +44,7 @@ import { readMediaAssetReviewStates } from "@/features/media-asset-review/review
 import { listWorkArtifacts } from "@/features/work-artifacts/read-work-artifacts.server";
 import { formatWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
+import { evaluateMediaChoice, formatMediaChoice, type MediaFact, type MediaFactReview } from "./media-choice";
 import { readContentPackage } from "./read-content-package.server";
 
 export const CONTENT_MEDIA_PROVENANCE =
@@ -101,6 +102,7 @@ export async function readContentMediaGroundingSource(
   if (!tenant?.tenantId || !tenant.userId) return unavailable("No authorized tenant context was supplied.");
 
   const listing = await (deps.listArtifacts ?? listWorkArtifacts)(tenant);
+  const switchState: Record<string, boolean> = {};
   if (listing.status !== "read") return unavailable("Content drafts could not be read, so nothing is reported about their media.");
   const drafts = listing.artifacts
     .filter((a) => a.artifactType === CONTENT_DRAFT_TYPE && a.lifecycleStatus === "draft")
@@ -114,6 +116,7 @@ export async function readContentMediaGroundingSource(
       } catch {
         enabled = false;
       }
+      switchState[key] = enabled;
       return {
         recordRef: `provider-connectivity/${key}`,
         label: `Connectivity switch ${key}`,
@@ -170,6 +173,53 @@ export async function readContentMediaGroundingSource(
       const s = reviews.get(id);
       return s?.status === "read" ? reviewWord(s.decision) : "review unreadable";
     };
+    /* HEBY-MEDIA-2 — the same facts, typed, for the pure evaluator. Nothing is read twice. */
+    const reviewFact = (id: string): MediaFactReview => {
+      const s = reviews.get(id);
+      if (s?.status !== "read") return "unreadable";
+      return s.decision === "accepted" ? "accepted" : s.decision === "declined" ? "declined" : "none";
+    };
+    const facts: MediaFact[] = [
+      ...images.assets
+        .filter((x) => x.sourceArtifactId === draft.id)
+        .map((a) => ({
+          assetId: a.assetId,
+          kind: "image" as const,
+          origin: a.origin,
+          lifecycle: a.lifecycle,
+          review: a.origin === "generated" ? reviewFact(a.assetId) : ("not-applicable" as const),
+          selectedInCurrentRevision: selected.has(a.assetId),
+        })),
+      ...videos.videos
+        .filter((x) => x.sourceArtifactId === draft.id)
+        .map((v) => ({
+          assetId: v.assetId,
+          kind: "video" as const,
+          origin: v.origin,
+          lifecycle: v.lifecycle,
+          review: v.origin === "generated" ? reviewFact(v.assetId) : ("not-applicable" as const),
+          selectedInCurrentRevision: selected.has(v.assetId),
+        })),
+    ];
+    const choice = evaluateMediaChoice(
+      {
+        artifactId: draft.id,
+        currentRevision: draft.currentRevision,
+        destination: draft.intendedDestination,
+        packageReadable: pkg.status === "read",
+        media: facts,
+        attempts: generationRows
+          ? generationRows
+              .filter((g) => g.sourceArtifactId === draft.id)
+              .map((g) => ({ invocationId: g.invocationId, state: g.state, admissionOutcome: g.admissionOutcome, sourceMediaAssetId: g.sourceMediaAssetId }))
+          : null,
+      },
+      {
+        textToVideo: switchState[HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY] === true,
+        imageToVideo: switchState[HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY] === true,
+        image: "not-read",
+      },
+    );
 
     const lines: string[] = [];
     for (const a of images.assets.filter((x) => x.sourceArtifactId === draft.id)) {
@@ -247,10 +297,11 @@ export async function readContentMediaGroundingSource(
         ...(draft.intendedDestination ? [`destination (declared): ${draft.intendedDestination}`] : []),
         ...packageSegments,
         `${lines.length === 0 ? "no admitted media and no video attempts" : `${lines.length} media line${lines.length === 1 ? "" : "s"}`}`,
+        `media recommendation (deterministic): ${choice.kind}`,
       ].join(" · "),
       lifecycle: "settled" as const,
       /* Media lines are data for the model's grounding, kept out of Heby's own prose. */
-      content: lines.join("\n"),
+      content: [...lines, ...formatMediaChoice(choice)].join("\n"),
     });
   }
 
