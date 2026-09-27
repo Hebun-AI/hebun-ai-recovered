@@ -458,11 +458,11 @@ async function main(): Promise<void> {
     assert.ok(!/higgsfield|process\.env/i.test(neutral), "the media-assets resolver names no provider and reads no configuration");
   }
 
-  /* ── The control: expressible for local arming, refused in production ─────── */
+  /* ── The control: MV-7 made it production-reachable through the GENERIC ceremony (Director A) ─ */
   {
     assert.ok(PROVIDER_KEYS.includes(HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY), "a local ceremony can arm and disarm it");
-    assert.ok(!GENERIC_PRODUCTION_REACHABLE_KEYS.includes(HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY), "not production-reachable by the generic ceremony");
-    assert.deepEqual(resolveGenericProductionReach(HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY), { status: "refused", dedicatedCommand: null }, "no production gate exists yet");
+    assert.ok(GENERIC_PRODUCTION_REACHABLE_KEYS.includes(HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY), "production-reachable by the generic ceremony, by an explicit diff");
+    assert.deepEqual(resolveGenericProductionReach(HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY), { status: "reachable" }, "no second control system, no dedicated gate");
   }
 
   finished = true;

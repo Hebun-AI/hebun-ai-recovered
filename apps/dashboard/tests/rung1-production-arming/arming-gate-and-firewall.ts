@@ -131,8 +131,8 @@ const GENERIC = "scripts/provider-connectivity.ts";
 {
   assert.deepEqual(
     [...GENERIC_PRODUCTION_REACHABLE_KEYS].sort(),
-    [CLAUDE_PROVIDER_KEY, OBSERVATION_READ_CONTROL_KEY, OPENAI_IMAGE_GENERATION_CONTROL_KEY].sort(),
-    "R2H's model decision, TRH-25's read decision and MEDIA-2B's generation decision, enumerated",
+    [CLAUDE_PROVIDER_KEY, OBSERVATION_READ_CONTROL_KEY, OPENAI_IMAGE_GENERATION_CONTROL_KEY, HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY].sort(),
+    "R2H's model decision, TRH-25's read decision, MEDIA-2B's image and MV-7's video generation decisions, enumerated",
   );
   assert.equal(resolveGenericProductionReach(CLAUDE_PROVIDER_KEY).status, "reachable");
   assert.equal(resolveGenericProductionReach(OBSERVATION_READ_CONTROL_KEY).status, "reachable");

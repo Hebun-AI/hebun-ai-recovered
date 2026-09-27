@@ -107,10 +107,9 @@ export const PROVIDER_KEYS: readonly string[] = Object.freeze([
    */
   OPENAI_IMAGE_GENERATION_CONTROL_KEY,
   /*
-   * MV-6: Higgsfield video generation (paid, asynchronous, text-to-video). Expressible here so a
-   * LOCAL ceremony can arm and disarm it for provider acceptance. Deliberately NOT enumerated in
-   * `GENERIC_PRODUCTION_REACHABLE_KEYS`: taking it to production is a separate Director decision,
-   * as MEDIA-2B was for images, and until then the generic ceremony refuses it there.
+   * MV-6: Higgsfield video generation (paid, asynchronous, text-to-video). MV-7 took the production
+   * decision and enumerated it in `GENERIC_PRODUCTION_REACHABLE_KEYS` below, exactly as MEDIA-2B did
+   * for images. With no row it still reads as OFF — the decision made it ARMABLE, not armed.
    */
   HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
 ]);
@@ -186,6 +185,19 @@ export const GENERIC_PRODUCTION_REACHABLE_KEYS: readonly string[] = Object.freez
    * budget. It authorizes no agent, no batch, no retry and no publication.
    */
   OPENAI_IMAGE_GENERATION_CONTROL_KEY,
+  /*
+   * MV-7 (Director decision A, 2026-09-27). Written here in a diff, for the same reason as MEDIA-2B:
+   * the control is a single boolean with no precondition the generic path cannot check. The other
+   * things a live call needs — `HEBUN_VIDEO_GENERATION_TRANSPORT=live` and a credential-shaped
+   * `HEBUN_HIGGSFIELD_API_KEY` — are checked INDEPENDENTLY by the released video resolver on every
+   * call, fail-closed, and production holds neither today.
+   *
+   * WHAT ARMING THIS ACTUALLY PERMITS. A process that ALSO holds the transport selection and a key
+   * may dispatch one text-to-video job per registered invocation (idempotency key), through the
+   * pinned PixVerse V6 profile, bounded by the shared per-process live spend budget. No retry, no
+   * agent origination, no batch, no publication. Admission of the output is a separate writer.
+   */
+  HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
 ]);
 
 /**
