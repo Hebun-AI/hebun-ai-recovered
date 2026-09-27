@@ -7,8 +7,8 @@
  * order, exactly as MEDIA-2A did for images:
  *
  *   1. HEBUN_VIDEO_GENERATION_TRANSPORT is set              absent     → no-video-generation-provider
- *   2. it names `live`, and HEBUN_HIGGSFIELD_API_KEY_ID and
- *      HEBUN_HIGGSFIELD_API_KEY_SECRET are credential-shaped  otherwise  → video-generation-misconfigured
+ *   2. it names `live`, and HEBUN_HIGGSFIELD_API_KEY — ONE
+ *      opaque key, used verbatim — is credential-shaped       otherwise  → video-generation-misconfigured
  *   3. the Director connectivity control
  *      `higgsfield-video-generation` is ON (fail-closed)      OFF/absent/err → video-generation-disabled
  *
@@ -34,8 +34,8 @@ import { createHiggsfieldVideoTransport, isHiggsfieldCredentialShaped } from "./
 
 export const VIDEO_GENERATION_ENV = Object.freeze({
   transport: "HEBUN_VIDEO_GENERATION_TRANSPORT",
-  higgsfieldKeyId: "HEBUN_HIGGSFIELD_API_KEY_ID",
-  higgsfieldKeySecret: "HEBUN_HIGGSFIELD_API_KEY_SECRET",
+  /* One opaque key (open.higgsfield.ai). The retired id + secret pair is not read anywhere. */
+  higgsfieldApiKey: "HEBUN_HIGGSFIELD_API_KEY",
 });
 
 export interface LiveVideoGenerationResolverDeps {
@@ -53,10 +53,7 @@ export async function resolveLiveVideoGenerationTransport(
   const selection = env[VIDEO_GENERATION_ENV.transport]?.trim() ?? "";
   if (!selection) return { status: "unavailable", reason: "no-video-generation-provider" };
 
-  const credential = {
-    keyId: env[VIDEO_GENERATION_ENV.higgsfieldKeyId] ?? "",
-    keySecret: env[VIDEO_GENERATION_ENV.higgsfieldKeySecret] ?? "",
-  };
+  const credential = { apiKey: env[VIDEO_GENERATION_ENV.higgsfieldApiKey] ?? "" };
   if (selection !== "live" || !isHiggsfieldCredentialShaped(credential)) {
     return { status: "unavailable", reason: "video-generation-misconfigured" };
   }

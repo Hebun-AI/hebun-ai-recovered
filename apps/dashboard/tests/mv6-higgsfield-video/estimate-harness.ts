@@ -30,7 +30,9 @@ globalThis.fetch = (() => {
   throw new Error("REAL NETWORK REACHED");
 }) as typeof fetch;
 
-const CREDENTIAL = { keyId: "hf-test-key-id-not-real-0003", keySecret: "hf-test-secret-not-real-222222222222" };
+const API_KEY = "hf-test-opaque-key-not-real:0003-cccccccccccccccc";
+const CREDENTIAL = { apiKey: API_KEY };
+const leaks = (text: string) => text.includes(API_KEY) || text.includes(API_KEY.split(":")[1]!);
 let finished = false;
 process.on("exit", (code) => {
   if (code === 0 && !finished) {
@@ -55,7 +57,7 @@ async function main(): Promise<void> {
       assert.match(c.url, /^https:\/\/api\.higgsfield\.ai\/estimate\/[a-z0-9./-]+$/, "only the estimate endpoint");
       assert.equal(c.init.method, "POST");
       assert.equal(c.init.redirect, "error");
-      assert.equal(c.init.headers.authorization, `Key ${CREDENTIAL.keyId}:${CREDENTIAL.keySecret}`);
+      assert.equal(c.init.headers.authorization, `Key ${API_KEY}`, "the opaque key verbatim");
       assert.equal(JSON.parse(c.init.body!).prompt, MV6_SYNTHETIC_PROMPT, "synthetic prompt only");
     }
     assert.equal(calls[0]!.url, `https://api.higgsfield.ai/estimate/${HIGGSFIELD_VIDEO_MODEL_PATH}`);
@@ -65,7 +67,7 @@ async function main(): Promise<void> {
     assert.deepEqual(results[1], { label: MV6_ESTIMATE_CANDIDATES[1]!.label, pinned: false, status: "refused", httpStatus: 403 });
     assert.equal((results[2] as { usd: string }).usd, "0.125", "numeric answers are normalised to decimal strings");
     const text = JSON.stringify(results);
-    assert.ok(!text.includes(CREDENTIAL.keySecret) && !text.includes(CREDENTIAL.keyId) && !/secret provider text/.test(text), "nothing secret or provider-authored is returned");
+    assert.ok(!leaks(text) && !/secret provider text/.test(text), "nothing secret or provider-authored is returned");
     assert.equal(MV6_ESTIMATE_CANDIDATES.filter((c) => c.pinned).length, 1, "exactly one candidate is the pinned model");
   }
 
@@ -91,7 +93,7 @@ async function main(): Promise<void> {
       assert.ok(!/dispatchAsyncMediaGeneration|registerAsyncMediaGeneration|pollAsyncMediaGeneration|DATABASE_URL|@\/db|drizzle|provider-connectivity/.test(src), `${name}: no lifecycle, database or control`);
       assert.ok(!/\bwhile\s*\(|retry|backoff/i.test(src), `${name}: no retry`);
     }
-    assert.ok(!/console\.(log|error)\([^;]*(\$\{[^}]*(credential|keySecret|keyId|authorization|process\.env)|,\s*(credential|process\.env))/i.test(cli), "the CLI interpolates no credential into any output");
+    assert.ok(!/console\.(log|error)\([^;]*(\$\{[^}]*(credential|apiKey|authorization|process\.env)|,\s*(credential|process\.env))/i.test(cli), "the CLI interpolates no credential into any output");
   }
 
   /* ── The CLI refuses before any call, and has no generation stage ──────────── */
@@ -109,28 +111,29 @@ async function main(): Promise<void> {
       assert.match(missing.stderr, /REFUSED: .*does not exist/);
 
       const bad = path.join(dir, "bad.env");
-      writeFileSync(bad, "HEBUN_HIGGSFIELD_API_KEY_ID=short\nHEBUN_HIGGSFIELD_API_KEY_SECRET=x\n");
+      writeFileSync(bad, "HEBUN_HIGGSFIELD_API_KEY=short\n");
       const malformed = run(["estimate"], { MV6_HIGGSFIELD_ENV_FILE: bad });
       assert.notEqual(malformed.status, 0);
       assert.match(malformed.stderr, /REFUSED: .*values not shown/);
       assert.ok(!malformed.stderr.includes("short"), "a malformed value is not echoed");
 
-      const combined = path.join(dir, "combined.env");
-      writeFileSync(combined, `HEBUN_HIGGSFIELD_API_KEY_ID=${CREDENTIAL.keyId}\nHEBUN_HIGGSFIELD_API_KEY_SECRET=${CREDENTIAL.keyId}:${CREDENTIAL.keySecret}\n`);
-      const combinedRun = run(["estimate"], { MV6_HIGGSFIELD_ENV_FILE: combined });
-      assert.notEqual(combinedRun.status, 0, "the combined id:secret is refused before any call");
-      assert.match(combinedRun.stderr, /REFUSED: .*values not shown/);
-      assert.ok(!(combinedRun.stdout + combinedRun.stderr).includes(CREDENTIAL.keySecret) && !(combinedRun.stdout + combinedRun.stderr).includes(CREDENTIAL.keyId), "and nothing is echoed");
+      /* The retired pair alone is not a credential: refused before any call, nothing echoed. */
+      const retired = path.join(dir, "retired.env");
+      writeFileSync(retired, `HEBUN_HIGGSFIELD_API_KEY_ID=hf-retired-id-0001\nHEBUN_HIGGSFIELD_API_KEY_SECRET=${API_KEY}\n`);
+      const retiredRun = run(["estimate"], { MV6_HIGGSFIELD_ENV_FILE: retired });
+      assert.notEqual(retiredRun.status, 0, "the retired id/secret contract is not read");
+      assert.match(retiredRun.stderr, /REFUSED: .*values not shown/);
+      assert.ok(!leaks(retiredRun.stdout + retiredRun.stderr) && !(retiredRun.stdout + retiredRun.stderr).includes("hf-retired-id-0001"), "and nothing is echoed");
 
       const good = path.join(dir, "good.env");
-      writeFileSync(good, `HEBUN_HIGGSFIELD_API_KEY_ID=${CREDENTIAL.keyId}\nHEBUN_HIGGSFIELD_API_KEY_SECRET=${CREDENTIAL.keySecret}\n`);
+      writeFileSync(good, `HEBUN_HIGGSFIELD_API_KEY=${API_KEY}\n`);
       const empty = path.join(dir, "empty.env");
       writeFileSync(empty, "# nothing here\n");
-      const ambient = run(["preflight"], { MV6_HIGGSFIELD_ENV_FILE: empty, HEBUN_HIGGSFIELD_API_KEY_ID: CREDENTIAL.keyId, HEBUN_HIGGSFIELD_API_KEY_SECRET: CREDENTIAL.keySecret });
+      const ambient = run(["preflight"], { MV6_HIGGSFIELD_ENV_FILE: empty, HEBUN_HIGGSFIELD_API_KEY: API_KEY });
       assert.notEqual(ambient.status, 0, "the ambient environment is never the credential source");
       const pre = run(["preflight"], { MV6_HIGGSFIELD_ENV_FILE: good });
       assert.equal(pre.status, 0, pre.stderr);
-      assert.ok(!(pre.stdout + pre.stderr).includes(CREDENTIAL.keySecret) && !(pre.stdout + pre.stderr).includes(CREDENTIAL.keyId), "preflight prints no value");
+      assert.ok(!leaks(pre.stdout + pre.stderr), "preflight prints no value");
 
       for (const cmd of ["generate", "dispatch", "poll", ""]) {
         const r = run(cmd ? [cmd] : [], { MV6_HIGGSFIELD_ENV_FILE: good });

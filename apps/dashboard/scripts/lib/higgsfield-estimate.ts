@@ -14,7 +14,7 @@
  * comparators at their documented minimum durations, all text-only. The comparison exists so the
  * model choice rests on the account's own price evidence; this module decides nothing — it reports.
  *
- * WHAT NEVER LEAVES. The key id, the secret and the Authorization header are never printed or
+ * WHAT NEVER LEAVES. The API key and the Authorization header are never printed or
  * returned. A refusal reports its HTTP status only, never the provider's message.
  *
  * Deployment possession only: `src/` cannot import `scripts/`.
@@ -89,7 +89,7 @@ export async function estimateCandidates(
       response = await fetchImpl(higgsfieldEstimateUrl(c.modelPath), {
         method: "POST",
         headers: {
-          authorization: `Key ${credential.keyId}:${credential.keySecret}`,
+          authorization: `Key ${credential.apiKey}`,
           "content-type": "application/json",
           accept: "application/json",
         },

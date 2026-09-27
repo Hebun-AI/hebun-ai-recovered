@@ -53,9 +53,9 @@ globalThis.fetch = (() => {
   throw new Error("REAL NETWORK REACHED");
 }) as typeof fetch;
 
-const KEY_ID = "hf-test-key-id-not-real-0001";
-const KEY_SECRET = "hf-test-secret-not-real-000000000000";
-const CREDENTIAL = { keyId: KEY_ID, keySecret: KEY_SECRET };
+/* One opaque key. It contains a colon on purpose: the transport must neither split nor require it. */
+const API_KEY = "hf-test-opaque-key-not-real:0001-aaaaaaaaaaaaaaaa";
+const CREDENTIAL = { apiKey: API_KEY };
 const JOB = "d7e6c0f3-6699-4f6c-bb45-2ad7fd9158ff";
 const INPUT = { promptText: "A slow pan across a hand-knotted kilim.", inputDigest: "a".repeat(64), invocationId: "11111111-2222-4333-8444-555555555555" };
 const SRC = path.resolve(process.cwd(), "src");
@@ -104,7 +104,7 @@ const transportWith = (http: { fetch: HiggsfieldFetch }, budget = createLiveSpen
 
 const noLeak = (value: unknown, label: string) => {
   const text = JSON.stringify(value ?? null) + String((value as Error | undefined)?.message ?? "");
-  assert.ok(!text.includes(KEY_ID) && !text.includes(KEY_SECRET), `${label}: the credential never leaves the transport`);
+  assert.ok(!text.includes(API_KEY) && !text.includes(API_KEY.split(":")[1]!), `${label}: the credential never leaves the transport`);
   assert.ok(!/cdn\.example|provider-secret-detail|Generation failed|secret provider text/.test(text), `${label}: no output URL or provider text leaves`);
 };
 
@@ -140,7 +140,7 @@ async function main(): Promise<void> {
     assert.equal(call!.init.redirect, "error");
     assert.equal(call!.init.cache, "no-store");
     assert.ok(call!.init.signal instanceof AbortSignal, "bounded by a timeout");
-    assert.equal(call!.init.headers.authorization, `Key ${KEY_ID}:${KEY_SECRET}`, "the documented Key scheme, never Bearer");
+    assert.equal(call!.init.headers.authorization, `Key ${API_KEY}`, "the documented Key scheme with the opaque key verbatim, never Bearer, never split");
     assert.deepEqual(Object.keys(call!.init.headers).sort(), ["accept", "authorization", "content-type"], "no correlation or webhook header is invented");
     assert.deepEqual(JSON.parse(call!.init.body!), { prompt: INPUT.promptText, ...HIGGSFIELD_VIDEO_REQUEST_PARAMETERS }, "the pinned request, the prompt and nothing else");
     assert.ok(!call!.init.body!.includes(INPUT.invocationId), "the invocation id is not sent as if it were an idempotency key");
@@ -340,14 +340,27 @@ async function main(): Promise<void> {
 
   /* ── N. Credential secrecy and construction ───────────────────────────────── */
   {
-    assert.throws(() => createHiggsfieldVideoTransport({ credential: { keyId: "short", keySecret: KEY_SECRET }, spendBudget: createLiveSpendBudget(1) }));
-    assert.throws(() => createHiggsfieldVideoTransport({ credential: { keyId: "has:colon-in-key-id", keySecret: KEY_SECRET }, spendBudget: createLiveSpendBudget(1) }));
-    /* The console's combined `key_id:key_secret` pasted as the secret is refused (it 401s every call). */
-    assert.throws(() => createHiggsfieldVideoTransport({ credential: { keyId: KEY_ID, keySecret: `${KEY_ID}:${KEY_SECRET}` }, spendBudget: createLiveSpendBudget(1) }));
-    assert.ok(!isHiggsfieldCredentialShaped({ keyId: KEY_ID, keySecret: `${KEY_ID}:${KEY_SECRET}` }), "combined form is not credential-shaped");
-    assert.ok(isHiggsfieldCredentialShaped({ keyId: KEY_ID, keySecret: `other:${KEY_SECRET}` }), "a colon alone is not refused");
+    for (const bad of ["", "short", `Key ${API_KEY}`, `Bearer ${API_KEY}`, ` ${API_KEY}`, `${API_KEY}\n`, "é".repeat(20)]) {
+      assert.throws(() => createHiggsfieldVideoTransport({ credential: { apiKey: bad }, spendBudget: createLiveSpendBudget(1) }), JSON.stringify(bad.slice(0, 8)));
+    }
+    assert.ok(isHiggsfieldCredentialShaped({ apiKey: "hf0123456789abcdefNOCOLON" }), "no colon is required");
+    assert.ok(isHiggsfieldCredentialShaped({ apiKey: "a:b:c:0123456789abcdef" }), "any colon is allowed: the value is opaque");
+    /* Whatever the key contains, it reaches the header byte for byte. */
+    for (const key of ["hf0123456789abcdefNOCOLON", "a:b:c:0123456789abcdef"]) {
+      const http = scripted(() => queued());
+      await createHiggsfieldVideoTransport({ credential: { apiKey: key }, spendBudget: createLiveSpendBudget(1), fetchImpl: http.fetch }).dispatch(INPUT);
+      assert.equal(http.calls[0]!.init.headers.authorization, `Key ${key}`);
+    }
+    /* A thrown construction error names no value. */
+    try {
+      createHiggsfieldVideoTransport({ credential: { apiKey: `Key ${API_KEY}` }, spendBudget: createLiveSpendBudget(1) });
+    } catch (error) {
+      assert.ok(!String((error as Error).message).includes(API_KEY), "the construction error echoes no key");
+    }
     const t = transportWith(scripted(() => queued()));
-    assert.ok(!JSON.stringify(t).includes(KEY_SECRET) && !JSON.stringify(t).includes(KEY_ID), "the transport object does not expose the credential");
+    assert.ok(!JSON.stringify(t).includes(API_KEY), "the transport object does not expose the credential");
+    const transportSource = readFileSync(path.join(SRC, "features/media-generation-live/higgsfield-video-transport.server.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    assert.ok(!/\.split\(|keyId|keySecret/.test(transportSource), "the key is never split, and the retired id/secret pair is gone");
     const source = readFileSync(path.join(SRC, "features/media-generation-live/higgsfield-video-transport.server.ts"), "utf8");
     assert.ok(!/console\.|logger|process\.env/.test(source), "the transport logs nothing and reads no environment");
     assert.ok(!/hf_webhook|X-Webhook|cancel_url\b.*fetch/.test(source.replace(/^\s*\*.*$/gm, "")), "no webhook is registered and nothing is canceled");
@@ -360,8 +373,7 @@ async function main(): Promise<void> {
   {
     const good = {
       [VIDEO_GENERATION_ENV.transport]: "live",
-      [VIDEO_GENERATION_ENV.higgsfieldKeyId]: KEY_ID,
-      [VIDEO_GENERATION_ENV.higgsfieldKeySecret]: KEY_SECRET,
+      [VIDEO_GENERATION_ENV.higgsfieldApiKey]: API_KEY,
     };
     const asked: string[] = [];
     const on = async (key: string) => {
@@ -380,18 +392,24 @@ async function main(): Promise<void> {
         `${selection}: no fallback to any other transport`,
       );
     }
+    /* The retired pair is not read: supplying ONLY it is misconfiguration, never a credential. */
     assert.deepEqual(
-      await resolveMediaAsyncGenerationTransport({ env: { ...good, [VIDEO_GENERATION_ENV.higgsfieldKeySecret]: `${KEY_ID}:${KEY_SECRET}` }, resolveDirectorEnabled: on }),
+      await resolveMediaAsyncGenerationTransport({
+        env: { [VIDEO_GENERATION_ENV.transport]: "live", HEBUN_HIGGSFIELD_API_KEY_ID: "hf-test-key-id-not-real-0001", HEBUN_HIGGSFIELD_API_KEY_SECRET: "hf-test-secret-not-real-000000000000" },
+        resolveDirectorEnabled: on,
+      }),
       { status: "unavailable", reason: "video-generation-misconfigured" },
-      "the combined id:secret pasted as the secret is misconfiguration",
+      "the retired HEBUN_HIGGSFIELD_API_KEY_ID + _SECRET contract is not read",
     );
-    for (const missing of [VIDEO_GENERATION_ENV.higgsfieldKeyId, VIDEO_GENERATION_ENV.higgsfieldKeySecret]) {
-      assert.deepEqual(
-        await resolveMediaAsyncGenerationTransport({ env: { ...good, [missing]: "" }, resolveDirectorEnabled: on }),
-        { status: "unavailable", reason: "video-generation-misconfigured" },
-        `${missing} absent: a credential is required`,
-      );
+    assert.deepEqual(Object.keys(VIDEO_GENERATION_ENV).sort(), ["higgsfieldApiKey", "transport"], "one selection variable and one key, nothing else");
+    for (const file of ["features/media-generation-live/live-video-generation-resolver.server.ts", "features/media-generation-live/higgsfield-video-transport.server.ts"]) {
+      assert.ok(!/HEBUN_HIGGSFIELD_API_KEY_(ID|SECRET)/.test(readFileSync(path.join(SRC, file), "utf8")), `${file} names no retired variable`);
     }
+    assert.deepEqual(
+      await resolveMediaAsyncGenerationTransport({ env: { ...good, [VIDEO_GENERATION_ENV.higgsfieldApiKey]: "" }, resolveDirectorEnabled: on }),
+      { status: "unavailable", reason: "video-generation-misconfigured" },
+      "HEBUN_HIGGSFIELD_API_KEY absent: a credential is required",
+    );
     assert.deepEqual(await resolveMediaAsyncGenerationTransport({ env: good, resolveDirectorEnabled: off }), { status: "unavailable", reason: "video-generation-disabled" }, "a credential is not a capability");
     assert.deepEqual(await resolveMediaAsyncGenerationTransport({ env: good, resolveDirectorEnabled: broken }), { status: "unavailable", reason: "video-generation-disabled" }, "a control read error is OFF");
     const available = await resolveMediaAsyncGenerationTransport({ env: good, resolveDirectorEnabled: on });

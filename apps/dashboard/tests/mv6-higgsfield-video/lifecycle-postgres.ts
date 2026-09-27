@@ -38,8 +38,7 @@ globalThis.fetch = (() => {
 }) as typeof fetch;
 
 const NOW = new Date("2026-09-27T10:00:00.000Z");
-const KEY_ID = "hf-test-key-id-not-real-0002";
-const KEY_SECRET = "hf-test-secret-not-real-111111111111";
+const API_KEY = "hf-test-opaque-key-not-real:0002-bbbbbbbbbbbbbbbb";
 const CDN = "https://cdn.example.com/signed-output.mp4?sig=provider-secret";
 
 let finished = false;
@@ -68,7 +67,7 @@ function fakeHiggsfield() {
       next = responder;
     },
     transport: createHiggsfieldVideoTransport({
-      credential: { keyId: KEY_ID, keySecret: KEY_SECRET },
+      credential: { apiKey: API_KEY },
       spendBudget: createLiveSpendBudget(50),
       fetchImpl,
       dispatchTimeoutMs: 50,
@@ -275,7 +274,7 @@ async function main(): Promise<void> {
     /* ── Secrets and provider URLs never reach a row ───────────────────────────── */
     {
       const all = (await client.query<{ j: unknown }>(`select row_to_json(m)::text j from media_generation_invocations m`)).rows.map((r) => String(r.j)).join("\n");
-      assert.ok(!all.includes(KEY_ID) && !all.includes(KEY_SECRET), "no credential in any invocation row");
+      assert.ok(!all.includes(API_KEY) && !all.includes(API_KEY.split(":")[1]!), "no credential, or any part of it, in any invocation row");
       assert.ok(!all.includes("cdn.example.com") && !all.includes("provider-secret"), "no provider URL in any invocation row");
       assert.ok(!/Generation failed|Invalid credentials|bad gateway/.test(all), "no provider text in any invocation row");
       assert.equal(await assetCount(client), assetsAtStart, "MV-6 created no Media asset at all");

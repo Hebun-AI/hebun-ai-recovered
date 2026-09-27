@@ -9,7 +9,8 @@
  * a billable Higgsfield job is a separate Director authorization, and the stage that performs one
  * (through the released MV-4 lifecycle, at most one job, synthetic prompt) is written only after it.
  *
- * ENV. HEBUN_HIGGSFIELD_API_KEY_ID and HEBUN_HIGGSFIELD_API_KEY_SECRET, read by name only from the file
+ * ENV. HEBUN_HIGGSFIELD_API_KEY — the ONE opaque key copied from open.higgsfield.ai, used verbatim —
+ * read by name only from the file
  * named by MV6_HIGGSFIELD_ENV_FILE (default ./.env.higgsfield.local, gitignored by `.env.*`). Nothing
  * is read from the ambient environment, so a production value cannot be picked up by accident.
  * Absent or malformed → refused before any call. No value, header or provider message is printed.
@@ -20,17 +21,19 @@ import { loadQuietEnv } from "./lib/quiet-env";
 import { estimateCandidates, MV6_ESTIMATE_CANDIDATES, MV6_SYNTHETIC_PROMPT } from "./lib/higgsfield-estimate";
 import { isHiggsfieldCredentialShaped } from "../src/features/media-generation-live/higgsfield-video-transport.server";
 
-const NAMES = ["HEBUN_HIGGSFIELD_API_KEY_ID", "HEBUN_HIGGSFIELD_API_KEY_SECRET"] as const;
+const NAME = "HEBUN_HIGGSFIELD_API_KEY";
+/* The retired pair. Cleared from the process and never read, so it cannot stand in for the key. */
+const RETIRED = ["HEBUN_HIGGSFIELD_API_KEY_ID", "HEBUN_HIGGSFIELD_API_KEY_SECRET"] as const;
 
-function loadCredentialOrRefuse(): { keyId: string; keySecret: string } {
+function loadCredentialOrRefuse(): { apiKey: string } {
   const file = process.env.MV6_HIGGSFIELD_ENV_FILE ?? path.resolve(process.cwd(), ".env.higgsfield.local");
   if (!existsSync(file)) throw new Error("REFUSED: MV6_HIGGSFIELD_ENV_FILE (or ./.env.higgsfield.local) does not exist");
-  for (const name of NAMES) delete process.env[name];
-  loadQuietEnv([file], NAMES);
-  const credential = { keyId: process.env[NAMES[0]] ?? "", keySecret: process.env[NAMES[1]] ?? "" };
-  for (const name of NAMES) delete process.env[name];
+  for (const name of [NAME, ...RETIRED]) delete process.env[name];
+  loadQuietEnv([file], [NAME]);
+  const credential = { apiKey: process.env[NAME] ?? "" };
+  delete process.env[NAME];
   if (!isHiggsfieldCredentialShaped(credential)) {
-    throw new Error("REFUSED: the credential file does not hold a credential-shaped key id and secret (values not shown)");
+    throw new Error("REFUSED: the credential file does not hold a credential-shaped HEBUN_HIGGSFIELD_API_KEY (values not shown)");
   }
   return credential;
 }
@@ -41,7 +44,7 @@ async function main(): Promise<void> {
     throw new Error("usage: mv6-acceptance.ts preflight|estimate  (no generation stage exists in this build)");
   }
   const credential = loadCredentialOrRefuse();
-  console.log("PASS  credential file holds a credential-shaped key id and secret (values not shown)");
+  console.log("PASS  credential file holds a credential-shaped HEBUN_HIGGSFIELD_API_KEY (value not shown)");
   if (command === "preflight") return;
 
   console.log(`prompt (synthetic): ${MV6_SYNTHETIC_PROMPT}`);

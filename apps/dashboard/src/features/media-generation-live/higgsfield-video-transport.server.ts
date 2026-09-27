@@ -10,7 +10,7 @@
  *
  * ── THE CONTRACT IT SPEAKS (official docs.higgsfield.ai, re-read 2026-09-27) ──
  *
- *   POST https://api.higgsfield.ai/<model path>          Authorization: Key <key_id>:<key_secret>
+ *   POST https://api.higgsfield.ai/<model path>          Authorization: Key <api-key>  (opaque, verbatim)
  *     → 200 { status: "queued", request_id: <uuid>, status_url, cancel_url }
  *   GET  https://api.higgsfield.ai/requests/<request_id>/status
  *     → 200 { status, request_id, error?, video?: { url } }
@@ -78,7 +78,7 @@
  *
  * ── WHAT NEVER LEAVES THIS MODULE ────────────────────────────────────────────
  *
- * The key id, the secret, the Authorization header, the raw body, provider error text, and output
+ * The API key, the Authorization header, the raw body, provider error text, and output
  * URLs. Only a validated request id and closed codes are returned. Nothing is logged. No webhook
  * parameter is sent — webhooks are not part of MV-6's authority.
  *
@@ -146,10 +146,16 @@ export type HiggsfieldFetch = (
   },
 ) => Promise<Response>;
 
+/**
+ * THE CREDENTIAL IS ONE OPAQUE VALUE. Higgsfield's current key flow (open.higgsfield.ai API keys, and
+ * its official quick-start) issues a single "Higgsfield API key", copied as-is and sent as
+ * `Authorization: Key <api-key>` — "the complete copied credential, without an added `Key` prefix",
+ * and integrations must "not ask users to split or assemble credentials or require a colon". Hebun
+ * therefore never splits, joins or inspects it, and a console record id ("Copy ID") is not part of
+ * authentication. Server-only; never logged, returned, or persisted.
+ */
 export interface HiggsfieldCredential {
-  /** Server-only. Never logged, returned, or persisted. */
-  readonly keyId: string;
-  readonly keySecret: string;
+  readonly apiKey: string;
 }
 
 export interface HiggsfieldVideoTransportConfig {
@@ -303,20 +309,15 @@ export function toMediaAsyncPollOutcome(observation: HiggsfieldStatusObservation
   }
 }
 
-const CREDENTIAL_PART_RE = /^[\x21-\x39\x3b-\x7e]{8,512}$/; // printable ASCII, no space, no ':'
-const SECRET_RE = /^[\x21-\x7e]{8,512}$/;
+/** Printable ASCII with no whitespace — so a pasted "Key …" or "Bearer …" prefix cannot pass. */
+const API_KEY_RE = /^[\x21-\x7e]{16,4096}$/;
 
 /**
- * Shape only. A well-formed credential is not a working one; nothing is probed.
- *
- * The Higgsfield console and SDKs present the credential as ONE string, `key_id:key_secret`. Pasting
- * that whole string as the secret yields `Key <id>:<id>:<secret>` and a 401 on every call — measured
- * in MV-6 acceptance. A secret that begins with its own key id and a colon is therefore refused.
+ * Shape only. A well-formed key is not a working one; nothing is probed. A colon is neither required
+ * nor refused: the value is opaque.
  */
-export function isHiggsfieldCredentialShaped(credential: { keyId?: string; keySecret?: string }): boolean {
-  const keyId = credential.keyId ?? "";
-  const keySecret = credential.keySecret ?? "";
-  return CREDENTIAL_PART_RE.test(keyId) && SECRET_RE.test(keySecret) && !keySecret.startsWith(`${keyId}:`);
+export function isHiggsfieldCredentialShaped(credential: { apiKey?: string }): boolean {
+  return API_KEY_RE.test(credential.apiKey ?? "");
 }
 
 export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportConfig): MediaAsyncGenerationTransport {
@@ -324,12 +325,13 @@ export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportC
     throw new Error("The Higgsfield video transport is server-only.");
   }
   if (!isHiggsfieldCredentialShaped(config.credential)) {
-    throw new Error("The Higgsfield video transport needs a credential-shaped key id and secret.");
+    throw new Error("The Higgsfield video transport needs a credential-shaped API key.");
   }
   const doFetch: HiggsfieldFetch = config.fetchImpl ?? ((input, init) => fetch(input, init));
   const dispatchTimeoutMs = config.dispatchTimeoutMs ?? HIGGSFIELD_DISPATCH_TIMEOUT_MS;
   const pollTimeoutMs = config.pollTimeoutMs ?? HIGGSFIELD_POLL_TIMEOUT_MS;
-  const authorization = () => `Key ${config.credential.keyId}:${config.credential.keySecret}`;
+  /* The documented scheme with the opaque key verbatim — never split, joined or re-encoded. */
+  const authorization = () => `Key ${config.credential.apiKey}`;
 
   return Object.freeze({
     transport: "live" as MediaGenerationTransportKind,
