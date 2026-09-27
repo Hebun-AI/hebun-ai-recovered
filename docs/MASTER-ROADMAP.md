@@ -5117,7 +5117,7 @@ deliberately not a summary. States are copied from those records, not upgraded.
 | **MEDIA-SUPPLIED** Human-Supplied Images (third Media origin) | `72d28682` + Picker/`drive.file` correction `3db976a6` | RELEASED + PRODUCTION-ACCEPTED / CLOSED — admission 34/34 | migration **63** | `hebun-media-supplied-closure.md` |
 | **MV-7** Generated Video Admission | `e36e143a` + host pin `0dcc73d6` + acceptance `c2905715` (deployed at `c2905715`) | **PRODUCTION ACCEPTED / CLOSED** — one real Higgsfield PixVerse V6 generation admitted (asset `c3eb1139`), connectivity DISABLED after | no migration (ledger 67) | `hebun-mv7-generated-video-admission-closure.md` |
 | **VIDEO CONTENT CHAIN** Video in the Content Workflow | `fb1ed329` + acceptance fix `9ffd024c` (deployed at `9ffd024c`) | **PRODUCTION ACCEPTED / CLOSED** — existing MV-7 video `c3eb1139` played, APPROVED, selected, shown as "0 images · 1 video" by the authoritative package read; 0 generation POST, connectivity DISABLED | no migration (ledger 67) | `hebun-video-content-chain-closure.md` |
-| **IMAGE → VIDEO** Video generated from an admitted image | implementation commit on `main` after `243e9835` (SHA recorded by its closure record) | **SELECTED / IN PROGRESS** — IMPLEMENTED + locally VERIFIED (simulated provider); real-provider generation NOT performed; synthetic source only (G2) | no migration (ledger 67) | `hebun-image-to-video.md` *(implementation record, not a closure)* |
+| **IMAGE → VIDEO** Video generated from an admitted image | `df94e78a` + acceptance prep `5a130086` (deployed at `5a130086`) | **PRODUCTION ACCEPTED / CLOSED** — one real Higgsfield PixVerse V6 image-to-video generation (invocation `a0d5ba5d`) on a SYNTHETIC supplied source (`3f7b9e66`), admitted as `ad4978da` with MEDIA-5 lineage; connectivity DISABLED after; not reviewed/selected/published; price UNKNOWN | no migration (ledger 67) | `hebun-image-to-video-closure.md` |
 
 **Authored migration ledger at this baseline: 60**, last
 `20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
@@ -5157,7 +5157,17 @@ decisions: source delivery through Higgsfield's documented upload (the Hebun sto
 no Hebun read grant to the provider); first acceptance on a SYNTHETIC image only — real company or
 customer images are NOT authorized for this provider path (Higgsfield Terms §4.4, training use absent
 an Enterprise Agreement); estimate calls not made because their non-billability is undocumented. Its
-row above stays IN PROGRESS until a Director-approved real-provider ceremony and its closure record.
+row above stayed IN PROGRESS until a Director-approved real-provider ceremony and its closure record.
+
+**Continuity extended after `5a130086` (2026-09-27).** The Director performed the one authorized
+IMAGE → VIDEO production acceptance through the operator harness: exactly one generation POST (plus one
+upload preparation and one presigned PUT), admitted by MV-7 as `ad4978da` with
+`source_media_asset_id` = the synthetic supplied image `3f7b9e66`. Its row above now reads PRODUCTION
+ACCEPTED / CLOSED (closure record `hebun-image-to-video-closure.md`; the implementation record stays as
+historical evidence). `higgsfield-image-to-video` and `higgsfield-video-generation` are both
+**DISABLED** (version 2). Production ledger **67**, unchanged. Price UNKNOWN. **Real TRH, company or
+customer images remain NOT AUTHORIZED** for this path until the Higgsfield §4.4 data-use / Enterprise
+Agreement question is explicitly resolved. The generated video was not reviewed, selected or published.
 
 ```
 POINTER               != SUMMARY

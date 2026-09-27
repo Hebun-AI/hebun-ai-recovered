@@ -1,7 +1,8 @@
 # IMAGE → VIDEO — Implementation Record
 
-**State:** SELECTED / IN PROGRESS · IMPLEMENTED · locally VERIFIED (simulated provider) ·
-**real-provider generation NOT performed** · **not CLOSED**. This is an implementation record.
+**State at writing:** SELECTED / IN PROGRESS · IMPLEMENTED · locally VERIFIED (simulated provider).
+This is an implementation record, kept as historical evidence. **Superseded for state by
+`hebun-image-to-video-closure.md` — PRODUCTION ACCEPTED / CLOSED.**
 
 **Baseline:** `origin/main` = `243e9835` (VIDEO CONTENT CHAIN closure). Branch `feat/image-to-video`.
 **Schema:** no migration; ledger unchanged (67).
