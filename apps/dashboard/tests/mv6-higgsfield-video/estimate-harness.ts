@@ -125,6 +125,24 @@ async function main(): Promise<void> {
       assert.match(retiredRun.stderr, /REFUSED: .*values not shown/);
       assert.ok(!leaks(retiredRun.stdout + retiredRun.stderr) && !(retiredRun.stdout + retiredRun.stderr).includes("hf-retired-id-0001"), "and nothing is echoed");
 
+      /* A bare uuid is the console's record id ("Copy ID"), not the key: refused before any call. */
+      const recordId = "0f8b6c1e-3a2d-4b7e-9c1a-5d4e3f2a1b0c";
+      for (const value of [recordId, recordId.toUpperCase()]) {
+        const idFile = path.join(dir, "record-id.env");
+        writeFileSync(idFile, `HEBUN_HIGGSFIELD_API_KEY=${value}\n`);
+        for (const cmd of ["preflight", "estimate"]) {
+          const r = run([cmd], { MV6_HIGGSFIELD_ENV_FILE: idFile });
+          assert.notEqual(r.status, 0, `${cmd}: a bare uuid is refused`);
+          assert.match(r.stderr, /REFUSED: .*record id \(Copy ID\).*values not shown/);
+          assert.ok(!(r.stdout + r.stderr).toLowerCase().includes(recordId), `${cmd}: the uuid is not echoed`);
+          assert.ok(!/\b36\b|length/i.test(r.stdout + r.stderr), `${cmd}: no length is printed`);
+        }
+      }
+      /* A uuid INSIDE a longer key is not a record id. */
+      const embedded = path.join(dir, "embedded.env");
+      writeFileSync(embedded, `HEBUN_HIGGSFIELD_API_KEY=${recordId}:not-only-a-uuid\n`);
+      assert.equal(run(["preflight"], { MV6_HIGGSFIELD_ENV_FILE: embedded }).status, 0, "a key that merely contains a uuid passes");
+
       const good = path.join(dir, "good.env");
       writeFileSync(good, `HEBUN_HIGGSFIELD_API_KEY=${API_KEY}\n`);
       const empty = path.join(dir, "empty.env");
