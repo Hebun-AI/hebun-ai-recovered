@@ -16,6 +16,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   MV6_ESTIMATE_CANDIDATES,
+  MV6_ESTIMATE_SETS,
+  MV6_SEEDANCE_ESTIMATE_CANDIDATES,
   MV6_SYNTHETIC_PROMPT,
   estimateCandidates,
   higgsfieldEstimateUrl,
@@ -69,6 +71,30 @@ async function main(): Promise<void> {
     const text = JSON.stringify(results);
     assert.ok(!leaks(text) && !/secret provider text/.test(text), "nothing secret or provider-authored is returned");
     assert.equal(MV6_ESTIMATE_CANDIDATES.filter((c) => c.pinned).length, 1, "exactly one candidate is the pinned model");
+  }
+
+  /* ── The Seedance comparison set: measurement only, exact bodies, never the pin ─ */
+  {
+    assert.deepEqual(Object.keys(MV6_ESTIMATE_SETS).sort(), ["baseline", "seedance"]);
+    assert.equal(MV6_ESTIMATE_SETS.baseline, MV6_ESTIMATE_CANDIDATES, "the released baseline set is unchanged");
+    assert.equal(MV6_SEEDANCE_ESTIMATE_CANDIDATES.length, 4);
+    assert.ok(MV6_SEEDANCE_ESTIMATE_CANDIDATES.every((c) => !c.pinned), "no Seedance candidate is the pinned model");
+    assert.equal(HIGGSFIELD_VIDEO_MODEL_PATH, "pixverse/v6/text-to-video", "the production pin stays PixVerse V6");
+    const calls: { url: string; body: Record<string, unknown> }[] = [];
+    const results = await estimateCandidates(CREDENTIAL, async (url, init) => {
+      calls.push({ url, body: JSON.parse(init.body!) });
+      return json(200, { credits: "1.000", usd: "0.050" });
+    }, MV6_SEEDANCE_ESTIMATE_CANDIDATES);
+    assert.equal(calls.length, 4, "one call per Seedance candidate");
+    const base = { prompt: MV6_SYNTHETIC_PROMPT, duration: 4, aspect_ratio: "16:9", generate_audio: false };
+    assert.deepEqual(calls, [
+      { url: "https://api.higgsfield.ai/estimate/bytedance/seedance-2.0/text-to-video", body: { ...base, resolution: "480p" } },
+      { url: "https://api.higgsfield.ai/estimate/bytedance/seedance-2.0/text-to-video", body: { ...base, resolution: "720p" } },
+      { url: "https://api.higgsfield.ai/estimate/bytedance/seedance-2.5/text-to-video", body: { ...base, resolution: "480p", bitrate_mode: "standard", output_format: "mp4" } },
+      { url: "https://api.higgsfield.ai/estimate/bytedance/seedance-2.5/text-to-video", body: { ...base, resolution: "720p", bitrate_mode: "standard", output_format: "mp4" } },
+    ], "exact routes and bodies: 4 s, 480p/720p, 16:9, silent; Seedance 2.5 mp4 + standard bitrate");
+    assert.ok(results.every((r) => r.status === "estimated" && !r.pinned));
+    assert.equal(new Set(MV6_SEEDANCE_ESTIMATE_CANDIDATES.map((c) => c.label)).size, 4, "four distinct labels");
   }
 
   /* ── Unreachable and unreadable are words, not guesses ─────────────────────── */
@@ -152,6 +178,16 @@ async function main(): Promise<void> {
       const pre = run(["preflight"], { MV6_HIGGSFIELD_ENV_FILE: good });
       assert.equal(pre.status, 0, pre.stderr);
       assert.ok(!leaks(pre.stdout + pre.stderr), "preflight prints no value");
+
+      for (const args of [["estimate", "all"], ["estimate", "seedance", "extra"], ["estimate", "generate"]]) {
+        const r = run(args, { MV6_HIGGSFIELD_ENV_FILE: good });
+        assert.notEqual(r.status, 0, `${args.join(" ")}: refused`);
+        assert.match(r.stderr, /usage: .*no generation stage exists in this build/);
+      }
+      /* The Seedance set is refused exactly like the baseline when the credential is missing. */
+      const seedanceMissing = run(["estimate", "seedance"], { MV6_HIGGSFIELD_ENV_FILE: path.join(dir, "absent") });
+      assert.notEqual(seedanceMissing.status, 0);
+      assert.match(seedanceMissing.stderr, /REFUSED: .*does not exist/);
 
       for (const cmd of ["generate", "dispatch", "poll", ""]) {
         const r = run(cmd ? [cmd] : [], { MV6_HIGGSFIELD_ENV_FILE: good });

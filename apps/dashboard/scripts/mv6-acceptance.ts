@@ -2,7 +2,10 @@
  * scripts/mv6-acceptance.ts — MV-6 real-provider acceptance harness, STAGE 1: cost evidence only.
  *
  *   npx tsx scripts/mv6-acceptance.ts preflight   check the credential file's SHAPE; no network
- *   npx tsx scripts/mv6-acceptance.ts estimate    one `POST /estimate/<model>` per candidate; no job
+ *   npx tsx scripts/mv6-acceptance.ts estimate             the baseline set (pinned + 2 comparators)
+ *   npx tsx scripts/mv6-acceptance.ts estimate seedance    the Seedance comparison set (4, measurement only)
+ *
+ * Each estimate run is one `POST /estimate/<model>` per candidate of ONE named set; no job.
  *
  * WHAT IT NEVER DOES. It submits no generation, reads no job status, cancels nothing, writes no row,
  * reads or writes no database, and arms no control. There is no generation subcommand in this build:
@@ -18,7 +21,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { loadQuietEnv } from "./lib/quiet-env";
-import { estimateCandidates, MV6_ESTIMATE_CANDIDATES, MV6_SYNTHETIC_PROMPT } from "./lib/higgsfield-estimate";
+import { estimateCandidates, MV6_ESTIMATE_SETS, MV6_SYNTHETIC_PROMPT } from "./lib/higgsfield-estimate";
 import { isHiggsfieldCredentialShaped } from "../src/features/media-generation-live/higgsfield-video-transport.server";
 
 const NAME = "HEBUN_HIGGSFIELD_API_KEY";
@@ -53,16 +56,21 @@ function loadCredentialOrRefuse(): { apiKey: string } {
 
 async function main(): Promise<void> {
   const command = process.argv[2] ?? "";
-  if (command !== "preflight" && command !== "estimate") {
-    throw new Error("usage: mv6-acceptance.ts preflight|estimate  (no generation stage exists in this build)");
+  const setName = process.argv[3] ?? "baseline";
+  if ((command !== "preflight" && command !== "estimate") || process.argv.length > 4) {
+    throw new Error("usage: mv6-acceptance.ts preflight | estimate [baseline|seedance]  (no generation stage exists in this build)");
+  }
+  const candidates = Object.prototype.hasOwnProperty.call(MV6_ESTIMATE_SETS, setName) ? MV6_ESTIMATE_SETS[setName]! : null;
+  if (command === "estimate" && !candidates) {
+    throw new Error("usage: mv6-acceptance.ts preflight | estimate [baseline|seedance]  (unknown estimate set; no generation stage exists in this build)");
   }
   const credential = loadCredentialOrRefuse();
   console.log("PASS  credential file holds a credential-shaped HEBUN_HIGGSFIELD_API_KEY (value not shown)");
   if (command === "preflight") return;
 
   console.log(`prompt (synthetic): ${MV6_SYNTHETIC_PROMPT}`);
-  console.log(`candidates: ${MV6_ESTIMATE_CANDIDATES.length}, one estimate call each, never repeated, no generation`);
-  const results = await estimateCandidates(credential, (input, init) => fetch(input, init));
+  console.log(`set: ${setName}; candidates: ${candidates!.length}, one estimate call each, never repeated, no generation`);
+  const results = await estimateCandidates(credential, (input, init) => fetch(input, init), candidates!);
   for (const r of results) {
     const tag = r.pinned ? "PINNED   " : "candidate";
     if (r.status === "estimated") console.log(`${tag}  ${r.label}  credits=${r.credits}  usd=${r.usd}`);

@@ -60,6 +60,41 @@ export const MV6_ESTIMATE_CANDIDATES: readonly EstimateCandidate[] = Object.free
   },
 ]);
 
+/*
+ * SEEDANCE COMPARISON (MV-6, Director-approved). Measurement only: none of these is the pinned model,
+ * and nothing here can change the pin. Two things are measured, per model: the minimum-cost setting
+ * (4 s, 480p) and a quality class nearer Hailuo's fixed 768P (4 s, 720p). Audio is off throughout so
+ * the comparison matches the silent baseline. Seedance 2.5 pins `output_format: "mp4"` — `mov` is
+ * not what MV-3 admission and MV-5 normalization expect — and `bitrate_mode: "standard"`.
+ */
+const SEEDANCE_20 = "bytedance/seedance-2.0/text-to-video";
+const SEEDANCE_25 = "bytedance/seedance-2.5/text-to-video";
+const seedance20 = (resolution: "480p" | "720p"): EstimateCandidate => ({
+  label: `${SEEDANCE_20}@4s-${resolution}-16x9-silent`,
+  modelPath: SEEDANCE_20,
+  body: { prompt: MV6_SYNTHETIC_PROMPT, duration: 4, resolution, aspect_ratio: "16:9", generate_audio: false },
+  pinned: false,
+});
+const seedance25 = (resolution: "480p" | "720p"): EstimateCandidate => ({
+  label: `${SEEDANCE_25}@4s-${resolution}-16x9-silent-standard-mp4`,
+  modelPath: SEEDANCE_25,
+  body: { prompt: MV6_SYNTHETIC_PROMPT, duration: 4, resolution, aspect_ratio: "16:9", bitrate_mode: "standard", output_format: "mp4", generate_audio: false },
+  pinned: false,
+});
+
+export const MV6_SEEDANCE_ESTIMATE_CANDIDATES: readonly EstimateCandidate[] = Object.freeze([
+  seedance20("480p"),
+  seedance20("720p"),
+  seedance25("480p"),
+  seedance25("720p"),
+]);
+
+/** The named sets the CLI can run. Each run is one call per candidate of ONE set. */
+export const MV6_ESTIMATE_SETS: Readonly<Record<string, readonly EstimateCandidate[]>> = Object.freeze({
+  baseline: MV6_ESTIMATE_CANDIDATES,
+  seedance: MV6_SEEDANCE_ESTIMATE_CANDIDATES,
+});
+
 export const HIGGSFIELD_ESTIMATE_TIMEOUT_MS = 30_000;
 const MAX_BODY_BYTES = 16 * 1024;
 const DECIMAL_RE = /^\d{1,12}(\.\d{1,6})?$/;
