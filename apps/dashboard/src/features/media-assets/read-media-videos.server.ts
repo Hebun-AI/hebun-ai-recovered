@@ -6,7 +6,7 @@
  *
  * Server-only.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { mediaAssets, mediaGenerationInvocations } from "@/db/schema/media-asset";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { isUuid, type MediaAssetLifecycleStatus } from "./contracts";
@@ -171,6 +171,67 @@ export async function listRevisionMediaVideos(
           eq(mediaAssets.mediaKind, "video"),
           eq(mediaAssets.suppliedArtifactId, input.artifactId),
           eq(mediaAssets.suppliedRevisionNo, input.revisionNo),
+        ),
+      )
+      .orderBy(mediaAssets.admittedAt, mediaAssets.id);
+    const videos: MediaVideoRecord[] = [];
+    for (const row of rows) {
+      const v = toVideoRecord(row);
+      if (v) {
+        const { storageKey: _k, ...rest } = v;
+        void _k;
+        videos.push(rest);
+      }
+    }
+    return { status: "read", videos };
+  } catch {
+    return { status: "unavailable", reason: "persistence-unavailable" };
+  }
+}
+
+export type ArtifactMediaVideoListing =
+  | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" }
+  | { readonly status: "read"; readonly videos: readonly MediaVideoRecord[] };
+
+/**
+ * VIDEO CONTENT CHAIN — every admitted video of several drafts, SUPPLIED or GENERATED, across all of
+ * their revisions, in one read. Each record names the revision it came from (`sourceRevisionNo`):
+ * a supplied video's own revision FK, a generated video's invocation's source revision. It decides
+ * nothing about which revision is current and carries nothing forward. A derived video is not a
+ * record. A database read: no store, no bytes, no access.
+ */
+export async function listArtifactMediaVideos(
+  tenant: TenantContext | null,
+  input: { readonly artifactIds: readonly string[] } | null,
+  deps: MediaReadDeps = {},
+): Promise<ArtifactMediaVideoListing> {
+  if (typeof window !== "undefined") throw new Error("Media asset reads are server-only.");
+  if (!tenant?.tenantId) return { status: "unavailable", reason: "persistence-unavailable" };
+  const ids = (input?.artifactIds ?? []).filter(isUuid);
+  if (ids.length === 0) return { status: "read", videos: [] };
+  const db = (deps.getDb ?? resolveMediaDbOrNull)();
+  if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
+  try {
+    const rows = await db
+      .select(videoColumns)
+      .from(mediaAssets)
+      .leftJoin(
+        mediaGenerationInvocations,
+        and(eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId), eq(mediaGenerationInvocations.id, mediaAssets.invocationId)),
+      )
+      .where(
+        and(
+          eq(mediaAssets.tenantId, tenant.tenantId),
+          eq(mediaAssets.mediaKind, "video"),
+          isNull(mediaAssets.derivedFromAssetId),
+          or(
+            and(isNull(mediaAssets.invocationId), inArray(mediaAssets.suppliedArtifactId, ids)),
+            and(
+              isNotNull(mediaAssets.invocationId),
+              eq(mediaGenerationInvocations.outputMediaKind, "video"),
+              inArray(mediaGenerationInvocations.sourceArtifactId, ids),
+            ),
+          ),
         ),
       )
       .orderBy(mediaAssets.admittedAt, mediaAssets.id);

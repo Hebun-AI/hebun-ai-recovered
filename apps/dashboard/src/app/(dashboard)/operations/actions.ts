@@ -42,11 +42,25 @@ import {
   type RevisionMediaAssetListing,
 } from "@/features/media-assets/read-media-assets.server";
 import {
+  listArtifactMediaVideos,
   listRevisionMediaVideos,
   readMediaVideo,
+  type ArtifactMediaVideoListing,
   type ReadMediaVideoResult,
   type RevisionMediaVideoListing,
 } from "@/features/media-assets/read-media-videos.server";
+import {
+  listArtifactVideoGenerations,
+  pollAsyncMediaGeneration,
+  requestAsyncVideoGeneration,
+  type AsyncGenerationListing,
+  type AsyncTransitionResult,
+  type RequestAsyncVideoGenerationResult,
+} from "@/features/media-assets/async-generation-lifecycle.server";
+import {
+  admitGeneratedVideo,
+  type AdmitGeneratedVideoResult,
+} from "@/features/media-assets/admit-generated-video.server";
 import {
   acceptMediaAsset,
   declineMediaAsset,
@@ -500,6 +514,71 @@ export async function listRevisionMediaVideosAction(input: {
 
 export async function readMediaVideoAction(input: { assetId: string }): Promise<ReadMediaVideoResult> {
   return readMediaVideo(await resolveTenantContext(), input?.assetId);
+}
+
+/*
+ * ── VIDEO CONTENT CHAIN — THE HUMAN DOOR TO TEXT-TO-VIDEO ───────────────────
+ *
+ * Four pass-throughs, and no authority of their own. The tenant and the requesting human come from
+ * the trusted session and are never inputs. Each calls exactly one released function:
+ *
+ *   request   requestAsyncVideoGeneration   MV-4 register → ONE dispatch (MV-6 transport underneath:
+ *                                           provider selection, Director connectivity control, live
+ *                                           spend budget — all enforced there, none here)
+ *   observe   pollAsyncMediaGeneration      ONE status read, only for a provider-pending job
+ *   admit     admitGeneratedVideo           MV-7: exact-host stream → Storage V2 → policy → asset
+ *   list      listArtifactVideoGenerations  a read
+ *
+ * WHAT THESE CANNOT DO: name a tenant; reach a provider except through the lifecycle's own transport
+ * resolution; retry or resubmit — a new attempt is a new human request with a new `requestKey`, and
+ * a repeated key registers nothing; turn `dispatch-unknown` or an unreadable observation into success
+ * or failure; review, select or publish. Completion observation is an explicit human refresh; there
+ * is no scheduler. An agent cannot reach them: `resolveTenantContext` yields a human session or null.
+ */
+export async function requestVideoGenerationAction(input: {
+  artifactId: string;
+  revisionNo: number;
+  promptText: string;
+  requestKey: string;
+}): Promise<RequestAsyncVideoGenerationResult> {
+  const tenant = await resolveTenantContext();
+  const result = await requestAsyncVideoGeneration(tenant, {
+    artifactId: input?.artifactId,
+    revisionNo: input?.revisionNo,
+    promptText: input?.promptText,
+    requestKey: input?.requestKey,
+  });
+  if (result.status !== "refused") revalidatePath("/operations");
+  return result;
+}
+
+export async function observeVideoGenerationAction(input: {
+  invocationId: string;
+}): Promise<AsyncTransitionResult> {
+  const result = await pollAsyncMediaGeneration(await resolveTenantContext(), input?.invocationId);
+  if (result.status !== "refused") revalidatePath("/operations");
+  return result;
+}
+
+export async function admitGeneratedVideoAction(input: {
+  invocationId: string;
+}): Promise<AdmitGeneratedVideoResult> {
+  const result = await admitGeneratedVideo(await resolveTenantContext(), { invocationId: input?.invocationId });
+  if (result.status !== "refused") revalidatePath("/operations");
+  return result;
+}
+
+export async function listArtifactVideoGenerationsAction(input: {
+  artifactIds: readonly string[];
+}): Promise<AsyncGenerationListing | { readonly status: "unavailable" }> {
+  return listArtifactVideoGenerations(await resolveTenantContext(), input);
+}
+
+/** VIDEO CONTENT CHAIN — every admitted video (supplied and generated) of several drafts. A read. */
+export async function listArtifactMediaVideosAction(input: {
+  artifactIds: readonly string[];
+}): Promise<ArtifactMediaVideoListing> {
+  return listArtifactMediaVideos(await resolveTenantContext(), input);
 }
 
 export async function prepareWorkArtifactAction(input: {

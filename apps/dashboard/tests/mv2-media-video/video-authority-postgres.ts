@@ -10,6 +10,11 @@
  *    never renders a video as an image. Every image-only operation refuses a video row by name:
  *    JPEG derivation, publish lineage, content selection, image review and reference edit — and
  *    image behaviour is unchanged."
+ *
+ * VIDEO CONTENT CHAIN widened review and selection to GENERATED videos whose invocation produced a
+ * video (tests/video-content-chain). The video rows here hang off an IMAGE invocation — a kind that
+ * contradicts its own provenance — so review and selection still refuse them, now by the name
+ * `asset-kind-incoherent`. The other image-only operations are unchanged.
  */
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -320,14 +325,14 @@ async function main(): Promise<void> {
 
     assert.deepEqual(
       await selectMediaForRevision(ctx, { artifactId: draft, revisionNo: 1, mediaAssetId: videoId }, { getDb }),
-      { status: "refused", reason: "asset-not-image" },
-      "content selection",
+      { status: "refused", reason: "asset-kind-incoherent" },
+      "content selection (a video under an image invocation)",
     );
     assert.equal((await setup.query(`select count(*)::int n from content_selected_media where media_asset_id=$1`, [videoId])).rows[0]!.n, 0);
 
     const decisionsBefore = (await setup.query(`select count(*)::int n from decision_records`)).rows[0]!.n;
     const reviewed = await acceptMediaAsset(ctx, { assetId: videoId, byteDigest: vDigest, justification: REASON } as never, { getDb, now: () => NOW } as never);
-    assert.deepEqual(reviewed, { status: "refused", reason: "asset-not-image" }, "image review");
+    assert.deepEqual(reviewed, { status: "refused", reason: "asset-kind-incoherent" }, "review (a video under an image invocation)");
     assert.equal((await setup.query(`select count(*)::int n from decision_records`)).rows[0]!.n, decisionsBefore, "no decision recorded");
 
     const invBefore = (await setup.query(`select count(*)::int n from media_generation_invocations`)).rows[0]!.n;

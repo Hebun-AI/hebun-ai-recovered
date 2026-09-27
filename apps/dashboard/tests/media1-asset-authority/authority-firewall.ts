@@ -124,6 +124,12 @@ const code = (f: string): string => stripComments(read(f));
     /* MV-3: the supplied-video door and the revision's video list — client components over actions. */
     "src/components/operations-preparation/supply-video-from-drive.tsx",
     "src/components/operations-preparation/revision-media-videos.tsx",
+    /*
+     * VIDEO CONTENT CHAIN: the text-to-video door — one client component calling the one action
+     * file's request action, which passes the session tenant to the MV-4 lifecycle. It reads the
+     * shared prompt limit from the Media contracts and holds no authority.
+     */
+    "src/components/operations-preparation/generate-video-with-hebun.tsx",
   ]);
   for (const f of SRC) {
     const c = code(f);
@@ -151,6 +157,7 @@ const code = (f: string): string => stripComments(read(f));
       "src/app/(dashboard)/operations/actions.ts",
       "src/components/operations-preparation/content-package-panel.tsx",
       "src/components/operations-preparation/generate-image-with-hebun.tsx",
+      "src/components/operations-preparation/generate-video-with-hebun.tsx",
       "src/components/operations-preparation/operations-preparation.tsx",
       "src/components/operations-preparation/revision-media-assets.tsx",
       "src/components/operations-preparation/revision-media-videos.tsx",
@@ -163,7 +170,9 @@ const code = (f: string): string => stripComments(read(f));
        MEDIA-SUPPLIED added the Drive-photo door: it calls the one action file's supplied-admission
        action and nothing else — still enumerated exactly, a seventh file still fails.
        MV-3 added the Drive-video door and the revision's video list: they call the one action file's
-       supplied-video admission and video read actions, nothing else — still enumerated exactly. */
+       supplied-video admission and video read actions, nothing else — still enumerated exactly.
+       VIDEO CONTENT CHAIN added the text-to-video door: it calls the one action file's request
+       action and nothing else — still enumerated exactly, so another file still fails. */
     "exactly one action file and the MEDIA-3 + CONTENT-COMPOSE-1 + MEDIA-SUPPLIED surfaces may reach the Media Asset authority",
   );
 

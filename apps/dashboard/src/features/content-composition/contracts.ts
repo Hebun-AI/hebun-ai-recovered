@@ -9,9 +9,13 @@
  *   destination        work_artifacts.intended_destination        (CGO-1)
  *   copy               work_artifact_revisions.content            (Work Artifact authority)
  *   copy review        decision_records / work_artifact_revision   (TRH-10)
- *   candidate images   media_generation_invocations provenance    (MEDIA-1 / MEDIA-4A)
- *   image review       decision_records / media_asset             (MEDIA-3)
- *   SELECTED images    content_selected_media                     ← the only new fact
+ *   candidate media    media_generation_invocations provenance    (MEDIA-1 / MEDIA-4A / MV-7)
+ *   media review       decision_records / media_asset             (MEDIA-3)
+ *   SELECTED media     content_selected_media                     ← the only new fact
+ *
+ * VIDEO CONTENT CHAIN: a selected item is an image OR a generated video, and says which. A video in
+ * a package is NOT publishable: the only publish path (PUBLISH-0, Instagram) reads images only and
+ * refuses a video, and no YouTube authority exists.
  *
  * ── READINESS IS DERIVED, ALWAYS ─────────────────────────────────────────────
  *
@@ -45,7 +49,7 @@ import type { ContentDestination } from "@/features/work-artifacts/contracts";
 export const CONTENT_PACKAGE_BLOCKERS = [
   /** The revision's copy is empty or whitespace. There is nothing to say. */
   "copy-empty",
-  /** No image is selected for this revision. Provenance is not selection — see the schema header. */
+  /** No image or video is selected for this revision. Provenance is not selection — see the schema header. */
   "no-media-selected",
   /** A selected image was retired after it was selected. Custody removed it; the row stayed. */
   "selected-media-retired",
@@ -72,8 +76,11 @@ export const CONTENT_SELECTION_REFUSALS = [
   "asset-unresolvable",
   /** Custody, and only custody, gates selection. A retired image is not selectable. */
   "asset-retired",
-  /** MV-2 — the package carries images only; a video asset is representable, not selectable. */
-  "asset-not-image",
+  /**
+   * VIDEO CONTENT CHAIN — the asset's `media_kind` is not the kind its invocation produced (or is
+   * neither image nor video). Replaces MV-2's `asset-not-image`: a generated video is selectable.
+   */
+  "asset-kind-incoherent",
 ] as const;
 
 export type ContentSelectionRefusal = (typeof CONTENT_SELECTION_REFUSALS)[number];
@@ -89,9 +96,36 @@ export const CONTENT_PACKAGE_NON_CLAIMS: readonly string[] = [
   "Publishing, when it exists, will be a separate governed act requiring its own authorization.",
 ] as const;
 
+/**
+ * VIDEO CONTENT CHAIN — the probed facts of a selected VIDEO, from `media_assets`. Never provider
+ * metadata, never inferred from a file name.
+ */
+export interface SelectedVideoFacts {
+  readonly durationMs: number;
+  readonly videoCodec: string;
+  /** `null` is a silent video, which is legitimate. */
+  readonly audioCodec: string | null;
+  readonly frameRate: string;
+}
+
+/**
+ * VIDEO CONTENT CHAIN — rendered whenever a package holds a video. A video in a ready package is not
+ * a publishable video: PUBLISH-0 (Instagram) reads images only and refuses a video, and no YouTube
+ * publishing authority exists.
+ */
+export const CONTENT_PACKAGE_VIDEO_NON_CLAIM =
+  "A chosen video is part of this package only. Hebun cannot publish a video: no platform path accepts one." as const;
+
 export interface SelectedMediaView {
   readonly mediaAssetId: string;
   readonly selectedAt: string;
+  /**
+   * VIDEO CONTENT CHAIN — the kind, read from the row's `media_kind`. A surface decides image or
+   * video from THIS field and nothing else.
+   */
+  readonly mediaKind: "image" | "video";
+  /** Present exactly when `mediaKind` is `video`; `null` for an image. */
+  readonly video: SelectedVideoFacts | null;
   readonly mimeType: string;
   readonly byteSize: number;
   readonly width: number;

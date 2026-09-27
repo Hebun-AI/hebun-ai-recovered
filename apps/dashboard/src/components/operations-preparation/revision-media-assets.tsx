@@ -100,7 +100,7 @@ const SELECTION_REFUSAL_WORDING: Record<ContentSelectionRefusal, string> = {
   "revision-unresolvable": "This draft revision could not be found in your organization.",
   "asset-unresolvable": "That image could not be found in your organization.",
   "asset-retired": "This image has been retired, and a retired image is not used in a draft.",
-  "asset-not-image": "This asset is not an image, and a draft's content package takes images only.",
+  "asset-kind-incoherent": "This asset's kind does not match what produced it, so it cannot be chosen.",
 };
 
 const PREVIEW_WORDING: Record<string, string> = {
@@ -117,7 +117,7 @@ const REVIEW_REFUSAL_WORDING: Record<MediaAssetReviewRefusal, string> = {
   "not-the-governance-authority": "Reviewing is a Governance act, and you do not hold it here. Nothing was recorded.",
   "asset-unresolvable": "That image could not be resolved in your organization. Nothing was recorded.",
   "asset-retired": "This image has been retired, and a retired image is not reviewed.",
-  "asset-not-image": "This asset is not an image, and this review is for generated images only. Nothing was recorded.",
+  "asset-kind-incoherent": "This asset's kind does not match what produced it. Nothing was recorded.",
   "asset-digest-mismatch": "The image you were shown is not the image on record, so nothing was recorded. Reload before deciding again.",
   "justification-required": "A reason is required. Nothing was recorded.",
   "persistence-unavailable": "The Governance ledger could not be reached. Nothing was recorded.",

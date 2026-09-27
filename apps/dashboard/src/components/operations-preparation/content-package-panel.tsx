@@ -20,15 +20,16 @@ import {
 import type { ContentPackageResult } from "@/features/content-composition/read-content-package.server";
 import {
   CONTENT_PACKAGE_NON_CLAIMS,
+  CONTENT_PACKAGE_VIDEO_NON_CLAIM,
   type ContentPackageBlocker,
 } from "@/features/content-composition/contracts";
 
 const BLOCKER_WORDING: Record<ContentPackageBlocker, string> = {
   "copy-empty": "This revision has no copy yet.",
-  "no-media-selected": "No image has been chosen for this draft.",
-  "selected-media-retired": "A chosen image has been retired and can no longer be used.",
-  "selected-media-declined": "A chosen image was declined in review.",
-  "selected-media-unreviewed": "A chosen image has not been reviewed yet.",
+  "no-media-selected": "No image or video has been chosen for this draft.",
+  "selected-media-retired": "A chosen image or video has been retired and can no longer be used.",
+  "selected-media-declined": "A chosen image or video was declined in review.",
+  "selected-media-unreviewed": "A chosen image or video has not been reviewed yet.",
   "copy-declined": "The copy was sent back for changes.",
   "copy-unreviewed": "The copy has not been reviewed yet.",
 };
@@ -101,8 +102,13 @@ export function ContentPackagePanel({
           <dd className="text-fg-secondary">{pkg.copyReviewState}</dd>
         </div>
         <div className="flex gap-2">
-          <dt className="min-w-24">Chosen images</dt>
-          <dd className="text-fg-secondary">{pkg.selected.length}</dd>
+          <dt className="min-w-24">Chosen media</dt>
+          <dd className="text-fg-secondary">
+            {pkg.selected.filter((s) => s.mediaKind === "image").length} image
+            {pkg.selected.filter((s) => s.mediaKind === "image").length === 1 ? "" : "s"} ·{" "}
+            {pkg.selected.filter((s) => s.mediaKind === "video").length} video
+            {pkg.selected.filter((s) => s.mediaKind === "video").length === 1 ? "" : "s"}
+          </dd>
         </div>
       </dl>
 
@@ -110,9 +116,11 @@ export function ContentPackagePanel({
         <ul className="min-w-0 space-y-1">
           {pkg.selected.map((s) => (
             <li key={s.mediaAssetId} className="flex flex-wrap items-center gap-2 text-[11px]">
+              {/* VIDEO CONTENT CHAIN — the kind is the reader's `mediaKind`, never the MIME or a name. */}
               <span className="text-fg-secondary">
-                {s.width}×{s.height} {s.mimeType.replace("image/", "").toUpperCase()}{" "}
-                {formatBytes(s.byteSize)}
+                {s.mediaKind === "video" && s.video
+                  ? `Video ${s.width}×${s.height} · ${(s.video.durationMs / 1000).toFixed(1)} s · ${s.video.videoCodec}${s.video.audioCodec ? ` + ${s.video.audioCodec}` : " · no audio"} · ${formatBytes(s.byteSize)}`
+                  : `Image ${s.width}×${s.height} ${s.mimeType.replace("image/", "").toUpperCase()} ${formatBytes(s.byteSize)}`}
               </span>
               <span className="text-fg-muted">
                 {pkg.mediaReviewStates[s.mediaAssetId] ?? "unreviewed"}
@@ -140,6 +148,14 @@ export function ContentPackagePanel({
           ))}
         </ul>
       )}
+
+      {/*
+        VIDEO CONTENT CHAIN — a chosen video is part of the package and is NOT publishable: the only
+        publish path reads images, and there is no YouTube authority. Said whenever a video is chosen.
+      */}
+      {pkg.selected.some((s) => s.mediaKind === "video") ? (
+        <p className="text-[11px] text-fg-muted">{CONTENT_PACKAGE_VIDEO_NON_CLAIM}</p>
+      ) : null}
 
       {/* Printed every time, ready or not. This is the part that must not be collapsible. */}
       <ul className="space-y-0.5 text-[11px] text-fg-muted">

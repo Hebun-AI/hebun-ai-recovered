@@ -126,6 +126,11 @@ export async function readContentPackage(
       .select({
         mediaAssetId: contentSelectedMedia.mediaAssetId,
         selectedAt: contentSelectedMedia.selectedAt,
+        mediaKind: mediaAssets.mediaKind,
+        videoDurationMs: mediaAssets.videoDurationMs,
+        videoCodec: mediaAssets.videoCodec,
+        audioCodec: mediaAssets.audioCodec,
+        videoFrameRate: mediaAssets.videoFrameRate,
         mimeType: mediaAssets.mimeType,
         byteSize: mediaAssets.byteSize,
         width: mediaAssets.width,
@@ -160,16 +165,46 @@ export async function readContentPackage(
     return { status: "unavailable", reason: "persistence-unavailable" };
   }
 
-  const selected: SelectedMediaView[] = selectedRows.map((r) => ({
-    mediaAssetId: r.mediaAssetId,
-    selectedAt: r.selectedAt.toISOString(),
-    mimeType: r.mimeType,
+  /*
+   * VIDEO CONTENT CHAIN — the kind comes from the row. A video carries its probed facts, which the
+   * `media_assets_video_facts_chk` CHECK guarantees are present; an image carries none. A kind this
+   * reader does not know makes the package unreadable rather than rendering it as an image.
+   */
+  const selected: SelectedMediaView[] = [];
+  for (const r of selectedRows) {
+    let kind: "image" | "video";
+    let video: SelectedMediaView["video"] = null;
+    if (r.mediaKind === "image") {
+      kind = "image";
+    } else if (
+      r.mediaKind === "video" &&
+      typeof r.videoDurationMs === "number" &&
+      typeof r.videoCodec === "string" &&
+      typeof r.videoFrameRate === "string"
+    ) {
+      kind = "video";
+      video = {
+        durationMs: r.videoDurationMs,
+        videoCodec: r.videoCodec,
+        audioCodec: r.audioCodec ?? null,
+        frameRate: r.videoFrameRate,
+      };
+    } else {
+      return { status: "unavailable", reason: "persistence-unavailable" };
+    }
+    selected.push({
+      mediaAssetId: r.mediaAssetId,
+      selectedAt: r.selectedAt.toISOString(),
+      mediaKind: kind,
+      video,
+      mimeType: r.mimeType,
     byteSize: r.byteSize,
     width: r.width,
     height: r.height,
-    lifecycle: r.lifecycle,
-    sourceRevisionNo: r.sourceRevisionNo,
-  }));
+      lifecycle: r.lifecycle,
+      sourceRevisionNo: r.sourceRevisionNo,
+    });
+  }
 
   /* ── Governance, read from its own ledger, never from these rows ──────────── */
   const readMedia = deps.readMediaReviewStates ?? readMediaAssetReviewStates;

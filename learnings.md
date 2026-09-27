@@ -4316,3 +4316,20 @@ exist is anything that would invoke it.
 - **Take a provider's credential shape from its CURRENT key flow, not its reference page.** docs.higgsfield.ai/authentication still says `Key <key_id>:<key_secret>`, the TS SDK splits on exactly one colon, but open.higgsfield.ai now issues ONE opaque "API key" and its official quick-start says send it verbatim and never split it or require a colon. Two 401 rounds came from modelling the older pair (and from a console "Copy ID" that is not part of authentication).
 - **An authenticated `/estimate` is not always a numeric estimate.** For Seedance 2.0/2.5 Higgsfield answered HTTP 200 with the undocumented shape `{type: "description", pricing_description: string}` (a prose rate card: "roughly" per-second prices before discount, plus a token formula) instead of the documented `{credits, usd}`. No numeric authenticated estimate is available from that observed contract, and a parser that text-mines it would turn prose into a price nobody quoted; the harness reports UNREADABLE and no text-parsing was added.
 - **Acceptance seeding can reuse test seeds without entering the product.** MV-6's real-provider stage needs a tenant, a human with Governance, a durable agent and a draft; the only released path to all four is the MV-4 test seed. It stays acceptance-only: the environment lives under `tests/helpers/` (skipped by the runner), the one generation CLI reaches it by a dynamic import after the confirmation, nothing under `src/` imports `tests/`, and a test pins all three.
+
+## VIDEO CONTENT CHAIN — video in the content workflow (2026-09-27, implemented, not closed)
+
+- The "image-only" wall was code, not schema. `content_selected_media` and `decision_records` had no
+  kind constraint; MV-2 refused video with one `if` per writer. Measure the DB before assuming a gate.
+- Replace a blanket refusal with a COHERENCE rule, not with nothing: `media_kind` must equal the
+  invocation's `output_media_kind`. MV-2's own test fixture (a video under an image invocation) became
+  the negative case, and the refusal got a truer name (`asset-kind-incoherent`).
+- A firewall rule that only checks for a word is not a rule. My first "kind coherence" rule matched
+  on `outputMediaKind` appearing anywhere; the bite that deleted the comparison survived. Pin the
+  comparison itself.
+- "Supplied or generated" in a directive collided with MEDIA-SUPPLIED doctrine (supplied images are
+  neither reviewed nor selected). Widening it for video alone would split authority by kind; widening
+  both changes image behaviour. Stop at that boundary and report it — don't decide it in code.
+- Weekly 3: learned the chain was already 90% built by prior authorities; TRH gets a reviewed video in
+  a package without a new provider call; Hebun gains video as a first-class content medium with zero
+  new authority.

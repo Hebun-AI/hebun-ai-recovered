@@ -3,9 +3,14 @@
  * (MEDIA-1).
  *
  * WHAT "ACCEPTED" MEANS, EXACTLY: a human holding this organization's Governance authority judged
- * THIS EXACT ADMITTED IMAGE — these bytes, by their SHA-256 — fit for the next internal step. It does
- * NOT mean the image is accurate, on-brand, licensed, safe, or approved for publication, and nothing
- * in Hebun may translate it into any of those.
+ * THIS EXACT ADMITTED IMAGE OR VIDEO — these bytes, by their SHA-256 — fit for the next internal step.
+ * It does NOT mean the asset is accurate, on-brand, licensed, safe, or approved for publication, and
+ * nothing in Hebun may translate it into any of those.
+ *
+ * VIDEO CONTENT CHAIN: a GENERATED video is a subject exactly as a generated image is — same subject
+ * type, same decision words, same digest binding. Supplied and derived assets stay outside this
+ * review for both kinds (MEDIA-SUPPLIED / PUBLISH-0), so provenance never grants a video a different
+ * review authority than an image.
  *
  *   ASSET ACCEPTED   != PUBLICATION AUTHORIZED
  *   ASSET ACCEPTED   != SOURCE DRAFT ACCEPTED        (that is a separate `work_artifact_revision` decision)
@@ -58,8 +63,12 @@ export type MediaAssetReviewRefusal =
   | "asset-unresolvable"
   /** The asset exists in this tenant but has been retired; a retired asset is not reviewed. */
   | "asset-retired"
-  /** MV-2 — the asset is not an image; the image review does not take a video. Nothing is recorded. */
-  | "asset-not-image"
+  /**
+   * VIDEO CONTENT CHAIN — the asset's `media_kind` is not the kind its invocation produced (or is
+   * neither image nor video). Replaces MV-2's `asset-not-image`: a generated video is now a subject.
+   * Nothing is recorded.
+   */
+  | "asset-kind-incoherent"
   /** The digest the reviewer was shown is not the digest of the asset. Nothing is recorded. */
   | "asset-digest-mismatch"
   | "justification-required"

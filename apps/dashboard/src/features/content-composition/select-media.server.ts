@@ -1,5 +1,6 @@
 /*
- * content-composition/select-media.server.ts — put an image into a draft revision, or take it out.
+ * content-composition/select-media.server.ts — put an image or a video into a draft revision, or
+ * take it out. (VIDEO CONTENT CHAIN: a generated video is selectable exactly as a generated image is.)
  *
  * ── THE ENTIRE AUTHORITY OF THIS MODULE ──────────────────────────────────────
  *
@@ -79,7 +80,12 @@ async function resolveParents(
   db: ControlPlaneDatabase,
   tenantId: string,
   input: ContentSelectionInput,
-): Promise<{ revision: boolean; assetLifecycle: string | null; assetKind: string | null }> {
+): Promise<{
+  revision: boolean;
+  assetLifecycle: string | null;
+  assetKind: string | null;
+  invocationOutputKind: string | null;
+}> {
   const [revisionRows, assetRows] = await Promise.all([
     db
       .select({ revisionNo: workArtifactRevisions.revisionNo })
@@ -93,7 +99,11 @@ async function resolveParents(
       )
       .limit(1),
     db
-      .select({ lifecycle: mediaAssets.assetLifecycleStatus, mediaKind: mediaAssets.mediaKind })
+      .select({
+        lifecycle: mediaAssets.assetLifecycleStatus,
+        mediaKind: mediaAssets.mediaKind,
+        invocationOutputKind: mediaGenerationInvocations.outputMediaKind,
+      })
       .from(mediaAssets)
       /*
        * MEDIA-SELECT-INTEGRITY: the image must have been generated FROM this draft. Its invocation's
@@ -130,10 +140,11 @@ async function resolveParents(
     revision: revisionRows.length > 0,
     assetLifecycle: assetRows[0]?.lifecycle ?? null,
     assetKind: assetRows[0]?.mediaKind ?? null,
+    invocationOutputKind: assetRows[0]?.invocationOutputKind ?? null,
   };
 }
 
-/** Put one admitted image into one draft revision. Idempotent. */
+/** Put one admitted image or video into one draft revision. Idempotent. */
 export async function selectMediaForRevision(
   tenant: TenantContext | null,
   input: ContentSelectionInput | null,
@@ -156,8 +167,17 @@ export async function selectMediaForRevision(
   }
   if (!parents.revision) return refused("revision-unresolvable");
   if (parents.assetLifecycle === null) return refused("asset-unresolvable");
-  /* MV-2 — the content package is image-only. A video row is refused, never selected. */
-  if (parents.assetKind !== "image") return refused("asset-not-image");
+  /*
+   * VIDEO CONTENT CHAIN — a generated image or a generated video, by the row's own `media_kind`.
+   * The kind must be the one its invocation produced; a row contradicting its provenance is refused,
+   * never selected. The MEDIA-SELECT-INTEGRITY join above (same draft) applies to both kinds.
+   */
+  if (
+    (parents.assetKind !== "image" && parents.assetKind !== "video") ||
+    parents.assetKind !== parents.invocationOutputKind
+  ) {
+    return refused("asset-kind-incoherent");
+  }
   /* Custody, and ONLY custody. No Governance state is read here at all. */
   if (parents.assetLifecycle !== "admitted") return refused("asset-retired");
 

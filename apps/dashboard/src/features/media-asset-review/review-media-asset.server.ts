@@ -8,6 +8,7 @@
  *     1. the authenticated human                       (server-side session)
  *     2. this tenant's Governance authority            (bootstrap or active delegation)
  *     3. the asset, tenant-scoped, still admitted      (the subject existence check)
+ *        and of the kind its invocation produced       (VIDEO CONTENT CHAIN: image or video)
  *     4. the digest the reviewer was shown == stored   (otherwise nothing is recorded)
  *     5. the approve/reject decision + session         (subject media_asset, domain media-asset-review)
  *     6. the Governance audit event
@@ -22,7 +23,7 @@
 import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { decisionRecords } from "@/db/schema/governance";
-import { mediaAssets } from "@/db/schema/media-asset";
+import { mediaAssets, mediaGenerationInvocations } from "@/db/schema/media-asset";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordGovernanceEventWithin } from "@/features/governance-audit/governance-decision-audit.server";
 import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
@@ -101,8 +102,21 @@ async function review(
           invocationId: mediaAssets.invocationId,
           lifecycle: mediaAssets.assetLifecycleStatus,
           mediaKind: mediaAssets.mediaKind,
+          videoDurationMs: mediaAssets.videoDurationMs,
+          videoCodec: mediaAssets.videoCodec,
+          audioCodec: mediaAssets.audioCodec,
+          videoFrameRate: mediaAssets.videoFrameRate,
+          /* What the invocation that produced these bytes said it would produce. */
+          invocationOutputKind: mediaGenerationInvocations.outputMediaKind,
         })
         .from(mediaAssets)
+        .innerJoin(
+          mediaGenerationInvocations,
+          and(
+            eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
+            eq(mediaGenerationInvocations.id, mediaAssets.invocationId),
+          ),
+        )
         /*
          * PUBLISH-0: a derived (publish) asset is not a reviewable creative subject.
          * MEDIA-SUPPLIED: neither is an image a human supplied — this is the creative review of
@@ -116,12 +130,22 @@ async function review(
             isNotNull(mediaAssets.invocationId),
           ),
         )
-        .for("share")
+        .for("share", { of: mediaAssets })
         .limit(1);
       const asset = rows[0];
       if (!asset) throw new ReviewAbort("asset-unresolvable");
-      /* MV-2 — this is the review of generated IMAGES. A video row is not its subject. */
-      if (asset.mediaKind !== "image") throw new ReviewAbort("asset-not-image");
+      /*
+       * VIDEO CONTENT CHAIN — the subject is a generated IMAGE or a generated VIDEO, read from the
+       * row's own `media_kind` and never from MIME, file name or provider. The kind must agree with
+       * what its invocation produced (`output_media_kind`): a row whose kind contradicts its own
+       * provenance is not a coherent subject, and nothing is recorded for it.
+       */
+      if (
+        (asset.mediaKind !== "image" && asset.mediaKind !== "video") ||
+        asset.mediaKind !== asset.invocationOutputKind
+      ) {
+        throw new ReviewAbort("asset-kind-incoherent");
+      }
       if (asset.lifecycle !== "admitted") throw new ReviewAbort("asset-retired");
       if (asset.byteDigest !== input!.byteDigest) throw new ReviewAbort("asset-digest-mismatch");
 
@@ -143,6 +167,16 @@ async function review(
             width: asset.width,
             height: asset.height,
             invocationId: asset.invocationId,
+            /* An image's evidence is unchanged. A video's names its kind and probed facts too. */
+            ...(asset.mediaKind === "video"
+              ? {
+                  mediaKind: asset.mediaKind,
+                  videoDurationMs: asset.videoDurationMs,
+                  videoCodec: asset.videoCodec,
+                  audioCodec: asset.audioCodec,
+                  videoFrameRate: asset.videoFrameRate,
+                }
+              : {}),
           },
         },
         now,
@@ -188,7 +222,7 @@ async function review(
   }
 }
 
-/** ACCEPT one exact admitted image for the next internal step. Authorizes nothing external. */
+/** ACCEPT one exact admitted image or video for the next internal step. Authorizes nothing external. */
 export async function acceptMediaAsset(
   tenant: TenantContext | null,
   input: MediaAssetReviewInput | null,
@@ -197,7 +231,7 @@ export async function acceptMediaAsset(
   return review(tenant, input, "accepted", deps);
 }
 
-/** RECORD that Governance did not accept one exact image. The asset is unchanged and readable. */
+/** RECORD that Governance did not accept one exact image or video. The asset is unchanged and readable. */
 export async function declineMediaAsset(
   tenant: TenantContext | null,
   input: MediaAssetReviewInput | null,

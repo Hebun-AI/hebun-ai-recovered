@@ -28,6 +28,8 @@
  */
 import {
   listArtifactMediaAssetsAction,
+  listArtifactMediaVideosAction,
+  listArtifactVideoGenerationsAction,
   readMediaAssetReviewStatesAction,
   listActiveRecipientsAction,
   listRetiredRecipientsAction,
@@ -40,7 +42,8 @@ import { PreparedWorkSection } from "./prepared-work-section";
 import { GenerateImageWithHebun } from "./generate-image-with-hebun";
 import { SupplyImageFromDrive } from "./supply-image-from-drive";
 import { SupplyVideoFromDrive } from "./supply-video-from-drive";
-import { RevisionMediaVideos } from "./revision-media-videos";
+import { DraftVideos, type DraftVideo, type DraftVideoGeneration } from "./revision-media-videos";
+import { GenerateVideoWithHebun } from "./generate-video-with-hebun";
 import { RevisionMediaAssets } from "./revision-media-assets";
 import { ContentPackagePanel } from "./content-package-panel";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
@@ -98,6 +101,27 @@ export async function OperationsPreparation() {
     drafts.length > 0
       ? await listArtifactMediaAssetsAction({ artifactIds: drafts.map((d) => d.artifactId) })
       : ({ status: "read", assets: [] } as const);
+
+  /*
+   * VIDEO CONTENT CHAIN. The drafts' videos (supplied and generated) and their video generation
+   * attempts, read once here beside the image listing — two released reads, no second authority.
+   * Video review states come from the same batched Governance reader as the images'. An unreadable
+   * listing renders nothing for videos; it never stands in for "no videos".
+   */
+  const draftIds = drafts.map((d) => d.artifactId);
+  const [videoListing, videoGenerations] =
+    drafts.length > 0
+      ? await Promise.all([
+          listArtifactMediaVideosAction({ artifactIds: draftIds }),
+          listArtifactVideoGenerationsAction({ artifactIds: draftIds }),
+        ])
+      : ([{ status: "read", videos: [] }, { status: "read", generations: [] }] as const);
+  const videoReviewStates =
+    videoListing.status === "read" && videoListing.videos.some((v) => v.origin === "generated")
+      ? await readMediaAssetReviewStatesAction({
+          assetIds: videoListing.videos.filter((v) => v.origin === "generated").map((v) => v.assetId),
+        })
+      : [];
 
   const mediaReviewStates =
     mediaListing.status === "read" && mediaListing.assets.length > 0
@@ -175,7 +199,14 @@ export async function OperationsPreparation() {
         is the invocation's own `(tenant, artifact, revision)` key, so this reads a relationship
         MEDIA-1 already owns and records nothing new.
       */}
-      <MediaAssetsForDrafts drafts={drafts} listing={mediaListing} reviewStates={mediaReviewStates} />
+      <MediaAssetsForDrafts
+        drafts={drafts}
+        listing={mediaListing}
+        reviewStates={mediaReviewStates}
+        videos={videoListing.status === "read" ? videoListing.videos : []}
+        videoGenerations={videoGenerations.status === "read" ? videoGenerations.generations : []}
+        videoReviewStates={videoReviewStates}
+      />
 
       {/*
         MEDIA-2B. The generation door is offered only for drafts the authority would actually
@@ -199,6 +230,18 @@ export async function OperationsPreparation() {
         </summary>
         <div className="border-t border-border px-3 pb-3 pt-3">
           <SupplyImageFromDrive targets={drafts} />
+        </div>
+      </details>
+      {/*
+        VIDEO CONTENT CHAIN — one text-to-video request through the MV-4 lifecycle. Whether a provider
+        may be called is decided by the lifecycle's transport resolution, not by this page.
+      */}
+      <details className="min-w-0 rounded-lg border border-border bg-surface">
+        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-fg-secondary">
+          + Generate a video with Hebun
+        </summary>
+        <div className="border-t border-border px-3 pb-3 pt-3">
+          <GenerateVideoWithHebun targets={drafts} />
         </div>
       </details>
       {/* MV-3 — a video the organization already has, streamed from its own Drive into Media. */}
@@ -241,6 +284,9 @@ function MediaAssetsForDrafts({
   drafts,
   listing,
   reviewStates,
+  videos,
+  videoGenerations,
+  videoReviewStates,
 }: {
   readonly drafts: readonly {
     readonly artifactId: string;
@@ -254,13 +300,20 @@ function MediaAssetsForDrafts({
    */
   readonly listing: Awaited<ReturnType<typeof listArtifactMediaAssetsAction>>;
   readonly reviewStates: Awaited<ReturnType<typeof readMediaAssetReviewStatesAction>>;
+  /* VIDEO CONTENT CHAIN — already read by the caller, rendered per draft. */
+  readonly videos: readonly DraftVideo[];
+  readonly videoGenerations: readonly DraftVideoGeneration[];
+  readonly videoReviewStates: Awaited<ReturnType<typeof readMediaAssetReviewStatesAction>>;
 }) {
   if (drafts.length === 0) return null;
-  if (listing.status !== "read" || listing.assets.length === 0) return null;
+  const assetsRead = listing.status === "read" ? listing.assets : [];
+  if (assetsRead.length === 0 && videos.length === 0 && videoGenerations.length === 0) return null;
 
   const byDraft = drafts
     .map((draft) => {
-      const assets = listing.assets.filter((a) => a.sourceArtifactId === draft.artifactId);
+      const assets = assetsRead.filter((a) => a.sourceArtifactId === draft.artifactId);
+      const draftVideos = videos.filter((v) => v.sourceArtifactId === draft.artifactId);
+      const draftGenerations = videoGenerations.filter((g) => g.sourceArtifactId === draft.artifactId);
       const current = assets.filter((a) => a.sourceRevisionNo === draft.currentRevision);
       /*
        * Grouped by the revision the asset itself names, newest revision first. The reader already
@@ -271,10 +324,16 @@ function MediaAssetsForDrafts({
         if (asset.sourceRevisionNo === draft.currentRevision) continue;
         previous.set(asset.sourceRevisionNo, [...(previous.get(asset.sourceRevisionNo) ?? []), asset]);
       }
-      return { draft, current, previous: [...previous.entries()] };
+      return { draft, current, previous: [...previous.entries()], draftVideos, draftGenerations };
     })
-    /* A draft with no images at all renders nothing — no empty scaffolding for an empty draft. */
-    .filter((entry) => entry.current.length > 0 || entry.previous.length > 0);
+    /* A draft with no images and no videos renders nothing — no empty scaffolding for an empty draft. */
+    .filter(
+      (entry) =>
+        entry.current.length > 0 ||
+        entry.previous.length > 0 ||
+        entry.draftVideos.length > 0 ||
+        entry.draftGenerations.length > 0,
+    );
 
   if (byDraft.length === 0) return null;
 
@@ -286,7 +345,7 @@ function MediaAssetsForDrafts({
      * named, and no asset carried forward into a revision it did not come from.
      */
     <div className="min-w-0 space-y-4">
-      {byDraft.map(({ draft, current, previous }) => (
+      {byDraft.map(({ draft, current, previous, draftVideos, draftGenerations }) => (
         <section
           key={draft.artifactId}
           className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-4"
@@ -318,7 +377,18 @@ function MediaAssetsForDrafts({
             ) : (
               <p className="text-xs text-fg-muted">No images have been generated for this revision.</p>
             )}
-            <RevisionMediaVideos artifactId={draft.artifactId} revisionNo={draft.currentRevision} />
+            {/*
+              VIDEO CONTENT CHAIN — this draft's videos from every revision (each names its own), and
+              its video attempts still in motion. A generated video is chosen for the CURRENT revision,
+              as an image is.
+            */}
+            <DraftVideos
+              artifactId={draft.artifactId}
+              currentRevision={draft.currentRevision}
+              videos={draftVideos}
+              generations={draftGenerations}
+              reviewStates={videoReviewStates}
+            />
           </div>
 
           {/*
