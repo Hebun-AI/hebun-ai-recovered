@@ -53,7 +53,53 @@ export interface MediaAsyncGenerationTransport {
     readonly invocationId: string;
   }): Promise<MediaAsyncDispatchOutcome>;
   poll(input: { readonly providerJobId: string }): Promise<MediaAsyncPollOutcome>;
+  /**
+   * MV-7 — OPTIONAL. Re-observe ONE already-completed job and say where its output can be read.
+   * A status READ only: it never dispatches, never spends a generation budget, and writes nothing. A
+   * transport without it cannot have its output admitted.
+   */
+  locateOutput?(input: { readonly providerJobId: string }): Promise<MediaAsyncOutputLocation>;
 }
+
+/*
+ * ── MV-7: WHERE A COMPLETED JOB'S OUTPUT CAN BE READ ─────────────────────────
+ *
+ * A provider output URL is ephemeral and may be signed, so it is treated like a credential: it is
+ * never a property of this object. `reveal()` hands it to exactly one caller — the provider-output
+ * download seam — and `JSON.stringify` / `util.inspect` of the location show only its SHAPE (a
+ * function is not serialized). The shape is what a human may see: scheme, hostname, the NAMES of the
+ * query parameters (never their values), and structure of the path (never its text).
+ *
+ * `allowedHosts` is the transport's own EXACT host allowlist for its outputs. It may be empty — then
+ * nothing is downloadable, which is the truthful state until a host is approved.
+ */
+export interface MediaProviderOutputShape {
+  readonly scheme: string;
+  readonly hostname: string;
+  readonly hasPort: boolean;
+  readonly hasCredentials: boolean;
+  readonly queryParameterNames: readonly string[];
+  readonly pathSegmentCount: number;
+  /** The last path segment's extension, when it is a plain short one (".mp4"); otherwise null. */
+  readonly pathExtension: string | null;
+}
+
+export interface MediaProviderOutputLocation {
+  readonly shape: MediaProviderOutputShape;
+  readonly allowedHosts: readonly string[];
+  /** The URL itself. For the download seam only; never log, persist, return or print it. */
+  readonly reveal: () => string;
+}
+
+export type MediaAsyncOutputLocation =
+  /** The provider says the job completed and names an output. */
+  | { readonly status: "located"; readonly location: MediaProviderOutputLocation }
+  /** The provider answered, but not with a usable completed output. `state` is provider-neutral. */
+  | { readonly status: "not-located"; readonly reason: "pending" | "failed" | "no-output" }
+  /** The provider no longer answers for this job id. */
+  | { readonly status: "not-found" }
+  /** No authoritative answer was read. */
+  | { readonly status: "unreadable" };
 
 export type MediaAsyncGenerationTransportResolution =
   | { readonly status: "available"; readonly transport: MediaAsyncGenerationTransport }

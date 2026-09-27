@@ -87,10 +87,12 @@ async function main(): Promise<void> {
     };
     walk("src");
     /* MV-3 connected it on purpose: the resolver builds it, the supplied-video admission uses it.
-     * MV-5 adds the normalized-video derivation, which uses its DERIVE-V1 and one range read. */
+     * MV-5 adds the normalized-video derivation, which uses its DERIVE-V1 and one range read.
+     * MV-7 adds the generated-video admission, which uses its WRITE-V2 facts TYPE (the resolver builds the client). */
     assert.deepEqual(
       offenders.sort(),
       [
+        "src/features/media-assets/admit-generated-video.server.ts",
         "src/features/media-assets/admit-supplied-drive-video.server.ts",
         "src/features/media-assets/derive-normalized-video.server.ts",
         "src/features/media-assets/media-storage.server.ts",

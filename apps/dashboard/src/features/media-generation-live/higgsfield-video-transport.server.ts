@@ -76,11 +76,24 @@
  * `HiggsfieldObservationNotRecorded("not-found")`, the lifecycle moves nothing and reports
  * `observation-unreadable`, and the row keeps `provider-pending` — the last provider fact it has.
  *
+ * ── MV-7: RE-OBSERVING A COMPLETED JOB'S OUTPUT (`locateOutput`) ─────────────
+ *
+ * The same ONE status GET as `poll`, for a job Hebun already holds the id of. It never dispatches and
+ * never touches the spend budget, so it cannot bill a generation. It returns the output URL only
+ * inside a `MediaProviderOutputLocation`: `reveal()` is for the provider-output download seam alone,
+ * and the location's enumerable facts are its SHAPE — scheme, hostname, query parameter NAMES and path
+ * structure. It records nothing; the MV-4 lifecycle and the admission writer own every row.
+ *
+ * `HIGGSFIELD_OUTPUT_HOSTS` is the EXACT set of hosts an output may be downloaded from. It is EMPTY
+ * until the Director approves a host observed by re-observation: no host is guessed, and no suffix or
+ * wildcard exists, so until then the download seam refuses every Higgsfield output.
+ *
  * ── WHAT NEVER LEAVES THIS MODULE ────────────────────────────────────────────
  *
- * The API key, the Authorization header, the raw body, provider error text, and output
- * URLs. Only a validated request id and closed codes are returned. Nothing is logged. No webhook
- * parameter is sent — webhooks are not part of MV-6's authority.
+ * The API key, the Authorization header, the raw body and provider error text. An output URL leaves
+ * only behind `reveal()` (above). Only validated request ids, closed codes and a URL's shape are
+ * returned. Nothing is logged. No webhook parameter is sent — webhooks are not part of MV-6's
+ * authority.
  *
  * Server-only.
  */
@@ -88,8 +101,10 @@ import type { MediaGenerationTransportKind } from "@/features/media-assets/contr
 import type {
   MediaAsyncDispatchOutcome,
   MediaAsyncGenerationTransport,
+  MediaAsyncOutputLocation,
   MediaAsyncPollOutcome,
   MediaAsyncProviderFailure,
+  MediaProviderOutputLocation,
 } from "@/features/media-assets/async-generation-transport";
 import type { LiveSpendBudget } from "@/features/heby-model-live/live-spend-budget.server";
 
@@ -152,6 +167,13 @@ export const HIGGSFIELD_DISPATCH_TIMEOUT_MS = 30_000;
 export const HIGGSFIELD_POLL_TIMEOUT_MS = 30_000;
 /** Both documented bodies are a few hundred bytes of JSON. */
 export const HIGGSFIELD_MAX_RESPONSE_BYTES = 64 * 1024;
+
+/**
+ * MV-7 — the EXACT hosts a Higgsfield output may be downloaded from. Empty on purpose: the output host
+ * is unknown until one completed job is re-observed, and a host enters here only by Director approval.
+ * Exact names only — never a suffix, a wildcard or an IP literal.
+ */
+export const HIGGSFIELD_OUTPUT_HOSTS: readonly string[] = Object.freeze([]);
 
 const REQUEST_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PROVIDER_STATES = ["queued", "in_progress", "completed", "failed", "nsfw", "canceled"] as const;
@@ -266,6 +288,52 @@ function isHttpsUrl(value: unknown): boolean {
     return new URL(value).protocol === "https:";
   } catch {
     return false;
+  }
+}
+
+const PRINTABLE_PARAM_NAME = /^[A-Za-z0-9._-]{1,64}$/;
+const PLAIN_EXTENSION = /\.([a-z0-9]{1,5})$/i;
+
+/**
+ * MV-7 — wrap one output URL so that only its SHAPE is enumerable. The URL is reachable solely through
+ * `reveal()`; `JSON.stringify` drops the function and nothing here copies the path or a query value.
+ */
+export function higgsfieldOutputLocation(rawUrl: string, allowedHosts: readonly string[]): MediaProviderOutputLocation {
+  const url = new URL(rawUrl);
+  /* `match`, not `split`: the MV-6 contract pins that nothing in this module splits a value. */
+  const segments = url.pathname.match(/[^/]+/g) ?? [];
+  const extension = PLAIN_EXTENSION.exec(segments[segments.length - 1] ?? "");
+  const names = [...new Set(url.searchParams.keys())].map((name) => (PRINTABLE_PARAM_NAME.test(name) ? name : "<unprintable>")).sort();
+  const shape = Object.freeze({
+    scheme: url.protocol.replace(/:$/, ""),
+    hostname: url.hostname.toLowerCase(),
+    hasPort: url.port !== "",
+    hasCredentials: url.username !== "" || url.password !== "",
+    queryParameterNames: Object.freeze(names),
+    pathSegmentCount: segments.length,
+    pathExtension: extension ? `.${extension[1]!.toLowerCase()}` : null,
+  });
+  return Object.freeze({ shape, allowedHosts: Object.freeze([...allowedHosts]), reveal: () => rawUrl });
+}
+
+/** MV-7 — one status read → where the output is, or why it is not located. Pure. */
+export function toMediaAsyncOutputLocation(httpStatus: number, body: unknown, requestId: string, allowedHosts: readonly string[]): MediaAsyncOutputLocation {
+  const observation = observeHiggsfieldStatus(httpStatus, body, requestId);
+  if (observation.kind === "not-found") return { status: "not-found" };
+  if (observation.kind === "unreadable") return { status: "unreadable" };
+  switch (observation.state) {
+    case "queued":
+    case "in_progress":
+      return { status: "not-located", reason: "pending" };
+    case "failed":
+    case "nsfw":
+    case "canceled":
+      return { status: "not-located", reason: "failed" };
+    case "completed": {
+      const raw = field(field(body, "video"), "url");
+      if (!observation.hasVideoUrl || typeof raw !== "string") return { status: "not-located", reason: "no-output" };
+      return { status: "located", location: higgsfieldOutputLocation(raw, allowedHosts) };
+    }
   }
 }
 
@@ -425,6 +493,29 @@ export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportC
       });
       const body = await readJson(response);
       return toMediaAsyncPollOutcome(observeHiggsfieldStatus(response.status, body, input.providerJobId), input.providerJobId);
+    },
+
+    /* MV-7: the same one status GET as `poll`. No dispatch, no budget, no row — see the header. */
+    async locateOutput(input: { readonly providerJobId: string }): Promise<MediaAsyncOutputLocation> {
+      let url: string;
+      try {
+        url = higgsfieldStatusUrl(input.providerJobId);
+      } catch {
+        return { status: "unreadable" };
+      }
+      let response: Response;
+      try {
+        response = await doFetch(url, {
+          method: "GET",
+          headers: { authorization: authorization(), accept: "application/json" },
+          redirect: "error",
+          cache: "no-store",
+          signal: AbortSignal.timeout(pollTimeoutMs),
+        });
+      } catch {
+        return { status: "unreadable" };
+      }
+      return toMediaAsyncOutputLocation(response.status, await readJson(response), input.providerJobId, HIGGSFIELD_OUTPUT_HOSTS);
     },
   });
 }

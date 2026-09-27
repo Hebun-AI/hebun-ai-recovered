@@ -184,9 +184,10 @@ type RelayOutcome =
 
 /**
  * A bounded pass-through: counts, hashes and remembers the first bytes of what flows from Drive to the
- * store, and errors the stream the moment it passes the ceiling. Nothing is accumulated.
+ * store, and errors the stream the moment it passes the ceiling. Nothing is accumulated. MV-7's
+ * generated-video admission relays a provider output through this same pass-through.
  */
-function boundedRelay(max: number) {
+export function boundedRelay(max: number) {
   const hash = createHash("sha256");
   const head = new Uint8Array(HEAD_BYTES);
   let count = 0;

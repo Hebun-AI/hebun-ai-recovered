@@ -52,6 +52,8 @@ const code = (f: string): string => stripComments(read(f));
   assert.deepEqual(
     inserters,
     [
+      /* MV-7 — a provider-generated video, streamed, probed and admitted with its admission transition. */
+      "src/features/media-assets/admit-generated-video.server.ts",
       /* MEDIA-SUPPLIED — a human-supplied Drive image, admitted inside this same authority. */
       "src/features/media-assets/admit-supplied-drive-image.server.ts",
       /* MV-3 — a human-supplied Drive video, streamed and probed, admitted inside this same authority. */
@@ -66,6 +68,8 @@ const code = (f: string): string => stripComments(read(f));
   );
   const invocationWriters = SRC.filter((f) => /\.(insert|update)\(\s*mediaGenerationInvocations\s*\)/.test(code(f)));
   assert.deepEqual(invocationWriters, [
+    /* MV-7 — the ONE owner of an async video's `admission_outcome`; it never writes `state` (tests/mv7-generated-video/authority-firewall). */
+    "src/features/media-assets/admit-generated-video.server.ts",
     /* MV-4 — the asynchronous lifecycle of the SAME invocation authority: one CAS writer, no second table. */
     "src/features/media-assets/async-generation-lifecycle.server.ts",
     "src/features/media-assets/request-media-generation.server.ts",
@@ -263,6 +267,8 @@ const code = (f: string): string => stripComments(read(f));
   assert.deepEqual(
     importers,
     [
+      /* MV-7: the generated-video admission names the same backend constant only, never the adapter. */
+      "src/features/media-assets/admit-generated-video.server.ts",
       /* MV-3: the video admission names the backend constant only (`hebun-vps`), never the adapter. */
       "src/features/media-assets/admit-supplied-drive-video.server.ts",
       /* MV-5: the video derivation names the same backend constant only, never the adapter. */
@@ -293,11 +299,13 @@ const code = (f: string): string => stripComments(read(f));
     SRC.filter((f) => f !== V2 && /vps-media-storage-v2/.test(code(f))).sort(),
     /* MV-5: the normalized-video derivation catches the client's typed DERIVE-V1 refusal. */
     [
+      /* MV-7: the generated-video admission uses the v2 client's StoredObjectFacts TYPE only. */
+      "src/features/media-assets/admit-generated-video.server.ts",
       "src/features/media-assets/admit-supplied-drive-video.server.ts",
       "src/features/media-assets/derive-normalized-video.server.ts",
       "src/features/media-assets/media-storage.server.ts",
     ],
-    "only the storage resolver constructs storage v2, and only the video admission and derivation use it",
+    "only the storage resolver constructs storage v2, and only the video admissions and derivation use it",
   );
   const v2 = code(V2);
   assert.ok(!/@\/db|drizzle|schema\/|TenantContext|governance|permit|action-|media_assets/i.test(v2), "the v2 client reads no row and holds no authority");

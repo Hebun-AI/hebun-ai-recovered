@@ -7,7 +7,7 @@
  * Server-only.
  */
 import { and, eq } from "drizzle-orm";
-import { mediaAssets } from "@/db/schema/media-asset";
+import { mediaAssets, mediaGenerationInvocations } from "@/db/schema/media-asset";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { isUuid, type MediaAssetLifecycleStatus } from "./contracts";
 import type { MediaReadAccess } from "./media-object-store";
@@ -20,7 +20,9 @@ import type { MediaReadDeps } from "./read-media-assets.server";
  *
  * Separate from the image records above on purpose: those are the gallery/composer/review model and
  * stay image-only (MV-2). A video is recognised by `media_kind = 'video'` on its row — never by MIME,
- * file name, provider or credential — and today only a SUPPLIED video exists (MV-3).
+ * file name, provider or credential. MV-3 admitted SUPPLIED videos; MV-7 adds GENERATED ones, whose
+ * provenance is their invocation (`invocation_id`) and whose draft revision is that invocation's. A
+ * derived video (MV-5) is not a record of this model.
  *
  * Playback is the released signed read: the store re-verifies size and SHA-256 against the row, then
  * a short-lived read grant for `video/mp4` is minted. The browser's `<video>` element fetches it with
@@ -29,7 +31,7 @@ import type { MediaReadDeps } from "./read-media-assets.server";
 export interface MediaVideoRecord {
   readonly assetId: string;
   readonly mediaKind: "video";
-  readonly origin: "supplied";
+  readonly origin: "supplied" | "generated";
   readonly mimeType: "video/mp4";
   readonly byteSize: number;
   readonly byteDigest: string;
@@ -44,8 +46,11 @@ export interface MediaVideoRecord {
   readonly lifecycle: MediaAssetLifecycleStatus;
   readonly sourceArtifactId: string;
   readonly sourceRevisionNo: number;
-  readonly suppliedByActorId: string;
-  readonly suppliedSourceFileId: string;
+  /** Supplied only; null for a generated video. */
+  readonly suppliedByActorId: string | null;
+  readonly suppliedSourceFileId: string | null;
+  /** Generated only (MV-7): the attempt that produced these bytes; null for a supplied video. */
+  readonly invocationId: string | null;
 }
 
 /** A video grant is sized for playback, within the store's own 300 s ceiling. */
@@ -73,20 +78,32 @@ const videoColumns = {
   suppliedRevisionNo: mediaAssets.suppliedRevisionNo,
   suppliedByActorId: mediaAssets.suppliedByActorId,
   suppliedSourceFileId: mediaAssets.suppliedSourceFileId,
+  /* MV-7: a generated video's draft revision is its invocation's (left join; null for supplied). */
+  generatedArtifactId: mediaGenerationInvocations.sourceArtifactId,
+  generatedRevisionNo: mediaGenerationInvocations.sourceRevisionNo,
+  generatedOutputKind: mediaGenerationInvocations.outputMediaKind,
 };
 
 type VideoRow = { [K in keyof typeof videoColumns]: unknown };
 
 function toVideoRecord(r: VideoRow): (MediaVideoRecord & { readonly storageKey: string }) | null {
+  const supplied =
+    r.invocationId === null &&
+    typeof r.suppliedArtifactId === "string" &&
+    typeof r.suppliedRevisionNo === "number" &&
+    typeof r.suppliedByActorId === "string" &&
+    typeof r.suppliedSourceFileId === "string";
+  const generated =
+    typeof r.invocationId === "string" &&
+    r.suppliedArtifactId === null &&
+    r.generatedOutputKind === "video" &&
+    typeof r.generatedArtifactId === "string" &&
+    typeof r.generatedRevisionNo === "number";
   if (
     r.mediaKind !== "video" ||
     r.mimeType !== "video/mp4" ||
-    r.invocationId !== null ||
     r.derivedFromAssetId !== null ||
-    typeof r.suppliedArtifactId !== "string" ||
-    typeof r.suppliedRevisionNo !== "number" ||
-    typeof r.suppliedByActorId !== "string" ||
-    typeof r.suppliedSourceFileId !== "string" ||
+    (!supplied && !generated) ||
     typeof r.container !== "string" ||
     typeof r.durationMs !== "number" ||
     typeof r.videoCodec !== "string" ||
@@ -97,7 +114,7 @@ function toVideoRecord(r: VideoRow): (MediaVideoRecord & { readonly storageKey: 
   return {
     assetId: r.assetId as string,
     mediaKind: "video",
-    origin: "supplied",
+    origin: supplied ? "supplied" : "generated",
     mimeType: "video/mp4",
     byteSize: r.byteSize as number,
     byteDigest: r.byteDigest as string,
@@ -110,10 +127,11 @@ function toVideoRecord(r: VideoRow): (MediaVideoRecord & { readonly storageKey: 
     frameRate: r.frameRate,
     admittedAt: new Date(r.admittedAt as Date | string).toISOString(),
     lifecycle: r.lifecycle as MediaAssetLifecycleStatus,
-    sourceArtifactId: r.suppliedArtifactId,
-    sourceRevisionNo: r.suppliedRevisionNo,
-    suppliedByActorId: r.suppliedByActorId,
-    suppliedSourceFileId: r.suppliedSourceFileId,
+    sourceArtifactId: (supplied ? r.suppliedArtifactId : r.generatedArtifactId) as string,
+    sourceRevisionNo: (supplied ? r.suppliedRevisionNo : r.generatedRevisionNo) as number,
+    suppliedByActorId: supplied ? (r.suppliedByActorId as string) : null,
+    suppliedSourceFileId: supplied ? (r.suppliedSourceFileId as string) : null,
+    invocationId: supplied ? null : (r.invocationId as string),
     storageKey: r.storageKey as string,
   };
 }
@@ -122,7 +140,10 @@ export type RevisionMediaVideoListing =
   | { readonly status: "unavailable"; readonly reason: "persistence-unavailable" }
   | { readonly status: "read"; readonly videos: readonly MediaVideoRecord[] };
 
-/** Every admitted video supplied for one exact draft revision. A database read; no access granted. */
+/**
+ * Every admitted video SUPPLIED for one exact draft revision. A database read; no access granted.
+ * Generated videos (MV-7) are opened by id through `readMediaVideo`; this listing is unchanged.
+ */
 export async function listRevisionMediaVideos(
   tenant: TenantContext | null,
   input: { readonly artifactId: string; readonly revisionNo: number } | null,
@@ -140,6 +161,10 @@ export async function listRevisionMediaVideos(
     const rows = await db
       .select(videoColumns)
       .from(mediaAssets)
+      .leftJoin(
+        mediaGenerationInvocations,
+        and(eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId), eq(mediaGenerationInvocations.id, mediaAssets.invocationId)),
+      )
       .where(
         and(
           eq(mediaAssets.tenantId, tenantId),
@@ -193,6 +218,10 @@ export async function readMediaVideo(
     const rows = await db
       .select(videoColumns)
       .from(mediaAssets)
+      .leftJoin(
+        mediaGenerationInvocations,
+        and(eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId), eq(mediaGenerationInvocations.id, mediaAssets.invocationId)),
+      )
       .where(and(eq(mediaAssets.tenantId, tenantId), eq(mediaAssets.id, assetId)))
       .limit(1);
     record = rows[0] ? toVideoRecord(rows[0]) : null;
