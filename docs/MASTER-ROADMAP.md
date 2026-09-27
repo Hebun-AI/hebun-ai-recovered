@@ -5115,6 +5115,7 @@ deliberately not a summary. States are copied from those records, not upgraded.
 | **TENANT-ARM-1** Per-Organization External-Send Arming | `8816dfba` | tenant containment PRODUCTION-VERIFIED · **real external-send execution NOT VERIFIED / DEFERRED** | migration **60** | `hebun-tenant-arm-1-closure.md` |
 | **PUBLISH-0** One Approved Image to Instagram | `f2005e84` (deployed at `3db976a6`) | **PRODUCTION ACCEPTED / CLOSED** — 53/53, one real publish (media id `18091512017663172`), read-back matched, TRH disarmed after | migrations **61, 62** | `hebun-publish-0-closure.md` |
 | **MEDIA-SUPPLIED** Human-Supplied Images (third Media origin) | `72d28682` + Picker/`drive.file` correction `3db976a6` | RELEASED + PRODUCTION-ACCEPTED / CLOSED — admission 34/34 | migration **63** | `hebun-media-supplied-closure.md` |
+| **MV-7** Generated Video Admission | `e36e143a` + host pin `0dcc73d6` + acceptance `c2905715` (deployed at `c2905715`) | **PRODUCTION ACCEPTED / CLOSED** — one real Higgsfield PixVerse V6 generation admitted (asset `c3eb1139`), connectivity DISABLED after | no migration (ledger 67) | `hebun-mv7-generated-video-admission-closure.md` |
 
 **Authored migration ledger at this baseline: 60**, last
 `20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
@@ -5128,6 +5129,15 @@ for `publish-instagram-media` by PUBLISH-0; TENANT-ARM-1's own record stays as w
 PUBLISH-0, Turkish Rug House external-send is **refused** (`tenant-arming-withdrawn`, rev 4); the
 deployment root stays enabled and `machine-internal-execution` stays disabled. Supplied media enters
 only through Google Picker + `drive.file` (§12B); `drive.readonly` is not part of the accepted path.
+
+**Continuity extended at `c2905715` (2026-09-27).** The MV-7 row was added after the table above was
+reconciled. The media video phases before it (MV-1 … MV-6, `eba4d378` … `a0b177b9`, migrations
+**64 → 67**) have no closure record under `docs/product-vision/runtime/` and are not rowed here; this
+note does not assign them a state. Production migration ledger: **67**, as measured by the MV-7
+closure record. MV-7 proves one real Higgsfield generation and its admission into Media through an
+operator harness; it claims no automatic Heby video orchestration, no route- or action-triggered
+generation, no image-to-video, no YouTube publish, no always-on connectivity and no Vercel production
+provider credential. `higgsfield-video-generation` is **DISABLED** (version 2) after acceptance.
 
 ```
 POINTER               != SUMMARY
