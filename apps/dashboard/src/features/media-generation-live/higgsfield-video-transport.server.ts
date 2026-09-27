@@ -84,9 +84,10 @@
  * and the location's enumerable facts are its SHAPE — scheme, hostname, query parameter NAMES and path
  * structure. It records nothing; the MV-4 lifecycle and the admission writer own every row.
  *
- * `HIGGSFIELD_OUTPUT_HOSTS` is the EXACT set of hosts an output may be downloaded from. It is EMPTY
- * until the Director approves a host observed by re-observation: no host is guessed, and no suffix or
- * wildcard exists, so until then the download seam refuses every Higgsfield output.
+ * `HIGGSFIELD_OUTPUT_HOSTS` is the EXACT set of hosts an output may be downloaded from. A host enters
+ * only after it was observed by re-observation AND the Director approved that exact name: no host is
+ * guessed, and no suffix or wildcard exists, so every other host — including any other CloudFront
+ * distribution — is refused by the download seam, on the first hop and on every redirect.
  *
  * ── WHAT NEVER LEAVES THIS MODULE ────────────────────────────────────────────
  *
@@ -169,11 +170,13 @@ export const HIGGSFIELD_POLL_TIMEOUT_MS = 30_000;
 export const HIGGSFIELD_MAX_RESPONSE_BYTES = 64 * 1024;
 
 /**
- * MV-7 — the EXACT hosts a Higgsfield output may be downloaded from. Empty on purpose: the output host
- * is unknown until one completed job is re-observed, and a host enters here only by Director approval.
- * Exact names only — never a suffix, a wildcard or an IP literal.
+ * MV-7 — the EXACT hosts a Higgsfield output may be downloaded from. Exact names only — never a
+ * suffix, a wildcard or an IP literal, and never `cloudfront.net` itself.
+ *
+ *   d3u0tzju9qaucj.cloudfront.net   observed by the MV-7 re-observation of request f23c6488 and
+ *                                   approved by the Director, 2026-09-27, as this exact name only
  */
-export const HIGGSFIELD_OUTPUT_HOSTS: readonly string[] = Object.freeze([]);
+export const HIGGSFIELD_OUTPUT_HOSTS: readonly string[] = Object.freeze(["d3u0tzju9qaucj.cloudfront.net"]);
 
 const REQUEST_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PROVIDER_STATES = ["queued", "in_progress", "completed", "failed", "nsfw", "canceled"] as const;

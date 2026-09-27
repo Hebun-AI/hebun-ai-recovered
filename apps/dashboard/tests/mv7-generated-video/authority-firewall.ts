@@ -73,7 +73,11 @@ for (const f of [WRITER, DOWNLOAD]) {
 }
 {
   const t = code(TRANSPORT);
-  assert.ok(/export const HIGGSFIELD_OUTPUT_HOSTS: readonly string\[\] = Object\.freeze\(\[\]\);/.test(t), "no output host is approved in source");
+  assert.ok(
+    /export const HIGGSFIELD_OUTPUT_HOSTS: readonly string\[\] = Object\.freeze\(\["d3u0tzju9qaucj\.cloudfront\.net"\]\);/.test(t),
+    "exactly the one Director-approved output host is in source",
+  );
+  assert.ok(!/["'`][*.]*cloudfront\.net["'`]/.test(t), "never the CloudFront parent or a wildcard");
 }
 
 /* ── the listing stays supplied-only ── */

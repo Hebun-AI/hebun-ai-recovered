@@ -81,6 +81,11 @@ export async function runDownloadScenarios(mod: DownloadModule, label: string): 
     [`https://mv7.test/x.mp4`, [`*.mv7.test`], "a wildcard entry is dropped, never rewritten into its apex"],
     [`https://${HOST}/x.mp4`, [`.mv7.test`], "leading-dot suffix entry"],
     [`https://${HOST}/x.mp4`, [], "empty allowlist"],
+    /* The Director-approved CloudFront name, and its look-alikes. */
+    [`https://other.cloudfront.net/x.mp4`, ["d3u0tzju9qaucj.cloudfront.net"], "another CloudFront distribution"],
+    [`https://x.d3u0tzju9qaucj.cloudfront.net/x.mp4`, ["d3u0tzju9qaucj.cloudfront.net"], "a subdomain of the approved distribution"],
+    [`https://d3u0tzju9qaucj.cloudfront.net.evil.test/x.mp4`, ["d3u0tzju9qaucj.cloudfront.net"], "the approved name as a prefix"],
+    [`https://cloudfront.net/x.mp4`, ["d3u0tzju9qaucj.cloudfront.net"], "the CloudFront parent"],
   ] as const) {
     const s = server({ [target]: { status: 200, body: payload } });
     const r = await mod.openProviderOutputStream(location(target, allowed), "video/mp4", { get: s.get });
@@ -104,6 +109,13 @@ export async function runDownloadScenarios(mod: DownloadModule, label: string): 
   }
 
   /* ── 4. redirects: every hop re-checked; at most two ── */
+  {
+    const approved = "https://d3u0tzju9qaucj.cloudfront.net/a/out.mp4";
+    const elsewhere = "https://evil.cloudfront.net/b.mp4";
+    const s = server({ [approved]: { status: 302, headers: { location: elsewhere } }, [elsewhere]: { status: 200, body: payload } });
+    assert.deepEqual(await mod.openProviderOutputStream(location(approved, ["d3u0tzju9qaucj.cloudfront.net"]), "video/mp4", { get: s.get }), { status: "refused", reason: "download-host-not-allowed" }, `${label}: approved host redirecting to another distribution`);
+    assert.equal(s.seen.length, 1);
+  }
   {
     const other = `https://other.mv7.test/y.mp4`;
     const s = server({ [url]: { status: 302, headers: { location: other } }, [other]: { status: 200, body: payload } });

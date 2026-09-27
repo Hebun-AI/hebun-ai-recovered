@@ -16,6 +16,9 @@
  * the REAL MV-4 poll (one GET), the REAL admission (one GET + one output fetch), then provider-free
  * verification. Everything is destroyed at the end.
  */
+import { lookup } from "node:dns";
+import { existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { loadHiggsfieldCredentialOrRefuse } from "./lib/higgsfield-credential-file";
 import {
   MV7_ACCEPTANCE_REQUEST_ID,
@@ -67,10 +70,19 @@ async function main(): Promise<void> {
     return;
   }
 
+  /* The output fetch resolves each hop's host through here: counted, then filtered public-only by the seam. */
+  const hops: string[] = [];
+  const resolve = (hostname: string) =>
+    new Promise<readonly { address: string; family: number }[]>((ok, fail) => {
+      hops.push(hostname);
+      lookup(hostname, { all: true, verbatim: true }, (error, addresses) => (error ? fail(error) : ok(addresses)));
+    });
+
   const { createMv7AcceptanceEnvironment } = await import("../tests/helpers/mv7-acceptance-environment");
   const env = await createMv7AcceptanceEnvironment();
+  const { database, storeRoot } = env.resources;
   try {
-    const r = await runAdmissionAcceptance({ env, transport, requestId });
+    const r = await runAdmissionAcceptance({ env, transport, requestId, download: { resolve } });
     console.log(`poll: ${r.pollOutcome}; stop: ${r.stop}`);
     if (r.admission) {
       const a = r.admission;
@@ -82,11 +94,15 @@ async function main(): Promise<void> {
         console.log(`admission: ${JSON.stringify(a)}`);
       }
     }
-    console.log(`invocation admission_outcome: ${r.invocationAdmissionOutcome ?? "n/a"}; media_assets ${r.mediaAssetsBefore} -> ${r.mediaAssetsAfter}`);
-    console.log(`stored bytes = row: ${r.storedVerified ? "YES" : "NO"}; read model origin: ${r.readModelOrigin ?? "n/a"}; Range: ${r.rangeStatus ?? "n/a"} (${r.rangeBytes ?? 0} bytes)`);
-    console.log(`requests: ${guard.counts.gets} GET, ${guard.counts.posts} POST attempted`);
+    console.log(`invocation admission_outcome: ${r.invocationAdmissionOutcome ?? "n/a"}; admission_failure: ${r.invocationAdmissionFailure ?? "null"}; media_assets ${r.mediaAssetsBefore} -> ${r.mediaAssetsAfter}`);
+    console.log(`stored bytes = row (size + sha256, store verify): ${r.storedVerified ? "YES" : "NO"}; stored major brand: ${r.storedMajorBrand ?? "n/a"}`);
+    console.log(`read model: origin ${r.readModelOrigin ?? "n/a"}; invocation linked: ${r.readModelInvocationId !== null ? "YES" : "NO"}; signed grant issued: ${r.grantIssued ? "YES" : "NO"}`);
+    console.log(`Range bytes=0-1023: ${r.rangeStatus ?? "n/a"} (${r.rangeBytes ?? 0} bytes)`);
+    console.log(`requests: ${guard.counts.gets} status GET, ${guard.counts.posts} POST attempted; output hop resolutions: ${hops.length} (${[...new Set(hops)].join(", ") || "none"})`);
   } finally {
     await env.dispose();
+    const dbLeft = spawnSync("psql", ["-d", "postgres", "-Atc", `select count(*) from pg_database where datname = '${database.replace(/[^a-z0-9_]/g, "")}'`], { encoding: "utf8" });
+    console.log(`cleanup: disposable database ${dbLeft.status === 0 && dbLeft.stdout.trim() === "0" ? "DROPPED" : "UNVERIFIED"}; local store ${existsSync(storeRoot) ? "PRESENT" : "REMOVED"}`);
   }
 }
 

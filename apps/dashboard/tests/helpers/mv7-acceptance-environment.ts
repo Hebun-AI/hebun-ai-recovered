@@ -32,7 +32,7 @@ const tool = (name: string): string => execFileSync("sh", ["-c", `command -v ${n
 
 export async function createMv7AcceptanceEnvironment(
   name = "hebun_mv7_acceptance",
-): Promise<Mv7AdmissionEnvironment & { readonly dispose: () => Promise<void> }> {
+): Promise<Mv7AdmissionEnvironment & { readonly dispose: () => Promise<void>; readonly resources: { readonly database: string; readonly storeRoot: string } }> {
   const ffprobe = tool("ffprobe");
   const ffmpeg = tool("ffmpeg");
   if (!ffprobe || !ffmpeg) throw new Error("REFUSED: ffprobe and ffmpeg must be installed for the local store");
@@ -81,6 +81,8 @@ export async function createMv7AcceptanceEnvironment(
       assetRows: async (id) =>
         (await client.query<{ j: Record<string, unknown> }>(`select row_to_json(m)::jsonb j from media_assets m where invocation_id=$1`, [id])).rows.map((r) => r.j),
       countMediaAssets: async () => (await client.query<{ n: number }>("select count(*)::int n from media_assets")).rows[0]!.n,
+      /* Names only, so a caller can prove both are gone after `dispose()`. */
+      resources: { database: harness.dbName, storeRoot: s.root },
       dispose,
     };
   } catch (error) {

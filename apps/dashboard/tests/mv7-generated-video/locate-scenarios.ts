@@ -8,7 +8,7 @@
  * URL is `located`; the location's enumerable facts are the URL's SHAPE only (scheme, hostname,
  * query parameter NAMES, path structure) — the URL, its path and its query values are reachable only
  * through `reveal()` and never appear in JSON or `util.inspect`. Every other answer is a closed
- * non-location. The output host allowlist is EMPTY until the Director approves a host."
+ * non-location. The output host allowlist is EXACTLY the one Director-approved CloudFront name."
  */
 import assert from "node:assert/strict";
 import { inspect } from "node:util";
@@ -37,7 +37,7 @@ function fakeFetch(answer: (url: string) => { status: number; body?: unknown }) 
 
 export async function runLocateScenarios(mod: TransportModule, label: string): Promise<void> {
   const statusUrl = mod.higgsfieldStatusUrl(JOB);
-  assert.deepEqual([...mod.HIGGSFIELD_OUTPUT_HOSTS], [], `${label}: no output host is trusted until the Director approves one`);
+  assert.deepEqual([...mod.HIGGSFIELD_OUTPUT_HOSTS], ["d3u0tzju9qaucj.cloudfront.net"], `${label}: exactly the one approved output host`);
 
   /* ── 1. completed + https URL → located; one GET; no POST; no budget spent, none needed ── */
   for (const limit of [0, 1]) {
@@ -57,7 +57,8 @@ export async function runLocateScenarios(mod: TransportModule, label: string): P
         scheme: "https", hostname: "cdn.provider.test", hasPort: false, hasCredentials: false,
         queryParameterNames: ["Expires", "Key-Pair-Id", "Signature"], pathSegmentCount: 3, pathExtension: ".mp4",
       }, `${label}: shape only`);
-      assert.deepEqual([...loc.allowedHosts], [], `${label}: nothing is downloadable yet`);
+      assert.deepEqual([...loc.allowedHosts], ["d3u0tzju9qaucj.cloudfront.net"], `${label}: the location carries only the approved host`);
+      assert.ok(!loc.allowedHosts.includes(loc.shape.hostname), `${label}: an unapproved output host stays undownloadable`);
       for (const view of [JSON.stringify(r), inspect(r, { depth: 10, showHidden: true })]) {
         assert.ok(!view.includes(SECRET_VALUE) && !view.includes(SECRET_PATH) && !view.includes(OUTPUT), `${label}: no URL, path or query value in a printed location`);
       }

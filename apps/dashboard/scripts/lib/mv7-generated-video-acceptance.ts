@@ -30,6 +30,7 @@ import type { ProviderStreamDeps } from "../../src/features/media-assets/provide
 import { pollAsyncMediaGeneration } from "../../src/features/media-assets/async-generation-lifecycle.server";
 import { admitGeneratedVideo, type AdmitGeneratedVideoResult } from "../../src/features/media-assets/admit-generated-video.server";
 import { readMediaVideo } from "../../src/features/media-assets/read-media-videos.server";
+import { mp4MajorBrand } from "../../src/features/media-assets/admit-supplied-drive-video.server";
 
 export const MV7_ACCEPTANCE_REQUEST_ID = "f23c6488-d651-4acc-8cef-206ceb96cec7";
 export const MV7_REOBSERVE_CONFIRMATION = "--confirm-one-status-read";
@@ -148,10 +149,15 @@ export interface AdmissionAcceptanceReport {
   readonly pollOutcome: string;
   readonly admission: AdmitGeneratedVideoResult | null;
   readonly invocationAdmissionOutcome: string | null;
+  readonly invocationAdmissionFailure: string | null;
   readonly mediaAssetsBefore: number;
   readonly mediaAssetsAfter: number;
   readonly storedVerified: boolean;
+  /** The ISO-BMFF major brand read back from the STORED object's first 12 bytes. */
+  readonly storedMajorBrand: string | null;
   readonly readModelOrigin: string | null;
+  readonly readModelInvocationId: string | null;
+  readonly grantIssued: boolean;
   readonly rangeStatus: number | null;
   readonly rangeBytes: number | null;
 }
@@ -171,7 +177,18 @@ export async function runAdmissionAcceptance(input: {
   /* The REAL MV-4 writer owns provider-succeeded: one poll (a status GET). */
   const polled = await pollAsyncMediaGeneration(env.tenant, id, { getDb: env.getDb, resolveTransport });
   const pollOutcome = polled.status === "transitioned" ? polled.state : polled.status;
-  const empty = { admission: null, invocationAdmissionOutcome: null, storedVerified: false, readModelOrigin: null, rangeStatus: null, rangeBytes: null };
+  const empty = {
+    admission: null,
+    invocationAdmissionOutcome: null,
+    invocationAdmissionFailure: null,
+    storedVerified: false,
+    storedMajorBrand: null,
+    readModelOrigin: null,
+    readModelInvocationId: null,
+    grantIssued: false,
+    rangeStatus: null,
+    rangeBytes: null,
+  };
   if (pollOutcome !== "provider-succeeded") {
     return { stop: "poll-not-succeeded", pollOutcome, mediaAssetsBefore: before, mediaAssetsAfter: await env.countMediaAssets(), ...empty };
   }
@@ -182,10 +199,12 @@ export async function runAdmissionAcceptance(input: {
     resolveTransport,
     download: input.download,
   });
-  const invocationAdmissionOutcome = String((await env.invocationRow(id)).admission_outcome);
+  const inv = await env.invocationRow(id);
+  const invocationAdmissionOutcome = String(inv.admission_outcome);
+  const invocationAdmissionFailure = inv.admission_failure === null ? null : String(inv.admission_failure);
   const after = await env.countMediaAssets();
   if (admission.status !== "admitted") {
-    return { stop: "not-admitted", pollOutcome, mediaAssetsBefore: before, mediaAssetsAfter: after, ...empty, admission, invocationAdmissionOutcome };
+    return { stop: "not-admitted", pollOutcome, mediaAssetsBefore: before, mediaAssetsAfter: after, ...empty, admission, invocationAdmissionOutcome, invocationAdmissionFailure };
   }
 
   /* Verification, provider-free: the stored object, the row, the read model, one signed Range. */
@@ -197,6 +216,12 @@ export async function runAdmissionAcceptance(input: {
     const stored = await v1.store.verify(String(row.storage_key)).catch(() => null);
     storedVerified =
       stored?.status === "present" && stored.sha256Hex === row.byte_digest && stored.byteSize === row.byte_size && row.byte_digest === admission.asset.byteDigest;
+  }
+  let storedMajorBrand: string | null = null;
+  const v2 = env.storageV2();
+  if (row && v2.status === "available") {
+    const head = await v2.client.readRange({ key: String(row.storage_key), contentType: "video/mp4", start: 0, end: 11 }).catch(() => null);
+    if (head?.status === "range") storedMajorBrand = mp4MajorBrand(head.bytes);
   }
   const read = await readMediaVideo(env.tenant, admission.asset.assetId, { getDb: env.getDb, resolveStorage: env.storageV1 });
   let rangeStatus: number | null = null;
@@ -211,10 +236,14 @@ export async function runAdmissionAcceptance(input: {
     pollOutcome,
     admission,
     invocationAdmissionOutcome,
+    invocationAdmissionFailure,
     mediaAssetsBefore: before,
     mediaAssetsAfter: after,
     storedVerified,
+    storedMajorBrand,
     readModelOrigin: read.status === "read" ? read.video.origin : null,
+    readModelInvocationId: read.status === "read" ? read.video.invocationId : null,
+    grantIssued: read.status === "read" && read.access.url.length > 0,
     rangeStatus,
     rangeBytes,
   };

@@ -3,7 +3,7 @@
  * DISPOSABLE Postgres and the real local store, through the RELEASED writers.
  *
  * THE CLAIM: "The CLI refuses anything but the MV-6 request id with the stage's own confirmation,
- * before reading a credential, and refuses `admit` outright while no output host is approved. The
+ * before reading a credential; a valid stage stops at the credential file when there is none. The
  * guarded fetch sends no POST and no GET beyond its budget. `reobserve` reports the provider answer and
  * the URL's SHAPE only. `admit` moves the fixture through the real MV-4 poll and the real admission,
  * then verifies stored bytes, the row, the read model and a signed Range — and when the host is not
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
   }
   const admitNow = cli(["admit", ID, "--confirm-one-output-fetch"]);
   assert.equal(admitNow.status, 1);
-  assert.match(admitNow.stderr, /no Higgsfield output host is approved/, "admit is not executable before a host is approved");
+  assert.match(admitNow.stderr, /MV6_HIGGSFIELD_ENV_FILE/, "with the host approved, a valid admit reaches the credential file, and stops there without one");
   const reobserveNoKey = cli(["reobserve", ID, "--confirm-one-status-read"]);
   assert.match(reobserveNoKey.stderr, /MV6_HIGGSFIELD_ENV_FILE/, "a valid reobserve reaches the credential file, and stops there without one");
 
@@ -140,7 +140,7 @@ async function main(): Promise<void> {
       },
     };
 
-    /* 4a. host NOT approved (the released allowlist is empty): stop, nothing recorded, no asset. */
+    /* 4a. an output on a host that is NOT the approved one: stop, nothing recorded, no asset. */
     {
       const { h, g, t } = make();
       const r = await runAdmissionAcceptance({ env, transport: t, requestId: ID, download });
