@@ -26,7 +26,9 @@ GENERATED-VIDEO MEDIA ADMISSION                    VERIFIED   (production, MV-7 
 SOURCE → VIDEO LINEAGE                             VERIFIED   (production, MEDIA-5 column)
 AUTHORITATIVE READ MODEL (origin generated)        VERIFIED   (production, released readers)
 SIGNED RANGE READ OF THE VIDEO                     DIRECTOR-OBSERVED (not re-verified by Claude; see §3)
-MEDIA REVIEW / SELECTION / PACKAGE OF THIS VIDEO   NOT PERFORMED (not part of this acceptance)
+MEDIA REVIEW OF THIS VIDEO                         VERIFIED   (production, APPROVED — §9)
+CONTENT SELECTION OF THIS VIDEO                    VERIFIED   (production, rev 3 — §9)
+CONTENT PACKAGE REPRESENTATION                     VERIFIED   (production, authoritative re-read — §9)
 PUBLISHING                                         NOT PERFORMED (no platform path accepts video)
 APPLICATION DOOR, REAL PROVIDER                    NOT EXERCISED (operator harness only; see §6)
 HIGGSFIELD CONNECTIVITY                            DISABLED   (both keys, version 2)
@@ -35,8 +37,8 @@ REAL TRH / CUSTOMER IMAGES ON THIS PATH            NOT AUTHORIZED (Terms §4.4, 
 ```
 
 **IMAGE → VIDEO: PRODUCTION ACCEPTED / CLOSED** — for one Director-performed, harness-driven
-generation on a synthetic source. Nothing above this line claims review, selection, Governance
-approval or publishing.
+generation on a synthetic source, followed through the existing VIDEO CONTENT CHAIN (§9). Nothing
+here claims publishing, publish authorization or copy approval.
 
 ## 2 · The authority decision
 
@@ -138,8 +140,7 @@ is undocumented, and Hebun has no delete path for it.
 
 ## 6 · What this program does not prove or include
 
-- review, selection, Governance approval or Content Package membership of `ad4978da` (the VIDEO
-  CONTENT CHAIN path exists for generated video; it was not exercised on this asset)
+- copy review, package readiness, or any publish authorization (§9 stops at selection)
 - publishing of any video (no platform path accepts one)
 - the `/operations` application door with a real provider — Vercel production holds no Higgsfield
   configuration and both controls are DISABLED; the real generation ran through the operator harness
@@ -165,11 +166,47 @@ is undocumented, and Hebun has no delete path for it.
 
 ## 8 · Next
 
-Candidate, **not selected, not authorized, not started:** take `ad4978da` through the existing VIDEO
-CONTENT CHAIN — MEDIA-3 review → CONTENT-COMPOSE-1 selection → Content Package — so an image-derived
-video is shown as a package item with its source lineage visible. No provider call, no generation, no
-migration expected. The data-use decision (§5) is a separate Director decision that gates any real
-image and is not a product build.
+Candidate, **not selected, not authorized, not started:** show a generated video's source lineage in the
+Content Package itself — each package video item naming the admitted image it was generated from
+(already on the invocation row as MEDIA-5 lineage), as a read-model change only: no new authority, no
+migration, no provider call. The data-use decision (§5) is a separate Director decision that gates any
+real image and is not a product build.
+
+## 9 · Content chain follow-through (2026-09-27)
+
+The generated video `ad4978da` was taken through the EXISTING VIDEO CONTENT CHAIN — MEDIA-3 review →
+CONTENT-COMPOSE-1 selection → Content Package — with no code change, no new authority and no migration.
+
+**Human-performed by the Director** in production `/operations` on deployment `7361505c`
+(`dpl_DME212kSRi4Y7tw6gJJYC4Bt1yds`): playback verified; review reason "Production acceptance:
+image-to-video output playback verified." → **Accept video** (UI: APPROVED, "Accepted. Nothing was
+published."); **Use in revision 3** (UI: "Added to this draft. It appears in the content package above.").
+**By Claude:** no production write — eligibility checked read-only BEFORE the actions, outcomes
+re-verified read-only AFTER them through the released readers (`readMediaAssetReviewState`,
+`readContentPackage`, `listArtifactMediaVideos`, `listArtifactVideoGenerations`,
+`readAsyncMediaGeneration`, `resolveDirectorEnabled`), target bound to the G4 pin, ledger 67.
+
+```
+review        ad4978da  MEDIA-3 decision f7e28209-ac7e-499c-9894-ca709ff23c9e
+                        subject media_asset · outcome media-asset-accepted · 20:37:08Z · 1 decision
+selection     draft 57b57106… rev 3 (current revision 3): c3eb1139 + ad4978da, selected 20:37:51Z
+package       rev 3, authoritative re-read: 0 images · 2 videos
+                c3eb1139  1024x576 · 3042 ms · h264 · no audio · approved
+                ad4978da  1280x720 · 5042 ms · h264 · no audio · approved
+              blockers [copy-unreviewed] · ready false
+lineage       ad4978da → invocation a0d5ba5d (admitted, provider-succeeded)
+                       → source_media_asset_id 3f7b9e66 (synthetic supplied PNG)
+controls      higgsfield-image-to-video false · higgsfield-video-generation false
+side effects  since 20:30Z: action_permits 0 · heby_action_requests 0 · action_execution_attempts 0
+counts        media_assets 9 · invocations 4 (unchanged) · no generation, no provider call
+```
+
+The media review is MEDIA-3's creative review of generated output, recorded in its own ledger. It is
+not publish authorization and not copy approval; the package stays NOT READY on the copy alone. No
+video was published — no platform path accepts one. Supplied-media semantics are unchanged: the
+supplied SOURCE image is still outside review and selection. The package item does not show the
+source image; lineage is visible on the generation row ("from image 3f7b9e66") and in the invocation
+row (§8 candidate).
 
 ```
 SOURCE SUPPLIED  != GENERATED
