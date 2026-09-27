@@ -95,3 +95,31 @@ it, and the Content Package shows it as a video. The application generation door
 **Not sent** in production (Vercel holds no Higgsfield configuration; control DISABLED) — that is the
 truthful fail-closed state, and it is not a billable call. A real application-path generation would
 need a separate Director gate (env + control + cost).
+
+## 8 · Production-acceptance failure at `fb1ed329` and its fix
+
+**Observed (Director, production):** MV-7 video `c3eb1139` played, was ACCEPTED (badge "Approved"),
+"Use in revision 3" answered "Added to this draft…", and the Content Package panel beside it still
+read "0 images · 0 videos".
+
+**Root cause (from code):** `content-package-panel.tsx` fetched the package ONCE, in a client
+`useEffect` keyed on `[artifactId, revisionNo]`, into client state. `setMediaSelectionAction` does
+`revalidatePath("/operations")` on success, which re-renders the server tree — but the panel's props
+were unchanged, so the effect never re-ran and the panel kept its pre-selection read. The success
+message itself is truthful: it is shown only for `status: "selected"`, which the writer returns only
+after its `INSERT … ON CONFLICT DO NOTHING` completed without error. The same stale-panel defect
+existed for image selection since CONTENT-COMPOSE-1.
+
+**Persistence:** by code, the selection row exists (`selected` is returned only after the insert).
+Not confirmed by a production read: Claude's production DB reads are blocked in this environment.
+A page reload re-reads it through the released reader and is the confirmation.
+
+**Fix:** `operations-preparation.tsx` reads each draft's package on the server
+(`readContentPackageAction`, current revision) and passes it to the panel; the panel holds no state
+and fetches nothing. Every successful select/remove revalidates `/operations`, so the next render
+carries a fresh authoritative read. No writer, reader, schema or authority changed.
+
+**Regression proof:** `chain-postgres` asserts "0 images · 1 video" for the video-only package, an
+independent re-read, and a mixed "1 image · 1 video" with image selection and wrong-draft refusal
+unchanged; `chain-firewall` rule 5 (4 bites) pins: no client-held package, server read handed down,
+revalidation only on non-refusal, "Added" only for `selected`.

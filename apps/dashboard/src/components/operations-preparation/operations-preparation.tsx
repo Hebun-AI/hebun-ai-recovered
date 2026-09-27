@@ -30,6 +30,7 @@ import {
   listArtifactMediaAssetsAction,
   listArtifactMediaVideosAction,
   listArtifactVideoGenerationsAction,
+  readContentPackageAction,
   readMediaAssetReviewStatesAction,
   listActiveRecipientsAction,
   listRetiredRecipientsAction,
@@ -123,6 +124,21 @@ export async function OperationsPreparation() {
         })
       : [];
 
+  /*
+   * VIDEO CONTENT CHAIN (production-acceptance fix). Each draft's Content Package for its CURRENT
+   * revision, read here by the released reader. Because this is a server read, the revalidation
+   * every successful selection performs re-reads it — the panel can no longer show a package from
+   * before the selection it just reported.
+   */
+  const contentPackages = new Map(
+    await Promise.all(
+      drafts.map(
+        async (d) =>
+          [d.artifactId, await readContentPackageAction({ artifactId: d.artifactId, revisionNo: d.currentRevision })] as const,
+      ),
+    ),
+  );
+
   const mediaReviewStates =
     mediaListing.status === "read" && mediaListing.assets.length > 0
       ? await readMediaAssetReviewStatesAction({
@@ -206,6 +222,7 @@ export async function OperationsPreparation() {
         videos={videoListing.status === "read" ? videoListing.videos : []}
         videoGenerations={videoGenerations.status === "read" ? videoGenerations.generations : []}
         videoReviewStates={videoReviewStates}
+        contentPackages={contentPackages}
       />
 
       {/*
@@ -287,6 +304,7 @@ function MediaAssetsForDrafts({
   videos,
   videoGenerations,
   videoReviewStates,
+  contentPackages,
 }: {
   readonly drafts: readonly {
     readonly artifactId: string;
@@ -304,6 +322,8 @@ function MediaAssetsForDrafts({
   readonly videos: readonly DraftVideo[];
   readonly videoGenerations: readonly DraftVideoGeneration[];
   readonly videoReviewStates: Awaited<ReturnType<typeof readMediaAssetReviewStatesAction>>;
+  /* Read by the caller on the server, per draft, for its current revision. */
+  readonly contentPackages: ReadonlyMap<string, Awaited<ReturnType<typeof readContentPackageAction>>>;
 }) {
   if (drafts.length === 0) return null;
   const assetsRead = listing.status === "read" ? listing.assets : [];
@@ -357,7 +377,13 @@ function MediaAssetsForDrafts({
             one a human is finishing. Older revisions keep their images (MEDIA-4A) but are not what
             is being assembled.
           */}
-          <ContentPackagePanel artifactId={draft.artifactId} revisionNo={draft.currentRevision} />
+          <ContentPackagePanel
+            artifactId={draft.artifactId}
+            revisionNo={draft.currentRevision}
+            result={
+              contentPackages.get(draft.artifactId) ?? { status: "unavailable", reason: "persistence-unavailable" }
+            }
+          />
 
           {/*
             The current revision, named explicitly. It is stated even when it has no images, because

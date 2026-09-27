@@ -12,15 +12,13 @@
  * will post this". Hebun cannot post anything: there is no publishing action kind and Instagram's
  * `/media_publish` is on an explicitly banned path list.
  */
-import { useEffect, useState, useTransition } from "react";
-import {
-  readContentPackageAction,
-  setMediaSelectionAction,
-} from "@/app/(dashboard)/operations/actions";
+import { useTransition } from "react";
+import { setMediaSelectionAction } from "@/app/(dashboard)/operations/actions";
 import type { ContentPackageResult } from "@/features/content-composition/read-content-package.server";
 import {
   CONTENT_PACKAGE_NON_CLAIMS,
   CONTENT_PACKAGE_VIDEO_NON_CLAIM,
+  describeSelectedMedia,
   type ContentPackageBlocker,
 } from "@/features/content-composition/contracts";
 
@@ -43,33 +41,30 @@ function formatBytes(bytes: number): string {
 export function ContentPackagePanel({
   artifactId,
   revisionNo,
+  result,
 }: {
   readonly artifactId: string;
   readonly revisionNo: number;
+  /*
+   * VIDEO CONTENT CHAIN (production-acceptance fix). The package is read ON THE SERVER, by the
+   * released reader, on every render of /operations, and handed down. It used to be fetched here
+   * once, on mount, into client state — so after a selection elsewhere on the page the server
+   * re-rendered, the props did not change, the effect did not re-run, and this panel kept showing
+   * the package as it was BEFORE the selection. Now every successful selection or removal
+   * (`revalidatePath("/operations")` in the action) re-reads the package on the server, and this
+   * panel renders exactly that read. It holds no copy of its own.
+   */
+  readonly result: ContentPackageResult;
 }) {
-  const [result, setResult] = useState<ContentPackageResult | null>(null);
   const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    let live = true;
-    void readContentPackageAction({ artifactId, revisionNo }).then((r) => {
-      if (live) setResult(r);
-    });
-    return () => {
-      live = false;
-    };
-  }, [artifactId, revisionNo]);
-
   function remove(mediaAssetId: string) {
+    /* The action revalidates /operations on success; the new server read arrives as `result`. */
     startTransition(async () => {
       await setMediaSelectionAction({ artifactId, revisionNo, mediaAssetId, selected: false });
-      setResult(await readContentPackageAction({ artifactId, revisionNo }));
     });
   }
 
-  if (result === null) {
-    return <p className="text-xs text-fg-muted">Reading the content package…</p>;
-  }
   if (result.status === "unavailable") {
     return <p className="text-xs text-fg-muted">The content package could not be read right now.</p>;
   }
@@ -103,12 +98,7 @@ export function ContentPackagePanel({
         </div>
         <div className="flex gap-2">
           <dt className="min-w-24">Chosen media</dt>
-          <dd className="text-fg-secondary">
-            {pkg.selected.filter((s) => s.mediaKind === "image").length} image
-            {pkg.selected.filter((s) => s.mediaKind === "image").length === 1 ? "" : "s"} ·{" "}
-            {pkg.selected.filter((s) => s.mediaKind === "video").length} video
-            {pkg.selected.filter((s) => s.mediaKind === "video").length === 1 ? "" : "s"}
-          </dd>
+          <dd className="text-fg-secondary">{describeSelectedMedia(pkg.selected)}</dd>
         </div>
       </dl>
 

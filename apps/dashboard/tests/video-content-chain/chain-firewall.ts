@@ -26,6 +26,9 @@ const LIFECYCLE = "src/features/media-assets/async-generation-lifecycle.server.t
 const DOOR = "src/components/operations-preparation/generate-video-with-hebun.tsx";
 const PANEL = "src/components/operations-preparation/revision-media-videos.tsx";
 const REVIEW = "src/features/media-asset-review/review-media-asset.server.ts";
+const PACKAGE_PANEL = "src/components/operations-preparation/content-package-panel.tsx";
+const COMPOSER = "src/components/operations-preparation/operations-preparation.tsx";
+const IMAGE_CARDS = "src/components/operations-preparation/revision-media-assets.tsx";
 const SELECT = "src/features/content-composition/select-media.server.ts";
 
 function fnBody(src: string, name: string): string {
@@ -107,9 +110,35 @@ const RULES: Rule[] = [
       assert.match(stripComments(f[SELECT]!), /eq\(mediaGenerationInvocations\.sourceArtifactId, input\.artifactId\)/, "MEDIA-SELECT-INTEGRITY still binds the draft");
     },
   },
+  {
+    /*
+     * PRODUCTION-ACCEPTANCE REGRESSION (fb1ed329): the panel fetched the package once, on mount, into
+     * client state; after "Use in revision 3" the server re-rendered, the panel's props did not change,
+     * and it kept showing the pre-selection package ("0 images · 0 videos") beside a truthful
+     * "Added to this draft". The package must be a SERVER read handed down, re-read by the action's
+     * revalidation — and success wording must follow the action's own answer.
+     */
+    name: "the Content Package is the server's read, re-read after every successful selection",
+    check: (f) => {
+      const panel = stripComments(f[PACKAGE_PANEL]!);
+      assert.ok(!/useEffect|useState|readContentPackageAction/.test(panel), "the panel holds and fetches no package of its own");
+      assert.match(panel, /readonly result: ContentPackageResult/, "the panel renders the read it is given");
+      const composer = stripComments(f[COMPOSER]!);
+      assert.match(composer, /readContentPackageAction\(\{ artifactId: d\.artifactId, revisionNo: d\.currentRevision \}\)/, "the composer reads each draft's package on the server");
+      assert.match(composer, /result=\{\s*contentPackages\.get\(draft\.artifactId\)/, "and hands that read to the panel");
+      const body = fnBody(stripComments(f[ACTIONS]!), "setMediaSelectionAction");
+      assert.match(body, /if \(result\.status !== "refused"\) revalidatePath\("\/operations"\);/, "a successful selection revalidates /operations; a refusal does not");
+      const videoNote = /function selectNote[\s\S]*?\n\}/.exec(stripComments(f[PANEL]!))?.[0] ?? "";
+      assert.match(videoNote, /if \(r\.status === "selected"\) return "Added to this draft/, "video: 'Added' only for status selected");
+      assert.match(videoNote, /return `Not added \(\$\{r\.reason\}\)\.`;/, "video: a refusal says so");
+      assert.match(stripComments(f[IMAGE_CARDS]!), /result\.status === "refused"\s*\?\s*SELECTION_REFUSAL_WORDING\[result\.reason\]\s*:\s*"Added to this draft/, "image: 'Added' only when not refused");
+    },
+  },
 ];
 
-const files: Record<string, string> = Object.fromEntries([ACTIONS, LIFECYCLE, DOOR, PANEL, REVIEW, SELECT].map((f) => [f, read(f)]));
+const files: Record<string, string> = Object.fromEntries(
+  [ACTIONS, LIFECYCLE, DOOR, PANEL, REVIEW, SELECT, PACKAGE_PANEL, COMPOSER, IMAGE_CARDS].map((f) => [f, read(f)]),
+);
 for (const rule of RULES) rule.check(files);
 
 /* ── Bites: each mutation must be caught by the rule that claims it ── */
@@ -120,6 +149,10 @@ const BITES: { readonly rule: string; readonly file: string; readonly from: stri
   { rule: RULES[2]!.name, file: PANEL, from: "const [pending, start] = useTransition();", to: "const [pending, start] = useTransition(); setInterval(() => undefined, 5000);" },
   { rule: RULES[3]!.name, file: SELECT, from: /parents\.assetKind !== parents\.invocationOutputKind/, to: "false" },
   { rule: RULES[3]!.name, file: REVIEW, from: /asset\.mediaKind !== asset\.invocationOutputKind/, to: "false" },
+  { rule: RULES[4]!.name, file: PACKAGE_PANEL, from: 'import { useTransition } from "react";', to: 'import { useEffect, useTransition } from "react";' },
+  { rule: RULES[4]!.name, file: ACTIONS, from: 'if (result.status !== "refused") revalidatePath("/operations");\n  return result;\n}\n\n/** CONTENT-COMPOSE-1', to: 'revalidatePath("/operations");\n  return result;\n}\n\n/** CONTENT-COMPOSE-1' },
+  { rule: RULES[4]!.name, file: PANEL, from: 'if (r.status === "selected") return "Added to this draft', to: 'if (r.status !== "deselected") return "Added to this draft' },
+  { rule: RULES[4]!.name, file: COMPOSER, from: /result=\{\s*contentPackages\.get\(draft\.artifactId\)/, to: "result={undefined as never ?? (contentPackages.get(draft.artifactId)" },
 ];
 for (const bite of BITES) {
   const original = files[bite.file]!;

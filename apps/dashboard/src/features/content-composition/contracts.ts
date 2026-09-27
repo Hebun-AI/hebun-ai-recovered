@@ -157,3 +157,13 @@ export function isContentPackageBlocker(value: unknown): value is ContentPackage
     typeof value === "string" && (CONTENT_PACKAGE_BLOCKERS as readonly string[]).includes(value)
   );
 }
+
+/**
+ * VIDEO CONTENT CHAIN — "N images · M videos", counted from each selected item's `mediaKind` and
+ * nothing else. Pure, so the sentence a human reads is the one the tests assert.
+ */
+export function describeSelectedMedia(selected: readonly Pick<SelectedMediaView, "mediaKind">[]): string {
+  const images = selected.filter((s) => s.mediaKind === "image").length;
+  const videos = selected.filter((s) => s.mediaKind === "video").length;
+  return `${images} image${images === 1 ? "" : "s"} · ${videos} video${videos === 1 ? "" : "s"}`;
+}

@@ -48,6 +48,10 @@ import {
 } from "../../src/features/media-asset-review/review-media-asset.server";
 import { deselectMediaForRevision, selectMediaForRevision } from "../../src/features/content-composition/select-media.server";
 import { readContentPackage } from "../../src/features/content-composition/read-content-package.server";
+import { describeSelectedMedia } from "../../src/features/content-composition/contracts";
+import { requestMediaGeneration } from "../../src/features/media-assets/request-media-generation.server";
+import sharp from "sharp";
+import { createFakeMediaGenerationTransport, createMemoryMediaObjectStore } from "../helpers/media-fakes";
 import { acceptArtifactRevision } from "../../src/features/work-artifact-review/review-revision.server";
 
 const FFMPEG = process.env.HEBUN_TEST_FFMPEG ?? execFileSync("sh", ["-c", "command -v ffmpeg || true"], { encoding: "utf8" }).trim();
@@ -349,6 +353,11 @@ async function main(): Promise<void> {
     assert.equal(s.video?.audioCodec, null, "a silent video is silent, not unknown");
     assert.equal(s.sourceRevisionNo, 1);
     assert.equal(p1.package.mediaReviewStates[assetId], "approved");
+    /* PRODUCTION-ACCEPTANCE REGRESSION: the sentence the panel renders for a video-only selection. */
+    assert.equal(describeSelectedMedia(p1.package.selected), "0 images · 1 video", "a video-only package counts one video");
+    /* A SECOND, independent read after the write — the package is a read of persisted truth. */
+    const reread = await readContentPackage(a.ctx, { artifactId: a.draft, revisionNo: 1 }, { getDb });
+    assert.equal(reread.status === "read" ? reread.package.selected.map((x) => x.mediaAssetId).join() : "", assetId, "exactly that video, re-read");
     assert.deepEqual([...p1.package.blockers], ["copy-unreviewed"], "the video is judged; the copy is not");
     const revisionId = (await one<{ id: string }>(client, `select id from work_artifact_revisions where artifact_id=$1 and revision_no=1`, [a.draft])).id;
     await acceptArtifactRevision(a.ctx, { artifactId: a.draft, revisionId, justification: REASON }, { getDb, now: () => NOW } as never);
@@ -399,6 +408,30 @@ async function main(): Promise<void> {
         { status: "refused", reason: "asset-kind-incoherent" },
         "nor selected",
       );
+    }
+
+    /* ══ 9b. IMAGE SELECTION IS UNCHANGED, AND MIXES WITH VIDEO ══ */
+    {
+      const imageStore = createMemoryMediaObjectStore();
+      const imageTransport = createFakeMediaGenerationTransport({
+        kind: "bytes",
+        bytes: new Uint8Array(await sharp({ create: { width: 64, height: 48, channels: 3, background: { r: 180, g: 90, b: 40 } } }).png().toBuffer()),
+      });
+      const gen = await requestMediaGeneration(
+        a.ctx,
+        { artifactId: a.draft, revisionNo: 1, promptText: "A kilim on the loom.", requestKey: randomUUID() },
+        { getDb, now: () => NOW, resolveStorage: () => ({ status: "available", store: imageStore }), resolveTransport: () => ({ status: "available", transport: imageTransport }) },
+      );
+      assert.equal(gen.status, "admitted", "a generated image is admitted as before");
+      const imageId = gen.status === "admitted" ? gen.assetId : "";
+      assert.deepEqual(await selectMediaForRevision(a.ctx, { artifactId: a.draft, revisionNo: 1, mediaAssetId: imageId }, { getDb }), { status: "selected" }, "image selection unchanged");
+      assert.deepEqual(await selectMediaForRevision(a.ctx, { artifactId: other.draft, revisionNo: 1, mediaAssetId: imageId }, { getDb }), { status: "refused", reason: "asset-unresolvable" }, "image wrong-draft still refused");
+      const mixed = await pkg();
+      if (mixed.status !== "read") throw new Error("unreachable");
+      assert.equal(describeSelectedMedia(mixed.package.selected), "1 image · 1 video");
+      assert.deepEqual(mixed.package.selected.map((x) => x.mediaKind).sort(), ["image", "video"]);
+      assert.equal(mixed.package.selected.find((x) => x.mediaKind === "image")?.video, null, "an image carries no video facts");
+      assert.deepEqual(await deselectMediaForRevision(a.ctx, { artifactId: a.draft, revisionNo: 1, mediaAssetId: imageId }, { getDb }), { status: "deselected" });
     }
 
     /* ══ 10. DESELECTION leaves the video and its review untouched ══ */
