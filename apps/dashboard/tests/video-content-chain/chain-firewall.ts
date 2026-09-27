@@ -145,7 +145,7 @@ for (const rule of RULES) rule.check(files);
 const BITES: { readonly rule: string; readonly file: string; readonly from: string | RegExp; readonly to: string }[] = [
   { rule: RULES[0]!.name, file: ACTIONS, from: "requestAsyncVideoGeneration(tenant, {", to: "requestAsyncVideoGeneration({ tenantId: input.artifactId } as never, {" },
   { rule: RULES[1]!.name, file: LIFECYCLE, from: "if (registered.status !== \"registered\") return registered;", to: "" },
-  { rule: RULES[1]!.name, file: LIFECYCLE, from: "const dispatched = await dispatchAsyncMediaGeneration(tenant, registered.invocationId, deps);", to: "let dispatched = await dispatchAsyncMediaGeneration(tenant, registered.invocationId, deps); while (dispatched.status === \"refused\") dispatched = await dispatchAsyncMediaGeneration(tenant, registered.invocationId, deps);" },
+  { rule: RULES[1]!.name, file: LIFECYCLE, from: "const dispatched = await dispatchAsyncMediaGeneration(tenant, registered.invocationId, deps, source ? { source } : {});", to: "let dispatched = await dispatchAsyncMediaGeneration(tenant, registered.invocationId, deps, source ? { source } : {}); while (dispatched.status === \"refused\") dispatched = await dispatchAsyncMediaGeneration(tenant, registered.invocationId, deps);" },
   { rule: RULES[2]!.name, file: PANEL, from: "const [pending, start] = useTransition();", to: "const [pending, start] = useTransition(); setInterval(() => undefined, 5000);" },
   { rule: RULES[3]!.name, file: SELECT, from: /parents\.assetKind !== parents\.invocationOutputKind/, to: "false" },
   { rule: RULES[3]!.name, file: REVIEW, from: /asset\.mediaKind !== asset\.invocationOutputKind/, to: "false" },

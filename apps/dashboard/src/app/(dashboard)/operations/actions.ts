@@ -540,6 +540,12 @@ export async function requestVideoGenerationAction(input: {
   revisionNo: number;
   promptText: string;
   requestKey: string;
+  /**
+   * IMAGE → VIDEO: an admitted Media image id, or nothing for text-to-video. An ID — never a URL.
+   * The server resolves it against the session tenant and verifies its bytes; no client value can
+   * name a provider or storage location.
+   */
+  sourceAssetId?: string | null;
 }): Promise<RequestAsyncVideoGenerationResult> {
   const tenant = await resolveTenantContext();
   const result = await requestAsyncVideoGeneration(tenant, {
@@ -547,6 +553,7 @@ export async function requestVideoGenerationAction(input: {
     revisionNo: input?.revisionNo,
     promptText: input?.promptText,
     requestKey: input?.requestKey,
+    sourceAssetId: typeof input?.sourceAssetId === "string" ? input.sourceAssetId : null,
   });
   if (result.status !== "refused") revalidatePath("/operations");
   return result;

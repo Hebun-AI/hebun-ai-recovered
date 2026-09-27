@@ -105,6 +105,8 @@ import type {
   MediaAsyncOutputLocation,
   MediaAsyncPollOutcome,
   MediaAsyncProviderFailure,
+  MediaAsyncSourcePreparation,
+  MediaPreparedSourceImage,
   MediaProviderOutputLocation,
 } from "@/features/media-assets/async-generation-transport";
 import type { LiveSpendBudget } from "@/features/heby-model-live/live-spend-budget.server";
@@ -147,20 +149,85 @@ export const HIGGSFIELD_VIDEO_SUBMIT_URL = `${HIGGSFIELD_API_ORIGIN}/${HIGGSFIEL
  * endpoint and it documents no audio field, so none is sent — nothing is invented, and because its
  * schema does not declare `additionalProperties: false`, an invented field could be silently ignored.
  */
+/*
+ * IMAGE → VIDEO (PROVISIONAL, not yet priced). PixVerse V6 image-to-video, per its official page
+ * (docs.higgsfield.ai/docs/models/pixverse-v6/image-to-video, read 2026-09-27): `prompt` and
+ * `image_url` required, `duration` 1–15, `resolution` 360p|540p|720p|1080p, `generate_audio` default
+ * TRUE (so it is sent false), closed schema (`additionalProperties: false`), and NO aspect-ratio
+ * field — "framing comes from the input image". `image_url` is the provider `public_url` of a source
+ * this transport itself uploaded (see `prepareSourceImage`); it is never a Hebun URL.
+ */
+export const HIGGSFIELD_IMAGE_TO_VIDEO_MODEL_PATH = "pixverse/v6/image-to-video";
+export const HIGGSFIELD_IMAGE_TO_VIDEO_PARAMETERS = Object.freeze({
+  duration: 5,
+  resolution: "720p",
+  generate_audio: false,
+} as const);
+export const HIGGSFIELD_IMAGE_TO_VIDEO_MODEL = `${HIGGSFIELD_IMAGE_TO_VIDEO_MODEL_PATH}@5s-720p-silent`;
+
+type ProfileParameters = Readonly<Record<string, string | number | boolean>>;
+interface HiggsfieldProfileDefinition {
+  readonly modelPath: string;
+  readonly parameters: ProfileParameters;
+  readonly model: string;
+  /** `image` profiles take one uploaded source image as `image_url`; `text` profiles take a prompt only. */
+  readonly inputMode: "text" | "image";
+}
+
 export const HIGGSFIELD_VIDEO_PROFILES = Object.freeze({
   "pixverse-v6": Object.freeze({
     modelPath: HIGGSFIELD_VIDEO_MODEL_PATH,
-    parameters: HIGGSFIELD_VIDEO_REQUEST_PARAMETERS as Readonly<Record<string, string | number | boolean>>,
+    parameters: HIGGSFIELD_VIDEO_REQUEST_PARAMETERS as ProfileParameters,
     model: HIGGSFIELD_VIDEO_MODEL,
+    inputMode: "text",
   }),
   "hailuo-2.3-standard": Object.freeze({
     modelPath: "minimax/hailuo-2.3/standard/text-to-video",
-    parameters: Object.freeze({ duration: 6, prompt_optimizer: false }) as Readonly<Record<string, string | number | boolean>>,
+    parameters: Object.freeze({ duration: 6, prompt_optimizer: false }) as ProfileParameters,
     model: "minimax/hailuo-2.3/standard/text-to-video@6s-768p-no-optimizer",
+    inputMode: "text",
   }),
-});
+  "pixverse-v6-image-to-video": Object.freeze({
+    modelPath: HIGGSFIELD_IMAGE_TO_VIDEO_MODEL_PATH,
+    parameters: HIGGSFIELD_IMAGE_TO_VIDEO_PARAMETERS as ProfileParameters,
+    model: HIGGSFIELD_IMAGE_TO_VIDEO_MODEL,
+    inputMode: "image",
+  }),
+} satisfies Record<string, HiggsfieldProfileDefinition>);
 export type HiggsfieldVideoProfile = keyof typeof HIGGSFIELD_VIDEO_PROFILES;
 export const HIGGSFIELD_DEFAULT_VIDEO_PROFILE: HiggsfieldVideoProfile = "pixverse-v6";
+/** IMAGE → VIDEO — the one image profile the resolver may return, for an `image` request only. */
+export const HIGGSFIELD_IMAGE_TO_VIDEO_PROFILE: HiggsfieldVideoProfile = "pixverse-v6-image-to-video";
+
+/*
+ * ── IMAGE → VIDEO: THE SOURCE UPLOAD (Director G1 = B) ───────────────────────
+ *
+ * Official contract (docs.higgsfield.ai/docs/concepts/file-uploads, read 2026-09-27):
+ *
+ *   POST https://api.higgsfield.ai/files/generate-upload-url   Authorization: Key <api-key>
+ *        { "content_type": "image/png" }
+ *     → { public_url, upload_url, content_type, upload_headers }
+ *   PUT  <upload_url>   with ONLY the headers in `upload_headers` (Content-Type, x-amz-tagging)
+ *        — "Do not send Higgsfield API credentials to the presigned storage URL."
+ *   then `image_url: <public_url>` in the generation body.
+ *
+ * DOCUMENTED: the upload URL expires after one hour; the tagging header carries
+ * `retention=temporary`; the PUT content type must equal the one the URL was created for; accepted
+ * image types include jpeg, png and webp. UNDOCUMENTED: size limits, how long `public_url` stays
+ * readable, error bodies, retry safety of either call. So: no retry, no redirect, bounded bodies, a
+ * header set we check rather than trust, and `retention=temporary` REQUIRED — an upload that would not
+ * be tagged temporary is not made.
+ *
+ * Neither call is a generation: no job exists and the live spend budget is not touched. A refusal
+ * here means NO generation POST follows. `public_url` and `upload_url` never leave this module except
+ * behind the prepared source's `reveal()`, which only `dispatch` calls.
+ */
+export const HIGGSFIELD_UPLOAD_PREPARE_URL = `${HIGGSFIELD_API_ORIGIN}/files/generate-upload-url`;
+/** Media's admitted image types that Higgsfield documents as upload types. Nothing else is uploaded. */
+export const HIGGSFIELD_SOURCE_IMAGE_TYPES: readonly string[] = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
+/** The only header names a presigned PUT may carry (the documented set), lower-cased. */
+const HIGGSFIELD_UPLOAD_HEADER_NAMES: readonly string[] = Object.freeze(["content-type", "x-amz-tagging"]);
+export const HIGGSFIELD_UPLOAD_TIMEOUT_MS = 60_000;
 
 /** The submission "returns immediately" per the docs; this bounds a hung connection, nothing more. */
 export const HIGGSFIELD_DISPATCH_TIMEOUT_MS = 30_000;
@@ -207,6 +274,23 @@ export type HiggsfieldFetch = (
  * therefore never splits, joins or inspects it, and a console record id ("Copy ID") is not part of
  * authentication. Server-only; never logged, returned, or persisted.
  */
+/**
+ * IMAGE → VIDEO — the ONE request that is not to Higgsfield's API: the PUT of verified bytes to the
+ * presigned storage URL. A separate, narrower type so it can never carry the API credential by
+ * construction of the call site, and so the API fetch keeps its exact MV-6 shape.
+ */
+export type HiggsfieldUploadFetch = (
+  input: string,
+  init: {
+    readonly method: "PUT";
+    readonly headers: Record<string, string>;
+    readonly body: Uint8Array<ArrayBuffer>;
+    readonly redirect: "error";
+    readonly cache: "no-store";
+    readonly signal: AbortSignal;
+  },
+) => Promise<Response>;
+
 export interface HiggsfieldCredential {
   readonly apiKey: string;
 }
@@ -218,6 +302,8 @@ export interface HiggsfieldVideoTransportConfig {
   /** The shared per-process live-call budget. Spent by dispatch only: a status read bills nothing. */
   readonly spendBudget: LiveSpendBudget;
   readonly fetchImpl?: HiggsfieldFetch;
+  /** IMAGE → VIDEO: the presigned-storage PUT. Defaults to global fetch. */
+  readonly uploadFetchImpl?: HiggsfieldUploadFetch;
   readonly dispatchTimeoutMs?: number;
   readonly pollTimeoutMs?: number;
 }
@@ -421,6 +507,37 @@ export function isHiggsfieldCredentialShaped(credential: { apiKey?: string }): b
   return API_KEY_RE.test(credential.apiKey ?? "");
 }
 
+/**
+ * IMAGE → VIDEO — the prepare-upload answer, checked. Returns the two URLs and the exact headers the
+ * PUT may carry, or null when the answer is not the documented one (then nothing is uploaded).
+ */
+export function readHiggsfieldUploadGrant(
+  body: unknown,
+  contentType: string,
+): { readonly uploadUrl: string; readonly publicUrl: string; readonly headers: Readonly<Record<string, string>> } | null {
+  const uploadUrl = field(body, "upload_url");
+  const publicUrl = field(body, "public_url");
+  const declaredType = field(body, "content_type");
+  const rawHeaders = field(body, "upload_headers");
+  if (!isHttpsUrl(uploadUrl) || !isHttpsUrl(publicUrl) || declaredType !== contentType) return null;
+  for (const u of [uploadUrl as string, publicUrl as string]) {
+    const parsed = new URL(u);
+    if (parsed.username !== "" || parsed.password !== "") return null;
+  }
+  if (!rawHeaders || typeof rawHeaders !== "object" || Array.isArray(rawHeaders)) return null;
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(rawHeaders as Record<string, unknown>)) {
+    const lower = name.toLowerCase();
+    if (!HIGGSFIELD_UPLOAD_HEADER_NAMES.includes(lower) || typeof value !== "string" || /[\r\n]/.test(value)) return null;
+    headers[lower] = value;
+  }
+  /* The PUT's type must be the created type, and the object must be tagged temporary. */
+  if (headers["content-type"] !== contentType) return null;
+  const tags: readonly string[] = (headers["x-amz-tagging"] ?? "").match(/[^&]+/g) ?? [];
+  if (!tags.includes("retention=temporary")) return null;
+  return { uploadUrl: uploadUrl as string, publicUrl: publicUrl as string, headers: Object.freeze(headers) };
+}
+
 export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportConfig): MediaAsyncGenerationTransport {
   if (typeof window !== "undefined") {
     throw new Error("The Higgsfield video transport is server-only.");
@@ -435,18 +552,81 @@ export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportC
   const profile = HIGGSFIELD_VIDEO_PROFILES[profileName];
   const submitUrl = `${HIGGSFIELD_API_ORIGIN}/${profile.modelPath}`;
   const doFetch: HiggsfieldFetch = config.fetchImpl ?? ((input, init) => fetch(input, init));
+  const doUpload: HiggsfieldUploadFetch = config.uploadFetchImpl ?? ((input, init) => fetch(input, init));
   const dispatchTimeoutMs = config.dispatchTimeoutMs ?? HIGGSFIELD_DISPATCH_TIMEOUT_MS;
   const pollTimeoutMs = config.pollTimeoutMs ?? HIGGSFIELD_POLL_TIMEOUT_MS;
   /* The documented scheme with the opaque key verbatim — never split, joined or re-encoded. */
   const authorization = () => `Key ${config.credential.apiKey}`;
+  const imageMode = profile.inputMode === "image";
+
+  /*
+   * IMAGE → VIDEO: one prepare POST to Higgsfield's API, then one PUT of the verified bytes to the
+   * presigned storage URL — with the documented headers only, never the credential. No retry.
+   */
+  async function prepareSourceImage(input: { readonly bytes: Uint8Array; readonly contentType: string }): Promise<MediaAsyncSourcePreparation> {
+    if (!HIGGSFIELD_SOURCE_IMAGE_TYPES.includes(input.contentType) || input.bytes.byteLength < 1) {
+      return { status: "refused", reason: "unsupported-type" };
+    }
+    let prepared: Response;
+    try {
+      prepared = await doFetch(HIGGSFIELD_UPLOAD_PREPARE_URL, {
+        method: "POST",
+        headers: { authorization: authorization(), "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ content_type: input.contentType }),
+        redirect: "error",
+        cache: "no-store",
+        signal: AbortSignal.timeout(dispatchTimeoutMs),
+      });
+    } catch {
+      return { status: "refused", reason: "upload-unknown" };
+    }
+    if (prepared.status < 200 || prepared.status >= 300) {
+      await prepared.body?.cancel().catch(() => undefined);
+      return { status: "refused", reason: "upload-refused" };
+    }
+    const grant = readHiggsfieldUploadGrant(await readJson(prepared), input.contentType);
+    if (!grant) return { status: "refused", reason: "upload-unknown" };
+
+    let put: Response;
+    try {
+      put = await doUpload(grant.uploadUrl, {
+        method: "PUT",
+        /* ONLY the documented presigned headers. The Higgsfield credential never goes to storage. */
+        headers: { ...grant.headers },
+        body: new Uint8Array(input.bytes),
+        redirect: "error",
+        cache: "no-store",
+        signal: AbortSignal.timeout(HIGGSFIELD_UPLOAD_TIMEOUT_MS),
+      });
+    } catch {
+      return { status: "refused", reason: "upload-unknown" };
+    }
+    await put.body?.cancel().catch(() => undefined);
+    if (put.status < 200 || put.status >= 300) return { status: "refused", reason: "upload-refused" };
+
+    const publicUrl = grant.publicUrl;
+    const source: MediaPreparedSourceImage = Object.freeze({
+      contentType: input.contentType,
+      byteSize: input.bytes.byteLength,
+      reveal: () => publicUrl,
+    });
+    return { status: "prepared", source };
+  }
 
   return Object.freeze({
     transport: "live" as MediaGenerationTransportKind,
     provider: HIGGSFIELD_PROVIDER,
     model: profile.model,
     outputMediaKind: "video" as const,
+    inputMode: profile.inputMode,
+    ...(imageMode ? { prepareSourceImage } : {}),
 
     async dispatch(input: Parameters<MediaAsyncGenerationTransport["dispatch"]>[0]): Promise<MediaAsyncDispatchOutcome> {
+      /*
+       * IMAGE → VIDEO: an image profile needs its prepared source; a text profile takes none. Refused
+       * locally, before the budget and before any request — certain that nothing left Hebun.
+       */
+      if (imageMode !== (input.source !== undefined)) return { status: "rejected", failure: "request-rejected" };
       /* Nothing has left Hebun yet, so this refusal is certain. */
       if (!config.spendBudget.attempt()) return { status: "rejected", failure: "budget-exhausted" };
 
@@ -459,7 +639,11 @@ export function createHiggsfieldVideoTransport(config: HiggsfieldVideoTransportC
             "content-type": "application/json",
             accept: "application/json",
           },
-          body: JSON.stringify({ prompt: input.promptText, ...profile.parameters }),
+          body: JSON.stringify(
+            input.source
+              ? { prompt: input.promptText, image_url: input.source.reveal(), ...profile.parameters }
+              : { prompt: input.promptText, ...profile.parameters },
+          ),
           redirect: "error",
           cache: "no-store",
           signal: AbortSignal.timeout(dispatchTimeoutMs),

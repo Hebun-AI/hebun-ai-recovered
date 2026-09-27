@@ -26,11 +26,18 @@
  *
  * Server-only.
  */
-import type { MediaAsyncGenerationTransportResolution } from "@/features/media-assets/async-generation-transport";
+import type {
+  MediaAsyncGenerationTransportResolution,
+  MediaAsyncTransportRequest,
+} from "@/features/media-assets/async-generation-transport";
 import { resolveDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import { getProcessLiveSpendBudget } from "@/features/heby-model-live/live-spend-budget.server";
-import { HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY } from "./higgsfield-video-control";
-import { createHiggsfieldVideoTransport, isHiggsfieldCredentialShaped } from "./higgsfield-video-transport.server";
+import { HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY, HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY } from "./higgsfield-video-control";
+import {
+  HIGGSFIELD_IMAGE_TO_VIDEO_PROFILE,
+  createHiggsfieldVideoTransport,
+  isHiggsfieldCredentialShaped,
+} from "./higgsfield-video-transport.server";
 
 export const VIDEO_GENERATION_ENV = Object.freeze({
   transport: "HEBUN_VIDEO_GENERATION_TRANSPORT",
@@ -43,8 +50,14 @@ export interface LiveVideoGenerationResolverDeps {
   readonly resolveDirectorEnabled?: (providerKey: string) => Promise<boolean>;
 }
 
+/*
+ * IMAGE → VIDEO: an `image` request is the same three steps with a DIFFERENT step 3 — the separate
+ * `higgsfield-image-to-video` control — and yields the one image profile. A `text` request (the
+ * default, and every caller before IMAGE → VIDEO) is unchanged: the pinned text profile, its control.
+ */
 export async function resolveLiveVideoGenerationTransport(
   deps: LiveVideoGenerationResolverDeps = {},
+  request: MediaAsyncTransportRequest = { inputMode: "text" },
 ): Promise<MediaAsyncGenerationTransportResolution> {
   if (typeof window !== "undefined") {
     throw new Error("Video generation transport resolution is server-only.");
@@ -58,13 +71,17 @@ export async function resolveLiveVideoGenerationTransport(
     return { status: "unavailable", reason: "video-generation-misconfigured" };
   }
 
-  const enabled = await (deps.resolveDirectorEnabled ?? resolveDirectorEnabled)(HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY).catch(
-    () => false,
-  );
+  const image = request.inputMode === "image";
+  const controlKey = image ? HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY : HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY;
+  const enabled = await (deps.resolveDirectorEnabled ?? resolveDirectorEnabled)(controlKey).catch(() => false);
   if (enabled !== true) return { status: "unavailable", reason: "video-generation-disabled" };
 
   return {
     status: "available",
-    transport: createHiggsfieldVideoTransport({ credential, spendBudget: getProcessLiveSpendBudget() }),
+    transport: createHiggsfieldVideoTransport({
+      credential,
+      spendBudget: getProcessLiveSpendBudget(),
+      ...(image ? { profile: HIGGSFIELD_IMAGE_TO_VIDEO_PROFILE } : {}),
+    }),
   };
 }

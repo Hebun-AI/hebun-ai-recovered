@@ -40,17 +40,60 @@ export type MediaAsyncPollOutcome =
   | { readonly status: "succeeded"; readonly outputRef: string }
   | { readonly status: "failed"; readonly failure: MediaAsyncProviderFailure };
 
+/*
+ * ── IMAGE → VIDEO: WHAT A TRANSPORT TAKES AS INPUT ───────────────────────────
+ *
+ * `text` (the default, and every transport before IMAGE → VIDEO) takes a prompt only. `image` takes a
+ * prompt AND one source image, which reaches the provider only through `prepareSourceImage`: the
+ * transport is handed VERIFIED bytes (never a URL, never a storage key) and answers with an opaque
+ * prepared source whose provider-facing URL is reachable only through `reveal()` — the same
+ * shape-not-secret discipline as MV-7's output location. A prepared source is transport data: it is
+ * never persisted, returned to a caller, or treated as Media truth.
+ */
+export type MediaAsyncInputMode = "text" | "image";
+
+/** What a caller asks the resolver for. Absent means `text`. */
+export interface MediaAsyncTransportRequest {
+  readonly inputMode: MediaAsyncInputMode;
+}
+
+export interface MediaPreparedSourceImage {
+  readonly contentType: string;
+  readonly byteSize: number;
+  /** The provider-facing URL. For this transport's own dispatch only; never log, persist or return it. */
+  readonly reveal: () => string;
+}
+
+export type MediaAsyncSourcePreparation =
+  | { readonly status: "prepared"; readonly source: MediaPreparedSourceImage }
+  | {
+      readonly status: "refused";
+      /**
+       * unsupported-type   the provider does not take this image type; nothing was sent
+       * upload-refused     the provider or its storage answered with a refusal
+       * upload-unknown     no trustworthy answer (timeout, unreadable, redirect); NOT retried
+       * No generation was requested in any of these cases.
+       */
+      readonly reason: "unsupported-type" | "upload-refused" | "upload-unknown";
+    };
+
 export interface MediaAsyncGenerationTransport {
   readonly transport: MediaGenerationTransportKind;
   readonly provider: string;
   readonly model: string;
   /** What this transport produces. MV-4 knows one asynchronous kind. */
   readonly outputMediaKind: "video";
+  /** IMAGE → VIDEO. Absent means `text`. */
+  readonly inputMode?: MediaAsyncInputMode;
+  /** IMAGE → VIDEO. Present exactly on an `image` transport. Never dispatches, never spends budget. */
+  prepareSourceImage?(input: { readonly bytes: Uint8Array; readonly contentType: string }): Promise<MediaAsyncSourcePreparation>;
   dispatch(input: {
     readonly promptText: string;
     readonly inputDigest: string;
     /** The registered invocation's id — a correlation id only, never an idempotency key. */
     readonly invocationId: string;
+    /** IMAGE → VIDEO. Required by an `image` transport, refused by a `text` one. */
+    readonly source?: MediaPreparedSourceImage;
   }): Promise<MediaAsyncDispatchOutcome>;
   poll(input: { readonly providerJobId: string }): Promise<MediaAsyncPollOutcome>;
   /**

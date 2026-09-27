@@ -51,7 +51,12 @@ import type { ControlPlaneDatabase } from "@/db/client.server";
 import { mediaAssets, mediaGenerationInvocations } from "@/db/schema/media-asset";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { MEDIA_ASSET_LIMITS, MEDIA_GENERATION_TRANSPORTS, isUuid, mediaAssetStorageKey } from "./contracts";
-import type { MediaAsyncGenerationTransport, MediaAsyncGenerationTransportResolution } from "./async-generation-transport";
+import type {
+  MediaAsyncGenerationTransport,
+  MediaAsyncGenerationTransportResolution,
+  MediaAsyncInputMode,
+  MediaAsyncTransportRequest,
+} from "./async-generation-transport";
 import { resolveMediaAsyncGenerationTransport } from "./async-generation-transport.server";
 import { boundedRelay, evaluateVideoPolicy, mp4MajorBrand, SUPPLIED_VIDEO_MIME_TYPE } from "./admit-supplied-drive-video.server";
 import { resolveMediaDbOrNull } from "./media-db.server";
@@ -116,7 +121,10 @@ export type AdmitGeneratedVideoResult =
 export interface AdmitGeneratedVideoDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly resolveStorageV2?: () => MediaStorageV2Resolution;
-  readonly resolveTransport?: () => MediaAsyncGenerationTransportResolution | Promise<MediaAsyncGenerationTransportResolution>;
+  /** IMAGE → VIDEO: told the input mode the attempt was registered with. Absent = `text`. */
+  readonly resolveTransport?: (
+    request?: MediaAsyncTransportRequest,
+  ) => MediaAsyncGenerationTransportResolution | Promise<MediaAsyncGenerationTransportResolution>;
   readonly download?: ProviderStreamDeps;
   readonly now?: () => Date;
   readonly newAssetId?: () => string;
@@ -133,10 +141,10 @@ type Verdict =
   | { readonly status: "overrun" }
   | { readonly status: "store-refused"; readonly code: number | null };
 
-async function resolveTransport(deps: AdmitGeneratedVideoDeps): Promise<MediaAsyncGenerationTransport | null> {
+async function resolveTransport(deps: AdmitGeneratedVideoDeps, inputMode: MediaAsyncInputMode): Promise<MediaAsyncGenerationTransport | null> {
   let resolution: MediaAsyncGenerationTransportResolution;
   try {
-    resolution = await (deps.resolveTransport ?? resolveMediaAsyncGenerationTransport)();
+    resolution = await (deps.resolveTransport ?? ((request) => resolveMediaAsyncGenerationTransport({}, request)))({ inputMode });
   } catch {
     return null;
   }
@@ -177,6 +185,8 @@ export async function admitGeneratedVideo(
           model: mediaGenerationInvocations.model,
           outputRef: mediaGenerationInvocations.providerOutputRef,
           admissionOutcome: mediaGenerationInvocations.admissionOutcome,
+          /* IMAGE → VIDEO: only to resolve the transport this attempt was registered with. */
+          sourceMediaAssetId: mediaGenerationInvocations.sourceMediaAssetId,
         })
         .from(mediaGenerationInvocations)
         .where(thisInvocation)
@@ -194,7 +204,7 @@ export async function admitGeneratedVideo(
   if (row.admissionOutcome !== "not-attempted") return refused("admission-already-decided", row.admissionOutcome);
 
   /* ── THE TRANSPORT IT WAS REGISTERED WITH, AND ONLY A STATUS READ OF IT ── */
-  const transport = await resolveTransport(deps);
+  const transport = await resolveTransport(deps, row.sourceMediaAssetId === null ? "text" : "image");
   if (!transport) return refused("generation-transport-unavailable");
   if (transport.transport !== row.transport || transport.provider !== row.provider || transport.model !== row.model) {
     return refused("transport-mismatch");

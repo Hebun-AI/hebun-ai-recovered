@@ -38,7 +38,24 @@ const REFUSAL_WORDING: Record<Refusal, string> = {
   "duplicate-request": "This exact request was already submitted. It was not sent again, and you were not charged twice.",
   "invocation-not-found": `The attempt could not be found. ${NOT_SENT}`,
   "transport-mismatch": `The configured provider is not the one this attempt was registered with. ${NOT_SENT}`,
+  /* IMAGE → VIDEO — the source image, checked before anything is recorded or sent. */
+  "source-asset-unresolvable": `That image could not be resolved in your organization. ${NOT_SENT}`,
+  "source-asset-not-image": `That asset is not an image. ${NOT_SENT}`,
+  "source-asset-retired": `That image has been retired. ${NOT_SENT}`,
+  "source-asset-unavailable": `The image's stored bytes could not be verified against its record. ${NOT_SENT} This is a storage custody problem and should be raised.`,
+  "storage-unavailable": `Media storage is not connected, so the image could not be read. ${NOT_SENT}`,
+  "source-type-unsupported": `The provider does not accept this image type. No video was requested.`,
+  "source-upload-refused": `The provider refused the image upload. No video was requested.`,
+  "source-upload-unknown": `The image upload got no trustworthy answer. No video was requested, and nothing is retried.`,
+  "source-not-prepared": `The image was not prepared for this attempt. No video was requested.`,
 };
+
+/** An admitted image this form may offer as a source. An id and a label — never a URL. */
+export interface VideoSourceImage {
+  readonly assetId: string;
+  readonly sourceArtifactId: string;
+  readonly label: string;
+}
 
 const DISPATCH_WORDING: Record<string, string> = {
   "provider-pending": "The provider accepted the job. It is not a video yet — observe it under its draft below.",
@@ -53,15 +70,24 @@ const FIELD =
   "focus-visible:outline-primary-ring disabled:cursor-not-allowed disabled:text-fg-muted";
 const LABEL = "block text-xs font-medium text-fg-secondary";
 
-export function GenerateVideoWithHebun({ targets }: { readonly targets: readonly GenerationTarget[] }) {
+export function GenerateVideoWithHebun({
+  targets,
+  sourceImages = [],
+}: {
+  readonly targets: readonly GenerationTarget[];
+  /** IMAGE → VIDEO: admitted images, offered per draft. Picking one sends only its id. */
+  readonly sourceImages?: readonly VideoSourceImage[];
+}) {
   const requestKey = useMemo(() => crypto.randomUUID(), []);
   const [artifactId, setArtifactId] = useState("");
   const [revisionNo, setRevisionNo] = useState("");
   const [promptText, setPromptText] = useState("");
+  const [sourceAssetId, setSourceAssetId] = useState("");
   const [result, setResult] = useState<RequestResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   const selected = targets.find((t) => t.artifactId === artifactId);
+  const draftImages = sourceImages.filter((i) => i.sourceArtifactId === artifactId);
   const trimmed = promptText.trim();
   const ready = Boolean(artifactId) && Boolean(revisionNo) && trimmed.length > 0;
   /* One form, one request: once anything was registered, this form is spent. */
@@ -76,6 +102,7 @@ export function GenerateVideoWithHebun({ targets }: { readonly targets: readonly
           revisionNo: Number(revisionNo),
           promptText: trimmed,
           requestKey,
+          sourceAssetId: sourceAssetId || null,
         }),
       );
     });
@@ -99,6 +126,7 @@ export function GenerateVideoWithHebun({ targets }: { readonly targets: readonly
             disabled={pending || spent}
             onChange={(e) => {
               setArtifactId(e.target.value);
+              setSourceAssetId("");
               const next = targets.find((t) => t.artifactId === e.target.value);
               setRevisionNo(next ? String(next.currentRevision) : "");
             }}
@@ -127,6 +155,40 @@ export function GenerateVideoWithHebun({ targets }: { readonly targets: readonly
             onChange={(e) => setRevisionNo(e.target.value)}
           />
         </div>
+      </div>
+
+      {/*
+        IMAGE → VIDEO. Optional. Only this draft's admitted images are offered, by id. The server
+        re-resolves the id against your organization and verifies the stored bytes before anything
+        is sent. The warning is not decoration: it is the Director's G2 decision, stated where the
+        choice is made.
+      */}
+      <div className="min-w-0 space-y-1.5">
+        <label htmlFor="video-source" className={LABEL}>
+          Start from an image (optional)
+        </label>
+        <select
+          id="video-source"
+          className={FIELD}
+          value={sourceAssetId}
+          disabled={pending || spent || draftImages.length === 0}
+          onChange={(e) => setSourceAssetId(e.target.value)}
+        >
+          <option value="">No image — text to video</option>
+          {draftImages.map((i) => (
+            <option key={i.assetId} value={i.assetId}>
+              {i.label}
+            </option>
+          ))}
+        </select>
+        {sourceAssetId ? (
+          <p className="text-xs text-fg-muted">
+            The image is uploaded to the video provider, whose terms allow inputs to be used for model
+            training. Real company or customer images are NOT authorized for this path; use a
+            non-sensitive image only. Image-to-video has its own Director control and is off unless
+            the Director enabled it.
+          </p>
+        ) : null}
       </div>
 
       <div className="min-w-0 space-y-1.5">

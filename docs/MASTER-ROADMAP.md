@@ -5117,6 +5117,7 @@ deliberately not a summary. States are copied from those records, not upgraded.
 | **MEDIA-SUPPLIED** Human-Supplied Images (third Media origin) | `72d28682` + Picker/`drive.file` correction `3db976a6` | RELEASED + PRODUCTION-ACCEPTED / CLOSED — admission 34/34 | migration **63** | `hebun-media-supplied-closure.md` |
 | **MV-7** Generated Video Admission | `e36e143a` + host pin `0dcc73d6` + acceptance `c2905715` (deployed at `c2905715`) | **PRODUCTION ACCEPTED / CLOSED** — one real Higgsfield PixVerse V6 generation admitted (asset `c3eb1139`), connectivity DISABLED after | no migration (ledger 67) | `hebun-mv7-generated-video-admission-closure.md` |
 | **VIDEO CONTENT CHAIN** Video in the Content Workflow | `fb1ed329` + acceptance fix `9ffd024c` (deployed at `9ffd024c`) | **PRODUCTION ACCEPTED / CLOSED** — existing MV-7 video `c3eb1139` played, APPROVED, selected, shown as "0 images · 1 video" by the authoritative package read; 0 generation POST, connectivity DISABLED | no migration (ledger 67) | `hebun-video-content-chain-closure.md` |
+| **IMAGE → VIDEO** Video generated from an admitted image | implementation commit on `main` after `243e9835` (SHA recorded by its closure record) | **SELECTED / IN PROGRESS** — IMPLEMENTED + locally VERIFIED (simulated provider); real-provider generation NOT performed; synthetic source only (G2) | no migration (ledger 67) | `hebun-image-to-video.md` *(implementation record, not a closure)* |
 
 **Authored migration ledger at this baseline: 60**, last
 `20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
@@ -5150,6 +5151,13 @@ selection, exactly as supplied images are (MEDIA-SUPPLIED) — an open Director 
 source of a Higgsfield image-to-video generation) is recorded as the intended NEXT Media capability
 after this program and the next Director selection candidate; it is **not selected, not authorized
 and not implemented** by this note.
+
+**Continuity extended after `243e9835` (2026-09-27).** The Director SELECTED **IMAGE → VIDEO**. Gate
+decisions: source delivery through Higgsfield's documented upload (the Hebun store stays private,
+no Hebun read grant to the provider); first acceptance on a SYNTHETIC image only — real company or
+customer images are NOT authorized for this provider path (Higgsfield Terms §4.4, training use absent
+an Enterprise Agreement); estimate calls not made because their non-billability is undocumented. Its
+row above stays IN PROGRESS until a Director-approved real-provider ceremony and its closure record.
 
 ```
 POINTER               != SUMMARY

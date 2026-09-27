@@ -129,3 +129,38 @@ export function canonicalVideoGenerationInput(input: Omit<MediaGenerationCanonic
 export function digestVideoGenerationInput(input: Omit<MediaGenerationCanonicalInput, "sourceAsset">): string {
   return createHash("sha256").update(canonicalVideoGenerationInput(input), "utf8").digest("hex");
 }
+
+/*
+ * IMAGE → VIDEO. A video generated FROM an admitted image. A NEW version, so v3 (text-to-video) stays
+ * byte-identical: the v3 function above is untouched. The source asset is named by id AND the digest
+ * of the bytes that were verified and sent, so the recorded identity is the request actually made.
+ */
+export const MEDIA_INPUT_CANONICAL_VERSION_VIDEO_FROM_IMAGE = 4 as const;
+
+export function canonicalImageToVideoInput(
+  input: Omit<MediaGenerationCanonicalInput, "sourceAsset"> & {
+    readonly sourceAsset: { readonly assetId: string; readonly byteDigest: string };
+  },
+): string {
+  return JSON.stringify({
+    v: MEDIA_INPUT_CANONICAL_VERSION_VIDEO_FROM_IMAGE,
+    outputMediaKind: "video",
+    promptText: input.promptText,
+    source: {
+      artifactId: input.sourceArtifactId.toLowerCase(),
+      revisionNo: input.sourceRevisionNo,
+      contentDigest: input.sourceContentDigest,
+    },
+    sourceAsset: {
+      assetId: input.sourceAsset.assetId.toLowerCase(),
+      byteDigest: input.sourceAsset.byteDigest,
+    },
+    transport: input.transport,
+    provider: input.provider,
+    model: input.model,
+  });
+}
+
+export function digestImageToVideoInput(input: Parameters<typeof canonicalImageToVideoInput>[0]): string {
+  return createHash("sha256").update(canonicalImageToVideoInput(input), "utf8").digest("hex");
+}

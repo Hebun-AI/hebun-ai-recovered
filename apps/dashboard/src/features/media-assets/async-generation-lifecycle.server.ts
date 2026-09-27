@@ -58,13 +58,19 @@ import {
   isUuid,
   type MediaInvocationState,
 } from "./contracts";
-import { digestVideoGenerationInput } from "./input-digest";
+import { digestImageToVideoInput, digestVideoGenerationInput } from "./input-digest";
+import type { MediaStorageResolution } from "./media-object-store";
+import { resolveMediaObjectStore } from "./media-storage.server";
+import { readVerifiedSourceImage, selectEligibleSourceImageRow } from "./read-verified-source-image.server";
 import type {
   MediaAsyncDispatchOutcome,
   MediaAsyncGenerationTransport,
   MediaAsyncGenerationTransportResolution,
+  MediaAsyncInputMode,
   MediaAsyncPollOutcome,
   MediaAsyncProviderFailure,
+  MediaAsyncTransportRequest,
+  MediaPreparedSourceImage,
 } from "./async-generation-transport";
 import { resolveMediaAsyncGenerationTransport } from "./async-generation-transport.server";
 import { resolveMediaDbOrNull } from "./media-db.server";
@@ -72,7 +78,12 @@ import { resolveMediaDbOrNull } from "./media-db.server";
 export interface AsyncGenerationDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly now?: () => Date;
-  readonly resolveTransport?: () => MediaAsyncGenerationTransportResolution | Promise<MediaAsyncGenerationTransportResolution>;
+  /** IMAGE → VIDEO: the resolver is told which input mode the attempt needs. Absent = `text`. */
+  readonly resolveTransport?: (
+    request?: MediaAsyncTransportRequest,
+  ) => MediaAsyncGenerationTransportResolution | Promise<MediaAsyncGenerationTransportResolution>;
+  /** IMAGE → VIDEO: the private Media store the source image is read from (never a URL). */
+  readonly resolveStorage?: () => MediaStorageResolution;
 }
 
 export type AsyncGenerationRefusal =
@@ -84,13 +95,31 @@ export type AsyncGenerationRefusal =
   | "source-revision-unresolvable"
   | "duplicate-request"
   | "invocation-not-found"
-  | "transport-mismatch";
+  | "transport-mismatch"
+  /* IMAGE → VIDEO — the MEDIA-5 source eligibility, refused before any row or provider call. */
+  | "source-asset-unresolvable"
+  | "source-asset-not-image"
+  | "source-asset-retired"
+  | "source-asset-unavailable"
+  | "storage-unavailable"
+  /* IMAGE → VIDEO — after registration, before any generation POST. Nothing was generated. */
+  | "source-type-unsupported"
+  | "source-upload-refused"
+  | "source-upload-unknown"
+  /** A row that names a source image cannot be dispatched without its prepared source (and vice versa). */
+  | "source-not-prepared";
 
 export interface RegisterAsyncGenerationInput {
   readonly artifactId: string;
   readonly revisionNo: number;
   readonly promptText: string;
   readonly requestKey: string;
+  /**
+   * IMAGE → VIDEO. The admitted image this video is generated FROM — an asset id, never a URL. When
+   * present, the attempt needs an `image` transport and records the MEDIA-5 lineage column
+   * `source_media_asset_id`. Absent: text-to-video, byte-identical to before.
+   */
+  readonly sourceAssetId?: string | null;
 }
 
 export type RegisterAsyncGenerationResult =
@@ -131,16 +160,22 @@ function usableJobId(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 && value.length <= PROVIDER_JOB_ID_MAX ? value : null;
 }
 
-async function resolveTransport(deps: AsyncGenerationDeps): Promise<MediaAsyncGenerationTransport | null> {
+async function resolveTransport(
+  deps: AsyncGenerationDeps,
+  inputMode: MediaAsyncInputMode = "text",
+): Promise<MediaAsyncGenerationTransport | null> {
   let resolution: MediaAsyncGenerationTransportResolution;
   try {
-    resolution = await (deps.resolveTransport ?? resolveMediaAsyncGenerationTransport)();
+    resolution = await (deps.resolveTransport ?? ((request) => resolveMediaAsyncGenerationTransport({}, request)))({ inputMode });
   } catch {
     return null;
   }
   if (resolution.status !== "available") return null;
   const t = resolution.transport;
   if (!(MEDIA_GENERATION_TRANSPORTS as readonly string[]).includes(t.transport) || t.outputMediaKind !== "video") return null;
+  /* IMAGE → VIDEO: a transport answers only for the input mode it declares. */
+  if ((t.inputMode ?? "text") !== inputMode) return null;
+  if (inputMode === "image" && typeof t.prepareSourceImage !== "function") return null;
   return t;
 }
 
@@ -166,11 +201,30 @@ export async function registerAsyncMediaGeneration(
     return refused("invalid-input");
   }
 
-  const transport = await resolveTransport(deps);
+  const sourceAssetId = input.sourceAssetId ?? null;
+  if (sourceAssetId !== null && !isUuid(sourceAssetId)) return refused("source-asset-unresolvable");
+  const transport = await resolveTransport(deps, sourceAssetId === null ? "text" : "image");
   if (!transport) return refused("generation-transport-unavailable");
   const db = (deps.getDb ?? resolveMediaDbOrNull)();
   if (!db) return refused("persistence-unavailable");
   const now = deps.now ?? (() => new Date());
+
+  /*
+   * IMAGE → VIDEO: the source's eligibility and digest are read from the Media row HERE, so the
+   * recorded lineage and input identity name the admitted bytes. (The bytes themselves are verified
+   * by `requestAsyncVideoGeneration` before this call and again never trusted from the store.)
+   */
+  let sourceDigest: string | null = null;
+  if (sourceAssetId !== null) {
+    let eligible;
+    try {
+      eligible = await selectEligibleSourceImageRow(db, tenant.tenantId, sourceAssetId);
+    } catch {
+      return refused("persistence-unavailable");
+    }
+    if (eligible.status === "refused") return refused(eligible.reason);
+    sourceDigest = eligible.byteDigest;
+  }
 
   const authorship = await resolveAgentAuthorship(tenant, { getDb: () => db });
   if (authorship.status !== "resolved") return refused("no-durable-agent");
@@ -202,7 +256,7 @@ export async function registerAsyncMediaGeneration(
   }
   if (!source) return refused("source-revision-unresolvable");
 
-  const inputDigest = digestVideoGenerationInput({
+  const identity = {
     promptText: input.promptText,
     sourceArtifactId: input.artifactId,
     sourceRevisionNo: input.revisionNo,
@@ -210,7 +264,12 @@ export async function registerAsyncMediaGeneration(
     transport: transport.transport,
     provider: transport.provider,
     model: transport.model,
-  });
+  };
+  /* v3 for text-to-video, unchanged; v4 exactly when a source image is named. */
+  const inputDigest =
+    sourceAssetId !== null && sourceDigest !== null
+      ? digestImageToVideoInput({ ...identity, sourceAsset: { assetId: sourceAssetId, byteDigest: sourceDigest } })
+      : digestVideoGenerationInput(identity);
 
   let invocationId: string | undefined;
   try {
@@ -225,6 +284,8 @@ export async function registerAsyncMediaGeneration(
           agentId: authorship.authorship.agentId,
           sourceArtifactId: input.artifactId,
           sourceRevisionNo: input.revisionNo,
+          /* MEDIA-5 lineage, reused: null for text-to-video, the source image for image-to-video. */
+          sourceMediaAssetId: sourceAssetId === null ? null : sourceAssetId.toLowerCase(),
           promptText: input.promptText,
           inputDigest,
           transport: transport.transport,
@@ -255,6 +316,7 @@ interface AsyncRow {
   readonly providerJobId: string | null;
   readonly promptText: string;
   readonly inputDigest: string;
+  readonly sourceMediaAssetId: string | null;
 }
 
 async function loadRow(db: ControlPlaneDatabase, tenantId: string, invocationId: string): Promise<AsyncRow | null> {
@@ -268,6 +330,7 @@ async function loadRow(db: ControlPlaneDatabase, tenantId: string, invocationId:
       providerJobId: mediaGenerationInvocations.providerJobId,
       promptText: mediaGenerationInvocations.promptText,
       inputDigest: mediaGenerationInvocations.inputDigest,
+      sourceMediaAssetId: mediaGenerationInvocations.sourceMediaAssetId,
     })
     .from(mediaGenerationInvocations)
     .where(and(eq(mediaGenerationInvocations.tenantId, tenantId), eq(mediaGenerationInvocations.id, invocationId)))
@@ -319,7 +382,8 @@ async function prelude(
     return { ok: false, result: refused("persistence-unavailable") };
   }
   if (!row || row.outputMediaKind !== "video") return { ok: false, result: refused("invocation-not-found") };
-  const transport = await resolveTransport(deps);
+  /* The transport is resolved for the input mode this attempt was registered with. */
+  const transport = await resolveTransport(deps, row.sourceMediaAssetId === null ? "text" : "image");
   if (!transport) return { ok: false, result: refused("generation-transport-unavailable") };
   /* A job is only ever advanced through the transport identity it was registered with. */
   if (transport.transport !== row.transport || transport.provider !== row.provider || transport.model !== row.model) {
@@ -334,12 +398,19 @@ export async function dispatchAsyncMediaGeneration(
   tenant: TenantContext | null,
   invocationId: string,
   deps: AsyncGenerationDeps = {},
+  /**
+   * IMAGE → VIDEO. The source prepared for THIS attempt, in this process, moments ago. Never read from
+   * a row: the provider-facing URL is transport data and is not persisted.
+   */
+  options: { readonly source?: MediaPreparedSourceImage } = {},
 ): Promise<AsyncTransitionResult> {
   if (typeof window !== "undefined") throw new Error("Media generation is server-only.");
   const p = await prelude(tenant, invocationId, deps);
   if (!p.ok) return p.result;
   const { db, tenantId, row, transport, now } = p;
   if (row.state !== "registered") return { status: "no-transition", state: row.state };
+  /* A source-image attempt is dispatched only with its prepared source; a text attempt never with one. */
+  if ((row.sourceMediaAssetId !== null) !== (options.source !== undefined)) return refused("source-not-prepared");
 
   /* Intent first. Only the call that moves the row into `dispatching` may dispatch it. */
   let claimed: boolean;
@@ -355,7 +426,12 @@ export async function dispatchAsyncMediaGeneration(
 
   let outcome: MediaAsyncDispatchOutcome;
   try {
-    outcome = await transport.dispatch({ promptText: row.promptText, inputDigest: row.inputDigest, invocationId });
+    outcome = await transport.dispatch({
+      promptText: row.promptText,
+      inputDigest: row.inputDigest,
+      invocationId,
+      ...(options.source ? { source: options.source } : {}),
+    });
   } catch {
     /* It may have left Hebun. A throw is ambiguous, never a failure. */
     outcome = { status: "unknown" };
@@ -410,9 +486,52 @@ export async function requestAsyncVideoGeneration(
   deps: AsyncGenerationDeps = {},
 ): Promise<RequestAsyncVideoGenerationResult> {
   if (typeof window !== "undefined") throw new Error("Media generation is server-only.");
+
+  /*
+   * IMAGE → VIDEO, before anything is recorded: the source image is read from the PRIVATE Media store
+   * and its size and SHA-256 are verified against its row (MEDIA-5 semantics). A mismatch registers
+   * nothing and sends nothing.
+   */
+  const sourceAssetId = input?.sourceAssetId ?? null;
+  let verified: { readonly bytes: Uint8Array; readonly mimeType: string } | null = null;
+  if (sourceAssetId !== null) {
+    if (!tenant?.tenantId || !tenant.userId) return refused("unauthenticated");
+    const db = (deps.getDb ?? resolveMediaDbOrNull)();
+    if (!db) return refused("persistence-unavailable");
+    const read = await readVerifiedSourceImage(db, (deps.resolveStorage ?? resolveMediaObjectStore)(), tenant.tenantId, sourceAssetId);
+    if (read.status === "refused") return refused(read.reason);
+    verified = { bytes: read.source.bytes, mimeType: read.source.mimeType };
+  }
+
   const registered = await registerAsyncMediaGeneration(tenant, input, deps);
   if (registered.status !== "registered") return registered;
-  const dispatched = await dispatchAsyncMediaGeneration(tenant, registered.invocationId, deps);
+
+  /*
+   * IMAGE → VIDEO, after the intent is recorded and before the generation POST: the transport hands
+   * the verified bytes to the provider's documented upload. Its URL stays inside the prepared source.
+   * Any refusal leaves the row `registered` — no generation was requested — and nothing is retried.
+   */
+  let source: MediaPreparedSourceImage | undefined;
+  if (verified !== null) {
+    const transport = await resolveTransport(deps, "image");
+    if (!transport?.prepareSourceImage) {
+      return { status: "registered-not-sent", invocationId: registered.invocationId, reason: "generation-transport-unavailable" };
+    }
+    let prepared;
+    try {
+      prepared = await transport.prepareSourceImage({ bytes: verified.bytes, contentType: verified.mimeType });
+    } catch {
+      prepared = { status: "refused" as const, reason: "upload-unknown" as const };
+    }
+    if (prepared.status !== "prepared") {
+      const reason: AsyncGenerationRefusal =
+        prepared.reason === "unsupported-type" ? "source-type-unsupported" : prepared.reason === "upload-refused" ? "source-upload-refused" : "source-upload-unknown";
+      return { status: "registered-not-sent", invocationId: registered.invocationId, reason };
+    }
+    source = prepared.source;
+  }
+
+  const dispatched = await dispatchAsyncMediaGeneration(tenant, registered.invocationId, deps, source ? { source } : {});
   if (dispatched.status === "refused") {
     return { status: "registered-not-sent", invocationId: registered.invocationId, reason: dispatched.reason };
   }
@@ -578,6 +697,8 @@ export interface AsyncGenerationListing {
     readonly sourceArtifactId: string;
     readonly sourceRevisionNo: number;
     readonly requestedAt: string;
+    /** IMAGE → VIDEO: the MEDIA-5 lineage — the admitted image this video is generated from, or null. */
+    readonly sourceMediaAssetId: string | null;
   })[];
 }
 
@@ -612,6 +733,7 @@ export async function listArtifactVideoGenerations(
         sourceArtifactId: t.sourceArtifactId,
         sourceRevisionNo: t.sourceRevisionNo,
         requestedAt: t.requestedAt,
+        sourceMediaAssetId: t.sourceMediaAssetId,
       })
       .from(t)
       .where(and(eq(t.tenantId, tenant.tenantId), eq(t.outputMediaKind, "video"), inArray(t.sourceArtifactId, ids)))
@@ -639,6 +761,7 @@ export async function listArtifactVideoGenerations(
       sourceArtifactId: r.sourceArtifactId,
       sourceRevisionNo: r.sourceRevisionNo,
       requestedAt: new Date(r.requestedAt).toISOString(),
+      sourceMediaAssetId: r.sourceMediaAssetId,
     })),
   };
 }

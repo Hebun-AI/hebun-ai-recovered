@@ -59,7 +59,16 @@ const TRANSPORT = "src/features/media-generation-live/higgsfield-video-transport
 /* ── the URL is read in exactly one place; the socket opens in exactly one place ── */
 {
   const revealers = SRC.filter((f) => /\.reveal\(\)/.test(code(f)));
-  assert.deepEqual(revealers, [DOWNLOAD], "only the download seam reads a provider output URL");
+  /*
+   * IMAGE → VIDEO adds ONE other `reveal()`: the Higgsfield transport reading its OWN prepared SOURCE
+   * image URL (the provider's public_url) into the generation body. That is an INPUT URL the transport
+   * itself obtained, not a provider OUTPUT URL — so the transport's only reveal must be on
+   * `input.source`, and the download seam stays the only reader of an output URL.
+   */
+  const TRANSPORT = "src/features/media-generation-live/higgsfield-video-transport.server.ts";
+  assert.deepEqual(revealers, [DOWNLOAD, TRANSPORT].sort(), "only the download seam reads an output URL; the transport reads only its own source URL");
+  const transportReveals = code(TRANSPORT).match(/[\w.]+\.reveal\(\)/g) ?? [];
+  assert.deepEqual(transportReveals, ["input.source.reveal()"], "the transport's one reveal is its prepared source, never an output location");
   const sockets = SRC.filter((f) => /from "node:(https|http2|dns|net|tls)"/.test(code(f)) && /features\/media/.test(f));
   assert.deepEqual(sockets, [DOWNLOAD], "only the download seam opens a socket or resolves a name in the media features");
   assert.ok(/lookup: lookup as never/.test(code(DOWNLOAD)), "the default socket connects only through the public-address lookup");

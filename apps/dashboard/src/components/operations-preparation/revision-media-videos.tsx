@@ -115,6 +115,8 @@ function GenerationRow({ generation }: { readonly generation: DraftVideoGenerati
         {generation.simulated ? <Badge variant="warning">simulated</Badge> : null}
         <span className="text-fg-muted">
           {generation.provider} · {generation.model} · from revision {generation.sourceRevisionNo}
+          {/* IMAGE → VIDEO: the MEDIA-5 lineage, as recorded on the attempt. */}
+          {generation.sourceMediaAssetId ? ` · from image ${generation.sourceMediaAssetId.slice(0, 8)}` : ""}
         </span>
       </div>
       <p className="text-xs text-fg-secondary">{STATE_WORDING[generation.state] ?? generation.state}</p>

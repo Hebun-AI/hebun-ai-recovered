@@ -372,7 +372,8 @@ async function main(): Promise<void> {
 
   /* ── Model profiles: a closed set, PixVerse by default, Hailuo only when named ── */
   {
-    assert.deepEqual(Object.keys(HIGGSFIELD_VIDEO_PROFILES).sort(), ["hailuo-2.3-standard", "pixverse-v6"], "exactly two profiles");
+    /* IMAGE → VIDEO adds the one image profile; it is resolvable only for an `image` request (tests/image-to-video). */
+    assert.deepEqual(Object.keys(HIGGSFIELD_VIDEO_PROFILES).sort(), ["hailuo-2.3-standard", "pixverse-v6", "pixverse-v6-image-to-video"], "exactly three profiles");
     const pix = scripted(() => queued());
     const tPix = createHiggsfieldVideoTransport({ credential: CREDENTIAL, spendBudget: createLiveSpendBudget(1), fetchImpl: pix.fetch });
     assert.equal(tPix.model, HIGGSFIELD_VIDEO_MODEL, "no profile → the pinned PixVerse model");
@@ -393,7 +394,13 @@ async function main(): Promise<void> {
     assert.throws(() => createHiggsfieldVideoTransport({ credential: CREDENTIAL, profile: "__proto__" as never, spendBudget: createLiveSpendBudget(1) }));
     /* The production resolver can only ever build the default. */
     const resolverSource = readFileSync(path.join(SRC, "features/media-generation-live/live-video-generation-resolver.server.ts"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-    assert.ok(!/hailuo|profile/i.test(resolverSource), "the resolver names no profile and never Hailuo");
+    /*
+     * IMAGE → VIDEO: the resolver may name exactly ONE profile — the image profile — and only behind an
+     * `image` request. A text request still builds the default. Never Hailuo.
+     */
+    assert.ok(!/hailuo/i.test(resolverSource), "the resolver never names Hailuo");
+    assert.ok(!/profile/i.test(resolverSource.replace(/profile: HIGGSFIELD_IMAGE_TO_VIDEO_PROFILE|HIGGSFIELD_IMAGE_TO_VIDEO_PROFILE/g, "")), "the only profile the resolver names is the image profile");
+    assert.match(resolverSource, /\.\.\.\(image \? \{ profile: HIGGSFIELD_IMAGE_TO_VIDEO_PROFILE \} : \{\}\)/, "and only for an image request");
   }
 
   /* ── Q. The resolver: fail-closed, no fallback ────────────────────────────── */

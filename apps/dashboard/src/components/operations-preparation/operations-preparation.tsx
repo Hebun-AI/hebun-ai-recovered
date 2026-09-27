@@ -258,7 +258,20 @@ export async function OperationsPreparation() {
           + Generate a video with Hebun
         </summary>
         <div className="border-t border-border px-3 pb-3 pt-3">
-          <GenerateVideoWithHebun targets={drafts} />
+          <GenerateVideoWithHebun
+            targets={drafts}
+            sourceImages={
+              mediaListing.status === "read"
+                ? mediaListing.assets
+                    .filter((a) => a.lifecycle === "admitted")
+                    .map((a) => ({
+                      assetId: a.assetId,
+                      sourceArtifactId: a.sourceArtifactId,
+                      label: `${a.origin === "supplied" ? "Supplied" : "Generated"} image · ${a.width}×${a.height} · revision ${a.sourceRevisionNo}`,
+                    }))
+                : []
+            }
+          />
         </div>
       </details>
       {/* MV-3 — a video the organization already has, streamed from its own Drive into Media. */}

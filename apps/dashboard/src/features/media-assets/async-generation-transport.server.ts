@@ -12,7 +12,7 @@
  *
  * Server-only.
  */
-import type { MediaAsyncGenerationTransportResolution } from "./async-generation-transport";
+import type { MediaAsyncGenerationTransportResolution, MediaAsyncTransportRequest } from "./async-generation-transport";
 import {
   resolveLiveVideoGenerationTransport,
   type LiveVideoGenerationResolverDeps,
@@ -20,9 +20,10 @@ import {
 
 export async function resolveMediaAsyncGenerationTransport(
   deps: LiveVideoGenerationResolverDeps = {},
+  request?: MediaAsyncTransportRequest,
 ): Promise<MediaAsyncGenerationTransportResolution> {
   if (typeof window !== "undefined") {
     throw new Error("Media generation transport resolution is server-only.");
   }
-  return resolveLiveVideoGenerationTransport(deps);
+  return resolveLiveVideoGenerationTransport(deps, request);
 }
