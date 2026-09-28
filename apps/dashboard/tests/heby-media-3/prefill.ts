@@ -171,6 +171,7 @@ async function main(): Promise<void> {
     const componentImports = [...COMPONENT.matchAll(/^import\s.*$/gm)].map((x) => x[0]).sort();
     assert.deepEqual(componentImports, [
       'import type { MediaPrefill } from "@/features/content-composition/media-prefill";',
+      'import type { MediaNextStep } from "@/features/content-composition/media-next-step";',
       'import { Badge } from "@/components/ui/badge";',
       'import { Button } from "@/components/ui/button";',
       'import { setMediaSelectionAction } from "@/app/(dashboard)/operations/actions";',

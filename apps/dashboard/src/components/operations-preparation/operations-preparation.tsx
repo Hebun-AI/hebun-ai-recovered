@@ -50,6 +50,7 @@ import { RevisionMediaAssets } from "./revision-media-assets";
 import { ContentPackagePanel } from "./content-package-panel";
 import { HebyMediaPrefill } from "./heby-media-prefill";
 import type { MediaPrefill } from "@/features/content-composition/media-prefill";
+import type { MediaNextStep } from "@/features/content-composition/media-next-step";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
 
 export async function OperationsPreparation() {
@@ -151,6 +152,10 @@ export async function OperationsPreparation() {
   const mediaPrefills = new Map<string, MediaPrefill>(
     prefillListing.status === "read" ? prefillListing.prefills.map((p) => [p.artifactId, p] as const) : [],
   );
+  /* HEBY-MEDIA-4 — the observed next step, from the same read. Recomputed on every render. */
+  const mediaNextSteps = new Map<string, MediaNextStep>(
+    prefillListing.status === "read" ? prefillListing.nextSteps.map((n) => [n.artifactId, n] as const) : [],
+  );
 
   const mediaReviewStates =
     mediaListing.status === "read" && mediaListing.assets.length > 0
@@ -237,6 +242,7 @@ export async function OperationsPreparation() {
         videoReviewStates={videoReviewStates}
         contentPackages={contentPackages}
         mediaPrefills={mediaPrefills}
+        mediaNextSteps={mediaNextSteps}
       />
 
       {/*
@@ -333,6 +339,7 @@ function MediaAssetsForDrafts({
   videoReviewStates,
   contentPackages,
   mediaPrefills,
+  mediaNextSteps,
 }: {
   readonly drafts: readonly {
     readonly artifactId: string;
@@ -354,6 +361,8 @@ function MediaAssetsForDrafts({
   readonly contentPackages: ReadonlyMap<string, Awaited<ReturnType<typeof readContentPackageAction>>>;
   /* HEBY-MEDIA-3 — read by the caller; data only. */
   readonly mediaPrefills: ReadonlyMap<string, MediaPrefill>;
+  /* HEBY-MEDIA-4 — read by the caller; data only. */
+  readonly mediaNextSteps: ReadonlyMap<string, MediaNextStep>;
 }) {
   if (drafts.length === 0) return null;
   const assetsRead = listing.status === "read" ? listing.assets : [];
@@ -414,7 +423,10 @@ function MediaAssetsForDrafts({
               contentPackages.get(draft.artifactId) ?? { status: "unavailable", reason: "persistence-unavailable" }
             }
           />
-          <HebyMediaPrefill prefill={mediaPrefills.get(draft.artifactId) ?? null} />
+          <HebyMediaPrefill
+            prefill={mediaPrefills.get(draft.artifactId) ?? null}
+            nextStep={mediaNextSteps.get(draft.artifactId) ?? null}
+          />
 
           {/*
             The current revision, named explicitly. It is stated even when it has no images, because

@@ -12,12 +12,17 @@
  *
  * Generation is never actionable here, review is never prefilled (no decision, no reason), and
  * publishing is not a target at all.
+ *
+ * HEBY-MEDIA-4 adds the OBSERVED next step beneath it: the current state, the existing human action
+ * it points at, and why — text only. It adds no control; the one selection call site stays the only
+ * mutation reachable from this component.
  */
 import { useState, useTransition } from "react";
 import { setMediaSelectionAction } from "@/app/(dashboard)/operations/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { MediaPrefill } from "@/features/content-composition/media-prefill";
+import type { MediaNextStep } from "@/features/content-composition/media-next-step";
 
 type SelectResult = Awaited<ReturnType<typeof setMediaSelectionAction>>;
 
@@ -61,7 +66,43 @@ function SelectOne({ artifactId, revisionNo, assetId }: { artifactId: string; re
   );
 }
 
-export function HebyMediaPrefill({ prefill }: { prefill: MediaPrefill | null }) {
+const HUMAN_ACTION_WORDING: Readonly<Record<MediaNextStep["humanAction"], string>> = {
+  none: "No action is available from Heby.",
+  "observe-generation": "Check the generation with the existing observe control on the video attempt below.",
+  "admit-generation": "Admit the provider result with the existing admit control on the video attempt below.",
+  "review-media": "Review the media below with your own reason.",
+  "select-media": "Choose the media above with the existing selection control.",
+  "choose-media": "Decide what this draft should use.",
+};
+
+function NextStep({ step }: { step: MediaNextStep }) {
+  return (
+    <div className="min-w-0 space-y-1 border-t border-border-subtle pt-2">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="font-medium text-fg-primary">Current state: {step.state}</span>
+        <Badge variant={step.mediaComplete ? "success" : "neutral"}>
+          {step.mediaComplete ? "Media complete" : "Media not complete"}
+        </Badge>
+        <span className="text-[11px] text-fg-muted">
+          Content Package: {step.packageReady === null ? "unknown" : step.packageReady ? "ready" : "not ready"}
+        </span>
+      </div>
+      <p className="text-xs text-fg-secondary">Next step: {HUMAN_ACTION_WORDING[step.humanAction]}</p>
+      {step.outsideMediaBlockers.length > 0 ? (
+        <p className="text-[11px] text-fg-muted">
+          Outside media orchestration: {step.outsideMediaBlockers.join(", ")}.
+        </p>
+      ) : null}
+      <ul className="space-y-0.5 text-[11px] text-fg-muted">
+        {step.explanation.map((line) => (
+          <li key={line}>Why: {line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function HebyMediaPrefill({ prefill, nextStep = null }: { prefill: MediaPrefill | null; nextStep?: MediaNextStep | null }) {
   if (!prefill) return null;
   return (
     <div className="min-w-0 space-y-2 rounded-lg border border-border-subtle bg-surface-sunken p-3">
@@ -114,6 +155,7 @@ export function HebyMediaPrefill({ prefill }: { prefill: MediaPrefill | null }) 
           <li key={line}>{line}</li>
         ))}
       </ul>
+      {nextStep ? <NextStep step={nextStep} /> : null}
     </div>
   );
 }

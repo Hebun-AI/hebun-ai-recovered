@@ -52,6 +52,7 @@ import {
   type MediaFact,
   type MediaFactReview,
 } from "./media-choice";
+import { evaluateMediaNextStep, formatMediaNextStep, type MediaNextStep } from "./media-next-step";
 import { prefillFromChoice, type MediaPrefill } from "./media-prefill";
 import { readContentPackage } from "./read-content-package.server";
 
@@ -108,7 +109,13 @@ type Collected =
   | {
       readonly status: "read";
       readonly switches: readonly ResolvedItem[];
-      readonly entries: readonly { readonly item: ResolvedItem; readonly facts: DraftMediaFacts; readonly choice: MediaChoice }[];
+      readonly entries: readonly {
+        readonly item: ResolvedItem;
+        readonly facts: DraftMediaFacts;
+        readonly choice: MediaChoice;
+        readonly prefill: MediaPrefill;
+        readonly nextStep: MediaNextStep;
+      }[];
     };
 
 /*
@@ -292,6 +299,15 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
       packageSegments = [`package: ${pkg.status === "not-found" ? "not found" : "could not be read"}`];
     }
 
+    /* HEBY-MEDIA-3 / -4 — the prefill and the observed next step, from the same facts. */
+    const prefill = prefillFromChoice(draftFacts, choice);
+    const nextStep = evaluateMediaNextStep(
+      draftFacts,
+      choice,
+      prefill,
+      pkg.status === "read" ? { status: "read", ready: pkg.package.ready, blockers: pkg.package.blockers } : { status: "unavailable" },
+    );
+
     const item: ResolvedItem = {
       recordRef: formatWorkArtifactRef(draft.id, draft.currentRevision),
       label: draft.title,
@@ -301,12 +317,14 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
         ...packageSegments,
         `${lines.length === 0 ? "no admitted media and no video attempts" : `${lines.length} media line${lines.length === 1 ? "" : "s"}`}`,
         `media recommendation (deterministic): ${choice.kind}`,
+        `media next step (observed): ${nextStep.state}`,
+        `media complete: ${nextStep.mediaComplete ? "yes" : "no"}`,
       ].join(" · "),
       lifecycle: "settled" as const,
       /* Media lines are data for the model's grounding, kept out of Heby's own prose. */
-      content: [...lines, ...formatMediaChoice(choice)].join("\n"),
+      content: [...lines, ...formatMediaChoice(choice), ...formatMediaNextStep(nextStep)].join("\n"),
     };
-    entries.push({ item, facts: draftFacts, choice });
+    entries.push({ item, facts: draftFacts, choice, prefill, nextStep });
   }
 
   return { status: "read", switches, entries };
@@ -338,7 +356,7 @@ export async function readContentMediaGroundingSource(
 
 export type ContentMediaPrefillListing =
   | { readonly status: "unavailable" }
-  | { readonly status: "read"; readonly prefills: readonly MediaPrefill[] };
+  | { readonly status: "read"; readonly prefills: readonly MediaPrefill[]; readonly nextSteps: readonly MediaNextStep[] };
 
 /**
  * HEBY-MEDIA-3 — the typed, ephemeral prefill for each open content draft, derived from the same
@@ -353,5 +371,5 @@ export async function readContentMediaPrefills(
   if (typeof window !== "undefined") throw new Error("Content media prefill is server-only.");
   const collected = await collectContentMedia(tenant, deps);
   if (collected.status === "unavailable") return { status: "unavailable" };
-  return { status: "read", prefills: collected.entries.map((e) => prefillFromChoice(e.facts, e.choice)) };
+  return { status: "read", prefills: collected.entries.map((e) => e.prefill), nextSteps: collected.entries.map((e) => e.nextStep) };
 }

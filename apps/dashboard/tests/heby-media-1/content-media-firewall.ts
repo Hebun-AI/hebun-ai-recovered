@@ -154,6 +154,8 @@ async function main(): Promise<void> {
     "./media-choice": ["evaluateMediaChoice", "formatMediaChoice", "type DraftMediaFacts", "type MediaChoice", "type MediaFact", "type MediaFactReview"],
     /* HEBY-MEDIA-3: the pure prefill over the same facts and choice. */
     "./media-prefill": ["prefillFromChoice", "type MediaPrefill"],
+    /* HEBY-MEDIA-4: the pure next-step observation over the same facts. */
+    "./media-next-step": ["evaluateMediaNextStep", "formatMediaNextStep", "type MediaNextStep"],
   }, "the shaper imports exactly these readers and constants");
   assert.equal(/\bimport\s+\*|\brequire\(|\bimport\(/.test(code), false, "no namespace, dynamic or require import");
   for (const banned of [
