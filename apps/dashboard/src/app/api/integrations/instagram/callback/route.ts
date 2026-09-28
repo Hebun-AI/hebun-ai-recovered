@@ -35,17 +35,8 @@ import { cookies } from "next/headers";
 import { getControlPlaneDb } from "@/db/client.server";
 import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
-import {
-  listConnections,
-  recordVerificationFailureWithin,
-  recordVerifiedConnectionWithin,
-} from "@/features/integration-authority/integration-repository.server";
+import { listConnections } from "@/features/integration-authority/integration-repository.server";
 import { retireSupersededConnection } from "@/features/provider-connection-lifecycle/disconnect-connection.server";
-import {
-  listCredentialMetadata,
-  replaceCredential,
-  storeCredential,
-} from "@/features/integration-credentials/credential-repository.server";
 import { coversRequiredScopes } from "@/features/provider-instagram/contracts";
 import { resolveInstagramOAuthEnvironment } from "@/features/provider-instagram/instagram-environment.server";
 import {
@@ -56,10 +47,8 @@ import {
   INSTAGRAM_OAUTH_STATE_COOKIE,
   verifyInstagramOAuthState,
 } from "@/features/provider-instagram/instagram-oauth-state.server";
-import {
-  lifecycleClassFor,
-  verifyInstagramConnection,
-} from "@/features/provider-instagram/verify-instagram-connection.server";
+import { commitInstagramGrant } from "@/features/provider-instagram/bind-instagram-grant.server";
+import { verifyInstagramAccessToken } from "@/features/provider-instagram/verify-instagram-connection.server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -162,71 +151,44 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const longLived = await exchangeForLongLivedToken(exchanged.grant.accessToken, config);
   if (!longLived.ok) return outcome(`long-lived-${longLived.failure}`);
 
-  /* ── 5. STORE THROUGH THE CREDENTIAL AUTHORITY. This moves the connection to `unverified`. ── */
-  const existing = await listCredentialMetadata(tenant, integrationId, { getDb: () => db });
-  const live = existing.status === "read" ? existing.credentials.filter((c) => c.live) : [];
-
-  const input = {
-    integrationId,
-    kind: "oauth_access" as const,
-    plaintext: longLived.grant.accessToken,
-    /*
-     * A REAL INSTANT FROM META'S OWN `expires_in`, not a constant. There is no `oauth_refresh` row
-     * to write beside it: Instagram issues no separate refresh credential, so there is nothing an
-     * `oauth_refresh` row could hold and no fourth credential kind to invent.
-     */
-    ...(longLived.grant.expiresAt ? { expiresAt: longLived.grant.expiresAt } : {}),
-  };
-
-  const stored = live.some((c) => c.kind === "oauth_access")
-    ? await replaceCredential(tenant, input, { getDb: () => db })
-    : await storeCredential(tenant, input, { getDb: () => db });
-  if (stored.status === "refused") return outcome(`credential-${stored.reason}`);
-
-  /* ── 6. VERIFY. REAL NETWORK I/O, WITH THE CREDENTIAL JUST STORED. ──────── */
   /*
+   * ── 5. WHO IS THIS TOKEN? ASKED WHILE IT IS ONLY IN MEMORY ─────────────
+   *
+   * INSTAGRAM-OAUTH-INTEGRITY-AUDIT-1. This used to store the token first and read `/me` with the
+   * stored copy. A reconnect that came back with a DIFFERENT account was then refused
+   * `account-changed` only after its token had replaced the bound account's — and two first-binding
+   * callbacks could interleave between the commits and leave a row bound to one account holding the
+   * other's token. Both were reproduced against the released code before this changed.
+   *
+   * So the proof comes first: the same `/me` read and the same verdict, on the exact bytes that are
+   * about to be stored. A failure here writes NOTHING — no credential, no lifecycle move, no failure
+   * record — because nothing about the connection has changed: a token Hebun could not prove was
+   * never admitted, and the connection keeps whatever it already held.
+   *
    * NO ACCOUNT ID IS PASSED. Identity is the verifier's to establish from the provider's own answer
-   * at `/me`; a route that supplied one would be a second identity authority, and the id it had to
-   * hand — the token response's `user_id` — is precisely the value that addressed nothing.
+   * at `/me`; the id the route had to hand — the token response's `user_id` — is precisely the value
+   * that addressed nothing.
    */
-  const verification = await verifyInstagramConnection(
-    tenant,
-    integrationId,
-    { getDb: () => db },
+  const verification = await verifyInstagramAccessToken(
+    longLived.grant.accessToken,
+    {},
     /* PUBLISH-0: Meta's own statement, so a stated publishing grant is recorded, never assumed. */
     statedScopes,
   );
-
-  if (!verification.ok) {
-    /*
-     * The lifecycle moves according to the CLASS of failure, decided by the provider's own verifier.
-     * A rate limit or a 5xx touches health only — Instagram having a bad minute must never end a
-     * grant a tenant legitimately holds.
-     */
-    await db.transaction(async (tx) => {
-      await recordVerificationFailureWithin(
-        tx,
-        tenant,
-        integrationId,
-        { kind: lifecycleClassFor(verification.failure), reason: verification.reason },
-        now,
-      );
-    });
-    return outcome(`verification-${verification.failure}`);
-  }
+  if (!verification.ok) return outcome(`verification-${verification.failure}`);
 
   /*
-   * ── 7. IS THIS REPLACEMENT ACTUALLY A REPLACEMENT? ──────────────────────
+   * ── 6. IS THIS REPLACEMENT ACTUALLY A REPLACEMENT? ──────────────────────
    *
    * On a switch, `integrationId` is a NEW candidate row and `supersedesIntegrationId` names the
    * connection it would replace. If Meta hands back the SAME account the incumbent already holds —
    * the human re-picked the account they were already using — then recording it here would try to
    * put one account on two non-terminal rows, which the partial unique index
-   * `integrations_tenant_provider_account_uq` forbids. That would surface as a database error on a
-   * flow that did nothing wrong.
+   * `integrations_tenant_provider_account_uq` forbids.
    *
-   * So it is settled before the write: the candidate is retired instead of the incumbent, and the
-   * incumbent is left exactly as it was, still connected and still holding its own credential.
+   * So it is settled before any write: the candidate is retired instead of the incumbent, and the
+   * incumbent is left exactly as it was, still connected and still holding its own credential. The
+   * new token was never stored anywhere, so there is nothing of it to discard.
    */
   const supersedes = verified.payload.supersedesIntegrationId;
   if (supersedes) {
@@ -237,27 +199,45 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         : undefined;
 
     if (incumbent && incumbent.externalAccountId === verification.facts.externalAccountId) {
-      /* Not a switch after all. Discard the candidate, including the token just stored for it. */
+      /* Not a switch after all. Discard the candidate. */
       await retireSupersededConnection(tenant, integrationId, { getDb: () => db });
       return outcome("connected");
     }
   }
 
-  /* ── 8. AND ONLY NOW, `connected`. ──────────────────────────────────────── */
   /*
-   * NO ACCOUNT-CHANGE PERMISSION IS PASSED, AND NONE EXISTS.
+   * ── 7. STORE AND BIND, IN ONE COMMIT ────────────────────────────────────
    *
-   * A candidate row names no account yet, so the authority's `account-changed` refusal is never
-   * reached — the invariant is obeyed rather than waived. An ordinary reconnect still goes through
-   * the same call against its own row, where a different account still fails closed.
+   * `commitInstagramGrant` locks the row, compares the CURRENT binding with the authority's own
+   * rule, stores or replaces the credential through INT-2 inside that transaction, and records
+   * `connected` with the VERIFIER's facts — the grant Hebun proved, not the grant Meta reports. A
+   * different account is refused having written nothing; any later refusal rolls the credential
+   * write back with it. A concurrent callback for the same row waits, then sees what this one bound.
+   *
+   * NO ACCOUNT-CHANGE PERMISSION IS PASSED, AND NONE EXISTS. A candidate row names no account yet,
+   * so the `account-changed` refusal is never reached for a switch — the invariant is obeyed rather
+   * than waived. An ordinary reconnect goes through the same call against its own row, where a
+   * different account still fails closed.
    */
-  const recorded = await db.transaction(async (tx) =>
-    recordVerifiedConnectionWithin(tx, tenant, integrationId, verification.facts, now),
+  const recorded = await commitInstagramGrant(
+    tenant,
+    integrationId,
+    {
+      accessToken: longLived.grant.accessToken,
+      /*
+       * A REAL INSTANT FROM META'S OWN `expires_in`, not a constant. There is no `oauth_refresh`
+       * row to write beside it: Instagram issues no separate refresh credential.
+       */
+      expiresAt: longLived.grant.expiresAt,
+    },
+    verification.facts,
+    now,
+    { getDb: () => db },
   );
-  if (recorded.status !== "verified") return outcome(`record-${recorded.reason}`);
+  if (recorded !== "connected") return outcome(recorded);
 
   /*
-   * ── 9. THE OLD CONNECTION IS RETIRED LAST, AND ONLY NOW ─────────────────
+   * ── 8. THE OLD CONNECTION IS RETIRED LAST, AND ONLY NOW ─────────────────
    *
    * Everything above could still have failed: the exchange, the token, the verification, the
    * record. Each of those exits leaves the incumbent connected, holding its own live credential,

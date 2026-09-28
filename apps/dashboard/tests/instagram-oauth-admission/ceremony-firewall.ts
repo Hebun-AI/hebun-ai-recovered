@@ -30,6 +30,7 @@ const codeOf = (s: string): string =>
 
 const START = "src/app/api/integrations/instagram/start/route.ts";
 const CALLBACK = "src/app/api/integrations/instagram/callback/route.ts";
+const BIND_SEAM = "src/features/provider-instagram/bind-instagram-grant.server.ts";
 const ENVIRONMENT = "src/features/provider-instagram/instagram-environment.server.ts";
 const STATE = "src/features/provider-instagram/instagram-oauth-state.server.ts";
 const OAUTH_TRANSPORT = "src/features/provider-instagram/instagram-oauth-transport.server.ts";
@@ -105,24 +106,45 @@ function main(): void {
   const stateAt = callback.indexOf("verifyInstagramOAuthState(");
   const exchangeAt = callback.indexOf("exchangeAuthorizationCode(");
   const longLivedAt = callback.indexOf("exchangeForLongLivedToken(");
-  const storeAt = callback.indexOf("storeCredential(");
-  const verifyAt = callback.indexOf("verifyInstagramConnection(");
-  const recordAt = callback.indexOf("recordVerifiedConnectionWithin(");
+  /*
+   * INSTAGRAM-OAUTH-INTEGRITY-AUDIT-1 REVERSED ONE PIN HERE, deliberately. "The credential is stored
+   * before it is proved" was the defect: a reconnect with a different account replaced the bound
+   * account's token before `account-changed` refused it, and two first binds could interleave
+   * between the commits. The token is now proved at `/me` while it is only in memory, and ONE seam
+   * (`commitInstagramGrant`) stores it and records `connected` in a single transaction.
+   */
+  const verifyAt = callback.indexOf("await verifyInstagramAccessToken(");
+  const commitAt = callback.indexOf("await commitInstagramGrant(");
   for (const [name, at] of [
     ["state verification", stateAt],
     ["code exchange", exchangeAt],
     ["long-lived exchange", longLivedAt],
-    ["credential store", storeAt],
-    ["connection verification", verifyAt],
-    ["connected record", recordAt],
+    ["token verification", verifyAt],
+    ["store-and-bind", commitAt],
   ] as const) {
     assert.ok(at > 0, `the callback performs ${name}`);
   }
   assert.ok(stateAt < exchangeAt, "the state is verified BEFORE the authorization code is spent");
   assert.ok(exchangeAt < longLivedAt, "the code is spent before a long-lived token is asked for");
-  assert.ok(longLivedAt < storeAt, "and only a long-lived token is ever stored");
-  assert.ok(storeAt < verifyAt, "the credential is stored before it is proved");
-  assert.ok(verifyAt < recordAt, "and a connection is only recorded after a REAL provider answer");
+  assert.ok(
+    /verifyInstagramAccessToken\(\s*longLived\.grant\.accessToken/.test(callback) &&
+      /accessToken:\s*longLived\.grant\.accessToken/.test(callback),
+    "and only a long-lived token is ever proved or stored",
+  );
+  assert.ok(longLivedAt < verifyAt, "the long-lived token is obtained before it is proved");
+  assert.ok(verifyAt < commitAt, "the token is PROVED before anything is stored or recorded");
+  const seam = codeOf(read(BIND_SEAM));
+  assert.ok(
+    seam.includes("storeCredential(") && seam.includes("replaceCredential(") &&
+      seam.includes("recordVerifiedConnectionWithin(") && seam.includes("lockConnectionWithin("),
+    "the seam locks the row, stores through INT-2 and records through the lifecycle owner",
+  );
+  assert.ok(
+    seam.indexOf("lockConnectionWithin(") < seam.indexOf("isAccountChange(") &&
+      seam.indexOf("isAccountChange(") < seam.indexOf("storeCredential(") &&
+      seam.indexOf("storeCredential(") < seam.indexOf("recordVerifiedConnectionWithin("),
+    "lock → compare the CURRENT binding → store → record, inside one transaction",
+  );
 
   /* ── ONE LABEL FOR EVERY STATE REFUSAL. No oracle. ────────────────────── */
   assert.equal(
@@ -170,25 +192,25 @@ function main(): void {
    * token response's self-report.
    */
   assert.equal(
-    (callback.match(/verifyInstagramConnection\(/g) ?? []).length,
+    (callback.match(/verifyInstagramAccessToken\(/g) ?? []).length,
     1,
     "the real read happens on exactly one path — it cannot be skipped",
   );
   assert.equal(
-    (callback.match(/recordVerifiedConnectionWithin\(/g) ?? []).length,
+    (callback.match(/commitInstagramGrant\(/g) ?? []).length,
     1,
     "and a connection is recorded from exactly one place",
   );
+  assert.ok(!callback.includes("recordVerifiedConnectionWithin"), "the route itself records nothing");
   assert.ok(
-    /recordVerifiedConnectionWithin\(\s*tx,\s*tenant,\s*integrationId,\s*verification\.facts/.test(
-      callback,
-    ),
+    /commitInstagramGrant\([\s\S]*?verification\.facts,/.test(callback) &&
+      /recordVerifiedConnectionWithin\(tx, tenant, integrationId, facts, now\)/.test(codeOf(read(BIND_SEAM))),
     "with the VERIFIER's facts — the grant Hebun proves, not the grant Meta reports",
   );
   assert.ok(
     callback.indexOf("if (!verification.ok)") > 0 &&
-      callback.indexOf("if (!verification.ok)") < callback.indexOf("recordVerifiedConnectionWithin("),
-    "a failed verification returns before anything is recorded — fail closed after an unstated grant",
+      callback.indexOf("if (!verification.ok)") < callback.indexOf("await commitInstagramGrant("),
+    "a failed verification returns before anything is stored or recorded — fail closed after an unstated grant",
   );
   /* The transport, not the route, is what refuses an unreadable statement. */
   assert.ok(
@@ -209,11 +231,11 @@ function main(): void {
    * the provider's own answer at `/me`, so there is no id for a route to be wrong about.
    */
   assert.ok(
-    /verifyInstagramConnection\(\s*tenant,\s*integrationId,\s*\{/.test(callback),
-    "the verifier is called with the tenant and the connection, and no account id",
+    /verifyInstagramAccessToken\(\s*longLived\.grant\.accessToken,\s*\{\s*\},/.test(callback),
+    "the verifier is called with the new token alone, and no account id",
   );
   assert.ok(
-    !/verifyInstagramConnection\([^)]*accountId/.test(callback),
+    !/verifyInstagramAccessToken\([^)]*accountId/.test(callback),
     "no account id is passed to the verifier — identity is not the route's to supply",
   );
 
@@ -258,20 +280,25 @@ function main(): void {
     }
   }
   assert.ok(
-    callback.includes("storeCredential") && callback.includes("replaceCredential"),
-    "the callback admits credentials through the RELEASED credential authority",
+    callback.includes("commitInstagramGrant") && !callback.includes("integration-credentials"),
+    "the callback admits credentials through the RELEASED credential authority, via its one seam",
   );
   assert.ok(
     start.includes("createConnection") && start.includes("listConnections"),
     "and connections through the released connection authority",
   );
+  /*
+   * INSTAGRAM-OAUTH-INTEGRITY-AUDIT-1: a token that fails `/me` is no longer recorded as a failure of
+   * the CONNECTION. It was never stored, so nothing about the connection changed — recording one
+   * would mark a working bound connection broken because of a token it never held.
+   */
   assert.ok(
-    callback.includes("recordVerificationFailureWithin"),
-    "a failed verification is recorded by the lifecycle OWNER, not by the route",
+    !callback.includes("recordVerificationFailureWithin"),
+    "a token that failed its proof leaves the connection's lifecycle untouched",
   );
 
   /* ── THE CREDENTIAL KIND IS THE RELEASED ONE, AND THE UNION DID NOT GROW ── */
-  assert.ok(callback.includes('"oauth_access"'), "the credential kind is `oauth_access`");
+  assert.ok(codeOf(read(BIND_SEAM)).includes('"oauth_access"'), "the credential kind is `oauth_access`");
   assert.deepEqual(
     [...INTEGRATION_CREDENTIAL_KINDS],
     ["oauth_access", "oauth_refresh", "api_key"],

@@ -4333,3 +4333,10 @@ exist is anything that would invoke it.
 - Weekly 3: learned the chain was already 90% built by prior authorities; TRH gets a reviewed video in
   a package without a new provider call; Hebun gains video as a first-class content medium with zero
   new authority.
+
+## INSTAGRAM-OAUTH-INTEGRITY-AUDIT-1 — Google'ın kusuru Instagram'da da vardı; önce ölçüldü, sonra düzeltildi (2026-09-28)
+
+- **Bir provider'da bulunan sıralama kusuru, aynı iskeleti paylaşan diğer provider'da varsayılmaz — ölçülür.** Instagram callback'i de store → stored-copy ile `/me` → bind sırasıyla üç ayrı commit atıyordu. Released fonksiyonlarla disposable Postgres'te iki kusur deterministik üretildi: (A) bound satıra farklı hesapla non-switch reconnect → A'ya bağlı satır B'nin token'ını tutuyor ve `unverified`; (B) iki first-bind interleave → A bağlı, `connected/healthy`, B'nin token'ı. Fix Google'ın kalıbını kopyalamadı: refresh credential yok, kimlik `/me` app-scoped id, switch candidate-row semantiği aynen korundu; tek ortak parça otoritelerin kendi primitifleri (`lockConnectionWithin`, `isAccountChange`, INT-2 `deps.transaction`).
+- **Kanıtlanamayan token bağlantının lifecycle'ına yazılmaz.** Eski akışta `/me` başarısız olursa bağlantıya failure kaydediliyordu — çünkü token zaten saklanmıştı. Token artık saklanmadan önce kanıtlandığı için başarısızlık bağlantı hakkında hiçbir şey söylemiyor; çalışan bir bound bağlantı, hiç tutmadığı bir token yüzünden bozuk işaretlenmiyor.
+
+**Weekly three.** *Learned:* bir kusurun kardeş provider'daki varlığı çıkarım değil reprodüksiyonla karara bağlanır. *Turkish Rug House:* TRH Instagram bağlantısı yanlışlıkla başka hesapla reconnect edilirse artık bağlı hesabın token'ı yerinde kalır. *Hebun AI:* üç OAuth sağlayıcısından ikisi aynı "tek commit'te kanıtla-sakla-bağla" invariant'ına oturdu.

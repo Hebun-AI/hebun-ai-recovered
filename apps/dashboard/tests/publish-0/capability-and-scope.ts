@@ -135,6 +135,7 @@ const verifier = readFileSync("src/features/provider-instagram/verify-instagram-
 assert.ok(verifier.includes("grantedScopes: recordableGrantedScopes(statedScopes)"), "verifier records via helper");
 assert.equal(/grantedScopes:\s*Object\.freeze\(\[INSTAGRAM_BUSINESS_BASIC_SCOPE\]\)/.test(verifier), false, "no hardcoded grant");
 const callback = readFileSync("src/app/api/integrations/instagram/callback/route.ts", "utf8");
-assert.ok(/verifyInstagramConnection\([\s\S]*?statedScopes,\s*\)/.test(callback), "callback passes Meta's statement");
+/* INSTAGRAM-OAUTH-INTEGRITY-AUDIT-1: the callback proves the in-memory token, same verdict, same statement. */
+assert.ok(/verifyInstagramAccessToken\([\s\S]*?statedScopes,\s*\)/.test(callback), "callback passes Meta's statement");
 
 console.log("PASS publish-0 capability and scope");

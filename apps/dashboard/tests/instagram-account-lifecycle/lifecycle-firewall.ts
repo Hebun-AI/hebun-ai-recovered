@@ -235,7 +235,8 @@ function aSwitchBuildsANewRowAndRetiresTheOldOneLast(): void {
    * retired AFTER the replacement has been recorded — that is what makes a failed switch harmless.
    * An import-position comparison would prove nothing about execution order.
    */
-  const recordAt = CALLBACK_CODE.indexOf("recordVerifiedConnectionWithin(tx");
+  /* INSTAGRAM-OAUTH-INTEGRITY-AUDIT-1: the record now happens inside `commitInstagramGrant`. */
+  const recordAt = CALLBACK_CODE.indexOf("await commitInstagramGrant(");
   const retireAt = CALLBACK_CODE.indexOf("retireSupersededConnection(tenant, supersedes");
   assert.ok(recordAt > 0, "the record call site was located");
   assert.ok(retireAt > 0, "the retire call site was located");
@@ -251,7 +252,7 @@ function aSwitchBuildsANewRowAndRetiresTheOldOneLast(): void {
   const between = CALLBACK_CODE.slice(recordAt, retireAt);
   assert.match(
     between,
-    /if \(recorded\.status !== "verified"\) return outcome\(`record-\$\{recorded\.reason\}`\)/,
+    /if \(recorded !== "connected"\) return outcome\(recorded\)/,
     "a refused recording returns before anything is retired",
   );
 

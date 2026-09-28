@@ -529,12 +529,12 @@ function main(): void {
          */
         "src/features/provider-google/bind-google-grant.server.ts",
         /*
-         * The Instagram callback is the THIRD acceptance seam, and it is named here for the same
-         * reason the other two are: it can mint `connected`, so a reviewer must see it. Like
-         * Google's, it writes only after a real provider answer — the verifier runs first and its
-         * facts, not the route's, are what get recorded.
+         * The Instagram acceptance seam is the THIRD, named for the same reason: it can mint
+         * `connected`, so a reviewer must see it. INSTAGRAM-OAUTH-INTEGRITY-AUDIT-1 moved it out of
+         * the callback, unchanged in kind: `commitInstagramGrant` stores the credential and records
+         * the binding in ONE transaction, after `/me` answered for that exact token.
          */
-        "src/app/api/integrations/instagram/callback/route.ts",
+        "src/features/provider-instagram/bind-instagram-grant.server.ts",
       ].sort(),
       "every module that can record a verified connection is a named provider-acceptance seam",
     );

@@ -231,7 +231,12 @@ function main(): void {
      * stores and binds in one transaction. So its exemption is withdrawn, and a Google callback that
      * imported the vault again would fail here.
      */
-    const CALLBACK_ROUTES = ["src/app/api/integrations/instagram/callback/route.ts"];
+    /*
+     * NARROWED AGAIN BY INSTAGRAM-OAUTH-INTEGRITY-AUDIT-1, for the same reason. Instagram's callback
+     * hands its grant to `provider-instagram/bind-instagram-grant.server.ts`, which stores and binds
+     * in one transaction. Its exemption is withdrawn: no route under `src/app` may reach the vault.
+     */
+    const CALLBACK_ROUTES: string[] = [];
     const clientish = collect("src/components").concat(collect("src/app"));
     for (const file of clientish) {
       const normalized = file.replace(/\\/g, "/");

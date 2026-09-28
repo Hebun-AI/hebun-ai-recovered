@@ -25,6 +25,7 @@ import {
   recordableGrantedScopes,
   INSTAGRAM_CONNECTION_LABEL,
   classifyAccountType,
+  type InstagramAccountView,
   type InstagramFailure,
   type InstagramFailureClass,
 } from "./contracts";
@@ -96,9 +97,34 @@ export async function verifyInstagramConnection(
     deps,
   );
   if (!outcome.ok) return outcome;
+  return verdictFor(outcome.value, statedScopes);
+}
 
-  const account = outcome.value;
+/**
+ * INSTAGRAM-OAUTH-INTEGRITY-AUDIT-1 — the same proof for a token that is still ONLY IN MEMORY.
+ *
+ * The callback must know which account a new token belongs to BEFORE it writes the token anywhere,
+ * or a refused account change leaves the other account's token behind. It is the same `/me` read and
+ * the same verdict as `verifyInstagramConnection`; only where the bytes come from differs — the
+ * caller's hand instead of the credential authority. Writes nothing.
+ */
+export async function verifyInstagramAccessToken(
+  accessToken: string,
+  deps: VerifyInstagramDeps = {},
+  statedScopes: readonly string[] | null = null,
+): Promise<InstagramVerificationOutcome> {
+  if (typeof window !== "undefined") {
+    throw new Error("Instagram verification is server-only.");
+  }
+  const outcome = await readOwnAccount(accessToken, deps);
+  if (!outcome.ok) return outcome;
+  return verdictFor(outcome.value, statedScopes);
+}
 
+function verdictFor(
+  account: InstagramAccountView,
+  statedScopes: readonly string[] | null,
+): InstagramVerificationOutcome {
   /*
    * ── THE ONLY PLACE `not-professional` MAY BE CLAIMED ────────────────────
    *
