@@ -451,7 +451,8 @@ export type GoogleDriveContentResult =
  *
  * `include_granted_scopes=false` is unchanged, so an upgrade must ask for the identity scopes TOO
  * or Google would return a grant without them and the connection would fail its own required-scope
- * check. The caller composes base + extra for exactly that reason.
+ * check — and, since GOOGLE-CAPABILITY-SCOPE-REPAIR-1, for the capability scopes the connection
+ * already holds. `composeGoogleAuthorizationScopes` is the one place that composition happens.
  */
 export const GOOGLE_CAPABILITY_SCOPE_REQUESTS: Readonly<Record<string, readonly string[]>> =
   Object.freeze({
@@ -467,7 +468,9 @@ export const GOOGLE_CAPABILITY_SCOPE_REQUESTS: Readonly<Record<string, readonly 
      * later Picker-based capability can request `drive.file` without touching this entry or
      * re-interpreting this one." That is what this line is, and the two entries above are unchanged.
      *
-     * A tenant may hold any of the three grants, all of them, or none. They are never merged.
+     * A tenant may hold any of the three grants, all of them, or none. The map entries are never
+     * merged with each other; what a single authorization request carries is composed separately,
+     * by `composeGoogleAuthorizationScopes` below.
      */
     [GOOGLE_DRIVE_FILE_CAPABILITY]: Object.freeze([GOOGLE_DRIVE_FILE_SCOPE]),
     /*
@@ -504,6 +507,62 @@ export function extraScopesForCapability(capability: string | null): readonly st
   if (!Object.hasOwn(GOOGLE_CAPABILITY_SCOPE_REQUESTS, capability)) return null;
   const scopes = GOOGLE_CAPABILITY_SCOPE_REQUESTS[capability];
   return Array.isArray(scopes) ? scopes : null;
+}
+
+/**
+ * THE CAPABILITY SCOPES A LATER AUTHORIZATION MAY CARRY FORWARD — every scope the frozen map above
+ * can request, and nothing else. An observed scope outside this set (an identity scope in Google's
+ * own spelling, or anything Google might add) is never re-requested from observation: identity is
+ * asked for by `GOOGLE_REQUESTED_SCOPES`, and anything else was never Hebun's to ask for.
+ */
+export const GOOGLE_RETAINABLE_CAPABILITY_SCOPES: readonly string[] = Object.freeze([
+  ...new Set(Object.values(GOOGLE_CAPABILITY_SCOPE_REQUESTS).flat()),
+]);
+
+/**
+ * GOOGLE-CAPABILITY-SCOPE-REPAIR-1 · WHAT ONE AUTHORIZATION REQUEST ASKS GOOGLE FOR.
+ *
+ * ── THE DEFECT THIS REPAIRS ──────────────────────────────────────────────────
+ *
+ * The request used to be `identity + the ONE capability being upgraded`, with
+ * `include_granted_scopes=false`. Google then issued a token covering exactly that request, and the
+ * callback — correctly — recorded Google's statement of the grant as the connection's scopes. So
+ * granting YouTube to a connection that held `drive.file` produced a grant WITHOUT `drive.file`, and
+ * Drive went to a scope gap (production, YOUTUBE-WRITE-1, TRH, 2026-09-28). Granting one capability
+ * silently took another away.
+ *
+ * ── THE RULE ─────────────────────────────────────────────────────────────────
+ *
+ *     requested = identity
+ *               ∪ (THIS connection's last OBSERVED grant ∩ GOOGLE_RETAINABLE_CAPABILITY_SCOPES)
+ *               ∪ scopes of the ONE capability named, if the frozen map knows it
+ *
+ * `observedGrantedScopes` must be the scopes Google last stated for the requesting tenant's own
+ * connection — read server-side from the integration authority, never from the request. Nothing
+ * here is a grant: it is what Hebun ASKS for. The callback still records only what Google RETURNS,
+ * and the user may still decline any line on the consent screen.
+ *
+ * ── WHY NOT `include_granted_scopes=true` ────────────────────────────────────
+ *
+ * Google's incremental authorization folds in every scope the USER has granted this Google CLIENT —
+ * per Google account, not per Hebun tenant. One Google account connected to two organizations would
+ * then carry the first organization's grants into the second's token. Composing from the tenant's
+ * own observed grant keeps each connection's scopes that tenant's decision.
+ *
+ * ── WHY THIS IS NOT MONOTONIC ────────────────────────────────────────────────
+ *
+ * The retained part comes from the LAST observed grant only, and every callback replaces that
+ * observation with Google's answer. A scope revoked at Google and then observed as absent is never
+ * asked for again by this rule; a scope the user unticks is recorded as absent. Nothing is unioned
+ * with history.
+ */
+export function composeGoogleAuthorizationScopes(
+  capability: string | null,
+  observedGrantedScopes: readonly string[],
+): readonly string[] {
+  const retained = GOOGLE_RETAINABLE_CAPABILITY_SCOPES.filter((scope) => observedGrantedScopes.includes(scope));
+  const extra = extraScopesForCapability(capability) ?? [];
+  return Object.freeze([...new Set([...GOOGLE_REQUESTED_SCOPES, ...retained, ...extra])]);
 }
 
 /**

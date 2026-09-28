@@ -339,7 +339,8 @@ function main(): void {
   {
     const start = read("src/app/api/integrations/google/start/route.ts");
     const code = codeOnly(start);
-    assert.ok(code.includes("extraScopesForCapability"), "scopes are resolved through the frozen map");
+    /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1: resolved through the frozen map inside the composer. */
+    assert.ok(code.includes("composeGoogleAuthorizationScopes"), "scopes are resolved through the frozen map");
     assert.ok(
       !/searchParams\.get\(\s*"scope/.test(code),
       "the route must never take a scope from the request",

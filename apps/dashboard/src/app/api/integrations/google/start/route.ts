@@ -47,8 +47,7 @@ import {
 import {
   GOOGLE_AUTHORIZATION_ENDPOINT,
   GOOGLE_PROVIDER_KEY,
-  GOOGLE_REQUESTED_SCOPES,
-  extraScopesForCapability,
+  composeGoogleAuthorizationScopes,
 } from "@/features/provider-google/contracts";
 import { resolveGoogleOAuthEnvironment } from "@/features/provider-google/google-environment.server";
 import {
@@ -134,9 +133,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
    * needs — identity scopes included. Asking for Drive alone would return a grant without the
    * identity scopes, and the callback's required-scope check would then correctly refuse the
    * connection Hebun had just upgraded.
+   *
+   * GOOGLE-CAPABILITY-SCOPE-REPAIR-1: "everything the connection needs" includes the capability
+   * scopes THIS tenant's connection was last observed to hold. They come from the connection row
+   * resolved above for the session's tenant — never from the request — so upgrading YouTube no
+   * longer drops Drive. A new connection has no observation and asks for identity + one capability.
    */
-  const extraScopes = extraScopesForCapability(requestedCapability) ?? [];
-  const scopes = [...GOOGLE_REQUESTED_SCOPES, ...extraScopes];
+  const scopes = composeGoogleAuthorizationScopes(requestedCapability, existing?.scopes ?? []);
 
   const authorize = new URL(GOOGLE_AUTHORIZATION_ENDPOINT);
   authorize.searchParams.set("client_id", config.clientId);
