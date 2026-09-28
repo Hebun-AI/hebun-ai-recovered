@@ -5119,6 +5119,7 @@ deliberately not a summary. States are copied from those records, not upgraded.
 | **VIDEO CONTENT CHAIN** Video in the Content Workflow | `fb1ed329` + acceptance fix `9ffd024c` (deployed at `9ffd024c`) | **PRODUCTION ACCEPTED / CLOSED** — existing MV-7 video `c3eb1139` played, APPROVED, selected, shown as "0 images · 1 video" by the authoritative package read; 0 generation POST, connectivity DISABLED | no migration (ledger 67) | `hebun-video-content-chain-closure.md` |
 | **IMAGE → VIDEO** Video generated from an admitted image | `df94e78a` + acceptance prep `5a130086` (deployed at `5a130086`) | **PRODUCTION ACCEPTED / CLOSED** — one real Higgsfield PixVerse V6 image-to-video generation (invocation `a0d5ba5d`) on a SYNTHETIC supplied source (`3f7b9e66`), admitted as `ad4978da` with MEDIA-5 lineage; connectivity DISABLED after; then Director-reviewed APPROVED and selected in rev 3 through the existing VIDEO CONTENT CHAIN (package 0 images · 2 videos, NOT READY on copy only); not published; price UNKNOWN | no migration (ledger 67) | `hebun-image-to-video-closure.md` |
 | **HEBY MEDIA ORCHESTRATION** HEBY-MEDIA-1…4 (read → recommend → prepare → observe) | `3328a7f0` · `e36ac1d5` · `851d86b0` · `41f7087a` | **CLOSED** — read-only production acceptance: draft `57b57106` rev 3 → `use-existing` [`ad4978da`, `c3eb1139`] → prefill `satisfied` → next step `media-complete` (package not ready on `copy-unreviewed`, outside media); zero production mutation; Heby performs no mutation | no migration (ledger 67) | `hebun-heby-media-orchestration-closure.md` |
+| **YOUTUBE-WRITE-1** Authenticated YouTube Channel Identity | `ba64d4a0` (deployed `dpl_9PMJgzcsg2mXrRsZHELCn3MuHg7S`) | **PRODUCTION ACCEPTED / CLOSED** — TRH `google-workspace` connection (`hebuntech@gmail.com`) granted `youtube.readonly`; `google.youtube.channel.identity.read` AVAILABLE; one real read → `one-channel` "Hebun Tech" `UCqTzRYJBwFsITzxFuqx6YQw`; nothing bound or persisted; upload/publish NOT AVAILABLE; TRH `drive.file` grant replaced by this consent (existing never-merged upgrade doctrine) | no migration (ledger 67) | `hebun-youtube-write-1-channel-identity-closure.md` |
 
 **Authored migration ledger at this baseline: 60**, last
 `20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
@@ -5180,6 +5181,13 @@ reads, recommends, prepares and observes; every mutation stays with the existing
 writers. Media orchestration stops at `media-complete`; copy review, Governance and publishing are
 outside it. Its row above reads CLOSED (closure record `hebun-heby-media-orchestration-closure.md`).
 Generation stays non-actionable (price unknown on every path; image-to-video data use unresolved).
+
+**Continuity extended after `515e559e` (2026-09-28).** The Director chose YOUTUBE WRITE before
+data-use/provenance. **YOUTUBE-WRITE-1** added one read capability to the existing Google OAuth
+connection authority and was production-accepted: YouTube names one channel, "Hebun Tech"
+(`UCqTzRYJBwFsITzxFuqx6YQw`), for TRH's grant. Its row above reads CLOSED (closure record
+`hebun-youtube-write-1-channel-identity-closure.md`). A channel seen is not a channel bound; no
+upload scope, upload path or publish exists. **YOUTUBE-WRITE-2 is NOT STARTED.**
 
 ```
 POINTER               != SUMMARY
