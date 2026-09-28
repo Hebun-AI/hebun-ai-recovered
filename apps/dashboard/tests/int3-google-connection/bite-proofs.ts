@@ -141,11 +141,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M11 a connection silently rebinds to a different Google account",
     file: REPOSITORY,
     suite: PG_SUITE,
+    /* GOOGLE-OAUTH-ACCOUNT-INTEGRITY-1 named the rule (`isAccountChange`); the mutation still deletes the check. */
     find:
-      "  if (\n" +
-      "    current.externalAccountId !== null &&\n" +
-      "    current.externalAccountId !== facts.externalAccountId\n" +
-      "  ) {\n" +
+      "  if (isAccountChange(current.externalAccountId, facts.externalAccountId)) {\n" +
       '    return { status: "refused", reason: "account-changed" } as const;\n' +
       "  }",
     replace: "  /* mutated: the account may change underneath a connection */",

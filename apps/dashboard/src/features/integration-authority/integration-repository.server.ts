@@ -568,6 +568,17 @@ export type RecordVerifiedResult =
     };
 
 /**
+ * THE ACCOUNT RULE, ONCE. A connection that already names an external account may only ever be
+ * verified again as THAT account; a row that names none may bind its first. `recordVerifiedConnectionWithin`
+ * enforces it on the write, and GOOGLE-OAUTH-ACCOUNT-INTEGRITY-1's callback asks the same question
+ * BEFORE a credential is written, so a refused account change can no longer leave the other
+ * account's token behind. One predicate, so the two can never disagree. Pure.
+ */
+export function isAccountChange(boundAccountId: string | null, observedAccountId: string | null): boolean {
+  return boundAccountId !== null && boundAccountId !== observedAccountId;
+}
+
+/**
  * Record that a provider accepted this tenant's credential.
  *
  * THE ONLY PATH TO `connected` IN HEBUN. Every precondition is checked here rather than trusted
@@ -640,10 +651,7 @@ export async function recordVerifiedConnectionWithin(
 
   /* The account this connection was verified against before, if any. UNCHANGED by CGO-5: an
    * account-bearing row still refuses any different identity, including a null. */
-  if (
-    current.externalAccountId !== null &&
-    current.externalAccountId !== facts.externalAccountId
-  ) {
+  if (isAccountChange(current.externalAccountId, facts.externalAccountId)) {
     return { status: "refused", reason: "account-changed" } as const;
   }
 

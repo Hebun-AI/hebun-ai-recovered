@@ -41,6 +41,7 @@ import { storeCredential, replaceCredential, listCredentialMetadata } from "@/fe
 import { coversRequiredScopes } from "@/features/provider-google/contracts";
 import { resolveGoogleOAuthEnvironment } from "@/features/provider-google/google-environment.server";
 import { exchangeAuthorizationCode } from "@/features/provider-google/google-transport.server";
+import { guardGoogleAccountBeforeCredentialWrite } from "@/features/provider-google/guard-google-account-binding.server";
 import {
   lifecycleClassFor,
   verifyGoogleConnection,
@@ -122,6 +123,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
    * would be a connection to nobody.
    */
   if (!coversRequiredScopes(grant.grantedScopes)) return outcome("insufficient-scope");
+
+  /*
+   * ── 3b. THE ACCOUNT, BEFORE ANYTHING IS WRITTEN (GOOGLE-OAUTH-ACCOUNT-INTEGRITY-1) ──
+   *
+   * If this connection is already bound to a Google account, the NEW token's account is resolved
+   * now — while the token is only in memory — and compared with the binding by the connection
+   * authority's own rule. A different account is refused HERE, so the credential authority, the
+   * row's state and its scopes are exactly as they were. Before this step the refusal happened
+   * after step 4, with the other account's token already stored. A row with no account yet runs
+   * the released first-binding flow unchanged; step 6 still enforces the same rule on the write.
+   */
+  const accountGuard = await guardGoogleAccountBeforeCredentialWrite(tenant, integrationId, grant.accessToken, {
+    getDb: () => db,
+  });
+  if (!accountGuard.ok) return outcome(accountGuard.outcome);
 
   /* ── 4. STORE THROUGH INT-2. This moves the connection to `unverified`. ─── */
   const existing = await listCredentialMetadata(tenant, integrationId, { getDb: () => db });
