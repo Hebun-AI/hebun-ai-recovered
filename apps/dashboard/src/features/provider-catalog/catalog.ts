@@ -180,13 +180,34 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
         read: Object.freeze([GOOGLE_DRIVE_FILE_SCOPE]),
         write: Object.freeze([]),
       }),
-      /*
-       * ── A FOURTH CAPABILITY: YOUTUBE-WRITE-1 ────────────────────────────────
-       * The authenticated YouTube channel identity, under `youtube.readonly`. It lives on the
-       * Google OAuth connection because the grant is a Google grant; the API-key `youtube` provider
-       * below keeps public reads and binds no account. `write` STAYS EMPTY: reading which channel a
-       * grant stands for writes nothing, and no upload scope is declared anywhere.
-       */
+    }),
+  }) satisfies ConnectionDefinition,
+  /*
+   * ── THE YOUTUBE GOOGLE CONNECTION (GOOGLE-CAPABILITY-SCOPE-REPAIR-1) ────────
+   *
+   * YOUTUBE-WRITE-1 first declared the channel identity capability on `google-workspace`. One
+   * connection holds one Google grant, and Google refused a single authorization request carrying
+   * `drive.file` and `youtube.readonly` (production, 2026-09-28, reason undocumented), so the two
+   * families cannot share a grant and therefore cannot share a connection. This is a second
+   * DEFINITION under the same Integration authority — same OAuth client, same routes, same
+   * credential authority, same availability seam — never a second authority.
+   *
+   * Bound to a Google ACCOUNT (`sub`), exactly like the Workspace connection, and it proves the
+   * same identity scopes. It is not the API-key `youtube` provider below, which binds no account and
+   * keeps public reads. `write` STAYS EMPTY: no upload scope is declared anywhere.
+   */
+  Object.freeze({
+    providerKey: "google-youtube",
+    label: "YouTube (Google account)",
+    authMethod: "oauth2",
+    accountIdentity: "account",
+    connectivity: "connectable",
+    minimumScopes: Object.freeze([
+      "openid",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile",
+    ]),
+    capabilityScopes: Object.freeze({
       [GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY]: Object.freeze({
         read: Object.freeze([GOOGLE_YOUTUBE_READONLY_SCOPE]),
         write: Object.freeze([]),

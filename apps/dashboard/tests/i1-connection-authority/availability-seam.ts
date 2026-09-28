@@ -245,12 +245,13 @@ async function main(): Promise<void> {
       );
       assert.equal(
         PROVIDER_CATALOG.length,
-        4,
-        "four released providers, each with a real implementation behind it",
+        /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1 adds `google-youtube`, a second Google OAuth definition. */
+        5,
+        "five released providers, each with a real implementation behind it",
       );
       assert.deepEqual(
         PROVIDER_CATALOG.map((p) => p.providerKey),
-        ["google-workspace", "github-organization", "youtube", "instagram"],
+        ["google-workspace", "google-youtube", "github-organization", "youtube", "instagram"],
       );
     }
 

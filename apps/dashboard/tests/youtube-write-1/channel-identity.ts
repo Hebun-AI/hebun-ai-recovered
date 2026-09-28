@@ -58,8 +58,9 @@ function dbFor(connections: readonly IntegrationView[]) {
     }) as never;
 }
 
-const granted = () => connectedFixture({ scopes: [...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE] });
-const identityOnly = () => connectedFixture({ scopes: [...GOOGLE_IDENTITY_SCOPES] });
+/* GOOGLE-CAPABILITY-SCOPE-REPAIR-1: the grant lives on the YouTube Google connection. */
+const granted = () => connectedFixture({ providerKey: "google-youtube", scopes: [...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE] });
+const identityOnly = () => connectedFixture({ providerKey: "google-youtube", scopes: [...GOOGLE_IDENTITY_SCOPES] });
 
 function harness(connections: readonly IntegrationView[], respond: () => Promise<Response>) {
   const requests: { url: string; init?: RequestInit }[] = [];
@@ -81,10 +82,14 @@ function harness(connections: readonly IntegrationView[], respond: () => Promise
 const json = (body: unknown, status = 200) => async () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 async function main(): Promise<void> {
-  /* A · the capability belongs to the existing Google authority, not to the API-key YouTube provider */
-  const google = findProviderDefinition("google-workspace")!;
+  /*
+   * A · the capability belongs to the existing Google authority — since GOOGLE-CAPABILITY-SCOPE-REPAIR-1
+   * on its `google-youtube` definition, never on `google-workspace` — and not to the API-key provider
+   */
+  const google = findProviderDefinition("google-youtube")!;
   const youtube = findProviderDefinition(YOUTUBE_PROVIDER_KEY)!;
   assert.ok(Object.hasOwn(google.capabilityScopes, GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY));
+  assert.equal(Object.hasOwn(findProviderDefinition("google-workspace")!.capabilityScopes, GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY), false);
   assert.equal(Object.hasOwn(youtube.capabilityScopes, GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY), false);
   assert.equal(google.authMethod, "oauth2");
 

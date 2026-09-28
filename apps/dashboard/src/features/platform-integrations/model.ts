@@ -228,7 +228,7 @@ function accountKindStatementFor(
    * than by `accountIdentity`, so a future second account-identity provider cannot inherit them the
    * way GitHub inherited them. `hd` is a Google concept; nothing else can have one.
    */
-  if (connection.providerKey === "google-workspace") {
+  if (connection.providerKey === "google-workspace" || connection.providerKey === "google-youtube") {
     if (verifiedDomain) {
       return `Google Account in the verified Workspace domain ${verifiedDomain}.`;
     }

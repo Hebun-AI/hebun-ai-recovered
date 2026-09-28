@@ -439,7 +439,8 @@ function main(): void {
        * can never publish, comment or reach a Facebook Page. A FOURTH entry still has to
        * justify itself here.
        */
-      ["google-workspace", "github-organization", "youtube", "instagram"],
+      /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1: YouTube OAuth is its own Google connection definition. */
+      ["google-workspace", "google-youtube", "github-organization", "youtube", "instagram"],
       "every connectable provider, and each only because it is genuinely implemented",
     );
     /*
@@ -509,8 +510,9 @@ function main(): void {
      * make every assertion below it vacuous at the TYPE level. */
     assert.equal(
       PROVIDER_CATALOG.length,
-      4,
-      "four entries, and no fixture — a fixture retained for tests that inject their own would " +
+      /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1 adds `google-youtube`, a second real Google OAuth definition. */
+      5,
+      "five entries, and no fixture — a fixture retained for tests that inject their own would " +
         "still be a false entry in a production authority",
     );
 
@@ -533,6 +535,8 @@ function main(): void {
      */
     const VERIFIER_FOR: Readonly<Record<string, string>> = {
       "google-workspace": "src/features/provider-google/verify-google-connection.server.ts",
+      /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1: the same Google verifier, reached by the same callback. */
+      "google-youtube": "src/features/provider-google/verify-google-connection.server.ts",
       "github-organization": "src/features/provider-github/verify-installation.server.ts",
       /* CGO-5: one real public `channels.list`, proving key + enabled API + quota, binding no account. */
       youtube: "src/features/provider-youtube/verify-youtube-connection.server.ts",

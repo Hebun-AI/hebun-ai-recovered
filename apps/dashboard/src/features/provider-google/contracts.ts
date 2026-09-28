@@ -24,8 +24,28 @@
  * Pure types and frozen values. No I/O, no secrets, no database.
  */
 
-/** The catalog key. One provider in INT-3, and it is the only real one in the repository. */
+/** The catalog key of the Workspace/Drive Google connection (INT-3). */
 export const GOOGLE_PROVIDER_KEY = "google-workspace" as const;
+
+/**
+ * GOOGLE-CAPABILITY-SCOPE-REPAIR-1 · THE YOUTUBE GOOGLE CONNECTION.
+ *
+ * A second connection DEFINITION under the same Integration authority, the same credential
+ * authority, the same OAuth client and the same routes — not a second authority. It exists because
+ * Google's authorization endpoint refused one request carrying `drive.file` and `youtube.readonly`
+ * (production, 2026-09-28: `400 invalid_request`, "scopes that cannot be requested together"; the
+ * reason is not documented by Google). One connection holds one grant, so two scope families that
+ * cannot share a request cannot share a connection.
+ */
+export const GOOGLE_YOUTUBE_PROVIDER_KEY = "google-youtube" as const;
+
+/** Every catalog key whose connections are authorized through Hebun's Google OAuth routes. */
+export const GOOGLE_OAUTH_PROVIDER_KEYS: readonly string[] = Object.freeze([
+  GOOGLE_PROVIDER_KEY,
+  GOOGLE_YOUTUBE_PROVIDER_KEY,
+]);
+
+export type GoogleOAuthProviderKey = typeof GOOGLE_PROVIDER_KEY | typeof GOOGLE_YOUTUBE_PROVIDER_KEY;
 
 /** What is sent to Google in the authorization request. */
 export const GOOGLE_REQUESTED_SCOPES: readonly string[] = Object.freeze([
@@ -510,59 +530,108 @@ export function extraScopesForCapability(capability: string | null): readonly st
 }
 
 /**
- * THE CAPABILITY SCOPES A LATER AUTHORIZATION MAY CARRY FORWARD — every scope the frozen map above
- * can request, and nothing else. An observed scope outside this set (an identity scope in Google's
- * own spelling, or anything Google might add) is never re-requested from observation: identity is
- * asked for by `GOOGLE_REQUESTED_SCOPES`, and anything else was never Hebun's to ask for.
+ * GOOGLE-CAPABILITY-SCOPE-REPAIR-1 · WHICH GOOGLE CONNECTION A CAPABILITY BELONGS TO.
+ *
+ * A closed map, like the scope map above and keyed the same way. Every upgradeable capability has
+ * exactly one connection, and the two families never share a request: Google refused
+ * `drive.file` + `youtube.readonly` in one authorization (production, 2026-09-28, reason
+ * undocumented). Future YouTube capabilities (upload included, when a phase builds one) belong to
+ * `google-youtube`.
  */
-export const GOOGLE_RETAINABLE_CAPABILITY_SCOPES: readonly string[] = Object.freeze([
-  ...new Set(Object.values(GOOGLE_CAPABILITY_SCOPE_REQUESTS).flat()),
-]);
+export const GOOGLE_CAPABILITY_CONNECTION: Readonly<Record<string, GoogleOAuthProviderKey>> = Object.freeze({
+  [GOOGLE_DRIVE_METADATA_CAPABILITY]: GOOGLE_PROVIDER_KEY,
+  [GOOGLE_DRIVE_CONTENT_CAPABILITY]: GOOGLE_PROVIDER_KEY,
+  [GOOGLE_DRIVE_FILE_CAPABILITY]: GOOGLE_PROVIDER_KEY,
+  [GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY]: GOOGLE_YOUTUBE_PROVIDER_KEY,
+});
+
+/**
+ * The connection an authorization request is for. An absent or unknown capability is the plain
+ * "Connect Google" of INT-3, which has always meant the Workspace connection.
+ */
+export function googleConnectionForCapability(capability: string | null): GoogleOAuthProviderKey {
+  if (!capability || !Object.hasOwn(GOOGLE_CAPABILITY_CONNECTION, capability)) return GOOGLE_PROVIDER_KEY;
+  return GOOGLE_CAPABILITY_CONNECTION[capability] ?? GOOGLE_PROVIDER_KEY;
+}
+
+/**
+ * THE CAPABILITY SCOPES EACH CONNECTION MAY CARRY FORWARD — the scopes of the capabilities that
+ * belong to it, and nothing else. An observed scope outside its own family (an identity scope in
+ * Google's spelling, the other family's scope from a historical grant, anything Google might add)
+ * is never re-requested from observation.
+ */
+export const GOOGLE_RETAINABLE_SCOPES_BY_CONNECTION: Readonly<Record<GoogleOAuthProviderKey, readonly string[]>> =
+  Object.freeze(
+    Object.fromEntries(
+      GOOGLE_OAUTH_PROVIDER_KEYS.map((key) => [
+        key,
+        Object.freeze([
+          ...new Set(
+            Object.entries(GOOGLE_CAPABILITY_CONNECTION)
+              .filter(([, owner]) => owner === key)
+              .flatMap(([capability]) => extraScopesForCapability(capability) ?? []),
+          ),
+        ]),
+      ]),
+    ) as Record<GoogleOAuthProviderKey, readonly string[]>,
+  );
 
 /**
  * GOOGLE-CAPABILITY-SCOPE-REPAIR-1 · WHAT ONE AUTHORIZATION REQUEST ASKS GOOGLE FOR.
  *
- * ── THE DEFECT THIS REPAIRS ──────────────────────────────────────────────────
+ * ── THE DEFECT ───────────────────────────────────────────────────────────────
  *
  * The request used to be `identity + the ONE capability being upgraded`, with
- * `include_granted_scopes=false`. Google then issued a token covering exactly that request, and the
- * callback — correctly — recorded Google's statement of the grant as the connection's scopes. So
- * granting YouTube to a connection that held `drive.file` produced a grant WITHOUT `drive.file`, and
- * Drive went to a scope gap (production, YOUTUBE-WRITE-1, TRH, 2026-09-28). Granting one capability
- * silently took another away.
+ * `include_granted_scopes=false`, on the tenant's single Google connection. Google issued a token
+ * for exactly that request and the callback — correctly — recorded Google's statement of the grant.
+ * Granting YouTube to a connection holding `drive.file` therefore dropped `drive.file` (production,
+ * TRH, 2026-09-28). Composing both families into one request (`bda53bc9`) was then refused by
+ * Google before consent. Hence one connection per family, and composition WITHIN a family only.
  *
  * ── THE RULE ─────────────────────────────────────────────────────────────────
  *
- *     requested = identity
- *               ∪ (THIS connection's last OBSERVED grant ∩ GOOGLE_RETAINABLE_CAPABILITY_SCOPES)
- *               ∪ scopes of the ONE capability named, if the frozen map knows it
+ *     connection = googleConnectionForCapability(capability)
+ *     requested  = identity
+ *                ∪ (THAT connection's last OBSERVED grant ∩ its own family's scopes)
+ *                ∪ scopes of the ONE capability named, if the frozen map knows it
  *
  * `observedGrantedScopes` must be the scopes Google last stated for the requesting tenant's own
- * connection — read server-side from the integration authority, never from the request. Nothing
- * here is a grant: it is what Hebun ASKS for. The callback still records only what Google RETURNS,
- * and the user may still decline any line on the consent screen.
+ * connection of THAT family — read server-side, never from the request. Nothing here is a grant:
+ * the callback records only what Google RETURNS, and the user may decline any line.
+ *
+ * ── CROSS-FAMILY IS IMPOSSIBLE BY CONSTRUCTION ───────────────────────────────
+ *
+ * Retained scopes are filtered to the connection's own family, and the named capability's scopes
+ * belong to that same family by the map above. The final assertion makes a future map edit that
+ * broke this throw rather than send Google a request it refuses.
  *
  * ── WHY NOT `include_granted_scopes=true` ────────────────────────────────────
  *
- * Google's incremental authorization folds in every scope the USER has granted this Google CLIENT —
- * per Google account, not per Hebun tenant. One Google account connected to two organizations would
- * then carry the first organization's grants into the second's token. Composing from the tenant's
- * own observed grant keeps each connection's scopes that tenant's decision.
+ * Google's combined authorization covers every scope the USER granted the API project — per Google
+ * account, not per Hebun tenant. One account connected to two organizations would carry one
+ * organization's grants into the other's token.
  *
- * ── WHY THIS IS NOT MONOTONIC ────────────────────────────────────────────────
+ * ── NOT MONOTONIC ────────────────────────────────────────────────────────────
  *
- * The retained part comes from the LAST observed grant only, and every callback replaces that
- * observation with Google's answer. A scope revoked at Google and then observed as absent is never
- * asked for again by this rule; a scope the user unticks is recorded as absent. Nothing is unioned
- * with history.
+ * Retained scopes come from the LAST observation only, and every callback replaces it with Google's
+ * answer. A scope revoked at Google and observed absent is never asked for again by this rule.
  */
 export function composeGoogleAuthorizationScopes(
   capability: string | null,
   observedGrantedScopes: readonly string[],
 ): readonly string[] {
-  const retained = GOOGLE_RETAINABLE_CAPABILITY_SCOPES.filter((scope) => observedGrantedScopes.includes(scope));
+  const connection = googleConnectionForCapability(capability);
+  const family = GOOGLE_RETAINABLE_SCOPES_BY_CONNECTION[connection];
+  const retained = family.filter((scope) => observedGrantedScopes.includes(scope));
   const extra = extraScopesForCapability(capability) ?? [];
-  return Object.freeze([...new Set([...GOOGLE_REQUESTED_SCOPES, ...retained, ...extra])]);
+  const requested = Object.freeze([...new Set([...GOOGLE_REQUESTED_SCOPES, ...retained, ...extra])]);
+
+  for (const [other, scopes] of Object.entries(GOOGLE_RETAINABLE_SCOPES_BY_CONNECTION)) {
+    if (other !== connection && scopes.some((scope) => requested.includes(scope))) {
+      throw new Error(`A ${connection} authorization request may not carry a ${other} scope.`);
+    }
+  }
+  return requested;
 }
 
 /**

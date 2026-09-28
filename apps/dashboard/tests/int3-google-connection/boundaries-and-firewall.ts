@@ -406,7 +406,8 @@ function main(): void {
        * can never publish, comment or reach a Facebook Page. A FOURTH entry still has to
        * justify itself here.
        */
-      ["google-workspace", "github-organization", "youtube", "instagram"],
+      /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1: YouTube OAuth is its own Google connection definition. */
+      ["google-workspace", "google-youtube", "github-organization", "youtube", "instagram"],
       "the real providers, and each only because it is genuinely implemented",
     );
     const google = PROVIDER_CATALOG[0]!;
@@ -439,10 +440,13 @@ function main(): void {
         "google.drive.metadata.read",
         "google.drive.content.read",
         "google.drive.file.content.read",
-        /* YOUTUBE-WRITE-1: a fourth, read-only — which YouTube channel(s) the grant stands for. */
-        "google.youtube.channel.identity.read",
+        /*
+         * YOUTUBE-WRITE-1 added the YouTube channel identity read here; GOOGLE-CAPABILITY-SCOPE-REPAIR-1
+         * moved it to the `google-youtube` definition, because Google refused Drive and YouTube
+         * scopes in one request. The Workspace connection is the Drive family only.
+         */
       ],
-      "Google maps exactly the metadata read, the Drive-wide content read, the per-file content read and the YouTube channel identity read",
+      "Google Workspace maps exactly the metadata read, the Drive-wide content read and the per-file content read",
     );
     const drive = google.capabilityScopes["google.drive.metadata.read"]!;
     assert.deepEqual(

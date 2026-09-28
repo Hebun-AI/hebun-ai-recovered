@@ -34,6 +34,7 @@ import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { getCapabilityAvailability } from "@/features/integration-authority/capability-availability.server";
 import {
   GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY,
+  GOOGLE_YOUTUBE_PROVIDER_KEY,
   type GoogleFailureClass,
   type YouTubeChannelIdentity,
 } from "./contracts";
@@ -94,11 +95,12 @@ export async function readAuthenticatedYouTubeChannels(
       detail: "No connection in this organization can currently answer this capability.",
     };
   }
-  if (source.providerKey !== "google-workspace") {
+  /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1: only the YouTube Google connection answers this capability. */
+  if (source.providerKey !== GOOGLE_YOUTUBE_PROVIDER_KEY) {
     return {
       status: "refused",
       reason: "wrong-provider",
-      detail: "The YouTube channel identity seam refuses any connection that is not a Google connection.",
+      detail: "The YouTube channel identity seam refuses any connection that is not the YouTube Google connection.",
     };
   }
 

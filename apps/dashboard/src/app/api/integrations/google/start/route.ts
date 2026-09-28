@@ -48,6 +48,7 @@ import {
   GOOGLE_AUTHORIZATION_ENDPOINT,
   GOOGLE_PROVIDER_KEY,
   composeGoogleAuthorizationScopes,
+  googleConnectionForCapability,
 } from "@/features/provider-google/contracts";
 import { resolveGoogleOAuthEnvironment } from "@/features/provider-google/google-environment.server";
 import {
@@ -95,7 +96,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const db = getControlPlaneDb();
 
   /*
-   * REUSE THE TENANT'S EXISTING NON-TERMINAL GOOGLE CONNECTION, or create one. Minting a second
+   * GOOGLE-CAPABILITY-SCOPE-REPAIR-1 · WHICH CONNECTION THIS AUTHORIZATION IS FOR. Resolved from the
+   * capability through a frozen map — Drive capabilities to `google-workspace`, YouTube to
+   * `google-youtube`, nothing (plain Connect) to `google-workspace`. The two families never share a
+   * connection, because Google refused one request carrying both.
+   */
+  const providerKey = googleConnectionForCapability(requestedCapability);
+
+  /*
+   * REUSE THE TENANT'S EXISTING NON-TERMINAL CONNECTION OF THAT FAMILY, or create one. Minting a second
    * `draft` on every click would leave a trail of abandoned rows, and the partial unique index
    * only constrains rows that have resolved an external account.
    */
@@ -104,7 +113,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     listing.status === "read"
       ? listing.connections.find(
           (c) =>
-            c.providerKey === GOOGLE_PROVIDER_KEY &&
+            c.providerKey === providerKey &&
             c.connectionState !== "disconnected" &&
             c.connectionState !== "revoked",
         )
@@ -114,7 +123,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!integrationId) {
     const created = await createConnection(
       tenant,
-      { providerKey: GOOGLE_PROVIDER_KEY, name: "Google Workspace" },
+      { providerKey, name: providerKey === GOOGLE_PROVIDER_KEY ? "Google Workspace" : "YouTube (Google account)" },
       { getDb: () => db },
     );
     if (created.status !== "created") return back(`connection-${created.reason}`);
@@ -135,9 +144,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
    * connection Hebun had just upgraded.
    *
    * GOOGLE-CAPABILITY-SCOPE-REPAIR-1: "everything the connection needs" includes the capability
-   * scopes THIS tenant's connection was last observed to hold. They come from the connection row
-   * resolved above for the session's tenant — never from the request — so upgrading YouTube no
-   * longer drops Drive. A new connection has no observation and asks for identity + one capability.
+   * scopes THIS tenant's connection OF THIS FAMILY was last observed to hold. They come from the
+   * connection row resolved above for the session's tenant — never from the request — and the
+   * composer refuses any scope of the other family. A new connection asks for identity + one
+   * capability.
    */
   const scopes = composeGoogleAuthorizationScopes(requestedCapability, existing?.scopes ?? []);
 

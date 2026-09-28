@@ -20,6 +20,7 @@ import {
   GOOGLE_DRIVE_METADATA_SCOPE,
   GOOGLE_PROVIDER_KEY,
   GOOGLE_REQUIRED_GRANTED_SCOPES,
+  type GoogleOAuthProviderKey,
 } from "@/features/provider-google/contracts";
 
 export type GoogleSurfaceState =
@@ -62,11 +63,13 @@ const NOT_CONFIGURED: GoogleConnectionModel = Object.freeze({
 export function buildGoogleConnectionModel(
   connections: readonly IntegrationView[],
   configured: boolean,
+  /* GOOGLE-CAPABILITY-SCOPE-REPAIR-1: which Google connection — Workspace unless told otherwise. */
+  providerKey: GoogleOAuthProviderKey = GOOGLE_PROVIDER_KEY,
 ): GoogleConnectionModel {
   if (!configured) return NOT_CONFIGURED;
 
   const google = connections
-    .filter((c) => c.providerKey === GOOGLE_PROVIDER_KEY)
+    .filter((c) => c.providerKey === providerKey)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
 
   if (!google) {

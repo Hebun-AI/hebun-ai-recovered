@@ -19,6 +19,7 @@ import {
   GOOGLE_DRIVE_FILE_CAPABILITY,
   GOOGLE_DRIVE_FILE_SCOPE,
   GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY,
+  GOOGLE_YOUTUBE_PROVIDER_KEY,
   GOOGLE_YOUTUBE_READONLY_SCOPE,
 } from "@/features/provider-google/contracts";
 import { YouTubeChannelIdentity } from "./youtube-channel-identity";
@@ -55,6 +56,13 @@ export default async function GoogleIntegrationPage({
   const listing = tenant ? await listConnections(tenant) : null;
   const connections = listing?.status === "read" ? listing.connections : [];
   const model = buildGoogleConnectionModel(connections, configured);
+  /*
+   * GOOGLE-CAPABILITY-SCOPE-REPAIR-1 · THE YOUTUBE CONNECTION IS ITS OWN GRANT. Google refused one
+   * request carrying Drive and YouTube, so YouTube lives on `google-youtube`: its own state, its own
+   * account and its own granted scopes, never inferred from the Workspace connection above.
+   */
+  const youtube = buildGoogleConnectionModel(connections, configured, GOOGLE_YOUTUBE_PROVIDER_KEY);
+  const youtubeLive = youtube.state === "connected" || youtube.state === "degraded";
 
   return (
     <>
@@ -134,12 +142,19 @@ export default async function GoogleIntegrationPage({
           ) : null}
 
           {/*
-            YOUTUBE-WRITE-1 — read-only YouTube channel identity, as its OWN opt-in. It asks for
-            `youtube.readonly` and nothing wider, through the released capability route. Once
-            granted, one explicit click reads which channel(s) the grant stands for. No upload.
+            YOUTUBE-WRITE-1 — read-only YouTube channel identity, as its OWN opt-in, on its OWN
+            connection (GOOGLE-CAPABILITY-SCOPE-REPAIR-1). It asks for identity + `youtube.readonly`
+            and nothing wider, through the released capability route. Once granted, one explicit
+            click reads which channel(s) the grant stands for. No upload.
           */}
-          {(model.state === "connected" || model.state === "degraded") &&
-          !model.grantedScopes.includes(GOOGLE_YOUTUBE_READONLY_SCOPE) ? (
+          {youtube.state !== "not-configured" ? (
+            <p>
+              YouTube connection: {GOOGLE_STATE_SENTENCES[youtube.state]}
+              {youtube.accountLabel ? ` Account: ${youtube.accountLabel}.` : ""}
+              {youtube.grantedScopes.length > 0 ? ` Granted: ${youtube.grantedScopes.join(" ")}` : ""}
+            </p>
+          ) : null}
+          {configured && !(youtubeLive && youtube.grantedScopes.includes(GOOGLE_YOUTUBE_READONLY_SCOPE)) ? (
             <div className="space-y-1">
               <p>
                 <Link
@@ -156,8 +171,7 @@ export default async function GoogleIntegrationPage({
               </p>
             </div>
           ) : null}
-          {(model.state === "connected" || model.state === "degraded") &&
-          model.grantedScopes.includes(GOOGLE_YOUTUBE_READONLY_SCOPE) ? (
+          {youtubeLive && youtube.grantedScopes.includes(GOOGLE_YOUTUBE_READONLY_SCOPE) ? (
             <YouTubeChannelIdentity />
           ) : null}
 

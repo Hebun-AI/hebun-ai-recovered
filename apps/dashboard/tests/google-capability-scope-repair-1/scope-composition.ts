@@ -1,18 +1,25 @@
 /*
  * tests/google-capability-scope-repair-1/scope-composition.ts — GOOGLE-CAPABILITY-SCOPE-REPAIR-1.
  *
- * Granting one Google capability must not silently drop another the connection already holds.
- * Production defect (YOUTUBE-WRITE-1, TRH, 2026-09-28): identity + drive.file, then a YouTube
- * upgrade, recorded identity + youtube.readonly — Drive went to a scope gap.
+ * Two production facts drive this file:
+ *   1. identity + drive.file, then a YouTube upgrade on the same connection, recorded
+ *      identity + youtube.readonly — Drive went to a scope gap (TRH, 2026-09-28).
+ *   2. composing both families into one request (`bda53bc9`) was refused by Google before consent:
+ *      400 invalid_request, "scopes that cannot be requested together" (reason undocumented).
  *
- * Cases A–T. No real Google call and no database: composition is a pure function, availability runs
- * against a listing stand-in, and the route/callback are read as source where their wiring is the fact.
+ * So each family has its own connection (`google-workspace` for Drive, `google-youtube` for
+ * YouTube) under the same authorities, composition happens only within a family, and no request can
+ * ever carry `drive.file` together with `youtube.readonly`.
+ *
+ * No real Google call and no database: composition is pure, availability runs against a listing
+ * stand-in, and the route/callback are read as source where their wiring is the fact.
  */
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
 import {
+  GOOGLE_CAPABILITY_CONNECTION,
   GOOGLE_CAPABILITY_SCOPE_REQUESTS,
   GOOGLE_DRIVE_CONTENT_CAPABILITY,
   GOOGLE_DRIVE_CONTENT_SCOPE,
@@ -20,13 +27,19 @@ import {
   GOOGLE_DRIVE_FILE_SCOPE,
   GOOGLE_DRIVE_METADATA_CAPABILITY,
   GOOGLE_DRIVE_METADATA_SCOPE,
+  GOOGLE_OAUTH_PROVIDER_KEYS,
+  GOOGLE_PROVIDER_KEY,
   GOOGLE_REQUESTED_SCOPES,
-  GOOGLE_RETAINABLE_CAPABILITY_SCOPES,
+  GOOGLE_RETAINABLE_SCOPES_BY_CONNECTION,
+  GOOGLE_UPGRADEABLE_CAPABILITIES,
   GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY,
+  GOOGLE_YOUTUBE_PROVIDER_KEY,
   GOOGLE_YOUTUBE_READONLY_SCOPE,
   composeGoogleAuthorizationScopes,
+  googleConnectionForCapability,
 } from "../../src/features/provider-google/contracts";
 import { getCapabilityAvailability } from "../../src/features/integration-authority/capability-availability.server";
+import { findProviderDefinition } from "../../src/features/provider-catalog/catalog";
 import type { IntegrationView } from "../../src/features/integration-authority/contracts";
 import { connectedFixture, GOOGLE_IDENTITY_SCOPES } from "../helpers/integration-connection-fixtures";
 
@@ -36,8 +49,11 @@ const codeOnly = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*
 const START = "src/app/api/integrations/google/start/route.ts";
 const CALLBACK = "src/app/api/integrations/google/callback/route.ts";
 const CONTRACTS = "src/features/provider-google/contracts.ts";
+const READER = "src/features/provider-google/read-youtube-channel-identity.server.ts";
 
 const TENANT = { tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" } as never;
+const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
+const YOUTUBE_ID = "22222222-2222-4222-8222-222222222222";
 
 /** A listing stand-in for the database, so the real availability seam decides. */
 function dbFor(connections: readonly IntegrationView[]) {
@@ -62,96 +78,93 @@ function dbFor(connections: readonly IntegrationView[]) {
     }) as never;
 }
 
-async function stateOf(scopes: readonly string[], capability: string): Promise<string | undefined> {
-  const view = await getCapabilityAvailability(TENANT, { getDb: dbFor([connectedFixture({ scopes })]) });
-  return view.capabilities.find((c) => c.capability === capability)?.state;
+const workspace = (scopes: readonly string[]) => connectedFixture({ integrationId: WORKSPACE_ID, providerKey: GOOGLE_PROVIDER_KEY, scopes });
+const youtubeConn = (scopes: readonly string[]) => connectedFixture({ integrationId: YOUTUBE_ID, providerKey: GOOGLE_YOUTUBE_PROVIDER_KEY, scopes });
+
+async function availability(connections: readonly IntegrationView[], capability: string) {
+  const view = await getCapabilityAvailability(TENANT, { getDb: dbFor(connections) });
+  return view.capabilities.find((c) => c.capability === capability)!;
 }
 
 const IDENTITY = [...GOOGLE_REQUESTED_SCOPES];
 const sorted = (xs: readonly string[]) => [...xs].sort();
+const bothFamilies = (req: readonly string[]) => req.includes(GOOGLE_DRIVE_FILE_SCOPE) && req.includes(GOOGLE_YOUTUBE_READONLY_SCOPE);
 
 async function main(): Promise<void> {
-  const start = read(START);
-  const startCode = codeOnly(start);
+  const startCode = codeOnly(read(START));
   const callbackCode = codeOnly(read(CALLBACK));
 
-  /* A · the client submits a capability; the route takes exactly one parameter and never a scope */
+  /* 1 · routing: Drive capabilities → google-workspace, YouTube → google-youtube, nothing → workspace */
   {
-    const reads = [...startCode.matchAll(/searchParams\.get\(\s*"([^"]+)"/g)].map((m) => m[1]!);
-    assert.deepEqual(reads, ["capability"], "exactly one request parameter is honoured");
-    assert.ok(!/searchParams\.get\(\s*"scope/.test(startCode), "no scope is read from the request");
-    assert.ok(
-      /composeGoogleAuthorizationScopes\(\s*requestedCapability\s*,\s*existing\?\.scopes\s*\?\?\s*\[\]\s*\)/.test(startCode),
-      "the request is composed from the capability name and the resolved connection's observed scopes",
-    );
+    for (const cap of [GOOGLE_DRIVE_METADATA_CAPABILITY, GOOGLE_DRIVE_CONTENT_CAPABILITY, GOOGLE_DRIVE_FILE_CAPABILITY]) {
+      assert.equal(googleConnectionForCapability(cap), GOOGLE_PROVIDER_KEY, `${cap} routes to google-workspace`);
+    }
+    assert.equal(googleConnectionForCapability(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY), GOOGLE_YOUTUBE_PROVIDER_KEY);
+    for (const junk of [null, "", "__proto__", "constructor", GOOGLE_YOUTUBE_READONLY_SCOPE, "google.youtube.video.upload"]) {
+      assert.equal(googleConnectionForCapability(junk), GOOGLE_PROVIDER_KEY, `"${junk}" is the plain Workspace connect`);
+    }
+    assert.deepEqual(sorted(Object.keys(GOOGLE_CAPABILITY_CONNECTION)), sorted(GOOGLE_UPGRADEABLE_CAPABILITIES), "every upgradeable capability has exactly one connection");
+    /* the catalog agrees: each capability is declared only on the connection the map names */
+    for (const [cap, owner] of Object.entries(GOOGLE_CAPABILITY_CONNECTION)) {
+      for (const key of GOOGLE_OAUTH_PROVIDER_KEYS) {
+        assert.equal(Object.hasOwn(findProviderDefinition(key)!.capabilityScopes, cap), key === owner, `${cap} declared on ${key}? ${key === owner}`);
+      }
+    }
+    assert.equal(findProviderDefinition(GOOGLE_YOUTUBE_PROVIDER_KEY)!.authMethod, "oauth2");
+    assert.equal(findProviderDefinition(GOOGLE_YOUTUBE_PROVIDER_KEY)!.accountIdentity, "account");
+  }
+
+  /* 2 · the start route resolves the connection from the capability and composes from THAT connection only */
+  {
+    assert.ok(/const providerKey = googleConnectionForCapability\(requestedCapability\)/.test(startCode));
+    assert.ok(/c\.providerKey === providerKey &&/.test(startCode), "the reused connection is of the resolved family");
+    assert.ok(/createConnection\(\s*tenant,\s*\{\s*providerKey,/.test(startCode), "a created connection is of the resolved family");
+    assert.ok(/composeGoogleAuthorizationScopes\(\s*requestedCapability\s*,\s*existing\?\.scopes\s*\?\?\s*\[\]\s*\)/.test(startCode));
     assert.ok(/authorize\.searchParams\.set\("scope",\s*scopes\.join\(" "\)\)/.test(startCode), "only the composed set reaches Google");
   }
 
-  /* B · an unknown capability adds nothing beyond what the connection already holds */
-  for (const junk of ["google.drive.write", "__proto__", "constructor", GOOGLE_DRIVE_FILE_SCOPE, "youtube.upload", ""]) {
-    assert.deepEqual([...composeGoogleAuthorizationScopes(junk, [])], IDENTITY, `"${junk}" is not a capability`);
-  }
-  assert.deepEqual([...composeGoogleAuthorizationScopes(null, [])], IDENTITY);
-
-  /* C · identity scopes are always requested, whatever else is */
-  for (const cap of [null, ...Object.keys(GOOGLE_CAPABILITY_SCOPE_REQUESTS)]) {
-    const req = composeGoogleAuthorizationScopes(cap, [GOOGLE_DRIVE_FILE_SCOPE]);
-    for (const id of IDENTITY) assert.ok(req.includes(id), `${cap} keeps ${id}`);
-  }
-
-  /* D · a first Drive upgrade asks for identity + drive.file only */
-  assert.deepEqual(
-    sorted(composeGoogleAuthorizationScopes(GOOGLE_DRIVE_FILE_CAPABILITY, GOOGLE_IDENTITY_SCOPES)),
-    sorted([...IDENTITY, GOOGLE_DRIVE_FILE_SCOPE]),
-  );
-
-  /* E · a first YouTube upgrade asks for identity + youtube.readonly only */
-  assert.deepEqual(
-    sorted(composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, GOOGLE_IDENTITY_SCOPES)),
-    sorted([...IDENTITY, GOOGLE_YOUTUBE_READONLY_SCOPE]),
-  );
-
-  /* F · THE PRODUCTION DEFECT: observed drive.file + YouTube upgrade keeps drive.file */
-  assert.deepEqual(
-    sorted(composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, [...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE])),
-    sorted([...IDENTITY, GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_YOUTUBE_READONLY_SCOPE]),
-  );
-
-  /* G · the TRH repair path: observed youtube.readonly + Drive upgrade keeps youtube.readonly */
-  assert.deepEqual(
-    sorted(composeGoogleAuthorizationScopes(GOOGLE_DRIVE_FILE_CAPABILITY, [...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE])),
-    sorted([...IDENTITY, GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_YOUTUBE_READONLY_SCOPE]),
-  );
-
-  /* H · A + B, then C → A + B + C */
-  assert.deepEqual(
-    sorted(
-      composeGoogleAuthorizationScopes(GOOGLE_DRIVE_METADATA_CAPABILITY, [
-        ...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_YOUTUBE_READONLY_SCOPE,
-      ]),
-    ),
-    sorted([...IDENTITY, GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_YOUTUBE_READONLY_SCOPE, GOOGLE_DRIVE_METADATA_SCOPE]),
-  );
-  /* …and re-upgrading a capability already held asks for nothing new (no duplicates) */
-  const again = composeGoogleAuthorizationScopes(GOOGLE_DRIVE_FILE_CAPABILITY, [...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE]);
-  assert.equal(new Set(again).size, again.length);
-
-  /* I · another tenant's scopes cannot enter: the only observation is this session's tenant's own connection */
+  /* 3 · THE PRODUCTION REFUSAL: no reachable request carries drive.file AND youtube.readonly */
   {
-    assert.ok(/const tenant = await resolveTenantContext\(\)/.test(startCode), "the tenant is the session's");
-    assert.ok(/listConnections\(tenant,/.test(startCode), "the connection is listed for that tenant only");
-    assert.ok(/const existing =\s*\n?\s*listing\.status === "read"/.test(startCode), "the observation comes from that listing");
-    const scopeSources = [...startCode.matchAll(/(?<![\w"])(\w+\??\.)?scopes\b(?!")/g)].map((m) => m[0]);
-    assert.ok(scopeSources.every((s) => s === "existing?.scopes" || s === "scopes"), `no other scope source: ${scopeSources}`);
-    /* composition is pure: its output is a function of its two arguments and nothing else */
-    assert.deepEqual(
-      [...composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, GOOGLE_IDENTITY_SCOPES)],
-      [...composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, GOOGLE_IDENTITY_SCOPES)],
-    );
+    const everything = [...GOOGLE_IDENTITY_SCOPES, ...Object.values(GOOGLE_CAPABILITY_SCOPE_REQUESTS).flat()];
+    for (const cap of [null, "junk", ...GOOGLE_UPGRADEABLE_CAPABILITIES]) {
+      for (const observed of [[], GOOGLE_IDENTITY_SCOPES, everything]) {
+        const req = composeGoogleAuthorizationScopes(cap, observed);
+        assert.equal(bothFamilies(req), false, `${cap} over ${observed.length} observed scopes never mixes families`);
+      }
+    }
+    const [driveFamily, youtubeFamily] = [GOOGLE_RETAINABLE_SCOPES_BY_CONNECTION[GOOGLE_PROVIDER_KEY], GOOGLE_RETAINABLE_SCOPES_BY_CONNECTION[GOOGLE_YOUTUBE_PROVIDER_KEY]];
+    assert.equal(driveFamily.some((s) => youtubeFamily.includes(s)), false, "the families are disjoint");
   }
 
-  /* J · an arbitrary scope in the observation is never re-requested; only the closed capability set is carried */
+  /* 4 · YouTube consent never requests Drive; Drive consent never requests YouTube */
   {
+    const legacyTRH = [...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE]; // today's TRH workspace row
+    const yt = composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, [...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE]);
+    assert.deepEqual(sorted(yt), sorted([...IDENTITY, GOOGLE_YOUTUBE_READONLY_SCOPE]));
+    const drive = composeGoogleAuthorizationScopes(GOOGLE_DRIVE_FILE_CAPABILITY, legacyTRH);
+    assert.deepEqual(sorted(drive), sorted([...IDENTITY, GOOGLE_DRIVE_FILE_SCOPE]), "the legacy youtube scope on the Workspace row is not carried");
+    /* first-ever upgrades: identity + exactly one capability */
+    assert.deepEqual(sorted(composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, [])), sorted([...IDENTITY, GOOGLE_YOUTUBE_READONLY_SCOPE]));
+    assert.deepEqual(sorted(composeGoogleAuthorizationScopes(GOOGLE_DRIVE_FILE_CAPABILITY, [])), sorted([...IDENTITY, GOOGLE_DRIVE_FILE_SCOPE]));
+  }
+
+  /* 5 · same-family composition still works (the part of bda53bc9 that stays) */
+  assert.deepEqual(
+    sorted(composeGoogleAuthorizationScopes(GOOGLE_DRIVE_CONTENT_CAPABILITY, [...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_DRIVE_METADATA_SCOPE])),
+    sorted([...IDENTITY, GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_DRIVE_METADATA_SCOPE, GOOGLE_DRIVE_CONTENT_SCOPE]),
+  );
+
+  /* 6 · the composer throws rather than send a cross-family request (construction guard) */
+  {
+    const body = codeOnly(read(CONTRACTS));
+    const fn = body.slice(body.indexOf("export function composeGoogleAuthorizationScopes"));
+    assert.ok(/throw new Error\(`A \$\{connection\} authorization request may not carry a \$\{other\} scope\.`\)/.test(fn));
+  }
+
+  /* 7 · arbitrary client scopes impossible: one request parameter, and foreign observed scopes are never carried */
+  {
+    const reads = [...startCode.matchAll(/searchParams\.get\(\s*"([^"]+)"/g)].map((m) => m[1]!);
+    assert.deepEqual(reads, ["capability"], "exactly one request parameter is honoured");
     const hostile = [
       ...GOOGLE_IDENTITY_SCOPES,
       "https://www.googleapis.com/auth/drive",
@@ -160,53 +173,89 @@ async function main(): Promise<void> {
       "https://evil.example/scope",
     ];
     assert.deepEqual([...composeGoogleAuthorizationScopes(null, hostile)], IDENTITY);
-    assert.deepEqual(
-      sorted(GOOGLE_RETAINABLE_CAPABILITY_SCOPES),
-      sorted([...new Set(Object.values(GOOGLE_CAPABILITY_SCOPE_REQUESTS).flat())]),
-      "the carry-forward set is exactly the frozen map's scopes",
-    );
+    assert.deepEqual([...composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, hostile)], [...IDENTITY, GOOGLE_YOUTUBE_READONLY_SCOPE]);
   }
 
-  /* K + L · no write scope, and no YouTube upload scope, can ever be requested */
+  /* 8 · cross-tenant impossible: the only observation is the session tenant's own connection */
+  {
+    assert.ok(/const tenant = await resolveTenantContext\(\)/.test(startCode));
+    assert.ok(/listConnections\(tenant,/.test(startCode));
+    const scopeSources = [...startCode.matchAll(/(?<![\w"])(\w+\??\.)?scopes\b(?!")/g)].map((m) => m[0]);
+    assert.ok(scopeSources.every((s) => s === "existing?.scopes" || s === "scopes"), `no other scope source: ${scopeSources}`);
+    assert.ok(/include_granted_scopes",\s*"false"/.test(startCode), "never Google's per-account union");
+  }
+
+  /* 9 · provider-observed scopes stay authoritative: the callback records only Google's answer */
+  {
+    assert.ok(/grantedScopes:\s*grant\.grantedScopes/.test(callbackCode));
+    assert.ok(!/composeGoogleAuthorizationScopes|GOOGLE_RETAINABLE_SCOPES_BY_CONNECTION|existing\?\.scopes/.test(callbackCode));
+    /* the callback writes to the integration the signed state names — the one the start route resolved */
+    assert.ok(/const integrationId = verified\.payload\.integrationId/.test(callbackCode));
+  }
+
+  /* 10 · the target state: both connections, each capability available through its OWN connection */
+  {
+    const both = [workspace([...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE]), youtubeConn([...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE])];
+    const drive = await availability(both, GOOGLE_DRIVE_FILE_CAPABILITY);
+    const yt = await availability(both, GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY);
+    assert.equal(drive.state, "available");
+    assert.equal(yt.state, "available");
+    assert.deepEqual(drive.sources.filter((s) => s.readAvailable).map((s) => s.integrationId), [WORKSPACE_ID]);
+    assert.deepEqual(yt.sources.filter((s) => s.readAvailable).map((s) => s.integrationId), [YOUTUBE_ID]);
+  }
+
+  /* 11 · neither derives from the other: a youtube scope on the Workspace row does NOT make YouTube available */
+  {
+    const legacy = [workspace([...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE])];
+    assert.notEqual((await availability(legacy, GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY)).state, "available");
+    const wrongRow = [youtubeConn([...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE])];
+    assert.notEqual((await availability(wrongRow, GOOGLE_DRIVE_FILE_CAPABILITY)).state, "available");
+  }
+
+  /* 12 · revocation affects only its own connection */
+  {
+    const driveRevoked = [workspace([...GOOGLE_IDENTITY_SCOPES]), youtubeConn([...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE])];
+    assert.equal((await availability(driveRevoked, GOOGLE_DRIVE_FILE_CAPABILITY)).state, "degraded");
+    assert.equal((await availability(driveRevoked, GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY)).state, "available");
+    const ytEnded = [
+      workspace([...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE]),
+      connectedFixture({ integrationId: YOUTUBE_ID, providerKey: GOOGLE_YOUTUBE_PROVIDER_KEY, connectionState: "revoked", revokedAt: "2026-09-28T00:00:00.000Z", scopes: [...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE] }),
+    ];
+    assert.notEqual((await availability(ytEnded, GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY)).state, "available");
+    assert.equal((await availability(ytEnded, GOOGLE_DRIVE_FILE_CAPABILITY)).state, "available");
+    /* and a revoked scope, once observed absent, is not asked for again */
+    assert.ok(!composeGoogleAuthorizationScopes(null, [...GOOGLE_IDENTITY_SCOPES]).includes(GOOGLE_DRIVE_FILE_SCOPE));
+  }
+
+  /* 13 · the YouTube reader accepts only the google-youtube connection */
+  {
+    const reader = codeOnly(read(READER));
+    assert.ok(/source\.providerKey !== GOOGLE_YOUTUBE_PROVIDER_KEY/.test(reader));
+    assert.ok(!/"google-workspace"/.test(reader));
+  }
+
+  /* 14 · youtube.upload and every write scope stay unavailable */
   {
     const everything = composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, [
-      ...GOOGLE_IDENTITY_SCOPES, ...GOOGLE_RETAINABLE_CAPABILITY_SCOPES,
+      ...Object.values(GOOGLE_CAPABILITY_SCOPE_REQUESTS).flat(),
     ]);
     for (const forbidden of [
       "https://www.googleapis.com/auth/youtube.upload",
       "https://www.googleapis.com/auth/youtube",
       "https://www.googleapis.com/auth/youtube.force-ssl",
       "https://www.googleapis.com/auth/drive",
-      "https://www.googleapis.com/auth/drive.file.write",
     ]) {
       assert.ok(!everything.includes(forbidden), `${forbidden} is never requested`);
+    }
+    for (const key of GOOGLE_OAUTH_PROVIDER_KEYS) {
+      for (const [cap, s] of Object.entries(findProviderDefinition(key)!.capabilityScopes)) {
+        assert.deepEqual([...s.write], [], `${key} ${cap} declares no write scope`);
+      }
     }
     assert.ok(!/youtube\.upload"/.test(codeOnly(read(CONTRACTS))), "no youtube.upload constant exists");
   }
 
-  /* M · the callback records ONLY Google's statement of the grant — never the request */
-  {
-    assert.ok(/grantedScopes:\s*grant\.grantedScopes/.test(callbackCode), "observed scopes are what Google returned");
-    assert.ok(!/composeGoogleAuthorizationScopes|GOOGLE_RETAINABLE_CAPABILITY_SCOPES|existing\?\.scopes/.test(callbackCode), "no requested or historical scope reaches the record");
-    assert.ok(/coversRequiredScopes\(grant\.grantedScopes\)/.test(callbackCode));
-  }
-
-  /* N · a scope actually gone from the observed grant makes its capability unavailable */
-  assert.equal(await stateOf([...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE], GOOGLE_DRIVE_FILE_CAPABILITY), "degraded");
-  assert.equal(await stateOf([...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE], GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY), "degraded");
-
-  /* O · not monotonic: after Google's answer drops a scope, the next request does not bring it back */
-  {
-    const yesterday = [...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_YOUTUBE_READONLY_SCOPE];
-    const observedToday = [...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE]; // drive.file revoked at Google
-    assert.ok(composeGoogleAuthorizationScopes(null, yesterday).includes(GOOGLE_DRIVE_FILE_SCOPE));
-    assert.ok(!composeGoogleAuthorizationScopes(null, observedToday).includes(GOOGLE_DRIVE_FILE_SCOPE), "revoked stays revoked");
-    assert.ok(
-      !composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, observedToday).includes(GOOGLE_DRIVE_FILE_SCOPE),
-    );
-  }
-
-  /* P · no schema change and no migration: the repair touches no `src/db` file */
+  /* 15 · no schema change and no migration */
   {
     const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
     assert.equal(migrations.length, 67, "ledger stays 67");
@@ -214,36 +263,24 @@ async function main(): Promise<void> {
     assert.equal(touched, "", "no src/db file changed");
   }
 
-  /* Q · Drive per-file capability still resolves exactly as before */
-  assert.equal(await stateOf([...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE], GOOGLE_DRIVE_FILE_CAPABILITY), "available");
-  assert.equal(await stateOf([...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_CONTENT_SCOPE], GOOGLE_DRIVE_CONTENT_CAPABILITY), "available");
-
-  /* R · YouTube channel identity still resolves; and both at once — the target production state */
-  assert.equal(await stateOf([...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE], GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY), "available");
+  /* 16 · no token, secret or log on the authorization path; composition is pure */
   {
-    const both = [...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_YOUTUBE_READONLY_SCOPE];
-    assert.equal(await stateOf(both, GOOGLE_DRIVE_FILE_CAPABILITY), "available");
-    assert.equal(await stateOf(both, GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY), "available");
+    assert.ok(!/console\./.test(startCode));
+    assert.ok(!/withDecryptedSecret|accessToken|refreshToken|credential-repository/.test(startCode));
+    const body = codeOnly(read(CONTRACTS));
+    const fn = body.slice(body.indexOf("export function composeGoogleAuthorizationScopes"));
+    assert.ok(!/await|fetch|process\.env/.test(fn.slice(0, fn.indexOf("\n}"))));
   }
 
-  /* S · no token, secret or log introduced on the authorization path */
+  /* 17 · concurrency: one state cookie per browser, bound to session + tenant + integration, single use */
   {
-    assert.ok(!/console\./.test(startCode), "the start route logs nothing");
-    assert.ok(!/withDecryptedSecret|accessToken|refreshToken|credential-repository/.test(startCode), "the start route touches no credential");
-    const composer = codeOnly(read(CONTRACTS));
-    const body = composer.slice(composer.indexOf("export function composeGoogleAuthorizationScopes"));
-    assert.ok(!/await|fetch|process\.env/.test(body.slice(0, body.indexOf("\n}"))), "composition is pure");
-  }
-
-  /* T · concurrency: one state cookie per browser, bound to session + tenant, single use */
-  {
+    assert.ok(/mintOAuthState\(\s*\{\s*tenantId: tenant\.tenantId, sessionReference, integrationId \}/.test(startCode), "state names the resolved connection");
     assert.ok(/response\.cookies\.set\(\s*GOOGLE_OAUTH_STATE_COOKIE/.test(startCode), "a second start replaces the first flow's cookie");
-    assert.ok(/verifyOAuthState\(/.test(callbackCode) && /tenantId: tenant\.tenantId/.test(callbackCode), "state is bound to the tenant");
+    assert.ok(/tenantId: tenant\.tenantId/.test(callbackCode));
     assert.ok(/response\.cookies\.delete\(GOOGLE_OAUTH_STATE_COOKIE\)/.test(callbackCode), "single use");
-    assert.ok(/include_granted_scopes",\s*"false"/.test(startCode), "per-tenant composition, not Google's per-account union");
   }
 
-  console.log("google-capability-scope-repair-1: A–T passed");
+  console.log("google-capability-scope-repair-1: 1–17 passed");
 }
 
 main().catch((error) => {
