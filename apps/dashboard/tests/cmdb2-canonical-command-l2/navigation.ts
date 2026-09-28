@@ -146,6 +146,8 @@ const USE_SERVER_MODULES = [
    * disconnect. It is a THIN caller — the credential/connection composition lives in
    * `provider-connection-lifecycle`, because a released INT-2 firewall keeps the credential
    * authority unreachable from `src/app`. A second one appearing is a decision to record. */
+  /* YOUTUBE-WRITE-1: one READ boundary — the Google page's no-input channel identity read. */
+  "src/app/(dashboard)/integrations/google/actions.ts",
   "src/app/(dashboard)/integrations/instagram/actions.ts",
   "src/app/(dashboard)/intelligence/social/actions.ts",
   "src/app/(dashboard)/knowledge/actions.ts",

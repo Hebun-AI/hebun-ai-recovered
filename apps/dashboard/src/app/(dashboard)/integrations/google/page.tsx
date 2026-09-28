@@ -15,7 +15,13 @@ import { PageHeader } from "@/components/layout/page-header";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { listConnections } from "@/features/integration-authority/integration-repository.server";
 import { isGoogleOAuthConfigured } from "@/features/provider-google/google-environment.server";
-import { GOOGLE_DRIVE_FILE_CAPABILITY, GOOGLE_DRIVE_FILE_SCOPE } from "@/features/provider-google/contracts";
+import {
+  GOOGLE_DRIVE_FILE_CAPABILITY,
+  GOOGLE_DRIVE_FILE_SCOPE,
+  GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY,
+  GOOGLE_YOUTUBE_READONLY_SCOPE,
+} from "@/features/provider-google/contracts";
+import { YouTubeChannelIdentity } from "./youtube-channel-identity";
 import {
   buildGoogleConnectionModel,
   GOOGLE_STATE_SENTENCES,
@@ -125,6 +131,34 @@ export default async function GoogleIntegrationPage({
                 Google&apos;s chooser — never the rest of your Drive.
               </p>
             </div>
+          ) : null}
+
+          {/*
+            YOUTUBE-WRITE-1 — read-only YouTube channel identity, as its OWN opt-in. It asks for
+            `youtube.readonly` and nothing wider, through the released capability route. Once
+            granted, one explicit click reads which channel(s) the grant stands for. No upload.
+          */}
+          {(model.state === "connected" || model.state === "degraded") &&
+          !model.grantedScopes.includes(GOOGLE_YOUTUBE_READONLY_SCOPE) ? (
+            <div className="space-y-1">
+              <p>
+                <Link
+                  href={`/api/integrations/google/start?capability=${encodeURIComponent(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY)}`}
+                  prefetch={false}
+                  className="underline underline-offset-4"
+                >
+                  Grant read-only YouTube channel identity
+                </Link>
+              </p>
+              <p className="text-xs">
+                Hebun will be able to see which YouTube channel this Google account stands for — read
+                only. It cannot upload, edit or delete anything on YouTube.
+              </p>
+            </div>
+          ) : null}
+          {(model.state === "connected" || model.state === "degraded") &&
+          model.grantedScopes.includes(GOOGLE_YOUTUBE_READONLY_SCOPE) ? (
+            <YouTubeChannelIdentity />
           ) : null}
 
           {model.connectable ? (

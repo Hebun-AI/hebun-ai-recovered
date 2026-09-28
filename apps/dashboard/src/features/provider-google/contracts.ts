@@ -271,6 +271,40 @@ export const GOOGLE_DRIVE_FILE_CAPABILITY = "google.drive.file.content.read" as 
  */
 export const GOOGLE_DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
+/*
+ * ── YOUTUBE-WRITE-1 · THE AUTHENTICATED CHANNEL IDENTITY ─────────────────────
+ *
+ * WHICH YouTube channel(s) this Google OAuth grant stands for, as YouTube itself answers
+ * `channels.list?mine=true`. It is NOT the API-key public read (`youtube.channel.public.read`, a
+ * distinct provider that binds no account), and it is NOT a Google identity: the connection's
+ * `externalAccountId` is the Google `sub`, and a Google account is not a channel.
+ *
+ * READ ONLY, AND THE NARROWEST SCOPE THAT CAN DO IT. Verified against Google's own YouTube Data API
+ * discovery document (revision 20260924): `youtube.channels.list` accepts `youtube`,
+ * `youtube.force-ssl`, `youtube.readonly`, `youtubepartner` and `youtubepartner-channel-audit` —
+ * and NOT `youtube.upload`. `youtube.readonly` ("View your YouTube account") is the one of those
+ * that grants no write, so it is the one requested. No upload scope exists anywhere in Hebun.
+ *
+ * It persists nothing. Which channel a publish may target is a later decision, made on the evidence
+ * this read produces — never on a channel name, an email address or a client's choice.
+ */
+export const GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY = "google.youtube.channel.identity.read" as const;
+export const GOOGLE_YOUTUBE_READONLY_SCOPE = "https://www.googleapis.com/auth/youtube.readonly";
+/** The documented `channels.list` endpoint. A constant: no caller can point this read elsewhere. */
+export const GOOGLE_YOUTUBE_CHANNELS_ENDPOINT = "https://www.googleapis.com/youtube/v3/channels";
+/** One page, the API maximum. A grant standing for more than this is reported as truncated. */
+export const MAX_YOUTUBE_CHANNELS_PER_READ = 50;
+
+/** The two facts this phase needs about a channel. Anything else YouTube sends is left behind. */
+export interface YouTubeChannelIdentity {
+  readonly channelId: string;
+  readonly title: string;
+}
+
+export type YouTubeChannelListResult =
+  | { readonly ok: true; readonly channels: readonly YouTubeChannelIdentity[]; readonly truncated: boolean }
+  | GoogleFailure;
+
 /**
  * WHICH CAPABILITIES MAY GATE A CONTENT READ — a CLOSED set, and the only values the content seam
  * accepts.
@@ -436,6 +470,11 @@ export const GOOGLE_CAPABILITY_SCOPE_REQUESTS: Readonly<Record<string, readonly 
      * A tenant may hold any of the three grants, all of them, or none. They are never merged.
      */
     [GOOGLE_DRIVE_FILE_CAPABILITY]: Object.freeze([GOOGLE_DRIVE_FILE_SCOPE]),
+    /*
+     * YOUTUBE-WRITE-1. The read-only YouTube scope, and nothing wider. Requested ONLY when this
+     * capability is explicitly upgraded; connecting Google still asks for identity alone.
+     */
+    [GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY]: Object.freeze([GOOGLE_YOUTUBE_READONLY_SCOPE]),
   });
 
 /** The capability names an authorization request may legitimately carry. */

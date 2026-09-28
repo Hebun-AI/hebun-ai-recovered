@@ -60,6 +60,8 @@ import {
   GOOGLE_DRIVE_CONTENT_CAPABILITY,
   GOOGLE_DRIVE_CONTENT_SCOPE,
   GOOGLE_DRIVE_FILE_CAPABILITY,
+  GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY,
+  GOOGLE_YOUTUBE_READONLY_SCOPE,
   GOOGLE_DRIVE_FILE_SCOPE,
 } from "@/features/provider-google/contracts";
 import {
@@ -176,6 +178,17 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
        */
       [GOOGLE_DRIVE_FILE_CAPABILITY]: Object.freeze({
         read: Object.freeze([GOOGLE_DRIVE_FILE_SCOPE]),
+        write: Object.freeze([]),
+      }),
+      /*
+       * ── A FOURTH CAPABILITY: YOUTUBE-WRITE-1 ────────────────────────────────
+       * The authenticated YouTube channel identity, under `youtube.readonly`. It lives on the
+       * Google OAuth connection because the grant is a Google grant; the API-key `youtube` provider
+       * below keeps public reads and binds no account. `write` STAYS EMPTY: reading which channel a
+       * grant stands for writes nothing, and no upload scope is declared anywhere.
+       */
+      [GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY]: Object.freeze({
+        read: Object.freeze([GOOGLE_YOUTUBE_READONLY_SCOPE]),
         write: Object.freeze([]),
       }),
     }),

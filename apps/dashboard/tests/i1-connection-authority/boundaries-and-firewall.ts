@@ -480,6 +480,8 @@ function main(): void {
         "google.drive.content.read",
         "google.drive.file.content.read",
         "google.drive.metadata.read",
+        /* YOUTUBE-WRITE-1: the authenticated channel identity, read-only (`youtube.readonly`). */
+        "google.youtube.channel.identity.read",
         /*
          * INSTAGRAM: one professional-account read behind an OAuth access token, asking for
          * `instagram_business_basic` and nothing else. Its write scope set is empty, so the

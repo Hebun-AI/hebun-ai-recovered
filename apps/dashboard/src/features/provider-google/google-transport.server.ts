@@ -43,6 +43,10 @@ import {
   GOOGLE_REVOKE_ENDPOINT,
   GOOGLE_TOKEN_ENDPOINT,
   GOOGLE_USERINFO_ENDPOINT,
+  GOOGLE_YOUTUBE_CHANNELS_ENDPOINT,
+  MAX_YOUTUBE_CHANNELS_PER_READ,
+  type YouTubeChannelIdentity,
+  type YouTubeChannelListResult,
   parseScopes,
   type GoogleAccountIdentity,
   type GoogleFailure,
@@ -427,6 +431,84 @@ export async function listDriveFiles(
       files: Object.freeze(files),
       nextPageToken: typeof json.nextPageToken === "string" ? json.nextPageToken : null,
     },
+  };
+}
+
+/** One channel, taken field by field: its id and its title. Anything else is left behind. */
+function youtubeChannelFrom(raw: unknown): YouTubeChannelIdentity | null {
+  if (!raw || typeof raw !== "object") return null;
+  const item = raw as { id?: unknown; snippet?: unknown };
+  if (typeof item.id !== "string" || item.id.length === 0) return null;
+  const snippet = item.snippet && typeof item.snippet === "object" ? (item.snippet as { title?: unknown }) : {};
+  return { channelId: item.id, title: typeof snippet.title === "string" ? snippet.title : "" };
+}
+
+/**
+ * YOUTUBE-WRITE-1 · WHICH CHANNEL(S) THIS GRANT STANDS FOR. `channels.list?mine=true`, one page.
+ *
+ * READ ONLY BY CONSTRUCTION. A GET to one constant endpoint; no body, no caller-supplied query, no
+ * page token, no channel id. `fields` asks for each channel's id and title and nothing else, so
+ * statistics, branding and content details never cross the seam.
+ *
+ * EVERY CHANNEL YOUTUBE RETURNS IS RETURNED, in YouTube's order. Zero is a real answer, and so is
+ * more than one: this function never picks one, and a caller that needs one must decide on this
+ * evidence rather than on a guess made here. A further page is reported as `truncated`, never read.
+ */
+export async function listAuthenticatedYouTubeChannels(
+  accessToken: string,
+  deps: GoogleTransportDeps = {},
+): Promise<YouTubeChannelListResult> {
+  assertServerOnly();
+
+  const url = new URL(GOOGLE_YOUTUBE_CHANNELS_ENDPOINT);
+  url.searchParams.set("part", "snippet");
+  url.searchParams.set("mine", "true");
+  url.searchParams.set("maxResults", String(MAX_YOUTUBE_CHANNELS_PER_READ));
+  url.searchParams.set("fields", "nextPageToken,items(id,snippet/title)");
+
+  const doFetch = deps.fetchImpl ?? fetch;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), deps.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await doFetch(url.toString(), {
+      method: "GET",
+      headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" },
+      signal: controller.signal,
+    });
+  } catch {
+    return fail("transport", "google-unreachable");
+  } finally {
+    clearTimeout(timer);
+  }
+
+  let json: Record<string, unknown>;
+  try {
+    json = (await response.json()) as Record<string, unknown>;
+  } catch {
+    if (!response.ok) return classifyStatus(response.status, null);
+    return fail("malformed", "google-unparseable-response");
+  }
+  if (!response.ok) return classifyStatus(response.status, googleErrorCode(json));
+
+  /* YouTube omits `items` when the grant stands for no channel: an absent list is zero, not an error. */
+  const rawItems = json.items === undefined ? [] : json.items;
+  if (!Array.isArray(rawItems)) return fail("malformed", "google-response-missing-items");
+
+  /*
+   * UNLIKE a Drive page, an unparseable entry is NOT dropped: the whole point of this read is HOW
+   * MANY channels a grant stands for, and silently shrinking that count would be the one wrong
+   * answer. An item without an id fails the read closed.
+   */
+  const parsed = rawItems.map(youtubeChannelFrom);
+  if (parsed.some((c) => c === null)) return fail("malformed", "google-channel-item-unparseable");
+  const channels = (parsed as YouTubeChannelIdentity[]).slice(0, MAX_YOUTUBE_CHANNELS_PER_READ);
+
+  return {
+    ok: true,
+    channels: Object.freeze(channels),
+    truncated: typeof json.nextPageToken === "string" && json.nextPageToken.length > 0,
   };
 }
 

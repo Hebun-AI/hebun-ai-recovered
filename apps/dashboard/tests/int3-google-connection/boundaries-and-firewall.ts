@@ -439,8 +439,10 @@ function main(): void {
         "google.drive.metadata.read",
         "google.drive.content.read",
         "google.drive.file.content.read",
+        /* YOUTUBE-WRITE-1: a fourth, read-only — which YouTube channel(s) the grant stands for. */
+        "google.youtube.channel.identity.read",
       ],
-      "Google maps exactly the metadata read, the Drive-wide content read and the per-file content read",
+      "Google maps exactly the metadata read, the Drive-wide content read, the per-file content read and the YouTube channel identity read",
     );
     const drive = google.capabilityScopes["google.drive.metadata.read"]!;
     assert.deepEqual(
