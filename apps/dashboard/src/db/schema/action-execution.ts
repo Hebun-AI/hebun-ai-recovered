@@ -226,14 +226,15 @@ export const actionExecutionAttempts = pgTable(
     /**
      * PUBLISH-0 — THE RECIPIENT BINDING, keyed on the attempt's OWN action kind.
      *
-     * A CLOSED allowlist of recipient-less kinds (today exactly `publish-instagram-media`, which
-     * publishes to the connection's own account and has no third-party recipient). For those, both
-     * recipient columns MUST be NULL; for every other kind — `send-external-communication` and any
-     * kind not yet invented — both MUST be present. Fail closed: widening the list is a migration.
+     * A CLOSED allowlist of recipient-less kinds: `publish-instagram-media` (PUBLISH-0) and
+     * `publish-youtube-video` (YOUTUBE-WRITE-2, migration 68), each publishing to the connection's
+     * OWN account/channel with no third-party recipient. For those, both recipient columns MUST be
+     * NULL; for every other kind — `send-external-communication` and any kind not yet invented — both
+     * MUST be present. Fail closed: widening the list is a migration.
      */
     check(
       "action_execution_attempts_recipient_binding_chk",
-      sql`case when ${t.actionKind} in ('publish-instagram-media') then ${t.recipientId} is null and ${t.recipientEndpointDigest} is null else ${t.recipientId} is not null and ${t.recipientEndpointDigest} is not null end`,
+      sql`case when ${t.actionKind} in ('publish-instagram-media', 'publish-youtube-video') then ${t.recipientId} is null and ${t.recipientEndpointDigest} is null else ${t.recipientId} is not null and ${t.recipientEndpointDigest} is not null end`,
     ),
 
     check("action_execution_attempts_adapter_id_chk", sql`char_length(btrim(${t.adapterId})) > 0`),

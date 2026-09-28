@@ -184,8 +184,9 @@ async function main(): Promise<void> {
     /*
      * PUBLISH-0: ONE shared site before the spend, plus one immediately before dispatch PER external
      * kind (the send's adapter, the Instagram publish). Every site still goes through the conjunction.
+     * YOUTUBE-WRITE-2 adds the YouTube upload's own pre-dispatch site.
      */
-    3,
+    4,
     "every kill-switch site — before the spend, and immediately before each external dispatch — goes through it",
   );
   assert.ok(

@@ -101,19 +101,30 @@ async function main(): Promise<void> {
 
   /* C · the upgrade is closed: a capability resolves to its own scope, a scope or junk resolves to nothing */
   assert.deepEqual([...extraScopesForCapability(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY)!], [GOOGLE_YOUTUBE_READONLY_SCOPE]);
-  for (const junk of [GOOGLE_YOUTUBE_READONLY_SCOPE, "https://www.googleapis.com/auth/youtube.upload", "google.youtube.video.upload", "__proto__", "constructor"]) {
+  for (const junk of [GOOGLE_YOUTUBE_READONLY_SCOPE, "https://www.googleapis.com/auth/youtube.upload", "google.youtube.video.delete", "__proto__", "constructor"]) {
     assert.equal(extraScopesForCapability(junk), null, `${junk} is not a capability`);
   }
 
-  /* D / M · no upload scope and no upload path anywhere in src */
+  /*
+   * D / M · no upload scope and no upload path anywhere in src — EXCEPT the two YOUTUBE-WRITE-2 files
+   * that own the governed upload (the capability/scope constants and the resumable transport). The
+   * identity reader, its route and its UI still carry neither; WRITE-2's own tests pin the rest.
+   */
+  const WRITE2_UPLOAD_OWNERS = new Set([
+    path.join("src", "features", "provider-google", "contracts.ts"),
+    path.join("src", "features", "provider-google", "youtube-upload-transport.server.ts"),
+  ]);
   const walk = (dir: string): string[] =>
     readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((e) =>
       e.isDirectory() ? walk(path.join(dir, e.name)) : /\.(ts|tsx)$/.test(e.name) ? [path.join(dir, e.name)] : [],
     );
   for (const f of walk("src")) {
     const c = codeOnly(read(f));
-    for (const banned of ["auth/youtube.upload", "auth/youtube.force-ssl", "auth/youtubepartner", "upload/youtube", "videos.insert", "uploadType=resumable"]) {
-      assert.equal(c.includes(banned), false, `${f} must not contain ${banned}`);
+    const banned = WRITE2_UPLOAD_OWNERS.has(f)
+      ? ["auth/youtube.force-ssl", "auth/youtubepartner", "videos.insert", "uploadType=resumable"]
+      : ["auth/youtube.upload", "auth/youtube.force-ssl", "auth/youtubepartner", "upload/youtube", "videos.insert", "uploadType=resumable"];
+    for (const b of banned) {
+      assert.equal(c.includes(b), false, `${f} must not contain ${b}`);
     }
     assert.equal(/["']https:\/\/www\.googleapis\.com\/auth\/youtube["']/.test(c), false, `${f} must not request the full youtube scope`);
   }
@@ -206,8 +217,8 @@ async function main(): Promise<void> {
     }
   }
 
-  /* O · no schema, no migration */
-  assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 67, "ledger stays 67");
+  /* O · WRITE-1 added no schema; YOUTUBE-WRITE-2's approved migration 68 is pinned in its own tests */
+  assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 68, "ledger 68 since YOUTUBE-WRITE-2");
   for (const f of walk("src/db/schema")) assert.doesNotMatch(read(f), /youtube_channel|channel_binding|publish_channel/i);
 
   /* P · provider failure fails closed and is classified */

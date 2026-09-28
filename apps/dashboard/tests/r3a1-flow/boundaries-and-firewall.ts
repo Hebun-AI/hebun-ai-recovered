@@ -176,7 +176,8 @@ function authorityFirewall(): void {
    * `/publish` deliberately, through the same dispatcher and handler switch as `/send`.
    */
   const proposable = HEBY_COMMANDS.filter((c) => c.kind === "propose").map((c) => c.id);
-  assert.deepEqual(proposable, ["send", "publish"], "exactly the pinned proposable commands");
+  /* YOUTUBE-WRITE-2 — /publish-youtube, Director-approved, named so another still needs an edit. */
+  assert.deepEqual(proposable, ["send", "publish", "publish-youtube"], "exactly the pinned proposable commands");
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -366,8 +367,10 @@ function answerFlowFilesNothing(): void {
       "src/features/heby-action-inlet/place-human-proposal.server.ts",
       "src/features/heby-action-inlet/record-work-proposal.server.ts",
       "src/features/heby-action-inlet/send-proposal.server.ts",
+      /* YOUTUBE-WRITE-2's proposer — the YouTube upload inlet. Still an inlet, still named. */
+      "src/features/heby-action-inlet/youtube-publish-proposal.server.ts",
     ],
-    "the only production callers of recordActionRequest are the four action inlets",
+    "the only production callers of recordActionRequest are the five action inlets",
   );
 }
 

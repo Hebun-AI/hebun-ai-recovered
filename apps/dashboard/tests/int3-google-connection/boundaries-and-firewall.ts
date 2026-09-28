@@ -350,7 +350,16 @@ function main(): void {
      *    availability seam reads as "no write capability exists" rather than vacuously satisfied.
      */
     {
-      const transport = read("src/features/provider-google/google-transport.server.ts");
+      const whole = read("src/features/provider-google/google-transport.server.ts");
+      /*
+       * YOUTUBE-WRITE-2's governed YouTube upload (one session POST, byte PUTs) lives in this module
+       * because it is the one place inside the Google provider that talks to Google. It is a YouTube
+       * write under its own tests, not a Drive call, so it is sliced out and this pin keeps meaning
+       * exactly "no Drive URL is ever posted, patched, put or deleted".
+       */
+      const ytStart = whole.indexOf("export interface YouTubeUploadInput");
+      const ytEnd = whole.indexOf("export async function readDriveFileImage");
+      const transport = ytStart >= 0 && ytEnd > ytStart ? whole.slice(0, ytStart) + whole.slice(ytEnd) : whole;
       const postTargets = [...transport.matchAll(/postForm\(\s*([A-Z_]+)/g)].map((m) => m[1]!);
       assert.ok(postTargets.length > 0, "the transport does post something — this pin is not vacuous");
       assert.deepEqual(

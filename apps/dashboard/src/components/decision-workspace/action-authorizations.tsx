@@ -1,5 +1,6 @@
 "use client";
 
+import { YouTubeUploadStatus } from "./youtube-upload-status";
 import { useState, useTransition } from "react";
 import { Lock } from "lucide-react";
 import { DecisionRegion, DecisionEmptyState, StructuralMarker } from "./decision-region";
@@ -722,6 +723,10 @@ function PermitRow({ item }: { item: ActionPermitView }) {
       ) : (
         <OutcomeLine status={item.executionStatus} providerMessageId={item.providerMessageId} />
       )}
+      {/* YOUTUBE-WRITE-2 — accepted means a video resource exists; what YouTube says next is read on demand. */}
+      {item.actionKind === "publish-youtube-video" && item.executionStatus === "accepted" ? (
+        <YouTubeUploadStatus permitId={item.permitId} />
+      ) : null}
 
       {/*
        * DELIVERY LEGIBILITY — a SECOND line, never a replacement for the one above.

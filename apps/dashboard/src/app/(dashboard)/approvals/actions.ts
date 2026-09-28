@@ -12,6 +12,10 @@ import {
 } from "@/features/action-authorization/decide-action-request.server";
 import { revokeActionPermit } from "@/features/action-authorization/revoke-action-permit.server";
 import { executeAuthorizedAction } from "@/features/action-execution/execute-authorized-action.server";
+import {
+  readYouTubeUploadedVideo,
+  type YouTubeUploadReadResult,
+} from "@/features/youtube-publishing/read-youtube-upload.server";
 import { executeRecordWork } from "@/features/governed-internal-action/execute-record-work.server";
 import {
   executePlaceHuman,
@@ -127,6 +131,19 @@ export async function executeAuthorizedActionAction(
   });
   if (result.status !== "refused") revalidatePath("/approvals");
   return result;
+}
+
+/**
+ * YOUTUBE-WRITE-2 — READ what YouTube now says about the video one executed permit uploaded.
+ *
+ * A READ. It spends nothing, writes nothing and stores nothing: processing, the privacy YouTube
+ * applied and the channel are answered by YouTube at the moment of asking. The tenant is the
+ * session's; the permit id is the only input and is matched inside that tenant.
+ */
+export async function readYouTubeUploadAction(
+  input: { readonly permitId: string },
+): Promise<YouTubeUploadReadResult> {
+  return readYouTubeUploadedVideo(await resolveTenantContext(), { permitId: String(input?.permitId ?? "") });
 }
 
 /**

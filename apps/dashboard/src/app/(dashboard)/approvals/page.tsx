@@ -23,6 +23,12 @@ import {
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 
 export const metadata = { title: "Decisions — Hebun AI" };
+/*
+ * YOUTUBE-WRITE-2 — Execute runs here, and a governed YouTube upload reads a verified video (Media's
+ * 20 MiB ceiling), re-reads the channel and sends the bytes inside this request. An explicit bound,
+ * the same one `/operations` already runs under, rather than whatever the platform default is.
+ */
+export const maxDuration = 180;
 
 /*
  * Decision & Approval Experience — the human authority surface, reachable at the established

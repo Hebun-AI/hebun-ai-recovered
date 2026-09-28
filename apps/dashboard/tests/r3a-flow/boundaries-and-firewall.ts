@@ -114,6 +114,8 @@ for (const tool of listActionTools()) {
   if (tool.actionKind === "place-human-in-department") continue;
   /* PUBLISH-0 connected `publish-instagram-media` through the one execution authority. Named. */
   if (tool.actionKind === "publish-instagram-media") continue;
+  /* YOUTUBE-WRITE-2 connected `publish-youtube-video` through the same execution authority. Named. */
+  if (tool.actionKind === "publish-youtube-video") continue;
   assert.equal(
     tool.substrateConnected,
     false,

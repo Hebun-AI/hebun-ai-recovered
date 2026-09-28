@@ -644,6 +644,36 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     requiresExecution: false,
     safeWhenProviderOff: true,
   },
+  /*
+   * YOUTUBE-WRITE-2 — prepare ONE YouTube upload for Director approval. Uploads nothing. The four
+   * declarations are the human's; title and description come from the Content Package.
+   */
+  {
+    id: "publish-youtube", slash: "/publish-youtube", label: "Prepare a YouTube upload", category: "actions", kind: "propose",
+    description: "Prepare one YouTube video upload for Director approval. Uploads nothing.",
+    availability: "available", handler: "publish-youtube",
+    args: [
+      {
+        name: "draft",
+        required: true,
+        description: "An exact content revision reference: work-artifact/<uuid>@<n>",
+        pattern: /^work-artifact\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@[1-9][0-9]{0,8}$/,
+      },
+      {
+        name: "video",
+        required: true,
+        description: "The package's selected, approved video asset id: <uuid>",
+        pattern: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      },
+      { name: "privacy", required: true, description: "private | unlisted | public", pattern: /^(private|unlisted|public)$/ },
+      { name: "category", required: true, description: "YouTube category id, e.g. 22", pattern: /^[0-9]{1,4}$/ },
+      { name: "made-for-kids", required: true, description: "yes | no — your declaration", pattern: /^(yes|no)$/ },
+      { name: "synthetic", required: true, description: "yes | no — realistic altered or synthetic content", pattern: /^(yes|no)$/ },
+    ],
+    requiresModel: false,
+    requiresExecution: false,
+    safeWhenProviderOff: true,
+  },
 
   /* ── Future capabilities (RESERVED — registered, inert) ───────────────────
    * These exist so the shape of Hebun's future is visible and honest, and so a later phase adds a

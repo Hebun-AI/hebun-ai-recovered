@@ -211,6 +211,8 @@ async function main(): Promise<void> {
           "google.drive.metadata.read",
           /* YOUTUBE-WRITE-1: the authenticated channel identity, read-only (`youtube.readonly`). */
           "google.youtube.channel.identity.read",
+          /* YOUTUBE-WRITE-2: the governed upload, write half = youtube.upload, on google-youtube. */
+          "google.youtube.video.upload",
           /*
            * INSTAGRAM: one professional-account read behind an OAuth access token, asking for
            * `instagram_business_basic` and nothing else. Its write scope set is empty, so the

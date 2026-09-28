@@ -84,7 +84,8 @@ export interface MediaObjectStore {
    */
   get(input: {
     readonly key: string;
-    readonly contentType: MediaAssetMimeType;
+    /* YOUTUBE-WRITE-2: an admitted video's `video/mp4`, from its row, for the governed upload read. */
+    readonly contentType: MediaAssetMimeType | "video/mp4";
     readonly maxBytes: number;
   }): Promise<MediaObjectRead>;
   createReadAccess(input: {

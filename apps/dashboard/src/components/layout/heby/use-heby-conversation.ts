@@ -600,6 +600,30 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
                         `The post could not be prepared (${outcome.result.reason}). Nothing was filed.`,
                       ]),
               });
+            } else if (outcome.kind === "publish-youtube") {
+              /* YOUTUBE-WRITE-2 — a filed upload proposal. Heby never says uploaded or approved here. */
+              patch({
+                commandOutput:
+                  outcome.result.status === "proposed"
+                    ? {
+                        command: parsed.command.slash,
+                        title: "Prepared for Director approval",
+                        lines: [
+                          `Request ${outcome.result.requestId}`,
+                          "Action: publish-youtube-video",
+                          `Channel: ${outcome.result.channelTitle} (${outcome.result.channelId})`,
+                          "Status: pending review",
+                          "Nothing was uploaded. A human decides in /approvals.",
+                        ],
+                        tone: "info",
+                        provenance: "Durable action request — pending Director review.",
+                      }
+                    : refusal(parsed.command.slash, "Not prepared", [
+                        `The upload could not be prepared (${outcome.result.reason}${
+                          outcome.result.detail ? `: ${outcome.result.detail}` : ""
+                        }). Nothing was filed.`,
+                      ]),
+              });
             } else if (outcome.result.status === "proposed") {
               const { receipt } = outcome.result;
               patch({

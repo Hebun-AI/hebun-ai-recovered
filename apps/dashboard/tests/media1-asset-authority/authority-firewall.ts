@@ -136,6 +136,8 @@ const code = (f: string): string => stripComments(read(f));
      * in tests/heby-media-1/content-media-firewall.
      */
     "src/features/content-composition/heby-content-media-source.server.ts",
+    /* YOUTUBE-WRITE-2: the YouTube upload inlet reads the selected video's Media row (and nothing else). */
+    "src/features/heby-action-inlet/youtube-publish-proposal.server.ts",
   ]);
   for (const f of SRC) {
     const c = code(f);

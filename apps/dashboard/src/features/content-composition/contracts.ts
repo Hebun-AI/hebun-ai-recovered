@@ -113,8 +113,9 @@ export interface SelectedVideoFacts {
  * a publishable video: PUBLISH-0 (Instagram) reads images only and refuses a video, and no YouTube
  * publishing authority exists.
  */
+/* YOUTUBE-WRITE-2: a governed YouTube upload path now exists, so the sentence says what is still true. */
 export const CONTENT_PACKAGE_VIDEO_NON_CLAIM =
-  "A chosen video is part of this package only. Hebun cannot publish a video: no platform path accepts one." as const;
+  "A chosen video is part of this package only. Uploading it to YouTube is a separate governed act (/publish-youtube) that needs its own Director decision." as const;
 
 export interface SelectedMediaView {
   readonly mediaAssetId: string;

@@ -154,8 +154,9 @@ function theExecutableSetIsClosed(): void {
   assert.deepEqual(
     [...EXECUTABLE_ACTION_KINDS],
     /* PUBLISH-0 — a FOURTH, Director-approved, named here so a fifth still needs an edit. */
-    ["send-external-communication", "record-work", "place-human-in-department", "publish-instagram-media"],
-    "EXACTLY the four specifically authorized kinds — no more, and no fewer",
+    /* YOUTUBE-WRITE-2 — a FIFTH, Director-approved, named here so a sixth still needs an edit. */
+    ["send-external-communication", "record-work", "place-human-in-department", "publish-instagram-media", "publish-youtube-video"],
+    "EXACTLY the five specifically authorized kinds — no more, and no fewer",
   );
   assert.ok(Object.isFrozen(EXECUTABLE_ACTION_POSTURES), "the set cannot be widened at runtime");
   for (const posture of EXECUTABLE_ACTION_POSTURES) {
@@ -793,11 +794,16 @@ function theSurfaceOffersTwoDeliberateActions(): void {
        * deciding it should be executable from here.
        */
       "executeGovernedPlacementAction",
+      /*
+       * YOUTUBE-WRITE-2 added a TENTH, and it is a READ: what YouTube now says about one accepted
+       * upload. It spends, approves, executes and stores nothing — still no generic execute-anything.
+       */
+      "readYouTubeUploadAction",
       "rejectActionRequestAction",
       "revokeActionPermitAction",
       "withdrawStandingMutationAction",
     ],
-    "nine deliberate server actions, and still no generic execute-anything",
+    "ten deliberate server actions, and still no generic execute-anything",
   );
   for (const fn of exported) {
     assert.ok(

@@ -78,6 +78,28 @@ import {
 } from "@/features/media-assets/read-publish-derivative.server";
 import { withAuthorizedInstagramToken } from "@/features/provider-instagram/instagram-access-token-call.server";
 import {
+  PUBLISH_YOUTUBE_VIDEO_ACTION_KIND,
+  YOUTUBE_UPLOAD_ADAPTER_ID,
+  asPublishYouTubeVideoPayload,
+  type PublishYouTubeVideoPayload,
+} from "@/features/youtube-publishing/contracts";
+import {
+  readChannelForConnection,
+  resolveYouTubePublishConnection,
+  verifyYouTubePackageBinding,
+  type ConnectionChannelResult,
+  type YouTubePublishConnectionResult,
+} from "@/features/youtube-publishing/resolve-youtube-publish.server";
+import { readVerifiedVideo, selectVideoAssetRow, type VerifiedVideoResult } from "@/features/media-assets/read-verified-video.server";
+import { withGoogleAccessToken } from "@/features/provider-google/google-authorized-call.server";
+import { listAuthenticatedYouTubeChannels } from "@/features/provider-google/google-transport.server";
+import {
+  openYouTubeUploadSession,
+  sendYouTubeUploadBytes,
+  type YouTubeUploadInput,
+  type YouTubeUploadOutcome,
+} from "@/features/provider-google/google-transport.server";
+import {
   INSTAGRAM_PUBLISH_ADAPTER_ID,
   publishInstagramImage,
   type InstagramPublishInput,
@@ -105,6 +127,8 @@ export interface ExecuteAuthorizedActionDeps
   readonly adapter?: ExternalSendAdapter | null;
   /** PUBLISH-0 — injected provider seams for the Instagram publish half. Unset in production. */
   readonly instagramPublish?: InstagramPublishExecutionPorts;
+  /** YOUTUBE-WRITE-2 — injected provider seams for the YouTube upload half. Unset in production. */
+  readonly youtubePublish?: YouTubePublishExecutionPorts;
 }
 
 function refused(reason: ExecutionPreflightRefusal): ExecutionResult {
@@ -395,6 +419,10 @@ export async function executeAuthorizedAction(
    */
   if (requestRow.actionKind === PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND) {
     return executeInstagramPublish(tenant, db, now, permitRow, requestRow, deps);
+  }
+  /* YOUTUBE-WRITE-2 — the third external kind, through the same chain and the same ledger. */
+  if (requestRow.actionKind === PUBLISH_YOUTUBE_VIDEO_ACTION_KIND) {
+    return executeYouTubePublish(tenant, db, now, permitRow, requestRow, deps);
   }
   if (requestRow.actionKind !== EXECUTABLE_ACTION_KIND) return refused("action-not-executable");
 
@@ -1027,4 +1055,339 @@ async function readAttempt(
     )
     .limit(1);
   return toExecutionAttemptView(rows[0] as ExecutionAttemptRow);
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * YOUTUBE-WRITE-2 — THE `publish-youtube-video` HALF OF THIS SAME AUTHORITY.
+ *
+ * Kept IN this module for the reason the Instagram half is: `action_execution_attempts` has exactly
+ * one writer. Same shape: pre-flight (no spend), one transaction (spend + attempt + audit, bindings
+ * re-read), post-commit (arming re-read, package re-read, bytes verified, channel re-verified, ONE
+ * upload). The attempt carries NO recipient, as migration 68's CHECK now permits for this kind.
+ *
+ * The CHANNEL is the binding a stale screen could get wrong, so it is re-read from YouTube with the
+ * very token that will upload, immediately before the session is opened. A different channel, zero
+ * channels or several is a refusal and nothing is sent.
+ *
+ * A token refresh may re-run the token callback ONCE, and only for an `auth` failure. Every such
+ * failure below is returned BEFORE a session exists; once bytes may have left, the callback returns
+ * a terminal outcome, never a failure — so a refresh can never produce a second upload.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+export interface YouTubePublishExecutionPorts {
+  readonly resolveConnection?: (tenant: TenantContext) => Promise<YouTubePublishConnectionResult>;
+  /** Pre-flight channel read for the bound connection. The upload re-reads it again with its own token. */
+  readonly readChannel?: (tenant: TenantContext, integrationId: string) => Promise<ConnectionChannelResult>;
+  readonly verifyPackage?: (tenant: TenantContext, payload: PublishYouTubeVideoPayload) => ReturnType<typeof verifyYouTubePackageBinding>;
+  readonly resolveStorage?: () => MediaStorageResolution;
+  readonly readVideo?: (tenant: TenantContext, assetId: string, storage: MediaStorageResolution) => Promise<VerifiedVideoResult>;
+  /** Runs `run` with THIS connection's Google token; the token authority's own refresh rules apply. */
+  readonly withToken?: <T>(
+    tenant: TenantContext,
+    integrationId: string,
+    run: (token: string) => Promise<{ ok: true; value: T } | { ok: false; failure: "auth" | "scope" | "identity" | "transport" | "malformed" | "disabled"; reason: string }>,
+  ) => Promise<{ ok: true; value: T } | { ok: false; failure: string; reason: string } | null>;
+  readonly listChannels?: typeof listAuthenticatedYouTubeChannels;
+  readonly openSession?: typeof openYouTubeUploadSession;
+  readonly sendBytes?: typeof sendYouTubeUploadBytes;
+}
+
+async function resolveYouTubeRecordBinding(
+  reader: Pick<ControlPlaneDatabase, "select">,
+  tenantId: string,
+  payload: PublishYouTubeVideoPayload,
+): Promise<ExecutionFailureClass | null> {
+  const artifactRef = parseWorkArtifactRef(payload.draftRef);
+  if (!artifactRef) return "artifact-unresolvable";
+  const artifactRows = await reader
+    .select({ lifecycle: workArtifacts.artifactLifecycleStatus })
+    .from(workArtifacts)
+    .where(and(eq(workArtifacts.tenantId, tenantId), eq(workArtifacts.id, artifactRef.artifactId)))
+    .limit(1);
+  const artifact = artifactRows[0];
+  if (!artifact) return "artifact-unresolvable";
+  if (artifact.lifecycle === "retired") return "artifact-retired";
+  const revisionRows = await reader
+    .select({ contentDigest: workArtifactRevisions.contentDigest })
+    .from(workArtifactRevisions)
+    .where(
+      and(
+        eq(workArtifactRevisions.tenantId, tenantId),
+        eq(workArtifactRevisions.artifactId, artifactRef.artifactId),
+        eq(workArtifactRevisions.revisionNo, artifactRef.revisionNo),
+      ),
+    )
+    .limit(1);
+  const revision = revisionRows[0];
+  if (!revision) return "artifact-unresolvable";
+  if (revision.contentDigest !== payload.draftRevisionDigest) return "digest-mismatch";
+  const asset = await selectVideoAssetRow(reader, tenantId, payload.videoAssetRef);
+  if (!asset) return "artifact-unresolvable";
+  if (asset.mediaKind !== "video" || asset.mimeType !== "video/mp4") return "digest-mismatch";
+  if (asset.lifecycle !== "admitted") return "artifact-retired";
+  if (asset.byteDigest !== payload.videoAssetDigest) return "digest-mismatch";
+  return null;
+}
+
+function packageFailureClass(failure: string): ExecutionFailureClass {
+  switch (failure) {
+    case "artifact-retired":
+      return "artifact-retired";
+    case "artifact-unresolvable":
+      return "artifact-unresolvable";
+    case "persistence-unavailable":
+      return "internal-persistence-failure";
+    default:
+      /* not ready any more, or no longer the package that was authorized */
+      return "digest-mismatch";
+  }
+}
+
+/** YouTube's answer → the ledger's terminal state. The table's CHECKs enforce the same pairs. */
+function youtubeTerminalFor(outcome: YouTubeUploadOutcome): {
+  status: "accepted" | "failed" | "unknown";
+  providerResponseClass: "accepted" | "rejected" | "unreachable" | "ambiguous";
+  providerMessageId: string | null;
+  failureClass: ExecutionFailureClass | null;
+} {
+  switch (outcome.class) {
+    case "accepted":
+      /* A YouTube video id — a resource exists. Processing and visibility are read afterwards. */
+      return { status: "accepted", providerResponseClass: "accepted", providerMessageId: outcome.videoId, failureClass: null };
+    case "rejected":
+      return { status: "failed", providerResponseClass: "rejected", providerMessageId: null, failureClass: "provider-rejected" };
+    case "unreachable":
+      return { status: "failed", providerResponseClass: "unreachable", providerMessageId: null, failureClass: "provider-unreachable" };
+    case "ambiguous":
+      /* The video may exist. Never `failed` — a `failed` invites a retry that uploads twice. */
+      return { status: "unknown", providerResponseClass: "ambiguous", providerMessageId: null, failureClass: null };
+  }
+}
+
+type YouTubeTokenStep =
+  | { readonly kind: "channel-mismatch" }
+  | { readonly kind: "session-refused"; readonly outcome: YouTubeUploadOutcome }
+  | { readonly kind: "uploaded"; readonly outcome: YouTubeUploadOutcome };
+
+async function executeYouTubePublish(
+  tenant: TenantContext,
+  db: ControlPlaneDatabase,
+  now: Date,
+  permit: { readonly id: string },
+  request: { readonly canonicalPayload: unknown },
+  deps: ExecuteAuthorizedActionDeps,
+): Promise<ExecutionResult> {
+  const ports = deps.youtubePublish ?? {};
+  const tenantId = tenant.tenantId!;
+
+  const payload = asPublishYouTubeVideoPayload(request.canonicalPayload);
+  if (!payload) return refused("digest-mismatch");
+
+  /* ── PRE-FLIGHT. Nothing is spent by any refusal here. ── */
+  const recordFailure = await resolveYouTubeRecordBinding(db, tenantId, payload);
+  if (recordFailure) return refused(publishPreflightReasonFor(recordFailure));
+
+  const verifyPackage = ports.verifyPackage ?? ((t, p) => verifyYouTubePackageBinding(t, p, { getDb: () => db }));
+  const pkg = await verifyPackage(tenant, payload);
+  if (!pkg.ok) {
+    return refused(pkg.failure === "persistence-unavailable" ? "persistence-unavailable" : publishPreflightReasonFor(packageFailureClass(pkg.failure)));
+  }
+
+  /* Capability is a PREREQUISITE, never an authorization. The SAME connection and account. */
+  const connection = await (ports.resolveConnection ?? ((t) => resolveYouTubePublishConnection(t, { getDb: () => db, env: deps.env })))(tenant);
+  if (
+    connection.status !== "available" ||
+    connection.connection.integrationId !== payload.integrationId ||
+    connection.connection.externalAccountId !== payload.externalAccountId
+  ) {
+    return refused("capability-unavailable");
+  }
+
+  /* The channel, before anything is spent: a wrong, missing or ambiguous channel keeps the permit. */
+  const channel = await (ports.readChannel ?? ((t, id) => readChannelForConnection(t, id, { getDb: () => db, env: deps.env })))(
+    tenant,
+    payload.integrationId,
+  );
+  if (channel.status === "unreadable") return refused("capability-unavailable");
+  if (channel.status !== "one-channel" || channel.channel.channelId !== payload.expectedChannelId) {
+    return refused("digest-mismatch");
+  }
+
+  const storage = (ports.resolveStorage ?? resolveMediaObjectStore)();
+  if (storage.status !== "available") return refused("adapter-unavailable");
+
+  /* ── THE ATOMIC HALF: spend + attempt + audit. ── */
+  let inTxRefusal: ExecutionFailureClass | null = null;
+  let attemptId: string | null = null;
+
+  const consumption = await consumeActionPermit(
+    tenant,
+    { permitId: permit.id },
+    {
+      getDb: () => db,
+      now: () => now,
+      async onAuthorizedWithin(tx, authorization: ExecutionAuthorization) {
+        const failure = await resolveYouTubeRecordBinding(tx, tenantId, payload);
+        const inserted = await tx
+          .insert(actionExecutionAttempts)
+          .values({
+            tenantId: authorization.tenantId,
+            permitId: authorization.permitId,
+            handoffId: authorization.handoffId,
+            actionRequestId: authorization.actionRequestId,
+            actionKind: authorization.actionKind,
+            adapterId: YOUTUBE_UPLOAD_ADAPTER_ID,
+            boundPayloadDigest: authorization.boundPayloadDigest,
+            /* RECIPIENT-LESS: the binding CHECK (migration 68) requires exactly this for this kind. */
+            recipientEndpointDigest: null,
+            recipientId: null,
+            draftRevisionDigest: payload.draftRevisionDigest,
+            status: failure ? "refused" : "pending",
+            providerResponseClass: null,
+            providerMessageId: null,
+            failureClass: failure,
+            startedAt: now,
+            completedAt: failure ? now : null,
+            createdBy: tenant.userId,
+            createdByType: "human",
+            updatedBy: tenant.userId,
+            updatedByType: "human",
+          })
+          .returning({ id: actionExecutionAttempts.id });
+        const row = inserted[0];
+        if (!row) throw new Error("attempt-not-recorded");
+
+        await recordActionExecutionEventWithin(
+          tx,
+          {
+            tenantId: authorization.tenantId,
+            userId: tenant.userId!,
+            requestId: tenant.requestId,
+            sessionContextId: tenant.sessionContextId,
+          },
+          {
+            entityId: row.id,
+            metadata: {
+              attemptId: row.id,
+              permitId: authorization.permitId,
+              handoffId: authorization.handoffId,
+              actionRequestId: authorization.actionRequestId,
+              actionKind: authorization.actionKind,
+              adapterId: YOUTUBE_UPLOAD_ADAPTER_ID,
+              payloadDigest: authorization.boundPayloadDigest,
+              recipientId: null,
+              externalEffectConfirmed: false,
+            },
+          },
+          now,
+        );
+
+        attemptId = row.id;
+        inTxRefusal = failure;
+      },
+    },
+  );
+
+  if (consumption.status === "refused") {
+    switch (consumption.reason) {
+      case "unauthenticated":
+        return refused("unauthenticated");
+      case "digest-mismatch":
+        return refused("digest-mismatch");
+      case "permit-not-consumable":
+        return refused("permit-not-executable");
+      default:
+        return refused("persistence-unavailable");
+    }
+  }
+
+  const recordedAttemptId = attemptId as string | null;
+  if (!recordedAttemptId) return refused("persistence-unavailable");
+  const refuseAfterSpend = async (failureClass: ExecutionFailureClass): Promise<ExecutionResult> => {
+    await completeAttempt(db, tenantId, recordedAttemptId, {
+      status: "refused",
+      providerResponseClass: null,
+      providerMessageId: null,
+      failureClass,
+      completedAt: now,
+    });
+    return { status: "refused-after-spend", attempt: await readAttempt(db, tenantId, recordedAttemptId) };
+  };
+  if (inTxRefusal !== null) {
+    return { status: "refused-after-spend", attempt: await readAttempt(db, tenantId, recordedAttemptId) };
+  }
+
+  /* ── THE KILL SWITCH AND THE ARMING, AGAIN, IMMEDIATELY BEFORE THE CALL. ── */
+  const reachAgain = await resolveExternalSendReachability(tenantId, deps);
+  if (reachAgain.status === "refused") return refuseAfterSpend("execution-disabled");
+
+  /* ── THE PACKAGE, AGAIN: still ready, still this title, copy and video. ── */
+  const pkgAgain = await verifyPackage(tenant, payload);
+  if (!pkgAgain.ok) return refuseAfterSpend(packageFailureClass(pkgAgain.failure));
+
+  /* ── THE BYTES: verified by the Media authority, then against the authorized digest. ── */
+  const video = await (ports.readVideo ?? ((t, id, st) => readVerifiedVideo(db, st, t.tenantId!, id)))(tenant, payload.videoAssetRef, storage);
+  if (video.status !== "verified" || video.video.byteDigest !== payload.videoAssetDigest || video.video.assetId !== payload.videoAssetRef) {
+    return refuseAfterSpend("artifact-unresolvable");
+  }
+
+  const input: YouTubeUploadInput = {
+    bytes: video.video.bytes,
+    mimeType: "video/mp4",
+    title: payload.title,
+    description: payload.description,
+    categoryId: payload.categoryId,
+    privacyStatus: payload.privacyStatus,
+    selfDeclaredMadeForKids: payload.selfDeclaredMadeForKids,
+    containsSyntheticMedia: payload.containsSyntheticMedia,
+  };
+  const listChannels = ports.listChannels ?? listAuthenticatedYouTubeChannels;
+  const openSession = ports.openSession ?? openYouTubeUploadSession;
+  const sendBytes = ports.sendBytes ?? sendYouTubeUploadBytes;
+  const withToken =
+    ports.withToken ??
+    (<T,>(t: TenantContext, integrationId: string, run: Parameters<typeof withGoogleAccessToken<T>>[2]) =>
+      withGoogleAccessToken<T>(t, integrationId, run, { getDb: () => db, env: deps.env }));
+
+  /* ── ONE UPLOAD. The channel is re-read with the token that uploads. No loop, no second session. ── */
+  let step: { ok: true; value: YouTubeTokenStep } | { ok: false; failure: string; reason: string } | null;
+  try {
+    step = await withToken<YouTubeTokenStep>(tenant, payload.integrationId, async (token) => {
+      const listed = await listChannels(token);
+      if (!listed.ok) return listed; /* nothing sent; a refresh-and-retry here is harmless */
+      if (listed.truncated || listed.channels.length !== 1 || listed.channels[0]!.channelId !== payload.expectedChannelId) {
+        return { ok: true as const, value: { kind: "channel-mismatch" as const } };
+      }
+      const session = await openSession(input, token);
+      if (!session.ok) {
+        if (session.failure === "auth") return { ok: false as const, failure: "auth" as const, reason: session.reason };
+        const outcome: YouTubeUploadOutcome =
+          session.failure === "transport"
+            ? { class: "unreachable", stage: "session-not-created", reason: session.reason }
+            : { class: "rejected", stage: "session-not-created", reason: session.reason };
+        return { ok: true as const, value: { kind: "session-refused" as const, outcome } };
+      }
+      /* From here bytes may leave: always a terminal outcome, never a failure a refresh would retry. */
+      const outcome = await sendBytes(session.sessionUri, input, token);
+      return { ok: true as const, value: { kind: "uploaded" as const, outcome } };
+    });
+  } catch {
+    /* A throw after the session may have opened cannot prove nothing was uploaded. */
+    step = { ok: true, value: { kind: "uploaded", outcome: { class: "ambiguous", stage: "bytes-sent", reason: "upload-threw" } } };
+  }
+
+  /* No credential could be opened, or the channel could not be read: nothing was sent. */
+  if (step === null || !step.ok) return refuseAfterSpend("credential-unavailable");
+  if (step.value.kind === "channel-mismatch") return refuseAfterSpend("digest-mismatch");
+
+  const terminal = youtubeTerminalFor(step.value.outcome);
+  await completeAttempt(db, tenantId, recordedAttemptId, {
+    status: terminal.status,
+    providerResponseClass: terminal.providerResponseClass,
+    providerMessageId: terminal.providerMessageId,
+    failureClass: terminal.failureClass,
+    completedAt: (deps.now ?? (() => new Date()))(),
+  });
+  return { status: "attempted", attempt: await readAttempt(db, tenantId, recordedAttemptId) };
 }

@@ -310,6 +310,22 @@ export const GOOGLE_DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.fi
  */
 export const GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY = "google.youtube.channel.identity.read" as const;
 export const GOOGLE_YOUTUBE_READONLY_SCOPE = "https://www.googleapis.com/auth/youtube.readonly";
+
+/*
+ * ── YOUTUBE-WRITE-2 · UPLOADING ONE VIDEO TO THE CONNECTION'S OWN CHANNEL ────
+ *
+ * `videos.insert` accepts `youtube.upload`, `youtube`, `youtubepartner` or `youtube.force-ssl`
+ * (official reference, verified 2026-09-28). `youtube.upload` is the narrowest: it manages uploads
+ * and nothing else. The capability's READ half is `youtube.readonly` because every upload re-reads
+ * `channels.list?mine=true` first — `youtube.upload` is not among the scopes that method accepts —
+ * and its WRITE half is `youtube.upload`. Publishing requires `writeCapable`, never mere availability.
+ */
+export const GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY = "google.youtube.video.upload" as const;
+export const GOOGLE_YOUTUBE_UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload";
+/** The documented resumable-upload endpoint. A constant: no caller can point an upload elsewhere. */
+export const GOOGLE_YOUTUBE_UPLOAD_ENDPOINT = "https://www.googleapis.com/upload/youtube/v3/videos";
+/** The documented videos resource endpoint, for the read-back of one uploaded video. */
+export const GOOGLE_YOUTUBE_VIDEOS_ENDPOINT = "https://www.googleapis.com/youtube/v3/videos";
 /** The documented `channels.list` endpoint. A constant: no caller can point this read elsewhere. */
 export const GOOGLE_YOUTUBE_CHANNELS_ENDPOINT = "https://www.googleapis.com/youtube/v3/channels";
 /** One page, the API maximum. A grant standing for more than this is reported as truncated. */
@@ -498,6 +514,11 @@ export const GOOGLE_CAPABILITY_SCOPE_REQUESTS: Readonly<Record<string, readonly 
      * capability is explicitly upgraded; connecting Google still asks for identity alone.
      */
     [GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY]: Object.freeze([GOOGLE_YOUTUBE_READONLY_SCOPE]),
+    /*
+     * YOUTUBE-WRITE-2. The upload scope plus the read-only scope the pre-upload channel check needs.
+     * Same family (`google-youtube`), so the composer carries both and never a Drive scope.
+     */
+    [GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY]: Object.freeze([GOOGLE_YOUTUBE_READONLY_SCOPE, GOOGLE_YOUTUBE_UPLOAD_SCOPE]),
   });
 
 /** The capability names an authorization request may legitimately carry. */
@@ -543,6 +564,7 @@ export const GOOGLE_CAPABILITY_CONNECTION: Readonly<Record<string, GoogleOAuthPr
   [GOOGLE_DRIVE_CONTENT_CAPABILITY]: GOOGLE_PROVIDER_KEY,
   [GOOGLE_DRIVE_FILE_CAPABILITY]: GOOGLE_PROVIDER_KEY,
   [GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY]: GOOGLE_YOUTUBE_PROVIDER_KEY,
+  [GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY]: GOOGLE_YOUTUBE_PROVIDER_KEY,
 });
 
 /**

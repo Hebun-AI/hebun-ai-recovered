@@ -36,6 +36,11 @@ import {
   type InstagramPublishProposalDeps,
   type InstagramPublishProposalResult,
 } from "./instagram-publish-proposal.server";
+import {
+  proposeYouTubePublish,
+  type YouTubePublishProposalDeps,
+  type YouTubePublishProposalResult,
+} from "./youtube-publish-proposal.server";
 import type { SendProposalResult } from "./contracts";
 
 export interface HebyProposeCommandInput {
@@ -47,10 +52,12 @@ export type HebyProposeCommandOutcome =
   | { readonly status: "ok"; readonly kind: "send"; readonly result: SendProposalResult }
   /* PUBLISH-0 — a filed Instagram publish proposal. Filed ≠ authorized ≠ posted. */
   | { readonly status: "ok"; readonly kind: "publish-instagram"; readonly result: InstagramPublishProposalResult }
+  /* YOUTUBE-WRITE-2 — a filed YouTube upload proposal. Filed ≠ authorized ≠ uploaded. */
+  | { readonly status: "ok"; readonly kind: "publish-youtube"; readonly result: YouTubePublishProposalResult }
   | { readonly status: "unauthorized" }
   | { readonly status: "refused"; readonly reason: "unknown-command" | "not-proposable" | "invalid-arguments" };
 
-export interface HebyProposeCommandDeps extends SendProposalDeps, InstagramPublishProposalDeps {
+export interface HebyProposeCommandDeps extends SendProposalDeps, InstagramPublishProposalDeps, YouTubePublishProposalDeps {
   readonly resolveTenant: () => Promise<TenantContext | null>;
 }
 
@@ -94,6 +101,18 @@ export async function runHebyProposeCommand(
       }
       const result = await proposeInstagramPublish(tenant, { draftRef, mediaAssetId }, deps);
       return { status: "ok", kind: "publish-instagram", result };
+    }
+    case "publish-youtube": {
+      const [draftRef, videoAssetId, privacyStatus, categoryId, madeForKids, syntheticMedia] = input.args;
+      if (input.args.length !== 6 || !draftRef || !videoAssetId || !privacyStatus || !categoryId || !madeForKids || !syntheticMedia) {
+        return { status: "refused", reason: "invalid-arguments" };
+      }
+      const result = await proposeYouTubePublish(
+        tenant,
+        { draftRef, videoAssetId, privacyStatus, categoryId, madeForKids, syntheticMedia },
+        deps,
+      );
+      return { status: "ok", kind: "publish-youtube", result };
     }
     default:
       /*

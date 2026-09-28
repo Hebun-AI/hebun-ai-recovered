@@ -94,7 +94,8 @@ async function main(): Promise<void> {
     const port = strip(read(PORT));
     assert.match(
       port,
-      /get\(input: \{\s*readonly key: string;\s*readonly contentType: MediaAssetMimeType;\s*readonly maxBytes: number;\s*\}\)/,
+      /* YOUTUBE-WRITE-2 widened the told type by exactly `video/mp4` (from the row), for the governed upload read. */
+      /get\(input: \{\s*readonly key: string;\s*readonly contentType: MediaAssetMimeType \| "video\/mp4";\s*readonly maxBytes: number;\s*\}\)/,
       "the port exposes a bounded byte read that is TOLD the authoritative content type",
     );
     assert.ok(!/delete|purge|remove/i.test(port.replace(/deliberately no `delete`/g, "")), "still no delete verb");

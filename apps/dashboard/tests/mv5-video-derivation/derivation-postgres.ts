@@ -43,7 +43,7 @@ function walk(dir: string): string[] {
 
 function migrationProof(): void {
   const journal = JSON.parse(readFileSync(path.join(MIGRATIONS_DIR, "meta", "_journal.json"), "utf8")) as { entries: { tag: string }[] };
-  assert.equal(journal.entries.length, 67, "MV-5 authored exactly one migration: 65 -> 66"); /* MV-6: ledger 66 -> 67. */
+  assert.equal(journal.entries.length, 68, "MV-5 authored exactly one migration: 65 -> 66"); /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67. */
   assert.equal(journal.entries[65]!.tag, MV5_TAG, "and it is the newest");
   const sql = readFileSync(path.join(MIGRATIONS_DIR, `${MV5_TAG}.sql`), "utf8");
   assert.ok(!/\b(update|delete|insert|drop\s+table|drop\s+column|add\s+column|truncate|create\s+table|create\s+index|trigger)\b/i.test(sql), "constraints only");

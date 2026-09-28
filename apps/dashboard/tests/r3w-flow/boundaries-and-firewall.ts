@@ -371,6 +371,8 @@ function vocabularyIsMinimal(): void {
    */
   for (const kind of EXECUTABLE_ACTION_KINDS) {
     if (kind === "publish-instagram-media") continue;
+    /* YOUTUBE-WRITE-2 — the second Director-approved governed publishing kind; content prep still reaches nothing. */
+    if (kind === "publish-youtube-video") continue;
     for (const forbidden of ["publish", "post-content", "schedule"]) {
       assert.equal(
         kind.includes(forbidden),

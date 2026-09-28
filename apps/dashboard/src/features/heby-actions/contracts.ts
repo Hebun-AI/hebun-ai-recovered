@@ -239,6 +239,14 @@ export type HebyActionKind =
    * would not un-show it). It has no third-party recipient, which is why its attempt carries none.
    */
   | "publish-instagram-media"
+  /**
+   * YOUTUBE-WRITE-2 — THE FIFTH EXECUTABLE KIND, AND THE THIRD EXTERNAL ONE.
+   *
+   * Uploading ONE approved video with its Content Package title and copy to the organization's OWN
+   * verified YouTube channel. CONSEQUENTIAL and IRREVERSIBLE: a video resource exists the moment
+   * YouTube accepts it, and Hebun owns no inverse. No third-party recipient; its attempt carries none.
+   */
+  | "publish-youtube-video"
   | "grant-permission"
   | "modify-governance-policy"
   | "device-action";

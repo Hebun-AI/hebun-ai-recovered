@@ -49,6 +49,8 @@ import {
   type YouTubeChannelListResult,
   parseScopes,
   type GoogleAccountIdentity,
+  GOOGLE_YOUTUBE_UPLOAD_ENDPOINT,
+  GOOGLE_YOUTUBE_VIDEOS_ENDPOINT,
   type GoogleFailure,
   type GoogleIdentityResult,
   type GoogleTokenResult,
@@ -509,6 +511,360 @@ export async function listAuthenticatedYouTubeChannels(
     ok: true,
     channels: Object.freeze(channels),
     truncated: typeof json.nextPageToken === "string" && json.nextPageToken.length > 0,
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * YOUTUBE-WRITE-2 · THE ONE YOUTUBE WRITE — a resumable upload of one video, and its read-back.
+ *
+ * Kept in THIS module because it is the one place inside the Google provider that talks to Google.
+ *
+ *   1. POST  upload/youtube/v3/videos?uploadType=resumable&part=snippet,status  → 200 + Location
+ *   2. PUT   <session URI>, the bytes                                             → 201/200 + video
+ *   3. on an interrupted PUT: PUT <session URI>, Content-Range: bytes * /N        → 308 + Range | 201/200 | 404
+ *
+ *   accepted     YouTube returned a video resource WITH an id. A resource exists — nothing more.
+ *   rejected     YouTube refused before the resource could exist.
+ *   unreachable  No session was obtained; no byte of this video reached YouTube.
+ *   ambiguous    Bytes left and the final answer was lost beyond the documented status query. The
+ *                video MAY exist. Never retried: a second session is a second video.
+ *
+ * The session URI is used inside these functions, checked to be Google's own upload host, and never
+ * returned, logged or stored.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+export interface YouTubeUploadInput {
+  readonly bytes: Uint8Array;
+  readonly mimeType: "video/mp4";
+  readonly title: string;
+  readonly description: string;
+  readonly categoryId: string;
+  readonly privacyStatus: "private" | "unlisted" | "public";
+  readonly selfDeclaredMadeForKids: boolean;
+  readonly containsSyntheticMedia: boolean;
+}
+
+/** How far the upload got — the distinct truths the ledger's four classes compress. */
+export type YouTubeUploadStage = "session-not-created" | "session-created" | "bytes-sent" | "video-resource-created";
+
+export type YouTubeUploadOutcome =
+  | {
+      readonly class: "accepted";
+      readonly stage: "video-resource-created";
+      readonly videoId: string;
+      /** As YouTube reported in the insert response — typically `uploaded`, never assumed. */
+      readonly uploadStatus: string | null;
+      readonly privacyStatus: string | null;
+    }
+  | { readonly class: "rejected"; readonly stage: YouTubeUploadStage; readonly reason: string }
+  | { readonly class: "unreachable"; readonly stage: "session-not-created"; readonly reason: string }
+  | { readonly class: "ambiguous"; readonly stage: "bytes-sent"; readonly reason: string };
+
+export interface YouTubeUploadDeps {
+  readonly fetchImpl?: FetchLike;
+  readonly sessionTimeoutMs?: number;
+  readonly uploadTimeoutMs?: number;
+  /** How many documented status queries follow a lost PUT answer. Small and fixed. */
+  readonly maxStatusQueries?: number;
+  readonly sleep?: (ms: number) => Promise<void>;
+}
+
+const SESSION_TIMEOUT_MS = 20_000;
+/* The Media authority caps every asset at 20 MiB; two minutes is generous for that at any sane link. */
+const UPLOAD_TIMEOUT_MS = 120_000;
+const MAX_STATUS_QUERIES = 3;
+
+/**
+ * The session URI must be Google's own resumable-upload URI; anything else is never contacted. A
+ * string check against the frozen endpoint, not a parsed URL: nothing here builds a request URL
+ * from a provider-supplied value, and a userinfo `@`, a fragment or whitespace is refused outright.
+ */
+function isGoogleUploadSession(location: string | null): location is string {
+  if (!location || location.length > 2048) return false;
+  if (!location.startsWith(`${GOOGLE_YOUTUBE_UPLOAD_ENDPOINT}?`)) return false;
+  if (/[@#\s\\]/.test(location)) return false;
+  return /[?&]upload_id=[A-Za-z0-9_-]+(&|$)/.test(location);
+}
+
+async function timed(doFetch: FetchLike, url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await doFetch(url, { ...init, redirect: "error", cache: "no-store", signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** A video resource from YouTube's JSON, or `null` — an answer without an id is not a video. */
+async function videoFrom(response: Response): Promise<{ videoId: string; uploadStatus: string | null; privacyStatus: string | null } | null> {
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    return null;
+  }
+  if (typeof json !== "object" || json === null) return null;
+  const record = json as Record<string, unknown>;
+  if (record.kind !== undefined && record.kind !== "youtube#video") return null;
+  if (typeof record.id !== "string" || !/^[0-9A-Za-z_-]{6,32}$/.test(record.id)) return null;
+  const status = typeof record.status === "object" && record.status !== null ? (record.status as Record<string, unknown>) : {};
+  return {
+    videoId: record.id,
+    uploadStatus: typeof status.uploadStatus === "string" ? status.uploadStatus : null,
+    privacyStatus: typeof status.privacyStatus === "string" ? status.privacyStatus : null,
+  };
+}
+
+/** `Range: bytes=0-X` → the next byte to send, or 0 when YouTube holds nothing yet. */
+function nextOffsetFrom(range: string | null, total: number): number | null {
+  if (!range) return 0;
+  const match = /^bytes=0-(\d+)$/.exec(range.trim());
+  if (!match) return null;
+  const last = Number(match[1]);
+  if (!Number.isSafeInteger(last) || last < 0 || last >= total) return null;
+  return last + 1;
+}
+
+/**
+ * STEP 1 ONLY — open the session. Returns the session URI, or a failure that proves no byte of
+ * this video reached YouTube. An `auth` failure here is safe for the caller's one refresh-and-retry:
+ * nothing exists yet that a second attempt could duplicate.
+ */
+export async function openYouTubeUploadSession(
+  input: YouTubeUploadInput,
+  accessToken: string,
+  deps: YouTubeUploadDeps = {},
+): Promise<{ readonly ok: true; readonly sessionUri: string } | GoogleFailure | { readonly ok: false; readonly failure: "rejected"; readonly reason: string }> {
+  assertServerOnly();
+  const doFetch = deps.fetchImpl ?? fetch;
+  const url = new URL(GOOGLE_YOUTUBE_UPLOAD_ENDPOINT);
+  url.searchParams.set("uploadType", "resumable");
+  url.searchParams.set("part", "snippet,status");
+  const body = JSON.stringify({
+    snippet: { title: input.title, description: input.description, categoryId: input.categoryId },
+    status: {
+      privacyStatus: input.privacyStatus,
+      selfDeclaredMadeForKids: input.selfDeclaredMadeForKids,
+      containsSyntheticMedia: input.containsSyntheticMedia,
+    },
+  });
+
+  let response: Response;
+  try {
+    response = await timed(
+      doFetch,
+      url.toString(),
+      {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json; charset=UTF-8",
+          "x-upload-content-length": String(input.bytes.byteLength),
+          "x-upload-content-type": input.mimeType,
+        },
+        body,
+      },
+      deps.sessionTimeoutMs ?? SESSION_TIMEOUT_MS,
+    );
+  } catch {
+    return { ok: false, failure: "transport", reason: "youtube-session-unreachable" };
+  }
+
+  if (response.status === 401) {
+    await response.body?.cancel().catch(() => undefined);
+    return { ok: false, failure: "auth", reason: "youtube-rejected-credential" };
+  }
+  if (response.status === 403) {
+    let code: string | null = null;
+    try {
+      const json = (await response.json()) as { error?: { errors?: { reason?: unknown }[] } };
+      const reason = json.error?.errors?.[0]?.reason;
+      code = typeof reason === "string" ? reason : null;
+    } catch {
+      /* no body */
+    }
+    if (code === "insufficientPermissions") return { ok: false, failure: "scope", reason: "youtube-insufficient-scope" };
+    return { ok: false, failure: "rejected", reason: code ? `youtube-forbidden-${code}`.slice(0, 64) : "youtube-forbidden" };
+  }
+  if (response.status >= 500 || response.status === 429) {
+    await response.body?.cancel().catch(() => undefined);
+    return { ok: false, failure: "transport", reason: `youtube-session-${response.status}` };
+  }
+  if (response.status !== 200) {
+    await response.body?.cancel().catch(() => undefined);
+    return { ok: false, failure: "rejected", reason: `youtube-session-refused-${response.status}` };
+  }
+  const location = response.headers.get("location");
+  await response.body?.cancel().catch(() => undefined);
+  if (!isGoogleUploadSession(location)) return { ok: false, failure: "rejected", reason: "youtube-session-uri-invalid" };
+  return { ok: true, sessionUri: location };
+}
+
+/**
+ * STEPS 2–3 — send the bytes into an open session, recovering an interrupted PUT only through the
+ * documented status query. Never opens a second session. Never throws.
+ */
+export async function sendYouTubeUploadBytes(
+  sessionUri: string,
+  input: YouTubeUploadInput,
+  accessToken: string,
+  deps: YouTubeUploadDeps = {},
+): Promise<YouTubeUploadOutcome> {
+  assertServerOnly();
+  if (!isGoogleUploadSession(sessionUri)) {
+    return { class: "rejected", stage: "session-created", reason: "youtube-session-uri-invalid" };
+  }
+  const doFetch = deps.fetchImpl ?? fetch;
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const total = input.bytes.byteLength;
+  const auth = { authorization: `Bearer ${accessToken}` };
+
+  const put = async (offset: number): Promise<Response> => {
+    const slice = input.bytes.subarray(offset);
+    const headers: Record<string, string> = { ...auth, "content-type": input.mimeType, "content-length": String(slice.byteLength) };
+    if (offset > 0) headers["content-range"] = `bytes ${offset}-${total - 1}/${total}`;
+    /* A view, not a copy: the bytes the Media authority verified are the bytes sent. */
+    return timed(doFetch, sessionUri, { method: "PUT", headers, body: slice as unknown as BodyInit }, deps.uploadTimeoutMs ?? UPLOAD_TIMEOUT_MS);
+  };
+
+  const finished = async (response: Response): Promise<YouTubeUploadOutcome> => {
+    const video = await videoFrom(response);
+    if (!video) return { class: "ambiguous", stage: "bytes-sent", reason: "youtube-video-response-unparseable" };
+    return { class: "accepted", stage: "video-resource-created", ...video };
+  };
+
+  let lastLost = "youtube-upload-answer-lost";
+  let response: Response | null = null;
+  try {
+    response = await put(0);
+  } catch {
+    response = null;
+  }
+
+  for (let queries = 0; ; queries += 1) {
+    if (response) {
+      if (response.status === 200 || response.status === 201) return finished(response);
+      if (response.status === 404) {
+        await response.body?.cancel().catch(() => undefined);
+        /* The very first PUT: the session died before accepting bytes, so no video can exist. */
+        if (queries === 0) return { class: "rejected", stage: "session-created", reason: "youtube-session-expired" };
+        return { class: "ambiguous", stage: "bytes-sent", reason: "youtube-session-expired-after-interruption" };
+      }
+      if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 429) {
+        await response.body?.cancel().catch(() => undefined);
+        if (queries === 0) return { class: "rejected", stage: "bytes-sent", reason: `youtube-upload-refused-${response.status}` };
+        return { class: "ambiguous", stage: "bytes-sent", reason: `youtube-status-query-refused-${response.status}` };
+      }
+      if (response.status === 308) {
+        const offset = nextOffsetFrom(response.headers.get("range"), total);
+        await response.body?.cancel().catch(() => undefined);
+        if (offset === null) return { class: "ambiguous", stage: "bytes-sent", reason: "youtube-range-unparseable" };
+        if (queries >= (deps.maxStatusQueries ?? MAX_STATUS_QUERIES)) {
+          return { class: "ambiguous", stage: "bytes-sent", reason: "youtube-upload-incomplete" };
+        }
+        try {
+          response = await put(offset);
+        } catch {
+          response = null;
+        }
+        continue;
+      }
+      /* 5xx / 408 / 429: the documented retryable class. Fall through to a status query. */
+      lastLost = `youtube-upload-${response.status}`;
+      await response.body?.cancel().catch(() => undefined);
+    }
+    if (queries >= (deps.maxStatusQueries ?? MAX_STATUS_QUERIES)) {
+      return { class: "ambiguous", stage: "bytes-sent", reason: lastLost };
+    }
+    await sleep(1000 * 2 ** queries);
+    try {
+      response = await timed(
+        doFetch,
+        sessionUri,
+        { method: "PUT", headers: { ...auth, "content-range": `bytes */${total}`, "content-length": "0" } },
+        deps.sessionTimeoutMs ?? SESSION_TIMEOUT_MS,
+      );
+    } catch {
+      response = null;
+    }
+  }
+}
+
+/** What YouTube currently says about one uploaded video. Read-only; nothing is stored. */
+export type YouTubeVideoReadResult =
+  | {
+      readonly ok: true;
+      readonly found: true;
+      readonly videoId: string;
+      readonly channelId: string | null;
+      readonly uploadStatus: string | null;
+      readonly failureReason: string | null;
+      readonly rejectionReason: string | null;
+      readonly privacyStatus: string | null;
+      readonly processingStatus: string | null;
+    }
+  | { readonly ok: true; readonly found: false }
+  | GoogleFailure;
+
+/**
+ * READ-BACK — `videos.list?id=…&part=snippet,status,processingDetails`. `processingDetails` is
+ * returned only to the video's owner, which is exactly the connection that uploaded it.
+ */
+export async function readYouTubeVideo(
+  videoId: string,
+  accessToken: string,
+  deps: YouTubeUploadDeps = {},
+): Promise<YouTubeVideoReadResult> {
+  assertServerOnly();
+  if (!/^[0-9A-Za-z_-]{6,32}$/.test(videoId)) return { ok: false, failure: "malformed", reason: "youtube-video-id-invalid" };
+  const url = new URL(GOOGLE_YOUTUBE_VIDEOS_ENDPOINT);
+  url.searchParams.set("id", videoId);
+  url.searchParams.set("part", "snippet,status,processingDetails");
+  url.searchParams.set(
+    "fields",
+    "items(id,snippet/channelId,status(uploadStatus,failureReason,rejectionReason,privacyStatus),processingDetails/processingStatus)",
+  );
+  let response: Response;
+  try {
+    response = await timed(
+      deps.fetchImpl ?? fetch,
+      url.toString(),
+      { method: "GET", headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" } },
+      deps.sessionTimeoutMs ?? SESSION_TIMEOUT_MS,
+    );
+  } catch {
+    return { ok: false, failure: "transport", reason: "youtube-unreachable" };
+  }
+  if (response.status === 401) return { ok: false, failure: "auth", reason: "youtube-rejected-credential" };
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    return { ok: false, failure: response.status >= 500 || response.status === 429 ? "transport" : "auth", reason: `youtube-read-${response.status}` };
+  }
+  let json: { items?: unknown };
+  try {
+    json = (await response.json()) as { items?: unknown };
+  } catch {
+    return { ok: false, failure: "malformed", reason: "youtube-unparseable-response" };
+  }
+  const items = json.items === undefined ? [] : json.items;
+  if (!Array.isArray(items)) return { ok: false, failure: "malformed", reason: "youtube-response-missing-items" };
+  if (items.length === 0) return { ok: true, found: false };
+  const item = items[0] as Record<string, unknown>;
+  if (item.id !== videoId) return { ok: false, failure: "malformed", reason: "youtube-video-id-mismatch" };
+  const obj = (v: unknown) => (typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {});
+  const str = (v: unknown) => (typeof v === "string" ? v : null);
+  const status = obj(item.status);
+  return {
+    ok: true,
+    found: true,
+    videoId,
+    channelId: str(obj(item.snippet).channelId),
+    uploadStatus: str(status.uploadStatus),
+    failureReason: str(status.failureReason),
+    rejectionReason: str(status.rejectionReason),
+    privacyStatus: str(status.privacyStatus),
+    processingStatus: str(obj(item.processingDetails).processingStatus),
   };
 }
 

@@ -21,6 +21,8 @@ import {
   GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY,
   GOOGLE_YOUTUBE_PROVIDER_KEY,
   GOOGLE_YOUTUBE_READONLY_SCOPE,
+  GOOGLE_YOUTUBE_UPLOAD_SCOPE,
+  GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY,
 } from "@/features/provider-google/contracts";
 import { YouTubeChannelIdentity } from "./youtube-channel-identity";
 import {
@@ -173,6 +175,30 @@ export default async function GoogleIntegrationPage({
           ) : null}
           {youtubeLive && youtube.grantedScopes.includes(GOOGLE_YOUTUBE_READONLY_SCOPE) ? (
             <YouTubeChannelIdentity />
+          ) : null}
+          {/*
+            YOUTUBE-WRITE-2 — the upload permission, as its OWN opt-in on the YouTube connection. It
+            asks for identity + `youtube.readonly` + `youtube.upload` (same family; never Drive).
+            Granting it uploads nothing: every upload is a separate Governance decision and permit.
+          */}
+          {youtubeLive &&
+          youtube.grantedScopes.includes(GOOGLE_YOUTUBE_READONLY_SCOPE) &&
+          !youtube.grantedScopes.includes(GOOGLE_YOUTUBE_UPLOAD_SCOPE) ? (
+            <div className="space-y-1">
+              <p>
+                <Link
+                  href={`/api/integrations/google/start?capability=${encodeURIComponent(GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY)}`}
+                  prefetch={false}
+                  className="underline underline-offset-4"
+                >
+                  Grant YouTube video upload
+                </Link>
+              </p>
+              <p className="text-xs">
+                Hebun will be able to upload videos to this channel only after you approve each upload
+                in Decisions. It cannot edit or delete existing videos.
+              </p>
+            </div>
           ) : null}
 
           {model.connectable ? (

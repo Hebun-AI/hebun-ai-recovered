@@ -100,7 +100,7 @@ async function main(): Promise<void> {
       assert.equal(googleConnectionForCapability(cap), GOOGLE_PROVIDER_KEY, `${cap} routes to google-workspace`);
     }
     assert.equal(googleConnectionForCapability(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY), GOOGLE_YOUTUBE_PROVIDER_KEY);
-    for (const junk of [null, "", "__proto__", "constructor", GOOGLE_YOUTUBE_READONLY_SCOPE, "google.youtube.video.upload"]) {
+    for (const junk of [null, "", "__proto__", "constructor", GOOGLE_YOUTUBE_READONLY_SCOPE, "google.youtube.video.delete"]) {
       assert.equal(googleConnectionForCapability(junk), GOOGLE_PROVIDER_KEY, `"${junk}" is the plain Workspace connect`);
     }
     assert.deepEqual(sorted(Object.keys(GOOGLE_CAPABILITY_CONNECTION)), sorted(GOOGLE_UPGRADEABLE_CAPABILITIES), "every upgradeable capability has exactly one connection");
@@ -169,7 +169,8 @@ async function main(): Promise<void> {
       ...GOOGLE_IDENTITY_SCOPES,
       "https://www.googleapis.com/auth/drive",
       "https://www.googleapis.com/auth/gmail.send",
-      "https://www.googleapis.com/auth/youtube.upload",
+      /* `youtube.upload` left this list with YOUTUBE-WRITE-2: it is now a YouTube-family scope. */
+      "https://www.googleapis.com/auth/youtube.force-ssl",
       "https://evil.example/scope",
     ];
     assert.deepEqual([...composeGoogleAuthorizationScopes(null, hostile)], IDENTITY);
@@ -239,28 +240,46 @@ async function main(): Promise<void> {
     const everything = composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, [
       ...Object.values(GOOGLE_CAPABILITY_SCOPE_REQUESTS).flat(),
     ]);
+    /*
+     * YOUTUBE-WRITE-2: `youtube.upload` is a YouTube-family scope now, carried only when the connection
+     * already holds it or the upload capability is asked for — never added to an identity request.
+     */
+    assert.ok(
+      !composeGoogleAuthorizationScopes(GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY, [...GOOGLE_IDENTITY_SCOPES, GOOGLE_YOUTUBE_READONLY_SCOPE]).includes("https://www.googleapis.com/auth/youtube.upload"),
+      "an identity request never asks for upload",
+    );
     for (const forbidden of [
-      "https://www.googleapis.com/auth/youtube.upload",
       "https://www.googleapis.com/auth/youtube",
       "https://www.googleapis.com/auth/youtube.force-ssl",
       "https://www.googleapis.com/auth/drive",
     ]) {
       assert.ok(!everything.includes(forbidden), `${forbidden} is never requested`);
     }
+    /*
+     * YOUTUBE-WRITE-2 adds the ONE write half that exists: `google.youtube.video.upload` on
+     * `google-youtube`, writing `youtube.upload` and nothing else. Every other capability stays read-only.
+     */
     for (const key of GOOGLE_OAUTH_PROVIDER_KEYS) {
       for (const [cap, s] of Object.entries(findProviderDefinition(key)!.capabilityScopes)) {
-        assert.deepEqual([...s.write], [], `${key} ${cap} declares no write scope`);
+        const expected = key === "google-youtube" && cap === "google.youtube.video.upload" ? ["https://www.googleapis.com/auth/youtube.upload"] : [];
+        assert.deepEqual([...s.write], expected, `${key} ${cap} write scopes`);
       }
     }
-    assert.ok(!/youtube\.upload"/.test(codeOnly(read(CONTRACTS))), "no youtube.upload constant exists");
+    /* YOUTUBE-WRITE-2 defines exactly one upload scope constant, and nothing wider. */
+    assert.equal((codeOnly(read(CONTRACTS)).match(/youtube\.upload"/g) ?? []).length, 1, "exactly one youtube.upload constant");
   }
 
   /* 15 · no schema change and no migration */
   {
     const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
-    assert.equal(migrations.length, 67, "ledger stays 67");
-    const touched = execSync("git diff --name-only 4059a176 -- src/db", { cwd: ROOT, encoding: "utf8" }).trim();
-    assert.equal(touched, "", "no src/db file changed");
+    /* This repair added none. YOUTUBE-WRITE-2's approved migration 68 widens one CHECK (pinned in its own tests). */
+    assert.equal(migrations.length, 68, "ledger 68 since YOUTUBE-WRITE-2");
+    const touched = execSync("git diff --name-only 4059a176 -- src/db", { cwd: ROOT, encoding: "utf8" })
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .filter((f) => !/youtube_write2_recipientless_kind|20260928084834_snapshot|_journal\.json|schema\/action-execution\.ts$/.test(f));
+    assert.deepEqual(touched, [], "no other src/db file changed");
   }
 
   /* 16 · no token, secret or log on the authorization path; composition is pure */

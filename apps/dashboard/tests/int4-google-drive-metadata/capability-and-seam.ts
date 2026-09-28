@@ -221,6 +221,8 @@ function theUpgradeRequestIsClosed(): void {
       GOOGLE_DRIVE_FILE_CAPABILITY,
       /* YOUTUBE-WRITE-1 — read-only `youtube.readonly`, its own entry. */
       GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY,
+      /* YOUTUBE-WRITE-2 — `youtube.readonly` + `youtube.upload`, same family, its own entry. */
+      "google.youtube.video.upload",
     ],
   );
   /*

@@ -249,6 +249,47 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
   },
   {
     /*
+     * YOUTUBE-WRITE-2 — ONE VIDEO TO THE ORGANIZATION'S OWN VERIFIED YOUTUBE CHANNEL.
+     *
+     * Same chain as PUBLISH-0: proposal → human Governance decision → digest-bound permit →
+     * `executeAuthorizedAction`. Every argument is read server-side and frozen: the connection and
+     * its Google account, the ONE channel YouTube named for it, the Content Package revision (title
+     * and copy verbatim), the approved video and its byte digest, and the four declarations a human
+     * supplies. Execution re-reads the channel with the uploading token and refuses any other.
+     */
+    toolId: "heby.content.publish-youtube-video",
+    actionKind: "publish-youtube-video",
+    capability: "external-publication",
+    sideEffect: "CONSEQUENTIAL_MUTATION",
+    reversibility: "irreversible",
+    ownerWorkspace: "operations",
+    authorityRequirement: "human-review-required",
+    governanceGated: true,
+    substrateConnected: true,
+    argumentSchema: {
+      fields: [
+        { name: "integrationId", kind: "string", required: true, describes: "The organization's own YouTube Google connection." },
+        { name: "externalAccountId", kind: "string", required: true, describes: "The Google account that connection was verified as." },
+        { name: "expectedChannelId", kind: "string", required: true, describes: "The one channel YouTube named for that connection, re-checked before upload." },
+        { name: "channelTitle", kind: "string", required: true, describes: "That channel's title, as YouTube reported it." },
+        { name: "draftRef", kind: "record-ref", required: true, describes: "The Content Package revision (title and copy)." },
+        { name: "draftRevisionDigest", kind: "string", required: true, describes: "SHA-256 of that revision's content, derived server-side." },
+        { name: "videoAssetRef", kind: "string", required: true, describes: "The package's selected, approved video asset." },
+        { name: "videoAssetDigest", kind: "string", required: true, describes: "SHA-256 of that video's exact bytes, from its Media row." },
+        { name: "title", kind: "string", required: true, describes: "The package title, verbatim — YouTube's snippet.title." },
+        { name: "description", kind: "string", required: true, describes: "The package copy, verbatim — YouTube's snippet.description." },
+        { name: "privacyStatus", kind: "enum", required: true, enumValues: ["private", "unlisted", "public"], describes: "Director-supplied privacy." },
+        { name: "categoryId", kind: "string", required: true, describes: "Director-supplied YouTube category id." },
+        { name: "selfDeclaredMadeForKids", kind: "boolean", required: true, describes: "Director's made-for-kids declaration." },
+        { name: "containsSyntheticMedia", kind: "boolean", required: true, describes: "Director's altered/synthetic-content declaration." },
+      ],
+    },
+    inputSummary: "One YouTube connection and its verified channel, one package revision, one approved video bound to its exact bytes, and four declarations.",
+    outputSummary: "Would upload one video to YouTube — irreversible; always requires human review.",
+    describes: "Uploads one video to the organization's own YouTube channel. Consequential and irreversible; never auto-executed.",
+  },
+  {
+    /*
      * GIA-1 — THE SECOND CONNECTED MUTATION SUBSTRATE, AND THE ONLY INTERNAL ONE.
      *
      * `heby.work.record-work` records ONE organizational work item through the Organizational Work
@@ -563,6 +604,13 @@ export const EXECUTABLE_ACTION_POSTURES: readonly ExecutableActionPosture[] = Ob
   Object.freeze({
     actionKind: "publish-instagram-media" as const,
     toolId: "heby.content.publish-instagram-media",
+    sideEffect: "CONSEQUENTIAL_MUTATION" as const,
+    reversibility: "irreversible" as const,
+    execution: "external-provider" as const,
+  }),
+  Object.freeze({
+    actionKind: "publish-youtube-video" as const,
+    toolId: "heby.content.publish-youtube-video",
     sideEffect: "CONSEQUENTIAL_MUTATION" as const,
     reversibility: "irreversible" as const,
     execution: "external-provider" as const,

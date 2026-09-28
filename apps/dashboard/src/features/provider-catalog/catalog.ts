@@ -62,6 +62,8 @@ import {
   GOOGLE_DRIVE_FILE_CAPABILITY,
   GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY,
   GOOGLE_YOUTUBE_READONLY_SCOPE,
+  GOOGLE_YOUTUBE_UPLOAD_SCOPE,
+  GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY,
   GOOGLE_DRIVE_FILE_SCOPE,
 } from "@/features/provider-google/contracts";
 import {
@@ -211,6 +213,17 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
       [GOOGLE_YOUTUBE_CHANNEL_IDENTITY_CAPABILITY]: Object.freeze({
         read: Object.freeze([GOOGLE_YOUTUBE_READONLY_SCOPE]),
         write: Object.freeze([]),
+      }),
+      /*
+       * YOUTUBE-WRITE-2 — the first Google capability with a WRITE half, in the catalog's own
+       * doctrine: `read` is what the operation reads (`youtube.readonly`, for the channel check every
+       * upload performs first) and `write` is what it writes (`youtube.upload`). A scope is never
+       * both. So `available` here means only that the read half is granted; an upload additionally
+       * requires `writeCapable`, which the publish path checks and never infers.
+       */
+      [GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY]: Object.freeze({
+        read: Object.freeze([GOOGLE_YOUTUBE_READONLY_SCOPE]),
+        write: Object.freeze([GOOGLE_YOUTUBE_UPLOAD_SCOPE]),
       }),
     }),
   }) satisfies ConnectionDefinition,
