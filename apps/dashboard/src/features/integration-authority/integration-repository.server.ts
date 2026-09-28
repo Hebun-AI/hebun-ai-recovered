@@ -370,6 +370,30 @@ export type AttachCredentialResult =
   | { readonly status: "refused"; readonly reason: ConnectionRefusal };
 
 /**
+ * GOOGLE-OAUTH-FIRST-BIND-RACE-1 — lock ONE connection row for the rest of the caller's
+ * transaction and return it as it stands. The account binding a caller then compares against is
+ * the CURRENT one, and no other writer (a credential write, a verification, another callback's
+ * binding) can change it until the caller commits or rolls back. Reads and locks; writes nothing.
+ * Tenant-predicated like every other query here: another tenant's row is `null`, never locked.
+ */
+export async function lockConnectionWithin(
+  tx: IntegrationTransaction,
+  tenant: TenantContext,
+  integrationId: string,
+): Promise<IntegrationView | null> {
+  assertServerOnly();
+  if (!tenant?.tenantId) return null;
+  if (!UUID_RE.test(integrationId)) return null;
+  const [current] = await tx
+    .select(COLUMNS)
+    .from(integrations)
+    .where(ownedRow(tenant, integrationId))
+    .limit(1)
+    .for("update");
+  return current ? toIntegrationView(current as IntegrationRow) : null;
+}
+
+/**
  * WHAT A CREDENTIAL WRITE DOES TO A CONNECTION — and the reason it lives HERE.
  *
  * `integration-credentials` must never import the `integrations` table. A released firewall test

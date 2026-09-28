@@ -3,11 +3,11 @@
  *
  * Against a real (disposable) Postgres and the RELEASED authorities — Integration (connections,
  * `recordVerifiedConnectionWithin`), INT-2 credentials (`storeCredential` / `replaceCredential`),
- * the Google verifier — with Google's `userinfo` answered by a fixture. `runCallbackTail` performs
- * the callback's post-exchange steps in the route's order; §0 pins that order to the route source,
- * so the behaviour tested here is the behaviour the route has.
+ * the Google verifier — with Google's `userinfo` answered by a fixture. `runCallbackTail` runs what
+ * the route runs after the scope check — `commitGoogleGrant` (since GOOGLE-OAUTH-FIRST-BIND-RACE-1,
+ * one transaction: lock → compare → INT-2 write → bind); §0 pins that the route calls exactly that.
  *
- *   §0  route order: guard → credential write → verify → record
+ *   §0  route order: exchange → scope check → commitGoogleGrant, and no credential write of its own
  *   §1  bound + SAME account → the released path runs (credential replaced, connected)
  *   §2  bound + DIFFERENT account → `record-account-changed`, credential rows byte-identical,
  *       account/label/state/scopes/health unchanged — and the pre-fix order is shown to leak (bite)
@@ -38,7 +38,7 @@ import {
 } from "../../src/features/integration-credentials/credential-repository.server";
 import { GOOGLE_PROVIDER_KEY, GOOGLE_YOUTUBE_PROVIDER_KEY } from "../../src/features/provider-google/contracts";
 import { GOOGLE_OAUTH_ENV_KEYS } from "../../src/features/provider-google/google-environment.server";
-import { guardGoogleAccountBeforeCredentialWrite } from "../../src/features/provider-google/guard-google-account-binding.server";
+import { commitGoogleGrant } from "../../src/features/provider-google/bind-google-grant.server";
 import { verifyGoogleConnection } from "../../src/features/provider-google/verify-google-connection.server";
 import { INTEGRATION_ENCRYPTION_ENV_KEYS } from "../../src/features/secret-encryption/key-registry.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
@@ -106,20 +106,13 @@ async function main(): Promise<void> {
     assert.ok(i > 0, `callback contains ${needle}`);
     return i;
   };
-  const sequence = [
-    "exchangeAuthorizationCode(",
-    "coversRequiredScopes(",
-    "guardGoogleAccountBeforeCredentialWrite(",
-    "listCredentialMetadata(",
-    "replaceCredential(",
-    "storeCredential(",
-    "verifyGoogleConnection(",
-    "recordVerifiedConnectionWithin(",
-  ];
+  const sequence = ["exchangeAuthorizationCode(", "coversRequiredScopes(", "commitGoogleGrant("];
   for (let i = 1; i < sequence.length; i += 1) {
     assert.ok(at(sequence[i - 1]!) < at(sequence[i]!), `${sequence[i - 1]} precedes ${sequence[i]} in the callback`);
   }
-  assert.match(body, /if \(!accountGuard\.ok\) return outcome\(accountGuard\.outcome\);/, "a refused guard returns before any write");
+  for (const own of ["storeCredential(", "replaceCredential(", "recordVerifiedConnectionWithin(", "verifyGoogleConnection("]) {
+    assert.ok(!body.includes(own), `the callback makes no ${own} of its own — the one commit does`);
+  }
   assert.equal(isAccountChange(null, "x"), false, "an unbound row may bind its first account");
   assert.equal(isAccountChange("x", "x"), false, "the same account is not a change");
   assert.equal(isAccountChange("x", "y"), true, "a different account is a change");
@@ -147,12 +140,15 @@ async function main(): Promise<void> {
     guarded = true,
   ): Promise<string> {
     if (guarded) {
-      const guard = await guardGoogleAccountBeforeCredentialWrite(tenant, integrationId, grant.accessToken, {
-        getDb,
-        fetchImpl: google.fetchImpl,
-      });
-      if (!guard.ok) return guard.outcome;
+      return commitGoogleGrant(
+        tenant,
+        integrationId,
+        { accessToken: grant.accessToken, refreshToken: grant.refreshToken, expiresAt: null, grantedScopes: grant.grantedScopes },
+        NOW,
+        { getDb, env: ENV, fetchImpl: google.fetchImpl },
+      );
     }
+    /* PRE-FIX (released before GOOGLE-OAUTH-ACCOUNT-INTEGRITY-1): write → verify → bind, three commits. */
     const existing = await listCredentialMetadata(tenant, integrationId, deps);
     const live = existing.status === "read" ? existing.credentials.filter((c) => c.live) : [];
     const access = { integrationId, kind: "oauth_access" as const, plaintext: grant.accessToken };
@@ -223,7 +219,7 @@ async function main(): Promise<void> {
       const google = googleAs(ACCOUNT_1);
       const result = await runCallbackTail(a, wsA, { accessToken: "gai1-a1-access-1", refreshToken: "gai1-a1-refresh-1", grantedScopes: WORKSPACE_SCOPES }, google);
       assert.equal(result, "connected", "a first binding connects");
-      assert.equal(google.calls(), 1, "an unbound row adds no pre-write identity call; the released verifier makes the one call");
+      assert.equal(google.calls(), 1, "one identity call, for the token being bound");
       const s = await snapshot(wsA);
       assert.equal(s.row.external_account_id, ACCOUNT_1.sub);
       assert.equal(s.row.connection_state, "connected");
@@ -244,7 +240,7 @@ async function main(): Promise<void> {
       const google = googleAs(ACCOUNT_1);
       const result = await runCallbackTail(a, wsA, { accessToken: "gai1-a1-access-2", grantedScopes: WIDER_SCOPES }, google);
       assert.equal(result, "connected", "re-consent as the same account is accepted");
-      assert.equal(google.calls(), 2, "one guard call before the write, one verifier call after");
+      assert.equal(google.calls(), 1, "one identity call, before anything is written");
       const after = await snapshot(wsA);
       assert.notEqual(after.credentialDigest, before.credentialDigest, "the access credential was replaced through INT-2");
       assert.equal(after.row.external_account_id, ACCOUNT_1.sub, "binding unchanged");
@@ -262,7 +258,7 @@ async function main(): Promise<void> {
         google,
       );
       assert.equal(result, "record-account-changed", "the established outcome label");
-      assert.equal(google.calls(), 1, "refused on the guard's identity call; the verifier never ran");
+      assert.equal(google.calls(), 1, "refused on the one identity call; nothing else ran");
       const after = await snapshot(wsA);
       assert.equal(after.credentialDigest, before.credentialDigest, "credential rows are byte-identical");
       assert.equal(after.credentialRows, before.credentialRows, "no credential row added");
@@ -319,9 +315,13 @@ async function main(): Promise<void> {
     }
 
     /* A connection of ANOTHER tenant is not found, never compared. */
-    assert.deepEqual(
-      await guardGoogleAccountBeforeCredentialWrite(a, wsB, "gai1-cross", { getDb, fetchImpl: googleAs(ACCOUNT_2).fetchImpl }),
-      { ok: false, outcome: "record-not-found" },
+    assert.equal(
+      await commitGoogleGrant(a, wsB, { accessToken: "gai1-cross", refreshToken: null, expiresAt: null, grantedScopes: WORKSPACE_SCOPES }, NOW, {
+        getDb,
+        env: ENV,
+        fetchImpl: googleAs(ACCOUNT_2).fetchImpl,
+      }),
+      "record-not-found",
       "tenant A cannot even address tenant B's connection",
     );
 

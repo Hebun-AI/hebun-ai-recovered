@@ -25,27 +25,20 @@
  *
  * ── AND A CREDENTIAL IS STILL NOT A CONNECTION ───────────────────────────────
  *
- * Storing succeeds, the row goes to `unverified`, and only a real answer from Google — obtained
- * afterwards, over the network, with that stored credential — moves it to `connected`.
+ * Only a real answer from Google for THIS token moves a row to `connected`. Since
+ * GOOGLE-OAUTH-FIRST-BIND-RACE-1 that answer is obtained for the exact token before it is stored, and
+ * the credential and the account it belongs to are committed together, or not at all
+ * (`commitGoogleGrant`).
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getControlPlaneDb } from "@/db/client.server";
 import { SESSION_COOKIE_NAME } from "@/features/auth-runtime/session-cookie";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
-import {
-  recordVerificationFailureWithin,
-  recordVerifiedConnectionWithin,
-} from "@/features/integration-authority/integration-repository.server";
-import { storeCredential, replaceCredential, listCredentialMetadata } from "@/features/integration-credentials/credential-repository.server";
 import { coversRequiredScopes } from "@/features/provider-google/contracts";
 import { resolveGoogleOAuthEnvironment } from "@/features/provider-google/google-environment.server";
+import { commitGoogleGrant } from "@/features/provider-google/bind-google-grant.server";
 import { exchangeAuthorizationCode } from "@/features/provider-google/google-transport.server";
-import { guardGoogleAccountBeforeCredentialWrite } from "@/features/provider-google/guard-google-account-binding.server";
-import {
-  lifecycleClassFor,
-  verifyGoogleConnection,
-} from "@/features/provider-google/verify-google-connection.server";
 import {
   GOOGLE_OAUTH_STATE_COOKIE,
   verifyOAuthState,
@@ -125,105 +118,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!coversRequiredScopes(grant.grantedScopes)) return outcome("insufficient-scope");
 
   /*
-   * ── 3b. THE ACCOUNT, BEFORE ANYTHING IS WRITTEN (GOOGLE-OAUTH-ACCOUNT-INTEGRITY-1) ──
+   * ── 4. ACCOUNT, CREDENTIAL AND BINDING — ONE COMMIT ─────────────────────
    *
-   * If this connection is already bound to a Google account, the NEW token's account is resolved
-   * now — while the token is only in memory — and compared with the binding by the connection
-   * authority's own rule. A different account is refused HERE, so the credential authority, the
-   * row's state and its scopes are exactly as they were. Before this step the refusal happened
-   * after step 4, with the other account's token already stored. A row with no account yet runs
-   * the released first-binding flow unchanged; step 6 still enforces the same rule on the write.
+   * GOOGLE-OAUTH-ACCOUNT-INTEGRITY-1 + GOOGLE-OAUTH-FIRST-BIND-RACE-1. Google is asked who this
+   * token belongs to while it is only in memory; then, in ONE transaction with the connection row
+   * locked, the current binding is compared by the connection authority's own rule, the credential
+   * is stored through INT-2, and the account is bound `connected`. A different account, a refused
+   * write or a refused binding commits nothing. A concurrent callback for the same connection waits
+   * on the row and then sees the binding this one committed.
    */
-  const accountGuard = await guardGoogleAccountBeforeCredentialWrite(tenant, integrationId, grant.accessToken, {
-    getDb: () => db,
-  });
-  if (!accountGuard.ok) return outcome(accountGuard.outcome);
-
-  /* ── 4. STORE THROUGH INT-2. This moves the connection to `unverified`. ─── */
-  const existing = await listCredentialMetadata(tenant, integrationId, { getDb: () => db });
-  const live = existing.status === "read" ? existing.credentials.filter((c) => c.live) : [];
-
-  const hasAccess = live.some((c) => c.kind === "oauth_access");
-  const storedAccess = hasAccess
-    ? await replaceCredential(
-        tenant,
-        {
-          integrationId,
-          kind: "oauth_access",
-          plaintext: grant.accessToken,
-          expiresAt: grant.expiresAt,
-        },
-        { getDb: () => db },
-      )
-    : await storeCredential(
-        tenant,
-        {
-          integrationId,
-          kind: "oauth_access",
-          plaintext: grant.accessToken,
-          expiresAt: grant.expiresAt,
-        },
-        { getDb: () => db },
-      );
-  if (storedAccess.status === "refused") return outcome(`credential-${storedAccess.reason}`);
-
-  /*
-   * A REFRESH TOKEN IS ONLY STORED IF GOOGLE SENT ONE. Google omits it on re-authorization, and
-   * treating that absence as "replace what we have with nothing" would destroy the tenant's only
-   * way back without another consent.
-   */
-  if (grant.refreshToken) {
-    const hasRefresh = live.some((c) => c.kind === "oauth_refresh");
-    const storedRefresh = hasRefresh
-      ? await replaceCredential(
-          tenant,
-          { integrationId, kind: "oauth_refresh", plaintext: grant.refreshToken },
-          { getDb: () => db },
-        )
-      : await storeCredential(
-          tenant,
-          { integrationId, kind: "oauth_refresh", plaintext: grant.refreshToken },
-          { getDb: () => db },
-        );
-    if (storedRefresh.status === "refused") return outcome(`credential-${storedRefresh.reason}`);
-  }
-
-  /* ── 5. VERIFY. REAL NETWORK I/O, WITH THE CREDENTIAL JUST STORED. ──────── */
-  const verification = await verifyGoogleConnection(tenant, integrationId, { getDb: () => db });
-
-  if (!verification.ok) {
-    /*
-     * The lifecycle moves according to the CLASS of failure. A 5xx or a timeout touches health
-     * only — a provider having a bad minute must never end a grant a tenant legitimately holds.
-     */
-    await db.transaction(async (tx) => {
-      await recordVerificationFailureWithin(
-        tx,
-        tenant,
-        integrationId,
-        { kind: lifecycleClassFor(verification.failure), reason: verification.reason },
-        now,
-      );
-    });
-    return outcome(`verification-${verification.failure}`);
-  }
-
-  /* ── 6. AND ONLY NOW, `connected`. ──────────────────────────────────────── */
-  const recorded = await db.transaction(async (tx) =>
-    recordVerifiedConnectionWithin(
-      tx,
-      tenant,
-      integrationId,
-      {
-        externalAccountId: verification.identity.subject,
-        externalAccountLabel: verification.identity.email,
-        /* Google's own statement of the grant, from the token endpoint. */
-        grantedScopes: grant.grantedScopes,
-      },
-      now,
-    ),
+  const bound = await commitGoogleGrant(
+    tenant,
+    integrationId,
+    {
+      accessToken: grant.accessToken,
+      refreshToken: grant.refreshToken,
+      expiresAt: grant.expiresAt,
+      /* Google's own statement of the grant, from the token endpoint. */
+      grantedScopes: grant.grantedScopes,
+    },
+    now,
+    { getDb: () => db },
   );
-  if (recorded.status !== "verified") return outcome(`record-${recorded.reason}`);
-
-  return outcome("connected");
+  return outcome(bound);
 }

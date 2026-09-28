@@ -101,6 +101,24 @@ export interface CredentialRepositoryDeps {
   readonly failAfterRevokeForTest?: () => Promise<void>;
   /** TEST-ONLY. Replaces the audit writer so an audit failure can be proved to roll the write back. */
   readonly recordEventForTest?: typeof recordCredentialEventWithin;
+  /**
+   * GOOGLE-OAUTH-FIRST-BIND-RACE-1 — run `storeCredential` / `replaceCredential` INSIDE the caller's
+   * transaction instead of opening their own. The writer is unchanged: same validation, same sealing,
+   * same row lock (via `attachCredentialToConnectionWithin`), same audit. Only WHERE it commits
+   * changes — together with the caller's other writes (the account binding), or not at all.
+   */
+  readonly transaction?: CredentialTransaction;
+}
+
+type CredentialTransaction = Parameters<Parameters<ControlPlaneDatabase["transaction"]>[0]>[0];
+
+/** The caller's transaction when one is supplied; otherwise this authority's own, as always. */
+function inTransaction<T>(
+  db: ControlPlaneDatabase,
+  deps: CredentialRepositoryDeps,
+  body: (tx: CredentialTransaction) => Promise<T>,
+): Promise<T> {
+  return deps.transaction ? body(deps.transaction) : db.transaction(body);
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -280,7 +298,7 @@ export async function storeCredential(
   const record = deps.recordEventForTest ?? recordCredentialEventWithin;
 
   try {
-    return await db.transaction(async (tx) => {
+    return await inTransaction(db, deps, async (tx) => {
       /*
        * The lifecycle first, and through its OWNER. It locks the connection row, refuses a
        * terminal one, and moves a non-terminal one to `unverified` — so a credential can never be
@@ -401,7 +419,7 @@ export async function replaceCredential(
   );
   const record = deps.recordEventForTest ?? recordCredentialEventWithin;
 
-  return db.transaction(async (tx) => {
+  return inTransaction(db, deps, async (tx) => {
     /* B/C. The live row, locked under the tenant predicate. */
     const [current] = await tx
       .select(METADATA_COLUMNS)

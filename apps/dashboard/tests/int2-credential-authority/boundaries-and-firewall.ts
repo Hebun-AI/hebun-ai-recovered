@@ -225,10 +225,13 @@ function main(): void {
      * credential authority. NAMED, not matched by a prefix or a wildcard: a pattern over callback
      * routes would admit every future one without a reviewer, which is what this list exists to deny.
      */
-    const CALLBACK_ROUTES = [
-      "src/app/api/integrations/google/callback/route.ts",
-      "src/app/api/integrations/instagram/callback/route.ts",
-    ];
+    /*
+     * NARROWED BY GOOGLE-OAUTH-FIRST-BIND-RACE-1. Google's callback no longer reaches the credential
+     * authority itself: it hands the grant to `provider-google/bind-google-grant.server.ts`, which
+     * stores and binds in one transaction. So its exemption is withdrawn, and a Google callback that
+     * imported the vault again would fail here.
+     */
+    const CALLBACK_ROUTES = ["src/app/api/integrations/instagram/callback/route.ts"];
     const clientish = collect("src/components").concat(collect("src/app"));
     for (const file of clientish) {
       const normalized = file.replace(/\\/g, "/");

@@ -522,7 +522,12 @@ function main(): void {
       [
         "src/features/integration-authority/integration-repository.server.ts",
         "src/features/provider-github/connect-installation.server.ts",
-        CALLBACK,
+        /*
+         * GOOGLE-OAUTH-FIRST-BIND-RACE-1 MOVED Google's seam out of the callback, unchanged in kind:
+         * the callback now hands its grant to `commitGoogleGrant`, which stores the credential and
+         * records the binding in ONE transaction, after Google's answer for that exact token.
+         */
+        "src/features/provider-google/bind-google-grant.server.ts",
         /*
          * The Instagram callback is the THIRD acceptance seam, and it is named here for the same
          * reason the other two are: it can mint `connected`, so a reviewer must see it. Like
