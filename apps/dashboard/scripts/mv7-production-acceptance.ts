@@ -33,7 +33,7 @@ import { loadHiggsfieldCredentialOrRefuse } from "./lib/higgsfield-credential-fi
 import { MV7_PRODUCTION_CONFIRMATION, MV7_PRODUCTION_PROMPT, guardProviderFetch, runProductionAcceptance } from "./lib/mv7-production-acceptance";
 
 const DIRECTOR_EMAIL = "senoltr@gmail.com";
-const EXPECTED_LEDGER = 67;
+const EXPECTED_LEDGER = 68;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const DB_ENV = ["DATABASE_URL", "HEBUN_PRODUCTION_CEREMONY", "HEBUN_PRODUCTION_TARGET_SYSTEM_IDENTIFIER", "HEBUN_PRODUCTION_TARGET_DATABASE"] as const;
 const STORE_ENV = ["HEBUN_MEDIA_STORE_ORIGIN", "HEBUN_MEDIA_STORE_WRITE_SECRET", "HEBUN_MEDIA_STORE_READ_SECRET"] as const;
