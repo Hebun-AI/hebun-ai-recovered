@@ -5121,6 +5121,7 @@ deliberately not a summary. States are copied from those records, not upgraded.
 | **HEBY MEDIA ORCHESTRATION** HEBY-MEDIA-1…4 (read → recommend → prepare → observe) | `3328a7f0` · `e36ac1d5` · `851d86b0` · `41f7087a` | **CLOSED** — read-only production acceptance: draft `57b57106` rev 3 → `use-existing` [`ad4978da`, `c3eb1139`] → prefill `satisfied` → next step `media-complete` (package not ready on `copy-unreviewed`, outside media); zero production mutation; Heby performs no mutation | no migration (ledger 67) | `hebun-heby-media-orchestration-closure.md` |
 | **YOUTUBE-WRITE-1** Authenticated YouTube Channel Identity | `ba64d4a0` (deployed `dpl_9PMJgzcsg2mXrRsZHELCn3MuHg7S`) | **PRODUCTION ACCEPTED / CLOSED** — TRH `google-workspace` connection (`hebuntech@gmail.com`) granted `youtube.readonly`; `google.youtube.channel.identity.read` AVAILABLE; one real read → `one-channel` "Hebun Tech" `UCqTzRYJBwFsITzxFuqx6YQw`; nothing bound or persisted; upload/publish NOT AVAILABLE; TRH `drive.file` grant replaced by this consent (existing never-merged upgrade doctrine) · **AMENDED:** that read ran in the TRH tenant with Hebun's account — a real reader acceptance under the wrong organizational context, never bound; final acceptance per tenant recorded in §6 of the closure | no migration (ledger 67) | `hebun-youtube-write-1-channel-identity-closure.md` |
 | **GOOGLE-CAPABILITY-SCOPE-REPAIR-1** One Google grant per capability family | `bda53bc9` (superseded in part) + `940a5370` (deployed `dpl_6ABcUS6A6Rrez9tEKjrcvUb4Jibw`) | **PRODUCTION ACCEPTED / CLOSED** — Google refused `drive.file` + `youtube.readonly` in one request (400 invalid_request, reason undocumented), so YouTube got its own `google-youtube` connection under the same authorities; both tenants now hold Drive (`google-workspace`) and YouTube (`google-youtube`) independently: Hebun AI → `hebuntech@gmail.com` → Hebun Tech `UCqTzRYJBwFsITzxFuqx6YQw`; TRH → `turkishrughouseist@gmail.com` → Turkish Rug House `UC5Yf5U_YOKR0K38tWF82kjA`; all four capabilities AVAILABLE; upload/publish NOT AVAILABLE | no migration (ledger 67) | `hebun-google-capability-scope-repair-1-closure.md` |
+| **YOUTUBE-WRITE-2** One Governed Upload to the Organization's Own Channel | `e9a715cd` + harness pin `4779b92f` (deployed `dpl_H1CXB656UGrDzkhfdo1Wi6CNk1n1`) | **REAL-PROVIDER PRODUCTION ACCEPTED / CLOSED** — `publish-youtube-video` through proposal → Governance → digest-bound permit → `executeAuthorizedAction` under TENANT-ARM-1; TRH package `e6c38ea3@2` (video `3793184a`, 791137 B, SHA `05e3e384…0b02`) uploaded once PRIVATE to Turkish Rug House `UC5Yf5U_YOKR0K38tWF82kjA`: request `9232af76`, permit `85b8a5f7` consumed, attempt `3f53e7d5` accepted, video `Rlp-bPNHXkw`; read-back processed / private / authorized channel; TRH disarmed rev 6. Public/unlisted NOT proven (unverified Google project); no durable processing state | migration **68** (CHECK widen; ledger 68) | `hebun-youtube-write-2-governed-private-upload-closure.md` |
 
 **Authored migration ledger at this baseline: 60**, last
 `20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
@@ -5198,6 +5199,16 @@ that YOUTUBE-WRITE-1's accepted read had run in the TRH tenant with Hebun's acco
 amended, not rewritten. Final state: each tenant holds Drive and YouTube on separate connections, TRH's
 YouTube on TRH's own account and channel. Its row above reads CLOSED (closure record
 `hebun-google-capability-scope-repair-1-closure.md`). **YOUTUBE-WRITE-2 is NOT STARTED.**
+
+**Continuity extended after `bf27f446` (2026-09-28).** **YOUTUBE-WRITE-2** added the third external
+kind, `publish-youtube-video`, to the existing PUBLISH-0 chain (`e9a715cd`, migration 68) and was
+production-accepted with one real PRIVATE upload of TRH's ready Content Package video to TRH's own
+channel (video `Rlp-bPNHXkw`), read back as processed and private; TRH was disarmed afterwards. The
+acceptance also opened the `/operations` video application door in production (Vercel transport +
+key configured permanently; `higgsfield-video-generation` stays the OFF-by-default gate). Its row
+above reads REAL-PROVIDER PRODUCTION ACCEPTED / CLOSED (closure record
+`hebun-youtube-write-2-governed-private-upload-closure.md`). Public/unlisted publishing, Google
+project verification and a durable processing lifecycle are NOT built or proven.
 
 ```
 POINTER               != SUMMARY
