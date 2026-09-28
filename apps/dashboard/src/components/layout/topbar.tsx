@@ -7,6 +7,7 @@ import { resolveShellSurface } from "@/config/workspace-nav";
 import { MobileNav } from "./mobile-nav";
 import { HebyLauncher } from "./heby/heby-launcher";
 import { HebyFocusControl } from "./heby/heby-focus-mode";
+import { AccountMenu, type ShellAccount } from "./account-menu";
 
 /*
  * Global chrome (Level-1). Kept deliberately lean:
@@ -16,7 +17,7 @@ import { HebyFocusControl } from "./heby/heby-focus-mode";
  * Internal architecture concepts never appear here.
  */
 
-export function TopBar() {
+export function TopBar({ account = null }: { account?: ShellAccount | null }) {
   const pathname = usePathname();
   /*
    * The identity chrome names the surface the operator is ON, so it asks the question that can be
@@ -116,19 +117,12 @@ export function TopBar() {
 
         <HebyLauncher variant="topbar" />
 
-        <button
-          type="button"
-          disabled
-          aria-label="Şenol Sevim — Director"
-          className="flex shrink-0 items-center gap-2 rounded-lg p-1.5 text-left disabled:cursor-not-allowed"
-        >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-on-primary">ŞS</span>
-          <span className="hidden whitespace-nowrap xl:block">
-            <span className="block text-xs font-semibold text-fg">Şenol Sevim</span>
-            {/* VI-2: 10.88px → the 12px floor. It names the operator's role; it is not decoration. */}
-            <span className="block text-xs text-fg-muted">Director</span>
-          </span>
-        </button>
+        {/*
+          The account control. It used to be a disabled button with a name and role written into this
+          file; it now shows who the authenticated layout resolved and opens the menu that holds the
+          existing Sign out (`logoutAction`).
+        */}
+        <AccountMenu account={account} />
       </div>
     </header>
   );

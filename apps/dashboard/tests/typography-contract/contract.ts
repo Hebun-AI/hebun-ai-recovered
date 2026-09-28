@@ -262,7 +262,8 @@ function theShellIsUnchanged(overrides: Readonly<Record<string, string>> = {}): 
   const rail = codeOf(overrides[RAIL_F] ?? read(RAIL_F));
   const topbar = codeOf(overrides[TOPBAR_F] ?? read(TOPBAR_F));
   assert.match(rail, /py-1\.5 text-sm font-semibold/, "the integrated rail keeps an explicit readable text size");
-  assert.match(topbar, /block text-xs text-fg-muted">Director/, "and so does the operator's role");
+  /* The role line moved into the account menu and is derived from the session, no longer the literal "Director". */
+  assert.match(codeOf(read("src/components/layout/account-menu.tsx")), /block text-xs text-fg-muted">\{account\.role\}/, "and so does the operator's role");
   /* This gate does not migrate the shell onto the semantic scale — that is not its scope. */
   for (const step of STEPS) {
     assert.ok(!new RegExp(`(?<![\\w-])text-${step}(?![\\w-])`).test(rail), `the rail must not adopt text-${step} here`);

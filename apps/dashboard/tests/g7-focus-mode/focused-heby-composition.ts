@@ -219,7 +219,8 @@ function main(): void {
    * ═════════════════════════════════════════════════════════════════════════ */
   {
     const shell = codeOf(read(SHELL));
-    for (const component of ["<WorkspaceRail />", "<TopBar />"]) {
+    /* The top bar now carries the layout-resolved account (profile menu); still rendered unconditionally. */
+    for (const component of ["<WorkspaceRail />", "<TopBar account={account} />"]) {
       assert.ok(shell.includes(component), `${component} is rendered`);
       /* Unconditionally: no ternary, no `&&`, no mode test on the line that renders it. */
       const line = shell.split("\n").find((candidate) => candidate.includes(component)) ?? "";

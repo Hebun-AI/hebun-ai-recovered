@@ -46,11 +46,13 @@ const TOPBAR = "src/components/layout/topbar.tsx";
 const RAIL = "src/components/layout/workspace-rail.tsx";
 const SECONDARY = "src/components/layout/secondary-nav.tsx";
 const MOBILE = "src/components/layout/mobile-nav.tsx";
+/* The account control moved out of the top bar into its own menu; it is ordinary shell chrome. */
+const ACCOUNT_MENU = "src/components/layout/account-menu.tsx";
 const TOKENS = "src/styles/tokens.css";
 const GLOBALS = "src/app/globals.css";
 
 /** The ordinary shell. `components/layout/heby/**` is deliberately absent — it is frozen. */
-const ORDINARY_SHELL = [TOPBAR, RAIL, SECONDARY, MOBILE];
+const ORDINARY_SHELL = [TOPBAR, RAIL, SECONDARY, MOBILE, ACCOUNT_MENU];
 const TRACKED = [...ORDINARY_SHELL, TOKENS, GLOBALS];
 
 type Sources = Readonly<Record<string, string>>;
@@ -135,7 +137,8 @@ function shellTextRespectsTheFloor(sources: Sources): void {
 
   /* The three sites VI-2 raised now say 12px in a utility that resolves. */
   assert.match(codeOf(sources[RAIL]!), /py-1\.5 text-sm font-semibold/, "the integrated rail's workspace names exceed the floor");
-  assert.match(codeOf(sources[TOPBAR]!), /block text-xs text-fg-muted">Director/, "the operator's role is at the floor");
+  /* The role line moved into the account menu and is derived from the session, no longer the literal "Director". */
+  assert.match(codeOf(sources[ACCOUNT_MENU]!), /block text-xs text-fg-muted">\{account\.role\}/, "the operator's role is at the floor");
   assert.match(codeOf(sources[SECONDARY]!), /ml-auto text-xs font-semibold uppercase/, "the unavailable marker is at the floor");
 }
 
@@ -452,7 +455,7 @@ function biteProofs(sources: Sources): void {
   bites(
     "drop the operator's role below the floor",
     shellTextRespectsTheFloor,
-    withDefect(sources, TOPBAR, 'block text-xs text-fg-muted">Director', 'block text-[0.68rem] text-fg-muted">Director'),
+    withDefect(sources, ACCOUNT_MENU, 'block text-xs text-fg-muted">{account.role}', 'block text-[0.68rem] text-fg-muted">{account.role}'),
   );
 
   bites(

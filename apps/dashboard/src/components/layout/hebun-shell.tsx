@@ -1,6 +1,7 @@
 import { RoleProvider } from "./role-context";
 import { WorkspaceRail } from "./workspace-rail";
 import { TopBar } from "./topbar";
+import type { ShellAccount } from "./account-menu";
 import { HebySurfaceProvider } from "./heby/heby-surface-context";
 import { HebyVoiceProvider } from "./heby/heby-voice-runtime";
 import { HebyQuickPanelClient } from "./heby/heby-quick-panel-client";
@@ -55,7 +56,14 @@ import { HebyFocusProvider } from "./heby/heby-focus-mode";
  * Role is currently fixed to Director (the shipped single-user surface).
  * Navigation visibility is convenience only — the server enforces authority.
  */
-export function HebunShell({ children }: { children: React.ReactNode }) {
+export function HebunShell({
+  children,
+  account = null,
+}: {
+  children: React.ReactNode;
+  /** Who is signed in, resolved by the authenticated layout. Null in the pre-auth build. */
+  account?: ShellAccount | null;
+}) {
   return (
     <RoleProvider role="director">
       <HebySurfaceProvider>
@@ -65,7 +73,7 @@ export function HebunShell({ children }: { children: React.ReactNode }) {
               {/* One route-derived navigation rail; focused mode only changes its presentation. */}
               <WorkspaceRail />
               <div className="min-w-0 md:pl-(--rail-w) lg:pl-(--shell-nav-w)">
-                <TopBar />
+                <TopBar account={account} />
                 <main className="mx-auto flex w-full min-w-0 max-w-[1800px] flex-col px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
                   {children}
                 </main>
