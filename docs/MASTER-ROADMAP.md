@@ -5119,7 +5119,8 @@ deliberately not a summary. States are copied from those records, not upgraded.
 | **VIDEO CONTENT CHAIN** Video in the Content Workflow | `fb1ed329` + acceptance fix `9ffd024c` (deployed at `9ffd024c`) | **PRODUCTION ACCEPTED / CLOSED** — existing MV-7 video `c3eb1139` played, APPROVED, selected, shown as "0 images · 1 video" by the authoritative package read; 0 generation POST, connectivity DISABLED | no migration (ledger 67) | `hebun-video-content-chain-closure.md` |
 | **IMAGE → VIDEO** Video generated from an admitted image | `df94e78a` + acceptance prep `5a130086` (deployed at `5a130086`) | **PRODUCTION ACCEPTED / CLOSED** — one real Higgsfield PixVerse V6 image-to-video generation (invocation `a0d5ba5d`) on a SYNTHETIC supplied source (`3f7b9e66`), admitted as `ad4978da` with MEDIA-5 lineage; connectivity DISABLED after; then Director-reviewed APPROVED and selected in rev 3 through the existing VIDEO CONTENT CHAIN (package 0 images · 2 videos, NOT READY on copy only); not published; price UNKNOWN | no migration (ledger 67) | `hebun-image-to-video-closure.md` |
 | **HEBY MEDIA ORCHESTRATION** HEBY-MEDIA-1…4 (read → recommend → prepare → observe) | `3328a7f0` · `e36ac1d5` · `851d86b0` · `41f7087a` | **CLOSED** — read-only production acceptance: draft `57b57106` rev 3 → `use-existing` [`ad4978da`, `c3eb1139`] → prefill `satisfied` → next step `media-complete` (package not ready on `copy-unreviewed`, outside media); zero production mutation; Heby performs no mutation | no migration (ledger 67) | `hebun-heby-media-orchestration-closure.md` |
-| **YOUTUBE-WRITE-1** Authenticated YouTube Channel Identity | `ba64d4a0` (deployed `dpl_9PMJgzcsg2mXrRsZHELCn3MuHg7S`) | **PRODUCTION ACCEPTED / CLOSED** — TRH `google-workspace` connection (`hebuntech@gmail.com`) granted `youtube.readonly`; `google.youtube.channel.identity.read` AVAILABLE; one real read → `one-channel` "Hebun Tech" `UCqTzRYJBwFsITzxFuqx6YQw`; nothing bound or persisted; upload/publish NOT AVAILABLE; TRH `drive.file` grant replaced by this consent (existing never-merged upgrade doctrine) | no migration (ledger 67) | `hebun-youtube-write-1-channel-identity-closure.md` |
+| **YOUTUBE-WRITE-1** Authenticated YouTube Channel Identity | `ba64d4a0` (deployed `dpl_9PMJgzcsg2mXrRsZHELCn3MuHg7S`) | **PRODUCTION ACCEPTED / CLOSED** — TRH `google-workspace` connection (`hebuntech@gmail.com`) granted `youtube.readonly`; `google.youtube.channel.identity.read` AVAILABLE; one real read → `one-channel` "Hebun Tech" `UCqTzRYJBwFsITzxFuqx6YQw`; nothing bound or persisted; upload/publish NOT AVAILABLE; TRH `drive.file` grant replaced by this consent (existing never-merged upgrade doctrine) · **AMENDED:** that read ran in the TRH tenant with Hebun's account — a real reader acceptance under the wrong organizational context, never bound; final acceptance per tenant recorded in §6 of the closure | no migration (ledger 67) | `hebun-youtube-write-1-channel-identity-closure.md` |
+| **GOOGLE-CAPABILITY-SCOPE-REPAIR-1** One Google grant per capability family | `bda53bc9` (superseded in part) + `940a5370` (deployed `dpl_6ABcUS6A6Rrez9tEKjrcvUb4Jibw`) | **PRODUCTION ACCEPTED / CLOSED** — Google refused `drive.file` + `youtube.readonly` in one request (400 invalid_request, reason undocumented), so YouTube got its own `google-youtube` connection under the same authorities; both tenants now hold Drive (`google-workspace`) and YouTube (`google-youtube`) independently: Hebun AI → `hebuntech@gmail.com` → Hebun Tech `UCqTzRYJBwFsITzxFuqx6YQw`; TRH → `turkishrughouseist@gmail.com` → Turkish Rug House `UC5Yf5U_YOKR0K38tWF82kjA`; all four capabilities AVAILABLE; upload/publish NOT AVAILABLE | no migration (ledger 67) | `hebun-google-capability-scope-repair-1-closure.md` |
 
 **Authored migration ledger at this baseline: 60**, last
 `20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
@@ -5188,6 +5189,15 @@ connection authority and was production-accepted: YouTube names one channel, "He
 (`UCqTzRYJBwFsITzxFuqx6YQw`), for TRH's grant. Its row above reads CLOSED (closure record
 `hebun-youtube-write-1-channel-identity-closure.md`). A channel seen is not a channel bound; no
 upload scope, upload path or publish exists. **YOUTUBE-WRITE-2 is NOT STARTED.**
+
+**Continuity extended after `4059a176` (2026-09-28).** Granting YouTube on the single Google
+connection had dropped TRH's `drive.file`, and Google then refused both families in one request.
+**GOOGLE-CAPABILITY-SCOPE-REPAIR-1** gave YouTube its own `google-youtube` connection under the same
+Integration and credential authorities (`940a5370`, no schema). An organizational audit also showed
+that YOUTUBE-WRITE-1's accepted read had run in the TRH tenant with Hebun's account; its closure is
+amended, not rewritten. Final state: each tenant holds Drive and YouTube on separate connections, TRH's
+YouTube on TRH's own account and channel. Its row above reads CLOSED (closure record
+`hebun-google-capability-scope-repair-1-closure.md`). **YOUTUBE-WRITE-2 is NOT STARTED.**
 
 ```
 POINTER               != SUMMARY

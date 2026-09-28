@@ -11,6 +11,13 @@ A CHANNEL SEEN    != A CHANNEL BOUND
 IDENTITY READ     != UPLOAD / PUBLISH
 ```
 
+> **AMENDED 2026-09-28 — read §6 before §1–§3.** The acceptance below is a real provider acceptance
+> of the READER: OAuth, the capability gate and a real `channels.list?mine=true` all worked. It was
+> performed while the active Hebun tenant was **Turkish Rug House**, with Hebun's own account
+> (`hebuntech@gmail.com`), and returned **Hebun's** channel. It therefore never proved a correct
+> tenant→channel binding. The historical facts in §1–§3 are left exactly as recorded; §6 states what
+> they prove, what they do not, and the final organizational acceptance.
+
 | Item | Value |
 |---|---|
 | Implementation | `ba64d4a0` (fast-forward from `515e559e`) |
@@ -115,3 +122,51 @@ The API-key `youtube` provider (public read, CGO-5 / YT-SOC) is unchanged.
 
 Known unrelated regression carried, not fixed: `int5a`, `int5b1`, `int5c` firewall tests red since
 HEBY-MEDIA-1 (`3328a7f0`).
+
+## 6 · Organizational correction (amended 2026-09-28)
+
+**What the original acceptance proves — unchanged, and real.** The OAuth grant, the capability gate,
+the credential spend and a real YouTube `channels.list?mine=true` worked in production; YouTube
+returned `one-channel` · Hebun Tech · `UCqTzRYJBwFsITzxFuqx6YQw` for `hebuntech@gmail.com`. That is a
+**real provider identity observation**. It is not retracted and was not fake or failed.
+
+**What it does not prove.** The read ran while the active Hebun tenant was Turkish Rug House, on
+TRH's `google-workspace` connection (`9314f5da`), with Hebun's own central account. Hebun Tech is
+Hebun's channel, not TRH's: TRH's own public YouTube observation (API-key provider, CGO-5) names a
+different channel, `UC5Yf5U_YOKR0K38tWF82kjA` "Turkish Rug House" `@turkishrughouse`. So §2's
+observation is **a real provider read performed under the wrong organizational context**, and the
+sentences "YouTube names one channel … for TRH's grant" and "Brand Account ambiguity resolved for
+this connection" describe the reader, not TRH's channel. Nothing was persisted or bound, so no stored
+binding was ever wrong.
+
+**What changed underneath it.** Google refused `drive.file` and `youtube.readonly` in one
+authorization request (production, `400 invalid_request`, "scopes that cannot be requested together";
+the reason is not documented by Google). GOOGLE-CAPABILITY-SCOPE-REPAIR-1 therefore moved this
+capability to its own `google-youtube` connection under the same authorities (`940a5370`). The
+`youtube.readonly` grant recorded in §2 on TRH's `google-workspace` connection no longer exists: that
+connection was re-granted `drive.file` at 07:50:27Z and holds the Drive family only.
+
+**Final organizational acceptance (2026-09-28).** Director-controlled consent on each tenant's own
+`google-youtube` connection, one real identity read each, then an authoritative read-only DB
+verification (`BEGIN TRANSACTION READ ONLY`, safe-column allowlist, no credential value):
+
+| Tenant | Connection | Google account | Scopes | Capability | Provider read |
+|---|---|---|---|---|---|
+| Hebun AI `f625b683` | `google-youtube` `17ae94ea` | `hebuntech@gmail.com` (`114884615390589849256`) | identity + `youtube.readonly` | AVAILABLE | `one-channel` · Hebun Tech · `UCqTzRYJBwFsITzxFuqx6YQw` |
+| Turkish Rug House `9947c78e` | `google-youtube` `c5e8637d` | `turkishrughouseist@gmail.com` (`117622225072141590877`) | identity + `youtube.readonly` | AVAILABLE | `one-channel` · Turkish Rug House · `UC5Yf5U_YOKR0K38tWF82kjA` |
+
+The TRH read matches TRH's independently observed public channel id. Each tenant's YouTube
+capability resolves through its own connection only; neither derives from the other or from a Drive
+connection.
+
+```
+PROVIDER READER ACCEPTED                     YES  (§2, 2026-09-28, TRH context, hebuntech → Hebun Tech)
+HISTORICAL TRH → HEBUN TECH OBSERVATION      REAL, WRONG ORGANIZATIONAL CONTEXT, NEVER BOUND
+HEBUN AI → HEBUN TECH                        ACCEPTED (google-youtube 17ae94ea)
+TURKISH RUG HOUSE → TURKISH RUG HOUSE        ACCEPTED (google-youtube c5e8637d)
+CHANNEL BINDING PERSISTENCE                  STILL NONE — a channel seen is still not a channel bound
+UPLOAD / videos.insert / PUBLISH             STILL NOT AVAILABLE
+```
+
+**YOUTUBE-WRITE-1 stays CLOSED**, now with the correct tenant→channel acceptance recorded. See
+`hebun-google-capability-scope-repair-1-closure.md`.
