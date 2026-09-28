@@ -164,6 +164,7 @@ const code = (f: string): string => stripComments(read(f));
       "src/components/operations-preparation/content-package-panel.tsx",
       "src/components/operations-preparation/generate-image-with-hebun.tsx",
       "src/components/operations-preparation/generate-video-with-hebun.tsx",
+      "src/components/operations-preparation/heby-media-prefill.tsx",
       "src/components/operations-preparation/operations-preparation.tsx",
       "src/components/operations-preparation/revision-media-assets.tsx",
       "src/components/operations-preparation/revision-media-videos.tsx",
@@ -178,7 +179,9 @@ const code = (f: string): string => stripComments(read(f));
        MV-3 added the Drive-video door and the revision's video list: they call the one action file's
        supplied-video admission and video read actions, nothing else — still enumerated exactly.
        VIDEO CONTENT CHAIN added the text-to-video door: it calls the one action file's request
-       action and nothing else — still enumerated exactly, so another file still fails. */
+       action and nothing else — still enumerated exactly, so another file still fails.
+       HEBY-MEDIA-3 added Heby's media prefill: it renders server-derived data and calls only the
+       existing per-asset selection action on an explicit click — still enumerated exactly. */
     "exactly one action file and the MEDIA-3 + CONTENT-COMPOSE-1 + MEDIA-SUPPLIED surfaces may reach the Media Asset authority",
   );
 

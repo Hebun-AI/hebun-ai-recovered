@@ -151,7 +151,9 @@ async function main(): Promise<void> {
     "@/features/work-artifacts/contracts": ["CONTENT_DRAFT_TYPE"],
     "./read-content-package.server": ["readContentPackage"],
     /* HEBY-MEDIA-2: the pure evaluator over the same facts — no runtime import of its own. */
-    "./media-choice": ["evaluateMediaChoice", "formatMediaChoice", "type MediaFact", "type MediaFactReview"],
+    "./media-choice": ["evaluateMediaChoice", "formatMediaChoice", "type DraftMediaFacts", "type MediaChoice", "type MediaFact", "type MediaFactReview"],
+    /* HEBY-MEDIA-3: the pure prefill over the same facts and choice. */
+    "./media-prefill": ["prefillFromChoice", "type MediaPrefill"],
   }, "the shaper imports exactly these readers and constants");
   assert.equal(/\bimport\s+\*|\brequire\(|\bimport\(/.test(code), false, "no namespace, dynamic or require import");
   for (const banned of [

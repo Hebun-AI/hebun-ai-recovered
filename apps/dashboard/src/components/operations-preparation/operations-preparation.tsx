@@ -31,6 +31,7 @@ import {
   listArtifactMediaVideosAction,
   listArtifactVideoGenerationsAction,
   readContentPackageAction,
+  readHebyMediaPrefillsAction,
   readMediaAssetReviewStatesAction,
   listActiveRecipientsAction,
   listRetiredRecipientsAction,
@@ -47,6 +48,8 @@ import { DraftVideos, type DraftVideo, type DraftVideoGeneration } from "./revis
 import { GenerateVideoWithHebun } from "./generate-video-with-hebun";
 import { RevisionMediaAssets } from "./revision-media-assets";
 import { ContentPackagePanel } from "./content-package-panel";
+import { HebyMediaPrefill } from "./heby-media-prefill";
+import type { MediaPrefill } from "@/features/content-composition/media-prefill";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
 
 export async function OperationsPreparation() {
@@ -139,6 +142,16 @@ export async function OperationsPreparation() {
     ),
   );
 
+  /*
+   * HEBY-MEDIA-3. Heby's typed media prefill per draft — the same content-media read and
+   * deterministic recommendation Heby is grounded on, rendered for a human. Data only; an
+   * unreadable listing renders no prefill rather than a guessed one.
+   */
+  const prefillListing = drafts.length > 0 ? await readHebyMediaPrefillsAction() : ({ status: "unavailable" } as const);
+  const mediaPrefills = new Map<string, MediaPrefill>(
+    prefillListing.status === "read" ? prefillListing.prefills.map((p) => [p.artifactId, p] as const) : [],
+  );
+
   const mediaReviewStates =
     mediaListing.status === "read" && mediaListing.assets.length > 0
       ? await readMediaAssetReviewStatesAction({
@@ -223,6 +236,7 @@ export async function OperationsPreparation() {
         videoGenerations={videoGenerations.status === "read" ? videoGenerations.generations : []}
         videoReviewStates={videoReviewStates}
         contentPackages={contentPackages}
+        mediaPrefills={mediaPrefills}
       />
 
       {/*
@@ -318,6 +332,7 @@ function MediaAssetsForDrafts({
   videoGenerations,
   videoReviewStates,
   contentPackages,
+  mediaPrefills,
 }: {
   readonly drafts: readonly {
     readonly artifactId: string;
@@ -337,6 +352,8 @@ function MediaAssetsForDrafts({
   readonly videoReviewStates: Awaited<ReturnType<typeof readMediaAssetReviewStatesAction>>;
   /* Read by the caller on the server, per draft, for its current revision. */
   readonly contentPackages: ReadonlyMap<string, Awaited<ReturnType<typeof readContentPackageAction>>>;
+  /* HEBY-MEDIA-3 — read by the caller; data only. */
+  readonly mediaPrefills: ReadonlyMap<string, MediaPrefill>;
 }) {
   if (drafts.length === 0) return null;
   const assetsRead = listing.status === "read" ? listing.assets : [];
@@ -397,6 +414,7 @@ function MediaAssetsForDrafts({
               contentPackages.get(draft.artifactId) ?? { status: "unavailable", reason: "persistence-unavailable" }
             }
           />
+          <HebyMediaPrefill prefill={mediaPrefills.get(draft.artifactId) ?? null} />
 
           {/*
             The current revision, named explicitly. It is stated even when it has no images, because

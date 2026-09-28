@@ -44,7 +44,15 @@ import { readMediaAssetReviewStates } from "@/features/media-asset-review/review
 import { listWorkArtifacts } from "@/features/work-artifacts/read-work-artifacts.server";
 import { formatWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
-import { evaluateMediaChoice, formatMediaChoice, type MediaFact, type MediaFactReview } from "./media-choice";
+import {
+  evaluateMediaChoice,
+  formatMediaChoice,
+  type DraftMediaFacts,
+  type MediaChoice,
+  type MediaFact,
+  type MediaFactReview,
+} from "./media-choice";
+import { prefillFromChoice, type MediaPrefill } from "./media-prefill";
 import { readContentPackage } from "./read-content-package.server";
 
 export const CONTENT_MEDIA_PROVENANCE =
@@ -93,17 +101,28 @@ function reviewWord(decision: string | null | undefined): string {
   return "no review recorded";
 }
 
-/** Resolve this tenant's open content drafts into one media-context resolution. */
-export async function readContentMediaGroundingSource(
-  tenant: TenantContext | null,
-  deps: ContentMediaSourceDeps = {},
-): Promise<SourceResolution> {
-  if (typeof window !== "undefined") throw new Error("Content media grounding is server-only.");
-  if (!tenant?.tenantId || !tenant.userId) return unavailable("No authorized tenant context was supplied.");
+type ResolvedItem = SourceResolution["items"][number];
+
+type Collected =
+  | { readonly status: "unavailable"; readonly reason: string }
+  | {
+      readonly status: "read";
+      readonly switches: readonly ResolvedItem[];
+      readonly entries: readonly { readonly item: ResolvedItem; readonly facts: DraftMediaFacts; readonly choice: MediaChoice }[];
+    };
+
+/*
+ * ONE read, two renderings: the Heby grounding resolution and (HEBY-MEDIA-3) the typed prefill a
+ * human sees on /operations. Both come from the same facts, so they cannot disagree.
+ */
+async function collectContentMedia(tenant: TenantContext | null, deps: ContentMediaSourceDeps): Promise<Collected> {
+  if (!tenant?.tenantId || !tenant.userId) return { status: "unavailable", reason: "No authorized tenant context was supplied." };
 
   const listing = await (deps.listArtifacts ?? listWorkArtifacts)(tenant);
   const switchState: Record<string, boolean> = {};
-  if (listing.status !== "read") return unavailable("Content drafts could not be read, so nothing is reported about their media.");
+  if (listing.status !== "read") {
+    return { status: "unavailable", reason: "Content drafts could not be read, so nothing is reported about their media." };
+  }
   const drafts = listing.artifacts
     .filter((a) => a.artifactType === CONTENT_DRAFT_TYPE && a.lifecycleStatus === "draft")
     .slice(0, CONTENT_MEDIA_DRAFT_LIMIT);
@@ -130,24 +149,7 @@ export async function readContentMediaGroundingSource(
     }),
   );
 
-  if (drafts.length === 0) {
-    return {
-      sourceClass: "content-media",
-      state: "resolved",
-      provenance: CONTENT_MEDIA_PROVENANCE,
-      authoritative: false,
-      items: [
-        {
-          recordRef: "content-media/no-open-content-drafts",
-          label: "No open content drafts",
-          detail: "your organization holds no open content draft, so no draft media is reported",
-          lifecycle: "settled",
-        },
-        ...switches,
-      ],
-      unavailableReason: undefined,
-    };
-  }
+  if (drafts.length === 0) return { status: "read", switches, entries: [] };
 
   const artifactIds = drafts.map((d) => d.id);
   const [images, videos, generations] = await Promise.all([
@@ -156,13 +158,13 @@ export async function readContentMediaGroundingSource(
     (deps.listGenerations ?? listArtifactVideoGenerations)(tenant, { artifactIds }),
   ]);
   if (images.status !== "read" || videos.status !== "read") {
-    return unavailable("Media records could not be read, so nothing is reported about draft media.");
+    return { status: "unavailable", reason: "Media records could not be read, so nothing is reported about draft media." };
   }
   const assetIds = [...images.assets.map((a) => a.assetId), ...videos.videos.map((v) => v.assetId)];
   const reviews = await (deps.readReviewStates ?? readMediaAssetReviewStates)(tenant, assetIds);
   const generationRows = generations.status === "read" ? generations.generations : null;
 
-  const items = [];
+  const entries = [];
   for (const draft of drafts) {
     const pkg = await (deps.readPackage ?? readContentPackage)(tenant, {
       artifactId: draft.id,
@@ -201,19 +203,20 @@ export async function readContentMediaGroundingSource(
           selectedInCurrentRevision: selected.has(v.assetId),
         })),
     ];
+    const draftFacts: DraftMediaFacts = {
+      artifactId: draft.id,
+      currentRevision: draft.currentRevision,
+      destination: draft.intendedDestination,
+      packageReadable: pkg.status === "read",
+      media: facts,
+      attempts: generationRows
+        ? generationRows
+            .filter((g) => g.sourceArtifactId === draft.id)
+            .map((g) => ({ invocationId: g.invocationId, state: g.state, admissionOutcome: g.admissionOutcome, sourceMediaAssetId: g.sourceMediaAssetId }))
+        : null,
+    };
     const choice = evaluateMediaChoice(
-      {
-        artifactId: draft.id,
-        currentRevision: draft.currentRevision,
-        destination: draft.intendedDestination,
-        packageReadable: pkg.status === "read",
-        media: facts,
-        attempts: generationRows
-          ? generationRows
-              .filter((g) => g.sourceArtifactId === draft.id)
-              .map((g) => ({ invocationId: g.invocationId, state: g.state, admissionOutcome: g.admissionOutcome, sourceMediaAssetId: g.sourceMediaAssetId }))
-          : null,
-      },
+      draftFacts,
       {
         textToVideo: switchState[HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY] === true,
         imageToVideo: switchState[HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY] === true,
@@ -289,7 +292,7 @@ export async function readContentMediaGroundingSource(
       packageSegments = [`package: ${pkg.status === "not-found" ? "not found" : "could not be read"}`];
     }
 
-    items.push({
+    const item: ResolvedItem = {
       recordRef: formatWorkArtifactRef(draft.id, draft.currentRevision),
       label: draft.title,
       detail: [
@@ -302,15 +305,53 @@ export async function readContentMediaGroundingSource(
       lifecycle: "settled" as const,
       /* Media lines are data for the model's grounding, kept out of Heby's own prose. */
       content: [...lines, ...formatMediaChoice(choice)].join("\n"),
-    });
+    };
+    entries.push({ item, facts: draftFacts, choice });
   }
 
+  return { status: "read", switches, entries };
+}
+
+/** Resolve this tenant's open content drafts into one media-context resolution. */
+export async function readContentMediaGroundingSource(
+  tenant: TenantContext | null,
+  deps: ContentMediaSourceDeps = {},
+): Promise<SourceResolution> {
+  if (typeof window !== "undefined") throw new Error("Content media grounding is server-only.");
+  const collected = await collectContentMedia(tenant, deps);
+  if (collected.status === "unavailable") return unavailable(collected.reason);
+  const noDrafts: ResolvedItem = {
+    recordRef: "content-media/no-open-content-drafts",
+    label: "No open content drafts",
+    detail: "your organization holds no open content draft, so no draft media is reported",
+    lifecycle: "settled",
+  };
   return {
     sourceClass: "content-media",
     state: "resolved",
     provenance: CONTENT_MEDIA_PROVENANCE,
     authoritative: false,
-    items: [...items, ...switches],
+    items: [...(collected.entries.length === 0 ? [noDrafts] : collected.entries.map((e) => e.item)), ...collected.switches],
     unavailableReason: undefined,
   };
+}
+
+export type ContentMediaPrefillListing =
+  | { readonly status: "unavailable" }
+  | { readonly status: "read"; readonly prefills: readonly MediaPrefill[] };
+
+/**
+ * HEBY-MEDIA-3 — the typed, ephemeral prefill for each open content draft, derived from the same
+ * read and the same recommendation Heby is grounded on. DATA ONLY: nothing is persisted, nothing is
+ * selected, generated or reviewed here. A human acting on it goes through the existing action,
+ * whose writer revalidates everything against current state.
+ */
+export async function readContentMediaPrefills(
+  tenant: TenantContext | null,
+  deps: ContentMediaSourceDeps = {},
+): Promise<ContentMediaPrefillListing> {
+  if (typeof window !== "undefined") throw new Error("Content media prefill is server-only.");
+  const collected = await collectContentMedia(tenant, deps);
+  if (collected.status === "unavailable") return { status: "unavailable" };
+  return { status: "read", prefills: collected.entries.map((e) => prefillFromChoice(e.facts, e.choice)) };
 }

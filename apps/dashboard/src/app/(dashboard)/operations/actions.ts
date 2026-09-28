@@ -11,6 +11,10 @@ import {
   readContentPackage,
   type ContentPackageResult,
 } from "@/features/content-composition/read-content-package.server";
+import {
+  readContentMediaPrefills,
+  type ContentMediaPrefillListing,
+} from "@/features/content-composition/heby-content-media-source.server";
 import type { ContentSelectionResult } from "@/features/content-composition/select-media.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import type {
@@ -387,6 +391,17 @@ export async function readContentPackageAction(input: {
 }): Promise<ContentPackageResult> {
   const tenant = await resolveTenantContext();
   return readContentPackage(tenant, input);
+}
+
+/**
+ * HEBY-MEDIA-3 — Heby's typed media prefill for each open content draft, derived from the same
+ * content-media read and deterministic recommendation Heby is grounded on. A READ: it takes no
+ * input, uses the session tenant only, and writes nothing. Acting on a prefill is a separate,
+ * explicit human call to an existing action (e.g. `setMediaSelectionAction`), whose writer
+ * revalidates against current state.
+ */
+export async function readHebyMediaPrefillsAction(): Promise<ContentMediaPrefillListing> {
+  return readContentMediaPrefills(await resolveTenantContext());
 }
 
 export async function reviewMediaAssetAction(input: {
