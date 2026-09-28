@@ -1,6 +1,7 @@
 /*
  * content-composition/select-media.server.ts — put an image or a video into a draft revision, or
- * take it out. (VIDEO CONTENT CHAIN: a generated video is selectable exactly as a generated image is.)
+ * take it out. (VIDEO CONTENT CHAIN: a generated video is selectable exactly as a generated image is.
+ * HEBY-CONTENT-OPS-1: a supplied original is selectable exactly as a generated one is.)
  *
  * ── THE ENTIRE AUTHORITY OF THIS MODULE ──────────────────────────────────────
  *
@@ -37,7 +38,7 @@
  *
  * Server-only.
  */
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, or } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { contentSelectedMedia } from "@/db/schema/content-selected-media";
 import { mediaAssets, mediaGenerationInvocations } from "@/db/schema/media-asset";
@@ -85,6 +86,7 @@ async function resolveParents(
   assetLifecycle: string | null;
   assetKind: string | null;
   invocationOutputKind: string | null;
+  supplied: boolean;
 }> {
   const [revisionRows, assetRows] = await Promise.all([
     db
@@ -102,6 +104,7 @@ async function resolveParents(
       .select({
         lifecycle: mediaAssets.assetLifecycleStatus,
         mediaKind: mediaAssets.mediaKind,
+        invocationId: mediaAssets.invocationId,
         invocationOutputKind: mediaGenerationInvocations.outputMediaKind,
       })
       .from(mediaAssets)
@@ -112,7 +115,7 @@ async function resolveParents(
        * earlier revision of the same draft may be chosen for a later one (CONTENT-COMPOSE-1's
        * production-proven cross-revision case). Another draft's image is unresolvable, like absent.
        */
-      .innerJoin(
+      .leftJoin(
         mediaGenerationInvocations,
         and(
           eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
@@ -121,17 +124,24 @@ async function resolveParents(
       )
       /*
        * PUBLISH-0: a derived (publish) asset is not creative work and cannot be selected.
-       * MEDIA-SUPPLIED: the content package reads its images through the generation invocation, so a
-       * supplied image would be selected and then silently absent from the package. Until the package
-       * reads supplied provenance, only a generated asset is selectable — refused, never hidden.
+       *
+       * HEBY-CONTENT-OPS-1: an ORIGINAL of either origin, proved to be of THIS draft by the Media
+       * authority's own record of where it came from — a generated asset by its invocation's
+       * `source_artifact_id` (above), a supplied one by `supplied_artifact_id`, which admission wrote
+       * and nothing rewrites. The package now reads supplied provenance, so the MEDIA-SUPPLIED reason
+       * for refusing ("selected, then silently absent") no longer holds. As for generated media, the
+       * revision is NOT matched: an asset admitted in an earlier revision of this draft may be chosen
+       * for a later one. No invocation is invented for a supplied asset.
        */
       .where(
         and(
           eq(mediaAssets.tenantId, tenantId),
           eq(mediaAssets.id, input.mediaAssetId),
           isNull(mediaAssets.derivedFromAssetId),
-          isNotNull(mediaAssets.invocationId),
-          eq(mediaGenerationInvocations.sourceArtifactId, input.artifactId),
+          or(
+            and(isNotNull(mediaAssets.invocationId), eq(mediaGenerationInvocations.sourceArtifactId, input.artifactId)),
+            and(isNull(mediaAssets.invocationId), eq(mediaAssets.suppliedArtifactId, input.artifactId)),
+          ),
         ),
       )
       .limit(1),
@@ -141,6 +151,7 @@ async function resolveParents(
     assetLifecycle: assetRows[0]?.lifecycle ?? null,
     assetKind: assetRows[0]?.mediaKind ?? null,
     invocationOutputKind: assetRows[0]?.invocationOutputKind ?? null,
+    supplied: assetRows[0] !== undefined && assetRows[0].invocationId === null,
   };
 }
 
@@ -174,7 +185,7 @@ export async function selectMediaForRevision(
    */
   if (
     (parents.assetKind !== "image" && parents.assetKind !== "video") ||
-    parents.assetKind !== parents.invocationOutputKind
+    (!parents.supplied && parents.assetKind !== parents.invocationOutputKind)
   ) {
     return refused("asset-kind-incoherent");
   }

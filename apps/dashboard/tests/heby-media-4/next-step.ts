@@ -94,7 +94,7 @@ async function main(): Promise<void> {
 
   /* F / G · selected → media complete; copy-unreviewed is outside the media loop */
   {
-    const s = step(draft([m("ad", "video", "generated", "accepted", true), m("c3", "video", "generated", "accepted", true), m("s1", "image", "supplied", "not-applicable")]), BLOCKED_COPY);
+    const s = step(draft([m("ad", "video", "generated", "accepted", true), m("c3", "video", "generated", "accepted", true), m("s1", "image", "supplied", "accepted")]), BLOCKED_COPY);
     assert.equal(s.state, "media-complete");
     assert.equal(s.mediaComplete, true);
     assert.equal(s.humanAction, "none", "the media loop stops; it does not pursue copy review");
@@ -117,12 +117,19 @@ async function main(): Promise<void> {
     for (const line of s.explanation) assert.doesNotMatch(line, /\b(published|authorized|approved)\b/i);
   }
 
-  /* I · supplied media is never "awaiting review" */
+  /*
+   * I · HEBY-CONTENT-OPS-1 — a supplied original waits for the same human review a generated one
+   * does (it used to be "outside review"); Heby names the human action and performs none.
+   */
   {
-    const s = step(draft([m("s1", "image", "supplied", "not-applicable"), m("s2", "video", "supplied", "not-applicable")]));
-    assert.notEqual(s.state, "media-awaiting-review");
-    assert.ok(s.reasons.includes("supplied-media-outside-review"));
-    assert.equal(s.reasons.includes("media-review-required"), false);
+    const s = step(draft([m("s1", "image", "supplied", "none"), m("s2", "video", "supplied", "none")]));
+    assert.equal(s.state, "media-awaiting-review");
+    assert.equal(s.humanAction, "review-media");
+    assert.deepEqual(s.assetIds, ["s1", "s2"]);
+    assert.ok(s.reasons.includes("media-review-required"));
+    const declined = step(draft([m("s1", "video", "supplied", "declined")]));
+    assert.ok(declined.reasons.includes("media-review-declined"));
+    assert.notEqual(declined.state, "media-complete");
   }
 
   /* J · a blocked generation stays blocked and visible */

@@ -74,10 +74,10 @@ async function main(): Promise<void> {
   /* D · image-to-video with data use unresolved → never actionable, whatever the source id */
   {
     const forced: MediaChoice = {
-      ...evaluateMediaChoice(draft([m("3f7b9e66-b165-86df-ab9b-77fcc7d36f14", "image", "supplied", "not-applicable")]), ALL_ON),
+      ...evaluateMediaChoice(draft([m("3f7b9e66-b165-86df-ab9b-77fcc7d36f14", "image", "supplied", "accepted")]), ALL_ON),
       kind: "generate-image-to-video",
     };
-    const p = prefillFromChoice(draft([m("3f7b9e66-b165-86df-ab9b-77fcc7d36f14", "image", "supplied", "not-applicable")]), forced);
+    const p = prefillFromChoice(draft([m("3f7b9e66-b165-86df-ab9b-77fcc7d36f14", "image", "supplied", "accepted")]), forced);
     assert.equal(p.kind, "generation-not-actionable");
     if (p.kind === "generation-not-actionable") assert.ok(p.blockers.includes("data-use-unresolved"));
     assert.equal(JSON.stringify(p).includes("sourceAssetId"), false, "no source is prepared for a provider");
@@ -95,11 +95,11 @@ async function main(): Promise<void> {
 
   /* G · stale or tampered recommendation → only current, eligible facts are prepared; the writer still decides */
   {
-    const facts = draft([m("v1", "video", "generated", "accepted"), m("s1", "video", "supplied", "not-applicable"), m("g1", "video", "generated", "none")]);
+    const facts = draft([m("v1", "video", "generated", "accepted"), m("s1", "video", "supplied", "none"), m("g1", "video", "generated", "none")]);
     const tampered: MediaChoice = { ...evaluateMediaChoice(facts, OFF), kind: "use-existing", assetIds: ["v1", "s1", "g1", "foreign"] };
     const p = prefillFromChoice(facts, tampered);
     assert.equal(p.kind, "select-existing");
-    if (p.kind === "select-existing") assert.deepEqual(p.assetIds, ["v1"], "supplied, unreviewed and unknown ids are never prepared");
+    if (p.kind === "select-existing") assert.deepEqual(p.assetIds, ["v1"], "unreviewed (of either origin) and unknown ids are never prepared");
     const nothing = prefillFromChoice(facts, { ...tampered, assetIds: ["foreign"] });
     assert.equal(nothing.kind, "ask-human");
     /* The one call site sends exactly the card's three values; the action resolves the tenant and the writer revalidates. */

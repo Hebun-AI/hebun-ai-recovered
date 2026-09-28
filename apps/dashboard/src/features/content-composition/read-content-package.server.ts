@@ -136,7 +136,11 @@ export async function readContentPackage(
         width: mediaAssets.width,
         height: mediaAssets.height,
         lifecycle: mediaAssets.assetLifecycleStatus,
-        sourceRevisionNo: mediaGenerationInvocations.sourceRevisionNo,
+        invocationId: mediaAssets.invocationId,
+        derivedFromAssetId: mediaAssets.derivedFromAssetId,
+        generatedFromRevisionNo: mediaGenerationInvocations.sourceRevisionNo,
+        suppliedSource: mediaAssets.suppliedSource,
+        suppliedRevisionNo: mediaAssets.suppliedRevisionNo,
       })
       .from(contentSelectedMedia)
       .innerJoin(
@@ -146,7 +150,12 @@ export async function readContentPackage(
           eq(mediaAssets.id, contentSelectedMedia.mediaAssetId),
         ),
       )
-      .innerJoin(
+      /*
+       * HEBY-CONTENT-OPS-1 — a LEFT join: a supplied original has no invocation, and a selected
+       * supplied asset must appear here rather than silently vanish (the reason MEDIA-SUPPLIED once
+       * refused to let it be selected). Its provenance is read from its own supplied columns below.
+       */
+      .leftJoin(
         mediaGenerationInvocations,
         and(
           eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
@@ -192,6 +201,25 @@ export async function readContentPackage(
     } else {
       return { status: "unavailable", reason: "persistence-unavailable" };
     }
+    /*
+     * HEBY-CONTENT-OPS-1 — provenance, never flattened. A generated original names the revision its
+     * invocation came from; a supplied original the revision it was supplied into. A row that is
+     * neither (a derivative, or a generated row whose invocation cannot be read) makes the package
+     * unreadable — never a guess, and never "supplied" by default.
+     */
+    let origin: "generated" | "supplied";
+    let sourceRevisionNo: number;
+    if (r.derivedFromAssetId !== null) {
+      return { status: "unavailable", reason: "persistence-unavailable" };
+    } else if (r.invocationId !== null && typeof r.generatedFromRevisionNo === "number") {
+      origin = "generated";
+      sourceRevisionNo = r.generatedFromRevisionNo;
+    } else if (r.invocationId === null && r.suppliedSource !== null && typeof r.suppliedRevisionNo === "number") {
+      origin = "supplied";
+      sourceRevisionNo = r.suppliedRevisionNo;
+    } else {
+      return { status: "unavailable", reason: "persistence-unavailable" };
+    }
     selected.push({
       mediaAssetId: r.mediaAssetId,
       selectedAt: r.selectedAt.toISOString(),
@@ -202,7 +230,8 @@ export async function readContentPackage(
     width: r.width,
     height: r.height,
       lifecycle: r.lifecycle,
-      sourceRevisionNo: r.sourceRevisionNo,
+      sourceRevisionNo,
+      origin,
     });
   }
 

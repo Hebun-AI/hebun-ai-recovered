@@ -53,7 +53,6 @@ export const MEDIA_NEXT_STEP_CODES = [
   "media-review-required",
   "media-review-declined",
   "media-selection-required",
-  "supplied-media-outside-review",
   "generation-blocked",
   "human-choice-required",
   "package-unreadable",
@@ -73,10 +72,9 @@ export const MEDIA_NEXT_STEP_EXPLANATIONS: Readonly<Record<MediaNextStepCode, st
   "generation-awaiting-admission": "The provider reported success, but the video is not admitted into Media yet. A human can admit it with the existing action.",
   "generation-failed": "A generation attempt for this draft failed.",
   "admission-not-completed": "An admission attempt for this draft was refused or failed.",
-  "media-review-required": "Generated media is admitted but has no MEDIA-3 review record. A human reviews it, with their own reason.",
-  "media-review-declined": "Generated media carries a declined MEDIA-3 review record and is not eligible.",
+  "media-review-required": "Admitted media (generated or supplied) has no MEDIA-3 review record. A human reviews it, with their own reason.",
+  "media-review-declined": "Media (generated or supplied) carries a declined MEDIA-3 review record and is not eligible.",
   "media-selection-required": "Review-accepted media is not selected yet. A human selects it with the existing action.",
-  "supplied-media-outside-review": "Supplied media is outside media review and selection, so it is not waiting for review.",
   "generation-blocked": "The recommended generation is blocked; no generation step is available.",
   "human-choice-required": "A human has to choose; Hebun holds no rule that decides it.",
   "package-unreadable": "The Content Package could not be read, so the state is not known.",
@@ -122,13 +120,13 @@ export function evaluateMediaNextStep(
   const byState = (states: readonly string[]) => attempts.filter((a) => states.includes(a.state));
   const awaitingAdmission = attempts.filter((a) => a.state === "provider-succeeded" && a.admissionOutcome === "not-attempted");
   const inFlight = byState(["registered", "dispatching", "dispatch-unknown", "provider-pending"]);
-  const unreviewed = facts.media.filter((m) => m.origin === "generated" && m.lifecycle === "admitted" && m.review === "none");
+  /* HEBY-CONTENT-OPS-1: a supplied original waits for the same human review a generated one does. */
+  const unreviewed = facts.media.filter((m) => m.lifecycle === "admitted" && m.review === "none");
 
   const notes: MediaNextStepCode[] = [];
   if (byState(["dispatch-failed", "provider-failed"]).length > 0) notes.push("generation-failed");
   if (attempts.some((a) => a.admissionOutcome === "refused" || a.admissionOutcome === "failed")) notes.push("admission-not-completed");
-  if (facts.media.some((m) => m.origin === "supplied")) notes.push("supplied-media-outside-review");
-  if (facts.media.some((m) => m.origin === "generated" && m.review === "declined")) notes.push("media-review-declined");
+  if (facts.media.some((m) => m.review === "declined")) notes.push("media-review-declined");
 
   const packageBlockers = pkg.status === "read" ? [...pkg.blockers] : [];
   const outside = packageBlockers.filter((b) => !MEDIA_PACKAGE_BLOCKERS.has(b));
@@ -200,7 +198,7 @@ export function evaluateMediaNextStep(
     return done("media-awaiting-selection", "select-media", ["media-selection-required", ...notes, ...(unreviewed.length > 0 ? (["media-review-required"] as const) : [])], prefill.assetIds);
   }
 
-  /* 5 — generated media waits for a human MEDIA-3 decision. Supplied media never does. */
+  /* 5 — admitted media (either origin) waits for a human MEDIA-3 decision. */
   if (unreviewed.length > 0) {
     return done("media-awaiting-review", "review-media", ["media-review-required", ...notes], unreviewed.map((m) => m.assetId));
   }

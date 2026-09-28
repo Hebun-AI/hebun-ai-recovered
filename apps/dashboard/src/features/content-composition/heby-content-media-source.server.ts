@@ -196,7 +196,7 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
           kind: "image" as const,
           origin: a.origin,
           lifecycle: a.lifecycle,
-          review: a.origin === "generated" ? reviewFact(a.assetId) : ("not-applicable" as const),
+          review: reviewFact(a.assetId),
           selectedInCurrentRevision: selected.has(a.assetId),
         })),
       ...videos.videos
@@ -206,7 +206,7 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
           kind: "video" as const,
           origin: v.origin,
           lifecycle: v.lifecycle,
-          review: v.origin === "generated" ? reviewFact(v.assetId) : ("not-applicable" as const),
+          review: reviewFact(v.assetId),
           selectedInCurrentRevision: selected.has(v.assetId),
         })),
     ];
@@ -241,7 +241,7 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
           `${a.width}x${a.height}`,
           `from revision ${a.sourceRevisionNo}`,
           a.lifecycle,
-          a.origin === "generated" ? review(a.assetId) : "supplied — outside media review",
+          review(a.assetId),
           selected.has(a.assetId) ? `selected in revision ${draft.currentRevision}` : "not selected in the current revision",
         ].join(" · "),
       );
@@ -261,7 +261,7 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
           `from revision ${v.sourceRevisionNo}`,
           v.lifecycle,
           ...(v.origin === "generated" ? [lineage ? `generated from image ${lineage}` : "generated from text"] : []),
-          v.origin === "generated" ? review(v.assetId) : "supplied — outside media review",
+          review(v.assetId),
           selected.has(v.assetId) ? `selected in revision ${draft.currentRevision}` : "not selected in the current revision",
         ].join(" · "),
       );

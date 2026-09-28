@@ -360,8 +360,16 @@ async function main(): Promise<void> {
     const videoId = ok.status === "admitted" ? ok.asset.assetId : "";
     const portDeps = { getDb, resolveStorage: () => portFor(vps!) };
     assert.deepEqual(await derivePublishJpeg(ctx, { originalAssetId: videoId }, portDeps), { status: "refused", reason: "source-not-image" });
-    assert.equal((await selectMediaForRevision(ctx, { artifactId: draft, revisionNo: 1, mediaAssetId: videoId }, { getDb })).status, "refused");
-    assert.equal((await acceptMediaAsset(ctx, { assetId: videoId, byteDigest: sha(clip), justification: "x".repeat(40) } as never, { getDb } as never)).status, "refused");
+    /*
+     * HEBY-CONTENT-OPS-1: the CONTENT chain is kind-aware and now takes a supplied video (review and
+     * selection); the IMAGE paths around it still refuse it.
+     */
+    assert.equal((await selectMediaForRevision(ctx, { artifactId: draft, revisionNo: 1, mediaAssetId: videoId }, { getDb })).status, "selected");
+    /* This fixture holds no Governance authority, so review refuses on AUTHORITY — never on origin. */
+    assert.deepEqual(
+      await acceptMediaAsset(ctx, { assetId: videoId, byteDigest: sha(clip), justification: "x".repeat(40) } as never, { getDb } as never),
+      { status: "refused", reason: "no-governance-authority" },
+    );
     assert.equal((await readMediaAsset(ctx, videoId, portDeps)).status, "not-found", "the image read model never returns a video");
     const images = await listRevisionMediaAssets(ctx, { artifactId: draft, revisionNo: 1 }, portDeps);
     assert.ok(images.status === "read" && images.assets.length === 0, "no video in the image listing");

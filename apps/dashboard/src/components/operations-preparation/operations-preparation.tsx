@@ -122,9 +122,10 @@ export async function OperationsPreparation() {
         ])
       : ([{ status: "read", videos: [] }, { status: "read", generations: [] }] as const);
   const videoReviewStates =
-    videoListing.status === "read" && videoListing.videos.some((v) => v.origin === "generated")
+    /* HEBY-CONTENT-OPS-1: supplied videos are reviewed too, so their states are read as well. */
+    videoListing.status === "read" && videoListing.videos.length > 0
       ? await readMediaAssetReviewStatesAction({
-          assetIds: videoListing.videos.filter((v) => v.origin === "generated").map((v) => v.assetId),
+          assetIds: videoListing.videos.map((v) => v.assetId),
         })
       : [];
 

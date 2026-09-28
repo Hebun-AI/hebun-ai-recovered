@@ -20,7 +20,8 @@
  *    can be prepared as actionable, and no prefill is wired to a generation door.
  *  - `none-ask-human` → `ask-human`: the reasons, and no action at all.
  *
- * REVIEW is never prefilled. `reviewPending` names generated assets that have no MEDIA-3 record, so
+ * REVIEW is never prefilled. `reviewPending` names admitted assets of either origin (HEBY-CONTENT-OPS-1)
+ * that have no MEDIA-3 record, so
  * a human knows where review is due. It carries no decision and no reason — both are the human's.
  * PUBLISH is absent by construction: no variant, field or target refers to it.
  */
@@ -65,7 +66,7 @@ export function prefillFromChoice(facts: DraftMediaFacts, choice: MediaChoice): 
     recommendation: choice.kind,
     explanation: choice.explanation,
     reviewPending: facts.media
-      .filter((m) => m.origin === "generated" && m.lifecycle === "admitted" && m.review === "none")
+      .filter((m) => m.lifecycle === "admitted" && m.review === "none")
       .map((m) => m.assetId)
       .sort(),
   };
@@ -75,7 +76,8 @@ export function prefillFromChoice(facts: DraftMediaFacts, choice: MediaChoice): 
     const known = new Map(facts.media.map((m) => [m.assetId, m]));
     const named = choice.assetIds.filter((id) => {
       const m = known.get(id);
-      return m !== undefined && m.origin === "generated" && m.lifecycle === "admitted" && m.review === "accepted";
+      /* HEBY-CONTENT-OPS-1: either origin — a supplied original is eligible by the same rule. */
+      return m !== undefined && m.lifecycle === "admitted" && m.review === "accepted";
     });
     const pending = named.filter((id) => !known.get(id)!.selectedInCurrentRevision);
     const selected = named.filter((id) => known.get(id)!.selectedInCurrentRevision);

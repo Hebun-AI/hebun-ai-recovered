@@ -8,7 +8,9 @@
  *     1. the authenticated human                       (server-side session)
  *     2. this tenant's Governance authority            (bootstrap or active delegation)
  *     3. the asset, tenant-scoped, still admitted      (the subject existence check)
- *        and of the kind its invocation produced       (VIDEO CONTENT CHAIN: image or video)
+ *        an ORIGINAL — generated or supplied, never a derivative (HEBY-CONTENT-OPS-1)
+ *        and of a coherent kind: a generated asset's kind is the one its invocation produced
+ *        (VIDEO CONTENT CHAIN); a supplied asset's is image or video
  *     4. the digest the reviewer was shown == stored   (otherwise nothing is recorded)
  *     5. the approve/reject decision + session         (subject media_asset, domain media-asset-review)
  *     6. the Governance audit event
@@ -20,7 +22,7 @@
  *
  * Server-only.
  */
-import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { decisionRecords } from "@/db/schema/governance";
 import { mediaAssets, mediaGenerationInvocations } from "@/db/schema/media-asset";
@@ -100,6 +102,10 @@ async function review(
           width: mediaAssets.width,
           height: mediaAssets.height,
           invocationId: mediaAssets.invocationId,
+          suppliedSource: mediaAssets.suppliedSource,
+          suppliedSourceFileId: mediaAssets.suppliedSourceFileId,
+          suppliedArtifactId: mediaAssets.suppliedArtifactId,
+          suppliedRevisionNo: mediaAssets.suppliedRevisionNo,
           lifecycle: mediaAssets.assetLifecycleStatus,
           mediaKind: mediaAssets.mediaKind,
           videoDurationMs: mediaAssets.videoDurationMs,
@@ -110,7 +116,8 @@ async function review(
           invocationOutputKind: mediaGenerationInvocations.outputMediaKind,
         })
         .from(mediaAssets)
-        .innerJoin(
+        /* A generated asset carries its invocation; a supplied one has none, and none is invented. */
+        .leftJoin(
           mediaGenerationInvocations,
           and(
             eq(mediaGenerationInvocations.tenantId, mediaAssets.tenantId),
@@ -118,16 +125,21 @@ async function review(
           ),
         )
         /*
-         * PUBLISH-0: a derived (publish) asset is not a reviewable creative subject.
-         * MEDIA-SUPPLIED: neither is an image a human supplied — this is the creative review of
-         * GENERATED output, and only a generated asset (one with an invocation) is its subject.
+         * PUBLISH-0: a derived (publish) asset is not a reviewable subject — the human judged its
+         * original, and a derivative is a mechanical copy of that judgement's bytes.
+         *
+         * HEBY-CONTENT-OPS-1: an ORIGINAL a human SUPPLIED is now a subject too. What "accepted"
+         * means is unchanged and was never about generation: a human with this organization's
+         * Governance authority judged THESE BYTES fit for the next internal step. It does not make
+         * the asset generated, does not change its provenance, and does not clear it for any
+         * external generative-AI use (data use has no authority in Hebun yet).
          */
         .where(
           and(
             eq(mediaAssets.tenantId, tenant.tenantId),
             eq(mediaAssets.id, input!.assetId),
             isNull(mediaAssets.derivedFromAssetId),
-            isNotNull(mediaAssets.invocationId),
+            or(isNotNull(mediaAssets.invocationId), isNotNull(mediaAssets.suppliedSource)),
           ),
         )
         .for("share", { of: mediaAssets })
@@ -140,9 +152,10 @@ async function review(
        * what its invocation produced (`output_media_kind`): a row whose kind contradicts its own
        * provenance is not a coherent subject, and nothing is recorded for it.
        */
+      const supplied = asset.invocationId === null;
       if (
         (asset.mediaKind !== "image" && asset.mediaKind !== "video") ||
-        asset.mediaKind !== asset.invocationOutputKind
+        (!supplied && asset.mediaKind !== asset.invocationOutputKind)
       ) {
         throw new ReviewAbort("asset-kind-incoherent");
       }
@@ -167,6 +180,20 @@ async function review(
             width: asset.width,
             height: asset.height,
             invocationId: asset.invocationId,
+            /*
+             * HEBY-CONTENT-OPS-1 — a supplied subject names its origin and source in the ledger, so a
+             * decision can never be read as a judgement of generated output. A generated asset's
+             * evidence is byte-for-byte what it was.
+             */
+            ...(supplied
+              ? {
+                  origin: "supplied",
+                  suppliedSource: asset.suppliedSource,
+                  suppliedSourceFileId: asset.suppliedSourceFileId,
+                  suppliedArtifactId: asset.suppliedArtifactId,
+                  suppliedRevisionNo: asset.suppliedRevisionNo,
+                }
+              : {}),
             /* An image's evidence is unchanged. A video's names its kind and probed facts too. */
             ...(asset.mediaKind === "video"
               ? {

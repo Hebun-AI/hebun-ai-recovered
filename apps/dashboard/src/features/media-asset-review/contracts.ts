@@ -8,9 +8,15 @@
  * nothing in Hebun may translate it into any of those.
  *
  * VIDEO CONTENT CHAIN: a GENERATED video is a subject exactly as a generated image is — same subject
- * type, same decision words, same digest binding. Supplied and derived assets stay outside this
- * review for both kinds (MEDIA-SUPPLIED / PUBLISH-0), so provenance never grants a video a different
- * review authority than an image.
+ * type, same decision words, same digest binding.
+ *
+ * HEBY-CONTENT-OPS-1: a SUPPLIED original (image or video a human brought in from the organization's
+ * own Drive) is a subject by the same rule, because the sentence above was never about generation.
+ * Its decision evidence names `origin: "supplied"` and its source, so the ledger cannot be read as a
+ * judgement of AI output. Derived assets stay outside (PUBLISH-0): the human judges the original.
+ * Provenance never grants a video, an image, a generated or a supplied asset a different authority.
+ *
+ *   ASSET ACCEPTED   != CLEARED FOR EXTERNAL GENERATIVE-AI USE   (no data-use authority exists)
  *
  *   ASSET ACCEPTED   != PUBLICATION AUTHORIZED
  *   ASSET ACCEPTED   != SOURCE DRAFT ACCEPTED        (that is a separate `work_artifact_revision` decision)
@@ -53,6 +59,8 @@ export const MEDIA_ASSET_REVIEW_ACCEPT_NON_EFFECTS: readonly string[] = Object.f
   "does not accept the draft revision the image was generated from",
   "does not change the asset, its bytes, or its lifecycle",
   "does not become organizational Knowledge",
+  /* HEBY-CONTENT-OPS-1 — true of every asset, and the reason a supplied one may now be reviewed. */
+  "does not clear the asset to be sent to any external AI provider",
 ]);
 
 export type MediaAssetReviewRefusal =

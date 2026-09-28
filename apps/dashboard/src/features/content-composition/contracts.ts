@@ -133,8 +133,16 @@ export interface SelectedMediaView {
   readonly height: number;
   /** Custody, from `media_assets`. `retired` keeps the row but blocks readiness. */
   readonly lifecycle: string;
-  /** The revision this image was GENERATED from — provenance, not this selection. */
+  /**
+   * The revision this asset was GENERATED from, or — for a supplied one — the revision it was
+   * SUPPLIED into. Provenance, not this selection.
+   */
   readonly sourceRevisionNo: number;
+  /**
+   * HEBY-CONTENT-OPS-1 — where the bytes came from, as the Media authority recorded it. `supplied`
+   * never implies an invocation, AI generation, or any clearance for external generative-AI use.
+   */
+  readonly origin: "generated" | "supplied";
 }
 
 export interface ContentPackageView {

@@ -359,16 +359,28 @@ async function main(): Promise<void> {
     assert.equal(revList.status === "read" && revList.assets.length, 1);
     assert.equal(revList.status === "read" && revList.assets[0]!.origin, "supplied");
 
-    /* ══ 5. REVIEW AND COMPOSER DO NOT TAKE IT ══ */
+    /*
+     * ══ 5. REVIEW AND COMPOSER TAKE IT (HEBY-CONTENT-OPS-1) ══
+     * MEDIA-SUPPLIED kept a supplied image out of both; the Director moved it into the governed
+     * content chain. It is reviewed by the released MEDIA-3 writer and selected by the released
+     * composer — its row is untouched, and no invocation appears.
+     */
+    const rowBeforeReview = JSON.stringify((await setup.query(`select * from media_assets where id=$1`, [asset.assetId])).rows[0]);
     const review = await acceptMediaAsset(
       acmeCtx,
       { assetId: asset.assetId, byteDigest: asset.byteDigest, justification: "This photo is right for the post." },
       deps,
     );
-    assert.equal(review.status, "refused", JSON.stringify(review));
-    assert.equal(await count("select count(*)::int n from decision_records where subject_type='media_asset'"), 0, "no review decision");
+    assert.equal(review.status, "reviewed", JSON.stringify(review));
+    assert.equal(await count("select count(*)::int n from decision_records where subject_type='media_asset'"), 1, "one review decision");
     const selection = await selectMediaForRevision(acmeCtx, { artifactId: acmeDraft, revisionNo: 1, mediaAssetId: asset.assetId }, deps);
-    assert.equal(selection.status, "refused", JSON.stringify(selection));
+    assert.equal(selection.status, "selected", JSON.stringify(selection));
+    assert.equal(
+      JSON.stringify((await setup.query(`select * from media_assets where id=$1`, [asset.assetId])).rows[0]),
+      rowBeforeReview,
+      "review and selection write nothing to the Media row",
+    );
+    assert.equal(await count("select count(*)::int n from media_generation_invocations"), 0, "no invocation is invented");
 
     /* ══ 6. THE PUBLISH DERIVATIVE — still derived, even though the source is already JPEG ══ */
     const derived = await derivePublishJpeg(acmeCtx, { originalAssetId: asset.assetId }, deps);
@@ -376,6 +388,9 @@ async function main(): Promise<void> {
     const derivative = derived.status === "derived" ? derived.derivative : null!;
     assert.equal(derivative.assetId, publishDerivativeId(acme.tenantId, asset.assetId));
     assert.equal(derivative.derivedFromAssetId, asset.assetId);
+    /* A DERIVATIVE stays outside review and selection: the human judged its original. */
+    assert.equal((await acceptMediaAsset(acmeCtx, { assetId: derivative.assetId, byteDigest: derivative.byteDigest, justification: "The derivative itself." }, deps)).status, "refused");
+    assert.equal((await selectMediaForRevision(acmeCtx, { artifactId: acmeDraft, revisionNo: 1, mediaAssetId: derivative.assetId }, deps)).status, "refused");
     const derivedBytes = store.objects.get(`tenants/${acme.tenantId}/media/${derivative.assetId}`)!.bytes;
     assert.equal((await sharp(derivedBytes).metadata()).exif, undefined, "camera EXIF stripped");
     assert.equal(Buffer.from(derivedBytes).includes("TRH-CAMERA-EXIF-MARKER"), false);

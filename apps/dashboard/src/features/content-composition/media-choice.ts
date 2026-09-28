@@ -30,14 +30,14 @@ import type { ContentDestination } from "@/features/work-artifacts/contracts";
 
 /* ── Input: the facts HEBY-MEDIA-1 read. Nothing here is fetched. ─────────── */
 
-export type MediaFactReview = "accepted" | "declined" | "none" | "unreadable" | "not-applicable";
+export type MediaFactReview = "accepted" | "declined" | "none" | "unreadable";
 
 export interface MediaFact {
   readonly assetId: string;
   readonly kind: "image" | "video";
   readonly origin: "generated" | "supplied";
   readonly lifecycle: "admitted" | "retired";
-  /** MEDIA-3's record; `not-applicable` for a supplied asset, which is outside review. */
+  /** MEDIA-3's record, for either origin (HEBY-CONTENT-OPS-1: supplied originals are reviewed too). */
   readonly review: MediaFactReview;
   readonly selectedInCurrentRevision: boolean;
 }
@@ -89,7 +89,8 @@ export const MEDIA_CHOICE_CODES = [
   "selected-media-not-eligible",
   "unreviewed-generated-media",
   "declined-generated-media",
-  "supplied-media-outside-review",
+  "unreviewed-supplied-media",
+  "declined-supplied-media",
   "generation-pending",
   "package-unreadable",
   "attempts-unreadable",
@@ -107,14 +108,15 @@ export type MediaChoiceCode = (typeof MEDIA_CHOICE_CODES)[number];
 
 /** One sentence per code. The explanation is these sentences in code order; nothing else. */
 export const MEDIA_CHOICE_EXPLANATIONS: Readonly<Record<MediaChoiceCode, string>> = {
-  "existing-selection-reviewed": "The media already selected for the current revision was generated, admitted and has an accepted MEDIA-3 review record.",
-  "existing-reviewed-media": "Admitted generated media with an accepted MEDIA-3 review record exists for this draft.",
+  "existing-selection-reviewed": "The media already selected for the current revision is admitted (generated or supplied) and has an accepted MEDIA-3 review record.",
+  "existing-reviewed-media": "Admitted media (generated or supplied) with an accepted MEDIA-3 review record exists for this draft.",
   "multiple-valid-media-paths": "More than one path is open and Hebun holds no rule that ranks one medium above another.",
-  "no-eligible-existing-media": "No admitted generated media with an accepted MEDIA-3 review record exists for this draft.",
-  "selected-media-not-eligible": "Some selected media is not admitted generated media with an accepted review record.",
+  "no-eligible-existing-media": "No admitted media with an accepted MEDIA-3 review record exists for this draft.",
+  "selected-media-not-eligible": "Some selected media is not admitted media with an accepted review record.",
   "unreviewed-generated-media": "Some admitted generated media has no MEDIA-3 review record yet.",
   "declined-generated-media": "Some generated media has a declined MEDIA-3 review record.",
-  "supplied-media-outside-review": "Supplied media exists; it is outside media review and cannot be selected, so it is not treated as reviewed.",
+  "unreviewed-supplied-media": "Some admitted supplied media has no MEDIA-3 review record yet.",
+  "declined-supplied-media": "Some supplied media has a declined MEDIA-3 review record.",
   "generation-pending": "A video generation attempt for this draft has not finished or has not been admitted yet.",
   "package-unreadable": "The Content Package could not be read, so the current selection is not known.",
   "attempts-unreadable": "Video generation attempts could not be read.",
@@ -162,8 +164,13 @@ function isPending(a: GenerationAttemptFact): boolean {
   return PENDING_STATES.has(a.state) || (a.state === "provider-succeeded" && a.admissionOutcome === "not-attempted");
 }
 
+/*
+ * HEBY-CONTENT-OPS-1 — eligible to RECOMMEND for use: admitted and review-accepted, of either
+ * origin. A supplied asset becomes recommendable for use in its own draft and for nothing else: the
+ * image-to-video path below still carries `data-use-unresolved` for every source, reviewed or not.
+ */
 function isEligible(m: MediaFact): boolean {
-  return m.lifecycle === "admitted" && m.origin === "generated" && m.review === "accepted";
+  return m.lifecycle === "admitted" && m.review === "accepted";
 }
 
 /** What the repository knows about publishing this medium to this destination. */
@@ -248,11 +255,14 @@ function finish(
  */
 export function evaluateMediaChoice(facts: DraftMediaFacts, switches: ProviderSwitchFacts): MediaChoice {
   const context: MediaChoiceCode[] = [];
-  if (facts.media.some((m) => m.origin === "supplied")) context.push("supplied-media-outside-review");
   if (facts.media.some((m) => m.origin === "generated" && m.lifecycle === "admitted" && m.review === "none")) {
     context.push("unreviewed-generated-media");
   }
   if (facts.media.some((m) => m.origin === "generated" && m.review === "declined")) context.push("declined-generated-media");
+  if (facts.media.some((m) => m.origin === "supplied" && m.lifecycle === "admitted" && m.review === "none")) {
+    context.push("unreviewed-supplied-media");
+  }
+  if (facts.media.some((m) => m.origin === "supplied" && m.review === "declined")) context.push("declined-supplied-media");
 
   const paths = evaluatePaths(facts, switches);
   const sources = sorted(facts.media.filter((m) => m.kind === "image" && m.lifecycle === "admitted").map((m) => m.assetId));

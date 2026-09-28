@@ -249,7 +249,7 @@ function AssetCard({
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={retired ? "neutral" : "success"}>{retired ? "Retired" : "Admitted"}</Badge>
         <Badge variant="neutral">{supplied ? "Supplied from Google Drive" : "AI-generated"}</Badge>
-        {supplied ? null : <Badge variant={badge.variant}>{badge.label}</Badge>}
+        <Badge variant={badge.variant}>{badge.label}</Badge>
       </div>
 
       <dl className="grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
@@ -308,10 +308,10 @@ function AssetCard({
 
       {/*
         ── Governance decision: the released writers, and nothing else ──
-        MEDIA-SUPPLIED: the MEDIA-3 review is a creative review of GENERATED output; it is not offered
-        for an image a human supplied.
+        HEBY-CONTENT-OPS-1: offered for a supplied image too. The decision judges these bytes for the
+        next internal step; it does not make the image generated or clear it for any AI provider.
       */}
-      {retired || supplied ? null : (
+      {retired ? null : (
         <details className="min-w-0">
           <summary className="cursor-pointer text-xs text-fg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-ring">
             {decided ? "Record another Governance decision" : "Review this image"}
@@ -365,8 +365,9 @@ function AssetCard({
       )}
 
       {/* ── MEDIA-5: this image as the input to a new one ── */}
+      {/* A supplied image is never offered as a generation input here: data use has no authority. */}
       {retired || supplied ? null : <UseAsReference asset={asset} />}
-      {retired || supplied || !selectionTarget ? null : (
+      {retired || !selectionTarget ? null : (
         <ChooseForDraft asset={asset} target={selectionTarget} />
       )}
 

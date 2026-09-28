@@ -204,7 +204,8 @@ async function main(): Promise<void> {
   const content = draft.content ?? "";
   assert.match(content, new RegExp(`video ${VID} · origin generated · video/mp4 · 1280x720 · 5\\.0 s · h264 · no audio · 24/1 fps .* generated from image ${IMG} · review accepted · selected in revision 3`));
   assert.match(content, new RegExp(`video ${OLD_VID} .* generated from text · review accepted · selected in revision 3`));
-  assert.match(content, new RegExp(`image ${IMG} · origin supplied .* supplied — outside media review · not selected`));
+  /* HEBY-CONTENT-OPS-1: a supplied image carries its real MEDIA-3 record, like a generated one. */
+  assert.match(content, new RegExp(`image ${IMG} · origin supplied .* review accepted · not selected`));
   assert.match(content, new RegExp(`image ${GEN_IMG} · origin generated .* no review recorded`));
   assert.match(content, new RegExp(`video attempt ${INV} · higgsfield pixverse/v6 · live · state provider-succeeded · admission admitted .* source image ${IMG}`));
   for (const sw of r.items.slice(1)) assert.match(sw.detail, /^switch: off · read fail-closed/);

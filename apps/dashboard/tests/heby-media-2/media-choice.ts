@@ -88,10 +88,14 @@ async function main(): Promise<void> {
     assert.ok(image.blockers.includes("provider-state-unknown"), "an unread switch is not assumed on");
   }
 
-  /* D · image→video with unresolved data use → data-use-unresolved, even for the ceremony's synthetic id */
+  /*
+   * D · image→video with unresolved data use → data-use-unresolved, even for the ceremony's synthetic
+   * id. HEBY-CONTENT-OPS-1: a REVIEW-ACCEPTED supplied image stays blocked too — acceptance is not
+   * data-use clearance.
+   */
   {
     for (const origin of ["supplied", "generated"] as const) {
-      const r = evaluateMediaChoice(draft([m(SYNTHETIC, "image", origin, origin === "generated" ? "accepted" : "not-applicable", false)], { destination: null }), ALL_ON);
+      const r = evaluateMediaChoice(draft([m(SYNTHETIC, "image", origin, "accepted", false)], { destination: null }), ALL_ON);
       const i2v = r.paths.find((p) => p.path === "generate-image-to-video")!;
       assert.ok(i2v.blockers.includes("data-use-unresolved"), `${origin} source is not cleared`);
       assert.notEqual(r.kind, "generate-image-to-video");
@@ -127,16 +131,29 @@ async function main(): Promise<void> {
     assert.equal(image.reasons.includes("publish-capability-unavailable"), false, "Instagram image publishing exists (PUBLISH-0, Governance-gated)");
   }
 
-  /* G · supplied media is never reviewed, approved or eligible */
+  /*
+   * G · HEBY-CONTENT-OPS-1 — supplied media is eligible exactly when a generated asset would be:
+   * admitted and review-accepted. Unreviewed or declined supplied media is not.
+   */
   {
-    const supplied = evaluateMediaChoice(draft([m("s1", "image", "supplied", "not-applicable"), m("s2", "video", "supplied", "not-applicable")]), OFF);
+    const supplied = evaluateMediaChoice(draft([m("s1", "image", "supplied", "none"), m("s2", "video", "supplied", "none")]), OFF);
     assert.equal(supplied.kind, "none-ask-human");
-    assert.ok(supplied.reasons.includes("supplied-media-outside-review"));
+    assert.ok(supplied.reasons.includes("unreviewed-supplied-media"));
     assert.ok(supplied.reasons.includes("no-eligible-existing-media"));
-    assert.deepEqual(supplied.assetIds, [], "supplied media is not named as usable");
-    const selectedSupplied = evaluateMediaChoice(draft([m("s1", "video", "supplied", "not-applicable", true)]), OFF);
-    assert.notEqual(selectedSupplied.kind, "use-existing", "a selected supplied asset does not become eligible");
-    assert.ok(selectedSupplied.reasons.includes("selected-media-not-eligible"));
+    assert.deepEqual(supplied.assetIds, [], "unreviewed supplied media is not named as usable");
+    const selectedUnreviewed = evaluateMediaChoice(draft([m("s1", "video", "supplied", "none", true)]), OFF);
+    assert.notEqual(selectedUnreviewed.kind, "use-existing", "a selected, unreviewed supplied asset is not eligible");
+    assert.ok(selectedUnreviewed.reasons.includes("selected-media-not-eligible"));
+    const declinedSupplied = evaluateMediaChoice(draft([m("s1", "video", "supplied", "declined", true)]), OFF);
+    assert.notEqual(declinedSupplied.kind, "use-existing");
+    assert.ok(declinedSupplied.reasons.includes("declined-supplied-media"));
+    const accepted = evaluateMediaChoice(draft([m("s2", "video", "supplied", "accepted")]), OFF);
+    assert.equal(accepted.kind, "use-existing", "an accepted supplied video is recommended for use");
+    assert.deepEqual(accepted.assetIds, ["s2"]);
+    assert.ok(accepted.reasons.includes("existing-reviewed-media"));
+    const acceptedSelected = evaluateMediaChoice(draft([m("s2", "video", "supplied", "accepted", true)]), OFF);
+    assert.equal(acceptedSelected.kind, "use-existing");
+    assert.ok(acceptedSelected.reasons.includes("existing-selection-reviewed"));
     const unreviewed = evaluateMediaChoice(draft([m("g1", "video", "generated", "none", true)]), OFF);
     assert.notEqual(unreviewed.kind, "use-existing");
     assert.ok(unreviewed.reasons.includes("unreviewed-generated-media"));
@@ -151,7 +168,7 @@ async function main(): Promise<void> {
 
   /* H · it mutates nothing: frozen input survives, and the module is pure */
   {
-    const input = deepFreeze(draft([m("v1", "video", "generated", "accepted", true), m("s1", "image", "supplied", "not-applicable")]));
+    const input = deepFreeze(draft([m("v1", "video", "generated", "accepted", true), m("s1", "image", "supplied", "none")]));
     const switches = deepFreeze({ ...OFF });
     const before = JSON.stringify(input);
     evaluateMediaChoice(input, switches);
@@ -167,7 +184,7 @@ async function main(): Promise<void> {
 
   /* I · stable: same input → same output, independent of input order */
   {
-    const media = [m("v2", "video", "generated", "accepted"), m("i9", "image", "generated", "none"), m("s1", "image", "supplied", "not-applicable"), m("v1", "video", "generated", "accepted")];
+    const media = [m("v2", "video", "generated", "accepted"), m("i9", "image", "generated", "none"), m("s1", "image", "supplied", "none"), m("v1", "video", "generated", "accepted")];
     const a = evaluateMediaChoice(draft(media), OFF);
     const b = evaluateMediaChoice(draft([...media].reverse()), OFF);
     assert.deepEqual(a, b);
@@ -200,7 +217,8 @@ async function main(): Promise<void> {
     const item = r.items[0]!;
     assert.match(item.detail, /media recommendation \(deterministic\): use-existing/);
     assert.match(item.content ?? "", /^assets named: ad, c3$/m);
-    assert.match(item.content ?? "", /reasons: existing-selection-reviewed, supplied-media-outside-review, publish-capability-unavailable/);
+    /* HEBY-CONTENT-OPS-1: the accepted supplied image is no longer "outside review"; no context code is due. */
+    assert.match(item.content ?? "", /reasons: existing-selection-reviewed, publish-capability-unavailable/);
     assert.match(item.content ?? "", /path generate-image-to-video: blockers provider-disabled, data-use-unresolved/);
   }
 
