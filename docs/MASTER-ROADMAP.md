@@ -5122,6 +5122,7 @@ deliberately not a summary. States are copied from those records, not upgraded.
 | **YOUTUBE-WRITE-1** Authenticated YouTube Channel Identity | `ba64d4a0` (deployed `dpl_9PMJgzcsg2mXrRsZHELCn3MuHg7S`) | **PRODUCTION ACCEPTED / CLOSED** — TRH `google-workspace` connection (`hebuntech@gmail.com`) granted `youtube.readonly`; `google.youtube.channel.identity.read` AVAILABLE; one real read → `one-channel` "Hebun Tech" `UCqTzRYJBwFsITzxFuqx6YQw`; nothing bound or persisted; upload/publish NOT AVAILABLE; TRH `drive.file` grant replaced by this consent (existing never-merged upgrade doctrine) · **AMENDED:** that read ran in the TRH tenant with Hebun's account — a real reader acceptance under the wrong organizational context, never bound; final acceptance per tenant recorded in §6 of the closure | no migration (ledger 67) | `hebun-youtube-write-1-channel-identity-closure.md` |
 | **GOOGLE-CAPABILITY-SCOPE-REPAIR-1** One Google grant per capability family | `bda53bc9` (superseded in part) + `940a5370` (deployed `dpl_6ABcUS6A6Rrez9tEKjrcvUb4Jibw`) | **PRODUCTION ACCEPTED / CLOSED** — Google refused `drive.file` + `youtube.readonly` in one request (400 invalid_request, reason undocumented), so YouTube got its own `google-youtube` connection under the same authorities; both tenants now hold Drive (`google-workspace`) and YouTube (`google-youtube`) independently: Hebun AI → `hebuntech@gmail.com` → Hebun Tech `UCqTzRYJBwFsITzxFuqx6YQw`; TRH → `turkishrughouseist@gmail.com` → Turkish Rug House `UC5Yf5U_YOKR0K38tWF82kjA`; all four capabilities AVAILABLE; upload/publish NOT AVAILABLE | no migration (ledger 67) | `hebun-google-capability-scope-repair-1-closure.md` |
 | **YOUTUBE-WRITE-2** One Governed Upload to the Organization's Own Channel | `e9a715cd` + harness pin `4779b92f` (deployed `dpl_H1CXB656UGrDzkhfdo1Wi6CNk1n1`) | **REAL-PROVIDER PRODUCTION ACCEPTED / CLOSED** — `publish-youtube-video` through proposal → Governance → digest-bound permit → `executeAuthorizedAction` under TENANT-ARM-1; TRH package `e6c38ea3@2` (video `3793184a`, 791137 B, SHA `05e3e384…0b02`) uploaded once PRIVATE to Turkish Rug House `UC5Yf5U_YOKR0K38tWF82kjA`: request `9232af76`, permit `85b8a5f7` consumed, attempt `3f53e7d5` accepted, video `Rlp-bPNHXkw`; read-back processed / private / authorized channel; TRH disarmed rev 6. Public/unlisted NOT proven (unverified Google project); no durable processing state | migration **68** (CHECK widen; ledger 68) | `hebun-youtube-write-2-governed-private-upload-closure.md` |
+| **HEBY-CONTENT-OPS-1** Supplied Video → YouTube | `0308f020` | **REAL-PROVIDER PRODUCTION ACCEPTED / CLOSED** — supplied originals reviewable, selectable into their own draft and carried by the Content Package with `origin`; TRH Drive MP4 `0e32a72d` (2938150 B, SHA `84f54644…c8fe`) admitted → MEDIA-3 accepted `7d074995` → selected into `bd3ab228@2` (human-authored) → copy accepted `83619d9d` → package READY → request `ba731823` → approval `8d25ac0a` → permit `87febc3c` consumed once → attempt `dfeef4d4` accepted, video `DQr18fVuevM` PRIVATE on `UC5Yf5U_YOKR0K38tWF82kjA`; read-back processed / succeeded / private / authorized channel; TRH disarmed rev 8. No automatic intake, no public/unlisted, no Heby publishing, DATA-USE unresolved | no migration (ledger 68) | `hebun-heby-content-ops-1-supplied-video-youtube-closure.md` |
 
 **Authored migration ledger at this baseline: 60**, last
 `20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
@@ -5209,6 +5210,16 @@ key configured permanently; `higgsfield-video-generation` stays the OFF-by-defau
 above reads REAL-PROVIDER PRODUCTION ACCEPTED / CLOSED (closure record
 `hebun-youtube-write-2-governed-private-upload-closure.md`). Public/unlisted publishing, Google
 project verification and a durable processing lifecycle are NOT built or proven.
+
+**Continuity extended after `0308f020` (2026-09-28).** **HEBY-CONTENT-OPS-1** closed the open
+decision recorded after `2be01616`: supplied media is no longer outside review and selection. A
+supplied original goes through MEDIA-3 review, is selectable into its own draft, and the Content
+Package carries its `origin`; derivatives stay outside. One human-supplied Drive MP4 was taken through
+that chain and uploaded once PRIVATE to Turkish Rug House's channel (video `DQr18fVuevM`); TRH was
+disarmed again (rev 8). Its row above reads REAL-PROVIDER PRODUCTION ACCEPTED / CLOSED (closure record
+`hebun-heby-content-ops-1-supplied-video-youtube-closure.md`). Automatic Drive intake, folder
+monitoring, public/unlisted publishing, Heby-initiated publishing and external-AI data use are NOT
+built or authorized.
 
 ```
 POINTER               != SUMMARY

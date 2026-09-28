@@ -69,6 +69,12 @@ NOT ACCEPTED       any pasted-link or Drive-wide read path
 
 ## 4 · What a supplied asset is NOT
 
+> **Amended by HEBY-CONTENT-OPS-1 (`0308f020`, 2026-09-28).** The first two bullets below are
+> superseded: a supplied original is now reviewable by MEDIA-3 and selectable into its own draft, and
+> a READY Content Package can carry it to a YouTube upload, where the original video itself is sent.
+> The Instagram rule (derivative only) and the MEDIA-5 exclusion stand. See
+> `hebun-heby-content-ops-1-supplied-video-youtube-closure.md`. The bullets stay as written at closure.
+
 - **Not reviewable by MEDIA-3.** Generated-media review does not take supplied assets.
 - **Not selectable by the composer** and **not a MEDIA-5 reference-edit input.**
 - **Not a publish input as-is.** Publishing uses a deterministic `jpeg-publish-v1` derivative
@@ -104,5 +110,6 @@ attempts or publish requests. The asset later became the original behind PUBLISH
    universal Safari incompatibility.
 2. Supplied assets have no review surface of their own; they enter the publish path only through a
    human `/publish` proposal and Governance approval.
+   *(Superseded by HEBY-CONTENT-OPS-1 — see the §4 amendment.)*
 
 **MEDIA-SUPPLIED IS CLOSED — RELEASED + PRODUCTION-ACCEPTED.**
