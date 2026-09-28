@@ -32,9 +32,25 @@
  *   - configure the deployment's sender, subject or credential
  *
  * ARMING IS NOT CONFIGURING, AND NEITHER IS AUTHORIZING A SEND.
+ *
+ * ── WHICH DATABASE — G4 POSTURE, PROVEN BEFORE ANY ROW IS READ ─────────────────
+ *
+ * The same shape as `tenant-lifecycle` and `provider-connectivity`, through the same shared path:
+ * `resolveCeremonyPosture` → `preflightEnvironment` (before a connection is spent) → `preflight`
+ * (the live cluster must be the pinned one, by `system_identifier` and database, with a current
+ * ledger) — and only then is an application row read. Without the exact production signal this is
+ * a LOCAL ceremony and a non-loopback DATABASE_URL is refused; a DATABASE_URL alone never decides
+ * which deployment is being armed.
+ *
+ * The released writers then run on ONE handle opened from that verdict
+ * (`openCeremonyControlPlane`), so the remote-database guard is satisfied for this handle alone and
+ * never by a flag the operator exports into the whole process.
  */
 import { createInterface } from "node:readline";
 import { Client } from "pg";
+import { openCeremonyControlPlane } from "./lib/ceremony-control-plane";
+import { preflight, preflightEnvironment } from "./lib/ceremony-preflight";
+import { resolveCeremonyPosture } from "./lib/production-possession";
 
 function fail(message: string): never {
   console.error(`\n  ✖ ${message}\n`);
@@ -73,7 +89,11 @@ async function main(): Promise<void> {
   const directorEmail = arg("director") ?? "senoltr@gmail.com";
   const disarm = has("disarm");
 
-  if (!process.env.DATABASE_URL) fail("DATABASE_URL is not set");
+  /* G4 POSTURE, RESOLVED BEFORE A CONNECTION IS SPENT. A refusal here costs nothing. */
+  const posture = resolveCeremonyPosture(process.env);
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  const environment = preflightEnvironment(posture, databaseUrl);
+  if (environment.status === "refused") fail(environment.detail);
 
   await import("../src/db/client.server");
   const { asHumanTenantContext } = await import("../src/features/auth/tenant/tenant-context");
@@ -86,6 +106,9 @@ async function main(): Promise<void> {
   const { resolveExternalSendReachability } = await import(
     "../src/features/tenant-external-send-authority/resolve-external-send-reachability.server"
   );
+  const { createProviderConnectivityControlRepository } = await import(
+    "../src/features/heby-provider-ops/provider-connectivity-control.server"
+  );
 
   const justification =
     arg("justification") ??
@@ -93,8 +116,23 @@ async function main(): Promise<void> {
       ? "We are withdrawing this organization's ability to send outside while we review how outbound sending is supervised."
       : "This organization accepts that sends it has already authorized may leave the building, and I accept responsibility for that.");
 
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  const client = new Client({ connectionString: databaseUrl! });
   await client.connect();
+
+  /*
+   * TARGET BINDING, BEFORE A SINGLE APPLICATION ROW IS READ. In production this proves the live
+   * cluster is the pinned one; in local posture the loopback guard above already did.
+   */
+  const ready = await preflight(client, environment.posture, { provenance: "none" });
+  if (ready.status === "refused") {
+    await client.end().catch(() => {});
+    fail(`${ready.detail} Nothing was read and nothing was changed.`);
+  }
+  console.log(`\n  ${ready.banner}`);
+
+  /* The one handle the released writers use — opened from the verdict, never from the bare URL. */
+  const handle = openCeremonyControlPlane(ready, databaseUrl!);
+  const getDb = () => handle.db;
 
   try {
     /* ── WHO. A real, active membership, resolved server-side. ─────────────────────────────── */
@@ -121,7 +159,7 @@ async function main(): Promise<void> {
     const w = who.rows[0];
     if (!w) fail(`no active membership for ${directorEmail} in organization "${tenantSlug}"`);
 
-    const before = await readEffectiveTenantExternalSend(w.tenant_id);
+    const before = await readEffectiveTenantExternalSend(w.tenant_id, { getDb });
     if (before.status === "unavailable") {
       fail("the arming could not be read. Nothing was changed.");
     }
@@ -182,8 +220,8 @@ async function main(): Promise<void> {
 
     const input = { justification, observedRevision: currentRevision };
     const written = disarm
-      ? await disarmTenantExternalSend(tenant, input)
-      : await armTenantExternalSend(tenant, input);
+      ? await disarmTenantExternalSend(tenant, input, { getDb })
+      : await armTenantExternalSend(tenant, input, { getDb });
 
     if (written.status === "refused") {
       fail(`refused: ${written.reason}. Nothing was changed.`);
@@ -198,7 +236,10 @@ async function main(): Promise<void> {
     console.log("");
 
     /* WHAT IS ACTUALLY REACHABLE NOW — composed from both authorities, not assumed. */
-    const reachability = await resolveExternalSendReachability(w.tenant_id);
+    const reachability = await resolveExternalSendReachability(w.tenant_id, {
+      getDb,
+      repo: createProviderConnectivityControlRepository(handle.db),
+    });
     console.log(
       `  effective reachability : ${reachability.status === "reachable" ? "REACHABLE" : `refused (${reachability.reason})`}`,
     );
@@ -210,6 +251,7 @@ async function main(): Promise<void> {
     }
     console.log("");
   } finally {
+    await handle.dispose().catch(() => {});
     await client.end().catch(() => {});
   }
 }
