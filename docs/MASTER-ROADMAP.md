@@ -5118,6 +5118,7 @@ deliberately not a summary. States are copied from those records, not upgraded.
 | **MV-7** Generated Video Admission | `e36e143a` + host pin `0dcc73d6` + acceptance `c2905715` (deployed at `c2905715`) | **PRODUCTION ACCEPTED / CLOSED** — one real Higgsfield PixVerse V6 generation admitted (asset `c3eb1139`), connectivity DISABLED after | no migration (ledger 67) | `hebun-mv7-generated-video-admission-closure.md` |
 | **VIDEO CONTENT CHAIN** Video in the Content Workflow | `fb1ed329` + acceptance fix `9ffd024c` (deployed at `9ffd024c`) | **PRODUCTION ACCEPTED / CLOSED** — existing MV-7 video `c3eb1139` played, APPROVED, selected, shown as "0 images · 1 video" by the authoritative package read; 0 generation POST, connectivity DISABLED | no migration (ledger 67) | `hebun-video-content-chain-closure.md` |
 | **IMAGE → VIDEO** Video generated from an admitted image | `df94e78a` + acceptance prep `5a130086` (deployed at `5a130086`) | **PRODUCTION ACCEPTED / CLOSED** — one real Higgsfield PixVerse V6 image-to-video generation (invocation `a0d5ba5d`) on a SYNTHETIC supplied source (`3f7b9e66`), admitted as `ad4978da` with MEDIA-5 lineage; connectivity DISABLED after; then Director-reviewed APPROVED and selected in rev 3 through the existing VIDEO CONTENT CHAIN (package 0 images · 2 videos, NOT READY on copy only); not published; price UNKNOWN | no migration (ledger 67) | `hebun-image-to-video-closure.md` |
+| **HEBY MEDIA ORCHESTRATION** HEBY-MEDIA-1…4 (read → recommend → prepare → observe) | `3328a7f0` · `e36ac1d5` · `851d86b0` · `41f7087a` | **CLOSED** — read-only production acceptance: draft `57b57106` rev 3 → `use-existing` [`ad4978da`, `c3eb1139`] → prefill `satisfied` → next step `media-complete` (package not ready on `copy-unreviewed`, outside media); zero production mutation; Heby performs no mutation | no migration (ledger 67) | `hebun-heby-media-orchestration-closure.md` |
 
 **Authored migration ledger at this baseline: 60**, last
 `20260923071401_tenantarm1_tenant_external_send_authorization`. The production ledger is a separate
@@ -5170,6 +5171,15 @@ customer images remain NOT AUTHORIZED** for this path until the Higgsfield §4.4
 Agreement question is explicitly resolved. The Director then took `ad4978da` through the existing
 VIDEO CONTENT CHAIN: MEDIA-3 review APPROVED, selected in revision 3; the authoritative package reads
 0 images · 2 videos, both approved, NOT READY solely on `copy-unreviewed`. Nothing was published.
+
+**Continuity extended after `2d9401c0` (2026-09-28).** The Director accepted discovery decision B for
+**HEBY MEDIA ORCHESTRATION**: a narrow read-and-recommend layer, no new authority. Four phases
+(HEBY-MEDIA-1…4) gave Heby a `content-media` source class, a pure deterministic media-choice
+evaluator, an ephemeral human-gate prefill (selection only) and a pure next-step observation. Heby
+reads, recommends, prepares and observes; every mutation stays with the existing human gates and
+writers. Media orchestration stops at `media-complete`; copy review, Governance and publishing are
+outside it. Its row above reads CLOSED (closure record `hebun-heby-media-orchestration-closure.md`).
+Generation stays non-actionable (price unknown on every path; image-to-video data use unresolved).
 
 ```
 POINTER               != SUMMARY
