@@ -154,7 +154,7 @@ export const MEDIA_CHOICE_EXPLANATIONS: Readonly<Record<MediaChoiceCode, string>
   "price-unknown": "Hebun holds no price for this generation.",
   "destination-rule-unknown": "Hebun holds no media rule for this destination.",
   "publish-capability-unavailable": "Hebun has no path that publishes this medium to this destination; package membership is not publishability.",
-  "publish-path-governed": "A governed path publishes this medium to this destination and this organization's connection currently holds the capability it needs. Publishing still requires a human proposal, Governance approval, a single-use permit and tenant arming; Heby publishes nothing.",
+  "publish-path-governed": "A governed path publishes this medium to this destination and this organization's connection currently holds the capability it needs. Publishing still requires a human proposal, Governance approval, a single-use permit and tenant arming; Heby publishes nothing. This record does not show whether any proposal, approval, permit or arming exists now, or whether this package was uploaded before — not shown is not 'not done'.",
   "publish-capability-not-granted": "A governed path publishes this medium to this destination, but this organization does not currently hold exactly one available connection whose grant covers it (not connected, scope not granted, not healthy, or more than one).",
   "publish-capability-unknown": "A governed path publishes this medium to this destination, but whether this organization's connection currently holds the capability it needs could not be read.",
   "human-choice-required": "A human has to choose.",

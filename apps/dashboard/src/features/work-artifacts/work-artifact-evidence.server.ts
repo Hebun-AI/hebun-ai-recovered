@@ -74,8 +74,17 @@ function destinationSegments(destination: string | null): readonly string[] {
   if (!destination) return [];
   return [
     `prepared for: ${CONTENT_DESTINATION_LABELS[destination as ContentDestination] ?? destination}`,
-    "destination is DECLARED ONLY — no provider connection exists, nothing is scheduled, " +
-      "nothing was published, nothing was delivered and nothing was seen",
+    /*
+     * HEBY-TRUTH-UX-REPAIR-1 — the limit is stated as what THIS record cannot show, never as a
+     * negative fact about the organization. Written at CGO-2, when no connection or publish path
+     * existed, it said "no provider connection exists … nothing was published". PUBLISH-0 and
+     * YOUTUBE-WRITE-2 made that false (TRH draft 57b57106@3 was posted, bd3ab228@2 uploaded), and
+     * in production Heby repeated it as "never published". Connections, publishes and deliveries
+     * are other authorities' records; their absence HERE is not evidence either way.
+     */
+    "destination is DECLARED ONLY — this record does not show whether a provider connection exists " +
+      "or whether anything was scheduled, published, delivered or seen; those are other records, " +
+      "and their absence here is not evidence that they did not happen",
   ];
 }
 

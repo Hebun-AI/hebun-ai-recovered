@@ -140,6 +140,23 @@ function reviewWord(decision: string | null | undefined): string {
 
 type ResolvedItem = SourceResolution["items"][number];
 
+/*
+ * HEBY-TRUTH-UX-REPAIR-1 — the publish-path fact on the summary line, not only inside the long
+ * source text. In production the only capability statement for a ready YouTube draft sat deep in
+ * the quoted lines, and Heby answered "YouTube capability unknown". Stated from the declared
+ * destination and the capability authority's answer — NOT from the evaluator's codes, whose union
+ * also carries generation paths' codes (an image to YouTube has no path) and would misstate it. It
+ * names no gate as passed or missing. Other destinations carry no segment: unchanged.
+ */
+function publishSegment(destination: string | null, youtubeVideoUpload: PublishCapabilityState): string[] {
+  if (destination !== "youtube") return [];
+  if (youtubeVideoUpload === "write-capable") {
+    return ["governed publish path (YouTube video): this organization holds the capability now (read from the integration authority; not an authorization)"];
+  }
+  if (youtubeVideoUpload === "not-write-capable") return ["governed publish path (YouTube video) exists; this organization does not hold its capability now"];
+  return ["governed publish path (YouTube video) exists; whether this organization holds its capability could not be read"];
+}
+
 type Collected =
   | { readonly status: "unavailable"; readonly reason: string }
   | {
@@ -359,6 +376,7 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
         `media recommendation (deterministic): ${choice.kind}`,
         `media next step (observed): ${nextStep.state}`,
         `media complete: ${nextStep.mediaComplete ? "yes" : "no"}`,
+        ...publishSegment(draft.intendedDestination, youtubeVideoUpload),
       ].join(" · "),
       lifecycle: "settled" as const,
       /* Media lines are data for the model's grounding, kept out of Heby's own prose. */

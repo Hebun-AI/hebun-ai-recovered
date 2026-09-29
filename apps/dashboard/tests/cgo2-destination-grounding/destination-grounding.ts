@@ -152,8 +152,20 @@ async function main(): Promise<void> {
       2,
       "the denial is the NEXT segment — nothing may be inserted between the fact and its limit",
     );
-    for (const required of ["no provider connection", "nothing is scheduled", "nothing was published"]) {
-      assert.ok(draftItem.detail.includes(required), `the denial states "${required}"`);
+    /*
+     * HEBY-TRUTH-UX-REPAIR-1: the limit states what THIS record cannot show, never a negative fact
+     * about the organization — "nothing was published" became false once PUBLISH-0 and
+     * YOUTUBE-WRITE-2 existed, and Heby repeated it in production as "never published".
+     */
+    for (const required of [
+      "does not show whether a provider connection exists",
+      "scheduled, published, delivered or seen",
+      "their absence here is not evidence that they did not happen",
+    ]) {
+      assert.ok(draftItem.detail.includes(required), `the limit states "${required}"`);
+    }
+    for (const negative of ["no provider connection exists", "nothing was published", "nothing is scheduled"]) {
+      assert.equal(draftItem.detail.includes(negative), false, `the limit never asserts "${negative}"`);
     }
 
     /* ── 4. A NON-CONTENT ARTIFACT CARRIES NO DESTINATION, AND NO "none" EITHER ──
