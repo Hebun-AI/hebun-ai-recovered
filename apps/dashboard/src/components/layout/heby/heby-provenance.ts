@@ -101,6 +101,8 @@ const MODEL_DIAGNOSTIC_PREFIXES: readonly string[] = Object.freeze([
   "Model generation is unavailable (",
   "Model generation failed (",
   "A model answer was produced but failed validation and was withheld",
+  /* HEBY-TRUTH-UX-REPAIR-1 — a cut answer says so where it is read, not behind a disclosure. */
+  "This answer reached the model output limit",
 ]);
 
 function isModelDiagnostic(line: string): boolean {

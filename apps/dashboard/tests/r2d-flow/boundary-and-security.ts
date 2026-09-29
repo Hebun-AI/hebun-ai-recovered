@@ -89,7 +89,8 @@ function main(): void {
 
   // --- Hard live budget is exactly the smoke-test gate. ---
   assert.equal(MAX_LIVE_CALLS, 1, "max live calls is 1");
-  assert.equal(MAX_LIVE_OUTPUT_TOKENS, 300, "max live output tokens is 300");
+  /* HEBY-TRUTH-UX-REPAIR-1: 300 cut real answers mid-sentence; Director set the one ceiling to 1024. */
+  assert.equal(MAX_LIVE_OUTPUT_TOKENS, 1024, "max live output tokens is 1024");
 
   // --- Transport selector: default closed; fake explicit; live requires the double gate. ---
   assert.deepEqual(selectModelTransport({}), {}, "default transport is closed");

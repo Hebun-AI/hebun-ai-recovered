@@ -125,7 +125,13 @@ async function main(): Promise<void> {
       const r = evaluateMediaChoice(draft([m("v1", "video", "generated", "accepted", true)], { destination }), OFF);
       assert.equal(r.kind, "use-existing");
       assert.ok(r.unknowns.includes("destination-rule-unknown"), `${destination}: no media rule is invented`);
-      if (destination !== null) assert.ok(r.reasons.includes("publish-capability-unavailable"), `${destination}: a packaged video is not publishable`);
+      if (destination === "youtube") {
+        /* HEBY-TRUTH-UX-REPAIR-1: YOUTUBE-WRITE-2 is a governed video path; with no capability read it is unknown, never "no path". */
+        assert.equal(r.reasons.includes("publish-capability-unavailable"), false, "youtube: a governed video path exists");
+        assert.ok(r.unknowns.includes("publish-capability-unknown"), "youtube: this tenant's capability was not read here");
+      } else if (destination !== null) {
+        assert.ok(r.reasons.includes("publish-capability-unavailable"), `${destination}: a packaged video is not publishable`);
+      }
     }
     const image = evaluateMediaChoice(draft([m("i1", "image", "generated", "accepted", true)]), OFF);
     assert.equal(image.reasons.includes("publish-capability-unavailable"), false, "Instagram image publishing exists (PUBLISH-0, Governance-gated)");

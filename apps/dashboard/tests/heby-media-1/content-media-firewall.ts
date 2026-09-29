@@ -141,6 +141,9 @@ async function main(): Promise<void> {
   const valueImports = Object.fromEntries(imports.filter((i) => !i.type).map((i) => [i.from, i.names]));
   assert.deepEqual(valueImports, {
     "@/features/heby-provider-ops/provider-connectivity-control.server": ["resolveDirectorEnabled"],
+    /* HEBY-TRUTH-UX-REPAIR-1: the I1 capability read (writer-free) and the two YouTube identifiers. */
+    "@/features/integration-authority/capability-availability.server": ["getCapabilityAvailability"],
+    "@/features/provider-google/contracts": ["GOOGLE_YOUTUBE_PROVIDER_KEY", "GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY"],
     "@/features/media-assets/async-generation-lifecycle.server": ["listArtifactVideoGenerations"],
     "@/features/media-assets/read-media-assets.server": ["listArtifactMediaAssets"],
     "@/features/media-assets/read-media-videos.server": ["listArtifactMediaVideos"],
@@ -151,7 +154,7 @@ async function main(): Promise<void> {
     "@/features/work-artifacts/contracts": ["CONTENT_DRAFT_TYPE"],
     "./read-content-package.server": ["readContentPackage"],
     /* HEBY-MEDIA-2: the pure evaluator over the same facts — no runtime import of its own. */
-    "./media-choice": ["evaluateMediaChoice", "formatMediaChoice", "type DraftMediaFacts", "type MediaChoice", "type MediaFact", "type MediaFactReview"],
+    "./media-choice": ["evaluateMediaChoice", "formatMediaChoice", "type DraftMediaFacts", "type MediaChoice", "type MediaFact", "type MediaFactReview", "type PublishCapabilityState"],
     /* HEBY-MEDIA-3: the pure prefill over the same facts and choice. */
     "./media-prefill": ["prefillFromChoice", "type MediaPrefill"],
     /* HEBY-MEDIA-4: the pure next-step observation over the same facts. */

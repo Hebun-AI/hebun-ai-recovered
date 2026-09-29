@@ -13,6 +13,12 @@
  *   review            readMediaAssetReviewStates           (MEDIA-3, the Governance ledger)
  *   package           readContentPackage                   (CONTENT-COMPOSE-1, derived at read time)
  *   provider switch   resolveDirectorEnabled               (provider connectivity, fail-closed)
+ *   publish capability getCapabilityAvailability           (Integration authority, I1 seam)
+ *
+ * HEBY-TRUTH-UX-REPAIR-1 — the last row. Whether THIS tenant holds `google.youtube.video.upload` is
+ * the capability authority's answer, read once and reduced to write-capable / not / unreadable. It
+ * is the same predicate the YouTube proposal uses to pick its connection (available + write-capable,
+ * exactly one); it says nothing about Governance, permits or arming, and Heby holds none of them.
  *
  * It holds no database handle, writes nothing, resolves no transport, opens no stored object and
  * mints no read grant. It does not decide what a draft should use — that is HEBY-MEDIA-2, and a
@@ -33,6 +39,11 @@
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import type { SourceResolution } from "@/features/heby-runtime";
 import { resolveDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
+import { getCapabilityAvailability } from "@/features/integration-authority/capability-availability.server";
+import {
+  GOOGLE_YOUTUBE_PROVIDER_KEY,
+  GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY,
+} from "@/features/provider-google/contracts";
 import { listArtifactVideoGenerations } from "@/features/media-assets/async-generation-lifecycle.server";
 import { listArtifactMediaAssets } from "@/features/media-assets/read-media-assets.server";
 import { listArtifactMediaVideos } from "@/features/media-assets/read-media-videos.server";
@@ -51,13 +62,14 @@ import {
   type MediaChoice,
   type MediaFact,
   type MediaFactReview,
+  type PublishCapabilityState,
 } from "./media-choice";
 import { evaluateMediaNextStep, formatMediaNextStep, type MediaNextStep } from "./media-next-step";
 import { prefillFromChoice, type MediaPrefill } from "./media-prefill";
 import { readContentPackage } from "./read-content-package.server";
 
 export const CONTENT_MEDIA_PROVENANCE =
-  "Content media — each open content draft's current revision: its admitted images and videos, their MEDIA-3 review records, its video generation attempts with source-image lineage, and its derived Content Package, read through the Media, Governance and Content authorities; plus the two Higgsfield connectivity switches. Heby owns none of these records and this source changes none of them (authoritative: false).";
+  "Content media — each open content draft's current revision: its admitted images and videos, their MEDIA-3 review records, its video generation attempts with source-image lineage, and its derived Content Package, read through the Media, Governance and Content authorities; plus the two Higgsfield connectivity switches and, for YouTube drafts, whether the organization's YouTube connection holds the upload capability. Heby owns none of these records and this source changes none of them (authoritative: false).";
 
 /** Drafts are newest first; a bounded number keeps grounding from becoming a media inventory. */
 export const CONTENT_MEDIA_DRAFT_LIMIT = 10;
@@ -75,6 +87,30 @@ export interface ContentMediaSourceDeps {
   readonly readReviewStates?: typeof readMediaAssetReviewStates;
   readonly readPackage?: typeof readContentPackage;
   readonly readProviderSwitch?: (providerKey: string) => Promise<boolean>;
+  readonly readCapabilityAvailability?: typeof getCapabilityAvailability;
+}
+
+/*
+ * The YouTube upload capability for THIS tenant, as the capability authority states it. The same
+ * predicate `resolveYouTubePublishConnection` applies first — available, `google-youtube`, read
+ * available AND write capable, exactly one — without the channel read that follows it there (a
+ * provider call Heby grounding does not make). Any failure is `unreadable`, never capable.
+ */
+async function readYouTubeUploadCapability(
+  tenant: TenantContext,
+  deps: ContentMediaSourceDeps,
+): Promise<PublishCapabilityState> {
+  try {
+    const view = await (deps.readCapabilityAvailability ?? getCapabilityAvailability)(tenant);
+    const entry = view.capabilities.find((c) => c.capability === GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY);
+    if (!entry || entry.state !== "available") return "not-write-capable";
+    const sources = entry.sources.filter(
+      (s) => s.providerKey === GOOGLE_YOUTUBE_PROVIDER_KEY && s.readAvailable && s.writeCapable,
+    );
+    return sources.length === 1 ? "write-capable" : "not-write-capable";
+  } catch {
+    return "unreadable";
+  }
 }
 
 function unavailable(reason: string): SourceResolution {
@@ -159,6 +195,9 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
   if (drafts.length === 0) return { status: "read", switches, entries: [] };
 
   const artifactIds = drafts.map((d) => d.id);
+  const youtubeVideoUpload = drafts.some((d) => d.intendedDestination === "youtube")
+    ? await readYouTubeUploadCapability(tenant, deps)
+    : "unreadable";
   const [images, videos, generations] = await Promise.all([
     (deps.listImages ?? listArtifactMediaAssets)(tenant, { artifactIds }),
     (deps.listVideos ?? listArtifactMediaVideos)(tenant, { artifactIds }),
@@ -229,6 +268,7 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
         imageToVideo: switchState[HIGGSFIELD_IMAGE_TO_VIDEO_CONTROL_KEY] === true,
         image: "not-read",
       },
+      { youtubeVideoUpload },
     );
 
     const lines: string[] = [];

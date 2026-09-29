@@ -118,9 +118,12 @@ on the Director's production read-back and were not re-read here, to avoid a new
 
 ## 5 · Remaining debt (carried, not fixed here)
 
-- Heby may still say YouTube publish capability is unavailable (`media-choice` wording predates
-  YOUTUBE-WRITE-2).
-- Heby responses truncate in the UI; Heby markdown renders as plain text.
+- ~~Heby may still say YouTube publish capability is unavailable (`media-choice` wording predates
+  YOUTUBE-WRITE-2).~~
+- ~~Heby responses truncate in the UI; Heby markdown renders as plain text.~~
+  *(All three repaired by HEBY-TRUTH-UX-REPAIR-1: YouTube publish truth now read from the capability
+  authority; the output ceiling is 1024 and a cut answer says so; answers render a safe Markdown
+  subset.)*
 - Picker is manual and single-file; no automatic folder intake.
 - Connection/account provenance is not persisted on supplied media.
 - DATA-USE authority for external generative AI unresolved; the image → video custody/data-use gap

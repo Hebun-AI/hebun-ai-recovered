@@ -55,7 +55,21 @@ export const MODEL_CONNECTIVITY_ENV_KEYS = {
  * 300 tokens, that is a MEASURED finding for the acceptance gate to report — not a reason to
  * pre-emptively widen the bound here.
  */
-export const MODEL_OUTPUT_TOKEN_CEILING = 300;
+/*
+ * ── AMENDED BY HEBY-TRUTH-UX-REPAIR-1 (2026-09-29): 300 WAS MEASURED, AND IT CUT ANSWERS ──────
+ *
+ * The finding the paragraph above asked for arrived. In production, 11 of the 20 Heby answers
+ * with reported usage stopped at exactly 300 output tokens, and the answer given during the
+ * HEBY-CONTENT-OPS-1 ceremony ended mid-sentence. `stop_reason: max_tokens` was read and then
+ * dropped, so the cut reached the Director as an answer that simply stopped. Vercel production sets
+ * no override, so this constant was the live bound.
+ *
+ * By Director decision the ceiling is 1024 — the default this module had before R2G. It is still
+ * ONE constant, still imported by the live transport, and an override above it is still refused,
+ * never clamped. When an answer still reaches it, `model-answer` says so on the answer
+ * (`MODEL_OUTPUT_LIMIT_NOTE`) instead of letting the cut pass as a finished answer.
+ */
+export const MODEL_OUTPUT_TOKEN_CEILING = 1024;
 
 /**
  * Default output bound when the variable is unset but connectivity is enabled.

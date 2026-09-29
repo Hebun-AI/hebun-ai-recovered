@@ -21,6 +21,7 @@ import type { HebySourceEvidenceGroup } from "@/features/heby-runtime";
 import type { RetrievalEvidenceSet } from "@/features/knowledge-retrieval";
 import { HebyEvidenceNotRetained, HebyEvidencePanel } from "./heby-evidence";
 import { HebySourceEvidencePanel } from "./heby-source-evidence";
+import { HebyMarkdown } from "./heby-markdown";
 import type { ProvenanceBadge, ProvenanceTone } from "./heby-provenance";
 import { splitModelDiagnostics } from "./heby-provenance";
 
@@ -135,9 +136,8 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
           <Sparkles className="size-3.5" />
         </span>
         <div className="min-w-0 flex-1 border-l border-highlight/15 pl-4">
-          <div className="whitespace-pre-wrap break-words text-[0.95rem] leading-7 text-fg-secondary">
-            {turn.content}
-          </div>
+          {/* HEBY-TRUTH-UX-REPAIR-1 — the answer's Markdown, rendered as elements; never as HTML. */}
+          <HebyMarkdown text={turn.content} />
 
           <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
             {turn.provenance ? <ProvenancePill badge={turn.provenance} /> : null}
