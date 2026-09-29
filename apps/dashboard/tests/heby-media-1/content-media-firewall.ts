@@ -122,8 +122,10 @@ async function main(): Promise<void> {
   /* ── 1 · The class exists through the released architecture, on Operations only ── */
   assert.ok(HEBY_SOURCE_CLASSES.includes("content-media"));
   const carrying = HEBY_PROFILED_WORKSPACES.filter((w) => getHebyWorkspaceProfile(w).sourceClasses.includes("content-media"));
-  assert.deepEqual([...carrying], ["operations"], "content-media is declared by Operations and nothing else");
+  /* HEBY-TRUTH-UX-REPAIR-1: Command (where /heby resolves) is the one other profile, and only it. */
+  assert.deepEqual([...carrying].sort(), ["command", "operations"], "content-media is declared by Operations and Command, and nothing else");
   assert.equal(getHebyWorkspaceProfile("operations").authority, "advisory-only", "seeing media did not make Operations able to decide");
+  assert.equal(getHebyWorkspaceProfile("command").authority, "advisory-only", "seeing media did not make Command able to decide");
   const pure = resolveSource("content-media");
   assert.equal(pure.state, "unavailable");
   assert.doesNotMatch(pure.unavailableReason ?? "", /no media|nothing selected/i, "the fallback never claims a draft has no media");
@@ -254,7 +256,7 @@ async function main(): Promise<void> {
   await ask(async () => {
     elsewhere += 1;
     return resolveSource("content-media");
-  }, "/command");
+  }, "/governance");
   assert.equal(elsewhere, 0, "a workspace that does not declare the class never consults it");
 
   console.log("heby-media-1/content-media-firewall: OK");

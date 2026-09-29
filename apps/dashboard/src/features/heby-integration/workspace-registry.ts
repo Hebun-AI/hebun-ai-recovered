@@ -164,6 +164,19 @@ const WORKSPACE_PROFILES = {
        * which is the gap this class exists to close.
        */
       "people",
+      /*
+       * HEBY-TRUTH-UX-REPAIR-1 adds `content-media` here, on the same precedent as its eight
+       * predecessors: `/heby` resolves to Command, and a Director asking there about a named content
+       * draft ("is Black Rose ready for YouTube?") got an answer grounded on everything EXCEPT the
+       * drafts — measured in production (turn a442fce2: ten classes, no draft), so Heby truthfully
+       * said it held no record. The same shaper, the same tenant-scoped released readers, the same
+       * ten-draft bound; nothing is resolved by title here — the drafts carry their own titles and
+       * refs, and a title two open drafts share is marked as shared, never silently picked.
+       *
+       * Operations keeps it too; this is the one other profile, not a general widening. `work-artifacts`
+       * (draft copy) is NOT added: readiness is a package fact `content-media` already carries.
+       */
+      "content-media",
     ],
     authority: "advisory-only",
     mayExplain: [

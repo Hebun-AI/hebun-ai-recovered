@@ -210,7 +210,7 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
   const reviews = await (deps.readReviewStates ?? readMediaAssetReviewStates)(tenant, assetIds);
   const generationRows = generations.status === "read" ? generations.generations : null;
 
-  const entries = [];
+  const entries: Extract<Collected, { status: "read" }>["entries"][number][] = [];
   for (const draft of drafts) {
     const pkg = await (deps.readPackage ?? readContentPackage)(tenant, {
       artifactId: draft.id,
@@ -367,7 +367,20 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
     entries.push({ item, facts: draftFacts, choice, prefill, nextStep });
   }
 
-  return { status: "read", switches, entries };
+  /*
+   * HEBY-TRUTH-UX-REPAIR-1 — a title is how a human names a draft, and it is not unique. When two
+   * open drafts share one (case- and space-insensitive), each says so and names the other, so an
+   * answer asked "by title" has to name a revision instead of silently choosing one.
+   */
+  const titleKey = (t: string) => t.trim().replace(/\s+/g, " ").toLocaleLowerCase("tr");
+  const marked = entries.map((e, i) => {
+    const key = titleKey(e.item.label);
+    const others = entries.filter((o, j) => j !== i && titleKey(o.item.label) === key).map((o) => o.item.recordRef);
+    if (others.length === 0) return e;
+    return { ...e, item: { ...e.item, detail: `${e.item.detail} · title shared with another open draft: ${others.join(", ")}` } };
+  });
+
+  return { status: "read", switches, entries: marked };
 }
 
 /** Resolve this tenant's open content drafts into one media-context resolution. */
