@@ -85,13 +85,19 @@ function main(): void {
      * made this pin valuable — every outbound-HTTP module in the repository is a NAMED provider
      * transport, so a fetch appearing anywhere else still fails here.
      */
+    /*
+     * DRIVE-FILE-FOLDER-PROBE-1 — a NAMED, TEMPORARY exception, removed with the probe: a read-only
+     * provider experiment issuing GETs to Drive files/changes through the Picker-bound connection.
+     * Its GET-only, bound-connection, no-write reach is pinned in tests/drive-file-folder-probe-1.
+     */
+    const PROBE = "src/features/provider-google/drive-file-folder-probe.server.ts";
     assert.deepEqual(
-      withFetch.filter((f) => f.startsWith(GOOGLE)),
+      withFetch.filter((f) => f.startsWith(GOOGLE) && f !== PROBE),
       [TRANSPORT],
       "exactly one module inside the Google provider talks to Google",
     );
     assert.deepEqual(
-      withFetch,
+      withFetch.filter((f) => f !== PROBE),
       [
         /* ── PROVIDER TRANSPORTS — one integration provider each ───────────── */
         TRANSPORT,
