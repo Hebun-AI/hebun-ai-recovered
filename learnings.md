@@ -4348,3 +4348,10 @@ exist is anything that would invoke it.
 - **UI'da gizlenen kontrol yetki değildir.** MEDIA-5 kartı supplied için reference butonunu zaten gizliyordu; server otoritesi kabul ediyordu. Politika otoritede, UI türetir.
 
 **Weekly three.** *Learned:* operasyonel switch, review, seçim ve paket READY dört ayrı "evet" ama hiçbiri data-use izni değil. *Turkish Rug House:* TRH ürün fotoğrafları intake hacmi artmadan önce Higgsfield'a ve karar verilmemiş OpenAI edit'ine yapısal olarak kapalı. *Hebun AI:* dış üretken işlem artık tek, fail-closed, test edilebilir bir data-use kapısından geçiyor; tenant bazlı izin geldiğinde yeri belli.
+
+## GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1 — dosya hangi bağlantıyla seçildiyse o bağlantıyla okunur (2026-09-29)
+
+- **"Capability bir yerde mevcut" ≠ "dosyanın seçildiği bağlantı".** Picker ve Drive read ikisi de availability'den ilk `readAvailable` kaynağı alıyordu; iki Google hesabında ikisi farklı hesaba düşebiliyordu. Çözüm yeni registry değil: Picker oturumu harcadığı bağlantının integrationId + bağlı `sub`'ını imzalar (`picker-binding:` etiketi, mevcut OAuth state secret'ı), read yalnız o bağlantıdan okur ve hesabı Integration authority'den yeniden doğrular. Fallback yok.
+- **Fake DB'ler yeni okuma şeklini bilmeyince bite-proof yanlış sebeple kırılır.** `readConnection` `.where().limit()` kullanıyor; fake yalnız `.orderBy().limit()` biliyordu. Invariant assert'i (bağlantı okuma sayısı) sebep assert'inden önce gelmeli.
+
+**Weekly three.** *Learned:* aynı tenant + aynı provider + aynı capability yine de farklı kimlik olabilir. *Turkish Rug House:* TRH'ye ikinci bir Google hesabı bağlansa da seçilen fotoğraf seçildiği hesaptan okunur. *Hebun AI:* batch supply için tek Picker bağlamı = tek bağlantı sözleşmesi hazır; kalıcı hesap provenance'ı ayrı schema kararı.

@@ -35,6 +35,7 @@ const REFUSAL_WORDING: Record<AdmitSuppliedDriveImageRefusal, string> = {
   "persistence-unavailable": `The database could not be reached. ${NOTHING_KEPT}`,
   "source-revision-unresolvable": `That content draft revision could not be resolved in your organization. ${NOTHING_KEPT}`,
   "drive-capability-not-available": `Hebun has not been granted access to files you choose in Google Drive. ${NOTHING_KEPT}`,
+  "drive-connection-not-bound": `The Google account you chose the file with is no longer the one connected, or the chooser session expired. Nothing was read through any other account. Open the chooser again. ${NOTHING_KEPT}`,
   "drive-read-failed": `Google Drive did not return the selected file as a JPEG, PNG or WebP image. ${NOTHING_KEPT}`,
   "unsupported-image-signature": `The file's bytes are not a JPEG, PNG or WebP image. ${NOTHING_KEPT}`,
   "malformed-image": `The file does not parse as a complete image. ${NOTHING_KEPT}`,
@@ -96,6 +97,7 @@ export function SupplyImageFromDrive({ targets }: { readonly targets: readonly G
         artifactId,
         revisionNo: Number(revisionNo),
         driveFileId: outcome.document.fileId,
+        pickerBinding: session.binding,
       });
       setMessage(
         result.status === "refused"

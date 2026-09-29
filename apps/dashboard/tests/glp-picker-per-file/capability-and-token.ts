@@ -78,32 +78,33 @@ function tenantContext(): TenantContext {
 
 /** A fake control plane that answers the availability seam's one query. Counts its own use. */
 function dbFor(connections: readonly IntegrationView[], calls?: { n: number }) {
+  const rows = async () =>
+    connections.map((c) => ({
+      id: c.integrationId,
+      name: c.name,
+      providerKey: c.providerKey,
+      connectionState: c.connectionState,
+      health: c.health,
+      scopes: c.scopes,
+      externalAccountId: c.externalAccountId,
+      externalAccountLabel: c.externalAccountLabel,
+      lastVerifiedAt: c.lastVerifiedAt ? new Date(c.lastVerifiedAt) : null,
+      lastSuccessAt: c.lastSuccessAt ? new Date(c.lastSuccessAt) : null,
+      lastErrorAt: c.lastErrorAt ? new Date(c.lastErrorAt) : null,
+      failureReason: c.failureReason,
+      revokedAt: c.revokedAt ? new Date(c.revokedAt) : null,
+      createdAt: new Date(c.createdAt),
+    }));
   return () => {
     if (calls) calls.n += 1;
     return {
       select: () => ({
         from: () => ({
-          where: () => ({
-            orderBy: () => ({
-              limit: async () =>
-                connections.map((c) => ({
-                  id: c.integrationId,
-                  name: c.name,
-                  providerKey: c.providerKey,
-                  connectionState: c.connectionState,
-                  health: c.health,
-                  scopes: c.scopes,
-                  externalAccountId: c.externalAccountId,
-                  externalAccountLabel: c.externalAccountLabel,
-                  lastVerifiedAt: c.lastVerifiedAt ? new Date(c.lastVerifiedAt) : null,
-                  lastSuccessAt: c.lastSuccessAt ? new Date(c.lastSuccessAt) : null,
-                  lastErrorAt: c.lastErrorAt ? new Date(c.lastErrorAt) : null,
-                  failureReason: c.failureReason,
-                  revokedAt: c.revokedAt ? new Date(c.revokedAt) : null,
-                  createdAt: new Date(c.createdAt),
-                })),
-            }),
-          }),
+          /*
+           * `listConnections` orders then limits; `readConnection` (GOOGLE-DRIVE-PICKER-CONNECTION-
+           * INTEGRITY-1: the ceremony reads the bound account of the connection it spends) limits directly.
+           */
+          where: () => ({ orderBy: () => ({ limit: rows }), limit: rows }),
         }),
       }),
     } as never;
@@ -343,12 +344,17 @@ async function theTokenBoundaryIsGated(): Promise<void> {
       "someone who may not author Knowledge never causes a connection read or a credential spend",
     );
     if (refused.status !== "refused") throw new Error("unreachable");
-    assert.equal(refused.reason, "knowledge-not-authorized");
+    /*
+     * The connection count first: it is the invariant. GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1 made
+     * an ungated ceremony stop at the binding (no OAuth environment here) — still `refused`, but only
+     * AFTER reading the connection, which this line catches.
+     */
     assert.equal(
       calls.n,
       0,
       "someone who may not author Knowledge never causes a connection read or a credential spend",
     );
+    assert.equal(refused.reason, "knowledge-not-authorized");
   }
 
   /* ── 3c · CONFIGURATION IS CHECKED BEFORE THE CONNECTION, AND COSTS NOTHING ─ */

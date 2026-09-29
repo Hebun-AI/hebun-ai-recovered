@@ -44,6 +44,7 @@ import { relayDriveVideo, type DriveVideoConsumer, type DriveVideoResult } from 
 import { MEDIA_ASSET_LIMITS, isUuid, mediaAssetStorageKey } from "./contracts";
 import { VPS_MEDIA_STORE_BACKEND } from "./vps-media-object-store.server";
 import { resolveMediaDbOrNull } from "./media-db.server";
+import { driveRefusal } from "./supplied-drive-refusal";
 import { resolveMediaStorageV2, type MediaStorageV2Resolution } from "./media-storage.server";
 import type { ProbeFacts, StoredObjectFacts } from "./vps-media-storage-v2.server";
 import { SUPPLIED_MEDIA_SOURCE } from "./admit-supplied-drive-image.server";
@@ -54,6 +55,11 @@ export interface AdmitSuppliedDriveVideoInput {
   readonly artifactId: string;
   readonly revisionNo: number;
   readonly driveFileId: string;
+  /**
+   * GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1 — the signed binding the Picker session returned. The
+   * read runs through EXACTLY that connection and account, or is refused; it is never re-resolved.
+   */
+  readonly pickerBinding: string;
 }
 
 export type AdmitSuppliedDriveVideoRefusal =
@@ -63,6 +69,12 @@ export type AdmitSuppliedDriveVideoRefusal =
   | "persistence-unavailable"
   | "source-revision-unresolvable"
   | "drive-capability-not-available"
+  /**
+   * GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1 — the Picker binding is missing, forged, expired, for
+   * another session, or its connection's Google account is no longer the one the file was chosen with.
+   * Nothing was read; no other connection was tried.
+   */
+  | "drive-connection-not-bound"
   | "drive-read-failed"
   | "byte-size-exceeded"
   /** The VPS refused or failed the streamed write (including: video storage not enabled there). */
@@ -97,7 +109,7 @@ export type AdmitSuppliedDriveVideoResult =
 
 export type DriveVideoRelay = <T>(
   tenant: TenantContext,
-  input: { readonly fileId: string },
+  input: { readonly fileId: string; readonly binding: string },
   consume: DriveVideoConsumer<T>,
 ) => Promise<DriveVideoResult<T>>;
 
@@ -226,7 +238,8 @@ export async function admitSuppliedDriveVideo(
     !Number.isSafeInteger(input.revisionNo) ||
     input.revisionNo < 1 ||
     typeof input.driveFileId !== "string" ||
-    !DRIVE_FILE_ID.test(input.driveFileId)
+    !DRIVE_FILE_ID.test(input.driveFileId) ||
+    typeof input.pickerBinding !== "string"
   ) {
     return refused("invalid-input");
   }
@@ -293,17 +306,13 @@ export async function admitSuppliedDriveVideo(
   try {
     relayed = await (deps.relayVideo ?? ((t, i, c) => relayDriveVideo(t, i, c, { getDb: () => db })))(
       tenant,
-      { fileId: driveFileId },
+      { fileId: driveFileId, binding: input.pickerBinding },
       consume,
     );
   } catch {
     return refused("drive-read-failed", "google-unreachable");
   }
-  if (relayed.status === "refused") {
-    return relayed.reason === "capability-not-available" || relayed.reason === "integration-not-found"
-      ? refused("drive-capability-not-available", relayed.reason)
-      : refused("drive-read-failed", relayed.reason);
-  }
+  if (relayed.status === "refused") return refused(driveRefusal(relayed.reason), relayed.reason);
   if (relayed.status === "provider-failed") {
     return relayed.reason === "google-file-too-large" ? refused("byte-size-exceeded") : refused("drive-read-failed", relayed.reason);
   }

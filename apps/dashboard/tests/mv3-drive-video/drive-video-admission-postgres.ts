@@ -235,7 +235,7 @@ async function main(): Promise<void> {
       ...over,
     });
     const rows = async () => (await setup.query<{ n: number }>(`select count(*)::int n from media_assets`)).rows[0]!.n;
-    const input = { artifactId: draft, revisionNo: 1, driveFileId: DRIVE_ID };
+    const input = { artifactId: draft, revisionNo: 1, driveFileId: DRIVE_ID, pickerBinding: "test-picker-binding" };
 
     /* ══ 2. EVERY REFUSAL WRITES NO ROW ══ */
     const refusals: [string, Uint8Array, Partial<AdmitSuppliedDriveVideoDeps>, object, string, string?][] = [
@@ -299,8 +299,11 @@ async function main(): Promise<void> {
     }
     /* Capability and tenant refusals never reach Drive or the store. */
     const reached = storeRequests.length;
-    const capRefused = await admitSuppliedDriveVideo(ctx, input, deps(mp4("x"), { relayVideo: (async () => ({ status: "refused", reason: "capability-not-available" })) as never }));
-    assert.deepEqual(capRefused, { status: "refused", reason: "drive-capability-not-available", detail: "capability-not-available" });
+    /* GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1: the bound connection no longer holds the per-file grant. */
+    const capRefused = await admitSuppliedDriveVideo(ctx, input, deps(mp4("x"), { relayVideo: (async () => ({ status: "refused", reason: "bound-connection-unavailable" })) as never }));
+    assert.deepEqual(capRefused, { status: "refused", reason: "drive-capability-not-available", detail: "bound-connection-unavailable" });
+    const unbound = await admitSuppliedDriveVideo(ctx, input, deps(mp4("x"), { relayVideo: (async () => ({ status: "refused", reason: "bound-account-mismatch" })) as never }));
+    assert.deepEqual(unbound, { status: "refused", reason: "drive-connection-not-bound", detail: "bound-account-mismatch" });
     const unauthorizedFile = await admitSuppliedDriveVideo(ctx, input, deps(mp4("x"), { relayVideo: (async () => ({ status: "provider-failed", failure: "authorization", reason: "google-file-not-found" })) as never }));
     assert.deepEqual(unauthorizedFile, { status: "refused", reason: "drive-read-failed", detail: "google-file-not-found" }, "a file Drive will not serve (not Picker-granted) is refused");
     assert.deepEqual(await admitSuppliedDriveVideo(ctx, { ...input, artifactId: foreignDraft }, deps(mp4("x"))), { status: "refused", reason: "source-revision-unresolvable" }, "another tenant's draft");

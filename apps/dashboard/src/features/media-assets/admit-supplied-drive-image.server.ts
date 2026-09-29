@@ -24,8 +24,10 @@
  *
  * ── ADMISSION ─────────────────────────────────────────────────────────────────
  *
- *   6. ONE Drive image read for this tenant, under
- *      the per-file capability by name                  drive-capability-not-available
+ *   6. ONE Drive image read for this tenant, through
+ *      EXACTLY the connection the Picker session was
+ *      bound to (signed binding; its account re-checked) drive-connection-not-bound
+ *      under the per-file capability by name            drive-capability-not-available
  *                                                       drive-read-failed (+ provider reason)
  *   7. verify from the bytes: size, magic bytes, Drive's
  *      declared type must AGREE, dimensions, SHA-256     the MEDIA-1 refusal codes
@@ -60,6 +62,7 @@ import {
 } from "./contracts";
 import type { MediaStorageResolution } from "./media-object-store";
 import { resolveMediaDbOrNull } from "./media-db.server";
+import { driveRefusal } from "./supplied-drive-refusal";
 import { resolveMediaObjectStore } from "./media-storage.server";
 
 export const SUPPLIED_MEDIA_SOURCE = "google-drive" as const;
@@ -69,6 +72,11 @@ export interface AdmitSuppliedDriveImageInput {
   readonly revisionNo: number;
   /** The file id the Google Picker returned for the human's selection. */
   readonly driveFileId: string;
+  /**
+   * GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1 — the signed binding the Picker session returned. The
+   * read runs through EXACTLY that connection and account, or is refused; it is never re-resolved.
+   */
+  readonly pickerBinding: string;
 }
 
 export type AdmitSuppliedDriveImageRefusal =
@@ -78,6 +86,12 @@ export type AdmitSuppliedDriveImageRefusal =
   | "persistence-unavailable"
   | "source-revision-unresolvable"
   | "drive-capability-not-available"
+  /**
+   * GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1 — the Picker binding is missing, forged, expired, for
+   * another session, or its connection's Google account is no longer the one the file was chosen with.
+   * Nothing was read; no other connection was tried.
+   */
+  | "drive-connection-not-bound"
   | "drive-read-failed"
   | MediaAdmissionRefusal
   | "storage-write-failed"
@@ -109,7 +123,7 @@ export interface AdmitSuppliedDriveImageDeps {
   /** The Drive read. Injected in tests; production uses the tenant-gated seam. */
   readonly readImage?: (
     tenant: TenantContext,
-    input: { readonly fileId: string },
+    input: { readonly fileId: string; readonly binding: string },
   ) => Promise<DriveImageResult>;
 }
 
@@ -158,7 +172,8 @@ export async function admitSuppliedDriveImage(
     !Number.isSafeInteger(input.revisionNo) ||
     input.revisionNo < 1 ||
     typeof input.driveFileId !== "string" ||
-    !DRIVE_FILE_ID.test(input.driveFileId)
+    !DRIVE_FILE_ID.test(input.driveFileId) ||
+    typeof input.pickerBinding !== "string"
   ) {
     return refused("invalid-input");
   }
@@ -208,15 +223,12 @@ export async function admitSuppliedDriveImage(
   try {
     read = await (deps.readImage ?? ((t, i) => readDriveImage(t, i, { getDb: () => db })))(tenant, {
       fileId: driveFileId,
+      binding: input.pickerBinding,
     });
   } catch {
     return refused("drive-read-failed", "google-unreachable");
   }
-  if (read.status === "refused") {
-    return read.reason === "capability-not-available" || read.reason === "integration-not-found"
-      ? refused("drive-capability-not-available", read.reason)
-      : refused("drive-read-failed", read.reason);
-  }
+  if (read.status === "refused") return refused(driveRefusal(read.reason), read.reason);
   if (read.status === "provider-failed") return refused("drive-read-failed", read.reason);
   if (read.image.fileId !== driveFileId) return refused("drive-read-failed", "google-file-id-mismatch");
   /* Provenance names the capability the read ACTUALLY ran under — and only the per-file one is accepted. */

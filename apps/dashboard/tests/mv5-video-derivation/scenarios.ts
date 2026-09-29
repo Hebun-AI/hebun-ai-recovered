@@ -80,7 +80,7 @@ async function admitVideo(env: Env, t: Tenant, bytes: Uint8Array): Promise<strin
     value: await consume(new Blob([bytes as Uint8Array<ArrayBuffer>]).stream(), { fileId: i.fileId, name: "clip.mp4", providerMimeType: "video/mp4", declaredSize: bytes.byteLength } as never),
     capability: "google.drive.file.content.read" as const,
   });
-  const r = await admitSuppliedDriveVideo(t.ctx, { artifactId: t.draft, revisionNo: 1, driveFileId: `1Clip${randomUUID().replace(/-/g, "")}` }, {
+  const r = await admitSuppliedDriveVideo(t.ctx, { artifactId: t.draft, revisionNo: 1, driveFileId: `1Clip${randomUUID().replace(/-/g, "")}`, pickerBinding: "test-picker-binding" }, {
     getDb: env.getDb,
     resolveStorageV2: () => v2For(env.vps),
     relayVideo: relay as never,

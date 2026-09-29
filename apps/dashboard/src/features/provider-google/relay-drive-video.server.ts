@@ -3,9 +3,10 @@
  *
  * The video sibling of `read-drive-image.server.ts`, behind the SAME gate:
  *
- *   tenant context → the per-file capability (`drive.file`, Picker-chosen files only) → the
- *   integration authority's availability view → a Google connection THIS tenant owns → the released
- *   token runner → one metadata-first download whose body is handed to `consume` as a stream
+ *   tenant context → the SIGNED Picker binding → EXACTLY the bound connection, re-checked for the
+ *   per-file capability (`drive.file`) and its bound Google account (GOOGLE-DRIVE-PICKER-CONNECTION-
+ *   INTEGRITY-1) → the released token runner → one metadata-first download whose body is handed to
+ *   `consume` as a stream
  *
  * The Google token lives only inside the token runner's callback and is sent only to Google. `consume`
  * — the Media authority's relay into the VPS store — sees bytes and Drive's claims, never the token.
@@ -16,16 +17,15 @@
  */
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { getCapabilityAvailability } from "@/features/integration-authority/capability-availability.server";
 import {
   GOOGLE_DRIVE_FILE_CAPABILITY,
-  GOOGLE_PROVIDER_KEY,
   type GoogleDriveVideoMeta,
   type GoogleFailureClass,
 } from "./contracts";
 import { relayDriveFileVideo } from "./google-transport.server";
 import { withGoogleAccessToken, type GoogleAuthorizedCallDeps } from "./google-authorized-call.server";
 import type { DriveImageRefusal } from "./read-drive-image.server";
+import { resolveBoundDriveFileConnection } from "./picker-connection-binding.server";
 
 export type DriveVideoResult<T> =
   | { readonly status: "relayed"; readonly value: T; readonly capability: typeof GOOGLE_DRIVE_FILE_CAPABILITY }
@@ -36,11 +36,12 @@ export type DriveVideoConsumer<T> = (body: ReadableStream<Uint8Array>, meta: Goo
 
 export interface DriveVideoDeps extends GoogleAuthorizedCallDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
+  readonly nowSeconds?: () => number;
 }
 
 export async function relayDriveVideo<T>(
   tenant: TenantContext | null,
-  input: { readonly fileId: string },
+  input: { readonly fileId: string; readonly binding: string },
   consume: DriveVideoConsumer<T>,
   deps: DriveVideoDeps = {},
 ): Promise<DriveVideoResult<T>> {
@@ -51,17 +52,17 @@ export async function relayDriveVideo<T>(
     return { status: "refused", reason: "no-document-selected" };
   }
 
-  /* THE GATE — before any credential is touched. Only the per-file capability is accepted. */
-  const availability = await getCapabilityAvailability(tenant, { getDb: deps.getDb });
-  const entry = availability.capabilities.find((c) => c.capability === capability);
-  if (!entry || entry.state !== "available") return { status: "refused", reason: "capability-not-available" };
-  const source = entry.sources.find((s) => s.readAvailable);
-  if (!source) return { status: "refused", reason: "integration-not-found" };
-  if (source.providerKey !== GOOGLE_PROVIDER_KEY) return { status: "refused", reason: "wrong-provider" };
+  /*
+   * THE GATE — before any credential is touched: EXACTLY the connection the Picker session was bound
+   * to, re-checked for the per-file capability and its Google account. No other connection is tried
+   * (GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1).
+   */
+  const bound = await resolveBoundDriveFileConnection(tenant, input.binding, deps);
+  if (bound.status !== "bound") return { status: "refused", reason: bound.reason };
 
   const outcome = await withGoogleAccessToken(
     tenant,
-    source.integrationId,
+    bound.integrationId,
     (token) => relayDriveFileVideo(token, input.fileId, consume, deps),
     deps,
   );

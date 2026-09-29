@@ -482,12 +482,15 @@ export async function admitSuppliedDriveImageAction(input: {
   artifactId: string;
   revisionNo: number;
   driveFileId: string;
+  /** The signed binding from the Picker session — a claim the Media authority verifies, never trusts. */
+  pickerBinding: string;
 }): Promise<AdmitSuppliedDriveImageResult> {
   const tenant = await resolveTenantContext();
   const result = await admitSuppliedDriveImage(tenant, {
     artifactId: input?.artifactId,
     revisionNo: input?.revisionNo,
     driveFileId: typeof input?.driveFileId === "string" ? input.driveFileId : "",
+    pickerBinding: typeof input?.pickerBinding === "string" ? input.pickerBinding : "",
   });
   if (result.status === "admitted") revalidatePath("/operations");
   return result;
@@ -509,12 +512,15 @@ export async function admitSuppliedDriveVideoAction(input: {
   artifactId: string;
   revisionNo: number;
   driveFileId: string;
+  /** The signed binding from the Picker session — a claim the Media authority verifies, never trusts. */
+  pickerBinding: string;
 }): Promise<AdmitSuppliedDriveVideoResult> {
   const tenant = await resolveTenantContext();
   const result = await admitSuppliedDriveVideo(tenant, {
     artifactId: input?.artifactId,
     revisionNo: input?.revisionNo,
     driveFileId: typeof input?.driveFileId === "string" ? input.driveFileId : "",
+    pickerBinding: typeof input?.pickerBinding === "string" ? input.pickerBinding : "",
   });
   if (result.status === "admitted") revalidatePath("/operations");
   return result;

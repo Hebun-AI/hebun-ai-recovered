@@ -64,6 +64,8 @@ import {
   withGoogleAccessToken,
   type GoogleAuthorizedCallDeps,
 } from "@/features/provider-google/google-authorized-call.server";
+import { readConnection } from "@/features/integration-authority/integration-read.server";
+import { sealPickerBinding } from "@/features/provider-google/picker-connection-binding.server";
 
 /** Why a Picker session was not authorized. Each is a different thing for a person to do next. */
 export type PickerSessionRefusal =
@@ -89,6 +91,13 @@ export type PickerSessionResult =
       readonly accessToken: string;
       readonly apiKey: string;
       readonly appId: string;
+      /**
+       * GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1 — the server's SIGNED statement of which connection
+       * (and which Google account) this chooser was opened with. Identifiers only, never a token or a
+       * credential id; the browser hands it back beside the chosen file id and the admission reads
+       * through exactly that connection or refuses. See `picker-connection-binding.server.ts`.
+       */
+      readonly binding: string;
     }
   | { readonly status: "refused"; readonly reason: PickerSessionRefusal; readonly detail: string }
   | { readonly status: "provider-failed"; readonly detail: string };
@@ -239,6 +248,35 @@ async function mintPickerSession(
   }
 
   /*
+   * 4b · WHICH ACCOUNT THIS CONNECTION IS (GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1).
+   *
+   * The token below belongs to exactly this connection, so the files the human chooses are this
+   * account's per-file grants. The binding names the connection and the account the Integration
+   * authority holds for it, signed, so the admission can read through the same one — never "the first
+   * available". A connection with no bound account is not one a chooser is opened for.
+   */
+  const connection = await readConnection(tenant, source.integrationId, { getDb: deps.getDb });
+  if (!connection || connection.providerKey !== GOOGLE_PROVIDER_KEY || !connection.externalAccountId) {
+    return {
+      status: "refused",
+      reason: "integration-not-found",
+      detail: "The Google connection for this organization has no verified account, so no chooser was opened.",
+    };
+  }
+  const binding = sealPickerBinding(
+    tenant,
+    { integrationId: source.integrationId, externalAccountId: connection.externalAccountId },
+    { env: deps.env },
+  );
+  if (!binding) {
+    return {
+      status: "refused",
+      reason: "picker-not-configured",
+      detail: "Google sign-in is not configured on this deployment, so a chooser could not be bound. No credential was spent.",
+    };
+  }
+
+  /*
    * 5 · THE EXCEPTION, PERFORMED ONCE AND IN THE OPEN.
    *
    * `withGoogleAccessToken` hands the plaintext to this callback inside the vault's scoped-secret
@@ -274,5 +312,6 @@ async function mintPickerSession(
     accessToken: minted.value,
     apiKey: picker.apiKey,
     appId: picker.appId,
+    binding,
   };
 }

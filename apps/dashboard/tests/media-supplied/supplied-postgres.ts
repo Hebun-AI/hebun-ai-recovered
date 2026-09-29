@@ -222,12 +222,16 @@ async function main(): Promise<void> {
     const drive = driveReturns(photo);
     const admitted = await admitSuppliedDriveImage(
       acmeCtx,
-      { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID },
+      { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID, pickerBinding: "test-picker-binding" },
       { ...deps, readImage: drive.readImage },
     );
     assert.equal(admitted.status, "admitted", JSON.stringify(admitted));
     assert.equal(drive.calls.length, 1, "one Drive read");
-    assert.deepEqual(drive.calls[0], { fileId: DRIVE_ID }, "the caller names a file and nothing else — no capability");
+    assert.deepEqual(
+      drive.calls[0],
+      { fileId: DRIVE_ID, binding: "test-picker-binding" },
+      "the caller names a file and hands back its Picker binding — no capability, no connection of its own",
+    );
     const asset = admitted.status === "admitted" ? admitted.asset : null!;
     assert.equal(asset.assetId, suppliedAssetId(acme.tenantId, acmeDraft, 1, DRIVE_ID, sha(photo)));
     assert.equal(asset.byteDigest, sha(photo), "digest computed from the bytes");
@@ -250,7 +254,7 @@ async function main(): Promise<void> {
     /* Idempotent: the same supply is the same asset; nothing new is written. */
     const again = await admitSuppliedDriveImage(
       acmeCtx,
-      { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID },
+      { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID, pickerBinding: "test-picker-binding" },
       { ...deps, readImage: driveReturns(photo).readImage },
     );
     assert.equal(again.status, "existing");
@@ -271,12 +275,12 @@ async function main(): Promise<void> {
     };
     const png = new Uint8Array(await sharp({ create: { width: 8, height: 8, channels: 3, background: "#123456" } }).png().toBuffer());
     const cases: [string, Parameters<typeof admitSuppliedDriveImage>[1], ReturnType<typeof driveReturns>["readImage"] | undefined, string][] = [
-      ["declared type disagrees with bytes", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "pngClaimedJpeg01" }, driveReturns(png, "image/jpeg", "pngClaimedJpeg01").readImage, "declared-type-mismatch"],
-      ["not an image", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "notAnImage00001" }, driveReturns(new TextEncoder().encode("hello, not a photo"), "image/jpeg", "notAnImage00001").readImage, "unsupported-image-signature"],
-      ["empty bytes", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "emptyFile000001" }, driveReturns(new Uint8Array(), "image/jpeg", "emptyFile000001").readImage, "empty-bytes"],
-      ["Drive answered a different file", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "askedForThis001" }, driveReturns(photo, "image/jpeg", "gotSomethingElse").readImage, "drive-read-failed"],
-      ["malformed Drive id", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "a/b?c" }, undefined, "invalid-input"],
-      ["revision that does not exist", { artifactId: acmeDraft, revisionNo: 7, driveFileId: DRIVE_ID }, undefined, "source-revision-unresolvable"],
+      ["declared type disagrees with bytes", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "pngClaimedJpeg01", pickerBinding: "test-picker-binding" }, driveReturns(png, "image/jpeg", "pngClaimedJpeg01").readImage, "declared-type-mismatch"],
+      ["not an image", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "notAnImage00001", pickerBinding: "test-picker-binding" }, driveReturns(new TextEncoder().encode("hello, not a photo"), "image/jpeg", "notAnImage00001").readImage, "unsupported-image-signature"],
+      ["empty bytes", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "emptyFile000001", pickerBinding: "test-picker-binding" }, driveReturns(new Uint8Array(), "image/jpeg", "emptyFile000001").readImage, "empty-bytes"],
+      ["Drive answered a different file", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "askedForThis001", pickerBinding: "test-picker-binding" }, driveReturns(photo, "image/jpeg", "gotSomethingElse").readImage, "drive-read-failed"],
+      ["malformed Drive id", { artifactId: acmeDraft, revisionNo: 1, driveFileId: "a/b?c", pickerBinding: "test-picker-binding" }, undefined, "invalid-input"],
+      ["revision that does not exist", { artifactId: acmeDraft, revisionNo: 7, driveFileId: DRIVE_ID, pickerBinding: "test-picker-binding" }, undefined, "source-revision-unresolvable"],
     ];
     for (const [label, input, readImage, reason] of cases) {
       const r = await admitSuppliedDriveImage(acmeCtx, input, { ...deps, readImage: readImage ?? (async () => { throw new Error("Drive must not be read"); }) });
@@ -286,7 +290,7 @@ async function main(): Promise<void> {
     /* A read that reports any grant other than the per-file one is refused — no Drive-wide fallback. */
     const wideRead = await admitSuppliedDriveImage(
       acmeCtx,
-      { artifactId: acmeDraft, revisionNo: 1, driveFileId: "wideGrantFile01" },
+      { artifactId: acmeDraft, revisionNo: 1, driveFileId: "wideGrantFile01", pickerBinding: "test-picker-binding" },
       {
         ...deps,
         readImage: async () => ({
@@ -300,27 +304,27 @@ async function main(): Promise<void> {
     await unchanged("Drive-wide read");
     const capRefused = await admitSuppliedDriveImage(
       acmeCtx,
-      { artifactId: acmeDraft, revisionNo: 1, driveFileId: "otherFile000001" },
-      { ...deps, readImage: async () => ({ status: "refused", reason: "capability-not-available" }) },
+      { artifactId: acmeDraft, revisionNo: 1, driveFileId: "otherFile000001", pickerBinding: "test-picker-binding" },
+      { ...deps, readImage: async () => ({ status: "refused", reason: "bound-connection-unavailable" }) },
     );
     assert.equal(capRefused.status === "refused" && capRefused.reason, "drive-capability-not-available");
     const providerFailed = await admitSuppliedDriveImage(
       acmeCtx,
-      { artifactId: acmeDraft, revisionNo: 1, driveFileId: "otherFile000001" },
+      { artifactId: acmeDraft, revisionNo: 1, driveFileId: "otherFile000001", pickerBinding: "test-picker-binding" },
       { ...deps, readImage: async () => ({ status: "provider-failed", failure: "malformed", reason: "google-file-type-unsupported" }) },
     );
     assert.equal(providerFailed.status === "refused" && providerFailed.reason, "drive-read-failed");
     assert.equal(providerFailed.status === "refused" && providerFailed.detail, "google-file-type-unsupported");
     await unchanged("Drive refusal / failure");
     assert.equal(
-      (await admitSuppliedDriveImage(acmeCtx, { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID }, {
+      (await admitSuppliedDriveImage(acmeCtx, { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID, pickerBinding: "test-picker-binding" }, {
         getDb: deps.getDb,
         resolveStorage: () => ({ status: "unavailable" as const, reason: "storage-not-connected" as const }),
         readImage: async () => { throw new Error("Drive must not be read without storage"); },
       })).status,
       "refused",
     );
-    assert.deepEqual(await admitSuppliedDriveImage(null, { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID }, deps), { status: "refused", reason: "unauthenticated" });
+    assert.deepEqual(await admitSuppliedDriveImage(null, { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID, pickerBinding: "test-picker-binding" }, deps), { status: "refused", reason: "unauthenticated" });
 
     /* A store that keeps different bytes than were written: refused, no row. */
     const lying = createMemoryMediaObjectStore();
@@ -328,7 +332,7 @@ async function main(): Promise<void> {
     const photo2 = await cameraJpeg(40, 30, 10);
     const mismatch = await admitSuppliedDriveImage(
       acmeCtx,
-      { artifactId: acmeDraft, revisionNo: 1, driveFileId: "integrityFile01" },
+      { artifactId: acmeDraft, revisionNo: 1, driveFileId: "integrityFile01", pickerBinding: "test-picker-binding" },
       { getDb: deps.getDb, resolveStorage: () => ({ status: "available" as const, store: lyingStore }), readImage: driveReturns(photo2, "image/jpeg", "integrityFile01").readImage },
     );
     assert.equal(mismatch.status === "refused" && mismatch.reason, "integrity-mismatch");
@@ -337,7 +341,7 @@ async function main(): Promise<void> {
     /* ══ 3. CROSS-TENANT ══ */
     const crossSupply = await admitSuppliedDriveImage(
       globexCtx,
-      { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID },
+      { artifactId: acmeDraft, revisionNo: 1, driveFileId: DRIVE_ID, pickerBinding: "test-picker-binding" },
       { ...deps, readImage: async () => { throw new Error("Drive must not be read for another tenant's draft"); } },
     );
     assert.equal(crossSupply.status === "refused" && crossSupply.reason, "source-revision-unresolvable");

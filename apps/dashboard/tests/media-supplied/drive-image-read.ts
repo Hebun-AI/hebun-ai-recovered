@@ -17,6 +17,7 @@ import {
 } from "../../src/features/provider-google/contracts";
 import { readDriveFileImage } from "../../src/features/provider-google/google-transport.server";
 import { readDriveImage } from "../../src/features/provider-google/read-drive-image.server";
+import { sealPickerBinding } from "../../src/features/provider-google/picker-connection-binding.server";
 import { authorizeMediaPickerSession } from "../../src/features/provider-content-admission/authorize-picker-session.server";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { MEDIA_ASSET_LIMITS } from "../../src/features/media-assets/contracts";
@@ -28,7 +29,6 @@ globalThis.fetch = (() => {
 }) as typeof fetch;
 
 const ROOT = path.resolve(__dirname, "../..");
-const TENANT = { tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" } as never;
 const FILE_ID = "1AbCdEf_GhIjKlMnOp";
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
 
@@ -45,13 +45,7 @@ function driveFake(meta: Record<string, unknown>, body: Uint8Array | null, calls
 }
 
 function dbFor(connections: readonly IntegrationView[]) {
-  return () =>
-    ({
-      select: () => ({
-        from: () => ({
-          where: () => ({
-            orderBy: () => ({
-              limit: async () =>
+  const rows = async () =>
                 connections.map((c) => ({
                   id: c.integrationId,
                   name: c.name,
@@ -67,13 +61,28 @@ function dbFor(connections: readonly IntegrationView[]) {
                   failureReason: c.failureReason,
                   revokedAt: c.revokedAt ? new Date(c.revokedAt) : null,
                   createdAt: new Date(c.createdAt),
-                })),
-            }),
-          }),
+                }));
+  /* `listConnections` orders then limits; `readConnection` limits directly. One fixture row either way. */
+  return () =>
+    ({
+      select: () => ({
+        from: () => ({
+          where: () => ({ orderBy: () => ({ limit: rows }), limit: rows }),
         }),
       }),
     }) as never;
 }
+
+/* A configured Google OAuth environment — only its state secret is used, to sign a Picker binding. */
+const ENV = {
+  GOOGLE_OAUTH_CLIENT_ID: "client-id.apps.googleusercontent.com",
+  GOOGLE_OAUTH_CLIENT_SECRET: "client-secret",
+  GOOGLE_OAUTH_REDIRECT_URI: "https://hebuntech.com/api/integrations/google/callback",
+  HEBUN_GOOGLE_OAUTH_STATE_SECRET: "s".repeat(44),
+};
+const BOUND_TENANT = { tenantId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", sessionContextId: "session" } as never;
+const BINDING = () =>
+  sealPickerBinding(BOUND_TENANT, { integrationId: connectedFixture().integrationId, externalAccountId: connectedFixture().externalAccountId! }, { env: ENV })!;
 
 async function main(): Promise<void> {
   /* ── 1 · THE CLOSED IMAGE MAP IS SEPARATE FROM THE TEXT MAP, AND BOUNDED LIKE MEDIA ── */
@@ -133,7 +142,10 @@ async function main(): Promise<void> {
     }
   }
 
-  /* ── 5 · THE SEAM OPENS ONLY UNDER THE PER-FILE GRANT, BEFORE SPENDING A CREDENTIAL ── */
+  /*
+   * ── 5 · THE SEAM OPENS ONLY THROUGH A BOUND CONNECTION HOLDING THE PER-FILE GRANT, BEFORE SPENDING A
+   *        CREDENTIAL (GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1) ──
+   */
   {
     for (const [label, scopes] of [
       ["identity-only connection", [] as string[]],
@@ -142,6 +154,7 @@ async function main(): Promise<void> {
     ] as const) {
       let spent = false;
       const spy = {
+        env: ENV,
         getDb: dbFor([connectedFixture({ scopes: [...GOOGLE_IDENTITY_SCOPES, ...scopes] })]),
         fetchImpl: (async () => {
           spent = true;
@@ -149,22 +162,26 @@ async function main(): Promise<void> {
         }) as never,
       };
       assert.deepEqual(
-        await readDriveImage(TENANT, { fileId: FILE_ID }, spy),
-        { status: "refused", reason: "capability-not-available" },
-        `${label}: no Drive image read`,
+        await readDriveImage(BOUND_TENANT, { fileId: FILE_ID, binding: BINDING() }, spy),
+        { status: "refused", reason: "bound-connection-unavailable" },
+        `${label}: the bound connection lacks the per-file grant — no Drive image read`,
       );
       assert.equal(spent, false, `${label}: no credential spent`);
     }
-    const none = { getDb: dbFor([]) };
-    assert.deepEqual(await readDriveImage(TENANT, { fileId: FILE_ID }, none), { status: "refused", reason: "capability-not-available" });
-    assert.deepEqual(await readDriveImage(null, { fileId: FILE_ID }, none), { status: "refused", reason: "no-authorized-tenant-context" });
-    assert.deepEqual(await readDriveImage(TENANT, { fileId: " " }, none), { status: "refused", reason: "no-document-selected" });
+    const none = { getDb: dbFor([]), env: ENV };
+    assert.deepEqual(await readDriveImage(BOUND_TENANT, { fileId: FILE_ID, binding: BINDING() }, none), { status: "refused", reason: "bound-connection-unavailable" });
+    assert.deepEqual(await readDriveImage(null, { fileId: FILE_ID, binding: BINDING() }, none), { status: "refused", reason: "no-authorized-tenant-context" });
+    assert.deepEqual(await readDriveImage(BOUND_TENANT, { fileId: " ", binding: BINDING() }, none), { status: "refused", reason: "no-document-selected" });
+    /* No binding, no read: there is no "first available connection" to fall back to. */
+    const perFile = { env: ENV, getDb: dbFor([connectedFixture({ scopes: [...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_FILE_SCOPE] })]) };
+    assert.deepEqual(await readDriveImage(BOUND_TENANT, { fileId: FILE_ID } as never, perFile), { status: "refused", reason: "binding-missing" });
     /* A caller cannot name a wider grant: the parameter does not exist, and an extra field is ignored. */
     assert.deepEqual(
-      await readDriveImage(TENANT, { fileId: FILE_ID, capability: "google.drive.content.read" } as never, {
+      await readDriveImage(BOUND_TENANT, { fileId: FILE_ID, binding: BINDING(), capability: "google.drive.content.read" } as never, {
+        env: ENV,
         getDb: dbFor([connectedFixture({ scopes: [...GOOGLE_IDENTITY_SCOPES, GOOGLE_DRIVE_CONTENT_SCOPE] })]),
       }),
-      { status: "refused", reason: "capability-not-available" },
+      { status: "refused", reason: "bound-connection-unavailable" },
       "an injected capability field cannot select the Drive-wide grant",
     );
   }
@@ -214,12 +231,13 @@ async function main(): Promise<void> {
     const unconfigured = await run([GOOGLE_DRIVE_FILE_SCOPE], { picker: () => ({ status: "unconfigured", missingKeys: ["GOOGLE_PICKER_API_KEY"] }) });
     assert.equal(unconfigured.status === "refused" && unconfigured.reason, "picker-not-configured");
     /*
-     * drive.file AVAILABLE: the gate is passed and the ceremony reaches the scoped token handoff. With
-     * no OAuth environment the runner cannot produce a token here, so the answer is provider-failed —
-     * which is the proof the gate opened (a gate refusal would be `refused`), with no network.
+     * drive.file AVAILABLE: the capability gate is passed and the ceremony reaches the binding. With no
+     * OAuth environment there is no secret to sign the binding with, so it refuses as unconfigured
+     * BEFORE any credential is spent — a capability refusal would say `capability-not-available`.
      */
     const passed = await run([GOOGLE_DRIVE_FILE_SCOPE]);
-    assert.equal(passed.status, "provider-failed", JSON.stringify(passed));
+    assert.equal(passed.status === "refused" && passed.reason, "picker-not-configured", JSON.stringify(passed));
+    assert.match(passed.status === "refused" ? passed.detail : "", /could not be bound/, "the capability gate opened; the binding could not be signed");
     assert.equal(knowledgeAsked, false, "the Media entry neither asks for nor depends on Knowledge authority");
   }
 

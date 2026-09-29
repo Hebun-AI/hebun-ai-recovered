@@ -120,7 +120,7 @@ async function main(): Promise<void> {
       capability: "google.drive.file.content.read",
       image: { fileId: input.fileId, name: "kilim.jpg", providerMimeType: "image/jpeg", bytes: jpeg, byteLength: jpeg.byteLength },
     });
-    const admitted = await admitSuppliedDriveImage(a.ctx, { artifactId: a.draft, revisionNo: 1, driveFileId: DRIVE_IMAGE }, { getDb, now: () => NOW, resolveStorage, readImage });
+    const admitted = await admitSuppliedDriveImage(a.ctx, { artifactId: a.draft, revisionNo: 1, driveFileId: DRIVE_IMAGE, pickerBinding: "test-picker-binding" }, { getDb, now: () => NOW, resolveStorage, readImage });
     assert.equal(admitted.status, "admitted", JSON.stringify(admitted));
     const img = admitted.status === "admitted" ? admitted.asset.assetId : "";
 

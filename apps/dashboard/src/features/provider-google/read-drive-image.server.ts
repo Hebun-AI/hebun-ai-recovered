@@ -3,8 +3,12 @@
  *
  * The image sibling of KID-1's `readDriveContent`, and deliberately the same gate:
  *
- *   tenant context → closed capability key → the integration authority's availability view →
- *   a Google connection THIS tenant owns → the released token runner → one metadata-first download
+ *   tenant context → the SIGNED Picker binding → EXACTLY the bound connection, re-checked for the
+ *   per-file capability and its bound Google account (GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1) →
+ *   the released token runner → one metadata-first download
+ *
+ * There is no "first available connection": the file was chosen through one connection's token, and
+ * its bytes are read through that connection or not at all.
  *
  * It does not widen KID-1. KID-1 still reads only text types; this seam reads only the closed image
  * types, and ONLY under the PER-FILE capability (`drive.file`): the file must be one the human handed
@@ -22,22 +26,20 @@
  */
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { getCapabilityAvailability } from "@/features/integration-authority/capability-availability.server";
 import {
   GOOGLE_DRIVE_FILE_CAPABILITY,
-  GOOGLE_PROVIDER_KEY,
   type GoogleDriveImage,
   type GoogleFailureClass,
 } from "./contracts";
 import { readDriveFileImage } from "./google-transport.server";
 import { withGoogleAccessToken, type GoogleAuthorizedCallDeps } from "./google-authorized-call.server";
+import { resolveBoundDriveFileConnection, type PickerBindingRefusal } from "./picker-connection-binding.server";
 
 export type DriveImageRefusal =
   | "no-authorized-tenant-context"
   | "no-document-selected"
-  | "capability-not-available"
-  | "integration-not-found"
-  | "wrong-provider";
+  /** GOOGLE-DRIVE-PICKER-CONNECTION-INTEGRITY-1 — the binding, or its connection or account, failed. */
+  | PickerBindingRefusal;
 
 export type DriveImageResult =
   | { readonly status: "read"; readonly image: GoogleDriveImage; readonly capability: typeof GOOGLE_DRIVE_FILE_CAPABILITY }
@@ -46,16 +48,17 @@ export type DriveImageResult =
 
 export interface DriveImageDeps extends GoogleAuthorizedCallDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
+  readonly nowSeconds?: () => number;
 }
 
 /**
- * Read ONE Drive image for the session's tenant, under the per-file capability BY NAME. The caller
- * chooses the file and nothing else — no capability, no scope, no connection. The capability used is
- * returned so provenance records it from the read, not from a caller.
+ * Read ONE Drive image for the session's tenant, through EXACTLY the connection the Picker session was
+ * bound to. The caller hands back the file id and the binding it received — no capability, scope or
+ * connection of its own. The capability used is returned so provenance records it from the read.
  */
 export async function readDriveImage(
   tenant: TenantContext | null,
-  input: { readonly fileId: string },
+  input: { readonly fileId: string; readonly binding: string },
   deps: DriveImageDeps = {},
 ): Promise<DriveImageResult> {
   if (typeof window !== "undefined") throw new Error("Drive image reads are server-only.");
@@ -66,17 +69,13 @@ export async function readDriveImage(
     return { status: "refused", reason: "no-document-selected" };
   }
 
-  /* THE GATE — before any credential is touched. The view is this tenant's own. */
-  const availability = await getCapabilityAvailability(tenant, { getDb: deps.getDb });
-  const entry = availability.capabilities.find((c) => c.capability === capability);
-  if (!entry || entry.state !== "available") return { status: "refused", reason: "capability-not-available" };
-  const source = entry.sources.find((s) => s.readAvailable);
-  if (!source) return { status: "refused", reason: "integration-not-found" };
-  if (source.providerKey !== GOOGLE_PROVIDER_KEY) return { status: "refused", reason: "wrong-provider" };
+  /* THE GATE — before any credential is touched: the bound connection, and only it. */
+  const bound = await resolveBoundDriveFileConnection(tenant, input.binding, deps);
+  if (bound.status !== "bound") return { status: "refused", reason: bound.reason };
 
   const outcome = await withGoogleAccessToken(
     tenant,
-    source.integrationId,
+    bound.integrationId,
     async (token) => {
       const result = await readDriveFileImage(token, input.fileId, deps);
       if (!result.ok) return result;

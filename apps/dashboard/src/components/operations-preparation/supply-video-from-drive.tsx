@@ -33,6 +33,7 @@ const REFUSAL_WORDING: Record<AdmitSuppliedDriveVideoRefusal, string> = {
   "persistence-unavailable": `The database could not be reached. ${NOTHING_KEPT}`,
   "source-revision-unresolvable": `That content draft revision could not be resolved in your organization. ${NOTHING_KEPT}`,
   "drive-capability-not-available": `Hebun has not been granted access to files you choose in Google Drive. ${NOTHING_KEPT}`,
+  "drive-connection-not-bound": `The Google account you chose the file with is no longer the one connected, or the chooser session expired. Nothing was read through any other account. Open the chooser again. ${NOTHING_KEPT}`,
   "drive-read-failed": `Google Drive did not return the selected file as an MP4 video. ${NOTHING_KEPT}`,
   "byte-size-exceeded": `The video exceeds the 20 MiB limit. ${NOTHING_KEPT}`,
   "storage-write-failed": `The media store did not accept the video. Video storage may not be enabled yet. ${NOTHING_KEPT}`,
@@ -85,6 +86,7 @@ export function SupplyVideoFromDrive({ targets }: { readonly targets: readonly G
         artifactId,
         revisionNo: Number(revisionNo),
         driveFileId: outcome.document.fileId,
+        pickerBinding: session.binding,
       });
       setMessage(
         result.status === "refused"
