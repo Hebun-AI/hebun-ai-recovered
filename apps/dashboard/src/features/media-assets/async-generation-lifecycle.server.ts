@@ -74,6 +74,8 @@ import type {
 } from "./async-generation-transport";
 import { resolveMediaAsyncGenerationTransport } from "./async-generation-transport.server";
 import { resolveMediaDbOrNull } from "./media-db.server";
+import { isExternalGenerativeUseCleared, type RecordedDataUseDecision } from "./external-generative-data-use";
+import { resolveExternalGenerativeEligibility } from "./external-generative-eligibility.server";
 
 export interface AsyncGenerationDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -84,6 +86,8 @@ export interface AsyncGenerationDeps {
   ) => MediaAsyncGenerationTransportResolution | Promise<MediaAsyncGenerationTransportResolution>;
   /** IMAGE → VIDEO: the private Media store the source image is read from (never a URL). */
   readonly resolveStorage?: () => MediaStorageResolution;
+  /** DATA-USE-MEDIA-GUARD-1 — tests only; no application door passes it. */
+  readonly dataUseDecisions?: readonly RecordedDataUseDecision[];
 }
 
 export type AsyncGenerationRefusal =
@@ -102,6 +106,8 @@ export type AsyncGenerationRefusal =
   | "source-asset-retired"
   | "source-asset-unavailable"
   | "storage-unavailable"
+  /* DATA-USE-MEDIA-GUARD-1 — no recorded data-use decision allows this source for this provider. */
+  | "source-data-use-not-cleared"
   /* IMAGE → VIDEO — after registration, before any generation POST. Nothing was generated. */
   | "source-type-unsupported"
   | "source-upload-refused"
@@ -224,6 +230,26 @@ export async function registerAsyncMediaGeneration(
     }
     if (eligible.status === "refused") return refused(eligible.reason);
     sourceDigest = eligible.byteDigest;
+
+    /*
+     * DATA-USE-MEDIA-GUARD-1 — custody is not permission to hand the image to an external model. The
+     * provider is the resolved transport's own; the recorded decision for it, `image-to-video` and the
+     * source's lineage must be `allowed`. Refused here, before any row and before the upload that is
+     * the first byte to leave Hebun. The provider switch being on changes nothing about this.
+     */
+    let dataUse;
+    try {
+      dataUse = await resolveExternalGenerativeEligibility(
+        db,
+        tenant.tenantId,
+        sourceAssetId,
+        { provider: transport.provider, purpose: "image-to-video" },
+        { dataUseDecisions: deps.dataUseDecisions },
+      );
+    } catch {
+      return refused("persistence-unavailable");
+    }
+    if (!isExternalGenerativeUseCleared(dataUse)) return refused("source-data-use-not-cleared");
   }
 
   const authorship = await resolveAgentAuthorship(tenant, { getDb: () => db });

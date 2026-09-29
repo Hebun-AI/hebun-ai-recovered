@@ -27,6 +27,7 @@ import { digestMediaGenerationInput } from "../../src/features/media-assets/inpu
 import type { MediaStorageResolution } from "../../src/features/media-assets/media-object-store";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
+import { SIMULATED_PROVIDER_DATA_USE_DECISIONS } from "../helpers/simulated-data-use";
 import {
   createFakeMediaGenerationTransport,
   createMemoryMediaObjectStore,
@@ -159,6 +160,8 @@ async function main(): Promise<void> {
       now: () => NOW,
       resolveStorage: connected,
       resolveTransport: () => ({ status: "available" as const, transport }),
+      /* DATA-USE-MEDIA-GUARD-1: the simulated provider's test-only decision; the real list has none for it. */
+      dataUseDecisions: SIMULATED_PROVIDER_DATA_USE_DECISIONS,
       ...overrides,
     });
 

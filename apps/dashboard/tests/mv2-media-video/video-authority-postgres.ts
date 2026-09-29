@@ -41,6 +41,7 @@ import type { MediaStorageResolution } from "../../src/features/media-assets/med
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { createFakeMediaGenerationTransport, createMemoryMediaObjectStore } from "../helpers/media-fakes";
+import { SIMULATED_PROVIDER_DATA_USE_DECISIONS } from "../helpers/simulated-data-use";
 
 globalThis.fetch = (() => {
   throw new Error("REAL NETWORK REACHED");
@@ -217,7 +218,8 @@ async function main(): Promise<void> {
       kind: "bytes",
       bytes: new Uint8Array(await sharp({ create: { width: 64, height: 48, channels: 3, background: { r: 180, g: 90, b: 40 } } }).png().toBuffer()),
     });
-    const deps = { getDb, now: () => NOW, resolveStorage, resolveTransport: () => ({ status: "available" as const, transport }) };
+    /* DATA-USE-MEDIA-GUARD-1: the simulated provider's test-only decision; the real list has none for it. */
+    const deps = { getDb, now: () => NOW, resolveStorage, resolveTransport: () => ({ status: "available" as const, transport }), dataUseDecisions: SIMULATED_PROVIDER_DATA_USE_DECISIONS };
 
     /* ══ B. GENERATED IMAGE BEHAVIOUR IS UNCHANGED, AND ITS KIND COMES FROM THE ROW ══ */
     const gen = await requestMediaGeneration(ctx, { artifactId: draft, revisionNo: 1, promptText: "A kilim on the loom.", requestKey: randomUUID() }, deps);

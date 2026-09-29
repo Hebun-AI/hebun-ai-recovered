@@ -49,6 +49,7 @@ import { listArtifactMediaVideos } from "../../src/features/media-assets/read-me
 import { acceptMediaAsset } from "../../src/features/media-asset-review/review-media-asset.server";
 import { selectMediaForRevision } from "../../src/features/content-composition/select-media.server";
 import { readContentPackage } from "../../src/features/content-composition/read-content-package.server";
+import { SIMULATED_PROVIDER_DATA_USE_DECISIONS } from "../helpers/simulated-data-use";
 
 const FFMPEG = process.env.HEBUN_TEST_FFMPEG ?? execFileSync("sh", ["-c", "command -v ffmpeg || true"], { encoding: "utf8" }).trim();
 const FFPROBE = process.env.HEBUN_TEST_FFPROBE ?? execFileSync("sh", ["-c", "command -v ffprobe || true"], { encoding: "utf8" }).trim();
@@ -182,6 +183,8 @@ async function main(): Promise<void> {
       getDb,
       now: () => NOW,
       resolveStorage,
+      /* DATA-USE-MEDIA-GUARD-1: the simulated provider's test-only decision; the real list has none for it. */
+      dataUseDecisions: SIMULATED_PROVIDER_DATA_USE_DECISIONS,
       resolveTransport: (request?: MediaAsyncTransportRequest): MediaAsyncGenerationTransportResolution => {
         asked.push(request);
         if (request?.inputMode === "image") {
@@ -195,7 +198,7 @@ async function main(): Promise<void> {
       requestMediaGeneration(
         t.ctx,
         { artifactId: t.draft, revisionNo: 1, promptText: "Edit it.", requestKey: randomUUID(), sourceAssetId },
-        { getDb, now: () => NOW, resolveStorage, resolveTransport: () => ({ status: "available", transport: imageTransport }) },
+        { getDb, now: () => NOW, resolveStorage, resolveTransport: () => ({ status: "available", transport: imageTransport }), dataUseDecisions: SIMULATED_PROVIDER_DATA_USE_DECISIONS },
       );
     const sameAsMedia5 = async (t: Tenant, id: string, reason: string, label: string) => {
       assert.deepEqual(await media5(t, id), { status: "refused", reason }, `${label}: MEDIA-5 refuses it the same way`);

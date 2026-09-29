@@ -71,6 +71,7 @@ const REFUSAL_WORDING: Record<MediaGenerationRefusal, string> = {
   "source-asset-not-image": `That asset is not an image, and only an image can be used as a reference. ${NOT_DISPATCHED}`,
   "source-asset-unavailable": `The stored bytes of that image could not be read, or no longer match its admitted digest. This is a storage custody problem and should be raised. ${NOT_DISPATCHED}`,
   "reference-edit-unsupported": `The configured image provider cannot edit an existing image. ${NOT_DISPATCHED}`,
+  "source-data-use-not-cleared": `No data-use decision allows sending this image to this provider for editing. Holding an image, reviewing it or selecting it is not that permission. ${NOT_DISPATCHED}`,
 };
 
 const ADMISSION_WORDING: Record<MediaAdmissionRefusal | MediaAdmissionFailure, string> = {

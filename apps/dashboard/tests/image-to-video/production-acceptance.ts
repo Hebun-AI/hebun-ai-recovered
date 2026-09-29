@@ -7,9 +7,9 @@
  * a valid stage stops at its missing target file. The guard lets at most one upload preparation, one
  * PUT and one generation POST leave. With the image control OFF or no credential nothing is
  * registered and nothing is called. A wrong-tenant, non-image or mismatched source reaches no provider
- * at all. An upload failure leaves generation POST = 0. A completed job on an unapproved host stops
- * before any output byte; on the approved host it admits, and the video traces back to its source. No
- * URL reaches the report."
+ * at all. DATA-USE-MEDIA-GUARD-1: with the control ON and a credential present, the synthetic supplied
+ * source is still refused at the data-use gate — no recorded decision covers Higgsfield image-to-video —
+ * so no provider behaviour is ever reached and nothing is registered. No URL reaches the report."
  */
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -24,7 +24,6 @@ import { startLocalVpsStore, type LocalVpsStore } from "../helpers/media-vps-sto
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import {
-  HIGGSFIELD_IMAGE_TO_VIDEO_MODEL,
   HIGGSFIELD_OUTPUT_HOSTS,
   HIGGSFIELD_UPLOAD_PREPARE_URL,
   createHiggsfieldVideoTransport,
@@ -224,57 +223,51 @@ async function main(): Promise<void> {
       assert.equal(await invocations(), 0, "nothing registered");
     }
 
-    /* ── 5. upload preparation or PUT failure → row registered, generation POST 0 ── */
-    for (const [label, opts, reason] of [
-      ["prepare refused", { prepare: { status: 401, body: { detail: "x" } } }, "source-upload-refused"],
-      ["PUT refused", { put: { status: 403 } }, "source-upload-refused"],
+    /*
+     * ── 5. DATA-USE-MEDIA-GUARD-1: the production harness now stops at the data-use gate ──
+     *
+     * No recorded data-use decision covers Higgsfield image-to-video (Director G2: real company/customer
+     * images are not authorized; provenance cannot tell this synthetic supplied PNG from a real photo,
+     * and nothing covers generated sources either). So with the control ON, a credential present and
+     * every provider behaviour — a failing upload, an unapproved output host, the approved one — the
+     * released request refuses before any row and before the first provider byte. The harness has no
+     * seam to pass a decision, and must not. The upload-failure and host-approval mechanics this stage
+     * used to reach stay proven below the gate: `image-to-video/lifecycle-postgres` (simulated
+     * provider, test-only decision) and `image-to-video/transport-contract` (the real transport).
+     */
+    for (const [label, opts] of [
+      ["prepare refused", { prepare: { status: 401, body: { detail: "x" } } }],
+      ["PUT refused", { put: { status: 403 } }],
+      ["completed on an unapproved host", { status: (id: string) => ({ status: 200, body: { status: "completed", request_id: id, video: { url: `https://d9other.cloudfront.net/${OUT_SECRET}/o.mp4` } } }) }],
+      ["completed on the approved host", {}],
     ] as const) {
-      const p = provider(opts);
+      const before = await base.countMediaAssets();
+      const p = provider(opts as Parameters<typeof provider>[0]);
       const r = await runImageToVideoAcceptance({ ...base, sourceAssetId: sourceId, requestKey: randomUUID(), resolveTransport: async () => ({ status: "available", transport: p.transport }) });
-      assert.deepEqual([r.stop, r.detail, r.finalState], ["not-dispatched", reason, "registered"], label);
-      assert.equal(p.guard.counts.generationPosts, 0, `${label}: generation POST 0`);
-      assert.ok(p.guard.counts.uploadPreparations <= 1 && p.guard.counts.uploadPuts <= 1);
+      assert.deepEqual([r.stop, r.detail, r.invocationId], ["not-dispatched", "source-data-use-not-cleared", null], `${label}: stopped at data-use`);
+      assert.deepEqual(p.guard.counts, { uploadPreparations: 0, uploadPuts: 0, generationPosts: 0, providerGets: 0, refused: 0 }, `${label}: no provider call at all`);
+      assert.equal(await invocations(), 0, `${label}: nothing registered`);
+      assert.equal(await base.countMediaAssets(), before, `${label}: nothing admitted`);
+      assert.equal(served.length, 0, `${label}: no output byte fetched`);
+      noUrl(r, label);
     }
 
-    /* ── 5b. a VIDEO as the source → all provider calls 0 ── */
+    /* ── 5b. a VIDEO as the source → all provider calls 0 (custody refuses before data-use) ── */
     {
-      const inv = (await client.query<{ id: string }>(`select id from media_generation_invocations where output_media_kind='video' limit 1`)).rows[0]!.id;
       const videoId = randomUUID();
       await client.query(
-        `insert into media_assets (id, tenant_id, invocation_id, mime_type, byte_size, byte_digest, width, height, storage_backend, storage_key,
-           admitted_at, media_kind, video_container, video_duration_ms, video_codec, video_frame_rate)
-         values ($1,$2,$3,'video/mp4',10,$4,640,360,'hebun-vps',$5, now(),'video','mov,mp4,m4a,3gp,3g2,mj2',2000,'h264','24/1')`,
-        [videoId, t.tenantId, inv, sha(new TextEncoder().encode(videoId)), mediaAssetStorageKey(t.tenantId, videoId)],
+        `insert into media_assets (id, tenant_id, mime_type, byte_size, byte_digest, width, height, storage_backend, storage_key,
+           admitted_at, media_kind, video_container, video_duration_ms, video_codec, video_frame_rate,
+           supplied_by_actor_type, supplied_by_actor_id, supplied_source, supplied_source_file_id, supplied_source_capability,
+           supplied_artifact_id, supplied_revision_no)
+         values ($1,$2,'video/mp4',10,$3,640,360,'hebun-vps',$4, now(),'video','mov,mp4,m4a,3gp,3g2,mj2',2000,'h264','24/1',
+           'human',$5,'google-drive',$6,'google.drive.file.content.read',$7,1)`,
+        [videoId, t.tenantId, sha(new TextEncoder().encode(videoId)), mediaAssetStorageKey(t.tenantId, videoId), t.ctx.userId, `synthetic-video-${videoId.slice(0, 6)}`, t.draft],
       );
       const p = provider();
       const r = await runImageToVideoAcceptance({ ...base, sourceAssetId: videoId, requestKey: randomUUID(), resolveTransport: async () => ({ status: "available", transport: p.transport }) });
       assert.deepEqual([r.stop, r.detail], ["not-dispatched", "source-asset-not-image"]);
       assert.deepEqual(p.guard.counts, { uploadPreparations: 0, uploadPuts: 0, generationPosts: 0, providerGets: 0, refused: 0 }, "a video source reaches no provider");
-    }
-
-    /* ── 6. completed on an UNAPPROVED host → stop before any byte ── */
-    {
-      const before = await base.countMediaAssets();
-      const p = provider({ status: (id) => ({ status: 200, body: { status: "completed", request_id: id, video: { url: `https://d9other.cloudfront.net/${OUT_SECRET}/o.mp4` } } }) });
-      const r = await runImageToVideoAcceptance({ ...base, sourceAssetId: sourceId, requestKey: randomUUID(), resolveTransport: async () => ({ status: "available", transport: p.transport }) });
-      assert.deepEqual([r.stop, r.detail, r.model], ["host-not-approved", "d9other.cloudfront.net", HIGGSFIELD_IMAGE_TO_VIDEO_MODEL]);
-      assert.deepEqual([r.finalState, r.admissionOutcome, r.lineageSourceAssetId], ["provider-succeeded", "not-attempted", sourceId]);
-      assert.equal(served.length, 0, "no output byte fetched");
-      assert.equal(await base.countMediaAssets(), before);
-      assert.deepEqual(p.guard.counts, { uploadPreparations: 1, uploadPuts: 1, generationPosts: 1, providerGets: 2, refused: 0 }, "one of each write; one poll + one re-observation");
-      noUrl(r, "host stop");
-    }
-
-    /* ── 7. completed on the APPROVED exact host → admitted, traced to its source, verified ── */
-    {
-      const p = provider();
-      const r = await runImageToVideoAcceptance({ ...base, sourceAssetId: sourceId, requestKey: randomUUID(), resolveTransport: async () => ({ status: "available", transport: p.transport }) });
-      assert.equal(r.stop, "admitted", JSON.stringify({ ...r, admission: r.admission?.status }));
-      assert.deepEqual([r.finalState, r.admissionOutcome, r.lineageSourceAssetId, r.assetsForInvocation], ["provider-succeeded", "admitted", sourceId, 1]);
-      assert.deepEqual([r.storedVerified, r.storedMajorBrand, r.readModelOrigin, r.readModelInvocationLinked, r.rangeStatus, r.rangeBytes], [true, "isom", "generated", true, 206, 1024]);
-      assert.deepEqual(served, [APPROVED], "exactly one output fetch, from the approved host");
-      assert.deepEqual(p.guard.counts, { uploadPreparations: 1, uploadPuts: 1, generationPosts: 1, providerGets: 3, refused: 0 }, "one of each write; poll + two re-observations");
-      noUrl(r, "admitted");
     }
   } finally {
     await vps?.dispose().catch(() => undefined);

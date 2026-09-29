@@ -180,7 +180,13 @@ export type MediaGenerationRefusal =
   /** The resolved transport does not do reference edits. Refused before registering an invocation. */
   | "reference-edit-unsupported"
   /** MV-2 — the reference is not an image (e.g. a video row). Image generation never takes it. */
-  | "source-asset-not-image";
+  | "source-asset-not-image"
+  /**
+   * DATA-USE-MEDIA-GUARD-1 — Hebun holds the image, but no recorded data-use decision allows sending
+   * it (given its lineage) to this provider for this purpose. Denied and unknown alike. A policy
+   * refusal, never a provider failure: nothing was read for sending and nothing left Hebun.
+   */
+  | "source-data-use-not-cleared";
 
 export type RequestMediaGenerationResult =
   | { readonly status: "refused"; readonly reason: MediaGenerationRefusal }

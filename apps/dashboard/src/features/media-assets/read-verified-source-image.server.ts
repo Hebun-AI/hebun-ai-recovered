@@ -14,9 +14,13 @@
  *   its stored bytes are readable, and their
  *   size AND SHA-256 equal the row               source-asset-unavailable
  *
- * No Governance state is read: custody, and only custody, decides eligibility (the MEDIA-5
+ * No Governance state is read: custody, and only custody, decides CUSTODY eligibility (the MEDIA-5
  * doctrine). No draft binding is required — MEDIA-5 requires none. A supplied image and a generated
- * image are both eligible, as they are for a reference edit.
+ * image are both custody-eligible, as they are for a reference edit.
+ *
+ * CUSTODY IS NOT DATA-USE PERMISSION (DATA-USE-MEDIA-GUARD-1). Whether these bytes may be SENT to an
+ * external generative provider is decided separately, per provider, purpose and lineage, by
+ * `external-generative-eligibility.server.ts` — which the lifecycle consults before any upload.
  *
  * WHAT IT RETURNS, AND WHAT IT NEVER DOES. The verified bytes, their row's MIME, size and digest.
  * It mints no read grant, returns no URL or storage key, writes nothing, and reaches no provider.

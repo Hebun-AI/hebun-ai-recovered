@@ -18,6 +18,9 @@
  *   7a. the transport declares `reference-edit`         reference-edit-unsupported
  *   7b. the asset is THIS tenant's, by id               source-asset-unresolvable
  *   7c. its custody lifecycle is `admitted`             source-asset-retired
+ *   7c'. a recorded data-use decision ALLOWS sending
+ *       this asset's lineage to this provider for a
+ *       reference edit (DATA-USE-MEDIA-GUARD-1)           source-data-use-not-cleared
  *   7d. its bytes are read PRIVATELY from the store
  *       and their size AND SHA-256 equal the row        source-asset-unavailable
  *
@@ -27,7 +30,8 @@
  *
  * GOVERNANCE IS NOT CONSULTED, AND THAT IS THE DESIGN. Approval is a judgement about an image, not a
  * capability grant: accepting may not authorize, so declining may not forbid. An `admitted` asset is
- * eligible whether it is approved, declined or never reviewed. Only the CUSTODY lifecycle gates it.
+ * custody-eligible whether it is approved, declined or never reviewed. Custody and the recorded
+ * data-use decision (7c') gate it; review, selection and approval never do.
  *
  * Storage is checked BEFORE the transport is even resolved: an image that could not be kept must not
  * be generated. A refusal in preflight leaves no row and makes no call.
@@ -100,6 +104,8 @@ import { resolveMediaGenerationTransport } from "./media-generation-transport.se
 import type { MediaStorageResolution } from "./media-object-store";
 import { resolveMediaObjectStore } from "./media-storage.server";
 import { downloadProviderOutput, type ProviderDownloadDeps } from "./provider-output-download.server";
+import { isExternalGenerativeUseCleared, type RecordedDataUseDecision } from "./external-generative-data-use";
+import { resolveExternalGenerativeEligibility } from "./external-generative-eligibility.server";
 
 export interface MediaGenerationDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -107,6 +113,8 @@ export interface MediaGenerationDeps {
   readonly resolveStorage?: () => MediaStorageResolution;
   readonly resolveTransport?: () => MediaGenerationTransportResolution | Promise<MediaGenerationTransportResolution>;
   readonly download?: ProviderDownloadDeps;
+  /** DATA-USE-MEDIA-GUARD-1 — tests only; no application door passes it. */
+  readonly dataUseDecisions?: readonly RecordedDataUseDecision[];
 }
 
 function validUsage(value: MediaProviderUsage | null | undefined): MediaProviderUsage | null {
@@ -238,8 +246,27 @@ export async function requestMediaGeneration(
     if (!asset) return refused("source-asset-unresolvable");
     /* MV-2 — an image edit takes an image. A video row is refused before any row or paid call. */
     if (asset.mediaKind !== "image") return refused("source-asset-not-image");
-    /* Custody, and ONLY custody, decides eligibility. No Governance state is read here at all. */
+    /* Custody decides whether Hebun still holds it. No Governance state is read here at all. */
     if (asset.lifecycle !== "admitted") return refused("source-asset-retired");
+
+    /*
+     * DATA-USE-MEDIA-GUARD-1 — custody is not permission to send the bytes to an external model. The
+     * recorded data-use decision for THIS provider, this purpose and this asset's lineage must be
+     * `allowed`; `denied` and `unknown` refuse here, before the bytes are even read from the store.
+     */
+    let dataUse;
+    try {
+      dataUse = await resolveExternalGenerativeEligibility(
+        db,
+        tenant.tenantId,
+        sourceAssetId,
+        { provider: transport.provider, purpose: "reference-edit" },
+        { dataUseDecisions: deps.dataUseDecisions },
+      );
+    } catch {
+      return refused("persistence-unavailable");
+    }
+    if (!isExternalGenerativeUseCleared(dataUse)) return refused("source-data-use-not-cleared");
 
     /*
      * The key is DERIVED from the tenant and the asset id by the same function that minted it at

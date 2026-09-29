@@ -4340,3 +4340,11 @@ exist is anything that would invoke it.
 - **Kanıtlanamayan token bağlantının lifecycle'ına yazılmaz.** Eski akışta `/me` başarısız olursa bağlantıya failure kaydediliyordu — çünkü token zaten saklanmıştı. Token artık saklanmadan önce kanıtlandığı için başarısızlık bağlantı hakkında hiçbir şey söylemiyor; çalışan bir bound bağlantı, hiç tutmadığı bir token yüzünden bozuk işaretlenmiyor.
 
 **Weekly three.** *Learned:* bir kusurun kardeş provider'daki varlığı çıkarım değil reprodüksiyonla karara bağlanır. *Turkish Rug House:* TRH Instagram bağlantısı yanlışlıkla başka hesapla reconnect edilirse artık bağlı hesabın token'ı yerinde kalır. *Hebun AI:* üç OAuth sağlayıcısından ikisi aynı "tek commit'te kanıtla-sakla-bağla" invariant'ına oturdu.
+
+## DATA-USE-MEDIA-GUARD-1 — custody ≠ harici üretken modele gönderme izni (2026-09-29)
+
+- **Provenance "gerçek mi sentetik mi" sorusunu cevaplamıyor.** IMAGE → VIDEO kabulündeki sentetik PNG `origin=supplied` olarak admit edildi; aynı kolon gerçek TRH ürün fotoğrafını da taşır. "supplied → deny" kuralı politikayı değil tesadüfü kodlardı. Doğru kapı: kapalı karar listesi (provider × purpose × lineage), sadece Director kanıtı olan satır `allowed`, gerisi `unknown` = ret.
+- **Lineage yürünmeden "generated" temiz sayılmaz.** Supplied fotoğraftan reference-edit ile üretilen görsel `generated` görünür; türevi (`jpeg-publish-v1`) de. Kapı `derived_from` ve invocation `source_media_asset_id` üzerinden tenant-predicated yürür; kopuk/döngüsel zincir `unknown`.
+- **UI'da gizlenen kontrol yetki değildir.** MEDIA-5 kartı supplied için reference butonunu zaten gizliyordu; server otoritesi kabul ediyordu. Politika otoritede, UI türetir.
+
+**Weekly three.** *Learned:* operasyonel switch, review, seçim ve paket READY dört ayrı "evet" ama hiçbiri data-use izni değil. *Turkish Rug House:* TRH ürün fotoğrafları intake hacmi artmadan önce Higgsfield'a ve karar verilmemiş OpenAI edit'ine yapısal olarak kapalı. *Hebun AI:* dış üretken işlem artık tek, fail-closed, test edilebilir bir data-use kapısından geçiyor; tenant bazlı izin geldiğinde yeri belli.
