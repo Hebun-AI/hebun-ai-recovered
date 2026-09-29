@@ -142,9 +142,32 @@ async function main(): Promise<void> {
     const draftLine = lines.split("\n").find((l) => l.startsWith(`[content-media/work-artifact/${DRAFT}@2]`)) ?? "";
     assert.match(draftLine, /governed publish path \(YouTube video\): this organization holds the capability now/, `${route}: A · capability on the draft line`);
     assert.match(draftLine, /package ready: yes/, `${route}: F`);
+    assert.match(draftLine, /upload\/posting history of this draft: not carried by this source — unknown here/, `${route}: A · history unknown reaches the model`);
     assert.doesNotMatch(lines, NEGATIVE_FACTS, `${route}: C/D · no negative fact about connection, publish or arming is handed to the model`);
     assert.doesNotMatch(lines, /\barming\b[^.|]*\b(active|withdrawn|armed)\b/i, `${route}: C · no arming state is handed to the model`);
   }
+
+  /*
+   * ── Production turn d53d2004 (09:58Z): "Yayınlanmadı" as a STATUS, and "Hebun records every act,
+   * so a record would exist" — while its own recorded-acts evidence said coverage is PARTIAL and
+   * Hebun does not record every act. Both were model inference; neither was in the grounding.
+   */
+  /* A · the draft line carries the history as unknown, so an empty status field has its true value */
+  for (const d of [capable, readonly, unreadable, notReady]) {
+    assert.match(d, /upload\/posting history of this draft: not carried by this source — unknown here, which is not 'none'/);
+  }
+  assert.doesNotMatch(capable, /\bpublished\b|\buploaded\b(?! before)/i, "the line states no upload outcome either way");
+
+  /* B · labels, headings and status fields are claims too */
+  assert.match(HEBY_MODEL_SYSTEM_INSTRUCTIONS, /every heading, label, status field, summary and conclusion you write/);
+  assert.match(HEBY_MODEL_SYSTEM_INSTRUCTIONS, /is written as unknown or not shown, never as no, not published, not uploaded or not done/);
+
+  /* C · the grounding is a bounded selection; its silence is not Hebun's */
+  assert.match(HEBY_MODEL_SYSTEM_INSTRUCTIONS, /bounded selection of this organization's records, not all of them/);
+  assert.match(HEBY_MODEL_SYSTEM_INSTRUCTIONS, /never say that Hebun has no record of something, that Hebun records everything, or that something would appear here had it happened/);
+
+  /* D · a source that IS complete for its question may still be reported as complete */
+  assert.match(HEBY_MODEL_SYSTEM_INSTRUCTIONS, /unless a source in your context explicitly says it is complete for that question/);
 
   /* ── the real work-artifacts sentence (proved against a database in cgo2) says unknown, not no ── */
   const source = readFileSync(path.join(process.cwd(), "src/features/work-artifacts/work-artifact-evidence.server.ts"), "utf8");

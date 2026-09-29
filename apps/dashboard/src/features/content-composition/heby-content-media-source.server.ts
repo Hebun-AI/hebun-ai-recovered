@@ -148,6 +148,17 @@ type ResolvedItem = SourceResolution["items"][number];
  * also carries generation paths' codes (an image to YouTube has no path) and would misstate it. It
  * names no gate as passed or missing. Other destinations carry no segment: unchanged.
  */
+/*
+ * HEBY-TRUTH-UX-REPAIR-1 — what this source does NOT carry, said on the line itself. Production turn
+ * d53d2004 wrote "Yayınlanmadı" as a status for a draft that had been uploaded: no source correlates
+ * an execution back to a draft, and the model filled the empty status field with "no". This gives
+ * the field its true value. It asserts nothing about the organization — only about this source.
+ */
+function historySegment(destination: string | null): string[] {
+  if (!destination) return [];
+  return ["upload/posting history of this draft: not carried by this source — unknown here, which is not 'none'"];
+}
+
 function publishSegment(destination: string | null, youtubeVideoUpload: PublishCapabilityState): string[] {
   if (destination !== "youtube") return [];
   if (youtubeVideoUpload === "write-capable") {
@@ -377,6 +388,7 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
         `media next step (observed): ${nextStep.state}`,
         `media complete: ${nextStep.mediaComplete ? "yes" : "no"}`,
         ...publishSegment(draft.intendedDestination, youtubeVideoUpload),
+        ...historySegment(draft.intendedDestination),
       ].join(" · "),
       lifecycle: "settled" as const,
       /* Media lines are data for the model's grounding, kept out of Heby's own prose. */
