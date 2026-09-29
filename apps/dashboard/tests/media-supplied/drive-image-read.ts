@@ -272,6 +272,9 @@ async function main(): Promise<void> {
     "src/features/media-assets/admit-supplied-drive-image.server.ts",
     "src/features/provider-google/read-drive-image.server.ts",
     "src/components/operations-preparation/supply-image-from-drive.tsx",
+    /* CONTENT-INTAKE-1: the batch chooser and the batch orchestrator sit on the same least-privilege path. */
+    "src/components/operations-preparation/google-drive-media-picker.client.ts",
+    "src/features/content-intake/admit-supplied-drive-batch.server.ts",
   ]) {
     const c = code(f);
     for (const banned of ["GOOGLE_DRIVE_CONTENT_CAPABILITY", "GOOGLE_DRIVE_CONTENT_SCOPE", "GOOGLE_DRIVE_METADATA", "auth/drive.readonly", "auth/drive.metadata"]) {
@@ -280,7 +283,8 @@ async function main(): Promise<void> {
   }
   assert.ok(code("src/features/provider-google/read-drive-image.server.ts").includes("GOOGLE_DRIVE_FILE_CAPABILITY"), "the image seam names the per-file capability");
   const door = code("src/components/operations-preparation/supply-image-from-drive.tsx");
-  assert.ok(door.includes("openGooglePicker"), "the Media door is Google's chooser");
+  /* CONTENT-INTAKE-1: the door opens Google's chooser with multi-selection (the Knowledge chooser stays single). */
+  assert.ok(door.includes("openGoogleDriveMediaPicker("), "the Media door is Google's chooser");
   assert.ok(!/drive\.google\.com|driveFileIdFrom|drive-file-ref/.test(door), "no pasted Drive link is a Media path any more");
   assert.ok(/accessToken:\s*session\.accessToken/.test(door), "the token goes from the server answer straight into the chooser");
   assert.ok(!/useState[^\n]*accessToken|setAccessToken|localStorage|sessionStorage/.test(door), "the door keeps no token");

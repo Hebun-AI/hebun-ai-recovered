@@ -129,6 +129,15 @@ function loadPickerModule(): Promise<GooglePickerNamespace> {
 }
 
 /**
+ * CONTENT-INTAKE-1 — Google's script and Picker module, loaded once, for the Media batch chooser. It
+ * shares only the LOADING: this module's own chooser below still enables no multi-selection.
+ */
+export async function loadGooglePickerApi(): Promise<unknown> {
+  await loadGoogleApiScript();
+  return loadPickerModule();
+}
+
+/**
  * Open the chooser and resolve with the single document the human selected.
  *
  * `mimeTypes` restricts what the chooser will show at all. It is supplied by the caller from

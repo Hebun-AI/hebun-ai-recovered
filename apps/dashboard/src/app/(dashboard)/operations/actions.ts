@@ -77,8 +77,14 @@ import type {
 import { requestMediaGeneration } from "@/features/media-assets/request-media-generation.server";
 import {
   admitSuppliedDriveImage,
+  type AdmitSuppliedDriveImageRefusal,
   type AdmitSuppliedDriveImageResult,
 } from "@/features/media-assets/admit-supplied-drive-image.server";
+import {
+  admitSuppliedDriveBatch,
+  type AdmitSuppliedDriveBatchInput,
+} from "@/features/content-intake/admit-supplied-drive-batch.server";
+import type { SuppliedDriveBatchResult } from "@/features/content-intake/contracts";
 import {
   authorizeMediaPickerSession,
   type PickerSessionResult,
@@ -86,6 +92,7 @@ import {
 import { GOOGLE_DRIVE_IMAGE_TYPES, GOOGLE_DRIVE_VIDEO_TYPES } from "@/features/provider-google/contracts";
 import {
   admitSuppliedDriveVideo,
+  type AdmitSuppliedDriveVideoRefusal,
   type AdmitSuppliedDriveVideoResult,
 } from "@/features/media-assets/admit-supplied-drive-video.server";
 import type {
@@ -524,6 +531,48 @@ export async function admitSuppliedDriveVideoAction(input: {
   });
   if (result.status === "admitted") revalidatePath("/operations");
   return result;
+}
+
+/*
+ * CONTENT-INTAKE-1 — the files ONE Picker ceremony returned, admitted one by one by the same Media
+ * admission as above. The KIND is this action's, not the browser's: the image door calls the image
+ * batch, the video door the video batch, and a MIME type from the chooser decides nothing. The tenant
+ * and the supplying human come from the trusted session; no field here names a connection or account.
+ * The server bounds the batch before anything is read. Supplying is custody, not approval.
+ */
+export async function admitSuppliedDriveImageBatchAction(input: {
+  artifactId: string;
+  revisionNo: number;
+  driveFileIds: string[];
+  pickerBinding: string;
+}): Promise<SuppliedDriveBatchResult<AdmitSuppliedDriveImageRefusal>> {
+  const result = await admitSuppliedDriveBatch("image", await resolveTenantContext(), batchInput(input));
+  if (result.status === "processed" && result.summary.admitted > 0) revalidatePath("/operations");
+  return result;
+}
+
+export async function admitSuppliedDriveVideoBatchAction(input: {
+  artifactId: string;
+  revisionNo: number;
+  driveFileIds: string[];
+  pickerBinding: string;
+}): Promise<SuppliedDriveBatchResult<AdmitSuppliedDriveVideoRefusal>> {
+  const result = await admitSuppliedDriveBatch("video", await resolveTenantContext(), batchInput(input));
+  if (result.status === "processed" && result.summary.admitted > 0) revalidatePath("/operations");
+  return result;
+}
+
+/** Only the four named fields cross; anything else a caller sends is dropped here. */
+function batchInput(input: unknown): AdmitSuppliedDriveBatchInput | null {
+  if (!input || typeof input !== "object") return null;
+  const i = input as Record<string, unknown>;
+  if (!Array.isArray(i.driveFileIds)) return null;
+  return {
+    artifactId: typeof i.artifactId === "string" ? i.artifactId : "",
+    revisionNo: typeof i.revisionNo === "number" ? i.revisionNo : Number.NaN,
+    driveFileIds: i.driveFileIds as readonly string[],
+    pickerBinding: typeof i.pickerBinding === "string" ? i.pickerBinding : "",
+  };
 }
 
 export async function listRevisionMediaVideosAction(input: {

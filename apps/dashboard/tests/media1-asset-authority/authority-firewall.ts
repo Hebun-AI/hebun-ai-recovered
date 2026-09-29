@@ -136,6 +136,12 @@ const code = (f: string): string => stripComments(read(f));
      * in tests/heby-media-1/content-media-firewall.
      */
     "src/features/content-composition/heby-content-media-source.server.ts",
+    /*
+     * CONTENT-INTAKE-1: batch supply is orchestration over the two released supplied admissions — it
+     * calls them (and the pure refusal mapper) once per file and writes nothing of its own. Its import
+     * list is pinned by name in tests/content-intake-1/batch-firewall.
+     */
+    "src/features/content-intake/admit-supplied-drive-batch.server.ts",
     /* YOUTUBE-WRITE-2: the YouTube upload inlet reads the selected video's Media row (and nothing else). */
     "src/features/heby-action-inlet/youtube-publish-proposal.server.ts",
   ]);

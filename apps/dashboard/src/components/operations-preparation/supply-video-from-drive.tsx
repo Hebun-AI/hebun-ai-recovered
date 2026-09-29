@@ -2,20 +2,22 @@
 
 import { useState, useTransition } from "react";
 import {
-  admitSuppliedDriveVideoAction,
+  admitSuppliedDriveVideoBatchAction,
   authorizeMediaVideoPickerSessionAction,
 } from "@/app/(dashboard)/operations/actions";
-import { openGooglePicker } from "@/components/knowledge-workspace/google-picker.client";
 import { Button } from "@/components/ui/button";
+import { CONTENT_INTAKE_BATCH_LIMITS } from "@/features/content-intake/contracts";
+import { BATCH_REFUSAL_WORDING, DriveBatchOutcome, runDriveBatch, type DriveBatchRun } from "./drive-batch-outcome";
+import { openGoogleDriveMediaPicker } from "./google-drive-media-picker.client";
 import type {
   AdmitSuppliedDriveVideoRefusal,
-  AdmitSuppliedDriveVideoResult,
 } from "@/features/media-assets/admit-supplied-drive-video.server";
 import type { GenerationTarget } from "./generate-image-with-hebun";
 
 /*
  * MV-3 — the human door for a video the organization already has in Google Drive. Same least-privilege
- * model as the image door: ONE file picked in Google's own chooser (per-file `drive.file`), the chooser
+ * model as the image door: files picked in Google's own chooser (per-file `drive.file`; CONTENT-INTAKE-1:
+ * up to the server's video bound in one ceremony, each admitted on its own), the chooser
  * offering only `video/mp4` (the list comes from the server). The access token goes from the server's
  * answer straight into Google's chooser and is never kept in state.
  */
@@ -43,6 +45,10 @@ const REFUSAL_WORDING: Record<AdmitSuppliedDriveVideoRefusal, string> = {
   "asset-retired": "This exact video was already supplied for this revision and has since been retired.",
 };
 
+/** CONTENT-INTAKE-1 — the server's bound for one video batch; the chooser is told the same number. */
+const MAX = CONTENT_INTAKE_BATCH_LIMITS.video.maxFiles;
+const NOUN = { one: "video", many: "videos" } as const;
+
 const FIELD =
   "w-full min-w-0 rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm text-fg-primary " +
   "placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 " +
@@ -53,6 +59,7 @@ export function SupplyVideoFromDrive({ targets }: { readonly targets: readonly G
   const [artifactId, setArtifactId] = useState("");
   const [revisionNo, setRevisionNo] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [run, setRun] = useState<{ readonly outcome: DriveBatchRun; readonly names: ReadonlyMap<string, string> } | null>(null);
   const [pending, startTransition] = useTransition();
 
   const selected = targets.find((t) => t.artifactId === artifactId);
@@ -61,18 +68,20 @@ export function SupplyVideoFromDrive({ targets }: { readonly targets: readonly G
   function chooseAndSupply() {
     if (!ready || pending) return;
     setMessage(null);
+    setRun(null);
     startTransition(async () => {
       const session = await authorizeMediaVideoPickerSessionAction();
       if (session.status !== "authorized") {
         setMessage(session.detail);
         return;
       }
-      const outcome = await openGooglePicker({
+      const outcome = await openGoogleDriveMediaPicker({
         accessToken: session.accessToken,
         apiKey: session.apiKey,
         appId: session.appId,
         mimeTypes: session.mimeTypes,
-        title: "Choose one MP4 video to supply to Hebun",
+        maxItems: MAX,
+        title: `Choose up to ${MAX} MP4 videos to supply to Hebun`,
       });
       if (outcome.status === "cancelled") {
         setMessage("No video was chosen. Nothing was read or stored.");
@@ -82,19 +91,17 @@ export function SupplyVideoFromDrive({ targets }: { readonly targets: readonly G
         setMessage(outcome.detail);
         return;
       }
-      const result: AdmitSuppliedDriveVideoResult = await admitSuppliedDriveVideoAction({
-        artifactId,
-        revisionNo: Number(revisionNo),
-        driveFileId: outcome.document.fileId,
-        pickerBinding: session.binding,
-      });
-      setMessage(
-        result.status === "refused"
-          ? REFUSAL_WORDING[result.reason]
-          : result.status === "admitted"
-            ? "Admitted as a supplied video for this draft. It is not reviewed, selected, approved or published."
-            : "This exact video was already supplied for this revision. No new asset was filed.",
+      const names = new Map(outcome.documents.map((d) => [d.fileId, d.name] as const));
+      const result = await runDriveBatch(
+        outcome.documents.map((d) => d.fileId),
+        (driveFileIds) =>
+          admitSuppliedDriveVideoBatchAction({ artifactId, revisionNo: Number(revisionNo), driveFileIds, pickerBinding: session.binding }),
       );
+      if (result.status === "refused") {
+        setMessage(BATCH_REFUSAL_WORDING[result.reason]);
+        return;
+      }
+      setRun({ outcome: result, names });
     });
   }
 
@@ -150,12 +157,13 @@ export function SupplyVideoFromDrive({ targets }: { readonly targets: readonly G
         </div>
       </div>
       <p className="text-xs text-fg-muted">
-        You choose one MP4 video (H.264, AAC or silent, up to 20 MiB) in Google&apos;s own chooser. Hebun
+        You choose up to {MAX} MP4 videos (H.264, AAC or silent, each up to 20 MiB) in Google&apos;s own chooser, in one go; each is admitted or refused on its own. Hebun
         can open only the file you choose, streams it once to its own store and verifies it there.
       </p>
       <Button size="sm" onClick={chooseAndSupply} disabled={!ready || pending} aria-busy={pending}>
-        {pending ? "Working…" : "Choose video in Google Drive"}
+        {pending ? "Working…" : "Choose videos in Google Drive"}
       </Button>
+      {run ? <DriveBatchOutcome run={run.outcome} names={run.names} refusalWording={REFUSAL_WORDING} noun={NOUN} /> : null}
       {message ? (
         <p role="status" aria-live="polite" className="text-sm text-fg-primary">
           {message}

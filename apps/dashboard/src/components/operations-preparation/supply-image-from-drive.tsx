@@ -2,22 +2,25 @@
 
 import { useState, useTransition } from "react";
 import {
-  admitSuppliedDriveImageAction,
+  admitSuppliedDriveImageBatchAction,
   authorizeMediaPickerSessionAction,
 } from "@/app/(dashboard)/operations/actions";
-import { openGooglePicker } from "@/components/knowledge-workspace/google-picker.client";
 import { Button } from "@/components/ui/button";
+import { CONTENT_INTAKE_BATCH_LIMITS } from "@/features/content-intake/contracts";
+import { BATCH_REFUSAL_WORDING, DriveBatchOutcome, runDriveBatch, type DriveBatchRun } from "./drive-batch-outcome";
+import { openGoogleDriveMediaPicker } from "./google-drive-media-picker.client";
 import type {
   AdmitSuppliedDriveImageRefusal,
-  AdmitSuppliedDriveImageResult,
 } from "@/features/media-assets/admit-supplied-drive-image.server";
 import type { GenerationTarget } from "./generate-image-with-hebun";
 
 /*
  * MEDIA-SUPPLIED — the human door for a photograph the organization already has in Google Drive.
  *
- * Least privilege, the production-accepted way: the human picks ONE image in GOOGLE'S OWN CHOOSER,
- * which is what grants Hebun per-file access (`drive.file`) to exactly that file. There is no pasted
+ * Least privilege, the production-accepted way: the human picks images in GOOGLE'S OWN CHOOSER, which
+ * is what grants Hebun per-file access (`drive.file`) to exactly those files. CONTENT-INTAKE-1: one
+ * ceremony may return up to the server's bound, and each file is admitted by the same per-file Media
+ * admission, with its own truthful outcome. There is no pasted
  * link and no Drive-wide read. The chooser shows only JPEG, PNG and WebP — the list comes from the
  * server, the same list admission enforces.
  *
@@ -54,6 +57,10 @@ const REFUSAL_WORDING: Record<AdmitSuppliedDriveImageRefusal, string> = {
   "asset-retired": "This exact image was already supplied for this revision and has since been retired.",
 };
 
+/** CONTENT-INTAKE-1 — the server's bound for one image batch; the chooser is told the same number. */
+const MAX = CONTENT_INTAKE_BATCH_LIMITS.image.maxFiles;
+const NOUN = { one: "image", many: "images" } as const;
+
 const FIELD =
   "w-full min-w-0 rounded-lg border border-border-subtle bg-surface-1 px-3 py-2 text-sm text-fg-primary " +
   "placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 " +
@@ -64,6 +71,7 @@ export function SupplyImageFromDrive({ targets }: { readonly targets: readonly G
   const [artifactId, setArtifactId] = useState("");
   const [revisionNo, setRevisionNo] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [run, setRun] = useState<{ readonly outcome: DriveBatchRun; readonly names: ReadonlyMap<string, string> } | null>(null);
   const [pending, startTransition] = useTransition();
 
   const selected = targets.find((t) => t.artifactId === artifactId);
@@ -72,18 +80,20 @@ export function SupplyImageFromDrive({ targets }: { readonly targets: readonly G
   function chooseAndSupply() {
     if (!ready || pending) return;
     setMessage(null);
+    setRun(null);
     startTransition(async () => {
       const session = await authorizeMediaPickerSessionAction();
       if (session.status !== "authorized") {
         setMessage(session.detail);
         return;
       }
-      const outcome = await openGooglePicker({
+      const outcome = await openGoogleDriveMediaPicker({
         accessToken: session.accessToken,
         apiKey: session.apiKey,
         appId: session.appId,
         mimeTypes: session.mimeTypes,
-        title: "Choose one image to supply to Hebun",
+        maxItems: MAX,
+        title: `Choose up to ${MAX} images to supply to Hebun`,
       });
       if (outcome.status === "cancelled") {
         setMessage("No image was chosen. Nothing was read or stored.");
@@ -93,19 +103,17 @@ export function SupplyImageFromDrive({ targets }: { readonly targets: readonly G
         setMessage(outcome.detail);
         return;
       }
-      const result: AdmitSuppliedDriveImageResult = await admitSuppliedDriveImageAction({
-        artifactId,
-        revisionNo: Number(revisionNo),
-        driveFileId: outcome.document.fileId,
-        pickerBinding: session.binding,
-      });
-      setMessage(
-        result.status === "refused"
-          ? REFUSAL_WORDING[result.reason]
-          : result.status === "admitted"
-            ? "Admitted as a supplied image for this draft. It is not reviewed, approved or published."
-            : "This exact image was already supplied for this revision. Nothing new was stored.",
+      const names = new Map(outcome.documents.map((d) => [d.fileId, d.name] as const));
+      const result = await runDriveBatch(
+        outcome.documents.map((d) => d.fileId),
+        (driveFileIds) =>
+          admitSuppliedDriveImageBatchAction({ artifactId, revisionNo: Number(revisionNo), driveFileIds, pickerBinding: session.binding }),
       );
+      if (result.status === "refused") {
+        setMessage(BATCH_REFUSAL_WORDING[result.reason]);
+        return;
+      }
+      setRun({ outcome: result, names });
     });
   }
 
@@ -161,12 +169,14 @@ export function SupplyImageFromDrive({ targets }: { readonly targets: readonly G
         </div>
       </div>
       <p className="text-xs text-fg-muted">
-        You choose one JPEG, PNG or WebP image (up to 20 MiB) in Google&apos;s own chooser. Hebun can open
-        only the file you choose, reads it once, verifies it and keeps its own copy.
+        You choose up to {MAX} JPEG, PNG or WebP images (each up to 20 MiB) in Google&apos;s own chooser, in one
+        go. Hebun can open only the files you choose, reads each once, verifies it and keeps its own copy — each
+        image is admitted or refused on its own.
       </p>
       <Button size="sm" onClick={chooseAndSupply} disabled={!ready || pending} aria-busy={pending}>
-        {pending ? "Working…" : "Choose image in Google Drive"}
+        {pending ? "Working…" : "Choose images in Google Drive"}
       </Button>
+      {run ? <DriveBatchOutcome run={run.outcome} names={run.names} refusalWording={REFUSAL_WORDING} noun={NOUN} /> : null}
       {message ? (
         <p role="status" aria-live="polite" className="text-sm text-fg-primary">
           {message}

@@ -264,7 +264,7 @@ export async function OperationsPreparation() {
       {/* MEDIA-SUPPLIED — a photograph the organization already has, admitted from its own Drive. */}
       <details className="min-w-0 rounded-lg border border-border bg-surface">
         <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-fg-secondary">
-          + Add an image from Google Drive
+          + Add images from Google Drive
         </summary>
         <div className="border-t border-border px-3 pb-3 pt-3">
           <SupplyImageFromDrive targets={drafts} />
@@ -298,7 +298,7 @@ export async function OperationsPreparation() {
       {/* MV-3 — a video the organization already has, streamed from its own Drive into Media. */}
       <details className="min-w-0 rounded-lg border border-border bg-surface">
         <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-fg-secondary">
-          + Add a video from Google Drive
+          + Add videos from Google Drive
         </summary>
         <div className="border-t border-border px-3 pb-3 pt-3">
           <SupplyVideoFromDrive targets={drafts} />
