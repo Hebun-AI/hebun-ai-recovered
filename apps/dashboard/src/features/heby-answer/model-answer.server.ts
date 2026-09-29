@@ -370,7 +370,7 @@ export interface HebyModelAnswerDeps {
   /**
    * HEBY-MEDIA-1 — content-draft media resolution for the `content-media` class. Defaults to the
    * shaper over the released Media, review, generation and Content Package readers. Consulted ONLY
-   * for workspaces that declare the class (today: Operations). Evidence only; it writes nothing.
+   * for workspaces that declare the class (today: Operations and Command). Evidence only; it writes nothing.
    */
   readonly resolveContentMedia?: (tenant: TenantContext) => Promise<SourceResolution>;
 }

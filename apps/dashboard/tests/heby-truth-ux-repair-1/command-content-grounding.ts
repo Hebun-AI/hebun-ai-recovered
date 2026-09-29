@@ -166,7 +166,7 @@ async function main(): Promise<void> {
     const deps = answerDeps(TRH, both, [], generated, repo);
     const first = await answerHebyModelRequest({ prompt: "Instagram gözlemimiz ne diyor? Son gönderinin beğenileri?", route: "/heby" }, deps);
     assert.equal(first.status, "answered");
-    const conversationId = first.status === "answered" ? first.persistence.conversationId : undefined;
+    const conversationId = first.status === "answered" && first.persistence.durable ? first.persistence.conversationId : undefined;
     assert.ok(conversationId, "turn 1 persisted");
     const second = await answerHebyModelRequest({ prompt: QUESTION, route: "/heby", conversationId }, deps);
     assert.equal(second.status, "answered");
