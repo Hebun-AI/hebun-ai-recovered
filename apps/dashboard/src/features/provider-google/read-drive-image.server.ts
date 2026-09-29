@@ -42,7 +42,13 @@ export type DriveImageRefusal =
   | PickerBindingRefusal;
 
 export type DriveImageResult =
-  | { readonly status: "read"; readonly image: GoogleDriveImage; readonly capability: typeof GOOGLE_DRIVE_FILE_CAPABILITY }
+  | {
+      readonly status: "read";
+      readonly image: GoogleDriveImage;
+      readonly capability: typeof GOOGLE_DRIVE_FILE_CAPABILITY;
+      /** SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1 — the bound connection the read ACTUALLY ran under. */
+      readonly integrationId: string;
+    }
   | { readonly status: "refused"; readonly reason: DriveImageRefusal }
   | { readonly status: "provider-failed"; readonly failure: GoogleFailureClass; readonly reason: string };
 
@@ -84,5 +90,5 @@ export async function readDriveImage(
     deps,
   );
   if (!outcome.ok) return { status: "provider-failed", failure: outcome.failure, reason: outcome.reason };
-  return { status: "read", image: outcome.value, capability };
+  return { status: "read", image: outcome.value, capability, integrationId: bound.integrationId };
 }

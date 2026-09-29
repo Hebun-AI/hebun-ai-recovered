@@ -98,6 +98,12 @@ export interface SuppliedVideoAsset {
   readonly videoCodec: string;
   readonly audioCodec: string | null;
   readonly frameRate: string;
+  /**
+   * SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1 — the connection the ROW names: the one this read ran under for
+   * a new admission; for `existing`, the one recorded when it was first admitted (NULL = unknown,
+   * admitted before this was recorded).
+   */
+  readonly suppliedSourceIntegrationId: string | null;
   readonly sourceArtifactId: string;
   readonly sourceRevisionNo: number;
   readonly suppliedSourceFileId: string;
@@ -317,6 +323,9 @@ export async function admitSuppliedDriveVideo(
     return relayed.reason === "google-file-too-large" ? refused("byte-size-exceeded") : refused("drive-read-failed", relayed.reason);
   }
   if (relayed.capability !== GOOGLE_DRIVE_FILE_CAPABILITY) return refused("drive-read-failed", "unexpected-capability");
+  /* Provenance names the connection the relay ACTUALLY ran under — never a caller's. */
+  if (!isUuid(relayed.integrationId)) return refused("drive-read-failed", "unexpected-connection");
+  const sourceIntegrationId = relayed.integrationId.toLowerCase();
   const outcome = relayed.value;
   if (outcome.status === "overrun") return refused("byte-size-exceeded");
   if (outcome.status === "store-refused") {
@@ -351,6 +360,7 @@ export async function admitSuppliedDriveVideo(
         suppliedSource: SUPPLIED_MEDIA_SOURCE,
         suppliedSourceFileId: driveFileId,
         suppliedSourceCapability: GOOGLE_DRIVE_FILE_CAPABILITY,
+        suppliedSourceIntegrationId: sourceIntegrationId,
         suppliedArtifactId: artifactId,
         suppliedRevisionNo: revisionNo,
         mediaKind: "video",
@@ -374,7 +384,12 @@ export async function admitSuppliedDriveVideo(
     /* A conflict means this exact supply already exists under ITS id; the new object stays unrowed. */
     const row = (
       await db
-        .select({ id: mediaAssets.id, lifecycle: mediaAssets.assetLifecycleStatus, kind: mediaAssets.mediaKind })
+        .select({
+          id: mediaAssets.id,
+          lifecycle: mediaAssets.assetLifecycleStatus,
+          kind: mediaAssets.mediaKind,
+          suppliedSourceIntegrationId: mediaAssets.suppliedSourceIntegrationId,
+        })
         .from(mediaAssets)
         .where(
           and(
@@ -404,6 +419,7 @@ export async function admitSuppliedDriveVideo(
         videoCodec: v.videoCodec,
         audioCodec: v.audioCodec,
         frameRate: v.frameRate,
+        suppliedSourceIntegrationId: row.suppliedSourceIntegrationId,
         sourceArtifactId: artifactId,
         sourceRevisionNo: revisionNo,
         suppliedSourceFileId: driveFileId,

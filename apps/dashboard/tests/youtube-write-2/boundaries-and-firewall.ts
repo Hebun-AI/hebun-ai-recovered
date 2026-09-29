@@ -86,9 +86,10 @@ for (const f of files) {
 /* 7 · Exactly the approved schema change: migration 68 widens one CHECK and nothing else. */
 {
   const sqlFiles = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).sort();
-  assert.equal(sqlFiles.length, 68, "ledger 68");
-  const last = sqlFiles.at(-1)!;
-  assert.match(last, /youtube_write2_recipientless_kind\.sql$/);
+  assert.equal(sqlFiles.length, 69, "ledger 69"); /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ 
+  /* Found by name, not "the newest file" — SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1 holds the newest line now. */
+  const last = sqlFiles.find((f) => /youtube_write2_recipientless_kind\.sql$/.test(f))!;
+  assert.equal(sqlFiles.indexOf(last), 67, "migration 68 is YOUTUBE-WRITE-2's");
   const sql = read(path.join(MIGRATIONS, last));
   const statements = sql.split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
   assert.equal(statements.length, 2, "drop + re-add, nothing more");

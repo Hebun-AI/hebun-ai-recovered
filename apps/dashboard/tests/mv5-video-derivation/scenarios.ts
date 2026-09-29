@@ -25,6 +25,7 @@ import { seedTenant, type Tenant } from "../mv4-async-generation/scenarios";
 import { requestMediaGeneration } from "../../src/features/media-assets/request-media-generation.server";
 import { createFakeMediaGenerationTransport } from "../helpers/media-fakes";
 import sharp from "sharp";
+import { insertGoogleWorkspaceConnectionRow } from "../helpers/google-workspace-connection-row";
 
 type WriterModule = typeof Writer;
 const sha = (b: Uint8Array): string => createHash("sha256").update(b).digest("hex");
@@ -74,11 +75,16 @@ function lyingDerive(edit: (body: Record<string, unknown>) => void): typeof fetc
   }) as typeof fetch;
 }
 
+/* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: one real connection per tenant for the faked relay to name. */
+const connectionOf = new Map<string, Promise<string>>();
 async function admitVideo(env: Env, t: Tenant, bytes: Uint8Array): Promise<string> {
+  if (!connectionOf.has(t.tenantId)) connectionOf.set(t.tenantId, insertGoogleWorkspaceConnectionRow(env.client, t.tenantId));
+  const integrationId = await connectionOf.get(t.tenantId)!;
   const relay = async <T,>(_t: unknown, i: { fileId: string }, consume: (b: ReadableStream<Uint8Array>, m: never) => Promise<T>) => ({
     status: "relayed" as const,
     value: await consume(new Blob([bytes as Uint8Array<ArrayBuffer>]).stream(), { fileId: i.fileId, name: "clip.mp4", providerMimeType: "video/mp4", declaredSize: bytes.byteLength } as never),
     capability: "google.drive.file.content.read" as const,
+    integrationId,
   });
   const r = await admitSuppliedDriveVideo(t.ctx, { artifactId: t.draft, revisionNo: 1, driveFileId: `1Clip${randomUUID().replace(/-/g, "")}`, pickerBinding: "test-picker-binding" }, {
     getDb: env.getDb,

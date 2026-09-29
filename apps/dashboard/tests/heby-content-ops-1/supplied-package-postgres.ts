@@ -51,6 +51,7 @@ import { evaluateMediaChoice } from "../../src/features/content-composition/medi
 import { acceptArtifactRevision } from "../../src/features/work-artifact-review/review-revision.server";
 import { proposeYouTubePublish } from "../../src/features/heby-action-inlet/youtube-publish-proposal.server";
 import { verifyYouTubePackageBinding } from "../../src/features/youtube-publishing/resolve-youtube-publish.server";
+import { insertGoogleWorkspaceConnectionRow } from "../helpers/google-workspace-connection-row";
 
 const NOW = new Date("2026-09-28T20:00:00.000Z");
 const REASON = "Judged fit for the next internal step of this draft.";
@@ -115,9 +116,11 @@ async function main(): Promise<void> {
 
     /* ══ ADMISSION (released MEDIA-SUPPLIED writer; Drive read injected) ══ */
     const jpeg = new Uint8Array(await sharp({ create: { width: 40, height: 30, channels: 3, background: { r: 150, g: 40, b: 60 } } }).jpeg().toBuffer());
+    const sourceConnection = await insertGoogleWorkspaceConnectionRow(client, a.tenantId);
     const readImage = async (_t: TenantContext, input: { fileId: string }): Promise<DriveImageResult> => ({
       status: "read",
       capability: "google.drive.file.content.read",
+      integrationId: sourceConnection,
       image: { fileId: input.fileId, name: "kilim.jpg", providerMimeType: "image/jpeg", bytes: jpeg, byteLength: jpeg.byteLength },
     });
     const admitted = await admitSuppliedDriveImage(a.ctx, { artifactId: a.draft, revisionNo: 1, driveFileId: DRIVE_IMAGE, pickerBinding: "test-picker-binding" }, { getDb, now: () => NOW, resolveStorage, readImage });

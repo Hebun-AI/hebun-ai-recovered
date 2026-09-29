@@ -41,6 +41,7 @@ import { acceptMediaAsset } from "../../src/features/media-asset-review/review-m
 import type { DriveVideoResult } from "../../src/features/provider-google/relay-drive-video.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
+import { insertGoogleWorkspaceConnectionRow } from "../helpers/google-workspace-connection-row";
 
 const sha = (b: Uint8Array | string): string => createHash("sha256").update(b).digest("hex");
 const DRIVE_ID = "1VideoFileIdAbCdEfGhIjKlMnOp0123";
@@ -222,11 +223,13 @@ async function main(): Promise<void> {
         if (u.includes("alt=media")) return new Response(chunked(bytes), { status: 200 });
         return Response.json({ id: DRIVE_ID, name: "clip.mp4", mimeType: meta.mimeType ?? "video/mp4", size: meta.size ?? String(bytes.byteLength), trashed: false });
       }) as typeof fetch;
+    /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: the connection the faked relay ran under — a real acme row. */
+    const sourceConnection = await insertGoogleWorkspaceConnectionRow(setup, acme.tenantId);
     const relayWith =
       (bytes: Uint8Array, meta: { mimeType?: string; size?: string } = {}) =>
       async <T,>(_t: TenantContext, i: { fileId: string }, consume: (b: ReadableStream<Uint8Array>, m: never) => Promise<T>): Promise<DriveVideoResult<T>> => {
         const r = await relayDriveFileVideo(TOKEN, i.fileId, consume as never, { fetchImpl: driveServes(bytes, meta) });
-        return r.ok ? { status: "relayed", value: r.value as T, capability: "google.drive.file.content.read" } : { status: "provider-failed", failure: r.failure, reason: r.reason };
+        return r.ok ? { status: "relayed", value: r.value as T, capability: "google.drive.file.content.read", integrationId: sourceConnection } : { status: "provider-failed", failure: r.failure, reason: r.reason };
       };
     const deps = (bytes: Uint8Array, over: Partial<AdmitSuppliedDriveVideoDeps> = {}, meta = {}): AdmitSuppliedDriveVideoDeps => ({
       getDb,
@@ -318,6 +321,7 @@ async function main(): Promise<void> {
       status: "relayed",
       value: await consume(chunked(clip, 64 * 1024, pulls), { fileId: DRIVE_ID, name: "a.mp4", providerMimeType: "video/mp4", declaredSize: null } as never),
       capability: "google.drive.file.content.read",
+      integrationId: sourceConnection,
     });
     const ok = await admitSuppliedDriveVideo(ctx, input, deps(clip, { relayVideo: streamingRelay as never }));
     assert.equal(ok.status, "admitted", JSON.stringify(ok));

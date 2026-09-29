@@ -4355,3 +4355,11 @@ exist is anything that would invoke it.
 - **Fake DB'ler yeni okuma şeklini bilmeyince bite-proof yanlış sebeple kırılır.** `readConnection` `.where().limit()` kullanıyor; fake yalnız `.orderBy().limit()` biliyordu. Invariant assert'i (bağlantı okuma sayısı) sebep assert'inden önce gelmeli.
 
 **Weekly three.** *Learned:* aynı tenant + aynı provider + aynı capability yine de farklı kimlik olabilir. *Turkish Rug House:* TRH'ye ikinci bir Google hesabı bağlansa da seçilen fotoğraf seçildiği hesaptan okunur. *Hebun AI:* batch supply için tek Picker bağlamı = tek bağlantı sözleşmesi hazır; kalıcı hesap provenance'ı ayrı schema kararı.
+
+## SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1 — asset hesabı kopyalamaz, bağlantıya referans verir (2026-09-29)
+
+- **Snapshot değil referans, çünkü hesap zaten write-once.** `integrations.external_account_id`'nin tek yazarı değişikliği reddediyor, reconnect yeni satır, silme yolu yok, revoked satır hesabını tutuyor. Media'ya tek kolon (`supplied_source_integration_id`, composite FK restrict) yetti; hesap ikinci kopya olmadan join ile okunuyor. Emsal: TRH-21 `provider_observations`.
+- **NULL'a karşı CHECK'te `=` değil `is not distinct from`.** `supplied_source = 'google-drive'` generated satırda NULL döner ve CHECK NULL'da GEÇER — generated asset'e bağlantı yazılabilirdi. Odaklı test yakaladı.
+- **Drizzle insert tüm schema kolonlarını listeler.** Yeni kolonlu kod prod'a migration'dan önce giderse HER media_assets insert'i kırılır: migration ceremony push'tan önce.
+
+**Weekly three.** *Learned:* tarihsel provenance, otoritenin write-once garantisi varsa kopya değil referans ister. *Turkish Rug House:* her TRH fotoğrafı hangi Google hesabından geldiğini kalıcı olarak söyleyecek. *Hebun AI:* batch intake'in denetim izi hazır; migration-önce-deploy sırası bir kural.

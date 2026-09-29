@@ -40,6 +40,7 @@ import { formatWorkArtifactRef } from "../../src/features/work-artifacts/artifac
 import type { DriveImageResult } from "../../src/features/provider-google/read-drive-image.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
+import { insertGoogleWorkspaceConnectionRow } from "../helpers/google-workspace-connection-row";
 
 let networkCalls = 0;
 globalThis.fetch = (() => {
@@ -102,6 +103,9 @@ async function cameraJpeg(width: number, height: number, tint = 120): Promise<Ui
   );
 }
 
+/* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: the acme connection every faked read ran under (set after seeding). */
+let SOURCE_CONNECTION = "";
+
 function driveReturns(bytes: Uint8Array, providerMimeType = "image/jpeg", fileId = DRIVE_ID) {
   const calls: { fileId: string }[] = [];
   const readImage = async (_t: TenantContext, input: { fileId: string }): Promise<DriveImageResult> => {
@@ -109,6 +113,7 @@ function driveReturns(bytes: Uint8Array, providerMimeType = "image/jpeg", fileId
     return {
       status: "read",
       capability: "google.drive.file.content.read",
+      integrationId: SOURCE_CONNECTION,
       image: { fileId, name: "kilim.jpg", providerMimeType, bytes, byteLength: bytes.byteLength },
     };
   };
@@ -129,6 +134,7 @@ async function main(): Promise<void> {
   try {
     const acme = (await seedLocalIdentity(setup, { companyName: "Acme", companySlug: "acme-ms", email: "d@acme.test" })) as Seeded;
     const globex = (await seedLocalIdentity(setup, { companyName: "Globex", companySlug: "globex-ms", email: "d@globex.test" })) as Seeded;
+    SOURCE_CONNECTION = await insertGoogleWorkspaceConnectionRow(setup, acme.tenantId);
     const acmeCtx = contextFor(acme, await sessionRowFor(setup, acme, "a"));
     const globexCtx = contextFor(globex, await sessionRowFor(setup, globex, "b"));
     for (const [s, ctx] of [[acme, acmeCtx], [globex, globexCtx]] as const) {
@@ -296,6 +302,7 @@ async function main(): Promise<void> {
         readImage: async () => ({
           status: "read",
           capability: "google.drive.content.read" as never,
+          integrationId: SOURCE_CONNECTION,
           image: { fileId: "wideGrantFile01", name: "x.jpg", providerMimeType: "image/jpeg", bytes: photo, byteLength: photo.byteLength },
         }),
       },

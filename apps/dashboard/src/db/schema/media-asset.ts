@@ -80,6 +80,7 @@ import {
 import { actorTypeEnum } from "./_enums";
 import { agents } from "./agent";
 import { companies } from "./company";
+import { integrations } from "./integration";
 import { workArtifactRevisions } from "./work-artifact";
 
 /*
@@ -447,6 +448,29 @@ export const mediaAssets = pgTable(
     suppliedArtifactId: uuid("supplied_artifact_id"),
     suppliedRevisionNo: integer("supplied_revision_no"),
 
+    /*
+     * ── SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: THROUGH WHICH CONNECTION ────────────
+     *
+     * The tenant's own `integrations` row whose credential the Drive read ACTUALLY ran under — the
+     * connection the Picker session was bound to and the read re-verified (GOOGLE-DRIVE-PICKER-
+     * CONNECTION-INTEGRITY-1). Written once, at admission, by the supplied admission authority from the
+     * read's own result; never from a caller.
+     *
+     * A REFERENCE, NOT A COPY. Which Google account that connection is lives on the connection, where
+     * the Integration authority keeps it write-once: its only writer refuses an account change, a
+     * reconnect creates a NEW row, no path deletes a row, and a terminal row keeps its account. So
+     * "which account supplied this asset" is answered by following this reference, and Media holds
+     * no second copy of an identity it does not own. The composite FK makes another tenant's
+     * connection unrepresentable and `restrict` keeps the connection row for as long as the asset
+     * names it — the TRH-21 precedent (`provider_observations`).
+     *
+     * NULL means UNKNOWN: every supplied row admitted before this column existed. It never means
+     * "no account". A generated or derived row has no Drive source and is CHECKed to NULL.
+     *
+     * This names a connection; it grants nothing and is not authority over the connection today.
+     */
+    suppliedSourceIntegrationId: uuid("supplied_source_integration_id"),
+
     /** Detected from magic bytes by Hebun — never taken from the provider. */
     mimeType: text("mime_type").notNull(),
     byteSize: integer("byte_size").notNull(),
@@ -540,6 +564,15 @@ export const mediaAssets = pgTable(
      * Idempotent supply: the same bytes from the same Drive file for the same revision are ONE asset.
      * NULLs are distinct, so generated and derived rows are untouched.
      */
+    /*
+     * SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1 — the connection is THIS tenant's, structurally. MATCH SIMPLE
+     * lets a NULL (historical supplied, generated, derived) pass.
+     */
+    foreignKey({
+      name: "media_assets_supplied_source_integration_fk",
+      columns: [t.suppliedSourceIntegrationId, t.tenantId],
+      foreignColumns: [integrations.id, integrations.tenantId],
+    }).onDelete("restrict"),
     uniqueIndex("media_assets_supplied_uq").on(
       t.tenantId,
       t.suppliedArtifactId,
@@ -564,6 +597,17 @@ export const mediaAssets = pgTable(
     check(
       "media_assets_supplied_capability_chk",
       sql`${t.suppliedSourceCapability} is null or ${t.suppliedSourceCapability} in ('google.drive.content.read','google.drive.file.content.read')`,
+    ),
+    /*
+     * SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1 — only a supplied Drive row read under the per-file capability
+     * (the Picker-bound path) can name a source connection. Nothing else about origin changes.
+     */
+    check(
+      "media_assets_supplied_source_integration_chk",
+      /* `is not distinct from`, not `=`: a NULL source must FAIL this check, not slip through as unknown. */
+      sql`${t.suppliedSourceIntegrationId} is null
+        or (${t.suppliedSource} is not distinct from 'google-drive'
+          and ${t.suppliedSourceCapability} is not distinct from 'google.drive.file.content.read')`,
     ),
     check(
       "media_assets_supplied_revision_no_chk",

@@ -28,7 +28,13 @@ import type { DriveImageRefusal } from "./read-drive-image.server";
 import { resolveBoundDriveFileConnection } from "./picker-connection-binding.server";
 
 export type DriveVideoResult<T> =
-  | { readonly status: "relayed"; readonly value: T; readonly capability: typeof GOOGLE_DRIVE_FILE_CAPABILITY }
+  | {
+      readonly status: "relayed";
+      readonly value: T;
+      readonly capability: typeof GOOGLE_DRIVE_FILE_CAPABILITY;
+      /** SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1 — the bound connection the relay ACTUALLY ran under. */
+      readonly integrationId: string;
+    }
   | { readonly status: "refused"; readonly reason: DriveImageRefusal }
   | { readonly status: "provider-failed"; readonly failure: GoogleFailureClass; readonly reason: string };
 
@@ -67,5 +73,5 @@ export async function relayDriveVideo<T>(
     deps,
   );
   if (!outcome.ok) return { status: "provider-failed", failure: outcome.failure, reason: outcome.reason };
-  return { status: "relayed", value: outcome.value, capability };
+  return { status: "relayed", value: outcome.value, capability, integrationId: bound.integrationId };
 }

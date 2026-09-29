@@ -273,12 +273,13 @@ async function main(): Promise<void> {
   {
     const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql"));
     /* This repair added none. YOUTUBE-WRITE-2's approved migration 68 widens one CHECK (pinned in its own tests). */
-    assert.equal(migrations.length, 68, "ledger 68 since YOUTUBE-WRITE-2");
+    /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ 
+    assert.equal(migrations.length, 69, "ledger 69 since SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1");
     const touched = execSync("git diff --name-only 4059a176 -- src/db", { cwd: ROOT, encoding: "utf8" })
       .trim()
       .split("\n")
       .filter(Boolean)
-      .filter((f) => !/youtube_write2_recipientless_kind|20260928084834_snapshot|_journal\.json|schema\/action-execution\.ts$/.test(f));
+      .filter((f) => !/youtube_write2_recipientless_kind|20260928084834_snapshot|supplied_media_account_provenance|20260929134334_snapshot|_journal\.json|schema\/action-execution\.ts$|schema\/media-asset\.ts$/.test(f));
     assert.deepEqual(touched, [], "no other src/db file changed");
   }
 

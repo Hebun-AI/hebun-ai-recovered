@@ -110,6 +110,12 @@ export interface SuppliedMediaAsset {
   readonly suppliedSource: typeof SUPPLIED_MEDIA_SOURCE;
   readonly suppliedSourceFileId: string;
   readonly suppliedSourceCapability: typeof GOOGLE_DRIVE_FILE_CAPABILITY;
+  /**
+   * SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1 — the connection the ROW names: the one this read ran under for
+   * a new admission; for `existing`, the one recorded when it was first admitted (NULL = unknown,
+   * admitted before this was recorded).
+   */
+  readonly suppliedSourceIntegrationId: string | null;
 }
 
 export type AdmitSuppliedDriveImageResult =
@@ -234,6 +240,9 @@ export async function admitSuppliedDriveImage(
   /* Provenance names the capability the read ACTUALLY ran under — and only the per-file one is accepted. */
   if (read.capability !== GOOGLE_DRIVE_FILE_CAPABILITY) return refused("drive-read-failed", "unexpected-capability");
   const capability = GOOGLE_DRIVE_FILE_CAPABILITY;
+  /* Provenance names the connection the read ACTUALLY ran under — never a caller's. */
+  if (!isUuid(read.integrationId)) return refused("drive-read-failed", "unexpected-connection");
+  const sourceIntegrationId = read.integrationId.toLowerCase();
   const bytes = read.image.bytes;
 
   /* ── 7. EVERY FACT FROM THE BYTES. Drive's type is a claim that must agree, never a source. ── */
@@ -276,6 +285,7 @@ export async function admitSuppliedDriveImage(
         suppliedSource: SUPPLIED_MEDIA_SOURCE,
         suppliedSourceFileId: driveFileId,
         suppliedSourceCapability: capability,
+        suppliedSourceIntegrationId: sourceIntegrationId,
         suppliedArtifactId: artifactId,
         suppliedRevisionNo: revisionNo,
         mimeType: image.mimeType,
@@ -301,6 +311,7 @@ export async function admitSuppliedDriveImage(
           suppliedArtifactId: mediaAssets.suppliedArtifactId,
           suppliedRevisionNo: mediaAssets.suppliedRevisionNo,
           suppliedSourceFileId: mediaAssets.suppliedSourceFileId,
+          suppliedSourceIntegrationId: mediaAssets.suppliedSourceIntegrationId,
         })
         .from(mediaAssets)
         .where(and(eq(mediaAssets.tenantId, tenantId), eq(mediaAssets.id, assetId)))
@@ -331,6 +342,7 @@ export async function admitSuppliedDriveImage(
         suppliedSource: SUPPLIED_MEDIA_SOURCE,
         suppliedSourceFileId: driveFileId,
         suppliedSourceCapability: capability,
+        suppliedSourceIntegrationId: row.suppliedSourceIntegrationId,
       },
     };
   } catch {

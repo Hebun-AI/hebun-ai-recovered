@@ -66,7 +66,7 @@ function walk(dir: string): string[] {
 
 async function migrationProof(): Promise<void> {
   const journal = JSON.parse(readFileSync(path.join(MIGRATIONS_DIR, "meta", "_journal.json"), "utf8")) as { entries: { tag: string }[] };
-  assert.equal(journal.entries.length, 68, "MV-4 authored exactly one migration: 64 -> 65"); /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66. */
+  assert.equal(journal.entries.length, 69, "MV-4 authored exactly one migration: 64 -> 65"); /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66. */
   assert.equal(journal.entries[64]!.tag, MV4_TAG, "and it is the 65th");
   const sql = readFileSync(path.join(MIGRATIONS_DIR, `${MV4_TAG}.sql`), "utf8");
   assert.ok(!/\b(update|delete|drop\s+table|drop\s+column|truncate|create\s+table|trigger)\b/i.test(sql), "no data rewrite, no dropped column, no table, no trigger");

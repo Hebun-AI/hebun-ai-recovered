@@ -218,7 +218,7 @@ async function main(): Promise<void> {
   }
 
   /* O · WRITE-1 added no schema; YOUTUBE-WRITE-2's approved migration 68 is pinned in its own tests */
-  assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 68, "ledger 68 since YOUTUBE-WRITE-2");
+  assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 69, "ledger 69 since SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1"); /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ 
   for (const f of walk("src/db/schema")) assert.doesNotMatch(read(f), /youtube_channel|channel_binding|publish_channel/i);
 
   /* P · provider failure fails closed and is classified */
