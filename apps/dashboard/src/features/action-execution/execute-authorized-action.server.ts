@@ -72,6 +72,11 @@ import {
   asPublishInstagramMediaPayload,
   type PublishInstagramMediaPayload,
 } from "@/features/instagram-publishing/contracts";
+import {
+  verifyInstagramPackageReadiness,
+  type InstagramPackageFailure,
+  type InstagramPackageVerdict,
+} from "@/features/instagram-publishing/verify-instagram-package.server";
 import type { MediaStorageResolution } from "@/features/media-assets/media-object-store";
 import { resolveMediaObjectStore } from "@/features/media-assets/media-storage.server";
 import { selectMediaAssetRecord } from "@/features/media-assets/read-media-assets.server";
@@ -827,6 +832,35 @@ function publishLineageOf(payload: PublishInstagramMediaPayload): PublishLineage
   };
 }
 
+/** INSTAGRAM-PACKAGE-READINESS-1 — the verifier, for exactly the original the payload froze. */
+function instagramPackageVerdictFor(
+  db: ControlPlaneDatabase,
+  tenant: TenantContext,
+  payload: PublishInstagramMediaPayload,
+): Promise<InstagramPackageVerdict> {
+  const ref = parseWorkArtifactRef(payload.draftRef);
+  if (!ref) return Promise.resolve({ ok: false, failure: "package-unresolvable" });
+  return verifyInstagramPackageReadiness(
+    tenant,
+    { artifactId: ref.artifactId, revisionNo: ref.revisionNo, mediaAssetId: payload.mediaAssetRef },
+    { getDb: () => db },
+  );
+}
+
+/** Pre-flight: nothing spent, the permit stays active. */
+function instagramPackagePreflightReason(failure: InstagramPackageFailure): ExecutionPreflightRefusal {
+  if (failure === "persistence-unavailable") return "persistence-unavailable";
+  if (failure === "package-unresolvable") return "artifact-unresolvable";
+  return "content-package-not-ready";
+}
+
+/** After spend: the ledger's closed failure enum carries no readiness class, so "no longer authorized" is a digest mismatch (YouTube's precedent). */
+function instagramPackageFailureClass(failure: InstagramPackageFailure): ExecutionFailureClass {
+  if (failure === "persistence-unavailable") return "internal-persistence-failure";
+  if (failure === "package-unresolvable") return "artifact-unresolvable";
+  return "digest-mismatch";
+}
+
 function publishPreflightReasonFor(failure: ExecutionFailureClass): ExecutionPreflightRefusal {
   switch (failure) {
     case "artifact-retired":
@@ -878,6 +912,10 @@ async function executeInstagramPublish(
   /* ── PRE-FLIGHT. Nothing is spent by any refusal here. ── */
   const preflight = await resolvePublishTarget(db, tenantId, payload, deps);
   if ("failure" in preflight) return refused(publishPreflightReasonFor(preflight.failure));
+
+  /* INSTAGRAM-PACKAGE-READINESS-1 — the CURRENT package must still authorize this image. */
+  const pkg = await instagramPackageVerdictFor(db, tenant, payload);
+  if (!pkg.ok) return refused(instagramPackagePreflightReason(pkg.failure));
 
   /* Capability is a PREREQUISITE (and Meta's identity answer), never an authorization. */
   const capability = await (ports.resolveCapability ?? ((t) => resolveInstagramPublishCapability(t, { env: deps.env })))(tenant);
@@ -1017,6 +1055,13 @@ async function executeInstagramPublish(
   /* ── THE KILL SWITCH AND THE ARMING, AGAIN, IMMEDIATELY BEFORE THE CALL. ── */
   const reachAgain = await resolveExternalSendReachability(tenantId, deps);
   if (reachAgain.status === "refused") return refuseAfterSpend("execution-disabled");
+
+  /*
+   * ── INSTAGRAM-PACKAGE-READINESS-1 — the package, AGAIN, after the spend and before Meta. A package
+   * that stopped authorizing this image closes the attempt `refused`; the spent permit stays spent.
+   */
+  const pkgAgain = await instagramPackageVerdictFor(db, tenant, payload);
+  if (!pkgAgain.ok) return refuseAfterSpend(instagramPackageFailureClass(pkgAgain.failure));
 
   /*
    * ── THE IMAGE GRANT. The media authority re-verifies the lineage AND both stored objects, then

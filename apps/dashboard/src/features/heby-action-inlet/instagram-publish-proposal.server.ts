@@ -8,7 +8,8 @@
  * tenant — never from input. Nothing here reaches a provider, opens a credential, approves, mints or
  * executes. The result is a pending request on `/approvals`, and nothing more.
  *
- *   caller refs → exact resolution → prepareAction → recordActionRequest → human review
+ *   caller refs → exact resolution → Content Package readiness → derivative → prepareAction
+ *     → recordActionRequest → human review
  *
  * PREPARED IS NOT AUTHORIZED. A filed proposal is a question to a human.
  *
@@ -20,6 +21,10 @@ import { recordActionRequest } from "@/features/action-authorization/record-acti
 import { prepareAction } from "@/features/heby-actions/action-preparer";
 import type { HebyEvidenceReference } from "@/features/heby-integration";
 import { PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND } from "@/features/instagram-publishing/contracts";
+import {
+  verifyInstagramPackageReadiness,
+  type InstagramPackageDeps,
+} from "@/features/instagram-publishing/verify-instagram-package.server";
 import {
   derivePublishJpeg,
   type DerivePublishJpegRefusal,
@@ -57,6 +62,10 @@ export type InstagramPublishProposalRefusal =
   | "media-retired"
   | "media-not-of-this-draft"
   | "media-not-publishable"
+  /* INSTAGRAM-PACKAGE-READINESS-1 — the current Content Package does not authorize this image. */
+  | "package-not-ready"
+  | "image-not-selected"
+  | "image-not-approved"
   | "already-pending"
   | PublicationGuardRefusal
   | "not-authorizable";
@@ -69,6 +78,7 @@ export interface InstagramPublishProposalDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly now?: () => Date;
   readonly resolveStorage?: () => MediaStorageResolution;
+  readonly readPackage?: InstagramPackageDeps["readPackage"];
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -125,6 +135,31 @@ export async function proposeInstagramPublish(
   if (!asset) return refused("media-not-found");
   if (asset.lifecycle !== "admitted") return refused("media-retired");
   if (asset.sourceArtifactId !== draft.artifact.id) return refused("media-not-of-this-draft");
+
+  /*
+   * ── 3a. THE CONTENT PACKAGE (INSTAGRAM-PACKAGE-READINESS-1) — the current package of exactly this
+   * revision must be READY, with this original selected as an image and approved. Other selected
+   * media may coexist. Asked BEFORE derivation, so a proposal that cannot be filed writes nothing.
+   */
+  const pkg = await verifyInstagramPackageReadiness(
+    tenant,
+    { artifactId: draft.revision.artifactId, revisionNo: draft.revision.revisionNo, mediaAssetId: asset.assetId },
+    { getDb: () => db, readPackage: deps.readPackage },
+  );
+  if (!pkg.ok) {
+    switch (pkg.failure) {
+      case "persistence-unavailable":
+        return refused("persistence-unavailable");
+      case "package-unresolvable":
+        return refused("draft-not-found");
+      case "package-not-instagram":
+        return refused("draft-not-instagram-content");
+      case "package-not-ready":
+        return refused("package-not-ready", (pkg.blockers ?? []).join(","));
+      default:
+        return refused(pkg.failure);
+    }
+  }
 
   /*
    * ── 3b. THE PUBLISH DERIVATIVE — Meta publishes JPEG only. The Media authority produces (or

@@ -36,6 +36,7 @@ import {
 import { acceptMediaAsset } from "../../src/features/media-asset-review/review-media-asset.server";
 import { selectMediaForRevision } from "../../src/features/content-composition/select-media.server";
 import { runHebyProposeCommand } from "../../src/features/heby-action-inlet/propose-commands.server";
+import { instagramPackagePreparation } from "../helpers/instagram-package-fixture";
 import { formatWorkArtifactRef } from "../../src/features/work-artifacts/artifact-ref";
 import type { DriveImageResult } from "../../src/features/provider-google/read-drive-image.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
@@ -445,6 +446,11 @@ async function main(): Promise<void> {
       "media-not-of-this-draft",
       JSON.stringify(wrongDraft),
     );
+    /*
+     * INSTAGRAM-PACKAGE-READINESS-1: the image is already reviewed and selected above; the copy review
+     * completes the legitimate preparation, so the package is READY — which `/publish` now requires.
+     */
+    await instagramPackagePreparation(setup, () => handle.db).approveCopy(acmeCtx, { artifactId: acmeDraft, revisionNo: 1 });
     const ok = await run([formatWorkArtifactRef(acmeDraft, 1), asset.assetId]);
     assert.equal(ok.status === "ok" && ok.result.status, "proposed", JSON.stringify(ok));
     const req = (await setup.query<{ status: string; canonical_payload: Record<string, string> }>(

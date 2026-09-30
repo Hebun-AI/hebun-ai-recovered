@@ -14,6 +14,7 @@ import sharp from "sharp";
 import { createMemoryMediaObjectStore } from "../helpers/media-fakes";
 import { publishDerivativeId } from "../../src/features/media-assets/derive-publish-jpeg.server";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
+import { instagramPackagePreparation } from "../helpers/instagram-package-fixture";
 // Loaded FIRST: the schema barrel is the only safe entry point for src/db/schema/*.
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
@@ -121,6 +122,13 @@ async function main(): Promise<void> {
       [acme.tenantId, acme.userId],
     )).rows[0]!.id;
 
+    /*
+     * INSTAGRAM-PACKAGE-READINESS-1: every draft below is also PREPARED through the released writers
+     * (image selected + approved, copy approved) so its Content Package is READY — the state the
+     * production contract now requires before `/publish` may file anything.
+     */
+    const prep = instagramPackagePreparation(setup, () => handle.db);
+
     /* FIXTURE: an Instagram content draft and an admitted, REAL image of it, stored. */
     const imageBytes = async (mime: string) => {
       const img = sharp({ create: { width: 64, height: 48, channels: 4, background: { r: 10, g: 120, b: 200, alpha: 0.5 } } });
@@ -162,6 +170,7 @@ async function main(): Promise<void> {
          values ($1,$2,$3,$4,$5,$6,64,48,'test-memory',$7, now(),'admitted')`,
         [assetId, tenant.tenantId, inv, mime, bytes.length, digest, key],
       );
+      await prep.makeReady(tenant === acme ? acmeCtx : globexCtx, { artifactId: artifact, revisionNo: 1 }, assetId);
       const derivedId = publishDerivativeId(tenant.tenantId, assetId);
       return {
         draftRef: formatWorkArtifactRef(artifact, 1), assetId, digest, caption, key,
@@ -186,7 +195,7 @@ async function main(): Promise<void> {
 
     /* ══ 1. UNAUTHENTICATED ══ */
     const c = await seedContent();
-    const before = await counts();
+    let before = await counts();
     assert.deepEqual(await run(async () => null, [c.draftRef, c.assetId]), { status: "unauthorized" });
     assert.deepEqual(await counts(), before, "unauthenticated: nothing written");
     assert.equal(store.puts.includes(c.derivedKey), false, "unauthenticated: no derivative");
@@ -212,6 +221,8 @@ async function main(): Promise<void> {
     const g = await seedContent("image/png", globex, (await setup.query<{ id: string }>(
       `insert into agents (tenant_id, name, agent_lifecycle_status, created_by, created_by_type)
        values ($1,'Heby','active',$2,'human') returning id`, [globex.tenantId, globex.userId])).rows[0]!.id);
+    /* INSTAGRAM-PACKAGE-READINESS-1: g's legitimate preparation wrote review decisions; re-baseline. */
+    before = await counts();
     const crossImage = await run(async () => globexCtx, [g.draftRef, c.assetId]);
     assert.equal(
       crossImage.status === "ok" && crossImage.result.status === "refused" && crossImage.result.reason,

@@ -29,6 +29,7 @@ import {
 } from "../../src/features/action-execution/execute-authorized-action.server";
 import { proposeYouTubePublish } from "../../src/features/heby-action-inlet/youtube-publish-proposal.server";
 import { proposeInstagramPublish } from "../../src/features/heby-action-inlet/instagram-publish-proposal.server";
+import { instagramPackagePreparation } from "../helpers/instagram-package-fixture";
 import { verifyYouTubePackageBinding } from "../../src/features/youtube-publishing/resolve-youtube-publish.server";
 import { openYouTubeUploadSession, sendYouTubeUploadBytes } from "../../src/features/provider-google/google-transport.server";
 import { formatWorkArtifactRef } from "../../src/features/work-artifacts/artifact-ref";
@@ -488,6 +489,9 @@ async function main(): Promise<void> {
           instagramPublish: igPorts(mediaId),
         });
       const ig = await seedDraft(acme, "instagram");
+      /* INSTAGRAM-PACKAGE-READINESS-1: the legitimate preparation the contract now requires (READY package). */
+      const prep = instagramPackagePreparation(setup, () => handle.db);
+      await prep.makeReady(acmeCtx, { artifactId: ig.artifact, revisionNo: 1 }, ig.assetId);
       const proposeIG = (ack?: string) =>
         proposeInstagramPublish(acmeCtx, { draftRef: ig.draftRef, mediaAssetId: ig.assetId, ...(ack ? { acknowledgesPriorAttemptId: ack } : {}) }, baseDeps);
       const i1 = await mustPropose(proposeIG());
@@ -508,6 +512,17 @@ async function main(): Promise<void> {
       const i2 = await mustPropose(proposeIG(I1));
       const e2 = await igExec(await approve(i2), "1802");
       assert.equal(e2.status, "attempted", "an acknowledged republish executes");
+      /*
+       * INSTAGRAM-PACKAGE-READINESS-1 — a republish acknowledgement is NOT content readiness. With the
+       * CORRECT acknowledgement of the latest attempt, a BLOCKED package still refuses the proposal.
+       */
+      const I2 = (e2 as { attempt: { attemptId: string } }).attempt.attemptId;
+      await prep.requestCopyChanges(acmeCtx, { artifactId: ig.artifact, revisionNo: 1 });
+      assert.deepEqual(await refusalOf(proposeIG(I2)), { reason: "package-not-ready", detail: "copy-declined" }, "ack ≠ readiness");
+      await prep.approveCopy(acmeCtx, { artifactId: ig.artifact, revisionNo: 1 });
+      assert.deepEqual(await refusalOf(proposeIG()), { reason: "prior-publication-unacknowledged", detail: `latest-attempt=${I2}` }, "READY + no ack: the guard still refuses");
+      const i3 = await mustPropose(proposeIG(I2));
+      assert.equal(typeof i3, "string", "READY + the correct ack proceeds through the governed path");
       /* the YouTube history of other drafts never blocked this Instagram identity, and vice versa */
     }
 

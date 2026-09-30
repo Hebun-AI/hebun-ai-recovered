@@ -18,6 +18,7 @@ import { createMemoryMediaObjectStore } from "../helpers/media-fakes";
 import { publishDerivativeId } from "../../src/features/media-assets/derive-publish-jpeg.server";
 import { retireMediaAsset } from "../../src/features/media-assets/retire-media-asset.server";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
+import { instagramPackagePreparation } from "../helpers/instagram-package-fixture";
 // Loaded FIRST: the schema barrel is the only safe entry point for src/db/schema/*.
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
@@ -130,6 +131,13 @@ async function main(): Promise<void> {
       [acme.tenantId, acme.userId],
     )).rows[0]!.id;
 
+    /*
+     * INSTAGRAM-PACKAGE-READINESS-1: every draft below is also PREPARED through the released writers
+     * (image selected + approved, copy approved) so its Content Package is READY — the state the
+     * production contract now requires at proposal AND at execution.
+     */
+    const prep = instagramPackagePreparation(setup, () => handle.db);
+
     /* FIXTURE: an Instagram content draft and an admitted, REAL image of it, stored. */
     const imageBytes = async (mime: string) => {
       const img = sharp({ create: { width: 64, height: 48, channels: 4, background: { r: 10, g: 120, b: 200, alpha: 0.5 } } });
@@ -171,6 +179,7 @@ async function main(): Promise<void> {
          values ($1,$2,$3,$4,$5,$6,64,48,'test-memory',$7, now(),'admitted')`,
         [assetId, tenant.tenantId, inv, mime, bytes.length, digest, key],
       );
+      await prep.makeReady(tenant === acme ? acmeCtx : globexCtx, { artifactId: artifact, revisionNo: 1 }, assetId);
       const derivedId = publishDerivativeId(tenant.tenantId, assetId);
       return {
         draftRef: formatWorkArtifactRef(artifact, 1), assetId, digest, caption, key,

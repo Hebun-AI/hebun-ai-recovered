@@ -118,7 +118,12 @@ export type ExecutionPreflightRefusal =
   | "publication-in-flight"
   | "prior-publication-unacknowledged"
   | "prior-publication-acknowledgement-stale"
-  | "prior-publication-acknowledgement-mismatch";
+  | "prior-publication-acknowledgement-mismatch"
+  /*
+   * INSTAGRAM-PACKAGE-READINESS-1 — the current Content Package no longer authorizes the bound image
+   * (not READY, image not selected, or not approved). Nothing was spent; the permit is still active.
+   */
+  | "content-package-not-ready";
 
 /** What a surface may show about one attempt. Carries no address, no credential, no body. */
 export interface ExecutionAttemptView {
