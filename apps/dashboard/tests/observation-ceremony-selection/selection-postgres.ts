@@ -97,6 +97,58 @@ async function main(): Promise<void> {
     const afterDelete = await readSoleConnection(c, us.tenantId, INSTAGRAM_PROVIDER_KEY);
     assert.ok(afterDelete.ok && afterDelete.connection.id === ours, "a deleted connection is not counted");
 
+    /* ═══ 4b. TERMINAL ROWS ARE HISTORY, NOT CANDIDATES (CEREMONY-ELIGIBILITY-1) ═══
+     * The production shape after an Instagram reconnect: the replaced row `disconnected`, a failed
+     * attempt `disconnected`, one live row. Before this phase the ceremony refused it as ambiguous. */
+    const replaced = await connectionFor(c, us.tenantId, us.userId, INSTAGRAM_PROVIDER_KEY, "disconnected", "unknown", OURS);
+    await connectionFor(c, us.tenantId, us.userId, INSTAGRAM_PROVIDER_KEY, "disconnected", "unknown", null);
+    await connectionFor(c, us.tenantId, us.userId, INSTAGRAM_PROVIDER_KEY, "revoked", "unknown", OURS);
+    const afterReconnect = await readSoleConnection(c, us.tenantId, INSTAGRAM_PROVIDER_KEY);
+    assert.ok(afterReconnect.ok && afterReconnect.connection.id === ours,
+      "one live connection beside terminal history resolves to the live one");
+    assert.notEqual(afterReconnect.ok && afterReconnect.connection.id, replaced, "a terminal row is never returned");
+    const liveSubject = afterReconnect.ok ? subjectFromConnection(INSTAGRAM_ACCOUNT_SUBJECT_KIND, afterReconnect.connection) : null;
+    assert.equal(liveSubject?.ok && liveSubject.subjectRef, `${INSTAGRAM_SUBJECT_PREFIX}${OURS}`,
+      "and the subject still comes from the live connection's confirmed account");
+    const terminalStates = await c.query<{ connection_state: string }>(
+      `select connection_state from integrations where tenant_id = $1 and provider_key = $2 order by created_at`,
+      [us.tenantId, INSTAGRAM_PROVIDER_KEY],
+    );
+    assert.equal(terminalStates.rows.filter((r) => r.connection_state !== "connected").length, 3,
+      "the terminal rows are still there, untouched — excluded from selection, not rewritten");
+
+    /* Another provider's live row is not an Instagram candidate. */
+    await connectionFor(c, us.tenantId, us.userId, YOUTUBE_PROVIDER_KEY, "connected", "healthy", null);
+    const notOtherProvider = await readSoleConnection(c, us.tenantId, INSTAGRAM_PROVIDER_KEY);
+    assert.ok(notOtherProvider.ok && notOtherProvider.connection.id === ours, "another provider's connection is invisible");
+
+    /* A NON-terminal second row is still a candidate, so the ceremony still refuses to choose.
+     * (A different account: the schema's partial unique index already refuses two live rows for one
+     * account — and excludes exactly the terminal states, the same line this selection draws.) */
+    const expired = await connectionFor(c, us.tenantId, us.userId, INSTAGRAM_PROVIDER_KEY, "expired", "unknown", "28292222222222222");
+    const stillAmbiguous = await readSoleConnection(c, us.tenantId, INSTAGRAM_PROVIDER_KEY);
+    assert.ok(!stillAmbiguous.ok && stillAmbiguous.reason.includes("will not choose between them"),
+      "an expired row is not history — two candidates remain a refusal");
+    await c.query(`update integrations set deleted_at = now() where id = $1`, [expired]);
+
+    /* Only terminal rows → nothing to authorize against. */
+    const gone = await seedLocalIdentity(c, {
+      companyName: "Only History", companySlug: "gone-sel", email: "gone@gone.test", roleType: "owner",
+    });
+    await connectionFor(c, gone.tenantId, gone.userId, INSTAGRAM_PROVIDER_KEY, "disconnected", "unknown", OURS);
+    await connectionFor(c, gone.tenantId, gone.userId, INSTAGRAM_PROVIDER_KEY, "revoked", "unknown", OURS);
+    const onlyHistory = await readSoleConnection(c, gone.tenantId, INSTAGRAM_PROVIDER_KEY);
+    assert.ok(!onlyHistory.ok && onlyHistory.reason.includes(`no ${INSTAGRAM_PROVIDER_KEY} connection`),
+      "terminal rows alone authorize nothing");
+
+    /* A sole non-terminal row that is not working is selected — and still refused downstream. */
+    await connectionFor(c, gone.tenantId, gone.userId, INSTAGRAM_PROVIDER_KEY, "expired", "unknown", OURS);
+    const soleExpired = await readSoleConnection(c, gone.tenantId, INSTAGRAM_PROVIDER_KEY);
+    assert.ok(soleExpired.ok && soleExpired.connection.connection_state === "expired", "selection is not usability");
+    const refusedSubject = soleExpired.ok ? subjectFromConnection(INSTAGRAM_ACCOUNT_SUBJECT_KIND, soleExpired.connection) : null;
+    assert.ok(refusedSubject && !refusedSubject.ok && refusedSubject.reason.includes("not connected"),
+      "the connected + healthy gate downstream is unchanged");
+
     /* ═══ 5. THE OBSERVATION-SOURCED SUBJECT (YOUTUBE'S SEMANTICS) ═══════ */
     const scope = {
       providerKey: YOUTUBE_PROVIDER_KEY,
@@ -128,7 +180,8 @@ async function main(): Promise<void> {
 
     console.log(
       "observation-ceremony-selection/selection-postgres: sole connection or refusal, tenant-scoped " +
-        "both ways, soft-deleted excluded, latest observation wins, YouTube semantics unchanged",
+        "both ways, soft-deleted and terminal rows excluded, non-terminal ambiguity refused, latest " +
+        "observation wins, YouTube semantics unchanged",
     );
   } finally {
     await c.end();

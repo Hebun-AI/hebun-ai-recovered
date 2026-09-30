@@ -29,6 +29,7 @@
 import type { Client } from "pg";
 import { OBSERVABLE_CAPABILITIES } from "../../src/features/standing-observation-authority/contracts";
 import { findProviderDefinition } from "../../src/features/provider-catalog/catalog";
+import { TERMINAL_CONNECTION_STATES } from "../../src/features/integration-authority/contracts";
 import { INSTAGRAM_ACCOUNT_SUBJECT_KIND, INSTAGRAM_SUBJECT_PREFIX } from "../../src/features/provider-instagram/contracts";
 
 export interface ObservableScope {
@@ -179,6 +180,20 @@ export type SubjectResolution =
  *
  * READ ONLY. The connection authority owns this row; this reads it and forms an opinion about
  * nothing except whether a ceremony may proceed.
+ *
+ * ── TERMINAL ROWS ARE NOT CANDIDATES ────────────────────────────────────────
+ *
+ * A `revoked` or `disconnected` row is history: the connection authority gives terminal states no
+ * outgoing transition, so such a row can never carry a read again. Counting it made every reconnect
+ * look like "more than one connection" and left the ceremony unable to reach the one live row —
+ * the exact state a replaced Instagram connection produces.
+ *
+ * The set is the authority's own `TERMINAL_CONNECTION_STATES`, not a list restated here, and it is
+ * the ONLY thing excluded. A draft, unverified or expired row is still a candidate: it is not
+ * history, and two candidates remain a refusal. Whether the sole candidate is usable is still
+ * decided downstream (`subjectFromConnection` requires connected + healthy); this only decides
+ * which row the question is asked about. Nothing is hidden or rewritten — the rows stay exactly
+ * as the connection authority recorded them.
  */
 export async function readSoleConnection(
   client: Client,
@@ -189,11 +204,14 @@ export async function readSoleConnection(
     `select id, connection_state, health, external_account_id
        from integrations
       where tenant_id = $1 and provider_key = $2 and deleted_at is null
+        and connection_state::text <> all($3::text[])
       order by created_at
       limit 2`,
-    [tenantId, providerKey],
+    [tenantId, providerKey, [...TERMINAL_CONNECTION_STATES]],
   );
-  if (found.rows.length === 0) return { ok: false, reason: `no ${providerKey} connection` };
+  if (found.rows.length === 0) {
+    return { ok: false, reason: `no ${providerKey} connection that is not ${TERMINAL_CONNECTION_STATES.join(" or ")}` };
+  }
   if (found.rows.length > 1) {
     return {
       ok: false,
