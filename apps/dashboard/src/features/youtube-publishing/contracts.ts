@@ -76,6 +76,12 @@ export interface PublishYouTubeVideoPayload {
   readonly categoryId: string;
   readonly selfDeclaredMadeForKids: boolean;
   readonly containsSyntheticMedia: boolean;
+  /**
+   * CONTENT-PUBLICATION-DUPLICATE-GUARD-1 — present only when this act intentionally follows an
+   * accepted or unknown attempt for the same channel and revision: that attempt's id. Digest-bound;
+   * it authorizes nothing.
+   */
+  readonly acknowledgesPriorAttemptId?: string;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -104,13 +110,20 @@ const PAYLOAD_KEYS = Object.freeze(
   ].sort(),
 );
 
+const PAYLOAD_KEYS_WITH_ACK = Object.freeze([...PAYLOAD_KEYS, "acknowledgesPriorAttemptId"].sort());
+
 /** A stored canonical payload → the typed payload, or `null`. Exact key set; nothing coerced. */
 export function asPublishYouTubeVideoPayload(raw: unknown): PublishYouTubeVideoPayload | null {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
   const keys = Object.keys(record).sort();
-  if (keys.length !== PAYLOAD_KEYS.length || keys.some((k, i) => k !== PAYLOAD_KEYS[i])) return null;
+  /* DUPLICATE-GUARD-1: exactly the fourteen keys, or the fourteen plus the one optional acknowledgement. */
+  const exact = (want: readonly string[]) => keys.length === want.length && keys.every((k, i) => k === want[i]);
+  if (!exact(PAYLOAD_KEYS) && !exact(PAYLOAD_KEYS_WITH_ACK)) return null;
   const r = record;
+  if (r.acknowledgesPriorAttemptId !== undefined && (typeof r.acknowledgesPriorAttemptId !== "string" || !UUID.test(r.acknowledgesPriorAttemptId))) {
+    return null;
+  }
   if (typeof r.integrationId !== "string" || !UUID.test(r.integrationId)) return null;
   if (typeof r.externalAccountId !== "string" || !GOOGLE_SUB.test(r.externalAccountId)) return null;
   if (typeof r.expectedChannelId !== "string" || !YOUTUBE_CHANNEL_ID.test(r.expectedChannelId)) return null;
@@ -141,6 +154,7 @@ export function asPublishYouTubeVideoPayload(raw: unknown): PublishYouTubeVideoP
     categoryId: r.categoryId,
     selfDeclaredMadeForKids: r.selfDeclaredMadeForKids,
     containsSyntheticMedia: r.containsSyntheticMedia,
+    ...(typeof r.acknowledgesPriorAttemptId === "string" ? { acknowledgesPriorAttemptId: r.acknowledgesPriorAttemptId } : {}),
   };
 }
 

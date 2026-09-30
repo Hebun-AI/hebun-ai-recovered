@@ -33,10 +33,14 @@ import { readInstagramPublishFacts } from "@/features/provider-instagram/resolve
 import { formatWorkArtifactRef, isWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
 import { resolveWorkArtifactReference } from "@/features/work-artifacts/read-work-artifacts.server";
 import { SEND_OWNER_WORKSPACE } from "./contracts";
+import { checkPriorPublicationAtProposal, proposedPayloadDigestOf } from "./prior-publication.server";
+import type { PublicationGuardRefusal } from "@/features/action-authorization/content-publication-state";
 
 export interface InstagramPublishProposalInput {
   readonly draftRef: string;
   readonly mediaAssetId: string;
+  /** DUPLICATE-GUARD-1 — the prior attempt an intentional new publication acknowledges, if any. */
+  readonly acknowledgesPriorAttemptId?: string;
 }
 
 export type InstagramPublishProposalRefusal =
@@ -54,6 +58,7 @@ export type InstagramPublishProposalRefusal =
   | "media-not-of-this-draft"
   | "media-not-publishable"
   | "already-pending"
+  | PublicationGuardRefusal
   | "not-authorizable";
 
 export type InstagramPublishProposalResult =
@@ -83,6 +88,8 @@ export async function proposeInstagramPublish(
   if (!input || !isWorkArtifactRef(input.draftRef) || !UUID.test(input.mediaAssetId ?? "")) {
     return refused("invalid-input");
   }
+  const ack = input.acknowledgesPriorAttemptId ?? null;
+  if (ack !== null && !UUID.test(ack)) return refused("invalid-input");
 
   /* ── 1. THE CONNECTION — the tenant's own, connection-side eligible, no credential opened. ── */
   const facts = await readInstagramPublishFacts(tenant, { getDb: deps.getDb });
@@ -100,6 +107,7 @@ export async function proposeInstagramPublish(
     return refused("draft-not-instagram-content");
   }
   if (draft.revision.content.length > INSTAGRAM_MAX_CAPTION_LENGTH) return refused("caption-too-long");
+
 
   /*
    * ── 3. THE IMAGE — an original (generated, or MEDIA-SUPPLIED by a human from Drive): admitted, of
@@ -151,12 +159,32 @@ export async function proposeInstagramPublish(
       mediaAssetDigest: asset.byteDigest,
       publishAssetRef: derivative.assetId,
       publishAssetDigest: derivative.byteDigest,
+      ...(ack !== null ? { acknowledgesPriorAttemptId: ack } : {}),
     },
     evidence,
   });
   if (prepared.lifecycleState !== "REQUIRES_HUMAN_REVIEW") {
     return refused("not-authorizable", prepared.lifecycleState);
   }
+
+  /*
+   * ── 4a. PRIOR PUBLICATION (DUPLICATE-GUARD-1) — an EARLY refusal, after the act is prepared and
+   * before anything is filed. The
+   * identity is this tenant, this kind, this verified account, this exact revision. The executor
+   * enforces the same rule under a lock; this only spares a human a request that could not execute.
+   */
+  const prior = await checkPriorPublicationAtProposal(
+    tenant.tenantId,
+    {
+      actionKind: PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND,
+      destinationAccountId: connection.externalAccountId,
+      artifactRef: formatWorkArtifactRef(draft.revision.artifactId, draft.revision.revisionNo),
+    },
+    ack,
+    proposedPayloadDigestOf(prepared),
+    deps,
+  );
+  if (!prior.ok) return refused(prior.reason, prior.detail);
 
   const recorded = await recordActionRequest(tenant, prepared, deps);
   if (recorded.status === "recorded") return { status: "proposed", requestId: recorded.requestId };

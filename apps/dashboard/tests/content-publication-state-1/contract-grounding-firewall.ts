@@ -44,12 +44,15 @@ function entry(over: Partial<PublicationHistoryEntry>): PublicationHistoryEntry 
     requestId: "ba731823-0000-4000-8000-000000000000",
     actionKind: "publish-youtube-video",
     destination: "youtube",
+    destinationAccountId: "UC5Yf5U_YOKR0K38tWF82kjA",
+    acknowledgesPriorAttemptId: null,
+    payloadDigest: "d".repeat(64),
     requestStatus: "approved",
     proposedAt: "2026-09-28T10:00:00.000Z",
     approvedAt: "2026-09-28T10:05:00.000Z",
     rejectedAt: null,
     permit: { state: "consumed", issuedAt: "2026-09-28T10:05:00.000Z", expiresAt: "2026-09-28T11:05:00.000Z", consumedAt: "2026-09-28T10:06:00.000Z", revokedAt: null },
-    attempt: { status: "accepted", providerResponseClass: "accepted", providerResultId: "DQr18fVuevM", failureClass: null, startedAt: "2026-09-28T10:06:00.000Z", completedAt: "2026-09-28T10:07:00.000Z" },
+    attempt: { attemptId: "dfeef4d4-0000-4000-8000-000000000000", status: "accepted", providerResponseClass: "accepted", providerResultId: "DQr18fVuevM", failureClass: null, startedAt: "2026-09-28T10:06:00.000Z", completedAt: "2026-09-28T10:07:00.000Z" },
     stage: "execution-accepted",
     ...over,
   };
@@ -136,7 +139,7 @@ async function main(): Promise<void> {
   assert.match(CONTENT_PUBLICATION_NON_CLAIM, /not a live read of what the provider shows now/);
   assert.match(CONTENT_PUBLICATION_NON_CLAIM, /this revision only/);
   const line = formatPublicationEntry(entry({}));
-  assert.match(line, /youtube request ba731823-.* · execution attempt accepted by the provider · provider id DQr18fVuevM/);
+  assert.match(line, /youtube request ba731823-.* · execution attempt accepted by the provider · attempt dfeef4d4-0000-4000-8000-000000000000 · provider id DQr18fVuevM/);
 
   /* ══ 1b · the projection's reference is exactly the one the proposals record ══ */
   for (const [id, n] of [[YT, 2], [YT.toUpperCase(), 7], [IG, 999_999_999]] as const) {
@@ -151,14 +154,14 @@ async function main(): Promise<void> {
   const states = new Map<string, ContentPublicationState>([
     [ref(YT, 2), { status: "recorded", artifactRef: ref(YT, 2), truncated: false, entries: [entry({})] }],
     [ref(IG, 3), { status: "recorded", artifactRef: ref(IG, 3), truncated: true, entries: [
-      entry({ requestId: "160d4361-0000-4000-8000-000000000000", actionKind: "publish-instagram-media", destination: "instagram", attempt: { status: "accepted", providerResponseClass: "accepted", providerResultId: "18091512017663172", failureClass: null, startedAt: "x", completedAt: null } }),
+      entry({ requestId: "160d4361-0000-4000-8000-000000000000", actionKind: "publish-instagram-media", destination: "instagram", attempt: { attemptId: "5f5f5f5f-0000-4000-8000-000000000000", status: "accepted", providerResponseClass: "accepted", providerResultId: "18091512017663172", failureClass: null, startedAt: "x", completedAt: null } }),
       entry({ requestId: "22222222-0000-4000-8000-000000000000", actionKind: "publish-instagram-media", destination: "instagram", requestStatus: "pending", approvedAt: null, permit: null, attempt: null, stage: "request-pending" }),
     ] }],
     [ref(NONE, 2), { status: "no-request-recorded", artifactRef: ref(NONE, 2) }],
   ]);
   const r = await readContentMediaGroundingSource(TENANT, groundingDeps(states));
   const detail = (id: string) => r.items.find((i) => i.recordRef.startsWith(`work-artifact/${id}@`))!.detail;
-  assert.match(detail(YT), /publication record of this revision \(action ledger\): 1 publish request recorded — youtube request .* execution attempt accepted by the provider · provider id DQr18fVuevM/);
+  assert.match(detail(YT), /publication record of this revision \(action ledger\): 1 publish request recorded — youtube request .* execution attempt accepted by the provider · attempt dfeef4d4-[0-9a-f-]+ · provider id DQr18fVuevM/);
   assert.match(detail(YT), /not a live read of what the provider shows now/);
   assert.match(detail(IG), /2 most recent publish requests recorded — instagram request 160d4361.*provider id 18091512017663172; instagram request 22222222.*request awaiting a human decision/, "history in order, truncation said");
   assert.match(detail(NONE), /publication record of this revision \(action ledger\): no publish request is recorded for this revision/);

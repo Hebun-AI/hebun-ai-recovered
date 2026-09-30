@@ -639,6 +639,13 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
         description: "The admitted image asset id: <uuid>",
         pattern: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
       },
+      /* CONTENT-PUBLICATION-DUPLICATE-GUARD-1 — only for an intentional new publication after an accepted or unknown attempt. */
+      {
+        name: "acknowledges",
+        required: false,
+        description: "Optional: the latest accepted or unknown attempt id you intentionally publish again after: <uuid>",
+        pattern: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      },
     ],
     requiresModel: false,
     requiresExecution: false,
@@ -669,6 +676,13 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
       { name: "category", required: true, description: "YouTube category id, e.g. 22", pattern: /^[0-9]{1,4}$/ },
       { name: "made-for-kids", required: true, description: "yes | no — your declaration", pattern: /^(yes|no)$/ },
       { name: "synthetic", required: true, description: "yes | no — realistic altered or synthetic content", pattern: /^(yes|no)$/ },
+      /* CONTENT-PUBLICATION-DUPLICATE-GUARD-1 — only for an intentional new publication after an accepted or unknown attempt. */
+      {
+        name: "acknowledges",
+        required: false,
+        description: "Optional: the latest accepted or unknown attempt id you intentionally publish again after: <uuid>",
+        pattern: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+      },
     ],
     requiresModel: false,
     requiresExecution: false,

@@ -95,21 +95,35 @@ export async function runHebyProposeCommand(
        * references the inlet resolves against their own authorities. The inlet derives the JPEG
        * publish derivative and files ONE pending request — no permit, no attempt, no provider call.
        */
-      const [draftRef, mediaAssetId] = input.args;
-      if (!draftRef || !mediaAssetId || input.args.length !== 2) {
+      /* DUPLICATE-GUARD-1: an optional third argument — the prior attempt this publication acknowledges. */
+      const [draftRef, mediaAssetId, acknowledgesPriorAttemptId] = input.args;
+      if (!draftRef || !mediaAssetId || (input.args.length !== 2 && input.args.length !== 3)) {
         return { status: "refused", reason: "invalid-arguments" };
       }
-      const result = await proposeInstagramPublish(tenant, { draftRef, mediaAssetId }, deps);
+      const result = await proposeInstagramPublish(
+        tenant,
+        { draftRef, mediaAssetId, ...(acknowledgesPriorAttemptId ? { acknowledgesPriorAttemptId } : {}) },
+        deps,
+      );
       return { status: "ok", kind: "publish-instagram", result };
     }
     case "publish-youtube": {
-      const [draftRef, videoAssetId, privacyStatus, categoryId, madeForKids, syntheticMedia] = input.args;
-      if (input.args.length !== 6 || !draftRef || !videoAssetId || !privacyStatus || !categoryId || !madeForKids || !syntheticMedia) {
+      /* DUPLICATE-GUARD-1: an optional seventh argument — the prior attempt this publication acknowledges. */
+      const [draftRef, videoAssetId, privacyStatus, categoryId, madeForKids, syntheticMedia, acknowledgesPriorAttemptId] = input.args;
+      if ((input.args.length !== 6 && input.args.length !== 7) || !draftRef || !videoAssetId || !privacyStatus || !categoryId || !madeForKids || !syntheticMedia) {
         return { status: "refused", reason: "invalid-arguments" };
       }
       const result = await proposeYouTubePublish(
         tenant,
-        { draftRef, videoAssetId, privacyStatus, categoryId, madeForKids, syntheticMedia },
+        {
+          draftRef,
+          videoAssetId,
+          privacyStatus,
+          categoryId,
+          madeForKids,
+          syntheticMedia,
+          ...(acknowledgesPriorAttemptId ? { acknowledgesPriorAttemptId } : {}),
+        },
         deps,
       );
       return { status: "ok", kind: "publish-youtube", result };

@@ -170,11 +170,15 @@ async function main(): Promise<void> {
     })) as never;
     const readChannel = async () => ({ status: "one-channel", channel: CHANNEL }) as const;
 
-    const propose = async (c: Content, ctx: TenantContext = acmeCtx, privacy: "private" | "unlisted" = "private") => {
+    const propose = async (c: Content, ctx: TenantContext = acmeCtx, privacy: "private" | "unlisted" = "private", ack?: string) => {
       current = c;
       const r = await proposeYouTubePublish(
         ctx,
-        { draftRef: c.draftRef, videoAssetId: c.assetId, privacyStatus: privacy, categoryId: "22", madeForKids: "no", syntheticMedia: "yes" },
+        {
+          draftRef: c.draftRef, videoAssetId: c.assetId, privacyStatus: privacy, categoryId: "22", madeForKids: "no", syntheticMedia: "yes",
+          /* DUPLICATE-GUARD-1: an intentional republish names the attempt it follows. */
+          ...(ack ? { acknowledgesPriorAttemptId: ack } : {}),
+        },
         { ...baseDeps, readPackage, readChannel },
       );
       assert.equal(r.status, "proposed", JSON.stringify(r));
@@ -273,7 +277,8 @@ async function main(): Promise<void> {
         ["execution-accepted", "consumed", "accepted", "vid_Accepted1", "accepted", null],
       );
     }
-    const secondId = await propose(acceptedC, acmeCtx);
+    const acceptedAttempt = recorded(await stateOf(acceptedC)).entries[0]!.attempt!.attemptId;
+    const secondId = await propose(acceptedC, acmeCtx, "private", acceptedAttempt);
     {
       const s = recorded(await stateOf(acceptedC));
       assert.deepEqual(s.entries.map((x) => [x.requestId, x.stage]), [[firstId, "execution-accepted"], [secondId, "request-pending"]],

@@ -196,6 +196,8 @@ function PublicationRecord({ publication }: { readonly publication: ContentPubli
                 {e.attempt?.providerResultId ? (
                   <span className="break-all">provider id {e.attempt.providerResultId}</span>
                 ) : null}
+                {/* DUPLICATE-GUARD-1: the id an intentional new publication acknowledges. */}
+                {e.attempt ? <span className="break-all">attempt {e.attempt.attemptId}</span> : null}
                 <span>proposed {new Date(e.proposedAt).toISOString().slice(0, 16).replace("T", " ")} UTC</span>
               </li>
             ))}

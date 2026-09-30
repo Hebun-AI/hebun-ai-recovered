@@ -43,6 +43,8 @@ import {
   type YouTubePublishResolveDeps,
 } from "@/features/youtube-publishing/resolve-youtube-publish.server";
 import { SEND_OWNER_WORKSPACE } from "./contracts";
+import { checkPriorPublicationAtProposal, proposedPayloadDigestOf } from "./prior-publication.server";
+import type { PublicationGuardRefusal } from "@/features/action-authorization/content-publication-state";
 
 export interface YouTubePublishProposalInput {
   readonly draftRef: string;
@@ -53,6 +55,8 @@ export interface YouTubePublishProposalInput {
   readonly madeForKids: string;
   /** `yes` / `no` — the human's own declaration, never inferred. */
   readonly syntheticMedia: string;
+  /** DUPLICATE-GUARD-1 — the prior attempt an intentional new publication acknowledges, if any. */
+  readonly acknowledgesPriorAttemptId?: string;
 }
 
 export type YouTubePublishProposalRefusal =
@@ -71,6 +75,7 @@ export type YouTubePublishProposalRefusal =
   | "video-not-publishable"
   | "metadata-invalid"
   | "already-pending"
+  | PublicationGuardRefusal
   | "not-authorizable";
 
 export type YouTubePublishProposalResult =
@@ -112,6 +117,8 @@ export async function proposeYouTubePublish(
   ) {
     return refused("invalid-input");
   }
+  const ack = input.acknowledgesPriorAttemptId ?? null;
+  if (ack !== null && !UUID.test(ack)) return refused("invalid-input");
 
   /* ── The connection that may upload: available AND write-capable, exactly one. ── */
   const connection = await (deps.resolveConnection ?? resolveYouTubePublishConnection)(tenant, deps);
@@ -162,6 +169,7 @@ export async function proposeYouTubePublish(
   }
 
   const draftRef = formatWorkArtifactRef(draft.revision.artifactId, draft.revision.revisionNo);
+
   const evidence: readonly HebyEvidenceReference[] = [
     { sourceClass: "work-artifacts", recordRef: draftRef, lifecycle: "settled" },
   ];
@@ -184,10 +192,25 @@ export async function proposeYouTubePublish(
       categoryId: input.categoryId,
       selfDeclaredMadeForKids: input.madeForKids === "yes",
       containsSyntheticMedia: input.syntheticMedia === "yes",
+      ...(ack !== null ? { acknowledgesPriorAttemptId: ack } : {}),
     },
     evidence,
   });
   if (prepared.lifecycleState !== "REQUIRES_HUMAN_REVIEW") return refused("not-authorizable", prepared.lifecycleState);
+
+  /*
+   * ── Prior publication (DUPLICATE-GUARD-1) — an EARLY refusal. The identity is this tenant, this
+   * kind, the ONE channel YouTube just named, this exact revision. The executor enforces the same
+   * rule under a lock; this only spares a human a request that could not execute.
+   */
+  const prior = await checkPriorPublicationAtProposal(
+    tenant.tenantId,
+    { actionKind: PUBLISH_YOUTUBE_VIDEO_ACTION_KIND, destinationAccountId: channel.channel.channelId, artifactRef: draftRef },
+    ack,
+    proposedPayloadDigestOf(prepared),
+    deps,
+  );
+  if (!prior.ok) return refused(prior.reason, prior.detail);
 
   const recorded = await recordActionRequest(tenant, prepared, deps);
   if (recorded.status === "recorded") {

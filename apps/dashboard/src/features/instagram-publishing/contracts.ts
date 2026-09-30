@@ -46,6 +46,12 @@ export interface PublishInstagramMediaPayload {
   readonly mediaAssetDigest: string;
   readonly publishAssetRef: string;
   readonly publishAssetDigest: string;
+  /**
+   * CONTENT-PUBLICATION-DUPLICATE-GUARD-1 — present only when this act intentionally follows an
+   * accepted or unknown attempt for the same account and revision: that attempt's id. Bound into the
+   * digest like every other field, so the human decides with it in view. It authorizes nothing.
+   */
+  readonly acknowledgesPriorAttemptId?: string;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -67,7 +73,12 @@ export function asPublishInstagramMediaPayload(raw: unknown): PublishInstagramMe
     "publishAssetDigest",
     "publishAssetRef",
   ];
-  if (keys.length !== expected.length || keys.some((k, i) => k !== expected[i])) return null;
+  /* DUPLICATE-GUARD-1: exactly the eight keys, or the eight plus the one optional acknowledgement. */
+  const withAck = [...expected, "acknowledgesPriorAttemptId"].sort();
+  const exact = (want: readonly string[]) => keys.length === want.length && keys.every((k, i) => k === want[i]);
+  if (!exact(expected) && !exact(withAck)) return null;
+  const ack = record.acknowledgesPriorAttemptId;
+  if (ack !== undefined && (typeof ack !== "string" || !UUID.test(ack))) return null;
   const {
     integrationId,
     externalAccountId,
@@ -96,6 +107,7 @@ export function asPublishInstagramMediaPayload(raw: unknown): PublishInstagramMe
     mediaAssetDigest,
     publishAssetRef,
     publishAssetDigest,
+    ...(typeof ack === "string" ? { acknowledgesPriorAttemptId: ack } : {}),
   };
 }
 

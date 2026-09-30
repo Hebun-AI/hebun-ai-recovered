@@ -67,6 +67,8 @@ export interface PublicationPermitFacts {
 }
 
 export interface PublicationAttemptFacts {
+  /** The attempt's own id — the value an intentional republish acknowledges. */
+  readonly attemptId: string;
   readonly status: ExecutionAttemptStatus;
   readonly providerResponseClass: ProviderResponseClass | null;
   /** `provider_message_id`: the Instagram media id or YouTube video id the provider returned. */
@@ -103,6 +105,16 @@ export interface PublicationHistoryEntry {
   readonly requestId: string;
   readonly actionKind: PublicationActionKind;
   readonly destination: "instagram" | "youtube";
+  /**
+   * DUPLICATE-GUARD-1 — WHERE it publishes, as the governed payload bound it: the Instagram
+   * `externalAccountId` or the YouTube `expectedChannelId`. Never a display label. `null` only if a
+   * stored payload lacks it, which the guard treats as an identity it cannot match.
+   */
+  readonly destinationAccountId: string | null;
+  /** The prior attempt this request's payload acknowledges, when it carries one. */
+  readonly acknowledgesPriorAttemptId: string | null;
+  /** The request's bound payload digest — lets an identical re-proposal keep its `already-pending` answer. */
+  readonly payloadDigest: string;
   readonly requestStatus: PublicationRequestStatus;
   readonly proposedAt: string;
   readonly approvedAt: string | null;
@@ -176,7 +188,115 @@ export function formatPublicationEntry(entry: PublicationHistoryEntry): string {
     `${entry.destination} request ${entry.requestId}`,
     `proposed ${entry.proposedAt}`,
     PUBLICATION_STAGE_WORDING[entry.stage],
+    ...(entry.attempt ? [`attempt ${entry.attempt.attemptId}`] : []),
     ...(entry.attempt?.providerResultId ? [`provider id ${entry.attempt.providerResultId}`] : []),
     ...(entry.attempt?.failureClass ? [`failure ${entry.attempt.failureClass}`] : []),
   ].join(" · ");
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * CONTENT-PUBLICATION-DUPLICATE-GUARD-1 — the policy, as a pure function of the history above.
+ *
+ * V1 PUBLICATION IDENTITY (Director decision 1): tenant + action kind + destination account +
+ * EXACT revision. The tenant and the revision are the history's own read predicates; the kind and
+ * the account are matched here. Nothing crosses revisions — the same content in a new revision is
+ * NOT a duplicate in this phase (deferred: CONTENT-PUBLICATION-CROSS-REVISION-DUPLICATE-1).
+ *
+ *   in flight                          → refuse until it resolves
+ *   latest consequential = accepted     → the new act must acknowledge THAT attempt
+ *   latest consequential = unknown      → the new act must acknowledge THAT attempt
+ *   only failed / refused (or nothing) → allowed; an acknowledgement, if supplied, must still be true
+ *
+ * "Consequential" = an attempt whose provider outcome is `accepted` or `unknown`. `failed` and
+ * `refused` are recorded only when the executor could prove nothing left or the provider refused
+ * it, so they establish no publication and demand no acknowledgement. UNKNOWN is never read as
+ * failed.
+ *
+ * An acknowledgement authorizes NOTHING. It is one more bound fact in a request Governance still
+ * decides, a permit still gates, and the tenant's arming still contains.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+export interface PublicationIdentity {
+  readonly actionKind: PublicationActionKind;
+  /** Instagram `externalAccountId` / YouTube `expectedChannelId`, as the payload binds it. */
+  readonly destinationAccountId: string;
+  /** `work-artifact/<id>@<n>` — the exact revision. */
+  readonly artifactRef: string;
+}
+
+export const PUBLICATION_GUARD_REFUSALS = [
+  /** Another publication for this identity is pending, authorized-unused, or being executed. */
+  "publication-in-flight",
+  /** An accepted or unknown attempt exists and this act does not acknowledge it. */
+  "prior-publication-unacknowledged",
+  /** The acknowledgement names an older consequential attempt; a newer one exists. */
+  "prior-publication-acknowledgement-stale",
+  /** The acknowledgement names no consequential attempt of THIS identity. */
+  "prior-publication-acknowledgement-mismatch",
+] as const;
+export type PublicationGuardRefusal = (typeof PUBLICATION_GUARD_REFUSALS)[number];
+
+export type PublicationGuardVerdict =
+  | { readonly status: "clear"; readonly latestConsequentialAttemptId: string | null }
+  | { readonly status: "refused"; readonly reason: PublicationGuardRefusal; readonly latestConsequentialAttemptId: string | null };
+
+/** Stages that mean a publication for this identity may still reach the provider. */
+const IN_FLIGHT_AT_PROPOSAL: readonly PublicationStage[] = [
+  "request-pending",
+  "permit-active",
+  "execution-pending",
+  /* Impossible by construction (spend and attempt are one transaction); fail closed if ever seen. */
+  "permit-consumed-without-attempt",
+];
+/*
+ * At EXECUTION the act being executed is itself authorized-unused, and another authorized-unused
+ * permit cannot send without passing this same guard later. What can race a send is an attempt
+ * already started.
+ */
+const IN_FLIGHT_AT_EXECUTION: readonly PublicationStage[] = ["execution-pending", "permit-consumed-without-attempt"];
+
+export function evaluatePublicationGuard(
+  history: readonly PublicationHistoryEntry[],
+  identity: PublicationIdentity,
+  acknowledgesPriorAttemptId: string | null,
+  phase:
+    /*
+     * At proposal, a PENDING request with exactly the proposed payload digest is not reported as "in
+     * flight": the request writer's unique index answers that case as `already-pending`, the
+     * released contract for an identical re-proposal.
+     */
+    | { readonly at: "proposal"; readonly proposedPayloadDigest?: string }
+    | { readonly at: "execution"; readonly executingRequestId: string },
+): PublicationGuardVerdict {
+  const same = history.filter(
+    (e) => e.actionKind === identity.actionKind && e.destinationAccountId === identity.destinationAccountId,
+  );
+  const consequential = same
+    .filter((e) => e.attempt !== null && (e.attempt.status === "accepted" || e.attempt.status === "unknown"))
+    .map((e) => e.attempt!)
+    /* Deterministic: the attempt's own start time, then its id. */
+    .sort((a, b) => (a.startedAt === b.startedAt ? (a.attemptId < b.attemptId ? -1 : 1) : a.startedAt < b.startedAt ? -1 : 1));
+  const latest = consequential.length > 0 ? consequential[consequential.length - 1]!.attemptId : null;
+
+  const inFlight =
+    phase.at === "proposal"
+      ? same.some(
+          (e) =>
+            IN_FLIGHT_AT_PROPOSAL.includes(e.stage) &&
+            !(e.stage === "request-pending" && phase.proposedPayloadDigest !== undefined && e.payloadDigest === phase.proposedPayloadDigest),
+        )
+      : same.some((e) => e.requestId !== phase.executingRequestId && IN_FLIGHT_AT_EXECUTION.includes(e.stage));
+  if (inFlight) return { status: "refused", reason: "publication-in-flight", latestConsequentialAttemptId: latest };
+
+  if (acknowledgesPriorAttemptId !== null) {
+    if (acknowledgesPriorAttemptId === latest) return { status: "clear", latestConsequentialAttemptId: latest };
+    const older = consequential.some((a) => a.attemptId === acknowledgesPriorAttemptId);
+    return {
+      status: "refused",
+      reason: older ? "prior-publication-acknowledgement-stale" : "prior-publication-acknowledgement-mismatch",
+      latestConsequentialAttemptId: latest,
+    };
+  }
+  if (latest !== null) return { status: "refused", reason: "prior-publication-unacknowledged", latestConsequentialAttemptId: latest };
+  return { status: "clear", latestConsequentialAttemptId: null };
 }

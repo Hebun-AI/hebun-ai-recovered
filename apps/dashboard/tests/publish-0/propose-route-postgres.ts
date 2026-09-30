@@ -222,10 +222,21 @@ async function main(): Promise<void> {
 
     /* ══ 3. MALFORMED / EXTRA ARGS — the registry and handler refuse before any write ══ */
     assert.deepEqual(await run(async () => acmeCtx, [c.draftRef]), { status: "refused", reason: "invalid-arguments" });
+    /*
+     * CONTENT-PUBLICATION-DUPLICATE-GUARD-1 made the third position the OPTIONAL acknowledgement of a
+     * prior attempt. It is still never a tenant: whatever is passed there is validated against this
+     * tenant's own ledger, so a tenant id is refused as an acknowledgement of nothing, and files nothing.
+     */
+    const third = await run(async () => acmeCtx, [c.draftRef, c.assetId, globex.tenantId]);
+    assert.equal(
+      (third as { result?: { status: string; reason: string } }).result?.reason,
+      "prior-publication-acknowledgement-mismatch",
+      "a third argument (e.g. a tenant) is only ever an acknowledgement, and this one acknowledges nothing",
+    );
     assert.deepEqual(
-      await run(async () => acmeCtx, [c.draftRef, c.assetId, globex.tenantId]),
+      await run(async () => acmeCtx, [c.draftRef, c.assetId, globex.tenantId, globex.tenantId]),
       { status: "refused", reason: "invalid-arguments" },
-      "a third argument (e.g. a tenant) is not accepted",
+      "a fourth argument is not accepted",
     );
     assert.deepEqual(await counts(), before);
 

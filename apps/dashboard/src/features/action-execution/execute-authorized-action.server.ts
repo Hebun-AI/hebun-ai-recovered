@@ -41,7 +41,12 @@ import { externalRecipients } from "@/db/schema/external-recipient";
 import { workArtifacts, workArtifactRevisions } from "@/db/schema/work-artifact";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { asCanonicalPayload } from "@/features/action-authorization/canonical-payload";
-import { consumeActionPermit } from "@/features/action-authorization/consume-action-permit.server";
+import { consumeActionPermit, type PermitConsumptionTx } from "@/features/action-authorization/consume-action-permit.server";
+import { readRevisionPublicationHistory } from "@/features/action-authorization/content-publication-state.server";
+import {
+  evaluatePublicationGuard,
+  type PublicationIdentity,
+} from "@/features/action-authorization/content-publication-state";
 import type { ExecutionAuthorization } from "@/features/action-authorization/contracts";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { recordActionExecutionEventWithin } from "@/features/governance-audit/action-execution-audit.server";
@@ -129,6 +134,12 @@ export interface ExecuteAuthorizedActionDeps
   readonly instagramPublish?: InstagramPublishExecutionPorts;
   /** YOUTUBE-WRITE-2 — injected provider seams for the YouTube upload half. Unset in production. */
   readonly youtubePublish?: YouTubePublishExecutionPorts;
+  /**
+   * DUPLICATE-GUARD-1 — TEST SEAM ONLY. Awaited inside the spend transaction after the publication
+   * history is read under the revision lock, so a concurrency test can hold the read open and prove
+   * the lock serializes. Production leaves it unset; it can observe nothing and decide nothing.
+   */
+  readonly afterPublicationGuardRead?: () => Promise<void>;
 }
 
 function refused(reason: ExecutionPreflightRefusal): ExecutionResult {
@@ -647,6 +658,56 @@ export async function executeAuthorizedAction(
 
 
 /* ════════════════════════════════════════════════════════════════════════════
+ * CONTENT-PUBLICATION-DUPLICATE-GUARD-1 — the AUTHORITATIVE publication guard.
+ *
+ * Runs FIRST inside the spend transaction of a publish, before the attempt row exists and long
+ * before any provider call:
+ *
+ *   1. lock the exact revision row (`work_artifact_revisions`, tenant-predicated) FOR UPDATE — the
+ *      repository's established row-lock convention. Every publish of this revision, to any
+ *      destination, serializes here; the provider call itself is post-commit, so the wait is only
+ *      the length of a spend transaction. Different revisions and tenants never share a lock.
+ *   2. re-read the WHOLE publication history of the revision through the one history reader, on the
+ *      same transaction — so it sees every attempt a previous holder of the lock committed.
+ *   3. apply the one policy (`evaluatePublicationGuard`) for THIS identity.
+ *
+ * A refusal THROWS, which rolls the spend back: the permit stays `active` and no attempt row is
+ * written — exactly the pre-flight refusal semantics. Nothing reached a provider, so nothing is
+ * recorded as if it had. The identity comes from the permit-bound payload, never from a client.
+ * ════════════════════════════════════════════════════════════════════════════ */
+async function guardPublicationWithin(
+  tx: PermitConsumptionTx,
+  tenantId: string,
+  identity: PublicationIdentity,
+  acknowledgesPriorAttemptId: string | null,
+  executingRequestId: string,
+  now: Date,
+  deps: ExecuteAuthorizedActionDeps,
+): Promise<ExecutionPreflightRefusal | null> {
+  const ref = parseWorkArtifactRef(identity.artifactRef);
+  if (!ref) return "artifact-unresolvable";
+  const locked = await tx
+    .select({ id: workArtifactRevisions.id })
+    .from(workArtifactRevisions)
+    .where(
+      and(
+        eq(workArtifactRevisions.tenantId, tenantId),
+        eq(workArtifactRevisions.artifactId, ref.artifactId),
+        eq(workArtifactRevisions.revisionNo, ref.revisionNo),
+      ),
+    )
+    .for("update");
+  if (locked.length !== 1) return "artifact-unresolvable";
+  const { entries } = await readRevisionPublicationHistory(tx, tenantId, identity.artifactRef, now, { limit: null });
+  if (deps.afterPublicationGuardRead) await deps.afterPublicationGuardRead();
+  const verdict = evaluatePublicationGuard(entries, identity, acknowledgesPriorAttemptId, {
+    at: "execution",
+    executingRequestId,
+  });
+  return verdict.status === "clear" ? null : verdict.reason;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
  * PUBLISH-0 — THE `publish-instagram-media` HALF OF THIS SAME AUTHORITY.
  *
  * Kept IN this module on purpose: `action_execution_attempts` has exactly one writer, and it is this
@@ -832,6 +893,7 @@ async function executeInstagramPublish(
   let inTxRefusal: ExecutionFailureClass | null = null;
   let inTxTarget: ResolvedPublishTarget | null = null;
   let attemptId: string | null = null;
+  const guard: { refusal: ExecutionPreflightRefusal | null } = { refusal: null };
 
   const consumption = await consumeActionPermit(
     tenant,
@@ -840,6 +902,21 @@ async function executeInstagramPublish(
       getDb: () => db,
       now: () => now,
       async onAuthorizedWithin(tx, authorization: ExecutionAuthorization) {
+        /* DUPLICATE-GUARD-1 — first, under the revision lock. A refusal rolls the spend back. */
+        guard.refusal = await guardPublicationWithin(
+          tx,
+          tenantId,
+          {
+            actionKind: PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND,
+            destinationAccountId: payload.externalAccountId,
+            artifactRef: payload.draftRef,
+          },
+          payload.acknowledgesPriorAttemptId ?? null,
+          authorization.actionRequestId,
+          now,
+          deps,
+        );
+        if (guard.refusal) throw new Error("publication-guard-refused");
         const resolved = await resolvePublishTarget(tx, tenantId, payload, deps);
         const failure = "failure" in resolved ? resolved.failure : null;
 
@@ -904,6 +981,8 @@ async function executeInstagramPublish(
     },
   );
 
+  /* DUPLICATE-GUARD-1: nothing was spent and no attempt exists; the permit is still active. */
+  if (guard.refusal) return refused(guard.refusal);
   if (consumption.status === "refused") {
     switch (consumption.reason) {
       case "unauthenticated":
@@ -1220,6 +1299,7 @@ async function executeYouTubePublish(
   /* ── THE ATOMIC HALF: spend + attempt + audit. ── */
   let inTxRefusal: ExecutionFailureClass | null = null;
   let attemptId: string | null = null;
+  const guard: { refusal: ExecutionPreflightRefusal | null } = { refusal: null };
 
   const consumption = await consumeActionPermit(
     tenant,
@@ -1228,6 +1308,21 @@ async function executeYouTubePublish(
       getDb: () => db,
       now: () => now,
       async onAuthorizedWithin(tx, authorization: ExecutionAuthorization) {
+        /* DUPLICATE-GUARD-1 — first, under the revision lock. A refusal rolls the spend back. */
+        guard.refusal = await guardPublicationWithin(
+          tx,
+          tenantId,
+          {
+            actionKind: PUBLISH_YOUTUBE_VIDEO_ACTION_KIND,
+            destinationAccountId: payload.expectedChannelId,
+            artifactRef: payload.draftRef,
+          },
+          payload.acknowledgesPriorAttemptId ?? null,
+          authorization.actionRequestId,
+          now,
+          deps,
+        );
+        if (guard.refusal) throw new Error("publication-guard-refused");
         const failure = await resolveYouTubeRecordBinding(tx, tenantId, payload);
         const inserted = await tx
           .insert(actionExecutionAttempts)
@@ -1289,6 +1384,8 @@ async function executeYouTubePublish(
     },
   );
 
+  /* DUPLICATE-GUARD-1: nothing was spent and no attempt exists; the permit is still active. */
+  if (guard.refusal) return refused(guard.refusal);
   if (consumption.status === "refused") {
     switch (consumption.reason) {
       case "unauthenticated":

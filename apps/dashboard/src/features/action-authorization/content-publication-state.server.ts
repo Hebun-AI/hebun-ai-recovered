@@ -31,7 +31,7 @@
  *
  * Server-only.
  */
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { ControlPlaneDatabase } from "@/db/client.server";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
 import { actionExecutionAttempts } from "@/db/schema/action-execution";
@@ -79,6 +79,126 @@ function refOf(input: { readonly artifactId: string; readonly revisionNo: number
   return `work-artifact/${input.artifactId.toLowerCase()}@${input.revisionNo}`;
 }
 
+/**
+ * CONTENT-PUBLICATION-DUPLICATE-GUARD-1 — the ONE definition of a revision's publication history,
+ * callable with a transaction handle.
+ *
+ * The read projection below and the execution guard read history through this single function, so
+ * "what has been published for this revision" has one answer on both the read side and the write
+ * side. `limit: null` reads the WHOLE history: a guard must never decide from a truncated page.
+ * It THROWS on a failed read; the caller decides what a failure means (the projection says
+ * `unknown`, the guard refuses before any provider call).
+ *
+ * Read only. The handle may be a transaction; nothing here writes.
+ */
+export async function readRevisionPublicationHistory(
+  handle: Pick<ControlPlaneDatabase, "select">,
+  tenantId: string,
+  artifactRef: string,
+  now: Date,
+  options: { readonly limit: number | null },
+): Promise<{ readonly entries: readonly PublicationHistoryEntry[]; readonly truncated: boolean }> {
+  const query = handle
+    .select({
+      requestId: hebyActionRequests.id,
+      actionKind: hebyActionRequests.actionKind,
+      requestStatus: hebyActionRequests.status,
+      payloadDigest: hebyActionRequests.payloadDigest,
+      proposedAt: hebyActionRequests.createdAt,
+      approvedAt: hebyActionRequests.approvedAt,
+      rejectedAt: hebyActionRequests.rejectedAt,
+      /* Destination identity, as the governed payload bound it — never a display label. */
+      instagramAccountId: sql<string | null>`${hebyActionRequests.canonicalPayload}->>'externalAccountId'`,
+      youtubeChannelId: sql<string | null>`${hebyActionRequests.canonicalPayload}->>'expectedChannelId'`,
+      acknowledgesPriorAttemptId: sql<string | null>`${hebyActionRequests.canonicalPayload}->>'acknowledgesPriorAttemptId'`,
+      permitId: actionPermits.id,
+      permitStatus: actionPermits.status,
+      permitIssuedAt: actionPermits.issuedAt,
+      permitExpiresAt: actionPermits.expiresAt,
+      permitConsumedAt: actionPermits.consumedAt,
+      permitRevokedAt: actionPermits.revokedAt,
+      attemptId: actionExecutionAttempts.id,
+      attemptStatus: actionExecutionAttempts.status,
+      providerResponseClass: actionExecutionAttempts.providerResponseClass,
+      providerMessageId: actionExecutionAttempts.providerMessageId,
+      failureClass: actionExecutionAttempts.failureClass,
+      attemptStartedAt: actionExecutionAttempts.startedAt,
+      attemptCompletedAt: actionExecutionAttempts.completedAt,
+    })
+    .from(hebyActionRequests)
+    .leftJoin(
+      actionPermits,
+      and(
+        eq(actionPermits.actionRequestId, hebyActionRequests.id),
+        eq(actionPermits.tenantId, hebyActionRequests.tenantId),
+      ),
+    )
+    .leftJoin(
+      actionExecutionAttempts,
+      and(
+        eq(actionExecutionAttempts.permitId, actionPermits.id),
+        eq(actionExecutionAttempts.tenantId, actionPermits.tenantId),
+      ),
+    )
+    .where(
+      and(
+        eq(hebyActionRequests.tenantId, tenantId),
+        eq(hebyActionRequests.targetRef, artifactRef),
+        inArray(hebyActionRequests.actionKind, [...PUBLICATION_ACTION_KINDS]),
+      ),
+    )
+    /* Newest first so a bound keeps the most recent; reversed below into chronological order. */
+    .orderBy(desc(hebyActionRequests.createdAt), desc(hebyActionRequests.id));
+  const rows = options.limit === null ? await query : await query.limit(options.limit + 1);
+
+  const truncated = options.limit !== null && rows.length > options.limit;
+  const entries: PublicationHistoryEntry[] = [];
+  for (const row of options.limit === null ? rows : rows.slice(0, options.limit)) {
+    /* The WHERE clause admits only publication kinds; a row that is not one is a read defect. */
+    if (!isPublicationActionKind(row.actionKind)) throw new Error("publication-history-kind-defect");
+    const permit =
+      row.permitId === null || row.permitStatus === null || row.permitIssuedAt === null || row.permitExpiresAt === null
+        ? null
+        : {
+            state: derivePermitState(row.permitStatus, row.permitExpiresAt, now),
+            issuedAt: iso(row.permitIssuedAt) ?? "",
+            expiresAt: iso(row.permitExpiresAt) ?? "",
+            consumedAt: iso(row.permitConsumedAt),
+            revokedAt: iso(row.permitRevokedAt),
+          };
+    const attempt =
+      row.attemptId === null || row.attemptStatus === null || row.attemptStartedAt === null
+        ? null
+        : {
+            attemptId: row.attemptId,
+            status: row.attemptStatus as ExecutionAttemptStatus,
+            providerResponseClass: (row.providerResponseClass as ProviderResponseClass | null) ?? null,
+            providerResultId: row.providerMessageId ?? null,
+            failureClass: (row.failureClass as ExecutionFailureClass | null) ?? null,
+            startedAt: iso(row.attemptStartedAt) ?? "",
+            completedAt: iso(row.attemptCompletedAt),
+          };
+    const requestStatus = row.requestStatus as PublicationRequestStatus;
+    entries.push({
+      requestId: row.requestId,
+      actionKind: row.actionKind,
+      destination: PUBLICATION_DESTINATION[row.actionKind],
+      destinationAccountId:
+        row.actionKind === "publish-instagram-media" ? (row.instagramAccountId ?? null) : (row.youtubeChannelId ?? null),
+      acknowledgesPriorAttemptId: row.acknowledgesPriorAttemptId ?? null,
+      payloadDigest: row.payloadDigest,
+      requestStatus,
+      proposedAt: iso(row.proposedAt) ?? "",
+      approvedAt: iso(row.approvedAt),
+      rejectedAt: iso(row.rejectedAt),
+      permit,
+      attempt,
+      stage: derivePublicationStage({ requestStatus, permit, attempt }),
+    });
+  }
+  return { entries: entries.reverse(), truncated };
+}
+
 async function readOne(
   db: ControlPlaneDatabase,
   tenantId: string,
@@ -86,97 +206,11 @@ async function readOne(
   now: Date,
 ): Promise<ContentPublicationState> {
   try {
-    const rows = await db
-      .select({
-        requestId: hebyActionRequests.id,
-        actionKind: hebyActionRequests.actionKind,
-        requestStatus: hebyActionRequests.status,
-        proposedAt: hebyActionRequests.createdAt,
-        approvedAt: hebyActionRequests.approvedAt,
-        rejectedAt: hebyActionRequests.rejectedAt,
-        permitId: actionPermits.id,
-        permitStatus: actionPermits.status,
-        permitIssuedAt: actionPermits.issuedAt,
-        permitExpiresAt: actionPermits.expiresAt,
-        permitConsumedAt: actionPermits.consumedAt,
-        permitRevokedAt: actionPermits.revokedAt,
-        attemptId: actionExecutionAttempts.id,
-        attemptStatus: actionExecutionAttempts.status,
-        providerResponseClass: actionExecutionAttempts.providerResponseClass,
-        providerMessageId: actionExecutionAttempts.providerMessageId,
-        failureClass: actionExecutionAttempts.failureClass,
-        attemptStartedAt: actionExecutionAttempts.startedAt,
-        attemptCompletedAt: actionExecutionAttempts.completedAt,
-      })
-      .from(hebyActionRequests)
-      .leftJoin(
-        actionPermits,
-        and(
-          eq(actionPermits.actionRequestId, hebyActionRequests.id),
-          eq(actionPermits.tenantId, hebyActionRequests.tenantId),
-        ),
-      )
-      .leftJoin(
-        actionExecutionAttempts,
-        and(
-          eq(actionExecutionAttempts.permitId, actionPermits.id),
-          eq(actionExecutionAttempts.tenantId, actionPermits.tenantId),
-        ),
-      )
-      .where(
-        and(
-          eq(hebyActionRequests.tenantId, tenantId),
-          eq(hebyActionRequests.targetRef, artifactRef),
-          inArray(hebyActionRequests.actionKind, [...PUBLICATION_ACTION_KINDS]),
-        ),
-      )
-      /* Newest first so the bound keeps the most recent; reversed below into chronological order. */
-      .orderBy(desc(hebyActionRequests.createdAt), desc(hebyActionRequests.id))
-      .limit(PUBLICATION_HISTORY_LIMIT + 1);
-
-    if (rows.length === 0) return { status: "no-request-recorded", artifactRef };
-
-    const truncated = rows.length > PUBLICATION_HISTORY_LIMIT;
-    const entries: PublicationHistoryEntry[] = [];
-    for (const row of rows.slice(0, PUBLICATION_HISTORY_LIMIT)) {
-      /* The WHERE clause admits only publication kinds; a row that is not one would be a read defect. */
-      if (!isPublicationActionKind(row.actionKind)) return { status: "unknown", artifactRef, reason: "read-failed" };
-      const permit =
-        row.permitId === null || row.permitStatus === null || row.permitIssuedAt === null || row.permitExpiresAt === null
-          ? null
-          : {
-              state: derivePermitState(row.permitStatus, row.permitExpiresAt, now),
-              issuedAt: iso(row.permitIssuedAt) ?? "",
-              expiresAt: iso(row.permitExpiresAt) ?? "",
-              consumedAt: iso(row.permitConsumedAt),
-              revokedAt: iso(row.permitRevokedAt),
-            };
-      const attempt =
-        row.attemptId === null || row.attemptStatus === null || row.attemptStartedAt === null
-          ? null
-          : {
-              status: row.attemptStatus as ExecutionAttemptStatus,
-              providerResponseClass: (row.providerResponseClass as ProviderResponseClass | null) ?? null,
-              providerResultId: row.providerMessageId ?? null,
-              failureClass: (row.failureClass as ExecutionFailureClass | null) ?? null,
-              startedAt: iso(row.attemptStartedAt) ?? "",
-              completedAt: iso(row.attemptCompletedAt),
-            };
-      const requestStatus = row.requestStatus as PublicationRequestStatus;
-      entries.push({
-        requestId: row.requestId,
-        actionKind: row.actionKind,
-        destination: PUBLICATION_DESTINATION[row.actionKind],
-        requestStatus,
-        proposedAt: iso(row.proposedAt) ?? "",
-        approvedAt: iso(row.approvedAt),
-        rejectedAt: iso(row.rejectedAt),
-        permit,
-        attempt,
-        stage: derivePublicationStage({ requestStatus, permit, attempt }),
-      });
-    }
-    return { status: "recorded", artifactRef, entries: entries.reverse(), truncated };
+    const { entries, truncated } = await readRevisionPublicationHistory(db, tenantId, artifactRef, now, {
+      limit: PUBLICATION_HISTORY_LIMIT,
+    });
+    if (entries.length === 0) return { status: "no-request-recorded", artifactRef };
+    return { status: "recorded", artifactRef, entries, truncated };
   } catch {
     return { status: "unknown", artifactRef, reason: "read-failed" };
   }

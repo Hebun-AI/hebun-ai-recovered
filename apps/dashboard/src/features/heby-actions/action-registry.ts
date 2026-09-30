@@ -241,6 +241,13 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
           required: true,
           describes: "SHA-256 of the exact derivative bytes, derived server-side.",
         },
+        /* CONTENT-PUBLICATION-DUPLICATE-GUARD-1 — optional; validated against the ledger, authorizes nothing. */
+        {
+          name: "acknowledgesPriorAttemptId",
+          kind: "string",
+          required: false,
+          describes: "The latest accepted or unknown attempt for this account and revision, acknowledged by the human as an intentional new publication.",
+        },
       ],
     },
     inputSummary: "One connection, one caption revision, one original image and its JPEG derivative, each bound to its exact bytes.",
@@ -282,6 +289,13 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
         { name: "categoryId", kind: "string", required: true, describes: "Director-supplied YouTube category id." },
         { name: "selfDeclaredMadeForKids", kind: "boolean", required: true, describes: "Director's made-for-kids declaration." },
         { name: "containsSyntheticMedia", kind: "boolean", required: true, describes: "Director's altered/synthetic-content declaration." },
+        /* CONTENT-PUBLICATION-DUPLICATE-GUARD-1 — optional; validated against the ledger, authorizes nothing. */
+        {
+          name: "acknowledgesPriorAttemptId",
+          kind: "string",
+          required: false,
+          describes: "The latest accepted or unknown attempt for this account and revision, acknowledged by the human as an intentional new publication.",
+        },
       ],
     },
     inputSummary: "One YouTube connection and its verified channel, one package revision, one approved video bound to its exact bytes, and four declarations.",

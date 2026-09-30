@@ -110,7 +110,15 @@ export type ExecutionPreflightRefusal =
    * is not publish-capable, or Meta did not confirm the publishing identity for the bound account.
    * A prerequisite, never an authorization: nothing was spent.
    */
-  | "capability-unavailable";
+  | "capability-unavailable"
+  /*
+   * CONTENT-PUBLICATION-DUPLICATE-GUARD-1 — the publication guard refused inside the spend
+   * transaction, under the revision lock; the spend rolled back, so the permit is still active.
+   */
+  | "publication-in-flight"
+  | "prior-publication-unacknowledged"
+  | "prior-publication-acknowledgement-stale"
+  | "prior-publication-acknowledgement-mismatch";
 
 /** What a surface may show about one attempt. Carries no address, no credential, no body. */
 export interface ExecutionAttemptView {
