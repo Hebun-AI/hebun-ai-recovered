@@ -795,6 +795,12 @@ function theSurfaceOffersTwoDeliberateActions(): void {
        */
       "executeGovernedPlacementAction",
       /*
+       * INSTAGRAM-APPROVAL-PREVIEW-1 added an ELEVENTH, and it is a READ: a short-lived private grant
+       * for the original image one governed Instagram request binds, named by REQUEST id. It
+       * approves, spends, executes and stores nothing — still no generic execute-anything.
+       */
+      "openInstagramApprovalImageAction",
+      /*
        * YOUTUBE-WRITE-2 added a TENTH, and it is a READ: what YouTube now says about one accepted
        * upload. It spends, approves, executes and stores nothing — still no generic execute-anything.
        */
@@ -803,7 +809,7 @@ function theSurfaceOffersTwoDeliberateActions(): void {
       "revokeActionPermitAction",
       "withdrawStandingMutationAction",
     ],
-    "ten deliberate server actions, and still no generic execute-anything",
+    "eleven deliberate server actions, and still no generic execute-anything",
   );
   for (const fn of exported) {
     assert.ok(

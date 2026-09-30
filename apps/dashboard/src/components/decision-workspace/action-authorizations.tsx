@@ -1,6 +1,9 @@
 "use client";
 
 import { YouTubeUploadStatus } from "./youtube-upload-status";
+import { InstagramApprovalPreview } from "./instagram-approval-preview";
+import type { InstagramApprovalPreviewsRead } from "@/features/instagram-publishing/approval-preview.server";
+import { PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND } from "@/features/instagram-publishing/contracts";
 import { useState, useTransition } from "react";
 import { Lock } from "lucide-react";
 import { DecisionRegion, DecisionEmptyState, StructuralMarker } from "./decision-region";
@@ -188,12 +191,17 @@ function DeclarePurposeControl({
   );
 }
 
+type InstagramPreviewMap = Extract<InstagramApprovalPreviewsRead, { status: "read" }>["previews"];
+
 function RequestCard({
   item,
   waitingFor,
   workOptions,
+  instagramPreviews,
 }: {
   readonly item: PendingActionRequestView;
+  /** INSTAGRAM-APPROVAL-PREVIEW-1 — `null` when the preview read did not answer at all. */
+  readonly instagramPreviews: InstagramPreviewMap | null;
   /** E2-4 — elapsed since this proposal was FILED. `null` when no instant or no usable timestamp. */
   readonly waitingFor: ElapsedObservation | null;
   /** PBGA-1 — the work a human may declare this act serves. Empty when none is recorded. */
@@ -309,6 +317,14 @@ function RequestCard({
       </div>
 
       <p className="text-sm leading-6 text-fg-primary">{item.expectedEffect}</p>
+
+      {/*
+       * INSTAGRAM-APPROVAL-PREVIEW-1 — the image and caption this request binds, BEFORE any control.
+       * Presentation of server-proven facts only; the permit still binds `payloadDigest`.
+       */}
+      {item.actionKind === PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND ? (
+        <InstagramApprovalPreview requestId={item.requestId} preview={instagramPreviews?.[item.requestId]} />
+      ) : null}
 
       {/*
        * TRH-19 — WHY THE AGENT PROPOSED THIS, IN ITS OWN WORDS, DURABLY.
@@ -797,6 +813,7 @@ export function ActionAuthorizations({
   requests,
   permits,
   workOptions = [],
+  instagramPreviews = null,
   connected,
   evaluatedAt = null,
   awaitingCount = null,
@@ -813,6 +830,8 @@ export function ActionAuthorizations({
    * to declare a purpose against.
    */
   readonly workOptions?: readonly { readonly workItemId: string; readonly title: string }[];
+  /** INSTAGRAM-APPROVAL-PREVIEW-1 — keyed by request id; `null` when the preview read did not answer. */
+  readonly instagramPreviews?: InstagramPreviewMap | null;
   readonly connected: boolean;
   /**
    * E2-4 — the ONE instant every duration on this surface is measured against, resolved on the
@@ -855,6 +874,7 @@ export function ActionAuthorizations({
                     : null
                 }
                 workOptions={workOptions}
+                instagramPreviews={instagramPreviews}
               />
             ))}
           </ul>

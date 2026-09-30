@@ -144,6 +144,13 @@ const code = (f: string): string => stripComments(read(f));
     "src/features/content-intake/admit-supplied-drive-batch.server.ts",
     /* YOUTUBE-WRITE-2: the YouTube upload inlet reads the selected video's Media row (and nothing else). */
     "src/features/heby-action-inlet/youtube-publish-proposal.server.ts",
+    /*
+     * INSTAGRAM-APPROVAL-PREVIEW-1: the approval preview READS the bound original's row, the publish
+     * lineage (database only) and, on a human's click, the released verified read grant. It writes
+     * no media row, lifecycle or decision; its import list is pinned in
+     * tests/instagram-approval-preview-1/preview-firewall.
+     */
+    "src/features/instagram-publishing/approval-preview.server.ts",
   ]);
   for (const f of SRC) {
     const c = code(f);

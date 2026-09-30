@@ -21,6 +21,7 @@ import {
   STANDING_MUTATION_MIN_INTERVAL_CEILING_MINUTES,
 } from "@/features/standing-mutation-authority/authorize-standing-mutation.server";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
+import { readPendingInstagramApprovalPreviews } from "@/features/instagram-publishing/approval-preview.server";
 
 export const metadata = { title: "Decisions — Hebun AI" };
 /*
@@ -120,9 +121,15 @@ export default async function ApprovalsPage() {
    * Only IN-SERVICE agents are offered. An envelope naming a retired agent is refused by the writer
    * and would authorize nothing, so offering one would only manufacture a refusal.
    */
-  const [standing, agentState] = await Promise.all([
+  /*
+   * INSTAGRAM-APPROVAL-PREVIEW-1 — what each pending Instagram publication would publish, resolved
+   * from its frozen payload and proven against its digests. Its own availability: an unreadable
+   * preview must leave the authorization queue fully usable, and renders as unknown, never empty.
+   */
+  const [standing, agentState, instagramPreviews] = await Promise.all([
     readStandingMutations(tenant),
     readDurableAgentIdentityState(tenant),
+    readPendingInstagramApprovalPreviews(tenant),
   ]);
   const agentOptions =
     agentState.status === "known"
@@ -178,6 +185,7 @@ export default async function ApprovalsPage() {
             permits={permits.status === "read" ? permits.items : []}
             connected={connected}
             workOptions={workOptions}
+            instagramPreviews={instagramPreviews.status === "read" ? instagramPreviews.previews : null}
             evaluatedAt={evaluatedAt}
             awaitingCount={awaiting.status === "read" ? awaiting.value.awaiting : null}
             oldestWaiting={

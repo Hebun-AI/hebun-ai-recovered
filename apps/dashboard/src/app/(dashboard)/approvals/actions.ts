@@ -33,6 +33,10 @@ import {
   type StandingMutationWriteResult,
 } from "@/features/standing-mutation-authority/authorize-standing-mutation.server";
 import { readStandingMutations } from "@/features/standing-mutation-authority/read-standing-mutations.server";
+import {
+  openInstagramApprovalImage,
+  type InstagramApprovalImageResult,
+} from "@/features/instagram-publishing/approval-preview.server";
 
 /*
  * The R3A authorization boundary — the only client-crossable way to authorize a consequential act.
@@ -144,6 +148,17 @@ export async function readYouTubeUploadAction(
   input: { readonly permitId: string },
 ): Promise<YouTubeUploadReadResult> {
   return readYouTubeUploadedVideo(await resolveTenantContext(), { permitId: String(input?.permitId ?? "") });
+}
+
+/**
+ * INSTAGRAM-APPROVAL-PREVIEW-1 — a short-lived private read grant for the ORIGINAL image one governed
+ * Instagram request binds, requested when a human opens it. It takes a REQUEST id from the session's
+ * own tenant and nothing else: the payload decides which image, and its digest must match. Read only.
+ */
+export async function openInstagramApprovalImageAction(
+  input: { readonly requestId: string },
+): Promise<InstagramApprovalImageResult> {
+  return openInstagramApprovalImage(await resolveTenantContext(), { requestId: String(input?.requestId ?? "") });
 }
 
 /**

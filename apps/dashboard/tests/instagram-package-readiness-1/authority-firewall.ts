@@ -68,7 +68,9 @@ const EXECUTOR = "src/features/action-execution/execute-authorized-action.server
 /* 2 · Exactly two consumers: the Instagram proposal inlet and the executor. Heby gains nothing. */
 {
   const importers = walk("src").filter((f) => f !== VERIFIER && /verify-instagram-package\.server/.test(codeOnly(read(f)))).sort();
-  assert.deepEqual(importers, [EXECUTOR, PROPOSAL].sort(), `consumers: ${importers}`);
+  /* INSTAGRAM-APPROVAL-PREVIEW-1 reads it as CURRENT-READINESS CONTEXT beside a governed request; it decides nothing. */
+  const PREVIEW = "src/features/instagram-publishing/approval-preview.server.ts";
+  assert.deepEqual(importers, [EXECUTOR, PROPOSAL, PREVIEW].sort(), `consumers: ${importers}`);
   let heby = 0;
   for (const f of walk("src")) {
     /* Every Heby / agent feature except the human proposal inlet itself. */
