@@ -59,6 +59,8 @@ import {
   INSTAGRAM_MEDIA_WINDOW,
 } from "@/features/instagram-connection-surface/latest-media-observation";
 import { InstagramMediaCards } from "@/components/platform-integrations/instagram-media-cards";
+import { ObservationAuthorityPanel } from "@/components/platform-integrations/observation-authority-panel";
+import { readObservationAuthorityHealth } from "@/features/observation-authority-legibility/read-observation-authority-health.server";
 import { disconnectInstagramAction } from "./actions";
 
 export const metadata = { title: "Instagram — Integrations — Hebun AI" };
@@ -149,6 +151,13 @@ export default async function InstagramIntegrationPage({
       limit: 1,
     }),
   );
+
+  /*
+   * OBSERVATION-AUTHORITY-LEGIBILITY-1. Whether Hebun is still permitted, and able, to observe this
+   * account: the effective standing authorizations, the ONE connection each names, and the latest
+   * recorded observation — derived from released reads, stored nowhere, contacting nothing.
+   */
+  const observationAuthority = await readObservationAuthorityHealth(tenant, INSTAGRAM_PROVIDER_KEY);
 
   return (
     <>
@@ -346,6 +355,10 @@ export default async function InstagramIntegrationPage({
                 : INSTAGRAM_MEDIA_ABSENCE[latestMedia.reason]}
             </p>
           )}
+        </div>
+
+        <div className="rounded-md border border-[var(--line)] px-4 py-4">
+          <ObservationAuthorityPanel health={observationAuthority} />
         </div>
       </section>
     </>
