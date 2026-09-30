@@ -32,6 +32,7 @@ import {
   listArtifactVideoGenerationsAction,
   readContentPackageAction,
   readContentPublicationStatesAction,
+  readContentPublicationMeasurementsAction,
   readHebyMediaPrefillsAction,
   readMediaAssetReviewStatesAction,
   listActiveRecipientsAction,
@@ -147,6 +148,17 @@ export async function OperationsPreparation() {
           revisions: drafts.map((d) => ({ artifactId: d.artifactId, revisionNo: d.currentRevision })),
         })
       : {};
+  /*
+   * CONTENT-PUBLICATION-MEASUREMENT-LINK-1. What Hebun's stored Instagram observations say about
+   * the ids those accepted publications returned. A derived read over the ledger and the
+   * observation history; it writes nothing and contacts no provider.
+   */
+  const publicationMeasurements =
+    drafts.length > 0
+      ? await readContentPublicationMeasurementsAction({
+          revisions: drafts.map((d) => ({ artifactId: d.artifactId, revisionNo: d.currentRevision })),
+        })
+      : {};
 
   const contentPackages = new Map(
     await Promise.all(
@@ -256,6 +268,7 @@ export async function OperationsPreparation() {
         videoReviewStates={videoReviewStates}
         contentPackages={contentPackages}
         publicationStates={publicationStates}
+        publicationMeasurements={publicationMeasurements}
         mediaPrefills={mediaPrefills}
         mediaNextSteps={mediaNextSteps}
       />
@@ -354,6 +367,7 @@ function MediaAssetsForDrafts({
   videoReviewStates,
   contentPackages,
   publicationStates,
+  publicationMeasurements,
   mediaPrefills,
   mediaNextSteps,
 }: {
@@ -377,6 +391,8 @@ function MediaAssetsForDrafts({
   readonly contentPackages: ReadonlyMap<string, Awaited<ReturnType<typeof readContentPackageAction>>>;
   /* CONTENT-PUBLICATION-STATE-1 — read by the caller, keyed by `work-artifact/<id>@<n>`. */
   readonly publicationStates: Awaited<ReturnType<typeof readContentPublicationStatesAction>>;
+  /* CONTENT-PUBLICATION-MEASUREMENT-LINK-1 — read by the caller, same keys. */
+  readonly publicationMeasurements: Awaited<ReturnType<typeof readContentPublicationMeasurementsAction>>;
   /* HEBY-MEDIA-3 — read by the caller; data only. */
   readonly mediaPrefills: ReadonlyMap<string, MediaPrefill>;
   /* HEBY-MEDIA-4 — read by the caller; data only. */
@@ -445,6 +461,11 @@ function MediaAssetsForDrafts({
                 status: "unknown",
                 artifactRef: null,
                 reason: "read-failed",
+              }
+            }
+            measurement={
+              publicationMeasurements[formatWorkArtifactRef(draft.artifactId, draft.currentRevision)] ?? {
+                status: "unknown",
               }
             }
           />

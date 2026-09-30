@@ -19,6 +19,8 @@ import type { ContentSelectionResult } from "@/features/content-composition/sele
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { readContentPublicationStates } from "@/features/action-authorization/content-publication-state.server";
 import type { ContentPublicationState } from "@/features/action-authorization/content-publication-state";
+import { readPublicationMeasurements } from "@/features/content-publication-measurement/read-publication-measurement.server";
+import type { RevisionPublicationMeasurements } from "@/features/content-publication-measurement/contracts";
 import type {
   CreateWorkArtifactResult,
   ReviseWorkArtifactResult,
@@ -413,6 +415,20 @@ export async function readContentPublicationStatesAction(input: {
   const tenant = await resolveTenantContext();
   const revisions = Array.isArray(input?.revisions) ? input.revisions : [];
   return Object.fromEntries(await readContentPublicationStates(tenant, revisions));
+}
+
+/**
+ * CONTENT-PUBLICATION-MEASUREMENT-LINK-1 — for each given revision, what this tenant's stored
+ * Instagram observations say about the ids its accepted publications returned. A READ over two
+ * released readers: the session tenant is the only tenant, the revisions only choose which records
+ * are asked about, and nothing is written, fetched from a provider or decrypted.
+ */
+export async function readContentPublicationMeasurementsAction(input: {
+  revisions: readonly { artifactId: string; revisionNo: number }[];
+}): Promise<Record<string, RevisionPublicationMeasurements>> {
+  const tenant = await resolveTenantContext();
+  const revisions = Array.isArray(input?.revisions) ? input.revisions : [];
+  return Object.fromEntries(await readPublicationMeasurements(tenant, revisions));
 }
 
 /**

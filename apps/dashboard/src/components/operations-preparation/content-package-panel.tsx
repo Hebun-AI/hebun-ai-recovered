@@ -29,6 +29,13 @@ import {
   PUBLICATION_STAGE_WORDING,
   type ContentPublicationState,
 } from "@/features/action-authorization/content-publication-state";
+import {
+  PUBLICATION_MEASUREMENT_NON_CLAIM,
+  PUBLICATION_MEASUREMENT_WORDING,
+  YOUTUBE_MEASUREMENT_NOT_AVAILABLE,
+  type PublicationMeasurement,
+  type RevisionPublicationMeasurements,
+} from "@/features/content-publication-measurement/contracts";
 
 const BLOCKER_WORDING: Record<ContentPackageBlocker, string> = {
   "copy-empty": "This revision has no copy yet.",
@@ -51,6 +58,7 @@ export function ContentPackagePanel({
   revisionNo,
   result,
   publication,
+  measurement,
 }: {
   readonly artifactId: string;
   readonly revisionNo: number;
@@ -66,6 +74,8 @@ export function ContentPackagePanel({
   readonly result: ContentPackageResult;
   /* CONTENT-PUBLICATION-STATE-1 — the ledger's record for this revision, read on the server. */
   readonly publication: ContentPublicationState;
+  /* CONTENT-PUBLICATION-MEASUREMENT-LINK-1 — derived on the server from the ledger + observations. */
+  readonly measurement: RevisionPublicationMeasurements;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -159,6 +169,7 @@ export function ContentPackagePanel({
       ) : null}
 
       <PublicationRecord publication={publication} />
+      <PublicationMeasurementRecord measurement={measurement} />
 
       {/* Printed every time, ready or not. This is the part that must not be collapsible. */}
       <ul className="space-y-0.5 text-[11px] text-fg-muted">
@@ -208,3 +219,63 @@ function PublicationRecord({ publication }: { readonly publication: ContentPubli
     </div>
   );
 }
+
+/*
+ * CONTENT-PUBLICATION-MEASUREMENT-LINK-1 — what Hebun's stored Instagram observations say about
+ * each accepted publication's provider id. Read-only: no control, no interpretation. A count
+ * Instagram did not report is printed as "not reported", never as 0.
+ */
+const utc = (iso: string): string => `${new Date(iso).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+const count = (value: number | null): string => (value === null ? "not reported" : String(value));
+
+function PublicationMeasurementRecord({ measurement }: { readonly measurement: RevisionPublicationMeasurements }) {
+  if (measurement.status === "unknown") return null;
+  if (measurement.instagram.length === 0 && measurement.youtubeAcceptedCount === 0) return null;
+  return (
+    <div className="min-w-0 space-y-1 text-[11px]">
+      <h5 className="font-medium text-fg-secondary">Observed after publication</h5>
+      <ul className="min-w-0 space-y-0.5">
+        {measurement.instagram.map((m) => (
+          <li key={m.publication.attemptId} className="flex min-w-0 flex-wrap gap-x-2 text-fg-muted">
+            <span className="text-fg-secondary">Instagram</span>
+            <span className="break-all">id {m.publication.providerResultId}</span>
+            <span>{PUBLICATION_MEASUREMENT_WORDING[m.status]}</span>
+            <MeasurementFacts m={m} />
+          </li>
+        ))}
+      </ul>
+      {measurement.youtubeAcceptedCount > 0 ? <p className="text-fg-muted">{YOUTUBE_MEASUREMENT_NOT_AVAILABLE}</p> : null}
+      {measurement.instagram.length > 0 ? <p className="text-fg-muted">{PUBLICATION_MEASUREMENT_NON_CLAIM}</p> : null}
+    </div>
+  );
+}
+
+function MeasurementFacts({ m }: { readonly m: PublicationMeasurement }) {
+  switch (m.status) {
+    case "observed":
+      return (
+        <>
+          <span>likes {count(m.latestLikeCount)}</span>
+          <span>comments {count(m.latestCommentCount)}</span>
+          <span>as of {utc(m.latestObservedAt)}</span>
+          {m.earliestObservedAt !== m.latestObservedAt ? <span>first seen {utc(m.earliestObservedAt)}</span> : null}
+          {m.evolution ? (
+            <span>
+              since {utc(m.evolution.previousObservedAt)}:{" "}
+              likes {m.evolution.item.likeCount.status === "comparable" ? signed(m.evolution.item.likeCount.change) : "not comparable"},{" "}
+              comments {m.evolution.item.commentCount.status === "comparable" ? signed(m.evolution.item.commentCount.change) : "not comparable"}
+            </span>
+          ) : null}
+        </>
+      );
+    case "no-observation-since-publication":
+      return m.latestObservedAt ? <span>latest observation {utc(m.latestObservedAt)}</span> : null;
+    case "absent-from-complete-window":
+    case "outside-clipped-window":
+      return <span>observation {utc(m.latestObservedAt)}</span>;
+    case "history-unreadable":
+      return null;
+  }
+}
+
+const signed = (n: number): string => (n > 0 ? `+${n}` : String(n));
