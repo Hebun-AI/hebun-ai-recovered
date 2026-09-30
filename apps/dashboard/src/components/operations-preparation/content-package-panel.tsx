@@ -9,8 +9,11 @@
  *
  * READY IS RENDERED BESIDE WHAT IT DOES NOT MEAN. The non-claims are printed verbatim next to the
  * badge, every time, because the entire risk of this surface is a human reading "READY" as "Hebun
- * will post this". Hebun cannot post anything: there is no publishing action kind and Instagram's
- * `/media_publish` is on an explicitly banned path list.
+ * will post this". Publishing is a separate governed act; READY authorizes none of it.
+ *
+ * CONTENT-PUBLICATION-STATE-1 — beside readiness, what Action Authorization's ledger records about
+ * publishing THIS revision, read on the server and handed down. Visibility only: this panel offers
+ * no proposal, approval or execution control, and blocks nothing.
  */
 import { useTransition } from "react";
 import { setMediaSelectionAction } from "@/app/(dashboard)/operations/actions";
@@ -21,6 +24,11 @@ import {
   describeSelectedMedia,
   type ContentPackageBlocker,
 } from "@/features/content-composition/contracts";
+import {
+  CONTENT_PUBLICATION_NON_CLAIM,
+  PUBLICATION_STAGE_WORDING,
+  type ContentPublicationState,
+} from "@/features/action-authorization/content-publication-state";
 
 const BLOCKER_WORDING: Record<ContentPackageBlocker, string> = {
   "copy-empty": "This revision has no copy yet.",
@@ -42,6 +50,7 @@ export function ContentPackagePanel({
   artifactId,
   revisionNo,
   result,
+  publication,
 }: {
   readonly artifactId: string;
   readonly revisionNo: number;
@@ -55,6 +64,8 @@ export function ContentPackagePanel({
    * panel renders exactly that read. It holds no copy of its own.
    */
   readonly result: ContentPackageResult;
+  /* CONTENT-PUBLICATION-STATE-1 — the ledger's record for this revision, read on the server. */
+  readonly publication: ContentPublicationState;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -140,12 +151,14 @@ export function ContentPackagePanel({
       )}
 
       {/*
-        VIDEO CONTENT CHAIN — a chosen video is part of the package and is NOT publishable: the only
-        publish path reads images, and there is no YouTube authority. Said whenever a video is chosen.
+        VIDEO CONTENT CHAIN / YOUTUBE-WRITE-2 — uploading a chosen video is its own governed act.
+        Said whenever a video is chosen.
       */}
       {pkg.selected.some((s) => s.mediaKind === "video") ? (
         <p className="text-[11px] text-fg-muted">{CONTENT_PACKAGE_VIDEO_NON_CLAIM}</p>
       ) : null}
+
+      <PublicationRecord publication={publication} />
 
       {/* Printed every time, ready or not. This is the part that must not be collapsible. */}
       <ul className="space-y-0.5 text-[11px] text-fg-muted">
@@ -154,5 +167,42 @@ export function ContentPackagePanel({
         ))}
       </ul>
     </section>
+  );
+}
+
+/*
+ * CONTENT-PUBLICATION-STATE-1 — three answers, never collapsed: could not be read, read and empty,
+ * or the recorded requests oldest first. Ledger words only; nothing here says "published" or "live",
+ * and no control is offered.
+ */
+function PublicationRecord({ publication }: { readonly publication: ContentPublicationState }) {
+  return (
+    <div className="min-w-0 space-y-1 text-[11px]">
+      <h5 className="font-medium text-fg-secondary">Publication record (this revision)</h5>
+      {publication.status === "unknown" ? (
+        <p className="text-fg-muted">The publication record could not be read right now. That is unknown, not “none”.</p>
+      ) : publication.status === "no-request-recorded" ? (
+        <p className="text-fg-muted">No publish request is recorded for this revision.</p>
+      ) : (
+        <>
+          {publication.truncated ? (
+            <p className="text-fg-muted">Showing the most recent {publication.entries.length} requests; older ones are not shown.</p>
+          ) : null}
+          <ul className="min-w-0 space-y-0.5">
+            {publication.entries.map((e) => (
+              <li key={e.requestId} className="flex min-w-0 flex-wrap gap-x-2 text-fg-muted">
+                <span className="text-fg-secondary">{e.destination === "youtube" ? "YouTube" : "Instagram"}</span>
+                <span>{PUBLICATION_STAGE_WORDING[e.stage]}</span>
+                {e.attempt?.providerResultId ? (
+                  <span className="break-all">provider id {e.attempt.providerResultId}</span>
+                ) : null}
+                <span>proposed {new Date(e.proposedAt).toISOString().slice(0, 16).replace("T", " ")} UTC</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-fg-muted">{CONTENT_PUBLICATION_NON_CLAIM}</p>
+        </>
+      )}
+    </div>
   );
 }

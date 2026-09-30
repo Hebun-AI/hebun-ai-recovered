@@ -217,8 +217,16 @@ const code = (f: string): string => stripComments(read(f));
     assert.ok(!/writeGovernanceDecision|decisionRecords|governanceSessions/.test(c), `${f}: never writes a Governance record itself`);
     /* Again: SAYING "this is not published" is the honest copy; REACHING a publishing authority is
        what must be impossible. Identifiers and module paths, never prose. */
+    /*
+     * CONTENT-PUBLICATION-STATE-1 — ONE named exception: the ledger's read projection of a revision's
+     * publication record (and its pure vocabulary) may be imported to SHOW that record. Exactly those
+     * two specifiers are removed before the ban; every other path into Action Authorization or
+     * Execution still fails here, and the projection's own import graph is walked writer-free in
+     * tests/content-publication-state-1/contract-grounding-firewall.
+     */
+    const withoutPublicationRead = c.replace(/"@\/features\/action-authorization\/content-publication-state(?:\.server)?"/g, '""');
     assert.ok(
-      !/recordActionRequest|action-authorization|action-execution|standing-mutation|heby-action-inlet/.test(c),
+      !/recordActionRequest|action-authorization|action-execution|standing-mutation|heby-action-inlet/.test(withoutPublicationRead),
       `${f}: generation is not publication`,
     );
     assert.ok(!/retireMediaAsset/.test(c), `${f}: cannot retire an asset`);

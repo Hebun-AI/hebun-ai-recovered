@@ -176,7 +176,9 @@ async function main(): Promise<void> {
     for (const f of [ACTION, SURFACE, PAGE]) {
       const c = strip(read(f));
       assert.ok(!/process\.env/.test(c), `${f}: reads no environment`);
-      assert.ok(!/HEBUN_OPENAI|API_KEY|apiKey|Bearer|authorization/i.test(c), `${f}: names no credential`);
+      /* CONTENT-PUBLICATION-STATE-1: the read projection's module path is a path, not a credential. */
+      const withoutPublicationRead = c.replace(/"@\/features\/action-authorization\/content-publication-state(?:\.server)?"/g, '""');
+      assert.ok(!/HEBUN_OPENAI|API_KEY|apiKey|Bearer|authorization/i.test(withoutPublicationRead), `${f}: names no credential`);
       assert.ok(!/console\./.test(c), `${f}: logs nothing`);
     }
     /* The result the surface renders carries byte facts and ids — never provider material. */

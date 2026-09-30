@@ -125,7 +125,8 @@ async function main(): Promise<void> {
   /* ── C / D · the governed-path explanation names the gates without stating their state ── */
   const why = MEDIA_CHOICE_EXPLANATIONS["publish-path-governed"];
   assert.match(why, /requires a human proposal, Governance approval, a single-use permit and tenant arming/);
-  assert.match(why, /does not show whether any proposal, approval, permit or arming exists now, or whether this package was uploaded before/);
+  /* CONTENT-PUBLICATION-STATE-1: the ledger line now carries the publication record; the explanation points to it. */
+  assert.match(why, /reads no proposal, approval, permit or arming; the draft's publication record, where present, states what the action ledger holds for this revision, and arming is not shown here/);
   assert.match(why, /not shown is not 'not done'/);
   assert.doesNotMatch(why, NEGATIVE_FACTS);
 
@@ -142,7 +143,8 @@ async function main(): Promise<void> {
     const draftLine = lines.split("\n").find((l) => l.startsWith(`[content-media/work-artifact/${DRAFT}@2]`)) ?? "";
     assert.match(draftLine, /governed publish path \(YouTube video\): this organization holds the capability now/, `${route}: A · capability on the draft line`);
     assert.match(draftLine, /package ready: yes/, `${route}: F`);
-    assert.match(draftLine, /upload\/posting history of this draft: not carried by this source — unknown here/, `${route}: A · history unknown reaches the model`);
+    /* CONTENT-PUBLICATION-STATE-1: no ledger in this fixture, so the record is UNKNOWN — never 'none'. */
+    assert.match(draftLine, /publication record of this revision: could not be read — unknown here, which is not 'none'/, `${route}: A · unread history reaches the model as unknown`);
     assert.doesNotMatch(lines, NEGATIVE_FACTS, `${route}: C/D · no negative fact about connection, publish or arming is handed to the model`);
     assert.doesNotMatch(lines, /\barming\b[^.|]*\b(active|withdrawn|armed)\b/i, `${route}: C · no arming state is handed to the model`);
   }
@@ -154,7 +156,7 @@ async function main(): Promise<void> {
    */
   /* A · the draft line carries the history as unknown, so an empty status field has its true value */
   for (const d of [capable, readonly, unreadable, notReady]) {
-    assert.match(d, /upload\/posting history of this draft: not carried by this source — unknown here, which is not 'none'/);
+    assert.match(d, /publication record of this revision: could not be read — unknown here, which is not 'none'/);
   }
   assert.doesNotMatch(capable, /\bpublished\b|\buploaded\b(?! before)/i, "the line states no upload outcome either way");
 

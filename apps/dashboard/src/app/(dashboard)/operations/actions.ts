@@ -17,6 +17,8 @@ import {
 } from "@/features/content-composition/heby-content-media-source.server";
 import type { ContentSelectionResult } from "@/features/content-composition/select-media.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
+import { readContentPublicationStates } from "@/features/action-authorization/content-publication-state.server";
+import type { ContentPublicationState } from "@/features/action-authorization/content-publication-state";
 import type {
   CreateWorkArtifactResult,
   ReviseWorkArtifactResult,
@@ -398,6 +400,19 @@ export async function readContentPackageAction(input: {
 }): Promise<ContentPackageResult> {
   const tenant = await resolveTenantContext();
   return readContentPackage(tenant, input);
+}
+
+/**
+ * CONTENT-PUBLICATION-STATE-1 — what Action Authorization's ledger records about publishing each
+ * given revision, keyed by canonical reference. A READ: the session tenant is the only tenant, the
+ * revisions only choose which of that tenant's records are asked about, and nothing is written.
+ */
+export async function readContentPublicationStatesAction(input: {
+  revisions: readonly { artifactId: string; revisionNo: number }[];
+}): Promise<Record<string, ContentPublicationState>> {
+  const tenant = await resolveTenantContext();
+  const revisions = Array.isArray(input?.revisions) ? input.revisions : [];
+  return Object.fromEntries(await readContentPublicationStates(tenant, revisions));
 }
 
 /**

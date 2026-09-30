@@ -195,10 +195,12 @@ async function main(): Promise<void> {
     );
     assert.ok(wc.includes("contentSelectedMedia"), "and that table is content_selected_media");
 
+    /* CONTENT-PUBLICATION-STATE-1: governed publishing exists now; the non-claims say what READY is not. */
     assert.ok(
-      CONTENT_PACKAGE_NON_CLAIMS.some((c) => /no publishing capability/i.test(c)),
-      "the non-claims say out loud that Hebun cannot publish",
+      CONTENT_PACKAGE_NON_CLAIMS.some((c) => /does not mean publication is authorized/i.test(c)),
+      "the non-claims say out loud that READY authorizes nothing",
     );
+    assert.equal(CONTENT_PACKAGE_NON_CLAIMS.some((c) => /no publishing capability/i.test(c)), false, "the obsolete claim is gone");
   }
 
   const harness = createDisposablePostgresHarness("hebun_compose1");

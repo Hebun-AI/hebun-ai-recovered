@@ -27,10 +27,11 @@
  * ── READY IS NOT AUTHORIZED, AND CANNOT BECOME IT ────────────────────────────
  *
  * `ready` means every blocker below is absent. It does not mean published, scheduled, queued,
- * sent, or permitted, and no authority in this repository consumes it. There is no publishing
- * action kind (`AGENT_ORIGINABLE_ACTION_KINDS` is send / record-work) and Instagram's
- * `/media_publish` is on an explicitly banned path list, so "ready" cannot be escalated into an
- * external act by any code path that exists. It is a statement to a human and nothing more.
+ * sent, or permitted. CONTENT-PUBLICATION-STATE-1 corrected the claim this paragraph used to make:
+ * governed publishing now exists (PUBLISH-0 for Instagram images, YOUTUBE-WRITE-2 for YouTube
+ * videos, the latter consuming `ready`), and each is a separate proposal → Governance → permit →
+ * arming → execution chain. "Ready" still authorizes nothing and cannot become an external act by
+ * itself; what the ledger records for a revision is Action Authorization's to state.
  *
  * Pure types and frozen values. No I/O.
  */
@@ -90,10 +91,10 @@ export type ContentSelectionRefusal = (typeof CONTENT_SELECTION_REFUSALS)[number
  * the entire risk of this capability is a human reading "READY" as "Hebun will post this".
  */
 export const CONTENT_PACKAGE_NON_CLAIMS: readonly string[] = [
-  "Ready means this draft is complete and reviewed. It does not mean it has been published, scheduled or queued.",
-  "Hebun has no publishing capability. Nothing here sends anything to any platform.",
+  "Ready means this revision's copy and chosen media meet the package's requirements and have been reviewed. It does not mean publication is authorized, that sending is armed, that anything was executed, or that a provider accepted anything.",
+  "Publishing is a separate governed act: a human proposal, a Governance decision, a single-use permit, this organization's external-send arming, then one execution. Nothing on this panel performs any of them.",
+  "Governed publishing exists only for Instagram images and YouTube videos. Other destinations and media have no publishing path.",
   "A declared destination is not a connected account, and no account is authorized by this package.",
-  "Publishing, when it exists, will be a separate governed act requiring its own authorization.",
 ] as const;
 
 /**

@@ -31,6 +31,7 @@ import {
   listArtifactMediaVideosAction,
   listArtifactVideoGenerationsAction,
   readContentPackageAction,
+  readContentPublicationStatesAction,
   readHebyMediaPrefillsAction,
   readMediaAssetReviewStatesAction,
   listActiveRecipientsAction,
@@ -52,6 +53,7 @@ import { HebyMediaPrefill } from "./heby-media-prefill";
 import type { MediaPrefill } from "@/features/content-composition/media-prefill";
 import type { MediaNextStep } from "@/features/content-composition/media-next-step";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
+import { formatWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
 
 export async function OperationsPreparation() {
   /*
@@ -135,6 +137,17 @@ export async function OperationsPreparation() {
    * every successful selection performs re-reads it — the panel can no longer show a package from
    * before the selection it just reported.
    */
+  /*
+   * CONTENT-PUBLICATION-STATE-1. What the action ledger records about publishing each draft's
+   * CURRENT revision — the same revision the package panel composes. One server read for the page.
+   */
+  const publicationStates =
+    drafts.length > 0
+      ? await readContentPublicationStatesAction({
+          revisions: drafts.map((d) => ({ artifactId: d.artifactId, revisionNo: d.currentRevision })),
+        })
+      : {};
+
   const contentPackages = new Map(
     await Promise.all(
       drafts.map(
@@ -242,6 +255,7 @@ export async function OperationsPreparation() {
         videoGenerations={videoGenerations.status === "read" ? videoGenerations.generations : []}
         videoReviewStates={videoReviewStates}
         contentPackages={contentPackages}
+        publicationStates={publicationStates}
         mediaPrefills={mediaPrefills}
         mediaNextSteps={mediaNextSteps}
       />
@@ -339,6 +353,7 @@ function MediaAssetsForDrafts({
   videoGenerations,
   videoReviewStates,
   contentPackages,
+  publicationStates,
   mediaPrefills,
   mediaNextSteps,
 }: {
@@ -360,6 +375,8 @@ function MediaAssetsForDrafts({
   readonly videoReviewStates: Awaited<ReturnType<typeof readMediaAssetReviewStatesAction>>;
   /* Read by the caller on the server, per draft, for its current revision. */
   readonly contentPackages: ReadonlyMap<string, Awaited<ReturnType<typeof readContentPackageAction>>>;
+  /* CONTENT-PUBLICATION-STATE-1 — read by the caller, keyed by `work-artifact/<id>@<n>`. */
+  readonly publicationStates: Awaited<ReturnType<typeof readContentPublicationStatesAction>>;
   /* HEBY-MEDIA-3 — read by the caller; data only. */
   readonly mediaPrefills: ReadonlyMap<string, MediaPrefill>;
   /* HEBY-MEDIA-4 — read by the caller; data only. */
@@ -422,6 +439,13 @@ function MediaAssetsForDrafts({
             revisionNo={draft.currentRevision}
             result={
               contentPackages.get(draft.artifactId) ?? { status: "unavailable", reason: "persistence-unavailable" }
+            }
+            publication={
+              publicationStates[formatWorkArtifactRef(draft.artifactId, draft.currentRevision)] ?? {
+                status: "unknown",
+                artifactRef: null,
+                reason: "read-failed",
+              }
             }
           />
           <HebyMediaPrefill

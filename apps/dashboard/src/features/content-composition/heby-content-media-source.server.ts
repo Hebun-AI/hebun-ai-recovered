@@ -14,6 +14,7 @@
  *   package           readContentPackage                   (CONTENT-COMPOSE-1, derived at read time)
  *   provider switch   resolveDirectorEnabled               (provider connectivity, fail-closed)
  *   publish capability getCapabilityAvailability           (Integration authority, I1 seam)
+ *   publication record readContentPublicationStates         (Action Authorization's projection)
  *
  * HEBY-TRUTH-UX-REPAIR-1 — the last row. Whether THIS tenant holds `google.youtube.video.upload` is
  * the capability authority's answer, read once and reduced to write-capable / not / unreadable. It
@@ -52,6 +53,12 @@ import {
   HIGGSFIELD_VIDEO_GENERATION_CONTROL_KEY,
 } from "@/features/media-generation-live/higgsfield-video-control";
 import { readMediaAssetReviewStates } from "@/features/media-asset-review/review-media-asset.server";
+import { readContentPublicationStates } from "@/features/action-authorization/content-publication-state.server";
+import {
+  CONTENT_PUBLICATION_NON_CLAIM,
+  formatPublicationEntry,
+  type ContentPublicationState,
+} from "@/features/action-authorization/content-publication-state";
 import { listWorkArtifacts } from "@/features/work-artifacts/read-work-artifacts.server";
 import { formatWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
 import { CONTENT_DRAFT_TYPE } from "@/features/work-artifacts/contracts";
@@ -69,7 +76,7 @@ import { prefillFromChoice, type MediaPrefill } from "./media-prefill";
 import { readContentPackage } from "./read-content-package.server";
 
 export const CONTENT_MEDIA_PROVENANCE =
-  "Content media — each open content draft's current revision: its admitted images and videos, their MEDIA-3 review records, its video generation attempts with source-image lineage, and its derived Content Package, read through the Media, Governance and Content authorities; plus the two Higgsfield connectivity switches and, for YouTube drafts, whether the organization's YouTube connection holds the upload capability. Heby owns none of these records and this source changes none of them (authoritative: false).";
+  "Content media — each open content draft's current revision: its admitted images and videos, their MEDIA-3 review records, its video generation attempts with source-image lineage, and its derived Content Package, read through the Media, Governance and Content authorities; plus the two Higgsfield connectivity switches and, for YouTube drafts, whether the organization's YouTube connection holds the upload capability; and, for each draft's current revision, the publish requests, permits and execution attempts Action Authorization records for it. Heby owns none of these records and this source changes none of them (authoritative: false).";
 
 /** Drafts are newest first; a bounded number keeps grounding from becoming a media inventory. */
 export const CONTENT_MEDIA_DRAFT_LIMIT = 10;
@@ -88,6 +95,7 @@ export interface ContentMediaSourceDeps {
   readonly readPackage?: typeof readContentPackage;
   readonly readProviderSwitch?: (providerKey: string) => Promise<boolean>;
   readonly readCapabilityAvailability?: typeof getCapabilityAvailability;
+  readonly readPublicationStates?: typeof readContentPublicationStates;
 }
 
 /*
@@ -149,14 +157,26 @@ type ResolvedItem = SourceResolution["items"][number];
  * names no gate as passed or missing. Other destinations carry no segment: unchanged.
  */
 /*
- * HEBY-TRUTH-UX-REPAIR-1 — what this source does NOT carry, said on the line itself. Production turn
- * d53d2004 wrote "Yayınlanmadı" as a status for a draft that had been uploaded: no source correlates
- * an execution back to a draft, and the model filled the empty status field with "no". This gives
- * the field its true value. It asserts nothing about the organization — only about this source.
+ * CONTENT-PUBLICATION-STATE-1 — the revision's publication record, as Action Authorization's
+ * projection states it. HEBY-TRUTH-UX-REPAIR-1 put "unknown here" on this line because no source
+ * correlated an execution back to a draft; the ledger now answers, so the line says what it holds.
+ * Three distinct answers, never collapsed: could not be read (unknown), read and empty (no request
+ * recorded for THIS revision), or the recorded requests, oldest first. It asserts nothing about
+ * other revisions and nothing about what a provider shows now.
  */
-function historySegment(destination: string | null): string[] {
+function publicationSegment(destination: string | null, state: ContentPublicationState | undefined): string[] {
   if (!destination) return [];
-  return ["upload/posting history of this draft: not carried by this source — unknown here, which is not 'none'"];
+  if (!state || state.status === "unknown") {
+    return ["publication record of this revision: could not be read — unknown here, which is not 'none'"];
+  }
+  if (state.status === "no-request-recorded") {
+    return ["publication record of this revision (action ledger): no publish request is recorded for this revision"];
+  }
+  const n = state.entries.length;
+  return [
+    `publication record of this revision (action ledger): ${n}${state.truncated ? " most recent" : ""} publish request${n === 1 ? "" : "s"} recorded — ${state.entries.map(formatPublicationEntry).join("; ")}`,
+    CONTENT_PUBLICATION_NON_CLAIM,
+  ];
 }
 
 function publishSegment(destination: string | null, youtubeVideoUpload: PublishCapabilityState): string[] {
@@ -186,7 +206,11 @@ type Collected =
  * ONE read, two renderings: the Heby grounding resolution and (HEBY-MEDIA-3) the typed prefill a
  * human sees on /operations. Both come from the same facts, so they cannot disagree.
  */
-async function collectContentMedia(tenant: TenantContext | null, deps: ContentMediaSourceDeps): Promise<Collected> {
+async function collectContentMedia(
+  tenant: TenantContext | null,
+  deps: ContentMediaSourceDeps,
+  options: { readonly publication: boolean } = { publication: false },
+): Promise<Collected> {
   if (!tenant?.tenantId || !tenant.userId) return { status: "unavailable", reason: "No authorized tenant context was supplied." };
 
   const listing = await (deps.listArtifacts ?? listWorkArtifacts)(tenant);
@@ -236,6 +260,21 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
   }
   const assetIds = [...images.assets.map((a) => a.assetId), ...videos.videos.map((v) => v.assetId)];
   const reviews = await (deps.readReviewStates ?? readMediaAssetReviewStates)(tenant, assetIds);
+  /*
+   * CONTENT-PUBLICATION-STATE-1 — read for grounding only; the prefill carries no publication fact.
+   * A throw is an unread ledger: every draft then says unknown, never "no request".
+   */
+  let publication: ReadonlyMap<string, ContentPublicationState> = new Map();
+  if (options.publication) {
+    try {
+      publication = await (deps.readPublicationStates ?? readContentPublicationStates)(
+        tenant,
+        drafts.map((d) => ({ artifactId: d.id, revisionNo: d.currentRevision })),
+      );
+    } catch {
+      publication = new Map();
+    }
+  }
   const generationRows = generations.status === "read" ? generations.generations : null;
 
   const entries: Extract<Collected, { status: "read" }>["entries"][number][] = [];
@@ -388,7 +427,10 @@ async function collectContentMedia(tenant: TenantContext | null, deps: ContentMe
         `media next step (observed): ${nextStep.state}`,
         `media complete: ${nextStep.mediaComplete ? "yes" : "no"}`,
         ...publishSegment(draft.intendedDestination, youtubeVideoUpload),
-        ...historySegment(draft.intendedDestination),
+        ...publicationSegment(
+          draft.intendedDestination,
+          publication.get(formatWorkArtifactRef(draft.id, draft.currentRevision)),
+        ),
       ].join(" · "),
       lifecycle: "settled" as const,
       /* Media lines are data for the model's grounding, kept out of Heby's own prose. */
@@ -419,7 +461,7 @@ export async function readContentMediaGroundingSource(
   deps: ContentMediaSourceDeps = {},
 ): Promise<SourceResolution> {
   if (typeof window !== "undefined") throw new Error("Content media grounding is server-only.");
-  const collected = await collectContentMedia(tenant, deps);
+  const collected = await collectContentMedia(tenant, deps, { publication: true });
   if (collected.status === "unavailable") return unavailable(collected.reason);
   const noDrafts: ResolvedItem = {
     recordRef: "content-media/no-open-content-drafts",

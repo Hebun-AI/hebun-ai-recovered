@@ -161,6 +161,9 @@ async function main(): Promise<void> {
     "./media-prefill": ["prefillFromChoice", "type MediaPrefill"],
     /* HEBY-MEDIA-4: the pure next-step observation over the same facts. */
     "./media-next-step": ["evaluateMediaNextStep", "formatMediaNextStep", "type MediaNextStep"],
+    /* CONTENT-PUBLICATION-STATE-1: Action Authorization's read projection and its pure vocabulary. */
+    "@/features/action-authorization/content-publication-state.server": ["readContentPublicationStates"],
+    "@/features/action-authorization/content-publication-state": ["CONTENT_PUBLICATION_NON_CLAIM", "formatPublicationEntry", "type ContentPublicationState"],
   }, "the shaper imports exactly these readers and constants");
   assert.equal(/\bimport\s+\*|\brequire\(|\bimport\(/.test(code), false, "no namespace, dynamic or require import");
   for (const banned of [
