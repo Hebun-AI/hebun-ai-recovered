@@ -40,7 +40,10 @@
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
   YOUTUBE_CHANNEL_PUBLIC_READ_CAPABILITY,
+  YOUTUBE_CHANNEL_SUBJECT_KIND,
   YOUTUBE_PROVIDER_KEY,
+  channelIdFromSubjectRef,
+  youtubeChannelSubjectRef,
   type YouTubeChannelObservation,
 } from "@/features/provider-youtube/contracts";
 import {
@@ -54,30 +57,19 @@ import {
   type ProviderObservationWriteDeps,
 } from "./write-provider-observation.server";
 
-/** How a YouTube channel is addressed in the history. Provider id, never a human-typed handle. */
-export const YOUTUBE_CHANNEL_SUBJECT_KIND = "youtube-channel" as const;
-
-/**
- * The inverse of `youtubeChannelSubjectRef` (TRH-24).
+/*
+ * ── THE CHANNEL SUBJECT IDENTITY LIVES IN THE PROVIDER'S PURE CONTRACTS ──────
  *
- * The format is owned here, so its reading is owned here too. A machine observation is authorized
- * against a canonical subject reference and must read the channel by the provider's own id; parsing
- * that reference anywhere else would be a second reading of a format this module defines.
+ * How a YouTube channel is addressed — the subject kind, the reference format and its inverse — is
+ * defined ONCE, in `provider-youtube/contracts.ts`, beside the rest of the provider's vocabulary and
+ * exactly where Instagram keeps its own. It is re-exported here because this composition is where
+ * the history first used it and where its importers have always found it.
  *
- * Returns `null` for anything that is not exactly this provider's channel reference — a Drive file
- * or a GitHub repository reference is not a YouTube channel, and guessing would be how a future
- * subject kind silently became readable by this path.
+ * It moved because a READ-ONLY projection needs the format, and importing it from this file carried
+ * a provider read, a credential seam and the observation writer into that projection's import graph
+ * for the sake of one string (YOUTUBE-MEASUREMENT-OPERATIONS-PROJECTION-1).
  */
-export function channelIdFromSubjectRef(subjectRef: string): string | null {
-  const prefix = "youtube/channel/";
-  if (typeof subjectRef !== "string" || !subjectRef.startsWith(prefix)) return null;
-  const channelId = subjectRef.slice(prefix.length);
-  return /^[A-Za-z0-9_-]{1,64}$/.test(channelId) ? channelId : null;
-}
-
-export function youtubeChannelSubjectRef(channelId: string): string {
-  return `youtube/channel/${channelId}`;
-}
+export { YOUTUBE_CHANNEL_SUBJECT_KIND, channelIdFromSubjectRef, youtubeChannelSubjectRef };
 
 /**
  * The typed projection stored for a YouTube channel observation.

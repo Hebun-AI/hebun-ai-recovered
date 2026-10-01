@@ -158,3 +158,37 @@ export interface YouTubeChannelObservation {
 }
 
 export type YouTubeResult<T> = { readonly ok: true; readonly value: T } | YouTubeFailure;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * THE CHANNEL AS AN OBSERVATION SUBJECT — the kind, the reference, and its inverse.
+ *
+ * Pure: a constant and two string functions, importable from anywhere and reaching nothing. The
+ * same placement Instagram's `INSTAGRAM_SUBJECT_PREFIX` / `accountIdFromSubjectRef` have. Defined
+ * here once; `provider-observation-history/record-youtube-channel-observation.server.ts` re-exports
+ * them for the importers that have always found them there.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** How a YouTube channel is addressed in the history. Provider id, never a human-typed handle. */
+export const YOUTUBE_CHANNEL_SUBJECT_KIND = "youtube-channel" as const;
+
+/**
+ * The inverse of `youtubeChannelSubjectRef` (TRH-24).
+ *
+ * The format is owned here, so its reading is owned here too. A machine observation is authorized
+ * against a canonical subject reference and must read the channel by the provider's own id; parsing
+ * that reference anywhere else would be a second reading of a format this module defines.
+ *
+ * Returns `null` for anything that is not exactly this provider's channel reference — a Drive file
+ * or a GitHub repository reference is not a YouTube channel, and guessing would be how a future
+ * subject kind silently became readable by this path.
+ */
+export function channelIdFromSubjectRef(subjectRef: string): string | null {
+  const prefix = "youtube/channel/";
+  if (typeof subjectRef !== "string" || !subjectRef.startsWith(prefix)) return null;
+  const channelId = subjectRef.slice(prefix.length);
+  return /^[A-Za-z0-9_-]{1,64}$/.test(channelId) ? channelId : null;
+}
+
+export function youtubeChannelSubjectRef(channelId: string): string {
+  return `youtube/channel/${channelId}`;
+}

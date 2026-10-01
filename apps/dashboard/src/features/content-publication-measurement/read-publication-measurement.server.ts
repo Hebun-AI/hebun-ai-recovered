@@ -14,8 +14,10 @@
  * per distinct channel an accepted YouTube publication bound: the measurements a person recorded
  * (`google-youtube` / `google.youtube.video.metrics.read`). It names no limit, so the page is the
  * observation history's own, and that history's page size is handed to the derivation so a full
- * page is never read as the whole history. The channel's subject reference is asked of the module
- * that owns the format — it is not spelled here or in the derivation.
+ * page is never read as the whole history. The channel's subject reference is asked of the pure
+ * contracts module that owns the format — it is not spelled here or in the derivation, and it is
+ * NOT taken from the recording composition, which would carry a provider read, a credential seam
+ * and the observation writer into this projection's import graph.
  *
  * The tenant comes only from the caller's authenticated context and is handed to both readers,
  * which are tenant-scoped themselves. The revisions only choose which of that tenant's records are
@@ -40,7 +42,7 @@ import {
   readProviderObservations,
   type ProviderObservationReadResult,
 } from "@/features/provider-observation-history/read-provider-observations.server";
-import { youtubeChannelSubjectRef } from "@/features/provider-observation-history/record-youtube-channel-observation.server";
+import { youtubeChannelSubjectRef } from "@/features/provider-youtube/contracts";
 import type { RevisionPublicationMeasurements } from "./contracts";
 import {
   derivePublicationMeasurements,

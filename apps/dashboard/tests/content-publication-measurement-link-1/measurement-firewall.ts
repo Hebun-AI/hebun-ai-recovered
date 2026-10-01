@@ -6,7 +6,7 @@
  * migration, and the Operations surface gains a read and no control.
  */
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
@@ -30,10 +30,13 @@ const ALLOWED_IMPORTS = new Set([
   "@/features/provider-instagram/contracts",
   /*
    * YOUTUBE-MEASUREMENT-OPERATIONS-PROJECTION-1: the released keys of the recorded YouTube
-   * measurement (pure constants), and the ONE module that owns how a channel subject is spelled.
+   * measurement, and the provider's PURE contracts, which own how a channel subject is spelled.
+   * Both are constants-and-types modules. The recording composition that re-exports the format is
+   * deliberately NOT allowed: it would carry a provider read, a credential seam and the observation
+   * writer into this projection's import graph (section 8 measures that).
    */
   "@/features/provider-google/contracts",
-  "@/features/provider-observation-history/record-youtube-channel-observation.server",
+  "@/features/provider-youtube/contracts",
   "@/features/provider-observation-history/contracts",
   "@/features/provider-observation-history/read-provider-observations.server",
   "@/features/auth/tenant/tenant-context",
@@ -112,8 +115,11 @@ for (const file of FILES) {
 }
 assert.ok(!derive.includes("youtubeChannelSubjectRef"), "the pure derivation is handed the subject reference, it never builds one");
 assert.ok(compose.includes("subjectRef = youtubeChannelSubjectRef(channel)"), "the composition asks the format's owner");
-const ownerImports = [...compose.matchAll(/import\s+\{([^}]*)\}\s+from\s+"@\/features\/provider-observation-history\/record-youtube-channel-observation\.server"/g)].map((m) => m[1]!.trim());
-assert.deepEqual(ownerImports, ["youtubeChannelSubjectRef"], "and takes ONLY the format from that module — no read, no write");
+const ownerImports = [...compose.matchAll(/import\s+\{([^}]*)\}\s+from\s+"@\/features\/provider-youtube\/contracts"/g)].map((m) => m[1]!.trim());
+assert.deepEqual(ownerImports, ["youtubeChannelSubjectRef"], "and takes ONLY the format from the provider's pure contracts");
+for (const file of FILES) {
+  assert.ok(!codeOf(read(file)).includes("record-youtube-channel-observation"), `${file} must not import the recording composition for a string`);
+}
 /* The YouTube read names no limit: the page is the observation history's own, and its size is the history's constant. */
 const youtubeRead = compose.slice(compose.indexOf("providerKey: GOOGLE_YOUTUBE_PROVIDER_KEY"), compose.indexOf("windowSize:"));
 assert.ok(youtubeRead.includes("capabilityKey: GOOGLE_YOUTUBE_VIDEO_METRICS_CAPABILITY") && youtubeRead.includes("subjectRef"), "scoped to the recorded-measurement capability and the channel subject");
@@ -151,9 +157,93 @@ assert.ok(block.includes("YOUTUBE_PUBLICATION_MEASUREMENT_NON_CLAIM"), "with You
 /* Operations cannot trigger a measurement: the recording action is not reachable from this surface. */
 assert.ok(!panel.includes("recordYouTubeMeasurementAction") && !actions.includes("recordYouTubeMeasurementAction") && !actions.includes("recordYouTubePublicationMeasurement"), "Operations has no way to record a measurement");
 
+/* ═══ 8. THE WHOLE IMPORT GRAPH, NOT ONLY THE DIRECT IMPORTS ═══════════════════ */
+/*
+ * Sections 1–7 read what each file names. That is not the same as what it REACHES: an allowed
+ * import can carry a writer in behind it, and one did — importing the channel-subject format from
+ * the recording composition put the observation writer, the YouTube transport and the credential
+ * repository inside this projection's graph. This walks every runtime import from the composition
+ * and from the pure derivation, so "writes nothing, reaches no provider, opens no credential" is
+ * measured over what is reachable rather than asserted over what is spelled.
+ */
+function resolveImport(spec: string, from: string): string | null {
+  const base = spec.startsWith("@/") ? path.join("src", spec.slice(2)) : spec.startsWith(".") ? path.join(path.dirname(from), spec) : null;
+  if (!base) return null;
+  for (const ext of ["", ".ts", ".tsx", "/index.ts", "/index.tsx"]) {
+    const c = base + ext;
+    if (existsSync(path.join(ROOT, c)) && statSync(path.join(ROOT, c)).isFile()) return c;
+  }
+  return null;
+}
+function reachable(root: string): Set<string> {
+  const seen = new Set<string>();
+  const stack = [root];
+  while (stack.length > 0) {
+    const file = stack.pop()!;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    for (const m of codeOf(read(file)).matchAll(/(?:import|export)\s+(type\s+)?(?:[^"';]*?\s+from\s+)?["']([^"']+)["']/g)) {
+      if (m[1]) continue; /* a type-only import carries no runtime reference */
+      const next = resolveImport(m[2]!, file);
+      if (next) stack.push(next);
+    }
+  }
+  return seen;
+}
+const FORBIDDEN_REACH: readonly string[] = [
+  /* the observation writers, and every composition that records */
+  "src/features/provider-observation-history/write-provider-observation.server.ts",
+  "src/features/provider-observation-history/record-youtube-channel-observation.server.ts",
+  "src/features/provider-observation-history/record-youtube-video-observation.server.ts",
+  "src/features/provider-observation-history/observe-authorized-subject.server.ts",
+  "src/features/provider-observation-history/observe-once-under-authorization.server.ts",
+  /* provider transports and reads */
+  "src/features/provider-youtube/youtube-transport.server.ts",
+  "src/features/provider-youtube/youtube-api-key-call.server.ts",
+  "src/features/provider-youtube/read-channel-observation.server.ts",
+  "src/features/provider-google/google-transport.server.ts",
+  "src/features/provider-google/google-authorized-call.server.ts",
+  "src/features/provider-google/read-youtube-video-metrics.server.ts",
+  "src/features/provider-instagram/instagram-access-token-call.server.ts",
+  /* credentials and encryption */
+  "src/features/integration-credentials/credential-repository.server.ts",
+  "src/features/secret-encryption/authenticated-encryption.server.ts",
+  "src/features/secret-encryption/key-registry.server.ts",
+  /* the standing observation runtime */
+  "src/features/standing-observation-authority/observation-principal.server.ts",
+  "src/features/standing-observation-authority/revalidate-standing-observation.server.ts",
+  "src/features/standing-observation-authority/authorize-standing-observation.server.ts",
+  /* the capability authority, which a read-only projection of stored rows never needs */
+  "src/features/integration-authority/capability-availability.server.ts",
+  /* the recording orchestration */
+  "src/features/youtube-recorded-measurement/record-youtube-publication-measurement.server.ts",
+];
+for (const f of FORBIDDEN_REACH) assert.ok(existsSync(path.join(ROOT, f)), `forbidden module path is real: ${f}`);
+const composeGraph = reachable(`${DIR}/read-publication-measurement.server.ts`);
+for (const root of [`${DIR}/read-publication-measurement.server.ts`, `${DIR}/derive-publication-measurement.ts`, `${DIR}/contracts.ts`]) {
+  const graph = reachable(root);
+  for (const f of FORBIDDEN_REACH) assert.equal(graph.has(f), false, `${root} must not reach ${f}`);
+  for (const f of graph) {
+    assert.equal(/\/(youtube|google|instagram|github)-transport\.server\.ts$/.test(f), false, `${root} reaches a provider transport: ${f}`);
+    assert.equal(/^src\/features\/secret-encryption\//.test(f), false, `${root} reaches secret encryption: ${f}`);
+  }
+}
+/* Walker proofs: it follows real edges, so the absences above are measured, not vacuous. */
+assert.ok(composeGraph.has("src/features/provider-observation-history/read-provider-observations.server.ts"), "walker proof: the composition reaches the released reader");
+assert.ok(composeGraph.has("src/features/action-authorization/content-publication-state.server.ts"), "walker proof: and the released ledger reader");
+assert.ok(composeGraph.has("src/features/provider-youtube/contracts.ts"), "walker proof: and the pure contracts that own the subject format");
+assert.ok(reachable("src/features/provider-observation-history/record-youtube-channel-observation.server.ts").has("src/features/provider-observation-history/write-provider-observation.server.ts"),
+  "walker proof: the recording composition DOES reach the writer — which is why it is not importable here");
+/* The pure contracts that own the format reach nothing at all. */
+assert.deepEqual([...reachable("src/features/provider-youtube/contracts.ts")], ["src/features/provider-youtube/contracts.ts"], "provider-youtube/contracts.ts imports nothing");
+/* The pure derivation stays small: itself, its own contracts, and constants-only provider contracts. */
+const deriveGraph = [...reachable(`${DIR}/derive-publication-measurement.ts`)].filter((f) => /\.server\.ts$/.test(f));
+assert.deepEqual(deriveGraph, [], "the pure derivation reaches no server module at runtime");
+
 console.log(
   "content-publication-measurement-link-1/measurement-firewall: released readers only, no writer / transport / " +
     "credential / governance reach, pure derivation, IG-AN3's bound, no zero-coalescing, no interpretation, " +
     "read-only surface, no schema or migration; YouTube: one subject-format owner, the reader's own page, " +
-    "re-checked join, no freshness / delta / judgement wording, no Operations-triggered measurement",
+    "re-checked join, no freshness / delta / judgement wording, no Operations-triggered measurement; " +
+    "the whole import graph reaches no writer, transport, credential, encryption, standing runtime or capability authority",
 );
