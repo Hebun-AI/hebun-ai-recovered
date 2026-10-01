@@ -1,6 +1,5 @@
 import type { DecisionWorkspaceModel } from "@/features/decisions/workspace-model";
 import { DecisionHeader } from "./decision-header";
-import { DecisionStateStrip } from "./decision-state-strip";
 import { PendingDecisions } from "./pending-decisions";
 import { DecisionInspector } from "./decision-inspector";
 import { AuthorityChain } from "./authority-chain";
@@ -67,7 +66,6 @@ export function DecisionWorkspace({
   return (
     <div className="flex min-w-0 flex-col gap-4 lg:gap-5">
       <DecisionHeader />
-      <DecisionStateStrip />
 
       {actionAuthorizations}
 
@@ -93,10 +91,11 @@ export function DecisionWorkspace({
         <summary className="cursor-pointer px-4 py-3">
           <span className="text-sm font-medium text-fg">How authority works, and what is not connected</span>
           <span className="mt-1 block text-xs leading-5 text-fg-muted">
-            Structural contract vocabulary — none of it describes the request above. Not connected:
-            prepared review material, standalone evidence instances, recommendation producer,
-            chronological decision history, Operations handoff. The Decision Inspector has no
-            selectable item. Nothing here decides, executes, or carries authority.
+            Legacy contract examples below are separate from the live dashboard above.
+            Not connected to these examples: prepared review material, standalone evidence instances,
+            recommendation producer, chronological decision history, Operations handoff.
+            The legacy inspector below has no selectable item; use the dashboard’s selected-item
+            panel for recorded content, publication history and stored measurements.
           </span>
         </summary>
 

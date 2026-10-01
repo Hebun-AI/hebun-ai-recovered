@@ -1,5 +1,6 @@
 import { DecisionWorkspace } from "@/components/decision-workspace/decision-workspace";
-import { ActionAuthorizations } from "@/components/decision-workspace/action-authorizations";
+import { ApprovalsDashboard } from "@/components/approvals-dashboard/approvals-dashboard";
+import { readApprovalsDashboard } from "@/features/approvals-dashboard/read-dashboard.server";
 import { AgentProposalRequest } from "@/components/decision-workspace/agent-proposal-request";
 import { ExecutionLedger } from "@/components/decision-workspace/execution-ledger";
 import { DecisionHorizonPanel } from "@/components/decision-workspace/decision-horizon-panel";
@@ -23,7 +24,7 @@ import {
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { readPendingInstagramApprovalPreviews } from "@/features/instagram-publishing/approval-preview.server";
 
-export const metadata = { title: "Decisions — Hebun AI" };
+export const metadata = { title: "Approvals — Hebun AI" };
 /*
  * YOUTUBE-WRITE-2 — Execute runs here, and a governed YouTube upload reads a verified video (Media's
  * 20 MiB ceiling), re-reads the channel and sends the bytes inside this request. An explicit bound,
@@ -65,7 +66,7 @@ export default async function ApprovalsPage() {
   const model = getDecisionWorkspaceModel();
   const tenant = await resolveTenantContext();
 
-  const [requests, permits, ledger, awaiting] = await Promise.all([
+  const [requests, permits, ledger, awaiting, dashboard] = await Promise.all([
     readPendingActionRequests(tenant),
     readActionPermits(tenant),
     /*
@@ -82,6 +83,7 @@ export default async function ApprovalsPage() {
      * the first row it drops. Its own availability, like the other three.
      */
     readAwaitingDecisionAggregate(tenant),
+    readApprovalsDashboard(tenant),
   ]);
 
   /*
@@ -152,35 +154,11 @@ export default async function ApprovalsPage() {
       model={model}
       actionAuthorizations={
         <>
-          {/*
-           * AGENT-PROPOSAL-2 — asking sits directly above the queue the answer lands in, inside the
-           * EXISTING slot. No eighth workspace, no new route, no navigation change: the Director
-           * asks and reviews in one place because the proposal is the same object in both.
-           */}
-          {/*
-           * DH-1 — the whole shape of what is waiting, ABOVE the queue that is one third of it.
-           * A Director reading a full-looking action queue had no way to learn that hypotheses and
-           * Knowledge versions were waiting on other surfaces.
-           */}
-          <DecisionHorizonPanel horizon={horizon} />
-          {/*
-           * RUNG 2 — STANDING ENVELOPES, ABOVE the queue and ABOVE the ask.
-           *
-           * It sits first because it is the only control here that authorizes acts that have not
-           * happened yet: a Director scrolling a queue of individual decisions must meet the one
-           * control whose consequences are NOT individual decisions before they meet the rest.
-           * It offers no execution and no issuance — it cannot, the firewall forbids this file's
-           * whole directory from naming the issuing seam.
-           */}
-          <StandingMutationEnvelopes
-            items={standing.status === "read" ? standing.items : []}
-            connected={standing.status === "read"}
-            agentOptions={agentOptions}
-            maxActsCeiling={STANDING_MUTATION_MAX_ACTS_CEILING}
-            minIntervalCeilingMinutes={STANDING_MUTATION_MIN_INTERVAL_CEILING_MINUTES}
-          />
-          <AgentProposalRequest />
-          <ActionAuthorizations
+          {/* Real review queue first; existing authority controls and execution ledger remain below. */}
+          <ApprovalsDashboard
+            data={dashboard}
+            requestsAvailable={requests.status === "read"}
+            permitsAvailable={permits.status === "read"}
             requests={requests.status === "read" ? requests.items : []}
             permits={permits.status === "read" ? permits.items : []}
             connected={connected}
@@ -198,6 +176,16 @@ export default async function ApprovalsPage() {
                 : null
             }
           />
+          <DecisionHorizonPanel horizon={horizon} />
+          {/* Standing authority remains a separate, explicit control; bulk review never changes it. */}
+          <StandingMutationEnvelopes
+            items={standing.status === "read" ? standing.items : []}
+            connected={standing.status === "read"}
+            agentOptions={agentOptions}
+            maxActsCeiling={STANDING_MUTATION_MAX_ACTS_CEILING}
+            minIntervalCeilingMinutes={STANDING_MUTATION_MIN_INTERVAL_CEILING_MINUTES}
+          />
+          <AgentProposalRequest />
           {/*
            * The ledger sits BELOW the queue on purpose: what is still to be decided comes first,
            * and what has already been done is the record beneath it. It offers no control — every

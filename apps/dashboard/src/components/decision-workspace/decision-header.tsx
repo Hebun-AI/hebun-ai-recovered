@@ -6,7 +6,7 @@
 export function DecisionHeader() {
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">Decisions</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-2xl">Approvals</h1>
       <p className="text-sm text-fg-muted">
         Review what requires human authority, understand the evidence and consequences, and record accountable decisions.
       </p>

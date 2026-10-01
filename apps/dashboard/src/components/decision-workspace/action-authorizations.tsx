@@ -194,7 +194,7 @@ function DeclarePurposeControl({
 
 type InstagramPreviewMap = Extract<InstagramApprovalPreviewsRead, { status: "read" }>["previews"];
 
-function RequestCard({
+export function RequestCard({
   item,
   waitingFor,
   workOptions,
@@ -652,7 +652,7 @@ export function permitOutcomeSentence(item: {
     : "Authorized, and never executed.";
 }
 
-function PermitRow({ item }: { item: ActionPermitView }) {
+export function PermitRow({ item, controlsDisabled = false }: { item: ActionPermitView; controlsDisabled?: boolean }) {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -779,7 +779,7 @@ function PermitRow({ item }: { item: ActionPermitView }) {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              disabled={pending}
+              disabled={pending || controlsDisabled}
               onClick={execute}
               className="rounded-md border border-primary bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary disabled:opacity-40"
             >
@@ -800,7 +800,7 @@ function PermitRow({ item }: { item: ActionPermitView }) {
             />
             <button
               type="button"
-              disabled={pending || reason.trim().length === 0}
+              disabled={pending || controlsDisabled || reason.trim().length === 0}
               onClick={revoke}
               className="rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-fg-secondary disabled:opacity-40"
             >

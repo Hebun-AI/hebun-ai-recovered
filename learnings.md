@@ -4363,3 +4363,8 @@ exist is anything that would invoke it.
 - **Drizzle insert tüm schema kolonlarını listeler.** Yeni kolonlu kod prod'a migration'dan önce giderse HER media_assets insert'i kırılır: migration ceremony push'tan önce.
 
 **Weekly three.** *Learned:* tarihsel provenance, otoritenin write-once garantisi varsa kopya değil referans ister. *Turkish Rug House:* her TRH fotoğrafı hangi Google hesabından geldiğini kalıcı olarak söyleyecek. *Hebun AI:* batch intake'in denetim izi hazır; migration-önce-deploy sırası bir kural.
+
+## Approvals dashboard — approval scope must survive bulk presentation (2026-10-01)
+- What did we learn? Content revision acceptance, an action authorization, a spent permit and a provider-accepted publication are different records. A dashboard can compose their existing readers but must preserve their distinct meanings, missing-data states and bounded read windows. A lost mutation response is unknown, not proof that the write failed.
+- How does this improve Turkish Rug House? A reviewer can filter real content, inspect its declared work links and stored YouTube/Instagram observations, then record several decisions while retaining an outcome for each. No fabricated project label or live-monitoring claim fills a missing relationship.
+- How does this become part of Hebun AI? `/approvals` reuses the existing tenant-scoped readers, Governance resolver, single-item decisions, verified media previews and permit controls. The dashboard stores no business state and adds no schema, authority or provider execution path. Existing tenant/concurrency tests and focused selection/render tests cover the boundaries.

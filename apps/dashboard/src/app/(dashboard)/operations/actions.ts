@@ -239,7 +239,10 @@ export async function acceptArtifactRevisionAction(input: {
 }): Promise<ArtifactReviewResult> {
   const tenant = await resolveTenantContext();
   const result = await acceptArtifactRevision(tenant, input);
-  if (result.status === "reviewed") revalidatePath("/operations");
+  if (result.status === "reviewed") {
+    revalidatePath("/operations");
+    revalidatePath("/approvals");
+  }
   return result;
 }
 
@@ -251,7 +254,10 @@ export async function requestArtifactRevisionChangesAction(input: {
 }): Promise<ArtifactReviewResult> {
   const tenant = await resolveTenantContext();
   const result = await requestArtifactRevisionChanges(tenant, input);
-  if (result.status === "reviewed") revalidatePath("/operations");
+  if (result.status === "reviewed") {
+    revalidatePath("/operations");
+    revalidatePath("/approvals");
+  }
   return result;
 }
 
@@ -458,7 +464,10 @@ export async function reviewMediaAssetAction(input: {
     input.decision === "accept"
       ? await acceptMediaAsset(tenant, payload)
       : await declineMediaAsset(tenant, payload);
-  if (result.status === "reviewed") revalidatePath("/operations");
+  if (result.status === "reviewed") {
+    revalidatePath("/operations");
+    revalidatePath("/approvals");
+  }
   return result;
 }
 

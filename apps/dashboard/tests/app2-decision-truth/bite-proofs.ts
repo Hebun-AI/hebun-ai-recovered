@@ -125,8 +125,8 @@ const MUTATIONS: readonly Mutation[] = [
     /* The whole risk of the layering half: a summary that declares nothing. */
     label: "M8 the collapsed summary stops declaring what is unavailable",
     file: WORKSPACE,
-    find: `            Structural contract vocabulary — none of it describes the request above. Not connected:`,
-    replace: `            Structural contract vocabulary. Additional detail:`,
+    find: `            Not connected to these examples: prepared review material, standalone evidence instances,`,
+    replace: `            Additional legacy examples: prepared review material, standalone evidence instances,`,
     expect: "the CLOSED summary still declares",
   },
   {
