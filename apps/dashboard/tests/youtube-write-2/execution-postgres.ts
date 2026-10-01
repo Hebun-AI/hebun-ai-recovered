@@ -295,16 +295,31 @@ async function main(): Promise<void> {
     assert.deepEqual(await executeAuthorizedAction(acmeCtx, { permitId: q2.permitId }, execDeps(portsFor(accept("again")))), { status: "refused", reason: "permit-not-executable" }, "one permit, one upload");
     assert.equal(uploads(), 1);
 
-    /* read-back: on demand, through the same connection, nothing stored */
+    /* read-back: on demand, through the same connection, nothing stored.
+     * YOUTUBE-OWNER-SIDE-MEASUREMENT-1: the projection now carries YouTube's publication instant, its
+     * three counts exactly as reported (a withheld count stays null) and Hebun's own read instant. */
+    const attemptsBeforeRead = (await setup.query("select count(*)::int n from action_execution_attempts")).rows[0]!.n;
+    const observationsBeforeRead = (await setup.query("select count(*)::int n from provider_observations")).rows[0]!.n;
     const back = await readYouTubeUploadedVideo(acmeCtx, { permitId: q2.permitId }, {
       getDb: () => handle.db,
       withToken: (async (_t: unknown, _id: string, run: (token: string) => Promise<unknown>) => run(SECRET)) as never,
-      readVideo: async (id) => ({ ok: true, found: true, videoId: id, channelId: CHANNEL.channelId, uploadStatus: "processed", failureReason: null, rejectionReason: null, privacyStatus: "private", processingStatus: "succeeded" }),
+      readVideo: async (id) => ({ ok: true, found: true, videoId: id, channelId: CHANNEL.channelId, uploadStatus: "processed", failureReason: null, rejectionReason: null, privacyStatus: "private", processingStatus: "succeeded", publishedAt: "2026-09-28T15:38:20Z", viewCount: 12, likeCount: null, commentCount: 0 }),
+      now: () => new Date("2026-10-01T09:00:00.000Z"),
     });
     assert.deepEqual(back, {
       status: "read", videoId: "vid_Accepted1", uploadStatus: "processed", processingStatus: "succeeded", failureReason: null,
       rejectionReason: null, privacyStatus: "private", authorizedPrivacy: "private", onAuthorizedChannel: true,
+      publishedAt: "2026-09-28T15:38:20Z", viewCount: 12, likeCount: null, commentCount: 0, readAt: "2026-10-01T09:00:00.000Z",
     });
+    assert.ok(back.status === "read" && back.readAt !== back.publishedAt, "the read instant is never the publication instant");
+    assert.equal((await setup.query("select count(*)::int n from action_execution_attempts")).rows[0]!.n, attemptsBeforeRead, "a read-back records no attempt");
+    assert.equal((await setup.query("select count(*)::int n from provider_observations")).rows[0]!.n, observationsBeforeRead, "and stores no observation");
+    const offChannel = await readYouTubeUploadedVideo(acmeCtx, { permitId: q2.permitId }, {
+      getDb: () => handle.db,
+      withToken: (async (_t: unknown, _id: string, run: (token: string) => Promise<unknown>) => run(SECRET)) as never,
+      readVideo: async (id) => ({ ok: true, found: true, videoId: id, channelId: "UC_someone_else", uploadStatus: "processed", failureReason: null, rejectionReason: null, privacyStatus: "private", processingStatus: "succeeded", publishedAt: null, viewCount: null, likeCount: null, commentCount: null }),
+    });
+    assert.ok(offChannel.status === "read" && offChannel.onAuthorizedChannel === false, "the expected-channel check is unchanged");
     assert.deepEqual(await readYouTubeUploadedVideo(globexCtx, { permitId: q2.permitId }, { getDb: () => handle.db }), { status: "no-video", reason: "no-such-upload" }, "another tenant reads nothing");
 
     /* ══ 4. AFTER SPEND: channel changed at the token, package changed, bytes tampered — nothing uploaded ══ */

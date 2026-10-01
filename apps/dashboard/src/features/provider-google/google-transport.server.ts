@@ -803,13 +803,37 @@ export type YouTubeVideoReadResult =
       readonly rejectionReason: string | null;
       readonly privacyStatus: string | null;
       readonly processingStatus: string | null;
+      /** `snippet.publishedAt` — when YouTube says the video was published. NOT when it was read. */
+      readonly publishedAt: string | null;
+      /** `statistics.*` as YouTube reported them. `null` = not reported or not a count; never 0. */
+      readonly viewCount: number | null;
+      readonly likeCount: number | null;
+      readonly commentCount: number | null;
     }
   | { readonly ok: true; readonly found: false }
   | GoogleFailure;
 
 /**
- * READ-BACK — `videos.list?id=…&part=snippet,status,processingDetails`. `processingDetails` is
- * returned only to the video's owner, which is exactly the connection that uploaded it.
+ * ONE COUNT, EXACTLY AS YOUTUBE REPORTED IT — or `null`.
+ *
+ * The Data API serializes its unsigned-long statistics as JSON STRINGS. Only a string of ASCII
+ * digits that is a safe integer is a count; a missing field, a sign, a decimal, surrounding
+ * whitespace, a non-string or a value beyond `Number.MAX_SAFE_INTEGER` is `null`. `"0"` is a
+ * reported zero and stays 0. Nothing is trimmed, rounded or defaulted: a count YouTube did not
+ * report (likes hidden, comments disabled) must never read as zero.
+ */
+export function parseYouTubeCount(value: unknown): number | null {
+  if (typeof value !== "string" || !/^[0-9]+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+/**
+ * READ-BACK — `videos.list?id=…&part=snippet,status,processingDetails,statistics`.
+ * `processingDetails` is returned only to the video's owner, which is exactly the connection that
+ * uploaded it. YOUTUBE-OWNER-SIDE-MEASUREMENT-1 adds `statistics` (three counts) and
+ * `snippet.publishedAt` to the SAME single request, under the same `youtube.readonly` grant. The
+ * `fields` mask names every field taken: `dislikeCount` and `favoriteCount` are never requested.
  */
 export async function readYouTubeVideo(
   videoId: string,
@@ -820,10 +844,10 @@ export async function readYouTubeVideo(
   if (!/^[0-9A-Za-z_-]{6,32}$/.test(videoId)) return { ok: false, failure: "malformed", reason: "youtube-video-id-invalid" };
   const url = new URL(GOOGLE_YOUTUBE_VIDEOS_ENDPOINT);
   url.searchParams.set("id", videoId);
-  url.searchParams.set("part", "snippet,status,processingDetails");
+  url.searchParams.set("part", "snippet,status,processingDetails,statistics");
   url.searchParams.set(
     "fields",
-    "items(id,snippet/channelId,status(uploadStatus,failureReason,rejectionReason,privacyStatus),processingDetails/processingStatus)",
+    "items(id,snippet(channelId,publishedAt),status(uploadStatus,failureReason,rejectionReason,privacyStatus),processingDetails/processingStatus,statistics(viewCount,likeCount,commentCount))",
   );
   let response: Response;
   try {
@@ -855,16 +879,22 @@ export async function readYouTubeVideo(
   const obj = (v: unknown) => (typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {});
   const str = (v: unknown) => (typeof v === "string" ? v : null);
   const status = obj(item.status);
+  const snippet = obj(item.snippet);
+  const statistics = obj(item.statistics);
   return {
     ok: true,
     found: true,
     videoId,
-    channelId: str(obj(item.snippet).channelId),
+    channelId: str(snippet.channelId),
     uploadStatus: str(status.uploadStatus),
     failureReason: str(status.failureReason),
     rejectionReason: str(status.rejectionReason),
     privacyStatus: str(status.privacyStatus),
     processingStatus: str(obj(item.processingDetails).processingStatus),
+    publishedAt: str(snippet.publishedAt),
+    viewCount: parseYouTubeCount(statistics.viewCount),
+    likeCount: parseYouTubeCount(statistics.likeCount),
+    commentCount: parseYouTubeCount(statistics.commentCount),
   };
 }
 

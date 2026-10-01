@@ -34,6 +34,17 @@ export type YouTubeUploadReadResult =
       readonly authorizedPrivacy: string;
       /** Whether the video sits on the channel the human authorized. */
       readonly onAuthorizedChannel: boolean | null;
+      /*
+       * YOUTUBE-OWNER-SIDE-MEASUREMENT-1 — what YouTube reported in this one read. `publishedAt` is
+       * YouTube's publication instant; `readAt` is Hebun's own clock when this read completed, the
+       * "as of" for every value here. The two are different facts and are never substituted.
+       * A count is `null` when YouTube did not report it — never 0. Nothing is stored.
+       */
+      readonly publishedAt: string | null;
+      readonly viewCount: number | null;
+      readonly likeCount: number | null;
+      readonly commentCount: number | null;
+      readonly readAt: string;
     }
   | { readonly status: "not-found-at-youtube"; readonly videoId: string }
   | { readonly status: "no-video"; readonly reason: "no-such-upload" | "not-accepted" }
@@ -42,6 +53,8 @@ export type YouTubeUploadReadResult =
 export interface YouTubeUploadReadDeps extends GoogleAuthorizedCallDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly readVideo?: typeof readYouTubeVideo;
+  /** Injectable so the "as of" instant is provable. Never reaches a column: nothing is stored. */
+  readonly now?: () => Date;
   /** Test seam for the credential spend; production always uses `withGoogleAccessToken`. */
   readonly withToken?: typeof withGoogleAccessToken;
 }
@@ -106,6 +119,8 @@ export async function readYouTubeUploadedVideo(
   );
   if (!outcome.ok) return { status: "unreadable", reason: outcome.reason };
   const video = outcome.value;
+  /* Taken once the provider has answered: the instant these values were true as far as Hebun knows. */
+  const readAt = (deps.now ?? (() => new Date()))().toISOString();
   if (!video.found) return { status: "not-found-at-youtube", videoId };
   return {
     status: "read",
@@ -117,5 +132,10 @@ export async function readYouTubeUploadedVideo(
     privacyStatus: video.privacyStatus,
     authorizedPrivacy: payload.privacyStatus,
     onAuthorizedChannel: video.channelId === null ? null : video.channelId === payload.expectedChannelId,
+    publishedAt: video.publishedAt,
+    viewCount: video.viewCount,
+    likeCount: video.likeCount,
+    commentCount: video.commentCount,
+    readAt,
   };
 }

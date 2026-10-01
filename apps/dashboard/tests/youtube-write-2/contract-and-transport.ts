@@ -24,6 +24,7 @@ import {
 } from "../../src/features/youtube-publishing/contracts";
 import {
   openYouTubeUploadSession,
+  parseYouTubeCount,
   readYouTubeVideo,
   sendYouTubeUploadBytes,
   type YouTubeUploadInput,
@@ -271,17 +272,56 @@ async function main(): Promise<void> {
     assert.ok(f.calls.every((c) => c.url === SESSION));
   }
 
-  /* ── 9. READ-BACK: processing, privacy and channel as YouTube reports them ── */
+  /* ── 9. READ-BACK: processing, privacy and channel as YouTube reports them ──
+   * YOUTUBE-OWNER-SIDE-MEASUREMENT-1 widened this one request by `statistics` (three counts) and
+   * `snippet.publishedAt`; the result shape below grew by exactly those four facts. */
   {
-    const f = fakeFetch(() =>
-      new Response(JSON.stringify({ items: [{ id: "dQw4w9WgXcQ", snippet: { channelId: "UC5Yf5U_YOKR0K38tWF82kjA" }, status: { uploadStatus: "processed", privacyStatus: "private" }, processingDetails: { processingStatus: "succeeded" } }] }), { status: 200 }),
-    );
+    const item = (extra: Record<string, unknown>) => ({
+      id: "dQw4w9WgXcQ", snippet: { channelId: "UC5Yf5U_YOKR0K38tWF82kjA", publishedAt: "2026-09-28T15:38:20Z" },
+      status: { uploadStatus: "processed", privacyStatus: "private" }, processingDetails: { processingStatus: "succeeded" }, ...extra,
+    });
+    const f = fakeFetch(() => new Response(JSON.stringify({ items: [item({ statistics: { viewCount: "123", likeCount: "0", commentCount: "4" } })] }), { status: 200 }));
     const r = await readYouTubeVideo("dQw4w9WgXcQ", TOKEN, { fetchImpl: f.impl });
     assert.deepEqual(r, {
       ok: true, found: true, videoId: "dQw4w9WgXcQ", channelId: "UC5Yf5U_YOKR0K38tWF82kjA", uploadStatus: "processed",
       failureReason: null, rejectionReason: null, privacyStatus: "private", processingStatus: "succeeded",
+      publishedAt: "2026-09-28T15:38:20Z", viewCount: 123, likeCount: 0, commentCount: 4,
     });
+
+    /* THE REQUEST: one GET, statistics added, only the named fields, nothing owner-private or deprecated. */
+    assert.equal(f.calls.length, 1, "the read-back is ONE provider request");
     assert.equal(f.calls[0]!.method, "GET");
+    const url = new URL(f.calls[0]!.url);
+    assert.equal(url.origin + url.pathname, "https://www.googleapis.com/youtube/v3/videos");
+    assert.equal(url.searchParams.get("id"), "dQw4w9WgXcQ");
+    assert.equal(url.searchParams.get("part"), "snippet,status,processingDetails,statistics", "statistics joins the existing parts");
+    const fields = url.searchParams.get("fields") ?? "";
+    for (const wanted of ["publishedAt", "viewCount", "likeCount", "commentCount", "channelId", "privacyStatus", "processingStatus"]) {
+      assert.ok(fields.includes(wanted), `the fields mask takes ${wanted}`);
+    }
+    for (const refused of ["dislikeCount", "favoriteCount"]) {
+      assert.ok(!f.calls[0]!.url.includes(refused), `${refused} is never requested`);
+    }
+
+    /* ABSENT IS NOT ZERO: likes hidden / comments disabled / no statistics object at all. */
+    const partial = await readYouTubeVideo("dQw4w9WgXcQ", TOKEN, { fetchImpl: fakeFetch(() => new Response(JSON.stringify({ items: [item({ statistics: { viewCount: "7" } })] }), { status: 200 })).impl });
+    assert.ok(partial.ok && partial.found);
+    assert.deepEqual([partial.viewCount, partial.likeCount, partial.commentCount], [7, null, null], "a count YouTube did not report is null, never 0");
+    const bare = await readYouTubeVideo("dQw4w9WgXcQ", TOKEN, { fetchImpl: fakeFetch(() => new Response(JSON.stringify({ items: [{ id: "dQw4w9WgXcQ", status: {} }] }), { status: 200 })).impl });
+    assert.ok(bare.ok && bare.found);
+    assert.deepEqual([bare.publishedAt, bare.viewCount, bare.likeCount, bare.commentCount], [null, null, null, null], "no statistics and no snippet → all null");
+
+    /* THE PARSER, PER RULE. */
+    assert.equal(parseYouTubeCount("123"), 123, "digit string → number");
+    assert.equal(parseYouTubeCount("0"), 0, '"0" is a reported zero');
+    assert.equal(parseYouTubeCount(undefined), null, "missing → null");
+    assert.equal(parseYouTubeCount(null), null);
+    for (const bad of ["", "abc", "12a", "-5", "+5", "1.5", " 12", "12 ", "1e3", "٣", 12, 0, true, {}, []]) {
+      assert.equal(parseYouTubeCount(bad), null, `${JSON.stringify(bad)} is not a count YouTube reported`);
+    }
+    assert.equal(parseYouTubeCount("9007199254740991"), Number.MAX_SAFE_INTEGER, "the largest safe integer is still a count");
+    assert.equal(parseYouTubeCount("9007199254740992"), null, "beyond the safe-integer range → null, never a rounded number");
+
     assert.deepEqual(await readYouTubeVideo("dQw4w9WgXcQ", TOKEN, { fetchImpl: fakeFetch(() => new Response(JSON.stringify({ items: [] }), { status: 200 })).impl }), { ok: true, found: false });
   }
 

@@ -10,7 +10,14 @@ import type { YouTubeUploadReadResult } from "@/features/youtube-publishing/read
  * The attempt line above says a video RESOURCE exists. This says what YouTube reports about it right
  * now — processing, the privacy it applied, and whether it sits on the authorized channel — and says
  * it as YouTube's answer at a moment, not as a stored state. Nothing is written by asking.
+ *
+ * YOUTUBE-OWNER-SIDE-MEASUREMENT-1 — the same read also reports the three counts YouTube returns to
+ * the video's owner. A count YouTube did not report is shown as "not reported", never as 0. "As of"
+ * is the instant Hebun read YouTube, which is not the publication time. No rate, score or judgement.
  */
+const utc = (iso: string): string => `${iso.slice(0, 19).replace("T", " ")} UTC`;
+const count = (value: number | null): string => (value === null ? "not reported" : String(value));
+
 export function YouTubeUploadStatus({ permitId }: { readonly permitId: string }) {
   const [result, setResult] = useState<YouTubeUploadReadResult | null>(null);
   const [pending, startTransition] = useTransition();
@@ -24,6 +31,11 @@ export function YouTubeUploadStatus({ permitId }: { readonly permitId: string })
           `Processing: ${r.processingStatus ?? "not reported"}`,
           `Privacy YouTube applied: ${r.privacyStatus ?? "not reported"} (authorized: ${r.authorizedPrivacy})`,
           `On the authorized channel: ${r.onAuthorizedChannel === null ? "not reported" : r.onAuthorizedChannel ? "yes" : "NO"}`,
+          `Published at (YouTube): ${r.publishedAt ?? "not reported"}`,
+          `Views: ${count(r.viewCount)}`,
+          `Likes: ${count(r.likeCount)}`,
+          `Comments: ${count(r.commentCount)}`,
+          `As of: ${utc(r.readAt)} — read from YouTube now; nothing is stored.`,
           ...(r.failureReason ? [`Failure reason: ${r.failureReason}`] : []),
           ...(r.rejectionReason ? [`Rejection reason: ${r.rejectionReason}`] : []),
         ];
