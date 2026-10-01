@@ -6,6 +6,7 @@ import { Check, Clock3, FileText, Search, Send, ShieldCheck, TriangleAlert } fro
 import { ActionAuthorizations, RequestCard, PermitRow } from "@/components/decision-workspace/action-authorizations";
 import { approveActionRequestAction, rejectActionRequestAction } from "@/app/(dashboard)/approvals/actions";
 import { acceptArtifactRevisionAction, requestArtifactRevisionChangesAction } from "@/app/(dashboard)/operations/actions";
+import { PUBLICATION_STAGE_WORDING } from "@/features/action-authorization/content-publication-state";
 import { elapsedSince } from "@/features/attention-observation/contracts";
 import { PERMIT_DEFAULT_TTL_SECONDS, PERMIT_TTL_CHOICES } from "@/features/action-authorization/contracts";
 import type { ApprovalsDashboardRead } from "@/features/approvals-dashboard/read-dashboard.server";
@@ -189,11 +190,13 @@ function CardPublication({ item }: { item: QueueItem }) {
   if (item.kind !== "content") return null;
   const publication = item.content.publication;
   const entries = publication?.status === "recorded" ? publication.entries : [];
+  const latest = entries.at(-1);
   const accepted = entries.filter((entry) => entry.attempt?.status === "accepted").at(-1);
   const measurement = item.content.measurement;
   const youtube = measurement?.status === "read" ? [...measurement.youtube].filter((m) => m.status === "measured").sort((a, b) => b.latestObservedAt.localeCompare(a.latestObservedAt))[0] : null;
   const instagram = measurement?.status === "read" ? [...measurement.instagram].filter((m) => m.status === "observed").sort((a, b) => b.latestObservedAt.localeCompare(a.latestObservedAt))[0] : null;
   return <div className="space-y-1 text-xs text-fg-muted">
+    {latest && <p>Latest publication: <Badge warning={["execution-unknown", "execution-failed", "execution-refused"].includes(latest.stage)}>{PUBLICATION_STAGE_WORDING[latest.stage]}</Badge></p>}
     {accepted?.attempt?.providerResultId && <p className="break-all">Provider accepted · {accepted.attempt.providerResultId} · {accepted.attempt.completedAt ?? accepted.attempt.startedAt}</p>}
     {youtube && <p>Stored YouTube · {youtube.viewCount ?? "unreported"} views · {youtube.likeCount ?? "unreported"} likes · {youtube.commentCount ?? "unreported"} comments · as of {youtube.latestObservedAt}</p>}
     {instagram && <p>Stored Instagram · {instagram.latestLikeCount ?? "unreported"} likes · {instagram.latestCommentCount ?? "unreported"} comments · as of {instagram.latestObservedAt}</p>}

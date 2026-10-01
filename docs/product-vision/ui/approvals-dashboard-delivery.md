@@ -74,3 +74,33 @@ Request Changes exists only for content review. Content Reject uses the same exi
 - Production build / deploy not performed.
 
 The delivery commit is the commit containing this report; its hash is reported in chat after creation.
+
+
+## Pre-push acceptance — 2026-10-01
+
+Acceptance started at `ba605064019cf14afa16d36c92abf81e68c1d2bc`, on the same feature worktree. Overall acceptance is **INCOMPLETE**, not PASS: the authenticated local runtime cannot yet supply populated records.
+
+### Demonstrated bug and narrow fix
+
+The queue card showed revision approval without exposing the latest publication attempt outcome. An accepted revision could therefore hide a later unknown or failed attempt in the list (the detail history was already truthful). A render regression failed against the original card, then passed after the card reused `PUBLICATION_STAGE_WORDING` for a distinct latest-publication badge. No classification, authority, read, action or schema changed. Tests include prior acceptance followed by unknown and request/permit/execution stages that do not establish publication.
+
+### Runtime and UI evidence
+
+- Started the real feature Next application at `http://127.0.0.1:3128/approvals`, using the existing local auth/database configuration read from the primary environment. No environment file was copied or altered.
+- Initially redirected to sign-in; subsequently inspected the ordinary authenticated session and opened Approvals through navigation. No session fabrication or auth bypass.
+- The existing tenant supplied no content cards. Request and permit readers returned unavailable. The dashboard displayed five unknown counters, explicit unavailable sources and disabled decisions because Governance authority was unresolved. No business data was created to fill the page.
+- A read-only schema metadata transaction confirmed both `heby_action_requests` and `action_permits` lack `standing_authorization_id`. The required migration `20260915100638_rung2_standing_mutation_authorization.sql` already exists in baseline `01810404`. This explains why their released full-row reads cannot succeed against this local schema. No migration was applied to the canonical database.
+- Actual hydrated route inspected at 1280×900 and 390×844: document width matched viewport at both sizes. Desktop queue/detail columns and mobile stacked panels rendered correctly. Status filter, search and oldest/newest controls responded; bulk controls remained disabled. Screenshots: `/private/tmp/hebun-acceptance-shots/desktop.jpg` and `/private/tmp/hebun-acceptance-shots/mobile-full.jpg`.
+- Populated selected-card/details/tabs, long titles, assets, stored measurement and recording/loading outcomes were NOT verified in this real browser session. Empty/unavailable rendering is evidence only for those states.
+
+### Actions, truth and regression
+
+- Single approval/rejection and content accepted/changes-requested regression tests passed through the released server adjudicators with durable sessions and Governance in disposable PostgreSQL. No canonical business decision or publication was performed; browser server-action mutation was not executed.
+- Added a bulk scenario to the existing authorization PostgreSQL test: six real disposable requests read through `readPendingActionRequests`, passed through `buildQueue`/`decideVisibleItems`, with each callback calling `approveActionRequest`. Verified stale rejection, cross-tenant refusal, simulated response loss AFTER durable approval, later independent success, deduplication, filtered Approve All, exactly four issued permits and zero execution attempts. These test records are not real-business render evidence.
+- Counters/filter membership share `buildQueue.filters`; categories intentionally overlap. Provider acceptance requires a returned identity and does not establish public visibility. Unknown is never classified as failed. Unsupported request changes are skipped; content Reject uses the existing changes-requested outcome with disclosure.
+- Read seams unchanged: content artifact/revision/review/package readers; request/permit readers; `readContentPublicationStates`; `readPublicationMeasurements`; verified media actions. Work links use `work_evidence_references` via `readWorkEvidenceReferences` + `readWorkRegister`/`indexArtifactWorkPurpose`, or recorded request purpose. No inferred project label or live measurement claim.
+- 34 distinct targeted test files passed (29 approvals/regression + 5 YouTube measurement/execution). Provider transports in existing tests are simulated; no real provider operation. Final status render test was also rerun after adding the extra cases.
+- TypeScript passed. Baseline changed-file lint passed with zero warnings/errors. Diff whitespace check passed. Full suite and deployment build were not run.
+- Baseline diff reviewed: dashboard presentation/composition, route revalidation, related tests and delivery/learnings documentation only. Primary HEAD remained `e96dd36558745143afa0cf3b1235e8952816e457`; its pre-existing dirty/untracked status was unchanged. Generated `next-env.d.ts` change restored; existing module symlink and editor swap file left unstaged.
+
+Remaining production gate: verify the intended environment has the released baseline schema and an authorized tenant with existing content/publication/observation/media records, then repeat populated desktop/mobile and authenticated action UI checks. No push or deploy.

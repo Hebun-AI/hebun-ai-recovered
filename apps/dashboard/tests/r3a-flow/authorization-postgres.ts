@@ -13,6 +13,8 @@
  * Uses a disposable local database, dropped on exit. The canonical database is never opened.
  */
 import assert from "node:assert/strict";
+import { buildQueue, decideVisibleItems, filterQueue } from "../../src/features/approvals-dashboard/model";
+import type { ApprovalsDashboardRead } from "../../src/features/approvals-dashboard/read-dashboard.server";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 // Loaded FIRST: the schema barrel is the only safe entry point for src/db/schema/*.
@@ -787,6 +789,64 @@ async function main(): Promise<void> {
 
       const executions = await setup.query(`select count(*)::int as n from executions`);
       assert.equal(executions.rows[0]!.n, 0, "R3A must write no execution row");
+    }
+
+    // Dashboard bulk acceptance uses the same released single-request adjudicator.
+    // These are disposable test records, never canonical business data or render evidence.
+    {
+      const ids: string[] = [];
+      for (let i = 0; i < 6; i++) {
+        const recorded = await recordActionRequest(acmeCtx, preparedAction({
+          actionId: `bulk-${i}`, idempotencyKey: `bulk-${i}`,
+          target: { kind: "record", ref: `bulk-${i}`, label: `Bulk test ${i}` },
+        }), deps);
+        assert.equal(recorded.status, "recorded");
+        if (recorded.status === "recorded") ids.push(recorded.requestId);
+      }
+      const pending = await readPendingActionRequests(acmeCtx, deps);
+      assert.equal(pending.status, "read");
+      if (pending.status !== "read") throw new Error("pending read unavailable");
+      const data: ApprovalsDashboardRead = {
+        authorized: true, content: [], contentAvailable: true, contentTruncated: false,
+        reviewsAvailable: true, publicationsAvailable: true, purposeWindowFull: false,
+        purposes: { status: "available", byArtifactId: {} },
+      };
+      const queue = buildQueue(data, pending.items.filter((row) => ids.includes(row.requestId)), []);
+      const ordered = ids.map((id) => queue.find((row) => row.kind === "request" && row.request.requestId === id)!);
+      assert.equal(ordered.length, 6);
+      // A previously read request becomes stale before the user confirms.
+      assert.equal((await rejectActionRequest(acmeCtx, { requestId: ids[1], justification: JUSTIFICATION, rejectionReason: "Test stale decision" }, deps)).status, "rejected");
+      const calls: string[] = [];
+      const result = await decideVisibleItems([...ordered.slice(0, 5), ordered[0]], true, "approve", async (item) => {
+        assert.ok(item.kind === "request");
+        const id = item.request.requestId;
+        calls.push(id);
+        // A caller from another tenant has Governance there, but none here.
+        const answer = await approveActionRequest(id === ids[2] ? globexCtx : acmeCtx,
+          { requestId: id, justification: JUSTIFICATION }, deps);
+        // Simulate transport loss AFTER a durable approval, not a fake server failure.
+        if (id === ids[3]) { assert.equal(answer.status, "authorized"); throw new Error("response lost"); }
+        return { ok: answer.status === "authorized", detail: answer.status === "refused" ? answer.reason : "authorized" };
+      });
+      assert.deepEqual(calls, ids.slice(0, 5), "deduplicated, one adjudication per request");
+      assert.deepEqual(result.map((row) => row.status), ["success", "refused", "refused", "unknown", "success"], "a refusal or unknown must not taint later success");
+      const stored = await setup.query<{ id: string; status: string }>("select id, status from heby_action_requests where id = any($1::uuid[])", [ids]);
+      assert.deepEqual(ids.map((id) => stored.rows.find((row) => row.id === id)?.status), ["approved", "rejected", "pending", "approved", "approved", "pending"]);
+      const remaining = await readPendingActionRequests(acmeCtx, deps);
+      assert.equal(remaining.status, "read");
+      if (remaining.status !== "read") throw new Error("pending read unavailable");
+      const filtered = filterQueue(buildQueue(data, remaining.items, []), "Pending", "all", "Bulk test 5", "newest");
+      assert.equal(filtered.length, 1);
+      const scoped = await decideVisibleItems(filtered, true, "approve", async (item) => {
+        assert.ok(item.kind === "request");
+        const answer = await approveActionRequest(acmeCtx, { requestId: item.request.requestId, justification: JUSTIFICATION }, deps);
+        return { ok: answer.status === "authorized", detail: answer.status };
+      });
+      assert.equal(scoped[0].status, "success");
+      assert.equal((await setup.query("select status from heby_action_requests where id = $1", [ids[2]])).rows[0].status, "pending", "hidden request untouched by filtered Approve All");
+      assert.equal((await setup.query("select count(*)::int as n from action_permits where action_request_id = any($1::uuid[])", [ids])).rows[0].n, 4);
+      assert.equal((await setup.query("select count(*)::int as n from action_execution_attempts")).rows[0].n, 0, "bulk approval never starts execution");
+      console.log("PASS dashboard bulk released seam: stale and cross-tenant refusal, committed unknown, later success, deduplication, filtered scope, zero executions");
     }
 
     console.log("PASS r3a durable authorization (postgres)");
