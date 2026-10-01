@@ -1,6 +1,7 @@
 "use client";
 
 import { YouTubeUploadStatus } from "./youtube-upload-status";
+import { YouTubeMeasurementRecord } from "./youtube-measurement-record";
 import { InstagramApprovalPreview } from "./instagram-approval-preview";
 import type { InstagramApprovalPreviewsRead } from "@/features/instagram-publishing/approval-preview.server";
 import { PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND } from "@/features/instagram-publishing/contracts";
@@ -742,6 +743,10 @@ function PermitRow({ item }: { item: ActionPermitView }) {
       {/* YOUTUBE-WRITE-2 — accepted means a video resource exists; what YouTube says next is read on demand. */}
       {item.actionKind === "publish-youtube-video" && item.executionStatus === "accepted" ? (
         <YouTubeUploadStatus permitId={item.permitId} />
+      ) : null}
+      {/* YOUTUBE-RECORDED-MEASUREMENT-1 — a separate, explicit act: a fresh read that IS stored. */}
+      {item.actionKind === "publish-youtube-video" && item.executionStatus === "accepted" ? (
+        <YouTubeMeasurementRecord permitId={item.permitId} />
       ) : null}
 
       {/*

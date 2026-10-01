@@ -64,6 +64,7 @@ import {
   GOOGLE_YOUTUBE_READONLY_SCOPE,
   GOOGLE_YOUTUBE_UPLOAD_SCOPE,
   GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY,
+  GOOGLE_YOUTUBE_VIDEO_METRICS_CAPABILITY,
   GOOGLE_DRIVE_FILE_SCOPE,
 } from "@/features/provider-google/contracts";
 import {
@@ -224,6 +225,15 @@ export const PROVIDER_CATALOG: ProviderCatalog = Object.freeze([
       [GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY]: Object.freeze({
         read: Object.freeze([GOOGLE_YOUTUBE_READONLY_SCOPE]),
         write: Object.freeze([GOOGLE_YOUTUBE_UPLOAD_SCOPE]),
+      }),
+      /*
+       * YOUTUBE-RECORDED-MEASUREMENT-1 — reading one own video's counts so they can be recorded.
+       * The same `youtube.readonly` the identity read holds; the write set is empty, so this entry
+       * can never make the connection write-capable.
+       */
+      [GOOGLE_YOUTUBE_VIDEO_METRICS_CAPABILITY]: Object.freeze({
+        read: Object.freeze([GOOGLE_YOUTUBE_READONLY_SCOPE]),
+        write: Object.freeze([]),
       }),
     }),
   }) satisfies ConnectionDefinition,

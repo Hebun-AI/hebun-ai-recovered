@@ -322,6 +322,22 @@ export const GOOGLE_YOUTUBE_READONLY_SCOPE = "https://www.googleapis.com/auth/yo
  */
 export const GOOGLE_YOUTUBE_VIDEO_UPLOAD_CAPABILITY = "google.youtube.video.upload" as const;
 export const GOOGLE_YOUTUBE_UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload";
+/*
+ * ── YOUTUBE-RECORDED-MEASUREMENT-1 · READING ONE OWN VIDEO'S COUNTS, TO RECORD THEM ──
+ *
+ * `videos.list?id=…` for a video on the connection's own channel, under the SAME `youtube.readonly`
+ * grant the channel-identity read already holds. No scope is added and no write half exists.
+ *
+ * A SEPARATE CAPABILITY, NOT THE UPLOAD ONE. A stored observation names the capability it was read
+ * under, and a measurement filed under `google.youtube.video.upload` would say an upload authority
+ * produced it. This key is the one a recorded measurement carries, and the one the capability
+ * authority is asked about — for the EXACT connection — before a credential is touched.
+ *
+ * DELIBERATELY NOT IN `GOOGLE_CAPABILITY_SCOPE_REQUESTS`. That map is the set of capabilities an
+ * authorization request may name; this capability asks Google for nothing the `google-youtube`
+ * connection does not already hold, so it adds no consent entry point.
+ */
+export const GOOGLE_YOUTUBE_VIDEO_METRICS_CAPABILITY = "google.youtube.video.metrics.read" as const;
 /** The documented resumable-upload endpoint. A constant: no caller can point an upload elsewhere. */
 export const GOOGLE_YOUTUBE_UPLOAD_ENDPOINT = "https://www.googleapis.com/upload/youtube/v3/videos";
 /** The documented videos resource endpoint, for the read-back of one uploaded video. */

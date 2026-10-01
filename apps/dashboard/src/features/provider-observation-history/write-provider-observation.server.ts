@@ -16,7 +16,9 @@
  *
  * It does not mint a tenant context, and it accepts no tenant, actor, membership or role from a
  * caller — the authorized context is a parameter and the actor is read OFF it. A browser has no
- * path here at all; there is no server action, and the only callers are server compositions.
+ * path TO THIS WRITER: the only callers are server compositions, each of which performs its own
+ * authorized read first. (YOUTUBE-RECORDED-MEASUREMENT-1 added the first server action that reaches
+ * a composition. It crosses with a permit id and nothing else, and it never calls this function.)
  *
  * It does not ask Governance for anything. **RECORDING WHAT WAS OBSERVED IS NOT DECIDING WHETHER
  * IT SHOULD HAVE BEEN.** That decision was already made, upstream, by the capability authority that

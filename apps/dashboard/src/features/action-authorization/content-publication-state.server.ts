@@ -42,6 +42,7 @@ import type {
   ProviderResponseClass,
 } from "@/features/action-execution/contracts";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
+import { PUBLISH_YOUTUBE_VIDEO_ACTION_KIND } from "@/features/youtube-publishing/contracts";
 import { derivePermitState } from "./read-action-authorizations.server";
 import {
   PUBLICATION_ACTION_KINDS,
@@ -264,3 +265,127 @@ export async function readContentPublicationState(
   return states.get(ref) ?? { status: "unknown", artifactRef: ref, reason: "read-failed" };
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * YOUTUBE-RECORDED-MEASUREMENT-1 — THE IDENTITY OF ONE ACCEPTED YOUTUBE PUBLICATION.
+ *
+ * ── WHAT IT ANSWERS, AND NOTHING WIDER ──────────────────────────────────────
+ *
+ * "For this permit, in this tenant: which video did YouTube return, on which channel was it
+ * authorized, and through which connection?" Three values, each already on a ledger row this
+ * authority owns: the attempt's `provider_message_id`, and the governed payload's
+ * `expectedChannelId` and `integrationId`. Nothing else about the request, the permit, the decision
+ * or the payload is returned.
+ *
+ * ── A LOOKUP, NOT AN AUTHORIZATION ──────────────────────────────────────────
+ *
+ * The permit id is only how a caller says WHICH publication it means. Resolving it grants nothing:
+ * whether a provider may then be read is decided by the capability authority, elsewhere. Another
+ * tenant's permit, a permit for a different action kind and a permit that does not exist are ONE
+ * answer, so the refusal cannot be used to learn that a permit exists somewhere else.
+ *
+ * Read only. No provider is called and nothing is written.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export type YouTubePublicationIdentity =
+  | {
+      readonly status: "resolved";
+      /** The id YouTube returned when the upload was accepted. */
+      readonly videoId: string;
+      /** The channel the governed payload bound. */
+      readonly expectedChannelId: string;
+      /** The connection the governed payload bound. */
+      readonly integrationId: string;
+    }
+  | {
+      readonly status: "not-resolved";
+      readonly reason:
+        /** No YouTube publication permit with this id exists in this tenant. */
+        | "no-such-publication"
+        /** The permit exists but no attempt was accepted with a provider id. */
+        | "not-accepted"
+        /** The stored payload does not carry a usable channel or connection. */
+        | "identity-incomplete";
+    }
+  | {
+      readonly status: "unknown";
+      readonly reason: "no-authorized-tenant-context" | "persistence-not-configured" | "read-failed";
+    };
+
+const YOUTUBE_VIDEO_ID = /^[0-9A-Za-z_-]{6,32}$/;
+const YOUTUBE_CHANNEL_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+export async function readYouTubePublicationIdentity(
+  tenant: TenantContext | null,
+  input: { readonly permitId: string },
+  deps: ContentPublicationStateDeps = {},
+): Promise<YouTubePublicationIdentity> {
+  if (typeof window !== "undefined") throw new Error("Content publication state reads are server-only.");
+  if (!tenant?.tenantId) return { status: "unknown", reason: "no-authorized-tenant-context" };
+  if (typeof input?.permitId !== "string" || !UUID.test(input.permitId)) {
+    return { status: "not-resolved", reason: "no-such-publication" };
+  }
+  let db: ControlPlaneDatabase | null = null;
+  try {
+    db = (deps.getDb ?? resolveGovernanceDbOrNull)();
+  } catch {
+    db = null;
+  }
+  if (!db) return { status: "unknown", reason: "persistence-not-configured" };
+
+  const tenantId = tenant.tenantId;
+  let row;
+  try {
+    const rows = await db
+      .select({
+        attemptStatus: actionExecutionAttempts.status,
+        providerMessageId: actionExecutionAttempts.providerMessageId,
+        expectedChannelId: sql<string | null>`${hebyActionRequests.canonicalPayload}->>'expectedChannelId'`,
+        integrationId: sql<string | null>`${hebyActionRequests.canonicalPayload}->>'integrationId'`,
+      })
+      .from(actionPermits)
+      .innerJoin(
+        hebyActionRequests,
+        and(
+          eq(hebyActionRequests.id, actionPermits.actionRequestId),
+          eq(hebyActionRequests.tenantId, actionPermits.tenantId),
+        ),
+      )
+      .leftJoin(
+        actionExecutionAttempts,
+        and(
+          eq(actionExecutionAttempts.permitId, actionPermits.id),
+          eq(actionExecutionAttempts.tenantId, actionPermits.tenantId),
+        ),
+      )
+      .where(
+        and(
+          eq(actionPermits.tenantId, tenantId),
+          eq(actionPermits.id, input.permitId.toLowerCase()),
+          eq(hebyActionRequests.actionKind, PUBLISH_YOUTUBE_VIDEO_ACTION_KIND),
+        ),
+      )
+      .limit(1);
+    row = rows[0];
+  } catch {
+    return { status: "unknown", reason: "read-failed" };
+  }
+  if (!row) return { status: "not-resolved", reason: "no-such-publication" };
+  if (row.attemptStatus !== "accepted" || !row.providerMessageId || !YOUTUBE_VIDEO_ID.test(row.providerMessageId)) {
+    return { status: "not-resolved", reason: "not-accepted" };
+  }
+  if (
+    !row.expectedChannelId ||
+    !YOUTUBE_CHANNEL_ID.test(row.expectedChannelId) ||
+    !row.integrationId ||
+    !UUID.test(row.integrationId)
+  ) {
+    return { status: "not-resolved", reason: "identity-incomplete" };
+  }
+  return {
+    status: "resolved",
+    videoId: row.providerMessageId,
+    expectedChannelId: row.expectedChannelId,
+    integrationId: row.integrationId.toLowerCase(),
+  };
+}

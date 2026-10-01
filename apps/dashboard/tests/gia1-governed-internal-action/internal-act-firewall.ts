@@ -805,11 +805,18 @@ function theSurfaceOffersTwoDeliberateActions(): void {
        * upload. It spends, approves, executes and stores nothing — still no generic execute-anything.
        */
       "readYouTubeUploadAction",
+      /*
+       * YOUTUBE-RECORDED-MEASUREMENT-1 added a TWELFTH. It takes which permit and nothing else, and
+       * the permit only says WHICH accepted upload: it approves, spends and executes nothing. It
+       * performs a fresh capability-gated YouTube read and stores ONE provider observation — which
+       * is not an execution, and is not routed through the permit's authority.
+       */
+      "recordYouTubeMeasurementAction",
       "rejectActionRequestAction",
       "revokeActionPermitAction",
       "withdrawStandingMutationAction",
     ],
-    "eleven deliberate server actions, and still no generic execute-anything",
+    "twelve deliberate server actions, and still no generic execute-anything",
   );
   for (const fn of exported) {
     assert.ok(

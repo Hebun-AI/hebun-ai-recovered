@@ -28,7 +28,15 @@ const files = walk("src");
   const uploaders = files.filter((f) => f !== TRANSPORT && /openYouTubeUploadSession|sendYouTubeUploadBytes/.test(codeOnly(read(f))));
   assert.deepEqual(uploaders, [EXECUTOR], `only the executor reaches the upload transport: ${uploaders}`);
   const readers = files.filter((f) => f !== TRANSPORT && /\breadYouTubeVideo\b/.test(codeOnly(read(f))));
-  assert.deepEqual(readers, ["src/features/youtube-publishing/read-youtube-upload.server.ts"], `read-back only: ${readers}`);
+  /*
+   * YOUTUBE-RECORDED-MEASUREMENT-1 added a SECOND reader of the same single-video transport: the
+   * capability-gated read whose answer may be recorded. Still two server seams and never a surface.
+   */
+  assert.deepEqual(
+    readers,
+    ["src/features/provider-google/read-youtube-video-metrics.server.ts", "src/features/youtube-publishing/read-youtube-upload.server.ts"],
+    `the read-back and the gated measurement read only: ${readers}`,
+  );
   for (const f of files.filter((f) => f.endsWith(".tsx"))) {
     assert.ok(!/provider-google\/google-transport/.test(codeOnly(read(f))), `${f} cannot import the Google transport`);
   }

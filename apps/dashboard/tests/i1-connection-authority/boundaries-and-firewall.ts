@@ -483,6 +483,8 @@ function main(): void {
         "google.drive.metadata.read",
         /* YOUTUBE-WRITE-1: the authenticated channel identity, read-only (`youtube.readonly`). */
         "google.youtube.channel.identity.read",
+        /* YOUTUBE-RECORDED-MEASUREMENT-1: one own video's counts, read-only (`youtube.readonly`), no write half. */
+        "google.youtube.video.metrics.read",
         /* YOUTUBE-WRITE-2: the governed upload, write half = youtube.upload, on google-youtube. */
         "google.youtube.video.upload",
         /*

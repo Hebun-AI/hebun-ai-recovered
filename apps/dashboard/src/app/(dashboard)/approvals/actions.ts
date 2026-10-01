@@ -16,6 +16,10 @@ import {
   readYouTubeUploadedVideo,
   type YouTubeUploadReadResult,
 } from "@/features/youtube-publishing/read-youtube-upload.server";
+import {
+  recordYouTubePublicationMeasurement,
+  type RecordYouTubeMeasurementResult,
+} from "@/features/youtube-recorded-measurement/record-youtube-publication-measurement.server";
 import { executeRecordWork } from "@/features/governed-internal-action/execute-record-work.server";
 import {
   executePlaceHuman,
@@ -148,6 +152,22 @@ export async function readYouTubeUploadAction(
   input: { readonly permitId: string },
 ): Promise<YouTubeUploadReadResult> {
   return readYouTubeUploadedVideo(await resolveTenantContext(), { permitId: String(input?.permitId ?? "") });
+}
+
+/**
+ * YOUTUBE-RECORDED-MEASUREMENT-1 — read YouTube again, now, and store what it reported as ONE
+ * provider observation.
+ *
+ * A separate act from the read-back above, which still stores nothing. The tenant and the observing
+ * human are the session's. The permit id is the only input and only says WHICH accepted upload: the
+ * video, its channel and its connection are resolved server-side from the ledger, the read is
+ * confirmed by the capability authority for that exact connection, and every stored value comes
+ * from that fresh read — no count, id or timestamp has a parameter to arrive through.
+ */
+export async function recordYouTubeMeasurementAction(
+  input: { readonly permitId: string },
+): Promise<RecordYouTubeMeasurementResult> {
+  return recordYouTubePublicationMeasurement(await resolveTenantContext(), { permitId: String(input?.permitId ?? "") });
 }
 
 /**
