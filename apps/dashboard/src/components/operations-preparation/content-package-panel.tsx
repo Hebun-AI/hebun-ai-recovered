@@ -32,7 +32,8 @@ import {
 import {
   PUBLICATION_MEASUREMENT_NON_CLAIM,
   PUBLICATION_MEASUREMENT_WORDING,
-  YOUTUBE_MEASUREMENT_NOT_AVAILABLE,
+  YOUTUBE_PUBLICATION_MEASUREMENT_NON_CLAIM,
+  describeYouTubePublicationMeasurement,
   type PublicationMeasurement,
   type RevisionPublicationMeasurements,
 } from "@/features/content-publication-measurement/contracts";
@@ -230,7 +231,7 @@ const count = (value: number | null): string => (value === null ? "not reported"
 
 function PublicationMeasurementRecord({ measurement }: { readonly measurement: RevisionPublicationMeasurements }) {
   if (measurement.status === "unknown") return null;
-  if (measurement.instagram.length === 0 && measurement.youtubeAcceptedCount === 0) return null;
+  if (measurement.instagram.length === 0 && measurement.youtube.length === 0) return null;
   return (
     <div className="min-w-0 space-y-1 text-[11px]">
       <h5 className="font-medium text-fg-secondary">Observed after publication</h5>
@@ -244,8 +245,23 @@ function PublicationMeasurementRecord({ measurement }: { readonly measurement: R
           </li>
         ))}
       </ul>
-      {measurement.youtubeAcceptedCount > 0 ? <p className="text-fg-muted">{YOUTUBE_MEASUREMENT_NOT_AVAILABLE}</p> : null}
       {measurement.instagram.length > 0 ? <p className="text-fg-muted">{PUBLICATION_MEASUREMENT_NON_CLAIM}</p> : null}
+      {/*
+        * YOUTUBE-MEASUREMENT-OPERATIONS-PROJECTION-1 — what Hebun's STORED YouTube measurements say
+        * about each accepted upload. A person recorded them in Approvals; nothing here reads YouTube.
+        */}
+      {measurement.youtube.length > 0 ? (
+        <>
+          <ul className="min-w-0 space-y-0.5">
+            {measurement.youtube.map((m) => (
+              <li key={m.publication.attemptId} className="break-words text-fg-muted">
+                {describeYouTubePublicationMeasurement(m)}
+              </li>
+            ))}
+          </ul>
+          <p className="text-fg-muted">{YOUTUBE_PUBLICATION_MEASUREMENT_NON_CLAIM}</p>
+        </>
+      ) : null}
     </div>
   );
 }

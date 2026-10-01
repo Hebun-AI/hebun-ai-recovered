@@ -10,6 +10,13 @@
  *                                  to the media capability and the exact account subject, bounded
  *                                  by IG-AN3's own `MEDIA_EVOLUTION_OBSERVATION_LIMIT`.
  *
+ * YOUTUBE-MEASUREMENT-OPERATIONS-PROJECTION-1 adds one more read through the SAME released reader,
+ * per distinct channel an accepted YouTube publication bound: the measurements a person recorded
+ * (`google-youtube` / `google.youtube.video.metrics.read`). It names no limit, so the page is the
+ * observation history's own, and that history's page size is handed to the derivation so a full
+ * page is never read as the whole history. The channel's subject reference is asked of the module
+ * that owns the format — it is not spelled here or in the derivation.
+ *
  * The tenant comes only from the caller's authenticated context and is handed to both readers,
  * which are tenant-scoped themselves. The revisions only choose which of that tenant's records are
  * asked about. Nothing is written, no provider is contacted and no credential is opened.
@@ -25,14 +32,22 @@ import {
   INSTAGRAM_PROVIDER_KEY,
 } from "@/features/provider-instagram/contracts";
 import {
+  GOOGLE_YOUTUBE_PROVIDER_KEY,
+  GOOGLE_YOUTUBE_VIDEO_METRICS_CAPABILITY,
+} from "@/features/provider-google/contracts";
+import {
+  MAX_OBSERVATIONS_PER_READ,
   readProviderObservations,
   type ProviderObservationReadResult,
 } from "@/features/provider-observation-history/read-provider-observations.server";
+import { youtubeChannelSubjectRef } from "@/features/provider-observation-history/record-youtube-channel-observation.server";
 import type { RevisionPublicationMeasurements } from "./contracts";
 import {
   derivePublicationMeasurements,
   instagramSubjectRefFor,
   measurablePublications,
+  measurableYouTubePublications,
+  type YouTubeChannelMeasurementRead,
 } from "./derive-publication-measurement";
 
 export interface PublicationMeasurementDeps {
@@ -76,7 +91,28 @@ export async function readPublicationMeasurements(
     }),
   );
 
+  /* One measurement read per distinct YouTube channel. No limit is named: the page is the history's own. */
+  const channels = new Set<string>();
+  for (const state of states.values()) {
+    for (const p of measurableYouTubePublications(state)) channels.add(p.destinationAccountId);
+  }
+  const youtubeReads = new Map<string, YouTubeChannelMeasurementRead>();
+  await Promise.all(
+    [...channels].map(async (channel) => {
+      const subjectRef = youtubeChannelSubjectRef(channel);
+      youtubeReads.set(channel, {
+        subjectRef,
+        read: await readObservations(tenant, {
+          providerKey: GOOGLE_YOUTUBE_PROVIDER_KEY,
+          capabilityKey: GOOGLE_YOUTUBE_VIDEO_METRICS_CAPABILITY,
+          subjectRef,
+        }),
+        windowSize: MAX_OBSERVATIONS_PER_READ,
+      });
+    }),
+  );
+
   const out = new Map<string, RevisionPublicationMeasurements>();
-  for (const [ref, state] of states) out.set(ref, derivePublicationMeasurements(state, reads));
+  for (const [ref, state] of states) out.set(ref, derivePublicationMeasurements(state, reads, youtubeReads));
   return out;
 }
