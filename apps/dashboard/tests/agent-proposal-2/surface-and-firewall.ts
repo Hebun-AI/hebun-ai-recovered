@@ -38,6 +38,7 @@ function collect(dir: string, ext = /\.tsx?$/): string[] {
 
 const PANEL = "src/components/decision-workspace/agent-proposal-request.tsx";
 const PAGE = "src/app/(dashboard)/approvals/page.tsx";
+const DASHBOARD = "src/components/approvals-dashboard/approvals-dashboard.tsx";
 const HEBY_ACTIONS = "src/app/(dashboard)/heby/actions.ts";
 const APPROVALS_ACTIONS = "src/app/(dashboard)/approvals/actions.ts";
 const READER = "src/features/action-authorization/read-action-authorizations.server.ts";
@@ -317,7 +318,21 @@ function noSurfaceProliferation(): void {
   /* The panel is mounted inside the EXISTING slot on the EXISTING route. */
   const page = codeOf(read(PAGE));
   assert.ok(page.includes("<AgentProposalRequest />"), "the panel is mounted on /approvals");
-  assert.ok(page.includes("<ActionAuthorizations"), "beside the queue it feeds, not instead of it");
+  /*
+   * APPROVALS-DASHBOARD made `ApprovalsDashboard` the ONE pending-queue surface on this route. The
+   * invariant is unchanged and is now checked where the queue actually lives: the page hands the
+   * pending requests to that surface, the surface queues them and decides each through the released
+   * request card, and the page mounts no second approval surface beside it.
+   */
+  assert.ok(page.includes("<ApprovalsDashboard"), "beside the queue it feeds, not instead of it");
+  assert.ok(
+    page.includes('requests={requests.status === "read" ? requests.items : []}'),
+    "the queue surface is given the pending requests the panel's proposals land in",
+  );
+  assert.ok(!page.includes("<ActionAuthorizations"), "one approval surface on the route, never two");
+  const queue = codeOf(read(DASHBOARD));
+  assert.ok(queue.includes("buildQueue(data, requests, permits)"), "the surface queues the pending requests it was given");
+  assert.ok(queue.includes("<RequestCard"), "and decides each one through the released request card");
 
   /* Exactly one component renders the pending queue, and exactly one asks for a proposal. */
   const askers = collect("src").filter((f) =>

@@ -1,33 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { ImageIcon, Play } from "lucide-react";
-import { readMediaAssetAction, readMediaVideoAction } from "@/app/(dashboard)/operations/actions";
+import Link from "next/link";
 import type { SelectedMediaView } from "@/features/content-composition/contracts";
 import type { DashboardContent } from "@/features/approvals-dashboard/read-dashboard.server";
 import { PUBLICATION_STAGE_WORDING } from "@/features/action-authorization/content-publication-state";
 import { describeYouTubePublicationMeasurement, PUBLICATION_MEASUREMENT_WORDING } from "@/features/content-publication-measurement/contracts";
 
-export function AssetPreview({ asset }: { asset: SelectedMediaView }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const [pending, start] = useTransition();
-  return <div className="space-y-2 rounded-lg border border-border bg-surface-sunken p-3">
-    {url ? asset.mediaKind === "video" ? <video controls preload="metadata" src={url} className="max-h-64 w-full rounded-lg" onError={() => { setUrl(null); setNote("Preview expired or unavailable. Open again to verify access."); }} /> :
-      // eslint-disable-next-line @next/next/no-img-element -- verified short-lived private grant; never proxy or cache.
-      <img src={url} alt="Selected content asset" className="max-h-64 w-full rounded-lg object-contain" onError={() => { setUrl(null); setNote("Preview expired or unavailable. Open again to verify access."); }} /> :
-      <div className="flex min-h-24 items-center justify-center text-fg-muted">{asset.mediaKind === "video" ? <Play aria-hidden="true" /> : <ImageIcon aria-hidden="true" />}</div>}
-    <button type="button" disabled={pending} className="rounded-md border border-border bg-surface px-3 py-2 text-xs disabled:opacity-50" onClick={() => start(async () => {
-      setNote(null);
-      try {
-        const result = await (asset.mediaKind === "video" ? readMediaVideoAction : readMediaAssetAction)({ assetId: asset.mediaAssetId });
-        if (result.status === "read") { setUrl(result.access.url); setNote("Verified private preview · expires shortly."); }
-        else { setUrl(null); setNote(`Preview unavailable (${result.status}).`); }
-      } catch { setNote("Preview could not be opened. Try again."); }
-    })}>{pending ? "Verifying…" : "Open verified preview"}</button>
-    <p className="text-xs text-fg-muted">{asset.mediaKind} · {asset.width} × {asset.height} · {asset.origin} · {asset.lifecycle}</p>
-    {note && <p role="status" className="text-xs text-fg-muted">{note}</p>}
-  </div>;
+/* Selected media as the Content Package reader projected it. Preview and media review stay in Operations. */
+function SelectedMedia({ asset }: { asset: SelectedMediaView }) {
+  return <li className="rounded-lg border border-border bg-surface-sunken p-3 text-xs text-fg-muted">{asset.mediaKind} · {asset.width} × {asset.height} · {asset.origin} · {asset.lifecycle}</li>;
 }
 export function StoredMeasurements({ content }: { content: DashboardContent }) {
   const measurement = content.measurement;
@@ -52,7 +33,7 @@ export function ContentDetails({ content, tab }: { content: DashboardContent; ta
   if (tab === "Analysis") return <StoredMeasurements content={content} />;
   if (tab === "Channel Preview") return <div className="space-y-3">
     <p className="text-xs text-fg-muted">Prepared content for {content.artifact.intendedDestination ?? "an unspecified channel"}. This is not a live provider page.</p>
-    {pkg?.selected.length ? pkg.selected.map((asset) => <AssetPreview key={asset.mediaAssetId} asset={asset} />) : <p className="text-sm text-fg-muted">{content.package.status === "unavailable" ? "Media selection unavailable." : "No selected preview asset."}</p>}
+    {pkg?.selected.length ? <><ul className="space-y-2">{pkg.selected.map((asset, index) => <SelectedMedia key={index} asset={asset} />)}</ul><p className="text-xs text-fg-muted">Selected media is listed as recorded. Viewing and reviewing it happens in <Link href="/operations" className="underline">Operations</Link>.</p></> : <p className="text-sm text-fg-muted">{content.package.status === "unavailable" ? "Media selection unavailable." : "No selected media."}</p>}
     <p className="whitespace-pre-wrap break-words text-sm">{content.revision?.content ?? "Revision content unavailable."}</p>
   </div>;
   if (tab === "History") return <div className="space-y-3 text-sm">

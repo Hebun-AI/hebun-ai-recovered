@@ -194,7 +194,7 @@ function DeclarePurposeControl({
 
 type InstagramPreviewMap = Extract<InstagramApprovalPreviewsRead, { status: "read" }>["previews"];
 
-export function RequestCard({
+function RequestCard({
   item,
   waitingFor,
   workOptions,
@@ -917,3 +917,6 @@ export function ActionAuthorizations({
     </DecisionRegion>
   );
 }
+
+/* The one Approvals surface renders this card for its focused request; the declaration above stays as released. */
+export { RequestCard };

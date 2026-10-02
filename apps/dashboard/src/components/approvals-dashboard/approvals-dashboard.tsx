@@ -13,7 +13,7 @@ import type { ApprovalsDashboardRead } from "@/features/approvals-dashboard/read
 import { buildQueue, filterQueue, canDecide, decideVisibleItems, type QueueItem, type Filter, type Intent, type DecisionOutcome } from "@/features/approvals-dashboard/model";
 import { InstagramApprovalPreview } from "@/components/decision-workspace/instagram-approval-preview";
 import { PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND } from "@/features/instagram-publishing/contracts";
-import { ContentDetails, AssetPreview } from "./content-detail";
+import { ContentDetails } from "./content-detail";
 
 type Props = ComponentProps<typeof ActionAuthorizations> & { data: ApprovalsDashboardRead; requestsAvailable: boolean; permitsAvailable: boolean };
 const filters: readonly Filter[] = ["All", "Pending", "Approved", "Published", "Failed", "Drafts"];
@@ -107,10 +107,11 @@ export function ApprovalsDashboard(props: Props) {
       <span>Content: {data.contentAvailable ? data.contentTruncated ? "latest 50 artifacts · older records omitted" : "current revisions loaded" : "unavailable"}</span>
       <span>· Pending requests: {props.requestsAvailable ? `${requests.length} loaded (up to 50)` : "unavailable"}</span>
       <span>· Permits: {props.permitsAvailable ? `${permits.length} loaded (up to 50)` : "unavailable"}</span>
-      {props.oldestWaiting && <span>· Oldest pending action: {props.oldestWaiting.label}</span>}
+      {props.oldestWaiting && <span>· Oldest pending action: {props.oldestWaiting.label} (elapsed time only — Hebun holds no target or deadline for a human decision)</span>}
       {props.awaitingCount !== null && props.awaitingCount !== undefined && <span>· All pending action requests: {props.awaitingCount}</span>}
     </div>
-    {!data.authorized && <p role="status" className="rounded-lg border border-border bg-surface-sunken p-3 text-sm text-fg-muted">Review access only. This session has no resolved Governance authority; decision controls are disabled.</p>}
+    {(!props.requestsAvailable || !props.permitsAvailable) && <p role="status" className="rounded-lg border border-border bg-surface-sunken p-3 text-sm text-fg-muted">Action requests or permits could not be read from the control-plane database. Until they can, no request can be decided and no permit can be issued here — and none is fabricated.</p>}
+    {!data.authorized && <p role="status" className="rounded-lg border border-border bg-surface-sunken p-3 text-sm text-fg-muted">This session has no resolved Governance authority, so the queue and bulk decision controls are disabled. Each record keeps its own controls; the server checks every act against its own authority.</p>}
     <div className="rounded-xl border border-border bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-3">
         <div className="flex flex-wrap gap-1" aria-label="Status filters">{filters.map((value) => <button type="button" key={value} disabled={pending} aria-pressed={filter === value} onClick={() => { setFilter(value); resetSelection(); }} className={`rounded-lg px-3 py-2 text-xs font-medium ${filter === value ? "bg-primary/10 text-primary" : "text-fg-muted hover:bg-surface-sunken"}`}>{value}</button>)}</div>
@@ -152,7 +153,7 @@ export function ApprovalsDashboard(props: Props) {
             <button type="button" className="min-w-0 flex-1 text-left" aria-pressed={current?.id === item.id} onClick={() => focusItem(item.id)}><span className="mb-2 flex items-center justify-between gap-2"><Channel name={item.channel} /><span className="text-[11px] text-fg-muted">{item.kind === "content" ? "Content review" : item.kind === "request" ? "Action request" : "Issued permit"}</span></span><h3 className="break-words text-sm font-semibold text-fg">{item.title}</h3></button>
           </div>
           <div className="mt-3 space-y-2"><ItemContext item={item} /><CardPublication item={item} /><div className="flex flex-wrap gap-2"><Badge warning={item.status.includes("unknown") || item.filters.includes("Failed")}>{item.status}</Badge>{item.kind === "content" && item.filters.includes("Published") && <Badge>Provider accepted publication</Badge>}</div><p className="text-[11px] text-fg-muted">Created {item.createdAt.replace("T", " ").slice(0, 16)} UTC</p></div>
-          {item.kind === "content" && item.content.package.status === "read" && item.content.package.package.selected[0] && <details className="mt-3"><summary className="cursor-pointer text-xs text-fg-muted">Preview selected media</summary><AssetPreview key={item.content.package.package.selected[0].mediaAssetId} asset={item.content.package.package.selected[0]} /></details>}
+          {item.kind === "content" && item.content.package.status === "read" && item.content.package.package.selected.length > 0 && <p className="mt-3 text-xs text-fg-muted">{item.content.package.package.selected.length} selected media · preview and review stay in Operations</p>}
           <div className="mt-4 flex flex-wrap gap-2">{item.kind !== "permit" ? <><button type="button" disabled={pending || !canDecide(item, data.authorized, "approve")} className={primary} onClick={() => openReview("approve", [item])}>Approve</button><button type="button" disabled={pending || !canDecide(item, data.authorized, "changes")} className={button} title={item.kind === "request" ? "Action requests do not support a changes-requested decision" : undefined} onClick={() => openReview("changes", [item])}>Request Changes</button><button type="button" disabled={pending || !canDecide(item, data.authorized, "reject")} className={button} onClick={() => openReview("reject", [item])}>Reject</button></> : <button type="button" className={button} onClick={() => focusItem(item.id)}>Inspect permit / execution</button>}</div>
         </article>)}
       </section>
@@ -166,7 +167,7 @@ export function ApprovalsDashboard(props: Props) {
               (event.currentTarget.parentElement?.children[next] as HTMLButtonElement | undefined)?.focus();
             }} className={`rounded-lg px-3 py-2 text-xs ${tab === value ? "bg-primary/10 font-medium text-primary" : "text-fg-muted"}`} onClick={() => setTab(value)}>{value}</button>)}</div>
           <div role="tabpanel" id="approval-detail-panel" aria-labelledby={`approval-tab-${tab.replaceAll(" ", "-")}`} className="min-w-0 p-4" key={current.id}>
-            {current.kind === "content" ? <ContentDetails content={current.content} tab={tab} /> : current.kind === "request" && (tab === "Details" || tab === "Channel Preview") ? <>{data.authorized && !pending ? <ul><RequestCard key={current.id} item={current.request} waitingFor={props.evaluatedAt ? elapsedSince(current.request.proposedAt, props.evaluatedAt, "action-request.created_at") : null} workOptions={workOptions} instagramPreviews={instagramPreviews} /></ul> : <RequestSummary item={current} />}</> : current.kind === "permit" && (tab === "Details" || tab === "History") ? <ul className={pending ? "pointer-events-none opacity-60" : ""}><PermitRow key={current.id} item={current.permit} controlsDisabled={!data.authorized || pending} /></ul> : <p className="text-sm text-fg-muted">No {tab.toLowerCase()} read is connected to this record. Content measurements are shown on the corresponding revision.</p>}
+            {current.kind === "content" ? <ContentDetails content={current.content} tab={tab} /> : current.kind === "request" && (tab === "Details" || tab === "Channel Preview") ? <>{!pending ? <ul><RequestCard key={current.id} item={current.request} waitingFor={props.evaluatedAt ? elapsedSince(current.request.proposedAt, props.evaluatedAt, "action-request.created_at") : null} workOptions={workOptions} instagramPreviews={instagramPreviews} /></ul> : <RequestSummary item={current} />}</> : current.kind === "permit" && (tab === "Details" || tab === "History") ? <ul className={pending ? "pointer-events-none opacity-60" : ""}><PermitRow key={current.id} item={current.permit} controlsDisabled={pending} /></ul> : <p className="text-sm text-fg-muted">No {tab.toLowerCase()} read is connected to this record. Content measurements are shown on the corresponding revision.</p>}
           </div></> : <p className="p-8 text-center text-sm text-fg-muted">Select a record to inspect its content and recorded state.</p>}
       </aside>
     </div>
@@ -175,13 +176,18 @@ export function ApprovalsDashboard(props: Props) {
 
 function RequestSummary({ item }: { item: Extract<QueueItem, { kind: "request" }> }) {
   const request = item.request;
+  const agent = request.proposedByActorType === "agent";
   return <div className="space-y-3 text-sm">
-    <p>{request.expectedEffect}</p><p>{request.actionKind} · {request.sideEffect} · {request.reversibility}</p>
-    <p className="break-all">Target: {request.targetLabel ?? request.targetRef ?? "Not recorded"}</p>
+    <p className="text-xs text-fg-muted">Proposed by {request.proposedByAgentName ?? request.proposedByActorType}{request.proposedByAgentName !== null && request.proposedByAgentInService === false ? " · agent retired since" : ""}</p>
+    <p>{request.expectedEffect}</p><p>{request.actionKind} · {request.toolId} · {request.sideEffect} · {request.reversibility}</p>
+    {/* Only an agent has a rationale to state; a human proposal shows no rationale slot at all. */}
+    {agent && <div className="rounded-lg border border-border p-3"><h4 className="text-xs text-fg-muted">Heby&rsquo;s proposal rationale</h4><p className="whitespace-pre-wrap">{request.proposalRationale ?? "Proposal rationale unavailable"}</p><p className="text-xs text-fg-muted">{request.proposalRationale === null ? "This proposal was filed before Hebun recorded proposal rationales. That is what the record says — not that the agent gave no reason." : "The agent's own stated reason, recorded when it was filed. It authorizes nothing, and it is not your justification for deciding."}</p></div>}
+    <p className="text-xs text-fg-muted">Declared organizational purpose: {request.purposeUnresolved ? "Declared, but the Work authority could not answer for it — unknown, not absent." : request.purposeWorkTitle ?? "Not declared"}</p>
+    <p className="break-all">Target: {request.targetRef ? `${request.targetLabel ?? request.targetRef} (${request.targetKind}:${request.targetRef})` : "none"}</p>
     <dl className="space-y-2">{request.parameters.map((p) => <div key={p.name}><dt className="text-xs text-fg-muted">{p.name}</dt><dd className="whitespace-pre-wrap break-all">{p.value}</dd></div>)}</dl>
+    {request.locks.length > 0 && <div className="rounded-lg border border-border p-3 text-xs"><ul className="space-y-1">{request.locks.map((lock) => <li key={lock.name}>{lock.label}</li>)}</ul><details className="mt-1"><summary className="cursor-pointer text-fg-muted">Show the integrity values</summary>{request.locks.map((lock) => <p key={lock.name} className="break-all">{lock.name}: {lock.value}</p>)}<p className="break-all">payloadDigest: {request.payloadDigest}</p><p className="text-fg-muted">Authorization binds payloadDigest, computed over the whole proposal.</p></details></div>}
     <div className="rounded-lg border border-warning/30 bg-warning/5 p-3"><h4 className="font-medium">Consequences</h4><ul className="mt-2 list-disc space-y-1 pl-5">{request.consequences.map((consequence) => <li key={consequence}>{consequence}</li>)}</ul></div>
-    <div className="text-xs text-fg-muted"><p>Evidence: {request.evidence.status}</p>{request.evidence.status === "attached" && request.evidence.items.map((e) => <p key={`${e.sourceClass}:${e.recordRef}`} className="break-all">{e.sourceClass} · {e.recordRef} · {e.lifecycle}</p>)}</div>
-    <p className="text-xs text-fg-muted">{request.proposalRationale ?? "Proposal rationale unavailable."}</p>
+    <div className="text-xs text-fg-muted">{request.evidence.status === "attached" ? request.evidence.items.map((e) => <p key={`${e.sourceClass}:${e.recordRef}`} className="break-all">{e.sourceClass} · {e.recordRef} · {e.lifecycle}</p>) : request.evidence.status === "none" ? <p>This proposal recorded no evidence. That is the stored state, not a failed read.</p> : <p className="text-warning">The stored evidence could not be interpreted, so it is unknown rather than absent.</p>}</div>
   </div>;
 }
 

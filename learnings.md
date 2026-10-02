@@ -4373,3 +4373,8 @@ exist is anything that would invoke it.
 - What did we learn? An accepted revision badge can hide a later unknown publication attempt unless the queue exposes both. A durable approval followed by a lost response must remain unknown in bulk results even while later decisions succeed.
 - How does this improve Turkish Rug House? Reviewers see the latest provider-attempt truth without confusing it with their content decision; one failed or uncertain bulk item cannot mislabel another.
 - How does this become part of Hebun AI? Reuse the existing publication wording on queue cards and test bulk through the released single-item PostgreSQL seam. Treat authenticated empty/unavailable rendering as partial evidence: missing baseline columns and absent business records cannot prove populated runtime acceptance.
+
+## Approvals release gate — replacing a surface breaks the tests that pinned the old one (2026-10-02)
+- What did we learn? A targeted test set chosen from the files a feature adds misses the tests that pin the surface it replaces. Run every test that names the touched modules at baseline and at head and diff the failures. A reused component keeps its behaviour only if the new surface does not gate it behind a flag that belongs to a different act.
+- How does this improve Turkish Rug House? Every member keeps the purpose and execute affordances the server already grants them, and a reviewer approving from the queue sees who proposed the act before deciding.
+- How does this become part of Hebun AI? `/approvals` is one surface; authority stays per act on the server; Media preview and review stay in Operations, so the Media Asset firewall allowlist did not grow.
