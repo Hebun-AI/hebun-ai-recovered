@@ -320,8 +320,10 @@ async function main(): Promise<void> {
   {
     const read = (f: string) => strip(readFileSync(path.join(process.cwd(), f), "utf8"));
     const sql = readdirSync("src/db/migrations").filter((f) => f.endsWith(".sql")).sort();
-    const mine = read(`src/db/migrations/${sql.at(-1)}`);
-    assert.match(sql.at(-1)!, /_supplied_media_account_provenance\.sql$/);
+    /* KT-3: this phase's migration is no longer the newest (the knowledge-public-use domain is), so it is found by name. */
+    const own = sql.find((f) => /_supplied_media_account_provenance\.sql$/.test(f));
+    assert.ok(own, "this phase's migration is in the ledger");
+    const mine = read(`src/db/migrations/${own}`);
     /* Statements only — the FK's own "ON UPDATE no action" is not a data rewrite. */
     const statements = mine.split("--> statement-breakpoint").map((x) => x.trim());
     assert.ok(statements.every((x) => /^ALTER TABLE "media_assets" ADD (COLUMN|CONSTRAINT) /.test(x)), "additive only: every statement adds to media_assets");

@@ -81,12 +81,17 @@ const deps = (o: {
   hypotheses?: unknown;
   versions?: unknown;
   decided?: unknown;
+  /* KT-3 — the public-use source's two Governance reads. Default: nothing rejected, nothing decided. */
+  rejected?: unknown;
+  publicUse?: unknown;
 }) =>
   ({
     readActionRequests: async () => o.actions ?? { status: "read", items: [] },
     readHypotheses: async () => o.hypotheses ?? { status: "read", hypotheses: [], truncated: false, limit: 50 },
     readKnowledgeVersions: async () => o.versions ?? { status: "read", versions: [] },
     readDecidedKnowledge: async () => o.decided ?? { status: "read", decidedNodeIds: new Set<string>() },
+    readRejectedKnowledge: async () => o.rejected ?? { status: "read", rejectedNodeIds: new Set<string>() },
+    readPublicUse: async () => o.publicUse ?? { status: "read", states: new Map() },
   }) as any;
 
 const blockOf = (h: DecisionHorizon, source: string) => {
@@ -103,8 +108,9 @@ async function main(): Promise<void> {
    * ═══════════════════════════════════════════════════════════════════════ */
   assert.deepEqual(
     [...DECISION_SOURCE_KEYS],
-    ["action-requests", "improvement-hypotheses", "knowledge-review"],
-    "three sources, named exactly — a fourth is a deliberate edit",
+    /* KT-3 — the deliberate fourth: public use, a different question from truth review, never merged into it. */
+    ["action-requests", "improvement-hypotheses", "knowledge-review", "knowledge-public-use"],
+    "four sources, named exactly — a fifth is a deliberate edit",
   );
   for (const source of DECISION_SOURCE_KEYS) {
     const owner = DECISION_SOURCE_OWNERS[source];
@@ -145,12 +151,19 @@ async function main(): Promise<void> {
         hypotheses: { status: "read", hypotheses: [hypothesis("h-1")], truncated: false, limit: 50 },
         versions: { status: "read", versions: [{ nodeId: "n-1", authoredAt: "2026-08-01T00:00:00Z" }, { nodeId: "n-2", authoredAt: null }] },
         decided: { status: "read", decidedNodeIds: new Set(["n-2"]) },
+        publicUse: { status: "read", states: new Map([["n-2", "allowed"]]) },
       }),
     );
     assert.equal(horizon.status, "read");
     if (horizon.status !== "read") throw new Error("unreachable");
     assert.equal(horizon.completeness, "complete");
-    assert.equal(horizon.answeredTotal, 3, "one of each kind — counted, never ranked");
+    /*
+     * KT-3: four, not three. n-1 awaits TWO different decisions — whether it is true, and whether it
+     * may be used publicly — and each is counted under its own source, never merged into one.
+     */
+    assert.equal(horizon.answeredTotal, 4, "one of each kind — counted, never ranked");
+    const use = blockOf(horizon, "knowledge-public-use");
+    assert.deepEqual(use.status === "answered" ? use.items.map((i) => i.recordId) : [], ["n-1"]);
 
     const actions = blockOf(horizon, "action-requests");
     assert.equal(actions.status === "answered" && actions.items[0]!.recordId, "r-1");
@@ -188,18 +201,23 @@ async function main(): Promise<void> {
    * 4. THE COMPLETENESS RULE. THE SENTENCE THIS FEATURE EXISTS TO PROTECT.
    * ═══════════════════════════════════════════════════════════════════════ */
   for (const [label, injected, expected] of [
-    ["the action authority", { actions: { status: "unavailable", reason: "db-down" } }, "action-requests"],
-    ["the hypothesis authority", { hypotheses: { status: "unavailable", reason: "db-down" } }, "improvement-hypotheses"],
-    ["Knowledge", { versions: { status: "unavailable", reason: "db-down" } }, "knowledge-review"],
-    ["Governance's decision record", { decided: { status: "unavailable", reason: "db-down" } }, "knowledge-review"],
+    ["the action authority", { actions: { status: "unavailable", reason: "db-down" } }, ["action-requests"]],
+    ["the hypothesis authority", { hypotheses: { status: "unavailable", reason: "db-down" } }, ["improvement-hypotheses"]],
+    /* KT-3: one Knowledge read feeds both Knowledge sources, so both become unavailable together. */
+    ["Knowledge", { versions: { status: "unavailable", reason: "db-down" } }, ["knowledge-review", "knowledge-public-use"]],
+    ["Governance's decision record", { decided: { status: "unavailable", reason: "db-down" } }, ["knowledge-review"]],
+    ["Governance's rejection record", { rejected: { status: "unavailable", reason: "db-down" } }, ["knowledge-public-use"]],
+    ["Governance's public-use record", { publicUse: { status: "unavailable", reason: "db-down" } }, ["knowledge-public-use"]],
   ] as const) {
     const horizon = await readDecisionHorizon(TENANT, deps(injected as never));
     assert.equal(horizon.status, "read");
     if (horizon.status !== "read") throw new Error("unreachable");
     assert.equal(horizon.completeness, "partial", `${label} being unreadable makes the horizon PARTIAL`);
-    assert.deepEqual([...horizon.unavailableSources], [expected], "and it names which source");
-    const block = blockOf(horizon, expected);
-    assert.equal(block.status, "unavailable");
+    assert.deepEqual([...horizon.unavailableSources], [...expected], "and it names which source");
+    for (const source of expected) {
+      const block = blockOf(horizon, source);
+      assert.equal(block.status, "unavailable");
+    }
   }
 
   /*

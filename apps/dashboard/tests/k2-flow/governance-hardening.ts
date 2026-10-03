@@ -374,6 +374,11 @@ function main(): void {
         /* The chooser authorization, in sort order. It writes nothing — see the note above. */
         "authorizeGooglePickerSessionAction",
         "createKnowledgeAction",
+        /*
+         * KT-3 — a Governance decision about PUBLIC USE of one exact version. It writes the
+         * Governance ledger only: no Knowledge row, no edit, no deletion, no rollback.
+         */
+        "decideKnowledgePublicUseAction",
         "ingestKnowledgeAction",
         /* R4C.1 — the file boundary. Create-class like the paste beside it, and no wider. */
         "ingestKnowledgeFileAction",
@@ -389,7 +394,7 @@ function main(): void {
         "supersedeKnowledgeAction",
         "withdrawKnowledgeExternalReferenceAction",
       ],
-      "create, ingest, ingest-a-file, supersede, ratify, reject, retract a source, plus one read. Ingest is\n"
+      "create, ingest, ingest-a-file, supersede, ratify, reject, decide public use, retract a source, plus one read. Ingest is\n"
       + "create-class: many facts through the same writer, never an edit. No delete, no edit, no rollback.",
     );
   }

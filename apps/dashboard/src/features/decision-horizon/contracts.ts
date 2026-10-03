@@ -53,12 +53,18 @@ export type DecisionSourceKey =
   /** Agent Improvement Hypothesis — filed, and nobody has answered yet. */
   | "improvement-hypotheses"
   /** Knowledge current versions MINUS the ones Governance has decided about. */
-  | "knowledge-review";
+  | "knowledge-review"
+  /**
+   * KT-3 — current Knowledge versions with no PUBLIC-USE decision. A different question from
+   * `knowledge-review` (truth), counted and listed apart, never merged into it.
+   */
+  | "knowledge-public-use";
 
 export const DECISION_SOURCE_KEYS: readonly DecisionSourceKey[] = Object.freeze([
   "action-requests",
   "improvement-hypotheses",
   "knowledge-review",
+  "knowledge-public-use",
 ]);
 
 /**
@@ -85,6 +91,12 @@ export const DECISION_SOURCE_OWNERS: Readonly<
     authority: "Knowledge, measured against Governance's own decision record",
     route: "/knowledge",
     subject: "a current Knowledge version Governance has recorded no decision about",
+  }),
+  "knowledge-public-use": Object.freeze({
+    authority: "Knowledge, measured against Governance's public-use decisions",
+    route: "/knowledge",
+    subject:
+      "a current Knowledge version with no decision on whether it may be used as public factual grounding",
   }),
 });
 

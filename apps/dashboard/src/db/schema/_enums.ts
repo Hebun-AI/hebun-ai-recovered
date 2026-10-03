@@ -1029,6 +1029,15 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * standing?"
    */
   "external-send",
+  /**
+   * KT-3 — whether one exact Knowledge version may be used as PUBLIC factual grounding.
+   *
+   * Its own domain. `knowledge-ratification` is the neighbour that matters: its decisions say whether
+   * a statement is the organization's settled truth. A statement can be true and internal, or cleared
+   * for public use without being ratified, so filing use there would make the ledger unable to tell
+   * the two questions apart. Additive: no existing row changes meaning.
+   */
+  "knowledge-public-use",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",

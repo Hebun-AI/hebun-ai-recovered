@@ -45,6 +45,8 @@ import {
 } from "@/features/knowledge-ratification/contracts";
 import { JUSTIFICATION_LIMITS } from "@/features/governance-decision/contracts";
 import type { KnowledgeSourceRecord } from "@/features/knowledge/contracts";
+import type { PublicUseState } from "@/features/knowledge-public-use/contracts";
+import { KnowledgePublicUseControl } from "./knowledge-public-use-control";
 
 /** Why review is unavailable, when it is. Each states the real reason. */
 export type ReviewBlock =
@@ -76,9 +78,19 @@ const FIELD_STYLE =
 export function KnowledgeReviewCard({
   record,
   block,
+  truthRejected = false,
+  publicUse = "unavailable",
 }: {
   record: KnowledgeSourceRecord;
   block?: ReviewBlock;
+  /**
+   * KT-1 — whether Governance rejected THIS version as untrue, read from Governance's own record.
+   * A rejection writes nothing to Knowledge, so the record alone cannot say; `unavailable` when the
+   * record could not be read.
+   */
+  truthRejected?: boolean | "unavailable";
+  /** KT-3 — the public-use state Governance's ledger derives for this version. */
+  publicUse?: PublicUseState | "unavailable";
 }) {
   const router = useRouter();
   const ids = useId();
@@ -92,7 +104,10 @@ export function KnowledgeReviewCard({
   const errorId = `${ids}-error`;
   const helpId = `${ids}-help`;
   const reviewable =
-    block === undefined && !record.ratified && record.activeKnowledgeNodeId !== null;
+    block === undefined &&
+    !record.ratified &&
+    truthRejected === false &&
+    record.activeKnowledgeNodeId !== null;
 
   function submit(kind: "ratify" | "reject") {
     setRefusal(null);
@@ -158,6 +173,16 @@ export function KnowledgeReviewCard({
               </div>
             </dl>
           </div>
+        ) : truthRejected === true ? (
+          <p className="text-sm text-fg">
+            Version {record.knowledgeVersion} was <strong>rejected</strong> by Governance. It is not
+            served as Knowledge evidence. To change the statement, create a new version and review that.
+          </p>
+        ) : truthRejected === "unavailable" ? (
+          <p className="text-sm text-fg-muted">
+            Whether Governance rejected version {record.knowledgeVersion} could not be read, so it is
+            not offered for a decision here.
+          </p>
         ) : (
           <p className="text-sm text-fg-muted">
             Version {record.knowledgeVersion} carries no Governance decision. It is unratified.
@@ -267,6 +292,18 @@ export function KnowledgeReviewCard({
             )}
           </>
         ) : null}
+
+        {/*
+          KT-3 — public factual use, shown apart from truth and decided apart from it. A version
+          Governance rejected as untrue is not offered for public use.
+        */}
+        <KnowledgePublicUseControl
+          factId={record.factId}
+          knowledgeNodeId={record.activeKnowledgeNodeId}
+          knowledgeVersion={record.knowledgeVersion}
+          state={publicUse}
+          decidable={block === undefined && truthRejected === false}
+        />
       </CardContent>
     </Card>
   );

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."governance_domain" ADD VALUE 'knowledge-public-use';

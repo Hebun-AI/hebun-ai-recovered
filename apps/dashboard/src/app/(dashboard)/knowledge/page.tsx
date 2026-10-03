@@ -12,6 +12,8 @@ import { DiscoveredSourcesCard } from "@/components/knowledge-workspace/discover
 import { ProviderDocumentAdmissionCard } from "@/components/knowledge-workspace/provider-document-admission-card";
 import { getKnowledgeWorkspaceModel } from "@/features/knowledge/workspace-model";
 import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server";
+import { readRejectedKnowledgeVersions } from "@/features/governance-decision/knowledge-rejection-read.server";
+import { readKnowledgePublicUse } from "@/features/governance-decision/knowledge-public-use-read.server";
 import { readCompanyUnderstanding } from "@/features/knowledge/company-understanding-read.server";
 import { listIngestedSources } from "@/features/knowledge/ingested-sources-read.server";
 import { discoverDriveSources } from "@/features/provider-google/discover-drive-sources.server";
@@ -70,7 +72,7 @@ export const metadata = { title: "Knowledge — Hebun AI" };
 export default async function KnowledgePage() {
   const tenant = await resolveTenantContext();
 
-  const [listing, understanding, sources, discovery, authority, governance] = await Promise.all([
+  const [listing, understanding, sources, discovery, authority, governance, rejection, publicUse] = await Promise.all([
     listKnowledgeSources(tenant),
     /*
      * R6B. A SECOND read of the same authority, not a second authority: the listing is bounded at
@@ -97,6 +99,13 @@ export default async function KnowledgePage() {
     // K4: Governance authority is a DIFFERENT authority from Knowledge authoring. Resolved
     // separately, and never inferred from the role band above.
     tenant ? resolveGovernanceAuthority(tenant) : Promise.resolve(null),
+    /*
+     * KT-1 / KT-3 — Governance's own record of which versions it rejected as untrue, and of which it
+     * has decided public use about. Read from Governance, shown beside each version, never written
+     * into Knowledge. An unreadable record is shown as unreadable, not as "nothing decided".
+     */
+    tenant ? readRejectedKnowledgeVersions(tenant) : Promise.resolve(null),
+    tenant ? readKnowledgePublicUse(tenant) : Promise.resolve(null),
   ]);
 
   /*
@@ -196,7 +205,22 @@ export default async function KnowledgePage() {
           {reviewable.length > 0 ? (
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
               {reviewable.map((record) => (
-                <KnowledgeReviewCard key={record.factId} record={record} block={reviewBlock} />
+                <KnowledgeReviewCard
+                  key={record.factId}
+                  record={record}
+                  block={reviewBlock}
+                  truthRejected={
+                    rejection?.status !== "read"
+                      ? "unavailable"
+                      : record.activeKnowledgeNodeId !== null &&
+                        rejection.rejectedNodeIds.has(record.activeKnowledgeNodeId)
+                  }
+                  publicUse={
+                    publicUse?.status !== "read" || record.activeKnowledgeNodeId === null
+                      ? "unavailable"
+                      : (publicUse.states.get(record.activeKnowledgeNodeId) ?? "unknown")
+                  }
+                />
               ))}
             </div>
           ) : listing.status === "unavailable" ? (

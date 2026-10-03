@@ -468,6 +468,11 @@ async function main(): Promise<void> {
         /* The chooser authorization, in sort order. It writes nothing — see the note above. */
         "authorizeGooglePickerSessionAction",
         "createKnowledgeAction",
+        /*
+         * KT-3 — a Governance decision about PUBLIC USE of one exact version. It writes the
+         * Governance ledger only: no Knowledge row, no edit, no deletion, no rollback.
+         */
+        "decideKnowledgePublicUseAction",
         "ingestKnowledgeAction",
         /*
          * R4C.1 — the file boundary. It reaches the SAME producer as the paste above it, so it adds
@@ -488,7 +493,7 @@ async function main(): Promise<void> {
         "supersedeKnowledgeAction",
         "withdrawKnowledgeExternalReferenceAction",
       ],
-      "create, ingest, ingest-a-file, correct, review, retract a source, and read history — nothing else.\n"
+      "create, ingest, ingest-a-file, correct, review, decide public use, retract a source, and read history — nothing else.\n"
       + "Ingest writes many facts through the same create path; nothing here edits or rolls anything back.",
     );
   }

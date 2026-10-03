@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
+import { decideKnowledgePublicUse } from "@/features/knowledge-public-use/decide-public-use.server";
+import type {
+  PublicUseAction,
+  PublicUseDecisionResult,
+} from "@/features/knowledge-public-use/contracts";
 import {
   attachExternalReference,
   listExternalReferences,
@@ -309,6 +314,33 @@ export async function rejectKnowledgeVersionAction(input: {
   const tenant = await resolveTenantContext();
   const result = await rejectKnowledgeVersion(tenant, input);
   if (result.status === "rejected") revalidatePath("/knowledge");
+  return result;
+}
+
+/**
+ * KT-3 — allow, deny or revoke PUBLIC factual use of one exact current version.
+ *
+ * A Governance decision about use, not about truth: it records nothing in Knowledge and neither
+ * requires nor implies ratification. The client names the record, the version it was shown, the
+ * action and a reason; the tenant and the human come from the session, and the transition is
+ * validated server-side against Governance's own record. Nothing enforces it yet.
+ */
+export async function decideKnowledgePublicUseAction(input: {
+  factId: string;
+  knowledgeNodeId: string;
+  observedKnowledgeVersion: number;
+  action: PublicUseAction;
+  justification: string;
+}): Promise<PublicUseDecisionResult> {
+  const tenant = await resolveTenantContext();
+  const result = await decideKnowledgePublicUse(tenant, {
+    factId: input?.factId,
+    knowledgeNodeId: input?.knowledgeNodeId,
+    observedKnowledgeVersion: input?.observedKnowledgeVersion,
+    action: input?.action,
+    justification: input?.justification,
+  });
+  if (result.status === "decided") revalidatePath("/knowledge");
   return result;
 }
 

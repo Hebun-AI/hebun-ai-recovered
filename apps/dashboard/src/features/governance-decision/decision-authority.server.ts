@@ -34,6 +34,11 @@ import {
   type GovernanceSubjectType,
 } from "./contracts";
 import {
+  PUBLIC_USE_DOMAIN,
+  PUBLIC_USE_OUTCOME,
+  PUBLIC_USE_SUBJECT_TYPE,
+} from "@/features/knowledge-public-use/contracts";
+import {
   DELEGATION_OUTCOME,
   REVOCATION_OUTCOME,
   type AuthorityDecisionType,
@@ -212,7 +217,9 @@ export async function writeGovernanceDecisionWithin(
       /* RUNG 2 — the standing envelope revision a decision authorizes or withdraws. */
       | typeof STANDING_MUTATION_SUBJECT_TYPE
       /* MEDIA-1 — one exact admitted image. */
-      | typeof MEDIA_ASSET_REVIEW_SUBJECT_TYPE;
+      | typeof MEDIA_ASSET_REVIEW_SUBJECT_TYPE
+      /* KT-3 — whether one exact Knowledge version may be public factual grounding. */
+      | typeof PUBLIC_USE_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -309,7 +316,16 @@ export async function writeGovernanceDecisionWithin(
                  * MEDIA-1 — Governance judging one exact admitted image. Its own domain rather than
                  * `artifact-review`, so the ledger can say whether prose or an image was judged.
                  */
-                input.subjectType === MEDIA_ASSET_REVIEW_SUBJECT_TYPE
+                /*
+                 * KT-3 — Governance deciding whether one exact Knowledge version may be used as
+                 * PUBLIC factual grounding. Its own domain, not `knowledge-ratification`: that
+                 * domain's decisions say whether a statement is the organization's settled truth.
+                 * Filing use there would make the ledger unable to tell "this is true" from "this
+                 * may be said in public" — two answers that are independent in both directions.
+                 */
+                input.subjectType === PUBLIC_USE_SUBJECT_TYPE
+                ? PUBLIC_USE_DOMAIN
+                : input.subjectType === MEDIA_ASSET_REVIEW_SUBJECT_TYPE
                 ? MEDIA_ASSET_REVIEW_DOMAIN
                 : input.subjectType === STANDING_MUTATION_SUBJECT_TYPE
                 ? STANDING_MUTATION_DOMAIN
@@ -355,7 +371,14 @@ export async function writeGovernanceDecisionWithin(
      * would record that Governance AUTHORITY was revoked, which withdrawing delivery never does.
      */
     /* THE SAME TRAP AGAIN, AND THE SAME DEFENCE — see the contracts module for the two words. */
-    input.subjectType === STANDING_MUTATION_SUBJECT_TYPE
+    /*
+     * KT-3 IS CHECKED ON ITS SUBJECT, FIRST. A use decision records `approve`, `reject` or `revoke`:
+     * `approve` would reach the membership branch, `revoke` would record that Governance AUTHORITY
+     * was revoked, and `reject` would fall through to "rejected" — a word a reader would take as a
+     * judgement on the statement's truth. None of them is what was decided.
+     */
+    input.subjectType === PUBLIC_USE_SUBJECT_TYPE ? (input.decisionType === "approve" ? PUBLIC_USE_OUTCOME.allow : input.decisionType === "revoke" ? PUBLIC_USE_OUTCOME.revoke : PUBLIC_USE_OUTCOME.deny)
+      : input.subjectType === STANDING_MUTATION_SUBJECT_TYPE
       ? input.decisionType === STANDING_MUTATION_WITHDRAW_DECISION_TYPE
         ? STANDING_MUTATION_WITHDRAWN_OUTCOME
         : STANDING_MUTATION_AUTHORIZED_OUTCOME

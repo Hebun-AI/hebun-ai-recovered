@@ -70,6 +70,14 @@ import {
   type DecidedKnowledgeVersionsRead,
 } from "@/features/governance-decision/knowledge-decision-read.server";
 import {
+  readRejectedKnowledgeVersions,
+  type RejectedKnowledgeVersionsRead,
+} from "@/features/governance-decision/knowledge-rejection-read.server";
+import {
+  readKnowledgePublicUse,
+  type KnowledgePublicUseRead,
+} from "@/features/governance-decision/knowledge-public-use-read.server";
+import {
   DECISION_SOURCE_KEYS,
   DECISION_SOURCE_OWNERS,
   MAX_HORIZON_ITEMS_PER_SOURCE,
@@ -140,6 +148,10 @@ export interface DecisionHorizonDeps {
   readonly readHypotheses?: typeof readImprovementHypotheses;
   readonly readKnowledgeVersions?: typeof readCurrentKnowledgeVersions;
   readonly readDecidedKnowledge?: typeof readDecidedKnowledgeVersions;
+  /** KT-3 — truth rejections, so a version Governance rejected is not asked about public use. */
+  readonly readRejectedKnowledge?: typeof readRejectedKnowledgeVersions;
+  /** KT-3 — Governance's public-use decisions. */
+  readonly readPublicUse?: typeof readKnowledgePublicUse;
 }
 
 function bounded<T>(items: readonly T[]): { readonly kept: readonly T[]; readonly truncated: boolean } {
@@ -248,6 +260,46 @@ function knowledgeBlock(
  * Knowledge read is down must still see the actions waiting for them, and must be told that the
  * Knowledge half is missing rather than shown a shorter list with no explanation.
  */
+/**
+ * KT-3 — current versions nobody has decided public use about.
+ *
+ * A version Governance rejected as untrue is not listed: it can never be public grounding, so asking
+ * would be a question with one possible answer. Ratification is NOT required — use and truth are
+ * independent decisions, and either may be taken first. Any of the three reads failing makes this
+ * source unavailable, never empty.
+ */
+function publicUseBlock(
+  versions: CurrentVersionsRead,
+  rejected: RejectedKnowledgeVersionsRead,
+  publicUse: KnowledgePublicUseRead,
+): HorizonBlock {
+  if (versions.status !== "read") {
+    return { source: "knowledge-public-use", status: "unavailable", reason: `knowledge:${versions.reason}` };
+  }
+  if (rejected.status !== "read") {
+    return { source: "knowledge-public-use", status: "unavailable", reason: `governance-decision:${rejected.reason}` };
+  }
+  if (publicUse.status !== "read") {
+    return { source: "knowledge-public-use", status: "unavailable", reason: `governance-decision:${publicUse.reason}` };
+  }
+  const awaiting = versions.versions.filter(
+    (version) => !rejected.rejectedNodeIds.has(version.nodeId) && !publicUse.states.has(version.nodeId),
+  );
+  const { kept, truncated } = bounded(awaiting);
+  return {
+    source: "knowledge-public-use",
+    status: "answered",
+    total: awaiting.length,
+    truncated,
+    items: kept.map((version) => ({
+      source: "knowledge-public-use" as const,
+      recordId: version.nodeId,
+      label: "Current Knowledge version with no public-use decision",
+      recordedAt: version.authoredAt,
+    })),
+  };
+}
+
 export async function readDecisionHorizon(
   tenant: TenantContext | null,
   deps: DecisionHorizonDeps = {},
@@ -262,6 +314,8 @@ export async function readDecisionHorizon(
   const readHypotheses = deps.readHypotheses ?? readImprovementHypotheses;
   const readVersions = deps.readKnowledgeVersions ?? readCurrentKnowledgeVersions;
   const readDecided = deps.readDecidedKnowledge ?? readDecidedKnowledgeVersions;
+  const readRejected = deps.readRejectedKnowledge ?? readRejectedKnowledgeVersions;
+  const readUse = deps.readPublicUse ?? readKnowledgePublicUse;
 
   /*
    * EACH READER'S THROW IS ITS OWN BLOCK'S UNAVAILABILITY, never the horizon's. The released action
@@ -271,7 +325,8 @@ export async function readDecisionHorizon(
   const wanted = new Set(options.sources ?? DECISION_SOURCE_KEYS);
   const skipped = <T,>(value: T) => Promise.resolve(value);
 
-  const [actions, hypotheses, versions, decided] = await Promise.all([
+  const needsVersions = wanted.has("knowledge-review") || wanted.has("knowledge-public-use");
+  const [actions, hypotheses, versions, decided, rejected, publicUse] = await Promise.all([
     !wanted.has("action-requests")
       ? skipped<ActionAuthorizationRead<PendingActionRequestView>>({ status: "read", items: [] })
       : readActions(tenant).catch(
@@ -285,7 +340,7 @@ export async function readDecisionHorizon(
       : readHypotheses(tenant).catch(
           (): ImprovementHypothesisRead => ({ status: "unavailable", reason: "read-failed" }),
         ),
-    !wanted.has("knowledge-review")
+    !needsVersions
       ? skipped<CurrentVersionsRead>({ status: "read", versions: [] })
       : readVersions(tenant).catch(
           (): CurrentVersionsRead => ({ status: "unavailable", reason: "read-failed" }),
@@ -295,6 +350,14 @@ export async function readDecisionHorizon(
       : readDecided(tenant).catch(
           (): DecidedKnowledgeVersionsRead => ({ status: "unavailable", reason: "read-failed" }),
         ),
+    !wanted.has("knowledge-public-use")
+      ? skipped<RejectedKnowledgeVersionsRead>({ status: "read", rejectedNodeIds: new Set<string>() })
+      : readRejected(tenant).catch(
+          (): RejectedKnowledgeVersionsRead => ({ status: "unavailable", reason: "read-failed" }),
+        ),
+    !wanted.has("knowledge-public-use")
+      ? skipped<KnowledgePublicUseRead>({ status: "read", states: new Map() })
+      : readUse(tenant).catch((): KnowledgePublicUseRead => ({ status: "unavailable", reason: "read-failed" })),
   ]);
 
   const asked = new Set(options.sources ?? DECISION_SOURCE_KEYS);
@@ -302,6 +365,7 @@ export async function readDecisionHorizon(
     actionBlock(actions),
     hypothesisBlock(hypotheses),
     knowledgeBlock(versions, decided),
+    publicUseBlock(versions, rejected, publicUse),
   ].filter((block) => asked.has(block.source));
 
   const unavailableSources = blocks
