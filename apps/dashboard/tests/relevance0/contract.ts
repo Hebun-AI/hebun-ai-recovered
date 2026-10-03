@@ -147,7 +147,8 @@ async function main(): Promise<void> {
     const set = buildRelevanceCandidateSet({ purpose: "internal-answer", eligibility: established([source("a")]) });
     const outcome = await selectRelevant({ purpose: "internal-answer", task: "t" }, set, recordingJudge(() => ({ status: "judged", selected: [{ candidateId: "a", basis: "" }] })));
     const keys = (value: object): string[] => Object.keys(value);
-    assert.deepEqual(keys(outcome).sort(), ["candidateCount", "degradedReason", "judge", "purpose", "selections", "status"]);
+    /* `exhaustive` (RELEVANCE-2A): whether the judge saw the whole eligible set — coverage, not authority. */
+    assert.deepEqual(keys(outcome).sort(), ["candidateCount", "degradedReason", "exhaustive", "judge", "purpose", "selections", "status"]);
     const banned = /permit|authori|allow|mayGenerate|proceed|truth|ratif|standing|confidence|score|publicUse/i;
     const walk = (value: unknown, path: string): void => {
       if (value && typeof value === "object") {
@@ -163,8 +164,15 @@ async function main(): Promise<void> {
   /* ── 8. bounds ───────────────────────────────────────────────────────────── */
   {
     const many = Array.from({ length: RELEVANCE_MAX_CANDIDATES + 5 }, (_, i) => source(`n${i}`));
-    const set = buildRelevanceCandidateSet({ purpose: "internal-answer", eligibility: established([...many, many[0]!]) });
-    assert.ok(set.status === "built" && set.candidates.length === RELEVANCE_MAX_CANDIDATES && set.truncated, "the set is bounded");
+    /*
+     * RELEVANCE-2A corrected this bound. It used to keep the first RELEVANCE_MAX_CANDIDATES and set a
+     * flag nobody read; an exhaustive set that does not fit is now OVER-BOUND, whole, and is never
+     * judged. Duplicates are still dropped before counting.
+     */
+    const over = buildRelevanceCandidateSet({ purpose: "internal-answer", eligibility: established([...many, many[0]!]) });
+    assert.ok(over.status === "over-bound" && over.candidateCount === many.length && over.bound === RELEVANCE_MAX_CANDIDATES, "an exhaustive set over the bound is over-bound, not cut");
+    const set = buildRelevanceCandidateSet({ purpose: "internal-answer", eligibility: established(many.slice(0, RELEVANCE_MAX_CANDIDATES)) });
+    assert.ok(set.status === "built" && set.candidates.length === RELEVANCE_MAX_CANDIDATES, "an exhaustive set at the bound is built whole");
     const long = buildRelevanceCandidateSet({ purpose: "internal-answer", eligibility: established([source("l", { statement: "y".repeat(2000) })]) });
     assert.ok(long.status === "built" && long.candidates[0]!.text.length === RELEVANCE_MAX_CANDIDATE_TEXT && long.candidates[0]!.textTruncated);
     assert.equal(resolveRelevanceLimit(undefined), RELEVANCE_MAX_SELECTIONS);

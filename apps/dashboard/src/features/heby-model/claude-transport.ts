@@ -18,11 +18,33 @@ export interface ClaudeTransportMessage {
   readonly content: string;
 }
 
+/**
+ * RELEVANCE-2A — an OPTIONAL request for a structured (JSON-object) answer.
+ *
+ * Generic on purpose: the transport carries a closed JSON schema and nothing else. What the object
+ * MEANS — which keys, which values, which ids are legitimate — is validated by the consumer, never
+ * here, and never by trusting a provider's own schema enforcement.
+ *
+ * ABSENT means exactly the request every released caller already sends. No existing caller sets it.
+ *
+ * NOT YET SERIALISED FOR A REAL PROVIDER. Which provider mechanism carries it (a native structured
+ * output, a forced tool call, or neither) is unverified and is a provider-acceptance gate; until
+ * that gate the live transport refuses any request carrying this field before any I/O.
+ */
+export interface ClaudeTransportStructuredOutput {
+  /** A short identifier for the schema, e.g. `relevance_selection`. */
+  readonly name: string;
+  /** A closed JSON schema object. Transported as data; the transport never interprets it. */
+  readonly schema: Readonly<Record<string, unknown>>;
+}
+
 export interface ClaudeTransportRequest {
   readonly model: string;
   readonly system: string;
   readonly messages: readonly ClaudeTransportMessage[];
   readonly maxTokens: number;
+  /** RELEVANCE-2A — absent for every text request. See `ClaudeTransportStructuredOutput`. */
+  readonly structuredOutput?: ClaudeTransportStructuredOutput;
 }
 
 export interface ClaudeTransportUsage {
@@ -41,6 +63,12 @@ export interface ClaudeTransportResponse {
   readonly content: readonly ClaudeTransportContentBlock[];
   readonly stopReason?: string;
   readonly usage?: ClaudeTransportUsage;
+  /**
+   * RELEVANCE-2A — the parsed structured value, present only when a transport that supports
+   * structured output answered a request that asked for it. `unknown` on purpose: nothing here
+   * vouches for its shape. Text responses never carry it.
+   */
+  readonly structured?: unknown;
 }
 
 export interface ClaudeTransport {

@@ -52,7 +52,16 @@ function main(): void {
 
   /* ── 2. NOT WIRED: no runtime file reaches the contract or the benchmark ── */
   {
-    const runtime = [...collect("src/app"), ...collect("src/features"), ...collect("src/components"), ...collect("src/lib")].filter((f) => f !== RELEVANCE);
+    /*
+     * RELEVANCE-2A added two UNWIRED importers of the contract — the grounding contract and the model
+     * judge adapter. They are exempt here only because tests/relevance2a/firewall.ts proves that
+     * nothing outside that unwired set imports any member of it, so the contract stays unreachable.
+     */
+    const UNWIRED_2A = new Set([
+      "src/features/knowledge-retrieval/grounding.ts",
+      "src/features/relevance-judge/model-relevance-judge.ts",
+    ]);
+    const runtime = [...collect("src/app"), ...collect("src/features"), ...collect("src/components"), ...collect("src/lib")].filter((f) => f !== RELEVANCE && !UNWIRED_2A.has(f));
     for (const file of runtime) {
       const imports = importsOf(codeOf(read(file)));
       assert.ok(!imports.some((i) => /knowledge-retrieval\/relevance$/.test(i)), `${file} imports the relevance contract — RELEVANCE-0 wires nothing`);

@@ -196,6 +196,21 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
        * cost money even if it then times out or errors, so the conservative direction is to
        * count it the moment it is allowed to go out.
        */
+      /*
+       * 0. RELEVANCE-2A — STRUCTURED OUTPUT IS NOT SERIALISED HERE, AND THAT IS DELIBERATE.
+       *
+       * Which provider mechanism would carry a structured request is unverified, so this transport
+       * does not guess one. It refuses the request before every other gate: nothing is sent, no
+       * budget unit is spent, and no text answer is quietly substituted for the object that was
+       * asked for. The text request body below is untouched — a request without the field is
+       * exactly the request every released caller sends.
+       */
+      if (request.structuredOutput !== undefined) {
+        throw new ModelConnectivityError(
+          "transport-unavailable",
+          "Structured output is not available on the live transport pending provider acceptance.",
+        );
+      }
       if (request.maxTokens > MAX_LIVE_OUTPUT_TOKENS) {
         throw new ModelConnectivityError(
           "invalid-configuration",

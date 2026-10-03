@@ -22,8 +22,10 @@
  *
  * No database, clock, session, network, model or provider. No judge implementation: the port is
  * declared, and RELEVANCE-0 supplies only deterministic implementations in tests and the benchmark.
- * Nothing in `src/app` or the rest of `src/features` imports this module yet; runtime retrieval is
- * unchanged. No score here is truth, confidence or standing.
+ * Its only importers are the other UNWIRED RELEVANCE-2A modules — `./grounding` and the model judge
+ * adapter in `relevance-judge` — and nothing in `src/app` or the rest of `src/features` imports any of
+ * them (tests/relevance2a/firewall.ts); runtime retrieval is unchanged. No score here is truth,
+ * confidence or standing.
  */
 import { RETRIEVAL_MAX_LIMIT } from "./contracts";
 
@@ -94,6 +96,33 @@ export interface RelevanceCandidate {
   readonly textTruncated: boolean;
 }
 
+/**
+ * HOW THE CANDIDATES WERE PRODUCED (RELEVANCE-2A).
+ *
+ *   exhaustive   the candidates ARE the whole eligible set for the purpose. A judge that finds none
+ *                relevant has looked at everything eligible. It must fit inside the bound — an
+ *                exhaustive set that does not fit is OVER-BOUND and never reaches a judge, because
+ *                cutting it would make the judge's "none relevant" a statement about a slice.
+ *   generated    an upstream candidate generator deliberately reduced a larger eligible universe to
+ *                a bounded subset (`method` names how). Legitimate, but NON-EXHAUSTIVE: "none
+ *                relevant" then means "none among these candidates", never "none in the universe".
+ *
+ * No generator is implemented here. The variant exists so a later one can supply a bounded set
+ * without changing anything downstream of this contract.
+ */
+export type CandidateGenerationMethod = "lexical" | "semantic" | "hybrid";
+
+export type CandidateGeneration =
+  | { readonly kind: "exhaustive" }
+  | {
+      readonly kind: "generated";
+      readonly method: CandidateGenerationMethod;
+      /** How many eligible versions the generator chose from. */
+      readonly universeCount: number;
+    };
+
+const EXHAUSTIVE: CandidateGeneration = Object.freeze({ kind: "exhaustive" });
+
 export type RelevanceCandidateSet =
   | {
       readonly status: "built";
@@ -101,14 +130,28 @@ export type RelevanceCandidateSet =
       readonly candidates: readonly RelevanceCandidate[];
       /** How many versions upstream eligibility withheld for this purpose. Reported, never re-judged. */
       readonly withheldCount: number;
-      /** True when more sources were eligible than `RELEVANCE_MAX_CANDIDATES`. */
-      readonly truncated: boolean;
+      readonly generation: CandidateGeneration;
+    }
+  | {
+      /**
+       * More distinct candidates than `RELEVANCE_MAX_CANDIDATES`. Nothing was cut and nothing will be
+       * judged: silently keeping the first N would hand a judge a slice and call it the set.
+       */
+      readonly status: "over-bound";
+      readonly purpose: RelevancePurpose;
+      readonly candidateCount: number;
+      readonly bound: number;
+      readonly generation: CandidateGeneration;
     }
   | {
       readonly status: "unavailable";
       readonly purpose: RelevancePurpose;
-      /** Upstream eligibility could not be established. "Could not tell" never means "eligible". */
-      readonly reason: "eligibility-unavailable";
+      /**
+       * `eligibility-unavailable`: upstream eligibility could not be established — "could not tell"
+       * never means "eligible". `candidate-generation-invalid`: a generator reported a universe
+       * smaller than the candidates it produced, which no honest generator can do.
+       */
+      readonly reason: "eligibility-unavailable" | "candidate-generation-invalid";
     };
 
 function candidateText(source: RelevanceSource): { readonly text: string; readonly truncated: boolean } {
@@ -120,16 +163,20 @@ function candidateText(source: RelevanceSource): { readonly text: string; readon
 
 /**
  * Bound an eligible set for one purpose. Order is preserved (the caller's candidate generation
- * decides it), duplicates by node are dropped, and the set is capped. Nothing is added, and nothing
- * is filtered on any standing — that already happened upstream.
+ * decides it), duplicates by node are dropped, and nothing is added or filtered on any standing —
+ * that already happened upstream. A set that does not fit the bound is reported OVER-BOUND, whole,
+ * never cut to fit (RELEVANCE-2A). `generation` defaults to exhaustive: a caller that does not say
+ * otherwise is handing over the whole eligible set.
  */
 export function buildRelevanceCandidateSet(input: {
   readonly purpose: RelevancePurpose;
   readonly eligibility:
     | { readonly status: "established"; readonly eligible: readonly RelevanceSource[]; readonly withheldCount: number }
     | { readonly status: "unavailable" };
+  readonly generation?: CandidateGeneration;
 }): RelevanceCandidateSet {
   const { purpose, eligibility } = input;
+  const generation = input.generation ?? EXHAUSTIVE;
   if (eligibility.status !== "established") return { status: "unavailable", purpose, reason: "eligibility-unavailable" };
   const seen = new Set<string>();
   const admitted: RelevanceCandidate[] = [];
@@ -147,12 +194,27 @@ export function buildRelevanceCandidateSet(input: {
       textTruncated: truncated,
     });
   }
+  if (
+    generation.kind === "generated" &&
+    (!Number.isSafeInteger(generation.universeCount) || generation.universeCount < admitted.length)
+  ) {
+    return { status: "unavailable", purpose, reason: "candidate-generation-invalid" };
+  }
+  if (admitted.length > RELEVANCE_MAX_CANDIDATES) {
+    return {
+      status: "over-bound",
+      purpose,
+      candidateCount: admitted.length,
+      bound: RELEVANCE_MAX_CANDIDATES,
+      generation,
+    };
+  }
   return {
     status: "built",
     purpose,
-    candidates: admitted.slice(0, RELEVANCE_MAX_CANDIDATES),
+    candidates: admitted,
     withheldCount: eligibility.withheldCount,
-    truncated: admitted.length > RELEVANCE_MAX_CANDIDATES,
+    generation,
   };
 }
 
@@ -174,7 +236,13 @@ export type RelevanceJudgeVerdict =
       /** Set when the judge ran a lesser method than it is declared as. */
       readonly degradedReason?: string;
     }
-  | { readonly status: "unavailable"; readonly reason: string };
+  | { readonly status: "unavailable"; readonly reason: string }
+  /**
+   * RELEVANCE-2A — the judge DID answer, and its answer failed the judge's own structural check
+   * (wrong shape, unknown or repeated id, too many ids). Kept apart from `unavailable`: a judge that
+   * answered wrongly is not a judge that could not be reached.
+   */
+  | { readonly status: "invalid"; readonly reason: string };
 
 /**
  * A provider-neutral relevance judge. It may read the input and return candidate ids; it holds no
@@ -210,6 +278,11 @@ export type RelevanceUnavailableReason =
   /** The judge named a non-member, repeated an id, or exceeded the limit. The whole verdict is void. */
   | "judge-response-invalid";
 
+/** Whether the judge saw the whole eligible set, so "none relevant" can be read correctly. */
+function isExhaustive(generation: CandidateGeneration): boolean {
+  return generation.kind === "exhaustive";
+}
+
 /**
  * The relevance outcome. Note what it does not carry: no truth, no standing, no confidence, and no
  * permission to generate. `none-relevant` and `none-eligible` are different facts and stay separate.
@@ -222,13 +295,38 @@ export type RelevanceOutcome =
       readonly candidateCount: number;
       readonly judge: RelevanceJudgeProvenance;
       readonly degradedReason: string | null;
+      /** False when an upstream generator chose these candidates from a larger eligible universe. */
+      readonly exhaustive: boolean;
     }
   | {
-      /** Eligible candidates existed; the judge found none relevant to this task. */
+      /**
+       * Eligible candidates existed; the judge found none relevant to this task. When `exhaustive`
+       * is false this is "none among the generated candidates" — never "none in the organization".
+       */
       readonly status: "none-relevant";
       readonly purpose: RelevancePurpose;
       readonly candidateCount: number;
       readonly judge: RelevanceJudgeProvenance;
+      readonly exhaustive: boolean;
+    }
+  | {
+      /**
+       * RELEVANCE-2A — the eligible set did not fit the bound, so no judge was asked. Not
+       * `none-eligible` (versions WERE eligible) and not `unavailable` (nothing failed to answer).
+       */
+      readonly status: "over-bound";
+      readonly purpose: RelevancePurpose;
+      readonly candidateCount: number;
+      readonly bound: number;
+    }
+  | {
+      /**
+       * RELEVANCE-2A — eligible versions existed, but an upstream generator surfaced none of them, so
+       * no judge was asked. Not `none-eligible`: the universe was not empty.
+       */
+      readonly status: "no-candidates";
+      readonly purpose: RelevancePurpose;
+      readonly universeCount: number;
     }
   | {
       /** Nothing was eligible for this purpose, so no judge was asked. */
@@ -270,13 +368,23 @@ export async function selectRelevant(
   judge: RelevanceJudge,
 ): Promise<RelevanceOutcome> {
   const purpose = request.purpose;
-  if (set.status !== "built") {
+  if (set.status === "unavailable") {
     return { status: "unavailable", purpose, reason: "candidate-set-unavailable", detail: set.reason };
   }
   if (set.purpose !== purpose) return { status: "unavailable", purpose, reason: "purpose-mismatch" };
+  /* RELEVANCE-2A — an over-bound set never reaches a judge, whole or in part. */
+  if (set.status === "over-bound") {
+    return { status: "over-bound", purpose, candidateCount: set.candidateCount, bound: set.bound };
+  }
   const task = typeof request.task === "string" ? request.task.trim().slice(0, RELEVANCE_MAX_TASK_TEXT) : "";
   if (!task) return { status: "unavailable", purpose, reason: "empty-task" };
-  if (set.candidates.length === 0) return { status: "none-eligible", purpose, withheldCount: set.withheldCount };
+  if (set.candidates.length === 0) {
+    if (set.generation.kind === "generated" && set.generation.universeCount > 0) {
+      return { status: "no-candidates", purpose, universeCount: set.generation.universeCount };
+    }
+    return { status: "none-eligible", purpose, withheldCount: set.withheldCount };
+  }
+  const exhaustive = isExhaustive(set.generation);
 
   const limit = resolveRelevanceLimit(request.limit);
   const byId = new Map(set.candidates.map((candidate) => [candidate.nodeId, candidate] as const));
@@ -292,6 +400,9 @@ export async function selectRelevant(
     });
   } catch {
     return { status: "unavailable", purpose, reason: "judge-failed" };
+  }
+  if (verdict && verdict.status === "invalid") {
+    return { status: "unavailable", purpose, reason: "judge-response-invalid", detail: verdict.reason };
   }
   if (!verdict || verdict.status !== "judged" || !Array.isArray(verdict.selected)) {
     return {
@@ -319,7 +430,7 @@ export async function selectRelevant(
   }
 
   if (selections.length === 0) {
-    return { status: "none-relevant", purpose, candidateCount: set.candidates.length, judge: provenance };
+    return { status: "none-relevant", purpose, candidateCount: set.candidates.length, judge: provenance, exhaustive };
   }
   const degradedReason = typeof verdict.degradedReason === "string" && verdict.degradedReason ? verdict.degradedReason : null;
   return {
@@ -329,5 +440,6 @@ export async function selectRelevant(
     candidateCount: set.candidates.length,
     judge: provenance,
     degradedReason,
+    exhaustive,
   };
 }

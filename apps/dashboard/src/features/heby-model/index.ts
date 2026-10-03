@@ -34,7 +34,13 @@ export {
   type ClaudeTransportResponse,
   type ClaudeTransportUsage,
   type ClaudeTransportContentBlock,
+  type ClaudeTransportStructuredOutput,
 } from "./claude-transport";
+export {
+  validateClaudeStructuredResponse,
+  type ClaudeStructuredResult,
+  type StructuredValidationExpectation,
+} from "./claude-structured-response-validator";
 export {
   validateClaudeResponse,
   type ValidationExpectation,
