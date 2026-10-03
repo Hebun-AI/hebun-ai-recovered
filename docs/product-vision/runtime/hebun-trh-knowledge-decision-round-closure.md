@@ -6,6 +6,9 @@ version was superseded and its successor left undecided, and one was deliberatel
 Every change went through the owning authority's existing lifecycle on its own surface. No code, no
 schema, no migration, no new authority.
 
+A follow-up round on 2026-10-03 (Knowledge Trust Phase 4) resolved the two versions left open here
+and took the first public-use decisions, including one operator error. It is recorded in section 7.
+
 ```
 REFUSED   != DELETED          RATIFIED != TRUE          SUPERSEDED != RATIFIED
 REJECTED (Knowledge) != REMOVED FROM RETRIEVAL          RATIFIED != CLEARED FOR PUBLIC USE
@@ -254,3 +257,112 @@ published captions, and nothing in Hebun confirms or refutes them.
   Untouched by choice: 1.
 - Three debts recorded with evidence; none repaired. The next architectural decision is the
   Director's.
+
+## 7 · Follow-up round (2026-10-03) · Knowledge Trust Phase 4
+
+The Director resolved the two Knowledge versions section 2 left open and took the first public-use
+decisions in production. Same tenant, same actor (`d5b496df…`, own production session, `/knowledge`),
+every write through a released server action. No code, no schema, no migration and no new authority
+in this round.
+
+| Item | Value |
+|---|---|
+| Deployment | `c95a7e22` (KT-3), Vercel `dpl_4QKxt2kdEwTaNyRGmEppeq2RFCpN`, READY, serving `www.hebuntech.com` and `hebuntech.com` |
+| Schema | ledger 70, prefix `converged`, digest `c34da5fcfd0ad8b5a890ab0a9ae0b645`; `governance_domain` holds `knowledge-public-use` (migration 70, applied by the Director before this round) |
+| Verification | read-only SQL and the released read seams under `default_transaction_read_only=on`; snapshot before at 2026-10-03 10:28:15 UTC, after at 11:04:36 UTC |
+
+Before the round the Director confirmed, in answer to the exact current statements, that both open
+versions describe Turkish Rug House today. That is why both were ratified rather than superseded or
+rejected; ratifying neither cleared nor denied public use.
+
+### 7.1 Truth: two versions ratified
+
+| Fact | Node · version | Governance decision | Ratified at (UTC) |
+|---|---|---|---|
+| `trh-brand-positioning` | `e8c0006d…` · v2 | `25beb247-001f-4ad3-8e59-3179aae645a9` | 2026-10-03 10:49:12 |
+| `trh-sourcing-sales-model` | `25e3f8e3…` · v1 | `658319a7-cc98-4d17-aac6-753dcb95d052` | 2026-10-03 10:53:56 |
+
+Domain `knowledge-ratification`, outcome `ratified`. Brand v2's justification records that it is
+confirmed as a positioning intent and claims nothing about individual products. Statements and
+version numbers unchanged (TRH statement digest identical before and after). All five current TRH
+versions are now ratified, and still display `draft · provisional`: ratification does not move
+`knowledge_lifecycle_status`.
+
+### 7.2 Public use: decisions as intended
+
+Path: `/knowledge` → the version's "Public factual use" control → `decideKnowledgePublicUseAction`.
+Domain `knowledge-public-use`, subject type `knowledge_public_use`, subject = the exact node.
+
+| Intended | Fact | Node | Final state | Decision(s) |
+|---|---|---|---|---|
+| P1 allow | `trh-brand-positioning` v2 | `e8c0006d…` | ALLOWED | `f9b19e38-8103-4c0c-9051-9687145166ec` 10:55:52 |
+| P2 allow | `trh-sales-markets` v1 | `f3e12fe6…` | ALLOWED | `563f6ed1-0f71-4219-be38-591401abbf95` 11:00:20 |
+| P3 deny | `trh-sourcing-sales-model` v1 | `25e3f8e3…` | DENIED | `6a03aa03…` allow (error, 7.3), then `0093c4b6…` revoke |
+| P4 keep unknown | `trh-product-offering` v1 | `a1105902…` | UNKNOWN | none, by decision |
+| P5 deny | `trh-current-business-objectives` v1 | `1bd16815…` | DENIED | `f8a8c79a-7852-4215-8054-5611359d089f` 11:03:10 |
+
+P4 was kept UNKNOWN deliberately: the version is ratified, but its "el yapımı" claim rests on the
+Director's assertion alone, with no product-level evidence recorded.
+
+### 7.3 Operator error: an ALLOW recorded on the wrong subject
+
+The intended P2 decision was first recorded against the wrong version.
+
+| | Decision | At (UTC) | Subject | Transition | Justification stored |
+|---|---|---|---|---|---|
+| Error | `6a03aa03-49c9-40d3-962e-7dc3f8ec8054` · `approve` · `public-use-allowed` | 10:57:16 | `25e3f8e3…` **sourcing v1** (intended: `f3e12fe6…` sales-markets v1) | unknown → allowed | P2's text ("Ağırlıklı olarak Amerika'ya, ayrıca Avrupa ve Asya'ya satış yaptığımız…") |
+| Correction | `0093c4b6-8ea5-465f-bca0-4eb157947aca` · `revoke` · `public-use-revoked` | 10:58:57 | `25e3f8e3…` sourcing v1 | allowed → denied | P3's text (internal commercial information) |
+| P2, correctly | `563f6ed1…` · `approve` · `public-use-allowed` | 11:00:20 | `f3e12fe6…` sales-markets v1 | unknown → allowed | P2's text |
+
+- Sourcing v1 was ALLOWED for **1 minute 41 seconds** (10:57:16.155 → 10:58:57.173). Its final state
+  is **DENIED**, reached by `revoke` rather than by a direct `deny`, so its ledger outcome reads
+  `public-use-revoked`, not `public-use-denied`.
+- The wrong ALLOW and its REVOKE **remain in the append-only Governance ledger as recorded**, by
+  Director decision. No corrective Governance decision was written and no record was edited. The
+  ledger therefore carries a sales-markets justification on a sourcing subject; read this section
+  with it.
+- Nothing consumed the wrong state. No public-use enforcement existed at the time: Phase 5
+  (retrieval / content grounding requiring RATIFIED + ALLOWED) is not built. In the released code
+  public-use state is read only by the Knowledge workspace, the decision horizon and the decision
+  seam itself (to validate the next transition); no retrieval, content or publication path reads it.
+- Unchanged across the round (row count and full-content hash equal before and after):
+  `heby_action_requests` 14, `action_permits` 9, `action_execution_attempts` 4, `work_artifacts` 11,
+  `work_artifact_revisions` 18, `knowledge_facts`, `knowledge_edges`, `knowledge_external_references`.
+  `knowledge_nodes` changed only by the two ratifications' fields (`ratification_decision_id`,
+  `ratified_at`, `updated_at`); public-use decisions write nothing to Knowledge.
+- How the wrong record was selected was not recorded and is not inferred here.
+
+**UX / operational lesson.** The public-use control names the decision it records but not its
+subject. Inside the control the heading reads "Public factual use — a separate decision from
+truth", the state line reads "Version N: …", and the confirm button reads "Record: allow public
+factual use". The fact key, title and node id appear only on the surrounding record card, and every
+TRH version is v1 except brand v2, so "Version 1" does not tell one card from another. A decision is
+irreversible in the ledger even when its state can be reversed. Until the surface names the subject
+at the point of confirmation, the operating rule is: before pressing Record, confirm the fact key on
+the enclosing card against the intended record, and re-read the state line afterwards. This is
+recorded as a lesson; no authority, schema or Governance change follows from it.
+
+### 7.4 Horizon and counts after
+
+| Source | Awaiting after |
+|---|---|
+| Action Authorization | 0 |
+| Agent Improvement Hypothesis | 0 |
+| Knowledge without a Governance decision (truth) | 0 |
+| Knowledge without a public-use decision | 1: `a1105902…` (`trh-product-offering`) |
+
+Completeness `complete`. Governance decisions 49 → 56 and sessions 49 → 56: two ratifications and
+five public-use decisions, one session each; six intended writes plus the erroneous allow. No other
+tenant holds a public-use decision.
+
+### 7.5 Debt status after this round
+
+- Debt 1 (rejection vs retrieval) and debt 2 (truth vs public use) were addressed in code by the
+  Knowledge Trust phases: `a455fe2d` "enforce terminal knowledge truth and rejection retrieval" and
+  `c95a7e22` "add governance-owned public-use decisions for knowledge versions". Public use is
+  recorded but **not yet enforced** anywhere.
+- Debt 3 (content claim grounding) remains open; it is the subject of Phase 5.
+
+**Round verdict:** truth review for TRH closed (5/5 ratified); public use decided for 4 of 5
+versions, 1 kept UNKNOWN by decision; one wrong-subject ALLOW recorded, reversed within 1 minute 41
+seconds, left in the ledger, and consumed by nothing.
