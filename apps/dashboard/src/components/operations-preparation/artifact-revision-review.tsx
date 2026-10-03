@@ -34,6 +34,7 @@ import {
   type ArtifactReviewRefusal,
   type ArtifactRevisionReviewState,
 } from "@/features/work-artifact-review/contracts";
+import { RevisionGenerationEvidence } from "./revision-generation-evidence";
 
 const JUSTIFICATION_MINIMUM = 24;
 
@@ -124,6 +125,12 @@ export function ArtifactRevisionReview({
       </p>
 
       {done ? <p className="mt-1 text-xs text-fg-primary">{done}</p> : null}
+
+      {/*
+        * KT-2 — what Knowledge was supplied when these exact bytes were generated, read before
+        * deciding. Shown to every reader of the revision; it decides nothing.
+        */}
+      <RevisionGenerationEvidence artifactId={artifactId} revisionId={revisionId} />
 
       {reviewable ? (
         <>

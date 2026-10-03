@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { resolveOwnContentGrounding } from "@/features/content-grounding/own-instagram-context.server";
+import { readRevisionGenerationEvidence } from "@/features/heby-answer/revision-generation-evidence.server";
+import type { RevisionGenerationEvidence } from "@/features/heby-answer/revision-generation-evidence";
 import type { OwnContentGrounding } from "@/features/content-grounding/contracts";
 import {
   deselectMediaForRevision,
@@ -218,6 +220,23 @@ export async function readWorkArtifactHistoryAction(input: {
 }): Promise<readonly WorkArtifactRevisionView[]> {
   const tenant = await resolveTenantContext();
   return readWorkArtifactHistory(tenant, input.artifactId);
+}
+
+/*
+ * KT-2 — the Knowledge evidence supplied to generation of ONE EXACT revision, for its reviewer.
+ *
+ * A read. The client names the artifact and the revision it is looking at; the tenant comes from the
+ * session, and the message whose evidence is shown is read from the revision row, never supplied.
+ */
+export async function readRevisionGenerationEvidenceAction(input: {
+  artifactId: string;
+  revisionId: string;
+}): Promise<RevisionGenerationEvidence> {
+  const tenant = await resolveTenantContext();
+  return readRevisionGenerationEvidence(tenant, {
+    artifactId: input?.artifactId,
+    revisionId: input?.revisionId,
+  });
 }
 
 /*

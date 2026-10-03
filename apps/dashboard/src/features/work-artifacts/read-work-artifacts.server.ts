@@ -2,7 +2,8 @@
  * work-artifacts/read-work-artifacts.server.ts — the tenant-scoped read seam (R3W).
  *
  * Three reads, and no more: list the tenant's artifacts, read one exact revision, read the current
- * revision. Everything a caller can ask for is bounded by a server-resolved `TenantContext`; a
+ * revision. KT-2 adds a fourth that returns no bytes at all — the PROVENANCE of one exact revision,
+ * for the reviewer who is reading it. Everything a caller can ask for is bounded by a server-resolved `TenantContext`; a
  * reference to another tenant's artifact resolves to NOTHING rather than to a refusal that would
  * confirm the row exists.
  *
@@ -298,5 +299,72 @@ export async function resolveWorkArtifactReference(
     };
   } catch {
     return miss("unknown-artifact");
+  }
+}
+
+/* ── KT-2 · THE PROVENANCE OF ONE EXACT REVISION ────────────────────────────────
+ *
+ * Which message generated this revision, if any — so the reviewer of THESE bytes can be shown the
+ * evidence recorded with that message. It returns identity and provenance only; the bytes are read
+ * through the history read above, as before.
+ *
+ * THE PAIR MUST BELONG TOGETHER. The revision is matched on its own id AND its artifact AND the
+ * tenant, so naming one artifact's revision under another artifact resolves to nothing, and a
+ * foreign tenant's revision is indistinguishable from one that does not exist.
+ *
+ * Unlike the history read, a failure is NOT an empty answer: `unavailable` and `not-found` are kept
+ * apart, because a reviewer told "this revision has no provenance" when the store could not be
+ * read would be told something false.
+ */
+const PROVENANCE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type RevisionProvenanceRead =
+  | {
+      readonly status: "read";
+      readonly revision: {
+        readonly revisionId: string;
+        readonly artifactId: string;
+        readonly revisionNo: number;
+        /** The message whose reply became these bytes, or null when no message generated them. */
+        readonly sourceMessageId: string | null;
+      };
+    }
+  | { readonly status: "not-found" }
+  | { readonly status: "unavailable"; readonly reason: "no-authorized-tenant-context" | "persistence-unavailable" };
+
+export async function readRevisionProvenance(
+  tenant: Pick<TenantContext, "tenantId"> | null,
+  input: { readonly artifactId: string; readonly revisionId: string },
+  deps: WorkArtifactReadDeps = {},
+): Promise<RevisionProvenanceRead> {
+  assertServerOnly();
+  if (!tenant?.tenantId) return { status: "unavailable", reason: "no-authorized-tenant-context" };
+  if (!PROVENANCE_UUID.test(input?.artifactId ?? "") || !PROVENANCE_UUID.test(input?.revisionId ?? "")) {
+    return { status: "not-found" };
+  }
+  const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
+  if (!db) return { status: "unavailable", reason: "persistence-unavailable" };
+  try {
+    const rows = await db
+      .select({
+        revisionId: workArtifactRevisions.id,
+        artifactId: workArtifactRevisions.artifactId,
+        revisionNo: workArtifactRevisions.revisionNo,
+        sourceMessageId: workArtifactRevisions.sourceMessageId,
+      })
+      .from(workArtifactRevisions)
+      .where(
+        and(
+          eq(workArtifactRevisions.tenantId, tenant.tenantId),
+          eq(workArtifactRevisions.artifactId, input.artifactId),
+          eq(workArtifactRevisions.id, input.revisionId),
+        ),
+      )
+      .limit(1);
+    const row = rows[0];
+    if (!row) return { status: "not-found" };
+    return { status: "read", revision: row };
+  } catch {
+    return { status: "unavailable", reason: "persistence-unavailable" };
   }
 }
