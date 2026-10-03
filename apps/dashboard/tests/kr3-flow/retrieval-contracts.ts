@@ -29,6 +29,8 @@ import {
 import type { KnowledgeSourceRecord } from "../../src/features/knowledge/contracts";
 
 const NOW = new Date("2026-08-15T12:00:00.000Z");
+/** KT-1: eligibility takes Governance's rejected set as an input. These cases have none. */
+const NO_REJECTIONS: ReadonlySet<string> = new Set();
 
 function record(overrides: Partial<KnowledgeSourceRecord> = {}): KnowledgeSourceRecord {
   return {
@@ -104,15 +106,15 @@ function main(): void {
     const day = 24 * 60 * 60 * 1000;
     const iso = (offsetDays: number) => new Date(NOW.getTime() + offsetDays * day).toISOString();
 
-    assert.equal(exclusionReasonFor(record(), NOW), null, "a plain current record is eligible");
-    assert.equal(exclusionReasonFor(record({ lifecycleStatus: "archived" }), NOW), "lifecycle-archived");
-    assert.equal(exclusionReasonFor(record({ lifecycleStatus: "retired" }), NOW), "lifecycle-retired");
-    assert.equal(exclusionReasonFor(record({ effectiveUntil: iso(-1) }), NOW), "expired");
-    assert.equal(exclusionReasonFor(record({ effectiveFrom: iso(+1) }), NOW), "not-yet-effective");
+    assert.equal(exclusionReasonFor(record(), NOW, NO_REJECTIONS), null, "a plain current record is eligible");
+    assert.equal(exclusionReasonFor(record({ lifecycleStatus: "archived" }), NOW, NO_REJECTIONS), "lifecycle-archived");
+    assert.equal(exclusionReasonFor(record({ lifecycleStatus: "retired" }), NOW, NO_REJECTIONS), "lifecycle-retired");
+    assert.equal(exclusionReasonFor(record({ effectiveUntil: iso(-1) }), NOW, NO_REJECTIONS), "expired");
+    assert.equal(exclusionReasonFor(record({ effectiveFrom: iso(+1) }), NOW, NO_REJECTIONS), "not-yet-effective");
 
     /* A record still inside its window is eligible on both bounds. */
     assert.equal(
-      exclusionReasonFor(record({ effectiveFrom: iso(-10), effectiveUntil: iso(+10) }), NOW),
+      exclusionReasonFor(record({ effectiveFrom: iso(-10), effectiveUntil: iso(+10) }), NOW, NO_REJECTIONS),
       null,
     );
 
@@ -130,7 +132,7 @@ function main(): void {
       { ratified: false, ratificationDecisionId: null },
     ]) {
       assert.equal(
-        exclusionReasonFor(record(standing), NOW),
+        exclusionReasonFor(record(standing), NOW, NO_REJECTIONS),
         null,
         `${JSON.stringify(standing)} must remain a CANDIDATE — standing is a signal, not a gate`,
       );
@@ -144,6 +146,7 @@ function main(): void {
         record({ factKey: "old", effectiveUntil: iso(-5) }),
       ],
       NOW,
+      NO_REJECTIONS,
     );
     assert.deepEqual(split.eligible.map((r) => r.factKey), ["current"]);
     assert.deepEqual(

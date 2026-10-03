@@ -35,7 +35,17 @@
  * join is on `active_knowledge_node_id`, so a superseded version is not merely filtered — it is
  * unrepresentable as a candidate. That structural exclusion predates KR3 and is not weakened by it.
  *
- * Pure. No I/O, no database, no clock of its own — `now` is always supplied.
+ * ── GOVERNANCE-REJECTED IS DISQUALIFIED TOO (KT-1) ───────────────────────────
+ *
+ * A version Governance rejected is not served. `unratified` still is — nobody has decided about it
+ * — but a rejection is a decision that this exact version is NOT the organization's approved
+ * statement, and a retrieval that kept serving it would answer with what Governance declined.
+ *
+ * The rejection is not a Knowledge fact: K4 writes nothing to Knowledge for a reject, by design. So
+ * the set of rejected version ids is SUPPLIED, exactly as `now` is — read by the caller from
+ * Governance's own projection. This gate does not know what a decision record is.
+ *
+ * Pure. No I/O, no database, no clock of its own — `now` and the rejected set are always supplied.
  */
 
 import type { KnowledgeSourceRecord } from "@/features/knowledge/contracts";
@@ -49,15 +59,25 @@ const TERMINAL_LIFECYCLE: ReadonlySet<string> = new Set(["archived", "retired"])
  *
  * Order is deliberate: lifecycle first, because "this policy was retired" is a more useful thing to
  * tell someone than "this policy expired", and a retired record's dates are often stale anyway.
+ * Governance's rejection comes next: it is a standing fact about this exact version, where the
+ * effective window is only a statement about dates.
  */
 export function exclusionReasonFor(
   record: KnowledgeSourceRecord,
   now: Date,
+  rejectedNodeIds: ReadonlySet<string>,
 ): RetrievalExclusionReason | null {
   const lifecycle = record.lifecycleStatus;
   if (lifecycle === "archived") return "lifecycle-archived";
   if (lifecycle === "retired") return "lifecycle-retired";
   if (lifecycle !== null && TERMINAL_LIFECYCLE.has(lifecycle)) return "lifecycle-archived";
+
+  /*
+   * Keyed on the version ROW. A superseding version is a different row with a different id, so a
+   * rejection can never follow a fact to its successor.
+   */
+  const nodeId = record.activeKnowledgeNodeId;
+  if (nodeId !== null && rejectedNodeIds.has(nodeId)) return "governance-rejected";
 
   const at = now.getTime();
 
@@ -81,8 +101,12 @@ function parseTimestamp(value: string | null): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-export function isEligible(record: KnowledgeSourceRecord, now: Date): boolean {
-  return exclusionReasonFor(record, now) === null;
+export function isEligible(
+  record: KnowledgeSourceRecord,
+  now: Date,
+  rejectedNodeIds: ReadonlySet<string>,
+): boolean {
+  return exclusionReasonFor(record, now, rejectedNodeIds) === null;
 }
 
 export interface EligibilityPartition {
@@ -101,12 +125,13 @@ export interface EligibilityPartition {
 export function partitionByEligibility(
   records: readonly KnowledgeSourceRecord[],
   now: Date,
+  rejectedNodeIds: ReadonlySet<string>,
 ): EligibilityPartition {
   const eligible: KnowledgeSourceRecord[] = [];
   const excluded: RetrievalExclusion[] = [];
 
   for (const record of records) {
-    const reason = exclusionReasonFor(record, now);
+    const reason = exclusionReasonFor(record, now, rejectedNodeIds);
     if (reason === null) {
       eligible.push(record);
       continue;

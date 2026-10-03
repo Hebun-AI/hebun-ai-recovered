@@ -40,6 +40,10 @@ import {
   type RetrievalRequest,
   type RetrievalResult,
 } from "@/features/knowledge-retrieval";
+import {
+  readRejectedKnowledgeVersions,
+  type RejectedKnowledgeVersionsRead,
+} from "@/features/governance-decision/knowledge-rejection-read.server";
 import type {
   KnowledgeListing,
   KnowledgeSourceRead,
@@ -54,6 +58,16 @@ export interface KnowledgeReadDeps {
   readonly getRepo?: () => DurableKnowledgeRepository | null;
   /** Injected clock, so freshness derivation is deterministic in tests. */
   readonly now?: () => Date;
+  /**
+   * KT-1 — Governance's own projection of the versions it rejected, consumed by RETRIEVAL only.
+   *
+   * Injectable so the retrieval path is provable without a ledger. It defaults to the real
+   * Governance read; there is no default that answers "nothing was rejected" on its own authority.
+   * The repository above is not involved: it reads no Governance table and still does not.
+   */
+  readonly readRejectedKnowledgeVersions?: (
+    tenant: KnowledgeTenant,
+  ) => Promise<RejectedKnowledgeVersionsRead>;
 }
 
 function assertServerRuntime(): void {
@@ -238,9 +252,37 @@ export async function searchKnowledge(
         : { status: "no-match", excluded: [], capability };
     }
 
+    /*
+     * KT-1 — GOVERNANCE'S REJECTIONS, BEFORE ANYTHING IS SERVED.
+     *
+     * Records matched, so something is about to be handed to a human or to Heby. Whether any of it
+     * is a version Governance declined is not a Knowledge fact — a rejection writes nothing here —
+     * so it is asked of Governance's projection, tenant-scoped, and passed to the pure gate as an
+     * input.
+     *
+     * FAIL CLOSED. If that projection cannot be read, NOTHING is served: "could not tell" must never
+     * become "nothing was rejected". It is asked only here, after a match, because the paths above
+     * serve no record and so have nothing to vouch for.
+     */
+    let rejection: RejectedKnowledgeVersionsRead;
+    try {
+      rejection = await (deps.readRejectedKnowledgeVersions ?? readRejectedKnowledgeVersions)({
+        tenantId: opened.scope.tenantId,
+      });
+    } catch {
+      rejection = { status: "unavailable", reason: "read-failed" };
+    }
+    if (rejection.status !== "read") {
+      return {
+        status: "unavailable",
+        reason: "governance-rejection-unavailable",
+        detail: `Governance's record of rejected Knowledge versions could not be read (${rejection.reason}), so no Knowledge was served.`,
+      };
+    }
     const { eligible, excluded } = partitionByEligibility(
       found.rows.map((row) => row.record),
       now,
+      rejection.rejectedNodeIds,
     );
     const eligibleKeys = new Set(eligible.map((record) => record.factKey));
     const ranked = rankCandidates(

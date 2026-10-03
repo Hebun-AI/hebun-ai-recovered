@@ -398,7 +398,7 @@ async function main(): Promise<void> {
       );
 
       /* Heby's retrieval path drops them, and REPORTS the exclusion rather than hiding it. */
-      const { eligible, excluded } = partitionByEligibility(listed.records, NOW);
+      const { eligible, excluded } = partitionByEligibility(listed.records, NOW, new Set());
       assert.ok(
         eligible.every((record) => !record.factKey.startsWith("one-")),
         "no retracted record survives retrieval eligibility",

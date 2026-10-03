@@ -64,6 +64,8 @@ const REFUSAL_TEXT: Record<RatificationRefusal, string> = {
   "stale-review":
     "A newer version was created while you were reviewing. Reload and review the current version.",
   "already-ratified": "This version already carries a Governance decision.",
+  "already-rejected":
+    "Governance already rejected this version. To change it, create a new version and review that.",
   "justification-required": `A reason of at least ${JUSTIFICATION_LIMITS.minimumLength} characters is required.`,
   "persistence-unavailable": "The durable store is unavailable. Nothing was changed.",
 };

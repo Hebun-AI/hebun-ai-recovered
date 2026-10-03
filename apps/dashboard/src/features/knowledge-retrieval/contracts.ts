@@ -121,6 +121,8 @@ export interface RetrievalCandidate {
 export type RetrievalExclusionReason =
   | "lifecycle-archived"
   | "lifecycle-retired"
+  /** Governance rejected this exact version (KT-1). Read from Governance's projection, never from Knowledge. */
+  | "governance-rejected"
   | "expired"
   | "not-yet-effective"
   | "deleted";
@@ -199,7 +201,15 @@ export type RetrievalResult =
     }
   | {
       readonly status: "unavailable";
-      readonly reason: "no-authorized-tenant-context" | "persistence-not-configured" | "read-failed";
+      readonly reason:
+        | "no-authorized-tenant-context"
+        | "persistence-not-configured"
+        | "read-failed"
+        /**
+         * KT-1. Records matched, but Governance's rejection projection could not be read, so nothing
+         * is served: "could not tell" is never treated as "nothing was rejected".
+         */
+        | "governance-rejection-unavailable";
       readonly detail?: string;
     };
 

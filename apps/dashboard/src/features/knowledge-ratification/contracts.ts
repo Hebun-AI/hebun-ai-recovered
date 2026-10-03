@@ -110,6 +110,11 @@ export type RatificationRefusal =
   | "stale-review"
   /** This version already carries a ratification decision. */
   | "already-ratified"
+  /**
+   * This version already carries a rejection (KT-1). Truth is terminal per version: a rejected
+   * version is neither ratified nor rejected again. Correction is a superseding version.
+   */
+  | "already-rejected"
   | "justification-required"
   | "persistence-unavailable";
 

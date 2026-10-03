@@ -464,7 +464,7 @@ async function main(): Promise<void> {
       for (const record of listed.records) {
         const row = counts.find((entry) => entry.domainKey === record.domainKey);
         assert.ok(row, `the aggregate reported ${record.domainKey}`);
-        const eligible = exclusionReasonFor(record, NOW) === null;
+        const eligible = exclusionReasonFor(record, NOW, new Set()) === null;
         assert.equal(
           eligible,
           row!.inForce > 0,

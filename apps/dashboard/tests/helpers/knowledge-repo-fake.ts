@@ -107,3 +107,18 @@ export function retrievalOver(records: readonly KnowledgeSourceRecord[]): FakeRe
     },
   };
 }
+
+/**
+ * KT-1 — Governance's rejection projection, for a test that fakes the Knowledge repository.
+ *
+ * Retrieval asks Governance which versions it rejected before it serves anything, and it serves
+ * nothing when that cannot be read. A test with no ledger must therefore SAY what Governance
+ * decided rather than leave it unanswered: this says "Governance rejected nothing".
+ */
+export const governanceRejectedNothing = {
+  readRejectedKnowledgeVersions: async () => ({
+    status: "read" as const,
+    rejectedNodeIds: new Set<string>() as ReadonlySet<string>,
+  }),
+};
+

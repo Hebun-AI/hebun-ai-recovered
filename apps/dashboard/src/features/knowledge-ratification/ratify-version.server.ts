@@ -30,6 +30,19 @@
  * supersession link; it never deletes anything; it never un-ratifies. Reversal is a Governance
  * decision type with no runtime.
  *
+ * TRUTH IS TERMINAL PER VERSION (KT-1):
+ *
+ *     undecided → ratified        OR        undecided → rejected.        Nothing else.
+ *
+ * A ratified version cannot be rejected or ratified again; a rejected version cannot be ratified or
+ * rejected again. Changing the organization's mind is a CORRECTION — a superseding version, which is
+ * a new row and starts undecided. "Latest decision wins" is refused on purpose: it would leave two
+ * contradictory decisions standing on one row and let retrieval's answer depend on which was read.
+ *
+ * The ratified half is a Knowledge fact (`ratification_decision_id`). The rejected half is NOT —
+ * a rejection still writes nothing to Knowledge — so it is asked of Governance's own ledger read,
+ * inside this transaction, while the version row is held FOR UPDATE.
+ *
  * Server-only.
  */
 import { and, eq, isNull, sql } from "drizzle-orm";
@@ -41,6 +54,7 @@ import { recordGovernanceEventWithin } from "@/features/governance-audit/governa
 import { recordKnowledgeMutationWithin } from "@/features/governance-audit/knowledge-mutation-audit.server";
 import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
 import { resolveGovernanceAuthority, type GovernanceAuthorityResolution } from "@/features/governance-decision/authority-read.server";
+import { isKnowledgeVersionRejectedWithin } from "@/features/governance-decision/knowledge-rejection-read.server";
 import { validateJustification } from "@/features/governance-decision/persistence.server";
 import {
   RATIFICATION_SUBJECT_TYPE,
@@ -227,6 +241,16 @@ export async function ratifyKnowledgeVersion(
         throw new RatificationAbort("stale-review");
       }
       if (version.alreadyRatified) throw new RatificationAbort("already-ratified");
+      // KT-1: a version Governance rejected is settled too. Correction is supersession.
+      if (
+        await isKnowledgeVersionRejectedWithin(
+          tx as unknown as ControlPlaneDatabase,
+          authenticated.tenantId,
+          version.nodeId,
+        )
+      ) {
+        throw new RatificationAbort("already-rejected");
+      }
 
       // 6. The Governance decision, bound to the VERSION row — never to the fact.
       const decision = await writeGovernanceDecisionWithin(
@@ -397,6 +421,16 @@ export async function rejectKnowledgeVersion(
       // A ratified version is settled; rejecting it afterwards would be a reversal, and reversal
       // is a Governance decision type with no runtime.
       if (version.alreadyRatified) throw new RatificationAbort("already-ratified");
+      // KT-1: a version Governance rejected is settled too. Correction is supersession.
+      if (
+        await isKnowledgeVersionRejectedWithin(
+          tx as unknown as ControlPlaneDatabase,
+          authenticated.tenantId,
+          version.nodeId,
+        )
+      ) {
+        throw new RatificationAbort("already-rejected");
+      }
 
       const decision = await writeGovernanceDecisionWithin(
         tx as unknown as ControlPlaneDatabase,

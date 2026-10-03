@@ -30,7 +30,7 @@ import type { KnowledgeSourceRecord } from "../../src/features/knowledge/contrac
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import type { ExecutiveOverviewLike, ModelGenerationRequest } from "../../src/features/heby-runtime";
 import type { HebyModelOutcome } from "../../src/features/heby-model";
-import { noRetrieval, retrievalOver } from "../helpers/knowledge-repo-fake";
+import { governanceRejectedNothing, noRetrieval, retrievalOver } from "../helpers/knowledge-repo-fake";
 
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
 const CONTEXT: HebyCommandContext = {
@@ -207,7 +207,7 @@ async function main(): Promise<void> {
   {
     const populated = await runHebyReadCommand(
       { commandId: "knowledge", args: [], route: "/knowledge" },
-      { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repoWith([record()]) } },
+      { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repoWith([record()]), ...governanceRejectedNothing } },
     );
     assert.equal(populated.status, "ok");
     if (populated.status !== "ok") throw new Error("unreachable");
@@ -279,7 +279,7 @@ async function main(): Promise<void> {
     // An empty organization is reported as empty, never padded with a seeded record.
     const empty = await runHebyReadCommand(
       { commandId: "knowledge", args: [], route: "/knowledge" },
-      { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repoWith([]) } },
+      { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repoWith([]), ...governanceRejectedNothing } },
     );
     assert.equal(empty.status, "ok");
     if (empty.status !== "ok") throw new Error("unreachable");
@@ -294,7 +294,7 @@ async function main(): Promise<void> {
     const repo = repoWith([record()]);
     const found = await runHebyReadCommand(
       { commandId: "source", args: ["security-policy"], route: "/knowledge" },
-      { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repo } },
+      { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repo, ...governanceRejectedNothing } },
     );
     assert.equal(found.status, "ok");
     if (found.status !== "ok") throw new Error("unreachable");
@@ -303,7 +303,7 @@ async function main(): Promise<void> {
 
     const missingArg = await runHebyReadCommand(
       { commandId: "source", args: [], route: "/knowledge" },
-      { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repo } },
+      { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repo, ...governanceRejectedNothing } },
     );
     assert.equal(missingArg.status, "ok");
     if (missingArg.status !== "ok") throw new Error("unreachable");
@@ -320,7 +320,7 @@ async function main(): Promise<void> {
     ]) {
       const result = await runHebyReadCommand(
         { commandId: "source", args: [hostile], route: "/knowledge" },
-        { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repo } },
+        { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repo, ...governanceRejectedNothing } },
       );
       assert.equal(result.status, "ok", `${hostile} is handled, not crashed on`);
       if (result.status !== "ok") throw new Error("unreachable");
@@ -344,7 +344,7 @@ async function main(): Promise<void> {
     for (const commandId of ["knowledge", "source"]) {
       await runHebyReadCommand(
         { commandId, args: ["security-policy"], route: "/knowledge" },
-        { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repoWith([record()]) } },
+        { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repoWith([record()]), ...governanceRejectedNothing } },
       );
     }
     providerCalls = before;
@@ -358,7 +358,7 @@ async function main(): Promise<void> {
     // provider dep supplied at all.
     const result = await runHebyReadCommand(
       { commandId: "knowledge", args: [], route: "/knowledge" },
-      { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repoWith([record()]) } },
+      { resolveTenant: async () => tenant(), knowledge: { getRepo: () => repoWith([record()]), ...governanceRejectedNothing } },
     );
     assert.equal(result.status, "ok", "Knowledge reads work while the Director has the provider OFF");
   }
@@ -381,7 +381,7 @@ async function main(): Promise<void> {
           HEBUN_MODEL_TRANSPORT: "fake",
         },
         generate: captured.spy,
-        knowledge: { getRepo: () => repoWith([record()]) },
+        knowledge: { getRepo: () => repoWith([record()]), ...governanceRejectedNothing },
       },
     );
     assert.equal(answered.status, "answered");
@@ -436,7 +436,7 @@ async function main(): Promise<void> {
         resolveDirectorEnabled: async () => true,
         env: { HEBUN_MODEL_TRANSPORT: "fake" },
         generate: captured.spy,
-        knowledge: { getRepo: () => counting },
+        knowledge: { getRepo: () => counting, ...governanceRejectedNothing },
       },
     );
     /*
@@ -483,7 +483,7 @@ async function main(): Promise<void> {
         resolveDirectorEnabled: async () => false,
         env: {},
         generate: spy,
-        knowledge: { getRepo: () => repoWith([record()]) },
+        knowledge: { getRepo: () => repoWith([record()]), ...governanceRejectedNothing },
       },
     );
     assert.equal(result.status, "answered");
