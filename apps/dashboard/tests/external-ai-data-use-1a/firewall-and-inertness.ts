@@ -45,11 +45,20 @@ assert.deepEqual([...schema.EXTERNAL_AI_ZDR_SQL], [...contracts.ZDR_STATES]);
 assert.deepEqual([...schema.EXTERNAL_AI_IDENTITY_SQL], [...contracts.IDENTITY_STATUSES]);
 assert.deepEqual([...schema.EXTERNAL_AI_CONTROL_SOURCES_SQL], [...contracts.ATTESTATION_CONTROL_SOURCES]);
 
-/* ── 2. NO ATTESTATION WRITER EXISTS — the admission ceremony is B1. ───────────────────────────── */
+/*
+ * ── 2. NO ATTESTATION WRITER EXISTS — except the B1A admission ceremony. ─────────────────────────
+ *
+ * Release A shipped with no writer at all. EXTERNAL-AI-DATA-USE-B1A (Director-approved) adds
+ * exactly ONE: the root possession ceremony's library, which INSERTs revisions and nothing else.
+ * The exception is one named file; src/ stays writer-free, and no file may update or delete.
+ */
+const ATTESTATION_CEREMONY_WRITER = "scripts/lib/processor-attestation.ts";
 for (const file of [...SRC, ...SCRIPTS]) {
   const code = stripComments(read(file));
-  assert.ok(!/insert\(\s*processorAttestations\b/.test(code), `${file} must not insert a processor attestation`);
-  assert.ok(!/into\s+"?(public"?\.)?"?processor_attestations/i.test(code), `${file} must not insert a processor attestation by SQL`);
+  if (file !== ATTESTATION_CEREMONY_WRITER) {
+    assert.ok(!/insert\(\s*processorAttestations\b/.test(code), `${file} must not insert a processor attestation`);
+    assert.ok(!/into\s+"?(public"?\.)?"?processor_attestations/i.test(code), `${file} must not insert a processor attestation by SQL`);
+  }
   for (const table of ["processorAttestations", "tenantExternalAiDataUseAuthorizations", "tenantExternalAiDataUseAuthorizationScopes"]) {
     assert.ok(!new RegExp(`update\\(\\s*${table}\\b`).test(code), `${file}: ${table} is never updated in place`);
     assert.ok(!new RegExp(`delete\\(\\s*${table}\\b`).test(code), `${file}: ${table} is never deleted from`);
