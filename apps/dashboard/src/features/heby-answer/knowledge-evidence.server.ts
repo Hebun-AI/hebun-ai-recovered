@@ -44,6 +44,13 @@ import {
   type RetrievalEvidenceSet,
   type RetrievalResult,
 } from "@/features/knowledge-retrieval";
+import { partitionByEligibility } from "@/features/knowledge-retrieval/eligibility";
+import { isPublicPurposeEligible } from "@/features/knowledge-public-use/contracts";
+import {
+  readKnowledgePublicUse,
+  type KnowledgePublicUseRead,
+} from "@/features/governance-decision/knowledge-public-use-read.server";
+import { readRejectedKnowledgeVersions } from "@/features/governance-decision/knowledge-rejection-read.server";
 
 /** Map the canonical knowledge lifecycle onto the evidence lifecycle vocabulary. */
 function toEvidenceLifecycle(
@@ -304,4 +311,71 @@ export async function resolveKnowledgeListingEvidence(
   deps: KnowledgeReadDeps = {},
 ): Promise<SourceResolution> {
   return toKnowledgeResolution(await listKnowledgeSources(tenant, deps));
+}
+
+/* ── KNOWLEDGE TRUST PHASE 5: PUBLIC-PURPOSE KNOWLEDGE ─────────────────────────
+ *
+ * For the preparation of PUBLIC content, Knowledge may ground only if its exact version is RATIFIED
+ * and Governance ALLOWED its public use (`isPublicPurposeEligible`), on top of the ordinary runtime
+ * eligibility. Order: the eligible public UNIVERSE is established first; only then is the question
+ * searched, and a match outside that universe is dropped whole — its statement, its key and its
+ * exclusion line — so nothing ineligible reaches the model or the evidence.
+ *
+ * Two refusals, kept apart:
+ *   public-eligibility-unavailable  a read failed (public use, rejection, the listing) or the listing
+ *                                   was capped — eligibility could not be established
+ *   no-public-eligible-knowledge    the universe was read, and NOTHING in it is ratified + allowed
+ * A universe that exists but where the question matched nothing is NOT a refusal: it resolves as an
+ * ordinary no-match, the relevance gap stays visible, and no withheld fact stands in for a match.
+ */
+export interface PublicKnowledgeDeps extends KnowledgeReadDeps {
+  /** Governance's public-use projection. Injectable for tests; defaults to the real read. */
+  readonly readPublicUse?: (tenant: KnowledgeTenant) => Promise<KnowledgePublicUseRead>;
+}
+
+export type PublicKnowledgeOutcome =
+  | ({ readonly status: "resolved"; readonly universeCount: number } & KnowledgeEvidenceOutcome)
+  | { readonly status: "blocked"; readonly reason: "public-eligibility-unavailable" | "no-public-eligible-knowledge" };
+
+function publicOnly(result: RetrievalResult, allowedNodeIds: ReadonlySet<string>): RetrievalResult {
+  if (result.status === "matched") {
+    const kept = result.candidates.filter((candidate) => allowedNodeIds.has(candidate.record.activeKnowledgeNodeId ?? ""));
+    return kept.length > 0
+      ? { ...result, candidates: kept, excluded: [] }
+      : { status: "no-match", excluded: [], capability: result.capability };
+  }
+  if (result.status === "no-match") return { ...result, excluded: [] };
+  return result;
+}
+
+export async function resolvePublicKnowledgeEvidence(
+  tenant: KnowledgeTenant | null,
+  query: string,
+  deps: PublicKnowledgeDeps = {},
+): Promise<PublicKnowledgeOutcome> {
+  const unavailable = { status: "blocked", reason: "public-eligibility-unavailable" } as const;
+  if (!tenant) return unavailable;
+  const [use, listing, rejection] = await Promise.all([
+    (deps.readPublicUse ?? readKnowledgePublicUse)(tenant).catch(() => null),
+    listKnowledgeSources(tenant, deps).catch(() => null),
+    (deps.readRejectedKnowledgeVersions ?? readRejectedKnowledgeVersions)(tenant).catch(() => null),
+  ]);
+  if (use?.status !== "read" || listing?.status !== "read" || rejection?.status !== "read" || listing.truncated) {
+    return unavailable;
+  }
+  const now = (deps.now ?? (() => new Date()))();
+  const universe = partitionByEligibility(listing.records, now, rejection.rejectedNodeIds).eligible.filter((record) =>
+    isPublicPurposeEligible(record, use.states),
+  );
+  if (universe.length === 0) return { status: "blocked", reason: "no-public-eligible-knowledge" };
+
+  const allowed = new Set(universe.map((record) => record.activeKnowledgeNodeId!));
+  const result = publicOnly(await searchKnowledge(tenant, { queryText: query }, deps), allowed);
+  if (result.status === "unavailable") return unavailable;
+  return {
+    status: "resolved",
+    universeCount: universe.length,
+    resolution: toRetrievalResolution(result),
+    evidence: buildRetrievalEvidence(result, query),
+  };
 }

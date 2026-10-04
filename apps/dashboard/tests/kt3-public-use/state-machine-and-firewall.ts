@@ -130,7 +130,12 @@ function main(): void {
     assert.ok(/recordGovernanceEventWithin\(/.test(code), "and it files the Governance audit event");
   }
 
-  /* ── 6. ENFORCEMENT IS OFF: NOTHING CONSUMES THE DECISION YET ────────────── */
+  /*
+   * ── 6. ONE CONSUMER ──────────────────────────────────────────────────────────
+   * KT-3 pinned that nothing consumed the decision. Knowledge Trust Phase 5 adds exactly ONE consumer,
+   * on purpose: the public-content Knowledge resolver, which grounds a content draft only on versions
+   * that are ratified AND public-use allowed. Everything else still may not read it.
+   */
   {
     const consumers = collect("src").filter((f) =>
       importsOf(read(f)).some((i) => /knowledge-public-use/.test(i)),
@@ -144,6 +149,7 @@ function main(): void {
       "src/app/(dashboard)/knowledge/page.tsx",
       "src/components/knowledge-workspace/knowledge-review-card.tsx",
       CONTROL,
+      "src/features/heby-answer/knowledge-evidence.server.ts",
     ]);
     for (const file of consumers) {
       assert.ok(allowed.has(file), `${file} must not consume public-use decisions in this phase`);
@@ -160,7 +166,7 @@ function main(): void {
       "src/features/instagram-publishing",
       "src/features/youtube-publishing",
     ]) {
-      for (const file of collect(dir)) {
+      for (const file of collect(dir).filter((f) => f !== "src/features/heby-answer/knowledge-evidence.server.ts")) {
         assert.ok(!/public-use|publicUse|PublicUse/.test(codeOf(read(file))), `${file} is untouched by public use`);
       }
     }

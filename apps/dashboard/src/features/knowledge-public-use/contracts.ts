@@ -18,10 +18,11 @@
  * different row with no decision, so it starts UNKNOWN: permission never travels to text nobody
  * judged.
  *
- * ── NOTHING CONSUMES THIS YET ────────────────────────────────────────────────
+ * ── ONE CONSUMER: PUBLIC-CONTENT PREPARATION (KT-5) ─────────────────────────
  *
- * This phase records and shows the decision. Retrieval, Heby, content preparation, readiness and
- * publication do not read it, and a test holds that absence until the enforcing phase.
+ * KT-3 recorded and showed the decision. Knowledge Trust Phase 5 enforces it in exactly one place:
+ * Knowledge that grounds the preparation of a content draft must pass `isPublicPurposeEligible`.
+ * Internal Heby answers, readiness and publication still do not read it.
  *
  * Pure. No I/O. A client component may import it.
  */
@@ -125,3 +126,17 @@ export const PUBLIC_USE_NON_CLAIMS: readonly string[] = Object.freeze([
   "This decision binds this exact version. A new version starts with no public-use decision.",
   "Recording it does not yet change what Hebun retrieves or generates; enforcement is a later, separately approved step.",
 ]);
+
+/**
+ * KT-5 — MAY THIS VERSION GROUND PUBLIC CONTENT? Ratified AND Governance-allowed, both, about the
+ * exact version row. No decision is UNKNOWN, and UNKNOWN is no; a revoke leaves DENIED, which is no;
+ * an allowance on an unratified version is no, because public use never makes a statement true.
+ * Runtime eligibility (rejected, archived, retired, out of window) is checked before this, by its own
+ * owner, and this never widens it.
+ */
+export function isPublicPurposeEligible(
+  version: { readonly ratified: boolean; readonly activeKnowledgeNodeId: string | null },
+  states: ReadonlyMap<string, Exclude<PublicUseState, "unknown">>,
+): boolean {
+  return version.ratified === true && version.activeKnowledgeNodeId !== null && states.get(version.activeKnowledgeNodeId) === "allowed";
+}

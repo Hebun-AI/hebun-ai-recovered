@@ -138,9 +138,22 @@ import { buildBoundedHistory } from "./bounded-history";
 import { modelDisclosedDataClasses, modelFacingHistory, modelGroundingLines } from "./model-facing-projection";
 import type { DataClass } from "@/features/external-ai-data-use/contracts";
 import type { ExternalAiDisclosureDeclaration } from "@/features/external-ai-data-use/authorize-external-ai-disclosure.server";
-import { resolveKnowledgeEvidenceDetailed } from "./knowledge-evidence.server";
+import {
+  resolveKnowledgeEvidenceDetailed,
+  resolvePublicKnowledgeEvidence,
+  type PublicKnowledgeDeps,
+  type PublicKnowledgeOutcome,
+} from "./knowledge-evidence.server";
 
 /** Honest note when the Director has disabled Claude connectivity — no provider request is made. */
+/** KT-5 — why a public-content preparation did not ask the model. */
+const PUBLIC_KNOWLEDGE_NOTE = Object.freeze({
+  "public-eligibility-unavailable":
+    "Whether this organization's Knowledge may ground public content could not be established, so the model was not asked.",
+  "no-public-eligible-knowledge":
+    "No Knowledge of this organization is both ratified and cleared by Governance for public use, so the model was not asked to write public content.",
+} as const);
+
 const DIRECTOR_DISABLED_NOTE =
   "Claude connectivity is disabled by the Director; this answer is deterministic and no provider request was made.";
 
@@ -236,6 +249,13 @@ export interface HebyModelAnswerOptions {
    * asked.
    */
   readonly preparationBriefDataClasses?: readonly DataClass[];
+  /*
+   * KNOWLEDGE TRUST PHASE 5 — set by the SERVER seam that prepares a content draft, never by a client
+   * (no action passes options from its input). Public content may ground only on Knowledge that is
+   * ratified AND public-use allowed; if eligibility cannot be established, or nothing qualifies, the
+   * model is not asked at all.
+   */
+  readonly knowledgePurpose?: "public-content";
 }
 
 /** The injectable seams — real in production, faked in tests. */
@@ -275,7 +295,9 @@ export interface HebyModelAnswerDeps {
    * with no database. It is consulted ONLY for workspaces that declare the `knowledge` source
    * class, and it can only ever contribute EVIDENCE — never authority, never a tool, never an act.
    */
-  readonly knowledge?: KnowledgeReadDeps;
+  readonly knowledge?: PublicKnowledgeDeps;
+  /** KT-5 — the public-purpose Knowledge resolution. Injectable for tests; defaults to the real one. A plain `resolveKnowledge` stub is NOT used for public content. */
+  readonly resolvePublicKnowledge?: (tenant: KnowledgeTenant, query: string, deps?: PublicKnowledgeDeps) => Promise<PublicKnowledgeOutcome>;
   /**
    * Explicit Knowledge evidence resolution. Defaults to the real tenant-scoped retrieval.
    *
@@ -457,10 +479,41 @@ async function withKnowledge(
   tenant: KnowledgeTenant,
   query: string,
   deps: HebyModelAnswerDeps,
+  purpose?: "public-content",
 ): Promise<{
   readonly resolutions: readonly SourceResolution[];
   readonly knowledgeEvidence?: RetrievalEvidenceSet;
+  /** KT-5 — set when public-content eligibility forbids asking the model at all. */
+  readonly blocked?: "public-eligibility-unavailable" | "no-public-eligible-knowledge";
 }> {
+  /*
+   * KT-5 — PUBLIC CONTENT IS DECIDED BEFORE THE WORKSPACE IS. The eligible public universe is checked
+   * whatever route the request named, so a route without the knowledge class cannot skip the refusal;
+   * where the class is present, its resolution is the public one and no other.
+   */
+  if (purpose === "public-content") {
+    let outcome: PublicKnowledgeOutcome;
+    try {
+      outcome = await (deps.resolvePublicKnowledge ?? resolvePublicKnowledgeEvidence)(tenant, query, deps.knowledge);
+    } catch {
+      outcome = { status: "blocked", reason: "public-eligibility-unavailable" };
+    }
+    if (outcome.status === "blocked") {
+      return {
+        resolutions: resolutions.map((resolution) =>
+          resolution.sourceClass === "knowledge"
+            ? { ...resolution, state: "unavailable", items: [], unavailableReason: PUBLIC_KNOWLEDGE_NOTE[outcome.reason] }
+            : resolution,
+        ),
+        blocked: outcome.reason,
+      };
+    }
+    return {
+      resolutions: resolutions.map((resolution) => (resolution.sourceClass === "knowledge" ? outcome.resolution : resolution)),
+      knowledgeEvidence: resolutions.some((resolution) => resolution.sourceClass === "knowledge") ? outcome.evidence : undefined,
+    };
+  }
+
   if (!resolutions.some((resolution) => resolution.sourceClass === "knowledge")) {
     return { resolutions };
   }
@@ -1153,11 +1206,12 @@ export async function answerHebyModelRequest(
   // KR3 — and now the validated prompt decides WHICH knowledge, which it never did before. The
   // question travels only as a search term: it selects rows and cannot grant, widen, or authorize
   // anything, and the tenant it is searched within remains the server-resolved one.
-  const { resolutions: knowledgeResolutions, knowledgeEvidence } = await withKnowledge(
+  const { resolutions: knowledgeResolutions, knowledgeEvidence, blocked: publicKnowledgeBlocked } = await withKnowledge(
     resolveSources(workspaceSourceClasses(context), overview),
     tenant,
     validation.prompt,
     deps,
+    options.knowledgePurpose,
   );
   // R3W — prepared work joins the SAME deterministic evidence set, through the same server seam.
   const artifactResolutions = await withWorkArtifacts(knowledgeResolutions, tenant, deps);
@@ -1227,7 +1281,10 @@ export async function answerHebyModelRequest(
   const directorEnabled = await (deps.resolveDirectorEnabled ?? resolveClaudeDirectorEnabled)();
 
   let answer: ProducedAnswer;
-  if (!directorEnabled) {
+  if (publicKnowledgeBlocked) {
+    /* KT-5 — public content with no establishable eligible Knowledge: nothing is sent, nothing is drafted. */
+    answer = { response: withNote(deterministic, PUBLIC_KNOWLEDGE_NOTE[publicKnowledgeBlocked]) };
+  } else if (!directorEnabled) {
     answer = { response: withNote(deterministic, DIRECTOR_DISABLED_NOTE) };
   } else {
     // 5. Compose the SERVER-owned model request. tenantId is authoritative from R1; the model

@@ -30,6 +30,7 @@ import type { YouTubeChannelObservation } from "../../src/features/provider-yout
 import type { SourceResolution } from "../../src/features/heby-runtime/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
+import { publicKnowledgeResolved } from "../helpers/public-knowledge";
 
 /*
  * TRH-21 — a successful authorized read now NAMES the connection the capability authority chose,
@@ -163,7 +164,8 @@ async function main(): Promise<void> {
       getConversationRepo: () => repo,
       newCorrelationId: () => "corr-cgo7",
       resolveWorkArtifacts: (t: TenantContext) => resolveWorkArtifactSource(t, writeDeps),
-      resolveKnowledge: async () => resolvedKnowledge(),
+      /* KNOWLEDGE TRUST PHASE 5: a content draft grounds only on public-cleared Knowledge; this stands for such a fact. */
+      resolvePublicKnowledge: async () => publicKnowledgeResolved(resolvedKnowledge()),
     } as unknown as HebyModelAnswerDeps;
 
     /* The CGO-5 seam, faked at ITS boundary. Records how often it was consulted and with what. */

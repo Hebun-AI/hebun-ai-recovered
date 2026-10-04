@@ -49,6 +49,7 @@ import { resolveWorkArtifactSource } from "../../src/features/work-artifacts/wor
 import { digestArtifactContent } from "../../src/features/work-artifacts/content-digest";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
+import { publicKnowledgeNoMatch } from "../helpers/public-knowledge";
 
 const NOW = new Date("2026-09-03T17:00:00.000Z");
 /* A reply shaped like a caption: begins as the asset, no preamble, no postscript. */
@@ -215,6 +216,8 @@ async function main(): Promise<void> {
         return generateHebyModelAnswer(request, generationDeps);
       },
       getConversationRepo: () => repo,
+      /* KNOWLEDGE TRUST PHASE 5: a content draft grounds only on public-cleared Knowledge; this suite is about something else. */
+      resolvePublicKnowledge: publicKnowledgeNoMatch,
       newCorrelationId: () => "corr-cgo4",
       resolveWorkArtifacts: (t) => resolveWorkArtifactSource(t, writeDeps),
     });

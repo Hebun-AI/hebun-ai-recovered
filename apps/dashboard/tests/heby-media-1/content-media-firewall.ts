@@ -132,7 +132,8 @@ async function main(): Promise<void> {
 
   /* ── 1b · Caption preparation's grounding is unchanged: the class resolves unread there ── */
   const prepare = readFileSync(path.join(process.cwd(), "src/features/work-artifacts/prepare-work-artifact.server.ts"), "utf8");
-  assert.match(prepare, /\{ \.\.\.deps, resolveContentMedia: async \(\) => resolveSource\("content-media"\) \}/, "preparation passes the pure, unread content-media resolution");
+  /* KNOWLEDGE TRUST PHASE 5 reformatted this deps object (it adds the knowledge-coverage line); the pin is its meaning. */
+  assert.match(prepare, /\{\s*\.\.\.deps,\s*resolveContentMedia: async \(\) => resolveSource\("content-media"\),/, "preparation passes the pure, unread content-media resolution");
 
   /* ── 2 · Imports are exactly the named readers; no writer, store read or grant ── */
   const imports = [...code.matchAll(/import\s+(type\s+)?\{([^}]*)\}\s+from\s+"([^"]+)"/g)].map((m) => ({

@@ -41,6 +41,7 @@ import { artifactRowReviewStatus } from "../../src/features/work-artifact-review
 import { digestArtifactContent } from "../../src/features/work-artifacts/content-digest";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
+import { publicKnowledgeNoMatch } from "../helpers/public-knowledge";
 
 const NOW = new Date("2026-09-16T09:00:00.000Z");
 const CAPTION = "Every knot on this loom is tied by hand, one row at a time.";
@@ -132,6 +133,8 @@ async function main(): Promise<void> {
       selectTransport: () => ({ transport: transport(text), transportProvenance: "fake" as const }),
       generate: generateHebyModelAnswer,
       getConversationRepo: () => repo,
+      /* KNOWLEDGE TRUST PHASE 5: a content draft grounds only on public-cleared Knowledge; this suite is about something else. */
+      resolvePublicKnowledge: publicKnowledgeNoMatch,
       newCorrelationId: () => "corr-cgo9",
       resolveWorkArtifacts: (t: TenantContext | null) => resolveWorkArtifactSource(t, dbDeps),
       ...overrides,

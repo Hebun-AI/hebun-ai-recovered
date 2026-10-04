@@ -78,6 +78,7 @@ import {
   resolveAgentAuthorship,
   type AgentAuthorshipRefusal,
 } from "./agent-authorship.server";
+import { CONTENT_DRAFT_TYPE } from "./contracts";
 import type {
   ContentDestination,
   WorkArtifactType,
@@ -302,6 +303,14 @@ export async function prepareWorkArtifact(
     briefInput = input;
   }
 
+  /*
+   * KNOWLEDGE TRUST PHASE 5 — PUBLIC PURPOSE IS THE ARTIFACT'S TYPE. A content draft is the only type
+   * a Content Package exists for, and so the only one that can be published; for a revision the type
+   * is the STORED one, so no request can relabel an existing draft. A client that creates another
+   * type gets internal semantics and an artifact that can never become public content.
+   */
+  const publicContent = briefInput.artifactType === CONTENT_DRAFT_TYPE;
+
   /* ── INVOCATION: from here on, a refusal may follow a real model call ── */
   const answerFn = deps.answer ?? answerHebyModelRequest;
   const answer = await answerFn(
@@ -313,9 +322,19 @@ export async function prepareWorkArtifact(
      * what a caption rests on. So preparation resolves the class to its pure, unread form — pinned
      * in tests/heby-media-1 — and its grounding is exactly what it was before this phase.
      */
-    { ...deps, resolveContentMedia: async () => resolveSource("content-media") },
+    {
+      ...deps,
+      resolveContentMedia: async () => resolveSource("content-media"),
+      /*
+       * KT-5 — a content draft is public content. Knowledge coverage counts every fact in force, cleared
+       * for public use or not, so for a content draft it resolves to its pure, unread form too.
+       */
+      ...(publicContent ? { resolveKnowledgeCoverage: async () => resolveSource("knowledge-coverage") } : {}),
+    },
     {
       intent: WORK_ARTIFACT_PREPARATION_INTENT,
+      /* KT-5 — derived from the artifact's own type (the stored one for a revision), never from a client flag. */
+      ...(publicContent ? { knowledgePurpose: "public-content" as const } : {}),
       /*
        * CGO-4. The model is told, BEFORE it writes, that its whole reply is the artifact — so it
        * authors the durable bytes directly. This is the only place the product asks for a cleaner

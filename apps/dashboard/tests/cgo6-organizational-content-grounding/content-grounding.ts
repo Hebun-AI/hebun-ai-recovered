@@ -43,6 +43,7 @@ import {
 import type { SourceResolution } from "../../src/features/heby-runtime/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
+import { publicKnowledgeResolved } from "../helpers/public-knowledge";
 
 const NOW = new Date("2026-09-03T20:00:00.000Z");
 const CAPTION = "Three knots per centimetre. That is the whole video.";
@@ -213,15 +214,19 @@ async function main(): Promise<void> {
       getConversationRepo: () => repo,
       newCorrelationId: () => "corr-cgo6",
       resolveWorkArtifacts: (t) => resolveWorkArtifactSource(t, writeDeps),
-      resolveKnowledge: async (t) => {
+      /*
+       * KNOWLEDGE TRUST PHASE 5: a content draft grounds only through the public-purpose resolver, so
+       * the fact this suite grounds on stands for one that is ratified AND public-use allowed.
+       */
+      resolvePublicKnowledge: async (t) => {
         consulted.knowledge += 1;
         consulted.tenants.push(t.tenantId);
-        return resolved("knowledge", true, "Organizational Knowledge, recorded by this organization.", {
+        return publicKnowledgeResolved(resolved("knowledge", true, "Organizational Knowledge, recorded by this organization.", {
           recordRef: "knowledge-node/cgo6-1",
           label: "How our rugs are made",
           detail: "ratified",
           content: KNOWLEDGE_TEXT,
-        });
+        }));
       },
       resolveWork: async (t) => {
         consulted.work += 1;

@@ -30,6 +30,7 @@ import { resolveWorkArtifactSource } from "../../src/features/work-artifacts/wor
 import { digestArtifactContent } from "../../src/features/work-artifacts/content-digest";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
+import { publicKnowledgeNoMatch } from "../helpers/public-knowledge";
 
 const NOW = new Date("2026-09-03T14:00:00.000Z");
 const CAPTION = "Three knots per centimetre.\nThat is the whole video.";
@@ -161,6 +162,8 @@ async function main(): Promise<void> {
       selectTransport: () => ({ transport: transportReturning(text), transportProvenance: "fake" }),
       generate: generateHebyModelAnswer,
       getConversationRepo: () => repo,
+      /* KNOWLEDGE TRUST PHASE 5: a content draft grounds only on public-cleared Knowledge; this suite is about something else. */
+      resolvePublicKnowledge: publicKnowledgeNoMatch,
       newCorrelationId: () => "corr-cgo3",
       resolveWorkArtifacts: (t) => resolveWorkArtifactSource(t, writeDeps),
     });
