@@ -2384,7 +2384,7 @@ Concerns likely to become load-bearing as intelligence accumulates over authorit
 - security evidence observation — connecting a security surface to the audit sink that already exists. **This is the one item that has since been placed in the bounded order, as E2-2, and it is now ACTIVE for discovery and design (§12).** It is still not implemented and not connected.
 - a Security Event / Finding / Incident authority, **only if a product requirement justifies one**
 - deployment-wide model spend control — today's bound is per-process and honestly says so
-- ingested-content trust boundaries, as external sources become reasoning input
+- ingested-content trust boundaries, as external sources become reasoning input — the future capability is defined once in §13.1.1 (**PLANNED · NOT IMPLEMENTED**)
 - rate limiting and abuse controls beyond the existing credential lockout
 - security intelligence layered over authoritative evidence, never over fabricated signal
 
@@ -3008,6 +3008,73 @@ The era is constrained in advance, and opening it relaxes none of the following:
 - resilience and recovery evidence
 
 Distinguish throughout: an operator ceremony that a human runs is not automated resilience. Credential rotation and bootstrap credential recovery exist today as **ceremonies**; that is what they are, and it is not disaster recovery.
+
+#### 13.1.1 Secure Content Ingestion / Ingestion Guard · **PLANNED · NOT IMPLEMENTED**
+
+**Recorded future capability. Not selected, not numbered, not authorized, and it creates no authority.** This is the single definition; §12.1 and §20.4 refer here and do not restate it.
+
+**Purpose.** Externally supplied content is treated as untrusted input **before** it can influence Knowledge, agents, reasoning, organizational decisions or execution.
+
+**Scope, as applicable:** PDF and document uploads · URLs and web pages · books and long-form documents · video / transcript ingestion · email- and message-derived content · Google Drive and other connector-derived documents · any other externally supplied file or content.
+
+**Constitutional candidate principle — recorded, not ratified:**
+
+> *"Hebun'un bir içeriği okuyabilmesi, o içeriğe güvenmesi anlamına gelmez."* — reading is not trusting.
+
+```
+READABLE              != TRUSTED
+EXTERNAL CONTENT      != TRUSTED BY DEFAULT
+PARSED / RETRIEVED / SUMMARIZED / REASONED OVER != AUTHORITATIVE KNOWLEDGE
+TECHNICALLY SAFE      != FACTUALLY TRUSTWORTHY
+FACTUALLY USEFUL      != TECHNICALLY SAFE
+SOURCE REPUTATION     != TRUTH
+MODEL JUDGMENT        != SECURITY AUTHORITY
+INJECTED INSTRUCTION  == DATA, NOT INSTRUCTION
+```
+
+**Principles.**
+
+1. External content is untrusted by default.
+2. It does not become authoritative organizational Knowledge because Hebun can parse, retrieve, summarize or reason over it. No silent promotion into Knowledge.
+3. Security assessment and epistemic (truth) assessment are separate questions with separate answers.
+4. An LLM is never the sole security authority. Enforceable security decisions belong to deterministic controls, isolation / sandbox boundaries and explicit policy, where applicable.
+5. Prompt-injection and agent-manipulation content is data, never automatically an instruction.
+6. Provenance survives ingestion, so Knowledge, reasoning and Governance can tell source, derived information and authoritative organizational truth apart.
+7. Risk or uncertainty fails closed wherever the requested downstream use requires trust or authority.
+
+**Capabilities to evaluate — candidates, not commitments:** claimed vs actual file type · integrity and malformed-file checks · active / embedded content detection · malware scanning through an appropriate security boundary · URL, domain and redirect-chain assessment · suspicious download / content behaviour · isolated or sandboxed extraction · prompt-injection and indirect prompt-injection detection · agent-manipulation detection · external-link discovery and risk classification · provenance capture · source trust / reputation signals (never equated with truth) · quarantine / block / restricted-use states · human or Governance review for appropriate risk classes · auditable security findings and decisions.
+
+**Authority boundaries.** §7.3 governs: extend existing owners, never a central replacement.
+
+- **No AI Security Agent as sole authority** (§20.4 already forbids a Security Agent / Sentinel authority). A future security agent may inspect, classify, explain and recommend; enforceable admission / security state belongs to an explicit Hebun security or ingestion owner that future repository architecture must determine — **not decided here**.
+- **Knowledge remains the Knowledge authority.** The guard can refuse or restrict content; it cannot admit, ratify or promote it.
+- **Governance remains the consequential decision and authorization authority**, unless future repository reality establishes another legitimate owner.
+
+**What exists today — partial boundaries, not this capability.**
+
+| Exists | What it does | What it does not do |
+|---|---|---|
+| TB-1 trust classes (§11) | Every model-request field is classified; retrieved material is `untrusted-content` | `detectsInjectedInstructions: false`, `neutralizesInjectedInstructions: false` — classifies and contains, does not detect |
+| R4C.1 upload boundary | Authority first, extension allowlist, byte bounds, strict decoder, raw file never kept | No content-type verification beyond the decoder, no malware scan, no sandbox |
+| R4C.2 PDF ingestion | Bounded parser behind its own gate | No isolated extraction, no active-content detection |
+| KID-2 / §12B provider admission | One human admits one Drive document into draft / provisional Knowledge; a provider MIME string cannot select a parser | No security assessment, no reputation, no quarantine state |
+
+This roadmap records **no** URL / web, book, transcript or message-derived ingestion path, and **no** malware scanning, sandboxed extraction, injection detection, quarantine state or security-finding authority. None of those is implemented.
+
+**Prerequisite for future learning.** Any capability in which Hebun learns from books / PDFs, videos / transcripts, websites, research material or connector content depends on this boundary first. Conceptual flow — **not implemented**:
+
+```
+External Source
+→ Secure Content Ingestion
+→ Provenance-preserving extraction
+→ Knowledge candidate / source material
+→ reasoning and hypothesis generation
+→ evidence / review
+→ Governance / Director decision where required
+→ authoritative Knowledge / Architecture / Constitutional admission — only where explicitly approved
+```
+
+**Agent Platform dependency.** This is a **cross-cutting security dependency of any future Agent Platform (§20.4)**, not a feature of one agent. An agent does not gain trust in external content because it can access or retrieve it.
 
 ### 13.2 TRH — the Turkish Rug House delivery line · recorded after the fact
 
@@ -5330,6 +5397,8 @@ permit-bound publish action exists. It selects no Social program and no agent.
 
 **Security.** **Do not create a Security Agent or Security Sentinel authority.** §7 stands: Security
 is a cross-cutting constraint that owns no truth.
+Secure Content Ingestion (§13.1.1, **PLANNED · NOT IMPLEMENTED**) is a cross-cutting dependency of
+any future agent platform: an agent gains no trust in content because it can retrieve it.
 
 **Autonomous evolution.** **Do not create another Observe → Learn runtime.** The chain already has
 owners: provider observation, derived intelligence, origination, proposal, human Governance
