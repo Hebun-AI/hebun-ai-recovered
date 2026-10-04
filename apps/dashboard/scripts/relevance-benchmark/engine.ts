@@ -19,6 +19,8 @@ import type { Client } from "pg";
 import type { DurableKnowledgeRepository } from "../../src/features/knowledge/durable-knowledge-repository.server";
 import { searchKnowledge } from "../../src/features/knowledge/knowledge-read.server";
 import { RETRIEVAL_DEFAULT_LIMIT, RETRIEVAL_MAX_LIMIT } from "../../src/features/knowledge-retrieval";
+import { partitionByEligibility } from "../../src/features/knowledge-retrieval/eligibility";
+import type { KnowledgeSourceRecord } from "../../src/features/knowledge/contracts";
 import {
   buildRelevanceCandidateSet,
   selectRelevant,
@@ -170,8 +172,21 @@ export function fixtureEligibility<S extends { readonly factKey: string }>(
   return { eligible, withheld };
 }
 
+/*
+ * RELEVANCE-2B — HOW CANDIDATES ARE GENERATED.
+ *
+ *   lexical     the shipped runtime: `searchKnowledge`, then the first N in lexical order.
+ *   exhaustive  the WHOLE eligible universe of this tenant (the runtime's own `listFacts` and
+ *               `partitionByEligibility`), then the purpose gate. No query is used to generate
+ *               candidates, so no task wording can miss a fact; everything admitted is handed on,
+ *               which makes "selected" = what a consumer would receive.
+ */
+export type CandidateStrategy = "lexical" | "exhaustive";
+export const CANDIDATE_STRATEGIES: readonly CandidateStrategy[] = Object.freeze(["lexical", "exhaustive"]);
+
 export interface QueryMeasurement {
   readonly queryId: string;
+  readonly strategy: CandidateStrategy;
   readonly purpose: RelevancePurpose;
   readonly classes: readonly QueryClass[];
   readonly lang: BenchQuery["lang"];
@@ -198,6 +213,26 @@ export interface QueryMeasurement {
   /** Candidates from another tenant, superseded or rejected nodes. Must be empty. */
   readonly integrityViolations: readonly string[];
   readonly latencyMs: number;
+  /** Eligible facts in the whole tenant universe, for this purpose. */
+  readonly universeCount: number;
+  /** The candidate set's own label: exhaustive means "this IS the eligible universe". */
+  readonly generation: "exhaustive" | "generated" | "unavailable";
+}
+
+function toSource(record: KnowledgeSourceRecord, seeded: SeededCorpus, integrityViolations: string[]): RelevanceSource {
+  const nodeId = record.activeKnowledgeNodeId ?? "";
+  if (seeded.tenantBNodes.has(nodeId)) integrityViolations.push(`other-tenant:${nodeId}`);
+  if (seeded.supersededNodes.has(nodeId)) integrityViolations.push(`superseded:${nodeId}`);
+  if (seeded.rejectedNodes.has(nodeId)) integrityViolations.push(`rejected:${nodeId}`);
+  return {
+    nodeId,
+    factId: record.factId,
+    factKey: record.factKey,
+    knowledgeVersion: record.knowledgeVersion,
+    domainKey: record.domainKey,
+    title: record.title,
+    statement: record.statement,
+  };
 }
 
 export async function measureQuery(
@@ -205,47 +240,52 @@ export async function measureQuery(
   purpose: RelevancePurpose,
   seeded: SeededCorpus,
   repo: DurableKnowledgeRepository,
+  strategy: CandidateStrategy = "lexical",
 ): Promise<QueryMeasurement> {
   const eligible = eligibleKeysFor(purpose);
   const goldEligible = query.gold.filter((key) => eligible.has(key));
   const goldIneligible = query.gold.filter((key) => !eligible.has(key));
+  const integrityViolations: string[] = [];
+
+  /* The eligible universe, read the way the runtime reads it: every current fact, then eligibility. */
+  const listing = await repo.listFacts({ tenantId: seeded.tenantA }, BENCH_NOW);
+  const universe = partitionByEligibility(listing.records, BENCH_NOW, seeded.rejectedNodes).eligible.map((record) =>
+    toSource(record, seeded, integrityViolations),
+  );
+  const universeForPurpose = fixtureEligibility(purpose, universe).eligible;
 
   const started = performance.now();
-  const retrieved = await searchKnowledge(
-    { tenantId: seeded.tenantA },
-    { queryText: query.task, limit: RETRIEVAL_MAX_LIMIT },
-    {
-      getRepo: () => repo,
-      now: () => BENCH_NOW,
-      readRejectedKnowledgeVersions: async () => ({ status: "read", rejectedNodeIds: seeded.rejectedNodes }),
-    },
-  );
+  let retrievedSources: RelevanceSource[];
+  let retrievalStatus: string;
+  if (strategy === "exhaustive") {
+    retrievedSources = universe;
+    retrievalStatus = listing.truncated ? "universe-truncated" : "universe";
+  } else {
+    const retrieved = await searchKnowledge(
+      { tenantId: seeded.tenantA },
+      { queryText: query.task, limit: RETRIEVAL_MAX_LIMIT },
+      {
+        getRepo: () => repo,
+        now: () => BENCH_NOW,
+        readRejectedKnowledgeVersions: async () => ({ status: "read", rejectedNodeIds: seeded.rejectedNodes }),
+      },
+    );
+    retrievalStatus = retrieved.status;
+    retrievedSources = retrieved.status === "matched" ? retrieved.candidates.map(({ record }) => toSource(record, seeded, integrityViolations)) : [];
+  }
   const latencyMs = performance.now() - started;
 
-  const integrityViolations: string[] = [];
-  const retrievedSources: RelevanceSource[] =
-    retrieved.status === "matched"
-      ? retrieved.candidates.map(({ record }) => {
-          const nodeId = record.activeKnowledgeNodeId ?? "";
-          if (seeded.tenantBNodes.has(nodeId)) integrityViolations.push(`other-tenant:${nodeId}`);
-          if (seeded.supersededNodes.has(nodeId)) integrityViolations.push(`superseded:${nodeId}`);
-          if (seeded.rejectedNodes.has(nodeId)) integrityViolations.push(`rejected:${nodeId}`);
-          return {
-            nodeId,
-            factId: record.factId,
-            factKey: record.factKey,
-            knowledgeVersion: record.knowledgeVersion,
-            domainKey: record.domainKey,
-            title: record.title,
-            statement: record.statement,
-          };
-        })
-      : [];
-
   const gate = fixtureEligibility(purpose, retrievedSources);
+  /*
+   * RELEVANCE-2B REPAIR: since RELEVANCE-2A the candidate set defaults to `exhaustive`, and this call
+   * never said otherwise — so lexical matches were labelled as the whole eligible universe, and a
+   * "none relevant" over them would have claimed more than lexical search can know. Lexical candidates
+   * are now labelled `generated` over the measured universe; only the exhaustive strategy is exhaustive.
+   */
   const set = buildRelevanceCandidateSet({
     purpose,
     eligibility: { status: "established", eligible: gate.eligible, withheldCount: gate.withheld.length },
+    generation: strategy === "exhaustive" ? { kind: "exhaustive" } : { kind: "generated", method: "lexical", universeCount: universeForPurpose.length },
   });
   const candidateKeys = set.status === "built" ? set.candidates.map((c) => c.factKey) : [];
   const withheld = gate.withheld;
@@ -258,8 +298,17 @@ export async function measureQuery(
   const candidateRecall = goldEligible.length === 0 ? null : goldEligible.filter((key) => candidateKeys.includes(key)).length / goldEligible.length;
   const missing = goldEligible.filter((key) => !candidateKeys.includes(key));
 
-  const outcome = await selectRelevant({ purpose, task: query.task, limit: RETRIEVAL_DEFAULT_LIMIT }, set, LEXICAL_ORDER_JUDGE);
-  const selectedKeys = outcome.status === "selected" || outcome.status === "degraded" ? outcome.selections.map((s) => s.candidate.factKey) : [];
+  /* Exhaustive hands the whole admitted set on; lexical keeps the shipped first-N selection. */
+  const outcome =
+    strategy === "exhaustive"
+      ? null
+      : await selectRelevant({ purpose, task: query.task, limit: RETRIEVAL_DEFAULT_LIMIT }, set, LEXICAL_ORDER_JUDGE);
+  const selectedKeys =
+    outcome === null
+      ? candidateKeys
+      : outcome.status === "selected" || outcome.status === "degraded"
+        ? outcome.selections.map((s) => s.candidate.factKey)
+        : [];
   const falseInclusions = selectedKeys.filter((key) => !goldEligible.includes(key));
   const falseExclusions = goldEligible.filter((key) => !selectedKeys.includes(key));
   const precision = selectedKeys.length === 0 ? null : (selectedKeys.length - falseInclusions.length) / selectedKeys.length;
@@ -267,11 +316,12 @@ export async function measureQuery(
 
   return {
     queryId: query.id,
+    strategy,
     purpose,
     classes: query.classes,
     lang: query.lang,
     grounding: query.grounding,
-    retrievalStatus: retrieved.status,
+    retrievalStatus,
     goldEligible,
     goldIneligible,
     candidateKeys,
@@ -279,7 +329,7 @@ export async function measureQuery(
     recallAt,
     candidateRecall,
     missing,
-    selectionStatus: outcome.status,
+    selectionStatus: outcome === null ? "selected" : outcome.status,
     selectedKeys,
     precision,
     falseInclusions,
@@ -288,15 +338,51 @@ export async function measureQuery(
     leakedIneligible,
     integrityViolations,
     latencyMs,
+    universeCount: universeForPurpose.length,
+    generation: set.status === "unavailable" ? "unavailable" : set.generation.kind,
   };
 }
 
-export async function measureAll(seeded: SeededCorpus, repo: DurableKnowledgeRepository): Promise<readonly QueryMeasurement[]> {
+export async function measureAll(
+  seeded: SeededCorpus,
+  repo: DurableKnowledgeRepository,
+  strategy: CandidateStrategy = "lexical",
+): Promise<readonly QueryMeasurement[]> {
   const out: QueryMeasurement[] = [];
   for (const purpose of ["internal-answer", "public-content-grounding"] as const) {
-    for (const query of QUERIES) out.push(await measureQuery(query, purpose, seeded, repo));
+    for (const query of QUERIES) out.push(await measureQuery(query, purpose, seeded, repo, strategy));
   }
   return out;
+}
+
+/*
+ * RELEVANCE-2B — WHY A ROW FAILED, ONE CATEGORY PER CAUSE, NEVER ONE HIDING ANOTHER.
+ *
+ *   A candidate-generation   an eligible gold fact never became a candidate
+ *   B semantic-matching      … and the task's language or wording differs from the fact's (A's cause)
+ *   C ranking                a gold fact was a candidate but the selection cut it
+ *   D grounding-sufficiency  the task asks for facts, none eligible exists, and something was still
+ *                            handed on — the adjacent-fact substitution RELEVANCE-1 saw in q22/q23
+ *   E eligibility-exclusion  a relevant fact was withheld by the purpose gate (correct, reported)
+ *   F task-understanding     no eligible gold exists and the consumer still received facts, or the
+ *                            task is generic and more than half of what was handed on is not gold
+ */
+export type FailureCategory = "A" | "B" | "C" | "D" | "E" | "F";
+const SEMANTIC_GAP: ReadonlySet<string> = new Set(["en-to-tr", "tr-to-en", "paraphrase", "low-overlap"]);
+const GENERIC: ReadonlySet<string> = new Set(["generic-noise", "company-name"]);
+
+export function classifyFailure(row: QueryMeasurement): readonly FailureCategory[] {
+  const out = new Set<FailureCategory>();
+  const generationMissed = row.goldEligible.filter((key) => !row.candidateKeys.includes(key));
+  if (generationMissed.length > 0) {
+    out.add("A");
+    if (row.classes.some((c) => SEMANTIC_GAP.has(c))) out.add("B");
+  }
+  if (row.goldEligible.some((key) => row.candidateKeys.includes(key) && !row.selectedKeys.includes(key))) out.add("C");
+  if (row.goldIneligible.length > 0) out.add("E");
+  if (row.goldEligible.length === 0 && row.selectedKeys.length > 0) out.add(row.grounding === "organizational-facts-required" ? "D" : "F");
+  if (row.classes.some((c) => GENERIC.has(c)) && row.selectedKeys.length > 0 && row.falseInclusions.length * 2 > row.selectedKeys.length) out.add("F");
+  return [...out].sort();
 }
 
 /* ── aggregation ──────────────────────────────────────────────────────────── */
