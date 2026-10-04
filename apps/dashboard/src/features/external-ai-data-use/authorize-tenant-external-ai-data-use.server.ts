@@ -10,15 +10,15 @@
  * R2E control. Whether a disclosure may happen is decided later, by the resolver, from every
  * authority at once.
  *
- * ── RELEASE A CANNOT PRODUCE AN ACTIVE AUTHORIZATION ────────────────────────
+ * ── WHAT IT CAN ACCEPT ──────────────────────────────────────────────────────
  *
- * Two independent facts, either of which suffices:
- *
- *   1. Every pair must be ALLOWED by the platform policy at write time, and the recorded policy's
- *      type admits no ALLOWED cell (`allowedCells: readonly never[]`). The writer is handed no other
- *      policy at runtime; only tests inject one.
- *   2. An active revision must name an existing attestation (CHECK + composite FK), and no
- *      attestation writer exists in Release A.
+ * Every pair must be ALLOWED by the platform policy at write time, under the treatment of the
+ * attestation the human chose, and an active revision must name an existing attestation (CHECK +
+ * composite FK). Release A satisfied neither. Since B1C an Anthropic attestation is admitted, and
+ * since B1D the recorded policy ALLOWS exactly `anthropic/messages` × `assistance` ×
+ * {`conversation`, `knowledge`, `work-artifact`} — so those pairs, and only those, can now be
+ * accepted. Nothing writes one on its own: it takes a named Governance holder's session act. The
+ * writer is handed no other policy at runtime; only tests inject one.
  *
  * ── WHY THE TENANT IS NEVER AN ARGUMENT ─────────────────────────────────────
  *

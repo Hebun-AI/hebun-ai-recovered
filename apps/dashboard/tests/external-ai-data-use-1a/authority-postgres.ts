@@ -228,7 +228,13 @@ async function main(): Promise<void> {
       "an ACTIVE revision naming an attestation that does not exist is a database error",
     );
 
-    /* ═══ 3. INERT BY THE POLICY: even WITH an attestation, the recorded policy allows nothing ═ */
+    /*
+     * ═══ 3. BOUNDED BY THE POLICY: even WITH an attestation, the recorded policy refuses every pair it
+     * does not name. Release A pinned "refuses every cell"; B1D (Director, 2026-10-04) ALLOWS exactly
+     * assistance × {conversation, knowledge, work-artifact} for anthropic/messages, so this section now
+     * offers pairs OUTSIDE those three. The acceptance of an in-scope pair is proven in a throwaway
+     * database by tests/external-ai-data-use-b1d/tenant-writer-postgres.ts. ═══════════════════════
+     */
     assert.equal(
       (await readLatestProcessorAttestation("anthropic/messages", ACCOUNT, baseDeps)).status,
       "absent",
@@ -239,12 +245,22 @@ async function main(): Promise<void> {
       { purpose: "assistance", dataClass: "conversation" },
       { purpose: "assistance", dataClass: "knowledge" },
     ] as const;
-    const recorded = await authorizeTenantExternalAiDataUse(
-      aTenant,
-      { attestationId: att1, scopes: pairs, justification: JUSTIFICATION, observedRevision: null },
-      baseDeps,
-    );
-    assert.deepEqual(recorded, { status: "refused", reason: "platform-not-allowed" }, "the RECORDED policy refuses every cell");
+    for (const outside of [
+      [{ purpose: "assistance", dataClass: "organization" }],
+      [{ purpose: "relevance-selection", dataClass: "conversation" }],
+      [{ purpose: "assistance", dataClass: "conversation" }, { purpose: "agent-origination", dataClass: "work-artifact" }],
+    ] as const) {
+      const recorded = await authorizeTenantExternalAiDataUse(
+        aTenant,
+        { attestationId: att1, scopes: outside, justification: JUSTIFICATION, observedRevision: null },
+        baseDeps,
+      );
+      assert.deepEqual(
+        recorded,
+        { status: "refused", reason: "platform-not-allowed" },
+        "the RECORDED policy refuses every pair outside the three B1D cells — one outside pair refuses the whole write",
+      );
+    }
     assert.equal(
       (await setup.query(`select count(*)::int n from tenant_ai_data_use_authorizations`)).rows[0].n,
       0,
@@ -351,7 +367,11 @@ async function main(): Promise<void> {
     /* Containment: B holds nothing, and A's row is invisible through B's lineage read. */
     assert.equal((await readEffectiveTenantExternalAiDataUse(b.tenantId, "anthropic/messages", ACCOUNT, baseDeps)).status, "absent");
 
-    /* The RECORDED policy still yields no disclosure, even for the tenant that authorized. */
+    /*
+     * Under the RECORDED policy the composition now follows the tenant's own authorization (B1D), and
+     * a class outside the three cells is still UNKNOWN. Release A pinned platform-unknown here. The
+     * composer is pure and runtime calls it nowhere yet (B2) — the firewall file proves that.
+     */
     const latest = await readLatestProcessorAttestation("anthropic/messages", ACCOUNT, baseDeps);
     assert.equal(latest.status, "read");
     const resolved = composeExternalAiDisclosure({
@@ -363,7 +383,20 @@ async function main(): Promise<void> {
       operatorEnabled: true,
       providerAvailable: true,
     });
-    assert.equal(resolved.disposition, "platform-unknown", "Release A grants no disclosure to anyone");
+    assert.equal(resolved.disposition, "authorized", "this test database's own authorization is honoured for an ALLOWED cell");
+    assert.equal(
+      composeExternalAiDisclosure({
+        request: { serviceScope: "anthropic/messages", purpose: "assistance", requiredDataClasses: ["organization"] },
+        policy: RECORDED_PLATFORM_DISCLOSURE_POLICY,
+        accountRef: ACCOUNT,
+        attestation: latest,
+        tenant: effective,
+        operatorEnabled: true,
+        providerAvailable: true,
+      }).disposition,
+      "platform-unknown",
+      "a class outside the three B1D cells is still UNKNOWN",
+    );
 
     /* ═══ 6. CAS, NO-OP, REVISIONS ════════════════════════════════════════════════════════════ */
     assert.deepEqual(

@@ -15,12 +15,18 @@
  * The decision is closed: a cell is `denied`, `allowed`, or — when nothing is recorded — `unknown`,
  * and `unknown` refuses exactly as `denied` does. No wildcard, no default-allow.
  *
- * ── RELEASE A: NO ALLOWED CELL CAN BE RECORDED ──────────────────────────────
+ * ── B1D: THE FIRST ALLOWED CELLS, AND NO ROOM FOR A FOURTH ─────────────────
  *
- * The recorded policy declares `allowedCells: readonly never[]`. That is a statement about the TYPE,
- * not an observation that the list happens to be empty: adding an ALLOW requires changing this
- * declaration, which is the reviewed B1 admission step. Tests may inject a policy of the wider type
- * to exercise the logic; no runtime caller passes one.
+ * Release A declared `allowedCells: readonly never[]`. EXTERNAL-AI-DATA-USE-B1D (Director, 2026-10-04)
+ * widens that declaration by exactly three cells — `anthropic/messages` × `assistance` ×
+ * {`conversation`, `knowledge`, `work-artifact`} — under one set of bounds. The recorded policy's TYPE
+ * still names those three and nothing else (`RecordedAllowedCell`): a fourth cell, another purpose or
+ * another scope is a reviewed type change, not a list edit. Tests may inject a policy of the wider
+ * type to exercise the logic; no runtime caller passes one.
+ *
+ * An ALLOWED cell is platform acceptability only. It authorizes no tenant (Governance does that, per
+ * organization) and nothing at runtime consults this policy yet (B2). It is NOT a claim that the
+ * conversation, Knowledge or work-artifact text that would cross is free of personal data.
  *
  * ── WHERE MEDIA STANDS ──────────────────────────────────────────────────────
  *
@@ -77,16 +83,51 @@ export interface PlatformDisclosurePolicy {
 const HIGGSFIELD_DENIAL_EVIDENCE =
   "EXTERNAL-AI-DATA-USE-PROVIDER-FACTS (Director, 2026-10-04): Higgsfield Terms of Use §4.4 let Higgsfield train on inputs and outputs unless a qualifying Enterprise Agreement exists; none is proven for Hebun.";
 
+/** The only cells the recorded policy can hold. Widening any member is a reviewed type change. */
+export type RecordedAllowedCell = AllowedPlatformCell & {
+  readonly serviceScope: "anthropic/messages";
+  readonly purpose: "assistance";
+  readonly dataClass: "conversation" | "knowledge" | "work-artifact";
+};
+
+/**
+ * The bounds every B1D cell requires of the Anthropic attestation in force. The admitted B1C
+ * attestation (revision 1: anthropic-commercial-terms, training none, bounded-30-days, attested,
+ * ZDR not enabled) sits inside them; an attestation that widens past any bound stops satisfying the
+ * cell, and the resolver and the tenant writer refuse.
+ */
+export const ANTHROPIC_ASSISTANCE_BOUNDS: PlatformTreatmentBounds = Object.freeze({
+  contractSurfaces: Object.freeze(["anthropic-commercial-terms"] as const),
+  maxTraining: "none",
+  maxRetention: "bounded-30-days",
+  minimumIdentity: "attested",
+  zdrRequired: false,
+} as const);
+
+const ANTHROPIC_ASSISTANCE_ALLOW_EVIDENCE =
+  "EXTERNAL-AI-DATA-USE-B1D (Director, 2026-10-04): platform ALLOW for anthropic/messages × assistance × {conversation, knowledge, work-artifact} only, bound to processor attestation ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, admitted B1C, identity_status attested — not verified) and its reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33. Unverified at decision: production credential ↔ observed Dashboard key equality; custom agreement / BAA status; per-request processing geography. Free text is not claimed free of personal data.";
+
+function anthropicAssistanceCell(dataClass: RecordedAllowedCell["dataClass"]): RecordedAllowedCell {
+  return Object.freeze({
+    serviceScope: "anthropic/messages",
+    purpose: "assistance",
+    dataClass,
+    decision: "allowed",
+    bounds: ANTHROPIC_ASSISTANCE_BOUNDS,
+    evidence: ANTHROPIC_ASSISTANCE_ALLOW_EVIDENCE,
+  } as const);
+}
+
 /**
  * THE RECORDED POLICY.
  *
  * Both Higgsfield scopes are DENIED for every purpose and data class; the runtime integration and
- * its own disabled root controls are left exactly as they are. Anthropic and OpenAI have no cell:
- * they are UNKNOWN until account-specific evidence is admitted (B1).
+ * its own disabled root controls are left exactly as they are. Anthropic is ALLOWED for the three
+ * B1D cells and UNKNOWN for every other purpose and data class. OpenAI has no cell: UNKNOWN.
  */
 export const RECORDED_PLATFORM_DISCLOSURE_POLICY: {
   readonly deniedServiceScopes: readonly DeniedServiceScope[];
-  readonly allowedCells: readonly never[];
+  readonly allowedCells: readonly RecordedAllowedCell[];
 } = Object.freeze({
   deniedServiceScopes: Object.freeze([
     Object.freeze({
@@ -100,7 +141,11 @@ export const RECORDED_PLATFORM_DISCLOSURE_POLICY: {
       evidence: HIGGSFIELD_DENIAL_EVIDENCE,
     } as const),
   ]),
-  allowedCells: Object.freeze([]) as readonly never[],
+  allowedCells: Object.freeze([
+    anthropicAssistanceCell("conversation"),
+    anthropicAssistanceCell("knowledge"),
+    anthropicAssistanceCell("work-artifact"),
+  ]),
 });
 
 export type PlatformDisclosureVerdict =

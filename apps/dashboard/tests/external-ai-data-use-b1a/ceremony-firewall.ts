@@ -90,12 +90,18 @@ assert.match(read("package.json"), /"platform:processor-attestation": "node --im
   assert.doesNotMatch(child.stdout + child.stderr, /PROCESSOR ATTESTATION CEREMONY —/, "no plan was shown");
 }
 
-/* ── 5. B1A changes no policy and no runtime. ────────────────────────────────────────────────── */
-assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 0);
-assert.match(
-  read("src/features/external-ai-data-use/platform-disclosure-policy.ts"),
-  /readonly allowedCells: readonly never\[\];[\s\S]*allowedCells: Object\.freeze\(\[\]\) as readonly never\[\]/,
-  "the recorded policy's TYPE still admits no ALLOWED cell",
+/*
+ * ── 5. B1A changes no policy and no runtime. ─────────────────────────────────────────────────
+ * The policy pin moved with B1D (Director, 2026-10-04), which recorded exactly three ALLOWED cells in
+ * a separate reviewed change; the ceremony itself still writes no policy. The runtime pin is unchanged.
+ */
+assert.deepEqual(
+  RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.map((c) => `${c.serviceScope}|${c.purpose}|${c.dataClass}`),
+  ["anthropic/messages|assistance|conversation", "anthropic/messages|assistance|knowledge", "anthropic/messages|assistance|work-artifact"],
+);
+assert.ok(
+  !read("scripts/lib/processor-attestation.ts").includes("RECORDED_PLATFORM_DISCLOSURE_POLICY"),
+  "the attestation ceremony writes no platform policy",
 );
 for (const file of walk("src").filter((f) => /^src\/features\/(heby-model|heby-model-live|heby-answer|agent-origination)\//.test(f))) {
   assert.ok(!read(file).includes("processor-attestation"), `${file} does not reach the ceremony`);

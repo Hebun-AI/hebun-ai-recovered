@@ -7,6 +7,11 @@
  *    for every Anthropic and OpenAI cell, and cannot hold an ALLOWED cell at all in this release —
  *    not because nobody wrote one, but because its type has no room for one."
  *
+ * B1D (Director, 2026-10-04) changed that recorded decision on purpose: the policy now ALLOWS exactly
+ * anthropic/messages × assistance × {conversation, knowledge, work-artifact}, and its type has room
+ * for those three and no other. The pins in §2 and §3 change with it; everything else here is
+ * unchanged. The full B1D proof lives in tests/external-ai-data-use-b1d/.
+ *
  * No database, no provider, no network.
  */
 import assert from "node:assert/strict";
@@ -91,7 +96,9 @@ assert.equal(TENANT_EXTERNAL_AI_DATA_USE_SUBJECT_TYPE, "tenant_external_ai_data_
 assert.equal(TENANT_EXTERNAL_AI_DATA_USE_AUTHORIZED_OUTCOME, "external-ai-data-use-authorized");
 assert.equal(TENANT_EXTERNAL_AI_DATA_USE_WITHDRAWN_OUTCOME, "external-ai-data-use-withdrawn");
 
-/* ── 2. THE RECORDED POLICY: Higgsfield DENIED everywhere, everything else UNKNOWN. ──────────── */
+/* ── 2. THE RECORDED POLICY: Higgsfield DENIED everywhere, the three B1D cells ALLOWED, everything
+ * else UNKNOWN. ──────────────────────────────────────────────────────────────────────────────── */
+const B1D_ALLOWED = new Set(["anthropic/messages|assistance|conversation", "anthropic/messages|assistance|knowledge", "anthropic/messages|assistance|work-artifact"]);
 for (const serviceScope of SERVICE_SCOPES) {
   for (const purpose of PURPOSES) {
     for (const dataClass of DATA_CLASSES) {
@@ -99,23 +106,30 @@ for (const serviceScope of SERVICE_SCOPES) {
       if (serviceScope.startsWith("higgsfield/")) {
         assert.equal(verdict.decision, "denied", `${serviceScope} × ${purpose} × ${dataClass} is DENIED`);
         assert.match(verdict.basis, /Higgsfield/);
+      } else if (B1D_ALLOWED.has(`${serviceScope}|${purpose}|${dataClass}`)) {
+        assert.equal(verdict.decision, "allowed", `${serviceScope} × ${purpose} × ${dataClass} is ALLOWED (B1D)`);
       } else {
         assert.equal(verdict.decision, "unknown", `${serviceScope} × ${purpose} × ${dataClass} is UNKNOWN`);
       }
     }
   }
 }
-assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 0, "Release A records no ALLOWED cell");
+assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 3, "B1D records exactly three ALLOWED cells");
 
-/* ── 3. NOT AN ACCIDENT: the recorded policy's TYPE has no room for an ALLOWED cell. ─────────── */
+/* ── 3. NOT AN ACCIDENT: the recorded policy's TYPE has room for those three cells only. ────── */
 const policySource = readFileSync(
   path.join(ROOT, "src/features/external-ai-data-use/platform-disclosure-policy.ts"),
   "utf8",
 );
 assert.match(
   policySource,
-  /allowedCells:\s*readonly never\[\]/,
-  "the recorded policy declares `allowedCells: readonly never[]` — adding an ALLOW is a reviewed type change (B1)",
+  /allowedCells:\s*readonly RecordedAllowedCell\[\]/,
+  "the recorded policy declares `allowedCells: readonly RecordedAllowedCell[]` — another ALLOW is a reviewed type change",
+);
+assert.match(
+  policySource,
+  /readonly serviceScope: "anthropic\/messages";\s*readonly purpose: "assistance";\s*readonly dataClass: "conversation" \| "knowledge" \| "work-artifact";/,
+  "the recorded cell type names one scope, one purpose and three data classes",
 );
 assert.ok(!/\bwildcard\b|"\*"/.test(policySource.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")), "no wildcard");
 

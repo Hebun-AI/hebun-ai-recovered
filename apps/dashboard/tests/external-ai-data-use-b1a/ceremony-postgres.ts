@@ -202,7 +202,14 @@ async function main(): Promise<void> {
       operatorEnabled: true,
       providerAvailable: true,
     });
-    assert.equal(resolved.disposition, "platform-unknown", "B1A admits facts; it allows nothing");
+    /*
+     * B1A admits facts; it allows nothing. Release A pinned platform-unknown here; since B1D the
+     * platform ALLOWS this cell, so an admitted attestation with no tenant authorization stops at the
+     * organization — still no disclosure.
+     */
+    assert.equal(resolved.disposition, "tenant-not-authorized", "an admitted attestation alone discloses nothing");
+    assert.equal(resolved.authorizationId, null);
+    assert.equal(resolved.authorizedDataClasses.length, 0);
   } finally {
     await a.end().catch(() => {});
     await b.end().catch(() => {});

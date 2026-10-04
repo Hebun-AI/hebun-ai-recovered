@@ -168,10 +168,25 @@ assert.equal(
   }).disposition,
   "platform-denied",
 );
+/*
+ * B1D changed the RECORDED policy on purpose: Release A pinned it as platform-unknown for Anthropic
+ * with everything else in place. It now ALLOWS anthropic/messages × assistance × {conversation,
+ * knowledge, work-artifact}, so without a tenant authorization the answer is the tenant's, and any
+ * other purpose is still UNKNOWN.
+ */
 assert.equal(
-  composeExternalAiDisclosure({ ...base, policy: RECORDED_PLATFORM_DISCLOSURE_POLICY }).disposition,
+  composeExternalAiDisclosure({ ...base, policy: RECORDED_PLATFORM_DISCLOSURE_POLICY, tenant: { status: "absent" } }).disposition,
+  "tenant-not-authorized",
+  "the RECORDED policy (B1D) still discloses nothing for an organization that never authorized it",
+);
+assert.equal(
+  composeExternalAiDisclosure({
+    ...base,
+    request: { ...base.request, purpose: "relevance-selection" },
+    policy: RECORDED_PLATFORM_DISCLOSURE_POLICY,
+  }).disposition,
   "platform-unknown",
-  "the RECORDED policy (Release A) yields platform-unknown for Anthropic even with everything else in place",
+  "the RECORDED policy (B1D) is UNKNOWN for every Anthropic purpose but assistance",
 );
 assert.equal(composeExternalAiDisclosure({ ...base, accountRef: null }).disposition, "platform-unknown");
 assert.equal(composeExternalAiDisclosure({ ...base, attestation: { status: "absent" } }).disposition, "platform-unknown");
@@ -233,7 +248,7 @@ assert.equal(composeExternalAiDisclosure({ ...base, providerAvailable: false }).
 /* FAIL CLOSED: a non-authorized disposition never carries an authorization or a data class. */
 for (const refused of [
   composeExternalAiDisclosure(withdrawn),
-  composeExternalAiDisclosure({ ...base, policy: RECORDED_PLATFORM_DISCLOSURE_POLICY }),
+  composeExternalAiDisclosure({ ...base, policy: RECORDED_PLATFORM_DISCLOSURE_POLICY, tenant: { status: "absent" } }),
   composeExternalAiDisclosure({ ...base, operatorEnabled: false }),
 ]) {
   assert.notEqual(refused.disposition, "authorized");
