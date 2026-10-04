@@ -182,7 +182,9 @@ function reachesNoConsequentialAuthority(): void {
 
   /* No model touches the answer: a recorded act may not be summarized, softened or classified. */
   for (const file of graph) {
-    const lower = codeOf(read(file)).toLowerCase();
+    /* EXTERNAL-AI-DATA-USE-1A: the data-use schema names the processor family as closed CHECK vocabulary (DATA, not a
+     * transport). Only those two exact literals are removed before the ban; any other occurrence still fails. */
+    const lower = (file.endsWith("src/db/schema/external-ai-data-use.ts") ? codeOf(read(file)).replace(/"anthropic\/messages"|"anthropic-commercial-terms"/g, '""') : codeOf(read(file))).toLowerCase();
     for (const forbidden of ["anthropic", "selectmodeltransport", "generatehebymodelanswer"]) {
       assert.ok(!lower.includes(forbidden), `${file} must not reach the model via "${forbidden}"`);
     }

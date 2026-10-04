@@ -125,6 +125,13 @@ import {
   TENANT_EXTERNAL_SEND_SUBJECT_TYPE,
 } from "@/features/tenant-external-send-authority/contracts";
 import {
+  EXTERNAL_AI_DATA_USE_DOMAIN,
+  TENANT_EXTERNAL_AI_DATA_USE_AUTHORIZED_OUTCOME,
+  TENANT_EXTERNAL_AI_DATA_USE_SUBJECT_TYPE,
+  TENANT_EXTERNAL_AI_DATA_USE_WITHDRAWN_OUTCOME,
+  TENANT_EXTERNAL_AI_DATA_USE_WITHDRAW_DECISION_TYPE,
+} from "@/features/external-ai-data-use/contracts";
+import {
   STANDING_MUTATION_AUTHORIZED_OUTCOME,
   STANDING_MUTATION_DOMAIN,
   STANDING_MUTATION_SUBJECT_TYPE,
@@ -219,7 +226,9 @@ export async function writeGovernanceDecisionWithin(
       /* MEDIA-1 — one exact admitted image. */
       | typeof MEDIA_ASSET_REVIEW_SUBJECT_TYPE
       /* KT-3 — whether one exact Knowledge version may be public factual grounding. */
-      | typeof PUBLIC_USE_SUBJECT_TYPE;
+      | typeof PUBLIC_USE_SUBJECT_TYPE
+      /* EXTERNAL-AI-DATA-USE-1A — the data-use revision a decision authorizes or withdraws. */
+      | typeof TENANT_EXTERNAL_AI_DATA_USE_SUBJECT_TYPE;
     readonly subjectId: string;
     readonly justification: string;
     readonly evidence?: Record<string, unknown>;
@@ -341,6 +350,13 @@ export async function writeGovernanceDecisionWithin(
                    */
                   input.subjectType === TENANT_EXTERNAL_SEND_SUBJECT_TYPE
                 ? TENANT_EXTERNAL_SEND_DOMAIN
+                : /*
+                   * EXTERNAL-AI-DATA-USE-1A — whether this organization's information may cross to an
+                   * external AI processor. Its own domain: it arms no send (`external-send`) and
+                   * authorizes no act (`action-authorization`).
+                   */
+                  input.subjectType === TENANT_EXTERNAL_AI_DATA_USE_SUBJECT_TYPE
+                ? EXTERNAL_AI_DATA_USE_DOMAIN
                 : input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
                 ? STANDING_OBSERVATION_DOMAIN
                 : input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
@@ -396,6 +412,15 @@ export async function writeGovernanceDecisionWithin(
       ? input.decisionType === TENANT_EXTERNAL_SEND_DISARM_DECISION_TYPE
         ? TENANT_EXTERNAL_SEND_DISARMED_OUTCOME
         : TENANT_EXTERNAL_SEND_ARMED_OUTCOME
+      /*
+       * THE SAME TRAP, AND THE SAME DEFENCE. `approve` would otherwise be filed as a person joining
+       * the organization, and `revoke` as Governance AUTHORITY being taken away. Withdrawing external
+       * processing does neither.
+       */
+      : input.subjectType === TENANT_EXTERNAL_AI_DATA_USE_SUBJECT_TYPE
+      ? input.decisionType === TENANT_EXTERNAL_AI_DATA_USE_WITHDRAW_DECISION_TYPE
+        ? TENANT_EXTERNAL_AI_DATA_USE_WITHDRAWN_OUTCOME
+        : TENANT_EXTERNAL_AI_DATA_USE_AUTHORIZED_OUTCOME
       : input.subjectType === STANDING_OBSERVATION_SUBJECT_TYPE
       ? input.decisionType === STANDING_OBSERVATION_WITHDRAW_DECISION_TYPE
         ? STANDING_OBSERVATION_WITHDRAWN_OUTCOME

@@ -1038,6 +1038,16 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * the two questions apart. Additive: no existing row changes meaning.
    */
   "knowledge-public-use",
+  /**
+   * EXTERNAL-AI-DATA-USE-1A — whether this organization agrees that its information may cross
+   * Hebun's trust boundary to an external AI processor, for a declared purpose and data class.
+   *
+   * Its own domain. `external-send` is the neighbour that matters: that domain arms an organization
+   * to DELIVER something to a person outside it. This one is about handing organizational
+   * information to a processor so it can answer, and arms no send. `action-authorization` is the
+   * other: a data-use decision authorizes no act. Additive: no existing row changes meaning.
+   */
+  "external-ai-data-use",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",
@@ -1413,6 +1423,30 @@ export const tenantExternalSendStateEnum = pgEnum("tenant_external_send_state", 
  * a second opinion about a question the rows already answer.
  */
 export const standingMutationStateEnum = pgEnum("standing_mutation_state", [
+  "active",
+  "withdrawn",
+]);
+
+/**
+ * The lifecycle of one PROCESSOR ATTESTATION revision (EXTERNAL-AI-DATA-USE-1A).
+ *
+ * A reviewed external processing boundary either stands or has been taken back. `superseded` is
+ * derived from a later revision in the same lineage, never stored. Its own enum: an attestation is a
+ * PLATFORM fact and must not share a lifecycle type with any tenant authority.
+ */
+export const processorAttestationStateEnum = pgEnum("processor_attestation_state", [
+  "active",
+  "withdrawn",
+]);
+
+/**
+ * The lifecycle of one TENANT EXTERNAL-AI DATA-USE authorization revision (EXTERNAL-AI-DATA-USE-1A).
+ *
+ * The same two words as every standing-authorization sibling, in a SEPARATE enum for the reason
+ * those siblings give: reusing another authority's type would make PostgreSQL say they share a
+ * lifecycle, and widening one would silently widen the other.
+ */
+export const tenantExternalAiDataUseStateEnum = pgEnum("tenant_external_ai_data_use_state", [
   "active",
   "withdrawn",
 ]);

@@ -275,12 +275,13 @@ async function main(): Promise<void> {
     /* This repair added none. YOUTUBE-WRITE-2's approved migration 68 widens one CHECK (pinned in its own tests). */
     /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ 
     /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
-    assert.equal(migrations.length, 70, "ledger 70 since KT-3");
+    /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (inert external-AI data-use authority; additive). */
+    assert.equal(migrations.length, 71, "ledger 71 since EXTERNAL-AI-DATA-USE-1A");
     const touched = execSync("git diff --name-only 4059a176 -- src/db", { cwd: ROOT, encoding: "utf8" })
       .trim()
       .split("\n")
       .filter(Boolean)
-      .filter((f) => !/youtube_write2_recipientless_kind|20260928084834_snapshot|supplied_media_account_provenance|20260929134334_snapshot|knowledge_public_use_domain|20261003074659_snapshot|_journal\.json|schema\/action-execution\.ts$|schema\/media-asset\.ts$|schema\/_enums\.ts$/.test(f));
+      .filter((f) => !/youtube_write2_recipientless_kind|20260928084834_snapshot|supplied_media_account_provenance|20260929134334_snapshot|knowledge_public_use_domain|external_ai_data_use_authority|20261004073713_snapshot|20261003074659_snapshot|_journal\.json|schema\/action-execution\.ts$|schema\/media-asset\.ts$|schema\/_enums\.ts$|schema\/index\.ts$|schema\/external-ai-data-use\.ts$/.test(f)); /* EXTERNAL-AI-DATA-USE-1A: its schema module and the barrel export of it. */
     assert.deepEqual(touched, [], "no other src/db file changed");
   }
 

@@ -218,7 +218,7 @@ async function main(): Promise<void> {
   }
 
   /* O · WRITE-1 added no schema; YOUTUBE-WRITE-2's approved migration 68 is pinned in its own tests */
-  assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 70, "ledger 70 since KT-3"); /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */  /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
+  assert.equal(readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).length, 71, "ledger 71 since EXTERNAL-AI-DATA-USE-1A"); /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (processor_attestations + tenant_ai_data_use_authorizations + tenant_ai_data_use_scopes, two state enums, governance_domain += 'external-ai-data-use'; additive). */ /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */  /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
   for (const f of walk("src/db/schema")) assert.doesNotMatch(read(f), /youtube_channel|channel_binding|publish_channel/i);
 
   /* P · provider failure fails closed and is classified */

@@ -33,6 +33,12 @@ import type {
   EnrollmentDecisionResult,
 } from "@/features/identity-enrollment/contracts";
 import { decideImprovementHypothesis } from "@/features/agent-improvement-hypothesis/decide-improvement-hypothesis.server";
+import {
+  authorizeTenantExternalAiDataUse,
+  withdrawTenantExternalAiDataUse,
+  type TenantExternalAiDataUseWriteResult,
+} from "@/features/external-ai-data-use/authorize-tenant-external-ai-data-use.server";
+import type { ScopePair, ServiceScope } from "@/features/external-ai-data-use/contracts";
 import type {
   HypothesisDecision,
   HypothesisDecisionResult,
@@ -315,5 +321,53 @@ export async function decideImprovementHypothesisAction(input: {
     /* The Agents surface renders each hypothesis WITH its decision, so it is stale now too. */
     revalidatePath("/agents");
   }
+  return result;
+}
+
+/*
+ * ── EXTERNAL-AI-DATA-USE-1A: this organization's agreement to external AI processing ────────────
+ *
+ * The client names the reviewed attestation it was shown, the (purpose, data class) pairs, the
+ * revision it believed was current, and a justification. The tenant, the actor, whether they hold
+ * Governance, the lineage's scope and account, the decision, and every timestamp are resolved
+ * server-side. There is no tenant, actor or policy parameter: the writer runs with the RECORDED
+ * platform policy, which in this release admits no ALLOWED cell — so this action cannot produce an
+ * active authorization, and an agent has no path to it at all.
+ *
+ * NOTHING HERE ENABLES A MODEL CALL. No Heby, origination or media path consults this authority in
+ * this release; R2E and the transport are untouched.
+ */
+export async function authorizeTenantExternalAiDataUseAction(input: {
+  attestationId: string;
+  scopes: readonly ScopePair[];
+  justification: string;
+  observedRevision: number | null;
+}): Promise<TenantExternalAiDataUseWriteResult> {
+  const tenant = await resolveTenantContext();
+  const result = await authorizeTenantExternalAiDataUse(tenant, {
+    attestationId: String(input?.attestationId ?? ""),
+    scopes: Array.isArray(input?.scopes) ? input.scopes : [],
+    justification: String(input?.justification ?? ""),
+    observedRevision: typeof input?.observedRevision === "number" ? input.observedRevision : null,
+  });
+  if (result.status === "written") revalidatePath("/governance/authority");
+  return result;
+}
+
+/** Withdraw it. A new revision under its own decision; nothing existing is edited. */
+export async function withdrawTenantExternalAiDataUseAction(input: {
+  serviceScope: ServiceScope;
+  accountRef: string;
+  justification: string;
+  observedRevision: number | null;
+}): Promise<TenantExternalAiDataUseWriteResult> {
+  const tenant = await resolveTenantContext();
+  const result = await withdrawTenantExternalAiDataUse(tenant, {
+    serviceScope: input?.serviceScope,
+    accountRef: String(input?.accountRef ?? ""),
+    justification: String(input?.justification ?? ""),
+    observedRevision: typeof input?.observedRevision === "number" ? input.observedRevision : null,
+  });
+  if (result.status === "written") revalidatePath("/governance/authority");
   return result;
 }

@@ -491,6 +491,13 @@
       "when": 1791013619656,
       "tag": "20261003074659_knowledge_public_use_domain",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1791099433279,
+      "tag": "20261004073713_external_ai_data_use_authority",
+      "breakpoints": true
     }
   ]
 }

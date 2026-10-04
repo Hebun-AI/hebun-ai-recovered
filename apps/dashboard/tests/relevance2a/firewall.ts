@@ -75,8 +75,17 @@ function main(): void {
   /* ── 3. no data-use authority was invented ── */
   {
     const dataUseFiles = collect("src").filter((f) => /data-?use/i.test(f));
+    /*
+     * EXTERNAL-AI-DATA-USE-1A — the Director-approved external-AI data-use authority now exists, in its
+     * own feature and schema. RELEVANCE-2A still invents none: the units below are still checked.
+     */
     for (const file of dataUseFiles) {
-      assert.ok(file.startsWith("src/features/media-assets/"), `${file}: the only data-use authority is the existing media guard`);
+      assert.ok(
+        file.startsWith("src/features/media-assets/") ||
+          file.startsWith("src/features/external-ai-data-use/") ||
+          file === "src/db/schema/external-ai-data-use.ts",
+        `${file}: the only data-use authorities are the media guard and EXTERNAL-AI-DATA-USE-1A`,
+      );
     }
     for (const file of UNIT) {
       assert.ok(!/data-?use|DataUse/i.test(codeOf(read(file))), `${file} declares no data-use policy`);

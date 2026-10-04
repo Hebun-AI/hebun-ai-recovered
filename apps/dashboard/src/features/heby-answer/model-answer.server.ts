@@ -1464,9 +1464,13 @@ async function loadBoundedHistory(
  * recordRef has none either — the client's only input to this call is an opaque conversation id
  * that must already belong to the tenant.
  *
- * What the record claims is that this evidence was admitted to the model's grounding context and
- * shown to the reader. It does NOT claim the model causally used any particular item; that is
- * unobservable, and a record asserting it would be inventing proof.
+ * What the record claims is that this evidence was retrieved and used to construct THIS answer, and
+ * shown to the reader. It does NOT claim the evidence was sent to an external model: when the
+ * Director control is off, or no transport is selected, no model is called at all and this same set
+ * is still persisted. Whether anything crossed to an external processor, under which authorization,
+ * is provenance of the invocation boundary (EXTERNAL-AI-DATA-USE, Release B), never of this row.
+ * Nor does it claim a model causally used any particular item; that is unobservable, and a record
+ * asserting it would be inventing proof.
  */
 async function persistExchange(
   repo: DurableConversationRepository | null,

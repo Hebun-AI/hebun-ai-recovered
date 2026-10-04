@@ -61,6 +61,7 @@ export * from "./standing-observation-authorization";
 /* RUNG 2 prerequisite. Tenant PARTICIPATION in machine execution — never an act's authorization. */
 export * from "./tenant-machine-execution-authorization";
 export * from "./tenant-external-send-authorization";
+export * from "./external-ai-data-use";
 export * from "./standing-mutation-authorization";
 export * from "./document";
 export * from "./notification";

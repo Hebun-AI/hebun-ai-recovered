@@ -95,7 +95,7 @@ function main(): void {
     assert.ok(!/auth\/drive(\.readonly|\.metadata)|GOOGLE_DRIVE_CONTENT_CAPABILITY|GOOGLE_DRIVE_METADATA/.test(raw(f)), `${f}: no wider Drive grant`);
   }
   const migrations = readdirSync("src/db/migrations").filter((f) => f.endsWith(".sql")).sort();
-  assert.match(migrations.at(-1)!, /_knowledge_public_use_domain\.sql$/, "no migration: a batch is orchestration over existing rows"); /* KT-3: the newest migration is now the knowledge-public-use domain; CONTENT-INTAKE-1 still authored none. */
+  assert.match(migrations.at(-1)!, /_external_ai_data_use_authority\.sql$/, "no migration: a batch is orchestration over existing rows"); /* EXTERNAL-AI-DATA-USE-1A: the newest migration is now the external-AI data-use authority. */ /* KT-3: the newest migration is now the knowledge-public-use domain; CONTENT-INTAKE-1 still authored none. */
   assert.ok(!walk("src/db/schema").some((f) => /intake|batch/i.test(f)), "no intake/batch table");
 
   console.log("content-intake-1 batch-firewall: ok");

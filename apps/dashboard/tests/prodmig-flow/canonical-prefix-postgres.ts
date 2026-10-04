@@ -101,8 +101,8 @@ function theCanonicalLedgerIsWellFormed(): void {
    */
   assert.equal(
     CANONICAL.length,
-    70, /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: 63 -> 64. */ /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
-    `this checkout authors ${CANONICAL.length} canonical migrations, and the pin expected 70`,
+    71, /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (processor_attestations + tenant_ai_data_use_authorizations + tenant_ai_data_use_scopes, two state enums, governance_domain += 'external-ai-data-use'; additive). */ /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: 63 -> 64. */ /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
+    `this checkout authors ${CANONICAL.length} canonical migrations, and the pin expected 71`,
   ); /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`). */
   /*
    * PHASE-RELATIVE, not an index. This read `CANONICAL[40]` and therefore named the last entry only
@@ -113,7 +113,7 @@ function theCanonicalLedgerIsWellFormed(): void {
   assert.equal(
     CANONICAL.at(-1)!.tag,
     /* MEDIA-2A — the live image transport's provenance, so this is now the newest canonical migration. */
-    /* KT-3 holds the newest line now; SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1, YOUTUBE-WRITE-2, MV-6, MV-5 and MV-4 held it before. */ "20261003074659_knowledge_public_use_domain",
+    /* EXTERNAL-AI-DATA-USE-1A holds the newest line now; KT-3, SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1, YOUTUBE-WRITE-2, MV-6, MV-5 and MV-4 held it before. */ "20261004073713_external_ai_data_use_authority",
     "and the last of them is the live image transport — the Media Asset authority held this line before it",
   );
 
@@ -157,7 +157,7 @@ function theCanonicalLedgerIsWellFormed(): void {
    * carries the digest for ITS ledger until the migration ceremony is authorized — the gap is a
    * PENDING ROLLOUT, which is exactly what this assertion exists to make visible.
    */
-  assert.equal(canonicalDigest(CANONICAL), "c34da5fcfd0ad8b5a890ab0a9ae0b645", "the release digest"); /* KT-3: 69 -> 70 appended; 08d7acabeccf0b1982b2fa9e23ccd402 is the 69-migration release (SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1). */ /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: 68 -> 69 appended; the first 68 files still digest to 9a9793b12058c292a2dbe78ec659ecfd (YOUTUBE-WRITE-2). */ /* YOUTUBE-WRITE-2: 67 -> 68 appended; 5e950db8d0f5ddd1858a8b8aadd4f2f9 is the 67-migration release (production after MV-6). */ /* MV-6: 66 -> 67 appended; the first 66 files still digest to 51a288a38d93d55448491ae797ca83a0 (MV-5, production). */ /* MV-5: 65 -> 66 appended; the first 65 files still digest to the MV-4 values. */ /* MV-4: 64 -> 65 appended; the first 64 files still digest to the MV-2 values. */ /* MV-2: one appended migration (63 -> 64, none edited) moved the release digest from 71058586…. */ /* MV-0: six appended migrations (57 -> 63, none edited) moved the release digest from 91ea9382…; the disposable-database assertions below follow it. */ /* MEDIA-2A 56 -> 57; production stands at 56 (`3296764e10a243fa621c03b0bfd3cbd7`) until its gated ceremony runs. */
+  assert.equal(canonicalDigest(CANONICAL), "2b57c0408c3198b73e54b923e14365ee", "the release digest"); /* EXTERNAL-AI-DATA-USE-1A: 70 -> 71 appended; c34da5fcfd0ad8b5a890ab0a9ae0b645 is the 70-migration release (KT-3). */ /* KT-3: 69 -> 70 appended; 08d7acabeccf0b1982b2fa9e23ccd402 is the 69-migration release (SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1). */ /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: 68 -> 69 appended; the first 68 files still digest to 9a9793b12058c292a2dbe78ec659ecfd (YOUTUBE-WRITE-2). */ /* YOUTUBE-WRITE-2: 67 -> 68 appended; 5e950db8d0f5ddd1858a8b8aadd4f2f9 is the 67-migration release (production after MV-6). */ /* MV-6: 66 -> 67 appended; the first 66 files still digest to 51a288a38d93d55448491ae797ca83a0 (MV-5, production). */ /* MV-5: 65 -> 66 appended; the first 65 files still digest to the MV-4 values. */ /* MV-4: 64 -> 65 appended; the first 64 files still digest to the MV-2 values. */ /* MV-2: one appended migration (63 -> 64, none edited) moved the release digest from 71058586…. */ /* MV-0: six appended migrations (57 -> 63, none edited) moved the release digest from 91ea9382…; the disposable-database assertions below follow it. */ /* MEDIA-2A 56 -> 57; production stands at 56 (`3296764e10a243fa621c03b0bfd3cbd7`) until its gated ceremony runs. */
   assert.equal(
     canonicalDigest(CANONICAL.slice(0, 35)),
     "97f1151fd57bec5142621f00c1913708",
@@ -201,7 +201,7 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
         [CANONICAL[CANONICAL.length - 1]!.tag],
         "exactly one migration is pending, and it is the newest release",
       );
-      assert.equal(verdict.finalDigest, "c34da5fcfd0ad8b5a890ab0a9ae0b645");
+      assert.equal(verdict.finalDigest, "2b57c0408c3198b73e54b923e14365ee");
 
       /*
        * THE PENDING MIGRATION'S OWN ADDITION IS ABSENT BEFORE MIGRATING.
@@ -294,8 +294,11 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
           /* KT-3 is the pending migration now, and it is the TRH-10 kind again: one `ALTER TYPE ... ADD VALUE`
              and nothing else. SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1's FK is now added by an EARLIER migration and
              would be satisfied before migrating, so the probe follows the ENUM VALUE only THIS release adds. */
-          `select count(*)::text as n from pg_enum e join pg_type t on t.oid = e.enumtypid
-            where t.typname = 'governance_domain' and e.enumlabel = 'knowledge-public-use'`,
+          /* EXTERNAL-AI-DATA-USE-1A is the pending migration now, and it CREATES TABLES again. KT-3's
+             `knowledge-public-use` enum member is now added by an EARLIER migration and would be satisfied
+             before migrating, so the probe follows the table only THIS release adds. */
+          `select count(*)::text as n from pg_class c join pg_namespace s on s.oid = c.relnamespace
+            where s.nspname = 'public' and c.relname = 'processor_attestations' and c.relkind = 'r'`,
         );
         return r.rows[0]!.n;
       };
@@ -310,8 +313,8 @@ async function aTargetOneBehindAppliesOnlyTheLast(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.applied, 70); /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64. */ /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
-      assert.equal(after.digest, "c34da5fcfd0ad8b5a890ab0a9ae0b645");
+      assert.equal(after.applied, 71); /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (processor_attestations + tenant_ai_data_use_authorizations + tenant_ai_data_use_scopes, two state enums, governance_domain += 'external-ai-data-use'; additive). */ /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64. */ /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
+      assert.equal(after.digest, "2b57c0408c3198b73e54b923e14365ee");
 
       assert.equal(await admitsSelfService(), "1", "and present after");
 
@@ -356,7 +359,7 @@ async function aTargetTwoBehindAppliesBoth(): Promise<void> {
       const after = await verifyCanonicalMigrationPrefix(client, CANONICAL);
       assert.equal(after.status, "converged");
       if (after.status !== "converged") return;
-      assert.equal(after.digest, "c34da5fcfd0ad8b5a890ab0a9ae0b645");
+      assert.equal(after.digest, "2b57c0408c3198b73e54b923e14365ee");
     });
   } finally {
     rmSync(folder, { recursive: true, force: true });
@@ -369,8 +372,8 @@ async function aConvergedTargetIsANoOp(): Promise<void> {
     const verdict = await verifyCanonicalMigrationPrefix(client, CANONICAL);
     assert.equal(verdict.status, "converged");
     if (verdict.status !== "converged") return;
-    assert.equal(verdict.applied, 70); /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64. */ /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
-    assert.equal(verdict.digest, "c34da5fcfd0ad8b5a890ab0a9ae0b645");
+    assert.equal(verdict.applied, 71); /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (processor_attestations + tenant_ai_data_use_authorizations + tenant_ai_data_use_scopes, two state enums, governance_domain += 'external-ai-data-use'; additive). */ /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64. */ /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
+    assert.equal(verdict.digest, "2b57c0408c3198b73e54b923e14365ee");
 
     /* And the released convergence check agrees, so the split did not change its answer. */
     const legacy = await verifyProductionTarget(
