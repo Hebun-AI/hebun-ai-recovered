@@ -28,7 +28,8 @@
     "platform:observe-once": "node --import tsx scripts/trh24-observe-once.ts",
     "platform:bootstrap-first-human": "node --import tsx scripts/bootstrap-first-human.ts",
     "platform:recover-bootstrap-credential": "node --import tsx scripts/recover-bootstrap-credential.ts",
-    "platform:processor-attestation": "node --import tsx scripts/processor-attestation.ts"
+    "platform:processor-attestation": "node --import tsx scripts/processor-attestation.ts",
+    "platform:tenant-external-ai-data-use": "node --import tsx scripts/eai-authorize-tenant-external-ai-data-use.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
