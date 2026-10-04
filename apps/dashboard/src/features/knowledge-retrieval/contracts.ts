@@ -254,3 +254,16 @@ export const RETRIEVAL_PROVENANCE =
   "Ordering is a TEXT-MATCH score against your question: it is not a measure of truth, approval, or " +
   "currency. Each record still states its own authority, lifecycle, ratification and freshness, and " +
   "none of those are affected by where it ranked.";
+
+/**
+ * The provenance line for a BOUNDED-UNIVERSE set: the complete eligible universe, supplied whole
+ * because it fit within `RETRIEVAL_MAX_LIMIT`. It must not borrow the retrieval line's ordering
+ * sentence — nothing here was matched or ranked against the question.
+ */
+export const BOUNDED_UNIVERSE_PROVENANCE =
+  "The complete set of Knowledge records eligible for this purpose, read from the canonical Knowledge " +
+  "authority (knowledge_facts → knowledge_nodes), tenant-scoped and read-only. It was supplied whole " +
+  "because it is small enough; it was NOT matched to your question, its order carries no meaning, and " +
+  "no record here is claimed to support any particular statement. It is settled organizational " +
+  "knowledge about its own subject — NOT a statement of current runtime, operational, or execution " +
+  "state. Each record still states its own authority, lifecycle, ratification and freshness.";

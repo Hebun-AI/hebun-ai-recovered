@@ -60,14 +60,17 @@ const CASES: Case[] = [
   { key: "allowed-expired", ratified: true, use: "allowed", until: "2026-01-01T00:00:00.000Z" },
 ];
 const ELIGIBLE = ["brand-positioning", "sales-markets"];
-const node = (key: string) => `node-${key}`;
+/* Uuids per case: since KT-5.2 the eligible universe is persisted as evidence (fact_id, knowledge_node_id are uuid). */
+const uuidOf = (key: string, prefix: string) => `${prefix}000000-0000-4000-8000-${(CASES.findIndex((c) => c.key === key) + 1).toString().padStart(12, "0")}`;
+const factUuid = (key: string) => uuidOf(key, "aa");
+const node = (key: string) => uuidOf(key, "bb");
 const record = (c: Case): KnowledgeSourceRecord =>
   ({
-    factId: `fact-${c.key}`, factKey: c.key, domainKey: "company", scope: "organization", title: `Title ${c.key}`,
+    factId: factUuid(c.key), factKey: c.key, domainKey: "company", scope: "organization", title: `Title ${c.key}`,
     statement: `STATEMENT-${c.key}`, lifecycleStatus: c.lifecycle ?? (c.ratified ? "ratified" : "draft"), authorityClass: null, health: null,
     ratified: c.ratified, ratifiedAt: null, ratificationDecisionId: c.ratified ? `dec-${c.key}` : null, governanceSessionId: null,
     ratifiedByActorId: null, activeKnowledgeNodeId: node(c.key), effectiveFrom: null, effectiveUntil: c.until ?? null, nextReviewAt: null,
-    knowledgeVersion: 1,
+    knowledgeVersion: 1, factVersion: 1, freshness: "unknown",
   }) as unknown as KnowledgeSourceRecord;
 const RECORDS = CASES.map(record);
 const STATES = new Map(CASES.filter((c) => c.use).map((c) => [node(c.key), c.use!] as [string, "allowed" | "denied"]));
@@ -137,19 +140,16 @@ async function main(): Promise<void> {
     });
 
     /*
-     * P0 · a stored content draft to revise later. The question matches nothing, so the knowledge
-     * evidence is empty and the turn can persist (the fake facts have no rows to cite).
+     * P0 · a stored content draft to revise later. The question matches nothing; since KT-5.2 the
+     * two-fact universe is supplied whole as `bounded-universe` and persisted with the turn.
      */
     const p0 = await prepareWorkArtifact(draft(), deps(knowledge(() => false)));
     assert.equal(p0.status, "prepared", "a draft is prepared when the universe exists and nothing matched");
+    for (const key of ELIGIBLE) assert.ok(wire().includes(`STATEMENT-${key}`), `${key} is supplied whole, unmatched`);
     const artifactId = p0.status === "prepared" ? p0.artifactId : "";
     assert.equal(sent.length, 1);
 
-    /*
-     * P1 · eligible Knowledge grounds the draft; nothing else reaches the wire. Asserted on the WIRE:
-     * this fixture's facts have no Knowledge rows for the evidence set to cite, so the turn itself
-     * cannot persist here — what matters is what was sent.
-     */
+    /* P1 · eligible Knowledge grounds the draft; nothing else reaches the wire. */
     await prepareWorkArtifact(draft(), deps(knowledge(() => true)));
     assert.equal(sent.length, 2, "the model was asked once");
     for (const key of ELIGIBLE) assert.ok(wire().includes(`STATEMENT-${key}`), `${key} reaches the wire`);
@@ -187,11 +187,16 @@ async function main(): Promise<void> {
       assert.equal(await revisions(), afterP1, "no new revision");
     }
 
-    /* P5 · universe exists, the question matched only withheld facts: asked, with no substitute. */
+    /*
+     * P5 · universe exists, the question matched only withheld facts: asked, and (KT-5.2) the small
+     * eligible universe is supplied whole — the withheld facts still never reach the wire.
+     */
     {
       const r = await prepareWorkArtifact(draft(), deps(knowledge((k) => k === "sourcing-sales-model" || k === "product-offering")));
       assert.equal(r.status, "prepared", "a relevance gap is not a refusal");
-      for (const c of CASES) assert.ok(!wire().includes(`STATEMENT-${c.key}`), `${c.key}: nothing stands in for the missing match`);
+      for (const c of CASES) {
+        assert.equal(wire().includes(`STATEMENT-${c.key}`), ELIGIBLE.includes(c.key), `${c.key}: only the eligible universe reaches the wire`);
+      }
     }
 
     /* P6 · INTERNAL preparation is unchanged: an operational plan still grounds on a denied fact. */

@@ -33,6 +33,14 @@ export const REVISION_EVIDENCE_NON_CLAIMS: readonly string[] = Object.freeze([
   "It is the record made at generation time. It is not a re-run of retrieval and not today's current Knowledge; a record may have been superseded or rejected since.",
 ]);
 
+/**
+ * KT-5.2 — a `bounded-universe` selection, in words. The records were supplied whole because the
+ * eligible set was small; "retrieval supplied" or "matched" would both be false here.
+ */
+export function boundedUniverseSelectionSentence(count: number, revisionNo: number): string {
+  return `All ${count} Knowledge record${count === 1 ? "" : "s"} eligible for this purpose were supplied whole to the generation of revision ${revisionNo}, because the eligible set is small. They were not matched to the request, and none is claimed to support any particular claim.`;
+}
+
 /** One Knowledge record as it was supplied to generation — a snapshot, never a re-read. */
 export interface RevisionEvidenceItem {
   readonly factKey: string;
@@ -58,7 +66,7 @@ export interface RevisionEvidenceItem {
 
 /** How the retrieval that ran for the generating message ended, as recorded. */
 export interface RevisionEvidenceSelection {
-  /** `matched` | `no-match` | `empty-corpus` | `empty-query` | `unavailable`, as the retrieval recorded it. */
+  /** `matched` | `no-match` | `empty-corpus` | `empty-query` | `unavailable` | `bounded-universe` (KT-5.2: supplied whole, not matched), as recorded. */
   readonly status: string;
   readonly truncated: boolean;
   readonly excludedCount: number;

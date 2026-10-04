@@ -39,7 +39,10 @@ import {
   type KnowledgeSourceRecord,
 } from "@/features/knowledge/contracts";
 import {
+  BOUNDED_UNIVERSE_PROVENANCE,
+  RETRIEVAL_MAX_LIMIT,
   RETRIEVAL_PROVENANCE,
+  buildBoundedUniverseEvidence,
   buildRetrievalEvidence,
   type RetrievalEvidenceSet,
   type RetrievalResult,
@@ -159,6 +162,42 @@ export function toKnowledgeResolution(listing: KnowledgeListing): SourceResoluti
  */
 
 /**
+ * The served records as one resolved source. Shared by a lexical match and a bounded universe: the
+ * per-record projection is identical, only the provenance line — which states how the records were
+ * chosen — differs.
+ */
+function resolutionOf(records: readonly KnowledgeSourceRecord[], provenance: string): SourceResolution {
+  const items = records.map((record) => ({
+    recordRef: `${record.domainKey}/${record.factKey}`,
+    label: record.title,
+    /*
+     * MACHINE-DERIVED STANDING ONLY, exactly as before. The match score is deliberately NOT here:
+     * `detail` becomes Heby's own prose, and a number beside a policy reads as a claim about how
+     * true it is. Ordering already carries the match; a printed score would carry a meaning the
+     * repository does not compute.
+     */
+    detail: [
+      `authority: ${record.authorityClass ?? "not stated"}`,
+      `lifecycle: ${record.lifecycleStatus ?? "not stated"}`,
+      `ratified: ${record.ratified ? "yes" : "no"}`,
+      `freshness: ${record.freshness}`,
+      `scope: ${record.scope}`,
+    ].join(" · "),
+    lifecycle: toEvidenceLifecycle(record),
+    content: record.statement ?? undefined,
+  }));
+
+  return {
+    sourceClass: "knowledge",
+    state: "resolved",
+    provenance,
+    authoritative: records.every((record) => record.authorityClass === "authoritative"),
+    items,
+    unavailableReason: undefined,
+  };
+}
+
+/**
  * Turn a retrieval result into one source resolution.
  *
  * THE FOUR EMPTY STATES SAY FOUR DIFFERENT THINGS. An organization that holds nothing, an
@@ -214,40 +253,11 @@ export function toRetrievalResolution(result: RetrievalResult): SourceResolution
       );
     }
 
-    case "matched": {
-      const items = result.candidates.map(({ record }) => ({
-        recordRef: `${record.domainKey}/${record.factKey}`,
-        label: record.title,
-        /*
-         * MACHINE-DERIVED STANDING ONLY, exactly as before. The match score is deliberately NOT here:
-         * `detail` becomes Heby's own prose, and a number beside a policy reads as a claim about how
-         * true it is. Ordering already carries the match; a printed score would carry a meaning the
-         * repository does not compute.
-         */
-        detail: [
-          `authority: ${record.authorityClass ?? "not stated"}`,
-          `lifecycle: ${record.lifecycleStatus ?? "not stated"}`,
-          `ratified: ${record.ratified ? "yes" : "no"}`,
-          `freshness: ${record.freshness}`,
-          `scope: ${record.scope}`,
-        ].join(" · "),
-        lifecycle: toEvidenceLifecycle(record),
-        content: record.statement ?? undefined,
-      }));
-
-      const allAuthoritative = result.candidates.every(
-        ({ record }) => record.authorityClass === "authoritative",
+    case "matched":
+      return resolutionOf(
+        result.candidates.map(({ record }) => record),
+        RETRIEVAL_PROVENANCE,
       );
-
-      return {
-        sourceClass: "knowledge",
-        state: "resolved",
-        provenance: RETRIEVAL_PROVENANCE,
-        authoritative: allAuthoritative,
-        items,
-        unavailableReason: undefined,
-      };
-    }
   }
 }
 
@@ -325,8 +335,9 @@ export async function resolveKnowledgeListingEvidence(
  *   public-eligibility-unavailable  a read failed (public use, rejection, the listing) or the listing
  *                                   was capped — eligibility could not be established
  *   no-public-eligible-knowledge    the universe was read, and NOTHING in it is ratified + allowed
- * A universe that exists but where the question matched nothing is NOT a refusal: it resolves as an
- * ordinary no-match, the relevance gap stays visible, and no withheld fact stands in for a match.
+ * A universe within `RETRIEVAL_MAX_LIMIT` is supplied whole as `bounded-universe` (KT-5.2). Above it,
+ * a universe where the question matched nothing is NOT a refusal: it resolves as an ordinary
+ * no-match, the relevance gap stays visible, and no withheld fact stands in for a match.
  */
 export interface PublicKnowledgeDeps extends KnowledgeReadDeps {
   /** Governance's public-use projection. Injectable for tests; defaults to the real read. */
@@ -368,6 +379,21 @@ export async function resolvePublicKnowledgeEvidence(
     isPublicPurposeEligible(record, use.states),
   );
   if (universe.length === 0) return { status: "blocked", reason: "no-public-eligible-knowledge" };
+
+  /*
+   * DECISION A (KT-5.2) — A UNIVERSE WITHIN THE BOUND IS SUPPLIED WHOLE. Lexical matching fails
+   * mostly by matching the WRONG facts across languages, so a small universe is handed over complete
+   * and labelled `bounded-universe`: supplied, never claimed as matched or as supporting any claim.
+   * Above the bound nothing is cut and completeness is not pretended — the lexical path below stays.
+   */
+  if (universe.length <= RETRIEVAL_MAX_LIMIT) {
+    return {
+      status: "resolved",
+      universeCount: universe.length,
+      resolution: resolutionOf(universe, BOUNDED_UNIVERSE_PROVENANCE),
+      evidence: buildBoundedUniverseEvidence(universe),
+    };
+  }
 
   const allowed = new Set(universe.map((record) => record.activeKnowledgeNodeId!));
   const result = publicOnly(await searchKnowledge(tenant, { queryText: query }, deps), allowed);

@@ -40,7 +40,7 @@
 
 import type { KnowledgeSourceRecord } from "@/features/knowledge/contracts";
 import type { RetrievalCandidate, RetrievalResult } from "./contracts";
-import { sourceDigestOf } from "./contracts";
+import { RETRIEVAL_MAX_LIMIT, sourceDigestOf } from "./contracts";
 import { foldTurkish, normalizeQuery } from "./query-normalization";
 
 /** How much of a statement a card may show before it stops being an excerpt. */
@@ -148,10 +148,20 @@ export interface RetrievalEvidenceItem {
 
 /* ── set ──────────────────────────────────────────────────────────────────── */
 
+/**
+ * How the set was produced. The five retrieval outcomes, plus one that is NOT a retrieval outcome:
+ *
+ *   bounded-universe  the caller supplied its COMPLETE eligible universe because that universe fit
+ *                     within `RETRIEVAL_MAX_LIMIT`. Nothing was matched against the question, so its
+ *                     items carry no matched terms and no ordering claim. It is not `matched`, and
+ *                     it says nothing about whether any item supports any particular claim.
+ */
+export type RetrievalEvidenceStatus = RetrievalResult["status"] | "bounded-universe";
+
 /** The set-level facts about one retrieval, mirroring `RetrievalResult`'s own states. */
 export interface RetrievalEvidenceSet {
-  /** Carried through unflattened so the UI can render five distinct states, never "no data". */
-  readonly status: RetrievalResult["status"];
+  /** Carried through unflattened so the UI can render six distinct states, never "no data". */
+  readonly status: RetrievalEvidenceStatus;
   readonly items: readonly RetrievalEvidenceItem[];
   /** The candidate pool bound was hit — more eligible knowledge exists than was swept. */
   readonly truncated: boolean;
@@ -223,12 +233,11 @@ export function matchedTermsFor(
 }
 
 function itemOf(
-  candidate: RetrievalCandidate,
+  record: KnowledgeSourceRecord,
   tokens: readonly string[],
   narrowing: { readonly domainKey?: string; readonly scope?: string },
   diversityAffected: boolean,
 ): RetrievalEvidenceItem {
-  const { record } = candidate;
   const { excerpt, truncated } = excerptOf(record.statement);
   const provenance = record.provenance ?? null;
   const attribution = record.sourceAttribution ?? null;
@@ -353,7 +362,7 @@ export function buildRetrievalEvidence(
       const tokens = normalizeQuery(queryText).tokens;
       const diversityAffected = result.diversityPruned > 0;
       const items = result.candidates.map((candidate) =>
-        itemOf(candidate, tokens, narrowing, diversityAffected),
+        itemOf(candidate.record, tokens, narrowing, diversityAffected),
       );
       /*
        * Only a MATCHED set can carry this signal, and only when more than one source is actually
@@ -378,4 +387,29 @@ export function buildRetrievalEvidence(
       };
     }
   }
+}
+
+/**
+ * Project a COMPLETE, caller-established eligible universe into evidence — no question involved.
+ *
+ * The caller owns eligibility and the completeness claim; this only refuses to describe a universe
+ * larger than the bound as complete. `matchedTerms` is empty because nothing was matched, and the
+ * order is the caller's listing order, which carries no relevance meaning.
+ */
+export function buildBoundedUniverseEvidence(records: readonly KnowledgeSourceRecord[]): RetrievalEvidenceSet {
+  if (records.length === 0 || records.length > RETRIEVAL_MAX_LIMIT) {
+    throw new Error(`bounded-universe requires 1..${RETRIEVAL_MAX_LIMIT} records, got ${records.length}`);
+  }
+  return {
+    status: "bounded-universe",
+    items: records.map((record) =>
+      itemOf(record, [], {}, false),
+    ),
+    truncated: false,
+    diversityPruned: 0,
+    excludedCount: 0,
+    degradedReason: null,
+    multipleRelevantSources: false,
+    unavailableReason: null,
+  };
 }

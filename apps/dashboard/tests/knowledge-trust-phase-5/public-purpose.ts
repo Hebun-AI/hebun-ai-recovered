@@ -6,8 +6,8 @@
  *    ALLOWED its public use, on top of runtime eligibility. UNKNOWN, DENIED, REVOKED, unratified,
  *    rejected, archived, retired and expired versions never reach the resolution or the evidence —
  *    not their statements, not their keys. A failed read refuses; an empty eligible universe refuses
- *    differently; a universe that exists but matched nothing is an ordinary no-match. Internal
- *    retrieval is unchanged."
+ *    differently; a universe within the bound is supplied whole (KT-5.2). Internal retrieval is
+ *    unchanged."
  *
  * The repository is a fake behind the real `searchKnowledge`; the projections are injected. No
  * database, no model, no network.
@@ -97,6 +97,7 @@ async function main(): Promise<void> {
     assert.equal(out.status, "resolved");
     if (out.status !== "resolved") throw new Error("unreachable");
     assert.equal(out.universeCount, 2, "the public universe is exactly the ratified + allowed, in-force versions");
+    assert.equal(out.evidence.status, "bounded-universe");
     const text = JSON.stringify([out.resolution, out.evidence]);
     for (const key of ELIGIBLE) assert.ok(text.includes(`STATEMENT-${key}`), `${key} grounds public content`);
     for (const key of FORBIDDEN) {
@@ -104,14 +105,19 @@ async function main(): Promise<void> {
     }
   }
 
-  /* Universe exists, but the question matched only ineligible facts: an honest no-match, no substitute. */
+  /*
+   * Universe exists, the question matched only ineligible facts. KT-5.2 (Decision A) CHANGED this on
+   * purpose: a universe within the bound is supplied whole as `bounded-universe`, so the two eligible
+   * facts ground the draft whatever the question matched — and still nothing ineligible leaks in.
+   * The no-match path above the bound is proven in tests/knowledge-trust-phase-5-2.
+   */
   {
     const out = await resolvePublicKnowledgeEvidence(TENANT, "sourcing", deps((k) => k === "sourcing-sales-model" || k === "product-offering"));
     assert.equal(out.status, "resolved", "a relevance gap is not a refusal");
     if (out.status !== "resolved") throw new Error("unreachable");
-    assert.equal(out.resolution.items.length, 0, "nothing stands in for the missing match");
-    assert.equal(out.evidence.status, "no-match", "the gap stays visible as no-match");
-    assert.ok(!/sourcing-sales-model|product-offering|brand-positioning/.test(JSON.stringify([out.resolution, out.evidence])), "no withheld fact and no unmatched fact leaks in");
+    assert.equal(out.evidence.status, "bounded-universe", "a small universe is supplied whole, not matched");
+    assert.deepEqual(out.evidence.items.map((item) => item.factKey), ELIGIBLE);
+    for (const key of FORBIDDEN) assert.ok(!JSON.stringify([out.resolution, out.evidence]).includes(key), `${key}: no withheld fact leaks in`);
   }
 
   /* Refusals, kept apart. */

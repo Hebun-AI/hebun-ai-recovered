@@ -3,7 +3,9 @@
  * draft and are about something else (authorship, brief, provenance, observation). It runs the REAL
  * public resolver over one ratified + allowed fact that the question never matches, so the
  * preparation proceeds exactly as an organization with cleared Knowledge but no relevant fact would.
- * The gate itself is proven in tests/knowledge-trust-phase-5.
+ * Since KT-5.2 that one-fact universe is supplied whole as `bounded-universe` and persisted as
+ * evidence, so the record carries every column the evidence row requires.
+ * The gate itself is proven in tests/knowledge-trust-phase-5 and tests/knowledge-trust-phase-5-2.
  */
 import { resolvePublicKnowledgeEvidence } from "../../src/features/heby-answer/knowledge-evidence.server";
 import type { KnowledgeSourceRecord } from "../../src/features/knowledge/contracts";
@@ -16,6 +18,7 @@ const CLEARED = {
   title: "A cleared fact", statement: "A cleared fact.", lifecycleStatus: "ratified", authorityClass: null, health: null,
   ratified: true, ratifiedAt: null, ratificationDecisionId: "d", governanceSessionId: null, ratifiedByActorId: null,
   activeKnowledgeNodeId: NODE, effectiveFrom: null, effectiveUntil: null, nextReviewAt: null, knowledgeVersion: 1,
+  factVersion: 1, freshness: "unknown",
 } as unknown as KnowledgeSourceRecord;
 
 export const publicKnowledgeNoMatch = (tenant: KnowledgeTenant, query: string) =>

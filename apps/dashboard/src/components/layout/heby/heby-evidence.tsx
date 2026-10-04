@@ -252,6 +252,13 @@ function EmptyState({ set }: { set: RetrievalEvidenceSet }) {
   );
 }
 
+/**
+ * KT-5.2 — what a bounded-universe set is, and what it is not. Nothing in it was matched, so the
+ * matched set's ordering sentence would be false here.
+ */
+export const BOUNDED_UNIVERSE_NOTICE =
+  "These are all the Knowledge records eligible for this purpose, supplied whole because the eligible set is small. They were not matched to your question, their order carries no meaning, and none is claimed to support any particular statement.";
+
 /* ── entry point ──────────────────────────────────────────────────────────── */
 
 export function HebyEvidencePanel({
@@ -280,6 +287,18 @@ export function HebyEvidencePanel({
           <p className="mt-2 text-[0.64rem] leading-4 text-fg-muted">
             Records are ordered by how closely their text matches your question. That ordering is not a
             measure of truth, approval or currency — each record states its own standing above.
+          </p>
+        </>
+      ) : set.status === "bounded-universe" ? (
+        <>
+          <ul className="flex flex-col gap-1.5">
+            {set.items.map((item) => (
+              <Card key={item.recordRef} item={item} />
+            ))}
+          </ul>
+          <SetNotices set={set} />
+          <p className="mt-2 text-[0.64rem] leading-4 text-fg-muted" data-heby-evidence-bounded-universe="">
+            {BOUNDED_UNIVERSE_NOTICE}
           </p>
         </>
       ) : (

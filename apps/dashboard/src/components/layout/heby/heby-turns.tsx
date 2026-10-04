@@ -174,7 +174,8 @@ export function HebyBubble({ turn }: { turn: HebyTurnView }) {
                    * today's Knowledge.
                    */
                   `${turn.historical ? "Recorded evidence" : "Evidence"}${
-                    turn.knowledgeEvidence.status === "matched"
+                    turn.knowledgeEvidence.status === "matched" ||
+                    turn.knowledgeEvidence.status === "bounded-universe"
                       ? ` (${turn.knowledgeEvidence.items.length})`
                       : ""
                   }`

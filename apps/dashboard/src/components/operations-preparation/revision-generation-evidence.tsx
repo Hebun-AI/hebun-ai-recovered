@@ -15,6 +15,7 @@ import { readRevisionGenerationEvidenceAction } from "@/app/(dashboard)/operatio
 import {
   REVISION_EVIDENCE_NON_CLAIMS,
   REVISION_EVIDENCE_NOTICE,
+  boundedUniverseSelectionSentence,
   type RevisionEvidenceItem,
   type RevisionGenerationEvidence as Evidence,
 } from "@/features/heby-answer/revision-generation-evidence";
@@ -38,6 +39,7 @@ function absence(evidence: Exclude<Evidence, { status: "recorded" }>): string {
 /** The recorded selection, in words. Zero items is said plainly, never left as an empty box. */
 function selectionSentence(evidence: Extract<Evidence, { status: "recorded" }>): string {
   const { selection, items } = evidence;
+  if (selection.status === "bounded-universe") return boundedUniverseSelectionSentence(items.length, evidence.revisionNo);
   if (items.length > 0) {
     return `Retrieval supplied ${items.length} Knowledge record${items.length === 1 ? "" : "s"} to the generation of revision ${evidence.revisionNo}.`;
   }
