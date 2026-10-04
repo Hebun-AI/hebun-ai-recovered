@@ -87,6 +87,16 @@ export interface ResolvedSourceItem {
    * never contain it.
    */
   readonly content?: string;
+  /**
+   * The detail AS AN EXTERNAL MODEL MAY SEE IT, when that must differ from what the human sees.
+   *
+   * Absent means `detail` is used (after the generic minimization in
+   * `heby-answer/model-facing-projection.ts`). A source sets it only to OMIT something the human
+   * may read but the model has no use for — a provider account's e-mail, login or username is the
+   * case it exists for. It is a narrower projection of the same fact, never a different fact, and it
+   * never reaches Heby's own prose.
+   */
+  readonly modelDetail?: string;
 }
 
 export interface SourceResolution {

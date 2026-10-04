@@ -127,7 +127,11 @@ function reportedSource(entry: CapabilityAvailabilityEntry): CapabilitySource | 
  * guessed. `read: no` and `write: no` are stated explicitly rather than left absent, because a
  * silent omission is what a model would read as "unknown, therefore maybe".
  */
-function detailFor(entry: CapabilityAvailabilityEntry, source: CapabilitySource | undefined): string {
+function detailFor(
+  entry: CapabilityAvailabilityEntry,
+  source: CapabilitySource | undefined,
+  audience: "human" | "model" = "human",
+): string {
   const parts: string[] = [`state ${entry.state}`];
   if (source) {
     parts.push(`read ${source.readAvailable ? "available" : "not available"}`);
@@ -137,7 +141,13 @@ function detailFor(entry: CapabilityAvailabilityEntry, source: CapabilitySource 
      * even `true` would mean only "the grant covers a write", never "Hebun may perform one".
      */
     parts.push(`write capability ${source.writeCapable ? "present" : "absent"}`);
-    if (source.accountLabel) parts.push(`account ${source.accountLabel}`);
+    /*
+     * THE ACCOUNT IS FOR THE HUMAN ONLY. The label is the provider's own account identity — a Google
+     * e-mail, a GitHub login, an Instagram username — read from the connection. A human may need to
+     * see which account is connected; an external model needs only that a connection exists and what
+     * it can read, so the model-facing projection omits it (MODEL-FACING IDENTITY MINIMIZATION).
+     */
+    if (source.accountLabel && audience === "human") parts.push(`account ${source.accountLabel}`);
     if (source.lastVerifiedAt) parts.push(`last verified ${source.lastVerifiedAt}`);
   }
   if (entry.reason) parts.push(entry.reason);
@@ -193,6 +203,7 @@ export async function readIntegrationGroundingSource(
       recordRef: `${source?.providerKey ?? "unknown-provider"}/${entry.capability}`,
       label: `${source?.providerKey ?? "Unconnected provider"} — ${entry.capability}`,
       detail: detailFor(entry, source),
+      modelDetail: detailFor(entry, source, "model"),
       lifecycle: lifecycleFor(entry.state),
     };
   });

@@ -182,10 +182,18 @@ function instructionsSayGroundingIsData(): void {
  * from — the grounding line carries both, and a future edit that flattens one is a regression.
  */
 function provenanceIsCarriedIntoContext(): void {
-  const source = read("src/features/heby-answer/model-answer.server.ts");
+  /*
+   * MODEL-FACING IDENTITY MINIMIZATION moved the line template into the projection module, which
+   * `model-answer` now delegates to. The invariants are unchanged and pinned where the line is
+   * built: provenance travels on every resolved line (minimized only for identifiers Hebun adds),
+   * and verbatim content is labelled as source text and quoted UNMINIMIZED.
+   */
+  const answer = codeOf(read("src/features/heby-answer/model-answer.server.ts"));
+  assert.ok(/return modelGroundingLines\(resolutions\)/.test(answer), "the answer's grounding is the model-facing projection");
+  const source = read("src/features/heby-answer/model-facing-projection.ts");
   const code = codeOf(source);
   assert.ok(
-    /provenance: \$\{resolution\.provenance\}/.test(code),
+    /provenance: \$\{minimizeModelFacingText\(resolution\.provenance\)\}/.test(code),
     "every resolved grounding line carries its provenance statement",
   );
   assert.ok(

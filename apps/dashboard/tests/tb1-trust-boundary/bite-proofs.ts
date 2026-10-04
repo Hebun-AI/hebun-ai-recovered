@@ -30,6 +30,8 @@ const GATE = "tests/tb1-trust-boundary/boundary.ts";
 const TRUST = "src/features/heby-runtime/trust-boundary.ts";
 const TRANSPORT = "src/features/heby-model/claude-model-client.ts";
 const ANSWER = "src/features/heby-answer/model-answer.server.ts";
+/* MODEL-FACING IDENTITY MINIMIZATION: the grounding line template now lives here (T5, T6). */
+const PROJECTION = "src/features/heby-answer/model-facing-projection.ts";
 
 const CHILD_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -112,15 +114,15 @@ const MUTATIONS: readonly Mutation[] = [
   {
     /* Provenance dropped from the grounding line while tidying the template. */
     label: "T5 provenance erased from the grounding context line",
-    file: ANSWER,
-    find: "${quoted} | provenance: ${resolution.provenance}`,",
+    file: PROJECTION,
+    find: "${quoted} | provenance: ${minimizeModelFacingText(resolution.provenance)}`,",
     replace: "${quoted}`,",
     expect: "carries its provenance statement",
   },
   {
     /* Retrieved text presented as Hebun's own sentence rather than as quoted source material. */
     label: "T6 verbatim content stops being labelled as source text",
-    file: ANSWER,
+    file: PROJECTION,
     find: "const quoted = item.content ? ` | source text: ${item.content}` : \"\";",
     replace: "const quoted = item.content ? ` ${item.content}` : \"\";",
     expect: "labelled as source text",

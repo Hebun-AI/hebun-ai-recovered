@@ -140,7 +140,14 @@ async function main(): Promise<void> {
   for (const route of ["/heby", "/operations"]) {
     const { lines, system } = await grounding(route, UPLOAD);
     assert.equal(system, HEBY_MODEL_SYSTEM_INSTRUCTIONS, `${route}: the contract reaches the model`);
-    const draftLine = lines.split("\n").find((l) => l.startsWith(`[content-media/work-artifact/${DRAFT}@2]`)) ?? "";
+    /*
+     * MODEL-FACING IDENTITY MINIMIZATION: a reference carrying a record UUID is no longer sent to the
+     * model, so the draft's line is found by its source class and its title. The line's content is
+     * what this test is about, and it is unchanged; the UUID itself must not reach the model.
+     */
+    assert.ok(!lines.includes(DRAFT), `${route}: the draft's record id does not reach the model`);
+    const draftLine =
+      lines.split("\n").find((l) => l.startsWith("[content-media]") && l.includes("Black Rose Floral Kilim Rug")) ?? "";
     assert.match(draftLine, /governed publish path \(YouTube video\): this organization holds the capability now/, `${route}: A · capability on the draft line`);
     assert.match(draftLine, /package ready: yes/, `${route}: F`);
     /* CONTENT-PUBLICATION-STATE-1: no ledger in this fixture, so the record is UNKNOWN — never 'none'. */

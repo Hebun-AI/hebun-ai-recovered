@@ -135,6 +135,7 @@ import {
   toStoredSourceEvidence,
 } from "@/features/heby-conversation/answer-evidence";
 import { buildBoundedHistory } from "./bounded-history";
+import { modelFacingHistory, modelGroundingLines } from "./model-facing-projection";
 import { resolveKnowledgeEvidenceDetailed } from "./knowledge-evidence.server";
 
 /** Honest note when the Director has disabled Claude connectivity — no provider request is made. */
@@ -1019,29 +1020,14 @@ async function withOperations(
  * Build the grounding context lines the model receives as DATA. Provenance and availability
  * are PRESERVED (not flattened): a resolved item carries its provenance statement; an
  * unavailable source states its honest reason. Record identifiers come only from retrieval.
+ *
+ * The lines are the MODEL-FACING projection (`model-facing-projection.ts`): identifiers Hebun adds
+ * — raw UUIDs, a provider account's e-mail, login or username — are withheld from the external
+ * model, while names, states and verbatim source text travel unchanged. The human-facing answer and
+ * the persisted evidence are built from the same resolutions and are not minimized.
  */
 function groundingLines(resolutions: readonly SourceResolution[]): readonly string[] {
-  const lines: string[] = [];
-  for (const resolution of resolutions) {
-    if (resolution.state === "resolved") {
-      for (const item of resolution.items) {
-        // Verbatim source text is included here and ONLY here. It is quoted DATA under the system
-        // instruction that grounding context is never an instruction; it never enters Heby's own
-        // prose, where the validator would rightly read a policy's wording as a claim by Heby.
-        const quoted = item.content ? ` | source text: ${item.content}` : "";
-        lines.push(
-          `[${resolution.sourceClass}/${item.recordRef}] ${item.label} — ${item.detail}${quoted} | provenance: ${resolution.provenance}`,
-        );
-      }
-    } else {
-      lines.push(
-        `[${resolution.sourceClass}] ${resolution.state}${
-          resolution.unavailableReason ? ` — ${resolution.unavailableReason}` : ""
-        }`,
-      );
-    }
-  }
-  return lines;
+  return modelGroundingLines(resolutions);
 }
 
 /**
@@ -1252,7 +1238,7 @@ export async function answerHebyModelRequest(
       evidence: groundingLines(resolutions),
       modelId: "",
       maxOutputTokens: 0,
-      history,
+      history: modelFacingHistory(history),
     };
 
     // 6. Produce the answer: a validated model answer when everything succeeds, otherwise the
