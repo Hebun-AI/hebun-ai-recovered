@@ -148,15 +148,14 @@ async function main(): Promise<void> {
 
   assert.ok(captured, "the answer flow must have composed a model request");
   const grounding = captured!.evidence.join("\n");
-  assert.match(grounding, /\[people\/member\/m-1\]/, "the membership citation reaches the model");
-  assert.match(grounding, /Pat Preferred/, "the human's PROVIDER-SAFE name reaches the model");
-  assert.match(grounding, /\(u-1\)/, "and the identifier travels beside it");
-  assert.match(grounding, /IS NOT EMPLOYMENT/, "the provenance reaches the model");
-  assert.match(
-    grounding,
-    /not a hire date/,
-    "the truth semantics reach the model as data, not as prompt prose",
-  );
+/*
+   * EXTERNAL-AI-DATA-USE-B2 changed what this pinned, on purpose. The people class is not a class the
+   * platform can ALLOW for assistance, so the model-facing projection WITHHOLDS it: the model sees one
+   * fixed line naming the class and nothing it says. Wiring is still proven — the line is there only
+   * because the class was resolved — and the human-facing answer and evidence are unchanged.
+   */
+  assert.match(grounding, /^\[people\] withheld — not disclosed to the external model$/m, "the people class is wired, and withheld");
+  assert.ok(!/Pat Preferred|u-1|IS NOT EMPLOYMENT/.test(grounding), "nothing the register says reaches the model");
 
   /* NO ADDRESS, ANYWHERE IN THE WHOLE REQUEST. The disclosure boundary, applied at design time. */
   assert.ok(

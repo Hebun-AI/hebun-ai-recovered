@@ -364,6 +364,7 @@ export async function originateAgentAction(
   if (!invocationId) return refused("model-unavailable");
 
   const selection = await selectAction(
+    tenant.tenantId,
     validation.prompt,
     candidates,
     deps,
@@ -626,6 +627,7 @@ const PRE_DISPATCH_FAILURE_CODES: readonly string[] = Object.freeze([
  * probing.
  */
 async function selectAction(
+  tenantId: string,
   goal: string,
   candidates: OriginationCandidateSet,
   deps: OriginateActionDeps,
@@ -658,7 +660,26 @@ async function selectAction(
   let text: string;
   let result: InvocationResultFacts | undefined;
   try {
-    const outcome = await (deps.generate ?? generateHebyModelAnswer)(request, { env, transport });
+    /*
+     * EXTERNAL-AI-DATA-USE-B2 — origination is its own purpose and does not inherit assistance. It
+     * discloses the human's goal, the recorded recipients' labels, drafts' titles, department names
+     * and, when present, a platform observation — each by the authority that owns it.
+     */
+    const outcome = await (deps.generate ?? generateHebyModelAnswer)(request, {
+      env,
+      transport,
+      disclosure: {
+        tenantId,
+        purpose: "agent-origination",
+        dataClasses: [
+          "conversation",
+          "external-recipient",
+          "work-artifact",
+          "organization",
+          ...(supplement ? (["provider-observation"] as const) : []),
+        ],
+      },
+    });
     if (outcome.status !== "generated") {
       /*
        * The generator refused without reaching the transport (connectivity disabled, no provider

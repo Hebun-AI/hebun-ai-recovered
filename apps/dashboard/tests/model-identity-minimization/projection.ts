@@ -15,6 +15,7 @@ import {
   MODEL_WITHHELD_ADDRESS,
   MODEL_WITHHELD_IDENTIFIER,
   minimizeModelFacingText,
+  modelDisclosedDataClasses,
   modelFacingHistory,
   modelGroundingLines,
 } from "../../src/features/heby-answer/model-facing-projection";
@@ -76,20 +77,50 @@ const resolutions: SourceResolution[] = [
   } as unknown as SourceResolution,
   { sourceClass: "governance", state: "unavailable", unavailableReason: `decision ${USER} could not be read`, items: [] } as unknown as SourceResolution,
 ];
+/*
+ * EXTERNAL-AI-DATA-USE-B2: people, integrations and Governance are no longer disclosed at all — the
+ * projection withholds them whole. Minimization still governs every class that IS disclosed, so it is
+ * pinned on a work artifact below: a UUID reference is dropped and an address in Hebun's text withheld.
+ */
+resolutions.push(
+  {
+    sourceClass: "work-artifacts",
+    state: "resolved",
+    provenance: `prepared work, owner ${USER}`,
+    items: [
+      {
+        recordRef: `work-artifact/${USER}@2`,
+        label: `Q4 brief (${USER})`,
+        detail: "prepared by ops.lead@acme.example",
+        lifecycle: "settled",
+        content: `Draft text naming ${USER} and me@acme.example, verbatim.`,
+      },
+    ],
+  } as unknown as SourceResolution,
+  { sourceClass: "knowledge", state: "unavailable", unavailableReason: `fact ${USER} could not be read`, items: [] } as unknown as SourceResolution,
+);
 const lines = modelGroundingLines(resolutions);
-assert.equal(lines.length, 4);
-assert.equal(lines[0], "[people] Ayşe Yılmaz — Ayşe Yılmaz is recorded as a member of this organization. | provenance: membership authority");
+const W = "withheld — not disclosed to the external model";
+assert.equal(lines.length, 6);
+assert.equal(lines[0], `[people] ${W}`, "people are withheld whole");
 assert.equal(
   lines[1],
   `[knowledge/policy/refunds] Refund policy — ratified · current | source text: Refunds go to billing@acme.example; ticket ${USER}. | provenance: knowledge authority`,
   "a semantic reference is kept, and the organization's own words are quoted unchanged",
 );
-assert.equal(lines[2], "[integrations/google-workspace/drive.metadata] google-workspace — drive.metadata — state available | provenance: capability seam", "the source's model-facing detail wins");
-assert.equal(lines[3], `[governance] unavailable — decision ${MODEL_WITHHELD_IDENTIFIER} could not be read`);
-for (const line of [lines[0]!, lines[2]!, lines[3]!]) {
+assert.equal(lines[2], `[integrations] ${W}`, "integrations are withheld whole — the account cannot reach the model at all");
+assert.equal(lines[3], `[governance] ${W}`, "Governance is withheld whole, even when unavailable");
+assert.equal(
+  lines[4],
+  `[work-artifacts] Q4 brief — prepared by ${MODEL_WITHHELD_ADDRESS} | source text: Draft text naming ${USER} and me@acme.example, verbatim. | provenance: prepared work, owner ${MODEL_WITHHELD_IDENTIFIER}`,
+  "a disclosed class is still minimized: UUID reference dropped, identifiers and addresses withheld in Hebun's text, source text verbatim",
+);
+assert.equal(lines[5], `[knowledge] unavailable — fact ${MODEL_WITHHELD_IDENTIFIER} could not be read`);
+for (const line of [lines[0]!, lines[2]!, lines[3]!, lines[5]!]) {
   assert.ok(!UUID_RE.test(line), `no identifier: ${line}`);
   assert.ok(!/@/.test(line), `no address: ${line}`);
 }
+assert.deepEqual([...modelDisclosedDataClasses(resolutions)].sort(), ["knowledge", "work-artifact"], "only the disclosed classes are declared");
 
 /* ── 3. History: Hebun's own earlier answers are minimized; the human's words are not. ─────── */
 const history = modelFacingHistory([

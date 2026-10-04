@@ -438,7 +438,7 @@ async function main(): Promise<void> {
      * no network, no key: the tenant resolver, the transport and the organization read are injected.
      */
     let captured: ModelGenerationRequest | undefined;
-    await answerHebyModelRequest(
+    const answered = await answerHebyModelRequest(
       { prompt: "Which organization am I in, and what does Hebun know about it?", route: "/heby" },
       {
         resolveTenant: async () => TENANT,
@@ -466,17 +466,18 @@ async function main(): Promise<void> {
 
     assert.ok(captured, "the answer flow must have composed a model request");
     const grounding = captured!.evidence.join("\n");
-    assert.match(
-      grounding,
-      /\[organization\/acme-industrial\]/,
-      "the organization must reach the model's grounding context — if this fails, withOrganization is not wired",
-    );
-    assert.match(grounding, /Acme Industrial/, "the organization's name travels with it");
-    assert.match(grounding, /human members 4/, "the member COUNT travels; a roster does not");
+/*
+     * EXTERNAL-AI-DATA-USE-B2 changed what this pinned, on purpose. The organization class is not a class the
+     * platform can ALLOW for assistance, so the model-facing projection WITHHOLDS it: the model sees one
+     * fixed line naming the class and nothing it says. Wiring is still proven — the line is there only
+     * because the class was resolved — and the human-facing answer and evidence are unchanged.
+     */
     assert.ok(
-      grounding.includes(ORGANIZATION_STRUCTURE_UNAVAILABLE.detail),
-      "the structure denial reaches the model too, so a generated answer is grounded in the limitation",
+      JSON.stringify(answered).includes("Acme Industrial"),
+      "the organization must reach the human-facing answer — if this fails, withOrganization is not wired",
     );
+    assert.match(grounding, /^\[organization\] withheld — not disclosed to the external model$/m, "and the model gets only the withheld line");
+    assert.ok(!/Acme Industrial|human members 4/.test(grounding), "nothing the organization record says reaches the model");
 
     /*
      * (C) AGENTS ARE NOT ADMITTED BY E2-1. Live Map projects a durable agent beside the
@@ -497,7 +498,7 @@ async function main(): Promise<void> {
      * Strictly stronger: the old regex would have passed an organization line that carried an agent
      * name without the literal token `[agent`.
      */
-    const organizationLines = captured!.evidence.filter((line) => line.startsWith("[organization/"));
+    const organizationLines = captured!.evidence.filter((line) => line.startsWith("[organization"));
     assert.equal(organizationLines.length, 1, "one organization, one grounding line");
     assert.ok(
       !/\bagent/i.test(organizationLines.join("\n")),

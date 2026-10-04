@@ -99,6 +99,13 @@ async function providerBoundGrounding(
   resolveNames: () => Promise<ReadonlyMap<string, string>>,
 ): Promise<string> {
   let captured: ModelGenerationRequest | undefined;
+  /*
+   * EXTERNAL-AI-DATA-USE-B2: the work class is now WITHHELD from the model, so the request alone
+   * would prove these names safe vacuously. The work resolution the answer was built from is kept
+   * beside it, and every assertion below runs over both — the floor still has to hold where the
+   * projection renders, and the request still has to carry nothing.
+   */
+  let workResolution: unknown;
   await answerHebyModelRequest(
     { prompt: "Who is accountable for Hebun Era III development?", route: "/heby" },
     {
@@ -114,7 +121,7 @@ async function providerBoundGrounding(
         HEBUN_MODEL_TRANSPORT: "fake",
       },
       resolveWork: async (tenant) =>
-        readWorkGroundingSource(tenant, { readRegister: async () => available([ITEM]), resolveNames }),
+        (workResolution = await readWorkGroundingSource(tenant, { readRegister: async () => available([ITEM]), resolveNames })) as never,
       generate: async (request) => {
         captured = request;
         return {
@@ -131,7 +138,8 @@ async function providerBoundGrounding(
    * the question or the history would be exactly as much of a disclosure, and asserting on one
    * field would be measuring the path I happen to expect.
    */
-  return JSON.stringify(captured);
+  assert.ok(JSON.stringify(captured).includes("[work] withheld — not disclosed to the external model"), "B2: the work class is withheld");
+  return JSON.stringify({ captured, workResolution });
 }
 
 function walk(dir: string): string[] {

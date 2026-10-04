@@ -298,9 +298,14 @@ async function main(): Promise<void> {
 
     assert.ok(captured, "the answer flow must have composed a model request");
     const grounding = captured!.evidence.join("\n");
-    assert.match(grounding, /\[recorded-acts\/act-1\]/, "the act citation reaches the model");
-    assert.match(grounding, /1 of 18 recorded acts carried/, "the bound reaches the model");
-    assert.match(grounding, /integration\.credential\.replaced/, "the verbatim verb reaches the model");
+/*
+     * EXTERNAL-AI-DATA-USE-B2 changed what this pinned, on purpose. The recorded-acts class is not a class the
+     * platform can ALLOW for assistance, so the model-facing projection WITHHOLDS it: the model sees one
+     * fixed line naming the class and nothing it says. Wiring is still proven — the line is there only
+     * because the class was resolved — and the human-facing answer and evidence are unchanged.
+     */
+    assert.match(grounding, /^\[recorded-acts\] withheld — not disclosed to the external model$/m, "the recorded-act class is wired, and withheld");
+    assert.ok(!/1 of 18 recorded acts carried|integration\.credential\.replaced/.test(grounding), "no recorded act reaches the model");
     assert.ok(
       !/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(grounding),
       "no uuid reaches the model through this class",

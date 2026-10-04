@@ -146,12 +146,14 @@ async function main(): Promise<void> {
      * what this test is about, and it is unchanged; the UUID itself must not reach the model.
      */
     assert.ok(!lines.includes(DRAFT), `${route}: the draft's record id does not reach the model`);
-    const draftLine =
-      lines.split("\n").find((l) => l.startsWith("[content-media]") && l.includes("Black Rose Floral Kilim Rug")) ?? "";
-    assert.match(draftLine, /governed publish path \(YouTube video\): this organization holds the capability now/, `${route}: A · capability on the draft line`);
-    assert.match(draftLine, /package ready: yes/, `${route}: F`);
-    /* CONTENT-PUBLICATION-STATE-1: no ledger in this fixture, so the record is UNKNOWN — never 'none'. */
-    assert.match(draftLine, /publication record of this revision: could not be read — unknown here, which is not 'none'/, `${route}: A · unread history reaches the model as unknown`);
+    /*
+     * EXTERNAL-AI-DATA-USE-B2: a content-media line mixes a draft with media and publish readiness, so
+     * the model-facing projection withholds it whole. The draft line's unknown-not-false content is
+     * still pinned below on the HUMAN-facing detail (A, against `capable` & co.); the model gets none
+     * of it, so it can be handed no negative fact either.
+     */
+    assert.match(lines, /^\[content-media\] withheld — not disclosed to the external model$/m, `${route}: the draft class is withheld`);
+    assert.doesNotMatch(lines, /Black Rose Floral Kilim Rug|package ready/, `${route}: nothing about the draft reaches the model`);
     assert.doesNotMatch(lines, NEGATIVE_FACTS, `${route}: C/D · no negative fact about connection, publish or arming is handed to the model`);
     assert.doesNotMatch(lines, /\barming\b[^.|]*\b(active|withdrawn|armed)\b/i, `${route}: C · no arming state is handed to the model`);
   }

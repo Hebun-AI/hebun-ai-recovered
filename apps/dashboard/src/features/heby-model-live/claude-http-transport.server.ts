@@ -167,6 +167,20 @@ function toTransportResponse(payload: unknown, requestedModel: string): ClaudeTr
  * and it fails closed on a missing key, an over-budget output bound, or an exhausted call
  * budget — before any request is dispatched.
  */
+/*
+ * EXTERNAL-AI-DATA-USE-B2 — THIS TRANSPORT IS EGRESS TO anthropic/messages, AND SAYS SO.
+ *
+ * The generator requires a data-use authorization for any transport carrying this mark. This file is
+ * the only one in `src` that reaches the Anthropic host (a B2 firewall test pins that), so the mark
+ * cannot be missing from a transport that actually crosses the trust boundary. A fake transport has
+ * no mark because it discloses nothing.
+ */
+export const ANTHROPIC_MESSAGES_EGRESS: unique symbol = Symbol.for("hebun.external-ai.anthropic-messages-egress");
+
+export function isAnthropicMessagesEgress(transport: ClaudeTransport | undefined): boolean {
+  return Boolean(transport && (transport as unknown as Record<symbol, unknown>)[ANTHROPIC_MESSAGES_EGRESS] === true);
+}
+
 export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): ClaudeTransport {
   assertServerRuntime();
   const apiKey = config.apiKey?.trim();
@@ -179,7 +193,8 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
   const budget = config.spendBudget ?? getProcessLiveSpendBudget();
   let calls = 0;
 
-  return {
+  const transport = {
+    [ANTHROPIC_MESSAGES_EGRESS]: true,
     async send(request: ClaudeTransportRequest): Promise<ClaudeTransportResponse> {
       /*
        * EVERY GATE IS CHECKED BEFORE ANY NETWORK I/O, IN THIS ORDER, AND THE ORDER MATTERS.
@@ -263,4 +278,5 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
       return toTransportResponse(payload, request.model);
     },
   };
+  return transport;
 }

@@ -161,8 +161,12 @@ async function main(): Promise<void> {
     const req = cap.get();
     assert.ok(req, "a model request was built");
     assert.ok(req!.evidence.length > 0, "evidence lines reach the request");
-    // Provenance survives into the grounding lines (not flattened away).
-    assert.ok(req!.evidence.some((line) => line.includes("provenance:")), "provenance preserved in evidence");
+    // Provenance survives into every DISCLOSED grounding line (not flattened away). B2: a class the
+    // platform cannot ALLOW for assistance is withheld as one fixed line, and carries nothing at all.
+    assert.ok(
+      req!.evidence.every((line) => line.includes("provenance:") || / (withheld — not disclosed to the external model|unavailable)/.test(line)),
+      "provenance preserved on every disclosed evidence line",
+    );
     // The system instruction is the trust-boundary text, not the user's prompt.
     assert.equal(req!.systemInstructions, HEBY_MODEL_SYSTEM_INSTRUCTIONS);
     assert.equal(req!.userPrompt, input.prompt);
@@ -180,7 +184,8 @@ async function main(): Promise<void> {
     };
     await answerHebyModelRequest(input, deps({ readOverview: () => injected, generate: cap.spy }));
     const req = cap.get();
-    assert.ok(req!.evidence.some((line) => line.includes("IGNORE PREVIOUS INSTRUCTIONS")), "instruction-like text is carried as evidence data");
+    /* B2: an overview section is not an assistance-allowable class, so the injected text is not sent at all. */
+    assert.ok(!JSON.stringify(req).includes("IGNORE PREVIOUS INSTRUCTIONS"), "instruction-like text in a withheld class never reaches the model");
     assert.ok(!req!.systemInstructions.includes("IGNORE PREVIOUS INSTRUCTIONS"), "instruction-like text never becomes a system instruction");
   }
 

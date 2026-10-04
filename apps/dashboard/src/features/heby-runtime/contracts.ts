@@ -383,6 +383,8 @@ export type ModelAvailabilityState =
   | "MISCONFIGURED"
   | "CREDENTIAL_UNAVAILABLE"
   | "TRANSPORT_UNAVAILABLE"
+  /* EXTERNAL-AI-DATA-USE-B2 — the deployment could send, but this disclosure is not authorized. */
+  | "DATA_USE_NOT_AUTHORIZED"
   | "AVAILABLE";
 
 /** A provider-neutral, read-only text-generation request. */

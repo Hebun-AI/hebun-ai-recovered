@@ -69,21 +69,30 @@ for (const file of [...SRC, ...SCRIPTS]) {
 const importers = SRC.filter(
   (f) => !f.startsWith(FEATURE) && /from\s+["']@\/features\/external-ai-data-use\//.test(read(f)),
 ).sort();
+/*
+ * EXTERNAL-AI-DATA-USE-B2 connected the runtime, on purpose: the generator — the one seam every path
+ * to the Claude transport passes — consults the gate, and the answer path declares what it discloses.
+ * Nothing else outside the feature reaches it.
+ */
 assert.deepEqual(
   importers,
   [
     "src/app/(dashboard)/governance/authority/actions.ts",
     "src/features/governance-decision/decision-authority.server.ts",
+    "src/features/heby-answer/model-answer.server.ts",
+    "src/features/heby-answer/model-facing-projection.ts",
+    "src/features/heby-model/heby-model-generation.server.ts",
   ],
-  "only the Governance action (writer) and the decision authority (vocabulary) reach the new authority",
+  "only the Governance writer, the decision vocabulary, the generator's gate and the answer's declaration reach the authority",
 );
 assert.ok(
   !/from\s+["']@\/features\/external-ai-data-use\/(?!contracts["'])/.test(read("src/features/governance-decision/decision-authority.server.ts")),
   "the decision authority imports the vocabulary only",
 );
+const B2_RUNTIME = new Set(["src/features/heby-answer/model-answer.server.ts", "src/features/heby-answer/model-facing-projection.ts", "src/features/heby-model/heby-model-generation.server.ts"]);
 for (const forbidden of ["heby-answer", "agent-origination", "heby-model", "heby-model-live", "media-assets", "media-generation-live", "heby-provider-ops", "relevance-judge"]) {
-  for (const file of SRC.filter((f) => f.startsWith(`src/features/${forbidden}/`))) {
-    assert.ok(!read(file).includes("external-ai-data-use"), `${file} does not consult the data-use authority in Release A`);
+  for (const file of SRC.filter((f) => f.startsWith(`src/features/${forbidden}/`) && !B2_RUNTIME.has(f))) {
+    assert.ok(!/from\s+["']@\/features\/external-ai-data-use\//.test(read(file)), `${file} does not import the data-use authority`);
   }
 }
 

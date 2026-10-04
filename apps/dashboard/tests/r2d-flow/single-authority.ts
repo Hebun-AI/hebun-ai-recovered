@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { answerHebyModelRequest, type HebyModelAnswerDeps } from "../../src/features/heby-answer/model-answer.server";
 import { generateHebyModelAnswer } from "../../src/features/heby-model";
 import { createLiveClaudeTransport, type FetchLike } from "../../src/features/heby-model-live/claude-http-transport.server";
+import { authorizedDisclosure } from "../helpers/authorized-disclosure";
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
@@ -56,7 +57,8 @@ function deps(directorEnabled: boolean, fetchImpl: FetchLike, env: Record<string
     resolveDirectorEnabled: async () => directorEnabled,
     // Real live transport (with an injected fetch) — provenance "live".
     selectTransport: () => ({ transport: liveTransport, transportProvenance: "live" }),
-    generate: generateHebyModelAnswer,
+    /* EXTERNAL-AI-DATA-USE-B2: the live transport is gated; this suite is about R2E, so the data-use gate is stood in. */
+    generate: (request, generateDeps) => generateHebyModelAnswer(request, { ...generateDeps, authorizeDisclosure: authorizedDisclosure }),
     getConversationRepo: () => null,
     newCorrelationId: () => "corr",
   };

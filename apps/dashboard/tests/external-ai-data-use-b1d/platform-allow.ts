@@ -162,13 +162,10 @@ const SRC = walk("src");
 const importers = SRC.filter(
   (f) => !f.startsWith("src/features/external-ai-data-use") && /from\s+["']@\/features\/external-ai-data-use\//.test(read(f)),
 ).sort();
-assert.deepEqual(
-  importers,
-  ["src/app/(dashboard)/governance/authority/actions.ts", "src/features/governance-decision/decision-authority.server.ts"],
-  "no Heby, model, origination or media path reaches the data-use authority (B2 is not begun)",
-);
-for (const file of SRC.filter((f) => /^src\/features\/(heby-model|heby-model-live|heby-answer|agent-origination|media)/.test(f))) {
-  assert.ok(!read(file).includes("external-ai-data-use"), `${file} does not consult the data-use authority`);
+/* B2 connected the runtime through the generator's gate; the importer set is pinned in the 1A firewall. */
+assert.ok(importers.includes("src/features/heby-model/heby-model-generation.server.ts"), "the runtime reaches the data-use authority (B2)");
+for (const file of SRC.filter((f) => /^src\/features\/(media|agent-origination|heby-model-live)/.test(f))) {
+  assert.ok(!/from\s+["']@\/features\/external-ai-data-use\//.test(read(file)), `${file} does not import the data-use authority`);
 }
 const policyCode = stripComments(read("src/features/external-ai-data-use/platform-disclosure-policy.ts"));
 assert.ok(!/\bimport\b[^;]*from\s+["'](?!\.\/contracts["'])/.test(policyCode), "the policy imports only its vocabulary");

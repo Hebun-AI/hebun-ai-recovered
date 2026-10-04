@@ -29,7 +29,33 @@
  * It creates no alias, no mapping and no stored state: an identifier is omitted, not translated.
  * Stored data, persisted evidence and the human-facing answer are unchanged.
  */
+import type { DataClass } from "@/features/external-ai-data-use/contracts";
 import type { ConversationTurn, SourceResolution } from "@/features/heby-runtime";
+
+/*
+ * EXTERNAL-AI-DATA-USE-B2 — WHICH GROUNDING MAY REACH THE MODEL AT ALL.
+ *
+ * Each source class named by the authority that OWNS its records. Only sources owned by an authority
+ * the platform can ALLOW for assistance are named; every other source — organization, people,
+ * placement, Governance, decisions, operations, recorded acts, agents, integrations, content media,
+ * derived read models — is WITHHELD from the model as one fixed line naming the class, so the model
+ * knows it exists and not what it says. The human-facing answer and its evidence are unchanged.
+ */
+const DISCLOSABLE_SOURCE_CLASSES: Readonly<Record<string, DataClass>> = Object.freeze({
+  knowledge: "knowledge",
+  "knowledge-coverage": "knowledge",
+  "work-artifacts": "work-artifact",
+});
+export const MODEL_WITHHELD_SOURCE = "withheld — not disclosed to the external model";
+
+/** The data classes the model-facing grounding of these resolutions carries. */
+export function modelDisclosedDataClasses(resolutions: readonly SourceResolution[]): readonly DataClass[] {
+  return [
+    ...new Set(
+      resolutions.flatMap((r) => (DISCLOSABLE_SOURCE_CLASSES[r.sourceClass] ? [DISCLOSABLE_SOURCE_CLASSES[r.sourceClass]!] : [])),
+    ),
+  ];
+}
 
 export const MODEL_WITHHELD_IDENTIFIER = "[identifier withheld]";
 export const MODEL_WITHHELD_ADDRESS = "[address withheld]";
@@ -61,6 +87,10 @@ function modelFacingRecordRef(recordRef: string): string | null {
 export function modelGroundingLines(resolutions: readonly SourceResolution[]): readonly string[] {
   const lines: string[] = [];
   for (const resolution of resolutions) {
+    if (!DISCLOSABLE_SOURCE_CLASSES[resolution.sourceClass]) {
+      lines.push(`[${resolution.sourceClass}] ${MODEL_WITHHELD_SOURCE}`);
+      continue;
+    }
     if (resolution.state === "resolved") {
       for (const item of resolution.items) {
         const ref = modelFacingRecordRef(item.recordRef);

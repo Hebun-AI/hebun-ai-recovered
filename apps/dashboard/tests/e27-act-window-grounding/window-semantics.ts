@@ -305,10 +305,14 @@ async function main(): Promise<void> {
 
     assert.ok(captured, "the answer flow must have composed a model request");
     const grounding = captured!.evidence.join("\n");
-    assert.match(grounding, /\[recorded-act-windows\/window:current-7d\]/);
-    assert.match(grounding, /\[recorded-act-windows\/window:comparison\]/);
-    assert.match(grounding, new RegExp(CURRENT_SINCE), "the exact boundary reaches the model");
-    assert.match(grounding, /interprets neither/, "the refusal travels with the numbers");
+/*
+   * EXTERNAL-AI-DATA-USE-B2 changed what this pinned, on purpose. The recorded-act-windows class is not a class the
+   * platform can ALLOW for assistance, so the model-facing projection WITHHOLDS it: the model sees one
+   * fixed line naming the class and nothing it says. Wiring is still proven — the line is there only
+   * because the class was resolved — and the human-facing answer and evidence are unchanged.
+   */
+    assert.match(grounding, /^\[recorded-act-windows\] withheld — not disclosed to the external model$/m, "the window class is wired, and withheld");
+    assert.ok(!grounding.includes(CURRENT_SINCE), "no period boundary reaches the model");
   }
 
   /* ── 12 · A THROWING READ DEGRADES; IT NEVER INVENTS A PERIOD ────────────── */

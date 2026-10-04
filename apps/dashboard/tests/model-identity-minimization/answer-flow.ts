@@ -94,8 +94,8 @@ async function main(): Promise<void> {
     assert.ok(captured, "the flow composed a model request");
     const grounding = captured!.evidence.join("\n");
     assert.ok(!grounding.includes(accountLabel), `${providerKey}: the account label does not reach the model`);
-    assert.match(grounding, new RegExp(`\\[integrations/${providerKey}/drive\\.metadata\\]`), "the capability still reaches the model");
-    assert.match(grounding, /state available · read available · write capability absent · last verified/, "its state and verification still travel");
+    /* EXTERNAL-AI-DATA-USE-B2: integrations are withheld from the model whole, not just their account. */
+    assert.match(grounding, /^\[integrations\] withheld — not disclosed to the external model$/m, "the capability class is withheld");
     assert.ok(JSON.stringify(response).includes(accountLabel), `${providerKey}: the human-facing answer still shows the account`);
   }
 
@@ -142,9 +142,11 @@ async function main(): Promise<void> {
   assert.ok(captured);
   const grounding = captured!.evidence.join("\n");
   assert.ok(!UUID_RE.test(grounding), `no raw identifier reaches the model:\n${grounding}`);
-  for (const kept of ["Ayşe Yılmaz", "Finance [finance]", "Close the quarter", "accountable human: Ayşe Yılmaz", "owner [identifier withheld]", "Acme Rugs"]) {
-    assert.ok(grounding.includes(kept), `the model still sees: ${kept}`);
+  /* EXTERNAL-AI-DATA-USE-B2: none of these classes is disclosed now; each is one withheld line. */
+  for (const withheld of ["people", "placement", "work", "organization"]) {
+    assert.match(grounding, new RegExp(`^\\[${withheld}\\] withheld — not disclosed to the external model$`, "m"), `${withheld} is withheld`);
   }
+  assert.ok(!/Ayşe Yılmaz|Acme Rugs|Close the quarter/.test(grounding), "no name, title or organization reaches the model");
   const human = JSON.stringify(response);
   assert.ok(human.includes(PERSON), "the human-facing answer is unchanged — it still shows what it showed before");
 

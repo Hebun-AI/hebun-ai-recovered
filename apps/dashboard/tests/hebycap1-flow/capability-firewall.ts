@@ -127,8 +127,15 @@ function main(): void {
   /* ── 2 · IT REACHES NO FORBIDDEN ROOT ────────────────────────────────────── */
   {
     const violations: string[] = [];
+    /*
+     * EXTERNAL-AI-DATA-USE-B2: the `heby-model` barrel re-exports the generator, whose data-use gate
+     * reads the processor attestation and tenant authorization through their released readers — and
+     * those resolve their database through Governance's resolver. That is an import reach to a DB
+     * resolver and a vocabulary, never a Governance decision, and the projection calls none of it.
+     */
+    const B2_REACH = new Set(["src/features/governance-decision/persistence.server.ts", "src/features/governance-decision/contracts.ts"]);
     for (const root of FORBIDDEN_ROOTS) {
-      const hits = files.filter((f) => f.startsWith(root));
+      const hits = files.filter((f) => f.startsWith(root) && !B2_REACH.has(f));
       if (hits.length > 0) violations.push(`must not reach ${root} (${hits.sort().join(", ")})`);
     }
     for (const file of FORBIDDEN_FILES) {

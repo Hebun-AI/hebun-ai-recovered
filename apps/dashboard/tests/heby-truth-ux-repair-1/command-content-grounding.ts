@@ -118,15 +118,16 @@ async function main(): Promise<void> {
     if (answered.status !== "answered") return;
     const refs = answered.outcome.response.evidence.map((e) => `${e.sourceClass}/${e.recordRef}`);
     assert.ok(refs.includes(`content-media/work-artifact/${BLACK_ROSE}@2`), "A · the draft is evidence of the /heby answer");
+    /*
+     * EXTERNAL-AI-DATA-USE-B2 changed what A/E/H pinned, on purpose. A content-media line mixes a
+     * draft with its media and publish readiness — work-artifact, media and capability facts at once —
+     * so it is not a class the platform can ALLOW for assistance, and the model-facing projection
+     * WITHHOLDS it. The draft is still evidence of the HUMAN answer (above); the model learns only that
+     * the class exists.
+     */
     const g = grounding(generated[0]!);
-    assert.match(g, /Black Rose Floral Kilim Rug/, "A · the model sees the draft by its title");
-    assert.match(g, new RegExp(`video ${VID} · origin supplied .* review accepted · selected in revision 2`), "E · selected reviewed media");
-    assert.match(g, /package ready: yes/, "E · package ready");
-    assert.match(g, /media complete: yes/);
-    assert.match(g, /reasons: existing-selection-reviewed, publish-path-governed/, "E · governed YouTube capability");
-    assert.match(g, /a ready package is not a publish authorization/, "E · readiness is not authorization");
-    assert.match(g, /Heby publishes nothing/, "H · Heby holds no publish authority");
-    assert.doesNotMatch(g, /tenant-arming-withdrawn|arming (active|withdrawn)|armed\b/i, "arming is not read here and is never invented");
+    assert.match(g, /^\[content-media\] withheld — not disclosed to the external model$/m, "A · the class is wired, and withheld from the model");
+    assert.doesNotMatch(g, /Black Rose Floral Kilim Rug|package ready|publish-path-governed/, "A/E · nothing about the draft reaches the model");
 
     /* ── B · only the asking tenant, even when the other tenant's draft has the same title ── */
     assert.ok(seen.length > 0 && seen.every((t) => t === TRH.tenantId), "B · every reader got exactly the asking tenant");
@@ -155,7 +156,7 @@ async function main(): Promise<void> {
     const answered = await answerHebyModelRequest({ prompt: QUESTION, route: "/heby" }, answerDeps(TRH, {}, [], generated));
     assert.equal(answered.status, "answered");
     const g = grounding(generated[0]!);
-    assert.match(g, /No open content drafts/);
+    assert.match(g, /^\[content-media\] withheld — not disclosed to the external model$/m, "D · withheld whether or not a draft exists — the model cannot tell which");
     assert.doesNotMatch(g, /package ready: yes|publish-path-governed|work-artifact\//, "D · no readiness or capability claim for a draft that does not exist");
   }
 
@@ -172,7 +173,7 @@ async function main(): Promise<void> {
     assert.equal(second.status, "answered");
     const req = generated[1]!;
     assert.ok((req.history ?? []).length > 0, "F · the earlier turn is carried as history");
-    assert.match(grounding(req), /reasons: existing-selection-reviewed, publish-path-governed/, "F · the current turn is still grounded on the draft");
+    assert.match(grounding(req), /^\[content-media\] withheld — not disclosed to the external model$/m, "F · the current turn's draft class is still withheld (B2)");
   }
 
   /* ── G · a workspace that does not declare the class still never consults it ── */

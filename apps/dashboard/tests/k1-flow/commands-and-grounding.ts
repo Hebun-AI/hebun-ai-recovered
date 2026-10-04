@@ -459,7 +459,8 @@ async function main(): Promise<void> {
       !grounding.includes("[knowledge/"),
       "and this fixture's retrieval matched nothing, so nothing entered the grounding — a read is not a result",
     );
-    assert.match(grounding, /\[operations\//, "the live Operations model remains the source");
+    /* B2: the Operations class is still the source, and is withheld from the external model. */
+    assert.match(grounding, /^\[operations\] withheld — not disclosed to the external model$/m, "the live Operations model remains the source");
   }
 
   /* ── 29. PROVIDER OFF: NATURAL-LANGUAGE KNOWLEDGE STILL GROUNDS, NO DISPATCH */

@@ -377,13 +377,14 @@ async function main(): Promise<void> {
 
     assert.ok(captured, "the answer flow must have composed a model request");
     const grounding = captured!.evidence.join("\n");
-    assert.match(
-      grounding,
-      /\[integrations\/google-workspace\/drive\.metadata\]/,
-      "the integration capability must reach the model's grounding context — if this fails, withIntegrations is not wired",
-    );
-    assert.match(grounding, /state available/, "the capability state travels with it");
-    assert.match(grounding, /No provider was contacted/, "the provenance disclaims any provider contact");
+/*
+     * EXTERNAL-AI-DATA-USE-B2 changed what this pinned, on purpose. The integrations class is not a class the
+     * platform can ALLOW for assistance, so the model-facing projection WITHHOLDS it: the model sees one
+     * fixed line naming the class and nothing it says. Wiring is still proven — the line is there only
+     * because the class was resolved — and the human-facing answer and evidence are unchanged.
+     */
+    assert.match(grounding, /^\[integrations\] withheld — not disclosed to the external model$/m, "withIntegrations is wired, and withheld");
+    assert.ok(!/drive\.metadata|state available/.test(grounding), "no capability state reaches the model");
   }
 
   console.log("int5a-flow/connection-grounding: OK");

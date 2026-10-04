@@ -28,6 +28,13 @@ import { evaluateModelAvailability } from "./model-availability";
 import { createClaudeModelClient } from "./claude-model-client";
 import type { ClaudeTransport } from "./claude-transport";
 import { ModelConnectivityError } from "./model-error";
+import { isAnthropicMessagesEgress } from "@/features/heby-model-live/claude-http-transport.server";
+import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
+import {
+  authorizeExternalAiDisclosure,
+  type AuthorizeExternalAiDisclosure,
+  type ExternalAiDisclosureDeclaration,
+} from "@/features/external-ai-data-use/authorize-external-ai-disclosure.server";
 
 export interface HebyModelGenerationDeps {
   /** Config source. Defaults to process.env (server-only). */
@@ -38,6 +45,17 @@ export interface HebyModelGenerationDeps {
    * explicitly injects a transport (a no-network fake in R2B).
    */
   readonly transport?: ClaudeTransport;
+  /*
+   * EXTERNAL-AI-DATA-USE-B2 — what this request discloses, declared by the caller that built it:
+   * the tenant from its authenticated context, the purpose, and every data class by the authority
+   * that owns it. ABSENT means undeclared, and an undeclared request is refused before the client
+   * is built. Every path to the Claude transport passes through here, so this is where it holds.
+   */
+  readonly disclosure?: ExternalAiDisclosureDeclaration;
+  /** Injectable for tests only; defaults to the released three-authority gate. */
+  readonly authorizeDisclosure?: AuthorizeExternalAiDisclosure;
+  /** Injectable for tests only; defaults to the R2E Claude control's own fail-closed reader. */
+  readonly resolveOperatorEnabled?: () => Promise<boolean>;
 }
 
 export type HebyModelOutcome =
@@ -90,6 +108,28 @@ export async function generateHebyModelAnswer(
 
   if (state !== "AVAILABLE") {
     return unavailable(state);
+  }
+
+  /*
+   * B2 — NO DISCLOSURE WITHOUT ALL THREE AUTHORITIES. Whenever the transport is real Anthropic
+   * egress, checked after the deployment could send at all and before the client exists, so a
+   * refusal can never reach the network. A request whose tenant differs from the declaration's is
+   * refused rather than trusted. A fake transport discloses nothing and is not gated.
+   */
+  /* ponytail: keyed on the live transport's egress mark; a wrapper that drops the mark would skip the gate — wrap inside the transport, never around it. */
+  if (isAnthropicMessagesEgress(deps.transport)) {
+    const declaration = deps.disclosure ?? null;
+    const tenantMismatch =
+      declaration !== null && request.tenantId !== undefined && request.tenantId !== declaration.tenantId;
+    const decision = tenantMismatch
+      ? null
+      : await (deps.authorizeDisclosure ?? ((d, o) => authorizeExternalAiDisclosure(d, o)))(
+          declaration,
+          await (deps.resolveOperatorEnabled ?? resolveClaudeDirectorEnabled)().catch(() => null),
+        );
+    if (decision?.disposition !== "authorized") {
+      return unavailable("DATA_USE_NOT_AUTHORIZED");
+    }
   }
 
   const client = createClaudeModelClient({

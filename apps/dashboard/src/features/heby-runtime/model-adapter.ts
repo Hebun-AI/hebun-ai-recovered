@@ -77,6 +77,13 @@ export function unavailableStatusFor(
         detail:
           "No live model transport is configured, so the model boundary remains closed.",
       });
+    case "DATA_USE_NOT_AUTHORIZED":
+      return Object.freeze({
+        available: false,
+        reason: "not-authorized-for-heby",
+        detail:
+          "This organization's data is not authorized for this external AI processing, so nothing was sent to the model.",
+      });
     case "AVAILABLE":
       return null;
   }

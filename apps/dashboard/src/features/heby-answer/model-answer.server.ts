@@ -135,7 +135,9 @@ import {
   toStoredSourceEvidence,
 } from "@/features/heby-conversation/answer-evidence";
 import { buildBoundedHistory } from "./bounded-history";
-import { modelFacingHistory, modelGroundingLines } from "./model-facing-projection";
+import { modelDisclosedDataClasses, modelFacingHistory, modelGroundingLines } from "./model-facing-projection";
+import type { DataClass } from "@/features/external-ai-data-use/contracts";
+import type { ExternalAiDisclosureDeclaration } from "@/features/external-ai-data-use/authorize-external-ai-disclosure.server";
 import { resolveKnowledgeEvidenceDetailed } from "./knowledge-evidence.server";
 
 /** Honest note when the Director has disabled Claude connectivity — no provider request is made. */
@@ -228,6 +230,12 @@ export interface HebyModelAnswerOptions {
    * never evidence, never authority, and it never reaches a message row.
    */
   readonly preparationBrief?: string;
+  /*
+   * EXTERNAL-AI-DATA-USE-B2 — the data classes the brief carries, by the authority that owns them,
+   * declared by the seam that built it. A brief without them is undeclared, and the model is not
+   * asked.
+   */
+  readonly preparationBriefDataClasses?: readonly DataClass[];
 }
 
 /** The injectable seams — real in production, faked in tests. */
@@ -1230,6 +1238,26 @@ export async function answerHebyModelRequest(
     const selection = (deps.selectTransport ?? selectModelTransport)(env);
     const correlationId = (deps.newCorrelationId ?? defaultCorrelationId)();
     const history = await loadBoundedHistory(repo, scope, input.conversationId);
+    /*
+     * B2 — WHAT THIS REQUEST DISCLOSES, by owning authority: the conversation (the prompt and its
+     * bounded history), the grounding classes the model-facing projection did not withhold, and
+     * whatever the preparation brief declared. Purpose is assistance; nothing here can relabel it.
+     */
+    const briefApplied = Boolean(options.preparationBrief) && HEBY_INTENT_DESCRIPTORS[intent].prepares;
+    const disclosure: ExternalAiDisclosureDeclaration | undefined =
+      briefApplied && !options.preparationBriefDataClasses
+        ? undefined
+        : {
+            tenantId: tenant.tenantId,
+            purpose: "assistance",
+            dataClasses: [
+              ...new Set<DataClass>([
+                "conversation",
+                ...modelDisclosedDataClasses(resolutions),
+                ...(briefApplied ? options.preparationBriefDataClasses! : []),
+              ]),
+            ],
+          };
     const modelRequest: ModelGenerationRequest = {
       correlationId,
       tenantId: tenant.tenantId,
@@ -1247,6 +1275,7 @@ export async function answerHebyModelRequest(
       generate: deps.generate ?? generateHebyModelAnswer,
       env,
       modelRequest,
+      disclosure,
       selection,
       context,
       authority,
@@ -1339,6 +1368,7 @@ async function produceAnswer(args: {
   readonly generate: typeof generateHebyModelAnswer;
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly modelRequest: ModelGenerationRequest;
+  readonly disclosure: ExternalAiDisclosureDeclaration | undefined;
   readonly selection: ModelTransportSelection;
   readonly context: HebyRuntimeContext;
   readonly authority: HebyAuthorityMode;
@@ -1346,11 +1376,11 @@ async function produceAnswer(args: {
   readonly assembled: ReturnType<typeof assembleEvidence>;
   readonly deterministic: HebyRuntimeResponse;
 }): Promise<ProducedAnswer> {
-  const { generate, env, modelRequest, selection, context, authority, resolutions, assembled, deterministic } = args;
+  const { generate, env, modelRequest, disclosure, selection, context, authority, resolutions, assembled, deterministic } = args;
 
   let outcome;
   try {
-    outcome = await generate(modelRequest, { env, transport: selection.transport });
+    outcome = await generate(modelRequest, { env, transport: selection.transport, disclosure });
   } catch (error) {
     const code = error instanceof ModelConnectivityError ? error.code : "unknown-provider-error";
     return { response: withNote(deterministic, `Model generation failed (${code}); this answer is deterministic.`) };

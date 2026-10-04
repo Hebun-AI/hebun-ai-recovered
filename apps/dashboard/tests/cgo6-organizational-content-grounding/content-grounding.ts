@@ -270,20 +270,21 @@ async function main(): Promise<void> {
       request.includes(KNOWLEDGE_TEXT),
       "the organization's own recorded statement reached the model that wrote the draft",
     );
-    assert.ok(
-      request.includes(WORK_TEXT),
-      "so did what the organization declared it is trying to do",
-    );
+    /*
+     * EXTERNAL-AI-DATA-USE-B2 changed this pin, on purpose: declared Work is an operational record,
+     * not a class the platform can ALLOW for assistance, so the model-facing projection withholds it.
+     * It is still consulted exactly once (above) and still grounds the human-facing answer.
+     */
+    assert.ok(!request.includes(WORK_TEXT), "declared Work no longer reaches the model");
+    assert.ok(request.includes("[work] withheld — not disclosed to the external model"), "its class is named as withheld");
 
     /*
      * AND SO DID THE PROVENANCE THAT BOUNDS THEM. `work` is authoritative because WORK-1 owns the
      * record — never because the world matches it. The sentence the model reads must keep saying so,
      * or a declared state becomes an observed one somewhere between here and the caption.
      */
-    assert.ok(
-      request.includes("Hebun observed nothing"),
-      "the declared-not-observed provenance travelled with the work material",
-    );
+    /* B2: the work line is withheld whole, so neither its material nor its provenance is sent. */
+    assert.ok(!request.includes("Hebun observed nothing"), "a withheld class carries no provenance either");
 
     /* ══ 4. NOTHING ELSE ARRIVED WITH IT ═════════════════════════════════════
      *
@@ -308,8 +309,9 @@ async function main(): Promise<void> {
     const groundedClasses = [...new Set([...grounding.matchAll(/\[\d+\] \[([a-z-]+)\//g)].map((m) => m[1]!))];
     assert.deepEqual(
       [...groundedClasses].sort(),
-      ["knowledge", "operations", "work"].sort(),
-      "the grounded classes are exactly the organization's own records that resolved",
+      /* B2: operations and work are resolved but withheld; only Knowledge is disclosed to the model. */
+      ["knowledge"],
+      "the disclosed classes are exactly the assistance-allowable ones that resolved",
     );
 
     /*

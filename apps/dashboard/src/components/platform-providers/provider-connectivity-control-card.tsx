@@ -92,6 +92,8 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
     MISCONFIGURED: "Misconfigured — provider, model or output bound",
     CREDENTIAL_UNAVAILABLE: "Blocked — no server-side model credential",
     TRANSPORT_UNAVAILABLE: "Blocked — no live transport selected",
+    /* Per request, never a deployment state: present only because the vocabulary is shared. */
+    DATA_USE_NOT_AUTHORIZED: "Blocked — external AI data use not authorized",
   };
   const dispatchTone: Tone = view.dispatch === "permitted" ? "good" : "warn";
   const DISPATCH_LABEL: Record<typeof view.dispatch, string> = {

@@ -323,6 +323,13 @@ export async function prepareWorkArtifact(
        * unchanged. Resolved from the human's declared type and destination, never from the prompt.
        */
       preparationBrief: preparationBriefFor(briefInput),
+      /*
+       * EXTERNAL-AI-DATA-USE-B2 — the brief's classes by owning authority: the artifact's type,
+       * destination and revision are the work-artifact authority's; a platform observation is the
+       * provider observation authority's, and assistance does not cover it, so a preparation that
+       * carries one is refused before the model is asked.
+       */
+      preparationBriefDataClasses: input.observationSupplement ? ["work-artifact", "provider-observation"] : ["work-artifact"],
     },
   );
 
