@@ -205,3 +205,56 @@ Still advisory, read-only, no persistence, no provider, no semantic model. The r
 supported side: on the held-out set 43 of 52 supported claims are not retained (16 of them falsely
 warned). None is a verbatim record sentence — each is reworded, translated or joined across records —
 so sentence identity cannot reach them; that is the semantic gap.
+
+## GS-3 — semantic grounding, synthetic benchmark experiment (EXPERIMENT INFRASTRUCTURE ONLY)
+
+`scripts/grounding-semantic/`: frozen contract (`contract.ts`), case adapter over GS-0 / GS-1.1 /
+GS-1.2 plus 11 Stage-A fixtures (`cases.ts`), a fail-closed synthetic-only guard (a body is sent only
+if byte-identical to the frozen request over one registered synthetic case), a runner and an offline
+scorer. Test `tests/grounding-semantic-gs3/contract.ts` (no network). Nothing in `src/` imports it;
+the runtime, the transport, the vocabulary, External AI policy and every authority are unchanged.
+
+Mechanism (verified against current Anthropic docs, 2026-10-05): Messages API structured outputs,
+`output_config.format = {type: "json_schema", schema}`, GA, constrained decoding, no beta header.
+Model `claude-opus-5-5` (adaptive thinking always on, default effort), $4 / $20 per MTok. One
+instruction (system); the claim and the evidence travel as ONE JSON data document with opaque labels
+E1…En. Output `{relation: entailed|contradicted|not-stated|unclear, citations: [{label, quote}]}`,
+re-validated server-side: closed keys, known relation, known label, quote verbatim in the cited
+excerpt. `entailed` is a SHADOW label; nothing maps it to `supported`. Unreadable or empty evidence is
+never sent.
+
+Contract frozen (sha recorded) before the first call; unchanged across all runs. One post-run,
+type-only edit to the validator (narrowing for `tsc`); all 701 recorded answers re-validate identically.
+
+Stage A (11 fixtures, incl. three instruction-injection excerpts): 11/11 expected relations, 0
+malformed, all quotes verbatim; injected text stayed evidence. Stage B + C: 230 sendable cases × 3 runs.
+
+| all 240 cases (3 runs agree unless noted) | deterministic | semantic shadow | H1 proposed | H2 upgrade U | H3 upgrade U+I |
+|---|---|---|---|---|---|
+| false supported | 0 | **0** | 0 | 0 | 0 |
+| false insufficient | 25 | 4–5 | 27 | 27 | 4–5 |
+| supported retained | 29/109 | 104–105/109 | 29/109 | 82/109 | 104–105/109 |
+| unsupported detected | 107/126 | 126/126 | 126/126 | 126/126 | 126/126 |
+| contradictions labelled | 0/27 | 24/27 | 24/27 | 24/27 | 24/27 |
+| undetermined | 74 | 0 | 53 | 0 | 0 |
+
+H1 = GS-2 proposal (model may only add contradiction or turn an abstention into insufficient). H2/H3
+upgrade to `supported` and are MEASURED ONLY. Semantic shadow by family (run 1): paraphrase 35/37
+retained vs 0/37 deterministic; cross-language supported 19/19 vs 1/19; multi-record 10/10 vs 0/10; temporal
+represented by 2 cases, both correct. Semantic false insufficient (run 1): two held-out claims name
+the organization where the record does not (h-checkups, o-sauna), "operates in" read narrower than
+"installs panels across" (v-valencia), and "ready to help" added to a headcount (ps-team); runs 2–3
+add one universal reading (e-native). Several are arguably label-quality issues; labels were NOT
+changed after scoring.
+
+Reliability: 0 provider errors, 0 malformed, 0 invalid labels, 0 unverifiable quotes, 0 case
+deviations in 701 calls. Stability: 4/230 cases changed shadow label across runs; none to a false
+`supported`. Latency median ~2.4–2.7 s, p95 ~5–6.5 s. Tokens per benchmark run ~183k in / ~14.7k out
+(~$1.0); total GS-3 spend ≈ $3.1.
+
+Limits: every label is synthetic and Claude-family authored or curated (GS-1.2: CLAUDE-CURATED ·
+FROZEN BEFORE EVALUATION · NOT HUMAN-VALIDATED), and the evaluator is a Claude model — agreement can be
+inflated by shared bias, and the sets may be easier than real copy. No adversarial benchmark beyond
+the three Stage-A fixtures. One model, default effort. Decision: promising; a human-validated,
+independently authored benchmark (including production-like copy labelled by a person who has not
+seen model output) is required before any semantic result can carry upgrade or blocking authority.
