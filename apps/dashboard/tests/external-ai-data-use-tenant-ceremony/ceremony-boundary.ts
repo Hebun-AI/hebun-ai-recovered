@@ -35,16 +35,18 @@ assert.match(code, /await withdrawTenantExternalAiDataUse\(tenant, /);
 for (const seam of ["read-processor-attestations.server", "read-tenant-external-ai-data-use.server", "platform-disclosure-policy"]) {
   assert.ok(code.includes(`external-ai-data-use/${seam}`), `the ceremony uses the released ${seam}`);
 }
-for (const forbidden of ["@/db/schema", "src/db/schema", "drizzle-orm", "getControlPlaneDb", "governance-decision", "governance-audit", "scripts/lib/processor-attestation", "provider-connectivity", "heby-model", "heby-answer", "agent-origination"]) {
+for (const forbidden of ["@/db/schema", "src/db/schema", "drizzle-orm", "getControlPlaneDb", "governance-decision", "governance-audit", "scripts/lib/processor-attestation", "provider-connectivity", "heby-model", "heby-answer", "features/agent-origination"]) {
+  /* APF-3: `agent-origination` is now also a purpose this ceremony names, so the ban is on the module path. */
   assert.ok(!code.includes(forbidden), `the ceremony does not reach ${forbidden}`);
 }
 
 /* ── 3. Nothing about WHAT is authorized is a CLI option. ─────────────────────────────────────── */
-assert.match(code, /const KNOWN_FLAGS = \["tenant", "director", "justification", "confirm", "withdraw"\];/);
+assert.match(code, /const KNOWN_FLAGS = \["tenant", "director", "justification", "confirm", "withdraw", "agent-origination"\];/);
 assert.match(code, /if \(!a\.startsWith\("--"\) \|\| !KNOWN_FLAGS\.includes\(name\)\) fail\(/, "an unknown argument is refused");
 assert.ok(!/arg\("(scope|purpose|data|class|attestation|service|account|policy)/i.test(code), "no flag names a scope, purpose, class or attestation");
 assert.match(code, /const SERVICE_SCOPE = "anthropic\/messages";/);
-assert.match(code, /const PURPOSE = "assistance";/);
+/* APF-3 — one closed switch chooses between two purposes; neither is a typed value. */
+assert.match(code, /const PURPOSE = has\("agent-origination"\) \? "agent-origination" : "assistance";/);
 assert.match(code, /RECORDED_PLATFORM_DISCLOSURE_POLICY\.allowedCells\.filter\(/, "the pairs are read off the recorded policy");
 /* What that read yields today: exactly the three B1D cells. */
 assert.deepEqual(
@@ -53,6 +55,14 @@ assert.deepEqual(
     .map((c) => c.dataClass),
   ["conversation", "knowledge", "work-artifact"],
 );
+assert.deepEqual(
+  RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells
+    .filter((c) => c.serviceScope === "anthropic/messages" && c.purpose === "agent-origination")
+    .map((c) => c.dataClass),
+  ["conversation", "organization"],
+);
+/* APF-3 — the writer is handed the UNION of what is in force and what is added, never the addition alone. */
+assert.match(code, /const scopes = nextRevisionScopes\(current\?\.state === "active" \? current\.scopes : \[\], adding\);/);
 
 /* ── 4. Dry run by default; a write needs --confirm AND a typed phrase on a TTY. ───────────────── */
 assert.match(code, /if \(!confirmed\) \{\s*console\.log\("  DRY RUN — nothing was written/);

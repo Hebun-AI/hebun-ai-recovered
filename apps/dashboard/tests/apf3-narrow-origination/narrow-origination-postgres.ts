@@ -35,6 +35,8 @@ import {
   type ExternalAiDisclosureDeclaration,
 } from "../../src/features/external-ai-data-use/authorize-external-ai-disclosure.server";
 import { appendProcessorAttestation, parseAttestationRecord } from "../../scripts/lib/processor-attestation";
+import { nextRevisionScopes } from "../../scripts/lib/tenant-data-use-scopes";
+import { readEffectiveTenantExternalAiDataUse } from "../../src/features/external-ai-data-use/read-tenant-external-ai-data-use.server";
 import { generateHebyModelAnswer } from "../../src/features/heby-model";
 import { createLiveClaudeTransport, type FetchLike } from "../../src/features/heby-model-live/claude-http-transport.server";
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
@@ -110,9 +112,12 @@ async function main(): Promise<void> {
     Number((await setup.query(`select count(*)::int n from ${table}`)).rows[0]!.n);
 
   let fetches = 0;
+  let networkOpen = false;
+  const SELECTION = JSON.stringify({ kind: "record-work", args: { title: "Record the floor reorganisation", scope: { kind: "organization-level" } }, reason: "The goal names organization-level work." });
   const fetchImpl: FetchLike = async () => {
     fetches += 1;
-    throw new Error("APF-3 stage 1: the network seam must not be reached");
+    if (!networkOpen) throw new Error("APF-3: the network seam must not be reached before the tenant authorizes");
+    return { ok: true, status: 200, json: async () => ({ id: "msg_apf3", model: "claude-test-model", content: [{ type: "text", text: SELECTION }], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 } }) };
   };
   const captured: { request: ModelGenerationRequest; disclosure: ExternalAiDisclosureDeclaration | undefined }[] = [];
 
@@ -279,6 +284,62 @@ async function main(): Promise<void> {
     assert.equal(await countOf("heby_action_requests"), requestsBefore, "nothing filed for an unoffered send");
     assert.equal(await countOf("action_permits"), permitsBefore, "still no permit");
     assert.equal(fetches, 0, "still no fetch");
+
+    /*
+     * ═══ 5. THE TENANT AUTHORIZES ORIGINATION — revision 2 keeps assistance, adds exactly two ═══
+     */
+    const ASSIST = (["conversation", "knowledge", "work-artifact"] as const).map((dataClass) => ({ purpose: "assistance" as const, dataClass }));
+    const ORIG = (["conversation", "organization"] as const).map((dataClass) => ({ purpose: "agent-origination" as const, dataClass }));
+    const rev2 = await authorizeTenantExternalAiDataUse(
+      ctx,
+      { attestationId, scopes: nextRevisionScopes(ASSIST, ORIG), justification: "This test organization agrees that the goal and its structure may be processed so Heby can propose work.", observedRevision: 1 },
+      deps,
+    );
+    assert.equal(rev2.status, "written", JSON.stringify(rev2));
+    const effective = await readEffectiveTenantExternalAiDataUse(org.tenantId, "anthropic/messages", CONFIGURED_ANTHROPIC_ACCOUNT_REF, deps);
+    assert.equal(effective.status, "read");
+    if (effective.status !== "read") throw new Error("unreachable");
+    assert.equal(effective.effective.authorizationRevision, 2);
+    assert.deepEqual(
+      effective.effective.scopes.map((x) => `${x.purpose}×${x.dataClass}`).sort(),
+      ["agent-origination×conversation", "agent-origination×organization", "assistance×conversation", "assistance×knowledge", "assistance×work-artifact"],
+      "exactly the five intended scopes; assistance survived",
+    );
+
+    /* The gate, directly: the narrow declaration passes; anything wider, other or elsewhere does not. */
+    const decide = (purpose: string, dataClasses: string[], tenantId = org.tenantId) =>
+      authorizeExternalAiDisclosure({ tenantId, purpose, dataClasses } as never, true, deps).then((d) => d.disposition);
+    assert.equal(await decide("agent-origination", ["conversation", "organization"]), "authorized");
+    for (const extra of ["external-recipient", "work-artifact", "provider-observation", "knowledge"]) {
+      assert.notEqual(await decide("agent-origination", ["conversation", "organization", extra]), "authorized", `origination + ${extra} fails closed`);
+    }
+    assert.notEqual(await decide("relevance-selection", ["conversation"]), "authorized", "a wrong purpose fails closed");
+    assert.notEqual(await decide("agent-origination", ["conversation", "organization"], "99999999-9999-4999-8999-999999999999"), "authorized", "another organization fails closed");
+    assert.equal(await decide("agent-origination", ["conversation", "organization"]), "authorized");
+    assert.notEqual(
+      (await authorizeExternalAiDisclosure({ tenantId: org.tenantId, purpose: "agent-origination", dataClasses: ["conversation", "organization"] }, false, deps)).disposition,
+      "authorized",
+      "the R2E operator control off fails closed",
+    );
+
+    /*
+     * ═══ 6. ONE AUTHORIZED ORIGINATION: one fetch, and at most a PENDING request ═══════════════
+     */
+    networkOpen = true;
+    const workItemsBefore = await countOf("work_items");
+    const decisionsBefore = await countOf("decision_records");
+    const authorized = await originateAgentAction({ goal: GOAL }, originationDeps());
+    assert.equal(fetches, 1, "exactly one request reached the network seam");
+    assert.equal(authorized.status, "proposed", JSON.stringify(authorized));
+    assert.deepEqual(captured.at(-1)!.disclosure?.dataClasses, ["conversation", "organization"], "the same narrow declaration");
+    const filed = (
+      await setup.query(`select status, action_kind, proposed_by_actor_type from heby_action_requests order by created_at desc limit 1`)
+    ).rows[0];
+    assert.deepEqual(filed, { status: "pending", action_kind: "record-work", proposed_by_actor_type: "agent" }, "the model's output is only a PENDING agent proposal");
+    assert.equal(await countOf("heby_action_requests"), requestsBefore + 1, "exactly one request");
+    assert.equal(await countOf("action_permits"), permitsBefore, "no permit was created");
+    assert.equal(await countOf("work_items"), workItemsBefore, "no work was executed");
+    assert.equal(await countOf("decision_records"), decisionsBefore, "no Governance decision was made");
 
     console.log("PASS apf3-narrow-origination narrow-origination-postgres");
   } finally {

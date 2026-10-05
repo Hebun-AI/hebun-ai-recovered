@@ -4,6 +4,7 @@
  *   npm run platform:tenant-external-ai-data-use -- --tenant=<slug>                        # dry run
  *   npm run platform:tenant-external-ai-data-use -- --tenant=<slug> --confirm              # authorize
  *   npm run platform:tenant-external-ai-data-use -- --tenant=<slug> --withdraw --confirm   # withdraw
+ *   npm run platform:tenant-external-ai-data-use -- --tenant=<slug> --agent-origination   # dry run (APF-3)
  *
  * ── WHOSE DECISION THIS IS ──────────────────────────────────────────────────
  *
@@ -16,18 +17,27 @@
  *
  * ── WHAT IS AUTHORIZED IS NOT AN OPTION ─────────────────────────────────────
  *
- * The service scope is `anthropic/messages`, the purpose is `assistance`, and the (purpose, data
- * class) pairs are READ OFF the recorded platform policy (B1D: conversation, knowledge,
- * work-artifact). No flag names a scope, purpose, data class or attestation, and an unknown flag is
- * refused, so this file cannot ask for more than the platform already ALLOWS. The attestation is the
- * one in force, read through the released reader; the writer re-checks all of it in one transaction.
+ * The service scope is `anthropic/messages`, the purpose is `assistance` — or, with the closed
+ * `--agent-origination` switch (APF-3), `agent-origination` — and the (purpose, data class) pairs are
+ * READ OFF the recorded platform policy (B1D: conversation, knowledge, work-artifact; APF-3:
+ * conversation, organization). No flag carries a scope, purpose, data class or attestation as a value,
+ * and an unknown flag is refused, so this file cannot ask for more than the platform already ALLOWS.
+ * The attestation is the one in force, read through the released reader; the writer re-checks all of
+ * it in one transaction.
+ *
+ * ── A NEW REVISION KEEPS WHAT IS IN FORCE (APF-3) ───────────────────────────
+ *
+ * A revision replaces the scope set before it, so the requested set is the UNION of the scopes in
+ * force and the purpose being added (`nextRevisionScopes`). Adding origination cannot withdraw
+ * assistance, and re-running assistance cannot withdraw origination.
  *
  * ── WHAT IT DELIBERATELY CANNOT DO ──────────────────────────────────────────
  *
  *   - write anything itself: no INSERT, UPDATE or DELETE; the only SQL is a read-only lookup
  *   - widen the platform policy or change an attestation
  *   - read a provider credential or call a provider
- *   - enable any runtime path: nothing consults this authorization until B2
+ *   - call the model: the runtime consults this authorization before every Anthropic call (B2), and
+ *     authorizing data use is still not sending any
  *
  * AUTHORIZING DATA USE IS NOT SENDING DATA.
  */
@@ -35,9 +45,11 @@ import { createInterface } from "node:readline";
 import { Client } from "pg";
 
 const SERVICE_SCOPE = "anthropic/messages";
-const PURPOSE = "assistance";
-const EXPECTED_DATA_CLASSES = ["conversation", "knowledge", "work-artifact"];
-const KNOWN_FLAGS = ["tenant", "director", "justification", "confirm", "withdraw"];
+const EXPECTED_DATA_CLASSES = {
+  assistance: ["conversation", "knowledge", "work-artifact"],
+  "agent-origination": ["conversation", "organization"],
+} as const;
+const KNOWN_FLAGS = ["tenant", "director", "justification", "confirm", "withdraw", "agent-origination"];
 const CONFIRMATION = "AUTHORIZE EXTERNAL AI DATA USE";
 const WITHDRAWAL_CONFIRMATION = "WITHDRAW EXTERNAL AI DATA USE";
 
@@ -84,11 +96,15 @@ async function main(): Promise<void> {
   const directorEmail = arg("director") ?? "senoltr@gmail.com";
   const withdraw = has("withdraw");
   const confirmed = has("confirm");
+  const PURPOSE = has("agent-origination") ? "agent-origination" : "assistance";
+  if (withdraw && PURPOSE !== "assistance") fail("--withdraw withdraws every scope; it takes no purpose switch");
   const justification =
     arg("justification") ??
     (withdraw
       ? "We are withdrawing external AI processing of this organization's data while we review how it is supervised."
-      : "This organization agrees that its conversations, Knowledge and work artifacts may be processed by the reviewed Anthropic assistance processor, and I accept responsibility for that.");
+      : PURPOSE === "agent-origination"
+        ? "This organization agrees that the goal a person gives Heby and this organization's structure may be processed by the reviewed Anthropic processor so Heby can propose work for a human to decide, and I accept responsibility for that."
+        : "This organization agrees that its conversations, Knowledge and work artifacts may be processed by the reviewed Anthropic assistance processor, and I accept responsibility for that.");
 
   if (!process.env.DATABASE_URL) fail("DATABASE_URL is not set");
 
@@ -106,14 +122,15 @@ async function main(): Promise<void> {
   const { authorizeTenantExternalAiDataUse, withdrawTenantExternalAiDataUse } = await import(
     "../src/features/external-ai-data-use/authorize-tenant-external-ai-data-use.server"
   );
+  const { nextRevisionScopes } = await import("./lib/tenant-data-use-scopes");
 
   /* ── WHAT. Read off the recorded policy, never typed here. ─────────────────────────────────── */
   const cells = RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.filter(
     (c) => c.serviceScope === SERVICE_SCOPE && c.purpose === PURPOSE,
   );
-  const scopes = cells.map((c) => ({ purpose: c.purpose, dataClass: c.dataClass }));
-  if (JSON.stringify(scopes.map((s) => s.dataClass).sort()) !== JSON.stringify([...EXPECTED_DATA_CLASSES].sort())) {
-    fail(`the recorded platform policy no longer ALLOWS exactly ${EXPECTED_DATA_CLASSES.join(", ")} — refusing.`);
+  const adding = cells.map((c) => ({ purpose: c.purpose, dataClass: c.dataClass }));
+  if (JSON.stringify(adding.map((s) => s.dataClass).sort()) !== JSON.stringify([...EXPECTED_DATA_CLASSES[PURPOSE]].sort())) {
+    fail(`the recorded platform policy no longer ALLOWS exactly ${PURPOSE} × ${EXPECTED_DATA_CLASSES[PURPOSE].join(", ")} — refusing.`);
   }
 
   const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -166,6 +183,11 @@ async function main(): Promise<void> {
     const effective = await readEffectiveTenantExternalAiDataUse(w.tenant_id, SERVICE_SCOPE, accountRef);
     if (effective.status === "unavailable") fail("the tenant authorization could not be read. Nothing was changed.");
     const current = effective.status === "read" ? effective.effective : null;
+    /* What is in force is kept; a withdrawn revision carries nothing forward. */
+    const scopes = nextRevisionScopes(current?.state === "active" ? current.scopes : [], adding);
+    if (!withdraw && current?.state === "active" && scopes.length === current.scopes.length) {
+      fail(`${PURPOSE} is already authorized in revision ${current.authorizationRevision}. Nothing was changed.`);
+    }
 
     console.log("");
     console.log(`  TENANT EXTERNAL-AI DATA-USE ${withdraw ? "WITHDRAWAL" : "AUTHORIZATION"} CEREMONY`);
@@ -186,17 +208,21 @@ async function main(): Promise<void> {
     if (withdraw) {
       console.log("  requested    : WITHDRAW (a new revision with no scopes)");
     } else {
-      console.log(`  requested    : ${scopes.map((s) => `${s.purpose} × ${s.dataClass}`).join(", ")}`);
-      for (const cell of cells) {
-        const fits = attestationSatisfiesBounds(inForce, cell.bounds);
-        console.log(`                 ${cell.dataClass.padEnd(13)} platform ALLOWED · attestation ${fits ? "inside" : "OUTSIDE"} bounds`);
-        if (!fits) fail("the attestation in force is outside the platform bounds — refusing.");
+      console.log(`  requested    : revision ${(current?.authorizationRevision ?? 0) + 1} · ${scopes.map((s) => `${s.purpose} × ${s.dataClass}`).join(", ")}`);
+      for (const pair of scopes) {
+        const cell = RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.find(
+          (c) => c.serviceScope === SERVICE_SCOPE && c.purpose === pair.purpose && c.dataClass === pair.dataClass,
+        );
+        const fits = cell ? attestationSatisfiesBounds(inForce, cell.bounds) : false;
+        const kept = adding.some((a) => a.purpose === pair.purpose && a.dataClass === pair.dataClass) ? "added" : "kept ";
+        console.log(`                 ${kept} ${`${pair.purpose} × ${pair.dataClass}`.padEnd(32)} platform ${cell ? "ALLOWED" : "NOT ALLOWED"} · attestation ${fits ? "inside" : "OUTSIDE"} bounds`);
+        if (!fits) fail("a requested scope is not platform-allowed inside the attestation in force — refusing.");
       }
     }
     console.log("");
     console.log("  THIS IS THE ORGANIZATION'S OWN DECISION. It is written only if this human holds THIS");
-    console.log("  tenant's Governance authority. It sends nothing, calls no provider, reads no credential,");
-    console.log("  and nothing at runtime consults it yet: authorizing data use is not sending data.");
+    console.log("  tenant's Governance authority. It sends nothing, calls no provider and reads no credential.");
+    console.log("  The runtime consults it before every Anthropic call: authorizing data use is not sending data.");
     console.log("");
 
     if (!confirmed) {
@@ -242,7 +268,7 @@ async function main(): Promise<void> {
       );
     }
     console.log("");
-    console.log("  Nothing at runtime consults this authorization yet (B2). No provider was called.");
+    console.log("  No provider was called.");
     console.log("");
   } finally {
     await client.end().catch(() => {});
