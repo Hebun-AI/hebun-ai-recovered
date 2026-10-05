@@ -16,6 +16,7 @@ import { createDisposablePostgresHarness } from "../helpers/disposable-postgres"
 // Loaded FIRST: the schema barrel is the only safe entry point for src/db/schema/*.
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import {
   createWorkArtifact,
   createWorkArtifactFromHebyPreparation,
@@ -87,6 +88,7 @@ async function main(): Promise<void> {
   const handle = createControlPlaneDb(harness.dbUrl);
   const deps = { getDb: () => handle.db, now: () => NOW } as never;
   const readDeps = { getDb: () => handle.db } as never;
+  const govBaseline = { decisions: 0, sessions: 0, audit: 0 };
 
   try {
     const acme = (await seedLocalIdentity(setup, {
@@ -362,7 +364,13 @@ async function main(): Promise<void> {
        * raw insert — a hand-written row would prove the writer works against a fixture, not against
        * the identity the product creates.
        */
+      await seedGovernanceAuthority(setup, acme, readDeps, { tag: "r3w-art" });
       const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, readDeps);
+      Object.assign(govBaseline, (await setup.query<{ decisions: number; sessions: number; audit: number }>(
+        `select (select count(*)::int from decision_records) as decisions,
+                (select count(*)::int from governance_sessions) as sessions,
+                (select count(*)::int from audit_log) as audit`,
+      )).rows[0]!);
       assert.equal(established.status, "established", "the tenant now owns a durable agent");
       const acmeAgentId = established.status === "established" ? established.identity.agentId : "";
 
@@ -569,12 +577,13 @@ async function main(): Promise<void> {
       const row = counts.rows[0]!;
       assert.equal(row.requests, 0, "R3W creates no action request");
       assert.equal(row.permits, 0, "R3W creates no permit");
-      assert.equal(row.decisions, 0, "R3W creates no Governance decision");
-      assert.equal(row.sessions, 0, "R3W opens no Governance session");
+      /* APF-1: the Governance precondition writes its own bootstrap rows; this asserts the code under test adds none. */
+      assert.equal(row.decisions - govBaseline.decisions, 0, "R3W creates no Governance decision");
+      assert.equal(row.sessions - govBaseline.sessions, 0, "R3W opens no Governance session");
       assert.equal(row.nodes, 0, "R3W writes no Knowledge node");
       assert.equal(row.facts, 0, "R3W writes no Knowledge fact");
       assert.equal(row.executions, 0, "R3W writes no execution row");
-      assert.equal(row.audit, 0, "preparing work is not an authority-bearing event");
+      assert.equal(row.audit - govBaseline.audit, 0, "preparing work is not an authority-bearing event");
     }
 
     /* ── 15. No approval-shaped column exists to be set ────────────────────── */

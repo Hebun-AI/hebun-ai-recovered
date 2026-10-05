@@ -17,6 +17,7 @@
  */
 import assert from "node:assert/strict";
 import { Client } from "pg";
+import { seedGovernanceBootstrapRows } from "../helpers/agent-mandate-seed";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
@@ -125,6 +126,9 @@ async function main(): Promise<void> {
          values ($1, 'owner-a@example.com', 'Owner A'), ($2, 'owner-b@example.com', 'Owner B')`,
         [HUMAN_A, HUMAN_B],
       );
+      /* APF-1 — creating an agent needs the organization's Governance authority. */
+      await seedGovernanceBootstrapRows(seed, TENANT_A, HUMAN_A);
+      await seedGovernanceBootstrapRows(seed, TENANT_B, HUMAN_B);
     } finally {
       await seed.end();
     }
@@ -239,7 +243,8 @@ async function main(): Promise<void> {
       for (const table of MUST_STAY_UNTOUCHED) {
         assert.equal(
           await countOf(table),
-          0,
+          /* APF-1: the two seeded Governance bootstraps above; the ceremony adds none. */
+          table === "decision_records" ? 2 : 0,
           `\`${table}\` is still empty — an agent identity is not a credential, a session, a permit, a role or a decision`,
         );
       }

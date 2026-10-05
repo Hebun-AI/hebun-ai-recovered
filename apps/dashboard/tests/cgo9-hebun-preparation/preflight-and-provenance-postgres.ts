@@ -25,6 +25,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import type { HebyModelAnswerDeps } from "../../src/features/heby-answer/model-answer.server";
 import { generateHebyModelAnswer, type ClaudeTransport } from "../../src/features/heby-model";
 import { createDurableConversationRepository } from "../../src/features/heby-conversation/durable-conversation-repository.server";
@@ -196,7 +197,9 @@ async function main(): Promise<void> {
       "no-durable-agent-identity",
     );
 
+    await seedGovernanceAuthority(setup, acme, dbDeps, { tag: "cgo9-acme" });
     const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, dbDeps);
+    const govBaselineDecisions = await count("decision_records");
     assert.equal(established.status, "established");
     const agentId = established.status === "established" ? established.identity.agentId : "";
 
@@ -332,7 +335,8 @@ async function main(): Promise<void> {
         "awaiting-review",
         "PREPARED WORK ENTERS THE CGO-8/TRH-10 REVIEW FLOW AS AWAITING REVIEW",
       );
-      assert.equal(await count("decision_records"), 0, "and preparing recorded no Governance decision");
+      /* APF-1: the Governance precondition writes its own bootstrap rows; this asserts the code under test adds none. */
+      assert.equal(await count("decision_records") - govBaselineDecisions, 0, "and preparing recorded no Governance decision");
     }
 
     /* ═══ 3. PREPARED: A NEW REVISION OF THE HUMAN-WRITTEN DRAFT ════════════ */
@@ -392,6 +396,7 @@ async function main(): Promise<void> {
 
     /* A tenant WITH its own agent still cannot reach another tenant's draft: not found, not "not yours". */
     {
+      await seedGovernanceAuthority(setup, globex, dbDeps, { tag: "cgo9-globex" });
       const globexAgent = await createDurableAgentIdentity(foreign, { name: "Heby" }, dbDeps);
       assert.equal(globexAgent.status, "established");
       await refusedInPreflight(

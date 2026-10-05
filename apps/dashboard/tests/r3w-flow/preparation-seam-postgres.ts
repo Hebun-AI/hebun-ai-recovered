@@ -18,6 +18,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import {
   answerHebyModelRequest,
   type HebyModelAnswerDeps,
@@ -216,7 +217,9 @@ async function main(): Promise<void> {
     }
 
     /* The tenant establishes its durable agent identity through the released AGENT-ID-0 authority. */
+    await seedGovernanceAuthority(setup, acme, agentIdentityDeps, { tag: "r3w-prep" });
     const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, agentIdentityDeps);
+    const govBaselineDecisions = (await setup.query<{ n: number }>(`select count(*)::int as n from decision_records`)).rows[0]!.n;
     assert.equal(established.status, "established");
     const agentId = established.status === "established" ? established.identity.agentId : "";
 
@@ -375,7 +378,8 @@ async function main(): Promise<void> {
       );
       const row = counts.rows[0]!;
       assert.equal(row.p, 0);
-      assert.equal(row.d, 0);
+      /* APF-1: the Governance precondition writes its own bootstrap rows; this asserts the code under test adds none. */
+      assert.equal(row.d - govBaselineDecisions, 0);
       assert.equal(row.k, 0);
       assert.equal(row.e, 0);
     }

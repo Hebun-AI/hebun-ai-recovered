@@ -36,6 +36,7 @@ import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server
 import { agents } from "@/db/schema/agent";
 import { users } from "@/db/schema/user";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import {
   isWellFormedAgentName,
   type CreateDurableAgentIdentityResult,
@@ -97,6 +98,7 @@ export async function createDurableAgentIdentity(
   }
   const name = input.name;
 
+
   const db = resolveDbOrNull(deps);
   if (!db) return { status: "refused", reason: "authority-unavailable" };
 
@@ -119,6 +121,29 @@ export async function createDurableAgentIdentity(
       .limit(1);
     if (owner.length === 0) {
       return { status: "refused" as const, reason: "human-owner-unresolved" as const };
+    }
+
+    /*
+     * 4b · THE ORGANIZATION'S GOVERNANCE AUTHORITY (APF-1).
+     *
+     * The ONE released resolver: the bootstrap human, or a human holding an unrevoked delegation. A
+     * tenant member without it is refused exactly like a stranger — no role band, permission row or
+     * membership scope is consulted, the same rule the mandate writer applies. An unresolvable
+     * authority refuses: `resolveGovernanceAuthority` reports an outage as NO authority.
+     *
+     * AFTER the released checks, so every refusal they gave keeps its reason; this is an ADDITIONAL
+     * gate. Read on the authority's own connection, not this transaction's.
+     *
+     * Before APF-1 any authenticated member could create the tenant's one durable agent — and, since
+     * the genesis count includes retired rows, a member could spend the organization's only identity
+     * forever.
+     */
+    const authority = await resolveGovernanceAuthority(tenant, { getDb: deps.getDb });
+    if (!authority.bootstrapDecisionId) {
+      return { status: "refused" as const, reason: "no-governance-authority" as const };
+    }
+    if (!authority.authorized) {
+      return { status: "refused" as const, reason: "not-the-governance-authority" as const };
     }
 
     /*

@@ -24,7 +24,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import { seedAgentMandate } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { originateAgentAction } from "../../src/features/agent-origination/originate-action.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
 import { createExternalRecipient } from "../../src/features/external-recipients/write-external-recipients.server";
@@ -138,6 +138,7 @@ async function main(): Promise<void> {
     const trhCtx = contextFor(trh, "trh19-trh");
     const otherCtx = contextFor(other, "trh19-other");
 
+    await seedGovernanceAuthority(setup, trh, { getDb: () => handle.db }, { tag: "1919a" });
     const agent = await createDurableAgentIdentity(trhCtx, { name: "Heby" }, writeDeps);
     assert.equal(agent.status, "established");
     const agentId = agent.status === "established" ? agent.identity.agentId : "";
@@ -149,6 +150,7 @@ async function main(): Promise<void> {
     });
 
     /* The second organization's agent, seeded HERE so the Governance baseline below is complete. */
+    await seedGovernanceAuthority(setup, other, { getDb: () => handle.db }, { tag: "1919b" });
     const otherAgent = await createDurableAgentIdentity(otherCtx, { name: "Heby" }, writeDeps);
     assert.equal(otherAgent.status, "established");
     await seedAgentMandate(

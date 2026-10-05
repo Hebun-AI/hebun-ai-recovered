@@ -45,8 +45,11 @@ const MIGRATIONS = "src/db/migrations";
 
 /** Released authorities this phase must not have moved. */
 const UNTOUCHED: readonly (readonly [string, string])[] = [
-  ["src/features/agent-identity/create-durable-agent-identity.server.ts", "253fc03"],
-  ["src/features/agent-identity/retire-durable-agent-identity.server.ts", "bcade6a"],
+  /*
+   * The two durable-agent writers LEFT THIS LIST AT APF-1, which deliberately bound create and
+   * retire to Governance authority. What this firewall owns about them is asserted below instead:
+   * PRINCIPAL-FW-1's own commit did not move them, and both still accept only the human context.
+   */
   ["src/db/schema/auth-credential.ts", "edc303c"],
   ["src/db/schema/auth-identity.ts", "edc303c"],
   ["src/db/schema/user-session-context.ts", "edc303c"],
@@ -484,6 +487,23 @@ function main(): void {
       /matcher:\s*\["\/\(\(\?!_next\//.test(middleware) && !/matcher:[^\]]*!api/.test(middleware),
       "and the matcher still covers the whole application, api routes included",
     );
+  }
+
+  for (const writer of [
+    "src/features/agent-identity/create-durable-agent-identity.server.ts",
+    "src/features/agent-identity/retire-durable-agent-identity.server.ts",
+  ]) {
+    assert.equal(
+      execFileSync("git", ["diff", "--name-only", "349e5824^", "349e5824", "--", writer], {
+        cwd: ROOT,
+        encoding: "utf8",
+      }).trim(),
+      "",
+      `${writer} — PRINCIPAL-FW-1 did not move it`,
+    );
+    const code = codeOf(read(writer));
+    assert.ok(/tenant: TenantContext \| null/.test(code), `${writer} still takes only the human TenantContext`);
+    assert.ok(!/MachineExecutionPrincipal/.test(code), `${writer} admits no machine principal`);
   }
 
   for (const [file, release] of UNTOUCHED) {

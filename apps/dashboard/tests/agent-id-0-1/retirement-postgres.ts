@@ -21,6 +21,7 @@
  */
 import assert from "node:assert/strict";
 import { Client } from "pg";
+import { seedGovernanceBootstrapRows } from "../helpers/agent-mandate-seed";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
@@ -135,6 +136,12 @@ async function main(): Promise<void> {
                 ($3, 'owner-b@example.com', 'Owner B')`,
         [OWNER_A, OTHER_A, OWNER_B],
       );
+      /*
+       * APF-1 — creating and retiring an agent need the organization's Governance authority. Each
+       * owner holds it; OTHER_A deliberately does not, so the non-owner refusal below is unchanged.
+       */
+      await seedGovernanceBootstrapRows(seed, TENANT_A, OWNER_A);
+      await seedGovernanceBootstrapRows(seed, TENANT_B, OWNER_B);
     } finally {
       await seed.end();
     }
@@ -391,7 +398,8 @@ async function main(): Promise<void> {
       for (const table of MUST_STAY_UNTOUCHED) {
         assert.equal(
           await countOf(table),
-          0,
+          /* APF-1: the two seeded Governance bootstraps; retirement adds none. */
+          table === "decision_records" ? 2 : 0,
           `\`${table}\` is still empty — retiring an identity issues no credential, opens no ` +
             `session, grants no permit, assigns no role and records no governance decision`,
         );

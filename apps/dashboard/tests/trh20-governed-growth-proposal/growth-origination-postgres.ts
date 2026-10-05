@@ -24,7 +24,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import { seedAgentMandate } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
 import { originateAgentActionWithObservation } from "../../src/features/content-observation/originate-with-observation.server";
 import { growthObservationSupplementFor } from "../../src/features/content-observation/growth-origination-brief";
@@ -160,6 +160,7 @@ async function main(): Promise<void> {
     })) as Seeded;
     const trhCtx = contextFor(trh, "trh20-trh");
 
+    await seedGovernanceAuthority(setup, trh, { getDb: () => handle.db }, { tag: "2020a" });
     const agent = await createDurableAgentIdentity(trhCtx, { name: "Heby" }, writeDeps);
     assert.equal(agent.status, "established");
     const agentId = agent.status === "established" ? agent.identity.agentId : "";

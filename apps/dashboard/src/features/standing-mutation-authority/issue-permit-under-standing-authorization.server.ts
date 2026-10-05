@@ -8,8 +8,11 @@
  *
  * "ORDINARY" is the whole design. The row it writes is the same single-use, digest-bound, expiring,
  * revocable `action_permits` row `approveActionRequest` writes — same columns, same CHECKs, same
- * spend statement, same audit. The only difference is `standing_authorization_id`, which records
- * WHY it could be issued without a click. Nothing downstream of this file changed for RUNG 2.
+ * spend statement. The only difference is `standing_authorization_id`, which records WHY it could be
+ * issued without a click. Nothing downstream of this file changed for RUNG 2.
+ *
+ * "Same audit" was claimed here before APF-1 and was not true: this seam wrote no audit row, so a
+ * standing-issued permit entered history only when it was spent. APF-1 makes it true — see step 12.
  *
  * ── WHAT IT IS NOT ──────────────────────────────────────────────────────────
  *
@@ -47,14 +50,21 @@ import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server
 import { standingMutationAuthorizations } from "@/db/schema/standing-mutation-authorization";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
 import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
-import { readEffectiveTenantMachineExecution } from "@/features/tenant-machine-execution-authority/read-tenant-machine-execution.server";
+import { resolveMachineExecutionReachability } from "@/features/tenant-machine-execution-authority/resolve-machine-execution-reachability.server";
+import { resolveMachineInternalExecutionEnabled } from "@/features/governed-machine-execution/machine-execution-control.server";
+import { readEffectiveAgentMandateForRuntime } from "@/features/agent-mandate/read-agent-mandate.server";
+import { refuseOutsideAgentMandate } from "@/features/action-authorization/agent-mandate-ceiling";
+import { recordActionAuthorizationEventWithin } from "@/features/governance-audit/action-authorization-audit.server";
 import {
   asCanonicalPayload,
   digestCanonicalAction,
   digestsMatch,
 } from "@/features/action-authorization/canonical-payload";
 import { toEvidence } from "@/features/action-authorization/decision-projection";
-import { PERMIT_DEFAULT_TTL_SECONDS } from "@/features/action-authorization/contracts";
+import {
+  ACTION_AUDIT_PERMIT_ISSUED,
+  PERMIT_DEFAULT_TTL_SECONDS,
+} from "@/features/action-authorization/contracts";
 import { MACHINE_EXECUTABLE_ACTION_KINDS } from "@/features/governed-machine-execution/contracts";
 import { ADMITTED_EVIDENCE_SOURCE_CLASSES, type StandingIssuanceRefusal } from "./contracts";
 
@@ -62,7 +72,12 @@ export interface StandingIssuanceDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly now?: () => Date;
   readonly readAgentLiveness?: typeof readDurableAgentRuntimeLiveness;
-  readonly readTenantEnrolment?: typeof readEffectiveTenantMachineExecution;
+  /** Injectable so the tenant boundary is provable without a control-plane database (APF-1). */
+  readonly reachable?: typeof resolveMachineExecutionReachability;
+  /** Injectable root-control reader, handed to the reachability composition (APF-1). */
+  readonly armed?: typeof resolveMachineInternalExecutionEnabled;
+  /** Injectable so the mandate ceiling is provable without a control-plane database (APF-1). */
+  readonly readMandate?: typeof readEffectiveAgentMandateForRuntime;
   /**
    * The lifetime granted to an issued permit, in seconds.
    *
@@ -222,20 +237,39 @@ export async function issuePermitUnderStandingAuthorization(
       }
 
       /*
-       * 5 · THE ORGANIZATION MUST STILL BE ENROLLED, and the agent must still be in service.
+       * 5 · THE ORGANIZATION MUST STILL BE ACTIVE AND ENROLLED, THE DEPLOYMENT ARMED, and the agent
+       * in service and still bounded to this act.
        *
-       * Both are re-read here rather than trusted from the envelope, because both can change after
-       * a human signed it. The executor re-decides both AGAIN inside the spend; this is the early
+       * Each is re-read here rather than trusted from the envelope, because each can change after a
+       * human signed it. The executor re-decides them AGAIN before the spend; this is the early
        * refusal that stops a permit being minted that could only ever be refused.
+       *
+       * APF-1: reachability is the released composition the executor already uses — organization
+       * lifecycle, its machine-execution grant and the `machine-internal-execution` root control,
+       * read by their owners. Before APF-1 this step read the grant alone, so a suspended tenant
+       * and a DISARMED deployment both still had permits minted for them.
        */
-      const enrolment = await (deps.readTenantEnrolment ?? readEffectiveTenantMachineExecution)(
+      const reachability = await (deps.reachable ?? resolveMachineExecutionReachability)(
         request.tenantId,
         request.actionKind,
-        deps.getDb ? { getDb: deps.getDb } : {},
+        {
+          ...(deps.getDb ? { getDb: deps.getDb } : {}),
+          ...(deps.armed ? { rootEnabled: deps.armed } : {}),
+        },
       );
-      if (enrolment.status === "unavailable") throw new IssuanceAbort("persistence-unavailable");
-      if (enrolment.status === "absent" || enrolment.effective.state !== "active") {
-        throw new IssuanceAbort("tenant-not-authorized");
+      if (reachability.status !== "reachable") {
+        switch (reachability.reason) {
+          case "persistence-unavailable":
+            throw new IssuanceAbort("persistence-unavailable");
+          case "tenant-not-active":
+            throw new IssuanceAbort("tenant-not-active");
+          case "root-control-disabled":
+            throw new IssuanceAbort("machine-execution-disarmed");
+          case "unsupported-machine-capability":
+            throw new IssuanceAbort("action-kind-mismatch");
+          default:
+            throw new IssuanceAbort("tenant-not-authorized");
+        }
       }
 
       const liveness = await (deps.readAgentLiveness ?? readDurableAgentRuntimeLiveness)(
@@ -245,6 +279,21 @@ export async function issuePermitUnderStandingAuthorization(
       );
       if (liveness === "unavailable") throw new IssuanceAbort("persistence-unavailable");
       if (liveness !== "in-service") throw new IssuanceAbort("agent-not-in-service");
+
+      /*
+       * APF-1 · THE AGENT'S CEILING, AS IT STANDS NOW. The proposal passed the mandate when it was
+       * filed; a Governance-authorized human may have withdrawn or narrowed it since. Read from the
+       * Agent Mandate Authority and decided by the one shared ceiling — never re-derived here.
+       */
+      const ceiling = refuseOutsideAgentMandate(
+        await (deps.readMandate ?? readEffectiveAgentMandateForRuntime)(
+          request.tenantId,
+          envelope.agentId,
+          deps.getDb ? { getDb: deps.getDb } : {},
+        ),
+        request.actionKind,
+      );
+      if (ceiling) throw new IssuanceAbort(ceiling);
 
       /*
        * 6 · EVIDENCE. THE CLAIM RUNG 2 RESTS ON.
@@ -404,6 +453,55 @@ export async function issuePermitUnderStandingAuthorization(
         updatedBy: envelope.authorizedByActorId,
         updatedByType: "human",
       });
+
+      /*
+       * 12 · THE AUDIT EVENT, IN THE SAME TRANSACTION AS THE PERMIT (APF-1).
+       *
+       * `permit-issued`, through the released action-authorization audit writer, so "a permit
+       * exists" and "history says a permit was issued" are one fact. What it names, and why each is
+       * true rather than convenient:
+       *
+       *   actor            the human who signed the envelope — the same person the permit row names
+       *                    as its authorizer, and the same rule the released machine SPEND already
+       *                    applies to its own `permit-consumed` event. No machine actor is invented.
+       *   decision         the STANDING decision. No per-act decision exists, and none is implied.
+       *   requestId        no session exists, so the correlation is this request's id.
+       *   executed: false  issuing is not executing.
+       *
+       * Deliberately NOT written: an `approved` request event. On the human path that event records
+       * a per-act deliberation; here none happened. That the permit came from an envelope is
+       * recorded where it already lives — `standing_authorization_id` on the permit `entityId`
+       * names — rather than in a metadata field the released contract does not declare.
+       */
+      await recordActionAuthorizationEventWithin(
+        tx,
+        {
+          tenantId: request.tenantId,
+          userId: envelope.authorizedByActorId,
+          requestId: request.id,
+        },
+        {
+          action: ACTION_AUDIT_PERMIT_ISSUED,
+          outcome: "committed",
+          entityId: permitId,
+          metadata: {
+            actionRequestId: request.id,
+            permitId,
+            governanceDecisionId: envelope.governanceDecisionId,
+            governanceSessionId: envelope.governanceSessionId,
+            actionKind: request.actionKind,
+            toolId: request.toolId,
+            sideEffect: request.sideEffect,
+            reversibility: request.reversibility,
+            targetKind: request.targetKind,
+            targetRef: request.targetRef,
+            payloadDigest: request.payloadDigest,
+            expiresAt: expiresAt.toISOString(),
+            executed: false,
+          },
+        },
+        now,
+      );
 
       outcome = {
         status: "issued",

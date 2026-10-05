@@ -41,6 +41,12 @@ import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-cont
  * test controls is derived from it by an explicit offset, so the windows below stay exact.
  */
 let NOW = new Date("2026-09-15T12:00:00.000Z");
+/*
+ * APF-1: issuance now honours the `machine-internal-execution` root control. This suite proves the
+ * ENVELOPE's own semantics, so it arms by injection exactly as the RUNG 1 executor suites do; the
+ * disarmed refusal is proved by `tests/apf1-agent-containment/`.
+ */
+const ARMED = async (): Promise<boolean> => true;
 const GENESIS = "This organization establishes its founding Governance authority for the RUNG 2 proof.";
 const APPROVAL = "This work is real and this organization authorizes Hebun to put it on the register.";
 const ENROLMENT = "This organization agrees its authorized work may be delivered by machine.";
@@ -289,8 +295,8 @@ async function main(): Promise<void> {
 
     const beforeEnvelope = await proposeWithEvidence("Before any envelope", "obs/before");
     assert.equal(
-      (await issuePermitUnderStandingAuthorization({ requestId: beforeEnvelope }, { getDb: () => handle.db, now: () => NOW })).status === "refused" &&
-        (await issuePermitUnderStandingAuthorization({ requestId: beforeEnvelope }, { getDb: () => handle.db, now: () => NOW })) .status,
+      (await issuePermitUnderStandingAuthorization({ requestId: beforeEnvelope }, { getDb: () => handle.db, now: () => NOW, armed: ARMED })).status === "refused" &&
+        (await issuePermitUnderStandingAuthorization({ requestId: beforeEnvelope }, { getDb: () => handle.db, now: () => NOW, armed: ARMED })) .status,
       "refused",
     );
 
@@ -315,7 +321,7 @@ async function main(): Promise<void> {
     const envelopeId = envelope.status === "written" ? envelope.authorizationId : "";
     const envelopeDecision = envelope.status === "written" ? envelope.governanceDecisionId : "";
 
-    const issueAt = (when: Date) => ({ getDb: () => handle.db, now: () => when });
+    const issueAt = (when: Date) => ({ getDb: () => handle.db, now: () => when, armed: ARMED });
 
     /* ── ACT 1: issued, and it is an ORDINARY permit bound to the STANDING decision ── */
 

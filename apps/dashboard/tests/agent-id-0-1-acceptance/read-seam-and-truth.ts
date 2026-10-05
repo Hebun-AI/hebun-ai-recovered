@@ -42,6 +42,8 @@ const MIGRATIONS = "src/db/migrations";
 
 /** The released commit these authorities must still match, byte for byte. */
 const AGENT_ID_0_1_RELEASE = "bcade6a";
+/** This phase's own release — the commit that introduced this file. */
+const ACCEPTANCE_RELEASE = "27ab969e";
 
 /*
  * The seven human-only CHECK constraints RELEASED BEFORE THIS PHASE. Named individually so a
@@ -275,18 +277,19 @@ function main(): void {
   );
 
   /* ── 9. THE AGENT-ID AUTHORITY DID NOT MOVE ───────────────────────────────── */
+  /*
+   * PHASE-RELATIVE, NOT ABSOLUTE (repaired at APF-1, which deliberately bound create and retire to
+   * Governance authority). The claim this phase owns is that ITS OWN COMMIT moved neither writer.
+   */
   for (const authority of [CREATE_AUTHORITY, RETIRE_AUTHORITY]) {
-    const released = execFileSync(
+    const changed = execFileSync(
       "git",
-      ["show", `${AGENT_ID_0_1_RELEASE}:apps/dashboard/${authority}`],
-      { cwd: ROOT, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 },
-    );
-    assert.equal(
-      read(authority),
-      released,
-      `${authority} is byte-identical to ${AGENT_ID_0_1_RELEASE} — this phase changed no writer's behaviour`,
-    );
+      ["diff", "--name-only", `${ACCEPTANCE_RELEASE}^`, ACCEPTANCE_RELEASE, "--", authority],
+      { cwd: ROOT, encoding: "utf8" },
+    ).trim();
+    assert.equal(changed, "", `${authority} — this phase changed no writer's behaviour`);
   }
+  execFileSync("git", ["cat-file", "-e", `${AGENT_ID_0_1_RELEASE}^{commit}`], { cwd: ROOT });
 
   /* ── 10. HUMAN SUPREMACY, GOVERNANCE AND THE LEDGER ARE UNTOUCHED ─────────── */
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))

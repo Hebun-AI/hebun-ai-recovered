@@ -47,6 +47,12 @@ export type TenantMachineExecutionState = "active" | "withdrawn";
 
 /** Why machine execution is not reachable for a tenant. Each names a different thing. */
 export type MachineExecutionReachabilityRefusal =
+  /**
+   * The organization itself is not active — suspended, provisioning, deleting, deleted or soft-
+   * deleted (APF-1). Read from the one `companies` lifecycle predicate the session gate uses, so a
+   * tenant that cannot sign in cannot be acted for by a machine either.
+   */
+  | "tenant-not-active"
   /** No lineage exists for this tenant and capability. Nobody ever enrolled this organization. */
   | "tenant-not-authorized"
   /** A lineage exists and its latest revision took the permission away. */

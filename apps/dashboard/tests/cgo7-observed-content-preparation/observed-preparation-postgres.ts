@@ -18,6 +18,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { type HebyModelAnswerDeps } from "../../src/features/heby-answer/model-answer.server";
 import { generateHebyModelAnswer, type ClaudeTransport } from "../../src/features/heby-model";
 import { createDurableConversationRepository } from "../../src/features/heby-conversation/durable-conversation-repository.server";
@@ -137,6 +138,7 @@ async function main(): Promise<void> {
     const writeDeps = { getDb: () => handle.db } as never;
     const agentIdentityDeps = { getDb: () => handle.db } as never;
 
+    await seedGovernanceAuthority(setup, seeded, agentIdentityDeps, { tag: "c7" });
     const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, agentIdentityDeps);
     assert.equal(established.status, "established", "the tenant has a durable agent");
 

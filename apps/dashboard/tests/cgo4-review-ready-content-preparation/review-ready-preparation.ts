@@ -24,6 +24,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import {
   answerHebyModelRequest,
   HEBY_MODEL_SYSTEM_INSTRUCTIONS,
@@ -222,8 +223,13 @@ async function main(): Promise<void> {
       resolveWorkArtifacts: (t) => resolveWorkArtifactSource(t, writeDeps),
     });
 
+    await seedGovernanceAuthority(setup, acme, agentIdentityDeps, { tag: "c4" });
     const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, agentIdentityDeps);
     assert.equal(established.status, "established", "the tenant has a durable agent");
+    /* APF-1: the Governance precondition writes its own bootstrap rows; this asserts the code under test adds none. */
+    const baselineDecisionRecords = (
+      await setup.query<{ n: number }>(`select count(*)::int as n from decision_records`)
+    ).rows[0]!.n;
     const agentId = established.status === "established" ? established.identity.agentId : "";
 
     /* ── 1. AN ORDINARY ANSWER IS UNTOUCHED BY CGO-4 ──
@@ -364,7 +370,11 @@ async function main(): Promise<void> {
       "work_evidence_references",
     ]) {
       const { rows } = await setup.query<{ n: number }>(`select count(*)::int as n from ${table}`);
-      assert.equal(rows[0]!.n, 0, `preparation wrote no ${table} row`);
+      assert.equal(
+        rows[0]!.n - (table === "decision_records" ? baselineDecisionRecords : 0),
+        0,
+        `preparation wrote no ${table} row`,
+      );
     }
     for (const [table, expected] of [["work_artifacts", 2], ["work_artifact_revisions", 2]] as const) {
       const { rows } = await setup.query<{ n: number }>(`select count(*)::int as n from ${table}`);

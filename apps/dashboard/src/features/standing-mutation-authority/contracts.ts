@@ -83,6 +83,20 @@ export type StandingIssuanceRefusal =
   | "cadence-not-elapsed"
   /** The organization has not enrolled, or withdrew, machine execution for this capability. */
   | "tenant-not-authorized"
+  /** The organization itself is suspended or otherwise not active (APF-1). */
+  | "tenant-not-active"
+  /**
+   * The deployment's `machine-internal-execution` root control is off (APF-1). A permit minted now
+   * could only expire unspent — or be spent the moment someone re-armed, by a decision nobody took
+   * while it was off.
+   */
+  | "machine-execution-disarmed"
+  /** The agent's mandate could not be read (APF-1). An unreadable ceiling is not an absent one. */
+  | "agent-mandate-authority-unavailable"
+  /** The agent has no mandate — nobody bounded it (APF-1). */
+  | "no-agent-mandate"
+  /** The agent's EFFECTIVE mandate no longer admits this kind — withdrawn or narrowed (APF-1). */
+  | "action-outside-agent-mandate"
   /** The agent named by the envelope has since retired. */
   | "agent-not-in-service"
   /** The request does not exist for this tenant, or is not pending. */

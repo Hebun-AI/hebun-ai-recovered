@@ -21,7 +21,11 @@ export type AgentIdentityRefusal =
   /** The context named a human who is not a live row in `users`. Ownership must be real. */
   | "human-owner-unresolved"
   /** This tenant already possesses a durable agent identity. This authority is a one-shot. */
-  | "agent-identity-already-exists";
+  | "agent-identity-already-exists"
+  /** This organization has no Governance authority at all, or it could not be resolved (APF-1). */
+  | "no-governance-authority"
+  /** Governance exists and the acting human does not hold it (APF-1). */
+  | "not-the-governance-authority";
 
 /**
  * What the authority returns on success. Deliberately narrow: the caller learns the identity's id,

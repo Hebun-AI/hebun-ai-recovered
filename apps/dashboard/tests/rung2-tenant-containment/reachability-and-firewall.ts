@@ -52,10 +52,13 @@ const reachWith = (
   rootEnabled: boolean,
   tenantId = TENANT,
   capability: string = CAP,
+  /* APF-1: the organization's own lifecycle. `true` = active; a thrown read = unreadable. */
+  tenantActive: () => Promise<boolean> = async () => true,
 ) =>
   resolveMachineExecutionReachability(tenantId, capability, {
     readTenant: async () => tenantRead as never,
     rootEnabled: async () => rootEnabled,
+    tenantActive,
   });
 
 async function main(): Promise<void> {
@@ -97,6 +100,29 @@ async function main(): Promise<void> {
         `${label} refuses as ${expected}`,
       );
     }
+  }
+
+  /* ── 1b. APF-1 — A SUSPENDED ORGANIZATION IS NEVER REACHABLE ──────────────── */
+  {
+    const enrolled = { status: "read", effective: active };
+    const suspended = await reachWith(enrolled, true, TENANT, CAP, async () => false);
+    assert.equal(
+      suspended.status === "refused" && suspended.reason,
+      "tenant-not-active",
+      "enrolled AND armed still refuses when the organization itself is not active",
+    );
+    /* Most specific first: a suspension is told as itself even with the root switch off. */
+    const suspendedDisarmed = await reachWith(enrolled, false, TENANT, CAP, async () => false);
+    assert.equal(suspendedDisarmed.status === "refused" && suspendedDisarmed.reason, "tenant-not-active");
+    /* An unreadable lifecycle is an outage, never a suspension and never a pass. */
+    const unreadable = await reachWith(enrolled, true, TENANT, CAP, async () => {
+      throw new Error("companies unreadable");
+    });
+    assert.equal(
+      unreadable.status === "refused" && unreadable.reason,
+      "persistence-unavailable",
+      "an unreadable organization lifecycle fails closed as an outage",
+    );
   }
 
   /* ── 2. A WITHDRAWAL IS NEVER DISGUISED AS AN OPERATOR STOP ───────────────── */
@@ -150,8 +176,12 @@ async function main(): Promise<void> {
         consulted = true;
         return true;
       },
+      tenantActive: async () => {
+        consulted = true;
+        return true;
+      },
     });
-    assert.equal(consulted, false, "neither authority is read for a capability no machine may run");
+    assert.equal(consulted, false, "no authority is read for a capability no machine may run");
 
     assert.deepEqual([...MACHINE_EXECUTABLE_ACTION_KINDS], [RECORD_WORK_ACTION_KIND], "still one member");
     assert.ok(Object.isFrozen(MACHINE_EXECUTABLE_ACTION_KINDS));
@@ -165,14 +195,20 @@ async function main(): Promise<void> {
      * unchanged — so a reader that ignored it would be the only way to cross tenants.
      */
     let askedFor: string | null = null;
+    let lifecycleAskedFor: string | null = null;
     await resolveMachineExecutionReachability(OTHER_TENANT, CAP, {
       readTenant: async (tenantId: string) => {
         askedFor = tenantId;
         return { status: "absent" } as never;
       },
       rootEnabled: async () => true,
+      tenantActive: async (tenantId: string) => {
+        lifecycleAskedFor = tenantId;
+        return true;
+      },
     });
     assert.equal(askedFor, OTHER_TENANT, "the tenant asked about is the tenant the caller forwarded");
+    assert.equal(lifecycleAskedFor, OTHER_TENANT, "and its lifecycle is read for that same tenant");
   }
 
   /* ── 5. THE RESOLVER OWNS NO STATE AND WRITES NOTHING ─────────────────────── */

@@ -20,7 +20,7 @@ import { resolveAgentProposerDisplays } from "../../src/features/action-authoriz
 import { originateAgentAction } from "../../src/features/agent-origination/originate-action.server";
 import { proposeSendAction } from "../../src/features/heby-action-inlet/send-proposal.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
-import { seedAgentMandate } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { retireDurableAgentIdentity } from "../../src/features/agent-identity/retire-durable-agent-identity.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import { createExternalRecipient } from "../../src/features/external-recipients/write-external-recipients.server";
@@ -118,6 +118,7 @@ async function main(): Promise<void> {
     );
     const draftRef = draft.status === "created" ? draft.ref : "";
 
+    await seedGovernanceAuthority(setup, acme, dbDeps, { tag: "a2" });
     const established = await createDurableAgentIdentity(acmeCtx, { name: AGENT_NAME }, dbDeps);
     assert.equal(established.status, "established");
     const agentId = established.status === "established" ? established.identity.agentId : "";

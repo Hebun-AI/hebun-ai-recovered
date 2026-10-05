@@ -17,6 +17,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { type HebyModelAnswerDeps } from "../../src/features/heby-answer/model-answer.server";
 import type { PublicKnowledgeDeps } from "../../src/features/heby-answer/knowledge-evidence.server";
 import { generateHebyModelAnswer, type ClaudeTransport, type ClaudeTransportRequest } from "../../src/features/heby-model";
@@ -106,6 +107,7 @@ async function main(): Promise<void> {
     const repo = createDurableConversationRepository(handle.db);
     const writeDeps = { getDb: () => handle.db } as never;
     const agentIdentityDeps = { getDb: () => handle.db } as never;
+    await seedGovernanceAuthority(setup, acme, agentIdentityDeps, { tag: "kt5" });
     assert.equal((await createDurableAgentIdentity(tenant, { name: "Heby" }, agentIdentityDeps)).status, "established");
 
     const sent: ClaudeTransportRequest[] = [];

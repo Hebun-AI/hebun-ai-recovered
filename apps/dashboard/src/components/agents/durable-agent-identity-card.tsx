@@ -89,6 +89,10 @@ const CREATE_REFUSAL_TEXT: Record<AgentIdentityRefusal, string> = {
     "The human in your session is not a live record, so ownership could not be established truthfully.",
   "agent-identity-already-exists":
     "This organization already holds a durable agent identity. The ceremony is a one-shot, and a retired identity still counts.",
+  "no-governance-authority":
+    "This organization has no Governance authority yet, or it could not be read. Creating its agent needs one. Nothing was written.",
+  "not-the-governance-authority":
+    "Only a human holding this organization's Governance authority may create its agent, and that is not you. Nothing was written.",
 };
 
 const RETIRE_REFUSAL_TEXT: Record<AgentRetirementRefusal, string> = {
@@ -103,6 +107,10 @@ const RETIRE_REFUSAL_TEXT: Record<AgentRetirementRefusal, string> = {
     "Only the human who owns this identity may retire it, and that is not you.",
   "agent-identity-already-retired":
     "This identity was already withdrawn from service. Retirement is terminal, so nothing was changed.",
+  "no-governance-authority":
+    "This organization has no Governance authority yet, or it could not be read. Retiring its agent needs one. Nothing was changed.",
+  "not-the-governance-authority":
+    "Retiring this agent needs this organization's Governance authority as well as ownership, and you do not hold it. Nothing was changed.",
 };
 
 function Ladder() {

@@ -495,6 +495,13 @@ function noProposalEnforcementExists(): void {
    * enforcement claim separately, against the one seam that makes it.
    *
    *     RENDERING A CEILING != ENFORCING ONE     GROUNDING ON ONE != ENFORCING ONE
+   *
+   * APF-1 ADDED TWO, AND THE DECISION STAYED ONE. A mandate withdrawn after a proposal was filed
+   * must still stop the act, so the standing issuer and the machine executor read the EFFECTIVE
+   * mandate again — and all three enforcers apply ONE shared ceiling (`agent-mandate-ceiling.ts`,
+   * which imports nothing from the mandate authority), the proposal writer's own AMA-2 logic moved
+   * out so it could not be copied. None of the three can
+   * WRITE a mandate; the one-writer census above is unchanged.
    */
   assert.deepEqual(
     importers,
@@ -507,10 +514,14 @@ function noProposalEnforcementExists(): void {
       path.join("src", "features", "action-authorization", "record-action-request.server.ts"),
       path.join("src", "features", "governance-audit", "agent-mandate-audit.server.ts"),
       path.join("src", "features", "governance-decision", "decision-authority.server.ts"),
+      /* APF-1. Machine delivery re-reads the effective mandate before it spends a permit. */
+      path.join("src", "features", "governed-machine-execution", "execute-record-work-as-machine.server.ts"),
       /* AMA-3. Heby's answer flow, which imports the mandate authority's own read projection. */
       path.join("src", "features", "heby-answer", "model-answer.server.ts"),
+      /* APF-1. Standing issuance re-reads the effective mandate before it mints a permit. */
+      path.join("src", "features", "standing-mutation-authority", "issue-permit-under-standing-authorization.server.ts"),
     ],
-    "eight modules know a mandate exists, and each is named: the schema barrel, the audit sibling, the Governance decision writer, ONE proposal writer, THREE product files and ONE grounding consumer",
+    "ten modules know a mandate exists, and each is named: the schema barrel, the audit sibling, the Governance decision writer, the THREE enforcers that apply the one shared ceiling, THREE product files and ONE grounding consumer",
   );
 
   /*

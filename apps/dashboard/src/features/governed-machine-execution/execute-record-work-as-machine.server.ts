@@ -68,6 +68,11 @@ import {
 } from "./machine-execution-control.server";
 import { resolveMachineExecutionReachability } from "@/features/tenant-machine-execution-authority/resolve-machine-execution-reachability.server";
 import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
+import { readEffectiveAgentMandateForRuntime } from "@/features/agent-mandate/read-agent-mandate.server";
+import {
+  refuseOutsideAgentMandate,
+  type AgentMandateCeilingRefusal,
+} from "@/features/action-authorization/agent-mandate-ceiling";
 
 /**
  * THE ALLOWLIST. One entry, frozen, and consulted rather than assumed.
@@ -104,6 +109,13 @@ export type MachineRecordWorkRefusal =
    * agent authority's own word. The permit was NOT spent.
    */
   | "agent-not-in-service"
+  /**
+   * The agent's EFFECTIVE mandate no longer admits this act — withdrawn, narrowed, absent, or
+   * unreadable (APF-1). A permit authorized while the ceiling admitted the act does not survive a
+   * Governance-authorized human taking the ceiling down. `authorityReason` carries the ceiling's
+   * own word. The permit was NOT spent.
+   */
+  | "agent-mandate-refused"
   /** The approved payload does not describe recordable work. The spend was rolled back. */
   | "payload-not-recordable"
   /** The Work Authority refused. The spend was rolled back and no row exists. */
@@ -143,6 +155,8 @@ export interface MachineRecordWorkDeps extends MachineExecutionControlDeps {
   readonly reachable?: typeof resolveMachineExecutionReachability;
   /** Injectable so agent liveness is provable without a control-plane database. */
   readonly agentLiveness?: typeof readDurableAgentRuntimeLiveness;
+  /** Injectable so the mandate ceiling is provable without a control-plane database (APF-1). */
+  readonly readMandate?: typeof readEffectiveAgentMandateForRuntime;
 }
 
 /** Aborts the callback, and with it the transaction that was spending the permit. */
@@ -253,6 +267,27 @@ export async function executeRecordWorkAsMachine(
   );
   if (liveness !== "in-service") {
     return { status: "refused", reason: "agent-not-in-service", authorityReason: liveness };
+  }
+
+  /*
+   * ── IS THE ACT STILL INSIDE THE AGENT'S CEILING? (APF-1) ─────────────────────────────────
+   *
+   * The mandate was consulted once, when the proposal was filed. Before APF-1 that was the only
+   * time: a human who withdrew the agent's mandate after a permit existed did not stop that permit.
+   * AUTHORIZED != STILL PERMITTED. Read from the Agent Mandate Authority with ids off the permit,
+   * decided by the one shared ceiling; same residual window as liveness above — read before the
+   * spend, not inside it.
+   */
+  const ceiling: AgentMandateCeilingRefusal | null = refuseOutsideAgentMandate(
+    await (deps.readMandate ?? readEffectiveAgentMandateForRuntime)(
+      principal.tenantId,
+      principal.agentId,
+      deps.getDb ? { getDb: deps.getDb } : {},
+    ),
+    principal.actionKind,
+  );
+  if (ceiling) {
+    return { status: "refused", reason: "agent-mandate-refused", authorityReason: ceiling };
   }
 
   let outcome: WorkWriteResult | null = null;

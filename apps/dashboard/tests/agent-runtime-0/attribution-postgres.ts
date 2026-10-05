@@ -24,6 +24,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import type { HebyModelAnswerDeps } from "../../src/features/heby-answer/model-answer.server";
 import {
   generateHebyModelAnswer,
@@ -221,10 +222,18 @@ async function main(): Promise<void> {
     /* ═══════════════════════════════════════════════════════════════════════
      * 3. WITH A REAL DURABLE IDENTITY, THE REVISION NAMES IT.
      * ═════════════════════════════════════════════════════════════════════ */
+    await seedGovernanceAuthority(setup, acme, { getDb: () => handle.db }, { tag: "a0a0a" });
     const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
     assert.equal(established.status, "established");
     const acmeAgentId = established.status === "established" ? established.identity.agentId : "";
     assert.notEqual(acmeAgentId, acme.userId, "an agent id is not a person's id");
+    /* APF-1: the Governance precondition writes its own bootstrap rows; this asserts the code under test adds none. */
+    const governanceBaseline = (
+      await setup.query<{ decisions: number; sessions: number }>(
+        `select (select count(*)::int from decision_records) as decisions,
+                (select count(*)::int from user_session_contexts) as sessions`,
+      )
+    ).rows[0]!;
 
     let artifactId = "";
     {
@@ -449,9 +458,9 @@ async function main(): Promise<void> {
       assert.equal(row.memberships, 0, "the agent holds no membership");
       assert.equal(row.permits, 0, "no permit was issued");
       assert.equal(row.requests, 0, "no action was proposed — AGENT_PROPOSAL_CAPABLE stays NO");
-      assert.equal(row.decisions, 0, "no Governance decision was recorded");
+      assert.equal(row.decisions - governanceBaseline.decisions, 0, "no Governance decision was recorded");
       assert.equal(row.executions, 0, "nothing was executed");
-      assert.equal(row.sessions, 0, "the agent has no session");
+      assert.equal(row.sessions - governanceBaseline.sessions, 0, "the agent has no session");
       assert.equal(row.credentials, 0, "and no credential was issued to anybody");
 
       /* The agent id appears in exactly ONE place: the authorship column it was written to. */

@@ -22,6 +22,7 @@ import path from "node:path";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import {
   listWorkArtifacts,
   resolveWorkArtifactReference,
@@ -189,6 +190,7 @@ async function main(): Promise<void> {
     const stranger = contextFor(other, "rev2-other");
     const deps = { getDb: () => handle.db } as never;
 
+    await seedGovernanceAuthority(setup, mine, deps, { tag: "rev2" });
     const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, deps);
     assert.equal(established.status, "established");
     const authorship = await resolveAgentAuthorship(tenant, deps);

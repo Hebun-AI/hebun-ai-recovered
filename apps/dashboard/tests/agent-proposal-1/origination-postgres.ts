@@ -29,7 +29,7 @@ import {
   type AgentProposer,
 } from "../../src/features/action-authorization/agent-proposer.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
-import { seedAgentMandate } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { retireDurableAgentIdentity } from "../../src/features/agent-identity/retire-durable-agent-identity.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import { createExternalRecipient } from "../../src/features/external-recipients/write-external-recipients.server";
@@ -193,6 +193,7 @@ async function main(): Promise<void> {
     /* ═══════════════════════════════════════════════════════════════════════
      * 2. WITH A DURABLE AGENT: A HUMAN GOAL BECOMES AN AGENT-ORIGINATED PROPOSAL.
      * ═════════════════════════════════════════════════════════════════════ */
+    await seedGovernanceAuthority(setup, acme, { getDb: () => handle.db }, { tag: "a1a1a" });
     const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
     assert.equal(established.status, "established");
     const agentId = established.status === "established" ? established.identity.agentId : "";

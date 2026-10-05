@@ -28,7 +28,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
-import { seedAgentMandate } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
 import { retireDurableAgentIdentity } from "../../src/features/agent-identity/retire-durable-agent-identity.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
@@ -212,6 +212,7 @@ async function main(): Promise<void> {
     );
 
     /* ── The agents ────────────────────────────────────────────────────────── */
+    await seedGovernanceAuthority(setup, acme, dbDeps, { tag: "a2a" });
     const acmeAgent = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
     assert.equal(acmeAgent.status, "established");
     const acmeAgentId = acmeAgent.status === "established" ? acmeAgent.identity.agentId : "";
@@ -540,6 +541,7 @@ async function main(): Promise<void> {
      * 7. TENANT ISOLATION — ANOTHER ORGANIZATION'S CEILING IS NOT A CEILING HERE.
      * ═════════════════════════════════════════════════════════════════════ */
     {
+      await seedGovernanceAuthority(setup, globex, dbDeps, { tag: "a2b" });
       const globexAgent = await createDurableAgentIdentity(globexCtx, { name: "Heby" }, dbDeps);
       assert.equal(globexAgent.status, "established");
       const globexProposerResult = await resolveAgentProposer(globexCtx, dbDeps);

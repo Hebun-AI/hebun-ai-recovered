@@ -42,7 +42,11 @@ export type AgentRetirementRefusal =
    */
   | "not-the-human-owner"
   /** Already withdrawn from service. Terminal states are not re-enterable. */
-  | "agent-identity-already-retired";
+  | "agent-identity-already-retired"
+  /** This organization has no Governance authority at all, or it could not be resolved (APF-1). */
+  | "no-governance-authority"
+  /** Governance exists and the acting human does not hold it (APF-1). */
+  | "not-the-governance-authority";
 
 /**
  * What the authority returns on success. The retired identity still has a name and an owner, because

@@ -54,6 +54,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { agents } from "@/db/schema/agent";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
 import {
   isDurableAgentIdentityId,
   RETIRED_AGENT_LIFECYCLE_STATUS,
@@ -122,6 +123,7 @@ export async function retireDurableAgentIdentity(
   }
   const agentId = input.agentId;
 
+
   const db = resolveDbOrNull(deps);
   if (!db) return { status: "refused", reason: "authority-unavailable" };
 
@@ -175,6 +177,31 @@ export async function retireDurableAgentIdentity(
      */
     if (row.humanOwnerType !== "human" || row.humanOwnerId !== tenant.userId) {
       return { status: "refused" as const, reason: "not-the-human-owner" as const };
+    }
+
+    /*
+     * 4b · THE ORGANIZATION'S GOVERNANCE AUTHORITY (APF-1).
+     *
+     * The ONE released resolver: the bootstrap human, or a human holding an unrevoked delegation. A
+     * tenant member without it is refused exactly like a stranger — no role band, permission row or
+     * membership scope is consulted, the same rule the mandate writer applies. An unresolvable
+     * authority refuses: `resolveGovernanceAuthority` reports an outage as NO authority.
+     *
+     * AFTER the released checks, so every refusal they gave keeps its reason; this is an ADDITIONAL
+     * gate. Read on the authority's own connection, not this transaction's.
+     *
+     * Before APF-1 the owner alone could retire — and the owner could be any member who created it, so
+     * a member could create and then retire the organization's only identity forever (the genesis
+     * count includes retired rows). Ownership is NOT replaced: step 4 still applies, so retirement now
+     * needs BOTH the human who owns the agent AND the organization's Governance authority. Nothing new
+     * is granted to anybody.
+     */
+    const authority = await resolveGovernanceAuthority(tenant, { getDb: deps.getDb });
+    if (!authority.bootstrapDecisionId) {
+      return { status: "refused" as const, reason: "no-governance-authority" as const };
+    }
+    if (!authority.authorized) {
+      return { status: "refused" as const, reason: "not-the-governance-authority" as const };
     }
 
     /* 5 · TERMINAL STATES ARE NOT RE-ENTERABLE. Either witness of retirement is sufficient. */

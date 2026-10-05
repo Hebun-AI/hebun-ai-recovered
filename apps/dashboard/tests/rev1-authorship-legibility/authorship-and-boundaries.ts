@@ -25,6 +25,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
 import { resolveAgentAuthorship } from "../../src/features/work-artifacts/agent-authorship.server";
 import {
@@ -327,7 +328,9 @@ async function main(): Promise<void> {
     const readDeps = { getDb: () => handle.db };
     const agentDeps = { getDb: () => handle.db } as never;
 
+    await seedGovernanceAuthority(setup, mine, agentDeps, { tag: "rev1" });
     const agent = await createDurableAgentIdentity(owner, { name: "Heby" }, agentDeps);
+    const govBaselineDecisions = (await setup.query<{ n: number }>(`select count(*)::int as n from decision_records`)).rows[0]!.n;
     assert.equal(agent.status, "established");
 
     /*
@@ -449,7 +452,9 @@ async function main(): Promise<void> {
     ] as const) {
       const n = (await setup.query<{ n: number }>(`select count(*)::int as n from ${table}`)).rows[0]!
         .n;
-      assert.equal(n, expected, `reviewing wrote nothing to ${table}`);
+      /* APF-1: the Governance precondition writes its own bootstrap rows; this asserts the code under test adds none. */
+      const baseline = table === "decision_records" ? govBaselineDecisions : 0;
+      assert.equal(n - baseline, expected, `reviewing wrote nothing to ${table}`);
     }
 
     console.log("rev1-authorship-legibility/authorship-and-boundaries: all assertions passed");

@@ -328,13 +328,26 @@ async function main(): Promise<void> {
         await sessionRowFor(setup, outsider, "cccc"),
         "ama1-outsider",
       );
-      const outsiderAgent = await createDurableAgentIdentity(
-        outsiderCtx,
-        { name: "Outsider Agent" },
-        baseDeps,
+      /*
+       * APF-1 — without Governance the ceremony now refuses to create the agent at all. The state
+       * this section measures (an agent in an organization with no Governance) is reachable only as
+       * a LEGACY row created before APF-1, so it is seeded as one after the refusal is asserted.
+       */
+      assert.deepEqual(
+        await createDurableAgentIdentity(outsiderCtx, { name: "Outsider Agent" }, baseDeps),
+        { status: "refused", reason: "no-governance-authority" },
       );
-      assert.equal(outsiderAgent.status, "established");
-      if (outsiderAgent.status !== "established") throw new Error("unreachable");
+      const outsiderAgent = {
+        identity: {
+          agentId: (
+            await setup.query<{ id: string }>(
+              `insert into agents (tenant_id, name, human_owner_type, human_owner_id, created_by, created_by_type)
+               values ($1, 'Outsider Agent', 'human', $2, $2, 'human') returning id`,
+              [outsider.tenantId, outsider.userId],
+            )
+          ).rows[0]!.id,
+        },
+      };
 
       const refusedForAuthority = await establishAgentMandate(
         outsiderCtx,

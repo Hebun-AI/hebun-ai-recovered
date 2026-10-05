@@ -22,7 +22,7 @@ import {
   readInvocationProvenance,
 } from "../../src/features/agent-origination/invocation-provenance.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
-import { seedAgentMandate } from "../helpers/agent-mandate-seed";
+import { seedAgentMandate, seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 /* SIA-2.6: registration now requires the branded proposer, so the fixture resolves the real one. */
 import { resolveAgentProposer } from "../../src/features/action-authorization/agent-proposer.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
@@ -131,6 +131,7 @@ async function main(): Promise<void> {
     assert.equal(draft.status, "created");
     const draftRef = draft.status === "created" ? draft.ref : "";
 
+    await seedGovernanceAuthority(setup, acme, dbDeps, { tag: "a4b" });
     const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
     assert.equal(established.status, "established");
 

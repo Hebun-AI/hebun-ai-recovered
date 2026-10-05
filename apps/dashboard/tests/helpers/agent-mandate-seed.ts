@@ -124,6 +124,67 @@ export async function seedAgentMandate(
     authenticatedAt: (options.now ?? new Date()).toISOString(),
   });
 
+  await seedGovernanceAuthority(client, identity, deps, { sessionContextId, ctx });
+
+  const established = await establishAgentMandate(
+    ctx,
+    {
+      agentId,
+      purpose: PURPOSE,
+      proposalScope: options.proposalScope ?? [...AGENT_ORIGINABLE_ACTION_KINDS],
+      justification: MANDATE_JUSTIFICATION,
+      observedMandateRevision: options.observedMandateRevision ?? null,
+    },
+    deps as never,
+  );
+  assert.equal(
+    established.status,
+    "established",
+    `mandate seed: the ceiling could not be recorded (${JSON.stringify(established)})`,
+  );
+  return {
+    mandateRevision:
+      established.status === "established" ? established.mandate.mandateRevision : 0,
+  };
+}
+
+/**
+ * APF-1 — the Governance precondition for creating or retiring a durable agent.
+ *
+ * Before APF-1 any authenticated member could create the tenant's agent, so many released suites
+ * create one as a FIXTURE without ever establishing Governance. APF-1 binds that ceremony to the
+ * released Governance resolver, so those suites now have the same precondition a real organization
+ * has. They assert exactly what they asserted before; they establish Governance first.
+ *
+ * Idempotent per tenant (an existing nomination means Governance was already seeded), and every
+ * row except the nomination and the session comes from the released writer — the same rule the
+ * mandate seed above follows. `identity` must be the human who will create the agent.
+ */
+export async function seedGovernanceAuthority(
+  client: Client,
+  identity: MandateSeedIdentity,
+  deps: { readonly getDb: () => unknown },
+  options: { readonly tag?: string; readonly sessionContextId?: string; readonly ctx?: TenantContext } = {},
+): Promise<void> {
+  const sessionContextId =
+    options.sessionContextId ?? (await sessionContextRow(client, identity, `gov-${options.tag ?? "seed"}`));
+  const ctx: TenantContext =
+    options.ctx ??
+    asHumanTenantContext({
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      authIdentityId: identity.authIdentityId,
+      membershipId: identity.membershipId,
+      membershipVersion: 1,
+      roleId: identity.roleId,
+      sessionContextId,
+      provider: "local",
+      assuranceLevel: "aal1",
+      mfaVerified: false,
+      requestId: `governance-seed-${options.tag ?? "seed"}`,
+      authenticatedAt: new Date().toISOString(),
+    });
+
   /*
    * The entitlement, then the authority. `governance_bootstrap` reads an ACCEPTED genesis
    * nomination and spends it; there is no writer for a nomination in this repository, so it is the
@@ -149,28 +210,37 @@ export async function seedAgentMandate(
     assert.equal(
       governance.status,
       "established",
-      `mandate seed: Governance authority could not be established (${JSON.stringify(governance)})`,
+      `governance seed: Governance authority could not be established (${JSON.stringify(governance)})`,
     );
   }
 
-  const established = await establishAgentMandate(
-    ctx,
-    {
-      agentId,
-      purpose: PURPOSE,
-      proposalScope: options.proposalScope ?? [...AGENT_ORIGINABLE_ACTION_KINDS],
-      justification: MANDATE_JUSTIFICATION,
-      observedMandateRevision: options.observedMandateRevision ?? null,
-    },
-    deps as never,
+}
+
+/**
+ * APF-1 — the same precondition for suites that seed `companies`/`users` as bare rows and have no
+ * auth identity to run the released bootstrap with. One Governance session + one bootstrap decision
+ * naming `humanId`, exactly the columns `establishGovernanceAuthority` writes for a genesis — the
+ * raw-row pattern the G3 and KGA suites already use for Governance state.
+ */
+export async function seedGovernanceBootstrapRows(
+  client: Client,
+  tenantId: string,
+  humanId: string,
+): Promise<void> {
+  const session = await client.query<{ id: string }>(
+    `insert into governance_sessions
+       (tenant_id, governance_domain, decision_type, subject_type, subject_id,
+        proposer_actor_type, proposer_actor_id, risk_class, governance_lifecycle_status)
+     values ($1, 'authority-delegation', 'certify', 'tenant', $1, 'human', $2, 'critical', 'recorded')
+     returning id`,
+    [tenantId, humanId],
   );
-  assert.equal(
-    established.status,
-    "established",
-    `mandate seed: the ceiling could not be recorded (${JSON.stringify(established)})`,
+  await client.query(
+    `insert into decision_records
+       (tenant_id, session_id, decision_type, subject_type, subject_id, actor_type, actor_id,
+        bootstrap, outcome, justification)
+     values ($1, $2, 'certify', 'tenant', $1, 'human', $3, true, 'authority-established',
+             'Seeded: this organization establishes its founding Governance authority.')`,
+    [tenantId, session.rows[0]!.id, humanId],
   );
-  return {
-    mandateRevision:
-      established.status === "established" ? established.mandate.mandateRevision : 0,
-  };
 }

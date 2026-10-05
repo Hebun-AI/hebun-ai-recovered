@@ -31,7 +31,7 @@ import { hebyActionRequests } from "@/db/schema/action-authorization";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import type { HebyActionKind, HebyPreparedAction } from "@/features/heby-actions/contracts";
-import { AGENT_ORIGINABLE_REGISTRY_KIND } from "@/features/agent-origination/contracts";
+import { refuseOutsideAgentMandate } from "./agent-mandate-ceiling";
 /*
  * AMA-2 — the READ SEAM MODULE, never the feature barrel.
  *
@@ -141,25 +141,8 @@ async function mandateCeilingRefusal(
   deps: ActionRequestDeps,
 ): Promise<MandateCeilingRefusal | null> {
   const read = await readEffectiveAgentMandate(tenant, agentId, { getDb: deps.getDb });
-
-  /* (A) Hebun could not look. An unreachable ceiling is not an absent one. */
-  if (read.status === "unavailable") return "agent-mandate-authority-unavailable";
-  /* (B) Hebun looked, and nobody has bounded this agent. NO MANDATE != UNLIMITED MANDATE. */
-  if (!read.mandate) return "no-agent-mandate";
-
-  /*
-   * (C) A bound exists. The stored scope is in the ORIGINATION ALIAS vocabulary and the prepared
-   * action carries a REGISTRY kind, so the comparison goes through the declared map rather than
-   * through string equality — see `AGENT_ORIGINABLE_REGISTRY_KIND` for why comparing the two
-   * vocabularies directly would refuse every proposal, including the ones a mandate admits.
-   *
-   * An EMPTY scope — withdrawal — admits nothing and lands here for every kind, which is what
-   * withdrawal means.
-   */
-  const admitted = read.mandate.proposalScope.some(
-    (alias) => AGENT_ORIGINABLE_REGISTRY_KIND[alias] === actionKind,
-  );
-  return admitted ? null : "action-outside-agent-mandate";
+  /* The decision itself is shared with the machine path (APF-1) — one answer, never three. */
+  return refuseOutsideAgentMandate(read, actionKind);
 }
 
 /**

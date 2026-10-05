@@ -52,6 +52,8 @@ const MIGRATIONS = "src/db/migrations";
 /** The commits each authority must still match, byte for byte. This phase writes no authority. */
 const AGENT_ID_0_RELEASE = "253fc03";
 const AGENT_ID_0_1_RELEASE = "bcade6a";
+/** This phase's own release — the commit that introduced this file. */
+const DISCLOSURE_RELEASE = "edc303c8";
 
 function walk(dir: string): string[] {
   return readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {
@@ -219,20 +221,25 @@ function main(): void {
    *
    * A disclosure repair that changed a writer would be a different phase wearing this one's name.
    */
-  for (const [authority, release] of [
-    [CREATE_AUTHORITY, AGENT_ID_0_RELEASE],
-    [RETIRE_AUTHORITY, AGENT_ID_0_1_RELEASE],
-  ] as const) {
-    const released = execFileSync("git", ["show", `${release}:apps/dashboard/${authority}`], {
-      cwd: ROOT,
-      encoding: "utf8",
-      maxBuffer: 8 * 1024 * 1024,
-    });
-    assert.equal(
-      read(authority),
-      released,
-      `${authority} is byte-identical to ${release} — this phase changed no creation or retirement behaviour`,
-    );
+  /*
+   * PHASE-RELATIVE, NOT ABSOLUTE (repaired at APF-1).
+   *
+   * This asserted both authorities were byte-identical to their own releases forever — a claim about
+   * EVERY LATER PHASE. APF-1 deliberately bound create and retire to Governance authority and this
+   * pin failed, not because THIS phase moved anything, but because it was measuring the wrong thing.
+   * The claim this phase owns is that ITS OWN COMMIT changed neither writer, so that is asserted.
+   */
+  for (const authority of [CREATE_AUTHORITY, RETIRE_AUTHORITY]) {
+    const changed = execFileSync(
+      "git",
+      ["diff", "--name-only", `${DISCLOSURE_RELEASE}^`, DISCLOSURE_RELEASE, "--", authority],
+      { cwd: ROOT, encoding: "utf8" },
+    ).trim();
+    assert.equal(changed, "", `${authority} — this phase changed no creation or retirement behaviour`);
+  }
+  /* The releases the two writers came from still exist, so the history above is checkable. */
+  for (const release of [AGENT_ID_0_RELEASE, AGENT_ID_0_1_RELEASE]) {
+    execFileSync("git", ["cat-file", "-e", `${release}^{commit}`], { cwd: ROOT });
   }
 
   /* ── 7. NO SCHEMA, NO MIGRATION, NO WIDENED GOVERNANCE ────────────────────── */

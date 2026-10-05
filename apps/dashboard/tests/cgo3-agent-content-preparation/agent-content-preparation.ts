@@ -20,6 +20,7 @@ import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
+import { seedGovernanceAuthority } from "../helpers/agent-mandate-seed";
 import { type HebyModelAnswerDeps } from "../../src/features/heby-answer/model-answer.server";
 import { generateHebyModelAnswer, type ClaudeTransport } from "../../src/features/heby-model";
 import { createDurableConversationRepository } from "../../src/features/heby-conversation/durable-conversation-repository.server";
@@ -168,8 +169,13 @@ async function main(): Promise<void> {
       resolveWorkArtifacts: (t) => resolveWorkArtifactSource(t, writeDeps),
     });
 
+    await seedGovernanceAuthority(setup, acme, agentIdentityDeps, { tag: "c3" });
     const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, agentIdentityDeps);
     assert.equal(established.status, "established", "the tenant has a durable agent");
+    /* APF-1: the Governance precondition writes its own bootstrap rows; this asserts the code under test adds none. */
+    const baselineDecisionRecords = (
+      await setup.query<{ n: number }>(`select count(*)::int as n from decision_records`)
+    ).rows[0]!.n;
     const agentId = established.status === "established" ? established.identity.agentId : "";
 
     /* ── 1. THE STATE BEFORE CGO-3, STILL REACHABLE: no destination ⇒ REFUSED ──
@@ -264,7 +270,7 @@ async function main(): Promise<void> {
     ]) {
       const { rows } = await setup.query<{ n: number }>(`select count(*)::int as n from ${table}`);
       assert.equal(
-        rows[0]!.n,
+        rows[0]!.n - (table === "decision_records" ? baselineDecisionRecords : 0),
         0,
         `an agent preparing content wrote no ${table} row: preparation is not an act`,
       );

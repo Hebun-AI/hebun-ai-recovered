@@ -170,6 +170,41 @@ export async function readEffectiveAgentMandate(
    */
   if (!id) return { status: "known", mandate: null };
 
+  return readEffectiveMandateRow(tenant.tenantId, id, deps);
+}
+
+/**
+ * The mandate currently in effect, for a MACHINE caller that holds no `TenantContext` (APF-1).
+ *
+ * `TenantContext` is nominally human, so the standing issuer and the machine executor cannot reach
+ * {@link readEffectiveAgentMandate}. They hold something better than a caller's word: a tenant id
+ * and an agent id they READ off an authoritative row — a permit, or that permit's request — exactly
+ * as `readDurableAgentRuntimeLiveness` is called. Never a value a caller chose.
+ *
+ * Same query, same three answers, same predicate; this is a second door into one read, not a second
+ * read. A mismatched (tenant, agent) pair resolves to `known + null`, so it fails closed as "no
+ * mandate" rather than reaching another organization's row.
+ */
+export async function readEffectiveAgentMandateForRuntime(
+  tenantId: string,
+  agentId: string,
+  deps: AgentMandateReadDeps = {},
+): Promise<EffectiveAgentMandateRead> {
+  if (typeof window !== "undefined") {
+    throw new Error("Agent mandate reads are server-only.");
+  }
+  const tenant = typeof tenantId === "string" ? tenantId.trim() : "";
+  if (!tenant) return { status: "unavailable", reason: "no-authorized-tenant-context" };
+  const id = typeof agentId === "string" ? agentId.trim() : "";
+  if (!id) return { status: "known", mandate: null };
+  return readEffectiveMandateRow(tenant, id, deps);
+}
+
+async function readEffectiveMandateRow(
+  tenantId: string,
+  agentId: string,
+  deps: AgentMandateReadDeps,
+): Promise<EffectiveAgentMandateRead> {
   const db = resolveDbOrNull(deps);
   if (!db) return { status: "unavailable", reason: "persistence-not-configured" };
 
@@ -177,7 +212,7 @@ export async function readEffectiveAgentMandate(
     const rows = await db
       .select(SELECTION)
       .from(agentMandates)
-      .where(and(eq(agentMandates.tenantId, tenant.tenantId), eq(agentMandates.agentId, id)))
+      .where(and(eq(agentMandates.tenantId, tenantId), eq(agentMandates.agentId, agentId)))
       /* Effective = the highest ordinal. Derived here, stored nowhere. */
       .orderBy(desc(agentMandates.mandateRevision))
       .limit(1);

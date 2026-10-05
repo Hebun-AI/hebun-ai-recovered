@@ -77,13 +77,18 @@ function agentEntryBody(): string {
  * A census, not an inspection of the files this phase happened to touch. A second module that
  * learned to consult a mandate — anywhere, for any reason — fails here.
  * ═════════════════════════════════════════════════════════════════════════ */
+const MACHINE_EXECUTOR = "src/features/governed-machine-execution/execute-record-work-as-machine.server.ts";
+const STANDING_ISSUER =
+  "src/features/standing-mutation-authority/issue-permit-under-standing-authorization.server.ts";
+
 function exactlyOneEnforcementSeam(): void {
   const consumers = collect("src")
     .filter((f) => !f.startsWith(MANDATE_FEATURE))
     .filter((f) => {
       const source = codeOf(read(f));
       return (
-        /\breadEffectiveAgentMandate\b/.test(source) || /\breadAgentMandateHistory\b/.test(source)
+        /\breadEffectiveAgentMandate(ForRuntime)?\b/.test(source) ||
+        /\breadAgentMandateHistory\b/.test(source)
       );
     })
     .sort();
@@ -99,10 +104,17 @@ function exactlyOneEnforcementSeam(): void {
    * So the two claims are separated: the readers are named exhaustively, and the ENFORCEMENT claim
    * is asserted below against the seam alone. A third reader added anywhere still fails here.
    */
+  /*
+   * APF-1 ADDED TWO READERS, BOTH ENFORCERS OF THE SAME CEILING. A mandate withdrawn after a proposal
+   * was filed must still stop the act, so the standing issuer and the machine executor re-read the
+   * EFFECTIVE mandate (through the authority's runtime door, `readEffectiveAgentMandateForRuntime`)
+   * and apply the ONE shared decision the proposal writer applies. The census widened by name; the
+   * claims below about the proposal seam are unchanged.
+   */
   assert.deepEqual(
     consumers,
-    [PRODUCT_SURFACE, SEAM],
-    "exactly TWO modules outside the mandate authority read a mandate: the product surface renders one, the proposal writer enforces one",
+    [PRODUCT_SURFACE, SEAM, MACHINE_EXECUTOR, STANDING_ISSUER].sort(),
+    "exactly FOUR modules outside the mandate authority read a mandate: the product surface renders one; the proposal writer, the standing issuer and the machine executor enforce the same one",
   );
 
   /*

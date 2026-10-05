@@ -139,9 +139,22 @@ async function main(): Promise<void> {
       "ama3-stranger",
     );
 
-    const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
-    assert.equal(established.status, "established");
-    const agentId = established.status === "established" ? established.identity.agentId : "";
+    /*
+     * APF-1 — creating an agent now needs Governance authority, so an organization with an agent
+     * and NO Governance (the state sections 1–2 measure) is reachable only as a LEGACY row created
+     * before APF-1. The ceremony's refusal is asserted, then that legacy state is seeded as a row.
+     */
+    assert.deepEqual(
+      await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps),
+      { status: "refused", reason: "no-governance-authority" },
+    );
+    const agentId = (
+      await setup.query<{ id: string }>(
+        `insert into agents (tenant_id, name, human_owner_type, human_owner_id, created_by, created_by_type)
+         values ($1, 'Heby', 'human', $2, $2, 'human') returning id`,
+        [acme.tenantId, acme.userId],
+      )
+    ).rows[0]!.id;
     const agentBefore = await agentRow(agentId);
 
     /* ═══════════════════════════════════════════════════════════════════════

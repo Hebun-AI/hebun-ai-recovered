@@ -15,6 +15,7 @@
  * facade invites and the reason this file is as small as it is.
  *
  *     effective reachability = supported capability
+ *                              AND tenant (organization) active          — APF-1
  *                              AND tenant authorization active
  *                              AND root control enabled
  *
@@ -59,6 +60,8 @@ import {
   type TenantMachineExecutionReadDeps,
 } from "./read-tenant-machine-execution.server";
 import type { MachineExecutionReachability } from "./contracts";
+import { getControlPlaneDb } from "@/db/client.server";
+import { isTenantOnboardingEligible } from "@/features/auth-runtime/identity-repository.server";
 
 export interface MachineExecutionReachabilityDeps
   extends TenantMachineExecutionReadDeps,
@@ -66,6 +69,25 @@ export interface MachineExecutionReachabilityDeps
   /** Injectable so the composition is provable without a control-plane database. */
   readonly rootEnabled?: (deps: MachineExecutionControlDeps) => Promise<boolean>;
   readonly readTenant?: typeof readEffectiveTenantMachineExecution;
+  /** Injectable so tenant lifecycle is provable without a control-plane database. */
+  readonly tenantActive?: (tenantId: string) => Promise<boolean>;
+}
+
+/*
+ * IS THE ORGANIZATION ITSELF ACTIVE? Read through `isTenantOnboardingEligible`, the ONE predicate
+ * over `companies` lifecycle that the session gate and the pre-tenant flows already share (R4B):
+ * only `active` (or the legacy NULL) admits activity. Its name says onboarding; its question is
+ * "may this tenant accept activity right now", which is exactly this one. Reusing it is the point —
+ * a second copy of "which statuses count" is how a machine would act for a suspended tenant that
+ * no human can sign in to.
+ */
+async function defaultTenantActive(
+  tenantId: string,
+  getDb: TenantMachineExecutionReadDeps["getDb"],
+): Promise<boolean> {
+  const db = getDb ? getDb() : getControlPlaneDb();
+  if (!db) throw new Error("tenant lifecycle unreadable");
+  return isTenantOnboardingEligible(db, tenantId);
 }
 
 /**
@@ -92,7 +114,22 @@ export async function resolveMachineExecutionReachability(
     return { status: "refused", reason: "unsupported-machine-capability" };
   }
 
-  /* 2 · THE TENANT'S OWN STATE, FIRST — see the header for why specificity wins. */
+  /*
+   * 2 · IS THE ORGANIZATION ACTIVE AT ALL? (APF-1)
+   *
+   * Before its machine-execution grant, because a suspended organization's grant is moot — and a
+   * suspension is the most specific thing a reader can be told. An unreadable lifecycle refuses as
+   * `persistence-unavailable`, never as "not active": an outage is not a suspension.
+   */
+  let active: boolean;
+  try {
+    active = await (deps.tenantActive ?? ((id: string) => defaultTenantActive(id, deps.getDb)))(tenantId);
+  } catch {
+    return { status: "refused", reason: "persistence-unavailable" };
+  }
+  if (!active) return { status: "refused", reason: "tenant-not-active" };
+
+  /* 3 · THE TENANT'S OWN GRANT — see the header for why specificity wins. */
   const tenant = await (deps.readTenant ?? readEffectiveTenantMachineExecution)(
     tenantId,
     capability,
@@ -110,7 +147,7 @@ export async function resolveMachineExecutionReachability(
   }
 
   /*
-   * 3 · THE DEPLOYMENT'S MASTER STOP, SECOND.
+   * 4 · THE DEPLOYMENT'S MASTER STOP, LAST.
    *
    * `resolveMachineInternalExecutionEnabled` answers `false` for an absent row, an unreachable
    * control plane and any error alike, so an unreadable switch stops execution rather than

@@ -298,7 +298,7 @@ async function main(): Promise<void> {
     );
 
     const decisionsBefore = await countOf("decision_records");
-    const scan = await scanIssuableRequests({ getDb, issuerDeps: { getDb } });
+    const scan = await scanIssuableRequests({ getDb, issuerDeps: { getDb, armed: async () => true } });
     assert.equal(scan.status, "scanned", JSON.stringify(scan));
     assert.equal(scan.status === "scanned" ? scan.issued : -1, 1, "exactly one permit was issued");
 
@@ -374,7 +374,7 @@ async function main(): Promise<void> {
       0,
       "a request that already holds a permit is no longer a candidate — no tight refusal loop",
     );
-    const replay = await scanIssuableRequests({ getDb, issuerDeps: { getDb } });
+    const replay = await scanIssuableRequests({ getDb, issuerDeps: { getDb, armed: async () => true } });
     assert.equal(replay.status === "scanned" ? replay.issued : -1, 0);
     assert.equal(await countOf("action_permits"), permitsBefore + 1, "replay wrote nothing");
 
@@ -386,7 +386,8 @@ async function main(): Promise<void> {
       "../../src/features/standing-mutation-authority/issue-permit-under-standing-authorization.server"
     );
     const issue = (requestId: string) =>
-      issuePermitUnderStandingAuthorization({ requestId }, { getDb });
+      /* APF-1: issuance honours the root control; armed by injection as the delivery half is. */
+      issuePermitUnderStandingAuthorization({ requestId }, { getDb, armed: async () => true });
     const reasonOf = async (requestId: string): Promise<string> => {
       const before = await countOf("action_permits");
       const result = await issue(requestId);
