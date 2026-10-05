@@ -4,13 +4,13 @@
  * model. Anything else — another system text, an extra message, a string from anywhere but the frozen
  * synthetic sets — throws before the network is reached.
  */
-import { BENCH_CASES, PILOT, isSendable } from "./cases";
+import { BENCH_CASES, GS4_CASES, PILOT, isSendable } from "./cases";
 import { buildRequestBody } from "./contract";
 
 export const ALLOWED_MODELS = new Set(["claude-opus-5-5"]);
 
 const REGISTERED = new Set(
-  [...PILOT, ...BENCH_CASES].filter(isSendable).map((c) => JSON.stringify([c.claim, c.evidence])),
+  [...PILOT, ...BENCH_CASES, ...GS4_CASES].filter(isSendable).map((c) => JSON.stringify([c.claim, c.evidence])),
 );
 
 export function assertSyntheticRequest(body: unknown): void {

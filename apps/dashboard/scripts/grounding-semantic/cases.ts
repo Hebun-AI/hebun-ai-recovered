@@ -10,8 +10,11 @@
 import { CASES as GS0, evidenceOf as gs0Evidence } from "../grounding-benchmark/benchmark";
 import { CASES as GS11, FACTS as GS11_FACTS } from "../grounding-benchmark/realistic-cases";
 import { HELDOUT_CASES, HELDOUT_FACTS } from "../grounding-benchmark/heldout-cases";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
-export type Bench = "pilot" | "gs0" | "gs11" | "heldout";
+export type Bench = "pilot" | "gs0" | "gs11" | "heldout" | "gs4";
 export type Gold = "supported" | "insufficient" | "contradicted" | "unavailable";
 
 export interface SemanticCase {
@@ -94,3 +97,30 @@ export const BENCH_CASES: readonly SemanticCase[] = [
 
 /** A case is SENT only when evidence was read and is non-empty; otherwise the deterministic verdict stands. */
 export const isSendable = (c: SemanticCase) => c.evidence !== null && c.evidence.length > 0;
+
+/*
+ * GS-4 — HUMAN-LABELLED · DIRECTOR-VALIDATED · SEMANTIC OUTPUT NOT SEEN BEFORE LABEL FREEZE.
+ * `gs4-gold-v1.json` is the frozen gold, byte for byte; it is refused if its hash differs. Director
+ * labels: A supported · B not supported · C contradicted · D cannot determine. `gold` below is only
+ * the adapter's coarse field; scoring uses `directorLabel` under the frozen GS-4 scoring rule v1.
+ */
+export const GS4_GOLD_SHA256 = "68856f19ef6c7ef6273d7fdcee1ebd44fc9c2594ad6681a8a6394f827d4232bb";
+export type DirectorLabel = "A" | "B" | "C" | "D";
+
+const gs4Raw = readFileSync(path.join(__dirname, "gs4-gold-v1.json"));
+if (createHash("sha256").update(gs4Raw).digest("hex") !== GS4_GOLD_SHA256) throw new Error("GS-4 gold is not the frozen v1");
+
+export const GS4_CASES: readonly (SemanticCase & { readonly directorLabel: DirectorLabel })[] = (
+  JSON.parse(gs4Raw.toString("utf8")) as { cases: { id: string; evidence: string[]; claim: string; label: DirectorLabel }[] }
+).cases.map((c) => ({
+  bench: "gs4" as const,
+  id: c.id,
+  claim: c.claim,
+  evidence: c.evidence,
+  provenance: c.evidence.length === 0 ? ("no-match" as const) : ("matched" as const),
+  gold: ({ A: "supported", B: "insufficient", C: "contradicted", D: "insufficient" } as const)[c.label],
+  category: "gs4",
+  lang: "unknown" as const,
+  multiFact: c.evidence.length > 1,
+  directorLabel: c.label,
+}));

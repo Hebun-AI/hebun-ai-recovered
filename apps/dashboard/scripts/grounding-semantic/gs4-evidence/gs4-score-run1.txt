@@ -1,0 +1,79 @@
+{
+  calls: 57,
+  providerErrors: 0,
+  malformed: 0,
+  invalidLabels: 0,
+  unverifiedQuotes: 0,
+  caseNormalized: 0,
+  relations: { entailed: 23, contradicted: 10, 'not-stated': 24, unclear: 0 },
+  inputTokens: 44536,
+  outputTokens: 5714,
+  msMedian: 3119
+}
+det       {"falseSupportedBCD":[],"A":{"n":19,"retained":5,"falseInsufficient":7,"abstained":7},"B":{"n":7,"supports":0,"warns":4,"undetermined":3},"C":{"n":10,"supports":0,"warns":7,"undetermined":3,"contradictionRecognised":0},"D":{"n":24,"supports":0,"warns":14,"undetermined":10}}
+semantic  {"falseSupportedBCD":["GS4-003","GS4-011","GS4-018","GS4-022","GS4-023","GS4-027","GS4-030","GS4-053","GS4-060"],"A":{"n":19,"retained":14,"falseInsufficient":5,"abstained":0},"B":{"n":7,"supports":0,"warns":7,"undetermined":0},"C":{"n":10,"supports":3,"warns":7,"undetermined":0,"contradictionRecognised":5},"D":{"n":24,"supports":6,"warns":18,"undetermined":0}}
+h1        {"falseSupportedBCD":[],"A":{"n":19,"retained":5,"falseInsufficient":9,"abstained":5},"B":{"n":7,"supports":0,"warns":7,"undetermined":0},"C":{"n":10,"supports":0,"warns":8,"undetermined":2,"contradictionRecognised":5},"D":{"n":24,"supports":0,"warns":20,"undetermined":4}}
+h2        {"falseSupportedBCD":["GS4-003","GS4-022","GS4-023","GS4-027","GS4-053","GS4-060"],"A":{"n":19,"retained":10,"falseInsufficient":9,"abstained":0},"B":{"n":7,"supports":0,"warns":7,"undetermined":0},"C":{"n":10,"supports":2,"warns":8,"undetermined":0,"contradictionRecognised":5},"D":{"n":24,"supports":4,"warns":20,"undetermined":0}}
+h3        {"falseSupportedBCD":["GS4-003","GS4-011","GS4-018","GS4-022","GS4-023","GS4-027","GS4-030","GS4-053","GS4-060"],"A":{"n":19,"retained":14,"falseInsufficient":5,"abstained":0},"B":{"n":7,"supports":0,"warns":7,"undetermined":0},"C":{"n":10,"supports":3,"warns":7,"undetermined":0,"contradictionRecognised":5},"D":{"n":24,"supports":6,"warns":18,"undetermined":0}}
+
+per case: id label | det | semantic | h1 h2 h3
+  GS4-001 C | insufficient | contradicted  | contradicted contradicted contradicted
+  GS4-002 A | insufficient | contradicted  | contradicted contradicted contradicted
+  GS4-003 D | undetermined | would-support | undetermined supported supported
+  GS4-004 A | insufficient | would-support | insufficient insufficient supported
+  GS4-005 D | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-006 A | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-007 D | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-008 A | supported    | would-support | supported supported supported
+  GS4-009 D | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-010 A | supported    | would-support | supported supported supported
+  GS4-011 D | insufficient | would-support | insufficient insufficient supported
+  GS4-012 C | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-013 A | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-014 A | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-015 C | insufficient | contradicted  | contradicted contradicted contradicted
+  GS4-016 C | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-017 C | insufficient | contradicted  | contradicted contradicted contradicted
+  GS4-018 D | insufficient | would-support | insufficient insufficient supported
+  GS4-019 D | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-020 D | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-021 A | insufficient | would-support | insufficient insufficient supported
+  GS4-022 D | undetermined | would-support | undetermined supported supported
+  GS4-023 C | undetermined | would-support | undetermined supported supported
+  GS4-024 D | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-025 A | supported    | would-support | supported supported supported
+  GS4-026 D | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-027 C | undetermined | would-support | undetermined supported supported
+  GS4-028 C | insufficient | contradicted  | contradicted contradicted contradicted
+  GS4-029 A | undetermined | would-support | undetermined supported supported
+  GS4-030 C | insufficient | would-support | insufficient insufficient supported
+  GS4-031 C | insufficient | contradicted  | contradicted contradicted contradicted
+  GS4-032 D | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-033 A | supported    | would-support | supported supported supported
+  GS4-034 D | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-035 A | insufficient | would-support | insufficient insufficient supported
+  GS4-036 D | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-037 D | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-038 B | insufficient | contradicted  | contradicted contradicted contradicted
+  GS4-039 A | supported    | would-support | supported supported supported
+  GS4-040 B | insufficient | contradicted  | contradicted contradicted contradicted
+  GS4-041 D | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-042 B | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-043 A | undetermined | would-support | undetermined supported supported
+  GS4-044 D | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-045 B | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-046 D | insufficient | contradicted  | contradicted contradicted contradicted
+  GS4-047 B | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-048 B | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-049 A | undetermined | would-support | undetermined supported supported
+  GS4-050 D | insufficient | contradicted  | contradicted contradicted contradicted
+  GS4-051 A | undetermined | would-support | undetermined supported supported
+  GS4-052 A | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-053 D | undetermined | would-support | undetermined supported supported
+  GS4-054 A | insufficient | would-support | insufficient insufficient supported
+  GS4-055 A | undetermined | would-support | undetermined supported supported
+  GS4-056 D | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-057 D | insufficient | insufficient  | insufficient insufficient insufficient
+  GS4-058 B | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-059 D | undetermined | insufficient  | insufficient insufficient insufficient
+  GS4-060 D | undetermined | would-support | undetermined supported supported

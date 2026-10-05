@@ -1,14 +1,14 @@
 /*
  * GS-3 — run the semantic experiment over SYNTHETIC cases only. Not a runtime path.
  *
- *   node --env-file=<.env.local> --import tsx scripts/grounding-semantic/run.ts <pilot|bench> <out.jsonl> [run-label]
+ *   node --env-file=<.env.local> --import tsx scripts/grounding-semantic/run.ts <pilot|bench|gs4> <out.jsonl> [run-label]
  *
  * Reads ANTHROPIC_API_KEY for authentication only; it is never written anywhere. Every body passes
  * `assertSyntheticRequest` before `fetch`. No retries: a provider failure is a measured outcome.
  * Unreadable or empty evidence is never sent — the deterministic verdict stands for those cases.
  */
 import { appendFileSync } from "node:fs";
-import { BENCH_CASES, PILOT, isSendable, type SemanticCase } from "./cases";
+import { BENCH_CASES, GS4_CASES, PILOT, isSendable, type SemanticCase } from "./cases";
 import { buildRequestBody, validateSemanticAnswer } from "./contract";
 import { ALLOWED_MODELS, assertSyntheticRequest } from "./synthetic-guard";
 
@@ -59,10 +59,10 @@ async function call(c: SemanticCase, runLabel: string) {
 
 async function main() {
   const [stage, out, runLabel = "r1"] = process.argv.slice(2);
-  if (!out || (stage !== "pilot" && stage !== "bench")) throw new Error("usage: run.ts <pilot|bench> <out.jsonl> [run-label]");
+  if (!out || !["pilot", "bench", "gs4"].includes(stage!)) throw new Error("usage: run.ts <pilot|bench|gs4> <out.jsonl> [run-label]");
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY missing");
   if (!ALLOWED_MODELS.has(MODEL)) throw new Error("model not allowed");
-  const cases = (stage === "pilot" ? PILOT : BENCH_CASES).filter(isSendable);
+  const cases = (stage === "pilot" ? PILOT : stage === "gs4" ? GS4_CASES : BENCH_CASES).filter(isSendable);
   let next = 0;
   let done = 0;
   await Promise.all(

@@ -258,3 +258,38 @@ inflated by shared bias, and the sets may be easier than real copy. No adversari
 the three Stage-A fixtures. One model, default effort. Decision: promising; a human-validated,
 independently authored benchmark (including production-like copy labelled by a person who has not
 seen model output) is required before any semantic result can carry upgrade or blocking authority.
+
+## GS-4 — human-labelled, Director-validated benchmark · **CLOSED**
+
+`scripts/grounding-semantic/gs4-gold-v1.json` (sha `68856f19…`, case bytes `a3a2a09f…`): 60 synthetic
+cases over six fictional businesses, constructed by Claude, labelled by the Director blind to every
+evaluator output, to GS-3 results and to Claude's design tags. Labels A supported 19 · B not supported
+7 · C contradicted 10 · D cannot determine 24. Batch 1 was shown in the original English; batches 2–6
+as Turkish translations, stored per case in the gold. Provenance: **HUMAN-LABELLED · DIRECTOR-VALIDATED
+· SEMANTIC OUTPUT NOT SEEN BEFORE LABEL FREEZE.** Single annotator.
+
+Scoring rule v1 (`gs4-evidence/gs4-scoring-rule-v1.txt`, sha `87c092a9…`) was frozen before the run:
+false-supported counts over B + C + D, and a semantic `entailed` on a D case is false-supported.
+Exactly ONE semantic run (`gs4-evidence/gs4-run1.jsonl`): `claude-opus-5-5`, the GS-3 contract
+unchanged, 57 cases with evidence, 0 provider errors, 0 malformed, 0 invalid labels, 0 unverifiable
+quotes, ≈ $0.29.
+
+| | deterministic | semantic | H1 | H2 | H3 |
+|---|---|---|---|---|---|
+| false supported (B + C + D) | 0 | **9** | **0** | **6** | **9** |
+| A supported (of 19) | 5 | 14 | 5 | 10 | 14 |
+| A warned | 7 | 5 | 9 | 9 | 5 |
+| B warned (of 7) | 4 | 7 | 7 | 7 | 7 |
+| C recognised as contradiction (of 10) | 0 | 5 | 5 | 5 | 5 |
+| D supported / warned / undetermined (of 24) | 0/14/10 | 6/18/0 | 0/20/4 | 4/20/0 | 6/18/0 |
+
+Semantic false supported: D — GS4-003, 011, 018, 022, 053, 060; C — GS4-023, 027, 030. The model reads
+support more generously than the Director. The GS-3 synthetic result did not survive independent
+human labels. Limits: one annotator; the Director judged translated text for batches 2–6 while the
+model saw the original bytes.
+
+**Decision (Director, GS-4 CLOSED):** human benchmark COMPLETE · semantic evaluation EXECUTED exactly
+once · semantic support upgrade **REJECTED** · H2 **REJECTED** · H3 **REJECTED** · H1 zero
+wrongly-supported on this benchmark, but its value is advisory and downward-only · semantic runtime
+integration **NOT JUSTIFIED / NOT CONNECTED** · deterministic grounding unchanged and advisory ·
+production readiness **NOT CLAIMED**.
