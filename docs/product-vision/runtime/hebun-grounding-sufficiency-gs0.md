@@ -96,3 +96,61 @@ GS-1: derive the deterministic revision-level outcome at read time and show it b
 "evidence supplied to generation" panel, advisory only; Director decides separately whether it
 becomes a readiness blocker. The semantic evaluator waits on structured output + a
 `grounding-evaluation` authorization decision.
+
+## GS-1 (advisory, connected read-only)
+
+The reviewer's revision-evidence read derives the revision outcome on every read from the stored
+copy and the evidence stored with the generating message. No readiness, review or Governance change.
+
+## GS-1.1 — realistic business-content benchmark
+
+`scripts/grounding-benchmark/realistic-cases.ts`: 106 hand-labelled synthetic cases, five fictional
+organizations (SaaS, manufacturing, professional services, retail, B2B logistics). The case module
+imports nothing, so gold cannot follow the evaluator. Each case names the capability a correct
+verdict needs (A paraphrase, B cross-language, C multi-fact, D contradiction, E temporal, F goal vs
+current fact, G morphology, H unsupported escalation). Production revisions are NOT cases: their
+true labels were never established by a person.
+
+### Pass 1 — runtime evaluator unchanged
+
+| metric | value |
+|---|---|
+| FALSE SUPPORTED (unsupported/unreadable → supported) | **0 / 59** |
+| FALSE INSUFFICIENT (supported → warned) | 7 / 47 (14.9%) |
+| supported retention | 16 / 47 (34.0%) |
+| unsupported detection | 47 / 57 (82.5%) |
+| undetermined | 34 / 106 (32.1%) |
+| contradictions | 12 / 13 caught as insufficient, 0 labelled contradicted |
+| cross-language | 5 / 12 correct, 3 false-insufficient |
+
+Not correct, by need: A 19 · B 6 · C 5 · F 4 · H 5 · D 1 · E 1. False-insufficient causes: hyphenated
+compound read as a name (1), weekday names read as names (1), distributive "each month" read as a
+universal (1), cross-language names/terms (3), temporal arithmetic (1).
+
+### Pass 2 — experiment only, NOT in runtime (needs Director approval)
+
+Four general rules, each meaningful for any sector: split hyphenated words before the name check;
+calendar words are not names; scope quantifiers `unlimited / limitless / worldwide / sınırsız /
+dünya çapında` are universals; restating an aspiration sentence's content ("aims / plans / wants
+to", "hedefler", …) without the aspiration is a new signal `goal-as-fact`.
+
+| metric | pass 1 | pass 2 |
+|---|---|---|
+| false supported | 0 | 0 |
+| false insufficient | 7 | 5 |
+| unsupported detection | 47 | 54 |
+| undetermined | 34 | 29 |
+| supported retention | 16 | 16 |
+| GS-0 synthetic: false supported / detected | 0 / 23 | 0 / 24 |
+
+Risk: the rules were chosen after seeing these failures; there is no held-out set. They can only add
+`insufficient` or remove a name signal, so they cannot create a false `supported`. Adding
+`goal-as-fact` extends the signal vocabulary.
+
+### Decision B, with the semantic gap measured
+
+Deterministic rules still improve the unsupported side. The supported side cannot move: 30 of 31
+missed supported claims need paraphrase (A), translation (B) or joint support (C). A semantic
+evaluator would need the revision sentence plus the supplied record statements, paraphrase and
+cross-language equivalence, multi-record support and contradiction; temporal reasoning rarely (1
+case). Nothing else (conversation, other Knowledge, identities) was needed by any case.
