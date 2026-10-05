@@ -305,8 +305,8 @@ export async function resolveWorkArtifactReference(
 /* ── KT-2 · THE PROVENANCE OF ONE EXACT REVISION ────────────────────────────────
  *
  * Which message generated this revision, if any — so the reviewer of THESE bytes can be shown the
- * evidence recorded with that message. It returns identity and provenance only; the bytes are read
- * through the history read above, as before.
+ * evidence recorded with that message. It also returns the revision's own stored bytes (GS-1), so the
+ * advisory grounding check reads exactly what is under review, from the same row.
  *
  * THE PAIR MUST BELONG TOGETHER. The revision is matched on its own id AND its artifact AND the
  * tenant, so naming one artifact's revision under another artifact resolves to nothing, and a
@@ -327,6 +327,8 @@ export type RevisionProvenanceRead =
         readonly revisionNo: number;
         /** The message whose reply became these bytes, or null when no message generated them. */
         readonly sourceMessageId: string | null;
+        /** The revision's stored copy. */
+        readonly content: string;
       };
     }
   | { readonly status: "not-found" }
@@ -351,6 +353,7 @@ export async function readRevisionProvenance(
         artifactId: workArtifactRevisions.artifactId,
         revisionNo: workArtifactRevisions.revisionNo,
         sourceMessageId: workArtifactRevisions.sourceMessageId,
+        content: workArtifactRevisions.content,
       })
       .from(workArtifactRevisions)
       .where(

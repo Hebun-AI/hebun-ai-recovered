@@ -1,6 +1,6 @@
 /*
  * knowledge-retrieval/claim-support.ts — GROUNDING SUFFICIENCY GS-0: does the evidence SUPPLIED to a
- * generation support ONE claim the generation states? Pure, deterministic, provider-free. NOT WIRED.
+ * generation support ONE claim the generation states? Pure, deterministic, provider-free. Read-only advisory (GS-1).
  *
  * ── WHAT THE ANSWER IS ALLOWED TO BE ─────────────────────────────────────────
  *
@@ -26,7 +26,8 @@
  * unavailable read stays unavailable. Ratification, public-use clearance and relevance never reach
  * this module: a fact can be all three and still not say what the claim says.
  *
- * No database, clock, network, model, eligibility or authority. Nothing in `src` imports this module.
+ * No database, clock, network, model, eligibility or authority. GS-1: the reviewer's revision-evidence
+ * read derives an ADVISORY revision outcome from it on every read; nothing stores, enforces or acts on it.
  */
 import type { RetrievalEvidenceStatus } from "./evidence";
 import { foldTurkish } from "./query-normalization";
@@ -167,4 +168,35 @@ export function assessClaimSupport(claim: string, evidence: ClaimEvidence): Clai
   return signals.size > 0
     ? { status: "insufficient", reason: "unsupported-signal", signals: [...signals].sort() }
     : { status: "undetermined" };
+}
+
+/* ── GS-1: one revision, sentence by sentence ─────────────────────────────── */
+
+export type RevisionSupportStatus = "supported" | "insufficient" | "undetermined" | "unavailable";
+
+export interface RevisionSupport {
+  readonly status: RevisionSupportStatus;
+  /** Derived per read, never stored: each sentence of the copy and its own verdict. */
+  readonly claims: readonly { readonly text: string; readonly support: ClaimSupport }[];
+}
+
+/**
+ * The revision is `insufficient` if ANY sentence is, `supported` only if EVERY sentence is, and
+ * otherwise `undetermined` — so one unsupported sentence is never averaged away by several supported
+ * ones. Unreadable evidence makes the whole revision `unavailable`.
+ */
+export function assessRevisionSupport(copy: string, evidence: ClaimEvidence): RevisionSupport {
+  if (evidence === null || evidence.provenance === "unavailable") return { status: "unavailable", claims: [] };
+  const claims = copy
+    .split(/(?<=[.!?;])\s+|\n+/)
+    .map((text) => text.trim())
+    .filter((text) => /[\p{L}\p{N}]/u.test(text))
+    .map((text) => ({ text, support: assessClaimSupport(text, evidence) }));
+  const statuses = claims.map((claim) => claim.support.status);
+  const status: RevisionSupportStatus = statuses.includes("insufficient")
+    ? "insufficient"
+    : statuses.length > 0 && statuses.every((s) => s === "supported")
+      ? "supported"
+      : "undetermined";
+  return { status, claims };
 }

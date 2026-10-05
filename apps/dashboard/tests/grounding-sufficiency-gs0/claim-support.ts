@@ -6,7 +6,8 @@
  *   "Nothing that is unsupported, unavailable or merely supplied is ever called supported. `supported`
  *    is reached only when the claim is a whole sentence of one supplied record. How the evidence was
  *    chosen (matched / bounded-universe), its ratification and its public-use clearance cannot move a
- *    verdict. The evaluator is pure, unwired, and touches no eligibility, persistence or B2 authority."
+ *    verdict. The evaluator is pure, read only by the reviewer's advisory evidence read (GS-1), and
+ *    touches no eligibility, persistence or B2 authority."
  */
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -116,9 +117,12 @@ assert.deepEqual(assessClaimSupport("Our rugs are made from undyed sheep wool.",
     readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((e) =>
       e.isDirectory() ? collect(`${dir}/${e.name}`) : /\.tsx?$/.test(e.name) ? [`${dir}/${e.name}`] : [],
     );
-  for (const file of collect("src").filter((f) => f !== unit)) {
-    assert.ok(!/claim-support/.test(code(file)), `${file} imports claim-support — GS-0 is not runtime-connected`);
-  }
+  /* GS-1: exactly one runtime reader — the reviewer's revision-evidence read (advisory) — plus the type-only words. */
+  const readers = collect("src").filter((f) => f !== unit && /claim-support/.test(code(f))).sort();
+  assert.deepEqual(readers, [
+    "src/features/heby-answer/revision-generation-evidence.server.ts",
+    "src/features/heby-answer/revision-generation-evidence.ts",
+  ], "claim-support is read only by the reviewer's advisory evidence read");
 }
 
 /* 20 · B2 unchanged: no grounding purpose was added. */

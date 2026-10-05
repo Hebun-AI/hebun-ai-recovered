@@ -21,6 +21,7 @@
  *
  * Pure. No I/O. A client component may import it; it names no server module.
  */
+import type { RevisionSupport, RevisionSupportStatus } from "@/features/knowledge-retrieval/claim-support";
 
 /** The heading sentence, rendered verbatim above the evidence. */
 export const REVISION_EVIDENCE_NOTICE =
@@ -96,4 +97,43 @@ export type RevisionGenerationEvidence =
       readonly revisionNo: number;
       readonly selection: RevisionEvidenceSelection;
       readonly items: readonly RevisionEvidenceItem[];
+      /** GS-1 — the automated grounding check, derived on this read. Advisory; decides nothing. */
+      readonly grounding: RevisionSupport;
     };
+
+/**
+ * GS-1 — the automated grounding check, in words. A deterministic text check of the copy against the
+ * records above: it can find claims those records do not state, and it can recognise a sentence a
+ * record states word for word. It cannot tell whether anything is true, and it approves nothing.
+ */
+export const GROUNDING_CHECK_NOTICE =
+  "Automated grounding check: compares each sentence of this revision with the Knowledge records supplied to its generation. It is advisory. It does not check whether anything is true, and it does not approve, reject or block this revision." as const;
+
+export const GROUNDING_CHECK_VERDICT: Readonly<Record<RevisionSupportStatus, string>> = Object.freeze({
+  supported: "Every sentence appears word for word in a supplied record. This is the automated check's result, not a review decision or a publication approval.",
+  insufficient: "Some sentences state things the supplied Knowledge records do not state.",
+  undetermined: "The automated check could not determine whether the supplied Knowledge supports every sentence. A person needs to compare them.",
+  unavailable: "The automated grounding check is unavailable: the evidence recorded for this revision could not be read.",
+});
+
+/** For revisions with no recorded generation evidence (typed by a person, or recorded before evidence was kept). */
+export const GROUNDING_CHECK_NOT_RUN =
+  "Automated grounding check: not available — there is no recorded generation evidence to check this revision against." as const;
+
+/** One sentence's verdict, in words, naming which kind of unsupported statement was found. */
+export function groundingClaimLabel(support: RevisionSupport["claims"][number]["support"]): string {
+  switch (support.status) {
+    case "supported":
+      return "appears word for word in a supplied record";
+    case "insufficient":
+      return support.reason === "no-evidence"
+        ? "no Knowledge was supplied to support it"
+        : `states something no supplied record states (${support.signals.join(", ")})`;
+    case "contradicted":
+      return "contradicted by a supplied record";
+    case "undetermined":
+      return "could not be determined automatically";
+    case "unavailable":
+      return "could not be checked";
+  }
+}

@@ -106,7 +106,8 @@ function main(): void {
     ]) {
       assert.ok(imports.includes(required), `it composes the existing read ${required}`);
     }
-    for (const imp of imports) {
+    /* GS-1: the one exception is the PURE claim-support check (no I/O; its own test pins its imports). */
+    for (const imp of imports.filter((i) => i !== "@/features/knowledge-retrieval/claim-support")) {
       assert.ok(
         !/knowledge-read|knowledge-retrieval|durable-knowledge|knowledge-evidence|knowledge-ratification|knowledge-rejection/.test(imp),
         `it re-runs no retrieval and reads no current Knowledge (${imp})`,

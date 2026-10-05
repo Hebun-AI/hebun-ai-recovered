@@ -14,8 +14,12 @@ import { useState, useTransition } from "react";
 import { readRevisionGenerationEvidenceAction } from "@/app/(dashboard)/operations/actions";
 import {
   REVISION_EVIDENCE_NON_CLAIMS,
+  GROUNDING_CHECK_NOTICE,
+  GROUNDING_CHECK_NOT_RUN,
+  GROUNDING_CHECK_VERDICT,
   REVISION_EVIDENCE_NOTICE,
   boundedUniverseSelectionSentence,
+  groundingClaimLabel,
   type RevisionEvidenceItem,
   type RevisionGenerationEvidence as Evidence,
 } from "@/features/heby-answer/revision-generation-evidence";
@@ -79,6 +83,25 @@ function ItemRow({ item }: { item: RevisionEvidenceItem }) {
   );
 }
 
+/** GS-1 — the advisory grounding check for the recorded evidence above. Decides nothing. */
+function GroundingCheck({ grounding }: { grounding: Extract<Evidence, { status: "recorded" }>["grounding"] }) {
+  return (
+    <div className="mt-2 border-t border-border-subtle pt-2" data-grounding-check={grounding.status}>
+      <p className="text-xs text-fg-secondary">{GROUNDING_CHECK_NOTICE}</p>
+      <p className="mt-1 text-xs text-fg-primary">{GROUNDING_CHECK_VERDICT[grounding.status]}</p>
+      {grounding.claims.length > 0 ? (
+        <ul className="mt-1 flex flex-col gap-1 text-xs text-fg-muted">
+          {grounding.claims.map((claim, i) => (
+            <li key={i} data-grounding-claim={claim.support.status}>
+              &ldquo;{claim.text}&rdquo; — {groundingClaimLabel(claim.support)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 export function RevisionGenerationEvidence({
   artifactId,
   revisionId,
@@ -139,9 +162,13 @@ export function RevisionGenerationEvidence({
                   ))}
                 </ul>
               ) : null}
+              <GroundingCheck grounding={evidence.grounding} />
             </>
           ) : (
-            <p className="mt-2 text-xs text-fg-primary">{absence(evidence)}</p>
+            <>
+              <p className="mt-2 text-xs text-fg-primary">{absence(evidence)}</p>
+              <p className="mt-1 text-xs text-fg-muted" data-grounding-check="not-run">{GROUNDING_CHECK_NOT_RUN}</p>
+            </>
           )}
         </div>
       ) : null}

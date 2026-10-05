@@ -32,7 +32,20 @@ import {
   readRevisionProvenance,
   type WorkArtifactReadDeps,
 } from "@/features/work-artifacts/read-work-artifacts.server";
+import { assessRevisionSupport } from "@/features/knowledge-retrieval/claim-support";
 import type { RevisionGenerationEvidence } from "./revision-generation-evidence";
+
+/**
+ * GS-1. The stored excerpt is all of a record that was kept. When it was shortened, its last
+ * fragment is a cut sentence, and a short claim equal to that fragment would read as "supported" by
+ * words the record may go on to qualify. Only whole sentences are handed to the check.
+ */
+function wholeSentencesOf(excerpt: string | null, truncated: boolean): string {
+  if (!excerpt) return "";
+  if (!truncated) return excerpt;
+  const end = Math.max(...[".", "!", "?", ";"].map((mark) => excerpt.lastIndexOf(mark)));
+  return end < 0 ? "" : excerpt.slice(0, end + 1);
+}
 
 export interface RevisionGenerationEvidenceDeps extends WorkArtifactReadDeps {
   readonly getConversationRepo?: () => DurableConversationRepository | null;
@@ -72,9 +85,21 @@ export async function readRevisionGenerationEvidence(
   if (!set) return { status: "no-retrieval-recorded", revisionNo };
 
   const replayed = fromStoredEvidence(set);
+  /*
+   * GS-1 — ADVISORY, DERIVED ON EVERY READ. The stored copy of THIS revision against the evidence
+   * recorded with the message that generated it: never a fresh search, never today's Knowledge.
+   */
+  const grounding = assessRevisionSupport(provenance.revision.content, {
+    provenance: replayed.status,
+    items: replayed.items.map((item) => ({
+      nodeId: item.knowledgeNodeId ?? `${item.domainKey}/${item.factKey}`,
+      text: wholeSentencesOf(item.excerpt, item.excerptTruncated),
+    })),
+  });
   return {
     status: "recorded",
     revisionNo,
+    grounding,
     selection: {
       status: replayed.status,
       truncated: replayed.truncated,
