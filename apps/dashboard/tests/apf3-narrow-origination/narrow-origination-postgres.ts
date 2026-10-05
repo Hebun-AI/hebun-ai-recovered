@@ -229,6 +229,18 @@ async function main(): Promise<void> {
     assert.ok(request.evidence.some((line) => line.includes("departmentSlug=mark-floor name=MARKDEPT Floor")), "the department IS offered");
     assert.ok(request.evidence.some((line) => line.includes("organization-level is available")), "organization-level IS offered");
 
+    /*
+     * Which authority refused, read from the gate itself: before the APF-3 ALLOW the platform cell is
+     * unknown; after it, the platform allows and the TENANT (authorized for assistance only) refuses.
+     */
+    const gate = await authorizeExternalAiDisclosure(disclosure!, true, deps);
+    assert.ok(
+      (gate.disposition === "platform-unknown" && gate.components.platform === "unknown") ||
+        (gate.disposition === "tenant-not-authorized" && gate.components.platform === "allowed" && gate.components.tenant === "active"),
+      `refused by the platform cell or by the tenant, never authorized (${JSON.stringify(gate)})`,
+    );
+    console.log(`  gate: ${gate.disposition} (platform ${gate.components.platform}, tenant ${gate.components.tenant})`);
+
     /* ═══ 2. REFUSED BEFORE THE NETWORK, AND NOTHING FILED ═══════════════════════════════════════ */
     assert.equal(fetches, 0, "fetch count = 0");
     const invocation = (await setup.query(`select state, failure_code, filing_outcome from heby_origination_invocations`)).rows;

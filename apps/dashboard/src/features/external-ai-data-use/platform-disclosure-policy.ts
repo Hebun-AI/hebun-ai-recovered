@@ -84,11 +84,11 @@ const HIGGSFIELD_DENIAL_EVIDENCE =
   "EXTERNAL-AI-DATA-USE-PROVIDER-FACTS (Director, 2026-10-04): Higgsfield Terms of Use §4.4 let Higgsfield train on inputs and outputs unless a qualifying Enterprise Agreement exists; none is proven for Hebun.";
 
 /** The only cells the recorded policy can hold. Widening any member is a reviewed type change. */
-export type RecordedAllowedCell = AllowedPlatformCell & {
-  readonly serviceScope: "anthropic/messages";
-  readonly purpose: "assistance";
-  readonly dataClass: "conversation" | "knowledge" | "work-artifact";
-};
+export type RecordedAllowedCell = AllowedPlatformCell & { readonly serviceScope: "anthropic/messages" } & (
+  | { readonly purpose: "assistance"; readonly dataClass: "conversation" | "knowledge" | "work-artifact" }
+  /* APF-3 — origination's narrow projection: the human goal and the organization's structure. */
+  | { readonly purpose: "agent-origination"; readonly dataClass: "conversation" | "organization" }
+);
 
 /**
  * The bounds every B1D cell requires of the Anthropic attestation in force. The admitted B1C
@@ -107,7 +107,21 @@ export const ANTHROPIC_ASSISTANCE_BOUNDS: PlatformTreatmentBounds = Object.freez
 const ANTHROPIC_ASSISTANCE_ALLOW_EVIDENCE =
   "EXTERNAL-AI-DATA-USE-B1D (Director, 2026-10-04): platform ALLOW for anthropic/messages × assistance × {conversation, knowledge, work-artifact} only, bound to processor attestation ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, admitted B1C, identity_status attested — not verified) and its reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33. Unverified at decision: production credential ↔ observed Dashboard key equality; custom agreement / BAA status; per-request processing geography. Free text is not claimed free of personal data.";
 
-function anthropicAssistanceCell(dataClass: RecordedAllowedCell["dataClass"]): RecordedAllowedCell {
+const ANTHROPIC_ORIGINATION_ALLOW_EVIDENCE =
+  "APF-3 (Director, 2026-10-06): platform ALLOW for anthropic/messages × agent-origination × {conversation, organization} only — the authenticated human goal and the organization's structure (organization-level availability, department slugs and names), as rendered by the narrow origination projection released in 7c2ed6d3. Same bounds and the same processor attestation as the assistance cells: ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, identity_status attested — not verified), reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33. Not allowed for origination: external-recipient, work-artifact, provider-observation and every other class. Unverified at decision: production credential ↔ observed Dashboard key equality; custom agreement / BAA status; per-request processing geography; the runtime does not check the configured model against the attestation's model_ids. Free text (the goal, department names) is not claimed free of personal data.";
+
+function anthropicOriginationCell(dataClass: "conversation" | "organization"): RecordedAllowedCell {
+  return Object.freeze({
+    serviceScope: "anthropic/messages",
+    purpose: "agent-origination",
+    dataClass,
+    decision: "allowed",
+    bounds: ANTHROPIC_ASSISTANCE_BOUNDS,
+    evidence: ANTHROPIC_ORIGINATION_ALLOW_EVIDENCE,
+  } as const);
+}
+
+function anthropicAssistanceCell(dataClass: "conversation" | "knowledge" | "work-artifact"): RecordedAllowedCell {
   return Object.freeze({
     serviceScope: "anthropic/messages",
     purpose: "assistance",
@@ -145,6 +159,8 @@ export const RECORDED_PLATFORM_DISCLOSURE_POLICY: {
     anthropicAssistanceCell("conversation"),
     anthropicAssistanceCell("knowledge"),
     anthropicAssistanceCell("work-artifact"),
+    anthropicOriginationCell("conversation"),
+    anthropicOriginationCell("organization"),
   ]),
 });
 

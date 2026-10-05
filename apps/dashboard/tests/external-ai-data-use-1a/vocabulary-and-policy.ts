@@ -98,7 +98,14 @@ assert.equal(TENANT_EXTERNAL_AI_DATA_USE_WITHDRAWN_OUTCOME, "external-ai-data-us
 
 /* ── 2. THE RECORDED POLICY: Higgsfield DENIED everywhere, the three B1D cells ALLOWED, everything
  * else UNKNOWN. ──────────────────────────────────────────────────────────────────────────────── */
-const B1D_ALLOWED = new Set(["anthropic/messages|assistance|conversation", "anthropic/messages|assistance|knowledge", "anthropic/messages|assistance|work-artifact"]);
+const B1D_ALLOWED = new Set([
+  "anthropic/messages|assistance|conversation",
+  "anthropic/messages|assistance|knowledge",
+  "anthropic/messages|assistance|work-artifact",
+  /* APF-3 (Director, 2026-10-06): origination's narrow projection, nothing wider. */
+  "anthropic/messages|agent-origination|conversation",
+  "anthropic/messages|agent-origination|organization",
+]);
 for (const serviceScope of SERVICE_SCOPES) {
   for (const purpose of PURPOSES) {
     for (const dataClass of DATA_CLASSES) {
@@ -114,7 +121,7 @@ for (const serviceScope of SERVICE_SCOPES) {
     }
   }
 }
-assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 3, "B1D records exactly three ALLOWED cells");
+assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 5, "B1D's three ALLOWED cells and APF-3's two, exactly");
 
 /* ── 3. NOT AN ACCIDENT: the recorded policy's TYPE has room for those three cells only. ────── */
 const policySource = readFileSync(
@@ -128,8 +135,8 @@ assert.match(
 );
 assert.match(
   policySource,
-  /readonly serviceScope: "anthropic\/messages";\s*readonly purpose: "assistance";\s*readonly dataClass: "conversation" \| "knowledge" \| "work-artifact";/,
-  "the recorded cell type names one scope, one purpose and three data classes",
+  /\{ readonly serviceScope: "anthropic\/messages" \} & \(\s*\| \{ readonly purpose: "assistance"; readonly dataClass: "conversation" \| "knowledge" \| "work-artifact" \}[\s\S]*?\| \{ readonly purpose: "agent-origination"; readonly dataClass: "conversation" \| "organization" \}\s*\);/,
+  "the recorded cell type names one scope and exactly two purposes, each with its own closed data classes",
 );
 assert.ok(!/\bwildcard\b|"\*"/.test(policySource.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")), "no wildcard");
 

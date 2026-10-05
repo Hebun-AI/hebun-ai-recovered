@@ -97,7 +97,14 @@ assert.match(read("package.json"), /"platform:processor-attestation": "node --im
  */
 assert.deepEqual(
   RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.map((c) => `${c.serviceScope}|${c.purpose}|${c.dataClass}`),
-  ["anthropic/messages|assistance|conversation", "anthropic/messages|assistance|knowledge", "anthropic/messages|assistance|work-artifact"],
+  [
+    "anthropic/messages|assistance|conversation",
+    "anthropic/messages|assistance|knowledge",
+    "anthropic/messages|assistance|work-artifact",
+    /* APF-3, a separate reviewed change. */
+    "anthropic/messages|agent-origination|conversation",
+    "anthropic/messages|agent-origination|organization",
+  ],
 );
 assert.ok(
   !read("scripts/lib/processor-attestation.ts").includes("RECORDED_PLATFORM_DISCLOSURE_POLICY"),

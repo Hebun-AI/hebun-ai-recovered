@@ -41,13 +41,18 @@ const ADMITTED_ATTESTATION_ID = "ffb0c160-4082-4c7f-be6a-05a4d990c598";
 const REVIEWED_RECORD = "docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md";
 const REVIEWED_RECORD_REF = `${REVIEWED_RECORD}@dbbe8a30bbaa2d6d396cb914a21e28735537fe33`;
 const ALLOWED = ["conversation", "knowledge", "work-artifact"] as const;
+/* APF-3 (Director, 2026-10-06): origination's narrow projection, appended after B1D's three. */
+const ORIGINATION_ALLOWED = ["conversation", "organization"] as const;
 
 /* ── 1. EXACTLY THREE CELLS, EXACTLY THESE BOUNDS. ─────────────────────────────────────────────── */
 const policy = RECORDED_PLATFORM_DISCLOSURE_POLICY;
 assert.deepEqual(
   policy.allowedCells.map((c) => [c.serviceScope, c.purpose, c.dataClass, c.decision]),
-  ALLOWED.map((d) => ["anthropic/messages", "assistance", d, "allowed"]),
-  "exactly the three B1D cells, in order",
+  [
+    ...ALLOWED.map((d) => ["anthropic/messages", "assistance", d, "allowed"]),
+    ...ORIGINATION_ALLOWED.map((d) => ["anthropic/messages", "agent-origination", d, "allowed"]),
+  ],
+  "exactly the three B1D cells and APF-3's two, in order",
 );
 const EXPECTED_BOUNDS = {
   contractSurfaces: ["anthropic-commercial-terms"],
@@ -80,7 +85,11 @@ for (const serviceScope of SERVICE_SCOPES) {
       const label = `${serviceScope} × ${purpose} × ${dataClass}`;
       if (serviceScope.startsWith("higgsfield/")) {
         assert.equal(verdict.decision, "denied", `${label} stays DENIED`);
-      } else if (serviceScope === "anthropic/messages" && purpose === "assistance" && (ALLOWED as readonly string[]).includes(dataClass)) {
+      } else if (
+        serviceScope === "anthropic/messages" &&
+        ((purpose === "assistance" && (ALLOWED as readonly string[]).includes(dataClass)) ||
+          (purpose === "agent-origination" && (ORIGINATION_ALLOWED as readonly string[]).includes(dataClass)))
+      ) {
         assert.equal(verdict.decision, "allowed", `${label} is ALLOWED`);
         if (verdict.decision === "allowed") assert.equal(verdict.bounds, ANTHROPIC_ASSISTANCE_BOUNDS);
         allowedCount += 1;
@@ -90,15 +99,19 @@ for (const serviceScope of SERVICE_SCOPES) {
     }
   }
 }
-assert.equal(allowedCount, 3, "three ALLOWED cells across the whole vocabulary");
+assert.equal(allowedCount, 5, "five ALLOWED cells across the whole vocabulary");
 /* The classes and purposes the Director named as NOT authorized, spelled out. */
-for (const purpose of ["relevance-selection", "agent-origination", "media-generation"] as const) {
+for (const purpose of ["relevance-selection", "media-generation"] as const) {
   for (const dataClass of ALLOWED) {
     assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose, dataClass }).decision, "unknown", `${purpose} × ${dataClass}`);
   }
 }
 for (const dataClass of ["provider-observation", "organization", "governance-record", "operational-record", "external-recipient", "media-generated", "media-supplied"] as const) {
   assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "assistance", dataClass }).decision, "unknown", `assistance × ${dataClass}`);
+}
+/* APF-3 — what origination may NOT disclose, spelled out. */
+for (const dataClass of ["knowledge", "work-artifact", "external-recipient", "provider-observation", "governance-record", "operational-record", "media-generated", "media-supplied"] as const) {
+  assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "agent-origination", dataClass }).decision, "unknown", `agent-origination × ${dataClass}`);
 }
 
 /* ── 3. THE ADMITTED B1C ATTESTATION SATISFIES THE BOUNDS — read from the reviewed record itself. ── */
