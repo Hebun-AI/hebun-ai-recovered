@@ -49,7 +49,9 @@ const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
   "no-action-proposed":
     "Heby considered the goal and proposed no action. Nothing was filed.",
   "no-candidates":
-    "There is nothing to propose about yet: this organization has no recipient and prepared draft to send between, and its structure could not be read for recording work. Record a recipient and a draft in Operations, or try again once the organization reads.",
+    "There is nothing to propose about yet: this organization's structure could not be read for recording work. Try again once the organization reads.",
+  "observation-not-admitted":
+    "An outside observation cannot be shown to Heby's model yet, so nothing was asked. Nothing was filed.",
   "model-unavailable":
     "Heby's model runtime is not available, so no reasoning happened. Nothing was filed.",
   "goal-rejected": "That goal was not accepted. State it as a sentence and try again.",

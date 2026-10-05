@@ -83,8 +83,8 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M2 the observation is placed in front of the candidate lines",
     file: ORIGINATION,
     suite: PG_SUITE,
-    find: "  const evidence = supplement ? [...candidateLines(candidates), supplement] : candidateLines(candidates);",
-    replace: "  const evidence = supplement ? [supplement, ...candidateLines(candidates)] : candidateLines(candidates);",
+    find: "    if (supplement) obs(supplement);",
+    replace: '    if (supplement) lines.unshift({ text: supplement, dataClass: "provider-observation" });',
     because: "the candidates come first and the observation after",
   },
   /* ── NOBODY BUT THIS MODULE MAY WRITE THE GROUNDING ──────────────────────── */

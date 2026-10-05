@@ -208,8 +208,8 @@ async function main(): Promise<void> {
     }
     await blocked("no class declared", declare(HEBUN, "assistance", []));
     await blocked("an unclassifiable class", declare(HEBUN, "assistance", ["conversation", "everything" as DataClass]));
-    /* What origination actually declares (originate-action.server.ts). */
-    await blocked("origination's own declaration", declare(HEBUN, "agent-origination", ["conversation", "external-recipient", "work-artifact", "organization"]));
+    /* What origination actually declares since APF-3 (derived from its narrow projection). */
+    await blocked("origination's own declaration", declare(HEBUN, "agent-origination", ["conversation", "organization"]));
     /* What a preparation carrying a platform observation declares (prepare-work-artifact.server.ts). */
     await blocked("preparation with an observation supplement", declare(HEBUN, "assistance", ["conversation", "knowledge", "work-artifact", "provider-observation"]));
 

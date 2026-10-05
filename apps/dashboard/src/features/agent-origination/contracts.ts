@@ -347,4 +347,6 @@ export type OriginationRefusal =
   | "durable-agent-identity-retired"
   | "ambiguous-durable-agent-identity"
   /** The inlet refused the selected references. Carries the inlet's own reason. */
-  | "proposal-refused";
+  | "proposal-refused"
+  /** APF-3. An observation was supplied to an origination that may not show one to the model. */
+  | "observation-not-admitted";

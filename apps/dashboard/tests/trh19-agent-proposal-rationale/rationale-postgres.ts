@@ -165,6 +165,7 @@ async function main(): Promise<void> {
     const originationDeps = (ctx: TenantContext, text: string) =>
       ({
         resolveTenant: async () => ctx,
+        modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides
         env: MODEL_ENV,
         resolveDirectorEnabled: async () => true,
         selectTransport: () => ({ transport: transportReturning(text), transportProvenance: "fake" }),

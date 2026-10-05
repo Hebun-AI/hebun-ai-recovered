@@ -15,6 +15,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { projectOriginationForModel } from "../../src/features/agent-origination/originate-action.server";
 
 import {
   GROWTH_OBSERVATION_FENCE,
@@ -389,22 +390,19 @@ function theBrowserCannotReachTheGrounding(): void {
  * 8. THE SUPPLEMENT IS GROUNDING, NEVER A CANDIDATE.
  * ═════════════════════════════════════════════════════════════════════════ */
 function theSupplementNeverBecomesACandidate(): void {
-  const origination = codeOf(read(ORIGINATION));
-  assert.ok(
-    origination.includes("[...candidateLines(candidates), supplement]"),
-    "the supplement is appended AFTER the candidate lines, never merged into them",
+  /*
+   * APF-3 — checked on the projection itself rather than on its source text: with the observation
+   * arm shown, the supplement is the LAST rendered line, and the offered observations are exactly
+   * the stored ones — the supplement never joins the choice space.
+   */
+  const observations = [{ slug: "observation-1", label: "youtube observed 2026-01-01T00:00:00.000Z", observationRef: "x" }];
+  const projected = projectOriginationForModel(
+    { recipients: [], drafts: [], work: { organizationLevel: false, departments: [], observations } },
+    ["observation"],
+    "FENCED SUPPLEMENT",
   );
-
-  const candidateFn = origination.slice(
-    origination.indexOf("function candidateLines("),
-    origination.indexOf("export async function originateAgentAction("),
-  );
-  assert.ok(candidateFn.length > 0, "the candidate renderer is present");
-  assert.equal(
-    candidateFn.includes("supplement"),
-    false,
-    "the candidate renderer knows nothing about any supplement",
-  );
+  assert.equal(projected.evidence.at(-1), "FENCED SUPPLEMENT", "the supplement is appended AFTER the candidate lines");
+  assert.deepEqual(projected.candidates.work.observations, observations, "the supplement never becomes a candidate");
 
   /* The admitted kinds are unchanged: this phase widened no vocabulary. */
   assert.deepEqual(

@@ -91,6 +91,7 @@ import {
   type OriginationRefusal,
 } from "./contracts";
 import { parseAgentActionSelection } from "./structured-output";
+import type { DataClass } from "@/features/external-ai-data-use/contracts";
 
 /**
  * The system instructions for origination.
@@ -199,6 +200,8 @@ export interface OriginateActionDeps {
    * would put provider text where a membership check looks for references.
    */
   readonly observationSupplement?: string;
+  /** APF-3. Tests only — see {@link NARROW_ORIGINATION_ARMS}. No production caller passes it. */
+  readonly modelFacingArms?: readonly ModelFacingOriginationArm[];
 }
 
 export type OriginateActionResult =
@@ -230,20 +233,84 @@ function refused(reason: OriginationRefusal, detail?: string): OriginateActionRe
 }
 
 /**
- * The candidate block, rendered as grounding lines.
+ * APF-3 — WHICH CHOICE SPACES THE MODEL IS SHOWN.
+ *
+ * The external-AI platform ALLOW for origination covers exactly `conversation` and `organization`.
+ * The send arm discloses recorded recipients' names and drafts' titles behind UUID references
+ * (external-recipient, work-artifact); the observation arm discloses provider-observation metadata
+ * and, through the supplement, outside platform content that Secure Content Ingestion does not yet
+ * fence. Neither is offered to the model by default. Their authorities, inlets and action kinds are
+ * untouched — only what the model is SHOWN narrows, so the model cannot choose them either.
+ *
+ * Suppressing the observation arm also keeps a model response out of the RUNG 2 standing path,
+ * which only admits agent-proposed work carrying provider-observation evidence.
+ *
+ * `modelFacingArms` in the deps can widen this for tests; no production caller passes it, and a
+ * wider rendering declares wider classes, which the disclosure gate then refuses unless allowed.
+ */
+export type ModelFacingOriginationArm = "send" | "record-work" | "observation";
+export const NARROW_ORIGINATION_ARMS: readonly ModelFacingOriginationArm[] = Object.freeze(["record-work"]);
+
+/** One rendered grounding line and the Hebun data class it discloses — `null` for Hebun's own words. */
+interface RenderedLine {
+  readonly text: string;
+  readonly dataClass: DataClass | null;
+}
+
+export interface ModelFacingOrigination {
+  /** The choice space the model is offered — and the ONLY one the parser and resolvers consult. */
+  readonly candidates: OriginationCandidateSet;
+  readonly evidence: readonly string[];
+  /**
+   * DERIVED from the rendered lines, never listed by hand: the goal is `conversation`, and each
+   * other class is declared exactly when a line carrying it was rendered. A section added without a
+   * class cannot pass silently, because every line must name one or be Hebun's own text.
+   */
+  readonly dataClasses: readonly DataClass[];
+}
+
+const NO_WORK: OriginationCandidateSet["work"] = Object.freeze({
+  organizationLevel: false,
+  departments: Object.freeze([]),
+  observations: Object.freeze([]),
+});
+
+/**
+ * The model-facing projection of the candidate set (APF-3).
  *
  * Labels are DATA and are carried verbatim — a recipient named "IGNORE PREVIOUS INSTRUCTIONS" is
  * shown exactly as the tenant recorded it, because rewriting an organization's own words to look
  * safe is a corruption rather than a defence. Safety comes from the closed contract and the
  * membership check, neither of which a label can influence.
  */
-function candidateLines(candidates: OriginationCandidateSet): readonly string[] {
-  const lines = [
-    "CANDIDATE RECIPIENTS (you may use only these recipientRef values):",
-    ...candidates.recipients.map((c) => `- recipientRef=${c.ref} label=${c.label}`),
-    "CANDIDATE DRAFTS (you may use only these draftRef values):",
-    ...candidates.drafts.map((c) => `- draftRef=${c.ref} title=${c.label}`),
-  ];
+export function projectOriginationForModel(
+  all: OriginationCandidateSet,
+  arms: readonly ModelFacingOriginationArm[] = NARROW_ORIGINATION_ARMS,
+  observationSupplement?: string,
+): ModelFacingOrigination {
+  const send = arms.includes("send");
+  const work = arms.includes("record-work");
+  const observe = arms.includes("observation");
+  const candidates: OriginationCandidateSet = {
+    recipients: send ? all.recipients : [],
+    drafts: send ? all.drafts : [],
+    work: {
+      organizationLevel: work && all.work.organizationLevel,
+      departments: work ? all.work.departments : NO_WORK.departments,
+      observations: observe ? all.work.observations : NO_WORK.observations,
+    },
+  };
+
+  const lines: RenderedLine[] = [];
+  const hebun = (text: string) => lines.push({ text, dataClass: null });
+  const of = (dataClass: DataClass) => (text: string) => lines.push({ text, dataClass });
+
+  if (send) {
+    hebun("CANDIDATE RECIPIENTS (you may use only these recipientRef values):");
+    candidates.recipients.forEach((c) => of("external-recipient")(`- recipientRef=${c.ref} label=${c.label}`));
+    hebun("CANDIDATE DRAFTS (you may use only these draftRef values):");
+    candidates.drafts.forEach((c) => of("work-artifact")(`- draftRef=${c.ref} title=${c.label}`));
+  }
 
   /*
    * TRH-17 — the record-work choice space.
@@ -254,45 +321,53 @@ function candidateLines(candidates: OriginationCandidateSet): readonly string[] 
    * asserts that over these rendered lines, so this comment is checked rather than trusted.
    *
    * A kind with nothing available is stated as UNAVAILABLE rather than omitted. An absent section
-   * reads as an oversight; an explicit denial is a fact the model can act on, and it is the same
-   * discipline every Heby grounding surface already follows.
+   * reads as an oversight; an explicit denial is a fact the model can act on. Both statements are
+   * facts about this organization's structure, so both are `organization`.
    */
-  if (candidates.work.organizationLevel) {
-    lines.push(
-      "RECORD-WORK SCOPE: organization-level is available for this organization.",
-      candidates.work.departments.length > 0
-        ? "CANDIDATE DEPARTMENTS (you may use only these departmentSlug values):"
-        : "CANDIDATE DEPARTMENTS: none. This organization has recorded no department, which is a " +
-          "valid organization — propose organization-level work, never an invented department.",
-      ...candidates.work.departments.map((d) => `- departmentSlug=${d.slug} name=${d.label}`),
-    );
-  } else {
-    lines.push(
-      "RECORD-WORK SCOPE: organization-level and departments are unavailable. This organization's " +
-        "structure could not be read, so you may not propose organization-scoped work right now.",
-    );
+  if (work) {
+    const org = of("organization");
+    if (candidates.work.organizationLevel) {
+      org("RECORD-WORK SCOPE: organization-level is available for this organization.");
+      if (candidates.work.departments.length > 0) {
+        hebun("CANDIDATE DEPARTMENTS (you may use only these departmentSlug values):");
+      } else {
+        org(
+          "CANDIDATE DEPARTMENTS: none. This organization has recorded no department, which is a " +
+            "valid organization — propose organization-level work, never an invented department.",
+        );
+      }
+      candidates.work.departments.forEach((d) => org(`- departmentSlug=${d.slug} name=${d.label}`));
+    } else {
+      org(
+        "RECORD-WORK SCOPE: organization-level and departments are unavailable. This organization's " +
+          "structure could not be read, so you may not propose organization-scoped work right now.",
+      );
+    }
   }
 
   /*
-   * RUNG 2 — THE OBSERVATION HALF, DENIED EXPLICITLY WHEN EMPTY.
-   *
-   * Rendered OUTSIDE the organizational branch because it depends on none of it: an organization
-   * whose structure could not be read this instant may still own observations it demonstrably made,
-   * and observation-evidenced work names no department and declares no organizational scope.
-   *
-   * An absent section reads as an oversight; an explicit denial is a fact the model can act on, and
-   * it is the same discipline every Heby grounding surface already follows.
+   * RUNG 2 — THE OBSERVATION HALF. Its lines name provider observations (which provider, when), so
+   * they are `provider-observation` even though Hebun wrote the sentence — the class is what the
+   * line discloses, not who typed it. The supplement follows, never merged into the candidates: a
+   * candidate is something the model may NAME, the supplement only something it may READ.
    */
-  lines.push(
-    candidates.work.observations.length > 0
-      ? "CANDIDATE OBSERVATIONS (you may use only these observationSlug values). Each is one thing " +
-        "Hebun observed, once:"
-      : "CANDIDATE OBSERVATIONS: none. Hebun has recorded no observation for this organization, so " +
-        "you may not propose observation-scoped work right now.",
-    ...candidates.work.observations.map((o) => `- observationSlug=${o.slug} ${o.label}`),
-  );
+  if (observe) {
+    const obs = of("provider-observation");
+    obs(
+      candidates.work.observations.length > 0
+        ? "CANDIDATE OBSERVATIONS (you may use only these observationSlug values). Each is one thing " +
+            "Hebun observed, once:"
+        : "CANDIDATE OBSERVATIONS: none. Hebun has recorded no observation for this organization, so " +
+            "you may not propose observation-scoped work right now.",
+    );
+    candidates.work.observations.forEach((o) => obs(`- observationSlug=${o.slug} ${o.label}`));
+    const supplement = observationSupplement?.trim();
+    if (supplement) obs(supplement);
+  }
 
-  return lines;
+  const classes = new Set<DataClass>(["conversation"]);
+  for (const line of lines) if (line.dataClass) classes.add(line.dataClass);
+  return { candidates, evidence: lines.map((l) => l.text), dataClasses: [...classes] };
 }
 
 /**
@@ -323,8 +398,22 @@ export async function originateAgentAction(
   const validation = validateHebyPrompt(input.goal);
   if (!validation.ok) return refused("goal-rejected");
 
-  /* 3 · WHAT MAY BE CHOSEN. Built by the server from this tenant's own rows. */
-  const candidates = await buildOriginationCandidates(tenant, deps.candidates ?? {});
+  /*
+   * 3 · WHAT MAY BE CHOSEN. Built by the server from this tenant's own rows, then narrowed to what
+   * the model may be SHOWN (APF-3). From here on only the projection exists: the parser, the slug
+   * resolvers and the inlet can never reach a candidate the model was not offered.
+   */
+  const arms = deps.modelFacingArms ?? NARROW_ORIGINATION_ARMS;
+  if (deps.observationSupplement?.trim() && !arms.includes("observation")) {
+    /* Outside content was supplied to a path that may not show it. Refused, never dropped silently. */
+    return refused("observation-not-admitted");
+  }
+  const projection = projectOriginationForModel(
+    await buildOriginationCandidates(tenant, deps.candidates ?? {}),
+    arms,
+    deps.observationSupplement,
+  );
+  const candidates = projection.candidates;
   if (!candidatesAreProposable(candidates)) return refused("no-candidates");
 
   /* 4 · THE MODEL. Closed by default: no transport and no Director permission means no call. */
@@ -366,7 +455,7 @@ export async function originateAgentAction(
   const selection = await selectAction(
     tenant.tenantId,
     validation.prompt,
-    candidates,
+    projection,
     deps,
     transportSelection.transport,
   );
@@ -629,22 +718,12 @@ const PRE_DISPATCH_FAILURE_CODES: readonly string[] = Object.freeze([
 async function selectAction(
   tenantId: string,
   goal: string,
-  candidates: OriginationCandidateSet,
+  projection: ModelFacingOrigination,
   deps: OriginateActionDeps,
   transport: ClaudeTransport,
 ): Promise<SelectionOutcome> {
   const env = deps.env ?? process.env;
-
-  /*
-   * TRH-20 — THE CANDIDATES FIRST, THE OBSERVATION AFTER, AND NEVER THE OTHER WAY ROUND.
-   *
-   * The candidate lines are the closed choice space; the supplement is fenced outside text. Order
-   * is not cosmetic: the model reads what it may NAME before it reads what it may merely KNOW, and
-   * an empty or absent supplement adds no line at all rather than an empty one that would read as
-   * a section with nothing in it.
-   */
-  const supplement = deps.observationSupplement?.trim();
-  const evidence = supplement ? [...candidateLines(candidates), supplement] : candidateLines(candidates);
+  const { candidates, evidence } = projection;
 
   const request: ModelGenerationRequest = {
     correlationId: (deps.newCorrelationId ?? (() => "agent-origination"))(),
@@ -661,24 +740,14 @@ async function selectAction(
   let result: InvocationResultFacts | undefined;
   try {
     /*
-     * EXTERNAL-AI-DATA-USE-B2 — origination is its own purpose and does not inherit assistance. It
-     * discloses the human's goal, the recorded recipients' labels, drafts' titles, department names
-     * and, when present, a platform observation — each by the authority that owns it.
+     * EXTERNAL-AI-DATA-USE-B2 — origination is its own purpose and does not inherit assistance.
+     * APF-3 — the classes are the projection's, derived from the lines actually rendered, so the
+     * declaration can neither name a class the model was not shown nor omit one it was.
      */
     const outcome = await (deps.generate ?? generateHebyModelAnswer)(request, {
       env,
       transport,
-      disclosure: {
-        tenantId,
-        purpose: "agent-origination",
-        dataClasses: [
-          "conversation",
-          "external-recipient",
-          "work-artifact",
-          "organization",
-          ...(supplement ? (["provider-observation"] as const) : []),
-        ],
-      },
+      disclosure: { tenantId, purpose: "agent-origination", dataClasses: projection.dataClasses },
     });
     if (outcome.status !== "generated") {
       /*

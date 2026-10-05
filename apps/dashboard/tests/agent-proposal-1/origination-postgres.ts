@@ -136,6 +136,7 @@ async function main(): Promise<void> {
 
     const originationDeps = (text: string) => ({
       resolveTenant: async () => acmeCtx,
+      modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides
       env: MODEL_ENV,
       resolveDirectorEnabled: async () => true,
       selectTransport: () => ({ transport: transportReturning(text), transportProvenance: "fake" }),
@@ -166,6 +167,7 @@ async function main(): Promise<void> {
         { goal: GOAL },
         {
           resolveTenant: async () => acmeCtx,
+          modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides
           env: MODEL_ENV,
           resolveDirectorEnabled: async () => true,
           selectTransport: () => ({ transport: counting, transportProvenance: "fake" }),
@@ -452,6 +454,7 @@ async function main(): Promise<void> {
         { goal: GOAL },
         {
           resolveTenant: async () => acmeCtx,
+          modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides
           env: MODEL_ENV,
           resolveDirectorEnabled: async () => true,
           selectTransport: () => ({}),
