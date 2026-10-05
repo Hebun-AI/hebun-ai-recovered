@@ -154,3 +154,54 @@ missed supported claims need paraphrase (A), translation (B) or joint support (C
 evaluator would need the revision sentence plus the supplied record statements, paraphrase and
 cross-language equivalence, multi-record support and contradiction; temporal reasoning rarely (1
 case). Nothing else (conversation, other Knowledge, identities) was needed by any case.
+
+## GS-1.2 — held-out validation of the Pass-2 rules
+
+`scripts/grounding-benchmark/heldout-cases.ts`: 92 new synthetic cases, six fictional organizations in
+six sectors none of the earlier sets used (dental clinic, hotel, language school, olive estate,
+rooftop solar, Turkish furniture maker). 52 supported · 29 insufficient · 9 contradicted · 2
+unavailable; 10 cross-language; every candidate rule has should-fire and must-not-fire cases.
+
+Independence: the module imports nothing; labels were written from meaning only, and the file was
+frozen (sha `74ffebdd…`, 2026-10-05T10:46:51Z) before any evaluator ran on it. No record or claim
+equals, or shares a 5-word run with, any GS-0 / GS-1.1 string; no organization name is shared. The
+test pins all of this. Labels: manually curated by Claude before any evaluator ran, frozen before
+evaluation, structurally independent from evaluator output, NOT independently human-validated; no
+provider call; the author knew the four rules while writing. The Director accepted this limitation for
+this phase only because grounding is read-only advisory with no readiness, publication, Governance or
+execution authority. It is not evidence sufficient for any future blocking authority.
+
+### Blind comparison (no tuning)
+
+| metric (92 cases) | A runtime GS-1 | B four rules |
+|---|---|---|
+| false supported | 0 | 0 |
+| false insufficient | 16 / 52 | 16 / 52 |
+| supported retention | 9 / 52 | 9 / 52 |
+| unsupported detection | 24 / 38 | 28 / 38 |
+| undetermined | 41 | 37 |
+| contradictions caught | 7 / 9 | 7 / 9 |
+| cross-language correct | 1 / 10 | 1 / 10 |
+| multi-fact supported retained | 0 / 4 | 0 / 4 |
+
+Per rule, alone over A (held-out FI / detected): hyphen −2 / −2 (the lost detections were accidental
+"Xray"-style name hits); calendar 0 / −1 (no benefit; hid a real contradiction, a December stay at a
+hotel open April–October); scope +1 / +3; aim-as-fact +1 / +4. The gains are across all six sectors.
+The per-rule split uses the held-out set for selection, so it is not itself a held-out estimate.
+
+### Decision
+
+Safety gate holds (0 false supported). Director decision: release the three independently supported
+rules — hyphen split, scope escalation, an aim restated as fact — in the existing evaluator. The
+calendar rule is REJECTED (no measured benefit; it hid a real contradiction) and is NOT in runtime. No
+fourth or fifth rule; no further tuning against this held-out set.
+
+The hyphen rule is a trade-off, not an unconditional accuracy gain: it removes two false warnings and
+also removes two detections that had fired for the wrong reason (a hyphenated word read as a name). The aim-as-fact hit is reported under the existing `current-state`
+signal, so the verdict and signal vocabulary are unchanged. Runtime on the held-out set: FS 0 · FI
+16 · retained 9 · detected 29 / 38 · undetermined 36; on GS-1.1: 0 · 6 · 16 · 54 / 57 · 28.
+
+Still advisory, read-only, no persistence, no provider, no semantic model. The remaining gap is the
+supported side: on the held-out set 43 of 52 supported claims are not retained (16 of them falsely
+warned). None is a verbatim record sentence — each is reworded, translated or joined across records —
+so sentence identity cannot reach them; that is the semantic gap.

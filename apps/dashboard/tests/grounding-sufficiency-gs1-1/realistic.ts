@@ -3,9 +3,9 @@
  *
  * THE SUCCESS CONDITION THIS FILE PROVES:
  *   "106 hand-labelled synthetic cases across five sectors, labelled in a module that cannot see the
- *    evaluator, score the UNCHANGED runtime evaluator at: 0 false-supported, 7 false-insufficient,
+ *    evaluator, scored the GS-1 runtime evaluator at: 0 false-supported, 7 false-insufficient,
  *    16/47 supported retained, 47/57 unsupported detected. Every required case family is present.
- *    No provider, no database, no tenant data."
+ *    No provider, no database, no tenant data."  (GS-1.2 runtime: 0 · 6 · 16/47 · 54/57.)
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -23,11 +23,12 @@ globalThis.fetch = (() => {
   throw new Error("GS-1.1 must not reach the network");
 }) as typeof fetch;
 
-/* 18 · the runtime evaluator is byte-for-byte the GS-1 release. A change needs Director approval and this pin. */
+/* 18 · the runtime evaluator is byte-for-byte the GS-1.2 release (three held-out-validated rules over GS-1).
+ * A change needs Director approval and this pin. */
 assert.equal(
   createHash("sha256").update(read("src/features/knowledge-retrieval/claim-support.ts")).digest("hex"),
-  "c2183853edb8d9502855f4da95e389813e4ada4300a8bb24f4b4d44743e5de30",
-  "claim-support.ts is unchanged from GS-1",
+  "4a2c5c69e4a2472db73dd85bc91ef78265d837f0f9d55c3e24502670fa7a60d8",
+  "claim-support.ts is unchanged from GS-1.2",
 );
 
 /* 1 · gold labels cannot depend on the evaluator: the case module imports nothing at all. */
@@ -61,15 +62,16 @@ has((c) => c.category === "bounded-universe", 6, "bounded universe");
   assert.equal(summary(score(always("insufficient"))).falseInsufficient, CASES.filter((c) => c.gold === "supported").length);
 }
 
-/* 4 · 5 · the two errors, measured apart, on the unchanged evaluator (PASS 1). */
+/* 4 · 5 · the two errors, measured apart, on the runtime evaluator. GS-1 (PASS 1) measured FI 7 · retained 16 ·
+ * detected 47 · undetermined 34 · correct 65; GS-1.2 (hyphen, scope, aim-as-fact) moves it to the values below. */
 const rows = score();
 const s = summary(rows);
 assert.equal(s.falseSupported, 0, "SAFETY: no unsupported or unreadable case is called supported");
-assert.equal(s.falseInsufficient, 7, "reviewer noise: supported claims warned as insufficient");
+assert.equal(s.falseInsufficient, 6, "reviewer noise: supported claims warned as insufficient");
 assert.equal(s.retained, 16);
-assert.equal(s.detected, 47);
-assert.equal(s.undetermined, 34);
-assert.equal(rows.filter((r) => r.correct).length, 65);
+assert.equal(s.detected, 54);
+assert.equal(s.undetermined, 28);
+assert.equal(rows.filter((r) => r.correct).length, 72);
 assert.ok(rows.every((r) => !(r.correct && r.out === "undetermined")), "an abstention is never scored correct");
 /* The labelled composition is pinned: changing a gold label must be a visible, reviewed edit. */
 assert.deepEqual(

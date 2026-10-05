@@ -80,8 +80,8 @@ const LEXICON: Readonly<Record<Exclude<UnsupportedSignal, "number" | "proper-nou
     "en iyi", "en kaliteli", "lider", "tek", "essiz", "benzersiz", "odullu", "luks",
   ],
   universal: [
-    "every", "each", "all", "always", "never", "none", "entire",
-    "her", "hepsi", "tamami", "tum", "butun", "daima", "asla", "hicbir",
+    "every", "each", "all", "always", "never", "none", "entire", "unlimited", "limitless", "worldwide",
+    "her", "hepsi", "tamami", "tum", "butun", "daima", "asla", "hicbir", "sinirsiz", "dunya capinda",
   ],
   "production-method": [
     "handmade", "hand made", "hand knotted", "handknotted", "hand woven", "handwoven", "artisan", "master", "organic",
@@ -94,6 +94,12 @@ const LEXICON: Readonly<Record<Exclude<UnsupportedSignal, "number" | "proper-nou
     "simdi", "su anda", "bugun", "bu yil", "artik", "yeni",
   ],
 };
+
+/** A record that states an aim; a claim without one of these restates the aim as a current fact (GS-1.2). */
+const ASPIRATION = [
+  "aims to", "aim to", "plans to", "plan to", "wants to", "want to", "intends to", "strives to", "hopes to", "goal is",
+  "hedefler", "hedefliyor", "amaclar", "planliyor", "istiyor",
+];
 
 const NUMBER_WORDS = [
   "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
@@ -118,14 +124,17 @@ function occurs(haystack: string, term: string): boolean {
 const sentencesOf = (text: string) => text.split(/[.;!?]+/).map(norm).filter((s) => s.trim().length > 0);
 const numbersOf = (text: string) => new Set(text.match(/\d+(?:[.,]\d+)*/g)?.map((n) => n.replace(/[.,]/g, "")) ?? []);
 
-/** Capitalized words that do not start a sentence: the deterministic stand-in for a name. */
+/** Capitalized words that do not start a sentence: the deterministic stand-in for a name. Hyphenated
+ * words are read part by part, so "X-ray" is "X" + "ray", not the unrecorded name "Xray" (GS-1.2). */
 function properNounsOf(claim: string): string[] {
   const out: string[] = [];
   for (const sentence of claim.split(/[.;!?]+/)) {
     const words = sentence.trim().split(/\s+/);
     for (const word of words.slice(1)) {
-      const bare = word.replace(/[^\p{L}'’]/gu, "").split(/['’]/)[0] ?? "";
-      if (bare.length > 1 && /^\p{Lu}/u.test(bare)) out.push(norm(bare).trim());
+      for (const part of word.split(/[-‐]/)) {
+        const bare = part.replace(/[^\p{L}'’]/gu, "").split(/['’]/)[0] ?? "";
+        if (bare.length > 1 && /^\p{Lu}/u.test(bare)) out.push(norm(bare).trim());
+      }
     }
   }
   return out;
@@ -163,6 +172,16 @@ export function assessClaimSupport(claim: string, evidence: ClaimEvidence): Clai
   if (properNounsOf(claim).some((name) => !occurs(supplied, name))) signals.add("proper-noun");
   for (const [signal, terms] of Object.entries(LEXICON) as [UnsupportedSignal, readonly string[]][]) {
     if (terms.some((term) => occurs(said, term) && !occurs(supplied, term))) signals.add(signal);
+  }
+
+  /* A supplied aim restated without the aim: half or more of the claim's content words (4+ letters)
+   * sit in one aspiration sentence, and the claim itself keeps no aspiration marker. GS-1.2. */
+  if (!ASPIRATION.some((marker) => occurs(said, marker))) {
+    const content = said.trim().split(" ").filter((w) => w.length >= 4);
+    for (const sentence of all.split(/[.;!?]+/).map(norm)) {
+      if (!ASPIRATION.some((marker) => occurs(sentence, marker)) || content.length === 0) continue;
+      if (content.filter((w) => sentence.includes(` ${w}`)).length / content.length >= 0.5) signals.add("current-state");
+    }
   }
 
   return signals.size > 0
