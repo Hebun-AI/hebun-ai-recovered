@@ -4383,3 +4383,7 @@ exist is anything that would invoke it.
 - What did we learn? A consequential Governance control must show the identity of the subject it acts on, at least the record/fact key and the version, inside the control at confirmation time. The surrounding card's context and a bare version number are not enough: most records share "v1", so the control alone cannot tell them apart, and one decision landed on the wrong record. A reversible state does not make the ledger reversible; the wrong decision and its correction stay on the record.
 - How does this improve Turkish Rug House? The Director can see which statement a public-use or truth decision applies to before recording it, instead of relying on which card the control happens to sit in.
 - How does this become part of Hebun AI? Treat "names its subject at confirmation" as a requirement for every Governance decision control. Until a surface does this, the operating rule is to check the fact key on the card before recording and to re-read the state afterwards.
+
+## GS-1.2 — held-out validation of grounding rules (2026-10-05)
+- Test candidate grounding rules individually against a frozen independent evaluation set before
+  shipping; aggregate improvement must not hide a per-rule regression.
