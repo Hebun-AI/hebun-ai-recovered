@@ -91,7 +91,11 @@ import {
   type OriginationRefusal,
 } from "./contracts";
 import { parseAgentActionSelection } from "./structured-output";
-import type { DataClass } from "@/features/external-ai-data-use/contracts";
+/*
+ * The disclosure vocabulary, read off the generator's own declaration type — this module may not
+ * import the data-use authority (EXTERNAL-AI-DATA-USE-1A firewall), and needs only the class names.
+ */
+type DataClass = NonNullable<NonNullable<Parameters<typeof generateHebyModelAnswer>[1]>["disclosure"]>["dataClasses"][number];
 
 /**
  * The system instructions for origination.
