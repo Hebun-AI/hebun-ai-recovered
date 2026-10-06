@@ -42,7 +42,8 @@ const REVIEWED_RECORD = "docs/product-vision/runtime/hebun-external-ai-data-use-
 const REVIEWED_RECORD_REF = `${REVIEWED_RECORD}@dbbe8a30bbaa2d6d396cb914a21e28735537fe33`;
 const ALLOWED = ["conversation", "knowledge", "work-artifact"] as const;
 /* APF-3 (Director, 2026-10-06): origination's narrow projection, appended after B1D's three. */
-const ORIGINATION_ALLOWED = ["conversation", "organization"] as const;
+/* WF-3B (Director, 2026-10-06): + knowledge, appended after APF-3's two. */
+const ORIGINATION_ALLOWED = ["conversation", "organization", "knowledge"] as const;
 
 /* ── 1. EXACTLY THREE CELLS, EXACTLY THESE BOUNDS. ─────────────────────────────────────────────── */
 const policy = RECORDED_PLATFORM_DISCLOSURE_POLICY;
@@ -52,7 +53,7 @@ assert.deepEqual(
     ...ALLOWED.map((d) => ["anthropic/messages", "assistance", d, "allowed"]),
     ...ORIGINATION_ALLOWED.map((d) => ["anthropic/messages", "agent-origination", d, "allowed"]),
   ],
-  "exactly the three B1D cells and APF-3's two, in order",
+  "exactly the three B1D cells, APF-3's two and WF-3B's one, in order",
 );
 const EXPECTED_BOUNDS = {
   contractSurfaces: ["anthropic-commercial-terms"],
@@ -99,7 +100,7 @@ for (const serviceScope of SERVICE_SCOPES) {
     }
   }
 }
-assert.equal(allowedCount, 5, "five ALLOWED cells across the whole vocabulary");
+assert.equal(allowedCount, 6, "six ALLOWED cells across the whole vocabulary (WF-3B added one)");
 /* The classes and purposes the Director named as NOT authorized, spelled out. */
 for (const purpose of ["relevance-selection", "media-generation"] as const) {
   for (const dataClass of ALLOWED) {
@@ -109,8 +110,8 @@ for (const purpose of ["relevance-selection", "media-generation"] as const) {
 for (const dataClass of ["provider-observation", "organization", "governance-record", "operational-record", "external-recipient", "media-generated", "media-supplied"] as const) {
   assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "assistance", dataClass }).decision, "unknown", `assistance × ${dataClass}`);
 }
-/* APF-3 — what origination may NOT disclose, spelled out. */
-for (const dataClass of ["knowledge", "work-artifact", "external-recipient", "provider-observation", "governance-record", "operational-record", "media-generated", "media-supplied"] as const) {
+/* APF-3 — what origination may NOT disclose, spelled out. (WF-3B moved knowledge to ALLOWED.) */
+for (const dataClass of ["work-artifact", "external-recipient", "provider-observation", "governance-record", "operational-record", "media-generated", "media-supplied"] as const) {
   assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "agent-origination", dataClass }).decision, "unknown", `agent-origination × ${dataClass}`);
 }
 

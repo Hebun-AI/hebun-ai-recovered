@@ -105,6 +105,8 @@ const B1D_ALLOWED = new Set([
   /* APF-3 (Director, 2026-10-06): origination's narrow projection, nothing wider. */
   "anthropic/messages|agent-origination|conversation",
   "anthropic/messages|agent-origination|organization",
+  /* WF-3B, a separate reviewed change. */
+  "anthropic/messages|agent-origination|knowledge",
 ]);
 for (const serviceScope of SERVICE_SCOPES) {
   for (const purpose of PURPOSES) {
@@ -121,7 +123,7 @@ for (const serviceScope of SERVICE_SCOPES) {
     }
   }
 }
-assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 5, "B1D's three ALLOWED cells and APF-3's two, exactly");
+assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 6, "B1D's three ALLOWED cells, APF-3's two and WF-3B's one, exactly");
 
 /* ── 3. NOT AN ACCIDENT: the recorded policy's TYPE has room for those three cells only. ────── */
 const policySource = readFileSync(
@@ -135,7 +137,7 @@ assert.match(
 );
 assert.match(
   policySource,
-  /\{ readonly serviceScope: "anthropic\/messages" \} & \(\s*\| \{ readonly purpose: "assistance"; readonly dataClass: "conversation" \| "knowledge" \| "work-artifact" \}[\s\S]*?\| \{ readonly purpose: "agent-origination"; readonly dataClass: "conversation" \| "organization" \}\s*\);/,
+  /\{ readonly serviceScope: "anthropic\/messages" \} & \(\s*\| \{ readonly purpose: "assistance"; readonly dataClass: "conversation" \| "knowledge" \| "work-artifact" \}[\s\S]*?\| \{ readonly purpose: "agent-origination"; readonly dataClass: "conversation" \| "organization" \| "knowledge" \}\s*\);/,
   "the recorded cell type names one scope and exactly two purposes, each with its own closed data classes",
 );
 assert.ok(!/\bwildcard\b|"\*"/.test(policySource.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")), "no wildcard");

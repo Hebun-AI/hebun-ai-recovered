@@ -19,8 +19,8 @@
  *
  * The service scope is `anthropic/messages`, the purpose is `assistance` — or, with the closed
  * `--agent-origination` switch (APF-3), `agent-origination` — and the (purpose, data class) pairs are
- * READ OFF the recorded platform policy (B1D: conversation, knowledge, work-artifact; APF-3:
- * conversation, organization). No flag carries a scope, purpose, data class or attestation as a value,
+ * READ OFF the recorded platform policy (B1D: conversation, knowledge, work-artifact; APF-3 + WF-3B:
+ * conversation, organization, knowledge). No flag carries a scope, purpose, data class or attestation as a value,
  * and an unknown flag is refused, so this file cannot ask for more than the platform already ALLOWS.
  * The attestation is the one in force, read through the released reader; the writer re-checks all of
  * it in one transaction.
@@ -47,7 +47,7 @@ import { Client } from "pg";
 const SERVICE_SCOPE = "anthropic/messages";
 const EXPECTED_DATA_CLASSES = {
   assistance: ["conversation", "knowledge", "work-artifact"],
-  "agent-origination": ["conversation", "organization"],
+  "agent-origination": ["conversation", "organization", "knowledge"],
 } as const;
 const KNOWN_FLAGS = ["tenant", "director", "justification", "confirm", "withdraw", "agent-origination"];
 const CONFIRMATION = "AUTHORIZE EXTERNAL AI DATA USE";
@@ -103,7 +103,7 @@ async function main(): Promise<void> {
     (withdraw
       ? "We are withdrawing external AI processing of this organization's data while we review how it is supervised."
       : PURPOSE === "agent-origination"
-        ? "This organization agrees that the goal a person gives Heby and this organization's structure may be processed by the reviewed Anthropic processor so Heby can propose work for a human to decide, and I accept responsibility for that."
+        ? "This organization agrees that the goal a person gives Heby, this organization's structure and the statements of its ratified Knowledge eligible for grounding may be processed by the reviewed Anthropic processor so Heby can propose work for a human to decide, and I accept responsibility for that."
         : "This organization agrees that its conversations, Knowledge and work artifacts may be processed by the reviewed Anthropic assistance processor, and I accept responsibility for that.");
 
   if (!process.env.DATABASE_URL) fail("DATABASE_URL is not set");

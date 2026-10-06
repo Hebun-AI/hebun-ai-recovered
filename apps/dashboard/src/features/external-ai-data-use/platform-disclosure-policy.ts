@@ -86,8 +86,9 @@ const HIGGSFIELD_DENIAL_EVIDENCE =
 /** The only cells the recorded policy can hold. Widening any member is a reviewed type change. */
 export type RecordedAllowedCell = AllowedPlatformCell & { readonly serviceScope: "anthropic/messages" } & (
   | { readonly purpose: "assistance"; readonly dataClass: "conversation" | "knowledge" | "work-artifact" }
-  /* APF-3 — origination's narrow projection: the human goal and the organization's structure. */
-  | { readonly purpose: "agent-origination"; readonly dataClass: "conversation" | "organization" }
+  /* APF-3 — origination's narrow projection: the human goal and the organization's structure.
+   * WF-3B — plus the statements of the WF-3A Knowledge grounding universe. */
+  | { readonly purpose: "agent-origination"; readonly dataClass: "conversation" | "organization" | "knowledge" }
 );
 
 /**
@@ -110,14 +111,17 @@ const ANTHROPIC_ASSISTANCE_ALLOW_EVIDENCE =
 const ANTHROPIC_ORIGINATION_ALLOW_EVIDENCE =
   "APF-3 (Director, 2026-10-06): platform ALLOW for anthropic/messages × agent-origination × {conversation, organization} only — the authenticated human goal and the organization's structure (organization-level availability, department slugs and names), as rendered by the narrow origination projection released in 7c2ed6d3. Same bounds and the same processor attestation as the assistance cells: ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, identity_status attested — not verified), reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33. Not allowed for origination: external-recipient, work-artifact, provider-observation and every other class. Unverified at decision: production credential ↔ observed Dashboard key equality; custom agreement / BAA status; per-request processing geography; the runtime does not check the configured model against the attestation's model_ids. Free text (the goal, department names) is not claimed free of personal data.";
 
-function anthropicOriginationCell(dataClass: "conversation" | "organization"): RecordedAllowedCell {
+const ANTHROPIC_ORIGINATION_KNOWLEDGE_ALLOW_EVIDENCE =
+  "WF-3B (Director, 2026-10-06): platform ALLOW for anthropic/messages × agent-origination × knowledge only — the exact statements of the complete eligible Knowledge grounding universe composed by WF-3A (46adfce6: retrieval-eligible, Governance-verified ratified, SCI-2B eligible for agent-record-work-grounding, at most 20 versions, at most 2,000 code points each), offered behind invocation-local aliases K1..Kn, in an explicit human-selected Knowledge mode. No Knowledge, fact, tenant, decision or actor identifier, provenance, lifecycle or timestamp is disclosed. Same bounds and the same processor attestation as the other cells: ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, identity_status attested — not verified, model_ids claude-haiku-4-5-20251001, enforced per call by APF-5), reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33. Nothing declares this class for origination until WF-3C wires the Knowledge mode. Unverified at decision: production credential ↔ observed Dashboard key equality; custom agreement / BAA status; per-request processing geography. Knowledge statements are organization-authored free text and are not claimed free of personal data.";
+
+function anthropicOriginationCell(dataClass: "conversation" | "organization" | "knowledge"): RecordedAllowedCell {
   return Object.freeze({
     serviceScope: "anthropic/messages",
     purpose: "agent-origination",
     dataClass,
     decision: "allowed",
     bounds: ANTHROPIC_ASSISTANCE_BOUNDS,
-    evidence: ANTHROPIC_ORIGINATION_ALLOW_EVIDENCE,
+    evidence: dataClass === "knowledge" ? ANTHROPIC_ORIGINATION_KNOWLEDGE_ALLOW_EVIDENCE : ANTHROPIC_ORIGINATION_ALLOW_EVIDENCE,
   } as const);
 }
 
@@ -161,6 +165,7 @@ export const RECORDED_PLATFORM_DISCLOSURE_POLICY: {
     anthropicAssistanceCell("work-artifact"),
     anthropicOriginationCell("conversation"),
     anthropicOriginationCell("organization"),
+    anthropicOriginationCell("knowledge"),
   ]),
 });
 

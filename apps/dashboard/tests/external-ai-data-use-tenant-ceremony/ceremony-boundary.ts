@@ -59,7 +59,7 @@ assert.deepEqual(
   RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells
     .filter((c) => c.serviceScope === "anthropic/messages" && c.purpose === "agent-origination")
     .map((c) => c.dataClass),
-  ["conversation", "organization"],
+  ["conversation", "organization", "knowledge"], // WF-3B appended knowledge
 );
 /* APF-3 — the writer is handed the UNION of what is in force and what is added, never the addition alone. */
 assert.match(code, /const scopes = nextRevisionScopes\(current\?\.state === "active" \? current\.scopes : \[\], adding\);/);

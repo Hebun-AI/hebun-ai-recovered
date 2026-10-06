@@ -104,6 +104,8 @@ assert.deepEqual(
     /* APF-3, a separate reviewed change. */
     "anthropic/messages|agent-origination|conversation",
     "anthropic/messages|agent-origination|organization",
+    /* WF-3B, a separate reviewed change. */
+    "anthropic/messages|agent-origination|knowledge",
   ],
 );
 assert.ok(
