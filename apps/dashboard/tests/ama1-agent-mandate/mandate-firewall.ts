@@ -511,6 +511,8 @@ function noProposalEnforcementExists(): void {
       path.join("src", "app", "(dashboard)", "agents", "page.tsx"),
       path.join("src", "components", "agents", "agent-mandate-card.tsx"),
       path.join("src", "db", "schema", "index.ts"),
+      /* WF-4. The shared permit spend re-reads the effective mandate for agent-proposed requests. */
+      path.join("src", "features", "action-authorization", "consume-action-permit.server.ts"),
       path.join("src", "features", "action-authorization", "record-action-request.server.ts"),
       path.join("src", "features", "governance-audit", "agent-mandate-audit.server.ts"),
       path.join("src", "features", "governance-decision", "decision-authority.server.ts"),
@@ -523,7 +525,7 @@ function noProposalEnforcementExists(): void {
       /* APF-1. Standing issuance re-reads the effective mandate before it mints a permit. */
       path.join("src", "features", "standing-mutation-authority", "issue-permit-under-standing-authorization.server.ts"),
     ],
-    "eleven modules know a mandate exists, and each is named: the schema barrel, the audit sibling, the Governance decision writer, the THREE enforcers that apply the one shared ceiling, THREE product files, ONE grounding consumer and WF-1's read-only availability projection",
+    "twelve modules know a mandate exists, and each is named: the schema barrel, the audit sibling, the Governance decision writer, the FOUR enforcers that apply the one shared ceiling (WF-4 added the shared permit spend), THREE product files, ONE grounding consumer and WF-1's read-only availability projection",
   );
 
   /*
@@ -538,6 +540,13 @@ function noProposalEnforcementExists(): void {
     "action-authorization",
     "record-action-request.server.ts",
   );
+  /*
+   * WF-4 — the ONE other named file. The permit consumer re-reads the effective mandate at spend,
+   * for agent-proposed requests only, and decides with the SAME shared ceiling — not one of its own.
+   * Still an exemption of a file, never of its directory: the decision writer and the revoker stay
+   * blind to a mandate.
+   */
+  const SPEND_SEAM = path.join("src", "features", "action-authorization", "consume-action-permit.server.ts");
   for (const dir of [
     "src/features/agent-origination",
     "src/features/action-authorization",
@@ -545,7 +554,7 @@ function noProposalEnforcementExists(): void {
     "src/features/heby-actions",
   ]) {
     for (const file of collect(dir)) {
-      if (file === ENFORCEMENT_SEAM) continue;
+      if (file === ENFORCEMENT_SEAM || file === SPEND_SEAM) continue;
       const source = codeOf(read(file));
       /*
        * BANNED: REACHING A MANDATE. Not the SUBSTRING `agent-mandate`, which the refusal vocabulary

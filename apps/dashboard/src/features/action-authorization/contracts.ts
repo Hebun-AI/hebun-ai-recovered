@@ -245,6 +245,17 @@ export type PermitConsumptionRefusal =
    * become entitled to act when it cannot write down what it is about to do.
    */
   | "handoff-record-failed"
+  /**
+   * WF-4. The request was proposed by a durable agent that is not in service NOW — retired, unknown
+   * in this tenant, or unreadable. The permit was issued and is NOT revoked; it is not spendable
+   * while its agent's continuing authority fails. The spend rolled back, so it is still `active`.
+   */
+  | "agent-not-in-service"
+  /**
+   * WF-4. The agent's CURRENT effective mandate no longer admits this action kind — withdrawn,
+   * narrowed, absent or unreadable. Same rollback: issued, not revoked, not spendable now.
+   */
+  | "agent-mandate-refused"
   | "persistence-unavailable";
 
 export type ActionRequestResult =

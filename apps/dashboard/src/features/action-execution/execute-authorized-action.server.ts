@@ -557,6 +557,9 @@ export async function executeAuthorizedAction(
       case "digest-mismatch":
         return refused("digest-mismatch");
       case "permit-not-consumable":
+      /* WF-4: issued and not revoked, but its agent's continuing authority failed. */
+      case "agent-not-in-service":
+      case "agent-mandate-refused":
         return refused("permit-not-executable");
       default:
         return refused("persistence-unavailable");
@@ -1028,6 +1031,9 @@ async function executeInstagramPublish(
       case "digest-mismatch":
         return refused("digest-mismatch");
       case "permit-not-consumable":
+      /* WF-4: issued and not revoked, but its agent's continuing authority failed. */
+      case "agent-not-in-service":
+      case "agent-mandate-refused":
         return refused("permit-not-executable");
       default:
         return refused("persistence-unavailable");
@@ -1438,6 +1444,9 @@ async function executeYouTubePublish(
       case "digest-mismatch":
         return refused("digest-mismatch");
       case "permit-not-consumable":
+      /* WF-4: issued and not revoked, but its agent's continuing authority failed. */
+      case "agent-not-in-service":
+      case "agent-mandate-refused":
         return refused("permit-not-executable");
       default:
         return refused("persistence-unavailable");

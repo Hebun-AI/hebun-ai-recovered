@@ -346,7 +346,12 @@ export async function executeRecordWorkAsMachine(
     return { status: "refused", reason: captured, ...(authorityReason ? { authorityReason } : {}) };
   }
   if (consumption.status !== "authorized") {
-    return { status: "refused", reason: "permit-not-consumable" };
+    /* WF-4: the shared spend boundary refuses on its own even if the prechecks above were skipped. */
+    const why = consumption.reason;
+    return {
+      status: "refused",
+      reason: why === "agent-not-in-service" || why === "agent-mandate-refused" ? why : "permit-not-consumable",
+    };
   }
   if (outcome === null) return { status: "refused", reason: "execution-unavailable" };
 

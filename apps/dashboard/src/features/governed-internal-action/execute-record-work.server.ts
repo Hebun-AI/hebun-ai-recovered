@@ -85,6 +85,10 @@ export type InternalActRefusal =
   | "unauthenticated"
   /** The permit could not be spent — already spent, expired, revoked, or not this tenant's. */
   | "permit-not-consumable"
+  /** WF-4: the proposing agent is not in service now. The permit is still `active`, not revoked. */
+  | "agent-not-in-service"
+  /** WF-4: the agent's current mandate no longer admits record-work. Permit still `active`. */
+  | "agent-mandate-refused"
   /** The permit authorizes a different act. The transaction is aborted, so nothing was written. */
   | "action-kind-mismatch"
   /** The approved payload does not describe a work item this authority will accept. */
@@ -269,7 +273,11 @@ export async function executeRecordWork(
   }
 
   if (consumption.status !== "authorized") {
-    return { status: "refused", reason: "permit-not-consumable" };
+    const why = consumption.reason;
+    return {
+      status: "refused",
+      reason: why === "agent-not-in-service" || why === "agent-mandate-refused" ? why : "permit-not-consumable",
+    };
   }
   if (outcome === null) return { status: "refused", reason: "execution-unavailable" };
 

@@ -50,6 +50,9 @@ import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorizat
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordActionAuthorizationEventWithin } from "@/features/governance-audit/action-authorization-audit.server";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
+import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
+import { readEffectiveAgentMandateForRuntime } from "@/features/agent-mandate/read-agent-mandate.server";
+import { refuseOutsideAgentMandate } from "./agent-mandate-ceiling";
 import { asCanonicalPayload, digestCanonicalAction, digestsMatch } from "./canonical-payload";
 import {
   isMachineExecutionPrincipal,
@@ -135,9 +138,8 @@ async function spendPermit(
   const now = (deps.now ?? (() => new Date()))();
   const handoffId = randomUUID();
 
+  let outcome: PermitConsumptionResult | null = null;
   try {
-    let outcome: PermitConsumptionResult | null = null;
-
     await db.transaction(async (tx) => {
       /*
        * THE SPEND. One statement, four predicates, and the row count is the verdict. `sql\`now()\``
@@ -215,6 +217,31 @@ async function spendPermit(
         outcome = refused("digest-mismatch");
         throw new Error("permit-digest-mismatch");
       }
+      /*
+       * WF-4 — CONTINUING AGENT AUTHORITY. Every door spends here, so this is the one place the
+       * invariant holds for human and machine alike: an agent-proposed permit is not spendable once
+       * its agent is out of service or its CURRENT mandate no longer admits the act. ISSUED != SPENDABLE
+       * NOW, and this is not revocation — the permit is untouched and stays `active` on rollback.
+       *
+       * Both ids come off the request row read above, never from the caller. The two authorities'
+       * own readers run on THIS transaction's connection, after the spend UPDATE. READ COMMITTED, no
+       * lock: a retirement or mandate revision committing after these reads and before this commit is
+       * not seen. That residual window is the rest of this transaction, not zero. An unreadable
+       * authority refuses (fail closed) — reported under the same two words, never as consumable.
+       */
+      if (request.proposedByActorType === "agent") {
+        const reads = { getDb: () => tx as unknown as ControlPlaneDatabase };
+        const liveness = await readDurableAgentRuntimeLiveness(caller.tenantId, request.proposedByActorId, reads);
+        if (liveness !== "in-service") {
+          outcome = refused("agent-not-in-service");
+          throw new Error("continuing-authority");
+        }
+        const mandate = await readEffectiveAgentMandateForRuntime(caller.tenantId, request.proposedByActorId, reads);
+        if (refuseOutsideAgentMandate(mandate, request.actionKind)) {
+          outcome = refused("agent-mandate-refused");
+          throw new Error("continuing-authority");
+        }
+      }
 
       await recordActionAuthorizationEventWithin(
         tx,
@@ -291,6 +318,11 @@ async function spendPermit(
      * Every throw above rolls the spend back with it, so the permit stays `active` in all of these
      * cases. Nothing was authorized and nothing was burned.
      */
+    /* Assigned inside the transaction callback, which TS cannot see from here. */
+    const captured = outcome as PermitConsumptionResult | null;
+    if (error instanceof Error && error.message === "continuing-authority" && captured) {
+      return captured;
+    }
     if (error instanceof Error && error.message.startsWith("handoff-record-failed")) {
       return refused("handoff-record-failed");
     }

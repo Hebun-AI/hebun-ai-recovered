@@ -401,19 +401,24 @@ function nothingShortOfTheChainExecutes(): void {
   );
 
   /*
-   * A MANDATE GRANTS NOTHING. The executor never reads one, and the mandate authority is not in its
-   * graph at all: a ceiling constrains PROPOSING, and this module is downstream of a human's
-   * decision, where a mandate has no further say.
+   * A MANDATE GRANTS NOTHING. The executor itself never reads one: a ceiling is not an
+   * authorization. WF-4 changed ONE thing downstream of the human decision — the shared permit spend
+   * now REFUSES an agent-proposed permit whose agent is out of service or whose CURRENT mandate no
+   * longer admits the act (APF-1 already did this for the machine door). So the mandate authority's
+   * READ side is reachable, through `consume-action-permit` only, and nothing else of it: no writer,
+   * and of origination only its vocabulary file, never a seam.
+   *
+   *     A CEILING CANNOT GRANT EXECUTION     IT CAN STILL WITHDRAW IT FROM AN AGENT'S PROPOSAL
    */
+  assert.ok(!/agent-mandate|agent-origination/.test(executor), "the executor imports no mandate or origination module itself");
+  const WF4_READ_ONLY = new Set([
+    "src/features/agent-mandate/contracts.ts",
+    "src/features/agent-mandate/read-agent-mandate.server.ts",
+    "src/features/agent-origination/contracts.ts",
+  ]);
   for (const file of executorGraph) {
-    assert.ok(
-      !file.startsWith("src/features/agent-mandate/"),
-      `${file}: the executor consults no mandate — a ceiling is not an authorization`,
-    );
-    assert.ok(
-      !file.startsWith("src/features/agent-origination/"),
-      `${file}: and no origination path`,
-    );
+    if (!file.startsWith("src/features/agent-mandate/") && !file.startsWith("src/features/agent-origination/")) continue;
+    assert.ok(WF4_READ_ONLY.has(file), `${file}: the executor reaches no mandate writer and no origination path`);
   }
 
   /*

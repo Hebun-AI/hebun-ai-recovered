@@ -48,6 +48,8 @@ const PRODUCT_SURFACE = "src/app/(dashboard)/agents/page.tsx";
  * applies the ceiling when the human confirms — and it writes nothing (tests/wf1-origination-recommendation).
  */
 const WF1_AVAILABILITY = "src/features/origination-availability/read-origination-availability.server.ts";
+/* WF-4 — the shared permit spend, applying the same ceiling at spend time to agent-proposed requests. */
+const WF4_SPEND = "src/features/action-authorization/consume-action-permit.server.ts";
 const CONTRACTS = "src/features/action-authorization/contracts.ts";
 const ORIGINATION_CONTRACTS = "src/features/agent-origination/contracts.ts";
 const MANDATE_FEATURE = "src/features/agent-mandate";
@@ -119,8 +121,9 @@ function exactlyOneEnforcementSeam(): void {
    */
   assert.deepEqual(
     consumers,
-    [PRODUCT_SURFACE, SEAM, MACHINE_EXECUTOR, STANDING_ISSUER, WF1_AVAILABILITY].sort(),
-    "exactly FIVE modules outside the mandate authority read a mandate: the product surface renders one; the proposal writer, the standing issuer and the machine executor enforce the same one; WF-1's availability projection reads one to decide only whether to OFFER origination",
+    /* WF-4 added the shared permit spend: it re-reads the effective mandate for agent-proposed requests. */
+    [PRODUCT_SURFACE, SEAM, MACHINE_EXECUTOR, STANDING_ISSUER, WF1_AVAILABILITY, WF4_SPEND].sort(),
+    "exactly SIX modules outside the mandate authority read a mandate: the product surface renders one; the proposal writer, the standing issuer, the machine executor and the shared permit spend (WF-4) enforce the same one; WF-1's availability projection reads one to decide only whether to OFFER origination",
   );
 
   /*
