@@ -1,8 +1,9 @@
 # SCI-2A — Knowledge Version Database Immutability
 
-**Status: IMPLEMENTED (local, real PostgreSQL). NOT MIGRATED. NOT PRODUCTION-VERIFIED.**
-Baseline `origin/main` = `90e661d7`. Migration `20261006111812_sci2a_knowledge_version_immutability`
-(ledger 71 → 72). Production migration awaits a Director gate. Architecture: SCI-0
+**Status: CLOSED / PRODUCTION-VERIFIED (2026-10-06).** IMPLEMENTED `64b9a63f` (parent `90e661d7`,
+pushed to `main` by the Director) · MIGRATED to production through `platform:migrate` (ledger 71 → 72)
+· PRODUCTION-VERIFIED read-only (see *Production acceptance*). Migration
+`20261006111812_sci2a_knowledge_version_immutability`. Architecture: SCI-0
 ([`hebun-sci0-secure-content-ingestion-trust-boundary.md`](hebun-sci0-secure-content-ingestion-trust-boundary.md)),
 design gate SCI-2A-INTEGRITY-FIRST.
 
@@ -105,11 +106,10 @@ historical immutability.
 **Installation boundary.** The Drizzle ledger (`drizzle.__drizzle_migrations`) records *that* the
 migration is applied (row 72, its hash) but its `created_at` is the journal's authoring time, not
 the time it ran. The database therefore holds no installation timestamp, and SCI-2A adds none. The
-boundary will be recorded as ceremony evidence (the `platform:migrate` run's time and backup) in
-this document at production acceptance. Note for SCI-2B: `created_at` is written by the inserter,
+boundary is the ceremony evidence under *Production acceptance*: after 2026-10-06T17:08:04Z. Note for SCI-2B: `created_at` is written by the inserter,
 so `created_at < installation` is not a sound per-row discriminator on its own.
 
-## Evidence (local, disposable PostgreSQL 14)
+## Evidence (local, disposable PostgreSQL 14; L3 baseline `90e661d7` 882/67 → head 885/67/952, identical failure set and first errors)
 
 - `tests/sci2a-flow/version-immutability-postgres.ts` — real writers: insert; ORM-shaped and
   reordered-jsonb no-op updates pass; 36 protected mutations (incl. NULL ↔ value) refused naming the
@@ -123,6 +123,40 @@ so `created_at < installation` is not a sound per-row discriminator on its own.
 - Adapted: `tests/k3-flow/supersession-postgres.ts` (a lineage rewrite is now refused; cycle
   detection proven on the one cycle still constructible, a self-referencing insert),
   `tests/persistence/postgres-knowledge-nodes-integration.ts` (legacy mutations/deletes refused).
+
+## Production acceptance (2026-10-06, read-only)
+
+Target: cluster `7675444875863894887`, database `neondb`, PostgreSQL 18.6. Applied once through
+`platform:migrate` from the release worktree, Director-confirmed at a TTY.
+
+- **First attempt, not applied.** The ceremony took its backup
+  (`hebun_production_pre_migration_20261006-122953.dump`) and then lost its connection while waiting
+  at the confirmation prompt (`Connection terminated unexpectedly`). The confirmation was never
+  read and nothing was applied. A read-only re-check confirmed this before the retry: ledger 71,
+  no function, no triggers, every count and digest identical, no migration advisory lock held.
+- **Second attempt: SUCCESS.** Backup `hebun_production_pre_migration_20261006-170804.dump`
+  (747 268 bytes, 802 entries, `pg_restore -l` OK); ledger 71 → 72; release digest
+  `0fea5966f15de3a95ace25715c5463e3`; the ceremony's own organizational comparison: unchanged.
+
+| Check | Before | After |
+|---|---|---|
+| Ledger rows | 71, tail `0dceaf8f…` (`20261004073713`) | 72, tail hash `cd511647ae6c5c04e573d451f244960c75b73fa0b17fe5967b72dda25a4c189d` = migration file SHA-256 |
+| `knowledge_nodes_guard_version_immutability` | absent | present; body identical to the shipped migration |
+| Triggers on `knowledge_nodes` | none | `…_update` (BEFORE UPDATE, row), `…_delete` (BEFORE DELETE, row), `…_truncate` (BEFORE TRUNCATE, statement); all enabled |
+| `knowledge_nodes` by tenant | 6 + 2 = 8 | identical |
+| `knowledge_facts` by tenant | 5 + 2 = 7 | identical |
+| `md5(string_agg(to_jsonb(row)::text, '' order by id))` nodes / facts | `b090fe87…` / `dda76ece…` | identical |
+| Organizational counts (13 tables, incl. decision_records 59, audit_log 213) | recorded | identical |
+
+No production row was updated, deleted or truncated to demonstrate refusal; the negative proof is
+the real-PostgreSQL suite above. No provider call. No application code depends on the invariant;
+the release commit carries migration, tests and documentation only. Pushing `main` triggers the
+usual Vercel production build; this phase did not inspect or rely on it.
+
+**Installation boundary.** Production protection begins at the ceremony's second run: after its
+backup at **2026-10-06T17:08:04Z** and before the SUCCESS report. The ledger row's `created_at`
+(`1791285492234` → 2026-10-06T11:18:12Z) is the migration's authoring time, six hours earlier —
+the exact discrepancy this document warns about.
 
 ## Rollback
 
