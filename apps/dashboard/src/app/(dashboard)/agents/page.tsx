@@ -17,6 +17,9 @@ import {
   readAgentMandateHistory,
   readEffectiveAgentMandate,
 } from "@/features/agent-mandate/read-agent-mandate.server";
+import { AgentCapabilityTruthCard } from "@/components/agents/agent-capability-truth";
+import { readOriginationAvailability } from "@/features/origination-availability/read-origination-availability.server";
+import { deriveAgentCapabilityTruth } from "@/features/origination-availability/capability-truth";
 import { AgentOutcomeObservationSurface } from "@/components/agents/agent-outcome-observation";
 import { readAgentOutcomeObservation } from "@/features/agent-outcome-observation/agent-outcome-projection.server";
 import { AgentEvaluationSurface } from "@/components/agents/agent-evaluation";
@@ -190,6 +193,15 @@ export default async function AgentsPage() {
     });
   }
 
+  /*
+   * WF-2 — what the agent can propose NOW, from the WF-1 availability projection (a read: no writer,
+   * no generator, no disclosure audit). The tenant is this request's session, never the client's.
+   * Asked only when there is an in-service agent to ask about; the cards above already say why not.
+   */
+  const capability = tenant && identities.some((identity) => identity.inService)
+    ? deriveAgentCapabilityTruth(await readOriginationAvailability({ resolveTenant: async () => tenant }))
+    : null;
+
   const mandateBlock: MandateBlock | undefined = !tenant
     ? { kind: "unauthenticated" }
     : identityState.status !== "known"
@@ -262,6 +274,7 @@ export default async function AgentsPage() {
           * second thing on this page that writes a database row, and the only other one.
           */}
         <AgentMandateCard block={mandateBlock} entries={mandateEntries} />
+        {capability ? <AgentCapabilityTruthCard truth={capability} /> : null}
         <AgentOutcomeObservationSurface observation={outcomes} />
         <AgentEvaluationSurface evaluation={evaluation} />
         <AgentImprovementHypothesisSurface hypotheses={hypotheses} />
