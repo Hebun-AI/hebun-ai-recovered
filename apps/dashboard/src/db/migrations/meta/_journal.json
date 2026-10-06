@@ -505,6 +505,13 @@
       "when": 1791285492234,
       "tag": "20261006111812_sci2a_knowledge_version_immutability",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1791309549913,
+      "tag": "20261006175909_sci2b_knowledge_integrity_at_insert",
+      "breakpoints": true
     }
   ]
 }

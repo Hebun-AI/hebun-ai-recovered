@@ -140,6 +140,8 @@ function main(): void {
       "20261004073713_external_ai_data_use_authority.sql",
       /* SCI-2A — Knowledge version immutability: one trigger function and three triggers on knowledge_nodes. A declared later phase. */
       "20261006111812_sci2a_knowledge_version_immutability.sql",
+      /* SCI-2B — the database-stamped integrity-at-insert fact on knowledge_nodes. A declared later phase. */
+      "20261006175909_sci2b_knowledge_integrity_at_insert.sql",
       ],
       "KR3 added no migration; everything after its boundary belongs to a declared later phase",
     );

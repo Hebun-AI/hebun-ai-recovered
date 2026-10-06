@@ -1,5 +1,6 @@
 /* Knowledge graph — nodes and directed edges (node <-> node, many-to-many). */
 import {
+  boolean,
   doublePrecision,
   index,
   integer,
@@ -67,6 +68,14 @@ export const knowledgeNodes = pgTable(
     supersedesKnowledgeNodeId: uuid("supersedes_knowledge_node_id").references(
       (): AnyPgColumn => knowledgeNodes.id,
     ),
+    /*
+     * SCI-2B. TRUE: this version was inserted while the SCI-2A immutability triggers were enabled,
+     * so its content has been protected since creation. NULL: not established (every row older
+     * than the column, or inserted while protection was off). Written ONLY by the database — the
+     * `knowledge_nodes_stamp_integrity_at_insert` trigger overwrites whatever an INSERT supplies —
+     * and frozen afterwards by SCI-2A's deny-by-default UPDATE rule. Never write it from code.
+     */
+    integrityProtectedAtInsert: boolean("integrity_protected_at_insert"),
   },
   (t) => [
     index("knowledge_nodes_tenant_domain_scope_idx").on(

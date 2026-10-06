@@ -31,6 +31,7 @@ import { asHumanTenantContext, type TenantContext } from "../../src/features/aut
 const NOW = new Date("2026-10-06T12:00:00.000Z");
 const DIGEST = "f".repeat(64);
 const FUNCTION_NAME = "knowledge_nodes_guard_version_immutability";
+/* SCI-2B adds a fourth, separate trigger (the integrity-at-insert stamp); these three stay SCI-2A's. */
 const TRIGGERS = [
   "knowledge_nodes_version_immutable_delete",
   "knowledge_nodes_version_immutable_truncate",
@@ -152,8 +153,8 @@ async function main(): Promise<void> {
         `select t.tgname, p.proname from pg_trigger t join pg_proc p on p.oid = t.tgfoid
           where t.tgrelid = 'public.knowledge_nodes'::regclass and not t.tgisinternal order by t.tgname`,
       );
-      assert.deepEqual(triggers.rows.map((row) => row.tgname), TRIGGERS);
-      assert.ok(triggers.rows.every((row) => row.proname === FUNCTION_NAME));
+      const guards = triggers.rows.filter((row) => row.proname === FUNCTION_NAME);
+      assert.deepEqual(guards.map((row) => row.tgname), TRIGGERS);
     }
 
     const writer = createDurableKnowledgeWriter(handle.db);
