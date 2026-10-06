@@ -36,6 +36,9 @@ import { recordExternalAiDisclosureDecision } from "../../src/features/governanc
 import { createLiveClaudeTransport, type FetchLike } from "../../src/features/heby-model-live/claude-http-transport.server";
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import type { ModelGenerationRequest } from "../../src/features/heby-runtime/contracts";
+import { hebunInstruction } from "../../src/features/heby-runtime/instruction-channel";
+/* SCI-1 — a live-marked egress now requires a minted instruction; this suite tests the gate behind it. */
+const SCI1_SYS = hebunInstruction("sys");
 
 const REVIEWED_RECORD = "docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md";
 const REF = (n: string) => `${REVIEWED_RECORD}@${n.repeat(40)}`;
@@ -123,7 +126,7 @@ async function main(): Promise<void> {
     const request: ModelGenerationRequest = {
       correlationId: "b2",
       tenantId: options.requestTenant ?? declaration?.tenantId,
-      systemInstructions: "sys",
+      systemInstructions: SCI1_SYS,
       userPrompt: "ping",
       evidence: [],
       modelId: "",

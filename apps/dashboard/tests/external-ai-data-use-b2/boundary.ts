@@ -15,7 +15,8 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { answerHebyModelRequest } from "../../src/features/heby-answer/model-answer.server";
+import { answerHebyModelRequest, HEBY_MODEL_SYSTEM_INSTRUCTIONS } from "../../src/features/heby-answer/model-answer.server";
+import { hebunInstruction } from "../../src/features/heby-runtime/instruction-channel";
 import { generateHebyModelAnswer } from "../../src/features/heby-model";
 import { createLiveClaudeTransport, type FetchLike } from "../../src/features/heby-model-live/claude-http-transport.server";
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
@@ -178,10 +179,11 @@ async function main(): Promise<void> {
 
   /* A preparation brief that did not declare its classes is undeclared — the gate sees null. */
   {
-    const r = await run("authorized", { intent: "PREPARE_RECOMMENDATION", preparationBrief: "Write the draft." });
+    const r = await run("authorized", { intent: "PREPARE_RECOMMENDATION", preparationBrief: { instruction: hebunInstruction("Write the draft."), material: [] } });
     assert.equal(r.declared, null, "an undeclared brief reaches the gate as no declaration");
     const real = await generateHebyModelAnswer(
-      { correlationId: "c", tenantId: TENANT.tenantId, systemInstructions: "s", userPrompt: "p", evidence: [], modelId: "", maxOutputTokens: 0 },
+      /* SCI-1: a minted instruction, so this exercises the disclosure gate rather than the channel check. */
+      { correlationId: "c", tenantId: TENANT.tenantId, systemInstructions: HEBY_MODEL_SYSTEM_INSTRUCTIONS, userPrompt: "p", evidence: [], modelId: "", maxOutputTokens: 0 },
       {
         env: ENV,
         transport: createLiveClaudeTransport({

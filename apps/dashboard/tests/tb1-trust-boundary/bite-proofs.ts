@@ -166,9 +166,9 @@ const MUTATIONS: readonly Mutation[] = [
      */
     label: "T10 an execution authority imported onto the context-assembly path",
     file: TRANSPORT,
-    find: 'import { GROUNDING_CONTEXT_PREFIX } from "@/features/heby-runtime";',
+    find: 'import { GROUNDING_CONTEXT_PREFIX, SUPPLIED_MATERIAL_PREFIX } from "@/features/heby-runtime";',
     replace:
-      'import { GROUNDING_CONTEXT_PREFIX } from "@/features/heby-runtime";\n' +
+      'import { GROUNDING_CONTEXT_PREFIX, SUPPLIED_MATERIAL_PREFIX } from "@/features/heby-runtime";\n' +
       'import { resolveExternalSendEnabled } from "@/features/action-execution/execution-control.server";',
     expect: "the execution authority",
   },

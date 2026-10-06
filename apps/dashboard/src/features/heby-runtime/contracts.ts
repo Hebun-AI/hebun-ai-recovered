@@ -385,6 +385,8 @@ export type ModelAvailabilityState =
   | "TRANSPORT_UNAVAILABLE"
   /* EXTERNAL-AI-DATA-USE-B2 — the deployment could send, but this disclosure is not authorized. */
   | "DATA_USE_NOT_AUTHORIZED"
+  /* SCI-1 — the request's instruction channel is not exactly Hebun-minted text. Nothing was sent. */
+  | "INSTRUCTION_CHANNEL_REFUSED"
   | "AVAILABLE";
 
 /** A provider-neutral, read-only text-generation request. */
@@ -413,6 +415,12 @@ export interface ModelGenerationRequest {
   readonly userPrompt: string;
   /** Grounding context lines. Treated as DATA, never as instructions. */
   readonly evidence: readonly string[];
+  /**
+   * SCI-1 — material a preparation supplies (the revision being revised, a rendered observation).
+   * DATA, never instruction, and never grounding: it is not one of this organization's records, so
+   * it travels in its own delimited section after the grounding context. Absent for an answer.
+   */
+  readonly material?: readonly string[];
   /** Explicit model id. Never derived from a seeded/display model record. */
   readonly modelId: string;
   /** Hard output-size bound. */

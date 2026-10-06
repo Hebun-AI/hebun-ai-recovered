@@ -84,6 +84,13 @@ export function unavailableStatusFor(
         detail:
           "This organization's data is not authorized for this external AI processing, so nothing was sent to the model.",
       });
+    case "INSTRUCTION_CHANNEL_REFUSED":
+      return Object.freeze({
+        available: false,
+        reason: "not-authorized-for-heby",
+        detail:
+          "The request placed content outside Hebun's own instructions in the instruction position, so nothing was sent to the model.",
+      });
     case "AVAILABLE":
       return null;
   }

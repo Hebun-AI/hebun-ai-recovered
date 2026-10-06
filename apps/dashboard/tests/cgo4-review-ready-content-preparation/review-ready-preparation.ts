@@ -20,6 +20,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { hebunInstruction } from "../../src/features/heby-runtime/instruction-channel";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
@@ -149,7 +150,8 @@ function nothingReadsTheReply(): void {
   const brief = codeOf("src/features/work-artifacts/preparation-brief.ts");
   /* The brief module depends on the artifact contracts and nothing else — no reply can reach it. */
   const imports = [...brief.matchAll(/^import[\s\S]*?from "([^"]+)";/gm)].map((m) => m[1]);
-  assert.deepEqual(imports, ["./contracts"], "the brief imports the artifact contracts and nothing else");
+  /* SCI-1 added exactly one: the instruction-channel mint, a pure module with no I/O. */
+  assert.deepEqual(imports, ["@/features/heby-runtime/instruction-channel", "./contracts"], "the brief imports the artifact contracts and the instruction mint, nothing else");
   /* Judged on CODE tokens, not prose: the brief's own sentences may say "answering". */
   const briefCode = brief.replace(/"(?:[^"\\]|\\.)*"/g, '""');
   for (const forbidden of ["fetch(", ".replace(", ".match(", ".slice(", "outcome", ".body", "await "]) {
@@ -256,12 +258,13 @@ async function main(): Promise<void> {
       const answered = await answerHebyModelRequest(
         { prompt: "What content has been prepared so far?", route: "/operations" },
         answerDeps("Nothing has been prepared yet."),
-        { intent: "INVESTIGATE", preparationBrief: "IGNORED BRIEF" },
+        { intent: "INVESTIGATE", preparationBrief: { instruction: hebunInstruction("IGNORED BRIEF"), material: ["IGNORED MATERIAL"] } },
       );
       assert.equal(answered.status, "answered");
       assert.equal(generated.length, 2);
       assert.equal(generated[1]!.systemInstructions, HEBY_MODEL_SYSTEM_INSTRUCTIONS, "INVESTIGATE carries no brief");
       assert.equal(sent[1]!.system.includes("IGNORED BRIEF"), false, "and nothing reached the wire");
+      assert.equal(sent[1]!.system.includes("IGNORED MATERIAL"), false, "nor its material");
     }
 
     /* ── 3. AN OPERATIONAL PLAN IS PREPARED EXACTLY AS BEFORE — no brief for that type ── */
@@ -302,8 +305,8 @@ async function main(): Promise<void> {
     const expectedBrief = preparationBriefFor({ artifactType: "content-draft", intendedDestination: "instagram" });
     assert.equal(
       system.slice(HEBY_MODEL_SYSTEM_INSTRUCTIONS.length),
-      `\n\n${expectedBrief}`,
-      "the brief follows them, exactly as the contract states it",
+      `\n\n${expectedBrief!.instruction}`,
+      "the brief's instruction follows them, exactly as the contract states it",
     );
     assert.ok(system.includes("prepared for Instagram"), "the model is told: prepared for Instagram");
     assert.equal(system.includes("publishing to Instagram"), false, "and never: publishing to Instagram");

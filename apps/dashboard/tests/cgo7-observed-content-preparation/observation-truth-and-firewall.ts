@@ -172,10 +172,10 @@ function nothingIsJudgedRankedOrRecommended(): void {
  * ═════════════════════════════════════════════════════════════════════════ */
 function theReleasedBriefIsUnchangedWithoutAnObservation(): void {
   const released = CONTENT_DRAFT_PREPARATION_BRIEF.join(" ");
-  assert.equal(
+  assert.deepEqual(
     preparationBriefFor({ artifactType: "content-draft" }),
-    released,
-    "with no observation the brief is byte-identical to what CGO-4 released",
+    { instruction: released, material: [] },
+    "with no observation the brief's instruction is byte-identical to what CGO-4 released, and carries no material",
   );
 
   const supplement = observationSupplementFor(OBSERVATION);
@@ -184,8 +184,10 @@ function theReleasedBriefIsUnchangedWithoutAnObservation(): void {
     intendedDestination: "instagram",
     observationSupplement: supplement,
   })!;
-  assert.ok(withObservation.startsWith(released), "the standing brief still comes first, unmodified");
-  assert.ok(withObservation.endsWith(supplement), "the observation is appended last and nothing follows it");
+  assert.ok(withObservation.instruction.startsWith(released), "the standing brief still comes first, unmodified");
+  /* SCI-1 — the observation is MATERIAL (data below the grounding delimiter), never instruction. */
+  assert.deepEqual(withObservation.material, [supplement], "the observation is the brief's only material");
+  assert.equal(withObservation.instruction.includes(supplement), false, "and it never enters the instruction");
 
   /* Only a content draft carries a brief, so only a content draft can carry an observation. */
   for (const type of ["operational-plan", "message-draft"] as const) {
@@ -313,7 +315,8 @@ function workArtifactsStillReachesNoProvider(): void {
 
   /* And the brief module is still what CGO-4 pinned: the artifact contracts and nothing else. */
   const imports = [...codeOf(read(PREPARATION_BRIEF)).matchAll(/from "([^"]+)";/g)].map((m) => m[1]);
-  assert.deepEqual(imports, ["./contracts"], "the brief module still imports the artifact contracts and nothing else");
+  /* SCI-1 added exactly one: the instruction-channel mint, a pure module with no I/O. */
+  assert.deepEqual(imports, ["@/features/heby-runtime/instruction-channel", "./contracts"], "the brief module imports the artifact contracts and the instruction mint, nothing else");
 
   /* The seam gained a field, not a capability. */
   const seam = codeOf(read(PREPARATION_SEAM));

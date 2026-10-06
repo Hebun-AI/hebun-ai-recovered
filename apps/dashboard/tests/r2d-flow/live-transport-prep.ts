@@ -21,6 +21,9 @@ import { ModelConnectivityError, generateHebyModelAnswer } from "../../src/featu
 import { authorizedDisclosure, recordedDisclosure } from "../helpers/authorized-disclosure";
 import type { ClaudeTransportRequest } from "../../src/features/heby-model";
 import type { ModelGenerationRequest } from "../../src/features/heby-runtime";
+import { hebunInstruction } from "../../src/features/heby-runtime/instruction-channel";
+/* SCI-1 — a live-marked egress now requires a minted instruction; this suite tests the gate behind it. */
+const SCI1_SYS = hebunInstruction("sys");
 
 /*
  * R2G — these proofs are about the TRANSPORT, so each construction is given its OWN isolated
@@ -124,7 +127,7 @@ async function main(): Promise<void> {
     const s = scriptedFetch(200, ANTHROPIC_OK);
     const transport = createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: isolatedBudget(), fetchImpl: s.fetchImpl });
     const request: ModelGenerationRequest = {
-      correlationId: "corr-live", tenantId: "t", systemInstructions: "sys", userPrompt: "Ping", evidence: [],
+      correlationId: "corr-live", tenantId: "t", systemInstructions: SCI1_SYS, userPrompt: "Ping", evidence: [],
       modelId: "ignored", maxOutputTokens: 100,
     };
     const outcome = await generateHebyModelAnswer(request, {

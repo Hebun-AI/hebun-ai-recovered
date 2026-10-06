@@ -9,7 +9,7 @@
  */
 
 import type { ModelGenerationRequest, ModelGenerationResult } from "@/features/heby-runtime";
-import { GROUNDING_CONTEXT_PREFIX } from "@/features/heby-runtime";
+import { GROUNDING_CONTEXT_PREFIX, SUPPLIED_MATERIAL_PREFIX } from "@/features/heby-runtime";
 import { ModelConnectivityError, toSafeConnectivityError } from "./model-error";
 import {
   unavailableClaudeTransport,
@@ -45,12 +45,15 @@ export interface ClaudeModelClientDeps {
  * where the operator's own words go.
  */
 function translate(request: ModelGenerationRequest): ClaudeTransportRequest {
-  const system =
+  const grounded =
     request.evidence.length > 0
       ? `${request.systemInstructions}\n\n${GROUNDING_CONTEXT_PREFIX}\n${request.evidence
           .map((line, index) => `[${index + 1}] ${line}`)
           .join("\n")}`
       : request.systemInstructions;
+  /* SCI-1 — preparation material: its own delimited section, AFTER Hebun's instruction and grounding. */
+  const material = request.material ?? [];
+  const system = material.length > 0 ? `${grounded}\n\n${SUPPLIED_MATERIAL_PREFIX}\n${material.join("\n\n")}` : grounded;
 
   // Bounded recent history (oldest→newest) is prepended as prior conversational turns, then the
   // current user request is the final turn. History is DATA for continuity only — the system

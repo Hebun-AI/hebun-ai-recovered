@@ -34,6 +34,9 @@ import { generateHebyModelAnswer } from "../../src/features/heby-model";
 import { createLiveClaudeTransport, type FetchLike } from "../../src/features/heby-model-live/claude-http-transport.server";
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import type { ModelGenerationRequest } from "../../src/features/heby-runtime/contracts";
+import { hebunInstruction } from "../../src/features/heby-runtime/instruction-channel";
+/* SCI-1 — a live-marked egress now requires a minted instruction; this suite tests the gate behind it. */
+const SCI1_SYS = hebunInstruction("sys");
 
 const REVIEWED_RECORD = "docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md";
 const ATTESTED = "claude-haiku-4-5-20251001";
@@ -135,7 +138,7 @@ async function main(): Promise<void> {
     ): Promise<{ fetched: number; state: string }> {
       const before = fetches;
       const request: ModelGenerationRequest = {
-        correlationId, tenantId: s.tenantId, systemInstructions: "sys", userPrompt: SECRET_PROMPT, evidence: ["Ayşe Yılmaz asked about a refund"], modelId: "", maxOutputTokens: 0,
+        correlationId, tenantId: s.tenantId, systemInstructions: SCI1_SYS, userPrompt: SECRET_PROMPT, evidence: ["Ayşe Yılmaz asked about a refund"], modelId: "", maxOutputTokens: 0,
       };
       const outcome = await generateHebyModelAnswer(request, {
         env: env(model),

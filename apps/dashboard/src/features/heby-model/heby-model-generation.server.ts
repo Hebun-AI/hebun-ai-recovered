@@ -29,6 +29,7 @@ import { createClaudeModelClient } from "./claude-model-client";
 import type { ClaudeTransport } from "./claude-transport";
 import { ModelConnectivityError } from "./model-error";
 import { isAnthropicMessagesEgress } from "@/features/heby-model-live/claude-http-transport.server";
+import { isHebunInstruction } from "@/features/heby-runtime/instruction-channel";
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import {
   authorizeExternalAiDisclosure,
@@ -125,6 +126,15 @@ export async function generateHebyModelAnswer(
    */
   /* ponytail: keyed on the live transport's egress mark; a wrapper that drops the mark would skip the gate — wrap inside the transport, never around it. */
   if (isAnthropicMessagesEgress(deps.transport)) {
+    /*
+     * SCI-1 — INSTRUCTION AUTHORITY IS HEBUN'S ALONE. The instruction channel must be exactly a value
+     * Hebun minted (`instruction-channel.ts`), checked by identity before EAI is even asked: data that
+     * EAI would authorize for disclosure is still not authorized as instruction. A fake transport
+     * sends nothing and is not gated, exactly as the disclosure gate below.
+     */
+    if (!isHebunInstruction(request.systemInstructions)) {
+      return unavailable("INSTRUCTION_CHANNEL_REFUSED");
+    }
     const declaration = deps.disclosure ?? null;
     const tenantMismatch =
       declaration !== null && request.tenantId !== undefined && request.tenantId !== declaration.tenantId;

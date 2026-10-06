@@ -94,6 +94,7 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
     TRANSPORT_UNAVAILABLE: "Blocked — no live transport selected",
     /* Per request, never a deployment state: present only because the vocabulary is shared. */
     DATA_USE_NOT_AUTHORIZED: "Blocked — external AI data use not authorized",
+    INSTRUCTION_CHANNEL_REFUSED: "Blocked — instruction channel carried non-Hebun content",
   };
   const dispatchTone: Tone = view.dispatch === "permitted" ? "good" : "warn";
   const DISPATCH_LABEL: Record<typeof view.dispatch, string> = {
