@@ -111,12 +111,13 @@ function Disclosure({
   );
 }
 
-export function UserBubble({ content }: { content: string }) {
+export function UserBubble({ content, action }: { content: string; action?: React.ReactNode }) {
   return (
-    <li data-heby-role="user" className={`flex justify-end ${ENTER}`}>
+    <li data-heby-role="user" className={`flex flex-col items-end gap-1.5 ${ENTER}`}>
       <div className="max-w-[80%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md border border-border-strong/60 bg-surface-raised px-4 py-2.5 text-[0.95rem] leading-6 text-fg">
         {content}
       </div>
+      {action ?? null}
     </li>
   );
 }
@@ -273,17 +274,23 @@ export function HebyTurnList({
   turns,
   pending,
   asking,
+  userTurnAction,
 }: {
   readonly turns: readonly HebyTurnView[];
   /** In-flight user text (optimistic presentation only; never authoritative). */
   readonly pending: string | null;
   readonly asking: boolean;
+  /**
+   * WF-1 — an optional control rendered under a SETTLED human turn, handed that turn's exact text.
+   * Supplied by the container; this list stays pure and reaches no server action itself.
+   */
+  readonly userTurnAction?: (content: string) => React.ReactNode;
 }) {
   return (
     <ul aria-label="Conversation" className="flex flex-col gap-7">
       {turns.map((turn) =>
         turn.role === "user" ? (
-          <UserBubble key={turn.key} content={turn.content} />
+          <UserBubble key={turn.key} content={turn.content} action={userTurnAction?.(turn.content)} />
         ) : (
           <HebyBubble key={turn.key} turn={turn} />
         ),

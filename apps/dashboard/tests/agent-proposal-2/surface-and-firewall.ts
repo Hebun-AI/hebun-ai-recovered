@@ -334,14 +334,20 @@ function noSurfaceProliferation(): void {
   assert.ok(queue.includes("buildQueue(data, requests, permits)"), "the surface queues the pending requests it was given");
   assert.ok(queue.includes("<RequestCard"), "and decides each one through the released request card");
 
-  /* Exactly one component renders the pending queue, and exactly one asks for a proposal. */
+  /*
+   * Exactly one component renders the pending queue, and every asker goes through ONE action.
+   *
+   * WF-1 added a second, named asker on purpose: Heby's origination affordance, under a human's own
+   * message. It calls the SAME released action with the message as written, after an explicit
+   * confirmation — no second request writer, no second origination path (tests/wf1-origination-recommendation).
+   */
   const askers = collect("src").filter((f) =>
     codeOf(read(f)).includes("originateHebyActionProposalAction("),
   );
   assert.deepEqual(
     askers.sort(),
-    [PANEL, HEBY_ACTIONS].sort(),
-    "one panel asks, through one action — no second entry point",
+    [PANEL, HEBY_ACTIONS, "src/components/layout/heby/heby-origination-affordance.tsx"].sort(),
+    "two named surfaces ask, through one action — no other entry point",
   );
 
   /* No conversation UI was duplicated: the panel holds no thread, history or message list. */

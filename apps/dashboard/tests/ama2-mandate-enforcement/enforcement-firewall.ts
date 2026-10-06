@@ -42,6 +42,12 @@ const read = (p: string): string => readFileSync(path.join(ROOT, p), "utf8");
 const SEAM = "src/features/action-authorization/record-action-request.server.ts";
 /* AMA-3. The product surface that RENDERS a mandate. It reads one; it enforces nothing. */
 const PRODUCT_SURFACE = "src/app/(dashboard)/agents/page.tsx";
+/*
+ * WF-1. A READ, like the product surface: it asks the shared ceiling whether record-work is admitted
+ * so Heby can decide whether to OFFER origination. It enforces nothing — the proposal writer still
+ * applies the ceiling when the human confirms — and it writes nothing (tests/wf1-origination-recommendation).
+ */
+const WF1_AVAILABILITY = "src/features/origination-availability/read-origination-availability.server.ts";
 const CONTRACTS = "src/features/action-authorization/contracts.ts";
 const ORIGINATION_CONTRACTS = "src/features/agent-origination/contracts.ts";
 const MANDATE_FEATURE = "src/features/agent-mandate";
@@ -113,8 +119,8 @@ function exactlyOneEnforcementSeam(): void {
    */
   assert.deepEqual(
     consumers,
-    [PRODUCT_SURFACE, SEAM, MACHINE_EXECUTOR, STANDING_ISSUER].sort(),
-    "exactly FOUR modules outside the mandate authority read a mandate: the product surface renders one; the proposal writer, the standing issuer and the machine executor enforce the same one",
+    [PRODUCT_SURFACE, SEAM, MACHINE_EXECUTOR, STANDING_ISSUER, WF1_AVAILABILITY].sort(),
+    "exactly FIVE modules outside the mandate authority read a mandate: the product surface renders one; the proposal writer, the standing issuer and the machine executor enforce the same one; WF-1's availability projection reads one to decide only whether to OFFER origination",
   );
 
   /*

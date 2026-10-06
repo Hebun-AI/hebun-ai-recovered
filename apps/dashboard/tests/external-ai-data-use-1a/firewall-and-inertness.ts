@@ -83,9 +83,16 @@ assert.deepEqual(
     "src/features/heby-answer/model-answer.server.ts",
     "src/features/heby-answer/model-facing-projection.ts",
     "src/features/heby-model/heby-model-generation.server.ts",
+    "src/features/origination-availability/read-origination-availability.server.ts",
   ],
-  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration and the decision's audit evidence reach the authority",
+  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence and WF-1's read-only availability projection reach the authority",
 );
+/*
+ * WF-1 — the availability projection asks the gate for its decision and READS it; it writes no
+ * evidence and dispatches nothing. Its whole import graph is pinned writer-free in
+ * tests/wf1-origination-recommendation/firewall-and-surface.ts. It is not an origination module:
+ * `agent-origination/` stays forbidden from importing this authority, below.
+ */
 /* APF-5 — the audit writer records evidence; it imports the evidence TYPE and nothing that decides. */
 assert.deepEqual(
   [...read("src/features/governance-audit/external-ai-disclosure-audit.server.ts").matchAll(/from\s+["'](@\/features\/external-ai-data-use\/[^"']+)["']/g)].map((m) => m[1]),

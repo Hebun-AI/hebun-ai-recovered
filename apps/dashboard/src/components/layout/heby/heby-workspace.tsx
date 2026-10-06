@@ -78,6 +78,8 @@ export interface HebyWorkspaceProps {
   /** The authority boundary Heby operates under on this context. */
   readonly authorityLabel: string;
   readonly turns: readonly HebyTurnView[];
+  /** WF-1 — optional control under each settled human turn; supplied by the client container. */
+  readonly userTurnAction?: (content: string) => React.ReactNode;
   /** In-flight user text (optimistic presentation only; never authoritative). */
   readonly pending: string | null;
   /** A MODEL request is in flight. Drives the presence field and the responding turn. */
@@ -448,7 +450,7 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
               </div>
             ) : (
               <div className="mx-auto flex w-full max-w-[52rem] flex-1 flex-col gap-6 px-5 py-6 sm:px-8">
-                <HebyTurnList turns={props.turns} pending={props.pending} asking={props.asking} />
+                <HebyTurnList turns={props.turns} pending={props.pending} asking={props.asking} userTurnAction={props.userTurnAction} />
               </div>
             )}
           </div>

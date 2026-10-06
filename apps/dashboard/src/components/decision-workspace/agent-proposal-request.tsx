@@ -45,7 +45,7 @@ const MIN_GOAL = 12;
 const MAX_GOAL = 2000;
 
 /** One honest sentence per outcome. Nothing here implies an act occurred. */
-const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
+export const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
   "no-action-proposed":
     "Heby considered the goal and proposed no action. Nothing was filed.",
   "no-candidates":
@@ -91,7 +91,7 @@ const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
  * `proposal-refused`, and rendering it as "the references could not be filed" would be wrong in a
  * way a Director would act on: nothing is broken, the exact proposal is already in the queue below.
  */
-const ALREADY_PENDING_DETAIL = "already-pending";
+export const ALREADY_PENDING_DETAIL = "already-pending";
 const ALREADY_PENDING_WORDING =
   "Heby proposed exactly this action already, and it is still waiting for your review below. Nothing was filed again.";
 
@@ -102,7 +102,7 @@ const ALREADY_PENDING_WORDING =
  * sending an external communication are different consequences, and a Director deciding below
  * should read which one they are about to consider before they scroll.
  */
-const PROPOSED_KIND_WORDING: Readonly<Record<AgentOriginableActionKind, string>> = {
+export const PROPOSED_KIND_WORDING: Readonly<Record<AgentOriginableActionKind, string>> = {
   send: "sending an external communication",
   "record-work": "recording organizational work",
 };

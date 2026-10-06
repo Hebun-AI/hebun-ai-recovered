@@ -518,10 +518,12 @@ function noProposalEnforcementExists(): void {
       path.join("src", "features", "governed-machine-execution", "execute-record-work-as-machine.server.ts"),
       /* AMA-3. Heby's answer flow, which imports the mandate authority's own read projection. */
       path.join("src", "features", "heby-answer", "model-answer.server.ts"),
+      /* WF-1. The read-only availability projection behind Heby's origination offer. */
+      path.join("src", "features", "origination-availability", "read-origination-availability.server.ts"),
       /* APF-1. Standing issuance re-reads the effective mandate before it mints a permit. */
       path.join("src", "features", "standing-mutation-authority", "issue-permit-under-standing-authorization.server.ts"),
     ],
-    "ten modules know a mandate exists, and each is named: the schema barrel, the audit sibling, the Governance decision writer, the THREE enforcers that apply the one shared ceiling, THREE product files and ONE grounding consumer",
+    "eleven modules know a mandate exists, and each is named: the schema barrel, the audit sibling, the Governance decision writer, the THREE enforcers that apply the one shared ceiling, THREE product files, ONE grounding consumer and WF-1's read-only availability projection",
   );
 
   /*
