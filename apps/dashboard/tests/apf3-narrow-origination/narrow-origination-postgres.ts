@@ -38,6 +38,7 @@ import { appendProcessorAttestation, parseAttestationRecord } from "../../script
 import { nextRevisionScopes } from "../../scripts/lib/tenant-data-use-scopes";
 import { readEffectiveTenantExternalAiDataUse } from "../../src/features/external-ai-data-use/read-tenant-external-ai-data-use.server";
 import { generateHebyModelAnswer } from "../../src/features/heby-model";
+import { recordExternalAiDisclosureDecision } from "../../src/features/governance-audit/external-ai-disclosure-audit.server";
 import { createLiveClaudeTransport, type FetchLike } from "../../src/features/heby-model-live/claude-http-transport.server";
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import type { ModelGenerationRequest } from "../../src/features/heby-runtime/contracts";
@@ -48,7 +49,7 @@ const REVIEWED_RECORD = "docs/product-vision/runtime/hebun-external-ai-data-use-
 const ENV = {
   HEBUN_MODEL_CONNECTIVITY_ENABLED: "true",
   HEBUN_MODEL_PROVIDER: "claude",
-  HEBUN_MODEL_ID: "claude-test-model",
+  HEBUN_MODEL_ID: "claude-haiku-4-5-20251001",
   HEBUN_MODEL_CREDENTIAL: "sk-fake",
   HEBUN_MODEL_MAX_OUTPUT_TOKENS: "100",
 };
@@ -197,7 +198,8 @@ async function main(): Promise<void> {
           return generateHebyModelAnswer(request, {
             ...generationDeps,
             resolveOperatorEnabled: async () => true,
-            authorizeDisclosure: (d, o) => authorizeExternalAiDisclosure(d, o, deps),
+            authorizeDisclosure: (d, o, m) => authorizeExternalAiDisclosure(d, o, m, deps),
+            recordDisclosure: (e) => recordExternalAiDisclosureDecision(e, deps),
           });
         },
         agentIdentity: deps,
@@ -218,7 +220,7 @@ async function main(): Promise<void> {
     const { request, disclosure } = captured[0]!;
     assert.deepEqual(
       disclosure,
-      { tenantId: org.tenantId, purpose: "agent-origination", dataClasses: ["conversation", "organization"] },
+      { tenantId: org.tenantId, actorUserId: org.userId, purpose: "agent-origination", dataClasses: ["conversation", "organization"] },
       "the declaration is exactly what was rendered: conversation + organization",
     );
     assert.equal(request.userPrompt, GOAL, "the goal is the only conversation content");
@@ -238,7 +240,7 @@ async function main(): Promise<void> {
      * Which authority refused, read from the gate itself: before the APF-3 ALLOW the platform cell is
      * unknown; after it, the platform allows and the TENANT (authorized for assistance only) refuses.
      */
-    const gate = await authorizeExternalAiDisclosure(disclosure!, true, deps);
+    const gate = await authorizeExternalAiDisclosure(disclosure!, true, "claude-haiku-4-5-20251001", deps);
     assert.ok(
       (gate.disposition === "platform-unknown" && gate.components.platform === "unknown") ||
         (gate.disposition === "tenant-not-authorized" && gate.components.platform === "allowed" && gate.components.tenant === "active"),
@@ -308,7 +310,7 @@ async function main(): Promise<void> {
 
     /* The gate, directly: the narrow declaration passes; anything wider, other or elsewhere does not. */
     const decide = (purpose: string, dataClasses: string[], tenantId = org.tenantId) =>
-      authorizeExternalAiDisclosure({ tenantId, purpose, dataClasses } as never, true, deps).then((d) => d.disposition);
+      authorizeExternalAiDisclosure({ tenantId, actorUserId: org.userId, purpose, dataClasses } as never, true, "claude-haiku-4-5-20251001", deps).then((d) => d.disposition);
     assert.equal(await decide("agent-origination", ["conversation", "organization"]), "authorized");
     for (const extra of ["external-recipient", "work-artifact", "provider-observation", "knowledge"]) {
       assert.notEqual(await decide("agent-origination", ["conversation", "organization", extra]), "authorized", `origination + ${extra} fails closed`);
@@ -317,7 +319,7 @@ async function main(): Promise<void> {
     assert.notEqual(await decide("agent-origination", ["conversation", "organization"], "99999999-9999-4999-8999-999999999999"), "authorized", "another organization fails closed");
     assert.equal(await decide("agent-origination", ["conversation", "organization"]), "authorized");
     assert.notEqual(
-      (await authorizeExternalAiDisclosure({ tenantId: org.tenantId, purpose: "agent-origination", dataClasses: ["conversation", "organization"] }, false, deps)).disposition,
+      (await authorizeExternalAiDisclosure({ tenantId: org.tenantId, actorUserId: org.userId, purpose: "agent-origination", dataClasses: ["conversation", "organization"] }, false, "claude-haiku-4-5-20251001", deps)).disposition,
       "authorized",
       "the R2E operator control off fails closed",
     );
@@ -332,6 +334,19 @@ async function main(): Promise<void> {
     assert.equal(fetches, 1, "exactly one request reached the network seam");
     assert.equal(authorized.status, "proposed", JSON.stringify(authorized));
     assert.deepEqual(captured.at(-1)!.disclosure?.dataClasses, ["conversation", "organization"], "the same narrow declaration");
+    /* APF-5 — the invocation and its authorization evidence join on one id; no constant correlation. */
+    const invocationId = (await setup.query(`select id from heby_origination_invocations order by created_at desc limit 1`)).rows[0].id as string;
+    assert.equal(captured.at(-1)!.request.correlationId, invocationId, "the request's correlation is the invocation id");
+    const evidence = (
+      await setup.query<{ action: string; metadata: Record<string, unknown> }>(
+        `select action, metadata from audit_log where source = 'external-ai-data-use' and correlation_id = $1`,
+        [invocationId],
+      )
+    ).rows;
+    assert.equal(evidence.length, 1, "exactly one decision record joins this invocation");
+    assert.equal(evidence[0].action, "external-ai.disclosure.authorized");
+    assert.equal(evidence[0].metadata.purpose, "agent-origination");
+    assert.deepEqual(evidence[0].metadata.declaredDataClasses, ["conversation", "organization"]);
     const filed = (
       await setup.query(`select status, action_kind, proposed_by_actor_type from heby_action_requests order by created_at desc limit 1`)
     ).rows[0];

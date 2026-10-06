@@ -32,9 +32,14 @@ import { isAnthropicMessagesEgress } from "@/features/heby-model-live/claude-htt
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import {
   authorizeExternalAiDisclosure,
+  externalAiDisclosureEvidence,
   type AuthorizeExternalAiDisclosure,
   type ExternalAiDisclosureDeclaration,
 } from "@/features/external-ai-data-use/authorize-external-ai-disclosure.server";
+import {
+  recordExternalAiDisclosureDecision,
+  type RecordExternalAiDisclosureDecision,
+} from "@/features/governance-audit/external-ai-disclosure-audit.server";
 
 export interface HebyModelGenerationDeps {
   /** Config source. Defaults to process.env (server-only). */
@@ -56,6 +61,8 @@ export interface HebyModelGenerationDeps {
   readonly authorizeDisclosure?: AuthorizeExternalAiDisclosure;
   /** Injectable for tests only; defaults to the R2E Claude control's own fail-closed reader. */
   readonly resolveOperatorEnabled?: () => Promise<boolean>;
+  /** APF-5. Injectable for tests only; defaults to the released audit writer. */
+  readonly recordDisclosure?: RecordExternalAiDisclosureDecision;
 }
 
 export type HebyModelOutcome =
@@ -121,13 +128,31 @@ export async function generateHebyModelAnswer(
     const declaration = deps.disclosure ?? null;
     const tenantMismatch =
       declaration !== null && request.tenantId !== undefined && request.tenantId !== declaration.tenantId;
+    /*
+     * APF-5 — THE MODEL CHECKED IS THE MODEL SENT. `config.modelId` was resolved once, above; the
+     * gate is handed it, and `client.generate` below sends the same value. Nothing re-reads it.
+     */
+    const modelId = config.modelId!;
     const decision = tenantMismatch
       ? null
-      : await (deps.authorizeDisclosure ?? ((d, o) => authorizeExternalAiDisclosure(d, o)))(
+      : await (deps.authorizeDisclosure ?? ((d, o, m) => authorizeExternalAiDisclosure(d, o, m)))(
           declaration,
           await (deps.resolveOperatorEnabled ?? resolveClaudeDirectorEnabled)().catch(() => null),
+          modelId,
         );
-    if (decision?.disposition !== "authorized") {
+    /*
+     * APF-5 — DECISION → EVIDENCE → TRANSPORT. The decision is recorded as the authority made it. An
+     * authorized decision that cannot be recorded is not sent. A refusal stays a refusal whether or
+     * not its record lands (best effort, as no act follows it).
+     */
+    const record = deps.recordDisclosure ?? ((e) => recordExternalAiDisclosureDecision(e));
+    const evidence =
+      decision && declaration ? externalAiDisclosureEvidence(declaration, decision, modelId, request.correlationId) : null;
+    if (decision?.disposition !== "authorized" || !evidence) {
+      if (evidence) await record(evidence).catch(() => false);
+      return unavailable("DATA_USE_NOT_AUTHORIZED");
+    }
+    if (!(await record(evidence).catch(() => false))) {
       return unavailable("DATA_USE_NOT_AUTHORIZED");
     }
   }

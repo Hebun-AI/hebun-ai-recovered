@@ -6,74 +6,50 @@
  * Disposable database, synthetic RELEVANCE-0 corpus, frozen gold labels. Writes results to --out
  * (outside the repository) and nothing else.
  *
- * MODEL JUDGE. The transport comes from the repository's one selection authority,
- * `selectModelTransport`, in `live` mode with the developer credential from `apps/dashboard/.env.local`
- * (only ANTHROPIC_API_KEY and HEBUN_MODEL_ID are read; no other file, no production env). One fresh
- * transport per call, as runtime does; the per-process live-call budget stays the existing
- * authority's (set to its documented maximum, 100). The run refuses to start if its planned calls
- * exceed that budget.
+ * MODEL JUDGE — RETIRED (APF-5). It reached Anthropic outside the governed generator; `--judge model`
+ * now refuses before reading any credential. The recorded RELEVANCE-1/2 results stand as measured.
  *
  * SYNTHETIC-ONLY GUARD. Every request is checked BEFORE it is sent: the system text must be the
  * judge instruction, the task must be a corpus task, and every candidate line must be the bounded
  * text of a corpus fact. Anything else aborts the call before the transport is touched.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../../tests/helpers/disposable-postgres";
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { createDurableKnowledgeRepository } from "../../src/features/knowledge/durable-knowledge-repository.server";
-import { selectModelTransport } from "../../src/features/heby-model/model-transport-selection.server";
 import type { RelevanceJudge } from "../../src/features/knowledge-retrieval/relevance";
 import { QUERIES } from "../relevance-benchmark/corpus";
 import { LEXICAL_ORDER_JUDGE, seedCorpus } from "../relevance-benchmark/engine";
-import { createModelRelevanceJudge, type ModelJudgeCall } from "./model-judge";
-import { assertSyntheticRequest } from "./synthetic-guard";
+import type { ModelJudgeCall } from "./model-judge";
 import { measureStrategy, type Strategy, type StrategyRow } from "./strategies";
 
-const DEV_ENV_FILE = "/Users/senolsevim/Developer/Hebun AI/apps/dashboard/.env.local";
-const PROCESS_LIVE_CALL_BUDGET = 100;
 
 function arg(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`);
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
-function readDevValue(raw: string, key: string): string | undefined {
-  const match = new RegExp(`^\\s*${key}\\s*=\\s*(.+?)\\s*$`, "m").exec(raw);
-  return match ? match[1]!.replace(/^["']|["']$/g, "") : undefined;
-}
 
 async function main(): Promise<void> {
   const strategy: Strategy = arg("strategy") === "B" ? "B-bounded-eligible" : "A-lexical-candidates";
   const judgeKind = arg("judge") === "model" ? "model" : "lexical";
   const out = arg("out");
-  const parseMode = arg("parse") === "leading-json" ? "leading-json" : "strict";
   if (!out) throw new Error("--out <file.json> is required");
 
   const calls: ModelJudgeCall[] = [];
-  let guarded = 0;
-  let judge: RelevanceJudge = LEXICAL_ORDER_JUDGE;
-  let model: string | null = null;
+  const guarded = 0;
+  const judge: RelevanceJudge = LEXICAL_ORDER_JUDGE;
+  const model: string | null = null;
 
   if (judgeKind === "model") {
-    const raw = readFileSync(DEV_ENV_FILE, "utf8");
-    const apiKey = readDevValue(raw, "ANTHROPIC_API_KEY");
-    model = readDevValue(raw, "HEBUN_MODEL_ID") ?? null;
-    if (!apiKey || !model) throw new Error("the developer model configuration is incomplete; nothing was sent");
-    process.env.HEBUN_MODEL_LIVE_CALL_BUDGET = String(PROCESS_LIVE_CALL_BUDGET);
-    const selectionEnv = { HEBUN_MODEL_TRANSPORT: "live", ANTHROPIC_API_KEY: apiKey };
-    const planned = QUERIES.length * 2;
-    if (planned > PROCESS_LIVE_CALL_BUDGET) throw new Error(`planned ${planned} calls exceed the process budget`);
-    judge = createModelRelevanceJudge({
-      model,
-      parseMode,
-      transport: () => selectModelTransport(selectionEnv).transport,
-      onRequest: (request) => {
-        assertSyntheticRequest(request);
-        guarded += 1;
-      },
-      onCall: (call) => calls.push(call),
-    });
+    /*
+     * APF-5 — RETIRED. The live model judge reached Anthropic through `transport.send`, outside the
+     * generator and its External AI Data-Use gate. Every egress now passes that boundary, and no
+     * relevance-selection permission exists, so the measurement stays where RELEVANCE-1/2 recorded it.
+     * `model-judge.ts` remains for its fake-transport tests; nothing here selects a transport.
+     */
+    throw new Error("the live model judge is retired (APF-5): external AI egress must pass the governed generator; nothing was sent");
   }
 
   const harness = createDisposablePostgresHarness("relevance1exp");

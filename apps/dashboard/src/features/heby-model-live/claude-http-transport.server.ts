@@ -23,13 +23,18 @@
  * `send()` would call out.
  */
 
-import {
-  ModelConnectivityError,
-  type ClaudeTransport,
-  type ClaudeTransportContentBlock,
-  type ClaudeTransportRequest,
-  type ClaudeTransportResponse,
-} from "@/features/heby-model";
+/*
+ * APF-5 — the owning submodules, never the barrel: the barrel re-exports the generator, which
+ * imports this transport, and a read-only projection that only selects a transport must not
+ * reach the generator's disclosure-evidence writer through it.
+ */
+import { ModelConnectivityError } from "@/features/heby-model/model-error";
+import type {
+  ClaudeTransport,
+  ClaudeTransportContentBlock,
+  ClaudeTransportRequest,
+  ClaudeTransportResponse,
+} from "@/features/heby-model/claude-transport";
 /*
  * Direct file import, not the package index: `heby-model`'s index re-exports the transport
  * selector, which imports THIS module, so reaching the ceiling through the index would deepen an

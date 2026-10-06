@@ -155,7 +155,7 @@ async function main(): Promise<void> {
       assert.equal(effective.status, "absent");
       for (const dataClass of ["conversation", "knowledge", "work-artifact"] as const) {
         const decision = composeExternalAiDisclosure({
-          request: { serviceScope: "anthropic/messages", purpose: "assistance", requiredDataClasses: [dataClass] },
+          request: { serviceScope: "anthropic/messages", purpose: "assistance", requiredDataClasses: [dataClass], modelId: "claude-haiku-4-5-20251001" },
           policy: RECORDED_PLATFORM_DISCLOSURE_POLICY,
           accountRef: RECORD.accountRef,
           attestation: latest,

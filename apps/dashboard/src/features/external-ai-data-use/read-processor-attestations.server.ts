@@ -15,7 +15,7 @@ import type { ControlPlaneDatabase } from "@/db/client.server";
 import { processorAttestations } from "@/db/schema/external-ai-data-use";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import type { AttestationTreatmentView } from "./attestation-change";
-import type { AttestationInForce } from "./compose-external-ai-disclosure";
+import type { AttestationInForce, LatestAttestation } from "./compose-external-ai-disclosure";
 import {
   CONTRACT_SURFACES,
   IDENTITY_STATUSES,
@@ -36,7 +36,7 @@ export interface ProcessorAttestationReadDeps {
 }
 
 export type ProcessorAttestationReadResult =
-  | { readonly status: "read"; readonly latest: AttestationInForce }
+  | { readonly status: "read"; readonly latest: LatestAttestation }
   | { readonly status: "absent" }
   | { readonly status: "unavailable" };
 
@@ -60,6 +60,7 @@ const SELECTION = {
   zdr: processorAttestations.zdr,
   modelTreatmentClass: processorAttestations.modelTreatmentClass,
   attestationRevision: processorAttestations.attestationRevision,
+  modelIds: processorAttestations.modelIds,
 };
 
 type SelectedRow = {
@@ -74,6 +75,7 @@ type SelectedRow = {
   zdr: string;
   modelTreatmentClass: string;
   attestationRevision: number;
+  modelIds?: string[];
 };
 
 const within = <T extends string>(list: readonly T[], value: string): value is T => (list as readonly string[]).includes(value);
@@ -124,7 +126,9 @@ export async function readLatestProcessorAttestation(
     const row = rows[0];
     if (!row) return { status: "absent" };
     const view = toAttestationView(row as SelectedRow);
-    return view ? { status: "read", latest: view } : { status: "unavailable" };
+    /* APF-5. An attestation that names no model covers none — unusable, never "any model". */
+    if (!view || !Array.isArray(row.modelIds) || row.modelIds.length === 0) return { status: "unavailable" };
+    return { status: "read", latest: { ...view, modelIds: [...row.modelIds], attestationRevision: row.attestationRevision } };
   } catch {
     return { status: "unavailable" };
   }

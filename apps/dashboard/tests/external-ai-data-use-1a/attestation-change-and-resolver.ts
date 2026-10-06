@@ -107,10 +107,11 @@ const base: DisclosureComposeInput = {
     purpose: "assistance",
     requiredDataClasses: ["conversation"],
     optionalDataClasses: ["knowledge", "organization", "work-artifact"],
+    modelId: "claude-test-model",
   },
   policy: allowingPolicy,
   accountRef: "org-test-account",
-  attestation: { status: "read", latest: { ...A, state: "active" } },
+  attestation: { status: "read", latest: { ...A, state: "active", modelIds: ["claude-test-model"], attestationRevision: 1 } },
   tenant: {
     status: "read",
     effective: {
@@ -191,14 +192,14 @@ assert.equal(
 assert.equal(composeExternalAiDisclosure({ ...base, accountRef: null }).disposition, "platform-unknown");
 assert.equal(composeExternalAiDisclosure({ ...base, attestation: { status: "absent" } }).disposition, "platform-unknown");
 assert.equal(
-  composeExternalAiDisclosure({ ...base, attestation: { status: "read", latest: { ...A, state: "withdrawn" } } })
+  composeExternalAiDisclosure({ ...base, attestation: { status: "read", latest: { ...A, state: "withdrawn", modelIds: ["claude-test-model"], attestationRevision: 1 } } })
     .disposition,
   "platform-unknown",
 );
 assert.equal(
   composeExternalAiDisclosure({
     ...base,
-    attestation: { status: "read", latest: { ...next({ training: "provider-default" }), state: "active" } },
+    attestation: { status: "read", latest: { ...next({ training: "provider-default" }), state: "active", modelIds: ["claude-test-model"], attestationRevision: 1 } },
   }).disposition,
   "platform-denied",
   "an attestation outside the cell's bounds is a platform denial, whatever the tenant said",
@@ -217,7 +218,7 @@ assert.equal(
     ...base,
     attestation: {
       status: "read",
-      latest: { ...next({ contractSurface: "anthropic-commercial-terms", modelTreatmentClass: "anthropic-covered-30d" }), state: "active" },
+      latest: { ...next({ contractSurface: "anthropic-commercial-terms", modelTreatmentClass: "anthropic-covered-30d" }), state: "active", modelIds: ["claude-test-model"], attestationRevision: 1 },
     },
   }).disposition,
   "authorization-stale",
@@ -229,7 +230,7 @@ assert.equal(
       deniedServiceScopes: [],
       allowedCells: allowingPolicy.allowedCells.map((c) => ({ ...c, bounds: { ...bounds, maxRetention: "extended" } })),
     },
-    attestation: { status: "read", latest: { ...next({ retentionClass: "extended" }), state: "active" } },
+    attestation: { status: "read", latest: { ...next({ retentionClass: "extended" }), state: "active", modelIds: ["claude-test-model"], attestationRevision: 1 } },
   }).disposition,
   "authorization-stale",
   "a widening the platform would accept is still not something this tenant agreed to",
@@ -237,7 +238,7 @@ assert.equal(
 assert.equal(
   composeExternalAiDisclosure({
     ...base,
-    attestation: { status: "read", latest: { ...next({ zdr: "enabled" }), state: "active" } },
+    attestation: { status: "read", latest: { ...next({ zdr: "enabled" }), state: "active", modelIds: ["claude-test-model"], attestationRevision: 1 } },
   }).disposition,
   "authorized",
   "a narrowing preserves the tenant's authorization",

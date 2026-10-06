@@ -298,6 +298,8 @@ function main(): void {
        */
       "src/features/governance-audit/agent-mandate-audit.server.ts",
       "src/features/governance-audit/departmental-placement-audit.server.ts",
+      /* APF-5 — evidence of an External AI disclosure decision, recorded as the authority made it. */
+      "src/features/governance-audit/external-ai-disclosure-audit.server.ts",
       "src/features/governance-audit/genesis-nomination-audit.server.ts",
       "src/features/governance-audit/governance-decision-audit.server.ts",
       "src/features/governance-audit/human-onboarding-audit.server.ts",

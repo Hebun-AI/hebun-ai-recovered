@@ -32,6 +32,7 @@ import {
 import type { DataClass, Purpose } from "../../src/features/external-ai-data-use/contracts";
 import { appendProcessorAttestation, parseAttestationRecord, readLineageHead } from "../../scripts/lib/processor-attestation";
 import { generateHebyModelAnswer } from "../../src/features/heby-model";
+import { recordExternalAiDisclosureDecision } from "../../src/features/governance-audit/external-ai-disclosure-audit.server";
 import { createLiveClaudeTransport, type FetchLike } from "../../src/features/heby-model-live/claude-http-transport.server";
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import type { ModelGenerationRequest } from "../../src/features/heby-runtime/contracts";
@@ -42,7 +43,8 @@ const JUSTIFICATION = "This test organization agrees that its conversations, Kno
 const ENV = {
   HEBUN_MODEL_CONNECTIVITY_ENABLED: "true",
   HEBUN_MODEL_PROVIDER: "claude",
-  HEBUN_MODEL_ID: "claude-test-model",
+  /* APF-5: the model the reviewed attestation records — anything else is refused `model-not-attested`. */
+  HEBUN_MODEL_ID: "claude-haiku-4-5-20251001",
   HEBUN_MODEL_CREDENTIAL: "sk-fake",
   HEBUN_MODEL_MAX_OUTPUT_TOKENS: "100",
 };
@@ -132,11 +134,18 @@ async function main(): Promise<void> {
       transport: createLiveClaudeTransport({ apiKey: "sk-fake", spendBudget: createLiveSpendBudget(99), fetchImpl }),
       disclosure: declaration,
       resolveOperatorEnabled: async () => options.operator ?? true,
-      authorizeDisclosure: (d, o) => authorizeExternalAiDisclosure(d, o, options.unreadable ? { getDb: () => null } : deps),
+      authorizeDisclosure: (d, o, m) => authorizeExternalAiDisclosure(d, o, m, options.unreadable ? { getDb: () => null } : deps),
+      recordDisclosure: (e) => recordExternalAiDisclosureDecision(e, deps),
     });
     return { fetched: fetches - before, state: outcome.status === "generated" ? "generated" : outcome.state };
   }
-  const declare = (tenantId: string, purpose: Purpose, dataClasses: readonly DataClass[]) => ({ tenantId, purpose, dataClasses });
+  const actorOf = new Map<string, string>();
+  const declare = (tenantId: string, purpose: Purpose, dataClasses: readonly DataClass[]) => ({
+    tenantId,
+    actorUserId: actorOf.get(tenantId) ?? "99999999-9999-4999-8999-999999999998",
+    purpose,
+    dataClasses,
+  });
   const blocked = async (label: string, declaration: ExternalAiDisclosureDeclaration | undefined, options = {}) => {
     const r = await probe(declaration, options);
     assert.deepEqual(r, { fetched: 0, state: "DATA_USE_NOT_AUTHORIZED" }, `${label}: refused BEFORE the network seam`);
@@ -162,6 +171,7 @@ async function main(): Promise<void> {
       );
       assert.equal((await establishGovernanceAuthority(t, { justification: `Establishing ${slug} Governance for this fixture.` }, deps)).status, "established");
       seeded[slug] = s;
+      actorOf.set(s.tenantId, s.userId);
       tenants[slug] = t;
     }
     const HEBUN = seeded["hebun"]!.tenantId;

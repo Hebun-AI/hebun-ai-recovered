@@ -49,13 +49,15 @@ assert.match(codeOf(read(TRANSPORT)), /\[ANTHROPIC_MESSAGES_EGRESS\]: true,\s*as
 const GENERATOR = codeOf(read("src/features/heby-model/heby-model-generation.server.ts"));
 const gateAt = GENERATOR.indexOf("if (isAnthropicMessagesEgress(deps.transport))");
 assert.ok(gateAt > 0 && gateAt < GENERATOR.indexOf("createClaudeModelClient({"), "the gate runs before the client exists");
-assert.match(GENERATOR, /if \(decision\?\.disposition !== "authorized"\) \{\s*return unavailable\("DATA_USE_NOT_AUTHORIZED"\);/);
+/* APF-5: a refusal is recorded best-effort and still refused; an authorized decision must be recorded before the client exists. */
+assert.match(GENERATOR, /if \(decision\?\.disposition !== "authorized" \|\| !evidence\) \{\s*if \(evidence\) await record\(evidence\)\.catch\(\(\) => false\);\s*return unavailable\("DATA_USE_NOT_AUTHORIZED"\);/);
+assert.match(GENERATOR, /if \(!\(await record\(evidence\)\.catch\(\(\) => false\)\)\) \{\s*return unavailable\("DATA_USE_NOT_AUTHORIZED"\);/);
 
 /* ── 3. EVERY RUNTIME CALLER DECLARES; ORIGINATION IS ITS OWN PURPOSE. ────────────────────────── */
 const callers = SRC.filter((f) => /\(deps\.generate \?\? generateHebyModelAnswer\)|generate: deps\.generate \?\? generateHebyModelAnswer/.test(read(f))).sort();
 assert.deepEqual(callers, ["src/features/agent-origination/originate-action.server.ts", "src/features/heby-answer/model-answer.server.ts"]);
 const origination = codeOf(read("src/features/agent-origination/originate-action.server.ts"));
-assert.match(origination, /disclosure: \{\s*tenantId,\s*purpose: "agent-origination",/, "origination declares agent-origination, never assistance");
+assert.match(origination, /disclosure: \{\s*tenantId: tenant\.tenantId,\s*actorUserId: tenant\.userId,\s*purpose: "agent-origination",/, "origination declares agent-origination, never assistance");
 assert.match(codeOf(read("src/features/heby-answer/model-answer.server.ts")), /purpose: "assistance",/);
 assert.match(
   codeOf(read("src/features/work-artifacts/prepare-work-artifact.server.ts")),
@@ -83,6 +85,8 @@ const decision = (disposition: DisclosureDecision["disposition"]): DisclosureDec
   disposition,
   authorizationId: disposition === "authorized" ? "a" : null,
   attestationId: disposition === "authorized" ? "b" : null,
+  authorizationRevision: disposition === "authorized" ? 1 : null,
+  attestationRevision: disposition === "authorized" ? 1 : null,
   authorizedDataClasses: [],
   components: { platform: "allowed", attestation: "active", tenant: "active", change: null, operator: "enabled", provider: "available" },
 });
@@ -92,7 +96,7 @@ const resolved = (sourceClass: string, label: string): SourceResolution =>
 async function run(
   disposition: DisclosureDecision["disposition"],
   options: Parameters<typeof answerHebyModelRequest>[2] = {},
-): Promise<{ fetched: number; declared: ExternalAiDisclosureDeclaration | null | undefined; prompt: string; response: string }> {
+): Promise<{ fetched: number; declared: ExternalAiDisclosureDeclaration | null | undefined; prompt: string; response: string; evidence: unknown[] }> {
   let fetched = 0;
   let body = "";
   const fetchImpl: FetchLike = async (_url, init) => {
@@ -101,6 +105,7 @@ async function run(
     return { ok: true, status: 200, json: async () => OK };
   };
   let declared: ExternalAiDisclosureDeclaration | null | undefined;
+  const evidence: unknown[] = [];
   const result = await answerHebyModelRequest(
     { prompt: "Who works where, and what do we know about refunds?", route: "/heby" },
     {
@@ -123,11 +128,15 @@ async function run(
             declared = d;
             return decision(disposition);
           },
+          recordDisclosure: async (e) => {
+            evidence.push(e);
+            return true;
+          },
         }),
     },
     options,
   );
-  return { fetched, declared, prompt: body, response: JSON.stringify(result) };
+  return { fetched, declared, prompt: body, response: JSON.stringify(result), evidence };
 }
 
 async function main(): Promise<void> {
@@ -143,6 +152,12 @@ async function main(): Promise<void> {
     assert.match(r.prompt, /\[organization\] withheld — not disclosed to the external model/);
     assert.ok(!/Ayşe Yılmaz|Acme Rugs/.test(r.prompt), "nothing withheld reaches the wire");
     assert.match(r.response, /Ayşe Yılmaz/, "the human-facing evidence still carries it");
+    /* APF-5 — one evidence record; it names the decision, never the content. */
+    assert.equal(r.evidence.length, 1, "exactly one decision record");
+    const recorded = JSON.stringify(r.evidence[0]);
+    for (const leak of ["Ayşe", "Acme", "refunds", "Who works where", "sk-fake", "withheld"]) {
+      assert.ok(!recorded.includes(leak), `the decision record carries no ${leak}`);
+    }
   }
 
   /* Every refusal: no fetch, the human gets the deterministic answer and is told why. */

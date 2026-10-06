@@ -1306,6 +1306,7 @@ export async function answerHebyModelRequest(
         ? undefined
         : {
             tenantId: tenant.tenantId,
+            actorUserId: tenant.userId,
             purpose: "assistance",
             dataClasses: [
               ...new Set<DataClass>([

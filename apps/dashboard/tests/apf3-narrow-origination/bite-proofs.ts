@@ -30,8 +30,8 @@ const MUTATIONS: readonly Mutation[] = [
   {
     label: "B1 the declaration is listed by hand instead of derived from the rendering",
     suite: PG_SUITE,
-    find: 'disclosure: { tenantId, purpose: "agent-origination", dataClasses: projection.dataClasses },',
-    replace: 'disclosure: { tenantId, purpose: "agent-origination", dataClasses: ["conversation", "external-recipient", "work-artifact", "organization"] },',
+    find: "        dataClasses: projection.dataClasses,\n",
+    replace: '        dataClasses: ["conversation", "external-recipient", "work-artifact", "organization"],\n',
     because: "the declaration is exactly what was rendered: conversation + organization",
   },
   {

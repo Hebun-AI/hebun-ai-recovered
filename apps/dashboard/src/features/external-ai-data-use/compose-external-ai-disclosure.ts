@@ -52,9 +52,17 @@ export interface DisclosureRequest {
   readonly requiredDataClasses: readonly DataClass[];
   /** Classes that are included only where every authority permits them, and silently omitted otherwise. */
   readonly optionalDataClasses?: readonly DataClass[];
+  /**
+   * APF-5. The model id that WILL be sent — the generator's own resolved value, never re-read. The
+   * processor attestation is the only authority on which models it covers; absent from its
+   * `modelIds`, the request is refused `model-not-attested`.
+   */
+  readonly modelId: string;
 }
 
 export type AttestationInForce = AttestationTreatmentView & { readonly state: "active" | "withdrawn" };
+/** APF-5. The latest attestation as the gate reads it: what it covers, and which revision said so. */
+export type LatestAttestation = AttestationInForce & { readonly modelIds: readonly string[]; readonly attestationRevision: number };
 
 export interface TenantAuthorizationInForce {
   readonly authorizationId: string;
@@ -62,6 +70,8 @@ export interface TenantAuthorizationInForce {
   /** The exact attestation revision the human authorized against. Null only for a withdrawal. */
   readonly boundAttestation: AttestationTreatmentView | null;
   readonly scopes: readonly ScopePair[];
+  /** APF-5. Provenance only — recorded with the decision, never read to make it. */
+  readonly authorizationRevision?: number;
 }
 
 export interface DisclosureComposeInput {
@@ -72,7 +82,7 @@ export interface DisclosureComposeInput {
   readonly attestation:
     | { readonly status: "unavailable" }
     | { readonly status: "absent" }
-    | { readonly status: "read"; readonly latest: AttestationInForce };
+    | { readonly status: "read"; readonly latest: LatestAttestation };
   readonly tenant:
     | { readonly status: "unavailable" }
     | { readonly status: "absent" }
@@ -95,6 +105,9 @@ export interface DisclosureDecision {
   readonly disposition: ExternalAiDisclosureDisposition;
   readonly authorizationId: string | null;
   readonly attestationId: string | null;
+  /** APF-5. Which revisions the decision rested on — provenance, null whenever it was refused. */
+  readonly authorizationRevision: number | null;
+  readonly attestationRevision: number | null;
   readonly authorizedDataClasses: readonly DataClass[];
   readonly components: DisclosureComponents;
 }
@@ -142,6 +155,8 @@ export function composeExternalAiDisclosure(input: DisclosureComposeInput): Disc
     disposition,
     authorizationId: null,
     attestationId: null,
+    authorizationRevision: null,
+    attestationRevision: null,
     authorizedDataClasses: [],
     components,
   });
@@ -159,6 +174,8 @@ export function composeExternalAiDisclosure(input: DisclosureComposeInput): Disc
 
   /* 4 · Nothing in force to disclose under. */
   if (!attestation || attestation.state !== "active") return refuse("platform-unknown");
+  /* APF-5. Only a model the attestation in force records may be sent. Nothing else can say so. */
+  if (!attestation.modelIds.includes(request.modelId)) return refuse("model-not-attested");
   if (requiredVerdicts.some((v) => v.decision === "unknown")) return refuse("platform-unknown");
   if (requiredVerdicts.some((v) => v.decision === "allowed" && !attestationSatisfiesBounds(attestation, v.bounds))) {
     return refuse("platform-denied");
@@ -187,6 +204,8 @@ export function composeExternalAiDisclosure(input: DisclosureComposeInput): Disc
     disposition: "authorized",
     authorizationId: tenant.authorizationId,
     attestationId: attestation.id,
+    authorizationRevision: tenant.authorizationRevision ?? null,
+    attestationRevision: attestation.attestationRevision,
     authorizedDataClasses: [...required, ...optionalAllowed],
     components,
   };

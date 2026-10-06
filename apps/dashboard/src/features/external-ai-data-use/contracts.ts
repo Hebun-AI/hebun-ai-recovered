@@ -175,4 +175,6 @@ export type ExternalAiDisclosureDisposition =
   | "authorization-stale"
   | "operator-paused"
   | "provider-unavailable"
+  /** APF-5. The model about to be sent is not one the processor attestation in force records. */
+  | "model-not-attested"
   | "authorized";

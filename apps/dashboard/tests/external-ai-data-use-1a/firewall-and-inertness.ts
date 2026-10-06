@@ -78,12 +78,24 @@ assert.deepEqual(
   importers,
   [
     "src/app/(dashboard)/governance/authority/actions.ts",
+    "src/features/governance-audit/external-ai-disclosure-audit.server.ts",
     "src/features/governance-decision/decision-authority.server.ts",
     "src/features/heby-answer/model-answer.server.ts",
     "src/features/heby-answer/model-facing-projection.ts",
     "src/features/heby-model/heby-model-generation.server.ts",
   ],
-  "only the Governance writer, the decision vocabulary, the generator's gate and the answer's declaration reach the authority",
+  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration and the decision's audit evidence reach the authority",
+);
+/* APF-5 — the audit writer records evidence; it imports the evidence TYPE and nothing that decides. */
+assert.deepEqual(
+  [...read("src/features/governance-audit/external-ai-disclosure-audit.server.ts").matchAll(/from\s+["'](@\/features\/external-ai-data-use\/[^"']+)["']/g)].map((m) => m[1]),
+  ["@/features/external-ai-data-use/authorize-external-ai-disclosure.server"],
+  "the audit writer imports nothing from the authority but the evidence type",
+);
+assert.match(
+  read("src/features/governance-audit/external-ai-disclosure-audit.server.ts"),
+  /import type \{ ExternalAiDisclosureEvidence \} from "@\/features\/external-ai-data-use\/authorize-external-ai-disclosure\.server";/,
+  "the audit writer imports only the evidence type — never the gate, the composer or the policy",
 );
 assert.ok(
   !/from\s+["']@\/features\/external-ai-data-use\/(?!contracts["'])/.test(read("src/features/governance-decision/decision-authority.server.ts")),

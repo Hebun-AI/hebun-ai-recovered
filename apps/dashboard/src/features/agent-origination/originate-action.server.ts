@@ -457,7 +457,8 @@ export async function originateAgentAction(
   if (!invocationId) return refused("model-unavailable");
 
   const selection = await selectAction(
-    tenant.tenantId,
+    tenant,
+    invocationId,
     validation.prompt,
     projection,
     deps,
@@ -720,7 +721,8 @@ const PRE_DISPATCH_FAILURE_CODES: readonly string[] = Object.freeze([
  * probing.
  */
 async function selectAction(
-  tenantId: string,
+  tenant: TenantContext,
+  invocationId: string,
   goal: string,
   projection: ModelFacingOrigination,
   deps: OriginateActionDeps,
@@ -730,7 +732,8 @@ async function selectAction(
   const { candidates, evidence } = projection;
 
   const request: ModelGenerationRequest = {
-    correlationId: (deps.newCorrelationId ?? (() => "agent-origination"))(),
+    /* APF-5 — one invocation, one correlation: its disclosure evidence joins to it by this id. */
+    correlationId: deps.newCorrelationId?.() ?? invocationId,
     tenantId: undefined,
     systemInstructions: AGENT_ORIGINATION_SYSTEM_INSTRUCTIONS,
     userPrompt: goal,
@@ -751,7 +754,12 @@ async function selectAction(
     const outcome = await (deps.generate ?? generateHebyModelAnswer)(request, {
       env,
       transport,
-      disclosure: { tenantId, purpose: "agent-origination", dataClasses: projection.dataClasses },
+      disclosure: {
+        tenantId: tenant.tenantId,
+        actorUserId: tenant.userId,
+        purpose: "agent-origination",
+        dataClasses: projection.dataClasses,
+      },
     });
     if (outcome.status !== "generated") {
       /*

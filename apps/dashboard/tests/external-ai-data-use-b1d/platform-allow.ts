@@ -148,7 +148,7 @@ const inForce = {
 };
 for (const dataClass of ALLOWED) {
   const base: DisclosureComposeInput = {
-    request: { serviceScope: "anthropic/messages", purpose: "assistance", requiredDataClasses: [dataClass] },
+    request: { serviceScope: "anthropic/messages", purpose: "assistance", requiredDataClasses: [dataClass], modelId: "claude-haiku-4-5-20251001" },
     policy,
     accountRef: parsed.record.accountRef,
     attestation: { status: "read", latest: inForce as never },

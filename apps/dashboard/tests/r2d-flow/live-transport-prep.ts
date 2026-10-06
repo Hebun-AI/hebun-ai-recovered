@@ -18,7 +18,7 @@ import {
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import { selectModelTransport } from "../../src/features/heby-model";
 import { ModelConnectivityError, generateHebyModelAnswer } from "../../src/features/heby-model";
-import { authorizedDisclosure } from "../helpers/authorized-disclosure";
+import { authorizedDisclosure, recordedDisclosure } from "../helpers/authorized-disclosure";
 import type { ClaudeTransportRequest } from "../../src/features/heby-model";
 import type { ModelGenerationRequest } from "../../src/features/heby-runtime";
 
@@ -131,8 +131,9 @@ async function main(): Promise<void> {
       env: { HEBUN_MODEL_CONNECTIVITY_ENABLED: "true", HEBUN_MODEL_PROVIDER: "claude", HEBUN_MODEL_ID: "claude-real-model", HEBUN_MODEL_CREDENTIAL: "sk-fake", HEBUN_MODEL_MAX_OUTPUT_TOKENS: "100" },
       transport,
       /* EXTERNAL-AI-DATA-USE-B2: the live transport is gated; this suite is about the transport, so the gate is stood in. */
-      disclosure: { tenantId: "t", purpose: "assistance", dataClasses: ["conversation"] },
+      disclosure: { tenantId: "t", actorUserId: "u", purpose: "assistance", dataClasses: ["conversation"] },
       authorizeDisclosure: authorizedDisclosure,
+      recordDisclosure: recordedDisclosure,
     });
     assert.equal(outcome.status, "generated");
     if (outcome.status === "generated") {

@@ -194,7 +194,7 @@ async function main(): Promise<void> {
     const latest = await readLatestProcessorAttestation("anthropic/messages", other.accountRef, deps);
     assert.equal(latest.status, "read");
     const resolved = composeExternalAiDisclosure({
-      request: { serviceScope: "anthropic/messages", purpose: "assistance", requiredDataClasses: ["conversation"] },
+      request: { serviceScope: "anthropic/messages", purpose: "assistance", requiredDataClasses: ["conversation"], modelId: "claude-haiku-4-5-20251001" },
       policy: RECORDED_PLATFORM_DISCLOSURE_POLICY,
       accountRef: other.accountRef,
       attestation: latest,

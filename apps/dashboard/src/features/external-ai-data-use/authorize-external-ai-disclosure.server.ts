@@ -46,17 +46,25 @@ export interface ExternalAiDisclosureDeclaration {
   readonly purpose: Purpose;
   /** Every class the request carries. All are REQUIRED: one unauthorized class refuses the request. */
   readonly dataClasses: readonly DataClass[];
+  /**
+   * APF-5. The authenticated human whose request causes this disclosure, from the same TenantContext.
+   * Never read to DECIDE anything — it is only who the decision's audit evidence is attributed to.
+   */
+  readonly actorUserId: string;
 }
 
 export type AuthorizeExternalAiDisclosure = (
   declaration: ExternalAiDisclosureDeclaration | null,
   /** The R2E Claude control as its own reader answered; `null` when it could not be read. */
   operatorEnabled: boolean | null,
+  /** APF-5. The model that WILL be sent: the generator's resolved value, never re-read. */
+  modelId: string,
 ) => Promise<DisclosureDecision>;
 
 export async function authorizeExternalAiDisclosure(
   declaration: ExternalAiDisclosureDeclaration | null,
   operatorEnabled: boolean | null,
+  modelId: string,
   deps: ProcessorAttestationReadDeps = {},
 ): Promise<DisclosureDecision> {
   if (typeof window !== "undefined") throw new Error("External AI disclosure authorization is server-only.");
@@ -87,6 +95,7 @@ export async function authorizeExternalAiDisclosure(
       serviceScope: ANTHROPIC_MESSAGES_SCOPE,
       purpose: valid ? declaration!.purpose : "assistance",
       requiredDataClasses: valid ? declaration!.dataClasses : [],
+      modelId: typeof modelId === "string" ? modelId : "",
     },
     policy: RECORDED_PLATFORM_DISCLOSURE_POLICY,
     accountRef: CONFIGURED_ANTHROPIC_ACCOUNT_REF,
@@ -96,4 +105,54 @@ export async function authorizeExternalAiDisclosure(
     /* Reached only from the generator after it found a configured transport. */
     providerAvailable: true,
   });
+}
+
+/**
+ * APF-5 — THE DECISION, AS EVIDENCE. A closed shape built from values the gate and the generator
+ * already hold; nothing here decides, widens or infers. No prompt, no goal, no evidence text, no
+ * provider content, no credential. Recording it says the decision was MADE — never that anything
+ * was sent: transport and provider results stay with the message / invocation records, joined by
+ * `correlationId`.
+ */
+export interface ExternalAiDisclosureEvidence {
+  readonly tenantId: string;
+  readonly actorUserId: string;
+  readonly correlationId: string;
+  readonly serviceScope: typeof ANTHROPIC_MESSAGES_SCOPE;
+  readonly accountRef: string;
+  readonly purpose: Purpose;
+  readonly declaredDataClasses: readonly DataClass[];
+  readonly authorizedDataClasses: readonly DataClass[];
+  readonly modelId: string;
+  readonly disposition: DisclosureDecision["disposition"];
+  readonly processorAttestationId: string | null;
+  readonly processorAttestationRevision: number | null;
+  readonly tenantAuthorizationId: string | null;
+  readonly tenantAuthorizationRevision: number | null;
+  readonly components: DisclosureDecision["components"];
+}
+
+export function externalAiDisclosureEvidence(
+  declaration: ExternalAiDisclosureDeclaration,
+  decision: DisclosureDecision,
+  modelId: string,
+  correlationId: string,
+): ExternalAiDisclosureEvidence {
+  return {
+    tenantId: declaration.tenantId,
+    actorUserId: declaration.actorUserId,
+    correlationId,
+    serviceScope: ANTHROPIC_MESSAGES_SCOPE,
+    accountRef: CONFIGURED_ANTHROPIC_ACCOUNT_REF,
+    purpose: declaration.purpose,
+    declaredDataClasses: [...declaration.dataClasses],
+    authorizedDataClasses: [...decision.authorizedDataClasses],
+    modelId,
+    disposition: decision.disposition,
+    processorAttestationId: decision.attestationId,
+    processorAttestationRevision: decision.attestationRevision,
+    tenantAuthorizationId: decision.authorizationId,
+    tenantAuthorizationRevision: decision.authorizationRevision,
+    components: { ...decision.components },
+  };
 }
