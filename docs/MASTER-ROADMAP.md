@@ -3013,7 +3013,7 @@ Distinguish throughout: an operator ceremony that a human runs is not automated 
 
 **Recorded future capability. Not selected, not numbered, not authorized, and it creates no authority.** This is the single definition; §12.1 and §20.4 refer here and do not restate it.
 
-**SCI-0 DESIGNED (2026-10-06) — architecture and trust boundary only, NOT IMPLEMENTED:** [`hebun-sci0-secure-content-ingestion-trust-boundary.md`](product-vision/runtime/hebun-sci0-secure-content-ingestion-trust-boundary.md). SCI owns security admissibility at the untrusted-content boundary and nothing else; SCI-1 (instruction-channel integrity) is proposed, not authorized.
+**SCI-0 DESIGNED (2026-10-06) — architecture and trust boundary only, NOT IMPLEMENTED:** [`hebun-sci0-secure-content-ingestion-trust-boundary.md`](product-vision/runtime/hebun-sci0-secure-content-ingestion-trust-boundary.md). SCI owns security admissibility at the untrusted-content boundary and nothing else. **SCI-1 (instruction-channel integrity) CLOSED / PRODUCTION-ACCEPTED** `390be538`: [`hebun-sci1-instruction-channel-integrity.md`](product-vision/runtime/hebun-sci1-instruction-channel-integrity.md). Remaining SCI prerequisites: provenance-derived admissibility, version-level integrity binding. Secure Content Ingestion as a whole remains NOT IMPLEMENTED.
 
 **Purpose.** Externally supplied content is treated as untrusted input **before** it can influence Knowledge, agents, reasoning, organizational decisions or execution.
 

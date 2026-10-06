@@ -1,6 +1,8 @@
 # SCI-0 — Secure Content Ingestion: Architecture & Trust Boundary
 
-**Status: DESIGNED (Director GO 2026-10-06). NOT IMPLEMENTED. No code, schema or migration.**
+**Status: DESIGNED / CLOSED (Director GO 2026-10-06). This document added no code, schema or migration.**
+SCI-1 (instruction-channel integrity) has since been released and production-accepted; see
+[`hebun-sci1-instruction-channel-integrity.md`](hebun-sci1-instruction-channel-integrity.md).
 Measured at `origin/main` `6be070cf`. Canonical definition stays MASTER-ROADMAP §13.1.1; this
 document is its first designed phase and does not restate the principle.
 
@@ -97,9 +99,18 @@ No inbound e-mail or web ingestion exists; neither is treated as implemented.
 `work-artifacts/preparation-brief.ts` concatenates the **current revision's content** (and, when
 present, the observation supplement) into the preparation brief, and `model-answer.server.ts`
 passes the brief as `systemInstructions`. Revision text is tenant/model content that may contain
-pasted external text; it is placed in the highest-authority channel. The observation case is
-already refused at EAI; the revision case is live (Level A, below). This is the most concrete
-present SCI defect and the basis of SCI-1.
+pasted external text; it was placed in **Hebun's instruction segment**. The observation case is
+already refused at EAI; the revision case was live (Level A, below). This was the most concrete SCI
+defect and the basis of SCI-1.
+
+*Correction (SCI-1, 2026-10-06):* an earlier wording called this "the highest-authority channel",
+which implied that everything in Anthropic's `system` field carries Hebun's instruction authority.
+It does not. The Claude client serializes three distinct segments into that one provider field:
+the **Hebun instruction segment** (`systemInstructions`), the **grounding/data segment** (after
+`GROUNDING_CONTEXT_PREFIX`, by TB-1 design) and, since SCI-1, the **supplied-material segment**
+(after `SUPPLIED_MATERIAL_PREFIX`). The defect was data in the first segment. The segments are
+separated by Hebun-controlled delimiters inside one inference request; **delimiters do not prove
+immunity to prompt injection**, and the provider enforces none of this separation.
 
 ## 7. Threats and enforcing owners
 
@@ -218,7 +229,7 @@ deterministic selection reusing retrieval eligibility (not public-use); (7) refe
 validation in the origination contract. WF-3 becomes READY-FOR-IMPLEMENTATION when 1–3 are released
 and 4–5 are decided.
 
-## 17. SCI-1 — Instruction-Channel Integrity (proposed, not authorized)
+## 17. SCI-1 — Instruction-Channel Integrity (as proposed; RELEASED and PRODUCTION-ACCEPTED — see the SCI-1 closure)
 
 - **Problem:** tenant/model text (current revision content) reaches `systemInstructions` (§6).
 - **Owner:** SCI rule, enforced at the shared generator boundary (`generateHebyModelAnswer`), the
