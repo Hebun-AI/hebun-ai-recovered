@@ -498,6 +498,13 @@
       "when": 1791099433279,
       "tag": "20261004073713_external_ai_data_use_authority",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1791285492234,
+      "tag": "20261006111812_sci2a_knowledge_version_immutability",
+      "breakpoints": true
     }
   ]
 }

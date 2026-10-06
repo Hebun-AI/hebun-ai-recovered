@@ -147,26 +147,30 @@ async function main(): Promise<void> {
     assert.equal((await adapter.list(contextA)).length, 1);
     assert.equal((await adapter.list(contextB)).length, 1);
 
-    await setup.query(
-      `update knowledge_nodes
-          set provenance = provenance || '{"canonicalSibling":{"source":"preserved"}}'::jsonb
-        where tenant_id = $1 and ref_id = $2`,
-      [tenantA, sample.id],
+    /*
+     * SCI-2A. A stored knowledge_nodes row is a Knowledge version: PostgreSQL refuses to change its
+     * content or provenance in place, and refuses to delete it, whoever sends the SQL. This legacy
+     * collection used the table as mutable CRUD storage, so every in-place mutation and every
+     * delete it issues is now refused at the database (it is unrouted in production — see
+     * tests/k3-flow/no-in-place-edit.ts). The adapter reports the refusal as its generic
+     * "operation failed" code; the cause is proven in tests/sci2a-flow/.
+     */
+    const refusedByPostgres = (error: PostgresPersistenceError) =>
+      error.code === "PERSISTENCE_POSTGRES_UNAVAILABLE";
+    await assert.rejects(
+      setup.query(
+        `update knowledge_nodes
+            set provenance = provenance || '{"canonicalSibling":{"source":"preserved"}}'::jsonb
+          where tenant_id = $1 and ref_id = $2`,
+        [tenantA, sample.id],
+      ),
+      (error: { code?: string }) => error.code === "23001",
     );
-    const updated = await adapter.update(
-      sample.id,
-      { confidence: 91, updatedBy: "Director" },
-      contextA,
+    await assert.rejects(
+      () => adapter!.update(sample.id, { confidence: 91, updatedBy: "Director" }, contextA),
+      refusedByPostgres,
     );
-    assert.equal(updated?.confidence, 91);
-    assert.equal(updated?.updatedBy, "Director");
-    const preserved = await setup.query<{
-      provenance: { canonicalSibling?: { source?: string } };
-    }>(
-      "select provenance from knowledge_nodes where tenant_id = $1 and ref_id = $2",
-      [tenantA, sample.id],
-    );
-    assert.equal(preserved.rows[0]?.provenance.canonicalSibling?.source, "preserved");
+    assert.equal((await adapter.list(contextA))[0]?.confidence, sample.confidence, "nothing was rewritten");
 
     await adapter.create(node("alpha", "Alpha"), contextA);
     assert.deepEqual(
@@ -180,17 +184,13 @@ async function main(): Promise<void> {
     );
     assert.equal(await adapter.exists(sample.id, contextA), true);
 
+    await assert.rejects(() => adapter!.archive(sample.id, contextA), refusedByPostgres);
+    // Restoring an already-active row rewrites every column to its own value: not a change.
+    assert.equal((await adapter.restore(sample.id, contextA))?.lifecycleStatus, "active");
+    await assert.rejects(() => adapter!.delete(sample.id, contextA), refusedByPostgres);
     assert.equal(
-      (await adapter.archive(sample.id, contextA))?.lifecycleStatus,
-      "archived",
-    );
-    assert.equal(
-      (await adapter.restore(sample.id, contextA))?.lifecycleStatus,
+      (await adapter.list(contextA)).find((item) => item.id === sample.id)?.lifecycleStatus,
       "active",
-    );
-    assert.equal(
-      (await adapter.delete(sample.id, contextA))?.lifecycleStatus,
-      "deleted",
     );
     assert.equal(
       (await adapter.list(contextB))[0]?.lifecycleStatus,
@@ -202,45 +202,51 @@ async function main(): Promise<void> {
       immutable[0]!.tags.push("mutated");
     });
 
+    /*
+     * Invalid rows cannot be deleted after the check any more (SCI-2A), so each one is planted in a
+     * tenant of its own: the hydration failure is the same, and tenant A is never polluted.
+     */
+    const quarantine = await setup.query<{ id: string }>(
+      `insert into companies (name, slug)
+       values ('Knowledge Tenant Invalid', 'knowledge-tenant-invalid'),
+              ('Knowledge Tenant Duplicate', 'knowledge-tenant-duplicate')
+       returning id`,
+    );
+    const contextInvalid = { tenantId: quarantine.rows[0]!.id };
+    const contextDuplicate = { tenantId: quarantine.rows[1]!.id };
     const beforeInvalidHydration = adapter.getSnapshot();
     const notificationsBeforeInvalidHydration = notifications;
-    const invalid = await setup.query<{ id: string }>(
+    await setup.query(
       `insert into knowledge_nodes
         (tenant_id, ref_id, type, label, statement, provenance)
-       values ($1, 'invalid-null-envelope', 'Goal', 'Invalid', 'Invalid', null)
-       returning id`,
-      [tenantA],
+       values ($1, 'invalid-null-envelope', 'Goal', 'Invalid', 'Invalid', null)`,
+      [contextInvalid.tenantId],
     );
     await expectCode(
-      () => adapter!.load(contextA),
+      () => adapter!.load(contextInvalid),
       "PERSISTENCE_INVALID_RECORD_MAPPING",
     );
     assert.strictEqual(adapter.getSnapshot(), beforeInvalidHydration);
     assert.equal(notifications, notificationsBeforeInvalidHydration);
-    await setup.query("delete from knowledge_nodes where id = $1", [
-      invalid.rows[0]!.id,
-    ]);
 
-    const duplicate = await setup.query<{ id: string }>(
-      `insert into knowledge_nodes
-        (tenant_id, ref_id, type, label, statement, provenance,
-         lifecycle_status, created_at, updated_at)
-       select tenant_id, ref_id, type, label, statement, provenance,
-              lifecycle_status, created_at, updated_at
-         from knowledge_nodes
-        where tenant_id = $1 and ref_id = $2
-       returning id`,
-      [tenantA, sample.id],
-    );
+    for (let copy = 0; copy < 2; copy += 1) {
+      await setup.query(
+        `insert into knowledge_nodes
+          (tenant_id, ref_id, type, label, statement, provenance,
+           lifecycle_status, created_at, updated_at)
+         select $3, ref_id, type, label, statement, provenance,
+                lifecycle_status, created_at, updated_at
+           from knowledge_nodes
+          where tenant_id = $1 and ref_id = $2`,
+        [tenantA, sample.id, contextDuplicate.tenantId],
+      );
+    }
     await expectCode(
-      () => adapter!.load(contextA),
+      () => adapter!.load(contextDuplicate),
       "PERSISTENCE_LOGICAL_ID_CONFLICT",
     );
     assert.strictEqual(adapter.getSnapshot(), beforeInvalidHydration);
     assert.equal(notifications, notificationsBeforeInvalidHydration);
-    await setup.query("delete from knowledge_nodes where id = $1", [
-      duplicate.rows[0]!.id,
-    ]);
 
     await adapter.load(contextA);
     const beforeCommitNotifications = notifications;
@@ -287,11 +293,11 @@ async function main(): Promise<void> {
     assert.equal(await adapter.exists("rollback", contextA), false);
 
     const saved = node("goals:saved-goal", "Saved Goal");
-    await adapter.save([saved], contextA);
-    assert.deepEqual(
-      (await adapter.list(contextA)).map((item) => item.id),
-      [saved.id],
-    );
+    // save() replaces the collection by deleting what it was not given: refused, nothing changed.
+    const beforeSave = (await adapter.list(contextA)).map((item) => item.id);
+    await assert.rejects(() => adapter!.save([saved], contextA), refusedByPostgres);
+    assert.deepEqual((await adapter.list(contextA)).map((item) => item.id), beforeSave);
+    await adapter.create(saved, contextA);
     const savedPhysical = await setup.query<{ id: string }>(
       "select id from knowledge_nodes where tenant_id = $1 and ref_id = $2",
       [tenantA, saved.id],
@@ -316,23 +322,15 @@ async function main(): Promise<void> {
     assert.equal(fieldMatched(shadow, "title"), true);
     assert.equal(fieldMatched(shadow, "statementSummary"), true);
 
-    const snapshotBeforeReferencedClear = adapter.getSnapshot();
-    const notificationsBeforeReferencedClear = notifications;
-    await expectCode(
-      () => adapter!.clear(contextA),
-      "PERSISTENCE_INVALID_RECORD_MAPPING",
-    );
-    assert.strictEqual(adapter.getSnapshot(), snapshotBeforeReferencedClear);
-    assert.equal(notifications, notificationsBeforeReferencedClear);
-    await setup.query(
-      "delete from knowledge_facts where tenant_id = $1 and fact_key = $2",
-      [tenantA, saved.id],
-    );
-
+    // clear() is a physical delete of every version in the tenant: refused, referenced or not.
+    const snapshotBeforeClear = adapter.getSnapshot();
+    const notificationsBeforeClear = notifications;
+    await assert.rejects(() => adapter!.clear(contextA), refusedByPostgres);
+    assert.strictEqual(adapter.getSnapshot(), snapshotBeforeClear);
+    assert.equal(notifications, notificationsBeforeClear);
+    const tenantACount = (await adapter.list(contextA)).length;
     const tenantBCount = (await adapter.list(contextB)).length;
-    await adapter.clear(contextA);
-    assert.deepEqual(adapter.getSnapshot(), []);
-    assert.equal((await adapter.list(contextA)).length, 0);
+    assert.ok(tenantACount > 0);
     assert.equal((await adapter.list(contextB)).length, tenantBCount);
 
     const providers = await listRegisteredPersistenceProviders(env);
@@ -353,7 +351,7 @@ async function main(): Promise<void> {
 
     unsubscribe();
     const notificationsAfterUnsubscribe = notifications;
-    await adapter.clear(contextB);
+    await assert.rejects(() => adapter!.clear(contextB), refusedByPostgres);
     assert.equal(notifications, notificationsAfterUnsubscribe);
   } finally {
     if (adapter) await adapter.dispose();

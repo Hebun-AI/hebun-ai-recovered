@@ -169,7 +169,7 @@ const MUTATIONS: readonly Mutation[] = [
     /* RE-ANCHORED at the RUNG 2 PREREQUISITE (migration 54); it was at TRH-19 before, and at WORK-1 before that: the mutation must apply
      * to the journal's CURRENT tail, or it proves nothing. The defect it injects — an extra journal
      * entry — is unchanged, and this anchor moves with every migration by design. */
-    /* EXTERNAL-AI-DATA-USE-1A: the journal tail is now the external-AI data-use authority. */ find: `      "tag": "20261004073713_external_ai_data_use_authority",\n      "breakpoints": true\n    }\n  ]`,
+    /* SCI-2A: the journal tail is now the Knowledge version-immutability triggers. */ find: `      "tag": "20261006111812_sci2a_knowledge_version_immutability",\n      "breakpoints": true\n    }\n  ]`,
     replace:
       `      "tag": "20260908072926_trh24_machine_observation_provenance",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 50,\n      "version": "7",\n      "when": 1787726663801,\n` +

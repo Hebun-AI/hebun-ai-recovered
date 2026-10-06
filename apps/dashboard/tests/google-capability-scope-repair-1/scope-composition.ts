@@ -276,12 +276,13 @@ async function main(): Promise<void> {
     /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ 
     /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
     /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (inert external-AI data-use authority; additive). */
-    assert.equal(migrations.length, 71, "ledger 71 since EXTERNAL-AI-DATA-USE-1A");
+    /* SCI-2A: ledger 71 -> 72 (knowledge_nodes version-immutability triggers; no schema shape change). */
+    assert.equal(migrations.length, 72, "ledger 72 since SCI-2A");
     const touched = execSync("git diff --name-only 4059a176 -- src/db", { cwd: ROOT, encoding: "utf8" })
       .trim()
       .split("\n")
       .filter(Boolean)
-      .filter((f) => !/youtube_write2_recipientless_kind|20260928084834_snapshot|supplied_media_account_provenance|20260929134334_snapshot|knowledge_public_use_domain|external_ai_data_use_authority|20261004073713_snapshot|20261003074659_snapshot|_journal\.json|schema\/action-execution\.ts$|schema\/media-asset\.ts$|schema\/_enums\.ts$|schema\/index\.ts$|schema\/external-ai-data-use\.ts$/.test(f)); /* EXTERNAL-AI-DATA-USE-1A: its schema module and the barrel export of it. */
+      .filter((f) => !/youtube_write2_recipientless_kind|20260928084834_snapshot|supplied_media_account_provenance|20260929134334_snapshot|knowledge_public_use_domain|external_ai_data_use_authority|20261004073713_snapshot|20261003074659_snapshot|sci2a_knowledge_version_immutability|20261006111812_snapshot|_journal\.json|schema\/action-execution\.ts$|schema\/media-asset\.ts$|schema\/_enums\.ts$|schema\/index\.ts$|schema\/external-ai-data-use\.ts$/.test(f)); /* EXTERNAL-AI-DATA-USE-1A: its schema module and the barrel export of it. */
     assert.deepEqual(touched, [], "no other src/db file changed");
   }
 

@@ -365,19 +365,35 @@ async function main(): Promise<void> {
 
       /* ── 10. A CYCLE IS DETECTED, NOT FOLLOWED OR REPAIRED ───────────────── */
       {
-        // Deliberately corrupt the chain: make v1 point at the active node.
         const corrupt = new Client({ connectionString: harness.dbUrl });
         await corrupt.connect();
         try {
+          /*
+           * SCI-2A: rewriting an existing version's lineage is now refused by PostgreSQL itself, so
+           * a multi-row cycle can no longer be built — each row can only point at a row that existed
+           * before it. The one cycle still constructible is a row inserted pointing at itself.
+           */
           const active = await corrupt.query<{ active: string }>(
             "select active_knowledge_node_id as active from knowledge_facts where id = $1",
             [factId],
           );
-          await corrupt.query(
-            `update knowledge_nodes set supersedes_knowledge_node_id = $1
-              where tenant_id = $2 and knowledge_version = 1`,
-            [active.rows[0]!.active, TENANT_A],
+          await assert.rejects(
+            corrupt.query(
+              `update knowledge_nodes set supersedes_knowledge_node_id = $1
+                where tenant_id = $2 and knowledge_version = 1`,
+              [active.rows[0]!.active, TENANT_A],
+            ),
+            (error: { code?: string }) => error.code === "23001",
+            "the lineage of a stored version cannot be rewritten",
           );
+          const looped = "90000000-0000-4000-8000-0000000000c1";
+          await corrupt.query(
+            `insert into knowledge_nodes (id, tenant_id, type, label, statement, domain_key, knowledge_scope,
+                                          knowledge_version, supersedes_knowledge_node_id)
+             values ($1, $2, 'knowledge-statement', 'looped', 'Looped.', 'platform', 'company-wide', 5, $1)`,
+            [looped, TENANT_A],
+          );
+          await corrupt.query("update knowledge_facts set active_knowledge_node_id = $1 where id = $2", [looped, factId]);
         } finally {
           await corrupt.end();
         }
@@ -386,7 +402,7 @@ async function main(): Promise<void> {
         assert.equal(cyclic.status, "read");
         if (cyclic.status !== "read") throw new Error("unreachable");
         assert.equal(cyclic.integrity, "cycle-detected", "the walk stopped and said so");
-        assert.equal(cyclic.versions.length, 4, "it did not loop");
+        assert.equal(cyclic.versions.length, 1, "it did not loop");
       }
     } finally {
       await handle.dispose();

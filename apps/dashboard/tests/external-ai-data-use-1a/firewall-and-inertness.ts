@@ -165,7 +165,8 @@ assert.match(answer, /does NOT claim the evidence was sent to an external model/
 
 /* ── 8. THE MIGRATION IS PURELY ADDITIVE. ──────────────────────────────────────────────────────── */
 const migrations = readdirSync(path.join(ROOT, "src/db/migrations")).filter((f) => f.endsWith(".sql")).sort();
-const mine = migrations.at(-1)!;
+/* SCI-2A: no longer the newest migration; found by name. */
+const mine = migrations.find((f) => /_external_ai_data_use_authority\.sql$/.test(f))!;
 assert.match(mine, /_external_ai_data_use_authority\.sql$/);
 const sql = read(`src/db/migrations/${mine}`);
 /* Every statement is one of five additive shapes — no DROP, RENAME, backfill or data change. */

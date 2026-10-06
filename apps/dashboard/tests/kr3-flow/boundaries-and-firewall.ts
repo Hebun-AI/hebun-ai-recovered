@@ -138,6 +138,8 @@ function main(): void {
       "20261003074659_knowledge_public_use_domain.sql",
       /* EXTERNAL-AI-DATA-USE-1A — the inert external-AI data-use authority: two new tables, a scope table, two enums and one governance_domain value. A declared later phase. */
       "20261004073713_external_ai_data_use_authority.sql",
+      /* SCI-2A — Knowledge version immutability: one trigger function and three triggers on knowledge_nodes. A declared later phase. */
+      "20261006111812_sci2a_knowledge_version_immutability.sql",
       ],
       "KR3 added no migration; everything after its boundary belongs to a declared later phase",
     );
