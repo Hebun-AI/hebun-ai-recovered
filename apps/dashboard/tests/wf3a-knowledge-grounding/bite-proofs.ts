@@ -27,7 +27,7 @@ const SHAPE_CHECK = 'if (typeof element !== "string" || !ALIAS_SHAPE.test(elemen
 const DEFECTS: ReadonlyArray<readonly [name: string, find: string, replace: string, guards: string]> = [
   ["SCI eligibility removed", 'if (verdict.status === "eligible" && facts.status === "read"', 'if (facts.status === "read"', "unratified excluded"],
   ["ratification ignored", "evaluateAdmissibility(trustedTenantId, KNOWLEDGE_GROUNDING_PURPOSE, facts);", 'evaluateAdmissibility(trustedTenantId, KNOWLEDGE_GROUNDING_PURPOSE, facts.status === "read" ? { ...facts, facts: { ...facts.facts, ratified: true } } : facts);', "unratified excluded"],
-  ["tenant isolation removed", "evaluateAdmissibility(trustedTenantId,", 'evaluateAdmissibility(facts.status === "read" ? facts.facts.ownerTenantId : trustedTenantId,', "cross-tenant excluded"],
+  ["tenant isolation removed", "evaluateAdmissibility(trustedTenantId, KNOWLEDGE_GROUNDING_PURPOSE, facts);", 'evaluateAdmissibility(facts.status === "read" ? facts.facts.ownerTenantId : trustedTenantId, KNOWLEDGE_GROUNDING_PURPOSE, facts);', "cross-tenant excluded"],
   ["UNAVAILABLE becomes success", 'if (verdict.status === "unavailable") return refused("authoritative-facts-unavailable");', 'if (verdict.status === "unavailable") continue;', "unavailable fails closed"],
   [">20 truncates", 'return refused("knowledge-universe-exceeds-bound", eligible.length);', "eligible.length = KNOWLEDGE_GROUNDING_MAX_CANDIDATES;", "21 refuses, never truncates"],
   ["ordering removed", "[...eligible].sort(compareGroundingRecords)", "[...eligible]", "deterministic order and aliases"],

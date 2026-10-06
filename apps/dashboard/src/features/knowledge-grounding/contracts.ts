@@ -199,3 +199,43 @@ export function parseKnowledgeReferences(
   }
   return { status: "referenced", referenced };
 }
+
+/** The evidence reference for one exact Knowledge VERSION — the repository's `<kind>/<uuid>` shape. */
+export function formatKnowledgeVersionRef(knowledgeNodeId: string): string {
+  return `knowledge-version/${knowledgeNodeId}`;
+}
+
+export type KnowledgeRevalidation =
+  | { readonly status: "valid" }
+  | { readonly status: "refused"; readonly reason: "knowledge-reference-stale" | "authoritative-facts-unavailable" };
+
+/**
+ * Re-judge the REFERENCED versions just before a proposal is filed (WF-3 clause 9).
+ *
+ * Each must still be the exact version that was supplied, not Governance-rejected, and SCI-2B
+ * ELIGIBLE now. Any unavailable read refuses as unavailable; any other failure refuses as stale.
+ * Statement identity needs no comparison: SCI-2A makes a version row's statement immutable.
+ */
+export function judgeKnowledgeRevalidation(
+  trustedTenantId: string,
+  referenced: readonly KnowledgeGroundingCandidate[],
+  rejectedNodeIds: ReadonlySet<string>,
+  facts: readonly AdmissibilityFactsRead[],
+): KnowledgeRevalidation {
+  if (referenced.length === 0 || facts.length !== referenced.length) return { status: "refused", reason: "knowledge-reference-stale" };
+  if (facts.some((f) => f.status !== "read")) return { status: "refused", reason: "authoritative-facts-unavailable" };
+  for (let i = 0; i < referenced.length; i += 1) {
+    const candidate = referenced[i]!;
+    const read = facts[i]!;
+    const verdict = evaluateAdmissibility(trustedTenantId, KNOWLEDGE_GROUNDING_PURPOSE, read);
+    if (
+      verdict.status !== "eligible" ||
+      read.status !== "read" ||
+      read.facts.versionId !== candidate.knowledgeNodeId ||
+      rejectedNodeIds.has(candidate.knowledgeNodeId)
+    ) {
+      return { status: "refused", reason: "knowledge-reference-stale" };
+    }
+  }
+  return { status: "valid" };
+}

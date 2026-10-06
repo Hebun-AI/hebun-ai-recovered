@@ -21,6 +21,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { originateHebyActionProposalAction } from "@/app/(dashboard)/heby/actions";
+import { originateKnowledgeGroundedProposalAction } from "@/app/(dashboard)/heby/knowledge-origination-actions";
 import { readAgentOriginationAvailabilityAction } from "@/app/(dashboard)/heby/origination-availability-actions";
 import type { AgentOriginationAvailability, OriginationUnavailableReason } from "@/features/origination-availability/contracts";
 import type { AgentOriginableActionKind, OriginationRefusal } from "@/features/agent-origination";
@@ -72,10 +73,13 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
     });
   };
 
-  const confirm = (agentName: string) => {
+  /* WF-3C — the Knowledge mode is a separate, explicit choice: a different action, never a flag. */
+  const confirm = (agentName: string, withKnowledge = false) => {
     setState({ kind: "asking", agentName });
     startTransition(async () => {
-      const result = await originateHebyActionProposalAction({ goal });
+      const result = withKnowledge
+        ? await originateKnowledgeGroundedProposalAction({ goal })
+        : await originateHebyActionProposalAction({ goal });
       setState(
         result.status === "proposed"
           ? { kind: "proposed", agentName, action: result.kind, reason: result.reason }
@@ -119,6 +123,10 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
           human review. Nothing is approved or executed automatically. This was checked just now and is checked again
           when you ask.
         </p>
+        <p className="mt-1">
+          Grounded in Knowledge: {agent.name} is also shown this organization&apos;s ratified Knowledge eligible for
+          grounding (at most 20 statements) and must cite at least one; nothing is filed otherwise.
+        </p>
         <div className="mt-2 flex items-center gap-3">
           <button
             type="button"
@@ -126,6 +134,13 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
             onClick={() => confirm(agent.name)}
           >
             Ask {agent.name} to propose
+          </button>
+          <button
+            type="button"
+            className="rounded-lg border border-border bg-surface-raised px-2.5 py-1 text-xs font-medium text-fg"
+            onClick={() => confirm(agent.name, true)}
+          >
+            Ask, grounded in Knowledge
           </button>
           <button type="button" className={TEXT_BUTTON} onClick={() => setState({ kind: "closed" })}>
             Cancel

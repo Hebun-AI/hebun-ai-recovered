@@ -25,7 +25,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { AGENT_ORIGINATION_SYSTEM_INSTRUCTIONS } from "../../src/features/agent-origination/originate-action.server";
+import {
+  AGENT_ORIGINATION_KNOWLEDGE_SYSTEM_INSTRUCTIONS,
+  AGENT_ORIGINATION_SYSTEM_INSTRUCTIONS,
+} from "../../src/features/agent-origination/originate-action.server";
 import { parseAgentActionSelection } from "../../src/features/agent-origination/structured-output";
 import {
   MAX_ORIGINATION_REASON_LENGTH,
@@ -108,11 +111,16 @@ function main(): void {
     ],
     "invalid-reason": [`Every reply must carry a "reason"`, "non-blank string of at most"],
   };
+  /* WF-3C — refusals that exist only in the explicit Knowledge mode, told by ITS instructions. */
+  const TOLD_IN_KNOWLEDGE_MODE: Readonly<Record<string, readonly string[]>> = {
+    "duplicate-knowledge-reference": ["each at most once"],
+    "no-knowledge-reference": ["must carry \"knowledgeRefs\": a list of one or more"],
+  };
 
   {
     const released = [...releasedRefusalVocabulary()].sort();
     assert.deepEqual(
-      Object.keys(TOLD).sort(),
+      [...Object.keys(TOLD), ...Object.keys(TOLD_IN_KNOWLEDGE_MODE)].sort(),
       released,
       "THE CHECKLIST IS THE WHOLE REFUSAL VOCABULARY — no bound is refusable without being told",
     );
@@ -124,6 +132,11 @@ function main(): void {
           INSTRUCTIONS.includes(phrase),
           `the model is told what avoids "${refusal}": missing "${phrase}"`,
         );
+      }
+    }
+    for (const [refusal, phrases] of Object.entries(TOLD_IN_KNOWLEDGE_MODE)) {
+      for (const phrase of phrases) {
+        assert.ok(AGENT_ORIGINATION_KNOWLEDGE_SYSTEM_INSTRUCTIONS.includes(phrase), `Knowledge mode tells what avoids "${refusal}": missing "${phrase}"`);
       }
     }
   }

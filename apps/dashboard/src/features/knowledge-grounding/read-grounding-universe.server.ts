@@ -11,7 +11,9 @@
  *   F. any unavailable authoritative read → refused whole
  *   G. complete-universe bound, H. deterministic order, I. aliases — in `assembleKnowledgeGroundingUniverse`
  *
- * READ ONLY. Server-only. Inert: no runtime caller yet (WF-3C wires it).
+ * `revalidateKnowledgeReferences` re-reads the versions a model REFERENCED, just before filing.
+ *
+ * READ ONLY. Server-only. Called by agent origination's explicit Knowledge mode (WF-3C).
  */
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { listKnowledgeSources, type KnowledgeReadDeps } from "@/features/knowledge/knowledge-read.server";
@@ -24,7 +26,10 @@ import {
 import {
   assembleKnowledgeGroundingUniverse,
   hasGroundingStatement,
+  judgeKnowledgeRevalidation,
+  type KnowledgeGroundingCandidate,
   type KnowledgeGroundingUniverse,
+  type KnowledgeRevalidation,
 } from "./contracts";
 
 export interface KnowledgeGroundingReadDeps extends KnowledgeReadDeps {
@@ -64,4 +69,25 @@ export async function readKnowledgeGroundingUniverse(
     })),
   );
   return assembleKnowledgeGroundingUniverse(tenant.tenantId, entries);
+}
+
+/** Re-read Governance's rejections and SCI-2B's facts for exactly the referenced versions. */
+export async function revalidateKnowledgeReferences(
+  tenant: Pick<TenantContext, "tenantId"> | null,
+  referenced: readonly KnowledgeGroundingCandidate[],
+  deps: KnowledgeGroundingReadDeps = {},
+): Promise<KnowledgeRevalidation> {
+  if (typeof window !== "undefined") {
+    throw new Error("Knowledge grounding reads are server-only.");
+  }
+  if (!tenant?.tenantId) return { status: "refused", reason: "authoritative-facts-unavailable" };
+  const rejection = await (deps.readRejectedKnowledgeVersions ?? readRejectedKnowledgeVersions)(tenant).catch(() => null);
+  if (rejection?.status !== "read") return { status: "refused", reason: "authoritative-facts-unavailable" };
+  const now = (deps.now ?? (() => new Date()))();
+  const facts = await Promise.all(
+    referenced.map((c) =>
+      readKnowledgeAdmissibilityFacts(tenant, c.knowledgeNodeId, now, deps.admissibility).catch(() => ({ status: "unavailable" }) as const),
+    ),
+  );
+  return judgeKnowledgeRevalidation(tenant.tenantId, referenced, rejection.rejectedNodeIds, facts);
 }

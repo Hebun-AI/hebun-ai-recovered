@@ -41,6 +41,8 @@ import { isRecipientRef } from "@/features/external-recipients/recipient-ref";
 import { isWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
 /* PURE. `work-contracts.ts` imports nothing at all, so the released title bound costs no I/O. */
 import { isWellFormedWorkTitle } from "@/features/organizational-work/work-contracts";
+/* PURE. WF-3A's alias membership — the same parser, not a second one. */
+import { parseKnowledgeReferences, type KnowledgeReferenceRefusal } from "@/features/knowledge-grounding/contracts";
 import {
   MAX_ORIGINATION_REASON_LENGTH,
   NO_ACTION_KIND,
@@ -60,6 +62,16 @@ const SEND_ARG_KEYS = ["recipientRef", "draftRef"] as const;
 /* TRH-17. The record-work envelope is the SAME three-key shape; only its arguments differ. */
 const RECORD_WORK_ENVELOPE_KEYS = SEND_ENVELOPE_KEYS;
 const RECORD_WORK_ARG_KEYS = ["title", "scope"] as const;
+/* WF-3C. Knowledge mode adds exactly one argument; plain mode is unchanged and refuses it. */
+const KNOWLEDGE_RECORD_WORK_ARG_KEYS = ["title", "scope", "knowledgeRefs"] as const;
+
+/** WF-3A's reference refusals, in this boundary's closed vocabulary. Nothing is stripped or repaired. */
+const KNOWLEDGE_REFUSAL: Readonly<Record<KnowledgeReferenceRefusal, StructuredOutputRefusal>> = {
+  "malformed-knowledge-reference": "malformed-reference",
+  "unknown-knowledge-reference": "reference-not-offered",
+  "duplicate-knowledge-reference": "duplicate-knowledge-reference",
+  "no-knowledge-reference": "no-knowledge-reference",
+};
 const ORGANIZATION_LEVEL_SCOPE_KEYS = ["kind"] as const;
 const DEPARTMENT_SCOPE_KEYS = ["kind", "departmentSlug"] as const;
 /* RUNG 2. Exactly two keys, as the department arm has — a slug and the discriminator. */
@@ -233,7 +245,10 @@ function parseRecordWork(
     return refused("invalid-arguments");
   }
   const argRecord = args as Record<string, unknown>;
-  if (!keysAreExactly(argRecord, RECORD_WORK_ARG_KEYS)) return refused("invalid-arguments");
+  const knowledgeMode = candidates.knowledge !== undefined;
+  if (!keysAreExactly(argRecord, knowledgeMode ? KNOWLEDGE_RECORD_WORK_ARG_KEYS : RECORD_WORK_ARG_KEYS)) {
+    return refused("invalid-arguments");
+  }
 
   /*
    * NOT TRIMMED INTO SHAPE. `isWellFormedWorkTitle` rejects untrimmed text outright, and repairing
@@ -245,14 +260,18 @@ function parseRecordWork(
   const scope = parseScope(argRecord.scope, candidates);
   if (scope.status === "refused") return scope;
 
+  if (!knowledgeMode) {
+    return { status: "selected", selection: { kind: RECORD_WORK_ORIGINATION_ALIAS, title, scope: scope.scope, reason: envelope.reason } };
+  }
+  /*
+   * WF-3C — at least one cited Knowledge version, each an exact member of what THIS invocation
+   * offered. Resolution is to the in-memory candidate, never to an id the model could name.
+   */
+  const refs = parseKnowledgeReferences(argRecord.knowledgeRefs, candidates.knowledge!);
+  if (refs.status === "refused") return refused(KNOWLEDGE_REFUSAL[refs.reason]);
   return {
     status: "selected",
-    selection: {
-      kind: RECORD_WORK_ORIGINATION_ALIAS,
-      title,
-      scope: scope.scope,
-      reason: envelope.reason,
-    },
+    selection: { kind: RECORD_WORK_ORIGINATION_ALIAS, title, scope: scope.scope, reason: envelope.reason, knowledge: refs.referenced },
   };
 }
 

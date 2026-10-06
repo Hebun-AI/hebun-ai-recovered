@@ -115,6 +115,8 @@ async function fileOrganizationLevelProposal(
    * construction: neither human entry point has this parameter.
    */
   proposalRationale?: string,
+  /* WF-3C. Agent Knowledge mode only: the exact cited versions, appended as evidence. */
+  knowledgeVersionRefs?: readonly string[],
 ): Promise<RecordWorkProposalResult> {
   /*
    * ── THE ORGANIZATION IS READ, AND THAT IS THE DEVIATION WORTH NAMING ─────
@@ -161,7 +163,7 @@ async function fileOrganizationLevelProposal(
      * nothing to resolve on this branch, which is exactly its released rule — "an optional
      * record-ref that is simply absent is fine; one that is SUPPLIED must resolve."
      */
-    evidence: [{ sourceClass: "organization", recordRef: organizationRef, lifecycle: "settled" }],
+    evidence: [{ sourceClass: "organization", recordRef: organizationRef, lifecycle: "settled" }, ...knowledgeEvidence(knowledgeVersionRefs)],
   });
 
   if (prepared.lifecycleState !== "REQUIRES_HUMAN_REVIEW") {
@@ -229,6 +231,7 @@ async function fileRecordWorkProposal(
    * construction: neither human entry point has this parameter.
    */
   proposalRationale?: string,
+  knowledgeVersionRefs?: readonly string[],
 ): Promise<RecordWorkProposalResult> {
   assertServerOnly();
   if (!tenant?.tenantId || !tenant.userId) {
@@ -294,6 +297,7 @@ async function fileRecordWorkProposal(
       deps,
       originationInvocationId,
       proposalRationale,
+      knowledgeVersionRefs,
     );
   }
 
@@ -343,6 +347,7 @@ async function fileRecordWorkProposal(
   const departmentRef = formatDepartmentRef(department.departmentId);
   const evidence: readonly HebyEvidenceReference[] = [
     { sourceClass: "organization", recordRef: departmentRef, lifecycle: "settled" },
+    ...knowledgeEvidence(knowledgeVersionRefs),
   ];
 
   /* ── 3. PREPARE — the existing gates, not a second lifecycle ─────────────── */
@@ -472,6 +477,12 @@ export function proposeAgentOriginatedRecordWorkAction(
    * construction: neither human entry point has this parameter.
    */
   proposalRationale?: string,
+  /*
+   * WF-3C — the exact Knowledge versions the agent cited, already re-judged eligible by the caller.
+   * Evidence for review, never a payload argument: they do not enter the digest and decide nothing.
+   * Absent on the human path by construction, like the rationale.
+   */
+  knowledgeVersionRefs?: readonly string[],
 ): Promise<RecordWorkProposalResult> {
   return fileRecordWorkProposal(
     tenant,
@@ -480,7 +491,13 @@ export function proposeAgentOriginatedRecordWorkAction(
     deps,
     originationInvocationId,
     proposalRationale,
+    knowledgeVersionRefs,
   );
+}
+
+/** WF-3C. One `knowledge` evidence entry per cited version, in the order cited. */
+function knowledgeEvidence(refs: readonly string[] | undefined): HebyEvidenceReference[] {
+  return (refs ?? []).map((recordRef) => ({ sourceClass: "knowledge", recordRef, lifecycle: "settled" }));
 }
 
 /* ===========================================================================

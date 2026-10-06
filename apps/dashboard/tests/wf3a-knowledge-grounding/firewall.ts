@@ -3,7 +3,7 @@
  *
  *   - its two modules import exactly the released readers/evaluators they compose, and nothing that
  *     could call a model, disclose to a provider, write Knowledge or Governance, or file an action;
- *   - nothing under src/ imports it yet (WF-3C wires it);
+ *   - only agent origination's explicit Knowledge mode imports it (WF-3C);
  *   - it makes no network call by construction.
  */
 import assert from "node:assert/strict";
@@ -50,7 +50,12 @@ function walk(dir: string): string[] {
     return e.isDirectory() ? walk(p) : /\.(ts|tsx)$/.test(e.name) ? [p] : [];
   });
 }
-const importers = walk("src").filter((f) => !f.startsWith(DIR) && readFileSync(f, "utf8").includes("knowledge-grounding/"));
-assert.deepEqual(importers, [], "inert: no runtime module consumes the grounding universe yet");
+const importers = walk("src").filter((f) => !f.startsWith(DIR) && readFileSync(f, "utf8").includes("knowledge-grounding/")).sort();
+/* WF-3C wired exactly one runtime path: agent origination's explicit Knowledge mode. */
+assert.deepEqual(importers, [
+  "src/features/agent-origination/contracts.ts",
+  "src/features/agent-origination/originate-action.server.ts",
+  "src/features/agent-origination/structured-output.ts",
+], "only agent origination consumes the grounding universe");
 
 console.log("wf3a firewall checks passed");

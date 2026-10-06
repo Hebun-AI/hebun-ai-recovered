@@ -82,6 +82,13 @@ export const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
   "reference-not-offered":
     "Heby named a recipient, draft or department that was not among the ones this organization offered it. Nothing was filed.",
   "invalid-reason": "Heby gave no usable reason for its proposal, so nothing was filed.",
+  "duplicate-knowledge-reference": "Heby cited the same Knowledge twice, so nothing was filed.",
+  "no-knowledge-reference": "Heby cited no organizational Knowledge, so no Knowledge-grounded proposal was filed.",
+  "knowledge-unavailable": "Hebun could not confirm which Knowledge is eligible right now, so nothing was asked or filed.",
+  "no-eligible-knowledge": "This organization has no ratified Knowledge eligible for grounding yet, so nothing was asked or filed.",
+  "knowledge-universe-exceeds-bound": "More than 20 Knowledge statements are eligible, which is more than one request may carry, so nothing was asked or filed.",
+  "knowledge-candidate-too-large": "An eligible Knowledge statement is longer than one request may carry, so nothing was asked or filed.",
+  "knowledge-reference-stale": "Knowledge Heby cited changed or is no longer eligible, so nothing was filed.",
   "proposal-refused":
     "What Heby chose could not be filed — a reference may have been retired or superseded since, or its mandate does not admit that action. Nothing was filed.",
 };

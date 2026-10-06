@@ -35,6 +35,7 @@
  */
 import { RECORD_WORK_ACTION_KIND, SEND_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
 import type { HebyActionKind } from "@/features/heby-actions/contracts";
+import type { KnowledgeGroundingCandidate } from "@/features/knowledge-grounding/contracts";
 
 /**
  * The action kinds an agent may originate. EXACTLY TWO, on purpose.
@@ -237,6 +238,12 @@ export interface OriginationCandidateSet {
   readonly drafts: readonly OriginationCandidate[];
   /** TRH-17. The record-work half. Independent of the send half — see `candidatesAreProposable`. */
   readonly work: RecordWorkCandidateSpace;
+  /**
+   * WF-3C — present ONLY in the explicit Knowledge mode: the complete WF-3A grounding universe. Its
+   * presence is what makes a record-work proposal require `knowledgeRefs`. The model sees only each
+   * candidate's alias and statement; the version id stays server-side.
+   */
+  readonly knowledge?: readonly KnowledgeGroundingCandidate[];
 }
 
 /**
@@ -293,6 +300,8 @@ export type AgentActionSelection =
       readonly title: string;
       readonly scope: RecordWorkSelectionScope;
       readonly reason: string;
+      /** WF-3C, Knowledge mode only: the offered candidates the agent cited, resolved by alias. */
+      readonly knowledge?: readonly KnowledgeGroundingCandidate[];
     }
   | { readonly kind: typeof NO_ACTION_KIND; readonly reason: string };
 
@@ -318,7 +327,11 @@ export type StructuredOutputRefusal =
   /** A reference is well-formed but was never offered as a candidate for this tenant. */
   | "reference-not-offered"
   /** `reason` is missing, empty, not a string, or longer than the bound. */
-  | "invalid-reason";
+  | "invalid-reason"
+  /** WF-3C. The same knowledgeRef twice. */
+  | "duplicate-knowledge-reference"
+  /** WF-3C. Knowledge mode, and the proposal cites no Knowledge: supplied is not referenced. */
+  | "no-knowledge-reference";
 
 export type ParseAgentSelectionResult =
   | { readonly status: "selected"; readonly selection: AgentActionSelection }
@@ -349,4 +362,14 @@ export type OriginationRefusal =
   /** The inlet refused the selected references. Carries the inlet's own reason. */
   | "proposal-refused"
   /** APF-3. An observation was supplied to an origination that may not show one to the model. */
-  | "observation-not-admitted";
+  | "observation-not-admitted"
+  /** WF-3C (Knowledge mode). A required Knowledge or Governance read failed, or the listing was capped. */
+  | "knowledge-unavailable"
+  /** WF-3C. Nothing in this organization's Knowledge is eligible for grounding. */
+  | "no-eligible-knowledge"
+  /** WF-3C. More eligible Knowledge than the release bound; refused whole, never cut. */
+  | "knowledge-universe-exceeds-bound"
+  /** WF-3C. An eligible statement exceeds the per-candidate bound; refused whole, never cut. */
+  | "knowledge-candidate-too-large"
+  /** WF-3C. A cited version was superseded, retracted, rejected or no longer eligible before filing. */
+  | "knowledge-reference-stale";
