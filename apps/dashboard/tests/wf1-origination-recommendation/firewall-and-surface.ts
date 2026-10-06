@@ -141,6 +141,10 @@ assert.equal((ui.match(/readAgentOriginationAvailabilityAction\(/g) ?? []).lengt
 const checkBody = ui.slice(ui.indexOf("const check = "), ui.indexOf("const confirm = "));
 assert.ok(checkBody.includes("readAgentOriginationAvailabilityAction()"), "availability is read only on an explicit click");
 assert.ok(!/useEffect|useLayoutEffect/.test(ui), "nothing runs on render");
+/* The offer speaks in Heby's own terms: a pending proposal for human review, not a redirect to another surface. */
+const offer = ui.slice(ui.indexOf("data-wf1-offer"), ui.indexOf('if (state.kind === "asking")'));
+assert.match(offer, /the result is a pending proposal for\s+human review\./, "the offer names the outcome as a pending proposal for human review");
+assert.ok(!/Approvals/.test(offer), "the offer does not send the human to Approvals");
 assert.ok(!/\b(retry|setTimeout|setInterval)\b/.test(ui), "nothing retries");
 for (const claim of ["tenantId", "agentId", "proposalScope:", "status: \"available\""]) {
   assert.ok(!ui.includes(claim), `the browser never supplies ${claim}`);

@@ -115,8 +115,8 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
         </p>
         <p className="mt-1">From here it may only propose recording organizational work.</p>
         <p className="mt-1">
-          Asking may make one external model call. If {agent.name} proposes, the result is one pending proposal in
-          Approvals. Nothing is approved or executed automatically. This was checked just now and is checked again
+          Asking may make one external model call. If {agent.name} proposes, the result is a pending proposal for
+          human review. Nothing is approved or executed automatically. This was checked just now and is checked again
           when you ask.
         </p>
         <div className="mt-2 flex items-center gap-3">
