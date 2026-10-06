@@ -106,10 +106,14 @@ function main(): void {
     assert.ok(!/heby-model|provider-|anthropic|fetch\(|agent-origination|action-authorization|execution/i.test(
       imports(file).join(" ")), `${file} reaches no model, provider, agent, authorization or execution`);
   }
-  // Inert: nothing in src consumes the primitive yet (WF-3 is not wired).
+  // Inert: the only consumer is WF-3A's grounding-universe composition, itself unconsumed by any
+  // runtime path (tests/wf3a-knowledge-grounding/firewall.ts proves that half).
   const consumers = execSync("grep -rl 'secure-content-admissibility' src || true", { encoding: "utf8" })
-    .trim().split("\n").filter(Boolean).filter((f) => !f.startsWith("src/features/secure-content-admissibility/"));
-  assert.deepEqual(consumers, [], "SCI-2B is not wired into any runtime path");
+    .trim().split("\n").filter(Boolean).filter((f) => !f.startsWith("src/features/secure-content-admissibility/")).sort();
+  assert.deepEqual(consumers, [
+    "src/features/knowledge-grounding/contracts.ts",
+    "src/features/knowledge-grounding/read-grounding-universe.server.ts",
+  ], "SCI-2B is not wired into any runtime path beyond WF-3A's inert composition");
 
   console.log("sci2b evaluator checks passed");
 }
