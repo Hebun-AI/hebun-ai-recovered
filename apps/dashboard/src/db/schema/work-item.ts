@@ -74,6 +74,7 @@ import { sql } from "drizzle-orm";
 import { tenantColumns } from "./_base";
 import { actorTypeEnum, workDeclaredStateEnum } from "./_enums";
 import { departments } from "./department";
+import { workDomains } from "./work-domain";
 
 export const workItems = pgTable(
   "work_items",
@@ -121,6 +122,18 @@ export const workItems = pgTable(
      */
     accountableActorType: actorTypeEnum("accountable_actor_type"),
     accountableActorId: uuid("accountable_actor_id"),
+    /*
+     * AP-4A — WORK SCOPE PROVENANCE, written ONCE when the work is recorded and never changed.
+     *
+     *   NULL / NULL           legacy or unknown: recorded without a declared scope
+     *   'organization' / NULL organization-level work
+     *   'domain' / <id>       work of one work domain in this tenant
+     *
+     * It references the domain by its immutable id, so renaming or retiring the domain never changes
+     * what this row says about the past. No released path writes these columns in Release A.
+     */
+    workScopeKind: text("work_scope_kind"),
+    workDomainId: uuid("work_domain_id"),
   },
   (t) => [
     /**
@@ -147,7 +160,21 @@ export const workItems = pgTable(
     }).onDelete("restrict"),
 
     /** The register is read one tenant at a time, newest first. */
+    foreignKey({
+      name: "work_items_tenant_work_domain_fk",
+      columns: [t.tenantId, t.workDomainId],
+      foreignColumns: [workDomains.tenantId, workDomains.id],
+    }).onDelete("restrict"),
     index("work_items_tenant_created_idx").on(t.tenantId, t.createdAt),
+    index("work_items_tenant_work_domain_idx").on(t.tenantId, t.workDomainId),
+    check(
+      "work_items_work_scope_chk",
+      /* NULL-safe: a domain with no kind must be FALSE, not NULL (which a CHECK would accept). */
+      sql`(${t.workScopeKind} is null and ${t.workDomainId} is null)
+          or (${t.workScopeKind} is not null
+              and ((${t.workScopeKind} = 'organization' and ${t.workDomainId} is null)
+                or (${t.workScopeKind} = 'domain' and ${t.workDomainId} is not null)))`,
+    ),
     /** Reading a department's work, and the join a later milestone will make. */
     index("work_items_tenant_department_idx").on(t.tenantId, t.departmentId),
 

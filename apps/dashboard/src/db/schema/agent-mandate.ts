@@ -225,6 +225,8 @@ export const agentMandates = pgTable(
   },
   (t) => [
     index("agent_mandates_tenant_agent_idx").on(t.tenantId, t.agentId),
+    /* AP-4A — lets `agent_mandate_responsibilities` hold a COMPOSITE same-tenant foreign key. */
+    uniqueIndex("agent_mandates_tenant_id_uq").on(t.tenantId, t.id),
 
     /**
      * ONE EFFECTIVE MANDATE PER AGENT, AND NO HISTORY MUTATION.

@@ -517,6 +517,8 @@ function noProposalEnforcementExists(): void {
       path.join("src", "app", "(dashboard)", "agents", "actions.ts"),
       path.join("src", "app", "(dashboard)", "agents", "page.tsx"),
       path.join("src", "components", "agents", "agent-mandate-card.tsx"),
+      /* AP-4A. The responsibility dimension's table, which holds a composite FK to its mandate revision. */
+      path.join("src", "db", "schema", "agent-mandate-responsibility.ts"),
       path.join("src", "db", "schema", "index.ts"),
       /* WF-4. The shared permit spend re-reads the effective mandate for agent-proposed requests. */
       path.join("src", "features", "action-authorization", "consume-action-permit.server.ts"),
@@ -532,7 +534,7 @@ function noProposalEnforcementExists(): void {
       /* APF-1. Standing issuance re-reads the effective mandate before it mints a permit. */
       path.join("src", "features", "standing-mutation-authority", "issue-permit-under-standing-authorization.server.ts"),
     ],
-    "twelve modules know a mandate exists, and each is named: the schema barrel, the audit sibling, the Governance decision writer, the FOUR enforcers that apply the one shared ceiling (WF-4 added the shared permit spend), THREE product files, ONE grounding consumer and WF-1's read-only availability projection",
+    "thirteen modules know a mandate exists, and each is named: the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the FOUR enforcers that apply the one shared ceiling (WF-4 added the shared permit spend), THREE product files, ONE grounding consumer and WF-1's read-only availability projection",
   );
 
   /*

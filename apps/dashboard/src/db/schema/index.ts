@@ -23,6 +23,8 @@ export * from "./provider";
 export * from "./agent";
 export * from "./agent-improvement-hypothesis";
 export * from "./agent-mandate";
+export * from "./work-domain";
+export * from "./agent-mandate-responsibility";
 export * from "./mission";
 export * from "./goal";
 export * from "./plan";

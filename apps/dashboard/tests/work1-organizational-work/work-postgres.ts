@@ -169,8 +169,9 @@ async function main(): Promise<void> {
     }
     assert.deepEqual(
       [...targets].sort(),
-      ["companies", "departments"],
-      "work_items references exactly the tenant and the department, and nothing else",
+      /* AP-4A: the work-scope provenance names a work domain of the same tenant (composite FK). */
+      ["companies", "departments", "work_domains"],
+      "work_items references exactly the tenant, the department and the work domain, and nothing else",
     );
 
     /* The database enum and the product vocabulary are the same four values. */

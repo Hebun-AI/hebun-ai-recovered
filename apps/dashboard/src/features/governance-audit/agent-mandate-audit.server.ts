@@ -81,6 +81,11 @@ export interface AgentMandateAuditMetadata {
    * `MANDATE RECORDED != PROPOSAL-ENFORCED`, and history says so on every row.
    */
   readonly enforced: false;
+  /** AP-4A — present only on a revision written through the responsibility-aware contract. */
+  readonly responsibility?: readonly (
+    | { readonly kind: "organization" }
+    | { readonly kind: "domain"; readonly workDomainId: string }
+  )[];
 }
 
 /**

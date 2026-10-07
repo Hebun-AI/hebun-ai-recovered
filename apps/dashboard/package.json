@@ -29,7 +29,10 @@
     "platform:bootstrap-first-human": "node --import tsx scripts/bootstrap-first-human.ts",
     "platform:recover-bootstrap-credential": "node --import tsx scripts/recover-bootstrap-credential.ts",
     "platform:processor-attestation": "node --import tsx scripts/processor-attestation.ts",
-    "platform:tenant-external-ai-data-use": "node --import tsx scripts/eai-authorize-tenant-external-ai-data-use.ts"
+    "platform:tenant-external-ai-data-use": "node --import tsx scripts/eai-authorize-tenant-external-ai-data-use.ts",
+    "platform:work-domain": "node --import tsx scripts/work-domain-ceremony.ts",
+    "platform:mandate-responsibility": "node --import tsx scripts/agent-mandate-responsibility-ceremony.ts",
+    "platform:ap4-release-b-preflight": "node --import tsx scripts/ap4-release-b-preflight.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

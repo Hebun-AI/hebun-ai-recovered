@@ -144,6 +144,8 @@ function main(): void {
       "20261006175909_sci2b_knowledge_integrity_at_insert.sql",
       /* AP-1 — agents in-service canonical-name unique index + visible-name CHECK. A declared later phase. */
       "20261007064348_ap1_agent_name_in_service_uniqueness.sql",
+      /* AP-4A — work domains, mandate responsibility and work-scope provenance (additive). A declared later phase. */
+      "20261007175237_ap4a_work_domain_foundation.sql",
       ],
       "KR3 added no migration; everything after its boundary belongs to a declared later phase",
     );

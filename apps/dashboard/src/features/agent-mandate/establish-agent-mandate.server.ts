@@ -64,10 +64,13 @@
  * Server-only.
  */
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { agentMandates } from "@/db/schema/agent-mandate";
 import { agents } from "@/db/schema/agent";
+import { agentMandateResponsibilities } from "@/db/schema/agent-mandate-responsibility";
+import { workDomains } from "@/db/schema/work-domain";
+import { ACTIVE_WORK_DOMAIN_STATUS } from "@/features/work-domain/contracts";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordAgentMandateEventWithin } from "@/features/governance-audit/agent-mandate-audit.server";
 import { recordGovernanceEventWithin } from "@/features/governance-audit/governance-decision-audit.server";
@@ -91,6 +94,13 @@ import {
   type EstablishAgentMandateResult,
   type MandateScopeKind,
 } from "./contracts";
+import {
+  RESPONSIBILITY_SCOPED_ACTION_KIND,
+  canonicaliseResponsibility,
+  type EstablishResponsibleAgentMandateResult,
+  type MandateResponsibilityGrant,
+  type MandateResponsibilityRefusal,
+} from "./responsibility-contracts";
 
 export interface EstablishAgentMandateDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -99,13 +109,13 @@ export interface EstablishAgentMandateDeps {
 
 /** Aborts the transaction when a governed rule refuses mid-flight. */
 class MandateAbort extends Error {
-  constructor(readonly refusal: AgentMandateRefusal) {
+  constructor(readonly refusal: MandateResponsibilityRefusal) {
     super(refusal);
     this.name = "MandateAbort";
   }
 }
 
-function refused(reason: AgentMandateRefusal): EstablishAgentMandateResult {
+function refused(reason: MandateResponsibilityRefusal): EstablishResponsibleAgentMandateResult {
   return { status: "refused", reason };
 }
 
@@ -205,8 +215,14 @@ async function readEffectiveRevisionWithin(
 }
 
 /**
- * Establish or revise the bounded purpose of ONE durable agent, under the tenant's Governance
- * authority.
+ * THE ONE TRANSACTIONAL CORE of the Agent Mandate Authority (AP-4A).
+ *
+ * Both public entries below reach the table, the revision ordinal, the Governance decision and the
+ * audit sibling ONLY through this function, so there is one writer and one source of truth however
+ * many contracts reach it. `responsibility === null` is the released 5-value contract: it writes no
+ * responsibility row, and its decision evidence and audit metadata are byte-identical to before
+ * AP-4A. An array is the responsibility-aware contract: the grants are verified against THIS tenant's
+ * in-service work domains, bound into the decision's evidence, and written in the same transaction.
  *
  * The caller names the agent, writes the purpose, chooses a scope from the released vocabulary, and
  * states which revision it was shown. It CANNOT supply the tenant, the acting human, the decision,
@@ -216,7 +232,7 @@ async function readEffectiveRevisionWithin(
  * `observedMandateRevision` is `null` when the caller believes no mandate exists yet. It is a
  * precondition and can only ever cause a refusal.
  */
-export async function establishAgentMandate(
+async function writeMandateRevision(
   tenant: TenantContext | null,
   input: {
     readonly agentId: string;
@@ -226,8 +242,9 @@ export async function establishAgentMandate(
     /** The revision the human was shown, or `null` for "I believe there is no mandate yet". */
     readonly observedMandateRevision: number | null;
   },
-  deps: EstablishAgentMandateDeps = {},
-): Promise<EstablishAgentMandateResult> {
+  responsibility: readonly MandateResponsibilityGrant[] | null,
+  deps: EstablishAgentMandateDeps,
+): Promise<EstablishResponsibleAgentMandateResult> {
   if (typeof window !== "undefined") {
     throw new Error("Agent mandates are server-only.");
   }
@@ -285,7 +302,7 @@ export async function establishAgentMandate(
   if (!authority.authorized) return refused("not-the-governance-authority");
 
   try {
-    let outcome: EstablishAgentMandateResult | null = null;
+    let outcome: EstablishResponsibleAgentMandateResult | null = null;
 
     await db.transaction(async (rawTx) => {
       const tx = rawTx as unknown as ControlPlaneDatabase;
@@ -324,6 +341,23 @@ export async function establishAgentMandate(
       const mandateId = randomUUID();
 
       /*
+       * AP-4A · RESPONSIBILITY IS VERIFIED IN THE SAME TRANSACTION. Every named domain must be THIS
+       * tenant's and in service. The tenant is in the WHERE, so another organization's id is simply
+       * absent — indistinguishable from one that never existed.
+       */
+      const grantedDomainIds = (responsibility ?? []).flatMap((g) => (g.kind === "domain" ? [g.workDomainId] : []));
+      if (grantedDomainIds.length > 0) {
+        const found = await tx
+          .select({ id: workDomains.id, lifecycleStatus: workDomains.lifecycleStatus })
+          .from(workDomains)
+          .where(and(eq(workDomains.tenantId, authenticated.tenantId), inArray(workDomains.id, grantedDomainIds)));
+        if (found.length !== grantedDomainIds.length) throw new MandateAbort("work-domain-unresolvable");
+        if (found.some((d) => d.lifecycleStatus !== ACTIVE_WORK_DOMAIN_STATUS)) {
+          throw new MandateAbort("work-domain-retired");
+        }
+      }
+
+      /*
        * 10 · THE GOVERNANCE DECISION, BOUND TO THE REVISION — never to the agent.
        *
        * A decision bound to the agent would silently mean "whatever mandate is current when someone
@@ -344,6 +378,8 @@ export async function establishAgentMandate(
             mandateRevision,
             proposalScope: [...proposalScope],
             supersedesMandateId,
+            /* AP-4A — present ONLY on the responsibility-aware contract; the released contract is unchanged. */
+            ...(responsibility === null ? {} : { responsibility: [...responsibility] }),
           },
         },
         now,
@@ -401,6 +437,20 @@ export async function establishAgentMandate(
       const writtenId = inserted[0]?.id;
       if (!writtenId) throw new MandateAbort("persistence-unavailable");
 
+      /* AP-4A · the responsibility rows, under the same decision, in the same transaction. Never updated. */
+      if (responsibility !== null && responsibility.length > 0) {
+        await tx.insert(agentMandateResponsibilities).values(
+          responsibility.map((grant) => ({
+            tenantId: authenticated.tenantId,
+            mandateId,
+            responsibilityKind: grant.kind,
+            workDomainId: grant.kind === "domain" ? grant.workDomainId : null,
+            createdAt: now,
+            createdBy: authenticated.userId,
+          })),
+        );
+      }
+
       /* 12 · The Governance event: a decision was made. */
       await recordGovernanceEventWithin(
         tx,
@@ -454,6 +504,7 @@ export async function establishAgentMandate(
             supersedesMandateId,
             /* AMA-1 records; it does not enforce. Stated on every row. */
             enforced: false,
+            ...(responsibility === null ? {} : { responsibility: [...responsibility] }),
           },
         },
         now,
@@ -472,6 +523,7 @@ export async function establishAgentMandate(
           effectiveFrom: now.toISOString(),
           supersedesMandateId,
         },
+        responsibility: responsibility ?? [],
       };
     });
 
@@ -485,4 +537,52 @@ export async function establishAgentMandate(
     if (isUniqueViolation(error)) return refused("concurrent-mandate-change");
     return refused("persistence-unavailable");
   }
+}
+
+/**
+ * THE RELEASED CONTRACT — byte-compatible. Five values, no responsibility; `/agents` reaches the
+ * authority here until Release B moves it to the responsibility-aware entry and deletes this one.
+ */
+export async function establishAgentMandate(
+  tenant: TenantContext | null,
+  input: {
+    readonly agentId: string;
+    readonly purpose: string;
+    readonly proposalScope: readonly string[];
+    readonly justification: string;
+    readonly observedMandateRevision: number | null;
+  },
+  deps: EstablishAgentMandateDeps = {},
+): Promise<EstablishAgentMandateResult> {
+  const result = await writeMandateRevision(tenant, input, null, deps);
+  if (result.status === "established") return { status: "established", mandate: result.mandate };
+  /* Unreachable with `responsibility === null`: the core raises responsibility refusals only for an array. */
+  return { status: "refused", reason: result.reason as AgentMandateRefusal };
+}
+
+/**
+ * AP-4A — THE RESPONSIBILITY-AWARE CONTRACT. Inert in Release A: only the operator ceremony and tests
+ * call it (a firewall pins that). A scope naming `record-work` must state a non-empty responsibility;
+ * any other scope must state none.
+ */
+export async function establishAgentMandateWithResponsibility(
+  tenant: TenantContext | null,
+  input: {
+    readonly agentId: string;
+    readonly purpose: string;
+    readonly proposalScope: readonly string[];
+    readonly justification: string;
+    readonly observedMandateRevision: number | null;
+    readonly responsibility: unknown;
+  },
+  deps: EstablishAgentMandateDeps = {},
+): Promise<EstablishResponsibleAgentMandateResult> {
+  const responsibility = canonicaliseResponsibility(input?.responsibility);
+  if (!responsibility) return refused("responsibility-invalid");
+  const scope = canonicaliseMandateScope(input?.proposalScope);
+  if (!scope) return refused("mandate-scope-invalid");
+  const scoped = scope.includes(RESPONSIBILITY_SCOPED_ACTION_KIND);
+  if (scoped && responsibility.length === 0) return refused("responsibility-required");
+  if (!scoped && responsibility.length > 0) return refused("responsibility-not-admitted");
+  return writeMandateRevision(tenant, input, responsibility, deps);
 }

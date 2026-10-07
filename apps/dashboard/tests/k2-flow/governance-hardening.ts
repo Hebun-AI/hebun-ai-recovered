@@ -253,6 +253,12 @@ function main(): void {
        * not observing.
        */
       "src/features/governance-audit/standing-observation-audit.server.ts",
+      /*
+       * AP-4A — the Work Domain Authority's audit sibling. It appends create/rename/retire of a work
+       * domain to the SHARED sink and creates no second audit table. The census GREW; nothing in it
+       * was widened.
+       */
+      "src/features/governance-audit/work-domain-audit.server.ts",
     ];
     const sinkWriters: string[] = [];
     const sinkImporters: string[] = [];

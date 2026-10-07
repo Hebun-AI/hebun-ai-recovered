@@ -169,7 +169,7 @@ const MUTATIONS: readonly Mutation[] = [
     /* RE-ANCHORED at the RUNG 2 PREREQUISITE (migration 54); it was at TRH-19 before, and at WORK-1 before that: the mutation must apply
      * to the journal's CURRENT tail, or it proves nothing. The defect it injects — an extra journal
      * entry — is unchanged, and this anchor moves with every migration by design. */
-    /* SCI-2B: the journal tail is now the Knowledge integrity-at-insert fact. */ /* AP-1: the tail is now the agent in-service name invariant. */ find: `      "tag": "20261007064348_ap1_agent_name_in_service_uniqueness",\n      "breakpoints": true\n    }\n  ]`,
+    /* SCI-2B: the journal tail is now the Knowledge integrity-at-insert fact. */ /* AP-1: the tail is now the agent in-service name invariant. */ /* AP-4A: the tail is now the work domain foundation. */ find: `      "tag": "20261007175237_ap4a_work_domain_foundation",\n      "breakpoints": true\n    }\n  ]`,
     replace:
       `      "tag": "20260908072926_trh24_machine_observation_provenance",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 50,\n      "version": "7",\n      "when": 1787726663801,\n` +
