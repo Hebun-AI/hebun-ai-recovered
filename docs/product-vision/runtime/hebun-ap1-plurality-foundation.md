@@ -1,10 +1,12 @@
 # AP-1 — Plurality Foundation
 
-**Status: IMPLEMENTED, NOT COMMITTED (awaiting Director commit gate, 2026-10-07).**
-Branch `feat/ap-1-plurality-foundation` off `bccaeec1` (Phase 0 doc, itself off `c3bfc04a`). One
-migration (ledger 73 → 74). No production migration, deploy or mutation. Agent #2 is NOT created.
-Selected in the Agent Platform Phase 0 design gate
-(`hebun-agent-platform-phase0-design-gate.md`).
+**Status: CLOSED / PRODUCTION-ACCEPTED (2026-10-07) — Agent #1 compatibility.** IMPLEMENTED
+`4d5d509b` (parent `bccaeec1`, the Phase 0 doc, itself off `c3bfc04a`) · MIGRATED through
+`platform:migrate` (ledger 73 → 74), production-verified read-only · pushed to `main` by fast-forward
+`c3bfc04a..4d5d509b` · DEPLOYED `dpl_4Ek8ZSEw7y2fPZ2WsbT67pWvTW7r` (READY, SHA `4d5d509b`) ·
+Agent #1 compatibility PRODUCTION-ACCEPTED read-only (data + UI). **Plurality itself is NOT
+production-exercised:** no second production agent exists; that is AP-5. Selected in the Agent
+Platform Phase 0 design gate (`hebun-agent-platform-phase0-design-gate.md`).
 
 **Multi-identity is not "unlimited agents".** AP-1 builds the plurality PRIMITIVE only: every
 identity costs one recorded Governance decision. No product policy about how many agents an
@@ -26,7 +28,8 @@ organization should have is implied.
 | Disclosure / UI | "ONCE", "ceremony closed", "one per organization" | governed registration, in-service name rule, retirement never reinstates; registration asks for a reason |
 
 Unchanged on purpose: retire authority (owner + Governance, terminal, no decision), the origination
-prompt (bytes identical, sha `494cec71…` of `ORIGINATION_INSTRUCTION_LINES`), mandate vocabulary,
+prompt (the `ORIGINATION_INSTRUCTION_LINES` block is byte-identical between `c3bfc04a` and the
+deployed `4d5d509b`; AP-1 only adds the selection argument in that file), mandate vocabulary,
 EAI, providers, department, suspend/succession, spend cap, operations-surface selection.
 
 ## The name invariant
@@ -39,7 +42,7 @@ names; no locale-specific folding is added. Partial on the read seam's in-servic
 NULL lifecycle, which `<>` would have excluded). A retired name may be registered again as a NEW
 identity; history is always distinguished by agentId.
 
-## Evidence (local only)
+## Evidence (local, before release)
 
 - Production read-only preflight (2026-10-07, read-only session + transaction, rollback): PG 18.6,
   builtin C.UTF-8, `pg_c_utf8` present, `lower`/`normalize` IMMUTABLE, two agents both `Heby` in
@@ -65,11 +68,79 @@ It must never enter model grounding content, a label or detail line, or any expl
 user. The model's existing withheld behaviour is unchanged: the `agents` class reaches the model as
 one fixed withheld line, which carries no id (asserted in `tests/e25-agent-grounding`, section 5).
 
+## Production release and acceptance (2026-10-07)
+
+Every production read below ran on a connection with `default_transaction_read_only=on`; a write
+probe through the application's own pool was refused `25006`. Nothing was created, proposed or
+decided.
+
+**1 · Preflight (read-only).** Cluster `7675444875863894887` / `neondb`, PG 18.6, builtin C.UTF-8,
+`pg_c_utf8` v1. Ledger 73, every position equal to the canonical files by hash and timestamp, digest
+`86c098e1…`; AP-1 hash absent; index and CHECK names free; 0 canonical-name collisions, 0
+visible-name violations, 0 non-NFC names. Snapshot: two agents, one per tenant, both `Heby`, in
+service — Hebun AI `4ffeeb83…` (row sha256 `c020e208f960432b`, 3 mandates) and Turkish Rug House
+`67f4460c…` (`def7a6c9414d478c`, 1 mandate); 0 `agent-registration` sessions or decisions.
+
+**2 · Migration 74.** `platform:migrate` from this worktree; CAS re-measured immediately before
+(ledger 73, `86c098e1…`); the ceremony listed exactly one pending migration
+(`20261007064348_ap1_agent_name_in_service_uniqueness`) and the Director typed the confirmation.
+Backup `hebun_production_pre_migration_20261007-084005.dump` (756,126 bytes, `pg_restore -l` OK).
+Result SUCCESS, 73 → 74, organizational data unchanged across every counted table.
+
+**3 · Post-migration (read-only).** Ledger 74, all positions canonical, digest
+`639a3c28349c85d107146ce0c63810e0`. `agents_tenant_name_in_service_uq` unique, valid, ready:
+`(tenant_id, lower((NORMALIZE(name, NFC) COLLATE pg_c_utf8))) WHERE ((retired_at IS NULL) AND
+(agent_lifecycle_status IS DISTINCT FROM 'retired'))`. `agents_name_visible_chk` validated, definition
+identical to the migration. Both agent row hashes unchanged; registration 0/0; collisions 0;
+visible-name violations 0.
+
+**4 · Release.** Remote `main` re-read as `c3bfc04a`; two single-parent commits, fast-forward push
+`c3bfc04a..4d5d509b` (no force). Vercel `dpl_4Ek8ZSEw7y2fPZ2WsbT67pWvTW7r` READY, target production;
+`meta.githubCommitSha` and `gitSource.sha` both `4d5d509b…`; aliases `www.hebuntech.com` and
+`hebuntech.com` resolve to that deployment.
+
+**5 · Agent #1 compatibility (read-only).** Deployed SHA and ledger 74 re-confirmed; agent row hashes
+unchanged before and after; still 2 agents (1 per tenant, none created on 2026-10-07), mandates
+unchanged, registration 0/0. On the Hebun tenant, with no selection: `resolveAgentProposer` and
+`resolveAgentAuthorship` both resolve Agent #1. Heby grounding: `recordRef = agent/<Agent #1 id>`,
+label `Heby`, no UUID in label, detail or model detail, no tenant id anywhere. Model-facing
+projection: exactly `[agents] withheld — not disclosed to the external model`, no UUID.
+Origination instruction block byte-identical to pre-AP-1 (see above). The availability /
+capability answer depends on the deployed runtime's model environment and could not be read
+locally; it was accepted through the production UI.
+
+**6 · UI (Director, manual, read-only, hard reload).** `/agents`: Hebun shows the one in-service
+Heby identity and Agent #1's Effective Capability card; registration copy carries the plurality /
+Governance semantics; no singleton or one-shot wording. `/heby`: the existing affordance needs no
+agent selection in the single-agent case. No agentId or UUID visible on Heby's user surface.
+
+## What is and is not proven
+
+| Part | Implemented | Deployed | Production-verified |
+|---|---|---|---|
+| Migration 74 (name uniqueness + visibility CHECK) | yes | yes | yes — schema, ledger, digest, existing data |
+| Selection-free resolution, one agent per tenant | yes | yes | yes — Hebun Agent #1 |
+| B3 `recordRef = agent/<agentId>` + model withholding | yes | yes | yes — Hebun grounding |
+| `/agents` per-agent card, registration copy, Heby affordance | yes | yes | yes — single-agent case, UI |
+| Registration as a Governance decision | yes | yes | no — never exercised in production (0 decisions) |
+| B1 ambiguity refusal, B2 same-agent lineage, explicit selection, Heby candidates | yes | yes | no — need two in-service agents; proven by tests only |
+
+**Limitation.** No second real Hebun agent was created. Agent plurality has not been exercised with
+two production agents; that proof belongs to AP-5.
+
+**Known separate debt (not AP-1).** `tests/supplied-media-account-provenance-1/provenance-postgres.ts`
+fails deterministically on PostgreSQL 18: PG18 reports `ON DELETE RESTRICT` as SQLSTATE 23001
+("violates RESTRICT setting of foreign key constraint"), not 23503, so the alternation
+`/media_assets_supplied_source_integration_fk|violates foreign key/` misses — and the constraint that
+fires is `integration_credentials_tenant_integration_fk`, so the test never proved the
+`media_assets` FK even on PG14. It is the only PG14 → PG18 baseline difference (PG18 baseline
+895/68/963 at `bccaeec1`; AP-1 897/68/965, same 68 first errors).
+
 ## Rollout order and rollback
 
 Migration first (schema is compatible with the released code: the old code cannot create a second
-identity and both production tenants already hold one), then code. Rollback = a forward reverse
-migration (75) plus code revert; no data loss.
+identity and both production tenants already hold one), then code — executed in that order on
+2026-10-07. Rollback = a forward reverse migration (75) plus code revert; no data loss.
 
 ## Three questions
 
