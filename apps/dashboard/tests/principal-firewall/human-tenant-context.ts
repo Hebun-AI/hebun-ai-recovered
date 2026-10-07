@@ -323,11 +323,14 @@ function main(): void {
       "src/features/agent-improvement-hypothesis/read-improvement-hypotheses.server.ts",
       "src/db/schema/agent-mandate.ts",
       "src/features/agent-mandate/establish-agent-mandate.server.ts",
+      /* AP-2 — tenant SCOPE predicates for the column-scoped placement read and write. */
+      "src/features/organization-authority/read-agent-placement.server.ts",
+      "src/features/organization-authority/write-agent-placement.server.ts",
       "src/db/schema/standing-mutation-authorization.ts",
       "src/features/standing-mutation-authority/read-standing-mutations.server.ts",
       "src/db/schema/media-asset.ts",
     ].sort(),
-    "`agents.tenant_id` is a tenant SCOPE in five readers and a composite-key target in five table definitions — a grant in none of them",
+    "`agents.tenant_id` is a tenant SCOPE in seven readers (AP-2 adds the placement read and write) and a composite-key target in five table definitions — a grant in none of them",
   );
 
   /* ── 7. NO MACHINE INGRESS ────────────────────────────────────────────────
@@ -408,10 +411,14 @@ function main(): void {
     );
     assert.notEqual(withAp1Imports, withForeignKey, "the sql and check imports are AP-1's");
     const current = read("src/db/schema/agent.ts");
-    /* OSA-1's column change, taken from the file and required to be exactly this shape. */
-    const columnStart = current.indexOf("    /**\n     * WHICH DEPARTMENT THIS AGENT BELONGS TO.");
+    /*
+     * OSA-1's column change, taken from the file and required to be exactly this shape. AP-2
+     * rewrote the column's NOTE (owner: Organization Authority, not Agent Identity) — the column,
+     * its type and its FK are unchanged, so only the marker moved.
+     */
+    const columnStart = current.indexOf("    /**\n     * WHICH DEPARTMENT THIS AGENT IS PLACED IN.");
     const columnEnd = current.indexOf('    name: text("name").notNull(),');
-    assert.ok(columnStart > 0 && columnEnd > columnStart, "the department column carries its OSA-1 note");
+    assert.ok(columnStart > 0 && columnEnd > columnStart, "the department column carries its OSA-1 / AP-2 note");
     const withColumn = withAp1Imports.replace(
       '    departmentId: uuid("department_id").references(() => departments.id),\n',
       current.slice(columnStart, columnEnd),

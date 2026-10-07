@@ -116,8 +116,10 @@ function exactlyOneWriter(): void {
     [
       path.join("src", "features", "agent-identity", "create-durable-agent-identity.server.ts"),
       path.join("src", "features", "agent-identity", "retire-durable-agent-identity.server.ts"),
+      /* AP-2 — the Organization Authority's column-scoped placement writer (`department_id` only). */
+      path.join("src", "features", "organization-authority", "write-agent-placement.server.ts"),
     ],
-    "still exactly two writers of `agents` — AGENT IDENTITY != AGENT MANDATE",
+    "still exactly three writers of `agents` — Agent Identity's two and AP-2's column-scoped placement; AGENT IDENTITY != AGENT MANDATE",
   );
 
   /* The permission catalog stays inert. AMA-1 activated neither table. */

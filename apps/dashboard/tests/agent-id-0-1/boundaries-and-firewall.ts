@@ -415,9 +415,12 @@ function main(): void {
       "@/features/agent-mandate/contracts",
       "@/features/agent-mandate/establish-agent-mandate.server",
       "@/features/auth-runtime/request-session.server",
+      /* AP-2 — the Organization Authority's agent placement writer and its type-only contracts. */
+      "@/features/organization-authority/agent-placement-contracts",
+      "@/features/organization-authority/write-agent-placement.server",
       "next/cache",
     ],
-    "the boundary imports exactly the session resolver, the FOUR authorities, their type-only " +
+    "the boundary imports exactly the session resolver, the FIVE authorities (AP-2: agent placement), their type-only " +
       "contracts modules, and revalidation — nothing else has a door here",
   );
 
@@ -540,8 +543,11 @@ function main(): void {
       "establishAgentMandateAction",
       "fileImprovementHypothesisAction",
       "retireDurableAgentIdentityAction",
+      /* AP-2 — place / move an agent, and withdraw its placement. Organization Authority, not Agent Identity. */
+      "setAgentPlacementAction",
+      "withdrawAgentPlacementAction",
     ],
-    "the boundary exposes exactly four actions: establish an identity, withdraw one, record a mandate, and file a hypothesis",
+    "the boundary exposes exactly six actions: establish an identity, withdraw one, record a mandate, file a hypothesis, and place or unplace an agent",
   );
   /*
    * AND THERE IS STILL NO REINSTATE — nor any other verb that would undo a retirement. Retirement

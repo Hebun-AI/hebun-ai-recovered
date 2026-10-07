@@ -77,19 +77,21 @@ const STRUCTURE_WRITER = `${AUTHORITY_DIR}/write-structure.server.ts`;
  * counting files.
  */
 const PLACEMENT_WRITER = `${AUTHORITY_DIR}/write-placement.server.ts`;
+/* AP-2 — the column-scoped AGENT placement writer (`agents.department_id` + provenance only). */
+const AGENT_PLACEMENT_WRITER = `${AUTHORITY_DIR}/write-agent-placement.server.ts`;
 
 function theAuthorityCannotWrite(): void {
   const writers = walk(AUTHORITY_DIR).filter((file) => performsDurableWrite(read(file)));
   assert.deepEqual(
     writers.sort(),
-    [STRUCTURE_WRITER, PLACEMENT_WRITER].sort(),
-    "exactly TWO files in this directory may perform a durable write — the structure authority " +
-      "and the placement authority, both by name. A third is a new authority and must be a " +
-      "deliberate edit here.",
+    [STRUCTURE_WRITER, PLACEMENT_WRITER, AGENT_PLACEMENT_WRITER].sort(),
+    "exactly THREE files in this directory may perform a durable write — the structure authority, " +
+      "the human placement authority and (AP-2) the agent placement authority, all by name. A " +
+      "fourth is a new authority and must be a deliberate edit here.",
   );
 
   for (const file of walk(AUTHORITY_DIR)) {
-    if (file === STRUCTURE_WRITER || file === PLACEMENT_WRITER) continue;
+    if (file === STRUCTURE_WRITER || file === PLACEMENT_WRITER || file === AGENT_PLACEMENT_WRITER) continue;
     const code = codeOf(read(file));
     for (const banned of ["transaction(", "delete(", "insert(", "update("]) {
       assert.ok(!code.includes(banned), `${file}: must not contain ${banned}`);
@@ -97,7 +99,7 @@ function theAuthorityCannotWrite(): void {
   }
 
   /* And NEITHER writer deletes anything, anywhere: both retire in place. */
-  for (const writer of [STRUCTURE_WRITER, PLACEMENT_WRITER]) {
+  for (const writer of [STRUCTURE_WRITER, PLACEMENT_WRITER, AGENT_PLACEMENT_WRITER]) {
     assert.ok(
       !codeOf(read(writer)).includes("delete("),
       `${writer} retires in place and deletes nothing`,
@@ -290,11 +292,13 @@ function thereIsOnlyOneAnswer(): void {
       RECORD_WORK_INLET,
       ORIGINATION_CANDIDATES,
       PLACE_HUMAN_INLET,
+      /* AP-2 — the Agents page reads its department list through this seam for agent placement. */
+      "src/app/(dashboard)/agents/page.tsx",
     ].sort(),
     "the Organization Authority's consumers are exactly the Organization page, the Live Map " +
       "projection, the Work register page, the record-work proposal inlet, the place-human " +
-      "proposal inlet, and the agent " +
-      "origination candidate builder",
+      "proposal inlet, the agent " +
+      "origination candidate builder, and (AP-2) the Agents page",
   );
 
   /*
@@ -365,9 +369,17 @@ function thereIsOnlyOneAnswer(): void {
        * no database.
        */
       `${AUTHORITY_DIR}/organization-ref.ts`,
+      /*
+       * AP-2 adds THREE, the Director having made the Organization Authority the owner of where an
+       * agent sits: vocabulary, a tenant-scoped read, and ONE column-scoped writer of
+       * `agents.department_id`. No Heby projection — agent placement is not a grounding class.
+       */
+      `${AUTHORITY_DIR}/agent-placement-contracts.ts`,
+      `${AUTHORITY_DIR}/read-agent-placement.server.ts`,
+      AGENT_PLACEMENT_WRITER,
     ].sort(),
     "the Organization Authority is exactly its contracts, its read seam, its Heby projection, " +
-      "OSA-1's structural trio, Departmental Placement's four, and the two pure reference modules — and nothing else. Formerly: " +
+      "OSA-1's structural trio, Departmental Placement's four, the two pure reference modules and AP-2's agent placement three — and nothing else. Formerly: " +
       "OSA-1's structural contracts, structural read and single structural writer",
   );
 

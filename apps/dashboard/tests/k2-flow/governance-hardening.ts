@@ -207,6 +207,8 @@ function main(): void {
        * GREW; nothing in it was widened, which is what this assertion has always been about.
        */
       "src/features/governance-audit/agent-mandate-audit.server.ts",
+      /* AP-2 — the Organization Authority's record of an agent placement act. */
+      "src/features/governance-audit/agent-placement-audit.server.ts",
       "src/features/governance-audit/departmental-placement-audit.server.ts",
       /* APF-5 — evidence of an External AI disclosure decision, recorded as the authority made it. */
       "src/features/governance-audit/external-ai-disclosure-audit.server.ts",

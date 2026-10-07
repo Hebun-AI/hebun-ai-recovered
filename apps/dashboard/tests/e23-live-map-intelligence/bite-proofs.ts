@@ -238,7 +238,7 @@ const MUTATIONS: readonly Mutation[] = [
     basis:
       "agents.tenant_id — the durable column whose value is this organization's own identity. " +
       "No departmental placement, ownership or assignment is claimed by this edge. An AGENT is " +
-      "assigned to a department through \`agents.department_id\`, which Agent Identity owns, and a " +
+      "assigned to a department through \`agents.department_id\`, which the Organization Authority owns, and a " +
       "HUMAN is placed through the placement authority — neither is this edge, and neither is " +
       "inferred from it.",
   }));`,
@@ -250,7 +250,7 @@ const MUTATIONS: readonly Mutation[] = [
       basis:
         "agents.tenant_id — the durable column whose value is this organization's own identity. " +
         "No departmental placement, ownership or assignment is claimed by this edge. An AGENT is " +
-        "assigned to a department through \`agents.department_id\`, which Agent Identity owns, and a " +
+        "assigned to a department through \`agents.department_id\`, which the Organization Authority owns, and a " +
         "HUMAN is placed through the placement authority — neither is this edge, and neither is " +
         "inferred from it.",
     },

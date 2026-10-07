@@ -372,11 +372,22 @@ function walk(dir: string): string[] {
   assert.equal(ORGANIZATION_STRUCTURE_AUTHORITY_MODEL.agentAssignmentWriter, false);
 
   const featureFiles = walk(FEATURE);
+  /*
+   * AP-2 — the Director made agent placement an Organization Authority fact, written by ONE
+   * column-scoped module (with its read and vocabulary). Those three are exempt BY NAME; every other
+   * file here, OSA-1's writer included, still must not write `agents` or set a department on one.
+   */
+  const AGENT_PLACEMENT_FILES = [
+    `${FEATURE}/write-agent-placement.server.ts`,
+    `${FEATURE}/read-agent-placement.server.ts`,
+    `${FEATURE}/agent-placement-contracts.ts`,
+  ];
   for (const file of featureFiles) {
+    if (AGENT_PLACEMENT_FILES.some((exempt) => file.replace(/\\/g, "/").endsWith(exempt))) continue;
     const code = withoutComments(read(file));
     assert.ok(
       !/\.update\(\s*agents\)|\.insert\(\s*agents\)/.test(code),
-      `${file} must not write agents — assignment is Agent Identity's to own, not OSA's`,
+      `${file} must not write agents — only AP-2's write-agent-placement module may, and only department_id`,
     );
     assert.ok(
       !/departmentId\s*:/.test(code) || !/agents/.test(code),
@@ -423,9 +434,12 @@ function walk(dir: string): string[] {
   );
   const PLACEMENT_READER = "src/features/organization-authority/read-placement.server.ts";
   const PLACEMENT_WRITER = "src/features/organization-authority/write-placement.server.ts";
+  /* AP-2 — agent placement's read and writer take the lifecycle constant, exactly like the two above. */
+  const AGENT_PLACEMENT_READER = "src/features/organization-authority/read-agent-placement.server.ts";
+  const AGENT_PLACEMENT_WRITER = "src/features/organization-authority/write-agent-placement.server.ts";
   assert.deepEqual(
     consumers.sort(),
-    [L3_READ, WRITER, PLACEMENT_READER, PLACEMENT_WRITER].sort(),
+    [L3_READ, WRITER, PLACEMENT_READER, PLACEMENT_WRITER, AGENT_PLACEMENT_READER, AGENT_PLACEMENT_WRITER].sort(),
     "only the L3 seam and this authority's own writers and read seams reach the structure read — " +
       "every SURFACE still inherits through L3",
   );
@@ -438,7 +452,7 @@ function walk(dir: string): string[] {
    * exactly as the structure writer already did, and never `readOrganizationStructure` itself. That
    * is asserted rather than assumed, so the widened census cannot hide a second reader.
    */
-  for (const placementModule of [PLACEMENT_READER, PLACEMENT_WRITER]) {
+  for (const placementModule of [PLACEMENT_READER, PLACEMENT_WRITER, AGENT_PLACEMENT_READER, AGENT_PLACEMENT_WRITER]) {
     const code = withoutComments(read(placementModule));
     assert.ok(
       !code.includes("readOrganizationStructure"),

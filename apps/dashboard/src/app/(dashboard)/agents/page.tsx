@@ -8,6 +8,9 @@ import { getAgentsTruthModel } from "@/features/workforce/agents-truth-model";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { organizationalDemoDataPermitted } from "@/features/mock-surface-gating/gate.server";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
+import { AgentPlacementCard } from "@/components/agents/agent-placement-card";
+import { readAgentPlacements } from "@/features/organization-authority/read-agent-placement.server";
+import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import {
   AgentMandateCard,
   type AgentMandateEntry,
@@ -155,6 +158,14 @@ export default async function AgentsPage() {
    */
   const identities = identityState.status === "known" ? identityState.identities : [];
   /*
+   * AP-2 — where each agent sits, read through the ORGANIZATION AUTHORITY, not Agent Identity. The
+   * department list comes through L3's seam like every other surface; the card offers only
+   * in-service departments, and the writer is what refuses everything else.
+   */
+  const placements = await readAgentPlacements(tenant);
+  const authoritative = await readOrganizationAuthority(tenant);
+  const structure = authoritative.status === "available" ? authoritative.organization.structure : null;
+  /*
    * AMA-3 — each durable agent's recorded ceiling, read through the mandate authority's own seams.
    *
    * READ PER AGENT, AND THE THREE ANSWERS ARE KEPT APART. `readEffectiveAgentMandate` returns
@@ -286,6 +297,7 @@ export default async function AgentsPage() {
           * is FOR, and only then is there anything to observe about what it proposed. It is the
           * second thing on this page that writes a database row, and the only other one.
           */}
+        <AgentPlacementCard register={placements} structure={structure} identities={identities} />
         <AgentMandateCard block={mandateBlock} entries={mandateEntries} />
         {capabilities.map((entry, index) => (
           <AgentCapabilityTruthCard key={entry.agentName ?? index} truth={entry.truth} agentName={entry.agentName} />

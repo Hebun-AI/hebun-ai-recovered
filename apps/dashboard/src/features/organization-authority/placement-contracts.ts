@@ -88,7 +88,7 @@ export const DEPARTMENTAL_PLACEMENT_AUTHORITY_MODEL = Object.freeze({
    * one.
    */
   memberRoster: false as const,
-  /** An agent is assigned through `agents.department_id`, which Agent Identity owns. Not here. */
+  /** An agent is placed through `agents.department_id` by `write-agent-placement.server.ts` (AP-2). Not here. */
   agentPlacement: false as const,
   /** Placement decides nothing, anywhere. */
   readToAuthorize: false as const,

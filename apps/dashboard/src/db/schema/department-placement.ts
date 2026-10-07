@@ -75,8 +75,8 @@ export const departmentPlacements = pgTable(
      *
      * `departments.owner_actor_id` is polymorphic because an owner is an ATTRIBUTION and the schema
      * left room for a non-human one before a CHECK closed it. Placement has no such ambiguity: an
-     * agent does not work in a department, it is assigned to one through `agents.department_id`,
-     * which Agent Identity owns. A single-typed column makes the agent case unrepresentable rather
+     * agent does not work in a department, it is placed in one through `agents.department_id`,
+     * which the Organization Authority owns (AP-2). A single-typed column makes the agent case unrepresentable rather
      * than merely refused.
      */
     userId: uuid("user_id")

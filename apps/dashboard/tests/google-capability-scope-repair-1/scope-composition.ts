@@ -283,7 +283,7 @@ async function main(): Promise<void> {
       .trim()
       .split("\n")
       .filter(Boolean)
-      .filter((f) => !/ap1_agent_name_in_service_uniqueness|20261007064348_snapshot|src\/db\/schema\/agent\.ts$|youtube_write2_recipientless_kind|20260928084834_snapshot|supplied_media_account_provenance|20260929134334_snapshot|knowledge_public_use_domain|external_ai_data_use_authority|20261004073713_snapshot|20261003074659_snapshot|sci2a_knowledge_version_immutability|20261006111812_snapshot|sci2b_knowledge_integrity_at_insert|20261006175909_snapshot|schema\/knowledge\.ts$|_journal\.json|schema\/action-execution\.ts$|schema\/media-asset\.ts$|schema\/_enums\.ts$|schema\/index\.ts$|schema\/external-ai-data-use\.ts$/.test(f)); /* EXTERNAL-AI-DATA-USE-1A: its schema module and the barrel export of it. */
+      .filter((f) => !/ap1_agent_name_in_service_uniqueness|20261007064348_snapshot|src\/db\/schema\/agent\.ts$|youtube_write2_recipientless_kind|20260928084834_snapshot|supplied_media_account_provenance|20260929134334_snapshot|knowledge_public_use_domain|external_ai_data_use_authority|20261004073713_snapshot|20261003074659_snapshot|sci2a_knowledge_version_immutability|20261006111812_snapshot|sci2b_knowledge_integrity_at_insert|20261006175909_snapshot|schema\/knowledge\.ts$|_journal\.json|schema\/action-execution\.ts$|schema\/media-asset\.ts$|schema\/_enums\.ts$|schema\/index\.ts$|schema\/external-ai-data-use\.ts$|schema\/department-placement\.ts$/.test(f)); /* AP-2: department-placement.ts doctrine comment only. */ /* EXTERNAL-AI-DATA-USE-1A: its schema module and the barrel export of it. */
     assert.deepEqual(touched, [], "no other src/db file changed");
   }
 

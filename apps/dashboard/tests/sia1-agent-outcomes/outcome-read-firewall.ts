@@ -386,8 +386,10 @@ function noNewWriterExists(): void {
     [
       path.join("src", "features", "agent-identity", "create-durable-agent-identity.server.ts"),
       path.join("src", "features", "agent-identity", "retire-durable-agent-identity.server.ts"),
+      /* AP-2 — the Organization Authority's column-scoped placement writer (`department_id` only). */
+      path.join("src", "features", "organization-authority", "write-agent-placement.server.ts"),
     ],
-    "exactly two modules write the agents table, and both are the released identity authorities",
+    "exactly three modules write the agents table: the two released identity authorities and AP-2's column-scoped placement",
   );
 
   /* The three new files name no write verb against any table at all. */

@@ -15,6 +15,11 @@ import { establishAgentMandate } from "@/features/agent-mandate/establish-agent-
 import type { EstablishAgentMandateResult } from "@/features/agent-mandate/contracts";
 import { fileImprovementHypothesis } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
 import type { HypothesisResult } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
+import {
+  setAgentPlacement,
+  withdrawAgentPlacement,
+} from "@/features/organization-authority/write-agent-placement.server";
+import type { AgentPlacementWriteResult } from "@/features/organization-authority/agent-placement-contracts";
 
 /*
  * ── THE AGENT-ID-0.1 BOUNDARY ───────────────────────────────────────────────────────────────────
@@ -224,5 +229,49 @@ export async function establishAgentMandateAction(input: {
       typeof input?.observedMandateRevision === "number" ? input.observedMandateRevision : null,
   });
   if (result.status === "established") revalidatePath("/agents");
+  return result;
+}
+
+/*
+ * ── AP-2: PLACING ONE AGENT IN A DEPARTMENT ─────────────────────────────────────────────────────
+ *
+ * TRANSPORT, NOT AUTHORITY. The tenant is resolved here; the Governance gate, the retired-agent and
+ * retired-department refusals, the compare-and-swap and the audit row all live in the Organization
+ * Authority's `write-agent-placement.server.ts`. No refusal is reworded.
+ *
+ * The client sends which agent, which department, and the placement it was SHOWN
+ * (`expectedDepartmentId`, `null` for unplaced). A placement changed by somebody else in the
+ * meantime is refused `placement-changed`, never overwritten.
+ *
+ * PLACING AN AGENT AUTHORIZES NOTHING: no mandate, capability, permit, proposer selection or
+ * execution reads it.
+ */
+export async function setAgentPlacementAction(input: {
+  readonly agentId: string;
+  readonly departmentId: string;
+  readonly expectedDepartmentId: string | null;
+}): Promise<AgentPlacementWriteResult> {
+  const tenant = await resolveTenantContext();
+  const result = await setAgentPlacement(tenant, {
+    agentId: String(input?.agentId ?? ""),
+    departmentId: String(input?.departmentId ?? ""),
+    expectedDepartmentId:
+      typeof input?.expectedDepartmentId === "string" ? input.expectedDepartmentId : null,
+  });
+  if (result.status !== "refused") revalidatePath("/agents");
+  return result;
+}
+
+export async function withdrawAgentPlacementAction(input: {
+  readonly agentId: string;
+  readonly expectedDepartmentId: string | null;
+}): Promise<AgentPlacementWriteResult> {
+  const tenant = await resolveTenantContext();
+  const result = await withdrawAgentPlacement(tenant, {
+    agentId: String(input?.agentId ?? ""),
+    expectedDepartmentId:
+      typeof input?.expectedDepartmentId === "string" ? input.expectedDepartmentId : null,
+  });
+  if (result.status !== "refused") revalidatePath("/agents");
   return result;
 }

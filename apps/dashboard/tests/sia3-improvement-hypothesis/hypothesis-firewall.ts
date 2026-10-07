@@ -94,8 +94,10 @@ function exactlyOneWriter(): void {
     [
       path.join("src", "features", "agent-identity", "create-durable-agent-identity.server.ts"),
       path.join("src", "features", "agent-identity", "retire-durable-agent-identity.server.ts"),
+      /* AP-2 — the Organization Authority's column-scoped placement writer (`department_id` only). */
+      path.join("src", "features", "organization-authority", "write-agent-placement.server.ts"),
     ],
-    "still exactly two writers of `agents` — a hypothesis mutates no agent",
+    "still exactly three writers of `agents` (AP-2 placement is the third) — a hypothesis mutates no agent",
   );
 
   /* The decider and the reader write nothing durable of their own. */

@@ -185,7 +185,10 @@ export const ORGANIZATION_STRUCTURE_AUTHORITY_MODEL = Object.freeze({
   humanAssignment: true as const,
   /** The module that owns it. Named so a reader is never left looking for it in the writer above. */
   humanAssignmentWriter: "organization-authority/write-placement.server.ts" as const,
-  /** The fact lives on `agents`, so its writer must be Agent Identity — not this authority. */
+  /**
+   * Not THIS writer. AP-2 made agent placement an Organization Authority fact, written by its own
+   * column-scoped module, `organization-authority/write-agent-placement.server.ts`.
+   */
   agentAssignmentWriter: false as const,
   /** `organizations` is untouched, unpopulated, and made unrepresentable by CHECK. */
   organizationsActivated: false as const,

@@ -40,10 +40,14 @@ export const agents = pgTable(
   {
     ...tenantColumns,
     /**
-     * WHICH DEPARTMENT THIS AGENT BELONGS TO. Nullable, and NULL for every agent today: OSA-1
-     * established department structure and deliberately shipped no assignment writer, because the
-     * fact lives on this row and its writer must therefore be Agent Identity — which states that it
-     * holds "TWO authorities, TWO transitions, and no third".
+     * WHICH DEPARTMENT THIS AGENT IS PLACED IN. Nullable: NULL is a real state ("unplaced").
+     *
+     * AP-2: owned by the ORGANIZATION AUTHORITY, written only by
+     * `organization-authority/write-agent-placement.server.ts` (column-scoped, Governance-gated,
+     * audited). Agent Identity does NOT write it — placement is not an identity lifecycle
+     * transition, and Agent Identity keeps its two (register, retire) and no third. A retired
+     * agent's value is preserved as historical attribution, never read as a current placement.
+     * Placement grants no mandate, capability, authorization or execution authority.
      *
      * The FK is composite ON PURPOSE — see `agents_tenant_department_fk` below.
      */

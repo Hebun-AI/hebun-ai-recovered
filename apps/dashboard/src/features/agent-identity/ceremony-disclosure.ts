@@ -72,7 +72,7 @@ export const PERSISTED_IDENTITY_FIELDS = [
 export const WITHHELD_IDENTITY_FIELDS = [
   { column: "agent_lifecycle_status", meaning: "No lifecycle is claimed. Retirement is its first writer." },
   { column: "manager_actor_type / manager_actor_id", meaning: "This agent has no manager." },
-  { column: "department_id", meaning: "It belongs to no department." },
+  { column: "department_id", meaning: "Registration places it in no department. Placement is a separate act of your organization's Governance authority." },
   { column: "authority_ceiling", meaning: "No authority is bounded, because none is granted." },
   { column: "agent_type / risk_level / agent_health", meaning: "Unclassified, unrated, unmeasured." },
   { column: "execution_posture / allowed_tools / tool_profile", meaning: "No execution, no tools." },
