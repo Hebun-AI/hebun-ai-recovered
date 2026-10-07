@@ -10,8 +10,9 @@
  *
  *   CLEAR      every in-service agent whose effective mandate names `record-work` has at least one
  *              responsibility grant that still admits work (organization-level, or an in-service
- *              domain), AND no pending/approved record-work request and no live record-work permit
- *              is unscoped.
+ *              domain), AND no unscoped record-work item can still be decided or spent: no pending
+ *              request, and no permit that is active and unexpired (see lib/ap4-release-b-blockers.ts
+ *              for why approved requests with a consumed, revoked or expired permit are history).
  *   NOT CLEAR  anything else — each item is listed. Nothing is decided here; the Director resolves
  *              each one (a new mandate revision, rejecting a request, letting a permit expire) and
  *              re-runs this.
@@ -19,6 +20,7 @@
  * Exit 0 only when CLEAR. Also checks that migration ap4a is applied.
  */
 import { Client } from "pg";
+import { readUnscopedRecordWorkPermitBlockers, readUnscopedRecordWorkRequestBlockers } from "./lib/ap4-release-b-blockers";
 
 const AP4A_TAG = "20261007175237_ap4a_work_domain_foundation";
 
@@ -61,26 +63,12 @@ async function main(): Promise<void> {
         console.log(`    ${ok ? "ok  " : "FAIL"} ${a.slug}/${a.name} (${a.agent_id}) rev ${a.revision} · grants ${a.grants} · admitting ${a.admitting}`);
         if (!ok) problems.push(`${a.slug}/${a.agent_id}: record-work without an admitting responsibility`);
       }
-      const requests = (
-        await client.query<{ slug: string; id: string; status: string }>(
-          `select c.slug, q.id, q.status from heby_action_requests q join companies c on c.id = q.tenant_id
-            where q.action_kind = 'record-work' and q.status in ('pending','approved')
-              and not (q.canonical_payload ? 'workScope') order by c.slug, q.created_at`,
-        )
-      ).rows;
-      const permits = (
-        await client.query<{ slug: string; id: string; request: string }>(
-          `select c.slug, p.id, p.action_request_id request from action_permits p
-             join heby_action_requests q on q.id = p.action_request_id and q.tenant_id = p.tenant_id
-             join companies c on c.id = p.tenant_id
-            where q.action_kind = 'record-work' and p.status = 'active' and p.expires_at > now()
-              and not (q.canonical_payload ? 'workScope') order by c.slug`,
-        )
-      ).rows;
+      const requests = await readUnscopedRecordWorkRequestBlockers(client);
+      const permits = await readUnscopedRecordWorkPermitBlockers(client);
       console.log("\n  unscoped live record-work items (Release B would refuse them):");
       if (requests.length + permits.length === 0) console.log("    none");
       for (const r of requests) {
-        console.log(`    request ${r.slug}/${r.id} (${r.status})`);
+        console.log(`    request ${r.slug}/${r.id} (${r.status === "approved" ? "approved, no permit" : r.status})`);
         problems.push(`request ${r.id} is ${r.status} and unscoped`);
       }
       for (const p of permits) {
