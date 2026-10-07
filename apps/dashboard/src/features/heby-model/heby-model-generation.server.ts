@@ -28,7 +28,9 @@ import { evaluateModelAvailability } from "./model-availability";
 import { createClaudeModelClient } from "./claude-model-client";
 import type { ClaudeTransport } from "./claude-transport";
 import { ModelConnectivityError } from "./model-error";
-import { isAnthropicMessagesEgress } from "@/features/heby-model-live/claude-http-transport.server";
+import { isAnthropicMessagesEgress, prepayLiveDispatch } from "@/features/heby-model-live/claude-http-transport.server";
+import { liveBudgetExhaustedError } from "@/features/heby-model-live/live-spend-budget.server";
+import { admitAiDispatch, type AdmitAiDispatch } from "@/features/ai-dispatch-cap/ai-dispatch-safety-cap.server";
 import { isHebunInstruction } from "@/features/heby-runtime/instruction-channel";
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import {
@@ -64,6 +66,8 @@ export interface HebyModelGenerationDeps {
   readonly resolveOperatorEnabled?: () => Promise<boolean>;
   /** APF-5. Injectable for tests only; defaults to the released audit writer. */
   readonly recordDisclosure?: RecordExternalAiDisclosureDecision;
+  /** AP-3. Injectable for tests only; defaults to the persistent tenant AI dispatch safety cap. */
+  readonly admitDispatch?: AdmitAiDispatch;
 }
 
 export type HebyModelOutcome =
@@ -162,7 +166,31 @@ export async function generateHebyModelAnswer(
       if (evidence) await record(evidence).catch(() => false);
       return unavailable("DATA_USE_NOT_AUTHORIZED");
     }
-    if (!(await record(evidence).catch(() => false))) {
+    /*
+     * AP-3 — DECISION → CAP + PROCESS BUDGET → EVIDENCE → TRANSPORT, as ONE admission.
+     *
+     * The persistent tenant cap counts authorized evidence, so the evidence row IS the charge. It is
+     * written inside the cap's locked transaction, only after the cap admits AND this transport's
+     * process-budget unit is granted (`prepayLiveDispatch` takes the unit now; the send then uses it
+     * instead of taking a second). Cap reached ⇒ budget untouched, no evidence, refusal audited.
+     * Budget exhausted ⇒ no evidence, cap not charged, the same error the transport always raised.
+     */
+    const admission = await (deps.admitDispatch ?? admitAiDispatch)({
+      tenantId: evidence.tenantId,
+      dispatchClass: "model",
+      actorUserId: evidence.actorUserId,
+      correlationId: evidence.correlationId,
+      prepay: () => prepayLiveDispatch(deps.transport),
+      commit: async (db) => {
+        if (!(await record(evidence, { getDb: () => db }).catch(() => false))) {
+          throw new Error("The disclosure evidence could not be recorded.");
+        }
+      },
+    }, { env: deps.env });
+    if (admission.status === "refused") {
+      if (admission.reason === "dispatch-safety-cap-reached") return unavailable("DISPATCH_SAFETY_CAP_REACHED");
+      if (admission.reason === "process-budget-exhausted") throw liveBudgetExhaustedError();
+      /* The authorized decision could not be recorded: not sent, exactly as APF-5 released. */
       return unavailable("DATA_USE_NOT_AUTHORIZED");
     }
   }

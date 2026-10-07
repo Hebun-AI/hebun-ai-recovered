@@ -23,7 +23,11 @@ export const EXTERNAL_AI_DISCLOSURE_REFUSED = "external-ai.disclosure.refused";
 export const EXTERNAL_AI_DISCLOSURE_ENTITY_TYPE = "external-ai-disclosure-decision";
 export const EXTERNAL_AI_DISCLOSURE_AUDIT_SOURCE = "external-ai-data-use";
 
-export type RecordExternalAiDisclosureDecision = (evidence: ExternalAiDisclosureEvidence) => Promise<boolean>;
+/* AP-3 — `deps.getDb` is the dispatch-cap transaction, so the evidence and its charge commit together. */
+export type RecordExternalAiDisclosureDecision = (
+  evidence: ExternalAiDisclosureEvidence,
+  deps?: { readonly getDb?: () => ControlPlaneDatabase | null },
+) => Promise<boolean>;
 
 function resolveDbOrNull(): ControlPlaneDatabase | null {
   try {

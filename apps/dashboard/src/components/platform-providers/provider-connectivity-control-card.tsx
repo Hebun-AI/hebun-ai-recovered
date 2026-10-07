@@ -95,6 +95,7 @@ export function ProviderConnectivityControlCard({ view }: { view: ProviderOpsVie
     /* Per request, never a deployment state: present only because the vocabulary is shared. */
     DATA_USE_NOT_AUTHORIZED: "Blocked — external AI data use not authorized",
     INSTRUCTION_CHANNEL_REFUSED: "Blocked — instruction channel carried non-Hebun content",
+    DISPATCH_SAFETY_CAP_REACHED: "Blocked — tenant daily AI dispatch safety cap reached",
   };
   const dispatchTone: Tone = view.dispatch === "permitted" ? "good" : "warn";
   const DISPATCH_LABEL: Record<typeof view.dispatch, string> = {

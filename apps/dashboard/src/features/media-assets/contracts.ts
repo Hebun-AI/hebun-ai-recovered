@@ -191,7 +191,9 @@ export type MediaGenerationRefusal =
    * it (given its lineage) to this provider for this purpose. Denied and unknown alike. A policy
    * refusal, never a provider failure: nothing was read for sending and nothing left Hebun.
    */
-  | "source-data-use-not-cleared";
+  | "source-data-use-not-cleared"
+  /** AP-3 — the tenant's persistent daily AI dispatch safety cap for media is reached. Nothing written or sent. */
+  | "dispatch-safety-cap-reached";
 
 export type RequestMediaGenerationResult =
   | { readonly status: "refused"; readonly reason: MediaGenerationRefusal }

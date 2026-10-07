@@ -209,6 +209,12 @@ function main(): void {
       "src/features/governance-audit/agent-mandate-audit.server.ts",
       /* AP-2 — the Organization Authority's record of an agent placement act. */
       "src/features/governance-audit/agent-placement-audit.server.ts",
+      /*
+       * AP-3 — the persistent tenant AI dispatch safety cap's audit sibling. It appends the cap's
+       * refusal to the SHARED sink and counts the authorized evidence the model cap is measured in.
+       * The census GREW; nothing in it was widened.
+       */
+      "src/features/governance-audit/ai-dispatch-cap-audit.server.ts",
       "src/features/governance-audit/departmental-placement-audit.server.ts",
       /* APF-5 — evidence of an External AI disclosure decision, recorded as the authority made it. */
       "src/features/governance-audit/external-ai-disclosure-audit.server.ts",

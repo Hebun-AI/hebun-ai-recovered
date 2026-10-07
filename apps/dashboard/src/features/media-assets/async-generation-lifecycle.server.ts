@@ -76,6 +76,7 @@ import { resolveMediaAsyncGenerationTransport } from "./async-generation-transpo
 import { resolveMediaDbOrNull } from "./media-db.server";
 import { isExternalGenerativeUseCleared, type RecordedDataUseDecision } from "./external-generative-data-use";
 import { resolveExternalGenerativeEligibility } from "./external-generative-eligibility.server";
+import { admitAiDispatch } from "@/features/ai-dispatch-cap/ai-dispatch-safety-cap.server";
 
 export interface AsyncGenerationDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -113,6 +114,8 @@ export type AsyncGenerationRefusal =
   | "storage-unavailable"
   /* DATA-USE-MEDIA-GUARD-1 — no recorded data-use decision allows this source for this provider. */
   | "source-data-use-not-cleared"
+  /* AP-3 — the tenant's persistent daily AI dispatch safety cap for media is reached. Nothing recorded or sent. */
+  | "dispatch-safety-cap-reached"
   /* IMAGE → VIDEO — after registration, before any generation POST. Nothing was generated. */
   | "source-type-unsupported"
   | "source-upload-refused"
@@ -306,10 +309,10 @@ export async function registerAsyncMediaGeneration(
       ? digestImageToVideoInput({ ...identity, sourceAsset: { assetId: sourceAssetId, byteDigest: sourceDigest } })
       : digestVideoGenerationInput(identity);
 
-  let invocationId: string | undefined;
-  try {
-    invocationId = (
-      await db
+  /* AP-3 — a LIVE registration is the media safety-cap charge; see request-media-generation.server.ts. */
+  const register = async (handle: ControlPlaneDatabase): Promise<string | undefined> =>
+    (
+      await handle
         .insert(mediaGenerationInvocations)
         .values({
           tenantId: tenant.tenantId,
@@ -333,8 +336,22 @@ export async function registerAsyncMediaGeneration(
         .onConflictDoNothing({ target: [mediaGenerationInvocations.tenantId, mediaGenerationInvocations.requestKey] })
         .returning({ id: mediaGenerationInvocations.id })
     )[0]?.id;
-  } catch {
-    return refused("persistence-unavailable");
+  let invocationId: string | undefined;
+  if (transport.transport === "live") {
+    const admission = await admitAiDispatch(
+      { tenantId: tenant.tenantId, dispatchClass: "media", actorUserId: tenant.userId, commit: register },
+      { getDb: () => db, now },
+    );
+    if (admission.status === "refused") {
+      return refused(admission.reason === "dispatch-safety-cap-reached" ? "dispatch-safety-cap-reached" : "persistence-unavailable");
+    }
+    invocationId = admission.value;
+  } else {
+    try {
+      invocationId = await register(db);
+    } catch {
+      return refused("persistence-unavailable");
+    }
   }
   if (!invocationId) return refused("duplicate-request");
   return { status: "registered", invocationId };

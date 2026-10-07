@@ -53,8 +53,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "B3 an authorized decision is sent without its record",
     file: GENERATOR,
     suite: PG,
-    find: "    if (!(await record(evidence).catch(() => false))) {",
-    replace: "    if (false && !(await record(evidence).catch(() => false))) {",
+    /* AP-3 — the authorized record is now written inside the dispatch-cap admission's commit. */
+    find: "        if (!(await record(evidence, { getDb: () => db }).catch(() => false))) {",
+    replace: "        if (false && !(await record(evidence, { getDb: () => db }).catch(() => false))) {",
     because: "exactly one decision record",
   },
   {

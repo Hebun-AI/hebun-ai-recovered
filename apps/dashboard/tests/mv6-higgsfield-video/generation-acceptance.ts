@@ -24,6 +24,13 @@ import { describeGenerationAcceptance, runGenerationAcceptance } from "../../scr
 import { MV6_SYNTHETIC_PROMPT } from "../../scripts/lib/higgsfield-estimate";
 import { createMv6AcceptanceEnvironment } from "../helpers/mv6-acceptance-environment";
 
+/*
+ * AP-3 — this suite registers more than five LIVE video attempts for one tenant inside one fixed clock
+ * window to prove the acceptance stage's stop rules, not the dispatch cap. The cap is proven in
+ * tests/ap3-dispatch-safety-cap; here it is raised to its configurable maximum.
+ */
+process.env.HEBUN_AI_DISPATCH_CAP_MEDIA_PER_TENANT_DAY = "100";
+
 globalThis.fetch = (() => {
   throw new Error("REAL NETWORK REACHED");
 }) as typeof fetch;

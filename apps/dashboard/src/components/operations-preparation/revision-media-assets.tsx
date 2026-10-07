@@ -140,6 +140,7 @@ const GENERATION_REFUSAL_WORDING: Record<MediaGenerationRefusal, string> = {
   "source-asset-unavailable":
     "The stored bytes could not be read, or no longer match the admitted digest. Nothing was sent. This is a storage custody problem and should be raised.",
   "reference-edit-unsupported": "The configured image provider cannot edit an existing image.",
+  "dispatch-safety-cap-reached": "Your organization reached its daily AI dispatch safety cap for media. It is a safety bound, not a billing quota, and it resets at 00:00 UTC.",
   "source-data-use-not-cleared":
     "No data-use decision allows sending this image to this provider for editing. Holding, reviewing or selecting an image is not that permission. Nothing was sent.",
 };

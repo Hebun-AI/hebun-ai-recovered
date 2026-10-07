@@ -12,6 +12,7 @@
  * The gate itself is stood in here (it is proven against a real database in egress-postgres.ts):
  * this file is about the declaration and the seam. No database, no provider, no credential.
  */
+import { admittedDispatch } from "../helpers/authorized-disclosure";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
@@ -52,7 +53,9 @@ const gateAt = GENERATOR.indexOf("if (isAnthropicMessagesEgress(deps.transport))
 assert.ok(gateAt > 0 && gateAt < GENERATOR.indexOf("createClaudeModelClient({"), "the gate runs before the client exists");
 /* APF-5: a refusal is recorded best-effort and still refused; an authorized decision must be recorded before the client exists. */
 assert.match(GENERATOR, /if \(decision\?\.disposition !== "authorized" \|\| !evidence\) \{\s*if \(evidence\) await record\(evidence\)\.catch\(\(\) => false\);\s*return unavailable\("DATA_USE_NOT_AUTHORIZED"\);/);
-assert.match(GENERATOR, /if \(!\(await record\(evidence\)\.catch\(\(\) => false\)\)\) \{\s*return unavailable\("DATA_USE_NOT_AUTHORIZED"\);/);
+/* AP-3 — the authorized evidence is written inside the dispatch-cap admission; an unrecorded one still is not sent. */
+assert.match(GENERATOR, /if \(!\(await record\(evidence, \{ getDb: \(\) => db \}\)\.catch\(\(\) => false\)\)\) \{\s*throw new Error\(/);
+assert.match(GENERATOR, /if \(admission\.reason === "process-budget-exhausted"\) throw liveBudgetExhaustedError\(\);\s*return unavailable\("DATA_USE_NOT_AUTHORIZED"\);/);
 
 /* ── 3. EVERY RUNTIME CALLER DECLARES; ORIGINATION IS ITS OWN PURPOSE. ────────────────────────── */
 const callers = SRC.filter((f) => /\(deps\.generate \?\? generateHebyModelAnswer\)|generate: deps\.generate \?\? generateHebyModelAnswer/.test(read(f))).sort();
@@ -133,6 +136,7 @@ async function run(
             evidence.push(e);
             return true;
           },
+          admitDispatch: admittedDispatch,
         }),
     },
     options,

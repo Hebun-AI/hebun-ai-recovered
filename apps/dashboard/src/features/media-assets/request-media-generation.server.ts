@@ -106,6 +106,7 @@ import { resolveMediaObjectStore } from "./media-storage.server";
 import { downloadProviderOutput, type ProviderDownloadDeps } from "./provider-output-download.server";
 import { isExternalGenerativeUseCleared, type RecordedDataUseDecision } from "./external-generative-data-use";
 import { resolveExternalGenerativeEligibility } from "./external-generative-eligibility.server";
+import { admitAiDispatch } from "@/features/ai-dispatch-cap/ai-dispatch-safety-cap.server";
 
 export interface MediaGenerationDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -337,11 +338,17 @@ export async function requestMediaGeneration(
   });
 
   /* ── The idempotent dispatch boundary ─────────────────────────────────── */
-  let invocationId: string | undefined;
-  try {
-    const registered = await db
-      .insert(mediaGenerationInvocations)
-      .values({
+  /*
+   * AP-3 — a LIVE registration is the persistent tenant AI dispatch safety cap's charge: it is
+   * counted and written under the cap's per-tenant lock, so concurrent requests cannot both take the
+   * last unit. The process budget is still consumed by the transport after registration, exactly as
+   * released; rows it refuses (`budget-exhausted`) are not counted. A fake transport sends nothing.
+   */
+  const register = async (handle: typeof db): Promise<string | undefined> =>
+    (
+      await handle
+        .insert(mediaGenerationInvocations)
+        .values({
         tenantId: tenant.tenantId,
         requestKey: input.requestKey,
         requestedByActorType: "human",
@@ -362,10 +369,24 @@ export async function requestMediaGeneration(
       .onConflictDoNothing({
         target: [mediaGenerationInvocations.tenantId, mediaGenerationInvocations.requestKey],
       })
-      .returning({ id: mediaGenerationInvocations.id });
-    invocationId = registered[0]?.id;
-  } catch {
-    return refused("persistence-unavailable");
+        .returning({ id: mediaGenerationInvocations.id })
+    )[0]?.id;
+  let invocationId: string | undefined;
+  if (transport.transport === "live") {
+    const admission = await admitAiDispatch(
+      { tenantId: tenant.tenantId, dispatchClass: "media", actorUserId: tenant.userId, commit: register },
+      { getDb: () => db, now },
+    );
+    if (admission.status === "refused") {
+      return refused(admission.reason === "dispatch-safety-cap-reached" ? "dispatch-safety-cap-reached" : "persistence-unavailable");
+    }
+    invocationId = admission.value;
+  } else {
+    try {
+      invocationId = await register(db);
+    } catch {
+      return refused("persistence-unavailable");
+    }
   }
   if (!invocationId) return refused("duplicate-request");
   const thisInvocation = and(

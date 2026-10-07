@@ -18,7 +18,7 @@ import {
 import { createLiveSpendBudget } from "../../src/features/heby-model-live/live-spend-budget.server";
 import { selectModelTransport } from "../../src/features/heby-model";
 import { ModelConnectivityError, generateHebyModelAnswer } from "../../src/features/heby-model";
-import { authorizedDisclosure, recordedDisclosure } from "../helpers/authorized-disclosure";
+import { admittedDispatch, authorizedDisclosure, recordedDisclosure } from "../helpers/authorized-disclosure";
 import type { ClaudeTransportRequest } from "../../src/features/heby-model";
 import type { ModelGenerationRequest } from "../../src/features/heby-runtime";
 import { hebunInstruction } from "../../src/features/heby-runtime/instruction-channel";
@@ -137,6 +137,7 @@ async function main(): Promise<void> {
       disclosure: { tenantId: "t", actorUserId: "u", purpose: "assistance", dataClasses: ["conversation"] },
       authorizeDisclosure: authorizedDisclosure,
       recordDisclosure: recordedDisclosure,
+      admitDispatch: admittedDispatch,
     });
     assert.equal(outcome.status, "generated");
     if (outcome.status === "generated") {

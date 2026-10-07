@@ -91,6 +91,13 @@ export function unavailableStatusFor(
         detail:
           "The request placed content outside Hebun's own instructions in the instruction position, so nothing was sent to the model.",
       });
+    case "DISPATCH_SAFETY_CAP_REACHED":
+      return Object.freeze({
+        available: false,
+        reason: "provider-unavailable",
+        detail:
+          "This organization reached its daily AI dispatch safety cap, so nothing was sent to the model. It is a safety bound, not a billing quota, and it resets at 00:00 UTC.",
+      });
     case "AVAILABLE":
       return null;
   }

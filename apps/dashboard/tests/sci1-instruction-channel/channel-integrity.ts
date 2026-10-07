@@ -12,6 +12,7 @@
  *   - assistance × provider-observation has no platform cell, so the moved observation still fails
  *     closed at EAI (no widening).
  */
+import { admittedDispatch } from "../helpers/authorized-disclosure";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
@@ -70,6 +71,7 @@ async function main(): Promise<void> {
           return { disposition: "authorized", authorizationId: "a", attestationId: "t", authorizationRevision: 1, attestationRevision: 1, authorizedDataClasses: ["conversation", "work-artifact"], components: {} } as never;
         },
         recordDisclosure: async () => true,
+        admitDispatch: admittedDispatch,
       },
     );
   const stateOf = (o: Awaited<ReturnType<typeof generate>>) => (o.status === "unavailable" ? o.state : o.status);

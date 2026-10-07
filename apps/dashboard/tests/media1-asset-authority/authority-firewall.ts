@@ -151,6 +151,13 @@ const code = (f: string): string => stripComments(read(f));
      * tests/instagram-approval-preview-1/preview-firewall.
      */
     "src/features/instagram-publishing/approval-preview.server.ts",
+    /*
+     * AP-3: the persistent tenant AI dispatch safety cap COUNTS live invocation rows (select only);
+     * the row it charges is written by the two invocation writers above, inside its locked
+     * transaction. It writes no media row, lifecycle or decision — pinned in
+     * tests/ap3-dispatch-safety-cap/firewall.
+     */
+    "src/features/ai-dispatch-cap/ai-dispatch-safety-cap.server.ts",
   ]);
   for (const f of SRC) {
     const c = code(f);

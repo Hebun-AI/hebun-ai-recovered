@@ -387,6 +387,8 @@ export type ModelAvailabilityState =
   | "DATA_USE_NOT_AUTHORIZED"
   /* SCI-1 — the request's instruction channel is not exactly Hebun-minted text. Nothing was sent. */
   | "INSTRUCTION_CHANNEL_REFUSED"
+  /* AP-3 — this tenant reached its persistent daily AI dispatch safety cap. Nothing was sent. */
+  | "DISPATCH_SAFETY_CAP_REACHED"
   | "AVAILABLE";
 
 /** A provider-neutral, read-only text-generation request. */

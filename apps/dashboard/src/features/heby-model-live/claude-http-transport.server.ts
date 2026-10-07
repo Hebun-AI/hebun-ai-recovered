@@ -186,6 +186,29 @@ export function isAnthropicMessagesEgress(transport: ClaudeTransport | undefined
   return Boolean(transport && (transport as unknown as Record<symbol, unknown>)[ANTHROPIC_MESSAGES_EGRESS] === true);
 }
 
+/*
+ * AP-3 — PROCESS-BUDGET ADMISSION BEFORE THE EVIDENCE, NOT A BYPASS OF IT.
+ *
+ * The persistent dispatch cap must consume this transport's process-budget unit BEFORE the
+ * disclosure evidence is committed, so a budget refusal leaves no evidence and charges no cap. That
+ * moves the consumption earlier; it never skips it. The key is module-private (not `Symbol.for`),
+ * so the only way to reach it is `prepayLiveDispatch`, and the only thing that sets the prepaid flag
+ * is a unit this transport actually took from its own budget. The flag is single-use and belongs to
+ * one transport instance, which itself makes at most one call. No caller can mark a send as paid
+ * without paying.
+ */
+const PREPAY_LIVE_DISPATCH: unique symbol = Symbol("hebun.live-dispatch-prepay");
+
+/**
+ * Consume this live transport's process-budget unit now, for the send that follows. True when the
+ * unit was granted. False when the budget is exhausted, the instance has made its call, a unit is
+ * already prepaid, or the transport is not the live Anthropic transport.
+ */
+export function prepayLiveDispatch(transport: ClaudeTransport | undefined): boolean {
+  const prepay = (transport as unknown as Record<symbol, unknown> | undefined)?.[PREPAY_LIVE_DISPATCH];
+  return typeof prepay === "function" ? (prepay as () => boolean)() : false;
+}
+
 export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): ClaudeTransport {
   assertServerRuntime();
   const apiKey = config.apiKey?.trim();
@@ -197,6 +220,7 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
   const doFetch: FetchLike = config.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
   const budget = config.spendBudget ?? getProcessLiveSpendBudget();
   let calls = 0;
+  let prepaid = false;
 
   const transport = {
     [ANTHROPIC_MESSAGES_EGRESS]: true,
@@ -240,7 +264,10 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
       if (calls >= maxCalls) {
         throw new ModelConnectivityError("rate-limited", "This transport instance has already made its live call.");
       }
-      if (!budget.attempt()) {
+      /* AP-3 — a unit prepaid at admission is this send's unit; otherwise it is taken here. */
+      if (prepaid) {
+        prepaid = false;
+      } else if (!budget.attempt()) {
         throw liveBudgetExhaustedError();
       }
       calls += 1;
@@ -281,6 +308,12 @@ export function createLiveClaudeTransport(config: LiveClaudeTransportConfig): Cl
         throw new ModelConnectivityError("malformed-response", "Provider returned a non-JSON body.");
       }
       return toTransportResponse(payload, request.model);
+    },
+    /* AP-3 — see `prepayLiveDispatch`: takes this instance's one unit now, or refuses. */
+    [PREPAY_LIVE_DISPATCH](): boolean {
+      if (prepaid || calls >= maxCalls || !budget.attempt()) return false;
+      prepaid = true;
+      return true;
     },
   };
   return transport;

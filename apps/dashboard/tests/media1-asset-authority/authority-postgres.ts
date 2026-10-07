@@ -175,6 +175,13 @@ async function expectDbRefusal(client: Client, label: string, statement: string,
   assert.ok(failed, `the database refuses: ${label}`);
 }
 
+/*
+ * AP-3 — this suite drives more than five LIVE image attempts for one tenant on one fixed day to prove
+ * the MEDIA-2A transport mapping, not the dispatch cap. The cap is proven in
+ * tests/ap3-dispatch-safety-cap; here it is raised to its configurable maximum.
+ */
+process.env.HEBUN_AI_DISPATCH_CAP_MEDIA_PER_TENANT_DAY = "100";
+
 async function main(): Promise<void> {
   const harness = createDisposablePostgresHarness("hebun_media1_authority");
   await harness.createDatabase();
