@@ -10,9 +10,8 @@
  *     THE ORGANIZATION HAS WITHDRAWN THIS IDENTITY FROM SERVICE.
  *
  * The row survives. The name survives. The ownership pair survives. The creation attribution
- * survives. The genesis one-shot stays SPENT — `createDurableAgentIdentity` counts rows for the
- * tenant with no lifecycle predicate at all, so a retired identity still closes that door, and
- * reopening it is not something this file can ask for.
+ * survives. Nothing returns it to service; since AP-1 its name may be registered again only as a NEW
+ * identity, on a new Governance decision, and this file can ask for neither.
  *
  * ── WHAT IT DELIBERATELY CANNOT SAY ──────────────────────────────────────────
  *

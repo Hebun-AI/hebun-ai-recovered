@@ -213,7 +213,7 @@ async function main(): Promise<void> {
 
     /* ── The agents ────────────────────────────────────────────────────────── */
     await seedGovernanceAuthority(setup, acme, dbDeps, { tag: "a2a" });
-    const acmeAgent = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
+    const acmeAgent = await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps);
     assert.equal(acmeAgent.status, "established");
     const acmeAgentId = acmeAgent.status === "established" ? acmeAgent.identity.agentId : "";
 
@@ -542,7 +542,7 @@ async function main(): Promise<void> {
      * ═════════════════════════════════════════════════════════════════════ */
     {
       await seedGovernanceAuthority(setup, globex, dbDeps, { tag: "a2b" });
-      const globexAgent = await createDurableAgentIdentity(globexCtx, { name: "Heby" }, dbDeps);
+      const globexAgent = await createDurableAgentIdentity(globexCtx, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps);
       assert.equal(globexAgent.status, "established");
       const globexProposerResult = await resolveAgentProposer(globexCtx, dbDeps);
       assert.equal(globexProposerResult.status, "resolved");

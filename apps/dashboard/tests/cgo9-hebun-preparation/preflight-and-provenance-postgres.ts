@@ -198,7 +198,7 @@ async function main(): Promise<void> {
     );
 
     await seedGovernanceAuthority(setup, acme, dbDeps, { tag: "cgo9-acme" });
-    const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, dbDeps);
+    const established = await createDurableAgentIdentity(tenant, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps);
     const govBaselineDecisions = await count("decision_records");
     assert.equal(established.status, "established");
     const agentId = established.status === "established" ? established.identity.agentId : "";
@@ -397,7 +397,7 @@ async function main(): Promise<void> {
     /* A tenant WITH its own agent still cannot reach another tenant's draft: not found, not "not yours". */
     {
       await seedGovernanceAuthority(setup, globex, dbDeps, { tag: "cgo9-globex" });
-      const globexAgent = await createDurableAgentIdentity(foreign, { name: "Heby" }, dbDeps);
+      const globexAgent = await createDurableAgentIdentity(foreign, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps);
       assert.equal(globexAgent.status, "established");
       await refusedInPreflight(
         "revision of ANOTHER tenant's artifact, by a tenant that has an agent",

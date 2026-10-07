@@ -131,6 +131,7 @@ const GENERATION_REFUSAL_WORDING: Record<MediaGenerationRefusal, string> = {
   "generation-transport-unavailable": "Image generation is not available right now.",
   "persistence-unavailable": "The database could not be reached.",
   "no-durable-agent": "Your organization has no durable agent that could author this.",
+  "ambiguous-durable-agent": "More than one durable agent is in service and this screen does not choose one, so no agent was named as author.",
   "source-revision-unresolvable": "That content draft revision could not be resolved.",
   "duplicate-request": "This exact request was already submitted. It was not sent again, and you were not charged twice.",
   "source-asset-unresolvable": "That image could not be resolved in your organization.",

@@ -30,7 +30,7 @@ const actions = [
     href: "/agents",
     state: "opensPage" as ActionState,
     description:
-      "Opens Agents, where a human owner can establish this organization's durable agent identity. Creation is a one-shot ceremony, confirmed there.",
+      "Opens Agents, where this organization's Governance authority can register a durable agent identity. Each registration is a Governance decision, confirmed there.",
   },
   {
     label: "New Workflow",

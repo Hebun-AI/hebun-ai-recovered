@@ -7,8 +7,8 @@
  *
  *   · RETIREMENT IS NOT DELETION — provable only by reading the row back after retiring it and
  *     finding the name, the owner, the creator and `deleted_at IS NULL` exactly as they were;
- *   · THE GENESIS ONE-SHOT STAYS SPENT — provable only by running the REAL creation authority
- *     against a tenant whose only identity is retired, and watching it refuse;
+ *   · (AP-1, inverted) RETIREMENT NEVER REOPENS AN IDENTITY — a retired name may be registered
+ *     again, but only as a NEW identity with a new id; the retired row is untouched;
  *   · the columns retirement declines to write are NULL in a real row, not merely absent from an
  *     object literal;
  *   · concurrent retirements of the same identity produce exactly ONE retirement — proved at a
@@ -171,10 +171,10 @@ async function main(): Promise<void> {
       };
 
       /* ── 0. TWO TENANTS EACH ESTABLISH ONE IDENTITY ───────────────────────── */
-      const madeA = await createDurableAgentIdentity(A, { name: "Atlas" }, createDeps);
+      const madeA = await createDurableAgentIdentity(A, { name: "Atlas", justification: "Register this agent for the test organization." }, createDeps);
       assert.equal(madeA.status, "established", "Tenant A establishes its durable identity");
       if (madeA.status !== "established") throw new Error("unreachable");
-      const madeB = await createDurableAgentIdentity(B, { name: "Borea" }, createDeps);
+      const madeB = await createDurableAgentIdentity(B, { name: "Borea", justification: "Register this agent for the test organization." }, createDeps);
       assert.equal(madeB.status, "established", "Tenant B establishes its durable identity");
       if (madeB.status !== "established") throw new Error("unreachable");
 
@@ -296,22 +296,11 @@ async function main(): Promise<void> {
         );
       }
 
-      /* ── 5. THE GENESIS ONE-SHOT IS NOT REOPENED ──────────────────────────── */
-      const afterRetirementCreate = await createDurableAgentIdentity(
-        A,
-        { name: "Atlas II" },
-        createDeps,
-      );
-      assert.deepEqual(
-        afterRetirementCreate,
-        { status: "refused", reason: "agent-identity-already-exists" },
-        "a tenant whose ONLY identity is retired has still crossed genesis — the ceremony stays closed",
-      );
-      assert.equal(
-        await countOf("agents"),
-        2,
-        "the refused creation wrote nothing; one row per tenant, exactly as before",
-      );
+      /*
+       * ── 5. (AP-1) GENESIS IS NO LONGER A ONE-SHOT ──────────────────────────
+       * What replaced "the ceremony stays closed" is proved in §10 below, after the reads that
+       * describe this tenant's single retired identity, so those counts stay as they were.
+       */
 
       /* ── 6. RETIREMENT IS TERMINAL ────────────────────────────────────────── */
       assert.deepEqual(
@@ -398,21 +387,24 @@ async function main(): Promise<void> {
       for (const table of MUST_STAY_UNTOUCHED) {
         assert.equal(
           await countOf(table),
-          /* APF-1: the two seeded Governance bootstraps; retirement adds none. */
-          table === "decision_records" ? 2 : 0,
+          /*
+           * APF-1: the two seeded Governance bootstraps. AP-1: plus the two REGISTRATION decisions
+           * (Atlas, Borea) and their two audit rows — written at creation, above. Retirement adds none.
+           */
+          table === "decision_records" ? 4 : table === "audit_log" ? 2 : 0,
           `\`${table}\` is still empty — retiring an identity issues no credential, opens no ` +
             `session, grants no permit, assigns no role and records no governance decision`,
         );
       }
 
-      /* ── 9. THE READ REPORTS THE TRUTH, INCLUDING THE SPENT ONE-SHOT ──────── */
+      /* ── 9. THE READ REPORTS THE TRUTH, INCLUDING THAT AN IDENTITY ONCE EXISTED ─ */
       const stateA = await readDurableAgentIdentityState(A, { getDb: () => handle.db });
       assert.equal(stateA.status, "known", "the durable identity state is readable");
       if (stateA.status !== "known") throw new Error("unreachable");
       assert.equal(
         stateA.genesisSpent,
         true,
-        "genesis reads as SPENT for a tenant whose only identity is retired — the surface can never say the door reopened",
+        "`genesisSpent` stays true for a tenant whose only identity is retired — it is history (AP-1: no longer a gate)",
       );
       assert.equal(stateA.identities.length, 1, "the retired identity is still reported, not hidden");
       assert.deepEqual(
@@ -455,8 +447,28 @@ async function main(): Promise<void> {
         "an unreachable control plane reads as UNAVAILABLE, and fails closed rather than reporting absence",
       );
 
+      /*
+       * ── 10. AP-1: A RETIRED NAME IS FREE, A RETIRED IDENTITY IS NOT ─────────
+       * Registering the retired identity's exact name succeeds as a NEW identity — new id, its own
+       * decision — and the retired row is byte-for-byte what it was. Nothing is reinstated.
+       */
+      const { rows: retiredBefore } = await probe.query("select * from agents where id = $1", [AGENT_A]);
+      const reborn = await createDurableAgentIdentity(A, { name: "Atlas", justification: "Register this agent for the test organization." }, createDeps);
+      assert.equal(reborn.status, "established", "AP-1: a retired name may be registered again");
+      if (reborn.status !== "established") throw new Error("unreachable");
+      assert.notEqual(reborn.identity.agentId, AGENT_A, "as a NEW identity — history is told apart by agentId");
+      const { rows: retiredAfter } = await probe.query("select * from agents where id = $1", [AGENT_A]);
+      assert.deepEqual(retiredAfter, retiredBefore, "the retired identity is untouched — nothing was reinstated");
+      const bothA = await readDurableAgentIdentityState(A, { getDb: () => handle.db });
+      assert.ok(
+        bothA.status === "known" &&
+          bothA.identities.filter((i) => i.name === "Atlas").length === 2 &&
+          bothA.identities.filter((i) => i.inService).length === 1,
+        "two identities named Atlas, exactly one in service",
+      );
+
       console.log(
-        "agent-id-0-1/retirement-postgres: identity withdrawn from service, history intact, genesis still spent",
+        "agent-id-0-1/retirement-postgres: identity withdrawn from service, history intact, never reinstated",
       );
     } finally {
       await probe.end();

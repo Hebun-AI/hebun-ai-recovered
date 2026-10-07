@@ -196,11 +196,11 @@ async function main(): Promise<void> {
     await establish(globex, globexCtx);
 
     assert.equal(
-      (await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, baseDeps)).status,
+      (await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, baseDeps)).status,
       "established",
     );
     assert.equal(
-      (await createDurableAgentIdentity(globexCtx, { name: "Globex Agent" }, baseDeps)).status,
+      (await createDurableAgentIdentity(globexCtx, { name: "Globex Agent", justification: "Register this agent for the test organization." }, baseDeps)).status,
       "established",
     );
 

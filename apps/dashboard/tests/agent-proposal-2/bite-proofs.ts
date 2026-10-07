@@ -91,18 +91,23 @@ const MUTATIONS: readonly Mutation[] = [
     because: "that is the agent's job, not the browser's",
   },
   {
-    label: "M2 the server action accepts an agent id from the browser",
+    /*
+     * AP-1 REPLACED the original M2 ("accepts an agent id"): an optional agentId LOOKUP KEY is now
+     * part of the contract, verified by the resolver. The attribution-flipping fields are still
+     * forbidden, so the successor mutation smuggles one of them beside it.
+     */
+    label: "M2 the server action accepts an actor type from the browser",
     file: HEBY_ACTIONS,
     suite: FW_SUITE,
     edits: [
       {
-        find: "  input: { readonly goal: string },\n): Promise<OriginateActionResult> {",
+        find: "  input: { readonly goal: string; readonly agentId?: string },\n): Promise<OriginateActionResult> {",
         replace:
-          "  input: { readonly goal: string; readonly agentId?: string },\n" +
+          "  input: { readonly goal: string; readonly agentId?: string; readonly actorType?: string },\n" +
           "): Promise<OriginateActionResult> {",
       },
     ],
-    because: 'must not accept "agentId" from the browser',
+    because: 'the origination action must not accept "actorType" from the browser',
   },
 
   /* ── THE RAW ID MUST NOT REACH A HUMAN'S SCREEN ──────────────────────────── */

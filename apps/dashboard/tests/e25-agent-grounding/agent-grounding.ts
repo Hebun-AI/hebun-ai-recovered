@@ -28,7 +28,7 @@ import {
 } from "../../src/features/agent-outcome-observation/heby-agent-source.server";
 import type {
   AgentOutcomeObservation,
-  AgentOutcomeObservationRead,
+  AgentOutcomeObservationIndexedRead,
 } from "../../src/features/agent-outcome-observation/agent-outcome-projection.server";
 import { HEBY_SOURCE_CLASSES } from "../../src/features/heby-integration";
 import { resolveHebyWorkspaceContext } from "../../src/features/heby-integration/workspace-registry";
@@ -41,6 +41,7 @@ import {
   fromStoredSourceEvidence,
 } from "../../src/features/heby-conversation/answer-evidence";
 import { answerHebyModelRequest } from "../../src/features/heby-answer/model-answer.server";
+import { MODEL_WITHHELD_SOURCE, modelGroundingLines } from "../../src/features/heby-answer/model-facing-projection";
 import type { ModelGenerationRequest, SourceResolution } from "../../src/features/heby-runtime";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
@@ -102,20 +103,21 @@ function agent(overrides: Partial<AgentOutcomeObservation> = {}): AgentOutcomeOb
   };
 }
 
-function readOf(agents: readonly AgentOutcomeObservation[]): AgentOutcomeObservationRead {
+/*
+ * AP-1 (B3): the grounding source reads E2-3's id-keyed view and cites `agent/<agentId>`. The ids
+ * here are fixture ids, one per position, so the references are predictable.
+ */
+const agentIdAt = (index: number): string => `a0000000-0000-4000-8000-00000000000${index}`;
+
+function readOf(agents: readonly AgentOutcomeObservation[]): AgentOutcomeObservationIndexedRead {
   return {
     status: "read",
-    agents,
-    unattributedInvocations: 0,
+    byAgentId: new Map(agents.map((observation, index) => [agentIdAt(index), observation])),
     unresolvedAgentProposals: 0,
-    historicallyUnattributedInvocations: 0,
-    attributionConflicts: 0,
-    distributionTruncated: false,
-    distributionLimit: 50,
   };
 }
 
-const groundOn = (result: AgentOutcomeObservationRead): Promise<SourceResolution> =>
+const groundOn = (result: AgentOutcomeObservationIndexedRead): Promise<SourceResolution> =>
   readAgentGroundingSource(TENANT, { readOutcome: async () => result });
 
 async function main(): Promise<void> {
@@ -172,8 +174,8 @@ async function main(): Promise<void> {
     assert.equal(resolution.items.length, 2, "one item per durable agent");
     assert.deepEqual(
       resolution.items.map((item) => item.recordRef),
-      ["Heby", "Auditor"],
-      "the record reference is the agent's own name",
+      [`agent/${agentIdAt(0)}`, `agent/${agentIdAt(1)}`],
+      "AP-1 (B3): the record reference is the agent's id — names repeat over time, ids do not",
     );
     assert.equal(resolution.provenance, AGENT_GROUNDING_PROVENANCE);
   }
@@ -198,23 +200,48 @@ async function main(): Promise<void> {
     );
   }
 
-  /* ── 5 · NO AGENT ID TRAVELS, EVER ──────────────────────────────────────── */
+  /*
+   * ── 5 · THE AGENT ID TRAVELS ONLY AS THE CITATION KEY (AP-1, B3 — NARROWED, NOT DROPPED) ──
+   *
+   * E2-5 released "no agent id travels, ever" and cited by NAME. AP-1 makes a name unique only among
+   * IN-SERVICE identities, so a retired and a new agent can share one — a name-keyed citation could
+   * then attach one agent's evidence to another. The Director's AP-1 decision binds the reference
+   * to the agentId (Director, AP-1: the agentId is the authoritative reference; a name is not an
+   * identity, and name + timestamp was refused). What survives of E2-5, and is asserted: the id
+   * appears ONLY as `agent/<id>` in `recordRef` — internal provenance — never in a label or a detail
+   * line a reader sees, and the tenant id never appears. The MODEL receives none of it: the `agents`
+   * class is withheld as one fixed line, unchanged by AP-1, and that line carries no id.
+   */
   {
     const resolution = await groundOn(readOf([agent()]));
     const serialized = JSON.stringify(resolution);
+    const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    for (const item of resolution.items) {
+      assert.ok(/^agent\/[0-9a-f-]{36}$/i.test(item.recordRef), "the citation key is exactly `agent/<id>`");
+      assert.ok(!UUID.test(item.label) && !UUID.test(item.detail), "no id appears in what a reader sees");
+    }
     assert.ok(
-      !/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(serialized),
-      "no uuid may appear anywhere in the resolution",
+      !UUID.test(serialized.replace(/"recordRef":"agent\/[0-9a-f-]{36}"/gi, "")),
+      "no uuid appears anywhere in the resolution except the citation key",
     );
     assert.ok(
       !serialized.includes(TENANT.tenantId),
       "the tenant id must never appear in grounding evidence",
     );
 
+    const modelLines = modelGroundingLines([resolution]);
+    assert.deepEqual(
+      modelLines,
+      [`[${resolution.sourceClass}] ${MODEL_WITHHELD_SOURCE}`],
+      "AP-1 B3: the agents class stays withheld from the model — one fixed line, nothing else",
+    );
+    assert.ok(!UUID.test(modelLines.join("\n")), "no agent id reaches the model");
+
     const source = read("src/features/agent-outcome-observation/heby-agent-source.server.ts");
-    for (const symbol of ["agentId", "byAgentId", "readAgentOutcomeObservationIndexed"]) {
-      assert.ok(!source.includes(symbol), `the agent source must not reference ${symbol}`);
-    }
+    assert.ok(
+      source.includes("readAgentOutcomeObservationIndexed"),
+      "AP-1: the agent source reads E2-3's id-keyed view — the id is the join key it cites by",
+    );
   }
 
   /* ── 6 · A MANDATE IS ABSENT, NOT FILTERED ──────────────────────────────── */
@@ -315,8 +342,8 @@ async function main(): Promise<void> {
     const assembled = assembleEvidence(resolutions);
     assert.deepEqual(
       assembled.map((e) => `${e.sourceClass}/${e.recordRef}`),
-      ["agents/Heby"],
-      "the agent contributes its own evidence identity",
+      [`agents/agent/${agentIdAt(0)}`],
+      "the agent contributes its own evidence identity (AP-1: by id)",
     );
 
     const response = buildResponse("INVESTIGATE", { workspace: "command", route: "/heby" }, resolutions);
@@ -350,7 +377,7 @@ async function main(): Promise<void> {
 
     const agentRow = rows.find((row) => row.sourceClass === "agents");
     assert.ok(agentRow, "the agent citation is stored by the released projection");
-    assert.equal(agentRow!.recordRef, "Heby");
+    assert.equal(agentRow!.recordRef, `agent/${agentIdAt(0)}`);
     assert.equal(
       agentRow!.authoritative,
       false,

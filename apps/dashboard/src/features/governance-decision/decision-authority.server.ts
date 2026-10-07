@@ -97,6 +97,11 @@ import {
   AGENT_MANDATE_SUBJECT_TYPE,
 } from "@/features/agent-mandate/contracts";
 import {
+  AGENT_REGISTRATION_DOMAIN,
+  AGENT_REGISTRATION_OUTCOME,
+  AGENT_REGISTRATION_SUBJECT_TYPE,
+} from "@/features/agent-identity/contracts";
+import {
   resolveGovernanceDbOrNull,
   validateJustification,
   type GovernanceDeps,
@@ -216,6 +221,8 @@ export async function writeGovernanceDecisionWithin(
       | typeof ACTION_PERMIT_SUBJECT_TYPE
       | typeof IMPROVEMENT_HYPOTHESIS_SUBJECT_TYPE
       | typeof AGENT_MANDATE_SUBJECT_TYPE
+      /* AP-1 — one durable agent identity coming into existence. */
+      | typeof AGENT_REGISTRATION_SUBJECT_TYPE
       | typeof ARTIFACT_REVIEW_SUBJECT_TYPE
       | typeof STANDING_OBSERVATION_SUBJECT_TYPE
       | typeof TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
@@ -361,6 +368,13 @@ export async function writeGovernanceDecisionWithin(
                 ? STANDING_OBSERVATION_DOMAIN
                 : input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
                 ? AGENT_MANDATE_DOMAIN
+                : /*
+                   * AP-1 — an agent identity COMING INTO EXISTENCE: exactly what the reserved
+                   * `agent-registration` value names, and what AMA-1 and SIA-3 declined to borrow it
+                   * for. Nothing else ever maps here.
+                   */
+                  input.subjectType === AGENT_REGISTRATION_SUBJECT_TYPE
+                ? AGENT_REGISTRATION_DOMAIN
                 : input.subjectType === "user" || input.subjectType === "governance_decision"
                   ? ("authority-delegation" as const)
                   : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
@@ -493,6 +507,13 @@ export async function writeGovernanceDecisionWithin(
              */
             input.subjectType === AGENT_MANDATE_SUBJECT_TYPE
           ? AGENT_MANDATE_BOUNDED_OUTCOME
+          : /*
+             * AP-1 — registration uses `approve` too, so it is checked on its SUBJECT before the
+             * membership branch, for the same reason as AMA-1: otherwise an agent coming into
+             * existence would be filed as `membership-authorized`.
+             */
+            input.subjectType === AGENT_REGISTRATION_SUBJECT_TYPE
+          ? AGENT_REGISTRATION_OUTCOME
           : input.decisionType === "delegate-authority"
           ? DELEGATION_OUTCOME
           : input.decisionType === "revoke"

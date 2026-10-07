@@ -329,7 +329,7 @@ async function main(): Promise<void> {
     const agentDeps = { getDb: () => handle.db } as never;
 
     await seedGovernanceAuthority(setup, mine, agentDeps, { tag: "rev1" });
-    const agent = await createDurableAgentIdentity(owner, { name: "Heby" }, agentDeps);
+    const agent = await createDurableAgentIdentity(owner, { name: "Heby", justification: "Register this agent for the test organization." }, agentDeps);
     const govBaselineDecisions = (await setup.query<{ n: number }>(`select count(*)::int as n from decision_records`)).rows[0]!.n;
     assert.equal(agent.status, "established");
 

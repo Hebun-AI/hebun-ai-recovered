@@ -46,9 +46,9 @@ const SURFACES = [
    * AGENT-ID-0.1 added `agents`, and it is the same KIND of fact as the nine above: a count of a
    * bootstrap surface, taken by the same loop, through the same connection, with no column read.
    *
-   * WHY IT HAD TO BE HERE AND NOT SOMEWHERE NEW. The durable agent genesis ceremony is a ONE-SHOT
-   * and its predicate is bare existence. Running it without an authoritative baseline would mean
-   * firing a one-way door blind, and reading that baseline had no seam: no script in this
+   * WHY IT HAD TO BE HERE AND NOT SOMEWHERE NEW. The durable agent genesis ceremony was a ONE-SHOT
+   * until AP-1 (now each registration is its own Governance decision). Running it without an
+   * authoritative baseline would mean registering blind, and reading that baseline had no seam: no script in this
    * repository read `agents` at all. The choice was to extend this authority by one closed-list
    * entry or to build a second production-read path — and a second path is the thing this file
    * exists to make unnecessary.
@@ -183,14 +183,14 @@ async function main(): Promise<void> {
 
     if (agents > 0) {
       /*
-       * HONEST BOUND. The genesis one-shot is PER TENANT, and this is a platform-wide count. Zero
+       * HONEST BOUND. Agent identities are PER TENANT, and this is a platform-wide count. Zero
        * settles the question for every tenant at once; anything above zero does not say WHICH
        * tenant holds what, and this command may not find out — that would mean reading a
        * `tenant_id` off a row, which is row content and is exactly what it does not do.
        */
       console.log("");
-      console.log("    NOTE: the genesis one-shot is per tenant. A platform-wide count of 0 settles");
-      console.log("          it for every tenant; a non-zero count does NOT identify which tenant");
+      console.log("    NOTE: agent identities are per tenant (each registration is a Governance decision).");
+      console.log("          A platform-wide count of 0 settles it for every tenant; a non-zero count does NOT identify which tenant");
       console.log("          holds an identity, and this command does not read row content to find");
       console.log("          out. Resolve that through the authenticated product surface.");
     }

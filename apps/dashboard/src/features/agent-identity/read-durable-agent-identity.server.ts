@@ -6,10 +6,9 @@
  *
  * ── WHY THE CREATION SURFACE NEEDS IT ────────────────────────────────────────
  *
- * The genesis ceremony is a ONE-SHOT. A surface that offers it without knowing whether it has
- * already been spent would present an action that is guaranteed to be refused — and, worse, would
- * leave the human unable to see the identity they already own. Disclosure of a one-way door requires
- * knowing which side of it the tenant is standing on.
+ * The surface must show every identity the tenant holds — in service and retired — before it offers
+ * to register another one, and must state the count truthfully in the disclosure (AP-1: each
+ * registration is its own Governance decision; the ceremony is no longer a one-shot).
  *
  * ── IT IS NOT A SECOND CANONICAL READER ──────────────────────────────────────
  *
@@ -50,10 +49,9 @@ export interface DurableAgentIdentityRecord {
 /**
  * What this tenant's durable agent identity state actually is.
  *
- * `genesisSpent` is the SAME arithmetic `createDurableAgentIdentity` performs — a count of rows for
- * the tenant with no lifecycle and no soft-delete predicate. It is true for a retired identity
- * exactly as it is for a serving one, because retirement leaves the row in place. A surface reading
- * this can therefore never tell a human that the door has reopened.
+ * `genesisSpent` means "this tenant has registered at least one identity, ever" — rows for the
+ * tenant with no lifecycle and no soft-delete predicate, so a retired identity still counts. Since
+ * AP-1 it no longer closes the creation ceremony; it is a historical fact, not a gate.
  *
  * `unavailable` is a THIRD state, distinct from "no identity": a surface must not render "this
  * tenant has never created an agent" when the truth is that the authority could not be reached.
@@ -102,7 +100,7 @@ export async function readDurableAgentIdentityState(
 
     return {
       status: "known",
-      /* The genesis predicate, restated: existence, not health. A retired row still spends it. */
+      /* Existence, not health: a retired row still counts as having been registered. */
       genesisSpent: rows.length > 0,
       identities: rows.map((row) => ({
         agentId: row.id,

@@ -56,6 +56,7 @@ import {
   type AgentIdentityReadDeps,
 } from "@/features/agent-identity/read-durable-agent-identity.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import type { AgentSelection } from "@/features/agent-identity/contracts";
 
 /*
  * The brand. Module-private ON PURPOSE — it is never exported, so no other module can write this
@@ -92,11 +93,15 @@ export type AgentAuthorshipRefusal =
   /** Every durable identity this tenant owns has been withdrawn from service. */
   | "durable-agent-identity-retired"
   /**
-   * More than one identity is in service, so "the agent" does not name one thing. Unreachable under
-   * today's one-shot genesis; present as a BOUNDARY rather than as an invitation, because the day a
-   * second durable agent exists the caller must say which one — never this module by picking.
+   * More than one identity is in service, so "the agent" does not name one thing. Reachable since
+   * AP-1 made genesis a per-identity Governance decision; still a BOUNDARY rather than an invitation:
+   * the caller must say which one — never this module by picking.
    */
-  | "ambiguous-durable-agent-identity";
+  | "ambiguous-durable-agent-identity"
+  /** AP-1 — the explicitly selected agent is not one of this tenant's identities (or malformed). */
+  | "selected-agent-unresolvable"
+  /** AP-1 — the explicitly selected agent exists here but has been withdrawn from service. */
+  | "selected-agent-retired";
 
 export type ResolveAgentAuthorshipResult =
   | { readonly status: "resolved"; readonly authorship: AgentAuthorship }
@@ -133,6 +138,8 @@ export function isAgentAuthorship(value: unknown): value is AgentAuthorship {
 export async function resolveAgentAuthorship(
   tenant: TenantContext | null,
   deps: AgentIdentityReadDeps = {},
+  /* AP-1 — an explicit, verified lookup key. Omitted: the single in-service identity, as before. */
+  selection: AgentSelection = {},
 ): Promise<ResolveAgentAuthorshipResult> {
   if (typeof window !== "undefined") {
     throw new Error("Agent authorship resolution is server-only.");
@@ -144,6 +151,18 @@ export async function resolveAgentAuthorship(
   const state = await readDurableAgentIdentityState(tenant, deps);
   if (state.status === "unavailable") {
     return { status: "refused", reason: "agent-identity-authority-unavailable" };
+  }
+
+  /* AP-1 — an explicit selection is answered by the read alone, before any singleton rule. */
+  const selectedId = typeof selection.agentId === "string" ? selection.agentId.trim() : "";
+  if (selectedId) {
+    const selected = state.identities.find((identity) => identity.agentId === selectedId);
+    if (!selected) return { status: "refused", reason: "selected-agent-unresolvable" };
+    if (!selected.inService) return { status: "refused", reason: "selected-agent-retired" };
+    return {
+      status: "resolved",
+      authorship: { agentId: selected.agentId, [AGENT_AUTHORSHIP_BRAND]: true },
+    };
   }
 
   if (state.identities.length === 0) {

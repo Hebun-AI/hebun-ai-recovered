@@ -68,7 +68,11 @@ export const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
   "durable-agent-identity-retired":
     "This organization's durable agent has been retired and cannot propose new work.",
   "ambiguous-durable-agent-identity":
-    "More than one agent is in service, so Hebun cannot tell which one would be proposing. Explicit agent selection does not exist yet.",
+    "More than one agent is in service, so Hebun cannot tell which one would be proposing. Choose the agent from the proposal option under your message in Heby.",
+  "selected-agent-unresolvable":
+    "The chosen agent is not one of this organization's agents, so nothing was asked. Nothing was filed.",
+  "selected-agent-retired":
+    "The chosen agent has been retired and cannot propose new work. Nothing was filed.",
   "agent-identity-authority-unavailable":
     "The agent identity authority could not be reached, so Hebun cannot say which agent would propose. Nothing was filed.",
   "not-a-structured-object":

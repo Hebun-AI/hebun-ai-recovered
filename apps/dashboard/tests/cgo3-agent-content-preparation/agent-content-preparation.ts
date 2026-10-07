@@ -170,7 +170,7 @@ async function main(): Promise<void> {
     });
 
     await seedGovernanceAuthority(setup, acme, agentIdentityDeps, { tag: "c3" });
-    const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, agentIdentityDeps);
+    const established = await createDurableAgentIdentity(tenant, { name: "Heby", justification: "Register this agent for the test organization." }, agentIdentityDeps);
     assert.equal(established.status, "established", "the tenant has a durable agent");
     /* APF-1: the Governance precondition writes its own bootstrap rows; this asserts the code under test adds none. */
     const baselineDecisionRecords = (

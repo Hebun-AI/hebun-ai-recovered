@@ -31,6 +31,8 @@ const CONTRACTS = "src/features/agent-identity/contracts.ts";
 const STORAGE_MANAGER = "src/features/persistence/storage-manager.ts";
 const GOVERNANCE = "src/features/governance-decision/contracts.ts";
 const PERMIT_MIGRATION = "src/db/migrations/20260816063156_r3a_action_authorization.sql";
+const DECISION_AUTHORITY = "src/features/governance-decision/decision-authority.server.ts";
+const AP1_MIGRATION = "src/db/migrations/20261007064348_ap1_agent_name_in_service_uniqueness.sql";
 
 const PG_SUITE = "tests/agent-id-0/identity-postgres.ts";
 const FW_SUITE = "tests/agent-id-0/boundaries-and-firewall.ts";
@@ -67,33 +69,57 @@ interface Mutation {
 }
 
 const MUTATIONS: readonly Mutation[] = [
-  /* ── THE ONE-SHOT ────────────────────────────────────────────────────────── */
+  /*
+   * ── AP-1: GOVERNED REGISTRATION AND THE CANONICAL NAME ────────────────────
+   *
+   * The pre-AP-1 M1–M3 (one-shot count, table lock, tenant-scoped count) guarded code AP-1 deleted
+   * on purpose. Their successors guard what replaced it.
+   */
   {
-    label: "M1 a tenant may possess many first identities",
-    file: AUTHORITY,
+    label: "M1 a registration is filed as a membership admission",
+    file: DECISION_AUTHORITY,
     suite: PG_SUITE,
     find:
-      '    if ((existing?.total ?? 0) > 0) {\n' +
-      '      return { status: "refused" as const, reason: "agent-identity-already-exists" as const };\n' +
-      "    }",
-    replace: "    /* mutated: existence no longer refuses */",
-    because: "agent-identity-already-exists",
+      "            input.subjectType === AGENT_REGISTRATION_SUBJECT_TYPE\n" +
+      "          ? AGENT_REGISTRATION_OUTCOME\n" +
+      "          : input.decisionType",
+    replace: "            input.decisionType",
+    because: "the decision is in `agent-registration`, names THIS agent, and is never filed as a membership",
   },
   {
-    label: "M2 the count is trusted without serializing the ceremony",
-    file: AUTHORITY,
+    label: "M2 the database stops folding case in the name key",
+    file: AP1_MIGRATION,
     suite: PG_SUITE,
-    find: "    await tx.execute(sql.raw(`lock table agents in ${AGENT_IDENTITY_LOCK_MODE} mode`));",
-    replace: "    /* mutated: the answer is believed while it is still going stale */",
-    because: "six simultaneous ceremonies produce exactly one identity",
+    find: 'lower(normalize("name", NFC) COLLATE "pg_c_utf8")',
+    replace: 'normalize("name", NFC) COLLATE "pg_c_utf8"',
+    because: "the database compares the canonical name",
   },
   {
-    label: "M3 the one-shot stops being tenant-scoped",
+    label: "M3 a lost name race leaks as a raw constraint error",
     file: AUTHORITY,
     suite: PG_SUITE,
-    find: "      .where(eq(agents.tenantId, tenant.tenantId));",
-    replace: "      .where(sql`true`);",
-    because: "the one-shot is tenant-scoped",
+    find: '    if (code === "23505" && constraint === AGENT_NAME_IN_SERVICE_INDEX) return true;',
+    replace: "    /* mutated: a name collision is just an error */",
+    /* The raw driver error escaping the writer IS the leak this guard exists to prevent. */
+    because: 'duplicate key value violates unique constraint "agents_tenant_name_in_service_uq"',
+  },
+  {
+    label: "M3b a registration needs no reason",
+    file: AUTHORITY,
+    suite: PG_SUITE,
+    find: '  if (!justification) return { status: "refused", reason: "justification-required" };',
+    replace: "  /* mutated: a decision without a reason */",
+    /* Without the writer's refusal the ledger's NOT NULL is the only floor — a raw leak, not a refusal. */
+    because: 'relation "decision_records" violates not-null constraint',
+  },
+  {
+    label: "M3c an invisible character passes the writer",
+    file: CONTRACTS,
+    suite: PG_SUITE,
+    find: "  if (INVISIBLE_NAME_CHARACTERS.test(value)) return false;",
+    replace: "  /* mutated: invisible characters are fine */",
+    /* Without the writer's refusal the database CHECK is the floor — it holds, but as a raw error. */
+    because: 'violates check constraint "agents_name_visible_chk"',
   },
   /* ── OWNERSHIP ───────────────────────────────────────────────────────────── */
   {
@@ -101,26 +127,26 @@ const MUTATIONS: readonly Mutation[] = [
     file: AUTHORITY,
     suite: PG_SUITE,
     find:
-      "    if (owner.length === 0) {\n" +
-      '      return { status: "refused" as const, reason: "human-owner-unresolved" as const };\n' +
-      "    }",
-    replace: "    /* mutated: any uuid is an owner */",
+      "      if (owner.length === 0) {\n" +
+      '        return { status: "refused" as const, reason: "human-owner-unresolved" as const };\n' +
+      "      }",
+    replace: "      /* mutated: any uuid is an owner */",
     because: "human-owner-unresolved",
   },
   {
     label: "M5 the agent is written without a human owner",
     file: AUTHORITY,
     suite: PG_SUITE,
-    find: '        humanOwnerType: "human",\n        humanOwnerId: tenant.userId,\n',
-    replace: "        /* mutated: the identity is ownerless */\n",
+    find: '            humanOwnerType: "human",\n            humanOwnerId: tenant.userId,\n',
+    replace: "            /* mutated: the identity is ownerless */\n",
     because: "the six persisted facts are the tenant, the name, the human owner pair",
   },
   {
     label: "M6 the creator of the agent is not recorded",
     file: AUTHORITY,
     suite: PG_SUITE,
-    find: '        createdByType: "human",\n',
-    replace: "        /* mutated: nobody created this agent */\n",
+    find: '            createdByType: "human",\n',
+    replace: "            /* mutated: nobody created this agent */\n",
     because: "the six persisted facts are the tenant, the name, the human owner pair",
   },
   /* ── THE NAME IS ACCEPTED AS GIVEN OR REFUSED ────────────────────────────── */
@@ -130,7 +156,12 @@ const MUTATIONS: readonly Mutation[] = [
     suite: PG_SUITE,
     find: "  if (value.length === 0 || value.length > MAX_AGENT_NAME_LENGTH) return false;",
     replace: "  /* mutated: length is not a property of a name */",
-    because: "a malformed name is refused rather than repaired",
+    /*
+     * AP-1: the first malformed value is the EMPTY name, and since AP-1 the database's
+     * `agents_name_visible_chk` refuses a blank name on its own — so the guard still bites, as a
+     * raw CHECK violation escaping a writer that should have refused it first.
+     */
+    because: 'violates check constraint "agents_name_visible_chk"',
   },
   {
     label: "M8 a padded name is accepted",
@@ -145,9 +176,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M9 the caller may name the tenant",
     file: AUTHORITY,
     suite: FW_SUITE,
-    find: "  input: { readonly name: unknown },",
-    replace: "  input: { readonly name: unknown; readonly tenantId?: string },",
-    because: "the only caller-supplied field is the name",
+    find: "  input: { readonly name: unknown; readonly justification?: unknown },",
+    replace: "  input: { readonly name: unknown; readonly justification?: unknown; readonly tenantId?: string },",
+    because: "there is no tenant or owner parameter to abuse",
   },
   {
     label: "M10 the authority reaches the generic persistence substrate",
@@ -165,8 +196,8 @@ const MUTATIONS: readonly Mutation[] = [
     suite: FW_SUITE,
     /* The anchor carries the un-`as const` owner line: the returned identity object repeats the
      * first two fields verbatim, and an anchor of those alone occurs twice. */
-    find: '        name,\n        humanOwnerType: "human",\n',
-    replace: '        name,\n        agentLifecycleStatus: "active",\n        humanOwnerType: "human",\n',
+    find: '            name,\n            humanOwnerType: "human",\n',
+    replace: '            name,\n            agentLifecycleStatus: "active",\n            humanOwnerType: "human",\n',
     because: "`agentLifecycleStatus` is not written",
   },
   {

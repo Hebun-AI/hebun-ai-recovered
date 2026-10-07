@@ -160,6 +160,11 @@ export type MediaGenerationRefusal =
   | "generation-transport-unavailable"
   | "persistence-unavailable"
   | "no-durable-agent"
+  /**
+   * AP-1 (B1) — more than one agent is in service and this surface does not select one. Distinct
+   * from "no-durable-agent": telling an organization that has agents that it has none is false.
+   */
+  | "ambiguous-durable-agent"
   | "source-revision-unresolvable"
   /** The request key was already used in this tenant. The earlier attempt is not repeated. */
   | "duplicate-request"

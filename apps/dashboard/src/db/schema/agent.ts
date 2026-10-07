@@ -10,7 +10,9 @@
  * calculation, NO runtime here — `authorityCeiling` is metadata a resolver reads
  * later. `replacedByAgentId` is a self-ref succession pointer. Dual-column window:
  * `role` (legacy text) kept alongside the new governed lifecycle/type enums. */
+import { sql } from "drizzle-orm";
 import {
+  check,
   foreignKey,
   index,
   pgTable,
@@ -140,5 +142,37 @@ export const agents = pgTable(
       columns: [t.tenantId, t.departmentId],
       foreignColumns: [departments.tenantId, departments.id],
     }).onDelete("restrict"),
+
+    /*
+     * AP-1 — ONE IN-SERVICE NAME PER TENANT, DECIDED BY POSTGRESQL.
+     *
+     * The key is the CANONICAL name, not the bytes: NFC-normalized, then lower-cased under the
+     * builtin `pg_c_utf8` collation, so `Heby`/`heby`, NFC/NFD `Ayşe` and `ŞAHİN`/`şahin` are one
+     * name. The collation is pinned rather than inherited, so the key means the same thing on every
+     * database regardless of its default locale (production is builtin C.UTF-8 already).
+     *
+     * ponytail: simple Unicode case mapping, not Turkish locale folding — `IŞIK` and `Işık` are two
+     *   names. A locale-aware fold would make this index depend on a collation that can change.
+     *
+     * PARTIAL on the in-service predicate the read seam uses, so a retired identity does not keep
+     * its name forever (the department precedent). `IS DISTINCT FROM` keeps NULL-lifecycle rows —
+     * every identity ever created — inside the index. Historical identity is always the agentId.
+     *
+     * This index is the concurrency guarantee: two simultaneous creations commit one and raise one
+     * `unique_violation`, so the creation authority needs no table lock.
+     */
+    uniqueIndex("agents_tenant_name_in_service_uq")
+      .on(t.tenantId, sql`lower(normalize(${t.name}, NFC) COLLATE "pg_c_utf8")`)
+      .where(sql`${t.retiredAt} IS NULL AND ${t.agentLifecycleStatus} IS DISTINCT FROM 'retired'`),
+
+    /*
+     * AP-1 — A NAME A HUMAN CAN SEE. Non-blank, and free of control, format, zero-width, bidi and
+     * BOM characters, so two names that render identically cannot be two keys. The writer refuses
+     * the same set first (`isWellFormedAgentName`); this is the floor if it ever does not.
+     */
+    check(
+      "agents_name_visible_chk",
+      sql`char_length(btrim(${t.name})) > 0 AND ${t.name} !~ '[\\x01-\\x1F\\x7F-\\x9F\\u00AD\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u2064\\uFEFF]'`,
+    ),
   ],
 );

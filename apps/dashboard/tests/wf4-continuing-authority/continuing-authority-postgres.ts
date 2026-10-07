@@ -84,7 +84,7 @@ async function main(): Promise<void> {
     const dept = await recordDepartment(ctx, { name: "Finance", slug: "finance" }, deps);
     assert.equal(dept.status, "recorded");
     const departmentRef = formatDepartmentRef(dept.status === "recorded" ? dept.department.departmentId : "");
-    const agent = await createDurableAgentIdentity(ctx, { name: "Heby" }, deps);
+    const agent = await createDurableAgentIdentity(ctx, { name: "Heby", justification: "Register this agent for the test organization." }, deps);
     assert.equal(agent.status, "established");
     const agentId = agent.status === "established" ? agent.identity.agentId : "";
     let mandate = await seedAgentMandate(setup, org, agentId, deps, { tag: `${slug}1`, proposalScope: ["record-work"] });

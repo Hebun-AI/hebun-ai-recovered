@@ -41,6 +41,7 @@ import {
   type AgentIdentityReadDeps,
 } from "@/features/agent-identity/read-durable-agent-identity.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import type { AgentSelection } from "@/features/agent-identity/contracts";
 
 /*
  * The brand. Module-private ON PURPOSE — never exported, so no other module can write this key
@@ -84,7 +85,11 @@ export type AgentProposerRefusal =
    * attribute a Finance proposal to Marketing. Selection must then become an explicit,
    * server-derived input verified through this same read — never a guess made here.
    */
-  | "ambiguous-durable-agent-identity";
+  | "ambiguous-durable-agent-identity"
+  /** AP-1 — the explicitly selected agent is not one of this tenant's identities (or malformed). */
+  | "selected-agent-unresolvable"
+  /** AP-1 — the explicitly selected agent exists here but has been withdrawn from service. */
+  | "selected-agent-retired";
 
 export type ResolveAgentProposerResult =
   | { readonly status: "resolved"; readonly proposer: AgentProposer }
@@ -116,10 +121,16 @@ export function isAgentProposer(value: unknown): value is AgentProposer {
  *
  * NOT HARD-CODED TO ANY ONE AGENT. No name, no genesis identifier and no literal uuid appears
  * here; the rule is a property of the tenant's identity state.
+ *
+ * AP-1 — EXPLICIT SELECTION. `selection.agentId` may name one identity. It is a lookup key checked
+ * against this tenant's own read: foreign, unknown and malformed ids all refuse
+ * `selected-agent-unresolvable`, a retired one `selected-agent-retired`. Without it, the rule above
+ * is unchanged, so a tenant with one serving agent resolves exactly as it always did.
  */
 export async function resolveAgentProposer(
   tenant: TenantContext | null,
   deps: AgentIdentityReadDeps = {},
+  selection: AgentSelection = {},
 ): Promise<ResolveAgentProposerResult> {
   if (typeof window !== "undefined") {
     throw new Error("Agent proposer resolution is server-only.");
@@ -131,6 +142,18 @@ export async function resolveAgentProposer(
   const state = await readDurableAgentIdentityState(tenant, deps);
   if (state.status === "unavailable") {
     return { status: "refused", reason: "agent-identity-authority-unavailable" };
+  }
+
+  /* AP-1 — an explicit selection is answered by the read alone, before any singleton rule. */
+  const selectedId = typeof selection.agentId === "string" ? selection.agentId.trim() : "";
+  if (selectedId) {
+    const selected = state.identities.find((identity) => identity.agentId === selectedId);
+    if (!selected) return { status: "refused", reason: "selected-agent-unresolvable" };
+    if (!selected.inService) return { status: "refused", reason: "selected-agent-retired" };
+    return {
+      status: "resolved",
+      proposer: { agentId: selected.agentId, [AGENT_PROPOSER_BRAND]: true },
+    };
   }
   if (state.identities.length === 0) {
     return { status: "refused", reason: "no-durable-agent-identity" };

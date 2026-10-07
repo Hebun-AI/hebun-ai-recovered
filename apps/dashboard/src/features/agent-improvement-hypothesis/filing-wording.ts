@@ -174,6 +174,9 @@ export const HYPOTHESIS_FILING_REFUSAL_TEXT: Readonly<Record<string, string>> = 
     "resting on no observation is a guess with a citation attached, so nothing was written.",
   "supersedes-unresolvable":
     "The hypothesis you named as the predecessor is not one of this organization's. Nothing was written.",
+  "supersedes-other-agent":
+    "The hypothesis you named as the predecessor is about a different agent. A hypothesis can only " +
+    "replace one about the same agent, so nothing was written.",
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════

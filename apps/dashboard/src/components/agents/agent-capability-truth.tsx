@@ -1,5 +1,5 @@
 /*
- * WF-2 — what Agent #1 can propose NOW, beside what its mandate permits and what it never holds.
+ * WF-2 — what one agent can propose NOW, beside what its mandate permits and what it never holds.
  *
  * A server component with no client boundary and nothing that can act. It renders the pure
  * derivation of the WF-1 availability projection; it reads nothing itself. An unavailable answer
@@ -23,6 +23,7 @@ export const UNAVAILABLE_SENTENCE: Readonly<Record<OriginationUnavailableReason,
   "no-agent": "No durable agent is in service for this organization.",
   "agent-retired": "The agent for this organization is retired.",
   "multiple-agents": "More than one agent is in service, so the proposal path cannot choose one.",
+  "selected-agent-unresolvable": "The chosen agent does not belong to this organization.",
   "mandate-unavailable": "No effective mandate could be confirmed for this agent.",
   "proposal-scope-unavailable": "The mandate in effect does not include work proposals.",
   "model-unavailable": "The model is currently paused or not available.",
@@ -30,13 +31,20 @@ export const UNAVAILABLE_SENTENCE: Readonly<Record<OriginationUnavailableReason,
   "temporarily-unavailable": "Hebun could not check this right now.",
 };
 
-export function AgentCapabilityTruthCard({ truth }: { truth: AgentCapabilityTruth }) {
+export function AgentCapabilityTruthCard({
+  truth,
+  agentName,
+}: {
+  truth: AgentCapabilityTruth;
+  /* AP-1 — named when the organization has more than one agent in service; one card per agent. */
+  agentName?: string;
+}) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Gauge aria-hidden className="size-4" />
-          What the agent can propose now
+          {agentName ? `What ${agentName} can propose now` : "What the agent can propose now"}
         </CardTitle>
         <CardDescription>
           Derived from the mandate, the organization&apos;s external AI authorization and model availability.

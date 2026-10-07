@@ -29,12 +29,12 @@
  *   · `name`, `human_owner_*`, `created_by*` STAY. Retirement withdraws an identity from service; it
  *     does not un-name it, disown it, or erase who created it.
  *
- * ── THE GENESIS ONE-SHOT IS NOT REOPENED ─────────────────────────────────────
+ * ── RETIREMENT FREES THE NAME, NOT THE IDENTITY (AP-1) ───────────────────────
  *
- * `createDurableAgentIdentity` counts rows for the tenant with NO lifecycle predicate and NO
- * soft-delete predicate. This module writes no DELETE and leaves the row in place, so after
- * retirement that count is still 1 and creation still refuses `agent-identity-already-exists`.
- * The invariant is upheld by ARITHMETIC ON A ROW THAT STILL EXISTS, not by a rule this file states.
+ * This module writes no DELETE and leaves the row in place. Since AP-1 registration is a Governance
+ * decision per identity, and name uniqueness covers IN-SERVICE identities only, so a retired name
+ * may later be registered again — as a NEW identity with a new agentId and its own decision. The
+ * retired row is never reused, reinstated or relinked; history is always told apart by agentId.
  *
  * ── WHO MAY RETIRE ───────────────────────────────────────────────────────────
  *
@@ -191,8 +191,8 @@ export async function retireDurableAgentIdentity(
      * gate. Read on the authority's own connection, not this transaction's.
      *
      * Before APF-1 the owner alone could retire — and the owner could be any member who created it, so
-     * a member could create and then retire the organization's only identity forever (the genesis
-     * count includes retired rows). Ownership is NOT replaced: step 4 still applies, so retirement now
+     * a member could create and then retire the organization's only identity forever (the pre-AP-1
+     * genesis count included retired rows). Ownership is NOT replaced: step 4 still applies, so retirement now
      * needs BOTH the human who owns the agent AND the organization's Governance authority. Nothing new
      * is granted to anybody.
      */

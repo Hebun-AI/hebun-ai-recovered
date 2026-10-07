@@ -42,7 +42,7 @@ for (const reason of ORIGINATION_UNAVAILABLE_REASONS) {
 for (const scope of [["send", "record-work"], ["record-work", "send"], ["record-work"]]) {
   const html = render({
     status: "available",
-    agent: { name: "Heby" },
+    agent: { agentId: "a0000000-0000-4000-8000-000000000001", name: "Heby" },
     mandate: { revision: 3, purpose: "p", proposalScope: scope },
     originable: "record-work",
   });
@@ -56,7 +56,7 @@ for (const scope of [["send", "record-work"], ["record-work", "send"], ["record-
 /* ═══ 3. NO AGENT AUTHORITY, EVER ═══ */
 const available = render({
   status: "available",
-  agent: { name: "Heby" },
+  agent: { agentId: "a0000000-0000-4000-8000-000000000001", name: "Heby" },
   mandate: { revision: 3, purpose: "p", proposalScope: ["send", "record-work"] },
   originable: "record-work",
 });

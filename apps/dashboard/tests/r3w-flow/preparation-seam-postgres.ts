@@ -218,7 +218,7 @@ async function main(): Promise<void> {
 
     /* The tenant establishes its durable agent identity through the released AGENT-ID-0 authority. */
     await seedGovernanceAuthority(setup, acme, agentIdentityDeps, { tag: "r3w-prep" });
-    const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, agentIdentityDeps);
+    const established = await createDurableAgentIdentity(tenant, { name: "Heby", justification: "Register this agent for the test organization." }, agentIdentityDeps);
     const govBaselineDecisions = (await setup.query<{ n: number }>(`select count(*)::int as n from decision_records`)).rows[0]!.n;
     assert.equal(established.status, "established");
     const agentId = established.status === "established" ? established.identity.agentId : "";

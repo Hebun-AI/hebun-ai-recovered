@@ -20,6 +20,7 @@ import type { ControlPlaneDatabase } from "@/db/client.server";
 import { resolveAgentProposer } from "@/features/action-authorization/agent-proposer.server";
 import { refuseOutsideAgentMandate } from "@/features/action-authorization/agent-mandate-ceiling";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
+import type { AgentSelection } from "@/features/agent-identity/contracts";
 import { readEffectiveAgentMandate } from "@/features/agent-mandate/read-agent-mandate.server";
 import {
   AGENT_ORIGINABLE_REGISTRY_KIND,
@@ -53,21 +54,42 @@ const PROPOSER_REASON: Readonly<Record<string, OriginationUnavailableReason>> = 
   "no-durable-agent-identity": "no-agent",
   "durable-agent-identity-retired": "agent-retired",
   "ambiguous-durable-agent-identity": "multiple-agents",
+  "selected-agent-unresolvable": "selected-agent-unresolvable",
+  "selected-agent-retired": "agent-retired",
 };
 
-export async function readOriginationAvailability(deps: OriginationAvailabilityDeps): Promise<AgentOriginationAvailability> {
+export async function readOriginationAvailability(
+  deps: OriginationAvailabilityDeps,
+  /* AP-1 — which agent the human is asking about; a lookup key the resolver verifies. */
+  selection: AgentSelection = {},
+): Promise<AgentOriginationAvailability> {
   if (typeof window !== "undefined") throw new Error("Origination availability is server-only.");
   const db = deps.getDb ? { getDb: deps.getDb } : {};
   try {
     const tenant = await deps.resolveTenant();
     if (!tenant?.tenantId || !tenant.userId) return unavailable("tenant-unavailable");
 
-    /* 1 · Exactly one in-service agent, by the resolver origination itself uses. */
-    const proposer = await resolveAgentProposer(tenant, db);
-    if (proposer.status === "refused") return unavailable(PROPOSER_REASON[proposer.reason] ?? "temporarily-unavailable");
+    /*
+     * 1 · The selected agent, or exactly one in-service agent — by the resolver origination itself
+     * uses, with the same selection, so this offer and the confirmation name the same agent.
+     */
+    const proposer = await resolveAgentProposer(tenant, db, selection);
+    const identity = await readDurableAgentIdentityState(tenant, db);
+    if (proposer.status === "refused") {
+      if (proposer.reason === "ambiguous-durable-agent-identity" && identity.status === "known") {
+        /* AP-1 — say WHO could be chosen, never choose. In service only; by the read's own order. */
+        return {
+          status: "unavailable",
+          reason: "multiple-agents",
+          candidates: identity.identities
+            .filter((i) => i.inService)
+            .map((i) => ({ agentId: i.agentId, name: i.name })),
+        };
+      }
+      return unavailable(PROPOSER_REASON[proposer.reason] ?? "temporarily-unavailable");
+    }
     const agentId = proposer.proposer.agentId;
 
-    const identity = await readDurableAgentIdentityState(tenant, db);
     const name = identity.status === "known" ? identity.identities.find((i) => i.agentId === agentId)?.name : undefined;
     if (!name) return unavailable("temporarily-unavailable");
 
@@ -102,7 +124,7 @@ export async function readOriginationAvailability(deps: OriginationAvailabilityD
 
     return {
       status: "available",
-      agent: { name },
+      agent: { agentId, name },
       mandate: {
         revision: mandate.mandate.mandateRevision,
         purpose: mandate.mandate.purpose,

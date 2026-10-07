@@ -312,7 +312,10 @@ function main(): void {
   assert.deepEqual(
     agentTenantReaders.sort(),
     [
-      "src/features/agent-identity/create-durable-agent-identity.server.ts",
+      /*
+       * AP-1 removed the creation authority from this census: its only `agents.tenantId` read was
+       * the one-shot existence count, which AP-1 deleted. It still WRITES the tenant from context.
+       */
       "src/features/agent-identity/read-durable-agent-identity.server.ts",
       "src/features/agent-identity/retire-durable-agent-identity.server.ts",
       "src/db/schema/heby-origination-invocation.ts",
@@ -324,7 +327,7 @@ function main(): void {
       "src/features/standing-mutation-authority/read-standing-mutations.server.ts",
       "src/db/schema/media-asset.ts",
     ].sort(),
-    "`agents.tenant_id` is a tenant SCOPE in six readers and a composite-key target in five table definitions — a grant in none of them",
+    "`agents.tenant_id` is a tenant SCOPE in five readers and a composite-key target in five table definitions — a grant in none of them",
   );
 
   /* ── 7. NO MACHINE INGRESS ────────────────────────────────────────────────
@@ -395,16 +398,25 @@ function main(): void {
     assert.notEqual(withImport, released, "the uniqueIndex import is the first known addition");
     const withForeignKey = withImport.replace("import {\n  index,", "import {\n  foreignKey,\n  index,");
     assert.notEqual(withForeignKey, withImport, "the foreignKey import is the second (OSA-1)");
+    /*
+     * AP-1: the name invariant needs `sql` and `check`. Its index and CHECK live inside the table
+     * config array, which the reconstruction below already takes from the current file.
+     */
+    const withAp1Imports = withForeignKey.replace(
+      "import {\n  foreignKey,",
+      'import { sql } from "drizzle-orm";\nimport {\n  check,\n  foreignKey,',
+    );
+    assert.notEqual(withAp1Imports, withForeignKey, "the sql and check imports are AP-1's");
     const current = read("src/db/schema/agent.ts");
     /* OSA-1's column change, taken from the file and required to be exactly this shape. */
     const columnStart = current.indexOf("    /**\n     * WHICH DEPARTMENT THIS AGENT BELONGS TO.");
     const columnEnd = current.indexOf('    name: text("name").notNull(),');
     assert.ok(columnStart > 0 && columnEnd > columnStart, "the department column carries its OSA-1 note");
-    const withColumn = withForeignKey.replace(
+    const withColumn = withAp1Imports.replace(
       '    departmentId: uuid("department_id").references(() => departments.id),\n',
       current.slice(columnStart, columnEnd),
     );
-    assert.notEqual(withColumn, withForeignKey, "the single-column department FK is gone (OSA-1)");
+    assert.notEqual(withColumn, withAp1Imports, "the single-column department FK is gone (OSA-1)");
     const anchorAt = current.indexOf('    uniqueIndex("agents_tenant_id_uq").on(t.tenantId, t.id),');
     assert.ok(anchorAt > 0, "the composite anchor is present");
     const reconstructed = withColumn.replace(
@@ -432,7 +444,13 @@ function main(): void {
      * narrowed to "no SECOND foreign key", by count, so the block cannot quietly grow another one.
      */
     const block = current.slice(current.indexOf("  (t) => ["), current.indexOf("  ],", anchorAt));
-    for (const forbidden of ["notNull", "default(", "check(", "jsonb(", "text("]) {
+    /*
+     * `check(` LEFT THIS LIST AT AP-1, by name and by count: exactly one CHECK, `agents_name_visible_chk`,
+     * guards the name column the in-service unique index compares. Still no column, no default.
+     */
+    assert.equal((block.match(/check\(/g) ?? []).length, 1, "exactly one CHECK in the agents block (AP-1)");
+    assert.ok(block.includes('check(\n      "agents_name_visible_chk",'), "and it is the AP-1 visible-name CHECK");
+    for (const forbidden of ["notNull", "default(", "jsonb(", "text("]) {
       assert.ok(
         !block.includes(forbidden),
         `the agents-table addition introduces no ${forbidden} — it is indexes and one FK repair`,
@@ -517,7 +535,7 @@ function main(): void {
 
   /* ── 10. SCHEMA, LEDGER AND HUMAN SUPREMACY UNTOUCHED ─────────────────────── */
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 73, "this phase authored no migration — a type needs none"); /* SCI-2B: ledger 72 -> 73 (knowledge_nodes.integrity_protected_at_insert: one nullable column + one BEFORE INSERT stamp trigger; no backfill). */ /* SCI-2A: ledger 71 -> 72 (knowledge_nodes version immutability: one trigger function + three triggers; no table, column or data change). */ /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (processor_attestations + tenant_ai_data_use_authorizations + tenant_ai_data_use_scopes, two state enums, governance_domain += 'external-ai-data-use'; additive). */ /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64 (media_kind + video facts on media_assets, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */ /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */ /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
+  assert.equal(sqlCount, 74, "this phase authored no migration — a type needs none"); /* AP-1: ledger 73 -> 74 (agents in-service canonical-name unique index + visible-name CHECK). */ /* SCI-2B: ledger 72 -> 73 (knowledge_nodes.integrity_protected_at_insert: one nullable column + one BEFORE INSERT stamp trigger; no backfill). */ /* SCI-2A: ledger 71 -> 72 (knowledge_nodes version immutability: one trigger function + three triggers; no table, column or data change). */ /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (processor_attestations + tenant_ai_data_use_authorizations + tenant_ai_data_use_scopes, two state enums, governance_domain += 'external-ai-data-use'; additive). */ /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1: ledger 68 -> 69 (media_assets.supplied_source_integration_id: one nullable column, one composite FK, one CHECK; additive). */ /* YOUTUBE-WRITE-2: ledger 67 -> 68 (publish-youtube-video joins the recipient-less allowlist of action_execution_attempts_recipient_binding_chk; one CHECK, additive). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64 (media_kind + video facts on media_assets, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */ /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */ /* KT-3: ledger 69 -> 70 (governance_domain += 'knowledge-public-use': one ALTER TYPE ... ADD VALUE; additive). */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
   const allMigrations = readdirSync(path.join(ROOT, MIGRATIONS))

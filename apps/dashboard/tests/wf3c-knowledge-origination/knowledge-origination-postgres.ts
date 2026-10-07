@@ -133,7 +133,7 @@ async function main(): Promise<void> {
         [seeded.tenantId, seeded.authIdentityId, seeded.userId, ctx.sessionContextId],
       );
       assert.equal((await establishGovernanceAuthority(ctx, { justification: "Establishing Governance for the WF-3C fixture." }, writeDeps)).status, "established");
-      const agent = await createDurableAgentIdentity(ctx, { name: "Heby" }, writeDeps);
+      const agent = await createDurableAgentIdentity(ctx, { name: "Heby", justification: "Register this agent for the test organization." }, writeDeps);
       assert.equal(agent.status, "established");
       await seedAgentMandate(setup, seeded, agent.status === "established" ? agent.identity.agentId : "", writeDeps, { tag, now: NOW, proposalScope: ["record-work"] });
       return ctx;

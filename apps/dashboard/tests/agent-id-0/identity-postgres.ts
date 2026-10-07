@@ -5,13 +5,14 @@
  *
  * Every guarantee this phase makes is a database fact, not a code path:
  *
- *   · the one-shot holds under CONCURRENCY, and `agents` carries no unique index — the guarantee is
- *     a table lock taken before a count, which a fake cannot exhibit and a fake cannot break;
+ *   · AP-1 (inverted from the one-shot): a tenant may register several identities, each on its own
+ *     `agent-registration` Governance decision, and the in-service canonical name is unique under
+ *     CONCURRENCY — `agents_tenant_name_in_service_uq` decides, which a fake cannot exhibit;
  *   · the columns this authority declines to write are NULL in a real row, not merely absent from
  *     an object literal;
  *   · the canonical resolver reads the identity through its own SQL, unmodified;
- *   · creating an identity writes no credential, no session, no permit, no role, no membership and
- *     no governance decision — provable only by counting real tables.
+ *   · creating an identity writes no credential, no session, no permit, no role and no membership;
+ *     its only side record is the registration decision and its audit — provable only by counting.
  *
  * A disposable local database, dropped on exit. No production data, no provider contacted.
  */
@@ -151,7 +152,7 @@ async function main(): Promise<void> {
       const before = await countOf("agents");
       assert.equal(before, 0, "the fixture starts with no durable agent identity");
 
-      const noContext = await createDurableAgentIdentity(null, { name: "Atlas" }, deps);
+      const noContext = await createDurableAgentIdentity(null, { name: "Atlas", justification: "Register this agent for the test organization." }, deps);
       assert.deepEqual(
         noContext,
         { status: "refused", reason: "no-authorized-tenant-context" },
@@ -159,7 +160,7 @@ async function main(): Promise<void> {
       );
 
       for (const bad of ["", " Atlas", "Atlas ", "x".repeat(MAX_AGENT_NAME_LENGTH + 1), 7, null, undefined]) {
-        const refused = await createDurableAgentIdentity(A, { name: bad }, deps);
+        const refused = await createDurableAgentIdentity(A, { name: bad, justification: "Register this agent for the test organization." }, deps);
         assert.deepEqual(
           refused,
           { status: "refused", reason: "malformed-agent-name" },
@@ -169,7 +170,7 @@ async function main(): Promise<void> {
 
       const ghostOwner = await createDurableAgentIdentity(
         tenantContext(TENANT_A, GHOST),
-        { name: "Atlas" },
+        { name: "Atlas", justification: "Register this agent for the test organization." },
         deps,
       );
       assert.deepEqual(
@@ -178,14 +179,29 @@ async function main(): Promise<void> {
         "ownership must name a live human, not a uuid the authority merely hopes exists",
       );
 
+      const noReason = await createDurableAgentIdentity(A, { name: "Atlas" }, deps);
+      assert.deepEqual(
+        noReason,
+        { status: "refused", reason: "justification-required" },
+        "AP-1: registering is a Governance decision, and a decision needs a reason",
+      );
+      for (const invisible of ["Atlas\u200B", "At\u00ADlas", "Atlas\uFEFF", "At\u202Elas", "At\tlas"]) {
+        assert.deepEqual(
+          await createDurableAgentIdentity(A, { name: invisible, justification: "Register this agent for the test organization." }, deps),
+          { status: "refused", reason: "malformed-agent-name" },
+          `AP-1: a name with an invisible or control character is refused: ${JSON.stringify(invisible)}`,
+        );
+      }
+
       assert.equal(
         await countOf("agents"),
         0,
         "every refusal so far wrote nothing — a refused ceremony leaves no partial row",
       );
+      assert.equal(await countOf("decision_records"), 2, "and no refused registration wrote a decision");
 
       /* ── 2. THE FIRST DURABLE IDENTITY ────────────────────────────────────── */
-      const established = await createDurableAgentIdentity(A, { name: "Atlas" }, deps);
+      const established = await createDurableAgentIdentity(A, { name: "Atlas", justification: "Register this agent for the test organization." }, deps);
       assert.equal(established.status, "established", "the first identity is established");
       if (established.status !== "established") throw new Error("unreachable");
       assert.deepEqual(
@@ -243,42 +259,78 @@ async function main(): Promise<void> {
       for (const table of MUST_STAY_UNTOUCHED) {
         assert.equal(
           await countOf(table),
-          /* APF-1: the two seeded Governance bootstraps above; the ceremony adds none. */
-          table === "decision_records" ? 2 : 0,
-          `\`${table}\` is still empty — an agent identity is not a credential, a session, a permit, a role or a decision`,
+          /*
+           * APF-1: the two seeded Governance bootstraps. AP-1: plus exactly ONE registration decision
+           * and its ONE `governance.decision.recorded` audit row — the record that the organization
+           * chose to register this agent, which grants the agent nothing.
+           */
+          table === "decision_records" ? 3 : table === "audit_log" ? 1 : 0,
+          `\`${table}\` — an agent identity is not a credential, a session, a permit or a role; its only decision is its registration`,
         );
       }
-
-      /* ── 5. ONE-SHOT, AND TENANT-SCOPED ───────────────────────────────────── */
-      const second = await createDurableAgentIdentity(A, { name: "Borealis" }, deps);
+      const { rows: registration } = await probe.query(
+        `select d.decision_type, d.subject_type, d.subject_id, d.outcome, d.bootstrap, s.governance_domain
+           from decision_records d join governance_sessions s on s.id = d.session_id
+          where d.subject_type = 'agent'`,
+      );
       assert.deepEqual(
-        second,
-        { status: "refused", reason: "agent-identity-already-exists" },
-        "this authority owns the transition out of nonexistence, and that transition happens once",
+        registration,
+        [{
+          decision_type: "approve",
+          subject_type: "agent",
+          subject_id: established.identity.agentId,
+          outcome: "agent-registered",
+          bootstrap: false,
+          governance_domain: "agent-registration",
+        }],
+        "AP-1: the decision is in `agent-registration`, names THIS agent, and is never filed as a membership",
       );
 
-      const otherTenant = await createDurableAgentIdentity(B, { name: "Atlas" }, deps);
+      /* ── 5. AP-1: MANY IDENTITIES, ONE IN-SERVICE NAME, TENANT-SCOPED ─────── */
+      const second = await createDurableAgentIdentity(A, { name: "Borealis", justification: "Register this agent for the test organization." }, deps);
+      assert.equal(second.status, "established", "AP-1: a second identity is a second governed registration");
+
+      const decisionsBefore = await countOf("decision_records");
+      const sameCanonical = await createDurableAgentIdentity(A, { name: "atlas", justification: "Register this agent for the test organization." }, deps);
+      assert.deepEqual(
+        sameCanonical,
+        { status: "refused", reason: "agent-name-in-use" },
+        "AP-1: `atlas` is `Atlas` — the database compares the canonical name",
+      );
+      assert.equal(
+        await countOf("decision_records"),
+        decisionsBefore,
+        "AP-1: the refused registration's decision rolled back with it — no decision names a missing agent",
+      );
+
+      const otherTenant = await createDurableAgentIdentity(B, { name: "Atlas", justification: "Register this agent for the test organization." }, deps);
       assert.equal(
         otherTenant.status,
         "established",
-        "the one-shot is tenant-scoped — another organization's first identity is unaffected, same name and all",
+        "names are tenant-scoped — another organization's identity is unaffected, same name and all",
       );
 
-      /* ── 6. THE ONE-SHOT SURVIVES CONCURRENCY ─────────────────────────────── */
+      /* ── 6. AP-1: THE NAME INVARIANT SURVIVES CONCURRENCY ─────────────────── */
       /*
        * Each racer gets its OWN pool, and therefore its own connection. Sharing one pool would let
        * the racers queue behind a single warm connection and finish one after another — the suite
-       * would then report a one-shot that scheduling produced rather than the lock, and it would
-       * stay green with the lock deleted. That is not a hypothetical: it is what this test did
-       * before, and the M2 bite-proof is what found it.
+       * would then report a uniqueness that scheduling produced rather than the index, and it would
+       * stay green with the index deleted. The racers all ask for ONE canonical name, spelled six
+       * ways, so the database — not this writer — has to decide.
        */
       await probe.query("delete from agents where tenant_id = $1", [TENANT_B]);
+      const RACER_SPELLINGS = ["Racer", "racer", "RACER", "rAcEr", "Racer", "racer"];
+      const decisionsBeforeRace = await countOf("decision_records");
       const racerHandles = Array.from({ length: 6 }, () => createControlPlaneDb(harness.dbUrl));
       let racers: readonly Awaited<ReturnType<typeof createDurableAgentIdentity>>[];
       try {
         racers = await Promise.all(
           racerHandles.map((racer, i) =>
-            createDurableAgentIdentity(B, { name: `Racer ${i}` }, { getDb: () => racer.db }),
+            createDurableAgentIdentity(
+              B,
+              { name: RACER_SPELLINGS[i]!, justification: "Register this agent for the test organization." },
+              { getDb: () => racer.db },
+            ),
           ),
         );
       } finally {
@@ -288,17 +340,22 @@ async function main(): Promise<void> {
       assert.equal(
         winners.length,
         1,
-        "six simultaneous ceremonies produce exactly one identity — the lock is taken before the count",
+        "six simultaneous registrations of one canonical name produce exactly one identity",
       );
       assert.deepEqual(
         [...new Set(racers.filter((r) => r.status === "refused").map((r) => r.reason))],
-        ["agent-identity-already-exists"],
-        "every loser is refused for the one-shot reason, not for a constraint violation leaking upward",
+        ["agent-name-in-use"],
+        "every loser is refused as a name collision, not as a constraint violation leaking upward",
+      );
+      assert.equal(
+        await countOf("decision_records"),
+        decisionsBeforeRace + 1,
+        "exactly one registration decision survives the race — every loser's decision rolled back",
       );
       assert.equal(
         await countOf("agents"),
-        2,
-        "one identity per tenant survives the race, and no tenant gained a second",
+        3,
+        "tenant A holds Atlas and Borealis, tenant B holds the one racer that won",
       );
 
       /* ── 7. THE CANONICAL RESOLVER READS IT, UNMODIFIED ───────────────────── */
@@ -334,7 +391,7 @@ async function main(): Promise<void> {
         await canonical.dispose();
       }
 
-      console.log("agent-id-0/identity-postgres: durable human-owned identity established, one-shot held under concurrency");
+      console.log("agent-id-0/identity-postgres: governed registration, canonical in-service name held under concurrency");
     } finally {
       await probe.end();
       await handle.dispose();

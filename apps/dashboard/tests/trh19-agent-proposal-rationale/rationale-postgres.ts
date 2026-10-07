@@ -139,7 +139,7 @@ async function main(): Promise<void> {
     const otherCtx = contextFor(other, "trh19-other");
 
     await seedGovernanceAuthority(setup, trh, { getDb: () => handle.db }, { tag: "1919a" });
-    const agent = await createDurableAgentIdentity(trhCtx, { name: "Heby" }, writeDeps);
+    const agent = await createDurableAgentIdentity(trhCtx, { name: "Heby", justification: "Register this agent for the test organization." }, writeDeps);
     assert.equal(agent.status, "established");
     const agentId = agent.status === "established" ? agent.identity.agentId : "";
     /* BOTH admitted kinds, so the send half is reachable and generality is measured, not asserted. */
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
 
     /* The second organization's agent, seeded HERE so the Governance baseline below is complete. */
     await seedGovernanceAuthority(setup, other, { getDb: () => handle.db }, { tag: "1919b" });
-    const otherAgent = await createDurableAgentIdentity(otherCtx, { name: "Heby" }, writeDeps);
+    const otherAgent = await createDurableAgentIdentity(otherCtx, { name: "Heby", justification: "Register this agent for the test organization." }, writeDeps);
     assert.equal(otherAgent.status, "established");
     await seedAgentMandate(
       setup,

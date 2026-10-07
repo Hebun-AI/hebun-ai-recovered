@@ -365,7 +365,7 @@ async function main(): Promise<void> {
        * the identity the product creates.
        */
       await seedGovernanceAuthority(setup, acme, readDeps, { tag: "r3w-art" });
-      const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, readDeps);
+      const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, readDeps);
       Object.assign(govBaseline, (await setup.query<{ decisions: number; sessions: number; audit: number }>(
         `select (select count(*)::int from decision_records) as decisions,
                 (select count(*)::int from governance_sessions) as sessions,

@@ -292,11 +292,16 @@ async function main(): Promise<void> {
     await setup.query("delete from agents where id = $1", [invalid.rows[0]!.id]);
 
     const duplicate = await setup.query<{ id: string }>(
+      /*
+       * AP-1: two IN-SERVICE agents may no longer share a canonical name in one tenant
+       * (`agents_tenant_name_in_service_uq`). The conflicting copy is written RETIRED, so it is still
+       * a second physical row for the same logical id — the condition this assertion exists for.
+       */
       `insert into agents
         (tenant_id, department_id, name, role, provider_profile,
-         lifecycle_status, created_at, updated_at)
+         lifecycle_status, created_at, updated_at, retired_at)
        select tenant_id, department_id, name, role, provider_profile,
-              lifecycle_status, created_at, updated_at
+              lifecycle_status, created_at, updated_at, now()
          from agents
         where id = $1 returning id`,
       [physicalId],

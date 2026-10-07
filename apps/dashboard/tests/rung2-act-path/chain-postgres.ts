@@ -141,7 +141,7 @@ async function main(): Promise<void> {
       "written",
     );
 
-    const agent = await createDurableAgentIdentity(ctx, { name: "Heby" }, deps);
+    const agent = await createDurableAgentIdentity(ctx, { name: "Heby", justification: "Register this agent for the test organization." }, deps);
     assert.equal(agent.status, "established");
     const agentId = agent.status === "established" ? agent.identity.agentId : "";
     await seedAgentMandate(setup, acme, agentId, deps, { tag: "rung2actpath", now: NOW });

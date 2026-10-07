@@ -141,9 +141,11 @@ export async function proposeHebyActionCommandAction(
  *
  * ── WHAT THE CLIENT MAY SUPPLY, EXHAUSTIVELY ─────────────────────────────────
  *
- *   { goal: string }
+ *   { goal: string, agentId?: string }
  *
- * That is the whole contract. There is NO parameter for a tenant, an agent id, an actor type, an
+ * That is the whole contract. `agentId` (AP-1) is a LOOKUP KEY for which of this organization's
+ * in-service agents the human chose; the resolver verifies it against the tenant's own identities
+ * and it grants nothing. There is NO parameter for a tenant, an actor type, an
  * action kind, a recipient, a draft, a digest, a permit or an approval — not filtered downstream,
  * UNREPRESENTABLE here. The tenant comes from the R1 session; the durable agent is resolved from
  * the identity authority; the action and both of its arguments are chosen by Heby from a candidate
@@ -163,10 +165,10 @@ export async function proposeHebyActionCommandAction(
  * surface it is already on.
  */
 export async function originateHebyActionProposalAction(
-  input: { readonly goal: string },
+  input: { readonly goal: string; readonly agentId?: string },
 ): Promise<OriginateActionResult> {
   return originateAgentAction(
-    { goal: input?.goal },
+    { goal: input?.goal, agentId: input?.agentId },
     { resolveTenant: resolveTenantContext },
   );
 }

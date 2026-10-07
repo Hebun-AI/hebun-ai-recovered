@@ -218,7 +218,8 @@ function main(): void {
   /* ── 6. THE PER-TENANT BOUND IS DISCLOSED, NOT GLOSSED ────────────────────── */
   const raw = read(PREFLIGHT);
   assert.ok(
-    raw.includes("the genesis one-shot is per tenant"),
+    /* AP-1: the bound is about identities per tenant now that genesis is no longer a one-shot. */
+    raw.includes("agent identities are per tenant"),
     "a platform-wide count states its own bound: zero settles every tenant, non-zero identifies none",
   );
   assert.ok(

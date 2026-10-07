@@ -123,14 +123,20 @@ async function main(): Promise<void> {
 
     /* Every projection call is checked to write nothing and reach no network. */
     let calls = 0;
-    const project = async (over: { tenant?: TenantContext | null; ops?: ProviderOpsView; getDb?: () => unknown } = {}) => {
+    const project = async (
+      over: { tenant?: TenantContext | null; ops?: ProviderOpsView; getDb?: () => unknown; agentId?: string } = {},
+    ) => {
       const before = await counts();
       const fetchesBefore = fetches;
-      const result = await readOriginationAvailability({
-        resolveTenant: async () => (over.tenant === undefined ? ctx : over.tenant),
-        getDb: (over.getDb ?? getDb) as never,
-        readProviderOps: async () => over.ops ?? ops(),
-      });
+      const result = await readOriginationAvailability(
+        {
+          resolveTenant: async () => (over.tenant === undefined ? ctx : over.tenant),
+          getDb: (over.getDb ?? getDb) as never,
+          readProviderOps: async () => over.ops ?? ops(),
+        },
+        /* AP-1: omitted unless a case selects — the single-agent path is asked exactly as before. */
+        over.agentId === undefined ? undefined : { agentId: over.agentId },
+      );
       assert.deepEqual(await counts(), before, `projection ${++calls} wrote nothing`);
       assert.equal(fetches, fetchesBefore, `projection ${calls} reached no network`);
       return result;
@@ -144,7 +150,7 @@ async function main(): Promise<void> {
     assert.equal(await reasonOf({ tenant: null }), "tenant-unavailable");
     assert.equal(await reasonOf(), "no-agent");
 
-    const created = await createDurableAgentIdentity(ctx, { name: "Heby" }, deps);
+    const created = await createDurableAgentIdentity(ctx, { name: "Heby", justification: "Register this agent for the test organization." }, deps);
     assert.equal(created.status, "established");
     const agentId = created.status === "established" ? created.identity.agentId : "";
     assert.equal(await reasonOf(), "mandate-unavailable", "an agent with no mandate is not offered");
@@ -175,7 +181,12 @@ async function main(): Promise<void> {
     assert.ok(available.mandate.proposalScope.includes("record-work"));
     assert.equal(available.originable, "record-work");
     const shown = JSON.stringify(available);
-    for (const secret of [ATTESTED, attestationId, CONFIGURED_ANTHROPIC_ACCOUNT_REF, org.tenantId, agentId, "sk-fake"]) {
+    /*
+     * AP-1: the agent's id is now the LOOKUP KEY the browser sends back when it confirms (it is
+     * already shown on /agents); it is not a secret and grants nothing. Everything else stays out.
+     */
+    assert.equal(available.agent.agentId, agentId, "AP-1: the offer names the agent it is about by id");
+    for (const secret of [ATTESTED, attestationId, CONFIGURED_ANTHROPIC_ACCOUNT_REF, org.tenantId, "sk-fake"]) {
       assert.equal(shown.includes(secret), false, `the projection exposes no ${secret}`);
     }
 
@@ -244,11 +255,27 @@ async function main(): Promise<void> {
     assert.deepEqual(afterRetire, { status: "refused", reason: "durable-agent-identity-retired" });
     assert.equal(await reasonOf(), "agent-retired");
 
-    /* ═══ 5. SEVERAL AGENTS IN SERVICE — no selection exists, so nothing is offered ═════════════ */
+    /* ═══ 5. SEVERAL AGENTS IN SERVICE — nothing is offered until a human chooses (AP-1) ═══════ */
+    const plural: string[] = [];
     for (const name of ["A", "B"]) {
-      await setup.query(`insert into agents (tenant_id, name, human_owner_type, human_owner_id, created_by, created_by_type) values ($1,$2,'human',$3,$3,'human')`, [org.tenantId, name, org.userId]);
+      const { rows } = await setup.query(`insert into agents (tenant_id, name, human_owner_type, human_owner_id, created_by, created_by_type) values ($1,$2,'human',$3,$3,'human') returning id`, [org.tenantId, name, org.userId]);
+      plural.push(rows[0].id as string);
     }
-    assert.equal(await reasonOf(), "multiple-agents");
+    const ambiguous = await project();
+    assert.equal(ambiguous.status === "unavailable" ? ambiguous.reason : ambiguous.status, "multiple-agents");
+    assert.deepEqual(
+      ambiguous.status === "unavailable" ? [...(ambiguous.candidates ?? [])].map((c) => c.agentId).sort() : [],
+      [...plural].sort(),
+      "AP-1: the candidates are exactly the IN-SERVICE agents — the retired Heby is not offered",
+    );
+    /* A chosen agent is asked about ITSELF: A has no mandate of its own, whatever Heby had. */
+    assert.equal(await reasonOf({ agentId: plural[0] }), "mandate-unavailable");
+    assert.equal(await reasonOf({ agentId: agentId }), "agent-retired", "the retired agent cannot be chosen");
+    assert.equal(
+      await reasonOf({ agentId: "00000000-0000-4000-8000-0000000000ff" }),
+      "selected-agent-unresolvable",
+      "an id that is not this organization's selects nothing",
+    );
 
     assert.equal(await requests(), r0, "WF-1 filed nothing across the whole run");
     assert.equal(await permits(), 0, "no permit");

@@ -128,7 +128,7 @@ async function main(): Promise<void> {
     const trhCtx = contextFor(trh, "trh17-trh");
 
     await seedGovernanceAuthority(setup, trh, { getDb: () => handle.db }, { tag: "1717a" });
-    const agent = await createDurableAgentIdentity(trhCtx, { name: "Heby" }, writeDeps);
+    const agent = await createDurableAgentIdentity(trhCtx, { name: "Heby", justification: "Register this agent for the test organization." }, writeDeps);
     assert.equal(agent.status, "established");
     const agentId = agent.status === "established" ? agent.identity.agentId : "";
 
@@ -365,7 +365,7 @@ async function main(): Promise<void> {
       const shopCtx = contextFor(shop, "trh17-shop");
 
       await seedGovernanceAuthority(setup, shop, { getDb: () => handle.db }, { tag: "1717b" });
-      const shopAgent = await createDurableAgentIdentity(shopCtx, { name: "Heby" }, writeDeps);
+      const shopAgent = await createDurableAgentIdentity(shopCtx, { name: "Heby", justification: "Register this agent for the test organization." }, writeDeps);
       assert.equal(shopAgent.status, "established");
       const shopAgentId = shopAgent.status === "established" ? shopAgent.identity.agentId : "";
       /* TRH'S MANDATE SHAPE, on an organization that CAN send. `send` is withheld. */

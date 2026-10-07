@@ -67,7 +67,7 @@ export async function seedTenant(client: Client, getDb: () => ControlPlaneDataba
     (await establishGovernanceAuthority(ctx, { justification: "Establishing Governance authority for the MV-4 lifecycle proof." }, { getDb, now: () => NOW } as never)).status,
     "established",
   );
-  await createDurableAgentIdentity(ctx, { name: "Heby" }, { getDb } as never);
+  await createDurableAgentIdentity(ctx, { name: "Heby", justification: "Register this agent for the test organization." }, { getDb } as never);
   const content = `Draft ${randomUUID()}`;
   const art = await client.query<{ id: string }>(
     `insert into work_artifacts (tenant_id, artifact_type, title, artifact_lifecycle_status, owner_workspace,

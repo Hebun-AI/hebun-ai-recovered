@@ -70,12 +70,13 @@ interface Mutation {
 /*
  * The creation confirmation's bullets, at their own indentation.
  *
- * THE LEADING NEWLINE IS LOAD-BEARING. Without it the 18-column anchor is a SUBSTRING of the
- * 26-column retirement line — eighteen spaces followed by `<li>` occurs inside twenty-six spaces
+ * THE LEADING NEWLINE IS LOAD-BEARING. Without it the 16-column anchor is a SUBSTRING of the
+ * 26-column retirement line — sixteen spaces followed by `<li>` occurs inside twenty-six spaces
  * followed by `<li>` — so four of these anchors matched twice and the uniqueness assertion caught
- * it. Anchoring on the newline forces the indentation to be exactly eighteen columns.
+ * it. Anchoring on the newline forces the indentation to be exactly sixteen columns (AP-1 removed
+ * the one-shot ternary around the ceremony, which moved the bullets out by one level).
  */
-const bullet = (expression: string): string => `\n                  <li>{${expression}}</li>`;
+const bullet = (expression: string): string => `\n                <li>{${expression}}</li>`;
 
 const MUTATIONS: readonly Mutation[] = [
   /* ── THE COUNT ───────────────────────────────────────────────────────────── */
@@ -152,10 +153,22 @@ const MUTATIONS: readonly Mutation[] = [
     because: "no rename or replacement authority exists",
   },
   {
-    label: "B8 retirement stops claiming that genesis stays closed",
+    label: "B8 retirement stops saying the identity never returns (AP-1 successor of 'genesis stays closed')",
     file: CARD,
-    edits: [{ find: bullet("GENESIS_DISCLOSURE.retirementDoesNotReopen"), replace: "" }],
-    because: "retirement does not reopen genesis",
+    edits: [{ find: bullet("GENESIS_DISCLOSURE.retirementFreesOnlyTheName"), replace: "" }],
+    because: "retirement never reinstates the identity",
+  },
+  {
+    label: "B8b the human is not told registration is a Governance decision",
+    file: CARD,
+    edits: [{ find: bullet("GENESIS_DISCLOSURE.registrationIsGoverned"), replace: "" }],
+    because: "registration is a Governance decision",
+  },
+  {
+    label: "B8c the human is not told the in-service name rule",
+    file: CARD,
+    edits: [{ find: bullet("GENESIS_DISCLOSURE.nameIsUniqueInService"), replace: "" }],
+    because: "the in-service name rule",
   },
 
   /* ── THE CAPABILITY LADDER ───────────────────────────────────────────────── */
@@ -227,17 +240,17 @@ const ACCEPTED: readonly AcceptedChange[] = [
    * next person to improve it will delete the guard instead.
    */
   {
-    label: "C2 the one-shot sentence is reworded while keeping the fact",
+    label: "C2 the registration sentence is reworded while keeping the fact",
     file: DISCLOSURE,
     edits: [
       {
         find:
-          '    "Your organization may establish a durable agent identity ONCE. After this, the creation ceremony refuses.",',
+          `    "Each durable agent identity is registered by its own Governance decision. Only your organization's Governance authority can register one, and the reason you give is recorded with the decision.",`,
         replace:
-          '    "This ceremony may be performed ONCE by your organization, and every later attempt is refused.",',
+          `    "Registering an identity is its own Governance decision, taken by your organization's Governance authority and recorded with your reason.",`,
       },
     ],
-    why: "the assertion matches the FACT (once) rather than a frozen sentence",
+    why: "the assertion matches the FACT (its own Governance decision) rather than a frozen sentence",
   },
 ];
 

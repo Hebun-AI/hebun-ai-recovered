@@ -97,10 +97,20 @@ assert.match(AGENT_ORIGINATION_KNOWLEDGE_SYSTEM_INSTRUCTIONS, /one or more knowl
   const ui = readFileSync("src/components/layout/heby/heby-origination-affordance.tsx", "utf8");
   assert.equal((ui.match(/originateKnowledgeGroundedProposalAction\(/g) ?? []).length, 1, "the Knowledge mode is called from exactly one place");
   const confirmBody = ui.slice(ui.indexOf("const confirm = "), ui.indexOf('if (state.kind === "closed"'));
-  assert.ok(confirmBody.includes("originateKnowledgeGroundedProposalAction({ goal })"), "only inside the explicit confirmation, with the goal as written");
+  /* AP-1: the goal travels in the one `input` the confirmation builds (plus a chosen agent id, if any). */
+  assert.ok(
+    confirmBody.includes("const input = chosenAgentId ? { goal, agentId: chosenAgentId } : { goal };") &&
+      confirmBody.includes("originateKnowledgeGroundedProposalAction(input)"),
+    "only inside the explicit confirmation, with the goal as written",
+  );
   assert.match(ui, /onClick=\{\(\) => confirm\(agent\.name, true\)\}/, "and only from its own button");
   const action = readFileSync("src/app/(dashboard)/heby/knowledge-origination-actions.ts", "utf8");
-  assert.match(action, /originateAgentAction\(\{ goal: input\?\.goal \}, \{ resolveTenant: resolveTenantContext, knowledgeMode: true \}\)/, "the server sets the mode; the client sends only the goal");
+  /* AP-1: the client may add the chosen agent's id (a verified lookup key); the MODE is still the server's. */
+  assert.match(
+    action.replace(/\s+/g, " "),
+    /originateAgentAction\( \{ goal: input\?\.goal, agentId: input\?\.agentId \}, \{ resolveTenant: resolveTenantContext, knowledgeMode: true \}, \)/,
+    "the server sets the mode; the client sends only the goal (and, AP-1, an optional agent lookup key)",
+  );
 }
 
 console.log("wf3c contract checks passed");

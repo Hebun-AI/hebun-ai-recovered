@@ -128,27 +128,45 @@ assert.ok(read(ACTION).startsWith('"use server";'), "a server action module");
 const exported = [...action.matchAll(/export\s+async\s+function\s+(\w+)\s*\(([^)]*)\)/g)];
 assert.equal(exported.length, 1, "exactly one exported action");
 assert.equal(exported[0]![1], "readAgentOriginationAvailabilityAction");
-assert.equal(exported[0]![2]!.trim(), "", "the read action takes no input — no tenant, no agent, no availability");
+/* AP-1, by name: one optional lookup key (WHICH in-service agent), verified server-side. Nothing else. */
+assert.equal(
+  exported[0]![2]!.replace(/\s+/g, " ").trim(),
+  "input?: { readonly agentId?: string },",
+  "the read action takes only an optional agent lookup key — no tenant, no scope, no availability",
+);
 assert.match(action, /resolveTenant: resolveTenantContext/, "the tenant comes from the session");
 
 /* ═══ 3. THE AFFORDANCE — one confirmation, one origination, the goal as written ═════════════ */
 const ui = code(AFFORDANCE);
 assert.equal((ui.match(/originateHebyActionProposalAction\(/g) ?? []).length, 1, "origination is called from exactly one place");
-assert.equal((ui.match(/originateHebyActionProposalAction\(\{ goal \}\)/g) ?? []).length, 1, "with the human's message exactly as written");
+/* AP-1: the goal exactly as written, plus the chosen agent's id ONLY when a human chose one. */
+assert.ok(
+  ui.includes("const input = chosenAgentId ? { goal, agentId: chosenAgentId } : { goal };"),
+  "with the human's message exactly as written (and no agent id unless a human chose one)",
+);
 const confirmBody = ui.slice(ui.indexOf("const confirm = "), ui.indexOf("if (state.kind === \"closed\""));
-assert.ok(confirmBody.includes("originateHebyActionProposalAction({ goal })"), "origination runs only inside the explicit confirmation");
+assert.ok(confirmBody.includes("originateHebyActionProposalAction(input)"), "origination runs only inside the explicit confirmation");
 assert.equal((ui.match(/readAgentOriginationAvailabilityAction\(/g) ?? []).length, 1, "availability is read from one place");
 const checkBody = ui.slice(ui.indexOf("const check = "), ui.indexOf("const confirm = "));
-assert.ok(checkBody.includes("readAgentOriginationAvailabilityAction()"), "availability is read only on an explicit click");
+assert.ok(
+  checkBody.includes("readAgentOriginationAvailabilityAction(agentId ? { agentId } : undefined)"),
+  "availability is read only on an explicit click (AP-1: for the agent a human chose, if any)",
+);
 assert.ok(!/useEffect|useLayoutEffect/.test(ui), "nothing runs on render");
 /* The offer speaks in Heby's own terms: a pending proposal for human review, not a redirect to another surface. */
 const offer = ui.slice(ui.indexOf("data-wf1-offer"), ui.indexOf('if (state.kind === "asking")'));
 assert.match(offer, /the result is a pending proposal for\s+human review\./, "the offer names the outcome as a pending proposal for human review");
 assert.ok(!/Approvals/.test(offer), "the offer does not send the human to Approvals");
 assert.ok(!/\b(retry|setTimeout|setInterval)\b/.test(ui), "nothing retries");
-for (const claim of ["tenantId", "agentId", "proposalScope:", "status: \"available\""]) {
+for (const claim of ["tenantId", "proposalScope:", "status: \"available\""]) {
   assert.ok(!ui.includes(claim), `the browser never supplies ${claim}`);
 }
+/*
+ * AP-1: an agent id reaches the browser's requests ONLY from a server-provided candidate a human
+ * clicked — never typed, never derived, never defaulted.
+ */
+assert.equal((ui.match(/check\(candidate\.agentId\)/g) ?? []).length, 1, "the only source of an agent id is a clicked candidate");
+assert.equal((ui.match(/setChosenAgentId\(/g) ?? []).length, 1, "and it is recorded in exactly one place");
 const uiImports = [...ui.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
 for (const i of uiImports) {
   assert.ok(!/\.server$|record-action-request|decide-action|action-execution|governance|heby-model/.test(i), `the affordance imports no writer or runtime: ${i}`);

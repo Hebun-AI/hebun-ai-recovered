@@ -191,7 +191,7 @@ async function main(): Promise<void> {
     const deps = { getDb: () => handle.db } as never;
 
     await seedGovernanceAuthority(setup, mine, deps, { tag: "rev2" });
-    const established = await createDurableAgentIdentity(tenant, { name: "Heby" }, deps);
+    const established = await createDurableAgentIdentity(tenant, { name: "Heby", justification: "Register this agent for the test organization." }, deps);
     assert.equal(established.status, "established");
     const authorship = await resolveAgentAuthorship(tenant, deps);
     assert.equal(authorship.status, "resolved", "the tenant has a durable agent to author with");

@@ -127,7 +127,7 @@ async function main(): Promise<void> {
     const ctx = contextFor(acme, await sessionRowFor(setup, acme, "a1"), "apf1-acme");
 
     /* (13, pre-Governance) No Governance exists yet: creating the agent is refused, writing nothing. */
-    const beforeGovernance = await createDurableAgentIdentity(ctx, { name: "Heby" }, deps);
+    const beforeGovernance = await createDurableAgentIdentity(ctx, { name: "Heby", justification: "Register this agent for the test organization." }, deps);
     assert.deepEqual(
       beforeGovernance,
       { status: "refused", reason: "no-governance-authority" },
@@ -165,14 +165,14 @@ async function main(): Promise<void> {
     ).rows[0]!.id;
     const outsiderCtx = contextFor(acme, ctx.sessionContextId, "apf1-outsider", outsider);
     assert.deepEqual(
-      await createDurableAgentIdentity(outsiderCtx, { name: "Squatter" }, deps),
+      await createDurableAgentIdentity(outsiderCtx, { name: "Squatter", justification: "Register this agent for the test organization." }, deps),
       { status: "refused", reason: "not-the-governance-authority" },
       "an authenticated member without Governance authority cannot create the organization's agent",
     );
     assert.equal(await countOf("agents"), 0, "and the one-shot was NOT spent by that attempt");
 
     /* (12) The Governance-authorized human creates it. */
-    const agent = await createDurableAgentIdentity(ctx, { name: "Heby" }, deps);
+    const agent = await createDurableAgentIdentity(ctx, { name: "Heby", justification: "Register this agent for the test organization." }, deps);
     assert.equal(agent.status, "established", JSON.stringify(agent));
     const agentId = agent.status === "established" ? agent.identity.agentId : "";
 

@@ -11,8 +11,9 @@
  *
  * ── THE CONSEQUENCE IS STATED BEFORE THE ACTION, NOT AFTER ───────────────────
  *
- * Establishing a durable agent identity is a ONE-WAY DOOR: it may happen once per organization, and
- * retiring the result does not reopen it. So this form deliberately does not behave like a text box:
+ * Registering a durable agent identity is a GOVERNANCE DECISION (AP-1): each identity is its own
+ * recorded decision by the organization's Governance authority, with the reason the human gives, and
+ * retiring one never brings it back. So this form deliberately does not behave like a text box:
  *
  *   - nothing autosaves, and nothing saves on blur;
  *   - the primary action is a two-step confirmation, and the first step only REVEALS what will be
@@ -71,7 +72,6 @@ export interface DurableAgentIdentityCardProps {
   readonly actingHumanId?: string;
   /** The organization, from the resolved server context. Never client-supplied. */
   readonly tenantId?: string;
-  readonly genesisSpent?: boolean;
   readonly identities?: readonly DurableAgentIdentityRecord[];
 }
 
@@ -82,17 +82,19 @@ const FIELD_STYLE =
 const CREATE_REFUSAL_TEXT: Record<AgentIdentityRefusal, string> = {
   "no-authorized-tenant-context":
     "No authenticated organization and human could be resolved for this request. Nothing was written.",
-  "malformed-agent-name": `The name must be 1–${MAX_AGENT_NAME_LENGTH} characters with no leading or trailing spaces. It is never trimmed for you, because a repaired name is a different name.`,
+  "malformed-agent-name": `The name must be 1–${MAX_AGENT_NAME_LENGTH} visible characters with no leading or trailing spaces and no control, zero-width or direction characters. It is never trimmed for you, because a repaired name is a different name.`,
   "authority-unavailable":
     "The control-plane database could not be reached. The ceremony failed closed — nothing was written, and nothing was simulated.",
   "human-owner-unresolved":
     "The human in your session is not a live record, so ownership could not be established truthfully.",
-  "agent-identity-already-exists":
-    "This organization already holds a durable agent identity. The ceremony is a one-shot, and a retired identity still counts.",
+  "agent-name-in-use":
+    "Another identity in service in this organization already has this name (letter case and Unicode composition are ignored). Nothing was written.",
+  "justification-required":
+    "Registering an agent is a Governance decision, and every decision needs a reason. Nothing was written.",
   "no-governance-authority":
-    "This organization has no Governance authority yet, or it could not be read. Creating its agent needs one. Nothing was written.",
+    "This organization has no Governance authority yet, or it could not be read. Registering an agent needs one. Nothing was written.",
   "not-the-governance-authority":
-    "Only a human holding this organization's Governance authority may create its agent, and that is not you. Nothing was written.",
+    "Only a human holding this organization's Governance authority may register an agent, and that is not you. Nothing was written.",
 };
 
 const RETIRE_REFUSAL_TEXT: Record<AgentRetirementRefusal, string> = {
@@ -132,13 +134,13 @@ export function DurableAgentIdentityCard({
   block,
   actingHumanId,
   tenantId,
-  genesisSpent = false,
   identities = [],
 }: DurableAgentIdentityCardProps) {
   const router = useRouter();
   const ids = useId();
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState("");
+  const [justification, setJustification] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [retiring, setRetiring] = useState<string | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -166,10 +168,11 @@ export function DurableAgentIdentityCard({
   function establish() {
     setRefusal(null);
     startTransition(async () => {
-      const result = await createDurableAgentIdentityAction({ name });
+      const result = await createDurableAgentIdentityAction({ name, justification });
       if (result.status === "established") {
         setConfirming(false);
         setName("");
+        setJustification("");
         setOutcome(
           `Durable identity established: ${result.identity.name}. It holds no credential, no session, no permission and no runtime.`,
         );
@@ -187,7 +190,7 @@ export function DurableAgentIdentityCard({
       if (result.status === "retired") {
         setRetiring(null);
         setOutcome(
-          `${result.retirement.name} was withdrawn from service. Nothing was deleted, and the creation ceremony stays closed.`,
+          `${result.retirement.name} was withdrawn from service. Nothing was deleted, and it will never return to service.`,
         );
         router.refresh();
         return;
@@ -204,8 +207,8 @@ export function DurableAgentIdentityCard({
         <div className="min-w-0">
           <CardTitle>Durable agent identity</CardTitle>
           <CardDescription>
-            The only control on this page that writes to the canonical database. One per organization,
-            owned by a human, forever.
+            The only control on this page that writes to the canonical database. Each identity is
+            registered by its own Governance decision and owned by a human.
           </CardDescription>
         </div>
         <Badge variant="primary">canonical database</Badge>
@@ -233,7 +236,7 @@ export function DurableAgentIdentityCard({
           <StateBlock
             tone="empty"
             title="No durable agent identity yet"
-            description="This organization has not crossed the genesis boundary. The ceremony below is available exactly once."
+            description="This organization has registered no durable agent identity. Registering one is a Governance decision."
           />
         ) : (
           <div className="flex flex-col gap-2">
@@ -266,7 +269,7 @@ export function DurableAgentIdentityCard({
                         </p>
                         <ul className="flex list-disc flex-col gap-1 pl-4 text-xs leading-5 text-fg-secondary">
                           <li>{GENESIS_DISCLOSURE.retirementIsNotDeletion}</li>
-                          <li>{GENESIS_DISCLOSURE.retirementDoesNotReopen}</li>
+                          <li>{GENESIS_DISCLOSURE.retirementFreesOnlyTheName}</li>
                           <li>{GENESIS_DISCLOSURE.retirementIsTerminal}</li>
                           <li>{GENESIS_DISCLOSURE.noSuccession}</li>
                         </ul>
@@ -313,128 +316,142 @@ export function DurableAgentIdentityCard({
         )}
 
         {/* ── THE CEREMONY ────────────────────────────────────────────────── */}
-        {genesisSpent ? (
-          <StateBlock
-            tone="restricted"
-            title="The creation ceremony is closed"
-            description={`${GENESIS_DISCLOSURE.genesisIsOneShot} ${GENESIS_DISCLOSURE.retirementDoesNotReopen}`}
-          />
-        ) : (
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor={`${ids}-name`}
-                className="text-xs font-medium uppercase tracking-wider text-fg-muted"
-              >
-                Agent name
-              </label>
-              <input
-                id={`${ids}-name`}
-                className={FIELD_STYLE}
-                value={name}
-                maxLength={MAX_AGENT_NAME_LENGTH}
-                placeholder="e.g. Atlas"
-                disabled={pending || confirming}
-                onChange={(event) => {
-                  setName(event.target.value);
-                  setRefusal(null);
-                }}
-              />
-              <p className="text-xs text-fg-muted">
-                Stored exactly as typed. Never trimmed, folded or repaired.
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor={`${ids}-name`}
+              className="text-xs font-medium uppercase tracking-wider text-fg-muted"
+            >
+              Agent name
+            </label>
+            <input
+              id={`${ids}-name`}
+              className={FIELD_STYLE}
+              value={name}
+              maxLength={MAX_AGENT_NAME_LENGTH}
+              placeholder="e.g. Atlas"
+              disabled={pending || confirming}
+              onChange={(event) => {
+                setName(event.target.value);
+                setRefusal(null);
+              }}
+            />
+            <p className="text-xs text-fg-muted">
+              Stored exactly as typed. Never trimmed, folded or repaired. Must differ from every
+              identity in service, ignoring letter case.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor={`${ids}-justification`}
+              className="text-xs font-medium uppercase tracking-wider text-fg-muted"
+            >
+              Why this agent (recorded with the Governance decision)
+            </label>
+            <textarea
+              id={`${ids}-justification`}
+              className={FIELD_STYLE}
+              rows={2}
+              value={justification}
+              disabled={pending || confirming}
+              onChange={(event) => {
+                setJustification(event.target.value);
+                setRefusal(null);
+              }}
+            />
+          </div>
+
+          {confirming ? (
+            <div className="flex flex-col gap-3 rounded-md border border-primary bg-primary-subtle p-3">
+              <p className="text-sm font-semibold text-fg">
+                Register a durable identity named &ldquo;{name}&rdquo;?
               </p>
-            </div>
 
-            {confirming ? (
-              <div className="flex flex-col gap-3 rounded-md border border-primary bg-primary-subtle p-3">
-                <p className="text-sm font-semibold text-fg">
-                  Establish a durable identity named &ldquo;{name}&rdquo;?
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-fg-secondary">
+                  What will be written
                 </p>
-
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-fg-secondary">
-                    What will be written
-                  </p>
-                  <ul className="mt-1 flex flex-col gap-0.5 text-xs leading-5 text-fg-secondary">
-                    {PERSISTED_IDENTITY_FIELDS.map((field) => (
-                      <li key={field.column}>
-                        <code className="font-mono text-[11px]">{field.column}</code> — {field.meaning}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-fg-secondary">
-                    What will deliberately stay empty
-                  </p>
-                  <ul className="mt-1 flex flex-col gap-0.5 text-xs leading-5 text-fg-secondary">
-                    {WITHHELD_IDENTITY_FIELDS.map((field) => (
-                      <li key={field.column}>
-                        <code className="font-mono text-[11px]">{field.column}</code> — {field.meaning}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-fg-secondary">
-                    What this does NOT grant
-                  </p>
-                  <div className="mt-1">
-                    <Ladder />
-                  </div>
-                </div>
-
-                {/*
-                  * THE CONSEQUENCE LIST. Eight sentences, and each one is a fact the human cannot
-                  * discover after the fact: the count it moves, what becomes readable, and the four
-                  * ways this door does not reopen. The first is MEASURED from the read seam rather
-                  * than asserted, so the surface cannot keep claiming zero once that stops being so.
-                  */}
-                <ul className="flex list-disc flex-col gap-1 pl-4 text-xs leading-5 text-fg-secondary">
-                  <li>{genesisCountDisclosure(identities.length)}</li>
-                  <li>{GENESIS_DISCLOSURE.genesisIsOneShot}</li>
-                  <li>{GENESIS_DISCLOSURE.canonicalReadBack}</li>
-                  <li>{GENESIS_DISCLOSURE.retirementIsNotDeletion}</li>
-                  <li>{GENESIS_DISCLOSURE.retirementDoesNotReopen}</li>
-                  <li>{GENESIS_DISCLOSURE.retirementIsTerminal}</li>
-                  <li>{GENESIS_DISCLOSURE.noSuccession}</li>
-                  <li>{GENESIS_DISCLOSURE.noRenameOrReplacement}</li>
+                <ul className="mt-1 flex flex-col gap-0.5 text-xs leading-5 text-fg-secondary">
+                  {PERSISTED_IDENTITY_FIELDS.map((field) => (
+                    <li key={field.column}>
+                      <code className="font-mono text-[11px]">{field.column}</code> — {field.meaning}
+                    </li>
+                  ))}
                 </ul>
+              </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="primary" size="sm" disabled={pending} onClick={establish}>
-                    <BadgeCheck className="size-4" />
-                    Establish durable identity
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={pending}
-                    onClick={() => setConfirming(false)}
-                  >
-                    Cancel
-                  </Button>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-fg-secondary">
+                  What will deliberately stay empty
+                </p>
+                <ul className="mt-1 flex flex-col gap-0.5 text-xs leading-5 text-fg-secondary">
+                  {WITHHELD_IDENTITY_FIELDS.map((field) => (
+                    <li key={field.column}>
+                      <code className="font-mono text-[11px]">{field.column}</code> — {field.meaning}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-fg-secondary">
+                  What this does NOT grant
+                </p>
+                <div className="mt-1">
+                  <Ladder />
                 </div>
               </div>
-            ) : (
-              <div>
+
+              {/*
+                * THE CONSEQUENCE LIST. Nine sentences, and each one is a fact the human cannot
+                * discover after the fact: the count it moves, that it is a Governance decision, the
+                * name rule, what becomes readable, and what retirement does and does not do. The
+                * first is MEASURED from the read seam rather than asserted.
+                */}
+              <ul className="flex list-disc flex-col gap-1 pl-4 text-xs leading-5 text-fg-secondary">
+                <li>{genesisCountDisclosure(identities.length)}</li>
+                <li>{GENESIS_DISCLOSURE.registrationIsGoverned}</li>
+                <li>{GENESIS_DISCLOSURE.nameIsUniqueInService}</li>
+                <li>{GENESIS_DISCLOSURE.canonicalReadBack}</li>
+                <li>{GENESIS_DISCLOSURE.retirementIsNotDeletion}</li>
+                <li>{GENESIS_DISCLOSURE.retirementFreesOnlyTheName}</li>
+                <li>{GENESIS_DISCLOSURE.retirementIsTerminal}</li>
+                <li>{GENESIS_DISCLOSURE.noSuccession}</li>
+                <li>{GENESIS_DISCLOSURE.noRenameOrReplacement}</li>
+              </ul>
+
+              <div className="flex flex-wrap gap-2">
+                <Button variant="primary" size="sm" disabled={pending} onClick={establish}>
+                  <BadgeCheck className="size-4" />
+                  Register durable identity
+                </Button>
                 <Button
-                  variant="primary"
+                  variant="ghost"
                   size="sm"
-                  disabled={pending || name.length === 0}
-                  onClick={() => {
-                    setRefusal(null);
-                    setConfirming(true);
-                  }}
+                  disabled={pending}
+                  onClick={() => setConfirming(false)}
                 >
-                  Review this one-time ceremony
+                  Cancel
                 </Button>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          ) : (
+            <div>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={pending || name.length === 0 || justification.trim().length === 0}
+                onClick={() => {
+                  setRefusal(null);
+                  setConfirming(true);
+                }}
+              >
+                Review this registration
+              </Button>
+            </div>
+          )}
+        </div>
 
         {refusal ? (
           <StateBlock tone="error" title="Refused" description={refusal} />

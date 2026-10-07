@@ -132,7 +132,7 @@ async function main(): Promise<void> {
     const draftRef = draft.status === "created" ? draft.ref : "";
 
     await seedGovernanceAuthority(setup, acme, dbDeps, { tag: "a4b" });
-    const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
+    const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps);
     assert.equal(established.status, "established");
 
     /*

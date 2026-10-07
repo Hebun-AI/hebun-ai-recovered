@@ -95,7 +95,13 @@ function main(): void {
    * below is the fact the Director required, expressed as the least it could possibly say.
    */
   const REQUIRED_MEANINGS: readonly (readonly [keyof typeof GENESIS_DISCLOSURE, RegExp, string])[] = [
-    ["genesisIsOneShot", /ONCE|one-shot|only once/i, "the ceremony may happen once"],
+    /* AP-1 INVERTED the one-shot: each registration is its own Governance decision. */
+    ["registrationIsGoverned", /own Governance decision/i, "each registration is its own Governance decision"],
+    [
+      "nameIsUniqueInService",
+      /No two identities in service may share a name/i,
+      "no two in-service identities share a canonical name",
+    ],
     [
       "canonicalReadBack",
       /readable through Hebun's canonical agent identity and actor read path/i,
@@ -103,9 +109,9 @@ function main(): void {
     ],
     ["retirementIsNotDeletion", /withdraws it from service|survive/i, "retirement is not deletion"],
     [
-      "retirementDoesNotReopen",
-      /still counts|stays closed/i,
-      "retirement does not reopen the genesis ceremony",
+      "retirementFreesOnlyTheName",
+      /never returns to service/i,
+      "retirement never brings the identity back — only its name may be reused, as a new identity",
     ],
     ["retirementIsTerminal", /no reinstatement|returns a retired identity to service/i,
       "retirement is terminal under the released lifecycle"],
@@ -132,7 +138,7 @@ function main(): void {
    */
   const cardCode = codeOf(read(DURABLE_CARD));
   const start = cardCode.indexOf("{confirming ? (");
-  const end = cardCode.indexOf("Establish durable identity");
+  const end = cardCode.indexOf("Register durable identity");
   assert.ok(start > 0, "the confirmation branch was located in the durable card");
   assert.ok(end > start, "the final creation button follows the confirmation branch");
   const confirmation = cardCode.slice(start, end);
@@ -143,10 +149,11 @@ function main(): void {
 
   const MUST_RENDER_BEFORE_CLICK: readonly (readonly [string, string])[] = [
     ["genesisCountDisclosure(identities.length)", "the count before and after, measured from the read seam"],
-    ["GENESIS_DISCLOSURE.genesisIsOneShot", "the ceremony is a one-shot"],
+    ["GENESIS_DISCLOSURE.registrationIsGoverned", "registration is a Governance decision"],
+    ["GENESIS_DISCLOSURE.nameIsUniqueInService", "the in-service name rule"],
     ["GENESIS_DISCLOSURE.canonicalReadBack", "the canonical read-back expectation"],
     ["GENESIS_DISCLOSURE.retirementIsNotDeletion", "retirement is not deletion"],
-    ["GENESIS_DISCLOSURE.retirementDoesNotReopen", "retirement does not reopen genesis"],
+    ["GENESIS_DISCLOSURE.retirementFreesOnlyTheName", "retirement never reinstates the identity"],
     ["GENESIS_DISCLOSURE.retirementIsTerminal", "retirement is terminal"],
     ["GENESIS_DISCLOSURE.noSuccession", "no successor is created"],
     ["GENESIS_DISCLOSURE.noRenameOrReplacement", "no rename or replacement authority exists"],

@@ -108,7 +108,12 @@ export type HypothesisRefusal =
    */
   | "no-evidence-yet"
   /** The named predecessor is not a hypothesis in this tenant. */
-  | "supersedes-unresolvable";
+  | "supersedes-unresolvable"
+  /**
+   * AP-1 (B2) — the named predecessor is a hypothesis about a DIFFERENT agent of this tenant.
+   * Lineage is agent-scoped: a hypothesis about one agent can never replace one about another.
+   */
+  | "supersedes-other-agent";
 
 export type HypothesisResult =
   | { readonly status: "filed"; readonly hypothesisId: string; readonly filedAt: string }
@@ -287,14 +292,20 @@ export async function fileImprovementHypothesis(
    */
   if (weakness.total <= 0) return refused("no-evidence-yet");
 
-  /* ── Optional lineage, resolved in this tenant or refused. ── */
+  /*
+   * ── Optional lineage, resolved in this tenant AND for this agent, or refused. ──
+   *
+   * AP-1 (B2): this writer is the ONLY writer of `agent_improvement_hypotheses` (insert-only, no
+   * update path), so this check is the lineage invariant. The predecessor's agent is read and
+   * compared, never assumed.
+   */
   const supersedesRaw =
     typeof input?.supersedesHypothesisId === "string" ? input.supersedesHypothesisId.trim() : "";
   let supersedesHypothesisId: string | null = null;
   if (supersedesRaw) {
     try {
       const predecessor = await db
-        .select({ id: agentImprovementHypotheses.id })
+        .select({ id: agentImprovementHypotheses.id, agentId: agentImprovementHypotheses.agentId })
         .from(agentImprovementHypotheses)
         .where(
           and(
@@ -304,6 +315,7 @@ export async function fileImprovementHypothesis(
         )
         .limit(1);
       if (predecessor.length === 0) return refused("supersedes-unresolvable");
+      if (predecessor[0]!.agentId !== agentId) return refused("supersedes-other-agent");
       supersedesHypothesisId = predecessor[0]!.id;
     } catch {
       return refused("supersedes-unresolvable");

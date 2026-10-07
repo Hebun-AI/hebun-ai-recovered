@@ -197,10 +197,24 @@ export default async function AgentsPage() {
    * WF-2 — what the agent can propose NOW, from the WF-1 availability projection (a read: no writer,
    * no generator, no disclosure audit). The tenant is this request's session, never the client's.
    * Asked only when there is an in-service agent to ask about; the cards above already say why not.
+   *
+   * AP-1 — ONE ANSWER PER IN-SERVICE AGENT, each asked with that agent's id, so two agents never
+   * share one card and one agent's mandate is never shown as another's. With a single agent the
+   * question is asked exactly as before (no selection), so its answer is unchanged.
    */
-  const capability = tenant && identities.some((identity) => identity.inService)
-    ? deriveAgentCapabilityTruth(await readOriginationAvailability({ resolveTenant: async () => tenant }))
-    : null;
+  const serving = identities.filter((identity) => identity.inService);
+  const capabilities = !tenant
+    ? []
+    : serving.length === 1
+      ? [{ agentName: undefined, truth: deriveAgentCapabilityTruth(await readOriginationAvailability({ resolveTenant: async () => tenant })) }]
+      : await Promise.all(
+          serving.map(async (identity) => ({
+            agentName: identity.name,
+            truth: deriveAgentCapabilityTruth(
+              await readOriginationAvailability({ resolveTenant: async () => tenant }, { agentId: identity.agentId }),
+            ),
+          })),
+        );
 
   const mandateBlock: MandateBlock | undefined = !tenant
     ? { kind: "unauthenticated" }
@@ -264,7 +278,6 @@ export default async function AgentsPage() {
           block={block}
           actingHumanId={tenant?.userId}
           tenantId={tenant?.tenantId}
-          genesisSpent={identityState.status === "known" ? identityState.genesisSpent : false}
           identities={identities}
         />
         {/*
@@ -274,7 +287,9 @@ export default async function AgentsPage() {
           * second thing on this page that writes a database row, and the only other one.
           */}
         <AgentMandateCard block={mandateBlock} entries={mandateEntries} />
-        {capability ? <AgentCapabilityTruthCard truth={capability} /> : null}
+        {capabilities.map((entry, index) => (
+          <AgentCapabilityTruthCard key={entry.agentName ?? index} truth={entry.truth} agentName={entry.agentName} />
+        ))}
         <AgentOutcomeObservationSurface observation={outcomes} />
         <AgentEvaluationSurface evaluation={evaluation} />
         <AgentImprovementHypothesisSurface hypotheses={hypotheses} />

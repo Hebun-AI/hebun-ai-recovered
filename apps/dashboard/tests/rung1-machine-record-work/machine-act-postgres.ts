@@ -177,7 +177,7 @@ async function main(): Promise<void> {
     const departmentId = dept.status === "recorded" ? dept.department.departmentId : "";
     const departmentRef = formatDepartmentRef(departmentId);
 
-    const agent = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, deps);
+    const agent = await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, deps);
     assert.equal(agent.status, "established");
     const agentId = agent.status === "established" ? agent.identity.agentId : "";
     await seedAgentMandate(setup, acme, agentId, deps, {

@@ -79,15 +79,18 @@ interface Mutation {
 }
 
 const MUTATIONS: readonly Mutation[] = [
-  /* ── THE GENESIS INVARIANT ───────────────────────────────────────────────── */
+  /*
+   * ── THE RETIREMENT/NAME INVARIANT (AP-1) ───────────────────────────────────
+   * The pre-AP-1 M8 guarded the one-shot count AP-1 deleted. Its successor guards the partial
+   * predicate that lets a retired name be registered again while every in-service name stays unique.
+   */
   {
-    label: "M8 retirement silently reopens the first-agent ceremony",
-    file: CREATE,
+    label: "M8 a retired identity keeps its name forever (the name index loses its in-service predicate)",
+    file: "src/db/migrations/20261007064348_ap1_agent_name_in_service_uniqueness.sql",
     suite: PG_SUITE,
-    edits: [{ find: "      .where(eq(agents.tenantId, tenant.tenantId));",
-    replace:
-      "      .where(and(eq(agents.tenantId, tenant.tenantId), isNull(agents.retiredAt)));" }],
-    because: "a tenant whose ONLY identity is retired has still crossed genesis",
+    edits: [{ find: ` WHERE "agents"."retired_at" IS NULL AND "agents"."agent_lifecycle_status" IS DISTINCT FROM 'retired'`,
+    replace: "" }],
+    because: "a retired name may be registered again",
   },
 
   /* ── WHO MAY RETIRE ──────────────────────────────────────────────────────── */
@@ -206,9 +209,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "M9 the creation action accepts a client-supplied tenant",
     file: ACTIONS,
     suite: FW_SUITE,
-    edits: [{ find: "export async function createDurableAgentIdentityAction(input: {\n  name: string;\n}",
+    edits: [{ find: "export async function createDurableAgentIdentityAction(input: {\n  name: string;\n  justification: string;\n}",
     replace:
-      "export async function createDurableAgentIdentityAction(input: {\n  name: string;\n  tenantId: string;\n}" }],
+      "export async function createDurableAgentIdentityAction(input: {\n  name: string;\n  justification: string;\n  tenantId: string;\n}" }],
     because: "no action accepts `tenantId`",
   },
 
@@ -246,7 +249,6 @@ const MUTATIONS: readonly Mutation[] = [
       "          block={block}\n" +
       "          actingHumanId={tenant?.userId}\n" +
       "          tenantId={tenant?.tenantId}\n" +
-      "          genesisSpent={identityState.status === \"known\" ? identityState.genesisSpent : false}\n" +
       "          identities={identities}\n" +
       "        />\n",
       replace: "" },
@@ -265,8 +267,7 @@ const MUTATIONS: readonly Mutation[] = [
         "          block={block}\n" +
         "          actingHumanId={tenant?.userId}\n" +
         "          tenantId={tenant?.tenantId}\n" +
-        "          genesisSpent={identityState.status === \"known\" ? identityState.genesisSpent : false}\n" +
-        "          identities={identities}\n" +
+          "          identities={identities}\n" +
         "        />" },
     ],
     because: "the durable authority is presented BEFORE the simulation",
@@ -279,7 +280,7 @@ const MUTATIONS: readonly Mutation[] = [
     suite: PG_SUITE,
     edits: [{ find: "      genesisSpent: rows.length > 0,",
     replace: "      genesisSpent: rows.some((row) => row.retiredAt === null)," }],
-    because: "genesis reads as SPENT for a tenant whose only identity is retired",
+    because: "`genesisSpent` stays true for a tenant whose only identity is retired",
   },
 ];
 

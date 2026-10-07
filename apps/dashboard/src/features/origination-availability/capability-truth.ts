@@ -1,5 +1,5 @@
 /*
- * origination-availability/capability-truth.ts — what Agent #1 can PROPOSE right now, kept apart from
+ * origination-availability/capability-truth.ts — what ONE agent can PROPOSE right now, kept apart from
  * what its mandate permits and from what it has no authority to do at all (WF-2).
  *
  * A PURE DERIVATION of the WF-1 availability projection. It reads nothing and decides nothing: the
@@ -13,7 +13,7 @@
  */
 import type { AgentOriginationAvailability, OriginationUnavailableReason } from "./contracts";
 
-/** Agent #1 itself never holds these. A human-governed subsystem may still do them, after a human. */
+/** An agent itself never holds these. A human-governed subsystem may still do them, after a human. */
 export const AGENT_HAS_NO_AUTHORITY_TO = Object.freeze([
   "approve its own proposals",
   "issue permits",

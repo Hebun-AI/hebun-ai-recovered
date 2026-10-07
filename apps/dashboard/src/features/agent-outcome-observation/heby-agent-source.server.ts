@@ -86,9 +86,9 @@
 import type { ResolvedSourceItem, SourceResolution } from "@/features/heby-runtime/contracts";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
-  readAgentOutcomeObservation,
+  readAgentOutcomeObservationIndexed,
   type AgentOutcomeObservation,
-  type AgentOutcomeObservationRead,
+  type AgentOutcomeObservationIndexedRead,
 } from "./agent-outcome-projection.server";
 
 /**
@@ -101,8 +101,9 @@ export const AGENT_GROUNDING_PROVENANCE =
   "Agent Outcome Observation — this organization's durable agents and what became of what each " +
   "proposed, read tenant-scoped from the session and DERIVED (authoritative: false). The agent " +
   "records themselves are authoritative; every count is recomputed from proposals, permits, " +
-  "execution attempts and model invocations on each read. It carries no agent id, no capability, " +
-  "no permission, no owner and no instruction, because no authority for any of them is read here.";
+  "execution attempts and model invocations on each read. Each item is cited by the agent's id, " +
+  "never its name, because names repeat over time; it carries no capability, no permission, no " +
+  "owner and no instruction, because no authority for any of them is read here.";
 
 /**
  * Why the source could not be resolved.
@@ -117,7 +118,9 @@ export const AGENT_GROUNDING_NO_AGENTS =
   "This organization has established no durable agent. That is a measured zero, not a failed read.";
 
 export interface AgentGroundingDeps {
-  readonly readOutcome?: (tenant: TenantContext | null) => Promise<AgentOutcomeObservationRead>;
+  readonly readOutcome?: (
+    tenant: TenantContext | null,
+  ) => Promise<AgentOutcomeObservationIndexedRead>;
 }
 
 function base(
@@ -197,12 +200,12 @@ function detailFor(agent: AgentOutcomeObservation): string {
  * rather than by a limit somebody chose. E2-1's organization source is bounded at one by the shape
  * of the fact; this is bounded the same way, by a real population.
  *
- * THE RECORD REFERENCE IS THE AGENT'S NAME, and deliberately not its id. E2-1 settled the rule: a
- * citation reference is the record's own stable public name for itself, and printing an internal
- * uuid would publish it into an answer body, a durable evidence row and a model request for no
- * reader benefit. Here the choice is also forced — `AgentOutcomeObservation` carries no id at all,
- * because E2-3 put the id on the OUTSIDE as a join key where a surface that merely spreads the
- * object cannot render it.
+ * THE RECORD REFERENCE IS THE AGENT'S ID, `agent/<agentId>` (AP-1, B3). It was the name until AP-1;
+ * names are now unique only among IN-SERVICE identities and a retired name can be registered again,
+ * so a name no longer identifies one record. The id comes from E2-3's id-keyed read, where it is the
+ * join key; the observation object itself still carries no id. The `agents` class is withheld from
+ * the model (only its fixed "withheld" line is sent), so the id reaches evidence rows, not a model
+ * request — the same shape `agent-mandate/<mandateId>` references already have.
  */
 export async function readAgentGroundingSource(
   tenant: TenantContext | null,
@@ -213,7 +216,7 @@ export async function readAgentGroundingSource(
   }
 
   const read = await (deps.readOutcome ??
-    ((t: TenantContext | null) => readAgentOutcomeObservation(t)))(tenant);
+    ((t: TenantContext | null) => readAgentOutcomeObservationIndexed(t)))(tenant);
 
   if (read.status === "unavailable") {
     return base("unavailable", [], read.reason);
@@ -224,7 +227,7 @@ export async function readAgentGroundingSource(
    * measured zero, so the evidence set says it in words rather than contributing silence a model
    * could fill.
    */
-  if (read.agents.length === 0) {
+  if (read.byAgentId.size === 0) {
     return base("resolved", [
       {
         recordRef: "no-durable-agent",
@@ -235,8 +238,13 @@ export async function readAgentGroundingSource(
     ]);
   }
 
-  const items: readonly ResolvedSourceItem[] = read.agents.map((agent) => ({
-    recordRef: agent.agentName,
+  /*
+   * AP-1 (B3) — CITED BY ID, LABELLED BY NAME. A name is unique only among IN-SERVICE identities,
+   * and a retired name can be registered again as a new identity, so a name-keyed reference could
+   * attach one agent's evidence to another. The id is the only reference that never collides.
+   */
+  const items: readonly ResolvedSourceItem[] = [...read.byAgentId].map(([agentId, agent]) => ({
+    recordRef: `agent/${agentId}`,
     label: agent.agentName,
     detail: detailFor(agent),
     /*

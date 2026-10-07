@@ -252,7 +252,7 @@ async function main(): Promise<void> {
 
     /* ── 2. NO DURABLE AGENT MEANS NO INVOCATION AND NO PROVIDER CALL ───────── */
     await refusedInPreflight("no durable agent", () => requestMediaGeneration(aliceCtx, ask(), deps()), "no-durable-agent");
-    const established = await createDurableAgentIdentity(aliceCtx, { name: "Heby" }, { getDb } as never);
+    const established = await createDurableAgentIdentity(aliceCtx, { name: "Heby", justification: "Register this agent for the test organization." }, { getDb } as never);
     assert.equal(established.status, "established");
     const agentId = established.status === "established" ? established.identity.agentId : "";
 
@@ -376,7 +376,7 @@ async function main(): Promise<void> {
     }
     /* The same key in ANOTHER tenant is a different request. */
     {
-      await createDurableAgentIdentity(erinCtx, { name: "Heby" }, { getDb } as never);
+      await createDurableAgentIdentity(erinCtx, { name: "Heby", justification: "Register this agent for the test organization." }, { getDb } as never);
       const other = await requestMediaGeneration(
         erinCtx,
         { artifactId: foreignDraft.artifactId, revisionNo: 1, promptText: PROMPT, requestKey: firstKey },

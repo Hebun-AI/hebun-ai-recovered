@@ -63,6 +63,7 @@ const REFUSAL_WORDING: Record<MediaGenerationRefusal, string> = {
   "generation-transport-unavailable": `Image generation is not available: it is unconfigured, misconfigured, or the Director control is off. ${NOT_DISPATCHED}`,
   "persistence-unavailable": `The database could not be reached. ${NOT_DISPATCHED}`,
   "no-durable-agent": `Your organization has no durable agent that could author this. ${NOT_DISPATCHED}`,
+  "ambiguous-durable-agent": `More than one durable agent is in service and this screen does not choose one, so no agent was named as author. ${NOT_DISPATCHED}`,
   "source-revision-unresolvable": `That content draft revision could not be resolved in your organization. ${NOT_DISPATCHED}`,
   "duplicate-request": "This exact request was already submitted. It was not sent again, and you were not charged twice.",
   /* MEDIA-5 — all four are preflight, so none of them reached a provider or cost anything. */
@@ -97,6 +98,7 @@ const OPERATOR_REFUSALS = new Set<MediaGenerationRefusal>([
   "storage-unavailable",
   "persistence-unavailable",
   "no-durable-agent",
+  "ambiguous-durable-agent",
 ]);
 
 function admissionWording(failure: string | null): string {

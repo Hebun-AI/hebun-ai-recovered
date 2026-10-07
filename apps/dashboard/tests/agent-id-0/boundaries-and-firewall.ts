@@ -73,12 +73,18 @@ const HUMAN_ONLY_CHECKS = [
   "membership_authorizations_human_authorizer_chk",
 ] as const;
 
-/* Modules an identity writer must never reach. Identity is not authentication, and not runtime. */
+/*
+ * Modules an identity writer must never reach. Identity is not authentication, and not runtime.
+ *
+ * AP-1 REMOVED `governance-decision/decision-authority.server.ts` FROM THIS LIST, BY NAME AND ON
+ * PURPOSE: registration is now itself a Governance decision (`agent-registration`), written in the
+ * creation transaction. That reach records the ORGANIZATION'S choice; it grants the agent nothing —
+ * the credential, execution and action-decision writers below stay unreachable.
+ */
 const FORBIDDEN_REACH = [
   "src/features/auth-runtime/credential-repository.server.ts",
   "src/features/action-execution/execute-authorized-action.server.ts",
   "src/features/action-authorization/decide-action-request.server.ts",
-  "src/features/governance-decision/decision-authority.server.ts",
 ] as const;
 
 function resolveImport(spec: string, from: string): string | null {
@@ -254,8 +260,8 @@ function main(): void {
   );
   assert.ok(signature.length > 0, "the authority signature was located");
   assert.ok(
-    /input:\s*\{\s*readonly name: unknown\s*\}/.test(signature),
-    "the only caller-supplied field is the name — there is no tenant or owner parameter to abuse",
+    /input:\s*\{\s*readonly name: unknown;\s*readonly justification\?: unknown\s*\}/.test(signature),
+    "the only caller-supplied fields are the name and (AP-1) the human's reason for the registration decision — there is no tenant or owner parameter to abuse",
   );
   for (const smuggled of ["tenantId:", "humanOwnerId:", "ownerId:", "actorId:"]) {
     assert.ok(

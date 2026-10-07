@@ -215,10 +215,10 @@ async function main(): Promise<void> {
       );
     }
 
-    const acmeIdentity = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, baseDeps);
+    const acmeIdentity = await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, baseDeps);
     const globexIdentity = await createDurableAgentIdentity(
       globexCtx,
-      { name: "Globex Agent" },
+      { name: "Globex Agent", justification: "Register this agent for the test organization." },
       baseDeps,
     );
     assert.equal(acmeIdentity.status, "established");
@@ -334,7 +334,7 @@ async function main(): Promise<void> {
        * a LEGACY row created before APF-1, so it is seeded as one after the refusal is asserted.
        */
       assert.deepEqual(
-        await createDurableAgentIdentity(outsiderCtx, { name: "Outsider Agent" }, baseDeps),
+        await createDurableAgentIdentity(outsiderCtx, { name: "Outsider Agent", justification: "Register this agent for the test organization." }, baseDeps),
         { status: "refused", reason: "no-governance-authority" },
       );
       const outsiderAgent = {

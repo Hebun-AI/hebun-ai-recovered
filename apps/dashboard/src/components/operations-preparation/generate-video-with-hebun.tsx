@@ -34,6 +34,7 @@ const REFUSAL_WORDING: Record<Refusal, string> = {
   "generation-transport-unavailable": `Video generation is not available: no provider is configured, or its connectivity is not enabled by the Director. ${NOT_SENT}`,
   "persistence-unavailable": `The database could not be reached. ${NOT_SENT}`,
   "no-durable-agent": `Your organization has no durable agent that could author this. ${NOT_SENT}`,
+  "ambiguous-durable-agent": `More than one durable agent is in service and this screen does not choose one, so no agent was named as author. ${NOT_SENT}`,
   "source-revision-unresolvable": `That content draft revision could not be resolved in your organization. ${NOT_SENT}`,
   "duplicate-request": "This exact request was already submitted. It was not sent again, and you were not charged twice.",
   "invocation-not-found": `The attempt could not be found. ${NOT_SENT}`,

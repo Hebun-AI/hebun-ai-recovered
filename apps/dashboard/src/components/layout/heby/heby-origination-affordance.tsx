@@ -16,7 +16,10 @@
  *   4. outcome     — at most a PENDING proposal for /approvals, or the seam's own refusal sentence.
  * Nothing here approves, authorizes, records or executes anything, and nothing retries.
  *
- * The browser sends the goal and nothing else: no tenant, no agent, no scope, no availability.
+ * The browser sends the goal and nothing else: no tenant, no scope, no availability. AP-1: when the
+ * organization has more than one agent in service, the human chooses one, and only THEN does the
+ * browser also send that agent's id — a lookup key the server verifies. With a single agent nothing
+ * extra is sent, so that path is exactly what it was.
  */
 import { useState, useTransition } from "react";
 import Link from "next/link";
@@ -39,7 +42,8 @@ const UNAVAILABLE_WORDING: Readonly<Record<OriginationUnavailableReason, string>
   "tenant-unavailable": "Sign in to ask an agent for a proposal.",
   "no-agent": "This organization has no durable agent, so nothing can propose this as work.",
   "agent-retired": "This organization's agent has been retired and cannot propose new work.",
-  "multiple-agents": "More than one agent is in service, and explicit agent selection does not exist yet.",
+  "multiple-agents": "More than one agent is in service. Choose which one to ask:",
+  "selected-agent-unresolvable": "That agent is not one of this organization's agents, so it cannot be asked.",
   "mandate-unavailable": "The agent has no mandate in effect, so it cannot propose anything.",
   "proposal-scope-unavailable": "The agent's mandate does not admit recording organizational work.",
   "model-unavailable": "Heby's model runtime is not available right now, so the agent cannot be asked.",
@@ -61,15 +65,21 @@ const PANEL = "max-w-[80%] rounded-xl border border-border bg-surface px-3 py-2.
 
 export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
   const [state, setState] = useState<State>({ kind: "closed" });
+  /* AP-1 — set only by an explicit human choice among `multiple-agents` candidates. */
+  const [chosenAgentId, setChosenAgentId] = useState<string | undefined>(undefined);
   const [, startTransition] = useTransition();
 
   /* A slash command is an instruction to Heby's UI, not a goal anyone wrote. */
   if (goal.trimStart().startsWith("/")) return null;
 
-  const check = () => {
+  const check = (agentId?: string) => {
+    setChosenAgentId(agentId);
     setState({ kind: "checking" });
     startTransition(async () => {
-      setState({ kind: "checked", availability: await readAgentOriginationAvailabilityAction() });
+      setState({
+        kind: "checked",
+        availability: await readAgentOriginationAvailabilityAction(agentId ? { agentId } : undefined),
+      });
     });
   };
 
@@ -77,9 +87,10 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
   const confirm = (agentName: string, withKnowledge = false) => {
     setState({ kind: "asking", agentName });
     startTransition(async () => {
+      const input = chosenAgentId ? { goal, agentId: chosenAgentId } : { goal };
       const result = withKnowledge
-        ? await originateKnowledgeGroundedProposalAction({ goal })
-        : await originateHebyActionProposalAction({ goal });
+        ? await originateKnowledgeGroundedProposalAction(input)
+        : await originateHebyActionProposalAction(input);
       setState(
         result.status === "proposed"
           ? { kind: "proposed", agentName, action: result.kind, reason: result.reason }
@@ -90,7 +101,7 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
 
   if (state.kind === "closed" || state.kind === "checking") {
     return (
-      <button type="button" className={TEXT_BUTTON} disabled={state.kind === "checking"} onClick={check}>
+      <button type="button" className={TEXT_BUTTON} disabled={state.kind === "checking"} onClick={() => check()}>
         {state.kind === "checking" ? "Checking the agent's current authority…" : "Propose as organizational work…"}
       </button>
     );
@@ -100,6 +111,20 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
     return (
       <div className={PANEL} role="status">
         {UNAVAILABLE_WORDING[state.availability.reason]}{" "}
+        {state.availability.reason === "multiple-agents" && state.availability.candidates ? (
+          <span className="mt-1 flex flex-wrap gap-2" data-ap1-agent-choice="">
+            {state.availability.candidates.map((candidate) => (
+              <button
+                key={candidate.agentId}
+                type="button"
+                className="rounded-lg border border-border bg-surface-raised px-2.5 py-1 text-xs font-medium text-fg"
+                onClick={() => check(candidate.agentId)}
+              >
+                {candidate.name}
+              </button>
+            ))}
+          </span>
+        ) : null}
         <button type="button" className={TEXT_BUTTON} onClick={() => setState({ kind: "closed" })}>
           Close
         </button>

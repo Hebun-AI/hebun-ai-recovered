@@ -442,14 +442,19 @@ function theTableClaimsNothingExtra(): void {
     "the schema enum carries the value the migration adds",
   );
   /*
-   * AND `agent-registration` STAYS UNUSED. It has existed since the foundation baseline, and
+   * AND `agent-registration` IS NOT THE MANDATE'S. It has existed since the foundation baseline, and
    * reusing it would have said an agent came into existence — an act `features/agent-identity`
-   * owns and a mandate decision never performs.
+   * owns and a mandate decision never performs. AP-1 gave it exactly that owner: the registration
+   * decision. So the claim is now "claimed ONLY by the agent identity authority", by name.
    */
   const domainUsers = collect("src")
     .filter((f) => new RegExp(`["']agent-registration["']`).test(codeOf(read(f))))
     .filter((f) => !f.startsWith(path.join("src", "db", "schema")));
-  assert.deepEqual(domainUsers, [], "`agent-registration` is still claimed by nobody");
+  assert.deepEqual(
+    domainUsers,
+    [path.join("src", "features", "agent-identity", "contracts.ts")],
+    "`agent-registration` is claimed only by the agent identity authority (AP-1), never by the mandate",
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

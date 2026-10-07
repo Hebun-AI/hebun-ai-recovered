@@ -9,7 +9,7 @@
  *   3. storage is connected                             storage-unavailable
  *   4. a generation transport exists                    generation-transport-unavailable
  *   5. the control-plane database is reachable          persistence-unavailable
- *   6. exactly one in-service durable agent             no-durable-agent
+ *   6. exactly one in-service durable agent             no-durable-agent / ambiguous-durable-agent
  *   7. the source is THIS tenant's content-draft,
  *      still a draft, at exactly that revision          source-revision-unresolvable
  *
@@ -180,7 +180,11 @@ export async function requestMediaGeneration(
   const now = deps.now ?? (() => new Date());
 
   const authorship = await resolveAgentAuthorship(tenant, { getDb: () => db });
-  if (authorship.status !== "resolved") return refused("no-durable-agent");
+  if (authorship.status !== "resolved") {
+    return refused(
+      authorship.reason === "ambiguous-durable-agent-identity" ? "ambiguous-durable-agent" : "no-durable-agent",
+    );
+  }
 
   let source: { readonly contentDigest: string } | undefined;
   try {

@@ -199,10 +199,16 @@ export const AGENT_ORIGINATION_KNOWLEDGE_SYSTEM_INSTRUCTIONS = hebunInstruction(
   ].join(" "),
 );
 
-/** The client-supplied part. Carries NO authority: no tenant, no agent id, no actor type. */
+/** The client-supplied part. Carries NO authority: no tenant, no actor type, no action. */
 export interface OriginateActionInput {
   /** The human's goal. Validated by the released prompt validator before any model request. */
   readonly goal: unknown;
+  /**
+   * AP-1 — WHICH agent the human chose, when the organization has more than one in service. A
+   * LOOKUP KEY verified by `resolveAgentProposer` against this tenant's own identities; a foreign,
+   * unknown or retired id is refused before any model call. Omitted: exactly the pre-AP-1 path.
+   */
+  readonly agentId?: unknown;
 }
 
 export interface OriginateActionDeps {
@@ -450,7 +456,9 @@ export async function originateAgentAction(
   if (!tenant?.tenantId || !tenant.userId) return refused("unauthenticated");
 
   /* 1 · WHO WOULD BE THE PROPOSER. No agent, no origination — never a human fallback. */
-  const proposerResult = await resolveAgentProposer(tenant, deps.agentIdentity ?? {});
+  const proposerResult = await resolveAgentProposer(tenant, deps.agentIdentity ?? {}, {
+    agentId: typeof input.agentId === "string" ? input.agentId : null,
+  });
   if (proposerResult.status === "refused") return refused(proposerResult.reason);
   const proposer: AgentProposer = proposerResult.proposer;
 

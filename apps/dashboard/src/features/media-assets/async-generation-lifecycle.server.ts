@@ -96,6 +96,11 @@ export type AsyncGenerationRefusal =
   | "generation-transport-unavailable"
   | "persistence-unavailable"
   | "no-durable-agent"
+  /**
+   * AP-1 (B1) — more than one agent is in service and this surface does not select one. Distinct
+   * from "no-durable-agent": telling an organization that has agents that it has none is false.
+   */
+  | "ambiguous-durable-agent"
   | "source-revision-unresolvable"
   | "duplicate-request"
   | "invocation-not-found"
@@ -253,7 +258,11 @@ export async function registerAsyncMediaGeneration(
   }
 
   const authorship = await resolveAgentAuthorship(tenant, { getDb: () => db });
-  if (authorship.status !== "resolved") return refused("no-durable-agent");
+  if (authorship.status !== "resolved") {
+    return refused(
+      authorship.reason === "ambiguous-durable-agent-identity" ? "ambiguous-durable-agent" : "no-durable-agent",
+    );
+  }
 
   /* The same source rule the synchronous path applies: THIS tenant's content-draft, still a draft. */
   let source: { readonly contentDigest: string } | undefined;

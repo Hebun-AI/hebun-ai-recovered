@@ -23,7 +23,9 @@ import type { HypothesisResult } from "@/features/agent-improvement-hypothesis/w
  * thin, and it holds no gate of its own — every refusal below is produced by the authority itself,
  * so this boundary cannot drift from the rules it fronts.
  *
- * WHAT THE CLIENT MAY SEND. A name, to create. An identifier, to retire. That is the whole payload.
+ * WHAT THE CLIENT MAY SEND. A name and the human's reason, to register (AP-1: registration is a
+ * Governance decision, and a decision needs a reason). An identifier, to retire. That is the whole
+ * payload.
  *
  * WHAT THE CLIENT CANNOT SEND, BECAUSE NO FIELD EXISTS FOR IT: tenant id, owner id, owner actor
  * type, created_by, created_by_type, manager, department, authority ceiling, role, permission,
@@ -37,10 +39,10 @@ import type { HypothesisResult } from "@/features/agent-improvement-hypothesis/w
  * demo path — an unreachable authority is refused, never simulated.
  *
  * WHAT THESE ACTIONS DO NOT DO. They issue no credential, open no session, grant no permission,
- * assign no role, authorize no action, widen no Governance subject type, start no runtime and
- * execute nothing. Creating an identity and retiring one are the only two effects reachable here,
- * and neither of the authorities behind them imports a credential, session, permit, decision or
- * execution module.
+ * assign no role, authorize no action, start no runtime and execute nothing. Registering an identity
+ * (with its `agent-registration` Governance decision, AP-1) and retiring one are the only two
+ * effects reachable here, and neither authority imports a credential, session, permit or execution
+ * module.
  *
  * WHAT THESE ACTIONS ARE NOT. They are not the in-memory Agent Registry simulation. That subsystem
  * (`features/agent-crud`, over the "memory" persistence provider) is a client-side Command Bus
@@ -49,17 +51,21 @@ import type { HypothesisResult } from "@/features/agent-improvement-hypothesis/w
  */
 
 /**
- * ESTABLISH this tenant's first durable agent identity (AGENT-ID-0's ceremony).
+ * REGISTER one durable agent identity for this tenant (AGENT-ID-0's ceremony, governed since AP-1).
  *
- * A ONE-SHOT. A tenant that already possesses a durable agent identity — including a RETIRED one —
- * is refused `agent-identity-already-exists`, because retirement leaves the row in place and the
- * genesis count is existence, not health.
+ * Each registration is its own Governance decision in the `agent-registration` domain, taken by the
+ * organization's Governance authority with a stated reason. A name already carried by another
+ * IN-SERVICE identity of this tenant (compared canonically) is refused `agent-name-in-use`.
  */
 export async function createDurableAgentIdentityAction(input: {
   name: string;
+  justification: string;
 }): Promise<CreateDurableAgentIdentityResult> {
   const tenant = await resolveTenantContext();
-  const result = await createDurableAgentIdentity(tenant, { name: input?.name });
+  const result = await createDurableAgentIdentity(tenant, {
+    name: input?.name,
+    justification: input?.justification,
+  });
   if (result.status === "established") revalidatePath("/agents");
   return result;
 }

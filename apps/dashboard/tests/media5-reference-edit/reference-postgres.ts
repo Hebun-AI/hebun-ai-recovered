@@ -137,7 +137,7 @@ async function main(): Promise<void> {
     })) as Seeded;
     const aliceCtx = contextFor(alice, await sessionRowFor(setup, alice, "a1"));
     await establishGovernance(setup, alice, aliceCtx, { getDb, now: () => NOW });
-    await createDurableAgentIdentity(aliceCtx, { name: "Heby" }, { getDb } as never);
+    await createDurableAgentIdentity(aliceCtx, { name: "Heby", justification: "Register this agent for the test organization." }, { getDb } as never);
 
     const erin = (await seedLocalIdentity(setup, {
       companyName: "Globex",
@@ -146,7 +146,7 @@ async function main(): Promise<void> {
     })) as Seeded;
     const erinCtx = contextFor(erin, await sessionRowFor(setup, erin, "e1"));
     await establishGovernance(setup, erin, erinCtx, { getDb, now: () => NOW });
-    await createDurableAgentIdentity(erinCtx, { name: "Heby" }, { getDb } as never);
+    await createDurableAgentIdentity(erinCtx, { name: "Heby", justification: "Register this agent for the test organization." }, { getDb } as never);
 
     const draft = await seedDraft(setup, alice.tenantId, alice.userId);
     const foreignDraft = await seedDraft(setup, erin.tenantId, erin.userId);

@@ -166,7 +166,7 @@ async function main(): Promise<void> {
     const seedGenerated = async (tenant: Seeded, bytes: Uint8Array, mime = "image/png") => {
       const agent = (await setup.query<{ id: string }>(
         `insert into agents (tenant_id, name, agent_lifecycle_status, created_by, created_by_type)
-         values ($1,'Heby','active',$2,'human') returning id`,
+         values ($1,'Heby ' || gen_random_uuid(),'active',$2,'human') returning id`, /* AP-1: one in-service name per tenant; this fixture seeds an agent per asset. */
         [tenant.tenantId, tenant.userId],
       )).rows[0]!.id;
       const artifact = (await setup.query<{ id: string }>(

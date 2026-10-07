@@ -85,7 +85,7 @@ async function main(): Promise<void> {
     const repo = createDurableConversationRepository(handle.db);
     const dbDeps = { getDb: () => handle.db } as never;
     await seedGovernanceAuthority(setup, seeded, dbDeps, { tag: "kt52" });
-    assert.equal((await createDurableAgentIdentity(tenant, { name: "Heby" }, dbDeps)).status, "established");
+    assert.equal((await createDurableAgentIdentity(tenant, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps)).status, "established");
 
     const sent: string[] = [];
     const transport: ClaudeTransport = {

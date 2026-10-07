@@ -223,7 +223,7 @@ async function main(): Promise<void> {
      * 3. WITH A REAL DURABLE IDENTITY, THE REVISION NAMES IT.
      * ═════════════════════════════════════════════════════════════════════ */
     await seedGovernanceAuthority(setup, acme, { getDb: () => handle.db }, { tag: "a0a0a" });
-    const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
+    const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps);
     assert.equal(established.status, "established");
     const acmeAgentId = established.status === "established" ? established.identity.agentId : "";
     assert.notEqual(acmeAgentId, acme.userId, "an agent id is not a person's id");

@@ -196,7 +196,7 @@ async function main(): Promise<void> {
      * 2. WITH A DURABLE AGENT: A HUMAN GOAL BECOMES AN AGENT-ORIGINATED PROPOSAL.
      * ═════════════════════════════════════════════════════════════════════ */
     await seedGovernanceAuthority(setup, acme, { getDb: () => handle.db }, { tag: "a1a1a" });
-    const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps);
+    const established = await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps);
     assert.equal(established.status, "established");
     const agentId = established.status === "established" ? established.identity.agentId : "";
     assert.notEqual(agentId, acme.userId);

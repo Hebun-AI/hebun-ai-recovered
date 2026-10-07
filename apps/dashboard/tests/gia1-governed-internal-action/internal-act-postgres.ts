@@ -518,7 +518,7 @@ async function main(): Promise<void> {
     /* ═══════════════════════════════════════════════════════════════════════
      * 8. AN AGENT MAY PROPOSE ONLY INSIDE A MANDATE THAT NAMES THIS KIND.
      * ═════════════════════════════════════════════════════════════════════ */
-    const agent = await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, deps);
+    const agent = await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, deps);
     assert.equal(agent.status, "established");
     const agentId = agent.status === "established" ? agent.identity.agentId : "";
 

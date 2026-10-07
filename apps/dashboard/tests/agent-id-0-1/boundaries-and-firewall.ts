@@ -5,7 +5,7 @@
  *
  * 1. RETIREMENT IS A WITHDRAWAL, NOT A DELETION. The authority contains no DELETE, writes no
  *    `deleted_*` column, and fabricates no successor.
- * 2. THE GENESIS ONE-SHOT CANNOT BE REOPENED BY ANYTHING IN THIS PHASE. The creation predicate is
+ * 2. (AP-1, inverted) RETIREMENT NEVER REOPENS AN IDENTITY. Since AP-1 the creation predicate is
  *    still bare existence — no lifecycle filter, no soft-delete filter — and no test helper in the
  *    repository erases an agent row.
  * 3. NEITHER NEW PATH GRANTS ANYTHING. Walked import graph, not path names: no credential, session,
@@ -232,26 +232,29 @@ function main(): void {
     "the actor pair is written together, and the id is the resolved human — not a caller's claim",
   );
 
-  /* ── 2. THE GENESIS ONE-SHOT IS STILL BARE EXISTENCE ──────────────────────── */
-  const oneShot = create.slice(create.indexOf("const [existing]"), create.indexOf("6 ·") >= 0 ? create.indexOf("6 ·") : create.length);
-  assert.ok(
-    oneShot.includes("eq(agents.tenantId, tenant.tenantId)"),
-    "the one-shot predicate is still the tenant, and only the tenant",
+  /*
+   * ── 2. AP-1: RETIREMENT NEVER REOPENS AN IDENTITY ──────────────────────────
+   *
+   * INVERTED AT AP-1. This section used to prove the genesis one-shot was a bare count over the
+   * tenant. AP-1 replaced the one-shot with a Governance decision per registration, so a retired
+   * identity no longer closes the ceremony — what must still hold is that it is never REUSED:
+   * the creation authority only inserts (a new row, a new id), never updates a retired one, and
+   * the name rule that lets a retired name be registered again lives in the database, scoped to
+   * the in-service predicate the read seam uses.
+   */
+  assert.ok(!/\.update\(agents\)/.test(create), "registration never updates an existing (retired) identity");
+  assert.ok(!create.includes("count(*)"), "AP-1: no existence count remains in the creation authority");
+  assert.ok(!create.includes("lock table agents"), "AP-1: no table lock — the unique index decides");
+  const ap1Migration = readFileSync(
+    path.join(ROOT, "src/db/migrations/20261007064348_ap1_agent_name_in_service_uniqueness.sql"),
+    "utf8",
   );
-  for (const narrowing of [
-    "isNull(agents.deletedAt)",
-    "agents.retiredAt",
-    "agents.agentLifecycleStatus",
-    "agents.lifecycleStatus",
-    "deleted_at",
-    "retired_at",
-  ]) {
-    assert.ok(
-      !oneShot.includes(narrowing),
-      `the one-shot count is NOT narrowed by \`${narrowing}\` — a retired or soft-deleted identity ` +
-        `must still spend genesis, or retirement would silently reopen the ceremony`,
-    );
-  }
+  assert.ok(
+    ap1Migration.includes(
+      `WHERE "agents"."retired_at" IS NULL AND "agents"."agent_lifecycle_status" IS DISTINCT FROM 'retired'`,
+    ),
+    "the name index covers exactly the in-service identities (NULL lifecycle included), so a retired name is free",
+  );
 
   /*
    * NOTHING IN THE FEATURE CAN ERASE HISTORICAL EXISTENCE. Not the writers, and not a helper.
@@ -286,6 +289,14 @@ function main(): void {
   for (const entry of [CREATE_AUTHORITY, RETIRE_AUTHORITY, READ_MODULE]) {
     const reach = reachableFrom(entry);
     for (const forbidden of FORBIDDEN_REACH) {
+      /*
+       * AP-1, BY NAME: registration IS a Governance decision (`agent-registration`), so the CREATE
+       * authority reaches the decision writer on purpose. Retirement and the read still may not —
+       * retiring records no decision in this phase, and a read records nothing.
+       */
+      if (entry === CREATE_AUTHORITY && forbidden === "src/features/governance-decision/decision-authority.server.ts") {
+        continue;
+      }
       assert.ok(
         !reach.has(forbidden),
         `${entry} must not reach ${forbidden} — retiring or creating an identity grants no ` +
@@ -344,11 +355,20 @@ function main(): void {
     actionReach.has(GOVERNANCE_DECISION),
     "the boundary reaches the Governance decision writer, because recording a mandate is a governance act",
   );
+  /*
+   * AP-1 WIDENED THIS BY ONE NAMED AUTHORITY: registering an identity is now a Governance act too,
+   * in the creation writer's own transaction. Removing BOTH authorities must still remove the
+   * decision writer — the boundary itself still opens no direct Governance door.
+   */
   assert.ok(
-    !reachableFrom(ACTIONS, new Set(["src/features/agent-mandate/establish-agent-mandate.server.ts"])).has(
-      GOVERNANCE_DECISION,
-    ),
-    "and it reaches it ONLY through the mandate authority — no direct Governance door was opened",
+    !reachableFrom(
+      ACTIONS,
+      new Set([
+        "src/features/agent-mandate/establish-agent-mandate.server.ts",
+        "src/features/agent-identity/create-durable-agent-identity.server.ts",
+      ]),
+    ).has(GOVERNANCE_DECISION),
+    "and it reaches it ONLY through the mandate and (AP-1) registration authorities — no direct Governance door was opened",
   );
   assert.ok(
     reachableFrom("src/app/(dashboard)/knowledge/actions.ts").has(
@@ -439,7 +459,8 @@ function main(): void {
     );
   }
   assert.ok(
-    /createDurableAgentIdentity\(tenant, \{ name: input\?\.name \}\);/.test(actions) &&
+    /* AP-1: the registration also carries the human's reason for the Governance decision. */
+    /createDurableAgentIdentity\(tenant, \{\s*name: input\?\.name,\s*justification: input\?\.justification,\s*\}\);/.test(actions) &&
       /retireDurableAgentIdentity\(tenant, \{ agentId: input\?\.agentId \}\);/.test(actions),
     "both actions call their authority with two arguments — no deps object crosses the boundary",
   );
@@ -668,13 +689,14 @@ function main(): void {
    * THE PERSISTED-FIELD LIST IS THE WRITER'S OWN `.values({...})`. A disclosure that drifts from
    * the writer is a promise the database does not keep, in either direction.
    */
-  const values = create.slice(create.indexOf(".values({"), create.indexOf("})\n      .returning"));
+  /* AP-1 re-indented the insert inside the name-collision try block (12-space properties). */
+  const values = create.slice(create.indexOf(".values({"), create.indexOf("})\n          .returning"));
   /*
    * BOTH SPELLINGS. The writer uses the SHORTHAND `name,` because the validated local is already
    * called `name`; a `key:`-only regex silently dropped it and made the equivalence check compare a
    * five-column writer against a six-column disclosure. A property is a property either way.
    */
-  const written = [...values.matchAll(/^\s{8}(\w+)\s*[:,]/gm)].map((m) => m[1]!);
+  const written = [...values.matchAll(/^\s{12}(\w+)\s*[:,]/gm)].map((m) => m[1]!);
   assert.ok(
     written.includes("name"),
     "the shorthand property `name` is counted as written — a key/value regex would drop it",
@@ -769,7 +791,7 @@ function main(): void {
   }
 
   console.log(
-    "agent-id-0-1/boundaries-and-firewall: withdrawal not deletion, genesis still spent, one durable authority",
+    "agent-id-0-1/boundaries-and-firewall: withdrawal not deletion, retirement never reopens an identity, one durable authority",
   );
 }
 

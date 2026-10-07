@@ -14,6 +14,8 @@ export const ORIGINATION_UNAVAILABLE_REASONS = [
   "no-agent",
   "agent-retired",
   "multiple-agents",
+  /** AP-1 — the explicitly selected agent is not one of this organization's identities. */
+  "selected-agent-unresolvable",
   "mandate-unavailable",
   "proposal-scope-unavailable",
   "model-unavailable",
@@ -25,7 +27,8 @@ export type OriginationUnavailableReason = (typeof ORIGINATION_UNAVAILABLE_REASO
 export type AgentOriginationAvailability =
   | {
       readonly status: "available";
-      readonly agent: { readonly name: string };
+      /** AP-1 — `agentId` is the lookup key the client sends back when it confirms; never authority. */
+      readonly agent: { readonly agentId: string; readonly name: string };
       /** The effective mandate as the Agent Mandate Authority recorded it. Purpose is descriptive. */
       readonly mandate: {
         readonly revision: number;
@@ -35,4 +38,12 @@ export type AgentOriginationAvailability =
       /** The one kind this path may originate today (APF-3 narrow arm). */
       readonly originable: "record-work";
     }
-  | { readonly status: "unavailable"; readonly reason: OriginationUnavailableReason };
+  | {
+      readonly status: "unavailable";
+      readonly reason: OriginationUnavailableReason;
+      /**
+       * AP-1 — only with `multiple-agents`: the IN-SERVICE identities a human may choose between.
+       * Choosing one asks this projection again with that agentId; nothing is offered until then.
+       */
+      readonly candidates?: readonly { readonly agentId: string; readonly name: string }[];
+    };

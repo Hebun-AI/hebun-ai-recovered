@@ -145,7 +145,7 @@ async function main(): Promise<void> {
      * before APF-1. The ceremony's refusal is asserted, then that legacy state is seeded as a row.
      */
     assert.deepEqual(
-      await createDurableAgentIdentity(acmeCtx, { name: "Heby" }, dbDeps),
+      await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, dbDeps),
       { status: "refused", reason: "no-governance-authority" },
     );
     const agentId = (

@@ -1138,7 +1138,10 @@ A RELEASED GUARD FIRING ON HONEST PROSE IS A WORDING PROBLEM, NOT A GUARD PROBLE
 #### What E2-5 is NOT, and structurally cannot become
 
 No agent id travels — `AgentOutcomeObservation` carries none, because E2-3 put the id on the
-**outside** as a join key. No capability, permission, owner, mandate, instruction, prompt or model
+**outside** as a join key. *(Narrowed by AP-1, Director 2026-10-07: the agentId is the authoritative
+citation key and may appear only in the internal `recordRef` `agent/<agentId>`; never in model
+grounding, a label, a detail line or a user-facing explanation. The `agents` class stays withheld
+from the model. See `runtime/hebun-ap1-plurality-foundation.md`.)* No capability, permission, owner, mandate, instruction, prompt or model
 output travels, because the observation holds no field for any of them: they are **absent, not
 filtered**. Heby gained no agent authority, no lifecycle act and no writer — the projection's whole
 import closure is asserted write-free, and the walker follows `export … from` because

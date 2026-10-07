@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "agents_tenant_name_in_service_uq" ON "agents" USING btree ("tenant_id",lower(normalize("name", NFC) COLLATE "pg_c_utf8")) WHERE "agents"."retired_at" IS NULL AND "agents"."agent_lifecycle_status" IS DISTINCT FROM 'retired';--> statement-breakpoint
+ALTER TABLE "agents" ADD CONSTRAINT "agents_name_visible_chk" CHECK (char_length(btrim("agents"."name")) > 0 AND "agents"."name" !~ '[\x01-\x1F\x7F-\x9F\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]');

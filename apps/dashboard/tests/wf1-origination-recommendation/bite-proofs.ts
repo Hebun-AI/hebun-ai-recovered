@@ -41,8 +41,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "W2 the human goal is rewritten",
     file: AFFORDANCE,
     suite: FIREWALL,
-    find: "originateHebyActionProposalAction({ goal })",
-    replace: "originateHebyActionProposalAction({ goal: goal.trim() })",
+    /* AP-1 re-anchored: the goal now travels through the one `input` the confirmation builds. */
+    find: "const input = chosenAgentId ? { goal, agentId: chosenAgentId } : { goal };",
+    replace: "const input = chosenAgentId ? { goal: goal.trim(), agentId: chosenAgentId } : { goal: goal.trim() };",
     because: "with the human's message exactly as written",
   },
   {
@@ -57,9 +58,10 @@ const MUTATIONS: readonly Mutation[] = [
     label: "W4 the client may claim availability",
     file: ACTION,
     suite: FIREWALL,
-    find: "readAgentOriginationAvailabilityAction(): Promise",
-    replace: "readAgentOriginationAvailabilityAction(claimed?: AgentOriginationAvailability): Promise",
-    because: "the read action takes no input",
+    /* AP-1 re-anchored: the one optional lookup key may not grow a claimed availability beside it. */
+    find: "  input?: { readonly agentId?: string },\n): Promise",
+    replace: "  input?: { readonly agentId?: string },\n  claimed?: AgentOriginationAvailability,\n): Promise",
+    because: "the read action takes only an optional agent lookup key",
   },
   {
     label: "W5 the projection reaches the disclosure audit writer",

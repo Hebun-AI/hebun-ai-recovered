@@ -55,6 +55,8 @@ export const HEBUN_PREPARATION_REFUSAL_WORDING: Record<PreparationRefusal, strin
   "no-durable-agent-identity": `Your organization has no durable agent that could author this. ${NOT_ASKED}`,
   "durable-agent-identity-retired": `Your organization's durable agent is retired. ${NOT_ASKED}`,
   "ambiguous-durable-agent-identity": `More than one durable agent is in service, so no single author can be named. ${NOT_ASKED}`,
+  "selected-agent-unresolvable": `The chosen agent is not one of your organization's agents. ${NOT_ASKED}`,
+  "selected-agent-retired": `The chosen agent is retired. ${NOT_ASKED}`,
   "agent-identity-authority-unavailable": `The agent identity authority could not be read. ${NOT_ASKED}`,
   "model-connectivity-disabled": `Claude is switched off by the Director's provider control. ${NOT_ASKED}`,
   "invalid-input": `The request is incomplete — see the problems listed. ${NOT_ASKED}`,

@@ -50,11 +50,13 @@ export const AGENT_CAPABILITY_LADDER = [
 ] as const;
 
 /**
- * The columns `createDurableAgentIdentity` actually writes. Six, and the human sees all six before
+ * The columns `createDurableAgentIdentity` actually writes. Seven since AP-1 (the id is now minted
+ * before the write so the registration decision can name it), and the human sees all of them before
  * confirming. This list is asserted against the writer's own `.values({...})`, so it cannot drift
  * into a promise the database does not keep.
  */
 export const PERSISTED_IDENTITY_FIELDS = [
+  { column: "id", meaning: "Minted by Hebun before the write, so the Governance decision can name this identity. Never chosen by you." },
   { column: "tenant_id", meaning: "The organization this identity belongs to — from your session." },
   { column: "name", meaning: "The name you type, stored exactly as given. Never trimmed or repaired." },
   { column: "human_owner_type", meaning: "The literal 'human'. This authority owns no other kind." },
@@ -79,20 +81,22 @@ export const WITHHELD_IDENTITY_FIELDS = [
 ] as const;
 
 /**
- * The one-way door, stated in the words the surface uses.
+ * The registration ceremony, stated in the words the surface uses (AP-1).
  *
- * `genesisIsOneShot` and `retirementDoesNotReopen` are the same invariant seen from two sides, and
- * both are enforced by arithmetic rather than by this text: the creation authority counts rows for
- * the tenant with no lifecycle and no soft-delete predicate, and the retirement authority writes no
- * DELETE.
+ * Each sentence is enforced by something other than this text: `registrationIsGoverned` by the
+ * Governance resolver and the `agent-registration` decision written in the creation transaction;
+ * `nameIsUniqueInService` by `agents_tenant_name_in_service_uq`; the retirement sentences by the
+ * retirement authority writing no DELETE and no reinstatement existing.
  */
 export const GENESIS_DISCLOSURE = {
-  genesisIsOneShot:
-    "Your organization may establish a durable agent identity ONCE. After this, the creation ceremony refuses.",
+  registrationIsGoverned:
+    "Each durable agent identity is registered by its own Governance decision. Only your organization's Governance authority can register one, and the reason you give is recorded with the decision.",
+  nameIsUniqueInService:
+    "No two identities in service may share a name. Names are compared ignoring letter case and Unicode composition: \"Heby\" and \"heby\" are the same name. Turkish dotted and dotless I are not folded: \"IŞIK\" and \"Işık\" are different names.",
   retirementIsNotDeletion:
     "Retiring an identity withdraws it from service. The row, the name, the ownership and the creation record all survive.",
-  retirementDoesNotReopen:
-    "A retired identity still counts. Your organization does not return to 'no agent has ever existed', and the creation ceremony stays closed.",
+  retirementFreesOnlyTheName:
+    "A retired identity still exists and still counts. Its name may later be registered again, but only as a new identity with its own decision; the retired identity never returns to service.",
   noSuccession:
     "No successor is created and no replacement is recorded. Succession is a separate decision that has not been authorized.",
   retirementIsTerminal:
@@ -109,12 +113,11 @@ export const GENESIS_DISCLOSURE = {
     "The new identity will be readable through Hebun's canonical agent identity and actor read path, and will be listed on this page. Being readable is not being able to act.",
   /*
    * THE NAME IS PERMANENT BECAUSE NO AUTHORITY EXISTS TO CHANGE IT — not because a rule forbids it.
-   * `features/agent-identity` exports no rename, no update and no replacement, and `agents` gains
-   * no successor pointer at creation. A typo survives retirement, because retirement does not
-   * reopen the ceremony that would let it be typed again.
+   * `features/agent-identity` exports no rename, no update and no replacement. Since AP-1 a mistake
+   * can be worked around only by retiring and registering a DIFFERENT identity under a new decision.
    */
   noRenameOrReplacement:
-    "No rename authority and no replacement authority exists in the released system. The name you type is the name this identity keeps, and a mistake cannot be corrected by retiring it and starting over.",
+    "No rename authority and no replacement authority exists in the released system. The name you type is the name this identity keeps. A mistake can only be followed by retiring it and registering a new, different identity — never by renaming this one.",
 } as const;
 
 /**
