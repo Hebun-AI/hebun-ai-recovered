@@ -97,9 +97,13 @@ import {
   AGENT_MANDATE_SUBJECT_TYPE,
 } from "@/features/agent-mandate/contracts";
 import {
+  AGENT_LIFECYCLE_DOMAIN,
+  AGENT_LIFECYCLE_SUBJECT_TYPE,
   AGENT_REGISTRATION_DOMAIN,
   AGENT_REGISTRATION_OUTCOME,
   AGENT_REGISTRATION_SUBJECT_TYPE,
+  AGENT_RETIRED_OUTCOME,
+  AGENT_RETIREMENT_DECISION_TYPE,
 } from "@/features/agent-identity/contracts";
 import {
   resolveGovernanceDbOrNull,
@@ -223,6 +227,8 @@ export async function writeGovernanceDecisionWithin(
       | typeof AGENT_MANDATE_SUBJECT_TYPE
       /* AP-1 — one durable agent identity coming into existence. */
       | typeof AGENT_REGISTRATION_SUBJECT_TYPE
+      /* L-1b — one durable agent withdrawn from service (retirement). */
+      | typeof AGENT_LIFECYCLE_SUBJECT_TYPE
       | typeof ARTIFACT_REVIEW_SUBJECT_TYPE
       | typeof STANDING_OBSERVATION_SUBJECT_TYPE
       | typeof TENANT_MACHINE_EXECUTION_SUBJECT_TYPE
@@ -249,6 +255,15 @@ export async function writeGovernanceDecisionWithin(
    * I1: admitting a human is NOT moving authority, so it gets its own domain rather than borrowing
    * that one. Ordinary subjects keep their own mapping.
    */
+  /*
+   * L-1b — the agent-lifecycle subject admits exactly one decision type today: `revoke`, a
+   * retirement. Anything else (a future suspend or reactivate) has no outcome yet, so it is refused
+   * here rather than filed under a word that does not describe it.
+   */
+  if (input.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE && input.decisionType !== AGENT_RETIREMENT_DECISION_TYPE) {
+    throw new Error("agent-lifecycle-decision-type-unsupported");
+  }
+
   const domain =
     input.subjectType === MEMBERSHIP_AUTHORIZATION_SUBJECT_TYPE
       ? MEMBERSHIP_AUTHORIZATION_DOMAIN
@@ -375,6 +390,12 @@ export async function writeGovernanceDecisionWithin(
                    */
                   input.subjectType === AGENT_REGISTRATION_SUBJECT_TYPE
                 ? AGENT_REGISTRATION_DOMAIN
+                : /*
+                   * L-1b — an existing agent withdrawn from service. Its own domain: registration's
+                   * decisions mean "came into existence" and must keep meaning only that.
+                   */
+                  input.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE
+                ? AGENT_LIFECYCLE_DOMAIN
                 : input.subjectType === "user" || input.subjectType === "governance_decision"
                   ? ("authority-delegation" as const)
                   : SUBJECT_GOVERNANCE_DOMAIN[input.subjectType];
@@ -407,7 +428,13 @@ export async function writeGovernanceDecisionWithin(
      * was revoked, and `reject` would fall through to "rejected" — a word a reader would take as a
      * judgement on the statement's truth. None of them is what was decided.
      */
-    input.subjectType === PUBLIC_USE_SUBJECT_TYPE ? (input.decisionType === "approve" ? PUBLIC_USE_OUTCOME.allow : input.decisionType === "revoke" ? PUBLIC_USE_OUTCOME.revoke : PUBLIC_USE_OUTCOME.deny)
+    /*
+     * L-1b IS CHECKED ON ITS SUBJECT, FIRST, FOR THE SAME REASON. A retirement records `revoke`, and
+     * the generic branch would file it as "Governance authority was revoked" — retiring an agent
+     * takes nobody's authority away.
+     */
+    input.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE ? AGENT_RETIRED_OUTCOME
+      : input.subjectType === PUBLIC_USE_SUBJECT_TYPE ? (input.decisionType === "approve" ? PUBLIC_USE_OUTCOME.allow : input.decisionType === "revoke" ? PUBLIC_USE_OUTCOME.revoke : PUBLIC_USE_OUTCOME.deny)
       : input.subjectType === STANDING_MUTATION_SUBJECT_TYPE
       ? input.decisionType === STANDING_MUTATION_WITHDRAW_DECISION_TYPE
         ? STANDING_MUTATION_WITHDRAWN_OUTCOME

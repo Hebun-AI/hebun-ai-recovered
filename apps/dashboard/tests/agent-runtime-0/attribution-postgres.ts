@@ -478,7 +478,7 @@ async function main(): Promise<void> {
      * transition is observed as a real change of behaviour rather than as a separate fixture.
      * ═════════════════════════════════════════════════════════════════════ */
     {
-      const retired = await retireDurableAgentIdentity(acmeCtx, { agentId: acmeAgentId }, dbDeps);
+      const retired = await retireDurableAgentIdentity(acmeCtx, { agentId: acmeAgentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, dbDeps);
       assert.equal(retired.status, "retired");
 
       /* The identity still EXISTS — retirement is not deletion, and genesis stays spent. */

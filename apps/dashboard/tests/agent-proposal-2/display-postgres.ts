@@ -283,7 +283,7 @@ async function main(): Promise<void> {
      * 4. RETIREMENT DOES NOT ERASE PAST AUTHORSHIP.
      * ═════════════════════════════════════════════════════════════════════ */
     {
-      const retired = await retireDurableAgentIdentity(acmeCtx, { agentId }, dbDeps);
+      const retired = await retireDurableAgentIdentity(acmeCtx, { agentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, dbDeps);
       assert.equal(retired.status, "retired");
 
       const read = await readPendingActionRequests(acmeCtx, dbDeps);

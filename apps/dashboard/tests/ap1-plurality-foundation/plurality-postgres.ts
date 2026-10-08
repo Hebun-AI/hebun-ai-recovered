@@ -227,7 +227,7 @@ async function main(): Promise<void> {
       assert.equal(sameAgent.status, "filed", "the same agent's lineage still works");
 
       /* ── 2b. A RETIRED SELECTION ─────────────────────────────────────────── */
-      assert.equal((await retireDurableAgentIdentity(A, { agentId: atlas }, deps)).status, "retired");
+      assert.equal((await retireDurableAgentIdentity(A, { agentId: atlas, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, deps)).status, "retired");
       assert.deepEqual(
         await resolveAgentProposer(A, deps, { agentId: atlas }),
         { status: "refused", reason: "selected-agent-retired" },

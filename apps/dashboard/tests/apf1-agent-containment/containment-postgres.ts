@@ -371,7 +371,7 @@ async function main(): Promise<void> {
       "Acme's agent read under Globex's tenant has no mandate — it fails closed, it does not cross",
     );
     assert.deepEqual(
-      await retireDurableAgentIdentity(globexCtx, { agentId }, deps),
+      await retireDurableAgentIdentity(globexCtx, { agentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, deps),
       { status: "refused", reason: "agent-identity-not-found" },
       "another organization's human cannot even locate Acme's agent",
     );
@@ -392,7 +392,7 @@ async function main(): Promise<void> {
       )
     ).rows[0]!.id;
     assert.deepEqual(
-      await retireDurableAgentIdentity(globexCtx, { agentId: legacyAgent }, deps),
+      await retireDurableAgentIdentity(globexCtx, { agentId: legacyAgent, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, deps),
       { status: "refused", reason: "no-governance-authority" },
       "(13) owning an agent is no longer enough to retire it: Governance authority is also required",
     );
@@ -441,11 +441,11 @@ async function main(): Promise<void> {
     const retirePermit = await issued(await propose("Agent retired after issuance"));
     const retireRequest = await propose("Issued after the agent is retired");
     assert.deepEqual(
-      await retireDurableAgentIdentity(outsiderCtx, { agentId }, deps),
+      await retireDurableAgentIdentity(outsiderCtx, { agentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, deps),
       { status: "refused", reason: "not-the-human-owner" },
       "(13) a member without ownership or Governance cannot retire it",
     );
-    const retired = await retireDurableAgentIdentity(ctx, { agentId }, deps);
+    const retired = await retireDurableAgentIdentity(ctx, { agentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, deps);
     assert.equal(retired.status, "retired", "(12) the Governance-authorized owner retires it");
     await deliveryRefused(retirePermit, "agent-not-in-service:not-in-service", "retiring after issuance stops delivery");
     await issueRefused(retireRequest, "agent-not-in-service", "a retired agent gets no permits");

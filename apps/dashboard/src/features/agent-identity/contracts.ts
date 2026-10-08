@@ -51,6 +51,22 @@ export const AGENT_REGISTRATION_DOMAIN = "agent-registration" as const;
 export const AGENT_REGISTRATION_OUTCOME = "agent-registered" as const;
 
 /**
+ * L-1b — RETIREMENT IS A GOVERNANCE DECISION TOO, IN ITS OWN DOMAIN.
+ *
+ * Registration's domain records an agent coming into existence and nothing else, so a retirement is
+ * filed under `agent-lifecycle`. Its subject type is its own (`agent-lifecycle`, subject id = the
+ * agent's id) because the decision authority routes domain and outcome by subject, and the `agent`
+ * subject must keep meaning "registered". The decision type is `revoke`; the outcome is mapped on the
+ * subject FIRST, so it can never be recorded as the generic "Governance authority was revoked" —
+ * retiring an agent takes nobody's authority away. Every authority reader that interprets `revoke`
+ * filters on `subject_type = 'governance_decision'`, so this subject is invisible to them.
+ */
+export const AGENT_LIFECYCLE_SUBJECT_TYPE = "agent-lifecycle" as const;
+export const AGENT_RETIREMENT_DECISION_TYPE = "revoke" as const;
+export const AGENT_LIFECYCLE_DOMAIN = "agent-lifecycle" as const;
+export const AGENT_RETIRED_OUTCOME = "agent-retired" as const;
+
+/**
  * What the authority returns on success. Deliberately narrow: the caller learns the identity's id,
  * its tenant, its name, and who owns it. No lifecycle, no health, no capability, no posture —
  * because none of those were written.

@@ -88,9 +88,14 @@ export async function createDurableAgentIdentityAction(input: {
  */
 export async function retireDurableAgentIdentityAction(input: {
   agentId: string;
+  /* L-1b — retirement is a Governance decision; the writer refuses a missing or blank reason. */
+  justification: string;
 }): Promise<RetireDurableAgentIdentityResult> {
   const tenant = await resolveTenantContext();
-  const result = await retireDurableAgentIdentity(tenant, { agentId: input?.agentId });
+  const result = await retireDurableAgentIdentity(tenant, {
+    agentId: input?.agentId,
+    justification: input?.justification,
+  });
   if (result.status === "retired") revalidatePath("/agents");
   return result;
 }

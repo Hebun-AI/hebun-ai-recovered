@@ -831,7 +831,7 @@ async function main(): Promise<void> {
     /* ── 14. A RETIRED DURABLE AGENT STOPS GENERATION BEFORE ANYTHING IS WRITTEN ─ */
     {
       transport.behaviour = { kind: "bytes", bytes: pngBytes(10, 10) };
-      const retiredAgent = await retireDurableAgentIdentity(aliceCtx, { agentId }, { getDb } as never);
+      const retiredAgent = await retireDurableAgentIdentity(aliceCtx, { agentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, { getDb } as never);
       assert.equal(retiredAgent.status, "retired");
       await refusedInPreflight("retired durable agent", () => requestMediaGeneration(aliceCtx, ask(), deps()), "no-durable-agent");
     }

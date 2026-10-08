@@ -220,7 +220,7 @@ async function main(): Promise<void> {
 
     /* ── (4) RETIRED — through the released retirement authority ── */
     const daraRequest = await propose("Dara");
-    const retired = await retireDurableAgentIdentity(ctx, { agentId: agentIds.Dara! }, deps);
+    const retired = await retireDurableAgentIdentity(ctx, { agentId: agentIds.Dara!, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, deps);
     assert.equal(retired.status, "retired", JSON.stringify(retired));
     assert.equal(await servingOf(agentIds.Dara!), false);
     assert.equal(await readDurableAgentRuntimeLiveness(acme.tenantId, agentIds.Dara!, deps), "not-in-service");
@@ -267,7 +267,7 @@ async function main(): Promise<void> {
     await blocker.query("begin");
     await blocker.query(`select id from agents where id = $1 for share`, [agentIds.Ada!]);
     let retireSettled = false;
-    const pendingRetire = retireDurableAgentIdentity(ctx, { agentId: agentIds.Ada! }, deps).then((r) => {
+    const pendingRetire = retireDurableAgentIdentity(ctx, { agentId: agentIds.Ada!, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, deps).then((r) => {
       retireSettled = true;
       return r;
     });

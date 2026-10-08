@@ -635,7 +635,7 @@ async function main(): Promise<void> {
         reason: "A different draft, so only the agent's lifecycle can refuse this.",
       });
 
-      const retired = await retireDurableAgentIdentity(acmeCtx, { agentId }, dbDeps);
+      const retired = await retireDurableAgentIdentity(acmeCtx, { agentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, dbDeps);
       assert.equal(retired.status, "retired");
 
       const result = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps(freshEnvelope));

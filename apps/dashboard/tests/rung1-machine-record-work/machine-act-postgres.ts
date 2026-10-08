@@ -403,7 +403,7 @@ async function main(): Promise<void> {
         (
           await retireDurableAgentIdentity(
             acmeCtx,
-            { agentId },
+            { agentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." },
             deps,
           )
         ).status,

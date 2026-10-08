@@ -182,7 +182,7 @@ function main(): void {
   );
   assert.ok(
     !/\.insert\(/.test(retire),
-    "retirement inserts nothing — no successor row, no audit row it has no contract for",
+    "retirement inserts nothing itself — no successor row; since L-1b its decision and audit rows are written only through the Governance decision and audit authorities",
   );
 
   /*
@@ -297,6 +297,14 @@ function main(): void {
       if (entry === CREATE_AUTHORITY && forbidden === "src/features/governance-decision/decision-authority.server.ts") {
         continue;
       }
+      /*
+       * L-1b — retirement is now a Governance decision too (`agent-lifecycle`), written through the
+       * one decision authority in the retirement's own transaction. It still grants no credential,
+       * permit or execution: the other forbidden modules stay forbidden.
+       */
+      if (entry === RETIRE_AUTHORITY && forbidden === "src/features/governance-decision/decision-authority.server.ts") {
+        continue;
+      }
       assert.ok(
         !reach.has(forbidden),
         `${entry} must not reach ${forbidden} — retiring or creating an identity grants no ` +
@@ -366,9 +374,11 @@ function main(): void {
       new Set([
         "src/features/agent-mandate/establish-agent-mandate.server.ts",
         "src/features/agent-identity/create-durable-agent-identity.server.ts",
+        /* L-1b — retiring an identity is a Governance act too, in the retirement writer's own transaction. */
+        "src/features/agent-identity/retire-durable-agent-identity.server.ts",
       ]),
     ).has(GOVERNANCE_DECISION),
-    "and it reaches it ONLY through the mandate and (AP-1) registration authorities — no direct Governance door was opened",
+    "and it reaches it ONLY through the mandate, (AP-1) registration and (L-1b) retirement authorities — no direct Governance door was opened",
   );
   assert.ok(
     reachableFrom("src/app/(dashboard)/knowledge/actions.ts").has(
@@ -465,7 +475,8 @@ function main(): void {
   assert.ok(
     /* AP-1: the registration also carries the human's reason for the Governance decision. */
     /createDurableAgentIdentity\(tenant, \{\s*name: input\?\.name,\s*justification: input\?\.justification,\s*\}\);/.test(actions) &&
-      /retireDurableAgentIdentity\(tenant, \{ agentId: input\?\.agentId \}\);/.test(actions),
+      /* L-1b: so does the retirement. */
+      /retireDurableAgentIdentity\(tenant, \{\s*agentId: input\?\.agentId,\s*justification: input\?\.justification,\s*\}\);/.test(actions),
     "both actions call their authority with two arguments — no deps object crosses the boundary",
   );
 
@@ -476,8 +487,9 @@ function main(): void {
   );
   assert.ok(retireSignature.length > 0, "the retirement signature was located");
   assert.ok(
-    /input:\s*\{\s*readonly agentId: unknown\s*\}/.test(retireSignature),
-    "the only caller-supplied field is the identity reference — there is no tenant, actor or clock parameter",
+    /* L-1b: plus the human's reason, which becomes the Governance decision's justification. */
+    /input:\s*\{\s*readonly agentId: unknown;\s*readonly justification\?: unknown\s*\}/.test(retireSignature),
+    "the only caller-supplied fields are the identity reference and the reason — there is no tenant, actor or clock parameter",
   );
   assert.ok(
     retire.includes("tenant.tenantId") && retire.includes("tenant.userId"),

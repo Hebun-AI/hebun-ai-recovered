@@ -154,6 +154,18 @@ async function main(): Promise<void> {
         const { rows } = await probe.query(`select count(*)::int as total from ${table}`);
         return rows[0].total as number;
       };
+      /*
+       * L-1b — retirements inside this window now record their own `agent-lifecycle` decision and
+       * session. Those belong to retirement, not placement, so the "placement grants nothing" census
+       * excludes exactly that subject and nothing else.
+       */
+      const countNotRetirement = async (table: string): Promise<number> => {
+        if (table !== "decision_records" && table !== "governance_sessions") return countOf(table);
+        const { rows } = await probe.query(
+          `select count(*)::int as total from ${table} where subject_type <> 'agent-lifecycle'`,
+        );
+        return rows[0].total as number;
+      };
       const placementAudits = async (): Promise<number> => {
         const { rows } = await probe.query(
           `select count(*)::int as total from audit_log where action like 'organization.agent-placement.%'`,
@@ -177,7 +189,7 @@ async function main(): Promise<void> {
         throw new Error("no backend ever waited on a lock — the interleaving was not forced");
       };
       const untouchedBefore: Record<string, number> = {};
-      for (const table of MUST_STAY_UNTOUCHED) untouchedBefore[table] = await countOf(table);
+      for (const table of MUST_STAY_UNTOUCHED) untouchedBefore[table] = await countNotRetirement(table);
       /* AG6 is read UNPLACED here and PLACED at the end (race 5). */
       const proposerBefore = await resolveAgentProposer(A, { getDb: () => handle.db }, { agentId: AG6 });
       const mandateBefore = await readEffectiveAgentMandate(A, AG6, { getDb: () => handle.db });
@@ -316,7 +328,7 @@ async function main(): Promise<void> {
       assert.equal((await rowOf(AG2)).department_id, null);
 
       /* ── T5 / T8 retired agent: placement preserved, historical, frozen ──── */
-      assert.equal((await retireDurableAgentIdentity(A, { agentId: AG1 }, { getDb: () => handle.db })).status, "retired");
+      assert.equal((await retireDurableAgentIdentity(A, { agentId: AG1, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, { getDb: () => handle.db })).status, "retired");
       assert.equal((await rowOf(AG1)).department_id, DEPT_A1, "T8: retirement preserves the column");
       const read8 = await readAgentPlacements(A, { getDb: () => handle.db });
       assert.ok(read8.status === "available");
@@ -385,7 +397,7 @@ async function main(): Promise<void> {
         const entered = deferred();
         const retiring = retireDurableAgentIdentity(
           A,
-          { agentId: AG4 },
+          { agentId: AG4, justification: "Retiring this agent for the test organization (L-1b requires a reason)." },
           { getDb: () => handle.db, afterRead: async () => { entered.resolve(); await held.promise; } },
         );
         await entered.promise;
@@ -411,7 +423,7 @@ async function main(): Promise<void> {
           { ...deps, afterLock: async () => { entered.resolve(); await held.promise; } },
         );
         await entered.promise;
-        const retiring = retireDurableAgentIdentity(A, { agentId: AG5 }, { getDb: () => handle.db });
+        const retiring = retireDurableAgentIdentity(A, { agentId: AG5, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, { getDb: () => handle.db });
         try {
           await waitForLockWaiters(1);
         } finally {
@@ -453,7 +465,7 @@ async function main(): Promise<void> {
 
       /* ── PLACEMENT GRANTS NOTHING ─────────────────────────────────────────── */
       for (const table of MUST_STAY_UNTOUCHED) {
-        assert.equal(await countOf(table), untouchedBefore[table], `${table} untouched by placement`);
+        assert.equal(await countNotRetirement(table), untouchedBefore[table], `${table} untouched by placement`);
       }
       assert.deepEqual(
         await resolveAgentProposer(A, { getDb: () => handle.db }, { agentId: AG6 }),

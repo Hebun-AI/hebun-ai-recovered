@@ -250,7 +250,7 @@ async function main(): Promise<void> {
     assert.equal(await reasonOf(), "external-ai-not-authorized");
 
     /* 4c · Agent retired. Refused before anything. */
-    assert.equal((await retireDurableAgentIdentity(ctx, { agentId }, deps)).status, "retired");
+    assert.equal((await retireDurableAgentIdentity(ctx, { agentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, deps)).status, "retired");
     const afterRetire = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps());
     assert.deepEqual(afterRetire, { status: "refused", reason: "durable-agent-identity-retired" });
     assert.equal(await reasonOf(), "agent-retired");

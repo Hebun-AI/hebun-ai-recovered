@@ -184,21 +184,21 @@ async function main(): Promise<void> {
 
       /* ── 1. REFUSALS COME FIRST, AND NOTHING IS WRITTEN ───────────────────── */
       assert.deepEqual(
-        await retireDurableAgentIdentity(null, { agentId: AGENT_A }, retireDeps),
+        await retireDurableAgentIdentity(null, { agentId: AGENT_A, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, retireDeps),
         { status: "refused", reason: "no-authorized-tenant-context" },
         "without a server-resolved context there is no human on whose authority to retire",
       );
 
       for (const bad of ["", "not-a-uuid", `${AGENT_A} `, 7, null, undefined, {}]) {
         assert.deepEqual(
-          await retireDurableAgentIdentity(A, { agentId: bad }, retireDeps),
+          await retireDurableAgentIdentity(A, { agentId: bad, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, retireDeps),
           { status: "refused", reason: "malformed-agent-id" },
           `a malformed identifier is refused rather than coerced: ${JSON.stringify(bad)}`,
         );
       }
 
       assert.deepEqual(
-        await retireDurableAgentIdentity(A, { agentId: ABSENT_AGENT }, retireDeps),
+        await retireDurableAgentIdentity(A, { agentId: ABSENT_AGENT, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, retireDeps),
         { status: "refused", reason: "agent-identity-not-found" },
         "an identifier naming no row is refused",
       );
@@ -207,7 +207,7 @@ async function main(): Promise<void> {
        * THE CROSS-TENANT REFUSAL IS THE SAME REFUSAL, BYTE FOR BYTE. A distinct reason would turn
        * this authority into an oracle for which identity uuids exist in other organizations.
        */
-      const crossTenant = await retireDurableAgentIdentity(A, { agentId: AGENT_B }, retireDeps);
+      const crossTenant = await retireDurableAgentIdentity(A, { agentId: AGENT_B, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, retireDeps);
       assert.deepEqual(
         crossTenant,
         { status: "refused", reason: "agent-identity-not-found" },
@@ -215,7 +215,7 @@ async function main(): Promise<void> {
       );
 
       assert.deepEqual(
-        await retireDurableAgentIdentity(A_OTHER, { agentId: AGENT_A }, retireDeps),
+        await retireDurableAgentIdentity(A_OTHER, { agentId: AGENT_A, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, retireDeps),
         { status: "refused", reason: "not-the-human-owner" },
         "a different human in the SAME organization may not retire an identity they do not own",
       );
@@ -232,7 +232,7 @@ async function main(): Promise<void> {
       );
 
       /* ── 2. THE OWNER RETIRES THE IDENTITY ────────────────────────────────── */
-      const retired = await retireDurableAgentIdentity(A, { agentId: AGENT_A }, retireDeps);
+      const retired = await retireDurableAgentIdentity(A, { agentId: AGENT_A, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, retireDeps);
       assert.equal(retired.status, "retired", "the human owner may retire their own identity");
       if (retired.status !== "retired") throw new Error("unreachable");
       assert.deepEqual(
@@ -304,7 +304,7 @@ async function main(): Promise<void> {
 
       /* ── 6. RETIREMENT IS TERMINAL ────────────────────────────────────────── */
       assert.deepEqual(
-        await retireDurableAgentIdentity(A, { agentId: AGENT_A }, retireDeps),
+        await retireDurableAgentIdentity(A, { agentId: AGENT_A, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, retireDeps),
         { status: "refused", reason: "agent-identity-already-retired" },
         "a retired identity cannot be retired again — terminal states are not re-enterable",
       );
@@ -361,7 +361,7 @@ async function main(): Promise<void> {
         Array.from({ length: RACERS }, () =>
           retireDurableAgentIdentity(
             B,
-            { agentId: AGENT_B },
+            { agentId: AGENT_B, justification: "Retiring this agent for the test organization (L-1b requires a reason)." },
             { ...retireDeps, afterRead: barrier },
           ),
         ),
@@ -389,13 +389,28 @@ async function main(): Promise<void> {
           await countOf(table),
           /*
            * APF-1: the two seeded Governance bootstraps. AP-1: plus the two REGISTRATION decisions
-           * (Atlas, Borea) and their two audit rows — written at creation, above. Retirement adds none.
+           * (Atlas, Borea) and their two audit rows — written at creation, above. L-1b: plus exactly
+           * ONE `agent-lifecycle` decision and ONE audit row per committed retirement (Atlas, Borea).
+           * Refused and raced attempts add none.
            */
-          table === "decision_records" ? 4 : table === "audit_log" ? 2 : 0,
-          `\`${table}\` is still empty — retiring an identity issues no credential, opens no ` +
-            `session, grants no permit, assigns no role and records no governance decision`,
+          table === "decision_records" ? 6 : table === "audit_log" ? 4 : 0,
+          `\`${table}\` — retiring an identity issues no credential, opens no session, grants no ` +
+            `permit and assigns no role; its only records are its own decision and audit event`,
         );
       }
+      assert.equal(
+        Number(
+          (
+            await probe.query(
+              `select count(*)::int n from decision_records d join governance_sessions s on s.id = d.session_id
+                where d.subject_type = 'agent-lifecycle' and d.decision_type = 'revoke'
+                  and d.outcome = 'agent-retired' and s.governance_domain = 'agent-lifecycle'`,
+            )
+          ).rows[0].n,
+        ),
+        2,
+        "L-1b: each committed retirement is one agent-lifecycle decision (revoke → agent-retired)",
+      );
 
       /* ── 9. THE READ REPORTS THE TRUTH, INCLUDING THAT AN IDENTITY ONCE EXISTED ─ */
       const stateA = await readDurableAgentIdentityState(A, { getDb: () => handle.db });

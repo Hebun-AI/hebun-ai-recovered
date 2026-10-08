@@ -175,7 +175,7 @@ async function main(): Promise<void> {
     const p2 = await agentPermit();
     const pMachine = await agentPermit();
     const pHuman = await humanPermit();
-    const retired = await retireDurableAgentIdentity(acme.ctx, { agentId: acme.agentId }, deps);
+    const retired = await retireDurableAgentIdentity(acme.ctx, { agentId: acme.agentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, deps);
     assert.equal(retired.status, "retired", JSON.stringify(retired));
     await refusedCleanly(p2, "agent-not-in-service", "agent retired");
 

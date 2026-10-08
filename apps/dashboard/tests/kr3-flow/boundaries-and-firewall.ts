@@ -146,6 +146,8 @@ function main(): void {
       "20261007064348_ap1_agent_name_in_service_uniqueness.sql",
       /* AP-4A — work domains, mandate responsibility and work-scope provenance (additive). A declared later phase. */
       "20261007175237_ap4a_work_domain_foundation.sql",
+      /* L-1b — governance_domain gains 'agent-lifecycle' (additive). A declared later phase. */
+      "20261008143657_l1b_agent_lifecycle_domain.sql",
       ],
       "KR3 added no migration; everything after its boundary belongs to a declared later phase",
     );

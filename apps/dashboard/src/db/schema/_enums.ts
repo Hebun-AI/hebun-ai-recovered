@@ -1048,6 +1048,16 @@ export const governanceDomainEnum = pgEnum("governance_domain", [
    * other: a data-use decision authorizes no act. Additive: no existing row changes meaning.
    */
   "external-ai-data-use",
+  /**
+   * L-1b — Governance withdrawing one durable agent from service: its lifecycle, not its existence.
+   *
+   * Its own domain. `agent-registration` is the neighbour that matters: its decisions record an agent
+   * COMING INTO EXISTENCE, and its comment says nothing else ever maps there. A retirement names an
+   * agent that already exists and says it no longer serves. `agent-mandate` bounds what an agent may
+   * propose, and `authority-delegation` moves Governance authority — a retirement does neither.
+   * Additive: no existing row changes meaning.
+   */
+  "agent-lifecycle",
 ]);
 export const governanceDecisionTypeEnum = pgEnum("governance_decision_type", [
   "approve",

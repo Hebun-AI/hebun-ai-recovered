@@ -661,7 +661,7 @@ async function main(): Promise<void> {
 
       const retired = await retireDurableAgentIdentity(
         globexCtx,
-        { agentId: globexAgentId },
+        { agentId: globexAgentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." },
         baseDeps,
       );
       assert.equal(retired.status, "retired");

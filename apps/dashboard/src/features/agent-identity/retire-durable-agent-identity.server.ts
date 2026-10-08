@@ -9,6 +9,15 @@
  * update, no rename, no reinstate, no suspend, no delete, no successor. Those verbs are absent
  * rather than guarded, which is the stronger claim.
  *
+ * ── L-1b: A RETIREMENT IS A GOVERNANCE DECISION ──────────────────────────────
+ *
+ * Since L-1b the transition, one `agent-lifecycle` Governance decision (`revoke` → `agent-retired`,
+ * subject = the agent) and one `governance.decision.recorded` audit event are written in ONE
+ * transaction, exactly as registration writes its decision, row and event together. "Retired but
+ * undecided", "decided but still serving" and "retired but unaudited" are unrepresentable: any
+ * failure after the UPDATE aborts the transaction and the row is left in service. A justification is
+ * required, because every Governance decision needs a reason a human can review.
+ *
  * ── WHAT RETIREMENT MEANS HERE, EXACTLY ──────────────────────────────────────
  *
  * Four columns move, and only four:
@@ -54,7 +63,11 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { agents } from "@/db/schema/agent";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { recordGovernanceEventWithin } from "@/features/governance-audit/governance-decision-audit.server";
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
+import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
+import { validateJustification } from "@/features/governance-decision/persistence.server";
+import { AGENT_LIFECYCLE_SUBJECT_TYPE, AGENT_RETIREMENT_DECISION_TYPE } from "./contracts";
 import {
   isDurableAgentIdentityId,
   RETIRED_AGENT_LIFECYCLE_STATUS,
@@ -107,7 +120,7 @@ function resolveDbOrNull(deps: AgentRetirementDeps): ControlPlaneDatabase | null
  */
 export async function retireDurableAgentIdentity(
   tenant: TenantContext | null,
-  input: { readonly agentId: unknown },
+  input: { readonly agentId: unknown; readonly justification?: unknown },
   deps: AgentRetirementDeps = {},
 ): Promise<RetireDurableAgentIdentityResult> {
   assertServerOnly();
@@ -123,6 +136,11 @@ export async function retireDurableAgentIdentity(
   }
   const agentId = input.agentId;
 
+  /* 2b · L-1b — A GOVERNANCE DECISION NEEDS A REASON. Checked before anything is read or locked. */
+  const justification = validateJustification(
+    typeof input.justification === "string" ? input.justification : "",
+  );
+  if (!justification) return { status: "refused", reason: "justification-required" };
 
   const db = resolveDbOrNull(deps);
   if (!db) return { status: "refused", reason: "authority-unavailable" };
@@ -245,6 +263,48 @@ export async function retireDurableAgentIdentity(
       return { status: "refused" as const, reason: "agent-identity-already-retired" as const };
     }
 
+    /*
+     * 7 · L-1b — THE DECISION AND ITS AUDIT EVENT, IN THIS TRANSACTION. Written after the guarded
+     * UPDATE so a refused or lost retirement records nothing; a throw from either aborts the UPDATE
+     * too. The authority is the one resolved in step 4b.
+     */
+    const decision = await writeGovernanceDecisionWithin(
+      tx as unknown as ControlPlaneDatabase,
+      tenant,
+      authority,
+      {
+        decisionType: AGENT_RETIREMENT_DECISION_TYPE,
+        subjectType: AGENT_LIFECYCLE_SUBJECT_TYPE,
+        subjectId: row.id,
+        justification,
+        evidence: { agentId: row.id, name: row.name, retiredAt: now.toISOString() },
+      },
+      now,
+    );
+
+    await recordGovernanceEventWithin(
+      tx,
+      {
+        tenantId: tenant.tenantId,
+        userId: tenant.userId,
+        requestId: tenant.requestId,
+        sessionContextId: tenant.sessionContextId,
+      },
+      {
+        action: "governance.decision.recorded",
+        outcome: "committed",
+        entityId: decision.decisionId,
+        metadata: {
+          governanceSessionId: decision.sessionId,
+          decisionType: AGENT_RETIREMENT_DECISION_TYPE,
+          subjectType: AGENT_LIFECYCLE_SUBJECT_TYPE,
+          subjectId: row.id,
+          bootstrap: false,
+        },
+      },
+      now,
+    );
+
     return {
       status: "retired" as const,
       retirement: {
@@ -254,6 +314,8 @@ export async function retireDurableAgentIdentity(
         retiredAt: now.toISOString(),
         retiredByType: "human" as const,
         retiredById: tenant.userId,
+        governanceDecisionId: decision.decisionId,
+        governanceSessionId: decision.sessionId,
       },
     };
   });

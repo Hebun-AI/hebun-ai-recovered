@@ -582,7 +582,7 @@ async function main(): Promise<void> {
     {
       const retired = await retireDurableAgentIdentity(
         acmeCtx,
-        { agentId: acmeAgentId },
+        { agentId: acmeAgentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." },
         writeDeps,
       );
       assert.equal(retired.status, "retired");

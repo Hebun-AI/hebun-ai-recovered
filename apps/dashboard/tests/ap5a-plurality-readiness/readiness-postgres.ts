@@ -343,7 +343,7 @@ async function main(): Promise<void> {
     }
 
     /* M6 — a retired named agent cannot be named for new work; the other path is intact. */
-    assert.equal((await retireDurableAgentIdentity(media.ctx, { agentId: mediaAtlas }, dbDeps)).status, "retired");
+    assert.equal((await retireDurableAgentIdentity(media.ctx, { agentId: mediaAtlas, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, dbDeps)).status, "retired");
     const retiredSync = await requestMediaGeneration(media.ctx, { ...ask(media.draft, 2), agentId: mediaAtlas }, mediaDeps);
     assert.equal(retiredSync.status === "refused" && retiredSync.reason, "selected-agent-retired", "M6 sync: retired");
     const retiredAsync = await registerAsyncMediaGeneration(media.ctx, { ...ask(media.draft, 2), agentId: mediaAtlas }, asyncDeps);
@@ -353,7 +353,7 @@ async function main(): Promise<void> {
     assert.equal(await agentOfRequest(back.requestKey), mediaHeby, "M6: and records Heby, as before");
 
     /* P5 — a retired selection on preparation, after the media section retired nothing in Acme. */
-    assert.equal((await retireDurableAgentIdentity(acme.ctx, { agentId: atlas }, dbDeps)).status, "retired");
+    assert.equal((await retireDurableAgentIdentity(acme.ctx, { agentId: atlas, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, dbDeps)).status, "retired");
     const retiredPrep = await prepareWorkArtifact({ ...draft, agentId: atlas }, prepDeps);
     assert.equal(retiredPrep.status === "refused" && retiredPrep.reason, "selected-agent-retired", "P5: retired");
 

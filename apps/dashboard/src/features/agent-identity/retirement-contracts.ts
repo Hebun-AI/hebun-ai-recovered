@@ -45,7 +45,9 @@ export type AgentRetirementRefusal =
   /** This organization has no Governance authority at all, or it could not be resolved (APF-1). */
   | "no-governance-authority"
   /** Governance exists and the acting human does not hold it (APF-1). */
-  | "not-the-governance-authority";
+  | "not-the-governance-authority"
+  /** L-1b — retirement is a Governance decision, and a decision with no stated reason is refused. */
+  | "justification-required";
 
 /**
  * What the authority returns on success. The retired identity still has a name and an owner, because
@@ -60,6 +62,9 @@ export interface RetiredAgentIdentity {
   /** Always the literal "human". No other actor type can reach this authority. */
   readonly retiredByType: "human";
   readonly retiredById: string;
+  /** L-1b — the `agent-lifecycle` decision and session written in the same transaction. */
+  readonly governanceDecisionId: string;
+  readonly governanceSessionId: string;
 }
 
 export type RetireDurableAgentIdentityResult =

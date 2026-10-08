@@ -278,7 +278,7 @@ async function main(): Promise<void> {
     /* EXTERNAL-AI-DATA-USE-1A: ledger 70 -> 71 (inert external-AI data-use authority; additive). */
     /* SCI-2A: ledger 71 -> 72 (knowledge_nodes version-immutability triggers; no schema shape change). */
     /* SCI-2B: ledger 72 -> 73 (knowledge_nodes.integrity_protected_at_insert + stamp trigger). */
-    assert.equal(migrations.length, 75, "ledger 74 since AP-1"); /* AP-4A: ledger 74 -> 75 (work_domains + agent_mandate_responsibilities + work_items work-scope provenance + agent_mandates (tenant_id, id) unique; additive). */ /* AP-1: ledger 73 -> 74 (agents in-service canonical-name unique index + visible-name CHECK). */
+    assert.equal(migrations.length, 76, "ledger 74 since AP-1"); /* L-1b: ledger 75 -> 76 (governance_domain gains 'agent-lifecycle'; additive). */ /* AP-4A: ledger 74 -> 75 (work_domains + agent_mandate_responsibilities + work_items work-scope provenance + agent_mandates (tenant_id, id) unique; additive). */ /* AP-1: ledger 73 -> 74 (agents in-service canonical-name unique index + visible-name CHECK). */
     const touched = execSync("git diff --name-only 4059a176 -- src/db", { cwd: ROOT, encoding: "utf8" })
       .trim()
       .split("\n")

@@ -648,7 +648,7 @@ async function main(): Promise<void> {
     {
       assert.equal(
         (
-          await retireDurableAgentIdentity(globexCtx, { agentId: globexAgentId }, baseDeps)
+          await retireDurableAgentIdentity(globexCtx, { agentId: globexAgentId, justification: "Retiring this agent for the test organization (L-1b requires a reason)." }, baseDeps)
         ).status,
         "retired",
       );

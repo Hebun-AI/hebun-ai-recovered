@@ -113,6 +113,8 @@ const RETIRE_REFUSAL_TEXT: Record<AgentRetirementRefusal, string> = {
     "This organization has no Governance authority yet, or it could not be read. Retiring its agent needs one. Nothing was changed.",
   "not-the-governance-authority":
     "Retiring this agent needs this organization's Governance authority as well as ownership, and you do not hold it. Nothing was changed.",
+  "justification-required":
+    "Retiring an agent is a Governance decision, and every decision needs a reason. Nothing was changed.",
 };
 
 function Ladder() {
@@ -143,6 +145,7 @@ export function DurableAgentIdentityCard({
   const [justification, setJustification] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [retiring, setRetiring] = useState<string | null>(null);
+  const [retireJustification, setRetireJustification] = useState("");
   const [refusal, setRefusal] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
 
@@ -186,9 +189,10 @@ export function DurableAgentIdentityCard({
   function retire(agentId: string) {
     setRefusal(null);
     startTransition(async () => {
-      const result = await retireDurableAgentIdentityAction({ agentId });
+      const result = await retireDurableAgentIdentityAction({ agentId, justification: retireJustification });
       if (result.status === "retired") {
         setRetiring(null);
+        setRetireJustification("");
         setOutcome(
           `${result.retirement.name} was withdrawn from service. Nothing was deleted, and it will never return to service.`,
         );
@@ -273,11 +277,28 @@ export function DurableAgentIdentityCard({
                           <li>{GENESIS_DISCLOSURE.retirementIsTerminal}</li>
                           <li>{GENESIS_DISCLOSURE.noSuccession}</li>
                         </ul>
+                        <label
+                          htmlFor={`${ids}-retire-justification`}
+                          className="text-xs font-medium uppercase tracking-wider text-fg-muted"
+                        >
+                          Why retire it (recorded with the Governance decision)
+                        </label>
+                        <textarea
+                          id={`${ids}-retire-justification`}
+                          className={FIELD_STYLE}
+                          rows={2}
+                          value={retireJustification}
+                          disabled={pending}
+                          onChange={(event) => {
+                            setRetireJustification(event.target.value);
+                            setRefusal(null);
+                          }}
+                        />
                         <div className="flex flex-wrap gap-2">
                           <Button
                             variant="danger"
                             size="sm"
-                            disabled={pending}
+                            disabled={pending || retireJustification.trim().length === 0}
                             onClick={() => retire(identity.agentId)}
                           >
                             <ShieldOff className="size-4" />
@@ -287,7 +308,10 @@ export function DurableAgentIdentityCard({
                             variant="ghost"
                             size="sm"
                             disabled={pending}
-                            onClick={() => setRetiring(null)}
+                            onClick={() => {
+                              setRetiring(null);
+                              setRetireJustification("");
+                            }}
                           >
                             Cancel
                           </Button>
