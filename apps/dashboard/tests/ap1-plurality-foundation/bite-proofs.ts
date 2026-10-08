@@ -97,8 +97,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "B1 media generation reports two agents as none",
     file: MEDIA,
     suite: PG_SUITE,
-    find: 'authorship.reason === "ambiguous-durable-agent-identity" ? "ambiguous-durable-agent" : "no-durable-agent",',
-    replace: '"no-durable-agent",',
+    /* AP-5A re-anchored: the mapping now also names a refused selection; collapsing ambiguity is the same defect. */
+    find: 'authorship.reason === "ambiguous-durable-agent-identity"\n        ? "ambiguous-durable-agent"\n',
+    replace: 'authorship.reason === "ambiguous-durable-agent-identity"\n        ? "no-durable-agent"\n',
     because: "B1: two agents in service is NOT 'no durable agent'",
   },
   {

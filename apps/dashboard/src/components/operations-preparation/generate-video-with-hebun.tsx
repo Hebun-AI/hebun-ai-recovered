@@ -6,6 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MEDIA_ASSET_LIMITS } from "@/features/media-assets/contracts";
 import type { GenerationTarget } from "./generate-image-with-hebun";
+import {
+  AgentChoiceSelect,
+  agentChoiceRequired,
+  agentSelectionFor,
+  type AgentOption,
+} from "@/components/agents/agent-choice-select";
 
 /*
  * VIDEO CONTENT CHAIN — the human door to ONE text-to-video request.
@@ -34,7 +40,9 @@ const REFUSAL_WORDING: Record<Refusal, string> = {
   "generation-transport-unavailable": `Video generation is not available: no provider is configured, or its connectivity is not enabled by the Director. ${NOT_SENT}`,
   "persistence-unavailable": `The database could not be reached. ${NOT_SENT}`,
   "no-durable-agent": `Your organization has no durable agent that could author this. ${NOT_SENT}`,
-  "ambiguous-durable-agent": `More than one durable agent is in service and this screen does not choose one, so no agent was named as author. ${NOT_SENT}`,
+  "ambiguous-durable-agent": `More than one durable agent is in service and none was chosen, so no agent was named for this video. Choose the agent above. ${NOT_SENT}`,
+  "selected-agent-unresolvable": `The chosen agent is not one of your organization's agents. ${NOT_SENT}`,
+  "selected-agent-retired": `The chosen agent has been retired and cannot be named for new work. ${NOT_SENT}`,
   "source-revision-unresolvable": `That content draft revision could not be resolved in your organization. ${NOT_SENT}`,
   "duplicate-request": "This exact request was already submitted. It was not sent again, and you were not charged twice.",
   "invocation-not-found": `The attempt could not be found. ${NOT_SENT}`,
@@ -76,8 +84,11 @@ const LABEL = "block text-xs font-medium text-fg-secondary";
 export function GenerateVideoWithHebun({
   targets,
   sourceImages = [],
+  agents = [],
 }: {
   readonly targets: readonly GenerationTarget[];
+  /** AP-5A — the in-service agents, from the identity read. A choice is asked only when there are several. */
+  readonly agents?: readonly AgentOption[];
   /** IMAGE → VIDEO: admitted images, offered per draft. Picking one sends only its id. */
   readonly sourceImages?: readonly VideoSourceImage[];
 }) {
@@ -86,13 +97,15 @@ export function GenerateVideoWithHebun({
   const [revisionNo, setRevisionNo] = useState("");
   const [promptText, setPromptText] = useState("");
   const [sourceAssetId, setSourceAssetId] = useState("");
+  const [agentId, setAgentId] = useState("");
   const [result, setResult] = useState<RequestResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   const selected = targets.find((t) => t.artifactId === artifactId);
   const draftImages = sourceImages.filter((i) => i.sourceArtifactId === artifactId);
   const trimmed = promptText.trim();
-  const ready = Boolean(artifactId) && Boolean(revisionNo) && trimmed.length > 0;
+  const ready =
+    Boolean(artifactId) && Boolean(revisionNo) && trimmed.length > 0 && (!agentChoiceRequired(agents) || agentId !== "");
   /* One form, one request: once anything was registered, this form is spent. */
   const spent = result !== null && result.status !== "refused";
 
@@ -106,6 +119,7 @@ export function GenerateVideoWithHebun({
           promptText: trimmed,
           requestKey,
           sourceAssetId: sourceAssetId || null,
+          ...agentSelectionFor(agents, agentId),
         }),
       );
     });
@@ -193,6 +207,8 @@ export function GenerateVideoWithHebun({
           </p>
         ) : null}
       </div>
+
+      <AgentChoiceSelect id="video-agent" value={agentId} onChange={setAgentId} agents={agents} disabled={pending || spent} />
 
       <div className="min-w-0 space-y-1.5">
         <label htmlFor="video-prompt" className={LABEL}>

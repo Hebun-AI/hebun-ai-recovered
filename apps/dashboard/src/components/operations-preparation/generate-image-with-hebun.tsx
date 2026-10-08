@@ -6,6 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MEDIA_ASSET_LIMITS } from "@/features/media-assets/contracts";
+import {
+  AgentChoiceSelect,
+  agentChoiceRequired,
+  agentSelectionFor,
+  type AgentOption,
+} from "@/components/agents/agent-choice-select";
 import type {
   MediaAdmissionFailure,
   MediaAdmissionRefusal,
@@ -63,7 +69,9 @@ const REFUSAL_WORDING: Record<MediaGenerationRefusal, string> = {
   "generation-transport-unavailable": `Image generation is not available: it is unconfigured, misconfigured, or the Director control is off. ${NOT_DISPATCHED}`,
   "persistence-unavailable": `The database could not be reached. ${NOT_DISPATCHED}`,
   "no-durable-agent": `Your organization has no durable agent that could author this. ${NOT_DISPATCHED}`,
-  "ambiguous-durable-agent": `More than one durable agent is in service and this screen does not choose one, so no agent was named as author. ${NOT_DISPATCHED}`,
+  "ambiguous-durable-agent": `More than one durable agent is in service and none was chosen, so no agent was named for this image. Choose the agent above. ${NOT_DISPATCHED}`,
+  "selected-agent-unresolvable": `The chosen agent is not one of your organization's agents. ${NOT_DISPATCHED}`,
+  "selected-agent-retired": `The chosen agent has been retired and cannot be named for new work. ${NOT_DISPATCHED}`,
   "source-revision-unresolvable": `That content draft revision could not be resolved in your organization. ${NOT_DISPATCHED}`,
   "duplicate-request": "This exact request was already submitted. It was not sent again, and you were not charged twice.",
   /* MEDIA-5 — all four are preflight, so none of them reached a provider or cost anything. */
@@ -122,18 +130,27 @@ function formatBytes(bytes: number): string {
     : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function GenerateImageWithHebun({ targets }: { readonly targets: readonly GenerationTarget[] }) {
+export function GenerateImageWithHebun({
+  targets,
+  agents = [],
+}: {
+  readonly targets: readonly GenerationTarget[];
+  /** AP-5A — the in-service agents, from the identity read. A choice is asked only when there are several. */
+  readonly agents?: readonly AgentOption[];
+}) {
   /* One key per mounted form: the same submission can never become two paid calls. */
   const requestKey = useMemo(() => crypto.randomUUID(), []);
   const [artifactId, setArtifactId] = useState("");
   const [revisionNo, setRevisionNo] = useState("");
   const [promptText, setPromptText] = useState("");
+  const [agentId, setAgentId] = useState("");
   const [result, setResult] = useState<RequestMediaGenerationResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   const selected = targets.find((t) => t.artifactId === artifactId);
   const trimmed = promptText.trim();
-  const ready = Boolean(artifactId) && Boolean(revisionNo) && trimmed.length > 0;
+  const ready =
+    Boolean(artifactId) && Boolean(revisionNo) && trimmed.length > 0 && (!agentChoiceRequired(agents) || agentId !== "");
 
   function submit() {
     if (!ready || pending) return;
@@ -145,6 +162,7 @@ export function GenerateImageWithHebun({ targets }: { readonly targets: readonly
           revisionNo: Number(revisionNo),
           promptText: trimmed,
           requestKey,
+          ...agentSelectionFor(agents, agentId),
         }),
       );
     });
@@ -225,6 +243,13 @@ export function GenerateImageWithHebun({ targets }: { readonly targets: readonly
                   ? `This draft is at revision ${selected.currentRevision}. The image records the exact revision you name.`
                   : "Choose a draft to name its revision."}
               </p>
+              <AgentChoiceSelect
+                id="media-agent"
+                value={agentId}
+                onChange={setAgentId}
+                agents={agents}
+                disabled={pending}
+              />
             </fieldset>
 
             <div className="min-w-0 space-y-1.5">

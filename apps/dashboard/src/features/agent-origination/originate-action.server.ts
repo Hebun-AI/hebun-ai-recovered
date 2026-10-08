@@ -134,9 +134,18 @@ type DataClass = NonNullable<NonNullable<Parameters<typeof generateHebyModelAnsw
  * The two numeric bounds are INTERPOLATED FROM THE RELEASED CONSTANTS, never retyped. A literal
  * here would be a second copy of a number the parser owns, and the first change to either would
  * leave the model told one bound and held to another with nothing failing to say so.
+ *
+ * ── AP-5A: THE PERSONA NAMES NO AGENT ───────────────────────────────────────
+ *
+ * The first line said "You are Heby" for EVERY agent: the record was filed under the agent the human
+ * chose, but the model was told it was Agent #1. An agent's name is tenant data and SCI-1 forbids it
+ * in the instruction channel, so the line names nobody instead — one repository-authored constant
+ * for every agent. Who proposed is never the model's claim: it is the proposer the server resolved,
+ * and the model's words carry no identity. This is the one deliberate change to the block AP-1 kept
+ * byte-identical (Director gate G1, 2026-10-08).
  */
 const ORIGINATION_INSTRUCTION_LINES: readonly string[] = [
-  "You are Heby, a durable organizational agent inside the Hebun runtime.",
+  "You are a durable organizational agent inside the Hebun runtime.",
   "A human has given you a GOAL. You may propose ONE action for a human to review, or none.",
   "You never approve, authorize, execute, send, or decide anything: a human does that afterwards.",
   "Reply with ONE JSON object and nothing else. No prose before it, no prose after it.",

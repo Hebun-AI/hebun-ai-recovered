@@ -87,8 +87,8 @@ const MUTATIONS: readonly Mutation[] = [
     label: "P2 the durable-agent refusal is removed from preflight",
     file: REQUEST,
     suite: PG_SUITE,
-    /* AP-1 re-anchored: the refusal now distinguishes ambiguity (B1); removing the whole guard is the same defect. */
-    edits: [{ find: '  if (authorship.status !== "resolved") {\n    return refused(\n      authorship.reason === "ambiguous-durable-agent-identity" ? "ambiguous-durable-agent" : "no-durable-agent",\n    );\n  }\n', replace: "" }],
+    /* AP-1 re-anchored: the refusal now distinguishes ambiguity (B1); AP-5A adds the named-agent refusals. Removing the whole guard is the same defect. */
+    edits: [{ find: '  if (authorship.status !== "resolved") {\n    return refused(\n      authorship.reason === "ambiguous-durable-agent-identity"\n        ? "ambiguous-durable-agent"\n        : authorship.reason === "selected-agent-unresolvable" || authorship.reason === "selected-agent-retired"\n          ? authorship.reason\n          : "no-durable-agent",\n    );\n  }\n', replace: "" }],
     because: "no durable agent",
   },
   {

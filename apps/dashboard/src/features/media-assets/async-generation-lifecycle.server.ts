@@ -102,6 +102,9 @@ export type AsyncGenerationRefusal =
    * from "no-durable-agent": telling an organization that has agents that it has none is false.
    */
   | "ambiguous-durable-agent"
+  /** AP-5A — the NAMED agent is not this tenant's (foreign and unknown alike), or it is retired. */
+  | "selected-agent-unresolvable"
+  | "selected-agent-retired"
   | "source-revision-unresolvable"
   | "duplicate-request"
   | "invocation-not-found"
@@ -134,6 +137,12 @@ export interface RegisterAsyncGenerationInput {
    * `source_media_asset_id`. Absent: text-to-video, byte-identical to before.
    */
   readonly sourceAssetId?: string | null;
+  /**
+   * AP-5A — the in-service agent the human NAMES for this attempt, when several are in service. A
+   * lookup key resolved through `resolveAgentAuthorship`; the row records the agent that read
+   * returned (MEDIA-1's "named agent", not the source revision's author). Absent: exactly as before.
+   */
+  readonly agentId?: string | null;
 }
 
 export type RegisterAsyncGenerationResult =
@@ -210,7 +219,9 @@ export async function registerAsyncMediaGeneration(
     input.revisionNo < 1 ||
     typeof input.promptText !== "string" ||
     input.promptText.trim().length === 0 ||
-    countCodePoints(input.promptText) > MEDIA_ASSET_LIMITS.maxPromptCodePoints
+    countCodePoints(input.promptText) > MEDIA_ASSET_LIMITS.maxPromptCodePoints ||
+    /* AP-5A: a named agent is a uuid lookup key; absent names nobody. */
+    !(input.agentId === undefined || input.agentId === null || isUuid(input.agentId))
   ) {
     return refused("invalid-input");
   }
@@ -260,10 +271,15 @@ export async function registerAsyncMediaGeneration(
     if (!isExternalGenerativeUseCleared(dataUse)) return refused("source-data-use-not-cleared");
   }
 
-  const authorship = await resolveAgentAuthorship(tenant, { getDb: () => db });
+  /* AP-5A — the NAMED agent (G2-A), resolved by the same authorship seam; never the revision's author. */
+  const authorship = await resolveAgentAuthorship(tenant, { getDb: () => db }, { agentId: input.agentId });
   if (authorship.status !== "resolved") {
     return refused(
-      authorship.reason === "ambiguous-durable-agent-identity" ? "ambiguous-durable-agent" : "no-durable-agent",
+      authorship.reason === "ambiguous-durable-agent-identity"
+        ? "ambiguous-durable-agent"
+        : authorship.reason === "selected-agent-unresolvable" || authorship.reason === "selected-agent-retired"
+          ? authorship.reason
+          : "no-durable-agent",
     );
   }
 

@@ -38,6 +38,7 @@ import {
   listActiveRecipientsAction,
   listRetiredRecipientsAction,
   listWorkArtifactsAction,
+  listInServiceAgentsAction,
   readArtifactWorkPurposeAction,
   readCurrentRevisionReviewStatesAction,
 } from "@/app/(dashboard)/operations/actions";
@@ -49,6 +50,7 @@ import { SupplyVideoFromDrive } from "./supply-video-from-drive";
 import { DraftVideos, type DraftVideo, type DraftVideoGeneration } from "./revision-media-videos";
 import { GenerateVideoWithHebun } from "./generate-video-with-hebun";
 import { RevisionMediaAssets } from "./revision-media-assets";
+import type { AgentOption } from "@/components/agents/agent-choice-select";
 import { ContentPackagePanel } from "./content-package-panel";
 import { HebyMediaPrefill } from "./heby-media-prefill";
 import type { MediaPrefill } from "@/features/content-composition/media-prefill";
@@ -64,12 +66,19 @@ export async function OperationsPreparation() {
    * folding the inverse into that reader would close an import cycle and make the artifact
    * authority a participant in a relationship it does not own.
    */
-  const [active, retired, artifacts, workPurpose] = await Promise.all([
+  const [active, retired, artifacts, workPurpose, inServiceAgents] = await Promise.all([
     listActiveRecipientsAction(),
     listRetiredRecipientsAction(),
     listWorkArtifactsAction(),
     readArtifactWorkPurposeAction(),
+    /*
+     * AP-5A — who may be NAMED for Hebun's preparation and generation, read from the Agent Identity
+     * Authority's own seam. Unreadable offers no choice (and the seams then answer by their own
+     * single-agent rule); it is a display list, never a permission.
+     */
+    listInServiceAgentsAction(),
   ]);
+  const agents = inServiceAgents ?? [];
 
   /*
    * CGO-8. The Governance review state of each row's CURRENT revision, read once for the whole
@@ -249,7 +258,7 @@ export async function OperationsPreparation() {
         addresses it could eventually be sent to sit beside it rather than above it.
       */}
       <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <PreparedWorkSection listing={artifacts} workPurpose={workPurpose} reviewStates={reviewStates} />
+        <PreparedWorkSection listing={artifacts} workPurpose={workPurpose} reviewStates={reviewStates} agents={agents} />
         <RecipientsSection active={active} retired={retired} />
       </div>
 
@@ -271,6 +280,7 @@ export async function OperationsPreparation() {
         publicationMeasurements={publicationMeasurements}
         mediaPrefills={mediaPrefills}
         mediaNextSteps={mediaNextSteps}
+        agents={agents}
       />
 
       {/*
@@ -285,7 +295,7 @@ export async function OperationsPreparation() {
           + Generate an image with Hebun
         </summary>
         <div className="border-t border-border px-3 pb-3 pt-3">
-          <GenerateImageWithHebun targets={drafts} />
+          <GenerateImageWithHebun targets={drafts} agents={agents} />
         </div>
       </details>
       {/* MEDIA-SUPPLIED — a photograph the organization already has, admitted from its own Drive. */}
@@ -308,6 +318,7 @@ export async function OperationsPreparation() {
         <div className="border-t border-border px-3 pb-3 pt-3">
           <GenerateVideoWithHebun
             targets={drafts}
+            agents={agents}
             sourceImages={
               mediaListing.status === "read"
                 ? mediaListing.assets
@@ -370,7 +381,10 @@ function MediaAssetsForDrafts({
   publicationMeasurements,
   mediaPrefills,
   mediaNextSteps,
+  agents,
 }: {
+  /** AP-5A — the in-service agents a reference edit may be named for. */
+  readonly agents: readonly AgentOption[];
   readonly drafts: readonly {
     readonly artifactId: string;
     readonly title: string;
@@ -488,6 +502,7 @@ function MediaAssetsForDrafts({
                 assets={current}
                 reviewStates={reviewStates}
                 selectionTarget={{ artifactId: draft.artifactId, revisionNo: draft.currentRevision }}
+                agents={agents}
               />
             ) : (
               <p className="text-xs text-fg-muted">No images have been generated for this revision.</p>
@@ -533,6 +548,7 @@ function MediaAssetsForDrafts({
                     assets={assets}
                     reviewStates={reviewStates}
                     selectionTarget={{ artifactId: draft.artifactId, revisionNo: draft.currentRevision }}
+                    agents={agents}
                   />
                 </div>
               ))}

@@ -32,6 +32,16 @@ prompt (the `ORIGINATION_INSTRUCTION_LINES` block is byte-identical between `c3b
 deployed `4d5d509b`; AP-1 only adds the selection argument in that file), mandate vocabulary,
 EAI, providers, department, suspend/succession, spend cap, operations-surface selection.
 
+> **Revised by AP-5A (Director gate G1, 2026-10-08).** The byte-identity above was a statement about
+> AP-1, not a standing invariant, and AP-5A deliberately changes exactly one line of the block: the
+> first, `"You are Heby, a durable organizational agent inside the Hebun runtime."`, becomes
+> `"You are a durable organizational agent inside the Hebun runtime."`. It told every selected agent
+> it was Agent #1. An agent's name is tenant data, so SCI-1 keeps it out of the instruction channel;
+> the line names no agent, the proposer stays the server-resolved one, and the model's words carry no
+> identity. Every other line, both Knowledge-mode variants' additions, the mint census and the E2-5
+> rule (no agent id model-facing) are unchanged. AP-5A also adds the operations-surface selection
+> listed above as unchanged here.
+
 ## The name invariant
 
 Canonical key = NFC, then simple Unicode lower-case under the builtin `pg_c_utf8` collation

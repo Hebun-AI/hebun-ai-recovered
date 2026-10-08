@@ -165,6 +165,12 @@ export type MediaGenerationRefusal =
    * from "no-durable-agent": telling an organization that has agents that it has none is false.
    */
   | "ambiguous-durable-agent"
+  /**
+   * AP-5A — the agent the human NAMED is not one of this tenant's agents (foreign and unknown are
+   * indistinguishable), or it has been retired. Distinct from both above: an agent was named.
+   */
+  | "selected-agent-unresolvable"
+  | "selected-agent-retired"
   | "source-revision-unresolvable"
   /** The request key was already used in this tenant. The earlier attempt is not repeated. */
   | "duplicate-request"
@@ -215,12 +221,21 @@ export type RequestMediaGenerationResult =
       readonly height: number;
     };
 
-/** What a caller supplies. Tenant, requester, agent, transport identity and timestamps are absent BY TYPE. */
+/**
+ * What a caller supplies. Tenant, requester, transport identity and timestamps are absent BY TYPE.
+ *
+ * AP-5A — the AGENT may be NAMED, never asserted. `agentId` is a lookup key the authority resolves
+ * through `resolveAgentAuthorship` against THIS tenant's identity read (in service, same tenant), and
+ * the invocation records the agent that read returned. It keeps MEDIA-1's meaning — the durable agent
+ * named for this attempt — and is not the source revision's author. Omitted: the single in-service
+ * agent, exactly as before; with several in service, an omitted one is refused as ambiguous.
+ */
 export interface RequestMediaGenerationInput {
   readonly artifactId: string;
   readonly revisionNo: number;
   readonly promptText: string;
   readonly requestKey: string;
+  readonly agentId?: string | null;
   /**
    * MEDIA-5 — the admitted image to edit, named BY ASSET ID and by nothing else.
    *

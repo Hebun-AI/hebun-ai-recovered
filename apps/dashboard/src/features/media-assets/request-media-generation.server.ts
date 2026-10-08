@@ -9,7 +9,8 @@
  *   3. storage is connected                             storage-unavailable
  *   4. a generation transport exists                    generation-transport-unavailable
  *   5. the control-plane database is reachable          persistence-unavailable
- *   6. exactly one in-service durable agent             no-durable-agent / ambiguous-durable-agent
+ *   6. the named in-service agent, or exactly one       no-durable-agent / ambiguous-durable-agent /
+ *      (AP-5A: a named id is resolved, never trusted)   selected-agent-unresolvable / -retired
  *   7. the source is THIS tenant's content-draft,
  *      still a draft, at exactly that revision          source-revision-unresolvable
  *
@@ -138,7 +139,10 @@ function validInput(input: RequestMediaGenerationInput | null): input is Request
   if (countCodePoints(input.promptText) > MEDIA_ASSET_LIMITS.maxPromptCodePoints) return false;
   /* MEDIA-5: present-and-unusable is invalid input; absent is text-to-image and always fine. */
   const asset = input.sourceAssetId;
-  return asset === undefined || asset === null || isUuid(asset);
+  if (!(asset === undefined || asset === null || isUuid(asset))) return false;
+  /* AP-5A: a named agent is a uuid lookup key; absent names nobody and the single-agent rule answers. */
+  const agent = input.agentId;
+  return agent === undefined || agent === null || isUuid(agent);
 }
 
 /** The multipart filename for a reference image. DERIVED — never a caller string, never a path. */
@@ -180,10 +184,18 @@ export async function requestMediaGeneration(
   if (!db) return refused("persistence-unavailable");
   const now = deps.now ?? (() => new Date());
 
-  const authorship = await resolveAgentAuthorship(tenant, { getDb: () => db });
+  /*
+   * AP-5A — the agent NAMED for this attempt (G2-A): the human's lookup key, resolved by the same
+   * authorship seam against this tenant. MEDIA-1's meaning is kept — this is not the revision's author.
+   */
+  const authorship = await resolveAgentAuthorship(tenant, { getDb: () => db }, { agentId: input.agentId });
   if (authorship.status !== "resolved") {
     return refused(
-      authorship.reason === "ambiguous-durable-agent-identity" ? "ambiguous-durable-agent" : "no-durable-agent",
+      authorship.reason === "ambiguous-durable-agent-identity"
+        ? "ambiguous-durable-agent"
+        : authorship.reason === "selected-agent-unresolvable" || authorship.reason === "selected-agent-retired"
+          ? authorship.reason
+          : "no-durable-agent",
     );
   }
 

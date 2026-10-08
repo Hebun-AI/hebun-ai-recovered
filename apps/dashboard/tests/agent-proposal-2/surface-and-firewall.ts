@@ -92,6 +92,27 @@ function theBrowserSuppliesOnlyAGoal(): void {
 
   /* And the panel has no control that could produce one. */
   const panel = codeOf(read(PANEL));
+  /*
+   * AP-5A — WHICH AGENT is the human's to name once several are in service (AP-1 made the id a
+   * LOOKUP KEY the origination seam verifies). It may reach the action by exactly one road: the
+   * shared chooser over the in-service list the PAGE read, through `agentSelectionFor`, which sends
+   * nothing for a single agent. Everything else on this list stays the agent's job.
+   */
+  assert.equal(
+    panel.split("agentSelectionFor(agentOptions, agentId)").length - 1,
+    1,
+    "the agent lookup key reaches the action only through the shared chooser, once",
+  );
+  assert.ok(
+    /<AgentChoiceSelect id="heby-agent" value=\{agentId\} onChange=\{setAgentId\} agents=\{agentOptions\} \/>/.test(panel),
+    "and the only agent control is the shared chooser over the page's in-service list",
+  );
+  const withoutChooser = panel
+    .replaceAll("agentSelectionFor(agentOptions, agentId)", "")
+    .replace(/<AgentChoiceSelect[^>]*\/>/, "")
+    .replace(/const \[agentId, setAgentId\] = useState\(""\);/, "")
+    .replace(/agentNameFor\(agentOptions, agentId\)/, "")
+    .replace(/agentId !== ""/, "");
   for (const forbidden of [
     "agentId",
     "actorType",
@@ -105,7 +126,7 @@ function theBrowserSuppliesOnlyAGoal(): void {
     "listWorkArtifacts",
   ]) {
     assert.ok(
-      !panel.includes(forbidden),
+      !withoutChooser.includes(forbidden),
       `the panel must offer no way to choose "${forbidden}" — that is the agent's job, not the browser's`,
     );
   }
@@ -323,7 +344,10 @@ function noSurfaceProliferation(): void {
 
   /* The panel is mounted inside the EXISTING slot on the EXISTING route. */
   const page = codeOf(read(PAGE));
-  assert.ok(page.includes("<AgentProposalRequest workScopeChoices={workScopeChoices} />"), "the panel is mounted on /approvals (AP-4B: with the work scopes a human may choose)");
+  assert.ok(
+    page.includes("<AgentProposalRequest workScopeChoices={workScopeChoices} agentOptions={agentOptions} />"),
+    "the panel is mounted on /approvals (AP-4B: with the work scopes a human may choose; AP-5A: and the in-service agents)",
+  );
   /*
    * APPROVALS-DASHBOARD made `ApprovalsDashboard` the ONE pending-queue surface on this route. The
    * invariant is unchanged and is now checked where the queue actually lives: the page hands the
@@ -387,7 +411,8 @@ function theCapabilityDidNotWiden(): void {
    */
   const panel = read(PANEL);
   assert.ok(
-    panel.includes("Choose the agent from the proposal option under your message in Heby"),
+    /* AP-5A: the choice now lives on THIS panel too, so the sentence points to it. Still never a pick. */
+    panel.includes("Choose the agent above before asking"),
     "the ambiguous-agent case tells the truth about where the choice is made",
   );
   for (const banned of ["agents[0]", "first agent", "identities[0]"]) {

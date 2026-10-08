@@ -367,7 +367,8 @@ async function main(): Promise<void> {
       }
       /* The surface still never offers a supplied image as a generation reference. */
       const card = readFileSync("src/components/operations-preparation/revision-media-assets.tsx", "utf8");
-      assert.match(card, /\{retired \|\| supplied \? null : <UseAsReference asset=\{asset\} \/>\}/);
+      /* AP-5A: the card also hands the reference edit the in-service agents to name; the supplied/retired gate is what is pinned. */
+      assert.match(card, /\{retired \|\| supplied \? null : <UseAsReference asset=\{asset\} agents=\{agents\} \/>\}/);
     }
 
     /* ══ 14. INSTAGRAM: the released direct path does not depend on the package ══ */

@@ -19,6 +19,7 @@ import {
 } from "@/features/content-composition/heby-content-media-source.server";
 import type { ContentSelectionResult } from "@/features/content-composition/select-media.server";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
+import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { readContentPublicationStates } from "@/features/action-authorization/content-publication-state.server";
 import type { ContentPublicationState } from "@/features/action-authorization/content-publication-state";
 import { readPublicationMeasurements } from "@/features/content-publication-measurement/read-publication-measurement.server";
@@ -212,6 +213,20 @@ export async function retireWorkArtifactAction(input: {
 export async function listWorkArtifactsAction(): Promise<WorkArtifactListing> {
   const tenant = await resolveTenantContext();
   return listWorkArtifacts(tenant);
+}
+
+/**
+ * AP-5A — the in-service agents a human may NAME on this surface, read from the Agent Identity
+ * Authority's own seam. A display list for the chooser, never a permission: every seam that acts
+ * re-resolves the named id through `resolveAgentAuthorship`. Unreadable is `null`, never empty —
+ * "no agents" and "could not read the agents" are different truths.
+ */
+export async function listInServiceAgentsAction(): Promise<readonly { agentId: string; name: string }[] | null> {
+  const state = await readDurableAgentIdentityState(await resolveTenantContext());
+  if (state.status !== "known") return null;
+  return state.identities
+    .filter((identity) => identity.inService)
+    .map((identity) => ({ agentId: identity.agentId, name: identity.name }));
 }
 
 /** Every revision of one artifact, oldest first. History in full. */
@@ -675,6 +690,8 @@ export async function requestVideoGenerationAction(input: {
    * name a provider or storage location.
    */
   sourceAssetId?: string | null;
+  /** AP-5A — the in-service agent the human names, when several are in service. A lookup key. */
+  agentId?: string | null;
 }): Promise<RequestAsyncVideoGenerationResult> {
   const tenant = await resolveTenantContext();
   const result = await requestAsyncVideoGeneration(tenant, {
@@ -683,6 +700,7 @@ export async function requestVideoGenerationAction(input: {
     promptText: input?.promptText,
     requestKey: input?.requestKey,
     sourceAssetId: typeof input?.sourceAssetId === "string" ? input.sourceAssetId : null,
+    agentId: input?.agentId ?? null,
   });
   if (result.status !== "refused") revalidatePath("/operations");
   return result;
@@ -738,6 +756,11 @@ export async function prepareWorkArtifactAction(input: {
    * and an open channel from any client straight into the model's brief.
    */
   useOwnContentGrounding?: boolean;
+  /**
+   * AP-5A — the in-service agent the human names as author, when several are in service. Carried
+   * to the preparation seam unchanged; the authorship resolver verifies it, never this action.
+   */
+  agentId?: string;
 }): Promise<PrepareWorkArtifactResult & { grounding?: OwnContentGrounding }> {
   const tenant = await resolveTenantContext();
 

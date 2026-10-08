@@ -32,7 +32,7 @@ import { WorkScopeSelect, workScopeFromChoice, choiceFromWorkScope } from "@/com
 import {
   ALREADY_PENDING_DETAIL,
   PROPOSED_KIND_WORDING,
-  REFUSAL_WORDING,
+  refusalWordingFor,
 } from "@/components/decision-workspace/agent-proposal-request";
 
 /* The released sentence says "below" — true on /approvals, false here — so this surface has its own. */
@@ -49,7 +49,7 @@ const UNAVAILABLE_WORDING: Readonly<Record<OriginationUnavailableReason, string>
   "proposal-scope-unavailable": "The agent's mandate does not admit recording organizational work.",
   "no-work-responsibility":
     "The agent's mandate grants it responsibility for no work scope in service, so it cannot propose work.",
-  "model-unavailable": "Heby's model runtime is not available right now, so the agent cannot be asked.",
+  "model-unavailable": "The model runtime is not available right now, so the agent cannot be asked.",
   "external-ai-not-authorized": "This organization has not authorized the external model use that agent origination needs.",
   "temporarily-unavailable": "Hebun could not confirm the agent's current authority, so it is not offering this right now.",
 };
@@ -60,7 +60,7 @@ type State =
   | { readonly kind: "checked"; readonly availability: AgentOriginationAvailability }
   | { readonly kind: "asking"; readonly agentName: string }
   | { readonly kind: "proposed"; readonly agentName: string; readonly action: AgentOriginableActionKind; readonly reason: string }
-  | { readonly kind: "refused"; readonly reason: OriginationRefusal; readonly detail?: string };
+  | { readonly kind: "refused"; readonly agentName: string; readonly reason: OriginationRefusal; readonly detail?: string };
 
 const TEXT_BUTTON =
   "rounded text-[0.72rem] text-fg-muted transition-colors hover:text-fg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight disabled:opacity-50";
@@ -100,7 +100,7 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
       setState(
         result.status === "proposed"
           ? { kind: "proposed", agentName, action: result.kind, reason: result.reason }
-          : { kind: "refused", reason: result.reason, detail: result.detail },
+          : { kind: "refused", agentName, reason: result.reason, detail: result.detail },
       );
     });
   };
@@ -234,7 +234,7 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
       <div className={PANEL} role="status">
         {state.reason === "proposal-refused" && state.detail === ALREADY_PENDING_DETAIL
           ? ALREADY_PENDING_WORDING
-          : REFUSAL_WORDING[state.reason]}
+          : refusalWordingFor(state.reason, state.agentName)}
         {state.detail && state.detail !== ALREADY_PENDING_DETAIL ? (
           <span className="mt-1 block">Stated reason: {state.detail}</span>
         ) : null}

@@ -154,6 +154,15 @@ export interface PrepareWorkArtifactInput {
    * one. Re-checked against the tenant server-side; a foreign or unknown id is refused.
    */
   readonly artifactId?: string;
+  /**
+   * AP-5A — WHICH in-service agent the human names as the author, when more than one is in service.
+   *
+   * A LOOKUP KEY, never authority: `resolveAgentAuthorship` verifies it against this tenant's own
+   * identity read and refuses a foreign, unknown or retired id. Omitted, the single-agent rule
+   * answers exactly as before — and with several agents in service an omitted one is refused as
+   * ambiguous, so nothing is ever authored by an agent nobody named.
+   */
+  readonly agentId?: string;
 }
 
 export interface PrepareWorkArtifactDeps {
@@ -259,7 +268,7 @@ export async function prepareWorkArtifact(
    * A refusal here stops everything. No valid durable agent means nothing Hebun prepared could be
    * filed truthfully, so Hebun does not invoke the model and does not persist model messages for it.
    */
-  const authorship = await resolveAgentAuthorship(tenant, deps.agentIdentity ?? {});
+  const authorship = await resolveAgentAuthorship(tenant, deps.agentIdentity ?? {}, { agentId: input.agentId });
   if (authorship.status === "refused") {
     return { status: "refused", reason: authorship.reason };
   }

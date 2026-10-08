@@ -195,7 +195,8 @@ export default async function ApprovalsPage() {
             maxActsCeiling={STANDING_MUTATION_MAX_ACTS_CEILING}
             minIntervalCeilingMinutes={STANDING_MUTATION_MIN_INTERVAL_CEILING_MINUTES}
           />
-          <AgentProposalRequest workScopeChoices={workScopeChoices} />
+          {/* AP-5A — the same in-service agent list the envelopes offer; with several, the human names one. */}
+          <AgentProposalRequest workScopeChoices={workScopeChoices} agentOptions={agentOptions} />
           {/*
            * The ledger sits BELOW the queue on purpose: what is still to be decided comes first,
            * and what has already been done is the record beneath it. It offers no control — every

@@ -50,7 +50,8 @@ function thePreflightPrecedesTheModel(): void {
   };
   const order = [
     ["tenant", at("await deps.resolveTenant()")],
-    ["durable-agent authorship", at("await resolveAgentAuthorship(tenant, deps.agentIdentity ?? {})")],
+    /* AP-5A: the authorship read now carries the human's optional selection; its POSITION is what is pinned. */
+    ["durable-agent authorship", at("await resolveAgentAuthorship(tenant, deps.agentIdentity ?? {}, { agentId: input.agentId })")],
     ["Claude provider control", at("(deps.resolveDirectorEnabled ?? resolveClaudeDirectorEnabled)()")],
     ["revision target", at("await listWorkArtifacts(tenant, readDeps)")],
     ["new-artifact input", at("validateWorkArtifactInput(")],
@@ -112,6 +113,8 @@ function theSurfaceAsksOnlyThroughTheReleasedAction(): void {
     [...new Set(imports)].sort(),
     [
       'from "@/app/(dashboard)/operations/actions"',
+      /* AP-5A: the shared agent chooser — a pure client control that reads nothing and imports nothing. */
+      'from "@/components/agents/agent-choice-select"',
       /*
        * CONTENT-GROUND-1: the grounding CONTRACTS only — the closed disposition vocabulary, the
        * sentence shown beside the checkbox, and the result type. The surface imports no reader and
@@ -123,7 +126,7 @@ function theSurfaceAsksOnlyThroughTheReleasedAction(): void {
       'from "@/features/work-artifacts/prepare-work-artifact.server"',
       'from "react"',
     ],
-    "the Hebun controls import the action, the contracts, the seam's TYPES and React — nothing else",
+    "the Hebun controls import the action, the contracts, the seam's TYPES, the agent chooser and React — nothing else",
   );
   assert.ok(
     /import type \{[^}]*\} from "@\/features\/work-artifacts\/prepare-work-artifact\.server"/.test(code),
@@ -136,7 +139,8 @@ function theSurfaceAsksOnlyThroughTheReleasedAction(): void {
   assert.equal((code.match(/artifactType: CONTENT_DRAFT_TYPE/g) ?? []).length, 2, "both controls ask for a content draft");
 
   const section = codeOf(read(SECTION));
-  assert.ok(section.includes("<PrepareDraftWithHebun />"), "the section offers new-draft preparation");
+  /* AP-5A: the control is handed the in-service agents to name; that it is offered is what is pinned. */
+  assert.ok(section.includes("<PrepareDraftWithHebun agents={agents} />"), "the section offers new-draft preparation");
   assert.ok(
     section.includes("!retired && artifact.artifactType === CONTENT_DRAFT_TYPE ? (\n        <PrepareRevisionWithHebun"),
     "a Hebun revision is offered only on a non-retired content draft",

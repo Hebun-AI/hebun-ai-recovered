@@ -8,6 +8,12 @@ import {
 } from "@/features/content-grounding/contracts";
 import { prepareWorkArtifactAction } from "@/app/(dashboard)/operations/actions";
 import {
+  AgentChoiceSelect,
+  agentChoiceRequired,
+  agentSelectionFor,
+  type AgentOption,
+} from "@/components/agents/agent-choice-select";
+import {
   CONTENT_DESTINATION_LABELS,
   CONTENT_DESTINATION_NON_CLAIMS,
   CONTENT_DESTINATIONS,
@@ -99,8 +105,14 @@ function groundingSentence(g: OwnContentGrounding | undefined): string {
 }
 
 /** Prepare a NEW content draft with Hebun. */
-export function PrepareDraftWithHebun() {
+export function PrepareDraftWithHebun({
+  agents = [],
+}: {
+  /** AP-5A — the in-service agents, from the identity read. A choice is asked only when there are several. */
+  readonly agents?: readonly AgentOption[];
+} = {}) {
   const [title, setTitle] = useState("");
+  const [agentId, setAgentId] = useState("");
   const [instruction, setInstruction] = useState("");
   const [intendedDestination, setIntendedDestination] = useState<ContentDestination>("instagram");
   const [problems, setProblems] = useState<readonly WorkArtifactValidationProblem[]>([]);
@@ -122,6 +134,7 @@ export function PrepareDraftWithHebun() {
             artifactType: CONTENT_DRAFT_TYPE,
             intendedDestination,
             title,
+            ...agentSelectionFor(agents, agentId),
           });
           if (result.status === "prepared") {
             setTitle("");
@@ -169,6 +182,7 @@ export function PrepareDraftWithHebun() {
         placeholder="What should Hebun prepare?"
         className="w-full rounded border border-border-subtle bg-surface-1 px-2 py-1.5 text-sm text-fg-primary placeholder:text-fg-muted"
       />
+      <AgentChoiceSelect id="prepare-draft-agent" value={agentId} onChange={setAgentId} agents={agents} disabled={pending} />
       <ul className="space-y-0.5">
         {HEBUN_PREPARATION_NON_CLAIMS.map((claim) => (
           <li key={claim} className="text-xs text-fg-muted">
@@ -178,7 +192,7 @@ export function PrepareDraftWithHebun() {
       </ul>
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || (agentChoiceRequired(agents) && agentId === "")}
         className="rounded border border-border-subtle px-3 py-1.5 text-sm text-fg-secondary transition-colors hover:border-border hover:text-fg-primary disabled:opacity-50"
       >
         {pending ? "Hebun is preparing…" : "Prepare with Hebun"}
@@ -207,12 +221,16 @@ export function PrepareRevisionWithHebun({
   artifactId,
   title,
   onPrepared,
+  agents = [],
 }: {
   readonly artifactId: string;
   readonly title: string;
   readonly onPrepared: (revisionNo: number) => Promise<void>;
+  /** AP-5A — the in-service agents, from the identity read. A choice is asked only when there are several. */
+  readonly agents?: readonly AgentOption[];
 }) {
   const [instruction, setInstruction] = useState("");
+  const [agentId, setAgentId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   /* CONTENT-GROUND-1 — the human's ask. A boolean leaves this component; text never does. */
   const [useOwnContent, setUseOwnContent] = useState(true);
@@ -234,6 +252,7 @@ export function PrepareRevisionWithHebun({
             title,
             artifactId,
             useOwnContentGrounding: useOwnContent,
+            ...agentSelectionFor(agents, agentId),
           });
           if (result.status === "prepared") {
             setInstruction("");
@@ -288,9 +307,10 @@ export function PrepareRevisionWithHebun({
           </span>
         </span>
       </label>
+      <AgentChoiceSelect id={`prepare-revision-agent-${artifactId}`} value={agentId} onChange={setAgentId} agents={agents} disabled={pending} />
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || (agentChoiceRequired(agents) && agentId === "")}
         className="rounded border border-border-subtle px-3 py-1.5 text-xs text-fg-secondary transition-colors hover:border-border hover:text-fg-primary disabled:opacity-50"
       >
         {pending ? "Hebun is preparing…" : "Prepare revision with Hebun"}

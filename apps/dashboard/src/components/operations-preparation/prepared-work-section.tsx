@@ -35,6 +35,7 @@ import {
 import { ReferenceChip } from "./reference-chip";
 import { ArtifactRevisionReview } from "./artifact-revision-review";
 import { PrepareDraftWithHebun, PrepareRevisionWithHebun } from "./prepare-with-hebun";
+import type { AgentOption } from "@/components/agents/agent-choice-select";
 import {
   readArtifactRevisionReviewStatesAction,
   readCurrentRevisionReviewStatesAction,
@@ -145,10 +146,12 @@ function ArtifactRow({
   artifact,
   workPurpose,
   initialReview,
+  agents,
 }: {
   artifact: WorkArtifactView;
   workPurpose: readonly ArtifactWorkPurposeItem[] | undefined;
   initialReview: ArtifactCurrentReviewStates;
+  agents: readonly AgentOption[];
 }) {
   const [revisionText, setRevisionText] = useState("");
   const [reviewStates, setReviewStates] = useState<readonly ArtifactRevisionReviewState[] | null>(null);
@@ -369,6 +372,7 @@ function ArtifactRow({
           artifactId={artifact.id}
           title={artifact.title}
           onPrepared={rereadReview}
+          agents={agents}
         />
       ) : null}
         </details>
@@ -433,10 +437,13 @@ export function PreparedWorkSection({
   listing,
   workPurpose,
   reviewStates,
+  agents = [],
 }: {
   readonly listing: WorkArtifactListing;
   readonly workPurpose: ArtifactWorkPurposeIndex;
   readonly reviewStates: ArtifactCurrentReviewStates;
+  /** AP-5A — the in-service agents, from the identity read, for naming who prepares. */
+  readonly agents?: readonly AgentOption[];
 }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -518,6 +525,7 @@ export function PreparedWorkSection({
                 <ArtifactRow
                 key={artifact.currentRef}
                 artifact={artifact}
+                agents={agents}
                 /*
                  * REV-3. `undefined` ONLY when the relationship could not be read. When it WAS
                  * read, an artifact nobody declared gets an empty list — a real answer — so a read
@@ -659,7 +667,7 @@ export function PreparedWorkSection({
       ) : null}
       {message ? <p className="mt-2 text-xs text-fg-secondary">{message}</p> : null}
 
-      <PrepareDraftWithHebun />
+      <PrepareDraftWithHebun agents={agents} />
         </div>
       </details>
     </section>

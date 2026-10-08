@@ -2,6 +2,12 @@
 
 import { useMemo, useState, useTransition } from "react";
 import {
+  AgentChoiceSelect,
+  agentChoiceRequired,
+  agentSelectionFor,
+  type AgentOption,
+} from "@/components/agents/agent-choice-select";
+import {
   readMediaAssetAction,
   requestMediaGenerationAction,
   reviewMediaAssetAction,
@@ -131,7 +137,9 @@ const GENERATION_REFUSAL_WORDING: Record<MediaGenerationRefusal, string> = {
   "generation-transport-unavailable": "Image generation is not available right now.",
   "persistence-unavailable": "The database could not be reached.",
   "no-durable-agent": "Your organization has no durable agent that could author this.",
-  "ambiguous-durable-agent": "More than one durable agent is in service and this screen does not choose one, so no agent was named as author.",
+  "ambiguous-durable-agent": "More than one durable agent is in service and none was chosen, so no agent was named for this image. Choose the agent above.",
+  "selected-agent-unresolvable": "The chosen agent is not one of your organization's agents.",
+  "selected-agent-retired": "The chosen agent has been retired and cannot be named for new work.",
   "source-revision-unresolvable": "That content draft revision could not be resolved.",
   "duplicate-request": "This exact request was already submitted. It was not sent again, and you were not charged twice.",
   "source-asset-unresolvable": "That image could not be resolved in your organization.",
@@ -165,7 +173,10 @@ export function RevisionMediaAssets({
   assets,
   reviewStates,
   selectionTarget,
+  agents = [],
 }: {
+  /** AP-5A — the in-service agents a reference edit may be named for; a choice only when several. */
+  readonly agents?: readonly AgentOption[];
   readonly assets: readonly RevisionMediaAssetView[];
   readonly reviewStates: readonly { readonly assetId: string; readonly state: MediaAssetReviewState }[];
   /*
@@ -195,6 +206,7 @@ export function RevisionMediaAssets({
               asset={asset}
               reviewState={byAsset.get(asset.assetId)}
               selectionTarget={selectionTarget}
+              agents={agents}
             />
           </li>
         ))}
@@ -207,7 +219,9 @@ function AssetCard({
   asset,
   reviewState,
   selectionTarget,
+  agents,
 }: {
+  readonly agents: readonly AgentOption[];
   readonly asset: RevisionMediaAssetView;
   readonly reviewState: MediaAssetReviewState | undefined;
   readonly selectionTarget?: { readonly artifactId: string; readonly revisionNo: number };
@@ -370,7 +384,7 @@ function AssetCard({
 
       {/* ── MEDIA-5: this image as the input to a new one ── */}
       {/* A supplied image is never offered as a generation input here: data use has no authority. */}
-      {retired || supplied ? null : <UseAsReference asset={asset} />}
+      {retired || supplied ? null : <UseAsReference asset={asset} agents={agents} />}
       {retired || !selectionTarget ? null : (
         <ChooseForDraft asset={asset} target={selectionTarget} />
       )}
@@ -458,6 +472,14 @@ function ChooseForDraft({
   );
 }
 
+/*
+ * AP-5A — naming WHICH AGENT a reference edit is for. Choosing an agent is not choosing an image, and
+ * MEDIA-5 keeps the reference card's vocabulary free of image "selection" language, so the shared
+ * chooser is used here under these two names.
+ */
+const namedAgentFor = agentSelectionFor;
+const AgentChooser = AgentChoiceSelect;
+
 /**
  * MEDIA-5 — ask for a new image, using this one as the visual reference.
  *
@@ -466,14 +488,22 @@ function ChooseForDraft({
  * `duplicate-request` without dispatching or charging again. The disabled button is a courtesy; the
  * database's unique index is the actual guarantee, and the copy says which one is load-bearing.
  */
-function UseAsReference({ asset }: { readonly asset: RevisionMediaAssetView }) {
+function UseAsReference({
+  asset,
+  agents,
+}: {
+  readonly asset: RevisionMediaAssetView;
+  readonly agents: readonly AgentOption[];
+}) {
   const requestKey = useMemo(() => crypto.randomUUID(), []);
   const [instruction, setInstruction] = useState("");
+  const [agentId, setAgentId] = useState("");
+  const agentMissing = agentChoiceRequired(agents) && agentId === "";
   const [result, setResult] = useState<RequestMediaGenerationResult | null>(null);
   const [generating, startGeneration] = useTransition();
 
   function generate() {
-    if (generating || instruction.trim().length === 0) return;
+    if (generating || instruction.trim().length === 0 || agentMissing) return;
     setResult(null);
     startGeneration(async () => {
       setResult(
@@ -484,6 +514,7 @@ function UseAsReference({ asset }: { readonly asset: RevisionMediaAssetView }) {
           requestKey,
           /* The ID, and only the ID. No key, no URL, no bytes. */
           sourceAssetId: asset.assetId,
+          ...namedAgentFor(agents, agentId),
         }),
       );
     });
@@ -520,7 +551,19 @@ function UseAsReference({ asset }: { readonly asset: RevisionMediaAssetView }) {
           The new image is filed for this draft at revision {asset.sourceRevisionNo}, and arrives
           unreviewed. Generating it publishes nothing and authorizes nothing.
         </p>
-        <Button size="sm" onClick={generate} disabled={generating || instruction.trim().length === 0} aria-busy={generating}>
+        <AgentChooser
+          id={`ref-agent-${asset.assetId}`}
+          value={agentId}
+          onChange={setAgentId}
+          agents={agents}
+          disabled={generating}
+        />
+        <Button
+          size="sm"
+          onClick={generate}
+          disabled={generating || instruction.trim().length === 0 || agentMissing}
+          aria-busy={generating}
+        >
           {generating ? "Generating…" : "Generate from this image"}
         </Button>
         {result === null ? null : (
