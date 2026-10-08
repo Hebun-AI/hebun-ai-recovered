@@ -26,6 +26,7 @@ import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server
 import { agentImprovementHypotheses } from "@/db/schema/agent-improvement-hypothesis";
 import { agents } from "@/db/schema/agent";
 import { decisionRecords } from "@/db/schema/governance";
+import { isAgentInService } from "@/features/agent-identity/in-service";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
   IMPROVEMENT_HYPOTHESIS_ACCEPTED_OUTCOME,
@@ -133,6 +134,8 @@ export async function readImprovementHypotheses(
         id: agentImprovementHypotheses.id,
         agentName: agents.name,
         retiredAt: agents.retiredAt,
+        suspendedAt: agents.suspendedAt,
+        lifecycle: agents.agentLifecycleStatus,
         improvementTarget: agentImprovementHypotheses.improvementTarget,
         evidenceFindingKey: agentImprovementHypotheses.evidenceFindingKey,
         evidenceSource: agentImprovementHypotheses.evidenceSource,
@@ -224,7 +227,7 @@ export async function readImprovementHypotheses(
       return {
         hypothesisId: row.id,
         agentName: row.agentName ?? "",
-        inService: row.retiredAt === null,
+        inService: isAgentInService(row),
         improvementTarget: row.improvementTarget,
         evidenceFindingKey: row.evidenceFindingKey as EvidenceFindingKey,
         evidenceSource: row.evidenceSource,

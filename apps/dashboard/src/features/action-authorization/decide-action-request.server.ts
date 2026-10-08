@@ -35,6 +35,7 @@ import { and, eq } from "drizzle-orm";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { readDurableAgentLivenessForShareWithin } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { recordActionAuthorizationEventWithin } from "@/features/governance-audit/action-authorization-audit.server";
 import { resolveGovernanceDbOrNull, validateJustification } from "@/features/governance-decision/persistence.server";
 import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
@@ -60,6 +61,9 @@ export interface ActionDecisionDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
   readonly now?: () => Date;
 }
+
+/** Thrown inside the approval transaction so nothing in it commits; mapped to the refusal below. */
+const PROPOSING_AGENT_NOT_IN_SERVICE = "proposing-agent-not-in-service";
 
 function refusedApproval(reason: ActionDecisionRefusal): ActionApprovalResult {
   return { status: "refused", reason };
@@ -156,6 +160,22 @@ export async function approveActionRequest(
     let committed: { decisionId: string; sessionId: string } | null = null;
 
     await db.transaction(async (tx) => {
+      /*
+       * L-1a — A PERMIT ONLY FOR A PROPOSER STILL IN SERVICE. Asked first, inside this transaction,
+       * with the agent row held FOR SHARE until commit. Retirement locks the same row FOR UPDATE, so
+       * the two serialize: a retirement that committed first is seen here and nothing is written; a
+       * retirement that comes second waits for this approval, and the permit it leaves behind is
+       * refused at spend (WF-4). A human-proposed request has no agent to ask. Rejection never asks.
+       */
+      if (request.proposedByActorType === "agent") {
+        const liveness = await readDurableAgentLivenessForShareWithin(
+          tx as unknown as ControlPlaneDatabase,
+          tenant.tenantId,
+          request.proposedByActorId,
+        );
+        if (liveness !== "in-service") throw new Error(PROPOSING_AGENT_NOT_IN_SERVICE);
+      }
+
       const { decisionId, sessionId } = await writeGovernanceDecisionWithin(
         tx,
         tenant,
@@ -274,6 +294,9 @@ export async function approveActionRequest(
   } catch (error) {
     if (error instanceof Error && error.message === "action-request-no-longer-pending") {
       return refusedApproval("request-not-pending");
+    }
+    if (error instanceof Error && error.message === PROPOSING_AGENT_NOT_IN_SERVICE) {
+      return refusedApproval("proposing-agent-not-in-service");
     }
     return refusedApproval("persistence-unavailable");
   }

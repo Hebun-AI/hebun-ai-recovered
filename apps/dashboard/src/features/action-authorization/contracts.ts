@@ -228,6 +228,12 @@ export type ActionDecisionRefusal =
    * a request whose content drifted is not a thing a human can be asked to approve.
    */
   | "digest-mismatch"
+  /**
+   * L-1a — an agent proposed this, and that agent is no longer in service in this tenant (retired,
+   * suspended, any lifecycle outside the in-service allowlist, or not found). Approving would mint a
+   * permit nothing may ever spend. Approval only: a human can always REJECT such a request.
+   */
+  | "proposing-agent-not-in-service"
   | "persistence-unavailable";
 
 export type ActionRevocationRefusal =

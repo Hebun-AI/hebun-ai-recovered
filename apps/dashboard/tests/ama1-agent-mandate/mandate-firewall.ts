@@ -274,7 +274,8 @@ function noConsequentialCapabilityIsReachable(): void {
   );
   assert.deepEqual(
     [...agentColumnRefs].sort(),
-    ["agentLifecycleStatus", "deletedAt", "id", "retiredAt", "tenantId"],
+    /* L-1a: `suspendedAt` joins because "in service" is now the shared rule, which reads it. */
+    ["agentLifecycleStatus", "deletedAt", "id", "retiredAt", "suspendedAt", "tenantId"],
     "the mandate authority reads an agent's identity and whether it is in service — nothing else",
   );
 }

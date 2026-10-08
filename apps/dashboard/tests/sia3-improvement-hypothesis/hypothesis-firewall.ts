@@ -199,7 +199,8 @@ function noAgentMutationIsReachable(): void {
   );
   assert.deepEqual(
     [...agentColumnRefs].sort(),
-    ["id", "name", "retiredAt", "tenantId"],
+    /* L-1a: in service is the shared rule over retired_at, suspended_at and the lifecycle — all three read. */
+    ["agentLifecycleStatus", "id", "name", "retiredAt", "suspendedAt", "tenantId"],
     "SIA-3 reads an agent's identity and tenant scope, and nothing that configures it",
   );
 }

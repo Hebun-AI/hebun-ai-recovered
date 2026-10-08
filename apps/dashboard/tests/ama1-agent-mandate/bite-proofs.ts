@@ -79,8 +79,9 @@ function main(): void {
   proof(
     "the mandate writer reaches for an agent mutation authority",
     WRITER,
-    'import { RETIRED_AGENT_LIFECYCLE_STATUS } from "@/features/agent-identity/retirement-contracts";',
-    'import { RETIRED_AGENT_LIFECYCLE_STATUS } from "@/features/agent-identity/retirement-contracts";\n' +
+    /* L-1a: the writer now imports the shared in-service rule; the anchor moved with it. */
+    'import { isAgentInService } from "@/features/agent-identity/in-service";',
+    'import { isAgentInService } from "@/features/agent-identity/in-service";\n' +
       'import { retireDurableAgentIdentity } from "@/features/agent-identity/retire-durable-agent-identity.server";',
     "does not import retire-durable-agent-identity",
   );

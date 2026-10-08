@@ -80,7 +80,7 @@ import {
   type GovernanceAuthorityResolution,
 } from "@/features/governance-decision/authority-read.server";
 import { validateJustification } from "@/features/governance-decision/persistence.server";
-import { RETIRED_AGENT_LIFECYCLE_STATUS } from "@/features/agent-identity/retirement-contracts";
+import { isAgentInService } from "@/features/agent-identity/in-service";
 import {
   AGENT_MANDATE_AUDIT_ESTABLISHED,
   AGENT_MANDATE_AUDIT_REVISED,
@@ -170,6 +170,7 @@ async function resolveInServiceAgent(
       id: agents.id,
       lifecycle: agents.agentLifecycleStatus,
       retiredAt: agents.retiredAt,
+      suspendedAt: agents.suspendedAt,
     })
     .from(agents)
     .where(and(eq(agents.id, agentId), eq(agents.tenantId, tenantId), isNull(agents.deletedAt)))
@@ -178,7 +179,7 @@ async function resolveInServiceAgent(
   const row = rows[0];
   /* A wrong tenant, a wrong id, and a row that never existed all land here, indistinguishably. */
   if (!row) throw new MandateAbort("agent-unresolvable");
-  if (row.retiredAt !== null || row.lifecycle === RETIRED_AGENT_LIFECYCLE_STATUS) {
+  if (!isAgentInService(row)) {
     throw new MandateAbort("agent-retired");
   }
 }

@@ -165,11 +165,17 @@ function main(): void {
        * The pin stays STRICT: still an exact set by name, so a fifth export — or a rename — fails
        * here. What must never grow is the number of TRANSITIONS, and that is still two.
        */
+      /*
+       * L-1a ADDED A FIFTH, AND IT IS A THIRD READ — NOT A TRANSITION. The same liveness question
+       * asked inside a caller's transaction with the agent row held FOR SHARE, so an approval and a
+       * retirement serialize. It opens no transaction and writes nothing. Transitions: still two.
+       */
       "readDurableAgentIdentityState",
+      "readDurableAgentLivenessForShareWithin",
       "readDurableAgentRuntimeLiveness",
       "retireDurableAgentIdentity",
     ],
-    "the feature exports exactly these four async functions: two one-way transitions and two reads",
+    "the feature exports exactly these five async functions: two one-way transitions and three reads",
   );
 
   /* ── 2. THE AUTHORITY DOES NOT REACH THE GENERIC PERSISTENCE SUBSTRATE ────── */

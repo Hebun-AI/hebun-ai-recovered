@@ -65,9 +65,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "B4 retired agent admitted (both layers)",
     file: WRITER,
     edits: [
-      { find: `      if (agent.retiredAt !== null || agent.lifecycle === RETIRED_AGENT) {`, replace: `      if (false) {` },
-      { find: `            isNull(agents.retiredAt),\n`, replace: `` },
-      { find: "sql`${agents.agentLifecycleStatus} is distinct from ${RETIRED_AGENT}`,", replace: "" },
+      /* L-1a: both layers now ask the shared in-service rule — the value check and the guarded UPDATE. */
+      { find: `      if (!isAgentInService(agent)) {`, replace: `      if (false) {` },
+      { find: `            agentInServiceCondition(),\n`, replace: `` },
     ],
     suite: POSTGRES,
     expect: "agent-retired",

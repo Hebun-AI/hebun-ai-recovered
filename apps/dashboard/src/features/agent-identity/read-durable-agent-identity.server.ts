@@ -24,7 +24,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { agents } from "@/db/schema/agent";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
-import { RETIRED_AGENT_LIFECYCLE_STATUS } from "./retirement-contracts";
+import { isAgentInService } from "./in-service";
 
 export interface AgentIdentityReadDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -33,8 +33,8 @@ export interface AgentIdentityReadDeps {
 /**
  * One durable agent identity as the product surface needs to understand it.
  *
- * `inService` is DERIVED, never stored: it is the absence of retirement, not a column. Storing a
- * boolean beside the timestamp would create two facts that can disagree.
+ * `inService` is DERIVED, never stored: it is `isAgentInService` (`in-service.ts`) over the row, not a
+ * column. Storing a boolean beside the timestamps would create two facts that can disagree.
  */
 export interface DurableAgentIdentityRecord {
   readonly agentId: string;
@@ -92,6 +92,7 @@ export async function readDurableAgentIdentityState(
         humanOwnerType: agents.humanOwnerType,
         createdAt: agents.createdAt,
         retiredAt: agents.retiredAt,
+        suspendedAt: agents.suspendedAt,
         lifecycle: agents.agentLifecycleStatus,
       })
       .from(agents)
@@ -109,8 +110,7 @@ export async function readDurableAgentIdentityState(
         humanOwnerType: row.humanOwnerType,
         createdAt: row.createdAt.toISOString(),
         retiredAt: row.retiredAt ? row.retiredAt.toISOString() : null,
-        inService:
-          row.retiredAt === null && row.lifecycle !== RETIRED_AGENT_LIFECYCLE_STATUS,
+        inService: isAgentInService(row),
       })),
     };
   } catch {
@@ -179,18 +179,45 @@ export async function readDurableAgentRuntimeLiveness(
 
   try {
     const rows = await db
-      .select({ retiredAt: agents.retiredAt, lifecycle: agents.agentLifecycleStatus })
+      .select({ retiredAt: agents.retiredAt, suspendedAt: agents.suspendedAt, lifecycle: agents.agentLifecycleStatus })
       .from(agents)
       .where(and(eq(agents.tenantId, tenant), eq(agents.id, agent)))
       .limit(1);
 
     const row = rows[0];
     if (!row) return "unknown-agent";
-    /* THE SAME PREDICATE the product reader applies, not a second definition of "in service". */
-    return row.retiredAt === null && row.lifecycle !== RETIRED_AGENT_LIFECYCLE_STATUS
-      ? "in-service"
-      : "not-in-service";
+    /* THE SAME PREDICATE the product reader applies (`in-service.ts`), not a second definition. */
+    return isAgentInService(row) ? "in-service" : "not-in-service";
   } catch {
     return "unavailable";
   }
+}
+
+/**
+ * L-1a — the same liveness question, asked INSIDE a caller's transaction with the agent row held
+ * `FOR SHARE` until that transaction ends.
+ *
+ * Retirement takes `FOR UPDATE` on the same row, so the two serialize: a retirement that committed
+ * first is seen here (READ COMMITTED re-reads the row after the lock wait), and a retirement that
+ * arrives second waits until the caller has committed. The caller's transaction is the caller's;
+ * this function opens none and writes nothing. Errors propagate so the caller's transaction aborts —
+ * an outage is never reported as an answer.
+ */
+export async function readDurableAgentLivenessForShareWithin(
+  tx: ControlPlaneDatabase,
+  tenantId: string,
+  agentId: string | null,
+): Promise<Exclude<DurableAgentRuntimeLiveness, "unavailable">> {
+  if (!UUID_RE.test(tenantId ?? "") || !UUID_RE.test(agentId ?? "")) return "unknown-agent";
+
+  const rows = await tx
+    .select({ retiredAt: agents.retiredAt, suspendedAt: agents.suspendedAt, lifecycle: agents.agentLifecycleStatus })
+    .from(agents)
+    .where(and(eq(agents.tenantId, tenantId), eq(agents.id, agentId as string)))
+    .for("share")
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return "unknown-agent";
+  return isAgentInService(row) ? "in-service" : "not-in-service";
 }

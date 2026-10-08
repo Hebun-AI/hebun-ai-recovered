@@ -17,13 +17,12 @@ import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server
 import { agents } from "@/db/schema/agent";
 import { departments } from "@/db/schema/department";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
+import { isAgentInService } from "@/features/agent-identity/in-service";
 import { ACTIVE_LIFECYCLE_STATUS } from "./read-structure.server";
 import {
   deriveAgentPlacementState,
   type AgentPlacementRegister,
 } from "./agent-placement-contracts";
-
-const RETIRED_AGENT = "retired";
 
 export interface AgentPlacementReadDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -49,6 +48,7 @@ export async function readAgentPlacements(
       .select({
         agentId: agents.id,
         retiredAt: agents.retiredAt,
+        suspendedAt: agents.suspendedAt,
         lifecycle: agents.agentLifecycleStatus,
         departmentId: departments.id,
         name: departments.name,
@@ -65,7 +65,7 @@ export async function readAgentPlacements(
     return {
       status: "available",
       placements: rows.map((row) => {
-        const agentInService = row.retiredAt === null && row.lifecycle !== RETIRED_AGENT;
+        const agentInService = isAgentInService(row);
         const department =
           row.departmentId && row.name !== null && row.slug !== null
             ? {

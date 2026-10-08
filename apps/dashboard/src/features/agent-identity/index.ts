@@ -37,6 +37,12 @@ export {
   type AgentRetirementDeps,
 } from "./retire-durable-agent-identity.server";
 export {
+  agentInServiceCondition,
+  IN_SERVICE_AGENT_LIFECYCLE_STATUS,
+  isAgentInService,
+  type AgentServiceFacts,
+} from "./in-service";
+export {
   readDurableAgentIdentityState,
   type AgentIdentityReadDeps,
   type DurableAgentIdentityRecord,

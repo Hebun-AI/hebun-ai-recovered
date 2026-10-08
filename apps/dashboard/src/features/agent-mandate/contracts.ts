@@ -209,7 +209,8 @@ export type AgentMandateRefusal =
   | "agent-unresolvable"
   /**
    * The agent exists and has been withdrawn from service. Bounding the future proposals of
-   * something that no longer proposes states a constraint on nothing.
+   * something that no longer proposes states a constraint on nothing. Since L-1a "in service" is
+   * `isAgentInService` (agent-identity/in-service.ts), so any out-of-service state lands here.
    */
   | "agent-retired"
   /** The tenant has no Governance authority yet — no bootstrap decision exists. */

@@ -41,7 +41,7 @@
  *
  * Server-only.
  */
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { agents } from "@/db/schema/agent";
 import { departments } from "@/db/schema/department";
@@ -49,6 +49,7 @@ import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { auditActorFrom } from "@/features/governance-audit/knowledge-mutation-audit.server";
 import { recordAgentPlacementEventWithin } from "@/features/governance-audit/agent-placement-audit.server";
 import { resolveGovernanceAuthority } from "@/features/governance-decision/authority-read.server";
+import { agentInServiceCondition, isAgentInService } from "@/features/agent-identity/in-service";
 import { ACTIVE_LIFECYCLE_STATUS } from "./read-structure.server";
 import {
   AGENT_PLACEMENT_AUDIT_SET,
@@ -57,8 +58,11 @@ import {
   type AgentPlacementWriteResult,
 } from "./agent-placement-contracts";
 
-/* Spelled here rather than imported: this writer must not reach the Agent Identity authority. */
-const RETIRED_AGENT = "retired";
+/*
+ * L-1a — "in service" is imported from `agent-identity/in-service`, the one pure rule module: no
+ * database handle, no writer, no decision. This writer still never reaches the Agent Identity
+ * AUTHORITY (register, retire, read seams); the AP-2 firewall allows exactly that one rule module.
+ */
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (value: unknown): value is string => typeof value === "string" && UUID_SHAPE.test(value);
 
@@ -141,6 +145,7 @@ async function mutatePlacement(
         .select({
           departmentId: agents.departmentId,
           retiredAt: agents.retiredAt,
+          suspendedAt: agents.suspendedAt,
           lifecycle: agents.agentLifecycleStatus,
         })
         .from(agents)
@@ -153,7 +158,7 @@ async function mutatePlacement(
         outcome = refuse("agent-unresolved");
         return;
       }
-      if (agent.retiredAt !== null || agent.lifecycle === RETIRED_AGENT) {
+      if (!isAgentInService(agent)) {
         outcome = refuse("agent-retired");
         return;
       }
@@ -200,8 +205,7 @@ async function mutatePlacement(
           and(
             eq(agents.tenantId, tenant.tenantId),
             eq(agents.id, agentId),
-            isNull(agents.retiredAt),
-            sql`${agents.agentLifecycleStatus} is distinct from ${RETIRED_AGENT}`,
+            agentInServiceCondition(),
             sql`${agents.departmentId} is not distinct from ${expected}::uuid`,
           ),
         )

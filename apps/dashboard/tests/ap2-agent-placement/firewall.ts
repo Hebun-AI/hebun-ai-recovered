@@ -73,12 +73,22 @@ const camel = (snake: string) => snake.replace(/_([a-z])/g, (_, c: string) => c.
     "@/features/governed-internal-action",
     "@/features/work-artifacts",
   ];
+  /*
+   * L-1a — exactly ONE module of Agent Identity is reachable: `in-service`, the pure statement of the
+   * in-service rule (no database handle, no writer, no decision — asserted below). Placement asks
+   * the same question every other reader asks instead of spelling its own copy of it.
+   */
+  const RULE_MODULE = "@/features/agent-identity/in-service";
   for (const file of [WRITER, READER, CONTRACTS, AUDIT]) {
     const imports = [...read(file).matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
     for (const target of imports) {
+      if (target === RULE_MODULE) continue;
       assert.ok(!forbidden.some((f) => target.startsWith(f)), `${file} must not import ${target}`);
     }
   }
+  const rule = read("src/features/agent-identity/in-service.ts");
+  assert.ok(!/\.(insert|update|delete|transaction)\(|getControlPlaneDb/.test(rule.replace(/\/\*[\s\S]*?\*\//g, "")),
+    "the one reachable Agent Identity module writes nothing and holds no database handle");
 }
 
 /* ── 4. WHO UPDATES `agents` ──────────────────────────────────────────────── */
