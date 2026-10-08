@@ -412,8 +412,9 @@ function main(): void {
       "@/features/agent-identity/retirement-contracts",
       "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server",
       "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server",
-      "@/features/agent-mandate/contracts",
       "@/features/agent-mandate/establish-agent-mandate.server",
+      /* AP-4B: the result type of the one remaining mandate entry. */
+      "@/features/agent-mandate/responsibility-contracts",
       "@/features/auth-runtime/request-session.server",
       /* AP-2 — the Organization Authority's agent placement writer and its type-only contracts. */
       "@/features/organization-authority/agent-placement-contracts",

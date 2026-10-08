@@ -187,7 +187,7 @@ async function main(): Promise<void> {
           return returning(sendEnvelope).send(r);
         },
       };
-      const result = await originateAgentAction({ goal: GOAL }, {
+      const result = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, {
         ...(baseDeps(counting) as object),
         /* Provenance unavailable: no db handle at all. */
         provenance: { getDb: () => null },
@@ -200,7 +200,7 @@ async function main(): Promise<void> {
     /* ═══ 2/3. PRE-DISPATCH REFUSAL — a registered row must not prove dispatch ═══ */
     {
       const result = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         baseDeps(throwing("rate-limited")),
       );
       assert.equal(result.status, "refused");
@@ -215,7 +215,7 @@ async function main(): Promise<void> {
 
     /* ═══ 4. DISPATCHED PROVIDER FAILURE ═══ */
     {
-      await originateAgentAction({ goal: GOAL }, baseDeps(throwing("provider-unavailable")));
+      await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, baseDeps(throwing("provider-unavailable")));
       const rows = await invocations();
       const row = rows[rows.length - 1]!;
       assert.equal(row.state, "dispatch-failed", "this one DID go out");
@@ -225,7 +225,7 @@ async function main(): Promise<void> {
 
     /* ═══ 6. INVALID SELECTION — result kept, no proposal ═══ */
     {
-      await originateAgentAction({ goal: GOAL }, baseDeps(returning("I have executed it.")));
+      await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, baseDeps(returning("I have executed it.")));
       const rows = await invocations();
       const row = rows[rows.length - 1]!;
       assert.equal(row.state, "selection-invalid");
@@ -239,7 +239,7 @@ async function main(): Promise<void> {
     /* ═══ 7. NO-ACTION — a correct answer, distinct from an invalid one ═══ */
     {
       await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         baseDeps(returning(JSON.stringify({ kind: "none", reason: "nothing matched" }))),
       );
       const rows = await invocations();
@@ -253,7 +253,7 @@ async function main(): Promise<void> {
     let filedInvocationId = "";
     let filedRequestId = "";
     {
-      const result = await originateAgentAction({ goal: GOAL }, baseDeps(returning(sendEnvelope)));
+      const result = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, baseDeps(returning(sendEnvelope)));
       assert.equal(result.status, "proposed", "a valid selection files a proposal");
 
       const rows = await invocations();
@@ -286,7 +286,7 @@ async function main(): Promise<void> {
 
     /* ═══ 10. DUPLICATE REFUSAL — the released reason is recorded verbatim ═══ */
     {
-      const result = await originateAgentAction({ goal: GOAL }, baseDeps(returning(sendEnvelope)));
+      const result = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, baseDeps(returning(sendEnvelope)));
       assert.equal(result.status, "refused");
       const rows = await invocations();
       const row = rows[rows.length - 1]!;

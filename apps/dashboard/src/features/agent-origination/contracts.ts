@@ -345,6 +345,11 @@ export type OriginationRefusal =
   | "unauthenticated"
   /** The human's goal did not survive the released prompt validator. */
   | "goal-rejected"
+  /**
+   * AP-4B. The HUMAN did not state a well-formed work scope. Refused before any model request: the
+   * scope is the human's input, never the model's choice, and there is no unscoped record-work.
+   */
+  | "invalid-work-scope"
   /** This tenant has nothing an agent could propose about. */
   | "no-candidates"
   /** The model runtime is not connected, or the Director's control is off. Never a fake proposal. */

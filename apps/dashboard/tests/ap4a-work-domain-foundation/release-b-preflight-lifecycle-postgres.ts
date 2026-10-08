@@ -95,7 +95,7 @@ async function main(): Promise<void> {
     assert.equal((await establishGovernanceAuthority(ctx, { justification: GENESIS }, deps)).status, "established");
 
     const propose = async (title: string): Promise<string> => {
-      const p = await proposeRecordWorkAction(ctx, { title, department: { kind: "organization-level" } } as never, deps);
+      const p = await proposeRecordWorkAction(ctx, { title, department: { kind: "organization-level" }, workScope: { kind: "organization" } } as never, deps);
       assert.equal(p.status, "proposed", `proposed: ${title}`);
       return p.status === "proposed" ? p.receipt.requestId : "";
     };
@@ -103,6 +103,23 @@ async function main(): Promise<void> {
       const a = await approveActionRequest(ctx, { requestId, justification: APPROVE, requestedTtlSeconds: 60 }, d);
       assert.equal(a.status, "authorized", `authorized ${requestId}`);
       return a.status === "authorized" ? a.permitId : "";
+    };
+    /*
+     * AP-4B. Release B's writers file only SCOPED record-work, so the pre-B rows this preflight exists to
+     * classify can no longer be produced by them. The rows below are made by the released writers and
+     * then viewed AS LEGACY: the scope arguments are removed from the stored payload just for the
+     * classification, and restored before any released writer touches the rows again.
+     */
+    const asLegacy = async <T>(read: () => Promise<T>): Promise<T> => {
+      const saved = (await setup.query<{ id: string; p: unknown }>(`select id, canonical_payload p from heby_action_requests`)).rows;
+      await setup.query(`set session_replication_role = replica`);
+      await setup.query(`update heby_action_requests set canonical_payload = canonical_payload - 'workScope' - 'workDomainRef'`);
+      try {
+        return await read();
+      } finally {
+        for (const row of saved) await setup.query(`update heby_action_requests set canonical_payload = $2 where id = $1`, [row.id, JSON.stringify(row.p)]);
+        await setup.query(`set session_replication_role = default`);
+      }
     };
     const requestBlockers = async () => (await readUnscopedRecordWorkRequestBlockers(setup)).map((r) => r.id).sort();
     const permitBlockers = async () => (await readUnscopedRecordWorkPermitBlockers(setup)).map((p) => p.request).sort();
@@ -161,8 +178,10 @@ async function main(): Promise<void> {
     const rejected = await propose("Rejected");
     assert.equal((await rejectActionRequest(ctx, { requestId: rejected, justification: REJECT, rejectionReason: "not wanted" }, deps)).status, "rejected");
 
-    assert.deepEqual(await requestBlockers(), [cPending].sort(), "only the pending request is a request blocker");
-    assert.deepEqual(await permitBlockers(), [cLive], "only the live permit is a permit blocker");
+    assert.deepEqual(await asLegacy(requestBlockers), [cPending].sort(), "only the pending request is a request blocker");
+    assert.deepEqual(await asLegacy(permitBlockers), [cLive], "only the live permit is a permit blocker");
+    assert.deepEqual(await requestBlockers(), [], "AP-4B: a scoped request is no Release B blocker");
+    assert.deepEqual(await permitBlockers(), [], "AP-4B: a scoped permit is no Release B blocker");
 
     /* The operator script, end to end, on the same database. */
     const runPreflight = () =>
@@ -171,7 +190,7 @@ async function main(): Promise<void> {
         env: { ...process.env, DATABASE_URL: harness.dbUrl },
         encoding: "utf8",
       });
-    const notClear = runPreflight();
+    const notClear = await asLegacy(async () => runPreflight());
     assert.equal(notClear.status, 1, notClear.stdout + notClear.stderr);
     assert.match(notClear.stdout, /NOT CLEAR \(2\)/);
     for (const id of [aRequest, b1Request, b2Request, rejected]) assert.ok(!notClear.stdout.includes(id), `history ${id} is not listed`);
@@ -179,9 +198,9 @@ async function main(): Promise<void> {
     /* Resolve C through the released paths: reject the pending one, spend the live one. */
     assert.equal((await rejectActionRequest(ctx, { requestId: cPending, justification: REJECT, rejectionReason: "not wanted" }, deps)).status, "rejected");
     assert.equal((await executeRecordWork(ctx, { permitId: cLivePermit }, deps)).status, "executed");
-    assert.deepEqual(await requestBlockers(), []);
-    assert.deepEqual(await permitBlockers(), []);
-    const clear = runPreflight();
+    assert.deepEqual(await asLegacy(requestBlockers), []);
+    assert.deepEqual(await asLegacy(permitBlockers), []);
+    const clear = await asLegacy(async () => runPreflight());
     assert.equal(clear.status, 0, clear.stdout + clear.stderr);
     assert.match(clear.stdout, /VERDICT: CLEAR/);
 
@@ -189,7 +208,7 @@ async function main(): Promise<void> {
     await setup.query(`set session_replication_role = replica`);
     await setup.query(`delete from action_permits where action_request_id=$1`, [aRequest]);
     await setup.query(`set session_replication_role = default`);
-    assert.deepEqual(await requestBlockers(), [aRequest], "approved without a permit is a blocker");
+    assert.deepEqual(await asLegacy(requestBlockers), [aRequest], "approved without a permit is a blocker");
 
     console.log("ap4 release-b preflight lifecycle: A/B history, C blockers, anomaly reported — 1 file passed");
   } finally {

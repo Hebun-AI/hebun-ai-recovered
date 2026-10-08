@@ -207,7 +207,7 @@ async function main(): Promise<void> {
      * ═════════════════════════════════════════════════════════════════════ */
     {
       const result = await originateAgentActionWithObservation(
-        { goal: GOAL, observeChannelHandle: HANDLE },
+        { goal: GOAL, observeChannelHandle: HANDLE, workScope: { kind: "organization" as const } },
         deps(abstentionEnvelope(), observed),
       );
       assert.equal(result.observation.status, "observed", "the observation reached the composition");
@@ -238,7 +238,7 @@ async function main(): Promise<void> {
      * 2. THE AGENT SELECTS record-work, AND ONE PENDING REQUEST LANDS.
      * ═════════════════════════════════════════════════════════════════════ */
     const proposed = await originateAgentActionWithObservation(
-      { goal: GOAL, observeChannelHandle: HANDLE },
+      { goal: GOAL, observeChannelHandle: HANDLE, workScope: { kind: "organization" as const } },
       deps(recordWorkEnvelope(), observed),
     );
     assert.equal(
@@ -356,7 +356,7 @@ async function main(): Promise<void> {
       assert.equal(recipient.rows[0]!.n, 0, "there is still nothing to send to");
 
       const sendAttempt = await originateAgentActionWithObservation(
-        { goal: GOAL, observeChannelHandle: HANDLE },
+        { goal: GOAL, observeChannelHandle: HANDLE, workScope: { kind: "organization" as const } },
         deps(
           JSON.stringify({
             kind: "send",
@@ -378,7 +378,7 @@ async function main(): Promise<void> {
      * ═════════════════════════════════════════════════════════════════════ */
     {
       const failed = await originateAgentActionWithObservation(
-        { goal: GOAL, observeChannelHandle: HANDLE },
+        { goal: GOAL, observeChannelHandle: HANDLE, workScope: { kind: "organization" as const } },
         deps(abstentionEnvelope(), async () => ({ ok: false, failure: "quota", reason: "quota-exhausted" }) as never),
       );
       assert.deepEqual(

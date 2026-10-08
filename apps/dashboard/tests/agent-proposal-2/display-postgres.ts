@@ -137,7 +137,7 @@ async function main(): Promise<void> {
      * ═════════════════════════════════════════════════════════════════════ */
     {
       const originated = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         {
           resolveTenant: async () => acmeCtx,
           modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides

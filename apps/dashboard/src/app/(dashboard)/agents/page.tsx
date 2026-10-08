@@ -11,6 +11,7 @@ import { readDurableAgentIdentityState } from "@/features/agent-identity/read-du
 import { AgentPlacementCard } from "@/components/agents/agent-placement-card";
 import { readAgentPlacements } from "@/features/organization-authority/read-agent-placement.server";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
+import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
 import {
   AgentMandateCard,
   type AgentMandateEntry,
@@ -115,6 +116,9 @@ export default async function AgentsPage() {
    */
   const mockExposurePermitted = organizationalDemoDataPermitted();
   const tenant = await resolveTenantContext();
+  /* AP-4B — labels for recorded responsibility and the domains a revision may grant. Read-only. */
+  const workDomainsRead = await readWorkDomains(tenant);
+  const workDomains = workDomainsRead.status === "read" ? workDomainsRead.workDomains : [];
   const identityState = await readDurableAgentIdentityState(tenant);
   /*
    * An unauthenticated reader is not asked about; the projection would refuse anyway, and this
@@ -298,7 +302,7 @@ export default async function AgentsPage() {
           * second thing on this page that writes a database row, and the only other one.
           */}
         <AgentPlacementCard register={placements} structure={structure} identities={identities} />
-        <AgentMandateCard block={mandateBlock} entries={mandateEntries} />
+        <AgentMandateCard block={mandateBlock} entries={mandateEntries} workDomains={workDomains} />
         {capabilities.map((entry, index) => (
           <AgentCapabilityTruthCard key={entry.agentName ?? index} truth={entry.truth} agentName={entry.agentName} />
         ))}

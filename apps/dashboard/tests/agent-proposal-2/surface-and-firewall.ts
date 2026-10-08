@@ -86,8 +86,8 @@ function theBrowserSuppliesOnlyAGoal(): void {
 
   /* Only then: the contract really is that one field and no more. */
   assert.ok(
-    /input:\s*\{\s*readonly goal:\s*string;\s*readonly agentId\?:\s*string;?\s*\}/.test(signature.replace(/\s+/g, " ")),
-    "the server action accepts the human's goal and (AP-1) an optional agent lookup key — nothing else",
+    /input:\s*\{\s*readonly goal:\s*string;\s*readonly agentId\?:\s*string;\s*readonly workScope\?:\s*unknown;?\s*\}/.test(signature.replace(/\s+/g, " ")),
+    "the server action accepts the human's goal, (AP-1) an optional agent lookup key and (AP-4B) the human's work scope — nothing else",
   );
 
   /* And the panel has no control that could produce one. */
@@ -323,7 +323,7 @@ function noSurfaceProliferation(): void {
 
   /* The panel is mounted inside the EXISTING slot on the EXISTING route. */
   const page = codeOf(read(PAGE));
-  assert.ok(page.includes("<AgentProposalRequest />"), "the panel is mounted on /approvals");
+  assert.ok(page.includes("<AgentProposalRequest workScopeChoices={workScopeChoices} />"), "the panel is mounted on /approvals (AP-4B: with the work scopes a human may choose)");
   /*
    * APPROVALS-DASHBOARD made `ApprovalsDashboard` the ONE pending-queue surface on this route. The
    * invariant is unchanged and is now checked where the queue actually lives: the page hands the

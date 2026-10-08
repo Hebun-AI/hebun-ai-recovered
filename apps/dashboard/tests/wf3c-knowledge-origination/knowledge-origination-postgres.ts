@@ -169,7 +169,7 @@ async function main(): Promise<void> {
           return { id: "req_wf3c", model: request.model, content: [{ type: "text", text: reply }], stopReason: "end_turn", usage: { inputTokens: 90, outputTokens: 30 } };
         },
       };
-      const result = await originateAgentAction({ goal: "Propose recording the leave policy review as work." }, {
+      const result = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: "Propose recording the leave policy review as work." }, {
         resolveTenant: async () => ctx,
         env: MODEL_ENV,
         resolveDirectorEnabled: async () => true,

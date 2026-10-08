@@ -29,7 +29,7 @@ import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { establishGovernanceAuthority } from "../../src/features/governance-decision/bootstrap-authority.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
-import { establishAgentMandate } from "../../src/features/agent-mandate/establish-agent-mandate.server";
+import { establishAgentMandateWithDefaultResponsibility as establishAgentMandate } from "../helpers/mandate-default-responsibility";
 import {
   readAgentMandateHistory,
   readEffectiveAgentMandate,

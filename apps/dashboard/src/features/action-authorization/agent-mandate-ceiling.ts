@@ -13,6 +13,7 @@ import {
   AGENT_ORIGINABLE_REGISTRY_KIND,
   type AgentOriginableActionKind,
 } from "@/features/agent-origination/contracts";
+import { parseWorkScope, type WorkScope } from "@/features/work-domain/work-scope";
 import type { ActionRequestRefusal } from "./contracts";
 
 export type AgentMandateCeilingRefusal = Extract<
@@ -54,4 +55,60 @@ export function refuseOutsideAgentMandate(
     (alias) => AGENT_ORIGINABLE_REGISTRY_KIND[alias] === actionKind,
   );
   return admitted ? null : "action-outside-agent-mandate";
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * AP-4B — THE RESPONSIBILITY DIMENSION, ASKED BY THE SAME ASKERS.
+ *
+ * A mandate's kind ceiling says WHICH ACTS an agent may propose; its responsibility says WHICH KIND
+ * OF WORK. For `record-work` both must admit, and the second is answered here, beside the first, so
+ * the inlet, the standing issuer, the spend and the machine executor all ask one function. Every
+ * other kind — `send` among them — is outside AP-4 and passes through untouched (`null`).
+ *
+ *   organization scope  ← admitted only by an explicit organization-level grant
+ *   domain scope        ← admitted only by a grant of THAT domain, while the domain is in service
+ *   no grants           ← undeclared: admits nothing
+ *
+ * Organization-level covers no domain and a domain grant covers no organization work: neither is a
+ * superset of the other. The work scope is the one frozen into the request's payload — the value a
+ * human chose and the Director approved — never a value the caller re-states.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export type AgentResponsibilityRefusal = Extract<
+  ActionRequestRefusal,
+  "agent-mandate-authority-unavailable" | "no-agent-mandate" | "work-scope-required" | "work-outside-agent-responsibility"
+>;
+
+/** Structural, like {@link MandateReadForCeiling}: what the Agent Mandate Authority reported. */
+export type MandateReadForResponsibility =
+  | { readonly status: "unavailable" }
+  | {
+      readonly status: "known";
+      readonly mandate: {
+        readonly responsibility: readonly (
+          | { readonly kind: "organization" }
+          | { readonly kind: "domain"; readonly workDomainId: string; readonly inService: boolean }
+        )[];
+      } | null;
+    };
+
+/** The one registry kind AP-4 scopes responsibility to, in the registry vocabulary. */
+export const RESPONSIBILITY_SCOPED_REGISTRY_KIND = AGENT_ORIGINABLE_REGISTRY_KIND["record-work"];
+
+export function refuseOutsideAgentResponsibility(
+  read: MandateReadForResponsibility,
+  actionKind: string,
+  workScope: WorkScope | null,
+): AgentResponsibilityRefusal | null {
+  if (actionKind !== RESPONSIBILITY_SCOPED_REGISTRY_KIND) return null;
+  if (read.status === "unavailable") return "agent-mandate-authority-unavailable";
+  if (!read.mandate) return "no-agent-mandate";
+  const scope = parseWorkScope(workScope);
+  if (!scope) return "work-scope-required";
+  const admitted = read.mandate.responsibility.some((grant) =>
+    scope.kind === "organization"
+      ? grant.kind === "organization"
+      : grant.kind === "domain" && grant.inService && grant.workDomainId === scope.workDomainId,
+  );
+  return admitted ? null : "work-outside-agent-responsibility";
 }

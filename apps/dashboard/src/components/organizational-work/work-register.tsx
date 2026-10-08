@@ -46,6 +46,7 @@
  */
 
 import { useId, useState, useTransition } from "react";
+import { WorkScopeSelect, workScopeFromChoice, type WorkScopeChoice } from "@/components/work-domain/work-scope-select";
 import { useRouter } from "next/navigation";
 import { UserRound } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,6 +109,8 @@ const REFUSAL_SENTENCE: Record<WorkRefusal, string> = {
   "work-retired": "That work is already retired, and retirement cannot be undone here.",
   "department-unresolved":
     "No department of this organization is in service under that identity, so nothing was filed against it.",
+  "work-domain-unresolved":
+    "No work domain of this organization is in service under that identity, so nothing was filed against it.",
   "accountable-not-eligible-member":
     "The person named is not a currently eligible member of this organization, so they were not recorded as accountable.",
   "referent-unresolved":
@@ -325,6 +328,10 @@ const PROPOSAL_REFUSAL_SENTENCE: Record<RecordWorkProposalRefusal, string> = {
     "No department of this organization is in service under that identity, so nothing was filed against it.",
   "department-retired":
     "That department was retired, so work cannot be filed against it and nothing was proposed.",
+  "invalid-work-scope":
+    "Choose whether this is organization-level work or work of one work domain. Nothing was filed.",
+  "work-domain-not-found": "No work domain of this organization carries that identity, so nothing was filed.",
+  "work-domain-retired": "That work domain was retired, so work cannot be filed under it and nothing was proposed.",
   "not-authorizable":
     "The proposal did not reach human review, so nothing was filed for a decision.",
   "already-pending":
@@ -365,11 +372,19 @@ function ProposalFeedback({ result }: { result: RecordWorkProposalResult | null 
  * act a human is asked to approve must name something that exists; a register entry a human is
  * authoring themselves may legitimately wait for that decision.
  */
-function ProposeRecordWork({ structure }: { structure: OrganizationStructure }) {
+function ProposeRecordWork({
+  structure,
+  workScopeChoices,
+}: {
+  structure: OrganizationStructure;
+  workScopeChoices: readonly WorkScopeChoice[];
+}) {
   const titleId = useId();
   const departmentFieldId = useId();
+  const workScopeFieldId = useId();
   const [title, setTitle] = useState("");
   const [department, setDepartment] = useState("");
+  const [workScope, setWorkScope] = useState("");
   const [result, setResult] = useState<RecordWorkProposalResult | null>(null);
   const [pending, start] = useTransition();
 
@@ -388,11 +403,13 @@ function ProposeRecordWork({ structure }: { structure: OrganizationStructure }) 
             const outcome = await proposeRecordWorkForGovernanceAction({
               title,
               departmentRef: department === "" ? "" : formatDepartmentRef(department),
+              workScope: workScopeFromChoice(workScope),
             });
             setResult(outcome);
             if (outcome.status === "proposed") {
               setTitle("");
               setDepartment("");
+              setWorkScope("");
             }
           });
         }}
@@ -425,6 +442,11 @@ function ProposeRecordWork({ structure }: { structure: OrganizationStructure }) 
               ))}
             </select>
           </label>
+          {/* AP-4B — what KIND of work this is. A separate question from the department; no default. */}
+          <label className="flex-1 basis-48 text-xs text-fg-secondary" htmlFor={workScopeFieldId}>
+            Work scope
+            <WorkScopeSelect id={workScopeFieldId} value={workScope} onChange={setWorkScope} choices={workScopeChoices} />
+          </label>
         </div>
         {/*
           * WHAT THIS DOES AND WHAT IT DOES NOT, BEFORE THE CLICK — the released
@@ -440,7 +462,7 @@ function ProposeRecordWork({ structure }: { structure: OrganizationStructure }) 
           ))}
         </ul>
         <div className="mt-2">
-          <Button type="submit" disabled={pending || department === ""}>
+          <Button type="submit" disabled={pending || department === "" || workScope === ""}>
             {pending ? "Filing…" : "Propose for a decision"}
           </Button>
         </div>
@@ -1005,6 +1027,7 @@ export function WorkRegisterPanel({
   evidenceReadable,
   factOptions,
   artifactOptions,
+  workScopeChoices,
 }: {
   register: WorkRegister;
   structure: OrganizationStructure;
@@ -1015,6 +1038,8 @@ export function WorkRegisterPanel({
   evidenceReadable: boolean;
   factOptions: readonly ReferentOption[];
   artifactOptions: readonly ReferentOption[];
+  /** AP-4B — organization-level and the in-service work domains, as read by the page. */
+  workScopeChoices: readonly WorkScopeChoice[];
 }) {
   return (
     <Card>
@@ -1035,7 +1060,7 @@ export function WorkRegisterPanel({
           <>
             <p className="text-xs leading-5 text-fg-secondary">{register.detail}</p>
             <RecordWork structure={structure} members={members} />
-            <ProposeRecordWork structure={structure} />
+            <ProposeRecordWork structure={structure} workScopeChoices={workScopeChoices} />
             {register.items.length === 0 ? null : (
               <ul className="space-y-2">
                 {register.items.map((item) => (

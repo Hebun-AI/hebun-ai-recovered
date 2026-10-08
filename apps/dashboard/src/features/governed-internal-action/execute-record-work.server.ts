@@ -56,6 +56,7 @@
  *
  * Server-only.
  */
+import { workScopeFromPayload, type WorkScope } from "@/features/work-domain/work-scope";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
   consumeActionPermit,
@@ -149,10 +150,19 @@ class AbortInternalAct extends Error {}
 export function workInputFrom(authorization: ExecutionAuthorization): {
   readonly title: string;
   readonly departmentId: string | null;
+  readonly workScope: WorkScope;
 } | null {
   const payload = authorization.canonicalPayload;
   const title = payload["title"];
   if (typeof title !== "string" || title.trim().length === 0) return null;
+
+  /*
+   * AP-4B · THE WORK SCOPE A HUMAN APPROVED, READ THE SAME WAY. Absent or contradictory is `null` —
+   * not recordable — never defaulted. A permit minted before Release B for an unscoped payload
+   * cannot record work after it: the spend is rolled back and the permit stays active.
+   */
+  const workScope = workScopeFromPayload(payload);
+  if (!workScope) return null;
 
   /*
    * ── THE SCOPE A HUMAN APPROVED, READ AS A DECLARATION (TRH-16) ───────────
@@ -175,7 +185,7 @@ export function workInputFrom(authorization: ExecutionAuthorization): {
      * here too rather than silently ignored.
      */
     if (payload["departmentRef"] !== undefined) return null;
-    return { title, departmentId: null };
+    return { title, departmentId: null, workScope };
   }
 
   if (scope !== "department") return null;
@@ -193,7 +203,7 @@ export function workInputFrom(authorization: ExecutionAuthorization): {
   const parsed = parseDepartmentRef(payload["departmentRef"]);
   if (!parsed) return null;
 
-  return { title, departmentId: parsed.departmentId };
+  return { title, departmentId: parsed.departmentId, workScope };
 }
 
 /**

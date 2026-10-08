@@ -214,7 +214,7 @@ async function main(): Promise<void> {
     const permitsBefore = await countOf("action_permits");
 
     /* ═══ 1. THE NARROW PROJECTION, AND ITS DECLARATION ═══════════════════════════════════════════ */
-    const refused = await originateAgentAction({ goal: GOAL }, originationDeps());
+    const refused = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps());
     assert.deepEqual(refused, { status: "refused", reason: "model-unavailable" }, "not yet allowed: refused");
     assert.equal(captured.length, 1, "the generator was asked exactly once");
     const { request, disclosure } = captured[0]!;
@@ -256,7 +256,7 @@ async function main(): Promise<void> {
     assert.equal(await countOf("action_permits"), permitsBefore, "no permit");
 
     /* ═══ 3. A SUPPLIED OBSERVATION IS REFUSED, NOT DROPPED, AND NOTHING IS REGISTERED ═══════════ */
-    const withSupplement = await originateAgentAction({ goal: GOAL }, originationDeps({ observationSupplement: "MARKSUPPLEMENT outside text" }));
+    const withSupplement = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps({ observationSupplement: "MARKSUPPLEMENT outside text" }));
     assert.deepEqual(withSupplement, { status: "refused", reason: "observation-not-admitted" });
     assert.equal(captured.length, 1, "the generator was never asked");
     assert.equal(await countOf("heby_origination_invocations"), 1, "no invocation registered");
@@ -273,7 +273,7 @@ async function main(): Promise<void> {
       },
     });
     const sendAttempt = await originateAgentAction(
-      { goal: GOAL },
+      { workScope: { kind: "organization" as const }, goal: GOAL },
       originationDeps({
         generate: generateHebyModelAnswer,
         selectTransport: () => ({
@@ -330,7 +330,7 @@ async function main(): Promise<void> {
     networkOpen = true;
     const workItemsBefore = await countOf("work_items");
     const decisionsBefore = await countOf("decision_records");
-    const authorized = await originateAgentAction({ goal: GOAL }, originationDeps());
+    const authorized = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps());
     assert.equal(fetches, 1, "exactly one request reached the network seam");
     assert.equal(authorized.status, "proposed", JSON.stringify(authorized));
     assert.deepEqual(captured.at(-1)!.disclosure?.dataClasses, ["conversation", "organization"], "the same narrow declaration");

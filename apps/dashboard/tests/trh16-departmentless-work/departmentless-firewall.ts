@@ -125,6 +125,7 @@ function main(): void {
     {
       title: "Q3 supplier audit",
       departmentScope: "department",
+      workScope: "organization",
       departmentRef: "department/11111111-2222-3333-4444-555555555555",
     },
     [
@@ -152,7 +153,7 @@ function main(): void {
     actionKind: RECORD_WORK_ACTION_KIND,
     requestingWorkspace: "command",
     target: { kind: "record", ref: orgRef, label: "Turkish Rug House", sourceClass: "organization" },
-    proposedArguments: { title: "Q3 supplier audit", departmentScope: "organization-level" },
+    proposedArguments: { title: "Q3 supplier audit", departmentScope: "organization-level", workScope: "organization" },
     evidence: [{ sourceClass: "organization", recordRef: orgRef, lifecycle: "settled" }],
   });
   assert.equal(
@@ -171,7 +172,7 @@ function main(): void {
     actionKind: RECORD_WORK_ACTION_KIND,
     requestingWorkspace: "command",
     target: { kind: "record", ref: orgRef, label: "Turkish Rug House", sourceClass: "organization" },
-    proposedArguments: { title: "Q3 supplier audit", departmentScope: "organization-level" },
+    proposedArguments: { title: "Q3 supplier audit", departmentScope: "organization-level", workScope: "organization" },
     evidence: [],
   });
   assert.notEqual(
@@ -284,6 +285,7 @@ function main(): void {
   const unbacked = preparedWith({
     title: "Q3 supplier audit",
     departmentScope: "department",
+    workScope: "organization",
     departmentRef: "department/11111111-2222-3333-4444-555555555555",
   });
   assert.notEqual(
@@ -366,7 +368,8 @@ function main(): void {
   const executor = codeOf(read(EXECUTOR));
   assert.ok(
     executor.includes('if (scope === "organization-level")') &&
-      executor.includes("return { title, departmentId: null };"),
+      /* AP-4B: beside the work scope the human approved, read by the same strict parser. */
+      executor.includes("return { title, departmentId: null, workScope };"),
     "an approved organization-level payload reaches the Work Authority as departmentId null",
   );
   assert.ok(

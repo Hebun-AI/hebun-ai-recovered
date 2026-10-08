@@ -97,6 +97,10 @@ export type StandingIssuanceRefusal =
   | "no-agent-mandate"
   /** The agent's EFFECTIVE mandate no longer admits this kind — withdrawn or narrowed (APF-1). */
   | "action-outside-agent-mandate"
+  /** AP-4B. The request's frozen payload states no work scope (record-work only). */
+  | "work-scope-required"
+  /** AP-4B. The agent's effective mandate no longer grants responsibility for the request's work scope. */
+  | "work-outside-agent-responsibility"
   /** The agent named by the envelope has since retired. */
   | "agent-not-in-service"
   /** The request does not exist for this tenant, or is not pending. */

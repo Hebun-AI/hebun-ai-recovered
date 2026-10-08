@@ -254,7 +254,7 @@ async function main(): Promise<void> {
     {
       const workProposal = await proposeRecordWorkAction(
         acmeCtx,
-        { title: "Quarterly close", department: { kind: "organization-level" } },
+        { workScope: { kind: "organization" as const }, title: "Quarterly close", department: { kind: "organization-level" } },
         deps,
       );
       assert.equal(workProposal.status, "proposed", JSON.stringify(workProposal));

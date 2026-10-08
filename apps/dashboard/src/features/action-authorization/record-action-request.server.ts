@@ -31,11 +31,16 @@ import { hebyActionRequests } from "@/db/schema/action-authorization";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import type { HebyActionKind, HebyPreparedAction } from "@/features/heby-actions/contracts";
-import { refuseOutsideAgentMandate } from "./agent-mandate-ceiling";
+import {
+  RESPONSIBILITY_SCOPED_REGISTRY_KIND,
+  refuseOutsideAgentMandate,
+  refuseOutsideAgentResponsibility,
+} from "./agent-mandate-ceiling";
+import { workScopeFromPayload } from "@/features/work-domain/work-scope";
 /*
  * AMA-2 — the READ SEAM MODULE, never the feature barrel.
  *
- * `@/features/agent-mandate` re-exports `establishAgentMandate`, and importing the barrel would put
+ * `@/features/agent-mandate` re-exports the mandate writer, and importing the barrel would put
  * a Governance-bound WRITER into the proposal path's import graph for the sake of a read. That is
  * the exact defect G6C repaired in Heby's graph, where a database-handle import dragged
  * `establishGovernanceAuthority` in behind it. Enforcement needs to LOOK at a mandate and must
@@ -120,7 +125,11 @@ function agentPairOrNull(proposer: AgentProposer): ActionProposerPair | null {
  */
 type MandateCeilingRefusal = Extract<
   ActionRequestRefusal,
-  "agent-mandate-authority-unavailable" | "no-agent-mandate" | "action-outside-agent-mandate"
+  | "agent-mandate-authority-unavailable"
+  | "no-agent-mandate"
+  | "action-outside-agent-mandate"
+  | "work-scope-required"
+  | "work-outside-agent-responsibility"
 >;
 
 /**
@@ -139,10 +148,16 @@ async function mandateCeilingRefusal(
   agentId: string,
   actionKind: HebyActionKind,
   deps: ActionRequestDeps,
+  /** AP-4B. The prepared arguments — the payload about to be frozen — read for its work scope only. */
+  proposedArguments: Readonly<Record<string, unknown>>,
 ): Promise<MandateCeilingRefusal | null> {
   const read = await readEffectiveAgentMandate(tenant, agentId, { getDb: deps.getDb });
   /* The decision itself is shared with the machine path (APF-1) — one answer, never three. */
-  return refuseOutsideAgentMandate(read, actionKind);
+  return (
+    refuseOutsideAgentMandate(read, actionKind) ??
+    /* AP-4B. The same read, the second dimension: is THIS kind of work the agent's responsibility? */
+    refuseOutsideAgentResponsibility(read, actionKind, workScopeFromPayload(proposedArguments))
+  );
 }
 
 /**
@@ -211,6 +226,17 @@ async function insertActionRequest(
    */
   const payload: CanonicalPayload | null = asCanonicalPayload(prepared.arguments);
   if (!payload) return refused("arguments-invalid");
+
+  /*
+   * AP-4B. NO UNSCOPED `record-work`, FROM ANYBODY. Every record-work inlet — human, agent, social
+   * observation — reaches this one writer, so the rule lives here once: the frozen payload must
+   * state a well-formed work scope (organization, or one domain reference). Whether a named domain
+   * is in service is the inlet's resolution and the Work Authority's re-check; this answers only
+   * whether a scope was stated at all.
+   */
+  if (prepared.actionKind === RESPONSIBILITY_SCOPED_REGISTRY_KIND && !workScopeFromPayload(payload)) {
+    return refused("work-scope-required");
+  }
 
   const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
   if (!db) return refused("persistence-unavailable");
@@ -438,7 +464,7 @@ export async function recordAgentOriginatedActionRequest(
    */
   if (!prepared) return refused("not-authorizable");
 
-  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps);
+  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps, prepared.arguments);
   if (ceiling) return refused(ceiling);
 
   return insertActionRequest(

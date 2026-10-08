@@ -229,7 +229,7 @@ async function main(): Promise<void> {
     /* 4a · Mandate scope withdrawn after the read. The model may answer; filing is refused. */
     const rev3 = await seedAgentMandate(setup, org, agentId, deps, { tag: "wf1c", proposalScope: [], observedMandateRevision: rev2.mandateRevision });
     const r0 = await requests();
-    const afterMandate = await originateAgentAction({ goal: GOAL }, originationDeps());
+    const afterMandate = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps());
     assert.equal(afterMandate.status, "refused", `withdrawn mandate refuses: ${JSON.stringify(afterMandate)}`);
     assert.equal(await requests(), r0, "nothing filed after the mandate was withdrawn");
     assert.deepEqual(captured.at(-1)?.dataClasses, [...ORIGINATION_DECLARED_DATA_CLASSES], "the projection's declaration is origination's own");
@@ -243,7 +243,7 @@ async function main(): Promise<void> {
       "written",
     );
     const fetchesBefore = fetches;
-    const afterEai = await originateAgentAction({ goal: GOAL }, originationDeps());
+    const afterEai = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps());
     assert.deepEqual(afterEai, { status: "refused", reason: "model-unavailable" }, "withdrawn EAI refuses");
     assert.equal(fetches, fetchesBefore, "refused before the network");
     assert.equal(await requests(), r0, "nothing filed after EAI was withdrawn");
@@ -251,7 +251,7 @@ async function main(): Promise<void> {
 
     /* 4c · Agent retired. Refused before anything. */
     assert.equal((await retireDurableAgentIdentity(ctx, { agentId }, deps)).status, "retired");
-    const afterRetire = await originateAgentAction({ goal: GOAL }, originationDeps());
+    const afterRetire = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps());
     assert.deepEqual(afterRetire, { status: "refused", reason: "durable-agent-identity-retired" });
     assert.equal(await reasonOf(), "agent-retired");
 

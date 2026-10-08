@@ -99,7 +99,8 @@ assert.match(AGENT_ORIGINATION_KNOWLEDGE_SYSTEM_INSTRUCTIONS, /one or more knowl
   const confirmBody = ui.slice(ui.indexOf("const confirm = "), ui.indexOf('if (state.kind === "closed"'));
   /* AP-1: the goal travels in the one `input` the confirmation builds (plus a chosen agent id, if any). */
   assert.ok(
-    confirmBody.includes("const input = chosenAgentId ? { goal, agentId: chosenAgentId } : { goal };") &&
+    /* AP-4B: and the work scope the human chose, carried beside it. */
+    confirmBody.includes("const input = chosenAgentId ? { goal, agentId: chosenAgentId, workScope: scope } : { goal, workScope: scope };") &&
       confirmBody.includes("originateKnowledgeGroundedProposalAction(input)"),
     "only inside the explicit confirmation, with the goal as written",
   );
@@ -108,8 +109,8 @@ assert.match(AGENT_ORIGINATION_KNOWLEDGE_SYSTEM_INSTRUCTIONS, /one or more knowl
   /* AP-1: the client may add the chosen agent's id (a verified lookup key); the MODE is still the server's. */
   assert.match(
     action.replace(/\s+/g, " "),
-    /originateAgentAction\( \{ goal: input\?\.goal, agentId: input\?\.agentId \}, \{ resolveTenant: resolveTenantContext, knowledgeMode: true \}, \)/,
-    "the server sets the mode; the client sends only the goal (and, AP-1, an optional agent lookup key)",
+    /originateAgentAction\( \{ goal: input\?\.goal, agentId: input\?\.agentId, workScope: input\?\.workScope \}, \{ resolveTenant: resolveTenantContext, knowledgeMode: true \}, \)/,
+    "the server sets the mode; the client sends only the goal (and, AP-1, an optional agent lookup key; AP-4B, the human's work scope)",
   );
 }
 

@@ -237,8 +237,9 @@ function main(): void {
   proof(
     "the executor invents a value the human did not approve",
     EXECUTOR,
-    `  return { title, departmentId: parsed.departmentId };`,
-    `  return { title, departmentId: parsed.departmentId, declaredState: "in-progress" } as never;`,
+    /* AP-4B: the parsed result now carries the approved work scope too. */
+    `  return { title, departmentId: parsed.departmentId, workScope };`,
+    `  return { title, departmentId: parsed.departmentId, workScope, declaredState: "in-progress" } as never;`,
     "no value is defaulted or invented while reading the approved payload",
   );
 
@@ -281,7 +282,8 @@ void resolveExternalSendAdapter;`,
   proof(
     "the human path grows an insert of its own",
     WORK_WRITER,
-    `      outcome = await recordWorkWithin(tx, authenticated, input, { kind: "human" }, now);`,
+    /* AP-4B: the human path passes its fields by name (no scope rides along); same seam. */
+    `      outcome = await recordWorkWithin(tx, authenticated, unscoped, { kind: "human" }, now);`,
     `      await tx.insert(workItems).values({
         tenantId: authenticated.tenantId,
         title: input.title,

@@ -33,6 +33,8 @@
  *
  * Server-only.
  */
+import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
+import { parseWorkScope, workScopeArguments } from "@/features/work-domain/work-scope";
 import { type ControlPlaneDatabase } from "@/db/client.server";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { prepareAction } from "@/features/heby-actions/action-preparer";
@@ -102,9 +104,50 @@ function assertServerOnly(): void {
  * available would be invented. The owning workspace is a real, released identifier, and it is what
  * this work actually attaches to.
  */
+/**
+ * AP-4B · THE WORK SCOPE A HUMAN STATED, RESOLVED — never inferred, never defaulted.
+ *
+ * Shape first (a caller always knows what it sent, so refusing it precisely leaks nothing). A domain
+ * is then resolved through the Work Domain Authority's own reader, which takes no tenant parameter:
+ * absent, foreign and malformed are ONE answer; a real retired domain is its own, as for departments.
+ * The returned arguments are re-formatted from the row that was read, never the caller's string.
+ */
+async function resolveStatedWorkScope(
+  tenant: TenantContext,
+  value: unknown,
+  deps: RecordWorkProposalDeps,
+): Promise<
+  | { readonly ok: true; readonly args: Readonly<Record<string, string>> }
+  | {
+      readonly ok: false;
+      readonly reason: "invalid-work-scope" | "work-domain-not-found" | "work-domain-retired" | "persistence-unavailable";
+      readonly detail: string;
+    }
+> {
+  const scope = parseWorkScope(value);
+  if (!scope) {
+    return { ok: false, reason: "invalid-work-scope", detail: "Choose whether this is organization-level work or work of one work domain." };
+  }
+  if (scope.kind === "organization") return { ok: true, args: workScopeArguments(scope) };
+  const read = await readWorkDomains(tenant, deps.getDb ? { getDb: deps.getDb } : {});
+  if (read.status !== "read") {
+    return { ok: false, reason: "persistence-unavailable", detail: "Work domains are not readable, so nothing was prepared." };
+  }
+  const domain = read.workDomains.find((d) => d.workDomainId === scope.workDomainId);
+  if (!domain) {
+    return { ok: false, reason: "work-domain-not-found", detail: "That work domain does not belong to this organization." };
+  }
+  if (!domain.inService) {
+    return { ok: false, reason: "work-domain-retired", detail: `"${domain.name}" was retired, so work cannot be filed under it.` };
+  }
+  return { ok: true, args: workScopeArguments({ kind: "domain", workDomainId: domain.workDomainId }) };
+}
+
 async function fileOrganizationLevelProposal(
   tenant: TenantContext,
   title: string,
+  /** AP-4B. The resolved work-scope arguments; frozen into the payload beside the department scope. */
+  workScopeArgs: Readonly<Record<string, string>>,
   proposer: AgentProposer | null,
   deps: RecordWorkProposalDeps,
   originationInvocationId?: string,
@@ -154,6 +197,7 @@ async function fileOrganizationLevelProposal(
       /* The DECLARATION is the payload. A human reading the decision surface sees an asserted
        * organizational fact, not a field somebody forgot to fill in. */
       departmentScope: "organization-level",
+      ...workScopeArgs,
     },
     /*
      * ONE entry, because ONE row was read a moment ago — the same sentence the department branch
@@ -289,10 +333,14 @@ async function fileRecordWorkProposal(
    * reference to resolve. The absence is carried forward EXPLICITLY into the payload a human will
    * see, so the decision surface shows a declared organizational fact rather than a blank field.
    */
+  const stated = await resolveStatedWorkScope(tenant, (input as { workScope?: unknown }).workScope, deps);
+  if (!stated.ok) return refused(stated.reason, stated.detail);
+
   if (scope.kind === "organization-level") {
     return fileOrganizationLevelProposal(
       tenant,
       input.title,
+      stated.args,
       proposer,
       deps,
       originationInvocationId,
@@ -363,6 +411,7 @@ async function fileRecordWorkProposal(
       /* The RE-FORMATTED reference, not the caller's string — so what is frozen provably came
        * from the row that was read. */
       departmentRef,
+      ...stated.args,
     },
     evidence,
   });
@@ -622,6 +671,9 @@ async function fileObservationWorkProposal(
    * column — a database type error would be reported as persistence trouble, which would be a lie
    * about whose mistake it was.
    */
+  const stated = await resolveStatedWorkScope(tenant, (input as { workScope?: unknown } | null)?.workScope, deps);
+  if (!stated.ok) return socialRefused(stated.reason, stated.detail);
+
   const parsed = parseProviderObservationRef(input?.observationRef);
   if (!parsed) {
     return socialRefused(
@@ -678,6 +730,7 @@ async function fileObservationWorkProposal(
        * that discriminator exists to prevent.
        */
       departmentScope: "organization-level",
+      ...stated.args,
     },
     /*
      * ONE ENTRY, because ONE row was read a moment ago. It is the read, not a construction that

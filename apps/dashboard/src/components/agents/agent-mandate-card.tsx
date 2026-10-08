@@ -68,9 +68,12 @@ import {
   MANDATE_SCOPE_VOCABULARY,
   MAX_MANDATE_PURPOSE_CHARACTERS,
   MIN_MANDATE_PURPOSE_CHARACTERS,
-  type AgentMandateRefusal,
 } from "@/features/agent-mandate/contracts";
 import type { AgentMandateRevision } from "@/features/agent-mandate/read-agent-mandate.server";
+import {
+  RESPONSIBILITY_SCOPED_ACTION_KIND,
+  type MandateResponsibilityRefusal,
+} from "@/features/agent-mandate/responsibility-contracts";
 import type { DurableAgentIdentityRecord } from "@/features/agent-identity/read-durable-agent-identity.server";
 
 /** The minimum a Governance justification must carry. Mirrors the released validator's floor. */
@@ -100,6 +103,25 @@ export type MandateBlock =
 export interface AgentMandateCardProps {
   readonly block?: MandateBlock;
   readonly entries?: readonly AgentMandateEntry[];
+  /**
+   * AP-4B — this tenant's work domains (in service and retired), as the Work Domain Authority read
+   * them: labels for recorded responsibility, and the in-service ones are what may be granted.
+   */
+  readonly workDomains?: readonly { readonly workDomainId: string; readonly name: string; readonly inService: boolean }[];
+}
+
+type WorkDomainLabel = { readonly workDomainId: string; readonly name: string; readonly inService: boolean };
+
+/** AP-4B — a revision's responsibility, in words. Retired domains stay named, marked retired. */
+function responsibilityText(revision: AgentMandateRevision, domains: readonly WorkDomainLabel[]): string {
+  if (revision.responsibility.length === 0) return "Responsible for: undeclared";
+  return `Responsible for: ${revision.responsibility
+    .map((grant) => {
+      if (grant.kind === "organization") return "organization-level work";
+      const name = domains.find((d) => d.workDomainId === grant.workDomainId)?.name ?? grant.workDomainId;
+      return grant.inService ? name : `${name} (retired)`;
+    })
+    .join(", ")}`;
 }
 
 const FIELD =
@@ -138,7 +160,15 @@ const W = {
 } as const;
 
 /* Refusal reasons rendered as sentences. The REASON CODE is the product truth; this is its prose. */
-const REFUSAL_TEXT: Record<AgentMandateRefusal, string> = {
+const REFUSAL_TEXT: Record<MandateResponsibilityRefusal, string> = {
+  /* AP-4B — the responsibility refusals, in the organization's words. */
+  "responsibility-required":
+    "An agent that may propose recording work must be given responsibility for at least one kind of work. Nothing was written.",
+  "responsibility-not-admitted":
+    "Responsibility is only recorded for an agent that may propose recording work. Nothing was written.",
+  "responsibility-invalid": "The stated responsibility was malformed or repeated, and was refused whole. Nothing was written.",
+  "work-domain-unresolvable": "A chosen work domain is not one of this organization's. Nothing was written.",
+  "work-domain-retired": "A chosen work domain was retired and cannot be granted. Nothing was written.",
   unauthenticated:
     "No authenticated organization and human could be resolved for this request. Nothing was written.",
   "persistence-unavailable":
@@ -226,7 +256,13 @@ function Provenance({ revision }: { revision: AgentMandateRevision }) {
   );
 }
 
-function History({ revisions }: { revisions: readonly AgentMandateRevision[] }) {
+function History({
+  revisions,
+  domains,
+}: {
+  revisions: readonly AgentMandateRevision[];
+  domains: readonly WorkDomainLabel[];
+}) {
   if (revisions.length === 0) return null;
   return (
     <details className="rounded-md border border-border bg-surface-sunken p-3">
@@ -248,6 +284,7 @@ function History({ revisions }: { revisions: readonly AgentMandateRevision[] }) 
                 : `May propose: ${revision.proposalScope.join(", ")}`}{" "}
               · effective from {revision.effectiveFrom}
             </p>
+            <p className="mt-1 text-[0.7rem] text-fg-muted">{responsibilityText(revision, domains)}</p>
           </li>
         ))}
       </ul>
@@ -259,16 +296,27 @@ function MandateForm({
   entry,
   heading,
   observedRevision,
+  domains,
+  current,
 }: {
   entry: AgentMandateEntry;
   heading: string;
   observedRevision: number | null;
+  domains: readonly WorkDomainLabel[];
+  /** The effective revision, if any — its in-service grants pre-fill the responsibility choice. */
+  current: AgentMandateRevision | null;
 }) {
   const router = useRouter();
   const ids = useId();
   const [pending, startTransition] = useTransition();
   const [purpose, setPurpose] = useState("");
   const [scope, setScope] = useState<readonly string[]>(MANDATE_SCOPE_VOCABULARY);
+  /* AP-4B — "organization" and/or domain ids. Pre-filled from what is in effect, never invented. */
+  const [responsibility, setResponsibility] = useState<readonly string[]>(
+    (current?.responsibility ?? [])
+      .filter((g) => g.kind === "organization" || g.inService)
+      .map((g) => (g.kind === "organization" ? "organization" : g.workDomainId)),
+  );
   const [justification, setJustification] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -277,8 +325,17 @@ function MandateForm({
   const purposeReady =
     purpose.trim().length >= MIN_MANDATE_PURPOSE_CHARACTERS &&
     purpose.trim().length <= MAX_MANDATE_PURPOSE_CHARACTERS;
-  const ready = purposeReady && justification.trim().length >= JUSTIFICATION_MIN;
+  const scoped = scope.includes(RESPONSIBILITY_SCOPED_ACTION_KIND);
+  const ready =
+    purposeReady && justification.trim().length >= JUSTIFICATION_MIN && (!scoped || responsibility.length > 0);
   const withdrawing = scope.length === 0;
+  const grantable = domains.filter((d) => d.inService);
+
+  function toggleResponsibility(value: string) {
+    setResponsibility((current) =>
+      current.includes(value) ? current.filter((v) => v !== value) : [...current, value],
+    );
+  }
 
   function toggle(kind: string) {
     setScope((current) =>
@@ -300,6 +357,10 @@ function MandateForm({
          * merged.
          */
         observedMandateRevision: observedRevision,
+        /* AP-4B — stated only when the scope names record-work; the authority refuses anything else. */
+        responsibility: scoped
+          ? responsibility.map((v) => (v === "organization" ? { kind: "organization" } : { kind: "domain", workDomainId: v }))
+          : [],
       });
       if (result.status === "established") {
         setConfirming(false);
@@ -362,6 +423,36 @@ function MandateForm({
           </div>
         </fieldset>
 
+        {scoped ? (
+          <fieldset className="flex flex-col gap-1">
+            <legend className="text-xs font-medium text-fg">Which work it is responsible for</legend>
+            <p className="text-[0.65rem] leading-4 text-fg-muted">
+              Record-work proposals are admitted only for the work scopes chosen here. Organization-level
+              covers no work domain, and a work domain covers no organization-level work.
+            </p>
+            <div className="mt-1 flex flex-wrap gap-3">
+              <label className="flex items-center gap-2 text-xs text-fg">
+                <input
+                  type="checkbox"
+                  checked={responsibility.includes("organization")}
+                  onChange={() => toggleResponsibility("organization")}
+                />
+                Organization-level
+              </label>
+              {grantable.map((domain) => (
+                <label key={domain.workDomainId} className="flex items-center gap-2 text-xs text-fg">
+                  <input
+                    type="checkbox"
+                    checked={responsibility.includes(domain.workDomainId)}
+                    onChange={() => toggleResponsibility(domain.workDomainId)}
+                  />
+                  {domain.name}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
+
         <div className="flex flex-col gap-1">
           <label htmlFor={`${ids}-justification`} className="text-xs font-medium text-fg">
             Why you are recording this bound
@@ -383,7 +474,13 @@ function MandateForm({
             <p className="text-xs font-medium text-fg">
               {withdrawing
                 ? "This records an EMPTY ceiling. From the moment it is written, this agent may propose nothing, and every proposal it originates is refused before anything is stored."
-                : `This records a ceiling of: ${scope.join(", ")}.`}
+                : `This records a ceiling of: ${scope.join(", ")}.${
+                    scoped
+                      ? ` Responsible for: ${responsibility
+                          .map((v) => (v === "organization" ? "organization-level work" : (grantable.find((d) => d.workDomainId === v)?.name ?? v)))
+                          .join(", ")}.`
+                      : ""
+                  }`}
             </p>
             <ul className="mt-2 flex list-disc flex-col gap-1 pl-4 text-[0.7rem] leading-4 text-fg-secondary">
               {MANDATE_DOES_NOT_MEAN.map((claim) => (
@@ -431,7 +528,7 @@ function MandateForm({
   );
 }
 
-function EntryBody({ entry }: { entry: AgentMandateEntry }) {
+function EntryBody({ entry, domains }: { entry: AgentMandateEntry; domains: readonly WorkDomainLabel[] }) {
   if (entry.standing.kind === "unavailable") {
     /*
      * AN OUTAGE, AND NEVER AN ABSENCE. No form is offered: a mandate cannot be responsibly recorded
@@ -456,7 +553,7 @@ function EntryBody({ entry }: { entry: AgentMandateEntry }) {
       <div className="flex flex-col gap-3">
         <StateBlock tone="empty" title={W.absentTitle} description={W.absentDetail} />
         {entry.identity.inService ? (
-          <MandateForm entry={entry} heading={W.establishHeading} observedRevision={null} />
+          <MandateForm entry={entry} heading={W.establishHeading} observedRevision={null} domains={domains} current={null} />
         ) : null}
       </div>
     );
@@ -470,20 +567,23 @@ function EntryBody({ entry }: { entry: AgentMandateEntry }) {
       </div>
       <p className="text-sm leading-6 text-fg">{effective.purpose}</p>
       <ScopeList scope={effective.proposalScope} />
+      <p className="text-xs leading-5 text-fg-secondary">{responsibilityText(effective, domains)}</p>
       <Provenance revision={effective} />
-      <History revisions={superseded} />
+      <History revisions={superseded} domains={domains} />
       {entry.identity.inService ? (
         <MandateForm
           entry={entry}
           heading={W.reviseHeading}
           observedRevision={effective.mandateRevision}
+          domains={domains}
+          current={effective}
         />
       ) : null}
     </div>
   );
 }
 
-export function AgentMandateCard({ block, entries = [] }: AgentMandateCardProps) {
+export function AgentMandateCard({ block, entries = [], workDomains = [] }: AgentMandateCardProps) {
   if (block) {
     const map = {
       unauthenticated: [W.unauthenticatedTitle, W.unauthenticatedDetail, "restricted"] as const,
@@ -529,7 +629,7 @@ export function AgentMandateCard({ block, entries = [] }: AgentMandateCardProps)
                 {entry.identity.inService ? "in service" : "retired"}
               </Badge>
             </div>
-            <EntryBody entry={entry} />
+            <EntryBody entry={entry} domains={workDomains} />
           </section>
         ))}
       </CardContent>

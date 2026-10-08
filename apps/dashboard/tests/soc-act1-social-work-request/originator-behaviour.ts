@@ -71,7 +71,7 @@ async function aMalformedReferenceIsRefusedWithoutReading(): Promise<void> {
   const db = { select: () => { touched = true; throw new Error("must not read"); } };
   const result = await proposeSocialObservationWorkAction(
     TENANT,
-    { observationRef: "provider-observation/not-a-uuid", title: "Look into the follower change" },
+    { workScope: { kind: "organization" as const }, observationRef: "provider-observation/not-a-uuid", title: "Look into the follower change" },
     { getDb: () => db as never },
   );
   assert.equal(result.status, "refused");
@@ -90,7 +90,7 @@ async function anUnresolvableReferenceFailsClosed(): Promise<void> {
   const { db, inserts } = dbReturning([]);
   const result = await proposeSocialObservationWorkAction(
     TENANT,
-    { observationRef: REF, title: "Look into the follower change" },
+    { workScope: { kind: "organization" as const }, observationRef: REF, title: "Look into the follower change" },
     { getDb: () => db as never },
   );
   assert.equal(result.status, "refused");
@@ -104,7 +104,7 @@ async function anEmptyTitleIsRefused(): Promise<void> {
   const { db, inserts } = dbReturning([observationRow]);
   const result = await proposeSocialObservationWorkAction(
     TENANT,
-    { observationRef: REF, title: "   " },
+    { workScope: { kind: "organization" as const }, observationRef: REF, title: "   " },
     { getDb: () => db as never },
   );
   assert.equal(result.status, "refused");
@@ -115,7 +115,7 @@ async function anEmptyTitleIsRefused(): Promise<void> {
 /* ── 4 · an unresolved session writes nothing ──────────────────────────────── */
 
 async function anUnauthenticatedSessionIsRefused(): Promise<void> {
-  const result = await proposeSocialObservationWorkAction(null, {
+  const result = await proposeSocialObservationWorkAction(null, { workScope: { kind: "organization" as const },
     observationRef: REF,
     title: "Look into the follower change",
   });
@@ -135,7 +135,7 @@ async function theEvidenceIsRebuiltFromTheRow(): Promise<void> {
   const shouted = `provider-observation/${OBSERVATION_ID.toUpperCase()}`;
   const result = await proposeSocialObservationWorkAction(
     TENANT,
-    { observationRef: shouted, title: "Look into the follower change" },
+    { workScope: { kind: "organization" as const }, observationRef: shouted, title: "Look into the follower change" },
     { getDb: () => db as never },
   );
 

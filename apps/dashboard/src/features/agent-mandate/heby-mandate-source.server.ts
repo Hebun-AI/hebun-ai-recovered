@@ -8,7 +8,7 @@
  * owns the facts, and the consumer imports the projection. So this file sits inside the mandate
  * authority, and Heby imports one function from it. Heby therefore never holds `agentMandates`,
  * never holds a database handle for mandate truth, and — the part that matters most here — never
- * holds `establishAgentMandate`.
+ * holds the mandate writer.
  *
  * ── READ-ONLY, AND PROVABLY ──────────────────────────────────────────────────
  *

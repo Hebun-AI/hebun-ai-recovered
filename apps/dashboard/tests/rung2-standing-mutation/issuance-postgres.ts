@@ -12,6 +12,7 @@
  * The migration is applied by the harness, so a failure here is also a migration failure — which is
  * the point: this file is the validation evidence for the production migration gate.
  */
+import { recordWorkDomain } from "../../src/features/work-domain/write-work-domain.server";
 import assert from "node:assert/strict";
 import { Client } from "pg";
 import { createDisposablePostgresHarness } from "../helpers/disposable-postgres";
@@ -201,7 +202,7 @@ async function main(): Promise<void> {
     const agent = await createDurableAgentIdentity(ctx, { name: "Heby", justification: "Register this agent for the test organization." }, deps);
     assert.equal(agent.status, "established");
     const agentId = agent.status === "established" ? agent.identity.agentId : "";
-    await seedAgentMandate(setup, acme, agentId, deps, {
+    const seeded = await seedAgentMandate(setup, acme, agentId, deps, {
       tag: "rung2standing",
       now: NOW,
       proposalScope: ["record-work"],
@@ -237,7 +238,7 @@ async function main(): Promise<void> {
     const proposeWithEvidence = async (title: string, observationRef: string): Promise<string> => {
       const proposal = await proposeAgentOriginatedRecordWorkAction(
         ctx,
-        { title, department: { kind: "department", departmentRef } },
+        { workScope: { kind: "organization" as const }, title, department: { kind: "department", departmentRef } },
         proposer!,
         deps,
       );
@@ -388,7 +389,7 @@ async function main(): Promise<void> {
 
     const noEvidence = await proposeAgentOriginatedRecordWorkAction(
       ctx,
-      { title: "Unevidenced work", department: { kind: "department", departmentRef } },
+      { workScope: { kind: "organization" as const }, title: "Unevidenced work", department: { kind: "department", departmentRef } },
       proposer!,
       deps,
     );
@@ -428,6 +429,38 @@ async function main(): Promise<void> {
     );
     assert.equal(tooSoon.status, "refused");
     assert.equal(tooSoon.status === "refused" ? tooSoon.reason : "", "cadence-not-elapsed");
+
+    /*
+     * ── AP-4B · RESPONSIBILITY, AS IT STANDS NOW ──
+     *
+     * The request was filed organization-scoped while the agent held organization-level
+     * responsibility. A Governance revision that keeps `record-work` but grants only a work domain
+     * refuses issuance for THAT request; restoring the grant lets the same request issue below.
+     */
+    const engineering = await recordWorkDomain(ctx, { slug: "engineering", name: "Engineering" }, deps);
+    assert.equal(engineering.status, "recorded");
+    const narrowed = await seedAgentMandate(setup, acme, agentId, deps, {
+      tag: "rung2standing-narrowed",
+      now: NOW,
+      proposalScope: ["record-work"],
+      responsibility: [{ kind: "domain", workDomainId: engineering.status === "recorded" ? engineering.workDomain.workDomainId : "" }],
+      observedMandateRevision: seeded.mandateRevision,
+    });
+    const outsideResponsibility = await issuePermitUnderStandingAuthorization(
+      { requestId: tooSoonReq },
+      issueAt(new Date(NOW.getTime() + 120_000)),
+    );
+    assert.equal(
+      outsideResponsibility.status === "refused" ? outsideResponsibility.reason : outsideResponsibility.status,
+      "work-outside-agent-responsibility",
+      "AP-4B: the standing issuer re-checks the frozen work scope against the responsibility in effect",
+    );
+    await seedAgentMandate(setup, acme, agentId, deps, {
+      tag: "rung2standing-restored",
+      now: NOW,
+      proposalScope: ["record-work"],
+      observedMandateRevision: narrowed.mandateRevision,
+    });
 
     /* ── ACT 2, after the cadence floor — the envelope's quota is now spent ── */
 

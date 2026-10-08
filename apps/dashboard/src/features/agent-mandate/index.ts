@@ -3,7 +3,7 @@
  *
  * ONE authority, ONE transition, and no second:
  *
- *     no effective mandate / revision N  ->  revision N+1   (establishAgentMandate)
+ *     no effective mandate / revision N  ->  revision N+1   (establishAgentMandateWithResponsibility)
  *
  * Plus two reads that grant nothing.
  *
@@ -47,7 +47,7 @@ export {
   type MandateScopeKind,
 } from "./contracts";
 export {
-  establishAgentMandate,
+  establishAgentMandateWithResponsibility,
   type EstablishAgentMandateDeps,
 } from "./establish-agent-mandate.server";
 export {

@@ -221,7 +221,7 @@ async function main(): Promise<void> {
         },
       };
       const refused = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         {
           resolveTenant: async () => trhCtx,
           modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides
@@ -250,7 +250,7 @@ async function main(): Promise<void> {
     assert.equal(requestsBefore, 0, "nothing is pending before the agent is asked");
 
     const proposed = await originateAgentAction(
-      { goal: GOAL },
+      { workScope: { kind: "organization" as const }, goal: GOAL },
       originationDeps(recordWorkEnvelope({ kind: "organization-level" })),
     );
     assert.equal(
@@ -327,7 +327,7 @@ async function main(): Promise<void> {
     {
       const before = await countOf("heby_action_requests");
       const sendAttempt = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         originationDeps(
           JSON.stringify({
             kind: "send",
@@ -400,7 +400,7 @@ async function main(): Promise<void> {
 
       const before = await countOf("heby_action_requests");
       const refusedByCeiling = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         {
           resolveTenant: async () => shopCtx,
           modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides
@@ -438,7 +438,7 @@ async function main(): Promise<void> {
 
       /* THE SAME AGENT, THE SAME MANDATE, THE ADMITTED KIND — the ceiling is a bound, not a wall. */
       const admitted = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         {
           resolveTenant: async () => shopCtx,
           modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides
@@ -486,7 +486,7 @@ async function main(): Promise<void> {
 
       const before = await countOf("heby_action_requests");
       const scoped = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         originationDeps(
           recordWorkEnvelope(
             { kind: "department", departmentSlug: "loom-floor" },
@@ -536,7 +536,7 @@ async function main(): Promise<void> {
        * ═══════════════════════════════════════════════════════════════════ */
       let captured: { readonly evidence?: readonly string[] } | null = null;
       await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         {
           resolveTenant: async () => trhCtx,
           modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides
@@ -580,7 +580,7 @@ async function main(): Promise<void> {
       /* ── A FABRICATED DEPARTMENT IS REFUSED, AND FILES NOTHING ── */
       const after = await countOf("heby_action_requests");
       const invented = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         originationDeps(recordWorkEnvelope({ kind: "department", departmentSlug: "finance" })),
       );
       assert.equal(invented.status, "refused", "an invented department is refused");
@@ -612,7 +612,7 @@ async function main(): Promise<void> {
     {
       const human = await proposeRecordWorkAction(
         trhCtx,
-        { title: "A human typed this one", department: { kind: "organization-level" } },
+        { workScope: { kind: "organization" as const }, title: "A human typed this one", department: { kind: "organization-level" } },
         writeDeps,
       );
       assert.equal(human.status, "proposed", "a person may still propose record-work directly");

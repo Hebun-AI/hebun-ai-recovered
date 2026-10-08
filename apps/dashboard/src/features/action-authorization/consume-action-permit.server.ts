@@ -52,7 +52,8 @@ import { recordActionAuthorizationEventWithin } from "@/features/governance-audi
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { readEffectiveAgentMandateForRuntime } from "@/features/agent-mandate/read-agent-mandate.server";
-import { refuseOutsideAgentMandate } from "./agent-mandate-ceiling";
+import { refuseOutsideAgentMandate, refuseOutsideAgentResponsibility } from "./agent-mandate-ceiling";
+import { workScopeFromPayload } from "@/features/work-domain/work-scope";
 import { asCanonicalPayload, digestCanonicalAction, digestsMatch } from "./canonical-payload";
 import {
   isMachineExecutionPrincipal,
@@ -237,7 +238,15 @@ async function spendPermit(
           throw new Error("continuing-authority");
         }
         const mandate = await readEffectiveAgentMandateForRuntime(caller.tenantId, request.proposedByActorId, reads);
-        if (refuseOutsideAgentMandate(mandate, request.actionKind)) {
+        if (
+          refuseOutsideAgentMandate(mandate, request.actionKind) ||
+          /*
+           * AP-4B. The scope comes off the digest-verified payload above — what the Director
+           * approved — and is checked against the responsibility in effect NOW. A grant withdrawn or
+           * a domain retired after approval stops the spend; the permit stays active.
+           */
+          refuseOutsideAgentResponsibility(mandate, request.actionKind, workScopeFromPayload(payload))
+        ) {
           outcome = refused("agent-mandate-refused");
           throw new Error("continuing-authority");
         }

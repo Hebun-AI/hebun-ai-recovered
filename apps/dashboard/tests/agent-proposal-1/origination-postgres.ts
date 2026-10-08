@@ -164,7 +164,7 @@ async function main(): Promise<void> {
         },
       };
       const result = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         {
           resolveTenant: async () => acmeCtx,
           modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides
@@ -274,7 +274,7 @@ async function main(): Promise<void> {
         "THE RAW ADDRESS NEVER ENTERS THE AGENT'S CHOICE SPACE",
       );
 
-      const result = await originateAgentAction({ goal: GOAL }, originationDeps(sendEnvelope));
+      const result = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps(sendEnvelope));
       assert.equal(
         result.status,
         "proposed",
@@ -418,7 +418,7 @@ async function main(): Promise<void> {
       ];
 
       for (const [text, expected] of hostile) {
-        const result = await originateAgentAction({ goal: GOAL }, originationDeps(text));
+        const result = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps(text));
         assert.equal(result.status, "refused", `"${expected}" must refuse`);
         assert.equal(result.status === "refused" ? result.reason : "", expected);
       }
@@ -436,7 +436,7 @@ async function main(): Promise<void> {
     /* An honest abstention files nothing and is not an error. */
     {
       const result = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         originationDeps(JSON.stringify({ kind: "none", reason: "No recipient matches the goal." })),
       );
       assert.equal(result.status, "refused");
@@ -451,7 +451,7 @@ async function main(): Promise<void> {
     /* A model that cannot be reached fails honestly — never a fabricated proposal. */
     {
       const noTransport = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         {
           resolveTenant: async () => acmeCtx,
           modelFacingArms: ["send", "record-work", "observation"] as const, // APF-3: exercises the arms the narrow release hides
@@ -470,7 +470,7 @@ async function main(): Promise<void> {
       );
 
       const directorOff = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         {
           ...(originationDeps(sendEnvelope) as Record<string, unknown>),
           resolveDirectorEnabled: async () => false,
@@ -571,7 +571,7 @@ async function main(): Promise<void> {
       ).rows[0]!.n;
 
       const refusedByCeiling = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         originationDeps(sendEnvelope),
       );
       assert.equal(
@@ -638,7 +638,7 @@ async function main(): Promise<void> {
       const retired = await retireDurableAgentIdentity(acmeCtx, { agentId }, dbDeps);
       assert.equal(retired.status, "retired");
 
-      const result = await originateAgentAction({ goal: GOAL }, originationDeps(freshEnvelope));
+      const result = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps(freshEnvelope));
       assert.equal(
         result.status,
         "refused",

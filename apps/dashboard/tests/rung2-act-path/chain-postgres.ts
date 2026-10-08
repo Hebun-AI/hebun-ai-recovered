@@ -228,7 +228,7 @@ async function main(): Promise<void> {
 
     const requestA = await proposeAgentOriginatedObservationWorkAction(
       ctx,
-      { title: "Recorded the channel observation", observationRef: refA.observationRef },
+      { workScope: { kind: "organization" as const }, title: "Recorded the channel observation", observationRef: refA.observationRef },
       proposer!,
       deps,
     );
@@ -398,7 +398,7 @@ async function main(): Promise<void> {
     /* A FORGED OBSERVATION REFERENCE NEVER BECOMES A PROPOSAL AT ALL. */
     const forged = await proposeAgentOriginatedObservationWorkAction(
       ctx,
-      {
+      { workScope: { kind: "organization" as const },
         title: "Work about an observation that does not exist",
         observationRef: "provider-observation/00000000-0000-4000-8000-000000000000",
       },
@@ -415,7 +415,7 @@ async function main(): Promise<void> {
     /* A MALFORMED ONE IS REFUSED BEFORE ANY READ. */
     const malformed = await proposeAgentOriginatedObservationWorkAction(
       ctx,
-      { title: "Work about a malformed reference", observationRef: "not-a-reference" },
+      { workScope: { kind: "organization" as const }, title: "Work about a malformed reference", observationRef: "not-a-reference" },
       proposer!,
       deps,
     );
@@ -427,7 +427,7 @@ async function main(): Promise<void> {
     /* EVIDENCE REUSE: a SECOND proposal citing observation A cannot fund a second act. */
     const reuse = await proposeAgentOriginatedObservationWorkAction(
       ctx,
-      { title: "Second work about the same observation", observationRef: refA.observationRef },
+      { workScope: { kind: "organization" as const }, title: "Second work about the same observation", observationRef: refA.observationRef },
       proposer!,
       deps,
     );
@@ -442,7 +442,7 @@ async function main(): Promise<void> {
     /* A HUMAN-PROPOSED OBSERVATION PROPOSAL IS NOT THE ENVELOPE'S BUSINESS. */
     const human = await proposeSocialObservationWorkAction(
       ctx,
-      { title: "Human-named work about observation B", observationRef: refB.observationRef },
+      { workScope: { kind: "organization" as const }, title: "Human-named work about observation B", observationRef: refB.observationRef },
       deps,
     );
     assert.equal(human.status, "proposed", JSON.stringify(human));
@@ -478,7 +478,7 @@ async function main(): Promise<void> {
     /* CADENCE: a fresh agent proposal, with the envelope's one minute not yet elapsed. */
     const cadence = await proposeAgentOriginatedObservationWorkAction(
       ctx,
-      { title: "Work about observation B", observationRef: refB.observationRef },
+      { workScope: { kind: "organization" as const }, title: "Work about observation B", observationRef: refB.observationRef },
       proposer!,
       deps,
     );
@@ -509,7 +509,7 @@ async function main(): Promise<void> {
     /* QUOTA: the envelope allowed TWO acts and both are spent. A third is refused as exhausted. */
     const third = await proposeAgentOriginatedObservationWorkAction(
       ctx,
-      { title: "A third act", observationRef: await freshObservationRef() },
+      { workScope: { kind: "organization" as const }, title: "A third act", observationRef: await freshObservationRef() },
       proposer!,
       deps,
     );
@@ -545,7 +545,7 @@ async function main(): Promise<void> {
 
     const afterWithdrawal = await proposeAgentOriginatedObservationWorkAction(
       ctx,
-      { title: "Work after withdrawal", observationRef: await freshObservationRef() },
+      { workScope: { kind: "organization" as const }, title: "Work after withdrawal", observationRef: await freshObservationRef() },
       proposer!,
       deps,
     );

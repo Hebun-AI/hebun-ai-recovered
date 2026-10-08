@@ -32,7 +32,9 @@ import {
 } from "@/features/heby-provider-ops/provider-connectivity-projection.server";
 import { authorizeExternalAiDisclosure } from "@/features/external-ai-data-use/authorize-external-ai-disclosure.server";
 import type { DataClass } from "@/features/external-ai-data-use/contracts";
-import type { AgentOriginationAvailability, OriginationUnavailableReason } from "./contracts";
+import type { AgentOriginationAvailability, OriginationUnavailableReason, WorkScopeOption } from "./contracts";
+import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
+import { listEligibleAgents } from "./list-eligible-agents.server";
 
 /*
  * What the narrow origination path declares: the goal (`conversation`) and the organization's
@@ -58,6 +60,31 @@ const PROPOSER_REASON: Readonly<Record<string, OriginationUnavailableReason>> = 
   "selected-agent-retired": "agent-retired",
 };
 
+/**
+ * AP-4B. Organization-level, then every IN-SERVICE work domain by slug, each with its eligible agents.
+ * `null` when either authority cannot be read — never a partial list.
+ */
+async function readWorkScopeOptions(
+  tenant: TenantContext,
+  db: { readonly getDb?: () => ControlPlaneDatabase | null },
+): Promise<readonly WorkScopeOption[] | null> {
+  const domains = await readWorkDomains(tenant, db);
+  if (domains.status !== "read") return null;
+  const scopes = [
+    { scope: { kind: "organization" as const }, label: "Organization-level" },
+    ...domains.workDomains
+      .filter((d) => d.inService)
+      .map((d) => ({ scope: { kind: "domain" as const, workDomainId: d.workDomainId }, label: d.name })),
+  ];
+  const options: WorkScopeOption[] = [];
+  for (const entry of scopes) {
+    const eligible = await listEligibleAgents(tenant, entry.scope, db);
+    if (eligible.status !== "read") return null;
+    options.push({ ...entry, eligibleAgentIds: eligible.agents.map((a) => a.agentId) });
+  }
+  return options;
+}
+
 export async function readOriginationAvailability(
   deps: OriginationAvailabilityDeps,
   /* AP-1 — which agent the human is asking about; a lookup key the resolver verifies. */
@@ -78,12 +105,15 @@ export async function readOriginationAvailability(
     if (proposer.status === "refused") {
       if (proposer.reason === "ambiguous-durable-agent-identity" && identity.status === "known") {
         /* AP-1 — say WHO could be chosen, never choose. In service only; by the read's own order. */
+        const workScopes = await readWorkScopeOptions(tenant, db);
+        if (!workScopes) return unavailable("temporarily-unavailable");
         return {
           status: "unavailable",
           reason: "multiple-agents",
           candidates: identity.identities
             .filter((i) => i.inService)
             .map((i) => ({ agentId: i.agentId, name: i.name })),
+          workScopes,
         };
       }
       return unavailable(PROPOSER_REASON[proposer.reason] ?? "temporarily-unavailable");
@@ -100,6 +130,11 @@ export async function readOriginationAvailability(
     if (ceiling === "no-agent-mandate") return unavailable("mandate-unavailable");
     if (ceiling) return unavailable("proposal-scope-unavailable");
     if (mandate.status !== "known" || !mandate.mandate) return unavailable("mandate-unavailable");
+
+    /* 2b · AP-4B. Which kinds of work this agent is responsible for, among those in service. */
+    const workScopes = await readWorkScopeOptions(tenant, db);
+    if (!workScopes) return unavailable("temporarily-unavailable");
+    if (!workScopes.some((o) => o.eligibleAgentIds.includes(agentId))) return unavailable("no-work-responsibility");
 
     /* 3 · The Director control, model configuration and transport permit an attempt. */
     const ops = await (deps.readProviderOps ?? (() => readProviderOpsView()))();
@@ -131,6 +166,7 @@ export async function readOriginationAvailability(
         proposalScope: [...mandate.mandate.proposalScope],
       },
       originable: RECORD_WORK_ORIGINATION_ALIAS,
+      workScopes,
     };
   } catch {
     return unavailable("temporarily-unavailable");

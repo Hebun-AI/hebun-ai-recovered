@@ -248,7 +248,7 @@ async function main(): Promise<void> {
       const before = await authoritySnapshot();
       const callsBefore = transportCalls;
 
-      const result = await originateAgentAction({ goal: GOAL }, originationDeps(testCase.text));
+      const result = await originateAgentAction({ workScope: { kind: "organization" as const }, goal: GOAL }, originationDeps(testCase.text));
 
       assert.equal(result.status, "refused", `${testCase.label}: no proposal was produced`);
       assert.equal(
@@ -349,7 +349,7 @@ async function main(): Promise<void> {
       assert.equal(await countOf("heby_action_requests"), 0, "nothing was filed by any refusal");
 
       const proposed = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         originationDeps(
           JSON.stringify({
             kind: "record-work",

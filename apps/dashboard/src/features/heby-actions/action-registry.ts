@@ -389,10 +389,37 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
           required: false,
           describes: "An in-service department: department/<uuid>. Required when scope is `department`.",
         },
+        /*
+         * ── THE WORK SCOPE, REQUIRED (AP-4B) ─────────────────────────────────
+         *
+         * WHAT KIND of work this is, stated by a human — a second dimension beside the department,
+         * never derived from it. It is hashed into the digest, so the permit is bound to exactly the
+         * scope the Director approved, and an agent's mandate responsibility is checked against it
+         * at proposal, issuance and spend. Required: Release B files no unscoped `record-work`.
+         */
+        {
+          name: "workScope",
+          kind: "enum",
+          required: true,
+          enumValues: ["organization", "domain"],
+          describes: "Whether this is organization-level work or work of one recorded work domain.",
+        },
+        {
+          /*
+           * A `string`, not a `record-ref`: a record-ref is resolved against retrieved evidence by
+           * source class, and a work domain has none. The reference is resolved by the inlet through
+           * the Work Domain Authority's reader (this tenant, in service) and again by the Work
+           * Authority inside the recording transaction — two resolutions, neither of them parsing.
+           */
+          name: "workDomainRef",
+          kind: "string",
+          required: false,
+          describes: "An in-service work domain: work-domain/<uuid>. Required when scope is `domain`.",
+        },
       ],
     },
     inputSummary:
-      "A title, and either one in-service department of this organization or an explicit declaration that the work is organization-level.",
+      "A title, either one in-service department of this organization or an explicit declaration that the work is organization-level, and a work scope: organization-level or one in-service work domain.",
     outputSummary:
       "Would record one organizational work item, authored by the system under a human's authorization. Reversible through retirement; nothing is erased.",
     describes:

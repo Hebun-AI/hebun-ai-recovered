@@ -200,6 +200,8 @@ export type WorkRefusal =
   | "work-retired"
   /** No ACTIVE department of this tenant carries that id. */
   | "department-unresolved"
+  /** AP-4B. The stated work domain is not an in-service work domain of this tenant. */
+  | "work-domain-unresolved"
   /** The proposed accountable human is not a currently eligible member of this tenant. */
   | "accountable-not-eligible-member"
   /** WEV-1. The named referent is not a live referent of this tenant. Another tenant's is identical. */

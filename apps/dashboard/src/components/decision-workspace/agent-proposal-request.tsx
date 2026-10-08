@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DecisionRegion } from "./decision-region";
+import { WorkScopeSelect, workScopeFromChoice, type WorkScopeChoice } from "@/components/work-domain/work-scope-select";
 import { originateHebyActionProposalAction } from "@/app/(dashboard)/heby/actions";
 import type { AgentOriginableActionKind, OriginationRefusal } from "@/features/agent-origination";
 
@@ -55,6 +56,8 @@ export const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
   "model-unavailable":
     "Heby's model runtime is not available, so no reasoning happened. Nothing was filed.",
   "goal-rejected": "That goal was not accepted. State it as a sentence and try again.",
+  "invalid-work-scope":
+    "Choose what kind of work this is — organization-level or one work domain — before asking. Nothing was asked or filed.",
   /*
    * TWO KEYS, ONE SENTENCE — and deliberately so. `unauthenticated` and
    * `no-authorized-tenant-context` are different internal facts (the seam refused before the
@@ -123,18 +126,20 @@ type Outcome =
   | { readonly kind: "proposed"; readonly action: AgentOriginableActionKind; readonly reason: string }
   | { readonly kind: "refused"; readonly reason: OriginationRefusal; readonly detail?: string };
 
-export function AgentProposalRequest() {
+export function AgentProposalRequest({ workScopeChoices }: { readonly workScopeChoices: readonly WorkScopeChoice[] }) {
   const router = useRouter();
   const [goal, setGoal] = useState("");
+  /* AP-4B — the work scope the HUMAN chooses; the agent never does. No default. */
+  const [workScope, setWorkScope] = useState("");
   const [outcome, setOutcome] = useState<Outcome>({ kind: "idle" });
   const [pending, startTransition] = useTransition();
 
-  const ready = goal.trim().length >= MIN_GOAL && goal.length <= MAX_GOAL;
+  const ready = goal.trim().length >= MIN_GOAL && goal.length <= MAX_GOAL && workScope !== "";
 
   const ask = () =>
     startTransition(async () => {
       setOutcome({ kind: "idle" });
-      const result = await originateHebyActionProposalAction({ goal });
+      const result = await originateHebyActionProposalAction({ goal, workScope: workScopeFromChoice(workScope) });
       if (result.status === "proposed") {
         setOutcome({ kind: "proposed", action: result.kind, reason: result.reason });
         /*
@@ -167,6 +172,11 @@ export function AgentProposalRequest() {
             placeholder="What do you want handled? For example: Ayşe is waiting on the quarterly summary."
             className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-fg-primary"
           />
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs text-fg-secondary" htmlFor="heby-work-scope">
+          Work scope — what kind of work this is. You choose it; Heby does not.
+          <WorkScopeSelect id="heby-work-scope" value={workScope} onChange={setWorkScope} choices={workScopeChoices} />
         </label>
 
         <div className="flex flex-wrap items-center gap-3">

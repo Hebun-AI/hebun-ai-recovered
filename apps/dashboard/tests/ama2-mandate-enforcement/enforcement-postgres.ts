@@ -33,7 +33,7 @@ import { createDurableAgentIdentity } from "../../src/features/agent-identity/cr
 import { retireDurableAgentIdentity } from "../../src/features/agent-identity/retire-durable-agent-identity.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import { createExternalRecipient } from "../../src/features/external-recipients/write-external-recipients.server";
-import { establishAgentMandate } from "../../src/features/agent-mandate/establish-agent-mandate.server";
+import { establishAgentMandateWithDefaultResponsibility as establishAgentMandate } from "../helpers/mandate-default-responsibility";
 import { readEffectiveAgentMandate } from "../../src/features/agent-mandate/read-agent-mandate.server";
 import {
   resolveAgentProposer,

@@ -56,6 +56,9 @@ import { departments } from "@/db/schema/department";
 import { memberships } from "@/db/schema/membership";
 import { users } from "@/db/schema/user";
 import { workItems } from "@/db/schema/work-item";
+import { workDomains } from "@/db/schema/work-domain";
+import { ACTIVE_WORK_DOMAIN_STATUS } from "@/features/work-domain/contracts";
+import type { WorkScope } from "@/features/work-domain/work-scope";
 import { workEvidenceReferences } from "@/db/schema/work-evidence-reference";
 import { knowledgeFacts } from "@/db/schema/knowledge-fact";
 import { workArtifacts } from "@/db/schema/work-artifact";
@@ -210,6 +213,30 @@ async function isActiveDepartment(
   return rows.length > 0;
 }
 
+/**
+ * AP-4B. Is this an IN-SERVICE work domain of this tenant? Verify-only: the Work Domain Authority owns
+ * the row; this authority only refuses to file new work against a domain that is absent, foreign or
+ * retired — the lifecycle rule the composite foreign key cannot express, exactly as for departments.
+ */
+async function isActiveWorkDomain(
+  tx: { select: ControlPlaneDatabase["select"] },
+  tenantId: string,
+  workDomainId: string,
+): Promise<boolean> {
+  const rows = await tx
+    .select({ id: workDomains.id })
+    .from(workDomains)
+    .where(
+      and(
+        eq(workDomains.tenantId, tenantId),
+        eq(workDomains.id, workDomainId),
+        eq(workDomains.lifecycleStatus, ACTIVE_WORK_DOMAIN_STATUS),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 function viewOf(row: {
   id: string;
   title: string;
@@ -314,6 +341,11 @@ async function recordWorkCore(
     readonly declaredState?: WorkDeclaredState;
     readonly departmentId?: string | null;
     readonly accountableUserId?: string | null;
+    /**
+     * AP-4B. The work scope a human approved. Absent on the direct human path (WORK-1), which stays
+     * unscoped — NULL/NULL, "unknown". Written once, here, and never by any later transition.
+     */
+    readonly workScope?: WorkScope;
   },
   author: WorkStateAuthor,
   now: Date = new Date(),
@@ -335,6 +367,12 @@ async function recordWorkCore(
       return refuse("accountable-not-eligible-member");
     }
   }
+  const workScope = input.workScope ?? null;
+  if (workScope?.kind === "domain") {
+    if (!(await isActiveWorkDomain(tx, ctx.tenantId, workScope.workDomainId))) {
+      return refuse("work-domain-unresolved");
+    }
+  }
 
   const inserted = await tx
     .insert(workItems)
@@ -343,6 +381,8 @@ async function recordWorkCore(
       title: input.title,
       ...(input.declaredState === undefined ? {} : { declaredState: input.declaredState }),
       departmentId,
+      workScopeKind: workScope?.kind ?? null,
+      workDomainId: workScope?.kind === "domain" ? workScope.workDomainId : null,
       accountableActorType: accountableUserId === null ? null : "human",
       accountableActorId: accountableUserId,
       /*
@@ -397,6 +437,11 @@ export async function recordWorkWithin(
     readonly declaredState?: WorkDeclaredState;
     readonly departmentId?: string | null;
     readonly accountableUserId?: string | null;
+    /**
+     * AP-4B. The work scope a human approved. Absent on the direct human path (WORK-1), which stays
+     * unscoped — NULL/NULL, "unknown". Written once, here, and never by any later transition.
+     */
+    readonly workScope?: WorkScope;
   },
   author: WorkStateAuthor,
   now: Date = new Date(),
@@ -462,6 +507,11 @@ export async function recordWorkWithinAsMachine(
     readonly declaredState?: WorkDeclaredState;
     readonly departmentId?: string | null;
     readonly accountableUserId?: string | null;
+    /**
+     * AP-4B. The work scope a human approved. Absent on the direct human path (WORK-1), which stays
+     * unscoped — NULL/NULL, "unknown". Written once, here, and never by any later transition.
+     */
+    readonly workScope?: WorkScope;
   },
   now: Date = new Date(),
 ): Promise<WorkWriteResult> {
@@ -503,7 +553,11 @@ export async function recordWork(
      * uses. One insert, one set of preconditions, one audit event — differing only in the author.
      */
     await db.transaction(async (tx) => {
-      outcome = await recordWorkWithin(tx, authenticated, input, { kind: "human" }, now);
+      /* AP-4B · D-B2. The direct human path files UNSCOPED work (NULL/NULL, "unknown"): the fields
+       * are passed by name, so no scope can ride along from a caller's object. */
+      const { title, declaredState, departmentId, accountableUserId } = input;
+      const unscoped = { title, declaredState, departmentId, accountableUserId };
+      outcome = await recordWorkWithin(tx, authenticated, unscoped, { kind: "human" }, now);
     });
     return outcome ?? refuse("authority-unavailable");
   } catch {

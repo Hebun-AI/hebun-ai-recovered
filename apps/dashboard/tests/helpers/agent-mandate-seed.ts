@@ -32,7 +32,7 @@
 import assert from "node:assert/strict";
 import type { Client } from "pg";
 import { establishGovernanceAuthority } from "../../src/features/governance-decision/bootstrap-authority.server";
-import { establishAgentMandate } from "../../src/features/agent-mandate/establish-agent-mandate.server";
+import { establishAgentMandateWithResponsibility } from "../../src/features/agent-mandate/establish-agent-mandate.server";
 import { AGENT_ORIGINABLE_ACTION_KINDS } from "../../src/features/agent-origination/contracts";
 import type { TenantContext } from "../../src/features/auth/tenant/tenant-context";
 import { asHumanTenantContext } from "../../src/features/auth/tenant/tenant-context";
@@ -57,6 +57,11 @@ export interface MandateSeedOptions {
    * this helper only stops hard-coding the first-establishment case.
    */
   readonly observedMandateRevision?: number | null;
+  /**
+   * AP-4B. The responsibility to grant. Defaults to organization-level when the scope names
+   * `record-work` (the authority requires a non-empty one) and to none otherwise.
+   */
+  readonly responsibility?: readonly unknown[];
   /** Distinguishes the session-reference hash when one client seeds several tenants. */
   readonly tag?: string;
   readonly now?: Date;
@@ -126,14 +131,17 @@ export async function seedAgentMandate(
 
   await seedGovernanceAuthority(client, identity, deps, { sessionContextId, ctx });
 
-  const established = await establishAgentMandate(
+  const proposalScope = options.proposalScope ?? [...AGENT_ORIGINABLE_ACTION_KINDS];
+  const established = await establishAgentMandateWithResponsibility(
     ctx,
     {
       agentId,
       purpose: PURPOSE,
-      proposalScope: options.proposalScope ?? [...AGENT_ORIGINABLE_ACTION_KINDS],
+      proposalScope,
       justification: MANDATE_JUSTIFICATION,
       observedMandateRevision: options.observedMandateRevision ?? null,
+      responsibility:
+        options.responsibility ?? (proposalScope.includes("record-work") ? [{ kind: "organization" }] : []),
     },
     deps as never,
   );

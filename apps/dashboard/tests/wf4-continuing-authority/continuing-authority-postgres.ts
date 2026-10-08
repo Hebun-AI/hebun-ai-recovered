@@ -109,14 +109,14 @@ async function main(): Promise<void> {
     };
     const agentPermit = async () => {
       const p = await proposeAgentOriginatedRecordWorkAction(
-        acme.ctx, { title: `WF-4 agent work ${++seq}`, department: { kind: "department", departmentRef: acme.departmentRef } }, proposer!, deps,
+        acme.ctx, { workScope: { kind: "organization" as const }, title: `WF-4 agent work ${++seq}`, department: { kind: "department", departmentRef: acme.departmentRef } }, proposer!, deps,
       );
       assert.equal(p.status, "proposed", JSON.stringify(p));
       return approve(p.status === "proposed" ? p.receipt.requestId : "");
     };
     const humanPermit = async () => {
       const p = await proposeRecordWorkAction(
-        acme.ctx, { title: `WF-4 human work ${++seq}`, department: { kind: "department", departmentRef: acme.departmentRef } }, deps,
+        acme.ctx, { workScope: { kind: "organization" as const }, title: `WF-4 human work ${++seq}`, department: { kind: "department", departmentRef: acme.departmentRef } }, deps,
       );
       assert.equal(p.status, "proposed", JSON.stringify(p));
       return approve(p.status === "proposed" ? p.receipt.requestId : "");

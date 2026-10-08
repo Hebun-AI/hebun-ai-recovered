@@ -28,6 +28,7 @@ import { originateKnowledgeGroundedProposalAction } from "@/app/(dashboard)/heby
 import { readAgentOriginationAvailabilityAction } from "@/app/(dashboard)/heby/origination-availability-actions";
 import type { AgentOriginationAvailability, OriginationUnavailableReason } from "@/features/origination-availability/contracts";
 import type { AgentOriginableActionKind, OriginationRefusal } from "@/features/agent-origination";
+import { WorkScopeSelect, workScopeFromChoice, choiceFromWorkScope } from "@/components/work-domain/work-scope-select";
 import {
   ALREADY_PENDING_DETAIL,
   PROPOSED_KIND_WORDING,
@@ -46,6 +47,8 @@ const UNAVAILABLE_WORDING: Readonly<Record<OriginationUnavailableReason, string>
   "selected-agent-unresolvable": "That agent is not one of this organization's agents, so it cannot be asked.",
   "mandate-unavailable": "The agent has no mandate in effect, so it cannot propose anything.",
   "proposal-scope-unavailable": "The agent's mandate does not admit recording organizational work.",
+  "no-work-responsibility":
+    "The agent's mandate grants it responsibility for no work scope in service, so it cannot propose work.",
   "model-unavailable": "Heby's model runtime is not available right now, so the agent cannot be asked.",
   "external-ai-not-authorized": "This organization has not authorized the external model use that agent origination needs.",
   "temporarily-unavailable": "Hebun could not confirm the agent's current authority, so it is not offering this right now.",
@@ -67,6 +70,8 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
   const [state, setState] = useState<State>({ kind: "closed" });
   /* AP-1 — set only by an explicit human choice among `multiple-agents` candidates. */
   const [chosenAgentId, setChosenAgentId] = useState<string | undefined>(undefined);
+  /* AP-4B — the work scope the HUMAN chooses. No default, even when only one is eligible. */
+  const [workScope, setWorkScope] = useState("");
   const [, startTransition] = useTransition();
 
   /* A slash command is an instruction to Heby's UI, not a goal anyone wrote. */
@@ -87,7 +92,8 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
   const confirm = (agentName: string, withKnowledge = false) => {
     setState({ kind: "asking", agentName });
     startTransition(async () => {
-      const input = chosenAgentId ? { goal, agentId: chosenAgentId } : { goal };
+      const scope = workScopeFromChoice(workScope);
+      const input = chosenAgentId ? { goal, agentId: chosenAgentId, workScope: scope } : { goal, workScope: scope };
       const result = withKnowledge
         ? await originateKnowledgeGroundedProposalAction(input)
         : await originateHebyActionProposalAction(input);
@@ -121,6 +127,17 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
                 onClick={() => check(candidate.agentId)}
               >
                 {candidate.name}
+                {/* AP-4B — what each candidate is responsible for: a projection, never a ranking. */}
+                {state.availability.workScopes ? (
+                  <span className="ml-1 font-normal text-fg-muted">
+                    (
+                    {state.availability.workScopes
+                      .filter((o) => o.eligibleAgentIds.includes(candidate.agentId))
+                      .map((o) => o.label)
+                      .join(", ") || "no work scope"}
+                    )
+                  </span>
+                ) : null}
               </button>
             ))}
           </span>
@@ -133,7 +150,12 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
   }
 
   if (state.kind === "checked" && state.availability.status === "available") {
-    const { agent, mandate } = state.availability;
+    const { agent, mandate, workScopes } = state.availability;
+    const choices = workScopes.map((o) => ({
+      value: choiceFromWorkScope(o.scope),
+      label: o.eligibleAgentIds.includes(agent.agentId) ? o.label : `${o.label} — not ${agent.name}'s responsibility`,
+      disabled: !o.eligibleAgentIds.includes(agent.agentId),
+    }));
     return (
       <div className={PANEL} data-wf1-offer="">
         <p className="text-fg">
@@ -152,10 +174,15 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
           Grounded in Knowledge: {agent.name} is also shown this organization&apos;s ratified Knowledge eligible for
           grounding (at most 20 statements) and must cite at least one; nothing is filed otherwise.
         </p>
+        <label className="mt-2 block" htmlFor="heby-origination-work-scope">
+          Work scope — what kind of work this is. You choose it; the agent does not.
+          <WorkScopeSelect id="heby-origination-work-scope" value={workScope} onChange={setWorkScope} choices={choices} />
+        </label>
         <div className="mt-2 flex items-center gap-3">
           <button
             type="button"
             className="rounded-lg border border-border bg-surface-raised px-2.5 py-1 text-xs font-medium text-fg"
+            disabled={workScope === ""}
             onClick={() => confirm(agent.name)}
           >
             Ask {agent.name} to propose
@@ -163,6 +190,7 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
           <button
             type="button"
             className="rounded-lg border border-border bg-surface-raised px-2.5 py-1 text-xs font-medium text-fg"
+            disabled={workScope === ""}
             onClick={() => confirm(agent.name, true)}
           >
             Ask, grounded in Knowledge

@@ -86,7 +86,8 @@ function exactlyOneWriterSurvivedTheProductConnection(): void {
    */
   const actions = codeOf(read(ACTIONS));
   assert.ok(
-    actions.includes("establishAgentMandate("),
+    /* AP-4B: the one remaining entry; the five-value one was deleted. */
+    actions.includes("establishAgentMandateWithResponsibility("),
     "the action calls the ONE released mandate writer",
   );
   for (const forbidden of [
@@ -109,7 +110,8 @@ function exactlyOneWriterSurvivedTheProductConnection(): void {
   /* And exactly one product path reaches the writer, so there is no second workflow to maintain. */
   const callers = collect("src")
     .filter((f) => f !== WRITER && !f.startsWith(MANDATE_FEATURE))
-    .filter((f) => /\bestablishAgentMandate\s*\(/.test(codeOf(read(f))))
+    /* AP-4B: the writer's one entry is now `establishAgentMandateWithResponsibility`. */
+    .filter((f) => /\bestablishAgentMandate(WithResponsibility)?\s*\(/.test(codeOf(read(f))))
     .sort();
   assert.deepEqual(
     callers,
@@ -333,7 +335,7 @@ function hebyGainedOnlyARead(): void {
   for (const file of hebyFiles) {
     const source = codeOf(read(file));
     for (const forbidden of [
-      /\bestablishAgentMandate\b/,
+      /\bestablishAgentMandate\w*\b/,
       /\bagentMandates\b/,
       /db\/schema\/agent-mandate/,
     ]) {

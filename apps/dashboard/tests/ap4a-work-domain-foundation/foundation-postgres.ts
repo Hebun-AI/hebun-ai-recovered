@@ -13,15 +13,15 @@
  *   W7 the database refuses cross-tenant references (23503), malformed scope/slug (23514), and
  *      deleting a referenced domain (23503).
  * MANDATE (ONE AUTHORITY, TWO CONTRACTS)
- *   M1 the released 5-value contract writes no responsibility; "legacy decision evidence is
- *      byte-identical" and its audit metadata carries no responsibility key.
+ *   M1 (AP-4B: the 5-value contract was deleted) a revision whose scope does not name record-work
+ *      states and writes no responsibility.
  *   M2 the responsibility-aware contract: "record-work needs a responsibility"; responsibility for a
  *      scope without record-work is not admitted; malformed/repeated grants are invalid; another
  *      tenant's or an unknown domain is "work-domain-unresolvable"; "retired domain is never granted";
  *      a refused write leaves no revision and no rows.
  *   M3 a valid grant writes ONE revision, "two responsibility rows", and binds them into the decision
  *      evidence and audit metadata; the reader reports them.
- *   M4 a later legacy revision is undeclared again; the earlier rows are history, untouched.
+ *   M4 a later revision without record-work states none; the earlier rows are history, untouched.
  *   M5 retiring a granted domain leaves the row and reports it retired.
  *   M6 concurrent responsibility-aware writes on one observed revision: one wins, rows only for it.
  * WORK ITEMS
@@ -34,10 +34,7 @@ import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { establishGovernanceAuthority } from "../../src/features/governance-decision/bootstrap-authority.server";
 import { createDurableAgentIdentity } from "../../src/features/agent-identity/create-durable-agent-identity.server";
-import {
-  establishAgentMandate,
-  establishAgentMandateWithResponsibility,
-} from "../../src/features/agent-mandate/establish-agent-mandate.server";
+import { establishAgentMandateWithResponsibility } from "../../src/features/agent-mandate/establish-agent-mandate.server";
 import { readEffectiveMandateResponsibility } from "../../src/features/agent-mandate/read-agent-mandate-responsibility.server";
 import { recordWork } from "../../src/features/organizational-work/write-work.server";
 import { readWorkDomains } from "../../src/features/work-domain/read-work-domains.server";
@@ -47,8 +44,6 @@ import { asHumanTenantContext, type TenantContext } from "../../src/features/aut
 const JUSTIFICATION = "Establishing Governance for the AP-4A fixture organization, and I accept responsibility.";
 const MANDATE_JUSTIFICATION = "I am bounding what this agent exists to do, and I accept responsibility for that bound.";
 const PURPOSE = "Record organizational work for a human to review. It proposes; a human decides.";
-const LEGACY_EVIDENCE_KEYS = ["agentId", "authorityFromBootstrapDecisionId", "mandateRevision", "proposalScope", "supersedesMandateId"];
-const LEGACY_AUDIT_KEYS = ["agentId", "enforced", "governanceDecisionId", "governanceSessionId", "mandateRevision", "proposalScope", "supersedesMandateId"];
 
 interface Seeded {
   readonly tenantId: string;
@@ -197,20 +192,16 @@ async function main(): Promise<void> {
     const bAgentResult = await createDurableAgentIdentity(bCtx, { name: "Heby", justification: "Register this agent for the test organization." }, deps);
     if (agentResult.status !== "established" || bAgentResult.status !== "established") throw new Error("agent fixture");
     const agentId = agentResult.identity.agentId;
-    const legacy = await establishAgentMandate(
+    const legacy = await establishAgentMandateWithResponsibility(
       aCtx,
-      { agentId, purpose: PURPOSE, proposalScope: ["record-work", "send"], justification: MANDATE_JUSTIFICATION, observedMandateRevision: null },
+      { agentId, purpose: PURPOSE, proposalScope: ["send"], justification: MANDATE_JUSTIFICATION, observedMandateRevision: null, responsibility: [] },
       deps,
     );
     assert.equal(legacy.status, "established");
     if (legacy.status !== "established") throw new Error("unreachable");
-    assert.ok(!("responsibility" in legacy), "M1: the released result shape is unchanged");
+    assert.deepEqual(legacy.responsibility, [], "M1: no record-work, no responsibility");
     const rows = () => n(`select count(*) from agent_mandate_responsibilities`);
-    assert.equal(await rows(), 0, "M1: the released contract writes no responsibility");
-    const legacyDecision = (await setup.query<{ evidence: Record<string, unknown> }>(`select evidence from decision_records where id = $1`, [legacy.mandate.governanceDecisionId])).rows[0];
-    assert.deepEqual(Object.keys(legacyDecision.evidence).sort(), LEGACY_EVIDENCE_KEYS, "M1: legacy decision evidence is byte-identical");
-    const legacyAudit = (await setup.query<{ metadata: Record<string, unknown> }>(`select metadata from audit_log where entity_type = 'agent_mandate' and entity_id = $1`, [legacy.mandate.mandateId])).rows[0];
-    assert.deepEqual(Object.keys(legacyAudit.metadata).sort(), LEGACY_AUDIT_KEYS, "M1: legacy audit metadata is unchanged");
+    assert.equal(await rows(), 0, "M1: no responsibility rows");
 
     /* ═══ M2 · the responsibility-aware contract refuses ═══════════════════ */
     const revisions = () => n(`select count(*) from agent_mandates where agent_id = $1`, [agentId]);
@@ -266,9 +257,9 @@ async function main(): Promise<void> {
     );
 
     /* ═══ M4 · a later legacy revision is undeclared ═══════════════════════ */
-    const legacy3 = await establishAgentMandate(
+    const legacy3 = await establishAgentMandateWithResponsibility(
       aCtx,
-      { agentId, purpose: PURPOSE, proposalScope: ["record-work"], justification: MANDATE_JUSTIFICATION, observedMandateRevision: 2 },
+      { agentId, purpose: PURPOSE, proposalScope: ["send"], justification: MANDATE_JUSTIFICATION, observedMandateRevision: 2, responsibility: [] },
       deps,
     );
     assert.equal(legacy3.status, "established");

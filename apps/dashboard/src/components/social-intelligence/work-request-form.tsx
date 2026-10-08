@@ -30,6 +30,7 @@
 import { useId, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { WorkScopeSelect, workScopeFromChoice, type WorkScopeChoice } from "@/components/work-domain/work-scope-select";
 import { proposeWorkFromSocialObservationAction } from "@/app/(dashboard)/intelligence/social/actions";
 import {
   SOCIAL_WORK_PROPOSAL_SENTENCES,
@@ -46,11 +47,15 @@ export interface WorkRequestFormProps {
    */
   readonly observationRef: string;
   readonly platformLabel: string;
+  /** AP-4B — organization-level and the in-service work domains, as the page read them. */
+  readonly workScopeChoices: readonly WorkScopeChoice[];
 }
 
-export function WorkRequestForm({ observationRef, platformLabel }: WorkRequestFormProps) {
+export function WorkRequestForm({ observationRef, platformLabel, workScopeChoices }: WorkRequestFormProps) {
   const titleId = useId();
+  const workScopeId = useId();
   const [title, setTitle] = useState("");
+  const [workScope, setWorkScope] = useState("");
   const [result, setResult] = useState<SocialWorkProposalResult | null>(null);
   const [pending, start] = useTransition();
 
@@ -67,9 +72,13 @@ export function WorkRequestForm({ observationRef, platformLabel }: WorkRequestFo
             const outcome = await proposeWorkFromSocialObservationAction({
               observationRef,
               title,
+              workScope: workScopeFromChoice(workScope),
             });
             setResult(outcome);
-            if (outcome.status === "proposed") setTitle("");
+            if (outcome.status === "proposed") {
+              setTitle("");
+              setWorkScope("");
+            }
           });
         }}
       >
@@ -86,8 +95,12 @@ export function WorkRequestForm({ observationRef, platformLabel }: WorkRequestFo
             placeholder="In the organization's own words"
           />
         </label>
+        <label className="mt-2 block text-xs text-fg-secondary" htmlFor={workScopeId}>
+          Work scope
+          <WorkScopeSelect id={workScopeId} value={workScope} onChange={setWorkScope} choices={workScopeChoices} />
+        </label>
         <div className="mt-3 flex items-center gap-3">
-          <Button type="submit" disabled={pending || title.trim().length === 0}>
+          <Button type="submit" disabled={pending || title.trim().length === 0 || workScope === ""}>
             {pending ? "Filing…" : "File work request"}
           </Button>
           <span className="text-xs text-fg-muted">

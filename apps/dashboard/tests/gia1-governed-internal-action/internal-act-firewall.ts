@@ -263,6 +263,7 @@ function reversibleIsNotErasable(): void {
        * actually sends. What is asserted below — PREPARED != AUTHORIZED, and an honest
        * reversibility sentence — is unchanged. */
       departmentScope: "department",
+      workScope: "organization",
       departmentRef: "department/11111111-2222-3333-4444-555555555555",
     },
     evidence: [

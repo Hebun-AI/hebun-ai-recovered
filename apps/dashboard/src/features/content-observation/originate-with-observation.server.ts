@@ -78,6 +78,8 @@ export interface OriginateWithObservationInput {
    * Absent means observe nothing and spend nothing.
    */
   readonly observeChannelHandle?: string;
+  /** AP-4B. The human's work scope, forwarded verbatim; the origination seam and the inlet decide. */
+  readonly workScope?: unknown;
 }
 
 export interface OriginateWithObservationDeps extends OriginateActionDeps {
@@ -138,7 +140,7 @@ export async function originateAgentActionWithObservation(
   if (!observeChannelHandle) {
     return {
       observation: { status: "not-requested" },
-      origination: await originate({ goal: input.goal }, { ...deps, observationSupplement: undefined }),
+      origination: await originate({ goal: input.goal, workScope: input.workScope }, { ...deps, observationSupplement: undefined }),
     };
   }
 
@@ -164,6 +166,6 @@ export async function originateAgentActionWithObservation(
 
   return {
     observation,
-    origination: await originate({ goal: input.goal }, { ...deps, observationSupplement: supplement }),
+    origination: await originate({ goal: input.goal, workScope: input.workScope }, { ...deps, observationSupplement: supplement }),
   };
 }

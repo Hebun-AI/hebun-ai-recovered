@@ -15,10 +15,11 @@ import {
 } from "@/features/agent-origination/originate-action.server";
 
 export async function originateKnowledgeGroundedProposalAction(
-  input: { readonly goal: string; readonly agentId?: string },
+  /* AP-4B — `workScope` is the human's choice, carried as a value; the inlet resolves and refuses. */
+  input: { readonly goal: string; readonly agentId?: string; readonly workScope?: unknown },
 ): Promise<OriginateActionResult> {
   return originateAgentAction(
-    { goal: input?.goal, agentId: input?.agentId },
+    { goal: input?.goal, agentId: input?.agentId, workScope: input?.workScope },
     { resolveTenant: resolveTenantContext, knowledgeMode: true },
   );
 }

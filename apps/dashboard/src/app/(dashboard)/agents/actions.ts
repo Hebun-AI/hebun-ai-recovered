@@ -11,8 +11,8 @@ import { retireDurableAgentIdentity } from "@/features/agent-identity/retire-dur
  */
 import type { CreateDurableAgentIdentityResult } from "@/features/agent-identity/contracts";
 import type { RetireDurableAgentIdentityResult } from "@/features/agent-identity/retirement-contracts";
-import { establishAgentMandate } from "@/features/agent-mandate/establish-agent-mandate.server";
-import type { EstablishAgentMandateResult } from "@/features/agent-mandate/contracts";
+import { establishAgentMandateWithResponsibility } from "@/features/agent-mandate/establish-agent-mandate.server";
+import type { EstablishResponsibleAgentMandateResult } from "@/features/agent-mandate/responsibility-contracts";
 import { fileImprovementHypothesis } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
 import type { HypothesisResult } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
 import {
@@ -218,15 +218,22 @@ export async function establishAgentMandateAction(input: {
   readonly proposalScope: readonly string[];
   readonly justification: string;
   readonly observedMandateRevision: number | null;
-}): Promise<EstablishAgentMandateResult> {
+  /**
+   * AP-4B. The responsibility the human states for this revision: `{ kind: "organization" }` and/or
+   * `{ kind: "domain", workDomainId }`. Passed through verbatim — the authority canonicalises it,
+   * resolves each domain in this tenant and refuses anything malformed; this action decides nothing.
+   */
+  readonly responsibility: unknown;
+}): Promise<EstablishResponsibleAgentMandateResult> {
   const tenant = await resolveTenantContext();
-  const result = await establishAgentMandate(tenant, {
+  const result = await establishAgentMandateWithResponsibility(tenant, {
     agentId: String(input?.agentId ?? ""),
     purpose: String(input?.purpose ?? ""),
     proposalScope: Array.isArray(input?.proposalScope) ? input.proposalScope.map(String) : [],
     justification: String(input?.justification ?? ""),
     observedMandateRevision:
       typeof input?.observedMandateRevision === "number" ? input.observedMandateRevision : null,
+    responsibility: input?.responsibility,
   });
   if (result.status === "established") revalidatePath("/agents");
   return result;

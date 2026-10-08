@@ -6,6 +6,7 @@ import { ExecutionLedger } from "@/components/decision-workspace/execution-ledge
 import { DecisionHorizonPanel } from "@/components/decision-workspace/decision-horizon-panel";
 import { getDecisionWorkspaceModel } from "@/features/decisions/workspace-model";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
+import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
 import {
   readActionPermits,
   readPendingActionRequests,
@@ -65,6 +66,15 @@ export const maxDuration = 180;
 export default async function ApprovalsPage() {
   const model = getDecisionWorkspaceModel();
   const tenant = await resolveTenantContext();
+  /* AP-4B — the work scopes a human may state when asking Heby; read-only, Work Domain's own seam. */
+  const domains = await readWorkDomains(tenant);
+  const workScopeChoices =
+    domains.status === "read"
+      ? [
+          { value: "organization", label: "Organization-level" },
+          ...domains.workDomains.filter((d) => d.inService).map((d) => ({ value: d.workDomainId, label: d.name })),
+        ]
+      : [];
 
   const [requests, permits, ledger, awaiting, dashboard] = await Promise.all([
     readPendingActionRequests(tenant),
@@ -185,7 +195,7 @@ export default async function ApprovalsPage() {
             maxActsCeiling={STANDING_MUTATION_MAX_ACTS_CEILING}
             minIntervalCeilingMinutes={STANDING_MUTATION_MIN_INTERVAL_CEILING_MINUTES}
           />
-          <AgentProposalRequest />
+          <AgentProposalRequest workScopeChoices={workScopeChoices} />
           {/*
            * The ledger sits BELOW the queue on purpose: what is still to be decided comes first,
            * and what has already been done is the record beneath it. It offers no control — every

@@ -220,7 +220,7 @@ async function main(): Promise<void> {
       reason: RATIONALE,
     });
     const proposed = await originateAgentAction(
-      { goal: GOAL },
+      { workScope: { kind: "organization" as const }, goal: GOAL },
       originationDeps(trhCtx, recordWorkEnvelope),
     );
     assert.equal(proposed.status, "proposed", `record-work filed (${JSON.stringify(proposed)})`);
@@ -275,7 +275,7 @@ async function main(): Promise<void> {
     {
       const differentReason = "A completely different explanation for the identical act.";
       const filed = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         originationDeps(
           otherCtx,
           JSON.stringify({
@@ -327,7 +327,7 @@ async function main(): Promise<void> {
     {
       const before = await countOf("heby_action_requests");
       const duplicate = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         originationDeps(
           trhCtx,
           JSON.stringify({
@@ -375,7 +375,7 @@ async function main(): Promise<void> {
 
       const sendReason = "Ayşe is a recorded recipient and this draft answers the stated goal.";
       const filed = await originateAgentAction(
-        { goal: GOAL },
+        { workScope: { kind: "organization" as const }, goal: GOAL },
         originationDeps(
           trhCtx,
           JSON.stringify({
@@ -409,7 +409,7 @@ async function main(): Promise<void> {
     {
       const human = await proposeRecordWorkAction(
         trhCtx,
-        { title: "A human typed this one", department: { kind: "organization-level" } },
+        { workScope: { kind: "organization" as const }, title: "A human typed this one", department: { kind: "organization-level" } },
         writeDeps,
       );
       assert.equal(human.status, "proposed", `human proposal filed (${JSON.stringify(human)})`);

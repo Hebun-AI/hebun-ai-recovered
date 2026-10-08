@@ -80,12 +80,13 @@ const MUTATIONS: readonly Mutation[] = [
     expect: "a member without Governance authority is refused",
   },
   {
-    label: "B5 the released contract writes an (empty) responsibility",
+    /* AP-4B: the five-value entry is gone; the bite is now "a revision drops its stated responsibility". */
+    label: "B5 a revision is written without its stated responsibility",
     file: MANDATE,
-    find: "await writeMandateRevision(tenant, input, null, deps)",
-    replace: "await writeMandateRevision(tenant, input, [], deps)",
-    suite: POSTGRES,
-    expect: "legacy decision evidence is byte-identical",
+    find: "return writeMandateRevision(tenant, input, responsibility, deps)",
+    replace: "return writeMandateRevision(tenant, input, null, deps)",
+    suite: FIREWALL,
+    expect: "no revision is written without stated responsibility",
   },
   {
     label: "B6 the grant's domain lookup is not tenant-scoped",
@@ -128,12 +129,12 @@ const MUTATIONS: readonly Mutation[] = [
     expect: "a domain without a kind is refused",
   },
   {
-    label: "B11 a live path reads responsibility in Release A",
+    label: "B11 a live path reads the operator-only AP-4A responsibility reader",
     file: LIVE_MANDATE_READER,
     find: 'import { getControlPlaneDb',
     replace: 'import "@/features/agent-mandate/read-agent-mandate-responsibility.server";\nimport { getControlPlaneDb',
     suite: FIREWALL,
-    expect: "has no src caller in Release A",
+    expect: "the AP-4A responsibility reader stays operator-only",
   },
   {
     label: "B12 the Work Domain writer reaches departments",

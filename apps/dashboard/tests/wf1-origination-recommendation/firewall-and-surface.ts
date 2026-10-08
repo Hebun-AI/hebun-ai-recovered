@@ -141,7 +141,8 @@ const ui = code(AFFORDANCE);
 assert.equal((ui.match(/originateHebyActionProposalAction\(/g) ?? []).length, 1, "origination is called from exactly one place");
 /* AP-1: the goal exactly as written, plus the chosen agent's id ONLY when a human chose one. */
 assert.ok(
-  ui.includes("const input = chosenAgentId ? { goal, agentId: chosenAgentId } : { goal };"),
+  /* AP-4B: and the work scope the human chose, carried beside it. */
+  ui.includes("const input = chosenAgentId ? { goal, agentId: chosenAgentId, workScope: scope } : { goal, workScope: scope };"),
   "with the human's message exactly as written (and no agent id unless a human chose one)",
 );
 const confirmBody = ui.slice(ui.indexOf("const confirm = "), ui.indexOf("if (state.kind === \"closed\""));

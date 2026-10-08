@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { WorkRegisterPanel } from "@/components/organizational-work/work-register";
 import { readWorkRegister } from "@/features/organizational-work/read-work.server";
+import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
 import { readWorkEvidenceReferences } from "@/features/organizational-work/read-work-evidence.server";
 import { listKnowledgeSources } from "@/features/knowledge/knowledge-read.server";
 import { listWorkArtifacts } from "@/features/work-artifacts/read-work-artifacts.server";
@@ -111,6 +112,15 @@ export default async function OrganizationalWorkPage() {
     factListing.status === "read"
       ? factListing.records.map((r) => ({ id: r.factId, label: `${r.factKey} — ${r.title}` }))
       : [];
+  /* AP-4B — the in-service work domains a human may scope a proposal to. Read-only; Work Domain's own seam. */
+  const domains = await readWorkDomains(tenant);
+  const workScopeChoices =
+    domains.status === "read"
+      ? [
+          { value: "organization", label: "Organization-level" },
+          ...domains.workDomains.filter((d) => d.inService).map((d) => ({ value: d.workDomainId, label: d.name })),
+        ]
+      : [];
   const artifactOptions =
     artifactListing.status === "read"
       ? artifactListing.artifacts.map((a) => ({ id: a.id, label: a.title }))
@@ -135,6 +145,7 @@ export default async function OrganizationalWorkPage() {
         evidenceReadable={evidence.status === "available"}
         factOptions={factOptions}
         artifactOptions={artifactOptions}
+        workScopeChoices={workScopeChoices}
       />
     </div>
   );

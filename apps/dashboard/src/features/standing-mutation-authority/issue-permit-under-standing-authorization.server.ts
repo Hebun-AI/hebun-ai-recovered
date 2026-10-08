@@ -53,7 +53,11 @@ import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-
 import { resolveMachineExecutionReachability } from "@/features/tenant-machine-execution-authority/resolve-machine-execution-reachability.server";
 import { resolveMachineInternalExecutionEnabled } from "@/features/governed-machine-execution/machine-execution-control.server";
 import { readEffectiveAgentMandateForRuntime } from "@/features/agent-mandate/read-agent-mandate.server";
-import { refuseOutsideAgentMandate } from "@/features/action-authorization/agent-mandate-ceiling";
+import {
+  refuseOutsideAgentMandate,
+  refuseOutsideAgentResponsibility,
+} from "@/features/action-authorization/agent-mandate-ceiling";
+import { workScopeFromPayload } from "@/features/work-domain/work-scope";
 import { recordActionAuthorizationEventWithin } from "@/features/governance-audit/action-authorization-audit.server";
 import {
   asCanonicalPayload,
@@ -285,14 +289,19 @@ export async function issuePermitUnderStandingAuthorization(
        * filed; a Governance-authorized human may have withdrawn or narrowed it since. Read from the
        * Agent Mandate Authority and decided by the one shared ceiling — never re-derived here.
        */
-      const ceiling = refuseOutsideAgentMandate(
-        await (deps.readMandate ?? readEffectiveAgentMandateForRuntime)(
-          request.tenantId,
-          envelope.agentId,
-          deps.getDb ? { getDb: deps.getDb } : {},
-        ),
-        request.actionKind,
+      const mandateNow = await (deps.readMandate ?? readEffectiveAgentMandateForRuntime)(
+        request.tenantId,
+        envelope.agentId,
+        deps.getDb ? { getDb: deps.getDb } : {},
       );
+      const ceiling =
+        refuseOutsideAgentMandate(mandateNow, request.actionKind) ??
+        /* AP-4B · and the work scope frozen into THIS request must still be the agent's responsibility. */
+        refuseOutsideAgentResponsibility(
+          mandateNow,
+          request.actionKind,
+          workScopeFromPayload(request.canonicalPayload as Readonly<Record<string, unknown>> | null),
+        );
       if (ceiling) throw new IssuanceAbort(ceiling);
 
       /*

@@ -198,6 +198,18 @@ export type ActionRequestRefusal =
    * proposing lands here for every kind, because nothing is inside an empty ceiling.
    */
   | "action-outside-agent-mandate"
+  /*
+   * AP-4B. `record-work` must state a work scope — every proposer, human or agent. A payload with no
+   * scope, or a contradictory one, is refused here, in the one writer every inlet reaches, so no
+   * path can file unscoped work.
+   */
+  | "work-scope-required"
+  /*
+   * AP-4B. The agent's effective mandate grants no responsibility admitting this work scope: no
+   * organization-level grant for organization work, or no grant of THAT in-service domain. An
+   * undeclared responsibility (zero grants) lands here too — undeclared is not unlimited.
+   */
+  | "work-outside-agent-responsibility"
   | "persistence-unavailable";
 
 export type ActionDecisionRefusal =

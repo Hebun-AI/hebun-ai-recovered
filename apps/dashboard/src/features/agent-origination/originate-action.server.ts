@@ -34,6 +34,7 @@
  *
  * Server-only.
  */
+import { parseWorkScope } from "@/features/work-domain/work-scope";
 import {
   registerInvocation,
   finalizeInvocation,
@@ -209,6 +210,13 @@ export interface OriginateActionInput {
    * unknown or retired id is refused before any model call. Omitted: exactly the pre-AP-1 path.
    */
   readonly agentId?: unknown;
+  /**
+   * AP-4B — WHAT KIND OF WORK, chosen by the HUMAN: `{ kind: "organization" }` or
+   * `{ kind: "domain", workDomainId }`. Required. It is never shown to the model and never read from
+   * its answer; it travels from here to the record-work inlet as a value, where it is resolved
+   * against the Work Domain Authority and checked against the agent's mandate responsibility.
+   */
+  readonly workScope?: unknown;
 }
 
 export interface OriginateActionDeps {
@@ -466,6 +474,10 @@ export async function originateAgentAction(
   const validation = validateHebyPrompt(input.goal);
   if (!validation.ok) return refused("goal-rejected");
 
+  /* 2b · AP-4B. THE HUMAN'S WORK SCOPE — shape only, before any model request; resolved by the inlet. */
+  const workScope = parseWorkScope(input.workScope);
+  if (!workScope) return refused("invalid-work-scope");
+
   /*
    * 3 · WHAT MAY BE CHOSEN. Built by the server from this tenant's own rows, then narrowed to what
    * the model may be SHOWN (APF-3). From here on only the projection exists: the parser, the slug
@@ -613,6 +625,8 @@ export async function originateAgentAction(
              * other observation.
              */
             observationRef: resolveObservationRef(candidates, chosen.scope.observationSlug),
+            /* AP-4B. The human's scope, carried as a value. The model never saw it. */
+            workScope,
           },
           proposer,
           deps.recordWork ?? {},
@@ -664,6 +678,8 @@ export async function originateAgentAction(
                         ? resolveDepartmentRef(candidates, chosen.scope.departmentSlug)
                         : "",
                   },
+            /* AP-4B. The human's scope, carried as a value. The model never saw it. */
+            workScope,
           },
           proposer,
           deps.recordWork ?? {},

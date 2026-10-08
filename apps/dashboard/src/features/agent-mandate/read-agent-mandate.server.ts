@@ -34,9 +34,12 @@
  *
  * Server-only.
  */
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { agentMandates } from "@/db/schema/agent-mandate";
+import { agentMandateResponsibilities } from "@/db/schema/agent-mandate-responsibility";
+import { workDomains } from "@/db/schema/work-domain";
+import { ACTIVE_WORK_DOMAIN_STATUS } from "@/features/work-domain/contracts";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { isMandateScopeKind, type MandateScopeKind } from "./contracts";
 
@@ -67,7 +70,17 @@ export interface AgentMandateRevision {
   readonly governanceSessionId: string;
   readonly establishedByActorId: string;
   readonly supersedesMandateId: string | null;
+  /**
+   * AP-4B. The responsibility THIS revision was granted, with each domain's CURRENT lifecycle — a
+   * retired domain is reported (inService false), never dropped. Empty = undeclared.
+   */
+  readonly responsibility: readonly MandateResponsibilityState[];
 }
+
+/** One responsibility grant as it stands now. Only `inService` domains admit work. */
+export type MandateResponsibilityState =
+  | { readonly kind: "organization" }
+  | { readonly kind: "domain"; readonly workDomainId: string; readonly inService: boolean };
 
 export type EffectiveAgentMandateRead =
   /** `mandate` is `null` when this agent has no mandate at all. That is a real answer. */
@@ -117,7 +130,7 @@ function project(row: {
   governanceSessionId: string;
   establishedByActorId: string;
   supersedesMandateId: string | null;
-}): AgentMandateRevision {
+}, responsibility: readonly MandateResponsibilityState[]): AgentMandateRevision {
   return {
     mandateId: row.id,
     agentId: row.agentId,
@@ -132,7 +145,55 @@ function project(row: {
     governanceSessionId: row.governanceSessionId,
     establishedByActorId: row.establishedByActorId,
     supersedesMandateId: row.supersedesMandateId,
+    responsibility,
   };
+}
+
+/**
+ * AP-4B. The responsibility rows of the given revisions, keyed by mandate id. Tenant-scoped on both
+ * tables; a domain is joined by (tenant, id), so another tenant's domain can never be reported.
+ */
+async function readResponsibilityRows(
+  db: ControlPlaneDatabase,
+  tenantId: string,
+  mandateIds: readonly string[],
+): Promise<Map<string, MandateResponsibilityState[]>> {
+  const byMandate = new Map<string, MandateResponsibilityState[]>();
+  if (mandateIds.length === 0) return byMandate;
+  const rows = await db
+    .select({
+      mandateId: agentMandateResponsibilities.mandateId,
+      kind: agentMandateResponsibilities.responsibilityKind,
+      workDomainId: agentMandateResponsibilities.workDomainId,
+      lifecycleStatus: workDomains.lifecycleStatus,
+    })
+    .from(agentMandateResponsibilities)
+    .leftJoin(
+      workDomains,
+      and(
+        eq(workDomains.tenantId, agentMandateResponsibilities.tenantId),
+        eq(workDomains.id, agentMandateResponsibilities.workDomainId),
+      ),
+    )
+    .where(
+      and(
+        eq(agentMandateResponsibilities.tenantId, tenantId),
+        inArray(agentMandateResponsibilities.mandateId, [...mandateIds]),
+      ),
+    );
+  for (const r of rows) {
+    const grant: MandateResponsibilityState | null =
+      r.kind === "organization"
+        ? { kind: "organization" }
+        : r.kind === "domain" && r.workDomainId
+          ? { kind: "domain", workDomainId: r.workDomainId, inService: r.lifecycleStatus === ACTIVE_WORK_DOMAIN_STATUS }
+          : null;
+    if (!grant) continue;
+    const list = byMandate.get(r.mandateId) ?? [];
+    list.push(grant);
+    byMandate.set(r.mandateId, list);
+  }
+  return byMandate;
 }
 
 const SELECTION = {
@@ -218,7 +279,9 @@ async function readEffectiveMandateRow(
       .limit(1);
 
     const row = rows[0];
-    return { status: "known", mandate: row ? project(row) : null };
+    if (!row) return { status: "known", mandate: null };
+    const responsibility = await readResponsibilityRows(db, tenantId, [row.id]);
+    return { status: "known", mandate: project(row, responsibility.get(row.id) ?? []) };
   } catch {
     return { status: "unavailable", reason: "read-failed" };
   }
@@ -254,7 +317,8 @@ export async function readAgentMandateHistory(
       .orderBy(desc(agentMandates.mandateRevision))
       .limit(limit);
 
-    return { status: "known", revisions: rows.map(project), limit };
+    const responsibility = await readResponsibilityRows(db, tenant.tenantId, rows.map((r) => r.id));
+    return { status: "known", revisions: rows.map((r) => project(r, responsibility.get(r.id) ?? [])), limit };
   } catch {
     return { status: "unavailable", reason: "read-failed" };
   }

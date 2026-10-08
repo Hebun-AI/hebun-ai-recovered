@@ -38,6 +38,8 @@ import { WorkspaceSection } from "@/components/ui/workspace-section";
 import { InstagramMediaCards } from "@/components/platform-integrations/instagram-media-cards";
 import { EvolutionPanel } from "@/components/social-intelligence/evolution-panel";
 import { WorkRequestForm } from "@/components/social-intelligence/work-request-form";
+import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
+import { readWorkDomains } from "@/features/work-domain/read-work-domains.server";
 import { MediaEvolution } from "@/components/social-intelligence/media-evolution";
 import { ObservationCoverage } from "@/components/social-intelligence/observation-coverage";
 import { PlatformSummaryCard } from "@/components/social-intelligence/platform-summary-card";
@@ -75,6 +77,15 @@ function instant(iso: string): string {
 
 export default async function SocialIntelligencePage() {
   const model = await readSocialDashboard();
+  /* AP-4B — the work scopes a human may state for a work request. Read-only, Work Domain's own seam. */
+  const domains = await readWorkDomains(await resolveTenantContext());
+  const workScopeChoices =
+    domains.status === "read"
+      ? [
+          { value: "organization", label: "Organization-level" },
+          ...domains.workDomains.filter((d) => d.inService).map((d) => ({ value: d.workDomainId, label: d.name })),
+        ]
+      : [];
 
   /*
    * THE STATUS STRIP IS COUNTED, NEVER ASSERTED. Both figures are derived from what this render
@@ -230,6 +241,7 @@ export default async function SocialIntelligencePage() {
                 <WorkRequestForm
                   observationRef={model.instagram.latestObservationRef}
                   platformLabel={INSTAGRAM_PLATFORM.label}
+                  workScopeChoices={workScopeChoices}
                 />
               ) : null}
             </EvolutionPanel>

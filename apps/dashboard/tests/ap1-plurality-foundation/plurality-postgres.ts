@@ -157,7 +157,7 @@ async function main(): Promise<void> {
       /* ── 3. ORIGINATION REFUSES A BAD SELECTION BEFORE ANY MODEL CALL ────── */
       const invocationsBefore = await count("heby_origination_invocations");
       const refusedOrigination = await originateAgentAction(
-        { goal: "Record that the quarterly supplier review is due next week.", agentId: foreign },
+        { workScope: { kind: "organization" as const }, goal: "Record that the quarterly supplier review is due next week.", agentId: foreign },
         {
           resolveTenant: async () => A,
           agentIdentity: deps,

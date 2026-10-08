@@ -12,6 +12,7 @@
  * Pure. No I/O, no database, no clock, no authority.
  */
 
+import type { WorkScope } from "@/features/work-domain/work-scope";
 import type { ActionRequestRefusal } from "@/features/action-authorization/contracts";
 
 /** The only action R3A.1 can propose. One command, one kind, chosen deterministically. */
@@ -258,6 +259,11 @@ export interface RecordWorkProposalInput {
   readonly title: string;
   /** Declared, and refused when it is neither of the two organizational truths. */
   readonly department: RecordWorkProposalDepartmentScope;
+  /**
+   * AP-4B. WHAT KIND of work this is — chosen by a HUMAN on every path, the agent one included (the
+   * model neither sees nor returns it). Required: there is no unscoped record-work proposal.
+   */
+  readonly workScope: WorkScope;
 }
 
 /**
@@ -281,6 +287,12 @@ export type RecordWorkProposalRefusal =
    * the caller's own envelope — and a caller always knows what it sent.
    */
   | "invalid-department-scope"
+  /** AP-4B. No well-formed work scope was stated (organization, or one work domain). */
+  | "invalid-work-scope"
+  /** AP-4B. Absent, foreign-tenant and malformed domain ids are ONE answer, as for departments. */
+  | "work-domain-not-found"
+  /** AP-4B. A real, retired domain: distinct, because the operator can see and fix it. */
+  | "work-domain-retired"
   | "persistence-unavailable"
   | "department-not-found"
   | "department-retired"
@@ -363,6 +375,8 @@ export interface SocialWorkProposalInput {
   readonly observationRef: string;
   /** The organization's own words for what the work is. Never model-authored. */
   readonly title: string;
+  /** AP-4B. The work scope a human chose. Required. */
+  readonly workScope: WorkScope;
 }
 
 /**

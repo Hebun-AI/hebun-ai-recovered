@@ -29,7 +29,7 @@ import type {
   WorkReferenceKind,
 } from "@/features/organizational-work/work-contracts";
 import { proposeRecordWorkAction as fileRecordWorkProposal } from "@/features/heby-action-inlet/record-work-proposal.server";
-import type { RecordWorkProposalResult } from "@/features/heby-action-inlet/contracts";
+import type { RecordWorkProposalInput, RecordWorkProposalResult } from "@/features/heby-action-inlet/contracts";
 import { observeSubjectActHistory } from "@/features/governance-activity/observe.server";
 import {
   readGovernedActionsForWork,
@@ -129,6 +129,8 @@ export async function proposeRecordWorkForGovernanceAction(input: {
    * resolved exactly as before.
    */
   departmentRef?: string | null;
+  /** AP-4B. The work scope the human chose; passed through unchanged — the inlet resolves and refuses. */
+  workScope?: unknown;
 }): Promise<RecordWorkProposalResult> {
   const tenant = await resolveTenantContext();
   const declaredRef = typeof input?.departmentRef === "string" ? input.departmentRef.trim() : "";
@@ -138,6 +140,7 @@ export async function proposeRecordWorkForGovernanceAction(input: {
       declaredRef.length > 0
         ? { kind: "department", departmentRef: declaredRef }
         : { kind: "organization-level" },
+    workScope: input?.workScope as RecordWorkProposalInput["workScope"],
   });
   /*
    * The REGISTER is deliberately not revalidated. Filing a proposal records no work item, and

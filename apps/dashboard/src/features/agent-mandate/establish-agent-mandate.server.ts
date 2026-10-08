@@ -540,30 +540,10 @@ async function writeMandateRevision(
 }
 
 /**
- * THE RELEASED CONTRACT — byte-compatible. Five values, no responsibility; `/agents` reaches the
- * authority here until Release B moves it to the responsibility-aware entry and deletes this one.
- */
-export async function establishAgentMandate(
-  tenant: TenantContext | null,
-  input: {
-    readonly agentId: string;
-    readonly purpose: string;
-    readonly proposalScope: readonly string[];
-    readonly justification: string;
-    readonly observedMandateRevision: number | null;
-  },
-  deps: EstablishAgentMandateDeps = {},
-): Promise<EstablishAgentMandateResult> {
-  const result = await writeMandateRevision(tenant, input, null, deps);
-  if (result.status === "established") return { status: "established", mandate: result.mandate };
-  /* Unreachable with `responsibility === null`: the core raises responsibility refusals only for an array. */
-  return { status: "refused", reason: result.reason as AgentMandateRefusal };
-}
-
-/**
- * AP-4A — THE RESPONSIBILITY-AWARE CONTRACT. Inert in Release A: only the operator ceremony and tests
- * call it (a firewall pins that). A scope naming `record-work` must state a non-empty responsibility;
- * any other scope must state none.
+ * THE ONE CONTRACT (AP-4B). The released five-value entry (`establishAgentMandate`) was deleted in
+ * Release B: it wrote no responsibility, so a `/agents` revision through it would have silently left
+ * an agent with `record-work` in scope and no work it is responsible for. Every revision now states
+ * its responsibility — a scope naming `record-work` must state a non-empty one; any other scope none.
  */
 export async function establishAgentMandateWithResponsibility(
   tenant: TenantContext | null,

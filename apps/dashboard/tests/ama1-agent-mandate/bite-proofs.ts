@@ -215,8 +215,9 @@ function main(): void {
   proof(
     "an enforcement surface appears on the barrel",
     BARREL,
-    "export {\n  establishAgentMandate,",
-    "export const mandateAllows = (): boolean => true;\nexport {\n  establishAgentMandate,",
+    /* AP-4B: the barrel's writer export is the one remaining entry. */
+    "export {\n  establishAgentMandateWithResponsibility,",
+    "export const mandateAllows = (): boolean => true;\nexport {\n  establishAgentMandateWithResponsibility,",
     "the barrel exports no mandateAllows",
   );
 

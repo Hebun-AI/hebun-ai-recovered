@@ -28,16 +28,19 @@ import { revalidatePath } from "next/cache";
 
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { proposeSocialObservationWorkAction } from "@/features/heby-action-inlet/record-work-proposal.server";
-import type { SocialWorkProposalResult } from "@/features/heby-action-inlet/contracts";
+import type { SocialWorkProposalInput, SocialWorkProposalResult } from "@/features/heby-action-inlet/contracts";
 
 export async function proposeWorkFromSocialObservationAction(input: {
   observationRef: string;
   title: string;
+  /** AP-4B. The work scope the human chose; passed through unchanged — the inlet resolves and refuses. */
+  workScope?: unknown;
 }): Promise<SocialWorkProposalResult> {
   const tenant = await resolveTenantContext();
   const result = await proposeSocialObservationWorkAction(tenant, {
     observationRef: String(input?.observationRef ?? ""),
     title: String(input?.title ?? ""),
+    workScope: input?.workScope as SocialWorkProposalInput["workScope"],
   });
   if (result.status === "proposed") revalidatePath("/approvals");
   return result;

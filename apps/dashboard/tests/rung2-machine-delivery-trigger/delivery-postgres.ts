@@ -173,7 +173,7 @@ async function main(): Promise<void> {
     const agentPermit = async (title: string): Promise<string> => {
       const proposal = await proposeAgentOriginatedRecordWorkAction(
         ctx,
-        { title, department: { kind: "department", departmentRef } },
+        { workScope: { kind: "organization" as const }, title, department: { kind: "department", departmentRef } },
         proposer!,
         deps,
       );
@@ -191,7 +191,7 @@ async function main(): Promise<void> {
     const humanPermit = async (title: string): Promise<string> => {
       const proposal = await proposeRecordWorkAction(
         ctx,
-        { title, department: { kind: "department", departmentRef } },
+        { workScope: { kind: "organization" as const }, title, department: { kind: "department", departmentRef } },
         deps,
       );
       assert.equal(proposal.status, "proposed", JSON.stringify(proposal));

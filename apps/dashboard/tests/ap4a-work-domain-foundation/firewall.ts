@@ -2,13 +2,14 @@
  * AP-4A — FIREWALL (structural).
  *
  *   1. ONE WRITER PER TABLE. `work_domains` is inserted/updated only by the Work Domain writer;
- *      `agent_mandate_responsibilities` only by the mandate core; nothing deletes either; no src path
- *      writes `work_items.work_scope_kind` / `work_domain_id` in Release A.
- *   2. ONE MANDATE AUTHORITY. `agent_mandates` is inserted in exactly one place, the private core; the
- *      released entry delegates with `null` responsibility; the released refusal union is unchanged.
- *   3. RELEASE A IS INERT. The work-domain writer/reader, the responsibility reader and the
- *      responsibility-aware entry are reached by scripts and tests only; no live path reads the new
- *      tables; the live effective-mandate reader is untouched.
+ *      `agent_mandate_responsibilities` only by the mandate core; nothing deletes either; only the Work
+ *      Authority writes `work_items.work_scope_kind` / `work_domain_id` (AP-4B, once, at recording).
+ *   2. ONE MANDATE AUTHORITY. `agent_mandates` is inserted in exactly one place, the private core;
+ *      AP-4B deleted the five-value entry, so every revision states its responsibility.
+ *   3. RELEASE B'S EXACT REACH (AP-4B, replacing Release A's inertness pins). The Work Domain writer
+ *      is still reached by the operator ceremony only; its reader by the record-work inlet, the
+ *      origination availability projection and four pages; the responsibility-aware entry by the
+ *      mandate barrel and the /agents action; the AP-4A responsibility reader stays operator-only.
  *   4. A WORK DOMAIN IS NOT A DEPARTMENT. The authority reads no department, placement, agent or
  *      mandate module, and the schema holds no department reference.
  *   5. The slug shape in code equals the database CHECK.
@@ -55,9 +56,11 @@ assert.ok(!/\.update\(\s*agentMandateResponsibilities\s*\)/.test(code(MANDATE)),
 for (const f of SRC) {
   assert.ok(!/\.delete\(\s*(workDomains|agentMandateResponsibilities)\s*\)/.test(code(f)), `${f} deletes no work domain or responsibility`);
 }
-for (const f of SRC.filter((f) => f !== SCHEMA_WORK)) {
-  assert.ok(!/workScopeKind\s*:/.test(code(f)), `${f} writes no work scope in Release A`);
-}
+assert.deepEqual(
+  SRC.filter((f) => f !== SCHEMA_WORK && /workScopeKind\s*:/.test(code(f))),
+  ["src/features/organizational-work/write-work.server.ts"],
+  "AP-4B: only the Work Authority writes a work scope",
+);
 assert.deepEqual([...WORK_DOMAIN_AUTHORITY_MODEL.writesTables], ["work_domains"]);
 
 /* ── 2. ONE MANDATE AUTHORITY ─────────────────────────────────────────────── */
@@ -65,7 +68,8 @@ assert.deepEqual(SRC.filter((f) => /\.insert\(\s*agentMandates\s*\)/.test(code(f
 assert.equal([...code(MANDATE).matchAll(/\.insert\(\s*agentMandates\s*\)/g)].length, 1, "and one insert: the private core");
 assert.match(code(MANDATE), /async function writeMandateRevision\(/, "the core is private (not exported)");
 assert.ok(!/export\s+async\s+function\s+writeMandateRevision/.test(code(MANDATE)));
-assert.match(code(MANDATE), /await writeMandateRevision\(tenant, input, null, deps\)/, "the released entry writes NO responsibility");
+assert.ok(!/export\s+async\s+function\s+establishAgentMandate\(/.test(code(MANDATE)), "AP-4B: the five-value entry is deleted");
+assert.ok(!/writeMandateRevision\(tenant, input, null, deps\)/.test(code(MANDATE)), "AP-4B: no revision is written without stated responsibility");
 assert.match(code(MANDATE), /return writeMandateRevision\(tenant, input, responsibility, deps\)/);
 assert.match(
   read("src/features/agent-mandate/contracts.ts"),
@@ -74,33 +78,46 @@ assert.match(
 );
 assert.ok(!/responsibility/.test(code("src/features/agent-mandate/contracts.ts")), "the released contracts file names no responsibility");
 
-/* ── 3. RELEASE A IS INERT ────────────────────────────────────────────────── */
-const INERT: readonly [string, string][] = [
-  ["work-domain/write-work-domain.server", WRITER],
-  ["work-domain/read-work-domains.server", READER],
-  ["agent-mandate/read-agent-mandate-responsibility.server", RESPONSIBILITY_READER],
-];
-for (const [spec, self] of INERT) {
-  assert.deepEqual(importers(spec, SRC).filter((f) => f !== self), [], `${spec} has no src caller in Release A`);
-}
+/* ── 3. RELEASE B'S EXACT REACH (AP-4B) ──────────────────────────────────── */
+assert.deepEqual(importers("work-domain/write-work-domain.server", SRC).filter((f) => f !== WRITER), [], "the Work Domain writer has no src caller");
 assert.deepEqual(
-  SRC.filter((f) => /establishAgentMandateWithResponsibility/.test(code(f))),
-  [MANDATE],
-  "the responsibility-aware entry has no src caller in Release A",
+  importers("work-domain/read-work-domains.server", SRC).filter((f) => f !== READER).sort(),
+  [
+    "src/app/(dashboard)/agents/page.tsx",
+    "src/app/(dashboard)/approvals/page.tsx",
+    "src/app/(dashboard)/director/work/page.tsx",
+    "src/app/(dashboard)/intelligence/social/page.tsx",
+    "src/features/heby-action-inlet/record-work-proposal.server.ts",
+    "src/features/origination-availability/read-origination-availability.server.ts",
+  ],
+  "the Work Domain reader is reached by the inlet, the availability projection and four pages — nothing else",
+);
+assert.deepEqual(importers("agent-mandate/read-agent-mandate-responsibility.server", SRC).filter((f) => f !== RESPONSIBILITY_READER), [], "the AP-4A responsibility reader stays operator-only");
+assert.deepEqual(
+  SRC.filter((f) => /establishAgentMandateWithResponsibility/.test(code(f))).sort(),
+  ["src/app/(dashboard)/agents/actions.ts", "src/features/agent-mandate/index.ts", MANDATE].sort(),
+  "the one mandate entry is reached by the /agents action (and re-exported by the barrel)",
 );
 assert.deepEqual(
   SCRIPTS.filter((f) => /establishAgentMandateWithResponsibility/.test(code(f))),
   ["scripts/agent-mandate-responsibility-ceremony.ts"],
-  "only the operator ceremony reaches it",
+  "and by the operator ceremony",
 );
-assert.ok(!/establishAgentMandateWithResponsibility|read-agent-mandate-responsibility/.test(code("src/features/agent-mandate/index.ts")), "the mandate barrel does not re-export the inert seams");
-const TOUCH_NEW_TABLES = SRC.filter((f) => /\b(workDomains|agentMandateResponsibilities)\b/.test(code(f)));
+/* Who imports a table module — a property named `workDomains` on a read result is not a table. */
+const TOUCH_NEW_TABLES = SRC.filter((f) => /from "@\/db\/schema\/(work-domain|agent-mandate-responsibility)"/.test(code(f)));
 assert.deepEqual(
   TOUCH_NEW_TABLES.sort(),
-  [MANDATE, RESPONSIBILITY_READER, SCHEMA_DOMAIN, SCHEMA_RESPONSIBILITY, SCHEMA_WORK, READER, WRITER].sort(),
-  "no live path reads the new tables",
+  [
+    MANDATE,
+    RESPONSIBILITY_READER,
+    LIVE_MANDATE_READER,
+    "src/features/organizational-work/write-work.server.ts",
+    READER,
+    WRITER,
+  ].sort(),
+  "AP-4B: the live mandate reader joins responsibility; the Work Authority verifies the domain; nothing else touches the tables",
 );
-assert.ok(!/agentMandateResponsibilities|workDomains|responsibility/.test(code(LIVE_MANDATE_READER)), "the live effective-mandate reader is untouched");
+assert.ok(!/\.(insert|update|delete)\(/.test(code(LIVE_MANDATE_READER)), "the live effective-mandate reader still writes nothing");
 
 /* ── 4. A WORK DOMAIN IS NOT A DEPARTMENT ─────────────────────────────────── */
 for (const f of [WRITER, READER, CONTRACTS, AUDIT]) {

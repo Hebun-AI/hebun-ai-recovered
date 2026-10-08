@@ -529,12 +529,14 @@ function noProposalEnforcementExists(): void {
       path.join("src", "features", "governed-machine-execution", "execute-record-work-as-machine.server.ts"),
       /* AMA-3. Heby's answer flow, which imports the mandate authority's own read projection. */
       path.join("src", "features", "heby-answer", "model-answer.server.ts"),
+      /* AP-4B. The read-only eligibility projection: which agents' responsibility admits a scope. */
+      path.join("src", "features", "origination-availability", "list-eligible-agents.server.ts"),
       /* WF-1. The read-only availability projection behind Heby's origination offer. */
       path.join("src", "features", "origination-availability", "read-origination-availability.server.ts"),
       /* APF-1. Standing issuance re-reads the effective mandate before it mints a permit. */
       path.join("src", "features", "standing-mutation-authority", "issue-permit-under-standing-authorization.server.ts"),
     ],
-    "thirteen modules know a mandate exists, and each is named: the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the FOUR enforcers that apply the one shared ceiling (WF-4 added the shared permit spend), THREE product files, ONE grounding consumer and WF-1's read-only availability projection",
+    "fourteen modules know a mandate exists, and each is named: the schema barrel, the AP-4A responsibility table, the audit sibling, the Governance decision writer, the FOUR enforcers that apply the one shared ceiling (WF-4 added the shared permit spend), THREE product files, ONE grounding consumer, WF-1's read-only availability projection and AP-4B's read-only eligibility projection",
   );
 
   /*

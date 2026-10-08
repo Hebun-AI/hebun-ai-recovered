@@ -11,9 +11,8 @@
  * AP-4 scopes responsibility to `record-work`: a revision whose scope names `record-work` must state a
  * non-empty responsibility, and a revision whose scope does not must state none. `send` is untouched.
  *
- * The released 5-value contract (`establishAgentMandate`) is unchanged and writes no responsibility.
- * Its refusal union (`AgentMandateRefusal`) is unchanged too — the responsibility refusals below live
- * in their own type so that no released consumer of that union has to learn them before Release B.
+ * AP-4B: the responsibility-aware entry is the ONLY mandate entry (the five-value one was deleted).
+ * The responsibility refusals live in their own type beside `AgentMandateRefusal`.
  */
 import type { AgentMandateRefusal, EstablishedAgentMandate, MandateScopeKind } from "./contracts";
 

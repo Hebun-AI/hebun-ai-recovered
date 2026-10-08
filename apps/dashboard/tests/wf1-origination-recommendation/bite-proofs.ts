@@ -42,8 +42,8 @@ const MUTATIONS: readonly Mutation[] = [
     file: AFFORDANCE,
     suite: FIREWALL,
     /* AP-1 re-anchored: the goal now travels through the one `input` the confirmation builds. */
-    find: "const input = chosenAgentId ? { goal, agentId: chosenAgentId } : { goal };",
-    replace: "const input = chosenAgentId ? { goal: goal.trim(), agentId: chosenAgentId } : { goal: goal.trim() };",
+    find: "const input = chosenAgentId ? { goal, agentId: chosenAgentId, workScope: scope } : { goal, workScope: scope };",
+    replace: "const input = chosenAgentId ? { goal: goal.trim(), agentId: chosenAgentId, workScope: scope } : { goal: goal.trim(), workScope: scope };",
     because: "with the human's message exactly as written",
   },
   {
@@ -67,18 +67,18 @@ const MUTATIONS: readonly Mutation[] = [
     label: "W5 the projection reaches the disclosure audit writer",
     file: PROJECTION,
     suite: FIREWALL,
-    find: 'import type { AgentOriginationAvailability, OriginationUnavailableReason } from "./contracts";',
+    find: 'import type { AgentOriginationAvailability, OriginationUnavailableReason, WorkScopeOption } from "./contracts";',
     replace:
-      'import type { AgentOriginationAvailability, OriginationUnavailableReason } from "./contracts";\nimport { recordExternalAiDisclosureDecision } from "@/features/governance-audit/external-ai-disclosure-audit.server";\nvoid recordExternalAiDisclosureDecision;',
+      'import type { AgentOriginationAvailability, OriginationUnavailableReason, WorkScopeOption } from "./contracts";\nimport { recordExternalAiDisclosureDecision } from "@/features/governance-audit/external-ai-disclosure-audit.server";\nvoid recordExternalAiDisclosureDecision;',
     because: "must not reach src/features/governance-audit/external-ai-disclosure-audit.server.ts",
   },
   {
     label: "W6 the projection reaches the request writer",
     file: PROJECTION,
     suite: FIREWALL,
-    find: 'import type { AgentOriginationAvailability, OriginationUnavailableReason } from "./contracts";',
+    find: 'import type { AgentOriginationAvailability, OriginationUnavailableReason, WorkScopeOption } from "./contracts";',
     replace:
-      'import type { AgentOriginationAvailability, OriginationUnavailableReason } from "./contracts";\nimport { recordAgentOriginatedActionRequest } from "@/features/action-authorization/record-action-request.server";\nvoid recordAgentOriginatedActionRequest;',
+      'import type { AgentOriginationAvailability, OriginationUnavailableReason, WorkScopeOption } from "./contracts";\nimport { recordAgentOriginatedActionRequest } from "@/features/action-authorization/record-action-request.server";\nvoid recordAgentOriginatedActionRequest;',
     because: "must not reach src/features/action-authorization/record-action-request.server.ts",
   },
   {

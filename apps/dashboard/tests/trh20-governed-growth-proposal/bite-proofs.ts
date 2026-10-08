@@ -93,8 +93,9 @@ const MUTATIONS: readonly Mutation[] = [
     file: COMPOSITION,
     suite: TRUTH_SUITE,
     find:
-      "      origination: await originate({ goal: input.goal }, { ...deps, observationSupplement: undefined }),",
-    replace: "      origination: await originate({ goal: input.goal }, { ...deps }),",
+      /* AP-4B: the wrapper now forwards the human's work scope beside the goal. */
+      "      origination: await originate({ goal: input.goal, workScope: input.workScope }, { ...deps, observationSupplement: undefined }),",
+    replace: "      origination: await originate({ goal: input.goal, workScope: input.workScope }, { ...deps }),",
     because: "every origination call overwrites any caller-supplied supplement with the composed one",
   },
   /* ── AN UNAVAILABLE METRIC IS DENIED BY NAME, NOT BY CATEGORY ────────────── */

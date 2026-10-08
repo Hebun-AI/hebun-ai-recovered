@@ -45,6 +45,7 @@ for (const scope of [["send", "record-work"], ["record-work", "send"], ["record-
     agent: { agentId: "a0000000-0000-4000-8000-000000000001", name: "Heby" },
     mandate: { revision: 3, purpose: "p", proposalScope: scope },
     originable: "record-work",
+    workScopes: [],
   });
   const canNow = html.split("Can propose now")[1]!.split("Mandate permits")[0]!;
   assert.ok(canNow.includes("Work proposals"));
@@ -59,6 +60,7 @@ const available = render({
   agent: { agentId: "a0000000-0000-4000-8000-000000000001", name: "Heby" },
   mandate: { revision: 3, purpose: "p", proposalScope: ["send", "record-work"] },
   originable: "record-work",
+  workScopes: [],
 });
 for (const html of [available, render({ status: "unavailable", reason: "temporarily-unavailable" })]) {
   assert.ok(html.includes("The agent itself does not"));
