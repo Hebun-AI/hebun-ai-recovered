@@ -428,6 +428,7 @@ async function main(): Promise<void> {
           name: stateA.identities[0]!.name,
           humanOwnerId: stateA.identities[0]!.humanOwnerId,
           inService: stateA.identities[0]!.inService,
+          serviceStatus: stateA.identities[0]!.serviceStatus,
           retiredAt: stateA.identities[0]!.retiredAt,
         },
         {
@@ -435,6 +436,8 @@ async function main(): Promise<void> {
           name: "Atlas",
           humanOwnerId: OWNER_A,
           inService: false,
+          /* L-2a: a retirement reads as "retired" — the status, not merely inService false. */
+          serviceStatus: "retired",
           retiredAt: RETIRED_AT.toISOString(),
         },
         "a retired identity reads as retired, keeps its name and keeps its owner",

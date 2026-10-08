@@ -164,7 +164,8 @@ export type LiveMapNodeIntelligence =
  */
 export interface LiveMapNodeStatus {
   readonly label: string;
-  readonly tone: "active" | "retired";
+  /* L-2a: an agent may be suspended (reversible) or of undetermined status — neither is "retired". */
+  readonly tone: "active" | "retired" | "suspended" | "indeterminate";
 }
 
 export interface LiveMapNode {

@@ -1,3 +1,4 @@
+import { AGENT_SERVICE_STATUS_LABEL } from "@/features/agent-identity/service-status";
 import {
   AGENT_EVALUATION_WORDING,
   EVALUATION_NON_CLAIMS,
@@ -108,7 +109,7 @@ function AgentBlock({ agent }: { agent: AgentEvaluation }) {
       <header className="flex flex-wrap items-baseline gap-2">
         <h3 className="text-sm font-semibold text-fg">{agent.agentName}</h3>
         <span className="text-[0.65rem] uppercase tracking-wider text-fg-muted">
-          {agent.inService ? "in service" : "retired"}
+          {AGENT_SERVICE_STATUS_LABEL[agent.serviceStatus]}
         </span>
       </header>
 

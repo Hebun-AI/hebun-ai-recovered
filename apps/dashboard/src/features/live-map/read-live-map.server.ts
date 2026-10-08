@@ -46,6 +46,7 @@
  *
  * Server-only.
  */
+import type { AgentServiceStatus } from "@/features/agent-identity/service-status";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import type { OrganizationAuthorityRead } from "@/features/organization-authority/contracts";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
@@ -94,6 +95,7 @@ import {
   type LiveMapNode,
   type LiveMapNodeAttention,
   type LiveMapNodeIntelligence,
+  type LiveMapNodeStatus,
   type LiveMapProjection,
 } from "./contracts";
 
@@ -110,6 +112,14 @@ import {
   type PlacementRegister,
 } from "@/features/organization-authority/read-placement.server";
 import { resolveHumanLabels } from "@/features/auth-runtime/human-label-read.server";
+
+/* L-2a — one status per identity-seam state, so the map never draws a suspended agent as retired. */
+const LIVE_MAP_AGENT_STATUS: Readonly<Record<AgentServiceStatus, LiveMapNodeStatus>> = {
+  "in-service": { label: "In service", tone: "active" },
+  suspended: { label: "Suspended", tone: "suspended" },
+  retired: { label: "Retired", tone: "retired" },
+  indeterminate: { label: "Status unknown", tone: "indeterminate" },
+};
 
 export interface LiveMapDeps {
   readonly readOrganization?: (tenant: TenantContext | null) => Promise<OrganizationAuthorityRead>;
@@ -540,9 +550,14 @@ function agentDomain(
      * retirement authority's own header warns a surface must never say.
      */
     detail: [
-      identity.inService
+      /* L-2a: the identity seam's status — never "retired" inferred from `inService === false`. */
+      identity.serviceStatus === "in-service"
         ? "In service."
-        : `Retired${identity.retiredAt ? ` at ${identity.retiredAt}` : ""}. Its identity is permanent; it is not working.`,
+        : identity.serviceStatus === "suspended"
+          ? `Suspended${identity.suspendedAt ? ` since ${identity.suspendedAt}` : ""}. Reversible; it is not working.`
+          : identity.serviceStatus === "retired"
+            ? `Retired${identity.retiredAt ? ` at ${identity.retiredAt}` : ""}. Its identity is permanent; it is not working.`
+            : "Service status undetermined: the recorded lifecycle fields disagree. Treated as not working.",
       `Established: ${identity.createdAt}.`,
     ],
     openRoute: "/agents",
@@ -551,9 +566,7 @@ function agentDomain(
      * authority's own derivation; handing the surface a word to render keeps a visual map from
      * having to read a sentence to find out whether an agent is working.
      */
-    status: identity.inService
-      ? { label: "In service", tone: "active" as const }
-      : { label: "Retired", tone: "retired" as const },
+    status: LIVE_MAP_AGENT_STATUS[identity.serviceStatus],
     /*
      * ATTACHED BY THE SAME ID THE NODE IS BUILT FROM. `identity.agentId` produced this node's
      * `nodeId` two lines above and it is the key here, so the evidence and the node cannot come

@@ -195,8 +195,10 @@ function main(): void {
     );
     assert.deepEqual(
       valueEdges(PROJECTION).sort(),
-      ["./agent-outcome-projection.server"],
-      "the projection's only value import is the owner-side observation seam",
+      /* L-2a: plus the pure service-status wording module (no handle, no writer), so a suspended
+         agent is never described as retired. */
+      ["./agent-outcome-projection.server", "@/features/agent-identity/service-status"].sort(),
+      "the projection's only value imports are the owner-side observation seam and the pure status wording",
     );
   }
 

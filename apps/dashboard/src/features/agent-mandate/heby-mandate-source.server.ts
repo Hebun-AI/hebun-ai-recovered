@@ -69,6 +69,7 @@
  *
  * Server-only.
  */
+import { agentServiceSentence } from "@/features/agent-identity/service-status";
 import type { ResolvedSourceItem, SourceResolution } from "@/features/heby-runtime/contracts";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
@@ -192,7 +193,8 @@ function effectiveItem(
       (mandate.supersedesMandateId === null
         ? ", and it is the first revision recorded for this agent"
         : `, superseding mandate ${mandate.supersedesMandateId}`) +
-      `. The agent is ${identity.inService ? "in service" : "retired from service"}. ` +
+      /* L-2a: the identity seam's status — a suspended agent is never described as retired. */
+      `. The agent is ${agentServiceSentence(identity.serviceStatus, identity)}. ` +
       AGENT_MANDATE_NON_CLAIM,
     lifecycle: "settled",
     content: `recorded purpose: ${mandate.purpose}`,

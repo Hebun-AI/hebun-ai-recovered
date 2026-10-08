@@ -61,6 +61,8 @@ const IDENTITIES: DurableAgentIdentityState = {
       createdAt: "2026-06-01T00:00:00.000Z",
       retiredAt: null,
       inService: true,
+      serviceStatus: "in-service" as const,
+      suspendedAt: null,
     },
   ],
 };

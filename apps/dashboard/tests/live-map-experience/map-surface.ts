@@ -57,6 +57,8 @@ const IDENTITIES: DurableAgentIdentityState = {
       createdAt: "2026-06-01T00:00:00.000Z",
       retiredAt: null,
       inService: true,
+      serviceStatus: "in-service" as const,
+      suspendedAt: null,
     },
     {
       agentId: RETIRED,
@@ -66,6 +68,8 @@ const IDENTITIES: DurableAgentIdentityState = {
       createdAt: "2026-05-01T00:00:00.000Z",
       retiredAt: "2026-08-01T00:00:00.000Z",
       inService: false,
+      serviceStatus: "retired" as const,
+      suspendedAt: null,
     },
   ],
 };

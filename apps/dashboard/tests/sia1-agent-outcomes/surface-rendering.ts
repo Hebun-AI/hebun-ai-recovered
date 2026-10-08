@@ -51,6 +51,8 @@ const visible = (markup: string): string =>
 const agent = (over: Partial<AgentOutcomeObservation> = {}): AgentOutcomeObservation => ({
   agentName: "Heby",
   inService: true,
+  serviceStatus: "in-service" as const,
+  suspendedAt: null,
   retiredAt: null,
   establishedAt: new Date(1_700_000_000_000).toISOString(),
   activity: { proposalsFiled: 6, pending: 2, withdrawn: 0 },
@@ -353,7 +355,7 @@ function truncationIsDisclosed(): void {
 function retirementIsShownWithoutErasure(): void {
   const markup = render(
     readState([
-      agent({ inService: false, retiredAt: new Date(1_700_000_500_000).toISOString() }),
+      agent({ inService: false, serviceStatus: "retired", retiredAt: new Date(1_700_000_500_000).toISOString() }),
     ]),
   );
   assert.ok(markup.includes("retired"), "a withdrawn agent is labelled retired");

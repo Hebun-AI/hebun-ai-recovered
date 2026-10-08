@@ -49,6 +49,7 @@
  * before it happens rather than discover afterwards.
  */
 
+import { AGENT_SERVICE_STATUS_LABEL } from "@/features/agent-identity/service-status";
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ScrollText, ShieldQuestion } from "lucide-react";
@@ -75,6 +76,14 @@ import {
   type MandateResponsibilityRefusal,
 } from "@/features/agent-mandate/responsibility-contracts";
 import type { DurableAgentIdentityRecord } from "@/features/agent-identity/read-durable-agent-identity.server";
+
+/* L-2a — badge tone per identity-seam status; suspended and undetermined are not retired. */
+const SERVICE_BADGE: Record<"in-service" | "suspended" | "retired" | "indeterminate", "success" | "warning" | "neutral"> = {
+  "in-service": "success",
+  suspended: "warning",
+  retired: "neutral",
+  indeterminate: "warning",
+};
 
 /** The minimum a Governance justification must carry. Mirrors the released validator's floor. */
 const JUSTIFICATION_MIN = 12;
@@ -625,8 +634,8 @@ export function AgentMandateCard({ block, entries = [], workDomains = [] }: Agen
           <section key={entry.identity.agentId} className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-semibold text-fg">{entry.identity.name}</h3>
-              <Badge variant={entry.identity.inService ? "success" : "neutral"}>
-                {entry.identity.inService ? "in service" : "retired"}
+              <Badge variant={SERVICE_BADGE[entry.identity.serviceStatus]}>
+                {AGENT_SERVICE_STATUS_LABEL[entry.identity.serviceStatus]}
               </Badge>
             </div>
             <EntryBody entry={entry} domains={workDomains} />

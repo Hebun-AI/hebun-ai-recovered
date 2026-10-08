@@ -51,6 +51,8 @@ const AGENTS_KNOWN = (inService: boolean): DurableAgentIdentityState => ({
       createdAt: "2026-06-01T00:00:00.000Z",
       retiredAt: inService ? null : "2026-08-01T00:00:00.000Z",
       inService,
+      serviceStatus: inService ? ("in-service" as const) : ("retired" as const),
+      suspendedAt: null,
     },
   ],
 });

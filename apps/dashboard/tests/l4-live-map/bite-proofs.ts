@@ -158,8 +158,9 @@ const MUTATIONS: readonly Mutation[] = [
     label: "V7 retirement stops being visible on the node",
     file: PROJECTION,
     suite: TRUTH_SUITE,
-    find: `      identity.inService\n        ? "In service."`,
-    replace: `      identity.inService || true\n        ? "In service."`,
+    /* L-2a: the detail line now reads the identity seam's status, not the boolean. */
+    find: `      identity.serviceStatus === "in-service"\n        ? "In service."`,
+    replace: `      identity.serviceStatus === "in-service" || true\n        ? "In service."`,
     expect: "a retired identity says so on the map",
   },
   {

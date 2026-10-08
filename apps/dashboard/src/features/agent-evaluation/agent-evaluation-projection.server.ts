@@ -41,6 +41,7 @@
  *
  * Server-only.
  */
+import type { AgentServiceStatus } from "@/features/agent-identity/service-status";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
   readAgentOutcomeObservation,
@@ -65,6 +66,8 @@ export interface AgentEvaluation {
   /** From the identity authority, through SIA-1. The raw agent id is not carried, as in SIA-1. */
   readonly agentName: string;
   readonly inService: boolean;
+  /** L-2a — which state, carried from SIA-1's observation. */
+  readonly serviceStatus: AgentServiceStatus;
   /** True when the agent has filed nothing — every derived figure is then unavailable, not zero. */
   readonly hasNoEvidence: boolean;
   readonly observed: readonly ObservedMetric[];
@@ -153,6 +156,7 @@ export function deriveAgentEvaluation(observation: AgentOutcomeObservation): Age
   return {
     agentName: observation.agentName,
     inService: observation.inService,
+    serviceStatus: observation.serviceStatus,
     hasNoEvidence: activity.proposalsFiled === 0,
 
     /* ── OBSERVED: copied, not computed ────────────────────────────────── */

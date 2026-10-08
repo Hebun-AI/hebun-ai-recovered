@@ -42,7 +42,9 @@ const IDENTITY = {
   humanOwnerType: "human",
   createdAt: "2026-08-01T00:00:00.000Z",
   retiredAt: null,
+  suspendedAt: null,
   inService: true,
+  serviceStatus: "in-service" as const,
 };
 
 const REVISION_2 = {

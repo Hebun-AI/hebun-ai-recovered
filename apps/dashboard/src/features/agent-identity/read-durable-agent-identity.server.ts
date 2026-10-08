@@ -25,6 +25,7 @@ import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server
 import { agents } from "@/db/schema/agent";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { isAgentInService } from "./in-service";
+import { agentServiceStatus, type AgentServiceStatus } from "./service-status";
 
 export interface AgentIdentityReadDeps {
   readonly getDb?: () => ControlPlaneDatabase | null;
@@ -43,7 +44,15 @@ export interface DurableAgentIdentityRecord {
   readonly humanOwnerType: string | null;
   readonly createdAt: string;
   readonly retiredAt: string | null;
+  /** L-2a — when a suspension was recorded, or null. Read, never inferred. */
+  readonly suspendedAt: string | null;
   readonly inService: boolean;
+  /**
+   * L-2a — WHICH state, for surfaces: in-service | suspended | retired | indeterminate
+   * (`service-status.ts`). `inService` stays the permission answer and is unchanged. A surface must
+   * never render "retired" from `inService === false` alone.
+   */
+  readonly serviceStatus: AgentServiceStatus;
 }
 
 /**
@@ -110,7 +119,9 @@ export async function readDurableAgentIdentityState(
         humanOwnerType: row.humanOwnerType,
         createdAt: row.createdAt.toISOString(),
         retiredAt: row.retiredAt ? row.retiredAt.toISOString() : null,
+        suspendedAt: row.suspendedAt ? row.suspendedAt.toISOString() : null,
         inService: isAgentInService(row),
+        serviceStatus: agentServiceStatus(row),
       })),
     };
   } catch {

@@ -64,6 +64,8 @@ function agent(overrides: Partial<AgentOutcomeObservation> = {}): AgentOutcomeOb
   return {
     agentName: "Heby",
     inService: true,
+    serviceStatus: "in-service" as const,
+    suspendedAt: null,
     retiredAt: null,
     establishedAt: "2026-08-01T00:00:00.000Z",
     activity: { proposalsFiled: 3, pending: 3, withdrawn: 0 },
@@ -329,11 +331,12 @@ async function main(): Promise<void> {
   /* ── 9 · A RETIRED AGENT IS CITED AS RETIRED, NEVER DROPPED ──────────────── */
   {
     const resolution = await groundOn(
-      readOf([agent({ inService: false, retiredAt: "2026-08-20T00:00:00.000Z" })]),
+      readOf([agent({ inService: false, serviceStatus: "retired", retiredAt: "2026-08-20T00:00:00.000Z" })]),
     );
     assert.equal(resolution.items.length, 1, "a retired agent stays in the evidence set");
     assert.equal(resolution.items[0]!.lifecycle, "retired");
-    assert.match(resolution.items[0]!.detail, /retired 2026-08-20/);
+    /* L-2a: the identity seam's wording — "retired from service at …" — and only because it is retired. */
+    assert.match(resolution.items[0]!.detail, /retired from service at 2026-08-20/);
   }
 
   /* ── 10 · THE EVIDENCE SURVIVES ASSEMBLY, VALIDATION AND STORAGE ─────────── */

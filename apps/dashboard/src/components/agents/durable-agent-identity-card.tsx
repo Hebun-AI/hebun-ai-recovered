@@ -31,6 +31,7 @@
  * The tenant and the human are resolved SERVER-SIDE. This component sends a name, or an id.
  */
 
+import { AGENT_SERVICE_STATUS_LABEL } from "@/features/agent-identity/service-status";
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, ShieldOff } from "lucide-react";
@@ -60,6 +61,14 @@ import { MAX_AGENT_NAME_LENGTH } from "@/features/agent-identity/contracts";
 import type { DurableAgentIdentityRecord } from "@/features/agent-identity/read-durable-agent-identity.server";
 import type { AgentIdentityRefusal } from "@/features/agent-identity/contracts";
 import type { AgentRetirementRefusal } from "@/features/agent-identity/retirement-contracts";
+
+/* L-2a — badge tone per identity-seam status; suspended and undetermined are not retired. */
+const SERVICE_BADGE: Record<"in-service" | "suspended" | "retired" | "indeterminate", "success" | "warning" | "neutral"> = {
+  "in-service": "success",
+  suspended: "warning",
+  retired: "neutral",
+  indeterminate: "warning",
+};
 
 /** Why the ceremony is not available, when it is not. Each states the real reason. */
 export type DurableIdentityBlock =
@@ -254,14 +263,16 @@ export function DurableAgentIdentityCard({
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-fg">{identity.name}</span>
-                    <Badge variant={identity.inService ? "success" : "neutral"}>
-                      {identity.inService ? "in service" : "retired"}
+                    {/* L-2a: the identity seam's status, never "retired" inferred from inService. */}
+                    <Badge variant={SERVICE_BADGE[identity.serviceStatus]}>
+                      {AGENT_SERVICE_STATUS_LABEL[identity.serviceStatus]}
                     </Badge>
                     {owned ? <Badge variant="info">you own this</Badge> : null}
                   </div>
                   <p className="break-all font-mono text-[11px] text-fg-muted">{identity.agentId}</p>
                   <p className="text-xs leading-5 text-fg-muted">
                     Created {identity.createdAt}
+                    {identity.suspendedAt && identity.serviceStatus === "suspended" ? ` · suspended ${identity.suspendedAt}` : ""}
                     {identity.retiredAt ? ` · retired ${identity.retiredAt}` : ""}
                   </p>
 

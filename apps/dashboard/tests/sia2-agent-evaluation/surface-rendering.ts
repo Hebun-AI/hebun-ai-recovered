@@ -45,6 +45,8 @@ function observation(over: Partial<AgentOutcomeObservation> = {}): AgentOutcomeO
   return {
     agentName: "Heby",
     inService: true,
+    serviceStatus: "in-service" as const,
+    suspendedAt: null,
     retiredAt: null,
     establishedAt: new Date(0).toISOString(),
     activity: { proposalsFiled: 9, pending: 3, withdrawn: 0 },

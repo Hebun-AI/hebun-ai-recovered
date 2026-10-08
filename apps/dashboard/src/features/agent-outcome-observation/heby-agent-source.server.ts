@@ -83,6 +83,7 @@
  *
  * Server-only.
  */
+import { agentServiceSentence } from "@/features/agent-identity/service-status";
 import type { ResolvedSourceItem, SourceResolution } from "@/features/heby-runtime/contracts";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
@@ -171,7 +172,8 @@ function base(
 function detailFor(agent: AgentOutcomeObservation): string {
   const { activity, governance, execution } = agent;
   return [
-    agent.inService ? "in service" : `retired ${agent.retiredAt ?? "at an unrecorded instant"}`,
+    /* L-2a: the identity seam's status, never "retired" inferred from `inService === false`. */
+    agentServiceSentence(agent.serviceStatus, { retiredAt: agent.retiredAt, suspendedAt: agent.suspendedAt }),
     `established ${agent.establishedAt}`,
     `proposals filed ${activity.proposalsFiled}`,
     `awaiting a decision ${activity.pending}`,
@@ -252,7 +254,7 @@ export async function readAgentGroundingSource(
      * from the absence of retirement, and `retired` is a released lifecycle value — so a retired
      * agent is cited as retired rather than quietly dropped from the evidence set.
      */
-    lifecycle: agent.inService ? "settled" : "retired",
+    lifecycle: agent.serviceStatus === "retired" ? "retired" : "settled",
   }));
 
   return base("resolved", items);

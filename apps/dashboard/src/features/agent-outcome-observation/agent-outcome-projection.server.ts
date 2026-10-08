@@ -53,6 +53,7 @@
  *
  * Server-only.
  */
+import type { AgentServiceStatus } from "@/features/agent-identity/service-status";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import {
   readDurableAgentIdentityState,
@@ -175,9 +176,12 @@ export interface AgentProvenanceView {
 export interface AgentOutcomeObservation {
   /** The name, from the identity authority. The raw agent id is deliberately not carried. */
   readonly agentName: string;
-  /** Derived by the identity seam from the absence of retirement. Never stored. */
+  /** Derived by the identity seam (`isAgentInService`). Never stored. */
   readonly inService: boolean;
+  /** L-2a — which state, from the identity seam. Never inferred from `inService` alone. */
+  readonly serviceStatus: AgentServiceStatus;
   readonly retiredAt: string | null;
+  readonly suspendedAt: string | null;
   readonly establishedAt: string;
   readonly activity: AgentActivityView;
   readonly governance: AgentGovernanceView;
@@ -390,7 +394,9 @@ export function composeAgentOutcomes(facts: AgentOutcomeFacts): {
     const observation: AgentOutcomeObservation = {
       agentName: identity.name,
       inService: identity.inService,
+      serviceStatus: identity.serviceStatus,
       retiredAt: identity.retiredAt,
+      suspendedAt: identity.suspendedAt,
       establishedAt: identity.createdAt,
       activity: {
         proposalsFiled: p.filed,

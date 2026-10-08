@@ -140,6 +140,8 @@ async function liveMapReadsTheEvidenceOnce(): Promise<void> {
     createdAt: row.createdAt.toISOString(),
     retiredAt: null,
     inService: true,
+    serviceStatus: "in-service" as const,
+    suspendedAt: null,
   }));
 
   const projection = await readLiveMapProjection(TENANT, {
@@ -169,6 +171,8 @@ function theComposerKeysByDurableId(): void {
       createdAt: new Date(0).toISOString(),
       retiredAt: null,
       inService: true,
+      serviceStatus: "in-service" as const,
+      suspendedAt: null,
     },
     {
       agentId: agentId(2),
@@ -178,6 +182,8 @@ function theComposerKeysByDurableId(): void {
       createdAt: new Date(0).toISOString(),
       retiredAt: null,
       inService: true,
+      serviceStatus: "in-service" as const,
+      suspendedAt: null,
     },
   ];
 
