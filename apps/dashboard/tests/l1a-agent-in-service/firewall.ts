@@ -25,6 +25,8 @@ const code = (p: string): string =>
 const RULE = "src/features/agent-identity/in-service.ts";
 const IDENTITY_READER = "src/features/agent-identity/read-durable-agent-identity.server.ts";
 const RETIRE = "src/features/agent-identity/retire-durable-agent-identity.server.ts";
+/* L-2b — the suspension writer is a lifecycle WRITER like retirement; it judges with the L-2a derivation. */
+const SUSPEND = "src/features/agent-identity/suspend-durable-agent-identity.server.ts";
 const MANDATE_WRITER = "src/features/agent-mandate/establish-agent-mandate.server.ts";
 const PLACEMENT_READER = "src/features/organization-authority/read-agent-placement.server.ts";
 const PLACEMENT_WRITER = "src/features/organization-authority/write-agent-placement.server.ts";
@@ -53,7 +55,7 @@ const SRC = walk("src");
 {
   const LIFECYCLE_COLUMNS = /agents\.(retiredAt|suspendedAt|agentLifecycleStatus)\b/;
   const readers = [IDENTITY_READER, MANDATE_WRITER, PLACEMENT_READER, PLACEMENT_WRITER, HYPOTHESES];
-  const allowed = new Set([RULE, RETIRE, ...readers]);
+  const allowed = new Set([RULE, RETIRE, SUSPEND, ...readers]);
   const touching = SRC.filter((f) => LIFECYCLE_COLUMNS.test(code(f)));
   for (const file of touching) {
     assert.ok(allowed.has(file), `${file} reads an agent lifecycle column outside the allowlisted set`);

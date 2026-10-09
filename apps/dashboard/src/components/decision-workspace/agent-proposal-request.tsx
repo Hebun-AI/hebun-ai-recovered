@@ -75,14 +75,15 @@ export const REFUSAL_WORDING: Readonly<Record<OriginationRefusal, string>> = {
   "no-authorized-tenant-context": "Sign in to ask Heby for a proposal.",
   "no-durable-agent-identity":
     "This organization has no durable agent, so nothing could have originated a proposal. Create one on the Agents surface.",
+  /* L-2b — these two codes predate suspension; they mean "not in service": retired OR suspended. */
   "durable-agent-identity-retired":
-    "This organization's durable agent has been retired and cannot propose new work.",
+    "This organization's durable agent is not in service (retired or suspended) and cannot propose new work.",
   "ambiguous-durable-agent-identity":
     "More than one agent is in service, so Hebun cannot tell which one would be proposing. Choose the agent above before asking.",
   "selected-agent-unresolvable":
     "The chosen agent is not one of this organization's agents, so nothing was asked. Nothing was filed.",
   "selected-agent-retired":
-    "The chosen agent has been retired and cannot propose new work. Nothing was filed.",
+    "The chosen agent is not in service (retired or suspended) and cannot propose new work. Nothing was filed.",
   "agent-identity-authority-unavailable":
     "The agent identity authority could not be reached, so Hebun cannot say which agent would propose. Nothing was filed.",
   "not-a-structured-object":

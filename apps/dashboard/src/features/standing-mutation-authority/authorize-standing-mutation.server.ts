@@ -50,7 +50,10 @@ import {
 import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
 import { validateJustification } from "@/features/governance-decision/persistence.server";
 import { MACHINE_EXECUTABLE_ACTION_KINDS } from "@/features/governed-machine-execution/contracts";
-import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
+import {
+  readDurableAgentLivenessForShareWithin,
+  readDurableAgentRuntimeLiveness,
+} from "@/features/agent-identity/read-durable-agent-identity.server";
 import {
   STANDING_MUTATION_AUTHORIZE_DECISION_TYPE,
   STANDING_MUTATION_SUBJECT_TYPE,
@@ -187,11 +190,16 @@ export async function writeStandingMutationAuthorization(
   const now = (deps.now ?? (() => new Date()))();
 
   /*
-   * 4 · THE AGENT MUST EXIST, BELONG HERE, AND BE IN SERVICE.
+   * 4 · THE AGENT MUST EXIST AND BELONG HERE — AND, TO AUTHORIZE, BE IN SERVICE.
    *
    * Read through the released identity authority applying its own `inService` predicate, never a
    * second reading of the agents table. An envelope for a retired agent would authorize nothing and
    * would only ever manufacture refusals at issuance.
+   *
+   * L-2b — WITHDRAWING needs no service. It only ends authority, and a suspended agent's envelope
+   * is exactly what must be ended before the agent may be reactivated (reactivation refuses while
+   * one is valid). Requiring service here left that envelope able only to expire. Existence and
+   * tenant still apply to both: an unknown or foreign agent is refused `agent-unresolvable`.
    */
   const liveness = await (deps.readAgentLiveness ?? readDurableAgentRuntimeLiveness)(
     authenticated.tenantId,
@@ -201,7 +209,7 @@ export async function writeStandingMutationAuthorization(
   /* Every branch named. An outage is reported as itself and never as a retirement. */
   if (liveness === "unavailable") return refused("persistence-unavailable");
   if (liveness === "unknown-agent") return refused("agent-unresolvable");
-  if (liveness !== "in-service") return refused("agent-not-in-service");
+  if (nextState !== "withdrawn" && liveness !== "in-service") return refused("agent-not-in-service");
 
   /* 5 · THE AUTHORITY, RESOLVED BEFORE THE TRANSACTION. */
   let authority: GovernanceAuthorityResolution;
@@ -220,6 +228,22 @@ export async function writeStandingMutationAuthorization(
 
     await db.transaction(async (rawTx) => {
       const tx = rawTx as unknown as ControlPlaneDatabase;
+
+      /*
+       * 5b · L-2b — AUTHORIZING RE-ASKS SERVICE HERE, HOLDING THE AGENT ROW `FOR SHARE`.
+       *
+       * Step 4's read is outside this transaction, so a suspension committing after it would let an
+       * ACTIVE envelope land for a suspended agent. Suspension and retirement take `FOR UPDATE` on
+       * the agent row: holding it `FOR SHARE` until this commit means they either committed first (and
+       * are seen here) or wait until this envelope has committed (and is then visible to the
+       * reactivation guard). Withdrawal ends authority and needs no service, so it does not ask.
+       */
+      if (
+        nextState !== "withdrawn" &&
+        (await readDurableAgentLivenessForShareWithin(tx, authenticated.tenantId, agentId)) !== "in-service"
+      ) {
+        throw new StandingMutationAbort("agent-not-in-service");
+      }
 
       /* 6 · WHERE THE LINEAGE STANDS — highest revision wins, as everywhere else. */
       const existing = await tx

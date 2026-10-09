@@ -102,8 +102,12 @@ import {
   AGENT_REGISTRATION_DOMAIN,
   AGENT_REGISTRATION_OUTCOME,
   AGENT_REGISTRATION_SUBJECT_TYPE,
+  AGENT_REACTIVATED_OUTCOME,
+  AGENT_REACTIVATION_DECISION_TYPE,
   AGENT_RETIRED_OUTCOME,
   AGENT_RETIREMENT_DECISION_TYPE,
+  AGENT_SUSPENDED_OUTCOME,
+  AGENT_SUSPENSION_DECISION_TYPE,
 } from "@/features/agent-identity/contracts";
 import {
   resolveGovernanceDbOrNull,
@@ -214,7 +218,9 @@ export async function writeGovernanceDecisionWithin(
       | AuthorityDecisionType
       | typeof MEMBERSHIP_AUTHORIZATION_DECISION_TYPE
       | typeof ARTIFACT_REVIEW_ACCEPT_TYPE
-      | typeof STANDING_OBSERVATION_WITHDRAW_DECISION_TYPE;
+      | typeof STANDING_OBSERVATION_WITHDRAW_DECISION_TYPE
+      /* L-2b — suspending an agent (`approve`, reactivation, is already in the union). */
+      | typeof AGENT_SUSPENSION_DECISION_TYPE;
     readonly subjectType:
       | GovernanceSubjectType
       | AuthoritySubjectType
@@ -256,11 +262,21 @@ export async function writeGovernanceDecisionWithin(
    * that one. Ordinary subjects keep their own mapping.
    */
   /*
-   * L-1b — the agent-lifecycle subject admits exactly one decision type today: `revoke`, a
-   * retirement. Anything else (a future suspend or reactivate) has no outcome yet, so it is refused
-   * here rather than filed under a word that does not describe it.
+   * L-1b / L-2b — the agent-lifecycle subject admits exactly three decision types, each with its own
+   * outcome: `revoke` (retired), `suspend` (suspended), `approve` (reactivated). Anything else has no
+   * outcome, so it is refused here rather than filed under a word that does not describe it.
    */
-  if (input.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE && input.decisionType !== AGENT_RETIREMENT_DECISION_TYPE) {
+  const agentLifecycleOutcome =
+    input.subjectType !== AGENT_LIFECYCLE_SUBJECT_TYPE
+      ? null
+      : input.decisionType === AGENT_RETIREMENT_DECISION_TYPE
+        ? AGENT_RETIRED_OUTCOME
+        : input.decisionType === AGENT_SUSPENSION_DECISION_TYPE
+          ? AGENT_SUSPENDED_OUTCOME
+          : input.decisionType === AGENT_REACTIVATION_DECISION_TYPE
+            ? AGENT_REACTIVATED_OUTCOME
+            : null;
+  if (input.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE && agentLifecycleOutcome === null) {
     throw new Error("agent-lifecycle-decision-type-unsupported");
   }
 
@@ -433,7 +449,7 @@ export async function writeGovernanceDecisionWithin(
      * the generic branch would file it as "Governance authority was revoked" — retiring an agent
      * takes nobody's authority away.
      */
-    input.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE ? AGENT_RETIRED_OUTCOME
+    agentLifecycleOutcome !== null ? agentLifecycleOutcome
       : input.subjectType === PUBLIC_USE_SUBJECT_TYPE ? (input.decisionType === "approve" ? PUBLIC_USE_OUTCOME.allow : input.decisionType === "revoke" ? PUBLIC_USE_OUTCOME.revoke : PUBLIC_USE_OUTCOME.deny)
       : input.subjectType === STANDING_MUTATION_SUBJECT_TYPE
       ? input.decisionType === STANDING_MUTATION_WITHDRAW_DECISION_TYPE

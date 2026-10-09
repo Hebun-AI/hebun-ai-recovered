@@ -376,6 +376,8 @@ function main(): void {
         "src/features/agent-identity/create-durable-agent-identity.server.ts",
         /* L-1b — retiring an identity is a Governance act too, in the retirement writer's own transaction. */
         "src/features/agent-identity/retire-durable-agent-identity.server.ts",
+        /* L-2b — suspending or reactivating an identity, in the suspension writer's own transaction. */
+        "src/features/agent-identity/suspend-durable-agent-identity.server.ts",
       ]),
     ).has(GOVERNANCE_DECISION),
     "and it reaches it ONLY through the mandate, (AP-1) registration and (L-1b) retirement authorities — no direct Governance door was opened",
@@ -420,6 +422,9 @@ function main(): void {
       "@/features/agent-identity/create-durable-agent-identity.server",
       "@/features/agent-identity/retire-durable-agent-identity.server",
       "@/features/agent-identity/retirement-contracts",
+      /* L-2b — the suspension writer (suspend + reactivate) and its type-only contracts. */
+      "@/features/agent-identity/suspend-durable-agent-identity.server",
+      "@/features/agent-identity/suspension-contracts",
       "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server",
       "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server",
       "@/features/agent-mandate/establish-agent-mandate.server",
@@ -431,7 +436,7 @@ function main(): void {
       "@/features/organization-authority/write-agent-placement.server",
       "next/cache",
     ],
-    "the boundary imports exactly the session resolver, the FIVE authorities (AP-2: agent placement), their type-only " +
+    "the boundary imports exactly the session resolver, the SIX authorities (AP-2: agent placement; L-2b: suspension), their type-only " +
       "contracts modules, and revalidation — nothing else has a door here",
   );
 
@@ -555,23 +560,37 @@ function main(): void {
        */
       "establishAgentMandateAction",
       "fileImprovementHypothesisAction",
+      /* L-2b — return a suspended identity to service. */
+      "reactivateDurableAgentIdentityAction",
       "retireDurableAgentIdentityAction",
       /* AP-2 — place / move an agent, and withdraw its placement. Organization Authority, not Agent Identity. */
       "setAgentPlacementAction",
+      /* L-2b — suspend an in-service identity. */
+      "suspendDurableAgentIdentityAction",
       "withdrawAgentPlacementAction",
     ],
-    "the boundary exposes exactly six actions: establish an identity, withdraw one, record a mandate, file a hypothesis, and place or unplace an agent",
+    "the boundary exposes exactly eight actions: establish an identity, withdraw one, suspend or reactivate one, record a mandate, file a hypothesis, and place or unplace an agent",
   );
   /*
    * AND THERE IS STILL NO REINSTATE — nor any other verb that would undo a retirement. Retirement
    * is terminal because no authority was written to reverse it, and none may arrive here quietly.
    */
-  for (const forbidden of ["reinstate", "restore", "unretire", "revive", "reactivate"]) {
+  for (const forbidden of ["reinstate", "restore", "unretire", "revive"]) {
     assert.ok(
       !new RegExp(`export async function \\w*${forbidden}`, "i").test(actions),
       `the boundary exposes no \`${forbidden}\` action — retirement is terminal`,
     );
   }
+  /*
+   * L-2b — `reactivate` exists, and it reverses SUSPENSION only. Its one export calls the one writer
+   * whose reactivation refuses a retired identity (proven against PostgreSQL in l2b-agent-suspension).
+   */
+  assert.deepEqual(
+    [...actions.matchAll(/export async function (\w*reactivate\w*)/gi)].map((m) => m[1]),
+    ["reactivateDurableAgentIdentityAction"],
+    "the only reactivate action is the suspension writer's",
+  );
+  assert.match(actions, /await reactivateDurableAgentIdentity\(tenant,/, "and it reaches only the suspension writer");
   /* FAIL CLOSED: the null from an unauthenticated request is PASSED THROUGH, never substituted. */
   for (const fallback of ["?? {", "|| {", "tenantId:", "userId:"]) {
     assert.ok(

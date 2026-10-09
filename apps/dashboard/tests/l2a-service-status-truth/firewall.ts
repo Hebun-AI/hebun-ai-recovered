@@ -71,10 +71,11 @@ for (const file of SURFACES) {
 {
   const feature = walk("src/features/agent-identity").map(code).join("\n");
   const updates = [...feature.matchAll(/\.update\(agents\)/g)].length;
-  assert.equal(updates, 1, "agent identity still has exactly one UPDATE of agents — the retirement");
-  for (const verb of ["suspendDurableAgent", "reactivateDurableAgent", "suspendedAt: now", "suspendedAt: new Date"]) {
-    assert.ok(!feature.includes(verb), `no suspension writer: ${verb}`);
-  }
+  /* L-2b — the suspension writer is the second, and the only one besides retirement. */
+  assert.equal(updates, 2, "agent identity has exactly two UPDATEs of agents — retirement and the L-2b service transition");
+  const sus = code("src/features/agent-identity/suspend-durable-agent-identity.server.ts");
+  assert.equal([...sus.matchAll(/\.update\(agents\)/g)].length, 1, "the second UPDATE is the suspension writer's");
+  assert.ok(!feature.includes("suspendedAt: new Date"), "suspended_at is stamped from the injected transaction clock only");
 }
 
 console.log("l2a firewall: ok");

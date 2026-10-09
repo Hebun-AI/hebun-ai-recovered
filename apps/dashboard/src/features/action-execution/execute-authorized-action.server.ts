@@ -48,6 +48,7 @@ import {
   type PublicationIdentity,
 } from "@/features/action-authorization/content-publication-state";
 import type { ExecutionAuthorization } from "@/features/action-authorization/contracts";
+import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
 import { recordActionExecutionEventWithin } from "@/features/governance-audit/action-execution-audit.server";
 import { parseWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";
@@ -145,6 +146,42 @@ export interface ExecuteAuthorizedActionDeps
    * the lock serializes. Production leaves it unset; it can observe nothing and decide nothing.
    */
   readonly afterPublicationGuardRead?: () => Promise<void>;
+  /**
+   * L-2b — TEST SEAM ONLY. Awaited after the spend committed and immediately before the dispatch
+   * liveness re-read, so a test can suspend the agent in exactly that window. Production leaves it
+   * unset; it can observe nothing and decide nothing.
+   */
+  readonly beforeDispatchLivenessCheck?: () => Promise<void>;
+}
+
+/**
+ * L-2b — IS THE PROPOSING AGENT STILL IN SERVICE, IMMEDIATELY BEFORE THE PROVIDER CALL?
+ *
+ * The spend held the agent row `FOR SHARE`, so the agent WAS in service when the permit was spent.
+ * The provider call happens after that commit; a suspension or retirement can commit in between.
+ * This re-read closes that window down to the call itself — it cannot recall a call that has
+ * already started, and nothing here claims it can. A human-proposed request has no agent to ask.
+ * Fail closed: an unreadable request or an unreadable liveness is "not in service".
+ */
+async function proposingAgentStillInService(
+  db: ControlPlaneDatabase,
+  tenantId: string,
+  actionRequestId: string,
+  deps: ExecuteAuthorizedActionDeps,
+): Promise<boolean> {
+  if (deps.beforeDispatchLivenessCheck) await deps.beforeDispatchLivenessCheck();
+  try {
+    const [request] = await db
+      .select({ type: hebyActionRequests.proposedByActorType, id: hebyActionRequests.proposedByActorId })
+      .from(hebyActionRequests)
+      .where(and(eq(hebyActionRequests.id, actionRequestId), eq(hebyActionRequests.tenantId, tenantId)))
+      .limit(1);
+    if (!request) return false;
+    if (request.type !== "agent") return true;
+    return (await readDurableAgentRuntimeLiveness(tenantId, request.id ?? "", { getDb: () => db })) === "in-service";
+  } catch {
+    return false;
+  }
 }
 
 function refused(reason: ExecutionPreflightRefusal): ExecutionResult {
@@ -626,6 +663,21 @@ export async function executeAuthorizedAction(
     };
   }
 
+  /* ── 7b. L-2b — THE PROPOSING AGENT, AGAIN, IMMEDIATELY BEFORE THE CALL ── */
+  if (!(await proposingAgentStillInService(db, tenant.tenantId, permitRow.actionRequestId, deps))) {
+    await completeAttempt(db, tenant.tenantId, recordedAttemptId, {
+      status: "refused",
+      providerResponseClass: null,
+      providerMessageId: null,
+      failureClass: "authorization-invalid",
+      completedAt: now,
+    });
+    return {
+      status: "refused-after-spend",
+      attempt: await readAttempt(db, tenant.tenantId, recordedAttemptId),
+    };
+  }
+
   /*
    * ONE CALL. No loop, no backoff, no second chance. The adapter classifies its own transport
    * phase and returns; it does not throw for provider conditions.
@@ -903,7 +955,8 @@ async function executeInstagramPublish(
   db: ControlPlaneDatabase,
   now: Date,
   permit: { readonly id: string },
-  request: { readonly canonicalPayload: unknown },
+  /* L-2b — the request id, so the dispatch re-read can ask after its proposing agent. */
+  request: { readonly id: string; readonly canonicalPayload: unknown },
   deps: ExecuteAuthorizedActionDeps,
 ): Promise<ExecutionResult> {
   const ports = deps.instagramPublish ?? {};
@@ -1084,6 +1137,11 @@ async function executeInstagramPublish(
     image.mimeType !== "image/jpeg"
   ) {
     return refuseAfterSpend("artifact-unresolvable");
+  }
+
+  /* ── L-2b — THE PROPOSING AGENT, AGAIN, IMMEDIATELY BEFORE THE CALL. ── */
+  if (!(await proposingAgentStillInService(db, tenantId, request.id, deps))) {
+    return refuseAfterSpend("authorization-invalid");
   }
 
   /* ── ONE PUBLISH. No loop, no retry. ── */
@@ -1305,7 +1363,8 @@ async function executeYouTubePublish(
   db: ControlPlaneDatabase,
   now: Date,
   permit: { readonly id: string },
-  request: { readonly canonicalPayload: unknown },
+  /* L-2b — the request id, so the dispatch re-read can ask after its proposing agent. */
+  request: { readonly id: string; readonly canonicalPayload: unknown },
   deps: ExecuteAuthorizedActionDeps,
 ): Promise<ExecutionResult> {
   const ports = deps.youtubePublish ?? {};
@@ -1481,6 +1540,11 @@ async function executeYouTubePublish(
   const video = await (ports.readVideo ?? ((t, id, st) => readVerifiedVideo(db, st, t.tenantId!, id)))(tenant, payload.videoAssetRef, storage);
   if (video.status !== "verified" || video.video.byteDigest !== payload.videoAssetDigest || video.video.assetId !== payload.videoAssetRef) {
     return refuseAfterSpend("artifact-unresolvable");
+  }
+
+  /* ── L-2b — THE PROPOSING AGENT, AGAIN, IMMEDIATELY BEFORE THE CALL. ── */
+  if (!(await proposingAgentStillInService(db, tenantId, request.id, deps))) {
+    return refuseAfterSpend("authorization-invalid");
   }
 
   const input: YouTubeUploadInput = {

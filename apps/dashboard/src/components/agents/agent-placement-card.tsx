@@ -36,7 +36,8 @@ const REFUSAL_SENTENCE: Record<AgentPlacementRefusal, string> = {
     "Hebun could not reach the placement authority. Nothing was recorded — this is not a refusal of the act itself.",
   "agent-unresolved": "No agent of this organization carries that identity.",
   "agent-retired":
-    "That agent is retired. Its recorded department is historical and can no longer change.",
+    /* L-2b — also returned for a SUSPENDED agent, whose placement can change again once reactivated. */
+    "That agent is not in service (retired or suspended), so its department cannot change now.",
   "department-unresolved": "No department of this organization carries that identity.",
   "department-retired":
     "That department is retired from service, so no agent can be placed in it.",

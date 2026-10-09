@@ -318,6 +318,8 @@ function main(): void {
        */
       "src/features/agent-identity/read-durable-agent-identity.server.ts",
       "src/features/agent-identity/retire-durable-agent-identity.server.ts",
+      /* L-2b — tenant SCOPE predicate on the suspension writer's locked lookup and guarded UPDATE. */
+      "src/features/agent-identity/suspend-durable-agent-identity.server.ts",
       "src/db/schema/heby-origination-invocation.ts",
       "src/db/schema/agent-improvement-hypothesis.ts",
       "src/features/agent-improvement-hypothesis/read-improvement-hypotheses.server.ts",
@@ -330,7 +332,7 @@ function main(): void {
       "src/features/standing-mutation-authority/read-standing-mutations.server.ts",
       "src/db/schema/media-asset.ts",
     ].sort(),
-    "`agents.tenant_id` is a tenant SCOPE in seven readers (AP-2 adds the placement read and write) and a composite-key target in five table definitions — a grant in none of them",
+    "`agents.tenant_id` is a tenant SCOPE in eight readers (AP-2 adds the placement read and write, L-2b the suspension writer) and a composite-key target in five table definitions — a grant in none of them",
   );
 
   /* ── 7. NO MACHINE INGRESS ────────────────────────────────────────────────

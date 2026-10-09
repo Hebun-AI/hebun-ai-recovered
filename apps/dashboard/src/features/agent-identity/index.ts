@@ -1,16 +1,18 @@
 /*
  * AGENT-ID-0 / AGENT-ID-0.1 — durable, human-owned agent identity and its retirement.
  *
- * TWO authorities, TWO transitions, and no third:
+ * Four transitions, and no fifth:
  *
  *     nonexistent   ->  durable human-owned identity   (AGENT-ID-0,   createDurableAgentIdentity)
  *     in service    ->  retired                        (AGENT-ID-0.1, retireDurableAgentIdentity)
+ *     in service    ->  suspended                      (L-2b,         suspendDurableAgentIdentity)
+ *     suspended     ->  in service                     (L-2b,         reactivateDurableAgentIdentity)
  *
  * Plus one read that grants nothing.
  *
- * The barrel exports no update, rename, delete, archive, restore, reinstate, suspend, succeed,
- * activate, authenticate or authorize surface, because no such surface exists in this feature.
- * Retirement is one-way: nothing here returns a retired identity to service. Since AP-1 each
+ * The barrel exports no update, rename, delete, archive, restore, reinstate, succeed, authenticate
+ * or authorize surface, because no such surface exists in this feature. Retirement is one-way:
+ * reactivation accepts only a SUSPENDED identity, so nothing here returns a retired one to service. Since AP-1 each
  * registration is its own Governance decision (`agent-registration`), so a tenant may hold more than
  * one identity; a retired name may be registered again as a NEW identity with a new agentId.
  */
@@ -36,6 +38,18 @@ export {
   retireDurableAgentIdentity,
   type AgentRetirementDeps,
 } from "./retire-durable-agent-identity.server";
+export {
+  SUSPENDED_AGENT_LIFECYCLE_STATUS,
+  type AgentServiceTransition,
+  type AgentServiceTransitionRecord,
+  type AgentServiceTransitionRefusal,
+  type AgentServiceTransitionResult,
+} from "./suspension-contracts";
+export {
+  reactivateDurableAgentIdentity,
+  suspendDurableAgentIdentity,
+  type AgentServiceTransitionDeps,
+} from "./suspend-durable-agent-identity.server";
 export {
   AGENT_SERVICE_STATUS_LABEL,
   AGENT_SERVICE_STATUSES,

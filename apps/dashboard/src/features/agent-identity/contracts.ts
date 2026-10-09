@@ -66,6 +66,18 @@ export const AGENT_RETIREMENT_DECISION_TYPE = "revoke" as const;
 export const AGENT_LIFECYCLE_DOMAIN = "agent-lifecycle" as const;
 export const AGENT_RETIRED_OUTCOME = "agent-retired" as const;
 
+/*
+ * L-2b — SUSPENSION AND REACTIVATION ARE DECISIONS IN THE SAME DOMAIN, ON THE SAME SUBJECT.
+ *
+ * Both are reversible service transitions of an existing agent, so they belong to `agent-lifecycle`
+ * beside retirement. The outcome is chosen by decision type ON this subject, so `approve` can never
+ * be filed as a membership admission and `suspend` never as anything about authority.
+ */
+export const AGENT_SUSPENSION_DECISION_TYPE = "suspend" as const;
+export const AGENT_SUSPENDED_OUTCOME = "agent-suspended" as const;
+export const AGENT_REACTIVATION_DECISION_TYPE = "approve" as const;
+export const AGENT_REACTIVATED_OUTCOME = "agent-reactivated" as const;
+
 /**
  * What the authority returns on success. Deliberately narrow: the caller learns the identity's id,
  * its tenant, its name, and who owns it. No lifecycle, no health, no capability, no posture —

@@ -64,7 +64,11 @@ for (const writer of [
 
 const spend = code(SPEND);
 const body = spend.slice(spend.indexOf("async function spendPermit("), spend.indexOf("export async function consumeActionPermit("));
-assert.ok(/readDurableAgentRuntimeLiveness\(caller\.tenantId, request\.proposedByActorId/.test(body), "liveness keyed off the request row");
+/* L-2b — the same request-row key, now read FOR SHARE on the spend's own transaction. */
+assert.ok(
+  /readDurableAgentLivenessForShareWithin\(\s*tx as unknown as ControlPlaneDatabase,\s*caller\.tenantId,\s*request\.proposedByActorId/.test(body),
+  "liveness keyed off the request row",
+);
 assert.ok(/readEffectiveAgentMandateForRuntime\(caller\.tenantId, request\.proposedByActorId/.test(body), "mandate keyed off the request row");
 assert.ok(/refuseOutsideAgentMandate\(mandate, request\.actionKind\)/.test(body), "decided by the one shared ceiling");
 assert.ok(body.indexOf("proposedByActorType") < body.indexOf("ACTION_AUDIT_PERMIT_CONSUMED"), "checked before the consumption audit");

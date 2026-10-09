@@ -94,7 +94,8 @@ const camel = (snake: string) => snake.replace(/_([a-z])/g, (_, c: string) => c.
 /* ── 4. WHO UPDATES `agents` ──────────────────────────────────────────────── */
 {
   const updaters = SOURCE.filter((f) => /\.update\(\s*agents\s*\)/.test(code(f))).sort();
-  assert.deepEqual(updaters, [RETIRE, WRITER].sort(), "exactly two modules UPDATE `agents`: retirement and placement");
+  /* L-2b — the suspension writer is the third. */
+  assert.deepEqual(updaters, [RETIRE, "src/features/agent-identity/suspend-durable-agent-identity.server.ts", WRITER].sort(), "exactly three modules UPDATE `agents`: retirement, suspension and placement");
   const rawWriters = SOURCE.filter((f) => /(update\s+agents\b|insert\s+into\s+agents\b)/i.test(code(f))).sort();
   assert.deepEqual(rawWriters, ["src/features/persistence/supabase-postgres-adapter.ts"],
     "raw-SQL agent writes exist only in the quarantined legacy adapter");

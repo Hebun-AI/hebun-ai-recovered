@@ -50,7 +50,7 @@ import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorizat
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordActionAuthorizationEventWithin } from "@/features/governance-audit/action-authorization-audit.server";
 import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persistence.server";
-import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
+import { readDurableAgentLivenessForShareWithin } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { readEffectiveAgentMandateForRuntime } from "@/features/agent-mandate/read-agent-mandate.server";
 import { refuseOutsideAgentMandate, refuseOutsideAgentResponsibility } from "./agent-mandate-ceiling";
 import { workScopeFromPayload } from "@/features/work-domain/work-scope";
@@ -225,14 +225,23 @@ async function spendPermit(
        * NOW, and this is not revocation — the permit is untouched and stays `active` on rollback.
        *
        * Both ids come off the request row read above, never from the caller. The two authorities'
-       * own readers run on THIS transaction's connection, after the spend UPDATE. READ COMMITTED, no
-       * lock: a retirement or mandate revision committing after these reads and before this commit is
-       * not seen. That residual window is the rest of this transaction, not zero. An unreadable
+       * own readers run on THIS transaction's connection, after the spend UPDATE.
+       *
+       * L-2b — the liveness read holds the agent row `FOR SHARE` until this transaction ends, the
+       * seam the approval boundary already uses. Suspension and retirement take `FOR UPDATE`, so a
+       * spend and a lifecycle transition serialize: a suspension that committed first is seen here
+       * (READ COMMITTED re-reads the row after the wait), and one that arrives second waits for this
+       * spend to commit. The mandate read stays unlocked: a mandate revision committing after it and
+       * before this commit is not seen (that residual window is unchanged by L-2b). An unreadable
        * authority refuses (fail closed) — reported under the same two words, never as consumable.
        */
       if (request.proposedByActorType === "agent") {
         const reads = { getDb: () => tx as unknown as ControlPlaneDatabase };
-        const liveness = await readDurableAgentRuntimeLiveness(caller.tenantId, request.proposedByActorId, reads);
+        const liveness = await readDurableAgentLivenessForShareWithin(
+          tx as unknown as ControlPlaneDatabase,
+          caller.tenantId,
+          request.proposedByActorId,
+        );
         if (liveness !== "in-service") {
           outcome = refused("agent-not-in-service");
           throw new Error("continuing-authority");

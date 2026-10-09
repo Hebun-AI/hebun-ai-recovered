@@ -718,10 +718,12 @@ function sia1IsUnweakened(): void {
     [
       path.join("src", "features", "agent-identity", "create-durable-agent-identity.server.ts"),
       path.join("src", "features", "agent-identity", "retire-durable-agent-identity.server.ts"),
+      /* L-2b — the suspension writer (suspend / reactivate: lifecycle + suspended_at only). */
+      path.join("src", "features", "agent-identity", "suspend-durable-agent-identity.server.ts"),
       /* AP-2 — the Organization Authority's column-scoped placement writer (`department_id` only). */
       path.join("src", "features", "organization-authority", "write-agent-placement.server.ts"),
     ],
-    "still exactly three writers of the agents table (AP-2 placement is the third) — SIA-2 added no agent mutation",
+    "still exactly four writers of the agents table (AP-2 placement, L-2b suspension) — SIA-2 added no agent mutation",
   );
 }
 

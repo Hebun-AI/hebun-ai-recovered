@@ -49,7 +49,10 @@ import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { standingMutationAuthorizations } from "@/db/schema/standing-mutation-authorization";
 import { actionPermits, hebyActionRequests } from "@/db/schema/action-authorization";
-import { readDurableAgentRuntimeLiveness } from "@/features/agent-identity/read-durable-agent-identity.server";
+import {
+  readDurableAgentLivenessForShareWithin,
+  type readDurableAgentRuntimeLiveness,
+} from "@/features/agent-identity/read-durable-agent-identity.server";
 import { resolveMachineExecutionReachability } from "@/features/tenant-machine-execution-authority/resolve-machine-execution-reachability.server";
 import { resolveMachineInternalExecutionEnabled } from "@/features/governed-machine-execution/machine-execution-control.server";
 import { readEffectiveAgentMandateForRuntime } from "@/features/agent-mandate/read-agent-mandate.server";
@@ -196,6 +199,17 @@ export async function issuePermitUnderStandingAuthorization(
       }
 
       /*
+       * L-2b — HOLD THE AGENT ROW `FOR SHARE` BEFORE THE ENVELOPE, until this transaction ends.
+       * Suspension, reactivation and retirement take `FOR UPDATE` on it, so issuance serializes with
+       * them: a permit minted here is committed before any of them can judge the agent, and one that
+       * starts after a suspension sees it. Taken first so the lock order is always agent → envelope.
+       * The answer is judged at step 5, where the refusal order is unchanged.
+       */
+      const lockedLiveness = deps.readAgentLiveness
+        ? null
+        : await readDurableAgentLivenessForShareWithin(tx, request.tenantId, request.proposedByActorId);
+
+      /*
        * 3 · THE ENVELOPE, LOCKED. Everything after this point counts rows this transaction may add
        * to, so the lock is what makes the counts mean anything. Highest revision is effective.
        */
@@ -276,11 +290,9 @@ export async function issuePermitUnderStandingAuthorization(
         }
       }
 
-      const liveness = await (deps.readAgentLiveness ?? readDurableAgentRuntimeLiveness)(
-        request.tenantId,
-        envelope.agentId,
-        deps.getDb ? { getDb: deps.getDb } : {},
-      );
+      const liveness =
+        lockedLiveness ??
+        (await deps.readAgentLiveness!(request.tenantId, envelope.agentId, deps.getDb ? { getDb: deps.getDb } : {}));
       if (liveness === "unavailable") throw new IssuanceAbort("persistence-unavailable");
       if (liveness !== "in-service") throw new IssuanceAbort("agent-not-in-service");
 

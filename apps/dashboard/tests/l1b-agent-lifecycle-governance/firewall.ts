@@ -8,7 +8,7 @@
  *    on the subject before any generic branch, and refuses any decision type but `revoke`.
  * F4 The agent-lifecycle subject is named only by its owner, the decision authority and retirement.
  * F5 Registration is untouched: still `approve` on subject `agent` in `agent-registration`.
- * F6 Retirement still owns no new verb (no suspend, reactivate or successor writer).
+ * F6 Agent identity owns no successor or resume verb (L-2b added suspend and reactivate, nothing else).
  */
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
@@ -68,7 +68,13 @@ assert.match(code(ENUMS), /"external-ai-data-use",\s*"agent-lifecycle",\s*\]\);/
   assert.match(decision, /input\.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE\s*\?\s*AGENT_LIFECYCLE_DOMAIN/, "own domain");
   const outcomeStart = decision.indexOf("const outcome =");
   const firstBranch = decision.slice(outcomeStart, outcomeStart + 200);
-  assert.match(firstBranch, /AGENT_LIFECYCLE_SUBJECT_TYPE\s*\?\s*AGENT_RETIRED_OUTCOME/, "outcome mapped on the subject first");
+  /* L-2b — the lifecycle outcome is chosen on the subject (then by type) before any generic branch. */
+  assert.match(firstBranch, /agentLifecycleOutcome !== null\s*\?\s*agentLifecycleOutcome/, "outcome mapped on the subject first");
+  assert.match(
+    decision,
+    /input\.subjectType !== AGENT_LIFECYCLE_SUBJECT_TYPE\s*\?\s*null\s*:\s*input\.decisionType === AGENT_RETIREMENT_DECISION_TYPE\s*\?\s*AGENT_RETIRED_OUTCOME/,
+    "revoke on the agent-lifecycle subject is agent-retired",
+  );
   const guard = decision.indexOf('"agent-lifecycle-decision-type-unsupported"');
   assert.ok(guard > 0 && guard < decision.indexOf("const domain ="), "unsupported decision types are refused before routing");
   const c = code(CONTRACTS);
@@ -80,7 +86,8 @@ assert.match(code(ENUMS), /"external-ai-data-use",\s*"agent-lifecycle",\s*\]\);/
 
 /* ── F4 ── */
 {
-  const allowed = new Set([CONTRACTS, DECISION, RETIRE]);
+  /* L-2b — the suspension writer is the fourth owner. */
+  const allowed = new Set([CONTRACTS, DECISION, RETIRE, "src/features/agent-identity/suspend-durable-agent-identity.server.ts"]);
   for (const file of walk("src")) {
     if (/AGENT_LIFECYCLE_SUBJECT_TYPE|AGENT_RETIREMENT_DECISION_TYPE|AGENT_RETIRED_OUTCOME/.test(code(file))) {
       assert.ok(allowed.has(file), `${file} names the agent-lifecycle decision outside its three owners`);
@@ -99,7 +106,7 @@ assert.match(code(ENUMS), /"external-ai-data-use",\s*"agent-lifecycle",\s*\]\);/
 /* ── F6 ── */
 {
   const feature = walk("src/features/agent-identity").map(code).join("\n");
-  for (const verb of ["suspendDurableAgent", "reactivateDurableAgent", "resumeDurableAgent", "succeedDurableAgent", "replacedByAgentId:"]) {
+  for (const verb of ["resumeDurableAgent", "succeedDurableAgent", "replacedByAgentId:"]) {
     assert.ok(!feature.includes(verb), `agent identity owns no ${verb}`);
   }
 }

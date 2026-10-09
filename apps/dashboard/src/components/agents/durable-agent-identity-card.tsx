@@ -34,7 +34,7 @@
 import { AGENT_SERVICE_STATUS_LABEL } from "@/features/agent-identity/service-status";
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, ShieldOff } from "lucide-react";
+import { BadgeCheck, PauseCircle, PlayCircle, ShieldOff } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -47,7 +47,9 @@ import { Button } from "@/components/ui/button";
 import { StateBlock } from "@/components/ui/state-block";
 import {
   createDurableAgentIdentityAction,
+  reactivateDurableAgentIdentityAction,
   retireDurableAgentIdentityAction,
+  suspendDurableAgentIdentityAction,
 } from "@/app/(dashboard)/agents/actions";
 import {
   AGENT_CAPABILITY_LADDER,
@@ -61,6 +63,7 @@ import { MAX_AGENT_NAME_LENGTH } from "@/features/agent-identity/contracts";
 import type { DurableAgentIdentityRecord } from "@/features/agent-identity/read-durable-agent-identity.server";
 import type { AgentIdentityRefusal } from "@/features/agent-identity/contracts";
 import type { AgentRetirementRefusal } from "@/features/agent-identity/retirement-contracts";
+import type { AgentServiceTransitionRefusal } from "@/features/agent-identity/suspension-contracts";
 
 /* L-2a — badge tone per identity-seam status; suspended and undetermined are not retired. */
 const SERVICE_BADGE: Record<"in-service" | "suspended" | "retired" | "indeterminate", "success" | "warning" | "neutral"> = {
@@ -126,6 +129,39 @@ const RETIRE_REFUSAL_TEXT: Record<AgentRetirementRefusal, string> = {
     "Retiring an agent is a Governance decision, and every decision needs a reason. Nothing was changed.",
 };
 
+/* L-2b — suspension and reactivation refusals. Same gates as retirement, plus the status checks. */
+const TRANSITION_REFUSAL_TEXT: Record<AgentServiceTransitionRefusal, string> = {
+  "no-authorized-tenant-context": RETIRE_REFUSAL_TEXT["no-authorized-tenant-context"],
+  "malformed-agent-id": RETIRE_REFUSAL_TEXT["malformed-agent-id"],
+  "authority-unavailable": RETIRE_REFUSAL_TEXT["authority-unavailable"],
+  "agent-identity-not-found": RETIRE_REFUSAL_TEXT["agent-identity-not-found"],
+  "not-the-human-owner": "Only the human who owns this identity may suspend or reactivate it, and that is not you.",
+  "no-governance-authority":
+    "This organization has no Governance authority yet, or it could not be read. Suspending or reactivating its agent needs one. Nothing was changed.",
+  "not-the-governance-authority":
+    "Suspending or reactivating this agent needs this organization's Governance authority as well as ownership, and you do not hold it. Nothing was changed.",
+  "justification-required":
+    "Suspending or reactivating an agent is a Governance decision, and every decision needs a reason. Nothing was changed.",
+  "agent-identity-retired": "This identity is retired. Retirement is terminal, so it can be neither suspended nor reactivated.",
+  "agent-already-suspended": "This identity is already suspended. Nothing was changed.",
+  "agent-not-suspended": "This identity is in service, so there is nothing to reactivate. Nothing was changed.",
+  "agent-service-status-indeterminate":
+    "This identity's recorded lifecycle fields disagree, so its status is unknown. A transition will not paper over that. Nothing was changed.",
+  "agent-has-usable-permits":
+    "This agent still holds an unexpired permit. Reactivating would make it spendable again without anyone deciding so. Revoke it, or let it expire, then reactivate. Nothing was changed.",
+  "agent-has-valid-standing-envelope":
+    "This agent still holds a standing authorization whose window has not closed. Reactivating would let it issue permits again without anyone deciding so. Withdraw it, or let it close, then reactivate. Nothing was changed.",
+};
+
+type LifecycleAction = "retire" | "suspend" | "reactivate";
+
+/* What each confirmation says before the human acts. */
+const ACTION_COPY: Record<LifecycleAction, { readonly title: string; readonly reasonLabel: string; readonly confirm: string }> = {
+  retire: { title: "Retire", reasonLabel: "Why retire it", confirm: "Withdraw from service" },
+  suspend: { title: "Suspend", reasonLabel: "Why suspend it", confirm: "Suspend from service" },
+  reactivate: { title: "Reactivate", reasonLabel: "Why reactivate it", confirm: "Return to service" },
+};
+
 function Ladder() {
   return (
     <div className="flex flex-col gap-1.5">
@@ -153,8 +189,8 @@ export function DurableAgentIdentityCard({
   const [name, setName] = useState("");
   const [justification, setJustification] = useState("");
   const [confirming, setConfirming] = useState(false);
-  const [retiring, setRetiring] = useState<string | null>(null);
-  const [retireJustification, setRetireJustification] = useState("");
+  const [pendingAction, setPendingAction] = useState<{ readonly agentId: string; readonly kind: LifecycleAction } | null>(null);
+  const [actionJustification, setActionJustification] = useState("");
   const [refusal, setRefusal] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
 
@@ -195,20 +231,33 @@ export function DurableAgentIdentityCard({
     });
   }
 
-  function retire(agentId: string) {
+  function closeAction() {
+    setPendingAction(null);
+    setActionJustification("");
+  }
+
+  function act(agentId: string, kind: LifecycleAction) {
     setRefusal(null);
+    setOutcome(null);
     startTransition(async () => {
-      const result = await retireDurableAgentIdentityAction({ agentId, justification: retireJustification });
-      if (result.status === "retired") {
-        setRetiring(null);
-        setRetireJustification("");
+      if (kind === "retire") {
+        const result = await retireDurableAgentIdentityAction({ agentId, justification: actionJustification });
+        if (result.status !== "retired") return setRefusal(RETIRE_REFUSAL_TEXT[result.reason]);
         setOutcome(
           `${result.retirement.name} was withdrawn from service. Nothing was deleted, and it will never return to service.`,
         );
-        router.refresh();
-        return;
+      } else {
+        const action = kind === "suspend" ? suspendDurableAgentIdentityAction : reactivateDurableAgentIdentityAction;
+        const result = await action({ agentId, justification: actionJustification });
+        if (result.status === "refused") return setRefusal(TRANSITION_REFUSAL_TEXT[result.reason]);
+        setOutcome(
+          result.status === "suspended"
+            ? `${result.record.name} was suspended. It cannot propose, be approved for, or carry out work until it is reactivated.`
+            : `${result.record.name} was returned to service. It held no usable permit or open standing authorization, so none was restored.`,
+        );
       }
-      setRefusal(RETIRE_REFUSAL_TEXT[result.reason]);
+      closeAction();
+      router.refresh();
     });
   }
 
@@ -276,68 +325,102 @@ export function DurableAgentIdentityCard({
                     {identity.retiredAt ? ` · retired ${identity.retiredAt}` : ""}
                   </p>
 
-                  {identity.inService ? (
-                    retiring === identity.agentId ? (
+                  {identity.serviceStatus === "in-service" || identity.serviceStatus === "suspended" ? (
+                    pendingAction?.agentId === identity.agentId ? (
                       <div className="flex flex-col gap-2 rounded-md border border-warning bg-warning-subtle p-3">
                         <p className="text-xs font-semibold text-fg">
-                          Retire {identity.name}?
+                          {ACTION_COPY[pendingAction.kind].title} {identity.name}?
                         </p>
                         <ul className="flex list-disc flex-col gap-1 pl-4 text-xs leading-5 text-fg-secondary">
-                          <li>{GENESIS_DISCLOSURE.retirementIsNotDeletion}</li>
-                          <li>{GENESIS_DISCLOSURE.retirementFreesOnlyTheName}</li>
-                          <li>{GENESIS_DISCLOSURE.retirementIsTerminal}</li>
-                          <li>{GENESIS_DISCLOSURE.noSuccession}</li>
+                          {pendingAction.kind === "retire" ? (
+                            <>
+                              <li>{GENESIS_DISCLOSURE.retirementIsNotDeletion}</li>
+                              <li>{GENESIS_DISCLOSURE.retirementFreesOnlyTheName}</li>
+                              <li>{GENESIS_DISCLOSURE.retirementIsTerminal}</li>
+                              <li>{GENESIS_DISCLOSURE.noSuccession}</li>
+                            </>
+                          ) : pendingAction.kind === "suspend" ? (
+                            <>
+                              <li>Suspension is reversible. The identity, its name and its history are kept.</li>
+                              <li>While suspended it cannot originate proposals, have them approved, or carry out authorized work.</li>
+                              <li>Work already handed to an external provider before suspension is not recalled.</li>
+                            </>
+                          ) : (
+                            <>
+                              <li>Reactivation returns the agent to service. It cannot reactivate a retired agent.</li>
+                              <li>It is refused while the agent still holds an unexpired permit or an open standing authorization, so nothing granted before is silently restored.</li>
+                            </>
+                          )}
                         </ul>
                         <label
-                          htmlFor={`${ids}-retire-justification`}
+                          htmlFor={`${ids}-lifecycle-justification`}
                           className="text-xs font-medium uppercase tracking-wider text-fg-muted"
                         >
-                          Why retire it (recorded with the Governance decision)
+                          {ACTION_COPY[pendingAction.kind].reasonLabel} (recorded with the Governance decision)
                         </label>
                         <textarea
-                          id={`${ids}-retire-justification`}
+                          id={`${ids}-lifecycle-justification`}
                           className={FIELD_STYLE}
                           rows={2}
-                          value={retireJustification}
+                          value={actionJustification}
                           disabled={pending}
                           onChange={(event) => {
-                            setRetireJustification(event.target.value);
+                            setActionJustification(event.target.value);
                             setRefusal(null);
                           }}
                         />
                         <div className="flex flex-wrap gap-2">
                           <Button
-                            variant="danger"
+                            variant={pendingAction.kind === "reactivate" ? "primary" : "danger"}
                             size="sm"
-                            disabled={pending || retireJustification.trim().length === 0}
-                            onClick={() => retire(identity.agentId)}
+                            disabled={pending || actionJustification.trim().length === 0}
+                            onClick={() => act(identity.agentId, pendingAction.kind)}
                           >
-                            <ShieldOff className="size-4" />
-                            Withdraw from service
+                            {pendingAction.kind === "retire" ? (
+                              <ShieldOff className="size-4" />
+                            ) : pendingAction.kind === "suspend" ? (
+                              <PauseCircle className="size-4" />
+                            ) : (
+                              <PlayCircle className="size-4" />
+                            )}
+                            {ACTION_COPY[pendingAction.kind].confirm}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={pending}
-                            onClick={() => {
-                              setRetiring(null);
-                              setRetireJustification("");
-                            }}
-                          >
+                          <Button variant="ghost" size="sm" disabled={pending} onClick={closeAction}>
                             Cancel
                           </Button>
                         </div>
                       </div>
                     ) : (
                       <div className="flex flex-col gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={pending || !owned}
-                          onClick={() => setRetiring(identity.agentId)}
-                        >
-                          Retire this identity
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          {identity.serviceStatus === "in-service" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={pending || !owned}
+                              onClick={() => setPendingAction({ agentId: identity.agentId, kind: "suspend" })}
+                            >
+                              Suspend
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={pending || !owned}
+                              onClick={() => setPendingAction({ agentId: identity.agentId, kind: "reactivate" })}
+                            >
+                              Reactivate
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={pending || !owned}
+                            onClick={() => setPendingAction({ agentId: identity.agentId, kind: "retire" })}
+                          >
+                            Retire this identity
+                          </Button>
+                        </div>
                         {owned ? null : (
                           <p className="text-xs text-fg-muted">{RETIREMENT_AUTHORITY_SUMMARY}</p>
                         )}

@@ -42,7 +42,8 @@ const ALREADY_PENDING_WORDING =
 const UNAVAILABLE_WORDING: Readonly<Record<OriginationUnavailableReason, string>> = {
   "tenant-unavailable": "Sign in to ask an agent for a proposal.",
   "no-agent": "This organization has no durable agent, so nothing can propose this as work.",
-  "agent-retired": "This organization's agent has been retired and cannot propose new work.",
+  /* L-2b — the code predates suspension; it means "not in service", which is retired OR suspended. */
+  "agent-retired": "This organization's agent is not in service (retired or suspended) and cannot propose new work.",
   "multiple-agents": "More than one agent is in service. Choose which one to ask:",
   "selected-agent-unresolvable": "That agent is not one of this organization's agents, so it cannot be asked.",
   "mandate-unavailable": "The agent has no mandate in effect, so it cannot propose anything.",

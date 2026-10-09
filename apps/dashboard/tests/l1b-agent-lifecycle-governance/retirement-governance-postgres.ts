@@ -12,7 +12,7 @@
  *   6  a failing decision insert rolls the whole retirement back (agent still in service)
  *   7  a failing audit insert rolls the decision AND the transition back
  *   8  a `revoke` on this subject is not read as a revoked Governance delegation
- *   9  the decision authority refuses any other decision type on the agent-lifecycle subject
+ *   9  the decision authority refuses a decision type with no lifecycle outcome (L-2b took suspend/approve)
  */
 import assert from "node:assert/strict";
 import { Client } from "pg";
@@ -253,7 +253,7 @@ async function main(): Promise<void> {
     const authority = await resolveGovernanceAuthority(ctx, deps);
     assert.equal(authority.authorized, true, "the Director still holds Governance authority after two retirements");
 
-    /* ── (9) ONLY `revoke` IS ACCEPTED ON THE AGENT-LIFECYCLE SUBJECT ── */
+    /* ── (9) A TYPE WITH NO LIFECYCLE OUTCOME IS REFUSED ON THE AGENT-LIFECYCLE SUBJECT ── */
     const beforeWrong = await ledger();
     await assert.rejects(
       handle.db.transaction((tx) =>
@@ -261,7 +261,7 @@ async function main(): Promise<void> {
           tx as never,
           ctx,
           authority,
-          { decisionType: "approve", subjectType: AGENT_LIFECYCLE_SUBJECT_TYPE, subjectId: cleo, justification: RETIRE },
+          { decisionType: "ratify", subjectType: AGENT_LIFECYCLE_SUBJECT_TYPE, subjectId: cleo, justification: RETIRE },
           new Date(),
         ),
       ),

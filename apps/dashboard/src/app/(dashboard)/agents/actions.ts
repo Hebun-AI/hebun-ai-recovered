@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { createDurableAgentIdentity } from "@/features/agent-identity/create-durable-agent-identity.server";
 import { retireDurableAgentIdentity } from "@/features/agent-identity/retire-durable-agent-identity.server";
+import {
+  reactivateDurableAgentIdentity,
+  suspendDurableAgentIdentity,
+} from "@/features/agent-identity/suspend-durable-agent-identity.server";
 /*
  * The RESULT SHAPES come from the contracts modules, not from the writers. Those two files declare
  * types and refusal codes and nothing else — no database handle, no query, no authority — so
@@ -11,6 +15,7 @@ import { retireDurableAgentIdentity } from "@/features/agent-identity/retire-dur
  */
 import type { CreateDurableAgentIdentityResult } from "@/features/agent-identity/contracts";
 import type { RetireDurableAgentIdentityResult } from "@/features/agent-identity/retirement-contracts";
+import type { AgentServiceTransitionResult } from "@/features/agent-identity/suspension-contracts";
 import { establishAgentMandateWithResponsibility } from "@/features/agent-mandate/establish-agent-mandate.server";
 import type { EstablishResponsibleAgentMandateResult } from "@/features/agent-mandate/responsibility-contracts";
 import { fileImprovementHypothesis } from "@/features/agent-improvement-hypothesis/write-improvement-hypothesis.server";
@@ -97,6 +102,37 @@ export async function retireDurableAgentIdentityAction(input: {
     justification: input?.justification,
   });
   if (result.status === "retired") revalidatePath("/agents");
+  return result;
+}
+
+/**
+ * L-2b — SUSPEND an in-service agent, or REACTIVATE a suspended one. Transport only: the owner and
+ * Governance gates, the retired-agent refusal and the atomic decision + audit live in the writer.
+ * The identifier is a lookup key; the reason is recorded with the Governance decision.
+ */
+export async function suspendDurableAgentIdentityAction(input: {
+  agentId: string;
+  justification: string;
+}): Promise<AgentServiceTransitionResult> {
+  const tenant = await resolveTenantContext();
+  const result = await suspendDurableAgentIdentity(tenant, {
+    agentId: input?.agentId,
+    justification: input?.justification,
+  });
+  if (result.status !== "refused") revalidatePath("/agents");
+  return result;
+}
+
+export async function reactivateDurableAgentIdentityAction(input: {
+  agentId: string;
+  justification: string;
+}): Promise<AgentServiceTransitionResult> {
+  const tenant = await resolveTenantContext();
+  const result = await reactivateDurableAgentIdentity(tenant, {
+    agentId: input?.agentId,
+    justification: input?.justification,
+  });
+  if (result.status !== "refused") revalidatePath("/agents");
   return result;
 }
 

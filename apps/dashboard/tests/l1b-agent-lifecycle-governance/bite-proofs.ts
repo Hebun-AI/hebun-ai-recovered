@@ -66,7 +66,8 @@ proof(
 proof(
   "B4 the outcome falls through to the generic revoke branch",
   DECISION,
-  `    input.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE ? AGENT_RETIRED_OUTCOME\n      : `,
+  /* L-2b — the lifecycle outcome is now one subject-first branch over agentLifecycleOutcome. */
+  `    agentLifecycleOutcome !== null ? agentLifecycleOutcome\n      : `,
   `    `,
   "the outcome is agent-retired, never a revoked Governance authority",
 );
@@ -80,7 +81,8 @@ proof(
 proof(
   "B6 the decision authority accepts any decision type on the lifecycle subject",
   DECISION,
-  `  if (input.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE && input.decisionType !== AGENT_RETIREMENT_DECISION_TYPE) {`,
+  /* L-2b — the guard now refuses any type with no lifecycle outcome. */
+  `  if (input.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE && agentLifecycleOutcome === null) {`,
   `  if (false && input.subjectType === AGENT_LIFECYCLE_SUBJECT_TYPE) {`,
   "agent-lifecycle-decision-type-unsupported",
 );

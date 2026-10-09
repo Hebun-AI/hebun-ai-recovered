@@ -21,7 +21,8 @@ const label = (kind: string) => KIND_LABEL[kind] ?? kind;
 export const UNAVAILABLE_SENTENCE: Readonly<Record<OriginationUnavailableReason, string>> = {
   "tenant-unavailable": "Hebun could not confirm your organization for this check.",
   "no-agent": "No durable agent is in service for this organization.",
-  "agent-retired": "The agent for this organization is retired.",
+  /* L-2b — the code predates suspension; it means "not in service", which is retired OR suspended. */
+  "agent-retired": "The agent for this organization is not in service (retired or suspended).",
   "multiple-agents": "More than one agent is in service, so the proposal path cannot choose one.",
   "selected-agent-unresolvable": "The chosen agent does not belong to this organization.",
   "mandate-unavailable": "No effective mandate could be confirmed for this agent.",

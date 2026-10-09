@@ -94,10 +94,12 @@ function exactlyOneWriter(): void {
     [
       path.join("src", "features", "agent-identity", "create-durable-agent-identity.server.ts"),
       path.join("src", "features", "agent-identity", "retire-durable-agent-identity.server.ts"),
+      /* L-2b — the suspension writer (suspend / reactivate: lifecycle + suspended_at only). */
+      path.join("src", "features", "agent-identity", "suspend-durable-agent-identity.server.ts"),
       /* AP-2 — the Organization Authority's column-scoped placement writer (`department_id` only). */
       path.join("src", "features", "organization-authority", "write-agent-placement.server.ts"),
     ],
-    "still exactly three writers of `agents` (AP-2 placement is the third) — a hypothesis mutates no agent",
+    "still exactly four writers of `agents` (AP-2 placement, L-2b suspension) — a hypothesis mutates no agent",
   );
 
   /* The decider and the reader write nothing durable of their own. */
