@@ -180,7 +180,8 @@ const MUTATIONS: readonly Mutation[] = [
     suite: FW_SUITE,
     edits: [
       {
-        find: '  const authorship = await resolveAgentAuthorship(tenant, deps.agentIdentity ?? {});',
+        /* AGENT-TEST-RECOVERY: re-anchored — AP-5A added the `{ agentId }` selection argument; the mutation is unchanged. */
+        find: '  const authorship = await resolveAgentAuthorship(tenant, deps.agentIdentity ?? {}, { agentId: input.agentId });',
         replace:
           "  const authorship = await (async () => ({\n" +
           '    status: "resolved" as const,\n' +

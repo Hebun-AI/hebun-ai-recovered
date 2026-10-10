@@ -442,7 +442,7 @@ function amA2AddedNothingToTheDatabase(): void {
   const journal = JSON.parse(read(JOURNAL)) as { entries: readonly unknown[] };
   assert.equal(
     journal.entries.length,
-    67, /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */ /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain). TRH-24 51 -> 52 (`provider_observations` machine provenance: nullable human actor pair, `standing_authorization_id` + `invocation_id`, XOR CHECK — schema evolution). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it.) */
+    76, /* AGENT-TEST-RECOVERY: ledger 67 -> 76, each a later named phase, none authored here: YOUTUBE-WRITE-2 68 (recipient-less kind CHECK), SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1 69, KT knowledge_public_use domain 70, EXTERNAL-AI-DATA-USE 71, SCI-2A 72, SCI-2B 73, AP-1 74 (agent name in-service uniqueness), AP-4A 75 (work domains), L-1B 76 (agent-lifecycle governance domain). */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */ /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain). TRH-24 51 -> 52 (`provider_observations` machine provenance: nullable human actor pair, `standing_authorization_id` + `invocation_id`, XOR CHECK — schema evolution). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it.) */
     "the migration ledger is unchanged by AMA-2 — it is a read, not a schema change", /* WORK-1 grew the ledger 41 -> 42: the Organizational Work Authority table. */
   );
 
@@ -475,8 +475,15 @@ function amA2AddedNothingToTheDatabase(): void {
     [
       "20260831110423_ama1_agent_mandate_authority.sql",
       "20260902115846_gia1_record_work_mandate_scope.sql",
+      /*
+       * AP-4A (AGENT-TEST-RECOVERY names it). A later, Director-gated phase: the new
+       * `agent_mandate_responsibilities` table, and on `agent_mandates` only the (tenant_id, id)
+       * unique index its tenant-safe composite FK needs. No column, no CHECK, no writer — the
+       * per-file assertions below hold it to that, exactly as they hold the first two.
+       */
+      "20261007175237_ap4a_work_domain_foundation.sql",
     ],
-    "only AMA-1's table and GIA-1's scope widening ever touched mandate storage — AMA-2 altered none",
+    "only AMA-1's table, GIA-1's scope widening and AP-4A's FK index ever touched mandate storage — AMA-2 altered none",
   );
   const mandateSql = mandateMigrations
     .map((file) => read(path.join("src/db/migrations", file)))

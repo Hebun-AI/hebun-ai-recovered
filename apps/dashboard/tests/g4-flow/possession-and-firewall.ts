@@ -692,6 +692,16 @@ function noSchema(): void {
       /* MEDIA-1 — `media_generation_invocations`, `media_assets` and the `media-asset-review` governance domain. */
       "20260917001519_media1_media_asset_authority.sql",
       "20260917135027_media2a_live_image_transport.sql", /* MV-0: declared later phases — MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 (two), MEDIA-SUPPLIED. */ "20260918105811_media5_reference_edit_lineage.sql", "20260922181241_contentcompose1_selected_media.sql", "20260923071401_tenantarm1_tenant_external_send_authorization.sql", "20260924133417_publish0_recipientless_attempts.sql", "20260924173451_publish0_derived_media.sql", "20260925055841_media_supplied_origin.sql", "20260926083521_mv2_media_video_kind.sql", "20260926140423_mv4_async_generation_lifecycle.sql", "20260926145724_mv5_video_derivation.sql", /* MV-6 */ "20260927064103_mv6_higgsfield_failure_codes.sql",
+      /* AGENT-TEST-RECOVERY names the declared later phases since MV-6, none of them G4's: */
+      /* YOUTUBE-WRITE-2 */ "20260928084834_youtube_write2_recipientless_kind.sql",
+      /* SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1 */ "20260929134334_supplied_media_account_provenance.sql",
+      /* KNOWLEDGE TRUST — public-use domain */ "20261003074659_knowledge_public_use_domain.sql",
+      /* EXTERNAL-AI-DATA-USE */ "20261004073713_external_ai_data_use_authority.sql",
+      /* SCI-2A */ "20261006111812_sci2a_knowledge_version_immutability.sql",
+      /* SCI-2B */ "20261006175909_sci2b_knowledge_integrity_at_insert.sql",
+      /* AP-1 */ "20261007064348_ap1_agent_name_in_service_uniqueness.sql",
+      /* AP-4A */ "20261007175237_ap4a_work_domain_foundation.sql",
+      /* L-1B */ "20261008143657_l1b_agent_lifecycle_domain.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );

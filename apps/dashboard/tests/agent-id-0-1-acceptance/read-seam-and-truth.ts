@@ -202,14 +202,23 @@ function main(): void {
   const scripts = readdirSync(path.join(ROOT, "scripts"), { withFileTypes: true })
     .filter((e) => e.isFile() && e.name.endsWith(".ts"))
     .map((e) => `scripts/${e.name}`);
+  /*
+   * AGENT-TEST-RECOVERY: AP-4's Release B preflight is a later, Director-gated READ-ONLY operator check
+   * that counts in-service agents before a strictness release. Named here, and held to read-only
+   * below, so any OTHER script that reads `agents` still fails.
+   */
+  const AP4_RELEASE_B_PREFLIGHT = "scripts/ap4-release-b-preflight.ts";
   const agentReaders = scripts.filter(
     (f) => f !== PREFLIGHT && /\bagents\b/.test(codeOf(read(f))),
   );
   assert.deepEqual(
     agentReaders,
-    [],
-    "no script other than the preflight names `agents` — there is one production-read path, not two",
+    [AP4_RELEASE_B_PREFLIGHT],
+    "no script other than the preflight and AP-4's read-only Release B check names `agents` — no second production-read system",
   );
+  const ap4 = codeOf(read(AP4_RELEASE_B_PREFLIGHT));
+  assert.ok(ap4.includes("set session characteristics as transaction read only"), "AP-4's check sets its session read-only before any query");
+  assert.ok(!/\b(insert\s+into|update\s+[a-z_]+\s+set|delete\s+from)\b/i.test(ap4), "and writes nothing");
   assert.ok(
     !preflight.includes("agent-identity"),
     "the preflight does not import the agent identity authority — reading a count is not holding a writer",
@@ -326,7 +335,7 @@ function main(): void {
     "no agent-shaped Governance subject exists — a read seam is not a decision",
   );
   const sqlCount = readdirSync(path.join(ROOT, MIGRATIONS)).filter((f) => f.endsWith(".sql")).length;
-  assert.equal(sqlCount, 67, "this phase authored no migration — counting a table needs none"); /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64 (media_kind + video facts on media_assets, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */ /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`, so a tenant a visitor created stays distinguishable from one an operator ceremony created). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */
+  assert.equal(sqlCount, 76, "this phase authored no migration — counting a table needs none"); /* AGENT-TEST-RECOVERY: 67 -> 76, nine later named phases (YOUTUBE-WRITE-2, SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1, KT public-use domain, EXTERNAL-AI-DATA-USE, SCI-2A, SCI-2B, AP-1, AP-4A, L-1B), none authored here. */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64 (media_kind + video facts on media_assets, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */ /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). SELF-SERVICE SIGNUP 52 -> 53 (`companies_provisioning_source_chk` widened to admit `self-service-signup`, so a tenant a visitor created stays distinguishable from one an operator ceremony created). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) */
   const journal = JSON.parse(read(path.join(MIGRATIONS, "meta/_journal.json")));
   assert.equal(journal.entries.length, sqlCount, "and the journal agrees with the files on disk");
 
@@ -346,11 +355,16 @@ function main(): void {
       "src/app/(dashboard)/governance/authority/actions.ts",
       "src/app/(dashboard)/governance/genesis/actions.ts",
       "src/app/(dashboard)/heby/actions.ts",
+      /* AGENT-TEST-RECOVERY names later server actions: WF-3C knowledge-grounded origination, WF-1 origination availability. */
+      "src/app/(dashboard)/heby/knowledge-origination-actions.ts",
+      "src/app/(dashboard)/heby/origination-availability-actions.ts",
       /* SOC-ACT1 — Social Intelligence's one governed boundary. It resolves a tenant and forwards to the Command-owned proposal inlet; it holds no authority. */
   /* PROVIDER ACCOUNT LIFECYCLE added exactly one server-action boundary: the Instagram
    * disconnect. It is a THIN caller — the credential/connection composition lives in
    * `provider-connection-lifecycle`, because a released INT-2 firewall keeps the credential
    * authority unreachable from `src/app`. A second one appearing is a decision to record. */
+      /* YOUTUBE-WRITE-1 (named by AGENT-TEST-RECOVERY): which channel a Google grant stands for. */
+      "src/app/(dashboard)/integrations/google/actions.ts",
       "src/app/(dashboard)/integrations/instagram/actions.ts",
       "src/app/(dashboard)/intelligence/social/actions.ts",
       "src/app/(dashboard)/knowledge/actions.ts",

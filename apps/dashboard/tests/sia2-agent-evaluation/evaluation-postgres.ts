@@ -26,6 +26,7 @@ import { createDisposablePostgresHarness } from "../helpers/disposable-postgres"
 import { createControlPlaneDb } from "../../src/db/client.server";
 import { seedLocalIdentity } from "../helpers/r1-identity-seed";
 import { establishGovernanceAuthority } from "../../src/features/governance-decision/bootstrap-authority.server";
+import { armTenantExternalSend } from "../../src/features/tenant-external-send-authority/authorize-tenant-external-send.server";
 import { createExternalRecipient } from "../../src/features/external-recipients/write-external-recipients.server";
 import { createWorkArtifact } from "../../src/features/work-artifacts/write-work-artifacts.server";
 import {
@@ -194,6 +195,18 @@ async function main(): Promise<void> {
     };
     await establish(acme, acmeCtx);
     await establish(globex, globexCtx);
+
+    /*
+     * AGENT-TEST-RECOVERY — TENANT-ARM-1 made a tenant's own external-send arming a precondition of
+     * every send. This fixture predates it and never armed Acme, so every execution stopped at
+     * `tenant-not-armed` and the send path was never reached. Armed here through the RELEASED writer
+     * (a real Governance decision and revision), never a stub: the tenant gate stays in the path under
+     * test. Globex is deliberately left unarmed.
+     */
+    {
+      const armed = await armTenantExternalSend(acmeCtx, { justification: JUSTIFICATION, observedRevision: null }, baseDeps);
+      assert.equal(armed.status, "written", `Acme's external send is armed through Governance (${JSON.stringify(armed)})`);
+    }
 
     assert.equal(
       (await createDurableAgentIdentity(acmeCtx, { name: "Heby", justification: "Register this agent for the test organization." }, baseDeps)).status,

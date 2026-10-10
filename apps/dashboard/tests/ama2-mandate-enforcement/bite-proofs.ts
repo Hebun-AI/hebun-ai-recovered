@@ -21,6 +21,8 @@ const FIREWALL = "tests/ama2-mandate-enforcement/enforcement-firewall.ts";
 const AMA1_FIREWALL = "tests/ama1-agent-mandate/mandate-firewall.ts";
 
 const SEAM = "src/features/action-authorization/record-action-request.server.ts";
+/* AGENT-TEST-RECOVERY: APF-1 moved the shared ceiling decision here (one answer for the proposal and machine paths); the proofs that mutate that decision now name its owner. */
+const CEILING = "src/features/action-authorization/agent-mandate-ceiling.ts";
 const CONTRACTS = "src/features/action-authorization/contracts.ts";
 const ORIGINATION = "src/features/agent-origination/contracts.ts";
 const MANDATE_CONTRACTS = "src/features/agent-mandate/contracts.ts";
@@ -82,10 +84,11 @@ function main(): void {
    * The defect that would make every refusal a lie: the row lands, and the ceiling is checked
    * afterwards. A proposal a mandate excluded would already be sitting in front of a human.
    * ─────────────────────────────────────────────────────────────────────── */
+  /* AGENT-TEST-RECOVERY: proofs 1 and 2 re-anchored — AP-4B passes `prepared.arguments` to the ceiling; the mutations are unchanged. */
   proof(
     "the ceiling is consulted after the insert",
     SEAM,
-    `  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps);
+    `  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps, prepared.arguments);
   if (ceiling) return refused(ceiling);
 
   return insertActionRequest(
@@ -108,7 +111,7 @@ function main(): void {
     undefined,
     proposalRationale,
   );
-  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps);
+  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps, prepared.arguments);
   if (ceiling) return refused(ceiling);
 
   return written;`,
@@ -124,7 +127,7 @@ function main(): void {
   proof(
     "enforcement is removed from the proposal writer",
     SEAM,
-    `  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps);
+    `  const ceiling = await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps, prepared.arguments);
   if (ceiling) return refused(ceiling);
 `,
     "",
@@ -138,7 +141,7 @@ function main(): void {
    * ─────────────────────────────────────────────────────────────────────── */
   proof(
     "an absent mandate is treated as permission",
-    SEAM,
+    CEILING,
     `  if (!read.mandate) return "no-agent-mandate";`,
     `  if (!read.mandate) return null;`,
     "NO MANDATE != UNLIMITED MANDATE",
@@ -152,7 +155,7 @@ function main(): void {
    * ─────────────────────────────────────────────────────────────────────── */
   proof(
     "an unreachable mandate authority is reported as no mandate",
-    SEAM,
+    CEILING,
     `  if (read.status === "unavailable") return "agent-mandate-authority-unavailable";`,
     `  if (read.status === "unavailable") return "no-agent-mandate";`,
     "UNAVAILABLE != NO MANDATE",
@@ -165,7 +168,7 @@ function main(): void {
    * ─────────────────────────────────────────────────────────────────────── */
   proof(
     "an unreachable mandate authority lets the proposal through",
-    SEAM,
+    CEILING,
     `  if (read.status === "unavailable") return "agent-mandate-authority-unavailable";`,
     `  if (read.status === "unavailable") return null;`,
     "UNAVAILABLE != NO MANDATE",
@@ -179,7 +182,7 @@ function main(): void {
    * ─────────────────────────────────────────────────────────────────────── */
   proof(
     "an empty scope is read as an unspecified one",
-    SEAM,
+    CEILING,
     `  return admitted ? null : "action-outside-agent-mandate";`,
     `  return admitted || read.mandate.proposalScope.length === 0 ? null : "action-outside-agent-mandate";`,
     "an empty ceiling admits nothing",
@@ -194,7 +197,7 @@ function main(): void {
    * ─────────────────────────────────────────────────────────────────────── */
   proof(
     "the ceiling compares the alias vocabulary against the registry vocabulary",
-    SEAM,
+    CEILING,
     `    (alias) => AGENT_ORIGINABLE_REGISTRY_KIND[alias] === actionKind,`,
     `    (alias) => (alias as string) === (actionKind as string),`,
     "an in-scope act proceeds through the released path",
@@ -241,8 +244,8 @@ function main(): void {
   proof(
     "the ceiling is resolved against the human id instead of the verified agent",
     SEAM,
-    `await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps)`,
-    `await mandateCeilingRefusal(tenant, tenant.userId, prepared.actionKind, deps)`,
+    `await mandateCeilingRefusal(tenant, pair.actorId, prepared.actionKind, deps, prepared.arguments)`,
+    `await mandateCeilingRefusal(tenant, tenant.userId, prepared.actionKind, deps, prepared.arguments)`,
     "the ceiling is looked up by the VERIFIED proposer's id",
   );
 

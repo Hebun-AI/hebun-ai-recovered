@@ -513,8 +513,8 @@ const FEATURE_FILES = walk(FEATURE);
    */
   assert.equal(
     HEBY_SOURCE_CLASSES.length,
-    21,
-    "the census is twenty-one since SOC-ACT1's `provider-observations`; WORK-1 itself authored none of them",
+    22,
+    "the census is twenty-two since HEBY-MEDIA-1's `content-media` (SOC-ACT1 added the 21st); WORK-1 itself authored none of them",
   );
 
   /*

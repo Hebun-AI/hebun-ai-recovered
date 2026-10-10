@@ -704,6 +704,8 @@ async function main(): Promise<void> {
           "knowledge_external_references_human_declarer_chk",
           "knowledge_external_references_human_withdrawer_chk",
           /* MEDIA-1 — only a human may ask for an image. A DATABASE fact. */
+          /* MEDIA-SUPPLIED — a supplied image's supplier, when recorded, may only be a human. Strict direction. */
+          "media_assets_supplied_human_chk",
           "media_generation_invocations_human_requester_chk",
           "membership_authorizations_human_authorizer_chk",
           /*
@@ -731,11 +733,15 @@ async function main(): Promise<void> {
        * AGENT CANNOT ENROL ITS OWN ORGANIZATION into machine delivery of already-authorized work.
        * The one authority that could widen who may trigger an act is itself closed to machines.
        */
+      /* EXTERNAL-AI-DATA-USE — only a human may authorize a tenant's external AI data use. Strict direction. */
+      "tenant_ai_data_use_authorizations_human_authorizer_chk",
+      /* TENANT-ARM-1 — only a human may arm (or disarm) a tenant's external send. Strict direction. */
+      "tenant_external_send_authorizations_human_authorizer_chk",
       "tenant_machine_execution_authorizations_human_authorizer_chk",
       "work_evidence_references_human_declarer_chk",
           "work_items_human_accountable_chk",
         ],
-        "the sixteen human-only CHECKs are enforced by the database, and this phase widened none of them",
+        "the twenty human-only CHECKs are enforced by the database, and this phase widened none of them",
       );
 
       /* And the approver CHECK really does refuse an agent, on the agent's own proposal. */
