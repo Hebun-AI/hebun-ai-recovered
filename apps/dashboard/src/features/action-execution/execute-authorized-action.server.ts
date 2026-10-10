@@ -906,6 +906,7 @@ function instagramPackageVerdictFor(
 function instagramPackagePreflightReason(failure: InstagramPackageFailure): ExecutionPreflightRefusal {
   if (failure === "persistence-unavailable") return "persistence-unavailable";
   if (failure === "package-unresolvable") return "artifact-unresolvable";
+  if (failure === "image-aspect-unsupported") return "image-aspect-unsupported";
   return "content-package-not-ready";
 }
 
@@ -913,6 +914,12 @@ function instagramPackagePreflightReason(failure: InstagramPackageFailure): Exec
 function instagramPackageFailureClass(failure: InstagramPackageFailure): ExecutionFailureClass {
   if (failure === "persistence-unavailable") return "internal-persistence-failure";
   if (failure === "package-unresolvable") return "artifact-unresolvable";
+  /*
+   * INSTAGRAM-MEDIA-COMPATIBILITY-1 — an ordinary incompatible image never gets here: the pre-flight
+   * asks the same verifier before the spend, and the frozen original's dimensions have no writer
+   * after admission. Seen only after the spend, it means the authoritative record changed beneath a
+   * frozen payload — an integrity inconsistency, which is what `digest-mismatch` records.
+   */
   return "digest-mismatch";
 }
 

@@ -22,6 +22,7 @@ import { prepareAction } from "@/features/heby-actions/action-preparer";
 import type { HebyEvidenceReference } from "@/features/heby-integration";
 import { PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND } from "@/features/instagram-publishing/contracts";
 import {
+  isInstagramPublishImageSize,
   verifyInstagramPackageReadiness,
   type InstagramPackageDeps,
 } from "@/features/instagram-publishing/verify-instagram-package.server";
@@ -66,6 +67,9 @@ export type InstagramPublishProposalRefusal =
   | "package-not-ready"
   | "image-not-selected"
   | "image-not-approved"
+  /* INSTAGRAM-MEDIA-COMPATIBILITY-1 — outside Meta's documented feed contract (the verifier owns it). */
+  | "image-aspect-unsupported"
+  | "publish-image-too-large"
   | "already-pending"
   | PublicationGuardRefusal
   | "not-authorizable";
@@ -175,6 +179,12 @@ export async function proposeInstagramPublish(
     return derivationRefusal(derived.reason);
   }
   const derivative = derived.derivative;
+  /*
+   * INSTAGRAM-MEDIA-COMPATIBILITY-1 — the bytes Meta would download, BEFORE anything is filed. The
+   * derivative row stays: it is the Media authority's deterministic, idempotent record, authorizes
+   * nothing, and a re-proposal finds the same row and the same refusal.
+   */
+  if (!isInstagramPublishImageSize(derivative.byteSize)) return refused("publish-image-too-large", String(derivative.byteSize));
 
   /* ── 4. PREPARE through the existing gates, then PERSIST through R3A's writer. ── */
   const draftRef = formatWorkArtifactRef(draft.revision.artifactId, draft.revision.revisionNo);

@@ -13,6 +13,11 @@
  *   EXECUTION  1 deselect · 2 decline · 3 copy changes → pre-flight refusal, permit active, no attempt,
  *              no Meta · 4 valid at pre-flight, invalidated after the spend → refused-after-spend,
  *              no Meta · 5 still ready → the existing path publishes.
+ *   INSTAGRAM-MEDIA-COMPATIBILITY-1
+ *              K · Meta's documented 4:5..1.91:1 at proposal (boundaries, the once-accepted 2000x2601,
+ *              no width gate, order, tenant) and the 8,000,000-byte derivative ceiling — refusals file
+ *              nothing · X6 incompatible at pre-flight → truthful refusal, permit active, no attempt ·
+ *              X7 the dimensions changed beneath a frozen payload after the spend → integrity class.
  */
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -177,11 +182,13 @@ async function main(): Promise<void> {
          returning id`,
         [d.tenant.tenantId, randomUUID(), d.tenant.userId, agents.get(d.tenant.tenantId), d.artifact, sha(randomUUID()), kind],
       )).rows[0]!.id;
-    const seedImage = async (d: Draft) => {
+    const seedImage = async (d: Draft, width = 64, height = 48, noise = false) => {
       const inv = await invocation(d, "image");
       const assetId = randomUUID();
       const bytes = new Uint8Array(
-        await sharp({ create: { width: 64, height: 48, channels: 4, background: { r: 10, g: 120, b: Math.floor(Math.random() * 255), alpha: 0.5 } } }).png().toBuffer(),
+        noise
+          ? await sharp(Buffer.from(Array.from({ length: width * height * 3 }, () => Math.floor(Math.random() * 256))), { raw: { width, height, channels: 3 } }).png({ compressionLevel: 0 }).toBuffer()
+          : await sharp({ create: { width, height, channels: 4, background: { r: 10, g: 120, b: Math.floor(Math.random() * 255), alpha: 0.5 } } }).png().toBuffer(),
       );
       const key = `tenants/${d.tenant.tenantId}/media/${assetId}`;
       await store.put({ key, bytes, contentType: "image/png", sha256Hex: sha(bytes) });
@@ -189,8 +196,8 @@ async function main(): Promise<void> {
         `insert into media_assets
            (id, tenant_id, invocation_id, mime_type, byte_size, byte_digest, width, height,
             storage_backend, storage_key, admitted_at, asset_lifecycle_status)
-         values ($1,$2,$3,'image/png',$4,$5,64,48,'test-memory',$6, now(),'admitted')`,
-        [assetId, d.tenant.tenantId, inv, bytes.length, sha(bytes), key],
+         values ($1,$2,$3,'image/png',$4,$5,$7,$8,'test-memory',$6, now(),'admitted')`,
+        [assetId, d.tenant.tenantId, inv, bytes.length, sha(bytes), key, width, height],
       );
       const derivedId = publishDerivativeId(d.tenant.tenantId, assetId);
       return { assetId, derivedId, derivedKey: `tenants/${d.tenant.tenantId}/media/${derivedId}` };
@@ -356,6 +363,57 @@ async function main(): Promise<void> {
       { ok: false, failure: "image-not-selected" },
       "J3: the verifier never treats a selected, approved VIDEO as the Instagram image",
     );
+
+    /* ══ K · INSTAGRAM-MEDIA-COMPATIBILITY-1 — Meta's documented feed contract, at proposal ══ */
+    const readyWith = async (w: number, h: number) => {
+      const dr = await seedDraft();
+      const im = await seedImage(dr, w, h);
+      await prep.makeReady(acmeCtx, dr.current, im.assetId);
+      return { dr, im };
+    };
+    for (const [w, h, label] of [[1400, 1931, "K1 the first P1 image (0.725)"], [2000, 2601, "K2 PUBLISH-0's once-accepted 2000x2601 (0.769)"], [799, 1000, "K3 just under 4:5"], [192, 100, "K4 just over 1.91:1"]] as const) {
+      const { dr, im } = await readyWith(w, h);
+      await refusedCleanly(label, () => propose(dr, im), "image-aspect-unsupported", im);
+    }
+    for (const [w, h, label] of [[800, 1000, "K5 exactly 4:5"], [191, 100, "K6 exactly 1.91:1, width under 320 (no width gate)"], [1080, 1080, "K7 square"], [1122, 1402, "K8 the published P1 image"]] as const) {
+      const { dr, im } = await readyWith(w, h);
+      const r = await propose(dr, im);
+      assert.equal(r.status, "proposed", `${label}: ${JSON.stringify(r)}`);
+    }
+    /* Order: an unreviewed incompatible image is first unreviewed; an approved one is incompatible BEFORE the package's blockers. */
+    const k9 = await seedDraft();
+    const k9x = await seedImage(k9, 1400, 1931);
+    await prep.select(acmeCtx, k9.current, k9x.assetId);
+    await refusedCleanly("K9 unreviewed and incompatible", () => propose(k9, k9x), "image-not-approved", k9x);
+    await prep.approveMedia(acmeCtx, k9x.assetId);
+    await refusedCleanly("K10 approved, incompatible, copy unreviewed", () => propose(k9, k9x), "image-aspect-unsupported", k9x);
+    /* Tenant: Globex cannot learn anything about Acme's incompatible image — the package is unresolvable first. */
+    const k1 = await readyWith(1400, 1931);
+    assert.deepEqual(
+      await verifyInstagramPackageReadiness(globexCtx, { ...k1.dr.current, mediaAssetId: k1.im.assetId }, { getDb: () => handle.db }),
+      { ok: false, failure: "package-unresolvable" },
+      "K11: tenant predicate precedes the compatibility question",
+    );
+    /* K12 · the JPEG derivative over 8,000,000 bytes: refused before anything is filed; the Media row stays. */
+    const k12 = await seedDraft();
+    const k12x = await seedImage(k12, 2080, 2600, true);
+    await prep.makeReady(acmeCtx, k12.current, k12x.assetId);
+    const k12Before = await world();
+    const k12Result = await propose(k12, k12x);
+    assert.equal(k12Result.status === "refused" && k12Result.reason, "publish-image-too-large", `K12: ${JSON.stringify(k12Result)}`);
+    const k12Bytes = (await setup.query<{ byte_size: number }>("select byte_size from media_assets where id=$1", [k12x.derivedId])).rows[0]?.byte_size;
+    assert.ok(k12Bytes !== undefined && k12Bytes > 8_000_000, `K12: precondition — the derivative really is over the ceiling (${k12Bytes})`);
+    assert.equal(k12Result.status === "refused" && k12Result.detail, String(k12Bytes), "K12: detail is the measured size");
+    const k12After = await world();
+    assert.deepEqual(
+      { requests: k12After.requests, permits: k12After.permits, attempts: k12After.attempts, decisions: k12After.decisions, network: k12After.network },
+      { requests: k12Before.requests, permits: k12Before.permits, attempts: k12Before.attempts, decisions: k12Before.decisions, network: k12Before.network },
+      "K12: no request, permit, attempt, decision or network",
+    );
+    assert.equal(k12After.derivatives, k12Before.derivatives + 1, "K12: the deterministic derivative row is the Media authority's, and stays");
+    const k12Again = await propose(k12, k12x);
+    assert.equal(k12Again.status === "refused" && k12Again.reason, "publish-image-too-large", "K12: a re-proposal meets the same row and the same refusal");
+    assert.equal((await world()).derivatives, k12After.derivatives, "K12: and no second derivative");
     assert.equal(networkCalls, 0, "no proposal reached any network");
 
     /* ══════════════════════════ EXECUTION ══════════════════════════ */
@@ -444,6 +502,33 @@ async function main(): Promise<void> {
     const x5Result = await exec(x5.permitId);
     assert.equal(x5Result.status === "attempted" && x5Result.attempt.status, "accepted", `X5: ${JSON.stringify(x5Result)}`);
     assert.equal(x5Result.status === "attempted" && x5Result.attempt.providerMessageId, "18000000000000001");
+
+    /*
+     * 6 · an approved request whose original is incompatible at execution — the shape of a request filed
+     * before INSTAGRAM-MEDIA-COMPATIBILITY-1. The pre-flight refuses it TRUTHFULLY, before the spend.
+     */
+    const x6 = await readyPermit();
+    await setup.query("update media_assets set width = 1400, height = 1931 where id = $1", [x6.image.assetId]);
+    const meta6 = metaCalls.length;
+    assert.deepEqual(await exec(x6.permitId), { status: "refused", reason: "image-aspect-unsupported" }, "X6: truthful pre-flight refusal");
+    assert.equal(await permitStatus(x6.permitId), "active", "X6: the permit is still active");
+    assert.equal(await attemptsFor(x6.permitId), 0, "X6: no attempt row");
+    assert.equal(metaCalls.length, meta6, "X6: Meta never asked");
+
+    /*
+     * 7 · compatible at pre-flight, dimensions changed beneath the frozen payload after the spend (no
+     * writer does this; only direct SQL can). That is an integrity inconsistency, not an ordinary
+     * compatibility failure — an ordinary one is X6 — and it closes with the integrity class.
+     */
+    const x7 = await readyPermit();
+    const meta7 = metaCalls.length;
+    const x7Result = await exec(x7.permitId, {
+      afterPublicationGuardRead: async () => {
+        await setup.query("update media_assets set width = 1400, height = 1931 where id = $1", [x7.image.assetId]);
+      },
+    });
+    assert.equal(x7Result.status === "refused-after-spend" && x7Result.attempt.failureClass, "digest-mismatch", `X7: ${JSON.stringify(x7Result)}`);
+    assert.equal(metaCalls.length, meta7, "X7: Meta never asked");
     assert.equal(networkCalls, 0, "no real network anywhere");
 
     finished = true;

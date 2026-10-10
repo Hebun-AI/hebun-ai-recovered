@@ -123,7 +123,12 @@ export type ExecutionPreflightRefusal =
    * INSTAGRAM-PACKAGE-READINESS-1 — the current Content Package no longer authorizes the bound image
    * (not READY, image not selected, or not approved). Nothing was spent; the permit is still active.
    */
-  | "content-package-not-ready";
+  | "content-package-not-ready"
+  /*
+   * INSTAGRAM-MEDIA-COMPATIBILITY-1 — the bound image is outside Meta's documented feed aspect range.
+   * A compatibility fact, not a readiness or integrity one. Nothing was spent; the permit is still active.
+   */
+  | "image-aspect-unsupported";
 
 /** What a surface may show about one attempt. Carries no address, no credential, no body. */
 export interface ExecutionAttemptView {

@@ -86,6 +86,24 @@ const MUTATIONS: readonly Mutation[] = [
     expect: /X4: /,
   },
   {
+    label: "M1 INSTAGRAM-MEDIA-COMPATIBILITY-1 aspect check removed from the verifier",
+    file: VERIFIER,
+    apply: once('  if (!isInstagramFeedAspect(selected.width, selected.height)) return { ok: false, failure: "image-aspect-unsupported" };\n', ""),
+    expect: /K1 the first P1 image/,
+  },
+  {
+    label: "M2 INSTAGRAM-MEDIA-COMPATIBILITY-1 derivative byte ceiling removed from the proposal",
+    file: PROPOSAL,
+    apply: once('  if (!isInstagramPublishImageSize(derivative.byteSize)) return refused("publish-image-too-large", String(derivative.byteSize));\n', ""),
+    expect: /K12: /,
+  },
+  {
+    label: "M3 INSTAGRAM-MEDIA-COMPATIBILITY-1 truthful pre-flight class folded into content-package-not-ready",
+    file: EXEC,
+    apply: once('  if (failure === "image-aspect-unsupported") return "image-aspect-unsupported";\n', ""),
+    expect: /X6: truthful pre-flight refusal/,
+  },
+  {
     label: "T1 tenant predicate removed from the package read",
     file: PACKAGE,
     apply: once("          eq(workArtifactRevisions.tenantId, tenant.tenantId),\n          eq(workArtifactRevisions.artifactId, input.artifactId),", "          eq(workArtifactRevisions.artifactId, input.artifactId),"),
