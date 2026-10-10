@@ -20,6 +20,9 @@ const RECIPIENTS = "src/components/operations-preparation/recipients-section.tsx
 const WORK = "src/components/operations-preparation/prepared-work-section.tsx";
 const NAV = "src/config/workspace-nav.ts";
 const JOURNAL = "src/db/migrations/meta/_journal.json";
+const ACTIONS = "src/app/(dashboard)/operations/actions.ts";
+const WRAPPER = "src/components/operations-preparation/operations-preparation.tsx";
+const NON_INLET = "src/features/work-artifact-review/change-request.server.ts";
 
 const CHILD_TIMEOUT_MS = 5 * 60 * 1000;
 const abs = (f: string): string => path.join(ROOT, f);
@@ -174,12 +177,50 @@ const MUTATIONS: readonly Mutation[] = [
      * before it: the mutation must apply to the journal's CURRENT tail, or it proves nothing. The
      * defect it injects — an extra journal entry — is unchanged, and this anchor moves with every
      * migration by design. */
-    find: `      "tag": "20260922181241_contentcompose1_selected_media",\n      "breakpoints": true\n    }\n  ]`,
+    /* OPERATIONS CENSUS REPAIR re-anchored it to the current tail (L-1B); the injected defect is unchanged. */
+    find: `      "tag": "20261008143657_l1b_agent_lifecycle_domain",\n      "breakpoints": true\n    }\n  ]`,
     replace:
       `      "tag": "20260908072926_trh24_machine_observation_provenance",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 50,\n      "version": "7",\n      "when": 1787726663801,\n` +
       `      "tag": "20260827000000_ops_p1_should_not_exist",\n      "breakpoints": true\n    }\n  ]`,
     expect: "OPS-P1 adds no migration",
+  },
+  /* ── OPERATIONS CENSUS REPAIR — the census, the inlet boundary and the lookup exception, each made to bite. ── */
+  {
+    label: "M13 an undeclared server action appears on the operations surface",
+    file: ACTIONS,
+    find: `export async function readRevisionChangeRequestAction(input: {`,
+    replace: `export async function exportEverythingAction(): Promise<void> {}\n\nexport async function readRevisionChangeRequestAction(input: {`,
+    expect: "exactly these server actions, in source order",
+  },
+  {
+    label: "M14 an expected action (CONTENT-AGENT-2's read) disappears",
+    file: ACTIONS,
+    find: `export async function readRevisionChangeRequestAction(input: {`,
+    replace: `async function readRevisionChangeRequestActionUnexported(input: {`,
+    expect: "exactly these server actions, in source order",
+  },
+  {
+    label: "M15 a proposal is filed from outside the action inlet",
+    file: NON_INLET,
+    find: `const UUID = /^`,
+    replace: `const fileFromHere = () => recordActionRequest(null as never, null as never);\nvoid fileFromHere;\nconst UUID = /^`,
+    expect: "every caller of recordActionRequest is an action inlet",
+  },
+  {
+    label: "M16 the client constructs a third revision reference",
+    file: WRAPPER,
+    /* The two named lookups stay byte-identical; a NEW construction beside them must still be refused by the ban itself. */
+    find: `publicationMeasurements[formatWorkArtifactRef(draft.artifactId, draft.currentRevision)]`,
+    replace: `publicationMeasurements[formatWorkArtifactRef(draft.artifactId, draft.currentRevision)] ?? publicationMeasurements[formatWorkArtifactRef(draft.artifactId, 1)]`,
+    expect: `must not construct a reference via "formatWorkArtifactRef"`,
+  },
+  {
+    label: "M17 a named lookup exception is altered to another revision",
+    file: WRAPPER,
+    find: `publicationStates[formatWorkArtifactRef(draft.artifactId, draft.currentRevision)]`,
+    replace: `publicationStates[formatWorkArtifactRef(draft.artifactId, draft.currentRevision - 1)]`,
+    expect: "the named lookup exception occurs exactly once",
   },
 ];
 

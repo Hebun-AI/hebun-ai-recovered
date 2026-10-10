@@ -133,12 +133,20 @@ function main(): void {
       callers,
       [
         /* GIA-2's proposer. Still an inlet, still named — the census counts inlets, not two. */
+        /* PUBLISH-0 (f2005e84) — the Instagram publication proposal. An inlet. Named by the OPERATIONS CENSUS REPAIR. */
+        "src/features/heby-action-inlet/instagram-publish-proposal.server.ts",
         "src/features/heby-action-inlet/place-human-proposal.server.ts",
         "src/features/heby-action-inlet/record-work-proposal.server.ts",
         "src/features/heby-action-inlet/send-proposal.server.ts",
+        /* YOUTUBE-WRITE-2 (e9a715cd) — the YouTube upload proposal. An inlet. Named by the OPERATIONS CENSUS REPAIR. */
+        "src/features/heby-action-inlet/youtube-publish-proposal.server.ts",
       ],
       "every caller of recordActionRequest is an action inlet, and none of them is this surface",
     );
+    /* The boundary itself, stated directly so a sixth caller anywhere else fails even before its name is read. */
+    for (const caller of callers) {
+      assert.ok(caller.startsWith("src/features/heby-action-inlet/"), `${caller} files a proposal from outside the action inlet`);
+    }
     assert.ok(callers.includes(INLET), "including the send inlet OPS-P1 was built beside");
   }
 
@@ -200,8 +208,29 @@ function main(): void {
    * resolved — the exact drift the revision suffix exists to make unrepresentable.
    */
   {
+    /*
+     * OPERATIONS CENSUS REPAIR — ONE NAMED, EXACT EXCEPTION, NOT A RELAXATION.
+     *
+     * CONTENT-PUBLICATION-STATE-1 (71c8a034) and MEASUREMENT-LINK-1 (9e839e1f) key two SERVER-
+     * RETURNED maps by the revision ref of a draft the server listed. The client formats that ref
+     * only to LOOK UP an answer the server already gave; it is never sent anywhere. Exactly these
+     * two lookups and their import are lifted out before the ban runs, counted exactly, and the
+     * remaining code must hold no other reference construction — so any new use, any other
+     * revision number, or handing the ref to an action still fails here.
+     */
+    const LOOKUP_EXCEPTIONS: Record<string, readonly string[]> = {
+      "src/components/operations-preparation/operations-preparation.tsx": [
+        'import { formatWorkArtifactRef } from "@/features/work-artifacts/artifact-ref";',
+        "publicationStates[formatWorkArtifactRef(draft.artifactId, draft.currentRevision)]",
+        "publicationMeasurements[formatWorkArtifactRef(draft.artifactId, draft.currentRevision)]",
+      ],
+    };
     for (const file of OPS_P1_FILES) {
-      const code = codeOf(read(file));
+      let code = codeOf(read(file));
+      for (const allowed of LOOKUP_EXCEPTIONS[file] ?? []) {
+        assert.equal(code.split(allowed).length - 1, 1, `${file}: the named lookup exception occurs exactly once: ${allowed}`);
+        code = code.replace(allowed, "");
+      }
       for (const banned of [
         "formatWorkArtifactRef", "formatRecipientRef", "artifact-ref", "recipient-ref",
         "WORK_ARTIFACT_REF_PREFIX", "EXTERNAL_RECIPIENT_REF_PREFIX",
@@ -286,7 +315,7 @@ function main(): void {
     const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as {
       entries: readonly unknown[];
     };
-    assert.equal(journal.entries.length, 67, "OPS-P1 adds no migration — the ledger carries none of its authoring"); /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64 (media_kind + video facts on media_assets, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */ /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) MEDIA-1 55 -> 56 (`media_generation_invocations` + `media_assets`). MEDIA-2A 56 -> 57 (the live transport's failure code and token columns). MEDIA-5 57 -> 58: ONE nullable `media_generation_invocations.source_media_asset_id` and its composite (tenant_id, source_media_asset_id) foreign key into the `media_assets` uniqueness MEDIA-1 already declared — the durable fact that a generation attempt used an admitted image as its input. Nullable because every released text-to-image invocation legitimately has none; nothing is added to `media_assets`, and naming an asset here selects, attaches, approves or retires nothing. CONTENT-COMPOSE-1 58 -> 59 (`content_selected_media`, one additive table: WHICH admitted images a draft revision is actually made of. Provenance already records where an image came from and that is not usage — a revision may hold several approved images while the finished post carries one — so selection is the one fact no existing row could answer. Tenant-safe composite foreign keys to `work_artifact_revisions` and `media_assets`, no ordering column because nothing consumes an order, and readiness is DERIVED at read time rather than stored so it can never disagree with Governance.) */
+    assert.equal(journal.entries.length, 76, "OPS-P1 adds no migration — the ledger carries none of its authoring"); /* OPERATIONS CENSUS REPAIR: 67 -> 76, nine later named phases (YOUTUBE-WRITE-2, SUPPLIED-MEDIA-ACCOUNT-PROVENANCE-1, KT public-use domain, EXTERNAL-AI-DATA-USE, SCI-2A, SCI-2B, AP-1, AP-4A, L-1B), none authored here. */ /* MV-6: ledger 66 -> 67 (generation-failed + provider-canceled on the invocation provider_failure CHECK, additive). */ /* MV-5: ledger 65 -> 66 (mp4-normalize-v1 derivation CHECKs on media_assets, additive). */ /* MV-4: ledger 64 -> 65 (async generation lifecycle on media_generation_invocations, additive). */ /* MV-2: ledger 63 -> 64 (media_kind + video facts on media_assets, additive). */ /* MV-0: ledger 57 -> 63 (MEDIA-5, CONTENT-COMPOSE-1, TENANT-ARM-1, PUBLISH-0 x2, MEDIA-SUPPLIED), all additive; the first 57 files still digest to cbf6c4bb4eda57cc. */ /* WEV-1 grew the ledger 44 -> 45; PBGA-1 45 -> 46; CGO-1 46 -> 47 (content-draft + destination). TRH-10 47 -> 48 (the `artifact-review` governance domain); TRH-19 48 -> 49 (`heby_action_requests.proposal_rationale`, one additive nullable column). TRH-21 49 -> 50 (`provider_observations`, one additive table recording what a provider reported, when, and through which connection). TRH-23 50 -> 51 (`standing_observation_authorizations`, one additive table plus the `standing-observation` governance domain: Governance's permission to observe one exact provider read scope, repeatedly, until a later revision withdraws it). TRH-24 51 -> 52 (`provider_observations` gains machine provenance: the human actor pair becomes nullable, `standing_authorization_id` and `invocation_id` arrive, and a CHECK admits exactly one provenance mode — schema EVOLUTION, not purely additive DDL). RUNG 2 PREREQUISITE 53 -> 54 (`tenant_machine_execution_authorizations`, one additive table plus the `machine-execution` governance domain: Governance's permission for ONE TENANT to participate in machine delivery of work a human already authorized — never the authorization of any act, which `action_permits` keeps owning). RUNG 2 54 -> 55 (`standing_mutation_authorizations`, one additive table plus the `standing-mutation` governance domain, plus a nullable `standing_authorization_id` on `action_permits` and `heby_action_requests` and the two decision-uniqueness indexes made PARTIAL on it: one Governance decision still backs at most one ORDINARY permit and approval, and a bounded standing envelope is the decision that it may back several.) MEDIA-1 55 -> 56 (`media_generation_invocations` + `media_assets`). MEDIA-2A 56 -> 57 (the live transport's failure code and token columns). MEDIA-5 57 -> 58: ONE nullable `media_generation_invocations.source_media_asset_id` and its composite (tenant_id, source_media_asset_id) foreign key into the `media_assets` uniqueness MEDIA-1 already declared — the durable fact that a generation attempt used an admitted image as its input. Nullable because every released text-to-image invocation legitimately has none; nothing is added to `media_assets`, and naming an asset here selects, attaches, approves or retires nothing. CONTENT-COMPOSE-1 58 -> 59 (`content_selected_media`, one additive table: WHICH admitted images a draft revision is actually made of. Provenance already records where an image came from and that is not usage — a revision may hold several approved images while the finished post carries one — so selection is the one fact no existing row could answer. Tenant-safe composite foreign keys to `work_artifact_revisions` and `media_assets`, no ordering column because nothing consumes an order, and readiness is DERIVED at read time rather than stored so it can never disagree with Governance.) */
     const actions = codeOf(read(ACTIONS));
     /*
      * REWRITTEN BY REV-3, NOT RELAXED.
@@ -321,11 +350,17 @@ function main(): void {
         "reviseWorkArtifactAction",
         "retireWorkArtifactAction",
         "listWorkArtifactsAction",
+        /* AP-5A (5a392d0d) — the in-service agents a human may name as author. A read. Named by the OPERATIONS CENSUS REPAIR. */
+        "listInServiceAgentsAction",
         "readWorkArtifactHistoryAction",
+        /* KT-2 (f2aa78ab) — Knowledge evidence supplied to one revision's generation. A read. Named by the OPERATIONS CENSUS REPAIR. */
+        "readRevisionGenerationEvidenceAction",
         /* TRH-10 — Governance-owned review of one exact revision, plus its derived read. */
         "acceptArtifactRevisionAction",
         "requestArtifactRevisionChangesAction",
         "readArtifactRevisionReviewStatesAction",
+        /* CONTENT-AGENT-2 — the change request standing on the current revision, for a Governance authority only. A read. Named by the OPERATIONS CENSUS REPAIR. */
+        "readRevisionChangeRequestAction",
         /* CGO-8's one read: the current-revision review state of a listing, in one batch. */
         "readCurrentRevisionReviewStatesAction",
         "resolveWorkArtifactReferenceAction",
@@ -357,8 +392,40 @@ function main(): void {
          */
         "setMediaSelectionAction",
         "readContentPackageAction",
+        /* CONTENT-PUBLICATION-STATE-1 (71c8a034) — what the action ledger records about publishing a revision. A read. Named by the OPERATIONS CENSUS REPAIR. */
+        "readContentPublicationStatesAction",
+        /* CONTENT-PUBLICATION-MEASUREMENT-LINK-1 (9e839e1f) — stored observations of a published revision. A read. Named by the OPERATIONS CENSUS REPAIR. */
+        "readContentPublicationMeasurementsAction",
+        /* HEBY-MEDIA-3 (851d86b0) — Heby's media recommendation for a human gate. A read. Named by the OPERATIONS CENSUS REPAIR. */
+        "readHebyMediaPrefillsAction",
         "reviewMediaAssetAction",
         "requestMediaGenerationAction",
+        /* MEDIA-SUPPLIED correction (3db976a6) — a Picker session under drive.file only. Named by the OPERATIONS CENSUS REPAIR. */
+        "authorizeMediaPickerSessionAction",
+        /* MEDIA-SUPPLIED (72d28682) — a human-supplied Drive image into the Media authority. Named by the OPERATIONS CENSUS REPAIR. */
+        "admitSuppliedDriveImageAction",
+        /* MV-3 (9e1ee6ea) — the video Picker session. Named by the OPERATIONS CENSUS REPAIR. */
+        "authorizeMediaVideoPickerSessionAction",
+        /* MV-3 (9e1ee6ea) — a human-supplied Drive video into the Media authority. Named by the OPERATIONS CENSUS REPAIR. */
+        "admitSuppliedDriveVideoAction",
+        /* CONTENT-INTAKE-1 (bd3418bb) — several Drive images from one Picker ceremony. Named by the OPERATIONS CENSUS REPAIR. */
+        "admitSuppliedDriveImageBatchAction",
+        /* CONTENT-INTAKE-1 (bd3418bb) — several Drive videos from one Picker ceremony. Named by the OPERATIONS CENSUS REPAIR. */
+        "admitSuppliedDriveVideoBatchAction",
+        /* MV-3 (9e1ee6ea) — the videos of one revision. A read. Named by the OPERATIONS CENSUS REPAIR. */
+        "listRevisionMediaVideosAction",
+        /* MV-3 (9e1ee6ea) — one video's verified read grant. A read. Named by the OPERATIONS CENSUS REPAIR. */
+        "readMediaVideoAction",
+        /* VIDEO CONTENT CHAIN (fb1ed329) — the human door to a video generation. Named by the OPERATIONS CENSUS REPAIR. */
+        "requestVideoGenerationAction",
+        /* VIDEO CONTENT CHAIN (fb1ed329) — poll one generation's provider state. Named by the OPERATIONS CENSUS REPAIR. */
+        "observeVideoGenerationAction",
+        /* VIDEO CONTENT CHAIN (fb1ed329) — admit a generated video into the Media authority. Named by the OPERATIONS CENSUS REPAIR. */
+        "admitGeneratedVideoAction",
+        /* VIDEO CONTENT CHAIN (fb1ed329) — the video generations of several drafts. A read. Named by the OPERATIONS CENSUS REPAIR. */
+        "listArtifactVideoGenerationsAction",
+        /* VIDEO CONTENT CHAIN (fb1ed329) — every admitted video of several drafts. A read. Named by the OPERATIONS CENSUS REPAIR. */
+        "listArtifactMediaVideosAction",
         "prepareWorkArtifactAction",
         /* REV-3's one read. */
         "readArtifactWorkPurposeAction",
@@ -368,7 +435,7 @@ function main(): void {
         "listRetiredRecipientsAction",
         "resolveRecipientReferenceAction",
       ],
-      "exactly these server actions — nothing else was added to the operations surface",
+      "exactly these server actions, in source order — an undeclared or vanished action fails here by name",
     );
     /*
      * AND THE ADDITION STILL CARRIES NO AUTHORITY, which is what OPS-P1's count stood for.
