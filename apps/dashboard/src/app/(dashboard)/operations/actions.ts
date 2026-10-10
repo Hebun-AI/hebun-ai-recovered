@@ -117,6 +117,8 @@ import {
   readCurrentRevisionReviewStates,
   requestArtifactRevisionChanges,
 } from "@/features/work-artifact-review/review-revision.server";
+import { readCurrentRevisionChangeRequest } from "@/features/work-artifact-review/change-request.server";
+import type { CurrentRevisionChangeRequest } from "@/features/work-artifact-review/contracts";
 import type {
   ArtifactCurrentReviewStates,
   ArtifactRevisionReviewState,
@@ -301,6 +303,18 @@ export async function readArtifactRevisionReviewStatesAction(input: {
 }): Promise<readonly ArtifactRevisionReviewState[]> {
   const tenant = await resolveTenantContext();
   return readArtifactRevisionReviewStates(tenant, input.artifactId);
+}
+
+/**
+ * CONTENT-AGENT-2. The change request standing on a draft's CURRENT revision, with its reason, for a
+ * human who may hand it to Heby as their own instruction. A read: tenant from the session, nothing
+ * written, nothing authorized.
+ */
+export async function readRevisionChangeRequestAction(input: {
+  artifactId: string;
+  revisionNo: number;
+}): Promise<CurrentRevisionChangeRequest> {
+  return readCurrentRevisionChangeRequest(await resolveTenantContext(), input);
 }
 
 /**
@@ -761,6 +775,9 @@ export async function prepareWorkArtifactAction(input: {
    * to the preparation seam unchanged; the authorship resolver verifies it, never this action.
    */
   agentId?: string;
+  /** CONTENT-AGENT-2 — staleness keys, re-checked by the seam and its writer; never authority. */
+  expectedRevisionNo?: number;
+  reviewBasisDecisionId?: string;
 }): Promise<PrepareWorkArtifactResult & { grounding?: OwnContentGrounding }> {
   const tenant = await resolveTenantContext();
 

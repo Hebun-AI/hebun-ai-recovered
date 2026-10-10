@@ -43,7 +43,13 @@ const PREPARATION = "src/components/operations-preparation/operations-preparatio
 const CONTROL = "src/components/operations-preparation/artifact-revision-review.tsx";
 
 /** The digest of the released TRH-10 writer region at `0accb2f7`, recomputed here from source. */
-const RELEASED_REVIEW_WRITER_DIGEST = "41c678efa364e7fd1f91553264f3adc4d2f6c3eb47aa969a8a57c3f729368d30";
+/*
+ * CONTENT-AGENT-2 re-pinned this digest (was 41c678efa364e7fd…): the review transaction now takes a
+ * READ-ONLY `FOR SHARE` lock on the artifact row first, so a decision and a revision append are
+ * ordered by one lock protocol. It still writes only the ledger — the per-string assertions in
+ * TRH-10 and CONTENT-AGENT-2 hold that — and nothing else in this region moved.
+ */
+const RELEASED_REVIEW_WRITER_DIGEST = "af4f4ce1fbcf7d9abe58d7d4be66b9679f743bed99157ad8c95edbfa2f5930e3";
 
 const stateOf = (over: Partial<ArtifactRevisionReviewState>): ArtifactRevisionReviewState => ({
   revisionId: "r1",

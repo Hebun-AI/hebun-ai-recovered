@@ -373,6 +373,18 @@ function ArtifactRow({
           title={artifact.title}
           onPrepared={rereadReview}
           agents={agents}
+          /*
+            * CONTENT-AGENT-2 — offered only when the row's ledger read is about THIS revision and its
+            * latest decision is a change request. The seam and its writer re-check both server-side.
+            */
+          changeRequest={
+            rowState &&
+            rowState.revisionNo === artifact.currentRevision &&
+            rowState.decision === "changes-requested" &&
+            rowState.decisionId
+              ? { revisionNo: rowState.revisionNo, decisionId: rowState.decisionId }
+              : undefined
+          }
         />
       ) : null}
         </details>

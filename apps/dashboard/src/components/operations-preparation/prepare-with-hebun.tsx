@@ -6,7 +6,8 @@ import {
   type GroundingDisposition,
   type OwnContentGrounding,
 } from "@/features/content-grounding/contracts";
-import { prepareWorkArtifactAction } from "@/app/(dashboard)/operations/actions";
+import { prepareWorkArtifactAction, readRevisionChangeRequestAction } from "@/app/(dashboard)/operations/actions";
+import type { CurrentRevisionChangeRequest } from "@/features/work-artifact-review/contracts";
 import {
   AgentChoiceSelect,
   agentChoiceRequired,
@@ -70,10 +71,16 @@ export const HEBUN_PREPARATION_REFUSAL_WORDING: Record<PreparationRefusal, strin
   "artifact-retired": `That draft is retired and takes no further revisions. ${NOT_ASKED}`,
   "target-unavailable": `The draft could not be read, so it is unknown rather than missing. ${NOT_ASKED}`,
   "prompt-rejected": `The instruction was not accepted. ${NOT_ASKED}`,
+  /* CONTENT-AGENT-2 preflight. */
+  "revision-stale": `This draft was revised since you opened it. Reload it and read the current revision first. ${NOT_ASKED}`,
+  "review-basis-stale": `The change request you revised from no longer stands on the current revision. ${NOT_ASKED}`,
+  "review-basis-not-authorized": `Revising from a review is for a Governance authority of this organization. You can still prepare with your own instruction. ${NOT_ASKED}`,
   /* Post-invocation: provenance may exist, prepared work does not. */
   "no-model-answer": `Hebun did not return a model-written draft. ${NOT_FILED}`,
   "not-durable": `The exchange could not be durably recorded, so nothing can be attributed to it. ${NOT_FILED}`,
   "write-refused": `The prepared text could not be filed. ${NOT_FILED}`,
+  /* CONTENT-AGENT-2 post-invocation: the writer refused under its lock. */
+  "changed-while-preparing": `While Hebun was writing, the draft was revised or its review changed, so nothing was filed on top of it. ${NOT_FILED}`,
 };
 
 /** What asking Hebun does not mean. Said at the moment of asking. */
@@ -222,14 +229,24 @@ export function PrepareRevisionWithHebun({
   title,
   onPrepared,
   agents = [],
+  changeRequest,
 }: {
   readonly artifactId: string;
   readonly title: string;
   readonly onPrepared: (revisionNo: number) => Promise<void>;
   /** AP-5A — the in-service agents, from the identity read. A choice is asked only when there are several. */
   readonly agents?: readonly AgentOption[];
+  /**
+   * CONTENT-AGENT-2 — present only when the row's ledger read says the CURRENT revision's latest
+   * decision is `changes-requested`. The reason itself is read on demand from the server, never
+   * carried here, and is re-validated by the seam and its writer when the human submits.
+   */
+  readonly changeRequest?: { readonly revisionNo: number; readonly decisionId: string };
 }) {
   const [instruction, setInstruction] = useState("");
+  /* CONTENT-AGENT-2 — the reason as read, and whether THIS submission revises from it. */
+  const [reason, setReason] = useState<CurrentRevisionChangeRequest | null>(null);
+  const [fromReview, setFromReview] = useState<{ readonly revisionNo: number; readonly decisionId: string } | null>(null);
   const [agentId, setAgentId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   /* CONTENT-GROUND-1 — the human's ask. A boolean leaves this component; text never does. */
@@ -253,9 +270,13 @@ export function PrepareRevisionWithHebun({
             artifactId,
             useOwnContentGrounding: useOwnContent,
             ...agentSelectionFor(agents, agentId),
+            /* CONTENT-AGENT-2 — only when the human chose to revise from the review reason. */
+            ...(fromReview ? { expectedRevisionNo: fromReview.revisionNo, reviewBasisDecisionId: fromReview.decisionId } : {}),
           });
           if (result.status === "prepared") {
             setInstruction("");
+            setFromReview(null);
+            setReason(null);
             await onPrepared(result.revisionNo);
             setMessage(
               `Hebun prepared revision ${result.revisionNo}. ${groundingSentence(result.grounding)} Earlier revisions are unchanged; it awaits Governance review.`,
@@ -278,12 +299,66 @@ export function PrepareRevisionWithHebun({
         Hebun writes a NEW revision, authored by this organization&apos;s durable agent. The current
         revision is left byte-identical, and the new one still awaits Governance review.
       </p>
+      {/*
+        * CONTENT-AGENT-2 — REVISE FROM THE REVIEW. Shown only while the current revision's latest
+        * decision is a change request. The reason is read from the Governance ledger on the human's
+        * click, shown as recorded, and copied into the instruction only by a second click — the
+        * human edits it and the human submits. It authorizes nothing.
+        */}
+      {changeRequest ? (
+        <div data-content-agent-2="change-request" className="space-y-1.5 rounded border border-border-subtle bg-surface px-2 py-2">
+          {reason?.status === "requested" && reason.decisionId === changeRequest.decisionId ? (
+            <>
+              <p className="text-[11px] font-medium text-fg-secondary">
+                Change request on revision {reason.revisionNo}
+                {reason.decidedAt ? ` (recorded ${new Date(reason.decidedAt).toISOString().slice(0, 10)})` : ""}
+              </p>
+              <p className="whitespace-pre-wrap text-xs text-fg-primary">{reason.justification}</p>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  setInstruction(reason.justification);
+                  setFromReview({ revisionNo: reason.revisionNo, decisionId: reason.decisionId });
+                }}
+                className="rounded border border-border-subtle px-2 py-1 text-xs text-fg-secondary hover:border-border hover:text-fg-primary disabled:opacity-50"
+              >
+                Revise with Hebun from this review
+              </button>
+              <p className="text-[11px] text-fg-muted">
+                The reason becomes your instruction, which you can edit. It is not an approval and starts nothing on its own.
+              </p>
+            </>
+          ) : reason && reason.status !== "requested" ? (
+            <p className="text-xs text-fg-muted">
+              {reason.status === "unavailable"
+                ? "The review reason could not be read just now. This is unknown, not absent."
+                : reason.status === "not-authorized"
+                  ? "Review reasons are shown only to a Governance authority of this organization. You can still prepare a revision with your own instruction."
+                  : "There is no standing change request on the current revision."}
+            </p>
+          ) : (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                startTransition(async () => {
+                  setReason(await readRevisionChangeRequestAction({ artifactId, revisionNo: changeRequest.revisionNo }));
+                })
+              }
+              className="rounded border border-border-subtle px-2 py-1 text-xs text-fg-secondary hover:border-border hover:text-fg-primary disabled:opacity-50"
+            >
+              Show the change request
+            </button>
+          )}
+        </div>
+      ) : null}
       <label className="block space-y-1">
         <span className="block text-xs text-fg-secondary">Instruction for Hebun</span>
         <textarea
           value={instruction}
           onChange={(event) => setInstruction(event.target.value)}
-          rows={2}
+          rows={fromReview ? 5 : 2}
           placeholder="What should Hebun change in a new revision?"
           className="w-full rounded border border-border-subtle bg-surface px-2 py-1.5 text-xs text-fg-primary placeholder:text-fg-muted"
         />

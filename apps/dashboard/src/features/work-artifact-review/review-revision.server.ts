@@ -33,7 +33,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { getControlPlaneDb, type ControlPlaneDatabase } from "@/db/client.server";
 import { decisionRecords } from "@/db/schema/governance";
-import { workArtifactRevisions } from "@/db/schema/work-artifact";
+import { workArtifactRevisions, workArtifacts } from "@/db/schema/work-artifact";
 import type { TenantContext } from "@/features/auth/tenant/tenant-context";
 import { recordGovernanceEventWithin } from "@/features/governance-audit/governance-decision-audit.server";
 import { writeGovernanceDecisionWithin } from "@/features/governance-decision/decision-authority.server";
@@ -177,6 +177,19 @@ async function review(
     let outcome: ArtifactReviewResult | null = null;
 
     await db.transaction(async (tx) => {
+      /*
+       * CONTENT-AGENT-2 — ONE LOCK PROTOCOL WITH THE REVISION WRITER. The writer appends under
+       * `FOR UPDATE` on the artifact row and, under that lock, asks whether the review it revises
+       * from still stands. Taking `FOR SHARE` on the same row here orders every decision against
+       * every append: a decision committed first is seen by the writer's check; an append committed
+       * first is waited for. Read-only — this writes nothing to the artifact.
+       */
+      await tx
+        .select({ id: workArtifacts.id })
+        .from(workArtifacts)
+        .where(and(eq(workArtifacts.tenantId, authenticated.tenantId), eq(workArtifacts.id, input.artifactId)))
+        .for("share")
+        .limit(1);
       const revision = await resolveRevision(
         tx as unknown as ControlPlaneDatabase,
         authenticated.tenantId,

@@ -275,11 +275,23 @@ export function createWorkArtifactFromHebyPreparation(
  * NOTHING ABOUT REVISION N IS TOUCHED. The only write against an existing row is the artifact's
  * `current_revision` pointer.
  */
+/**
+ * CONTENT-AGENT-2 — a caller's extra stale-state question, asked INSIDE the artifact lock with the
+ * locked row. `true` means the basis the caller wrote from no longer holds; the revision is refused
+ * `review-basis-stale` and nothing is written. The writer stays the only lifecycle writer: the check
+ * only reads, and it runs where no concurrent reviser can move the pointer.
+ */
+export type RevisionBasisCheck = (
+  tx: ControlPlaneDatabase,
+  artifact: { readonly id: string; readonly currentRevision: number },
+) => Promise<boolean>;
+
 async function appendRevision(
   tenant: TenantContext | null,
   input: ReviseWorkArtifactInput | null,
   author: ArtifactAuthor,
   deps: WorkArtifactWriteDeps,
+  basisIsStale?: RevisionBasisCheck,
 ): Promise<ReviseWorkArtifactResult> {
   assertServerOnly();
   if (!tenant?.tenantId || !tenant.userId) return refused("unauthenticated");
@@ -321,6 +333,13 @@ async function appendRevision(
       /* A foreign artifact is "not found", never "not yours" — the refusal confirms nothing. */
       if (!artifact) return refused("artifact-not-found");
       if (artifact.lifecycle === "retired") return refused("artifact-retired");
+      /* CONTENT-AGENT-2 — both stale-state questions are answered under the lock, never before it. */
+      if (input.expectedRevisionNo !== undefined && artifact.currentRevision !== input.expectedRevisionNo) {
+        return refused("revision-stale");
+      }
+      if (basisIsStale && (await basisIsStale(tx as unknown as ControlPlaneDatabase, { id: artifact.id, currentRevision: artifact.currentRevision }))) {
+        return refused("review-basis-stale");
+      }
 
       const revisionNo = artifact.currentRevision + 1;
 
@@ -382,10 +401,12 @@ export function reviseWorkArtifactFromHebyPreparation(
   input: ReviseWorkArtifactInput | null,
   authorship: AgentAuthorship,
   deps: WorkArtifactWriteDeps = {},
+  /** CONTENT-AGENT-2 — asked under the artifact lock; see `RevisionBasisCheck`. */
+  basisIsStale?: RevisionBasisCheck,
 ): Promise<ReviseWorkArtifactResult> {
   const author = agentAuthorOrNull(authorship);
   if (!author) return Promise.resolve(refused("unverified-agent-authorship"));
-  return appendRevision(tenant, input, author, deps);
+  return appendRevision(tenant, input, author, deps, basisIsStale);
 }
 
 /**

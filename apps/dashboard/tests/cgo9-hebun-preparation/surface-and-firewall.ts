@@ -122,6 +122,8 @@ function theSurfaceAsksOnlyThroughTheReleasedAction(): void {
        * boolean and displays what came back.
        */
       'from "@/features/content-grounding/contracts"',
+      /* CONTENT-AGENT-2 — the change-request TYPE only (a client-safe contracts module, no reader, no writer). */
+      'from "@/features/work-artifact-review/contracts"',
       'from "@/features/work-artifacts/contracts"',
       'from "@/features/work-artifacts/prepare-work-artifact.server"',
       'from "react"',
@@ -132,10 +134,22 @@ function theSurfaceAsksOnlyThroughTheReleasedAction(): void {
     /import type \{[^}]*\} from "@\/features\/work-artifacts\/prepare-work-artifact\.server"/.test(code),
     "and the seam only as types, so no server code crosses to the client",
   );
+  /*
+   * CONTENT-AGENT-2 names the second action: a READ of the change request standing on the current
+   * revision, shown to the human before they choose to revise from it. The only action that asks
+   * Hebun for anything is still the released preparation action.
+   */
   assert.ok(
-    /import \{ prepareWorkArtifactAction \} from "@\/app\/\(dashboard\)\/operations\/actions"/.test(code),
-    "the one action it calls is the released preparation action",
+    /import \{ prepareWorkArtifactAction, readRevisionChangeRequestAction \} from "@\/app\/\(dashboard\)\/operations\/actions"/.test(code),
+    "it calls the released preparation action and CONTENT-AGENT-2's change-request read — nothing else",
   );
+  {
+    const actions = codeOf(readFileSync(path.join(process.cwd(), "src/app/(dashboard)/operations/actions.ts"), "utf8"));
+    const start = actions.indexOf("export async function readRevisionChangeRequestAction");
+    const body = actions.slice(start, actions.indexOf("\n}\n", actions.indexOf("{\n", actions.indexOf("Promise<CurrentRevisionChangeRequest>", start))));
+    assert.ok(start > 0 && /return readCurrentRevisionChangeRequest\(await resolveTenantContext\(\), input\);/.test(body), "that second action is a tenant-scoped read and nothing more");
+    assert.ok(!/revalidatePath|prepareWorkArtifact|Within\(|insert|update/.test(body), "it writes, revalidates and prepares nothing");
+  }
   assert.equal((code.match(/artifactType: CONTENT_DRAFT_TYPE/g) ?? []).length, 2, "both controls ask for a content draft");
 
   const section = codeOf(read(SECTION));
@@ -164,7 +178,8 @@ function everyRefusalSaysWhichOutcomeItIs(): void {
     [...reasons].sort(),
     "the wording covers exactly the seam's refusals",
   );
-  const POST_INVOCATION = new Set(["no-model-answer", "not-durable", "write-refused"]);
+  /* CONTENT-AGENT-2 adds `changed-while-preparing`: the writer refused under its lock AFTER the model answered. */
+  const POST_INVOCATION = new Set(["no-model-answer", "not-durable", "write-refused", "changed-while-preparing"]);
   for (const [reason, sentence] of Object.entries(HEBUN_PREPARATION_REFUSAL_WORDING)) {
     if (POST_INVOCATION.has(reason)) {
       assert.ok(sentence.includes("No prepared work was written"), `${reason} says no prepared work was written`);

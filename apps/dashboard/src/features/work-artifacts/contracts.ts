@@ -219,6 +219,12 @@ export interface ReviseWorkArtifactInput {
   readonly artifactId: string;
   readonly content: string;
   readonly sourceMessageId?: string;
+  /**
+   * CONTENT-AGENT-2 — the revision the caller believes is current. When present it is compared
+   * INSIDE the writer's artifact lock, so a revision filed by anyone since the caller read the
+   * draft refuses this one (`revision-stale`) instead of silently stacking on top of it.
+   */
+  readonly expectedRevisionNo?: number;
 }
 
 export type WorkArtifactField = "artifactType" | "title" | "content" | "intendedDestination";
@@ -248,6 +254,14 @@ export type WorkArtifactRefusal =
   | "artifact-retired"
   | "source-message-not-found"
   | "revision-conflict"
+  /** CONTENT-AGENT-2. `expectedRevisionNo` is no longer the current revision, read under the lock. */
+  | "revision-stale"
+  /**
+   * CONTENT-AGENT-2. The Governance review the caller revised from is no longer the latest decision
+   * on the current revision, read under the same lock. A review reason is context, never authority:
+   * a superseded one must not become the basis of new work.
+   */
+  | "review-basis-stale"
   /**
    * AGENT-RUNTIME-0. An agent author was offered without proof that the authoritative durable-agent
    * read seam produced it. Unreachable through the public entry points — it is the writer's guard

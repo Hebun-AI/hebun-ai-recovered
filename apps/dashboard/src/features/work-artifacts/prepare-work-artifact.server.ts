@@ -85,6 +85,8 @@ import type {
   WorkArtifactValidationProblem,
 } from "./contracts";
 import { preparationBriefFor } from "./preparation-brief";
+import { isReviewBasisCurrent, mayReviseFromReview } from "@/features/work-artifact-review/change-request.server";
+import { resolveReviewDbOrNull } from "@/features/work-artifact-review/review-revision.server";
 import {
   listWorkArtifacts,
   readWorkArtifactHistory,
@@ -163,6 +165,17 @@ export interface PrepareWorkArtifactInput {
    * ambiguous, so nothing is ever authored by an agent nobody named.
    */
   readonly agentId?: string;
+  /**
+   * CONTENT-AGENT-2 — the revision the human was looking at. Checked before the model is asked AND
+   * inside the revision writer's lock; a draft revised since refuses rather than stacks.
+   */
+  readonly expectedRevisionNo?: number;
+  /**
+   * CONTENT-AGENT-2 — the change-request decision the human revised from. A STALENESS KEY, never
+   * input: this seam never reads the reason text (the human's own prompt carries whatever they kept
+   * of it). Requires `expectedRevisionNo`. Checked before the model and again under the writer's lock.
+   */
+  readonly reviewBasisDecisionId?: string;
 }
 
 export interface PrepareWorkArtifactDeps {
@@ -208,6 +221,20 @@ export type PreparationRefusal =
   | "artifact-retired"
   /** CGO-9 preflight. The artifact authority could not be read, so the target is unknown, not absent. */
   | "target-unavailable"
+  /** CONTENT-AGENT-2 preflight. The draft was revised since the human read it; Hebun was not asked. */
+  | "revision-stale"
+  /** CONTENT-AGENT-2 preflight. The change request revised from no longer stands; Hebun was not asked. */
+  | "review-basis-stale"
+  /**
+   * CONTENT-AGENT-2 preflight. Revising FROM a review is for the people who may read review reasons:
+   * a Governance authority of this tenant. Anyone else may still prepare with their own instruction.
+   */
+  | "review-basis-not-authorized"
+  /**
+   * CONTENT-AGENT-2 post-invocation. While Hebun was writing, the draft was revised or its review
+   * changed; the writer refused under its lock. The message record stays, no revision was filed.
+   */
+  | "changed-while-preparing"
   | "write-refused";
 
 export type PrepareWorkArtifactResult =
@@ -295,6 +322,37 @@ export async function prepareWorkArtifact(
     const history = await readWorkArtifactHistory(tenant, target.id, readDeps);
     const current = history.find((revision) => revision.current);
     if (!current) return { status: "refused", reason: "target-unavailable" };
+    /*
+     * CONTENT-AGENT-2 — STALE STATE, BEFORE THE MODEL. Cheap to ask, and a stale request should not
+     * spend a model call. Not sufficient on its own: the writer asks both questions again under the
+     * artifact lock, because a revision or a review may land while the model is writing.
+     */
+    /* Shape first: a client may send anything. The basis is meaningless without the revision it was read on. */
+    if (
+      (input.expectedRevisionNo !== undefined && (!Number.isSafeInteger(input.expectedRevisionNo) || input.expectedRevisionNo < 1)) ||
+      (input.reviewBasisDecisionId !== undefined && (typeof input.reviewBasisDecisionId !== "string" || input.expectedRevisionNo === undefined))
+    ) {
+      return { status: "refused", reason: "invalid-input", problems: [] };
+    }
+    if (input.expectedRevisionNo !== undefined && current.revisionNo !== input.expectedRevisionNo) {
+      return { status: "refused", reason: "revision-stale" };
+    }
+    if (input.reviewBasisDecisionId !== undefined) {
+      const reviewDb = (readDeps.getDb ?? deps.write?.getDb ?? resolveReviewDbOrNull)();
+      if (!reviewDb) return { status: "refused", reason: "target-unavailable" };
+      /*
+       * Whoever may READ the reason is the only one who may revise FROM it — asked of the review
+       * module, which owns that answer. A decision id is visible to every member through the
+       * review-state read, so the id alone must not open this path.
+       */
+      if (!(await mayReviseFromReview(reviewDb, tenant))) return { status: "refused", reason: "review-basis-not-authorized" };
+      const stands = await isReviewBasisCurrent(reviewDb, tenant, {
+        artifactId: target.id,
+        revisionNo: current.revisionNo,
+        decisionId: input.reviewBasisDecisionId,
+      });
+      if (!stands) return { status: "refused", reason: "review-basis-stale" };
+    }
 
     briefInput = {
       artifactType: target.artifactType,
@@ -309,6 +367,10 @@ export async function prepareWorkArtifact(
       intendedDestination: input.intendedDestination,
     }).filter((problem) => problem.field !== "content");
     if (problems.length > 0) return { status: "refused", reason: "invalid-input", problems };
+    /* A staleness key names a revision of an EXISTING draft; on a new draft it is malformed. */
+    if (input.expectedRevisionNo !== undefined || input.reviewBasisDecisionId !== undefined) {
+      return { status: "refused", reason: "invalid-input", problems: [] };
+    }
     briefInput = input;
   }
 
@@ -378,12 +440,22 @@ export async function prepareWorkArtifact(
   const content = answer.outcome.response.body.join("\n");
   const sourceMessageId = answer.persistence.assistantMessageId;
 
+  const basisDecisionId = input.reviewBasisDecisionId;
   const written = input.artifactId
     ? await reviseWorkArtifactFromHebyPreparation(
         tenant,
-        { artifactId: input.artifactId, content, sourceMessageId },
+        { artifactId: input.artifactId, content, sourceMessageId, expectedRevisionNo: input.expectedRevisionNo },
         authorship.authorship,
         deps.write,
+        /* CONTENT-AGENT-2 — the review basis, asked again under the writer's artifact lock. */
+        basisDecisionId === undefined
+          ? undefined
+          : async (tx, artifact) =>
+              !(await isReviewBasisCurrent(tx, tenant, {
+                artifactId: artifact.id,
+                revisionNo: artifact.currentRevision,
+                decisionId: basisDecisionId,
+              })),
       )
     : await createWorkArtifactFromHebyPreparation(
         tenant,
@@ -404,6 +476,9 @@ export async function prepareWorkArtifact(
         deps.write,
       );
 
+  if (written.status === "refused" && (written.reason === "revision-stale" || written.reason === "review-basis-stale")) {
+    return { status: "refused", reason: "changed-while-preparing", answer };
+  }
   if (written.status !== "created" && written.status !== "revised") {
     return { status: "refused", reason: "write-refused", answer };
   }

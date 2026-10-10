@@ -187,6 +187,37 @@ export interface ArtifactRevisionReviewState {
 }
 
 /**
+ * CONTENT-AGENT-2 — the change request standing on one draft's CURRENT revision, for a human who may
+ * ask Heby to revise from it.
+ *
+ * `requested` carries the reason only while ALL hold: the asked revision is the draft's current one,
+ * and its LATEST decision (the same derivation every review read uses) is `changes-requested`. Any
+ * other truth is its own answer, so a reason that no longer stands can never be offered:
+ *
+ *   superseded   the asked revision is no longer current
+ *   accepted     the latest decision accepted it
+ *   none         no decision, or no such draft in this tenant (indistinguishable on purpose)
+ *   unavailable  the ledger could not be read — unknown, not "none"
+ *   not-authorized  the reader is not a Governance authority of this tenant (bootstrap or active
+ *                delegation). Asked FIRST, before any draft is read, so it reveals nothing about
+ *                the draft. Membership, a role, or access to /operations is not this permission.
+ *
+ * A REASON IS CONTEXT, NEVER AUTHORITY. It authorizes no revision, no publication, no permit and no
+ * execution; it is text a human may choose to hand Heby as their own instruction.
+ */
+export type CurrentRevisionChangeRequest =
+  | {
+      readonly status: "requested";
+      readonly artifactId: string;
+      readonly revisionId: string;
+      readonly revisionNo: number;
+      readonly decisionId: string;
+      readonly decidedAt: string | null;
+      readonly justification: string;
+    }
+  | { readonly status: "superseded" | "accepted" | "none" | "unavailable" | "not-authorized" };
+
+/**
  * CGO-8 — the batched current-revision read. `unavailable` is its own answer: a ledger that could
  * not be read must never be rendered as a revision nobody has decided about.
  */
