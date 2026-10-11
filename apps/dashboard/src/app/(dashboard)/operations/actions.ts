@@ -108,8 +108,9 @@ import type {
 } from "@/features/media-assets/contracts";
 import {
   prepareWorkArtifact,
+  toPreparationClientResult,
   WORK_ARTIFACT_OWNER_WORKSPACE,
-  type PrepareWorkArtifactResult,
+  type PreparationClientResult,
 } from "@/features/work-artifacts/prepare-work-artifact.server";
 import {
   acceptArtifactRevision,
@@ -778,7 +779,7 @@ export async function prepareWorkArtifactAction(input: {
   /** CONTENT-AGENT-2 — staleness keys, re-checked by the seam and its writer; never authority. */
   expectedRevisionNo?: number;
   reviewBasisDecisionId?: string;
-}): Promise<PrepareWorkArtifactResult & { grounding?: OwnContentGrounding }> {
+}): Promise<PreparationClientResult & { grounding?: OwnContentGrounding }> {
   const tenant = await resolveTenantContext();
 
   /*
@@ -812,7 +813,8 @@ export async function prepareWorkArtifactAction(input: {
   /* The disposition travels beside the result, never folded into it. Carries no caption text. */
   const { supplement: _supplement, ...disposition } = grounding;
   void _supplement;
-  return { ...result, grounding: disposition };
+  /* The answer stays on the server; the surface gets the outcome and, on a fallback, its closed reason. */
+  return { ...toPreparationClientResult(result), grounding: disposition };
 }
 
 /**

@@ -30,6 +30,7 @@
  * Stored data, persisted evidence and the human-facing answer are unchanged.
  */
 import type { DataClass } from "@/features/external-ai-data-use/contracts";
+import { decidePlatformDisclosure } from "@/features/external-ai-data-use/platform-disclosure-policy";
 import type { ConversationTurn, SourceResolution } from "@/features/heby-runtime";
 
 /*
@@ -56,6 +57,17 @@ export function modelDisclosedDataClasses(resolutions: readonly SourceResolution
     ),
   ];
 }
+
+/*
+ * EAI-B2 × CONTENT-GROUND-1 — own captions reach the model as a `provider-observation`. Whether
+ * assistance may carry that class is the released platform disclosure policy's answer, read here
+ * rather than restated. While it is not "allowed", every grounded preparation is refused before the
+ * model, so no surface should default to grounding or offer it. A future platform decision changes
+ * this without a code change.
+ */
+export const OWN_CONTENT_GROUNDING_DISCLOSABLE =
+  decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "assistance", dataClass: "provider-observation" })
+    .decision === "allowed";
 
 export const MODEL_WITHHELD_IDENTIFIER = "[identifier withheld]";
 export const MODEL_WITHHELD_ADDRESS = "[address withheld]";

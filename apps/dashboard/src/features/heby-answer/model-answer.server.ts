@@ -1289,9 +1289,14 @@ export async function answerHebyModelRequest(
   let answer: ProducedAnswer;
   if (publicKnowledgeBlocked) {
     /* KT-5 — public content with no establishable eligible Knowledge: nothing is sent, nothing is drafted. */
-    answer = { response: withNote(deterministic, PUBLIC_KNOWLEDGE_NOTE[publicKnowledgeBlocked]) };
+    answer = {
+      response: {
+        ...withNote(deterministic, PUBLIC_KNOWLEDGE_NOTE[publicKnowledgeBlocked]),
+        modelFallback: { kind: "public-knowledge-blocked", reason: publicKnowledgeBlocked },
+      },
+    };
   } else if (!directorEnabled) {
-    answer = { response: withNote(deterministic, DIRECTOR_DISABLED_NOTE) };
+    answer = { response: { ...withNote(deterministic, DIRECTOR_DISABLED_NOTE), modelFallback: { kind: "director-disabled" } } };
   } else {
     // 5. Compose the SERVER-owned model request. tenantId is authoritative from R1; the model
     //    id and output bound come from server config (overwritten inside the R2B boundary).
@@ -1454,12 +1459,20 @@ async function produceAnswer(args: {
     outcome = await generate(modelRequest, { env, transport: selection.transport, disclosure });
   } catch (error) {
     const code = error instanceof ModelConnectivityError ? error.code : "unknown-provider-error";
-    return { response: withNote(deterministic, `Model generation failed (${code}); this answer is deterministic.`) };
+    return {
+      response: {
+        ...withNote(deterministic, `Model generation failed (${code}); this answer is deterministic.`),
+        modelFallback: { kind: "provider-failed", code },
+      },
+    };
   }
 
   if (outcome.status !== "generated") {
     return {
-      response: withNote(deterministic, `Model generation is unavailable (${outcome.state}); this answer is deterministic.`),
+      response: {
+        ...withNote(deterministic, `Model generation is unavailable (${outcome.state}); this answer is deterministic.`),
+        modelFallback: { kind: "unavailable", state: outcome.state },
+      },
     };
   }
 
@@ -1492,6 +1505,7 @@ async function produceAnswer(args: {
           "A model answer was produced but failed validation and was withheld; this answer is deterministic.",
         ),
         modelInvocationAttempted: true,
+        modelFallback: { kind: "withheld" },
       },
       transportProvenance: selection.transportProvenance,
       modelResult: outcome.result,

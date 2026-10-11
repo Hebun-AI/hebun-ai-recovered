@@ -241,7 +241,26 @@ export interface HebyRuntimeResponse {
    * attempted", never "proven not to have happened".
    */
   readonly modelInvocationAttempted?: boolean;
+  /**
+   * Why a deterministic answer stands where a model answer was sought — a CLOSED code, never text.
+   * Present only on a fallback. It carries no prompt, no evidence and no model output, so a surface
+   * may show a precise reason without receiving the answer or its limitations.
+   */
+  readonly modelFallback?: HebyModelFallback;
 }
+
+/** The closed reasons a model answer was not served. Each names a different fact. */
+export type HebyModelFallback =
+  /** KT-5 — public content with no establishable eligible Knowledge. The model was not asked. */
+  | { readonly kind: "public-knowledge-blocked"; readonly reason: "public-eligibility-unavailable" | "no-public-eligible-knowledge" }
+  /** The Director's Claude control is off. The model was not asked. */
+  | { readonly kind: "director-disabled" }
+  /** A gate refused before the transport — connectivity, data use, instruction channel or cap. */
+  | { readonly kind: "unavailable"; readonly state: Exclude<ModelAvailabilityState, "AVAILABLE"> }
+  /** The transport raised. Whether the provider received the request is not known. */
+  | { readonly kind: "provider-failed"; readonly code: string }
+  /** The provider answered, and the answer failed validation and was withheld. */
+  | { readonly kind: "withheld" };
 
 /**
  * Attribution for a model-origin response. Transport provenance is explicit and

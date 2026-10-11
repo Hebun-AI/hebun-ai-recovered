@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import {
   GROUNDING_NON_CLAIMS,
+  OWN_CONTENT_GROUNDING_DISCLOSABLE,
   type GroundingDisposition,
   type OwnContentGrounding,
 } from "@/features/content-grounding/contracts";
@@ -25,7 +26,8 @@ import type {
   WorkArtifactValidationProblem,
 } from "@/features/work-artifacts/contracts";
 import type {
-  PrepareWorkArtifactResult,
+  HebyModelFallback,
+  PreparationClientResult,
   PreparationRefusal,
 } from "@/features/work-artifacts/prepare-work-artifact.server";
 
@@ -89,9 +91,46 @@ export const HEBUN_PREPARATION_NON_CLAIMS: readonly string[] = [
   "The result is a draft awaiting Governance review. Nothing is published, scheduled or sent.",
 ] as const;
 
-function refusalSentence(result: Extract<PrepareWorkArtifactResult, { status: "refused" }>): string {
+/*
+ * Why the model answer was not served, said plainly. Built only from the closed code the server
+ * returns — never from the answer, its evidence or its limitations, which stay on the server.
+ */
+const NOTHING_FILED = "No revision was written.";
+export function modelFallbackSentence(fallback: HebyModelFallback): string {
+  switch (fallback.kind) {
+    case "public-knowledge-blocked":
+      return fallback.reason === "no-public-eligible-knowledge"
+        ? `No Knowledge of this organization is both ratified and cleared for public use, so the model was not asked to write public content. ${NOTHING_FILED}`
+        : `Whether this organization's Knowledge may ground public content could not be established, so the model was not asked. ${NOTHING_FILED}`;
+    case "director-disabled":
+      return `Claude is switched off by the Director's provider control, so the model was not asked. ${NOTHING_FILED}`;
+    case "provider-failed":
+      return `The request to the model provider did not succeed (${fallback.code}). Whether the provider received it is not known. ${NOTHING_FILED}`;
+    case "withheld":
+      return `The model answered, but its answer failed Hebun's validation and was withheld. ${NOTHING_FILED}`;
+    case "unavailable":
+      switch (fallback.state) {
+        case "DATA_USE_NOT_AUTHORIZED":
+          return `This organization's external AI data-use authorization does not cover what this request would send, so the model was not asked. ${NOTHING_FILED}`;
+        case "DISPATCH_SAFETY_CAP_REACHED":
+          return `This organization reached its daily AI dispatch safety limit, so the model was not asked. ${NOTHING_FILED}`;
+        case "INSTRUCTION_CHANNEL_REFUSED":
+          return `The request's instructions were not Hebun's own, so it was not sent. ${NOTHING_FILED}`;
+        default:
+          return `Model connectivity is not available on this deployment (${fallback.state}), so the model was not asked. ${NOTHING_FILED}`;
+      }
+  }
+}
+
+function refusalSentence(result: Extract<PreparationClientResult, { status: "refused" }>): string {
+  if (result.reason === "no-model-answer" && result.modelFallback) return modelFallbackSentence(result.modelFallback);
   return HEBUN_PREPARATION_REFUSAL_WORDING[result.reason] ?? `Not prepared: ${result.reason}.`;
 }
+
+/* A thrown action has no result to read: say so instead of showing nothing. */
+const ACTION_DID_NOT_COMPLETE =
+  "The request did not complete, so its outcome is not known. Reload the draft to see whether a revision was written.";
+
 
 /* CONTENT-GROUND-1 — what a human is told about the grounding. Never any caption text. */
 const GROUNDING_WORDING: Record<GroundingDisposition, string> = {
@@ -135,14 +174,20 @@ export function PrepareDraftWithHebun({
         startTransition(async () => {
           setProblems([]);
           setMessage(null);
-          const result = await prepareWorkArtifactAction({
-            prompt: instruction,
-            route: "/operations",
-            artifactType: CONTENT_DRAFT_TYPE,
-            intendedDestination,
-            title,
-            ...agentSelectionFor(agents, agentId),
-          });
+          let result;
+          try {
+            result = await prepareWorkArtifactAction({
+              prompt: instruction,
+              route: "/operations",
+              artifactType: CONTENT_DRAFT_TYPE,
+              intendedDestination,
+              title,
+              ...agentSelectionFor(agents, agentId),
+            });
+          } catch {
+            setMessage(ACTION_DID_NOT_COMPLETE);
+            return;
+          }
           if (result.status === "prepared") {
             setTitle("");
             setInstruction("");
@@ -250,7 +295,7 @@ export function PrepareRevisionWithHebun({
   const [agentId, setAgentId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   /* CONTENT-GROUND-1 — the human's ask. A boolean leaves this component; text never does. */
-  const [useOwnContent, setUseOwnContent] = useState(true);
+  const [useOwnContent, setUseOwnContent] = useState(OWN_CONTENT_GROUNDING_DISCLOSABLE);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -262,17 +307,23 @@ export function PrepareRevisionWithHebun({
         event.preventDefault();
         startTransition(async () => {
           setMessage(null);
-          const result = await prepareWorkArtifactAction({
-            prompt: instruction,
-            route: "/operations",
-            artifactType: CONTENT_DRAFT_TYPE,
-            title,
-            artifactId,
-            useOwnContentGrounding: useOwnContent,
-            ...agentSelectionFor(agents, agentId),
-            /* CONTENT-AGENT-2 — only when the human chose to revise from the review reason. */
-            ...(fromReview ? { expectedRevisionNo: fromReview.revisionNo, reviewBasisDecisionId: fromReview.decisionId } : {}),
-          });
+          let result;
+          try {
+            result = await prepareWorkArtifactAction({
+              prompt: instruction,
+              route: "/operations",
+              artifactType: CONTENT_DRAFT_TYPE,
+              title,
+              artifactId,
+              useOwnContentGrounding: useOwnContent,
+              ...agentSelectionFor(agents, agentId),
+              /* CONTENT-AGENT-2 — only when the human chose to revise from the review reason. */
+              ...(fromReview ? { expectedRevisionNo: fromReview.revisionNo, reviewBasisDecisionId: fromReview.decisionId } : {}),
+            });
+          } catch {
+            setMessage(ACTION_DID_NOT_COMPLETE);
+            return;
+          }
           if (result.status === "prepared") {
             setInstruction("");
             setFromReview(null);
@@ -372,13 +423,16 @@ export function PrepareRevisionWithHebun({
         <input
           type="checkbox"
           checked={useOwnContent}
+          disabled={!OWN_CONTENT_GROUNDING_DISCLOSABLE}
           onChange={(event) => setUseOwnContent(event.target.checked)}
           className="mt-0.5"
         />
         <span>
           Use our own recent Instagram captions as a voice reference
           <span className="block text-[11px] text-fg-muted">
-            {GROUNDING_NON_CLAIMS[0]}
+            {OWN_CONTENT_GROUNDING_DISCLOSABLE
+              ? GROUNDING_NON_CLAIMS[0]
+              : "Not available: the platform's external AI data-use policy does not cover sending Instagram observations to the model."}
           </span>
         </span>
       </label>

@@ -31,6 +31,8 @@
  *
  * Pure types and frozen values. No I/O.
  */
+import { OWN_CONTENT_GROUNDING_DISCLOSABLE } from "@/features/heby-answer/model-facing-projection";
+
 
 /** Instagram media observations are the only grounding this phase reads. Narrow on purpose. */
 export const INSTAGRAM_MEDIA_CAPABILITY = "instagram.media.public.read" as const;
@@ -94,3 +96,10 @@ export const GROUNDING_NON_CLAIMS: readonly string[] = [
   "Grounding does not review, approve or publish anything. The prepared revision still awaits Governance review.",
   "The observations are read from what Hebun already recorded. Preparing does not contact Instagram.",
 ] as const;
+
+/*
+ * EAI-B2 — whether own-caption grounding may be offered at all. Answered by the model-facing
+ * projection, which owns what may be disclosed to the model; re-exported here because this is the
+ * grounding's own vocabulary and the surface already reads it from this module.
+ */
+export { OWN_CONTENT_GROUNDING_DISCLOSABLE };

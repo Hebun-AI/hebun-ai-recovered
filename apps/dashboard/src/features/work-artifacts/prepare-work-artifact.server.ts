@@ -74,6 +74,8 @@ import {
 import type { AgentIdentityReadDeps } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { resolveClaudeDirectorEnabled } from "@/features/heby-provider-ops/provider-connectivity-control.server";
 import { resolveSource } from "@/features/heby-runtime/source-resolver";
+import type { HebyModelFallback } from "@/features/heby-runtime/contracts";
+export type { HebyModelFallback };
 import {
   resolveAgentAuthorship,
   type AgentAuthorshipRefusal,
@@ -260,6 +262,25 @@ export type PrepareWorkArtifactResult =
       /** The released validator's problems, for an `invalid-input` preflight refusal. */
       readonly problems?: readonly WorkArtifactValidationProblem[];
     };
+
+/**
+ * What a preparation result may carry to a browser. The answer stays on the server: the surface
+ * needs the outcome and, on a fallback, the closed reason code — never the answer body, its
+ * evidence or its limitations.
+ */
+export type PreparationClientResult =
+  | Omit<Extract<PrepareWorkArtifactResult, { status: "prepared" }>, "answer">
+  | (Omit<Extract<PrepareWorkArtifactResult, { status: "refused" }>, "answer"> & {
+      readonly modelFallback?: HebyModelFallback;
+    });
+
+/** Pure. Drop the answer; keep only the fallback code a refusal's answer named, if any. */
+export function toPreparationClientResult(result: PrepareWorkArtifactResult): PreparationClientResult {
+  const { answer, ...rest } = result;
+  if (rest.status === "prepared") return rest;
+  const modelFallback = answer?.status === "answered" ? answer.outcome.response.modelFallback : undefined;
+  return modelFallback ? { ...rest, modelFallback } : rest;
+}
 
 /**
  * Ask Heby to prepare work, and durably keep what it produced.
