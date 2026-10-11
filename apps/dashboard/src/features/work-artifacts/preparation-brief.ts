@@ -57,6 +57,16 @@ export const CONTENT_DRAFT_PREPARATION_BRIEF: readonly string[] = [
   "Do not include analysis, explanation, preamble, labels, headings about the task, commentary on the draft, or a postscript, unless that material is itself part of the intended content.",
   "Do not open with phrases such as \"Here is\", \"I have prepared\" or \"Below is\"; the first line of your reply is the first line of the content.",
   "Ground every organizational fact in the GROUNDING CONTEXT. If it is insufficient to prepare the content, reply with a single plain sentence naming what is missing, and nothing else.",
+  /*
+   * GS-2 — keeping the record's own limits. A production revision turned "most of the range is
+   * handmade" into "handmade rugs, kilims and cushions" and added a selection process no record
+   * names. These sentences say only what the grounding labels can establish: authority, lifecycle
+   * and ratification. Nothing in the data model says a statement was independently verified, so
+   * nothing here lets the model say so. Instruction is not enforcement; GS-1 still checks the result.
+   */
+  "Keep every qualification a record states: if a record says most, some, mainly or aims to, the draft must not say more, and must not turn an aim, a preference or a plan into a present fact.",
+  "Do not state how products are made, chosen, curated, inspected or certified, where they come from, or who makes them, unless a record in the GROUNDING CONTEXT states it.",
+  "Each record is labelled with its authority, lifecycle and ratification. Ratified means this organization settled the statement as its own; it does not mean anyone independently verified it, so never present it as verified or certified.",
   "This is a draft for human review only. It is not scheduled, not published and not delivered, and nothing you write may claim or imply otherwise.",
 ] as const;
 

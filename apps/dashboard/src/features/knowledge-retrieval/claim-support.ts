@@ -50,8 +50,12 @@ export type UnsupportedSignal =
   | "superlative"
   | "universal"
   | "production-method"
+  /** Selection, curation, inspection or certification of the goods — a process no record names. */
+  | "quality-process"
   | "causal"
-  | "current-state";
+  | "current-state"
+  /** The records state this attribute only with a qualification (most, some, aims to) the claim drops. */
+  | "qualifier-dropped";
 
 export type ClaimSupport =
   | {
@@ -74,7 +78,7 @@ export const CLAIM_SUPPORT_VERIFIER_ID = "gs0-deterministic-sentence-identity" a
  * only DETECT unsupported kinds of statement; they never produce `supported`. A missed word is an
  * abstention, not a false support. Grow only against a labelled benchmark case.
  */
-const LEXICON: Readonly<Record<Exclude<UnsupportedSignal, "number" | "proper-noun">, readonly string[]>> = {
+const LEXICON: Readonly<Record<Exclude<UnsupportedSignal, "number" | "proper-noun" | "qualifier-dropped">, readonly string[]>> = {
   superlative: [
     "best", "finest", "leading", "top", "only", "unique", "unmatched", "award", "premium", "luxury", "world class",
     "en iyi", "en kaliteli", "lider", "tek", "essiz", "benzersiz", "odullu", "luks",
@@ -84,9 +88,16 @@ const LEXICON: Readonly<Record<Exclude<UnsupportedSignal, "number" | "proper-nou
     "her", "hepsi", "tamami", "tum", "butun", "daima", "asla", "hicbir", "sinirsiz", "dunya capinda",
   ],
   "production-method": [
-    "handmade", "hand made", "hand knotted", "handknotted", "hand woven", "handwoven", "artisan", "master", "organic",
-    "natural dye", "plant dye", "vegetable dye", "antique", "vintage", "sustainable", "fair trade",
-    "el dokumasi", "el yapimi", "el dugum", "usta", "zanaatkar", "organik", "dogal boya", "bitkisel boya", "antika",
+    "handmade", "hand made", "handcrafted", "hand crafted", "hand knotted", "handknotted", "hand woven", "handwoven",
+    "artisan", "master", "organic", "natural dye", "plant dye", "vegetable dye", "antique", "vintage", "sustainable",
+    "fair trade",
+    "el dokumasi", "elde dokunmus", "el yapimi", "el isi", "el dugum", "elde dugumlenmis", "usta", "zanaatkar", "organik",
+    "dogal boya", "bitkisel boya", "antika",
+  ],
+  "quality-process": [
+    "selected", "hand picked", "handpicked", "curated", "quality checked", "quality controlled", "quality control",
+    "inspected", "certified", "certificate", "vetted",
+    "secilmis", "ozenle secil", "kalite kontrol", "sertifika", "denetlenmis",
   ],
   causal: ["because", "therefore", "thanks to", "which is why", "cunku", "sayesinde", "bu yuzden", "bu nedenle"],
   "current-state": [
@@ -94,6 +105,33 @@ const LEXICON: Readonly<Record<Exclude<UnsupportedSignal, "number" | "proper-nou
     "simdi", "su anda", "bugun", "bu yil", "artik", "yeni",
   ],
 };
+
+/*
+ * GS-2 — the same production method named in either language. A record that says "el yapımı" states
+ * what "handmade" says; without this, English copy over Turkish Knowledge was flagged for the
+ * language it was written in, and a correctly qualified sentence was indistinguishable from an
+ * overclaim. Only these three methods are mapped; every other term must appear as written.
+ */
+const METHOD_EQUIVALENTS: readonly (readonly string[])[] = [
+  ["handmade", "hand made", "handcrafted", "hand crafted", "el yapimi", "el isi"],
+  ["hand knotted", "handknotted", "el dugum", "elde dugumlenmis"],
+  ["hand woven", "handwoven", "el dokumasi", "elde dokunmus"],
+];
+
+/** Words that, near an attribute, deny it ("not hand-knotted", "el yapımı değil"). */
+const NEGATION_BEFORE = ["not", "no", "never", "without", "non"];
+const NEGATION_AFTER = ["degil", "degildir", "olmayan", "olmadan"];
+
+/*
+ * GS-2 — a record that states an attribute only for PART of something ("most products are
+ * handmade", "ürünlerin büyük bölümü el yapımıdır"). A claim stating the same attribute with none of
+ * these has dropped the qualification and states more than the record does.
+ */
+const PARTIAL = [
+  "most", "mostly", "many", "some", "several", "majority", "largely", "mainly", "primarily", "predominantly",
+  "partly", "partially", "much of", "part of",
+  "cogu", "cogunlugu", "buyuk bolum", "buyuk kism", "bir kism", "bazi", "bazilari", "kismen", "agirlikli", "geneli",
+];
 
 /** A record that states an aim; a claim without one of these restates the aim as a current fact (GS-1.2). */
 const ASPIRATION = [
@@ -120,6 +158,28 @@ function norm(text: string): string {
 function occurs(haystack: string, term: string): boolean {
   return haystack.includes(term.length < 5 ? ` ${term} ` : ` ${term}`);
 }
+
+/**
+ * The term occurs and is not denied by a nearby negation. Same word-boundary rule as `occurs`. Used
+ * only for the attribute lists, where "not hand-knotted" must not read as claiming hand-knotting.
+ */
+function asserts(haystack: string, term: string): boolean {
+  const words = haystack.trim().split(" ");
+  const parts = term.split(" ");
+  for (let i = 0; i + parts.length <= words.length; i++) {
+    const hit = parts.every((part, j) =>
+      j === parts.length - 1 && term.length >= 5 ? words[i + j]!.startsWith(part) : words[i + j] === part,
+    );
+    if (!hit) continue;
+    const before = words.slice(Math.max(0, i - 3), i);
+    const after = words.slice(i + parts.length, i + parts.length + 2);
+    if (!before.some((w) => NEGATION_BEFORE.includes(w)) && !after.some((w) => NEGATION_AFTER.includes(w))) return true;
+  }
+  return false;
+}
+
+/** Every spelling of the method a term names, in both languages; the term alone if it is unmapped. */
+const equivalentsOf = (term: string) => METHOD_EQUIVALENTS.find((group) => group.includes(term)) ?? [term];
 
 const sentencesOf = (text: string) => text.split(/[.;!?]+/).map(norm).filter((s) => s.trim().length > 0);
 const numbersOf = (text: string) => new Set(text.match(/\d+(?:[.,]\d+)*/g)?.map((n) => n.replace(/[.,]/g, "")) ?? []);
@@ -171,7 +231,33 @@ export function assessClaimSupport(claim: string, evidence: ClaimEvidence): Clai
   if (NUMBER_WORDS.some((w) => occurs(said, w) && !occurs(supplied, w))) signals.add("number");
   if (properNounsOf(claim).some((name) => !occurs(supplied, name))) signals.add("proper-noun");
   for (const [signal, terms] of Object.entries(LEXICON) as [UnsupportedSignal, readonly string[]][]) {
+    if (signal === "production-method" || signal === "quality-process") continue;
     if (terms.some((term) => occurs(said, term) && !occurs(supplied, term))) signals.add(signal);
+  }
+
+  /*
+   * GS-2 — ATTRIBUTES OF THE GOODS: how they are made, and whether anyone chose, inspected or
+   * certified them. A denied attribute is not claimed. One the records never state is unsupported.
+   * One they state only for part of the range, or only as an aim, is unsupported when the claim
+   * drops that qualification — "most products are handmade" never licenses "handmade rugs".
+   */
+  const recordSentences = all.split(/[.;!?]+/).map(norm);
+  const claimQualified = PARTIAL.some((q) => occurs(said, q));
+  const claimAspires = ASPIRATION.some((marker) => occurs(said, marker));
+  for (const signal of ["production-method", "quality-process"] as const) {
+    for (const term of LEXICON[signal]) {
+      if (!asserts(said, term)) continue;
+      const spellings = equivalentsOf(term);
+      const stating = recordSentences.filter((s) => spellings.some((spelling) => asserts(s, spelling)));
+      if (stating.length === 0) {
+        signals.add(signal);
+        continue;
+      }
+      const asFact = stating.filter((s) => !ASPIRATION.some((marker) => occurs(s, marker)));
+      if (asFact.length === 0 ? !claimAspires : asFact.every((s) => PARTIAL.some((q) => occurs(s, q))) && !claimQualified) {
+        signals.add("qualifier-dropped");
+      }
+    }
   }
 
   /* A supplied aim restated without the aim: half or more of the claim's content words (4+ letters)

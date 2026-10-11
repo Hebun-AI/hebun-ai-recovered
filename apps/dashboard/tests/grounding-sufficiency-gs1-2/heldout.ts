@@ -65,9 +65,11 @@ assert.ok(!/morrow|alder|brightpath|kestrel|solvane|derin/i.test(read("src/featu
 /* ── the runtime on the held-out set ── */
 
 const rows = scoreHeldout();
+/* GS-2 moves ONE held-out case: k-hand-picked (gold insufficient, "hand-picked") was an abstention and is
+ * now caught by the quality-process signal. detected 29 -> 30, undetermined 36 -> 35; falseSupported stays 0. */
 assert.deepEqual(summarizeHeldout(rows), {
   cases: 92, supported: 52, unsupported: 38,
-  falseSupported: 0, falseInsufficient: 16, retained: 9, detected: 29, undetermined: 36, unavailableKept: 2,
+  falseSupported: 0, falseInsufficient: 16, retained: 9, detected: 30, undetermined: 35, unavailableKept: 2,
 });
 
 const at = (id: string) => {
@@ -96,8 +98,12 @@ for (const id of ["h-porto-keep", "o-renew-keep", "e-online-keep", "d-abroad-kee
  * the record does not state is still an unrecorded name. */
 assert.deepEqual(signalsOf("o-december"), ["proper-noun"]);
 
-/* No new vocabulary: every signal the runtime emits on the held-out set is one GS-0 already had. */
-const KNOWN = ["number", "proper-noun", "superlative", "universal", "production-method", "causal", "current-state"];
+/* No unreviewed vocabulary: every signal the runtime emits on the held-out set is one GS-0 had or one GS-2
+ * added on purpose (quality-process, qualifier-dropped — see tests/content-integrity-gs2). */
+const KNOWN = [
+  "number", "proper-noun", "superlative", "universal", "production-method", "causal", "current-state",
+  "quality-process", "qualifier-dropped",
+];
 for (const c of HELDOUT_CASES) for (const s of signalsOf(c.id)) assert.ok(KNOWN.includes(s), `${c.id}: ${s}`);
 
 /* ── what is NOT support ── */

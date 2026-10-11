@@ -130,7 +130,7 @@ export function ArtifactRevisionReview({
         * KT-2 — what Knowledge was supplied when these exact bytes were generated, read before
         * deciding. Shown to every reader of the revision; it decides nothing.
         */}
-      <RevisionGenerationEvidence artifactId={artifactId} revisionId={revisionId} />
+      <RevisionGenerationEvidence artifactId={artifactId} revisionId={revisionId} openWhenDeciding={intent !== null} />
 
       {reviewable ? (
         <>

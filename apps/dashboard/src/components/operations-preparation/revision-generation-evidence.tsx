@@ -10,10 +10,11 @@
  *
  * Loaded on request, so opening a History does not read every revision's evidence unasked.
  */
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { readRevisionGenerationEvidenceAction } from "@/app/(dashboard)/operations/actions";
 import {
   REVISION_EVIDENCE_NON_CLAIMS,
+  GROUNDING_CHECK_MANUAL_INSPECTION,
   GROUNDING_CHECK_NOTICE,
   GROUNDING_CHECK_NOT_RUN,
   GROUNDING_CHECK_VERDICT,
@@ -89,6 +90,11 @@ function GroundingCheck({ grounding }: { grounding: Extract<Evidence, { status: 
     <div className="mt-2 border-t border-border-subtle pt-2" data-grounding-check={grounding.status}>
       <p className="text-xs text-fg-secondary">{GROUNDING_CHECK_NOTICE}</p>
       <p className="mt-1 text-xs text-fg-primary">{GROUNDING_CHECK_VERDICT[grounding.status]}</p>
+      {grounding.status === "insufficient" || grounding.status === "undetermined" ? (
+        <p className="mt-1 text-xs text-fg-primary" data-grounding-manual-inspection="needed">
+          {GROUNDING_CHECK_MANUAL_INSPECTION}
+        </p>
+      ) : null}
       {grounding.claims.length > 0 ? (
         <ul className="mt-1 flex flex-col gap-1 text-xs text-fg-muted">
           {grounding.claims.map((claim, i) => (
@@ -105,20 +111,22 @@ function GroundingCheck({ grounding }: { grounding: Extract<Evidence, { status: 
 export function RevisionGenerationEvidence({
   artifactId,
   revisionId,
+  openWhenDeciding = false,
 }: {
   artifactId: string;
   revisionId: string;
+  /*
+   * GS-2 — true while the reviewer is deciding about this revision. The evidence and the grounding
+   * check then open on their own, so nobody records a decision without the check in front of them.
+   * It only SHOWS: the decision, its words and its contract are unchanged.
+   */
+  openWhenDeciding?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [evidence, setEvidence] = useState<Evidence | null>(null);
   const [open, setOpen] = useState(false);
 
-  function toggle() {
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    setOpen(true);
+  function load() {
     if (evidence) return;
     startTransition(async () => {
       try {
@@ -128,6 +136,21 @@ export function RevisionGenerationEvidence({
       }
     });
   }
+
+  function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    load();
+  }
+
+  useEffect(() => {
+    if (!openWhenDeciding) return;
+    setOpen(true);
+    load();
+  }, [openWhenDeciding]);
 
   return (
     <div className="mt-2">

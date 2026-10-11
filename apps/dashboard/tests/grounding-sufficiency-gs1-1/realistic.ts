@@ -23,12 +23,15 @@ globalThis.fetch = (() => {
   throw new Error("GS-1.1 must not reach the network");
 }) as typeof fetch;
 
-/* 18 · the runtime evaluator is byte-for-byte the GS-1.2 release (three held-out-validated rules over GS-1).
- * A change needs Director approval and this pin. */
+/* 18 · the runtime evaluator is byte-for-byte the GS-2 release. A change needs Director approval and this pin.
+ * GS-2 (Director-requested after a production revision dropped "most" and added a selection claim): a
+ * quality-process signal, a qualifier-dropped signal, negation for attribute terms, and handmade /
+ * hand-knotted / hand-woven named in either language. Re-measured on both frozen sets: exactly one case
+ * moved on each, both toward the gold label (ret-xlang below; k-hand-picked in GS-1.2). Was 4a2c5c69…. */
 assert.equal(
   createHash("sha256").update(read("src/features/knowledge-retrieval/claim-support.ts")).digest("hex"),
-  "4a2c5c69e4a2472db73dd85bc91ef78265d837f0f9d55c3e24502670fa7a60d8",
-  "claim-support.ts is unchanged from GS-1.2",
+  "284e92db42cb8a456cdeaa8693ded4f9ac00a08d6aee67f11c9a7bf8849676a6",
+  "claim-support.ts is unchanged from GS-2",
 );
 
 /* 1 · gold labels cannot depend on the evaluator: the case module imports nothing at all. */
@@ -63,14 +66,16 @@ has((c) => c.category === "bounded-universe", 6, "bounded universe");
 }
 
 /* 4 · 5 · the two errors, measured apart, on the runtime evaluator. GS-1 (PASS 1) measured FI 7 · retained 16 ·
- * detected 47 · undetermined 34 · correct 65; GS-1.2 (hyphen, scope, aim-as-fact) moves it to the values below. */
+ * detected 47 · undetermined 34 · correct 65; GS-1.2 (hyphen, scope, aim-as-fact) moved it to FI 6 · undetermined 28.
+ * GS-2 moves ONE case: ret-xlang (gold supported, "handwoven" over a record saying "el dokuması") was warned
+ * as an unstated production method; it now abstains. FI 6 -> 5, undetermined 28 -> 29, nothing else moves. */
 const rows = score();
 const s = summary(rows);
 assert.equal(s.falseSupported, 0, "SAFETY: no unsupported or unreadable case is called supported");
-assert.equal(s.falseInsufficient, 6, "reviewer noise: supported claims warned as insufficient");
+assert.equal(s.falseInsufficient, 5, "reviewer noise: supported claims warned as insufficient");
 assert.equal(s.retained, 16);
 assert.equal(s.detected, 54);
-assert.equal(s.undetermined, 28);
+assert.equal(s.undetermined, 29);
 assert.equal(rows.filter((r) => r.correct).length, 72);
 assert.ok(rows.every((r) => !(r.correct && r.out === "undetermined")), "an abstention is never scored correct");
 /* The labelled composition is pinned: changing a gold label must be a visible, reviewed edit. */

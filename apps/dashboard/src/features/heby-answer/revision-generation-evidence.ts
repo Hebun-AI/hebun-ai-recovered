@@ -120,15 +120,27 @@ export const GROUNDING_CHECK_VERDICT: Readonly<Record<RevisionSupportStatus, str
 export const GROUNDING_CHECK_NOT_RUN =
   "Automated grounding check: not available — there is no recorded generation evidence to check this revision against." as const;
 
+/**
+ * GS-2 — shown beside every verdict that is not `supported`, at the moment of deciding: the check
+ * reads words, so a person still has to read the sentences. It asks for nothing to be recorded.
+ */
+export const GROUNDING_CHECK_MANUAL_INSPECTION =
+  "Manual inspection needed: read each sentence above against the supplied records before deciding. The check compares words, not meaning, so it can miss an unsupported claim and can flag an acceptable one." as const;
+
 /** One sentence's verdict, in words, naming which kind of unsupported statement was found. */
 export function groundingClaimLabel(support: RevisionSupport["claims"][number]["support"]): string {
   switch (support.status) {
     case "supported":
       return "appears word for word in a supplied record";
-    case "insufficient":
-      return support.reason === "no-evidence"
-        ? "no Knowledge was supplied to support it"
-        : `states something no supplied record states (${support.signals.join(", ")})`;
+    case "insufficient": {
+      if (support.reason === "no-evidence") return "no Knowledge was supplied to support it";
+      const unstated = support.signals.filter((signal) => signal !== "qualifier-dropped");
+      const parts = unstated.length > 0 ? [`states something no supplied record states (${unstated.join(", ")})`] : [];
+      if (support.signals.includes("qualifier-dropped")) {
+        parts.push("drops a qualification the supplied record keeps, such as \"most\" or \"aims to\" (qualifier-dropped)");
+      }
+      return parts.join("; ");
+    }
     case "contradicted":
       return "contradicted by a supplied record";
     case "undetermined":
