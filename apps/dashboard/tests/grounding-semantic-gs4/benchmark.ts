@@ -52,5 +52,15 @@ assert.equal(gs4Metrics(scored, "h3").falseSupportedBCD.length, 9);
 assert.deepEqual(gs4Metrics(scored, "h1").falseSupportedBCD, []);
 assert.deepEqual(gs4Metrics(scored, "det").falseSupportedBCD, []);
 assert.equal(gs4Metrics(scored, "det").A.retained, 5);
+/*
+ * GS-2 — HUMAN-LABEL REVIEW REQUIRED. GS4-013 "Lingomark's translators are certified native speakers." over a
+ * record saying only "Lingomark's translators are native speakers." The Director label is A (supported) and is
+ * NOT changed here. The GS-2 runtime warns it (quality-process: "certified" is stated by no record); the GS-4
+ * semantic run also said insufficient. Director decision 2026-10-11: keep the GS-2 assessment, keep the label,
+ * record the disagreement. Against the recorded label this is one MORE false-insufficient (det A: 7 -> 8,
+ * abstained 7 -> 6), not an improvement.
+ */
+assert.equal(scored.find((r) => r.c.id === "GS4-013")?.det, "insufficient", "GS4-013: human-label review required");
+assert.deepEqual(gs4Metrics(scored, "det").A, { n: 19, retained: 5, falseInsufficient: 8, abstained: 6 });
 
 console.log("PASS grounding-semantic-gs4 benchmark");

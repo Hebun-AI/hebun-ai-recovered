@@ -40,6 +40,10 @@ assert.equal(m.falseSupported, 0, "no unsupported, contradicted or unavailable c
 assert.ok(m.detected >= 23, `unsupported-claim detection did not regress (${m.detected}/${m.unsupportedTotal})`);
 assert.ok(m.supportedRetained >= 4, `exact supported claims are still retained (${m.supportedRetained}/${m.supportedTotal})`);
 assert.equal(m.unavailableCorrect, 1);
+/* GS-2 moved ONE GS-0 case, pinned here because the floors above would hide it: s-xlang-handmade (gold supported,
+ * "handwoven" over "el dokuması") was warned as an unstated production method and now abstains. Toward gold,
+ * never to supported. Gold label unchanged. See docs/product-vision/runtime/hebun-content-integrity-gs2.md. */
+assert.equal(statusOf("s-xlang-handmade"), "undetermined");
 
 /* 1 · 2 · q22 / q23 stay insufficient — never supported, and the full claims are flagged. */
 for (const id of ["q22-full", "q22-short", "q23-tr", "q23-en"]) assert.notEqual(statusOf(id), "supported", id);

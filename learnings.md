@@ -4387,3 +4387,8 @@ exist is anything that would invoke it.
 ## GS-1.2 — held-out validation of grounding rules (2026-10-05)
 - Test candidate grounding rules individually against a frozen independent evaluation set before
   shipping; aggregate improvement must not hide a per-rule regression.
+
+## CONTENT-INTEGRITY GS-2 — frozen-benchmark movements (2026-10-11)
+- A rule change is measured on EVERY frozen set, case by case against baseline; a floor pin (`>=`) or a partial
+  metric pin hides movement, so each moved case is pinned by id and any move away from a human label is recorded
+  as "human-label review required", never counted as an improvement.

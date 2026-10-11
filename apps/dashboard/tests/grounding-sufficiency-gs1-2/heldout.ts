@@ -77,6 +77,7 @@ const at = (id: string) => {
   assert.ok(c, id);
   return assessClaimSupport(c.claim, heldoutEvidenceOf(c));
 };
+assert.equal(at("k-hand-picked").status, "insufficient", "the one GS-2 movement, by name");
 const signalsOf = (id: string) => {
   const r = at(id);
   return r.status === "insufficient" && r.reason === "unsupported-signal" ? r.signals : [];

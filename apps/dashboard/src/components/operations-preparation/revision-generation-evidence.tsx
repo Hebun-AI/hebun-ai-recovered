@@ -90,7 +90,7 @@ function GroundingCheck({ grounding }: { grounding: Extract<Evidence, { status: 
     <div className="mt-2 border-t border-border-subtle pt-2" data-grounding-check={grounding.status}>
       <p className="text-xs text-fg-secondary">{GROUNDING_CHECK_NOTICE}</p>
       <p className="mt-1 text-xs text-fg-primary">{GROUNDING_CHECK_VERDICT[grounding.status]}</p>
-      {grounding.status === "insufficient" || grounding.status === "undetermined" ? (
+      {grounding.status !== "supported" ? (
         <p className="mt-1 text-xs text-fg-primary" data-grounding-manual-inspection="needed">
           {GROUNDING_CHECK_MANUAL_INSPECTION}
         </p>
@@ -105,6 +105,31 @@ function GroundingCheck({ grounding }: { grounding: Extract<Evidence, { status: 
         </ul>
       ) : null}
     </div>
+  );
+}
+
+/** What was read, rendered as itself. Exported so the closed states can be rendered in isolation (GS-2). */
+export function EvidenceRecord({ evidence }: { evidence: Evidence }) {
+  return evidence.status === "recorded" ? (
+    <>
+      <p className="mt-2 text-xs text-fg-primary">{selectionSentence(evidence)}</p>
+      {evidence.selection.degradedReason ? (
+        <p className="text-xs text-fg-muted">Retrieval note recorded: {evidence.selection.degradedReason}</p>
+      ) : null}
+      {evidence.items.length > 0 ? (
+        <ul className="mt-2 flex flex-col gap-2">
+          {evidence.items.map((item) => (
+            <ItemRow key={`${item.domainKey}/${item.factKey}/${item.knowledgeVersion}`} item={item} />
+          ))}
+        </ul>
+      ) : null}
+      <GroundingCheck grounding={evidence.grounding} />
+    </>
+  ) : (
+    <>
+      <p className="mt-2 text-xs text-fg-primary">{absence(evidence)}</p>
+      <p className="mt-1 text-xs text-fg-muted" data-grounding-check="not-run">{GROUNDING_CHECK_NOT_RUN}</p>
+    </>
   );
 }
 
@@ -124,10 +149,21 @@ export function RevisionGenerationEvidence({
 }) {
   const [pending, startTransition] = useTransition();
   const [evidence, setEvidence] = useState<Evidence | null>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(openWhenDeciding);
 
-  function load() {
-    if (evidence) return;
+  /*
+   * GS-2 — the panel opens when deciding starts. Adjusted while rendering, from the previous prop
+   * value (React's documented alternative to setting state in an effect); it never closes on its own.
+   */
+  const [wasDeciding, setWasDeciding] = useState(openWhenDeciding);
+  if (openWhenDeciding !== wasDeciding) {
+    setWasDeciding(openWhenDeciding);
+    if (openWhenDeciding) setOpen(true);
+  }
+
+  /* An open panel reads the record once. The read is the external system this effect synchronizes with. */
+  useEffect(() => {
+    if (!open || evidence) return;
     startTransition(async () => {
       try {
         setEvidence(await readRevisionGenerationEvidenceAction({ artifactId, revisionId }));
@@ -135,28 +171,13 @@ export function RevisionGenerationEvidence({
         setEvidence({ status: "unavailable", reason: "provenance-unreadable" });
       }
     });
-  }
-
-  function toggle() {
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    setOpen(true);
-    load();
-  }
-
-  useEffect(() => {
-    if (!openWhenDeciding) return;
-    setOpen(true);
-    load();
-  }, [openWhenDeciding]);
+  }, [open, evidence, artifactId, revisionId]);
 
   return (
     <div className="mt-2">
       <button
         type="button"
-        onClick={toggle}
+        onClick={() => setOpen(!open)}
         aria-expanded={open}
         className="text-xs text-fg-secondary underline-offset-2 hover:text-fg-primary hover:underline"
       >
@@ -172,26 +193,8 @@ export function RevisionGenerationEvidence({
           </ul>
           {pending || !evidence ? (
             <p className="mt-2 text-xs text-fg-muted">Reading the generation record…</p>
-          ) : evidence.status === "recorded" ? (
-            <>
-              <p className="mt-2 text-xs text-fg-primary">{selectionSentence(evidence)}</p>
-              {evidence.selection.degradedReason ? (
-                <p className="text-xs text-fg-muted">Retrieval note recorded: {evidence.selection.degradedReason}</p>
-              ) : null}
-              {evidence.items.length > 0 ? (
-                <ul className="mt-2 flex flex-col gap-2">
-                  {evidence.items.map((item) => (
-                    <ItemRow key={`${item.domainKey}/${item.factKey}/${item.knowledgeVersion}`} item={item} />
-                  ))}
-                </ul>
-              ) : null}
-              <GroundingCheck grounding={evidence.grounding} />
-            </>
           ) : (
-            <>
-              <p className="mt-2 text-xs text-fg-primary">{absence(evidence)}</p>
-              <p className="mt-1 text-xs text-fg-muted" data-grounding-check="not-run">{GROUNDING_CHECK_NOT_RUN}</p>
-            </>
+            <EvidenceRecord evidence={evidence} />
           )}
         </div>
       ) : null}

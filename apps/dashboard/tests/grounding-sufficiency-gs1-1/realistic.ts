@@ -78,6 +78,7 @@ assert.equal(s.detected, 54);
 assert.equal(s.undetermined, 29);
 assert.equal(rows.filter((r) => r.correct).length, 72);
 assert.ok(rows.every((r) => !(r.correct && r.out === "undetermined")), "an abstention is never scored correct");
+assert.equal(rows.find((r) => r.c.id === "ret-xlang")?.out, "undetermined", "the one GS-2 movement, by name");
 /* The labelled composition is pinned: changing a gold label must be a visible, reviewed edit. */
 assert.deepEqual(
   ["supported", "insufficient", "contradicted", "unavailable"].map((g) => CASES.filter((c) => c.gold === g).length),
