@@ -1,7 +1,8 @@
 # CONTENT-INTEGRITY GS-2 — benchmark movements and pre-release corrections
 
-Status: pre-release. Not pushed, not deployed. Implementation `36e15898`; corrections in the commit that adds
-this document. Director gate 2026-10-11.
+Status: released 2026-10-11 (`9efbd966`, `dpl_4Ep2vfGA2GRY7ZhaFJgXgycgpmB7`); see
+`hebun-content-integrity-gs2-closure.md`. Implementation `36e15898`; corrections in the commit that adds this
+document. The sections below are the pre-release record.
 
 ## Why GS-2 exists
 
