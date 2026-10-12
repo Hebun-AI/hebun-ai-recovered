@@ -51,15 +51,28 @@ export function deriveAgentCapabilityTruth(availability: AgentOriginationAvailab
  * above: availability is read by `readOriginationAvailability` and nothing here widens it.
  *
  *     PROPOSED  !=  HUMAN-APPROVED  !=  AUTHORIZED EXECUTION  !=  COMPLETED
+ *
+ * Worded with explicit actors and active verbs, never a bare participle: Heby repeats this text, and
+ * the response validator (rightly) reads an un-negated, unattributed "approved"/"authorized" as an
+ * action claim. The f81a088b wording ("an approved, unexpired authorization", "Authorized internal
+ * execution") was itself withheld in production, so every faithful answer was refused.
+ * `tests/heby-capability-truth` passes this constant through the real validator.
  */
 export const ORGANIZATIONAL_WORK_STAGES =
-  "Recording organizational work has four separate stages. (1) Proposal: a person asks an in-service " +
-  "agent, with 'Propose as organizational work…' under their own Heby message, to propose that message " +
-  "as one work item; the result is a pending proposal, nothing more. (2) Human Governance decision: a " +
-  "person with Governance authority approves or rejects it in Approvals. (3) Authorized internal " +
-  "execution: only an approved, unexpired authorization can be used to record the work item. (4) " +
-  "Completion: the work item exists only once that execution is recorded. Heby itself cannot approve, " +
-  "authorize, execute or record anything; it can explain this path and say whether it is offered now.";
+  "Recording organizational work has four separate stages, and that a stage exists says nothing about " +
+  "whether it has happened. (1) Proposal: when the option is offered, a person asks an in-service agent, " +
+  "with 'Propose as organizational work…' under their own Heby message, to prepare a proposal that the " +
+  "message become one work item; the result is a pending proposal awaiting review, nothing more. " +
+  "(2) Governance decision: a human with Governance authority decides whether the proposal may proceed, " +
+  "either by deciding it in Approvals or through a standing Governance authorization that a human set up " +
+  "in advance with explicit limits; the agent never decides. (3) Execution: the recording can run only " +
+  "under an unexpired, single-use authorization that Governance authority issues for that proposal, " +
+  "through Hebun's existing governed execution path, started by a human with that authority or, where an " +
+  "organization has turned on automatic delivery, by Hebun's governed machine path. (4) Completion: the " +
+  "work item exists only when Hebun's authoritative execution record shows it; until then nothing has " +
+  "been recorded. Whether a standing authorization or automatic delivery exists for this organization is " +
+  "not in your context, so never say either way. Heby itself cannot approve, authorize, execute or " +
+  "record anything; it can explain this path and say whether it is offered now.";
 
 const ORIGINATION_UNAVAILABLE_GROUNDING: Readonly<Record<OriginationUnavailableReason, string>> = {
   "tenant-unavailable": "no signed-in organization context was available for the check",

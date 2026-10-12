@@ -37,7 +37,7 @@ assert.match(
   /^Not offered right now: the agent has no mandate in effect\.$/,
 );
 assert.match(describeOriginationForGrounding({ status: "unavailable", reason: "temporarily-unavailable" }), /unknown, not refused/);
-for (const stage of [/Proposal/, /Human Governance decision/, /Authorized internal execution/, /Completion/]) {
+for (const stage of [/\(1\) Proposal/, /\(2\) Governance decision/, /\(3\) Execution/, /\(4\) Completion/]) {
   assert.match(ORGANIZATIONAL_WORK_STAGES, stage);
 }
 assert.match(ORGANIZATIONAL_WORK_STAGES, /Heby itself cannot approve, authorize, execute or record anything/);
