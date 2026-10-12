@@ -120,9 +120,26 @@ void (async () => {
 
 /* ═══ 2. YOUR REQUESTS — `fixed`, so the workspace's overflow-hidden section cannot clip it ════════ */
 const myRequests = read("src/components/layout/heby/heby-my-requests.tsx");
-assert.match(myRequests, /className="fixed z-50 w-\[min\(26rem,calc\(100vw-2rem\)\)\]/);
+assert.match(myRequests, /className="fixed z-\(--z-dropdown\) overflow-y-auto/, "above the --z-sticky sidebar and rail");
 assert.doesNotMatch(myRequests, /absolute right-0/);
-assert.match(myRequests, /Math\.max\(16, window\.innerWidth - rect\.right\)/, "kept inside the viewport at narrow widths");
+assert.doesNotMatch(myRequests, /\bz-50\b/);
+assert.match(myRequests, /const vw = document\.documentElement\.clientWidth;/, "the gutter is measured inside any scrollbar");
+assert.match(myRequests, /const width = Math\.min\(416, vw - 32\);/);
+assert.match(
+  myRequests,
+  /const left = Math\.min\(Math\.max\(16, rect\.right - width\), vw - 16 - width\);/,
+  "both edges clamped to a 16px gutter",
+);
+/* The clamp itself, at the widths the live acceptance measured (button rects from production). */
+const clampLeft = (vw: number, buttonRight: number) => {
+  const width = Math.min(416, vw - 32);
+  const left = Math.min(Math.max(16, buttonRight - width), vw - 16 - width);
+  return { left, right: left + width };
+};
+for (const [vw, buttonRight] of [[375, 183.7], [900, 554.2], [1440, 1100], [320, 40], [375, 370]] as const) {
+  const { left, right } = clampLeft(vw, buttonRight);
+  assert.ok(left >= 16 && right <= vw - 16, `inside the 16px gutter at ${vw}px (button right ${buttonRight})`);
+}
 assert.match(myRequests, /maxHeight: `calc\(100dvh - \$\{top \+ 16\}px\)`/, "the whole list stays reachable by scrolling");
 
 /* ═══ 3. APPROVALS — a restored filter cannot silently hide pending requests ══════════════════════ */

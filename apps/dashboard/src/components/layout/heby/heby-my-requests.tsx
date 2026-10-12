@@ -26,7 +26,9 @@ export function HebyMyRequests() {
   const [, startTransition] = useTransition();
   /*
    * The Heby workspace is a fixed-height `overflow-hidden` section, which clipped an `absolute`
-   * panel. `fixed` escapes it; the panel is placed under the button and kept inside the viewport.
+   * panel. `fixed` escapes it; the panel is placed under the button and BOTH edges are clamped to a
+   * 16px viewport gutter (right-anchoring alone pushed it off the left edge when the button sat
+   * left, as on phones). `--z-dropdown` lifts it over the `--z-sticky` sidebar and rail.
    */
   const anchor = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<CSSProperties>({});
@@ -34,7 +36,10 @@ export function HebyMyRequests() {
     const rect = anchor.current?.getBoundingClientRect();
     if (!rect) return;
     const top = rect.bottom + 8;
-    setPlace({ top, right: Math.max(16, window.innerWidth - rect.right), maxHeight: `calc(100dvh - ${top + 16}px)` });
+    const vw = document.documentElement.clientWidth; // excludes a visible scrollbar, unlike innerWidth
+    const width = Math.min(416, vw - 32);
+    const left = Math.min(Math.max(16, rect.right - width), vw - 16 - width);
+    setPlace({ top, left, width, maxHeight: `calc(100dvh - ${top + 16}px)` });
   };
 
   const load = () => {
@@ -70,7 +75,7 @@ export function HebyMyRequests() {
           aria-label="Your requests"
           data-heby-my-requests=""
           style={place}
-          className="fixed z-50 w-[min(26rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-surface p-3 text-xs leading-5 text-fg-secondary shadow-lg"
+          className="fixed z-(--z-dropdown) overflow-y-auto rounded-xl border border-border bg-surface p-3 text-xs leading-5 text-fg-secondary shadow-lg"
         >
           {read === "checking" || read === null ? (
             <p aria-live="polite">Reading your requests…</p>
