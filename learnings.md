@@ -4392,3 +4392,36 @@ exist is anything that would invoke it.
 - A rule change is measured on EVERY frozen set, case by case against baseline; a floor pin (`>=`) or a partial
   metric pin hides movement, so each moved case is pinned by id and any move away from a human label is recorded
   as "human-label review required", never counted as an improvement.
+
+## PHASE A — Development Continuity: closure contract v1 (2026-10-12, VERIFIED, NOT PUSHED)
+
+- **Süreç kuralı ancak bir dosyayı kırabiliyorsa kalıcıdır.** Roadmap üç kez release'lerin gerisine
+  düştü; her seferinde kural yazılıydı, kontrol eden yoktu. §16.1 kuralı, onu okuyan bir test olmadan
+  dördüncü kez aynı sonucu verirdi.
+- **Eski kayıtlar için sınır git değil, census.** Git sınırı shallow clone, worktree ve detached HEAD
+  altında açık kalır (fail-open); 164 isimlik liste ağacın ikinci kopyasıdır. Sayı + yolların
+  SHA-256'sı iki sabittir ve yeni işaretsiz kayıt, silme veya yeniden adlandırmada kapalı kalır.
+- **Yeni kelime yerine mevcut sözlük.** "DESIGNED" zaten §9'daki `DESIGN ONLY`, "TESTED" zaten §16'daki
+  "Verified" idi. `L1–L3` test seviyeleri roadmap'in Era I milestone'ları `L1`–`L4` ile çakışıyordu;
+  V0–V3 bunu çözdü.
+- **Kanıt alanı önce boş bırakıldı ve test onu reddetti.** VERIFIED kayıt `PENDING` kanıtla düştü
+  (`VERIFICATION_EVIDENCE_REQUIRED`); kanıt yalnızca ölçümden sonra yazıldı. Yokluk asla PASS değildir.
+- **Ders tek kopyaya yazılırsa o kopyanın sahibi olur.** `learnings_file` birincil ağacı gösteriyordu;
+  103 satır orada takılı kaldı. Ders artık fazın kendi worktree'sinde yazılıyor.
+- **Fail-closed bir sabit, sahibi olmadan sessizce güncellenebilir.** İlk census yalnızca iki sabitti;
+  hata mesajındaki değeri kopyalamak testi geçiriyordu. Census artık onu aynen yazan bir contract kaydına
+  işaret ediyor (`LEGACY_CENSUS_UNRECORDED`): değişiklik görünür ve onaylı bir kayda bağlı. Test kaydı
+  kanıtlar, onayı değil.
+- **Talimat tazeliği oturumun kendi ağacından ölçülür ve yalnızca onu taşıyan ağaçta işler.**
+  `git diff --quiet "$B" -- CLAUDE.md …` birincil ağacı bayat olarak yakaladı. Ama bu kontrolü
+  içermeyen bir ağaçta açılan oturum onu hiç okumaz. Kural ileriye dönük çalışır, geriye dönük değil.
+- **Bir commit kendi hash'ini taşıyamaz; kayıt da taşımamalı.** Commit sonrası `PENDING — NOT COMMITTED`
+  yanlış bir beyana dönüşürdü. Kayıt artık `THIS COMMIT` der ve kimliği git çözer
+  (`git log --diff-filter=A`); gerçek hash yalnızca release geçişini yazan sonraki değişiklikte yazılır.
+
+**Weekly three.** *Learned:* sürekliliği kuran şey hafıza değil; yeni bir oturumun okuduğu dosya ve
+yanlışını yakalayan test. *Turkish Rug House:* bugün kullanıcı için bir şey değişmedi; bir sonraki
+yayın fazı açık riskleriyle (§22) ve kanıtıyla kapanmak zorunda, yani Instagram vakasındaki gibi
+kaydı olmayan bir yayın tekrar sessizce geçemez. *Hebun AI:* faz kapanışı artık tek bir
+sözleşmeye bağlı, 22 kusur türü test tarafından reddediliyor; CI yok, bu yüzden testin koşulması hâlâ
+Director disiplini.

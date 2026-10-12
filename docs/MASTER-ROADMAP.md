@@ -3240,6 +3240,118 @@ A product version closes **only** against explicit, measurable exit criteria.
 - "Deployed" and "production-accepted" are separate, later, independently measured states.
 - A closure record states which of those states was actually reached and which was not.
 
+### 16.1 Closure Contract v1 — every closure record written from Phase A onward
+
+This subsection makes the five lines above checkable. It adds no new authority and no new status
+system: the states below are §16's own terms plus §9's `DESIGN ONLY`, and the evidence still lives in
+the closure record under `docs/`, never in this page.
+
+**Scope and legacy boundary.** A closure record is a file under `docs/` whose name ends in
+`-closure.md`. Every closure record written before this subsection is **legacy evidence**: valid as
+written, never retrofitted, never re-graded (§18 rule 3). Every new closure record carries the
+contract below. The boundary is not a date or a commit: the continuity test pins the census of
+legacy records (count + digest of their paths), so a new closure record without the contract — or
+a deleted, renamed or moved legacy record — fails instead of passing silently. The census guards the
+*set* of legacy records, not their content; appended amendments to a legacy record do not change it.
+
+**Legacy maintenance — the only way the census changes.** Renaming, moving, deleting a legacy record,
+or adopting the contract on one, is a change to historical evidence (§18 rule 3) and needs:
+
+1. A Director approval for that specific maintenance.
+2. A contract closure record for the maintenance, stating the new census verbatim as
+   `Legacy census: <count> records, sha256 <digest>` and naming the approval in `Director approvals`.
+3. In the same change, the test's pinned census (count, digest, and the path of that record) updated
+   to those values.
+
+The test reports the census it found when it fails, so the values are never computed by hand; and it
+rejects pinned values that no contract record states (`LEGACY_CENSUS_UNRECORDED`). Copying the found
+values into the test alone therefore still fails; passing requires a visible edit to a closure record,
+which review can see and which must name its approval. The test proves the change is recorded, not
+that it was approved.
+
+**Reached state — the highest state the evidence supports.** A phase may close at any state. No state
+implies a later one: verified is not released, released is not deployed, deployed is not
+production-accepted.
+
+| Reached state | Meaning | Minimum evidence in the record |
+|---|---|---|
+| `DESIGN ONLY` | Design recorded, nothing implemented (§9 term) | — |
+| `IMPLEMENTED` | Change exists, not yet verified | Commit hash, `THIS COMMIT`, or `PENDING — NOT COMMITTED` |
+| `VERIFIED` | §16 "Verified": a measurement was taken and recorded | + verification evidence and test environment |
+| `RELEASED` | §16: committed and pushed to `main` | + commit hash (never `PENDING`) |
+| `DEPLOYED` | §16: running in the named deployment | + deployment identifier |
+| `PRODUCTION-ACCEPTED` | §16: accepted against production reality | + production acceptance evidence |
+
+Scope qualifiers that historical records wrote into the state ("schema-accepted", "storage-port
+level", "real external send NOT VERIFIED") belong in the evidence text. The state stays one of six.
+
+**The contract block.** Exactly this heading, then one `- Field: value` line per field:
+
+```
+## Closure Contract (v1)
+
+- Phase: <identifier>
+- Owner: <authoritative subsystem or document that owns the change>
+- Reached state: <one of the six states>
+- Implementation commit: <hash(es)> | THIS COMMIT | PENDING — NOT COMMITTED | N/A — <reason, DESIGN ONLY only>
+- Verification level: V0–V3 — <justification>
+- Verification evidence: <commands, counts, exit codes> | N/A — <reason>
+- Test environment: <where it ran> | N/A — <reason>
+- Deployment evidence: <deployment id / URL> | N/A — not deployed
+- Production acceptance evidence: <production measurement> | N/A — <reason>
+- Deferred risks: none | <RISK-ID> (<DEFERRED|BLOCKED|CLOSED>); …
+- Director approvals: <what was approved, when; never implied>
+```
+
+**Evidence rules.**
+
+1. A value beginning `N/A`, `UNAVAILABLE`, `PENDING` or `NONE` is an absence. **An absence never
+   satisfies a required field**, and it is never written as a pass.
+2. The state decides what is required, in both directions: a state that needs deployment or production
+   evidence must name it, and a state below `DEPLOYED` / `PRODUCTION-ACCEPTED` must write `N/A` there.
+   A record cannot claim evidence its state does not reach.
+3. A test PASS is verification evidence, never deployment or production evidence. Production evidence is
+   a measurement of production — a deployment record, a read-back, a ledger read. A provider capability
+   is claimed only with a real provider result.
+4. **Commit identity — git is the authority; a record never carries its own hash.** Three commits are
+   distinct: the *implementation commit* (contains the change), the *closure commit* (adds this record)
+   and the *release* (the implementation reachable from `main`, §16 "Released"). `Implementation commit`
+   names the first. A record written before any commit says `PENDING — NOT COMMITTED`. When the change
+   and the record land in the same commit, the record says `THIS COMMIT` — the commit that adds this
+   file, resolved by git (`git log --diff-filter=A --format=%H -- <record path>`), never by a hash typed
+   into the file. Both are accepted only below `RELEASED`. When the phase is released, one later
+   documentation change writes the real hash, raises the reached state and updates the §21 pointer.
+5. The verification level and its justification are defined once, in `CLAUDE.md` (Faz Sözleşmesi).
+   Closure records written before V0–V3 existed name them `L1`–`L3`; those labels are test levels, not
+   the Era I milestones `L1`–`L4` of §10.
+
+**Relationship to this roadmap.** Each contract record has exactly one row in §21, and that row's state
+equals the record's. Rows change on real state transitions, not on every commit. §21 is navigation and
+§21 never grants a state the record does not hold.
+
+**Deferred risks.** A risk a phase leaves open is written in its closure record and listed in §22.
+The **detail record is the authority**; §22 is a discoverability index that copies the record's
+disposition and never sets one. Dispositions use §9's existing words.
+
+| Event | Who may do it | What changes |
+|---|---|---|
+| Register | The phase that defers the risk | Its closure record lists `ID (DEFERRED)`; a §22 row points to that record |
+| Accept as non-blocking | The Director | The approval is written in the detail record's `Director approvals` |
+| Review | Every phase's Orient step | §22 rows touching the phase's area are read before planning |
+| Block | The owning phase or the Director | The detail record says `BLOCKED` and names the acceptance it blocks; §22 copies it |
+| Reopen | The owning phase or the Director | A new record lists the ID as `DEFERRED` or `BLOCKED`; the §22 pointer moves to it |
+| Resolve | The phase that fixes it | Its closure record lists `ID (CLOSED)`; the §22 pointer moves to it |
+
+Not every deferred risk blocks a release. Only a `BLOCKED` row does, and it names what it blocks.
+
+**Enforcement, stated exactly.** `apps/dashboard/tests/development-continuity/closure-contract.ts`
+checks this subsection against the repository: contract fields, state/evidence consistency, §21 and
+§22 references, and the legacy census. It runs whenever the test runner runs. **There is no CI**:
+nothing runs it automatically, and the Vercel build type-checks tests without executing them. The test
+cannot judge whether evidence is *true*; it checks only that evidence is present and consistent with
+the claimed state. That judgement, every commit, push and deploy, and every production acceptance
+remain Director gates (`CLAUDE.md`). A record documents an approval. It never grants one.
+
 ---
 
 ## 17. Naming Hierarchy
@@ -5438,3 +5550,30 @@ schema (`tasks`, `workflows`, `goals`, `missions`, `permissions`, `agents.author
 because it exists.
 
 **This section takes no program decision and authorizes no implementation.**
+
+---
+
+## 21. Phase Closure Index — Closure Contract v1
+
+Navigation only (§9: `ROADMAP NAVIGATION != RELEASE LEDGER`). One row per closure record that carries
+the §16.1 contract. The state column copies the record and is changed only on a real state transition.
+Phases closed before §16.1 are reached through §20.3 and their own records; they are not re-listed or
+re-graded here.
+
+| Phase | Reached state | Closure record |
+|---|---|---|
+| PHASE-A-DEVELOPMENT-CONTINUITY | VERIFIED | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` |
+
+---
+
+## 22. Deferred Risk Index
+
+A discoverability index under §16.1, not a risk register. The detail record owns each risk and its
+disposition; a row here copies that disposition and points to the record. Historical risks recorded
+before §16.1 are not yet indexed (Phase B).
+
+| Risk ID | Owning phase | Detail record | Category | Disposition | Acceptance dependency |
+|---|---|---|---|---|---|
+| CONTINUITY-STALE-PRIMARY-TREE-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Session recovery | DEFERRED | Phase B primary-tree reconciliation (Director decision) |
+| CONTINUITY-NO-CI-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Verification enforcement | DEFERRED | Director decision on CI or another integration |
+| CONTINUITY-CODE-DEFERRED-SCAN-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Risk discoverability | DEFERRED | Phase B historical deferred-risk reconciliation |

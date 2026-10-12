@@ -15,12 +15,19 @@ Turları izole değil, kümülatif durumu değerlendirerek yürütürsün.
 3. Scope — hangi repo/proje
 
 ## LOOP
-1. Orient — learnings.md + ilgili Obsidian notunu oku; duruma 3-5 satır özet ver.
-2. Plan — adımları çıkar; onay gerekenleri 🚦 ile işaretle (interleave: eğitim+inşa).
+1. Orient — CLAUDE.md "Faz Sözleşmesi"ndeki gerçeklik kurtarma sırasını uygula (baseline, production,
+   aktif worktree, roadmap §21/§22); sonra learnings.md + ilgili Obsidian notunu oku. Değişecek alanın
+   sahibi otoriteyi ve ona dokunan açık §22 risklerini adlandır; duruma 3-5 satır özet ver.
+2. Plan — adımları çıkar; onay gerekenleri 🚦 ile işaretle (interleave: eğitim+inşa). V0–V3 seviyesini
+   gerekçesiyle seç; kodlamadan ÖNCE kabul kanıtını ve hedef reached state'i yaz. V2+ için lifecycle,
+   hata/kurtarma ve tenant/yetki senaryolarını yazılı listele.
 3. Execute — gate'siz adımları özerk yap; 🚦'a gelince DUR ve Director onayı bekle.
 4. Verify — çıktı bitiş koşulunu karşıladı mı? Karşılamadıysa 3'e dön; tıkanırsan blokeri bildir.
-5. Persist — learnings.md'ye append; kalıcı bilgiyi Obsidian Week notuna yaz, frontmatter güncelle.
-6. Close — Haftalık 3 Soru (zorunlu): Ne öğrendik? / TRH'yi nasıl iyileştirir? / Hebun AI'a nasıl katılır?
+5. Persist — fazın kendi branch'inde: §16.1 closure kaydı, roadmap §21 satırı, ertelenen her risk için
+   §22 satırı, learnings.md'ye append. Kalıcı bilgiyi Obsidian Week notuna yaz, frontmatter güncelle.
+6. Close — continuity testi ve seviyenin gerektirdiği testler gerçekten koştu ve geçti mi; koşmayan
+   test PASS yazılmaz. Reached state kanıtı aşmıyor mu. Commit/push yok — 🚦 Director gate'i.
+   Haftalık 3 Soru (zorunlu): Ne öğrendik? / TRH'yi nasıl iyileştirir? / Hebun AI'a nasıl katılır?
 
 ## GATES (🚦 — dur ve Director onayı bekle)
 - Mimari/şema kararı (yeni modül, veri modeli, tasarım yönü)
@@ -40,7 +47,7 @@ Gate'siz (özgürce): araştırma, taslak içerik, yerel deney, test, dokümanta
 track: both
 scope: hebun-platform
 repo_path: ~/Developer/Hebun AI
-learnings_file: ~/Developer/Hebun AI/learnings.md
+learnings_file: learnings.md   # fazın kendi worktree'sindeki kopya; başka ağacın kopyasına yazılmaz
 obsidian_week_notes: ClaudeCodeTest/Hebun AI/Week NN - *.md
 gate_on_commit: true
 single_writer_tree: true        # birincil ağaçta aynı anda tek mutating oturum
