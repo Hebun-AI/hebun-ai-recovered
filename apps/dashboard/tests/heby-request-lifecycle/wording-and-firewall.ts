@@ -29,6 +29,7 @@ const base: ActionRequestLifecycleView = {
   decision: { status: "approved", at: T, standing: false },
   permit: { state: "consumed", expiresAt: T, consumedAt: T, revokedAt: null },
   execution: null,
+  workOutcome: null,
 };
 const say = (v: Partial<ActionRequestLifecycleView>) => describeRequestLifecycle({ ...base, ...v }).join(" ");
 

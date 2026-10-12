@@ -38,6 +38,9 @@ import {
   type AgentProposerDisplay,
 } from "./agent-proposer-display.server";
 import { readWorkRegister } from "@/features/organizational-work/read-work.server";
+import { readGovernedWorkOutcomes } from "@/features/organizational-work/read-governed-work-outcomes.server";
+import type { GovernedWorkOutcome } from "@/features/organizational-work/read-governed-work-outcomes.server";
+import { RECORD_WORK_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
 import { asCanonicalPayload } from "./canonical-payload";
 import { splitPayload, toEvidence } from "./decision-projection";
 import type { EvidenceProjection, PayloadLockView } from "./decision-projection";
@@ -424,6 +427,15 @@ export interface ActionRequestLifecycleView {
     readonly revokedAt: string | null;
   } | null;
   readonly execution: { readonly status: ExecutionAttemptStatus; readonly providerAccepted: boolean } | null;
+  /**
+   * HEBY-VERIFIED-WORK-OUTCOMES. For a `record-work` request whose permit was spent, the work that
+   * spend produced, as Organizational Work links and reads it; `reference-unavailable` when that
+   * authority cannot name it (no declared link, or it could not be read). `null` otherwise.
+   */
+  readonly workOutcome:
+    | ({ readonly status: "recorded" } & GovernedWorkOutcome)
+    | { readonly status: "reference-unavailable" }
+    | null;
 }
 
 export type ActionRequestLifecycleRead =
@@ -442,6 +454,7 @@ function selectLifecycleRows(db: ControlPlaneDatabase) {
       permitExpiresAt: actionPermits.expiresAt,
       permitConsumedAt: actionPermits.consumedAt,
       permitRevokedAt: actionPermits.revokedAt,
+      permitHandoffId: actionPermits.handoffId,
       attemptStatus: actionExecutionAttempts.status,
       providerMessageId: actionExecutionAttempts.providerMessageId,
     })
@@ -471,7 +484,29 @@ function labelOf(request: LifecycleRow["request"]): string {
   return parts.length > 0 ? parts.join(" · ") : request.expectedEffect;
 }
 
-function toLifecycleView(row: LifecycleRow, now: Date): ActionRequestLifecycleView {
+/** The spend whose work outcome this row may name: a consumed `record-work` permit, else none. */
+const spentRecordWorkHandoff = (row: LifecycleRow): string | null =>
+  row.request.actionKind === RECORD_WORK_ACTION_KIND && row.permitStatus === "consumed" ? row.permitHandoffId : null;
+
+/** One read of the work outcomes for these rows' spends, through the authority that declared them. */
+async function workOutcomesFor(
+  tenant: TenantContext,
+  rows: readonly LifecycleRow[],
+  getDb: (() => ControlPlaneDatabase | null) | undefined,
+): Promise<ReadonlyMap<string, GovernedWorkOutcome> | null> {
+  const handoffs = rows.map(spentRecordWorkHandoff).filter((id): id is string => id !== null);
+  if (handoffs.length === 0) return new Map();
+  const read = await readGovernedWorkOutcomes(tenant, handoffs, { getDb });
+  return read.status === "read" ? read.byHandoff : null;
+}
+
+function toLifecycleView(
+  row: LifecycleRow,
+  now: Date,
+  outcomes: ReadonlyMap<string, GovernedWorkOutcome> | null,
+): ActionRequestLifecycleView {
+  const handoff = spentRecordWorkHandoff(row);
+  const work = handoff === null ? undefined : outcomes?.get(handoff);
   const { request } = row;
   return {
     requestId: request.id,
@@ -501,6 +536,8 @@ function toLifecycleView(row: LifecycleRow, now: Date): ActionRequestLifecycleVi
             status: row.attemptStatus as ExecutionAttemptStatus,
             providerAccepted: row.attemptStatus === "accepted" && row.providerMessageId !== null,
           },
+    workOutcome:
+      handoff === null ? null : work ? { status: "recorded", ...work } : { status: "reference-unavailable" },
   };
 }
 
@@ -521,7 +558,9 @@ export async function readActionRequestLifecycle(
     const [row] = await selectLifecycleRows(db)
       .where(and(eq(hebyActionRequests.tenantId, tenant.tenantId), eq(hebyActionRequests.id, requestId)))
       .limit(1);
-    return row ? { status: "read", lifecycle: toLifecycleView(row, now) } : { status: "not-found" };
+    if (!row) return { status: "not-found" };
+    const outcomes = await workOutcomesFor(tenant, [row], deps.getDb);
+    return { status: "read", lifecycle: toLifecycleView(row, now, outcomes) };
   } catch {
     return { status: "unavailable", reason: "read-failed" };
   }
@@ -564,9 +603,11 @@ export async function readMyActionRequestLifecycles(
       )
       .orderBy(desc(hebyActionRequests.createdAt), desc(hebyActionRequests.id))
       .limit(MY_ACTION_REQUESTS_LIMIT + 1);
+    const shown = rows.slice(0, MY_ACTION_REQUESTS_LIMIT);
+    const outcomes = await workOutcomesFor(tenant, shown, deps.getDb);
     return {
       status: "read",
-      items: rows.slice(0, MY_ACTION_REQUESTS_LIMIT).map((row) => toLifecycleView(row, now)),
+      items: shown.map((row) => toLifecycleView(row, now, outcomes)),
       more: rows.length > MY_ACTION_REQUESTS_LIMIT,
     };
   } catch {

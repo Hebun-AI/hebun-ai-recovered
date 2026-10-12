@@ -346,6 +346,11 @@ async function recordWorkCore(
      * unscoped — NULL/NULL, "unknown". Written once, here, and never by any later transition.
      */
     readonly workScope?: WorkScope;
+    /**
+     * HEBY-VERIFIED-WORK-OUTCOMES. The `handoff_id` of the permit spend a governed act discharges,
+     * named in the `work.recorded` audit row. Never read from the approved payload.
+     */
+    readonly dischargesHandoffId?: string;
   },
   author: WorkStateAuthor,
   now: Date = new Date(),
@@ -414,6 +419,10 @@ async function recordWorkCore(
       declaredState: row.declaredState,
       accountableActorId: row.accountableActorId,
       departmentId: row.departmentId,
+      /* Only a SYSTEM-performed act discharges a permit; a human's own record names none. */
+      ...(author.kind === "system" && input.dischargesHandoffId !== undefined
+        ? { handoffId: input.dischargesHandoffId }
+        : {}),
     },
     now,
     ctx.executor,
@@ -442,6 +451,11 @@ export async function recordWorkWithin(
      * unscoped — NULL/NULL, "unknown". Written once, here, and never by any later transition.
      */
     readonly workScope?: WorkScope;
+    /**
+     * HEBY-VERIFIED-WORK-OUTCOMES. The `handoff_id` of the permit spend a governed act discharges,
+     * named in the `work.recorded` audit row. Never read from the approved payload.
+     */
+    readonly dischargesHandoffId?: string;
   },
   author: WorkStateAuthor,
   now: Date = new Date(),
@@ -512,6 +526,11 @@ export async function recordWorkWithinAsMachine(
      * unscoped — NULL/NULL, "unknown". Written once, here, and never by any later transition.
      */
     readonly workScope?: WorkScope;
+    /**
+     * HEBY-VERIFIED-WORK-OUTCOMES. The `handoff_id` of the permit spend a governed act discharges,
+     * named in the `work.recorded` audit row. Never read from the approved payload.
+     */
+    readonly dischargesHandoffId?: string;
   },
   now: Date = new Date(),
 ): Promise<WorkWriteResult> {

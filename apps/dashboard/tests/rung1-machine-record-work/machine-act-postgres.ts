@@ -32,6 +32,7 @@ import {
 import { approveActionRequest } from "../../src/features/action-authorization/decide-action-request.server";
 import { executeRecordWork } from "../../src/features/governed-internal-action/execute-record-work.server";
 import { executeRecordWorkAsMachine } from "../../src/features/governed-machine-execution/execute-record-work-as-machine.server";
+import { readGovernedWorkOutcomes } from "../../src/features/organizational-work/read-governed-work-outcomes.server";
 import { retireDurableAgentIdentity } from "../../src/features/agent-identity/retire-durable-agent-identity.server";
 import { RECORD_WORK_ACTION_KIND } from "../../src/features/heby-action-inlet/contracts";
 import { authorizeTenantMachineExecution } from "../../src/features/tenant-machine-execution-authority/authorize-tenant-machine-execution.server";
@@ -364,6 +365,17 @@ async function main(): Promise<void> {
       assert.equal(row.actor_type, "system", "an agent PROPOSES, it never PERFORMS — the released rule holds");
       assert.equal(row.actor_id, agentId, "and the correlation names the agent, because no session existed");
       assert.equal(row.request_id, executed.invocationId, "tying the audit to the invocation that caused it");
+    }
+
+    /* HEBY-VERIFIED-WORK-OUTCOMES — the machine door names the spend it discharged, like the human door. */
+    {
+      const outcomes = await readGovernedWorkOutcomes(acmeCtx, [executed.handoffId], deps);
+      assert.ok(outcomes.status === "read");
+      assert.equal(
+        executed.outcome.status === "recorded" && outcomes.byHandoff.get(executed.handoffId)?.workItemId,
+        executed.outcome.status === "recorded" && executed.outcome.workItem.workItemId,
+        "the work item this machine spend produced is the one Organizational Work links to it",
+      );
     }
 
     /* ═══ 7. REPLAY ════════════════════════════════════════════════════════ */

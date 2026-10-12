@@ -88,9 +88,11 @@ assert.deepEqual(
     "src/app/(dashboard)/director/work/page.tsx",
     "src/app/(dashboard)/intelligence/social/page.tsx",
     "src/features/heby-action-inlet/record-work-proposal.server.ts",
+    /* HEBY-VERIFIED-WORK-OUTCOMES — names the domain of a governed outcome's work item. Read only. */
+    "src/features/organizational-work/read-governed-work-outcomes.server.ts",
     "src/features/origination-availability/read-origination-availability.server.ts",
   ],
-  "the Work Domain reader is reached by the inlet, the availability projection and four pages — nothing else",
+  "the Work Domain reader is reached by the inlet, the availability projection, the governed work outcome read and four pages — nothing else",
 );
 assert.deepEqual(importers("agent-mandate/read-agent-mandate-responsibility.server", SRC).filter((f) => f !== RESPONSIBILITY_READER), [], "the AP-4A responsibility reader stays operator-only");
 assert.deepEqual(

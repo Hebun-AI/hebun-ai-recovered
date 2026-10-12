@@ -82,6 +82,13 @@ export interface WorkAuditEvent {
    * or withdrawn, never keeps a copy of what it pointed at.
    */
   readonly referenceId?: string;
+  /**
+   * HEBY-VERIFIED-WORK-OUTCOMES. Present only on the `work.recorded` act a governed internal act
+   * performed: the `handoff_id` of the permit spend this row committed with, in the same transaction.
+   * `action_permits.handoff_id` is unique, so this is the one declared link from an authorization to
+   * the work it produced. Not a copy of anything — the permit chain still owns who authorized it.
+   */
+  readonly handoffId?: string;
 }
 
 /**
@@ -128,6 +135,7 @@ export async function recordWorkEventWithin(
         : { accountableActorId: event.accountableActorId }),
       ...(event.departmentId === undefined ? {} : { departmentId: event.departmentId }),
       ...(event.referenceId === undefined ? {} : { referenceId: event.referenceId }),
+      ...(event.handoffId === undefined ? {} : { handoffId: event.handoffId }),
     },
     result: "committed",
     simulation: false,

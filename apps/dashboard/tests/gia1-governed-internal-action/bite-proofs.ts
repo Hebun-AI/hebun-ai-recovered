@@ -181,9 +181,9 @@ function main(): void {
   proof(
     "the mutation leaves the permit's own transaction",
     EXECUTOR,
-    `          const result = await recordWithin(tx, tenant, work!, { kind: "system" });`,
+    `          const result = await recordWithin(tx, tenant, { ...work!, dischargesHandoffId: authorization.handoffId }, { kind: "system" });`,
     `          const db = getControlPlaneDb();
-          const result = await recordWithin(db as never, tenant, work!, { kind: "system" });`,
+          const result = await recordWithin(db as never, tenant, { ...work!, dischargesHandoffId: authorization.handoffId }, { kind: "system" });`,
     "the Work Authority is called with the PERMIT'S OWN transaction, never a handle of its own",
   );
 

@@ -87,6 +87,23 @@ const when = (iso: string | null) => (iso ? ` ${new Date(iso).toUTCString()}` : 
 const PROPOSER_WORDING: Readonly<Record<string, string>> = { agent: "an agent", human: "a person" };
 
 /** What the request's own rows state, in order. Never a sentence the rows do not support. */
+/**
+ * HEBY-VERIFIED-WORK-OUTCOMES — the work a spent `record-work` authorization produced, exactly as
+ * Organizational Work links and names it. When that authority cannot name it, say so; never
+ * substitute the request's own title, which is what was asked for, not what exists.
+ */
+function describeWorkOutcome(outcome: ActionRequestLifecycleView["workOutcome"]): readonly string[] {
+  if (outcome === null) return [];
+  if (outcome.status === "reference-unavailable") return ["Execution recorded. Work item reference unavailable."];
+  const scope =
+    outcome.scope === null
+      ? "Work scope not recorded"
+      : outcome.scope.kind === "organization"
+        ? "Organization-level work"
+        : `Work domain: ${outcome.scope.name}`;
+  return [`Work item recorded: ${outcome.title}.`, `${scope} · work item ${outcome.workItemId}.`];
+}
+
 export function describeRequestLifecycle(view: ActionRequestLifecycleView): readonly string[] {
   const out = [`Proposed${when(view.proposedAt)} by ${PROPOSER_WORDING[view.proposedByActorType] ?? "the system"}.`];
   const { decision, permit, execution } = view;
@@ -115,6 +132,7 @@ export function describeRequestLifecycle(view: ActionRequestLifecycleView): read
     out.push(
       `Executed${when(permit.consumedAt)}. Using the authorization and making the change are one transaction, so the change is recorded.`,
     );
+    out.push(...describeWorkOutcome(view.workOutcome));
   } else if (execution === null) {
     out.push("The authorization was used, but no delivery attempt is recorded, so no effect can be claimed.");
   } else if (execution.status === "accepted" && execution.providerAccepted) {

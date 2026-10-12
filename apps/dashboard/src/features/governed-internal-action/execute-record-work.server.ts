@@ -260,7 +260,7 @@ export async function executeRecordWork(
            * THE OWNING AUTHORITY PERFORMS THE MUTATION, in the permit's own transaction, authored
            * `system`. This module does not insert, does not audit, and does not interpret.
            */
-          const result = await recordWithin(tx, tenant, work!, { kind: "system" });
+          const result = await recordWithin(tx, tenant, { ...work!, dischargesHandoffId: authorization.handoffId }, { kind: "system" });
           if (result.status !== "recorded") abort("work-authority-refused", result.reason);
           outcome = result;
         },

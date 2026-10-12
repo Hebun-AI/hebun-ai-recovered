@@ -234,6 +234,12 @@ async function main(): Promise<void> {
          * "one expression on whichever branch was taken". Its own file keeps both scopes absolute.
          * ALLOWLIST — a new name here is a deliberate act, never a directory prefix. */
         "src/features/governance-activity/subject-act-history-read.server.ts",
+        /* HEBY-VERIFIED-WORK-OUTCOMES — the FIFTH declared reader: for given permit spends in ONE
+         * tenant, the SYSTEM `work.recorded` rows naming them (`metadata.handoffId`), two columns.
+         * It selects and writes nothing, proved by its absence from the write census. Its own file
+         * so its single tenant + action + actor scope stays one expression. ALLOWLIST — a new name
+         * here is a deliberate act, never a directory prefix. */
+        "src/features/governance-activity/governed-work-link-read.server.ts",
       ].sort(),
       "the sink is imported by its writers and by the declared readers — nothing else",
     );

@@ -326,7 +326,7 @@ export async function executeRecordWorkAsMachine(
             agentId: principal.agentId,
             invocationId: principal.invocationId,
           },
-          work!,
+          { ...work!, dischargesHandoffId: authorization.handoffId },
         );
         if (result.status !== "recorded") abort("work-authority-refused", result.reason);
         outcome = result;
