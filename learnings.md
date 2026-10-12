@@ -4477,3 +4477,5 @@ onu verbatim ve hash'iyle dondurmak, sonra sınıflandırmak. *Turkish Rug House
 neden katı olduğu ve hangi yayının sınırda kabul edildiği artık kaybolmayacak bir kayıtta. *Hebun AI:*
 birincil ağaç artık bilgi kaybı riski olmadan Phase B2'de uzlaştırılabilir; Hebun Brain faz kapanışında
 özet alır ama otorite olmaz.
+
+- **HEBY-REQUEST-LIFECYCLE (2026-10-12):** A bite-proof on an UNCOMMITTED file must restore from its own copy, never `git checkout -- file` — that reverts to HEAD and silently deletes the change under test (happened; recovered from the pre-mutation copy).

@@ -396,6 +396,122 @@ export async function readActionPermits(
 }
 
 /**
+ * HEBY-REQUEST-LIFECYCLE — what happened, so far, to ONE request this tenant filed.
+ *
+ * Every column below is already owned and written elsewhere: the decision columns by Governance's
+ * decision writer, the permit by Action Authorization, the attempt by the executor. This reads the
+ * three rows the released invariants allow (one permit per request, one attempt per permit) and
+ * derives nothing the rows do not state.
+ *
+ * REASONS ARE NOT PROJECTED. A rejection or revocation reason is a Governance author's text; this
+ * read is open to any member of the tenant, so it says THAT a decision was taken and when, never why.
+ */
+export interface ActionRequestLifecycleView {
+  readonly requestId: string;
+  readonly actionKind: string;
+  readonly proposedByActorType: string;
+  readonly proposedAt: string;
+  readonly decision:
+    | { readonly status: "pending" }
+    | { readonly status: "approved"; readonly at: string; readonly standing: boolean }
+    | { readonly status: "rejected"; readonly at: string };
+  readonly permit: {
+    readonly state: PermitDisplayState;
+    readonly expiresAt: string;
+    readonly consumedAt: string | null;
+    readonly revokedAt: string | null;
+  } | null;
+  readonly execution: { readonly status: ExecutionAttemptStatus; readonly providerAccepted: boolean } | null;
+}
+
+export type ActionRequestLifecycleRead =
+  | { readonly status: "read"; readonly lifecycle: ActionRequestLifecycleView }
+  | { readonly status: "not-found" }
+  | { readonly status: "unavailable"; readonly reason: string };
+
+const REQUEST_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function readActionRequestLifecycle(
+  tenant: TenantContext | null,
+  requestId: string,
+  deps: { readonly getDb?: () => ControlPlaneDatabase | null; readonly now?: () => Date } = {},
+): Promise<ActionRequestLifecycleRead> {
+  if (typeof window !== "undefined") throw new Error("Action authorization reads are server-only.");
+  if (!tenant?.tenantId) return { status: "unavailable", reason: "no-authorized-tenant-context" };
+  /* Not an id this table could hold — the same answer as a foreign or unknown one. */
+  if (typeof requestId !== "string" || !REQUEST_ID_RE.test(requestId)) return { status: "not-found" };
+  const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
+  if (!db) return { status: "unavailable", reason: "persistence-not-configured" };
+  const now = (deps.now ?? (() => new Date()))();
+
+  try {
+    const [row] = await db
+      .select({
+        request: hebyActionRequests,
+        permitStatus: actionPermits.status,
+        permitExpiresAt: actionPermits.expiresAt,
+        permitConsumedAt: actionPermits.consumedAt,
+        permitRevokedAt: actionPermits.revokedAt,
+        attemptStatus: actionExecutionAttempts.status,
+        providerMessageId: actionExecutionAttempts.providerMessageId,
+      })
+      .from(hebyActionRequests)
+      .leftJoin(
+        actionPermits,
+        and(
+          eq(actionPermits.actionRequestId, hebyActionRequests.id),
+          eq(actionPermits.tenantId, hebyActionRequests.tenantId),
+        ),
+      )
+      .leftJoin(
+        actionExecutionAttempts,
+        and(
+          eq(actionExecutionAttempts.permitId, actionPermits.id),
+          eq(actionExecutionAttempts.tenantId, actionPermits.tenantId),
+        ),
+      )
+      .where(and(eq(hebyActionRequests.tenantId, tenant.tenantId), eq(hebyActionRequests.id, requestId)))
+      .limit(1);
+    if (!row) return { status: "not-found" };
+    const { request } = row;
+    const decision: ActionRequestLifecycleView["decision"] =
+      request.status === "approved" && request.approvedAt
+        ? { status: "approved", at: iso(request.approvedAt) ?? "", standing: request.standingAuthorizationId !== null }
+        : request.status === "rejected" && request.rejectedAt
+          ? { status: "rejected", at: iso(request.rejectedAt) ?? "" }
+          : { status: "pending" };
+    return {
+      status: "read",
+      lifecycle: {
+        requestId: request.id,
+        actionKind: request.actionKind,
+        proposedByActorType: request.proposedByActorType,
+        proposedAt: iso(request.createdAt) ?? "",
+        decision,
+        permit:
+          row.permitStatus === null || row.permitExpiresAt === null
+            ? null
+            : {
+                state: derivePermitState(row.permitStatus, row.permitExpiresAt, now),
+                expiresAt: iso(row.permitExpiresAt) ?? "",
+                consumedAt: iso(row.permitConsumedAt),
+                revokedAt: iso(row.permitRevokedAt),
+              },
+        execution:
+          row.attemptStatus === null
+            ? null
+            : {
+                status: row.attemptStatus as ExecutionAttemptStatus,
+                providerAccepted: row.attemptStatus === "accepted" && row.providerMessageId !== null,
+              },
+      },
+    };
+  } catch {
+    return { status: "unavailable", reason: "read-failed" };
+  }
+}
+
+/**
  * The derived display state.
  *
  * `consumed` and `revoked` are terminal and outrank the clock: a permit that was spent before it

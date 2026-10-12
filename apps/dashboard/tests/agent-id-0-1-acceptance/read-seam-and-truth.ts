@@ -358,6 +358,8 @@ function main(): void {
       /* AGENT-TEST-RECOVERY names later server actions: WF-3C knowledge-grounded origination, WF-1 origination availability. */
       "src/app/(dashboard)/heby/knowledge-origination-actions.ts",
       "src/app/(dashboard)/heby/origination-availability-actions.ts",
+      /* HEBY-REQUEST-LIFECYCLE — a read of one filed request's decision, permit and attempt. Writes nothing. */
+      "src/app/(dashboard)/heby/request-lifecycle-actions.ts",
       /* SOC-ACT1 — Social Intelligence's one governed boundary. It resolves a tenant and forwards to the Command-owned proposal inlet; it holds no authority. */
   /* PROVIDER ACCOUNT LIFECYCLE added exactly one server-action boundary: the Instagram
    * disconnect. It is a THIN caller — the credential/connection composition lives in
