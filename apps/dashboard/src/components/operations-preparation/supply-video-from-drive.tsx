@@ -157,7 +157,7 @@ export function SupplyVideoFromDrive({ targets }: { readonly targets: readonly G
         </div>
       </div>
       <p className="text-xs text-fg-muted">
-        You choose up to {MAX} MP4 videos (H.264, AAC or silent, each up to 20 MiB) in Google&apos;s own chooser, in one go; each is admitted or refused on its own. Hebun
+        You choose up to {MAX}{" "}MP4 videos (H.264, AAC or silent, each up to 20 MiB) in Google&apos;s own chooser, in one go; each is admitted or refused on its own. Hebun
         can open only the file you choose, streams it once to its own store and verifies it there.
       </p>
       <Button size="sm" onClick={chooseAndSupply} disabled={!ready || pending} aria-busy={pending}>

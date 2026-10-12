@@ -9,7 +9,7 @@
  * and states each lifecycle with the same sentences as the per-proposal check. It approves, executes
  * and links to nothing that would act; deciding still happens in Approvals.
  */
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition, type CSSProperties } from "react";
 import Link from "next/link";
 import { ListChecks } from "lucide-react";
 import {
@@ -24,6 +24,18 @@ export function HebyMyRequests() {
   const [open, setOpen] = useState(false);
   const [read, setRead] = useState<MyActionRequestLifecyclesRead | "checking" | null>(null);
   const [, startTransition] = useTransition();
+  /*
+   * The Heby workspace is a fixed-height `overflow-hidden` section, which clipped an `absolute`
+   * panel. `fixed` escapes it; the panel is placed under the button and kept inside the viewport.
+   */
+  const anchor = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<CSSProperties>({});
+  const position = () => {
+    const rect = anchor.current?.getBoundingClientRect();
+    if (!rect) return;
+    const top = rect.bottom + 8;
+    setPlace({ top, right: Math.max(16, window.innerWidth - rect.right), maxHeight: `calc(100dvh - ${top + 16}px)` });
+  };
 
   const load = () => {
     setRead("checking");
@@ -37,13 +49,14 @@ export function HebyMyRequests() {
   };
 
   return (
-    <div className="relative">
+    <div ref={anchor} className="relative">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => {
           const next = !open;
           setOpen(next);
+          if (next) position();
           if (next) load();
         }}
         className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-xs font-medium text-fg-secondary transition-colors duration-(--dur-fast) hover:border-highlight/50 hover:bg-highlight/5 hover:text-highlight focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight"
@@ -56,7 +69,8 @@ export function HebyMyRequests() {
           role="region"
           aria-label="Your requests"
           data-heby-my-requests=""
-          className="absolute right-0 z-20 mt-2 max-h-[70dvh] w-[min(26rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-surface p-3 text-xs leading-5 text-fg-secondary shadow-lg"
+          style={place}
+          className="fixed z-50 w-[min(26rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-surface p-3 text-xs leading-5 text-fg-secondary shadow-lg"
         >
           {read === "checking" || read === null ? (
             <p aria-live="polite">Reading your requests…</p>

@@ -4479,3 +4479,5 @@ birincil ağaç artık bilgi kaybı riski olmadan Phase B2'de uzlaştırılabili
 özet alır ama otorite olmaz.
 
 - **HEBY-REQUEST-LIFECYCLE (2026-10-12):** A bite-proof on an UNCOMMITTED file must restore from its own copy, never `git checkout -- file` — that reverts to HEAD and silently deletes the change under test (happened; recovered from the pre-mutation copy).
+- **HEBY-PRODUCT-UX-1 (2026-10-12):** Next's SWC drops the leading space of a JSX text node that follows an expression when that text holds an HTML entity (`{name} is … organization&apos;s` → "Hebyis"); TypeScript's emit keeps it, so source review and `tsc` cannot see it. Write `{name}{" "}is`; `tests/heby-product-ux-1` scans every `.tsx` SWC-vs-TS.
+- **HEBY-PRODUCT-UX-1:** `agent-mandate` (and every class outside knowledge/work-artifacts) is withheld from the external model by EAI-B2. Telling Heby's MODEL about a tenant's capability through grounding silently does nothing; tenant-free product truth goes in the instruction channel, tenant availability stays in human-facing evidence.

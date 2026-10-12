@@ -221,7 +221,7 @@ export function AgentProposalRequest({
         <AgentChoiceSelect id="heby-agent" value={agentId} onChange={setAgentId} agents={agentOptions} />
 
         <label className="flex flex-col gap-1 text-xs text-fg-secondary" htmlFor="heby-work-scope">
-          Work scope — what kind of work this is. You choose it; the agent does not.
+          Work-domain scope — what kind of work this is, not which department it belongs to. You choose it; the agent does not.
           <WorkScopeSelect id="heby-work-scope" value={workScope} onChange={setWorkScope} choices={workScopeChoices} />
         </label>
 

@@ -392,36 +392,28 @@ assert.ok(
 );
 
 /*
- * THE PAGE IS UNTOUCHED BY THIS PHASE.
+ * THE PAGE NOW READS THE ARMING STATE — HEBY-PRODUCT-UX-1 (Director decision, 2026-10-12).
  *
- * Delivery legibility added NO read, no composition and no import to `/approvals`. The permit read
- * it already performed carries one additional column and nothing else, so this phase introduced no
- * new place a tenant could be named, chosen, or supplied.
+ * Rung 1.5 deferred this read and pinned that it could not be added without a decision. Live
+ * acceptance showed the unqualified "awaiting automatic delivery" misleading while machine execution
+ * was disarmed, and the Director decided the wording must follow the authoritative state. The page
+ * reads `resolveMachineExecutionReachability` for the SESSION tenant only; the derivation above stays
+ * blind to the authority and receives the answer as a plain value.
  */
 const pageSource = read(PAGE);
-for (const banned of [
-  "resolveMachineExecutionReachability",
-  "tenant-machine-execution-authority",
-  "governed-machine-execution",
-]) {
-  assert.equal(
-    pageSource.includes(banned),
-    false,
-    `the approvals page must not reach the machine-execution authority: ${banned}`,
-  );
-}
+assert.ok(
+  pageSource.includes("resolveMachineExecutionReachability(tenant.tenantId, RECORD_WORK_ACTION_KIND)"),
+  "the approvals page reads machine-execution reachability for the session tenant only",
+);
+assert.equal(pageSource.includes("authorize-tenant-machine-execution"), false, "the page holds no arming writer");
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 7 · THE SURFACE FAILS CLOSED, AND STILL SEPARATES SPENT FROM DELIVERABLE
  * ──────────────────────────────────────────────────────────────────────────── */
 
 const surfaceSource = read(SURFACE);
-/* The component gained NO new prop: the band is derived from the permit view it already had. */
-assert.equal(
-  surfaceSource.includes("deliveryReachability"),
-  false,
-  "delivery legibility needs no new prop — everything it reads is already on ActionPermitView",
-);
+/* The band is still derived from the permit view; the one new prop is the page-read arming state (HEBY-PRODUCT-UX-1). */
+assert.ok(surfaceSource.includes("permitDeliverySentence(derivePermitDeliveryBand(shape), machineDelivery)"));
 /* The delivery band is a SECOND line; the released outcome sentence is untouched. */
 assert.ok(surfaceSource.includes("permitOutcomeSentence(item)"));
 assert.ok(surfaceSource.includes("permitDeliverySentence("));

@@ -184,11 +184,22 @@ export function permitAuthorizationProvenanceSentence(shape: PermitDeliveryShape
     : null;
 }
 
-export function permitDeliverySentence(band: PermitDeliveryBand): string | null {
+/**
+ * HEBY-PRODUCT-UX-1 — whether automatic delivery is enabled for this organization, as the caller READ
+ * it from the machine-execution authority. This module stays blind to that authority: `unknown`
+ * (the default) keeps the conditional sentence, and nothing here is inferred from a permit.
+ */
+export type MachineDeliveryState = "enabled" | "not-enabled" | "unknown";
+
+export function permitDeliverySentence(band: PermitDeliveryBand, machineDelivery: MachineDeliveryState = "unknown"): string | null {
   switch (band.band) {
     case "not-machine-deliverable":
       return null;
     case "awaiting-delivery":
+      if (machineDelivery === "not-enabled")
+        return "Authorized and not yet executed. Automatic delivery is not enabled for your organization, so nothing runs on its own: it takes effect only if a person executes it before it expires.";
+      if (machineDelivery === "enabled")
+        return "Awaiting automatic delivery. Automatic delivery is enabled for your organization, so Hebun may perform this under your authorization without a further click, at any time before it expires — or you may execute it now yourself.";
       return "Awaiting automatic delivery. Whenever automatic delivery is enabled for your organization, Hebun may perform this under your authorization without a further click, at any time before it expires — or you may execute it now yourself.";
     case "delivered":
       return "Delivered. This authorization was spent and the work was recorded. Whether a person executed it or the scheduled delivery did is not recorded anywhere, so this surface does not say.";

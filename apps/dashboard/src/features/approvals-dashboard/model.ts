@@ -54,6 +54,10 @@ export function filterQueue(items: readonly QueueItem[], filter: Filter, channel
     [item.title, item.channel ?? "", item.status, ...item.work].join(" ").toLocaleLowerCase().includes(query))
     .sort((a, b) => (order === "newest" ? -1 : 1) * a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
 }
+/** How many pending action requests the status filter excludes — so a restored filter cannot silently hide them. */
+export function hiddenPendingRequests(items: readonly QueueItem[], filter: Filter): number {
+  return filter === "All" || filter === "Pending" ? 0 : items.filter((item) => item.kind === "request" && !item.filters.includes(filter)).length;
+}
 // Display eligibility only. The existing server actions independently resolve session + authority.
 export function canDecide(item: QueueItem, authorized: boolean, intent: Intent): boolean {
   if (!authorized || item.kind === "permit") return false;

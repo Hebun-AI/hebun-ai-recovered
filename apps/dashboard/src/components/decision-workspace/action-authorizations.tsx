@@ -33,6 +33,7 @@ import {
   derivePermitDeliveryBand,
   permitAuthorizationProvenanceSentence,
   permitDeliverySentence,
+  type MachineDeliveryState,
 } from "@/features/action-authorization/delivery-legibility";
 import {
   elapsedSince,
@@ -75,6 +76,26 @@ import {
  */
 
 const MIN_JUSTIFICATION = 12;
+
+/*
+ * HEBY-PRODUCT-UX-1 — record-work carries TWO scopes, and raw keys let them read as one: WHERE the
+ * work sits in the organization (department) and WHAT KIND of work it is (work domain). Display
+ * only: the raw value stays visible, and the payload, digest and approved scope are untouched.
+ */
+const PARAMETER_LABELS: Readonly<Record<string, string>> = {
+  departmentScope: "Organizational scope (department)",
+  departmentRef: "Department",
+  workScope: "Work-domain scope (kind of work)",
+  workDomainRef: "Work domain",
+};
+const PARAMETER_VALUES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  departmentScope: { department: "One department", "organization-level": "The organization itself, no single department" },
+  workScope: { organization: "Organization-level work, no single work domain", domain: "One recorded work domain" },
+};
+export function parameterDisplay(p: { readonly name: string; readonly value: string }): { label: string; value: string } {
+  const value = PARAMETER_VALUES[p.name]?.[p.value];
+  return { label: PARAMETER_LABELS[p.name] ?? p.name, value: value ? `${value} (${p.value})` : p.value };
+}
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -411,7 +432,7 @@ function RequestCard({
           }
         />
         {item.parameters.map((p) => (
-          <Field key={p.name} label={p.name} value={p.value} />
+          <Field key={p.name} {...parameterDisplay(p)} />
         ))}
       </div>
 
@@ -652,7 +673,15 @@ export function permitOutcomeSentence(item: {
     : "Authorized, and never executed.";
 }
 
-export function PermitRow({ item, controlsDisabled = false }: { item: ActionPermitView; controlsDisabled?: boolean }) {
+export function PermitRow({
+  item,
+  controlsDisabled = false,
+  machineDelivery = "unknown",
+}: {
+  item: ActionPermitView;
+  controlsDisabled?: boolean;
+  machineDelivery?: MachineDeliveryState;
+}) {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -691,7 +720,7 @@ export function PermitRow({ item, controlsDisabled = false }: { item: ActionPerm
     state: item.state,
     standingAuthorizationId: item.standingAuthorizationId,
   };
-  const delivery = permitDeliverySentence(derivePermitDeliveryBand(shape));
+  const delivery = permitDeliverySentence(derivePermitDeliveryBand(shape), machineDelivery);
   /* RUNG 2 — how this authorization came to exist, said only when it is not what a reader assumes. */
   const provenance = permitAuthorizationProvenanceSentence(shape);
 

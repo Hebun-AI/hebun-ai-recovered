@@ -270,11 +270,11 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
           when you ask.
         </p>
         <p className="mt-1">
-          Grounded in Knowledge: {agent.name} is also shown this organization&apos;s ratified Knowledge eligible for
+          Grounded in Knowledge: {agent.name}{" "}is also shown this organization&apos;s ratified Knowledge eligible for
           grounding (at most 20 statements) and must cite at least one; nothing is filed otherwise.
         </p>
         <label className="mt-2 block" htmlFor="heby-origination-work-scope">
-          Work scope — what kind of work this is. You choose it; the agent does not.
+          Work-domain scope — what kind of work this is, not which department it belongs to. You choose it; the agent does not.
           <WorkScopeSelect id="heby-origination-work-scope" value={workScope} onChange={setWorkScope} choices={choices} />
         </label>
         <div className="mt-2 flex items-center gap-3">

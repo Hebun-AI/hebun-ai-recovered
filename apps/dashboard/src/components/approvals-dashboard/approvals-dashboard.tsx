@@ -3,19 +3,26 @@
 import { useEffect, useRef, useState, useTransition, type ComponentProps } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Clock3, FileText, Search, Send, ShieldCheck, TriangleAlert } from "lucide-react";
-import { ActionAuthorizations, RequestCard, PermitRow } from "@/components/decision-workspace/action-authorizations";
+import { ActionAuthorizations, RequestCard, PermitRow, parameterDisplay } from "@/components/decision-workspace/action-authorizations";
 import { approveActionRequestAction, rejectActionRequestAction } from "@/app/(dashboard)/approvals/actions";
 import { acceptArtifactRevisionAction, requestArtifactRevisionChangesAction } from "@/app/(dashboard)/operations/actions";
 import { PUBLICATION_STAGE_WORDING } from "@/features/action-authorization/content-publication-state";
 import { elapsedSince } from "@/features/attention-observation/contracts";
+import type { MachineDeliveryState } from "@/features/action-authorization/delivery-legibility";
 import { PERMIT_DEFAULT_TTL_SECONDS, PERMIT_TTL_CHOICES } from "@/features/action-authorization/contracts";
 import type { ApprovalsDashboardRead } from "@/features/approvals-dashboard/read-dashboard.server";
-import { buildQueue, filterQueue, canDecide, decideVisibleItems, type QueueItem, type Filter, type Intent, type DecisionOutcome } from "@/features/approvals-dashboard/model";
+import { buildQueue, filterQueue, hiddenPendingRequests, canDecide, decideVisibleItems, type QueueItem, type Filter, type Intent, type DecisionOutcome } from "@/features/approvals-dashboard/model";
 import { InstagramApprovalPreview } from "@/components/decision-workspace/instagram-approval-preview";
 import { PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND } from "@/features/instagram-publishing/contracts";
 import { ContentDetails } from "./content-detail";
 
-type Props = ComponentProps<typeof ActionAuthorizations> & { data: ApprovalsDashboardRead; requestsAvailable: boolean; permitsAvailable: boolean };
+type Props = ComponentProps<typeof ActionAuthorizations> & { data: ApprovalsDashboardRead; requestsAvailable: boolean; permitsAvailable: boolean; machineDelivery?: MachineDeliveryState };
+/* What happens after an internal act is authorized, from the machine-execution state the page read — never from a permit. */
+const AFTER_AUTHORIZATION: Readonly<Record<MachineDeliveryState, string>> = {
+  enabled: "Automatic delivery is enabled for your organization, so an authorized agent-proposed internal act may then be performed by Hebun before its authorization expires.",
+  "not-enabled": "Automatic delivery is not enabled for your organization, so an authorized internal act takes effect only when a person executes it.",
+  unknown: "Whether automatic delivery is enabled for your organization could not be read, so do not assume an authorized internal act will run on its own.",
+};
 const filters: readonly Filter[] = ["All", "Pending", "Approved", "Published", "Failed", "Drafts"];
 const tabs = ["Details", "Analysis", "Channel Preview", "History"] as const;
 const button = "inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-medium text-fg transition hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40";
@@ -62,6 +69,8 @@ export function ApprovalsDashboard(props: Props) {
   }
   const items = buildQueue(data, requests, permits);
   const visible = filterQueue(items, filter, channel, query, sort);
+  /* Pending action requests (agent proposals among them) the STATUS filter alone hides. The filter stays as chosen. */
+  const hiddenPending = hiddenPendingRequests(items, filter);
   const current = visible.find((item) => item.id === focused) ?? visible[0] ?? null;
   const selectable = visible.filter((item) => canDecide(item, data.authorized, "reject"));
   const picked = selectable.filter((item) => selected.has(item.id));
@@ -128,6 +137,7 @@ export function ApprovalsDashboard(props: Props) {
         <button type="button" className={button} disabled={pending || !picked.some((item) => canDecide(item, data.authorized, "changes"))} onClick={() => openReview("changes", picked)}>Request Changes</button>
         <button type="button" className={button} disabled={pending || !picked.length} onClick={() => openReview("reject", picked)}>Reject</button>
       </div>
+      {hiddenPending > 0 && <p role="status" data-approvals-hidden-pending="" className="mx-4 mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-fg">{hiddenPending} pending action {hiddenPending === 1 ? "request is" : "requests are"} hidden by the “{filter}” filter.<button type="button" disabled={pending} className="underline" onClick={() => { setFilter("Pending"); resetSelection(); }}>Show pending</button></p>}
       <p className="px-4 pb-3 text-xs text-fg-muted">Approve All covers only eligible records in the current filtered list. Every decision is checked separately. It never publishes. Request Changes applies to content revisions; unsupported items are skipped.</p>
     </div>
     {outcomes.length > 0 && <div role="status" aria-live="polite" className="rounded-xl border border-border bg-surface p-4">
@@ -136,7 +146,7 @@ export function ApprovalsDashboard(props: Props) {
     </div>}
     {review && <section ref={reviewPanel} tabIndex={-1} aria-label="Confirm decisions" className="space-y-4 rounded-xl border border-primary/40 bg-surface p-4">
       <div className="flex items-center justify-between gap-2"><h2 className="font-semibold">Review {targets.length} records · {review.intent === "approve" ? "Approve" : review.intent === "changes" ? "Request Changes" : "Reject"}</h2><button type="button" disabled={pending} onClick={() => setReview(null)} className={button}>Cancel</button></div>
-      <p className="text-sm text-fg-muted">Read the exact content and consequences below before confirming. Content rejection uses Governance’s existing “changes requested” decision. Authorizing an external act issues a permit only; an agent-proposed internal act may be delivered by the existing machine runtime.</p>
+      <p className="text-sm text-fg-muted">Read the exact content and consequences below before confirming. Content rejection uses Governance’s existing “changes requested” decision. Authorizing an act issues a permit only. {AFTER_AUTHORIZATION[props.machineDelivery ?? "unknown"]}</p>
       <div className="max-h-[28rem] space-y-4 overflow-y-auto rounded-lg border border-border p-3">{targets.map((item) => <div key={item.id} className="space-y-2"><h3 className="font-medium">{item.title}</h3>{!canDecide(item, data.authorized, review.intent) ? <p className="text-sm text-warning">Will be skipped: this decision is not supported for this item.</p> : item.kind === "request" ? <><RequestSummary item={item} />{item.request.actionKind === PUBLISH_INSTAGRAM_MEDIA_ACTION_KIND && <InstagramApprovalPreview requestId={item.request.requestId} preview={instagramPreviews?.[item.request.requestId]} />}</> : item.kind === "content" ? <ContentDetails content={item.content} tab="Details" /> : null}</div>)}</div>
       <label className="flex flex-col gap-1 text-xs">Justification recorded for each decision (at least 24 characters)<textarea disabled={pending} value={justification} onChange={(e) => setJustification(e.target.value)} className={field} rows={3} /></label>
       {hasRequests && review.intent === "approve" && <label className="flex flex-col gap-1 text-xs">Permit lifetime<select disabled={pending} className={field} value={ttl} onChange={(e) => setTtl(Number(e.target.value))}>{PERMIT_TTL_CHOICES.map((choice) => <option key={choice.seconds} value={choice.seconds}>{choice.label}</option>)}</select></label>}
@@ -167,7 +177,7 @@ export function ApprovalsDashboard(props: Props) {
               (event.currentTarget.parentElement?.children[next] as HTMLButtonElement | undefined)?.focus();
             }} className={`rounded-lg px-3 py-2 text-xs ${tab === value ? "bg-primary/10 font-medium text-primary" : "text-fg-muted"}`} onClick={() => setTab(value)}>{value}</button>)}</div>
           <div role="tabpanel" id="approval-detail-panel" aria-labelledby={`approval-tab-${tab.replaceAll(" ", "-")}`} className="min-w-0 p-4" key={current.id}>
-            {current.kind === "content" ? <ContentDetails content={current.content} tab={tab} /> : current.kind === "request" && (tab === "Details" || tab === "Channel Preview") ? <>{!pending ? <ul><RequestCard key={current.id} item={current.request} waitingFor={props.evaluatedAt ? elapsedSince(current.request.proposedAt, props.evaluatedAt, "action-request.created_at") : null} workOptions={workOptions} instagramPreviews={instagramPreviews} /></ul> : <RequestSummary item={current} />}</> : current.kind === "permit" && (tab === "Details" || tab === "History") ? <ul className={pending ? "pointer-events-none opacity-60" : ""}><PermitRow key={current.id} item={current.permit} controlsDisabled={pending} /></ul> : <p className="text-sm text-fg-muted">No {tab.toLowerCase()} read is connected to this record. Content measurements are shown on the corresponding revision.</p>}
+            {current.kind === "content" ? <ContentDetails content={current.content} tab={tab} /> : current.kind === "request" && (tab === "Details" || tab === "Channel Preview") ? <>{!pending ? <ul><RequestCard key={current.id} item={current.request} waitingFor={props.evaluatedAt ? elapsedSince(current.request.proposedAt, props.evaluatedAt, "action-request.created_at") : null} workOptions={workOptions} instagramPreviews={instagramPreviews} /></ul> : <RequestSummary item={current} />}</> : current.kind === "permit" && (tab === "Details" || tab === "History") ? <ul className={pending ? "pointer-events-none opacity-60" : ""}><PermitRow key={current.id} item={current.permit} controlsDisabled={pending} machineDelivery={props.machineDelivery} /></ul> : <p className="text-sm text-fg-muted">No {tab.toLowerCase()} read is connected to this record. Content measurements are shown on the corresponding revision.</p>}
           </div></> : <p className="p-8 text-center text-sm text-fg-muted">Select a record to inspect its content and recorded state.</p>}
       </aside>
     </div>
@@ -184,7 +194,7 @@ function RequestSummary({ item }: { item: Extract<QueueItem, { kind: "request" }
     {agent && <div className="rounded-lg border border-border p-3"><h4 className="text-xs text-fg-muted">Heby&rsquo;s proposal rationale</h4><p className="whitespace-pre-wrap">{request.proposalRationale ?? "Proposal rationale unavailable"}</p><p className="text-xs text-fg-muted">{request.proposalRationale === null ? "This proposal was filed before Hebun recorded proposal rationales. That is what the record says — not that the agent gave no reason." : "The agent's own stated reason, recorded when it was filed. It authorizes nothing, and it is not your justification for deciding."}</p></div>}
     <p className="text-xs text-fg-muted">Declared organizational purpose: {request.purposeUnresolved ? "Declared, but the Work authority could not answer for it — unknown, not absent." : request.purposeWorkTitle ?? "Not declared"}</p>
     <p className="break-all">Target: {request.targetRef ? `${request.targetLabel ?? request.targetRef} (${request.targetKind}:${request.targetRef})` : "none"}</p>
-    <dl className="space-y-2">{request.parameters.map((p) => <div key={p.name}><dt className="text-xs text-fg-muted">{p.name}</dt><dd className="whitespace-pre-wrap break-all">{p.value}</dd></div>)}</dl>
+    <dl className="space-y-2">{request.parameters.map((p) => { const shown = parameterDisplay(p); return <div key={p.name}><dt className="text-xs text-fg-muted">{shown.label}</dt><dd className="whitespace-pre-wrap break-all">{shown.value}</dd></div>; })}</dl>
     {request.locks.length > 0 && <div className="rounded-lg border border-border p-3 text-xs"><ul className="space-y-1">{request.locks.map((lock) => <li key={lock.name}>{lock.label}</li>)}</ul><details className="mt-1"><summary className="cursor-pointer text-fg-muted">Show the integrity values</summary>{request.locks.map((lock) => <p key={lock.name} className="break-all">{lock.name}: {lock.value}</p>)}<p className="break-all">payloadDigest: {request.payloadDigest}</p><p className="text-fg-muted">Authorization binds payloadDigest, computed over the whole proposal.</p></details></div>}
     <div className="rounded-lg border border-warning/30 bg-warning/5 p-3"><h4 className="font-medium">Consequences</h4><ul className="mt-2 list-disc space-y-1 pl-5">{request.consequences.map((consequence) => <li key={consequence}>{consequence}</li>)}</ul></div>
     <div className="text-xs text-fg-muted">{request.evidence.status === "attached" ? request.evidence.items.map((e) => <p key={`${e.sourceClass}:${e.recordRef}`} className="break-all">{e.sourceClass} · {e.recordRef} · {e.lifecycle}</p>) : request.evidence.status === "none" ? <p>This proposal recorded no evidence. That is the stored state, not a failed read.</p> : <p className="text-warning">The stored evidence could not be interpreted, so it is unknown rather than absent.</p>}</div>

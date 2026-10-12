@@ -169,7 +169,7 @@ export function SupplyImageFromDrive({ targets }: { readonly targets: readonly G
         </div>
       </div>
       <p className="text-xs text-fg-muted">
-        You choose up to {MAX} JPEG, PNG or WebP images (each up to 20 MiB) in Google&apos;s own chooser, in one
+        You choose up to {MAX}{" "}JPEG, PNG or WebP images (each up to 20 MiB) in Google&apos;s own chooser, in one
         go. Hebun can open only the files you choose, reads each once, verifies it and keeps its own copy — each
         image is admitted or refused on its own.
       </p>

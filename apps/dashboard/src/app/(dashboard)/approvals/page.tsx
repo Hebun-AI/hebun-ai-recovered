@@ -17,6 +17,9 @@ import { readExecutionLedger } from "@/features/action-execution/execution-ledge
 import { readDecisionHorizon } from "@/features/decision-horizon/read-decision-horizon.server";
 import { readWorkRegister } from "@/features/organizational-work/read-work.server";
 import { StandingMutationEnvelopes } from "@/components/decision-workspace/standing-mutation-envelopes";
+import { resolveMachineExecutionReachability } from "@/features/tenant-machine-execution-authority/resolve-machine-execution-reachability.server";
+import { RECORD_WORK_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import type { MachineDeliveryState } from "@/features/action-authorization/delivery-legibility";
 import { readStandingMutations } from "@/features/standing-mutation-authority/read-standing-mutations.server";
 import {
   STANDING_MUTATION_MAX_ACTS_CEILING,
@@ -108,6 +111,17 @@ export default async function ApprovalsPage() {
    * an intention against something the organization has withdrawn.
    */
   const workRegister = await readWorkRegister(tenant);
+  /*
+   * HEBY-PRODUCT-UX-1 — automatic delivery, read from the machine-execution authority (the frozen
+   * set, tenant enrolment and the operator's root control) for the SESSION tenant, so the surface
+   * stops implying a disarmed runtime will act. A failed read is `unknown`, never "enabled".
+   */
+  const machineDelivery: MachineDeliveryState = tenant?.tenantId
+    ? await resolveMachineExecutionReachability(tenant.tenantId, RECORD_WORK_ACTION_KIND).then(
+        (r) => (r.status === "reachable" ? "enabled" : r.reason === "persistence-unavailable" ? "unknown" : "not-enabled"),
+        () => "unknown" as const,
+      )
+    : "unknown";
   const workOptions =
     workRegister.status === "available"
       ? workRegister.items
@@ -175,6 +189,7 @@ export default async function ApprovalsPage() {
             workOptions={workOptions}
             instagramPreviews={instagramPreviews.status === "read" ? instagramPreviews.previews : null}
             evaluatedAt={evaluatedAt}
+            machineDelivery={machineDelivery}
             awaitingCount={awaiting.status === "read" ? awaiting.value.awaiting : null}
             oldestWaiting={
               awaiting.status === "read"

@@ -58,6 +58,7 @@ import {
   type ConversationTurn,
   type ModelGenerationRequest,
   type ModelGenerationResult,
+  type ResolvedSourceItem,
   type SourceResolution,
   type PromptRejectionReason,
 } from "@/features/heby-runtime";
@@ -125,6 +126,9 @@ import { readAgentGroundingSource } from "@/features/agent-outcome-observation/h
  * which re-exports the writer.
  */
 import { readAgentMandateGroundingSource } from "@/features/agent-mandate/heby-mandate-source.server";
+import { readOriginationAvailability } from "@/features/origination-availability/read-origination-availability.server";
+import { describeOriginationForGrounding, ORGANIZATIONAL_WORK_STAGES } from "@/features/origination-availability/capability-truth";
+import type { AgentOriginationAvailability } from "@/features/origination-availability/contracts";
 /*
  * DH-1. The `decision-records` class is now served by the DECISION HORIZON, which composes the
  * released queue projection above with the two other authorities that own a human decision. Heby
@@ -195,6 +199,14 @@ export const HEBY_MODEL_SYSTEM_INSTRUCTIONS = hebunInstruction([
   "it is complete for that question. You never approve, authorize, execute, deploy, delete,",
   "operate a device, or record a decision — you produce advisory text only, and the",
   "authoritative act always belongs to a human.",
+  // HEBY-PRODUCT-UX-1: your own lack of authority is not the organization's lack of a path. The
+  // stages are tenant-free product truth (one constant, shared with the grounding item); whether the
+  // option is offered to THIS organization is tenant data the model is not given, so it never guesses.
+  "That you cannot act is not that nothing can be done.",
+  ORGANIZATIONAL_WORK_STAGES,
+  "Whether that proposal option is offered for this organization right now is not in your context:",
+  "the option checks it itself when the person opens it, so never say it is or is not available.",
+  "Never say a work item cannot be recorded, and never claim that you will record one.",
   // H1 continuity + authority firewall. Prior turns (including your own) resolve references,
   // never grant authority.
   "The earlier messages in this conversation are recent dialogue provided ONLY so you can",
@@ -368,6 +380,12 @@ export interface HebyModelAnswerDeps {
    * A mandate reaching model context is a CEILING being reported, never a permission being granted.
    */
   readonly resolveAgentMandate?: (tenant: TenantContext) => Promise<SourceResolution>;
+  /**
+   * HEBY-PRODUCT-UX-1 — whether the governed organizational-work PROPOSAL path is offered now, read
+   * through the same WF-1 availability projection the UI offer uses. Joins the `agent-mandate`
+   * resolution as one item; a read, never a proposer.
+   */
+  readonly readOriginationAvailability?: (tenant: TenantContext) => Promise<AgentOriginationAvailability>;
   /*
    * WORK-2. Explicit resolution for the `work` class. Defaults to the real tenant-scoped read owned
    * by the Organizational Work Authority; injectable so every branch — recorded work, a measured
@@ -1005,6 +1023,27 @@ async function withDecisionQueue(
   }
 }
 
+/**
+ * HEBY-PRODUCT-UX-1 — the organizational-work path as grounding: its four stages (fixed product
+ * truth, model-only `content`) and whether stage 1 is offered now (derived, never assumed). A failed
+ * read says unknown, never "cannot".
+ */
+async function originationItem(tenant: TenantContext, deps: HebyModelAnswerDeps): Promise<ResolvedSourceItem> {
+  let availability: AgentOriginationAvailability;
+  try {
+    availability = await (deps.readOriginationAvailability ?? ((t) => readOriginationAvailability({ resolveTenant: async () => t })))(tenant);
+  } catch {
+    availability = { status: "unavailable", reason: "temporarily-unavailable" };
+  }
+  return {
+    recordRef: "agent-origination:availability",
+    label: "Organizational work proposals by an agent",
+    detail: describeOriginationForGrounding(availability),
+    lifecycle: "settled",
+    content: ORGANIZATIONAL_WORK_STAGES,
+  };
+}
+
 async function withAgentMandate(
   resolutions: readonly SourceResolution[],
   tenant: TenantContext,
@@ -1016,8 +1055,10 @@ async function withAgentMandate(
   try {
     const resolver = deps.resolveAgentMandate ?? readAgentMandateGroundingSource;
     const mandate = await resolver(tenant);
+    const withOrigination =
+      mandate.state === "resolved" ? { ...mandate, items: [...mandate.items, await originationItem(tenant, deps)] } : mandate;
     return resolutions.map((resolution) =>
-      resolution.sourceClass === "agent-mandate" ? mandate : resolution,
+      resolution.sourceClass === "agent-mandate" ? withOrigination : resolution,
     );
   } catch {
     /*
