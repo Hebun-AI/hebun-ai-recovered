@@ -1,10 +1,11 @@
-# PHASE A — Development Continuity · closure record · VERIFIED, NOT PUSHED
+# PHASE A — Development Continuity · closure record · DEPLOYED
 
 The first closure record written under `docs/MASTER-ROADMAP.md` §16.1, and the first one the
-continuity test validates. It records an implemented and locally verified change, committed together
-with this record on branch `docs/phase-a-development-continuity` and not pushed. It is not released, not
-deployed and not production-accepted, and it says so below. The commit's identity is git's: this file
-names it `THIS COMMIT` (§16.1 rule 4) and never carries its own hash.
+continuity test validates. The change was implemented, verified, committed as `97cc7a83`, pushed to
+`main` by the Director and deployed to Production by the existing Vercel integration (§8). It is not
+production-accepted: Phase A changes no runtime behaviour, so there is nothing in production to accept.
+The record was first committed with that same commit and named it `THIS COMMIT` (§16.1 rule 4); this
+later documentation change writes the real hash, as rule 4 requires.
 
 ## 1 · What was wrong, measured
 
@@ -105,16 +106,31 @@ Roadmap catch-up for the phases missing since AP-1; closure records for the five
 a record for the Content Agent's Instagram publication; indexing historical deferred risks; the primary
 tree's stranded `learnings.md` lines and stale `main`; `MEMORY.md` compaction; worktree cleanup.
 
+## 8 · Release
+
+| Evidence | Value | Source |
+|---|---|---|
+| Implementation commit | `97cc7a838b034542315450aca2735f96a1634d86` (parent `7437280e`) | git |
+| Push | 2026-10-12T11:00:20Z, `7437280e → 97cc7a83` on `main`, by `hebuntech` from the Director's terminal | GitHub branch activity |
+| Remote `main` after push | `97cc7a838b034542315450aca2735f96a1634d86` | `git ls-remote` |
+| Production deployment | GitHub deployment `7012484419`, environment Production, sha `97cc7a83`, created by `vercel[bot]` 2026-10-12T11:04:32Z | GitHub Deployments API |
+| Deployment status | `success`, 2026-10-12T11:04:33Z | GitHub deployment statuses |
+| Vercel commit status | `Vercel` = `success` ("Deployment has completed"), combined `success` | GitHub commit status |
+| Superseded | No: `7012484419` was the newest Production deployment when this record was written | GitHub Deployments API |
+
+The Vercel API itself was not reachable from this machine's connector, so Vercel's own `dpl_` identifier
+was not read directly; the evidence above is what Vercel reported to GitHub.
+
 ## Closure Contract (v1)
 
 - Phase: PHASE-A-DEVELOPMENT-CONTINUITY
 - Owner: CLAUDE.md + hebun-loop.md + docs/MASTER-ROADMAP.md §16.1/§21/§22 + apps/dashboard/tests/development-continuity
-- Reached state: VERIFIED
-- Implementation commit: THIS COMMIT — the commit that adds this record on branch docs/phase-a-development-continuity (parent 7437280e); resolve with `git log --diff-filter=A --format=%H -- docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md`
+- Reached state: DEPLOYED
+- Implementation commit: 97cc7a838b034542315450aca2735f96a1634d86
 - Verification level: V1 — documentation plus one new test file; no runtime, schema, provider or authority change
 - Verification evidence: `npx tsc --noEmit` exit 0; `npx eslint tests/development-continuity/closure-contract.ts` exit 0; `git diff --check` exit 0; roadmap diff additions only (0 deleted); `node --import tsx tests/development-continuity/closure-contract.ts` exit 0 (repository valid, 5 valid shapes pass, 24 defects each rejected by its own code, 11 legacy-maintenance fixtures behave as §16.1 requires); eight maintenance scenarios on disposable copies of the real docs, one process each: unchanged 0, renamed 1, moved 1, removed 1, new unmarked 1, new valid contract 0, new invalid contract 1, legitimate maintenance 0 (unrecorded census 1); `scripts/run-tests.mjs` on a copy with a moved legacy record → `FAILED tests/development-continuity/closure-contract.ts (exit 1)`, runner exit 1; on a valid copy → `1 passed`, runner exit 0; staleness check executed read-only: primary tree flagged, current worktree clean; before their lines existed this record was rejected for PENDING evidence (`VERIFICATION_EVIDENCE_REQUIRED`) and for an unstated census (`LEGACY_CENSUS_UNRECORDED`)
 - Test environment: worktree `.claude/worktrees/phase-a-continuity` at 7437280e plus uncommitted Phase A changes; macOS (Darwin 25.2.0); Node v24.16.0; tsx from the shared `apps/dashboard/node_modules` (dependency set equal to 7437280e); no database, network or credentials
-- Deployment evidence: N/A — not deployed
-- Production acceptance evidence: N/A — not deployed
+- Deployment evidence: GitHub deployment 7012484419, environment Production, sha 97cc7a838b034542315450aca2735f96a1634d86, status success 2026-10-12T11:04:33Z; Vercel commit status success (§8)
+- Production acceptance evidence: N/A — no runtime behaviour to accept
 - Deferred risks: CONTINUITY-STALE-PRIMARY-TREE-1 (DEFERRED); CONTINUITY-NO-CI-1 (DEFERRED); CONTINUITY-CODE-DEFERRED-SCAN-1 (DEFERRED)
-- Director approvals: Phase A implementation approved 2026-10-12; final acceptance reviewed 2026-10-12; one local commit of the six Phase A files approved 2026-10-12; push and deploy NOT approved
+- Director approvals: Phase A implementation approved 2026-10-12; final acceptance reviewed 2026-10-12; one local commit of the six Phase A files approved 2026-10-12; push of 97cc7a83 to main and its automatic Production deployment approved 2026-10-12, push executed by the Director from the terminal; this documentation commit approved 2026-10-12, its push NOT approved

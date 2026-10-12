@@ -4393,7 +4393,7 @@ exist is anything that would invoke it.
   metric pin hides movement, so each moved case is pinned by id and any move away from a human label is recorded
   as "human-label review required", never counted as an improvement.
 
-## PHASE A — Development Continuity: closure contract v1 (2026-10-12, VERIFIED, NOT PUSHED)
+## PHASE A — Development Continuity: closure contract v1 (2026-10-12, DEPLOYED `97cc7a83`)
 
 - **Süreç kuralı ancak bir dosyayı kırabiliyorsa kalıcıdır.** Roadmap üç kez release'lerin gerisine
   düştü; her seferinde kural yazılıydı, kontrol eden yoktu. §16.1 kuralı, onu okuyan bir test olmadan
