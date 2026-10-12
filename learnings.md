@@ -4425,3 +4425,55 @@ yayın fazı açık riskleriyle (§22) ve kanıtıyla kapanmak zorunda, yani Ins
 kaydı olmayan bir yayın tekrar sessizce geçemez. *Hebun AI:* faz kapanışı artık tek bir
 sözleşmeye bağlı, 22 kusur türü test tarafından reddediliyor; CI yok, bu yüzden testin koşulması hâlâ
 Director disiplini.
+
+## PHASE B1 — Knowledge preservation: birincil ağaçta kalmış dersler (2026-10-12)
+
+Kaynak: birincil ağacın commit edilmemiş `learnings.md` eki (89 satır, 2026-09-13..10-11 arası yazılmış),
+verbatim `docs/product-vision/runtime/hebun-phase-b1-stranded-primary-tree-snapshot.md`. Burada yalnızca
+B1'in `3bdb999b`'ye karşı yeniden doğruladığı A/B maddeleri var; tarihsel, doğrulanmamış ve aşılmış
+maddeler (K01, K03, K05, K06, K08, K10, K11, K14, K16, K18, K24) yalnızca snapshot'ta ve closure §2'de
+etiketli durur.
+
+- **Sayım zayıf kontrattır, kayıt güçlüdür.** "Tam üç section" pini sayfanın üçte birini koruyordu;
+  `COMMAND_REGIONS` bildirilmemiş, düşen, sırası kayan bölgeyi yakalar. (K02 · `workspace-model.ts`, `935ad938`)
+- **Firewall'ı gevşetme, adıyla özelleştir.** Command'a INT-5A'nın writer'sız read yarısı adıyla açıldı,
+  geri kalanı yasak kaldı. (K04 · `tests/cmdb1-command-overview/canonical-overview.ts`)
+- **Personalization authority yok.** Tenant'a ait config/profile/branding tablosu yok; yüzey bunu
+  "yapılandırılmadı" diye söyler, sahte içerik üretmez. (K07 · `src/db/schema`, `3bdb999b`)
+- **Yeşil build, yüke bağlı bir hatanın yokluğunu kanıtlamaz.** Baseline'ı aynı makine yükü altında,
+  aynı sırayla yeniden ölç; sonra hatayı kendi değişikliğine bağla. (K09 · TDZ, `0d7d7d89`)
+- **TTL için sınırlı preset, serbest sayı alanı değil.** Clamp sessizdir; serbest alan insanın seçtiği
+  ile satırın kaydettiği ömrü ayırır. (K12 · `PERMIT_TTL_CHOICES`)
+- **Permit'i kimin harcadığı kayıtlı değil.** `action_permits` tüketimi yalnızca `consumed_at` +
+  `handoff_id`; "teslim edildi" yalnızca "harcandı ve kaydedildi" anlamına gelebilir. (K13 · `3bdb999b`)
+- **READY, provider uyumluluğu değildir.** Hedefe özgü kısıt hedefe özgü verifier'da, harcanan her
+  yetkiden önce kontrol edilir. (K15 · `80a69b65`)
+- **Oran sınırını tam sayıyla yaz:** `5w >= 4h`, `100w <= 191h`. (K17 · `80a69b65`)
+- **Provider toleransı kontrat değildir;** katı gate bir Director kararıdır. (K19 · `80a69b65` "Strict by decision")
+- **Bayat sayım pini arkasındaki her assertion'ı maskeler;** onarım sonraki fazı adıyla eklemektir.
+  (K20 · `41eeba29`)
+- **Bir kapıdan önce yazılmış fixture test edilen yolu sessizce durdurur;** düzeltme stub değil, yayındaki
+  writer. (K21 · `41eeba29`)
+- **Yetki sorusu verinin sahibi olan modülde sorulur.** (K22 · `mayReviseFromReview`,
+  `work-artifact-review/change-request.server.ts`)
+- **Stale-state kontrolü kilidin içinde:** writer `FOR UPDATE`, review `FOR SHARE`. (K23 ·
+  `write-work-artifacts.server.ts:329`, `review-revision.server.ts:191`)
+- **Next 16 server-function argüman log'u yalnızca dev'dir;** production iddiası kodla kanıtlanır.
+  (K25 · `next` 16.2.10 `action-handler.js:736`)
+- **EAI importer kümesi yedi modüle pinli;** yeni okuyucu eklemek yerine karar zaten listedeki
+  `model-facing-projection.ts`'te hesaplanır. (K26 · `tests/external-ai-data-use-1a/firewall-and-inertness.ts`)
+- **Güvenlik sınırı kolaylık için genişletilmez;** genişletmek ayrı, adlandırılmış bir karardır. (K27)
+
+B1'in kendi dersleri:
+
+- **Bir commit mesajı kanıt değildir, doküman kanıttır.** `11496b44` GOOGLE-PICKER-1'i "close" eder ama
+  0 satır değiştirir; kabul metni birincil ağaçta commit edilmeden kaldı. Kapanış iddiası her zaman
+  closure dokümanının kendisinden okunur.
+- **Tarihsel sayım yeniden hesaplanır, devralınmaz.** "89 satır" doğru çıktı, ama 92 dolu eklemenin 3'ünün
+  zaten `main`'de olduğu ancak yeniden ölçünce görüldü.
+
+**Weekly three.** *Learned:* commit edilmemiş bilgi bir ağacın içinde sessizce eskir; korumanın ilk adımı
+onu verbatim ve hash'iyle dondurmak, sonra sınıflandırmak. *Turkish Rug House:* Instagram oran kuralının
+neden katı olduğu ve hangi yayının sınırda kabul edildiği artık kaybolmayacak bir kayıtta. *Hebun AI:*
+birincil ağaç artık bilgi kaybı riski olmadan Phase B2'de uzlaştırılabilir; Hebun Brain faz kapanışında
+özet alır ama otorite olmaz.

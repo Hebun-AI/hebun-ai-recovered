@@ -25,8 +25,15 @@ Turları izole değil, kümülatif durumu değerlendirerek yürütürsün.
 4. Verify — çıktı bitiş koşulunu karşıladı mı? Karşılamadıysa 3'e dön; tıkanırsan blokeri bildir.
 5. Persist — fazın kendi branch'inde: §16.1 closure kaydı, roadmap §21 satırı, ertelenen her risk için
    §22 satırı, learnings.md'ye append. Kalıcı bilgiyi Obsidian Week notuna yaz, frontmatter güncelle.
+   Closure branch'te var olduktan sonra Hebun Brain'e (`hebun_brain_vault`) fazın insan-okur
+   öğrenme/karar özetini `.hebun-brain/CONVENTIONS.md` kurallarıyla yaz: kanıt Git'e link (commit,
+   closure yolu), ertelenen risk yalnızca §22 pointer'ı, doğrulanmamış iddia etiketli. Brain otorite
+   değildir, repoya yazılmaz, commit edilmez. `HEBUN_REPO=<faz worktree'si> python3
+   .hebun-brain/hebun_brain_sync.py validate` ve `pending` read-only koşar.
 6. Close — continuity testi ve seviyenin gerektirdiği testler gerçekten koştu ve geçti mi; koşmayan
    test PASS yazılmaz. Reached state kanıtı aşmıyor mu. Commit/push yok — 🚦 Director gate'i.
+   Rapor dört gerçeği ayrı yazar: repo commit edildi · Obsidian yazıldı · GitHub'a push edildi ·
+   production'a deploy edildi. İki taraf da ölçülmeden "senkron" denmez.
    Haftalık 3 Soru (zorunlu): Ne öğrendik? / TRH'yi nasıl iyileştirir? / Hebun AI'a nasıl katılır?
 
 ## GATES (🚦 — dur ve Director onayı bekle)
@@ -49,6 +56,7 @@ scope: hebun-platform
 repo_path: ~/Developer/Hebun AI
 learnings_file: learnings.md   # fazın kendi worktree'sindeki kopya; başka ağacın kopyasına yazılmaz
 obsidian_week_notes: ClaudeCodeTest/Hebun AI/Week NN - *.md
+hebun_brain_vault: ~/Documents/Hebun Brain   # türetilmiş hafıza; otorite repo'dur
 gate_on_commit: true
 single_writer_tree: true        # birincil ağaçta aynı anda tek mutating oturum
 revalidate_head_before_commit: true   # HEAD oynadıysa DUR — commit/amend/rebase yok

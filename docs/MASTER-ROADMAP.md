@@ -5563,6 +5563,7 @@ re-graded here.
 | Phase | Reached state | Closure record |
 |---|---|---|
 | PHASE-A-DEVELOPMENT-CONTINUITY | DEPLOYED | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` |
+| PHASE-B1-KNOWLEDGE-PRESERVATION | VERIFIED | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` |
 
 ---
 
@@ -5577,3 +5578,6 @@ before §16.1 are not yet indexed (Phase B).
 | CONTINUITY-STALE-PRIMARY-TREE-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Session recovery | DEFERRED | Phase B primary-tree reconciliation (Director decision) |
 | CONTINUITY-NO-CI-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Verification enforcement | DEFERRED | Director decision on CI or another integration |
 | CONTINUITY-CODE-DEFERRED-SCAN-1 | PHASE-A-DEVELOPMENT-CONTINUITY | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` | Risk discoverability | DEFERRED | Phase B historical deferred-risk reconciliation |
+| CONTINUITY-PICKER-STRANDED-ACCEPTANCE-1 | PHASE-B1-KNOWLEDGE-PRESERVATION | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` | Historical record integrity | DEFERRED | Director decision on the proposed GOOGLE-PICKER-1 addendum |
+| CONTINUITY-BRAIN-LAG-1 | PHASE-B1-KNOWLEDGE-PRESERVATION | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` | Knowledge continuity | DEFERRED | Director-selected Hebun Brain catch-up |
+| HEBUN-BRAIN-VALIDATION-1 | PHASE-B1-KNOWLEDGE-PRESERVATION | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` | Knowledge continuity | DEFERRED | Vault-only repair; no repository dependency |
