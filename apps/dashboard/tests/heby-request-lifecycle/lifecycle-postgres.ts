@@ -27,7 +27,11 @@ import {
 import { approveActionRequest, rejectActionRequest } from "../../src/features/action-authorization/decide-action-request.server";
 import { revokeActionPermit } from "../../src/features/action-authorization/revoke-action-permit.server";
 import { executeRecordWork } from "../../src/features/governed-internal-action/execute-record-work.server";
-import { readActionRequestLifecycle } from "../../src/features/action-authorization/read-action-authorizations.server";
+import {
+  MY_ACTION_REQUESTS_LIMIT,
+  readActionRequestLifecycle,
+  readMyActionRequestLifecycles,
+} from "../../src/features/action-authorization/read-action-authorizations.server";
 import { describeRequestLifecycle } from "../../src/components/layout/heby/heby-origination-affordance";
 import { asHumanTenantContext, type TenantContext } from "../../src/features/auth/tenant/tenant-context";
 
@@ -193,14 +197,50 @@ async function main(): Promise<void> {
     assert.deepEqual(await read(undefined as never), { status: "not-found" });
     assert.equal((await read(pending, null)).status, "unavailable", "no session tenant reads nothing");
 
+    /* 7b · HEBY-MY-REQUESTS — this person's own requests, newest first, each with its lifecycle. */
+    const mine = async (ctx: TenantContext | null = acme.ctx) => {
+      const r = await readMyActionRequestLifecycles(ctx, deps);
+      assert.equal(r.status, "read", JSON.stringify(r));
+      return r.status === "read" ? r : (null as never);
+    };
+    const filed = [pending, approvedId, rejectedId, revokedId, expiredId];
+    const m1 = await mine();
+    assert.deepEqual(new Set(m1.items.map((i) => i.requestId)), new Set(filed), "human and agent proposals this person asked for");
+    assert.equal(m1.more, false);
+    for (let i = 1; i < m1.items.length; i += 1) {
+      assert.ok(m1.items[i - 1]!.proposedAt >= m1.items[i]!.proposedAt, "newest first");
+    }
+    const byId = new Map(m1.items.map((i) => [i.requestId, i]));
+    assert.equal(byId.get(approvedId)!.permit?.state, "consumed", "the list carries the same lifecycle as the single read");
+    assert.deepEqual(byId.get(approvedId), (await lifecycle(approvedId)), "list item == single read, field for field");
+    assert.match(byId.get(pending)!.label, /^Lifecycle work \d+ · Finance$/, "labelled by the recorded title and target");
+    assert.ok(!JSON.stringify(m1).includes(SECRET_REASON), "no Governance reason in the list");
+    /* Another member of the SAME organization filed this one: it is theirs, not this person's. */
+    const theirs = await humanRequest();
+    await setup.query(`update heby_action_requests set created_by = $2 where id = $1`, [theirs, randomUUID()]);
+    assert.ok(!(await mine()).items.some((i) => i.requestId === theirs), "another member's request is not listed");
+    assert.equal((await read(theirs)).status, "read", "(it stays readable by id inside the tenant, as before)");
+    assert.equal((await mine(globex.ctx)).items.length, 0, "another organization lists none of these");
+    assert.equal((await readMyActionRequestLifecycles(null, deps)).status, "unavailable", "no session reads nothing");
+    /* The window: at most MY_ACTION_REQUESTS_LIMIT, and it says when there are more. */
+    while ((await mine()).items.length < MY_ACTION_REQUESTS_LIMIT) await humanRequest();
+    assert.equal((await mine()).more, false, "exactly the limit is not 'more'");
+    const newest = await humanRequest();
+    const m2 = await mine();
+    assert.equal(m2.items.length, MY_ACTION_REQUESTS_LIMIT);
+    assert.equal(m2.more, true, "one past the limit is reported, never silently dropped");
+    assert.equal(m2.items[0]!.requestId, newest, "the newest is first");
+
     /* 8 · reading is a read: nothing moves, no provider is reached. */
     const before = await authorityCounts();
     for (const id of [pending, approvedId, rejectedId, revokedId, expiredId]) await read(id);
     await read(pending, globex.ctx);
+    await mine();
+    await mine(globex.ctx);
     assert.deepEqual(await authorityCounts(), before, "reads write nothing");
     assert.equal(fetches, 0, "no network call");
 
-    console.log("PASS heby-request-lifecycle lifecycle-postgres (8 cases)");
+    console.log("PASS heby-request-lifecycle lifecycle-postgres (9 cases)");
   } finally {
     globalThis.fetch = realFetch;
     await setup.end().catch(() => {});

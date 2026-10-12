@@ -409,6 +409,8 @@ export async function readActionPermits(
 export interface ActionRequestLifecycleView {
   readonly requestId: string;
   readonly actionKind: string;
+  /** The approved `title` and target label as recorded on the request, else its descriptor effect sentence. */
+  readonly label: string;
   readonly proposedByActorType: string;
   readonly proposedAt: string;
   readonly decision:
@@ -431,6 +433,77 @@ export type ActionRequestLifecycleRead =
 
 const REQUEST_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** One query shape for every lifecycle read: request, its one permit, that permit's one attempt. */
+function selectLifecycleRows(db: ControlPlaneDatabase) {
+  return db
+    .select({
+      request: hebyActionRequests,
+      permitStatus: actionPermits.status,
+      permitExpiresAt: actionPermits.expiresAt,
+      permitConsumedAt: actionPermits.consumedAt,
+      permitRevokedAt: actionPermits.revokedAt,
+      attemptStatus: actionExecutionAttempts.status,
+      providerMessageId: actionExecutionAttempts.providerMessageId,
+    })
+    .from(hebyActionRequests)
+    .leftJoin(
+      actionPermits,
+      and(
+        eq(actionPermits.actionRequestId, hebyActionRequests.id),
+        eq(actionPermits.tenantId, hebyActionRequests.tenantId),
+      ),
+    )
+    .leftJoin(
+      actionExecutionAttempts,
+      and(
+        eq(actionExecutionAttempts.permitId, actionPermits.id),
+        eq(actionExecutionAttempts.tenantId, actionPermits.tenantId),
+      ),
+    );
+}
+
+type LifecycleRow = Awaited<ReturnType<ReturnType<typeof selectLifecycleRows>["where"]>>[number];
+
+/* The exact `title` the decision bound (canonical payload), the target it names, else the descriptor effect. */
+function labelOf(request: LifecycleRow["request"]): string {
+  const title = asCanonicalPayload(request.canonicalPayload)?.title;
+  const parts = [typeof title === "string" ? title : null, request.targetLabel].filter((p): p is string => !!p);
+  return parts.length > 0 ? parts.join(" · ") : request.expectedEffect;
+}
+
+function toLifecycleView(row: LifecycleRow, now: Date): ActionRequestLifecycleView {
+  const { request } = row;
+  return {
+    requestId: request.id,
+    actionKind: request.actionKind,
+    label: labelOf(request),
+    proposedByActorType: request.proposedByActorType,
+    proposedAt: iso(request.createdAt) ?? "",
+    decision:
+      request.status === "approved" && request.approvedAt
+        ? { status: "approved", at: iso(request.approvedAt) ?? "", standing: request.standingAuthorizationId !== null }
+        : request.status === "rejected" && request.rejectedAt
+          ? { status: "rejected", at: iso(request.rejectedAt) ?? "" }
+          : { status: "pending" },
+    permit:
+      row.permitStatus === null || row.permitExpiresAt === null
+        ? null
+        : {
+            state: derivePermitState(row.permitStatus, row.permitExpiresAt, now),
+            expiresAt: iso(row.permitExpiresAt) ?? "",
+            consumedAt: iso(row.permitConsumedAt),
+            revokedAt: iso(row.permitRevokedAt),
+          },
+    execution:
+      row.attemptStatus === null
+        ? null
+        : {
+            status: row.attemptStatus as ExecutionAttemptStatus,
+            providerAccepted: row.attemptStatus === "accepted" && row.providerMessageId !== null,
+          },
+  };
+}
+
 export async function readActionRequestLifecycle(
   tenant: TenantContext | null,
   requestId: string,
@@ -445,66 +518,56 @@ export async function readActionRequestLifecycle(
   const now = (deps.now ?? (() => new Date()))();
 
   try {
-    const [row] = await db
-      .select({
-        request: hebyActionRequests,
-        permitStatus: actionPermits.status,
-        permitExpiresAt: actionPermits.expiresAt,
-        permitConsumedAt: actionPermits.consumedAt,
-        permitRevokedAt: actionPermits.revokedAt,
-        attemptStatus: actionExecutionAttempts.status,
-        providerMessageId: actionExecutionAttempts.providerMessageId,
-      })
-      .from(hebyActionRequests)
-      .leftJoin(
-        actionPermits,
-        and(
-          eq(actionPermits.actionRequestId, hebyActionRequests.id),
-          eq(actionPermits.tenantId, hebyActionRequests.tenantId),
-        ),
-      )
-      .leftJoin(
-        actionExecutionAttempts,
-        and(
-          eq(actionExecutionAttempts.permitId, actionPermits.id),
-          eq(actionExecutionAttempts.tenantId, actionPermits.tenantId),
-        ),
-      )
+    const [row] = await selectLifecycleRows(db)
       .where(and(eq(hebyActionRequests.tenantId, tenant.tenantId), eq(hebyActionRequests.id, requestId)))
       .limit(1);
-    if (!row) return { status: "not-found" };
-    const { request } = row;
-    const decision: ActionRequestLifecycleView["decision"] =
-      request.status === "approved" && request.approvedAt
-        ? { status: "approved", at: iso(request.approvedAt) ?? "", standing: request.standingAuthorizationId !== null }
-        : request.status === "rejected" && request.rejectedAt
-          ? { status: "rejected", at: iso(request.rejectedAt) ?? "" }
-          : { status: "pending" };
+    return row ? { status: "read", lifecycle: toLifecycleView(row, now) } : { status: "not-found" };
+  } catch {
+    return { status: "unavailable", reason: "read-failed" };
+  }
+}
+
+/** How many of a person's own requests Heby lists. A window, never a total. */
+export const MY_ACTION_REQUESTS_LIMIT = 10 as const;
+
+export type MyActionRequestLifecyclesRead =
+  | { readonly status: "read"; readonly items: readonly ActionRequestLifecycleView[]; readonly more: boolean }
+  | { readonly status: "unavailable"; readonly reason: string };
+
+/**
+ * HEBY-MY-REQUESTS — the requests THIS PERSON caused to be filed, newest first, with their lifecycle.
+ *
+ * "Mine" is the row's own creation attribution: the single writer (`record-action-request.server.ts`)
+ * stamps `created_by` with the authenticated human whose request filed the row, for a human proposal
+ * AND for an agent proposal that person asked for. Nothing is inferred from conversation history.
+ * Tenant AND person are predicates; another member's requests are not in this read.
+ */
+export async function readMyActionRequestLifecycles(
+  tenant: TenantContext | null,
+  deps: { readonly getDb?: () => ControlPlaneDatabase | null; readonly now?: () => Date } = {},
+): Promise<MyActionRequestLifecyclesRead> {
+  if (typeof window !== "undefined") throw new Error("Action authorization reads are server-only.");
+  if (!tenant?.tenantId || !tenant.userId) return { status: "unavailable", reason: "no-authorized-tenant-context" };
+  const db = (deps.getDb ?? resolveGovernanceDbOrNull)();
+  if (!db) return { status: "unavailable", reason: "persistence-not-configured" };
+  const now = (deps.now ?? (() => new Date()))();
+
+  try {
+    /* ponytail: no (tenant, created_by) index; the tenant predicate bounds the scan. Add one if a tenant's request count grows large. */
+    const rows = await selectLifecycleRows(db)
+      .where(
+        and(
+          eq(hebyActionRequests.tenantId, tenant.tenantId),
+          eq(hebyActionRequests.createdBy, tenant.userId),
+          eq(hebyActionRequests.createdByType, "human"),
+        ),
+      )
+      .orderBy(desc(hebyActionRequests.createdAt), desc(hebyActionRequests.id))
+      .limit(MY_ACTION_REQUESTS_LIMIT + 1);
     return {
       status: "read",
-      lifecycle: {
-        requestId: request.id,
-        actionKind: request.actionKind,
-        proposedByActorType: request.proposedByActorType,
-        proposedAt: iso(request.createdAt) ?? "",
-        decision,
-        permit:
-          row.permitStatus === null || row.permitExpiresAt === null
-            ? null
-            : {
-                state: derivePermitState(row.permitStatus, row.permitExpiresAt, now),
-                expiresAt: iso(row.permitExpiresAt) ?? "",
-                consumedAt: iso(row.permitConsumedAt),
-                revokedAt: iso(row.permitRevokedAt),
-              },
-        execution:
-          row.attemptStatus === null
-            ? null
-            : {
-                status: row.attemptStatus as ExecutionAttemptStatus,
-                providerAccepted: row.attemptStatus === "accepted" && row.providerMessageId !== null,
-              },
-      },
+      items: rows.slice(0, MY_ACTION_REQUESTS_LIMIT).map((row) => toLifecycleView(row, now)),
+      more: rows.length > MY_ACTION_REQUESTS_LIMIT,
     };
   } catch {
     return { status: "unavailable", reason: "read-failed" };

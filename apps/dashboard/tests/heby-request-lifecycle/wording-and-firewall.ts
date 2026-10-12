@@ -8,6 +8,7 @@ import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describeRequestLifecycle, HebyOriginationAffordance } from "../../src/components/layout/heby/heby-origination-affordance";
+import { HebyMyRequests } from "../../src/components/layout/heby/heby-my-requests";
 import type { ActionRequestLifecycleView } from "../../src/features/action-authorization/read-action-authorizations.server";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -15,12 +16,14 @@ const code = (f: string) =>
   readFileSync(path.join(ROOT, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
 const ACTION = "src/app/(dashboard)/heby/request-lifecycle-actions.ts";
 const AFFORDANCE = "src/components/layout/heby/heby-origination-affordance.tsx";
+const MY_REQUESTS = "src/components/layout/heby/heby-my-requests.tsx";
 
 /* ═══ 1. WORDING — one sentence per fact, nothing beyond it ═══════════════════════════════════ */
 const T = "2026-10-12T10:00:00.000Z";
 const base: ActionRequestLifecycleView = {
   requestId: "00000000-0000-4000-8000-000000000001",
   actionKind: "send-external-communication",
+  label: "Send the update",
   proposedByActorType: "agent",
   proposedAt: T,
   decision: { status: "approved", at: T, standing: false },
@@ -108,12 +111,30 @@ assert.match(ui, /When filed, it was waiting for review in/);
 assert.ok(!/It is waiting for review in/.test(ui), "no present-tense claim that can go stale beside the read");
 assert.match(ui, /requestId: result\.proposal\.receipt\.requestId/, "the id comes from the server's own receipt");
 
+/* ═══ 4. HEBY-MY-REQUESTS — no input, read only on open/refresh, nothing that acts ═══════════ */
+assert.match(actionSrc, /export async function readMyHebyRequestsAction\(\): Promise<MyActionRequestLifecyclesRead> \{\s*return readMyActionRequestLifecycles\(await resolveTenantContext\(\)\);/,
+  "the list action takes no input: the person is the session's human");
+const mr = code(MY_REQUESTS);
+assert.equal((mr.match(/readMyHebyRequestsAction\(/g) ?? []).length, 1, "read from one place");
+assert.ok(!/useEffect|useLayoutEffect|setInterval|setTimeout/.test(mr), "nothing polls or runs on render");
+assert.match(mr, /if \(next\) load\(\);/, "opening reads once");
+assert.match(mr, /onClick=\{load\}/, "Refresh reads on a click");
+for (const i of [...mr.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!)) {
+  assert.ok(!/\.server$|approvals\/actions|decide-action|action-execution|governance|heby-model|\/actions"?$/.test(i) || i === "@/app/(dashboard)/heby/request-lifecycle-actions",
+    `the list imports no writer or acting action: ${i}`);
+}
+assert.ok(!/approve|execute\(|revoke/i.test(mr.replace(/Approvals/g, "")), "the list offers no decision or execution");
+assert.match(code("src/components/layout/heby/heby-workspace-client.tsx"), /headerAction=\{<HebyMyRequests \/>\}/, "mounted in the Heby top bar");
+
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async () => {
   throw new Error("rendering must not fetch");
 }) as typeof fetch;
 try {
   assert.match(renderToStaticMarkup(createElement(HebyOriginationAffordance, { goal: "Record the loom repair." })), /Propose as organizational work…/);
+  const closedList = renderToStaticMarkup(createElement(HebyMyRequests));
+  assert.match(closedList, /Your requests/, "closed: one button");
+  assert.ok(!/data-heby-my-requests/.test(closedList), "closed: no list is shown or read");
 } finally {
   globalThis.fetch = realFetch;
 }

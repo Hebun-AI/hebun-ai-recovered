@@ -22,6 +22,7 @@ import { useHebyConversation } from "./use-heby-conversation";
 import { useHebyVoiceSurface } from "./use-heby-voice-surface";
 import { HebyWorkspace } from "./heby-workspace";
 import { HebyOriginationAffordance } from "./heby-origination-affordance";
+import { HebyMyRequests } from "./heby-my-requests";
 import type { CommandCapabilityView } from "@/features/heby-commands/contracts";
 
 export interface HebyWorkspaceClientProps {
@@ -102,6 +103,7 @@ export function HebyWorkspaceClient(props: HebyWorkspaceClientProps) {
        */
       onClose={() => operate("rail")}
       userTurnAction={(content) => <HebyOriginationAffordance goal={content} />}
+      headerAction={<HebyMyRequests />}
       {...conversation}
       /* Spread AFTER the conversation: the arbitrated presence and the operator's wrapped submit. */
       {...voice}

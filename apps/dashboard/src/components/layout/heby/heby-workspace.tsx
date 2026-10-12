@@ -80,6 +80,8 @@ export interface HebyWorkspaceProps {
   readonly turns: readonly HebyTurnView[];
   /** WF-1 — optional control under each settled human turn; supplied by the client container. */
   readonly userTurnAction?: (content: string) => React.ReactNode;
+  /** HEBY-MY-REQUESTS — optional top-bar control; supplied by the client container. */
+  readonly headerAction?: React.ReactNode;
   /** In-flight user text (optimistic presentation only; never authoritative). */
   readonly pending: string | null;
   /** A MODEL request is in flight. Drives the presence field and the responding turn. */
@@ -252,6 +254,7 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {props.headerAction}
           {/*
            * An explicit way out. The rail control is a true toggle, but browser Back must never be
            * the only exit from the surface the operator dropped into.
