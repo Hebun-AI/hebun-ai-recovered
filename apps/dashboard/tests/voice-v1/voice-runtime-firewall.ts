@@ -260,7 +260,8 @@ function main(): void {
     // Persistence, dispatch and the slash gate are untouched by Voice V1.
     assert.ok(hook.includes("askHebyAction({ prompt, route: contextRoute, conversationId: prior })"),
       "the single dispatch payload is unchanged");
-    assert.ok(hook.includes("const parsed = parseHebyInput(override ?? session.composer)"),
+    // `let` since NATURAL-LANGUAGE ACTION PLANNING: a recognized planning message becomes the `/plan` read.
+    assert.ok(/(?:const|let) parsed = parseHebyInput\(override \?\? session\.composer\)/.test(hook),
       "the single submission gate still parses first");
     assert.ok(hook.includes("conversationKey(contextRoute)"), "the single durable pointer is unchanged");
   }

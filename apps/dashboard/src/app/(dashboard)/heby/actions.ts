@@ -95,6 +95,7 @@ export async function runHebyReadCommandAction(
       args: input.args,
       route: input.route,
       conversationId: input.conversationId,
+      phrasing: input.phrasing === "natural-language" ? "natural-language" : undefined,
     },
     { resolveTenant: resolveTenantContext },
   );

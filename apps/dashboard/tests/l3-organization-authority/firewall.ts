@@ -294,11 +294,18 @@ function thereIsOnlyOneAnswer(): void {
       PLACE_HUMAN_INLET,
       /* AP-2 — the Agents page reads its department list through this seam for agent placement. */
       "src/app/(dashboard)/agents/page.tsx",
+      /*
+       * NATURAL-LANGUAGE ACTION PLANNING — the `/plan` read resolves the department an ordinary
+       * message names through THIS seam rather than `readOrganizationStructure`, before it plans
+       * anything. It is the command read path, not the model-answer root: the model sees nothing
+       * from it. The census GREW; nothing in it widened.
+       */
+      "src/features/heby-commands/read-commands.server.ts",
     ].sort(),
     "the Organization Authority's consumers are exactly the Organization page, the Live Map " +
       "projection, the Work register page, the record-work proposal inlet, the place-human " +
       "proposal inlet, the agent " +
-      "origination candidate builder, and (AP-2) the Agents page",
+      "origination candidate builder, (AP-2) the Agents page, and the /plan read",
   );
 
   /*

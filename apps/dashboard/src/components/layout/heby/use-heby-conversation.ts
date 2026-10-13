@@ -58,6 +58,7 @@ import {
   type HebyCommandResult,
   type HebySurfaceKind,
 } from "@/features/heby-commands";
+import { PLAN_INTENT_TITLE, PLAN_INTENT_WORK_DOMAIN_LINES, recognizePlanIntent } from "@/features/heby-commands/plan-intent";
 import { buildConversationSuggestions, deriveLatestProvenance, type ProvenanceBadge } from "./heby-provenance";
 import { buildTurns, type LatestTurn } from "./heby-thread";
 import type { HebyTurnView } from "./heby-turns";
@@ -265,7 +266,7 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
    */
   async function submitInput(override?: string): Promise<void> {
     if (asking || reading) return;
-    const parsed = parseHebyInput(override ?? session.composer);
+    let parsed = parseHebyInput(override ?? session.composer);
 
     if (parsed.kind === "empty") return;
 
@@ -293,6 +294,26 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
 
     /** The ONE prompt variable. It is set on exactly two paths, and nothing else can fill it. */
     let prompt: string;
+
+    /*
+     * NATURAL-LANGUAGE ACTION PLANNING. An ordinary message that plainly asks for an organizational
+     * action plan runs the released `/plan` read instead of the model, with the message as its one
+     * argument; the server resolves the department against Organization Authority. A work-domain
+     * request is refused locally. Anything else stays an ordinary prompt.
+     */
+    let phrasing: "natural-language" | undefined;
+    if (parsed.kind === "prompt") {
+      const intent = recognizePlanIntent(parsed.prompt);
+      if (intent === "work-domain") {
+        patch({ composer: "", commandOutput: refusal("/plan", PLAN_INTENT_TITLE, PLAN_INTENT_WORK_DOMAIN_LINES) });
+        return;
+      }
+      const planCommand = intent === "plan" ? findHebyCommandById("plan") : undefined;
+      if (planCommand) {
+        phrasing = "natural-language";
+        parsed = { kind: "command", command: planCommand, args: [parsed.prompt] };
+      }
+    }
 
     if (parsed.kind === "command") {
       const plan = planHebyCommand(parsed.command, parsed.args, {
@@ -346,6 +367,7 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
               args: plan.args,
               route: contextRoute,
               conversationId: session.conversationId ?? undefined,
+              phrasing,
             });
             if (read.status === "ok") {
               patch({ commandOutput: read.result });

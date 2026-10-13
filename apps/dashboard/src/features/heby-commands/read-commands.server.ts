@@ -87,6 +87,9 @@ import { readWorkRegister, type WorkRegister } from "@/features/organizational-w
 import type { AgentOriginationAvailability } from "@/features/origination-availability/contracts";
 import { readOriginationAvailability } from "@/features/origination-availability/read-origination-availability.server";
 import { composeActionPlan, PLAN_PROVENANCE } from "./action-plan";
+import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
+import { ORGANIZATION_STRUCTURE_UNAVAILABLE, type OrganizationStructure } from "@/features/organization-authority/contracts";
+import { planClarificationLines, PLAN_INTENT_PROVENANCE, PLAN_INTENT_TITLE, resolvePlanDepartment } from "./plan-intent";
 import {
   observeRecordedActHistory,
   observeSubjectActHistory,
@@ -110,6 +113,12 @@ export interface HebyReadCommandInput {
   readonly route: string;
   /** An opaque conversation reference, re-verified against the tenant server-side. */
   readonly conversationId?: string;
+  /**
+   * NATURAL-LANGUAGE ACTION PLANNING — `/plan` reached from an ordinary message, whose text is the
+   * one argument. It only makes the read STRICTER: the department must be resolved against
+   * Organization Authority before anything is planned. It grants nothing.
+   */
+  readonly phrasing?: "natural-language";
 }
 
 export interface HebyReadCommandDeps {
@@ -117,6 +126,8 @@ export interface HebyReadCommandDeps {
   /** HEBY ORGANIZATIONAL ACTION PLANNING — the two released reads `/plan` composes. Injectable for proof. */
   readonly readWork?: (tenant: TenantContext) => Promise<WorkRegister>;
   readonly readOriginationAvailability?: (tenant: TenantContext) => Promise<AgentOriginationAvailability>;
+  /** NATURAL-LANGUAGE ACTION PLANNING — the department structure, through Organization Authority's one read seam. */
+  readonly readStructure?: (tenant: TenantContext) => Promise<OrganizationStructure>;
   readonly readOverview?: () => ExecutiveOverviewLike | undefined;
   readonly readProviderOps?: () => Promise<ProviderOpsView>;
   /**
@@ -234,6 +245,12 @@ function assertServerRuntime(): void {
   if (typeof window !== "undefined") {
     throw new Error("Heby read commands are server-only.");
   }
+}
+
+/** Departments through Organization Authority's one read seam; any failure is `unavailable`, never "none". */
+async function readStructureThroughAuthority(tenant: TenantContext): Promise<OrganizationStructure> {
+  const read = await readOrganizationAuthority(tenant);
+  return read.status === "available" ? read.organization.structure : ORGANIZATION_STRUCTURE_UNAVAILABLE;
 }
 
 function ok(command: string, title: string, lines: readonly string[], provenance: string): HebyReadCommandResult {
@@ -429,14 +446,29 @@ export async function runHebyReadCommand(
      * is a filter over this organization's own register, never a lookup elsewhere.
      */
     case "plan": {
+      let scope = input.args.join(" ");
+      let preface: readonly string[] = [];
+      if (input.phrasing === "natural-language") {
+        // The message names the department; Organization Authority decides whether it is one.
+        const structure = await (deps.readStructure ?? readStructureThroughAuthority)(tenant);
+        const resolution = resolvePlanDepartment(scope, structure);
+        if (resolution.kind !== "resolved") {
+          return unavailable(slash, PLAN_INTENT_TITLE, planClarificationLines(resolution), PLAN_INTENT_PROVENANCE);
+        }
+        scope = resolution.name;
+        preface = [
+          `Read your message as an action-planning request for the ${scope} department, a department of this organization. This is the same plan as /plan ${scope}.`,
+          "",
+        ];
+      }
       const [register, availability] = await Promise.all([
         (deps.readWork ?? readWorkRegister)(tenant),
         (deps.readOriginationAvailability ?? ((t: TenantContext) => readOriginationAvailability({ resolveTenant: async () => t })))(tenant),
       ]);
-      const plan = composeActionPlan({ scope: input.args.join(" "), register, availability, now: new Date() });
+      const plan = composeActionPlan({ scope, register, availability, now: new Date() });
       return plan.tone === "info"
-        ? ok(slash, plan.title, plan.lines, PLAN_PROVENANCE)
-        : unavailable(slash, plan.title, plan.lines, PLAN_PROVENANCE);
+        ? ok(slash, plan.title, [...preface, ...plan.lines], PLAN_PROVENANCE)
+        : unavailable(slash, plan.title, [...preface, ...plan.lines], PLAN_PROVENANCE);
     }
 
     /* ── Context status ───────────────────────────────────────────────── */
