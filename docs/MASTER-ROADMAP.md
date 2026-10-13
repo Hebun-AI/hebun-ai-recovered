@@ -5564,6 +5564,7 @@ re-graded here.
 |---|---|---|
 | PHASE-A-DEVELOPMENT-CONTINUITY | DEPLOYED | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` |
 | PHASE-B1-KNOWLEDGE-PRESERVATION | VERIFIED | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` |
+| HEBY-NL-ACTION-PLANNING | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-nl-action-planning-closure.md` |
 
 ---
 
