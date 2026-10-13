@@ -5565,6 +5565,7 @@ re-graded here.
 | PHASE-A-DEVELOPMENT-CONTINUITY | DEPLOYED | `docs/product-vision/runtime/hebun-phase-a-development-continuity-closure.md` |
 | PHASE-B1-KNOWLEDGE-PRESERVATION | VERIFIED | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` |
 | HEBY-NL-ACTION-PLANNING | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-nl-action-planning-closure.md` |
+| HEBY-AI-PLANNING-PHASE-1 | DESIGN ONLY | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` |
 
 ---
 
@@ -5582,3 +5583,5 @@ before §16.1 are not yet indexed (Phase B).
 | CONTINUITY-PICKER-STRANDED-ACCEPTANCE-1 | PHASE-B1-KNOWLEDGE-PRESERVATION | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` | Historical record integrity | DEFERRED | Director decision on the proposed GOOGLE-PICKER-1 addendum |
 | CONTINUITY-BRAIN-LAG-1 | PHASE-B1-KNOWLEDGE-PRESERVATION | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` | Knowledge continuity | DEFERRED | Director-selected Hebun Brain catch-up |
 | HEBUN-BRAIN-VALIDATION-1 | PHASE-B1-KNOWLEDGE-PRESERVATION | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` | Knowledge continuity | DEFERRED | Vault-only repair; no repository dependency |
+| AI-PLAN-TITLE-PII-1 | HEBY-AI-PLANNING-PHASE-1 | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` | External AI disclosure | DEFERRED | Director decisions D3 and D4 before any AI planning release |
+| AI-PLAN-INDIRECT-PROFILING-1 | HEBY-AI-PLANNING-PHASE-1 | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` | External AI disclosure | DEFERRED | Director decision D4 before any AI planning release |
