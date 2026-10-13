@@ -54,8 +54,13 @@ function evidence(items: readonly WorkItemView[]): string {
   return `Evidence: ${shown.join(", ")}${more > 0 ? ` and ${more} more` : ""}.`;
 }
 
-const matchesDepartment = (item: WorkItemView, wanted: string) =>
+/** The `/plan` department filter: `wanted` is the scope trimmed and lower-cased. Shared with the operational planning projection. */
+export const matchesDepartment = (item: WorkItemView, wanted: string) =>
   item.department !== null && item.department.name.trim().toLowerCase() === wanted;
+
+/** Derived: no change for `STALE_AFTER_DAYS` or more, from the record's last change time. Shared with the operational planning projection. */
+export const isStale = (item: WorkItemView, now: Date) =>
+  now.getTime() - new Date(item.updatedAt).getTime() >= STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
 
 export function composeActionPlan(input: {
   readonly scope: string;
@@ -108,8 +113,7 @@ export function composeActionPlan(input: {
   const unowned = open.filter((item) => item.accountableActorId === null);
   const ownerInactive = open.filter((item) => item.accountableActorId !== null && item.accountableCurrentlyActiveMember === false);
   const blocked = open.filter((item) => item.declaredState === "blocked");
-  const staleMs = STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
-  const stale = open.filter((item) => input.now.getTime() - new Date(item.updatedAt).getTime() >= staleMs);
+  const stale = open.filter((item) => isStale(item, input.now));
 
   lines.push(
     `Fact: ${plural(inService.length, "work item")} in service${wanted ? ` name the ${scopeLabel} department` : ""}; ${scoped.length - inService.length} retired.${truncation}`,

@@ -82,10 +82,23 @@ assert.deepEqual(
     "src/features/governance-decision/decision-authority.server.ts",
     "src/features/heby-answer/model-answer.server.ts",
     "src/features/heby-answer/model-facing-projection.ts",
+    "src/features/heby-commands/operational-planning-projection.server.ts",
     "src/features/heby-model/heby-model-generation.server.ts",
     "src/features/origination-availability/read-origination-availability.server.ts",
   ],
-  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence and WF-1's read-only availability projection reach the authority",
+  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection and the operational planning projection's contract check reach the authority",
+);
+/*
+ * CONTROLLED AGENT REASONING · PHASE 2 — the operational planning projection checks what it built
+ * against the `operational-record` contract (EAI-OPERATIONAL-RECORD-1). It imports the contract and
+ * nothing else from the authority: no gate, no policy, no composer, no writer. It decides no
+ * disclosure, declares no purpose and dispatches nothing; its own suite proves nothing at runtime
+ * imports it (tests/heby-operational-planning-projection).
+ */
+assert.deepEqual(
+  [...read("src/features/heby-commands/operational-planning-projection.server.ts").matchAll(/from\s+["'](@\/features\/external-ai-data-use\/[^"']+)["']/g)].map((m) => m[1]),
+  ["@/features/external-ai-data-use/operational-record-contract"],
+  "the operational planning projection imports the operational-record contract and nothing else from the authority",
 );
 /*
  * WF-1 — the availability projection asks the gate for its decision and READS it; it writes no
