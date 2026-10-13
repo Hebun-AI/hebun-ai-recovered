@@ -5568,6 +5568,7 @@ re-graded here.
 | HEBY-AI-PLANNING-PHASE-1 | DESIGN ONLY | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` |
 | EAI-OPERATIONAL-RECORD-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-operational-record-contract-closure.md` |
 | HEBY-OPERATIONAL-PLANNING-PROJECTION-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-operational-planning-projection-closure.md` |
+| HEBY-AI-PLAN-OUTPUT-CONTRACT-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-ai-plan-output-contract-closure.md` |
 
 ---
 
@@ -5587,4 +5588,4 @@ before §16.1 are not yet indexed (Phase B).
 | HEBUN-BRAIN-VALIDATION-1 | PHASE-B1-KNOWLEDGE-PRESERVATION | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` | Knowledge continuity | DEFERRED | Vault-only repair; no repository dependency |
 | AI-PLAN-TITLE-PII-1 | HEBY-AI-PLANNING-PHASE-1 | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` | External AI disclosure | DEFERRED | Director decisions D3 and D4 before any AI planning release |
 | AI-PLAN-INDIRECT-PROFILING-1 | HEBY-AI-PLANNING-PHASE-1 | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` | External AI disclosure | DEFERRED | Director decision D4 before any AI planning release |
-| PROJECTION-POSTGRES-PROOF-1 | HEBY-OPERATIONAL-PLANNING-PROJECTION-1 | `docs/product-vision/runtime/hebun-heby-operational-planning-projection-closure.md` | Verification gap | DEFERRED | A working disposable Postgres harness; required before any phase that declares operational-record |
+| PROJECTION-POSTGRES-PROOF-1 | HEBY-AI-PLAN-OUTPUT-CONTRACT-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-output-contract-closure.md` | Verification gap | CLOSED | — |

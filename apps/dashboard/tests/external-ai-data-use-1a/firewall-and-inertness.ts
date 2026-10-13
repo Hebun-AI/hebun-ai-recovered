@@ -82,11 +82,12 @@ assert.deepEqual(
     "src/features/governance-decision/decision-authority.server.ts",
     "src/features/heby-answer/model-answer.server.ts",
     "src/features/heby-answer/model-facing-projection.ts",
+    "src/features/heby-commands/operational-plan-candidate.ts",
     "src/features/heby-commands/operational-planning-projection.server.ts",
     "src/features/heby-model/heby-model-generation.server.ts",
     "src/features/origination-availability/read-origination-availability.server.ts",
   ],
-  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection and the operational planning projection's contract check reach the authority",
+  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection, and the operational planning projection and plan-candidate contract checks reach the authority",
 );
 /*
  * CONTROLLED AGENT REASONING · PHASE 2 — the operational planning projection checks what it built
@@ -99,6 +100,16 @@ assert.deepEqual(
   [...read("src/features/heby-commands/operational-planning-projection.server.ts").matchAll(/from\s+["'](@\/features\/external-ai-data-use\/[^"']+)["']/g)].map((m) => m[1]),
   ["@/features/external-ai-data-use/operational-record-contract"],
   "the operational planning projection imports the operational-record contract and nothing else from the authority",
+);
+/*
+ * CONTROLLED AGENT REASONING · PHASE 3 — the plan-candidate validator re-checks the projection it is
+ * given and reads the declared-state vocabulary from the same contract. Pure; no gate, no policy, no
+ * dispatch. Its suite proves nothing at runtime imports it (tests/heby-operational-planning-projection).
+ */
+assert.deepEqual(
+  [...read("src/features/heby-commands/operational-plan-candidate.ts").matchAll(/from\s+["'](@\/features\/external-ai-data-use\/[^"']+)["']/g)].map((m) => m[1]),
+  ["@/features/external-ai-data-use/operational-record-contract"],
+  "the plan-candidate validator imports the operational-record contract and nothing else from the authority",
 );
 /*
  * WF-1 — the availability projection asks the gate for its decision and READS it; it writes no
