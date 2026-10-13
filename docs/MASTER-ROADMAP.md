@@ -5572,6 +5572,7 @@ re-graded here.
 | HEBY-AI-PLAN-RUNTIME-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-ai-plan-runtime-closure.md` |
 | EAI-WORK-PLANNING-AUTHORIZATION-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-work-planning-authorization-closure.md` |
 | EAI-WORK-PLANNING-CEREMONY-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-work-planning-ceremony-closure.md` |
+| HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` |
 
 ---
 
@@ -5592,7 +5593,9 @@ before §16.1 are not yet indexed (Phase B).
 | AI-PLAN-TITLE-PII-1 | HEBY-AI-PLANNING-PHASE-1 | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` | External AI disclosure | DEFERRED | Director decisions D3 and D4 before any AI planning release |
 | AI-PLAN-INDIRECT-PROFILING-1 | HEBY-AI-PLANNING-PHASE-1 | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` | External AI disclosure | DEFERRED | Director decision D4 before any AI planning release |
 | PROJECTION-POSTGRES-PROOF-1 | HEBY-AI-PLAN-OUTPUT-CONTRACT-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-output-contract-closure.md` | Verification gap | CLOSED | — |
-| AI-PLAN-RUNTIME-BROWSER-1 | HEBY-AI-PLAN-RUNTIME-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-runtime-closure.md` | Verification gap | DEFERRED | Browser verification of the AI plan surface before production acceptance |
+| AI-PLAN-RUNTIME-BROWSER-1 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` | Verification gap | CLOSED | — |
 | TEST-HARNESS-PG18-TEARDOWN-1 | HEBY-AI-PLAN-RUNTIME-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-runtime-closure.md` | Verification reliability | DEFERRED | A Director-approved harness fix (skip autovacuum backends, or grant pg_signal_autovacuum_worker locally) |
 | EAI-WORK-PLANNING-CEREMONY-1 | EAI-WORK-PLANNING-AUTHORIZATION-1 | `docs/product-vision/runtime/hebun-eai-work-planning-ceremony-closure.md` | Release prerequisite | CLOSED | — |
 | RELEASE-ROLLBACK-FLOOR-1 | EAI-WORK-PLANNING-CEREMONY-1 | `docs/product-vision/runtime/hebun-eai-work-planning-ceremony-closure.md` | Release safety | DEFERRED | Once any tenant holds work-planning, no deployment older than a27e5ad4 may serve production until `--work-planning --revoke` has run; Director decision on a tolerant scope reader |
+| GATE-D-PROVIDER-RECONCILIATION-1 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` | Provider evidence | BLOCKED | Blocks PRODUCTION-ACCEPTED of HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 until production's Anthropic credential is reconciled with the Console account or a provider message id is recorded |
+| AI-PLAN-UI-THROW-1 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` | UX failure legibility | DEFERRED | A Director-approved fix that ends a non-connectivity error with an unavailable line |
