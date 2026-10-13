@@ -5566,6 +5566,7 @@ re-graded here.
 | PHASE-B1-KNOWLEDGE-PRESERVATION | VERIFIED | `docs/product-vision/runtime/hebun-phase-b1-knowledge-preservation-closure.md` |
 | HEBY-NL-ACTION-PLANNING | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-nl-action-planning-closure.md` |
 | HEBY-AI-PLANNING-PHASE-1 | DESIGN ONLY | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` |
+| EAI-OPERATIONAL-RECORD-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-operational-record-contract-closure.md` |
 
 ---
 
