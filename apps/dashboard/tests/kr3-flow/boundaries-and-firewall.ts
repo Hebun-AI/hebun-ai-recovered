@@ -148,6 +148,8 @@ function main(): void {
       "20261007175237_ap4a_work_domain_foundation.sql",
       /* L-1b — governance_domain gains 'agent-lifecycle' (additive). A declared later phase. */
       "20261008143657_l1b_agent_lifecycle_domain.sql",
+      /* D1 — tenant_ai_data_use_scopes purpose CHECK gains 'work-planning' (additive). A declared later phase. */
+      "20261013113340_eai_work_planning_purpose.sql",
       ],
       "KR3 added no migration; everything after its boundary belongs to a declared later phase",
     );

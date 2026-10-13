@@ -44,6 +44,8 @@ const ALLOWED = ["conversation", "knowledge", "work-artifact"] as const;
 /* APF-3 (Director, 2026-10-06): origination's narrow projection, appended after B1D's three. */
 /* WF-3B (Director, 2026-10-06): + knowledge, appended after APF-3's two. */
 const ORIGINATION_ALLOWED = ["conversation", "organization", "knowledge"] as const;
+/* D4 (Director, 2026-10-13, Controlled Agent Reasoning phase 5): Heby AI planning's one cell, appended last. */
+const WORK_PLANNING_ALLOWED = ["operational-record"] as const;
 
 /* ── 1. EXACTLY THREE CELLS, EXACTLY THESE BOUNDS. ─────────────────────────────────────────────── */
 const policy = RECORDED_PLATFORM_DISCLOSURE_POLICY;
@@ -52,8 +54,9 @@ assert.deepEqual(
   [
     ...ALLOWED.map((d) => ["anthropic/messages", "assistance", d, "allowed"]),
     ...ORIGINATION_ALLOWED.map((d) => ["anthropic/messages", "agent-origination", d, "allowed"]),
+    ...WORK_PLANNING_ALLOWED.map((d) => ["anthropic/messages", "work-planning", d, "allowed"]),
   ],
-  "exactly the three B1D cells, APF-3's two and WF-3B's one, in order",
+  "exactly the three B1D cells, APF-3's two, WF-3B's one and D4's one, in order",
 );
 const EXPECTED_BOUNDS = {
   contractSurfaces: ["anthropic-commercial-terms"],
@@ -89,7 +92,8 @@ for (const serviceScope of SERVICE_SCOPES) {
       } else if (
         serviceScope === "anthropic/messages" &&
         ((purpose === "assistance" && (ALLOWED as readonly string[]).includes(dataClass)) ||
-          (purpose === "agent-origination" && (ORIGINATION_ALLOWED as readonly string[]).includes(dataClass)))
+          (purpose === "agent-origination" && (ORIGINATION_ALLOWED as readonly string[]).includes(dataClass)) ||
+          (purpose === "work-planning" && (WORK_PLANNING_ALLOWED as readonly string[]).includes(dataClass)))
       ) {
         assert.equal(verdict.decision, "allowed", `${label} is ALLOWED`);
         if (verdict.decision === "allowed") assert.equal(verdict.bounds, ANTHROPIC_ASSISTANCE_BOUNDS);
@@ -100,7 +104,7 @@ for (const serviceScope of SERVICE_SCOPES) {
     }
   }
 }
-assert.equal(allowedCount, 6, "six ALLOWED cells across the whole vocabulary (WF-3B added one)");
+assert.equal(allowedCount, 7, "seven ALLOWED cells across the whole vocabulary (WF-3B added one, D4 one)");
 /* The classes and purposes the Director named as NOT authorized, spelled out. */
 for (const purpose of ["relevance-selection", "media-generation"] as const) {
   for (const dataClass of ALLOWED) {
@@ -113,6 +117,17 @@ for (const dataClass of ["provider-observation", "organization", "governance-rec
 /* APF-3 — what origination may NOT disclose, spelled out. (WF-3B moved knowledge to ALLOWED.) */
 for (const dataClass of ["work-artifact", "external-recipient", "provider-observation", "governance-record", "operational-record", "media-generated", "media-supplied"] as const) {
   assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "agent-origination", dataClass }).decision, "unknown", `agent-origination × ${dataClass}`);
+}
+
+/* D4 — work-planning discloses operational-record and nothing else; operational-record crosses for no other purpose. */
+for (const dataClass of DATA_CLASSES.filter((d) => d !== "operational-record")) {
+  assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "work-planning", dataClass }).decision, "unknown", `work-planning × ${dataClass}`);
+}
+for (const purpose of PURPOSES.filter((p) => p !== "work-planning")) {
+  assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose, dataClass: "operational-record" }).decision, "unknown", `${purpose} × operational-record`);
+}
+for (const serviceScope of SERVICE_SCOPES.filter((s) => s !== "anthropic/messages")) {
+  assert.notEqual(decidePlatformDisclosure({ serviceScope, purpose: "work-planning", dataClass: "operational-record" }).decision, "allowed", `${serviceScope} × work-planning`);
 }
 
 /* ── 3. THE ADMITTED B1C ATTESTATION SATISFIES THE BOUNDS — read from the reviewed record itself. ── */
@@ -147,9 +162,9 @@ const inForce = {
   ...admitted,
   state: "active" as const,
 };
-for (const dataClass of ALLOWED) {
+for (const [purpose, dataClass] of [...ALLOWED.map((d) => ["assistance", d] as const), ["work-planning", "operational-record"] as const]) {
   const base: DisclosureComposeInput = {
-    request: { serviceScope: "anthropic/messages", purpose: "assistance", requiredDataClasses: [dataClass], modelId: "claude-haiku-4-5-20251001" },
+    request: { serviceScope: "anthropic/messages", purpose, requiredDataClasses: [dataClass], modelId: "claude-haiku-4-5-20251001" },
     policy,
     accountRef: parsed.record.accountRef,
     attestation: { status: "read", latest: inForce as never },

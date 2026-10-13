@@ -122,13 +122,13 @@ for (const r of OPERATIONAL_RECORD_FIELDS) {
 }
 assert.equal(new Set(OPERATIONAL_RECORD_FIELDS.map((r) => r.field)).size, OPERATIONAL_RECORD_FIELDS.length, "one rule per field");
 
-/* ── 1. DERIVED DATA IS OPERATIONAL-RECORD, AND NO PURPOSE MAY CARRY IT TODAY. ─────────────────── */
+/* ── 1. DERIVED DATA IS OPERATIONAL-RECORD, AND ONLY work-planning MAY CARRY IT (D4). ─────────── */
 for (const r of OPERATIONAL_RECORD_FIELDS.filter((x) => x.provenance === "derived" && x.modelVisibility === "candidate")) {
   assert.equal(r.disclosureClass, "operational-record", `${r.field}: derived, still protected`);
 }
 const onlyDerived = validateOperationalPlanningProjection({ items: [{ alias: "W1", state: "planned", accountable: false, stale: true, evidenceDeclared: false }] });
 assert.ok(onlyDerived.ok && onlyDerived.dataClasses.length === 1 && onlyDerived.dataClasses[0] === "operational-record", "a projection of flags still declares the class");
-for (const purpose of PURPOSES) {
+for (const purpose of PURPOSES.filter((p) => p !== "work-planning")) {
   assert.notEqual(
     decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose, dataClass: "operational-record" }).decision,
     "allowed",
@@ -136,6 +136,15 @@ for (const purpose of PURPOSES) {
   );
   assert.equal(disposition(input(purpose)), "platform-unknown", `${purpose}: a tenant 'grant' cannot open what the platform does not allow`);
 }
+/* D4: the one recorded cell. It is platform acceptability only — without the tenant's own scope it refuses. */
+assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "work-planning", dataClass: "operational-record" }).decision, "allowed");
+assert.equal(disposition(input("work-planning", { tenant: { status: "absent" } })), "tenant-not-authorized", "the platform cell authorizes no tenant");
+assert.equal(
+  disposition(input("work-planning", { tenant: { status: "read", effective: { authorizationId: "auth-a", state: "active", boundAttestation: VIEW, scopes: [{ purpose: "assistance", dataClass: "conversation" }, { purpose: "assistance", dataClass: "knowledge" }, { purpose: "assistance", dataClass: "work-artifact" }] } } })),
+  "tenant-not-authorized",
+  "an assistance grant is not a work-planning grant",
+);
+assert.equal(disposition(input("work-planning")), "authorized", "control: the recorded cell, the tenant's own scope and the attested model together");
 /* Assistance is not widened, and Heby's grounding still withholds Work. */
 assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "assistance", dataClass: "operational-record" }).decision, "unknown");
 const work = { sourceClass: "work", state: "resolved", provenance: "work authority", items: [{ recordRef: "work/x", label: "Supplier contract", detail: "blocked", lifecycle: "settled" }] } as unknown as SourceResolution;

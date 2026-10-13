@@ -1,10 +1,11 @@
 /*
- * CONTROLLED AGENT REASONING · PHASE 4 — the AI planning runtime.
+ * CONTROLLED AGENT REASONING · PHASES 4 AND 5 — the AI planning runtime.
  *
  * THE SUCCESS CONDITION THIS FILE PROVES:
- *   "With the released code, `plan with AI` reaches no model: `work-planning` is not in the EAI
- *    vocabulary, so no declaration exists. Under a TEST-ONLY hypothetical D1 + D4, the runtime
- *    declares work-planning × operational-record only — never assistance — and the REAL generator's
+ *   "With the recorded D1 purpose and D4 platform cell, `plan with AI` still reaches no model until
+ *    the tenant's own authorization names work-planning × operational-record. Under a TEST-ONLY
+ *    tenant grant, the runtime declares work-planning × operational-record only — never
+ *    assistance — and the REAL generator's
  *    EAI gate refuses before fetch for no tenant authorization, a revoked one, a missing attestation
  *    or another tenant; the projection is validated before any call; what crosses is aliases,
  *    states and flags only; a malformed, fabricated, injected or replayed answer is never shown;
@@ -23,7 +24,7 @@ import type { AttestationTreatmentView } from "../../src/features/external-ai-da
 import type { ExternalAiDisclosureDeclaration, ExternalAiDisclosureEvidence } from "../../src/features/external-ai-data-use/authorize-external-ai-disclosure.server";
 import { composeExternalAiDisclosure, type DisclosureComposeInput, type LatestAttestation } from "../../src/features/external-ai-data-use/compose-external-ai-disclosure";
 import { PURPOSES } from "../../src/features/external-ai-data-use/contracts";
-import { ANTHROPIC_ASSISTANCE_BOUNDS, decidePlatformDisclosure, RECORDED_PLATFORM_DISCLOSURE_POLICY, type PlatformDisclosurePolicy } from "../../src/features/external-ai-data-use/platform-disclosure-policy";
+import { decidePlatformDisclosure, RECORDED_PLATFORM_DISCLOSURE_POLICY, type PlatformDisclosurePolicy } from "../../src/features/external-ai-data-use/platform-disclosure-policy";
 import {
   AI_PLAN_PROVENANCE,
   runAiOperationalPlan,
@@ -67,16 +68,12 @@ const REGISTER = (items: readonly WorkItemView[]): WorkRegister => ({ status: "a
 const EVIDENCE: WorkEvidenceRead = { status: "available", references: [] };
 const STRUCTURE = { status: "available", detail: "d", departments: [{ departmentId: "aaaaaaaa-0000-4000-8000-000000000001", name: "Engineering", slug: "engineering", lifecycleStatus: "active", inService: true }] } as never;
 
-/* ── EAI: the real composer; hypothetical D1/D4 cells are TEST ONLY. ── */
+/* ── EAI: the real composer over the RECORDED policy (D1 + D4); the tenant grant is TEST ONLY. ── */
 const VIEW: AttestationTreatmentView = { id: "ffb0c160-4082-4c7f-be6a-05a4d990c598", serviceScope: "anthropic/messages", accountRef: ACCOUNT, identityStatus: "attested", contractSurface: "anthropic-commercial-terms", training: "none", retentionClass: "bounded-30-days", zdr: "not-enabled", modelTreatmentClass: "anthropic-standard" };
 const LATEST: LatestAttestation = { ...VIEW, state: "active", modelIds: [MODEL], attestationRevision: 1 };
-const WORK_PLANNING = "work-planning" as never;
-const HYPOTHETICAL_D4: PlatformDisclosurePolicy = {
-  deniedServiceScopes: RECORDED_PLATFORM_DISCLOSURE_POLICY.deniedServiceScopes,
-  allowedCells: [...RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells, { serviceScope: "anthropic/messages", purpose: WORK_PLANNING, dataClass: "operational-record", decision: "allowed", bounds: ANTHROPIC_ASSISTANCE_BOUNDS, evidence: "TEST ONLY — hypothetical D4" }],
-};
+const WORK_PLANNING = "work-planning" as const;
 const GRANTED: DisclosureComposeInput["tenant"] = { status: "read", effective: { authorizationId: "auth", state: "active", boundAttestation: VIEW, scopes: [{ purpose: WORK_PLANNING, dataClass: "operational-record" }], authorizationRevision: 4 } };
-const hypotheticalD1 = (tenantId = TENANT.tenantId) => (): ExternalAiDisclosureDeclaration => ({ tenantId, actorUserId: TENANT.userId, purpose: WORK_PLANNING, dataClasses: ["operational-record"] });
+const declareFor = (tenantId = TENANT.tenantId) => (): ExternalAiDisclosureDeclaration => ({ tenantId, actorUserId: TENANT.userId, purpose: WORK_PLANNING, dataClasses: ["operational-record"] });
 
 interface World {
   policy?: PlatformDisclosurePolicy;
@@ -145,22 +142,27 @@ async function run(world: World = {}) {
 
 const step = (p: Record<string, unknown> = {}) => ({ step: 1, move: "review-blocked", items: ["W1"], because: ["state:blocked", "accountable:false"], priority: "high", afterStep: null, ...p });
 const VALID = (ref: string) => JSON.stringify({ planRef: ref, steps: [step(), step({ step: 2, move: "find-accountable", items: ["W1", "W3"], because: ["accountable:false"], afterStep: 1 })], uncertainty: "medium" });
-const AUTHORIZED: World = { declare: hypotheticalD1(), policy: HYPOTHETICAL_D4, reply: VALID };
+/* The released declaration, the recorded policy and a test tenant grant: every authority agrees. */
+const AUTHORIZED: World = { reply: VALID };
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 async function main(): Promise<void> {
-  /* ── 0 · THE RELEASED CODE TODAY: no work-planning purpose, no declaration, no model. ─────────── */
+  /* ── 0 · D1 + D4 RECORDED, NO TENANT AUTHORIZED: the purpose is declared and refused before fetch. ── */
   {
-    assert.ok(!(PURPOSES as readonly string[]).includes("work-planning"), "D1 is not adopted: the vocabulary lacks the purpose");
-    assert.equal(workPlanningDeclaration(TENANT), null);
-    const r = await run({ reply: VALID });
-    assert.equal(r.generated, 0, "the generator is never even called");
-    assert.equal(r.fetched, 0);
-    assert.match(r.text, /not authorized for work records yet.*work-planning.*nothing was sent to a model/i);
-    assert.equal(r.result.status === "ok" && r.result.result.tone, "unavailable");
+    assert.ok((PURPOSES as readonly string[]).includes("work-planning"), "D1: the vocabulary holds the purpose");
+    assert.deepEqual(workPlanningDeclaration(TENANT), { tenantId: TENANT.tenantId, actorUserId: TENANT.userId, purpose: "work-planning", dataClasses: ["operational-record"] });
+    assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "work-planning", dataClass: "operational-record" }).decision, "allowed", "D4: the recorded cell");
+    const r = await run({ reply: VALID, tenant: { status: "absent" } });
+    assert.equal(r.asked, 1, "the real declaration reaches the EAI authority");
+    assert.equal(r.fetched, 0, "the platform cell is not a tenant authorization: nothing crosses");
+    assert.match(r.text, /Nothing was sent\./);
+    /* The vocabulary guard still fails closed if the purpose ever leaves it. */
+    const g = await run({ reply: VALID, declare: () => null });
+    assert.equal(g.generated, 0, "no declaration, no generator call");
+    assert.match(g.text, /not authorized for work records yet.*work-planning.*nothing was sent to a model/i);
   }
 
-  /* ── CONTROL: with hypothetical D1 + D4 + a tenant grant, the plan is asked for, checked and shown. ── */
+  /* ── CONTROL: recorded D1 + D4 + a TEST tenant grant: the plan is asked for, checked and shown. ── */
   {
     const r = await run(AUTHORIZED);
     assert.equal(r.fetched, 1, "control: the seam is reached once");
@@ -188,12 +190,22 @@ async function main(): Promise<void> {
   }
 
   /* ── 2 · ASSISTANCE UNCHANGED. ─────────────────────────────────────────────────────────────── */
-  assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 6);
+  assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 7);
   assert.equal(decidePlatformDisclosure({ serviceScope: "anthropic/messages", purpose: "assistance", dataClass: "operational-record" }).decision, "unknown");
   {
-    const r = await run({ ...AUTHORIZED, policy: RECORDED_PLATFORM_DISCLOSURE_POLICY });
-    assert.equal(r.fetched, 0, "the recorded policy has no work-planning cell: refused before fetch");
+    /* Work records declared under assistance, even with an assistance grant for them: refused before fetch. */
+    const r = await run({
+      ...AUTHORIZED,
+      declare: () => ({ tenantId: TENANT.tenantId, actorUserId: TENANT.userId, purpose: "assistance", dataClasses: ["operational-record"] }),
+      tenant: { status: "read", effective: { ...(GRANTED as { effective: object }).effective, scopes: [{ purpose: "assistance", dataClass: "operational-record" }] } } as never,
+    });
+    assert.equal(r.fetched, 0, "assistance × operational-record has no recorded cell: refused before fetch");
     assert.match(r.text, /data-use authorization does not allow its work records to reach a model\. Nothing was sent\./);
+  }
+  {
+    /* Without D4 (the policy before this phase), the same grant refuses: the cell is load-bearing. */
+    const r = await run({ ...AUTHORIZED, policy: { ...RECORDED_PLATFORM_DISCLOSURE_POLICY, allowedCells: RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.filter((c) => c.purpose !== "work-planning") } });
+    assert.equal(r.fetched, 0, "no work-planning cell: refused before fetch");
   }
 
   /* ── 3 · 4 · 5 · 6 · EVERY AUTHORITY REFUSES ON ITS OWN, BEFORE FETCH. ─────────────────────────── */
@@ -211,7 +223,7 @@ async function main(): Promise<void> {
     assert.match(r.text, /Nothing was sent\./, `${name}: the human is told`);
   }
   {
-    const r = await run({ ...AUTHORIZED, declare: hypotheticalD1(OTHER_TENANT) });
+    const r = await run({ ...AUTHORIZED, declare: declareFor(OTHER_TENANT) });
     assert.equal(r.asked, 0, "another tenant's declaration is refused before the authority is asked");
     assert.equal(r.fetched, 0);
   }

@@ -106,6 +106,8 @@ assert.deepEqual(
     "anthropic/messages|agent-origination|organization",
     /* WF-3B, a separate reviewed change. */
     "anthropic/messages|agent-origination|knowledge",
+    /* D4 (Controlled Agent Reasoning phase 5), a separate reviewed change. */
+    "anthropic/messages|work-planning|operational-record",
   ],
 );
 assert.ok(

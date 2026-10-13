@@ -60,7 +60,8 @@ assert.ok(
   !SERVICE_SCOPES.some((s) => s.includes("hailuo")),
   "hailuo is not a production-reachable profile, so it is not a scope (higgsfield-video-transport :143)",
 );
-assert.deepEqual([...PURPOSES], ["assistance", "relevance-selection", "agent-origination", "media-generation"]);
+/* work-planning: Director decision D1 (Controlled Agent Reasoning phase 5), with its CHECK migration. */
+assert.deepEqual([...PURPOSES], ["assistance", "relevance-selection", "agent-origination", "media-generation", "work-planning"]);
 assert.deepEqual(
   [...DATA_CLASSES],
   [
@@ -107,6 +108,8 @@ const B1D_ALLOWED = new Set([
   "anthropic/messages|agent-origination|organization",
   /* WF-3B, a separate reviewed change. */
   "anthropic/messages|agent-origination|knowledge",
+  /* D4 (Controlled Agent Reasoning phase 5): Heby AI planning's closed operational projection. */
+  "anthropic/messages|work-planning|operational-record",
 ]);
 for (const serviceScope of SERVICE_SCOPES) {
   for (const purpose of PURPOSES) {
@@ -123,7 +126,7 @@ for (const serviceScope of SERVICE_SCOPES) {
     }
   }
 }
-assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 6, "B1D's three ALLOWED cells, APF-3's two and WF-3B's one, exactly");
+assert.equal(RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.length, 7, "B1D's three ALLOWED cells, APF-3's two, WF-3B's one and D4's one, exactly");
 
 /* ── 3. NOT AN ACCIDENT: the recorded policy's TYPE has room for those three cells only. ────── */
 const policySource = readFileSync(
@@ -137,8 +140,8 @@ assert.match(
 );
 assert.match(
   policySource,
-  /\{ readonly serviceScope: "anthropic\/messages" \} & \(\s*\| \{ readonly purpose: "assistance"; readonly dataClass: "conversation" \| "knowledge" \| "work-artifact" \}[\s\S]*?\| \{ readonly purpose: "agent-origination"; readonly dataClass: "conversation" \| "organization" \| "knowledge" \}\s*\);/,
-  "the recorded cell type names one scope and exactly two purposes, each with its own closed data classes",
+  /\{ readonly serviceScope: "anthropic\/messages" \} & \(\s*\| \{ readonly purpose: "assistance"; readonly dataClass: "conversation" \| "knowledge" \| "work-artifact" \}[\s\S]*?\| \{ readonly purpose: "agent-origination"; readonly dataClass: "conversation" \| "organization" \| "knowledge" \}[\s\S]*?\| \{ readonly purpose: "work-planning"; readonly dataClass: "operational-record" \}\s*\);/,
+  "the recorded cell type names one scope and exactly three purposes, each with its own closed data classes",
 );
 assert.ok(!/\bwildcard\b|"\*"/.test(policySource.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")), "no wildcard");
 

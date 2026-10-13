@@ -129,7 +129,8 @@ assert.deepEqual(assessClaimSupport("Our rugs are made from undyed sheep wool.",
   ], "claim-support is read only by the reviewer's advisory evidence read");
 }
 
-/* 20 · B2 unchanged: no grounding purpose was added. */
-assert.deepEqual([...PURPOSES], ["assistance", "relevance-selection", "agent-origination", "media-generation"]);
+/* 20 · B2 unchanged: no grounding purpose was added. work-planning is D1's (Controlled Agent Reasoning
+ * phase 5), a separate reviewed change, not a grounding purpose. */
+assert.deepEqual([...PURPOSES], ["assistance", "relevance-selection", "agent-origination", "media-generation", "work-planning"]);
 
 console.log("PASS grounding-sufficiency-gs0 claim-support");

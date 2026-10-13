@@ -89,6 +89,8 @@ export type RecordedAllowedCell = AllowedPlatformCell & { readonly serviceScope:
   /* APF-3 — origination's narrow projection: the human goal and the organization's structure.
    * WF-3B — plus the statements of the WF-3A Knowledge grounding universe. */
   | { readonly purpose: "agent-origination"; readonly dataClass: "conversation" | "organization" | "knowledge" }
+  /* D4 — Heby AI planning's closed operational projection, and nothing else of the Work register. */
+  | { readonly purpose: "work-planning"; readonly dataClass: "operational-record" }
 );
 
 /**
@@ -113,6 +115,18 @@ const ANTHROPIC_ORIGINATION_ALLOW_EVIDENCE =
 
 const ANTHROPIC_ORIGINATION_KNOWLEDGE_ALLOW_EVIDENCE =
   "WF-3B (Director, 2026-10-06): platform ALLOW for anthropic/messages × agent-origination × knowledge only — the exact statements of the complete eligible Knowledge grounding universe composed by WF-3A (46adfce6: retrieval-eligible, Governance-verified ratified, SCI-2B eligible for agent-record-work-grounding, at most 20 versions, at most 2,000 code points each), offered behind invocation-local aliases K1..Kn, in an explicit human-selected Knowledge mode. No Knowledge, fact, tenant, decision or actor identifier, provenance, lifecycle or timestamp is disclosed. Same bounds and the same processor attestation as the other cells: ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, identity_status attested — not verified, model_ids claude-haiku-4-5-20251001, enforced per call by APF-5), reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33. Nothing declares this class for origination until WF-3C wires the Knowledge mode. Unverified at decision: production credential ↔ observed Dashboard key equality; custom agreement / BAA status; per-request processing geography. Knowledge statements are organization-authored free text and are not claimed free of personal data.";
+
+const ANTHROPIC_WORK_PLANNING_ALLOW_EVIDENCE =
+  "CONTROLLED AGENT REASONING PHASE 5 / D4 (Director, 2026-10-13): platform ALLOW for anthropic/messages × work-planning × operational-record only — the closed operational planning projection of the EAI-OPERATIONAL-RECORD-1 contract (666ce9c5): invocation-local aliases W1..Wn, the declared state and three booleans (accountable, stale, evidenceDeclared), at most 40 items, validated closed-world before any call. No title, description, comment, person, work, tenant or department identifier or name, date, deadline, dependency or credential is disclosed, and derived fields remain operational-record. Same bounds and the same processor attestation as the other cells: ffb0c160-4082-4c7f-be6a-05a4d990c598 (revision 1, identity_status attested — not verified, model_ids enforced per call by APF-5), reviewed record docs/product-vision/runtime/hebun-external-ai-data-use-b1b-anthropic-processor-attestation-record.md@dbbe8a30bbaa2d6d396cb914a21e28735537fe33. assistance × operational-record stays unrecorded and refuses. This cell authorizes no tenant. Unverified at decision: production credential ↔ observed Dashboard key equality; custom agreement / BAA status; per-request processing geography. The derived booleans can single out a person in a small register (AI-PLAN-INDIRECT-PROFILING-1), so the projection is not claimed free of personal data.";
+
+const ANTHROPIC_WORK_PLANNING_CELL: RecordedAllowedCell = Object.freeze({
+  serviceScope: "anthropic/messages",
+  purpose: "work-planning",
+  dataClass: "operational-record",
+  decision: "allowed",
+  bounds: ANTHROPIC_ASSISTANCE_BOUNDS,
+  evidence: ANTHROPIC_WORK_PLANNING_ALLOW_EVIDENCE,
+} as const);
 
 function anthropicOriginationCell(dataClass: "conversation" | "organization" | "knowledge"): RecordedAllowedCell {
   return Object.freeze({
@@ -141,7 +155,8 @@ function anthropicAssistanceCell(dataClass: "conversation" | "knowledge" | "work
  *
  * Both Higgsfield scopes are DENIED for every purpose and data class; the runtime integration and
  * its own disabled root controls are left exactly as they are. Anthropic is ALLOWED for the three
- * B1D cells and UNKNOWN for every other purpose and data class. OpenAI has no cell: UNKNOWN.
+ * B1D cells, the origination cells and the one work-planning cell, and UNKNOWN for every other purpose
+ * and data class. OpenAI has no cell: UNKNOWN.
  */
 export const RECORDED_PLATFORM_DISCLOSURE_POLICY: {
   readonly deniedServiceScopes: readonly DeniedServiceScope[];
@@ -166,6 +181,7 @@ export const RECORDED_PLATFORM_DISCLOSURE_POLICY: {
     anthropicOriginationCell("conversation"),
     anthropicOriginationCell("organization"),
     anthropicOriginationCell("knowledge"),
+    ANTHROPIC_WORK_PLANNING_CELL,
   ]),
 });
 

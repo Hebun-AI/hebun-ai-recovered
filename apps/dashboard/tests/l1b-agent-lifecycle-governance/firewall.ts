@@ -42,8 +42,8 @@ assert.equal(
   "migration 76 is exactly one additive enum value",
 );
 const journal = JSON.parse(read("src/db/migrations/meta/_journal.json")) as { entries: { tag: string }[] };
-assert.equal(journal.entries.length, 76);
-assert.equal(journal.entries.at(-1)!.tag, "20261008143657_l1b_agent_lifecycle_domain");
+assert.equal(journal.entries.length, 77); /* D1 work-planning: ledger 76 -> 77 (tenant_ai_data_use_scopes purpose CHECK gains 'work-planning'; additive). */
+assert.equal(journal.entries[75]!.tag, "20261008143657_l1b_agent_lifecycle_domain", "migration 76 is L-1b's");
 assert.match(code(ENUMS), /"external-ai-data-use",\s*"agent-lifecycle",\s*\]\);/, "the enum gains agent-lifecycle last");
 
 /* ── F2 ── */

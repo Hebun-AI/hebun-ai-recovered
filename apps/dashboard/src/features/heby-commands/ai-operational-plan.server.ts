@@ -17,13 +17,13 @@
  * would be the `conversation` class — so the user prompt is a fixed server sentence. No title, name,
  * id, department name, date or secret has a field to travel in.
  *
- * ── WHY IT DOES NOT RUN TODAY ────────────────────────────────────────────────
+ * ── WHAT STILL STOPS IT ──────────────────────────────────────────────────────
  *
- * The purpose is `work-planning` (Director decision D1). It is not yet in the EAI vocabulary — adding
- * it is a migration awaiting approval — so `workPlanningDeclaration` returns null and this runtime
- * stops before the model, every time. When the vocabulary holds the purpose, the EAI gate inside the
- * generator still refuses until the platform cell (D4), a tenant authorization and an attested model
- * agree. Nothing in this file decides any of that.
+ * The purpose is `work-planning` (Director decision D1) and the platform cell is
+ * `anthropic/messages × work-planning × operational-record` (D4). Both are in the EAI vocabulary and
+ * the recorded policy; neither authorizes any tenant. The EAI gate inside the generator still refuses
+ * until the purpose's migration is applied, a tenant's own authorization holds the scope and an
+ * attested model agrees. Nothing in this file decides any of that.
  *
  * ── WHAT IT NEVER DOES ───────────────────────────────────────────────────────
  *
@@ -75,8 +75,8 @@ export const AI_PLAN_SYSTEM_INSTRUCTIONS = hebunInstruction(
 const AI_PLAN_USER_PROMPT = "Propose the plan for the projection in the grounding context.";
 
 /**
- * The disclosure this runtime makes, or null when it may make none. Null today: `work-planning` is
- * not in the EAI vocabulary until D1's migration is approved and applied.
+ * The disclosure this runtime makes, or null when it may make none: null if the EAI vocabulary ever
+ * stops holding `work-planning`.
  */
 export function workPlanningDeclaration(tenant: TenantContext): ExternalAiDisclosureDeclaration | null {
   const purpose: string = WORK_PLANNING_PURPOSE;
@@ -152,7 +152,7 @@ export async function runAiOperationalPlan(input: { readonly message: string }, 
     return unavailable(title, [`Unavailable: no AI plan, because ${PROJECTION_UNAVAILABLE[projected.reason]}.`, RULE_BASED]);
   }
 
-  /* 3 · The disclosure this request would make. None today (D1); nothing reaches the model without it. */
+  /* 3 · The disclosure this request would make; nothing reaches the model without it. */
   const declaration = (deps.declare ?? workPlanningDeclaration)(tenant);
   if (!declaration) {
     return unavailable(title, [

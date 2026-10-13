@@ -178,7 +178,7 @@ const MUTATIONS: readonly Mutation[] = [
      * defect it injects — an extra journal entry — is unchanged, and this anchor moves with every
      * migration by design. */
     /* OPERATIONS CENSUS REPAIR re-anchored it to the current tail (L-1B); the injected defect is unchanged. */
-    find: `      "tag": "20261008143657_l1b_agent_lifecycle_domain",\n      "breakpoints": true\n    }\n  ]`,
+    /* D1 work-planning: the journal tail is now the work-planning purpose CHECK. */ find: `      "tag": "20261013113340_eai_work_planning_purpose",\n      "breakpoints": true\n    }\n  ]`,
     replace:
       `      "tag": "20260908072926_trh24_machine_observation_provenance",\n      "breakpoints": true\n    },\n` +
       `    {\n      "idx": 50,\n      "version": "7",\n      "when": 1787726663801,\n` +
