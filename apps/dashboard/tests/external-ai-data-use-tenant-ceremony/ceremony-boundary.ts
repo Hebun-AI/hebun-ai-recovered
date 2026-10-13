@@ -41,12 +41,14 @@ for (const forbidden of ["@/db/schema", "src/db/schema", "drizzle-orm", "getCont
 }
 
 /* ── 3. Nothing about WHAT is authorized is a CLI option. ─────────────────────────────────────── */
-assert.match(code, /const KNOWN_FLAGS = \["tenant", "director", "justification", "confirm", "withdraw", "agent-origination"\];/);
+/* D1/D4 (Gate A): `work-planning` is a third closed purpose switch; `revoke` removes one purpose. Neither carries a value. */
+assert.match(code, /const KNOWN_FLAGS = \["tenant", "director", "justification", "confirm", "withdraw", "agent-origination", "work-planning", "revoke"\];/);
 assert.match(code, /if \(!a\.startsWith\("--"\) \|\| !KNOWN_FLAGS\.includes\(name\)\) fail\(/, "an unknown argument is refused");
 assert.ok(!/arg\("(scope|purpose|data|class|attestation|service|account|policy)/i.test(code), "no flag names a scope, purpose, class or attestation");
 assert.match(code, /const SERVICE_SCOPE = "anthropic\/messages";/);
-/* APF-3 — one closed switch chooses between two purposes; neither is a typed value. */
-assert.match(code, /const PURPOSE = has\("agent-origination"\) \? "agent-origination" : "assistance";/);
+/* APF-3, D1/D4 — one closed switch chooses among three purposes; none is a typed value, and two switches are refused. */
+assert.match(code, /const PURPOSE = has\("agent-origination"\) \? "agent-origination" : has\("work-planning"\) \? "work-planning" : "assistance";/);
+assert.ok(code.indexOf('if (has("agent-origination") && has("work-planning")) fail(') < code.indexOf("const PURPOSE ="), "two purpose switches are refused first");
 assert.match(code, /RECORDED_PLATFORM_DISCLOSURE_POLICY\.allowedCells\.filter\(/, "the pairs are read off the recorded policy");
 /* What that read yields today: exactly the three B1D cells. */
 assert.deepEqual(
@@ -61,8 +63,15 @@ assert.deepEqual(
     .map((c) => c.dataClass),
   ["conversation", "organization", "knowledge"], // WF-3B appended knowledge
 );
+assert.deepEqual(
+  RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells
+    .filter((c) => c.serviceScope === "anthropic/messages" && c.purpose === "work-planning")
+    .map((c) => c.dataClass),
+  ["operational-record"],
+);
 /* APF-3 — the writer is handed the UNION of what is in force and what is added, never the addition alone. */
-assert.match(code, /const scopes = nextRevisionScopes\(current\?\.state === "active" \? current\.scopes : \[\], adding\);/);
+assert.match(code, /const inForceScopes = current\?\.state === "active" \? current\.scopes : \[\];/);
+assert.match(code, /const scopes = revoke \? revisionScopesWithout\(inForceScopes, PURPOSE\) : nextRevisionScopes\(inForceScopes, adding\);/);
 
 /* ── 4. Dry run by default; a write needs --confirm AND a typed phrase on a TTY. ───────────────── */
 assert.match(code, /if \(!confirmed\) \{\s*console\.log\("  DRY RUN — nothing was written/);

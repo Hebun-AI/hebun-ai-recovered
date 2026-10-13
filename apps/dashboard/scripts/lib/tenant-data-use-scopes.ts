@@ -13,3 +13,8 @@ export function nextRevisionScopes(current: readonly ScopePair[], adding: readon
   const seen = new Set(current.map(key));
   return [...current, ...adding.filter((s) => !seen.has(key(s)))].map((s) => ({ purpose: s.purpose, dataClass: s.dataClass }));
 }
+
+/** D1/D4 — the scopes of a revision that revokes ONE purpose: what is in force, minus that purpose, in order. */
+export function revisionScopesWithout(current: readonly ScopePair[], purpose: ScopePair["purpose"]): ScopePair[] {
+  return current.filter((s) => s.purpose !== purpose).map((s) => ({ purpose: s.purpose, dataClass: s.dataClass }));
+}

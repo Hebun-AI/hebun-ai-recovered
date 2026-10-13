@@ -5,6 +5,8 @@
  *   npm run platform:tenant-external-ai-data-use -- --tenant=<slug> --confirm              # authorize
  *   npm run platform:tenant-external-ai-data-use -- --tenant=<slug> --withdraw --confirm   # withdraw
  *   npm run platform:tenant-external-ai-data-use -- --tenant=<slug> --agent-origination   # dry run (APF-3)
+ *   npm run platform:tenant-external-ai-data-use -- --tenant=<slug> --work-planning       # dry run (D1/D4)
+ *   npm run platform:tenant-external-ai-data-use -- --tenant=<slug> --work-planning --revoke --confirm
  *
  * ── WHOSE DECISION THIS IS ──────────────────────────────────────────────────
  *
@@ -17,10 +19,11 @@
  *
  * ── WHAT IS AUTHORIZED IS NOT AN OPTION ─────────────────────────────────────
  *
- * The service scope is `anthropic/messages`, the purpose is `assistance` — or, with the closed
- * `--agent-origination` switch (APF-3), `agent-origination` — and the (purpose, data class) pairs are
- * READ OFF the recorded platform policy (B1D: conversation, knowledge, work-artifact; APF-3 + WF-3B:
- * conversation, organization, knowledge). No flag carries a scope, purpose, data class or attestation as a value,
+ * The service scope is `anthropic/messages`, the purpose is `assistance` — or, with one closed switch,
+ * `agent-origination` (`--agent-origination`, APF-3) or `work-planning` (`--work-planning`, D1/D4) —
+ * and the (purpose, data class) pairs are READ OFF the recorded platform policy (B1D: conversation,
+ * knowledge, work-artifact; APF-3 + WF-3B: conversation, organization, knowledge; D4:
+ * operational-record). No flag carries a scope, purpose, data class or attestation as a value,
  * and an unknown flag is refused, so this file cannot ask for more than the platform already ALLOWS.
  * The attestation is the one in force, read through the released reader; the writer re-checks all of
  * it in one transaction.
@@ -30,6 +33,14 @@
  * A revision replaces the scope set before it, so the requested set is the UNION of the scopes in
  * force and the purpose being added (`nextRevisionScopes`). Adding origination cannot withdraw
  * assistance, and re-running assistance cannot withdraw origination.
+ *
+ * ── REVOKING ONE PURPOSE (D1/D4) ────────────────────────────────────────────
+ *
+ * `--revoke` with a purpose switch writes a revision holding what is in force MINUS that purpose's
+ * pairs (`revisionScopesWithout`); every other purpose stays. `--withdraw` still removes everything.
+ * Revoking the last purpose is refused: that is a withdrawal, and says so. This is also the step
+ * that must precede deploying code that does not know `work-planning`: such code reads a tenant whose
+ * scopes name it as `unavailable`, which refuses EVERY model call for that tenant.
  *
  * ── WHAT IT DELIBERATELY CANNOT DO ──────────────────────────────────────────
  *
@@ -48,10 +59,12 @@ const SERVICE_SCOPE = "anthropic/messages";
 const EXPECTED_DATA_CLASSES = {
   assistance: ["conversation", "knowledge", "work-artifact"],
   "agent-origination": ["conversation", "organization", "knowledge"],
+  "work-planning": ["operational-record"],
 } as const;
-const KNOWN_FLAGS = ["tenant", "director", "justification", "confirm", "withdraw", "agent-origination"];
+const KNOWN_FLAGS = ["tenant", "director", "justification", "confirm", "withdraw", "agent-origination", "work-planning", "revoke"];
 const CONFIRMATION = "AUTHORIZE EXTERNAL AI DATA USE";
 const WITHDRAWAL_CONFIRMATION = "WITHDRAW EXTERNAL AI DATA USE";
+const REVOCATION_CONFIRMATION = "REVOKE EXTERNAL AI DATA USE";
 
 function fail(message: string): never {
   console.error(`\n  ✖ ${message}\n`);
@@ -95,13 +108,21 @@ async function main(): Promise<void> {
   if (!tenantSlug) fail("--tenant=<slug> is required");
   const directorEmail = arg("director") ?? "senoltr@gmail.com";
   const withdraw = has("withdraw");
+  const revoke = has("revoke");
   const confirmed = has("confirm");
-  const PURPOSE = has("agent-origination") ? "agent-origination" : "assistance";
+  if (has("agent-origination") && has("work-planning")) fail("one purpose per ceremony: --agent-origination or --work-planning, not both");
+  const PURPOSE = has("agent-origination") ? "agent-origination" : has("work-planning") ? "work-planning" : "assistance";
   if (withdraw && PURPOSE !== "assistance") fail("--withdraw withdraws every scope; it takes no purpose switch");
+  if (withdraw && revoke) fail("--withdraw removes every scope; --revoke removes one purpose — not both");
+  if (revoke && PURPOSE === "assistance") fail("--revoke names the purpose it removes: --agent-origination or --work-planning");
   const justification =
     arg("justification") ??
     (withdraw
       ? "We are withdrawing external AI processing of this organization's data while we review how it is supervised."
+      : revoke
+        ? `We are revoking ${PURPOSE} from this organization's external AI data use; every other purpose stays as it is.`
+      : PURPOSE === "work-planning"
+        ? "This organization agrees that a closed operational projection of its work records — invocation-local aliases, declared states and whether each has an accountable person, is stale or declares evidence; never a title, name, date or identifier — may be processed by the reviewed Anthropic processor so Heby can propose an ordering for a human to decide, and I accept responsibility for that."
       : PURPOSE === "agent-origination"
         ? "This organization agrees that the goal a person gives Heby, this organization's structure and the statements of its ratified Knowledge eligible for grounding may be processed by the reviewed Anthropic processor so Heby can propose work for a human to decide, and I accept responsibility for that."
         : "This organization agrees that its conversations, Knowledge and work artifacts may be processed by the reviewed Anthropic assistance processor, and I accept responsibility for that.");
@@ -122,7 +143,7 @@ async function main(): Promise<void> {
   const { authorizeTenantExternalAiDataUse, withdrawTenantExternalAiDataUse } = await import(
     "../src/features/external-ai-data-use/authorize-tenant-external-ai-data-use.server"
   );
-  const { nextRevisionScopes } = await import("./lib/tenant-data-use-scopes");
+  const { nextRevisionScopes, revisionScopesWithout } = await import("./lib/tenant-data-use-scopes");
 
   /* ── WHAT. Read off the recorded policy, never typed here. ─────────────────────────────────── */
   const cells = RECORDED_PLATFORM_DISCLOSURE_POLICY.allowedCells.filter(
@@ -184,13 +205,16 @@ async function main(): Promise<void> {
     if (effective.status === "unavailable") fail("the tenant authorization could not be read. Nothing was changed.");
     const current = effective.status === "read" ? effective.effective : null;
     /* What is in force is kept; a withdrawn revision carries nothing forward. */
-    const scopes = nextRevisionScopes(current?.state === "active" ? current.scopes : [], adding);
-    if (!withdraw && current?.state === "active" && scopes.length === current.scopes.length) {
+    const inForceScopes = current?.state === "active" ? current.scopes : [];
+    const scopes = revoke ? revisionScopesWithout(inForceScopes, PURPOSE) : nextRevisionScopes(inForceScopes, adding);
+    if (revoke && scopes.length === inForceScopes.length) fail(`${PURPOSE} is not authorized in force. Nothing was changed.`);
+    if (revoke && scopes.length === 0) fail(`${PURPOSE} is the only purpose in force; removing it is a withdrawal — use --withdraw. Nothing was changed.`);
+    if (!withdraw && !revoke && current?.state === "active" && scopes.length === current.scopes.length) {
       fail(`${PURPOSE} is already authorized in revision ${current.authorizationRevision}. Nothing was changed.`);
     }
 
     console.log("");
-    console.log(`  TENANT EXTERNAL-AI DATA-USE ${withdraw ? "WITHDRAWAL" : "AUTHORIZATION"} CEREMONY`);
+    console.log(`  TENANT EXTERNAL-AI DATA-USE ${withdraw ? "WITHDRAWAL" : revoke ? `REVOCATION OF ${PURPOSE}` : "AUTHORIZATION"} CEREMONY`);
     console.log("");
     console.log(`  organization : ${w.company} (${tenantSlug})`);
     console.log(`  tenant       : ${w.tenant_id}`);
@@ -214,9 +238,14 @@ async function main(): Promise<void> {
           (c) => c.serviceScope === SERVICE_SCOPE && c.purpose === pair.purpose && c.dataClass === pair.dataClass,
         );
         const fits = cell ? attestationSatisfiesBounds(inForce, cell.bounds) : false;
-        const kept = adding.some((a) => a.purpose === pair.purpose && a.dataClass === pair.dataClass) ? "added" : "kept ";
+        const kept = !revoke && adding.some((a) => a.purpose === pair.purpose && a.dataClass === pair.dataClass) ? "added" : "kept ";
         console.log(`                 ${kept} ${`${pair.purpose} × ${pair.dataClass}`.padEnd(32)} platform ${cell ? "ALLOWED" : "NOT ALLOWED"} · attestation ${fits ? "inside" : "OUTSIDE"} bounds`);
         if (!fits) fail("a requested scope is not platform-allowed inside the attestation in force — refusing.");
+      }
+      if (revoke) {
+        for (const pair of inForceScopes.filter((s) => s.purpose === PURPOSE)) {
+          console.log(`                 removed ${pair.purpose} × ${pair.dataClass}`);
+        }
       }
     }
     console.log("");
@@ -230,7 +259,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    const phrase = withdraw ? WITHDRAWAL_CONFIRMATION : CONFIRMATION;
+    const phrase = withdraw ? WITHDRAWAL_CONFIRMATION : revoke ? REVOCATION_CONFIRMATION : CONFIRMATION;
     const typed = await promptVisible(`  Type ${phrase} to proceed: `);
     if (typed !== phrase) fail("not confirmed — nothing was written.");
 
