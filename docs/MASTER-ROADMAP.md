@@ -5573,6 +5573,7 @@ re-graded here.
 | EAI-WORK-PLANNING-AUTHORIZATION-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-work-planning-authorization-closure.md` |
 | EAI-WORK-PLANNING-CEREMONY-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-work-planning-ceremony-closure.md` |
 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` |
+| HEBY-PLAN-DELEGATION-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` |
 
 ---
 
@@ -5599,3 +5600,5 @@ before §16.1 are not yet indexed (Phase B).
 | RELEASE-ROLLBACK-FLOOR-1 | EAI-WORK-PLANNING-CEREMONY-1 | `docs/product-vision/runtime/hebun-eai-work-planning-ceremony-closure.md` | Release safety | DEFERRED | Once any tenant holds work-planning, no deployment older than a27e5ad4 may serve production until `--work-planning --revoke` has run; Director decision on a tolerant scope reader |
 | GATE-D-PROVIDER-RECONCILIATION-1 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` | Provider evidence | BLOCKED | Blocks PRODUCTION-ACCEPTED of HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 until production's Anthropic credential is reconciled with the Console account or a provider message id is recorded |
 | AI-PLAN-UI-THROW-1 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` | UX failure legibility | DEFERRED | A Director-approved fix that ends a non-connectivity error with an unavailable line |
+| PLAN-FOLLOW-UP-REFERENCE-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` | Product usefulness | DEFERRED | A Director decision on a model-invisible reference from a follow-up proposal to its work |
+| PLAN-DELEGATION-BROWSER-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` | Verification gap | DEFERRED | Browser and production acceptance of the follow-up control |

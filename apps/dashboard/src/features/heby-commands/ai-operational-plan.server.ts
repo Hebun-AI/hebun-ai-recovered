@@ -51,6 +51,7 @@ import {
   validateOperationalPlanCandidate,
 } from "./operational-plan-candidate";
 import { readOperationalPlanningProjection, type OperationalPlanningUnavailable } from "./operational-planning-projection.server";
+import { PLAN_FOLLOW_UP_GOALS } from "./plan-follow-up";
 import { planClarificationLines, resolvePlanDepartment } from "./plan-intent";
 
 export const AI_PLAN_COMMAND = "AI plan";
@@ -218,5 +219,10 @@ export async function runAiOperationalPlan(input: { readonly message: string }, 
     return id === undefined ? undefined : items.find((item) => item.workItemId === id)?.title;
   };
   const rendered = renderOperationalPlanCandidate({ plan: verdict.plan, projection: projected.projection, scopeLabel: department, titleOf });
-  return { status: "ok", result: { command: AI_PLAN_COMMAND, title, lines: rendered.lines, tone: "info", provenance: AI_PLAN_PROVENANCE } };
+  /* HEBY-PLAN-DELEGATION-1 — one fixed goal per accepted step, keyed by its closed move only. */
+  const followUps = verdict.plan.steps.map((s) => ({ recommendation: s.step, goal: PLAN_FOLLOW_UP_GOALS[s.move] }));
+  return {
+    status: "ok",
+    result: { command: AI_PLAN_COMMAND, title, lines: rendered.lines, tone: "info", provenance: AI_PLAN_PROVENANCE, followUps },
+  };
 }

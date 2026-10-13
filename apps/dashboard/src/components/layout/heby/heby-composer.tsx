@@ -32,6 +32,7 @@ import {
   type HebyCommandDescriptor,
 } from "@/features/heby-commands";
 import type { HebyCommandOutput, HebyConversationFacts } from "./use-heby-conversation";
+import { HebyOriginationAffordance } from "./heby-origination-affordance";
 
 /** How much room the composer gets. Same language, different density — never a different composer. */
 export type HebyComposerDensity = "workspace" | "panel";
@@ -177,6 +178,20 @@ export function HebyComposer(props: HebyComposerProps) {
               </li>
             ))}
           </ul>
+          {/*
+           * HEBY-PLAN-DELEGATION-1 — under an accepted AI plan only: per recommendation, a way to ask the
+           * agent to PROPOSE a new follow-up work item. Rendering it reads nothing and calls nothing.
+           */}
+          {props.commandOutput.tone === "info" && props.commandOutput.followUps?.length ? (
+            <div className="mt-2 flex flex-col gap-1.5 border-t border-border pt-2" data-plan-follow-ups="">
+              {props.commandOutput.followUps.map((followUp) => (
+                <div key={followUp.recommendation} className="flex flex-col gap-1">
+                  <span className="text-[0.68rem] text-fg-muted">Recommendation {followUp.recommendation}</span>
+                  <HebyOriginationAffordance goal={followUp.goal} followUp />
+                </div>
+              ))}
+            </div>
+          ) : null}
           <p className="mt-2 text-[0.68rem] leading-4 text-fg-muted">{props.commandOutput.provenance}</p>
         </div>
       ) : null}

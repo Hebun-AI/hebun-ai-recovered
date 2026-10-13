@@ -14,6 +14,7 @@
  *
  * Pure types. No React, no I/O, no server, no authority.
  */
+import type { PlanFollowUp } from "./plan-follow-up";
 
 /**
  * What a command is permitted to do. These classes do not mix: a command has exactly one, and the
@@ -283,6 +284,12 @@ export interface HebyCommandResult {
   readonly tone: "info" | "unavailable";
   /** Where this came from. Never "generated" and never a claim of authority. */
   readonly provenance: string;
+  /**
+   * HEBY-PLAN-DELEGATION-1 — only an accepted AI plan sets this: one offer per recommendation to ask
+   * the organization's agent to PROPOSE a new follow-up work item. Each goal is a fixed sentence from
+   * `PLAN_FOLLOW_UP_GOALS`; nothing is filed until a human chooses an agent, a scope and confirms.
+   */
+  readonly followUps?: readonly PlanFollowUp[];
 }
 
 /**

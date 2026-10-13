@@ -25,7 +25,7 @@
  * browser also send that agent's id — a lookup key the server verifies. With a single agent nothing
  * extra is sent, so that path is exactly what it was.
  */
-import { useState, useTransition } from "react";
+import { useState, useTransition, useId } from "react";
 import Link from "next/link";
 import { originateHebyActionProposalAction } from "@/app/(dashboard)/heby/actions";
 import { originateKnowledgeGroundedProposalAction } from "@/app/(dashboard)/heby/knowledge-origination-actions";
@@ -39,6 +39,7 @@ import { PLACE_HUMAN_ACTION_KIND, RECORD_WORK_ACTION_KIND } from "@/features/heb
 import type { AgentOriginationAvailability, OriginationUnavailableReason } from "@/features/origination-availability/contracts";
 import type { AgentOriginableActionKind, OriginationRefusal } from "@/features/agent-origination";
 import { WorkScopeSelect, workScopeFromChoice, choiceFromWorkScope } from "@/components/work-domain/work-scope-select";
+import { PLAN_FOLLOW_UP_LABEL } from "@/features/heby-commands/plan-follow-up";
 import {
   ALREADY_PENDING_DETAIL,
   PROPOSED_KIND_WORDING,
@@ -158,13 +159,21 @@ const TEXT_BUTTON =
   "rounded text-[0.72rem] text-fg-muted transition-colors hover:text-fg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight disabled:opacity-50";
 const PANEL = "max-w-[80%] rounded-xl border border-border bg-surface px-3 py-2.5 text-xs leading-5 text-fg-secondary";
 
-export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
+/*
+ * HEBY-PLAN-DELEGATION-1 — `followUp` marks an offer under an accepted AI plan recommendation. The goal
+ * is then one of the fixed `PLAN_FOLLOW_UP_GOALS`; the flow, the server action and its input are the
+ * same released ones. Only the wording changes, and the Knowledge mode is not offered: a follow-up
+ * discloses nothing beyond the fixed goal and the organization structure origination already sends.
+ */
+export function HebyOriginationAffordance({ goal, followUp = false }: { readonly goal: string; readonly followUp?: boolean }) {
   const [state, setState] = useState<State>({ kind: "closed" });
   /* AP-1 — set only by an explicit human choice among `multiple-agents` candidates. */
   const [chosenAgentId, setChosenAgentId] = useState<string | undefined>(undefined);
   /* AP-4B — the work scope the HUMAN chooses. No default, even when only one is eligible. */
   const [workScope, setWorkScope] = useState("");
   const [, startTransition] = useTransition();
+  /* More than one offer can be open at once (one per plan recommendation): each needs its own id. */
+  const scopeSelectId = useId();
 
   /* A slash command is an instruction to Heby's UI, not a goal anyone wrote. */
   if (goal.trimStart().startsWith("/")) return null;
@@ -225,7 +234,11 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
   if (state.kind === "closed" || state.kind === "checking") {
     return (
       <button type="button" className={TEXT_BUTTON} disabled={state.kind === "checking"} onClick={() => check()}>
-        {state.kind === "checking" ? "Checking the agent's current authority…" : "Propose as organizational work…"}
+        {state.kind === "checking"
+          ? "Checking the agent's current authority…"
+          : followUp
+            ? PLAN_FOLLOW_UP_LABEL
+            : "Propose as organizational work…"}
       </button>
     );
   }
@@ -275,9 +288,24 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
     }));
     return (
       <div className={PANEL} data-wf1-offer="">
-        <p className="text-fg">
-          <span className="font-medium">{agent.name}</span> can be asked to propose this message as organizational work.
-        </p>
+        {followUp ? (
+          <>
+            <p className="text-fg">
+              <span className="font-medium">{agent.name}</span> can be asked to propose a NEW follow-up work item.
+            </p>
+            <p className="mt-1 text-fg" data-plan-follow-up-notice="">
+              Yeni bir takip işi önerilir. Önerinin ilgili olduğu iş kayıtları değiştirilmez.
+            </p>
+            <p className="mt-1">
+              The task {agent.name} is given, exactly: &ldquo;{goal}&rdquo; It names no work title, identifier or
+              department.
+            </p>
+          </>
+        ) : (
+          <p className="text-fg">
+            <span className="font-medium">{agent.name}</span> can be asked to propose this message as organizational work.
+          </p>
+        )}
         <p className="mt-1">
           Mandate revision {mandate.revision} · stated purpose: {mandate.purpose}
         </p>
@@ -287,13 +315,15 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
           human review. Nothing is approved or executed automatically. This was checked just now and is checked again
           when you ask.
         </p>
+        {followUp ? null : (
         <p className="mt-1">
           Grounded in Knowledge: {agent.name}{" "}is also shown this organization&apos;s ratified Knowledge eligible for
           grounding (at most 20 statements) and must cite at least one; nothing is filed otherwise.
         </p>
-        <label className="mt-2 block" htmlFor="heby-origination-work-scope">
+        )}
+        <label className="mt-2 block" htmlFor={scopeSelectId}>
           Work-domain scope — what kind of work this is, not which department it belongs to. You choose it; the agent does not.
-          <WorkScopeSelect id="heby-origination-work-scope" value={workScope} onChange={setWorkScope} choices={choices} />
+          <WorkScopeSelect id={scopeSelectId} value={workScope} onChange={setWorkScope} choices={choices} />
         </label>
         <div className="mt-2 flex items-center gap-3">
           <button
@@ -302,16 +332,18 @@ export function HebyOriginationAffordance({ goal }: { readonly goal: string }) {
             disabled={workScope === ""}
             onClick={() => confirm(agent.name)}
           >
-            Ask {agent.name} to propose
+            {followUp ? `Ask ${agent.name} to propose this follow-up` : `Ask ${agent.name} to propose`}
           </button>
-          <button
-            type="button"
-            className="rounded-lg border border-border bg-surface-raised px-2.5 py-1 text-xs font-medium text-fg"
-            disabled={workScope === ""}
-            onClick={() => confirm(agent.name, true)}
-          >
-            Ask, grounded in Knowledge
-          </button>
+          {followUp ? null : (
+            <button
+              type="button"
+              className="rounded-lg border border-border bg-surface-raised px-2.5 py-1 text-xs font-medium text-fg"
+              disabled={workScope === ""}
+              onClick={() => confirm(agent.name, true)}
+            >
+              Ask, grounded in Knowledge
+            </button>
+          )}
           <button type="button" className={TEXT_BUTTON} onClick={() => setState({ kind: "closed" })}>
             Cancel
           </button>
