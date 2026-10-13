@@ -219,6 +219,13 @@ export const HEBY_COMMANDS: readonly HebyCommandDescriptor[] = Object.freeze([
     availability: "available", handler: "prioritize", ...base("advisory"),
   },
   {
+    /* HEBY ORGANIZATIONAL ACTION PLANNING — a rule-based plan over recorded work. No model, no write. */
+    id: "plan", slash: "/plan", label: "Action plan", category: "analyze", kind: "read",
+    description: "Plan what to do about recorded work, by department: facts, priorities, required authority and what Hebun can carry. Nothing is proposed or changed.",
+    availability: "available", handler: "plan", ...base("read"),
+    args: [{ name: "department", required: false, description: "A department name, such as Engineering. Omit for the whole organization." }],
+  },
+  {
     id: "explain", slash: "/explain", label: "Explain", category: "analyze", kind: "advisory",
     description: "Explain an item from the current context.",
     availability: "available", handler: "explain",

@@ -83,6 +83,10 @@ import {
 } from "@/features/knowledge/knowledge-read.server";
 import { KNOWLEDGE_PROVENANCE, type KnowledgeSourceRecord } from "@/features/knowledge/contracts";
 import { findHebyCommandById } from "./registry";
+import { readWorkRegister, type WorkRegister } from "@/features/organizational-work/read-work.server";
+import type { AgentOriginationAvailability } from "@/features/origination-availability/contracts";
+import { readOriginationAvailability } from "@/features/origination-availability/read-origination-availability.server";
+import { composeActionPlan, PLAN_PROVENANCE } from "./action-plan";
 import {
   observeRecordedActHistory,
   observeSubjectActHistory,
@@ -110,6 +114,9 @@ export interface HebyReadCommandInput {
 
 export interface HebyReadCommandDeps {
   readonly resolveTenant: () => Promise<TenantContext | null>;
+  /** HEBY ORGANIZATIONAL ACTION PLANNING — the two released reads `/plan` composes. Injectable for proof. */
+  readonly readWork?: (tenant: TenantContext) => Promise<WorkRegister>;
+  readonly readOriginationAvailability?: (tenant: TenantContext) => Promise<AgentOriginationAvailability>;
   readonly readOverview?: () => ExecutiveOverviewLike | undefined;
   readonly readProviderOps?: () => Promise<ProviderOpsView>;
   /**
@@ -417,6 +424,21 @@ export async function runHebyReadCommand(
   const slash = command.slash;
 
   switch (command.handler) {
+    /* ── HEBY ORGANIZATIONAL ACTION PLANNING ─────────────────────────────
+     * Two released, tenant-scoped reads and a pure, rule-based composition. The department argument
+     * is a filter over this organization's own register, never a lookup elsewhere.
+     */
+    case "plan": {
+      const [register, availability] = await Promise.all([
+        (deps.readWork ?? readWorkRegister)(tenant),
+        (deps.readOriginationAvailability ?? ((t: TenantContext) => readOriginationAvailability({ resolveTenant: async () => t })))(tenant),
+      ]);
+      const plan = composeActionPlan({ scope: input.args.join(" "), register, availability, now: new Date() });
+      return plan.tone === "info"
+        ? ok(slash, plan.title, plan.lines, PLAN_PROVENANCE)
+        : unavailable(slash, plan.title, plan.lines, PLAN_PROVENANCE);
+    }
+
     /* ── Context status ───────────────────────────────────────────────── */
     case "status":
     case "refresh": {
