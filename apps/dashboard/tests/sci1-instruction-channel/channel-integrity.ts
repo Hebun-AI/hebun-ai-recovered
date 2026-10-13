@@ -156,9 +156,11 @@ async function main(): Promise<void> {
   assert.deepEqual(minters, [
     "src/features/agent-origination/originate-action.server.ts",
     "src/features/heby-answer/model-answer.server.ts",
+    /* CONTROLLED AGENT REASONING · PHASE 4 — the AI planning runtime mints its one fixed instruction from the plan contract's own constants; no tenant data and no user text enter it. */
+    "src/features/heby-commands/ai-operational-plan.server.ts",
     "src/features/heby-runtime/instruction-channel.ts",
     "src/features/work-artifacts/preparation-brief.ts",
-  ], "only the three instruction owners mint");
+  ], "only the instruction owners mint");
   assert.deepEqual([...code("src/features/heby-runtime/instruction-channel.ts").matchAll(/from "([^"]+)"/g)], [], "the mint imports nothing");
   assert.ok(existsSync(path.join(ROOT, "src/features/heby-runtime/instruction-channel.ts")));
   /* The mint is never handed a runtime variable in the owners: arguments are constants or closed builders. */

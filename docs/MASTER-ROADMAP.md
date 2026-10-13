@@ -5569,6 +5569,7 @@ re-graded here.
 | EAI-OPERATIONAL-RECORD-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-operational-record-contract-closure.md` |
 | HEBY-OPERATIONAL-PLANNING-PROJECTION-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-operational-planning-projection-closure.md` |
 | HEBY-AI-PLAN-OUTPUT-CONTRACT-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-ai-plan-output-contract-closure.md` |
+| HEBY-AI-PLAN-RUNTIME-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-ai-plan-runtime-closure.md` |
 
 ---
 
@@ -5589,3 +5590,5 @@ before §16.1 are not yet indexed (Phase B).
 | AI-PLAN-TITLE-PII-1 | HEBY-AI-PLANNING-PHASE-1 | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` | External AI disclosure | DEFERRED | Director decisions D3 and D4 before any AI planning release |
 | AI-PLAN-INDIRECT-PROFILING-1 | HEBY-AI-PLANNING-PHASE-1 | `docs/product-vision/runtime/hebun-heby-ai-planning-phase1-closure.md` | External AI disclosure | DEFERRED | Director decision D4 before any AI planning release |
 | PROJECTION-POSTGRES-PROOF-1 | HEBY-AI-PLAN-OUTPUT-CONTRACT-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-output-contract-closure.md` | Verification gap | CLOSED | — |
+| AI-PLAN-RUNTIME-BROWSER-1 | HEBY-AI-PLAN-RUNTIME-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-runtime-closure.md` | Verification gap | DEFERRED | Browser verification of the AI plan surface before production acceptance |
+| TEST-HARNESS-PG18-TEARDOWN-1 | HEBY-AI-PLAN-RUNTIME-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-runtime-closure.md` | Verification reliability | DEFERRED | A Director-approved harness fix (skip autovacuum backends, or grant pg_signal_autovacuum_worker locally) |

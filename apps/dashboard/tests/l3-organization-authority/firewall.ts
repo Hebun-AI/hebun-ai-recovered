@@ -301,11 +301,18 @@ function thereIsOnlyOneAnswer(): void {
        * from it. The census GREW; nothing in it widened.
        */
       "src/features/heby-commands/read-commands.server.ts",
+      /*
+       * CONTROLLED AGENT REASONING · PHASE 4 — the AI planning runtime resolves the department its
+       * message names through THIS seam, exactly as the `/plan` read does, and filters the Work
+       * projection by it on the server. The department name is never sent to the model: the
+       * projection carries aliases, states and flags only (tests/heby-ai-operational-plan).
+       */
+      "src/features/heby-commands/ai-operational-plan.server.ts",
     ].sort(),
     "the Organization Authority's consumers are exactly the Organization page, the Live Map " +
       "projection, the Work register page, the record-work proposal inlet, the place-human " +
       "proposal inlet, the agent " +
-      "origination candidate builder, (AP-2) the Agents page, and the /plan read",
+      "origination candidate builder, (AP-2) the Agents page, the /plan read and the AI planning runtime",
   );
 
   /*

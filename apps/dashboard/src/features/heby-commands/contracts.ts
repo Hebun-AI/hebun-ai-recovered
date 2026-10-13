@@ -269,6 +269,10 @@ export interface HebyCommandDescriptor {
  * The result of a command that did NOT come from the model. It is rendered as a command result, not
  * as a Heby turn, and it carries its own provenance line — so a deterministic local read is never
  * presented as something Heby generated.
+ *
+ * One exception, stated in its own provenance: the AI plan (`ai-operational-plan.server.ts`), whose
+ * order, grouping and priority a model proposed and whose every sentence Hebun wrote after checking
+ * each reason against the records. No model text is ever placed in `lines`.
  */
 export interface HebyCommandResult {
   /** The command that produced this, e.g. "/context". */

@@ -355,6 +355,8 @@ function main(): void {
       "src/app/(dashboard)/governance/authority/actions.ts",
       "src/app/(dashboard)/governance/genesis/actions.ts",
       "src/app/(dashboard)/heby/actions.ts",
+      /* CONTROLLED AGENT REASONING · PHASE 4 — "plan with AI": resolves the session tenant and forwards the message to the AI planning runtime. It writes nothing and holds no authority; the EAI gate inside the generator decides whether anything reaches a model. */
+      "src/app/(dashboard)/heby/ai-plan-actions.ts",
       /* AGENT-TEST-RECOVERY names later server actions: WF-3C knowledge-grounded origination, WF-1 origination availability. */
       "src/app/(dashboard)/heby/knowledge-origination-actions.ts",
       "src/app/(dashboard)/heby/origination-availability-actions.ts",

@@ -28,7 +28,12 @@
  */
 import type { OrganizationStructure } from "@/features/organization-authority/contracts";
 
-export type PlanIntent = "none" | "plan" | "plan-if-department" | "work-domain";
+/**
+ * `ai-plan` — the same planning request with an EXPLICIT request for AI ("AI ile", "yapay zeka",
+ * "with AI"). It never comes from a planning phrase alone, so `/plan` and every message that reached
+ * it before are untouched. It goes to its own server action, never to the `/plan` read.
+ */
+export type PlanIntent = "none" | "plan" | "plan-if-department" | "work-domain" | "ai-plan";
 
 /** The read's answer when an explicit planning phrase names no department: hand the message back to the conversation. */
 export const PLAN_NO_DEPARTMENT_NAMED = "no-department-named";
@@ -54,6 +59,8 @@ const ORGANIZATIONAL_WORK = [
   phrase("work(?![\\p{L}])"),
 ];
 const WORK_DOMAIN = phrase("work ?domain|iş alan|domain");
+/** An explicit request that a model take part. "ai" alone is matched only as a whole word. */
+const EXPLICIT_AI = phrase("ai(?![\\p{L}\\p{N}])(?:\\s+ile|\\s+destekli|-assisted|-powered)|yapay zek[aâ]\\p{L}*|(?:with|using|use) ai(?![\\p{L}\\p{N}])");
 
 export function recognizePlanIntent(message: string): PlanIntent {
   const text = fold(message);
@@ -61,6 +68,7 @@ export function recognizePlanIntent(message: string): PlanIntent {
   const work = ORGANIZATIONAL_WORK.some((p) => p.test(text));
   if (!(explicit || (work && OPEN_PLANNING.some((p) => p.test(text))))) return "none";
   if (WORK_DOMAIN.test(text)) return "work-domain";
+  if (EXPLICIT_AI.test(text)) return "ai-plan";
   return work ? "plan" : "plan-if-department";
 }
 

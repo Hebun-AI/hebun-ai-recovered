@@ -199,6 +199,7 @@ assert.deepEqual([...code.matchAll(/from\s+["']([^"']+)["']/g)].map((m) => m[1])
 for (const forbidden of ["fetch(", "getDb", "insert(", "update(", "delete(", "process.env", "console.", "heby-model", "heby-answer", "governance-", "action-authorization", "action-execution", "machine-execution", "permit", "audit", "originate"]) {
   assert.ok(!code.includes(forbidden), `the contract does not reach ${forbidden}`);
 }
-assert.deepEqual(walk("src").filter((f) => f !== MODULE && /operational-plan-candidate/.test(read(f))), [], "nothing at runtime imports the contract: no surface, no model path");
+/* PHASE 4 — the AI planning runtime is its one importer and validates every model answer with it (tests/heby-ai-operational-plan). */
+assert.deepEqual(walk("src").filter((f) => f !== MODULE && /operational-plan-candidate/.test(read(f))), ["src/features/heby-commands/ai-operational-plan.server.ts"], "only the AI planning runtime imports the contract");
 
 console.log("PASS heby-operational-planning-projection plan-candidate");

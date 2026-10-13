@@ -239,7 +239,8 @@ async function main(): Promise<void> {
       } else assert.ok(!action.includes(forbidden));
     }
     const importers = walk("src").filter((f) => f !== MODULE && /operational-planning-projection/.test(read(f)));
-    assert.deepEqual(importers, [], "nothing at runtime imports the projection: it reaches no surface, client or model");
+    /* PHASE 4 — the AI planning runtime is its one importer; that runtime's own suite (tests/heby-ai-operational-plan) proves what reaches a model. */
+    assert.deepEqual(importers, ["src/features/heby-commands/ai-operational-plan.server.ts"], "only the AI planning runtime imports the projection");
   }
 
   console.log("PASS heby-operational-planning-projection projection");

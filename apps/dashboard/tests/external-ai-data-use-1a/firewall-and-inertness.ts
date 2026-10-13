@@ -82,12 +82,29 @@ assert.deepEqual(
     "src/features/governance-decision/decision-authority.server.ts",
     "src/features/heby-answer/model-answer.server.ts",
     "src/features/heby-answer/model-facing-projection.ts",
+    "src/features/heby-commands/ai-operational-plan.server.ts",
     "src/features/heby-commands/operational-plan-candidate.ts",
     "src/features/heby-commands/operational-planning-projection.server.ts",
     "src/features/heby-model/heby-model-generation.server.ts",
     "src/features/origination-availability/read-origination-availability.server.ts",
   ],
-  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection, and the operational planning projection and plan-candidate contract checks reach the authority",
+  "only the Governance writer, the decision vocabulary, the generator's gate, the answer's declaration, the decision's audit evidence, WF-1's read-only availability projection, the operational planning projection and plan-candidate contract checks, and the AI planning runtime's declaration reach the authority",
+);
+/*
+ * CONTROLLED AGENT REASONING · PHASE 4 — the AI planning runtime DECLARES what it would disclose
+ * (work-planning × operational-record), as the answer and origination paths do. It reads the purpose
+ * vocabulary to know whether that purpose exists and imports the declaration TYPE; it never imports
+ * the gate, the composer, the policy or a writer. The generator's gate decides.
+ */
+assert.deepEqual(
+  [...read("src/features/heby-commands/ai-operational-plan.server.ts").matchAll(/from\s+["'](@\/features\/external-ai-data-use\/[^"']+)["']/g)].map((m) => m[1]),
+  ["@/features/external-ai-data-use/authorize-external-ai-disclosure.server", "@/features/external-ai-data-use/contracts"],
+  "the AI planning runtime imports the declaration type and the purpose vocabulary only",
+);
+assert.match(
+  read("src/features/heby-commands/ai-operational-plan.server.ts"),
+  /import type \{ ExternalAiDisclosureDeclaration \} from "@\/features\/external-ai-data-use\/authorize-external-ai-disclosure\.server";/,
+  "…the declaration as a type, never the gate",
 );
 /*
  * CONTROLLED AGENT REASONING · PHASE 2 — the operational planning projection checks what it built

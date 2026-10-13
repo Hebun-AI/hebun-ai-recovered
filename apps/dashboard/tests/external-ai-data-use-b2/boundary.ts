@@ -59,7 +59,13 @@ assert.match(GENERATOR, /if \(admission\.reason === "process-budget-exhausted"\)
 
 /* ── 3. EVERY RUNTIME CALLER DECLARES; ORIGINATION IS ITS OWN PURPOSE. ────────────────────────── */
 const callers = SRC.filter((f) => /\(deps\.generate \?\? generateHebyModelAnswer\)|generate: deps\.generate \?\? generateHebyModelAnswer/.test(read(f))).sort();
-assert.deepEqual(callers, ["src/features/agent-origination/originate-action.server.ts", "src/features/heby-answer/model-answer.server.ts"]);
+/* CONTROLLED AGENT REASONING · PHASE 4 — the AI planning runtime is a third caller, under its own purpose. */
+assert.deepEqual(callers, ["src/features/agent-origination/originate-action.server.ts", "src/features/heby-answer/model-answer.server.ts", "src/features/heby-commands/ai-operational-plan.server.ts"]);
+const aiPlan = codeOf(read("src/features/heby-commands/ai-operational-plan.server.ts"));
+assert.match(aiPlan, /\{ env, transport, disclosure: declaration \}/, "the AI planning runtime always passes its declaration to the generator");
+assert.match(aiPlan, /export const WORK_PLANNING_PURPOSE = "work-planning";/);
+assert.match(aiPlan, /purpose, dataClasses: \["operational-record"\]/, "work-planning × operational-record, never assistance");
+assert.ok(!/purpose: "assistance"/.test(aiPlan), "the AI planning runtime never declares assistance");
 const origination = codeOf(read("src/features/agent-origination/originate-action.server.ts"));
 assert.match(origination, /disclosure: \{\s*tenantId: tenant\.tenantId,\s*actorUserId: tenant\.userId,\s*purpose: "agent-origination",/, "origination declares agent-origination, never assistance");
 assert.match(codeOf(read("src/features/heby-answer/model-answer.server.ts")), /purpose: "assistance",/);

@@ -59,6 +59,7 @@ import {
   type HebySurfaceKind,
 } from "@/features/heby-commands";
 import { PLAN_INTENT_TITLE, PLAN_INTENT_WORK_DOMAIN_LINES, PLAN_NO_DEPARTMENT_NAMED, recognizePlanIntent } from "@/features/heby-commands/plan-intent";
+import { planWithAiAction } from "@/app/(dashboard)/heby/ai-plan-actions";
 import { buildConversationSuggestions, deriveLatestProvenance, type ProvenanceBadge } from "./heby-provenance";
 import { buildTurns, type LatestTurn } from "./heby-thread";
 import type { HebyTurnView } from "./heby-turns";
@@ -310,6 +311,35 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
       const intent = recognizePlanIntent(parsed.prompt);
       if (intent === "work-domain") {
         patch({ composer: "", commandOutput: refusal("/plan", PLAN_INTENT_TITLE, PLAN_INTENT_WORK_DOMAIN_LINES) });
+        return;
+      }
+      if (intent === "ai-plan") {
+        /*
+         * CONTROLLED AGENT REASONING · PHASE 4. An explicit "plan with AI" request goes to its own
+         * action — never to the `/plan` read and never to the conversation. The server decides
+         * whether anything may reach a model; every line shown is the server's.
+         */
+        patch({
+          composer: "",
+          commandOutput: {
+            command: "AI plan",
+            title: "Preparing an AI plan…",
+            lines: ["Checking whether this organization allows its work states to reach a model. Titles, names and dates are never sent."],
+            tone: "info",
+            provenance: "In progress.",
+          },
+        });
+        setReading(true);
+        try {
+          const planned = await planWithAiAction({ message: parsed.prompt });
+          patch(
+            planned.status === "ok"
+              ? { commandOutput: planned.result }
+              : { commandOutput: refusal("AI plan", "Sign in required", ["Sign in to plan with AI."]), available: false },
+          );
+        } finally {
+          setReading(false);
+        }
         return;
       }
       const planCommand = intent === "plan" || intent === "plan-if-department" ? findHebyCommandById("plan") : undefined;
