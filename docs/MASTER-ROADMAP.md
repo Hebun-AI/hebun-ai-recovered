@@ -3160,6 +3160,52 @@ PRODUCTION-ACCEPTED      != COMPLETE (no such phase state exists here)
 | Meta / Instagram as a provider | **UNAVAILABLE** | No provider module, no catalog entry, no capability, no transport, no credential kind. The string `instagram` exists only as a content **destination** on work artifacts. See §20. |
 | `TRH-2` closure record | **UNAVAILABLE** | The work happened; the closure record was never written, and a later closure reports the gap rather than repairing it. A missing record is not a missing capability — it is this line's one documentation debt. |
 
+### 13.3 Future commercial products · **FUTURE / DEFERRED** · recorded by Director instruction, 2026-10-14
+
+**This section opens nothing.** It records commercial product directions so they are not lost. It starts no phase, selects no milestone, changes no existing sequence, creates no product line (§5, §18 rules 2 and 12), and authorizes no code, schema, provider connection, publication or paid operation. Each item needs its own discovery, design gate and Director decision before any work begins.
+
+**Active priority is unchanged: Hebun Enterprise AI → Heby → AI Agents.** Every item below ranks after it and may not delay it.
+
+**Source systems were not inspected for this record.** Every "source" below is a Director-named starting point. Its code, license, security, architecture, real runtime state and provider connections are **UNVERIFIED**. No source system is assumed sale-ready, reusable or sharing code with another.
+
+| ID | Direction | Named source | Future target |
+|---|---|---|---|
+| **FC-A** | **Hebun Inventory** | `inventory.woolmount.com` (built for rug inventory) | Industry-neutral, multi-tenant, mobile-ready inventory platform |
+| **FC-B** | **Commerce / Mulify** | `mulify.co` (SMB website platform), `woolmount.com` (live e-commerce), `turkishrughouse.com` (more advanced, in development) | E-commerce packages for SMBs, built only after a reusability review of the existing systems |
+| **FC-C** | **Hebun Social Commerce** | The morning/evening product-posting system built earlier for Turkish Rug House | A sellable content automation package for stores |
+| **FC-D** | **Hebun Business Automations** | None — ideas only | Small-business automation and agent packages |
+| **FC-E** | **Hebun Marketplace — commercial scope** | The existing enterprise AI Marketplace (`docs/architecture-backlog/20-marketplace.md`, `docs/product-vision/marketplace-ecosystem.md`) | The same marketplace also offering Hebun-built commercial software, automations, agent packages and digital products |
+
+**FC-A — planned capabilities.** General product and stock management · multiple warehouses · barcode / QR · stock movements · Excel / CSV import and export · iOS and Android apps · mobile stock counting · stock queries over WhatsApp and Telegram · add, remove and update items by message · voice-message inventory operations · product drafts from a photo · critical-stock notifications · AI stock analysis · demand forecasting · supply and purchasing suggestions · e-commerce stock sync · Heby integration.
+
+**FC-B — planned capabilities.** Reusability review of the existing systems · SMB e-commerce packages · mobile-ready storefront infrastructure · product and order management · FC-A integration · AI-assisted commerce automation. The existing projects are not modified by this direction.
+
+**FC-C — planned capabilities.** Content prepared from e-commerce products · scheduled morning and evening posts · Instagram Reels · YouTube Shorts · TikTok · AI-assisted image, video and copy preparation · content calendar · performance analysis · multi-store support · a customer-facing automation package. **The real working state and provider connections of the existing TRH system must be verified separately**; this record claims neither.
+
+**FC-D — ideas.** WhatsApp customer-support automation · Telegram business assistant · automatic product entry into e-commerce sites · product-description preparation · order and customer-service automation · social media and digital marketing automation · security tools for small businesses · AI agent and workflow packages.
+
+**FC-E — boundary.** Proposed address `marketplace.hebun.ai`: **not configured, not deployed**. This extends the existing marketplace's scope; it is **not a second marketplace system**, and the existing routes, sidebar entry and product vision stay as they are. **Toreun / Company 01 products are independent and are not moved into the Hebun Marketplace.**
+
+**Productization principles — binding on every item above.**
+
+- No existing system is assumed ready for sale. Code, license, security and architecture are reviewed first.
+- Multi-tenant data isolation is mandatory.
+- Mobile and web use the same stock authority.
+- WhatsApp, Telegram and Heby are authorized access channels only — never authorities.
+- Every stock change passes through the Inventory authority.
+- An AI suggestion grants no authority to act.
+- No external service is shown as usable without a real connection and permission (§18 rule 7).
+- Product publication and paid operations are authorized separately.
+
+```
+RECORDED          != SELECTED
+FUTURE / DEFERRED != SCHEDULED
+NAMED SOURCE      != VERIFIED SOURCE
+EXISTING SYSTEM   != SALE-READY PRODUCT
+CHANNEL           != AUTHORITY
+AI SUGGESTION     != AUTHORIZATION
+```
+
 ---
 
 ## 14. Major Capability Placement
