@@ -5571,6 +5571,7 @@ re-graded here.
 | HEBY-AI-PLAN-OUTPUT-CONTRACT-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-ai-plan-output-contract-closure.md` |
 | HEBY-AI-PLAN-RUNTIME-1 | VERIFIED | `docs/product-vision/runtime/hebun-heby-ai-plan-runtime-closure.md` |
 | EAI-WORK-PLANNING-AUTHORIZATION-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-work-planning-authorization-closure.md` |
+| EAI-WORK-PLANNING-CEREMONY-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-work-planning-ceremony-closure.md` |
 
 ---
 
@@ -5593,4 +5594,5 @@ before §16.1 are not yet indexed (Phase B).
 | PROJECTION-POSTGRES-PROOF-1 | HEBY-AI-PLAN-OUTPUT-CONTRACT-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-output-contract-closure.md` | Verification gap | CLOSED | — |
 | AI-PLAN-RUNTIME-BROWSER-1 | HEBY-AI-PLAN-RUNTIME-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-runtime-closure.md` | Verification gap | DEFERRED | Browser verification of the AI plan surface before production acceptance |
 | TEST-HARNESS-PG18-TEARDOWN-1 | HEBY-AI-PLAN-RUNTIME-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-runtime-closure.md` | Verification reliability | DEFERRED | A Director-approved harness fix (skip autovacuum backends, or grant pg_signal_autovacuum_worker locally) |
-| EAI-WORK-PLANNING-CEREMONY-1 | EAI-WORK-PLANNING-AUTHORIZATION-1 | `docs/product-vision/runtime/hebun-eai-work-planning-authorization-closure.md` | Release prerequisite | DEFERRED | A reviewed `--work-planning` option in the tenant ceremony before any tenant authorization |
+| EAI-WORK-PLANNING-CEREMONY-1 | EAI-WORK-PLANNING-AUTHORIZATION-1 | `docs/product-vision/runtime/hebun-eai-work-planning-ceremony-closure.md` | Release prerequisite | CLOSED | — |
+| RELEASE-ROLLBACK-FLOOR-1 | EAI-WORK-PLANNING-CEREMONY-1 | `docs/product-vision/runtime/hebun-eai-work-planning-ceremony-closure.md` | Release safety | DEFERRED | Once any tenant holds work-planning, no deployment older than a27e5ad4 may serve production until `--work-planning --revoke` has run; Director decision on a tolerant scope reader |
