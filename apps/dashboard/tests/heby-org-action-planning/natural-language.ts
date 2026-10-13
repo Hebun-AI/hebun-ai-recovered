@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import {
   PLAN_INTENT_TITLE,
   PLAN_INTENT_WORK_DOMAIN_LINES,
+  PLAN_NO_DEPARTMENT_NAMED,
   recognizePlanIntent,
   resolvePlanDepartment,
 } from "../../src/features/heby-commands/plan-intent";
@@ -32,20 +33,34 @@ const PLANNING = [
 ];
 for (const message of PLANNING) assert.equal(recognizePlanIntent(message), "plan", message);
 
+/* 3 · AN EXPLICIT PLANNING PHRASE WITHOUT A DEPARTMENT WORD — planned only if a department is named (server). */
+for (const message of [
+  "Engineering için aksiyon planı hazırla.",
+  "Engineering için öncelikleri belirle.",
+  "Engineering için çalışma planı oluştur.",
+  "Prepare an action plan for Engineering.",
+  "Instagram kampanyası için bir aksiyon planı hazırla.",
+]) {
+  const intent = recognizePlanIntent(message);
+  assert.ok(intent === "plan-if-department" || (message.includes("çalışma") && intent === "plan"), `${message} → ${intent}`);
+}
+
 const CONVERSATION = [
   "Merhaba Heby, bugün nasılsın?",
   "Bugün ne yapmalıyız?",
-  "Instagram kampanyası için bir aksiyon planı hazırla.",
+  "Engineering'de kaç kişi var?",
+  "Engineering hakkında bilgi ver.",
+  "Engineering",
   "Engineering departmanında kaç kişi var?",
   "What should we post this week?",
   "Summarize the Knowledge sources for Engineering.",
-  "Bir plan yapalım mı?",
   "Bu iş çok güzel oldu.",
 ];
 for (const message of CONVERSATION) assert.equal(recognizePlanIntent(message), "none", message);
 
 /* 6 · DEPARTMENT != WORK DOMAIN — a domain request is refused, never filtered as a department. */
 assert.equal(recognizePlanIntent("Engineering work domain için aksiyon planı hazırla."), "work-domain");
+assert.equal(recognizePlanIntent("Engineering work domain için plan hazırla."), "work-domain");
 assert.equal(recognizePlanIntent("Plan the work in the Engineering work domain."), "work-domain");
 assert.equal(recognizePlanIntent("Engineering iş alanındaki işler için öncelikleri belirle."), "work-domain");
 assert.match(PLAN_INTENT_WORK_DOMAIN_LINES.join(" "), /a work domain is not a department/);
@@ -82,6 +97,8 @@ assert.equal(descriptor.requiresModel, false);
 const HOOK = readFileSync("src/components/layout/heby/use-heby-conversation.ts", "utf8");
 const routed = HOOK.indexOf("recognizePlanIntent(parsed.prompt)");
 assert.ok(routed > 0 && routed < HOOK.indexOf("await askHebyAction("), "recognition happens before the one model dispatch");
+assert.match(HOOK, /read\.reason === PLAN_NO_DEPARTMENT_NAMED\)[\s\S]{0,2000}if \(!handBack \|\| conversational === undefined\) return;\s+prompt = conversational;/,
+  "only the unplanned explicit phrase goes on, and it goes as the user's own text");
 const INTENT = readFileSync("src/features/heby-commands/plan-intent.ts", "utf8");
 assert.doesNotMatch(INTENT, /^import(?!\s+type)/m, "the recognizer imports no runtime module: no model, no database, no writer");
 
@@ -141,6 +158,19 @@ void (async () => {
   const down = await ask("Engineering işleri için aksiyon planı hazırla", { ...deps, readStructure: async () => ({ status: "unavailable", reason: "read-failed", detail: "x" }) });
   assert.ok(down.status === "ok" && /could not be read right now/.test(down.result.lines.join(" ")));
   assert.deepEqual(seen, [], "an unreadable structure is not treated as 'no departments'");
+
+  // 3 · NO DEPARTMENT WORD: a named department plans; no department named hands the message back.
+  const ifDepartment = (message: string) =>
+    runHebyReadCommand({ commandId: "plan", args: [message], route: "/heby", phrasing: "natural-language-if-department" }, deps as never);
+  seen.length = 0;
+  const short = await ifDepartment("Engineering için aksiyon planı hazırla.");
+  assert.ok(short.status === "ok" && short.result.title === "Action plan · Engineering" && short.result.tone === "info");
+  assert.ok(short.status === "ok" && short.result.lines.some((l) => l.includes('"Fix CI"')));
+  seen.length = 0;
+  assert.deepEqual(await ifDepartment("Instagram kampanyası için bir aksiyon planı hazırla."), { status: "rejected", reason: PLAN_NO_DEPARTMENT_NAMED });
+  assert.deepEqual(seen, ["structure"], "no department named: no work is read, and the message returns to the conversation");
+  const two = await ifDepartment("Engineering ve Finance için öncelikleri belirle");
+  assert.ok(two.status === "ok" && two.result.title === PLAN_INTENT_TITLE, "two departments named: Heby asks which");
 
   // 8 · EXISTING /plan UNCHANGED: no phrasing, no structure read, the argument is the filter as before.
   seen.length = 0;

@@ -89,7 +89,7 @@ import { readOriginationAvailability } from "@/features/origination-availability
 import { composeActionPlan, PLAN_PROVENANCE } from "./action-plan";
 import { readOrganizationAuthority } from "@/features/organization-authority/read-organization.server";
 import { ORGANIZATION_STRUCTURE_UNAVAILABLE, type OrganizationStructure } from "@/features/organization-authority/contracts";
-import { planClarificationLines, PLAN_INTENT_PROVENANCE, PLAN_INTENT_TITLE, resolvePlanDepartment } from "./plan-intent";
+import { planClarificationLines, PLAN_NO_DEPARTMENT_NAMED, PLAN_INTENT_PROVENANCE, PLAN_INTENT_TITLE, resolvePlanDepartment } from "./plan-intent";
 import {
   observeRecordedActHistory,
   observeSubjectActHistory,
@@ -118,7 +118,7 @@ export interface HebyReadCommandInput {
    * one argument. It only makes the read STRICTER: the department must be resolved against
    * Organization Authority before anything is planned. It grants nothing.
    */
-  readonly phrasing?: "natural-language";
+  readonly phrasing?: "natural-language" | "natural-language-if-department";
 }
 
 export interface HebyReadCommandDeps {
@@ -448,10 +448,14 @@ export async function runHebyReadCommand(
     case "plan": {
       let scope = input.args.join(" ");
       let preface: readonly string[] = [];
-      if (input.phrasing === "natural-language") {
+      if (input.phrasing !== undefined) {
         // The message names the department; Organization Authority decides whether it is one.
         const structure = await (deps.readStructure ?? readStructureThroughAuthority)(tenant);
         const resolution = resolvePlanDepartment(scope, structure);
+        if (resolution.kind === "unnamed" && input.phrasing === "natural-language-if-department") {
+          // An explicit planning phrase about no department of this organization: not a plan request.
+          return { status: "rejected", reason: PLAN_NO_DEPARTMENT_NAMED };
+        }
         if (resolution.kind !== "resolved") {
           return unavailable(slash, PLAN_INTENT_TITLE, planClarificationLines(resolution), PLAN_INTENT_PROVENANCE);
         }

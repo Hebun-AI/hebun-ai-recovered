@@ -18,26 +18,35 @@
  *
  * ── WHAT IS NOT A PLANNING REQUEST ───────────────────────────────────────────
  *
- * Recognition needs BOTH a planning phrase and an organizational-work word. "An action plan for my
- * campaign" has no work word and stays a conversation. A message about a WORK DOMAIN is refused with
- * the reason: `/plan` filters by department only, and a domain is not a department.
+ * A planning phrase plus an organizational-work word ("departman", "işler", "work") is a planning
+ * request. An explicit planning phrase alone ("aksiyon planı hazırla", "prepare an action plan") is
+ * one only IF the message names one of this organization's departments: the server checks, and when
+ * none is named the message goes to the conversation exactly as before — so "an action plan for my
+ * Instagram campaign" is still answered as a conversation. A department name alone is never a
+ * planning request. A message about a WORK DOMAIN is refused with the reason: `/plan` filters by
+ * department only, and a domain is not a department.
  */
 import type { OrganizationStructure } from "@/features/organization-authority/contracts";
 
-export type PlanIntent = "none" | "plan" | "work-domain";
+export type PlanIntent = "none" | "plan" | "plan-if-department" | "work-domain";
+
+/** The read's answer when an explicit planning phrase names no department: hand the message back to the conversation. */
+export const PLAN_NO_DEPARTMENT_NAMED = "no-department-named";
 
 /** Lowercase without the Turkish dotted-İ artefact ("İ".toLowerCase() is "i" + a combining dot). */
 const fold = (text: string) => text.replace(/İ/g, "i").toLowerCase();
 /** A phrase that starts at a word boundary. `\b` is ASCII-only, so Turkish letters need a lookbehind. */
 const phrase = (source: string) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${source})`, "u");
 
-const PLANNING = [
+/** Explicit planning phrases: enough on their own when the message also names a department. */
+const EXPLICIT_PLANNING = [
   phrase("(?:aksiyon|eylem|çalışma|iş) ?plan"),
   phrase("plan\\p{L}*\\s+(?:hazırla|oluştur|çıkar|yap)"),
   phrase("öncelik\\p{L}*\\s+belirle"),
-  phrase("ne yapmalıyız|ne yapmamız gerek"),
-  phrase("action plan|work plan|plan (?:the |our )?work|prioriti[sz]e|what should we do"),
+  phrase("action plan|work plan|plan (?:the |our )?work|prioriti[sz]e"),
 ];
+/** Open questions: a planning request only beside an organizational-work word. */
+const OPEN_PLANNING = [phrase("ne yapmalıyız|ne yapmamız gerek|what should we do")];
 const ORGANIZATIONAL_WORK = [
   phrase("departman|department"),
   phrase("iş(?:ler|leri|lerini|lerin|lerinin|lerimiz)?(?![\\p{L}])"),
@@ -48,8 +57,11 @@ const WORK_DOMAIN = phrase("work ?domain|iş alan|domain");
 
 export function recognizePlanIntent(message: string): PlanIntent {
   const text = fold(message);
-  if (!PLANNING.some((p) => p.test(text)) || !ORGANIZATIONAL_WORK.some((p) => p.test(text))) return "none";
-  return WORK_DOMAIN.test(text) ? "work-domain" : "plan";
+  const explicit = EXPLICIT_PLANNING.some((p) => p.test(text));
+  const work = ORGANIZATIONAL_WORK.some((p) => p.test(text));
+  if (!(explicit || (work && OPEN_PLANNING.some((p) => p.test(text))))) return "none";
+  if (WORK_DOMAIN.test(text)) return "work-domain";
+  return work ? "plan" : "plan-if-department";
 }
 
 export const PLAN_INTENT_TITLE = "Action plan · which department?";

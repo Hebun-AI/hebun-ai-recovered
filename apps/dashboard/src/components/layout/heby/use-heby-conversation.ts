@@ -58,7 +58,7 @@ import {
   type HebyCommandResult,
   type HebySurfaceKind,
 } from "@/features/heby-commands";
-import { PLAN_INTENT_TITLE, PLAN_INTENT_WORK_DOMAIN_LINES, recognizePlanIntent } from "@/features/heby-commands/plan-intent";
+import { PLAN_INTENT_TITLE, PLAN_INTENT_WORK_DOMAIN_LINES, PLAN_NO_DEPARTMENT_NAMED, recognizePlanIntent } from "@/features/heby-commands/plan-intent";
 import { buildConversationSuggestions, deriveLatestProvenance, type ProvenanceBadge } from "./heby-provenance";
 import { buildTurns, type LatestTurn } from "./heby-thread";
 import type { HebyTurnView } from "./heby-turns";
@@ -299,18 +299,23 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
      * NATURAL-LANGUAGE ACTION PLANNING. An ordinary message that plainly asks for an organizational
      * action plan runs the released `/plan` read instead of the model, with the message as its one
      * argument; the server resolves the department against Organization Authority. A work-domain
-     * request is refused locally. Anything else stays an ordinary prompt.
+     * request is refused locally. An explicit planning phrase that names none of this
+     * organization's departments comes back unplanned and is sent as the ordinary prompt it was
+     * before. Anything else stays an ordinary prompt.
      */
-    let phrasing: "natural-language" | undefined;
+    let phrasing: "natural-language" | "natural-language-if-department" | undefined;
+    let conversational: string | undefined;
+    let handBack = false;
     if (parsed.kind === "prompt") {
       const intent = recognizePlanIntent(parsed.prompt);
       if (intent === "work-domain") {
         patch({ composer: "", commandOutput: refusal("/plan", PLAN_INTENT_TITLE, PLAN_INTENT_WORK_DOMAIN_LINES) });
         return;
       }
-      const planCommand = intent === "plan" ? findHebyCommandById("plan") : undefined;
+      const planCommand = intent === "plan" || intent === "plan-if-department" ? findHebyCommandById("plan") : undefined;
       if (planCommand) {
-        phrasing = "natural-language";
+        phrasing = intent === "plan" ? "natural-language" : "natural-language-if-department";
+        if (intent === "plan-if-department") conversational = parsed.prompt;
         parsed = { kind: "command", command: planCommand, args: [parsed.prompt] };
       }
     }
@@ -369,7 +374,10 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
               conversationId: session.conversationId ?? undefined,
               phrasing,
             });
-            if (read.status === "ok") {
+            if (conversational !== undefined && read.status === "rejected" && read.reason === PLAN_NO_DEPARTMENT_NAMED) {
+              // Not a plan request after all: the message goes on to the conversation, unchanged.
+              handBack = true;
+            } else if (read.status === "ok") {
               patch({ commandOutput: read.result });
             } else if (read.status === "unauthorized") {
               patch({
@@ -388,7 +396,9 @@ export function useHebyConversation(input: UseHebyConversationInput): HebyConver
           } finally {
             setReading(false);
           }
-          return;
+          if (!handBack || conversational === undefined) return;
+          prompt = conversational;
+          break;
         }
         case "provider-read": {
           /*
