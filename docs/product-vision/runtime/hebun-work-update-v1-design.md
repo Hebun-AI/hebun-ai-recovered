@@ -3,6 +3,10 @@
 Status: **DESIGN ONLY.** Nothing here is implemented, migrated, revised or deployed. This document is
 not a closure record and does not change the §16.1 legacy census.
 
+> **Status update (2026-10-14):** implemented in `3ec2fb38` + `025c59ba`, released, deployed and
+> production-accepted. The record is `docs/product-vision/runtime/hebun-work-update-v1-closure.md`. The
+> text below is kept as written; §18 clarifies the disclosure classes.
+
 Base: `1a9ce862` (production code `9308e12c`). All file references are under `apps/dashboard/src`
 unless they start with `docs/` or `tests/`.
 
@@ -548,3 +552,23 @@ Allowed and asserted still reachable from the panel: the Work route's actions, t
 `record-work-proposal` inlet and the one writer behind it. The only `agent-origination` module the Work
 graph may contain is the pure vocabulary `contracts.ts`, which itself reaches none of the forbidden
 modules.
+
+---
+
+## 18 · Disclosure clarification after production acceptance (2026-10-14)
+
+**Historical clarification. Nothing above is edited.** §2 (the "Model call + EAI gate" row), §3 step 4
+and §10 criterion 8 say the origination request declares the data classes `{conversation, organization}`.
+That is not what was implemented and not what production recorded.
+
+- **Implemented** (`3ec2fb38`, released in `025c59ba`): `WORK_STATE_ORIGINATION_DATA_CLASSES = ["conversation"]`.
+  The request carries no grounding lines, so there is no `organization` content to declare. The firewall
+  pins it (`tests/work-update-v1/work-state-firewall.ts`, F6).
+- **Production-verified** (G5, 2026-10-14T11:21:24Z): audit `65261576`, `external-ai.disclosure.authorized`,
+  purpose `agent-origination`, declared and authorized classes `["conversation"]`.
+
+The implementation is narrower than the design, not wider. No disclosure was widened and none is proposed.
+Criterion 8 is read as "one EAI `agent-origination` audit, classes `{conversation}`".
+
+Closure: `docs/product-vision/runtime/hebun-work-update-v1-closure.md` (WORK-UPDATE-V1,
+PRODUCTION-ACCEPTED; risk WORK-UPDATE-DISCLOSURE-DESIGN-TEXT-1 CLOSED there).

@@ -5620,6 +5620,7 @@ re-graded here.
 | EAI-WORK-PLANNING-CEREMONY-1 | VERIFIED | `docs/product-vision/runtime/hebun-eai-work-planning-ceremony-closure.md` |
 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | DEPLOYED | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` |
 | HEBY-PLAN-DELEGATION-1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` |
+| WORK-UPDATE-V1 | PRODUCTION-ACCEPTED | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` |
 
 ---
 
@@ -5648,3 +5649,9 @@ before §16.1 are not yet indexed (Phase B).
 | AI-PLAN-UI-THROW-1 | HEBY-AI-PLAN-PRODUCTION-ACCEPTANCE-1 | `docs/product-vision/runtime/hebun-heby-ai-plan-production-acceptance-closure.md` | UX failure legibility | DEFERRED | A Director-approved fix that ends a non-connectivity error with an unavailable line |
 | PLAN-FOLLOW-UP-REFERENCE-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` | Product usefulness | DEFERRED | A Director decision on a model-invisible reference from a follow-up proposal to its work |
 | PLAN-DELEGATION-BROWSER-1 | HEBY-PLAN-DELEGATION-1 | `docs/product-vision/runtime/hebun-heby-plan-delegation-1-closure.md` | Verification gap | CLOSED | — |
+| WORK-UPDATE-DISCLOSURE-DESIGN-TEXT-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Documentation accuracy | CLOSED | — |
+| WORK-UPDATE-UNSCOPED-ITEMS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Product reach | DEFERRED | Human scoping of unscoped work items through the Work path; no automatic scoping |
+| WORK-UPDATE-AGENT-SELECTION-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Agent identity | DEFERRED | An agent choice in the Heby state-change affordance before a second in-service agent is placed |
+| WORK-UPDATE-LOGIN-QUERY-LOSS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | UX continuity | DEFERRED | A Director-approved login redirect that keeps the return query |
+| WORK-UPDATE-ROLLBACK-FLOOR-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Release safety | DEFERRED | Director decision on a formal rollback floor for migration 78 (reversal is a mandate revision without the kind plus a code disable) |
+| PERMIT-EXPIRED-STATUS-1 | WORK-UPDATE-V1 | `docs/product-vision/runtime/hebun-work-update-v1-closure.md` | Authority legibility | DEFERRED | A Director decision on how an expired permit's status is shown or counted |
