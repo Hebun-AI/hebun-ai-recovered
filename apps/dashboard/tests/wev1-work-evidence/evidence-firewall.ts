@@ -172,7 +172,7 @@ function nothingElseBecamePossible(): void {
   );
   assert.deepEqual(
     [...AGENT_ORIGINABLE_ACTION_KINDS],
-    ["send", "record-work"],
+    ["send", "record-work", "set-work-declared-state"], /* WORK-UPDATE V1 (Director-approved 2026-10-14) admitted the third kind; the claim is about WEV-1, which admitted none. */
     "and no action kind became agent-originable",
   );
   assert.deepEqual(
