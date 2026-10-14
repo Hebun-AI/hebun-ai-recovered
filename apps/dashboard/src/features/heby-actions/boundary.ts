@@ -39,6 +39,7 @@ const ACTION_LABELS: Record<HebyActionKind, string> = {
   "place-human-in-department": "Place a human in a department",
   "publish-instagram-media": "Publish to Instagram",
   "publish-youtube-video": "Publish to YouTube",
+  "set-work-declared-state": "Change the declared state of work",
   "grant-permission": "Grant permission",
   "modify-governance-policy": "Modify governance policy",
   "device-action": "Device action",

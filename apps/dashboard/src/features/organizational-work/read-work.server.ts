@@ -273,3 +273,78 @@ export async function readWorkRegister(
     return WORK_REGISTER_UNAVAILABLE;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * WORK-UPDATE V1 — ONE TARGET, FOR A GOVERNED STATE-CHANGE PROPOSAL
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * What a state-change proposal needs to know about the ONE item a human selected.
+ *
+ * The work domain is present only when the item is domain-scoped: an unscoped or organization-level
+ * item has no domain an agent's responsibility could be checked against, so it cannot be the target
+ * of a governed state change (WORK-UPDATE V1, D6). The title is for HUMAN surfaces — the proposal's
+ * target label — and never reaches a model.
+ */
+export interface WorkStateTarget {
+  readonly workItemId: string;
+  readonly title: string;
+  readonly declaredState: WorkDeclaredState;
+  readonly inService: boolean;
+  readonly workDomainId: string | null;
+}
+
+export type WorkStateTargetRead =
+  | { readonly status: "found"; readonly target: WorkStateTarget }
+  | { readonly status: "unresolved" }
+  | { readonly status: "unavailable" };
+
+/**
+ * Read ONE work item of THIS tenant by id. The tenant is the session's and sits in the predicate, so
+ * another organization's id is `unresolved` — indistinguishable from an id that never existed. A
+ * read, and nothing else: no lock, no write. The Work Authority re-reads the row under its own lock
+ * when the act is performed.
+ */
+export async function readWorkStateTarget(
+  tenant: TenantContext | null,
+  workItemId: unknown,
+  deps: WorkReadDeps = {},
+): Promise<WorkStateTargetRead> {
+  if (typeof window !== "undefined") {
+    throw new Error("Organizational work reads are server-only.");
+  }
+  if (!tenant?.tenantId) return { status: "unavailable" };
+  if (typeof workItemId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(workItemId)) {
+    return { status: "unresolved" };
+  }
+  const db = resolveDbOrNull(deps);
+  if (!db) return { status: "unavailable" };
+  try {
+    const rows = await db
+      .select({
+        id: workItems.id,
+        title: workItems.title,
+        declaredState: workItems.declaredState,
+        lifecycleStatus: workItems.lifecycleStatus,
+        scopeKind: workItems.workScopeKind,
+        domainId: workItems.workDomainId,
+      })
+      .from(workItems)
+      .where(and(eq(workItems.tenantId, tenant.tenantId), eq(workItems.id, workItemId)))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return { status: "unresolved" };
+    return {
+      status: "found",
+      target: {
+        workItemId: row.id,
+        title: row.title,
+        declaredState: row.declaredState,
+        inService: row.lifecycleStatus === ACTIVE_LIFECYCLE_STATUS,
+        workDomainId: row.scopeKind === "domain" ? row.domainId : null,
+      },
+    };
+  } catch {
+    return { status: "unavailable" };
+  }
+}

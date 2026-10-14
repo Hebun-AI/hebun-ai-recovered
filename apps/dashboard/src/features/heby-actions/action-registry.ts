@@ -42,6 +42,8 @@ export const DEVICE_ACTION_TOOL_ID = "heby.device.action";
  */
 export const RECORD_WORK_TOOL_ID = "heby.work.record-work";
 export const PLACE_HUMAN_TOOL_ID = "heby.organization.place-human";
+/** WORK-UPDATE V1's tool id — one string for the executor, the inlet, the registry and the firewall. */
+export const SET_WORK_DECLARED_STATE_TOOL_ID = "heby.work.set-declared-state";
 
 const ACTION_TOOLS: readonly HebyActionTool[] = [
   {
@@ -488,6 +490,78 @@ const ACTION_TOOLS: readonly HebyActionTool[] = [
       "Places one human into one department through the Organization Authority. Consequential and governed; a human authorizes it and Hebun performs it.",
   },
   {
+    /*
+     * WORK-UPDATE V1 — THE THIRD GOVERNED INTERNAL ACT.
+     *
+     * Changing the declared state of ONE existing work item. The human chose the item and the new
+     * state; an agent may only propose; a human authorizes; the Organizational Work Authority
+     * performs the one-column change, and only while the item still holds `fromState`, is still in
+     * service and is still in the work domain the proposal named.
+     *
+     * REVERSIBLE, IN THE SAME SENSE AS ITS SIBLINGS. The inverse is the same act with the two states
+     * swapped, proposed and authorized again. Nothing is erased; the audit event and the Governance
+     * record stay where they are.
+     */
+    toolId: SET_WORK_DECLARED_STATE_TOOL_ID,
+    actionKind: "set-work-declared-state",
+    capability: "organizational-work-state-set",
+    sideEffect: "CONSEQUENTIAL_MUTATION",
+    reversibility: "deterministic-inverse",
+    /* Command owns `/director/work`, exactly as it does for `record-work`. */
+    ownerWorkspace: "command",
+    authorityRequirement: "human-review-required",
+    governanceGated: true,
+    substrateConnected: true,
+    /*
+     * THE WORK ITEM IS A RECORD-REF, so the proposal names a retrieved row of THIS tenant rather than
+     * a string. `fromState` is the state the item held when the proposal was made; the Work
+     * Authority refuses the act if the item no longer holds it. The scope pair is the item's own
+     * work domain, frozen into the digest so responsibility is re-checked against it at spend.
+     */
+    argumentSchema: {
+      fields: [
+        {
+          name: "workItemRef",
+          kind: "record-ref",
+          required: true,
+          describes: "An in-service, domain-scoped work item of this organization: work-item/<uuid>.",
+        },
+        {
+          name: "fromState",
+          kind: "enum",
+          required: true,
+          enumValues: ["planned", "active", "blocked", "complete"],
+          describes: "The declared state the item held when this was proposed.",
+        },
+        {
+          name: "toState",
+          kind: "enum",
+          required: true,
+          enumValues: ["planned", "active", "blocked", "complete"],
+          describes: "The declared state a human chose for the item.",
+        },
+        {
+          name: "workScope",
+          kind: "enum",
+          required: true,
+          enumValues: ["domain"],
+          describes: "Always one recorded work domain: the item's own.",
+        },
+        {
+          name: "workDomainRef",
+          kind: "string",
+          required: true,
+          describes: "The item's work domain: work-domain/<uuid>.",
+        },
+      ],
+    },
+    inputSummary: "One in-service work item of this organization, the state it holds now, and the state a human chose.",
+    outputSummary:
+      "Would change one work item's declared state, authored by the system under a human's authorization, only if it still holds the state it was proposed from. Reversible by the opposite change; nothing is erased.",
+    describes:
+      "Changes the declared state of one work item through the Organizational Work Authority. Consequential and governed; a human authorizes it and Hebun performs it.",
+  },
+  {
     toolId: "heby.decisions.grant-permission",
     actionKind: "grant-permission",
     capability: "authority-grant",
@@ -655,6 +729,14 @@ export const EXECUTABLE_ACTION_POSTURES: readonly ExecutableActionPosture[] = Ob
     sideEffect: "CONSEQUENTIAL_MUTATION" as const,
     reversibility: "irreversible" as const,
     execution: "external-provider" as const,
+  }),
+  /* WORK-UPDATE V1 — the sixth, Director-approved; the third INTERNAL kind (a Work Authority door). */
+  Object.freeze({
+    actionKind: "set-work-declared-state" as const,
+    toolId: SET_WORK_DECLARED_STATE_TOOL_ID,
+    sideEffect: "CONSEQUENTIAL_MUTATION" as const,
+    reversibility: "deterministic-inverse" as const,
+    execution: "internal-authority" as const,
   }),
 ]);
 

@@ -25,6 +25,14 @@ import {
   executePlaceHuman,
   type PlacementActResult,
 } from "@/features/governed-internal-action/execute-place-human.server";
+import {
+  executeSetWorkDeclaredState,
+  type WorkStateActResult,
+} from "@/features/governed-internal-action/execute-set-work-state.server";
+import {
+  readWorkStateConflict,
+  type WorkStateConflictRead,
+} from "@/features/action-authorization/read-work-state-conflict.server";
 import type {
   ActionApprovalResult,
   ActionRejectionResult,
@@ -237,6 +245,38 @@ export async function executeGovernedPlacementAction(
     revalidatePath("/director/organization");
   }
   return result;
+}
+
+/*
+ * WORK-UPDATE V1 — PERFORM ONE AUTHORIZED DECLARED-STATE CHANGE.
+ *
+ * A FOURTH NAMED SERVER ACTION, NOT A DISPATCHER, for the reason the placement action gives. The
+ * permit id is the only value the browser supplies. A refusal — including "the item no longer holds
+ * the state this was proposed from" — rolls the Work Authority's transaction back, so the permit stays
+ * `active` and nothing was written. Only a success revalidates.
+ */
+export async function executeGovernedWorkStateChangeAction(
+  input: { readonly permitId: string },
+): Promise<WorkStateActResult> {
+  const tenant = await resolveTenantContext();
+  const result = await executeSetWorkDeclaredState(tenant, {
+    permitId: String(input?.permitId ?? ""),
+  });
+  if (result.status === "executed") {
+    revalidatePath("/approvals");
+    revalidatePath("/director/work");
+  }
+  return result;
+}
+
+/*
+ * WORK-UPDATE V1 (U6) — READ whether a state-change request's item has moved since it was proposed.
+ * Read-only: it changes nothing and decides nothing; the Work Authority refuses a stale act anyway.
+ */
+export async function readWorkStateConflictAction(
+  input: { readonly requestId: string },
+): Promise<WorkStateConflictRead> {
+  return readWorkStateConflict(await resolveTenantContext(), String(input?.requestId ?? ""));
 }
 
 /*

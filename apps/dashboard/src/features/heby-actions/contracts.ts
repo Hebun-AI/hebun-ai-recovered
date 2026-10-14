@@ -247,6 +247,18 @@ export type HebyActionKind =
    * YouTube accepts it, and Hebun owns no inverse. No third-party recipient; its attempt carries none.
    */
   | "publish-youtube-video"
+  /**
+   * WORK-UPDATE V1 — THE SIXTH EXECUTABLE KIND, AND THE THIRD INTERNAL ONE.
+   *
+   * Changing the DECLARED STATE of ONE existing work item, performed by the Organizational Work
+   * Authority in the transaction that spends a human's permit, and only while the item still holds
+   * the state the proposal was made against (`fromState`). It changes one column; it does not
+   * retitle, reassign, retire or re-scope anything.
+   *
+   * Reversible in the same sense as its siblings: the inverse is the same act with the two states
+   * swapped, proposed and authorized again. Nothing is erased and nothing is rolled back by itself.
+   */
+  | "set-work-declared-state"
   | "grant-permission"
   | "modify-governance-policy"
   | "device-action";

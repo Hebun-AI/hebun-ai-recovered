@@ -104,7 +104,8 @@ const MUTATIONS: Mutation[] = [
   {
     label: "B11 the eligibility projection lists agents outside responsibility",
     file: "src/features/origination-availability/list-eligible-agents.server.ts",
-    find: "    if (refuseOutsideAgentResponsibility(mandate, RESPONSIBILITY_SCOPED_REGISTRY_KIND, workScope)) continue;\n",
+    /* WORK-UPDATE V1: the projection now asks for the kind its caller names (record-work by default). */
+    find: "    if (refuseOutsideAgentResponsibility(mandate, registryKind, workScope)) continue;\n",
     replace: "",
     suite: PG,
     because: "L8: engineering → Heby",

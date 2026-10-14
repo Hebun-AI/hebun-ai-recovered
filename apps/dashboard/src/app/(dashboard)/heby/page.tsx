@@ -10,6 +10,8 @@ import { readPendingActionRequests } from "@/features/action-authorization/read-
 import { resolveTenantContext } from "@/features/auth-runtime/request-session.server";
 import { readCommandCapabilityView } from "@/features/heby-commands/command-capability-projection.server";
 import { HebyWorkspaceClient } from "@/components/layout/heby/heby-workspace-client";
+import { readWorkStateSelection } from "@/features/heby-action-inlet/work-state-proposal.server";
+import { HebyWorkStateSelection } from "@/components/layout/heby/heby-work-state-selection";
 
 export const metadata = { title: "Heby — Hebun AI" };
 
@@ -64,9 +66,17 @@ async function readStream(): Promise<HebyStreamState> {
 export default async function HebyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string | string[] }>;
+  searchParams: Promise<{ from?: string | string[]; workItem?: string | string[] }>;
 }) {
   const params = await searchParams;
+  /*
+   * WORK-UPDATE V1 (Option A) — the Work register links here with one work item as a lookup key.
+   * It is resolved for the SESSION's organization by the inlet's read and never trusted as more than
+   * a key: a foreign or malformed value resolves to nothing. It reaches no model from here.
+   */
+  const rawWorkItem = Array.isArray(params.workItem) ? params.workItem[0] : params.workItem;
+  const selection =
+    rawWorkItem === undefined ? null : await readWorkStateSelection(await resolveTenantContext(), rawWorkItem);
   const rawFrom = Array.isArray(params.from) ? params.from[0] : params.from;
   const entry = resolveHebyWorkspaceEntry(rawFrom);
 
@@ -100,6 +110,7 @@ export default async function HebyPage({
       returnRoute={resolveHebyReturnRoute(rawFrom)}
       returnLabel={resolveHebyReturnLabel(rawFrom)}
       stream={await readStream()}
+      selection={selection ? <HebyWorkStateSelection selection={selection} /> : undefined}
     />
   );
 }

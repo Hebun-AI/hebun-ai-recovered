@@ -142,6 +142,7 @@ export const ALREADY_PENDING_WORDING =
 export const PROPOSED_KIND_WORDING: Readonly<Record<AgentOriginableActionKind, string>> = {
   send: "sending an external communication",
   "record-work": "recording organizational work",
+  "set-work-declared-state": "changing the declared state of a work item",
 };
 
 type Outcome =

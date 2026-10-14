@@ -13,6 +13,7 @@ import {
   declareActionPurposeAction,
   executeAuthorizedActionAction,
   executeGovernedInternalActionAction,
+  executeGovernedWorkStateChangeAction,
   rejectActionRequestAction,
   revokeActionPermitAction,
 } from "@/app/(dashboard)/approvals/actions";
@@ -24,7 +25,8 @@ import {
   EXECUTION_OUTCOME_WORDING,
   type ExecutionAttemptStatus,
 } from "@/features/action-execution/contracts";
-import { RECORD_WORK_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import { RECORD_WORK_ACTION_KIND, SET_WORK_DECLARED_STATE_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import { WorkStateConflictNotice } from "./work-state-conflict-notice";
 import {
   PERMIT_DEFAULT_TTL_SECONDS,
   PERMIT_TTL_CHOICES,
@@ -348,6 +350,9 @@ function RequestCard({
         <InstagramApprovalPreview requestId={item.requestId} preview={instagramPreviews?.[item.requestId]} />
       ) : null}
 
+      {/* WORK-UPDATE V1 (U6) — has the item moved since this was proposed? Read-only; blocks nothing. */}
+      {item.actionKind === SET_WORK_DECLARED_STATE_ACTION_KIND ? <WorkStateConflictNotice requestId={item.requestId} /> : null}
+
       {/*
        * TRH-19 — WHY THE AGENT PROPOSED THIS, IN ITS OWN WORDS, DURABLY.
        *
@@ -666,7 +671,9 @@ export function permitOutcomeSentence(item: {
      */
     return item.actionKind === RECORD_WORK_ACTION_KIND
       ? "Executed. Hebun performed this under your authorization; the record it created is on the work register."
-      : "Spent. This authorization was consumed, and no provider attempt is recorded against it.";
+      : item.actionKind === SET_WORK_DECLARED_STATE_ACTION_KIND
+        ? "Executed. Hebun changed the work item's declared state under your authorization; it is on the work register."
+        : "Spent. This authorization was consumed, and no provider attempt is recorded against it.";
   }
   return item.state === "active"
     ? "Authorized — not executed. Executing spends this authorization permanently."
@@ -708,6 +715,8 @@ export function PermitRow({
    * refusal semantics, and one shared sentence about them would be false for one of them.
    */
   const internal = item.actionKind === RECORD_WORK_ACTION_KIND;
+  /* WORK-UPDATE V1 — its own named action, never the send executor and never record-work's. */
+  const workState = item.actionKind === SET_WORK_DECLARED_STATE_ACTION_KIND;
 
   /*
    * PURE, AND DERIVED FROM ROWS THIS COMPONENT WAS ALREADY GIVEN. No fetch, no effect, no state,
@@ -727,6 +736,15 @@ export function PermitRow({
   const execute = () =>
     startTransition(async () => {
       setMessage(null);
+      if (workState) {
+        const result = await executeGovernedWorkStateChangeAction({ permitId: item.permitId });
+        setMessage(
+          result.status === "executed"
+            ? `Changed. Hebun declared the work item ${result.outcome.workItem.declaredState} under your authorization; you authorized it, the system performed it.`
+            : `Not changed (${result.authorityReason ?? result.reason}). Nothing was written, and the authorization is untouched.`,
+        );
+        return;
+      }
       if (internal) {
         const result = await executeGovernedInternalActionAction({ permitId: item.permitId });
         setMessage(
@@ -802,6 +820,8 @@ export function PermitRow({
         <p className="text-[0.65rem] text-fg-muted">Revoked: {item.revocationReason}</p>
       ) : null}
 
+      {workState && item.state === "active" ? <WorkStateConflictNotice requestId={item.requestId} /> : null}
+
       {/* Execute and Revoke exist only while the permit is live and unspent. */}
       {item.state === "active" ? (
         <div className="flex flex-col gap-2">
@@ -815,7 +835,9 @@ export function PermitRow({
               Execute now
             </button>
             <span className="text-[0.65rem] text-fg-muted">
-              {internal
+              {workState
+                ? "Spends this authorization, only if the item still holds the state this was proposed from. The change can be reversed by the opposite change, proposed and authorized again."
+                : internal
                 ? "Spends this authorization. The record can later be retired through the Work Authority — retirement is not erasure."
                 : "Irreversible, and spends this authorization whether or not it succeeds."}
             </span>

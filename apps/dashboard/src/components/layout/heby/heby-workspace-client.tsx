@@ -52,12 +52,14 @@ export interface HebyWorkspaceClientProps {
    * only each command's resolved state and the governing authority's own sentence.
    */
   readonly capabilityView: CommandCapabilityView;
+  /** WORK-UPDATE V1 — the server-rendered work item selection, when the person came from Work. */
+  readonly selection?: React.ReactNode;
 }
 
 export function HebyWorkspaceClient(props: HebyWorkspaceClientProps) {
   const {
     contextRoute, contextLabel, contextDetail, authorityLabel, returnRoute, returnLabel, stream,
-    capabilityView,
+    capabilityView, selection,
   } = props;
   const { operate, registerWorkspaceReturn } = useHebySurface();
   const router = useRouter();
@@ -104,6 +106,7 @@ export function HebyWorkspaceClient(props: HebyWorkspaceClientProps) {
       onClose={() => operate("rail")}
       userTurnAction={(content) => <HebyOriginationAffordance goal={content} />}
       headerAction={<HebyMyRequests />}
+      selection={selection}
       {...conversation}
       /* Spread AFTER the conversation: the arbitrated presence and the operator's wrapped submit. */
       {...voice}

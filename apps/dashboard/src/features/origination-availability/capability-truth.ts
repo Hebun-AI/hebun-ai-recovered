@@ -8,8 +8,18 @@
  *
  *     MANDATE PERMITS  !=  REACHABLE NOW  !=  AVAILABLE  !=  AUTHORIZED  !=  EXECUTED
  *
- * "Not exposed" is the mandate's scope minus the one kind the released origination path can file.
+ * "Not exposed" is the mandate's scope minus the kinds some released surface asks an agent about.
  * An unavailable projection yields NO capability claims — absence of an answer is not a "cannot".
+ *
+ * WORK-UPDATE V1 — FOUR LAYERS, KEPT APART:
+ *   platform supports   the originable vocabulary (`AGENT_ORIGINABLE_ACTION_KINDS`, the mandate CHECK);
+ *                       a mandate cannot name anything else, so "Mandate permits" is always inside it
+ *   mandate permits     the effective scope, as the projection read it
+ *   offered through UI  `canProposeNow` (the Heby proposal path, fully checked by the projection) and
+ *                       `proposableFromWorkItem` (asked from one selected item; responsibility for THAT
+ *                       item's domain is checked when a person asks, before any model call)
+ *   authorized to run   never a property of an agent or a mandate: one Governance decision and one
+ *                       permit per proposal. Nothing on this card is authorized for execution.
  */
 import type { AgentOriginationAvailability, OriginationUnavailableReason } from "./contracts";
 
@@ -23,12 +33,20 @@ export const AGENT_HAS_NO_AUTHORITY_TO = Object.freeze([
   "grant itself more authority",
 ] as const);
 
+/**
+ * Kinds an agent is asked about from ONE selected work item rather than from a Heby message. A fact
+ * about where the product offers the question — not an authority: it lists only what the mandate
+ * already permits, and every check still happens when a person asks.
+ */
+export const PROPOSABLE_FROM_A_SELECTED_WORK_ITEM: readonly string[] = Object.freeze(["set-work-declared-state"]);
+
 export type AgentCapabilityTruth =
   | {
       readonly status: "known";
       readonly mandateRevision: number;
       readonly mandatePermits: readonly string[];
       readonly canProposeNow: readonly string[];
+      readonly proposableFromWorkItem: readonly string[];
       readonly permittedButNotExposed: readonly string[];
     }
   | { readonly status: "unavailable"; readonly reason: OriginationUnavailableReason };
@@ -41,7 +59,10 @@ export function deriveAgentCapabilityTruth(availability: AgentOriginationAvailab
     mandateRevision: availability.mandate.revision,
     mandatePermits: scope,
     canProposeNow: [availability.originable],
-    permittedButNotExposed: scope.filter((kind) => kind !== availability.originable),
+    proposableFromWorkItem: scope.filter((kind) => PROPOSABLE_FROM_A_SELECTED_WORK_ITEM.includes(kind)),
+    permittedButNotExposed: scope.filter(
+      (kind) => kind !== availability.originable && !PROPOSABLE_FROM_A_SELECTED_WORK_ITEM.includes(kind),
+    ),
   };
 }
 

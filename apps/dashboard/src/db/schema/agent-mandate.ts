@@ -117,8 +117,13 @@ import { decisionRecords, governanceSessions } from "./governance";
  * WIDENING THIS GRANTS NOTHING. It makes a mandate NAMING `record-work` storable. A mandate is a
  * ceiling; an agent still proposes nothing until a human records one that includes the kind, and a
  * proposal is still not a decision, a permit or an act.
+ *
+ * WORK-UPDATE V1 WIDENED IT A SECOND TIME, BY ONE VALUE, FOR THE SAME REASON AND IN THE SAME ORDER:
+ * `set-work-declared-state` joined the released vocabulary (Director-approved 2026-10-14), so the
+ * echo moved with it. Every row stored before the change is a subset of the wider list, so the
+ * constraint validates without touching any row. Widening still grants nothing.
  */
-const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work']::text[]`;
+const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work','set-work-declared-state']::text[]`;
 
 export const agentMandates = pgTable(
   "agent_mandates",

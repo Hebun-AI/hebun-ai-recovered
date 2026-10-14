@@ -82,6 +82,8 @@ export interface HebyWorkspaceProps {
   readonly userTurnAction?: (content: string) => React.ReactNode;
   /** HEBY-MY-REQUESTS — optional top-bar control; supplied by the client container. */
   readonly headerAction?: React.ReactNode;
+  /** WORK-UPDATE V1 — a work item the person brought from the Work register, already resolved server-side. */
+  readonly selection?: React.ReactNode;
   /** In-flight user text (optimistic presentation only; never authoritative). */
   readonly pending: string | null;
   /** A MODEL request is in flight. Drives the presence field and the responding turn. */
@@ -279,6 +281,8 @@ export function HebyWorkspace(props: HebyWorkspaceProps) {
           </button>
         </div>
       </header>
+
+      {props.selection ? <div className="shrink-0 px-5 pb-2 sm:px-8">{props.selection}</div> : null}
 
       {/*
        * ── THE CANVAS ────────────────────────────────────────────────────────

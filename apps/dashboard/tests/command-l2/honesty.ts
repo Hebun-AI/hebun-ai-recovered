@@ -164,7 +164,8 @@ function directorIntentHonest(): void {
    */
   /* PUBLISH-0 authorized a FOURTH (Instagram publishing), Director-approved. Still DERIVED. */
   /* YOUTUBE-WRITE-2 authorized a FIFTH (YouTube upload), Director-approved. Still DERIVED. */
-  assert.equal(m.connectedMutationCount, 5, "exactly the five authorized kinds — never a sixth");
+  /* WORK-UPDATE V1 authorized a SIXTH (declared-state change), Director-approved. Still DERIVED. */
+  assert.equal(m.connectedMutationCount, 6, "exactly the six authorized kinds — never a seventh");
   assert.equal(m.freeTextToExecution, false, "free text is never routed to raw execution");
 
   // No mutation/device tool is invokable; the invokable set is read-only only.

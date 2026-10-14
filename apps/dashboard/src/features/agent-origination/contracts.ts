@@ -33,12 +33,16 @@
  * recorded, bytes the tenant never wrote, another tenant's anything, or any act outside the one
  * admitted kind.
  */
-import { RECORD_WORK_ACTION_KIND, SEND_ACTION_KIND } from "@/features/heby-action-inlet/contracts";
+import {
+  RECORD_WORK_ACTION_KIND,
+  SEND_ACTION_KIND,
+  SET_WORK_DECLARED_STATE_ACTION_KIND,
+} from "@/features/heby-action-inlet/contracts";
 import type { HebyActionKind } from "@/features/heby-actions/contracts";
 import type { KnowledgeGroundingCandidate } from "@/features/knowledge-grounding/contracts";
 
 /**
- * The action kinds an agent may originate. EXACTLY TWO, on purpose.
+ * The action kinds an agent may originate. EXACTLY THREE, on purpose (two until WORK-UPDATE V1).
  *
  * The registry declares nine action kinds. Seven of them are not here: `device-action` is
  * Platform-restricted and database-refused, `grant-permission` and `modify-governance-policy` are
@@ -57,11 +61,17 @@ import type { KnowledgeGroundingCandidate } from "@/features/knowledge-grounding
  * every proposal before it becomes an act — being admitted here is permission to ASK, and nothing
  * else.
  *
+ * `set-work-declared-state` (WORK-UPDATE V1, Director-approved 2026-10-14) qualifies because its one
+ * referent — a work item the HUMAN chose — is resolved by the server against this tenant's own rows,
+ * and its one choice — the new state — is a closed vocabulary the human also chose. The model sees
+ * neither the item nor its state; it may only propose or decline. It is NOT selectable through the
+ * general origination contract above: only its own origination path files it.
+ *
  * ADMITTING A KIND HERE GRANTS NO AGENT ANYTHING. A mandate must separately name it, a human must
  * separately decide it, and a permit must separately be spent. This list is the CEILING of the
  * ceiling: nothing outside it can be mandated, because the mandate vocabulary IS this list.
  */
-export const AGENT_ORIGINABLE_ACTION_KINDS = ["send", "record-work"] as const;
+export const AGENT_ORIGINABLE_ACTION_KINDS = ["send", "record-work", "set-work-declared-state"] as const;
 
 export type AgentOriginableActionKind = (typeof AGENT_ORIGINABLE_ACTION_KINDS)[number];
 
@@ -75,6 +85,9 @@ export const SEND_ORIGINATION_ALIAS = "send" as const;
  * total map is what fails to compile.
  */
 export const RECORD_WORK_ORIGINATION_ALIAS = "record-work" as const;
+
+/** WORK-UPDATE V1's alias. Resolved through the map below, never by string identity. */
+export const SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS = "set-work-declared-state" as const;
 
 /**
  * THE ALIAS-TO-REGISTRY-KIND MAP — stated once, here, where the alias vocabulary lives (AMA-2).
@@ -110,6 +123,7 @@ export const AGENT_ORIGINABLE_REGISTRY_KIND: Readonly<
 > = Object.freeze({
   [SEND_ORIGINATION_ALIAS]: SEND_ACTION_KIND,
   [RECORD_WORK_ORIGINATION_ALIAS]: RECORD_WORK_ACTION_KIND,
+  [SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS]: SET_WORK_DECLARED_STATE_ACTION_KIND,
 });
 
 /**

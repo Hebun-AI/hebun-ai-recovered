@@ -33,6 +33,7 @@
 
 import {
   AGENT_ORIGINABLE_ACTION_KINDS,
+  SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS,
   type AgentOriginableActionKind,
 } from "@/features/agent-origination/contracts";
 
@@ -54,6 +55,15 @@ export const MANDATE_SCOPE_VOCABULARY: readonly AgentOriginableActionKind[] =
   AGENT_ORIGINABLE_ACTION_KINDS;
 
 export type MandateScopeKind = AgentOriginableActionKind;
+
+/**
+ * WORK-UPDATE V1 — kinds a mandate form must never pre-select. Admitting a kind to the vocabulary
+ * makes it AVAILABLE to a human; it must not make it the default of a revision made for another
+ * reason. A human adds it deliberately, or it is not in the mandate.
+ */
+export const MANDATE_SCOPE_NEVER_PRESELECTED: readonly MandateScopeKind[] = Object.freeze([
+  SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS,
+]);
 
 /** Whether a value is an admissible scope member. Membership, never repair. */
 export function isMandateScopeKind(value: unknown): value is MandateScopeKind {

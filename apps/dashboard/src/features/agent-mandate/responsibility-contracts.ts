@@ -19,6 +19,21 @@ import type { AgentMandateRefusal, EstablishedAgentMandate, MandateScopeKind } f
 /** The one action kind responsibility applies to in AP-4. */
 export const RESPONSIBILITY_SCOPED_ACTION_KIND = "record-work" as const satisfies MandateScopeKind;
 
+/**
+ * WORK-UPDATE V1 — every scope kind that requires a stated responsibility. `record-work` (AP-4) and
+ * `set-work-declared-state`, which acts only on work inside a domain the agent is responsible for.
+ * A scope naming either must state a non-empty responsibility; a scope naming neither, none.
+ */
+export const RESPONSIBILITY_SCOPED_ACTION_KINDS: readonly MandateScopeKind[] = Object.freeze([
+  RESPONSIBILITY_SCOPED_ACTION_KIND,
+  "set-work-declared-state",
+]);
+
+/** Whether a scope requires a stated responsibility. */
+export function scopeRequiresResponsibility(scope: readonly string[]): boolean {
+  return scope.some((kind) => (RESPONSIBILITY_SCOPED_ACTION_KINDS as readonly string[]).includes(kind));
+}
+
 export const RESPONSIBILITY_KINDS = Object.freeze(["organization", "domain"] as const);
 export type ResponsibilityKind = (typeof RESPONSIBILITY_KINDS)[number];
 

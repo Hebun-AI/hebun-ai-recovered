@@ -21,6 +21,7 @@ import {
   refuseOutsideAgentMandate,
   refuseOutsideAgentResponsibility,
   RESPONSIBILITY_SCOPED_REGISTRY_KIND,
+  RESPONSIBILITY_SCOPED_REGISTRY_KINDS,
 } from "@/features/action-authorization/agent-mandate-ceiling";
 import { readDurableAgentIdentityState } from "@/features/agent-identity/read-durable-agent-identity.server";
 import { readEffectiveAgentMandate } from "@/features/agent-mandate/read-agent-mandate.server";
@@ -34,9 +35,15 @@ export async function listEligibleAgents(
   tenant: TenantContext | null,
   workScope: WorkScope,
   deps: { readonly getDb?: () => ControlPlaneDatabase | null } = {},
+  /*
+   * WORK-UPDATE V1 — which responsibility-scoped kind is asked about. `record-work` unless a caller
+   * names another kind the ceiling scopes to responsibility; any other kind is unanswerable here.
+   */
+  registryKind: string = RESPONSIBILITY_SCOPED_REGISTRY_KIND,
 ): Promise<EligibleAgentsRead> {
   if (typeof window !== "undefined") throw new Error("Agent eligibility is server-only.");
   if (!tenant?.tenantId) return { status: "unavailable" };
+  if (!RESPONSIBILITY_SCOPED_REGISTRY_KINDS.includes(registryKind)) return { status: "unavailable" };
   const identity = await readDurableAgentIdentityState(tenant, deps);
   if (identity.status !== "known") return { status: "unavailable" };
 
@@ -45,8 +52,8 @@ export async function listEligibleAgents(
     if (!candidate.inService) continue;
     const mandate = await readEffectiveAgentMandate(tenant, candidate.agentId, deps);
     if (mandate.status !== "known") return { status: "unavailable" };
-    if (refuseOutsideAgentMandate(mandate, RESPONSIBILITY_SCOPED_REGISTRY_KIND)) continue;
-    if (refuseOutsideAgentResponsibility(mandate, RESPONSIBILITY_SCOPED_REGISTRY_KIND, workScope)) continue;
+    if (refuseOutsideAgentMandate(mandate, registryKind)) continue;
+    if (refuseOutsideAgentResponsibility(mandate, registryKind, workScope)) continue;
     agents.push({ agentId: candidate.agentId, name: candidate.name });
   }
   return { status: "read", agents };

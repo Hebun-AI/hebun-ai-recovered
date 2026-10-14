@@ -703,6 +703,7 @@ function noSchema(): void {
       /* AP-4A */ "20261007175237_ap4a_work_domain_foundation.sql",
       /* L-1B */ "20261008143657_l1b_agent_lifecycle_domain.sql",
       /* D1 work-planning */ "20261013113340_eai_work_planning_purpose.sql",
+      /* WORK-UPDATE V1 */ "20261014042643_work_update_v1_mandate_scope.sql",
     ],
     "G4 authored no migration; what follows is a declared later phase",
   );

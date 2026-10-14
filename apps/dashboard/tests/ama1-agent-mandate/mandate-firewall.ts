@@ -299,7 +299,7 @@ function theCeilingCannotBeWidened(): void {
    */
   assert.deepEqual(
     [...AGENT_ORIGINABLE_ACTION_KINDS],
-    ["send", "record-work"],
+    ["send", "record-work", "set-work-declared-state"], /* WORK-UPDATE V1 (Director-approved 2026-10-14) admitted the third kind; the claim above is about this phase, which admitted none. */
     "the released originable vocabulary is what the origination feature says it is — AMA-1 changed neither member",
   );
 

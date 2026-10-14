@@ -137,14 +137,20 @@ async function main(): Promise<void> {
     assert.deepEqual(alpha.truth, {
       status: "known",
       mandateRevision: a.mandate.mandateRevision,
-      mandatePermits: ["send", "record-work"],
+      /* WORK-UPDATE V1 widened the default fixture scope (every released kind). The declared-state kind is
+       * offered from a selected work item, not from the Heby proposal path: it is NOT "not exposed". */
+      mandatePermits: ["send", "record-work", "set-work-declared-state"],
       canProposeNow: ["record-work"],
+      proposableFromWorkItem: ["set-work-declared-state"],
       permittedButNotExposed: ["send"],
     });
     const canNow = alpha.html.split("Can propose now")[1]!.split("Mandate permits")[0]!;
     assert.ok(canNow.includes("Work proposals"));
     assert.equal(canNow.includes("Send proposals"), false, "send is never shown as reachable now");
     assert.ok(alpha.html.split("not offered by the current proposal path")[1]!.includes("Send proposals"));
+    const notOffered = alpha.html.split("not offered by the current proposal path")[1]!;
+    assert.equal(notOffered.includes("Work state change proposals"), false, "WORK-UPDATE V1: an offered kind is never reported as not exposed");
+    assert.ok(alpha.html.split("Offered from a selected work item")[1]!.includes("Work state change proposals"));
 
     /* 4 · Beta sees only Beta: its own refusal, nothing of Alpha. */
     assert.deepEqual(beta.truth, { status: "unavailable", reason: "external-ai-not-authorized" });

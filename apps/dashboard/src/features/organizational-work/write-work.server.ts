@@ -33,6 +33,13 @@
  * OSA-1 and R6D pattern instead: authorized human -> authoritative mutation -> audit, and NO
  * `decision_records` row anywhere.
  *
+ * ── WORK-UPDATE V1: ONE GOVERNED DOOR, NOT A SECOND WRITER ───────────────────
+ *
+ * `declareWorkStateUnderPermit` lets a human-authorized permit change one item's declared state. It
+ * is a door into THIS authority, not a second writer: it ends in the same `declareWorkStateCore` the
+ * human path uses, and it writes no permit, request or decision row — the permit authority spends
+ * its own permit inside the transaction this door opens (see the door's header for the exception).
+ *
  * ── ELIGIBILITY IS NOT REDEFINED HERE ────────────────────────────────────────
  *
  * The accountable human is checked with `eligibleTenantMemberWhere` — the shared six-condition
@@ -592,9 +599,11 @@ export async function recordWork(
  * The shared mutation frame: gate, transaction, tenant-scoped row lock, live-work precondition.
  *
  * `FOR UPDATE` is the concurrency guarantee — two simultaneous state declarations serialize on the
- * row rather than racing to a last-writer-wins result, and the `version` column from
- * `tenantColumns` moves under it. The lock is taken with the tenant in the predicate, so a lock on
- * another organization's row is not refused here; it is unreachable.
+ * row rather than racing to a last-writer-wins result. (WORK-UPDATE V1 corrected this sentence: it
+ * used to say the `version` column from `tenantColumns` "moves" under the lock. Nothing in this
+ * authority writes `version` and no trigger does; the lock is the whole guarantee, and the governed
+ * door below binds to `fromState` rather than to a version.) The lock is taken with the tenant in the
+ * predicate, so a lock on another organization's row is not refused here; it is unreachable.
  */
 async function mutateWork(
   tenant: TenantContext | null,
@@ -722,38 +731,211 @@ export async function setWorkDeclaredState(
 ): Promise<WorkWriteResult> {
   if (!isWorkDeclaredState(input?.declaredState)) return refuse("malformed-declared-state");
 
-  return mutateWork(tenant, input.workItemId, deps, async (ctx) => {
-    const updated = await ctx.tx
-      .update(workItems)
-      .set({
-        declaredState: input.declaredState,
-        updatedAt: ctx.now,
-        updatedBy: ctx.userId,
-        updatedByType: "human",
-      })
-      .where(and(eq(workItems.tenantId, ctx.tenantId), eq(workItems.id, ctx.current.id)))
-      .returning({
-        id: workItems.id,
-        title: workItems.title,
-        declaredState: workItems.declaredState,
-        lifecycleStatus: workItems.lifecycleStatus,
-        departmentId: workItems.departmentId,
-        accountableActorId: workItems.accountableActorId,
-      });
-
-    const row = updated[0]!;
-    await recordWorkEventWithin(
+  return mutateWork(tenant, input.workItemId, deps, async (ctx) =>
+    declareWorkStateCore(
       ctx.tx,
-      auditActorFrom(tenant as TenantContext),
       {
-        action: WORK_AUDIT_STATE_DECLARED,
-        workItemId: row.id,
-        declaredState: row.declaredState,
+        tenantId: ctx.tenantId,
+        workItemId: ctx.current.id,
+        updatedBy: ctx.userId,
+        audit: auditActorFrom(tenant as TenantContext),
+        author: { kind: "human" },
+        now: ctx.now,
       },
-      ctx.now,
-    );
-    return { status: "recorded", workItem: viewOf(row) };
-  });
+      input.declaredState,
+    ),
+  );
+}
+
+/**
+ * The transaction capabilities a declared-state change needs (WORK-UPDATE V1): `select` for the row
+ * lock, `update` for the one column, `insert` for its audit row. A type of its own, so neither
+ * `WorkRecordingTx` nor the permit's `PermitConsumptionTx` is widened to carry an update.
+ */
+export type WorkStateTx = Pick<ControlPlaneDatabase, "select" | "insert" | "update">;
+
+/**
+ * THE ONE `declared_state` UPDATE (WORK-UPDATE V1).
+ *
+ * The human path (`setWorkDeclaredState`) and the governed door (`declareWorkStateUnderPermit`) both
+ * end here, so the column, the actor pair and the audit event cannot drift between them. The caller
+ * has already locked the row `FOR UPDATE` and checked it; this writes and records, nothing else.
+ */
+async function declareWorkStateCore(
+  tx: WorkStateTx,
+  ctx: {
+    readonly tenantId: string;
+    readonly workItemId: string;
+    /** The session correlation, never a claim that this person performed the change. */
+    readonly updatedBy: string;
+    readonly audit: AuditActor;
+    readonly author: WorkStateAuthor;
+    readonly now: Date;
+    /** Governed door only: the permit spend this change discharges, named in its audit row. */
+    readonly handoffId?: string;
+  },
+  declaredState: WorkDeclaredState,
+): Promise<WorkWriteResult> {
+  const updated = await tx
+    .update(workItems)
+    .set({
+      declaredState,
+      updatedAt: ctx.now,
+      updatedBy: ctx.updatedBy,
+      updatedByType: ctx.author.kind,
+    })
+    .where(and(eq(workItems.tenantId, ctx.tenantId), eq(workItems.id, ctx.workItemId)))
+    .returning({
+      id: workItems.id,
+      title: workItems.title,
+      declaredState: workItems.declaredState,
+      lifecycleStatus: workItems.lifecycleStatus,
+      departmentId: workItems.departmentId,
+      accountableActorId: workItems.accountableActorId,
+    });
+
+  const row = updated[0]!;
+  await recordWorkEventWithin(
+    tx,
+    ctx.audit,
+    {
+      action: WORK_AUDIT_STATE_DECLARED,
+      workItemId: row.id,
+      declaredState: row.declaredState,
+      ...(ctx.handoffId === undefined ? {} : { handoffId: ctx.handoffId }),
+    },
+    ctx.now,
+    ctx.author.kind,
+  );
+  return { status: "recorded", workItem: viewOf(row) };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * WORK-UPDATE V1 — THE GOVERNED DOOR FOR A DECLARED-STATE CHANGE.
+ *
+ * ── THE NARROW GIA-1 DOCTRINE EXCEPTION, STATED WHERE IT LIVES ──────────────
+ *
+ * GIA-1's acts run INSIDE the permit's `onAuthorizedWithin`, on the permit's own `insert | select`
+ * transaction. A state change needs an `update`, and that type is not widened. So, for this one act
+ * only, the nesting is inverted: THIS authority opens the transaction, the permit spend joins it as
+ * a savepoint through the released `consumeActionPermit` (the caller passes it in as `spendWithin`;
+ * this module imports nothing from the permit authority and names none of its tables), and THIS
+ * authority performs the one UPDATE on its own handle after the spend says `authorized`.
+ *
+ * What does not change: one database transaction commits the spend and the change, or neither; the
+ * permit authority's code and `PermitConsumptionTx` are untouched; the permit callback writes nothing
+ * here; the executor opens no transaction. No other act may use this shape without its own Director
+ * decision. This authority still writes no permit, request or decision row itself.
+ *
+ * ── WHAT IT RE-ASKS UNDER THE ROW LOCK ──────────────────────────────────────
+ *
+ * The item, by (tenant, id); that it is still in service; that it is still in the work domain the
+ * approved proposal named; and that it still holds `fromState`. Any "no" throws, which rolls the
+ * spend back with everything else: the permit stays `active` and nothing at all was written.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** What the permit holder's approved proposal says, after the spend authorized it. */
+export interface GovernedWorkStateChange {
+  readonly workItemId: string;
+  readonly fromState: WorkDeclaredState;
+  readonly toState: WorkDeclaredState;
+  readonly workDomainId: string;
+  /** The handoff of the permit spend this change discharges. Named in the audit row. */
+  readonly handoffId: string;
+}
+
+/** The transaction the door opens, as the spend sees it. */
+export type GovernedWorkStateTx = Parameters<Parameters<ControlPlaneDatabase["transaction"]>[0]>[0];
+
+export type GovernedWorkStateSpend =
+  | { readonly status: "authorized"; readonly change: GovernedWorkStateChange }
+  | { readonly status: "refused" };
+
+export type GovernedWorkStateRefusal =
+  | WorkRefusal
+  /** The permit was not spent, so nothing happened. The spender knows why. */
+  | "spend-refused"
+  /** The item no longer holds the state the proposal was made against. */
+  | "work-state-changed"
+  /** The item is no longer in the work domain the proposal named. */
+  | "work-scope-changed";
+
+export type GovernedWorkStateResult =
+  | { readonly status: "recorded"; readonly workItem: RecordedWorkItem }
+  | { readonly status: "refused"; readonly reason: GovernedWorkStateRefusal };
+
+class GovernedWorkStateAbort extends Error {
+  constructor(readonly reason: GovernedWorkStateRefusal) {
+    super(reason);
+    this.name = "GovernedWorkStateAbort";
+  }
+}
+
+export async function declareWorkStateUnderPermit(
+  tenant: TenantContext | null,
+  spendWithin: (tx: GovernedWorkStateTx) => Promise<GovernedWorkStateSpend>,
+  deps: Pick<WorkWriteDeps, "getDb" | "now"> = {},
+): Promise<GovernedWorkStateResult> {
+  assertServerOnly();
+  if (!tenant?.tenantId || !tenant.userId) return { status: "refused", reason: "no-authorized-tenant-context" };
+  const db = resolveDbOrNull(deps);
+  if (!db) return { status: "refused", reason: "authority-unavailable" };
+  const now = (deps.now ?? (() => new Date()))();
+
+  let recorded: WorkWriteResult | null = null;
+  try {
+    await db.transaction(async (tx) => {
+      const spent = await spendWithin(tx);
+      if (spent.status !== "authorized") throw new GovernedWorkStateAbort("spend-refused");
+      const change = spent.change;
+      if (!isWorkDeclaredState(change.fromState) || !isWorkDeclaredState(change.toState) || change.fromState === change.toState) {
+        throw new GovernedWorkStateAbort("malformed-declared-state");
+      }
+
+      const rows = await tx
+        .select({
+          id: workItems.id,
+          declaredState: workItems.declaredState,
+          lifecycleStatus: workItems.lifecycleStatus,
+          scopeKind: workItems.workScopeKind,
+          domainId: workItems.workDomainId,
+        })
+        .from(workItems)
+        .where(and(eq(workItems.tenantId, tenant.tenantId), eq(workItems.id, change.workItemId)))
+        .for("update")
+        .limit(1);
+      const current = rows[0];
+      if (!current) throw new GovernedWorkStateAbort("work-unresolved");
+      if (current.lifecycleStatus !== ACTIVE_LIFECYCLE_STATUS) throw new GovernedWorkStateAbort("work-retired");
+      if (current.scopeKind !== "domain" || current.domainId !== change.workDomainId) {
+        throw new GovernedWorkStateAbort("work-scope-changed");
+      }
+      if (current.declaredState !== change.fromState) throw new GovernedWorkStateAbort("work-state-changed");
+
+      const result = await declareWorkStateCore(
+        tx,
+        {
+          tenantId: tenant.tenantId,
+          workItemId: current.id,
+          updatedBy: tenant.userId,
+          audit: auditActorFrom(tenant),
+          author: { kind: "system" },
+          now,
+          handoffId: change.handoffId,
+        },
+        change.toState,
+      );
+      if (result.status !== "recorded") throw new GovernedWorkStateAbort(result.reason);
+      recorded = result;
+    });
+  } catch (error) {
+    return {
+      status: "refused",
+      reason: error instanceof GovernedWorkStateAbort ? error.reason : "authority-unavailable",
+    };
+  }
+  const done = recorded as WorkWriteResult | null;
+  return done?.status === "recorded" ? done : { status: "refused", reason: "authority-unavailable" };
 }
 
 /**

@@ -418,7 +418,7 @@ function main(): void {
   const originable = codeOf(read("src/features/agent-origination/contracts.ts"));
   assert.match(
     originable,
-    /AGENT_ORIGINABLE_ACTION_KINDS = \["send", "record-work"\] as const;/,
+    /AGENT_ORIGINABLE_ACTION_KINDS = \["send", "record-work", "set-work-declared-state"\] as const;/ /* WORK-UPDATE V1 admitted the third kind; TRH-16 widened nothing. */,
     "the originable vocabulary is untouched",
   );
 

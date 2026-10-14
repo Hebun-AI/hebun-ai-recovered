@@ -95,7 +95,7 @@ import {
   type MandateScopeKind,
 } from "./contracts";
 import {
-  RESPONSIBILITY_SCOPED_ACTION_KIND,
+  scopeRequiresResponsibility,
   canonicaliseResponsibility,
   type EstablishResponsibleAgentMandateResult,
   type MandateResponsibilityGrant,
@@ -562,7 +562,7 @@ export async function establishAgentMandateWithResponsibility(
   if (!responsibility) return refused("responsibility-invalid");
   const scope = canonicaliseMandateScope(input?.proposalScope);
   if (!scope) return refused("mandate-scope-invalid");
-  const scoped = scope.includes(RESPONSIBILITY_SCOPED_ACTION_KIND);
+  const scoped = scopeRequiresResponsibility(scope);
   if (scoped && responsibility.length === 0) return refused("responsibility-required");
   if (!scoped && responsibility.length > 0) return refused("responsibility-not-admitted");
   return writeMandateRevision(tenant, input, responsibility, deps);

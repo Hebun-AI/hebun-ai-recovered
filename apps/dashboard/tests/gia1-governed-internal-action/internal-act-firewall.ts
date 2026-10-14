@@ -72,6 +72,8 @@ const codeOf = (s: string): string =>
 
 const PLACEMENT_EXECUTOR =
   "src/features/governed-internal-action/execute-place-human.server.ts";
+/* WORK-UPDATE V1 — the third named per-act executor (Director-approved 2026-10-14). */
+const WORK_STATE_EXECUTOR = "src/features/governed-internal-action/execute-set-work-state.server.ts";
 const EXECUTOR = "src/features/governed-internal-action/execute-record-work.server.ts";
 const INLET = "src/features/heby-action-inlet/record-work-proposal.server.ts";
 const WORK_WRITER = "src/features/organizational-work/write-work.server.ts";
@@ -155,8 +157,9 @@ function theExecutableSetIsClosed(): void {
     [...EXECUTABLE_ACTION_KINDS],
     /* PUBLISH-0 — a FOURTH, Director-approved, named here so a fifth still needs an edit. */
     /* YOUTUBE-WRITE-2 — a FIFTH, Director-approved, named here so a sixth still needs an edit. */
-    ["send-external-communication", "record-work", "place-human-in-department", "publish-instagram-media", "publish-youtube-video"],
-    "EXACTLY the five specifically authorized kinds — no more, and no fewer",
+    /* WORK-UPDATE V1 — a SIXTH, Director-approved, named here so a seventh still needs an edit. */
+    ["send-external-communication", "record-work", "place-human-in-department", "publish-instagram-media", "publish-youtube-video", "set-work-declared-state"],
+    "EXACTLY the six specifically authorized kinds — no more, and no fewer",
   );
   assert.ok(Object.isFrozen(EXECUTABLE_ACTION_POSTURES), "the set cannot be widened at runtime");
   for (const posture of EXECUTABLE_ACTION_POSTURES) {
@@ -558,13 +561,13 @@ function theArchitectureIsUnchanged(): void {
   const featureFiles = walk("src/features/governed-internal-action");
   assert.deepEqual(
     featureFiles.slice().sort(),
-    [EXECUTOR, PLACEMENT_EXECUTOR].sort(),
+    [EXECUTOR, PLACEMENT_EXECUTOR, WORK_STATE_EXECUTOR].sort(),
     "the feature is exactly its named per-act executors — no shared framework file",
   );
   for (const file of featureFiles) {
     const code = codeOf(read(file));
     const importsBothActs =
-      code.includes("execute-record-work") && code.includes("execute-place-human");
+      [code.includes("execute-record-work"), code.includes("execute-place-human"), code.includes("execute-set-work-state")].filter(Boolean).length > 1;
     assert.ok(
       !importsBothActs,
       `${file}: no file may know about two acts at once — that is a dispatcher`,
@@ -603,7 +606,7 @@ function theArchitectureIsUnchanged(): void {
 function theVocabularyGrewByExactlyOne(): void {
   assert.deepEqual(
     [...AGENT_ORIGINABLE_ACTION_KINDS],
-    ["send", "record-work"],
+    ["send", "record-work", "set-work-declared-state"], /* WORK-UPDATE V1 (Director-approved 2026-10-14) admitted the third kind; the claim above is about this phase, which admitted none. */
     "the origination vocabulary is the released `send` plus GIA-1's `record-work`",
   );
 
@@ -801,11 +804,17 @@ function theSurfaceOffersTwoDeliberateActions(): void {
        */
       "executeGovernedPlacementAction",
       /*
+       * WORK-UPDATE V1 — one named execute action for its one kind (no dispatcher), and one
+       * read-only stale-state check (U6). Both Director-approved 2026-10-14.
+       */
+      "executeGovernedWorkStateChangeAction",
+      /*
        * INSTAGRAM-APPROVAL-PREVIEW-1 added an ELEVENTH, and it is a READ: a short-lived private grant
        * for the original image one governed Instagram request binds, named by REQUEST id. It
        * approves, spends, executes and stores nothing — still no generic execute-anything.
        */
       "openInstagramApprovalImageAction",
+      "readWorkStateConflictAction",
       /*
        * YOUTUBE-WRITE-2 added a TENTH, and it is a READ: what YouTube now says about one accepted
        * upload. It spends, approves, executes and stores nothing — still no generic execute-anything.
@@ -822,7 +831,7 @@ function theSurfaceOffersTwoDeliberateActions(): void {
       "revokeActionPermitAction",
       "withdrawStandingMutationAction",
     ],
-    "twelve deliberate server actions, and still no generic execute-anything",
+    "fourteen deliberate server actions, and still no generic execute-anything",
   );
   for (const fn of exported) {
     assert.ok(

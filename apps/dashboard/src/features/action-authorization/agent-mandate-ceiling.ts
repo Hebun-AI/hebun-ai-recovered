@@ -95,12 +95,23 @@ export type MandateReadForResponsibility =
 /** The one registry kind AP-4 scopes responsibility to, in the registry vocabulary. */
 export const RESPONSIBILITY_SCOPED_REGISTRY_KIND = AGENT_ORIGINABLE_REGISTRY_KIND["record-work"];
 
+/**
+ * WORK-UPDATE V1 — every registry kind whose payload names a work scope that the agent must be
+ * responsible for. `record-work` (AP-4) and `set-work-declared-state`, whose scope is the TARGET
+ * item's own work domain, frozen into the digest at proposal and re-checked here at spend.
+ */
+export const WORK_STATE_SCOPED_REGISTRY_KIND = AGENT_ORIGINABLE_REGISTRY_KIND["set-work-declared-state"];
+export const RESPONSIBILITY_SCOPED_REGISTRY_KINDS: readonly string[] = Object.freeze([
+  RESPONSIBILITY_SCOPED_REGISTRY_KIND,
+  WORK_STATE_SCOPED_REGISTRY_KIND,
+]);
+
 export function refuseOutsideAgentResponsibility(
   read: MandateReadForResponsibility,
   actionKind: string,
   workScope: WorkScope | null,
 ): AgentResponsibilityRefusal | null {
-  if (actionKind !== RESPONSIBILITY_SCOPED_REGISTRY_KIND) return null;
+  if (!RESPONSIBILITY_SCOPED_REGISTRY_KINDS.includes(actionKind)) return null;
   if (read.status === "unavailable") return "agent-mandate-authority-unavailable";
   if (!read.mandate) return "no-agent-mandate";
   const scope = parseWorkScope(workScope);

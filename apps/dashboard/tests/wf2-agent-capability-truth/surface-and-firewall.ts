@@ -54,6 +54,30 @@ for (const scope of [["send", "record-work"], ["record-work", "send"], ["record-
   assert.ok(html.includes("revision 3"));
 }
 
+/* ═══ 2b. WORK-UPDATE V1 — FOUR LAYERS: an item-offered kind is neither "now" nor "not exposed" ═══ */
+for (const scope of [["record-work", "set-work-declared-state"], ["send", "record-work", "set-work-declared-state"], ["record-work"]]) {
+  const truth = deriveAgentCapabilityTruth({
+    status: "available",
+    agent: { agentId: "a0000000-0000-4000-8000-000000000001", name: "Heby" },
+    mandate: { revision: 4, purpose: "p", proposalScope: scope },
+    originable: "record-work",
+    workScopes: [],
+  });
+  assert.ok(truth.status === "known");
+  const permitted = scope.includes("set-work-declared-state");
+  assert.deepEqual(truth.proposableFromWorkItem, permitted ? ["set-work-declared-state"] : [], "listed only when the mandate permits it");
+  assert.equal(truth.permittedButNotExposed.includes("set-work-declared-state"), false, "never reported as not exposed");
+  assert.equal(truth.canProposeNow.includes("set-work-declared-state"), false, "never claimed as reachable from the Heby proposal path");
+  const html = renderToStaticMarkup(createElement(AgentCapabilityTruthCard, { truth }));
+  assert.equal(html.includes("Offered from a selected work item"), permitted);
+  assert.ok(html.includes("Nothing here is authorized for execution"), "execution authorization is stated as absent");
+}
+assert.deepEqual(
+  deriveAgentCapabilityTruth({ status: "unavailable", reason: "temporarily-unavailable" }),
+  { status: "unavailable", reason: "temporarily-unavailable" },
+  "an unconfirmed projection still claims no layer at all",
+);
+
 /* ═══ 3. NO AGENT AUTHORITY, EVER ═══ */
 const available = render({
   status: "available",

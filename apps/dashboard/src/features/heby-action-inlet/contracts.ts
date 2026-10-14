@@ -155,6 +155,28 @@ export const PLACE_HUMAN_ACTION_KIND = "place-human-in-department" as const;
 export const PLACE_HUMAN_OWNER_WORKSPACE = "command" as const;
 
 /**
+ * WORK-UPDATE V1 — the third governed internal act's kind and owning workspace.
+ *
+ * A CONSTANT chosen by the surface, never by a model. The human chooses the work item and the state;
+ * the agent may only propose or decline. The model never sees the item.
+ */
+export const SET_WORK_DECLARED_STATE_ACTION_KIND = "set-work-declared-state" as const;
+export const SET_WORK_DECLARED_STATE_OWNER_WORKSPACE = "command" as const;
+
+/** What authorizing a state change DOES, stated for the human who authorizes it. */
+export const SET_WORK_DECLARED_STATE_PROPOSAL_EFFECTS: readonly string[] = Object.freeze([
+  "changes the declared state of one work item, only if it still holds the state it was proposed from",
+  "writes one work audit event authored by the system",
+]);
+
+/** What it does NOT do. Each line is a fact about the released seam, not a reassurance. */
+export const SET_WORK_DECLARED_STATE_PROPOSAL_NON_EFFECTS: readonly string[] = Object.freeze([
+  "does not retitle, reassign, re-scope or retire the work item",
+  "does not verify or observe that the work is in the declared state",
+  "does not happen until a person executes it after approval",
+]);
+
+/**
  * What a placement proposal may say: one human of this organization, one of its departments.
  *
  * It carries no tenant, no actor, no authority and no digest — the type makes them unrepresentable

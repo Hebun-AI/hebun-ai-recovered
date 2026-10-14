@@ -452,8 +452,9 @@ function registryIsHonest(): void {
     [...EXECUTABLE_ACTION_KINDS],
     /* PUBLISH-0 — the fourth, Director-approved, appended in authorization order. */
     /* YOUTUBE-WRITE-2 — the fifth, Director-approved, appended in authorization order. */
-    ["send-external-communication", "record-work", "place-human-in-department", "publish-instagram-media", "publish-youtube-video"],
-    "and that set is the five specifically authorized kinds, in the order they were authorized",
+    /* WORK-UPDATE V1 — the sixth, Director-approved, appended in authorization order. */
+    ["send-external-communication", "record-work", "place-human-in-department", "publish-instagram-media", "publish-youtube-video", "set-work-declared-state"],
+    "and that set is the six specifically authorized kinds, in the order they were authorized",
   );
   // No READ_ONLY tool is reversible-classified.
   const inspectTool = getActionToolByKind("inspect-system-state");

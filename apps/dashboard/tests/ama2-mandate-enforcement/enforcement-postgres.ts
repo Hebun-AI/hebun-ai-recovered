@@ -376,7 +376,7 @@ async function main(): Promise<void> {
     {
       assert.deepEqual(
         [...AGENT_ORIGINABLE_ACTION_KINDS],
-        ["send", "record-work"],
+        ["send", "record-work", "set-work-declared-state"], /* WORK-UPDATE V1 (Director-approved 2026-10-14) admitted the third kind; the claim above is about this phase, which admitted none. */
         "the released vocabulary, whatever its size, is entirely outside an empty ceiling",
       );
 

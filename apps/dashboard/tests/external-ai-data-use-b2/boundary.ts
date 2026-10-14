@@ -60,7 +60,10 @@ assert.match(GENERATOR, /if \(admission\.reason === "process-budget-exhausted"\)
 /* ── 3. EVERY RUNTIME CALLER DECLARES; ORIGINATION IS ITS OWN PURPOSE. ────────────────────────── */
 const callers = SRC.filter((f) => /\(deps\.generate \?\? generateHebyModelAnswer\)|generate: deps\.generate \?\? generateHebyModelAnswer/.test(read(f))).sort();
 /* CONTROLLED AGENT REASONING · PHASE 4 — the AI planning runtime is a third caller, under its own purpose. */
-assert.deepEqual(callers, ["src/features/agent-origination/originate-action.server.ts", "src/features/heby-answer/model-answer.server.ts", "src/features/heby-commands/ai-operational-plan.server.ts"]);
+/* WORK-UPDATE V1 — a fourth caller: the declared-state origination, under agent-origination, conversation only. */
+assert.deepEqual(callers, ["src/features/agent-origination/originate-action.server.ts", "src/features/agent-origination/originate-work-state.server.ts", "src/features/heby-answer/model-answer.server.ts", "src/features/heby-commands/ai-operational-plan.server.ts"]);
+const workStateOrigination = codeOf(read("src/features/agent-origination/originate-work-state.server.ts"));
+assert.match(workStateOrigination, /disclosure: \{\s*tenantId: tenant\.tenantId,\s*actorUserId: tenant\.userId,\s*purpose: "agent-origination",\s*dataClasses: WORK_STATE_ORIGINATION_DATA_CLASSES,/, "the work-state origination declares agent-origination with its fixed classes");
 const aiPlan = codeOf(read("src/features/heby-commands/ai-operational-plan.server.ts"));
 assert.match(aiPlan, /\{ env, transport, disclosure: declaration \}/, "the AI planning runtime always passes its declaration to the generator");
 assert.match(aiPlan, /export const WORK_PLANNING_PURPOSE = "work-planning";/);

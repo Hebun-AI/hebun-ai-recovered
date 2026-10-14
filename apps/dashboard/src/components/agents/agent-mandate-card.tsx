@@ -66,13 +66,14 @@ import { StateBlock } from "@/components/ui/state-block";
 import { establishAgentMandateAction } from "@/app/(dashboard)/agents/actions";
 import {
   MANDATE_DOES_NOT_MEAN,
+  MANDATE_SCOPE_NEVER_PRESELECTED,
   MANDATE_SCOPE_VOCABULARY,
   MAX_MANDATE_PURPOSE_CHARACTERS,
   MIN_MANDATE_PURPOSE_CHARACTERS,
 } from "@/features/agent-mandate/contracts";
 import type { AgentMandateRevision } from "@/features/agent-mandate/read-agent-mandate.server";
 import {
-  RESPONSIBILITY_SCOPED_ACTION_KIND,
+  scopeRequiresResponsibility,
   type MandateResponsibilityRefusal,
 } from "@/features/agent-mandate/responsibility-contracts";
 import type { DurableAgentIdentityRecord } from "@/features/agent-identity/read-durable-agent-identity.server";
@@ -319,7 +320,14 @@ function MandateForm({
   const ids = useId();
   const [pending, startTransition] = useTransition();
   const [purpose, setPurpose] = useState("");
-  const [scope, setScope] = useState<readonly string[]>(MANDATE_SCOPE_VOCABULARY);
+  /*
+   * WORK-UPDATE V1 — a kind admitted to the vocabulary is never pre-selected. A revision starts from
+   * the scope in effect, so revising a mandate for any other reason cannot widen it silently; a first
+   * mandate starts from the kinds released before WORK-UPDATE V1, and adding the new one is a click.
+   */
+  const [scope, setScope] = useState<readonly string[]>(
+    current ? current.proposalScope : MANDATE_SCOPE_VOCABULARY.filter((kind) => !MANDATE_SCOPE_NEVER_PRESELECTED.includes(kind)),
+  );
   /* AP-4B — "organization" and/or domain ids. Pre-filled from what is in effect, never invented. */
   const [responsibility, setResponsibility] = useState<readonly string[]>(
     (current?.responsibility ?? [])
@@ -334,7 +342,7 @@ function MandateForm({
   const purposeReady =
     purpose.trim().length >= MIN_MANDATE_PURPOSE_CHARACTERS &&
     purpose.trim().length <= MAX_MANDATE_PURPOSE_CHARACTERS;
-  const scoped = scope.includes(RESPONSIBILITY_SCOPED_ACTION_KIND);
+  const scoped = scopeRequiresResponsibility(scope);
   const ready =
     purposeReady && justification.trim().length >= JUSTIFICATION_MIN && (!scoped || responsibility.length > 0);
   const withdrawing = scope.length === 0;

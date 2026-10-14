@@ -88,6 +88,8 @@ const USE_SERVER_MODULES = [
   "src/app/(dashboard)/heby/origination-availability-actions.ts",
   /* HEBY-REQUEST-LIFECYCLE — a read of one filed request's decision, permit and attempt. Writes nothing. */
   "src/app/(dashboard)/heby/request-lifecycle-actions.ts",
+  /* WORK-UPDATE V1 — asks the agent whether to propose one declared-state change a person chose. It resolves the session tenant and files at most one PENDING request; it approves and changes nothing. */
+  "src/app/(dashboard)/heby/work-state-origination-actions.ts",
   /* SOC-ACT1 — Social Intelligence's one governed boundary. It resolves a tenant and forwards to the Command-owned proposal inlet; it holds no authority. */
   /* PROVIDER ACCOUNT LIFECYCLE added exactly one server-action boundary: the Instagram
    * disconnect. It is a THIN caller — the credential/connection composition lives in

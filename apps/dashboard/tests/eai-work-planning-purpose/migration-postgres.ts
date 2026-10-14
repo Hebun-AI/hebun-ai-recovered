@@ -63,7 +63,8 @@ const fingerprint = async (client: Client, table: string): Promise<string> =>
 async function main(): Promise<void> {
   /* The migration file is exactly the reviewed one: one DROP, one ADD, the five purposes. */
   const migration = readFileSync(path.join(MIGRATIONS_DIR, `${TAG}.sql`), "utf8");
-  assert.equal(journal.entries.at(-1)!.tag, TAG, "D1 is the newest ledger entry");
+  /* WORK-UPDATE V1 appended entry 77 (the mandate scope CHECK); D1 stays exactly where it was authored. */
+  assert.equal(journal.entries[76]!.tag, TAG, "D1 is ledger entry 77 (idx 76)");
   assert.equal(migration.split("--> statement-breakpoint").length, 2, "two statements");
   assert.match(migration, /^ALTER TABLE "tenant_ai_data_use_scopes" DROP CONSTRAINT "tenant_ai_data_use_scopes_purpose_chk";/);
   assert.ok(migration.includes(`in (${PURPOSES.map((p) => `'${p}'`).join(", ")})`), "the CHECK lists exactly the vocabulary");

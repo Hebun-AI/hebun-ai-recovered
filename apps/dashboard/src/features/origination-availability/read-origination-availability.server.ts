@@ -25,6 +25,7 @@ import { readEffectiveAgentMandate } from "@/features/agent-mandate/read-agent-m
 import {
   AGENT_ORIGINABLE_REGISTRY_KIND,
   RECORD_WORK_ORIGINATION_ALIAS,
+  SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS,
 } from "@/features/agent-origination/contracts";
 import {
   readProviderOpsView,
@@ -170,5 +171,52 @@ export async function readOriginationAvailability(
     };
   } catch {
     return unavailable("temporarily-unavailable");
+  }
+}
+
+/*
+ * WORK-UPDATE V1 — THE PRE-MODEL RESPONSIBILITY PREFLIGHT for a declared-state proposal.
+ *
+ * Asked by the origination boundary after the proposer and the target item are resolved and BEFORE
+ * any invocation is registered or any provider is reached, so an agent whose mandate does not admit
+ * the kind, or who is not responsible for the item's work domain, costs no model call and no
+ * disclosure. It is the same read every answer here gives: the effective mandate through the shared
+ * kind ceiling, and responsibility through the eligibility projection, which asks the shared
+ * responsibility ceiling. Nothing new is decided.
+ *
+ * IT ADMITS NOTHING. The one writer re-reads the mandate and asks both ceilings before it inserts,
+ * and the spend asks again; a mandate revised between this read and those wins there. Every
+ * unreadable answer is a refusal: fail closed, never "probably fine".
+ */
+export type WorkStateOriginationPreflight =
+  | { readonly status: "admitted" }
+  | {
+      readonly status: "refused";
+      readonly reason:
+        | "agent-mandate-authority-unavailable"
+        | "no-agent-mandate"
+        | "action-outside-agent-mandate"
+        | "work-outside-agent-responsibility";
+    };
+
+export async function preflightWorkStateOrigination(
+  tenant: TenantContext,
+  agentId: string,
+  workDomainId: string,
+  deps: { readonly getDb?: () => ControlPlaneDatabase | null } = {},
+): Promise<WorkStateOriginationPreflight> {
+  if (typeof window !== "undefined") throw new Error("Origination preflight is server-only.");
+  const kind = AGENT_ORIGINABLE_REGISTRY_KIND[SET_WORK_DECLARED_STATE_ORIGINATION_ALIAS];
+  try {
+    const ceiling = refuseOutsideAgentMandate(await readEffectiveAgentMandate(tenant, agentId, deps), kind);
+    if (ceiling) return { status: "refused", reason: ceiling };
+    const eligible = await listEligibleAgents(tenant, { kind: "domain", workDomainId }, deps, kind);
+    if (eligible.status !== "read") return { status: "refused", reason: "agent-mandate-authority-unavailable" };
+    if (!eligible.agents.some((agent) => agent.agentId === agentId)) {
+      return { status: "refused", reason: "work-outside-agent-responsibility" };
+    }
+    return { status: "admitted" };
+  } catch {
+    return { status: "refused", reason: "agent-mandate-authority-unavailable" };
   }
 }

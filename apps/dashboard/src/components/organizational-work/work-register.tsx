@@ -1093,6 +1093,16 @@ export function WorkRegisterPanel({
                         />
                         <RecordedActivitySection item={item} />
                         <GovernedActionsSection item={item} />
+                        {/*
+                          * WORK-UPDATE V1 (Option A): a plain link. The Work register is not an AI origination
+                          * surface; asking an agent happens in Heby, which resolves this id for the session.
+                          */}
+                        <a
+                          href={`/heby?workItem=${encodeURIComponent(item.workItemId)}`}
+                          className="mt-2 inline-block text-xs text-fg-secondary underline underline-offset-2 hover:text-fg"
+                        >
+                          Ask Heby to propose a state change
+                        </a>
                         <WorkItemControls item={item} members={members} />
                       </>
                     ) : (

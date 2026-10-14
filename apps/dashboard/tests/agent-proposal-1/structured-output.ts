@@ -91,8 +91,8 @@ function main(): void {
    */
     assert.deepEqual(
       [...AGENT_ORIGINABLE_ACTION_KINDS],
-      ["send", "record-work"],
-      "EXACTLY TWO action kinds may be agent-originated — admitting each was a deliberate act",
+      ["send", "record-work", "set-work-declared-state"], /* WORK-UPDATE V1 (Director-approved 2026-10-14) admitted the third kind; the claim above is about this phase, which admitted none. */
+      "EXACTLY THREE action kinds may be agent-originated — admitting each was a deliberate act",
     );
     for (const forbidden of [
       "device-action",

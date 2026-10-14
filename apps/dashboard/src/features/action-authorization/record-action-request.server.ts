@@ -33,6 +33,7 @@ import { resolveGovernanceDbOrNull } from "@/features/governance-decision/persis
 import type { HebyActionKind, HebyPreparedAction } from "@/features/heby-actions/contracts";
 import {
   RESPONSIBILITY_SCOPED_REGISTRY_KIND,
+  WORK_STATE_SCOPED_REGISTRY_KIND,
   refuseOutsideAgentMandate,
   refuseOutsideAgentResponsibility,
 } from "./agent-mandate-ceiling";
@@ -235,6 +236,10 @@ async function insertActionRequest(
    * whether a scope was stated at all.
    */
   if (prepared.actionKind === RESPONSIBILITY_SCOPED_REGISTRY_KIND && !workScopeFromPayload(payload)) {
+    return refused("work-scope-required");
+  }
+  /* WORK-UPDATE V1. The same rule for the second scoped kind: its scope is the target item's domain. */
+  if (prepared.actionKind === WORK_STATE_SCOPED_REGISTRY_KIND && !workScopeFromPayload(payload)) {
     return refused("work-scope-required");
   }
 

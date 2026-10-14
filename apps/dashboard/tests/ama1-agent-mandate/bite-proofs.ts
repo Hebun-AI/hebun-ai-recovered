@@ -148,8 +148,8 @@ function main(): void {
   proof(
     "the storage-layer ceiling admits a kind the released vocabulary does not",
     SCHEMA,
-    "const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work']::text[]`;",
-    "const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work','grant-permission']::text[]`;",
+    "const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work','set-work-declared-state']::text[]`;",
+    "const ORIGINABLE_ACTION_KINDS_SQL = sql`array['send','record-work','set-work-declared-state','grant-permission']::text[]`;",
     "admits exactly the released originable kinds",
   );
 
@@ -185,13 +185,14 @@ function main(): void {
    * The AMA-1 truth requirement. A mandate exists and NOTHING constrains a proposal with it. The
    * day that changes it is AMA-2, and it must not happen by accident inside AMA-1.
    * ────────────────────────────────────────────────────────────────────── */
+  /* WORK-UPDATE V1 admitted a third originable kind; the anchors below follow the released line. */
   proof(
     "the origination path begins enforcing a mandate",
     ORIGINATION,
-    "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\", \"record-work\"] as const;",
+    "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\", \"record-work\", \"set-work-declared-state\"] as const;",
     'import type { MandateScopeKind } from "@/features/agent-mandate/contracts";\n' +
       "export type UnusedMandateBinding = MandateScopeKind;\n" +
-      "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\", \"record-work\"] as const;",
+      "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\", \"record-work\", \"set-work-declared-state\"] as const;",
     "know a mandate exists",
   );
 
@@ -203,7 +204,7 @@ function main(): void {
   proof(
     "AMA-1 quietly changes what an agent may originate",
     ORIGINATION,
-    "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\", \"record-work\"] as const;",
+    "export const AGENT_ORIGINABLE_ACTION_KINDS = [\"send\", \"record-work\", \"set-work-declared-state\"] as const;",
     "export const AGENT_ORIGINABLE_ACTION_KINDS = [] as const;",
     "the released originable vocabulary is what the origination feature says it is",
   );

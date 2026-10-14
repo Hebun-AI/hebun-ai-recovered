@@ -116,6 +116,8 @@ for (const tool of listActionTools()) {
   if (tool.actionKind === "publish-instagram-media") continue;
   /* YOUTUBE-WRITE-2 connected `publish-youtube-video` through the same execution authority. Named. */
   if (tool.actionKind === "publish-youtube-video") continue;
+  /* WORK-UPDATE V1 connected `set-work-declared-state` through the Work Authority's governed door. Named. */
+  if (tool.actionKind === "set-work-declared-state") continue;
   assert.equal(
     tool.substrateConnected,
     false,

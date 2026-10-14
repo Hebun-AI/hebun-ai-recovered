@@ -15,7 +15,11 @@ import {
 } from "@/features/origination-availability/capability-truth";
 import type { OriginationUnavailableReason } from "@/features/origination-availability/contracts";
 
-const KIND_LABEL: Readonly<Record<string, string>> = { "record-work": "Work proposals", send: "Send proposals" };
+const KIND_LABEL: Readonly<Record<string, string>> = {
+  "record-work": "Work proposals",
+  send: "Send proposals",
+  "set-work-declared-state": "Work state change proposals",
+};
 const label = (kind: string) => KIND_LABEL[kind] ?? kind;
 
 export const UNAVAILABLE_SENTENCE: Readonly<Record<OriginationUnavailableReason, string>> = {
@@ -72,6 +76,17 @@ export function AgentCapabilityTruthCard({
                 <Badge key={kind} variant="neutral">{label(kind)}</Badge>
               ))}
             </Row>
+            {truth.proposableFromWorkItem.length > 0 ? (
+              <Row heading="Offered from a selected work item">
+                {truth.proposableFromWorkItem.map((kind) => (
+                  <Badge key={kind} variant="neutral">{label(kind)}</Badge>
+                ))}
+                <p className="w-full text-xs leading-5 text-fg-secondary">
+                  Asked about one work item a person selects; the agent&apos;s responsibility for that item&apos;s work
+                  domain is checked when they ask.
+                </p>
+              </Row>
+            ) : null}
             {truth.permittedButNotExposed.length > 0 ? (
               <Row heading="Permitted, but not offered by the current proposal path">
                 {truth.permittedButNotExposed.map((kind) => (
@@ -79,6 +94,10 @@ export function AgentCapabilityTruthCard({
                 ))}
               </Row>
             ) : null}
+            <p className="text-xs leading-5 text-fg-secondary">
+              Nothing here is authorized for execution: each proposal needs its own human decision and a single-use
+              permit.
+            </p>
           </>
         )}
         <div className="rounded-md border border-border bg-surface-sunken p-3">

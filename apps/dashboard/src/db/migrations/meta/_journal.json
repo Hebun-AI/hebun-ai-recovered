@@ -540,6 +540,13 @@
       "when": 1791891220170,
       "tag": "20261013113340_eai_work_planning_purpose",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1791952003203,
+      "tag": "20261014042643_work_update_v1_mandate_scope",
+      "breakpoints": true
     }
   ]
 }

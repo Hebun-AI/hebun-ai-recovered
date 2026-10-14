@@ -300,3 +300,28 @@ export const WORK_REGISTER_UNAVAILABLE_DETAIL =
 export const WORK_REGISTER_EMPTY_DETAIL =
   "This organization has recorded no work. Hebun looked and found none — a measured answer, not " +
   "an unread state.";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * WORK-UPDATE V1 — THE WORK ITEM REFERENCE
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+const WORK_ITEM_REF_PATTERN = /^work-item\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+
+/**
+ * `work-item/<uuid>` — the released reference shape the Work grounding source already publishes,
+ * stated once so the governed proposal and its executor cannot grow two grammars. Shape only: a
+ * parsed id says nothing about whether the item exists, is in service, or is this tenant's.
+ */
+export function formatWorkItemRef(workItemId: string): string {
+  const id = typeof workItemId === "string" ? workItemId.toLowerCase() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) {
+    throw new Error("A work item reference needs a well-formed id.");
+  }
+  return `work-item/${id}`;
+}
+
+export function parseWorkItemRef(value: unknown): { readonly workItemId: string } | null {
+  if (typeof value !== "string") return null;
+  const match = value.match(WORK_ITEM_REF_PATTERN);
+  return match ? { workItemId: match[1]! } : null;
+}
